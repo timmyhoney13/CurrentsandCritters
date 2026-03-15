@@ -1,0 +1,25 @@
+# Keep this repo deployment-focused: include only runtime files.
+*
+
+!.gitignore
+!Dockerfile
+!render.yaml
+!DEPLOY_ONLINE.md
+!multiplayer_server.py
+!fish_game_all_in_one.py
+!fish_ai_brain.json
+!multiplayer/
+!multiplayer/client/
+!multiplayer/client/**
+!multiplayer/human_game_dataset.jsonl
+!multiplayer/tunnel_pool.py
+
+# Never commit private tunnel keys or local tunnel metadata.
+multiplayer/.localhostrun_ed25519
+multiplayer/.localhostrun_ed25519.pub
+multiplayer/.localhostrun_ed25519_b
+multiplayer/.localhostrun_ed25519_b.pub
+multiplayer/public_links.json
+
+# Runtime state (persistent in hosted disk, local in dev).
+multiplayer/state/

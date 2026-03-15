@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: fish-game-multiplayer
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    healthCheckPath: /api/health
+    disk:
+      name: fish-room-state
+      mountPath: /var/data/fish-room-state
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: FISH_ROOM_STATE_DIR
+        value: /var/data/fish-room-state
+      - key: FISH_CREATE_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false

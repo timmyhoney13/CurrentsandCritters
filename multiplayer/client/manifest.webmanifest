@@ -1,0 +1,18 @@
+{
+  "name": "Fish Game Multiplayer",
+  "short_name": "FishGame",
+  "description": "Play Fish Game online with two or more players.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f0f6fb",
+  "theme_color": "#0b6f90",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

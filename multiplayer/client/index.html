@@ -1,0 +1,3641 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b6f90" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <title>Fish Game Multiplayer</title>
+  <style>
+    :root {
+      --bg: #f0f6fb;
+      --panel: #ffffff;
+      --line: #d3e0ec;
+      --ink: #12293b;
+      --muted: #55728d;
+      --good: #0f8c62;
+      --warn: #0b6f90;
+      --hot: #d9f1ff;
+      --danger: #8e1a28;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 4%, #dff2ff 0%, transparent 48%),
+        radial-gradient(circle at 92% 3%, #e7fff4 0%, transparent 40%),
+        var(--bg);
+    }
+    .wrap {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 14px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: var(--muted);
+      margin: 5px 0 14px 0;
+      font-size: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .section-title {
+      margin: 0 0 8px 0;
+      font-size: 17px;
+    }
+    .meta {
+      line-height: 1.45;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .status {
+      margin-top: 8px;
+      color: var(--warn);
+      font-weight: 700;
+    }
+    .endgame-alert {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid #e3a443;
+      border-radius: 8px;
+      background: #fff3df;
+      color: #734000;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .endgame-alert img {
+      width: 42px;
+      height: 58px;
+      border-radius: 6px;
+      border: 1px solid #d7a86a;
+      background: #fff;
+      object-fit: cover;
+      flex: 0 0 auto;
+    }
+    .err {
+      color: var(--danger);
+      font-weight: 700;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    input, select, button {
+      font: inherit;
+    }
+    input, select {
+      border: 1px solid #b8cbe0;
+      border-radius: 8px;
+      padding: 8px 10px;
+      min-height: 36px;
+      background: #fff;
+      color: var(--ink);
+    }
+    button {
+      border: 1px solid #8db9d2;
+      border-radius: 10px;
+      background: #ecf8ff;
+      color: #13415a;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 36px;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .link-box {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: 1fr auto;
+    }
+    .link-box input {
+      width: 100%;
+    }
+    .seats-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .seat {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px;
+      background: #fbfdff;
+    }
+    .seat h4 {
+      margin: 0 0 4px 0;
+      font-size: 14px;
+    }
+    .seat .small {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .seat.ai {
+      background: #f6fbf7;
+    }
+    .seat.taken {
+      background: #f6f9fd;
+    }
+
+    .draw-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pool-top-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .draw-actions.inline {
+      flex: 1;
+      min-width: 260px;
+    }
+    .draw-btn {
+      border: 1px solid #8ec8de;
+      background: #eefbff;
+      color: #1a4356;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .deck-pile-btn {
+      min-width: 136px;
+      border: 1px solid #78acc8;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #e3f4ff 0%, #d6eeff 100%);
+      color: #153f57;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 3px;
+      font-weight: 800;
+      letter-spacing: 0.3px;
+    }
+    .deck-pile-btn .small {
+      color: #24516c;
+      font-weight: 700;
+    }
+
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .star-toggle {
+      font-size: 13px;
+      color: #1c3d54;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      cursor: default;
+    }
+    .card.hand-draggable {
+      cursor: grab;
+    }
+    .card.hand-draggable.dragging {
+      opacity: 0.55;
+      cursor: grabbing;
+    }
+    .card.pay-selected {
+      border-color: #0d8b65;
+      box-shadow: 0 0 0 2px #d9fff1 inset;
+    }
+    .card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-bottom: 1px solid var(--line);
+      background: #ecf3fa;
+    }
+    .card .body {
+      padding: 8px;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .name {
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .small {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .pay-toggle {
+      margin-top: 8px;
+      border: 1px solid #9cc6da;
+      border-radius: 8px;
+      background: #f2fbff;
+      color: #184055;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+    .pay-toggle.on {
+      border-color: #0d8b65;
+      background: #e9fff7;
+      color: #0b5a42;
+    }
+
+    .ocean-block {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: #fbfdff;
+      scroll-margin-top: 12px;
+    }
+    .ocean-board-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    }
+    .ocean-block.selectable {
+      cursor: pointer;
+    }
+    .ocean-block.focus-pop {
+      border-color: #71b8d7;
+      box-shadow: 0 0 0 2px #e0f4ff inset;
+    }
+    .player-head {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .player-head .small {
+      font-weight: 500;
+    }
+    .ocean-head {
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .ocean-head-meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .ocean-mini-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 2px 0 6px 0;
+      margin: 8px 0 8px 0;
+    }
+    .ocean-mini-item {
+      min-width: 170px;
+      max-width: 190px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #f7fbff;
+      padding: 6px;
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 8px;
+      align-items: center;
+      cursor: pointer;
+    }
+    .ocean-mini-item.active {
+      border-color: #5ea6c8;
+      background: #e9f7ff;
+      box-shadow: 0 0 0 2px #d6f0ff inset;
+    }
+    .ocean-mini-item img {
+      width: 48px;
+      height: 64px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #c4d8e8;
+      background: #e8f2fa;
+    }
+    .ocean-mini-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #20445b;
+      line-height: 1.25;
+    }
+    .ocean-mini-meta {
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.25;
+    }
+    .ocean-tableau {
+      display: grid;
+      grid-template-columns: minmax(100px, 1fr) minmax(170px, 230px) minmax(100px, 1fr);
+      grid-template-areas:
+        "up up up"
+        "left center right"
+        "down down down";
+      gap: 10px;
+      align-items: stretch;
+    }
+    .lane {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #f8fdff;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      min-height: 152px;
+      position: relative;
+    }
+    .lane.can-drop {
+      border-style: dashed;
+    }
+    .lane.drop-over {
+      border-color: #0a8f69;
+      box-shadow: 0 0 0 2px #d9fff0 inset;
+      background: #f1fff8;
+    }
+    .lane.up { grid-area: up; }
+    .lane.left { grid-area: left; }
+    .lane.right { grid-area: right; }
+    .lane.down { grid-area: down; }
+    .lane-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 700;
+    }
+    .lane-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      align-items: flex-end;
+      min-height: 106px;
+    }
+    .lane-card-list {
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .lane-card-line {
+      font-size: 10px;
+      line-height: 1.25;
+      color: #355a72;
+      background: #f4fbff;
+      border: 1px solid #d5e6f1;
+      border-radius: 6px;
+      padding: 3px 4px;
+    }
+    .lane-cards.vertical {
+      flex-direction: column;
+    }
+    .lane.up .lane-cards {
+      margin-top: auto;
+      align-items: flex-end;
+      margin-bottom: -2px;
+    }
+    .lane.down .lane-cards {
+      margin-bottom: auto;
+      align-items: flex-start;
+      margin-top: -2px;
+    }
+    .lane.left .lane-cards {
+      margin-left: auto;
+      align-items: flex-end;
+      margin-right: -2px;
+    }
+    .lane.right .lane-cards {
+      margin-right: auto;
+      align-items: flex-start;
+      margin-left: -2px;
+    }
+    .lane-piece {
+      border: 1px solid #c6d9ea;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 2px 7px rgba(9, 55, 80, 0.07);
+      flex: 0 0 auto;
+      position: relative;
+    }
+    .lane-piece.up,
+    .lane-piece.down {
+      width: 164px;
+      height: 112px;
+    }
+    .lane-piece.left,
+    .lane-piece.right {
+      width: 108px;
+      height: 164px;
+    }
+    .lane-piece img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #e8f2fa;
+    }
+    .lane-piece.up img,
+    .lane-piece.down img {
+      width: 100%;
+      height: 200%;
+    }
+    .lane-piece.left img,
+    .lane-piece.right img {
+      width: 200%;
+      height: 100%;
+    }
+    /* Show the exact half that matches the card direction. */
+    .lane-piece.up img { object-position: center top; }
+    .lane-piece.down img { object-position: center bottom; }
+    .lane-piece.left img { object-position: left center; }
+    .lane-piece.right img { object-position: right center; }
+    .lane-piece-cap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 2px 4px;
+      font-size: 10px;
+      line-height: 1.2;
+      color: #fff;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45);
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.08));
+      white-space: normal;
+      overflow: hidden;
+      max-height: 58px;
+    }
+    .ocean-center {
+      grid-area: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+      background: #f3fafe;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .center-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-weight: 700;
+    }
+    .mini-card {
+      border: 1px solid #c6d9ea;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      width: 86px;
+      flex: 0 0 auto;
+      box-shadow: 0 2px 7px rgba(9, 55, 80, 0.07);
+    }
+    .mini-card.center {
+      width: min(200px, 42vw);
+      max-width: 210px;
+    }
+    .mini-card img {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #e8f2fa;
+    }
+    .mini-caption {
+      font-size: 10px;
+      padding: 3px 5px;
+      color: #36526a;
+      border-top: 1px solid #d7e5f1;
+      text-align: center;
+      background: #f9fcff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lane-controls {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .lane-drop-target {
+      font-size: 11px;
+      color: #1f5a78;
+      border: 1px dashed #9bc7dc;
+      border-radius: 8px;
+      background: #f0fbff;
+      padding: 5px 7px;
+      text-align: center;
+      font-weight: 600;
+    }
+    .lane-select {
+      flex: 1;
+      min-width: 155px;
+      font-size: 12px;
+      min-height: 32px;
+      padding: 5px 7px;
+    }
+    .lane-play-btn {
+      min-height: 32px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+    .danger-btn {
+      border-color: #d6a6b0;
+      background: #fff4f6;
+      color: #7c1728;
+    }
+    .ocean-drop-target {
+      border: 1px dashed #9bc7dc;
+      border-radius: 8px;
+      background: #f0fbff;
+      color: #1f5a78;
+      font-size: 12px;
+      padding: 7px 10px;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-weight: 600;
+    }
+    .ocean-drop-target.drop-over {
+      border-color: #0a8f69;
+      background: #f1fff8;
+      box-shadow: 0 0 0 2px #d9fff0 inset;
+      color: #0b5a42;
+    }
+
+    .pool-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
+    .pool-pick {
+      border: 2px solid transparent;
+      border-radius: 10px;
+      overflow: hidden;
+      background: #fff;
+      cursor: pointer;
+    }
+    .pool-pick.on {
+      border-color: #0a8f69;
+      box-shadow: 0 0 0 2px #dbfff4 inset;
+    }
+    .pool-pick .tag {
+      font-size: 11px;
+      color: #2f556e;
+      padding: 4px 6px;
+      border-top: 1px solid var(--line);
+      background: #f4fbff;
+    }
+
+    .list-panel {
+      max-height: 220px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fbfdff;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .score-break-player {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fbfdff;
+      margin-bottom: 8px;
+    }
+    .score-break-player .head {
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .score-break-card {
+      border-top: 1px dashed #d2e3ef;
+      padding-top: 6px;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #24465c;
+    }
+    .score-break-card .title {
+      font-weight: 700;
+      color: #173b52;
+    }
+    .score-break-card .parts {
+      margin-top: 2px;
+      color: #48677e;
+    }
+
+    .empty {
+      color: var(--muted);
+      font-style: italic;
+      padding: 4px 0;
+    }
+
+    @media (max-width: 900px) {
+      .ocean-tableau {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "center"
+          "up"
+          "left"
+          "right"
+          "down";
+      }
+      .lane-cards.vertical { flex-direction: row; }
+      .lane {
+        min-height: 130px;
+      }
+      .lane-cards {
+        min-height: 86px;
+      }
+      .lane-piece.up,
+      .lane-piece.down {
+        width: 142px;
+        height: 96px;
+      }
+      .lane-piece.left,
+      .lane-piece.right {
+        width: 94px;
+        height: 142px;
+      }
+      .link-box { grid-template-columns: 1fr; }
+      .ocean-mini-item { min-width: 152px; }
+      .pool-top-row { flex-direction: column; }
+      .deck-pile-btn { width: 100%; }
+      .ocean-board-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Fish Game Multiplayer</h1>
+    <div class="subtitle">Create a room, share one link, claim seats, and play live with private hands.</div>
+
+    <section class="panel" id="connectionPanel">
+      <div class="meta" id="connMeta">Connecting...</div>
+      <div class="status" id="connStatus"></div>
+      <div class="err" id="connErr"></div>
+      <div class="row" style="margin-top:8px;">
+        <button id="openStartMenuBtn" type="button">Start Menu</button>
+        <button id="openActiveRoomBtn" type="button" style="display:none;">Open Active Room</button>
+      </div>
+    </section>
+
+    <section class="panel" id="setupPanel">
+      <h2 class="section-title">Create Game Room</h2>
+      <div class="row">
+        <label>Host Create Key <input id="createKey" placeholder="Required for host-only lobby creation" /></label>
+        <label>Your Name <input id="hostName" value="Host" /></label>
+        <label>Human Players
+          <select id="humanPlayers">
+            <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option>
+          </select>
+        </label>
+        <label>AI Players
+          <select id="aiPlayers">
+            <option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+          </select>
+        </label>
+        <label>Total Players <input id="totalPlayers" value="4" readonly /></label>
+        <button id="createRoomBtn">Create Room</button>
+      </div>
+      <div class="small">Choose Human + AI count. Total auto-fills (`human + ai = total`). At least 1 human and 2-8 total players are required. AI seats are auto-assigned and not selectable by humans. Only host can create new lobbies with the create key.</div>
+    </section>
+
+    <section class="panel" id="roomPanel" style="display:none;">
+      <h2 class="section-title">Room</h2>
+      <div class="link-box">
+        <input id="shareUrl" readonly />
+        <button id="copyLinkBtn">Copy Link</button>
+      </div>
+      <div class="small" style="margin-top:8px;">
+        Host setup link:
+        <span id="hostSetupLink">(available after room creation)</span>
+      </div>
+      <div class="small" style="margin-top:4px;">
+        Your seat reconnect link:
+        <span id="seatSetupLink">(available after you claim a seat)</span>
+      </div>
+      <div class="meta" id="roomMeta"></div>
+    </section>
+
+    <section class="panel" id="lobbyPanel" style="display:none;">
+      <h2 class="section-title">Join / Seats</h2>
+      <div class="row">
+        <label>Name <input id="joinName" value="Player" /></label>
+        <label>Host Key <input id="lobbyCreateKey" placeholder="Needed to reclaim Player 1" /></label>
+        <label><input type="checkbox" id="spectatorModeToggle" /> Spectator Mode</label>
+        <button id="joinOpenSeatBtn">Join Open Seat</button>
+        <button id="startGameBtn" style="display:none;">Start Game</button>
+        <button id="refreshStateBtn">Refresh</button>
+        <button id="stopServerBtn" class="danger-btn" style="display:none;">Stop Server</button>
+      </div>
+      <div class="small" style="margin-bottom:8px;">If Spectator Mode is OFF, this device auto-joins an open human seat. Host can press Start Game after all human seats are claimed.</div>
+      <div class="seats-grid" id="seatsGrid"></div>
+    </section>
+
+    <section class="panel" id="gameMetaPanel" style="display:none;">
+      <div class="meta" id="gameMeta">Waiting for game state...</div>
+      <div class="status" id="gameStatus"></div>
+      <div class="row" style="margin-top:8px;">
+        <button id="restartGameBtn" style="display:none;">Restart Game</button>
+      </div>
+    </section>
+
+    <section class="panel" id="playOptPanel" style="display:none;">
+      <h2 class="section-title">Play Options</h2>
+      <div class="control-row">
+        <label class="star-toggle">
+          <input type="checkbox" id="starToggle" />
+          Use STAR when available
+        </label>
+        <div class="small" id="paymentSelected">(no payment cards selected)</div>
+      </div>
+      <div class="control-row" style="margin-top:8px;">
+        <select id="quickActionSelect"></select>
+        <button id="quickActionBtn">Do Action</button>
+      </div>
+      <div class="small" style="margin-top:6px;">
+        Quick actions include: play a card, draw 2 from deck, draw 1 from pool + 1 from deck, and draw 2 from pool.
+      </div>
+      <div class="control-row" style="margin-top:10px;">
+        <select id="moveActionSelect"></select>
+        <button id="moveActionBtn">Move Card (Ends Turn)</button>
+      </div>
+      <div class="small" style="margin-top:6px;">
+        Move one card already on your board to another ocean you control. This always ends your turn.
+      </div>
+    </section>
+
+    <section class="panel" id="zonePanel" style="display:none;">
+      <h2 class="section-title">Play Ocean Zone</h2>
+      <div class="control-row" id="oceanPlayFallback" style="margin-top:8px;"></div>
+      <div class="small" style="margin:8px 0 4px 0;">Ocean Builder (mini): click an ocean below to jump to it.</div>
+      <div class="ocean-mini-row" id="oceanBuilderMini"></div>
+      <div class="small" style="margin:2px 0 6px 0;">Use the dropdowns on each side to play cards.</div>
+      <div id="board"></div>
+    </section>
+
+    <section class="panel" id="handPanel" style="display:none;">
+      <h2 class="section-title">Your Hand</h2>
+      <div class="grid" id="hand"></div>
+    </section>
+
+    <section class="panel" id="poolPanel" style="display:none;">
+      <h2 class="section-title">Pool / Deck</h2>
+      <div class="pool-top-row">
+        <div class="draw-actions inline" id="drawActions"></div>
+        <button id="deckDrawBtn" class="deck-pile-btn" type="button">
+          Deck
+          <span class="small" id="deckCount">0 cards</span>
+          <span class="small">Click to draw 2 from deck</span>
+        </button>
+      </div>
+      <div class="small" style="margin:0 0 6px 0;">Click pool cards to select for pool draw actions.</div>
+      <div class="pool-grid" id="pool"></div>
+    </section>
+
+    <section class="panel" id="othersPanel" style="display:none;">
+      <h2 class="section-title">Other Players Boards</h2>
+      <div id="others"></div>
+    </section>
+
+    <section class="panel" id="scorePanel" style="display:none;">
+      <h2 class="section-title">Score Breakdown</h2>
+      <div id="scoreBreakdown"></div>
+    </section>
+
+    <section class="panel" id="logPanel" style="display:none;">
+      <h2 class="section-title">Game Log</h2>
+      <div class="list-panel" id="gameLog"></div>
+    </section>
+
+    <section class="panel" id="summaryPanel" style="display:none;">
+      <h2 class="section-title">Turn Summary</h2>
+      <div class="list-panel" id="turnSummary"></div>
+    </section>
+  </div>
+
+  <script>
+    let roomId = null;
+    let latestPayload = null;
+    let eventSource = null;
+    let pollTimer = null;
+    let roomNotFoundStreak = 0;
+    let failoverInFlight = false;
+    let lastFailoverAttemptAt = 0;
+    let lastStateReceiveAt = 0;
+    const knownBaseUrls = new Set();
+
+    const selectedPool = new Set();
+    const selectedPayment = new Set();
+    const handEntryByUid = new Map();
+    let shortcutActions = [];
+    let shortcutCanInteract = false;
+    let shortcutBuffer = "";
+    let shortcutTimer = null;
+    let shortcutBusy = false;
+    let actionSubmitInFlight = false;
+    let dragEntryUid = null;
+    let selectedOceanUid = null;
+    let activeRoomShortcutId = "";
+    const laneSelectMemory = new Map();
+    let oceanSelectMemory = "";
+    let quickActionSelectMemory = "";
+    let moveActionSelectMemory = "";
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      });
+    }
+
+    function normalizeBaseUrl(raw) {
+      const s = String(raw || "").trim();
+      if (!s) return "";
+      return s.replace(/\/+$/, "");
+    }
+
+    function normalizeAbsoluteBaseUrl(raw) {
+      const s = normalizeBaseUrl(raw);
+      if (!s) return "";
+      if (!/^https?:\/\//i.test(s)) return "";
+      try {
+        const u = new URL(s);
+        if (!u.host) return "";
+        return `${u.protocol}//${u.host}`.replace(/\/+$/, "");
+      } catch {
+        return "";
+      }
+    }
+
+    function knownBaseUrlsStorageKey() {
+      return "fish_known_base_urls";
+    }
+
+    function persistKnownBaseUrls() {
+      const list = Array.from(knownBaseUrls).slice(0, 24);
+      try {
+        localStorage.setItem(knownBaseUrlsStorageKey(), JSON.stringify(list));
+      } catch {}
+    }
+
+    function ingestKnownBaseUrl(raw) {
+      const normalized = normalizeAbsoluteBaseUrl(raw);
+      if (!normalized) return;
+      if (!knownBaseUrls.has(normalized)) {
+        knownBaseUrls.add(normalized);
+        persistKnownBaseUrls();
+      }
+    }
+
+    function ingestKnownBaseUrls(values) {
+      if (!Array.isArray(values)) return;
+      for (const v of values) ingestKnownBaseUrl(v);
+    }
+
+    function loadKnownBaseUrls() {
+      knownBaseUrls.clear();
+      ingestKnownBaseUrl(location.origin);
+      ingestKnownBaseUrl(window.__FISH_API_BASE__);
+      try {
+        const raw = localStorage.getItem(knownBaseUrlsStorageKey()) || "[]";
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+          for (const v of arr) ingestKnownBaseUrl(v);
+        }
+      } catch {}
+    }
+
+    function knownBaseUrlList(excludeBase = "") {
+      const excluded = normalizeAbsoluteBaseUrl(excludeBase);
+      const out = [];
+      for (const base of knownBaseUrls) {
+        if (!base) continue;
+        if (excluded && base === excluded) continue;
+        out.push(base);
+      }
+      return out;
+    }
+
+    function activeApiBaseUrl() {
+      const fromWindow = normalizeBaseUrl(window.__FISH_API_BASE__);
+      if (fromWindow) {
+        ingestKnownBaseUrl(fromWindow);
+        return fromWindow;
+      }
+
+      const urlParams = new URLSearchParams(location.search || "");
+      const fromUrl = normalizeBaseUrl(urlParams.get("api_base") || "");
+      if (fromUrl) {
+        try {
+          localStorage.setItem("fish_api_base_url", fromUrl);
+        } catch {}
+        ingestKnownBaseUrl(fromUrl);
+        return fromUrl;
+      }
+      try {
+        const stored = normalizeBaseUrl(localStorage.getItem("fish_api_base_url") || "");
+        if (stored) ingestKnownBaseUrl(stored);
+        return stored;
+      } catch {
+        return "";
+      }
+    }
+
+    function apiUrl(path) {
+      const p = String(path || "");
+      const base = activeApiBaseUrl();
+      if (!base) return p;
+      if (!p.startsWith("/")) return `${base}/${p}`;
+      return `${base}${p}`;
+    }
+
+    function roomPathId() {
+      const p = location.pathname.split("/").filter(Boolean);
+      if (p.length === 2 && p[0] === "play") return p[1];
+      return null;
+    }
+
+    function normalizeRoomId(raw) {
+      const rid = String(raw || "").trim().toUpperCase();
+      return /^[A-Z0-9]{8}$/.test(rid) ? rid : "";
+    }
+
+    function seatTokenKey(id) { return `fish_room_${id}_seat_token`; }
+    function hostTokenKey(id) { return `fish_room_${id}_host_token`; }
+    function createKeyStorageKey() { return "fish_create_key"; }
+    function lastRoomStorageKey() { return "fish_last_room_id"; }
+    const volatileSeatTokens = new Map();
+    const volatileHostTokens = new Map();
+    let volatileCreateKey = "";
+    let volatileLastRoomId = "";
+    // Stable room code so players can keep using one persistent link.
+    const STABLE_ROOM_ID = "FISHGAME";
+    let autoJoinInFlight = false;
+    let autoHostClaimInFlight = false;
+    let autoHostClaimRetryAt = 0;
+
+    function readStorageValue(storageObj, key) {
+      try {
+        if (!storageObj) return "";
+        return storageObj.getItem(key) || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function writeStorageValue(storageObj, key, value) {
+      try {
+        if (!storageObj) return;
+        storageObj.setItem(key, value);
+      } catch {}
+    }
+
+    function getSeatTokenForRoom(id) {
+      const rid = String(id || "").trim();
+      if (!rid) return "";
+      const key = seatTokenKey(rid);
+      const fromSession = readStorageValue(window.sessionStorage, key);
+      if (fromSession) return fromSession;
+      const fromLocal = readStorageValue(window.localStorage, key);
+      if (fromLocal) return fromLocal;
+      return volatileSeatTokens.get(rid) || "";
+    }
+
+    function getHostTokenForRoom(id) {
+      const rid = String(id || "").trim();
+      if (!rid) return "";
+      const key = hostTokenKey(rid);
+      const fromSession = readStorageValue(window.sessionStorage, key);
+      if (fromSession) return fromSession;
+      const fromLocal = readStorageValue(window.localStorage, key);
+      if (fromLocal) return fromLocal;
+      return volatileHostTokens.get(rid) || "";
+    }
+
+    function getSeatToken() {
+      if (!roomId) return "";
+      return getSeatTokenForRoom(roomId);
+    }
+
+    function getHostToken() {
+      if (!roomId) return "";
+      return getHostTokenForRoom(roomId);
+    }
+
+    function getCreateKey() {
+      try {
+        return localStorage.getItem(createKeyStorageKey()) || volatileCreateKey || "";
+      } catch {
+        return volatileCreateKey || "";
+      }
+    }
+
+    function getLastRoomId() {
+      const current = normalizeRoomId(roomId || "");
+      if (current) return current;
+      const fallback = normalizeRoomId(volatileLastRoomId || "");
+      try {
+        const stored = normalizeRoomId(localStorage.getItem(lastRoomStorageKey()) || "");
+        return stored || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function setLastRoomId(id) {
+      const rid = normalizeRoomId(id || "");
+      if (!rid) return;
+      volatileLastRoomId = rid;
+      try {
+        localStorage.setItem(lastRoomStorageKey(), rid);
+      } catch {}
+      setActiveRoomShortcut(rid);
+    }
+
+    function getSpectatorMode() {
+      const el = document.getElementById("spectatorModeToggle");
+      return Boolean(el && el.checked);
+    }
+
+    function setSpectatorMode(enabled, quiet = false) {
+      const on = Boolean(enabled);
+      const el = document.getElementById("spectatorModeToggle");
+      if (el) el.checked = on;
+      if (!quiet) {
+        if (on) {
+          setConnStatus("Spectator Mode is ON for this device.");
+        } else {
+          setConnStatus("Spectator Mode is OFF. This device will auto-join an open human seat.");
+        }
+      }
+    }
+
+    function syncSeatTokenInUrl() {
+      if (!roomId) return;
+      const params = new URLSearchParams(location.search || "");
+      const seatToken = getSeatToken();
+      if (seatToken) params.set("seat_token", seatToken);
+      else params.delete("seat_token");
+      // Never keep a host token in the shareable URL by default.
+      params.delete("host_token");
+      // Spectator state must be an explicit local toggle, not a sticky shared URL flag.
+      params.delete("spectator");
+      const qs = params.toString();
+      history.replaceState({}, "", qs ? `/play/${roomId}?${qs}` : `/play/${roomId}`);
+    }
+
+    function setSeatToken(token) {
+      if (!roomId || !token) return;
+      volatileSeatTokens.set(roomId, token);
+      const key = seatTokenKey(roomId);
+      // Keep seat identity stable per tab across refreshes.
+      writeStorageValue(window.sessionStorage, key, token);
+      writeStorageValue(window.localStorage, key, token);
+    }
+
+    function setHostToken(token) {
+      if (!roomId || !token) return;
+      volatileHostTokens.set(roomId, token);
+      const key = hostTokenKey(roomId);
+      writeStorageValue(window.sessionStorage, key, token);
+      writeStorageValue(window.localStorage, key, token);
+    }
+
+    function setCreateKey(token) {
+      if (!token) return;
+      volatileCreateKey = token;
+      try {
+        localStorage.setItem(createKeyStorageKey(), token);
+      } catch {}
+      const setupInput = document.getElementById("createKey");
+      if (setupInput && !String(setupInput.value || "").trim()) {
+        setupInput.value = token;
+      }
+      const lobbyInput = document.getElementById("lobbyCreateKey");
+      if (lobbyInput && !String(lobbyInput.value || "").trim()) {
+        lobbyInput.value = token;
+      }
+    }
+
+    function activeCreateKey() {
+      const lobbyInput = document.getElementById("lobbyCreateKey");
+      const fromLobby = lobbyInput ? String(lobbyInput.value || "").trim() : "";
+      if (fromLobby) return fromLobby;
+      const input = document.getElementById("createKey");
+      const fromInput = input ? String(input.value || "").trim() : "";
+      if (fromInput) return fromInput;
+      return String(getCreateKey() || "").trim();
+    }
+
+    function roomUrlWithKey(id) {
+      const rid = normalizeRoomId(id || "");
+      if (!rid) return "/";
+      const params = new URLSearchParams();
+      const key = activeCreateKey();
+      if (key) params.set("create_key", key);
+      const seatToken = getSeatTokenForRoom(rid);
+      if (seatToken) params.set("seat_token", seatToken);
+      const hostToken = getHostTokenForRoom(rid);
+      if (hostToken) params.set("host_token", hostToken);
+      const qs = params.toString();
+      return qs ? `/play/${rid}?${qs}` : `/play/${rid}`;
+    }
+
+    function openRoomById(id) {
+      const rid = normalizeRoomId(id || "");
+      if (!rid) return;
+      setLastRoomId(rid);
+      window.location.assign(roomUrlWithKey(rid));
+    }
+
+    function setActiveRoomShortcut(roomIdOrEmpty) {
+      activeRoomShortcutId = String(roomIdOrEmpty || "").trim();
+      const btn = document.getElementById("openActiveRoomBtn");
+      if (!btn) return;
+      const show = Boolean(activeRoomShortcutId);
+      btn.style.display = show ? "inline-block" : "none";
+      btn.disabled = !show;
+      if (show) {
+        btn.textContent = `Open Active Room (${activeRoomShortcutId})`;
+      } else {
+        btn.textContent = "Open Active Room";
+      }
+    }
+
+    function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+
+    function setConnStatus(msg) {
+      document.getElementById("connStatus").textContent = msg || "";
+    }
+
+    function setConnErr(msg) {
+      document.getElementById("connErr").textContent = msg || "";
+    }
+
+    function setGameStatus(msg) {
+      document.getElementById("gameStatus").textContent = msg || "";
+    }
+
+    function showStartMenu(note = "") {
+      roomId = null;
+      latestPayload = null;
+      roomNotFoundStreak = 0;
+      selectedOceanUid = null;
+      shortcutActions = [];
+      shortcutCanInteract = false;
+      clearShortcutBuffer(true);
+      selectedPool.clear();
+      selectedPayment.clear();
+      handEntryByUid.clear();
+      updatePaymentSummary();
+
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+
+      const key = getCreateKey();
+      const next = key ? `/?create_key=${encodeURIComponent(key)}` : "/";
+      history.replaceState({}, "", next);
+
+      document.getElementById("setupPanel").style.display = "block";
+      document.getElementById("roomPanel").style.display = "none";
+      document.getElementById("lobbyPanel").style.display = "none";
+      for (const id of [
+        "gameMetaPanel", "playOptPanel", "zonePanel", "handPanel",
+        "poolPanel", "othersPanel", "scorePanel", "logPanel", "summaryPanel"
+      ]) {
+        document.getElementById(id).style.display = "none";
+      }
+
+      setConnErr("");
+      setConnStatus(note || "Start menu ready: choose players and create room.");
+      document.getElementById("connMeta").textContent = "Start menu";
+      setActiveRoomShortcut(getLastRoomId());
+      syncCreateCounts();
+    }
+
+    function clearShortcutBuffer(silent = false) {
+      shortcutBuffer = "";
+      if (shortcutTimer) {
+        clearTimeout(shortcutTimer);
+        shortcutTimer = null;
+      }
+      if (!silent && shortcutCanInteract) {
+        setGameStatus("Shortcut cleared.");
+      }
+    }
+
+    function restartShortcutTimer() {
+      if (shortcutTimer) clearTimeout(shortcutTimer);
+      shortcutTimer = setTimeout(() => {
+        shortcutBuffer = "";
+        shortcutTimer = null;
+      }, 1800);
+    }
+
+    function findShortcutAction(indexStr) {
+      const n = Number(indexStr);
+      if (!Number.isInteger(n)) return null;
+      return shortcutActions.find((a) => Number(a.index) === n) || null;
+    }
+
+    function findDrawShortcutAction(drawFromPool) {
+      const target = Number(drawFromPool);
+      if (!Number.isInteger(target)) return null;
+      return shortcutActions.find(
+        (a) => a.kind === "draw" && Number(a.draw_from_pool || 0) === target
+      ) || null;
+    }
+
+    function countShortcutPrefix(prefixStr) {
+      return shortcutActions.filter((a) => String(a.index).startsWith(prefixStr)).length;
+    }
+
+    function isTypingTarget(target) {
+      if (!target) return false;
+      const tag = String(target.tagName || "").toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return true;
+      return Boolean(target.isContentEditable);
+    }
+
+    async function submitShortcutAction(baseAction) {
+      if (!baseAction || shortcutBusy || !shortcutCanInteract) return;
+      shortcutBusy = true;
+      try {
+        await submitAction(baseAction);
+      } finally {
+        shortcutBusy = false;
+        clearShortcutBuffer(true);
+      }
+    }
+
+    async function handleNumberShortcut(ev) {
+      if (!shortcutCanInteract || !Array.isArray(shortcutActions) || !shortcutActions.length) return;
+      if (ev.defaultPrevented) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (isTypingTarget(ev.target)) return;
+
+      if (/^\d$/.test(ev.key)) {
+        ev.preventDefault();
+        if (ev.key === "0" || ev.key === "1" || ev.key === "2") {
+          const drawAction = findDrawShortcutAction(Number(ev.key));
+          if (!drawAction) {
+            setGameStatus(`Draw shortcut [${ev.key}] is not legal right now.`);
+            clearShortcutBuffer(true);
+            return;
+          }
+          clearShortcutBuffer(true);
+          await submitShortcutAction(drawAction);
+          return;
+        }
+
+        const next = `${shortcutBuffer}${ev.key}`;
+        const exact = findShortcutAction(next);
+        const prefCount = countShortcutPrefix(next);
+        if (prefCount === 0) {
+          shortcutBuffer = ev.key;
+          restartShortcutTimer();
+          const single = findShortcutAction(shortcutBuffer);
+          if (single) {
+            await submitShortcutAction(single);
+          } else {
+            setGameStatus(`No action [${shortcutBuffer}] this turn.`);
+          }
+          return;
+        }
+
+        shortcutBuffer = next;
+        restartShortcutTimer();
+        if (exact && prefCount === 1) {
+          await submitShortcutAction(exact);
+        } else {
+          setGameStatus(`Shortcut [${shortcutBuffer}] selected. Press Enter to confirm.`);
+        }
+        return;
+      }
+
+      if (ev.key === "Enter" && shortcutBuffer) {
+        ev.preventDefault();
+        const exact = findShortcutAction(shortcutBuffer);
+        if (!exact) {
+          setGameStatus(`No action [${shortcutBuffer}] this turn.`);
+          clearShortcutBuffer(true);
+          return;
+        }
+        await submitShortcutAction(exact);
+        return;
+      }
+
+      if (ev.key === "Backspace" && shortcutBuffer) {
+        ev.preventDefault();
+        shortcutBuffer = shortcutBuffer.slice(0, -1);
+        if (!shortcutBuffer) {
+          clearShortcutBuffer(true);
+          setGameStatus("Shortcut cleared.");
+        } else {
+          restartShortcutTimer();
+          setGameStatus(`Shortcut [${shortcutBuffer}] selected. Press Enter to confirm.`);
+        }
+        return;
+      }
+
+      if (ev.key === "Escape" && shortcutBuffer) {
+        ev.preventDefault();
+        clearShortcutBuffer();
+      }
+    }
+
+    function pad2(n) {
+      return String(n).padStart(2, "0");
+    }
+
+    function imagePathForUid(uid) {
+      if (uid >= 1 && uid <= 96) {
+        const page = Math.floor((uid + 1) / 2);
+        return `/horizontal_cards/page_${pad2(page)}.png`;
+      }
+      if (uid >= 101 && uid <= 190) {
+        const page = Math.floor((uid - 101) / 2) + 1;
+        return `/vertical_cards/page_${pad2(page)}.png`;
+      }
+      if (uid >= 201 && uid <= 264) {
+        const page = uid - 200;
+        return `/oceans_cards/page_${pad2(page)}.png`;
+      }
+      return "";
+    }
+
+    function normalizeSymbol(sym) {
+      return String(sym || "").trim().toLowerCase();
+    }
+
+    function displaySymbol(sym) {
+      const raw = String(sym || "").trim();
+      return raw && normalizeSymbol(raw) !== "n/a" ? raw : "n/a";
+    }
+
+    function shortText(txt, n = 56) {
+      const clean = String(txt || "").replace(/\s+/g, " ").trim();
+      if (!clean) return "";
+      return clean.length > n ? `${clean.slice(0, n - 3)}...` : clean;
+    }
+
+    function empty(el, msg = "(empty)") {
+      const d = document.createElement("div");
+      d.className = "empty";
+      d.textContent = msg;
+      el.appendChild(d);
+    }
+
+    function makeCard(face, opts = {}) {
+      const card = document.createElement("article");
+      card.className = "card";
+      if (opts.entryUid != null) card.dataset.entryUid = String(opts.entryUid);
+      if (face && face.uid != null) card.dataset.faceUid = String(face.uid);
+
+      const img = document.createElement("img");
+      const src = imagePathForUid(face.uid);
+      if (src) img.src = src;
+      img.loading = "lazy";
+      card.appendChild(img);
+
+      const body = document.createElement("div");
+      body.className = "body";
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = `${opts.prefix || ""}${face.name}`;
+      body.appendChild(name);
+
+      const meta = document.createElement("div");
+      meta.className = "small";
+      meta.textContent = `UID ${face.uid} | ${face.species} | ${face.direction} | ${face.symbol}`;
+      body.appendChild(meta);
+      card.appendChild(body);
+      return card;
+    }
+
+    function makeMiniFaceCard(face, opts = {}) {
+      const wrap = document.createElement("div");
+      wrap.className = "mini-card" + (opts.center ? " center" : "");
+
+      const img = document.createElement("img");
+      const src = imagePathForUid(face.uid);
+      if (src) img.src = src;
+      img.loading = "lazy";
+      wrap.appendChild(img);
+
+      const cap = document.createElement("div");
+      cap.className = "mini-caption";
+      cap.textContent = `${face.uid}:${face.name} | ${displaySymbol(face.symbol)}`;
+      wrap.appendChild(cap);
+      return wrap;
+    }
+
+    function makeLaneFaceSlice(face, dir) {
+      const wrap = document.createElement("div");
+      wrap.className = `lane-piece ${dir}`;
+
+      const img = document.createElement("img");
+      const src = imagePathForUid(face.uid);
+      if (src) img.src = src;
+      img.loading = "lazy";
+      img.alt = `${face.name} ${dir} slice`;
+      wrap.title = `${face.uid}:${face.name}\n${String(face.text || "").trim()}`;
+      wrap.appendChild(img);
+
+      const cap = document.createElement("div");
+      cap.className = "lane-piece-cap";
+      const ability = shortText(face.text, 58);
+      cap.textContent = `${face.uid}:${face.name} | ${displaySymbol(face.symbol)}${ability ? ` | ${ability}` : ""}`;
+      wrap.appendChild(cap);
+      return wrap;
+    }
+
+    function actionFace(action) {
+      const entry = handEntryByUid.get(Number(action.card_uid));
+      if (!entry || !Array.isArray(entry.faces) || !entry.faces.length) return null;
+      const faceUid = Number(action.face_uid);
+      if (Number.isInteger(faceUid)) {
+        const hit = entry.faces.find((f) => Number(f.uid) === faceUid);
+        if (hit) return hit;
+      }
+      return entry.faces[0];
+    }
+
+    function selectMemoryKey(oceanUid, dir) {
+      return `${Number(oceanUid)}:${String(dir || "").toLowerCase()}`;
+    }
+
+    function restoreSelectChoice(selectEl, rememberedValue) {
+      if (!selectEl) return false;
+      const wanted = String(rememberedValue || "");
+      if (!wanted) {
+        selectEl.value = "";
+        return false;
+      }
+      const has = Array.from(selectEl.options || []).some((opt) => String(opt.value) === wanted);
+      if (!has) {
+        selectEl.value = "";
+        return false;
+      }
+      selectEl.value = wanted;
+      return true;
+    }
+
+    function actionOptionLabel(action) {
+      if (action.kind === "discard_to_pool") {
+        const face = actionFace(action);
+        const faceName = face?.name || action.face_name || action.card_uid;
+        return `discard to pool | entry ${action.card_uid} | ${faceName}`;
+      }
+      if (action.kind === "move_between_oceans") {
+        const faceName = action.face_name || action.face_uid || action.card_uid;
+        const src = Number.isInteger(Number(action.source_ocean_uid)) ? Number(action.source_ocean_uid) : "?";
+        const dst = Number.isInteger(Number(action.ocean_uid)) ? Number(action.ocean_uid) : "?";
+        const dir = String(action.face_direction || "").trim().toLowerCase();
+        const bits = [`move`, String(faceName), `from ocean #${src}`, `to ocean #${dst}`];
+        if (dir && dir !== "n/a") bits.push(`dir ${dir.toUpperCase()}`);
+        bits.push("ends turn");
+        return bits.join(" | ");
+      }
+      const face = actionFace(action);
+      const faceName = face?.name || action.face_name || action.face_uid || action.card_uid;
+      const bits = [`entry ${action.card_uid}`, String(faceName)];
+
+      const sym = displaySymbol(face?.symbol);
+      if (sym !== "n/a") bits.push(`sym ${sym}`);
+
+      const dir = String(face?.direction || action.face_direction || "").trim().toLowerCase();
+      if (dir && dir !== "n/a") bits.push(`dir ${dir.toUpperCase()}`);
+
+      if (action.kind === "play_to_ocean" && action.ocean_uid != null) {
+        bits.push(`ocean #${action.ocean_uid}`);
+      }
+
+      const pay = Number(action.cost_to_pay || 0);
+      if (pay > 0) {
+        let payTxt = `pay ${pay}`;
+        if (action.requires_symbol_match && action.required_symbol) {
+          payTxt += ` incl ${displaySymbol(action.required_symbol)}`;
+        }
+        bits.push(payTxt);
+      }
+
+      if (action.use_star) bits.push("STAR");
+      return bits.join(" | ");
+    }
+
+    function legalActionMaps(legalActions) {
+      const drawActions = [];
+      const moveActions = [];
+      for (const a of legalActions) {
+        if (a.kind === "draw") drawActions.push(a);
+        if (a.kind === "move_between_oceans") moveActions.push(a);
+      }
+      return { drawActions, moveActions };
+    }
+
+    function updatePaymentSummary() {
+      const el = document.getElementById("paymentSelected");
+      const picks = Array.from(selectedPayment);
+      if (!picks.length) {
+        el.textContent = "(no payment cards selected)";
+        return;
+      }
+      const labels = picks.map((uid) => {
+        const entry = handEntryByUid.get(uid);
+        return entry ? `${uid}:${entry.label}` : String(uid);
+      });
+      el.textContent = `Paying with: ${labels.join(", ")}`;
+    }
+
+    function entryHasSymbolMatch(entryUid, requiredSymbol) {
+      const entry = handEntryByUid.get(entryUid);
+      if (!entry || !Array.isArray(entry.faces)) return false;
+      const target = normalizeSymbol(requiredSymbol);
+      if (!target || target === "n/a") return false;
+      return entry.faces.some((f) => normalizeSymbol(f.symbol) === target);
+    }
+
+    function uniqueIntList(values) {
+      const out = [];
+      const seen = new Set();
+      for (const raw of values || []) {
+        const n = Number(raw);
+        if (!Number.isInteger(n) || seen.has(n)) continue;
+        seen.add(n);
+        out.push(n);
+      }
+      return out;
+    }
+
+    function validPaymentCandidates(action) {
+      const fromAction = uniqueIntList(
+        Array.isArray(action.payment_candidates) ? action.payment_candidates : []
+      );
+      const fromHand = uniqueIntList(Array.from(handEntryByUid.keys()));
+      const source = fromAction.length ? fromAction : fromHand;
+      return source.filter((uid) => uid !== Number(action.card_uid) && handEntryByUid.has(uid));
+    }
+
+    function buildPaymentSet(action, sourceUids) {
+      const costToPay = Number(action.cost_to_pay || 0);
+      if (costToPay <= 0) return [];
+      const requireSymbol = Boolean(action.requires_symbol_match && action.required_symbol);
+      const available = uniqueIntList(sourceUids).filter(
+        (uid) => uid !== Number(action.card_uid) && handEntryByUid.has(uid)
+      );
+
+      const picks = [];
+      const remaining = [...available];
+      if (requireSymbol) {
+        const matchUid = remaining.find((uid) => entryHasSymbolMatch(uid, action.required_symbol));
+        if (matchUid == null) return null;
+        picks.push(matchUid);
+        const idx = remaining.indexOf(matchUid);
+        if (idx >= 0) remaining.splice(idx, 1);
+      }
+      for (const uid of remaining) {
+        if (picks.length >= costToPay) break;
+        picks.push(uid);
+      }
+      if (picks.length === costToPay) return picks;
+      return null;
+    }
+
+    function choosePaymentPicks(action) {
+      const costToPay = Number(action.cost_to_pay || 0);
+      if (costToPay <= 0) return { picks: [], auto: false, error: "" };
+
+      const manual = uniqueIntList(Array.from(selectedPayment));
+      const manualPicks = buildPaymentSet(action, manual);
+      if (manualPicks) {
+        return { picks: manualPicks, auto: false, error: "" };
+      }
+
+      const autoPicks = buildPaymentSet(action, validPaymentCandidates(action));
+      if (autoPicks) {
+        return { picks: autoPicks, auto: true, error: "" };
+      }
+
+      const requireSymbol = Boolean(action.requires_symbol_match && action.required_symbol);
+      if (requireSymbol) {
+        return {
+          picks: [],
+          auto: false,
+          error: `STAR payment requires one matching symbol: ${action.required_symbol}`,
+        };
+      }
+      return {
+        picks: [],
+        auto: false,
+        error: `No valid payment set found for cost ${costToPay}.`,
+      };
+    }
+
+    function summarizeText(raw, n = 120) {
+      const text = String(raw || "").replace(/\s+/g, " ").trim();
+      if (!text) return "";
+      return text.length > n ? `${text.slice(0, n - 3)}...` : text;
+    }
+
+    function parseTunnelError(rawText) {
+      const txt = String(rawText || "").toLowerCase();
+      if (txt.includes("no tunnel here")) {
+        return "Tunnel link went offline. Request a new link and refresh.";
+      }
+      return "";
+    }
+
+    async function readJsonSafe(res) {
+      const text = await res.text();
+      if (!text) return { ok: true, data: {} };
+      try {
+        const data = JSON.parse(text);
+        return { ok: true, data };
+      } catch {
+        const tunnelMsg = parseTunnelError(text);
+        const snippet = summarizeText(text);
+        return {
+          ok: false,
+          error: tunnelMsg || `Expected JSON but got: ${snippet || "(empty response)"}`,
+        };
+      }
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+    }
+
+    function retryDelayMs(attempt) {
+      const n = Math.max(0, Number(attempt) || 0);
+      return 250 + n * 350;
+    }
+
+    function isTransientPostError(err) {
+      const msg = String(err && err.message || "").toLowerCase();
+      if (msg.includes("no tunnel here")) return false;
+      if (String(err && err.name || "") === "AbortError") return true;
+      if (msg.includes("failed to fetch")) return true;
+      if (msg.includes("networkerror")) return true;
+      if (msg.includes("network request failed")) return true;
+      if (msg.includes("load failed")) return true;
+      if (msg.includes("expected json but got")) return true;
+      return false;
+    }
+
+    function isTunnelOfflineMessage(raw) {
+      const msg = String(raw || "").toLowerCase();
+      if (!msg) return false;
+      if (msg.includes("no tunnel here")) return true;
+      if (msg.includes("tunnel link went offline")) return true;
+      return false;
+    }
+
+    function buildViewerQueryParams() {
+      const params = new URLSearchParams();
+      const seat = getSeatToken();
+      const host = getHostToken();
+      if (seat) params.set("seat_token", seat);
+      if (!seat && host) params.set("host_token", host);
+      return params;
+    }
+
+    function buildRoomUrlForBase(base) {
+      const b = normalizeAbsoluteBaseUrl(base);
+      if (!b || !roomId) return "";
+      const params = new URLSearchParams();
+      const seat = getSeatToken();
+      const host = getHostToken();
+      const key = activeCreateKey();
+      if (seat) params.set("seat_token", seat);
+      if (host) params.set("host_token", host);
+      if (key) params.set("create_key", key);
+      const qs = params.toString();
+      return qs ? `${b}/play/${roomId}?${qs}` : `${b}/play/${roomId}`;
+    }
+
+    async function fetchJsonWithTimeout(url, timeoutMs = 4500) {
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      try {
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: controller ? controller.signal : undefined,
+        });
+        const parsed = await readJsonSafe(res);
+        if (!parsed.ok) throw new Error(parsed.error || `HTTP ${res.status}`);
+        const data = parsed.data || {};
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+      }
+    }
+
+    async function attemptTunnelFailover(reason = "") {
+      if (failoverInFlight) return false;
+      if (!roomId) return false;
+      const now = Date.now();
+      if (now - lastFailoverAttemptAt < 1800) return false;
+
+      const currentBase = normalizeAbsoluteBaseUrl(activeApiBaseUrl() || location.origin);
+      const candidates = knownBaseUrlList(currentBase);
+      if (!candidates.length) return false;
+
+      failoverInFlight = true;
+      lastFailoverAttemptAt = now;
+      try {
+        setConnStatus(`Tunnel issue detected. Trying ${candidates.length} backup link(s)...`);
+        const qs = buildViewerQueryParams().toString();
+        for (const base of candidates) {
+          try {
+            const health = await fetchJsonWithTimeout(`${base}/api/health`, 3000);
+            if (!health || health.ok !== true) continue;
+            ingestKnownBaseUrls(health.public_urls);
+
+            const stateUrl = `${base}/api/rooms/${roomId}/state${qs ? `?${qs}` : ""}`;
+            const state = await fetchJsonWithTimeout(stateUrl, 4200);
+            if (!state || state.ok !== true) continue;
+            const stateRoom = normalizeRoomId(state.room && state.room.room_id || "");
+            if (!stateRoom || stateRoom !== roomId) continue;
+
+            ingestKnownBaseUrl(base);
+            try {
+              localStorage.setItem("fish_api_base_url", base);
+            } catch {}
+            const target = buildRoomUrlForBase(base);
+            if (!target) continue;
+            setConnStatus("Tunnel moved to backup link. Redirecting...");
+            window.location.replace(target);
+            return true;
+          } catch {
+            // keep checking other candidates
+          }
+        }
+        if (reason) {
+          setConnErr(String(reason));
+        } else {
+          setConnErr("Tunnel went offline and no backup link responded yet.");
+        }
+        return false;
+      } finally {
+        failoverInFlight = false;
+      }
+    }
+
+    function makeRequestId() {
+      try {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return window.crypto.randomUUID();
+        }
+      } catch {}
+      try {
+        if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+          const arr = new Uint8Array(16);
+          window.crypto.getRandomValues(arr);
+          return Array.from(arr).map((n) => n.toString(16).padStart(2, "0")).join("");
+        }
+      } catch {}
+      return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+    }
+
+    async function apiPost(path, payload, opts = {}) {
+      const maxRetries = Number.isInteger(opts.retryCount) ? Math.max(0, Number(opts.retryCount)) : 0;
+      const timeoutMs = Number.isFinite(opts.timeoutMs) && Number(opts.timeoutMs) > 0
+        ? Number(opts.timeoutMs)
+        : 12000;
+
+      let lastErr = null;
+      for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+        const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+        const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+        try {
+          const res = await fetch(apiUrl(path), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload || {}),
+            signal: controller ? controller.signal : undefined,
+          });
+          if (timeoutId) clearTimeout(timeoutId);
+          const parsed = await readJsonSafe(res);
+          if (!parsed.ok) {
+            const err = new Error(parsed.error || `HTTP ${res.status}`);
+            err.status = res.status;
+            throw err;
+          }
+          const data = parsed.data || {};
+          if (!res.ok || !data.ok) {
+            const err = new Error(data.error || `HTTP ${res.status}`);
+            err.status = res.status;
+            err.data = data;
+            throw err;
+          }
+          return data;
+        } catch (err) {
+          if (timeoutId) clearTimeout(timeoutId);
+          lastErr = err;
+          const errMsg = String(err && err.message || "");
+          const status = Number(err && err.status);
+          const retryableStatus = [408, 425, 429, 500, 502, 503, 504].includes(status);
+          const shouldRetry = attempt < maxRetries && (retryableStatus || isTransientPostError(err) || !Number.isFinite(status));
+          if (!shouldRetry && (isTunnelOfflineMessage(errMsg) || isTransientPostError(err))) {
+            await attemptTunnelFailover(errMsg || "Tunnel request failed");
+          }
+          if (!shouldRetry) throw err;
+          await sleep(retryDelayMs(attempt));
+        }
+      }
+      throw lastErr || new Error("Request failed");
+    }
+
+    async function submitAction(action, overridePicks = null) {
+      const seatToken = getSeatToken();
+      if (!seatToken) {
+        setGameStatus("Join a seat before playing.");
+        return;
+      }
+      if (actionSubmitInFlight) {
+        setGameStatus("Action is already sending. Please wait...");
+        return;
+      }
+
+      const payload = { seat_token: seatToken };
+      const hasInt = (v) => typeof v === "number" && Number.isInteger(v);
+      const idx = Number(action.index);
+      if (Number.isInteger(idx)) {
+        // Keep index for compact payloads, but always send identity fields too.
+        // This prevents stale-index submissions from resolving to a different move.
+        payload.action_index = idx;
+      }
+      if (typeof action.kind === "string" && action.kind) payload.kind = action.kind;
+      if (hasInt(action.card_uid)) payload.card_uid = action.card_uid;
+      if (hasInt(action.face_uid)) payload.face_uid = action.face_uid;
+      if (hasInt(action.ocean_uid)) payload.ocean_uid = action.ocean_uid;
+      if (hasInt(action.source_ocean_uid)) payload.source_ocean_uid = action.source_ocean_uid;
+      if (hasInt(action.draw_from_pool)) payload.draw_from_pool = action.draw_from_pool;
+      payload.use_star = Boolean(action.use_star);
+      payload.request_id = makeRequestId();
+      const need = Number(action.draw_from_pool || 0);
+      if (need > 0) {
+        const picks = Array.from(selectedPool).slice(0, need);
+        payload.pool_pick_uids = overridePicks || picks;
+      }
+      const costToPay = Number(action.cost_to_pay || 0);
+      if (costToPay > 0) {
+        const paymentChoice = choosePaymentPicks(action);
+        if (paymentChoice.error) {
+          // Do not block submission here; server has a fallback auto-payment resolver.
+          payload.payment_uids = [];
+          setGameStatus(`${paymentChoice.error} Trying automatic payment...`);
+        } else {
+          payload.payment_uids = paymentChoice.picks;
+          if (paymentChoice.auto) {
+            setGameStatus(`Using ${payload.payment_uids.length} valid payment card(s) from your selection...`);
+          }
+        }
+      }
+
+      try {
+        actionSubmitInFlight = true;
+        const out = await apiPost(`/api/rooms/${roomId}/action`, payload, {
+          retryCount: 2,
+          timeoutMs: 15000,
+        });
+        selectedPayment.clear();
+        updatePaymentSummary();
+        if (action.use_star) {
+          const starToggle = document.getElementById("starToggle");
+          if (starToggle) starToggle.checked = false;
+        }
+        if (out && out.duplicate) {
+          setGameStatus("Action already accepted. Waiting for board update...");
+        } else {
+          setGameStatus(`Submitted action [${action.index}] ${action.description}`);
+        }
+      } catch (err) {
+        setGameStatus(`Submit failed: ${String(err.message || err)}`);
+      } finally {
+        actionSubmitInFlight = false;
+      }
+    }
+
+    function actionByIndex(actions, idx) {
+      return actions.find((a) => Number(a.index) === Number(idx)) || null;
+    }
+
+    function firstPlayableActionForEntry(actions, entryUid) {
+      const uid = Number(entryUid);
+      if (!Number.isInteger(uid)) return null;
+      const matches = (actions || []).filter((a) => Number(a.card_uid) === uid);
+      if (!matches.length) return null;
+      return matches.find((a) => !a.use_star) || matches[0];
+    }
+
+    function getDraggedEntryUid(ev) {
+      const fromEvent = ev && ev.dataTransfer ? ev.dataTransfer.getData("text/plain") : "";
+      const raw = String(fromEvent || dragEntryUid || "").trim();
+      const uid = Number(raw);
+      return Number.isInteger(uid) ? uid : null;
+    }
+
+    function samePlaySlot(a, b) {
+      if (!a || !b) return false;
+      const aFace = Number(a.face_uid != null ? a.face_uid : a.card_uid);
+      const bFace = Number(b.face_uid != null ? b.face_uid : b.card_uid);
+      return (
+        a.kind === b.kind &&
+        Number(a.card_uid) === Number(b.card_uid) &&
+        aFace === bFace &&
+        Number(a.ocean_uid ?? -1) === Number(b.ocean_uid ?? -1) &&
+        String(a.face_direction || "").toLowerCase() === String(b.face_direction || "").toLowerCase()
+      );
+    }
+
+    function resolveStarVariant(actions, chosen, wantStar) {
+      if (!chosen) return null;
+      if (chosen.kind !== "play_ocean" && chosen.kind !== "play_to_ocean") return chosen;
+      const variants = actions.filter((a) => samePlaySlot(a, chosen));
+      if (!variants.length) return chosen;
+      const wanted = variants.find((a) => Boolean(a.use_star) === Boolean(wantStar));
+      return wanted || chosen;
+    }
+
+    function renderOceanTableau(ocean, opts = {}) {
+      const canInteract = Boolean(opts.canInteract);
+      const showControls = Boolean(opts.showControls);
+      const legalActions = Array.isArray(opts.legalActions) ? opts.legalActions : [];
+      const starToggle = opts.starToggle || null;
+      const selected = Boolean(opts.selected);
+      const onSelectOcean = typeof opts.onSelectOcean === "function" ? opts.onSelectOcean : null;
+
+      const ob = document.createElement("div");
+      ob.className = "ocean-block";
+      ob.id = `ocean-block-${ocean.ocean_uid}`;
+      ob.dataset.oceanUid = String(ocean.ocean_uid);
+      if (selected) ob.classList.add("focus-pop");
+      if (onSelectOcean) {
+        ob.classList.add("selectable");
+        ob.addEventListener("click", (ev) => {
+          const target = ev.target;
+          const tag = String(target && target.tagName || "").toUpperCase();
+          if (tag === "SELECT" || tag === "OPTION" || tag === "BUTTON" || tag === "INPUT") return;
+          onSelectOcean(Number(ocean.ocean_uid));
+        });
+      }
+
+      const head = document.createElement("div");
+      head.className = "ocean-head";
+      const oceanSymbol = displaySymbol(ocean.ocean.symbol);
+      const oceanAbility = shortText(ocean.ocean.text, 72);
+      head.textContent = `Ocean #${ocean.ocean_uid} | ${ocean.ocean.uid}:${ocean.ocean.name}`;
+      const headMeta = document.createElement("span");
+      headMeta.className = "ocean-head-meta";
+      headMeta.textContent = `Symbol ${oceanSymbol}${oceanAbility ? ` | ${oceanAbility}` : ""}`;
+      head.appendChild(headMeta);
+      if (onSelectOcean && !selected) {
+        const pickMeta = document.createElement("span");
+        pickMeta.className = "ocean-head-meta";
+        pickMeta.textContent = "Click this ocean to focus it.";
+        head.appendChild(pickMeta);
+      }
+      ob.appendChild(head);
+
+      const tableau = document.createElement("div");
+      tableau.className = "ocean-tableau";
+
+      function makeLane(dir) {
+        const lane = document.createElement("div");
+        lane.className = `lane ${dir}`;
+
+        const label = document.createElement("div");
+        label.className = "lane-label";
+        label.textContent = dir;
+        lane.appendChild(label);
+
+        const cardsWrap = document.createElement("div");
+        cardsWrap.className = "lane-cards" + ((dir === "left" || dir === "right") ? " vertical" : "");
+        const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+        if (!cards.length) {
+          const n = document.createElement("div");
+          n.className = "empty";
+          n.textContent = "(empty)";
+          cardsWrap.appendChild(n);
+        } else {
+          for (const c of cards) cardsWrap.appendChild(makeLaneFaceSlice(c, dir));
+        }
+        lane.appendChild(cardsWrap);
+        if (cards.length) {
+          const list = document.createElement("div");
+          list.className = "lane-card-list";
+          for (const c of cards) {
+            const line = document.createElement("div");
+            line.className = "lane-card-line";
+            const ability = shortText(c.text, 110);
+            line.textContent = `${c.uid}:${c.name} | sym ${displaySymbol(c.symbol)}${ability ? ` | ${ability}` : ""}`;
+            line.title = `${c.uid}:${c.name}\n${String(c.text || "").trim()}`;
+            list.appendChild(line);
+          }
+          lane.appendChild(list);
+        }
+
+        const laneActions = canInteract
+          ? legalActions.filter(
+              (a) =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction || "").toLowerCase() === dir
+            )
+          : [];
+
+        if (showControls) {
+          lane.classList.add("can-drop");
+          lane.addEventListener("dragover", (ev) => {
+            if (!canInteract) return;
+            const entryUid = getDraggedEntryUid(ev);
+            const base = firstPlayableActionForEntry(laneActions, entryUid);
+            if (!base) return;
+            ev.preventDefault();
+            if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+            lane.classList.add("drop-over");
+          });
+          lane.addEventListener("dragleave", () => {
+            lane.classList.remove("drop-over");
+          });
+          lane.addEventListener("drop", async (ev) => {
+            lane.classList.remove("drop-over");
+            if (!canInteract) return;
+            const entryUid = getDraggedEntryUid(ev);
+            const base = firstPlayableActionForEntry(laneActions, entryUid);
+            if (!base) {
+              setGameStatus(`That card cannot be played to ${dir} on ocean #${ocean.ocean_uid}.`);
+              return;
+            }
+            ev.preventDefault();
+            const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
+            await submitAction(chosen);
+          });
+        }
+
+        if (showControls) {
+          const controls = document.createElement("div");
+          controls.className = "lane-controls";
+
+          const select = document.createElement("select");
+          select.className = "lane-select";
+          const first = document.createElement("option");
+          first.value = "";
+          if (!canInteract) first.textContent = "Waiting for your turn...";
+          else first.textContent = laneActions.length ? "Choose card..." : `No cards for ${dir}`;
+          select.appendChild(first);
+          for (const a of laneActions) {
+            const opt = document.createElement("option");
+            opt.value = String(a.index);
+            opt.textContent = actionOptionLabel(a);
+            select.appendChild(opt);
+          }
+          const laneKey = selectMemoryKey(ocean.ocean_uid, dir);
+          if (!restoreSelectChoice(select, laneSelectMemory.get(laneKey))) {
+            laneSelectMemory.delete(laneKey);
+          }
+          select.addEventListener("change", () => {
+            const val = String(select.value || "");
+            if (val) laneSelectMemory.set(laneKey, val);
+            else laneSelectMemory.delete(laneKey);
+          });
+          select.disabled = !canInteract || laneActions.length === 0;
+          controls.appendChild(select);
+
+          const btn = document.createElement("button");
+          btn.className = "lane-play-btn";
+          btn.textContent = "Play";
+          btn.disabled = !canInteract || laneActions.length === 0;
+          btn.addEventListener("click", async () => {
+            if (!canInteract) {
+              setGameStatus("Wait for your turn to play cards.");
+              return;
+            }
+            if (String(select.value || "") === "") {
+              setGameStatus(`Choose a card for ${dir} first.`);
+              return;
+            }
+            const idx = Number(select.value);
+            const base = actionByIndex(legalActions, idx);
+            if (!base) {
+              setGameStatus("Selected play is no longer legal.");
+              return;
+            }
+            const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
+            await submitAction(chosen);
+          });
+          controls.appendChild(btn);
+          lane.appendChild(controls);
+
+          const dropHint = document.createElement("div");
+          dropHint.className = "lane-drop-target";
+          dropHint.textContent = canInteract
+            ? "Or drag a card from your hand to this side."
+            : "Drag-and-drop available on your turn.";
+          lane.appendChild(dropHint);
+        }
+
+        return lane;
+      }
+
+      tableau.appendChild(makeLane("up"));
+      tableau.appendChild(makeLane("left"));
+
+      const center = document.createElement("div");
+      center.className = "ocean-center";
+      const centerLabel = document.createElement("div");
+      centerLabel.className = "center-label";
+      centerLabel.textContent = "Ocean";
+      center.appendChild(centerLabel);
+      center.appendChild(makeMiniFaceCard(ocean.ocean, { center: true }));
+      tableau.appendChild(center);
+
+      tableau.appendChild(makeLane("right"));
+      tableau.appendChild(makeLane("down"));
+
+      ob.appendChild(tableau);
+      return ob;
+    }
+
+    function renderStaticBoard(player, container) {
+      const wrap = document.createElement("div");
+      wrap.className = "ocean-block";
+
+      const head = document.createElement("div");
+      head.className = "player-head";
+      head.innerHTML = `${player.name} <span class="small">Score ${player.score ?? 0} | Hand ${player.hand_count ?? 0}</span>`;
+      wrap.appendChild(head);
+
+      const boardEntries = Array.isArray(player.board) ? player.board : [];
+      if (!boardEntries.length) {
+        const none = document.createElement("div");
+        none.className = "empty";
+        none.textContent = "(no oceans yet)";
+        wrap.appendChild(none);
+        container.appendChild(wrap);
+        return;
+      }
+
+      for (const ocean of boardEntries) {
+        wrap.appendChild(renderOceanTableau(ocean, { canInteract: false, showControls: false }));
+      }
+      container.appendChild(wrap);
+    }
+
+    function renderScoreBreakdown(players, container, viewerIndex) {
+      clear(container);
+      if (!Array.isArray(players) || !players.length) {
+        empty(container, "(no players)");
+        return;
+      }
+      const sorted = [...players].sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
+      for (const p of sorted) {
+        const box = document.createElement("div");
+        box.className = "score-break-player";
+        const you = Number.isInteger(viewerIndex) && Number(p.index) === Number(viewerIndex) ? " (you)" : "";
+
+        const head = document.createElement("div");
+        head.className = "head";
+        head.textContent = `${p.name}${you} | Total ${Number(p.score || 0)}`;
+        box.appendChild(head);
+
+        const full = p && p.score_breakdown ? p.score_breakdown.full : null;
+        const rows = full && Array.isArray(full.card_rows) ? full.card_rows : [];
+        if (!rows.length) {
+          empty(box, "(no scored cards yet)");
+          container.appendChild(box);
+          continue;
+        }
+
+        for (const row of rows) {
+          const card = document.createElement("div");
+          card.className = "score-break-card";
+
+          const title = document.createElement("div");
+          title.className = "title";
+          const kind = row.is_ocean ? "Ocean" : "Animal";
+          title.textContent =
+            `${row.card_uid}:${row.card_name} (${kind}) | Ocean #${row.ocean_uid} | Card Total ${Number(row.total || 0)}`;
+          card.appendChild(title);
+
+          const parts = document.createElement("div");
+          parts.className = "parts";
+          const comps = Array.isArray(row.components) ? row.components : [];
+          if (!comps.length) {
+            parts.textContent = "No points from this card.";
+          } else {
+            parts.textContent = comps
+              .map((c) => {
+                const pts = Number(c.points || 0);
+                const sign = pts >= 0 ? "+" : "";
+                return `${sign}${pts} ${String(c.reason || "").trim()}`;
+              })
+              .join(" | ");
+          }
+          card.appendChild(parts);
+          box.appendChild(card);
+        }
+        container.appendChild(box);
+      }
+    }
+
+    function renderSeats(payload) {
+      const grid = document.getElementById("seatsGrid");
+      clear(grid);
+
+      const seats = Array.isArray(payload.seats) ? payload.seats : [];
+      const viewerIdx = payload.viewer && Number.isInteger(payload.viewer.seat_index) ? payload.viewer.seat_index : null;
+      const viewerHasSeat = Number.isInteger(viewerIdx);
+      const phase = payload.room?.phase || "lobby";
+      const hostSeat = seats.find((s) => s && s.kind === "human" && s.is_host) || null;
+      const hasHostAuthority = Boolean(getHostToken() || activeCreateKey());
+      const viewerOnHostSeat = hostSeat != null && viewerHasSeat && Number(hostSeat.index) === Number(viewerIdx);
+
+      const joinOpenBtn = document.getElementById("joinOpenSeatBtn");
+      if (joinOpenBtn) {
+        if (phase !== "lobby") {
+          joinOpenBtn.textContent = "Join Open Seat";
+          joinOpenBtn.disabled = true;
+        } else if (viewerOnHostSeat) {
+          joinOpenBtn.textContent = "Host Seat Claimed";
+          joinOpenBtn.disabled = true;
+        } else if (viewerHasSeat && hostSeat && hasHostAuthority) {
+          joinOpenBtn.textContent = "Reclaim Host Seat";
+          joinOpenBtn.disabled = false;
+        } else if (viewerHasSeat) {
+          joinOpenBtn.textContent = "Seat Claimed";
+          joinOpenBtn.disabled = true;
+        } else {
+          joinOpenBtn.textContent = "Join Open Seat";
+          joinOpenBtn.disabled = false;
+        }
+      }
+
+      for (const s of seats) {
+        const box = document.createElement("div");
+        box.className = `seat ${s.kind} ${s.status}`;
+
+        const h = document.createElement("h4");
+        h.textContent = `${s.label}`;
+        box.appendChild(h);
+
+        const meta = document.createElement("div");
+        meta.className = "small";
+        const who = s.claimed_name ? ` | ${s.claimed_name}` : "";
+        const host = s.is_host ? " | Host" : "";
+        meta.textContent = `${String(s.status).toUpperCase()}${who}${host}`;
+        box.appendChild(meta);
+
+        if (phase === "lobby" && s.kind === "human" && s.status === "available") {
+          const btn = document.createElement("button");
+          btn.textContent = "Claim Seat";
+          btn.addEventListener("click", async () => {
+            // Joining a seat is always player mode.
+            setSpectatorMode(false, true);
+            const name = document.getElementById("joinName").value.trim() || "Player";
+            try {
+              const out = await apiPost(`/api/rooms/${roomId}/join`, {
+                player_name: name,
+                seat_index: s.index,
+                seat_token: getSeatToken() || undefined,
+                host_token: getHostToken() || undefined,
+              });
+              if (out.seat_token) {
+                setSeatToken(out.seat_token);
+                syncSeatTokenInUrl();
+              }
+              if (out.seat_index != null) {
+                setGameStatus(`Joined seat ${Number(out.seat_index) + 1}.`);
+              }
+              reconnectStream();
+            } catch (err) {
+              setGameStatus(`Join failed: ${String(err.message || err)}`);
+            }
+          });
+          box.appendChild(btn);
+        } else if (
+          (phase === "lobby" || phase === "running")
+          && s.kind === "human"
+          && s.status === "taken"
+          && viewerIdx !== s.index
+        ) {
+          const btn = document.createElement("button");
+          btn.textContent = s.is_host ? "Reclaim Host Seat" : "Take Over Seat";
+          btn.addEventListener("click", async () => {
+            // Taking over a seat is always player mode.
+            setSpectatorMode(false, true);
+            const name = document.getElementById("joinName").value.trim() || "Player";
+            let key = activeCreateKey();
+            if (s.is_host && !getHostToken() && !key) {
+              const typed = window.prompt("Enter host key to reclaim Player 1:");
+              const entered = String(typed || "").trim();
+              if (!entered) {
+                setGameStatus("Host key required to reclaim Player 1.");
+                return;
+              }
+              key = entered;
+              setCreateKey(entered);
+              const lobbyKeyInput = document.getElementById("lobbyCreateKey");
+              if (lobbyKeyInput) lobbyKeyInput.value = entered;
+            }
+            try {
+              const out = await apiPost(`/api/rooms/${roomId}/join`, {
+                player_name: name,
+                seat_index: s.index,
+                seat_token: getSeatToken() || undefined,
+                host_token: getHostToken() || undefined,
+                takeover: true,
+                create_key: key || undefined,
+              });
+              if (out.seat_token) {
+                setSeatToken(out.seat_token);
+                syncSeatTokenInUrl();
+              }
+              if (out.seat_index != null) {
+                setGameStatus(`Took over seat ${Number(out.seat_index) + 1}.`);
+              }
+              reconnectStream();
+            } catch (err) {
+              setGameStatus(`Take over failed: ${String(err.message || err)}`);
+            }
+          });
+          box.appendChild(btn);
+        } else if (viewerIdx === s.index) {
+          const mine = document.createElement("div");
+          mine.className = "small";
+          mine.textContent = "You";
+          box.appendChild(mine);
+        }
+
+        grid.appendChild(box);
+      }
+    }
+
+    function renderLogAndSummary(payload) {
+      const logEl = document.getElementById("gameLog");
+      const sumEl = document.getElementById("turnSummary");
+      clear(logEl);
+      clear(sumEl);
+
+      const logs = Array.isArray(payload.log_tail) ? payload.log_tail : [];
+      if (!logs.length) {
+        empty(logEl, "(log empty)");
+      } else {
+        for (const line of logs.slice(-120)) {
+          const d = document.createElement("div");
+          d.textContent = line;
+          logEl.appendChild(d);
+        }
+      }
+
+      const summaries = Array.isArray(payload.turn_summaries) ? payload.turn_summaries : [];
+      if (!summaries.length) {
+        empty(sumEl, "(no turn summary yet)");
+      } else {
+        for (const s of summaries.slice(-50)) {
+          const d = document.createElement("div");
+          const deltas = s.score_deltas || {};
+          const bits = Object.keys(deltas).map((k) => `${k} ${deltas[k] >= 0 ? "+" : ""}${deltas[k]}`);
+          d.textContent = `Turn ${s.turn_number} (${s.player}) | ${bits.join(" | ")} | Pool ${s.pool_count}`;
+          sumEl.appendChild(d);
+        }
+      }
+    }
+
+    function renderGame(payload) {
+      const state = payload.state || {};
+      const legalWrap = payload.legal_actions || { actions: [] };
+      const legalActions = Array.isArray(legalWrap.actions) ? legalWrap.actions : [];
+      const maps = legalActionMaps(legalActions);
+      const discardActions = legalActions.filter((a) => a.kind === "discard_to_pool");
+      const discardByEntry = new Map(discardActions.map((a) => [Number(a.card_uid), a]));
+      const viewer = payload.viewer || {};
+      const myIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
+
+      const meta = document.getElementById("gameMeta");
+      const drawActionsEl = document.getElementById("drawActions");
+      const deckDrawBtn = document.getElementById("deckDrawBtn");
+      const deckCountEl = document.getElementById("deckCount");
+      const handEl = document.getElementById("hand");
+      const poolEl = document.getElementById("pool");
+      const boardEl = document.getElementById("board");
+      const oceanMiniEl = document.getElementById("oceanBuilderMini");
+      const othersEl = document.getElementById("others");
+      const scoreBreakdownEl = document.getElementById("scoreBreakdown");
+      const starToggle = document.getElementById("starToggle");
+      const oceanPlayFallback = document.getElementById("oceanPlayFallback");
+      const quickActionSelect = document.getElementById("quickActionSelect");
+      const quickActionBtn = document.getElementById("quickActionBtn");
+      const moveActionSelect = document.getElementById("moveActionSelect");
+      const moveActionBtn = document.getElementById("moveActionBtn");
+
+      clear(drawActionsEl);
+      clear(handEl);
+      clear(poolEl);
+      clear(boardEl);
+      clear(oceanMiniEl);
+      clear(othersEl);
+      clear(scoreBreakdownEl);
+      clear(oceanPlayFallback);
+
+      const players = Array.isArray(state.players) ? state.players : [];
+      const me = players.find((p) => p.index === myIdx) || null;
+      const isSpectator = myIdx == null || me == null;
+      const mandarinBreak = me?.score_breakdown?.mandarin_goby || null;
+      const current = state.current_player || "(unknown)";
+      const endGame = state.end_game || {};
+      const endTriggered = Boolean(endGame.triggered);
+      const endUid = Number(endGame.end_game_uid);
+      const endTurns = Number(endGame.final_turns_remaining);
+      const endImg = Number.isInteger(endUid) ? imagePathForUid(endUid) : "";
+      const endLabel = Number.isFinite(endTurns)
+        ? `${endTurns} final turn(s) remaining in the END GAME round.`
+        : "END GAME round active.";
+      const endAlert = endTriggered
+        ? `<div class="endgame-alert">${
+            endImg ? `<img src="${endImg}" alt="END GAME card" />` : ""
+          }<span>END GAME card revealed to all players. ${endLabel}</span></div>`
+        : "";
+      let mandarinHtml = "";
+      if (mandarinBreak && mandarinBreak.present) {
+        mandarinHtml =
+          `<div class="small" style="margin-top:6px;"><strong>Mandarin Goby Score</strong> ` +
+          `| Copies: ${mandarinBreak.count} ` +
+          `| Per card: ${mandarinBreak.per_card_points} ` +
+          `| Total: ${mandarinBreak.total_points}</div>`;
+      }
+
+      meta.innerHTML = `
+        <strong>Turn:</strong> ${state.turn_number ?? "?"} |
+        <strong>Round:</strong> ${state.round_count ?? "?"} |
+        <strong>Current:</strong> ${current} |
+        <strong>Deck:</strong> ${state.deck_remaining ?? "?"} |
+        <strong>Pool:</strong> ${state.pool_count ?? 0} |
+        <strong>Discard:</strong> ${state.discard_pile_count ?? 0}<br/>
+        <strong>Note:</strong> ${state.note || payload.status_note || ""}
+        ${endAlert}
+        ${mandarinHtml}
+      `;
+
+      const canInteract = Boolean(viewer.can_act) && legalActions.length > 0;
+      const mustDiscardToTen = canInteract && discardActions.length > 0;
+      if (starToggle) {
+        starToggle.disabled = !canInteract || mustDiscardToTen;
+      }
+      if (mustDiscardToTen) {
+        selectedPayment.clear();
+        updatePaymentSummary();
+      }
+      shortcutActions = legalActions;
+      shortcutCanInteract = canInteract;
+      if (!canInteract) clearShortcutBuffer(true);
+      if (!canInteract) dragEntryUid = null;
+      if (!canInteract) {
+        if (isSpectator) {
+          setGameStatus("Spectator mode: this device has not claimed a seat for this room. Use Join Open Seat in lobby, or open your seat reconnect link.");
+        } else {
+          setGameStatus(payload.status_note || "Waiting for your turn...");
+        }
+      } else {
+        if (mustDiscardToTen) {
+          setGameStatus("Select cards to move from your hand into the pool until you have 10 cards.");
+        } else {
+          setGameStatus("Your turn: use dropdowns, number shortcuts, or drag-and-drop.");
+        }
+      }
+
+      if (quickActionSelect && quickActionBtn) {
+        clear(quickActionSelect);
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = !canInteract
+          ? "Waiting for your turn..."
+          : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action...");
+        quickActionSelect.appendChild(first);
+        for (const a of legalActions) {
+          const opt = document.createElement("option");
+          opt.value = String(a.index);
+          const desc = String(a.description || "").trim();
+          opt.textContent = `[${a.index}] ${desc || actionOptionLabel(a)}`;
+          quickActionSelect.appendChild(opt);
+        }
+        if (!restoreSelectChoice(quickActionSelect, quickActionSelectMemory)) {
+          quickActionSelectMemory = "";
+        }
+        quickActionSelect.onchange = () => {
+          quickActionSelectMemory = String(quickActionSelect.value || "");
+        };
+        quickActionSelect.disabled = !canInteract || legalActions.length === 0;
+        quickActionBtn.disabled = !canInteract || legalActions.length === 0;
+        quickActionBtn.onclick = async () => {
+          if (!canInteract) {
+            setGameStatus("Wait for your turn.");
+            return;
+          }
+          if (String(quickActionSelect.value || "") === "") {
+            setGameStatus("Pick an action first.");
+            return;
+          }
+          const idx = Number(quickActionSelect.value);
+          const base = actionByIndex(legalActions, idx);
+          if (!base) {
+            setGameStatus("Selected action is no longer legal.");
+            return;
+          }
+          const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
+          await submitAction(chosen);
+        };
+      }
+
+      if (moveActionSelect && moveActionBtn) {
+        clear(moveActionSelect);
+        const first = document.createElement("option");
+        first.value = "";
+        first.textContent = !canInteract
+          ? "Waiting for your turn..."
+          : (maps.moveActions.length ? "Choose a card move..." : "No legal card moves right now.");
+        moveActionSelect.appendChild(first);
+        for (const a of maps.moveActions) {
+          const opt = document.createElement("option");
+          opt.value = String(a.index);
+          const desc = String(a.description || "").trim();
+          opt.textContent = `[${a.index}] ${desc || actionOptionLabel(a)}`;
+          moveActionSelect.appendChild(opt);
+        }
+        if (!restoreSelectChoice(moveActionSelect, moveActionSelectMemory)) {
+          moveActionSelectMemory = "";
+        }
+        moveActionSelect.onchange = () => {
+          moveActionSelectMemory = String(moveActionSelect.value || "");
+        };
+        moveActionSelect.disabled = !canInteract || maps.moveActions.length === 0;
+        moveActionBtn.disabled = !canInteract || maps.moveActions.length === 0;
+        moveActionBtn.onclick = async () => {
+          if (!canInteract) {
+            setGameStatus("Wait for your turn.");
+            return;
+          }
+          if (String(moveActionSelect.value || "") === "") {
+            setGameStatus("Choose which card to move first.");
+            return;
+          }
+          const idx = Number(moveActionSelect.value);
+          const chosen = actionByIndex(legalActions, idx);
+          if (!chosen || chosen.kind !== "move_between_oceans") {
+            setGameStatus("Selected move is no longer legal.");
+            return;
+          }
+          await submitAction(chosen);
+        };
+      }
+
+      if (!maps.drawActions.length) {
+        empty(drawActionsEl, "(no draw actions)");
+      } else {
+        for (const a of maps.drawActions) {
+          const btn = document.createElement("button");
+          btn.className = "draw-btn";
+          btn.textContent = `[${a.index}] ${a.description}`;
+          btn.disabled = !canInteract;
+          btn.addEventListener("click", async () => submitAction(a));
+          drawActionsEl.appendChild(btn);
+        }
+      }
+      const deckAction = maps.drawActions.find((a) => Number(a.draw_from_pool || 0) === 0) || null;
+      if (deckCountEl) {
+        deckCountEl.textContent = `${state.deck_remaining ?? 0} cards`;
+      }
+      if (deckDrawBtn) {
+        deckDrawBtn.disabled = !canInteract || !deckAction;
+        deckDrawBtn.onclick = async () => {
+          if (!canInteract) {
+            setGameStatus("Wait for your turn to draw.");
+            return;
+          }
+          if (!deckAction) {
+            setGameStatus("No deck draw action is legal right now.");
+            return;
+          }
+          await submitAction(deckAction);
+        };
+      }
+
+      handEntryByUid.clear();
+      if (me && Array.isArray(me.hand)) {
+        for (const entry of me.hand) handEntryByUid.set(entry.entry_uid, entry);
+      }
+      for (const uid of Array.from(selectedPayment)) {
+        if (!handEntryByUid.has(uid)) selectedPayment.delete(uid);
+      }
+      updatePaymentSummary();
+
+      if (!me || !Array.isArray(me.hand) || !me.hand.length) {
+        if (isSpectator) empty(handEl, "(spectator: no private hand on this device)");
+        else empty(handEl, "(empty)");
+      } else {
+        for (const entry of me.hand) {
+          const entryUid = entry.entry_uid;
+          const faces = Array.isArray(entry.faces) ? entry.faces : [];
+          if (!faces.length) continue;
+
+          const card = makeCard(faces[0], { entryUid, prefix: `${entryUid}: ` });
+          const nm = card.querySelector(".name");
+          if (nm && entry.label) nm.textContent = entry.label;
+          const mm = card.querySelector(".small");
+          if (mm) mm.textContent = faces.map((f) => `${f.uid}:${f.name} (${f.direction}, ${displaySymbol(f.symbol)})`).join(" | ");
+
+          if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
+
+          if (canInteract && !mustDiscardToTen) {
+            card.classList.add("hand-draggable");
+            card.setAttribute("draggable", "true");
+            card.addEventListener("dragstart", (ev) => {
+              dragEntryUid = Number(entryUid);
+              card.classList.add("dragging");
+              if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = "move";
+                ev.dataTransfer.setData("text/plain", String(entryUid));
+              }
+            });
+            card.addEventListener("dragend", () => {
+              card.classList.remove("dragging");
+              dragEntryUid = null;
+            });
+          }
+
+          if (canInteract) {
+            const body = card.querySelector(".body");
+            const discardAction = discardByEntry.get(Number(entryUid)) || null;
+            if (mustDiscardToTen && discardAction) {
+              const discardBtn = document.createElement("button");
+              discardBtn.className = "pay-toggle";
+              discardBtn.textContent = "Move To Pool";
+              discardBtn.addEventListener("click", async (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                await submitAction(discardAction);
+              });
+              body.appendChild(discardBtn);
+            } else {
+              const payBtn = document.createElement("button");
+              payBtn.className = "pay-toggle" + (selectedPayment.has(entryUid) ? " on" : "");
+              payBtn.textContent = selectedPayment.has(entryUid) ? "Pay Selected" : "Use As Payment";
+              payBtn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
+                else selectedPayment.add(entryUid);
+                updatePaymentSummary();
+                payBtn.classList.toggle("on", selectedPayment.has(entryUid));
+                payBtn.textContent = selectedPayment.has(entryUid) ? "Pay Selected" : "Use As Payment";
+                card.classList.toggle("pay-selected", selectedPayment.has(entryUid));
+              });
+              body.appendChild(payBtn);
+            }
+          }
+
+          handEl.appendChild(card);
+        }
+      }
+
+      const poolEntries = Array.isArray(state.pool) ? state.pool : [];
+      const livePoolIds = new Set(poolEntries.map((x) => x.entry_uid));
+      for (const uid of Array.from(selectedPool)) {
+        if (!livePoolIds.has(uid)) selectedPool.delete(uid);
+      }
+
+      if (!poolEntries.length) {
+        empty(poolEl);
+      } else {
+        for (const entry of poolEntries) {
+          const face = Array.isArray(entry.faces) && entry.faces[0] ? entry.faces[0] : null;
+          if (!face) continue;
+          const box = document.createElement("div");
+          box.className = "pool-pick";
+          if (selectedPool.has(entry.entry_uid)) box.classList.add("on");
+          box.addEventListener("click", () => {
+            if (selectedPool.has(entry.entry_uid)) selectedPool.delete(entry.entry_uid);
+            else selectedPool.add(entry.entry_uid);
+            box.classList.toggle("on");
+          });
+          box.appendChild(makeCard(face, { prefix: `${entry.entry_uid}: ` }));
+          const tag = document.createElement("div");
+          tag.className = "tag";
+          tag.textContent = `entry_uid ${entry.entry_uid}`;
+          box.appendChild(tag);
+          poolEl.appendChild(box);
+        }
+      }
+
+      const oceanActions = canInteract ? legalActions.filter((a) => a.kind === "play_ocean") : [];
+      const oceanSelect = document.createElement("select");
+      oceanSelect.className = "lane-select";
+      const oceanFirst = document.createElement("option");
+      oceanFirst.value = "";
+      if (!canInteract) oceanFirst.textContent = "Waiting for your turn...";
+      else oceanFirst.textContent = oceanActions.length ? "Play ocean via dropdown..." : "No ocean cards can be played right now.";
+      oceanSelect.appendChild(oceanFirst);
+      for (const a of oceanActions) {
+        const opt = document.createElement("option");
+        opt.value = String(a.index);
+        opt.textContent = actionOptionLabel(a);
+        oceanSelect.appendChild(opt);
+      }
+      if (!restoreSelectChoice(oceanSelect, oceanSelectMemory)) {
+        oceanSelectMemory = "";
+      }
+      oceanSelect.addEventListener("change", () => {
+        oceanSelectMemory = String(oceanSelect.value || "");
+      });
+      oceanSelect.disabled = !canInteract || oceanActions.length === 0;
+      oceanPlayFallback.appendChild(oceanSelect);
+
+      const oceanBtn = document.createElement("button");
+      oceanBtn.className = "lane-play-btn";
+      oceanBtn.textContent = "Play Ocean";
+      oceanBtn.disabled = !canInteract || oceanActions.length === 0;
+      oceanBtn.addEventListener("click", async () => {
+        if (!canInteract) {
+          setGameStatus("Wait for your turn to play cards.");
+          return;
+        }
+        if (String(oceanSelect.value || "") === "") {
+          setGameStatus("Choose an ocean card from the dropdown first.");
+          return;
+        }
+        const idx = Number(oceanSelect.value);
+        const base = actionByIndex(legalActions, idx);
+        if (!base) {
+          setGameStatus("Selected ocean play is no longer legal.");
+          return;
+        }
+        const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
+        await submitAction(chosen);
+      });
+      oceanPlayFallback.appendChild(oceanBtn);
+
+      const oceanDrop = document.createElement("div");
+      oceanDrop.className = "ocean-drop-target";
+      oceanDrop.textContent = canInteract
+        ? "Drag an ocean card here to play it."
+        : "Ocean drag-and-drop is available on your turn.";
+      oceanDrop.addEventListener("dragover", (ev) => {
+        if (!canInteract) return;
+        const entryUid = getDraggedEntryUid(ev);
+        const base = firstPlayableActionForEntry(oceanActions, entryUid);
+        if (!base) return;
+        ev.preventDefault();
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+        oceanDrop.classList.add("drop-over");
+      });
+      oceanDrop.addEventListener("dragleave", () => {
+        oceanDrop.classList.remove("drop-over");
+      });
+      oceanDrop.addEventListener("drop", async (ev) => {
+        oceanDrop.classList.remove("drop-over");
+        if (!canInteract) return;
+        const entryUid = getDraggedEntryUid(ev);
+        const base = firstPlayableActionForEntry(oceanActions, entryUid);
+        if (!base) {
+          setGameStatus("That card cannot be played as an ocean right now.");
+          return;
+        }
+        ev.preventDefault();
+        const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
+        await submitAction(chosen);
+      });
+      oceanPlayFallback.appendChild(oceanDrop);
+
+      const boardEntries = me && Array.isArray(me.board) ? me.board : [];
+      const boardOceanIds = new Set(boardEntries.map((o) => Number(o.ocean_uid)));
+      if (!boardEntries.length) {
+        selectedOceanUid = null;
+      } else if (selectedOceanUid != null && !boardOceanIds.has(Number(selectedOceanUid))) {
+        selectedOceanUid = null;
+      }
+      if (!boardEntries.length) {
+        const none = document.createElement("div");
+        none.className = "small";
+        none.textContent = "(no oceans on your board yet)";
+        oceanMiniEl.appendChild(none);
+      } else {
+        for (const ocean of boardEntries) {
+          const item = document.createElement("div");
+          item.className = "ocean-mini-item";
+          if (Number(ocean.ocean_uid) === Number(selectedOceanUid)) {
+            item.classList.add("active");
+          }
+          item.title = `Show ocean #${ocean.ocean_uid}`;
+          item.addEventListener("click", () => {
+            selectedOceanUid = Number(ocean.ocean_uid);
+            renderGame(payload);
+          });
+
+          const img = document.createElement("img");
+          const src = imagePathForUid(ocean.ocean.uid);
+          if (src) img.src = src;
+          img.loading = "lazy";
+          img.alt = `${ocean.ocean.name} ocean`;
+          item.appendChild(img);
+
+          const txt = document.createElement("div");
+          const title = document.createElement("div");
+          title.className = "ocean-mini-title";
+          title.textContent = `#${ocean.ocean_uid} ${ocean.ocean.name}`;
+          txt.appendChild(title);
+
+          const attachedCount =
+            (Array.isArray(ocean.up) ? ocean.up.length : 0) +
+            (Array.isArray(ocean.down) ? ocean.down.length : 0) +
+            (Array.isArray(ocean.left) ? ocean.left.length : 0) +
+            (Array.isArray(ocean.right) ? ocean.right.length : 0);
+          const metaMini = document.createElement("div");
+          metaMini.className = "ocean-mini-meta";
+          metaMini.textContent = `sym ${displaySymbol(ocean.ocean.symbol)} | attached ${attachedCount}`;
+          txt.appendChild(metaMini);
+          item.appendChild(txt);
+
+          oceanMiniEl.appendChild(item);
+        }
+      }
+      if (!boardEntries.length) {
+        empty(boardEl, "(no oceans on your board yet)");
+      } else {
+        const chosenOcean =
+          selectedOceanUid == null
+            ? null
+            : (boardEntries.find((o) => Number(o.ocean_uid) === Number(selectedOceanUid)) || null);
+        const selectedInfo = document.createElement("div");
+        selectedInfo.className = "small";
+        selectedInfo.style.marginBottom = "8px";
+        selectedInfo.textContent = chosenOcean
+          ? `Selected Ocean #${chosenOcean.ocean_uid}: ${chosenOcean.ocean.name}`
+          : "All oceans have side dropdowns on your turn. Click an ocean to focus it.";
+        boardEl.appendChild(selectedInfo);
+        const gridWrap = document.createElement("div");
+        gridWrap.className = "ocean-board-grid";
+        for (const oceanEntry of boardEntries) {
+          const isSelected = selectedOceanUid != null && Number(oceanEntry.ocean_uid) === Number(selectedOceanUid);
+          gridWrap.appendChild(
+            renderOceanTableau(oceanEntry, {
+              canInteract,
+              showControls: true,
+              legalActions,
+              starToggle,
+              selected: isSelected,
+              onSelectOcean: (uid) => {
+                selectedOceanUid = Number(uid);
+                renderAll(latestPayload);
+              },
+            })
+          );
+        }
+        boardEl.appendChild(gridWrap);
+      }
+
+      const others = players.filter((p) => p.index !== myIdx);
+      if (!others.length) {
+        empty(othersEl, "(no other players)");
+      } else {
+        for (const p of others) renderStaticBoard(p, othersEl);
+      }
+      renderScoreBreakdown(players, scoreBreakdownEl, myIdx);
+    }
+
+    function togglePanelsForPhase(payload) {
+      const phase = payload.room?.phase || "lobby";
+      const isLobby = phase === "lobby";
+      const inGame = phase === "running" || phase === "ended" || phase === "error";
+      const viewerHasSeat = Number.isInteger(payload.viewer?.seat_index);
+      const showSeatPanel = isLobby || (inGame && !viewerHasSeat);
+
+      document.getElementById("setupPanel").style.display = roomId ? "none" : "block";
+      document.getElementById("roomPanel").style.display = roomId ? "block" : "none";
+      document.getElementById("lobbyPanel").style.display = showSeatPanel ? "block" : "none";
+
+      const gamePanels = [
+        "gameMetaPanel", "playOptPanel", "zonePanel", "handPanel",
+        "poolPanel", "othersPanel", "scorePanel", "logPanel", "summaryPanel"
+      ];
+      for (const id of gamePanels) {
+        document.getElementById(id).style.display = inGame ? "block" : "none";
+      }
+
+      const isHost = Boolean(payload.viewer?.is_host);
+      const hasHostToken = Boolean(getHostToken());
+      const canHostControl = isHost || hasHostToken;
+      const canStart = Boolean(payload.can_start);
+      const hasCreateKey = Boolean(activeCreateKey());
+      const startBtn = document.getElementById("startGameBtn");
+      if (startBtn) {
+        const show = isLobby;
+        startBtn.style.display = show ? "inline-block" : "none";
+        startBtn.disabled = !canStart || !(canHostControl || hasCreateKey);
+        if (!canStart) {
+          startBtn.textContent = "Waiting For Seats";
+        } else if (canHostControl) {
+          startBtn.textContent = "Start Game";
+        } else if (hasCreateKey) {
+          startBtn.textContent = "Start (Host Key)";
+        } else {
+          startBtn.textContent = "Start Locked";
+        }
+      }
+
+      const stopBtn = document.getElementById("stopServerBtn");
+      stopBtn.style.display = roomId && (isHost || hasHostToken) ? "inline-block" : "none";
+
+      const restartBtn = document.getElementById("restartGameBtn");
+      if (restartBtn) {
+        const canShow = Boolean(roomId && (isHost || hasHostToken));
+        restartBtn.style.display = canShow ? "inline-block" : "none";
+        restartBtn.disabled = phase === "running";
+        restartBtn.textContent = phase === "running" ? "Restart (After Game Ends)" : "Restart Game";
+      }
+    }
+
+    function renderAll(payload) {
+      if (
+        latestPayload
+        && payload.room?.room_id
+        && latestPayload.room?.room_id
+        && payload.room.room_id === latestPayload.room.room_id
+        && Number(payload.version) === Number(latestPayload.version)
+      ) {
+        return;
+      }
+      latestPayload = payload;
+      lastStateReceiveAt = Date.now();
+      const payloadRoomId = normalizeRoomId(payload.room?.room_id || "");
+      if (payloadRoomId) {
+        roomId = payloadRoomId;
+        setLastRoomId(payloadRoomId);
+      }
+      setConnErr(payload.error || "");
+
+      document.getElementById("connMeta").textContent = `Room ${payload.room?.room_id || "-"} | Phase ${payload.room?.phase || "-"} | Version ${payload.version || 0}`;
+      setConnStatus(payload.status_note || "");
+
+      const shareUrl = payload.room?.share_url || "";
+      ingestKnownBaseUrl(shareUrl);
+      ingestKnownBaseUrls(payload.public_links);
+      document.getElementById("shareUrl").value = shareUrl;
+      const hostSetupLinkEl = document.getElementById("hostSetupLink");
+      const seatSetupLinkEl = document.getElementById("seatSetupLink");
+      const hostToken = getHostToken();
+      const seatToken = getSeatToken();
+      if (hostSetupLinkEl) {
+        if (shareUrl && hostToken) {
+          const sep = shareUrl.includes("?") ? "&" : "?";
+          let setup = `${shareUrl}${sep}host_token=${encodeURIComponent(hostToken)}`;
+          if (seatToken) {
+            setup += `&seat_token=${encodeURIComponent(seatToken)}`;
+          }
+          hostSetupLinkEl.textContent = setup;
+        } else {
+          hostSetupLinkEl.textContent = "(available after room creation)";
+        }
+      }
+      if (seatSetupLinkEl) {
+        if (shareUrl && seatToken) {
+          const sep = shareUrl.includes("?") ? "&" : "?";
+          seatSetupLinkEl.textContent = `${shareUrl}${sep}seat_token=${encodeURIComponent(seatToken)}`;
+        } else {
+          seatSetupLinkEl.textContent = "(available after you claim a seat)";
+        }
+      }
+      const totalPlayers = payload.room?.total_players ?? "?";
+      const humanPlayers = payload.room?.human_players ?? "?";
+      const aiPlayers = payload.room?.ai_players ?? "?";
+      document.getElementById("roomMeta").textContent = `Players: ${totalPlayers} (Human ${humanPlayers}, AI ${aiPlayers})`;
+
+      togglePanelsForPhase(payload);
+      renderSeats(payload);
+      renderLogAndSummary(payload);
+      maybeAutoClaimHostSeat(payload);
+      maybeAutoJoinSeat(payload);
+
+      if (payload.room?.phase === "running" || payload.room?.phase === "ended") {
+        renderGame(payload);
+      } else {
+        shortcutActions = [];
+        shortcutCanInteract = false;
+        clearShortcutBuffer(true);
+      }
+
+      if (payload.room?.phase === "ended" && Array.isArray(payload.final_scores) && payload.final_scores.length) {
+        const finals = payload.final_scores.map((x) => `${x.name}: ${x.score}`).join(" | ");
+        setGameStatus(`Final: ${finals} | Winner: ${payload.winner || "N/A"}`);
+      }
+    }
+
+    function maybeAutoClaimHostSeat(payload) {
+      if (!roomId) return;
+      if (autoHostClaimInFlight) return;
+      if (Date.now() < autoHostClaimRetryAt) return;
+      if (getSpectatorMode()) return;
+
+      const phase = payload.room?.phase || "";
+      // Auto host reclaim should only run in lobby. During running,
+      // automatic takeovers can churn seat tokens across tabs/devices.
+      if (phase !== "lobby") return;
+
+      const viewer = payload.viewer || {};
+      const viewerSeatIdx = Number.isInteger(viewer.seat_index) ? Number(viewer.seat_index) : null;
+      const seats = Array.isArray(payload.seats) ? payload.seats : [];
+      const hostSeat = seats.find((s) => s && s.kind === "human" && s.is_host);
+      if (!hostSeat) return;
+      if (viewerSeatIdx != null && Number(hostSeat.index) === viewerSeatIdx) return;
+      const viewerSeat = viewerSeatIdx == null
+        ? null
+        : seats.find((s) => s && Number(s.index) === viewerSeatIdx);
+      if (viewerSeat && viewerSeat.is_host) return;
+
+      const hasHostToken = Boolean(getHostToken());
+      const key = activeCreateKey();
+      const hasCreateKey = Boolean(key);
+      if (!hasHostToken && !hasCreateKey) return;
+
+      const name = document.getElementById("joinName").value.trim()
+        || document.getElementById("hostName").value.trim()
+        || "Host";
+
+      autoHostClaimInFlight = true;
+      apiPost(`/api/rooms/${roomId}/join`, {
+        player_name: name,
+        seat_index: Number(hostSeat.index),
+        seat_token: getSeatToken() || undefined,
+        host_token: getHostToken() || undefined,
+        takeover: true,
+        create_key: key || undefined,
+      }).then((out) => {
+        if (out.seat_token) {
+          setSeatToken(out.seat_token);
+          syncSeatTokenInUrl();
+        }
+        autoHostClaimRetryAt = 0;
+        setGameStatus("Host seat registered on this device.");
+        reconnectStream();
+      }).catch(() => {
+        // Non-fatal. Manual takeover button remains available.
+        autoHostClaimRetryAt = Date.now() + 10000;
+      }).finally(() => {
+        autoHostClaimInFlight = false;
+      });
+    }
+
+    function maybeAutoJoinSeat(payload) {
+      if (!roomId) return;
+      if (autoJoinInFlight) return;
+      if (autoHostClaimInFlight) return;
+      if (getSpectatorMode()) return;
+
+      const phase = payload.room?.phase || "";
+      if (phase !== "lobby") return;
+
+      const viewer = payload.viewer || {};
+      if (Number.isInteger(viewer.seat_index)) return;
+
+      const seats = Array.isArray(payload.seats) ? payload.seats : [];
+      // If this device has host authority, prioritize host-seat reclaim over auto-joining a non-host seat.
+      const hostSeat = seats.find((s) => s && s.kind === "human" && s.is_host);
+      if ((getHostToken() || activeCreateKey()) && hostSeat) return;
+      const openSeat = seats.find((s) => s.kind === "human" && s.status === "available");
+      if (!openSeat) return;
+
+      autoJoinInFlight = true;
+      joinFirstOpenSeat({ seatIndex: Number(openSeat.index), silent: true })
+        .finally(() => {
+          autoJoinInFlight = false;
+        });
+    }
+
+    async function refreshState() {
+      if (!roomId) {
+        const remembered = getLastRoomId();
+        if (remembered) {
+          setConnStatus(`Reopening your last room (${remembered})...`);
+          openRoomById(remembered);
+        } else {
+          setConnStatus("No room selected. Create or open a room first.");
+        }
+        return;
+      }
+      const params = buildViewerQueryParams();
+      const q = params.toString() ? `?${params.toString()}` : "";
+      try {
+        const res = await fetch(apiUrl(`/api/rooms/${roomId}/state${q}`), { cache: "no-store" });
+        const parsed = await readJsonSafe(res);
+        if (!parsed.ok) {
+          setConnErr(`State refresh failed: ${parsed.error}`);
+          if (isTunnelOfflineMessage(parsed.error)) {
+            const moved = await attemptTunnelFailover(parsed.error);
+            if (moved) return;
+          }
+          return;
+        }
+        const data = parsed.data || {};
+        if (data.ok) {
+          setConnErr("");
+          ingestKnownBaseUrls(data.public_links);
+          roomNotFoundStreak = 0;
+          if (latestPayload && Number(latestPayload.version) === Number(data.version)) {
+            return;
+          }
+          renderAll(data);
+          return;
+        }
+        const reason = String(data.error || "unknown room error");
+        setConnErr(`State refresh failed: ${reason}`);
+        if (isTunnelOfflineMessage(reason)) {
+          const moved = await attemptTunnelFailover(reason);
+          if (moved) return;
+        }
+        if (reason.toLowerCase().includes("room not found")) {
+          roomNotFoundStreak += 1;
+          if (roomNotFoundStreak >= 3) {
+            const remembered = getLastRoomId() || normalizeRoomId(roomId || "");
+            setConnStatus(
+              `Room ${remembered || "(unknown)"} is unavailable right now. ` +
+              "Keep refreshing while server restarts, or use Start Menu if this room ended."
+            );
+          } else {
+            setConnStatus("Room not found right now. Retrying...");
+          }
+        }
+      } catch (err) {
+        const msg = String(err && err.message || err || "unknown error");
+        setConnErr(`State refresh failed: ${msg}`);
+        const moved = await attemptTunnelFailover(msg);
+        if (moved) return;
+      }
+    }
+
+    function startPollingFallback() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(() => {
+        refreshState();
+      }, 2000);
+    }
+
+    function reconnectStream() {
+      if (!roomId) return;
+      roomNotFoundStreak = 0;
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      const params = buildViewerQueryParams();
+      const q = params.toString() ? `?${params.toString()}` : "";
+      // Always do an immediate state fetch so initial render does not rely on SSE delivery.
+      refreshState();
+      startPollingFallback();
+
+      if (typeof EventSource === "undefined") {
+        setConnStatus("Live stream not supported by this browser. Using polling mode.");
+        return;
+      }
+
+      try {
+        eventSource = new EventSource(apiUrl(`/api/rooms/${roomId}/stream${q}`));
+        eventSource.addEventListener("state", (ev) => {
+          try {
+            const data = JSON.parse(ev.data);
+            renderAll(data);
+          } catch (err) {
+            setConnErr(`Stream parse error: ${String(err)}`);
+          }
+        });
+        eventSource.onerror = () => {
+          setConnStatus("Live stream reconnecting... (polling active)");
+          if (Date.now() - lastStateReceiveAt > 9000) {
+            attemptTunnelFailover("Live stream disconnected");
+          }
+        };
+      } catch (err) {
+        setConnStatus("Live stream unavailable. Using polling mode.");
+        attemptTunnelFailover(String(err && err.message || err || "Live stream unavailable"));
+      }
+    }
+
+    function activateCreatedRoom(out, createKey, hostName) {
+      roomId = out.room_id;
+      setLastRoomId(roomId);
+      setActiveRoomShortcut("");
+      setCreateKey(createKey);
+      if (out.host_token) setHostToken(out.host_token);
+      if (out.seat_token) setSeatToken(out.seat_token);
+      document.getElementById("joinName").value = hostName;
+      syncSeatTokenInUrl();
+      reconnectStream();
+    }
+
+    async function createRoom() {
+      const createKey = document.getElementById("createKey").value.trim();
+      const hostName = document.getElementById("hostName").value.trim() || "Host";
+      const total = Number(document.getElementById("totalPlayers").value);
+      const ai = Number(document.getElementById("aiPlayers").value);
+      const human = Number(document.getElementById("humanPlayers").value);
+      if (!createKey) {
+        setConnErr("Host create key is required.");
+        return;
+      }
+
+      try {
+        const out = await apiPost("/api/rooms", {
+          create_key: createKey,
+          host_name: hostName,
+          room_id: STABLE_ROOM_ID,
+          total_players: total,
+          human_players: human,
+          ai_players: ai,
+        });
+        activateCreatedRoom(out, createKey, hostName);
+      } catch (err) {
+        const roomFromErr = String(err?.data?.active_room_id || "").trim();
+        if (roomFromErr && createKey) {
+          try {
+            setConnStatus(`Replacing active room (${roomFromErr}) with your selected player setup...`);
+            const out = await apiPost("/api/rooms", {
+              create_key: createKey,
+              host_name: hostName,
+              room_id: STABLE_ROOM_ID,
+              total_players: total,
+              human_players: human,
+              ai_players: ai,
+              replace_active: true,
+            });
+            setConnErr("");
+            activateCreatedRoom(out, createKey, hostName);
+            return;
+          } catch (replaceErr) {
+            const replaceMsg = String(replaceErr?.message || replaceErr);
+            const activePhase = String(replaceErr?.data?.active_phase || err?.data?.active_phase || "").trim();
+            setActiveRoomShortcut(roomFromErr);
+            if (activePhase === "running") {
+              setConnErr(`A game is already running in room ${roomFromErr}. Finish that game before creating a new setup.`);
+            } else {
+              setConnErr(`Could not replace active room (${roomFromErr}): ${replaceMsg}. Opening active room...`);
+              setTimeout(() => {
+                openRoomById(roomFromErr);
+              }, 120);
+            }
+            return;
+          }
+        }
+        if (roomFromErr) {
+          setActiveRoomShortcut(roomFromErr);
+          setConnErr(`Active room already exists (${roomFromErr}). Opening it now...`);
+          setTimeout(() => {
+            openRoomById(roomFromErr);
+          }, 120);
+          return;
+        }
+        setConnErr(`Create failed: ${String(err.message || err)}`);
+      }
+    }
+
+    async function joinFirstOpenSeat(opts = {}) {
+      if (!roomId) {
+        setGameStatus("Open a room link first.");
+        return;
+      }
+      // Explicit join action should always put this device in player mode.
+      setSpectatorMode(false, true);
+      const seats = Array.isArray(latestPayload?.seats) ? latestPayload.seats : [];
+      const preferredSeatIndex = Number.isInteger(opts.seatIndex) ? Number(opts.seatIndex) : null;
+      const openSeat = preferredSeatIndex == null
+        ? seats.find((s) => s.kind === "human" && s.status === "available")
+        : seats.find((s) => s.kind === "human" && s.status === "available" && Number(s.index) === preferredSeatIndex);
+      const name = document.getElementById("joinName").value.trim() || "Player";
+      const key = activeCreateKey();
+      const hasHostAuthority = Boolean(key || getHostToken());
+      const hostSeat = seats.find((s) => s.kind === "human" && s.is_host) || null;
+      const viewer = latestPayload?.viewer || {};
+      const viewerSeatIndex = Number.isInteger(viewer.seat_index) ? Number(viewer.seat_index) : null;
+      const shouldReclaimHostFirst =
+        preferredSeatIndex == null
+        && hasHostAuthority
+        && hostSeat
+        && Number(hostSeat.index) !== Number(viewerSeatIndex);
+
+      const doJoin = async (seat, takeover = false) => {
+        const out = await apiPost(`/api/rooms/${roomId}/join`, {
+          player_name: name,
+          seat_index: seat.index,
+          seat_token: getSeatToken() || undefined,
+          host_token: getHostToken() || undefined,
+          takeover: takeover || undefined,
+          create_key: key || undefined,
+        });
+        if (out.seat_token) {
+          setSeatToken(out.seat_token);
+          syncSeatTokenInUrl();
+        }
+        if (out.seat_index != null) {
+          const verb = takeover ? "Took over" : "Joined";
+          setGameStatus(`${verb} seat ${Number(out.seat_index) + 1}.`);
+        }
+        reconnectStream();
+      };
+
+      try {
+        if (shouldReclaimHostFirst) {
+          await doJoin(hostSeat, String(hostSeat.status || "") === "taken");
+          return;
+        }
+
+        if (preferredSeatIndex == null && viewerSeatIndex != null) {
+          if (!opts.silent) setGameStatus(`Already seated as Player ${viewerSeatIndex + 1}.`);
+          return;
+        }
+
+        if (openSeat) {
+          await doJoin(openSeat, false);
+          return;
+        }
+
+        const takeoverSeat = seats.find(
+          (s) => s.kind === "human" && s.status === "taken" && (!s.is_host || Boolean(key || getHostToken()))
+        );
+        if (!takeoverSeat) {
+          if (!opts.silent) setGameStatus("No seat is available to claim or take over.");
+          return;
+        }
+
+        const warn = takeoverSeat.is_host
+          ? `No open seats. Reclaim Host seat (${takeoverSeat.label})?`
+          : `No open seats. Take over ${takeoverSeat.label}?`;
+        if (!opts.silent) setGameStatus(`${warn} Taking over now...`);
+        await doJoin(takeoverSeat, true);
+      } catch (err) {
+        if (!opts.silent) setGameStatus(`Join failed: ${String(err.message || err)}`);
+      }
+    }
+
+    async function startGame() {
+      if (!roomId) {
+        setGameStatus("Open a room first.");
+        return;
+      }
+      try {
+        await apiPost(`/api/rooms/${roomId}/start`, {
+          host_token: getHostToken() || undefined,
+          seat_token: getSeatToken() || undefined,
+          create_key: activeCreateKey() || undefined,
+        });
+        setGameStatus("Game started.");
+        reconnectStream();
+      } catch (err) {
+        setGameStatus(`Start failed: ${String(err.message || err)}`);
+      }
+    }
+
+    async function stopServer() {
+      if (!roomId) return;
+      const typed = window.prompt("Type STOP to shut down this live server.");
+      if ((typed || "").trim().toUpperCase() !== "STOP") {
+        setConnStatus("Stop canceled.");
+        return;
+      }
+      try {
+        await apiPost("/api/server/stop", {
+          room_id: roomId,
+          host_token: getHostToken() || undefined,
+          seat_token: getSeatToken() || undefined,
+        });
+        setConnStatus("Server stopping...");
+        if (eventSource) {
+          eventSource.close();
+          eventSource = null;
+        }
+        if (pollTimer) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+        }
+      } catch (err) {
+        setConnErr(`Stop failed: ${String(err.message || err)}`);
+      }
+    }
+
+    async function restartGame() {
+      if (!roomId) return;
+      const typed = window.prompt("Type RESTART to begin a new game in this room.");
+      if ((typed || "").trim().toUpperCase() !== "RESTART") {
+        setGameStatus("Restart canceled.");
+        return;
+      }
+      try {
+        await apiPost(`/api/rooms/${roomId}/restart`, {
+          host_token: getHostToken() || undefined,
+          seat_token: getSeatToken() || undefined,
+        });
+        selectedPool.clear();
+        selectedPayment.clear();
+        handEntryByUid.clear();
+        updatePaymentSummary();
+        setGameStatus("Game restarted.");
+        reconnectStream();
+      } catch (err) {
+        setGameStatus(`Restart failed: ${String(err.message || err)}`);
+      }
+    }
+
+    function syncCreateCounts() {
+      const humanEl = document.getElementById("humanPlayers");
+      const aiEl = document.getElementById("aiPlayers");
+      const totalEl = document.getElementById("totalPlayers");
+
+      let human = Number(humanEl.value);
+      let ai = Number(aiEl.value);
+
+      if (!Number.isFinite(human) || human < 1) human = 1;
+      if (human > 8) human = 8;
+      if (!Number.isFinite(ai) || ai < 0) ai = 0;
+
+      // Host must be human, and server requires total players in [2, 8].
+      const minAi = Math.max(0, 2 - human);
+      const maxAi = Math.max(0, 8 - human);
+      if (ai < minAi) ai = minAi;
+      if (ai > maxAi) ai = maxAi;
+
+      humanEl.value = String(human);
+      aiEl.value = String(ai);
+      totalEl.value = String(human + ai);
+    }
+
+    async function copyShareUrl() {
+      const val = document.getElementById("shareUrl").value;
+      if (!val) return;
+      let copied = false;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(val);
+          copied = true;
+        }
+      } catch {}
+
+      if (!copied) {
+        try {
+          const input = document.getElementById("shareUrl");
+          input.focus();
+          input.select();
+          input.setSelectionRange(0, val.length);
+          copied = Boolean(document.execCommand("copy"));
+        } catch {}
+      }
+
+      if (copied) {
+        setConnStatus("Room link copied.");
+      } else {
+        setConnStatus("Copy failed on this browser. Copy the link text manually.");
+      }
+    }
+
+    document.getElementById("humanPlayers").addEventListener("change", syncCreateCounts);
+    document.getElementById("aiPlayers").addEventListener("change", syncCreateCounts);
+    document.getElementById("createRoomBtn").addEventListener("click", createRoom);
+    document.getElementById("joinOpenSeatBtn").addEventListener("click", joinFirstOpenSeat);
+    document.getElementById("startGameBtn").addEventListener("click", startGame);
+    document.getElementById("openActiveRoomBtn").addEventListener("click", () => {
+      if (!activeRoomShortcutId) return;
+      openRoomById(activeRoomShortcutId);
+    });
+    document.getElementById("lobbyCreateKey").addEventListener("change", (ev) => {
+      const val = String((ev.target && ev.target.value) || "").trim();
+      if (!val) return;
+      setCreateKey(val);
+      const setupInput = document.getElementById("createKey");
+      if (setupInput) setupInput.value = val;
+      setConnStatus("Host key saved.");
+    });
+    document.getElementById("spectatorModeToggle").addEventListener("change", (ev) => {
+      setSpectatorMode(Boolean(ev.target && ev.target.checked));
+      if (!getSpectatorMode() && latestPayload) {
+        maybeAutoJoinSeat(latestPayload);
+      }
+    });
+    document.getElementById("copyLinkBtn").addEventListener("click", copyShareUrl);
+    document.getElementById("openStartMenuBtn").addEventListener("click", () => {
+      showStartMenu();
+    });
+    document.getElementById("stopServerBtn").addEventListener("click", stopServer);
+    document.getElementById("restartGameBtn").addEventListener("click", restartGame);
+    document.getElementById("refreshStateBtn").addEventListener("click", refreshState);
+    document.addEventListener("keydown", (ev) => {
+      handleNumberShortcut(ev);
+    });
+
+    loadKnownBaseUrls();
+    ingestKnownBaseUrl(location.origin);
+    roomId = normalizeRoomId(roomPathId() || "");
+    const urlParams = new URLSearchParams(location.search || "");
+    const apiBaseFromUrl = normalizeBaseUrl(urlParams.get("api_base") || "");
+    if (apiBaseFromUrl) ingestKnownBaseUrl(apiBaseFromUrl);
+    const keyFromUrl = (urlParams.get("create_key") || "").trim();
+    const hostTokenFromUrl = (urlParams.get("host_token") || "").trim();
+    const seatTokenFromUrl = (urlParams.get("seat_token") || "").trim();
+    // Always start in player mode; spectator mode requires manual checkbox opt-in.
+    setSpectatorMode(false, true);
+    if (urlParams.has("spectator")) {
+      urlParams.delete("spectator");
+      const cleaned = urlParams.toString();
+      const basePath = roomId ? `/play/${roomId}` : "/";
+      history.replaceState({}, "", cleaned ? `${basePath}?${cleaned}` : basePath);
+    }
+    const keyInput = document.getElementById("createKey");
+    const lobbyKeyInput = document.getElementById("lobbyCreateKey");
+    const savedCreateKey = getCreateKey();
+    if (keyInput) {
+      if (keyFromUrl) {
+        keyInput.value = keyFromUrl;
+        setCreateKey(keyFromUrl);
+      } else if (savedCreateKey) {
+        keyInput.value = savedCreateKey;
+      }
+    }
+    if (lobbyKeyInput) {
+      if (keyFromUrl) {
+        lobbyKeyInput.value = keyFromUrl;
+      } else if (savedCreateKey) {
+        lobbyKeyInput.value = savedCreateKey;
+      }
+    }
+    if (roomId && hostTokenFromUrl) {
+      setHostToken(hostTokenFromUrl);
+    }
+    if (roomId && seatTokenFromUrl) {
+      setSeatToken(seatTokenFromUrl);
+    }
+    if (roomId) {
+      setLastRoomId(roomId);
+      document.getElementById("setupPanel").style.display = "none";
+      document.getElementById("roomPanel").style.display = "block";
+      reconnectStream();
+    } else {
+      setActiveRoomShortcut(getLastRoomId());
+      syncCreateCounts();
+      setConnStatus("Host mode: enter create key, choose players, then create room.");
+    }
+  </script>
+</body>
+</html>
