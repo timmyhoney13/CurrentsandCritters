@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiet Currents | Ocean Card Arena</title>
+  <style>
+    :root {
+      --ink: #0f2330;
+      --soft: #456879;
+      --paper: #f7fbff;
+      --panel: #ffffff;
+      --line: #c4d8e6;
+      --sea: #0a8fb8;
+      --reef: #16a36b;
+      --sand: #f2a341;
+      --deep: #08344d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Gill Sans", "Avenir Next", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(1300px 420px at -8% -12%, #d8f3ff 0%, transparent 55%),
+        radial-gradient(1200px 540px at 108% -25%, #d9ffe8 0%, transparent 50%),
+        linear-gradient(180deg, #eef8ff 0%, #f7fbff 55%, #ffffff 100%);
+    }
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 16px;
+    }
+    .brand {
+      font-size: 24px;
+      letter-spacing: 0.4px;
+      font-weight: 800;
+      color: var(--deep);
+    }
+    .sub {
+      color: var(--soft);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, #ffffff 0%, #f0faff 62%, #ebfff5 100%);
+      padding: 26px;
+      box-shadow: 0 16px 36px rgba(6, 46, 74, 0.08);
+      animation: rise 600ms ease-out;
+    }
+    .hero:before {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(10, 143, 184, 0.12) 0%, transparent 70%);
+      right: -40px;
+      top: -20px;
+      pointer-events: none;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 0.97;
+      font-family: "Copperplate", "Avenir Next Condensed", "Trebuchet MS", sans-serif;
+      letter-spacing: 0.2px;
+      color: #0a3d57;
+    }
+    .lead {
+      margin: 0 0 18px;
+      color: var(--soft);
+      font-size: 18px;
+      max-width: 760px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 12px;
+      padding: 11px 15px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-weight: 800;
+      font-size: 15px;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 9px 18px rgba(3, 34, 52, 0.14);
+    }
+    .btn.primary {
+      background: linear-gradient(180deg, #1da4ce 0%, #0d84af 100%);
+      color: #fff;
+      border-color: #0d84af;
+    }
+    .btn.secondary {
+      background: #fff;
+      color: #18526d;
+      border-color: #9ac1d6;
+    }
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+      box-shadow: 0 8px 16px rgba(8, 40, 58, 0.06);
+      animation: rise 700ms ease-out;
+    }
+    .card h3 {
+      margin: 0 0 5px;
+      font-size: 16px;
+      color: #114d67;
+      letter-spacing: 0.1px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--soft);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .small {
+      margin-top: 14px;
+      color: #5b7889;
+      font-size: 13px;
+    }
+    .footer {
+      margin: 16px 0 0;
+      color: #5f7f92;
+      font-size: 13px;
+      text-align: center;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 680px) {
+      .wrap { padding: 14px; }
+      .hero { padding: 18px; border-radius: 14px; }
+      .lead { font-size: 16px; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <div class="brand">Quiet Currents</div>
+      <div class="sub">Two-player online ocean card game</div>
+    </div>
+
+    <section class="hero">
+      <h1>Play Online.<br />No Tunnel Link Guessing.</h1>
+      <p class="lead">
+        This site is your launch page. Open the multiplayer app, start a room, and share the room link.
+        Game state is server-authoritative and built for reconnect-friendly play.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="/">Open Multiplayer App</a>
+        <a class="btn secondary" href="/play/FISHGAME">Open Stable Room Path</a>
+      </div>
+      <div class="small">
+        Tip: Bookmark this page and your room URL so both players can return fast after refresh.
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Host Flow</h3>
+        <p>Open the Multiplayer App, claim Host seat, then start or restart from the same room path.</p>
+      </article>
+      <article class="card">
+        <h3>Join Flow</h3>
+        <p>Player 2 opens the shared room link and claims the open seat. Reconnect keeps seat identity.</p>
+      </article>
+      <article class="card">
+        <h3>Stability Focus</h3>
+        <p>Use one long-running server and persistent room state to reduce disconnect pain after refresh.</p>
+      </article>
+      <article class="card">
+        <h3>Scoring Roadmap</h3>
+        <p>Next upgrade can add camera table-scanning with quick correction before calculating points.</p>
+      </article>
+    </section>
+
+    <div class="footer">Quiet Currents Ocean Arena</div>
+  </div>
+</body>
+</html>

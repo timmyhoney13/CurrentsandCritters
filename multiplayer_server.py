@@ -30,6 +30,7 @@ import fish_game_all_in_one as fish
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "index.html")
+WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -2313,6 +2314,21 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(raw)
 
+    def _send_website_html(self) -> None:
+        try:
+            with open(WEBSITE_INDEX_PATH, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": "website page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_cors_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
     def _read_json_body(self) -> tuple[Dict[str, Any], Optional[str]]:
         try:
             size = int(self.headers.get("Content-Length", "0"))
@@ -2399,6 +2415,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_index_html()
                 return
             self._send_json({"ok": False, "error": "client index missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        if len(parts) == 1 and parts[0] in {"website", "site"}:
+            if os.path.exists(WEBSITE_INDEX_PATH):
+                self._send_website_html()
+                return
+            self._send_json({"ok": False, "error": "website page missing"}, status=HTTPStatus.NOT_FOUND)
             return
 
         if parsed.path == "/" and os.path.exists(CLIENT_INDEX_PATH):
