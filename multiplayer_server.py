@@ -53,6 +53,9 @@ MAX_JSON_BODY_BYTES = 128 * 1024
 ROOM_CHECKPOINT_SCHEMA_VERSION = 1
 ROOM_PERSIST_MIN_INTERVAL_SEC = 0.75
 MAX_ACTION_HISTORY = 16000
+ROOM_ID_LENGTH = 5
+ROOM_ID_RE = re.compile(rf"[A-Z0-9]{{{ROOM_ID_LENGTH}}}")
+ROOM_ID_ACCEPT_RE = re.compile(rf"(?:[A-Z0-9]{{{ROOM_ID_LENGTH}}}|[A-Z0-9]{{8}})")
 
 CLIENT_DIR = os.path.join(BASE_DIR, "multiplayer", "client")
 MANIFEST_PATH = os.path.join(CLIENT_DIR, "manifest.webmanifest")
@@ -142,7 +145,7 @@ def int_list(raw: Any, cap: int = 64) -> List[int]:
     return out
 
 
-def room_code(length: int = 8) -> str:
+def room_code(length: int = ROOM_ID_LENGTH) -> str:
     alphabet = string.ascii_uppercase + string.digits
     return "".join(secrets.choice(alphabet) for _ in range(length))
 
@@ -742,7 +745,7 @@ class GameRoom:
         if not isinstance(payload, dict):
             return None
         room_id = str(payload.get("room_id") or "").strip().upper()
-        if not re.fullmatch(r"[A-Z0-9]{8}", room_id):
+        if not ROOM_ID_ACCEPT_RE.fullmatch(room_id):
             return None
 
         total_players = clamp_int(payload.get("total_players"), 4, 2, 8)
@@ -1780,6 +1783,12 @@ class GameRoom:
                     self._bump_locked()
 
                 if not actions:
+                    with self.cond:
+                        self.legal_actions_by_seat.pop(seat_index, None)
+                        if self.active_action_seat == seat_index:
+                            self.active_action_seat = None
+                        self.status_note = f"{player.name}'s turn ended."
+                        self._bump_locked()
                     return None
 
                 cmd = self._wait_for_action(seat_index)
@@ -2274,8 +2283,8 @@ class RoomManager:
                     raise RuntimeError(f"active room already exists ({active.room_id})")
             if requested_room_id is not None:
                 rid = str(requested_room_id).strip().upper()
-                if not re.fullmatch(r"[A-Z0-9]{8}", rid):
-                    raise ValueError("room_id must be exactly 8 uppercase letters/numbers")
+                if not ROOM_ID_RE.fullmatch(rid):
+                    raise ValueError(f"room_id must be exactly {ROOM_ID_LENGTH} uppercase letters/numbers")
                 if rid in self.rooms:
                     existing = self.rooms.get(rid)
                     if existing is not None and existing.phase in {"ended", "error"}:
@@ -2288,7 +2297,7 @@ class RoomManager:
                 room.persist_now()
                 return room
             for _ in range(100):
-                rid = room_code(8)
+                rid = room_code(ROOM_ID_LENGTH)
                 if rid not in self.rooms:
                     room = GameRoom(rid, host_name, total_players, human_players, ai_players)
                     self.rooms[rid] = room

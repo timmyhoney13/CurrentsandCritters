@@ -948,7 +948,7 @@ from typing import Any
 
 @dataclass
 class Action:
-    kind: str  # draw, play_ocean, play_to_ocean, move_between_oceans
+    kind: str  # draw, play_ocean, play_to_ocean, move_between_oceans, end_turn
     card_uid: int = -1
     face_uid: Optional[int] = None
     ocean_uid: Optional[int] = None
@@ -2056,6 +2056,10 @@ def entry_faces(ms: MatchState, entry_uid: int) -> List[int]:
     if entry_uid in ms.pair_primary_to_faces:
         return [ms.pair_primary_to_faces[entry_uid][0], ms.pair_primary_to_faces[entry_uid][1]]
     return [entry_uid]
+
+
+def canonical_entry_uid(ms: MatchState, uid: int) -> int:
+    return int(ms.face_to_primary.get(uid, uid))
 
 
 def entry_is_ocean(ms: MatchState, gs: GameState, entry_uid: int) -> bool:
@@ -4370,7 +4374,7 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
 
 
 def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState) -> List[Action]:
-    acts = legal_actions(gs, ms, player, include_draw=True)
+    acts = [a for a in legal_actions(gs, ms, player, include_draw=True) if a.kind != "end_turn"]
     if not acts:
         return []
     star_keys = {
@@ -4938,6 +4942,74 @@ def sanitize_runtime_state(
                 if lane_clean != lane_raw:
                     setattr(slots_obj, direction, lane_clean)
 
+    # Global ownership dedupe: one card entry cannot exist in multiple zones.
+    claimed_entries: set[int] = set()
+
+    def _dedupe_zone(items: List[int], label: str) -> Tuple[List[int], int]:
+        out: List[int] = []
+        dropped = 0
+        for raw in items:
+            if not isinstance(raw, int):
+                dropped += 1
+                continue
+            uid = int(raw)
+            entry_uid = canonical_entry_uid(ms, uid)
+            if entry_uid not in valid_uids:
+                dropped += 1
+                continue
+            if entry_uid in claimed_entries:
+                dropped += 1
+                continue
+            claimed_entries.add(entry_uid)
+            out.append(uid)
+        if dropped:
+            notes.append(f"{label}: removed {dropped} duplicate/invalid card reference(s)")
+        return out, dropped
+
+    # Priority order: board commitments first, then hand, then shared zones.
+    for idx, player in enumerate(gs.players):
+        old_board = list(player.board_oceans)
+        deduped_board, _ = _dedupe_zone(old_board, f"player {idx + 1} board_oceans")
+        if deduped_board != old_board:
+            player.board_oceans = deduped_board
+            keep = set(deduped_board)
+            for key in list(player.ocean_slots.keys()):
+                if key not in keep:
+                    del player.ocean_slots[key]
+
+        for ocean_uid in list(player.board_oceans):
+            slots_obj = player.ocean_slots.get(ocean_uid)
+            if not isinstance(slots_obj, OceanSlots):
+                continue
+            for direction in ("up", "down", "left", "right"):
+                lane_raw = list(slots_obj.slot(direction))
+                lane_clean, _ = _dedupe_zone(
+                    lane_raw,
+                    f"player {idx + 1} ocean {ocean_uid} {direction} lane",
+                )
+                if lane_clean != lane_raw:
+                    setattr(slots_obj, direction, lane_clean)
+
+        hand_raw = list(player.hand)
+        hand_clean, _ = _dedupe_zone(hand_raw, f"player {idx + 1} hand")
+        if hand_clean != hand_raw:
+            player.hand = hand_clean
+
+    pool_raw = list(ms.pool)
+    pool_clean, _ = _dedupe_zone(pool_raw, "pool")
+    if pool_clean != pool_raw:
+        ms.pool = pool_clean
+
+    deck_raw = list(gs.deck)
+    deck_clean, _ = _dedupe_zone(deck_raw, "deck")
+    if deck_clean != deck_raw:
+        gs.deck = deck_clean
+
+    discard_raw = list(ms.discard_pile)
+    discard_clean, _ = _dedupe_zone(discard_raw, "discard_pile")
+    if discard_clean != discard_raw:
+        ms.discard_pile = discard_clean
+
     limit = max(0, int(max_notes))
     return notes[:limit] if limit > 0 else []
 
@@ -5211,10 +5283,11 @@ def build_deck_with_late_end_game(
     bottom_non_end_count = min(14, len(non_end))
     top = non_end[:-bottom_non_end_count] if bottom_non_end_count else non_end
     bottom_group = non_end[-bottom_non_end_count:] if bottom_non_end_count else []
-    bottom_group.append(end_entry)
     rng.shuffle(bottom_group)
 
-    deck = top + bottom_group
+    # Keep END GAME fixed as the very last card while preserving full randomness
+    # for every non-END entry.
+    deck = top + bottom_group + [end_entry]
     return deck, end_uid
 
 
@@ -5277,7 +5350,8 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     multi_baitfish = bool(player.flags.get("free_baitfish_chain", False))
     multi_cephalopods = bool(player.flags.get("free_cephalopods", False))
     multi_yellowfin = int(player.flags.get("free_yellowfin_tuna", 0)) > 0
-    if free_only or multi_paid or multi_baitfish or multi_cephalopods or multi_yellowfin:
+    has_manual_end_window = free_only or multi_paid or multi_baitfish or multi_cephalopods or multi_yellowfin
+    if has_manual_end_window:
         include_draw = False
 
     if include_draw:
@@ -5388,10 +5462,17 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
                                 )
                             )
 
+    if has_manual_end_window:
+        # Optional stop action so players can end a chain window early.
+        actions.append(Action(kind="end_turn"))
+
     return actions
 
 
 def describe_action(gs: GameState, ms: MatchState, action: Action) -> str:
+    if action.kind == "end_turn":
+        return "end turn"
+
     if action.kind == "draw":
         pick_txt = f" (pool picks: {','.join(str(x) for x in action.pool_pick_uids)})" if action.pool_pick_uids else ""
         if action.draw_from_pool == 0:
@@ -5664,6 +5745,10 @@ def apply_action(
                 f"{player.name} moves {moved_face_uid}:{moved_card.name} "
                 f"from ocean {source_ocean_uid} to ocean {target_ocean_uid} on {source_direction} (turn ends)."
             )
+        return True
+
+    if action.kind == "end_turn":
+        turn_state.force_end_turn = True
         return True
 
     if action.card_uid not in player.hand:
