@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quiet Currents | Ocean Card Arena</title>
+  <title>Tidal Wave | Ocean Card Arena</title>
   <style>
     :root {
       --ink: #0f2330;
@@ -47,6 +47,25 @@
       color: var(--soft);
       font-size: 14px;
       font-weight: 600;
+    }
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .nav-link {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      color: #18526d;
+      border: 1px solid #9ac1d6;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #fff;
+    }
+    .nav-link:hover {
+      background: #ebf8ff;
     }
     .hero {
       position: relative;
@@ -121,6 +140,50 @@
       gap: 12px;
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
+    .resume-panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 8px 16px rgba(8, 40, 58, 0.06);
+      padding: 14px;
+      display: none;
+    }
+    .resume-panel h2 {
+      margin: 0 0 6px 0;
+      color: #114d67;
+      font-size: 18px;
+    }
+    .resume-copy {
+      margin: 0 0 10px 0;
+      color: var(--soft);
+      font-size: 14px;
+    }
+    .choice-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+    .choice-btn {
+      border: 1px solid #8fbad0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      background: #f1fbff;
+      color: #16485f;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .choice-btn.alt {
+      background: #fff;
+    }
+    .resume-note {
+      margin-top: 6px;
+      color: #355f73;
+      font-size: 13px;
+      min-height: 18px;
+    }
     .card {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -161,14 +224,22 @@
       .hero { padding: 18px; border-radius: 14px; }
       .lead { font-size: 16px; }
       .btn { width: 100%; }
+      .nav { align-items: flex-start; gap: 8px; }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="nav">
-      <div class="brand">Quiet Currents</div>
-      <div class="sub">Two-player online ocean card game</div>
+      <div>
+        <div class="brand">Tidal Wave</div>
+        <div class="sub">Two-player online ocean card game</div>
+      </div>
+      <div class="nav-links">
+        <a class="nav-link" href="/website">Home</a>
+        <a class="nav-link" href="/rules">Rules</a>
+        <a class="nav-link" href="/about">About</a>
+      </div>
     </div>
 
     <section class="hero">
@@ -178,12 +249,33 @@
         Game state is server-authoritative and built for reconnect-friendly play.
       </p>
       <div class="actions">
+        <a class="btn primary" href="/?fresh_setup=1">Restart Setup (New Key + Players)</a>
         <a class="btn primary" href="/">Open Multiplayer App</a>
         <a class="btn secondary" href="/play/FISHGAME">Open Stable Room Path</a>
+        <a class="btn secondary" href="/rules">Read Rules</a>
+        <a class="btn secondary" href="/about">About This Project</a>
       </div>
       <div class="small">
         Tip: Bookmark this page and your room URL so both players can return fast after refresh.
       </div>
+    </section>
+
+    <section class="resume-panel" id="resumePanel">
+      <h2>Reconnect Previous Game</h2>
+      <p class="resume-copy" id="resumeQuestionA">Were you playing a game before this tunnel failed?</p>
+      <div class="choice-row" id="resumeStepA">
+        <button type="button" class="choice-btn" id="resumeYesBtn">Yes</button>
+        <button type="button" class="choice-btn alt" id="resumeNoBtn">No</button>
+      </div>
+      <div id="resumeStepB" style="display:none;">
+        <p class="resume-copy">What player were you?</p>
+        <div class="choice-row">
+          <button type="button" class="choice-btn" id="resumeP1Btn">Player 1 (Host)</button>
+          <button type="button" class="choice-btn" id="resumeP2Btn">Player 2</button>
+          <button type="button" class="choice-btn alt" id="resumeViewBtn">Just open room</button>
+        </div>
+      </div>
+      <div class="resume-note" id="resumeNote"></div>
     </section>
 
     <section class="grid">
@@ -205,7 +297,83 @@
       </article>
     </section>
 
-    <div class="footer">Quiet Currents Ocean Arena</div>
+    <div class="footer">Tidal Wave Ocean Arena</div>
   </div>
+  <script>
+    (function () {
+      function readStorage(storageObj, key) {
+        try {
+          if (!storageObj) return "";
+          return String(storageObj.getItem(key) || "").trim();
+        } catch {
+          return "";
+        }
+      }
+
+      function readBoth(key) {
+        return readStorage(window.sessionStorage, key) || readStorage(window.localStorage, key);
+      }
+
+      function normalizeRoomId(raw) {
+        const rid = String(raw || "").trim().toUpperCase();
+        return /^[A-Z0-9]{8}$/.test(rid) ? rid : "";
+      }
+
+      const panel = document.getElementById("resumePanel");
+      const stepA = document.getElementById("resumeStepA");
+      const stepB = document.getElementById("resumeStepB");
+      const note = document.getElementById("resumeNote");
+      if (!panel || !stepA || !stepB || !note) return;
+
+      const roomId = normalizeRoomId(readStorage(window.localStorage, "fish_last_room_id"));
+      if (!roomId) return;
+
+      panel.style.display = "block";
+      note.textContent = `Last room found: ${roomId}`;
+
+      const hostTokenKey = `fish_room_${roomId}_host_token`;
+      const seatTokenKey = `fish_room_${roomId}_seat_token`;
+      const createKey = readStorage(window.localStorage, "fish_create_key");
+
+      function goToRoom(kind) {
+        const params = new URLSearchParams();
+        const hostToken = readBoth(hostTokenKey);
+        const seatToken = readBoth(seatTokenKey);
+
+        if (kind === "p1") {
+          if (hostToken) params.set("host_token", hostToken);
+          if (seatToken) params.set("seat_token", seatToken);
+          if (!hostToken && createKey) params.set("create_key", createKey);
+        } else if (kind === "p2") {
+          if (seatToken) params.set("seat_token", seatToken);
+          if (!seatToken && createKey) params.set("create_key", createKey);
+        } else if (kind === "view") {
+          if (createKey) params.set("create_key", createKey);
+        }
+
+        const q = params.toString();
+        const target = q ? `/play/${roomId}?${q}` : `/play/${roomId}`;
+        window.location.assign(target);
+      }
+
+      document.getElementById("resumeYesBtn").addEventListener("click", function () {
+        stepB.style.display = "block";
+        note.textContent = "Choose your player seat to reconnect.";
+      });
+      document.getElementById("resumeNoBtn").addEventListener("click", function () {
+        stepB.style.display = "none";
+        note.textContent = "No problem. You can start a new setup any time.";
+      });
+      document.getElementById("resumeP1Btn").addEventListener("click", function () {
+        goToRoom("p1");
+      });
+      document.getElementById("resumeP2Btn").addEventListener("click", function () {
+        goToRoom("p2");
+      });
+      document.getElementById("resumeViewBtn").addEventListener("click", function () {
+        goToRoom("view");
+      });
+    })();
+  </script>
 </body>
 </html>

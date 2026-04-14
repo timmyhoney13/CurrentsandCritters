@@ -4,6 +4,8 @@
 !.gitignore
 !Dockerfile
 !render.yaml
+!vercel.json
+!.vercelignore
 !DEPLOY_ONLINE.md
 !multiplayer_server.py
 !fish_game_all_in_one.py

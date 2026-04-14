@@ -37,7 +37,29 @@ Deploy steps:
 4. Wait for build and health check to pass.
 5. Open your Render URL and create/join rooms there (no tunnel needed).
 
-## 3) Install As App (PWA)
+## 3) Deploy Frontend + Card Pictures on Vercel
+
+This repo now includes:
+
+- `vercel.json` for route rewrites (`/`, `/play/:room_id`, `/rules`, `/about`, etc.)
+- `.vercelignore` to deploy only the web client and card picture folders
+
+Deploy:
+
+```bash
+vercel --prod
+```
+
+Important:
+
+- Vercel in this setup serves the web app + image assets only.
+- The multiplayer Python server is still best hosted on an always-on backend (for example Render).
+- If you use Vercel Git integration, remember the card folders are currently gitignored in this repo.
+  - Easiest path for picture assets: deploy from local with `vercel --prod` (uses `.vercelignore`).
+- To point the Vercel frontend at your backend API, open the app with `?api_base=...` once (it is saved in `localStorage`):
+  - `https://your-vercel-site.vercel.app/?api_base=https://your-backend-host`
+
+## 4) Install As App (PWA)
 
 - Open the deployed site in Chrome/Edge/Safari.
 - Use "Install App" / "Add to Home Screen".
@@ -46,7 +68,7 @@ Deploy steps:
   - `/sw.js`
   - `/icon.svg`
 
-## 4) Local Tunnel Failover (localhost.run)
+## 5) Local Tunnel Failover (localhost.run)
 
 When you must use localhost.run, run a small tunnel pool so the client can auto-failover to another live URL if one tunnel drops:
 

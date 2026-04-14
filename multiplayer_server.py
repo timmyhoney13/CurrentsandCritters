@@ -31,6 +31,8 @@ import fish_game_all_in_one as fish
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "index.html")
 WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.html")
+RULES_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "rules.html")
+ABOUT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "about.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -333,27 +335,67 @@ def load_public_links() -> List[str]:
     return out
 
 
-def entry_to_dict(ms: fish.MatchState, gs: fish.GameState, entry_uid: int) -> Dict[str, Any]:
-    faces = fish.entry_faces(ms, entry_uid)
+def _missing_card_payload(uid: int) -> Dict[str, Any]:
     return {
-        "entry_uid": int(entry_uid),
-        "label": fish.entry_short_label(ms, gs, entry_uid),
-        "faces": [fish.card_to_dict(gs.card_db[uid]) for uid in faces],
+        "uid": int(uid),
+        "name": "[missing card]",
+        "species": "unknown",
+        "cost": 0,
+        "direction": "n/a",
+        "symbol": "n/a",
+        "text": "Card data missing from current card_db.",
+    }
+
+
+def _card_payload_safe(gs: fish.GameState, uid: int) -> Dict[str, Any]:
+    card = gs.card_db.get(uid)
+    if card is None:
+        return _missing_card_payload(uid)
+    return fish.card_to_dict(card)
+
+
+def entry_to_dict(ms: fish.MatchState, gs: fish.GameState, entry_uid: int) -> Dict[str, Any]:
+    try:
+        entry_id = int(entry_uid)
+    except Exception:
+        entry_id = -1
+    try:
+        faces = fish.entry_faces(ms, entry_uid)
+    except Exception:
+        faces = [entry_uid] if isinstance(entry_uid, int) else []
+    try:
+        label = fish.entry_short_label(ms, gs, entry_uid)
+    except Exception:
+        label = f"{entry_id}:[invalid entry]" if entry_id >= 0 else "[invalid entry]"
+    return {
+        "entry_uid": entry_id,
+        "label": label,
+        "faces": [_card_payload_safe(gs, int(uid)) for uid in faces if isinstance(uid, int)],
     }
 
 
 def board_to_dict(player: fish.PlayerState, gs: fish.GameState) -> List[Dict[str, Any]]:
     payload: List[Dict[str, Any]] = []
     for ocean_uid in player.board_oceans:
-        slots = player.ocean_slots[ocean_uid]
+        try:
+            ocean_id = int(ocean_uid)
+        except Exception:
+            continue
+        slots = player.ocean_slots.get(ocean_uid)
+        if not isinstance(slots, fish.OceanSlots):
+            slots = fish.OceanSlots()
+        up = [_card_payload_safe(gs, int(uid)) for uid in list(getattr(slots, "up", [])) if isinstance(uid, int)]
+        down = [_card_payload_safe(gs, int(uid)) for uid in list(getattr(slots, "down", [])) if isinstance(uid, int)]
+        left = [_card_payload_safe(gs, int(uid)) for uid in list(getattr(slots, "left", [])) if isinstance(uid, int)]
+        right = [_card_payload_safe(gs, int(uid)) for uid in list(getattr(slots, "right", [])) if isinstance(uid, int)]
         payload.append(
             {
-                "ocean_uid": int(ocean_uid),
-                "ocean": fish.card_to_dict(gs.card_db[ocean_uid]),
-                "up": [fish.card_to_dict(gs.card_db[uid]) for uid in slots.up],
-                "down": [fish.card_to_dict(gs.card_db[uid]) for uid in slots.down],
-                "left": [fish.card_to_dict(gs.card_db[uid]) for uid in slots.left],
-                "right": [fish.card_to_dict(gs.card_db[uid]) for uid in slots.right],
+                "ocean_uid": ocean_id,
+                "ocean": _card_payload_safe(gs, ocean_id),
+                "up": up,
+                "down": down,
+                "left": left,
+                "right": right,
             }
         )
     return payload
@@ -1547,8 +1589,33 @@ class GameRoom:
         scores_now: Dict[str, int] = {}
 
         for idx, p in enumerate(gs.players):
-            full_breakdown = fish.full_score_breakdown(gs, p)
-            score = int(full_breakdown.get("total", 0))
+            try:
+                full_breakdown = fish.full_score_breakdown(gs, p)
+                score = int(full_breakdown.get("total", 0))
+            except Exception:
+                try:
+                    score = int(fish.final_points(gs, p))
+                except Exception:
+                    score = int(getattr(p, "score", 0))
+                full_breakdown = {
+                    "total": score,
+                    "rows": [],
+                    "error": "score_breakdown_failed",
+                }
+            try:
+                mandarin_payload = fish.mandarin_goby_score_breakdown(gs, p, precomputed_full=full_breakdown)
+            except Exception:
+                mandarin_payload = {
+                    "count": 0,
+                    "points": 0,
+                    "table": {"1": 0, "2": 15, "3": 30, "4+": 80},
+                    "total_score": score,
+                    "error": "mandarin_breakdown_failed",
+                }
+            try:
+                board_payload = board_to_dict(p, gs)
+            except Exception:
+                board_payload = []
             scores_now[p.name] = score
             players_public.append(
                 {
@@ -1557,23 +1624,63 @@ class GameRoom:
                     "score": score,
                     "score_breakdown": {
                         "full": full_breakdown,
-                        "mandarin_goby": fish.mandarin_goby_score_breakdown(gs, p, precomputed_full=full_breakdown),
+                        "mandarin_goby": mandarin_payload,
                     },
                     "hand_count": len(p.hand),
                     "board_ocean_count": len(p.board_oceans),
-                    "board": board_to_dict(p, gs),
+                    "board": board_payload,
                 }
             )
-            private_hands[idx] = [entry_to_dict(ms, gs, uid) for uid in p.hand]
+            hand_payload: List[Dict[str, Any]] = []
+            for uid in list(p.hand):
+                if not isinstance(uid, int):
+                    continue
+                hand_payload.append(entry_to_dict(ms, gs, uid))
+            private_hands[idx] = hand_payload
 
-        pool_payload = [entry_to_dict(ms, gs, uid) for uid in ms.pool]
+        pool_payload = [entry_to_dict(ms, gs, uid) for uid in list(ms.pool) if isinstance(uid, int)]
+        current_player = None
+        if gs.players:
+            try:
+                current_idx = int(gs.turn_index) % len(gs.players)
+            except Exception:
+                current_idx = 0
+            if 0 <= current_idx < len(gs.players):
+                current_player = gs.players[current_idx].name
+
+        training_players: List[Dict[str, Any]] = []
+        for p in gs.players:
+            try:
+                score_now = int(fish.final_points(gs, p))
+            except Exception:
+                score_now = int(getattr(p, "score", 0))
+            board_slots: Dict[str, Dict[str, List[int]]] = {}
+            for ocean_uid in list(p.board_oceans):
+                slots = p.ocean_slots.get(ocean_uid)
+                if not isinstance(slots, fish.OceanSlots):
+                    continue
+                board_slots[str(ocean_uid)] = {
+                    "up": [int(uid) for uid in list(getattr(slots, "up", [])) if isinstance(uid, int)],
+                    "down": [int(uid) for uid in list(getattr(slots, "down", [])) if isinstance(uid, int)],
+                    "left": [int(uid) for uid in list(getattr(slots, "left", [])) if isinstance(uid, int)],
+                    "right": [int(uid) for uid in list(getattr(slots, "right", [])) if isinstance(uid, int)],
+                }
+            training_players.append(
+                {
+                    "name": p.name,
+                    "score": score_now,
+                    "hand_entry_uids": [int(uid) for uid in list(p.hand) if isinstance(uid, int)],
+                    "board_oceans": [int(uid) for uid in list(p.board_oceans) if isinstance(uid, int)],
+                    "board_slots": board_slots,
+                }
+            )
 
         public_state = {
             "seed": self.seed,
             "turn_number": int(turn_number),
             "turn_index": int(gs.turn_index),
             "round_count": int(gs.round_count),
-            "current_player": gs.players[gs.turn_index].name if gs.players else None,
+            "current_player": current_player,
             "note": note,
             "deck_remaining": len(gs.deck),
             "pool_count": len(ms.pool),
@@ -1591,26 +1698,9 @@ class GameRoom:
             "turn_number": int(turn_number),
             "note": note,
             "deck_remaining": len(gs.deck),
-            "pool_entry_uids": [int(uid) for uid in ms.pool],
+            "pool_entry_uids": [int(uid) for uid in list(ms.pool) if isinstance(uid, int)],
             "discard_count": len(ms.discard_pile),
-            "players": [
-                {
-                    "name": p.name,
-                    "score": int(fish.final_points(gs, p)),
-                    "hand_entry_uids": [int(uid) for uid in p.hand],
-                    "board_oceans": [int(uid) for uid in p.board_oceans],
-                    "board_slots": {
-                        str(ocean_uid): {
-                            "up": [int(uid) for uid in p.ocean_slots[ocean_uid].up],
-                            "down": [int(uid) for uid in p.ocean_slots[ocean_uid].down],
-                            "left": [int(uid) for uid in p.ocean_slots[ocean_uid].left],
-                            "right": [int(uid) for uid in p.ocean_slots[ocean_uid].right],
-                        }
-                        for ocean_uid in p.board_oceans
-                    },
-                }
-                for p in gs.players
-            ],
+            "players": training_players,
         }
 
         summary: Optional[Dict[str, Any]] = None
@@ -1807,7 +1897,10 @@ class GameRoom:
         if 0 <= winner_index < len(gs.players):
             wp = gs.players[winner_index]
             for uid in fish.player_board_face_uids(wp):
-                nm = gs.card_db[uid].name
+                card = gs.card_db.get(uid)
+                if card is None:
+                    continue
+                nm = card.name
                 winner_combo_pattern[nm] = winner_combo_pattern.get(nm, 0) + 1
 
         record = {
@@ -1849,7 +1942,11 @@ class GameRoom:
         recorder = RoomLiveRecorder(self)
         try:
             with BRAIN_LOCK:
-                brain = fish.load_brain(fish.BRAIN_PATH)
+                try:
+                    brain = fish.load_brain(fish.BRAIN_PATH)
+                except Exception as exc:
+                    brain = {"weights": fish.default_weights()}
+                    self._record_event(f"Brain load warning: {exc}. Continuing with default live weights.")
 
             use_history = fish.use_historical_policy_bias()
             ai_weights = dict(fish.default_weights())
@@ -1925,15 +2022,26 @@ class GameRoom:
                 live_recorder=recorder,
             )
 
+            def _safe_score(player: fish.PlayerState) -> int:
+                try:
+                    return int(fish.final_points(gs, player))
+                except Exception:
+                    return int(getattr(player, "score", 0))
+
             standings = [
-                {"name": p.name, "score": int(fish.final_points(gs, p))}
-                for p in sorted(gs.players, key=lambda x: fish.final_points(gs, x), reverse=True)
+                {"name": p.name, "score": _safe_score(p)}
+                for p in sorted(gs.players, key=lambda x: _safe_score(x), reverse=True)
             ]
             winner_name = standings[0]["name"] if standings else None
 
             human_game = bool(human_indices)
-            training_record = self._build_training_record(gs, ms, standings, human_indices)
-            self._append_training_record(training_record)
+            training_record: Dict[str, Any]
+            try:
+                training_record = self._build_training_record(gs, ms, standings, human_indices)
+                self._append_training_record(training_record)
+            except Exception as exc:
+                training_record = {"valuable": False}
+                self._record_event(f"Training record warning: {exc}")
 
             if human_game:
                 # Learn from real human gameplay in every live game.
@@ -1951,18 +2059,21 @@ class GameRoom:
                     demo_boost += 0.25
                 if human_only_game:
                     demo_boost += 0.2
-                with BRAIN_LOCK:
-                    brain2 = fish.load_brain(fish.BRAIN_PATH)
-                    if human_only_game:
-                        # Human-only games can safely use full winner/loser match updates.
-                        fish.update_brain_from_match(gs, brain2)
-                    fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
-                    fish.save_brain(brain2, fish.BRAIN_PATH)
-                learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
-                self._record_event(
-                    f"AI learned from {len(human_indices)} real human player(s) "
-                    f"(mode={learn_mode}, boost={demo_boost:.2f})."
-                )
+                try:
+                    with BRAIN_LOCK:
+                        brain2 = fish.load_brain(fish.BRAIN_PATH)
+                        if human_only_game:
+                            # Human-only games can safely use full winner/loser match updates.
+                            fish.update_brain_from_match(gs, brain2)
+                        fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
+                        fish.save_brain(brain2, fish.BRAIN_PATH)
+                    learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
+                    self._record_event(
+                        f"AI learned from {len(human_indices)} real human player(s) "
+                        f"(mode={learn_mode}, boost={demo_boost:.2f})."
+                    )
+                except Exception as exc:
+                    self._record_event(f"Human-learning warning: {exc}")
 
             with self.cond:
                 self.phase = "ended"
@@ -2016,17 +2127,25 @@ class GameRoom:
                     viewer_seat = self.host_seat()
             viewer_index = viewer_seat.index if viewer_seat is not None else None
 
-            state_obj = copy.deepcopy(self.latest_public_state) if self.latest_public_state else None
-            if state_obj is not None and viewer_index is not None:
-                for p in state_obj.get("players", []):
-                    idx = p.get("index")
-                    if idx == viewer_index:
-                        p["hand"] = copy.deepcopy(self.latest_private_hands.get(idx, []))
-                    else:
-                        p["hand"] = []
-            elif state_obj is not None:
-                for p in state_obj.get("players", []):
-                    p["hand"] = []
+            state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
+            if isinstance(state_obj, dict):
+                players_list = state_obj.get("players")
+                if not isinstance(players_list, list):
+                    players_list = []
+                    state_obj["players"] = players_list
+                if viewer_index is not None:
+                    for p in players_list:
+                        if not isinstance(p, dict):
+                            continue
+                        idx = p.get("index")
+                        if idx == viewer_index:
+                            p["hand"] = copy.deepcopy(self.latest_private_hands.get(idx, []))
+                        else:
+                            p["hand"] = []
+                else:
+                    for p in players_list:
+                        if isinstance(p, dict):
+                            p["hand"] = []
 
             legal_payload: Optional[Dict[str, Any]] = None
             if viewer_index is not None:
@@ -2081,7 +2200,10 @@ class RoomLiveRecorder:
         self.room = room
 
     def event(self, msg: str) -> None:
-        self.room._record_event(msg)
+        try:
+            self.room._record_event(msg)
+        except Exception:
+            return
 
     def executed_action(
         self,
@@ -2101,12 +2223,22 @@ class RoomLiveRecorder:
         )
 
     def snapshot(self, gs: fish.GameState, ms: fish.MatchState, turn_number: int, note: str) -> None:
-        self.room._record_snapshot(gs, ms, turn_number=turn_number, note=note)
+        try:
+            self.room._record_snapshot(gs, ms, turn_number=turn_number, note=note)
+        except Exception as exc:
+            self.event(f"Snapshot warning: {exc}")
 
     def reset(self, gs: fish.GameState, ms: fish.MatchState) -> None:
-        self.room._reset_tracking(gs, ms)
+        try:
+            self.room._reset_tracking(gs, ms)
+        except Exception:
+            return
         self.event(f"Players: {', '.join(p.name for p in gs.players)}")
-        self.event(f"Opening pool: {fish.short_entry_list(ms, gs, ms.pool)}")
+        try:
+            pool_label = fish.short_entry_list(ms, gs, ms.pool)
+        except Exception:
+            pool_label = "(unavailable)"
+        self.event(f"Opening pool: {pool_label}")
         self.snapshot(gs, ms, turn_number=0, note="game_start")
 
 
@@ -2285,18 +2417,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if extra_headers:
             for key, value in extra_headers.items():
                 self.send_header(str(key), str(value))
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
 
     def _send_json(self, payload: Dict[str, Any], status: int = HTTPStatus.OK) -> None:
         raw = json_dumps(payload)
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self._apply_cors_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self._apply_cors_headers()
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
 
     def _send_index_html(self) -> None:
         try:
@@ -2311,8 +2449,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Keep clients in sync so all players render the same UI version.
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
 
     def _send_website_html(self) -> None:
         try:
@@ -2326,8 +2467,47 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self._apply_cors_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
-        self.end_headers()
-        self.wfile.write(raw)
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
+
+    def _send_rules_html(self) -> None:
+        try:
+            with open(RULES_INDEX_PATH, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": "rules page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_cors_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
+
+    def _send_about_html(self) -> None:
+        try:
+            with open(ABOUT_INDEX_PATH, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": "about page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_cors_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
 
     def _read_json_body(self) -> tuple[Dict[str, Any], Optional[str]]:
         try:
@@ -2424,6 +2604,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": False, "error": "website page missing"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        if len(parts) == 1 and parts[0] == "rules":
+            if os.path.exists(RULES_INDEX_PATH):
+                self._send_rules_html()
+                return
+            self._send_json({"ok": False, "error": "rules page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        if len(parts) == 1 and parts[0] == "about":
+            if os.path.exists(ABOUT_INDEX_PATH):
+                self._send_about_html()
+                return
+            self._send_json({"ok": False, "error": "about page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if parsed.path == "/" and os.path.exists(CLIENT_INDEX_PATH):
             self._send_index_html()
             return
@@ -2487,7 +2681,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     self.wfile.flush()
                     last_version = version
 
-                changed = room.wait_for_update(last_version, timeout_sec=20.0)
+                changed = room.wait_for_update(last_version, timeout_sec=5.0)
                 if not changed:
                     self.wfile.write(b": ping\n\n")
                     self.wfile.flush()

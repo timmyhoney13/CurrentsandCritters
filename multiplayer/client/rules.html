@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidal Wave | Rules</title>
+  <style>
+    :root {
+      --ink: #0f2330;
+      --soft: #456879;
+      --paper: #f7fbff;
+      --panel: #ffffff;
+      --line: #c4d8e6;
+      --sea: #0a8fb8;
+      --reef: #16a36b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Gill Sans", "Avenir Next", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(1200px 420px at -8% -12%, #d8f3ff 0%, transparent 55%),
+        radial-gradient(1100px 460px at 108% -20%, #d9ffe8 0%, transparent 52%),
+        linear-gradient(180deg, #eef8ff 0%, #f7fbff 55%, #ffffff 100%);
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: clamp(28px, 4.8vw, 44px);
+      margin: 0;
+      color: #0a3d57;
+      letter-spacing: 0.2px;
+      font-family: "Copperplate", "Avenir Next Condensed", "Trebuchet MS", sans-serif;
+    }
+    .nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      color: #18526d;
+      border: 1px solid #9ac1d6;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #fff;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      padding: 16px;
+      box-shadow: 0 10px 18px rgba(8, 40, 58, 0.06);
+      margin-bottom: 12px;
+    }
+    h2 {
+      margin: 0 0 8px 0;
+      color: #114d67;
+      font-size: 20px;
+    }
+    p, li {
+      color: var(--soft);
+      line-height: 1.5;
+      font-size: 15px;
+    }
+    ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .btn {
+      text-decoration: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-weight: 800;
+      font-size: 14px;
+      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn.primary {
+      color: #fff;
+      background: linear-gradient(180deg, #1da4ce 0%, #0d84af 100%);
+      border-color: #0d84af;
+    }
+    .btn.secondary {
+      color: #18526d;
+      background: #fff;
+      border-color: #9ac1d6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <h1 class="title">Rules</h1>
+      <div class="nav">
+        <a href="/website">Home</a>
+        <a href="/about">About</a>
+        <a href="/">Play</a>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2>Match Setup</h2>
+      <ul>
+        <li>Create a room with your host key and choose total players.</li>
+        <li>Each human claims a seat before the game can start.</li>
+        <li>Host starts the game once all required human seats are filled.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Turn Basics</h2>
+      <ul>
+        <li>On your turn, choose one legal action shown by the game UI.</li>
+        <li>You can draw, play an ocean, play an animal, or discard when required.</li>
+        <li>Some cards allow star actions like play-again, free plays, or extra draws.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Board Placement</h2>
+      <ul>
+        <li>Ocean cards create anchors for lanes and attached cards.</li>
+        <li>Direction-based cards are played to matching sides when legal.</li>
+        <li>The game enforces legal placement, costs, and symbol requirements.</li>
+      </ul>
+    </section>
+
+    <section class="panel">
+      <h2>Scoring and End</h2>
+      <ul>
+        <li>Score is calculated from card text, species synergies, and ocean effects.</li>
+        <li>When end-game triggers, final turns resolve and winner is announced.</li>
+        <li>Use restart to begin a new round in the same room.</li>
+      </ul>
+      <div class="actions">
+        <a class="btn primary" href="/">Open Multiplayer App</a>
+        <a class="btn secondary" href="/play/FISHGAME">Open Stable Room Path</a>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

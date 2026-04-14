@@ -104,7 +104,13 @@ class GameState:
     log: List[str] = field(default_factory=list)
 
     def current_player(self) -> PlayerState:
-        return self.players[self.turn_index]
+        if not self.players:
+            raise RuntimeError("no players in game state")
+        idx = self.turn_index if isinstance(self.turn_index, int) else 0
+        if idx < 0 or idx >= len(self.players):
+            idx = idx % len(self.players)
+            self.turn_index = idx
+        return self.players[idx]
 
 
 # -----------------------------
@@ -165,7 +171,10 @@ def register_star_ability(card_name: str):
 
 
 def run_main_ability(gs: GameState, card_uid: int, player: PlayerState, ctx: Optional[dict] = None) -> None:
-    cd = gs.card_db[card_uid]
+    cd = gs.card_db.get(card_uid)
+    if cd is None:
+        gs.log.append(f"Skipping main ability for missing card uid={card_uid}.")
+        return
     fn = ABILITIES_BY_UID.get(card_uid)
     if fn is None:
         fn = ABILITIES.get(cd.name.lower())
@@ -177,7 +186,10 @@ def run_main_ability(gs: GameState, card_uid: int, player: PlayerState, ctx: Opt
 
 
 def run_star_ability(gs: GameState, card_uid: int, player: PlayerState, ctx: Optional[dict] = None) -> None:
-    cd = gs.card_db[card_uid]
+    cd = gs.card_db.get(card_uid)
+    if cd is None:
+        gs.log.append(f"Skipping STAR ability for missing card uid={card_uid}.")
+        return
     fn = STAR_ABILITIES_BY_UID.get(card_uid)
     if fn is None:
         fn = STAR_ABILITIES.get(cd.name.lower())
@@ -2048,15 +2060,24 @@ def entry_faces(ms: MatchState, entry_uid: int) -> List[int]:
 
 def entry_is_ocean(ms: MatchState, gs: GameState, entry_uid: int) -> bool:
     faces = entry_faces(ms, entry_uid)
-    return any(is_ocean(gs.card_db[uid]) for uid in faces)
+    for uid in faces:
+        card = gs.card_db.get(uid)
+        if card is not None and is_ocean(card):
+            return True
+    return False
 
 
 def entry_label(ms: MatchState, gs: GameState, entry_uid: int) -> str:
     faces = entry_faces(ms, entry_uid)
     if len(faces) == 1:
-        return card_label(gs.card_db[faces[0]])
-    a = gs.card_db[faces[0]]
-    b = gs.card_db[faces[1]]
+        c = gs.card_db.get(faces[0])
+        if c is None:
+            return f"{entry_uid}: [missing card {faces[0]}]"
+        return card_label(c)
+    a = gs.card_db.get(faces[0])
+    b = gs.card_db.get(faces[1])
+    if a is None or b is None:
+        return f"{entry_uid}: TWO-SIDED CARD [missing face data]"
     pair_num = ""
     if 1 <= faces[0] <= 96:
         pair_num = f" (Card #{(faces[0] + 1) // 2})"
@@ -2072,17 +2093,22 @@ def entry_label(ms: MatchState, gs: GameState, entry_uid: int) -> str:
 def entry_short_label(ms: MatchState, gs: GameState, entry_uid: int) -> str:
     faces = entry_faces(ms, entry_uid)
     if len(faces) == 1:
-        c = gs.card_db[faces[0]]
-        return f"{entry_uid}:{c.name}"
-    a = gs.card_db[faces[0]]
-    b = gs.card_db[faces[1]]
+        c = gs.card_db.get(faces[0])
+        return f"{entry_uid}:{c.name}" if c is not None else f"{entry_uid}:[missing]"
+    a = gs.card_db.get(faces[0])
+    b = gs.card_db.get(faces[1])
+    if a is None or b is None:
+        return f"{entry_uid}:[missing pair]"
     return f"{entry_uid}:{a.name}/{b.name}"
 
 
 def symbol_match_for_entry(ms: MatchState, gs: GameState, entry_uid: int, target_symbol: str) -> bool:
     target = normalize_symbol(target_symbol)
     for uid in entry_faces(ms, entry_uid):
-        if normalize_symbol(gs.card_db[uid].symbol) == target:
+        card = gs.card_db.get(uid)
+        if card is None:
+            continue
+        if normalize_symbol(card.symbol) == target:
             return True
     return False
 
@@ -4655,7 +4681,9 @@ def can_share_slot(card: CardDef) -> bool:
 def can_attach_to_ocean(gs: GameState, player: PlayerState, card_uid: int, ocean_uid: int) -> bool:
     if ocean_uid not in player.ocean_slots:
         return False
-    card = gs.card_db[card_uid]
+    card = gs.card_db.get(card_uid)
+    if card is None:
+        return False
     direction = card.direction.strip().lower()
     if direction not in {"up", "down", "left", "right"}:
         return False
@@ -4666,7 +4694,13 @@ def can_attach_to_ocean(gs: GameState, player: PlayerState, card_uid: int, ocean
     if new_key is None:
         return False
     # Stacking is only legal on the same stackable card family.
-    return all(share_stack_key(gs.card_db[uid]) == new_key for uid in slot_cards)
+    for uid in slot_cards:
+        existing = gs.card_db.get(uid)
+        if existing is None:
+            return False
+        if share_stack_key(existing) != new_key:
+            return False
+    return True
 
 
 def locate_face_on_board(player: PlayerState, face_uid: int) -> Optional[Tuple[int, str, int]]:
@@ -4704,6 +4738,208 @@ def can_move_face_to_ocean(
     if normalize_direction(card.direction) != found_direction:
         return False
     return can_attach_to_ocean(gs, player, face_uid, target_ocean_uid)
+
+
+def _sanitize_int_uid_list(items: Any, valid_uids: set[int], dedupe: bool = False) -> Tuple[List[int], int]:
+    cleaned: List[int] = []
+    dropped = 0
+    seen: set[int] = set()
+    if not isinstance(items, list):
+        return cleaned, dropped
+    for raw in items:
+        if not isinstance(raw, int):
+            dropped += 1
+            continue
+        uid = int(raw)
+        if uid not in valid_uids:
+            dropped += 1
+            continue
+        if dedupe and uid in seen:
+            dropped += 1
+            continue
+        seen.add(uid)
+        cleaned.append(uid)
+    return cleaned, dropped
+
+
+def sanitize_runtime_state(
+    gs: GameState,
+    ms: MatchState,
+    action_policies: Optional[List[Callable[[GameState, MatchState, PlayerState], Optional[Action]]]] = None,
+    max_notes: int = 24,
+) -> List[str]:
+    """
+    Repair obvious runtime state corruption in-place.
+    This is intentionally conservative: it only removes invalid references and
+    normalizes container shapes so the engine can continue safely.
+    """
+    notes: List[str] = []
+    valid_uids = set(gs.card_db.keys())
+    if not valid_uids:
+        notes.append("card_db is empty; cannot sanitize runtime state")
+        return notes[:max(0, int(max_notes))]
+
+    if not isinstance(gs.players, list):
+        gs.players = []
+        notes.append("players container was invalid and reset")
+    if not gs.players:
+        notes.append("no players available")
+        return notes[:max(0, int(max_notes))]
+
+    if not isinstance(gs.turn_index, int):
+        old = gs.turn_index
+        gs.turn_index = 0
+        notes.append(f"turn_index type invalid ({old!r}); reset to 0")
+    if gs.turn_index < 0 or gs.turn_index >= len(gs.players):
+        old = gs.turn_index
+        gs.turn_index = 0
+        notes.append(f"turn_index out of range ({old}); reset to 0")
+
+    if action_policies is not None and len(action_policies) < len(gs.players):
+        notes.append(
+            f"policy count ({len(action_policies)}) below player count ({len(gs.players)}); modulo fallback will be used"
+        )
+
+    pool_clean, pool_drop = _sanitize_int_uid_list(ms.pool, valid_uids, dedupe=False)
+    if pool_drop:
+        ms.pool = pool_clean
+        notes.append(f"removed {pool_drop} invalid pool entries")
+    elif not isinstance(ms.pool, list):
+        ms.pool = []
+        notes.append("pool container was invalid and reset")
+
+    discard_clean, discard_drop = _sanitize_int_uid_list(ms.discard_pile, valid_uids, dedupe=False)
+    if discard_drop:
+        ms.discard_pile = discard_clean
+        notes.append(f"removed {discard_drop} invalid discard entries")
+    elif not isinstance(ms.discard_pile, list):
+        ms.discard_pile = []
+        notes.append("discard_pile container was invalid and reset")
+
+    if ms.end_game_uid is not None and ms.end_game_uid not in valid_uids:
+        notes.append(f"cleared invalid end_game_uid {ms.end_game_uid}")
+        ms.end_game_uid = None
+
+    # Keep pair maps consistent so entry_faces() cannot emit invalid face uids.
+    if not isinstance(ms.pair_primary_to_faces, dict):
+        ms.pair_primary_to_faces = {}
+        notes.append("pair_primary_to_faces container reset")
+    if not isinstance(ms.face_to_primary, dict):
+        ms.face_to_primary = {}
+        notes.append("face_to_primary container reset")
+    cleaned_pairs: Dict[int, Tuple[int, int]] = {}
+    cleaned_face_to_primary: Dict[int, int] = {}
+    bad_pair_entries = 0
+    for raw_primary, raw_pair in list(ms.pair_primary_to_faces.items()):
+        if not isinstance(raw_primary, int):
+            bad_pair_entries += 1
+            continue
+        if not isinstance(raw_pair, (list, tuple)) or len(raw_pair) != 2:
+            bad_pair_entries += 1
+            continue
+        a, b = raw_pair[0], raw_pair[1]
+        if not isinstance(a, int) or not isinstance(b, int):
+            bad_pair_entries += 1
+            continue
+        if raw_primary not in valid_uids or a not in valid_uids or b not in valid_uids:
+            bad_pair_entries += 1
+            continue
+        cleaned_pairs[int(raw_primary)] = (int(a), int(b))
+        cleaned_face_to_primary[int(a)] = int(raw_primary)
+        cleaned_face_to_primary[int(b)] = int(raw_primary)
+    if bad_pair_entries:
+        notes.append(f"removed {bad_pair_entries} invalid pair-map entries")
+    ms.pair_primary_to_faces = cleaned_pairs
+    ms.face_to_primary = cleaned_face_to_primary
+
+    for idx, player in enumerate(gs.players):
+        if not isinstance(player.flags, dict):
+            player.flags = {}
+            notes.append(f"player {idx + 1} flags were invalid and reset")
+
+        hand_clean, hand_drop = _sanitize_int_uid_list(player.hand, valid_uids, dedupe=True)
+        if hand_drop:
+            player.hand = hand_clean
+            notes.append(f"player {idx + 1}: removed {hand_drop} invalid hand entries")
+        elif not isinstance(player.hand, list):
+            player.hand = []
+            notes.append(f"player {idx + 1}: hand container reset")
+
+        if not isinstance(player.board_oceans, list):
+            player.board_oceans = []
+            notes.append(f"player {idx + 1}: board_oceans container reset")
+
+        board_clean: List[int] = []
+        seen_oceans: set[int] = set()
+        dropped_oceans = 0
+        for raw in player.board_oceans:
+            if not isinstance(raw, int):
+                dropped_oceans += 1
+                continue
+            ocean_uid = int(raw)
+            ocean_card = gs.card_db.get(ocean_uid)
+            if ocean_card is None or (not is_ocean(ocean_card)):
+                dropped_oceans += 1
+                continue
+            if ocean_uid in seen_oceans:
+                dropped_oceans += 1
+                continue
+            seen_oceans.add(ocean_uid)
+            board_clean.append(ocean_uid)
+        if dropped_oceans:
+            notes.append(f"player {idx + 1}: removed {dropped_oceans} invalid board oceans")
+        player.board_oceans = board_clean
+
+        if not isinstance(player.ocean_slots, dict):
+            player.ocean_slots = {}
+            notes.append(f"player {idx + 1}: ocean_slots container reset")
+
+        slot_keys = list(player.ocean_slots.keys())
+        for key in slot_keys:
+            if key not in seen_oceans:
+                del player.ocean_slots[key]
+                notes.append(f"player {idx + 1}: removed dangling slot map for ocean {key}")
+
+        for ocean_uid in player.board_oceans:
+            slots_obj = player.ocean_slots.get(ocean_uid)
+            if not isinstance(slots_obj, OceanSlots):
+                slots_obj = OceanSlots()
+                player.ocean_slots[ocean_uid] = slots_obj
+                notes.append(f"player {idx + 1}: rebuilt slots for ocean {ocean_uid}")
+
+            for direction in ("up", "down", "left", "right"):
+                lane_raw = getattr(slots_obj, direction, None)
+                if not isinstance(lane_raw, list):
+                    setattr(slots_obj, direction, [])
+                    notes.append(f"player {idx + 1}: reset non-list lane {direction} on ocean {ocean_uid}")
+                    continue
+
+                lane_clean: List[int] = []
+                lane_seen: set[int] = set()
+                lane_drop = 0
+                for raw in lane_raw:
+                    if not isinstance(raw, int):
+                        lane_drop += 1
+                        continue
+                    face_uid = int(raw)
+                    card = gs.card_db.get(face_uid)
+                    if card is None or is_ocean(card):
+                        lane_drop += 1
+                        continue
+                    if face_uid in lane_seen:
+                        lane_drop += 1
+                        continue
+                    lane_seen.add(face_uid)
+                    lane_clean.append(face_uid)
+                if lane_drop:
+                    notes.append(
+                        f"player {idx + 1}: removed {lane_drop} invalid cards from {direction} lane on ocean {ocean_uid}"
+                    )
+                if lane_clean != lane_raw:
+                    setattr(slots_obj, direction, lane_clean)
+
+    limit = max(0, int(max_notes))
+    return notes[:limit] if limit > 0 else []
 
 
 def free_flag_for_card(card: CardDef) -> Optional[str]:
@@ -5054,7 +5290,9 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
 
     for entry_uid in list(player.hand):
         faces = entry_faces(ms, entry_uid)
-        if len(faces) == 1 and is_ocean(gs.card_db[faces[0]]):
+        first_face = faces[0] if faces else None
+        first_face_card = gs.card_db.get(first_face) if isinstance(first_face, int) else None
+        if len(faces) == 1 and first_face_card is not None and is_ocean(first_face_card):
             face_uid = faces[0]
             if free_only:
                 # Restricted follow-up windows from STAR free-play abilities
@@ -5072,7 +5310,9 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
             continue
 
         for face_uid in faces:
-            card = gs.card_db[face_uid]
+            card = gs.card_db.get(face_uid)
+            if card is None:
+                continue
             if is_ocean(card):
                 continue
             if multi_baitfish and card.species.strip().lower() != "baitfish":
@@ -5406,11 +5646,17 @@ def apply_action(
                 f"cannot move {moved_face_uid}:{moved_card.name} "
                 f"from ocean {source_ocean_uid} to ocean {target_ocean_uid}"
             )
-        src_lane = player.ocean_slots[source_ocean_uid].slot(source_direction)
+        src_slots = player.ocean_slots.get(source_ocean_uid)
+        if not isinstance(src_slots, OceanSlots):
+            return fail("source ocean slots missing before move resolve")
+        src_lane = src_slots.slot(source_direction)
         if source_index < 0 or source_index >= len(src_lane) or src_lane[source_index] != moved_face_uid:
             return fail("source lane changed before move could resolve")
         src_lane.pop(source_index)
-        dst_lane = player.ocean_slots[target_ocean_uid].slot(source_direction)
+        dst_slots = player.ocean_slots.get(target_ocean_uid)
+        if not isinstance(dst_slots, OceanSlots):
+            return fail("target ocean slots missing before move resolve")
+        dst_lane = dst_slots.slot(source_direction)
         dst_lane.append(moved_face_uid)
         turn_state.force_end_turn = True
         if verbose:
@@ -5426,7 +5672,9 @@ def apply_action(
     play_face_uid = action.face_uid if action.face_uid is not None else action.card_uid
     if play_face_uid not in entry_faces(ms, action.card_uid):
         return fail(f"face uid {play_face_uid} is not valid for card entry {action.card_uid}")
-    card = gs.card_db[play_face_uid]
+    card = gs.card_db.get(play_face_uid)
+    if card is None:
+        return fail(f"missing card data for uid {play_face_uid}")
     if action.kind == "play_to_ocean":
         if action.ocean_uid is None or not can_attach_to_ocean(gs, player, play_face_uid, action.ocean_uid):
             return fail(f"cannot attach {card.uid}:{card.name} to ocean {action.ocean_uid}")
@@ -5462,7 +5710,7 @@ def apply_action(
         if any(uid == action.card_uid or uid not in player.hand for uid in explicit_payments):
             return fail("invalid payment uid")
         if require_symbol:
-            sym = normalize_symbol(gs.card_db[play_face_uid].symbol)
+            sym = normalize_symbol(card.symbol)
             if not any(symbol_match_for_entry(ms, gs, uid, sym) for uid in explicit_payments):
                 return fail("no matching symbol in payment cards")
         payments = explicit_payments
@@ -5541,7 +5789,10 @@ def apply_action(
             direction = card.direction.strip().lower()
             if direction not in {"up", "down", "left", "right"}:
                 return fail(f"invalid direction '{card.direction}' for card {card.uid}:{card.name}")
-            player.ocean_slots[action.ocean_uid].slot(direction).append(play_face_uid)
+            slots_obj = player.ocean_slots.get(action.ocean_uid)
+            if not isinstance(slots_obj, OceanSlots):
+                return fail(f"target ocean slots missing for ocean {action.ocean_uid}")
+            slots_obj.slot(direction).append(play_face_uid)
             before_hand = len(player.hand)
             run_main_ability(
                 gs,
@@ -5602,6 +5853,30 @@ def action_features(
     same_ocean_map: Optional[Dict[str, float]] = None,
     include_sim_delta: bool = True,
 ) -> Dict[str, float]:
+    def _safe_zero_features() -> Dict[str, float]:
+        return {
+            "bias": 1.0,
+            "is_ocean": 0.0,
+            "uses_star": 0.0,
+            "card_cost": 0.0,
+            "has_plus": 0.0,
+            "target_occupancy": 0.0,
+            "fills_empty_ocean": 0.0,
+            "draw_from_pool": float(getattr(action, "draw_from_pool", 0)),
+            "pool_pick_value": 0.0,
+            "immediate_delta": 0.0,
+            "synergy_bonus": 0.0,
+            "species_bonus": 0.0,
+            "same_ocean_bonus": 0.0,
+            "symbol_bonus": 0.0,
+            "stack_bonus": 0.0,
+            "plan_fit_bonus": 0.0,
+            "future_value": 0.0,
+            "deny_bonus": 0.0,
+            "overbuild_ocean_penalty": 0.0,
+            "sim_point_delta": 0.0,
+        }
+
     if action.kind == "draw":
         pick_value = 0.0
         if action.pool_pick_uids:
@@ -5640,7 +5915,9 @@ def action_features(
         }
 
     play_face_uid = action.face_uid if action.face_uid is not None else action.card_uid
-    card = gs.card_db[play_face_uid]
+    card = gs.card_db.get(play_face_uid)
+    if card is None:
+        return _safe_zero_features()
     feat = {
         "bias": 1.0,
         "is_ocean": 1.0 if action.kind == "play_ocean" else 0.0,
@@ -5661,8 +5938,8 @@ def action_features(
     }
 
     if action.kind == "play_to_ocean" and action.ocean_uid is not None:
-        slots = player.ocean_slots[action.ocean_uid]
-        count = len(slots.all_cards())
+        slots = player.ocean_slots.get(action.ocean_uid)
+        count = len(slots.all_cards()) if isinstance(slots, OceanSlots) else 0
         feat["target_occupancy"] = float(count)
         feat["fills_empty_ocean"] = 1.0 if count == 0 else 0.0
     else:
@@ -5671,7 +5948,9 @@ def action_features(
 
     t = card.text.lower()
     if card.name.lower() == "clownfish" and action.kind == "play_to_ocean" and action.ocean_uid is not None:
-        t = f"{t} | {gs.card_db[action.ocean_uid].text.lower()}"
+        ocean_card = gs.card_db.get(action.ocean_uid)
+        if ocean_card is not None:
+            t = f"{t} | {ocean_card.text.lower()}"
     base_plus = 0
     for chunk in [x.strip() for x in t.split("|")]:
         if not chunk.startswith("+"):
@@ -5682,9 +5961,9 @@ def action_features(
         if m:
             base_plus += int(m.group(1))
 
-    board = [gs.card_db[uid] for uid in player.board_oceans]
+    board = [gs.card_db[uid] for uid in player.board_oceans if uid in gs.card_db]
     for slots in player.ocean_slots.values():
-        board.extend(gs.card_db[uid] for uid in slots.all_cards())
+        board.extend(gs.card_db[uid] for uid in slots.all_cards() if uid in gs.card_db)
     ocean_count = len(player.board_oceans)
     other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
 
@@ -5695,7 +5974,9 @@ def action_features(
         if action.card_uid != -1 and entry_uid == action.card_uid:
             continue
         for face_uid2 in entry_faces(ms, entry_uid):
-            c2 = gs.card_db[face_uid2]
+            c2 = gs.card_db.get(face_uid2)
+            if c2 is None:
+                continue
             n2 = c2.name.strip().lower()
             s2 = c2.species.strip().lower()
             hand_name_counts[n2] = hand_name_counts.get(n2, 0) + 1
@@ -5787,7 +6068,9 @@ def action_features(
     # Human-like conditional handling: penalize dead plays, reward satisfied conditions.
     same_ocean_cards: List[CardDef] = []
     if action.kind == "play_to_ocean" and action.ocean_uid is not None:
-        same_ocean_cards = [gs.card_db[uid] for uid in player.ocean_slots[action.ocean_uid].all_cards()]
+        slots = player.ocean_slots.get(action.ocean_uid)
+        if isinstance(slots, OceanSlots):
+            same_ocean_cards = [gs.card_db[uid] for uid in slots.all_cards() if uid in gs.card_db]
 
     if "if this is the only creature on this ocean" in t:
         if action.kind == "play_to_ocean" and len(same_ocean_cards) == 0:
@@ -5869,12 +6152,16 @@ def action_features(
         base_plus -= 6
 
     if card.name.lower() == "clownfish" and action.kind == "play_to_ocean" and action.ocean_uid is not None:
-        ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+        ocean_card = gs.card_db.get(action.ocean_uid)
+        ocean_name = ocean_card.name.strip().lower() if ocean_card is not None else ""
         current_v = clownfish_ocean_value(ocean_name)
         best_v = current_v
         for candidate_ocean_uid in player.board_oceans:
             if can_attach_to_ocean(gs, player, play_face_uid, candidate_ocean_uid):
-                candidate_name = gs.card_db[candidate_ocean_uid].name.strip().lower()
+                candidate = gs.card_db.get(candidate_ocean_uid)
+                if candidate is None:
+                    continue
+                candidate_name = candidate.name.strip().lower()
                 best_v = max(best_v, clownfish_ocean_value(candidate_name))
         base_plus += 2.0 * current_v
         if best_v > current_v:
@@ -6610,11 +6897,18 @@ def choose_action_human(gs: GameState, ms: MatchState, player: PlayerState) -> O
 def final_points(gs: GameState, player: PlayerState) -> int:
     board: List[Tuple[int, CardDef, int]] = []
     for ocean_uid in player.board_oceans:
-        ocean = gs.card_db[ocean_uid]
+        ocean = gs.card_db.get(ocean_uid)
+        if ocean is None:
+            continue
         board.append((ocean_uid, ocean, ocean_uid))
-        slots = player.ocean_slots[ocean_uid]
+        slots = player.ocean_slots.get(ocean_uid)
+        if not isinstance(slots, OceanSlots):
+            continue
         for uid in slots.all_cards():
-            board.append((uid, gs.card_db[uid], ocean_uid))
+            face = gs.card_db.get(uid)
+            if face is None:
+                continue
+            board.append((uid, face, ocean_uid))
 
     if not board:
         return 0
@@ -6627,12 +6921,12 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
 
     def has_most_piers() -> bool:
-        my = sum(1 for uid in player.board_oceans if gs.card_db[uid].name.lower() == "pier")
+        my = sum(1 for uid in player.board_oceans if ((gs.card_db.get(uid).name.lower() == "pier") if gs.card_db.get(uid) else False))
         others = []
         for p in gs.players:
             if p is player:
                 continue
-            n = sum(1 for uid in p.board_oceans if gs.card_db[uid].name.lower() == "pier")
+            n = sum(1 for uid in p.board_oceans if ((gs.card_db.get(uid).name.lower() == "pier") if gs.card_db.get(uid) else False))
             others.append(n)
         return my >= max(others) if others else True
 
@@ -6643,7 +6937,9 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             if not slots:
                 continue
             for uid in slots.all_cards():
-                c = gs.card_db[uid]
+                c = gs.card_db.get(uid)
+                if c is None:
+                    continue
                 if c.direction.strip().lower() != "n/a":
                     total_animals += 1
         return total_animals
@@ -6670,14 +6966,18 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     def coral_attached_to_coral_reef_count() -> int:
         total_coral = 0
         for ocean_uid in player.board_oceans:
-            ocean = gs.card_db[ocean_uid]
+            ocean = gs.card_db.get(ocean_uid)
+            if ocean is None:
+                continue
             if ocean.name.lower() != "coral reef":
                 continue
             slots = player.ocean_slots.get(ocean_uid)
             if not slots:
                 continue
             for uid in slots.all_cards():
-                c = gs.card_db[uid]
+                c = gs.card_db.get(uid)
+                if c is None:
+                    continue
                 if c.species.lower() == "coral":
                     total_coral += 1
         return total_coral
@@ -6713,8 +7013,10 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     for uid, card, ocean_uid in board:
         t = card.text.lower()
         # Updated Clownfish: continuous copy of attached ocean's ability text.
-        if card.name.lower() == "clownfish" and ocean_uid in gs.card_db:
-            t = f"{t} | {gs.card_db[ocean_uid].text.lower()}"
+        if card.name.lower() == "clownfish":
+            ocean_card = gs.card_db.get(ocean_uid)
+            if ocean_card is not None:
+                t = f"{t} | {ocean_card.text.lower()}"
         pts = 0
 
         # Common conditional patterns.
@@ -6877,7 +7179,9 @@ def full_score_breakdown(gs: GameState, player: PlayerState) -> Dict[str, Any]:
     """
     rows: List[Dict[str, Any]] = []
     for ocean_uid in player.board_oceans:
-        ocean = gs.card_db[ocean_uid]
+        ocean = gs.card_db.get(ocean_uid)
+        if ocean is None:
+            continue
         rows.append(
             {
                 "uid": int(ocean_uid),
@@ -6892,7 +7196,9 @@ def full_score_breakdown(gs: GameState, player: PlayerState) -> Dict[str, Any]:
         if not slots:
             continue
         for uid in slots.all_cards():
-            c = gs.card_db[uid]
+            c = gs.card_db.get(uid)
+            if c is None:
+                continue
             rows.append(
                 {
                     "uid": int(uid),
@@ -6925,7 +7231,9 @@ def mandarin_goby_score_breakdown(
         if not slots:
             continue
         for uid in slots.all_cards():
-            board_cards.append(gs.card_db[uid])
+            c = gs.card_db.get(uid)
+            if c is not None:
+                board_cards.append(c)
 
     goby_count = sum(1 for c in board_cards if c.name.strip().lower() == "mandarin goby")
     if goby_count <= 1:
@@ -6948,11 +7256,17 @@ def mandarin_goby_score_breakdown(
 def board_cards_label(gs: GameState, player: PlayerState) -> str:
     cards: List[str] = []
     for uid in player.board_oceans:
-        c = gs.card_db[uid]
+        c = gs.card_db.get(uid)
+        if c is None:
+            cards.append(f"{uid}:[missing](Ocean)")
+            continue
         cards.append(f"{uid}:{c.name}(Ocean)")
     for slots in player.ocean_slots.values():
         for uid in slots.all_cards():
-            c = gs.card_db[uid]
+            c = gs.card_db.get(uid)
+            if c is None:
+                cards.append(f"{uid}:[missing]")
+                continue
             cards.append(f"{uid}:{c.name}")
     return ", ".join(cards) if cards else "(no cards)"
 
@@ -7100,6 +7414,7 @@ def run_match(
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)
+    _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
     assigned_archetypes: List[Tuple[str, str, float]] = []
     if player_archetype_profiles:
@@ -7143,11 +7458,36 @@ def run_match(
 
     turns = 0
     stalled_turns = 0
+    sanitize_log_budget = 40
     move_histories: Dict[int, List[Dict[str, float]]] = {i: [] for i in range(len(gs.players))}
     move_signatures: Dict[int, List[str]] = {i: [] for i in range(len(gs.players))}
     while True:
         if max_turns > 0 and turns >= max_turns:
             break
+        if not gs.players:
+            gs.log.append("Match ended: no players available.")
+            if live_recorder is not None:
+                live_recorder.event("Match ended: no players available.")
+            break
+        if not action_policies:
+            gs.log.append("Match ended: no action policies available.")
+            if live_recorder is not None:
+                live_recorder.event("Match ended: no action policies available.")
+            break
+        sanitize_notes = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=8)
+        if sanitize_notes:
+            for note in sanitize_notes[:2]:
+                gs.log.append(f"State sanitizer: {note}")
+            if live_recorder is not None and sanitize_log_budget > 0:
+                for note in sanitize_notes[:3]:
+                    if sanitize_log_budget <= 0:
+                        break
+                    live_recorder.event(f"State sanitizer: {note}")
+                    sanitize_log_budget -= 1
+                extra = len(sanitize_notes) - 3
+                if extra > 0 and sanitize_log_budget > 0:
+                    live_recorder.event(f"State sanitizer: +{extra} additional fixes")
+                    sanitize_log_budget -= 1
         p = gs.current_player()
         turn_state = TurnState()
         made_action_this_turn = False
@@ -7174,9 +7514,12 @@ def run_match(
         action_budget = 1
         while action_budget > 0:
             was_free_only = bool(p.flags.get("_free_action_only", False))
-            policy = action_policies[gs.turn_index]
+            policy_index = int(gs.turn_index)
+            if policy_index < 0 or policy_index >= len(action_policies):
+                policy_index = policy_index % len(action_policies)
+            policy = action_policies[policy_index]
             chosen = policy(gs, ms, p)
-            is_human_turn = gs.turn_index in human_idx_set
+            is_human_turn = policy_index in human_idx_set
             interactive_human_turn = is_human_turn and (not web_control_mode)
             if chosen is None:
                 # fallback to legal draw if possible
@@ -7206,21 +7549,30 @@ def run_match(
             online_same_ocean_map = (
                 online_state.get("same_ocean_synergy", {}) if isinstance(online_state, dict) else {}
             )
-            had_play_option = any(a.kind != "draw" for a in legal_actions(gs, ms, p, include_draw=True))
-            before_score = final_points(gs, p) if do_online else 0
-            chosen_feats = (
-                action_features(
-                    gs,
-                    ms,
-                    p,
-                    chosen,
-                    synergy_map=online_synergy_map,
-                    species_map=online_species_map,
-                    same_ocean_map=online_same_ocean_map,
-                )
-                if do_online
-                else None
-            )
+            try:
+                had_play_option = any(a.kind != "draw" for a in legal_actions(gs, ms, p, include_draw=True))
+            except Exception:
+                had_play_option = False
+            if do_online:
+                try:
+                    before_score = final_points(gs, p)
+                except Exception:
+                    before_score = int(getattr(p, "score", 0))
+                try:
+                    chosen_feats = action_features(
+                        gs,
+                        ms,
+                        p,
+                        chosen,
+                        synergy_map=online_synergy_map,
+                        species_map=online_species_map,
+                        same_ocean_map=online_same_ocean_map,
+                    )
+                except Exception:
+                    chosen_feats = None
+            else:
+                before_score = 0
+                chosen_feats = None
             executed_action = chosen
             executed_feats = chosen_feats
             fail_messages: List[str] = []
@@ -7248,15 +7600,18 @@ def run_match(
                         live_recorder.event(f"{p.name} fallback: {describe_action(gs, ms, fallback)}")
                     if do_online:
                         executed_action = fallback
-                        executed_feats = action_features(
-                            gs,
-                            ms,
-                            p,
-                            fallback,
-                            synergy_map=online_synergy_map,
-                            species_map=online_species_map,
-                            same_ocean_map=online_same_ocean_map,
-                        )
+                        try:
+                            executed_feats = action_features(
+                                gs,
+                                ms,
+                                p,
+                                fallback,
+                                synergy_map=online_synergy_map,
+                                species_map=online_species_map,
+                                same_ocean_map=online_same_ocean_map,
+                            )
+                        except Exception:
+                            executed_feats = None
                     fb_fail_messages: List[str] = []
                     ok = apply_action(gs, ms, p, fallback, turn_state, picker, verbose=verbose, fail_reason=fb_fail_messages)
                 if not ok:
@@ -7267,9 +7622,13 @@ def run_match(
                         fb_reason = fb_fail_messages[-1] if 'fb_fail_messages' in locals() and fb_fail_messages else "unknown reason"
                         live_recorder.event(f"{p.name} action failed: {fb_reason}")
                     break
+            _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
             if do_online and executed_feats is not None:
-                after_score = final_points(gs, p)
+                try:
+                    after_score = final_points(gs, p)
+                except Exception:
+                    after_score = int(getattr(p, "score", 0))
                 reward = float(after_score - before_score)
                 pressure = endgame_pressure(len(gs.deck))
                 future_v = float(executed_feats.get("future_value", 0.0))
@@ -7294,7 +7653,7 @@ def run_match(
                 elif reward < -8.0:
                     reward = -8.0
                 online_update_weights(online_weights, executed_feats, reward, lr=effective_online_lr)
-                move_histories[gs.turn_index].append(dict(executed_feats))
+                move_histories.setdefault(int(gs.turn_index), []).append(dict(executed_feats))
                 if online_state is not None:
                     online_state["move_updates"] = int(online_state.get("move_updates", 0)) + 1
                     if online_state_path:
@@ -7303,7 +7662,7 @@ def run_match(
             executed_sig = action_signature(gs, ms, p, executed_action)
             p.flags["_last_sig"] = executed_sig
             if do_online:
-                move_signatures[gs.turn_index].append(executed_sig)
+                move_signatures.setdefault(int(gs.turn_index), []).append(executed_sig)
 
             if live_recorder is not None and hasattr(live_recorder, "executed_action"):
                 try:
@@ -7421,6 +7780,8 @@ def run_match(
         finals = [final_points(gs, p) for p in gs.players]
         for i, feats_list in move_histories.items():
             if not feats_list:
+                continue
+            if i < 0 or i >= len(finals):
                 continue
             my = finals[i]
             others = [s for j, s in enumerate(finals) if j != i]

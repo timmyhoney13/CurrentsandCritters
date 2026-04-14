@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b6f90" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <title>Fish Game Multiplayer</title>
+  <title>Tidal Wave Multiplayer</title>
   <style>
     :root {
       --bg: #f0f6fb;
@@ -715,7 +715,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Fish Game Multiplayer</h1>
+    <h1>Tidal Wave Multiplayer</h1>
     <div class="subtitle">Create a room, share one link, claim seats, and play live with private hands.</div>
 
     <section class="panel" id="connectionPanel">
@@ -864,10 +864,23 @@
   </div>
 
   <script>
+    const POLL_INTERVAL_MS = 850;
+    const STATE_FETCH_TIMEOUT_MS = 3200;
+    const FAILOVER_COOLDOWN_MS = 900;
+    const STREAM_STALE_FAILOVER_MS = 3500;
+    const WATCHDOG_INTERVAL_MS = 1200;
+    const WATCHDOG_STALE_REFRESH_MS = 2400;
+    const FAILOVER_HEALTH_TIMEOUT_MS = 900;
+    const FAILOVER_STATE_TIMEOUT_MS = 1300;
+    const FAILOVER_MAX_CANDIDATES = 4;
+
     let roomId = null;
     let latestPayload = null;
     let eventSource = null;
     let pollTimer = null;
+    let watchdogTimer = null;
+    let refreshInFlight = false;
+    let refreshQueued = false;
     let roomNotFoundStreak = 0;
     let failoverInFlight = false;
     let lastFailoverAttemptAt = 0;
@@ -916,12 +929,32 @@
       }
     }
 
+    function isLocalBaseUrl(raw) {
+      const base = normalizeAbsoluteBaseUrl(raw);
+      if (!base) return false;
+      try {
+        const host = new URL(base).hostname.toLowerCase();
+        if (!host) return false;
+        if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1") return true;
+        if (host.endsWith(".local")) return true;
+        if (/^10\./.test(host)) return true;
+        if (/^192\.168\./.test(host)) return true;
+        const m = host.match(/^172\.(\d+)\./);
+        if (m) {
+          const n = Number(m[1]);
+          if (Number.isFinite(n) && n >= 16 && n <= 31) return true;
+        }
+      } catch {}
+      return false;
+    }
+
     function knownBaseUrlsStorageKey() {
       return "fish_known_base_urls";
     }
 
     function persistKnownBaseUrls() {
-      const list = Array.from(knownBaseUrls).slice(0, 24);
+      // Keep most-recent links, not oldest stale links.
+      const list = Array.from(knownBaseUrls).slice(-24);
       try {
         localStorage.setItem(knownBaseUrlsStorageKey(), JSON.stringify(list));
       } catch {}
@@ -962,6 +995,8 @@
         if (excluded && base === excluded) continue;
         out.push(base);
       }
+      // Set iteration is insertion-ordered (oldest -> newest). Try newest first.
+      out.reverse();
       return out;
     }
 
@@ -980,6 +1015,17 @@
         } catch {}
         ingestKnownBaseUrl(fromUrl);
         return fromUrl;
+      }
+
+      // Prefer the origin of the currently-open page so new tunnel/domain links
+      // recover immediately instead of hanging on a stale saved base.
+      const currentOrigin = normalizeAbsoluteBaseUrl(location.origin);
+      if (currentOrigin) {
+        try {
+          localStorage.setItem("fish_api_base_url", currentOrigin);
+        } catch {}
+        ingestKnownBaseUrl(currentOrigin);
+        return currentOrigin;
       }
       try {
         const stored = normalizeBaseUrl(localStorage.getItem("fish_api_base_url") || "");
@@ -1036,6 +1082,13 @@
       try {
         if (!storageObj) return;
         storageObj.setItem(key, value);
+      } catch {}
+    }
+
+    function removeStorageValue(storageObj, key) {
+      try {
+        if (!storageObj) return;
+        storageObj.removeItem(key);
       } catch {}
     }
 
@@ -1176,6 +1229,42 @@
       return String(getCreateKey() || "").trim();
     }
 
+    function clearStoredLobbyState(opts = {}) {
+      const clearCreateKey = opts.clearCreateKey !== false;
+      const clearLastRoom = opts.clearLastRoom !== false;
+      const clearSeatTokens = opts.clearSeatTokens !== false;
+
+      if (clearCreateKey) {
+        volatileCreateKey = "";
+        removeStorageValue(window.localStorage, createKeyStorageKey());
+      }
+      if (clearLastRoom) {
+        volatileLastRoomId = "";
+        removeStorageValue(window.localStorage, lastRoomStorageKey());
+      }
+      if (clearSeatTokens) {
+        volatileSeatTokens.clear();
+        volatileHostTokens.clear();
+
+        const dropPrefixedKeys = (storageObj) => {
+          try {
+            if (!storageObj || typeof storageObj.length !== "number") return;
+            const keys = [];
+            for (let i = 0; i < storageObj.length; i += 1) {
+              const k = String(storageObj.key(i) || "");
+              if (!k) continue;
+              if (!k.startsWith("fish_room_")) continue;
+              if (!(k.endsWith("_seat_token") || k.endsWith("_host_token"))) continue;
+              keys.push(k);
+            }
+            for (const k of keys) storageObj.removeItem(k);
+          } catch {}
+        };
+        dropPrefixedKeys(window.localStorage);
+        dropPrefixedKeys(window.sessionStorage);
+      }
+    }
+
     function roomUrlWithKey(id) {
       const rid = normalizeRoomId(id || "");
       if (!rid) return "/";
@@ -1246,6 +1335,12 @@
         clearInterval(pollTimer);
         pollTimer = null;
       }
+      if (watchdogTimer) {
+        clearInterval(watchdogTimer);
+        watchdogTimer = null;
+      }
+      refreshInFlight = false;
+      refreshQueued = false;
 
       const key = getCreateKey();
       const next = key ? `/?create_key=${encodeURIComponent(key)}` : "/";
@@ -1792,10 +1887,26 @@
       if (failoverInFlight) return false;
       if (!roomId) return false;
       const now = Date.now();
-      if (now - lastFailoverAttemptAt < 1800) return false;
+      if (now - lastFailoverAttemptAt < FAILOVER_COOLDOWN_MS) return false;
 
       const currentBase = normalizeAbsoluteBaseUrl(activeApiBaseUrl() || location.origin);
-      const candidates = knownBaseUrlList(currentBase);
+      if (isLocalBaseUrl(currentBase)) return false;
+      let currentProto = "";
+      try {
+        currentProto = new URL(currentBase).protocol || "";
+      } catch {}
+      const candidates = knownBaseUrlList(currentBase)
+        .filter((base) => {
+          try {
+            const proto = new URL(base).protocol || "";
+            // Avoid mixed-content dead ends (https page probing http APIs).
+            if (currentProto === "https:" && proto !== "https:") return false;
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .slice(0, FAILOVER_MAX_CANDIDATES);
       if (!candidates.length) return false;
 
       failoverInFlight = true;
@@ -1805,12 +1916,12 @@
         const qs = buildViewerQueryParams().toString();
         for (const base of candidates) {
           try {
-            const health = await fetchJsonWithTimeout(`${base}/api/health`, 3000);
+            const health = await fetchJsonWithTimeout(`${base}/api/health`, FAILOVER_HEALTH_TIMEOUT_MS);
             if (!health || health.ok !== true) continue;
             ingestKnownBaseUrls(health.public_urls);
 
             const stateUrl = `${base}/api/rooms/${roomId}/state${qs ? `?${qs}` : ""}`;
-            const state = await fetchJsonWithTimeout(stateUrl, 4200);
+            const state = await fetchJsonWithTimeout(stateUrl, FAILOVER_STATE_TIMEOUT_MS);
             if (!state || state.ok !== true) continue;
             const stateRoom = normalizeRoomId(state.room && state.room.room_id || "");
             if (!stateRoom || stateRoom !== roomId) continue;
@@ -3170,30 +3281,25 @@
     }
 
     async function refreshState() {
-      if (!roomId) {
-        const remembered = getLastRoomId();
-        if (remembered) {
-          setConnStatus(`Reopening your last room (${remembered})...`);
-          openRoomById(remembered);
-        } else {
-          setConnStatus("No room selected. Create or open a room first.");
-        }
+      if (refreshInFlight) {
+        refreshQueued = true;
         return;
       }
-      const params = buildViewerQueryParams();
-      const q = params.toString() ? `?${params.toString()}` : "";
+      refreshInFlight = true;
       try {
-        const res = await fetch(apiUrl(`/api/rooms/${roomId}/state${q}`), { cache: "no-store" });
-        const parsed = await readJsonSafe(res);
-        if (!parsed.ok) {
-          setConnErr(`State refresh failed: ${parsed.error}`);
-          if (isTunnelOfflineMessage(parsed.error)) {
-            const moved = await attemptTunnelFailover(parsed.error);
-            if (moved) return;
+        if (!roomId) {
+          const remembered = getLastRoomId();
+          if (remembered) {
+            setConnStatus(`Reopening your last room (${remembered})...`);
+            openRoomById(remembered);
+          } else {
+            setConnStatus("No room selected. Create or open a room first.");
           }
           return;
         }
-        const data = parsed.data || {};
+        const params = buildViewerQueryParams();
+        const q = params.toString() ? `?${params.toString()}` : "";
+        const data = await fetchJsonWithTimeout(apiUrl(`/api/rooms/${roomId}/state${q}`), STATE_FETCH_TIMEOUT_MS);
         if (data.ok) {
           setConnErr("");
           ingestKnownBaseUrls(data.public_links);
@@ -3227,6 +3333,12 @@
         setConnErr(`State refresh failed: ${msg}`);
         const moved = await attemptTunnelFailover(msg);
         if (moved) return;
+      } finally {
+        refreshInFlight = false;
+        if (refreshQueued) {
+          refreshQueued = false;
+          Promise.resolve().then(() => refreshState());
+        }
       }
     }
 
@@ -3234,7 +3346,21 @@
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = setInterval(() => {
         refreshState();
-      }, 2000);
+      }, POLL_INTERVAL_MS);
+    }
+
+    function startStateWatchdog() {
+      if (watchdogTimer) clearInterval(watchdogTimer);
+      watchdogTimer = setInterval(() => {
+        if (!roomId) return;
+        const age = Date.now() - (lastStateReceiveAt || 0);
+        if (age >= WATCHDOG_STALE_REFRESH_MS) {
+          refreshState();
+        }
+        if (age >= STREAM_STALE_FAILOVER_MS) {
+          attemptTunnelFailover("State stream stale");
+        }
+      }, WATCHDOG_INTERVAL_MS);
     }
 
     function reconnectStream() {
@@ -3249,6 +3375,7 @@
       // Always do an immediate state fetch so initial render does not rely on SSE delivery.
       refreshState();
       startPollingFallback();
+      startStateWatchdog();
 
       if (typeof EventSource === "undefined") {
         setConnStatus("Live stream not supported by this browser. Using polling mode.");
@@ -3267,7 +3394,7 @@
         });
         eventSource.onerror = () => {
           setConnStatus("Live stream reconnecting... (polling active)");
-          if (Date.now() - lastStateReceiveAt > 9000) {
+          if (Date.now() - lastStateReceiveAt > STREAM_STALE_FAILOVER_MS) {
             attemptTunnelFailover("Live stream disconnected");
           }
         };
@@ -3292,9 +3419,13 @@
     async function createRoom() {
       const createKey = document.getElementById("createKey").value.trim();
       const hostName = document.getElementById("hostName").value.trim() || "Host";
-      const total = Number(document.getElementById("totalPlayers").value);
       const ai = Number(document.getElementById("aiPlayers").value);
       const human = Number(document.getElementById("humanPlayers").value);
+      // Compute total directly from current selector values so stale UI fields
+      // never block player-count changes.
+      const total = Math.max(2, Math.min(8, human + ai));
+      const totalInput = document.getElementById("totalPlayers");
+      if (totalInput) totalInput.value = String(total);
       if (!createKey) {
         setConnErr("Host create key is required.");
         return;
@@ -3472,6 +3603,10 @@
           clearInterval(pollTimer);
           pollTimer = null;
         }
+        if (watchdogTimer) {
+          clearInterval(watchdogTimer);
+          watchdogTimer = null;
+        }
       } catch (err) {
         setConnErr(`Stop failed: ${String(err.message || err)}`);
       }
@@ -3552,7 +3687,9 @@
     }
 
     document.getElementById("humanPlayers").addEventListener("change", syncCreateCounts);
+    document.getElementById("humanPlayers").addEventListener("input", syncCreateCounts);
     document.getElementById("aiPlayers").addEventListener("change", syncCreateCounts);
+    document.getElementById("aiPlayers").addEventListener("input", syncCreateCounts);
     document.getElementById("createRoomBtn").addEventListener("click", createRoom);
     document.getElementById("joinOpenSeatBtn").addEventListener("click", joinFirstOpenSeat);
     document.getElementById("startGameBtn").addEventListener("click", startGame);
@@ -3591,6 +3728,9 @@
     const urlParams = new URLSearchParams(location.search || "");
     const apiBaseFromUrl = normalizeBaseUrl(urlParams.get("api_base") || "");
     if (apiBaseFromUrl) ingestKnownBaseUrl(apiBaseFromUrl);
+    const freshSetupRequested = ["1", "true", "yes"].includes(
+      String(urlParams.get("fresh_setup") || "").trim().toLowerCase()
+    );
     const keyFromUrl = (urlParams.get("create_key") || "").trim();
     const hostTokenFromUrl = (urlParams.get("host_token") || "").trim();
     const seatTokenFromUrl = (urlParams.get("seat_token") || "").trim();
@@ -3604,6 +3744,19 @@
     }
     const keyInput = document.getElementById("createKey");
     const lobbyKeyInput = document.getElementById("lobbyCreateKey");
+    if (freshSetupRequested) {
+      clearStoredLobbyState({
+        clearCreateKey: true,
+        clearLastRoom: true,
+        clearSeatTokens: true,
+      });
+      roomId = null;
+      if (keyInput) keyInput.value = "";
+      if (lobbyKeyInput) lobbyKeyInput.value = "";
+      history.replaceState({}, "", "/");
+      showStartMenu("New setup ready: enter a new host key and choose player counts.");
+      return;
+    }
     const savedCreateKey = getCreateKey();
     if (keyInput) {
       if (keyFromUrl) {
