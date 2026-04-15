@@ -1277,12 +1277,13 @@
       const rid = normalizeRoomId(id || "");
       if (!rid) return "/";
       const params = new URLSearchParams();
-      // Never include create_key in room navigation URLs — it's a host admin secret,
-      // not a per-room credential, and leaking it lets any visitor claim the host seat.
+      // Only include seat_token in navigation URLs.
+      // host_token and create_key are never put here — the host's localStorage already
+      // has host_token, so it doesn't need to travel in the URL. Putting it in the URL
+      // means any player who opens the link gets the host_control_token saved to their
+      // localStorage, which causes maybeAutoClaimHostSeat to kick the real host.
       const seatToken = getSeatTokenForRoom(rid);
       if (seatToken) params.set("seat_token", seatToken);
-      const hostToken = getHostTokenForRoom(rid);
-      if (hostToken) params.set("host_token", hostToken);
       const qs = params.toString();
       return qs ? `/play/${rid}?${qs}` : `/play/${rid}`;
     }
@@ -3262,6 +3263,12 @@
       // prompts the user and sends create_key only on intentional click.
       if (!hasHostToken) return;
 
+      // CRITICAL: Only auto-reclaim if the host seat is actually unclaimed (available).
+      // If someone else is already sitting in the host seat, never auto-kick them.
+      // Without this guard, any device that accidentally has host_token (e.g. from a
+      // shared URL) would silently kick whoever is in seat 0.
+      if (hostSeat.status !== "available") return;
+
       const name = document.getElementById("joinName").value.trim()
         || document.getElementById("hostName").value.trim()
         || "Host";
@@ -3585,7 +3592,9 @@
         }
 
         const takeoverSeat = seats.find(
-          (s) => s.kind === "human" && s.status === "taken" && (!s.is_host || Boolean(key || getHostToken()))
+          // Never auto-take over the host seat unless this device explicitly has the
+          // host_token (not just create_key, which may have leaked to other players).
+          (s) => s.kind === "human" && s.status === "taken" && (!s.is_host || Boolean(getHostToken()))
         );
         if (!takeoverSeat) {
           if (!opts.silent) setGameStatus("No seat is available to claim or take over.");
