@@ -5346,8 +5346,8 @@ def perform_mulligans(gs: GameState, ms: MatchState) -> None:
 
 
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
-    # When over the hand limit, the only legal action is to discard down to the limit.
-    if len(player.hand) > HAND_LIMIT:
+    # End-of-turn discard phase: only discard actions are legal until hand is within the limit.
+    if player.flags.get("_discard_mode") and len(player.hand) > HAND_LIMIT:
         return [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
 
     actions: List[Action] = []
@@ -5640,6 +5640,7 @@ def clear_turn_only_flags(player: PlayerState) -> None:
         "play_again",
         "go_again",
         "_free_action_only",
+        "_discard_mode",
     ]:
         if k in player.flags:
             if k in {"free_yellowfin_tuna", "play_again", "go_again"}:
@@ -7824,10 +7825,11 @@ def run_match(
             action_budget -= 1
 
         # End-turn hand limit.
-        if (gs.turn_index in human_idx_set) and web_control_mode:
-            # Web human: legal_actions returns only discard_to_pool when hand > HAND_LIMIT,
-            # so calling the policy in a loop lets the player choose which cards to remove.
+        if (gs.turn_index in human_idx_set) and web_control_mode and len(p.hand) > HAND_LIMIT:
+            # Web human over the limit: set _discard_mode so legal_actions returns only discard
+            # actions, then call the policy in a loop so the player chooses which cards to remove.
             draws_back = turn_state.draws_this_turn
+            p.flags["_discard_mode"] = True
             d_policy = action_policies[gs.turn_index % len(action_policies)]
             while len(p.hand) > HAND_LIMIT:
                 chosen_discard = d_policy(gs, ms, p)
@@ -7838,7 +7840,8 @@ def run_match(
                 if not discard_ok:
                     discard_down_to_ten_ai(gs, ms, p)
                     break
-            # After discarding down to the limit, draw back as many cards as were drawn this turn.
+            p.flags["_discard_mode"] = False
+            # After discarding, draw back as many cards as were drawn this turn.
             if draws_back > 0 and gs.deck:
                 drew_back = draw_from_deck(gs, ms, p, min(draws_back, len(gs.deck)))
                 if verbose:
