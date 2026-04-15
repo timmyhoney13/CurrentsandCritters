@@ -1597,10 +1597,13 @@
       if (src) img.src = src;
       img.loading = "lazy";
       img.alt = `${face.name} ${dir} slice`;
-      if (dir === "down") {
-        img.style.top = "-100%";
-      } else if (dir === "right") {
-        img.style.left = "-100%";
+      // LR/UD pair images: primary face (odd uid) is on left/top half; secondary (even uid) on right/bottom half.
+      // Use uid parity to pick the correct image half, not lane direction.
+      const isSecondaryFace = (Number(face.uid) % 2 === 0);
+      if (dir === "down" || dir === "up") {
+        img.style.top = isSecondaryFace ? "-100%" : "0";
+      } else if (dir === "left" || dir === "right") {
+        img.style.left = isSecondaryFace ? "-100%" : "0";
       }
       wrap.title = `${face.uid}:${face.name}\n${String(face.text || "").trim()}`;
       wrap.appendChild(img);
@@ -1754,11 +1757,21 @@
       const picks = [];
       const remaining = [...available];
       if (requireSymbol) {
+        // Star action: payment MUST include a matching symbol card.
         const matchUid = remaining.find((uid) => entryHasSymbolMatch(uid, action.required_symbol));
         if (matchUid == null) return null;
         picks.push(matchUid);
         const idx = remaining.indexOf(matchUid);
         if (idx >= 0) remaining.splice(idx, 1);
+      } else if (action.star_symbol) {
+        // Non-star action on a star-ability card: prefer a matching symbol card in payment
+        // so the engine's auto-star fires and grants the star effect (e.g. Mangrove play again).
+        const starMatchUid = remaining.find((uid) => entryHasSymbolMatch(uid, action.star_symbol));
+        if (starMatchUid != null) {
+          picks.push(starMatchUid);
+          const idx = remaining.indexOf(starMatchUid);
+          if (idx >= 0) remaining.splice(idx, 1);
+        }
       }
       for (const uid of remaining) {
         if (picks.length >= costToPay) break;

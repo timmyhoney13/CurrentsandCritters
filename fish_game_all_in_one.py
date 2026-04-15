@@ -967,6 +967,7 @@ class TurnState:
     discarded_entry_uids: set[int] = field(default_factory=set)
     replay_pickup_used: bool = False
     force_end_turn: bool = False
+    draws_this_turn: int = 0  # tracks cards drawn this turn for discard-and-redraw
 
 
 @dataclass
@@ -982,6 +983,7 @@ class MatchState:
 
 BRAIN_PATH = "fish_ai_brain.json"
 LIVE_LOG_PATH = "last_live_game_log.txt"
+HAND_LIMIT = 10
 LIVE_STATE_PATH = "last_live_game_state.json"
 BRAIN_GAME_MEMORY_CAP = 20000
 STRATEGIC_SHORTLIST_SIZE = 7
@@ -5344,6 +5346,10 @@ def perform_mulligans(gs: GameState, ms: MatchState) -> None:
 
 
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
+    # When over the hand limit, the only legal action is to discard down to the limit.
+    if len(player.hand) > HAND_LIMIT:
+        return [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
+
     actions: List[Action] = []
     free_only = bool(player.flags.get("_free_action_only", False))
     multi_paid = bool(player.flags.get("multi_play_paid_turn", False))
@@ -5691,6 +5697,16 @@ def apply_action(
                 parts.append("deck: " + ", ".join(entry_short_label(ms, gs, uid) for uid in deck_cards))
             detail = " | ".join(parts) if parts else "no cards drawn"
             print(f"{player.name} draws 2 -> {detail}")
+        turn_state.draws_this_turn += len(pool_cards) + len(deck_cards)
+        return True
+
+    if action.kind == "discard_to_pool":
+        if action.card_uid not in player.hand:
+            return fail(f"uid {action.card_uid} not in hand for discard")
+        player.hand.remove(action.card_uid)
+        add_to_pool(ms, action.card_uid)
+        if verbose:
+            print(f"{player.name} discards {entry_short_label(ms, gs, action.card_uid)} to pool.")
         return True
 
     if action.kind == "move_between_oceans":
@@ -7808,7 +7824,28 @@ def run_match(
             action_budget -= 1
 
         # End-turn hand limit.
-        if (gs.turn_index in human_idx_set) and (not web_control_mode):
+        if (gs.turn_index in human_idx_set) and web_control_mode:
+            # Web human: legal_actions returns only discard_to_pool when hand > HAND_LIMIT,
+            # so calling the policy in a loop lets the player choose which cards to remove.
+            draws_back = turn_state.draws_this_turn
+            d_policy = action_policies[gs.turn_index % len(action_policies)]
+            while len(p.hand) > HAND_LIMIT:
+                chosen_discard = d_policy(gs, ms, p)
+                if chosen_discard is None or chosen_discard.kind != "discard_to_pool":
+                    discard_down_to_ten_ai(gs, ms, p)
+                    break
+                discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
+                if not discard_ok:
+                    discard_down_to_ten_ai(gs, ms, p)
+                    break
+            # After discarding down to the limit, draw back as many cards as were drawn this turn.
+            if draws_back > 0 and gs.deck:
+                drew_back = draw_from_deck(gs, ms, p, min(draws_back, len(gs.deck)))
+                if verbose:
+                    print(f"{p.name} draws back {len(drew_back)} card(s) after discarding.")
+                if live_recorder is not None:
+                    live_recorder.event(f"{p.name} draws back {len(drew_back)} card(s) after discarding.")
+        elif (gs.turn_index in human_idx_set) and (not web_control_mode):
             discard_down_to_ten_human(gs, ms, p)
         else:
             discard_down_to_ten_ai(gs, ms, p)

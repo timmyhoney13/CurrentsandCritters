@@ -9,6 +9,9 @@ ENV PYTHONUNBUFFERED=1
 COPY multiplayer_server.py /app/multiplayer_server.py
 COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
+COPY cards_vertical.txt /app/cards_vertical.txt
+COPY cards_lr.txt /app/cards_lr.txt
+COPY cards_oceans.txt /app/cards_oceans.txt
 COPY multiplayer/client /app/multiplayer/client
 COPY multiplayer/human_game_dataset.jsonl /app/multiplayer/human_game_dataset.jsonl
 

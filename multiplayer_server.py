@@ -1350,6 +1350,17 @@ class GameRoom:
             direction = fish.normalize_direction(card.direction) if card is not None else "n/a"
             cost_to_pay, requires_symbol, required_symbol = self._action_payment_requirements(gs, ms, player, action)
             payment_candidates = [int(uid) for uid in player.hand if uid != action.card_uid] if cost_to_pay > 0 else []
+            # star_symbol: the symbol on a star-ability card when played without use_star.
+            # If a payment card matches this symbol, the engine auto-triggers the star ability.
+            star_symbol = ""
+            if card is not None and not bool(action.use_star) and cost_to_pay > 0:
+                try:
+                    if hasattr(fish, "has_star_ability") and fish.has_star_ability(card):
+                        raw_sym = fish.normalize_symbol(getattr(card, "symbol", ""))
+                        if raw_sym not in {"", "n/a"}:
+                            star_symbol = raw_sym
+                except Exception:
+                    pass
             payload_actions.append(
                 {
                     "index": idx,
@@ -1365,6 +1376,8 @@ class GameRoom:
                     "cost_to_pay": int(cost_to_pay),
                     "requires_symbol_match": bool(requires_symbol),
                     "required_symbol": required_symbol,
+                    "has_star_ability": bool(star_symbol or (requires_symbol and required_symbol)),
+                    "star_symbol": star_symbol,
                     "payment_candidates": payment_candidates,
                     "description": fish.describe_action(gs, ms, action),
                 }
@@ -1457,6 +1470,26 @@ class GameRoom:
                     return None
                 picks: List[int] = []
                 remaining = list(candidates)
+                if requires_symbol:
+                    target_sym = fish.normalize_symbol(required_symbol)
+                else:
+                    # For star-ability cards played without use_star, prefer a matching
+                    # symbol card so the engine's auto_star check fires automatically.
+                    card_for_star = gs.card_db.get(play_face_uid)
+                    if card_for_star is not None:
+                        try:
+                            if hasattr(fish, "has_star_ability") and fish.has_star_ability(card_for_star):
+                                auto_sym = fish.normalize_symbol(getattr(card_for_star, "symbol", ""))
+                                if auto_sym not in {"", "n/a"}:
+                                    match_uid = next(
+                                        (uid for uid in remaining if fish.symbol_match_for_entry(ms, gs, uid, auto_sym)),
+                                        None,
+                                    )
+                                    if match_uid is not None:
+                                        picks.append(match_uid)
+                                        remaining = [uid for uid in remaining if uid != match_uid]
+                        except Exception:
+                            pass
                 if requires_symbol:
                     target_sym = fish.normalize_symbol(required_symbol)
                     if target_sym in {"", "n/a"}:
