@@ -1050,7 +1050,7 @@ class GameRoom:
                 self.status_note = "Recovery complete. Live play resumed."
                 self._bump_locked(force_persist=True)
             elif self.recovery_cursor % 20 == 0:
-                self.status_note = f"Recovering game state ({self.recovery_cursor}/{target})..."
+                self.status_note = f"Resyncing game after server restart — step {self.recovery_cursor} of {target}. Room is staying open, please wait..."
                 self._bump_locked(force_persist=False)
         return chosen
 
@@ -1207,7 +1207,7 @@ class GameRoom:
             self.active_action_seat = None
             if self.recovery_active:
                 self.status_note = (
-                    f"Recovering game state ({self.recovery_cursor}/{self.recovery_target_count})..."
+                    f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
                 )
             else:
                 self.recovery_error = None
@@ -1327,13 +1327,18 @@ class GameRoom:
             self._bump_locked()
             return {"ok": True}
 
-    def _wait_for_action(self, seat_index: int) -> Optional[Dict[str, Any]]:
+    def _wait_for_action(self, seat_index: int, timeout_sec: float = 300.0) -> Optional[Dict[str, Any]]:
+        """Block until an action arrives, the game ends, or timeout_sec elapses (returns None on timeout)."""
+        deadline = time.monotonic() + timeout_sec
         with self.cond:
             while self.phase == "running":
                 q = self.pending_actions.get(seat_index)
                 if q:
                     return q.pop(0)
-                self.cond.wait(timeout=0.25)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None  # Timed out — caller will fall back to safe action
+                self.cond.wait(timeout=min(0.25, remaining))
             return None
 
     def _serialize_legal_actions(
@@ -1787,7 +1792,7 @@ class GameRoom:
             self._last_turn_scores = {}
             if self.recovery_active:
                 self.status_note = (
-                    f"Recovering game state ({self.recovery_cursor}/{self.recovery_target_count})..."
+                    f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
                 )
             else:
                 self.status_note = "Game running."
@@ -1830,9 +1835,24 @@ class GameRoom:
                         self._bump_locked()
                     return None
 
-                cmd = self._wait_for_action(seat_index)
+                # Wait up to 5 minutes for the human to act. If they time out
+                # (disconnected / idle), auto-draw so the game keeps moving.
+                cmd = self._wait_for_action(seat_index, timeout_sec=300.0)
                 if cmd is None:
-                    return None
+                    # Phase ended or player timed out.
+                    if self.phase != "running":
+                        return None
+                    # Timeout: pick a safe fallback so the game doesn't hang.
+                    fallback = self._safe_fallback_action(gs, ms, player)
+                    with self.cond:
+                        self.status_note = (
+                            f"{player.name} took too long — auto-drawing to keep game moving."
+                        )
+                        self._bump_locked()
+                    self._record_event(
+                        f"{player.name} (seat {seat_index}) timed out after 5 min — auto-drawing."
+                    )
+                    return fallback
 
                 chosen = self._resolve_submitted_action(gs, ms, player, actions, cmd)
                 if chosen is None:

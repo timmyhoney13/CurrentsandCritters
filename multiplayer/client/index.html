@@ -2078,17 +2078,17 @@
       }
       const costToPay = Number(action.cost_to_pay || 0);
       if (costToPay > 0) {
+        // Require explicit payment selection — auto-pick is disabled for human players.
+        if (selectedPayment.size === 0) {
+          setGameStatus(`This card costs ${costToPay}. Click "Use As Payment" on ${costToPay} card(s) in your hand first, then try again.`);
+          return;
+        }
         const paymentChoice = choosePaymentPicks(action);
         if (paymentChoice.error) {
-          // Do not block submission here; server has a fallback auto-payment resolver.
-          payload.payment_uids = [];
-          setGameStatus(`${paymentChoice.error} Trying automatic payment...`);
-        } else {
-          payload.payment_uids = paymentChoice.picks;
-          if (paymentChoice.auto) {
-            setGameStatus(`Using ${payload.payment_uids.length} valid payment card(s) from your selection...`);
-          }
+          setGameStatus(`Payment invalid: ${paymentChoice.error} Select different card(s) and try again.`);
+          return;
         }
+        payload.payment_uids = paymentChoice.picks;
       }
 
       try {
