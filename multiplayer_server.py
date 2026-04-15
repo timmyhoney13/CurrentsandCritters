@@ -606,7 +606,7 @@ class GameRoom:
             if key in raw and isinstance(raw.get(key), int):
                 rec[key] = int(raw.get(key))
         rec["use_star"] = bool(raw.get("use_star"))
-        rec["pool_pick_uids"] = int_list(raw.get("pool_pick_uids"), cap=8)
+        rec["pool_pick_uids"] = int_list(raw.get("pool_pick_uids"), cap=20)
         rec["payment_uids"] = int_list(raw.get("payment_uids"), cap=10)
         if isinstance(raw.get("player_name"), str):
             rec["player_name"] = str(raw.get("player_name"))
@@ -917,7 +917,7 @@ class GameRoom:
             "face_uid": int(action.face_uid if action.face_uid is not None else getattr(action, "card_uid", -1)),
             "draw_from_pool": int(getattr(action, "draw_from_pool", 0)),
             "use_star": bool(getattr(action, "use_star", False)),
-            "pool_pick_uids": int_list(getattr(action, "pool_pick_uids", []), cap=8),
+            "pool_pick_uids": int_list(getattr(action, "pool_pick_uids", []), cap=20),
             "payment_uids": int_list(getattr(action, "payment_uids", []), cap=10),
         }
         if getattr(action, "ocean_uid", None) is not None:
@@ -989,7 +989,7 @@ class GameRoom:
                 cmd[key] = int(value)
         if isinstance(record.get("use_star"), bool):
             cmd["use_star"] = bool(record.get("use_star"))
-        cmd["pool_pick_uids"] = int_list(record.get("pool_pick_uids"), cap=8)
+        cmd["pool_pick_uids"] = int_list(record.get("pool_pick_uids"), cap=20)
         cmd["payment_uids"] = int_list(record.get("payment_uids"), cap=10)
         return cmd
 
@@ -1392,8 +1392,10 @@ class GameRoom:
             "player": player.name,
             "turn_index": int(gs.turn_index),
             "round_count": int(gs.round_count),
-            "must_discard_to_ten": bool(actions) and all(a.kind == "discard_to_pool" for a in actions),
+            "must_discard_to_ten": bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions),
             "tarpon_discard_active": bool(player.flags.get("_tarpon_discard_active", False)),
+            "discard_batch_available": any(a.kind == "discard_batch_to_pool" for a in actions),
+            "discard_excess": max(0, len(player.hand) - (int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10)),
             "hand_limit": int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10,
             "actions": payload_actions,
         }
@@ -1429,6 +1431,12 @@ class GameRoom:
 
         if chosen is None:
             return None
+
+        if chosen.kind == "discard_batch_to_pool":
+            # Player submitted the cards they chose to discard in pool_pick_uids.
+            picks_raw = cmd.get("pool_pick_uids", [])
+            picks = [int(x) for x in picks_raw if isinstance(x, int)] if isinstance(picks_raw, list) else []
+            chosen.pool_pick_uids = picks
 
         if chosen.kind == "draw" and chosen.draw_from_pool > 0:
             need = chosen.draw_from_pool
@@ -1812,15 +1820,16 @@ class GameRoom:
                         return None
                     self.legal_actions_by_seat[seat_index] = legal_payload
                     self.active_action_seat = seat_index
-                    only_discards = bool(actions) and all(a.kind == "discard_to_pool" for a in actions)
+                    only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
                     if is_tarpon_phase:
                         self.status_note = (
                             f"{player.name}: Tarpon — choose cards to discard, then select 'end turn now'."
                         )
                     elif only_discards:
+                        excess = max(0, len(player.hand) - (int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10))
                         self.status_note = (
-                            f"{player.name} must discard to pool until hand is 10 cards."
+                            f"{player.name} has {len(player.hand)} cards — select {excess} or more to discard to the pool."
                         )
                     else:
                         self.status_note = f"Waiting for action from {player.name}."

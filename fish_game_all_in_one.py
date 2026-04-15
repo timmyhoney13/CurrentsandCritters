@@ -5361,7 +5361,12 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
 
     # End-of-turn discard phase: only discard actions are legal until hand is within the limit.
     if player.flags.get("_discard_mode") and len(player.hand) > HAND_LIMIT:
-        return [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
+        # Batch action for web human multi-select UI (carries the full selectable hand).
+        # Individual discard_to_pool actions kept as fallback for AI and backwards compat.
+        return [
+            Action(kind="discard_batch_to_pool", pool_pick_uids=list(player.hand)),
+            *[Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)],
+        ]
 
     actions: List[Action] = []
     free_only = bool(player.flags.get("_free_action_only", False))
@@ -5722,6 +5727,28 @@ def apply_action(
         add_to_pool(ms, action.card_uid)
         if verbose:
             print(f"{player.name} discards {entry_short_label(ms, gs, action.card_uid)} to pool.")
+        return True
+
+    if action.kind == "discard_batch_to_pool":
+        # Human selects multiple cards to discard at once (end-of-turn hand-limit phase).
+        # pool_pick_uids holds the card UIDs chosen to move to the pool.
+        chosen_uids = [uid for uid in action.pool_pick_uids if uid in player.hand]
+        if not chosen_uids:
+            return fail("discard_batch_to_pool: no valid cards selected")
+        remaining = len(player.hand) - len(chosen_uids)
+        if remaining > HAND_LIMIT:
+            return fail(
+                f"discard_batch_to_pool: not enough discarded — {remaining} would remain, limit is {HAND_LIMIT}"
+            )
+        for uid in chosen_uids:
+            player.hand.remove(uid)
+            if ms is not None:
+                add_to_pool(ms, uid)
+            else:
+                player.discard.append(uid)
+        if verbose:
+            labels = ", ".join(entry_short_label(ms, gs, uid) for uid in chosen_uids)
+            print(f"{player.name} batch-discards {len(chosen_uids)} card(s) to pool: {labels}")
         return True
 
     if action.kind == "move_between_oceans":
@@ -8187,7 +8214,16 @@ def run_match(
             d_policy = action_policies[gs.turn_index % len(action_policies)]
             while len(p.hand) > HAND_LIMIT:
                 chosen_discard = d_policy(gs, ms, p)
-                if chosen_discard is None or chosen_discard.kind != "discard_to_pool":
+                if chosen_discard is None:
+                    discard_down_to_ten_ai(gs, ms, p)
+                    break
+                if chosen_discard.kind == "discard_batch_to_pool":
+                    # Human submitted a batch — process all at once then exit loop.
+                    discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
+                    if not discard_ok:
+                        discard_down_to_ten_ai(gs, ms, p)
+                    break
+                if chosen_discard.kind != "discard_to_pool":
                     discard_down_to_ten_ai(gs, ms, p)
                     break
                 discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)

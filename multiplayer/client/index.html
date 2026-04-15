@@ -276,6 +276,15 @@
       background: #e9fff7;
       color: #0b5a42;
     }
+    .card.discard-selected {
+      border-color: #c0392b;
+      box-shadow: 0 0 0 2px #ffe5e2 inset;
+    }
+    .pay-toggle.discard-on {
+      border-color: #c0392b;
+      background: #fff0ee;
+      color: #8e1a28;
+    }
 
     .ocean-block {
       border: 1px solid var(--line);
@@ -829,6 +838,11 @@
 
     <section class="panel" id="handPanel" style="display:none;">
       <h2 class="section-title">Your Hand</h2>
+      <div id="discardBatchBanner" style="display:none; margin-bottom:10px; padding:10px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px;">
+        <strong id="discardBatchStatus">Select cards to discard</strong>
+        <button id="discardBatchConfirmBtn" style="margin-left:12px; padding:5px 14px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" disabled>Confirm Discard (0)</button>
+        <span style="margin-left:10px; color:#666; font-size:0.9em;" id="discardBatchPreview"></span>
+      </div>
       <div class="grid" id="hand"></div>
     </section>
 
@@ -893,6 +907,7 @@
 
     const selectedPool = new Set();
     const selectedPayment = new Set();
+    const selectedDiscard = new Set();  // cards chosen to discard in batch-discard phase
     const handEntryByUid = new Map();
     let shortcutActions = [];
     let shortcutCanInteract = false;
@@ -1333,6 +1348,7 @@
       clearShortcutBuffer(true);
       selectedPool.clear();
       selectedPayment.clear();
+      selectedDiscard.clear();
       handEntryByUid.clear();
       updatePaymentSummary();
 
@@ -1703,6 +1719,38 @@
         if (a.kind === "move_between_oceans") moveActions.push(a);
       }
       return { drawActions, moveActions };
+    }
+
+    // ---- Batch discard UI helpers ----
+    let _discardBatchActionRef = null;
+    let _discardExcessRef = 0;
+
+    function updateDiscardBatch() {
+      const banner = document.getElementById("discardBatchBanner");
+      const statusEl = document.getElementById("discardBatchStatus");
+      const confirmBtn = document.getElementById("discardBatchConfirmBtn");
+      const previewEl = document.getElementById("discardBatchPreview");
+      if (!banner) return;
+
+      if (!_discardBatchActionRef) {
+        banner.style.display = "none";
+        return;
+      }
+      banner.style.display = "block";
+
+      const count = selectedDiscard.size;
+      const needed = _discardExcessRef;
+      const enough = count >= needed;
+      statusEl.textContent = enough
+        ? `${count} card(s) selected to discard — ${count - needed} extra. Click Confirm when ready.`
+        : `${count} selected — need at least ${needed - count} more to discard.`;
+      confirmBtn.disabled = !enough;
+      confirmBtn.textContent = `Confirm Discard (${count})`;
+      const labels = Array.from(selectedDiscard).map((uid) => {
+        const entry = handEntryByUid.get(uid);
+        return entry ? entry.label : String(uid);
+      });
+      previewEl.textContent = labels.length ? `Going to pool: ${labels.join(", ")}` : "";
     }
 
     function updatePaymentSummary() {
@@ -2077,6 +2125,10 @@
         const picks = Array.from(selectedPool).slice(0, need);
         payload.pool_pick_uids = overridePicks || picks;
       }
+      // Batch discard: send the selected card uids to discard
+      if (action.kind === "discard_batch_to_pool" && Array.isArray(action.pool_pick_uids)) {
+        payload.pool_pick_uids = action.pool_pick_uids;
+      }
       const costToPay = Number(action.cost_to_pay || 0);
       if (costToPay > 0) {
         // Require explicit payment selection — auto-pick is disabled for human players.
@@ -2100,6 +2152,11 @@
         });
         selectedPayment.clear();
         updatePaymentSummary();
+        if (action.kind === "discard_batch_to_pool") {
+          selectedDiscard.clear();
+          _discardBatchActionRef = null;
+          updateDiscardBatch();
+        }
         if (action.use_star) {
           const starToggle = document.getElementById("starToggle");
           if (starToggle) starToggle.checked = false;
@@ -2609,6 +2666,9 @@
       const maps = legalActionMaps(legalActions);
       const discardActions = legalActions.filter((a) => a.kind === "discard_to_pool");
       const discardByEntry = new Map(discardActions.map((a) => [Number(a.card_uid), a]));
+      const discardBatchAction = legalActions.find((a) => a.kind === "discard_batch_to_pool") || null;
+      const discardBatchAvailable = Boolean(legalWrap.discard_batch_available || discardBatchAction);
+      const discardExcess = Number(legalWrap.discard_excess || 0); // minimum cards that must be discarded
       const viewer = payload.viewer || {};
       const myIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
 
@@ -2679,14 +2739,36 @@
 
       const canInteract = Boolean(viewer.can_act) && legalActions.length > 0;
       const isTarponDiscard = canInteract && Boolean(legalWrap.tarpon_discard_active);
-      const mustDiscardToTen = canInteract && !isTarponDiscard && discardActions.length > 0 && legalActions.every((a) => a.kind === "discard_to_pool");
+      const isDiscardBatch = canInteract && !isTarponDiscard && discardBatchAvailable;
+      const mustDiscardToTen = canInteract && !isTarponDiscard && !isDiscardBatch && discardActions.length > 0 && legalActions.every((a) => a.kind === "discard_to_pool");
       if (starToggle) {
-        starToggle.disabled = !canInteract || mustDiscardToTen || isTarponDiscard;
+        starToggle.disabled = !canInteract || mustDiscardToTen || isTarponDiscard || isDiscardBatch;
       }
-      if (mustDiscardToTen) {
+      if (mustDiscardToTen || isDiscardBatch) {
         selectedPayment.clear();
         updatePaymentSummary();
       }
+      // Set up batch-discard refs so updateDiscardBatch() can read them
+      _discardBatchActionRef = isDiscardBatch ? discardBatchAction : null;
+      _discardExcessRef = isDiscardBatch ? discardExcess : 0;
+      if (!isDiscardBatch) selectedDiscard.clear();
+
+      // Wire Confirm button (idempotent — overwrites each render)
+      const _confirmDiscardBtn = document.getElementById("discardBatchConfirmBtn");
+      if (_confirmDiscardBtn) {
+        _confirmDiscardBtn.onclick = async () => {
+          if (!_discardBatchActionRef) return;
+          const picks = Array.from(selectedDiscard);
+          if (picks.length < _discardExcessRef) {
+            setGameStatus(`Need to select at least ${_discardExcessRef} card(s) to discard. You've selected ${picks.length}.`);
+            return;
+          }
+          const action = { ..._discardBatchActionRef, pool_pick_uids: picks };
+          await submitAction(action);
+        };
+      }
+      updateDiscardBatch();
+
       shortcutActions = legalActions;
       shortcutCanInteract = canInteract;
       if (!canInteract) clearShortcutBuffer(true);
@@ -2700,6 +2782,9 @@
       } else {
         if (isTarponDiscard) {
           setGameStatus("Tarpon: select any cards to discard to the pool, then choose 'end turn now' from the dropdown when done.");
+        } else if (isDiscardBatch) {
+          const handSize = (Array.isArray(state.players) ? (state.players.find((p) => p.index === myIdx) || {}).hand || [] : []).length || discardActions.length;
+          setGameStatus(`Your hand has too many cards. Select at least ${discardExcess} card(s) to discard to the pool, then click Confirm Discard.`);
         } else if (mustDiscardToTen) {
           setGameStatus("Select cards to move from your hand into the pool until you have 10 cards.");
         } else {
@@ -2714,7 +2799,8 @@
         first.textContent = !canInteract
           ? "Waiting for your turn..."
           : (isTarponDiscard ? "Tarpon: discard cards or choose 'end turn now'..."
-              : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action..."));
+              : (isDiscardBatch ? `Select cards to discard (need ${discardExcess} more)...`
+                : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action...")));
         quickActionSelect.appendChild(first);
         for (const a of legalActions) {
           const opt = document.createElement("option");
@@ -2850,7 +2936,7 @@
 
           if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
 
-          if (canInteract && !mustDiscardToTen) {
+          if (canInteract && !mustDiscardToTen && !isDiscardBatch) {
             card.classList.add("hand-draggable");
             card.setAttribute("draggable", "true");
             card.addEventListener("dragstart", (ev) => {
@@ -2870,7 +2956,25 @@
           if (canInteract) {
             const body = card.querySelector(".body");
             const discardAction = discardByEntry.get(Number(entryUid)) || null;
-            if ((mustDiscardToTen || isTarponDiscard) && discardAction) {
+            if (isDiscardBatch) {
+              // Batch-discard mode: toggle card in/out of selectedDiscard set
+              const isChosen = selectedDiscard.has(entryUid);
+              if (isChosen) card.classList.add("discard-selected");
+              const discardToggleBtn = document.createElement("button");
+              discardToggleBtn.className = "pay-toggle" + (isChosen ? " discard-on" : "");
+              discardToggleBtn.textContent = isChosen ? "Discard Selected" : "Select to Discard";
+              discardToggleBtn.addEventListener("click", (ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
+                else selectedDiscard.add(entryUid);
+                discardToggleBtn.classList.toggle("discard-on", selectedDiscard.has(entryUid));
+                discardToggleBtn.textContent = selectedDiscard.has(entryUid) ? "Discard Selected" : "Select to Discard";
+                card.classList.toggle("discard-selected", selectedDiscard.has(entryUid));
+                updateDiscardBatch();
+              });
+              body.appendChild(discardToggleBtn);
+            } else if ((mustDiscardToTen || isTarponDiscard) && discardAction) {
               const discardBtn = document.createElement("button");
               discardBtn.className = "pay-toggle";
               discardBtn.textContent = isTarponDiscard ? "Discard (Tarpon)" : "Move To Pool";
