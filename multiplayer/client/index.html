@@ -2677,9 +2677,10 @@
       `;
 
       const canInteract = Boolean(viewer.can_act) && legalActions.length > 0;
-      const mustDiscardToTen = canInteract && discardActions.length > 0;
+      const isTarponDiscard = canInteract && Boolean(legalWrap.tarpon_discard_active);
+      const mustDiscardToTen = canInteract && !isTarponDiscard && discardActions.length > 0 && legalActions.every((a) => a.kind === "discard_to_pool");
       if (starToggle) {
-        starToggle.disabled = !canInteract || mustDiscardToTen;
+        starToggle.disabled = !canInteract || mustDiscardToTen || isTarponDiscard;
       }
       if (mustDiscardToTen) {
         selectedPayment.clear();
@@ -2696,7 +2697,9 @@
           setGameStatus(payload.status_note || "Waiting for your turn...");
         }
       } else {
-        if (mustDiscardToTen) {
+        if (isTarponDiscard) {
+          setGameStatus("Tarpon: select any cards to discard to the pool, then choose 'end turn now' from the dropdown when done.");
+        } else if (mustDiscardToTen) {
           setGameStatus("Select cards to move from your hand into the pool until you have 10 cards.");
         } else {
           setGameStatus("Your turn: use dropdowns, number shortcuts, or drag-and-drop.");
@@ -2709,7 +2712,8 @@
         first.value = "";
         first.textContent = !canInteract
           ? "Waiting for your turn..."
-          : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action...");
+          : (isTarponDiscard ? "Tarpon: discard cards or choose 'end turn now'..."
+              : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action..."));
         quickActionSelect.appendChild(first);
         for (const a of legalActions) {
           const opt = document.createElement("option");
@@ -2865,17 +2869,17 @@
           if (canInteract) {
             const body = card.querySelector(".body");
             const discardAction = discardByEntry.get(Number(entryUid)) || null;
-            if (mustDiscardToTen && discardAction) {
+            if ((mustDiscardToTen || isTarponDiscard) && discardAction) {
               const discardBtn = document.createElement("button");
               discardBtn.className = "pay-toggle";
-              discardBtn.textContent = "Move To Pool";
+              discardBtn.textContent = isTarponDiscard ? "Discard (Tarpon)" : "Move To Pool";
               discardBtn.addEventListener("click", async (ev) => {
                 ev.preventDefault();
                 ev.stopPropagation();
                 await submitAction(discardAction);
               });
               body.appendChild(discardBtn);
-            } else {
+            } else if (!isTarponDiscard) {
               const payBtn = document.createElement("button");
               payBtn.className = "pay-toggle" + (selectedPayment.has(entryUid) ? " on" : "");
               payBtn.textContent = selectedPayment.has(entryUid) ? "Pay Selected" : "Use As Payment";

@@ -547,8 +547,14 @@ def _execute_main_pattern(
         if candidates:
             chosen: List[int] = []
 
-            if is_human_turn and ms is not None:
-                # Human turn: choose any number of cards (including 0).
+            is_web_human = bool(player.flags.get("_web_human", False))
+            if is_web_human:
+                # Web human: set a flag so run_match's interactive loop handles the discard.
+                # The draw-back happens there too — do nothing else here.
+                player.flags["_tarpon_discard_active"] = True
+                gs.log.append(f"{player.name} Tarpon effect: choose cards to discard via web UI.")
+            elif is_human_turn and ms is not None:
+                # Terminal human turn: choose any number of cards (including 0).
                 while True:
                     print(f"Tarpon effect: discard any number of cards (0..{len(candidates)}) and draw that many.")
                     print("Your hand:")
@@ -596,22 +602,23 @@ def _execute_main_pattern(
                     discard_n = max(1, len(candidates) - 2)
                 chosen = ranked[:max(0, discard_n)]
 
-            for uid in chosen:
-                if uid in player.hand:
-                    player.hand.remove(uid)
-                    if isinstance(turn_state, TurnState):
-                        turn_state.discarded_entry_uids.add(uid)
-                    if ms is not None:
-                        try:
-                            add_to_pool(ms, uid)
-                        except Exception:
+            if not is_web_human:
+                for uid in chosen:
+                    if uid in player.hand:
+                        player.hand.remove(uid)
+                        if isinstance(turn_state, TurnState):
+                            turn_state.discarded_entry_uids.add(uid)
+                        if ms is not None:
+                            try:
+                                add_to_pool(ms, uid)
+                            except Exception:
+                                player.discard.append(uid)
+                        else:
                             player.discard.append(uid)
-                    else:
-                        player.discard.append(uid)
-            draw(gs, player, len(chosen))
-            gs.log.append(
-                f"{player.name} discards {len(chosen)} and draws {len(chosen)} from {card.name} main ability."
-            )
+                draw(gs, player, len(chosen))
+                gs.log.append(
+                    f"{player.name} discards {len(chosen)} and draws {len(chosen)} from {card.name} main ability."
+                )
 
     # Generic "+N per <type>" patterns.
     type_map = {
@@ -5346,6 +5353,12 @@ def perform_mulligans(gs: GameState, ms: MatchState) -> None:
 
 
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
+    # Tarpon discard phase: player chooses any cards to discard (0 or more), then ends.
+    if player.flags.get("_tarpon_discard_active"):
+        actions = [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
+        actions.append(Action(kind="end_turn"))  # "Done discarding"
+        return actions
+
     # End-of-turn discard phase: only discard actions are legal until hand is within the limit.
     if player.flags.get("_discard_mode") and len(player.hand) > HAND_LIMIT:
         return [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
@@ -5641,6 +5654,7 @@ def clear_turn_only_flags(player: PlayerState) -> None:
         "go_again",
         "_free_action_only",
         "_discard_mode",
+        "_tarpon_discard_active",
     ]:
         if k in player.flags:
             if k in {"free_yellowfin_tuna", "play_again", "go_again"}:
@@ -7806,6 +7820,8 @@ def run_match(
     for i, p in enumerate(players):
         assign_runtime_playstyle(p, rng, is_human=(i in human_idx_set))
         p.flags["_allow_relocate_action"] = bool(i in human_idx_set)
+        if web_control_mode and (i in human_idx_set):
+            p.flags["_web_human"] = True
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)
@@ -8124,6 +8140,43 @@ def run_match(
             if has_multi_play_window(p):
                 action_budget += 1
             action_budget -= 1
+
+        # Tarpon interactive discard loop (web human only).
+        # _tarpon_discard_active is set by _execute_main_pattern when a web human plays Tarpon.
+        # We loop here letting the player pick cards to discard, then draw back that many.
+        if p.flags.get("_tarpon_discard_active") and (gs.turn_index in human_idx_set) and web_control_mode:
+            tarpon_discarded = 0
+            t_policy = action_policies[gs.turn_index % len(action_policies)]
+            while p.flags.get("_tarpon_discard_active"):
+                t_action = t_policy(gs, ms, p)
+                if t_action is None:
+                    p.flags["_tarpon_discard_active"] = False
+                    break
+                if t_action.kind == "end_turn":
+                    p.flags["_tarpon_discard_active"] = False
+                    break
+                if t_action.kind == "discard_to_pool":
+                    t_ok = apply_action(gs, ms, p, t_action, turn_state, choose_payment_ai, verbose=verbose)
+                    if t_ok:
+                        tarpon_discarded += 1
+                        if live_recorder is not None:
+                            try:
+                                live_recorder.snapshot(gs, ms, turn_number=turns + 1, note=f"tarpon_discard:{p.name}")
+                            except Exception:
+                                pass
+                else:
+                    p.flags["_tarpon_discard_active"] = False
+                    break
+            p.flags["_tarpon_discard_active"] = False
+            if tarpon_discarded > 0:
+                drew_tarpon = draw_from_deck(gs, ms, p, min(tarpon_discarded, len(gs.deck)))
+                gs.log.append(f"{p.name} draws {len(drew_tarpon)} from Tarpon discard-and-draw.")
+                if live_recorder is not None:
+                    try:
+                        live_recorder.event(f"{p.name} draws back {len(drew_tarpon)} card(s) from Tarpon effect.")
+                        live_recorder.snapshot(gs, ms, turn_number=turns + 1, note=f"tarpon_draw:{p.name}")
+                    except Exception:
+                        pass
 
         # End-turn hand limit.
         if (gs.turn_index in human_idx_set) and web_control_mode and len(p.hand) > HAND_LIMIT:

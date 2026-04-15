@@ -1388,6 +1388,7 @@ class GameRoom:
             "turn_index": int(gs.turn_index),
             "round_count": int(gs.round_count),
             "must_discard_to_ten": bool(actions) and all(a.kind == "discard_to_pool" for a in actions),
+            "tarpon_discard_active": bool(player.flags.get("_tarpon_discard_active", False)),
             "hand_limit": int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10,
             "actions": payload_actions,
         }
@@ -1807,7 +1808,12 @@ class GameRoom:
                     self.legal_actions_by_seat[seat_index] = legal_payload
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind == "discard_to_pool" for a in actions)
-                    if only_discards:
+                    is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
+                    if is_tarpon_phase:
+                        self.status_note = (
+                            f"{player.name}: Tarpon — choose cards to discard, then select 'end turn now'."
+                        )
+                    elif only_discards:
                         self.status_note = (
                             f"{player.name} must discard to pool until hand is 10 cards."
                         )
