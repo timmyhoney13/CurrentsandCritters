@@ -2815,8 +2815,8 @@
         quickActionSelect.onchange = () => {
           quickActionSelectMemory = String(quickActionSelect.value || "");
         };
-        quickActionSelect.disabled = !canInteract || legalActions.length === 0;
-        quickActionBtn.disabled = !canInteract || legalActions.length === 0;
+        quickActionSelect.disabled = !canInteract || legalActions.length === 0 || isDiscardBatch;
+        quickActionBtn.disabled = !canInteract || legalActions.length === 0 || isDiscardBatch;
         quickActionBtn.onclick = async () => {
           if (!canInteract) {
             setGameStatus("Wait for your turn.");
@@ -2858,8 +2858,8 @@
         moveActionSelect.onchange = () => {
           moveActionSelectMemory = String(moveActionSelect.value || "");
         };
-        moveActionSelect.disabled = !canInteract || maps.moveActions.length === 0;
-        moveActionBtn.disabled = !canInteract || maps.moveActions.length === 0;
+        moveActionSelect.disabled = !canInteract || maps.moveActions.length === 0 || isDiscardBatch;
+        moveActionBtn.disabled = !canInteract || maps.moveActions.length === 0 || isDiscardBatch;
         moveActionBtn.onclick = async () => {
           if (!canInteract) {
             setGameStatus("Wait for your turn.");
@@ -2896,7 +2896,7 @@
         deckCountEl.textContent = `${state.deck_remaining ?? 0} cards`;
       }
       if (deckDrawBtn) {
-        deckDrawBtn.disabled = !canInteract || !deckAction;
+        deckDrawBtn.disabled = !canInteract || !deckAction || isDiscardBatch;
         deckDrawBtn.onclick = async () => {
           if (!canInteract) {
             setGameStatus("Wait for your turn to draw.");

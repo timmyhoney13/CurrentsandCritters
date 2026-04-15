@@ -1436,6 +1436,10 @@ class GameRoom:
             # Player submitted the cards they chose to discard in pool_pick_uids.
             picks_raw = cmd.get("pool_pick_uids", [])
             picks = [int(x) for x in picks_raw if isinstance(x, int)] if isinstance(picks_raw, list) else []
+            if not picks:
+                # Client submitted batch discard without selecting any cards —
+                # reject it so the human policy loops and waits for a real selection.
+                return None
             chosen.pool_pick_uids = picks
 
         if chosen.kind == "draw" and chosen.draw_from_pool > 0:
@@ -1925,7 +1929,17 @@ class GameRoom:
         for action in actions:
             if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
                 return action
-        return actions[0]
+        # During discard-mode, avoid returning the batch action (which has all cards
+        # pre-filled and would wipe the hand). Use a single discard_to_pool instead
+        # so only one card is discarded per timeout cycle.
+        for action in actions:
+            if action.kind == "discard_to_pool":
+                return action
+        # Last resort: return the first non-batch action to avoid side-effects.
+        for action in actions:
+            if action.kind != "discard_batch_to_pool":
+                return action
+        return None
 
     def _wrap_policy_with_fallback(self, seat_label: str, base_policy):
         def wrapped(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
