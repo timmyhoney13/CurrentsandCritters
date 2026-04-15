@@ -1185,8 +1185,9 @@
       const seatToken = getSeatToken();
       if (seatToken) params.set("seat_token", seatToken);
       else params.delete("seat_token");
-      // Never keep a host token in the shareable URL by default.
+      // Never keep host/admin credentials in shareable play URLs.
       params.delete("host_token");
+      params.delete("create_key");
       // Spectator state must be an explicit local toggle, not a sticky shared URL flag.
       params.delete("spectator");
       const qs = params.toString();
@@ -1276,8 +1277,8 @@
       const rid = normalizeRoomId(id || "");
       if (!rid) return "/";
       const params = new URLSearchParams();
-      const key = activeCreateKey();
-      if (key) params.set("create_key", key);
+      // Never include create_key in room navigation URLs — it's a host admin secret,
+      // not a per-room credential, and leaking it lets any visitor claim the host seat.
       const seatToken = getSeatTokenForRoom(rid);
       if (seatToken) params.set("seat_token", seatToken);
       const hostToken = getHostTokenForRoom(rid);
@@ -3250,9 +3251,12 @@
       if (viewerSeat && viewerSeat.is_host) return;
 
       const hasHostToken = Boolean(getHostToken());
-      const key = activeCreateKey();
-      const hasCreateKey = Boolean(key);
-      if (!hasHostToken && !hasCreateKey) return;
+      // Only auto-reclaim the host seat when this device has the actual per-room
+      // host_token. Having just a create_key is NOT sufficient — that would let any
+      // player who received the key (e.g. from a shared URL) silently kick the real host.
+      // Explicit reclaim via the "Reclaim Host Seat" button still works because it
+      // prompts the user and sends create_key only on intentional click.
+      if (!hasHostToken) return;
 
       const name = document.getElementById("joinName").value.trim()
         || document.getElementById("hostName").value.trim()
@@ -3265,7 +3269,6 @@
         seat_token: getSeatToken() || undefined,
         host_token: getHostToken() || undefined,
         takeover: true,
-        create_key: key || undefined,
       }).then((out) => {
         if (out.seat_token) {
           setSeatToken(out.seat_token);
@@ -3295,9 +3298,11 @@
       if (Number.isInteger(viewer.seat_index)) return;
 
       const seats = Array.isArray(payload.seats) ? payload.seats : [];
-      // If this device has host authority, prioritize host-seat reclaim over auto-joining a non-host seat.
+      // If this device has the host token, prioritize host-seat reclaim over auto-joining.
+      // Do NOT check activeCreateKey() here — that would block non-host players who
+      // happen to have the create_key from ever joining a seat automatically.
       const hostSeat = seats.find((s) => s && s.kind === "human" && s.is_host);
-      if ((getHostToken() || activeCreateKey()) && hostSeat) return;
+      if (getHostToken() && hostSeat) return;
       const openSeat = seats.find((s) => s.kind === "human" && s.status === "available");
       if (!openSeat) return;
 
@@ -3527,7 +3532,9 @@
         : seats.find((s) => s.kind === "human" && s.status === "available" && Number(s.index) === preferredSeatIndex);
       const name = document.getElementById("joinName").value.trim() || "Player";
       const key = activeCreateKey();
-      const hasHostAuthority = Boolean(key || getHostToken());
+      // Host authority = having the per-room host_token (not just create_key).
+      // create_key is only used for room creation and manual explicit reclaims.
+      const hasHostAuthority = Boolean(getHostToken());
       const hostSeat = seats.find((s) => s.kind === "human" && s.is_host) || null;
       const viewer = latestPayload?.viewer || {};
       const viewerSeatIndex = Number.isInteger(viewer.seat_index) ? Number(viewer.seat_index) : null;

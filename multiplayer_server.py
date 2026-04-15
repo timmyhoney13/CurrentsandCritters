@@ -2928,7 +2928,31 @@ def main() -> None:
     args = parser.parse_args()
     PUBLIC_BASE_URL = str(args.public_base_url or "").strip()
     raw_key = str(args.create_key or os.environ.get("FISH_CREATE_KEY") or "").strip()
-    CREATE_KEY = raw_key if raw_key else secrets.token_urlsafe(16)
+    if raw_key:
+        CREATE_KEY = raw_key
+    else:
+        # Persist the generated key so it survives server restarts (e.g. on Render).
+        # If FISH_CREATE_KEY env var is not set, we load from disk or create once.
+        _key_file = os.path.join(ROOM_STATE_DIR, ".create_key")
+        _loaded_key = ""
+        try:
+            os.makedirs(ROOM_STATE_DIR, exist_ok=True)
+            with open(_key_file, "r", encoding="utf-8") as _kf:
+                _loaded_key = _kf.read().strip()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+        if _loaded_key:
+            CREATE_KEY = _loaded_key
+        else:
+            CREATE_KEY = secrets.token_urlsafe(16)
+            try:
+                os.makedirs(ROOM_STATE_DIR, exist_ok=True)
+                with open(_key_file, "w", encoding="utf-8") as _kf:
+                    _kf.write(CREATE_KEY)
+            except Exception:
+                pass
     CORS_ALLOW_ORIGIN = str(args.cors_allow_origin or "*").strip() or "*"
 
     os.makedirs(os.path.dirname(DATASET_PATH), exist_ok=True)
