@@ -7275,46 +7275,339 @@ def final_points(gs: GameState, player: PlayerState) -> int:
 
 def full_score_breakdown(gs: GameState, player: PlayerState) -> Dict[str, Any]:
     """
-    Multiplayer snapshot-compatible score payload.
-    Uses final_points() as the source of truth for total score and includes
-    per-card rows for UI display.
+    Per-card score breakdown mirroring the final_points() calculation exactly.
+    Returns card_rows (matching what the web client reads) with per-component
+    explanations of why each card earned its points.
+    final_points() remains the authoritative total; this function only explains it.
     """
-    rows: List[Dict[str, Any]] = []
+    try:
+        return _full_score_breakdown_impl(gs, player)
+    except Exception:
+        try:
+            total = int(final_points(gs, player))
+        except Exception:
+            total = int(getattr(player, "score", 0))
+        return {"total": total, "card_rows": [], "error": "breakdown_failed"}
+
+
+def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, Any]:
+    """Internal implementation — mirrors final_points() and captures per-card components."""
+    # Build same board list as final_points: (uid, CardDef, ocean_uid)
+    board: List[Tuple[int, CardDef, int]] = []
     for ocean_uid in player.board_oceans:
         ocean = gs.card_db.get(ocean_uid)
         if ocean is None:
             continue
-        rows.append(
-            {
-                "uid": int(ocean_uid),
-                "name": ocean.name,
-                "type": "ocean",
-                "text": ocean.text,
-                "total": 0,
-                "components": [],
-            }
-        )
+        board.append((ocean_uid, ocean, ocean_uid))
         slots = player.ocean_slots.get(ocean_uid)
-        if not slots:
+        if not isinstance(slots, OceanSlots):
             continue
         for uid in slots.all_cards():
-            c = gs.card_db.get(uid)
-            if c is None:
+            face = gs.card_db.get(uid)
+            if face is None:
                 continue
-            rows.append(
-                {
-                    "uid": int(uid),
-                    "name": c.name,
-                    "type": "animal",
-                    "text": c.text,
-                    "total": 0,
-                    "components": [],
-                }
-            )
+            board.append((uid, face, ocean_uid))
+
+    if not board:
+        return {"total": 0, "card_rows": []}
+
+    all_cards = [c for _, c, _ in board]
+    non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
+
+    ocean_count = len(player.board_oceans)
+    other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
+    has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
+
+    def _has_most_piers() -> bool:
+        def pier_count(p: PlayerState) -> int:
+            return sum(1 for uid in p.board_oceans
+                       if (gs.card_db.get(uid) is not None and
+                           gs.card_db[uid].name.lower() == "pier"))
+        my = pier_count(player)
+        others = [pier_count(p) for p in gs.players if p is not player]
+        return my >= max(others) if others else True
+
+    def _count_animals(owner: PlayerState) -> int:
+        n = 0
+        for o_uid in owner.board_oceans:
+            sl = owner.ocean_slots.get(o_uid)
+            if not sl:
+                continue
+            for uid in sl.all_cards():
+                c = gs.card_db.get(uid)
+                if c is not None and c.direction.strip().lower() != "n/a":
+                    n += 1
+        return n
+
+    def _has_most_animals() -> bool:
+        my = _count_animals(player)
+        others = [_count_animals(p) for p in gs.players if p is not player]
+        return my >= max(others) if others else True
+
+    def _fully_occupied_ocean_count() -> int:
+        full = 0
+        for o_uid in player.board_oceans:
+            sl = player.ocean_slots.get(o_uid)
+            if sl and sl.up and sl.down and sl.left and sl.right:
+                full += 1
+        return full
+
+    def _coral_on_reef_count() -> int:
+        n = 0
+        for o_uid in player.board_oceans:
+            ocean = gs.card_db.get(o_uid)
+            if ocean is None or ocean.name.lower() != "coral reef":
+                continue
+            sl = player.ocean_slots.get(o_uid)
+            if sl:
+                for uid in sl.all_cards():
+                    c = gs.card_db.get(uid)
+                    if c is not None and c.species.lower() == "coral":
+                        n += 1
+        return n
+
+    def _species_count(spec: str) -> int:
+        s = spec.lower()
+        return sum(1 for c in non_ocean_cards if c.species.lower() == s)
+
+    def _name_count(name: str) -> int:
+        n = name.lower()
+        return sum(1 for c in all_cards if c.name.lower() == n)
+
+    def _same_ocean_cards(target_ocean_uid: int) -> List[CardDef]:
+        return [c for _, c, o_uid in board
+                if o_uid == target_ocean_uid and c.direction.strip().lower() != "n/a"]
+
+    def _threshold(text: str, value: int) -> int:
+        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\s*=\s*(\d+)", text)]
+        if not pairs:
+            return 0
+        eligible = [pts for need, pts in pairs if need <= value]
+        return max(eligible) if eligible else 0
+
+    coral_reef_total = _name_count("coral reef")
+    coral_reef_table_applied = False
+
+    card_rows: List[Dict[str, Any]] = []
+
+    for uid, card, ocean_uid in board:
+        t = card.text.lower()
+        # Clownfish copies its ocean's text
+        if card.name.lower() == "clownfish":
+            ocean_card = gs.card_db.get(ocean_uid)
+            if ocean_card is not None:
+                t = f"{t} | {ocean_card.text.lower()}"
+
+        card_pts = 0
+        components: List[Dict[str, object]] = []
+
+        def add(n: int, reason: str) -> None:
+            nonlocal card_pts
+            if n != 0:
+                card_pts += n
+                components.append({"points": int(n), "reason": str(reason)})
+
+        # ── Conditional bonus patterns ──────────────────────────────────────
+        if "if sharing an ocean with a goliath grouper" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if any(c.name.lower() == "goliath grouper" for c in same):
+                add(8, "sharing ocean with Goliath Grouper")
+
+        if "if sharing an ocean with a king salmon" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if any(c.name.lower() == "king salmon" for c in same):
+                add(4, "sharing ocean with King Salmon")
+
+        if "if sharing the ocean with a cephalopod" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if any(c.species.lower() == "cephalopod" for c in same):
+                m2 = re.search(r"\+(\d+)\s*if sharing the ocean with a cephalopod", t)
+                add(int(m2.group(1)) if m2 else 5, "sharing ocean with a Cephalopod")
+
+        if "if sharing an ocean with baitfish" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if any(c.species.lower() == "baitfish" for c in same):
+                add(5, "sharing ocean with Baitfish")
+
+        if "if sharing an ocean with a mahi mahi" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if any(c.name.lower() == "mahi mahi" for c in same):
+                add(9, "sharing ocean with Mahi Mahi")
+
+        if "if this is the only creature on this ocean" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if len(same) == 1:
+                add(10, "only creature on this ocean")
+
+        if "if you have at least three cephalopods" in t:
+            cnt = _species_count("cephalopod")
+            if cnt >= 3:
+                add(4, f"at least 3 Cephalopods ({cnt} total)")
+
+        if "if you have at least four cephalopods" in t:
+            cnt = _species_count("cephalopod")
+            if cnt >= 4:
+                add(6, f"at least 4 Cephalopods ({cnt} total)")
+
+        if "if you have the most oceans" in t and has_most_oceans:
+            add(8, f"most oceans ({ocean_count})")
+
+        if "if you have the most animals" in t and _has_most_animals():
+            add(4, "most animals")
+
+        if "if you have all 8 oceans" in t and ocean_count >= 8:
+            m2 = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
+            add(int(m2.group(1)) if m2 else 8, "all 8 oceans")
+
+        if "+2 or +3 if you have the most piers" in t:
+            add(3 if _has_most_piers() else 2,
+                "most piers (+3)" if _has_most_piers() else "base pier score (+2)")
+
+        if "+1 per every two oceans you control" in t:
+            n = ocean_count // 2
+            if n:
+                add(n, f"+1 per every 2 oceans ({ocean_count} oceans → {n} pts)")
+
+        if "+5 per fully occupied ocean" in t:
+            foc = _fully_occupied_ocean_count()
+            if foc:
+                add(5 * foc, f"+5 per fully occupied ocean × {foc}")
+
+        if "+2 per card attached" in t:
+            same = _same_ocean_cards(ocean_uid)
+            if same:
+                add(2 * len(same), f"+2 per card on same ocean × {len(same)}")
+
+        if "kelp forest" in t and ("at least 4" in t or "4 or more" in t):
+            kt = _name_count("kelp forest")
+            if kt >= 4:
+                if "per kelp forest" in t:
+                    add(5 * kt, f"+5 per Kelp Forest × {kt}")
+                else:
+                    add(5, f"4+ Kelp Forests bonus")
+
+        # ── Per-species / per-name patterns ─────────────────────────────────
+        def _per(pattern: str, n_pts: int, label: str) -> None:
+            if pattern in t:
+                cnt = _species_count(label.lower()) if label.lower() not in {"mahi mahi", "yellowfin tuna", "mandarin goby"} else _name_count(label.lower())
+                if cnt:
+                    add(n_pts * cnt, f"+{n_pts} per {label} × {cnt}")
+
+        if "+2 per bird" in t:
+            cnt = _species_count("bird"); cnt and add(2 * cnt, f"+2 per Bird × {cnt}")
+        if "+3 per bird" in t:
+            cnt = _species_count("bird"); cnt and add(3 * cnt, f"+3 per Bird × {cnt}")
+        if "+1 per crustacean" in t:
+            cnt = _species_count("crustacean"); cnt and add(cnt, f"+1 per Crustacean × {cnt}")
+        if "+2 per crustacean" in t:
+            cnt = _species_count("crustacean"); cnt and add(2 * cnt, f"+2 per Crustacean × {cnt}")
+        if "+3 per crustacean" in t:
+            cnt = _species_count("crustacean"); cnt and add(3 * cnt, f"+3 per Crustacean × {cnt}")
+        if "+2 per coral that is attached to a coral reef" in t:
+            cnt = _coral_on_reef_count(); cnt and add(2 * cnt, f"+2 per Coral on Coral Reef × {cnt}")
+        if "+2 per coral" in t and "attached to a coral reef" not in t:
+            cnt = _species_count("coral"); cnt and add(2 * cnt, f"+2 per Coral × {cnt}")
+        if "+5 per coral" in t:
+            cnt = _species_count("coral"); cnt and add(5 * cnt, f"+5 per Coral × {cnt}")
+        if "+1 per coral" in t:
+            cnt = _species_count("coral"); cnt and add(cnt, f"+1 per Coral × {cnt}")
+        if "+5 per invertebrate" in t:
+            cnt = _species_count("invertebrate"); cnt and add(5 * cnt, f"+5 per Invertebrate × {cnt}")
+        if "+1 per invertebrate" in t:
+            cnt = _species_count("invertebrate"); cnt and add(cnt, f"+1 per Invertebrate × {cnt}")
+        if "+3 per invertebrate" in t:
+            cnt = _species_count("invertebrate"); cnt and add(3 * cnt, f"+3 per Invertebrate × {cnt}")
+        if "+3 per baitfish" in t:
+            cnt = _species_count("baitfish"); cnt and add(3 * cnt, f"+3 per Baitfish × {cnt}")
+        if "+4 per baitfish" in t:
+            cnt = _species_count("baitfish"); cnt and add(4 * cnt, f"+4 per Baitfish × {cnt}")
+        if "+1 per game fish" in t:
+            cnt = _species_count("game fish"); cnt and add(cnt, f"+1 per Game Fish × {cnt}")
+        if "+4 per cephalopod" in t:
+            cnt = _species_count("cephalopod"); cnt and add(4 * cnt, f"+4 per Cephalopod × {cnt}")
+        if "+2 per mammal" in t:
+            cnt = _species_count("mammal"); cnt and add(2 * cnt, f"+2 per Mammal × {cnt}")
+        if "+3 per mammal" in t:
+            cnt = _species_count("mammal"); cnt and add(3 * cnt, f"+3 per Mammal × {cnt}")
+        if "+3 per coral" in t:
+            cnt = _species_count("coral"); cnt and add(3 * cnt, f"+3 per Coral × {cnt}")
+        if "+6 per mandarin goby" in t:
+            cnt = _name_count("mandarin goby"); cnt and add(6 * cnt, f"+6 per Mandarin Goby × {cnt}")
+        if "+1 per uncharted animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted")
+            cnt and add(cnt, f"+1 per Uncharted Animal × {cnt}")
+        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted")
+            cnt and add(2 * cnt, f"+2 per Uncharted Animal × {cnt}")
+        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted")
+            cnt and add(3 * cnt, f"+3 per Uncharted Animal × {cnt}")
+        if "+2 per matching symbol" in t:
+            sym = normalize_symbol(card.symbol)
+            if sym not in {"", "n/a"}:
+                cnt = sum(1 for c in non_ocean_cards
+                          if normalize_symbol(c.symbol) == sym and c.uid != card.uid)
+                cnt and add(2 * cnt, f"+2 per matching symbol ({sym}) × {cnt}")
+        if "+10 per each mahi mahi you control" in t:
+            cnt = _name_count("mahi mahi"); cnt and add(10 * cnt, f"+10 per Mahi Mahi × {cnt}")
+        if "+9 per each mahi mahi you control" in t:
+            cnt = _name_count("mahi mahi"); cnt and add(9 * cnt, f"+9 per Mahi Mahi × {cnt}")
+        if "+3 per yellowfin tuna" in t:
+            cnt = _name_count("yellowfin tuna"); cnt and add(3 * cnt, f"+3 per Yellowfin Tuna × {cnt}")
+        if "+2 per each unique symbol attached to this ocean" in t:
+            same = _same_ocean_cards(ocean_uid)
+            syms = {normalize_symbol(c.symbol) for c in same if normalize_symbol(c.symbol) not in {"", "n/a"}}
+            syms and add(2 * len(syms), f"+2 per unique symbol on ocean × {len(syms)}")
+        if "+2 per each unique species attached to this ocean" in t:
+            same = _same_ocean_cards(ocean_uid)
+            spp = {c.species.lower() for c in same if c.species.strip()}
+            spp and add(2 * len(spp), f"+2 per unique species on ocean × {len(spp)}")
+
+        # ── Threshold table cards ─────────────────────────────────────────────
+        if "different species of baitfish" in t:
+            kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
+            n = _threshold(t, len(kinds))
+            n and add(n, f"{len(kinds)} different Baitfish species → {n} pts")
+        elif card.name.lower() == "coral reef":
+            if not coral_reef_table_applied:
+                n = _threshold(t, coral_reef_total)
+                n and add(n, f"{coral_reef_total} Coral Reef(s) → {n} pts")
+                coral_reef_table_applied = True
+        elif re.search(r"\d+\s*=\s*\d+", t):
+            cnt = _name_count(card.name)
+            n = _threshold(t, cnt)
+            n and add(n, f"{cnt} × {card.name} → {n} pts")
+
+        # ── Flat +N values (one-time bonuses, no conditions) ─────────────────
+        for chunk in [x.strip() for x in t.split("|")]:
+            if not chunk.startswith("+"):
+                continue
+            if any(w in chunk for w in [" if ", " per ", " or ", " most ", " only ", " at least ", " every "]):
+                continue
+            m2 = re.match(r"\+(\d+)\b", chunk)
+            if m2:
+                add(int(m2.group(1)), f"flat +{m2.group(1)}")
+
+        is_ocean_card = card.direction.strip().lower() == "n/a"
+        card_rows.append({
+            "card_uid": int(uid),
+            "card_name": card.name,
+            "is_ocean": is_ocean_card,
+            "ocean_uid": int(ocean_uid),
+            "total": card_pts,
+            "components": components,
+        })
+
+    # Always use final_points() as the authoritative total so the displayed
+    # number is always correct even if the breakdown has edge cases.
+    try:
+        authoritative_total = int(final_points(gs, player))
+    except Exception:
+        authoritative_total = sum(row["total"] for row in card_rows)
 
     return {
-        "total": int(final_points(gs, player)),
-        "rows": rows,
+        "total": authoritative_total,
+        "card_rows": card_rows,
     }
 
 
@@ -7563,6 +7856,14 @@ def run_match(
     sanitize_log_budget = 40
     move_histories: Dict[int, List[Dict[str, float]]] = {i: [] for i in range(len(gs.players))}
     move_signatures: Dict[int, List[str]] = {i: [] for i in range(len(gs.players))}
+
+    # Crash-safe score helper used in logging throughout the loop and after it ends.
+    def _safe_fp(pl: PlayerState) -> int:
+        try:
+            return int(final_points(gs, pl))
+        except Exception:
+            return int(getattr(pl, "score", 0))
+
     while True:
         if max_turns > 0 and turns >= max_turns:
             break
@@ -7854,22 +8155,32 @@ def run_match(
             discard_down_to_ten_ai(gs, ms, p)
 
         clear_turn_only_flags(p)
+
         if live_recorder is not None:
-            live_recorder.event(
-                "Scores -> " + " | ".join(f"{pl.name}: {final_points(gs, pl)}" for pl in gs.players)
-            )
-            live_recorder.snapshot(gs, ms, turn_number=turns + 1, note=f"turn_end:{p.name}")
+            try:
+                live_recorder.event(
+                    "Scores -> " + " | ".join(f"{pl.name}: {_safe_fp(pl)}" for pl in gs.players)
+                )
+            except Exception:
+                pass
+            try:
+                live_recorder.snapshot(gs, ms, turn_number=turns + 1, note=f"turn_end:{p.name}")
+            except Exception:
+                pass
         if verbose:
-            scores = " | ".join(f"{pl.name}: {final_points(gs, pl)}" for pl in gs.players)
-            print(f"Scores -> {scores}")
-            print("Score audit:")
-            for pl in gs.players:
-                print(f"  {pl.name}: {final_points(gs, pl)} | Cards: {board_cards_label(gs, pl)}")
-            if verbose_state and ms.pool:
-                print("Pool now: " + ", ".join(entry_short_label(ms, gs, uid) for uid in ms.pool))
-            elif verbose_state:
-                print("Pool now: (empty)")
-            print(f"Pool size: {len(ms.pool)} | Deck: {len(gs.deck)}")
+            try:
+                scores = " | ".join(f"{pl.name}: {_safe_fp(pl)}" for pl in gs.players)
+                print(f"Scores -> {scores}")
+                print("Score audit:")
+                for pl in gs.players:
+                    print(f"  {pl.name}: {_safe_fp(pl)} | Cards: {board_cards_label(gs, pl)}")
+                if verbose_state and ms.pool:
+                    print("Pool now: " + ", ".join(entry_short_label(ms, gs, uid) for uid in ms.pool))
+                elif verbose_state:
+                    print("Pool now: (empty)")
+                print(f"Pool size: {len(ms.pool)} | Deck: {len(gs.deck)}")
+            except Exception:
+                pass
 
         if ms.end_game_triggered:
             ms.final_turns_remaining -= 1
@@ -7895,14 +8206,23 @@ def run_match(
         turns += 1
 
     if live_recorder is not None:
-        live_recorder.event("=== Final ===")
-        for pl in gs.players:
-            live_recorder.event(f"{pl.name}: {final_points(gs, pl)}")
-        live_recorder.snapshot(gs, ms, turn_number=turns, note="game_end")
+        try:
+            live_recorder.event("=== Final ===")
+            for pl in gs.players:
+                try:
+                    live_recorder.event(f"{pl.name}: {_safe_fp(pl)}")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        try:
+            live_recorder.snapshot(gs, ms, turn_number=turns, note="game_end")
+        except Exception:
+            pass
 
     # End-of-game self-play learning: reinforce moves that led to higher final outcomes.
     if online_weights is not None and any(move_histories.values()):
-        finals = [final_points(gs, p) for p in gs.players]
+        finals = [_safe_fp(p) for p in gs.players]
         for i, feats_list in move_histories.items():
             if not feats_list:
                 continue
@@ -7955,7 +8275,7 @@ def run_match(
             strategy_transition_count_map = {}
             online_state["strategy_transition_count"] = strategy_transition_count_map
 
-        finals = [float(final_points(gs, p)) for p in gs.players]
+        finals = [float(_safe_fp(p)) for p in gs.players]
         update_strategy_memory_from_match(
             finals,
             move_signatures,
