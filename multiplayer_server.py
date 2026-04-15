@@ -1848,22 +1848,28 @@ class GameRoom:
                         self._bump_locked()
                     return None
 
-                # Wait up to 5 minutes for the human to act. If they time out
-                # (disconnected / idle), auto-draw so the game keeps moving.
-                cmd = self._wait_for_action(seat_index, timeout_sec=300.0)
+                # Wait for the human to act. During discard phase, give a much longer
+                # window (30 min) because the player must review their hand — auto-discarding
+                # for them would remove cards they didn't choose to lose.
+                only_discards = bool(actions) and all(
+                    a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
+                )
+                wait_sec = 1800.0 if only_discards else 300.0
+                cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is None:
                     # Phase ended or player timed out.
                     if self.phase != "running":
                         return None
                     # Timeout: pick a safe fallback so the game doesn't hang.
                     fallback = self._safe_fallback_action(gs, ms, player)
+                    action_desc = "discarding a card" if only_discards else "auto-drawing"
                     with self.cond:
                         self.status_note = (
-                            f"{player.name} took too long — auto-drawing to keep game moving."
+                            f"{player.name} took too long — {action_desc} to keep game moving."
                         )
                         self._bump_locked()
                     self._record_event(
-                        f"{player.name} (seat {seat_index}) timed out after 5 min — auto-drawing."
+                        f"{player.name} (seat {seat_index}) timed out — {action_desc}."
                     )
                     return fallback
 

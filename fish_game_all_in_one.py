@@ -5361,10 +5361,12 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
 
     # End-of-turn discard phase: only discard actions are legal until hand is within the limit.
     if player.flags.get("_discard_mode") and len(player.hand) > HAND_LIMIT:
-        # Batch action for web human multi-select UI (carries the full selectable hand).
-        # Individual discard_to_pool actions kept as fallback for AI and backwards compat.
+        # Batch action for web human multi-select UI.  pool_pick_uids is intentionally
+        # empty here — the client populates it with the player's actual selection before
+        # submitting.  Individual discard_to_pool actions are kept as a fallback for AI
+        # and for single-card interactive removal.
         return [
-            Action(kind="discard_batch_to_pool", pool_pick_uids=list(player.hand)),
+            Action(kind="discard_batch_to_pool", pool_pick_uids=[]),
             *[Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)],
         ]
 
@@ -8208,36 +8210,30 @@ def run_match(
         # End-turn hand limit.
         if (gs.turn_index in human_idx_set) and web_control_mode and len(p.hand) > HAND_LIMIT:
             # Web human over the limit: set _discard_mode so legal_actions returns only discard
-            # actions, then call the policy in a loop so the player chooses which cards to remove.
-            draws_back = turn_state.draws_this_turn
+            # actions, then wait for the player to choose which cards to remove.
             p.flags["_discard_mode"] = True
             d_policy = action_policies[gs.turn_index % len(action_policies)]
             while len(p.hand) > HAND_LIMIT:
                 chosen_discard = d_policy(gs, ms, p)
                 if chosen_discard is None:
+                    # Player disconnected / game phase ended — discard one card as a
+                    # safety measure so the game can continue, not the whole hand.
                     discard_down_to_ten_ai(gs, ms, p)
                     break
                 if chosen_discard.kind == "discard_batch_to_pool":
                     # Human submitted a batch — process all at once then exit loop.
                     discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
                     if not discard_ok:
-                        discard_down_to_ten_ai(gs, ms, p)
+                        # Batch failed (e.g. empty picks got through) — try again next loop.
+                        continue
                     break
                 if chosen_discard.kind != "discard_to_pool":
-                    discard_down_to_ten_ai(gs, ms, p)
-                    break
+                    # Unexpected action kind during discard phase — ignore and try again.
+                    continue
                 discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
                 if not discard_ok:
-                    discard_down_to_ten_ai(gs, ms, p)
-                    break
+                    continue
             p.flags["_discard_mode"] = False
-            # After discarding, draw back as many cards as were drawn this turn.
-            if draws_back > 0 and gs.deck:
-                drew_back = draw_from_deck(gs, ms, p, min(draws_back, len(gs.deck)))
-                if verbose:
-                    print(f"{p.name} draws back {len(drew_back)} card(s) after discarding.")
-                if live_recorder is not None:
-                    live_recorder.event(f"{p.name} draws back {len(drew_back)} card(s) after discarding.")
         elif (gs.turn_index in human_idx_set) and (not web_control_mode):
             discard_down_to_ten_human(gs, ms, p)
         else:
