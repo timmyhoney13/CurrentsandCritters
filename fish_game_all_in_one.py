@@ -8216,8 +8216,12 @@ def run_match(
             while len(p.hand) > HAND_LIMIT:
                 chosen_discard = d_policy(gs, ms, p)
                 if chosen_discard is None:
-                    # Player disconnected / game phase ended — discard one card as a
-                    # safety measure so the game can continue, not the whole hand.
+                    # Policy returned None — either game phase ended or an error
+                    # occurred.  For web humans, do NOT auto-discard: leave the
+                    # hand as-is and let the next poll re-enter the discard phase.
+                    # For AI or terminal humans, fall back to the AI discard helper.
+                    if gs.turn_index in human_idx_set and web_control_mode:
+                        break
                     discard_down_to_ten_ai(gs, ms, p)
                     break
                 if chosen_discard.kind == "discard_batch_to_pool":

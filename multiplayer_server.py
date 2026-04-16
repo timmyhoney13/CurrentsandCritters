@@ -1818,7 +1818,24 @@ class GameRoom:
                 if replay_action is not None:
                     return replay_action
 
-                legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
+                try:
+                    legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
+                except Exception as exc:
+                    self._record_event(f"_serialize_legal_actions error for {player.name}: {exc}")
+                    legal_payload = {
+                        "updated_unix": now_unix(),
+                        "player": player.name,
+                        "turn_index": int(gs.turn_index),
+                        "round_count": int(gs.round_count),
+                        "must_discard_to_ten": bool(actions) and all(
+                            a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
+                        ),
+                        "tarpon_discard_active": bool(player.flags.get("_tarpon_discard_active", False)),
+                        "discard_batch_available": any(a.kind == "discard_batch_to_pool" for a in actions),
+                        "discard_excess": max(0, len(player.hand) - 10),
+                        "hand_limit": 10,
+                        "actions": [],
+                    }
                 with self.cond:
                     if self.phase != "running":
                         return None
@@ -1956,6 +1973,12 @@ class GameRoom:
                     f"Policy error on {seat_label} ({player.name}): {exc}. "
                     "Using safe fallback action."
                 )
+                # During the discard phase, returning any fallback action would silently
+                # discard cards the player didn't choose.  Return None instead so the
+                # game loop treats this as "no action available" and handles it without
+                # auto-discarding.
+                if player.flags.get("_discard_mode"):
+                    return None
                 return self._safe_fallback_action(gs, ms, player)
 
         return wrapped
