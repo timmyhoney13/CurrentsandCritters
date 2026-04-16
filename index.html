@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidal Wave | Ocean Card Arena</title>
+  <style>
+    :root {
+      --ink: #0f2330;
+      --soft: #456879;
+      --paper: #f7fbff;
+      --panel: #ffffff;
+      --line: #c4d8e6;
+      --sea: #0a8fb8;
+      --reef: #16a36b;
+      --sand: #f2a341;
+      --deep: #08344d;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Gill Sans", "Avenir Next", "Trebuchet MS", sans-serif;
+      background:
+        radial-gradient(1300px 420px at -8% -12%, #d8f3ff 0%, transparent 55%),
+        radial-gradient(1200px 540px at 108% -25%, #d9ffe8 0%, transparent 50%),
+        linear-gradient(180deg, #eef8ff 0%, #f7fbff 55%, #ffffff 100%);
+    }
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 16px;
+    }
+    .brand {
+      font-size: 24px;
+      letter-spacing: 0.4px;
+      font-weight: 800;
+      color: var(--deep);
+    }
+    .sub {
+      color: var(--soft);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .nav-links {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .nav-link {
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      color: #18526d;
+      border: 1px solid #9ac1d6;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: #fff;
+    }
+    .nav-link:hover {
+      background: #ebf8ff;
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(145deg, #ffffff 0%, #f0faff 62%, #ebfff5 100%);
+      padding: 26px;
+      box-shadow: 0 16px 36px rgba(6, 46, 74, 0.08);
+      animation: rise 600ms ease-out;
+    }
+    .hero:before {
+      content: "";
+      position: absolute;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(10, 143, 184, 0.12) 0%, transparent 70%);
+      right: -40px;
+      top: -20px;
+      pointer-events: none;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(30px, 5vw, 52px);
+      line-height: 0.97;
+      font-family: "Copperplate", "Avenir Next Condensed", "Trebuchet MS", sans-serif;
+      letter-spacing: 0.2px;
+      color: #0a3d57;
+    }
+    .lead {
+      margin: 0 0 18px;
+      color: var(--soft);
+      font-size: 18px;
+      max-width: 760px;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 12px;
+      padding: 11px 15px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      font-weight: 800;
+      font-size: 15px;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 9px 18px rgba(3, 34, 52, 0.14);
+    }
+    .btn.primary {
+      background: linear-gradient(180deg, #1da4ce 0%, #0d84af 100%);
+      color: #fff;
+      border-color: #0d84af;
+    }
+    .btn.secondary {
+      background: #fff;
+      color: #18526d;
+      border-color: #9ac1d6;
+    }
+    .grid {
+      margin-top: 16px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .resume-panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 8px 16px rgba(8, 40, 58, 0.06);
+      padding: 14px;
+      display: none;
+    }
+    .resume-panel h2 {
+      margin: 0 0 6px 0;
+      color: #114d67;
+      font-size: 18px;
+    }
+    .resume-copy {
+      margin: 0 0 10px 0;
+      color: var(--soft);
+      font-size: 14px;
+    }
+    .choice-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+    .choice-btn {
+      border: 1px solid #8fbad0;
+      border-radius: 10px;
+      padding: 9px 12px;
+      background: #f1fbff;
+      color: #16485f;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .choice-btn.alt {
+      background: #fff;
+    }
+    .resume-note {
+      margin-top: 6px;
+      color: #355f73;
+      font-size: 13px;
+      min-height: 18px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--panel);
+      padding: 14px;
+      box-shadow: 0 8px 16px rgba(8, 40, 58, 0.06);
+      animation: rise 700ms ease-out;
+    }
+    .card h3 {
+      margin: 0 0 5px;
+      font-size: 16px;
+      color: #114d67;
+      letter-spacing: 0.1px;
+    }
+    .card p {
+      margin: 0;
+      color: var(--soft);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .small {
+      margin-top: 14px;
+      color: #5b7889;
+      font-size: 13px;
+    }
+    .footer {
+      margin: 16px 0 0;
+      color: #5f7f92;
+      font-size: 13px;
+      text-align: center;
+    }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (max-width: 680px) {
+      .wrap { padding: 14px; }
+      .hero { padding: 18px; border-radius: 14px; }
+      .lead { font-size: 16px; }
+      .btn { width: 100%; }
+      .nav { align-items: flex-start; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav">
+      <div>
+        <div class="brand">Tidal Wave</div>
+        <div class="sub">Two-player online ocean card game</div>
+      </div>
+      <div class="nav-links">
+        <a class="nav-link" href="/">Home</a>
+        <a class="nav-link" href="/rules">Rules</a>
+        <a class="nav-link" href="/about">About</a>
+      </div>
+    </div>
+
+    <section class="hero">
+      <h1>Play Online.<br />No Tunnel Link Guessing.</h1>
+      <p class="lead">
+        This site is your launch page. Open the multiplayer app, start a room, and share the room link.
+        Game state is server-authoritative and built for reconnect-friendly play.
+      </p>
+      <div class="actions">
+        <a class="btn primary" href="/game?fresh_setup=1">Restart Setup (New Key + Players)</a>
+        <a class="btn primary" href="/game">Open Multiplayer App</a>
+        <a class="btn secondary" href="/play/FISHGAME">Open Stable Room Path</a>
+        <a class="btn secondary" href="/rules">Read Rules</a>
+        <a class="btn secondary" href="/about">About This Project</a>
+      </div>
+      <div class="small">
+        Tip: Bookmark this page and your room URL so both players can return fast after refresh.
+      </div>
+    </section>
+
+    <section class="resume-panel" id="resumePanel">
+      <h2>Reconnect Previous Game</h2>
+      <p class="resume-copy" id="resumeQuestionA">Were you playing a game before this tunnel failed?</p>
+      <div class="choice-row" id="resumeStepA">
+        <button type="button" class="choice-btn" id="resumeYesBtn">Yes</button>
+        <button type="button" class="choice-btn alt" id="resumeNoBtn">No</button>
+      </div>
+      <div id="resumeStepB" style="display:none;">
+        <p class="resume-copy">What player were you?</p>
+        <div class="choice-row">
+          <button type="button" class="choice-btn" id="resumeP1Btn">Player 1 (Host)</button>
+          <button type="button" class="choice-btn" id="resumeP2Btn">Player 2</button>
+          <button type="button" class="choice-btn alt" id="resumeViewBtn">Just open room</button>
+        </div>
+      </div>
+      <div class="resume-note" id="resumeNote"></div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3>Host Flow</h3>
+        <p>Open the Multiplayer App, claim Host seat, then start or restart from the same room path.</p>
+      </article>
+      <article class="card">
+        <h3>Join Flow</h3>
+        <p>Player 2 opens the shared room link and claims the open seat. Reconnect keeps seat identity.</p>
+      </article>
+      <article class="card">
+        <h3>Stability Focus</h3>
+        <p>Use one long-running server and persistent room state to reduce disconnect pain after refresh.</p>
+      </article>
+      <article class="card">
+        <h3>Scoring Roadmap</h3>
+        <p>Next upgrade can add camera table-scanning with quick correction before calculating points.</p>
+      </article>
+    </section>
+
+    <div class="footer">Tidal Wave Ocean Arena</div>
+  </div>
+  <script>
+    (function () {
+      function readStorage(storageObj, key) {
+        try {
+          if (!storageObj) return "";
+          return String(storageObj.getItem(key) || "").trim();
+        } catch {
+          return "";
+        }
+      }
+
+      function readBoth(key) {
+        return readStorage(window.sessionStorage, key) || readStorage(window.localStorage, key);
+      }
+
+      function normalizeRoomId(raw) {
+        const rid = String(raw || "").trim().toUpperCase();
+        return /^[A-Z0-9]{8}$/.test(rid) ? rid : "";
+      }
+
+      const panel = document.getElementById("resumePanel");
+      const stepA = document.getElementById("resumeStepA");
+      const stepB = document.getElementById("resumeStepB");
+      const note = document.getElementById("resumeNote");
+      if (!panel || !stepA || !stepB || !note) return;
+
+      const roomId = normalizeRoomId(readStorage(window.localStorage, "fish_last_room_id"));
+      if (!roomId) return;
+
+      panel.style.display = "block";
+      note.textContent = `Last room found: ${roomId}`;
+
+      const hostTokenKey = `fish_room_${roomId}_host_token`;
+      const seatTokenKey = `fish_room_${roomId}_seat_token`;
+      const createKey = readStorage(window.localStorage, "fish_create_key");
+
+      function goToRoom(kind) {
+        const params = new URLSearchParams();
+        const hostToken = readBoth(hostTokenKey);
+        const seatToken = readBoth(seatTokenKey);
+
+        if (kind === "p1") {
+          if (hostToken) params.set("host_token", hostToken);
+          if (seatToken) params.set("seat_token", seatToken);
+          if (!hostToken && createKey) params.set("create_key", createKey);
+        } else if (kind === "p2") {
+          if (seatToken) params.set("seat_token", seatToken);
+          if (!seatToken && createKey) params.set("create_key", createKey);
+        } else if (kind === "view") {
+          if (createKey) params.set("create_key", createKey);
+        }
+
+        const q = params.toString();
+        const target = q ? `/play/${roomId}?${q}` : `/play/${roomId}`;
+        window.location.assign(target);
+      }
+
+      document.getElementById("resumeYesBtn").addEventListener("click", function () {
+        stepB.style.display = "block";
+        note.textContent = "Choose your player seat to reconnect.";
+      });
+      document.getElementById("resumeNoBtn").addEventListener("click", function () {
+        stepB.style.display = "none";
+        note.textContent = "No problem. You can start a new setup any time.";
+      });
+      document.getElementById("resumeP1Btn").addEventListener("click", function () {
+        goToRoom("p1");
+      });
+      document.getElementById("resumeP2Btn").addEventListener("click", function () {
+        goToRoom("p2");
+      });
+      document.getElementById("resumeViewBtn").addEventListener("click", function () {
+        goToRoom("view");
+      });
+    })();
+  </script>
+</body>
+</html>

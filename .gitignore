@@ -2,6 +2,7 @@
 *
 
 !.gitignore
+!index.html
 !Dockerfile
 !render.yaml
 !vercel.json

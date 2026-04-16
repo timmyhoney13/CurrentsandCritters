@@ -5,6 +5,9 @@
 !.vercelignore
 !vercel.json
 
+# Root landing page.
+!index.html
+
 # Multiplayer web client.
 !multiplayer/
 !multiplayer/client/
