@@ -63,14 +63,6 @@
       0%,100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
-    @keyframes progress-fill {
-      0%   { width: 4%; }
-      10%  { width: 18%; }
-      30%  { width: 42%; }
-      60%  { width: 65%; }
-      80%  { width: 80%; }
-      100% { width: 92%; }
-    }
     #connMeta.connecting {
       display: block;
       background: #f0f8ff;
@@ -92,8 +84,8 @@
     }
     .conn-bar {
       height: 100%; background: linear-gradient(90deg, #1da4ce, #0d84af);
-      border-radius: 4px;
-      animation: progress-fill 60s ease-out forwards;
+      border-radius: 4px; width: 4%;
+      transition: width 0.6s ease-out;
     }
     .conn-hint {
       margin-top: 6px; font-size: 12px; color: #5a90a8;
@@ -956,6 +948,45 @@
     // Render backend URL — Vercel frontend calls this for all API requests.
     window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
 
+    // Drive the connection progress bar with JS so it never freezes.
+    // Steps: quick early progress, then slows to a crawl near 90%, then pulses.
+    let _connBarTimer = null;
+    function startConnBar() {
+      const bar = document.getElementById("connProgressBar");
+      if (!bar) return;
+      const steps = [
+        [400,  12], [900,  26], [1800, 40], [3500, 55],
+        [6000, 65], [12000,74], [22000,80], [35000,85], [50000,88], [70000,90],
+      ];
+      let i = 0;
+      function tick() {
+        if (i >= steps.length) {
+          // At 90% — pulse between 88 and 90 so it never looks frozen.
+          let up = false;
+          _connBarTimer = setInterval(() => {
+            if (!document.getElementById("connMeta")?.classList.contains("connecting")) {
+              clearInterval(_connBarTimer); return;
+            }
+            bar.style.width = (up ? "90%" : "88%");
+            up = !up;
+          }, 900);
+          return;
+        }
+        const [delay, pct] = steps[i++];
+        _connBarTimer = setTimeout(() => {
+          if (!document.getElementById("connMeta")?.classList.contains("connecting")) return;
+          bar.style.width = pct + "%";
+          tick();
+        }, delay);
+      }
+      tick();
+    }
+    function stopConnBar() {
+      if (_connBarTimer) { clearTimeout(_connBarTimer); clearInterval(_connBarTimer); _connBarTimer = null; }
+      const bar = document.getElementById("connProgressBar");
+      if (bar) bar.style.width = "100%";
+    }
+
     // Ping the server immediately on page load so it starts waking up from
     // Render's free-tier sleep before the user even picks a room.
     (function pingServerEarly() {
@@ -1417,6 +1448,7 @@
     }
 
     function setConnMeta(text) {
+      stopConnBar();
       const el = document.getElementById("connMeta");
       el.classList.remove("connecting");
       el.textContent = text || "";
@@ -3665,6 +3697,8 @@
       document.getElementById("roomPanel").style.display = "block";
       const row = document.getElementById("startMenuBtnRow");
       if (row) row.style.display = "flex";
+      // Start the JS-driven progress bar for the connecting state.
+      startConnBar();
     }
 
     function activateCreatedRoom(out, createKey, hostName) {
