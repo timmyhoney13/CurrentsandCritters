@@ -743,6 +743,7 @@
       .ocean-board-grid {
         grid-template-columns: 1fr;
       }
+      #landingPanel > div { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -755,31 +756,55 @@
       <div class="meta connecting" id="connMeta">Connecting — server may take up to 60 seconds to wake up on first visit. Please wait…</div>
       <div class="status" id="connStatus"></div>
       <div class="err" id="connErr"></div>
-      <div class="row" style="margin-top:8px;">
-        <button id="openStartMenuBtn" type="button">Start Menu</button>
+      <div class="row" style="margin-top:8px; display:none;" id="startMenuBtnRow">
+        <button id="openStartMenuBtn" type="button">↩ Start Menu</button>
         <button id="openActiveRoomBtn" type="button" style="display:none;">Open Active Room</button>
       </div>
     </section>
 
-    <section class="panel" id="setupPanel">
-      <h2 class="section-title">Create Game Room</h2>
-      <div class="row">
-        <label>Host Create Key <input id="createKey" placeholder="Required for host-only lobby creation" /></label>
-        <label>Your Name <input id="hostName" value="Host" /></label>
-        <label>Human Players
-          <select id="humanPlayers">
-            <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option>
-          </select>
-        </label>
-        <label>AI Players
-          <select id="aiPlayers">
-            <option>0</option><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
-          </select>
-        </label>
-        <label>Total Players <input id="totalPlayers" value="4" readonly /></label>
-        <button id="createRoomBtn">Create Room</button>
+    <!-- LANDING: two-path entry shown when no room is active -->
+    <div id="landingPanel">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+
+        <!-- JOIN PATH -->
+        <section class="panel" style="border:2px solid #1da4ce;">
+          <h2 class="section-title" style="color:#0b6f90;">🎮 Join a Room</h2>
+          <p class="small" style="margin-bottom:10px;">Got a room code from your host? Enter it below and jump straight in.</p>
+          <div class="row">
+            <label>Your Name <input id="joinQuickName" value="Player" /></label>
+            <label>Room Code <input id="joinQuickCode" placeholder="e.g. AB12C" style="text-transform:uppercase; letter-spacing:2px; font-weight:700;" maxlength="8" /></label>
+            <button id="joinQuickBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none;">Join Game</button>
+          </div>
+        </section>
+
+        <!-- CREATE PATH -->
+        <section class="panel" style="border:2px solid #16a36b;">
+          <h2 class="section-title" style="color:#0e7c51;">🏠 Create a Room (Host)</h2>
+          <p class="small" style="margin-bottom:10px;">Start a new game. You need a host key — then share the link with friends.</p>
+          <div class="row">
+            <label>Host Key <input id="createKey" placeholder="Enter host key" /></label>
+            <label>Your Name <input id="hostName" value="Host" /></label>
+            <label>Human Players
+              <select id="humanPlayers">
+                <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option>
+              </select>
+            </label>
+            <label>AI Players
+              <select id="aiPlayers">
+                <option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
+              </select>
+            </label>
+            <label style="display:none;">Total <input id="totalPlayers" value="2" readonly /></label>
+            <button id="createRoomBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none;">Create Room</button>
+          </div>
+        </section>
+
       </div>
-      <div class="small">Choose Human + AI count. Total auto-fills (`human + ai = total`). At least 1 human and 2-8 total players are required. AI seats are auto-assigned and not selectable by humans. Only host can create new lobbies with the create key.</div>
+    </div>
+
+    <!-- SETUP PANEL (legacy — hidden, kept for JS compatibility) -->
+    <section class="panel" id="setupPanel" style="display:none;">
+      <h2 class="section-title">Create Game Room</h2>
     </section>
 
     <section class="panel" id="roomPanel" style="display:none;">
@@ -1393,7 +1418,9 @@
       const next = key ? `/?create_key=${encodeURIComponent(key)}` : "/";
       history.replaceState({}, "", next);
 
-      document.getElementById("setupPanel").style.display = "block";
+      document.getElementById("setupPanel").style.display = "none";
+      document.getElementById("landingPanel").style.display = "block";
+      document.getElementById("startMenuBtnRow").style.display = "none";
       document.getElementById("roomPanel").style.display = "none";
       document.getElementById("lobbyPanel").style.display = "none";
       for (const id of [
@@ -3593,6 +3620,16 @@
       }
     }
 
+    function showRoomView() {
+      // Hide the landing two-path panel, show the in-room controls.
+      const lp = document.getElementById("landingPanel");
+      if (lp) lp.style.display = "none";
+      document.getElementById("setupPanel").style.display = "none";
+      document.getElementById("roomPanel").style.display = "block";
+      const row = document.getElementById("startMenuBtnRow");
+      if (row) row.style.display = "flex";
+    }
+
     function activateCreatedRoom(out, createKey, hostName) {
       roomId = out.room_id;
       setLastRoomId(roomId);
@@ -3602,6 +3639,7 @@
       if (out.seat_token) setSeatToken(out.seat_token);
       document.getElementById("joinName").value = hostName;
       syncSeatTokenInUrl();
+      showRoomView();
       reconnectStream();
     }
 
@@ -3915,6 +3953,16 @@
     document.getElementById("openStartMenuBtn").addEventListener("click", () => {
       showStartMenu();
     });
+    document.getElementById("joinQuickBtn").addEventListener("click", () => {
+      const code = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase();
+      if (!code) { setConnErr("Enter a room code first."); return; }
+      const rid = normalizeRoomId(code);
+      if (!rid) { setConnErr("Room code must be 5 or 8 characters (letters and numbers only)."); return; }
+      openRoomById(rid);
+    });
+    document.getElementById("joinQuickCode").addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") document.getElementById("joinQuickBtn").click();
+    });
     document.getElementById("stopServerBtn").addEventListener("click", stopServer);
     document.getElementById("restartGameBtn").addEventListener("click", restartGame);
     document.getElementById("refreshStateBtn").addEventListener("click", refreshState);
@@ -3981,8 +4029,7 @@
     }
     if (roomId) {
       setLastRoomId(roomId);
-      document.getElementById("setupPanel").style.display = "none";
-      document.getElementById("roomPanel").style.display = "block";
+      showRoomView();
       reconnectStream();
       // If still showing "connecting" after 75 seconds, tell the user the server may be unreachable.
       setTimeout(() => {
@@ -3995,10 +4042,10 @@
     } else {
       const connMetaInit = document.getElementById("connMeta");
       connMetaInit.classList.remove("connecting");
-      connMetaInit.textContent = "Ready — create or join a room below.";
+      connMetaInit.textContent = "Ready";
       setActiveRoomShortcut(getLastRoomId());
       syncCreateCounts();
-      setConnStatus("Host mode: enter create key, choose players, then create room.");
+      setConnStatus("");
     }
   </script>
 </body>
