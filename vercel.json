@@ -24,6 +24,10 @@
   "rewrites": [
     {
       "source": "/",
+      "destination": "/multiplayer/client/website.html"
+    },
+    {
+      "source": "/game",
       "destination": "/multiplayer/client/index.html"
     },
     {
