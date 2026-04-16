@@ -1,62 +1,21 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
   "headers": [
     {
       "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     },
     {
       "source": "/(horizontal_cards|vertical_cards|oceans_cards)/(.*)\\.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
   "rewrites": [
-    {
-      "source": "/game",
-      "destination": "/multiplayer/client/index.html"
-    },
-    {
-      "source": "/play/:room_id",
-      "destination": "/multiplayer/client/index.html"
-    },
-    {
-      "source": "/website",
-      "destination": "/multiplayer/client/website.html"
-    },
-    {
-      "source": "/site",
-      "destination": "/multiplayer/client/website.html"
-    },
-    {
-      "source": "/rules",
-      "destination": "/multiplayer/client/rules.html"
-    },
-    {
-      "source": "/about",
-      "destination": "/multiplayer/client/about.html"
-    },
-    {
-      "source": "/manifest.webmanifest",
-      "destination": "/multiplayer/client/manifest.webmanifest"
-    },
-    {
-      "source": "/sw.js",
-      "destination": "/multiplayer/client/sw.js"
-    },
-    {
-      "source": "/icon.svg",
-      "destination": "/multiplayer/client/icon.svg"
-    }
+    { "source": "/game",          "destination": "/multiplayer/client/index.html" },
+    { "source": "/play/:room_id", "destination": "/multiplayer/client/index.html" },
+    { "source": "/rules",         "destination": "/multiplayer/client/rules.html" },
+    { "source": "/about",         "destination": "/multiplayer/client/about.html" },
+    { "source": "/sw.js",         "destination": "/multiplayer/client/sw.js" },
+    { "source": "/icon.svg",      "destination": "/multiplayer/client/icon.svg" },
+    { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" }
   ]
 }
