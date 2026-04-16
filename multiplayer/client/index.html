@@ -882,6 +882,8 @@
   </div>
 
   <script>
+    // Render backend URL — Vercel frontend calls this for all API requests.
+    window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
     const POLL_INTERVAL_MS = 850;
     const STATE_FETCH_TIMEOUT_MS = 3200;
     const FAILOVER_COOLDOWN_MS = 900;
