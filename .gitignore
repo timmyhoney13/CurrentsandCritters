@@ -15,6 +15,9 @@
 !multiplayer/client/**
 !multiplayer/human_game_dataset.jsonl
 !multiplayer/tunnel_pool.py
+!cards_vertical.txt
+!cards_lr.txt
+!cards_oceans.txt
 
 # Never commit private tunnel keys or local tunnel metadata.
 multiplayer/.localhostrun_ed25519
