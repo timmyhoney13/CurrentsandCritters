@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b6f90" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <title>Tidal Wave Multiplayer</title>
+  <title>Currents &amp; Critters Online</title>
   <style>
     :root {
       --bg: #f0f6fb;
@@ -58,6 +58,26 @@
       line-height: 1.45;
       font-size: 14px;
       color: var(--muted);
+    }
+    @keyframes pulse-dots {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    #connMeta.connecting {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f0f8ff;
+      border: 1px solid #b6d9ef;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #186080;
+    }
+    #connMeta.connecting::before {
+      content: "🌊";
+      font-size: 22px;
+      animation: pulse-dots 1.6s ease-in-out infinite;
     }
     .status {
       margin-top: 8px;
@@ -728,11 +748,11 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Tidal Wave Multiplayer</h1>
+    <h1>Currents &amp; Critters Online</h1>
     <div class="subtitle">Create a room, share one link, claim seats, and play live with private hands.</div>
 
     <section class="panel" id="connectionPanel">
-      <div class="meta" id="connMeta">Connecting...</div>
+      <div class="meta connecting" id="connMeta">Connecting — server may take up to 60 seconds to wake up on first visit. Please wait…</div>
       <div class="status" id="connStatus"></div>
       <div class="err" id="connErr"></div>
       <div class="row" style="margin-top:8px;">
@@ -1385,7 +1405,9 @@
 
       setConnErr("");
       setConnStatus(note || "Start menu ready: choose players and create room.");
-      document.getElementById("connMeta").textContent = "Start menu";
+      const connMetaMenuEl = document.getElementById("connMeta");
+      connMetaMenuEl.classList.remove("connecting");
+      connMetaMenuEl.textContent = "Start menu";
       setActiveRoomShortcut(getLastRoomId());
       syncCreateCounts();
     }
@@ -3290,7 +3312,9 @@
       }
       setConnErr(payload.error || "");
 
-      document.getElementById("connMeta").textContent = `Room ${payload.room?.room_id || "-"} | Phase ${payload.room?.phase || "-"} | Version ${payload.version || 0}`;
+      const connMetaEl = document.getElementById("connMeta");
+      connMetaEl.classList.remove("connecting");
+      connMetaEl.textContent = `Room ${payload.room?.room_id || "-"} | Phase ${payload.room?.phase || "-"} | Version ${payload.version || 0}`;
       setConnStatus(payload.status_note || "");
 
       const shareUrl = payload.room?.share_url || "";
