@@ -19,6 +19,14 @@
 !cards_lr.txt
 !cards_oceans.txt
 
+# Card image slices served by Vercel.
+!horizontal_cards/
+!horizontal_cards/**
+!vertical_cards/
+!vertical_cards/**
+!oceans_cards/
+!oceans_cards/**
+
 # Never commit private tunnel keys or local tunnel metadata.
 multiplayer/.localhostrun_ed25519
 multiplayer/.localhostrun_ed25519.pub
