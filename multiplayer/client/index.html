@@ -63,21 +63,40 @@
       0%,100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
+    @keyframes progress-fill {
+      0%   { width: 4%; }
+      10%  { width: 18%; }
+      30%  { width: 42%; }
+      60%  { width: 65%; }
+      80%  { width: 80%; }
+      100% { width: 92%; }
+    }
     #connMeta.connecting {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      display: block;
       background: #f0f8ff;
       border: 1px solid #b6d9ef;
       border-radius: 10px;
-      padding: 12px 16px;
+      padding: 14px 16px;
       font-size: 14px;
       color: #186080;
     }
-    #connMeta.connecting::before {
-      content: "🌊";
+    .conn-top-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .conn-wave {
       font-size: 22px;
       animation: pulse-dots 1.6s ease-in-out infinite;
+    }
+    .conn-bar-wrap {
+      height: 6px; background: #d0eaf8; border-radius: 4px; overflow: hidden;
+    }
+    .conn-bar {
+      height: 100%; background: linear-gradient(90deg, #1da4ce, #0d84af);
+      border-radius: 4px;
+      animation: progress-fill 60s ease-out forwards;
+    }
+    .conn-hint {
+      margin-top: 6px; font-size: 12px; color: #5a90a8;
     }
     .status {
       margin-top: 8px;
@@ -753,7 +772,14 @@
     <div class="subtitle">Create a room, share one link, claim seats, and play live with private hands.</div>
 
     <section class="panel" id="connectionPanel">
-      <div class="meta connecting" id="connMeta">Connecting — server may take up to 60 seconds to wake up on first visit. Please wait…</div>
+      <div class="meta connecting" id="connMeta">
+        <div class="conn-top-row">
+          <span class="conn-wave">🌊</span>
+          <span id="connMetaText">Waking up server — this usually takes under 60 seconds on the first visit.</span>
+        </div>
+        <div class="conn-bar-wrap"><div class="conn-bar" id="connProgressBar"></div></div>
+        <div class="conn-hint">The server sleeps when not in use. It's starting now — the game will load automatically.</div>
+      </div>
       <div class="status" id="connStatus"></div>
       <div class="err" id="connErr"></div>
       <div class="row" style="margin-top:8px; display:none;" id="startMenuBtnRow">
@@ -929,6 +955,15 @@
   <script>
     // Render backend URL — Vercel frontend calls this for all API requests.
     window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
+
+    // Ping the server immediately on page load so it starts waking up from
+    // Render's free-tier sleep before the user even picks a room.
+    (function pingServerEarly() {
+      fetch(window.__FISH_API_BASE__ + "/api/health", { method: "GET", cache: "no-store" })
+        .then(() => {/* server is up — nothing to do, reconnectStream will take over */})
+        .catch(() => {/* cold start in progress — that's expected, ignore */});
+    })();
+
     const POLL_INTERVAL_MS = 850;
     const STATE_FETCH_TIMEOUT_MS = 3200;
     const FAILOVER_COOLDOWN_MS = 900;
@@ -1381,6 +1416,12 @@
       document.getElementById("connErr").textContent = msg || "";
     }
 
+    function setConnMeta(text) {
+      const el = document.getElementById("connMeta");
+      el.classList.remove("connecting");
+      el.textContent = text || "";
+    }
+
     function setGameStatus(msg) {
       document.getElementById("gameStatus").textContent = msg || "";
     }
@@ -1432,9 +1473,7 @@
 
       setConnErr("");
       setConnStatus(note || "Start menu ready: choose players and create room.");
-      const connMetaMenuEl = document.getElementById("connMeta");
-      connMetaMenuEl.classList.remove("connecting");
-      connMetaMenuEl.textContent = "Start menu";
+      setConnMeta("Start menu");
       setActiveRoomShortcut(getLastRoomId());
       syncCreateCounts();
     }
@@ -3339,9 +3378,7 @@
       }
       setConnErr(payload.error || "");
 
-      const connMetaEl = document.getElementById("connMeta");
-      connMetaEl.classList.remove("connecting");
-      connMetaEl.textContent = `Room ${payload.room?.room_id || "-"} | Phase ${payload.room?.phase || "-"} | Version ${payload.version || 0}`;
+      setConnMeta(`Room ${payload.room?.room_id || "-"} | Phase ${payload.room?.phase || "-"} | Version ${payload.version || 0}`);
       setConnStatus(payload.status_note || "");
 
       const shareUrl = payload.room?.share_url || "";
@@ -4035,14 +4072,11 @@
       setTimeout(() => {
         const el = document.getElementById("connMeta");
         if (el && el.classList.contains("connecting")) {
-          el.classList.remove("connecting");
-          el.textContent = "Server took too long to respond. It may still be starting — keep waiting or press Start Menu to reset.";
+          setConnMeta("Server is taking longer than usual. It may still be waking up — keep waiting, or press ↩ Start Menu to reset.");
         }
       }, 75000);
     } else {
-      const connMetaInit = document.getElementById("connMeta");
-      connMetaInit.classList.remove("connecting");
-      connMetaInit.textContent = "Ready";
+      setConnMeta("Ready");
       setActiveRoomShortcut(getLastRoomId());
       syncCreateCounts();
       setConnStatus("");
