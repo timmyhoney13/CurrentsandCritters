@@ -1,7 +1,4 @@
 {
-  "buildCommand": "",
-  "installCommand": "",
-  "outputDirectory": ".",
   "headers": [
     {
       "source": "/sw.js",
