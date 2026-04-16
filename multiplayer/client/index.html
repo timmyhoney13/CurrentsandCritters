@@ -3984,7 +3984,18 @@
       document.getElementById("setupPanel").style.display = "none";
       document.getElementById("roomPanel").style.display = "block";
       reconnectStream();
+      // If still showing "connecting" after 75 seconds, tell the user the server may be unreachable.
+      setTimeout(() => {
+        const el = document.getElementById("connMeta");
+        if (el && el.classList.contains("connecting")) {
+          el.classList.remove("connecting");
+          el.textContent = "Server took too long to respond. It may still be starting — keep waiting or press Start Menu to reset.";
+        }
+      }, 75000);
     } else {
+      const connMetaInit = document.getElementById("connMeta");
+      connMetaInit.classList.remove("connecting");
+      connMetaInit.textContent = "Ready — create or join a room below.";
       setActiveRoomShortcut(getLastRoomId());
       syncCreateCounts();
       setConnStatus("Host mode: enter create key, choose players, then create room.");
