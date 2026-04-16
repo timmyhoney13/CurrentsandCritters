@@ -698,11 +698,20 @@ class GameRoom:
                 return seat
         return None
 
-    def _all_humans_claimed_locked(self) -> bool:
+    def _human_seat_counts_locked(self) -> tuple[int, int]:
+        filled = 0
+        total = 0
         for seat in self.seats:
-            if seat.kind == "human" and not seat.token:
-                return False
-        return True
+            if seat.kind != "human":
+                continue
+            total += 1
+            if seat.token:
+                filled += 1
+        return filled, total
+
+    def _all_humans_claimed_locked(self) -> bool:
+        filled, total = self._human_seat_counts_locked()
+        return total > 0 and filled >= total
 
     def host_seat(self) -> Optional[Seat]:
         for seat in self.seats:
@@ -1171,7 +1180,15 @@ class GameRoom:
             if self.phase != "lobby":
                 return {"ok": False, "error": "game already started"}
             if not self._all_humans_claimed_locked():
-                return {"ok": False, "error": "all human seats must be claimed before start"}
+                filled, total = self._human_seat_counts_locked()
+                missing = [seat.label for seat in self.seats if seat.kind == "human" and not seat.token]
+                return {
+                    "ok": False,
+                    "error": "all human seats must be claimed before start",
+                    "human_seats_filled": filled,
+                    "human_seats_total": total,
+                    "missing_seats": missing,
+                }
             self._launch_game_locked(card_db, status_note="Game started. Waiting for first turn.")
             return {"ok": True}
 
@@ -2267,6 +2284,8 @@ class GameRoom:
                         if isinstance(p, dict):
                             p["hand"] = []
 
+            human_filled, human_total = self._human_seat_counts_locked()
+
             legal_payload: Optional[Dict[str, Any]] = None
             if viewer_index is not None:
                 legal_payload = copy.deepcopy(self.legal_actions_by_seat.get(viewer_index))
@@ -2283,6 +2302,8 @@ class GameRoom:
                     "total_players": self.total_players,
                     "human_players": self.human_players,
                     "ai_players": self.ai_players,
+                    "human_seats_filled": human_filled,
+                    "human_seats_total": human_total,
                     "share_url": self.room_link(host_header, proto_hint),
                 },
                 "status_note": self.status_note,
@@ -2290,7 +2311,7 @@ class GameRoom:
                 "public_links": load_public_links(),
                 "seats": self.seat_snapshot_locked(),
                 "viewer": self._viewer_payload_locked(viewer_seat),
-                "can_start": bool(self.phase == "lobby" and self._all_humans_claimed_locked()),
+                "can_start": bool(self.phase == "lobby" and human_total > 0 and human_filled >= human_total),
                 "state": state_obj,
                 "legal_actions": legal_payload,
                 "active_action_seat": self.active_action_seat,

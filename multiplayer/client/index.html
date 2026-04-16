@@ -3229,24 +3229,31 @@
         document.getElementById(id).style.display = inGame ? "block" : "none";
       }
 
+      const seats = Array.isArray(payload.seats) ? payload.seats : [];
+      let humanSeatTotal = seats.filter((s) => s && s.kind === "human").length;
+      let humanSeatFilled = seats.filter((s) => s && s.kind === "human" && s.status === "taken").length;
+      const reportedTotal = Number(payload.room?.human_seats_total);
+      const reportedFilled = Number(payload.room?.human_seats_filled);
+      if (Number.isInteger(reportedTotal) && reportedTotal >= 0) humanSeatTotal = reportedTotal;
+      if (Number.isInteger(reportedFilled) && reportedFilled >= 0) humanSeatFilled = reportedFilled;
+
       const isHost = Boolean(payload.viewer?.is_host);
       const hasHostToken = Boolean(getHostToken());
-      const canHostControl = isHost || hasHostToken;
-      const canStart = Boolean(payload.can_start);
       const hasCreateKey = Boolean(activeCreateKey());
+      const canHostControl = isHost || hasHostToken || hasCreateKey;
+      const canStartFromSeats = Boolean(isLobby && humanSeatTotal > 0 && humanSeatFilled >= humanSeatTotal);
+      const canStart = Boolean(payload.can_start) || canStartFromSeats;
       const startBtn = document.getElementById("startGameBtn");
       if (startBtn) {
         const show = isLobby;
         startBtn.style.display = show ? "inline-block" : "none";
-        startBtn.disabled = !canStart || !(canHostControl || hasCreateKey);
+        startBtn.disabled = !canStart || !canHostControl;
         if (!canStart) {
-          startBtn.textContent = "Waiting For Seats";
-        } else if (canHostControl) {
-          startBtn.textContent = "Start Game";
-        } else if (hasCreateKey) {
-          startBtn.textContent = "Start (Host Key)";
+          startBtn.textContent = humanSeatTotal > 0
+            ? `Waiting For Seats (${humanSeatFilled}/${humanSeatTotal})`
+            : "Waiting For Seats";
         } else {
-          startBtn.textContent = "Start Locked";
+          startBtn.textContent = "Start Game";
         }
       }
 
@@ -3315,7 +3322,15 @@
       const totalPlayers = payload.room?.total_players ?? "?";
       const humanPlayers = payload.room?.human_players ?? "?";
       const aiPlayers = payload.room?.ai_players ?? "?";
-      document.getElementById("roomMeta").textContent = `Players: ${totalPlayers} (Human ${humanPlayers}, AI ${aiPlayers})`;
+      const rmSeats = Array.isArray(payload.seats) ? payload.seats : [];
+      let rmHumanTotal = rmSeats.filter((s) => s && s.kind === "human").length;
+      let rmHumanFilled = rmSeats.filter((s) => s && s.kind === "human" && s.status === "taken").length;
+      const rmRepTotal = Number(payload.room?.human_seats_total);
+      const rmRepFilled = Number(payload.room?.human_seats_filled);
+      if (Number.isInteger(rmRepTotal) && rmRepTotal >= 0) rmHumanTotal = rmRepTotal;
+      if (Number.isInteger(rmRepFilled) && rmRepFilled >= 0) rmHumanFilled = rmRepFilled;
+      document.getElementById("roomMeta").textContent =
+        `Players: ${totalPlayers} (Human ${humanPlayers}, AI ${aiPlayers}) | Seats: ${rmHumanFilled}/${rmHumanTotal} claimed`;
 
       togglePanelsForPhase(payload);
       renderSeats(payload);
@@ -3729,7 +3744,14 @@
         setGameStatus("Game started.");
         reconnectStream();
       } catch (err) {
-        setGameStatus(`Start failed: ${String(err.message || err)}`);
+        const msg = String(err?.message || err);
+        const filled = Number(err?.data?.human_seats_filled);
+        const total = Number(err?.data?.human_seats_total);
+        if (Number.isInteger(filled) && Number.isInteger(total) && total > 0) {
+          setGameStatus(`Start failed: ${msg} (${filled}/${total} human seats claimed).`);
+        } else {
+          setGameStatus(`Start failed: ${msg}`);
+        }
       }
     }
 
