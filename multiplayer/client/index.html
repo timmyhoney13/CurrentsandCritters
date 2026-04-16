@@ -767,10 +767,10 @@
       <div class="meta connecting" id="connMeta">
         <div class="conn-top-row">
           <span class="conn-wave">🌊</span>
-          <span id="connMetaText">Waking up server — this usually takes under 60 seconds on the first visit.</span>
+          <span id="connMetaText">Connecting to game server…</span>
         </div>
         <div class="conn-bar-wrap"><div class="conn-bar" id="connProgressBar"></div></div>
-        <div class="conn-hint">The server sleeps when not in use. It's starting now — the game will load automatically.</div>
+        <div class="conn-hint">Server is starting up. This usually takes under 30 seconds. <button id="retryConnBtn" type="button" style="background:none;border:none;color:#1da4ce;font-weight:700;cursor:pointer;font-size:12px;padding:0;margin-left:4px;">Retry now</button></div>
       </div>
       <div class="status" id="connStatus"></div>
       <div class="err" id="connErr"></div>
@@ -948,28 +948,29 @@
     // Render backend URL — Vercel frontend calls this for all API requests.
     window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
 
-    // Drive the connection progress bar with JS so it never freezes.
-    // Steps: quick early progress, then slows to a crawl near 90%, then pulses.
+    // JS-driven progress bar — moves smoothly over ~20s then pulses so it never looks frozen.
     let _connBarTimer = null;
     function startConnBar() {
+      stopConnBar();
       const bar = document.getElementById("connProgressBar");
       if (!bar) return;
+      bar.style.width = "4%";
+      // Reach 90% in about 20 seconds, then pulse between 88-91%.
       const steps = [
-        [400,  12], [900,  26], [1800, 40], [3500, 55],
-        [6000, 65], [12000,74], [22000,80], [35000,85], [50000,88], [70000,90],
+        [300, 15], [600, 30], [1000, 45], [1800, 58],
+        [3000, 68], [5000, 76], [8000, 82], [12000, 87], [18000, 90],
       ];
       let i = 0;
       function tick() {
         if (i >= steps.length) {
-          // At 90% — pulse between 88 and 90 so it never looks frozen.
           let up = false;
           _connBarTimer = setInterval(() => {
             if (!document.getElementById("connMeta")?.classList.contains("connecting")) {
-              clearInterval(_connBarTimer); return;
+              clearInterval(_connBarTimer); _connBarTimer = null; return;
             }
-            bar.style.width = (up ? "90%" : "88%");
+            bar.style.width = (up ? "91%" : "88%");
             up = !up;
-          }, 900);
+          }, 800);
           return;
         }
         const [delay, pct] = steps[i++];
@@ -987,13 +988,13 @@
       if (bar) bar.style.width = "100%";
     }
 
-    // Ping the server immediately on page load so it starts waking up from
-    // Render's free-tier sleep before the user even picks a room.
-    (function pingServerEarly() {
-      fetch(window.__FISH_API_BASE__ + "/api/health", { method: "GET", cache: "no-store" })
-        .then(() => {/* server is up — nothing to do, reconnectStream will take over */})
-        .catch(() => {/* cold start in progress — that's expected, ignore */});
-    })();
+    // Ping server on load to start the Render cold-start immediately.
+    // Then keep pinging every 9 minutes so the server never goes to sleep.
+    function pingServer() {
+      fetch(window.__FISH_API_BASE__ + "/api/health", { method: "GET", cache: "no-store" }).catch(() => {});
+    }
+    pingServer();
+    setInterval(pingServer, 9 * 60 * 1000);
 
     const POLL_INTERVAL_MS = 850;
     const STATE_FETCH_TIMEOUT_MS = 3200;
@@ -4023,6 +4024,10 @@
     document.getElementById("copyLinkBtn").addEventListener("click", copyShareUrl);
     document.getElementById("openStartMenuBtn").addEventListener("click", () => {
       showStartMenu();
+    });
+    document.getElementById("retryConnBtn").addEventListener("click", () => {
+      pingServer();
+      if (roomId) { startConnBar(); reconnectStream(); }
     });
     document.getElementById("joinQuickBtn").addEventListener("click", () => {
       const code = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase();
