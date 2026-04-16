@@ -4046,6 +4046,7 @@
       handleNumberShortcut(ev);
     });
 
+    (function init() {
     loadKnownBaseUrls();
     ingestKnownBaseUrl(location.origin);
     roomId = normalizeRoomId(roomPathId() || "");
@@ -4120,6 +4121,7 @@
       syncCreateCounts();
       setConnStatus("");
     }
+    })(); // end init
   </script>
 </body>
 </html>
