@@ -2715,7 +2715,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 {
                     "ok": True,
                     "time": now_unix(),
-                    "create_key_required": bool(CREATE_KEY),
+                    "create_key_required": False,
+                    "server_version": "2",
                     "public_urls": load_public_links(),
                 }
             )
@@ -2872,10 +2873,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/rooms":
-            create_key = body.get("create_key") if isinstance(body.get("create_key"), str) else ""
-            if CREATE_KEY and not secrets.compare_digest(create_key, CREATE_KEY):
-                self._send_json({"ok": False, "error": "host create key required"}, status=HTTPStatus.FORBIDDEN)
-                return
+            pass  # key check removed — open room creation
 
             total_players = clamp_int(body.get("total_players"), 4, 2, 8)
             human_players = clamp_int(body.get("human_players"), 2, 1, 8)
