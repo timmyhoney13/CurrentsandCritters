@@ -631,6 +631,7 @@ def _execute_main_pattern(
         "mammal": "mammal",
         "uncharted": "uncharted",
         "n/a": "uncharted",
+        "crosscurrent": "crosscurrent",
     }
     for m in re.finditer(r"\+(\d+)\s+per\s+([a-z ]+)", t):
         n = int(m.group(1))
@@ -644,11 +645,11 @@ def _execute_main_pattern(
             count = sum(1 for c in board if normalize_symbol(c.symbol) in {"", "n/a"})
             player.score += n * count
             continue
-        if "uncharted animal" in raw or "n/a animal" in raw:
+        if "uncharted animal" in raw or "n/a animal" in raw or "crosscurrent animal" in raw:
             count = sum(
                 1
                 for c in board
-                if c.species.lower() in {"uncharted", "n/a"} and c.direction.strip().lower() != "n/a"
+                if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
             )
             player.score += n * count
             continue
@@ -774,7 +775,7 @@ def _execute_star_pattern(
     if "play a free game fish" in t:
         player.flags["free_game_fish"] = True
         gs.log.append(f"{player.name} can play a free Game Fish from {card.name} star ability.")
-    if "play any number of cephalopods for free" in t:
+    if "play any number of cephalopods for free" in t or "play a free cephalopod" in t:
         player.flags["free_cephalopods"] = True
         gs.log.append(f"{player.name} can play Cephalopods for free from {card.name} star ability.")
     if "free crustacean" in t:
@@ -799,10 +800,19 @@ def resolve_reactive_draw_triggers(
     direction = normalize_direction(played_card.direction)
 
     is_game_fish_play = species == "game fish"
+    is_cephalopod_play = species == "cephalopod"
     is_surface_play = action_kind == "play_to_ocean" and direction == "up"
     is_floor_play = action_kind == "play_to_ocean" and direction == "down"
 
     for owner in gs.players:
+        if is_cephalopod_play:
+            n = int(owner.flags.get("trigger_draw_on_cephalopod", 0))
+            if n > 0:
+                draw(gs, owner, n)
+                gs.log.append(
+                    f"{owner.name} draws {n} from reactive trigger (cephalopod played)."
+                )
+
         if is_game_fish_play:
             n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
             if n > 0:
@@ -833,15 +843,19 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
     game_fish = 0
     surface = 0
     floor = 0
+    cephalopod = 0
     for uid in all_board_cards(player):
         c = gs.card_db[uid]
         t = c.text.lower()
-        if "draw one when a game fish is played" in t or "draw one when a gamefish is played" in t:
+        if ("draw one when a game fish is played" in t or "draw one when a gamefish is played" in t
+                or "draw one when you play a game fish" in t):
             game_fish += 1
         if "draw one when you play an animal on the ocean surface" in t:
             surface += 1
         if "draw one when you play a card on the ocean floor" in t:
             floor += 1
+        if "draw one when you play a cephalopod" in t:
+            cephalopod += 1
 
     if game_fish > 0:
         player.flags["trigger_draw_on_game_fish"] = game_fish
@@ -857,6 +871,11 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
         player.flags["trigger_draw_on_floor_play"] = floor
     else:
         player.flags.pop("trigger_draw_on_floor_play", None)
+
+    if cephalopod > 0:
+        player.flags["trigger_draw_on_cephalopod"] = cephalopod
+    else:
+        player.flags.pop("trigger_draw_on_cephalopod", None)
 
 
 # -----------------------------
@@ -2183,32 +2202,40 @@ ANIMAL_SYNERGY_GRID_PATH = "animal_synergy_grid.json"
 PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "sea cucumber", "sea urchin", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
-    "reef trigger fish": {"common octopus", "commen octopus", "bobtail squid", "cuttlefish", "giant squid", "gaint squid", "manta ray"},
+    "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
     "california seagull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
     "sea cucumber": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
+    "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea urchin": {"emperor penguin", "horned puffin", "california seagull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
     "loggerhead sea turtle": {"mullet", "bunker", "sardine", "flying fish", "bonito", "yellowfin tuna", "mahi mahi", "lobster"},
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
+    "blue marlin": {"mahi mahi"},
+    "cleaner wrasse": {"mahi mahi", "yellowfin tuna"},
 }
 
 PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
-    "reef trigger fish": {"common octopus", "commen octopus", "bobtail squid", "cuttlefish", "giant squid", "gaint squid", "manta ray"},
+    "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
     "california seagull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark"},
+    "blue marlin": {"mahi mahi"},
+    "cleaner wrasse": {"mahi mahi"},
 }
 
 PRIORITY_SPECIES_SYNERGY: List[Tuple[str, str]] = [
+    ("baitfish", "crosscurrent"),
     ("baitfish", "n/a"),
     ("baitfish", "game fish"),
     ("baitfish", "invertebrate"),
+    ("cephalopod", "crosscurrent"),
     ("cephalopod", "n/a"),
     ("cephalopod", "cephalopod"),
     ("bird", "crustacean"),
+    ("mammal", "crosscurrent"),
     ("mammal", "n/a"),
     ("crustacean", "invertebrate"),
 ]
@@ -2220,6 +2247,7 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "california seagull": {"Crustaceans", "Birds"},
     "great white shark": {"Mammals"},
     "sea cucumber": {"Baitfish Engine"},
+    "common sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea urchin": {"Birds", "Baitfish Engine"},
     "loggerhead sea turtle": {"Cheap Burst"},
@@ -2435,7 +2463,7 @@ def card_strategy_tags(card: CardDef) -> set[str]:
         tags.add("engine:mammal")
     if name == "sea cucumber":
         tags.add("engine:baitfish")
-    if name == "sea star":
+    if name in {"sea star", "common sea star"}:
         tags.add("engine:goby-spiny")
     if name == "sea urchin":
         tags.add("engine:bird")
@@ -2448,9 +2476,9 @@ def card_strategy_tags(card: CardDef) -> set[str]:
         tags.add("engine:cheap-flex")
     if name in {"mandarin goby", "spiny lobster"}:
         tags.add("engine:goby-spiny")
-        tags.add("engine:na")
+        tags.add("engine:crosscurrent")
     if name == "blue tang":
-        tags.add("engine:na")
+        tags.add("engine:crosscurrent")
     if "matching symbol" in text:
         tags.add("engine:symbol")
     if "play a free" in text:
@@ -2779,11 +2807,12 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
         bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "invertebrate") + hand_species_counts.get("invertebrate", 0)))
     if "per mammal" in t:
         bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "mammal") + hand_species_counts.get("mammal", 0)))
-    if "per n/a animal" in t or "per uncharted animal" in t:
+    if "per n/a animal" in t or "per uncharted animal" in t or "per crosscurrent animal" in t:
         n_uncharted = (
-            sum(1 for s in board_species if s in {"uncharted", "n/a"})
+            sum(1 for s in board_species if s in {"uncharted", "n/a", "crosscurrent"})
             + hand_species_counts.get("uncharted", 0)
             + hand_species_counts.get("n/a", 0)
+            + hand_species_counts.get("crosscurrent", 0)
         )
         bonus += min(2.4, 0.22 * n_uncharted)
     if "per yellowfin tuna" in t:
@@ -3516,30 +3545,27 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
                 "bobtail squid",
                 "cuttlefish",
                 "common octopus",
-                "commen octopus",
-                "gaint squid",
                 "giant squid",
+                "manta ray",
             ],
-            "name_contains": ["octopus", "squid", "cuttlefish", "humuhumu"],
-            "text_keywords": ["cephalopod", "reef trigger fish", "at least three cephalopods", "free cephalopods"],
+            "name_contains": ["octopus", "squid", "cuttlefish"],
+            "text_keywords": ["cephalopod", "reef trigger fish", "at least three cephalopods", "free cephalopods", "draw one when you play a cephalopod"],
             "support_names": [
                 "manta ray",
-                "humuhumunukunukuapua'a",
-                "humuhumu-nukunuku-apua'a",
                 "blue tang",
             ],
         },
         {
             "label": "Goby Spiny Combo",
-            "species": ["n/a", "crustacean"],
+            "species": ["crosscurrent", "n/a", "crustacean"],
             "names": [
                 "mandarin goby",
                 "spiny lobster",
                 "blue tang",
             ],
             "name_contains": ["goby", "spiny", "tang"],
-            "text_keywords": ["mandarin goby", "spiny lobster", "symbol-less"],
-            "support_names": ["california seagull", "artificial reef", "clownfish", "manta ray", "sea star"],
+            "text_keywords": ["mandarin goby", "spiny lobster", "crosscurrent animal"],
+            "support_names": ["california seagull", "artificial reef", "clownfish", "common sea star", "sea star"],
         },
         {
             "label": "King Salmon Coral Fill",
@@ -3556,7 +3582,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             ],
             "name_contains": [],
             "text_keywords": ["fully occupied ocean", "sharing an ocean with a king salmon", "card attached"],
-            "support_names": ["sea star", "sea urchin", "sea anemone", "bottlenose dolphin"],
+            "support_names": ["common sea star", "sea star", "sea urchin", "sea anemone", "bottlenose dolphin"],
         },
     ]
 
