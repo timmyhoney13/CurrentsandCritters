@@ -1,64 +1,66 @@
-201	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Diamond
-202	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Square
-203	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Triangle
-204	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Heart
-205	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Circle
-206	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Heart
-207	Pier	+2 or +3 if you have the most piers (there are 7 piers)	Ocean	1	N/A	Square
-208	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Diamond
-209	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Circle
-210	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Triangle
-211	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Square
-212	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Triangle
-213	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Circle
-214	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Triangle
-215	Deep Ocean	+1 and Draw one	Ocean	0	N/A	Circle
-216	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Diamond
-217	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Heart
-218	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Circle
-219	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Triangle
-220	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Square
-221	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Diamond
-222	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Heart
-223	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Circle
-224	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Triangle
-225	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Diamond
-226	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Square
-227	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6 = 35 |	Ocean	1	N/A	Heart
-228	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Diamond
-229	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Triangle
-230	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Square
-231	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Heart
-232	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Square
-233	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Diamond
-234	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Heart
-235	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Triangle
-236	Artificial Reef	+2 per card attached	Ocean	1	N/A	Square
-237	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
-238	Artificial Reef	+2 per card attached	Ocean	1	N/A	Diamond
-239	Artificial Reef	+2 per card attached	Ocean	1	N/A	Square
-240	Artificial Reef	+2 per card attached	Ocean	1	N/A	Triangle
-241	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
-242	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Square
-243	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
-244	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Diamond
-245	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
-246	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
-247	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Heart
-248	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
-249	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
-250	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Heart
-251	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Square
-252	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Diamond
-253	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Heart
-254	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Circle
-255	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Triangle
-256	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Square
-257	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Circle
-258	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Diamond
-259	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Square
-260	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Circle
-261	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Triangle
-262	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Diamond
-263	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Circle
-264	END GAME	everyone gets one more turn then the game is over	End Game	0	N/A	N/A
+1	201	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Diamond
+2	202	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Square
+3	203	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Triangle
+4	204	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Heart
+5	205	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Circle
+6	206	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Heart
+7	207	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Square
+8	208	Pier	+2 or +4 if you have the most piers	Ocean	1	N/A	Circle
+9	209	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Diamond
+10	210	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Circle
+11	211	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Heart
+12	212	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Square
+13	213	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Triangle
+14	214	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Circle
+15	215	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Triangle
+16	216	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Circle
+17	217	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Diamond
+18	218	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Heart
+19	219	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Circle
+20	220	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Triangle
+21	221	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Square
+22	222	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Diamond
+23	223	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Heart
+24	224	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Circle
+25	225	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Triangle
+26	226	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Diamond
+27	227	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Square
+28	228	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Triangle
+29	229	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36	Ocean	1	N/A	Heart
+30	230	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Diamond
+31	231	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Triangle
+32	232	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Square
+33	233	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Heart
+34	234	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Square
+35	235	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Diamond
+36	236	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Circle
+37	237	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Triangle
+38	238	Artificial Reef	+2 per card attached	Ocean	1	N/A	Circle
+39	239	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
+40	240	Artificial Reef	+2 per card attached	Ocean	1	N/A	Diamond
+41	241	Artificial Reef	+2 per card attached	Ocean	1	N/A	Square
+42	242	Artificial Reef	+2 per card attached	Ocean	1	N/A	Triangle
+43	243	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
+44	244	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Square
+45	245	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
+46	246	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Diamond
+47	247	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
+48	248	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
+49	249	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Heart
+50	250	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
+51	251	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
+52	252	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Heart
+53	253	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Square
+54	254	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Diamond
+55	255	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Heart
+56	256	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Circle
+57	257	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Triangle
+58	258	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Square
+59	259	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Circle
+60	260	Kelp Forest	+5 if you have >= 4 kelp forests | Draw one	Ocean	1	N/A	Diamond
+61	261	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Square
+62	262	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Circle
+63	263	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Triangle
+64	264	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Diamond
+65	265	Tide Pool	+1 per every two Oceans you control	Ocean	1	N/A	Circle
+66	266	END GAME	everyone gets one more turn after this card gets drawn including the player that drew the end game card after everyone takes the final turn the game is over	End Game	0	N/A	N/A

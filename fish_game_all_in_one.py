@@ -6155,17 +6155,17 @@ def action_features(
         base_plus += 4 * sum(1 for c in board if c.species.lower() == "baitfish")
     if "+4 per cephalopod" in t:
         base_plus += 4 * sum(1 for c in board if c.species.lower() == "cephalopod")
-    if "+2 per n/a animal" in t or "+2 per uncharted animal" in t:
+    if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
         base_plus += 2 * sum(
             1
             for c in board
-            if c.species.lower() in {"uncharted", "n/a"} and c.direction.strip().lower() != "n/a"
+            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
         )
-    if "+3 per n/a animal" in t or "+3 per uncharted animal" in t:
+    if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
         base_plus += 3 * sum(
             1
             for c in board
-            if c.species.lower() in {"uncharted", "n/a"} and c.direction.strip().lower() != "n/a"
+            if c.species.lower() in {"uncharted", "n/a", "crosscurrent"} and c.direction.strip().lower() != "n/a"
         )
     if "+9 per each mahi mahi you control" in t:
         base_plus += 9 * sum(1 for c in board if c.name.lower() == "mahi mahi")
@@ -7180,8 +7180,9 @@ def final_points(gs: GameState, player: PlayerState) -> int:
                 pts += int(m.group(1)) if m else 5
         if "if sharing an ocean with baitfish" in t:
             same = cards_on_same_ocean(ocean_uid)
-            if any(c.species.lower() == "baitfish" for c in same):
-                pts += 5
+            if any(c.species.lower() in {"baitfish", "bait fish"} for c in same):
+                m = re.search(r"\+(\d+)\s*if sharing an ocean with baitfish", t)
+                pts += int(m.group(1)) if m else 4
         if "if sharing an ocean with a mahi mahi" in t:
             same = cards_on_same_ocean(ocean_uid)
             if any(c.name.lower() == "mahi mahi" for c in same):
@@ -7192,13 +7193,16 @@ def final_points(gs: GameState, player: PlayerState) -> int:
                 pts += 10
         if "if you have at least three cephalopods" in t:
             if species_count("cephalopod") >= 3:
-                pts += 4
+                m = re.search(r"\+(\d+)\s*if you have at least three cephalopods", t)
+                pts += int(m.group(1)) if m else 4
         if "if you have at least four cephalopods" in t:
             if species_count("cephalopod") >= 4:
-                pts += 6
+                m = re.search(r"\+(\d+)\s*if you have at least four cephalopods", t)
+                pts += int(m.group(1)) if m else 6
         if "if you have the most oceans" in t:
             if has_most_oceans:
-                pts += 8
+                m = re.search(r"\+(\d+)\s*if you have the most oceans", t)
+                pts += int(m.group(1)) if m else 6
         if "if you have the most animals" in t:
             if has_most_animals():
                 pts += 4
@@ -7206,8 +7210,9 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             if ocean_count >= 8:
                 m = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
                 pts += int(m.group(1)) if m else 8
-        if "+2 or +3 if you have the most piers" in t:
-            pts += 3 if has_most_piers() else 2
+        pier_m = re.search(r"\+2 or \+(\d+) if you have the most piers", t)
+        if pier_m:
+            pts += int(pier_m.group(1)) if has_most_piers() else 2
         if "+1 per every two oceans you control" in t:
             pts += ocean_count // 2
         if "+5 per fully occupied ocean" in t:
@@ -7215,7 +7220,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         if "+2 per card attached" in t:
             attached = len(cards_on_same_ocean(ocean_uid))
             pts += 2 * attached
-        if "kelp forest" in t and ("at least 4" in t or "4 or more" in t):
+        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
             kelp_total = name_count("kelp forest")
             if kelp_total >= 4:
                 if "per kelp forest" in t:
@@ -7262,14 +7267,16 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += 3 * species_count("coral")
         if "+6 per mandarin goby" in t:
             pts += 6 * name_count("mandarin goby")
-        if "+1 per uncharted animal" in t:
-            pts += species_count("n/a") + species_count("uncharted")
+        if "+1 per uncharted animal" in t or "+1 per crosscurrent animal" in t:
+            pts += species_count("n/a") + species_count("uncharted") + species_count("crosscurrent")
         if "+3 per invertebrate" in t:
             pts += 3 * species_count("invertebrate")
-        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t:
-            pts += 2 * (species_count("n/a") + species_count("uncharted"))
-        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t:
-            pts += 3 * (species_count("n/a") + species_count("uncharted"))
+        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
+            pts += 2 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
+        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
+            pts += 3 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
+        if "+2 per mahi mahi" in t:
+            pts += 2 * name_count("mahi mahi")
         if "+2 per matching symbol" in t:
             sym = normalize_symbol(card.symbol)
             if sym not in {"", "n/a"}:
@@ -7469,8 +7476,9 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
 
         if "if sharing an ocean with baitfish" in t:
             same = _same_ocean_cards(ocean_uid)
-            if any(c.species.lower() == "baitfish" for c in same):
-                add(5, "sharing ocean with Baitfish")
+            if any(c.species.lower() in {"baitfish", "bait fish"} for c in same):
+                m2 = re.search(r"\+(\d+)\s*if sharing an ocean with baitfish", t)
+                add(int(m2.group(1)) if m2 else 4, "sharing ocean with Baitfish")
 
         if "if sharing an ocean with a mahi mahi" in t:
             same = _same_ocean_cards(ocean_uid)
@@ -7485,15 +7493,18 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         if "if you have at least three cephalopods" in t:
             cnt = _species_count("cephalopod")
             if cnt >= 3:
-                add(4, f"at least 3 Cephalopods ({cnt} total)")
+                m2 = re.search(r"\+(\d+)\s*if you have at least three cephalopods", t)
+                add(int(m2.group(1)) if m2 else 4, f"at least 3 Cephalopods ({cnt} total)")
 
         if "if you have at least four cephalopods" in t:
             cnt = _species_count("cephalopod")
             if cnt >= 4:
-                add(6, f"at least 4 Cephalopods ({cnt} total)")
+                m2 = re.search(r"\+(\d+)\s*if you have at least four cephalopods", t)
+                add(int(m2.group(1)) if m2 else 6, f"at least 4 Cephalopods ({cnt} total)")
 
         if "if you have the most oceans" in t and has_most_oceans:
-            add(8, f"most oceans ({ocean_count})")
+            m2 = re.search(r"\+(\d+)\s*if you have the most oceans", t)
+            add(int(m2.group(1)) if m2 else 6, f"most oceans ({ocean_count})")
 
         if "if you have the most animals" in t and _has_most_animals():
             add(4, "most animals")
@@ -7502,9 +7513,11 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             m2 = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
             add(int(m2.group(1)) if m2 else 8, "all 8 oceans")
 
-        if "+2 or +3 if you have the most piers" in t:
-            add(3 if _has_most_piers() else 2,
-                "most piers (+3)" if _has_most_piers() else "base pier score (+2)")
+        pier_m2 = re.search(r"\+2 or \+(\d+) if you have the most piers", t)
+        if pier_m2:
+            bonus_pts = int(pier_m2.group(1))
+            add(bonus_pts if _has_most_piers() else 2,
+                f"most piers (+{bonus_pts})" if _has_most_piers() else "base pier score (+2)")
 
         if "+1 per every two oceans you control" in t:
             n = ocean_count // 2
@@ -7521,7 +7534,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             if same:
                 add(2 * len(same), f"+2 per card on same ocean × {len(same)}")
 
-        if "kelp forest" in t and ("at least 4" in t or "4 or more" in t):
+        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
             kt = _name_count("kelp forest")
             if kt >= 4:
                 if "per kelp forest" in t:
@@ -7576,15 +7589,18 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("coral"); cnt and add(3 * cnt, f"+3 per Coral × {cnt}")
         if "+6 per mandarin goby" in t:
             cnt = _name_count("mandarin goby"); cnt and add(6 * cnt, f"+6 per Mandarin Goby × {cnt}")
-        if "+1 per uncharted animal" in t:
-            cnt = _species_count("n/a") + _species_count("uncharted")
-            cnt and add(cnt, f"+1 per Uncharted Animal × {cnt}")
-        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t:
-            cnt = _species_count("n/a") + _species_count("uncharted")
-            cnt and add(2 * cnt, f"+2 per Uncharted Animal × {cnt}")
-        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t:
-            cnt = _species_count("n/a") + _species_count("uncharted")
-            cnt and add(3 * cnt, f"+3 per Uncharted Animal × {cnt}")
+        if "+1 per uncharted animal" in t or "+1 per crosscurrent animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
+            cnt and add(cnt, f"+1 per Crosscurrent Animal × {cnt}")
+        if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
+            cnt and add(2 * cnt, f"+2 per Crosscurrent Animal × {cnt}")
+        if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
+            cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
+            cnt and add(3 * cnt, f"+3 per Crosscurrent Animal × {cnt}")
+        if "+2 per mahi mahi" in t:
+            cnt = _name_count("mahi mahi")
+            cnt and add(2 * cnt, f"+2 per Mahi Mahi × {cnt}")
         if "+2 per matching symbol" in t:
             sym = normalize_symbol(card.symbol)
             if sym not in {"", "n/a"}:
