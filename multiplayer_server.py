@@ -2530,7 +2530,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
     def _apply_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN)
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Cache-Control")
 
     def _send_client_asset(
         self,

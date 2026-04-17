@@ -29,8 +29,11 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.pathname.startsWith("/api/")) {
-    // Game state must always be live.
-    event.respondWith(fetch(req));
+    // Game state must always be live. Strip cache-control to avoid CORS preflight failures
+    // when the server is on a different origin (e.g. Render vs Vercel).
+    const headers = new Headers(req.headers);
+    headers.delete("cache-control");
+    event.respondWith(fetch(new Request(req, { headers })));
     return;
   }
 

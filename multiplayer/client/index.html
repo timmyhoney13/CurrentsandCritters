@@ -755,6 +755,169 @@
         grid-template-columns: 1fr;
       }
       #landingPanel > div { grid-template-columns: 1fr !important; }
+      .lp-card { padding: 0 0 24px; }
+      .lp-tabs { border-radius: 14px 14px 0 0; }
+      .lp-form-row { grid-template-columns: 1fr; }
+      .lp-form-row-2 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Landing panel (Play Now screen) ── */
+    #landingPanel {
+      margin-bottom: 14px;
+    }
+    .lp-card {
+      background: #fff;
+      border: 1px solid #d3e0ec;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(13,132,175,0.07);
+    }
+    .lp-tabs {
+      display: flex;
+      background: #f4f9fd;
+      border-bottom: 2px solid #d3e0ec;
+    }
+    .lp-tab {
+      flex: 1;
+      padding: 15px 10px;
+      font-size: 16px;
+      font-weight: 700;
+      border: none;
+      background: transparent;
+      color: #55728d;
+      cursor: pointer;
+      border-radius: 0;
+      transition: color 0.15s, background 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .lp-tab:hover { background: #e8f3fb; color: #0b6f90; }
+    .lp-tab.active {
+      background: #fff;
+      color: #0b6f90;
+      border-bottom: 3px solid #1da4ce;
+      margin-bottom: -2px;
+    }
+    .lp-tab-panel { padding: 28px 32px 32px; }
+    .lp-headline {
+      font-size: 22px;
+      font-weight: 800;
+      color: #12293b;
+      margin: 0 0 6px;
+    }
+    .lp-sub {
+      font-size: 14px;
+      color: #55728d;
+      margin: 0 0 24px;
+    }
+    .lp-form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .lp-form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .lp-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lp-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #55728d;
+    }
+    .lp-input {
+      border: 1.5px solid #c0d5e8;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      color: #12293b;
+      background: #f8fbff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      width: 100%;
+    }
+    .lp-input:focus {
+      outline: none;
+      border-color: #1da4ce;
+      box-shadow: 0 0 0 3px rgba(29,164,206,0.12);
+      background: #fff;
+    }
+    .lp-code-input {
+      font-family: monospace;
+      letter-spacing: 6px;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .lp-select {
+      border: 1.5px solid #c0d5e8;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      color: #12293b;
+      background: #f8fbff;
+      width: 100%;
+      cursor: pointer;
+    }
+    .lp-btn-join {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 800;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #1da4ce 0%, #0d84af 100%);
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(13,132,175,0.25);
+      transition: transform 0.1s, box-shadow 0.1s;
+      margin-top: 4px;
+    }
+    .lp-btn-join:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(13,132,175,0.32);
+    }
+    .lp-btn-join:active { transform: translateY(0); }
+    .lp-btn-create {
+      width: 100%;
+      padding: 15px;
+      font-size: 16px;
+      font-weight: 800;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #16a36b 0%, #0d8055 100%);
+      color: #fff;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      box-shadow: 0 4px 14px rgba(13,128,85,0.25);
+      transition: transform 0.1s, box-shadow 0.1s;
+      margin-top: 4px;
+    }
+    .lp-btn-create:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(13,128,85,0.32);
+    }
+    .lp-btn-create:active { transform: translateY(0); }
+    .lp-divider {
+      border: none;
+      border-top: 1px solid #e8f0f8;
+      margin: 0 0 20px;
+    }
+    .lp-hint {
+      font-size: 12px;
+      color: #88a8c0;
+      margin-top: 14px;
+      text-align: center;
     }
   </style>
 </head>
@@ -782,40 +945,71 @@
 
     <!-- LANDING: two-path entry shown when no room is active -->
     <div id="landingPanel">
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+      <div class="lp-card">
 
-        <!-- JOIN PATH -->
-        <section class="panel" style="border:2px solid #1da4ce;">
-          <h2 class="section-title" style="color:#0b6f90;">🎮 Join a Room</h2>
-          <p class="small" style="margin-bottom:10px;">Got a room code from your host? Enter it below and jump straight in.</p>
-          <div class="row">
-            <label>Your Name <input id="joinQuickName" value="Player" /></label>
-            <label>Room Code <input id="joinQuickCode" placeholder="e.g. AB12C" style="text-transform:uppercase; letter-spacing:2px; font-weight:700;" maxlength="8" /></label>
-            <button id="joinQuickBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none;">Join Game</button>
+        <!-- Tab switcher -->
+        <div class="lp-tabs">
+          <button class="lp-tab active" id="tabJoin" type="button">🎮 Join a Room</button>
+          <button class="lp-tab" id="tabCreate" type="button">🏠 Create a Room</button>
+        </div>
+
+        <!-- JOIN TAB -->
+        <div class="lp-tab-panel" id="lpJoin">
+          <p class="lp-headline">Jump into a game</p>
+          <p class="lp-sub">Get a 5-letter code from your host and enter it below.</p>
+          <hr class="lp-divider" />
+          <div class="lp-form-row">
+            <div class="lp-field">
+              <span class="lp-label">Your Name</span>
+              <input id="joinQuickName" class="lp-input" value="Player" maxlength="24" />
+            </div>
+            <div class="lp-field">
+              <span class="lp-label">Room Code</span>
+              <input id="joinQuickCode" class="lp-input lp-code-input" placeholder="AB12C" maxlength="5"
+                oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+            </div>
           </div>
-        </section>
+          <button id="joinQuickBtn" class="lp-btn-join" type="button">Join Game →</button>
+          <p class="lp-hint">Ask your host for the 5-letter code shown on their screen.</p>
+        </div>
 
-        <!-- CREATE PATH -->
-        <section class="panel" style="border:2px solid #16a36b;">
-          <h2 class="section-title" style="color:#0e7c51;">🏠 Create a Room (Host)</h2>
-          <p class="small" style="margin-bottom:10px;">Start a new game. You need a host key — then share the link with friends.</p>
-          <div class="row">
-            <label>Host Key <input id="createKey" placeholder="Enter host key" /></label>
-            <label>Your Name <input id="hostName" value="Host" /></label>
-            <label>Human Players
-              <select id="humanPlayers">
+        <!-- CREATE TAB -->
+        <div class="lp-tab-panel" id="lpCreate" style="display:none;">
+          <p class="lp-headline">Host a new game</p>
+          <p class="lp-sub">Set up your room and share the code so friends can join.</p>
+          <hr class="lp-divider" />
+          <div class="lp-form-row">
+            <div class="lp-field">
+              <span class="lp-label">Your Name</span>
+              <input id="hostName" class="lp-input" value="Host" maxlength="24" />
+            </div>
+            <div class="lp-field">
+              <span class="lp-label">Room Code <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — leave blank for random)</span></span>
+              <input id="hostRoomCode" class="lp-input lp-code-input" placeholder="e.g. OCEAN" maxlength="5"
+                oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+            </div>
+          </div>
+          <div class="lp-form-row-2">
+            <div class="lp-field">
+              <span class="lp-label">Human Players</span>
+              <select id="humanPlayers" class="lp-select">
                 <option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option>
               </select>
-            </label>
-            <label>AI Players
-              <select id="aiPlayers">
+            </div>
+            <div class="lp-field">
+              <span class="lp-label">AI Players</span>
+              <select id="aiPlayers" class="lp-select">
                 <option selected>0</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option>
               </select>
-            </label>
-            <label style="display:none;">Total <input id="totalPlayers" value="2" readonly /></label>
-            <button id="createRoomBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none;">Create Room</button>
+            </div>
+            <div class="lp-field" style="justify-content:flex-end;">
+              <span class="lp-label">&nbsp;</span>
+              <button id="createRoomBtn" class="lp-btn-create" type="button">Create Room →</button>
+            </div>
           </div>
-        </section>
+          <label style="display:none;">Total <input id="totalPlayers" value="2" readonly /></label>
+          <p class="lp-hint">You'll get a code to share. Friends enter it on the Join tab.</p>
+        </div>
 
       </div>
     </div>
@@ -826,18 +1020,18 @@
     </section>
 
     <section class="panel" id="roomPanel" style="display:none;">
-      <h2 class="section-title">Room</h2>
-      <div class="link-box">
+      <h2 class="section-title">Room Created!</h2>
+      <div style="text-align:center; margin:12px 0 16px;">
+        <div style="font-size:13px; color:#555; margin-bottom:6px;">Share this code with your friends to join:</div>
+        <div id="roomCodeDisplay" title="Click to copy" style="font-size:48px; font-weight:900; letter-spacing:10px; color:#0e7c51; font-family:monospace; background:#f0fdf4; border:3px solid #16a36b; border-radius:12px; padding:16px 24px; display:inline-block; cursor:pointer; user-select:all;">—</div>
+        <div style="margin-top:8px; font-size:11px; color:#888;">Click the code to copy · or use the button below</div>
+        <div style="margin-top:6px;">
+          <button id="copyCodeBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none; padding:6px 18px; border-radius:6px; cursor:pointer;">Copy Code</button>
+        </div>
+      </div>
+      <div class="link-box" style="margin-top:8px;">
         <input id="shareUrl" readonly />
         <button id="copyLinkBtn">Copy Link</button>
-      </div>
-      <div class="small" style="margin-top:8px;">
-        Host setup link:
-        <span id="hostSetupLink">(available after room creation)</span>
-      </div>
-      <div class="small" style="margin-top:4px;">
-        Your seat reconnect link:
-        <span id="seatSetupLink">(available after you claim a seat)</span>
       </div>
       <div class="meta" id="roomMeta"></div>
     </section>
@@ -846,7 +1040,7 @@
       <h2 class="section-title">Join / Seats</h2>
       <div class="row">
         <label>Name <input id="joinName" value="Player" /></label>
-        <label>Host Key <input id="lobbyCreateKey" placeholder="Needed to reclaim Player 1" /></label>
+        <input id="lobbyCreateKey" type="hidden" />
         <label><input type="checkbox" id="spectatorModeToggle" /> Spectator Mode</label>
         <button id="joinOpenSeatBtn">Join Open Seat</button>
         <button id="startGameBtn" style="display:none;">Start Game</button>
@@ -998,7 +1192,7 @@
 
     const POLL_INTERVAL_MS = 850;
     const STATE_FETCH_TIMEOUT_MS = 3200;
-    const FAILOVER_COOLDOWN_MS = 900;
+    const FAILOVER_COOLDOWN_MS = 15000;
     const STREAM_STALE_FAILOVER_MS = 3500;
     const WATCHDOG_INTERVAL_MS = 1200;
     const WATCHDOG_STALE_REFRESH_MS = 2400;
@@ -1016,7 +1210,7 @@
     let roomNotFoundStreak = 0;
     let failoverInFlight = false;
     let lastFailoverAttemptAt = 0;
-    let lastStateReceiveAt = 0;
+    let lastStateReceiveAt = Date.now();
     const knownBaseUrls = new Set();
 
     const selectedPool = new Set();
@@ -1109,8 +1303,19 @@
 
     function loadKnownBaseUrls() {
       knownBaseUrls.clear();
-      ingestKnownBaseUrl(location.origin);
+      // Only add page origin as a known API base when there is no separate API server.
+      // When __FISH_API_BASE__ points to a different host (e.g. Render vs Vercel),
+      // the page origin is NOT a valid API server and must not become a failover candidate.
+      if (!normalizeBaseUrl(window.__FISH_API_BASE__)) {
+        ingestKnownBaseUrl(location.origin);
+      }
       ingestKnownBaseUrl(window.__FISH_API_BASE__);
+      // When a fixed API base is configured, skip stored URLs — they may be
+      // stale tunnel addresses from old sessions that would be tried as backups.
+      if (normalizeBaseUrl(window.__FISH_API_BASE__)) {
+        try { localStorage.removeItem(knownBaseUrlsStorageKey()); } catch {}
+        return;
+      }
       try {
         const raw = localStorage.getItem(knownBaseUrlsStorageKey()) || "[]";
         const arr = JSON.parse(raw);
@@ -1150,15 +1355,18 @@
         return fromUrl;
       }
 
-      // Prefer the origin of the currently-open page so new tunnel/domain links
-      // recover immediately instead of hanging on a stale saved base.
-      const currentOrigin = normalizeAbsoluteBaseUrl(location.origin);
-      if (currentOrigin) {
-        try {
-          localStorage.setItem("fish_api_base_url", currentOrigin);
-        } catch {}
-        ingestKnownBaseUrl(currentOrigin);
-        return currentOrigin;
+      // Only use the page origin as the API base when no external API server is configured.
+      // If __FISH_API_BASE__ points to a different host, the page origin is not a valid
+      // API endpoint and should not be stored or returned.
+      if (!normalizeBaseUrl(window.__FISH_API_BASE__)) {
+        const currentOrigin = normalizeAbsoluteBaseUrl(location.origin);
+        if (currentOrigin) {
+          try {
+            localStorage.setItem("fish_api_base_url", currentOrigin);
+          } catch {}
+          ingestKnownBaseUrl(currentOrigin);
+          return currentOrigin;
+        }
       }
       try {
         const stored = normalizeBaseUrl(localStorage.getItem("fish_api_base_url") || "");
@@ -1199,8 +1407,7 @@
     const volatileHostTokens = new Map();
     let volatileCreateKey = "";
     let volatileLastRoomId = "";
-    // Stable room code so players can keep using one persistent link.
-    const STABLE_ROOM_ID = "CACHE";
+    let pendingRoomId = "";
     let autoJoinInFlight = false;
     let autoHostClaimInFlight = false;
     let autoHostClaimRetryAt = 0;
@@ -2113,7 +2320,7 @@
       failoverInFlight = true;
       lastFailoverAttemptAt = now;
       try {
-        setConnStatus(`Tunnel issue detected. Trying ${candidates.length} backup link(s)...`);
+        setConnStatus(`Checking backup connection (${candidates.length} option(s))...`);
         const qs = buildViewerQueryParams().toString();
         for (const base of candidates) {
           try {
@@ -2133,18 +2340,16 @@
             } catch {}
             const target = buildRoomUrlForBase(base);
             if (!target) continue;
-            setConnStatus("Tunnel moved to backup link. Redirecting...");
+            setConnStatus("Switching to backup connection. Redirecting...");
             window.location.replace(target);
             return true;
           } catch {
             // keep checking other candidates
           }
         }
-        if (reason) {
-          setConnErr(String(reason));
-        } else {
-          setConnErr("Tunnel went offline and no backup link responded yet.");
-        }
+        // No backup worked — clear the error so polling status is shown instead.
+        setConnStatus("Reconnecting... (live stream down, polling active)");
+        setConnErr("");
         return false;
       } finally {
         failoverInFlight = false;
@@ -2705,19 +2910,7 @@
             // Taking over a seat is always player mode.
             setSpectatorMode(false, true);
             const name = document.getElementById("joinName").value.trim() || "Player";
-            let key = activeCreateKey();
-            if (s.is_host && !getHostToken() && !key) {
-              const typed = window.prompt("Enter host key to reclaim Player 1:");
-              const entered = String(typed || "").trim();
-              if (!entered) {
-                setGameStatus("Host key required to reclaim Player 1.");
-                return;
-              }
-              key = entered;
-              setCreateKey(entered);
-              const lobbyKeyInput = document.getElementById("lobbyCreateKey");
-              if (lobbyKeyInput) lobbyKeyInput.value = entered;
-            }
+            const key = activeCreateKey();
             try {
               const out = await apiPost(`/api/rooms/${roomId}/join`, {
                 player_name: name,
@@ -3418,6 +3611,8 @@
       ingestKnownBaseUrl(shareUrl);
       ingestKnownBaseUrls(payload.public_links);
       document.getElementById("shareUrl").value = shareUrl;
+      const codeEl = document.getElementById("roomCodeDisplay");
+      if (codeEl && payloadRoomId) codeEl.textContent = payloadRoomId;
       const hostSetupLinkEl = document.getElementById("hostSetupLink");
       const seatSetupLinkEl = document.getElementById("seatSetupLink");
       const hostToken = getHostToken();
@@ -3643,7 +3838,9 @@
         if (age >= WATCHDOG_STALE_REFRESH_MS) {
           refreshState();
         }
-        if (age >= STREAM_STALE_FAILOVER_MS) {
+        // Only failover when ALL state delivery (stream + polling) is stale.
+        // If polling is working, age stays fresh and failover never fires.
+        if (age >= STREAM_STALE_FAILOVER_MS * 4) {
           attemptTunnelFailover("State stream stale");
         }
       }, WATCHDOG_INTERVAL_MS);
@@ -3652,6 +3849,9 @@
     function reconnectStream() {
       if (!roomId) return;
       roomNotFoundStreak = 0;
+      // Reset stale timer so an immediate CORS/network error on the new connection
+      // does not trigger failover before polling has a chance to confirm the server is reachable.
+      lastStateReceiveAt = Date.now();
       if (eventSource) {
         eventSource.close();
         eventSource = null;
@@ -3678,15 +3878,24 @@
             setConnErr(`Stream parse error: ${String(err)}`);
           }
         });
+        let streamErrCount = 0;
         eventSource.onerror = () => {
-          setConnStatus("Live stream reconnecting... (polling active)");
-          if (Date.now() - lastStateReceiveAt > STREAM_STALE_FAILOVER_MS) {
+          streamErrCount += 1;
+          // After 2 consecutive errors the stream won't recover on its own (usually CORS).
+          // Close it so the browser stops retrying and flooding onerror, then rely on polling.
+          if (streamErrCount >= 2) {
+            if (eventSource) { eventSource.close(); eventSource = null; }
+            setConnStatus("Using polling mode.");
+            return;
+          }
+          setConnStatus("Reconnecting...");
+          // Only attempt failover when polling has also stopped delivering state.
+          if (Date.now() - lastStateReceiveAt > STREAM_STALE_FAILOVER_MS * 3) {
             attemptTunnelFailover("Live stream disconnected");
           }
         };
       } catch (err) {
         setConnStatus("Live stream unavailable. Using polling mode.");
-        attemptTunnelFailover(String(err && err.message || err || "Live stream unavailable"));
       }
     }
 
@@ -3710,13 +3919,22 @@
       if (out.host_token) setHostToken(out.host_token);
       if (out.seat_token) setSeatToken(out.seat_token);
       document.getElementById("joinName").value = hostName;
+      // Show the room code immediately — don't wait for the first state poll.
+      const codeEl = document.getElementById("roomCodeDisplay");
+      if (codeEl && roomId) codeEl.textContent = roomId;
       syncSeatTokenInUrl();
       showRoomView();
       reconnectStream();
     }
 
+    function generateRoomCode() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      return Array.from(crypto.getRandomValues(new Uint8Array(5))).map(b => chars[b % chars.length]).join("");
+    }
+
     async function createRoom() {
-      const createKey = document.getElementById("createKey").value.trim();
+      const existingKey = getCreateKey();
+      const createKey = existingKey || Array.from(crypto.getRandomValues(new Uint8Array(12))).map(b => b.toString(36)).join("").slice(0, 12);
       const hostName = document.getElementById("hostName").value.trim() || "Host";
       const ai = Number(document.getElementById("aiPlayers").value);
       const human = Number(document.getElementById("humanPlayers").value);
@@ -3725,16 +3943,21 @@
       const total = Math.max(2, Math.min(8, human + ai));
       const totalInput = document.getElementById("totalPlayers");
       if (totalInput) totalInput.value = String(total);
-      if (!createKey) {
-        setConnErr("Host create key is required.");
+
+      // Use typed room code, or generate a random one if left blank.
+      const typedRaw = String(document.getElementById("hostRoomCode")?.value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (typedRaw.length > 0 && typedRaw.length < 5) {
+        setConnErr(`Room code must be exactly 5 characters — you typed ${typedRaw.length}. Add more letters or leave it blank for a random code.`);
         return;
       }
+      const chosenRoomId = typedRaw.length === 5 ? typedRaw : generateRoomCode();
+      pendingRoomId = chosenRoomId;
 
       try {
         const out = await apiPost("/api/rooms", {
           create_key: createKey,
           host_name: hostName,
-          room_id: STABLE_ROOM_ID,
+          room_id: chosenRoomId,
           total_players: total,
           human_players: human,
           ai_players: ai,
@@ -3748,7 +3971,7 @@
             const out = await apiPost("/api/rooms", {
               create_key: createKey,
               host_name: hostName,
-              room_id: STABLE_ROOM_ID,
+              room_id: chosenRoomId,
               total_players: total,
               human_players: human,
               ai_players: ai,
@@ -4007,14 +4230,6 @@
       if (!activeRoomShortcutId) return;
       openRoomById(activeRoomShortcutId);
     });
-    document.getElementById("lobbyCreateKey").addEventListener("change", (ev) => {
-      const val = String((ev.target && ev.target.value) || "").trim();
-      if (!val) return;
-      setCreateKey(val);
-      const setupInput = document.getElementById("createKey");
-      if (setupInput) setupInput.value = val;
-      setConnStatus("Host key saved.");
-    });
     document.getElementById("spectatorModeToggle").addEventListener("change", (ev) => {
       setSpectatorMode(Boolean(ev.target && ev.target.checked));
       if (!getSpectatorMode() && latestPayload) {
@@ -4022,6 +4237,16 @@
       }
     });
     document.getElementById("copyLinkBtn").addEventListener("click", copyShareUrl);
+    function copyRoomCode() {
+      const code = document.getElementById("roomCodeDisplay").textContent.trim();
+      if (!code || code === "—") return;
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.getElementById("copyCodeBtn");
+        if (btn) { btn.textContent = "Copied!"; setTimeout(() => { btn.textContent = "Copy Code"; }, 1500); }
+      }).catch(() => {});
+    }
+    document.getElementById("copyCodeBtn").addEventListener("click", copyRoomCode);
+    document.getElementById("roomCodeDisplay").addEventListener("click", copyRoomCode);
     document.getElementById("openStartMenuBtn").addEventListener("click", () => {
       showStartMenu();
     });
@@ -4029,12 +4254,28 @@
       pingServer();
       if (roomId) { startConnBar(); reconnectStream(); }
     });
+    // Landing panel tab switching
+    (function setupLandingTabs() {
+      const tabJoin = document.getElementById("tabJoin");
+      const tabCreate = document.getElementById("tabCreate");
+      const panelJoin = document.getElementById("lpJoin");
+      const panelCreate = document.getElementById("lpCreate");
+      if (!tabJoin || !tabCreate) return;
+      tabJoin.addEventListener("click", () => {
+        tabJoin.classList.add("active"); tabCreate.classList.remove("active");
+        panelJoin.style.display = ""; panelCreate.style.display = "none";
+      });
+      tabCreate.addEventListener("click", () => {
+        tabCreate.classList.add("active"); tabJoin.classList.remove("active");
+        panelCreate.style.display = ""; panelJoin.style.display = "none";
+      });
+    })();
+
     document.getElementById("joinQuickBtn").addEventListener("click", () => {
-      const code = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase();
-      if (!code) { setConnErr("Enter a room code first."); return; }
-      const rid = normalizeRoomId(code);
-      if (!rid) { setConnErr("Room code must be 5 or 8 characters (letters and numbers only)."); return; }
-      openRoomById(rid);
+      const raw = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+      if (!raw) { setConnErr("Enter a room code first."); return; }
+      if (raw.length !== 5) { setConnErr(`Room codes are 5 characters — you entered ${raw.length}. Check the code and try again.`); return; }
+      openRoomById(raw);
     });
     document.getElementById("joinQuickCode").addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") document.getElementById("joinQuickBtn").click();
@@ -4067,7 +4308,6 @@
       const basePath = roomId ? `/play/${roomId}` : "/";
       history.replaceState({}, "", cleaned ? `${basePath}?${cleaned}` : basePath);
     }
-    const keyInput = document.getElementById("createKey");
     const lobbyKeyInput = document.getElementById("lobbyCreateKey");
     if (freshSetupRequested) {
       clearStoredLobbyState({
@@ -4076,20 +4316,14 @@
         clearSeatTokens: true,
       });
       roomId = null;
-      if (keyInput) keyInput.value = "";
       if (lobbyKeyInput) lobbyKeyInput.value = "";
       history.replaceState({}, "", "/");
-      showStartMenu("New setup ready: enter a new host key and choose player counts.");
+      showStartMenu("New setup ready — choose player counts and create a room.");
       return;
     }
     const savedCreateKey = getCreateKey();
-    if (keyInput) {
-      if (keyFromUrl) {
-        keyInput.value = keyFromUrl;
-        setCreateKey(keyFromUrl);
-      } else if (savedCreateKey) {
-        keyInput.value = savedCreateKey;
-      }
+    if (keyFromUrl) {
+      setCreateKey(keyFromUrl);
     }
     if (lobbyKeyInput) {
       if (keyFromUrl) {
