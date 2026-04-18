@@ -46,9 +46,9 @@
 46	46	Cleaner Wrasse	+2 per Mahi Mahi | *Play a free crustacean*	Crosscurrent	1	Down	Heart
 47	47	Osprey	+2 per matching symbol	Bird	1	Up	Circle
 48	48	Mandarin Goby	1 = 0 | 2 = 14 | 3 = 30 | 4 = 80	Crosscurrent	1	Down	Triangle
-49	49	Magnificent Frigatebird	+1 per coral | *Play a free coral*	Bird	1	Up	Square
+49	49	Magnificent Frigatebird	+2 per coral | *Play a free coral*	Bird	1	Up	Square
 50	50	Hermit Crab	Play any number of baitfish this turn for free	Crustacean	2	Down	Triangle
-51	51	Magnificent Frigatebird	+1 per coral | *Play a free coral*	Bird	1	Up	Heart
+51	51	Magnificent Frigatebird	+2 per coral | *Play a free coral*	Bird	1	Up	Heart
 52	52	Loggerhead Sea Turtle	Play any number of cards by paying the costs	Crosscurrent	3	Down	Circle
 53	53	Mullet	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Triangle
 54	54	Sea Cucumber	Draw one when you play a game fish	Invertebrate	1	Down	Diamond

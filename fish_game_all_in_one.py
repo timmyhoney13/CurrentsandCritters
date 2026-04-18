@@ -6165,8 +6165,6 @@ def action_features(
         base_plus += 5 * sum(1 for c in board if c.species.lower() == "coral")
     if "+3 per coral" in t:
         base_plus += 3 * sum(1 for c in board if c.species.lower() == "coral")
-    if "+1 per coral" in t:
-        base_plus += sum(1 for c in board if c.species.lower() == "coral")
     if "+2 per matching symbol" in t:
         base_plus += 2 * sum(1 for c in board if normalize_symbol(c.symbol) == normalize_symbol(card.symbol))
     if "+5 per invertebrate" in t:
@@ -7271,8 +7269,6 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += 2 * species_count("coral")
         if "+5 per coral" in t:
             pts += 5 * species_count("coral")
-        if "+1 per coral" in t:
-            pts += species_count("coral")
         if "+5 per invertebrate" in t:
             pts += 5 * species_count("invertebrate")
         if "+1 per invertebrate" in t:
@@ -7591,8 +7587,6 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("coral"); cnt and add(2 * cnt, f"+2 per Coral × {cnt}")
         if "+5 per coral" in t:
             cnt = _species_count("coral"); cnt and add(5 * cnt, f"+5 per Coral × {cnt}")
-        if "+1 per coral" in t:
-            cnt = _species_count("coral"); cnt and add(cnt, f"+1 per Coral × {cnt}")
         if "+5 per invertebrate" in t:
             cnt = _species_count("invertebrate"); cnt and add(5 * cnt, f"+5 per Invertebrate × {cnt}")
         if "+1 per invertebrate" in t:
