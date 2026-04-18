@@ -29,7 +29,7 @@
 29	29	Peruvian Pelican	+5 | Draw one or *draw three*	Bird	2	Up	Triangle
 30	30	Cleaner Wrasse	+2 per Mahi Mahi | *Play a free crustacean*	Crosscurrent	1	Down	Heart
 31	31	Peruvian Pelican	+5 | Draw one or *draw three*	Bird	2	Up	Circle
-32	32	Lobster	+5 | Any number of lobsters can share the same spot	Crustacean	0	Down	Heart
+32	32	King Crab	+3 | Draw two	Crustacean	2	Down	Heart
 33	33	Great Albatross	+6 if you have the most oceans | *Draw one*	Bird	1	Up	Circle
 34	34	Staghorn Coral	+3 per coral	Coral	0	Down	Square
 35	35	Great Albatross	+6 if you have the most oceans | *Draw one*	Bird	1	Up	Diamond
@@ -65,7 +65,7 @@
 65	65	Bunker	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Square
 66	66	Spiny Lobster	+6 per mandarin goby	Crustacean	1	Down	Heart
 67	67	Bunker	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Diamond
-68	68	King Crab	+3 | Draw two	Crustacean	2	Down	Heart
+68	68	Lobster	+5 | Any number of lobsters can share the same spot	Crustacean	0	Down	Heart
 69	69	Sardine	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Triangle
 70	70	Sea Urchin	Draw one when you play an animal on the ocean surface	Invertebrate	1	Down	Circle
 71	71	Sardine	# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30	Baitfish	0	Up	Circle
