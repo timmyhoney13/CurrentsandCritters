@@ -1862,8 +1862,13 @@
         const page = Math.floor((uid - 101) / 2) + 1;
         return `/vertical_cards/page_${pad2(page)}.png`;
       }
-      if (uid >= 201 && uid <= 264) {
+      if (uid >= 201 && uid <= 259) {
         const page = uid - 200;
+        return `/oceans_cards/page_${pad2(page)}.png`;
+      }
+      // UID 260 is absent from the deck; UIDs 261-265 occupy PDF pages 60-64
+      if (uid >= 261 && uid <= 265) {
+        const page = uid - 201;
         return `/oceans_cards/page_${pad2(page)}.png`;
       }
       return "";
