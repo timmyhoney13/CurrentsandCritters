@@ -8,7 +8,7 @@
 8	Spiny Lobster	+6 per mandarin goby	Crustacean	1	Down	Triangle
 9	Horned Puffin	+3 | *play again*	Bird	1	Up	Square
 10	Sea Star	Draw one when you play a card on the ocean floor	Invertebrate	1	Down	Diamond
-11	Horned Puffin	Draw one when you play a card on the ocean floor	Bird	1	Up	Heart
+11	Horned Puffin	+3 | *play again*	Bird	1	Up	Heart
 12	Lobster	+5 | Any number of lobsters can share the same spot	Crustacean	0	Down	Triangle
 13	Horned Puffin	+3 | *play again*	Bird	1	Up	Triangle
 14	Blue Tang	+2 per uncharted animal	Uncharted	1	Down	Diamond
