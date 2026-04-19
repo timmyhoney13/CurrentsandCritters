@@ -1518,10 +1518,10 @@
     function syncSeatTokenInUrl() {
       if (!roomId) return;
       const params = new URLSearchParams(location.search || "");
-      const seatToken = getSeatToken();
-      if (seatToken) params.set("seat_token", seatToken);
-      else params.delete("seat_token");
-      // Never keep host/admin credentials in shareable play URLs.
+      // Never put seat_token in the URL — it's a private credential stored only in
+      // localStorage. If the host copies and shares their URL, other players must not
+      // receive the host's seat_token or they can accidentally displace the host.
+      params.delete("seat_token");
       params.delete("host_token");
       params.delete("create_key");
       // Spectator state must be an explicit local toggle, not a sticky shared URL flag.

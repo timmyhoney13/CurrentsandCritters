@@ -1134,8 +1134,9 @@ class GameRoom:
                     }
                 if allow_takeover and host_ok:
                     previous_name = target.claimed_name or target.label
-                    # Seat switch: if caller already owns another human seat, free it first.
-                    if existing_seat is not None and existing_seat is not target and existing_seat.kind == "human":
+                    # Seat switch: free the caller's old seat first, but never vacate the
+                    # host seat as a side-effect — only explicit host-to-host reclaims may do that.
+                    if existing_seat is not None and existing_seat is not target and existing_seat.kind == "human" and not existing_seat.is_host:
                         existing_seat.claimed_name = None
                         existing_seat.token = None
                     target.claimed_name = safe_name(player_name, target.label)
@@ -1157,8 +1158,10 @@ class GameRoom:
             if self.phase != "lobby":
                 return {"ok": False, "error": "game already started"}
 
-            # Seat switch: if caller already owns another human seat, free it first.
-            if existing_seat is not None and existing_seat is not target and existing_seat.kind == "human":
+            # Seat switch: free the caller's old seat first, but never vacate the host seat
+            # as a side-effect of a regular claim (e.g. if someone received the host's
+            # seat_token via a shared URL and tries to claim a different seat).
+            if existing_seat is not None and existing_seat is not target and existing_seat.kind == "human" and not existing_seat.is_host:
                 existing_seat.claimed_name = None
                 existing_seat.token = None
             target.claimed_name = safe_name(player_name, target.label)
