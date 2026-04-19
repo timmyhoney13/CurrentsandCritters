@@ -6161,6 +6161,10 @@ def action_features(
         base_plus += sum(1 for c in board if c.species.lower() == "crustacean")
     if "+3 per crustacean" in t:
         base_plus += 3 * sum(1 for c in board if c.species.lower() == "crustacean")
+    if "+1 per coral" in t and "attached to a coral reef" not in t:
+        base_plus += sum(1 for c in board if c.species.lower() == "coral")
+    if "+2 per coral" in t and "attached to a coral reef" not in t:
+        base_plus += 2 * sum(1 for c in board if c.species.lower() == "coral")
     if "+5 per coral" in t:
         base_plus += 5 * sum(1 for c in board if c.species.lower() == "coral")
     if "+3 per coral" in t:
@@ -7265,6 +7269,8 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += 3 * species_count("crustacean")
         if "+2 per coral that is attached to a coral reef" in t:
             pts += 2 * coral_attached_to_coral_reef_count()
+        if "+1 per coral" in t and "attached to a coral reef" not in t:
+            pts += species_count("coral")
         if "+2 per coral" in t and "attached to a coral reef" not in t:
             pts += 2 * species_count("coral")
         if "+5 per coral" in t:
@@ -7583,6 +7589,8 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("crustacean"); cnt and add(3 * cnt, f"+3 per Crustacean × {cnt}")
         if "+2 per coral that is attached to a coral reef" in t:
             cnt = _coral_on_reef_count(); cnt and add(2 * cnt, f"+2 per Coral on Coral Reef × {cnt}")
+        if "+1 per coral" in t and "attached to a coral reef" not in t:
+            cnt = _species_count("coral"); cnt and add(cnt, f"+1 per Coral × {cnt}")
         if "+2 per coral" in t and "attached to a coral reef" not in t:
             cnt = _species_count("coral"); cnt and add(2 * cnt, f"+2 per Coral × {cnt}")
         if "+5 per coral" in t:
