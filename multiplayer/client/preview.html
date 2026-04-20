@@ -706,15 +706,6 @@
       font-weight: 700;
     }
 
-    /* star indicator — bottom-right */
-    .pv-hand-card.has-star .pv-card-inner::after {
-      content: "★";
-      position: absolute; bottom: 4px; right: 4px;
-      font-size: 13px; color: var(--gold);
-      text-shadow: 0 0 8px rgba(245,200,66,.9);
-      z-index: 4;
-    }
-
     /* Hearthstone-style tooltip — appears above hovered card */
     .pv-tooltip {
       display: none;
@@ -1329,14 +1320,16 @@
   const CARD_IMAGE_VERSION = "20260419-full159";
 
   function pad2(n) { return String(n).padStart(2, "0"); }
-  // Returns CSS transform so a board card shows only the half that was played.
-  // Horizontal cards (1-96): odd uid = left face, even = right face.
-  // Vertical cards (101-188): odd uid = top face, even = bottom face.
-  function cardHalfStyle(faceUid) {
+  // Returns the object-position value so the board card naturally shows
+  // only the played face.  The full image contains both animals; cover+position
+  // crops to the correct half without any distortion.
+  // Horizontal images (1-96): odd uid = left face, even = right face.
+  // Vertical images (101-188): odd uid = top face, even = bottom face.
+  function cardHalfPos(faceUid) {
     const u = Number(faceUid);
-    if (u >= 1 && u <= 96)    return u % 2 === 1 ? "scaleX(2);transform-origin:left center"   : "scaleX(2);transform-origin:right center";
-    if (u >= 101 && u <= 188) return u % 2 === 1 ? "scaleY(2);transform-origin:top center"    : "scaleY(2);transform-origin:bottom center";
-    return "";
+    if (u >= 1   && u <= 96)  return u % 2 === 1 ? "left"   : "right";
+    if (u >= 101 && u <= 188) return u % 2 === 1 ? "top"    : "bottom";
+    return "center";
   }
 
   function imagePathForUid(uid) {
@@ -2414,7 +2407,28 @@
           slot.className = "pv-lane-slot" + (isMyTurn && laneHasAction(dir) ? " playable" : "");
           slot.textContent = "+";
           if (isMyTurn && laneHasAction(dir)) {
-            slot.title = `Drag a card here or click an action to play ${dir}`;
+            slot.title = `Click a card in your hand then click here, or drag a card here`;
+            slot.addEventListener("click", () => {
+              // If the action-bar dropdown already targets this slot, submit it
+              const sel = document.getElementById("pv-action-select");
+              if (sel?.value) {
+                const pre = actions.find(a =>
+                  String(a.index) === sel.value &&
+                  a.kind === "play_to_ocean" &&
+                  Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                  String(a.face_direction||"").toLowerCase() === dir
+                );
+                if (pre) { submitAction(pre); return; }
+              }
+              // Single unambiguous action — submit directly
+              const opts = actions.filter(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir
+              );
+              if (opts.length === 1) { submitAction(opts[0]); return; }
+              setStatus("Click a card in your hand first, then click a slot to play it there.");
+            });
             slot.addEventListener("dragover", (ev) => {
               const acts = actions.filter(a =>
                 a.kind === "play_to_ocean" &&
@@ -2452,8 +2466,7 @@
             const fUid = c.face_uid ?? c.uid;
             img.src = imagePathForUid(fUid);
             img.alt = c.name||""; img.loading="lazy";
-            const hs = cardHalfStyle(fUid);
-            if (hs) img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;transform:${hs}`;
+            img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
             cardEl.appendChild(img);
             cardEl.title = `${c.name||"?"} — click to zoom`;
             cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
