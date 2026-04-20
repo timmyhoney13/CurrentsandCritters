@@ -967,6 +967,15 @@
         </div>
 
       </div>
+
+      <!-- Preview UI link -->
+      <div style="text-align:center; margin-top:14px;">
+        <a id="previewUiLink" href="/preview"
+          style="font-size:12px; color:#88a8c0; text-decoration:none; border-bottom:1px dashed #b0c8d8; padding-bottom:1px; transition:color .15s;"
+          onmouseover="this.style.color='#1da4ce'" onmouseout="this.style.color='#88a8c0'">
+          ✦ Try the new visual interface (Preview UI)
+        </a>
+      </div>
     </div>
 
     <!-- SETUP PANEL (legacy — hidden, kept for JS compatibility) -->
@@ -4140,6 +4149,13 @@
         panelCreate.style.display = ""; panelJoin.style.display = "none";
       });
     })();
+
+    // Update preview link with room code as user types
+    document.getElementById("joinQuickCode").addEventListener("input", () => {
+      const raw = String(document.getElementById("joinQuickCode").value||"").trim().toUpperCase().replace(/[^A-Z0-9]/g,"");
+      const link = document.getElementById("previewUiLink");
+      if (link) link.href = raw.length === 5 ? `/preview/${raw}` : "/preview";
+    });
 
     document.getElementById("joinQuickBtn").addEventListener("click", () => {
       const raw = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
