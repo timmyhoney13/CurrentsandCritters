@@ -1,0 +1,1820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Currents &amp; Critters — Preview UI</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <style>
+    /* ===== PREVIEW UI — visual layer only, gameplay unchanged ===== */
+    /* Design: dark tabletop / Hearthstone-inspired card feel         */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #07111f;
+      --table:    #0b2318;
+      --felt:     #0f2b1e;
+      --panel:    #111e35;
+      --border:   #1e3a5f;
+      --text:     #dceeff;
+      --muted:    #5e8fab;
+      --gold:     #f5c842;
+      --cyan:     #3dd6f5;
+      --green:    #1fbb8a;
+      --red:      #e84057;
+      --card-w:   108px;
+      --card-h:   152px;
+      --mini-w:   72px;
+      --mini-h:   100px;
+      --radius:   10px;
+      --glow-c:   rgba(61,214,245,.45);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      overflow: hidden;
+    }
+
+    /* ── Lobby ──────────────────────────────────────────────────── */
+    #pv-lobby {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 24px;
+      padding: 24px;
+    }
+
+    #pv-lobby h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--gold);
+      letter-spacing: 1px;
+      text-shadow: 0 0 24px rgba(245,200,66,.5);
+    }
+
+    .pv-lobby-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px 28px;
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pv-lobby-box h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .pv-input {
+      background: #0a1628;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      width: 100%;
+      transition: border-color .2s;
+    }
+    .pv-input:focus { border-color: var(--cyan); }
+    .pv-input::placeholder { color: var(--muted); }
+
+    .pv-row { display: flex; gap: 8px; }
+    .pv-row .pv-input { flex: 1; }
+
+    .pv-btn {
+      background: linear-gradient(135deg, #1480c8, #0d6cb0);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px 18px;
+      transition: transform .15s, box-shadow .15s, filter .15s;
+      white-space: nowrap;
+    }
+    .pv-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(20,128,200,.5);
+    }
+    .pv-btn:active:not(:disabled) { transform: translateY(0); }
+    .pv-btn:disabled { filter: brightness(.5); cursor: default; }
+    .pv-btn.gold {
+      background: linear-gradient(135deg, #c8971a, #a97c14);
+      box-shadow: 0 2px 10px rgba(200,150,26,.3);
+    }
+    .pv-btn.gold:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(200,150,26,.55); }
+    .pv-btn.danger {
+      background: linear-gradient(135deg, #b03040, #8e1828);
+    }
+    .pv-btn.sm { font-size: 12px; padding: 7px 12px; }
+    .pv-btn.full { width: 100%; }
+
+    #pv-lobby-status {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    /* ── Table / game root ──────────────────────────────────────── */
+    #pv-game {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      background: radial-gradient(ellipse at 50% 40%, #0d2318 0%, #07111f 70%);
+    }
+
+    /* thin notice bar at very top */
+    #pv-notice {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      padding: 5px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    #pv-notice .notice-left { display: flex; gap: 12px; align-items: center; }
+    #pv-notice .room-badge {
+      background: var(--border);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-weight: 700;
+      color: var(--text);
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    #pv-notice .pv-btn { padding: 4px 10px; font-size: 11px; }
+    #pv-status-text { flex: 1; text-align: center; color: var(--gold); font-weight: 600; }
+
+    /* ── Turn banner ────────────────────────────────────────────── */
+    #pv-turn-banner {
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 7px 20px;
+      letter-spacing: .5px;
+      flex-shrink: 0;
+      transition: background .4s, color .4s;
+    }
+    #pv-turn-banner.my-turn {
+      background: linear-gradient(90deg, #0a2518, #132a3a, #0a2518);
+      color: var(--gold);
+    }
+    #pv-turn-banner.their-turn {
+      background: #0d1625;
+      color: var(--muted);
+    }
+    #pv-turn-banner.endgame {
+      background: linear-gradient(90deg, #2a0a0a, #3a1010);
+      color: var(--red);
+    }
+
+    /* ── Main table area ────────────────────────────────────────── */
+    #pv-table {
+      flex: 1;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+      padding: 6px 12px;
+      gap: 6px;
+    }
+
+    /* ── Opponents zone ─────────────────────────────────────────── */
+    #pv-opponents {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .pv-opp-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-width: 180px;
+      max-width: 320px;
+      flex: 1;
+      transition: border-color .3s;
+    }
+    .pv-opp-card.active-turn { border-color: var(--gold); box-shadow: 0 0 12px rgba(245,200,66,.2); }
+
+    .pv-opp-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .pv-opp-name { font-weight: 700; font-size: 13px; }
+    .pv-opp-score {
+      background: #0a1628;
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gold);
+    }
+    .pv-opp-stats { display: flex; gap: 10px; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+    .pv-opp-mini-board {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .pv-mini-ocean {
+      background: var(--felt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 5px;
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      gap: 3px;
+      align-items: center;
+    }
+    .pv-mini-ocean img {
+      width: 28px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 3px;
+      opacity: .85;
+    }
+    .pv-mini-count {
+      background: var(--border);
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-size: 10px;
+      color: var(--text);
+    }
+
+    /* ── Center strip (deck + pool) ─────────────────────────────── */
+    #pv-center-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 4px 0;
+    }
+
+    .pv-deck-pile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+    .pv-deck-face {
+      width: 64px;
+      height: 88px;
+      background: linear-gradient(135deg, #0f2040, #1a3a6a);
+      border: 2px solid #2a5090;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: rgba(255,255,255,.15);
+      position: relative;
+      box-shadow: 2px 2px 0 #0d1830, 4px 4px 0 #0a1428;
+    }
+    .pv-deck-face::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 5px;
+    }
+    .pv-deck-count {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .pv-deck-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .pv-deck-pile:hover .pv-deck-face { border-color: var(--cyan); }
+
+    /* Pool of face-up cards */
+    #pv-pool-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 540px;
+    }
+    .pv-pool-card {
+      width: 58px;
+      height: 80px;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: transform .15s, border-color .15s, box-shadow .15s;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .pv-pool-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .pv-pool-card:hover {
+      transform: translateY(-6px) scale(1.08);
+      border-color: var(--cyan);
+      box-shadow: 0 6px 18px var(--glow-c);
+      z-index: 10;
+    }
+    .pv-pool-card.selected {
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(245,200,66,.5);
+    }
+
+    #pv-pool-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    /* ── My board ───────────────────────────────────────────────── */
+    #pv-my-board {
+      flex: 1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-content: flex-start;
+      justify-content: center;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    /* Ocean hub: ocean card in center, 4 lanes radiating */
+    .pv-ocean-hub {
+      background: var(--felt);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 8px;
+      display: grid;
+      grid-template-areas:
+        ".    up    ."
+        "left ocean right"
+        ".    down  .";
+      grid-template-columns: auto auto auto;
+      grid-template-rows: auto auto auto;
+      gap: 4px;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .pv-ocean-hub.selected-target {
+      border-color: var(--green);
+      box-shadow: 0 0 14px rgba(31,187,138,.35);
+    }
+
+    .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; }
+    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 3px; }
+    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 3px; }
+
+    .pv-lane-label {
+      font-size: 9px;
+      color: var(--border);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      text-align: center;
+    }
+
+    /* cards on board: smaller mini-cards */
+    .pv-board-card {
+      width: var(--mini-w);
+      height: var(--mini-h);
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+      flex-shrink: 0;
+      transition: transform .15s, border-color .15s;
+      cursor: default;
+    }
+    .pv-board-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .pv-board-card:hover {
+      transform: scale(1.12);
+      border-color: var(--cyan);
+      z-index: 20;
+    }
+
+    /* the ocean card itself (slightly larger) */
+    .pv-ocean-face {
+      width: 88px;
+      height: 122px;
+      border-radius: 9px;
+      overflow: hidden;
+      border: 2px solid #2a5f7a;
+      box-shadow: 0 0 12px rgba(0,0,0,.4);
+      cursor: default;
+      transition: border-color .2s;
+    }
+    .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pv-ocean-face:hover { border-color: var(--cyan); }
+
+    /* empty lane slot (shows when empty and interactive) */
+    .pv-lane-slot {
+      width: var(--mini-w);
+      height: var(--mini-h);
+      border: 1px dashed var(--border);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      color: var(--border);
+      transition: border-color .15s, background .15s;
+      flex-shrink: 0;
+      cursor: default;
+    }
+    .pv-lane-slot.playable {
+      border-color: var(--green);
+      color: var(--green);
+      cursor: pointer;
+      animation: pulse-slot 1.4s ease-in-out infinite;
+    }
+    .pv-lane-slot.playable:hover {
+      background: rgba(31,187,138,.12);
+      border-color: #3ee8a8;
+    }
+    @keyframes pulse-slot {
+      0%,100% { box-shadow: none; }
+      50% { box-shadow: 0 0 8px rgba(31,187,138,.4); }
+    }
+
+    /* ── Action bar ─────────────────────────────────────────────── */
+    #pv-action-bar {
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    #pv-action-bar select {
+      background: #0a1628;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 7px 10px;
+      outline: none;
+      flex: 1;
+      min-width: 160px;
+      cursor: pointer;
+    }
+    #pv-action-bar select:focus { border-color: var(--cyan); }
+    #pv-action-bar select option { background: #0f1e35; }
+
+    .pv-action-group { display: flex; gap: 6px; align-items: center; }
+    .pv-action-divider { width: 1px; height: 32px; background: var(--border); flex-shrink: 0; }
+
+    .pv-star-toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .pv-star-toggle-wrap input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; }
+    .pv-star-toggle-wrap:has(input:checked) { color: var(--gold); }
+
+    /* payment info chip */
+    #pv-payment-info {
+      font-size: 12px;
+      color: var(--muted);
+      background: #0a1628;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 8px;
+      display: none;
+      align-items: center;
+      gap: 6px;
+    }
+    #pv-payment-info.visible { display: flex; }
+    #pv-payment-info .clear-pay { cursor: pointer; color: var(--red); font-size: 11px; }
+
+    /* ── Hand ───────────────────────────────────────────────────── */
+    #pv-hand-zone {
+      background: linear-gradient(0deg, rgba(5,14,28,.95) 0%, rgba(5,14,28,.5) 100%);
+      flex-shrink: 0;
+      padding: 8px 20px 14px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      min-height: 180px;
+      position: relative;
+    }
+
+    #pv-hand {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      position: relative;
+    }
+
+    .pv-hand-card {
+      width: var(--card-w);
+      height: var(--card-h);
+      position: relative;
+      cursor: pointer;
+      flex-shrink: 0;
+      border-radius: var(--radius);
+      overflow: visible; /* allow hover to escape container */
+      transition: transform .22s cubic-bezier(.2,1.3,.4,1), z-index 0s, filter .2s;
+      margin-left: -22px;
+      will-change: transform;
+    }
+    .pv-hand-card:first-child { margin-left: 0; }
+
+    .pv-hand-card .pv-card-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 2px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+      transition: border-color .2s, box-shadow .2s;
+      position: relative;
+    }
+    .pv-hand-card .pv-card-inner img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .pv-hand-card:hover .pv-card-inner,
+    .pv-hand-card.selected .pv-card-inner {
+      border-color: var(--cyan);
+      box-shadow: 0 0 18px var(--glow-c), 0 8px 20px rgba(0,0,0,.7);
+    }
+    .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 20px rgba(245,200,66,.55); }
+    .pv-hand-card.pay-selected .pv-card-inner { border-color: var(--green); box-shadow: 0 0 14px rgba(31,187,138,.5); }
+    .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 14px rgba(232,64,87,.5); }
+
+    .pv-hand-card:hover { z-index: 500; }
+    .pv-hand-card.selected { z-index: 300; }
+
+    /* cost badge */
+    .pv-cost-badge {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 22px;
+      height: 22px;
+      background: linear-gradient(135deg, #1a4080, #0e2a5a);
+      border: 1.5px solid #2a5090;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+    .pv-cost-badge.free { background: linear-gradient(135deg, #1a5030, #0e3a20); border-color: #2a9060; color: var(--green); }
+
+    /* symbol pip */
+    .pv-sym-pip {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      font-size: 10px;
+      background: rgba(0,0,0,.65);
+      border-radius: 5px;
+      padding: 1px 5px;
+      color: var(--muted);
+      z-index: 2;
+    }
+
+    /* star glow on star-ability cards */
+    .pv-hand-card.has-star .pv-card-inner::after {
+      content: "★";
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      font-size: 12px;
+      color: var(--gold);
+      text-shadow: 0 0 6px rgba(245,200,66,.8);
+      z-index: 2;
+    }
+
+    /* tooltip on hover — shows card name & text */
+    .pv-hand-card .pv-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0a1628ee;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      width: 180px;
+      font-size: 11px;
+      line-height: 1.4;
+      color: var(--text);
+      z-index: 1000;
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0,0,0,.6);
+    }
+    .pv-hand-card:hover .pv-tooltip { display: block; }
+    .pv-tooltip .tt-name { font-weight: 700; font-size: 12px; margin-bottom: 3px; color: var(--cyan); }
+    .pv-tooltip .tt-species { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+    .pv-tooltip .tt-text { color: var(--text); }
+    .pv-tooltip .tt-star { color: var(--gold); margin-top: 3px; font-size: 10px; }
+
+    /* hand overflow counter */
+    .pv-hand-overflow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: var(--card-h);
+      background: rgba(255,255,255,.05);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+
+    /* ── Discard banner ─────────────────────────────────────────── */
+    #pv-discard-banner {
+      display: none;
+      background: linear-gradient(90deg, #2a1010, #1a0a0a);
+      border: 1px solid var(--red);
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #ff8090;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    #pv-discard-banner.visible { display: block; }
+
+    /* ── Scrollbar ──────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Utilities ──────────────────────────────────────────────── */
+    .pv-tag {
+      display: inline-block;
+      background: var(--border);
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .hidden { display: none !important; }
+    .spin { animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* log tail at bottom-right corner */
+    #pv-log {
+      position: fixed;
+      bottom: 190px;
+      right: 12px;
+      width: 260px;
+      max-height: 130px;
+      overflow-y: auto;
+      background: rgba(7,17,31,.85);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.45;
+      z-index: 50;
+    }
+    #pv-log .log-entry { border-bottom: 1px solid #1a2a3a; padding: 2px 0; }
+    #pv-log .log-entry:last-child { border: none; }
+
+    /* end-turn floating button */
+    #pv-end-turn-btn {
+      position: fixed;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 100;
+      writing-mode: vertical-rl;
+      transform: translateY(-50%) rotate(180deg);
+      padding: 16px 10px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOBBY ═══════════════════════════════════════════════════════ -->
+<div id="pv-lobby">
+  <h1>🐠 Currents &amp; Critters</h1>
+  <p style="color:var(--muted);font-size:13px;text-align:center;max-width:380px;">Preview UI — same game, new look. Connect to any active room.</p>
+
+  <div class="pv-lobby-box" id="pv-create-box">
+    <h2>Create Room</h2>
+    <div class="pv-row">
+      <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
+      <input class="pv-input" id="pv-room-code-new" placeholder="Room code (5 chars)" maxlength="8" style="width:130px;flex:none;" />
+    </div>
+    <div class="pv-row">
+      <input class="pv-input" id="pv-total-players" type="number" min="2" max="6" value="2" placeholder="Players" style="width:90px;flex:none;" />
+      <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="1" placeholder="AI" style="width:90px;flex:none;" />
+      <button class="pv-btn gold full" id="pv-create-btn">Create</button>
+    </div>
+  </div>
+
+  <div class="pv-lobby-box">
+    <h2>Join Room</h2>
+    <div class="pv-row">
+      <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" />
+      <input class="pv-input" id="pv-join-code" placeholder="Room code" maxlength="8" style="text-transform:uppercase;" />
+    </div>
+    <div class="pv-row">
+      <input class="pv-input" id="pv-seat-num" type="number" min="0" max="5" value="1" placeholder="Seat #" style="width:90px;flex:none;" />
+      <button class="pv-btn full" id="pv-join-btn">Join</button>
+    </div>
+  </div>
+
+  <div id="pv-lobby-status"></div>
+</div>
+
+<!-- ══ GAME ════════════════════════════════════════════════════════ -->
+<div id="pv-game" style="display:none; flex-direction:column; height:100vh;">
+
+  <!-- notice bar -->
+  <div id="pv-notice">
+    <div class="notice-left">
+      <span class="room-badge" id="pv-room-id-badge">—</span>
+      <span id="pv-my-name-badge" style="color:var(--muted);"></span>
+    </div>
+    <span id="pv-status-text">Connecting…</span>
+    <div style="display:flex;gap:6px;">
+      <button class="pv-btn sm" id="pv-start-btn" style="display:none;">Start Game</button>
+      <button class="pv-btn sm danger" id="pv-back-btn">← Leave</button>
+    </div>
+  </div>
+
+  <!-- turn banner -->
+  <div id="pv-turn-banner" class="their-turn">Waiting…</div>
+
+  <!-- main table -->
+  <div id="pv-table">
+
+    <!-- opponent row -->
+    <div id="pv-opponents"></div>
+
+    <!-- center strip: deck + pool -->
+    <div id="pv-center-strip">
+      <div id="pv-pool-label" class="pv-pool-label-vert">Pool</div>
+      <div id="pv-pool-wrap"></div>
+
+      <div class="pv-action-divider"></div>
+
+      <!-- draw actions -->
+      <div class="pv-deck-pile" id="pv-draw-deck" title="Draw 2 from deck">
+        <div class="pv-deck-face" id="pv-deck-count-face">?</div>
+        <span class="pv-deck-label">Deck</span>
+        <span class="pv-deck-count" id="pv-deck-num">? cards</span>
+      </div>
+
+      <div id="pv-draw-pool-btn-wrap" style="display:flex;flex-direction:column;gap:5px;align-items:center;">
+        <button class="pv-btn sm" id="pv-draw-pool1-btn" style="display:none;">Draw 1 from Pool</button>
+        <button class="pv-btn sm" id="pv-draw-pool2-btn" style="display:none;">Draw 2 from Pool</button>
+      </div>
+    </div>
+
+    <!-- my board -->
+    <div id="pv-my-board"></div>
+
+  </div><!-- #pv-table -->
+
+  <!-- discard banner -->
+  <div id="pv-discard-banner"></div>
+
+  <!-- action bar -->
+  <div id="pv-action-bar">
+    <select id="pv-action-select">
+      <option value="">Choose action…</option>
+    </select>
+    <div class="pv-action-group">
+      <button class="pv-btn" id="pv-play-btn">Play</button>
+    </div>
+    <div class="pv-action-divider"></div>
+    <label class="pv-star-toggle-wrap">
+      <input type="checkbox" id="pv-star-toggle" />
+      ★ Use Star
+    </label>
+    <div class="pv-action-divider"></div>
+    <div id="pv-payment-info">
+      <span id="pv-payment-text">No payment selected</span>
+      <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
+    </div>
+    <div style="flex:1;"></div>
+    <button class="pv-btn gold" id="pv-end-turn-inline">End Turn</button>
+    <button class="pv-btn sm" id="pv-confirm-discard-btn" style="display:none;">Confirm Discard</button>
+  </div>
+
+  <!-- log tail -->
+  <div id="pv-log"></div>
+
+</div><!-- #pv-game -->
+
+<script>
+  /* ================================================================
+   * PREVIEW UI — presentation layer only
+   * Gameplay: fish_game_all_in_one.py + multiplayer_server.py (locked)
+   * API: same endpoints as multiplayer/client/index.html
+   * ================================================================ */
+
+  // ── API base (same as index.html) ──────────────────────────────
+  window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
+  const CARD_IMAGE_VERSION = "20260419-full159";
+
+  // ── Image path (same logic as index.html) ──────────────────────
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function imagePathForUid(uid) {
+    const u = Number(uid);
+    if (u >= 1 && u <= 96) return `/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png?v=${CARD_IMAGE_VERSION}`;
+    if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png?v=${CARD_IMAGE_VERSION}`;
+    if (u >= 201 && u <= 266) return `/oceans_cards/page_${pad2(u-200)}.png?v=${CARD_IMAGE_VERSION}`;
+    return "";
+  }
+
+  // ── URL / base utilities (copied from index.html) ──────────────
+  function normalizeBaseUrl(raw) { return String(raw||"").trim().replace(/\/+$/,""); }
+  function normalizeAbsoluteBaseUrl(raw) {
+    const s = normalizeBaseUrl(raw);
+    if (!s || !/^https?:\/\//i.test(s)) return "";
+    try { const u = new URL(s); return u.host ? `${u.protocol}//${u.host}` : ""; } catch { return ""; }
+  }
+  function activeApiBaseUrl() {
+    const fw = normalizeBaseUrl(window.__FISH_API_BASE__ || "");
+    if (fw) return fw;
+    const qs = new URLSearchParams(location.search);
+    const fq = normalizeBaseUrl(qs.get("api_base") || "");
+    if (fq) return fq;
+    try { const s = normalizeBaseUrl(localStorage.getItem("fish_api_base_url")||""); if (s) return s; } catch {}
+    return normalizeAbsoluteBaseUrl(location.origin) || "";
+  }
+  function apiUrl(path) {
+    const base = activeApiBaseUrl();
+    const p = String(path||"");
+    if (!base) return p;
+    return p.startsWith("/") ? `${base}${p}` : `${base}/${p}`;
+  }
+
+  // ── Room / token helpers (same localStorage keys as index.html) ─
+  const ROOM_ID_RE = /^[A-Z0-9]{5}$/;
+  function normalizeRoomId(raw) { const r = String(raw||"").trim().toUpperCase(); return ROOM_ID_RE.test(r)?r:""; }
+  function seatTokenKey(id) { return `fish_room_${id}_seat_token`; }
+  function hostTokenKey(id) { return `fish_room_${id}_host_token`; }
+  function createKeyKey() { return "fish_create_key"; }
+
+  let roomId = null;
+  function getSeatToken() { if (!roomId) return ""; try { return localStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
+  function getHostToken() { if (!roomId) return ""; try { return localStorage.getItem(hostTokenKey(roomId))||""; } catch { return ""; } }
+  function setSeatToken(v) { if (!roomId) return; try { localStorage.setItem(seatTokenKey(roomId), v); } catch {} }
+  function setHostToken(v) { if (!roomId) return; try { localStorage.setItem(hostTokenKey(roomId), v); } catch {} }
+  function getCreateKey() { try { return localStorage.getItem(createKeyKey())||""; } catch { return ""; } }
+  function makeRequestId() { return `preq_${Date.now()}_${Math.random().toString(36).slice(2,7)}`; }
+
+  // extract room from URL: /preview/XXXXX or /play/XXXXX or ?room=XXXXX
+  function roomFromUrl() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (parts.length >= 2 && (parts[0]==="preview"||parts[0]==="play")) {
+      const r = normalizeRoomId(parts[1]); if (r) return r;
+    }
+    const qs = new URLSearchParams(location.search);
+    return normalizeRoomId(qs.get("room")||qs.get("roomId")||"");
+  }
+
+  // ── Fetch helpers ──────────────────────────────────────────────
+  async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  async function apiFetch(path, opts = {}) {
+    const url = apiUrl(path);
+    const timeoutMs = opts.timeoutMs || 5000;
+    const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const tid = ac ? setTimeout(() => ac.abort(), timeoutMs) : null;
+    try {
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: ac?.signal,
+        ...(opts.method && { method: opts.method }),
+        ...(opts.body !== undefined && { body: JSON.stringify(opts.body), headers: { "Content-Type": "application/json" } }),
+      });
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = {}; }
+      return { ok: res.ok, status: res.status, data };
+    } finally { if (tid) clearTimeout(tid); }
+  }
+
+  async function apiGet(path, opts={}) { return apiFetch(path, { ...opts, method:"GET" }); }
+  async function apiPost(path, body, opts={}) { return apiFetch(path, { ...opts, method:"POST", body }); }
+
+  // ── State polling ──────────────────────────────────────────────
+  let latestPayload = null;
+  let pollTimer = null;
+  let sseSource = null;
+  let refreshInFlight = false;
+
+  function buildStateUrl() {
+    if (!roomId) return null;
+    const p = new URLSearchParams();
+    const seat = getSeatToken(); const host = getHostToken();
+    if (seat) p.set("seat_token", seat);
+    else if (host) p.set("host_token", host);
+    const qs = p.toString();
+    return apiUrl(`/api/rooms/${roomId}/state${qs ? "?"+qs : ""}`);
+  }
+
+  async function refreshState() {
+    if (!roomId || refreshInFlight) return;
+    refreshInFlight = true;
+    try {
+      const url = buildStateUrl();
+      const { ok, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:4000 });
+      if (ok && data && data.ok !== false) {
+        latestPayload = data;
+        renderPayload(data);
+      }
+    } catch(e) {}
+    finally { refreshInFlight = false; }
+  }
+
+  function startPolling() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(refreshState, 1000);
+    refreshState();
+  }
+
+  function startSSE() {
+    if (!roomId) return;
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    const p = new URLSearchParams();
+    const seat = getSeatToken(); const host = getHostToken();
+    if (seat) p.set("seat_token", seat); else if (host) p.set("host_token", host);
+    const qs = p.toString();
+    const url = apiUrl(`/api/rooms/${roomId}/stream${qs?"?"+qs:""}`);
+    try {
+      sseSource = new EventSource(url);
+      sseSource.onmessage = (ev) => {
+        try {
+          const d = JSON.parse(ev.data);
+          if (d && d.ok !== false) { latestPayload = d; renderPayload(d); }
+        } catch {}
+      };
+      sseSource.onerror = () => {};
+    } catch {}
+  }
+
+  function enterRoom(id) {
+    roomId = id;
+    document.getElementById("pv-room-id-badge").textContent = id;
+    document.getElementById("pv-lobby").style.display = "none";
+    document.getElementById("pv-game").style.display = "flex";
+    startSSE();
+    startPolling();
+  }
+
+  // ── Lobby create / join ────────────────────────────────────────
+  function lobbyStatus(msg, isErr) {
+    const el = document.getElementById("pv-lobby-status");
+    el.textContent = msg;
+    el.style.color = isErr ? "var(--red)" : "var(--muted)";
+  }
+
+  document.getElementById("pv-create-btn").addEventListener("click", async () => {
+    const name = document.getElementById("pv-host-name").value.trim() || "Host";
+    let rid = normalizeRoomId(document.getElementById("pv-room-code-new").value.trim() ||
+      Math.random().toString(36).slice(2,7).toUpperCase());
+    if (!rid) rid = Math.random().toString(36).slice(2,7).toUpperCase().slice(0,5);
+    const total = Number(document.getElementById("pv-total-players").value)||2;
+    const ai = Number(document.getElementById("pv-ai-players").value)||0;
+    const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    try { localStorage.setItem(createKeyKey(), createKey); } catch {}
+    lobbyStatus("Creating room…", false);
+    const r = await apiPost("/api/rooms", {
+      create_key: createKey, host_name: name, room_id: rid,
+      total_players: total, human_players: total - ai, ai_players: ai,
+      replace_active: true,
+    }, { timeoutMs: 10000 });
+    if (!r.ok) { lobbyStatus("Create failed: " + (r.data?.error||r.status), true); return; }
+    const rId = normalizeRoomId(r.data?.room?.room_id || rid);
+    roomId = rId;
+    const hToken = r.data?.host_token || "";
+    if (hToken) setHostToken(hToken);
+    // auto-claim seat 0
+    const j = await apiPost(`/api/rooms/${rId}/join`, { player_name: name, seat_index: 0 }, { timeoutMs: 8000 });
+    if (j.ok && j.data?.seat_token) setSeatToken(j.data.seat_token);
+    document.getElementById("pv-my-name-badge").textContent = name;
+    enterRoom(rId);
+  });
+
+  document.getElementById("pv-join-btn").addEventListener("click", async () => {
+    const name = document.getElementById("pv-join-name").value.trim() || "Player";
+    const rid = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
+    if (!rid) { lobbyStatus("Enter a valid room code.", true); return; }
+    const seat = Number(document.getElementById("pv-seat-num").value) || 0;
+    lobbyStatus("Joining…", false);
+    roomId = rid;
+    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs: 8000 });
+    if (!j.ok) { lobbyStatus("Join failed: " + (j.data?.error||j.status), true); roomId = null; return; }
+    if (j.data?.seat_token) setSeatToken(j.data.seat_token);
+    document.getElementById("pv-my-name-badge").textContent = name;
+    enterRoom(rid);
+  });
+
+  // ── Action submission ──────────────────────────────────────────
+  let actionInFlight = false;
+  const selectedPayment = new Set(); // entry UIDs chosen as payment
+  const selectedDiscard = new Set(); // entry UIDs chosen to discard
+  const selectedPool = new Set();    // pool UIDs chosen to draw
+  let handEntryMap = new Map();      // entry_uid → face data
+
+  function setStatus(msg) {
+    document.getElementById("pv-status-text").textContent = msg;
+  }
+
+  // symbol matching (same logic as index.html)
+  function normalizeSymbol(s) { return String(s||"").trim().toLowerCase(); }
+  function entryHasSymbolMatch(entryUid, sym) {
+    if (!sym) return false;
+    const norm = normalizeSymbol(sym);
+    const face = handEntryMap.get(Number(entryUid));
+    if (!face) return false;
+    return normalizeSymbol(face.symbol) === norm;
+  }
+
+  function uniqueIntList(arr) {
+    const out = []; const seen = new Set();
+    for (const r of (arr||[])) { const n=Number(r); if(Number.isInteger(n)&&!seen.has(n)){seen.add(n);out.push(n);} }
+    return out;
+  }
+
+  function buildPaymentSet(action, sourceUids) {
+    const cost = Number(action.cost_to_pay||0);
+    if (cost <= 0) return [];
+    const reqSym = Boolean(action.requires_symbol_match && action.required_symbol);
+    const avail = uniqueIntList(sourceUids).filter(u => u !== Number(action.card_uid) && handEntryMap.has(u));
+    const picks = []; const rem = [...avail];
+    if (reqSym) {
+      const m = rem.find(u => entryHasSymbolMatch(u, action.required_symbol));
+      if (m == null) return null;
+      picks.push(m); rem.splice(rem.indexOf(m),1);
+    } else if (action.star_symbol) {
+      const m = rem.find(u => entryHasSymbolMatch(u, action.star_symbol));
+      if (m != null) { picks.push(m); rem.splice(rem.indexOf(m),1); }
+    }
+    for (const u of rem) { if (picks.length >= cost) break; picks.push(u); }
+    return picks.length === cost ? picks : null;
+  }
+
+  function choosePayment(action) {
+    const cost = Number(action.cost_to_pay||0);
+    if (cost <= 0) return { picks:[], error:"" };
+    const manual = uniqueIntList(Array.from(selectedPayment));
+    if (manual.length > 0) {
+      const mp = buildPaymentSet(action, manual);
+      if (mp) return { picks: mp, error:"" };
+    }
+    const auto = buildPaymentSet(action, Array.from(handEntryMap.keys()));
+    if (auto) return { picks: auto, error:"" };
+    return { picks:[], error:`Cannot find ${cost} valid payment card(s). Select them manually.` };
+  }
+
+  async function submitAction(action) {
+    const token = getSeatToken();
+    if (!token) { setStatus("No seat token. Re-join the room."); return; }
+    if (actionInFlight) { setStatus("Wait for previous action…"); return; }
+
+    const pl = { seat_token: token, use_star: Boolean(action.use_star), request_id: makeRequestId() };
+    const hi = v => typeof v === "number" && Number.isInteger(v);
+    if (hi(action.index)) pl.action_index = action.index;
+    if (action.kind) pl.kind = action.kind;
+    if (hi(action.card_uid)) pl.card_uid = action.card_uid;
+    if (hi(action.face_uid)) pl.face_uid = action.face_uid;
+    if (hi(action.ocean_uid)) pl.ocean_uid = action.ocean_uid;
+    if (hi(action.source_ocean_uid)) pl.source_ocean_uid = action.source_ocean_uid;
+    if (hi(action.draw_from_pool)) pl.draw_from_pool = action.draw_from_pool;
+    const need = Number(action.draw_from_pool||0);
+    if (need > 0) pl.pool_pick_uids = Array.from(selectedPool).slice(0, need);
+    if (action.kind === "discard_batch_to_pool" && Array.isArray(action.pool_pick_uids)) {
+      pl.pool_pick_uids = action.pool_pick_uids;
+    }
+    const cost = Number(action.cost_to_pay||0);
+    if (cost > 0) {
+      const pay = choosePayment(action);
+      if (pay.error) { setStatus(pay.error); return; }
+      pl.payment_uids = pay.picks;
+    }
+
+    actionInFlight = true;
+    setStatus("Submitting…");
+    try {
+      const r = await apiPost(`/api/rooms/${roomId}/action`, pl, { timeoutMs: 15000 });
+      if (!r.ok) { setStatus("Action failed: " + (r.data?.error || r.status)); return; }
+      selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear();
+      updatePaymentBadge();
+      setStatus(action.description ? `→ ${action.description}` : "Action sent.");
+      await sleep(180);
+      refreshState();
+    } catch(e) { setStatus("Error: " + e.message); }
+    finally { actionInFlight = false; }
+  }
+
+  // ── Rendering helpers ──────────────────────────────────────────
+  function cl(el) { while(el.firstChild) el.removeChild(el.firstChild); }
+
+  function symbolEmoji(sym) {
+    const s = normalizeSymbol(sym);
+    if (s === "diamond") return "◆";
+    if (s === "circle")  return "●";
+    if (s === "square")  return "■";
+    if (s === "triangle") return "▲";
+    if (s === "heart")  return "♥";
+    return sym || "?";
+  }
+
+  function speciesColor(species) {
+    const s = String(species||"").toLowerCase();
+    const map = {
+      bird:"#7ec8e3", crustacean:"#f5a742", coral:"#e96ab0", invertebrate:"#a78bfa",
+      baitfish:"#5ec989", mammal:"#64b8f0", cephalopod:"#c084fc", crosscurrent:"#38bdf8",
+      "game fish":"#fb923c", ocean:"#22d3ee", "end game":"#f87171",
+    };
+    return map[s] || "var(--muted)";
+  }
+
+  function starText(text) {
+    const m = /\*([^*]+)\*/g.exec(text||"");
+    return m ? m[1].trim() : "";
+  }
+  function mainText(text) {
+    return String(text||"").replace(/\*[^*]+\*/g,"").replace(/\|\s*\|/g,"|").replace(/^\s*\|\s*/,"").replace(/\s*\|\s*$/,"").trim();
+  }
+
+  function updatePaymentBadge() {
+    const info = document.getElementById("pv-payment-info");
+    const txt = document.getElementById("pv-payment-text");
+    if (selectedPayment.size > 0) {
+      info.classList.add("visible");
+      txt.textContent = `Payment: ${selectedPayment.size} card(s) selected`;
+    } else {
+      info.classList.remove("visible");
+    }
+  }
+
+  // ── Main payload renderer ──────────────────────────────────────
+  let legalActions = [];
+  let myIdx = null;
+  let canInteract = false;
+
+  function renderPayload(payload) {
+    const state = payload.state || {};
+    const lw = payload.legal_actions || {};
+    legalActions = Array.isArray(lw.actions) ? lw.actions : [];
+    const viewer = payload.viewer || {};
+    myIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
+    const players = Array.isArray(state.players) ? state.players : [];
+    const me = players.find(p => p.index === myIdx) || null;
+    const phase = payload.room?.phase || "lobby";
+    const current = state.current_player || "";
+    canInteract = !!(me && legalActions.length > 0 && !lw.must_discard_to_ten === false);
+    // actually canInteract is whether we have non-discard actions or discard actions
+    const isMyTurn = me && state.turn_index === myIdx;
+    canInteract = isMyTurn;
+
+    const mustDiscard = Boolean(lw.must_discard_to_ten);
+    const discardExcess = Number(lw.discard_excess || 0);
+
+    const endGame = state.end_game || {};
+    const endTriggered = Boolean(endGame.triggered);
+
+    // notice bar
+    const nameEl = document.getElementById("pv-my-name-badge");
+    if (me && !nameEl.textContent) nameEl.textContent = me.name;
+
+    // start btn
+    const startBtn = document.getElementById("pv-start-btn");
+    if (payload.can_start && phase === "lobby") {
+      startBtn.style.display = "";
+      startBtn.onclick = () => apiPost(`/api/rooms/${roomId}/start`,
+        { seat_token: getSeatToken(), host_token: getHostToken(), create_key: getCreateKey() },
+        { timeoutMs:8000 }).then(()=>refreshState());
+    } else { startBtn.style.display = "none"; }
+
+    // turn banner
+    const banner = document.getElementById("pv-turn-banner");
+    if (endTriggered) {
+      banner.className = "endgame";
+      const left = endGame.final_turns_remaining;
+      banner.textContent = `⚠ END GAME — ${Number.isFinite(left) ? left + " final turn(s) left" : "Final round active"}`;
+    } else if (isMyTurn) {
+      banner.className = "my-turn";
+      banner.textContent = "✦ YOUR TURN";
+    } else {
+      banner.className = "their-turn";
+      banner.textContent = current ? `${current}'s turn…` : "Waiting…";
+    }
+
+    // status
+    if (mustDiscard) {
+      setStatus(`Discard exactly ${discardExcess} card(s) — cannot go below 10.`);
+    } else if (isMyTurn) {
+      setStatus("Your turn — choose an action below.");
+    } else {
+      setStatus(payload.status_note || `Waiting for ${current}…`);
+    }
+
+    // deck count display
+    const deckNum = Number(state.deck_size ?? state.deck_count ?? (Array.isArray(state.deck) ? state.deck.length : 0));
+    document.getElementById("pv-deck-count-face").textContent = deckNum > 0 ? deckNum : "·";
+    document.getElementById("pv-deck-num").textContent = `${deckNum} cards`;
+
+    // update handEntryMap for payment logic
+    handEntryMap.clear();
+    if (me && Array.isArray(me.hand)) {
+      for (const entry of me.hand) {
+        const faceUid = entry.face_uid ?? entry.uid;
+        handEntryMap.set(Number(entry.entry_uid ?? entry.uid ?? faceUid), { ...entry, uid: faceUid });
+      }
+    }
+
+    // pool
+    renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
+
+    // opponents
+    renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
+
+    // my board
+    renderMyBoard(me, legalActions, isMyTurn);
+
+    // hand
+    renderHand(me, legalActions, mustDiscard, discardExcess);
+
+    // action bar
+    renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess);
+
+    // log
+    renderLog(payload.log_tail);
+
+    // discard banner
+    const discBanner = document.getElementById("pv-discard-banner");
+    if (mustDiscard) {
+      discBanner.textContent = `Discard exactly ${discardExcess} card(s) to return to 10. Click cards to select, then Confirm.`;
+      discBanner.classList.add("visible");
+    } else {
+      discBanner.classList.remove("visible");
+    }
+  }
+
+  // ── Pool renderer ──────────────────────────────────────────────
+  function renderPool(pool, actions) {
+    const wrap = document.getElementById("pv-pool-wrap");
+    cl(wrap);
+
+    // draw-from-pool actions
+    const dp1 = actions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
+    const dp2 = actions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===2);
+    const d1Btn = document.getElementById("pv-draw-pool1-btn");
+    const d2Btn = document.getElementById("pv-draw-pool2-btn");
+    if (dp1) { d1Btn.style.display=""; d1Btn.onclick = () => submitAction(dp1); } else d1Btn.style.display="none";
+    if (dp2) { d2Btn.style.display=""; d2Btn.onclick = () => submitAction(dp2); } else d2Btn.style.display="none";
+
+    // draw-from-deck action
+    const ddeck = actions.find(a => a.kind==="draw" && !a.draw_from_pool);
+    const deckPile = document.getElementById("pv-draw-deck");
+    if (ddeck && canInteract) {
+      deckPile.style.cursor = "pointer";
+      deckPile.onclick = () => submitAction(ddeck);
+      deckPile.querySelector(".pv-deck-face").style.borderColor = "var(--cyan)";
+    } else {
+      deckPile.style.cursor = "default";
+      deckPile.onclick = null;
+      deckPile.querySelector(".pv-deck-face").style.borderColor = "";
+    }
+
+    if (!pool.length) {
+      const empty = document.createElement("span");
+      empty.style.cssText = "font-size:11px;color:var(--muted);";
+      empty.textContent = "(pool empty)";
+      wrap.appendChild(empty);
+      return;
+    }
+
+    const maxShow = 8;
+    const show = pool.slice(-maxShow);
+    show.forEach(entry => {
+      const faceUid = entry.face_uid ?? entry.uid;
+      const div = document.createElement("div");
+      div.className = "pv-pool-card";
+      if (selectedPool.has(faceUid)) div.classList.add("selected");
+      const img = document.createElement("img");
+      img.src = imagePathForUid(faceUid);
+      img.alt = entry.name || "";
+      img.loading = "lazy";
+      div.appendChild(img);
+      div.title = entry.name || String(faceUid);
+      div.addEventListener("click", () => {
+        if (selectedPool.has(faceUid)) selectedPool.delete(faceUid);
+        else selectedPool.add(faceUid);
+        renderPool(pool, actions);
+      });
+      wrap.appendChild(div);
+    });
+    if (pool.length > maxShow) {
+      const more = document.createElement("span");
+      more.style.cssText = "font-size:11px;color:var(--muted);align-self:center;";
+      more.textContent = `+${pool.length - maxShow} more`;
+      wrap.appendChild(more);
+    }
+  }
+
+  // ── Opponent renderer ──────────────────────────────────────────
+  function renderOpponents(opponents, turnIndex) {
+    const el = document.getElementById("pv-opponents");
+    cl(el);
+    if (!opponents.length) return;
+
+    opponents.forEach(p => {
+      const card = document.createElement("div");
+      card.className = "pv-opp-card" + (p.index === turnIndex ? " active-turn" : "");
+
+      const header = document.createElement("div");
+      header.className = "pv-opp-header";
+      const nameEl = document.createElement("div");
+      nameEl.className = "pv-opp-name";
+      nameEl.textContent = (p.index === turnIndex ? "▶ " : "") + (p.name || `Player ${p.index}`);
+      const score = document.createElement("div");
+      score.className = "pv-opp-score";
+      score.textContent = `${p.score ?? 0} pts`;
+      header.appendChild(nameEl);
+      header.appendChild(score);
+      card.appendChild(header);
+
+      const stats = document.createElement("div");
+      stats.className = "pv-opp-stats";
+      stats.innerHTML = `<span>Hand: ${Array.isArray(p.hand) ? p.hand.length : (p.hand_size ?? "?")}</span>
+        <span>Oceans: ${Array.isArray(p.board) ? p.board.length : 0}</span>`;
+      card.appendChild(stats);
+
+      // mini ocean thumbnails
+      const miniBoard = document.createElement("div");
+      miniBoard.className = "pv-opp-mini-board";
+      const board = Array.isArray(p.board) ? p.board : [];
+      board.slice(0,5).forEach(ocean => {
+        const hub = document.createElement("div");
+        hub.className = "pv-mini-ocean";
+        const img = document.createElement("img");
+        img.src = imagePathForUid(ocean.ocean?.uid ?? ocean.ocean_uid);
+        img.alt = ocean.ocean?.name || "";
+        img.loading = "lazy";
+        hub.appendChild(img);
+        const attached = (ocean.up?.length||0)+(ocean.down?.length||0)+(ocean.left?.length||0)+(ocean.right?.length||0);
+        if (attached > 0) {
+          const cnt = document.createElement("span");
+          cnt.className = "pv-mini-count";
+          cnt.textContent = "+"+attached;
+          hub.appendChild(cnt);
+        }
+        miniBoard.appendChild(hub);
+      });
+      if (board.length > 5) {
+        const more = document.createElement("span");
+        more.className = "pv-tag";
+        more.textContent = `+${board.length-5}`;
+        miniBoard.appendChild(more);
+      }
+      card.appendChild(miniBoard);
+      el.appendChild(card);
+    });
+  }
+
+  // ── My board renderer ──────────────────────────────────────────
+  function renderMyBoard(me, actions, isMyTurn) {
+    const el = document.getElementById("pv-my-board");
+    cl(el);
+    if (!me) return;
+
+    const board = Array.isArray(me.board) ? me.board : [];
+    if (!board.length) {
+      const hint = document.createElement("div");
+      hint.style.cssText = "color:var(--muted);font-size:13px;padding:20px;text-align:center;width:100%;";
+      hint.textContent = "No oceans yet — play an ocean card to start building your board.";
+      el.appendChild(hint);
+      return;
+    }
+
+    board.forEach(ocean => {
+      const hub = document.createElement("div");
+      hub.className = "pv-ocean-hub";
+      hub.dataset.oceanUid = String(ocean.ocean_uid);
+
+      const dirs = ["up","down","left","right"];
+      const laneHasActions = (dir) => actions.some(a =>
+        a.kind === "play_to_ocean" &&
+        Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+        String(a.face_direction||"").toLowerCase() === dir
+      );
+
+      dirs.forEach(dir => {
+        const lane = document.createElement("div");
+        lane.className = `pv-lane-${dir}`;
+        const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+
+        if (!cards.length) {
+          const slot = document.createElement("div");
+          slot.className = "pv-lane-slot";
+          slot.textContent = "+";
+          if (isMyTurn && laneHasActions(dir)) {
+            slot.classList.add("playable");
+            slot.title = `Play a card ${dir} on Ocean #${ocean.ocean_uid}`;
+          }
+          lane.appendChild(slot);
+        } else {
+          cards.forEach(c => {
+            const cardEl = document.createElement("div");
+            cardEl.className = "pv-board-card";
+            const img = document.createElement("img");
+            img.src = imagePathForUid(c.face_uid ?? c.uid);
+            img.alt = c.name || "";
+            img.loading = "lazy";
+            cardEl.appendChild(img);
+            cardEl.title = `${c.name||"?"} (${c.species||""})`;
+            lane.appendChild(cardEl);
+          });
+        }
+        hub.appendChild(lane);
+      });
+
+      // ocean center
+      const center = document.createElement("div");
+      center.className = "pv-ocean-center";
+      const oFace = document.createElement("div");
+      oFace.className = "pv-ocean-face";
+      const oImg = document.createElement("img");
+      oImg.src = imagePathForUid(ocean.ocean?.uid ?? ocean.ocean_uid);
+      oImg.alt = ocean.ocean?.name || "";
+      oImg.loading = "lazy";
+      oFace.appendChild(oImg);
+      oFace.title = `Ocean #${ocean.ocean_uid}: ${ocean.ocean?.name||"?"}`;
+      center.appendChild(oFace);
+      hub.appendChild(center);
+
+      el.appendChild(hub);
+    });
+  }
+
+  // ── Hand renderer ──────────────────────────────────────────────
+  function renderHand(me, actions, mustDiscard, discardExcess) {
+    const zone = document.getElementById("pv-hand");
+    cl(zone);
+    if (!me || !Array.isArray(me.hand)) return;
+
+    const hand = me.hand;
+    const n = hand.length;
+    const MAX_VISIBLE = 12;
+    const visible = hand.slice(0, MAX_VISIBLE);
+    const overflow = n - MAX_VISIBLE;
+
+    visible.forEach((entry, i) => {
+      const entryUid = Number(entry.entry_uid ?? entry.uid);
+      const faceUid  = Number(entry.face_uid ?? entry.uid);
+      const face = entry; // face data is inline in hand entry
+
+      // fan angle/lift
+      const mid = (visible.length - 1) / 2;
+      const pos = i - mid;
+      const maxSpread = Math.min(18, visible.length * 2.2);
+      const angle = pos * (maxSpread * 2 / Math.max(1, visible.length - 1));
+      const lift = Math.abs(pos) * Math.abs(pos) * 1.8;
+
+      const card = document.createElement("div");
+      card.className = "pv-hand-card";
+      card.dataset.entryUid = String(entryUid);
+      card.style.transform = `rotate(${angle}deg) translateY(${lift}px)`;
+      card.style.zIndex = i;
+
+      // star highlight
+      const star = starText(entry.text||"");
+      if (star) card.classList.add("has-star");
+      if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
+      if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
+
+      const inner = document.createElement("div");
+      inner.className = "pv-card-inner";
+
+      const img = document.createElement("img");
+      img.src = imagePathForUid(faceUid);
+      img.alt = entry.name || "";
+      img.loading = "lazy";
+      inner.appendChild(img);
+
+      // cost badge
+      const cost = Number(entry.cost ?? 0);
+      if (cost > 0) {
+        const badge = document.createElement("div");
+        badge.className = "pv-cost-badge";
+        badge.textContent = cost;
+        inner.appendChild(badge);
+      }
+
+      // symbol pip
+      const sym = entry.symbol || "";
+      if (sym && normalizeSymbol(sym) !== "n/a") {
+        const pip = document.createElement("div");
+        pip.className = "pv-sym-pip";
+        pip.textContent = symbolEmoji(sym);
+        inner.appendChild(pip);
+      }
+
+      card.appendChild(inner);
+
+      // tooltip
+      const tip = document.createElement("div");
+      tip.className = "pv-tooltip";
+      const mt = mainText(entry.text||"");
+      const st = starText(entry.text||"");
+      tip.innerHTML = `<div class="tt-name">${entry.name||"?"}</div>
+        <div class="tt-species" style="color:${speciesColor(entry.species)}">${entry.species||""} · ${sym} · cost ${cost}</div>
+        <div class="tt-text">${mt}</div>
+        ${st ? `<div class="tt-star">★ ${st}</div>` : ""}`;
+      card.appendChild(tip);
+
+      // click: select for playing or payment
+      card.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (mustDiscard) {
+          // discard mode: toggle selection
+          if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
+          else if (selectedDiscard.size < discardExcess) selectedDiscard.add(entryUid);
+          updateDiscardBtn();
+          renderHand(me, actions, mustDiscard, discardExcess);
+          return;
+        }
+        // payment mode: toggle
+        if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
+        else selectedPayment.add(entryUid);
+        updatePaymentBadge();
+        // re-render hand to show selection
+        renderHand(me, actions, mustDiscard, discardExcess);
+        // populate action dropdown to match this card
+        prefillActionsForEntry(entryUid, actions);
+      });
+
+      zone.appendChild(card);
+    });
+
+    if (overflow > 0) {
+      const ov = document.createElement("div");
+      ov.className = "pv-hand-overflow";
+      ov.textContent = `+${overflow}`;
+      ov.title = "Scroll not shown in preview — hand capped at 12 displayed";
+      zone.appendChild(ov);
+    }
+  }
+
+  function prefillActionsForEntry(entryUid, actions) {
+    const sel = document.getElementById("pv-action-select");
+    const matching = actions.filter(a =>
+      Number(a.card_uid) === entryUid || Number(a.face_uid) === entryUid
+    );
+    if (!matching.length) return;
+    // find the first matching option in the dropdown and select it
+    for (const opt of sel.options) {
+      if (matching.some(a => String(a.index) === opt.value)) {
+        sel.value = opt.value;
+        break;
+      }
+    }
+  }
+
+  // ── Action bar renderer ────────────────────────────────────────
+  function renderActionBar(actions, isMyTurn, mustDiscard, discardExcess) {
+    const sel = document.getElementById("pv-action-select");
+    const playBtn = document.getElementById("pv-play-btn");
+    const endBtn = document.getElementById("pv-end-turn-inline");
+    const confirmBtn = document.getElementById("pv-confirm-discard-btn");
+    const starToggle = document.getElementById("pv-star-toggle");
+
+    // discard mode
+    if (mustDiscard) {
+      sel.style.display = "none";
+      playBtn.style.display = "none";
+      starToggle.closest("label").style.display = "none";
+      endBtn.style.display = "none";
+      confirmBtn.style.display = "";
+      confirmBtn.disabled = selectedDiscard.size !== discardExcess;
+      return;
+    }
+
+    sel.style.display = "";
+    playBtn.style.display = "";
+    starToggle.closest("label").style.display = "";
+    endBtn.style.display = "";
+    confirmBtn.style.display = "none";
+
+    if (!isMyTurn) {
+      sel.disabled = true; playBtn.disabled = true; endBtn.disabled = true;
+      return;
+    }
+
+    // populate dropdown
+    const prevVal = sel.value;
+    cl(sel);
+    const firstOpt = document.createElement("option");
+    firstOpt.value = "";
+    firstOpt.textContent = "Choose action…";
+    sel.appendChild(firstOpt);
+
+    const endAct = actions.find(a => a.kind === "end_turn");
+    const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
+    const drawActions = actions.filter(a => a.kind === "draw" && !Number(a.draw_from_pool));
+
+    if (drawActions.length) {
+      const grp = document.createElement("optgroup");
+      grp.label = "Draw";
+      drawActions.forEach(a => {
+        const o = document.createElement("option");
+        o.value = String(a.index);
+        o.textContent = `[${a.index}] ${a.description || "Draw 2 from deck"}`;
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
+    }
+
+    if (playActions.length) {
+      const grp = document.createElement("optgroup");
+      grp.label = "Play Card";
+      playActions.forEach(a => {
+        const o = document.createElement("option");
+        o.value = String(a.index);
+        const cost = Number(a.cost_to_pay||0);
+        const starLabel = a.use_star ? " ★" : (a.star_symbol ? ` (★ if ${a.star_symbol})` : "");
+        o.textContent = `[${a.index}] ${a.face_name||"?"} → ${a.face_direction||a.kind}${cost ? ` (cost ${cost})` : ""}${starLabel}`;
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
+    }
+
+    // restore selection
+    if (prevVal && Array.from(sel.options).some(o => o.value === prevVal)) sel.value = prevVal;
+
+    sel.disabled = false;
+    playBtn.disabled = false;
+    playBtn.onclick = () => {
+      const idx = Number(sel.value);
+      if (!Number.isInteger(idx) || !sel.value) { setStatus("Pick an action first."); return; }
+      const act = actions.find(a => Number(a.index) === idx);
+      if (!act) { setStatus("Action no longer valid."); return; }
+      const useStarToggle = document.getElementById("pv-star-toggle")?.checked;
+      // find star variant if star toggle is on
+      let chosen = act;
+      if (useStarToggle && !act.use_star) {
+        const starVer = actions.find(a =>
+          Number(a.card_uid) === Number(act.card_uid) &&
+          Number(a.face_uid??a.card_uid) === Number(act.face_uid??act.card_uid) &&
+          String(a.kind) === String(act.kind) &&
+          Number(a.ocean_uid??-1) === Number(act.ocean_uid??-1) &&
+          a.use_star
+        );
+        if (starVer) chosen = starVer;
+      }
+      submitAction(chosen);
+    };
+
+    if (endAct) {
+      endBtn.disabled = false;
+      endBtn.onclick = () => submitAction(endAct);
+    } else {
+      endBtn.disabled = true;
+      endBtn.onclick = null;
+    }
+  }
+
+  function updateDiscardBtn() {
+    const btn = document.getElementById("pv-confirm-discard-btn");
+    if (!btn) return;
+    // excess is stored in last render; find from legal actions
+    const disc = legalActions.find(a => a.kind === "discard_batch_to_pool");
+    if (!disc) return;
+    const lw = latestPayload?.legal_actions || {};
+    const excess = Number(lw.discard_excess||0);
+    btn.disabled = selectedDiscard.size !== excess;
+  }
+
+  // ── Confirm discard button ─────────────────────────────────────
+  document.getElementById("pv-confirm-discard-btn").addEventListener("click", () => {
+    const disc = legalActions.find(a => a.kind === "discard_batch_to_pool");
+    if (!disc) return;
+    const lw = latestPayload?.legal_actions || {};
+    const excess = Number(lw.discard_excess||0);
+    if (selectedDiscard.size !== excess) {
+      setStatus(`Select exactly ${excess} card(s). You have ${selectedDiscard.size}.`);
+      return;
+    }
+    submitAction({ ...disc, pool_pick_uids: Array.from(selectedDiscard) });
+  });
+
+  document.getElementById("pv-clear-pay").addEventListener("click", () => {
+    selectedPayment.clear();
+    updatePaymentBadge();
+    if (latestPayload) renderPayload(latestPayload);
+  });
+
+  // ── Log renderer ───────────────────────────────────────────────
+  function renderLog(logTail) {
+    const el = document.getElementById("pv-log");
+    const logs = Array.isArray(logTail) ? logTail : [];
+    if (!logs.length) { el.style.display = "none"; return; }
+    el.style.display = "";
+    cl(el);
+    logs.slice(-12).forEach(line => {
+      const div = document.createElement("div");
+      div.className = "log-entry";
+      div.textContent = String(line);
+      el.appendChild(div);
+    });
+    el.scrollTop = el.scrollHeight;
+  }
+
+  // ── Back / leave ───────────────────────────────────────────────
+  document.getElementById("pv-back-btn").addEventListener("click", () => {
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    roomId = null;
+    document.getElementById("pv-game").style.display = "none";
+    document.getElementById("pv-lobby").style.display = "flex";
+  });
+
+  // ── Auto-join from URL ─────────────────────────────────────────
+  const urlRoom = roomFromUrl();
+  if (urlRoom) {
+    const urlParams = new URLSearchParams(location.search);
+    const urlSeat = urlParams.get("seat_token");
+    const urlHost = urlParams.get("host_token");
+    roomId = urlRoom;
+    if (urlSeat) setSeatToken(urlSeat);
+    if (urlHost) setHostToken(urlHost);
+    enterRoom(urlRoom);
+  }
+
+  // Keep server warm
+  function pingServer() { fetch(window.__FISH_API_BASE__+"/api/health",{method:"GET",cache:"no-store"}).catch(()=>{}); }
+  pingServer();
+  setInterval(pingServer, 9*60*1000);
+</script>
+</body>
+</html>
