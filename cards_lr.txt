@@ -37,7 +37,7 @@
 137	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Square
 138	Tarpon	+5 | Discard and draw that many cards	Game Fish	1	Right	Diamond
 139	Cuttlefish	+4 if you have at least three cephalopods	Cephalopod	1	Left	Circle
-140	Spinner Dolphin	+2 per matching symbol	Mammal	2	Right	Triangle
+140	Spinner Dolphin	+2 per matching symbol | *Draw one*	Mammal	2	Right	Triangle
 141	King Salmon	+5 per fully occupied ocean | *Draw one*	Game Fish	2	Left	Diamond
 142	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Right	Triangle
 143	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Left	Heart

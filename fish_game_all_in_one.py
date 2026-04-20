@@ -525,14 +525,25 @@ def _execute_main_pattern(
         player.flags["trigger_draw_on_floor_play"] = int(player.flags.get("trigger_draw_on_floor_play", 0)) + 1
         gs.log.append(f"{player.name} enables: draw 1 when they play on ocean floor ({card.name}).")
 
-    # Draw-now text (not "draw one when ...").
+    # Big Eye Tuna: "draw one for each yellowfin tuna on your board"
+    if "draw one for each yellowfin tuna" in t:
+        yf_count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
+        if yf_count > 0:
+            draw(gs, player, yf_count)
+            gs.log.append(f"{player.name} draws {yf_count} from {card.name} (1 per Yellowfin Tuna).")
+
+    # Draw-now text (not "draw one when ..." or "draw one for each ...").
     has_reactive_draw_one = (
         "draw one when" in t
         or "when you play" in t
         or "when a game fish is played" in t
         or "when a gamefish is played" in t
+        or "draw one for each" in t
     )
-    if "draw one" in t and not has_reactive_draw_one:
+    star_active = bool((ctx or {}).get("star_active", False))
+    # "draw one or" at end of text means draw-one is the non-star alternative; skip when star fires.
+    draw_one_is_or_alt = bool(re.search(r"draw one or\s*$", t))
+    if "draw one" in t and not has_reactive_draw_one and not (star_active and draw_one_is_or_alt):
         n = choose_optional_draw_count(gs, player, 1)
         draw(gs, player, n)
         gs.log.append(f"{player.name} draws {n} from {card.name} main ability.")
@@ -655,6 +666,10 @@ def _execute_main_pattern(
             continue
         if "mahi mahi" in raw:
             count = sum(1 for c in board if c.name.lower() == "mahi mahi")
+            player.score += n * count
+            continue
+        if "yellowfin tuna" in raw:
+            count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
             player.score += n * count
             continue
         if "card attached" in raw:
@@ -5315,14 +5330,15 @@ def build_deck_with_late_end_game(
     non_end = [uid for uid in deck_entries if uid != end_entry]
     rng.shuffle(non_end)
 
-    bottom_non_end_count = min(14, len(non_end))
+    # Place END GAME randomly within the bottom 10 positions.
+    bottom_non_end_count = min(9, len(non_end))
     top = non_end[:-bottom_non_end_count] if bottom_non_end_count else non_end
     bottom_group = non_end[-bottom_non_end_count:] if bottom_non_end_count else []
     rng.shuffle(bottom_group)
+    insert_pos = rng.randint(0, len(bottom_group))
+    bottom_group.insert(insert_pos, end_entry)
 
-    # Keep END GAME fixed as the very last card while preserving full randomness
-    # for every non-END entry.
-    deck = top + bottom_group + [end_entry]
+    deck = top + bottom_group
     return deck, end_uid
 
 
@@ -5751,6 +5767,8 @@ def apply_action(
     if action.kind == "discard_to_pool":
         if action.card_uid not in player.hand:
             return fail(f"uid {action.card_uid} not in hand for discard")
+        if player.flags.get("_discard_mode") and len(player.hand) - 1 < HAND_LIMIT:
+            return fail(f"cannot discard below {HAND_LIMIT} cards during discard phase")
         player.hand.remove(action.card_uid)
         add_to_pool(ms, action.card_uid)
         if verbose:
@@ -5767,6 +5785,10 @@ def apply_action(
         if remaining > HAND_LIMIT:
             return fail(
                 f"discard_batch_to_pool: not enough discarded — {remaining} would remain, limit is {HAND_LIMIT}"
+            )
+        if player.flags.get("_discard_mode") and remaining < HAND_LIMIT:
+            return fail(
+                f"discard_batch_to_pool: cannot discard below {HAND_LIMIT} cards during discard phase"
             )
         for uid in chosen_uids:
             player.hand.remove(uid)
@@ -5948,6 +5970,7 @@ def apply_action(
                     "ms": ms,
                     "is_human_turn": is_human_turn,
                     "turn_state": turn_state,
+                    "star_active": action.use_star or auto_star,
                 },
             )
             sync_reactive_trigger_flags(gs, player)
@@ -5975,6 +5998,7 @@ def apply_action(
                     "ms": ms,
                     "is_human_turn": is_human_turn,
                     "turn_state": turn_state,
+                    "star_active": action.use_star or auto_star,
                 },
             )
             sync_reactive_trigger_flags(gs, player)

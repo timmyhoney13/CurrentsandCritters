@@ -260,13 +260,6 @@
       background: #fff;
       cursor: default;
     }
-    .card.hand-draggable {
-      cursor: grab;
-    }
-    .card.hand-draggable.dragging {
-      opacity: 0.55;
-      cursor: grabbing;
-    }
     .card.pay-selected {
       border-color: #0d8b65;
       box-shadow: 0 0 0 2px #d9fff1 inset;
@@ -424,14 +417,6 @@
       gap: 7px;
       min-height: 152px;
       position: relative;
-    }
-    .lane.can-drop {
-      border-style: dashed;
-    }
-    .lane.drop-over {
-      border-color: #0a8f69;
-      box-shadow: 0 0 0 2px #d9fff0 inset;
-      background: #f1fff8;
     }
     .lane.up { grid-area: up; }
     .lane.left { grid-area: left; }
@@ -605,16 +590,6 @@
       align-items: center;
       flex-wrap: wrap;
     }
-    .lane-drop-target {
-      font-size: 11px;
-      color: #1f5a78;
-      border: 1px dashed #9bc7dc;
-      border-radius: 8px;
-      background: #f0fbff;
-      padding: 5px 7px;
-      text-align: center;
-      font-weight: 600;
-    }
     .lane-select {
       flex: 1;
       min-width: 155px;
@@ -631,26 +606,6 @@
       border-color: #d6a6b0;
       background: #fff4f6;
       color: #7c1728;
-    }
-    .ocean-drop-target {
-      border: 1px dashed #9bc7dc;
-      border-radius: 8px;
-      background: #f0fbff;
-      color: #1f5a78;
-      font-size: 12px;
-      padding: 7px 10px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-weight: 600;
-    }
-    .ocean-drop-target.drop-over {
-      border-color: #0a8f69;
-      background: #f1fff8;
-      box-shadow: 0 0 0 2px #d9fff0 inset;
-      color: #0b5a42;
     }
 
     .pool-grid {
@@ -1223,7 +1178,6 @@
     let shortcutTimer = null;
     let shortcutBusy = false;
     let actionSubmitInFlight = false;
-    let dragEntryUid = null;
     let selectedOceanUid = null;
     let activeRoomShortcutId = "";
     const laneSelectMemory = new Map();
@@ -2518,12 +2472,6 @@
       return matches.find((a) => !a.use_star) || matches[0];
     }
 
-    function getDraggedEntryUid(ev) {
-      const fromEvent = ev && ev.dataTransfer ? ev.dataTransfer.getData("text/plain") : "";
-      const raw = String(fromEvent || dragEntryUid || "").trim();
-      const uid = Number(raw);
-      return Number.isInteger(uid) ? uid : null;
-    }
 
     function samePlaySlot(a, b) {
       if (!a || !b) return false;
@@ -2634,34 +2582,6 @@
             )
           : [];
 
-        if (showControls) {
-          lane.classList.add("can-drop");
-          lane.addEventListener("dragover", (ev) => {
-            if (!canInteract) return;
-            const entryUid = getDraggedEntryUid(ev);
-            const base = firstPlayableActionForEntry(laneActions, entryUid);
-            if (!base) return;
-            ev.preventDefault();
-            if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
-            lane.classList.add("drop-over");
-          });
-          lane.addEventListener("dragleave", () => {
-            lane.classList.remove("drop-over");
-          });
-          lane.addEventListener("drop", async (ev) => {
-            lane.classList.remove("drop-over");
-            if (!canInteract) return;
-            const entryUid = getDraggedEntryUid(ev);
-            const base = firstPlayableActionForEntry(laneActions, entryUid);
-            if (!base) {
-              setGameStatus(`That card cannot be played to ${dir} on ocean #${ocean.ocean_uid}.`);
-              return;
-            }
-            ev.preventDefault();
-            const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
-            await submitAction(chosen);
-          });
-        }
 
         if (showControls) {
           const controls = document.createElement("div");
@@ -2717,12 +2637,6 @@
           controls.appendChild(btn);
           lane.appendChild(controls);
 
-          const dropHint = document.createElement("div");
-          dropHint.className = "lane-drop-target";
-          dropHint.textContent = canInteract
-            ? "Or drag a card from your hand to this side."
-            : "Drag-and-drop available on your turn.";
-          lane.appendChild(dropHint);
         }
 
         return lane;
@@ -3080,8 +2994,8 @@
         _confirmDiscardBtn.onclick = async () => {
           if (!_discardBatchActionRef) return;
           const picks = Array.from(selectedDiscard);
-          if (picks.length < _discardExcessRef) {
-            setGameStatus(`Need to select at least ${_discardExcessRef} card(s) to discard. You've selected ${picks.length}.`);
+          if (picks.length !== _discardExcessRef) {
+            setGameStatus(`Select exactly ${_discardExcessRef} card(s) to discard (you cannot go below 10). You've selected ${picks.length}.`);
             return;
           }
           const action = { ..._discardBatchActionRef, pool_pick_uids: picks };
@@ -3093,7 +3007,6 @@
       shortcutActions = legalActions;
       shortcutCanInteract = canInteract;
       if (!canInteract) clearShortcutBuffer(true);
-      if (!canInteract) dragEntryUid = null;
       if (!canInteract) {
         if (isSpectator) {
           setGameStatus("Spectator mode: this device has not claimed a seat for this room. Use Join Open Seat in lobby, or open your seat reconnect link.");
@@ -3105,11 +3018,11 @@
           setGameStatus("Tarpon: select any cards to discard to the pool, then choose 'end turn now' from the dropdown when done.");
         } else if (isDiscardBatch) {
           const handSize = (Array.isArray(state.players) ? (state.players.find((p) => p.index === myIdx) || {}).hand || [] : []).length || discardActions.length;
-          setGameStatus(`Your hand has too many cards. Select at least ${discardExcess} card(s) to discard to the pool, then click Confirm Discard.`);
+          setGameStatus(`Your hand has too many cards. Select exactly ${discardExcess} card(s) to discard (you cannot go below 10), then click Confirm Discard.`);
         } else if (mustDiscardToTen) {
           setGameStatus("Select cards to move from your hand into the pool until you have 10 cards.");
         } else {
-          setGameStatus("Your turn: use dropdowns, number shortcuts, or drag-and-drop.");
+          setGameStatus("Your turn: use dropdowns or number shortcuts to play a card.");
         }
       }
 
@@ -3120,7 +3033,7 @@
         first.textContent = !canInteract
           ? "Waiting for your turn..."
           : (isTarponDiscard ? "Tarpon: discard cards or choose 'end turn now'..."
-              : (isDiscardBatch ? `Select cards to discard (need ${discardExcess} more)...`
+              : (isDiscardBatch ? `Select exactly ${discardExcess} card(s) to discard (cannot go below 10)...`
                 : (mustDiscardToTen ? "Discard to pool until hand = 10..." : "Choose any legal action...")));
         quickActionSelect.appendChild(first);
         for (const a of legalActions) {
@@ -3257,22 +3170,6 @@
 
           if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
 
-          if (canInteract && !mustDiscardToTen && !isDiscardBatch) {
-            card.classList.add("hand-draggable");
-            card.setAttribute("draggable", "true");
-            card.addEventListener("dragstart", (ev) => {
-              dragEntryUid = Number(entryUid);
-              card.classList.add("dragging");
-              if (ev.dataTransfer) {
-                ev.dataTransfer.effectAllowed = "move";
-                ev.dataTransfer.setData("text/plain", String(entryUid));
-              }
-            });
-            card.addEventListener("dragend", () => {
-              card.classList.remove("dragging");
-              dragEntryUid = null;
-            });
-          }
 
           if (canInteract) {
             const body = card.querySelector(".body");
@@ -3402,38 +3299,6 @@
         await submitAction(chosen);
       });
       oceanPlayFallback.appendChild(oceanBtn);
-
-      const oceanDrop = document.createElement("div");
-      oceanDrop.className = "ocean-drop-target";
-      oceanDrop.textContent = canInteract
-        ? "Drag an ocean card here to play it."
-        : "Ocean drag-and-drop is available on your turn.";
-      oceanDrop.addEventListener("dragover", (ev) => {
-        if (!canInteract) return;
-        const entryUid = getDraggedEntryUid(ev);
-        const base = firstPlayableActionForEntry(oceanActions, entryUid);
-        if (!base) return;
-        ev.preventDefault();
-        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
-        oceanDrop.classList.add("drop-over");
-      });
-      oceanDrop.addEventListener("dragleave", () => {
-        oceanDrop.classList.remove("drop-over");
-      });
-      oceanDrop.addEventListener("drop", async (ev) => {
-        oceanDrop.classList.remove("drop-over");
-        if (!canInteract) return;
-        const entryUid = getDraggedEntryUid(ev);
-        const base = firstPlayableActionForEntry(oceanActions, entryUid);
-        if (!base) {
-          setGameStatus("That card cannot be played as an ocean right now.");
-          return;
-        }
-        ev.preventDefault();
-        const chosen = resolveStarVariant(legalActions, base, Boolean(starToggle && starToggle.checked));
-        await submitAction(chosen);
-      });
-      oceanPlayFallback.appendChild(oceanDrop);
 
       const boardEntries = me && Array.isArray(me.board) ? me.board : [];
       const boardOceanIds = new Set(boardEntries.map((o) => Number(o.ocean_uid)));
