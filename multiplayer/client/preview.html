@@ -169,7 +169,8 @@
     .pv-hand-card { cursor: grab; }
     .pv-lane-slot.drag-over { background: rgba(61,214,245,.25); border-color: var(--cyan) !important; box-shadow: 0 0 12px var(--cyan); transform: scale(1.12); }
     #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
-    #pv-pool-area.drag-over::after { content: "Drop to discard"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
+    #pv-pool-area.drag-over::after { content: "Drop to discard to pool"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
+    #pv-pool-area.can-drop { outline: 1px dashed var(--muted); border-radius: 8px; }
 
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
@@ -1917,14 +1918,21 @@
       wrap.appendChild(more);
     }
 
-    // Pool drop zone — drag a hand card here to discard it to the pool
+    // Pool drop zone — drag a hand card here to discard it to the pool (payment)
     const poolArea = document.getElementById("pv-pool-area");
     const discardActions = actions.filter(a => a.kind === "discard_to_pool");
+    if (discardActions.length) {
+      poolArea.classList.add("can-drop");
+      poolArea.title = "Drag a card here to discard it as payment";
+    } else {
+      poolArea.classList.remove("can-drop");
+      poolArea.title = "";
+    }
     poolArea.ondragover = discardActions.length ? (ev) => {
       ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
       poolArea.classList.add("drag-over");
     } : null;
-    poolArea.ondragleave = () => poolArea.classList.remove("drag-over");
+    poolArea.ondragleave = () => { poolArea.classList.remove("drag-over"); };
     poolArea.ondrop = discardActions.length ? (ev) => {
       ev.preventDefault();
       poolArea.classList.remove("drag-over");
@@ -2018,10 +2026,44 @@
     if (!me) return;
 
     const board = Array.isArray(me.board) ? me.board : [];
+    const playOceanActions = actions.filter(a => a.kind === "play_ocean");
+
+    // Drop zone for playing ocean cards (always present when play_ocean is legal)
+    if (playOceanActions.length) {
+      const oceanDrop = document.createElement("div");
+      oceanDrop.id = "pv-ocean-drop-zone";
+      oceanDrop.textContent = "⊕ Drop ocean card here";
+      oceanDrop.style.cssText = "border:2px dashed var(--teal);border-radius:10px;padding:14px 24px;color:var(--teal);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:10px;text-align:center;";
+      oceanDrop.addEventListener("dragover", (ev) => {
+        ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
+        oceanDrop.style.background = "rgba(13,148,136,.18)";
+        oceanDrop.style.borderColor = "var(--cyan)";
+      });
+      oceanDrop.addEventListener("dragleave", () => {
+        oceanDrop.style.background = "";
+        oceanDrop.style.borderColor = "var(--teal)";
+      });
+      oceanDrop.addEventListener("drop", (ev) => {
+        ev.preventDefault();
+        oceanDrop.style.background = "";
+        let cardData = {};
+        try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+        const entryUid = Number(cardData.entryUid);
+        const faceUid  = Number(cardData.faceUid);
+        if (!entryUid && !faceUid) return;
+        const act = playOceanActions.find(a =>
+          Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid
+        );
+        if (!act) { showToast("That card can't be played as an ocean here.", "warn"); return; }
+        submitAction(act);
+      });
+      el.appendChild(oceanDrop);
+    }
+
     if (!board.length) {
       const hint = document.createElement("div");
-      hint.style.cssText = "color:var(--muted);font-size:13px;padding:20px;text-align:center;width:100%;";
-      hint.textContent = "No oceans yet — play an ocean card to start.";
+      hint.style.cssText = "color:var(--muted);font-size:13px;padding:12px;text-align:center;width:100%;";
+      hint.textContent = "No oceans yet — drag an ocean card to the zone above.";
       el.appendChild(hint); return;
     }
 

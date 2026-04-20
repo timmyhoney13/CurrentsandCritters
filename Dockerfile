@@ -14,6 +14,9 @@ COPY cards_lr.txt /app/cards_lr.txt
 COPY cards_oceans.txt /app/cards_oceans.txt
 COPY multiplayer/client /app/multiplayer/client
 COPY multiplayer/human_game_dataset.jsonl /app/multiplayer/human_game_dataset.jsonl
+COPY horizontal_cards /app/horizontal_cards
+COPY vertical_cards /app/vertical_cards
+COPY oceans_cards /app/oceans_cards
 
 # Default room state path; in Render this is overridden to mounted disk.
 RUN mkdir -p /app/multiplayer/state /var/data/fish-room-state
