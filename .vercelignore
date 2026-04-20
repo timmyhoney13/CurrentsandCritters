@@ -1,0 +1,21 @@
+# Root-level HTML files that are dev tools / old pages
+# These must be excluded so vercel.json rewrites take effect
+index.html
+background_preview.html
+card_uid_to_image_mapping.html
+final_board.html
+final_board_accuracy_seed1732440900.html
+horizontal_cards_gallery.html
+vertical_cards_gallery.html
+live_game_viewer.html
+
+# Python source files (backend runs on Render, not Vercel)
+*.py
+*.json
+*.txt
+*.md
+Dockerfile
+render.yaml
+requirements*.txt
+__pycache__/
+*.pyc
