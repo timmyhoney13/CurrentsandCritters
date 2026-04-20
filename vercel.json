@@ -11,8 +11,10 @@
     }
   ],
   "rewrites": [
-    { "source": "/game",              "destination": "/multiplayer/client/index.html" },
-    { "source": "/play/:room_id",     "destination": "/multiplayer/client/index.html" },
+    { "source": "/game",              "destination": "/multiplayer/client/preview.html" },
+    { "source": "/play/:room_id",     "destination": "/multiplayer/client/preview.html" },
+    { "source": "/classic",           "destination": "/multiplayer/client/index.html" },
+    { "source": "/classic/:room_id",  "destination": "/multiplayer/client/index.html" },
     { "source": "/preview",           "destination": "/multiplayer/client/preview.html" },
     { "source": "/preview/:room_id",  "destination": "/multiplayer/client/preview.html" },
     { "source": "/rules",         "destination": "/multiplayer/client/rules.html" },
