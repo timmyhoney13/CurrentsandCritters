@@ -900,62 +900,86 @@
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
 <div id="pv-lobby">
   <h1>Currents &amp; Critters</h1>
-  <p class="subtitle">Multiplayer card game — host a room or join one with a 5-letter code.</p>
 
-  <!-- CREATE -->
-  <div class="pv-lobby-box" id="pv-create-box">
-    <h2>🏠 Host a Game</h2>
-    <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-      <b style="color:var(--text);">Step 1</b> — Enter your name and how many players<br>
-      <b style="color:var(--text);">Step 2</b> — Click Create, then share the room code<br>
-      <b style="color:var(--text);">Step 3</b> — Once everyone has joined, click Start Game
-    </div>
-    <div class="pv-row" style="margin-top:4px;">
-      <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
-      <input class="pv-input" id="pv-room-code-new" placeholder="Code (optional)" maxlength="5"
-        style="width:130px;flex:none;text-transform:uppercase;"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-    </div>
-    <div class="pv-row">
-      <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">Human players</span>
-        <input class="pv-input" id="pv-total-players" type="number" min="1" max="6" value="2" />
+  <!-- VIEW A: invited via link — join only, no create option shown -->
+  <div id="pv-invited-view" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
+    <p class="subtitle" id="pv-invited-subtitle">You've been invited to a game!</p>
+    <div class="pv-lobby-box" style="width:100%;">
+      <h2>🎮 Join the Game</h2>
+      <div style="font-size:12px;color:var(--muted);line-height:1.7;">
+        Enter your name, then click a seat to claim it.
       </div>
-      <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">AI opponents</span>
-        <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
-      </div>
-      <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
-        <span style="font-size:11px;color:transparent;">x</span>
-        <button class="pv-btn gold" id="pv-create-btn">Create →</button>
+      <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" style="margin-top:4px;" />
+      <!-- hidden code field still used by JS -->
+      <input id="pv-join-code" type="hidden" />
+      <div id="pv-seat-picker" style="margin-top:4px;">
+        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Loading seats…</div>
+        <div class="seat-grid" id="pv-seat-grid"></div>
+        <button class="pv-btn full gold" id="pv-join-btn" disabled>Choose a seat above</button>
       </div>
     </div>
+    <div id="pv-lobby-status"></div>
+    <a href="/game" style="font-size:12px;color:var(--muted);text-decoration:none;border-bottom:1px dashed var(--border);">← Start a new game instead</a>
   </div>
 
-  <!-- JOIN -->
-  <div class="pv-lobby-box">
-    <h2>🎮 Join a Game</h2>
-    <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-      <b style="color:var(--text);">Step 1</b> — Enter your name and the 5-letter room code<br>
-      <b style="color:var(--text);">Step 2</b> — Click Check Seats to see open spots<br>
-      <b style="color:var(--text);">Step 3</b> — Click your seat number to claim it
-    </div>
-    <div class="pv-row" style="margin-top:4px;">
-      <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" />
-      <input class="pv-input" id="pv-join-code" placeholder="Room code" maxlength="5"
-        style="text-transform:uppercase;width:130px;flex:none;"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-    </div>
-    <button class="pv-btn full" id="pv-check-room-btn">Check Available Seats →</button>
+  <!-- VIEW B: arrived directly — show both host and join options -->
+  <div id="pv-home-view" style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
+    <p class="subtitle">Create a room or join one with a 5-letter code.</p>
 
-    <div id="pv-seat-picker">
-      <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open seat to claim it</div>
-      <div class="seat-grid" id="pv-seat-grid"></div>
-      <button class="pv-btn full gold" id="pv-join-btn" disabled>Choose a seat above</button>
+    <!-- CREATE -->
+    <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
+      <h2>🏠 Host a Game</h2>
+      <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
+        <b style="color:var(--text);">1.</b> Enter your name &nbsp;
+        <b style="color:var(--text);">2.</b> Click Create &nbsp;
+        <b style="color:var(--text);">3.</b> Share the code — click Start when everyone's in
+      </div>
+      <div class="pv-row" style="margin-top:6px;">
+        <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
+        <input class="pv-input" id="pv-room-code-new" placeholder="Code (optional)" maxlength="5"
+          style="width:120px;flex:none;text-transform:uppercase;"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      </div>
+      <div class="pv-row">
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">Human players</span>
+          <input class="pv-input" id="pv-total-players" type="number" min="1" max="6" value="2" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI opponents</span>
+          <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
+          <span style="font-size:11px;color:transparent;">x</span>
+          <button class="pv-btn gold" id="pv-create-btn">Create →</button>
+        </div>
+      </div>
     </div>
+
+    <!-- JOIN (from home — has code input) -->
+    <div class="pv-lobby-box" style="width:100%;">
+      <h2>🎮 Join a Game</h2>
+      <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
+        <b style="color:var(--text);">1.</b> Enter your name + 5-letter code &nbsp;
+        <b style="color:var(--text);">2.</b> Click Check Seats &nbsp;
+        <b style="color:var(--text);">3.</b> Click your seat
+      </div>
+      <div class="pv-row" style="margin-top:6px;">
+        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" />
+        <input class="pv-input" id="pv-join-code-home" placeholder="Room code" maxlength="5"
+          style="text-transform:uppercase;width:120px;flex:none;"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      </div>
+      <button class="pv-btn full" id="pv-check-room-btn">Check Available Seats →</button>
+      <div id="pv-seat-picker-home" style="display:none;flex-direction:column;gap:10px;">
+        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open seat to claim it</div>
+        <div class="seat-grid" id="pv-seat-grid-home"></div>
+        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Choose a seat above</button>
+      </div>
+    </div>
+
+    <div id="pv-lobby-status"></div>
   </div>
-
-  <div id="pv-lobby-status"></div>
 </div>
 
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
@@ -1281,11 +1305,6 @@
   }
 
   // ── Lobby create / join ────────────────────────────────────────
-  function lobbyStatus(msg, isErr) {
-    const el = document.getElementById("pv-lobby-status");
-    el.textContent = msg;
-    el.style.color = isErr ? "var(--red)" : "var(--muted)";
-  }
 
   // ── Waiting room overlay helpers ──────────────────────────────
   function showWaitingRoom(code) {
@@ -1355,52 +1374,19 @@
   });
 
   // ── Seat picker logic ──────────────────────────────────────────
-  let _selectedSeat = null;
+  // Two independent seat grids: "invited" view (link arrival) and "home" view (manual join)
+  let _selectedSeat = null;       // invited view
+  let _selectedSeatHome = null;   // home view
 
-  async function checkRoomSeats() {
-    const rid = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
-    if (!rid) { lobbyStatus("Enter a valid 5-letter room code first.", true); return; }
-
-    lobbyStatus("Checking room…", false);
-    document.getElementById("pv-check-room-btn").disabled = true;
-
-    // if already have a token, skip straight in
-    roomId = rid;
-    const existing = getSeatToken() || getHostToken();
-    if (existing) {
-      const name = document.getElementById("pv-join-name").value.trim() || "Player";
-      document.getElementById("pv-my-name-badge").textContent = name;
-      lobbyStatus("", false);
-      enterRoom(rid);
-      return;
-    }
-    roomId = null;
-
-    // fetch room state to see which seats exist and which are taken
-    const res = await apiFetch(`/api/rooms/${rid}/state`, { method:"GET", timeoutMs:6000 });
-    document.getElementById("pv-check-room-btn").disabled = false;
-
-    if (!res.ok) {
-      lobbyStatus("Room not found: " + (res.data?.error || res.status), true);
-      return;
-    }
-
-    const state   = res.data?.state || {};
-    const players = Array.isArray(state.players) ? state.players : [];
-    const total   = Number(state.total_players || state.num_players || players.length || 2);
-    const takenIdxs = new Set(players.filter(p => p.name).map(p => p.index));
-
-    lobbyStatus("", false);
-    _selectedSeat = null;
-    buildSeatGrid(total, takenIdxs);
-    document.getElementById("pv-seat-picker").style.display = "flex";
-    document.getElementById("pv-join-btn").disabled = true;
-    document.getElementById("pv-join-btn").textContent = "Choose a seat above";
+  function lobbyStatus(msg, isErr) {
+    ["pv-lobby-status"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = msg; el.style.color = isErr ? "var(--red)" : "var(--muted)"; }
+    });
   }
 
-  function buildSeatGrid(total, takenIdxs) {
-    const grid = document.getElementById("pv-seat-grid");
-    grid.innerHTML = "";
+  function buildSeatGrid(gridEl, joinBtnEl, total, takenIdxs, onSelect) {
+    gridEl.innerHTML = "";
     for (let i = 0; i < total; i++) {
       const isTaken = takenIdxs.has(i);
       const btn = document.createElement("button");
@@ -1408,35 +1394,111 @@
       btn.disabled = isTaken;
       btn.innerHTML = `<span class="seat-num">${i + 1}</span><span class="seat-label">${isTaken ? "Taken" : "Open"}</span>`;
       btn.addEventListener("click", () => {
-        _selectedSeat = i;
-        document.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("selected"));
+        gridEl.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
-        const joinBtn = document.getElementById("pv-join-btn");
-        joinBtn.disabled = false;
-        joinBtn.textContent = `Join as Seat ${i + 1} →`;
+        joinBtnEl.disabled = false;
+        joinBtnEl.textContent = `Join as Seat ${i + 1} →`;
+        onSelect(i);
       });
-      grid.appendChild(btn);
+      gridEl.appendChild(btn);
     }
   }
 
-  document.getElementById("pv-check-room-btn").addEventListener("click", checkRoomSeats);
-  document.getElementById("pv-join-code").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") checkRoomSeats();
-  });
+  async function fetchSeats(rid) {
+    // returns { total, takenIdxs } or null on error
+    const res = await apiFetch(`/api/rooms/${rid}/state`, { method:"GET", timeoutMs:8000 });
+    if (!res.ok) return null;
+    const state = res.data?.state || {};
+    const players = Array.isArray(state.players) ? state.players : [];
+    const total = Number(state.total_players || state.num_players || players.length || 2);
+    const takenIdxs = new Set(players.filter(p => p.name).map(p => p.index));
+    return { total, takenIdxs };
+  }
 
-  document.getElementById("pv-join-btn").addEventListener("click", async () => {
-    const name = document.getElementById("pv-join-name").value.trim() || "Player";
-    const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
-    if (!rid) { lobbyStatus("Enter a valid 5-letter room code.", true); return; }
-    if (_selectedSeat === null) { lobbyStatus("Pick a seat first.", true); return; }
-
-    lobbyStatus("Joining…", false);
+  async function doJoin(rid, name, seat) {
     roomId = rid;
-    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: _selectedSeat }, { timeoutMs:8000 });
-    if (!j.ok) { lobbyStatus("Join failed: " + (j.data?.error||j.status), true); roomId = null; return; }
+    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs:10000 });
+    if (!j.ok) {
+      lobbyStatus("Join failed: " + (j.data?.error || j.status), true);
+      roomId = null; return;
+    }
     if (j.data?.seat_token) setSeatToken(j.data.seat_token);
     document.getElementById("pv-my-name-badge").textContent = name;
     enterRoom(rid);
+  }
+
+  // ── INVITED VIEW (arrived via share link) ──────────────────────
+  async function loadInvitedSeats(rid) {
+    const grid    = document.getElementById("pv-seat-grid");
+    const joinBtn = document.getElementById("pv-join-btn");
+    grid.innerHTML = '<span style="font-size:12px;color:var(--muted);">Loading…</span>';
+    joinBtn.disabled = true;
+    joinBtn.textContent = "Choose a seat above";
+    const data = await fetchSeats(rid);
+    if (!data) {
+      grid.innerHTML = '<span style="font-size:12px;color:var(--red);">Could not find room — check the code and try again.</span>';
+      return;
+    }
+    buildSeatGrid(grid, joinBtn, data.total, data.takenIdxs, (i) => { _selectedSeat = i; });
+  }
+
+  document.getElementById("pv-join-btn").addEventListener("click", async () => {
+    const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
+    const name = document.getElementById("pv-join-name").value.trim() || "Player";
+    if (!rid)  { lobbyStatus("Room code missing.", true); return; }
+    if (_selectedSeat === null) { lobbyStatus("Pick a seat first.", true); return; }
+    lobbyStatus("Joining…", false);
+    await doJoin(rid, name, _selectedSeat);
+  });
+
+  // ── HOME VIEW (manual join with code input) ────────────────────
+  async function checkRoomSeats() {
+    const rid = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
+    if (!rid) { lobbyStatus("Enter a valid 5-letter room code first.", true); return; }
+
+    // if already have a token for this room, go straight in
+    roomId = rid;
+    if (getSeatToken() || getHostToken()) {
+      const name = document.getElementById("pv-join-name-home").value.trim() || "Player";
+      document.getElementById("pv-my-name-badge").textContent = name;
+      enterRoom(rid);
+      return;
+    }
+    roomId = null;
+
+    const checkBtn = document.getElementById("pv-check-room-btn");
+    checkBtn.disabled = true;
+    checkBtn.textContent = "Checking…";
+    lobbyStatus("", false);
+
+    const data = await fetchSeats(rid);
+    checkBtn.disabled = false;
+    checkBtn.textContent = "Check Available Seats →";
+
+    if (!data) {
+      lobbyStatus("Room not found — check the code and try again.", true);
+      return;
+    }
+
+    _selectedSeatHome = null;
+    const grid    = document.getElementById("pv-seat-grid-home");
+    const joinBtn = document.getElementById("pv-join-btn-home");
+    buildSeatGrid(grid, joinBtn, data.total, data.takenIdxs, (i) => { _selectedSeatHome = i; });
+    document.getElementById("pv-seat-picker-home").style.display = "flex";
+  }
+
+  document.getElementById("pv-check-room-btn").addEventListener("click", checkRoomSeats);
+  document.getElementById("pv-join-code-home").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkRoomSeats();
+  });
+
+  document.getElementById("pv-join-btn-home").addEventListener("click", async () => {
+    const rid  = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
+    const name = document.getElementById("pv-join-name-home").value.trim() || "Player";
+    if (!rid)  { lobbyStatus("Room code missing.", true); return; }
+    if (_selectedSeatHome === null) { lobbyStatus("Pick a seat first.", true); return; }
+    lobbyStatus("Joining…", false);
+    await doJoin(rid, name, _selectedSeatHome);
   });
 
   // ── Action submission ──────────────────────────────────────────
@@ -2236,15 +2298,19 @@
     roomId = urlRoom;
     if (urlSeat) setSeatToken(urlSeat);
     if (urlHost) setHostToken(urlHost);
-    // always pre-fill the code field
+    // show invited-only view, hide the host+join home view
+    document.getElementById("pv-invited-view").style.display = "flex";
+    document.getElementById("pv-home-view").style.display = "none";
+    document.getElementById("pv-invited-subtitle").textContent =
+      `You've been invited to room ${urlRoom}`;
+    // pre-fill hidden code field used by invited view
     document.getElementById("pv-join-code").value = urlRoom;
     if (getSeatToken() || getHostToken()) {
       // already have a token — go straight in
       enterRoom(urlRoom);
     } else {
-      // no token — auto-trigger seat check so they just pick a seat + click Join
-      lobbyStatus("Enter your name, then pick a seat below.", false);
-      checkRoomSeats();
+      // no token — load seats for this room so they just pick + click Join
+      loadInvitedSeats(urlRoom);
     }
   })();
 
