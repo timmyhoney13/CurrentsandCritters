@@ -725,7 +725,7 @@
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 10px 12px;
-      width: 190px;
+      width: 210px;
       font-size: 11px; line-height: 1.5;
       color: var(--text);
       z-index: 1000;
@@ -2476,9 +2476,15 @@
     });
   }
 
+  let _handRenderKey = "";
   function renderHand(me, actions, mustDiscard, discardExcess) {
     _handRenderData = { me, actions, mustDiscard, discardExcess };
     const zone = document.getElementById("pv-hand");
+    // Skip re-render when nothing changed — prevents hover/tooltip from being reset every poll
+    const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess,
+      selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(",") });
+    if (key === _handRenderKey && zone.children.length > 0) return;
+    _handRenderKey = key;
     cl(zone);
     if (!me || !Array.isArray(me.hand)) return;
 
@@ -2516,28 +2522,23 @@
       inner.appendChild(chip);
 
       const cost = Number(face.cost ?? 0);
-      if (cost >= 0) {
-        const badge = document.createElement("div");
-        badge.className = "pv-cost-badge" + (cost===0?" free":"");
-        badge.textContent = cost===0?"✦":cost;
-        inner.appendChild(badge);
-      }
-
       const sym = face.symbol || "";
-      if (sym && normalizeSymbol(sym) !== "n/a") {
-        const pip = document.createElement("div"); pip.className = "pv-sym-pip";
-        pip.textContent = symbolEmoji(sym); inner.appendChild(pip);
-      }
       card.appendChild(inner);
 
-      // tooltip
+      // tooltip — shows all faces (dual-face horizontal/vertical cards show both animals)
       const tip = document.createElement("div"); tip.className = "pv-tooltip";
-      const mt  = mainText(face.text||"");
-      tip.innerHTML = `<div class="tt-name">${face.name||"?"}</div>
-        <div class="tt-species" style="color:${speciesColor(face.species)}">${face.species||""} · ${sym} · cost ${cost}</div>
-        <div class="tt-text">${mt}</div>
-        ${st ? `<div class="tt-star">★ ${st}</div>` : ""}
-        <div class="tt-arrow"></div>`;
+      const allFaces = Array.isArray(entry.faces) && entry.faces.length > 1 ? entry.faces : [face];
+      tip.innerHTML = allFaces.map((f, fi) => {
+        const fSym  = f.symbol || "";
+        const fCost = Number(f.cost ?? 0);
+        const fMt   = mainText(f.text||"");
+        const fSt   = starText(f.text||"");
+        return `${fi > 0 ? '<hr style="border-color:rgba(255,255,255,.1);margin:6px 0">' : ""}
+          <div class="tt-name">${f.name||"?"}</div>
+          <div class="tt-species" style="color:${speciesColor(f.species)}">${f.species||""} · ${fSym||"—"} · cost ${fCost===0?"free":fCost}</div>
+          ${fMt ? `<div class="tt-text">${fMt}</div>` : ""}
+          ${fSt ? `<div class="tt-star">★ ${fSt}</div>` : ""}`;
+      }).join("") + `<div class="tt-arrow"></div>`;
       card.appendChild(tip);
 
       // drag: play card by dragging to ocean slot or pool
