@@ -1842,13 +1842,19 @@
     const cost = Number(action.cost_to_pay||0);
     if (cost <= 0) return { picks:[], error:"" };
     const manual = uniqueIntList(Array.from(selectedPayment));
-    if (manual.length > 0) {
-      const mp = buildPaymentSet(action, manual);
-      if (mp) return { picks: mp, error:"" };
+    if (manual.length === 0) {
+      const sym = action.required_symbol || action.star_symbol || "";
+      const symHint = sym ? ` (needs a ${sym} card)` : "";
+      return { picks:[], error:`Select ${cost} payment card(s) from your hand first${symHint}.` };
     }
-    const auto = buildPaymentSet(action, Array.from(handEntryMap.keys()));
-    if (auto) return { picks: auto, error:"" };
-    return { picks:[], error:`Cannot find ${cost} valid payment card(s). Select them manually.` };
+    if (manual.length !== cost) {
+      return { picks:[], error:`Select exactly ${cost} payment card(s) — you have ${manual.length} selected.` };
+    }
+    const mp = buildPaymentSet(action, manual);
+    if (mp) return { picks: mp, error:"" };
+    const sym = action.required_symbol;
+    if (sym) return { picks:[], error:`Payment invalid — at least one selected card must have the ${sym} symbol.` };
+    return { picks:[], error:`Selected cards cannot be used as payment for this action.` };
   }
 
   async function submitAction(action) {
@@ -2714,7 +2720,11 @@
       sel.style.display="none"; playBtn.style.display="none";
       starWrap.style.display="none"; endBtn.style.display="none";
       confirmBtn.style.display="";
-      confirmBtn.disabled = selectedDiscard.size !== discardExcess;
+      const ready = selectedDiscard.size === discardExcess;
+      confirmBtn.disabled = !ready;
+      confirmBtn.textContent = ready
+        ? `✓ Confirm Discard (${selectedDiscard.size})`
+        : `Select ${discardExcess - selectedDiscard.size} more card(s) to discard`;
       return;
     }
 
@@ -2763,6 +2773,15 @@
       if (!Number.isInteger(idx)||!sel.value) { setStatus("Pick an action first."); return; }
       const act = actions.find(a=>Number(a.index)===idx);
       if (!act) { setStatus("Action no longer valid."); return; }
+      // Enforce manual payment selection before allowing submission
+      const cost = Number(act.cost_to_pay||0);
+      if (cost > 0 && selectedPayment.size === 0) {
+        const sym = act.required_symbol || act.star_symbol || "";
+        const symHint = sym ? ` — needs a ${sym} card` : "";
+        setStatus(`Select ${cost} payment card(s) from your hand first${symHint}.`);
+        showToast(`Select ${cost} payment card(s) to pay the cost${symHint}.`, "warn");
+        return;
+      }
       const useStarToggle = document.getElementById("pv-star-toggle")?.checked;
       let chosen = act;
       if (useStarToggle && !act.use_star) {
@@ -2785,7 +2804,11 @@
   function updateDiscardBtn() {
     const btn = document.getElementById("pv-confirm-discard-btn"); if (!btn) return;
     const excess = Number(latestPayload?.legal_actions?.discard_excess||0);
-    btn.disabled = selectedDiscard.size !== excess;
+    const ready = selectedDiscard.size === excess;
+    btn.disabled = !ready;
+    btn.textContent = ready
+      ? `✓ Confirm Discard (${selectedDiscard.size})`
+      : `Select ${excess - selectedDiscard.size} more card(s) to discard`;
   }
 
   document.getElementById("pv-confirm-discard-btn").addEventListener("click", () => {
