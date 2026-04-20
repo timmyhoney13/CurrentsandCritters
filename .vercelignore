@@ -1,6 +1,4 @@
-# Root-level HTML files that are dev tools / old pages
-# These must be excluded so vercel.json rewrites take effect
-index.html
+# Root-level dev-tool HTML files (not the home page)
 background_preview.html
 card_uid_to_image_mapping.html
 final_board.html

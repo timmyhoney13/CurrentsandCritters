@@ -11,7 +11,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/",                     "destination": "/multiplayer/client/preview.html" },
     { "source": "/game",                 "destination": "/multiplayer/client/preview.html" },
     { "source": "/play/:room_id",        "destination": "/multiplayer/client/preview.html" },
     { "source": "/preview",              "destination": "/multiplayer/client/preview.html" },
