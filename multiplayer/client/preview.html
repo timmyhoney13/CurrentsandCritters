@@ -1329,6 +1329,16 @@
   const CARD_IMAGE_VERSION = "20260419-full159";
 
   function pad2(n) { return String(n).padStart(2, "0"); }
+  // Returns CSS transform so a board card shows only the half that was played.
+  // Horizontal cards (1-96): odd uid = left face, even = right face.
+  // Vertical cards (101-188): odd uid = top face, even = bottom face.
+  function cardHalfStyle(faceUid) {
+    const u = Number(faceUid);
+    if (u >= 1 && u <= 96)    return u % 2 === 1 ? "scaleX(2);transform-origin:left center"   : "scaleX(2);transform-origin:right center";
+    if (u >= 101 && u <= 188) return u % 2 === 1 ? "scaleY(2);transform-origin:top center"    : "scaleY(2);transform-origin:bottom center";
+    return "";
+  }
+
   function imagePathForUid(uid) {
     const u = Number(uid);
     if (u >= 1   && u <= 96)  return `/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png?v=${CARD_IMAGE_VERSION}`;
@@ -1473,6 +1483,7 @@
       const url = buildStateUrl();
       const { ok, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:4000 });
       if (ok && data && data.ok !== false) { latestPayload = data; renderPayload(data); }
+      else if (data?.error === "room not found") handleRoomLost();
     } catch {}
     finally { refreshInFlight = false; }
   }
@@ -1481,6 +1492,22 @@
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(refreshState, 1000);
     refreshState();
+  }
+
+  let _roomLostShown = false;
+  function handleRoomLost() {
+    if (_roomLostShown) return;
+    _roomLostShown = true;
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (sseSource) { sseSource.close(); sseSource = null; }
+    showToast("Session ended — the server restarted. Please re-join.", "err");
+    setTimeout(() => {
+      _roomLostShown = false;
+      roomId = null;
+      document.getElementById("pv-game").style.display = "none";
+      document.getElementById("pv-lobby").style.display = "flex";
+      lobbyStatus("Session ended — server restarted. Create or join a new room.", true);
+    }, 2500);
   }
 
   function startSSE() {
@@ -1497,9 +1524,12 @@
         try {
           const d = JSON.parse(ev.data);
           if (d && d.ok !== false) { latestPayload = d; renderPayload(d); }
+          else if (d?.error === "room not found") handleRoomLost();
         } catch {}
       };
-      sseSource.onerror = () => {};
+      sseSource.onerror = () => {
+        // SSE dropped — polling will keep trying; room not found is handled there
+      };
     } catch {}
   }
 
@@ -1851,6 +1881,7 @@
     try {
       const r = await apiPost(`/api/rooms/${roomId}/action`, pl, { timeoutMs:15000 });
       if (!r.ok) {
+        if (r.data?.error === "room not found") { handleRoomLost(); return; }
         const errMsg = "Failed: " + (r.data?.error || r.status);
         setStatus(errMsg); showToast(errMsg, "err"); return;
       }
@@ -2412,11 +2443,14 @@
             cardEl.className = "pv-board-card";
             cardEl.dataset.species = c.species || "";
             const img = document.createElement("img");
-            img.src = imagePathForUid(c.face_uid ?? c.uid);
+            const fUid = c.face_uid ?? c.uid;
+            img.src = imagePathForUid(fUid);
             img.alt = c.name||""; img.loading="lazy";
+            const hs = cardHalfStyle(fUid);
+            if (hs) img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;transform:${hs}`;
             cardEl.appendChild(img);
             cardEl.title = `${c.name||"?"} — click to zoom`;
-            cardEl.addEventListener("click", () => openZoom(c.face_uid??c.uid, c.name, c.text, c.species));
+            cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
             lane.appendChild(cardEl);
           });
         }
@@ -2516,11 +2550,6 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       inner.appendChild(img);
 
-      // directional info chip
-      const chip = document.createElement("div");
-      chip.className = "pv-card-chip chip-top";
-      inner.appendChild(chip);
-
       const cost = Number(face.cost ?? 0);
       const sym = face.symbol || "";
       card.appendChild(inner);
@@ -2563,24 +2592,6 @@
         applyHandLayout(-1);
       });
 
-      // directional info chip: shows card detail based on which quadrant the mouse is in
-      const _chipInfo = {
-        top:    `${face.name||"?"}  ·  Cost ${cost===0?"free":cost}`,
-        bottom: mainText(face.text||"") || face.name || "No ability",
-        left:   `${face.species||"—"}  ·  ${sym||"No symbol"}`,
-        right:  st ? `★ ${st}` : (face.species||face.name||"—"),
-      };
-      inner.addEventListener("mousemove", (ev) => {
-        const rect = inner.getBoundingClientRect();
-        const dx = (ev.clientX - rect.left) - rect.width  / 2;
-        const dy = (ev.clientY - rect.top)  - rect.height / 2;
-        let quad = Math.abs(dy) >= Math.abs(dx) ? (dy < 0 ? "top" : "bottom") : (dx < 0 ? "left" : "right");
-        chip.className = `pv-card-chip chip-${quad}`;
-        chip.textContent = _chipInfo[quad];
-      });
-      inner.addEventListener("mouseleave", () => {
-        chip.className = "pv-card-chip chip-top";
-      });
 
       // click
       card.addEventListener("click", (ev) => {
