@@ -30,6 +30,7 @@ import fish_game_all_in_one as fish
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "index.html")
+CLIENT_PREVIEW_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "preview.html")
 WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.html")
 RULES_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "rules.html")
 ABOUT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "about.html")
@@ -2599,6 +2600,25 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             return
 
+    def _send_preview_html(self) -> None:
+        path = CLIENT_PREVIEW_PATH if os.path.exists(CLIENT_PREVIEW_PATH) else CLIENT_INDEX_PATH
+        try:
+            with open(path, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": "client page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_cors_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
+
     def _send_website_html(self) -> None:
         try:
             with open(WEBSITE_INDEX_PATH, "rb") as f:
@@ -2736,10 +2756,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if len(parts) == 2 and parts[0] == "play":
-            if os.path.exists(CLIENT_INDEX_PATH):
-                self._send_index_html()
-                return
-            self._send_json({"ok": False, "error": "client index missing"}, status=HTTPStatus.NOT_FOUND)
+            self._send_preview_html()
+            return
+
+        if len(parts) == 1 and parts[0] in {"game", "preview"}:
+            self._send_preview_html()
+            return
+
+        if len(parts) == 2 and parts[0] in {"preview"}:
+            self._send_preview_html()
+            return
+
+        # Old simulation layout kept for reference
+        if len(parts) == 1 and parts[0] in {"classic", "old"}:
+            self._send_index_html()
+            return
+
+        if len(parts) == 2 and parts[0] == "classic":
+            self._send_index_html()
             return
 
         if len(parts) == 1 and parts[0] in {"website", "site"}:
@@ -2763,8 +2797,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": False, "error": "about page missing"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        if parsed.path == "/" and os.path.exists(CLIENT_INDEX_PATH):
-            self._send_index_html()
+        if parsed.path == "/":
+            self._send_preview_html()
             return
 
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "state":
