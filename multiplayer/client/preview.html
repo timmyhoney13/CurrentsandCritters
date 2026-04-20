@@ -135,6 +135,33 @@
 
     #pv-lobby-status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; }
 
+    /* ── SEAT PICKER ─────────────────────────────────────────────── */
+    #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
+    .seat-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .seat-btn {
+      width: 80px; height: 80px;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: #08132a;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 5px; cursor: pointer;
+      transition: border-color .18s, background .18s, transform .15s, box-shadow .15s;
+      font-family: "Nunito", inherit;
+    }
+    .seat-btn .seat-num {
+      font-family: "Cinzel", serif;
+      font-size: 22px; font-weight: 900;
+      color: var(--cyan);
+    }
+    .seat-btn .seat-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .seat-btn:hover:not(.taken) { border-color: var(--cyan); background: #0d1e3a; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(61,214,245,.25); }
+    .seat-btn.selected { border-color: var(--gold); background: #1a2a0a; box-shadow: 0 0 18px var(--glow-gold); }
+    .seat-btn.selected .seat-num { color: var(--gold); }
+    .seat-btn.taken { border-color: #1a2a3a; cursor: not-allowed; opacity: .45; }
+    .seat-btn.taken .seat-num { color: var(--muted); }
+    .seat-btn.taken .seat-label { color: #3a5060; }
+
     /* ── GAME ROOT ──────────────────────────────────────────────── */
     #pv-game {
       display: none;
@@ -795,13 +822,20 @@
 
   <div class="pv-lobby-box">
     <h2>Join Room</h2>
+    <!-- Step 1: name + code -->
     <div class="pv-row">
       <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" />
-      <input class="pv-input" id="pv-join-code" placeholder="Room code" maxlength="8" style="text-transform:uppercase;" />
+      <input class="pv-input" id="pv-join-code" placeholder="Room code" maxlength="5"
+        style="text-transform:uppercase;width:130px;flex:none;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
     </div>
-    <div class="pv-row">
-      <input class="pv-input" id="pv-seat-num" type="number" min="0" max="5" value="1" placeholder="Seat #" style="width:90px;flex:none;" />
-      <button class="pv-btn full" id="pv-join-btn">Join</button>
+    <button class="pv-btn full" id="pv-check-room-btn">Check Available Seats →</button>
+
+    <!-- Step 2: seat grid (shown after checking) -->
+    <div id="pv-seat-picker">
+      <div style="font-size:12px;color:var(--muted);text-align:center;">Pick your seat</div>
+      <div class="seat-grid" id="pv-seat-grid"></div>
+      <button class="pv-btn full gold" id="pv-join-btn" disabled>Choose a seat above</button>
     </div>
   </div>
 
@@ -1130,23 +1164,85 @@
     enterRoom(rId);
   });
 
-  document.getElementById("pv-join-btn").addEventListener("click", async () => {
-    const name = document.getElementById("pv-join-name").value.trim() || "Player";
-    const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
-    if (!rid) { lobbyStatus("Enter a valid 5-char room code.", true); return; }
-    lobbyStatus("Joining…", false);
-    roomId = rid;
+  // ── Seat picker logic ──────────────────────────────────────────
+  let _selectedSeat = null;
 
-    // reuse existing token if already joined via /play
+  async function checkRoomSeats() {
+    const rid = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
+    if (!rid) { lobbyStatus("Enter a valid 5-letter room code first.", true); return; }
+
+    lobbyStatus("Checking room…", false);
+    document.getElementById("pv-check-room-btn").disabled = true;
+
+    // if already have a token, skip straight in
+    roomId = rid;
     const existing = getSeatToken() || getHostToken();
     if (existing) {
+      const name = document.getElementById("pv-join-name").value.trim() || "Player";
       document.getElementById("pv-my-name-badge").textContent = name;
+      lobbyStatus("", false);
       enterRoom(rid);
       return;
     }
+    roomId = null;
 
-    const seat = Number(document.getElementById("pv-seat-num").value) || 0;
-    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs:8000 });
+    // fetch room state to see which seats exist and which are taken
+    const res = await apiFetch(apiUrl(`/api/rooms/${rid}/state`), { method:"GET", timeoutMs:6000 });
+    document.getElementById("pv-check-room-btn").disabled = false;
+
+    if (!res.ok) {
+      lobbyStatus("Room not found: " + (res.data?.error || res.status), true);
+      return;
+    }
+
+    const state   = res.data?.state || {};
+    const players = Array.isArray(state.players) ? state.players : [];
+    const total   = Number(state.total_players || state.num_players || players.length || 2);
+    const takenIdxs = new Set(players.filter(p => p.name).map(p => p.index));
+
+    lobbyStatus("", false);
+    _selectedSeat = null;
+    buildSeatGrid(total, takenIdxs);
+    document.getElementById("pv-seat-picker").style.display = "flex";
+    document.getElementById("pv-join-btn").disabled = true;
+    document.getElementById("pv-join-btn").textContent = "Choose a seat above";
+  }
+
+  function buildSeatGrid(total, takenIdxs) {
+    const grid = document.getElementById("pv-seat-grid");
+    grid.innerHTML = "";
+    for (let i = 0; i < total; i++) {
+      const isTaken = takenIdxs.has(i);
+      const btn = document.createElement("button");
+      btn.className = "seat-btn" + (isTaken ? " taken" : "");
+      btn.disabled = isTaken;
+      btn.innerHTML = `<span class="seat-num">${i + 1}</span><span class="seat-label">${isTaken ? "Taken" : "Open"}</span>`;
+      btn.addEventListener("click", () => {
+        _selectedSeat = i;
+        document.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        const joinBtn = document.getElementById("pv-join-btn");
+        joinBtn.disabled = false;
+        joinBtn.textContent = `Join as Seat ${i + 1} →`;
+      });
+      grid.appendChild(btn);
+    }
+  }
+
+  document.getElementById("pv-check-room-btn").addEventListener("click", checkRoomSeats);
+  document.getElementById("pv-join-code").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") checkRoomSeats();
+  });
+
+  document.getElementById("pv-join-btn").addEventListener("click", async () => {
+    const name = document.getElementById("pv-join-name").value.trim() || "Player";
+    const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
+    if (!rid) { lobbyStatus("Enter a valid 5-letter room code.", true); return; }
+    if (_selectedSeat === null) { lobbyStatus("Pick a seat first.", true); return; }
+
+    lobbyStatus("Joining…", false);
+    roomId = rid;
+    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: _selectedSeat }, { timeoutMs:8000 });
     if (!j.ok) { lobbyStatus("Join failed: " + (j.data?.error||j.status), true); roomId = null; return; }
     if (j.data?.seat_token) setSeatToken(j.data.seat_token);
     document.getElementById("pv-my-name-badge").textContent = name;
