@@ -135,6 +135,13 @@
 
     #pv-lobby-status, #pv-home-status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; }
 
+    /* ── Drag and drop ────────────────────────────────── */
+    .pv-hand-card.dragging { opacity: 0.4; cursor: grabbing; }
+    .pv-hand-card { cursor: grab; }
+    .pv-lane-slot.drag-over { background: rgba(61,214,245,.25); border-color: var(--cyan) !important; box-shadow: 0 0 12px var(--cyan); transform: scale(1.12); }
+    #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
+    #pv-pool-area.drag-over::after { content: "Drop to discard"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
+
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
     .seat-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
@@ -1361,14 +1368,15 @@
       replace_active: true,
     }, { timeoutMs:10000 });
     if (!r.ok) { lobbyStatus("Create failed: " + (r.data?.error||r.status), true); return; }
-    const rId = normalizeRoomId(r.data?.room?.room_id || rid);
+    // room_id is at top level of response; host seat is auto-claimed on creation
+    const rId = normalizeRoomId(r.data?.room_id || rid);
     roomId = rId;
     const hToken = r.data?.host_token || "";
     if (hToken) setHostToken(hToken);
-    const j = await apiPost(`/api/rooms/${rId}/join`, { player_name: name, seat_index: 0 }, { timeoutMs:8000 });
-    if (j.ok && j.data?.seat_token) setSeatToken(j.data.seat_token);
+    // Server auto-claims seat 0 for host and returns seat_token — use it directly
+    const sToken = r.data?.seat_token || "";
+    if (sToken) setSeatToken(sToken);
     document.getElementById("pv-my-name-badge").textContent = name;
-    // show game view then overlay waiting room
     enterRoom(rId);
     showWaitingRoom(rId);
   });
@@ -1816,6 +1824,29 @@
       more.textContent = `+${pool.length-maxShow} more`;
       wrap.appendChild(more);
     }
+
+    // Pool drop zone — drag a hand card here to discard it to the pool
+    const poolArea = document.getElementById("pv-pool-area");
+    const discardActions = actions.filter(a => a.kind === "discard_to_pool");
+    poolArea.ondragover = discardActions.length ? (ev) => {
+      ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
+      poolArea.classList.add("drag-over");
+    } : null;
+    poolArea.ondragleave = () => poolArea.classList.remove("drag-over");
+    poolArea.ondrop = discardActions.length ? (ev) => {
+      ev.preventDefault();
+      poolArea.classList.remove("drag-over");
+      let cardData = {};
+      try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+      const entryUid = Number(cardData.entryUid);
+      const faceUid  = Number(cardData.faceUid);
+      if (!entryUid && !faceUid) return;
+      const act = discardActions.find(a =>
+        Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid
+      );
+      if (!act) { showToast("Can't discard that card to pool right now.", "warn"); return; }
+      submitAction(act);
+    } : null;
   }
 
   // ── Opponent renderer ──────────────────────────────────────────
@@ -1921,7 +1952,35 @@
           const slot = document.createElement("div");
           slot.className = "pv-lane-slot" + (isMyTurn && laneHasAction(dir) ? " playable" : "");
           slot.textContent = "+";
-          if (isMyTurn && laneHasAction(dir)) slot.title = `Play ${dir} on this ocean`;
+          if (isMyTurn && laneHasAction(dir)) {
+            slot.title = `Drag a card here or click an action to play ${dir}`;
+            slot.addEventListener("dragover", (ev) => {
+              const acts = actions.filter(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir
+              );
+              if (acts.length) { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; slot.classList.add("drag-over"); }
+            });
+            slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+            slot.addEventListener("drop", (ev) => {
+              ev.preventDefault();
+              slot.classList.remove("drag-over");
+              let cardData = {};
+              try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+              const entryUid = Number(cardData.entryUid);
+              const faceUid  = Number(cardData.faceUid);
+              if (!entryUid && !faceUid) return;
+              const act = actions.find(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir &&
+                (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
+              );
+              if (!act) { showToast("Can't play that card here.", "warn"); return; }
+              submitAction(act);
+            });
+          }
           lane.appendChild(slot);
         } else {
           cards.forEach(c => {
@@ -2050,6 +2109,18 @@
         <div class="tt-arrow"></div>`;
       card.appendChild(tip);
 
+      // drag: play card by dragging to ocean slot or pool
+      card.draggable = true;
+      card.addEventListener("dragstart", (ev) => {
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("application/x-fish-card", JSON.stringify({ entryUid, faceUid }));
+        setTimeout(() => card.classList.add("dragging"), 0);
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+      });
+
       // hover: Hearthstone lift
       card.addEventListener("mouseenter", () => {
         card.classList.add("hovered");
@@ -2158,7 +2229,7 @@
     } else if (!hasOcean) {
       steps.push(`<span class="gs">② Play an Ocean card to start your board</span>`);
     } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction?"":" active"}">② Click a card in your hand → pick where to play → click Play Card</span>`);
+      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a card from hand to an ocean slot to play it — or use the dropdown below</span>`);
     } else {
       steps.push(`<span class="gs done">② Nothing more to play</span>`);
     }
