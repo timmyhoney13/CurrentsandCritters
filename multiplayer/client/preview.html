@@ -133,7 +133,7 @@
       50%      { box-shadow: 0 0 22px rgba(245,200,66,.7); }
     }
 
-    #pv-lobby-status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; }
+    #pv-lobby-status, #pv-home-status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; }
 
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
@@ -978,7 +978,7 @@
       </div>
     </div>
 
-    <div id="pv-lobby-status"></div>
+    <div id="pv-home-status"></div>
   </div>
 </div>
 
@@ -1379,40 +1379,43 @@
   let _selectedSeatHome = null;   // home view
 
   function lobbyStatus(msg, isErr) {
-    ["pv-lobby-status"].forEach(id => {
+    // update both status divs (one per view); only the visible one matters
+    ["pv-lobby-status", "pv-home-status"].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.textContent = msg; el.style.color = isErr ? "var(--red)" : "var(--muted)"; }
     });
   }
 
-  function buildSeatGrid(gridEl, joinBtnEl, total, takenIdxs, onSelect) {
+  // seatObjs: array of {index, label, kind, claimed_name}
+  function buildSeatGrid(gridEl, joinBtnEl, seatObjs, onSelect) {
     gridEl.innerHTML = "";
-    for (let i = 0; i < total; i++) {
-      const isTaken = takenIdxs.has(i);
+    for (const seat of seatObjs) {
+      const isTaken = Boolean(seat.claimed_name);
       const btn = document.createElement("button");
       btn.className = "seat-btn" + (isTaken ? " taken" : "");
       btn.disabled = isTaken;
-      btn.innerHTML = `<span class="seat-num">${i + 1}</span><span class="seat-label">${isTaken ? "Taken" : "Open"}</span>`;
+      btn.innerHTML = `<span class="seat-num">${seat.index + 1}</span><span class="seat-label">${isTaken ? (seat.claimed_name || "Taken") : "Open"}</span>`;
       btn.addEventListener("click", () => {
         gridEl.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
         joinBtnEl.disabled = false;
-        joinBtnEl.textContent = `Join as Seat ${i + 1} →`;
-        onSelect(i);
+        joinBtnEl.textContent = `Join as Seat ${seat.index + 1} →`;
+        onSelect(seat.index);
       });
       gridEl.appendChild(btn);
     }
   }
 
   async function fetchSeats(rid) {
-    // returns { total, takenIdxs } or null on error
+    // returns { seatObjs } or null on error
+    // Response shape: { ok, room: { total_players, ... }, seats: [{index, kind, claimed_name, ...}], ... }
     const res = await apiFetch(`/api/rooms/${rid}/state`, { method:"GET", timeoutMs:8000 });
     if (!res.ok) return null;
-    const state = res.data?.state || {};
-    const players = Array.isArray(state.players) ? state.players : [];
-    const total = Number(state.total_players || state.num_players || players.length || 2);
-    const takenIdxs = new Set(players.filter(p => p.name).map(p => p.index));
-    return { total, takenIdxs };
+    const allSeats = Array.isArray(res.data?.seats) ? res.data.seats : [];
+    // Only offer human seats in the picker; AI seats can't be joined
+    const seatObjs = allSeats.filter(s => s.kind === "human");
+    if (seatObjs.length === 0) return null;
+    return { seatObjs };
   }
 
   async function doJoin(rid, name, seat) {
@@ -1431,15 +1434,16 @@
   async function loadInvitedSeats(rid) {
     const grid    = document.getElementById("pv-seat-grid");
     const joinBtn = document.getElementById("pv-join-btn");
-    grid.innerHTML = '<span style="font-size:12px;color:var(--muted);">Loading…</span>';
+    grid.innerHTML = '<span style="font-size:12px;color:var(--muted);">Loading seats…</span>';
     joinBtn.disabled = true;
     joinBtn.textContent = "Choose a seat above";
+    _selectedSeat = null;
     const data = await fetchSeats(rid);
     if (!data) {
-      grid.innerHTML = '<span style="font-size:12px;color:var(--red);">Could not find room — check the code and try again.</span>';
+      grid.innerHTML = '<span style="font-size:12px;color:var(--red);">Room not found. Ask the host to share the correct link.</span>';
       return;
     }
-    buildSeatGrid(grid, joinBtn, data.total, data.takenIdxs, (i) => { _selectedSeat = i; });
+    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeat = i; });
   }
 
   document.getElementById("pv-join-btn").addEventListener("click", async () => {
@@ -1483,7 +1487,7 @@
     _selectedSeatHome = null;
     const grid    = document.getElementById("pv-seat-grid-home");
     const joinBtn = document.getElementById("pv-join-btn-home");
-    buildSeatGrid(grid, joinBtn, data.total, data.takenIdxs, (i) => { _selectedSeatHome = i; });
+    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeatHome = i; });
     document.getElementById("pv-seat-picker-home").style.display = "flex";
   }
 
