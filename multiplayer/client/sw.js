@@ -1,4 +1,4 @@
-const APP_CACHE = "fish-multiplayer-v2";
+const APP_CACHE = "fish-multiplayer-v3";
 const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -49,8 +49,10 @@ self.addEventListener("fetch", (event) => {
       if (cached) return cached;
       return fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(APP_CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(APP_CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() => caches.match("/"));
