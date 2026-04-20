@@ -995,7 +995,7 @@
     <h2>Room Created!</h2>
     <p class="wr-subtitle">Share this code with everyone who needs to join:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
-    <button class="pv-btn sm" id="wr-copy-btn" style="width:160px;">📋 Copy Code</button>
+    <button class="pv-btn sm" id="wr-copy-btn" style="width:180px;">📋 Copy Invite Link</button>
     <div class="wr-players" id="wr-players-list">
       <div class="wr-players-title">Players in room</div>
     </div>
@@ -1344,9 +1344,10 @@
 
   document.getElementById("wr-copy-btn").addEventListener("click", () => {
     const code = document.getElementById("wr-code-display").textContent;
-    navigator.clipboard?.writeText(code).catch(()=>{});
-    document.getElementById("wr-copy-btn").textContent = "✓ Copied!";
-    setTimeout(() => document.getElementById("wr-copy-btn").textContent = "📋 Copy Code", 2000);
+    const link = `${location.origin}/play/${code}`;
+    navigator.clipboard?.writeText(link).catch(()=>{});
+    document.getElementById("wr-copy-btn").textContent = "✓ Link Copied!";
+    setTimeout(() => document.getElementById("wr-copy-btn").textContent = "📋 Copy Invite Link", 2000);
   });
   document.getElementById("wr-code-display").addEventListener("click", () => {
     document.getElementById("wr-copy-btn").click();
@@ -1367,7 +1368,18 @@
       total_players: total, human_players: total - ai, ai_players: ai,
       replace_active: true,
     }, { timeoutMs:10000 });
-    if (!r.ok) { lobbyStatus("Create failed: " + (r.data?.error||r.status), true); return; }
+    if (!r.ok) {
+      // If another room is already active, offer to join it instead of showing a raw error
+      const activeId = normalizeRoomId(r.data?.active_room_id || "");
+      if (activeId) {
+        lobbyStatus(`A room (${activeId}) is already open. Checking seats…`, false);
+        document.getElementById("pv-join-code-home").value = activeId;
+        await checkRoomSeats();
+      } else {
+        lobbyStatus("Create failed: " + (r.data?.error||r.status), true);
+      }
+      return;
+    }
     // room_id is at top level of response; host seat is auto-claimed on creation
     const rId = normalizeRoomId(r.data?.room_id || rid);
     roomId = rId;
@@ -1703,7 +1715,11 @@
         { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
         { timeoutMs:8000 }).then(()=>refreshState());
       showWaitingRoom(roomId);
-      updateWaitingRoom(players, Boolean(payload.can_start), startFn);
+      // state is null in lobby — use payload.seats for the player list instead
+      const lobbyPlayers = (Array.isArray(payload.seats) ? payload.seats : [])
+        .filter(s => s.claimed_name)
+        .map(s => ({ index: s.index, name: s.claimed_name }));
+      updateWaitingRoom(lobbyPlayers, Boolean(payload.can_start), startFn);
     } else {
       hideWaitingRoom();
     }
