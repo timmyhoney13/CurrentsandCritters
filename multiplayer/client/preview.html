@@ -293,7 +293,20 @@
     }
 
     /* ── OPPONENTS ──────────────────────────────────────────────── */
-    #pv-opponents { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+    #pv-opponents { display: grid; gap: 8px; align-items: start; }
+    /* 1 opponent — centred */
+    #pv-opponents.opp-1 { grid-template-columns: 1fr; justify-items: center; }
+    /* 2 opponents — left + across */
+    #pv-opponents.opp-2 { grid-template-areas: "left across"; grid-template-columns: 1fr 2fr; }
+    /* 3 opponents — left + across + right */
+    #pv-opponents.opp-3 { grid-template-areas: "left across right"; grid-template-columns: 1fr 2fr 1fr; }
+    .opp-pos-across { grid-area: across; }
+    .opp-pos-left   { grid-area: left; }
+    .opp-pos-right  { grid-area: right; }
+    .opp-pos-label {
+      font-size: 9px; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 1px; text-align: center; margin-bottom: 3px; font-weight: 700;
+    }
 
     .pv-opp-card {
       background: var(--panel);
@@ -660,19 +673,21 @@
     }
     .pv-cost-badge.free { background: linear-gradient(135deg, #0a2a50, #061830); border-color: rgba(48,200,240,.4); color: var(--cyan); }
 
-    /* symbol pip */
+    /* symbol pip — top-right */
     .pv-sym-pip {
-      position: absolute; bottom: 4px; right: 4px;
+      position: absolute; top: 4px; right: 4px;
       font-size: 11px;
-      background: rgba(0,0,0,.7);
+      background: rgba(0,0,0,.72);
+      border: 1px solid rgba(48,200,240,.3);
       border-radius: 5px; padding: 1px 5px;
-      color: var(--muted); z-index: 4;
+      color: var(--cyan); z-index: 4;
+      font-weight: 700;
     }
 
-    /* star indicator */
+    /* star indicator — bottom-right */
     .pv-hand-card.has-star .pv-card-inner::after {
       content: "★";
-      position: absolute; top: 4px; right: 4px;
+      position: absolute; bottom: 4px; right: 4px;
       font-size: 13px; color: var(--gold);
       text-shadow: 0 0 8px rgba(245,200,66,.9);
       z-index: 4;
@@ -924,6 +939,86 @@
     #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #fff; }
     #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(255,255,255,.6); }
 
+    /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
+    #pv-score-modal, #pv-tutorial-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.82);
+      z-index: 2500; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #pv-score-modal.open, #pv-tutorial-modal.open { display: flex; }
+    .pv-modal-box {
+      background: linear-gradient(160deg, rgba(10,26,55,.98) 0%, rgba(5,14,32,.99) 100%);
+      border: 1px solid rgba(48,200,240,.22);
+      border-radius: 16px;
+      box-shadow: 0 0 60px rgba(48,200,240,.08), 0 20px 60px rgba(0,0,0,.7);
+      padding: 24px;
+      max-width: 640px; width: 95%; max-height: 85vh;
+      overflow-y: auto; position: relative;
+    }
+    .pv-modal-box h2 {
+      font-family: "Cinzel", serif; font-size: 1.1rem; font-weight: 900;
+      color: var(--gold); letter-spacing: 1.5px; margin-bottom: 16px;
+    }
+    .pv-modal-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 30px; height: 30px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 50%;
+      color: var(--muted); font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, border-color .15s;
+    }
+    .pv-modal-close:hover { color: var(--red); border-color: var(--red); }
+
+    /* Leaderboard summary */
+    .sb-leaderboard { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .sb-rank-pill {
+      display: flex; align-items: center; gap: 6px;
+      border: 1px solid rgba(48,200,240,.2); border-radius: 8px;
+      padding: 4px 10px; background: rgba(10,28,58,.7); font-size: 12px;
+    }
+    .sb-rank-badge {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900; flex-shrink: 0;
+    }
+    .sb-rank-1 { background: #c8971a; color: #2a1800; }
+    .sb-rank-2 { background: #808080; color: #fff; }
+    .sb-rank-3 { background: #7a4010; color: #fff; }
+    .sb-rank-n { background: var(--border); color: var(--muted); }
+    .sb-you { background: var(--teal); color: #fff; border-radius: 5px; font-size: 9px; padding: 1px 5px; font-weight: 800; }
+
+    .sb-player-block {
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px; margin-bottom: 8px; background: rgba(10,20,40,.5);
+    }
+    .sb-player-head {
+      display: flex; align-items: center; gap: 8px;
+      font-weight: 800; margin-bottom: 8px;
+    }
+    .sb-total-pill {
+      margin-left: auto; background: var(--gold); color: #1a0a00;
+      border-radius: 10px; padding: 2px 9px; font-size: 12px; font-weight: 900;
+      font-family: "Cinzel", serif;
+    }
+    .sb-card-row {
+      border-top: 1px solid rgba(48,200,240,.1); padding-top: 6px; margin-top: 6px;
+      font-size: 11px; color: var(--muted);
+    }
+    .sb-card-name { font-weight: 700; color: var(--text); font-size: 11.5px; }
+    .sb-card-pts { color: var(--green); font-weight: 800; }
+    .sb-card-components { margin-top: 2px; line-height: 1.5; }
+
+    /* ── TUTORIAL MODAL ─────────────────────────────────────────── */
+    .tut-step {
+      border-left: 3px solid var(--cyan); padding-left: 12px;
+      margin-bottom: 14px;
+    }
+    .tut-step h3 {
+      font-size: 14px; font-weight: 800; color: var(--cyan); margin-bottom: 4px;
+    }
+    .tut-step p { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+
     /* ── MISC ───────────────────────────────────────────────────── */
     .pv-tag {
       display: inline-block; background: var(--border);
@@ -1021,6 +1116,10 @@
     </div>
 
     <div id="pv-home-status"></div>
+    <button class="pv-btn full" id="pv-tutorial-open-btn"
+      style="background:linear-gradient(135deg,#1a4070,#0e2a50);border:1px solid rgba(48,200,240,.2);">
+      📖 Quick Tutorial — Learn How to Play
+    </button>
   </div>
 </div>
 
@@ -1051,6 +1150,7 @@
     <span id="pv-my-score-badge">0</span>
     <span id="pv-status-text">Connecting…</span>
     <div class="notice-btns">
+      <button class="pv-btn sm" id="pv-scores-btn" style="background:linear-gradient(135deg,#0a4a70,#062a50);">🏆 Scores</button>
       <button class="pv-btn sm danger" id="pv-back-btn">← Leave</button>
     </div>
   </div>
@@ -1149,6 +1249,48 @@
       <div class="zm-text" id="pv-zm-text"></div>
       <div class="zm-star" id="pv-zm-star" style="display:none;"></div>
     </div>
+  </div>
+</div>
+
+<!-- ══ SCORE BREAKDOWN MODAL ══════════════════════════════════════ -->
+<div id="pv-score-modal">
+  <div class="pv-modal-box">
+    <button class="pv-modal-close" id="pv-score-close">✕</button>
+    <h2>🏆 Score Breakdown</h2>
+    <div id="pv-score-content"></div>
+  </div>
+</div>
+
+<!-- ══ TUTORIAL MODAL ════════════════════════════════════════════ -->
+<div id="pv-tutorial-modal">
+  <div class="pv-modal-box">
+    <button class="pv-modal-close" id="pv-tut-close">✕</button>
+    <h2>📖 Quick Tutorial</h2>
+    <div class="tut-step">
+      <h3>🌊 Goal</h3>
+      <p>Build the best ocean ecosystem and score the most points. The game ends when an END GAME card is played — each other player gets one final turn, then scores are tallied.</p>
+    </div>
+    <div class="tut-step">
+      <h3>🃏 Your Turn</h3>
+      <p>On your turn: draw 2 cards from the deck or pool, play an Ocean card to start a new ecosystem, or attach Animal cards to an existing ocean in the matching direction (Up / Down / Left / Right).</p>
+    </div>
+    <div class="tut-step">
+      <h3>◆ Symbols &amp; Payment</h3>
+      <p>Every card has a symbol (Triangle, Square, Heart, Circle, Diamond). To activate a card's ability you must pay its cost by discarding cards from your hand. If the card requires a symbol match, at least one payment card must share that symbol — the game will block you if you try to play without it.</p>
+    </div>
+    <div class="tut-step">
+      <h3>★ Star Abilities</h3>
+      <p>Cards with ★ have a bonus Star Ability. Enable "★ Star ability" in the action bar, then play the card normally. One matching-symbol card from your hand is automatically used as the star payment.</p>
+    </div>
+    <div class="tut-step">
+      <h3>🏆 Scoring</h3>
+      <p>Cards score points based on your board: flat bonuses (+X), per-type bonuses (+X per Bird, etc.), and threshold bonuses (e.g. 1=5pts, 2=15pts, 3=30pts). Click the Score button in the notice bar during the game.</p>
+    </div>
+    <div class="tut-step">
+      <h3>👥 Multiplayer Layout</h3>
+      <p>With 2 players your opponent appears across the table (left). With 3 players the third player appears across the top. With 4 players the fourth appears on the right. Watch opponents to know when to trigger the END GAME card!</p>
+    </div>
+    <button class="pv-btn full gold" id="pv-tut-play-btn" style="margin-top:8px;">Ready — Let's Play!</button>
   </div>
 </div>
 
@@ -1953,9 +2095,28 @@
   function renderOpponents(opponents, turnIndex) {
     const el = document.getElementById("pv-opponents");
     cl(el);
+    el.className = "";
     if (!opponents.length) return;
 
-    opponents.forEach(p => {
+    const n = opponents.length;
+    el.classList.add(`opp-${Math.min(n, 3)}`);
+
+    // Position classes: first opp → across (top in 3-player), remaining → left then right
+    const posClasses = n === 1 ? [""] : n === 2 ? ["opp-pos-left", "opp-pos-across"] : ["opp-pos-left", "opp-pos-across", "opp-pos-right"];
+    const posLabels  = n === 1 ? [""] : n === 2 ? ["Left", "Across"] : ["Left", "Across", "Right"];
+
+    opponents.forEach((p, idx) => {
+      const posClass = posClasses[idx] || "";
+      const posLabel = posLabels[idx] || "";
+
+      const wrap = document.createElement("div");
+      wrap.className = posClass;
+
+      if (posLabel) {
+        const lbl = document.createElement("div"); lbl.className = "opp-pos-label";
+        lbl.textContent = posLabel; wrap.appendChild(lbl);
+      }
+
       const card = document.createElement("div");
       card.className = "pv-opp-card" + (p.index === turnIndex ? " active-turn" : "");
 
@@ -2015,9 +2176,114 @@
         more.textContent = `+${board.length-5}`; miniBoard.appendChild(more);
       }
       card.appendChild(miniBoard);
-      el.appendChild(card);
+      wrap.appendChild(card);
+      el.appendChild(wrap);
     });
   }
+
+  // ── Score breakdown modal ──────────────────────────────────────
+  function openScoreBreakdown() {
+    const payload = latestPayload;
+    const content = document.getElementById("pv-score-content");
+    while (content.firstChild) content.removeChild(content.firstChild);
+
+    const players = Array.isArray(payload?.state?.players) ? payload.state.players : [];
+    if (!players.length) {
+      const msg = document.createElement("p");
+      msg.style.cssText = "color:var(--muted);font-size:13px;";
+      msg.textContent = "No score data yet — scores appear once cards are played.";
+      content.appendChild(msg); return;
+    }
+
+    const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
+
+    // Leaderboard pills
+    const lbRow = document.createElement("div"); lbRow.className = "sb-leaderboard";
+    sorted.forEach((p, i) => {
+      const rankClass = i===0?"sb-rank-1":i===1?"sb-rank-2":i===2?"sb-rank-3":"sb-rank-n";
+      const isMe = Number(p.index) === _myIdxGlobal;
+      const pill = document.createElement("div"); pill.className = "sb-rank-pill";
+      const badge = document.createElement("div"); badge.className = `sb-rank-badge ${rankClass}`;
+      badge.textContent = i+1;
+      pill.appendChild(badge);
+      pill.appendChild(document.createTextNode(`${p.name}${isMe?" (you)":""} — ${Number(p.score||0)} pts`));
+      if (isMe) {
+        const you = document.createElement("span"); you.className = "sb-you"; you.textContent = "YOU";
+        pill.appendChild(you);
+      }
+      lbRow.appendChild(pill);
+    });
+    content.appendChild(lbRow);
+
+    sorted.forEach((p, rank) => {
+      const isMe = Number(p.index) === _myIdxGlobal;
+      const rankClass = rank===0?"sb-rank-1":rank===1?"sb-rank-2":rank===2?"sb-rank-3":"sb-rank-n";
+      const block = document.createElement("div"); block.className = "sb-player-block";
+
+      const head = document.createElement("div"); head.className = "sb-player-head";
+      const badge = document.createElement("div"); badge.className = `sb-rank-badge ${rankClass}`;
+      badge.textContent = rank+1; head.appendChild(badge);
+      const nameEl = document.createElement("span"); nameEl.textContent = p.name;
+      if (isMe) nameEl.style.color = "var(--cyan)"; head.appendChild(nameEl);
+      if (isMe) {
+        const you = document.createElement("span"); you.className = "sb-you"; you.textContent = "YOU";
+        head.appendChild(you);
+      }
+      const total = document.createElement("span"); total.className = "sb-total-pill";
+      total.textContent = `${Number(p.score||0)} pts`; head.appendChild(total);
+      block.appendChild(head);
+
+      const full = p?.score_breakdown?.full;
+      const rows = full && Array.isArray(full.card_rows) ? full.card_rows : [];
+      if (!rows.length) {
+        const none = document.createElement("div"); none.style.cssText = "font-size:11px;color:var(--muted);";
+        none.textContent = "No scored cards yet."; block.appendChild(none);
+      } else {
+        rows.forEach(row => {
+          const rowEl = document.createElement("div"); rowEl.className = "sb-card-row";
+          const nameRow = document.createElement("div");
+          const rowTotal = Number(row.total||0);
+          const sign = rowTotal >= 0 ? "+" : "";
+          nameRow.innerHTML = `<span class="sb-card-name">${row.card_uid}:${row.card_name}</span>
+            <span style="color:var(--muted);font-size:10px;"> (${row.is_ocean?"Ocean":"Animal"} · Ocean #${row.ocean_uid})</span>
+            <span class="sb-card-pts" style="float:right;">${sign}${rowTotal} pts</span>`;
+          rowEl.appendChild(nameRow);
+          const comps = Array.isArray(row.components) ? row.components : [];
+          if (comps.length) {
+            const compDiv = document.createElement("div"); compDiv.className = "sb-card-components";
+            compDiv.textContent = comps.map(c => {
+              const pts = Number(c.points||0);
+              return `${pts>=0?"+":""}${pts} ${String(c.reason||"").trim()}`;
+            }).join("  ·  ");
+            rowEl.appendChild(compDiv);
+          }
+          block.appendChild(rowEl);
+        });
+      }
+      content.appendChild(block);
+    });
+
+    document.getElementById("pv-score-modal").classList.add("open");
+  }
+
+  document.getElementById("pv-score-close").addEventListener("click", () => {
+    document.getElementById("pv-score-modal").classList.remove("open");
+  });
+  document.getElementById("pv-score-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("pv-score-modal"))
+      document.getElementById("pv-score-modal").classList.remove("open");
+  });
+  document.getElementById("pv-scores-btn").addEventListener("click", openScoreBreakdown);
+
+  // ── Tutorial modal ─────────────────────────────────────────────
+  function openTutorial() { document.getElementById("pv-tutorial-modal").classList.add("open"); }
+  function closeTutorial() { document.getElementById("pv-tutorial-modal").classList.remove("open"); }
+  document.getElementById("pv-tut-close").addEventListener("click", closeTutorial);
+  document.getElementById("pv-tutorial-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("pv-tutorial-modal")) closeTutorial();
+  });
+  document.getElementById("pv-tut-play-btn").addEventListener("click", closeTutorial);
+  document.getElementById("pv-tutorial-open-btn").addEventListener("click", openTutorial);
 
   // ── My board renderer ──────────────────────────────────────────
   function renderMyBoard(me, actions, isMyTurn) {
