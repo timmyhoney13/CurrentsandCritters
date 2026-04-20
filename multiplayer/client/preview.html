@@ -972,11 +972,12 @@
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
         <b style="color:var(--text);">1.</b> Enter your name &nbsp;
         <b style="color:var(--text);">2.</b> Click Create &nbsp;
-        <b style="color:var(--text);">3.</b> Share the code — click Start when everyone's in
+        <b style="color:var(--text);">3.</b> Share the code with friends — click Start when ready
       </div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a code from a friend? Use the <b>Join a Game</b> section below.</div>
       <div class="pv-row" style="margin-top:6px;">
         <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
-        <input class="pv-input" id="pv-room-code-new" placeholder="Code (optional)" maxlength="5"
+        <input class="pv-input" id="pv-room-code-new" placeholder="Custom code" maxlength="5"
           style="width:120px;flex:none;text-transform:uppercase;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       </div>
@@ -1025,7 +1026,7 @@
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
 <div id="pv-waiting-room">
   <div class="wr-box">
-    <h2>Room Created!</h2>
+    <h2 id="wr-title">Game Lobby</h2>
     <p class="wr-subtitle">Share this code with everyone who needs to join:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
     <button class="pv-btn sm" id="wr-copy-btn" style="width:180px;">📋 Copy Invite Link</button>
@@ -1347,8 +1348,9 @@
   // ── Lobby create / join ────────────────────────────────────────
 
   // ── Waiting room overlay helpers ──────────────────────────────
-  function showWaitingRoom(code) {
+  function showWaitingRoom(code, isHost) {
     document.getElementById("wr-code-display").textContent = code;
+    document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
     document.getElementById("pv-waiting-room").classList.add("open");
   }
   function hideWaitingRoom() {
@@ -1395,19 +1397,48 @@
     const ai    = Number(document.getElementById("pv-ai-players").value)||0;
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
+    const createBtn = document.getElementById("pv-create-btn");
+    createBtn.disabled = true;
     lobbyStatus("Creating room…", false);
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
-      replace_active: true,
+      replace_active: false,
     }, { timeoutMs:10000 });
+    createBtn.disabled = false;
     if (!r.ok) {
-      // If another room is already active, offer to join it instead of showing a raw error
       const activeId = normalizeRoomId(r.data?.active_room_id || "");
       if (activeId) {
-        lobbyStatus(`A room (${activeId}) is already open. Checking seats…`, false);
+        // A room is already active — guide user to join it; do NOT auto-replace
+        lobbyStatus(`A room (${activeId}) is already open — join it in the section below, or force-replace it.`, false);
         document.getElementById("pv-join-code-home").value = activeId;
-        await checkRoomSeats();
+        document.getElementById("pv-join-code-home").focus();
+        // Show a one-time "Force replace" link next to the status
+        const statusEl = document.getElementById("pv-home-status");
+        if (statusEl && !statusEl.querySelector(".force-replace-btn")) {
+          const forceBtn = document.createElement("button");
+          forceBtn.className = "pv-btn sm force-replace-btn";
+          forceBtn.style.cssText = "margin-top:6px;background:var(--red);border-color:var(--red);font-size:11px;padding:4px 10px;";
+          forceBtn.textContent = "⚠ Force replace that room (lose all progress)";
+          forceBtn.addEventListener("click", async () => {
+            forceBtn.remove();
+            lobbyStatus("Replacing room…", false);
+            const r2 = await apiPost("/api/rooms", {
+              create_key: createKey, host_name: name, room_id: rid,
+              total_players: total, human_players: total - ai, ai_players: ai,
+              replace_active: true,
+            }, { timeoutMs:10000 });
+            if (!r2.ok) { lobbyStatus("Create failed: " + (r2.data?.error||r2.status), true); return; }
+            const rId2 = normalizeRoomId(r2.data?.room_id || rid);
+            roomId = rId2;
+            if (r2.data?.host_token) setHostToken(r2.data.host_token);
+            if (r2.data?.seat_token) setSeatToken(r2.data.seat_token);
+            document.getElementById("pv-my-name-badge").textContent = name;
+            enterRoom(rId2);
+            showWaitingRoom(rId2, true);
+          });
+          statusEl.appendChild(forceBtn);
+        }
       } else {
         lobbyStatus("Create failed: " + (r.data?.error||r.status), true);
       }
@@ -1423,7 +1454,7 @@
     if (sToken) setSeatToken(sToken);
     document.getElementById("pv-my-name-badge").textContent = name;
     enterRoom(rId);
-    showWaitingRoom(rId);
+    showWaitingRoom(rId, true);
   });
 
   // ── Seat picker logic ──────────────────────────────────────────
@@ -1531,15 +1562,6 @@
   async function checkRoomSeats() {
     const rid = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
     if (!rid) { lobbyStatus("Enter a valid 5-letter room code first.", true); return; }
-
-    // if already have a token for this room, go straight in
-    roomId = rid;
-    if (getSeatToken() || getHostToken()) {
-      const name = document.getElementById("pv-join-name-home").value.trim() || "Player";
-      document.getElementById("pv-my-name-badge").textContent = name;
-      enterRoom(rid);
-      return;
-    }
     roomId = null;
 
     const checkBtn = document.getElementById("pv-check-room-btn");
@@ -1767,7 +1789,7 @@
       const startFn = () => apiPost(`/api/rooms/${roomId}/start`,
         { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
         { timeoutMs:8000 }).then(()=>refreshState());
-      showWaitingRoom(roomId);
+      showWaitingRoom(roomId, Boolean(getHostToken()));
       // state is null in lobby — use payload.seats for the player list instead
       const lobbyPlayers = (Array.isArray(payload.seats) ? payload.seats : [])
         .filter(s => s.claimed_name)
