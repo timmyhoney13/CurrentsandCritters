@@ -639,11 +639,29 @@
       transition: border-color .2s, box-shadow .2s;
       position: relative;
     }
-    .pv-card-inner img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.12s ease; }
-    .pv-card-inner.quad-top    img { transform: scale(2.2); transform-origin: center top; }
-    .pv-card-inner.quad-bottom img { transform: scale(2.2); transform-origin: center bottom; }
-    .pv-card-inner.quad-left   img { transform: scale(2.2); transform-origin: left center; }
-    .pv-card-inner.quad-right  img { transform: scale(2.2); transform-origin: right center; }
+    .pv-card-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* directional info chip — shown on hover based on mouse quadrant */
+    .pv-card-chip {
+      display: none;
+      position: absolute;
+      left: 4px; right: 4px;
+      background: rgba(8,18,32,.88);
+      border: 1px solid rgba(48,200,240,.35);
+      border-radius: 5px;
+      font-size: 10px; line-height: 1.3;
+      color: var(--fg);
+      padding: 3px 5px;
+      z-index: 6;
+      pointer-events: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pv-card-chip.chip-top    { top: 4px; }
+    .pv-card-chip.chip-bottom { bottom: 4px; }
+    .pv-card-chip.chip-left   { top: 50%; transform: translateY(-50%); }
+    .pv-card-chip.chip-right  { top: 50%; transform: translateY(-50%); }
+    .pv-hand-card.hovered .pv-card-chip { display: block; }
 
     /* shimmer sweep */
     .pv-card-inner::before {
@@ -1350,10 +1368,12 @@
   function createKeyKey()    { return "fish_create_key"; }
 
   let roomId = null;
-  function getSeatToken()  { if (!roomId) return ""; try { return localStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
-  function getHostToken()  { if (!roomId) return ""; try { return localStorage.getItem(hostTokenKey(roomId))||""; } catch { return ""; } }
-  function setSeatToken(v) { if (!roomId) return; try { localStorage.setItem(seatTokenKey(roomId), v); } catch {} }
-  function setHostToken(v) { if (!roomId) return; try { localStorage.setItem(hostTokenKey(roomId), v); } catch {} }
+  // sessionStorage is tab-isolated — each browser tab gets its own token so
+  // multiple players on the same device don't overwrite each other's seat.
+  function getSeatToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
+  function getHostToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(hostTokenKey(roomId))||""; } catch { return ""; } }
+  function setSeatToken(v) { if (!roomId) return; try { sessionStorage.setItem(seatTokenKey(roomId), v); } catch {} }
+  function setHostToken(v) { if (!roomId) return; try { sessionStorage.setItem(hostTokenKey(roomId), v); } catch {} }
   function getCreateKey()  { try { return localStorage.getItem(createKeyKey())||""; } catch { return ""; } }
   function makeRequestId() { return `preq_${Date.now()}_${Math.random().toString(36).slice(2,7)}`; }
 
@@ -2490,6 +2510,11 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       inner.appendChild(img);
 
+      // directional info chip
+      const chip = document.createElement("div");
+      chip.className = "pv-card-chip chip-top";
+      inner.appendChild(chip);
+
       const cost = Number(face.cost ?? 0);
       if (cost >= 0) {
         const badge = document.createElement("div");
@@ -2537,20 +2562,23 @@
         applyHandLayout(-1);
       });
 
-      // directional quadrant zoom: top/bottom/left/right of card image
+      // directional info chip: shows card detail based on which quadrant the mouse is in
+      const _chipInfo = {
+        top:    `${face.name||"?"}  ·  Cost ${cost===0?"free":cost}`,
+        bottom: mainText(face.text||"") || face.name || "No ability",
+        left:   `${face.species||"—"}  ·  ${sym||"No symbol"}`,
+        right:  st ? `★ ${st}` : (face.species||face.name||"—"),
+      };
       inner.addEventListener("mousemove", (ev) => {
         const rect = inner.getBoundingClientRect();
         const dx = (ev.clientX - rect.left) - rect.width  / 2;
         const dy = (ev.clientY - rect.top)  - rect.height / 2;
-        inner.classList.remove("quad-top","quad-bottom","quad-left","quad-right");
-        if (Math.abs(dy) >= Math.abs(dx)) {
-          inner.classList.add(dy < 0 ? "quad-top" : "quad-bottom");
-        } else {
-          inner.classList.add(dx < 0 ? "quad-left" : "quad-right");
-        }
+        let quad = Math.abs(dy) >= Math.abs(dx) ? (dy < 0 ? "top" : "bottom") : (dx < 0 ? "left" : "right");
+        chip.className = `pv-card-chip chip-${quad}`;
+        chip.textContent = _chipInfo[quad];
       });
       inner.addEventListener("mouseleave", () => {
-        inner.classList.remove("quad-top","quad-bottom","quad-left","quad-right");
+        chip.className = "pv-card-chip chip-top";
       });
 
       // click
