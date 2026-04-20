@@ -788,6 +788,101 @@
     .pv-toast.toast-err   { border-left-color: var(--red); }
     .pv-toast.toast-turn  { border-left-color: var(--gold); color: var(--gold); font-family: "Cinzel", serif; letter-spacing: 1px; }
 
+    /* ── WAITING ROOM OVERLAY ──────────────────────────────────── */
+    #pv-waiting-room {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(4,10,22,.96);
+      z-index: 900;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #pv-waiting-room.open { display: flex; }
+    .wr-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 32px 36px;
+      max-width: 420px; width: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 16px;
+      text-align: center;
+    }
+    .wr-box h2 {
+      font-family: "Cinzel", serif;
+      font-size: 1.3rem; font-weight: 900;
+      color: var(--gold); letter-spacing: 1px;
+    }
+    .wr-code {
+      font-family: "Cinzel", serif;
+      font-size: 3rem; font-weight: 900;
+      letter-spacing: 12px;
+      color: var(--cyan);
+      background: #08132a;
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 24px;
+      cursor: pointer;
+      transition: border-color .2s;
+      text-shadow: 0 0 30px rgba(61,214,245,.4);
+    }
+    .wr-code:hover { border-color: var(--cyan); }
+    .wr-subtitle { font-size: 13px; color: var(--muted); }
+    .wr-players {
+      width: 100%;
+      background: #08132a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 13px;
+      text-align: left;
+    }
+    .wr-players-title { font-weight: 800; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .wr-player-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #152235; }
+    .wr-player-row:last-child { border: none; }
+    .wr-seat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .wr-seat-dot.filled { background: var(--green); box-shadow: 0 0 6px rgba(31,187,138,.6); }
+    .wr-seat-dot.empty  { background: var(--border); }
+    .wr-player-name { font-weight: 700; color: var(--text); }
+    .wr-player-empty { color: var(--muted); font-style: italic; }
+    #wr-start-btn { width: 100%; padding: 14px; font-size: 15px; }
+    #wr-start-btn:disabled { filter: brightness(.5); }
+
+    /* ── GUIDE BAR ──────────────────────────────────────────────── */
+    #pv-guide-bar {
+      display: none;
+      background: linear-gradient(90deg, rgba(5,14,28,0) 0%, rgba(10,30,50,.95) 10%, rgba(10,30,50,.95) 90%, rgba(5,14,28,0) 100%);
+      padding: 7px 20px;
+      font-size: 12px; font-weight: 700;
+      color: var(--cyan);
+      text-align: center;
+      flex-shrink: 0;
+      letter-spacing: .3px;
+    }
+    #pv-guide-bar.visible { display: block; }
+    #pv-guide-bar .guide-step { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .gs { background: rgba(61,214,245,.12); border: 1px solid rgba(61,214,245,.25); border-radius: 20px; padding: 3px 12px; white-space: nowrap; }
+    .gs.done  { background: rgba(31,187,138,.1); border-color: rgba(31,187,138,.3); color: var(--green); }
+    .gs.active { background: rgba(245,200,66,.15); border-color: rgba(245,200,66,.4); color: var(--gold); }
+
+    /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
+    #pv-quick-draw-btn {
+      display: none;
+      flex-direction: column; align-items: center; gap: 2px;
+      background: linear-gradient(135deg, #0d6cb0, #0a5490);
+      border: 2px solid #2a80c0;
+      border-radius: 10px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-family: "Nunito", inherit;
+      transition: transform .15s, box-shadow .15s;
+      flex-shrink: 0;
+    }
+    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,108,176,.5); }
+    #pv-quick-draw-btn.visible { display: flex; }
+    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #fff; }
+    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(255,255,255,.6); }
+
     /* ── MISC ───────────────────────────────────────────────────── */
     .pv-tag {
       display: inline-block; background: var(--border);
@@ -805,25 +900,47 @@
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
 <div id="pv-lobby">
   <h1>Currents &amp; Critters</h1>
-  <p class="subtitle">Preview UI — same game, upgraded look. Connect to any active room.</p>
+  <p class="subtitle">Multiplayer card game — create a room or join one with a code.</p>
 
+  <!-- CREATE -->
   <div class="pv-lobby-box" id="pv-create-box">
-    <h2>Create Room</h2>
-    <div class="pv-row">
+    <h2>🏠 Host a Game</h2>
+    <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
+      <b style="color:var(--text);">Step 1</b> — Enter your name and how many players<br>
+      <b style="color:var(--text);">Step 2</b> — Click Create, then share the room code<br>
+      <b style="color:var(--text);">Step 3</b> — Once everyone has joined, click Start Game
+    </div>
+    <div class="pv-row" style="margin-top:4px;">
       <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
-      <input class="pv-input" id="pv-room-code-new" placeholder="Room code (5 chars)" maxlength="8" style="width:130px;flex:none;" />
+      <input class="pv-input" id="pv-room-code-new" placeholder="Code (optional)" maxlength="5"
+        style="width:130px;flex:none;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
     </div>
     <div class="pv-row">
-      <input class="pv-input" id="pv-total-players" type="number" min="2" max="6" value="2" placeholder="Players" style="width:90px;flex:none;" />
-      <input class="pv-input" id="pv-ai-players"    type="number" min="0" max="5" value="1" placeholder="AI"      style="width:90px;flex:none;" />
-      <button class="pv-btn gold full" id="pv-create-btn">Create</button>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">Human players</span>
+        <input class="pv-input" id="pv-total-players" type="number" min="1" max="6" value="2" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">AI opponents</span>
+        <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
+        <span style="font-size:11px;color:transparent;">x</span>
+        <button class="pv-btn gold" id="pv-create-btn">Create →</button>
+      </div>
     </div>
   </div>
 
+  <!-- JOIN -->
   <div class="pv-lobby-box">
-    <h2>Join Room</h2>
-    <!-- Step 1: name + code -->
-    <div class="pv-row">
+    <h2>🎮 Join a Game</h2>
+    <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
+      <b style="color:var(--text);">Step 1</b> — Enter your name and the 5-letter room code<br>
+      <b style="color:var(--text);">Step 2</b> — Click Check Seats to see open spots<br>
+      <b style="color:var(--text);">Step 3</b> — Click your seat number to claim it
+    </div>
+    <div class="pv-row" style="margin-top:4px;">
       <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" />
       <input class="pv-input" id="pv-join-code" placeholder="Room code" maxlength="5"
         style="text-transform:uppercase;width:130px;flex:none;"
@@ -831,15 +948,31 @@
     </div>
     <button class="pv-btn full" id="pv-check-room-btn">Check Available Seats →</button>
 
-    <!-- Step 2: seat grid (shown after checking) -->
     <div id="pv-seat-picker">
-      <div style="font-size:12px;color:var(--muted);text-align:center;">Pick your seat</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open seat to claim it</div>
       <div class="seat-grid" id="pv-seat-grid"></div>
       <button class="pv-btn full gold" id="pv-join-btn" disabled>Choose a seat above</button>
     </div>
   </div>
 
   <div id="pv-lobby-status"></div>
+</div>
+
+<!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
+<div id="pv-waiting-room">
+  <div class="wr-box">
+    <h2>Room Created!</h2>
+    <p class="wr-subtitle">Share this code with everyone who needs to join:</p>
+    <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
+    <button class="pv-btn sm" id="wr-copy-btn" style="width:160px;">📋 Copy Code</button>
+    <div class="wr-players" id="wr-players-list">
+      <div class="wr-players-title">Players in room</div>
+    </div>
+    <p class="wr-subtitle" style="font-size:11px;">Once everyone has joined, click Start Game below.</p>
+    <button class="pv-btn gold" id="wr-start-btn" style="width:100%;padding:14px;font-size:15px;" disabled>
+      Waiting for players…
+    </button>
+  </div>
 </div>
 
 <!-- ══ GAME ════════════════════════════════════════════════════════ -->
@@ -852,13 +985,15 @@
     <span id="pv-my-score-badge">0</span>
     <span id="pv-status-text">Connecting…</span>
     <div class="notice-btns">
-      <button class="pv-btn sm" id="pv-start-btn" style="display:none;">Start Game</button>
       <button class="pv-btn sm danger" id="pv-back-btn">← Leave</button>
     </div>
   </div>
 
   <!-- turn banner -->
   <div id="pv-turn-banner" class="their-turn">Waiting…</div>
+
+  <!-- guide bar: step-by-step hints on your turn -->
+  <div id="pv-guide-bar"></div>
 
   <!-- main table -->
   <div id="pv-table">
@@ -898,23 +1033,33 @@
 
   <!-- action bar -->
   <div id="pv-action-bar">
-    <select id="pv-action-select">
-      <option value="">Choose action…</option>
-    </select>
-    <button class="pv-btn" id="pv-play-btn">Play</button>
-    <div class="pv-action-divider"></div>
-    <label class="pv-star-wrap">
-      <input type="checkbox" id="pv-star-toggle" />
-      ★ Star
-    </label>
-    <div class="pv-action-divider"></div>
+    <!-- Quick draw button (shown when draw is available) -->
+    <button id="pv-quick-draw-btn" title="Draw 2 cards from the deck to fill your hand">
+      <span class="qd-label">🃏 Draw 2 Cards</span>
+      <span class="qd-sub">from deck</span>
+    </button>
+
+    <div class="pv-action-divider" id="pv-draw-divider" style="display:none;"></div>
+
+    <!-- Play a card controls -->
+    <div id="pv-play-controls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
+      <select id="pv-action-select" title="Select which card to play and where">
+        <option value="">Click a hand card, then pick where to play it…</option>
+      </select>
+      <button class="pv-btn" id="pv-play-btn" title="Play the selected action">Play Card</button>
+      <label class="pv-star-wrap" title="Use the card's special ★ ability">
+        <input type="checkbox" id="pv-star-toggle" />
+        ★ Star ability
+      </label>
+    </div>
+
     <div id="pv-payment-info">
       <span id="pv-payment-text">No payment</span>
-      <span class="clear-pay" id="pv-clear-pay">✕</span>
+      <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
     </div>
     <div style="flex:1;"></div>
-    <button class="pv-btn gold" id="pv-end-turn-inline">End Turn</button>
-    <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">Confirm Discard</button>
+    <button class="pv-btn gold" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
+    <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
 
   <!-- hand zone -->
@@ -1138,6 +1283,45 @@
     el.style.color = isErr ? "var(--red)" : "var(--muted)";
   }
 
+  // ── Waiting room overlay helpers ──────────────────────────────
+  function showWaitingRoom(code) {
+    document.getElementById("wr-code-display").textContent = code;
+    document.getElementById("pv-waiting-room").classList.add("open");
+  }
+  function hideWaitingRoom() {
+    document.getElementById("pv-waiting-room").classList.remove("open");
+  }
+  function updateWaitingRoom(players, canStart, startFn) {
+    const list = document.getElementById("wr-players-list");
+    list.innerHTML = '<div class="wr-players-title">Players in room</div>';
+    (players||[]).forEach(p => {
+      const row = document.createElement("div"); row.className = "wr-player-row";
+      const dot = document.createElement("div"); dot.className = "wr-seat-dot filled";
+      const nm  = document.createElement("span"); nm.className = "wr-player-name";
+      nm.textContent = `Seat ${p.index+1}: ${p.name||"?"}`;
+      row.appendChild(dot); row.appendChild(nm); list.appendChild(row);
+    });
+    const btn = document.getElementById("wr-start-btn");
+    if (canStart) {
+      btn.disabled = false;
+      btn.textContent = "▶  Start Game";
+      btn.onclick = startFn;
+    } else {
+      btn.disabled = true;
+      btn.textContent = `Waiting for players… (${(players||[]).length} joined)`;
+    }
+  }
+
+  document.getElementById("wr-copy-btn").addEventListener("click", () => {
+    const code = document.getElementById("wr-code-display").textContent;
+    navigator.clipboard?.writeText(code).catch(()=>{});
+    document.getElementById("wr-copy-btn").textContent = "✓ Copied!";
+    setTimeout(() => document.getElementById("wr-copy-btn").textContent = "📋 Copy Code", 2000);
+  });
+  document.getElementById("wr-code-display").addEventListener("click", () => {
+    document.getElementById("wr-copy-btn").click();
+  });
+
   document.getElementById("pv-create-btn").addEventListener("click", async () => {
     const name = document.getElementById("pv-host-name").value.trim() || "Host";
     let rid = normalizeRoomId(document.getElementById("pv-room-code-new").value.trim() ||
@@ -1161,7 +1345,9 @@
     const j = await apiPost(`/api/rooms/${rId}/join`, { player_name: name, seat_index: 0 }, { timeoutMs:8000 });
     if (j.ok && j.data?.seat_token) setSeatToken(j.data.seat_token);
     document.getElementById("pv-my-name-badge").textContent = name;
+    // show game view then overlay waiting room
     enterRoom(rId);
+    showWaitingRoom(rId);
   });
 
   // ── Seat picker logic ──────────────────────────────────────────
@@ -1433,14 +1619,16 @@
     const nameEl = document.getElementById("pv-my-name-badge");
     if (me && !nameEl.textContent) nameEl.textContent = me.name;
 
-    // start button
-    const startBtn = document.getElementById("pv-start-btn");
-    if (payload.can_start && phase === "lobby") {
-      startBtn.style.display = "";
-      startBtn.onclick = () => apiPost(`/api/rooms/${roomId}/start`,
+    // waiting room overlay: show during lobby phase, hide once game starts
+    if (phase === "lobby") {
+      const startFn = () => apiPost(`/api/rooms/${roomId}/start`,
         { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
         { timeoutMs:8000 }).then(()=>refreshState());
-    } else { startBtn.style.display = "none"; }
+      showWaitingRoom(roomId);
+      updateWaitingRoom(players, Boolean(payload.can_start), startFn);
+    } else {
+      hideWaitingRoom();
+    }
 
     // turn banner + "your turn" toast
     const banner = document.getElementById("pv-turn-banner");
@@ -1490,6 +1678,7 @@
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess);
+    renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess);
     renderLog(payload.log_tail);
 
     const discBanner = document.getElementById("pv-discard-banner");
@@ -1844,6 +2033,70 @@
     for (const opt of sel.options) {
       if (matching.some(a => String(a.index)===opt.value)) { sel.value=opt.value; break; }
     }
+  }
+
+  // ── Guide bar ──────────────────────────────────────────────────
+  function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess) {
+    const bar = document.getElementById("pv-guide-bar");
+    const qdBtn = document.getElementById("pv-quick-draw-btn");
+    const drawDivider = document.getElementById("pv-draw-divider");
+
+    if (!isMyTurn) {
+      bar.classList.remove("visible");
+      qdBtn.classList.remove("visible");
+      drawDivider.style.display = "none";
+      return;
+    }
+
+    if (mustDiscard) {
+      bar.classList.add("visible");
+      bar.innerHTML = `<div class="guide-step">
+        <span class="gs active">✂ You have too many cards — select exactly ${discardExcess} to discard, then click Confirm Discard</span>
+      </div>`;
+      qdBtn.classList.remove("visible");
+      drawDivider.style.display = "none";
+      return;
+    }
+
+    const drawAction = actions.find(a => a.kind === "draw" && !Number(a.draw_from_pool));
+    const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
+    const board = Array.isArray(me?.board) ? me.board : [];
+    const hasOcean = board.length > 0;
+    const hasOceanInHand = Array.isArray(me?.hand) && me.hand.some(c => (c.species||"").toLowerCase() === "ocean");
+
+    // Wire up quick draw button
+    if (drawAction) {
+      qdBtn.classList.add("visible");
+      drawDivider.style.display = "";
+      qdBtn.onclick = () => submitAction(drawAction);
+    } else {
+      qdBtn.classList.remove("visible");
+      drawDivider.style.display = "none";
+    }
+
+    // Build step chips
+    const steps = [];
+
+    if (drawAction) {
+      steps.push(`<span class="gs active">① Draw 2 Cards — click the button on the left OR the deck pile</span>`);
+    } else {
+      steps.push(`<span class="gs done">① Cards drawn ✓</span>`);
+    }
+
+    if (!hasOcean && hasOceanInHand) {
+      steps.push(`<span class="gs active">② Play an Ocean card from your hand to start your board</span>`);
+    } else if (!hasOcean) {
+      steps.push(`<span class="gs">② Play an Ocean card to start your board</span>`);
+    } else if (playActions.length > 0) {
+      steps.push(`<span class="gs${drawAction?"":" active"}">② Click a card in your hand → pick where to play → click Play Card</span>`);
+    } else {
+      steps.push(`<span class="gs done">② Nothing more to play</span>`);
+    }
+
+    steps.push(`<span class="gs">③ Click ✓ End Turn when done</span>`);
+
+    bar.classList.add("visible");
+    bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
   }
 
   // ── Action bar renderer ────────────────────────────────────────
