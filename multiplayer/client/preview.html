@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Currents &amp; Critters — Preview</title>
+  <title>Currents &amp; Critters</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -900,7 +900,7 @@
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
 <div id="pv-lobby">
   <h1>Currents &amp; Critters</h1>
-  <p class="subtitle">Multiplayer card game — create a room or join one with a code.</p>
+  <p class="subtitle">Multiplayer card game — host a room or join one with a 5-letter code.</p>
 
   <!-- CREATE -->
   <div class="pv-lobby-box" id="pv-create-box">
@@ -1091,9 +1091,8 @@
 
 <script>
   /* ================================================================
-   * PREVIEW UI — presentation layer only
-   * Gameplay: fish_game_all_in_one.py + multiplayer_server.py (locked)
-   * API: same endpoints as index.html
+   * Currents & Critters — multiplayer client
+   * Gameplay: fish_game_all_in_one.py + multiplayer_server.py
    * ================================================================ */
 
   window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
@@ -1148,8 +1147,13 @@
 
   function roomFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
-    if (parts.length >= 2 && (parts[0]==="preview"||parts[0]==="play")) {
+    // /play/XXXXX or /preview/XXXXX or /classic/XXXXX
+    if (parts.length >= 2) {
       const r = normalizeRoomId(parts[1]); if (r) return r;
+    }
+    // /XXXXX (bare room ID as path)
+    if (parts.length === 1) {
+      const r = normalizeRoomId(parts[0]); if (r) return r;
     }
     const qs = new URLSearchParams(location.search);
     return normalizeRoomId(qs.get("room")||qs.get("roomId")||"");
@@ -1373,7 +1377,7 @@
     roomId = null;
 
     // fetch room state to see which seats exist and which are taken
-    const res = await apiFetch(apiUrl(`/api/rooms/${rid}/state`), { method:"GET", timeoutMs:6000 });
+    const res = await apiFetch(`/api/rooms/${rid}/state`, { method:"GET", timeoutMs:6000 });
     document.getElementById("pv-check-room-btn").disabled = false;
 
     if (!res.ok) {
@@ -2232,13 +2236,15 @@
     roomId = urlRoom;
     if (urlSeat) setSeatToken(urlSeat);
     if (urlHost) setHostToken(urlHost);
-    // pre-fill join field in case token is missing (user can enter name + join)
+    // always pre-fill the code field
     document.getElementById("pv-join-code").value = urlRoom;
     if (getSeatToken() || getHostToken()) {
+      // already have a token — go straight in
       enterRoom(urlRoom);
     } else {
-      // no token: show lobby with code pre-filled so user clicks Join
-      lobbyStatus("Room found — enter your name and click Join.", false);
+      // no token — auto-trigger seat check so they just pick a seat + click Join
+      lobbyStatus("Enter your name, then pick a seat below.", false);
+      checkRoomSeats();
     }
   })();
 
