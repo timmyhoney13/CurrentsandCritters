@@ -639,7 +639,11 @@
       transition: border-color .2s, box-shadow .2s;
       position: relative;
     }
-    .pv-card-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pv-card-inner img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.12s ease; }
+    .pv-card-inner.quad-top    img { transform: scale(2.2); transform-origin: center top; }
+    .pv-card-inner.quad-bottom img { transform: scale(2.2); transform-origin: center bottom; }
+    .pv-card-inner.quad-left   img { transform: scale(2.2); transform-origin: left center; }
+    .pv-card-inner.quad-right  img { transform: scale(2.2); transform-origin: right center; }
 
     /* shimmer sweep */
     .pv-card-inner::before {
@@ -1912,7 +1916,7 @@
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
     const current = state.current_player || "";
-    const isMyTurn = !!(me && state.turn_index === myIdx);
+    const isMyTurn = Boolean(viewer.can_act);
     canInteract = isMyTurn;
 
     const mustDiscard   = Boolean(lw.must_discard_to_ten);
@@ -2531,6 +2535,22 @@
       card.addEventListener("mouseleave", () => {
         card.classList.remove("hovered");
         applyHandLayout(-1);
+      });
+
+      // directional quadrant zoom: top/bottom/left/right of card image
+      inner.addEventListener("mousemove", (ev) => {
+        const rect = inner.getBoundingClientRect();
+        const dx = (ev.clientX - rect.left) - rect.width  / 2;
+        const dy = (ev.clientY - rect.top)  - rect.height / 2;
+        inner.classList.remove("quad-top","quad-bottom","quad-left","quad-right");
+        if (Math.abs(dy) >= Math.abs(dx)) {
+          inner.classList.add(dy < 0 ? "quad-top" : "quad-bottom");
+        } else {
+          inner.classList.add(dx < 0 ? "quad-left" : "quad-right");
+        }
+      });
+      inner.addEventListener("mouseleave", () => {
+        inner.classList.remove("quad-top","quad-bottom","quad-left","quad-right");
       });
 
       // click
