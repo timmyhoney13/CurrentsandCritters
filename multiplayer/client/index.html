@@ -1853,23 +1853,23 @@
       return String(n).padStart(2, "0");
     }
 
+    const CARD_IMAGE_VERSION = "20260419-full158";
+
     function imagePathForUid(uid) {
+      // Up/Down deck: 96 cards, 2 cards per page => 48 pages.
       if (uid >= 1 && uid <= 96) {
         const page = Math.floor((uid + 1) / 2);
-        return `/horizontal_cards/page_${pad2(page)}.png`;
+        return `/horizontal_cards/page_${pad2(page)}.png?v=${CARD_IMAGE_VERSION}`;
       }
-      if (uid >= 101 && uid <= 190) {
+      // Left/Right deck: 88 cards, 2 cards per page => 44 pages.
+      if (uid >= 101 && uid <= 188) {
         const page = Math.floor((uid - 101) / 2) + 1;
-        return `/vertical_cards/page_${pad2(page)}.png`;
+        return `/vertical_cards/page_${pad2(page)}.png?v=${CARD_IMAGE_VERSION}`;
       }
-      if (uid >= 201 && uid <= 259) {
+      // Ocean deck: 66 cards, 1 card per page => 66 pages.
+      if (uid >= 201 && uid <= 266) {
         const page = uid - 200;
-        return `/oceans_cards/page_${pad2(page)}.png`;
-      }
-      // UID 260 is absent from the deck; UIDs 261-265 occupy PDF pages 60-64
-      if (uid >= 261 && uid <= 265) {
-        const page = uid - 201;
-        return `/oceans_cards/page_${pad2(page)}.png`;
+        return `/oceans_cards/page_${pad2(page)}.png?v=${CARD_IMAGE_VERSION}`;
       }
       return "";
     }
