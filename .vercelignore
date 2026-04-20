@@ -12,6 +12,7 @@ live_game_viewer.html
 # Python source files (backend runs on Render, not Vercel)
 *.py
 *.json
+!vercel.json
 *.txt
 *.md
 Dockerfile
