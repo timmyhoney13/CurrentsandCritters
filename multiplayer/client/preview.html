@@ -1893,20 +1893,21 @@
 
     const maxShow = 8;
     pool.slice(-maxShow).forEach(entry => {
-      const faceUid = entry.face_uid ?? entry.uid;
+      const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+      const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
       const div = document.createElement("div");
       div.className = "pv-pool-card" + (selectedPool.has(faceUid) ? " selected" : "");
       const img = document.createElement("img");
-      img.src = imagePathForUid(faceUid); img.alt = entry.name||""; img.loading="lazy";
+      img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
-      div.title = entry.name || String(faceUid);
+      div.title = face.name || String(faceUid);
       div.addEventListener("click", () => {
         if (selectedPool.has(faceUid)) selectedPool.delete(faceUid);
         else selectedPool.add(faceUid);
         renderPool(pool, actions);
       });
       // click opens zoom
-      div.addEventListener("dblclick", () => openZoom(faceUid, entry.name, entry.text, entry.species));
+      div.addEventListener("dblclick", () => openZoom(faceUid, face.name, face.text, face.species));
       wrap.appendChild(div);
     });
     if (pool.length > maxShow) {
@@ -2156,8 +2157,10 @@
     const n = visible.length;
 
     visible.forEach((entry, i) => {
-      const entryUid = Number(entry.entry_uid ?? entry.uid);
-      const faceUid  = Number(entry.face_uid  ?? entry.uid);
+      // Server wraps entries as { entry_uid, faces: [{uid, name, cost, ...}] }
+      const face     = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+      const entryUid = Number(entry.entry_uid ?? face.uid ?? entry.uid);
+      const faceUid  = Number(face.uid ?? entry.entry_uid ?? entry.uid);
 
       const card = document.createElement("div");
       card.className = "pv-hand-card";
@@ -2165,17 +2168,17 @@
       card.dataset.faceUid  = String(faceUid);
       card.dataset.idx      = i;
 
-      const st = starText(entry.text||"");
+      const st = starText(face.text||"");
       if (st) card.classList.add("has-star");
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
 
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
       const img   = document.createElement("img");
-      img.src = imagePathForUid(faceUid); img.alt = entry.name||""; img.loading="lazy";
+      img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       inner.appendChild(img);
 
-      const cost = Number(entry.cost ?? 0);
+      const cost = Number(face.cost ?? 0);
       if (cost >= 0) {
         const badge = document.createElement("div");
         badge.className = "pv-cost-badge" + (cost===0?" free":"");
@@ -2183,7 +2186,7 @@
         inner.appendChild(badge);
       }
 
-      const sym = entry.symbol || "";
+      const sym = face.symbol || "";
       if (sym && normalizeSymbol(sym) !== "n/a") {
         const pip = document.createElement("div"); pip.className = "pv-sym-pip";
         pip.textContent = symbolEmoji(sym); inner.appendChild(pip);
@@ -2192,9 +2195,9 @@
 
       // tooltip
       const tip = document.createElement("div"); tip.className = "pv-tooltip";
-      const mt  = mainText(entry.text||"");
-      tip.innerHTML = `<div class="tt-name">${entry.name||"?"}</div>
-        <div class="tt-species" style="color:${speciesColor(entry.species)}">${entry.species||""} · ${sym} · cost ${cost}</div>
+      const mt  = mainText(face.text||"");
+      tip.innerHTML = `<div class="tt-name">${face.name||"?"}</div>
+        <div class="tt-species" style="color:${speciesColor(face.species)}">${face.species||""} · ${sym} · cost ${cost}</div>
         <div class="tt-text">${mt}</div>
         ${st ? `<div class="tt-star">★ ${st}</div>` : ""}
         <div class="tt-arrow"></div>`;
@@ -2242,7 +2245,7 @@
       // double-click: zoom
       card.addEventListener("dblclick", (ev) => {
         ev.stopPropagation();
-        openZoom(faceUid, entry.name, entry.text, entry.species);
+        openZoom(faceUid, face.name, face.text, face.species);
       });
 
       zone.appendChild(card);
