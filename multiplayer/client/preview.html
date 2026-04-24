@@ -525,13 +525,13 @@
     .pv-ocean-face {
       width: 84px; height: 118px;
       border-radius: 9px; overflow: hidden;
-      border: 2px solid #2a6080;
+      border: none;
       box-shadow: 0 0 14px rgba(0,0,0,.5);
       cursor: pointer;
-      transition: border-color .2s, box-shadow .2s;
+      transition: box-shadow .2s;
     }
     .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pv-ocean-face:hover { border-color: var(--cyan); box-shadow: 0 0 20px rgba(61,214,245,.35); }
+    .pv-ocean-face:hover { box-shadow: 0 0 20px rgba(61,214,245,.35); }
 
     .pv-lane-slot {
       width: var(--mini-w); height: var(--mini-h);
@@ -1287,6 +1287,7 @@
         <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
+        <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
       </div>
     </div>
   </div>
@@ -2185,6 +2186,8 @@
     updateMenuScores(players, myIdx);
     const _mrc = document.getElementById("pv-menu-room-code");
     if (_mrc) _mrc.textContent = roomId || "—";
+    const _termBtn = document.getElementById("pv-menu-terminate-btn");
+    if (_termBtn) _termBtn.style.display = (payload.viewer?.is_host || Boolean(getHostToken())) ? "" : "none";
 
     const discBanner = document.getElementById("pv-discard-banner");
     if (mustDiscard) {
@@ -2947,14 +2950,24 @@
       sel.disabled=true; playBtn.disabled=true; endBtn.disabled=true; return;
     }
 
-    // populate dropdown
-    const prevVal = sel.value; cl(sel);
-    const firstOpt = document.createElement("option");
-    firstOpt.value=""; firstOpt.textContent="Choose action…"; sel.appendChild(firstOpt);
-
-    const endAct     = actions.find(a => a.kind==="end_turn");
+    const endAct      = actions.find(a => a.kind==="end_turn");
     const playActions = actions.filter(a => a.kind!=="draw" && a.kind!=="end_turn" && a.kind!=="discard_to_pool" && a.kind!=="discard_batch_to_pool");
     const drawActions = actions.filter(a => a.kind==="draw" && !Number(a.draw_from_pool));
+
+    // Rebuild select only when available actions change — prevents the native
+    // picker from closing on every 1-second poll tick.
+    const actionFingerprint = actions.map(a => `${a.index}:${a.kind}:${a.face_uid}:${a.ocean_uid}:${a.face_direction}`).join("|");
+    const prevVal = sel.value;
+    if (sel.dataset.fingerprint === actionFingerprint) {
+      sel.disabled = false; playBtn.disabled = false;
+      if (endAct) { endBtn.disabled=false; endBtn.onclick=()=>submitAction(endAct); }
+      else { endBtn.disabled=true; endBtn.onclick=null; }
+      return;
+    }
+    sel.dataset.fingerprint = actionFingerprint;
+    cl(sel);
+    const firstOpt = document.createElement("option");
+    firstOpt.value=""; firstOpt.textContent="Choose action…"; sel.appendChild(firstOpt);
 
     if (drawActions.length) {
       const grp = document.createElement("optgroup"); grp.label="Draw";
@@ -3093,6 +3106,20 @@
     const d = document.getElementById("pv-menu-drop");
     if (d && d.classList.contains("open") && !e.target.closest(".pv-menu-wrap")) closeMenu();
   });
+  document.getElementById("pv-menu-terminate-btn").addEventListener("click", async () => {
+    closeMenu();
+    if (!confirm("Terminate the game for ALL players? This cannot be undone.")) return;
+    try {
+      const res = await apiPost(`/api/rooms/${roomId}/terminate`, {
+        host_token: getHostToken(),
+        seat_token: getSeatToken(),
+      }, { timeoutMs: 8000 });
+      if (!res.ok) showToast(res.error || "Terminate failed.", "warn");
+    } catch (e) {
+      showToast("Could not reach server.", "warn");
+    }
+  });
+
   document.getElementById("pv-menu-fullboards-btn").addEventListener("click", () => {
     pvFullBoards = !pvFullBoards;
     document.getElementById("pv-menu-fullboards-btn").textContent =

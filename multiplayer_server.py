@@ -1215,6 +1215,15 @@ class GameRoom:
             self._launch_game_locked(card_db, status_note="Game restarted. Waiting for first turn.")
             return {"ok": True}
 
+    def terminate_game(self, host_token: str, seat_token: Optional[str]) -> Dict[str, Any]:
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            self.phase = "ended"
+            self.status_note = "Game terminated by host."
+            self._bump_locked(force_persist=True)
+            return {"ok": True}
+
     def resume_after_restore(self, card_db: Dict[int, fish.CardDef]) -> Dict[str, Any]:
         with self.cond:
             if self.phase != "running":
@@ -3020,6 +3029,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
             out = room.restart_game(host_token, seat_token, CARD_DB)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "terminate":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            out = room.terminate_game(host_token, seat_token)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.FORBIDDEN
             self._send_json(out, status=status)
             return
 
