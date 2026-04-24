@@ -874,6 +874,69 @@
       margin-top: 14px;
       text-align: center;
     }
+
+    /* ── SPATIAL TABLE (new in-game layout) ── */
+    body.in-game #scorePanel, body.in-game #othersPanel, body.in-game #logPanel,
+    body.in-game #summaryPanel, body.in-game #gameMetaPanel, body.in-game #playOptPanel,
+    body.in-game #zonePanel, body.in-game #handPanel, body.in-game #poolPanel { display: none !important; }
+    body.in-game #newGameArea { display: flex; flex-direction: column; min-height: 100vh; background: #0a1628; }
+    #newGameArea { display: none; }
+    body.in-game .wrap { margin-right: 0; padding: 0; max-width: none; }
+
+    #topDropBar { position: sticky; top: 0; z-index: 200; background: #0d1f3c; border-bottom: 2px solid #1a3a6e; display: flex; align-items: center; padding: 6px 12px; gap: 10px; }
+    #topGameInfo { flex: 1; font-size: 0.85rem; color: #8ab4d8; }
+    .top-menu-wrap { position: relative; }
+    #topMenuBtn { background: #1a3a6e; border: 1px solid #2a5aa0; color: #c8e0f8; padding: 5px 12px; border-radius: 6px; cursor: pointer; }
+    #topMenuDrop { display: none; position: absolute; top: calc(100% + 4px); right: 0; min-width: 220px; background: #0d1f3c; border: 1px solid #2a5aa0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 5000; padding: 8px 0; flex-direction: column; }
+    #topMenuDrop.open { display: flex; }
+    .menu-drop-btn { display: block; width: 100%; text-align: left; background: none; border: none; color: #c8e0f8; padding: 8px 16px; cursor: pointer; font-size: 0.9rem; }
+    .menu-drop-btn:hover { background: #1a3a6e; }
+    .menu-drop-divider { height: 1px; background: #1a3a6e; margin: 4px 0; }
+    .menu-drop-section { padding: 4px 14px; font-size: 0.72rem; color: #557aaa; text-transform: uppercase; }
+    #menuScoresList { padding: 6px 16px 4px; font-size: 0.82rem; color: #a0c4e8; line-height: 1.7; }
+    .menu-room-code { padding: 4px 16px 8px; font-size: 0.8rem; color: #8ab4d8; font-family: monospace; }
+
+    #spatialTable { flex: 1; display: grid; grid-template-rows: auto auto 1fr auto; grid-template-areas: "top-row" "mini-row" "middle" "bottom"; gap: 4px; padding: 6px; }
+    #tableTop { grid-area: top-row; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    #tableMiniRow { grid-area: mini-row; display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
+    #tableMiddle { grid-area: middle; display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center; }
+    #tableLeft { display: flex; align-items: center; justify-content: flex-end; }
+    #tableCenter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: #060f1e; border: 2px solid #1a4a7e; border-radius: 12px; padding: 12px 16px; min-width: 180px; }
+    #tableRight { display: flex; align-items: center; justify-content: flex-start; }
+    #tableBottom { grid-area: bottom; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 2px solid #1a3a6e; }
+
+    .layout-2p #tableLeft, .layout-2p #tableRight { display: none; }
+    .layout-3p #tableRight { display: none; }
+    .layout-mini #tableTop, .layout-mini #tableLeft, .layout-mini #tableRight { display: none; }
+
+    .table-opp-wrap { background: #091525; border: 1px solid #1a3a6e; border-radius: 8px; padding: 6px; max-width: 340px; cursor: pointer; }
+    .table-opp-wrap:hover { border-color: #4a9eff; }
+    .table-opp-label { font-size: 0.72rem; color: #6a9dc8; text-align: center; margin-bottom: 4px; }
+    .table-opp-inner.rotated { transform: rotate(180deg); }
+
+    .mini-board-card { width: 160px; background: #091525; border: 1px solid #1a3a6e; border-radius: 8px; padding: 6px 8px; cursor: pointer; }
+    .mini-board-card:hover { border-color: #4a9eff; }
+    .mini-board-name { font-size: 0.72rem; color: #8ab4d8; font-weight: 700; margin-bottom: 4px; }
+    .mini-board-score { font-size: 0.68rem; color: #5a9eff; margin-bottom: 4px; }
+    .mini-board-thumbs { display: flex; flex-wrap: wrap; gap: 2px; }
+    .mini-board-thumb { width: 28px; height: 20px; object-fit: cover; border-radius: 2px; }
+
+    #boardFocusOverlay { display: none; position: fixed; inset: 0; z-index: 8500; background: rgba(5,12,25,0.92); flex-direction: column; align-items: center; justify-content: flex-start; padding: 24px 16px; overflow-y: auto; }
+    #boardFocusOverlay.open { display: flex; }
+    #boardFocusLabel { font-size: 1.2rem; color: #a0d0ff; font-weight: 700; margin-bottom: 16px; }
+    #boardFocusContent { background: #091525; border: 2px solid #2a6aaa; border-radius: 12px; padding: 20px; max-width: 900px; width: 100%; }
+    #boardFocusClose { position: absolute; top: 14px; right: 18px; background: #1a3a6e; border: none; color: #c8e0f8; font-size: 1.3rem; width: 34px; height: 34px; border-radius: 50%; cursor: pointer; }
+
+    #gameSummaryFloat { display: none; position: fixed; bottom: 16px; right: 16px; width: 300px; max-height: 50vh; background: #0d1f3c; border: 1px solid #2a5aa0; border-radius: 10px; z-index: 3000; flex-direction: column; overflow: hidden; }
+    #gameSummaryFloat.open { display: flex; }
+    .summary-float-hdr { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #1a3a6e; font-size: 0.85rem; font-weight: 700; color: #8ab4d8; cursor: pointer; }
+    #gameSummaryFloat #gameLog { padding: 8px 12px; font-size: 0.78rem; color: #7a9cbc; overflow-y: auto; flex: 1; }
+
+    #myHandArea { display: none; }
+    #myControls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 6px 0; }
+
+    @media (max-width: 880px) { #tableMiddle { grid-template-columns: 1fr !important; } #tableLeft, #tableRight { display: none !important; } }
+    @media (max-width: 640px) { #gameSummaryFloat { width: calc(100vw - 24px); right: 12px; } .mini-board-card { width: 130px; } }
   </style>
 </head>
 <body>
@@ -1018,88 +1081,95 @@
     <section class="panel" id="gameMetaPanel" style="display:none;">
       <div class="meta" id="gameMeta">Waiting for game state...</div>
       <div class="status" id="gameStatus"></div>
-      <div class="row" style="margin-top:8px;">
+    </section>
+
+    <section class="panel" id="playOptPanel" style="display:none;"></section>
+    <section class="panel" id="zonePanel" style="display:none;"></section>
+    <section class="panel" id="handPanel" style="display:none;"></section>
+    <section class="panel" id="poolPanel" style="display:none;"></section>
+    <section class="panel" id="othersPanel" style="display:none;"></section>
+    <section class="panel" id="scorePanel" style="display:none;"></section>
+    <section class="panel" id="logPanel" style="display:none;"></section>
+    <section class="panel" id="summaryPanel" style="display:none;"></section>
+  </div>
+
+  <!-- NEW SPATIAL GAME AREA -->
+  <div id="newGameArea">
+    <div id="topDropBar">
+      <div id="topGameInfo">
+        <span id="topBarMeta">Waiting...</span>
+      </div>
+      <div class="top-menu-wrap">
+        <button id="topMenuBtn">&#9776; Menu</button>
+        <div id="topMenuDrop">
+          <div class="menu-drop-section">Scores</div>
+          <div id="menuScoresList">—</div>
+          <div class="menu-drop-divider"></div>
+          <button class="menu-drop-btn" id="menuSummaryToggleBtn">&#128203; Game Log: Off</button>
+          <div class="menu-drop-divider"></div>
+          <div class="menu-drop-section">Room</div>
+          <div class="menu-room-code" id="menuRoomCode">—</div>
+          <a class="menu-drop-btn" href="/rules.html" target="_blank" style="text-decoration:none;">&#128218; Click me for rules</a>
+          <div class="menu-drop-divider"></div>
+          <button class="menu-drop-btn" id="menuLeaveBtn">&#11013; Leave Game</button>
+          <button class="menu-drop-btn" id="menuRestartBtn2" style="display:none;">&#8635; Restart Game</button>
+          <button class="menu-drop-btn" id="menuStopBtn2" style="display:none;">&#9632; Stop Server</button>
+        </div>
+      </div>
+    </div>
+    <div id="spatialTable">
+      <div id="tableTop"></div>
+      <div id="tableMiniRow"></div>
+      <div id="tableMiddle">
+        <div id="tableLeft"></div>
+        <div id="tableCenter">
+          <button id="deckDrawBtn" class="deck-pile-btn" type="button">
+            &#127921; Deck <span class="small" id="deckCount">0 cards</span>
+          </button>
+          <div class="draw-actions inline" id="drawActions"></div>
+          <div class="pool-grid" id="pool"></div>
+        </div>
+        <div id="tableRight"></div>
+      </div>
+      <div id="tableBottom">
+        <div id="myControls">
+          <label class="star-toggle"><input type="checkbox" id="starToggle" /> &#9733; STAR</label>
+          <div class="small" id="paymentSelected"></div>
+          <select id="quickActionSelect"></select>
+          <button id="quickActionBtn">Do Action</button>
+          <select id="moveActionSelect"></select>
+          <button id="moveActionBtn">Move Card</button>
+        </div>
+        <div id="discardBatchBanner" style="display:none; margin-bottom:10px; padding:10px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px;">
+          <strong id="discardBatchStatus">Select cards to discard</strong>
+          <button id="discardBatchConfirmBtn" style="margin-left:12px; padding:5px 14px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" disabled>Confirm Discard (0)</button>
+          <span style="margin-left:10px; color:#666; font-size:0.9em;" id="discardBatchPreview"></span>
+        </div>
+        <div id="oceanPlayFallback"></div>
+        <div class="ocean-mini-row" id="oceanBuilderMini"></div>
+        <div id="board"></div>
+        <div id="myHandArea"><div class="grid" id="hand"></div></div>
+        <details id="turnSummaryDropdown">
+          <summary class="section-title">Turn Summary</summary>
+          <div class="list-panel" id="turnSummary"></div>
+        </details>
+        <div id="scoreBreakdown" style="display:none;"></div>
         <button id="restartGameBtn" style="display:none;">Restart Game</button>
       </div>
-    </section>
+    </div>
+  </div>
 
-    <section class="panel" id="playOptPanel" style="display:none;">
-      <h2 class="section-title">Play Options</h2>
-      <div class="control-row">
-        <label class="star-toggle">
-          <input type="checkbox" id="starToggle" />
-          Use STAR when available
-        </label>
-        <div class="small" id="paymentSelected">(no payment cards selected)</div>
-      </div>
-      <div class="control-row" style="margin-top:8px;">
-        <select id="quickActionSelect"></select>
-        <button id="quickActionBtn">Do Action</button>
-      </div>
-      <div class="small" style="margin-top:6px;">
-        Quick actions include: play a card, draw 2 from deck, draw 1 from pool + 1 from deck, and draw 2 from pool.
-      </div>
-      <div class="control-row" style="margin-top:10px;">
-        <select id="moveActionSelect"></select>
-        <button id="moveActionBtn">Move Card (Ends Turn)</button>
-      </div>
-      <div class="small" style="margin-top:6px;">
-        Move one card already on your board to another ocean you control. This always ends your turn.
-      </div>
-    </section>
+  <!-- Board focus overlay -->
+  <div id="boardFocusOverlay">
+    <button id="boardFocusClose">&#10005;</button>
+    <div id="boardFocusLabel">Player's Board</div>
+    <div id="boardFocusContent"></div>
+  </div>
 
-    <section class="panel" id="zonePanel" style="display:none;">
-      <h2 class="section-title">Play Ocean Zone</h2>
-      <div class="control-row" id="oceanPlayFallback" style="margin-top:8px;"></div>
-      <div class="small" style="margin:8px 0 4px 0;">Ocean Builder (mini): click an ocean below to jump to it.</div>
-      <div class="ocean-mini-row" id="oceanBuilderMini"></div>
-      <div class="small" style="margin:2px 0 6px 0;">Use the dropdowns on each side to play cards.</div>
-      <div id="board"></div>
-    </section>
-
-    <section class="panel" id="handPanel" style="display:none;">
-      <h2 class="section-title">Your Hand</h2>
-      <div id="discardBatchBanner" style="display:none; margin-bottom:10px; padding:10px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px;">
-        <strong id="discardBatchStatus">Select cards to discard</strong>
-        <button id="discardBatchConfirmBtn" style="margin-left:12px; padding:5px 14px; background:#dc3545; color:#fff; border:none; border-radius:4px; cursor:pointer; font-weight:bold;" disabled>Confirm Discard (0)</button>
-        <span style="margin-left:10px; color:#666; font-size:0.9em;" id="discardBatchPreview"></span>
-      </div>
-      <div class="grid" id="hand"></div>
-    </section>
-
-    <section class="panel" id="poolPanel" style="display:none;">
-      <h2 class="section-title">Pool / Deck</h2>
-      <div class="pool-top-row">
-        <div class="draw-actions inline" id="drawActions"></div>
-        <button id="deckDrawBtn" class="deck-pile-btn" type="button">
-          Deck
-          <span class="small" id="deckCount">0 cards</span>
-          <span class="small">Click to draw 2 from deck</span>
-        </button>
-      </div>
-      <div class="small" style="margin:0 0 6px 0;">Click pool cards to select for pool draw actions.</div>
-      <div class="pool-grid" id="pool"></div>
-    </section>
-
-    <section class="panel" id="othersPanel" style="display:none;">
-      <h2 class="section-title">Other Players Boards</h2>
-      <div id="others"></div>
-    </section>
-
-    <section class="panel" id="scorePanel" style="display:none;">
-      <h2 class="section-title">Score Breakdown</h2>
-      <div id="scoreBreakdown"></div>
-    </section>
-
-    <section class="panel" id="logPanel" style="display:none;">
-      <h2 class="section-title">Game Log</h2>
-      <div class="list-panel" id="gameLog"></div>
-    </section>
-
-    <section class="panel" id="summaryPanel" style="display:none;">
-      <h2 class="section-title">Turn Summary</h2>
-      <div class="list-panel" id="turnSummary"></div>
-    </section>
+  <!-- Game log float -->
+  <div id="gameSummaryFloat">
+    <div class="summary-float-hdr" id="summaryFloatHdr"><span>Game Log</span><span>&#10005;</span></div>
+    <div id="gameLog"></div>
   </div>
 
   <script>
@@ -1193,6 +1263,7 @@
     let oceanSelectMemory = "";
     let quickActionSelectMemory = "";
     let moveActionSelectMemory = "";
+    let gameSummaryVisible = false;
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -1667,12 +1738,11 @@
       document.getElementById("startMenuBtnRow").style.display = "none";
       document.getElementById("roomPanel").style.display = "none";
       document.getElementById("lobbyPanel").style.display = "none";
-      for (const id of [
-        "gameMetaPanel", "playOptPanel", "zonePanel", "handPanel",
-        "poolPanel", "othersPanel", "scorePanel", "logPanel", "summaryPanel"
-      ]) {
-        document.getElementById(id).style.display = "none";
-      }
+      document.getElementById("newGameArea").style.display = "none";
+      document.body.classList.remove("in-game");
+      gameSummaryVisible = false;
+      const _sf = document.getElementById("gameSummaryFloat");
+      if (_sf) _sf.classList.remove("open");
 
       setConnErr("");
       setConnStatus(note || "Start menu ready: choose players and create room.");
@@ -2916,7 +2986,6 @@
       const viewer = payload.viewer || {};
       const myIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
 
-      const meta = document.getElementById("gameMeta");
       const drawActionsEl = document.getElementById("drawActions");
       const deckDrawBtn = document.getElementById("deckDrawBtn");
       const deckCountEl = document.getElementById("deckCount");
@@ -2924,7 +2993,6 @@
       const poolEl = document.getElementById("pool");
       const boardEl = document.getElementById("board");
       const oceanMiniEl = document.getElementById("oceanBuilderMini");
-      const othersEl = document.getElementById("others");
       const scoreBreakdownEl = document.getElementById("scoreBreakdown");
       const starToggle = document.getElementById("starToggle");
       const oceanPlayFallback = document.getElementById("oceanPlayFallback");
@@ -2938,8 +3006,6 @@
       clear(poolEl);
       clear(boardEl);
       clear(oceanMiniEl);
-      clear(othersEl);
-      clear(scoreBreakdownEl);
       clear(oceanPlayFallback);
 
       const players = Array.isArray(state.players) ? state.players : [];
@@ -2969,17 +3035,22 @@
           `| Total: ${mandarinBreak.total_points}</div>`;
       }
 
-      meta.innerHTML = `
-        <strong>Turn:</strong> ${state.turn_number ?? "?"} |
-        <strong>Round:</strong> ${state.round_count ?? "?"} |
-        <strong>Current:</strong> ${current} |
-        <strong>Deck:</strong> ${state.deck_remaining ?? "?"} |
-        <strong>Pool:</strong> ${state.pool_count ?? 0} |
-        <strong>Discard:</strong> ${state.discard_pile_count ?? 0}<br/>
-        <strong>Note:</strong> ${state.note || payload.status_note || ""}
-        ${endAlert}
-        ${mandarinHtml}
-      `;
+      updateTopBar(state, roomId);
+      const menuRoomCodeEl = document.getElementById("menuRoomCode");
+      if (menuRoomCodeEl) menuRoomCodeEl.textContent = roomId || "—";
+
+      // Keep legacy gameMeta updated for any code that still reads it
+      const _legacyMeta = document.getElementById("gameMeta");
+      if (_legacyMeta) {
+        _legacyMeta.innerHTML = `
+          <strong>Turn:</strong> ${state.turn_number ?? "?"} |
+          <strong>Current:</strong> ${current} |
+          <strong>Deck:</strong> ${state.deck_remaining ?? "?"} |
+          <strong>Note:</strong> ${state.note || payload.status_note || ""}
+          ${endAlert}
+          ${mandarinHtml}
+        `;
+      }
 
       const canInteract = Boolean(viewer.can_act) && legalActions.length > 0;
       const isTarponDiscard = canInteract && Boolean(legalWrap.tarpon_discard_active);
@@ -3397,11 +3468,8 @@
       }
 
       const others = players.filter((p) => p.index !== myIdx);
-      if (!others.length) {
-        empty(othersEl, "(no other players)");
-      } else {
-        for (const p of others) renderStaticBoard(p, othersEl);
-      }
+      renderTableLayout(others, players, myIdx);
+      updateDropdownScores(players, myIdx);
       renderScoreBreakdown(players, scoreBreakdownEl, myIdx);
     }
 
@@ -3416,12 +3484,14 @@
       document.getElementById("roomPanel").style.display = roomId ? "block" : "none";
       document.getElementById("lobbyPanel").style.display = showSeatPanel ? "block" : "none";
 
-      const gamePanels = [
-        "gameMetaPanel", "playOptPanel", "zonePanel", "handPanel",
-        "poolPanel", "othersPanel", "scorePanel", "logPanel", "summaryPanel"
-      ];
-      for (const id of gamePanels) {
-        document.getElementById(id).style.display = inGame ? "block" : "none";
+      const newGameArea = document.getElementById("newGameArea");
+      if (newGameArea) newGameArea.style.display = inGame ? "flex" : "none";
+      if (inGame) document.body.classList.add("in-game");
+      else document.body.classList.remove("in-game");
+      if (!inGame) {
+        gameSummaryVisible = false;
+        const sf = document.getElementById("gameSummaryFloat");
+        if (sf) sf.classList.remove("open");
       }
 
       const seats = Array.isArray(payload.seats) ? payload.seats : [];
@@ -3462,6 +3532,11 @@
         restartBtn.disabled = phase === "running";
         restartBtn.textContent = phase === "running" ? "Restart (After Game Ends)" : "Restart Game";
       }
+
+      const menuStopBtn2 = document.getElementById("menuStopBtn2");
+      if (menuStopBtn2) menuStopBtn2.style.display = roomId && (isHost || hasHostToken) ? "block" : "none";
+      const menuRestartBtn2 = document.getElementById("menuRestartBtn2");
+      if (menuRestartBtn2) menuRestartBtn2.style.display = roomId && (isHost || hasHostToken) ? "block" : "none";
     }
 
     function renderAll(payload) {
@@ -4172,6 +4247,124 @@
     document.addEventListener("keydown", (ev) => {
       handleNumberShortcut(ev);
     });
+
+    /* ── TOP DROPDOWN MENU ── */
+    function closeTopMenu() { const d = document.getElementById("topMenuDrop"); if (d) d.classList.remove("open"); }
+    function toggleTopMenu() { const d = document.getElementById("topMenuDrop"); if (d) d.classList.toggle("open"); }
+
+    document.getElementById("topMenuBtn").addEventListener("click", (e) => { e.stopPropagation(); toggleTopMenu(); });
+    document.addEventListener("click", (e) => {
+      const drop = document.getElementById("topMenuDrop");
+      if (drop && drop.classList.contains("open") && !e.target.closest(".top-menu-wrap")) closeTopMenu();
+    });
+    document.getElementById("menuLeaveBtn").addEventListener("click", () => { closeTopMenu(); showStartMenu(); });
+    document.getElementById("menuRestartBtn2").addEventListener("click", () => { closeTopMenu(); restartGame(); });
+    document.getElementById("menuStopBtn2").addEventListener("click", () => { closeTopMenu(); stopServer(); });
+    document.getElementById("menuSummaryToggleBtn").addEventListener("click", () => {
+      gameSummaryVisible = !gameSummaryVisible;
+      document.getElementById("gameSummaryFloat").classList.toggle("open", gameSummaryVisible);
+      document.getElementById("menuSummaryToggleBtn").textContent = gameSummaryVisible ? "\u{1F4CB} Game Log: On" : "\u{1F4CB} Game Log: Off";
+      closeTopMenu();
+    });
+    document.getElementById("summaryFloatHdr").addEventListener("click", () => {
+      gameSummaryVisible = false;
+      document.getElementById("gameSummaryFloat").classList.remove("open");
+      const btn = document.getElementById("menuSummaryToggleBtn");
+      if (btn) btn.textContent = "\u{1F4CB} Game Log: Off";
+    });
+    document.getElementById("boardFocusClose").addEventListener("click", closeBoardFocus);
+    document.getElementById("boardFocusOverlay").addEventListener("click", (e) => {
+      if (e.target === document.getElementById("boardFocusOverlay")) closeBoardFocus();
+    });
+
+    function openBoardFocus(playerName, renderFn) {
+      const overlay = document.getElementById("boardFocusOverlay");
+      document.getElementById("boardFocusLabel").textContent = `${playerName}'s Board`;
+      const content = document.getElementById("boardFocusContent");
+      content.innerHTML = "";
+      renderFn(content);
+      overlay.classList.add("open");
+    }
+    function closeBoardFocus() { document.getElementById("boardFocusOverlay").classList.remove("open"); }
+
+    function renderTableLayout(others, players, myIdx) {
+      const topEl = document.getElementById("tableTop");
+      const miniEl = document.getElementById("tableMiniRow");
+      const leftEl = document.getElementById("tableLeft");
+      const rightEl = document.getElementById("tableRight");
+      const tableEl = document.getElementById("spatialTable");
+      if (!topEl || !miniEl || !leftEl || !rightEl || !tableEl) return;
+      topEl.innerHTML = ""; miniEl.innerHTML = ""; leftEl.innerHTML = ""; rightEl.innerHTML = "";
+      tableEl.classList.remove("layout-2p", "layout-3p", "layout-4p", "layout-mini");
+      if (players.length >= 5) {
+        tableEl.classList.add("layout-mini");
+        for (const opp of others) miniEl.appendChild(renderMiniBoard(opp));
+      } else {
+        if (players.length === 2) tableEl.classList.add("layout-2p");
+        else if (players.length === 3) tableEl.classList.add("layout-3p");
+        else tableEl.classList.add("layout-4p");
+        const slots = [topEl, leftEl, rightEl];
+        others.forEach((opp, i) => {
+          const slot = slots[i] || topEl;
+          const wrap = document.createElement("div");
+          wrap.className = "table-opp-wrap";
+          const lbl = document.createElement("div");
+          lbl.className = "table-opp-label";
+          lbl.textContent = opp.name || `Player ${opp.index}`;
+          const inner = document.createElement("div");
+          inner.className = "table-opp-inner rotated";
+          renderStaticBoard(opp, inner);
+          wrap.appendChild(lbl); wrap.appendChild(inner);
+          wrap.addEventListener("click", () => {
+            openBoardFocus(opp.name || `Player ${opp.index}`, (container) => renderStaticBoard(opp, container));
+          });
+          slot.appendChild(wrap);
+        });
+      }
+    }
+
+    function renderMiniBoard(opp) {
+      const card = document.createElement("div");
+      card.className = "mini-board-card";
+      const nameEl = document.createElement("div"); nameEl.className = "mini-board-name";
+      nameEl.textContent = opp.name || `Player ${opp.index}`; card.appendChild(nameEl);
+      const scoreEl = document.createElement("div"); scoreEl.className = "mini-board-score";
+      scoreEl.textContent = `Score: ${opp.score_breakdown?.total ?? "?"}`; card.appendChild(scoreEl);
+      const thumbsEl = document.createElement("div"); thumbsEl.className = "mini-board-thumbs";
+      for (const ocean of (opp.oceans || [])) {
+        for (const lane of (ocean.lanes || [])) {
+          for (const piece of (lane.pieces || [])) {
+            if (piece?.card?.image) {
+              const img = document.createElement("img"); img.className = "mini-board-thumb";
+              img.src = piece.card.image; thumbsEl.appendChild(img);
+            }
+          }
+        }
+      }
+      card.appendChild(thumbsEl);
+      card.addEventListener("click", () => {
+        openBoardFocus(opp.name || `Player ${opp.index}`, (container) => renderStaticBoard(opp, container));
+      });
+      return card;
+    }
+
+    function updateDropdownScores(players, myIdx) {
+      const el = document.getElementById("menuScoresList");
+      if (!el) return;
+      el.innerHTML = "";
+      for (const p of players) {
+        const row = document.createElement("div");
+        row.textContent = `${p.index === myIdx ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score_breakdown?.total ?? "?"}`;
+        row.style.fontWeight = p.index === myIdx ? "700" : "400";
+        el.appendChild(row);
+      }
+    }
+
+    function updateTopBar(state, rId) {
+      const el = document.getElementById("topBarMeta");
+      if (!el) return;
+      el.innerHTML = `Room <b>${rId || "?"}</b> — Turn ${state.turn_number ?? "?"} — <b>${state.current_player || "?"}</b>'s turn &nbsp;&#127921; ${state.deck_remaining ?? "?"}`;
+    }
 
     (function init() {
     loadKnownBaseUrls();
