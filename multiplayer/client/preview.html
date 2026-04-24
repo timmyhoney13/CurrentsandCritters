@@ -1042,6 +1042,105 @@
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── NOTICE BAR DROPDOWN MENU ───────────────────────────────── */
+    .pv-menu-wrap { position: relative; }
+    #pv-menu-btn {
+      background: linear-gradient(135deg,#1a3a6e,#0d2348);
+      border: 1px solid rgba(48,200,240,.3);
+      color: var(--text); padding: 4px 11px; border-radius: 7px;
+      cursor: pointer; font-size: 12px; font-weight: 700;
+    }
+    #pv-menu-drop {
+      display: none; position: absolute; top: calc(100% + 5px); right: 0;
+      min-width: 230px; background: #0b1a35;
+      border: 1px solid rgba(48,200,240,.25); border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.7); z-index: 9000;
+      padding: 8px 0; flex-direction: column;
+    }
+    #pv-menu-drop.open { display: flex; }
+    .pv-menu-item {
+      display: block; width: 100%; text-align: left;
+      background: none; border: none; color: var(--text);
+      padding: 8px 16px; cursor: pointer; font-size: 13px;
+      text-decoration: none;
+    }
+    .pv-menu-item:hover { background: rgba(48,200,240,.08); }
+    .pv-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
+    .pv-menu-label {
+      padding: 4px 14px 2px; font-size: 10px;
+      color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+    }
+    #pv-menu-scores-list {
+      padding: 4px 16px 6px; font-size: 12px;
+      color: var(--muted); line-height: 1.8;
+    }
+    .pv-menu-room { padding: 2px 16px 6px; font-size: 11px; color: #5a8ab8; font-family: monospace; }
+
+    /* ── BOARD FOCUS OVERLAY ────────────────────────────────────── */
+    #pv-board-focus {
+      display: none; position: fixed; inset: 0; z-index: 9500;
+      background: rgba(4,9,20,.94); flex-direction: column;
+      align-items: center; padding: 20px 16px; overflow-y: auto;
+    }
+    #pv-board-focus.open { display: flex; }
+    #pv-board-focus-label {
+      font-size: 1.2rem; color: var(--cyan); font-weight: 900;
+      font-family: "Cinzel", serif; margin-bottom: 14px;
+    }
+    #pv-board-focus-content {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px; max-width: 700px; width: 100%;
+    }
+    #pv-board-focus-close {
+      position: fixed; top: 14px; right: 16px;
+      background: var(--border); border: none; color: var(--text);
+      font-size: 1.2rem; width: 32px; height: 32px;
+      border-radius: 50%; cursor: pointer; z-index: 9501;
+    }
+    .pv-focus-ocean {
+      background: rgba(255,255,255,.03); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px; margin-bottom: 8px;
+    }
+    .pv-focus-ocean-name { font-size: 12px; font-weight: 700; color: var(--cyan); margin-bottom: 6px; }
+    .pv-focus-cards { display: flex; flex-wrap: wrap; gap: 5px; }
+    .pv-focus-card-img { width: 52px; border-radius: 4px; cursor: pointer; }
+
+    /* ── FLOATING GAME LOG ──────────────────────────────────────── */
+    #pv-log-float {
+      display: none; position: fixed; bottom: 14px; right: 14px;
+      width: 300px; max-height: 48vh;
+      background: #0b1a35; border: 1px solid rgba(48,200,240,.2);
+      border-radius: 10px; z-index: 8000; flex-direction: column; overflow: hidden;
+    }
+    #pv-log-float.open { display: flex; }
+    #pv-log-float-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 12px; border-bottom: 1px solid var(--border);
+      font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer;
+    }
+    #pv-log-float-body {
+      overflow-y: auto; flex: 1; padding: 6px 12px;
+    }
+    #pv-log-float-body .log-entry { font-size: 11px; color: var(--muted); line-height: 1.6; }
+
+    /* ── 4+ OPPONENT MINI LAYOUT ────────────────────────────────── */
+    #pv-opponents.opp-many {
+      display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+    }
+    .pv-opp-mini {
+      width: 150px; background: var(--panel); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 8px; cursor: pointer;
+    }
+    .pv-opp-mini:hover { border-color: var(--cyan); }
+    .pv-opp-mini .pv-opp-name { font-size: 11px; }
+    .pv-opp-mini .pv-opp-score { font-size: 10px; padding: 1px 6px; }
+    .pv-opp-card { cursor: pointer; }
+    .pv-opp-card:hover { border-color: var(--cyan); }
+
+    @media (max-width: 640px) {
+      #pv-log-float { width: calc(100vw - 20px); right: 10px; }
+    }
   </style>
 </head>
 <body>
@@ -1162,9 +1261,21 @@
     <span id="pv-my-name-badge"></span>
     <span id="pv-my-score-badge">0</span>
     <span id="pv-status-text">Connecting…</span>
-    <div class="notice-btns">
-      <button class="pv-btn sm" id="pv-scores-btn" style="background:linear-gradient(135deg,#0a4a70,#062a50);">🏆 Scores</button>
-      <button class="pv-btn sm danger" id="pv-back-btn">← Leave</button>
+    <div class="pv-menu-wrap">
+      <button id="pv-menu-btn">&#9776; Menu</button>
+      <div id="pv-menu-drop">
+        <div class="pv-menu-label">Scores</div>
+        <div id="pv-menu-scores-list">—</div>
+        <div class="pv-menu-divider"></div>
+        <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
+        <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
+        <div class="pv-menu-divider"></div>
+        <div class="pv-menu-label">Room</div>
+        <div class="pv-menu-room" id="pv-menu-room-code">—</div>
+        <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
+        <div class="pv-menu-divider"></div>
+        <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
+      </div>
     </div>
   </div>
 
@@ -1250,6 +1361,19 @@
   <div id="pv-log" style="display:none;"></div>
 
 </div><!-- #pv-game -->
+
+<!-- ══ BOARD FOCUS OVERLAY ════════════════════════════════════════ -->
+<div id="pv-board-focus">
+  <button id="pv-board-focus-close">&#10005;</button>
+  <div id="pv-board-focus-label">Player's Board</div>
+  <div id="pv-board-focus-content"></div>
+</div>
+
+<!-- ══ FLOATING GAME LOG ══════════════════════════════════════════ -->
+<div id="pv-log-float">
+  <div id="pv-log-float-hdr"><span>Game Log</span><span>&#10005;</span></div>
+  <div id="pv-log-float-body"></div>
+</div>
 
 <!-- ══ CARD ZOOM MODAL ════════════════════════════════════════════ -->
 <div id="pv-zoom-modal">
@@ -2046,6 +2170,9 @@
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess);
     renderLog(payload.log_tail);
+    updateMenuScores(players, myIdx);
+    const _mrc = document.getElementById("pv-menu-room-code");
+    if (_mrc) _mrc.textContent = roomId || "—";
 
     const discBanner = document.getElementById("pv-discard-banner");
     if (mustDiscard) {
@@ -2153,6 +2280,33 @@
     if (!opponents.length) return;
 
     const n = opponents.length;
+
+    // 4+ opponents: mini card layout
+    if (n >= 4) {
+      el.classList.add("opp-many");
+      opponents.forEach(p => {
+        const mini = document.createElement("div");
+        mini.className = "pv-opp-mini" + (p.index === turnIndex ? " active-turn" : "");
+        const hdr = document.createElement("div"); hdr.className = "pv-opp-header";
+        const nm = document.createElement("div"); nm.className = "pv-opp-name";
+        nm.textContent = (p.index === turnIndex ? "▶ " : "") + (p.name || `Player ${p.index}`);
+        const sc = document.createElement("div"); sc.className = "pv-opp-score";
+        sc.textContent = `${p.score ?? 0} pts`;
+        hdr.appendChild(nm); hdr.appendChild(sc); mini.appendChild(hdr);
+        const thumbs = document.createElement("div"); thumbs.style.cssText = "display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;";
+        (Array.isArray(p.board) ? p.board : []).slice(0, 5).forEach(ocean => {
+          const img = document.createElement("img");
+          img.src = imagePathForUid(ocean.ocean?.uid ?? ocean.ocean_uid);
+          img.style.cssText = "width:30px;border-radius:3px;";
+          img.loading = "lazy"; thumbs.appendChild(img);
+        });
+        mini.appendChild(thumbs);
+        mini.addEventListener("click", () => openBoardFocus(p));
+        el.appendChild(mini);
+      });
+      return;
+    }
+
     el.classList.add(`opp-${Math.min(n, 3)}`);
 
     // Position classes: first opp → across (top in 3-player), remaining → left then right
@@ -2230,6 +2384,8 @@
         more.textContent = `+${board.length-5}`; miniBoard.appendChild(more);
       }
       card.appendChild(miniBoard);
+      card.title = `Click to view ${p.name || `Player ${p.index}`}'s full board`;
+      card.addEventListener("click", () => openBoardFocus(p));
       wrap.appendChild(card);
       el.appendChild(wrap);
     });
@@ -2327,7 +2483,7 @@
     if (e.target === document.getElementById("pv-score-modal"))
       document.getElementById("pv-score-modal").classList.remove("open");
   });
-  document.getElementById("pv-scores-btn").addEventListener("click", openScoreBreakdown);
+  // pv-scores-btn was removed from HTML; replaced by pv-menu-scores-btn in dropdown
 
   // ── Tutorial modal ─────────────────────────────────────────────
   function openTutorial() { document.getElementById("pv-tutorial-modal").classList.add("open"); }
@@ -2850,15 +3006,129 @@
       div.textContent=String(line); el.appendChild(div);
     });
     el.scrollTop = el.scrollHeight;
+    // Also update floating log panel
+    const floatBody = document.getElementById("pv-log-float-body");
+    if (floatBody) {
+      floatBody.innerHTML = "";
+      logs.slice(-40).forEach(line => {
+        const d = document.createElement("div"); d.className = "log-entry";
+        d.textContent = String(line); floatBody.appendChild(d);
+      });
+      floatBody.scrollTop = floatBody.scrollHeight;
+    }
   }
 
   // ── Back / leave ───────────────────────────────────────────────
   document.getElementById("pv-back-btn").addEventListener("click", () => {
+    closeMenu();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
     document.getElementById("pv-game").style.display="none";
     document.getElementById("pv-lobby").style.display="flex";
+    pvLogVisible = false;
+    const lf = document.getElementById("pv-log-float");
+    if (lf) lf.classList.remove("open");
+  });
+
+  // ── Dropdown menu ───────────────────────────────────────────────
+  let pvLogVisible = false;
+
+  function closeMenu() {
+    const d = document.getElementById("pv-menu-drop");
+    if (d) d.classList.remove("open");
+  }
+  function toggleMenu() {
+    const d = document.getElementById("pv-menu-drop");
+    if (d) d.classList.toggle("open");
+  }
+
+  document.getElementById("pv-menu-btn").addEventListener("click", (e) => {
+    e.stopPropagation(); toggleMenu();
+  });
+  document.addEventListener("click", (e) => {
+    const d = document.getElementById("pv-menu-drop");
+    if (d && d.classList.contains("open") && !e.target.closest(".pv-menu-wrap")) closeMenu();
+  });
+  document.getElementById("pv-menu-log-btn").addEventListener("click", () => {
+    pvLogVisible = !pvLogVisible;
+    document.getElementById("pv-log-float").classList.toggle("open", pvLogVisible);
+    document.getElementById("pv-menu-log-btn").textContent =
+      pvLogVisible ? "\u{1F4CB} Game Log: On" : "\u{1F4CB} Game Log: Off";
+    closeMenu();
+  });
+  document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
+    closeMenu(); openScoreBreakdown();
+  });
+  document.getElementById("pv-log-float-hdr").addEventListener("click", () => {
+    pvLogVisible = false;
+    document.getElementById("pv-log-float").classList.remove("open");
+    const btn = document.getElementById("pv-menu-log-btn");
+    if (btn) btn.textContent = "\u{1F4CB} Game Log: Off";
+  });
+
+  function updateMenuScores(players, viewerIdx) {
+    const el = document.getElementById("pv-menu-scores-list");
+    if (!el) return;
+    el.innerHTML = "";
+    const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
+    sorted.forEach(p => {
+      const row = document.createElement("div");
+      const isMe = p.index === viewerIdx;
+      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts`;
+      row.style.fontWeight = isMe ? "700" : "400";
+      if (isMe) row.style.color = "var(--gold)";
+      el.appendChild(row);
+    });
+  }
+
+  // ── Board focus overlay ─────────────────────────────────────────
+  function openBoardFocus(player) {
+    const overlay = document.getElementById("pv-board-focus");
+    const label = document.getElementById("pv-board-focus-label");
+    const content = document.getElementById("pv-board-focus-content");
+    label.textContent = `${player.name || `Player ${player.index}`}'s Board`;
+    content.innerHTML = "";
+    const board = Array.isArray(player.board) ? player.board : [];
+    if (!board.length) {
+      const msg = document.createElement("p");
+      msg.style.cssText = "color:var(--muted);font-size:13px;text-align:center;padding:20px;";
+      msg.textContent = "No oceans played yet.";
+      content.appendChild(msg);
+    } else {
+      board.forEach(ocean => {
+        const block = document.createElement("div"); block.className = "pv-focus-ocean";
+        const name = document.createElement("div"); name.className = "pv-focus-ocean-name";
+        name.textContent = ocean.ocean?.name || `Ocean ${ocean.ocean_uid}`;
+        block.appendChild(name);
+        const cards = document.createElement("div"); cards.className = "pv-focus-cards";
+        ["up","down","left","right"].forEach(dir => {
+          (Array.isArray(ocean[dir]) ? ocean[dir] : []).forEach(c => {
+            const img = document.createElement("img");
+            img.className = "pv-focus-card-img";
+            img.src = imagePathForUid(c.uid ?? c.face_uid ?? c.card_uid);
+            img.alt = c.name || "";
+            img.loading = "lazy";
+            img.addEventListener("click", () => {
+              const uid = c.uid ?? c.face_uid ?? c.card_uid;
+              if (uid) openZoom(uid, c.name || "", c.text || "", c.species || "");
+            });
+            cards.appendChild(img);
+          });
+        });
+        block.appendChild(cards);
+        content.appendChild(block);
+      });
+    }
+    overlay.classList.add("open");
+  }
+
+  document.getElementById("pv-board-focus-close").addEventListener("click", () => {
+    document.getElementById("pv-board-focus").classList.remove("open");
+  });
+  document.getElementById("pv-board-focus").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("pv-board-focus"))
+      document.getElementById("pv-board-focus").classList.remove("open");
   });
 
   // ── Auto-join from URL ─────────────────────────────────────────
