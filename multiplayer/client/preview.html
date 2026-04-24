@@ -1079,8 +1079,9 @@
       font-family: "Cinzel", serif; margin-bottom: 14px;
     }
     #pv-board-focus-content {
-      background: var(--panel); border: 1px solid var(--border);
-      border-radius: 12px; padding: 16px; max-width: 700px; width: 100%;
+      display: flex; flex-wrap: wrap; gap: 10px;
+      justify-content: center; padding-bottom: 24px;
+      max-width: 960px; width: 100%;
     }
     #pv-board-focus-close {
       position: fixed; top: 14px; right: 16px;
@@ -1088,13 +1089,33 @@
       font-size: 1.2rem; width: 32px; height: 32px;
       border-radius: 50%; cursor: pointer; z-index: 9501;
     }
-    .pv-focus-ocean {
-      background: rgba(255,255,255,.03); border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px; margin-bottom: 8px;
+
+    /* ── FULL OPPONENT BOARDS (inline, toggled) ─────────────────── */
+    .pv-opp-full-wrap {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 6px; cursor: pointer;
+      transition: border-color .2s; overflow: hidden;
     }
-    .pv-focus-ocean-name { font-size: 12px; font-weight: 700; color: var(--cyan); margin-bottom: 6px; }
-    .pv-focus-cards { display: flex; flex-wrap: wrap; gap: 5px; }
-    .pv-focus-card-img { width: 52px; border-radius: 4px; cursor: pointer; }
+    .pv-opp-full-wrap:hover { border-color: var(--cyan); }
+    .pv-opp-full-wrap.active-turn { border-color: var(--gold2); box-shadow: 0 0 14px rgba(245,200,66,.2); }
+    .pv-opp-full-label {
+      font-size: 10px; color: var(--muted); text-align: center;
+      margin-bottom: 3px; font-weight: 700; pointer-events: none;
+    }
+    .pv-opp-full-label .opp-score { color: var(--gold); margin-left: 4px; }
+    .pv-ro-board { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; padding: 2px; }
+    .pv-ro-board .pv-lane-slot { cursor: default; }
+    .pv-ro-board .pv-lane-slot:hover { transform: none; background: none; border-color: var(--border); }
+
+    /* Equal columns when showing full boards */
+    #pv-opponents.full-mode.opp-2 { grid-template-columns: 1fr 1fr; }
+    #pv-opponents.full-mode.opp-3 { grid-template-columns: 1fr 1fr 1fr; }
+    #pv-opponents.full-mode { overflow-y: auto; max-height: 42vh; }
+
+    /* Read-only board in the focus overlay gets normal (full) card size */
+    #pv-board-focus-content .pv-ro-board { gap: 8px; }
+    #pv-board-focus-content .pv-board-card { width: var(--mini-w); height: var(--mini-h); }
+    #pv-board-focus-content .pv-ocean-face { width: 84px; height: 118px; }
 
     /* ── FLOATING GAME LOG ──────────────────────────────────────── */
     #pv-log-float {
@@ -1257,6 +1278,7 @@
         <div class="pv-menu-label">Scores</div>
         <div id="pv-menu-scores-list">—</div>
         <div class="pv-menu-divider"></div>
+        <button class="pv-menu-item" id="pv-menu-fullboards-btn">&#128196; Full Boards: Off</button>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
         <div class="pv-menu-divider"></div>
@@ -2271,6 +2293,36 @@
 
     const n = opponents.length;
 
+    // ── Full boards mode (≤3 opponents = ≤4 players total) ──────
+    if (pvFullBoards && n <= 3) {
+      el.classList.add(`opp-${n}`, "full-mode");
+      // Scale factor to keep boards readable at various player counts
+      const zoom = n === 1 ? 0.58 : n === 2 ? 0.46 : 0.34;
+      // opp at index 1 is "across" for 2-3 opponents; index 0 is across for 1 opponent
+      const acrossIdx = n === 1 ? 0 : 1;
+      const posClasses = n === 1 ? [""] : n === 2 ? ["opp-pos-left","opp-pos-across"] : ["opp-pos-left","opp-pos-across","opp-pos-right"];
+      opponents.forEach((p, idx) => {
+        const outer = document.createElement("div");
+        outer.className = posClasses[idx] || "";
+        const wrap = document.createElement("div");
+        wrap.className = "pv-opp-full-wrap" + (p.index === turnIndex ? " active-turn" : "");
+        wrap.title = `Click to zoom ${p.name || `Player ${p.index}`}'s board`;
+        wrap.addEventListener("click", () => openBoardFocus(p));
+        // Label stays readable regardless of rotation
+        const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
+        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span>`;
+        wrap.appendChild(lbl);
+        // Board content — scale + rotate across opponent
+        const boardEl = renderReadOnlyBoard(p);
+        boardEl.style.zoom = String(zoom);
+        if (idx === acrossIdx) boardEl.style.transform = "rotate(180deg)";
+        wrap.appendChild(boardEl);
+        outer.appendChild(wrap);
+        el.appendChild(outer);
+      });
+      return;
+    }
+
     // 4+ opponents: mini card layout
     if (n >= 4) {
       el.classList.add("opp-many");
@@ -3023,6 +3075,7 @@
 
   // ── Dropdown menu ───────────────────────────────────────────────
   let pvLogVisible = false;
+  let pvFullBoards = false;
 
   function closeMenu() {
     const d = document.getElementById("pv-menu-drop");
@@ -3040,6 +3093,14 @@
     const d = document.getElementById("pv-menu-drop");
     if (d && d.classList.contains("open") && !e.target.closest(".pv-menu-wrap")) closeMenu();
   });
+  document.getElementById("pv-menu-fullboards-btn").addEventListener("click", () => {
+    pvFullBoards = !pvFullBoards;
+    document.getElementById("pv-menu-fullboards-btn").textContent =
+      pvFullBoards ? "\u{1F4C4} Full Boards: On" : "\u{1F4C4} Full Boards: Off";
+    closeMenu();
+    if (latestPayload) renderPayload(latestPayload);
+  });
+
   document.getElementById("pv-menu-log-btn").addEventListener("click", () => {
     pvLogVisible = !pvLogVisible;
     document.getElementById("pv-log-float").classList.toggle("open", pvLogVisible);
@@ -3073,43 +3134,78 @@
   }
 
   // ── Board focus overlay ─────────────────────────────────────────
+  // ── Read-only board renderer (no interaction, real card images) ──
+  function renderReadOnlyBoard(player) {
+    const wrap = document.createElement("div");
+    wrap.className = "pv-ro-board";
+    const board = Array.isArray(player.board) ? player.board : [];
+    if (!board.length) {
+      const msg = document.createElement("div");
+      msg.style.cssText = "color:var(--muted);font-size:12px;padding:12px;text-align:center;width:100%;";
+      msg.textContent = "No oceans played yet";
+      wrap.appendChild(msg);
+      return wrap;
+    }
+    board.forEach(ocean => {
+      const hub = document.createElement("div");
+      hub.className = "pv-ocean-hub";
+      ["up","down","left","right"].forEach(dir => {
+        const lane = document.createElement("div");
+        lane.className = `pv-lane-${dir}`;
+        const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+        if (!cards.length) {
+          const slot = document.createElement("div");
+          slot.className = "pv-lane-slot";
+          lane.appendChild(slot);
+        } else {
+          cards.forEach(c => {
+            const cardEl = document.createElement("div");
+            cardEl.className = "pv-board-card";
+            cardEl.dataset.species = c.species || "";
+            const fUid = c.face_uid ?? c.uid;
+            const img = document.createElement("img");
+            img.src = imagePathForUid(fUid);
+            img.alt = c.name || "";
+            img.loading = "lazy";
+            img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
+            cardEl.appendChild(img);
+            cardEl.title = `${c.name || "?"} — click to zoom`;
+            cardEl.addEventListener("click", (e) => {
+              e.stopPropagation();
+              openZoom(fUid, c.name, c.text, c.species);
+            });
+            lane.appendChild(cardEl);
+          });
+        }
+        hub.appendChild(lane);
+      });
+      const center = document.createElement("div"); center.className = "pv-ocean-center";
+      const oFace = document.createElement("div"); oFace.className = "pv-ocean-face";
+      const oImg = document.createElement("img");
+      const oUid = ocean.ocean?.uid ?? ocean.ocean_uid;
+      oImg.src = imagePathForUid(oUid);
+      oImg.alt = ocean.ocean?.name || "";
+      oImg.loading = "lazy";
+      oFace.appendChild(oImg);
+      oFace.title = `${ocean.ocean?.name || "Ocean"} — click to zoom`;
+      oFace.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openZoom(oUid, ocean.ocean?.name, ocean.ocean?.text, "Ocean");
+      });
+      center.appendChild(oFace);
+      hub.appendChild(center);
+      wrap.appendChild(hub);
+    });
+    return wrap;
+  }
+
   function openBoardFocus(player) {
     const overlay = document.getElementById("pv-board-focus");
     const label = document.getElementById("pv-board-focus-label");
     const content = document.getElementById("pv-board-focus-content");
     label.textContent = `${player.name || `Player ${player.index}`}'s Board`;
     content.innerHTML = "";
-    const board = Array.isArray(player.board) ? player.board : [];
-    if (!board.length) {
-      const msg = document.createElement("p");
-      msg.style.cssText = "color:var(--muted);font-size:13px;text-align:center;padding:20px;";
-      msg.textContent = "No oceans played yet.";
-      content.appendChild(msg);
-    } else {
-      board.forEach(ocean => {
-        const block = document.createElement("div"); block.className = "pv-focus-ocean";
-        const name = document.createElement("div"); name.className = "pv-focus-ocean-name";
-        name.textContent = ocean.ocean?.name || `Ocean ${ocean.ocean_uid}`;
-        block.appendChild(name);
-        const cards = document.createElement("div"); cards.className = "pv-focus-cards";
-        ["up","down","left","right"].forEach(dir => {
-          (Array.isArray(ocean[dir]) ? ocean[dir] : []).forEach(c => {
-            const img = document.createElement("img");
-            img.className = "pv-focus-card-img";
-            img.src = imagePathForUid(c.uid ?? c.face_uid ?? c.card_uid);
-            img.alt = c.name || "";
-            img.loading = "lazy";
-            img.addEventListener("click", () => {
-              const uid = c.uid ?? c.face_uid ?? c.card_uid;
-              if (uid) openZoom(uid, c.name || "", c.text || "", c.species || "");
-            });
-            cards.appendChild(img);
-          });
-        });
-        block.appendChild(cards);
-        content.appendChild(block);
-      });
-    }
+    content.appendChild(renderReadOnlyBoard(player));
     overlay.classList.add("open");
   }
 
