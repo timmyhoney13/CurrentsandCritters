@@ -769,17 +769,7 @@
     #pv-discard-banner.visible { display: block; }
 
     /* ── LOG TAIL ───────────────────────────────────────────────── */
-    #pv-log {
-      position: fixed; bottom: 200px; right: 10px;
-      width: 250px; max-height: 120px; overflow-y: auto;
-      background: rgba(5,12,26,.88);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 6px 8px;
-      font-size: 10.5px; color: var(--muted); line-height: 1.5;
-      z-index: 50;
-      backdrop-filter: blur(4px);
-    }
+    #pv-log { display: none !important; }
     .log-entry { border-bottom: 1px solid #152235; padding: 2px 0; }
     .log-entry:last-child { border: none; }
 
