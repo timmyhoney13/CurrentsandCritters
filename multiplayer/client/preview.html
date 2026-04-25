@@ -485,16 +485,16 @@
         ".    down  .";
       grid-template-columns: auto auto auto;
       grid-template-rows: auto auto auto;
-      gap: 3px;
+      gap: 0;
       transition: border-color .2s, box-shadow .2s;
     }
     .pv-ocean-hub:hover { border-color: #2a5070; }
 
     .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; }
-    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; }
-    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; }
-    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; }
+    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; padding-bottom: 2px; }
+    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 2px; }
+    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; padding-right: 2px; }
+    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; padding-left: 2px; }
 
     .pv-board-card {
       width: var(--mini-w);
@@ -507,11 +507,53 @@
     }
     .pv-board-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-board-card:hover {
-      transform: scale(1.1);
+      transform: scale(1.05);
       border-color: var(--cyan);
       z-index: 20;
       box-shadow: 0 4px 16px rgba(0,0,0,.6);
     }
+
+    /* ── Half-card clip: each card slides under the ocean face ── */
+    /* Up: show top half of card (bottom tucks under ocean) */
+    .pv-lane-up .pv-board-card,
+    .pv-lane-up .pv-lane-slot {
+      height: calc(var(--mini-h) / 2);
+      border-bottom: none;
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    /* Down: show bottom half (top tucks under ocean) */
+    .pv-lane-down .pv-board-card,
+    .pv-lane-down .pv-lane-slot {
+      height: calc(var(--mini-h) / 2);
+      border-top: none;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+    /* Left: show left half (right edge tucks under ocean) */
+    .pv-lane-left .pv-board-card,
+    .pv-lane-left .pv-lane-slot {
+      width: calc(var(--mini-w) / 2);
+      border-right: none;
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    /* Right: show right half (left edge tucks under ocean) */
+    .pv-lane-right .pv-board-card,
+    .pv-lane-right .pv-lane-slot {
+      width: calc(var(--mini-w) / 2);
+      border-left: none;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+    /* Direction-based hover: translate away from ocean instead of scaling in */
+    .pv-lane-up    .pv-board-card:hover { transform: translateY(-4px) scale(1.05); transform-origin: center bottom; }
+    .pv-lane-down  .pv-board-card:hover { transform: translateY(4px)  scale(1.05); transform-origin: center top; }
+    .pv-lane-left  .pv-board-card:hover { transform: translateX(-4px) scale(1.05); transform-origin: right center; }
+    .pv-lane-right .pv-board-card:hover { transform: translateX(4px)  scale(1.05); transform-origin: left center; }
+
+    /* Ocean face sits on top of adjacent lane cards (z-index) */
+    .pv-ocean-center { position: relative; z-index: 2; }
     /* species glow on board hover — applied via JS data-species */
     .pv-board-card[data-species="Game Fish"]:hover   { border-color: #fb923c; box-shadow: 0 4px 14px rgba(251,146,60,.4); }
     .pv-board-card[data-species="Mammal"]:hover      { border-color: #64b8f0; box-shadow: 0 4px 14px rgba(100,184,240,.4); }
@@ -526,12 +568,14 @@
       width: 84px; height: 118px;
       border-radius: 9px; overflow: hidden;
       border: none;
-      box-shadow: 0 0 14px rgba(0,0,0,.5);
+      /* spread shadow seals the felt-colored gap over tucked card edges */
+      box-shadow: 0 0 0 4px var(--felt), 0 6px 22px rgba(0,0,0,.65);
       cursor: pointer;
       transition: box-shadow .2s;
+      position: relative; z-index: 1;
     }
     .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pv-ocean-face:hover { box-shadow: 0 0 20px rgba(61,214,245,.35); }
+    .pv-ocean-face:hover { box-shadow: 0 0 0 4px var(--felt), 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
 
     .pv-lane-slot {
       width: var(--mini-w); height: var(--mini-h);
@@ -1112,9 +1156,8 @@
     #pv-opponents.full-mode.opp-3 { grid-template-columns: 1fr 1fr 1fr; }
     #pv-opponents.full-mode { overflow-y: auto; max-height: 42vh; }
 
-    /* Read-only board in the focus overlay gets normal (full) card size */
+    /* Read-only board in the focus overlay */
     #pv-board-focus-content .pv-ro-board { gap: 8px; }
-    #pv-board-focus-content .pv-board-card { width: var(--mini-w); height: var(--mini-h); }
     #pv-board-focus-content .pv-ocean-face { width: 84px; height: 118px; }
 
     /* ── FLOATING GAME LOG ──────────────────────────────────────── */
