@@ -568,14 +568,14 @@
       width: 84px; height: 118px;
       border-radius: 9px; overflow: hidden;
       border: none;
-      /* spread shadow seals over flush-tucked card edges */
-      box-shadow: 0 0 0 6px var(--felt), 0 6px 22px rgba(0,0,0,.65);
+      /* thin dark-blue ring matches the separator line on card images */
+      box-shadow: 0 0 0 2px #004180, 0 6px 22px rgba(0,0,0,.65);
       cursor: pointer;
       transition: box-shadow .2s;
       position: relative; z-index: 1;
     }
     .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pv-ocean-face:hover { box-shadow: 0 0 0 6px var(--felt), 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
+    .pv-ocean-face:hover { box-shadow: 0 0 0 2px #004180, 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
 
     .pv-lane-slot {
       width: var(--mini-w); height: var(--mini-h);
@@ -2206,7 +2206,7 @@
     }
 
     // deck count
-    const deckNum = Number(state.deck_size ?? state.deck_count ?? (Array.isArray(state.deck)?state.deck.length:0));
+    const deckNum = Number(state.deck_remaining ?? state.deck_size ?? state.deck_count ?? (Array.isArray(state.deck)?state.deck.length:0));
     document.getElementById("pv-deck-count-face").textContent = deckNum > 0 ? deckNum : "·";
     document.getElementById("pv-deck-num").textContent = `${deckNum} cards`;
 
@@ -2716,6 +2716,59 @@
             cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
             lane.appendChild(cardEl);
           });
+          // Stackable slot: show a + when a stacking action exists (e.g. Lobster, Yellowfin Tuna)
+          if (isMyTurn && laneHasAction(dir)) {
+            const slot = document.createElement("div");
+            slot.className = "pv-lane-slot playable";
+            slot.textContent = "+";
+            slot.title = "Stack another card here";
+            slot.addEventListener("click", () => {
+              const sel = document.getElementById("pv-action-select");
+              if (sel?.value) {
+                const pre = actions.find(a =>
+                  String(a.index) === sel.value &&
+                  a.kind === "play_to_ocean" &&
+                  Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                  String(a.face_direction||"").toLowerCase() === dir
+                );
+                if (pre) { submitAction(pre); return; }
+              }
+              const opts = actions.filter(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir
+              );
+              if (opts.length === 1) { submitAction(opts[0]); return; }
+              setStatus("Click a card in your hand first, then click the slot to stack it.");
+            });
+            slot.addEventListener("dragover", (ev) => {
+              const acts = actions.filter(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir
+              );
+              if (acts.length) { ev.preventDefault(); ev.dataTransfer.dropEffect = "move"; slot.classList.add("drag-over"); }
+            });
+            slot.addEventListener("dragleave", () => slot.classList.remove("drag-over"));
+            slot.addEventListener("drop", (ev) => {
+              ev.preventDefault();
+              slot.classList.remove("drag-over");
+              let cardData = {};
+              try { cardData = JSON.parse(ev.dataTransfer.getData("application/x-fish-card") || "{}"); } catch {}
+              const entryUid = Number(cardData.entryUid);
+              const faceUid  = Number(cardData.faceUid);
+              if (!entryUid && !faceUid) return;
+              const act = actions.find(a =>
+                a.kind === "play_to_ocean" &&
+                Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                String(a.face_direction||"").toLowerCase() === dir &&
+                (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
+              );
+              if (!act) { showToast("Can't stack that card here.", "warn"); return; }
+              submitAction(act);
+            });
+            lane.appendChild(slot);
+          }
         }
         hub.appendChild(lane);
       });
