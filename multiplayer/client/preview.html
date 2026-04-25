@@ -1278,7 +1278,7 @@
         <div class="pv-menu-label">Scores</div>
         <div id="pv-menu-scores-list">—</div>
         <div class="pv-menu-divider"></div>
-        <button class="pv-menu-item" id="pv-menu-fullboards-btn">&#128196; Full Boards: Off</button>
+        <button class="pv-menu-item" id="pv-menu-fullboards-btn">&#128196; Full Boards: On</button>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
         <div class="pv-menu-divider"></div>
@@ -3016,7 +3016,11 @@
           Number(a.ocean_uid??-1)===Number(act.ocean_uid??-1) &&
           a.use_star
         );
-        if (sv) chosen = sv;
+        if (sv) {
+          chosen = sv;
+        } else if (act.star_symbol) {
+          showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
+        }
       }
       submitAction(chosen);
     };
@@ -3088,7 +3092,7 @@
 
   // ── Dropdown menu ───────────────────────────────────────────────
   let pvLogVisible = false;
-  let pvFullBoards = false;
+  let pvFullBoards = true;
 
   function closeMenu() {
     const d = document.getElementById("pv-menu-drop");

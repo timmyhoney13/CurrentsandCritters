@@ -7205,6 +7205,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
 
     coral_reef_count_total = name_count("coral reef")
     coral_reef_table_applied = False
+    count_table_applied: set = set()  # tracks card names whose threshold table has been scored once
 
     total = 0
     for uid, card, ocean_uid in board:
@@ -7358,7 +7359,12 @@ def final_points(gs: GameState, player: PlayerState) -> int:
                 pts += value_from_threshold_table(t, coral_reef_count_total)
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
-            pts += value_from_threshold_table(t, name_count(card.name))
+            # Table score is a global bracket (e.g. 2 Mantis Shrimps = 15 total, not 30).
+            # Only apply once per card name across all copies on the board.
+            card_name_key = card.name.lower()
+            if card_name_key not in count_table_applied:
+                count_table_applied.add(card_name_key)
+                pts += value_from_threshold_table(t, name_count(card.name))
 
         # Flat +N pieces (exclude conditional/per-table text).
         for chunk in [x.strip() for x in t.split("|")]:
@@ -7489,6 +7495,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
 
     coral_reef_total = _name_count("coral reef")
     coral_reef_table_applied = False
+    breakdown_count_table_applied: set = set()
 
     card_rows: List[Dict[str, Any]] = []
 
@@ -7685,9 +7692,13 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
                 n and add(n, f"{coral_reef_total} Coral Reef(s) → {n} pts")
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
-            cnt = _name_count(card.name)
-            n = _threshold(t, cnt)
-            n and add(n, f"{cnt} × {card.name} → {n} pts")
+            # Table score is global (2 Mantis Shrimps = 15 total, not 30).
+            bd_key = card.name.lower()
+            if bd_key not in breakdown_count_table_applied:
+                breakdown_count_table_applied.add(bd_key)
+                cnt = _name_count(card.name)
+                n = _threshold(t, cnt)
+                n and add(n, f"{cnt} × {card.name} → {n} pts (table)")
 
         # ── Flat +N values (one-time bonuses, no conditions) ─────────────────
         for chunk in [x.strip() for x in t.split("|")]:
