@@ -1503,12 +1503,12 @@
   // Returns the object-position value so the board card naturally shows
   // only the played face.  The full image contains both animals; cover+position
   // crops to the correct half without any distortion.
-  // Horizontal images (1-96): odd uid = left face, even = right face.
-  // Vertical images (101-188): odd uid = top face, even = bottom face.
+  // horizontal_cards (1-96): images are STACKED top/bottom — odd uid = top face (Up), even = bottom face (Down).
+  // vertical_cards (101-188): images are SIDE-BY-SIDE left/right — odd uid = left face (Left), even = right face (Right).
   function cardHalfPos(faceUid) {
     const u = Number(faceUid);
-    if (u >= 1   && u <= 96)  return u % 2 === 1 ? "left"   : "right";
-    if (u >= 101 && u <= 188) return u % 2 === 1 ? "top"    : "bottom";
+    if (u >= 1   && u <= 96)  return u % 2 === 1 ? "top"    : "bottom";
+    if (u >= 101 && u <= 188) return u % 2 === 1 ? "left"   : "right";
     return "center";
   }
 
