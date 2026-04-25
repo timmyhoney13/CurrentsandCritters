@@ -491,10 +491,10 @@
     .pv-ocean-hub:hover { border-color: #2a5070; }
 
     .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; }
-    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; padding-bottom: 2px; }
-    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 2px; }
-    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; padding-right: 2px; }
-    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; padding-left: 2px; }
+    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; }
+    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; }
+    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; }
 
     .pv-board-card {
       width: var(--mini-w);
@@ -568,14 +568,14 @@
       width: 84px; height: 118px;
       border-radius: 9px; overflow: hidden;
       border: none;
-      /* spread shadow seals the felt-colored gap over tucked card edges */
-      box-shadow: 0 0 0 4px var(--felt), 0 6px 22px rgba(0,0,0,.65);
+      /* spread shadow seals over flush-tucked card edges */
+      box-shadow: 0 0 0 6px var(--felt), 0 6px 22px rgba(0,0,0,.65);
       cursor: pointer;
       transition: box-shadow .2s;
       position: relative; z-index: 1;
     }
     .pv-ocean-face img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .pv-ocean-face:hover { box-shadow: 0 0 0 4px var(--felt), 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
+    .pv-ocean-face:hover { box-shadow: 0 0 0 6px var(--felt), 0 6px 22px rgba(0,0,0,.65), 0 0 18px rgba(61,214,245,.4); }
 
     .pv-lane-slot {
       width: var(--mini-w); height: var(--mini-h);
