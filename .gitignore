@@ -19,6 +19,7 @@
 !cards_vertical.txt
 !cards_lr.txt
 !cards_oceans.txt
+!update_cards.py
 
 # Card image slices served by Vercel.
 !horizontal_cards/
