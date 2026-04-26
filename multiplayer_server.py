@@ -562,6 +562,7 @@ class GameRoom:
 
         self.final_scores: List[Dict[str, Any]] = []
         self.winner: Optional[str] = None
+        self.chat_messages: List[Dict[str, Any]] = []
 
         self.game_thread: Optional[threading.Thread] = None
         self.action_history: List[Dict[str, Any]] = []
@@ -657,6 +658,7 @@ class GameRoom:
             "turn_summaries": list(self.turn_summaries[-200:]),
             "final_scores": copy.deepcopy(self.final_scores),
             "winner": self.winner,
+            "chat_messages": copy.deepcopy(self.chat_messages[-200:]),
             "action_history": copy.deepcopy(self.action_history),
             "recovery": {
                 "active": bool(self.recovery_active),
@@ -877,6 +879,7 @@ class GameRoom:
             room.turn_summaries = [x for x in list(payload.get("turn_summaries", [])) if isinstance(x, dict)][-200:]
             room.final_scores = [x for x in list(payload.get("final_scores", [])) if isinstance(x, dict)]
             room.winner = str(payload.get("winner")).strip() if isinstance(payload.get("winner"), str) else None
+            room.chat_messages = [x for x in list(payload.get("chat_messages", [])) if isinstance(x, dict)][-200:]
 
             action_history_raw = payload.get("action_history")
             parsed_actions: List[Dict[str, Any]] = []
@@ -2332,6 +2335,7 @@ class GameRoom:
                 "turn_summaries": self.turn_summaries[-80:],
                 "final_scores": self.final_scores,
                 "winner": self.winner,
+                "chat_messages": self.chat_messages[-80:],
                 "recovery": {
                     "active": bool(self.recovery_active),
                     "cursor": int(self.recovery_cursor),
@@ -2340,6 +2344,28 @@ class GameRoom:
                 },
             }
             return payload
+
+    def submit_chat(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        message = str(body.get("message", "")).strip()[:500]
+        target = str(body.get("target", "Everyone")).strip()[:64]
+        if not message:
+            return {"ok": False, "error": "empty message"}
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            sender = seat.claimed_name if seat and seat.claimed_name else "?"
+            entry: Dict[str, Any] = {
+                "sender": sender,
+                "target": target,
+                "message": message,
+                "ts": time.time(),
+            }
+            self.chat_messages.append(entry)
+            if len(self.chat_messages) > 200:
+                self.chat_messages = self.chat_messages[-200:]
+            self._persist_dirty = True
+            self.cond.notify_all()
+        return {"ok": True}
 
     def wait_for_update(self, last_version: int, timeout_sec: float) -> bool:
         with self.cond:
@@ -3050,6 +3076,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_action(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "chat":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.submit_chat(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

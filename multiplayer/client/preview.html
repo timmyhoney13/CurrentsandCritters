@@ -430,18 +430,15 @@
     .pv-deck-count { font-size: 11px; color: var(--muted); font-weight: 700; }
 
     /* Pool */
-    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     #pv-pool-wrap {
-      display: flex;
-      align-items: flex-end;
-      gap: 5px;
-      flex-wrap: wrap;
-      justify-content: center;
-      max-width: 480px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
     }
     .pv-pool-card {
-      width: 54px; height: 75px;
-      border-radius: 6px; overflow: hidden;
+      width: 72px; height: 100px;
+      border-radius: 7px; overflow: hidden;
       border: 1.5px solid var(--border);
       cursor: pointer;
       transition: transform .18s, border-color .15s, box-shadow .15s;
@@ -449,7 +446,7 @@
     }
     .pv-pool-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-pool-card:hover {
-      transform: translateY(-10px) scale(1.1);
+      transform: translateY(-10px) scale(1.08);
       border-color: var(--cyan);
       box-shadow: 0 8px 22px var(--glow-c);
       z-index: 20;
@@ -459,6 +456,11 @@
       box-shadow: 0 0 12px var(--glow-gold);
       transform: translateY(-6px) scale(1.06);
     }
+    @keyframes flipCardIn {
+      from { transform: rotateY(90deg) scale(.8); opacity: 0; }
+      to   { transform: rotateY(0deg)  scale(1);  opacity: 1; }
+    }
+    .pv-pool-card.flip-in { animation: flipCardIn .32s ease-out; }
     .pv-draw-btns { display: flex; gap: 5px; }
 
     /* ── MY BOARD ───────────────────────────────────────────────── */
@@ -1195,6 +1197,91 @@
     @media (max-width: 640px) {
       #pv-log-float { width: calc(100vw - 20px); right: 10px; }
     }
+
+    /* ── CHAT ───────────────────────────────────────────────────── */
+    #pv-chat-btn {
+      position: fixed; bottom: 18px; right: 18px; z-index: 1800;
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #0d6cb0, #0a5490);
+      border: 2px solid #2a80c0; cursor: pointer;
+      font-size: 20px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,.5);
+      transition: transform .15s, box-shadow .15s;
+    }
+    #pv-chat-btn:hover { transform: scale(1.1); box-shadow: 0 6px 22px rgba(13,108,176,.6); }
+    #pv-chat-btn .chat-badge {
+      position: absolute; top: -4px; right: -4px;
+      background: var(--red); color: #fff; font-size: 9px; font-weight: 800;
+      border-radius: 8px; padding: 1px 5px; display: none;
+    }
+    #pv-chat-panel {
+      position: fixed; bottom: 76px; right: 18px; z-index: 1800;
+      width: 300px; max-height: 420px;
+      background: linear-gradient(160deg, rgba(10,26,55,.97) 0%, rgba(5,14,32,.99) 100%);
+      border: 1px solid rgba(48,200,240,.22); border-radius: 12px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.6);
+      display: none; flex-direction: column; overflow: hidden;
+    }
+    #pv-chat-panel.open { display: flex; }
+    #pv-chat-hdr {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid rgba(48,200,240,.15);
+      font-size: 12px; font-weight: 700; color: var(--cyan);
+    }
+    #pv-chat-hdr button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+    #pv-chat-hdr button:hover { color: var(--red); }
+    #pv-chat-messages {
+      flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+      min-height: 60px; max-height: 280px;
+    }
+    .chat-msg { font-size: 11px; line-height: 1.5; }
+    .chat-msg .cm-sender { font-weight: 700; color: var(--gold); }
+    .chat-msg .cm-target { font-size: 10px; color: var(--muted); margin-left: 4px; }
+    .chat-msg .cm-text   { color: #e0e8f0; }
+    #pv-chat-input-row {
+      display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(48,200,240,.15);
+      flex-direction: column;
+    }
+    #pv-chat-target-row { display: flex; align-items: center; gap: 6px; }
+    #pv-chat-target-row label { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+    #pv-chat-to { font-size: 11px; background: rgba(10,28,58,.8); border: 1px solid var(--border); color: #dde; border-radius: 5px; padding: 3px 6px; flex: 1; }
+    #pv-chat-msg-row { display: flex; gap: 6px; }
+    #pv-chat-text { flex: 1; font-size: 11px; background: rgba(10,28,58,.8); border: 1px solid var(--border); color: #dde; border-radius: 5px; padding: 5px 8px; resize: none; }
+    #pv-chat-send { background: var(--cyan); color: #061428; font-size: 11px; font-weight: 700; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+    #pv-chat-send:hover { opacity: .85; }
+
+    /* ── END GAME OVERLAY ───────────────────────────────────────── */
+    #pv-endgame-overlay {
+      display: none; position: fixed; inset: 0; z-index: 3000;
+      background: rgba(0,0,0,.88); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #pv-endgame-overlay.open { display: flex; }
+    #pv-endgame-box {
+      background: linear-gradient(160deg, rgba(10,26,55,.99) 0%, rgba(5,14,32,1) 100%);
+      border: 1px solid rgba(245,200,66,.35); border-radius: 20px;
+      box-shadow: 0 0 80px rgba(245,200,66,.12), 0 24px 80px rgba(0,0,0,.75);
+      padding: 32px; max-width: 480px; width: 95%; text-align: center; position: relative;
+    }
+    #pv-endgame-box h2 { font-family: "Cinzel", serif; font-size: 1.4rem; color: var(--gold); margin-bottom: 6px; }
+    #pv-endgame-winner { font-size: 1.1rem; color: var(--cyan); font-weight: 700; margin-bottom: 20px; }
+    #pv-endgame-scores { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .eg-row {
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(10,28,58,.6); border: 1px solid rgba(48,200,240,.18);
+      border-radius: 8px; padding: 8px 14px;
+    }
+    .eg-row.winner { border-color: rgba(245,200,66,.5); background: rgba(245,200,66,.08); }
+    .eg-name { font-size: 13px; font-weight: 700; color: #dde; }
+    .eg-score { font-size: 18px; font-weight: 900; color: var(--gold); }
+    .eg-rank  { font-size: 11px; color: var(--muted); margin-right: 8px; }
+    #pv-endgame-close {
+      background: linear-gradient(135deg, #0d6cb0, #0a5490); color: #fff;
+      border: 2px solid #2a80c0; border-radius: 10px;
+      padding: 10px 28px; font-size: 14px; font-weight: 800; cursor: pointer;
+      transition: transform .15s;
+    }
+    #pv-endgame-close:hover { transform: translateY(-2px); }
   </style>
 </head>
 <body>
@@ -1417,6 +1504,39 @@
   <div id="pv-log" style="display:none;"></div>
 
 </div><!-- #pv-game -->
+
+<!-- ══ CHAT ═══════════════════════════════════════════════════════ -->
+<button id="pv-chat-btn" title="Chat" style="display:none;">
+  💬
+  <span class="chat-badge" id="pv-chat-badge"></span>
+</button>
+<div id="pv-chat-panel">
+  <div id="pv-chat-hdr">
+    <span>Chat</span>
+    <button id="pv-chat-close">✕</button>
+  </div>
+  <div id="pv-chat-messages"></div>
+  <div id="pv-chat-input-row">
+    <div id="pv-chat-target-row">
+      <label>To:</label>
+      <select id="pv-chat-to"><option value="Everyone">Everyone</option></select>
+    </div>
+    <div id="pv-chat-msg-row">
+      <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
+      <button id="pv-chat-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ END GAME OVERLAY ═══════════════════════════════════════════ -->
+<div id="pv-endgame-overlay">
+  <div id="pv-endgame-box">
+    <h2>Game Over</h2>
+    <div id="pv-endgame-winner"></div>
+    <div id="pv-endgame-scores"></div>
+    <button id="pv-endgame-close">Continue</button>
+  </div>
+</div>
 
 <!-- ══ BOARD FOCUS OVERLAY ════════════════════════════════════════ -->
 <div id="pv-board-focus">
@@ -2239,11 +2359,25 @@
     } else {
       discBanner.classList.remove("visible");
     }
+
+    // end game overlay
+    renderEndGame(payload.winner || null, Array.isArray(payload.final_scores) ? payload.final_scores : []);
+
+    // chat
+    const chatBtn = document.getElementById("pv-chat-btn");
+    chatBtn.style.display = phase !== "lobby" ? "" : "none";
+    const chatMsgs = Array.isArray(payload.chat_messages) ? payload.chat_messages : [];
+    renderChatMessages(chatMsgs);
+    updateChatTargetOptions(players, myIdx);
   }
 
   // ── Pool renderer ──────────────────────────────────────────────
+  let _prevPoolUids = [];
   function renderPool(pool, actions) {
     const wrap = document.getElementById("pv-pool-wrap");
+    const curUids = pool.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
+    const prevSet = new Set(_prevPoolUids);
+    _prevPoolUids = curUids;
     cl(wrap);
 
     const dp1 = actions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
@@ -2273,12 +2407,12 @@
       return;
     }
 
-    const maxShow = 8;
-    pool.slice(-maxShow).forEach(entry => {
+    pool.forEach((entry, idx) => {
       const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
+      const isNew = !prevSet.has(faceUid);
       const div = document.createElement("div");
-      div.className = "pv-pool-card" + (selectedPool.has(faceUid) ? " selected" : "");
+      div.className = "pv-pool-card" + (selectedPool.has(faceUid) ? " selected" : "") + (isNew ? " flip-in" : "");
       const img = document.createElement("img");
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
@@ -2288,16 +2422,9 @@
         else selectedPool.add(faceUid);
         renderPool(pool, actions);
       });
-      // click opens zoom
       div.addEventListener("dblclick", () => openZoom(faceUid, face.name, face.text, face.species));
       wrap.appendChild(div);
     });
-    if (pool.length > maxShow) {
-      const more = document.createElement("span");
-      more.style.cssText = "font-size:11px;color:var(--muted);align-self:center;";
-      more.textContent = `+${pool.length-maxShow} more`;
-      wrap.appendChild(more);
-    }
 
     // Pool drop zone — drag a hand card here to discard it to the pool (payment)
     const poolArea = document.getElementById("pv-pool-area");
@@ -3056,7 +3183,7 @@
     const prevVal = sel.value;
     if (sel.dataset.fingerprint === actionFingerprint) {
       sel.disabled = false; playBtn.disabled = false;
-      if (endAct) { endBtn.disabled=false; endBtn.onclick=()=>submitAction(endAct); }
+      if (endAct) { endBtn.disabled=false; endBtn.onclick=()=>{ if(confirm("End your turn?")) submitAction(endAct); }; }
       else { endBtn.disabled=true; endBtn.onclick=null; }
       return;
     }
@@ -3121,7 +3248,7 @@
       submitAction(chosen);
     };
 
-    if (endAct) { endBtn.disabled=false; endBtn.onclick=()=>submitAction(endAct); }
+    if (endAct) { endBtn.disabled=false; endBtn.onclick=()=>{ if(confirm("End your turn?")) submitAction(endAct); }; }
     else { endBtn.disabled=true; endBtn.onclick=null; }
   }
 
@@ -3342,6 +3469,106 @@
   document.getElementById("pv-board-focus").addEventListener("click", (e) => {
     if (e.target === document.getElementById("pv-board-focus"))
       document.getElementById("pv-board-focus").classList.remove("open");
+  });
+
+  // ── End game overlay ──────────────────────────────────────────
+  let _endgameDismissed = false;
+  function renderEndGame(winner, finalScores) {
+    const overlay = document.getElementById("pv-endgame-overlay");
+    if (!winner || _endgameDismissed) { overlay.classList.remove("open"); return; }
+    overlay.classList.add("open");
+    document.getElementById("pv-endgame-winner").textContent = `Winner: ${winner}`;
+    const scoresEl = document.getElementById("pv-endgame-scores");
+    cl(scoresEl);
+    const sorted = [...finalScores].sort((a,b) => (b.score||0)-(a.score||0));
+    sorted.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "eg-row" + (p.name === winner ? " winner" : "");
+      row.innerHTML = `<span class="eg-rank">#${i+1}</span><span class="eg-name">${p.name||"?"}</span><span class="eg-score">${p.score??0} pts</span>`;
+      scoresEl.appendChild(row);
+    });
+  }
+  document.getElementById("pv-endgame-close").addEventListener("click", () => {
+    _endgameDismissed = true;
+    document.getElementById("pv-endgame-overlay").classList.remove("open");
+  });
+
+  // ── Chat ───────────────────────────────────────────────────────
+  let _chatSeenCount = 0;
+  let _chatPanelOpen = false;
+
+  function renderChatMessages(messages) {
+    const el = document.getElementById("pv-chat-messages");
+    cl(el);
+    const msgs = Array.isArray(messages) ? messages : [];
+    msgs.forEach(m => {
+      const div = document.createElement("div"); div.className = "chat-msg";
+      const header = document.createElement("div");
+      const sender = document.createElement("span"); sender.className = "cm-sender"; sender.textContent = m.sender || "?";
+      const ts = m.ts ? new Date(m.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
+      const targetLabel = (m.target && m.target !== "Everyone") ? ` → ${m.target}` : "";
+      const meta = document.createElement("span"); meta.className = "cm-target"; meta.textContent = `${targetLabel} ${ts}`.trim();
+      header.appendChild(sender); header.appendChild(meta);
+      const body = document.createElement("div"); body.className = "cm-text"; body.textContent = m.message || "";
+      div.appendChild(header); div.appendChild(body);
+      el.appendChild(div);
+    });
+    el.scrollTop = el.scrollHeight;
+
+    if (_chatPanelOpen) _chatSeenCount = msgs.length;
+    const newCount = msgs.length - _chatSeenCount;
+    const badge = document.getElementById("pv-chat-badge");
+    if (!_chatPanelOpen && newCount > 0) {
+      badge.textContent = newCount > 9 ? "9+" : newCount;
+      badge.style.display = "block";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+
+  function updateChatTargetOptions(players, myIdx) {
+    const sel = document.getElementById("pv-chat-to");
+    const cur = sel.value;
+    cl(sel);
+    const everyone = document.createElement("option");
+    everyone.value = "Everyone"; everyone.textContent = "Everyone";
+    sel.appendChild(everyone);
+    (players||[]).forEach(p => {
+      if (p.index === myIdx) return;
+      const o = document.createElement("option");
+      o.value = p.name||`Player ${p.index}`; o.textContent = p.name||`Player ${p.index}`;
+      sel.appendChild(o);
+    });
+    if (Array.from(sel.options).some(o=>o.value===cur)) sel.value = cur;
+  }
+
+  async function sendChatMessage() {
+    const text = document.getElementById("pv-chat-text").value.trim();
+    const target = document.getElementById("pv-chat-to").value || "Everyone";
+    if (!text || !roomId) return;
+    const token = getSeatToken();
+    if (!token) return;
+    document.getElementById("pv-chat-text").value = "";
+    await apiPost(`/api/rooms/${roomId}/chat`, { seat_token: token, message: text, target }, { timeoutMs: 8000 });
+    refreshState();
+  }
+
+  document.getElementById("pv-chat-btn").addEventListener("click", () => {
+    _chatPanelOpen = !_chatPanelOpen;
+    document.getElementById("pv-chat-panel").classList.toggle("open", _chatPanelOpen);
+    if (_chatPanelOpen) {
+      const msgs = Array.isArray(latestPayload?.chat_messages) ? latestPayload.chat_messages : [];
+      _chatSeenCount = msgs.length;
+      document.getElementById("pv-chat-badge").style.display = "none";
+    }
+  });
+  document.getElementById("pv-chat-close").addEventListener("click", () => {
+    _chatPanelOpen = false;
+    document.getElementById("pv-chat-panel").classList.remove("open");
+  });
+  document.getElementById("pv-chat-send").addEventListener("click", sendChatMessage);
+  document.getElementById("pv-chat-text").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
   });
 
   // ── Auto-join from URL ─────────────────────────────────────────

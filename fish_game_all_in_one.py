@@ -4714,7 +4714,7 @@ def sort_hand_for_payment(
 
 def add_to_pool(ms: MatchState, uid: int) -> None:
     ms.pool.append(uid)
-    if len(ms.pool) >= 10:
+    if len(ms.pool) == 10:
         ms.discard_pile.extend(ms.pool)
         ms.pool.clear()
 
