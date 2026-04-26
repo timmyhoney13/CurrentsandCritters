@@ -400,8 +400,8 @@
     }
     .pv-deck-stack {
       position: relative;
-      width: 64px;
-      height: 88px;
+      width: 52px;
+      height: 72px;
     }
     .pv-deck-face {
       position: absolute;
@@ -430,15 +430,15 @@
     .pv-deck-count { font-size: 11px; color: var(--muted); font-weight: 700; }
 
     /* Pool */
-    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
     #pv-pool-wrap {
       display: grid;
-      grid-template-columns: repeat(5, 72px);
-      gap: 6px;
+      grid-template-columns: repeat(5, 48px);
+      gap: 4px;
     }
     .pv-pool-card {
-      width: 72px; height: 100px;
-      border-radius: 7px; overflow: hidden;
+      width: 48px; height: 68px;
+      border-radius: 5px; overflow: hidden;
       border: 1.5px solid var(--border);
       cursor: pointer;
       transition: transform .18s, border-color .15s, box-shadow .15s;
@@ -446,21 +446,37 @@
     }
     .pv-pool-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-pool-card:hover {
-      transform: translateY(-10px) scale(1.08);
+      transform: translateY(-8px) scale(1.12);
       border-color: var(--cyan);
-      box-shadow: 0 8px 22px var(--glow-c);
+      box-shadow: 0 6px 18px var(--glow-c);
       z-index: 20;
     }
     .pv-pool-card.selected {
       border-color: var(--gold);
-      box-shadow: 0 0 12px var(--glow-gold);
-      transform: translateY(-6px) scale(1.06);
+      box-shadow: 0 0 10px var(--glow-gold);
+      transform: translateY(-5px) scale(1.08);
     }
     @keyframes flipCardIn {
       from { transform: rotateY(90deg) scale(.8); opacity: 0; }
       to   { transform: rotateY(0deg)  scale(1);  opacity: 1; }
     }
     .pv-pool-card.flip-in { animation: flipCardIn .32s ease-out; }
+
+    /* ── CARD ANIMATIONS ────────────────────────────────────────── */
+    @keyframes dealIn {
+      0%   { transform: translateY(-55px) translateX(-10px) scale(.55) rotate(-6deg); opacity: 0; }
+      65%  { transform: translateY(5px)   translateX(0)     scale(1.06) rotate(.5deg); opacity: 1; }
+      100% { transform: translateY(0)     translateX(0)     scale(1)    rotate(0deg); opacity: 1; }
+    }
+    .pv-hand-card.deal-in {
+      animation: dealIn .45s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    @keyframes placeIn {
+      0%   { transform: scale(.3) rotate(-4deg); opacity: 0; }
+      65%  { transform: scale(1.1) rotate(.5deg); opacity: 1; }
+      100% { transform: scale(1)   rotate(0deg); opacity: 1; }
+    }
+    .pv-board-card.place-in { animation: placeIn .3s cubic-bezier(.22,.68,0,1.2) both; }
     .pv-draw-btns { display: flex; gap: 5px; }
 
     /* ── MY BOARD ───────────────────────────────────────────────── */
@@ -1445,7 +1461,7 @@
         </div>
       </div>
 
-      <div class="pv-action-divider" style="height:80px;"></div>
+      <div class="pv-action-divider" style="height:56px;"></div>
 
       <div class="pv-deck-pile" id="pv-draw-deck" title="Draw 2 from deck">
         <div class="pv-section-label">Deck</div>
@@ -2371,6 +2387,10 @@
     updateChatTargetOptions(players, myIdx);
   }
 
+  // ── Animation state ────────────────────────────────────────────
+  let _prevHandUIDs    = new Set();
+  let _prevBoardCards  = new Set(); // "oceanUid|dir|idx|faceUid"
+
   // ── Pool renderer ──────────────────────────────────────────────
   let _prevPoolUids = [];
   function renderPool(pool, actions) {
@@ -2717,6 +2737,16 @@
     if (!me) return;
 
     const board = Array.isArray(me.board) ? me.board : [];
+
+    // Snapshot new board card keys for place-in animation
+    const newBoardCards = new Set();
+    board.forEach(ocean => {
+      ["up","down","left","right"].forEach(dir => {
+        (ocean[dir] || []).forEach((c, idx) => {
+          newBoardCards.add(`${ocean.ocean_uid}|${dir}|${idx}|${c.face_uid ?? c.uid}`);
+        });
+      });
+    });
     const playOceanActions = actions.filter(a => a.kind === "play_ocean");
 
     // Drop zone for playing ocean cards (always present when play_ocean is legal)
@@ -2829,12 +2859,14 @@
           }
           lane.appendChild(slot);
         } else {
-          cards.forEach(c => {
+          cards.forEach((c, cIdx) => {
             const cardEl = document.createElement("div");
-            cardEl.className = "pv-board-card";
+            const fUid = c.face_uid ?? c.uid;
+            const isNew = !_prevBoardCards.has(`${ocean.ocean_uid}|${dir}|${cIdx}|${fUid}`);
+            cardEl.className = "pv-board-card" + (isNew ? " place-in" : "");
+            if (isNew) cardEl.addEventListener("animationend", () => cardEl.classList.remove("place-in"), { once: true });
             cardEl.dataset.species = c.species || "";
             const img = document.createElement("img");
-            const fUid = c.face_uid ?? c.uid;
             img.src = imagePathForUid(fUid);
             img.alt = c.name||""; img.loading="lazy";
             img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
@@ -2914,6 +2946,7 @@
 
       el.appendChild(hub);
     });
+    _prevBoardCards = newBoardCards;
   }
 
   // ── Hand renderer (Hearthstone fan with JS hover) ──────────────
@@ -2947,9 +2980,19 @@
     cards.forEach((card, i) => {
       const t = transforms[i];
       const tx = t.translateX || 0;
-      card.style.transform = `translateX(${tx}px) rotate(${t.angle}deg) translateY(${t.translateY}px) scale(${t.scale})`;
+      const targetTransform = `translateX(${tx}px) rotate(${t.angle}deg) translateY(${t.translateY}px) scale(${t.scale})`;
       card.style.zIndex = t.zIndex;
-      card.style.transition = "transform .22s cubic-bezier(.2,1.2,.4,1)";
+      if (card.classList.contains("deal-in")) {
+        // Let the CSS keyframe animation play first, then snap to final position
+        card.addEventListener("animationend", () => {
+          card.classList.remove("deal-in");
+          card.style.transform = targetTransform;
+          card.style.transition = "transform .22s cubic-bezier(.2,1.2,.4,1)";
+        }, { once: true });
+      } else {
+        card.style.transform = targetTransform;
+        card.style.transition = "transform .22s cubic-bezier(.2,1.2,.4,1)";
+      }
     });
   }
 
@@ -2971,6 +3014,9 @@
     const overflow = hand.length - MAX_VISIBLE;
     const n = visible.length;
 
+    // Compute new hand UIDs for deal-in animation
+    const newHandUIDs = new Set(visible.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.entry_uid ?? e.uid ?? 0)));
+
     visible.forEach((entry, i) => {
       // Server wraps entries as { entry_uid, faces: [{uid, name, cost, ...}] }
       const face     = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
@@ -2987,6 +3033,7 @@
       if (st) card.classList.add("has-star");
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
+      if (!_prevHandUIDs.has(Number(face.uid ?? entryUid))) card.classList.add("deal-in");
 
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
       const img   = document.createElement("img");
@@ -3070,6 +3117,7 @@
 
     // apply base fan layout
     applyHandLayout(-1);
+    _prevHandUIDs = newHandUIDs;
   }
 
   function prefillActionsForEntry(entryUid, actions) {
@@ -3311,7 +3359,7 @@
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
-    _prevPoolUids = [];
+    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set();
     document.getElementById("pv-game").style.display="none";
     document.getElementById("pv-lobby").style.display="flex";
     pvLogVisible = false;
