@@ -1426,6 +1426,7 @@
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-menu-fullboards-btn">&#128196; Full Boards: On</button>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
+        <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
@@ -1455,15 +1456,12 @@
       <div id="pv-pool-area">
         <div class="pv-section-label">Pool</div>
         <div id="pv-pool-wrap"></div>
-        <div class="pv-draw-btns" id="pv-draw-pool-btns">
-          <button class="pv-btn sm" id="pv-draw-pool1-btn" style="display:none;">Draw 1 from Pool</button>
-          <button class="pv-btn sm" id="pv-draw-pool2-btn" style="display:none;">Draw 2 from Pool</button>
-        </div>
+        <div id="pv-pool-pick-hint" style="display:none;font-size:10px;color:var(--cyan);text-align:center;margin-top:2px;"></div>
       </div>
 
       <div class="pv-action-divider" style="height:56px;"></div>
 
-      <div class="pv-deck-pile" id="pv-draw-deck" title="Draw 2 from deck">
+      <div class="pv-deck-pile" id="pv-draw-deck" title="Click to draw from deck">
         <div class="pv-section-label">Deck</div>
         <div class="pv-deck-stack">
           <div class="pv-deck-face" id="pv-deck-count-face">?</div>
@@ -1522,11 +1520,11 @@
 </div><!-- #pv-game -->
 
 <!-- ══ CHAT ═══════════════════════════════════════════════════════ -->
-<button id="pv-chat-btn" title="Chat" style="display:none;">
+<button id="pv-chat-btn" title="Toggle Chat" style="display:none;">
   💬
   <span class="chat-badge" id="pv-chat-badge"></span>
 </button>
-<div id="pv-chat-panel">
+<div id="pv-chat-panel" class="open">
   <div id="pv-chat-hdr">
     <span>Chat</span>
     <button id="pv-chat-close">✕</button>
@@ -2181,7 +2179,11 @@
     if (hi(action.source_ocean_uid)) pl.source_ocean_uid = action.source_ocean_uid;
     if (hi(action.draw_from_pool)) pl.draw_from_pool = action.draw_from_pool;
     const need = Number(action.draw_from_pool||0);
-    if (need > 0) pl.pool_pick_uids = Array.from(selectedPool).slice(0, need);
+    if (Array.isArray(action.pool_pick_uids) && action.pool_pick_uids.length > 0) {
+      pl.pool_pick_uids = action.pool_pick_uids;
+    } else if (need > 0) {
+      pl.pool_pick_uids = Array.from(selectedPool).slice(0, need);
+    }
     if (action.kind === "discard_batch_to_pool" && Array.isArray(action.pool_pick_uids))
       pl.pool_pick_uids = action.pool_pick_uids;
     const cost = Number(action.cost_to_pay||0);
@@ -2200,7 +2202,7 @@
         const errMsg = "Failed: " + (r.data?.error || r.status);
         setStatus(errMsg); showToast(errMsg, "err"); return;
       }
-      selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear();
+      selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear(); pendingPoolDrawPicks.clear();
       updatePaymentBadge();
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
@@ -2382,6 +2384,7 @@
     // chat
     const chatBtn = document.getElementById("pv-chat-btn");
     chatBtn.style.display = phase !== "lobby" ? "" : "none";
+    document.getElementById("pv-chat-panel").classList.toggle("open", _chatPanelOpen && phase !== "lobby");
     const chatMsgs = Array.isArray(payload.chat_messages) ? payload.chat_messages : [];
     renderChatMessages(chatMsgs);
     updateChatTargetOptions(players, myIdx);
@@ -2393,6 +2396,21 @@
 
   // ── Pool renderer ──────────────────────────────────────────────
   let _prevPoolUids = [];
+  // Pool cards the player has double-clicked to queue for drawing
+  const pendingPoolDrawPicks = new Set();
+  let _poolDrawActions = null; // cached draw actions for deck-click handler
+
+  function _submitPoolDraw(drawActions, poolPicks) {
+    const n = poolPicks.size;
+    let act = null;
+    if (n === 0) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
+    else if (n === 1) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
+    else if (n >= 2) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===2);
+    if (!act) { showToast("Draw not available right now.", "warn"); return; }
+    pendingPoolDrawPicks.clear();
+    submitAction({ ...act, pool_pick_uids: Array.from(poolPicks) });
+  }
+
   function renderPool(pool, actions) {
     const wrap = document.getElementById("pv-pool-wrap");
     const curUids = pool.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
@@ -2400,23 +2418,34 @@
     _prevPoolUids = curUids;
     cl(wrap);
 
-    const dp1 = actions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
-    const dp2 = actions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===2);
-    const d1  = document.getElementById("pv-draw-pool1-btn");
-    const d2  = document.getElementById("pv-draw-pool2-btn");
-    if (dp1) { d1.style.display=""; d1.onclick = ()=>submitAction(dp1); } else d1.style.display="none";
-    if (dp2) { d2.style.display=""; d2.onclick = ()=>submitAction(dp2); } else d2.style.display="none";
+    // Collect available draw actions
+    const drawActions = actions.filter(a => a.kind==="draw");
+    _poolDrawActions = drawActions;
+    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) > 0);
+    const canDrawDeck = drawActions.some(a => a.kind==="draw");
 
-    const ddeck = actions.find(a => a.kind==="draw" && !a.draw_from_pool);
+    // Wire deck click: draw with whatever pool picks are pending
     const deckPile = document.getElementById("pv-draw-deck");
-    if (ddeck && canInteract) {
+    if (canDrawDeck && canInteract) {
       deckPile.style.cursor = "pointer";
-      deckPile.onclick = () => submitAction(ddeck);
+      deckPile.onclick = () => _submitPoolDraw(drawActions, pendingPoolDrawPicks);
       deckPile.querySelector(".pv-deck-face").style.borderColor = "var(--cyan)";
     } else {
       deckPile.style.cursor = "default";
       deckPile.onclick = null;
       deckPile.querySelector(".pv-deck-face").style.borderColor = "";
+    }
+
+    // Update pending pick hint
+    const hint = document.getElementById("pv-pool-pick-hint");
+    if (pendingPoolDrawPicks.size === 1 && canInteract) {
+      hint.textContent = "1 pool card selected — click deck to draw both, or pick a 2nd";
+      hint.style.display = "";
+    } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
+      hint.textContent = "2 pool cards selected";
+      hint.style.display = "";
+    } else {
+      hint.style.display = "none";
     }
 
     if (!pool.length) {
@@ -2427,22 +2456,46 @@
       return;
     }
 
-    pool.forEach((entry, idx) => {
+    pool.forEach((entry) => {
       const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
       const isNew = !prevSet.has(faceUid);
+      const isPending = pendingPoolDrawPicks.has(faceUid);
       const div = document.createElement("div");
-      div.className = "pv-pool-card" + (selectedPool.has(faceUid) ? " selected" : "") + (isNew ? " flip-in" : "");
+      div.className = "pv-pool-card" + (isPending ? " selected" : "") + (isNew ? " flip-in" : "");
       const img = document.createElement("img");
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
-      div.title = face.name || String(faceUid);
-      div.addEventListener("click", () => {
-        if (selectedPool.has(faceUid)) selectedPool.delete(faceUid);
-        else selectedPool.add(faceUid);
-        renderPool(pool, actions);
+      div.title = (canDrawPool && canInteract)
+        ? `${face.name || faceUid} — double-click to draw, single-click to preview`
+        : (face.name || String(faceUid));
+
+      // Single-click → zoom preview
+      div.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openZoom(faceUid, face.name, face.text, face.species);
       });
-      div.addEventListener("dblclick", () => openZoom(faceUid, face.name, face.text, face.species));
+
+      // Double-click → queue for draw
+      div.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        if (!canDrawPool || !canInteract) return;
+        if (pendingPoolDrawPicks.has(faceUid)) {
+          pendingPoolDrawPicks.delete(faceUid);
+        } else {
+          if (pendingPoolDrawPicks.size >= 2) {
+            showToast("You can only draw up to 2 cards from the pool.", "warn"); return;
+          }
+          pendingPoolDrawPicks.add(faceUid);
+        }
+        // Auto-submit when 2 pool cards are queued
+        if (pendingPoolDrawPicks.size === 2) {
+          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+        } else {
+          renderPool(pool, actions);
+        }
+      });
+
       wrap.appendChild(div);
     });
 
@@ -2986,8 +3039,8 @@
         // Let the CSS keyframe animation play first, then snap to final position
         card.addEventListener("animationend", () => {
           card.classList.remove("deal-in");
-          card.style.transform = targetTransform;
           card.style.transition = "transform .22s cubic-bezier(.2,1.2,.4,1)";
+          card.style.transform = targetTransform;
         }, { once: true });
       } else {
         card.style.transform = targetTransform;
@@ -3355,7 +3408,7 @@
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
     _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
-    _chatPanelOpen = false;
+    _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
@@ -3414,6 +3467,18 @@
     document.getElementById("pv-log-float").classList.toggle("open", pvLogVisible);
     document.getElementById("pv-menu-log-btn").textContent =
       pvLogVisible ? "\u{1F4CB} Game Log: On" : "\u{1F4CB} Game Log: Off";
+    closeMenu();
+  });
+  document.getElementById("pv-menu-chat-btn").addEventListener("click", () => {
+    _chatPanelOpen = !_chatPanelOpen;
+    document.getElementById("pv-chat-panel").classList.toggle("open", _chatPanelOpen);
+    document.getElementById("pv-menu-chat-btn").textContent =
+      _chatPanelOpen ? "\u{1F4AC} Chat: On" : "\u{1F4AC} Chat: Off";
+    if (_chatPanelOpen) {
+      const msgs = Array.isArray(latestPayload?.chat_messages) ? latestPayload.chat_messages : [];
+      _chatSeenCount = msgs.length;
+      document.getElementById("pv-chat-badge").style.display = "none";
+    }
     closeMenu();
   });
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
@@ -3553,7 +3618,7 @@
 
   // ── Chat ───────────────────────────────────────────────────────
   let _chatSeenCount = 0;
-  let _chatPanelOpen = false;
+  let _chatPanelOpen = true;
 
   let _chatLastCount = -1;
   function renderChatMessages(messages) {

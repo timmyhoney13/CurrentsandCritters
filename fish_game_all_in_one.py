@@ -685,13 +685,12 @@ def _execute_main_pattern(
             player.score += n * count
 
     # Count tables like "1 = 5 | 2 = 25".
+    # Baitfish diversity charts are end-game only (final_points is authoritative) — skip here.
     thresholds = []
     for m in re.finditer(r"(\d+)\s*=\s*(\d+)", t):
         thresholds.append((int(m.group(1)), int(m.group(2))))
-    if thresholds:
-        if "different species of baitfish" in t:
-            value = len({c.name.lower() for c in board if c.species.lower() == "baitfish"})
-        elif "matching symbol" in t:
+    if thresholds and "different species of baitfish" not in t:
+        if "matching symbol" in t:
             value = sum(1 for c in board if normalize_symbol(c.symbol) == normalize_symbol(card.symbol))
         elif "at least three cephalopods" in t:
             value = sum(1 for c in board if c.species.lower() == "cephalopod")
@@ -891,6 +890,48 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
         player.flags["trigger_draw_on_cephalopod"] = cephalopod
     else:
         player.flags.pop("trigger_draw_on_cephalopod", None)
+
+
+def trigger_board_symbol_star_draws(
+    gs: GameState,
+    ms: Optional[Any],
+    player: PlayerState,
+    discarded_entry_uids: List[int],
+) -> None:
+    """
+    After any cards are discarded to the pool (payment or end-of-turn batch),
+    fire the 'draw' star ability of each board card whose symbol matches a
+    discarded card's symbol.  Each matching board card fires at most once per call.
+    """
+    discarded_syms: set = set()
+    for uid in discarded_entry_uids:
+        for face_uid in entry_faces(ms, uid):
+            cd = gs.card_db.get(face_uid)
+            if cd is not None:
+                sym = normalize_symbol(cd.symbol)
+                if sym not in {"", "n/a"}:
+                    discarded_syms.add(sym)
+    if not discarded_syms:
+        return
+
+    triggered: set = set()
+    for face_uid in all_board_cards(player):
+        if face_uid in triggered:
+            continue
+        cd = gs.card_db.get(face_uid)
+        if cd is None:
+            continue
+        sym = normalize_symbol(cd.symbol)
+        if sym in {"", "n/a"} or sym not in discarded_syms:
+            continue
+        _, star_text = split_main_and_star(cd.text)
+        if not star_text or "draw" not in star_text.lower():
+            continue
+        triggered.add(face_uid)
+        draw(gs, player, 1)
+        gs.log.append(
+            f"{player.name}: {cd.name} ({sym}) drew 1 — matching symbol discarded."
+        )
 
 
 # -----------------------------
@@ -5799,6 +5840,7 @@ def apply_action(
         if verbose:
             labels = ", ".join(entry_short_label(ms, gs, uid) for uid in chosen_uids)
             print(f"{player.name} batch-discards {len(chosen_uids)} card(s) to pool: {labels}")
+        trigger_board_symbol_star_draws(gs, ms, player, chosen_uids)
         return True
 
     if action.kind == "move_between_oceans":
@@ -5939,6 +5981,8 @@ def apply_action(
     if verbose and payments:
         paid = ", ".join(entry_short_label(ms, gs, uid) for uid in payments)
         print(f"{player.name} pays cost by discarding: {paid}")
+    if payments:
+        trigger_board_symbol_star_draws(gs, ms, player, payments)
 
     # Play card.
     try:
@@ -7203,7 +7247,12 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         best_need = max(eligible)
         return table[best_need]
 
-    coral_reef_count_total = name_count("coral reef")
+    coral_reef_count_total = name_count("coral reef") + sum(
+        1 for uid, c, o_uid in board
+        if c.name.lower() == "clownfish"
+        and gs.card_db.get(o_uid) is not None
+        and gs.card_db.get(o_uid).name.lower() == "coral reef"
+    )
     coral_reef_table_applied = False
     count_table_applied: set = set()  # tracks card names whose threshold table has been scored once
 
@@ -7351,8 +7400,11 @@ def final_points(gs: GameState, player: PlayerState) -> int:
 
         # Threshold table cards.
         if "different species of baitfish" in t:
-            kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
-            pts += value_from_threshold_table(t, len(kinds))
+            # Chart card: one total score for the whole set, not per-card.
+            if "baitfish_species_chart" not in count_table_applied:
+                count_table_applied.add("baitfish_species_chart")
+                kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
+                pts += value_from_threshold_table(t, len(kinds))
         elif card.name.lower() == "coral reef":
             # Coral Reef table is a global count score, not per-Coral-Reef multiplier.
             if not coral_reef_table_applied:
@@ -7360,11 +7412,16 @@ def final_points(gs: GameState, player: PlayerState) -> int:
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
             # Table score is a global bracket (e.g. 2 Mantis Shrimps = 15 total, not 30).
-            # Only apply once per card name across all copies on the board.
-            card_name_key = card.name.lower()
-            if card_name_key not in count_table_applied:
-                count_table_applied.add(card_name_key)
-                pts += value_from_threshold_table(t, name_count(card.name))
+            # Clownfish on a Coral Reef is already counted in coral_reef_count_total — skip.
+            if (card.name.lower() == "clownfish"
+                    and gs.card_db.get(ocean_uid) is not None
+                    and gs.card_db.get(ocean_uid).name.lower() == "coral reef"):
+                pass
+            else:
+                card_name_key = card.name.lower()
+                if card_name_key not in count_table_applied:
+                    count_table_applied.add(card_name_key)
+                    pts += value_from_threshold_table(t, name_count(card.name))
 
         # Flat +N pieces (exclude conditional/per-table text).
         for chunk in [x.strip() for x in t.split("|")]:
@@ -7493,7 +7550,12 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         eligible = [pts for need, pts in pairs if need <= value]
         return max(eligible) if eligible else 0
 
-    coral_reef_total = _name_count("coral reef")
+    coral_reef_total = _name_count("coral reef") + sum(
+        1 for uid, c, o_uid in board
+        if c.name.lower() == "clownfish"
+        and gs.card_db.get(o_uid) is not None
+        and gs.card_db.get(o_uid).name.lower() == "coral reef"
+    )
     coral_reef_table_applied = False
     breakdown_count_table_applied: set = set()
 
@@ -7683,22 +7745,30 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
 
         # ── Threshold table cards ─────────────────────────────────────────────
         if "different species of baitfish" in t:
-            kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
-            n = _threshold(t, len(kinds))
-            n and add(n, f"{len(kinds)} different Baitfish species → {n} pts")
+            # Chart card: one total score for the whole set, not per-card.
+            if "baitfish_species_chart" not in breakdown_count_table_applied:
+                breakdown_count_table_applied.add("baitfish_species_chart")
+                kinds = {c.name.lower() for c in non_ocean_cards if c.species.lower() == "baitfish"}
+                n = _threshold(t, len(kinds))
+                n and add(n, f"{len(kinds)} different Baitfish species → {n} pts")
         elif card.name.lower() == "coral reef":
             if not coral_reef_table_applied:
                 n = _threshold(t, coral_reef_total)
                 n and add(n, f"{coral_reef_total} Coral Reef(s) → {n} pts")
                 coral_reef_table_applied = True
         elif re.search(r"\d+\s*=\s*\d+", t):
-            # Table score is global (2 Mantis Shrimps = 15 total, not 30).
-            bd_key = card.name.lower()
-            if bd_key not in breakdown_count_table_applied:
-                breakdown_count_table_applied.add(bd_key)
-                cnt = _name_count(card.name)
-                n = _threshold(t, cnt)
-                n and add(n, f"{cnt} × {card.name} → {n} pts (table)")
+            # Clownfish on a Coral Reef is already counted in coral_reef_total — skip.
+            if (card.name.lower() == "clownfish"
+                    and gs.card_db.get(ocean_uid) is not None
+                    and gs.card_db.get(ocean_uid).name.lower() == "coral reef"):
+                pass
+            else:
+                bd_key = card.name.lower()
+                if bd_key not in breakdown_count_table_applied:
+                    breakdown_count_table_applied.add(bd_key)
+                    cnt = _name_count(card.name)
+                    n = _threshold(t, cnt)
+                    n and add(n, f"{cnt} × {card.name} → {n} pts (table)")
 
         # ── Flat +N values (one-time bonuses, no conditions) ─────────────────
         for chunk in [x.strip() for x in t.split("|")]:
