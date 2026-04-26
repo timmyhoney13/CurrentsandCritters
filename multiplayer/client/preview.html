@@ -433,7 +433,7 @@
     #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 6px; }
     #pv-pool-wrap {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(5, 72px);
       gap: 6px;
     }
     .pv-pool-card {
@@ -3306,6 +3306,12 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
+    _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
+    _chatPanelOpen = false;
+    document.getElementById("pv-chat-panel").classList.remove("open");
+    document.getElementById("pv-chat-btn").style.display = "none";
+    document.getElementById("pv-endgame-overlay").classList.remove("open");
+    _prevPoolUids = [];
     document.getElementById("pv-game").style.display="none";
     document.getElementById("pv-lobby").style.display="flex";
     pvLogVisible = false;
@@ -3475,7 +3481,8 @@
   let _endgameDismissed = false;
   function renderEndGame(winner, finalScores) {
     const overlay = document.getElementById("pv-endgame-overlay");
-    if (!winner || _endgameDismissed) { overlay.classList.remove("open"); return; }
+    if (!winner) { _endgameDismissed = false; overlay.classList.remove("open"); return; }
+    if (_endgameDismissed) { overlay.classList.remove("open"); return; }
     overlay.classList.add("open");
     document.getElementById("pv-endgame-winner").textContent = `Winner: ${winner}`;
     const scoresEl = document.getElementById("pv-endgame-scores");
@@ -3484,7 +3491,10 @@
     sorted.forEach((p, i) => {
       const row = document.createElement("div");
       row.className = "eg-row" + (p.name === winner ? " winner" : "");
-      row.innerHTML = `<span class="eg-rank">#${i+1}</span><span class="eg-name">${p.name||"?"}</span><span class="eg-score">${p.score??0} pts</span>`;
+      const rank = document.createElement("span"); rank.className = "eg-rank"; rank.textContent = `#${i+1}`;
+      const name = document.createElement("span"); name.className = "eg-name"; name.textContent = p.name || "?";
+      const score = document.createElement("span"); score.className = "eg-score"; score.textContent = `${p.score ?? 0} pts`;
+      row.appendChild(rank); row.appendChild(name); row.appendChild(score);
       scoresEl.appendChild(row);
     });
   }
@@ -3497,10 +3507,21 @@
   let _chatSeenCount = 0;
   let _chatPanelOpen = false;
 
+  let _chatLastCount = -1;
   function renderChatMessages(messages) {
+    const msgs = Array.isArray(messages) ? messages : [];
+    const badge = document.getElementById("pv-chat-badge");
+    if (msgs.length === _chatLastCount) {
+      // no new messages — just update badge visibility, don't re-render
+      if (_chatPanelOpen) _chatSeenCount = msgs.length;
+      const newCount = msgs.length - _chatSeenCount;
+      badge.style.display = (!_chatPanelOpen && newCount > 0) ? "block" : "none";
+      if (!_chatPanelOpen && newCount > 0) badge.textContent = newCount > 9 ? "9+" : newCount;
+      return;
+    }
+    _chatLastCount = msgs.length;
     const el = document.getElementById("pv-chat-messages");
     cl(el);
-    const msgs = Array.isArray(messages) ? messages : [];
     msgs.forEach(m => {
       const div = document.createElement("div"); div.className = "chat-msg";
       const header = document.createElement("div");
@@ -3517,7 +3538,6 @@
 
     if (_chatPanelOpen) _chatSeenCount = msgs.length;
     const newCount = msgs.length - _chatSeenCount;
-    const badge = document.getElementById("pv-chat-badge");
     if (!_chatPanelOpen && newCount > 0) {
       badge.textContent = newCount > 9 ? "9+" : newCount;
       badge.style.display = "block";
