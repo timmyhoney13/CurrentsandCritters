@@ -3156,38 +3156,45 @@
   // TUTORIAL ENGINE
   // ══════════════════════════════════════════════════════════════
 
-  // ── Fake card database (uid → {name, symbol, species, text, starText}) ──
+  // ── Card database (uid → {name, symbol, species, text, starText})
+  //    UIDs match the actual game card images exactly.
+  //    Up/Down cards (1-96) → /horizontal_cards/  |  Left/Right (101-188) → /vertical_cards/
+  //    Ocean cards (201-266) → /oceans_cards/
   const TUT_CARDS = {
-    // Oceans
-    201: { name:"Coral Reef",    symbol:"heart",    species:"ocean",   text:"+2 pts per Baitfish. Threshold: 1=5,2=15,3=30.", starText:"" },
-    202: { name:"Open Ocean",    symbol:"circle",   species:"ocean",   text:"+1 pt per card on board.",                       starText:"" },
-    203: { name:"Kelp Forest",   symbol:"triangle", species:"ocean",   text:"+3 pts per Cephalopod.",                         starText:"" },
-    // Animals (horizontal — half-card)
-    1:   { name:"Clownfish",     symbol:"heart",    species:"baitfish",text:"+2 pts.",                                        starText:"Counts as extra Coral Reef." },
-    2:   { name:"Tang",          symbol:"circle",   species:"baitfish",text:"+1 pt.",                                        starText:"" },
-    3:   { name:"Parrotfish",    symbol:"triangle", species:"baitfish",text:"+1 pt.",                                        starText:"" },
-    5:   { name:"Whale Shark",   symbol:"circle",   species:"shark",   text:"Draw 1 card when a ◉ card is discarded.",        starText:"Draw 2 instead." },
-    6:   { name:"Hammerhead",    symbol:"square",   species:"shark",   text:"+3 pts per shark on board.",                    starText:"" },
-    8:   { name:"Octopus",       symbol:"triangle", species:"cephalopod",text:"+4 pts.",                                     starText:"Draw 1 card." },
-    9:   { name:"Nautilus",      symbol:"diamond",  species:"cephalopod",text:"+2 pts.",                                     starText:"" },
-    13:  { name:"Puffin",        symbol:"square",   species:"bird",    text:"+3 pts per bird on board.",                     starText:"" },
-    14:  { name:"Albatross",     symbol:"heart",    species:"bird",    text:"+2 pts.",                                       starText:"" },
-    16:  { name:"Sea Turtle",    symbol:"circle",   species:"reptile", text:"+4 pts.",                                       starText:"+2 pts bonus." },
-    17:  { name:"Iguana",        symbol:"diamond",  species:"reptile", text:"+2 pts.",                                       starText:"" },
-    25:  { name:"Mantis Shrimp", symbol:"heart",    species:"crustacean",text:"Threshold: 1=3,2=8,3=16,4=28.",              starText:"" },
-    40:  { name:"Razorbill Auk", symbol:"square",   species:"bird",    text:"Threshold: 1=4,2=10,3=20.",                    starText:"" },
-    41:  { name:"Mandarin Goby", symbol:"heart",    species:"baitfish",text:"Chart: Baitfish diversity 3=12,4=20,5=30.",    starText:"" },
+    // ── Oceans ─────────────────────────────────────────────────────
+    217: { name:"Coral Reef",        symbol:"diamond",  species:"ocean",       text:"1=1 | 2=4 | 3=9 | 4=18 | 5=9 | 6+=36 pts",           starText:"" },
+    219: { name:"Coral Reef",        symbol:"circle",   species:"ocean",       text:"1=1 | 2=4 | 3=9 | 4=18 | 5=9 | 6+=36 pts",           starText:"" },
+    220: { name:"Coral Reef",        symbol:"triangle", species:"ocean",       text:"1=1 | 2=4 | 3=9 | 4=18 | 5=9 | 6+=36 pts",           starText:"" },
+    221: { name:"Coral Reef",        symbol:"square",   species:"ocean",       text:"1=1 | 2=4 | 3=9 | 4=18 | 5=9 | 6+=36 pts",           starText:"" },
+    // ── Animals (Up slot, UIDs 1-96) ───────────────────────────────
+    1:   { name:"Emperor Penguin",   symbol:"triangle", species:"bird",        text:"+2 pts per Bird on your board.",                       starText:"" },
+    3:   { name:"Emperor Penguin",   symbol:"heart",    species:"bird",        text:"+2 pts per Bird on your board.",                       starText:"" },
+    5:   { name:"Emperor Penguin",   symbol:"diamond",  species:"bird",        text:"+2 pts per Bird on your board.",                       starText:"" },
+    6:   { name:"Mantis Shrimp",     symbol:"heart",    species:"crustacean",  text:"Threshold: 1=5 | 2=15 | 3=30 pts",                    starText:"" },
+    7:   { name:"Emperor Penguin",   symbol:"circle",   species:"bird",        text:"+2 pts per Bird on your board.",                       starText:"" },
+    9:   { name:"Horned Puffin",     symbol:"square",   species:"bird",        text:"+3 pts | Play again.",                                 starText:"" },
+    11:  { name:"Horned Puffin",     symbol:"heart",    species:"bird",        text:"+3 pts | Play again.",                                 starText:"" },
+    13:  { name:"Horned Puffin",     symbol:"triangle", species:"bird",        text:"+3 pts | Play again.",                                 starText:"" },
+    15:  { name:"Horned Puffin",     symbol:"circle",   species:"bird",        text:"+3 pts | Play again.",                                 starText:"" },
+    17:  { name:"California Seagull",symbol:"diamond",  species:"bird",        text:"+3 pts per Crustacean on your board.",                 starText:"" },
+    25:  { name:"Peruvian Pelican",  symbol:"square",   species:"bird",        text:"+5 pts | Draw one card.",                              starText:"Draw three cards instead." },
+    27:  { name:"Peruvian Pelican",  symbol:"diamond",  species:"bird",        text:"+5 pts | Draw one card.",                              starText:"Draw three cards instead." },
+    33:  { name:"Great Albatross",   symbol:"circle",   species:"bird",        text:"+6 pts if you have the most oceans. Draw one when played.", starText:"" },
+    34:  { name:"Staghorn Coral",    symbol:"square",   species:"coral",       text:"+3 pts per Coral on your board.",                      starText:"" },
+    40:  { name:"Lobster",           symbol:"circle",   species:"crustacean",  text:"+5 pts. Any number of Lobsters can share the same spot.", starText:"" },
+    41:  { name:"Osprey",            symbol:"triangle", species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
+    43:  { name:"Osprey",            symbol:"heart",    species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
   };
 
-  // hand uids player starts with
-  const TUT_INIT_HAND = [201, 1, 2, 5, 8, 13, 16, 25];
-  // pool uids
-  const TUT_INIT_POOL = [3, 6, 9, 14];
+  // hand uids player starts with — all match real card images, no overlap with pool
+  const TUT_INIT_HAND = [217, 11, 3, 25, 33, 6, 34, 9];
+  // pool uids — chosen to not overlap with hand or each other
+  const TUT_INIT_POOL = [1, 7, 40, 27];
   // bot boards (ocean uid → attached face uids)
   const TUT_BOT_BOARDS = [
-    { ocean: 202, cards: [2, 9] },
-    { ocean: 203, cards: [8] },
-    { ocean: 201, cards: [1, 14] },
+    { ocean: 219, cards: [7, 43] },
+    { ocean: 220, cards: [9] },
+    { ocean: 221, cards: [1, 34] },
   ];
 
   // ── Tutorial state ──────────────────────────────────────────────
@@ -3244,54 +3251,54 @@
     // 5
     {
       title: "Play an Ocean Card",
-      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. You must play one before you can attach animals.</p><p>Your hand contains the <em>Coral Reef</em> ocean card. Click it to play it onto your board.</p>`,
+      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. You must play one before you can attach animals.</p><p>Your hand contains a <em>Coral Reef</em> ocean card (◆). Click it to play it onto your board.</p>`,
       highlight: null, actionHint: "Click the Coral Reef card in your hand.", waitFor: "play_ocean",
-      highlightHandUid: 201,
+      highlightHandUid: 217,
     },
     // 6
     {
       title: "Ocean on Your Board",
-      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up, Down, Left, Right</em>.</p><p>Animals slot in based on their direction — you'll always see which direction a card plays when you select it.</p>`,
+      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up, Down, Left, Right</em>.</p><p>Animals go in specific slots based on their direction — you'll see which slot a card fills when you select it.</p>`,
       highlight: "tut-my-board-area", actionHint: null, waitFor: null,
     },
     // 7
     {
       title: "Play an Animal Card",
-      text: `<p>Now attach an animal to your Coral Reef. The <em>Clownfish</em> in your hand slots <strong>Up</strong> — it also has a special star ability!</p><p>Click the Clownfish to select it, then confirm the play.</p>`,
-      highlight: null, actionHint: "Click the Clownfish card in your hand.", waitFor: "play_animal",
-      highlightHandUid: 1,
+      text: `<p>Now attach an animal to your Coral Reef. The <em>Horned Puffin</em> in your hand costs <strong>1 ♥ card</strong> and slots <strong>Up</strong> — it gives +3 pts and lets you play again!</p><p>Click the Horned Puffin (♥) to select it.</p>`,
+      highlight: null, actionHint: "Click the Horned Puffin (♥) card in your hand.", waitFor: "play_animal",
+      highlightHandUid: 11,
     },
     // 8
     {
       title: "Payment (Symbols)",
-      text: `<p>To play a card you must <strong>pay its cost</strong> by discarding matching-symbol cards from your hand.</p><p>The Clownfish costs 1 ♥ card. The red-pulsing cards in your hand match — click one to discard it as payment.</p>`,
+      text: `<p>To play a card you must <strong>pay its cost</strong> by discarding matching-symbol cards from your hand.</p><p>The Horned Puffin costs 1 ♥ card. The red-pulsing cards in your hand match — click one to discard it as payment.</p>`,
       highlight: null, actionHint: "Click a red-pulsing ♥ card to pay the cost.", waitFor: "discard_payment",
     },
     // 9
     {
       title: "Card Played!",
-      text: `<p>The <strong>Clownfish</strong> is now attached <em>Up</em> on your Coral Reef. Your payment card went to the pool.</p><p>Notice: because a ♥ card was discarded to the pool, any board card with a ♥ draw-star ability would trigger now (like Whale Shark with ◉).</p>`,
+      text: `<p>The <strong>Horned Puffin</strong> is now attached <em>Up</em> on your Coral Reef and your payment card went to the pool.</p><p>The Puffin gives <strong>+3 pts</strong> and a "play again" bonus — letting you play another card this same turn!</p>`,
       highlight: "tut-my-board-area", actionHint: null, waitFor: null,
     },
     // 10
     {
       title: "Star Abilities ★",
-      text: `<p>Cards marked with <strong>★</strong> have bonus Star Abilities. To use one:</p><p>1. Select the card from your hand.<br>2. Enable the <em>★ Star</em> toggle (shown automatically here).<br>3. One extra matching-symbol card is auto-consumed from your hand.</p><p>Let's use the <em>Octopus</em> star: it lets you draw 1 extra card.</p>`,
-      highlight: null, actionHint: "Click the Octopus card in your hand to use its star.", waitFor: "star_play",
-      highlightHandUid: 8,
+      text: `<p>Cards marked with <strong>★</strong> have bonus Star Abilities. To use one:</p><p>1. Select the card from your hand.<br>2. Enable the <em>★ Star</em> toggle (shown automatically here).<br>3. Pay one extra matching-symbol card from your hand.</p><p>The <em>Peruvian Pelican's</em> star normally draws 1 card but with ★ it draws <strong>3 cards</strong>!</p>`,
+      highlight: null, actionHint: "Click the Peruvian Pelican (■) card in your hand to use its star.", waitFor: "star_play",
+      highlightHandUid: 25,
     },
     // 11
     {
       title: "Star Played!",
-      text: `<p>The Octopus star ability fired — you drew 1 extra card! The star payment (a ▲ card) was discarded to the pool.</p><p>Star abilities are powerful but cost an extra card, so use them wisely.</p>`,
+      text: `<p>The Peruvian Pelican ★ ability fired — you drew 3 extra cards! A ■ card from your hand was used as the star payment and discarded to the pool.</p><p>Star abilities are powerful but cost an extra card, so use them wisely.</p>`,
       highlight: "tut-hand-zone", actionHint: null, waitFor: null,
     },
     // 12
     {
-      title: "Whale Shark Trigger",
-      text: `<p>See the <strong>Whale Shark</strong> in your hand? Its ability says:<br><em>"Draw 1 card when a ◉ card is discarded."</em></p><p>If you play the Whale Shark on your board first and then pay with a ◉ card, it fires automatically — no action needed from you.</p>`,
-      highlight: null, actionHint: "Click Whale Shark to zoom and read its ability.", waitFor: "zoom_whale",
-      highlightHandUid: 5,
+      title: "Draw Abilities",
+      text: `<p>See the <strong>Great Albatross</strong> in your hand? Its ability says:<br><em>"+6 pts if you have the most oceans. Draw one card when played."</em></p><p>Build your ocean count early to maximize scoring and trigger bonus draws — a well-timed card can cascade into drawing 2–3 extras!</p>`,
+      highlight: null, actionHint: "Click the Great Albatross to zoom and read its ability.", waitFor: "zoom_whale",
+      highlightHandUid: 33,
     },
     // 13
     {
@@ -3319,7 +3326,7 @@
         "Draw 2 cards every turn — pool cards are free information!",
         "Match symbols to chain abilities and draw extra cards.",
         "Threshold cards like Mantis Shrimp reward deep sets — commit early.",
-        "Clownfish counts as an extra Coral Reef for bracket scoring.",
+        "The Peruvian Pelican's ★ star draws 3 cards — great for refilling your hand.",
         "Watch opponents: end the game when you're ahead, not when they are.",
       ],
       highlight: null, actionHint: null, waitFor: null, isFinish: true,
@@ -3523,13 +3530,13 @@
     const ts = tutState;
     const step = TUTORIAL_STEPS[ts.step] || {};
 
-    if (step.waitFor === "play_ocean" && uid === 201) {
+    if (step.waitFor === "play_ocean" && uid === 217) {
       tutPlayOcean();
-    } else if (step.waitFor === "play_animal" && uid === 1) {
+    } else if (step.waitFor === "play_animal" && uid === 11) {
       tutPlayAnimal1();
-    } else if (step.waitFor === "star_play" && uid === 8) {
+    } else if (step.waitFor === "star_play" && uid === 25) {
       tutStarPlay();
-    } else if (step.waitFor === "zoom_whale" && uid === 5) {
+    } else if (step.waitFor === "zoom_whale" && uid === 33) {
       tutOpenZoom(uid);
     } else if (step.waitFor === "discard_payment") {
       tutToggleDiscard(uid);
@@ -3540,8 +3547,8 @@
 
   function tutPlayOcean() {
     const ts = tutState;
-    ts.hand = ts.hand.filter(u => u !== 201);
-    ts.myBoard.push({ oceanUid: 201, up: [], down: [], left: [], right: [] });
+    ts.hand = ts.hand.filter(u => u !== 217);
+    ts.myBoard.push({ oceanUid: 217, up: [], down: [], left: [], right: [] });
     tutShowFlash("Coral Reef played!");
     tutRenderAll();
     tutGoStep(ts.step + 1);
@@ -3549,8 +3556,7 @@
 
   function tutPlayAnimal1() {
     const ts = tutState;
-    ts.selectedHandUid = 1;
-    // Go to payment step
+    ts.selectedHandUid = 11;
     tutGoStep(ts.step + 1);
   }
 
@@ -3564,15 +3570,15 @@
     // Check if payment complete: 1 heart card selected
     if (ts.discardSelected.size >= 1) {
       const payUids = Array.from(ts.discardSelected);
-      // Add clownfish to board up slot
-      if (ts.myBoard.length > 0) ts.myBoard[0].up.push(1);
+      // Add Horned Puffin to board up slot
+      if (ts.myBoard.length > 0) ts.myBoard[0].up.push(11);
       // remove from hand
-      ts.hand = ts.hand.filter(u => u !== 1 && !ts.discardSelected.has(u));
+      ts.hand = ts.hand.filter(u => u !== 11 && !ts.discardSelected.has(u));
       // discarded cards go to pool
       payUids.forEach(u => { if (!ts.pool.includes(u)) ts.pool.push(u); });
       ts.discardSelected.clear();
       ts.selectedHandUid = null;
-      tutShowFlash("Clownfish played! Payment discarded to pool.");
+      tutShowFlash("Horned Puffin played! Payment discarded to pool.");
       tutRenderAll();
       tutGoStep(ts.step + 1);
     } else {
@@ -3582,15 +3588,15 @@
 
   function tutStarPlay() {
     const ts = tutState;
-    // Find a triangle card to pay
-    const payUid = ts.hand.find(u => u !== 8 && tutCard(u).symbol === "triangle");
-    ts.hand = ts.hand.filter(u => u !== 8 && u !== payUid);
-    if (ts.myBoard.length > 0) ts.myBoard[0].down.push(8);
+    // Find a square card to pay (Peruvian Pelican ■ needs one ■ for the star)
+    const payUid = ts.hand.find(u => u !== 25 && tutCard(u).symbol === "square");
+    ts.hand = ts.hand.filter(u => u !== 25 && u !== payUid);
+    if (ts.myBoard.length > 0) ts.myBoard[0].up.push(25);
     if (payUid != null && !ts.pool.includes(payUid)) ts.pool.push(payUid);
-    // Star draw: add card 17 to hand
-    ts.hand.push(17);
-    ts.deckCount = Math.max(0, ts.deckCount - 1);
-    tutShowFlash("Octopus ★ fired — drew 1 extra card!");
+    // Star draw: Peruvian Pelican ★ draws 3 cards
+    [13, 15, 17].forEach(u => { if (!ts.hand.includes(u)) ts.hand.push(u); });
+    ts.deckCount = Math.max(0, ts.deckCount - 3);
+    tutShowFlash("Peruvian Pelican ★ fired — drew 3 cards!");
     tutRenderAll();
     tutGoStep(ts.step + 1);
   }
@@ -3610,7 +3616,7 @@
     const ts = tutState;
     const step = TUTORIAL_STEPS[ts.step] || {};
     if (step.waitFor !== "draw_deck") return;
-    const newUid = 40; // Razorbill Auk
+    const newUid = 5; // Emperor Penguin ◆ drawn from deck
     ts.hand.push(newUid);
     ts.deckCount = Math.max(0, ts.deckCount - 1);
     tutShowFlash("Drew " + tutCard(newUid).name + " from deck!");
@@ -3620,9 +3626,8 @@
 
   function tutAddExcessCards() {
     const ts = tutState;
-    // Give hand a couple more cards so it doesn't run empty
+    // One extra card so the hand doesn't run empty; must not overlap pool [1,7,40,27]
     if (!ts.hand.includes(41)) ts.hand.push(41);
-    if (!ts.hand.includes(25)) { /* already there */ }
   }
 
   // ── Bot turn simulation ──────────────────────────────────────────
@@ -3635,8 +3640,8 @@
       ts.botScores[botIdx] += 3 + botIdx * 2;
       ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 1);
       const board = ts.botBoards[botIdx];
-      const extras = [17, 9, 6, 13, 2];
-      const addUid = extras[botIdx] || 17;
+      const extras = [7, 43, 3, 1, 33];
+      const addUid = extras[botIdx] || 7;
       board.cards.push(addUid);
       tutRenderBots();
       if (cb) cb();
