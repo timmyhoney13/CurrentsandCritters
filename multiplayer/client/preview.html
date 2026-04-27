@@ -1160,7 +1160,9 @@
       box-shadow: 0 8px 40px rgba(0,0,0,.75);
       z-index: 9620; padding: 14px 16px 12px;
       display: flex; flex-direction: column; gap: 9px;
+      transition: top .2s, bottom .2s;
     }
+    #tut-panel.tut-panel-top { bottom: auto; top: 44px; }
     #tut-panel-title {
       font-family: "Cinzel", serif; font-size: 11px; color: var(--cyan);
       font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
@@ -3726,6 +3728,12 @@
       nextBtn.textContent  = step.nextLabel || "Next →";
       nextBtn.disabled     = (step.waitFor != null && step.waitFor !== "");
     }
+
+    // Move panel to top when the action requires clicking a hand card
+    const _handActionSteps = ["play_ocean","play_animal","discard_payment","star_play","zoom_whale"];
+    document.getElementById("tut-panel").classList.toggle(
+      "tut-panel-top", _handActionSteps.includes(step.waitFor)
+    );
 
     // Highlight
     tutApplyHighlight(step.highlight || null);
