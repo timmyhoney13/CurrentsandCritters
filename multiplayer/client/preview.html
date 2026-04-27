@@ -1142,6 +1142,8 @@
     .tut-hand-card.tut-selectable { border-color: var(--cyan); box-shadow: 0 0 14px var(--glow-c); animation: tut-card-pulse 1.3s ease-in-out infinite; }
     .tut-hand-card.tut-discard-selectable { border-color: var(--red); box-shadow: 0 0 10px rgba(232,64,87,.3); animation: tut-card-pulse-red 1.3s ease-in-out infinite; }
     .tut-hand-card.tut-discard-selected { border-color: var(--red); opacity: .55; }
+    .tut-hand-card.tut-pay-selectable { border-color: var(--teal); box-shadow: 0 0 10px rgba(13,148,136,.4); animation: tut-card-pulse-teal 1.3s ease-in-out infinite; }
+    .tut-hand-card.tut-card-selected { border-color: var(--gold) !important; box-shadow: 0 0 18px var(--glow-gold) !important; transform: translateY(-10px) scale(1.08); }
     .tut-hand-card img { width: 100%; height: 100%; object-fit: cover; }
     .tut-card-label {
       position: absolute; bottom: 0; left: 0; right: 0;
@@ -1152,6 +1154,20 @@
       position: absolute; top: 2px; right: 2px; color: var(--gold);
       font-size: 10px; font-weight: 900; text-shadow: 0 0 4px rgba(240,184,64,.8);
     }
+    .tut-card-tip {
+      display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
+      transform: translateX(-50%); width: 176px;
+      background: rgba(6,16,44,.98); border: 1px solid rgba(48,200,240,.32);
+      border-radius: 9px; padding: 9px 11px; z-index: 9700;
+      font-size: 11px; line-height: 1.5; pointer-events: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,.8);
+    }
+    .tut-hand-card:hover .tut-card-tip { display: block; }
+    .tut-card-tip .tip-name { font-weight: 800; color: var(--gold); font-size: 12px; margin-bottom: 2px; }
+    .tut-card-tip .tip-meta { color: var(--muted); font-size: 10px; margin-bottom: 5px; }
+    .tut-card-tip .tip-body { color: var(--text); font-size: 11px; }
+    .tut-card-tip .tip-star { color: var(--gold); font-size: 10.5px; margin-top: 4px; font-style: italic; }
+    .tut-card-tip .tip-hint { margin-top: 5px; font-size: 9px; color: var(--muted); border-top: 1px solid rgba(255,255,255,.08); padding-top: 4px; }
     #tut-panel {
       flex-shrink: 0; position: relative; z-index: 9590;
       background: linear-gradient(0deg, rgba(4,11,30,.99) 0%, rgba(8,22,52,.98) 100%);
@@ -1274,6 +1290,10 @@
     @keyframes tut-card-pulse-red {
       0%,100% { box-shadow: 0 0 8px rgba(232,64,87,.3); }
       50%      { box-shadow: 0 0 20px rgba(232,64,87,.65); }
+    }
+    @keyframes tut-card-pulse-teal {
+      0%,100% { box-shadow: 0 0 8px rgba(13,148,136,.3); }
+      50%      { box-shadow: 0 0 22px rgba(13,148,136,.7); }
     }
     @keyframes tut-hint-blink {
       0%,100% { opacity: 1; } 50% { opacity: .65; }
@@ -3245,20 +3265,26 @@
     // 4
     {
       title: "Your Hand",
-      text: `<p>Great — your hand now has those two new cards! Each card shows its <strong>symbol</strong> (◆ ◉ ♥ ■ ◇) and species.</p><p>Symbols matter for <em>paying</em> card costs and triggering abilities.</p>`,
-      highlight: "tut-hand-zone", actionHint: null, waitFor: null,
+      text: `<p>Great — your hand now has those two new cards! Each card shows its <strong>symbol</strong> (◆ ◉ ♥ ■ ◇) and species.</p><p><strong>Hover</strong> any card to see its full ability. <strong>Double-click</strong> to zoom it large. Symbols matter for paying card costs.</p>`,
+      highlight: "tut-hand-zone", actionHint: "Try hovering a card to see its details.", waitFor: null,
     },
     // 5
     {
       title: "Play an Ocean Card",
-      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. You must play one before you can attach animals.</p><p>Your hand contains a <em>Coral Reef</em> ocean card (◆). Click it to play it onto your board.</p>`,
+      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. You must play one before attaching animals.</p><p>Your hand has a <em>Coral Reef</em> (◆). <strong>Hover</strong> any card to inspect it — <strong>double-click</strong> to zoom it fully. Click the Coral Reef to play it.</p>`,
       highlight: null, actionHint: "Click the Coral Reef card in your hand.", waitFor: "play_ocean",
       highlightHandUid: 217,
     },
-    // 6
+    // 6 — ocean payment (matches real game: oceans cost 1 card)
+    {
+      title: "Pay the Ocean's Cost",
+      text: `<p>Ocean cards cost <strong>1 card</strong> to play. Every card costs something — this teaches you the payment system.</p><p>Click <strong>any card</strong> from your hand to discard it as payment. The Coral Reef will then be placed on your board.</p>`,
+      highlight: null, actionHint: "Click any card in your hand to pay (teal glow = payable).", waitFor: "pay_ocean",
+    },
+    // 7
     {
       title: "Ocean on Your Board",
-      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up, Down, Left, Right</em>.</p><p>Animals go in specific slots based on their direction — you'll see which slot a card fills when you select it.</p>`,
+      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up, Down, Left, Right</em>.</p><p>Animals slot in specific directions — you'll see which direction a card plays when you hover it.</p>`,
       highlight: "tut-my-board-area", actionHint: null, waitFor: null,
     },
     // 7
@@ -3471,6 +3497,8 @@
     });
   }
 
+  let _tutCardClickTimers = {};
+
   function tutRenderHand() {
     const ts = tutState;
     const row = document.getElementById("tut-hand-row");
@@ -3481,12 +3509,28 @@
       const div = document.createElement("div");
       div.className = "tut-hand-card";
       div.dataset.uid = uid;
+
+      // Tooltip content
+      const tipHtml = `<div class="tut-card-tip">
+        <div class="tip-name">${card.name}</div>
+        <div class="tip-meta">${card.species} · ${card.symbol}${card.species !== "ocean" ? " · cost " + (tutCardCost(uid)) : ""}</div>
+        <div class="tip-body">${card.text}</div>
+        ${card.starText ? `<div class="tip-star">★ ${card.starText}</div>` : ""}
+        <div class="tip-hint">Double-click to inspect</div>
+      </div>`;
+
       div.innerHTML = tutCardImg(uid) +
         `<div class="tut-card-label">${card.name}<br><span style="color:var(--muted);font-size:6px;">${card.symbol} · ${card.species}</span></div>` +
-        (card.starText ? `<div class="tut-star-badge">★</div>` : "");
+        (card.starText ? `<div class="tut-star-badge">★</div>` : "") +
+        tipHtml;
 
       const isHighlighted = step.highlightHandUid === uid;
       if (isHighlighted) div.classList.add("tut-selectable");
+
+      // pay_ocean: all cards except the ocean itself glow teal
+      if (step.waitFor === "pay_ocean" && uid !== 217) {
+        div.classList.add("tut-pay-selectable");
+      }
 
       if (step.waitFor === "discard_payment") {
         const c = tutCard(uid);
@@ -3497,9 +3541,30 @@
       }
       if (ts.discardSelected.has(uid)) div.classList.add("tut-discard-selected");
 
-      div.addEventListener("click", () => tutHandCardClick(uid));
+      // Single click (with delay to allow dblclick detection)
+      div.addEventListener("click", () => {
+        clearTimeout(_tutCardClickTimers[uid]);
+        _tutCardClickTimers[uid] = setTimeout(() => tutHandCardClick(uid), 190);
+      });
+      // Double-click: always open zoom/inspect
+      div.addEventListener("dblclick", () => {
+        clearTimeout(_tutCardClickTimers[uid]);
+        tutOpenZoom(uid);
+      });
+
       row.appendChild(div);
     });
+  }
+
+  function tutCardCost(uid) {
+    // Ocean costs 1; animals use cost from real card data (approximate for tutorial)
+    if (uid >= 201 && uid <= 266) return 1;
+    const c = tutCard(uid);
+    // zero-cost cards
+    if ([6, 34, 40].includes(uid)) return "free";
+    if ([9, 11, 13, 15, 33, 41, 43].includes(uid)) return 1;
+    if ([1, 3, 5, 7, 17, 25, 27].includes(uid)) return 2;
+    return "?";
   }
 
   function tutRenderAll() {
@@ -3532,24 +3597,44 @@
 
     if (step.waitFor === "play_ocean" && uid === 217) {
       tutPlayOcean();
+    } else if (step.waitFor === "pay_ocean" && uid !== 217) {
+      tutPayOcean(uid);
     } else if (step.waitFor === "play_animal" && uid === 11) {
       tutPlayAnimal1();
     } else if (step.waitFor === "star_play" && uid === 25) {
       tutStarPlay();
     } else if (step.waitFor === "zoom_whale" && uid === 33) {
-      tutOpenZoom(uid);
+      tutOpenZoom(uid);  // single-click still opens zoom here (instructional step)
     } else if (step.waitFor === "discard_payment") {
       tutToggleDiscard(uid);
     } else {
-      tutOpenZoom(uid);
+      _tutFlashCard(uid);  // visual feedback: clicked but not the needed card
     }
+  }
+
+  function _tutFlashCard(uid) {
+    const el = document.querySelector(`.tut-hand-card[data-uid="${uid}"]`);
+    if (!el) return;
+    el.classList.add("tut-card-selected");
+    setTimeout(() => el.classList.remove("tut-card-selected"), 500);
   }
 
   function tutPlayOcean() {
     const ts = tutState;
+    // Remove ocean from hand — actual board placement happens after payment
     ts.hand = ts.hand.filter(u => u !== 217);
+    tutShowFlash("Coral Reef selected — pay 1 card to place it.");
+    tutRenderHand();
+    tutGoStep(ts.step + 1);  // → pay_ocean step
+  }
+
+  function tutPayOcean(uid) {
+    const ts = tutState;
+    // Discard chosen card as payment, then place the ocean
+    ts.hand = ts.hand.filter(u => u !== uid);
+    if (!ts.pool.includes(uid)) ts.pool.push(uid);
     ts.myBoard.push({ oceanUid: 217, up: [], down: [], left: [], right: [] });
-    tutShowFlash("Coral Reef played!");
+    tutShowFlash("Coral Reef placed! Payment discarded to pool.");
     tutRenderAll();
     tutGoStep(ts.step + 1);
   }
@@ -3745,9 +3830,10 @@
     const handLbl = document.getElementById("tut-hand-lbl");
     if (handLbl) {
       if (step.waitFor === "draw_pool") handLbl.textContent = "Your Hand — drag a pool card here to draw";
+      else if (step.waitFor === "pay_ocean") handLbl.textContent = "Your Hand — click any card (teal glow) to pay";
       else if (step.waitFor === "discard_payment") handLbl.textContent = "Your Hand — click a ♥ card to pay";
-      else if (step.waitFor === "play_ocean" || step.waitFor === "play_animal" || step.waitFor === "star_play" || step.waitFor === "zoom_whale") handLbl.textContent = "Your Hand — click a card";
-      else handLbl.textContent = "Your Hand";
+      else if (step.waitFor === "play_ocean" || step.waitFor === "play_animal" || step.waitFor === "star_play" || step.waitFor === "zoom_whale") handLbl.textContent = "Your Hand — click a card · double-click to inspect";
+      else handLbl.textContent = "Your Hand — double-click any card to inspect it";
     }
 
     // Hand re-render to apply highlight class / discard class
