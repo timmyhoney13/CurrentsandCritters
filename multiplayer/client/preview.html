@@ -1238,8 +1238,8 @@
     }
     /* ── Selected-and-locked card (already selected, now paying) ── */
     .tut-hand-card.tut-selected-locked {
-      border-color: var(--gold); box-shadow: 0 0 10px rgba(240,184,64,.5);
-      opacity: .65; cursor: default;
+      border-color: var(--gold) !important; box-shadow: 0 0 16px rgba(240,184,64,.75) !important;
+      animation: tut-card-pulse-gold 1.3s ease-in-out infinite; cursor: default;
     }
     #tut-panel {
       flex-shrink: 0; position: relative; z-index: 9590;
@@ -3358,12 +3358,12 @@
       text:`<p>Your <strong>Coral Reef</strong> is on your board with four attachment slots: <em>↑ Up, ↓ Down, ← Left, → Right</em>. The dashed boxes show where animals can attach. Billy and Diana also have their oceans now.</p>` },
     // 9 — select animal (click puffin)
     { title:"Select an Animal", waitFor:"play_animal", highlight:null, highlightHandUid:11,
-      actionHint:"Click the glowing Horned Puffin (♥) to select it.",
-      text:`<p>Now attach an animal to your Coral Reef! The <em>Horned Puffin</em> (♥ heart) costs <strong>1 ♥ card</strong> to play and gives <strong>+3 pts</strong> plus a "play again" bonus. <strong>Click it</strong> to select.</p>` },
+      actionHint:"Click the gold Horned Puffin to select it for play.",
+      text:`<p>Time to attach an animal! The <em>Horned Puffin</em> gives <strong>+3 pts</strong>. It has a <strong>★ Star ability</strong> — "play again." You only need to match its ♥ symbol if you <em>want</em> the star. Any card pays the base cost. <strong>Click the gold Puffin</strong> to select it.</p>` },
     // 10 — pay for animal (auto-attaches after payment)
     { title:"Pay the Puffin's Cost", waitFor:"pay_animal", highlight:null,
-      actionHint:"Click a red-glowing ♥ card to pay — the Puffin attaches automatically!",
-      text:`<p>The Horned Puffin (gold border) costs <strong>1 ♥ card</strong>. <strong>Click any red-glowing card</strong> to pay — the Puffin will automatically attach to your Coral Reef's ↑ Up slot!</p>` },
+      actionHint:"Click a red ♥ card to pay — activates the ★ 'play again' bonus!",
+      text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em> — any card is fine for base effect. Click a <strong>red ♥ card</strong>!</p>` },
     // 11 — puffin attached (auto, no action needed)
     { title:"Puffin Attached!", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
       text:`<p>Your <strong>Horned Puffin</strong> is now on your Coral Reef's <em>↑ Up</em> slot! It scores <strong>+3 pts</strong> and lets you play again. Check out the empty slots — you can attach more animals!</p>` },
@@ -3377,11 +3377,11 @@
       text:`<p>The <strong>Horned Puffin</strong> is on your Coral Reef's ↑ slot. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong> and a "play again" bonus!</p>` },
     // 14 — star abilities
     { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:25,
-      actionHint:"Click the glowing Peruvian Pelican (■) to use its star.",
-      text:`<p>Cards with <strong>★</strong> have bonus abilities costing one extra matching card. The <em>Peruvian Pelican's</em> ★ draws <strong>3 cards</strong> instead of 1. <strong>Click the Pelican</strong> (■) to activate it!</p>` },
+      actionHint:"Click the gold Peruvian Pelican to activate its ★ star.",
+      text:`<p>★ <strong>Star abilities are optional bonuses.</strong> Pay with a <em>matching symbol card</em> to activate them — otherwise the base effect plays for free. The <em>Peruvian Pelican</em> (■) normally draws 1 card. Pay with a ■ card when you play it → draw <strong>3</strong> instead. <strong>Click the gold Pelican</strong> to see it!</p>` },
     // 15 — star played
     { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
-      text:`<p>The Pelican ★ fired — 3 cards drawn! A ■ card was used as star payment and discarded to the pool.</p>` },
+      text:`<p>The Pelican ★ fired — <strong>3 cards drawn!</strong> You played the Pelican with a matching ■ card → the star activated. Without the ■, it would only draw 1. That's the star mechanic: <em>match the symbol = bonus activates.</em></p>` },
     // 16 — draw abilities / zoom
     { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:33,
       actionHint:"Double-click the Great Albatross to inspect it.",
@@ -3618,6 +3618,11 @@
         if (uid === 217) div.classList.add("tut-drag-ready");
       }
 
+      // play_animal: Puffin glows gold to select (consistent with Coral Reef at select_ocean)
+      if (step.waitFor === "play_animal") {
+        if (uid === 11) div.classList.add("tut-drag-ready");
+      }
+
       // pay_ocean: Coral Reef locked (selected/queued); protect puffin/pelican/albatross for later steps
       if (step.waitFor === "pay_ocean") {
         if (uid === ts.selectedCardUid) {
@@ -3627,8 +3632,7 @@
         }
       }
 
-      // play_animal: Puffin glows cyan (same as highlightHandUid handles it)
-      // pay_animal: Puffin locked, ♥ cards glow red
+      // pay_animal: Puffin locked gold (pulsing), ♥ cards glow red
       if (step.waitFor === "pay_animal") {
         if (uid === ts.selectedHandUid) {
           div.classList.add("tut-selected-locked");
@@ -3707,7 +3711,7 @@
     } else if (step.waitFor === "pay_animal" && uid !== ts.selectedHandUid) {
       const c = tutCard(uid);
       if (c.symbol === "heart") tutPayAnimal(uid);
-      else tutShowFlash("Pay with a ♥ (heart) card — they glow red!");
+      else tutShowFlash("Pay with a ♥ card to activate the ★ star — they glow red!");
     } else if (step.waitFor === "star_play" && uid === 25) {
       tutStarPlay();
     } else if (step.waitFor === "zoom_whale" && uid === 33) {
