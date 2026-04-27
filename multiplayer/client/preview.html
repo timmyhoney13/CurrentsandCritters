@@ -1004,14 +1004,291 @@
     #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #fff; }
     #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(255,255,255,.6); }
 
+    /* ── TUTORIAL MODE ──────────────────────────────────────────── */
+    #pv-tutorial {
+      position: fixed; inset: 0; z-index: 9500;
+      background: var(--bg); display: none; flex-direction: column;
+    }
+    #pv-tutorial.active { display: flex; }
+    #tut-topbar {
+      display: flex; align-items: center; gap: 10px; padding: 8px 14px;
+      background: rgba(5,14,36,.97); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #tut-step-badge {
+      font-size: 10px; color: var(--cyan); font-weight: 700;
+      background: rgba(48,200,240,.1); border: 1px solid rgba(48,200,240,.28);
+      border-radius: 20px; padding: 3px 10px; white-space: nowrap;
+    }
+    #tut-topbar-title {
+      flex: 1; font-family: "Cinzel", serif; font-size: 12px;
+      color: var(--gold); font-weight: 700; white-space: nowrap; overflow: hidden;
+    }
+    #tut-x-btn {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 17px; width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; transition: background .15s, color .15s; flex-shrink: 0;
+    }
+    #tut-x-btn:hover { background: rgba(232,64,87,.2); color: var(--red); }
+    #tut-table {
+      flex: 1; display: flex; flex-direction: column; gap: 6px;
+      padding: 8px; overflow: hidden; min-height: 0;
+    }
+    #tut-opp-row {
+      display: flex; gap: 8px; flex-shrink: 0; align-items: flex-start;
+    }
+    .tut-player-panel {
+      background: rgba(10,26,55,.7); border: 1px solid var(--border);
+      border-radius: 10px; padding: 7px 10px;
+      display: flex; flex-direction: column; gap: 4px;
+      flex: 1; min-width: 0;
+    }
+    .tut-player-panel.active-turn { border-color: var(--cyan); }
+    .tut-pname {
+      font-size: 11px; font-weight: 700; color: var(--cyan);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .tut-pname-txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tut-pscore { color: var(--gold); font-size: 10px; flex-shrink: 0; margin-left: 4px; }
+    .tut-phand-count { font-size: 9px; color: var(--muted); }
+    .tut-mini-board {
+      display: flex; gap: 3px; flex-wrap: wrap; min-height: 36px; align-items: center;
+    }
+    .tut-mini-hub { display: flex; align-items: center; gap: 1px; }
+    .tut-mini-ocean {
+      width: 32px; height: 44px; border-radius: 4px; overflow: hidden;
+      border: 1px solid var(--border); flex-shrink: 0;
+    }
+    .tut-mini-ocean img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-mini-animal {
+      width: 22px; height: 30px; border-radius: 3px; overflow: hidden;
+      border: 1px solid rgba(48,200,240,.25); flex-shrink: 0; margin-left: -5px;
+    }
+    .tut-mini-animal img { width: 100%; height: 100%; object-fit: cover; }
+    #tut-center-strip {
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; flex-shrink: 0;
+    }
+    .tut-section-lbl { font-size: 9px; color: var(--muted); font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .5px; }
+    #tut-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    #tut-pool-wrap { display: flex; gap: 4px; align-items: center; }
+    .tut-pool-card {
+      width: 42px; height: 58px; border-radius: 5px; overflow: hidden;
+      border: 1.5px solid var(--border); cursor: pointer;
+      transition: transform .15s, border-color .15s;
+    }
+    .tut-pool-card:hover { transform: translateY(-6px); border-color: var(--cyan); }
+    .tut-pool-card img { width: 100%; height: 100%; object-fit: cover; }
+    #tut-deck-pile {
+      display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+    }
+    .tut-deck-face {
+      width: 42px; height: 58px;
+      background: linear-gradient(135deg, #0f2040, #1a3a6a);
+      border: 2px solid #2a5090; border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Cinzel", serif; font-size: 14px; font-weight: 900;
+      color: rgba(255,255,255,.2); box-shadow: 3px 3px 0 #0d1830;
+      transition: border-color .2s;
+    }
+    #tut-deck-pile:hover .tut-deck-face { border-color: var(--cyan); }
+    .tut-deck-count { font-size: 9px; color: var(--muted); font-weight: 700; }
+    #tut-my-board-area {
+      display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0;
+    }
+    #tut-my-board-wrap {
+      display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+      min-height: 72px; padding: 4px;
+    }
+    .tut-ocean-hub { display: flex; flex-direction: column; align-items: center; }
+    .tut-slot-up { margin-bottom: -20px; z-index: 3; display: flex; gap: 2px; justify-content: center; }
+    .tut-slot-down { margin-top: -20px; z-index: 3; display: flex; gap: 2px; justify-content: center; }
+    .tut-slot-row { display: flex; align-items: center; position: relative; z-index: 2; }
+    .tut-slot-left { margin-right: -16px; z-index: 3; }
+    .tut-slot-right { margin-left: -16px; z-index: 3; }
+    .tut-ocean-card {
+      width: 56px; height: 78px; border-radius: 7px; overflow: hidden;
+      border: 2px solid var(--teal);
+    }
+    .tut-ocean-card img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-attached-card {
+      width: 42px; height: 58px; border-radius: 4px; overflow: hidden;
+      border: 1.5px solid var(--cyan); box-shadow: 0 0 6px rgba(48,200,240,.3);
+    }
+    .tut-attached-card img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-empty-board-msg {
+      color: var(--muted); font-size: 10px; text-align: center; padding: 10px;
+    }
+    #tut-hand-zone {
+      flex-shrink: 0; padding: 4px 8px 6px;
+      background: rgba(5,14,36,.8); border-top: 1px solid var(--border);
+    }
+    #tut-hand-row {
+      display: flex; gap: 5px; justify-content: center; flex-wrap: nowrap;
+      overflow-x: auto; padding: 6px 0;
+    }
+    .tut-hand-card {
+      width: 56px; height: 78px; border-radius: 7px; overflow: hidden;
+      border: 2px solid var(--border); cursor: pointer;
+      transition: transform .18s, border-color .15s, box-shadow .15s;
+      flex-shrink: 0; position: relative;
+    }
+    .tut-hand-card:hover { transform: translateY(-14px) scale(1.1); border-color: var(--cyan); box-shadow: 0 8px 22px var(--glow-c); z-index: 30; }
+    .tut-hand-card.tut-selectable { border-color: var(--cyan); box-shadow: 0 0 14px var(--glow-c); animation: tut-card-pulse 1.3s ease-in-out infinite; }
+    .tut-hand-card.tut-discard-selectable { border-color: var(--red); box-shadow: 0 0 10px rgba(232,64,87,.3); animation: tut-card-pulse-red 1.3s ease-in-out infinite; }
+    .tut-hand-card.tut-discard-selected { border-color: var(--red); opacity: .55; }
+    .tut-hand-card img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-card-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(0,0,0,.8); font-size: 7px; color: #ddf;
+      text-align: center; padding: 2px; font-weight: 700; line-height: 1.1;
+    }
+    .tut-star-badge {
+      position: absolute; top: 2px; right: 2px; color: var(--gold);
+      font-size: 10px; font-weight: 900; text-shadow: 0 0 4px rgba(240,184,64,.8);
+    }
+    #tut-panel {
+      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+      width: min(430px, calc(100vw - 28px));
+      background: linear-gradient(160deg, rgba(6,18,48,.98) 0%, rgba(4,11,30,.99) 100%);
+      border: 1px solid rgba(48,200,240,.35); border-radius: 14px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.75);
+      z-index: 9620; padding: 14px 16px 12px;
+      display: flex; flex-direction: column; gap: 9px;
+    }
+    #tut-panel-title {
+      font-family: "Cinzel", serif; font-size: 11px; color: var(--cyan);
+      font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
+    }
+    #tut-panel-text { font-size: 12.5px; color: var(--text); line-height: 1.55; }
+    #tut-panel-text strong { color: var(--gold); }
+    #tut-panel-text em { color: var(--cyan); font-style: normal; }
+    #tut-panel-text p { margin: 0 0 5px; }
+    #tut-panel-text p:last-child { margin: 0; }
+    #tut-action-hint {
+      font-size: 11px; color: var(--cyan); font-weight: 700;
+      background: rgba(48,200,240,.08); border: 1px solid rgba(48,200,240,.22);
+      border-radius: 7px; padding: 6px 10px;
+      animation: tut-hint-blink 2s ease-in-out infinite;
+    }
+    #tut-nav { display: flex; gap: 8px; justify-content: flex-end; }
+    #tut-back-btn, #tut-next-btn {
+      background: rgba(10,26,58,.85); border: 1px solid var(--border);
+      color: var(--text); border-radius: 8px; padding: 7px 15px;
+      font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    #tut-back-btn:hover { border-color: var(--muted); }
+    #tut-next-btn { background: linear-gradient(135deg,#0d6cb0,#0a5490); border-color: #2a80c0; color: #fff; }
+    #tut-next-btn:hover { background: linear-gradient(135deg,#1278c8,#0d60a0); }
+    #tut-next-btn:disabled, #tut-back-btn:disabled { opacity:.35; cursor:not-allowed; }
+    #tut-finish-btns { display: flex; gap: 8px; justify-content: center; }
+    .tut-finish-btn {
+      flex: 1; padding: 9px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      cursor: pointer; border: none; transition: opacity .15s;
+    }
+    .tut-finish-btn:hover { opacity: .85; }
+    #tut-main-menu-btn { background: linear-gradient(135deg,#0d6cb0,#0a5490); color: #fff; }
+    #tut-restart-btn { background: rgba(10,26,58,.85); border: 1px solid var(--border); color: var(--text); }
+    #tut-spotlight-overlay {
+      position: fixed; inset: 0; z-index: 9570; pointer-events: none;
+      transition: opacity .3s;
+    }
+    #tut-spotlight-overlay.dim { background: rgba(0,0,0,.68); pointer-events: all; }
+    .tut-highlight {
+      position: relative; z-index: 9580 !important;
+      outline: 2.5px solid var(--cyan) !important; outline-offset: 3px !important;
+      border-radius: 8px !important;
+      box-shadow: 0 0 0 5px rgba(48,200,240,.15), 0 0 28px rgba(48,200,240,.45) !important;
+      animation: tut-glow 1.4s ease-in-out infinite !important;
+    }
+    #tut-exit-confirm {
+      position: fixed; inset: 0; z-index: 9700; background: rgba(0,0,0,.85);
+      backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center;
+    }
+    #tut-exit-confirm.open { display: flex; }
+    .tut-confirm-box {
+      background: linear-gradient(160deg,rgba(10,26,55,.99) 0%,rgba(5,14,32,1) 100%);
+      border: 1px solid rgba(48,200,240,.3); border-radius: 14px;
+      padding: 28px 30px; max-width: 340px; width: 90%; text-align: center;
+      box-shadow: 0 12px 48px rgba(0,0,0,.7);
+    }
+    .tut-confirm-box p { font-family:"Cinzel",serif; font-size:14px; color:var(--gold); margin-bottom:18px; font-weight:700; }
+    .tut-confirm-btns { display: flex; gap: 10px; justify-content: center; }
+    #tut-exit-no-btn {
+      background: rgba(10,26,58,.85); border: 1px solid var(--border); color: var(--text);
+      border-radius: 8px; padding: 10px 20px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    #tut-exit-yes-btn {
+      background: linear-gradient(135deg,#c0283c,#9a1f2e); border: none; color: #fff;
+      border-radius: 8px; padding: 10px 20px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    #tut-zoom {
+      position: fixed; inset: 0; z-index: 9800; background: rgba(0,0,0,.86);
+      backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center;
+    }
+    #tut-zoom.open { display: flex; }
+    #tut-zoom-inner {
+      position: relative; display: flex; flex-direction: column;
+      align-items: center; gap: 10px; padding: 24px;
+    }
+    #tut-zoom-img {
+      width: 140px; height: 196px; object-fit: cover; border-radius: 10px;
+      border: 2px solid var(--cyan); box-shadow: 0 0 40px rgba(48,200,240,.4);
+    }
+    #tut-zoom-name { font-family:"Cinzel",serif; font-size:13px; color:var(--gold); font-weight:700; }
+    #tut-zoom-close {
+      position: absolute; top: 8px; right: 8px;
+      background: rgba(10,26,58,.9); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 50%; width: 26px; height: 26px;
+      cursor: pointer; font-size: 12px; display: flex; align-items:center; justify-content:center;
+    }
+    #tut-zoom-hint {
+      font-size: 11px; color: var(--cyan); font-weight: 700;
+      background: rgba(48,200,240,.1); border: 1px solid rgba(48,200,240,.25);
+      border-radius: 7px; padding: 7px 14px; text-align: center;
+    }
+    #tut-flash-msg {
+      position: fixed; top: 52px; left: 50%; transform: translateX(-50%);
+      z-index: 9900; background: rgba(48,200,240,.14);
+      border: 1px solid rgba(48,200,240,.42); border-radius: 8px;
+      padding: 7px 18px; font-size: 12px; font-weight: 700; color: var(--cyan);
+      white-space: nowrap; opacity: 0; transition: opacity .3s; pointer-events: none;
+    }
+    #tut-flash-msg.visible { opacity: 1; }
+    .tut-bot-flash { animation: tut-bot-anim .7s ease-in-out 2; }
+    #tut-tips-list { padding: 0; margin: 4px 0 0; list-style: none; display: flex; flex-direction: column; gap: 3px; }
+    #tut-tips-list li { font-size: 11.5px; color: var(--text); padding-left: 2px; }
+    #tut-tips-list li::before { content: "◆ "; color: var(--cyan); font-size: 8px; vertical-align: middle; }
+    @keyframes tut-glow {
+      0%,100% { box-shadow: 0 0 0 5px rgba(48,200,240,.15),0 0 22px rgba(48,200,240,.4); }
+      50%      { box-shadow: 0 0 0 5px rgba(48,200,240,.3), 0 0 38px rgba(48,200,240,.7); }
+    }
+    @keyframes tut-card-pulse {
+      0%,100% { box-shadow: 0 0 10px rgba(48,200,240,.3); }
+      50%      { box-shadow: 0 0 22px rgba(48,200,240,.7); }
+    }
+    @keyframes tut-card-pulse-red {
+      0%,100% { box-shadow: 0 0 8px rgba(232,64,87,.3); }
+      50%      { box-shadow: 0 0 20px rgba(232,64,87,.65); }
+    }
+    @keyframes tut-hint-blink {
+      0%,100% { opacity: 1; } 50% { opacity: .65; }
+    }
+    @keyframes tut-bot-anim {
+      0%,100% { border-color: var(--border); }
+      50%      { border-color: var(--gold); box-shadow: 0 0 14px var(--glow-gold); }
+    }
+
     /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
-    #pv-score-modal, #pv-tutorial-modal {
+    #pv-score-modal {
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.82);
       z-index: 2500; align-items: center; justify-content: center;
       backdrop-filter: blur(6px);
     }
-    #pv-score-modal.open, #pv-tutorial-modal.open { display: flex; }
+    #pv-score-modal.open { display: flex; }
     .pv-modal-box {
       background: linear-gradient(160deg, rgba(10,26,55,.98) 0%, rgba(5,14,32,.99) 100%);
       border: 1px solid rgba(48,200,240,.22);
@@ -1387,7 +1664,7 @@
     <div id="pv-home-status"></div>
     <button class="pv-btn full" id="pv-tutorial-open-btn"
       style="background:linear-gradient(135deg,#1a4070,#0e2a50);border:1px solid rgba(48,200,240,.2);">
-      📖 Quick Tutorial — Learn How to Play
+      🎮 Tutorial — Learn to Play
     </button>
   </div>
 </div>
@@ -1588,36 +1865,103 @@
   </div>
 </div>
 
-<!-- ══ TUTORIAL MODAL ════════════════════════════════════════════ -->
-<div id="pv-tutorial-modal">
-  <div class="pv-modal-box">
-    <button class="pv-modal-close" id="pv-tut-close">✕</button>
-    <h2>📖 Quick Tutorial</h2>
-    <div class="tut-step">
-      <h3>🌊 Goal</h3>
-      <p>Build the best ocean ecosystem and score the most points. The game ends when an END GAME card is played — each other player gets one final turn, then scores are tallied.</p>
+<!-- ══ TUTORIAL MODE (full-screen interactive) ════════════════════ -->
+<div id="pv-tutorial">
+  <!-- top bar -->
+  <div id="tut-topbar">
+    <span id="tut-step-badge">Step 1 / 17</span>
+    <span id="tut-topbar-title">🎮 Tutorial — Currents &amp; Critters</span>
+    <button id="tut-x-btn" title="Exit tutorial">✕</button>
+  </div>
+
+  <!-- game table -->
+  <div id="tut-table">
+    <!-- opponent row -->
+    <div id="tut-opp-row">
+      <div class="tut-player-panel" id="tut-bot0">
+        <div class="tut-pname"><span class="tut-pname-txt">Coral</span><span class="tut-pscore">0 pts</span></div>
+        <div class="tut-phand-count">Hand: 5 cards</div>
+        <div class="tut-mini-board" id="tut-bot0-board"></div>
+      </div>
+      <div class="tut-player-panel" id="tut-bot1">
+        <div class="tut-pname"><span class="tut-pname-txt">Marina</span><span class="tut-pscore">0 pts</span></div>
+        <div class="tut-phand-count">Hand: 5 cards</div>
+        <div class="tut-mini-board" id="tut-bot1-board"></div>
+      </div>
+      <div class="tut-player-panel" id="tut-bot2">
+        <div class="tut-pname"><span class="tut-pname-txt">Pelagic</span><span class="tut-pscore">0 pts</span></div>
+        <div class="tut-phand-count">Hand: 5 cards</div>
+        <div class="tut-mini-board" id="tut-bot2-board"></div>
+      </div>
     </div>
-    <div class="tut-step">
-      <h3>🃏 Your Turn</h3>
-      <p>On your turn: draw 2 cards from the deck or pool, play an Ocean card to start a new ecosystem, or attach Animal cards to an existing ocean in the matching direction (Up / Down / Left / Right).</p>
+
+    <!-- center strip: pool + deck -->
+    <div id="tut-center-strip">
+      <div id="tut-pool-area">
+        <div class="tut-section-lbl">Pool</div>
+        <div id="tut-pool-wrap"></div>
+      </div>
+      <div id="tut-deck-pile">
+        <div class="tut-section-lbl">Deck</div>
+        <div class="tut-deck-face">C&amp;C</div>
+        <div class="tut-deck-count" id="tut-deck-count">48 left</div>
+      </div>
     </div>
-    <div class="tut-step">
-      <h3>◆ Symbols &amp; Payment</h3>
-      <p>Every card has a symbol (Triangle, Square, Heart, Circle, Diamond). To activate a card's ability you must pay its cost by discarding cards from your hand. If the card requires a symbol match, at least one payment card must share that symbol — the game will block you if you try to play without it.</p>
+
+    <!-- my board -->
+    <div id="tut-my-board-area">
+      <div class="tut-section-lbl">Your Board</div>
+      <div id="tut-my-board-wrap"></div>
     </div>
-    <div class="tut-step">
-      <h3>★ Star Abilities</h3>
-      <p>Cards with ★ have a bonus Star Ability. Enable "★ Star ability" in the action bar, then play the card normally. One matching-symbol card from your hand is automatically used as the star payment.</p>
+  </div>
+
+  <!-- hand zone -->
+  <div id="tut-hand-zone">
+    <div class="tut-section-lbl" style="text-align:center;padding:2px 0;">Your Hand — click a card</div>
+    <div id="tut-hand-row"></div>
+  </div>
+
+  <!-- flash message -->
+  <div id="tut-flash-msg"></div>
+
+  <!-- spotlight overlay (dims everything behind highlights) -->
+  <div id="tut-spotlight-overlay"></div>
+
+  <!-- instruction panel -->
+  <div id="tut-panel">
+    <div id="tut-panel-title">Step 1</div>
+    <div id="tut-panel-text"></div>
+    <div id="tut-action-hint" style="display:none;"></div>
+    <div id="tut-nav">
+      <button id="tut-back-btn">← Back</button>
+      <button id="tut-next-btn">Next →</button>
     </div>
-    <div class="tut-step">
-      <h3>🏆 Scoring</h3>
-      <p>Cards score points based on your board: flat bonuses (+X), per-type bonuses (+X per Bird, etc.), and threshold bonuses (e.g. 1=5pts, 2=15pts, 3=30pts). Click the Score button in the notice bar during the game.</p>
+    <div id="tut-finish-btns" style="display:none;">
+      <button class="tut-finish-btn" id="tut-main-menu-btn">🏠 Main Menu</button>
+      <button class="tut-finish-btn" id="tut-restart-btn">↺ Restart Tutorial</button>
     </div>
-    <div class="tut-step">
-      <h3>👥 Multiplayer Layout</h3>
-      <p>With 2 players your opponent appears across the table (left). With 3 players the third player appears across the top. With 4 players the fourth appears on the right. Watch opponents to know when to trigger the END GAME card!</p>
+    <ul id="tut-tips-list" style="display:none;"></ul>
+  </div>
+
+  <!-- exit confirm -->
+  <div id="tut-exit-confirm">
+    <div class="tut-confirm-box">
+      <p>Exit the tutorial?</p>
+      <div class="tut-confirm-btns">
+        <button id="tut-exit-no-btn">Keep Playing</button>
+        <button id="tut-exit-yes-btn">Exit</button>
+      </div>
     </div>
-    <button class="pv-btn full gold" id="pv-tut-play-btn" style="margin-top:8px;">Ready — Let's Play!</button>
+  </div>
+
+  <!-- zoom overlay -->
+  <div id="tut-zoom">
+    <div id="tut-zoom-inner">
+      <button id="tut-zoom-close">✕</button>
+      <img id="tut-zoom-img" src="" alt="" />
+      <div id="tut-zoom-name"></div>
+      <div id="tut-zoom-hint">Click anywhere to close</div>
+    </div>
   </div>
 </div>
 
@@ -2773,15 +3117,632 @@
   });
   // pv-scores-btn was removed from HTML; replaced by pv-menu-scores-btn in dropdown
 
-  // ── Tutorial modal ─────────────────────────────────────────────
-  function openTutorial() { document.getElementById("pv-tutorial-modal").classList.add("open"); }
-  function closeTutorial() { document.getElementById("pv-tutorial-modal").classList.remove("open"); }
-  document.getElementById("pv-tut-close").addEventListener("click", closeTutorial);
-  document.getElementById("pv-tutorial-modal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("pv-tutorial-modal")) closeTutorial();
+  // ══════════════════════════════════════════════════════════════
+  // TUTORIAL ENGINE
+  // ══════════════════════════════════════════════════════════════
+
+  // ── Fake card database (uid → {name, symbol, species, text, starText}) ──
+  const TUT_CARDS = {
+    // Oceans
+    201: { name:"Coral Reef",    symbol:"heart",    species:"ocean",   text:"+2 pts per Baitfish. Threshold: 1=5,2=15,3=30.", starText:"" },
+    202: { name:"Open Ocean",    symbol:"circle",   species:"ocean",   text:"+1 pt per card on board.",                       starText:"" },
+    203: { name:"Kelp Forest",   symbol:"triangle", species:"ocean",   text:"+3 pts per Cephalopod.",                         starText:"" },
+    // Animals (horizontal — half-card)
+    1:   { name:"Clownfish",     symbol:"heart",    species:"baitfish",text:"+2 pts.",                                        starText:"Counts as extra Coral Reef." },
+    2:   { name:"Tang",          symbol:"circle",   species:"baitfish",text:"+1 pt.",                                        starText:"" },
+    3:   { name:"Parrotfish",    symbol:"triangle", species:"baitfish",text:"+1 pt.",                                        starText:"" },
+    5:   { name:"Whale Shark",   symbol:"circle",   species:"shark",   text:"Draw 1 card when a ◉ card is discarded.",        starText:"Draw 2 instead." },
+    6:   { name:"Hammerhead",    symbol:"square",   species:"shark",   text:"+3 pts per shark on board.",                    starText:"" },
+    8:   { name:"Octopus",       symbol:"triangle", species:"cephalopod",text:"+4 pts.",                                     starText:"Draw 1 card." },
+    9:   { name:"Nautilus",      symbol:"diamond",  species:"cephalopod",text:"+2 pts.",                                     starText:"" },
+    13:  { name:"Puffin",        symbol:"square",   species:"bird",    text:"+3 pts per bird on board.",                     starText:"" },
+    14:  { name:"Albatross",     symbol:"heart",    species:"bird",    text:"+2 pts.",                                       starText:"" },
+    16:  { name:"Sea Turtle",    symbol:"circle",   species:"reptile", text:"+4 pts.",                                       starText:"+2 pts bonus." },
+    17:  { name:"Iguana",        symbol:"diamond",  species:"reptile", text:"+2 pts.",                                       starText:"" },
+    25:  { name:"Mantis Shrimp", symbol:"heart",    species:"crustacean",text:"Threshold: 1=3,2=8,3=16,4=28.",              starText:"" },
+    40:  { name:"Razorbill Auk", symbol:"square",   species:"bird",    text:"Threshold: 1=4,2=10,3=20.",                    starText:"" },
+    41:  { name:"Mandarin Goby", symbol:"heart",    species:"baitfish",text:"Chart: Baitfish diversity 3=12,4=20,5=30.",    starText:"" },
+  };
+
+  // hand uids player starts with
+  const TUT_INIT_HAND = [201, 1, 2, 5, 8, 13, 16, 25];
+  // pool uids
+  const TUT_INIT_POOL = [3, 6, 9, 14];
+  // bot boards (ocean uid → attached face uids)
+  const TUT_BOT_BOARDS = [
+    { ocean: 202, cards: [2, 9] },
+    { ocean: 203, cards: [8] },
+    { ocean: 201, cards: [1, 14] },
+  ];
+
+  // ── Tutorial state ──────────────────────────────────────────────
+  let tutState = null;
+
+  function tutMakeInitState() {
+    return {
+      step: 0,
+      hand: [...TUT_INIT_HAND],
+      pool: [...TUT_INIT_POOL],
+      deckCount: 48,
+      myBoard: [],           // [{oceanUid, up:[], down:[], left:[], right:[]}]
+      selectedHandUid: null,
+      discardSelected: new Set(),
+      waitingForAction: null, // 'play_ocean'|'play_animal'|'star_play'|'draw_deck'|'draw_pool'|'discard_payment'
+      botBoards: TUT_BOT_BOARDS.map(b => ({ ...b, cards: [...b.cards] })),
+      botScores: [4, 7, 9],
+      botHandCounts: [5, 5, 5],
+    };
+  }
+
+  // ── 17-step spec ───────────────────────────────────────────────
+  const TUTORIAL_STEPS = [
+    // 0
+    {
+      title: "Welcome!",
+      text: `<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing a practice game with three bot opponents: <em>Coral</em>, <em>Marina</em>, and <em>Pelagic</em>.</p><p>This tutorial walks you through a full turn so you know exactly what to do. Let's go!</p>`,
+      highlight: null, actionHint: null, waitFor: null, nextLabel: "Start →",
+    },
+    // 1
+    {
+      title: "The Table",
+      text: `<p>The three panels at the top are your <strong>opponents</strong>. Each shows their board and score.</p><p>The center strip holds the <strong>Pool</strong> (face-up discard cards you can draw) and the <strong>Deck</strong> pile.</p><p>Your hand sits at the bottom.</p>`,
+      highlight: "tut-opp-row", actionHint: null, waitFor: null,
+    },
+    // 2
+    {
+      title: "Your Turn: Draw Phase",
+      text: `<p>Every turn starts with drawing <strong>2 cards</strong>. You can:</p><p>◆ <strong>Single-click</strong> a pool card to zoom it.<br>◆ <strong>Double-click</strong> a pool card to pick it (lights up blue).<br>◆ <strong>Click the Deck</strong> to draw from there.<br>Mix and match — draw 1 pool + 1 deck, or 2 pool, or 2 deck.</p>`,
+      highlight: "tut-center-strip", actionHint: "Double-click a pool card to draw it.", waitFor: "draw_pool",
+    },
+    // 3
+    {
+      title: "Draw from Deck",
+      text: `<p>You drew a card from the pool. Now draw the <strong>second card from the Deck</strong>.</p>`,
+      highlight: "tut-deck-pile", actionHint: "Click the Deck to draw your second card.", waitFor: "draw_deck",
+    },
+    // 4
+    {
+      title: "Your Hand",
+      text: `<p>Great — your hand now has those two new cards! Each card shows its <strong>symbol</strong> (◆ ◉ ♥ ■ ◇) and species.</p><p>Symbols matter for <em>paying</em> card costs and triggering abilities.</p>`,
+      highlight: "tut-hand-zone", actionHint: null, waitFor: null,
+    },
+    // 5
+    {
+      title: "Play an Ocean Card",
+      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. You must play one before you can attach animals.</p><p>Your hand contains the <em>Coral Reef</em> ocean card. Click it to play it onto your board.</p>`,
+      highlight: null, actionHint: "Click the Coral Reef card in your hand.", waitFor: "play_ocean",
+      highlightHandUid: 201,
+    },
+    // 6
+    {
+      title: "Ocean on Your Board",
+      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up, Down, Left, Right</em>.</p><p>Animals slot in based on their direction — you'll always see which direction a card plays when you select it.</p>`,
+      highlight: "tut-my-board-area", actionHint: null, waitFor: null,
+    },
+    // 7
+    {
+      title: "Play an Animal Card",
+      text: `<p>Now attach an animal to your Coral Reef. The <em>Clownfish</em> in your hand slots <strong>Up</strong> — it also has a special star ability!</p><p>Click the Clownfish to select it, then confirm the play.</p>`,
+      highlight: null, actionHint: "Click the Clownfish card in your hand.", waitFor: "play_animal",
+      highlightHandUid: 1,
+    },
+    // 8
+    {
+      title: "Payment (Symbols)",
+      text: `<p>To play a card you must <strong>pay its cost</strong> by discarding matching-symbol cards from your hand.</p><p>The Clownfish costs 1 ♥ card. The red-pulsing cards in your hand match — click one to discard it as payment.</p>`,
+      highlight: null, actionHint: "Click a red-pulsing ♥ card to pay the cost.", waitFor: "discard_payment",
+    },
+    // 9
+    {
+      title: "Card Played!",
+      text: `<p>The <strong>Clownfish</strong> is now attached <em>Up</em> on your Coral Reef. Your payment card went to the pool.</p><p>Notice: because a ♥ card was discarded to the pool, any board card with a ♥ draw-star ability would trigger now (like Whale Shark with ◉).</p>`,
+      highlight: "tut-my-board-area", actionHint: null, waitFor: null,
+    },
+    // 10
+    {
+      title: "Star Abilities ★",
+      text: `<p>Cards marked with <strong>★</strong> have bonus Star Abilities. To use one:</p><p>1. Select the card from your hand.<br>2. Enable the <em>★ Star</em> toggle (shown automatically here).<br>3. One extra matching-symbol card is auto-consumed from your hand.</p><p>Let's use the <em>Octopus</em> star: it lets you draw 1 extra card.</p>`,
+      highlight: null, actionHint: "Click the Octopus card in your hand to use its star.", waitFor: "star_play",
+      highlightHandUid: 8,
+    },
+    // 11
+    {
+      title: "Star Played!",
+      text: `<p>The Octopus star ability fired — you drew 1 extra card! The star payment (a ▲ card) was discarded to the pool.</p><p>Star abilities are powerful but cost an extra card, so use them wisely.</p>`,
+      highlight: "tut-hand-zone", actionHint: null, waitFor: null,
+    },
+    // 12
+    {
+      title: "Whale Shark Trigger",
+      text: `<p>See the <strong>Whale Shark</strong> in your hand? Its ability says:<br><em>"Draw 1 card when a ◉ card is discarded."</em></p><p>If you play the Whale Shark on your board first and then pay with a ◉ card, it fires automatically — no action needed from you.</p>`,
+      highlight: null, actionHint: "Click Whale Shark to zoom and read its ability.", waitFor: "zoom_whale",
+      highlightHandUid: 5,
+    },
+    // 13
+    {
+      title: "Bot Turns",
+      text: `<p>After your turn, each bot plays in order. Watch the opponent panels — the active bot's border glows <em>gold</em>.</p><p>Bots draw cards, play oceans and animals, and score points just like you.</p>`,
+      highlight: "tut-opp-row", actionHint: "Press Next to watch the bots take their turns.", waitFor: null, nextLabel: "Watch Bots →", triggerBots: true,
+    },
+    // 14
+    {
+      title: "Scoring",
+      text: `<p>Points come from three sources:</p><p>◆ <strong>Flat</strong>: "+3 pts" means 3 points for this card.<br>◆ <strong>Per-type</strong>: "+3 pts per shark on board" counts all your sharks.<br>◆ <strong>Threshold chart</strong>: "1=5, 2=15, 3=30" — your <em>total set score</em> depends on how many matching cards you've collected.</p><p>Click the Score button in-game anytime to see a live breakdown.</p>`,
+      highlight: null, actionHint: null, waitFor: null,
+    },
+    // 15
+    {
+      title: "End Game",
+      text: `<p>The game ends when a player plays an <strong>END GAME</strong> card. Every other player then gets <em>one more turn</em>, then final scores are tallied.</p><p>Watch your opponents — if they're building large sets, you may want to trigger the end before they pull ahead!</p>`,
+      highlight: null, actionHint: null, waitFor: null,
+    },
+    // 16
+    {
+      title: "You're Ready!",
+      text: null, // rendered via tips list
+      tips: [
+        "Draw 2 cards every turn — pool cards are free information!",
+        "Match symbols to chain abilities and draw extra cards.",
+        "Threshold cards like Mantis Shrimp reward deep sets — commit early.",
+        "Clownfish counts as an extra Coral Reef for bracket scoring.",
+        "Watch opponents: end the game when you're ahead, not when they are.",
+      ],
+      highlight: null, actionHint: null, waitFor: null, isFinish: true,
+    },
+  ];
+
+  // ── Helpers ─────────────────────────────────────────────────────
+  function tutCard(uid) { return TUT_CARDS[uid] || { name:"Card "+uid, symbol:"", species:"", text:"", starText:"" }; }
+
+  function tutCardImg(uid) {
+    const src = imagePathForUid(uid);
+    const pos = cardHalfPos(uid);
+    const posMap = { top:"50% 0%", bottom:"50% 100%", left:"0% 50%", right:"100% 50%", center:"50% 50%" };
+    return `<img src="${src}" style="object-position:${posMap[pos]||'50% 50%'};" alt="${tutCard(uid).name}" loading="lazy">`;
+  }
+
+  // ── Render functions ─────────────────────────────────────────────
+  function tutRenderBots() {
+    const ts = tutState;
+    TUT_BOT_BOARDS.forEach((b, i) => {
+      const board = ts.botBoards[i];
+      const panel = document.getElementById(`tut-bot${i}`);
+      const scoreEl = panel.querySelector(".tut-pscore");
+      const handEl  = panel.querySelector(".tut-phand-count");
+      const boardEl = document.getElementById(`tut-bot${i}-board`);
+      if (scoreEl) scoreEl.textContent = ts.botScores[i] + " pts";
+      if (handEl)  handEl.textContent  = "Hand: " + ts.botHandCounts[i] + " cards";
+      if (boardEl) {
+        boardEl.innerHTML = "";
+        const hub = document.createElement("div");
+        hub.className = "tut-mini-hub";
+        const oc = document.createElement("div");
+        oc.className = "tut-mini-ocean";
+        oc.innerHTML = tutCardImg(board.ocean);
+        hub.appendChild(oc);
+        board.cards.forEach(cuid => {
+          const a = document.createElement("div");
+          a.className = "tut-mini-animal";
+          a.innerHTML = tutCardImg(cuid);
+          hub.appendChild(a);
+        });
+        boardEl.appendChild(hub);
+      }
+    });
+  }
+
+  function tutRenderCenter() {
+    const ts = tutState;
+    const poolWrap = document.getElementById("tut-pool-wrap");
+    poolWrap.innerHTML = "";
+    ts.pool.forEach(uid => {
+      const div = document.createElement("div");
+      div.className = "tut-pool-card";
+      div.dataset.uid = uid;
+      div.innerHTML = tutCardImg(uid);
+      div.title = tutCard(uid).name;
+      div.addEventListener("click",  () => tutOpenZoom(uid));
+      div.addEventListener("dblclick", (e) => { e.preventDefault(); tutPoolDraw(uid); });
+      poolWrap.appendChild(div);
+    });
+    document.getElementById("tut-deck-count").textContent = ts.deckCount + " left";
+    document.getElementById("tut-deck-pile").onclick = tutDrawDeck;
+  }
+
+  function tutRenderMyBoard() {
+    const ts = tutState;
+    const wrap = document.getElementById("tut-my-board-wrap");
+    wrap.innerHTML = "";
+    if (!ts.myBoard.length) {
+      wrap.innerHTML = `<div class="tut-empty-board-msg">No oceans yet — play an Ocean card!</div>`;
+      return;
+    }
+    ts.myBoard.forEach(ocean => {
+      const hub = document.createElement("div");
+      hub.className = "tut-ocean-hub";
+
+      const upRow = document.createElement("div");
+      upRow.className = "tut-slot-up";
+      ocean.up.forEach(uid => { const d = document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); upRow.appendChild(d); });
+
+      const midRow = document.createElement("div");
+      midRow.className = "tut-slot-row";
+
+      const leftSlot = document.createElement("div");
+      leftSlot.className = "tut-slot-left";
+      ocean.left.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); leftSlot.appendChild(d); });
+
+      const oceanDiv = document.createElement("div");
+      oceanDiv.className = "tut-ocean-card";
+      oceanDiv.innerHTML = tutCardImg(ocean.oceanUid);
+
+      const rightSlot = document.createElement("div");
+      rightSlot.className = "tut-slot-right";
+      ocean.right.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); rightSlot.appendChild(d); });
+
+      const downRow = document.createElement("div");
+      downRow.className = "tut-slot-down";
+      ocean.down.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); downRow.appendChild(d); });
+
+      midRow.appendChild(leftSlot);
+      midRow.appendChild(oceanDiv);
+      midRow.appendChild(rightSlot);
+      hub.appendChild(upRow);
+      hub.appendChild(midRow);
+      hub.appendChild(downRow);
+      wrap.appendChild(hub);
+    });
+  }
+
+  function tutRenderHand() {
+    const ts = tutState;
+    const row = document.getElementById("tut-hand-row");
+    row.innerHTML = "";
+    const step = TUTORIAL_STEPS[ts.step] || {};
+    ts.hand.forEach(uid => {
+      const card = tutCard(uid);
+      const div = document.createElement("div");
+      div.className = "tut-hand-card";
+      div.dataset.uid = uid;
+      div.innerHTML = tutCardImg(uid) +
+        `<div class="tut-card-label">${card.name}<br><span style="color:var(--muted);font-size:6px;">${card.symbol} · ${card.species}</span></div>` +
+        (card.starText ? `<div class="tut-star-badge">★</div>` : "");
+
+      const isHighlighted = step.highlightHandUid === uid;
+      if (isHighlighted) div.classList.add("tut-selectable");
+
+      if (step.waitFor === "discard_payment") {
+        const c = tutCard(uid);
+        if (c.symbol === "heart" && uid !== ts.selectedHandUid) {
+          div.classList.remove("tut-selectable");
+          div.classList.add("tut-discard-selectable");
+        }
+      }
+      if (ts.discardSelected.has(uid)) div.classList.add("tut-discard-selected");
+
+      div.addEventListener("click", () => tutHandCardClick(uid));
+      row.appendChild(div);
+    });
+  }
+
+  function tutRenderAll() {
+    tutRenderBots();
+    tutRenderCenter();
+    tutRenderMyBoard();
+    tutRenderHand();
+  }
+
+  // ── Highlight helpers ────────────────────────────────────────────
+  function tutClearHighlights() {
+    document.querySelectorAll(".tut-highlight").forEach(el => el.classList.remove("tut-highlight"));
+    document.getElementById("tut-spotlight-overlay").classList.remove("dim");
+  }
+
+  function tutApplyHighlight(elId) {
+    tutClearHighlights();
+    if (!elId) return;
+    const el = document.getElementById(elId);
+    if (el) {
+      el.classList.add("tut-highlight");
+      document.getElementById("tut-spotlight-overlay").classList.add("dim");
+    }
+  }
+
+  // ── Action handlers ──────────────────────────────────────────────
+  function tutHandCardClick(uid) {
+    const ts = tutState;
+    const step = TUTORIAL_STEPS[ts.step] || {};
+
+    if (step.waitFor === "play_ocean" && uid === 201) {
+      tutPlayOcean();
+    } else if (step.waitFor === "play_animal" && uid === 1) {
+      tutPlayAnimal1();
+    } else if (step.waitFor === "star_play" && uid === 8) {
+      tutStarPlay();
+    } else if (step.waitFor === "zoom_whale" && uid === 5) {
+      tutOpenZoom(uid);
+    } else if (step.waitFor === "discard_payment") {
+      tutToggleDiscard(uid);
+    } else {
+      tutOpenZoom(uid);
+    }
+  }
+
+  function tutPlayOcean() {
+    const ts = tutState;
+    ts.hand = ts.hand.filter(u => u !== 201);
+    ts.myBoard.push({ oceanUid: 201, up: [], down: [], left: [], right: [] });
+    tutShowFlash("Coral Reef played!");
+    tutRenderAll();
+    tutGoStep(ts.step + 1);
+  }
+
+  function tutPlayAnimal1() {
+    const ts = tutState;
+    ts.selectedHandUid = 1;
+    // Go to payment step
+    tutGoStep(ts.step + 1);
+  }
+
+  function tutToggleDiscard(uid) {
+    const ts = tutState;
+    if (ts.discardSelected.has(uid)) {
+      ts.discardSelected.delete(uid);
+    } else {
+      ts.discardSelected.add(uid);
+    }
+    // Check if payment complete: 1 heart card selected
+    if (ts.discardSelected.size >= 1) {
+      const payUids = Array.from(ts.discardSelected);
+      // Add clownfish to board up slot
+      if (ts.myBoard.length > 0) ts.myBoard[0].up.push(1);
+      // remove from hand
+      ts.hand = ts.hand.filter(u => u !== 1 && !ts.discardSelected.has(u));
+      // discarded cards go to pool
+      payUids.forEach(u => { if (!ts.pool.includes(u)) ts.pool.push(u); });
+      ts.discardSelected.clear();
+      ts.selectedHandUid = null;
+      tutShowFlash("Clownfish played! Payment discarded to pool.");
+      tutRenderAll();
+      tutGoStep(ts.step + 1);
+    } else {
+      tutRenderHand();
+    }
+  }
+
+  function tutStarPlay() {
+    const ts = tutState;
+    // Find a triangle card to pay
+    const payUid = ts.hand.find(u => u !== 8 && tutCard(u).symbol === "triangle");
+    ts.hand = ts.hand.filter(u => u !== 8 && u !== payUid);
+    if (ts.myBoard.length > 0) ts.myBoard[0].down.push(8);
+    if (payUid != null && !ts.pool.includes(payUid)) ts.pool.push(payUid);
+    // Star draw: add card 17 to hand
+    ts.hand.push(17);
+    ts.deckCount = Math.max(0, ts.deckCount - 1);
+    tutShowFlash("Octopus ★ fired — drew 1 extra card!");
+    tutRenderAll();
+    tutGoStep(ts.step + 1);
+  }
+
+  function tutPoolDraw(uid) {
+    const ts = tutState;
+    const step = TUTORIAL_STEPS[ts.step] || {};
+    if (step.waitFor !== "draw_pool") { tutOpenZoom(uid); return; }
+    ts.pool = ts.pool.filter(u => u !== uid);
+    ts.hand.push(uid);
+    tutShowFlash("Drew " + tutCard(uid).name + " from pool!");
+    tutRenderAll();
+    tutGoStep(ts.step + 1);
+  }
+
+  function tutDrawDeck() {
+    const ts = tutState;
+    const step = TUTORIAL_STEPS[ts.step] || {};
+    if (step.waitFor !== "draw_deck") return;
+    const newUid = 40; // Razorbill Auk
+    ts.hand.push(newUid);
+    ts.deckCount = Math.max(0, ts.deckCount - 1);
+    tutShowFlash("Drew " + tutCard(newUid).name + " from deck!");
+    tutRenderAll();
+    tutGoStep(ts.step + 1);
+  }
+
+  function tutAddExcessCards() {
+    const ts = tutState;
+    // Give hand a couple more cards so it doesn't run empty
+    if (!ts.hand.includes(41)) ts.hand.push(41);
+    if (!ts.hand.includes(25)) { /* already there */ }
+  }
+
+  // ── Bot turn simulation ──────────────────────────────────────────
+  function tutRunBotTurn(botIdx, cb) {
+    const ts = tutState;
+    const panel = document.getElementById(`tut-bot${botIdx}`);
+    panel.classList.add("active-turn", "tut-bot-flash");
+    setTimeout(() => {
+      panel.classList.remove("active-turn", "tut-bot-flash");
+      ts.botScores[botIdx] += 3 + botIdx * 2;
+      ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 1);
+      const board = ts.botBoards[botIdx];
+      const extras = [17, 9, 6, 13, 2];
+      const addUid = extras[botIdx] || 17;
+      board.cards.push(addUid);
+      tutRenderBots();
+      if (cb) cb();
+    }, 700);
+  }
+
+  function tutRunAllBots(cb) {
+    tutRunBotTurn(0, () => {
+      tutRunBotTurn(1, () => {
+        tutRunBotTurn(2, () => { if (cb) cb(); });
+      });
+    });
+  }
+
+  // ── Zoom overlay ─────────────────────────────────────────────────
+  function tutOpenZoom(uid) {
+    const card = tutCard(uid);
+    document.getElementById("tut-zoom-img").src  = imagePathForUid(uid);
+    document.getElementById("tut-zoom-img").style.objectPosition = (() => {
+      const p = cardHalfPos(uid);
+      return {top:"50% 0%",bottom:"50% 100%",left:"0% 50%",right:"100% 50%",center:"50% 50%"}[p] || "50% 50%";
+    })();
+    document.getElementById("tut-zoom-name").textContent = card.name + (card.symbol ? " · " + card.symbol : "");
+    document.getElementById("tut-zoom").classList.add("open");
+
+    // If this was the whale shark zoom step, advance step after close
+    if (tutState && TUTORIAL_STEPS[tutState.step] && TUTORIAL_STEPS[tutState.step].waitFor === "zoom_whale") {
+      document.getElementById("tut-zoom")._advanceOnClose = true;
+    }
+  }
+
+  // ── Flash message ─────────────────────────────────────────────────
+  let _tutFlashTimer = null;
+  function tutShowFlash(msg) {
+    const el = document.getElementById("tut-flash-msg");
+    el.textContent = msg;
+    el.classList.add("visible");
+    clearTimeout(_tutFlashTimer);
+    _tutFlashTimer = setTimeout(() => el.classList.remove("visible"), 2200);
+  }
+
+  // ── Step navigation ──────────────────────────────────────────────
+  function tutGoStep(n) {
+    if (!tutState) return;
+    const total = TUTORIAL_STEPS.length;
+    n = Math.max(0, Math.min(n, total - 1));
+    tutState.step = n;
+    const step = TUTORIAL_STEPS[n];
+
+    // Panel title + text
+    document.getElementById("tut-step-badge").textContent = `Step ${n + 1} / ${total}`;
+    document.getElementById("tut-panel-title").textContent = step.title;
+
+    const textEl = document.getElementById("tut-panel-text");
+    const tipsEl = document.getElementById("tut-tips-list");
+    tipsEl.style.display = "none";
+    tipsEl.innerHTML = "";
+    if (step.tips) {
+      textEl.innerHTML = "<p>Here are the most important things to remember:</p>";
+      step.tips.forEach(t => {
+        const li = document.createElement("li");
+        li.textContent = t;
+        tipsEl.appendChild(li);
+      });
+      tipsEl.style.display = "flex";
+    } else {
+      textEl.innerHTML = step.text || "";
+    }
+
+    // Action hint
+    const hintEl = document.getElementById("tut-action-hint");
+    if (step.actionHint) {
+      hintEl.textContent = step.actionHint;
+      hintEl.style.display = "";
+    } else {
+      hintEl.style.display = "none";
+    }
+
+    // Nav buttons
+    const navEl    = document.getElementById("tut-nav");
+    const finishEl = document.getElementById("tut-finish-btns");
+    if (step.isFinish) {
+      navEl.style.display    = "none";
+      finishEl.style.display = "flex";
+    } else {
+      navEl.style.display    = "flex";
+      finishEl.style.display = "none";
+      document.getElementById("tut-back-btn").disabled = (n === 0);
+      const nextBtn = document.getElementById("tut-next-btn");
+      nextBtn.textContent  = step.nextLabel || "Next →";
+      nextBtn.disabled     = (step.waitFor != null && step.waitFor !== "");
+    }
+
+    // Highlight
+    tutApplyHighlight(step.highlight || null);
+
+    // Hand re-render to apply highlight class / discard class
+    tutState.discardSelected.clear();
+    tutRenderHand();
+
+    // Bot animation trigger
+    if (step.triggerBots) {
+      setTimeout(() => {
+        tutRunAllBots(() => {
+          // After bots done, enable next
+          const nb = document.getElementById("tut-next-btn");
+          if (nb) { nb.disabled = false; nb.textContent = "Next →"; }
+        });
+      }, 400);
+    }
+  }
+
+  // ── Start / Exit ─────────────────────────────────────────────────
+  function startTutorial() {
+    tutState = tutMakeInitState();
+    document.getElementById("pv-tutorial").classList.add("active");
+    tutAddExcessCards();
+    tutRenderAll();
+    tutGoStep(0);
+  }
+
+  function exitTutorial() {
+    document.getElementById("pv-tutorial").classList.remove("active");
+    tutState = null;
+    tutClearHighlights();
+  }
+
+  // ── Event listeners ──────────────────────────────────────────────
+  document.getElementById("pv-tutorial-open-btn").addEventListener("click", startTutorial);
+
+  document.getElementById("tut-x-btn").addEventListener("click", () => {
+    document.getElementById("tut-exit-confirm").classList.add("open");
   });
-  document.getElementById("pv-tut-play-btn").addEventListener("click", closeTutorial);
-  document.getElementById("pv-tutorial-open-btn").addEventListener("click", openTutorial);
+  document.getElementById("tut-exit-no-btn").addEventListener("click", () => {
+    document.getElementById("tut-exit-confirm").classList.remove("open");
+  });
+  document.getElementById("tut-exit-yes-btn").addEventListener("click", () => {
+    document.getElementById("tut-exit-confirm").classList.remove("open");
+    exitTutorial();
+  });
+
+  document.getElementById("tut-next-btn").addEventListener("click", () => {
+    if (!tutState) return;
+    const step = TUTORIAL_STEPS[tutState.step];
+    if (step.waitFor) return; // blocked until action
+    tutGoStep(tutState.step + 1);
+  });
+
+  document.getElementById("tut-back-btn").addEventListener("click", () => {
+    if (!tutState) return;
+    tutGoStep(tutState.step - 1);
+  });
+
+  document.getElementById("tut-main-menu-btn").addEventListener("click", exitTutorial);
+
+  document.getElementById("tut-restart-btn").addEventListener("click", () => {
+    tutState = tutMakeInitState();
+    tutAddExcessCards();
+    tutRenderAll();
+    tutGoStep(0);
+  });
+
+  document.getElementById("tut-zoom").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("tut-zoom") || e.target === document.getElementById("tut-zoom-close")) {
+      const advance = document.getElementById("tut-zoom")._advanceOnClose;
+      document.getElementById("tut-zoom")._advanceOnClose = false;
+      document.getElementById("tut-zoom").classList.remove("open");
+      if (advance && tutState) tutGoStep(tutState.step + 1);
+    }
+  });
+  document.getElementById("tut-zoom-close").addEventListener("click", () => {
+    const advance = document.getElementById("tut-zoom")._advanceOnClose;
+    document.getElementById("tut-zoom")._advanceOnClose = false;
+    document.getElementById("tut-zoom").classList.remove("open");
+    if (advance && tutState) tutGoStep(tutState.step + 1);
+  });
 
   // ── My board renderer ──────────────────────────────────────────
   function renderMyBoard(me, actions, isMyTurn) {
