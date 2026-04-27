@@ -1115,12 +1115,13 @@
       display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
       min-height: 72px; padding: 4px;
     }
-    .tut-ocean-hub { display: flex; flex-direction: column; align-items: center; }
-    .tut-slot-up { margin-bottom: -20px; z-index: 3; display: flex; gap: 2px; justify-content: center; }
-    .tut-slot-down { margin-top: -20px; z-index: 3; display: flex; gap: 2px; justify-content: center; }
-    .tut-slot-row { display: flex; align-items: center; position: relative; z-index: 2; }
-    .tut-slot-left { margin-right: -16px; z-index: 3; }
-    .tut-slot-right { margin-left: -16px; z-index: 3; }
+    .tut-ocean-hub { display: flex; flex-direction: column; align-items: center; position: relative; }
+    /* Animals are behind the ocean — ocean row sits on top (z-index 3), animals behind (z-index 1) */
+    .tut-slot-up   { margin-bottom: -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
+    .tut-slot-down { margin-top:    -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
+    .tut-slot-row  { display: flex; align-items: center; position: relative; z-index: 3; }
+    .tut-slot-left  { margin-right: -20px; z-index: 1; position: relative; }
+    .tut-slot-right { margin-left:  -20px; z-index: 1; position: relative; }
     .tut-ocean-card {
       width: 56px; height: 78px; border-radius: 7px; overflow: hidden;
       border: 2px solid var(--teal);
@@ -3618,9 +3619,17 @@
         if (uid === 217) div.classList.add("tut-drag-ready");
       }
 
-      // play_animal: Puffin glows gold to select (consistent with Coral Reef at select_ocean)
-      if (step.waitFor === "play_animal") {
-        if (uid === 11) div.classList.add("tut-drag-ready");
+      // play_animal: Puffin glows gold to select
+      if (step.waitFor === "play_animal" && uid === 11) {
+        div.classList.add("tut-drag-ready");
+      }
+      // star_play: Pelican glows gold to click
+      if (step.waitFor === "star_play" && uid === 25) {
+        div.classList.add("tut-drag-ready");
+      }
+      // zoom_whale: Albatross glows gold to double-click
+      if (step.waitFor === "zoom_whale" && uid === 33) {
+        div.classList.add("tut-drag-ready");
       }
 
       // pay_ocean: Coral Reef locked (selected/queued); protect puffin/pelican/albatross for later steps
@@ -3843,8 +3852,8 @@
       } else if (round === 2) {
         // Round 2: each bot attaches animals
         const fills = [
-          { up:[5], down:[8],  left:[103], right:[] },   // Billy
-          { up:[19], down:[2], left:[],    right:[102] }, // Diana
+          { up:[5],  down:[], left:[], right:[] },  // Billy  — 1 animal
+          { up:[19], down:[], left:[], right:[] },  // Diana  — 1 animal
         ];
         const f = fills[botIdx];
         board.up = [...f.up]; board.down = [...f.down];
