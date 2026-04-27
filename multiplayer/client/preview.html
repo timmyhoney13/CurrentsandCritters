@@ -1214,8 +1214,12 @@
       display: flex; align-items: center; justify-content: center;
       color: var(--cyan); font-size: 9px; font-weight: 800; text-align: center;
       animation: tut-card-pulse-teal 1s ease-in-out infinite; cursor: copy;
+      position: relative; z-index: 9600;
     }
     /* ── Ocean hub drop target (drag_animal step) ── */
+    .tut-ocean-droptarget {
+      position: relative; z-index: 9600;
+    }
     .tut-ocean-droptarget .tut-ocean-card {
       border-color: #ffd700 !important; box-shadow: 0 0 16px rgba(255,215,0,.55); cursor: copy;
       animation: tut-card-pulse-gold 1s ease-in-out infinite;
@@ -3321,7 +3325,7 @@
     { title:"The Table", waitFor:null, highlight:"tut-opp-row", actionHint:null,
       text:`<p>The panels at the top are your opponents — <em>Billy</em> and <em>Diana</em>. Their boards are empty for now. The center holds the <strong>Pool</strong> and <strong>Deck</strong>. Your hand is at the bottom.</p>` },
     // 2
-    { title:"Draw Phase — Pool", waitFor:"draw_pool", highlight:null,
+    { title:"Draw Phase — Pool", waitFor:"draw_pool", highlight:"tut-pool-area",
       actionHint:"Drag a pool card down into your hand.",
       text:`<p>Every turn starts with drawing <strong>2 cards</strong>. <strong>Drag</strong> one pool card down to your hand to draw it.</p>` },
     // 3
@@ -3503,6 +3507,11 @@
     tutPanelEl.ondragover   = _tutPoolOver;
     tutPanelEl.ondragleave  = _tutPoolLeave;
     tutPanelEl.ondrop       = _tutPoolDrop;
+    // Also wire the spotlight overlay so pool cards can be dropped anywhere on screen
+    const overlayEl = document.getElementById("tut-spotlight-overlay");
+    overlayEl.ondragover  = _tutPoolOver;
+    overlayEl.ondrop      = _tutPoolDrop;
+    overlayEl.ondragleave = _tutPoolLeave;
   }
 
   function tutRenderMyBoard() {
@@ -3531,7 +3540,16 @@
     }
 
     if (!ts.myBoard.length) {
-      wrap.innerHTML = `<div class="tut-empty-board-msg">No oceans yet — play an Ocean card!</div>`;
+      if (ts.pendingOcean) {
+        // Show queued ocean during pay_ocean step
+        const pend = document.createElement("div");
+        pend.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;opacity:.75;";
+        pend.innerHTML = `<div style="font-size:8px;color:var(--gold);font-weight:800;text-transform:uppercase;">Queued — pay to place</div>
+          <div style="width:56px;height:78px;border-radius:7px;overflow:hidden;border:2px dashed var(--gold);animation:tut-card-pulse-gold 1s ease-in-out infinite;">${tutCardImg(ts.pendingOcean)}</div>`;
+        wrap.appendChild(pend);
+      } else {
+        wrap.innerHTML = `<div class="tut-empty-board-msg">No oceans yet — play an Ocean card!</div>`;
+      }
       return;
     }
 
@@ -3875,7 +3893,13 @@
     const ts = tutState;
     const panel = document.getElementById(`tut-bot${botIdx}`);
     if (!panel) { if (cb) cb(); return; }
+    const botName = ["Billy", "Diana"][botIdx];
     panel.classList.add("active-turn", "tut-bot-flash");
+    if (round === 1) {
+      tutShowFlash(botName + " pays 1 card and plays a Coral Reef!");
+    } else if (round === 2) {
+      tutShowFlash(botName + " pays 1 card and attaches an animal!");
+    }
     setTimeout(() => {
       panel.classList.remove("active-turn", "tut-bot-flash");
       const board = ts.botBoards[botIdx];
@@ -3977,9 +4001,7 @@
     const prevN = tutState.step;
     n = Math.max(0, Math.min(n, total - 1));
 
-    if (n > prevN) {
-      tutSaveSnapshot(prevN);       // save current state before moving forward
-    } else if (n < prevN) {
+    if (n < prevN) {
       tutRestoreSnapshot(n);        // restore full board/hand/pool to what it was at step n
     }
 
@@ -4040,6 +4062,13 @@
 
     // Re-render everything
     tutRenderAll();
+
+    // Save snapshot of this step NOW (on arrival), so back-nav restores the state
+    // the user sees when they first reach this step — before any interactions happen.
+    // triggerBots steps manage their own snapshot after the animation completes.
+    if (n >= prevN && !step.triggerBots) {
+      tutSaveSnapshot(n);
+    }
 
     // Bot animation trigger (round-aware)
     if (step.triggerBots && n >= prevN) {
