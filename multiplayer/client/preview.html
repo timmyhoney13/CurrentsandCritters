@@ -1059,13 +1059,13 @@
     }
     .tut-mini-hub { display: flex; flex-direction: column; align-items: center; }
     .tut-mini-board-row { display: flex; align-items: center; position: relative; z-index: 2; }
-    .tut-mini-slot-up { margin-bottom: -7px; z-index: 3; display: flex; justify-content: center; }
-    .tut-mini-slot-down { margin-top: -7px; z-index: 3; display: flex; justify-content: center; }
-    .tut-mini-slot-left { margin-right: -5px; z-index: 3; }
-    .tut-mini-slot-right { margin-left: -5px; z-index: 3; }
+    .tut-mini-slot-up   { margin-bottom: -7px; z-index: 1; display: flex; justify-content: center; }
+    .tut-mini-slot-down { margin-top:    -7px; z-index: 1; display: flex; justify-content: center; }
+    .tut-mini-slot-left  { margin-right: -5px; z-index: 1; }
+    .tut-mini-slot-right { margin-left:  -5px; z-index: 1; }
     .tut-mini-ocean {
       width: 28px; height: 40px; border-radius: 4px; overflow: hidden;
-      border: 1.5px solid var(--teal); flex-shrink: 0; z-index: 2;
+      border: 1.5px solid var(--teal); flex-shrink: 0; position: relative; z-index: 4;
     }
     .tut-mini-ocean img { width: 100%; height: 100%; object-fit: cover; }
     .tut-mini-animal {
@@ -1223,6 +1223,12 @@
     @keyframes tut-card-pulse-gold {
       0%,100% { box-shadow: 0 0 8px rgba(255,215,0,.4); }
       50%      { box-shadow: 0 0 20px rgba(255,215,0,.8); }
+    }
+    /* ── Draggable card (drag-from-hand step) ── */
+    .tut-hand-card.tut-drag-ready {
+      border-color: var(--gold) !important; cursor: grab;
+      box-shadow: 0 0 14px rgba(240,184,64,.55) !important;
+      animation: tut-card-pulse-gold 1.3s ease-in-out infinite;
     }
     /* ── Selected-and-locked card (already selected, now paying) ── */
     .tut-hand-card.tut-selected-locked {
@@ -3277,10 +3283,10 @@
   const TUT_INIT_HAND = [217, 11, 3, 25, 33, 6, 34, 9];
   // pool uids — chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
-  // bot boards — direction-aware (up/down = UIDs 1-96, left/right = UIDs 101-188)
+  // bot boards — start empty; populated during interleaved bot-turn animations
   const TUT_BOT_BOARDS = [
-    { ocean: 219, up: [5],  down: [8],  left: [103], right: [] },   // Billy
-    { ocean: 220, up: [19], down: [2],  left: [],    right: [102] }, // Diana
+    { ocean: null, up: [], down: [], left: [], right: [] },  // Billy
+    { ocean: null, up: [], down: [], left: [], right: [] },  // Diana
   ];
 
   // ── Tutorial state ──────────────────────────────────────────────
@@ -3295,150 +3301,100 @@
       myBoard: [],           // [{oceanUid, up:[], down:[], left:[], right:[]}]
       selectedHandUid: null,
       stagedCard: null,       // uid of card paid-for, waiting to be dragged to board
+      pendingOcean: null,     // uid of ocean dragged from hand, awaiting payment
       discardSelected: new Set(),
-      waitingForAction: null,
       botBoards: TUT_BOT_BOARDS.map(b => ({
         ocean: b.ocean,
         up: [...b.up], down: [...b.down], left: [...b.left], right: [...b.right],
       })),
-      botScores: [4, 7],
-      botHandCounts: [5, 5],
+      botScores: [0, 0],
+      botHandCounts: [6, 6],
     };
   }
 
-  // ── 19-step tutorial ─────────────────────────────────────────────
+  // ── 20-step tutorial ─────────────────────────────────────────────
   const TUTORIAL_STEPS = [
-    // 0 ─ Welcome
-    {
-      title: "Welcome!",
-      text: `<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing a practice game with two bot opponents: <em>Billy</em> and <em>Diana</em>.</p><p>This tutorial walks you through a full turn. Let's go!</p>`,
-      highlight: null, actionHint: null, waitFor: null, nextLabel: "Start →",
-    },
-    // 1 ─ The Table
-    {
-      title: "The Table",
-      text: `<p>The two panels at the top are your <strong>opponents</strong> — <em>Billy</em> and <em>Diana</em>. Each shows their board and score.</p><p>The center strip holds the <strong>Pool</strong> (face-up cards you can draw) and the <strong>Deck</strong>. Your hand is at the bottom.</p>`,
-      highlight: "tut-opp-row", actionHint: null, waitFor: null,
-    },
-    // 2 ─ Draw from pool
-    {
-      title: "Draw Phase — Pool",
-      text: `<p>Every turn starts with drawing <strong>2 cards</strong>. You can drag a pool card to your hand, click the Deck, or mix both.</p><p><strong>Drag</strong> one of the pool cards down into your hand to draw it.</p>`,
-      highlight: null, actionHint: "Drag a pool card down to your hand to draw it.", waitFor: "draw_pool",
-    },
-    // 3 ─ Draw from deck
-    {
-      title: "Draw Phase — Deck",
-      text: `<p>You drew a card from the pool. Now draw your <strong>second card from the Deck</strong>.</p>`,
-      highlight: "tut-deck-pile", actionHint: "Click the Deck to draw your second card.", waitFor: "draw_deck",
-    },
-    // 4 ─ Your Hand
-    {
-      title: "Your Hand",
-      text: `<p>Your hand now has two new cards. Each shows its <strong>symbol</strong> (◆ ◉ ♥ ■ ◇) and species.</p><p><strong>Hover</strong> any card for its full ability. <strong>Double-click</strong> to zoom it. Symbols are how you pay card costs.</p>`,
-      highlight: "tut-hand-zone", actionHint: "Hover a card to read its ability.", waitFor: null,
-    },
-    // 5 ─ Select ocean card
-    {
-      title: "Select an Ocean Card",
-      text: `<p>An <strong>Ocean card</strong> is the foundation of your ecosystem — you must play one before attaching animals.</p><p><strong>Click the Coral Reef</strong> (glowing card) to select it. You'll pay for it next.</p>`,
-      highlight: null, actionHint: "Click the Coral Reef card in your hand to select it.", waitFor: "play_ocean",
-      highlightHandUid: 217,
-    },
-    // 6 ─ Pay for ocean
-    {
-      title: "Pay the Ocean's Cost",
-      text: `<p>Ocean cards cost <strong>1 card</strong> to play. The Coral Reef is selected — now discard one card from your hand as payment.</p><p>Click <strong>any glowing card</strong> to pay. The Coral Reef will be ready to place once paid.</p>`,
-      highlight: null, actionHint: "Click any teal-glowing card in your hand to pay.", waitFor: "pay_ocean",
-    },
-    // 7 ─ Drag ocean to board  [NEW]
-    {
-      title: "Place Ocean on Your Board",
-      text: `<p>Payment accepted! Now <strong>drag the Coral Reef</strong> from the staging area above your hand onto the glowing drop zone on your board.</p>`,
-      highlight: "tut-my-board-area", actionHint: "Drag the Coral Reef card to the glowing board area.", waitFor: "drag_ocean",
-    },
-    // 8 ─ Ocean explanation
-    {
-      title: "Ocean on Your Board",
-      text: `<p>Your <strong>Coral Reef</strong> is now on your board! Every ocean has four attachment slots: <em>Up ↑, Down ↓, Left ←, Right →</em>.</p><p>Each animal card slots into a specific direction. The empty dashed slots show where cards can go.</p>`,
-      highlight: "tut-my-board-area", actionHint: null, waitFor: null,
-    },
-    // 9 ─ Select animal
-    {
-      title: "Select an Animal Card",
-      text: `<p>Now attach an animal to your Coral Reef. The <em>Horned Puffin</em> costs <strong>1 ♥ card</strong> and attaches to the <strong>Up ↑</strong> slot — it gives +3 pts and a "play again" bonus!</p><p><strong>Click the Horned Puffin</strong> (glowing) to select it.</p>`,
-      highlight: null, actionHint: "Click the Horned Puffin (♥) card in your hand.", waitFor: "play_animal",
-      highlightHandUid: 11,
-    },
-    // 10 ─ Pay for animal
-    {
-      title: "Pay the Animal's Cost",
-      text: `<p>The Horned Puffin costs <strong>1 ♥ card</strong>. Click a <strong>red-pulsing ♥ card</strong> to discard it as payment. The Puffin will then be ready to place.</p>`,
-      highlight: null, actionHint: "Click a red-pulsing ♥ card to pay.", waitFor: "pay_animal",
-    },
-    // 11 ─ Drag animal to ocean  [NEW]
-    {
-      title: "Attach Animal to Ocean",
-      text: `<p>Payment accepted! Now <strong>drag the Horned Puffin</strong> from the staging area onto your <strong>Coral Reef</strong> on the board — the ocean card will glow gold when it's a valid drop target.</p>`,
-      highlight: "tut-my-board-area", actionHint: "Drag the Horned Puffin onto your Coral Reef.", waitFor: "drag_animal",
-    },
-    // 12 ─ Card played confirmation
-    {
-      title: "Card Attached!",
-      text: `<p>The <strong>Horned Puffin</strong> is now attached to the <em>Up ↑</em> slot of your Coral Reef — and your payment card went to the pool.</p><p>The Puffin gives <strong>+3 pts</strong> and a "play again" bonus for this turn!</p>`,
-      highlight: "tut-my-board-area", actionHint: null, waitFor: null,
-    },
-    // 13 ─ Star abilities
-    {
-      title: "Star Abilities ★",
-      text: `<p>Cards with <strong>★</strong> have bonus Star Abilities that cost one extra matching card from your hand.</p><p>The <em>Peruvian Pelican's</em> ★ star draws <strong>3 cards</strong> instead of 1. <strong>Click the Peruvian Pelican</strong> (■) to use it now.</p>`,
-      highlight: null, actionHint: "Click the Peruvian Pelican (■) card in your hand.", waitFor: "star_play",
-      highlightHandUid: 25,
-    },
-    // 14 ─ Star played
-    {
-      title: "Star Played!",
-      text: `<p>The Peruvian Pelican ★ fired — you drew 3 cards! A ■ card from your hand was used as the star payment.</p><p>Star abilities are powerful but cost extra, so use them when your hand is ready.</p>`,
-      highlight: "tut-hand-zone", actionHint: null, waitFor: null,
-    },
-    // 15 ─ Draw abilities / zoom
-    {
-      title: "Draw Abilities",
-      text: `<p>The <strong>Great Albatross</strong> in your hand gives <em>"+6 pts if you have the most oceans — draw one when played."</em></p><p>Building oceans early triggers bonus draws and cascades. <strong>Double-click the Great Albatross</strong> to zoom and read it.</p>`,
-      highlight: null, actionHint: "Double-click the Great Albatross to inspect it.", waitFor: "zoom_whale",
-      highlightHandUid: 33,
-    },
-    // 16 ─ Bot turns
-    {
-      title: "Opponent Turns",
-      text: `<p>After your turn, opponents play in order. Watch the panels — the active player's border glows gold.</p><p>Bots draw cards, play oceans, and attach animals just like you.</p>`,
-      highlight: "tut-opp-row", actionHint: "Press the button to watch Billy and Diana take their turns.", waitFor: null, nextLabel: "Watch Bots →", triggerBots: true,
-    },
-    // 17 ─ Scoring
-    {
-      title: "Scoring",
-      text: `<p>Points come from:</p><p>◆ <strong>Flat</strong>: "+3 pts" = 3 points for this card.<br>◆ <strong>Per-type</strong>: "+3 per shark" counts all your sharks.<br>◆ <strong>Threshold chart</strong>: "1=5, 2=15, 3=30" — total depends on how many matching cards you have.</p>`,
-      highlight: null, actionHint: null, waitFor: null,
-    },
-    // 18 ─ End game
-    {
-      title: "End Game",
-      text: `<p>The game ends when a player draws the <strong>END GAME</strong> card from the deck. Every other player gets <em>one more turn</em>, then final scores are tallied.</p><p>Watch opponents — if they're building large sets, trigger the end while you're ahead!</p>`,
-      highlight: null, actionHint: null, waitFor: null,
-    },
-    // 19 ─ Finish
-    {
-      title: "You're Ready!",
-      text: null,
-      tips: [
+    // 0
+    { title:"Welcome!", nextLabel:"Start →", waitFor:null, highlight:null, actionHint:null,
+      text:`<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing against <em>Billy</em> and <em>Diana</em>. Everyone starts with empty boards — just like a real game.</p><p>This tutorial walks you through a full turn-by-turn sequence. Let's go!</p>` },
+    // 1
+    { title:"The Table", waitFor:null, highlight:"tut-opp-row", actionHint:null,
+      text:`<p>The panels at the top are your opponents — <em>Billy</em> and <em>Diana</em>. Their boards are empty for now. The center holds the <strong>Pool</strong> and <strong>Deck</strong>. Your hand is at the bottom.</p>` },
+    // 2
+    { title:"Draw Phase — Pool", waitFor:"draw_pool", highlight:null,
+      actionHint:"Drag a pool card down into your hand.",
+      text:`<p>Every turn starts with drawing <strong>2 cards</strong>. <strong>Drag</strong> one pool card down to your hand to draw it.</p>` },
+    // 3
+    { title:"Draw Phase — Deck", waitFor:"draw_deck", highlight:"tut-deck-pile",
+      actionHint:"Click the Deck to draw your second card.",
+      text:`<p>Good — now draw your <strong>second card from the Deck</strong>.</p>` },
+    // 4
+    { title:"Your Hand", waitFor:null, highlight:"tut-hand-zone",
+      actionHint:"Hover a card to read its ability.",
+      text:`<p>Your hand now has two new cards. Each shows its <strong>symbol</strong> and species. <strong>Hover</strong> to read abilities. <strong>Double-click</strong> to zoom. Symbols are how you pay costs.</p>` },
+    // 5 — drag ocean from hand to board
+    { title:"Play an Ocean Card", waitFor:"drag_ocean_from_hand",
+      highlight:"tut-my-board-area", highlightHandUid:217,
+      actionHint:"Drag the glowing Coral Reef card from your hand onto the board drop zone.",
+      text:`<p>An <strong>Ocean card</strong> is the foundation of your ecosystem. <strong>Drag the Coral Reef</strong> (glowing gold) from your hand down onto the glowing board zone below.</p>` },
+    // 6 — pay for ocean
+    { title:"Pay the Ocean's Cost", waitFor:"pay_ocean", highlight:null,
+      actionHint:"Click any teal-glowing card in your hand to pay.",
+      text:`<p>Ocean cards cost <strong>1 card</strong> to play. The Coral Reef is queued — click <strong>any glowing card</strong> to discard as payment. The ocean then lands on your board.</p>` },
+    // 7 — bot round 1: bots play their oceans
+    { title:"Billy &amp; Diana Play Oceans", waitFor:null, highlight:"tut-opp-row",
+      nextLabel:"Watch →", triggerBots:1,
+      actionHint:null,
+      text:`<p>You placed your ocean! Now watch <strong>Billy</strong> and <strong>Diana</strong> each play their oceans — just like you did.</p>` },
+    // 8 — ocean board explanation
+    { title:"Ocean on Your Board", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
+      text:`<p>Your <strong>Coral Reef</strong> is on your board with four attachment slots: <em>↑ Up, ↓ Down, ← Left, → Right</em>. The dashed boxes show where animals can attach. Billy and Diana also have their oceans now.</p>` },
+    // 9 — select animal
+    { title:"Select an Animal", waitFor:"play_animal", highlight:null, highlightHandUid:11,
+      actionHint:"Click the glowing Horned Puffin (♥) to select it.",
+      text:`<p>Now attach an animal to your Coral Reef. The <em>Horned Puffin</em> (♥) costs <strong>1 ♥ card</strong> and attaches to the <strong>↑ Up</strong> slot — giving +3 pts and a "play again" bonus!</p><p><strong>Click the Horned Puffin</strong> to select it.</p>` },
+    // 10 — pay for animal
+    { title:"Pay the Puffin's Cost", waitFor:"pay_animal", highlight:null,
+      actionHint:"Click a red-pulsing ♥ card to pay.",
+      text:`<p>The Horned Puffin costs <strong>1 ♥ card</strong>. Click a <strong>red-glowing ♥ card</strong> to discard as payment.</p>` },
+    // 11 — drag animal to ocean
+    { title:"Attach to Your Ocean", waitFor:"drag_animal", highlight:"tut-my-board-area",
+      actionHint:"Drag the Horned Puffin from the staging area onto your Coral Reef.",
+      text:`<p>Payment accepted! Now <strong>drag the Horned Puffin</strong> from the area above onto your <strong>Coral Reef</strong> — the ocean glows gold when it's a valid drop target.</p>` },
+    // 12 — bot round 2: bots play their animals
+    { title:"Billy &amp; Diana Attach Animals", waitFor:null, highlight:"tut-opp-row",
+      nextLabel:"Watch →", triggerBots:2,
+      actionHint:null,
+      text:`<p>Great attachment! Now watch <strong>Billy</strong> and <strong>Diana</strong> each attach animals to their oceans — just like you did.</p>` },
+    // 13 — card attached confirmation
+    { title:"Card Attached!", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
+      text:`<p>The <strong>Horned Puffin</strong> is on your Coral Reef's ↑ slot. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong> and a "play again" bonus!</p>` },
+    // 14 — star abilities
+    { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:25,
+      actionHint:"Click the glowing Peruvian Pelican (■) to use its star.",
+      text:`<p>Cards with <strong>★</strong> have bonus abilities costing one extra matching card. The <em>Peruvian Pelican's</em> ★ draws <strong>3 cards</strong> instead of 1. <strong>Click the Pelican</strong> (■) to activate it!</p>` },
+    // 15 — star played
+    { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
+      text:`<p>The Pelican ★ fired — 3 cards drawn! A ■ card was used as star payment and discarded to the pool.</p>` },
+    // 16 — draw abilities / zoom
+    { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:33,
+      actionHint:"Double-click the Great Albatross to inspect it.",
+      text:`<p>The <strong>Great Albatross</strong> says: <em>"+6 pts if you have the most oceans. Draw one when played."</em> Building oceans early cascades into more draws. <strong>Double-click it</strong> to zoom.</p>` },
+    // 17 — scoring
+    { title:"Scoring", waitFor:null, highlight:null, actionHint:null,
+      text:`<p>Points come from:<br>◆ <strong>Flat</strong>: "+3 pts"<br>◆ <strong>Per-type</strong>: "+3 per shark" counts all your sharks<br>◆ <strong>Threshold</strong>: "1=5, 2=15, 3=30" — total scales with how many matching cards you collect</p>` },
+    // 18 — end game
+    { title:"End Game", waitFor:null, highlight:null, actionHint:null,
+      text:`<p>The game ends when a player draws the <strong>END GAME</strong> card. Every other player gets one more turn, then scores are tallied. Trigger the end when you're ahead!</p>` },
+    // 19 — finish
+    { title:"You're Ready!", waitFor:null, highlight:null, actionHint:null, isFinish:true, text:null,
+      tips:[
         "Draw 2 cards every turn — pool cards are free information!",
         "Match symbols to chain abilities and draw extra cards.",
         "Threshold cards like Mantis Shrimp reward deep sets — commit early.",
         "The Peruvian Pelican's ★ star draws 3 cards — great for refilling your hand.",
         "Watch opponents: end the game when you're ahead, not when they are.",
-      ],
-      highlight: null, actionHint: null, waitFor: null, isFinish: true,
-    },
+      ]},
   ];
 
   // ── Helpers ─────────────────────────────────────────────────────
@@ -3459,6 +3415,9 @@
   }
 
   function tutMakeMiniBoard(board) {
+    if (!board.ocean) {
+      return `<div style="color:var(--muted);font-size:9px;text-align:center;padding:6px 4px;line-height:1.3;">No ocean<br>yet</div>`;
+    }
     function slotEl(uid) {
       if (uid) return `<div class="tut-mini-animal">${tutCardImg(uid)}</div>`;
       return `<div class="tut-mini-slot-empty"></div>`;
@@ -3552,19 +3511,20 @@
     const wrap = document.getElementById("tut-my-board-wrap");
     wrap.innerHTML = "";
 
-    // ── drag_ocean: board is empty, show a glowing drop zone ─────────
-    if (step.waitFor === "drag_ocean") {
+    // ── drag_ocean_from_hand: show drop zone for dragging ocean from hand ──
+    if (step.waitFor === "drag_ocean_from_hand") {
       const dz = document.createElement("div");
       dz.className = "tut-board-droptarget";
       dz.innerHTML = "Drop<br>Ocean<br>Here";
       dz.addEventListener("dragover", e => {
-        if (!e.dataTransfer.types.includes("application/x-tut-staged")) return;
+        const ok = e.dataTransfer.types.includes("application/x-tut-hand-play");
+        if (!ok) return;
         e.preventDefault(); e.dataTransfer.dropEffect = "move";
       });
       dz.addEventListener("drop", e => {
         e.preventDefault();
-        const uid = Number(e.dataTransfer.getData("application/x-tut-staged"));
-        if (uid === 217) tutDragOceanToBoard();
+        const uid = Number(e.dataTransfer.getData("application/x-tut-hand-play"));
+        if (uid === 217) tutDragOceanFromHand();
       });
       wrap.appendChild(dz);
       return;
@@ -3660,10 +3620,23 @@
       const isHighlighted = step.highlightHandUid === uid;
       if (isHighlighted) div.classList.add("tut-selectable");
 
-      // pay_ocean: ocean is locked (already selected), all other cards glow teal
+      // drag_ocean_from_hand: coral reef glows gold + is draggable, others dim
+      if (step.waitFor === "drag_ocean_from_hand") {
+        if (uid === 217) {
+          div.classList.add("tut-drag-ready");
+          div.draggable = true;
+          div.addEventListener("dragstart", e => {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("application/x-tut-hand-play", String(uid));
+            div.classList.add("dragging");
+          });
+          div.addEventListener("dragend", () => div.classList.remove("dragging"));
+        }
+      }
+
+      // pay_ocean: all remaining cards glow teal (ocean already removed from hand)
       if (step.waitFor === "pay_ocean") {
-        if (uid === 217) div.classList.add("tut-selected-locked");
-        else             div.classList.add("tut-pay-selectable");
+        div.classList.add("tut-pay-selectable");
       }
 
       // pay_animal: animal is locked (already selected), ♥ cards glow red
@@ -3766,9 +3739,9 @@
     const ts = tutState;
     const step = TUTORIAL_STEPS[ts.step] || {};
 
-    if (step.waitFor === "play_ocean" && uid === 217) {
-      tutSelectOcean();
-    } else if (step.waitFor === "pay_ocean" && uid !== 217) {
+    if (step.waitFor === "drag_ocean_from_hand" && uid === 217) {
+      tutShowFlash("Drag the Coral Reef onto the glowing board area!");
+    } else if (step.waitFor === "pay_ocean") {
       tutPayOcean(uid);
     } else if (step.waitFor === "play_animal" && uid === 11) {
       tutSelectAnimal();
@@ -3790,24 +3763,26 @@
     setTimeout(() => el.classList.remove("tut-card-selected"), 500);
   }
 
-  function tutSelectOcean() {
+  function tutDragOceanFromHand() {
     const ts = tutState;
-    ts.selectedHandUid = 217;  // mark as selected — stays in hand until paid
-    tutShowFlash("Coral Reef selected — now pay 1 card.");
-    tutRenderHand();
+    ts.hand = ts.hand.filter(u => u !== 217);
+    ts.pendingOcean = 217;
+    tutShowFlash("Coral Reef ready! Now pay 1 card to place it.");
+    tutRenderAll();
     tutGoStep(ts.step + 1);  // → pay_ocean
   }
 
   function tutPayOcean(uid) {
     const ts = tutState;
-    // Remove ocean + payment from hand; stage the ocean for dragging
-    ts.hand = ts.hand.filter(u => u !== uid && u !== 217);
+    ts.hand = ts.hand.filter(u => u !== uid);
     if (!ts.pool.includes(uid)) ts.pool.push(uid);
-    ts.selectedHandUid = null;
-    ts.stagedCard = 217;  // waiting to be dragged to board
-    tutShowFlash("Payment accepted! Drag the Coral Reef to your board.");
+    // Place the pending ocean directly on the board
+    const oceanUid = ts.pendingOcean || 217;
+    ts.myBoard.push({ oceanUid, up:[], down:[], left:[], right:[] });
+    ts.pendingOcean = null;
+    tutShowFlash("Coral Reef placed on your board!");
     tutRenderAll();
-    tutGoStep(ts.step + 1);  // → drag_ocean
+    tutGoStep(ts.step + 1);  // → bot oceans step
   }
 
   function tutSelectAnimal() {
@@ -3840,15 +3815,6 @@
     } else {
       tutRenderHand();
     }
-  }
-
-  function tutDragOceanToBoard() {
-    const ts = tutState;
-    ts.myBoard.push({ oceanUid: 217, up: [], down: [], left: [], right: [] });
-    ts.stagedCard = null;
-    tutShowFlash("Coral Reef placed on your board!");
-    tutRenderAll();
-    tutGoStep(ts.step + 1);  // → Ocean explanation
   }
 
   function tutDragAnimalToBoard() {
@@ -3904,31 +3870,40 @@
     if (!ts.hand.includes(41)) ts.hand.push(41);
   }
 
-  // ── Bot turn simulation ──────────────────────────────────────────
-  function tutRunBotTurn(botIdx, cb) {
+  // ── Bot turn simulation (round-aware) ───────────────────────────
+  function tutRunBotTurn(botIdx, round, cb) {
     const ts = tutState;
     const panel = document.getElementById(`tut-bot${botIdx}`);
     if (!panel) { if (cb) cb(); return; }
     panel.classList.add("active-turn", "tut-bot-flash");
     setTimeout(() => {
       panel.classList.remove("active-turn", "tut-bot-flash");
-      ts.botScores[botIdx] += 3 + botIdx * 2;
-      ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 1);
       const board = ts.botBoards[botIdx];
-      // add a card to the first empty direction slot
-      const addUids = [104, 105]; // Billy→Blue Marlin Right, Diana→Great White Shark Left
-      const addDirs = ["right", "left"];
-      const uid = addUids[botIdx] || 104;
-      const dir = addDirs[botIdx] || "right";
-      if (board[dir] && !board[dir].length) board[dir].push(uid);
+      if (round === 1) {
+        // Round 1: each bot plays their ocean
+        board.ocean = [219, 220][botIdx];
+        ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 2);
+        ts.botScores[botIdx] += 1;
+      } else if (round === 2) {
+        // Round 2: each bot attaches animals
+        const fills = [
+          { up:[5], down:[8],  left:[103], right:[] },   // Billy
+          { up:[19], down:[2], left:[],    right:[102] }, // Diana
+        ];
+        const f = fills[botIdx];
+        board.up = [...f.up]; board.down = [...f.down];
+        board.left = [...f.left]; board.right = [...f.right];
+        ts.botScores[botIdx] += 3 + botIdx * 2;
+        ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 2);
+      }
       tutRenderBots();
       if (cb) cb();
-    }, 700);
+    }, 900);
   }
 
-  function tutRunAllBots(cb) {
-    tutRunBotTurn(0, () => {
-      tutRunBotTurn(1, () => { if (cb) cb(); });
+  function tutRunAllBots(round, cb) {
+    tutRunBotTurn(0, round, () => {
+      tutRunBotTurn(1, round, () => { if (cb) cb(); });
     });
   }
 
@@ -3949,6 +3924,42 @@
     }
   }
 
+  // ── State snapshots (enables proper Back navigation) ─────────────
+  let tutSnapshots = [];
+
+  function tutSaveSnapshot(stepN) {
+    const ts = tutState;
+    tutSnapshots[stepN] = {
+      hand: [...ts.hand],
+      pool: [...ts.pool],
+      deckCount: ts.deckCount,
+      myBoard: JSON.parse(JSON.stringify(ts.myBoard)),
+      selectedHandUid: ts.selectedHandUid,
+      stagedCard: ts.stagedCard,
+      pendingOcean: ts.pendingOcean,
+      botBoards: JSON.parse(JSON.stringify(ts.botBoards)),
+      botScores: [...ts.botScores],
+      botHandCounts: [...ts.botHandCounts],
+    };
+  }
+
+  function tutRestoreSnapshot(stepN) {
+    const snap = tutSnapshots[stepN];
+    if (!snap) return;
+    const ts = tutState;
+    ts.hand          = [...snap.hand];
+    ts.pool          = [...snap.pool];
+    ts.deckCount     = snap.deckCount;
+    ts.myBoard       = JSON.parse(JSON.stringify(snap.myBoard));
+    ts.selectedHandUid = snap.selectedHandUid;
+    ts.stagedCard    = snap.stagedCard;
+    ts.pendingOcean  = snap.pendingOcean || null;
+    ts.botBoards     = JSON.parse(JSON.stringify(snap.botBoards));
+    ts.botScores     = [...snap.botScores];
+    ts.botHandCounts = [...snap.botHandCounts];
+    ts.discardSelected = new Set();
+  }
+
   // ── Flash message ─────────────────────────────────────────────────
   let _tutFlashTimer = null;
   function tutShowFlash(msg) {
@@ -3966,36 +3977,25 @@
     const prevN = tutState.step;
     n = Math.max(0, Math.min(n, total - 1));
 
-    // Going backwards from a drag step: restore staged card to hand
-    if (n < prevN && tutState.stagedCard) {
-      const uid = tutState.stagedCard;
-      if (!tutState.hand.includes(uid)) tutState.hand.unshift(uid);
-      tutState.stagedCard = null;
-    }
-    // Going backwards past pay step: also restore selectedHandUid state
-    if (n < prevN) {
-      tutState.selectedHandUid = null;
-      tutState.discardSelected.clear();
+    if (n > prevN) {
+      tutSaveSnapshot(prevN);       // save current state before moving forward
+    } else if (n < prevN) {
+      tutRestoreSnapshot(n);        // restore full board/hand/pool to what it was at step n
     }
 
     tutState.step = n;
     const step = TUTORIAL_STEPS[n];
 
-    // Panel title + text (fade in on each step change)
+    // Panel text
     document.getElementById("tut-step-badge").textContent = `Step ${n + 1} / ${total}`;
     document.getElementById("tut-panel-title").textContent = step.title;
-
     const textEl = document.getElementById("tut-panel-text");
     const tipsEl = document.getElementById("tut-tips-list");
     tipsEl.style.display = "none";
     tipsEl.innerHTML = "";
     if (step.tips) {
       textEl.innerHTML = "<p>Here are the most important things to remember:</p>";
-      step.tips.forEach(t => {
-        const li = document.createElement("li");
-        li.textContent = t;
-        tipsEl.appendChild(li);
-      });
+      step.tips.forEach(t => { const li = document.createElement("li"); li.textContent = t; tipsEl.appendChild(li); });
       tipsEl.style.display = "flex";
     } else {
       textEl.innerHTML = step.text || "";
@@ -4006,57 +4006,46 @@
 
     // Action hint
     const hintEl = document.getElementById("tut-action-hint");
-    if (step.actionHint) {
-      hintEl.textContent = step.actionHint;
-      hintEl.style.display = "";
-    } else {
-      hintEl.style.display = "none";
-    }
+    if (step.actionHint) { hintEl.textContent = step.actionHint; hintEl.style.display = ""; }
+    else                 { hintEl.style.display = "none"; }
 
     // Nav buttons
-    const navEl    = document.getElementById("tut-nav");
-    const finishEl = document.getElementById("tut-finish-btns");
+    const navEl = document.getElementById("tut-nav"), finishEl = document.getElementById("tut-finish-btns");
     if (step.isFinish) {
-      navEl.style.display    = "none";
-      finishEl.style.display = "flex";
+      navEl.style.display = "none"; finishEl.style.display = "flex";
     } else {
-      navEl.style.display    = "flex";
-      finishEl.style.display = "none";
+      navEl.style.display = "flex"; finishEl.style.display = "none";
       document.getElementById("tut-back-btn").disabled = (n === 0);
       const nextBtn = document.getElementById("tut-next-btn");
-      nextBtn.textContent  = step.nextLabel || "Next →";
-      nextBtn.disabled     = (step.waitFor != null && step.waitFor !== "");
+      nextBtn.textContent = step.nextLabel || "Next →";
+      // Disable next if waiting for action, OR if bots are about to animate
+      nextBtn.disabled = (step.waitFor != null && step.waitFor !== "") || (!!step.triggerBots && n >= prevN);
     }
 
     // Highlight
     tutApplyHighlight(step.highlight || null);
 
-    // Hand zone label — context-aware
+    // Hand label
     const handLbl = document.getElementById("tut-hand-lbl");
     if (handLbl) {
-      if      (step.waitFor === "draw_pool")   handLbl.textContent = "Your Hand — drag a pool card here to draw";
-      else if (step.waitFor === "pay_ocean")   handLbl.textContent = "Your Hand — click any glowing card to pay";
-      else if (step.waitFor === "pay_animal")  handLbl.textContent = "Your Hand — click a ♥ card to pay";
-      else if (step.waitFor === "drag_ocean")  handLbl.textContent = "Drag the staged card above onto the board";
-      else if (step.waitFor === "drag_animal") handLbl.textContent = "Drag the staged card above onto your ocean";
-      else if (step.waitFor === "play_ocean" || step.waitFor === "play_animal" || step.waitFor === "star_play" || step.waitFor === "zoom_whale")
+      if      (step.waitFor === "draw_pool")             handLbl.textContent = "Your Hand — drag a pool card here";
+      else if (step.waitFor === "drag_ocean_from_hand")  handLbl.textContent = "Your Hand — drag the Coral Reef to the board drop zone";
+      else if (step.waitFor === "pay_ocean")             handLbl.textContent = "Your Hand — click any glowing card to pay";
+      else if (step.waitFor === "pay_animal")            handLbl.textContent = "Your Hand — click a ♥ card to pay";
+      else if (step.waitFor === "drag_animal")           handLbl.textContent = "Drag the staged card above onto your ocean";
+      else if (step.waitFor === "play_animal" || step.waitFor === "star_play" || step.waitFor === "zoom_whale")
         handLbl.textContent = "Your Hand — click a card · double-click to inspect";
       else handLbl.textContent = "Your Hand — double-click any card to inspect it";
     }
 
-    // Always clear discard selection on step change (forward or back)
-    if (n >= prevN) tutState.discardSelected.clear();
+    // Re-render everything
+    tutRenderAll();
 
-    // Re-render hand, staging area, and board
-    tutRenderMyBoard();
-    tutRenderStaging();
-    tutRenderHand();
-
-    // Bot animation trigger
-    if (step.triggerBots) {
+    // Bot animation trigger (round-aware)
+    if (step.triggerBots && n >= prevN) {
       setTimeout(() => {
-        tutRunAllBots(() => {
-          // After bots done, enable next
+        tutRunAllBots(step.triggerBots, () => {
+          tutSaveSnapshot(n);  // save after bots played so back-nav shows their boards
           const nb = document.getElementById("tut-next-btn");
           if (nb) { nb.disabled = false; nb.textContent = "Next →"; }
         });
@@ -4066,6 +4055,7 @@
 
   // ── Start / Exit ─────────────────────────────────────────────────
   function startTutorial() {
+    tutSnapshots = [];
     tutState = tutMakeInitState();
     document.getElementById("pv-tutorial").classList.add("active");
     tutAddExcessCards();
@@ -4108,6 +4098,7 @@
   document.getElementById("tut-main-menu-btn").addEventListener("click", exitTutorial);
 
   document.getElementById("tut-restart-btn").addEventListener("click", () => {
+    tutSnapshots = [];
     tutState = tutMakeInitState();
     tutAddExcessCards();
     tutRenderAll();
