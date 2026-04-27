@@ -171,6 +171,8 @@
     #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
     #pv-pool-area.drag-over::after { content: "Drop to discard to pool"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
     #pv-pool-area.can-drop { outline: 1px dashed var(--muted); border-radius: 8px; }
+    #pv-hand-zone.pool-drag-over { outline: 2px dashed var(--cyan); background: rgba(48,200,240,.1); border-radius: 8px; transition: background .15s; }
+    #tut-hand-zone.pool-drag-over { outline: 2px dashed var(--cyan); background: rgba(48,200,240,.1); border-radius: 6px; }
 
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
@@ -2740,7 +2742,7 @@
 
   // ── Pool renderer ──────────────────────────────────────────────
   let _prevPoolUids = [];
-  // Pool cards the player has double-clicked to queue for drawing
+  // Pool cards the player has dragged to hand, queued for drawing
   const pendingPoolDrawPicks = new Set();
   let _poolDrawActions = null; // cached draw actions for deck-click handler
 
@@ -2783,10 +2785,10 @@
     // Update pending pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
     if (pendingPoolDrawPicks.size === 1 && canInteract) {
-      hint.textContent = "1 pool card selected — click deck to draw both, or pick a 2nd";
+      hint.textContent = "1 pool card queued — drag another to hand, or click the deck";
       hint.style.display = "";
     } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
-      hint.textContent = "2 pool cards selected";
+      hint.textContent = "2 pool cards queued — drawing…";
       hint.style.display = "";
     } else {
       hint.style.display = "none";
@@ -2811,7 +2813,7 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
       div.title = (canDrawPool && canInteract)
-        ? `${face.name || faceUid} — double-click to draw, single-click to preview`
+        ? `${face.name || faceUid} — drag to hand to draw, click to preview`
         : (face.name || String(faceUid));
 
       // Single-click → zoom preview
@@ -2820,28 +2822,56 @@
         openZoom(faceUid, face.name, face.text, face.species);
       });
 
-      // Double-click → queue for draw
-      div.addEventListener("dblclick", (e) => {
-        e.stopPropagation();
-        if (!canDrawPool || !canInteract) return;
-        if (pendingPoolDrawPicks.has(faceUid)) {
-          pendingPoolDrawPicks.delete(faceUid);
-        } else {
-          if (pendingPoolDrawPicks.size >= 2) {
-            showToast("You can only draw up to 2 cards from the pool.", "warn"); return;
-          }
-          pendingPoolDrawPicks.add(faceUid);
+      // Drag → queue for draw (drop target is the hand zone)
+      if (canDrawPool && canInteract) {
+        div.draggable = true;
+        div.addEventListener("dragstart", (e) => {
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("application/x-fish-pool-draw", JSON.stringify({ faceUid }));
+          div.classList.add("dragging");
+        });
+        div.addEventListener("dragend", () => div.classList.remove("dragging"));
+      }
+
+      wrap.appendChild(div);
+    });
+
+    // Hand zone drop target — drag a pool card here to draw it
+    const handZone = document.getElementById("pv-hand-zone");
+    if (canDrawPool && canInteract) {
+      handZone.ondragover = (ev) => {
+        if (!ev.dataTransfer.types.includes("application/x-fish-pool-draw")) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+        handZone.classList.add("pool-drag-over");
+      };
+      handZone.ondragleave = (ev) => {
+        if (!handZone.contains(ev.relatedTarget)) handZone.classList.remove("pool-drag-over");
+      };
+      handZone.ondrop = (ev) => {
+        ev.preventDefault();
+        handZone.classList.remove("pool-drag-over");
+        let data = {};
+        try { data = JSON.parse(ev.dataTransfer.getData("application/x-fish-pool-draw") || "{}"); } catch {}
+        const uid = Number(data.faceUid);
+        if (!uid) return;
+        if (pendingPoolDrawPicks.has(uid)) return; // already queued
+        if (pendingPoolDrawPicks.size >= 2) {
+          showToast("You can only draw up to 2 cards from the pool.", "warn"); return;
         }
-        // Auto-submit when 2 pool cards are queued
+        pendingPoolDrawPicks.add(uid);
         if (pendingPoolDrawPicks.size === 2) {
           _submitPoolDraw(drawActions, pendingPoolDrawPicks);
         } else {
           renderPool(pool, actions);
         }
-      });
-
-      wrap.appendChild(div);
-    });
+      };
+    } else {
+      handZone.ondragover = null;
+      handZone.ondragleave = null;
+      handZone.ondrop = null;
+      handZone.classList.remove("pool-drag-over");
+    }
 
     // Pool drop zone — drag a hand card here to discard it to the pool (payment)
     const poolArea = document.getElementById("pv-pool-area");
@@ -3191,8 +3221,8 @@
     // 2
     {
       title: "Your Turn: Draw Phase",
-      text: `<p>Every turn starts with drawing <strong>2 cards</strong>. You can:</p><p>◆ <strong>Single-click</strong> a pool card to zoom it.<br>◆ <strong>Double-click</strong> a pool card to pick it (lights up blue).<br>◆ <strong>Click the Deck</strong> to draw from there.<br>Mix and match — draw 1 pool + 1 deck, or 2 pool, or 2 deck.</p>`,
-      highlight: "tut-center-strip", actionHint: "Double-click a pool card to draw it.", waitFor: "draw_pool",
+      text: `<p>Every turn starts with drawing <strong>2 cards</strong>. You can:</p><p>◆ <strong>Click</strong> a pool card to zoom it.<br>◆ <strong>Drag</strong> a pool card to your hand to draw it.<br>◆ <strong>Click the Deck</strong> to draw from there.<br>Mix and match — draw 1 pool + 1 deck, or 2 pool, or 2 deck.</p>`,
+      highlight: "tut-center-strip", actionHint: "Drag a pool card down to your hand to draw it.", waitFor: "draw_pool",
     },
     // 3
     {
@@ -3341,12 +3371,36 @@
       div.dataset.uid = uid;
       div.innerHTML = tutCardImg(uid);
       div.title = tutCard(uid).name;
-      div.addEventListener("click",  () => tutOpenZoom(uid));
-      div.addEventListener("dblclick", (e) => { e.preventDefault(); tutPoolDraw(uid); });
+      div.addEventListener("click", () => tutOpenZoom(uid));
+      div.draggable = true;
+      div.addEventListener("dragstart", (e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("application/x-tut-pool-draw", String(uid));
+        div.classList.add("dragging");
+      });
+      div.addEventListener("dragend", () => div.classList.remove("dragging"));
       poolWrap.appendChild(div);
     });
     document.getElementById("tut-deck-count").textContent = ts.deckCount + " left";
     document.getElementById("tut-deck-pile").onclick = tutDrawDeck;
+
+    // Hand zone drop target for tutorial pool drags
+    const tutHandZone = document.getElementById("tut-hand-zone");
+    tutHandZone.ondragover = (ev) => {
+      if (!ev.dataTransfer.types.includes("application/x-tut-pool-draw")) return;
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = "move";
+      tutHandZone.classList.add("pool-drag-over");
+    };
+    tutHandZone.ondragleave = (ev) => {
+      if (!tutHandZone.contains(ev.relatedTarget)) tutHandZone.classList.remove("pool-drag-over");
+    };
+    tutHandZone.ondrop = (ev) => {
+      ev.preventDefault();
+      tutHandZone.classList.remove("pool-drag-over");
+      const uid = Number(ev.dataTransfer.getData("application/x-tut-pool-draw"));
+      if (uid) tutPoolDraw(uid);
+    };
   }
 
   function tutRenderMyBoard() {
