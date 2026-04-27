@@ -1055,19 +1055,28 @@
     .tut-pscore { color: var(--gold); font-size: 10px; flex-shrink: 0; margin-left: 4px; }
     .tut-phand-count { font-size: 9px; color: var(--muted); }
     .tut-mini-board {
-      display: flex; gap: 3px; flex-wrap: wrap; min-height: 36px; align-items: center;
+      display: flex; flex-direction: column; align-items: center; gap: 0px; min-height: 44px;
     }
-    .tut-mini-hub { display: flex; align-items: center; gap: 1px; }
+    .tut-mini-hub { display: flex; flex-direction: column; align-items: center; }
+    .tut-mini-board-row { display: flex; align-items: center; position: relative; z-index: 2; }
+    .tut-mini-slot-up { margin-bottom: -7px; z-index: 3; display: flex; justify-content: center; }
+    .tut-mini-slot-down { margin-top: -7px; z-index: 3; display: flex; justify-content: center; }
+    .tut-mini-slot-left { margin-right: -5px; z-index: 3; }
+    .tut-mini-slot-right { margin-left: -5px; z-index: 3; }
     .tut-mini-ocean {
-      width: 32px; height: 44px; border-radius: 4px; overflow: hidden;
-      border: 1px solid var(--border); flex-shrink: 0;
+      width: 28px; height: 40px; border-radius: 4px; overflow: hidden;
+      border: 1.5px solid var(--teal); flex-shrink: 0; z-index: 2;
     }
     .tut-mini-ocean img { width: 100%; height: 100%; object-fit: cover; }
     .tut-mini-animal {
-      width: 22px; height: 30px; border-radius: 3px; overflow: hidden;
-      border: 1px solid rgba(48,200,240,.25); flex-shrink: 0; margin-left: -5px;
+      width: 20px; height: 28px; border-radius: 3px; overflow: hidden;
+      border: 1px solid rgba(48,200,240,.5); flex-shrink: 0;
     }
     .tut-mini-animal img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-mini-slot-empty {
+      width: 20px; height: 28px; border-radius: 3px;
+      border: 1px dashed rgba(255,255,255,.15); flex-shrink: 0;
+    }
     #tut-center-strip {
       display: flex; align-items: center; justify-content: center;
       gap: 16px; flex-shrink: 0;
@@ -1120,6 +1129,12 @@
       border: 1.5px solid var(--cyan); box-shadow: 0 0 6px rgba(48,200,240,.3);
     }
     .tut-attached-card img { width: 100%; height: 100%; object-fit: cover; }
+    .tut-empty-slot {
+      width: 42px; height: 58px; border-radius: 4px;
+      border: 1.5px dashed rgba(48,200,240,.2);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,.2); font-size: 8px; text-align: center; line-height: 1.2;
+    }
     .tut-empty-board-msg {
       color: var(--muted); font-size: 10px; text-align: center; padding: 10px;
     }
@@ -1906,19 +1921,14 @@
     <!-- opponent row -->
     <div id="tut-opp-row">
       <div class="tut-player-panel" id="tut-bot0">
-        <div class="tut-pname"><span class="tut-pname-txt">Coral</span><span class="tut-pscore">0 pts</span></div>
+        <div class="tut-pname"><span class="tut-pname-txt">Billy</span><span class="tut-pscore">0 pts</span></div>
         <div class="tut-phand-count">Hand: 5 cards</div>
         <div class="tut-mini-board" id="tut-bot0-board"></div>
       </div>
       <div class="tut-player-panel" id="tut-bot1">
-        <div class="tut-pname"><span class="tut-pname-txt">Marina</span><span class="tut-pscore">0 pts</span></div>
+        <div class="tut-pname"><span class="tut-pname-txt">Diana</span><span class="tut-pscore">0 pts</span></div>
         <div class="tut-phand-count">Hand: 5 cards</div>
         <div class="tut-mini-board" id="tut-bot1-board"></div>
-      </div>
-      <div class="tut-player-panel" id="tut-bot2">
-        <div class="tut-pname"><span class="tut-pname-txt">Pelagic</span><span class="tut-pscore">0 pts</span></div>
-        <div class="tut-phand-count">Hand: 5 cards</div>
-        <div class="tut-mini-board" id="tut-bot2-board"></div>
       </div>
     </div>
 
@@ -3210,11 +3220,10 @@
   const TUT_INIT_HAND = [217, 11, 3, 25, 33, 6, 34, 9];
   // pool uids — chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
-  // bot boards (ocean uid → attached face uids)
+  // bot boards — direction-aware (up/down = UIDs 1-96, left/right = UIDs 101-188)
   const TUT_BOT_BOARDS = [
-    { ocean: 219, cards: [7, 43] },
-    { ocean: 220, cards: [9] },
-    { ocean: 221, cards: [1, 34] },
+    { ocean: 219, up: [5],  down: [8],  left: [103], right: [] },   // Billy
+    { ocean: 220, up: [19], down: [2],  left: [],    right: [102] }, // Diana
   ];
 
   // ── Tutorial state ──────────────────────────────────────────────
@@ -3230,9 +3239,12 @@
       selectedHandUid: null,
       discardSelected: new Set(),
       waitingForAction: null, // 'play_ocean'|'play_animal'|'star_play'|'draw_deck'|'draw_pool'|'discard_payment'
-      botBoards: TUT_BOT_BOARDS.map(b => ({ ...b, cards: [...b.cards] })),
-      botScores: [4, 7, 9],
-      botHandCounts: [5, 5, 5],
+      botBoards: TUT_BOT_BOARDS.map(b => ({
+        ocean: b.ocean,
+        up: [...b.up], down: [...b.down], left: [...b.left], right: [...b.right],
+      })),
+      botScores: [4, 7],
+      botHandCounts: [5, 5],
     };
   }
 
@@ -3241,13 +3253,13 @@
     // 0
     {
       title: "Welcome!",
-      text: `<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing a practice game with three bot opponents: <em>Coral</em>, <em>Marina</em>, and <em>Pelagic</em>.</p><p>This tutorial walks you through a full turn so you know exactly what to do. Let's go!</p>`,
+      text: `<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing a practice game with two bot opponents: <em>Billy</em> and <em>Diana</em>.</p><p>This tutorial walks you through a full turn so you know exactly what to do. Let's go!</p>`,
       highlight: null, actionHint: null, waitFor: null, nextLabel: "Start →",
     },
     // 1
     {
       title: "The Table",
-      text: `<p>The three panels at the top are your <strong>opponents</strong>. Each shows their board and score.</p><p>The center strip holds the <strong>Pool</strong> (face-up discard cards you can draw) and the <strong>Deck</strong> pile.</p><p>Your hand sits at the bottom.</p>`,
+      text: `<p>The two panels at the top are your <strong>opponents</strong> — <em>Billy</em> and <em>Diana</em>. Each shows their board and score.</p><p>The center strip holds the <strong>Pool</strong> (face-up discard cards you can draw) and the <strong>Deck</strong> pile.</p><p>Your hand sits at the bottom.</p>`,
       highlight: "tut-opp-row", actionHint: null, waitFor: null,
     },
     // 2
@@ -3370,32 +3382,44 @@
   }
 
   // ── Render functions ─────────────────────────────────────────────
+  function tutCardDirection(uid) {
+    if (uid >= 1   && uid <= 96)  return uid % 2 === 1 ? "up"   : "down";
+    if (uid >= 101 && uid <= 188) return uid % 2 === 1 ? "left" : "right";
+    return "center";
+  }
+
+  function tutMakeMiniBoard(board) {
+    function slotEl(uid) {
+      if (uid) return `<div class="tut-mini-animal">${tutCardImg(uid)}</div>`;
+      return `<div class="tut-mini-slot-empty"></div>`;
+    }
+    const up    = board.up    && board.up[0];
+    const down  = board.down  && board.down[0];
+    const left  = board.left  && board.left[0];
+    const right = board.right && board.right[0];
+    return `
+      <div class="tut-mini-hub">
+        <div class="tut-mini-slot-up">${slotEl(up)}</div>
+        <div class="tut-mini-board-row">
+          <div class="tut-mini-slot-left">${slotEl(left)}</div>
+          <div class="tut-mini-ocean">${tutCardImg(board.ocean)}</div>
+          <div class="tut-mini-slot-right">${slotEl(right)}</div>
+        </div>
+        <div class="tut-mini-slot-down">${slotEl(down)}</div>
+      </div>`;
+  }
+
   function tutRenderBots() {
     const ts = tutState;
-    TUT_BOT_BOARDS.forEach((b, i) => {
-      const board = ts.botBoards[i];
-      const panel = document.getElementById(`tut-bot${i}`);
+    ts.botBoards.forEach((board, i) => {
+      const panel  = document.getElementById(`tut-bot${i}`);
+      if (!panel) return;
       const scoreEl = panel.querySelector(".tut-pscore");
       const handEl  = panel.querySelector(".tut-phand-count");
       const boardEl = document.getElementById(`tut-bot${i}-board`);
       if (scoreEl) scoreEl.textContent = ts.botScores[i] + " pts";
       if (handEl)  handEl.textContent  = "Hand: " + ts.botHandCounts[i] + " cards";
-      if (boardEl) {
-        boardEl.innerHTML = "";
-        const hub = document.createElement("div");
-        hub.className = "tut-mini-hub";
-        const oc = document.createElement("div");
-        oc.className = "tut-mini-ocean";
-        oc.innerHTML = tutCardImg(board.ocean);
-        hub.appendChild(oc);
-        board.cards.forEach(cuid => {
-          const a = document.createElement("div");
-          a.className = "tut-mini-animal";
-          a.innerHTML = tutCardImg(cuid);
-          hub.appendChild(a);
-        });
-        boardEl.appendChild(hub);
-      }
+      if (boardEl) boardEl.innerHTML   = tutMakeMiniBoard(board);
     });
   }
 
@@ -3464,28 +3488,32 @@
       const hub = document.createElement("div");
       hub.className = "tut-ocean-hub";
 
-      const upRow = document.createElement("div");
-      upRow.className = "tut-slot-up";
-      ocean.up.forEach(uid => { const d = document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); upRow.appendChild(d); });
+      function makeAttached(arr, slotCls) {
+        const slot = document.createElement("div");
+        slot.className = slotCls;
+        if (arr.length) {
+          arr.forEach(uid => {
+            const d = document.createElement("div"); d.className = "tut-attached-card";
+            d.innerHTML = tutCardImg(uid); slot.appendChild(d);
+          });
+        } else {
+          const e = document.createElement("div"); e.className = "tut-empty-slot";
+          e.textContent = slotCls.includes("up") ? "↑" : slotCls.includes("down") ? "↓" : slotCls.includes("left") ? "←" : "→";
+          slot.appendChild(e);
+        }
+        return slot;
+      }
+
+      const upRow   = makeAttached(ocean.up,    "tut-slot-up");
+      const downRow = makeAttached(ocean.down,  "tut-slot-down");
+      const leftSlot  = makeAttached(ocean.left,  "tut-slot-left");
+      const rightSlot = makeAttached(ocean.right, "tut-slot-right");
 
       const midRow = document.createElement("div");
       midRow.className = "tut-slot-row";
-
-      const leftSlot = document.createElement("div");
-      leftSlot.className = "tut-slot-left";
-      ocean.left.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); leftSlot.appendChild(d); });
-
       const oceanDiv = document.createElement("div");
       oceanDiv.className = "tut-ocean-card";
       oceanDiv.innerHTML = tutCardImg(ocean.oceanUid);
-
-      const rightSlot = document.createElement("div");
-      rightSlot.className = "tut-slot-right";
-      ocean.right.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); rightSlot.appendChild(d); });
-
-      const downRow = document.createElement("div");
-      downRow.className = "tut-slot-down";
-      ocean.down.forEach(uid => { const d=document.createElement("div"); d.className="tut-attached-card"; d.innerHTML=tutCardImg(uid); downRow.appendChild(d); });
 
       midRow.appendChild(leftSlot);
       midRow.appendChild(oceanDiv);
@@ -3719,15 +3747,19 @@
   function tutRunBotTurn(botIdx, cb) {
     const ts = tutState;
     const panel = document.getElementById(`tut-bot${botIdx}`);
+    if (!panel) { if (cb) cb(); return; }
     panel.classList.add("active-turn", "tut-bot-flash");
     setTimeout(() => {
       panel.classList.remove("active-turn", "tut-bot-flash");
       ts.botScores[botIdx] += 3 + botIdx * 2;
       ts.botHandCounts[botIdx] = Math.max(2, ts.botHandCounts[botIdx] - 1);
       const board = ts.botBoards[botIdx];
-      const extras = [7, 43, 3, 1, 33];
-      const addUid = extras[botIdx] || 7;
-      board.cards.push(addUid);
+      // add a card to the first empty direction slot
+      const addUids = [104, 105]; // Billy→Blue Marlin Right, Diana→Great White Shark Left
+      const addDirs = ["right", "left"];
+      const uid = addUids[botIdx] || 104;
+      const dir = addDirs[botIdx] || "right";
+      if (board[dir] && !board[dir].length) board[dir].push(uid);
       tutRenderBots();
       if (cb) cb();
     }, 700);
@@ -3735,9 +3767,7 @@
 
   function tutRunAllBots(cb) {
     tutRunBotTurn(0, () => {
-      tutRunBotTurn(1, () => {
-        tutRunBotTurn(2, () => { if (cb) cb(); });
-      });
+      tutRunBotTurn(1, () => { if (cb) cb(); });
     });
   }
 
