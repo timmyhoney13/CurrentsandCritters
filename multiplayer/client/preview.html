@@ -1080,7 +1080,9 @@
       border: 1.5px solid var(--border); cursor: pointer;
       transition: transform .15s, border-color .15s;
     }
+    .tut-pool-card { cursor: grab; }
     .tut-pool-card:hover { transform: translateY(-6px); border-color: var(--cyan); }
+    .tut-pool-card.dragging { opacity: .45; cursor: grabbing; }
     .tut-pool-card img { width: 100%; height: 100%; object-fit: cover; }
     #tut-deck-pile {
       display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
@@ -1919,7 +1921,7 @@
 
   <!-- hand zone -->
   <div id="tut-hand-zone">
-    <div class="tut-section-lbl" style="text-align:center;padding:2px 0;">Your Hand — click a card</div>
+    <div class="tut-section-lbl" id="tut-hand-lbl" style="text-align:center;padding:2px 0;">Your Hand</div>
     <div id="tut-hand-row"></div>
   </div>
 
@@ -3222,7 +3224,7 @@
     {
       title: "Your Turn: Draw Phase",
       text: `<p>Every turn starts with drawing <strong>2 cards</strong>. You can:</p><p>◆ <strong>Click</strong> a pool card to zoom it.<br>◆ <strong>Drag</strong> a pool card to your hand to draw it.<br>◆ <strong>Click the Deck</strong> to draw from there.<br>Mix and match — draw 1 pool + 1 deck, or 2 pool, or 2 deck.</p>`,
-      highlight: "tut-center-strip", actionHint: "Drag a pool card down to your hand to draw it.", waitFor: "draw_pool",
+      highlight: null, actionHint: "Drag a pool card down to your hand to draw it.", waitFor: "draw_pool",
     },
     // 3
     {
@@ -3582,7 +3584,7 @@
   function tutPoolDraw(uid) {
     const ts = tutState;
     const step = TUTORIAL_STEPS[ts.step] || {};
-    if (step.waitFor !== "draw_pool") { tutOpenZoom(uid); return; }
+    if (step.waitFor !== "draw_pool") return;
     ts.pool = ts.pool.filter(u => u !== uid);
     ts.hand.push(uid);
     tutShowFlash("Drew " + tutCard(uid).name + " from pool!");
@@ -3716,6 +3718,15 @@
 
     // Highlight
     tutApplyHighlight(step.highlight || null);
+
+    // Hand zone label — context-aware
+    const handLbl = document.getElementById("tut-hand-lbl");
+    if (handLbl) {
+      if (step.waitFor === "draw_pool") handLbl.textContent = "Your Hand — drag a pool card here to draw";
+      else if (step.waitFor === "discard_payment") handLbl.textContent = "Your Hand — click a ♥ card to pay";
+      else if (step.waitFor === "play_ocean" || step.waitFor === "play_animal" || step.waitFor === "star_play" || step.waitFor === "zoom_whale") handLbl.textContent = "Your Hand — click a card";
+      else handLbl.textContent = "Your Hand";
+    }
 
     // Hand re-render to apply highlight class / discard class
     tutState.discardSelected.clear();
