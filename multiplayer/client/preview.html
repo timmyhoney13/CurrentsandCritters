@@ -1077,10 +1077,9 @@
     #tut-pool-wrap { display: flex; gap: 4px; align-items: center; }
     .tut-pool-card {
       width: 42px; height: 58px; border-radius: 5px; overflow: hidden;
-      border: 1.5px solid var(--border); cursor: pointer;
-      transition: transform .15s, border-color .15s;
+      border: 1.5px solid var(--border); cursor: grab;
+      transition: transform .15s, border-color .15s, opacity .15s;
     }
-    .tut-pool-card { cursor: grab; }
     .tut-pool-card:hover { transform: translateY(-6px); border-color: var(--cyan); }
     .tut-pool-card.dragging { opacity: .45; cursor: grabbing; }
     .tut-pool-card img { width: 100%; height: 100%; object-fit: cover; }
@@ -1127,6 +1126,7 @@
     #tut-hand-zone {
       flex-shrink: 0; padding: 4px 8px 6px;
       background: rgba(5,14,36,.8); border-top: 1px solid var(--border);
+      position: relative; z-index: 9590;
     }
     #tut-hand-row {
       display: flex; gap: 5px; justify-content: center; flex-wrap: nowrap;
@@ -1153,16 +1153,12 @@
       font-size: 10px; font-weight: 900; text-shadow: 0 0 4px rgba(240,184,64,.8);
     }
     #tut-panel {
-      position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
-      width: min(430px, calc(100vw - 28px));
-      background: linear-gradient(160deg, rgba(6,18,48,.98) 0%, rgba(4,11,30,.99) 100%);
-      border: 1px solid rgba(48,200,240,.35); border-radius: 14px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.75);
-      z-index: 9620; padding: 14px 16px 12px;
-      display: flex; flex-direction: column; gap: 9px;
-      transition: top .2s, bottom .2s;
+      flex-shrink: 0; position: relative; z-index: 9590;
+      background: linear-gradient(0deg, rgba(4,11,30,.99) 0%, rgba(8,22,52,.98) 100%);
+      border-top: 1px solid rgba(48,200,240,.28);
+      padding: 10px 16px 10px;
+      display: flex; flex-direction: column; gap: 7px;
     }
-    #tut-panel.tut-panel-top { bottom: auto; top: 44px; }
     #tut-panel-title {
       font-family: "Cinzel", serif; font-size: 11px; color: var(--cyan);
       font-weight: 700; text-transform: uppercase; letter-spacing: .8px;
@@ -1286,6 +1282,11 @@
       0%,100% { border-color: var(--border); }
       50%      { border-color: var(--gold); box-shadow: 0 0 14px var(--glow-gold); }
     }
+    @keyframes tut-fade-in {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .tut-fade-in { animation: tut-fade-in .22s ease-out; }
 
     /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
     #pv-score-modal {
@@ -3685,7 +3686,7 @@
     tutState.step = n;
     const step = TUTORIAL_STEPS[n];
 
-    // Panel title + text
+    // Panel title + text (fade in on each step change)
     document.getElementById("tut-step-badge").textContent = `Step ${n + 1} / ${total}`;
     document.getElementById("tut-panel-title").textContent = step.title;
 
@@ -3704,6 +3705,9 @@
     } else {
       textEl.innerHTML = step.text || "";
     }
+    textEl.classList.remove("tut-fade-in");
+    void textEl.offsetWidth;
+    textEl.classList.add("tut-fade-in");
 
     // Action hint
     const hintEl = document.getElementById("tut-action-hint");
@@ -3728,12 +3732,6 @@
       nextBtn.textContent  = step.nextLabel || "Next →";
       nextBtn.disabled     = (step.waitFor != null && step.waitFor !== "");
     }
-
-    // Move panel to top when the action requires clicking a hand card
-    const _handActionSteps = ["play_ocean","play_animal","discard_payment","star_play","zoom_whale"];
-    document.getElementById("tut-panel").classList.toggle(
-      "tut-panel-top", _handActionSteps.includes(step.waitFor)
-    );
 
     // Highlight
     tutApplyHighlight(step.highlight || null);
