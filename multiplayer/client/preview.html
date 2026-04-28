@@ -2880,10 +2880,10 @@
     // Update pending pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
     if (pendingPoolDrawPicks.size === 1 && canInteract) {
-      hint.textContent = "1 pool card queued — drag another to hand, or click the deck";
+      hint.textContent = "1 pool card selected — click another pool card, or click the deck";
       hint.style.display = "";
     } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
-      hint.textContent = "2 pool cards queued — drawing…";
+      hint.textContent = "2 pool cards selected — drawing…";
       hint.style.display = "";
     } else {
       hint.style.display = "none";
@@ -2908,17 +2908,38 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
       div.title = (canDrawPool && canInteract)
-        ? `${face.name || faceUid} — drag to hand to draw, click to preview`
+        ? `${face.name || faceUid} — click to select for draw · double-click to preview`
         : (face.name || String(faceUid));
 
-      // Single-click → zoom preview
-      div.addEventListener("click", (e) => {
-        e.stopPropagation();
-        openZoom(faceUid, face.name, face.text, face.species);
-      });
-
-      // Drag → queue for draw (drop target is the hand zone)
+      // Click/dblclick — when drawable: single click selects for draw, dblclick opens zoom
       if (canDrawPool && canInteract) {
+        let _poolClickTimer = null;
+        div.addEventListener("dblclick", (e) => {
+          e.stopPropagation();
+          clearTimeout(_poolClickTimer);
+          openZoom(faceUid, face.name, face.text, face.species);
+        });
+        div.addEventListener("click", (e) => {
+          e.stopPropagation();
+          clearTimeout(_poolClickTimer);
+          _poolClickTimer = setTimeout(() => {
+            if (pendingPoolDrawPicks.has(faceUid)) {
+              pendingPoolDrawPicks.delete(faceUid);
+              renderPool(pool, actions);
+            } else if (pendingPoolDrawPicks.size >= 2) {
+              showToast("You can only draw up to 2 cards from the pool.", "warn");
+            } else {
+              pendingPoolDrawPicks.add(faceUid);
+              if (pendingPoolDrawPicks.size === 2) {
+                _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
+              } else {
+                renderPool(pool, actions);
+              }
+            }
+          }, 190);
+        });
+
+        // Also keep drag as an alternative way to select
         div.draggable = true;
         div.addEventListener("dragstart", (e) => {
           e.dataTransfer.effectAllowed = "move";
@@ -2926,6 +2947,12 @@
           div.classList.add("dragging");
         });
         div.addEventListener("dragend", () => div.classList.remove("dragging"));
+      } else {
+        // Not drawable: single click opens zoom
+        div.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openZoom(faceUid, face.name, face.text, face.species);
+        });
       }
 
       wrap.appendChild(div);
@@ -4538,7 +4565,7 @@
     const steps = [];
 
     if (drawAction) {
-      steps.push(`<span class="gs active">① Draw 2 Cards — click the button on the left OR the deck pile</span>`);
+      steps.push(`<span class="gs active">① Draw 2 Cards — click pool cards to select them, then click the deck (or just click the deck for 2 from deck)</span>`);
     } else {
       steps.push(`<span class="gs done">① Cards drawn ✓</span>`);
     }
