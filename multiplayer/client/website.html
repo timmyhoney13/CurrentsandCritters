@@ -644,6 +644,47 @@
       font-weight: 600;
     }
 
+    .about-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #0f6b8a;
+      background: #e0f7ff;
+      border: 1px solid #9ddaf0;
+      border-radius: 999px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+    }
+    .about-h3 {
+      margin: 0 0 6px;
+      font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+      color: #124e68;
+      font-size: 18px;
+      letter-spacing: -0.2px;
+    }
+    .about-p {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .about-tagline {
+      margin: 12px 0 0;
+      font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f6b8a;
+      text-align: center;
+      letter-spacing: 0.3px;
+      padding: 8px 12px;
+      background: linear-gradient(90deg, #e0f7ff, #eafff4, #e0f7ff);
+      border-radius: 8px;
+      border: 1px solid #9ddaf0;
+    }
     .compendium-scroll {
       max-height: 300px;
       overflow-y: auto;
@@ -925,11 +966,21 @@
         </article>
       </section>
 
-      <!-- CREATURE COMPENDIUM -->
-      <section class="compendium panel" aria-label="Ecosystem compendium" style="margin-top:14px;">
-        <h3 style="margin:0 0 4px;">🌊 Ecosystem Compendium</h3>
-        <p style="margin:0 0 12px;font-size:12px;">Every creature in the Current — scroll to explore</p>
-        <div class="compendium-scroll">
+      <!-- ABOUT -->
+      <section class="panel about-section" aria-label="About Currents and Critters" style="margin-top:14px;">
+        <div class="about-eyebrow">🐟 About the Game</div>
+
+        <h3 class="about-h3">A Two-Brother Passion Project</h3>
+        <p class="about-p">Currents &amp; Critters started the way most great ideas do — at a kitchen table with too many snacks and not enough good card games. We're two brothers who grew up obsessed with the ocean: fishing trips, nature documentaries, and way too many hours watching coral reef footage.</p>
+        <p class="about-p">We wanted a game that felt like the ocean — complex ecosystems, surprising synergies, and the satisfaction of watching something you built come together. So we made one. What started as a hand-drawn prototype on index cards became a commercial tabletop game.</p>
+        <p class="about-p">Every card in the deck is a real species. Every mechanic ties back to how marine ecosystems actually work — predators, baitfish, coral foundations, and the birds that hunt from above. We care about getting the details right.</p>
+
+        <h3 class="about-h3" style="margin-top:16px;">Our Ocean Mission</h3>
+        <p class="about-p">A portion of every game sold goes toward ocean conservation. We believe the best way to protect something is to make people fall in love with it first. Currents &amp; Critters is our way of doing that — one card game at a time.</p>
+
+        <div class="about-tagline">251 Cards &nbsp;·&nbsp; 9 Species &nbsp;·&nbsp; 8 Oceans &nbsp;·&nbsp; Endless Ways to Play</div>
+
+        <div class="compendium-scroll" style="margin-top:10px;">
           <div class="comp-group">
             <span class="comp-tag" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;">Bird</span>
             <span class="comp-name">Emperor Penguin</span>
