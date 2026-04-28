@@ -547,6 +547,12 @@
     @media(max-width:500px){
       .hero-card-img { width:90px; }
     }
+    @keyframes scuttle {
+      0%   { transform:translateX(0) rotate(0deg); }
+      30%  { transform:translateX(-12px) rotate(-3deg); }
+      70%  { transform:translateX(8px) rotate(2deg); }
+      100% { transform:translateX(-6px) rotate(-1deg); }
+    }
   </style>
 </head>
 <body>
@@ -708,12 +714,6 @@
       <line x1="34" y1="15" x2="34" y2="10" stroke="#c04020" stroke-width="2" stroke-linecap="round"/>
     </svg>
   </div>
-  @keyframes scuttle {
-    0%   { transform:translateX(0) rotate(0deg); }
-    30%  { transform:translateX(-12px) rotate(-3deg); }
-    70%  { transform:translateX(8px) rotate(2deg); }
-    100% { transform:translateX(-6px) rotate(-1deg); }
-  }
   <!-- Footprints texture strip -->
   <div style="position:absolute;bottom:0;left:0;right:0;height:28px;z-index:0;overflow:hidden;pointer-events:none;opacity:0.22;">
     <svg width="1440" height="28" viewBox="0 0 1440 28" preserveAspectRatio="none">
