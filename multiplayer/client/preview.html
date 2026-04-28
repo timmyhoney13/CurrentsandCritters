@@ -1726,65 +1726,65 @@
 
   <!-- VIEW B: arrived directly — show both host and join options -->
   <div id="pv-home-view" style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
-    <p class="subtitle">Cast your line — start a new voyage or join a friend's fleet.</p>
+    <p class="subtitle">Shape the Current — start a new Current or join an existing one.</p>
 
     <!-- CREATE -->
     <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
-      <h2>⚓ Create a Current</h2>
+      <h2>🌊 Create a Current</h2>
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--cyan);">1.</b> Enter your captain's name &nbsp;
-        <b style="color:var(--cyan);">2.</b> Set sail to create your fleet &nbsp;
-        <b style="color:var(--cyan);">3.</b> Share the fleet code — start when your crew is aboard
+        <b style="color:var(--cyan);">1.</b> Name your Current &nbsp;
+        <b style="color:var(--cyan);">2.</b> Generate the ecosystem &nbsp;
+        <b style="color:var(--cyan);">3.</b> Share the Current code — begin when all players have joined
       </div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a fleet code? Use the <b>Join the Current</b> section below.</div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a Current code? Use the <b>Join a Current</b> section below.</div>
       <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-host-name" placeholder="Captain's name" value="Captain" />
-        <input class="pv-input" id="pv-room-code-new" placeholder="Custom waters" maxlength="5"
+        <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
+        <input class="pv-input" id="pv-room-code-new" placeholder="Current code" maxlength="5"
           style="width:120px;flex:none;text-transform:uppercase;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       </div>
       <div class="pv-row">
         <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">Crew size</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">Current Size</span>
           <input class="pv-input" id="pv-total-players" type="number" min="1" max="6" value="2" />
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI rivals</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI Critters</span>
           <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
           <span style="font-size:11px;color:transparent;">x</span>
-          <button class="pv-btn gold" id="pv-create-btn">Set Sail →</button>
+          <button class="pv-btn gold" id="pv-create-btn">Generate Current →</button>
         </div>
       </div>
     </div>
 
     <!-- JOIN (from home — has code input) -->
     <div class="pv-lobby-box" style="width:100%;">
-      <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join the Current</h2>
+      <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--cyan);">1.</b> Enter your name and the 5-letter fleet code &nbsp;
-        <b style="color:var(--cyan);">2.</b> Scout the fleet &nbsp;
-        <b style="color:var(--cyan);">3.</b> Claim your spot
+        <b style="color:var(--cyan);">1.</b> Enter your name and the 5-letter Current code &nbsp;
+        <b style="color:var(--cyan);">2.</b> Preview the ecosystem &nbsp;
+        <b style="color:var(--cyan);">3.</b> Enter the Current
       </div>
       <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Sailor" />
-        <input class="pv-input" id="pv-join-code-home" placeholder="Fleet code" maxlength="5"
+        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" />
+        <input class="pv-input" id="pv-join-code-home" placeholder="Current code" maxlength="5"
           style="text-transform:uppercase;width:120px;flex:none;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       </div>
-      <button class="pv-btn full" id="pv-check-room-btn">Scout the Fleet →</button>
+      <button class="pv-btn full" id="pv-check-room-btn">Enter Current →</button>
       <div id="pv-seat-picker-home" style="display:none;flex-direction:column;gap:10px;">
-        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open spot to claim it</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open spot to enter</div>
         <div class="seat-grid" id="pv-seat-grid-home"></div>
-        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Claim your spot above</button>
+        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Enter the Current</button>
       </div>
     </div>
 
     <div id="pv-home-status"></div>
     <button class="pv-btn full" id="pv-tutorial-open-btn"
       style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.3);color:var(--cyan);font-family:'Cinzel',serif;letter-spacing:.8px;">
-      🐠 Learn the Currents — Tutorial
+      🐠 Learn the Tutorial
     </button>
   </div>
 </div>
@@ -2363,7 +2363,7 @@
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
     const createBtn = document.getElementById("pv-create-btn");
     createBtn.disabled = true;
-    lobbyStatus("Charting the waters…", false);
+    lobbyStatus("Generating Current…", false);
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
@@ -2535,7 +2535,7 @@
 
     const data = await fetchSeats(rid);
     checkBtn.disabled = false;
-    checkBtn.textContent = "Scout the Fleet →";
+    checkBtn.textContent = "Enter Current →";
 
     if (!data) {
       lobbyStatus("Room not found — check the code and try again.", true);
