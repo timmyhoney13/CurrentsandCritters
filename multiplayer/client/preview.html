@@ -1695,6 +1695,126 @@
       transition: transform .15s;
     }
     #pv-endgame-close:hover { transform: translateY(-2px); }
+
+    /* ── COMPETITIVE MODE ───────────────────────────────────────── */
+    #comp-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(8,24,56,.97);
+      z-index: 950;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #comp-overlay.open { display: flex; }
+    .comp-box {
+      background: linear-gradient(160deg, rgba(22,58,118,.95) 0%, rgba(15,40,88,.98) 100%);
+      border: 1px solid rgba(240,200,64,.25);
+      border-radius: 18px;
+      box-shadow: 0 0 60px rgba(240,200,64,.1), 0 20px 60px rgba(0,0,0,.4);
+      padding: 28px 32px;
+      max-width: 440px; width: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 14px;
+      text-align: center;
+    }
+    .comp-box h2 {
+      font-family: "Cinzel", serif;
+      font-size: 1.2rem; font-weight: 900;
+      color: var(--gold); letter-spacing: 1px;
+    }
+    .comp-tabs { display: flex; gap: 6px; width: 100%; }
+    .comp-tab {
+      flex: 1; padding: 8px 0; border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      font-weight: 700; font-size: 13px; cursor: pointer;
+      transition: all .15s;
+    }
+    .comp-tab.active { background: var(--gold2); border-color: var(--gold); color: #0a1e40; }
+    .comp-tab:hover:not(.active) { border-color: var(--gold); color: var(--gold); }
+    .comp-panel { display: none; width: 100%; flex-direction: column; gap: 10px; }
+    .comp-panel.active { display: flex; }
+    .comp-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; text-align: left; }
+    .comp-player-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+    .comp-player-badge {
+      width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 13px;
+    }
+    .comp-player-badge.p1 { background: rgba(34,216,248,.2); color: var(--cyan); border: 1.5px solid var(--cyan); }
+    .comp-player-badge.p2 { background: rgba(240,200,64,.2); color: var(--gold); border: 1.5px solid var(--gold); }
+    .comp-hands-grid {
+      width: 100%; display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .comp-hand-slot {
+      background: #122E6A; border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 8px;
+      font-size: 12px; text-align: center;
+    }
+    .comp-hand-slot.p1-hand { border-color: rgba(34,216,248,.4); }
+    .comp-hand-slot.p2-hand { border-color: rgba(240,200,64,.4); }
+    .comp-hand-label { font-weight: 800; font-size: 11px; margin-bottom: 2px; }
+    .comp-hand-label.p1 { color: var(--cyan); }
+    .comp-hand-label.p2 { color: var(--gold); }
+    .comp-status { font-size: 12px; color: var(--muted); min-height: 16px; }
+    .comp-status.err { color: var(--red); }
+
+    /* Hand-switch overlay */
+    #comp-handswitch {
+      display: none;
+      position: fixed; inset: 0;
+      background: #050e22;
+      z-index: 1000;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; text-align: center;
+      cursor: pointer; user-select: none;
+    }
+    #comp-handswitch.open { display: flex; }
+    #comp-handswitch .hs-title {
+      font-family: "Cinzel", serif;
+      font-size: 1rem; color: var(--muted);
+      letter-spacing: 1px; text-transform: uppercase;
+    }
+    #comp-handswitch .hs-player {
+      font-family: "Cinzel", serif;
+      font-size: 2rem; font-weight: 900;
+      letter-spacing: 2px;
+    }
+    #comp-handswitch .hs-player.p1 { color: var(--cyan); text-shadow: 0 0 30px rgba(34,216,248,.5); }
+    #comp-handswitch .hs-player.p2 { color: var(--gold); text-shadow: 0 0 30px rgba(240,200,64,.5); }
+    #comp-handswitch .hs-hand { font-size: 1.1rem; color: var(--muted); margin-top: -8px; }
+    #comp-handswitch .hs-tap {
+      margin-top: 12px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 50px; padding: 12px 32px;
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      cursor: pointer;
+    }
+    #comp-handswitch .hs-shield {
+      font-size: 3rem; margin-bottom: 4px;
+    }
+
+    /* Leaderboard/history in comp overlay */
+    .comp-lb-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; border-bottom: 1px solid #1E4080;
+      font-size: 13px;
+    }
+    .comp-lb-row:last-child { border: none; }
+    .comp-lb-rank { width: 22px; color: var(--muted); font-weight: 800; text-align: right; flex-shrink: 0; }
+    .comp-lb-name { flex: 1; font-weight: 700; color: var(--text); text-align: left; }
+    .comp-lb-wins { color: var(--cyan); font-weight: 800; width: 40px; text-align: center; }
+    .comp-lb-losses { color: var(--muted); width: 40px; text-align: center; }
+    .comp-hist-row {
+      background: #122E6A; border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px;
+      font-size: 12px; text-align: left; width: 100%;
+    }
+    .comp-hist-winner { color: var(--gold); font-weight: 800; }
   </style>
 </head>
 <body>
@@ -1786,7 +1906,90 @@
       style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.3);color:var(--cyan);font-family:'Cinzel',serif;letter-spacing:.8px;">
       🐠 Learn the Tutorial
     </button>
+    <button class="pv-btn full" id="pv-comp-open-btn"
+      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border:1px solid rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
+      ⚔️ Competitive 1v1
+    </button>
   </div>
+</div>
+
+<!-- ══ COMPETITIVE SETUP OVERLAY ═══════════════════════════════════ -->
+<div id="comp-overlay">
+  <div class="comp-box">
+    <h2>⚔️ Competitive 1v1</h2>
+    <p class="wr-subtitle">Two players · Four hands · One winner</p>
+
+    <div class="comp-tabs">
+      <button class="comp-tab active" id="comp-tab-create">Create Match</button>
+      <button class="comp-tab" id="comp-tab-join">Rejoin Match</button>
+      <button class="comp-tab" id="comp-tab-lb">Leaderboard</button>
+    </div>
+
+    <!-- CREATE PANEL -->
+    <div class="comp-panel active" id="comp-panel-create">
+      <div class="comp-label">Player 1 (Hands 1 & 3)</div>
+      <div class="comp-player-row">
+        <div class="comp-player-badge p1">1</div>
+        <input class="pv-input" id="comp-p1-name" placeholder="Player 1 name" value="Player 1" style="flex:1;" />
+      </div>
+      <div class="comp-label" style="margin-top:4px;">Player 2 (Hands 2 & 4)</div>
+      <div class="comp-player-row">
+        <div class="comp-player-badge p2">2</div>
+        <input class="pv-input" id="comp-p2-name" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
+      </div>
+      <div class="comp-label" style="margin-top:4px;">Room code (optional — leave blank to auto-generate)</div>
+      <input class="pv-input" id="comp-create-code" placeholder="e.g. SWORD" maxlength="5"
+        style="width:100%;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      <div class="comp-hands-grid" style="margin-top:4px;">
+        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 1</div><div style="color:var(--muted);font-size:11px;">Player 1</div></div>
+        <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 2</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
+        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 3</div><div style="color:var(--muted);font-size:11px;">Player 1</div></div>
+        <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 4</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
+      </div>
+      <button class="pv-btn full gold" id="comp-create-btn" style="margin-top:4px;">⚔️ Start Competitive Match</button>
+    </div>
+
+    <!-- REJOIN PANEL -->
+    <div class="comp-panel" id="comp-panel-join">
+      <div class="comp-label">Room code</div>
+      <input class="pv-input" id="comp-join-code" placeholder="5-letter code" maxlength="5"
+        style="width:100%;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      <div class="comp-label" style="margin-top:4px;">Player 1 name (must match original)</div>
+      <div class="comp-player-row">
+        <div class="comp-player-badge p1">1</div>
+        <input class="pv-input" id="comp-join-p1" placeholder="Player 1 name" style="flex:1;" />
+      </div>
+      <div class="comp-label" style="margin-top:4px;">Player 2 name (must match original)</div>
+      <div class="comp-player-row">
+        <div class="comp-player-badge p2">2</div>
+        <input class="pv-input" id="comp-join-p2" placeholder="Player 2 name" style="flex:1;" />
+      </div>
+      <button class="pv-btn full gold" id="comp-join-btn" style="margin-top:4px;">🔗 Rejoin Match</button>
+    </div>
+
+    <!-- LEADERBOARD PANEL -->
+    <div class="comp-panel" id="comp-panel-lb">
+      <div id="comp-lb-content" style="width:100%;background:#122E6A;border:1px solid var(--border);border-radius:8px;padding:10px 12px;max-height:240px;overflow-y:auto;">
+        <div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>
+      </div>
+      <button class="pv-btn sm" id="comp-hist-btn" style="margin-top:4px;">📜 View Game History</button>
+      <button class="pv-btn sm" id="comp-reset-btn" style="margin-top:2px;background:rgba(232,64,87,.15);border-color:var(--red);color:var(--red);">🗑 Reset All Competitive Data</button>
+    </div>
+
+    <div class="comp-status" id="comp-status"></div>
+    <button class="pv-btn sm" id="comp-close-btn" style="border-color:var(--muted);color:var(--muted);">✕ Close</button>
+  </div>
+</div>
+
+<!-- ══ HAND-SWITCH OVERLAY ══════════════════════════════════════════ -->
+<div id="comp-handswitch">
+  <div class="hs-shield" id="hs-shield">🤚</div>
+  <div class="hs-title">Pass the Device to</div>
+  <div class="hs-player" id="hs-player-name">Player 1</div>
+  <div class="hs-hand" id="hs-hand-label">Hand 1</div>
+  <div class="hs-tap" id="hs-tap-btn">Tap to reveal your hand →</div>
 </div>
 
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
@@ -2237,7 +2440,17 @@
   function buildStateUrl() {
     if (!roomId) return null;
     const p = new URLSearchParams();
-    const seat = getSeatToken(); const host = getHostToken();
+    let seat, host;
+    if (compMode) {
+      const activeSeat = latestPayload?.active_action_seat;
+      seat = (activeSeat !== null && activeSeat !== undefined && compTokens[activeSeat])
+        ? compTokens[activeSeat]
+        : compTokens[0] || getSeatToken();
+      host = compHostToken || getHostToken();
+    } else {
+      seat = getSeatToken();
+      host = getHostToken();
+    }
     if (seat) p.set("seat_token", seat); else if (host) p.set("host_token", host);
     const qs = p.toString();
     return apiUrl(`/api/rooms/${roomId}/state${qs?"?"+qs:""}`);
@@ -2279,6 +2492,7 @@
 
   function startSSE() {
     if (!roomId) return;
+    if (compMode) return;  // competitive mode uses polling only
     if (sseSource) { sseSource.close(); sseSource = null; }
     const p = new URLSearchParams();
     const seat = getSeatToken(); const host = getHostToken();
@@ -2760,7 +2974,7 @@
     if (me && !nameEl.textContent) nameEl.textContent = me.name;
 
     // waiting room overlay: show during lobby phase, hide once game starts
-    if (phase === "lobby") {
+    if (phase === "lobby" && !compMode) {
       const startFn = () => apiPost(`/api/rooms/${roomId}/start`,
         { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
         { timeoutMs:8000 }).then(()=>refreshState());
@@ -2784,15 +2998,24 @@
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
       banner.className = "my-turn";
-      banner.textContent = "✦  YOUR CURRENT  ✦";
+      if (compMode) {
+        const activeSeat = payload.active_action_seat;
+        const physPlayer = compHandOwner(activeSeat);
+        const physName = physPlayer === 1 ? compP1Name : compP2Name;
+        const handNum = physPlayer === 1 ? (Number(activeSeat) === 0 ? 1 : 2) : (Number(activeSeat) === 1 ? 1 : 2);
+        banner.textContent = `✦  ${physName.toUpperCase()} — HAND ${handNum}  ✦`;
+      } else {
+        banner.textContent = "✦  YOUR CURRENT  ✦";
+      }
       endBtn.classList.add("pulse-glow");
-      if (_prevTurnIdx !== myIdx) showToast("Your turn!", "turn");
+      if (_prevTurnIdx !== myIdx && !compMode) showToast("Your turn!", "turn");
     } else {
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
       endBtn.classList.remove("pulse-glow");
     }
     _prevTurnIdx = state.turn_index;
+    checkCompHandSwitch(payload);
 
     // status bar
     if (mustDiscard) {
@@ -4104,6 +4327,263 @@
     tutClearHighlights();
   }
 
+  // ── COMPETITIVE MODE ─────────────────────────────────────────────
+  let compMode = false;
+  let compTokens = {};        // seat index → seat token
+  let compHostToken = "";
+  let compP1Name = "Player 1";
+  let compP2Name = "Player 2";
+  let _compPrevPhysPlayer = null;
+  let _compHsSuppressed = false;  // suppress first hand-switch on load
+
+  function compHandOwner(seatIdx) {
+    // P1 owns seats 0 and 2, P2 owns seats 1 and 3
+    return (Number(seatIdx) % 2 === 0) ? 1 : 2;
+  }
+
+  function checkCompHandSwitch(payload) {
+    if (!compMode) return;
+    const activeSeat = payload?.active_action_seat;
+    if (activeSeat === null || activeSeat === undefined) return;
+    const newPhysPlayer = compHandOwner(activeSeat);
+    if (_compHsSuppressed) {
+      _compPrevPhysPlayer = newPhysPlayer;
+      _compHsSuppressed = false;
+      return;
+    }
+    if (_compPrevPhysPlayer !== null && newPhysPlayer !== _compPrevPhysPlayer) {
+      showCompHandSwitch(newPhysPlayer, activeSeat);
+    }
+    _compPrevPhysPlayer = newPhysPlayer;
+  }
+
+  function showCompHandSwitch(physPlayer, seatIdx) {
+    const playerName = physPlayer === 1 ? compP1Name : compP2Name;
+    const handNum = (physPlayer === 1)
+      ? (Number(seatIdx) === 0 ? 1 : 2)
+      : (Number(seatIdx) === 1 ? 1 : 2);
+    const el = document.getElementById("comp-handswitch");
+    const pEl = document.getElementById("hs-player-name");
+    const hEl = document.getElementById("hs-hand-label");
+    const shEl = document.getElementById("hs-shield");
+    pEl.textContent = playerName;
+    pEl.className = `hs-player p${physPlayer}`;
+    hEl.textContent = `Your Hand ${handNum}`;
+    shEl.textContent = physPlayer === 1 ? "🌊" : "⚔️";
+    el.classList.add("open");
+  }
+
+  document.getElementById("comp-handswitch").addEventListener("click", () => {
+    document.getElementById("comp-handswitch").classList.remove("open");
+    // After dismissing, restart SSE with the new active seat token
+    if (compMode) startSSE();
+  });
+
+  document.getElementById("hs-tap-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("comp-handswitch").classList.remove("open");
+    if (compMode) startSSE();
+  });
+
+  function compOpenOverlay() {
+    document.getElementById("comp-overlay").classList.add("open");
+    compSetStatus("", false);
+  }
+
+  function compCloseOverlay() {
+    document.getElementById("comp-overlay").classList.remove("open");
+  }
+
+  function compSetStatus(msg, isErr) {
+    const el = document.getElementById("comp-status");
+    el.textContent = msg;
+    el.className = "comp-status" + (isErr ? " err" : "");
+  }
+
+  function compSwitchTab(name) {
+    ["create", "join", "lb"].forEach(t => {
+      document.getElementById(`comp-tab-${t}`).classList.toggle("active", t === name);
+      document.getElementById(`comp-panel-${t}`).classList.toggle("active", t === name);
+    });
+    if (name === "lb") loadCompLeaderboard();
+  }
+
+  async function loadCompLeaderboard() {
+    const el = document.getElementById("comp-lb-content");
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
+    try {
+      const { ok, data } = await apiFetch("/api/competitive/leaderboard", { method: "GET" });
+      if (!ok || !data?.leaderboard) { el.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;">Failed to load.</div>'; return; }
+      const rows = data.leaderboard;
+      if (!rows.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">No games played yet.</div>'; return; }
+      el.innerHTML = `<div class="comp-lb-row" style="font-size:11px;font-weight:800;color:var(--muted);">
+        <span class="comp-lb-rank">#</span><span class="comp-lb-name">Player</span>
+        <span class="comp-lb-wins">Wins</span><span class="comp-lb-losses">Losses</span>
+      </div>` + rows.map((r, i) => `<div class="comp-lb-row">
+        <span class="comp-lb-rank">${i+1}</span>
+        <span class="comp-lb-name">${r.name}</span>
+        <span class="comp-lb-wins">${r.wins || 0}</span>
+        <span class="comp-lb-losses">${r.losses || 0}</span>
+      </div>`).join("");
+    } catch { el.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;">Error loading.</div>'; }
+  }
+
+  async function loadCompHistory() {
+    compSetStatus("Loading history…", false);
+    try {
+      const { ok, data } = await apiFetch("/api/competitive/history", { method: "GET" });
+      if (!ok || !data?.games) { compSetStatus("Failed to load history.", true); return; }
+      const games = data.games;
+      const el = document.getElementById("comp-lb-content");
+      if (!games.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">No games yet.</div>'; compSetStatus("", false); return; }
+      el.innerHTML = games.map(g => {
+        const d = new Date((g.recorded_unix || 0) * 1000).toLocaleDateString();
+        return `<div class="comp-hist-row">
+          <div><span class="comp-hist-winner">🏆 ${g.winner}</span> vs ${g.p1_name === g.winner ? g.p2_name : g.p1_name} · ${d}</div>
+          <div style="color:var(--muted);font-size:11px;margin-top:2px;">
+            ${g.p1_name}: ${g.p1_best_score}pts &nbsp; ${g.p2_name}: ${g.p2_best_score}pts &nbsp;
+            Strategy: ${g.strategy || "?"}
+          </div>
+        </div>`;
+      }).join('<div style="height:6px;"></div>');
+      compSetStatus("", false);
+    } catch { compSetStatus("Error loading history.", true); }
+  }
+
+  async function createCompMatch() {
+    const p1 = document.getElementById("comp-p1-name").value.trim() || "Player 1";
+    const p2 = document.getElementById("comp-p2-name").value.trim() || "Player 2";
+    const codeRaw = document.getElementById("comp-create-code").value.trim().toUpperCase();
+    const rid = codeRaw || null;
+    compSetStatus("Creating match…", false);
+    document.getElementById("comp-create-btn").disabled = true;
+
+    const r = await apiPost("/api/rooms", {
+      host_name: p1, room_id: rid,
+      total_players: 4, human_players: 4, ai_players: 0,
+      competitive: true,
+    }, { timeoutMs: 10000 });
+
+    if (!r.ok) {
+      compSetStatus("Create failed: " + (r.data?.error || r.status), true);
+      document.getElementById("comp-create-btn").disabled = false;
+      return;
+    }
+
+    const roomCode = normalizeRoomId(r.data?.room_id || "");
+    const hToken = r.data?.host_token || "";
+    const seat0Token = r.data?.seat_token || "";
+
+    compSetStatus("Claiming all seats…", false);
+    const claimFn = async (seatIdx, name) => {
+      const j = await apiPost(`/api/rooms/${roomCode}/join`, {
+        player_name: name, seat_index: seatIdx,
+        host_token: hToken,
+      }, { timeoutMs: 8000 });
+      return j.ok ? (j.data?.seat_token || "") : "";
+    };
+
+    const seat1Token = await claimFn(1, p2);
+    const seat2Token = await claimFn(2, p1);
+    const seat3Token = await claimFn(3, p2);
+
+    if (!seat1Token || !seat2Token || !seat3Token) {
+      compSetStatus("Failed to claim all seats. Try again.", true);
+      document.getElementById("comp-create-btn").disabled = false;
+      return;
+    }
+
+    compTokens = { 0: seat0Token, 1: seat1Token, 2: seat2Token, 3: seat3Token };
+    compHostToken = hToken;
+    compP1Name = p1;
+    compP2Name = p2;
+    compMode = true;
+    _compPrevPhysPlayer = null;
+    _compHsSuppressed = true;
+
+    roomId = roomCode;
+    try { sessionStorage.setItem(seatTokenKey(roomCode), seat0Token); } catch {}
+    try { sessionStorage.setItem(hostTokenKey(roomCode), hToken); } catch {}
+    try { sessionStorage.setItem(`fish_comp_tokens_${roomCode}`, JSON.stringify(compTokens)); } catch {}
+    try { sessionStorage.setItem(`fish_comp_names_${roomCode}`, JSON.stringify({ p1, p2 })); } catch {}
+
+    compSetStatus("Starting game…", false);
+    const startR = await apiPost(`/api/rooms/${roomCode}/start`, {
+      host_token: hToken,
+    }, { timeoutMs: 10000 });
+    if (!startR.ok) {
+      compSetStatus("Start failed: " + (startR.data?.error || startR.status), true);
+      document.getElementById("comp-create-btn").disabled = false;
+      return;
+    }
+
+    document.getElementById("comp-create-btn").disabled = false;
+    compCloseOverlay();
+    document.getElementById("pv-my-name-badge").textContent = p1;
+    document.getElementById("pv-room-id-badge").textContent = roomCode;
+    document.getElementById("pv-lobby").style.display = "none";
+    document.getElementById("pv-game").style.display = "flex";
+    startPolling();
+  }
+
+  async function rejoinCompMatch() {
+    const code = document.getElementById("comp-join-code").value.trim().toUpperCase();
+    const p1 = document.getElementById("comp-join-p1").value.trim() || "Player 1";
+    const p2 = document.getElementById("comp-join-p2").value.trim() || "Player 2";
+    if (!normalizeRoomId(code)) { compSetStatus("Enter a valid 5-letter room code.", true); return; }
+
+    compSetStatus("Checking room…", false);
+    const savedTokens = (() => {
+      try { return JSON.parse(sessionStorage.getItem(`fish_comp_tokens_${code}`) || "null"); } catch { return null; }
+    })();
+    const savedNames = (() => {
+      try { return JSON.parse(sessionStorage.getItem(`fish_comp_names_${code}`) || "null"); } catch { return null; }
+    })();
+
+    if (savedTokens) {
+      compTokens = savedTokens;
+      compP1Name = savedNames?.p1 || p1;
+      compP2Name = savedNames?.p2 || p2;
+      compHostToken = (() => { try { return sessionStorage.getItem(hostTokenKey(code)) || ""; } catch { return ""; } })();
+      compMode = true;
+      _compPrevPhysPlayer = null;
+      _compHsSuppressed = true;
+      roomId = code;
+      compCloseOverlay();
+      document.getElementById("pv-lobby").style.display = "none";
+      document.getElementById("pv-game").style.display = "flex";
+      document.getElementById("pv-room-id-badge").textContent = code;
+      document.getElementById("pv-my-name-badge").textContent = compP1Name;
+      startPolling();
+      return;
+    }
+    compSetStatus("Session not found — only the original device can rejoin.", true);
+  }
+
+  // Event listeners
+  document.getElementById("pv-comp-open-btn").addEventListener("click", compOpenOverlay);
+  document.getElementById("comp-close-btn").addEventListener("click", compCloseOverlay);
+  document.getElementById("comp-tab-create").addEventListener("click", () => compSwitchTab("create"));
+  document.getElementById("comp-tab-join").addEventListener("click", () => compSwitchTab("join"));
+  document.getElementById("comp-tab-lb").addEventListener("click", () => compSwitchTab("lb"));
+  document.getElementById("comp-create-btn").addEventListener("click", createCompMatch);
+  document.getElementById("comp-join-btn").addEventListener("click", rejoinCompMatch);
+  document.getElementById("comp-hist-btn").addEventListener("click", () => {
+    loadCompHistory();
+    const el = document.getElementById("comp-lb-content");
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading history…</div>';
+  });
+  document.getElementById("comp-reset-btn").addEventListener("click", async () => {
+    if (!confirm("Delete ALL competitive games and leaderboard data? This cannot be undone.")) return;
+    const r = await apiPost("/api/competitive/reset", {}, { timeoutMs: 8000 });
+    if (r.ok) {
+      compSetStatus(`Deleted ${r.data?.deleted_games || 0} games and leaderboard.`, false);
+      loadCompLeaderboard();
+    } else {
+      compSetStatus("Reset failed: " + (r.data?.error || r.status), true);
+    }
+  });
+
   // ── Event listeners ──────────────────────────────────────────────
   document.getElementById("pv-tutorial-open-btn").addEventListener("click", startTutorial);
 
@@ -4779,6 +5259,8 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
+    compMode=false; compTokens={}; compHostToken=""; _compPrevPhysPlayer=null; _compHsSuppressed=false;
+    document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");

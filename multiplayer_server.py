@@ -38,6 +38,10 @@ DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "state")
+COMPETITIVE_GAMES_DIR = str(
+    os.environ.get("FISH_COMPETITIVE_GAMES_DIR", os.path.join(BASE_DIR, "multiplayer", "competitive_games"))
+).strip() or os.path.join(BASE_DIR, "multiplayer", "competitive_games")
+COMPETITIVE_LEADERBOARD_PATH = os.path.join(COMPETITIVE_GAMES_DIR, "leaderboard.json")
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
@@ -490,11 +494,13 @@ class Seat:
 
 
 class GameRoom:
-    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int) -> None:
+    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False) -> None:
         self.room_id = room_id
         self.total_players = total_players
         self.human_players = human_players
         self.ai_players = ai_players
+        self.competitive = competitive
+        self._competitive_saved = False
         self.seed = (now_unix() ^ secrets.randbits(31)) & 0x7FFFFFFF
         self.created_unix = now_unix()
         self.started_unix: Optional[int] = None
@@ -628,6 +634,7 @@ class GameRoom:
             "total_players": int(self.total_players),
             "human_players": int(self.human_players),
             "ai_players": int(self.ai_players),
+            "competitive": bool(self.competitive),
             "seed": int(self.seed),
             "created_unix": int(self.created_unix),
             "started_unix": self.started_unix,
@@ -776,7 +783,8 @@ class GameRoom:
                     host_name = safe_name(seat_raw.get("claimed_name"), "Host")
                     break
 
-        room = cls(room_id, host_name, total_players, human_players, ai_players)
+        competitive = bool(payload.get("competitive", False))
+        room = cls(room_id, host_name, total_players, human_players, ai_players, competitive=competitive)
         with room.cond:
             room.seed = clamp_int(payload.get("seed"), room.seed, 0, 0x7FFFFFFF)
             room.created_unix = clamp_int(payload.get("created_unix"), room.created_unix, 0, 2**31 - 1)
@@ -2091,6 +2099,91 @@ class GameRoom:
             with open(DATASET_PATH, "a", encoding="utf-8") as f:
                 f.write(row + "\n")
 
+    def _detect_strategy(self, gs: Any) -> str:
+        type_counts: Dict[str, int] = {}
+        total_cards = 0
+        for player in gs.players:
+            for ocean in getattr(player, "board", []):
+                for card in getattr(ocean, "cards", []):
+                    ctype = str(getattr(card, "type", "") or "").strip()
+                    if ctype:
+                        type_counts[ctype] = type_counts.get(ctype, 0) + 1
+                        total_cards += 1
+        if total_cards == 0:
+            return "Best Guess"
+        dominant = max(type_counts, key=lambda k: type_counts[k])
+        ratio = type_counts[dominant] / total_cards
+        if dominant == "Game Fish" and ratio >= 0.5:
+            return "Game Fish"
+        if dominant == "Mammal" and ratio >= 0.5:
+            return "Mammals"
+        if dominant == "Cephalopod" and ratio >= 0.4:
+            if type_counts.get("Coral", 0) > 0:
+                return "Coral/Cephalopods"
+            return "Cephalopods"
+        if type_counts.get("Baitfish", 0) and type_counts.get("Baitfish", 0) / total_cards >= 0.35:
+            return "Baitfish Swarm"
+        if type_counts.get("Bird", 0) > 0:
+            if type_counts.get("Lobster", 0) > 0:
+                return "Bird/Lobster"
+            if type_counts.get("Coral", 0) > 0:
+                return "Bird/Coral"
+        if type_counts.get("Goby", 0) > 0:
+            return "Goby"
+        return "Best Guess"
+
+    def _save_competitive_game(self, gs: Any, standings: List[Dict[str, Any]]) -> None:
+        if self._competitive_saved:
+            return
+        self._competitive_saved = True
+        try:
+            seats = self.seats
+            p1_name = seats[0].claimed_name or "Player 1" if len(seats) > 0 else "Player 1"
+            p2_name = seats[1].claimed_name or "Player 2" if len(seats) > 1 else "Player 2"
+            score_map = {s.get("name"): s.get("score", 0) for s in standings}
+            p1_scores = [score_map.get(seats[i].claimed_name, 0) for i in (0, 2) if i < len(seats) and seats[i].claimed_name]
+            p2_scores = [score_map.get(seats[i].claimed_name, 0) for i in (1, 3) if i < len(seats) and seats[i].claimed_name]
+            p1_best = max(p1_scores) if p1_scores else 0
+            p2_best = max(p2_scores) if p2_scores else 0
+            winner = p1_name if p1_best >= p2_best else p2_name
+            strategy = self._detect_strategy(gs)
+            board_snapshot = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else {}
+            record = {
+                "room_id": self.room_id,
+                "recorded_unix": now_unix(),
+                "p1_name": p1_name,
+                "p2_name": p2_name,
+                "p1_best_score": p1_best,
+                "p2_best_score": p2_best,
+                "winner": winner,
+                "strategy": strategy,
+                "standings": standings,
+                "board_snapshot": board_snapshot,
+            }
+            game_path = os.path.join(COMPETITIVE_GAMES_DIR, f"game_{self.room_id}_{now_unix()}.json")
+            atomic_write_json(game_path, record)
+            self._update_competitive_leaderboard(p1_name, p2_name, winner)
+        except Exception as exc:
+            self._record_event(f"Competitive save warning: {exc}")
+
+    def _update_competitive_leaderboard(self, p1_name: str, p2_name: str, winner: str) -> None:
+        try:
+            try:
+                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                    board: Dict[str, Any] = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                board = {}
+            for name in (p1_name, p2_name):
+                if name not in board:
+                    board[name] = {"wins": 0, "losses": 0, "games": 0}
+                board[name]["games"] = board[name].get("games", 0) + 1
+            board[winner]["wins"] = board[winner].get("wins", 0) + 1
+            loser = p2_name if winner == p1_name else p1_name
+            board[loser]["losses"] = board[loser].get("losses", 0) + 1
+            atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+        except Exception as exc:
+            self._record_event(f"Leaderboard update warning: {exc}")
+
     def _run_game_thread(self, card_db: Dict[int, fish.CardDef]) -> None:
         recorder = RoomLiveRecorder(self)
         try:
@@ -2196,7 +2289,7 @@ class GameRoom:
                 training_record = {"valuable": False}
                 self._record_event(f"Training record warning: {exc}")
 
-            if human_game:
+            if human_game and not self.competitive:
                 # Learn from real human gameplay in every live game.
                 # For mixed human+AI tables, avoid full-match updates that may amplify AI-only patterns.
                 valuable = bool(training_record.get("valuable"))
@@ -2227,6 +2320,9 @@ class GameRoom:
                     )
                 except Exception as exc:
                     self._record_event(f"Human-learning warning: {exc}")
+
+            if self.competitive:
+                self._save_competitive_game(gs, standings)
 
             with self.cond:
                 self.phase = "ended"
@@ -2318,6 +2414,7 @@ class GameRoom:
                     "total_players": self.total_players,
                     "human_players": self.human_players,
                     "ai_players": self.ai_players,
+                    "competitive": bool(self.competitive),
                     "human_seats_filled": human_filled,
                     "human_seats_total": human_total,
                     "share_url": self.room_link(host_header, proto_hint),
@@ -2441,6 +2538,7 @@ class RoomManager:
         ai_players: int,
         requested_room_id: Optional[str] = None,
         replace_active: bool = False,
+        competitive: bool = False,
     ) -> GameRoom:
         with self.lock:
             active = self._active_room_locked()
@@ -2463,14 +2561,14 @@ class RoomManager:
                         remove_room_state_file(rid)
                     else:
                         raise RuntimeError(f"room id already exists ({rid})")
-                room = GameRoom(rid, host_name, total_players, human_players, ai_players)
+                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive)
                 self.rooms[rid] = room
                 room.persist_now()
                 return room
             for _ in range(100):
                 rid = room_code(ROOM_ID_LENGTH)
                 if rid not in self.rooms:
-                    room = GameRoom(rid, host_name, total_players, human_players, ai_players)
+                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive)
                     self.rooms[rid] = room
                     room.persist_now()
                     return room
@@ -2836,6 +2934,36 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_preview_html()
             return
 
+        if parsed.path == "/api/competitive/leaderboard":
+            try:
+                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                    board = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                board = {}
+            rows = sorted(
+                [{"name": k, **v} for k, v in board.items()],
+                key=lambda x: (-(x.get("wins", 0)), x.get("losses", 0), x.get("name", "")),
+            )
+            self._send_json({"ok": True, "leaderboard": rows})
+            return
+
+        if parsed.path == "/api/competitive/history":
+            games = []
+            try:
+                for fname in sorted(os.listdir(COMPETITIVE_GAMES_DIR)):
+                    if fname.startswith("game_") and fname.endswith(".json"):
+                        fpath = os.path.join(COMPETITIVE_GAMES_DIR, fname)
+                        try:
+                            with open(fpath, "r", encoding="utf-8") as f:
+                                games.append(json.load(f))
+                        except Exception:
+                            pass
+            except FileNotFoundError:
+                pass
+            games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
+            self._send_json({"ok": True, "games": games})
+            return
+
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "state":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -2960,6 +3088,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             host_name = safe_name(body.get("host_name"), "Host")
             requested_room_id = body.get("room_id") if isinstance(body.get("room_id"), str) else None
             replace_active = bool(body.get("replace_active")) if isinstance(body.get("replace_active"), bool) else False
+            competitive = bool(body.get("competitive")) if isinstance(body.get("competitive"), bool) else False
             try:
                 room = ROOMS.create_room(
                     host_name,
@@ -2968,6 +3097,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     ai_players,
                     requested_room_id=requested_room_id,
                     replace_active=replace_active,
+                    competitive=competitive,
                 )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -3088,6 +3218,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.submit_chat(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
+            return
+
+        if parsed.path == "/api/competitive/reset":
+            try:
+                deleted = 0
+                if os.path.exists(COMPETITIVE_GAMES_DIR):
+                    for fname in os.listdir(COMPETITIVE_GAMES_DIR):
+                        if fname.startswith("game_") and fname.endswith(".json"):
+                            try:
+                                os.remove(os.path.join(COMPETITIVE_GAMES_DIR, fname))
+                                deleted += 1
+                            except Exception:
+                                pass
+                if os.path.exists(COMPETITIVE_LEADERBOARD_PATH):
+                    os.remove(COMPETITIVE_LEADERBOARD_PATH)
+                self._send_json({"ok": True, "deleted_games": deleted})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         self._send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
