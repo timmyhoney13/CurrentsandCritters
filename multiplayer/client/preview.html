@@ -78,8 +78,11 @@
       text-shadow: 0 0 40px rgba(240,200,64,.6), 0 0 80px rgba(34,216,248,.25), 0 2px 0 rgba(0,0,0,.5);
     }
     #pv-lobby .subtitle {
-      color: var(--muted);
+      color: var(--cyan);
       font-size: 13px;
+      font-family: "Nunito", inherit;
+      font-weight: 700;
+      letter-spacing: .4px;
       text-align: center;
       max-width: 380px;
       margin-top: -14px;
@@ -99,11 +102,12 @@
     }
     .pv-lobby-box h2 {
       font-family: "Cinzel", serif;
-      font-size: .85rem;
-      font-weight: 600;
-      color: var(--muted);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold);
       text-transform: uppercase;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.8px;
+      text-shadow: 0 0 10px rgba(240,200,64,.35);
     }
     .pv-input {
       background: #122E6A;
@@ -1722,65 +1726,65 @@
 
   <!-- VIEW B: arrived directly — show both host and join options -->
   <div id="pv-home-view" style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
-    <p class="subtitle">Create a room or join one with a 5-letter code.</p>
+    <p class="subtitle">Cast your line — start a new voyage or join a friend's fleet.</p>
 
     <!-- CREATE -->
     <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
-      <h2>🏠 Host a Game</h2>
+      <h2>⚓ Launch a Voyage</h2>
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--text);">1.</b> Enter your name &nbsp;
-        <b style="color:var(--text);">2.</b> Click Create &nbsp;
-        <b style="color:var(--text);">3.</b> Share the code with friends — click Start when ready
+        <b style="color:var(--cyan);">1.</b> Enter your captain's name &nbsp;
+        <b style="color:var(--cyan);">2.</b> Set sail to create your fleet &nbsp;
+        <b style="color:var(--cyan);">3.</b> Share the fleet code — start when your crew is aboard
       </div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a code from a friend? Use the <b>Join a Game</b> section below.</div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a fleet code? Use the <b>Join the Current</b> section below.</div>
       <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
-        <input class="pv-input" id="pv-room-code-new" placeholder="Custom code" maxlength="5"
+        <input class="pv-input" id="pv-host-name" placeholder="Captain's name" value="Captain" />
+        <input class="pv-input" id="pv-room-code-new" placeholder="Custom waters" maxlength="5"
           style="width:120px;flex:none;text-transform:uppercase;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       </div>
       <div class="pv-row">
         <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">Human players</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">Crew size</span>
           <input class="pv-input" id="pv-total-players" type="number" min="1" max="6" value="2" />
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI opponents</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI rivals</span>
           <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
           <span style="font-size:11px;color:transparent;">x</span>
-          <button class="pv-btn gold" id="pv-create-btn">Create →</button>
+          <button class="pv-btn gold" id="pv-create-btn">Set Sail →</button>
         </div>
       </div>
     </div>
 
     <!-- JOIN (from home — has code input) -->
     <div class="pv-lobby-box" style="width:100%;">
-      <h2>🎮 Join a Game</h2>
+      <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join the Current</h2>
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--text);">1.</b> Enter your name + 5-letter code &nbsp;
-        <b style="color:var(--text);">2.</b> Click Check Seats &nbsp;
-        <b style="color:var(--text);">3.</b> Click your seat
+        <b style="color:var(--cyan);">1.</b> Enter your name and the 5-letter fleet code &nbsp;
+        <b style="color:var(--cyan);">2.</b> Scout the fleet &nbsp;
+        <b style="color:var(--cyan);">3.</b> Claim your spot
       </div>
       <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" />
-        <input class="pv-input" id="pv-join-code-home" placeholder="Room code" maxlength="5"
+        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Sailor" />
+        <input class="pv-input" id="pv-join-code-home" placeholder="Fleet code" maxlength="5"
           style="text-transform:uppercase;width:120px;flex:none;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       </div>
-      <button class="pv-btn full" id="pv-check-room-btn">Check Available Seats →</button>
+      <button class="pv-btn full" id="pv-check-room-btn">Scout the Fleet →</button>
       <div id="pv-seat-picker-home" style="display:none;flex-direction:column;gap:10px;">
-        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open seat to claim it</div>
+        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open spot to claim it</div>
         <div class="seat-grid" id="pv-seat-grid-home"></div>
-        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Choose a seat above</button>
+        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Claim your spot above</button>
       </div>
     </div>
 
     <div id="pv-home-status"></div>
     <button class="pv-btn full" id="pv-tutorial-open-btn"
-      style="background:linear-gradient(135deg,#1a4070,#0e2a50);border:1px solid rgba(48,200,240,.2);">
-      🎮 Tutorial — Learn to Play
+      style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.3);color:var(--cyan);font-family:'Cinzel',serif;letter-spacing:.8px;">
+      🐠 Learn the Currents — Tutorial
     </button>
   </div>
 </div>
@@ -1788,16 +1792,16 @@
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
 <div id="pv-waiting-room">
   <div class="wr-box">
-    <h2 id="wr-title">Game Lobby</h2>
-    <p class="wr-subtitle">Share this code with everyone who needs to join:</p>
+    <h2 id="wr-title">⚓ Fleet Mustering</h2>
+    <p class="wr-subtitle">Share this fleet code with your crew:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
     <button class="pv-btn sm" id="wr-copy-btn" style="width:180px;">📋 Copy Invite Link</button>
     <div class="wr-players" id="wr-players-list">
-      <div class="wr-players-title">Players in room</div>
+      <div class="wr-players-title">Crew aboard</div>
     </div>
-    <p class="wr-subtitle" style="font-size:11px;">Once everyone has joined, click Start Game below.</p>
+    <p class="wr-subtitle" style="font-size:11px;">Once your crew is aboard, cast off below.</p>
     <button class="pv-btn gold" id="wr-start-btn" style="width:100%;padding:14px;font-size:15px;" disabled>
-      Waiting for players…
+      Waiting for crew…
     </button>
   </div>
 </div>
@@ -2359,7 +2363,7 @@
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
     const createBtn = document.getElementById("pv-create-btn");
     createBtn.disabled = true;
-    lobbyStatus("Creating room…", false);
+    lobbyStatus("Charting the waters…", false);
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
@@ -2531,7 +2535,7 @@
 
     const data = await fetchSeats(rid);
     checkBtn.disabled = false;
-    checkBtn.textContent = "Check Available Seats →";
+    checkBtn.textContent = "Scout the Fleet →";
 
     if (!data) {
       lobbyStatus("Room not found — check the code and try again.", true);
@@ -2780,7 +2784,7 @@
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
       banner.className = "my-turn";
-      banner.textContent = "✦  YOUR TURN  ✦";
+      banner.textContent = "✦  YOUR CURRENT  ✦";
       endBtn.classList.add("pulse-glow");
       if (_prevTurnIdx !== myIdx) showToast("Your turn!", "turn");
     } else {
@@ -2794,7 +2798,7 @@
     if (mustDiscard) {
       setStatus(`Discard exactly ${discardExcess} card(s) — cannot go below 10`);
     } else if (isMyTurn) {
-      setStatus("Your turn — choose an action");
+      setStatus("Your current — cast your line");
     } else {
       setStatus(payload.status_note || `Waiting for ${current}…`);
     }
@@ -4593,22 +4597,22 @@
     const steps = [];
 
     if (drawAction) {
-      steps.push(`<span class="gs active">① Draw 2 Cards — click pool cards to select them, then click the deck (or just click the deck for 2 from deck)</span>`);
+      steps.push(`<span class="gs active">① Haul Your Catch — click pool cards to select them, then click the deck (or just click the deck for 2 from deck)</span>`);
     } else {
-      steps.push(`<span class="gs done">① Cards drawn ✓</span>`);
+      steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
     }
 
     if (!hasOcean && hasOceanInHand) {
-      steps.push(`<span class="gs active">② Play an Ocean card from your hand to start your board</span>`);
+      steps.push(`<span class="gs active">② Chart Your Waters — deploy an Ocean card from your hand to claim your first ocean</span>`);
     } else if (!hasOcean) {
-      steps.push(`<span class="gs">② Play an Ocean card to start your board</span>`);
+      steps.push(`<span class="gs">② Chart Your Waters — deploy an Ocean card to claim your first ocean</span>`);
     } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a card from hand to an ocean slot to play it — or use the dropdown below</span>`);
+      steps.push(`<span class="gs${drawAction?"":" active"}">② Deploy a creature from hand to an ocean slot — or use the dropdown below</span>`);
     } else {
-      steps.push(`<span class="gs done">② Nothing more to play</span>`);
+      steps.push(`<span class="gs done">② All creatures deployed ✓</span>`);
     }
 
-    steps.push(`<span class="gs">③ Click ✓ End Turn when done</span>`);
+    steps.push(`<span class="gs">③ Ride the Current — click ✓ End Turn to pass</span>`);
 
     bar.classList.add("visible");
     bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
