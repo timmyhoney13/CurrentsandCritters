@@ -1057,12 +1057,12 @@
     .tut-mini-board {
       display: flex; flex-direction: column; align-items: center; gap: 0px; min-height: 44px;
     }
-    .tut-mini-hub { display: flex; flex-direction: column; align-items: center; }
+    .tut-mini-hub { display: flex; flex-direction: column; align-items: center; position: relative; }
     .tut-mini-board-row { display: flex; align-items: center; position: relative; z-index: 2; }
-    .tut-mini-slot-up   { margin-bottom: -7px; z-index: 1; display: flex; justify-content: center; }
-    .tut-mini-slot-down { margin-top:    -7px; z-index: 1; display: flex; justify-content: center; }
-    .tut-mini-slot-left  { margin-right: -5px; z-index: 1; }
-    .tut-mini-slot-right { margin-left:  -5px; z-index: 1; }
+    .tut-mini-slot-up   { margin-bottom: -7px; z-index: 1; position: relative; display: flex; justify-content: center; }
+    .tut-mini-slot-down { margin-top:    -7px; z-index: 1; position: relative; display: flex; justify-content: center; }
+    .tut-mini-slot-left  { margin-right: -5px; z-index: 1; position: relative; }
+    .tut-mini-slot-right { margin-left:  -5px; z-index: 1; position: relative; }
     .tut-mini-ocean {
       width: 28px; height: 40px; border-radius: 4px; overflow: hidden;
       border: 1.5px solid var(--teal); flex-shrink: 0; position: relative; z-index: 4;
@@ -1116,6 +1116,7 @@
       min-height: 72px; padding: 4px;
     }
     .tut-ocean-hub { display: flex; flex-direction: column; align-items: center; position: relative; }
+    .tut-ocean-hub.tut-board-clickable { border-radius: 10px; outline: 2px solid var(--gold); outline-offset: 4px; box-shadow: 0 0 18px rgba(240,184,64,.5); animation: tut-card-pulse-gold 1.3s ease-in-out infinite; }
     /* Animals are behind the ocean — ocean row sits on top (z-index 3), animals behind (z-index 1) */
     .tut-slot-up   { margin-bottom: -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
     .tut-slot-down { margin-top:    -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
@@ -3315,7 +3316,7 @@
   };
 
   // hand uids player starts with — all match real card images, no overlap with pool
-  const TUT_INIT_HAND = [217, 11, 3, 26, 33, 6, 34, 9];
+  const TUT_INIT_HAND = [217, 11, 3, 26, 102, 6, 34, 9];
   // pool uids — chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
   // bot boards — start empty; populated during interleaved bot-turn animations
@@ -3393,9 +3394,10 @@
     { title:"Pay the Puffin's Cost", waitFor:"pay_animal", highlight:null,
       actionHint:"Click a red ♥ card to pay — activates the ★ 'play again' bonus!",
       text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em> — any card is fine for base effect. Click a <strong>red ♥ card</strong>!</p>` },
-    // 11 — puffin attached (auto, no action needed)
-    { title:"Puffin Attached!", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
-      text:`<p>Your <strong>Horned Puffin</strong> is now on your Coral Reef's <em>↑ Up</em> slot! It scores <strong>+3 pts</strong> and lets you play again. Check out the empty slots — you can attach more animals!</p>` },
+    // 11 — puffin attached — click the board to continue
+    { title:"Puffin Attached!", waitFor:"click_board", highlight:"tut-my-board-area",
+      actionHint:"Click your board to continue.",
+      text:`<p>Your <strong>Horned Puffin</strong> is now on your Coral Reef's <em>↑ Up</em> slot! It scores <strong>+3 pts</strong> and lets you play again. Three slots are still free. <strong>Click your board</strong> to continue.</p>` },
     // 12 — bot round 2: bots play their animals
     { title:"Billy &amp; Diana Attach Animals", waitFor:null, highlight:"tut-opp-row",
       nextLabel:"Watch →", triggerBots:2,
@@ -3412,15 +3414,15 @@
     { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
       text:`<p>The Sea Anemone ★ fired! It scored <strong>+3 pts per Invertebrate</strong> on your board, and the ★ drew <strong>1 card</strong>. Without a matching ● card, you'd still get +3 per invertebrate — but no draw. <em>Match symbol = star activates.</em></p>` },
     // 16 — draw abilities / zoom
-    { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:33,
-      actionHint:"Double-click the Great Albatross to inspect it.",
-      text:`<p>The <strong>Great Albatross</strong> says: <em>"+6 pts if you have the most oceans. Draw one when played."</em> Building oceans early cascades into more draws. <strong>Double-click it</strong> to zoom.</p>` },
+    { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:102,
+      actionHint:"Double-click the gold Spinner Dolphin to inspect it.",
+      text:`<p>The <strong>Spinner Dolphin</strong> gives <em>+2 pts per matching-symbol card</em>. Its ★ draws 1 card when you pay with a matching ◆. Cards like this snowball — the more you collect, the more you score <em>and</em> draw. <strong>Double-click it</strong> to zoom.</p>` },
     // 17 — scoring
     { title:"Scoring", waitFor:null, highlight:null, actionHint:null,
       text:`<p>Points come from:<br>◆ <strong>Flat</strong>: "+3 pts"<br>◆ <strong>Per-type</strong>: "+3 per shark" counts all your sharks<br>◆ <strong>Threshold</strong>: "1=5, 2=15, 3=30" — total scales with how many matching cards you collect</p>` },
     // 18 — end game
     { title:"End Game", waitFor:null, highlight:null, actionHint:null,
-      text:`<p>The game ends when a player draws the <strong>END GAME</strong> card. Every other player gets one more turn, then scores are tallied. Trigger the end when you're ahead!</p>` },
+      text:`<p>The game ends when a player draws the <strong>END GAME</strong> card — it's shuffled randomly into the <strong>bottom 10 cards</strong> of the deck, so no one knows exactly when it arrives. Every other player gets one more turn, then scores are tallied. Trigger the end when you're ahead!</p>` },
     // 19 — finish
     { title:"You're Ready!", waitFor:null, highlight:null, actionHint:null, isFinish:true, text:null,
       tips:[
@@ -3608,6 +3610,13 @@
       hub.appendChild(upRow);
       hub.appendChild(midRow);
       hub.appendChild(downRow);
+
+      if (step.waitFor === "click_board") {
+        hub.style.cursor = "pointer";
+        hub.classList.add("tut-board-clickable");
+        hub.addEventListener("click", () => tutGoStep(tutState.step + 1));
+      }
+
       wrap.appendChild(hub);
     });
   }
@@ -3645,27 +3654,28 @@
       // select_ocean: Coral Reef glows gold; all non-protected cards glow teal (any can pay)
       if (step.waitFor === "select_ocean") {
         if (uid === 217) div.classList.add("tut-drag-ready");
-        else if (![11, 26, 33].includes(uid)) div.classList.add("tut-pay-selectable");
+        else if (![11, 26, 102].includes(uid)) div.classList.add("tut-pay-selectable");
       }
 
       // play_animal: Puffin glows gold to select
       if (step.waitFor === "play_animal" && uid === 11) {
         div.classList.add("tut-drag-ready");
       }
-      // star_play: Sea Anemone glows gold to click
-      if (step.waitFor === "star_play" && uid === 26) {
-        div.classList.add("tut-drag-ready");
+      // star_play: Sea Anemone glows gold; circle cards glow teal (can pay for ★)
+      if (step.waitFor === "star_play") {
+        if (uid === 26) div.classList.add("tut-drag-ready");
+        else if (tutCard(uid).symbol === "circle") div.classList.add("tut-pay-selectable");
       }
-      // zoom_whale: Albatross glows gold to double-click
-      if (step.waitFor === "zoom_whale" && uid === 33) {
+      // zoom_whale: Spinner Dolphin glows gold to double-click
+      if (step.waitFor === "zoom_whale" && uid === 102) {
         div.classList.add("tut-drag-ready");
       }
 
-      // pay_ocean: Coral Reef locked (selected/queued); protect puffin/anemone/albatross for later steps
+      // pay_ocean: Coral Reef locked (selected/queued); protect puffin/anemone/dolphin for later steps
       if (step.waitFor === "pay_ocean") {
         if (uid === ts.selectedCardUid) {
           div.classList.add("tut-selected-locked");
-        } else if (![11, 26, 33].includes(uid)) {
+        } else if (![11, 26, 102].includes(uid)) {
           div.classList.add("tut-pay-selectable");
         }
       }
@@ -3752,7 +3762,7 @@
       else tutShowFlash("Pay with a ♥ card to activate the ★ star — they glow red!");
     } else if (step.waitFor === "star_play" && uid === 26) {
       tutStarPlay();
-    } else if (step.waitFor === "zoom_whale" && uid === 33) {
+    } else if (step.waitFor === "zoom_whale" && uid === 102) {
       tutOpenZoom(uid);
     } else if (step.waitFor === "select_ocean") {
       tutShowFlash("Click the glowing gold Coral Reef card!");
@@ -3822,8 +3832,8 @@
     ts.hand = ts.hand.filter(u => u !== 26 && u !== payUid);
     if (ts.myBoard.length > 0) ts.myBoard[0].down.push(26);
     if (payUid != null && !ts.pool.includes(payUid)) ts.pool.push(payUid);
-    // Star draw: Sea Anemone ★ draws 1 card
-    const drawUid = 13;
+    // Star draw: Sea Anemone ★ draws 1 card (use a right-slot card so it can be placed)
+    const drawUid = 104;
     if (!ts.hand.includes(drawUid)) ts.hand.push(drawUid);
     ts.deckCount = Math.max(0, ts.deckCount - 1);
     tutShowFlash("Sea Anemone placed! ★ star activated — drew 1 card!");
