@@ -1525,6 +1525,34 @@
       color: var(--muted); line-height: 1.8;
     }
     .pv-menu-room { padding: 2px 16px 6px; font-size: 11px; color: #5a8ab8; font-family: monospace; }
+    .pv-menu-hand-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 3px 14px; font-size: 12px; cursor: pointer;
+      transition: background .1s;
+    }
+    .pv-menu-hand-row:hover { background: rgba(48,200,240,.08); }
+    .pv-menu-hand-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .pv-menu-hand-dot.active { background: var(--gold); box-shadow: 0 0 5px rgba(240,200,64,.7); }
+    .pv-menu-hand-dot.mine { background: var(--cyan); }
+    .pv-menu-hand-dot.other { background: var(--border); }
+    .pv-menu-hand-name { flex: 1; color: var(--text); font-weight: 600; }
+    .pv-menu-hand-name.active { color: var(--gold); font-weight: 800; }
+    .pv-menu-hand-score { color: var(--muted); font-size: 11px; }
+    .pv-menu-hand-edit { font-size: 10px; color: var(--muted); opacity: .6; }
+    .pv-menu-hand-rename {
+      display: flex; align-items: center; gap: 4px; padding: 4px 14px;
+    }
+    .pv-menu-hand-rename input {
+      flex: 1; background: #122E6A; border: 1px solid var(--border);
+      border-radius: 6px; padding: 4px 8px; color: var(--text); font-size: 12px;
+      outline: none;
+    }
+    .pv-menu-hand-rename input:focus { border-color: var(--cyan); }
+    .pv-menu-hand-rename button {
+      background: none; border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 8px; color: var(--muted); font-size: 11px; cursor: pointer;
+    }
+    .pv-menu-hand-rename button:hover { border-color: var(--cyan); color: var(--cyan); }
 
     /* ── BOARD FOCUS OVERLAY ────────────────────────────────────── */
     #pv-board-focus {
@@ -2032,6 +2060,12 @@
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
+        <!-- Competitive Hands section (shown only in comp mode) -->
+        <div id="pv-menu-comp-hands" style="display:none;">
+          <div class="pv-menu-divider"></div>
+          <div class="pv-menu-label">⚔️ Hands</div>
+          <div id="pv-menu-hands-list"></div>
+        </div>
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">—</div>
@@ -2845,7 +2879,13 @@
   }
 
   async function submitAction(action) {
-    const token = getSeatToken();
+    // In competitive mode, use the token for whichever of our seats is currently active
+    let token;
+    if (compMode && myIdx !== null && compTokens[myIdx]) {
+      token = compTokens[myIdx];
+    } else {
+      token = getSeatToken();
+    }
     if (!token) { setStatus("No seat token — re-join."); showToast("No seat token — re-join.", "err"); return; }
     if (actionInFlight) { setStatus("Wait for previous action…"); return; }
 
@@ -3053,6 +3093,7 @@
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess);
     renderLog(payload.log_tail);
     updateMenuScores(players, myIdx);
+    updateCompMenuHands(players, payload.active_action_seat);
     const _mrc = document.getElementById("pv-menu-room-code");
     if (_mrc) _mrc.textContent = roomId || "—";
     const _termBtn = document.getElementById("pv-menu-terminate-btn");
@@ -4340,11 +4381,119 @@
   let compMySeats = [];      // [0,2] for P1, [1,3] for P2
   let compP1Name = "Player 1";
   let compP2Name = "Player 2";
+  let compHandNames = {};    // seat index → display name (e.g. { 0:"Hand 1", 1:"Hand 2", 2:"Hand 3", 3:"Hand 4" })
   let _compPrevActiveSeat = null;
   let _compHsSuppressed = false;
   let _compWaitPollTimer = null;
   let _compPendingRoomCode = "";
   let _compPendingHToken = "";
+  let _compRenameOpen = -1;  // seat index currently being renamed, or -1
+
+  function compDefaultHandName(seatIdx) {
+    const num = seatIdx + 1;
+    return `Hand ${num}`;
+  }
+
+  function compGetHandName(seatIdx) {
+    return compHandNames[seatIdx] || compDefaultHandName(seatIdx);
+  }
+
+  function compSaveHandName(seatIdx, name) {
+    const key = name.trim() || compDefaultHandName(seatIdx);
+    compHandNames[seatIdx] = key;
+    if (roomId) {
+      try { sessionStorage.setItem(`fish_comp_hand_name_${roomId}_${seatIdx}`, key); } catch {}
+    }
+  }
+
+  function compLoadHandNames() {
+    if (!roomId) return;
+    for (let i = 0; i < 4; i++) {
+      try {
+        const v = sessionStorage.getItem(`fish_comp_hand_name_${roomId}_${i}`);
+        if (v) compHandNames[i] = v;
+      } catch {}
+    }
+  }
+
+  function updateCompMenuHands(players, activeSeat) {
+    const section = document.getElementById("pv-menu-comp-hands");
+    const listEl = document.getElementById("pv-menu-hands-list");
+    if (!section || !listEl) return;
+    if (!compMode) { section.style.display = "none"; return; }
+    section.style.display = "";
+    listEl.innerHTML = "";
+
+    for (let i = 0; i < 4; i++) {
+      const isMine = compMySeats.includes(i);
+      const isActive = Number(activeSeat) === i;
+      const p = players.find(pl => pl.index === i);
+      const score = p ? (p.score ?? 0) : 0;
+      const handName = compGetHandName(i);
+      const owner = (i % 2 === 0) ? compP1Name : compP2Name;
+
+      if (_compRenameOpen === i) {
+        // Show rename input
+        const renameRow = document.createElement("div");
+        renameRow.className = "pv-menu-hand-rename";
+        const input = document.createElement("input");
+        input.value = handName;
+        input.maxLength = 24;
+        input.placeholder = compDefaultHandName(i);
+        const saveBtn = document.createElement("button");
+        saveBtn.textContent = "✓";
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "✗";
+        saveBtn.addEventListener("click", () => {
+          compSaveHandName(i, input.value);
+          _compRenameOpen = -1;
+          updateCompMenuHands(players, activeSeat);
+        });
+        cancelBtn.addEventListener("click", () => {
+          _compRenameOpen = -1;
+          updateCompMenuHands(players, activeSeat);
+        });
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { compSaveHandName(i, input.value); _compRenameOpen = -1; updateCompMenuHands(players, activeSeat); }
+          if (e.key === "Escape") { _compRenameOpen = -1; updateCompMenuHands(players, activeSeat); }
+        });
+        renameRow.appendChild(input);
+        renameRow.appendChild(saveBtn);
+        renameRow.appendChild(cancelBtn);
+        listEl.appendChild(renameRow);
+        setTimeout(() => input.focus(), 20);
+      } else {
+        const row = document.createElement("div");
+        row.className = "pv-menu-hand-row";
+        row.title = `${owner} · click to rename`;
+
+        const dot = document.createElement("div");
+        dot.className = `pv-menu-hand-dot ${isActive ? "active" : isMine ? "mine" : "other"}`;
+
+        const nameEl = document.createElement("span");
+        nameEl.className = `pv-menu-hand-name ${isActive ? "active" : ""}`;
+        nameEl.textContent = handName;
+
+        const scoreEl = document.createElement("span");
+        scoreEl.className = "pv-menu-hand-score";
+        scoreEl.textContent = `${score}pt`;
+
+        const editEl = document.createElement("span");
+        editEl.className = "pv-menu-hand-edit";
+        editEl.textContent = "✎";
+
+        row.appendChild(dot);
+        row.appendChild(nameEl);
+        row.appendChild(scoreEl);
+        row.appendChild(editEl);
+        row.addEventListener("click", () => {
+          _compRenameOpen = i;
+          updateCompMenuHands(players, activeSeat);
+        });
+        listEl.appendChild(row);
+      }
+    }
+  }
 
   function checkCompHandSwitch(payload) {
     if (!compMode) return;
@@ -4416,14 +4565,17 @@
     compMode = true;
     compTokens = tokens;
     compMySeats = mySeats;
+    compHandNames = {};
     compHostToken = hToken || "";
     _compPrevActiveSeat = null;
     _compHsSuppressed = true;
+    _compRenameOpen = -1;
+    roomId = code;
+    compLoadHandNames();
     // Store for same-device reconnect
     try { sessionStorage.setItem(seatTokenKey(code), tokens[mySeats[0]] || ""); } catch {}
     try { sessionStorage.setItem(hostTokenKey(code), hToken || ""); } catch {}
     try { sessionStorage.setItem(`fish_comp_seats_${code}_${mySeats[0]}`, JSON.stringify({ seats: mySeats, tokens, p1: compP1Name, p2: compP2Name })); } catch {}
-    roomId = code;
     compCloseOverlay();
     document.getElementById("pv-my-name-badge").textContent = myName;
     document.getElementById("pv-room-id-badge").textContent = code;
@@ -5343,8 +5495,10 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
-    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; _compPrevActiveSeat=null; _compHsSuppressed=false;
+    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
+    const compHandsSection = document.getElementById("pv-menu-comp-hands");
+    if (compHandsSection) compHandsSection.style.display = "none";
     document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
