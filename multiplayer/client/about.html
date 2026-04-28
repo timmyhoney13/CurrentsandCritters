@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tidal Wave | About</title>
+  <title>Currents &amp; Critters | About</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -99,43 +99,56 @@
     .hero {
       border: 1px solid var(--line);
       border-radius: 24px;
-      background: linear-gradient(160deg, rgba(255, 255, 255, 0.98) 0%, rgba(236, 250, 255, 0.95) 64%, rgba(236, 255, 248, 0.95) 100%);
-      box-shadow: 0 24px 46px rgba(10, 37, 55, 0.14);
-      padding: 22px;
+      background: linear-gradient(160deg, rgba(255,255,255,.98) 0%, rgba(236,250,255,.95) 64%, rgba(236,255,248,.95) 100%);
+      box-shadow: 0 24px 46px rgba(10,37,55,.14);
+      padding: 28px;
       margin-bottom: 14px;
       animation: rise 620ms ease-out;
     }
 
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #0f6b8a;
+      background: #e0f7ff;
+      border: 1px solid #9ddaf0;
+      border-radius: 999px;
+      padding: 4px 10px;
+      margin-bottom: 14px;
+    }
+
     .hero h1 {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
       font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
-      font-size: clamp(32px, 5vw, 56px);
-      line-height: 0.98;
+      font-size: clamp(28px, 5vw, 48px);
+      line-height: 1.05;
       color: var(--hero-dark);
       letter-spacing: -0.5px;
     }
 
     .hero p {
-      margin: 0;
+      margin: 0 0 10px;
       color: var(--muted);
-      font-size: 17px;
-      line-height: 1.55;
-      max-width: 760px;
+      font-size: 15px;
+      line-height: 1.65;
+      max-width: 780px;
     }
 
-    .grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    }
+    .hero p:last-child { margin-bottom: 0; }
 
     .panel {
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
       background: var(--surface);
       box-shadow: var(--shadow-lg);
-      padding: 16px;
+      padding: 20px;
       animation: rise 700ms ease-out;
+      margin-bottom: 12px;
     }
 
     .panel h2 {
@@ -147,19 +160,86 @@
     }
 
     .panel p {
-      margin: 0;
+      margin: 0 0 8px;
       color: var(--muted);
       font-size: 14px;
-      line-height: 1.58;
+      line-height: 1.6;
+    }
+
+    .panel p:last-child { margin-bottom: 0; }
+
+    .tagline {
+      margin: 16px 0 0;
+      font-family: "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f6b8a;
+      text-align: center;
+      letter-spacing: 0.3px;
+      padding: 10px 14px;
+      background: linear-gradient(90deg, #e0f7ff, #eafff4, #e0f7ff);
+      border-radius: 10px;
+      border: 1px solid #9ddaf0;
+    }
+
+    /* Creature compendium */
+    .comp-scroll {
+      max-height: 300px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 6px;
+      margin-top: 14px;
+      scrollbar-width: thin;
+      scrollbar-color: #7dd3fc #e0f2fe;
+    }
+    .comp-scroll::-webkit-scrollbar { width: 5px; }
+    .comp-scroll::-webkit-scrollbar-track { background: #e0f2fe; border-radius: 4px; }
+    .comp-scroll::-webkit-scrollbar-thumb { background: #7dd3fc; border-radius: 4px; }
+
+    .comp-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      background: rgba(240,250,255,.7);
+      border: 1px solid rgba(147,210,236,.3);
+    }
+
+    .comp-tag {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid;
+      white-space: nowrap;
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .comp-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e4a62;
+      background: rgba(255,255,255,.7);
+      border: 1px solid rgba(147,210,236,.4);
+      border-radius: 6px;
+      padding: 2px 8px;
+      white-space: nowrap;
     }
 
     .action-panel {
-      margin-top: 12px;
       border: 1px solid var(--line);
       border-radius: var(--radius-lg);
       background: #ffffff;
-      padding: 15px;
-      box-shadow: 0 10px 18px rgba(8, 40, 58, 0.08);
+      padding: 16px;
+      box-shadow: 0 10px 18px rgba(8,40,58,.08);
+      margin-bottom: 12px;
     }
 
     .action-panel h2 {
@@ -176,11 +256,7 @@
       line-height: 1.5;
     }
 
-    .actions {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
     .btn {
       text-decoration: none;
@@ -195,22 +271,9 @@
       transition: transform 130ms ease, box-shadow 130ms ease;
     }
 
-    .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .btn.primary {
-      color: #fff;
-      background: linear-gradient(180deg, #18a5d0 0%, #0d83ac 100%);
-      border-color: #0d83ac;
-    }
-
-    .btn.secondary {
-      color: #19516a;
-      background: #fff;
-      border-color: var(--line-strong);
-    }
+    .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+    .btn.primary { color: #fff; background: linear-gradient(180deg,#18a5d0 0%,#0d83ac 100%); border-color: #0d83ac; }
+    .btn.secondary { color: #19516a; background: #fff; border-color: var(--line-strong); }
 
     .footer {
       margin-top: 12px;
@@ -222,28 +285,14 @@
 
     @keyframes rise {
       from { opacity: 0; transform: translateY(9px); }
-      to { opacity: 1; transform: translateY(0); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
     @media (max-width: 760px) {
-      .wrap {
-        width: min(94vw, 1020px);
-        padding: 14px 0 30px;
-      }
-
-      .topbar {
-        border-radius: 16px;
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .actions {
-        gap: 8px;
-      }
-
-      .btn {
-        width: 100%;
-      }
+      .wrap { width: min(94vw, 1020px); padding: 14px 0 30px; }
+      .topbar { border-radius: 16px; flex-direction: column; align-items: flex-start; }
+      .actions { gap: 8px; }
+      .btn { width: 100%; }
     }
   </style>
 </head>
@@ -251,60 +300,141 @@
   <div class="wrap">
     <header class="topbar">
       <div>
-        <p class="brand">Tidal Wave</p>
-        <p class="sub">Multiplayer Ocean Card Arena</p>
+        <p class="brand">Currents &amp; Critters</p>
+        <p class="sub">Ocean Card Game</p>
       </div>
       <nav class="nav" aria-label="Main navigation">
-        <a href="/website">Website</a>
+        <a href="/">Play</a>
         <a href="/rules">Rules</a>
-        <a href="/game">Play</a>
+        <a href="/website">Home</a>
       </nav>
     </header>
 
+    <!-- Story -->
     <section class="hero">
-      <h1>About The Project</h1>
-      <p>
-        Tidal Wave is built to make online ocean-card matches feel smooth and reliable. The core focus is stable
-        multiplayer flow, reconnect confidence, and clean game-state consistency during real sessions.
-      </p>
+      <div class="hero-eyebrow">🐟 About the Game</div>
+      <h1>A Two-Brother Passion Project</h1>
+      <p>Currents &amp; Critters started the way most great ideas do — at a kitchen table with too many snacks and not enough good card games. We're two brothers who grew up obsessed with the ocean: fishing trips, nature documentaries, and way too many hours watching coral reef footage.</p>
+      <p>We wanted a game that felt like the ocean — complex ecosystems, surprising synergies, and the satisfaction of watching something you built come together. So we made one. What started as a hand-drawn prototype on index cards became a commercial tabletop game.</p>
+      <p>Every card in the deck is a real species. Every mechanic ties back to how marine ecosystems actually work — predators, baitfish, coral foundations, and the birds that hunt from above. We care about getting the details right.</p>
     </section>
 
-    <section class="grid">
-      <article class="panel">
-        <h2>What It Is</h2>
-        <p>
-          A server-authoritative multiplayer experience where each player sees the same board state and action flow,
-          including room lifecycle, seat claiming, and replay-friendly restarts.
-        </p>
-      </article>
-
-      <article class="panel">
-        <h2>Why It Exists</h2>
-        <p>
-          The system was designed to reduce reconnect pain and setup confusion so matches can resume quickly after refresh,
-          temporary disconnects, or tunnel restarts.
-        </p>
-      </article>
-
-      <article class="panel">
-        <h2>Current Focus</h2>
-        <p>
-          Keep gameplay stable under live conditions, preserve fairness in hidden hand state, and ensure scoring behavior
-          stays accurate while adding usability polish.
-        </p>
-      </article>
+    <!-- Mission -->
+    <section class="panel">
+      <h2>Our Ocean Mission</h2>
+      <p>A portion of every game sold goes toward ocean conservation. We believe the best way to protect something is to make people fall in love with it first. Currents &amp; Critters is our way of doing that — one card game at a time.</p>
     </section>
 
-    <section class="action-panel">
-      <h2>Open The Experience</h2>
-      <p>Launch the app directly or use the stable room path for quick two-player sessions.</p>
-      <div class="actions">
-        <a class="btn primary" href="/game">Open Multiplayer App</a>
-        <a class="btn secondary" href="/play/FISHGAME">Open Stable Room Path</a>
+    <!-- Ecosystem Compendium -->
+    <section class="panel">
+      <h2>🌊 The Ecosystem</h2>
+      <p style="margin-bottom:4px;">Every creature in the Current — scroll to explore</p>
+      <div class="tagline">251 Cards &nbsp;·&nbsp; 9 Species &nbsp;·&nbsp; 8 Oceans &nbsp;·&nbsp; Endless Ways to Play</div>
+      <div class="comp-scroll">
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#fef3c7;color:#92400e;border-color:#fcd34d;">Bird</span>
+          <span class="comp-name">Emperor Penguin</span>
+          <span class="comp-name">Horned Puffin</span>
+          <span class="comp-name">California Seagull</span>
+          <span class="comp-name">Peruvian Pelican</span>
+          <span class="comp-name">Great Albatross</span>
+          <span class="comp-name">Osprey</span>
+          <span class="comp-name">Magnificent Frigatebird</span>
+          <span class="comp-name">Razorbill Auk</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#ede9fe;color:#5b21b6;border-color:#c4b5fd;">Invertebrate</span>
+          <span class="comp-name">Sea Sponge</span>
+          <span class="comp-name">Sea Urchin</span>
+          <span class="comp-name">Sea Star</span>
+          <span class="comp-name">Sea Cucumber</span>
+          <span class="comp-name">Sea Anemone</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#fce7f3;color:#9d174d;border-color:#f9a8d4;">Coral</span>
+          <span class="comp-name">Staghorn Coral</span>
+          <span class="comp-name">Deep Sea Coral</span>
+          <span class="comp-name">Red Tree Coral</span>
+          <span class="comp-name">Elk Horn Coral</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#dcfce7;color:#166534;border-color:#86efac;">Bait Fish</span>
+          <span class="comp-name">Mullet</span>
+          <span class="comp-name">Bunker</span>
+          <span class="comp-name">Sardine</span>
+          <span class="comp-name">Flying Fish</span>
+          <span class="comp-name">Bonito</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#e0f2fe;color:#075985;border-color:#7dd3fc;">Mammal</span>
+          <span class="comp-name">Spinner Dolphin</span>
+          <span class="comp-name">Bottlenose Dolphin</span>
+          <span class="comp-name">Narwhal</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#fff7ed;color:#9a3412;border-color:#fdba74;">Game Fish</span>
+          <span class="comp-name">Sailfish</span>
+          <span class="comp-name">Goliath Grouper</span>
+          <span class="comp-name">Tarpon</span>
+          <span class="comp-name">Mahi Mahi</span>
+          <span class="comp-name">Marlin</span>
+          <span class="comp-name">Big Eye Tuna</span>
+          <span class="comp-name">Yellowfin Tuna</span>
+          <span class="comp-name">Amberjack</span>
+          <span class="comp-name">King Salmon</span>
+          <span class="comp-name">Whale Shark</span>
+          <span class="comp-name">Barracuda</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#ffedd5;color:#7c2d12;border-color:#fed7aa;">Crustacean</span>
+          <span class="comp-name">Mantis Shrimp</span>
+          <span class="comp-name">Spiny Lobster</span>
+          <span class="comp-name">Lobster</span>
+          <span class="comp-name">King Crab</span>
+          <span class="comp-name">Hermit Crab</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe;">Cephalopod</span>
+          <span class="comp-name">Squid</span>
+          <span class="comp-name">Octopus</span>
+          <span class="comp-name">Cuttlefish</span>
+          <span class="comp-name">Giant Squid</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#ecfeff;color:#155e75;border-color:#67e8f9;">Crosscurrent</span>
+          <span class="comp-name">Cleaner Wrasse</span>
+          <span class="comp-name">Blue Tang</span>
+          <span class="comp-name">Mandarin Goby</span>
+          <span class="comp-name">Loggerhead Sea Turtle</span>
+          <span class="comp-name">Ocellaris Clownfish</span>
+          <span class="comp-name">Reef Trigger Fish</span>
+          <span class="comp-name">Manta Ray</span>
+          <span class="comp-name">Great White Shark</span>
+        </div>
+        <div class="comp-group">
+          <span class="comp-tag" style="background:#f0fdf4;color:#14532d;border-color:#6ee7b7;">Ocean</span>
+          <span class="comp-name">Coral Reef</span>
+          <span class="comp-name">Deep Ocean</span>
+          <span class="comp-name">Mangroves</span>
+          <span class="comp-name">Artificial Reef</span>
+          <span class="comp-name">Pier</span>
+          <span class="comp-name">Arctic Ocean</span>
+          <span class="comp-name">Kelp Forest</span>
+          <span class="comp-name">Tide Pool</span>
+        </div>
       </div>
     </section>
 
-    <footer class="footer">Tidal Wave Ocean Arena • About</footer>
+    <section class="action-panel">
+      <h2>Dive In</h2>
+      <p>Ready to cast your line? Jump into the digital simulation or check the rules.</p>
+      <div class="actions">
+        <a class="btn primary" href="/">Play Online</a>
+        <a class="btn secondary" href="/rules">View Rules</a>
+      </div>
+    </section>
+
+    <footer class="footer">Currents &amp; Critters &nbsp;·&nbsp; A passion for the ocean, one card at a time</footer>
   </div>
 </body>
 </html>
