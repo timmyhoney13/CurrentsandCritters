@@ -184,18 +184,21 @@
 
     /* Creature compendium */
     .comp-scroll {
-      max-height: 300px;
-      overflow-y: auto;
+      max-height: 280px;
+      overflow-y: scroll;
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding-right: 6px;
-      margin-top: 14px;
+      gap: 7px;
+      padding: 8px 8px 8px 4px;
+      margin-top: 12px;
+      border: 1px solid #bfd8ea;
+      border-radius: 10px;
+      background: #f4faff;
       scrollbar-width: thin;
-      scrollbar-color: #7dd3fc #e0f2fe;
+      scrollbar-color: #7dd3fc #dff0fb;
     }
-    .comp-scroll::-webkit-scrollbar { width: 5px; }
-    .comp-scroll::-webkit-scrollbar-track { background: #e0f2fe; border-radius: 4px; }
+    .comp-scroll::-webkit-scrollbar { width: 6px; }
+    .comp-scroll::-webkit-scrollbar-track { background: #dff0fb; border-radius: 4px; }
     .comp-scroll::-webkit-scrollbar-thumb { background: #7dd3fc; border-radius: 4px; }
 
     .comp-group {
