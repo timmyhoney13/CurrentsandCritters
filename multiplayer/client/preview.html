@@ -1921,52 +1921,46 @@
 
     <div class="comp-tabs">
       <button class="comp-tab active" id="comp-tab-create">Create Match</button>
-      <button class="comp-tab" id="comp-tab-join">Rejoin Match</button>
+      <button class="comp-tab" id="comp-tab-join">Join Match</button>
       <button class="comp-tab" id="comp-tab-lb">Leaderboard</button>
     </div>
 
     <!-- CREATE PANEL -->
     <div class="comp-panel active" id="comp-panel-create">
-      <div class="comp-label">Player 1 (Hands 1 & 3)</div>
+      <div class="comp-label">Your name (Player 1 — Hands 1 & 3)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p1">1</div>
         <input class="pv-input" id="comp-p1-name" placeholder="Player 1 name" value="Player 1" style="flex:1;" />
       </div>
-      <div class="comp-label" style="margin-top:4px;">Player 2 (Hands 2 & 4)</div>
-      <div class="comp-player-row">
-        <div class="comp-player-badge p2">2</div>
-        <input class="pv-input" id="comp-p2-name" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
-      </div>
-      <div class="comp-label" style="margin-top:4px;">Room code (optional — leave blank to auto-generate)</div>
-      <input class="pv-input" id="comp-create-code" placeholder="e.g. SWORD" maxlength="5"
+      <div class="comp-label" style="margin-top:4px;">Room code (optional)</div>
+      <input class="pv-input" id="comp-create-code" placeholder="e.g. SWORD — leave blank to auto-generate" maxlength="5"
         style="width:100%;text-transform:uppercase;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       <div class="comp-hands-grid" style="margin-top:4px;">
-        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 1</div><div style="color:var(--muted);font-size:11px;">Player 1</div></div>
+        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 1</div><div style="color:var(--muted);font-size:11px;">Your hand</div></div>
         <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 2</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
-        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 3</div><div style="color:var(--muted);font-size:11px;">Player 1</div></div>
+        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 3</div><div style="color:var(--muted);font-size:11px;">Your hand</div></div>
         <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 4</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
       </div>
-      <button class="pv-btn full gold" id="comp-create-btn" style="margin-top:4px;">⚔️ Start Competitive Match</button>
+      <button class="pv-btn full gold" id="comp-create-btn" style="margin-top:6px;">⚔️ Create Match →</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:2px;">Creates the room — share the code so Player 2 can join</div>
     </div>
 
-    <!-- REJOIN PANEL -->
+    <!-- JOIN PANEL -->
     <div class="comp-panel" id="comp-panel-join">
-      <div class="comp-label">Room code</div>
-      <input class="pv-input" id="comp-join-code" placeholder="5-letter code" maxlength="5"
+      <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:4px;">
+        Player 2 joins here. Enter the 5-letter code from Player 1 and your name.
+      </div>
+      <div class="comp-label">Room code (from Player 1)</div>
+      <input class="pv-input" id="comp-join-code" placeholder="5-letter code, e.g. SWORD" maxlength="5"
         style="width:100%;text-transform:uppercase;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-      <div class="comp-label" style="margin-top:4px;">Player 1 name (must match original)</div>
-      <div class="comp-player-row">
-        <div class="comp-player-badge p1">1</div>
-        <input class="pv-input" id="comp-join-p1" placeholder="Player 1 name" style="flex:1;" />
-      </div>
-      <div class="comp-label" style="margin-top:4px;">Player 2 name (must match original)</div>
+      <div class="comp-label" style="margin-top:6px;">Your name (Player 2 — Hands 2 & 4)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p2">2</div>
-        <input class="pv-input" id="comp-join-p2" placeholder="Player 2 name" style="flex:1;" />
+        <input class="pv-input" id="comp-join-p2" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
       </div>
-      <button class="pv-btn full gold" id="comp-join-btn" style="margin-top:4px;">🔗 Rejoin Match</button>
+      <button class="pv-btn full gold" id="comp-join-btn" style="margin-top:8px;">🌊 Join as Player 2 →</button>
     </div>
 
     <!-- LEADERBOARD PANEL -->
@@ -1976,6 +1970,16 @@
       </div>
       <button class="pv-btn sm" id="comp-hist-btn" style="margin-top:4px;">📜 View Game History</button>
       <button class="pv-btn sm" id="comp-reset-btn" style="margin-top:2px;background:rgba(232,64,87,.15);border-color:var(--red);color:var(--red);">🗑 Reset All Competitive Data</button>
+    </div>
+
+    <!-- WAITING FOR P2 (shown after Create, hidden otherwise) -->
+    <div id="comp-waiting-p2" style="display:none;width:100%;flex-direction:column;align-items:center;gap:10px;text-align:center;">
+      <div style="font-size:12px;color:var(--muted);">Share this code with Player 2:</div>
+      <div id="comp-room-code-display" style="font-family:'Cinzel',serif;font-size:2.4rem;font-weight:900;letter-spacing:10px;color:var(--cyan);background:#122E6A;border:2px solid var(--border);border-radius:10px;padding:10px 20px;cursor:pointer;" title="Click to copy">—</div>
+      <button class="pv-btn sm" id="comp-copy-code-btn" style="width:160px;">📋 Copy Code</button>
+      <div id="comp-p2-status" style="font-size:12px;color:var(--muted);">Waiting for Player 2 to join…</div>
+      <button class="pv-btn full gold" id="comp-start-btn" style="display:none;">▶ Start Game</button>
+      <button class="pv-btn sm" id="comp-cancel-btn" style="border-color:var(--muted);color:var(--muted);">✕ Cancel</button>
     </div>
 
     <div class="comp-status" id="comp-status"></div>
@@ -2442,10 +2446,12 @@
     const p = new URLSearchParams();
     let seat, host;
     if (compMode) {
+      // Use the token for whichever of my seats is currently active
       const activeSeat = latestPayload?.active_action_seat;
-      seat = (activeSeat !== null && activeSeat !== undefined && compTokens[activeSeat])
-        ? compTokens[activeSeat]
-        : compTokens[0] || getSeatToken();
+      const activeNum = Number(activeSeat);
+      seat = (compMySeats.includes(activeNum) && compTokens[activeNum])
+        ? compTokens[activeNum]
+        : compTokens[compMySeats[0]] || getSeatToken();
       host = compHostToken || getHostToken();
     } else {
       seat = getSeatToken();
@@ -2999,11 +3005,10 @@
     } else if (isMyTurn) {
       banner.className = "my-turn";
       if (compMode) {
-        const activeSeat = payload.active_action_seat;
-        const physPlayer = compHandOwner(activeSeat);
-        const physName = physPlayer === 1 ? compP1Name : compP2Name;
-        const handNum = physPlayer === 1 ? (Number(activeSeat) === 0 ? 1 : 2) : (Number(activeSeat) === 1 ? 1 : 2);
-        banner.textContent = `✦  ${physName.toUpperCase()} — HAND ${handNum}  ✦`;
+        const activeSeat = Number(payload.active_action_seat);
+        const handNum = compMySeats.indexOf(activeSeat) + 1;
+        const myName = compMySeats[0] % 2 === 0 ? compP1Name : compP2Name;
+        banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
       } else {
         banner.textContent = "✦  YOUR CURRENT  ✦";
       }
@@ -4328,41 +4333,37 @@
   }
 
   // ── COMPETITIVE MODE ─────────────────────────────────────────────
+  // compMySeats: the seat indices this device owns (P1=[0,2], P2=[1,3])
   let compMode = false;
-  let compTokens = {};        // seat index → seat token
+  let compTokens = {};       // seat index → seat token (only my seats)
   let compHostToken = "";
+  let compMySeats = [];      // [0,2] for P1, [1,3] for P2
   let compP1Name = "Player 1";
   let compP2Name = "Player 2";
-  let _compPrevPhysPlayer = null;
-  let _compHsSuppressed = false;  // suppress first hand-switch on load
-
-  function compHandOwner(seatIdx) {
-    // P1 owns seats 0 and 2, P2 owns seats 1 and 3
-    return (Number(seatIdx) % 2 === 0) ? 1 : 2;
-  }
+  let _compPrevActiveSeat = null;
+  let _compHsSuppressed = false;
+  let _compWaitPollTimer = null;
+  let _compPendingRoomCode = "";
+  let _compPendingHToken = "";
 
   function checkCompHandSwitch(payload) {
     if (!compMode) return;
-    const activeSeat = payload?.active_action_seat;
-    if (activeSeat === null || activeSeat === undefined) return;
-    const newPhysPlayer = compHandOwner(activeSeat);
-    if (_compHsSuppressed) {
-      _compPrevPhysPlayer = newPhysPlayer;
-      _compHsSuppressed = false;
-      return;
+    const activeSeat = Number(payload?.active_action_seat);
+    if (isNaN(activeSeat)) return;
+    const isMySeat = compMySeats.includes(activeSeat);
+    const prevIsMySeat = _compPrevActiveSeat !== null && compMySeats.includes(_compPrevActiveSeat);
+    // Show hand-switch when BOTH current and previous active seats are mine (switching between my own hands)
+    if (isMySeat && prevIsMySeat && activeSeat !== _compPrevActiveSeat && !_compHsSuppressed) {
+      showCompHandSwitch(activeSeat);
     }
-    if (_compPrevPhysPlayer !== null && newPhysPlayer !== _compPrevPhysPlayer) {
-      showCompHandSwitch(newPhysPlayer, activeSeat);
-    }
-    _compPrevPhysPlayer = newPhysPlayer;
+    _compPrevActiveSeat = activeSeat;
+    _compHsSuppressed = false;
   }
 
-  function showCompHandSwitch(physPlayer, seatIdx) {
+  function showCompHandSwitch(seatIdx) {
+    const physPlayer = compMySeats[0] % 2 === 0 ? 1 : 2;
     const playerName = physPlayer === 1 ? compP1Name : compP2Name;
-    const handNum = (physPlayer === 1)
-      ? (Number(seatIdx) === 0 ? 1 : 2)
-      : (Number(seatIdx) === 1 ? 1 : 2);
-    const el = document.getElementById("comp-handswitch");
+    const handNum = compMySeats.indexOf(Number(seatIdx)) + 1;
     const pEl = document.getElementById("hs-player-name");
     const hEl = document.getElementById("hs-hand-label");
     const shEl = document.getElementById("hs-shield");
@@ -4370,24 +4371,27 @@
     pEl.className = `hs-player p${physPlayer}`;
     hEl.textContent = `Your Hand ${handNum}`;
     shEl.textContent = physPlayer === 1 ? "🌊" : "⚔️";
-    el.classList.add("open");
+    document.getElementById("comp-handswitch").classList.add("open");
   }
 
   document.getElementById("comp-handswitch").addEventListener("click", () => {
     document.getElementById("comp-handswitch").classList.remove("open");
-    // After dismissing, restart SSE with the new active seat token
-    if (compMode) startSSE();
   });
-
   document.getElementById("hs-tap-btn").addEventListener("click", (e) => {
     e.stopPropagation();
     document.getElementById("comp-handswitch").classList.remove("open");
-    if (compMode) startSSE();
   });
 
   function compOpenOverlay() {
     document.getElementById("comp-overlay").classList.add("open");
     compSetStatus("", false);
+    // Show tabs/panels, hide waiting-p2 area
+    document.getElementById("comp-waiting-p2").style.display = "none";
+    document.querySelector(".comp-tabs").style.display = "flex";
+    ["comp-panel-create","comp-panel-join","comp-panel-lb"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "";
+    });
   }
 
   function compCloseOverlay() {
@@ -4406,6 +4410,188 @@
       document.getElementById(`comp-panel-${t}`).classList.toggle("active", t === name);
     });
     if (name === "lb") loadCompLeaderboard();
+  }
+
+  function compEnterGame(code, myName, mySeats, tokens, hToken) {
+    compMode = true;
+    compTokens = tokens;
+    compMySeats = mySeats;
+    compHostToken = hToken || "";
+    _compPrevActiveSeat = null;
+    _compHsSuppressed = true;
+    // Store for same-device reconnect
+    try { sessionStorage.setItem(seatTokenKey(code), tokens[mySeats[0]] || ""); } catch {}
+    try { sessionStorage.setItem(hostTokenKey(code), hToken || ""); } catch {}
+    try { sessionStorage.setItem(`fish_comp_seats_${code}_${mySeats[0]}`, JSON.stringify({ seats: mySeats, tokens, p1: compP1Name, p2: compP2Name })); } catch {}
+    roomId = code;
+    compCloseOverlay();
+    document.getElementById("pv-my-name-badge").textContent = myName;
+    document.getElementById("pv-room-id-badge").textContent = code;
+    document.getElementById("pv-lobby").style.display = "none";
+    document.getElementById("pv-game").style.display = "flex";
+    startPolling();
+  }
+
+  // ── Create: P1 creates the room, claims seats 0+2, shows code to share
+  async function createCompMatch() {
+    const p1 = document.getElementById("comp-p1-name").value.trim() || "Player 1";
+    const codeRaw = document.getElementById("comp-create-code").value.trim().toUpperCase();
+    const rid = codeRaw || null;
+    compSetStatus("Creating match…", false);
+    document.getElementById("comp-create-btn").disabled = true;
+
+    const r = await apiPost("/api/rooms", {
+      host_name: p1, room_id: rid,
+      total_players: 4, human_players: 4, ai_players: 0,
+      competitive: true,
+    }, { timeoutMs: 10000 });
+    document.getElementById("comp-create-btn").disabled = false;
+
+    if (!r.ok) {
+      compSetStatus("Create failed: " + (r.data?.error || r.status), true);
+      return;
+    }
+
+    const code = normalizeRoomId(r.data?.room_id || "");
+    const hToken = r.data?.host_token || "";
+    const seat0Token = r.data?.seat_token || "";
+
+    // Claim seat 2 (P1's second hand) using host authority
+    const j2 = await apiPost(`/api/rooms/${code}/join`, {
+      player_name: p1, seat_index: 2, host_token: hToken,
+    }, { timeoutMs: 8000 });
+    if (!j2.ok) {
+      compSetStatus("Failed to claim Hand 3. Try again.", true);
+      return;
+    }
+    const seat2Token = j2.data?.seat_token || "";
+
+    compP1Name = p1;
+    _compPendingRoomCode = code;
+    _compPendingHToken = hToken;
+    const tokens = { 0: seat0Token, 2: seat2Token };
+
+    // Store P1 session so they can reconnect
+    try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 2], tokens, p1: compP1Name, p2: "Player 2" })); } catch {}
+    try { sessionStorage.setItem(hostTokenKey(code), hToken); } catch {}
+
+    // Switch overlay to "waiting for P2" view
+    document.querySelector(".comp-tabs").style.display = "none";
+    ["comp-panel-create","comp-panel-join","comp-panel-lb"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
+    });
+    document.getElementById("comp-room-code-display").textContent = code;
+    document.getElementById("comp-p2-status").textContent = "Waiting for Player 2 to join…";
+    document.getElementById("comp-start-btn").style.display = "none";
+    document.getElementById("comp-waiting-p2").style.display = "flex";
+    compSetStatus("", false);
+
+    // Poll for P2 joining (seats 1+3 filled)
+    if (_compWaitPollTimer) clearInterval(_compWaitPollTimer);
+    _compWaitPollTimer = setInterval(async () => {
+      const sv = await apiFetch(`/api/rooms/${code}/state?host_token=${hToken}`, { method: "GET", timeoutMs: 4000 });
+      if (!sv.ok) return;
+      const seats = sv.data?.seats || [];
+      const seat1 = seats.find(s => s.index === 1);
+      const seat3 = seats.find(s => s.index === 3);
+      const p2Joined = seat1?.claimed_name && seat3?.claimed_name;
+      if (p2Joined) {
+        compP2Name = seat1.claimed_name;
+        const p2Status = document.getElementById("comp-p2-status");
+        if (p2Status) p2Status.textContent = `${compP2Name} has joined! Host can start.`;
+        const startBtn = document.getElementById("comp-start-btn");
+        if (startBtn) startBtn.style.display = "";
+      }
+      if (sv.data?.room?.phase === "running") {
+        clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
+        // Update saved names
+        try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 2], tokens, p1: compP1Name, p2: compP2Name })); } catch {}
+        compEnterGame(code, compP1Name, [0, 2], tokens, hToken);
+      }
+    }, 1200);
+
+    // Start button handler (host starts game after P2 joins)
+    document.getElementById("comp-start-btn").onclick = async () => {
+      compSetStatus("Starting…", false);
+      const sr = await apiPost(`/api/rooms/${code}/start`, { host_token: hToken }, { timeoutMs: 10000 });
+      if (!sr.ok) { compSetStatus("Start failed: " + (sr.data?.error || sr.status), true); return; }
+      clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
+      compEnterGame(code, compP1Name, [0, 2], tokens, hToken);
+    };
+
+    // Cancel button
+    document.getElementById("comp-cancel-btn").onclick = () => {
+      clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
+      compOpenOverlay();
+    };
+  }
+
+  // ── Join: P2 joins by entering the code, claims seats 1+3
+  async function joinCompMatch() {
+    const code = normalizeRoomId(document.getElementById("comp-join-code").value.trim().toUpperCase());
+    const p2 = document.getElementById("comp-join-p2").value.trim() || "Player 2";
+    if (!code) { compSetStatus("Enter a valid 5-letter room code.", true); return; }
+
+    // Check if this device already has a saved session for this code
+    const tryKey = (seatBase) => {
+      try { return JSON.parse(sessionStorage.getItem(`fish_comp_seats_${code}_${seatBase}`) || "null"); } catch { return null; }
+    };
+    const savedP2 = tryKey(1);
+    if (savedP2) {
+      // Reconnect from same device
+      compP1Name = savedP2.p1 || "Player 1";
+      compP2Name = savedP2.p2 || p2;
+      compEnterGame(code, compP2Name, savedP2.seats || [1, 3], savedP2.tokens || {}, "");
+      return;
+    }
+
+    compSetStatus("Joining match…", false);
+    document.getElementById("comp-join-btn").disabled = true;
+
+    // Claim seats 1 and 3 for P2
+    const j1 = await apiPost(`/api/rooms/${code}/join`, {
+      player_name: p2, seat_index: 1,
+    }, { timeoutMs: 8000 });
+    if (!j1.ok) {
+      compSetStatus("Join failed: " + (j1.data?.error || j1.status), true);
+      document.getElementById("comp-join-btn").disabled = false;
+      return;
+    }
+    const seat1Token = j1.data?.seat_token || "";
+
+    const j3 = await apiPost(`/api/rooms/${code}/join`, {
+      player_name: p2, seat_index: 3,
+    }, { timeoutMs: 8000 });
+    document.getElementById("comp-join-btn").disabled = false;
+
+    if (!j3.ok) {
+      compSetStatus("Join failed (Hand 4): " + (j3.data?.error || j3.status), true);
+      return;
+    }
+    const seat3Token = j3.data?.seat_token || "";
+
+    const tokens = { 1: seat1Token, 3: seat3Token };
+
+    // Fetch state to get P1's name
+    const sv = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat1Token}`, { method: "GET", timeoutMs: 4000 });
+    if (sv.ok) {
+      const seats = sv.data?.seats || [];
+      const seat0 = seats.find(s => s.index === 0);
+      if (seat0?.claimed_name) compP1Name = seat0.claimed_name;
+    }
+    compP2Name = p2;
+
+    compSetStatus("Joined! Waiting for host to start…", false);
+    // Poll for game start, then enter
+    const waitStart = setInterval(async () => {
+      const sv2 = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat1Token}`, { method: "GET", timeoutMs: 4000 });
+      if (!sv2.ok) return;
+      if (sv2.data?.room?.phase === "running") {
+        clearInterval(waitStart);
+        compEnterGame(code, p2, [1, 3], tokens, "");
+      }
+    }, 1200);
   }
 
   async function loadCompLeaderboard() {
@@ -4430,11 +4616,12 @@
 
   async function loadCompHistory() {
     compSetStatus("Loading history…", false);
+    const el = document.getElementById("comp-lb-content");
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
     try {
       const { ok, data } = await apiFetch("/api/competitive/history", { method: "GET" });
       if (!ok || !data?.games) { compSetStatus("Failed to load history.", true); return; }
       const games = data.games;
-      const el = document.getElementById("comp-lb-content");
       if (!games.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">No games yet.</div>'; compSetStatus("", false); return; }
       el.innerHTML = games.map(g => {
         const d = new Date((g.recorded_unix || 0) * 1000).toLocaleDateString();
@@ -4450,129 +4637,26 @@
     } catch { compSetStatus("Error loading history.", true); }
   }
 
-  async function createCompMatch() {
-    const p1 = document.getElementById("comp-p1-name").value.trim() || "Player 1";
-    const p2 = document.getElementById("comp-p2-name").value.trim() || "Player 2";
-    const codeRaw = document.getElementById("comp-create-code").value.trim().toUpperCase();
-    const rid = codeRaw || null;
-    compSetStatus("Creating match…", false);
-    document.getElementById("comp-create-btn").disabled = true;
-
-    const r = await apiPost("/api/rooms", {
-      host_name: p1, room_id: rid,
-      total_players: 4, human_players: 4, ai_players: 0,
-      competitive: true,
-    }, { timeoutMs: 10000 });
-
-    if (!r.ok) {
-      compSetStatus("Create failed: " + (r.data?.error || r.status), true);
-      document.getElementById("comp-create-btn").disabled = false;
-      return;
-    }
-
-    const roomCode = normalizeRoomId(r.data?.room_id || "");
-    const hToken = r.data?.host_token || "";
-    const seat0Token = r.data?.seat_token || "";
-
-    compSetStatus("Claiming all seats…", false);
-    const claimFn = async (seatIdx, name) => {
-      const j = await apiPost(`/api/rooms/${roomCode}/join`, {
-        player_name: name, seat_index: seatIdx,
-        host_token: hToken,
-      }, { timeoutMs: 8000 });
-      return j.ok ? (j.data?.seat_token || "") : "";
-    };
-
-    const seat1Token = await claimFn(1, p2);
-    const seat2Token = await claimFn(2, p1);
-    const seat3Token = await claimFn(3, p2);
-
-    if (!seat1Token || !seat2Token || !seat3Token) {
-      compSetStatus("Failed to claim all seats. Try again.", true);
-      document.getElementById("comp-create-btn").disabled = false;
-      return;
-    }
-
-    compTokens = { 0: seat0Token, 1: seat1Token, 2: seat2Token, 3: seat3Token };
-    compHostToken = hToken;
-    compP1Name = p1;
-    compP2Name = p2;
-    compMode = true;
-    _compPrevPhysPlayer = null;
-    _compHsSuppressed = true;
-
-    roomId = roomCode;
-    try { sessionStorage.setItem(seatTokenKey(roomCode), seat0Token); } catch {}
-    try { sessionStorage.setItem(hostTokenKey(roomCode), hToken); } catch {}
-    try { sessionStorage.setItem(`fish_comp_tokens_${roomCode}`, JSON.stringify(compTokens)); } catch {}
-    try { sessionStorage.setItem(`fish_comp_names_${roomCode}`, JSON.stringify({ p1, p2 })); } catch {}
-
-    compSetStatus("Starting game…", false);
-    const startR = await apiPost(`/api/rooms/${roomCode}/start`, {
-      host_token: hToken,
-    }, { timeoutMs: 10000 });
-    if (!startR.ok) {
-      compSetStatus("Start failed: " + (startR.data?.error || startR.status), true);
-      document.getElementById("comp-create-btn").disabled = false;
-      return;
-    }
-
-    document.getElementById("comp-create-btn").disabled = false;
-    compCloseOverlay();
-    document.getElementById("pv-my-name-badge").textContent = p1;
-    document.getElementById("pv-room-id-badge").textContent = roomCode;
-    document.getElementById("pv-lobby").style.display = "none";
-    document.getElementById("pv-game").style.display = "flex";
-    startPolling();
-  }
-
-  async function rejoinCompMatch() {
-    const code = document.getElementById("comp-join-code").value.trim().toUpperCase();
-    const p1 = document.getElementById("comp-join-p1").value.trim() || "Player 1";
-    const p2 = document.getElementById("comp-join-p2").value.trim() || "Player 2";
-    if (!normalizeRoomId(code)) { compSetStatus("Enter a valid 5-letter room code.", true); return; }
-
-    compSetStatus("Checking room…", false);
-    const savedTokens = (() => {
-      try { return JSON.parse(sessionStorage.getItem(`fish_comp_tokens_${code}`) || "null"); } catch { return null; }
-    })();
-    const savedNames = (() => {
-      try { return JSON.parse(sessionStorage.getItem(`fish_comp_names_${code}`) || "null"); } catch { return null; }
-    })();
-
-    if (savedTokens) {
-      compTokens = savedTokens;
-      compP1Name = savedNames?.p1 || p1;
-      compP2Name = savedNames?.p2 || p2;
-      compHostToken = (() => { try { return sessionStorage.getItem(hostTokenKey(code)) || ""; } catch { return ""; } })();
-      compMode = true;
-      _compPrevPhysPlayer = null;
-      _compHsSuppressed = true;
-      roomId = code;
-      compCloseOverlay();
-      document.getElementById("pv-lobby").style.display = "none";
-      document.getElementById("pv-game").style.display = "flex";
-      document.getElementById("pv-room-id-badge").textContent = code;
-      document.getElementById("pv-my-name-badge").textContent = compP1Name;
-      startPolling();
-      return;
-    }
-    compSetStatus("Session not found — only the original device can rejoin.", true);
-  }
-
   // Event listeners
   document.getElementById("pv-comp-open-btn").addEventListener("click", compOpenOverlay);
-  document.getElementById("comp-close-btn").addEventListener("click", compCloseOverlay);
+  document.getElementById("comp-close-btn").addEventListener("click", () => {
+    clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
+    compCloseOverlay();
+  });
   document.getElementById("comp-tab-create").addEventListener("click", () => compSwitchTab("create"));
   document.getElementById("comp-tab-join").addEventListener("click", () => compSwitchTab("join"));
   document.getElementById("comp-tab-lb").addEventListener("click", () => compSwitchTab("lb"));
   document.getElementById("comp-create-btn").addEventListener("click", createCompMatch);
-  document.getElementById("comp-join-btn").addEventListener("click", rejoinCompMatch);
-  document.getElementById("comp-hist-btn").addEventListener("click", () => {
-    loadCompHistory();
-    const el = document.getElementById("comp-lb-content");
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading history…</div>';
+  document.getElementById("comp-join-btn").addEventListener("click", joinCompMatch);
+  document.getElementById("comp-room-code-display").addEventListener("click", () => {
+    const code = document.getElementById("comp-room-code-display").textContent;
+    if (code && code !== "—") { try { navigator.clipboard.writeText(code); } catch {} }
   });
+  document.getElementById("comp-copy-code-btn").addEventListener("click", () => {
+    const code = document.getElementById("comp-room-code-display").textContent;
+    if (code && code !== "—") { try { navigator.clipboard.writeText(code); compSetStatus("Code copied!", false); } catch {} }
+  });
+  document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
   document.getElementById("comp-reset-btn").addEventListener("click", async () => {
     if (!confirm("Delete ALL competitive games and leaderboard data? This cannot be undone.")) return;
     const r = await apiPost("/api/competitive/reset", {}, { timeoutMs: 8000 });
@@ -5259,7 +5343,8 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null;
-    compMode=false; compTokens={}; compHostToken=""; _compPrevPhysPlayer=null; _compHsSuppressed=false;
+    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; _compPrevActiveSeat=null; _compHsSuppressed=false;
+    if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
     document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
