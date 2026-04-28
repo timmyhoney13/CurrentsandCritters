@@ -3297,6 +3297,7 @@
     19:  { name:"California Seagull",symbol:"square",   species:"bird",        text:"+3 pts per Crustacean on your board.",                 starText:"" },
     21:  { name:"California Seagull",symbol:"triangle", species:"bird",        text:"+3 pts per Crustacean on your board.",                 starText:"" },
     25:  { name:"Peruvian Pelican",  symbol:"square",   species:"bird",        text:"+5 pts | Draw one card.",                              starText:"Draw three cards instead." },
+    26:  { name:"Sea Anemone",       symbol:"circle",   species:"invertebrate",text:"+3 pts per Invertebrate on your board.",                starText:"Draw one card." },
     27:  { name:"Peruvian Pelican",  symbol:"diamond",  species:"bird",        text:"+5 pts | Draw one card.",                              starText:"Draw three cards instead." },
     33:  { name:"Great Albatross",   symbol:"circle",   species:"bird",        text:"+6 pts if you have the most oceans. Draw one when played.", starText:"" },
     34:  { name:"Staghorn Coral",    symbol:"square",   species:"coral",       text:"+3 pts per Coral on your board.",                      starText:"" },
@@ -3314,7 +3315,7 @@
   };
 
   // hand uids player starts with — all match real card images, no overlap with pool
-  const TUT_INIT_HAND = [217, 11, 3, 25, 33, 6, 34, 9];
+  const TUT_INIT_HAND = [217, 11, 3, 26, 33, 6, 34, 9];
   // pool uids — chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
   // bot boards — start empty; populated during interleaved bot-turn animations
@@ -3358,7 +3359,7 @@
     // 2
     { title:"Draw Phase — Pool", waitFor:"draw_pool", highlight:"tut-pool-area",
       actionHint:"Click any pool card to draw it.",
-      text:`<p>Every turn starts with drawing <strong>2 cards</strong>. <strong>Click</strong> any pool card above to draw it into your hand.</p>` },
+      text:`<p>Each turn you draw <strong>2 cards</strong> total — any mix: 2 from pool, 1 from each, or 2 from deck. You can also play cards or move cards to other oceans. Let's draw 1 from the pool first: <strong>click any pool card above</strong>.</p>` },
     // 3
     { title:"Draw Phase — Deck", waitFor:"draw_deck", highlight:"tut-deck-pile",
       actionHint:"Click the Deck to draw your second card.",
@@ -3370,12 +3371,12 @@
     // 5 — click to select ocean
     { title:"Play an Ocean Card", waitFor:"select_ocean",
       highlight:null, highlightHandUid:217,
-      actionHint:"Click the glowing Coral Reef in your hand to select it.",
-      text:`<p>An <strong>Ocean card</strong> is your ecosystem's foundation. <strong>Click the Coral Reef</strong> (glowing gold) in your hand to select it for play.</p>` },
+      actionHint:"Click the gold Coral Reef — any teal card can pay the 1-card cost.",
+      text:`<p>The <strong>Coral Reef</strong> is your first ocean! Playing it costs <strong>1 card — any card works</strong> (all teal cards are valid payment). Click the <strong>gold Coral Reef</strong> to queue it, then pick your payment.</p>` },
     // 6 — pay for ocean
     { title:"Pay the Ocean's Cost", waitFor:"pay_ocean", highlight:null,
-      actionHint:"Click any teal-glowing card to pay — the Coral Reef will be placed.",
-      text:`<p>Ocean cards cost <strong>1 card</strong> to play. The Coral Reef is queued (gold border) — <strong>click any teal card</strong> to discard as payment. The ocean then lands on your board!</p>` },
+      actionHint:"Click any teal card to pay — any symbol works, then Coral Reef is placed!",
+      text:`<p>The Coral Reef is queued (gold). <strong>Any card</strong> in your hand can pay the cost — <em>no symbol matching needed for the base play</em>. Click any <strong>teal card</strong> to discard it and place your ocean!</p>` },
     // 7 — bot round 1: bots play their oceans
     { title:"Billy &amp; Diana Play Oceans", waitFor:null, highlight:"tut-opp-row",
       nextLabel:"Watch →", triggerBots:1,
@@ -3403,13 +3404,13 @@
     // 13 — card attached confirmation
     { title:"Card Attached!", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
       text:`<p>The <strong>Horned Puffin</strong> is on your Coral Reef's ↑ slot. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong> and a "play again" bonus!</p>` },
-    // 14 — star abilities
-    { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:25,
-      actionHint:"Click the gold Peruvian Pelican to activate its ★ star.",
-      text:`<p>★ <strong>Star abilities are optional bonuses.</strong> Pay with a <em>matching symbol card</em> to activate them — otherwise the base effect plays for free. The <em>Peruvian Pelican</em> (■) normally draws 1 card. Pay with a ■ card when you play it → draw <strong>3</strong> instead. <strong>Click the gold Pelican</strong> to see it!</p>` },
+    // 14 — star abilities (Sea Anemone demo)
+    { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:26,
+      actionHint:"Click the gold Sea Anemone to play it with its ★ star activated.",
+      text:`<p>★ <strong>Star abilities are optional bonuses.</strong> The <em>Sea Anemone</em> (●) gives <strong>+3 pts per Invertebrate</strong> as its base. Pay with a matching <strong>● card</strong> when you play it → also <strong>draw 1 card</strong> (the ★ bonus). Without the ●, you still get the +3 pts but no draw. <strong>Click the gold Anemone!</strong></p>` },
     // 15 — star played
     { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
-      text:`<p>The Pelican ★ fired — <strong>3 cards drawn!</strong> You played the Pelican with a matching ■ card → the star activated. Without the ■, it would only draw 1. That's the star mechanic: <em>match the symbol = bonus activates.</em></p>` },
+      text:`<p>The Sea Anemone ★ fired! It scored <strong>+3 pts per Invertebrate</strong> on your board, and the ★ drew <strong>1 card</strong>. Without a matching ● card, you'd still get +3 per invertebrate — but no draw. <em>Match symbol = star activates.</em></p>` },
     // 16 — draw abilities / zoom
     { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:33,
       actionHint:"Double-click the Great Albatross to inspect it.",
@@ -3426,7 +3427,7 @@
         "Draw 2 cards every turn — pool cards are free information!",
         "Match symbols to chain abilities and draw extra cards.",
         "Threshold cards like Mantis Shrimp reward deep sets — commit early.",
-        "The Peruvian Pelican's ★ star draws 3 cards — great for refilling your hand.",
+        "The Sea Anemone's ★ star draws 1 card when you pay with a matching ● symbol.",
         "Watch opponents: end the game when you're ahead, not when they are.",
       ]},
   ];
@@ -3641,17 +3642,18 @@
       const isHighlighted = step.highlightHandUid === uid;
       if (isHighlighted) div.classList.add("tut-selectable");
 
-      // select_ocean: Coral Reef glows gold (clickable to select)
+      // select_ocean: Coral Reef glows gold; all non-protected cards glow teal (any can pay)
       if (step.waitFor === "select_ocean") {
         if (uid === 217) div.classList.add("tut-drag-ready");
+        else if (![11, 26, 33].includes(uid)) div.classList.add("tut-pay-selectable");
       }
 
       // play_animal: Puffin glows gold to select
       if (step.waitFor === "play_animal" && uid === 11) {
         div.classList.add("tut-drag-ready");
       }
-      // star_play: Pelican glows gold to click
-      if (step.waitFor === "star_play" && uid === 25) {
+      // star_play: Sea Anemone glows gold to click
+      if (step.waitFor === "star_play" && uid === 26) {
         div.classList.add("tut-drag-ready");
       }
       // zoom_whale: Albatross glows gold to double-click
@@ -3659,11 +3661,11 @@
         div.classList.add("tut-drag-ready");
       }
 
-      // pay_ocean: Coral Reef locked (selected/queued); protect puffin/pelican/albatross for later steps
+      // pay_ocean: Coral Reef locked (selected/queued); protect puffin/anemone/albatross for later steps
       if (step.waitFor === "pay_ocean") {
         if (uid === ts.selectedCardUid) {
           div.classList.add("tut-selected-locked");
-        } else if (![11, 25, 33].includes(uid)) {
+        } else if (![11, 26, 33].includes(uid)) {
           div.classList.add("tut-pay-selectable");
         }
       }
@@ -3748,7 +3750,7 @@
       const c = tutCard(uid);
       if (c.symbol === "heart") tutPayAnimal(uid);
       else tutShowFlash("Pay with a ♥ card to activate the ★ star — they glow red!");
-    } else if (step.waitFor === "star_play" && uid === 25) {
+    } else if (step.waitFor === "star_play" && uid === 26) {
       tutStarPlay();
     } else if (step.waitFor === "zoom_whale" && uid === 33) {
       tutOpenZoom(uid);
@@ -3814,15 +3816,17 @@
 
   function tutStarPlay() {
     const ts = tutState;
-    // Find a square card to pay (Peruvian Pelican ■ needs one ■ for the star)
-    const payUid = ts.hand.find(u => u !== 25 && tutCard(u).symbol === "square");
-    ts.hand = ts.hand.filter(u => u !== 25 && u !== payUid);
-    if (ts.myBoard.length > 0) ts.myBoard[0].down.push(25);
+    // Sea Anemone (uid 26, ● circle) — pay with a circle card to activate ★
+    const payUid = ts.hand.find(u => u !== 26 && ![11, 33].includes(u) && tutCard(u).symbol === "circle")
+                || ts.hand.find(u => u !== 26 && ![11, 33].includes(u));
+    ts.hand = ts.hand.filter(u => u !== 26 && u !== payUid);
+    if (ts.myBoard.length > 0) ts.myBoard[0].down.push(26);
     if (payUid != null && !ts.pool.includes(payUid)) ts.pool.push(payUid);
-    // Star draw: Peruvian Pelican ★ draws 3 cards
-    [13, 15, 17].forEach(u => { if (!ts.hand.includes(u)) ts.hand.push(u); });
-    ts.deckCount = Math.max(0, ts.deckCount - 3);
-    tutShowFlash("Peruvian Pelican ★ fired — drew 3 cards!");
+    // Star draw: Sea Anemone ★ draws 1 card
+    const drawUid = 13;
+    if (!ts.hand.includes(drawUid)) ts.hand.push(drawUid);
+    ts.deckCount = Math.max(0, ts.deckCount - 1);
+    tutShowFlash("Sea Anemone placed! ★ star activated — drew 1 card!");
     tutRenderAll();
     tutGoStep(ts.step + 1);
   }
