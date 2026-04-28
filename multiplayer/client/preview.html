@@ -2574,24 +2574,33 @@
   function hideWaitingRoom() {
     document.getElementById("pv-waiting-room").classList.remove("open");
   }
-  function updateWaitingRoom(players, canStart, startFn) {
+  function updateWaitingRoom(seats, canStart, startFn, isHost) {
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in room</div>';
-    (players||[]).forEach(p => {
+    (seats||[]).forEach(s => {
       const row = document.createElement("div"); row.className = "wr-player-row";
-      const dot = document.createElement("div"); dot.className = "wr-seat-dot filled";
+      const dot = document.createElement("div");
+      dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
       const nm  = document.createElement("span"); nm.className = "wr-player-name";
-      nm.textContent = `Seat ${p.index+1}: ${p.name||"?"}`;
+      nm.textContent = s.claimed_name ? `Seat ${s.index+1}: ${s.claimed_name}` : `Seat ${s.index+1}: Open`;
+      if (!s.claimed_name) nm.style.color = "var(--muted)";
       row.appendChild(dot); row.appendChild(nm); list.appendChild(row);
     });
+    const filled = (seats||[]).filter(s => s.claimed_name).length;
+    const total  = (seats||[]).length;
     const btn = document.getElementById("wr-start-btn");
-    if (canStart) {
+    if (canStart && isHost) {
       btn.disabled = false;
       btn.textContent = "▶  Start Game";
       btn.onclick = startFn;
+    } else if (canStart) {
+      btn.disabled = true;
+      btn.textContent = "All players ready — waiting for host to start…";
     } else {
       btn.disabled = true;
-      btn.textContent = `Waiting for players… (${(players||[]).length} joined)`;
+      btn.textContent = total > 1
+        ? `Waiting for players… (${filled} of ${total} joined)`
+        : `Waiting for players…`;
     }
   }
 
@@ -3026,10 +3035,9 @@
         { timeoutMs:8000 }).then(()=>refreshState());
       showWaitingRoom(roomId, Boolean(getHostToken()));
       // state is null in lobby — use payload.seats for the player list instead
-      const lobbyPlayers = (Array.isArray(payload.seats) ? payload.seats : [])
-        .filter(s => s.claimed_name)
-        .map(s => ({ index: s.index, name: s.claimed_name }));
-      updateWaitingRoom(lobbyPlayers, Boolean(payload.can_start), startFn);
+      const lobbySeats = (Array.isArray(payload.seats) ? payload.seats : [])
+        .filter(s => s.kind === "human");
+      updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn, Boolean(getHostToken()));
     } else {
       hideWaitingRoom();
     }
