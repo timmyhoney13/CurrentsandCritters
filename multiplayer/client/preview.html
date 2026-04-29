@@ -765,8 +765,6 @@
     .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 22px var(--glow-gold), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.pay-selected .pv-card-inner { border-color: var(--green); box-shadow: 0 0 16px rgba(31,187,138,.55); }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
-    .pv-hand-card.pay-symbol-match .pv-card-inner { border-color: var(--gold2); box-shadow: 0 0 10px rgba(245,200,66,.35); animation: symMatchPulse 1.4s ease-in-out infinite; }
-    @keyframes symMatchPulse { 0%,100% { box-shadow: 0 0 8px rgba(245,200,66,.3); } 50% { box-shadow: 0 0 18px rgba(245,200,66,.65); } }
 
     /* cost badge */
     .pv-cost-badge {
@@ -5172,10 +5170,6 @@
     const overflow = hand.length - MAX_VISIBLE;
     const n = visible.length;
 
-    // Determine if any pending action requires a specific symbol payment (for highlighting)
-    const pendingSymAction = Array.isArray(actions) ? actions.find(a => a.requires_symbol_match && a.required_symbol && Number(a.cost_to_pay) > 0) : null;
-    const reqSymbol = pendingSymAction ? normalizeSymbol(pendingSymAction.required_symbol) : null;
-
     // Compute new hand UIDs for deal-in animation
     const newHandUIDs = new Set(visible.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.entry_uid ?? e.uid ?? 0)));
 
@@ -5196,8 +5190,6 @@
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
       if (!_prevHandUIDs.has(Number(face.uid ?? entryUid))) card.classList.add("deal-in");
-      // Highlight cards that match the required payment symbol
-      if (reqSymbol && normalizeSymbol(face.symbol) === reqSymbol) card.classList.add("pay-symbol-match");
 
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
       const img   = document.createElement("img");
