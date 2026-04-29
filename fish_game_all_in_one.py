@@ -819,7 +819,7 @@ def resolve_reactive_draw_triggers(
     is_floor_play = action_kind == "play_to_ocean" and direction == "down"
 
     for owner in gs.players:
-        if is_cephalopod_play:
+        if owner is played_by and is_cephalopod_play:
             n = int(owner.flags.get("trigger_draw_on_cephalopod", 0))
             if n > 0:
                 draw(gs, owner, n)
@@ -827,7 +827,7 @@ def resolve_reactive_draw_triggers(
                     f"{owner.name} draws {n} from reactive trigger (cephalopod played)."
                 )
 
-        if is_game_fish_play:
+        if owner is played_by and is_game_fish_play:
             n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
             if n > 0:
                 draw(gs, owner, n)
@@ -5399,18 +5399,22 @@ def draw_from_deck(gs: GameState, ms: MatchState, player: PlayerState, n: int) -
     return drew
 
 
-def draw_from_pool(ms: MatchState, player: PlayerState, n: int) -> List[int]:
+def draw_from_pool(ms: MatchState, player: PlayerState, n: int, gs: Optional["GameState"] = None) -> List[int]:
     drew: List[int] = []
     for _ in range(n):
         if not ms.pool:
             break
         uid = ms.pool.pop()  # top of pool = most recent
+        if gs is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
+            trigger_end_game(ms, gs)
+            ms.discard_pile.append(uid)
+            continue
         player.hand.append(uid)
         drew.append(uid)
     return drew
 
 
-def draw_selected_from_pool(ms: MatchState, player: PlayerState, pick_uids: List[int]) -> List[int]:
+def draw_selected_from_pool(ms: MatchState, player: PlayerState, pick_uids: List[int], gs: Optional["GameState"] = None) -> List[int]:
     if len(set(pick_uids)) != len(pick_uids):
         return []
     if any(uid not in ms.pool for uid in pick_uids):
@@ -5418,6 +5422,10 @@ def draw_selected_from_pool(ms: MatchState, player: PlayerState, pick_uids: List
     drew: List[int] = []
     for uid in pick_uids:
         ms.pool.remove(uid)
+        if gs is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
+            trigger_end_game(ms, gs)
+            ms.discard_pile.append(uid)
+            continue
         player.hand.append(uid)
         drew.append(uid)
     return drew
@@ -5784,11 +5792,11 @@ def apply_action(
         if pool_take > 0 and action.pool_pick_uids:
             if len(action.pool_pick_uids) != pool_take:
                 return fail(f"wrong pool pick count: expected {pool_take}, got {len(action.pool_pick_uids)}")
-            pool_cards = draw_selected_from_pool(ms, player, action.pool_pick_uids)
+            pool_cards = draw_selected_from_pool(ms, player, action.pool_pick_uids, gs)
             if len(pool_cards) != pool_take:
                 return fail("invalid selected pool cards")
         else:
-            pool_cards = draw_from_pool(ms, player, pool_take)
+            pool_cards = draw_from_pool(ms, player, pool_take, gs)
         if pool_take > 0:
             action.pool_pick_uids = [int(uid) for uid in pool_cards]
         else:
@@ -7235,7 +7243,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         return [c for _, c, ocean_uid in board if ocean_uid == target_ocean_uid and c.direction.strip().lower() != "n/a"]
 
     def value_from_threshold_table(text: str, base_value: int) -> int:
-        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\s*=\s*(\d+)", text)]
+        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\+?\s*=\s*(\d+)", text)]
         if not pairs:
             return 0
         table = {need: pts for need, pts in pairs}
@@ -7544,11 +7552,12 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
                 if o_uid == target_ocean_uid and c.direction.strip().lower() != "n/a"]
 
     def _threshold(text: str, value: int) -> int:
-        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\s*=\s*(\d+)", text)]
+        pairs = [(int(a), int(b)) for a, b in re.findall(r"(\d+)\+?\s*=\s*(\d+)", text)]
         if not pairs:
             return 0
-        eligible = [pts for need, pts in pairs if need <= value]
-        return max(eligible) if eligible else 0
+        table = {need: pts for need, pts in pairs}
+        eligible = [need for need in table if need <= value]
+        return table[max(eligible)] if eligible else 0
 
     coral_reef_total = _name_count("coral reef") + sum(
         1 for uid, c, o_uid in board
@@ -8106,6 +8115,24 @@ def run_match(
                 print("Pool: " + ", ".join(entry_short_label(ms, gs, uid) for uid in ms.pool))
             else:
                 print("Pool: (empty)")
+
+        # Per-turn check: if deck is low and any player holds the end-game card, trigger end game now.
+        if ms.end_game_uid is not None and not ms.end_game_triggered and len(gs.deck) < 10:
+            for _check_p in gs.players:
+                if ms.end_game_uid in _check_p.hand:
+                    _check_p.hand.remove(ms.end_game_uid)
+                    ms.discard_pile.append(ms.end_game_uid)
+                    trigger_end_game(ms, gs)
+                    gs.log.append(
+                        f"End game triggered: {_check_p.name} held end-game card in hand "
+                        f"with {len(gs.deck)} cards remaining in deck."
+                    )
+                    if live_recorder is not None:
+                        live_recorder.event(
+                            f"End game triggered: {_check_p.name} held end-game card in hand "
+                            f"with {len(gs.deck)} cards remaining in deck."
+                        )
+                    break
 
         # One action per turn by default; abilities may grant extra actions.
         action_budget = 1

@@ -34,6 +34,7 @@ CLIENT_PREVIEW_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "preview.h
 WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.html")
 RULES_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "rules.html")
 ABOUT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "about.html")
+LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderboard.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -42,9 +43,14 @@ COMPETITIVE_GAMES_DIR = str(
     os.environ.get("FISH_COMPETITIVE_GAMES_DIR", os.path.join(BASE_DIR, "multiplayer", "competitive_games"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "competitive_games")
 COMPETITIVE_LEADERBOARD_PATH = os.path.join(COMPETITIVE_GAMES_DIR, "leaderboard.json")
+GAMES_HISTORY_DIR = str(
+    os.environ.get("FISH_GAMES_HISTORY_DIR", os.path.join(BASE_DIR, "multiplayer", "games_history"))
+).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
+GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
+HISTORY_LOCK = threading.Lock()
 PUBLIC_BASE_URL = ""
 LAN_IP_CACHE: Optional[str] = None
 ACTIVE_SERVER: Optional[StableThreadingHTTPServer] = None
@@ -1486,7 +1492,8 @@ class GameRoom:
         if chosen.kind == "draw" and chosen.draw_from_pool > 0:
             need = chosen.draw_from_pool
             picks_raw = cmd.get("pool_pick_uids", [])
-            picks = [x for x in picks_raw if isinstance(x, int)] if isinstance(picks_raw, list) else []
+            # Normalize face UIDs → canonical entry UIDs so paired cards resolve correctly
+            picks = [fish.canonical_entry_uid(ms, x) for x in picks_raw if isinstance(x, int)] if isinstance(picks_raw, list) else []
             if len(picks) == need and len(set(picks)) == need and all(uid in ms.pool for uid in picks):
                 chosen.pool_pick_uids = picks
             else:
@@ -2184,6 +2191,99 @@ class GameRoom:
         except Exception as exc:
             self._record_event(f"Leaderboard update warning: {exc}")
 
+    def _save_game_history(self, gs: Any, ms: Any, standings: List[Dict[str, Any]], human_indices: set) -> None:
+        """Save a completed human game to the history directory with full score breakdowns."""
+        try:
+            os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
+            player_details = []
+            for p in gs.players:
+                try:
+                    breakdown = fish.full_score_breakdown(gs, p)
+                except Exception:
+                    breakdown = {}
+                board_cards = []
+                for ocean_uid in getattr(p, "board_oceans", []):
+                    ocean_card = gs.card_db.get(int(ocean_uid)) if gs.card_db else None
+                    slots = getattr(p, "board_slots", {}).get(int(ocean_uid))
+                    animals = []
+                    if slots:
+                        for direction in ("up", "down", "left", "right"):
+                            for uid in getattr(slots, direction, []):
+                                c = gs.card_db.get(int(uid))
+                                if c:
+                                    animals.append({"name": c.name, "species": c.species, "uid": int(uid)})
+                    board_cards.append({
+                        "ocean": ocean_card.name if ocean_card else str(ocean_uid),
+                        "animals": animals,
+                    })
+                strategy = "Unknown"
+                type_counts: Dict[str, int] = {}
+                total_cards = 0
+                for ocean_data in board_cards:
+                    for a in ocean_data["animals"]:
+                        sp = a.get("species", "")
+                        if sp:
+                            type_counts[sp] = type_counts.get(sp, 0) + 1
+                            total_cards += 1
+                if total_cards > 0:
+                    dominant = max(type_counts, key=lambda k: type_counts[k])
+                    ratio = type_counts[dominant] / total_cards
+                    if ratio >= 0.4:
+                        strategy = dominant
+                    else:
+                        strategy = "Mixed"
+                score = next((s["score"] for s in standings if s["name"] == p.name), 0)
+                player_details.append({
+                    "name": p.name,
+                    "score": score,
+                    "strategy": strategy,
+                    "is_human": gs.players.index(p) in human_indices,
+                    "board": board_cards,
+                    "score_breakdown": breakdown,
+                })
+            winner_name = standings[0]["name"] if standings else None
+            record = {
+                "room_id": self.room_id,
+                "recorded_unix": now_unix(),
+                "mode": "competitive" if self.competitive else "standard",
+                "player_count": len(gs.players),
+                "human_count": len(human_indices),
+                "winner": winner_name,
+                "standings": standings,
+                "players": player_details,
+            }
+            fname = f"game_{self.room_id}_{now_unix()}.json"
+            atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
+            self._update_history_leaderboard(player_details, winner_name)
+        except Exception as exc:
+            self._record_event(f"Game history save warning: {exc}")
+
+    def _update_history_leaderboard(self, player_details: List[Dict[str, Any]], winner_name: Optional[str]) -> None:
+        try:
+            with HISTORY_LOCK:
+                try:
+                    with open(GAMES_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                        board: Dict[str, Any] = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    board = {}
+                for p in player_details:
+                    name = p["name"]
+                    score = int(p.get("score", 0))
+                    strategy = p.get("strategy", "Unknown")
+                    if name not in board:
+                        board[name] = {"games": 0, "wins": 0, "total_score": 0, "best_score": 0, "strategies": {}}
+                    entry = board[name]
+                    entry["games"] = entry.get("games", 0) + 1
+                    entry["total_score"] = entry.get("total_score", 0) + score
+                    entry["best_score"] = max(entry.get("best_score", 0), score)
+                    if name == winner_name:
+                        entry["wins"] = entry.get("wins", 0) + 1
+                    strats = entry.setdefault("strategies", {})
+                    strats[strategy] = strats.get(strategy, 0) + 1
+                atomic_write_json(GAMES_LEADERBOARD_PATH, board)
+        except Exception as exc:
+            self._record_event(f"History leaderboard update warning: {exc}")
+
     def _run_game_thread(self, card_db: Dict[int, fish.CardDef]) -> None:
         recorder = RoomLiveRecorder(self)
         try:
@@ -2288,6 +2388,9 @@ class GameRoom:
             except Exception as exc:
                 training_record = {"valuable": False}
                 self._record_event(f"Training record warning: {exc}")
+
+            if human_game:
+                self._save_game_history(gs, ms, standings, human_indices)
 
             if human_game and not self.competitive:
                 # Learn from real human gameplay in every live game.
@@ -2806,6 +2909,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             return
 
+    def _send_leaderboard_html(self) -> None:
+        try:
+            with open(LEADERBOARD_HTML_PATH, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": "leaderboard page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_cors_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
+
     def _read_json_body(self) -> tuple[Dict[str, Any], Optional[str]]:
         try:
             size = int(self.headers.get("Content-Length", "0"))
@@ -2930,6 +3051,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": False, "error": "about page missing"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        if len(parts) == 1 and parts[0] == "leaderboard":
+            if os.path.exists(LEADERBOARD_HTML_PATH):
+                self._send_leaderboard_html()
+                return
+            self._send_json({"ok": False, "error": "leaderboard page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if parsed.path == "/":
             self._send_preview_html()
             return
@@ -2962,6 +3090,36 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 pass
             games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
             self._send_json({"ok": True, "games": games})
+            return
+
+        if parsed.path == "/api/history/leaderboard":
+            try:
+                with open(GAMES_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                    board = json.load(f)
+            except (FileNotFoundError, json.JSONDecodeError):
+                board = {}
+            rows = sorted(
+                [{"name": k, **v} for k, v in board.items()],
+                key=lambda x: (-(x.get("wins", 0)), -(x.get("best_score", 0)), x.get("name", "")),
+            )
+            self._send_json({"ok": True, "leaderboard": rows})
+            return
+
+        if parsed.path == "/api/history/games":
+            games = []
+            try:
+                for fname in sorted(os.listdir(GAMES_HISTORY_DIR)):
+                    if fname.startswith("game_") and fname.endswith(".json"):
+                        fpath = os.path.join(GAMES_HISTORY_DIR, fname)
+                        try:
+                            with open(fpath, "r", encoding="utf-8") as f:
+                                games.append(json.load(f))
+                        except Exception:
+                            pass
+            except FileNotFoundError:
+                pass
+            games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
+            self._send_json({"ok": True, "games": games[:100]})
             return
 
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "state":

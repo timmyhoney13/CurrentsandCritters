@@ -242,6 +242,9 @@
       gap: 10px;
       flex-shrink: 0;
       backdrop-filter: blur(6px);
+      position: sticky;
+      top: 0;
+      z-index: 200;
     }
     .room-badge {
       background: var(--border);
@@ -762,6 +765,8 @@
     .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 22px var(--glow-gold), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.pay-selected .pv-card-inner { border-color: var(--green); box-shadow: 0 0 16px rgba(31,187,138,.55); }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
+    .pv-hand-card.pay-symbol-match .pv-card-inner { border-color: var(--gold2); box-shadow: 0 0 10px rgba(245,200,66,.35); animation: symMatchPulse 1.4s ease-in-out infinite; }
+    @keyframes symMatchPulse { 0%,100% { box-shadow: 0 0 8px rgba(245,200,66,.3); } 50% { box-shadow: 0 0 18px rgba(245,200,66,.65); } }
 
     /* cost badge */
     .pv-cost-badge {
@@ -2070,6 +2075,7 @@
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">—</div>
         <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
+        <a class="pv-menu-item" href="/leaderboard" target="_blank" style="text-decoration:none;">&#127942; Leaderboard</a>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
         <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
@@ -3084,12 +3090,15 @@
     document.getElementById("pv-deck-count-face").textContent = deckNum > 0 ? deckNum : "·";
     document.getElementById("pv-deck-num").textContent = `${deckNum} cards`;
 
-    // hand entry map
+    // hand entry map — pull symbol up to top level for payment matching
     handEntryMap.clear();
     if (me && Array.isArray(me.hand)) {
       for (const entry of me.hand) {
-        const faceUid = entry.face_uid ?? entry.uid;
-        handEntryMap.set(Number(entry.entry_uid ?? entry.uid ?? faceUid), { ...entry, uid: faceUid });
+        const faceData = Array.isArray(entry.faces) && entry.faces.length > 0 ? entry.faces[0] : entry;
+        const faceUid = entry.face_uid ?? faceData.uid ?? entry.uid;
+        handEntryMap.set(Number(entry.entry_uid ?? entry.uid ?? faceUid), {
+          ...entry, uid: faceUid, symbol: faceData.symbol || entry.symbol || ""
+        });
       }
     }
 
@@ -5163,6 +5172,10 @@
     const overflow = hand.length - MAX_VISIBLE;
     const n = visible.length;
 
+    // Determine if any pending action requires a specific symbol payment (for highlighting)
+    const pendingSymAction = Array.isArray(actions) ? actions.find(a => a.requires_symbol_match && a.required_symbol && Number(a.cost_to_pay) > 0) : null;
+    const reqSymbol = pendingSymAction ? normalizeSymbol(pendingSymAction.required_symbol) : null;
+
     // Compute new hand UIDs for deal-in animation
     const newHandUIDs = new Set(visible.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.entry_uid ?? e.uid ?? 0)));
 
@@ -5183,6 +5196,8 @@
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
       if (!_prevHandUIDs.has(Number(face.uid ?? entryUid))) card.classList.add("deal-in");
+      // Highlight cards that match the required payment symbol
+      if (reqSymbol && normalizeSymbol(face.symbol) === reqSymbol) card.classList.add("pay-symbol-match");
 
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
       const img   = document.createElement("img");

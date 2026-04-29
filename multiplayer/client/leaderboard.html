@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tidal Wave | Leaderboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0b2248;
+      --panel: #112E60;
+      --panel2: #152e62;
+      --border: rgba(58,120,204,.3);
+      --text: #e8f0ff;
+      --muted: #6ea0c0;
+      --cyan: #30c8f0;
+      --gold: #f5c842;
+      --gold2: #f5c842;
+      --green: #1fbb8a;
+      --red: #e84057;
+      --teal: #1bc8a8;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: linear-gradient(180deg, #142E62 0%, #0E2450 60%, #0B2248 100%);
+      color: var(--text);
+      font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── TOPBAR ────────────────────────────────────────────────────── */
+    .topbar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 10px 20px;
+      background: rgba(13,38,88,.97);
+      border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-logo {
+      font-family: "Cinzel", serif;
+      font-size: 18px; font-weight: 700;
+      color: var(--cyan); text-decoration: none;
+    }
+    .topbar-nav { display: flex; gap: 8px; margin-left: auto; }
+    .topbar-link {
+      color: var(--muted); text-decoration: none;
+      font-size: 12px; font-weight: 700;
+      padding: 4px 10px; border-radius: 6px;
+      border: 1px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+    .topbar-link:hover { color: var(--text); border-color: var(--border); }
+
+    /* ── TABS ──────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex; gap: 4px;
+      padding: 14px 20px 0;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,38,88,.6);
+    }
+    .tab-btn {
+      background: none; border: none;
+      color: var(--muted); font-size: 13px; font-weight: 700;
+      padding: 8px 16px; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+
+    /* ── MAIN ──────────────────────────────────────────────────────── */
+    .content { padding: 20px; max-width: 1100px; margin: 0 auto; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── LEADERBOARD TABLE ─────────────────────────────────────────── */
+    .lb-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px;
+    }
+    .lb-table th {
+      background: rgba(13,38,88,.8);
+      color: var(--muted); font-size: 11px; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 8px 12px; text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .lb-table th.sortable { cursor: pointer; user-select: none; }
+    .lb-table th.sortable:hover { color: var(--text); }
+    .lb-table td {
+      padding: 9px 12px;
+      border-bottom: 1px solid rgba(58,120,204,.12);
+      vertical-align: middle;
+    }
+    .lb-table tr:hover td { background: rgba(48,200,240,.04); }
+    .lb-rank { font-weight: 800; color: var(--gold); font-size: 15px; width: 36px; }
+    .lb-rank-1 { color: #FFD700; }
+    .lb-rank-2 { color: #C0C0C0; }
+    .lb-rank-3 { color: #cd7f32; }
+    .lb-name { font-weight: 800; color: var(--text); font-size: 14px; }
+    .lb-wins { color: var(--green); font-weight: 700; }
+    .lb-score { color: var(--cyan); font-weight: 700; }
+    .lb-strategy { color: var(--muted); font-size: 11px; }
+
+    /* ── GAME CARDS ────────────────────────────────────────────────── */
+    .game-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .game-card-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 14px; cursor: pointer;
+      transition: background .15s;
+    }
+    .game-card-header:hover { background: rgba(48,200,240,.05); }
+    .game-date { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .game-mode { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); background: rgba(245,200,66,.12); padding: 2px 7px; border-radius: 4px; }
+    .game-winner { font-weight: 800; color: var(--gold); font-size: 13px; }
+    .game-winner::before { content: "🏆 "; }
+    .game-players-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+    .game-player-chip {
+      font-size: 11px; font-weight: 700; padding: 2px 8px;
+      border-radius: 999px; border: 1px solid var(--border);
+      color: var(--text); background: rgba(48,200,240,.06);
+    }
+    .game-player-chip.winner { background: rgba(245,200,66,.15); border-color: var(--gold2); color: var(--gold); }
+    .game-expand-arrow { color: var(--muted); font-size: 12px; transition: transform .2s; }
+    .game-card.open .game-expand-arrow { transform: rotate(180deg); }
+
+    .game-card-body {
+      display: none; padding: 12px 14px;
+      border-top: 1px solid var(--border);
+    }
+    .game-card.open .game-card-body { display: block; }
+
+    .player-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 10px; margin-top: 8px;
+    }
+    .player-detail-card {
+      background: rgba(13,38,88,.5);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px;
+    }
+    .player-detail-card.winner { border-color: var(--gold2); }
+    .pd-name { font-weight: 800; font-size: 13px; color: var(--text); }
+    .pd-score { font-size: 20px; font-weight: 800; color: var(--cyan); }
+    .pd-strategy { font-size: 11px; color: var(--muted); margin: 2px 0 8px; }
+    .pd-breakdown { font-size: 11px; color: var(--muted); line-height: 1.7; }
+    .pd-breakdown strong { color: var(--text); }
+    .pd-board-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 8px 0 4px; }
+    .pd-ocean { font-size: 11px; color: var(--teal); font-weight: 700; margin-top: 5px; }
+    .pd-animal { font-size: 11px; color: var(--text); margin-left: 10px; }
+    .pd-animal::before { content: "· "; color: var(--muted); }
+
+    /* ── EMPTY STATE ───────────────────────────────────────────────── */
+    .empty-state {
+      text-align: center; padding: 60px 20px;
+      color: var(--muted); font-size: 14px;
+    }
+    .empty-state h3 { color: var(--text); font-size: 18px; margin-bottom: 8px; }
+
+    /* ── LOADING ───────────────────────────────────────────────────── */
+    .loading { text-align: center; padding: 40px; color: var(--muted); }
+
+    /* ── WIN-RATE BAR ──────────────────────────────────────────────── */
+    .wr-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .wr-bar { height: 6px; border-radius: 3px; background: rgba(48,200,240,.15); flex: 1; }
+    .wr-bar-fill { height: 100%; border-radius: 3px; background: var(--green); }
+    .wr-pct { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+    /* scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(58,120,204,.35); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="topbar-logo" href="/">Tidal Wave</a>
+  <nav class="topbar-nav">
+    <a class="topbar-link" href="/">Play</a>
+    <a class="topbar-link" href="/rules">Rules</a>
+  </nav>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="rankings">Rankings</button>
+  <button class="tab-btn" data-tab="games">All Games</button>
+  <button class="tab-btn" data-tab="competitive">1v1 Competitive</button>
+</div>
+
+<div class="content">
+  <!-- RANKINGS TAB -->
+  <div class="tab-panel active" id="tab-rankings">
+    <div class="loading" id="rankings-loading">Loading…</div>
+    <div id="rankings-content" style="display:none;"></div>
+  </div>
+
+  <!-- ALL GAMES TAB -->
+  <div class="tab-panel" id="tab-games">
+    <div class="loading" id="games-loading">Loading…</div>
+    <div id="games-content" style="display:none;"></div>
+  </div>
+
+  <!-- 1v1 COMPETITIVE TAB -->
+  <div class="tab-panel" id="tab-competitive">
+    <div class="loading" id="comp-loading">Loading…</div>
+    <div id="comp-content" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  // ── Tab switching ─────────────────────────────────────────────────
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ── Helpers ───────────────────────────────────────────────────────
+  function fmtDate(unix) {
+    if (!unix) return "—";
+    const d = new Date(unix * 1000);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
+      " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function fmtBreakdown(bd) {
+    if (!bd || typeof bd !== "object") return "";
+    const lines = [];
+    const skip = new Set(["total", "player", "error"]);
+    for (const [k, v] of Object.entries(bd)) {
+      if (skip.has(k)) continue;
+      if (typeof v === "number" && v !== 0) {
+        lines.push(`<strong>${k}:</strong> ${v > 0 ? "+" : ""}${v}`);
+      } else if (typeof v === "object" && v !== null) {
+        // nested object (e.g. per-ocean breakdown)
+        for (const [k2, v2] of Object.entries(v)) {
+          if (typeof v2 === "number" && v2 !== 0) {
+            lines.push(`<strong>${k} › ${k2}:</strong> ${v2 > 0 ? "+" : ""}${v2}`);
+          }
+        }
+      }
+    }
+    return lines.join("<br>");
+  }
+
+  // ── Rankings tab ──────────────────────────────────────────────────
+  async function loadRankings() {
+    try {
+      const r = await fetch("/api/history/leaderboard");
+      const d = await r.json();
+      const rows = d.leaderboard || [];
+      const el = document.getElementById("rankings-content");
+      document.getElementById("rankings-loading").style.display = "none";
+      el.style.display = "";
+
+      if (!rows.length) {
+        el.innerHTML = `<div class="empty-state"><h3>No games recorded yet</h3><p>Play a game to see rankings here.</p></div>`;
+        return;
+      }
+
+      const topStrategy = (strats) => {
+        if (!strats || typeof strats !== "object") return "—";
+        const best = Object.entries(strats).sort((a, b) => b[1] - a[1])[0];
+        return best ? best[0] : "—";
+      };
+
+      const tableRows = rows.map((p, i) => {
+        const games = p.games || 0;
+        const wins = p.wins || 0;
+        const wr = games > 0 ? Math.round(wins / games * 100) : 0;
+        const avg = games > 0 ? Math.round((p.total_score || 0) / games) : 0;
+        const rankClass = i === 0 ? "lb-rank-1" : i === 1 ? "lb-rank-2" : i === 2 ? "lb-rank-3" : "";
+        return `<tr>
+          <td class="lb-rank ${rankClass}">${i + 1}</td>
+          <td class="lb-name">${esc(p.name)}</td>
+          <td class="lb-wins">${wins}</td>
+          <td>${games}</td>
+          <td>
+            <div class="wr-bar-wrap">
+              <div class="wr-bar"><div class="wr-bar-fill" style="width:${wr}%"></div></div>
+              <span class="wr-pct">${wr}%</span>
+            </div>
+          </td>
+          <td class="lb-score">${p.best_score || 0}</td>
+          <td class="lb-score" style="color:var(--teal)">${avg}</td>
+          <td class="lb-strategy">${esc(topStrategy(p.strategies))}</td>
+        </tr>`;
+      }).join("");
+
+      el.innerHTML = `<table class="lb-table">
+        <thead><tr>
+          <th>#</th><th>Player</th><th>Wins</th><th>Games</th>
+          <th>Win Rate</th><th>Best Score</th><th>Avg Score</th><th>Fav Strategy</th>
+        </tr></thead>
+        <tbody>${tableRows}</tbody>
+      </table>`;
+    } catch (e) {
+      document.getElementById("rankings-loading").textContent = "Failed to load rankings.";
+    }
+  }
+
+  // ── All Games tab ─────────────────────────────────────────────────
+  async function loadGames() {
+    try {
+      const r = await fetch("/api/history/games");
+      const d = await r.json();
+      const games = d.games || [];
+      const el = document.getElementById("games-content");
+      document.getElementById("games-loading").style.display = "none";
+      el.style.display = "";
+
+      if (!games.length) {
+        el.innerHTML = `<div class="empty-state"><h3>No games recorded yet</h3><p>Complete a game to see it here.</p></div>`;
+        return;
+      }
+
+      el.innerHTML = games.map((g, gi) => renderGameCard(g, gi)).join("");
+
+      // wire toggles
+      el.querySelectorAll(".game-card-header").forEach(hdr => {
+        hdr.addEventListener("click", () => {
+          hdr.parentElement.classList.toggle("open");
+        });
+      });
+    } catch (e) {
+      document.getElementById("games-loading").textContent = "Failed to load games.";
+    }
+  }
+
+  function renderGameCard(g, idx) {
+    const players = Array.isArray(g.players) ? g.players : [];
+    const chips = players.map(p =>
+      `<span class="game-player-chip${p.name === g.winner ? " winner" : ""}">${esc(p.name)} ${p.score}</span>`
+    ).join("");
+    const body = players.map(p => renderPlayerDetail(p, p.name === g.winner)).join("");
+    return `<div class="game-card" id="gc-${idx}">
+      <div class="game-card-header">
+        <span class="game-date">${fmtDate(g.recorded_unix)}</span>
+        <span class="game-mode">${esc(g.mode || "standard")}</span>
+        <span class="game-winner">${esc(g.winner || "—")}</span>
+        <div class="game-players-summary">${chips}</div>
+        <span class="game-expand-arrow">▼</span>
+      </div>
+      <div class="game-card-body">
+        <div class="player-detail-grid">${body}</div>
+      </div>
+    </div>`;
+  }
+
+  function renderPlayerDetail(p, isWinner) {
+    const bdHtml = fmtBreakdown(p.score_breakdown);
+    const boardHtml = (Array.isArray(p.board) ? p.board : []).map(ocean => {
+      const animals = (ocean.animals || []).map(a =>
+        `<div class="pd-animal">${esc(a.name)} <span style="color:var(--muted);font-size:10px">(${esc(a.species||"")})</span></div>`
+      ).join("");
+      return `<div class="pd-ocean">${esc(ocean.ocean || "?")}</div>${animals}`;
+    }).join("");
+
+    return `<div class="player-detail-card${isWinner ? " winner" : ""}">
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px;">
+        <span class="pd-name">${isWinner ? "🏆 " : ""}${esc(p.name)}</span>
+        <span class="pd-score">${p.score}</span>
+      </div>
+      <div class="pd-strategy">${esc(p.strategy || "Unknown")}</div>
+      ${bdHtml ? `<div class="pd-breakdown">${bdHtml}</div>` : ""}
+      ${boardHtml ? `<div class="pd-board-title">Board</div>${boardHtml}` : ""}
+    </div>`;
+  }
+
+  // ── Competitive 1v1 tab ───────────────────────────────────────────
+  async function loadCompetitive() {
+    try {
+      const [lbRes, histRes] = await Promise.all([
+        fetch("/api/competitive/leaderboard"),
+        fetch("/api/competitive/history"),
+      ]);
+      const lbData = await lbRes.json();
+      const histData = await histRes.json();
+      const el = document.getElementById("comp-content");
+      document.getElementById("comp-loading").style.display = "none";
+      el.style.display = "";
+
+      const rows = lbData.leaderboard || [];
+      const games = histData.games || [];
+
+      let html = "";
+
+      if (rows.length) {
+        const tableRows = rows.map((p, i) => {
+          const rankClass = i === 0 ? "lb-rank-1" : i === 1 ? "lb-rank-2" : i === 2 ? "lb-rank-3" : "";
+          return `<tr>
+            <td class="lb-rank ${rankClass}">${i + 1}</td>
+            <td class="lb-name">${esc(p.name)}</td>
+            <td class="lb-wins">${p.wins || 0}</td>
+            <td>${p.losses || 0}</td>
+            <td>${p.games || 0}</td>
+          </tr>`;
+        }).join("");
+        html += `<h3 style="color:var(--gold);margin-bottom:10px;">1v1 Rankings</h3>
+          <table class="lb-table" style="margin-bottom:24px;">
+            <thead><tr><th>#</th><th>Player</th><th>Wins</th><th>Losses</th><th>Games</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>`;
+      } else {
+        html += `<div class="empty-state"><h3>No 1v1 games yet</h3></div>`;
+      }
+
+      if (games.length) {
+        html += `<h3 style="color:var(--gold);margin-bottom:10px;">Match History</h3>`;
+        html += games.slice(0, 50).map((g, gi) => {
+          const score1 = g.p1_best_score ?? "?";
+          const score2 = g.p2_best_score ?? "?";
+          const winnerMark1 = g.winner === g.p1_name ? " 🏆" : "";
+          const winnerMark2 = g.winner === g.p2_name ? " 🏆" : "";
+          return `<div class="game-card" style="margin-bottom:8px;">
+            <div class="game-card-header" style="cursor:default;">
+              <span class="game-date">${fmtDate(g.recorded_unix)}</span>
+              <span style="font-weight:800;color:var(--text);">${esc(g.p1_name)}${winnerMark1}</span>
+              <span style="color:var(--muted)">vs</span>
+              <span style="font-weight:800;color:var(--text);">${esc(g.p2_name)}${winnerMark2}</span>
+              <span style="margin-left:auto;color:var(--cyan);font-weight:700;">${score1} – ${score2}</span>
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      el.innerHTML = html;
+    } catch (e) {
+      document.getElementById("comp-loading").textContent = "Failed to load competitive data.";
+    }
+  }
+
+  function esc(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────
+  loadRankings();
+  loadGames();
+  loadCompetitive();
+</script>
+</body>
+</html>
