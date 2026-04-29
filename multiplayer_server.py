@@ -2139,10 +2139,15 @@ class GameRoom:
             return "Goby"
         return "Best Guess"
 
-    def _save_competitive_game(self, gs: Any, standings: List[Dict[str, Any]]) -> None:
+    def _save_competitive_game(self, gs: Any, ms: Any, standings: List[Dict[str, Any]]) -> None:
         if self._competitive_saved:
             return
         self._competitive_saved = True
+        # Only record games that completed via the end-game trigger.
+        if not getattr(ms, "end_game_triggered", False):
+            return
+        if getattr(gs, "round_count", 0) < 1:
+            return
         try:
             seats = self.seats
             p1_name = seats[0].claimed_name or "Player 1" if len(seats) > 0 else "Player 1"
@@ -2194,6 +2199,19 @@ class GameRoom:
     def _save_game_history(self, gs: Any, ms: Any, standings: List[Dict[str, Any]], human_indices: set) -> None:
         """Save a completed human game to the history directory with full score breakdowns."""
         try:
+            # Only save games that ended via the proper end-game trigger.
+            # Stalls, max-turn truncations, and zero-turn crashes are excluded.
+            if not getattr(ms, "end_game_triggered", False):
+                return
+            # Require at least one full round of turns played.
+            min_turns = max(len(gs.players), 2)
+            rounds_played = getattr(gs, "round_count", 0)
+            if rounds_played < 1:
+                return
+            # Require at least one player to have cards on their board.
+            any_board = any(len(getattr(p, "board_oceans", [])) > 0 for p in gs.players)
+            if not any_board:
+                return
             os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
             player_details = []
             for p in gs.players:
@@ -2425,7 +2443,7 @@ class GameRoom:
                     self._record_event(f"Human-learning warning: {exc}")
 
             if self.competitive:
-                self._save_competitive_game(gs, standings)
+                self._save_competitive_game(gs, ms, standings)
 
             with self.cond:
                 self.phase = "ended"
