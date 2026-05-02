@@ -8,6 +8,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Firebase config — replace values with your project from console.firebase.google.com -->
+  <script>
+    window.__FISH_FIREBASE_CONFIG = {
+      apiKey:            "REPLACE_WITH_YOUR_API_KEY",
+      authDomain:        "REPLACE_WITH_YOUR_AUTH_DOMAIN",
+      projectId:         "REPLACE_WITH_YOUR_PROJECT_ID",
+      storageBucket:     "REPLACE_WITH_YOUR_STORAGE_BUCKET",
+      messagingSenderId: "REPLACE_WITH_YOUR_MESSAGING_SENDER_ID",
+      appId:             "REPLACE_WITH_YOUR_APP_ID",
+    };
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1846,13 +1862,219 @@
       font-size: 12px; text-align: left; width: 100%;
     }
     .comp-hist-winner { color: var(--gold); font-weight: 800; }
+
+    /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
+    #auth-loading-screen {
+      position: fixed; inset: 0; z-index: 9200;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--muted); font-size: 14px; font-family: 'Cinzel', serif; letter-spacing: 1px;
+    }
+    #auth-loading-screen.hidden { display: none; }
+    #auth-screen {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 20px; gap: 14px; overflow-y: auto;
+    }
+    #auth-screen.hidden { display: none; }
+    #auth-screen .auth-logo {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 24px; font-weight: 900; text-align: center;
+      text-shadow: 0 0 18px rgba(34,216,248,.35); letter-spacing: 1px;
+    }
+    .auth-box {
+      background: rgba(11,36,72,.9); border: 1px solid rgba(58,120,204,.45);
+      border-radius: 14px; padding: 22px 20px;
+      width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 11px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.45);
+    }
+    .auth-title {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 17px; text-align: center;
+    }
+    .auth-subtitle { color: var(--muted); font-size: 12px; text-align: center; line-height: 1.55; }
+    .auth-err { color: var(--red); font-size: 12px; text-align: center; min-height: 16px; }
+    .auth-ok  { color: var(--green); font-size: 12px; text-align: center; min-height: 16px; }
+    .auth-link {
+      color: var(--cyan); cursor: pointer; font-size: 12px; text-align: center;
+    }
+    .auth-link:hover { text-decoration: underline; }
+    .auth-row-links { display: flex; justify-content: space-between; align-items: center; }
+    .auth-divider {
+      color: var(--muted); font-size: 11px; text-align: center;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ""; flex: 1; height: 1px; background: rgba(58,120,204,.35);
+    }
+    .auth-btn-google {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 10px 16px; border-radius: 8px; border: 1px solid rgba(58,120,204,.5);
+      background: rgba(255,255,255,.07); color: var(--text);
+      font-size: 13px; font-weight: 700; cursor: pointer; width: 100%;
+      transition: background .15s;
+    }
+    .auth-btn-google:hover { background: rgba(255,255,255,.14); }
+    .auth-fc-badge {
+      background: rgba(34,216,248,.08); border: 1px solid rgba(34,216,248,.35);
+      border-radius: 8px; padding: 8px 14px;
+      color: var(--cyan); font-size: 17px; font-weight: 800;
+      text-align: center; letter-spacing: 2px; font-family: 'Nunito', sans-serif;
+    }
+    /* Profile bar inside lobby */
+    #auth-profile-bar {
+      width: 100%; max-width: 420px;
+      background: rgba(11,36,72,.7); border: 1px solid rgba(58,120,204,.35);
+      border-radius: 10px; padding: 7px 12px;
+      display: none; flex-direction: row; align-items: center;
+      gap: 8px; font-size: 12px; flex-wrap: wrap;
+    }
+    #auth-profile-bar .auth-pnick { color: var(--cyan); font-weight: 800; }
+    #auth-profile-bar .auth-pfc   { color: var(--muted); font-size: 11px; }
+    #auth-profile-bar .auth-pbtn  {
+      font-size: 11px; padding: 3px 8px; margin-left: auto;
+      background: rgba(255,255,255,.06); border: 1px solid rgba(58,120,204,.35);
+      color: var(--text); border-radius: 6px; cursor: pointer;
+    }
+    #auth-profile-bar .auth-pbtn:hover { background: rgba(255,255,255,.13); }
+    /* Friend modal */
+    #auth-friend-modal {
+      position: fixed; inset: 0; z-index: 9100;
+      background: rgba(0,0,0,.72); display: none;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #auth-friend-modal.open { display: flex; }
+    .auth-friend-box {
+      background: rgba(11,36,72,.97); border: 1px solid rgba(58,120,204,.55);
+      border-radius: 14px; padding: 20px 18px; width: 100%; max-width: 330px;
+      display: flex; flex-direction: column; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .auth-friend-box h3 { color: var(--cyan); font-size: 15px; font-family:'Cinzel',serif; text-align:center; }
+    .auth-fc-label { color: var(--muted); font-size: 11px; text-align: center; }
+    .auth-friend-entry {
+      padding: 5px 0; border-bottom: 1px solid rgba(58,120,204,.18);
+      color: var(--text); font-size: 13px;
+    }
+    .auth-friend-add-row { display: flex; gap: 8px; align-items: center; }
   </style>
 </head>
 <body>
 
+<!-- ══ AUTH LOADING (covers page while Firebase resolves) ═════════ -->
+<div id="auth-loading-screen">Diving in…</div>
+
+<!-- ══ AUTH SCREEN ════════════════════════════════════════════════ -->
+<div id="auth-screen" class="hidden">
+  <div class="auth-logo">Currents &amp; Critters</div>
+
+  <!-- Step 1: choose mode -->
+  <div id="auth-step-choose" class="auth-box">
+    <div class="auth-title">Play Now</div>
+    <div class="auth-subtitle">Play as a guest with just a nickname — no account needed.<br>Sign in to track stats, friends, and leaderboard history.</div>
+    <button id="auth-guest-btn" class="pv-btn gold full">🐠 Play as Guest</button>
+    <div class="auth-divider">or</div>
+    <button id="auth-signin-nav-btn" class="pv-btn full">Sign In / Create Account</button>
+  </div>
+
+  <!-- Step 2a: guest nickname -->
+  <div id="auth-step-guest" class="auth-box" style="display:none">
+    <div class="auth-title">Guest Nickname</div>
+    <div class="auth-subtitle">Choose a nickname for this session. No account needed.</div>
+    <input id="auth-guest-nick" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+    <div class="auth-err" id="auth-guest-err"></div>
+    <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
+    <span class="auth-link" id="auth-guest-back">← Back</span>
+  </div>
+
+  <!-- Step 2b: sign in -->
+  <div id="auth-step-signin" class="auth-box" style="display:none">
+    <div class="auth-title">Sign In</div>
+    <button id="auth-google-btn" class="auth-btn-google">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider">or</div>
+    <input id="auth-email" class="pv-input" type="email" placeholder="Email" autocomplete="email" />
+    <input id="auth-pass" class="pv-input" type="password" placeholder="Password" autocomplete="current-password" />
+    <div class="auth-err" id="auth-signin-err"></div>
+    <button id="auth-signin-go-btn" class="pv-btn gold full">Sign In →</button>
+    <div class="auth-row-links">
+      <span class="auth-link" id="auth-to-create">Create Account</span>
+      <span class="auth-link" id="auth-to-forgot">Forgot Password?</span>
+    </div>
+    <div class="auth-divider">or</div>
+    <span class="auth-link" id="auth-signin-as-guest">Play as Guest instead</span>
+    <span class="auth-link" id="auth-signin-back">← Back</span>
+  </div>
+
+  <!-- Step 2c: create account -->
+  <div id="auth-step-create" class="auth-box" style="display:none">
+    <div class="auth-title">Create Account</div>
+    <input id="auth-create-email" class="pv-input" type="email" placeholder="Email" autocomplete="email" />
+    <input id="auth-create-pass" class="pv-input" type="password" placeholder="Password (min 6 chars)" autocomplete="new-password" />
+    <input id="auth-create-pass2" class="pv-input" type="password" placeholder="Confirm password" autocomplete="new-password" />
+    <div class="auth-err" id="auth-create-err"></div>
+    <button id="auth-create-go-btn" class="pv-btn gold full">Create Account →</button>
+    <span class="auth-link" id="auth-create-back">← Back to Sign In</span>
+  </div>
+
+  <!-- Step 2d: forgot password -->
+  <div id="auth-step-forgot" class="auth-box" style="display:none">
+    <div class="auth-title">Reset Password</div>
+    <div class="auth-subtitle">Enter your email — Firebase will send a reset link.</div>
+    <input id="auth-forgot-email" class="pv-input" type="email" placeholder="Email" autocomplete="email" />
+    <div class="auth-err" id="auth-forgot-err"></div>
+    <button id="auth-forgot-go-btn" class="pv-btn gold full">Send Reset Email →</button>
+    <span class="auth-link" id="auth-forgot-back">← Back to Sign In</span>
+  </div>
+
+  <!-- Step 3: nickname setup (new signed-in users) -->
+  <div id="auth-step-nickname" class="auth-box" style="display:none">
+    <div class="auth-title">Choose Your Nickname</div>
+    <div class="auth-subtitle">Your public name in-game, on leaderboards, and for friend search.<br>Not your email or Google name.</div>
+    <input id="auth-nick-input" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+    <div class="auth-err" id="auth-nick-err"></div>
+    <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
+  </div>
+</div>
+
+<!-- ══ FRIEND MODAL ════════════════════════════════════════════════ -->
+<div id="auth-friend-modal">
+  <div class="auth-friend-box">
+    <h3>👥 Friends</h3>
+    <div class="auth-fc-label">Your friend code</div>
+    <div class="auth-fc-badge" id="auth-my-fc-display">—</div>
+    <div class="auth-friend-add-row">
+      <input id="auth-add-friend-input" class="pv-input" placeholder="e.g. Timmy#4821" style="flex:1;font-size:12px;" />
+      <button id="auth-add-friend-btn" class="pv-btn sm">Add</button>
+    </div>
+    <div class="auth-err" id="auth-friend-err"></div>
+    <div id="auth-friends-list" style="max-height:150px;overflow-y:auto;"></div>
+    <button id="auth-friend-close" class="pv-btn full" style="margin-top:2px;">Close</button>
+  </div>
+</div>
+
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
 <div id="pv-lobby">
   <h1>Currents &amp; Critters</h1>
+
+  <!-- Signed-in profile strip — hidden until auth completes for a logged-in user -->
+  <div id="auth-profile-bar">
+    <span>Signed in as</span>
+    <span class="auth-pnick" id="auth-profile-name-text">—</span>
+    <span class="auth-pfc" id="auth-profile-fc-text"></span>
+    <button class="auth-pbtn" id="auth-friend-btn">👥 Friends</button>
+    <button class="auth-pbtn" id="auth-signout-btn">Sign Out</button>
+  </div>
 
   <!-- VIEW A: invited via link — join only, no create option shown -->
   <div id="pv-invited-view" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
@@ -5843,6 +6065,369 @@
   function pingServer() { fetch(window.__FISH_API_BASE__+"/api/health",{method:"GET",cache:"no-store"}).catch(()=>{}); }
   pingServer();
   setInterval(pingServer, 9*60*1000);
+
+  // ═══════════════════════════════════════════════════════════════
+  // AUTH / PROFILE / FRIENDS SYSTEM
+  // Guests: nickname stored in sessionStorage — no account required.
+  // Signed-in: nickname + friend code stored in Firestore.
+  // ═══════════════════════════════════════════════════════════════
+  (function() {
+    "use strict";
+
+    // ── Firebase init (only if config is filled in) ────────────
+    let _auth = null, _db = null, _authUser = null;
+    let _playerNickname = "", _friendCode = "";
+
+    function firebaseConfigured() {
+      const c = window.__FISH_FIREBASE_CONFIG;
+      return c && c.apiKey && !c.apiKey.startsWith("REPLACE") &&
+             c.projectId && !c.projectId.startsWith("REPLACE");
+    }
+
+    if (firebaseConfigured() && typeof firebase !== "undefined") {
+      try {
+        firebase.initializeApp(window.__FISH_FIREBASE_CONFIG);
+        _auth = firebase.auth();
+        _db   = firebase.firestore();
+      } catch (e) { console.warn("Firebase init failed:", e); }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────
+    const $a = id => document.getElementById(id);
+
+    function setAuthMsg(id, msg, isOk) {
+      const el = $a(id);
+      if (!el) return;
+      el.textContent = msg;
+      el.className = isOk ? "auth-ok" : "auth-err";
+    }
+
+    function validateNick(nick) {
+      const t = (nick || "").trim();
+      if (t.length < 3)  return "Nickname must be at least 3 characters.";
+      if (t.length > 15) return "Nickname must be 15 characters or less.";
+      if (!/^[\w\s\-\.]+$/.test(t)) return "Letters, numbers, spaces, dashes, and dots only.";
+      return "";
+    }
+
+    function genFriendCode() {
+      return String(Math.floor(1000 + Math.random() * 9000));
+    }
+
+    function friendlyAuthErr(code) {
+      const map = {
+        "auth/wrong-password":       "Incorrect password.",
+        "auth/invalid-credential":   "Incorrect email or password.",
+        "auth/user-not-found":       "No account found with that email.",
+        "auth/email-already-in-use": "An account already exists with that email.",
+        "auth/weak-password":        "Password must be at least 6 characters.",
+        "auth/invalid-email":        "Invalid email address.",
+        "auth/popup-closed-by-user": "Sign-in popup was closed.",
+        "auth/network-request-failed":"Network error. Check your connection.",
+        "auth/too-many-requests":    "Too many attempts. Please wait and try again.",
+      };
+      return map[code] || "Something went wrong. Try again.";
+    }
+
+    // ── Firestore helpers ────────────────────────────────────────
+    async function loadProfile(uid) {
+      if (!_db) return null;
+      try {
+        const snap = await _db.collection("users").doc(uid).get();
+        return snap.exists ? snap.data() : null;
+      } catch { return null; }
+    }
+
+    async function saveNewProfile(uid, nickname, email) {
+      if (!_db) return "";
+      const nick = nickname.trim();
+      const code = genFriendCode();
+      const isAdmin = (email || "").toLowerCase() === "currentsandcritters@gmail.com";
+      const data = {
+        nickname:       nick,
+        nickname_lower: nick.toLowerCase(),
+        friend_code:    code,
+        email:          email || "",
+        is_admin:       isAdmin,
+        created_at:     firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      await _db.collection("users").doc(uid).set(data, { merge: true });
+      // Write reverse-lookup so friends can find this player by nickname#code
+      const fcKey = nick.toLowerCase() + "_" + code;
+      await _db.collection("friend_lookup").doc(fcKey).set({ uid, nickname: nick });
+      return code;
+    }
+
+    async function loadFriends(uid) {
+      if (!_db) return [];
+      try {
+        const snap = await _db.collection("users").doc(uid).collection("friends").get();
+        return snap.docs.map(d => d.data());
+      } catch { return []; }
+    }
+
+    async function addFriend(myUid, rawCode) {
+      if (!_db) return { error: "Not signed in." };
+      const m = rawCode.trim().match(/^(.+)#(\d{4})$/);
+      if (!m) return { error: "Format must be Nickname#1234" };
+      const [, nick, digits] = m;
+      const fcKey = nick.trim().toLowerCase() + "_" + digits;
+      try {
+        const snap = await _db.collection("friend_lookup").doc(fcKey).get();
+        if (!snap.exists) return { error: "Friend code not found." };
+        const { uid: fUid, nickname: fNick } = snap.data();
+        if (fUid === myUid) return { error: "That's your own code!" };
+        await _db.collection("users").doc(myUid).collection("friends").doc(fUid).set({
+          uid: fUid, nickname: fNick,
+          added_at: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+        return { ok: true, nickname: fNick };
+      } catch (e) { return { error: e.message || "Error looking up friend." }; }
+    }
+
+    // ── Step navigation ──────────────────────────────────────────
+    const ALL_STEPS = [
+      "auth-step-choose","auth-step-guest","auth-step-signin",
+      "auth-step-create","auth-step-forgot","auth-step-nickname",
+    ];
+
+    function showStep(stepId) {
+      ALL_STEPS.forEach(id => {
+        const el = $a(id);
+        if (el) el.style.display = id === stepId ? "" : "none";
+      });
+      $a("auth-screen").classList.remove("hidden");
+    }
+
+    function revealLobby(nickname, code) {
+      _playerNickname = (nickname || "").trim();
+      _friendCode     = code || "";
+      // Pre-fill every name input in the lobby
+      ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
+        const el = $a(id); if (el) el.value = _playerNickname;
+      });
+      $a("auth-loading-screen").classList.add("hidden");
+      $a("auth-screen").classList.add("hidden");
+      if (_authUser && _playerNickname && _friendCode) {
+        const bar = $a("auth-profile-bar");
+        if (bar) {
+          bar.style.display = "flex";
+          const nameEl = $a("auth-profile-name-text");
+          const fcEl   = $a("auth-profile-fc-text");
+          if (nameEl) nameEl.textContent = _playerNickname;
+          if (fcEl)   fcEl.textContent   = "#" + _friendCode;
+          const fcDisplay = $a("auth-my-fc-display");
+          if (fcDisplay) fcDisplay.textContent = _playerNickname + "#" + _friendCode;
+        }
+      }
+    }
+
+    // ── Startup ──────────────────────────────────────────────────
+    (async function startAuth() {
+      const guestNick = sessionStorage.getItem("fish_guest_nick") || "";
+
+      if (!_auth) {
+        // Firebase not configured — guest-only mode
+        $a("auth-loading-screen").classList.add("hidden");
+        if (guestNick) { revealLobby(guestNick); return; }
+        // No sign-in option without Firebase
+        const signinNavBtn = $a("auth-signin-nav-btn");
+        if (signinNavBtn) signinNavBtn.style.display = "none";
+        showStep("auth-step-guest");
+        return;
+      }
+
+      // Firebase ready — wait for persisted auth state
+      _auth.onAuthStateChanged(async (user) => {
+        if (user) {
+          _authUser = user;
+          const profile = await loadProfile(user.uid);
+          $a("auth-loading-screen").classList.add("hidden");
+          if (profile && profile.nickname) {
+            revealLobby(profile.nickname, profile.friend_code || "");
+          } else {
+            // New account — needs nickname setup.
+            // Pre-fill hint from Google display name (user must still confirm).
+            const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
+            const nickInput = $a("auth-nick-input");
+            if (nickInput && hint) nickInput.value = hint;
+            showStep("auth-step-nickname");
+          }
+        } else {
+          _authUser = null;
+          $a("auth-loading-screen").classList.add("hidden");
+          if (guestNick) { revealLobby(guestNick); return; }
+          showStep("auth-step-choose");
+        }
+      });
+    })();
+
+    // ── Guest flow ───────────────────────────────────────────────
+    $a("auth-guest-btn").addEventListener("click", () => showStep("auth-step-guest"));
+
+    $a("auth-guest-back").addEventListener("click", () => {
+      if (_auth) showStep("auth-step-choose");
+      // If no Firebase, stay on guest step (only option)
+    });
+
+    $a("auth-guest-go-btn").addEventListener("click", () => {
+      const nick = ($a("auth-guest-nick").value || "").trim();
+      const err  = validateNick(nick);
+      if (err) { setAuthMsg("auth-guest-err", err, false); return; }
+      setAuthMsg("auth-guest-err", "", false);
+      sessionStorage.setItem("fish_guest_nick", nick);
+      revealLobby(nick);
+    });
+    $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
+
+    // ── Navigate to sign-in ──────────────────────────────────────
+    const signinNavBtn = $a("auth-signin-nav-btn");
+    if (signinNavBtn) signinNavBtn.addEventListener("click", () => showStep("auth-step-signin"));
+
+    $a("auth-signin-back").addEventListener("click", () => showStep("auth-step-choose"));
+    $a("auth-signin-as-guest").addEventListener("click", () => showStep("auth-step-guest"));
+    $a("auth-to-create").addEventListener("click", () => showStep("auth-step-create"));
+    $a("auth-to-forgot").addEventListener("click", () => {
+      const emailVal = ($a("auth-email").value || "").trim();
+      if (emailVal) $a("auth-forgot-email").value = emailVal;
+      showStep("auth-step-forgot");
+    });
+
+    // ── Google sign-in ───────────────────────────────────────────
+    $a("auth-google-btn").addEventListener("click", async () => {
+      if (!_auth) return;
+      setAuthMsg("auth-signin-err", "", false);
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await _auth.signInWithPopup(provider);
+        // onAuthStateChanged handles the rest
+      } catch (e) {
+        setAuthMsg("auth-signin-err", friendlyAuthErr(e.code), false);
+      }
+    });
+
+    // ── Email/password sign-in ───────────────────────────────────
+    $a("auth-signin-go-btn").addEventListener("click", async () => {
+      if (!_auth) return;
+      const email = ($a("auth-email").value || "").trim();
+      const pass  = $a("auth-pass").value || "";
+      if (!email || !pass) { setAuthMsg("auth-signin-err", "Enter email and password.", false); return; }
+      setAuthMsg("auth-signin-err", "Signing in…", true);
+      try {
+        await _auth.signInWithEmailAndPassword(email, pass);
+      } catch (e) {
+        setAuthMsg("auth-signin-err", friendlyAuthErr(e.code), false);
+      }
+    });
+    $a("auth-pass").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-signin-go-btn").click(); });
+
+    // ── Create account ───────────────────────────────────────────
+    $a("auth-create-go-btn").addEventListener("click", async () => {
+      if (!_auth) return;
+      const email = ($a("auth-create-email").value || "").trim();
+      const pass  = $a("auth-create-pass").value  || "";
+      const pass2 = $a("auth-create-pass2").value || "";
+      if (!email || !pass) { setAuthMsg("auth-create-err", "Fill in all fields.", false); return; }
+      if (pass !== pass2)  { setAuthMsg("auth-create-err", "Passwords do not match.", false); return; }
+      if (pass.length < 6) { setAuthMsg("auth-create-err", "Password must be at least 6 characters.", false); return; }
+      setAuthMsg("auth-create-err", "Creating account…", true);
+      try {
+        await _auth.createUserWithEmailAndPassword(email, pass);
+        // onAuthStateChanged → no profile yet → shows nickname step
+      } catch (e) {
+        setAuthMsg("auth-create-err", friendlyAuthErr(e.code), false);
+      }
+    });
+    $a("auth-create-back").addEventListener("click", () => showStep("auth-step-signin"));
+
+    // ── Forgot password ──────────────────────────────────────────
+    $a("auth-forgot-go-btn").addEventListener("click", async () => {
+      if (!_auth) return;
+      const email = ($a("auth-forgot-email").value || "").trim();
+      if (!email) { setAuthMsg("auth-forgot-err", "Enter your email.", false); return; }
+      setAuthMsg("auth-forgot-err", "Sending…", true);
+      try {
+        await _auth.sendPasswordResetEmail(email);
+        setAuthMsg("auth-forgot-err", "✓ Reset email sent — check your inbox.", true);
+      } catch (e) {
+        setAuthMsg("auth-forgot-err", friendlyAuthErr(e.code), false);
+      }
+    });
+    $a("auth-forgot-back").addEventListener("click", () => showStep("auth-step-signin"));
+
+    // ── Nickname setup ───────────────────────────────────────────
+    $a("auth-nick-go-btn").addEventListener("click", async () => {
+      if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
+      const nick = ($a("auth-nick-input").value || "").trim();
+      const err  = validateNick(nick);
+      if (err) { setAuthMsg("auth-nick-err", err, false); return; }
+      setAuthMsg("auth-nick-err", "Saving…", true);
+      try {
+        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "");
+        revealLobby(nick, code);
+      } catch (e) {
+        setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
+      }
+    });
+    $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
+
+    // ── Sign out ─────────────────────────────────────────────────
+    $a("auth-signout-btn").addEventListener("click", async () => {
+      sessionStorage.removeItem("fish_guest_nick");
+      _playerNickname = ""; _friendCode = "";
+      if (_auth) { try { await _auth.signOut(); } catch {} }
+      _authUser = null;
+      $a("auth-profile-bar").style.display = "none";
+      showStep("auth-step-choose");
+    });
+
+    // ── Friends modal ────────────────────────────────────────────
+    $a("auth-friend-btn").addEventListener("click", async () => {
+      $a("auth-friend-modal").classList.add("open");
+      if (_authUser && _db) renderFriendsList();
+    });
+
+    $a("auth-friend-close").addEventListener("click", () => {
+      $a("auth-friend-modal").classList.remove("open");
+    });
+
+    $a("auth-add-friend-btn").addEventListener("click", async () => {
+      if (!_authUser) return;
+      const rawCode = ($a("auth-add-friend-input").value || "").trim();
+      setAuthMsg("auth-friend-err", "Looking up…", true);
+      const result = await addFriend(_authUser.uid, rawCode);
+      if (result.error) {
+        setAuthMsg("auth-friend-err", result.error, false);
+      } else {
+        setAuthMsg("auth-friend-err", "✓ Added " + result.nickname + "!", true);
+        $a("auth-add-friend-input").value = "";
+        renderFriendsList();
+      }
+    });
+    $a("auth-add-friend-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-add-friend-btn").click(); });
+
+    async function renderFriendsList() {
+      const list = $a("auth-friends-list");
+      if (!list || !_authUser) return;
+      list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
+      const friends = await loadFriends(_authUser.uid);
+      if (!friends.length) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:6px 0;">No friends yet.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      friends.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "auth-friend-entry";
+        d.textContent = f.nickname || "—";
+        list.appendChild(d);
+      });
+    }
+
+    // Expose nickname getter so other game code can read it if needed
+    window.__fishNickname = () => _playerNickname;
+
+  })(); // end auth IIFE
 </script>
 </body>
 </html>
