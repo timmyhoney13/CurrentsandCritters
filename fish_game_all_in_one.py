@@ -828,12 +828,16 @@ def resolve_reactive_draw_triggers(
                 )
 
         if owner is played_by and is_game_fish_play:
-            n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
-            if n > 0:
-                draw(gs, owner, n)
-                gs.log.append(
-                    f"{owner.name} draws {n} from reactive trigger (game fish played)."
-                )
+            # Skip reactive draw if the game fish itself already draws from its main ability.
+            _main_text, _ = split_main_and_star(played_card.text)
+            _card_draws = any(k in _main_text.lower() for k in ("draw one", "draw two", "draw 2", "draw three"))
+            if not _card_draws:
+                n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
+                if n > 0:
+                    draw(gs, owner, n)
+                    gs.log.append(
+                        f"{owner.name} draws {n} from reactive trigger (game fish played)."
+                    )
 
         if owner is played_by and is_surface_play:
             n = int(owner.flags.get("trigger_draw_on_surface_play", 0))

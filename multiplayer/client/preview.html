@@ -3151,8 +3151,9 @@
     else if (n === 1) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
     else if (n >= 2) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===2);
     if (!act) { showToast("Draw not available right now.", "warn"); return; }
+    const pickUids = Array.from(poolPicks);
     pendingPoolDrawPicks.clear();
-    submitAction({ ...act, pool_pick_uids: Array.from(poolPicks) });
+    submitAction({ ...act, pool_pick_uids: pickUids });
   }
 
   function renderPool(pool, actions) {
