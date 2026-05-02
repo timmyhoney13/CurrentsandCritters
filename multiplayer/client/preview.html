@@ -1960,6 +1960,65 @@
       color: var(--text); font-size: 13px;
     }
     .auth-friend-add-row { display: flex; gap: 8px; align-items: center; }
+
+    /* ── PLAYER STATS LOBBY ───────────────────────────────────── */
+    #auth-stats-lobby {
+      position: fixed; inset: 0; z-index: 8900;
+      background: var(--bg);
+      display: none; flex-direction: column;
+      align-items: center; overflow-y: auto;
+      padding: 28px 20px 48px; gap: 16px;
+    }
+    #auth-stats-lobby.visible { display: flex; }
+    .stats-lobby-logo {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 22px; font-weight: 900; text-align: center;
+      text-shadow: 0 0 18px rgba(34,216,248,.35); letter-spacing: 1px;
+    }
+    .stats-lobby-nick {
+      font-size: 22px; font-weight: 800; color: var(--text);
+      font-family: 'Nunito', sans-serif; text-align: center;
+    }
+    .stats-lobby-fc {
+      font-size: 12px; color: var(--muted); text-align: center;
+    }
+    .stats-lobby-actions {
+      display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    .stats-section-label {
+      width: 100%; max-width: 420px;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 10px; width: 100%; max-width: 420px;
+    }
+    .stat-panel {
+      background: rgba(11,36,72,.85); border: 1px solid rgba(58,120,204,.4);
+      border-radius: 12px; padding: 13px 14px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-label {
+      font-size: 10px; color: var(--muted); font-weight: 700;
+      text-transform: uppercase; letter-spacing: .8px;
+    }
+    .stat-value {
+      font-size: 22px; font-weight: 800; color: var(--text);
+      font-family: 'Nunito', sans-serif;
+    }
+    .stats-no-games {
+      color: var(--muted); font-size: 13px; text-align: center;
+      font-style: italic; width: 100%; max-width: 420px;
+    }
+    .stats-cta-box {
+      width: 100%; max-width: 420px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .stats-join-row {
+      display: none; flex-direction: row; gap: 8px; align-items: center;
+    }
+    .stats-join-row.open { display: flex; }
   </style>
 </head>
 <body>
@@ -1978,6 +2037,7 @@
     <button id="auth-guest-btn" class="pv-btn gold full">🐠 Play as Guest</button>
     <div class="auth-divider">or</div>
     <button id="auth-signin-nav-btn" class="pv-btn full">Sign In / Create Account</button>
+    <div class="auth-err" id="auth-choose-err"></div>
   </div>
 
   <!-- Step 2a: guest nickname -->
@@ -2061,6 +2121,64 @@
     <div id="auth-friends-list" style="max-height:150px;overflow-y:auto;"></div>
     <button id="auth-friend-close" class="pv-btn full" style="margin-top:2px;">Close</button>
   </div>
+</div>
+
+<!-- ══ PLAYER STATS LOBBY ════════════════════════════════════════ -->
+<div id="auth-stats-lobby">
+
+  <div class="stats-lobby-logo">Currents &amp; Critters</div>
+  <div class="stats-lobby-nick" id="stats-lobby-nick">—</div>
+  <div class="stats-lobby-fc" id="stats-lobby-fc"></div>
+  <div class="stats-lobby-actions" id="stats-lobby-signed-actions" style="display:none;">
+    <button class="auth-pbtn" id="stats-friend-btn">👥 Friends</button>
+    <button class="auth-pbtn" id="stats-signout-btn">Sign Out</button>
+  </div>
+
+  <div class="stats-section-label">Your Stats</div>
+
+  <div class="stats-no-games" id="stats-no-games" style="display:none;">No games completed yet.</div>
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-panel">
+      <div class="stat-label">Most Played Strategy</div>
+      <div class="stat-value" id="stat-strategy">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Leaderboard Ranking</div>
+      <div class="stat-value" id="stat-rank">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Highest Score</div>
+      <div class="stat-value" id="stat-top-score">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Normal Wins</div>
+      <div class="stat-value" id="stat-normal-wins">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Competitive Wins</div>
+      <div class="stat-value" id="stat-comp-wins">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Completed Games</div>
+      <div class="stat-value" id="stat-completed">—</div>
+    </div>
+  </div>
+
+  <div class="stats-cta-box">
+    <button class="pv-btn full gold" id="stats-create-btn">🌊 Create a Current</button>
+    <button class="pv-btn full" id="stats-join-toggle-btn">🎮 Join a Current</button>
+    <div class="stats-join-row" id="stats-join-row">
+      <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
+        maxlength="5" style="flex:1;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
+    </div>
+    <button class="pv-btn full" id="stats-comp-btn"
+      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border:1px solid rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
+      ⚔️ Competitive 1v1
+    </button>
+  </div>
+
 </div>
 
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
@@ -6202,24 +6320,77 @@
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
-      // Pre-fill every name input in the lobby
+      // Pre-fill every name input so they're ready when the player enters the game lobby
       ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
         const el = $a(id); if (el) el.value = _playerNickname;
       });
-      $a("auth-loading-screen").classList.add("hidden");
-      $a("auth-screen").classList.add("hidden");
-      if (_authUser && _playerNickname && _friendCode) {
+      // Pre-populate in-lobby profile bar for when the player enters game lobby
+      if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
         if (bar) {
           bar.style.display = "flex";
           const nameEl = $a("auth-profile-name-text");
           const fcEl   = $a("auth-profile-fc-text");
           if (nameEl) nameEl.textContent = _playerNickname;
-          if (fcEl)   fcEl.textContent   = "#" + _friendCode;
+          if (fcEl)   fcEl.textContent   = _friendCode ? "#" + _friendCode : "";
           const fcDisplay = $a("auth-my-fc-display");
-          if (fcDisplay) fcDisplay.textContent = _playerNickname + "#" + _friendCode;
+          if (fcDisplay) fcDisplay.textContent = _playerNickname + (_friendCode ? "#" + _friendCode : "");
         }
       }
+      $a("auth-loading-screen").classList.add("hidden");
+      $a("auth-screen").classList.add("hidden");
+      showStatsLobby();
+    }
+
+    // ── Stats lobby helpers ───────────────────────────────────────
+    function showStatsLobby() {
+      // If the player arrived via an invite link, skip the stats lobby entirely
+      if (typeof roomFromUrl === "function" && roomFromUrl()) {
+        enterGameLobby(); return;
+      }
+      const el = $a("auth-stats-lobby");
+      if (!el) { return; }
+      el.classList.add("visible");
+      // Populate header
+      const nickEl = $a("stats-lobby-nick");
+      const fcEl   = $a("stats-lobby-fc");
+      if (nickEl) nickEl.textContent = _playerNickname || "Guest";
+      if (fcEl)   fcEl.textContent   = _friendCode ? "Friend code: " + _playerNickname + "#" + _friendCode : "";
+      // Show sign-in actions only for signed-in users with a friend code
+      const signedEl = $a("stats-lobby-signed-actions");
+      if (signedEl) signedEl.style.display = (_authUser && _friendCode) ? "flex" : "none";
+      // Load stats
+      if (_authUser) {
+        loadAndRenderStats(_authUser.uid);
+      } else {
+        renderStats(null);
+      }
+    }
+
+    async function loadAndRenderStats(uid) {
+      const profile = await loadProfile(uid);
+      renderStats(profile && profile.stats ? profile.stats : null);
+    }
+
+    function renderStats(stats) {
+      const completed = stats && stats.completed_games > 0;
+      const noGamesEl = $a("stats-no-games");
+      const gridEl    = $a("stats-grid");
+      if (noGamesEl) noGamesEl.style.display = completed ? "none" : "";
+      if (gridEl)    gridEl.style.display    = completed ? ""     : "none";
+      if (!completed) return;
+      const s = (id, val) => { const el = $a(id); if (el) el.textContent = val != null ? String(val) : "—"; };
+      s("stat-strategy",    stats.most_played_strategy || "—");
+      s("stat-rank",        stats.leaderboard_rank     || "—");
+      s("stat-top-score",   stats.highest_score        != null ? stats.highest_score   : "—");
+      s("stat-normal-wins", stats.normal_wins          != null ? stats.normal_wins     : "—");
+      s("stat-comp-wins",   stats.competitive_wins     != null ? stats.competitive_wins : "—");
+      s("stat-completed",   stats.completed_games      != null ? stats.completed_games  : "—");
+    }
+
+    function enterGameLobby() {
+      const el = $a("auth-stats-lobby");
+      if (el) el.classList.remove("visible");
     }
 
     // ── Startup ──────────────────────────────────────────────────
@@ -6227,13 +6398,10 @@
       const guestNick = sessionStorage.getItem("fish_guest_nick") || "";
 
       if (!_auth) {
-        // Firebase not configured — guest-only mode
+        // Firebase not configured — guest-only mode, but still show the choose screen
         $a("auth-loading-screen").classList.add("hidden");
         if (guestNick) { revealLobby(guestNick); return; }
-        // No sign-in option without Firebase
-        const signinNavBtn = $a("auth-signin-nav-btn");
-        if (signinNavBtn) signinNavBtn.style.display = "none";
-        showStep("auth-step-guest");
+        showStep("auth-step-choose");
         return;
       }
 
@@ -6282,7 +6450,14 @@
 
     // ── Navigate to sign-in ──────────────────────────────────────
     const signinNavBtn = $a("auth-signin-nav-btn");
-    if (signinNavBtn) signinNavBtn.addEventListener("click", () => showStep("auth-step-signin"));
+    if (signinNavBtn) signinNavBtn.addEventListener("click", () => {
+      if (!_auth) {
+        setAuthMsg("auth-choose-err", "Sign-in is not yet configured for this server.", false);
+        return;
+      }
+      setAuthMsg("auth-choose-err", "", false);
+      showStep("auth-step-signin");
+    });
 
     $a("auth-signin-back").addEventListener("click", () => showStep("auth-step-choose"));
     $a("auth-signin-as-guest").addEventListener("click", () => showStep("auth-step-guest"));
@@ -6371,7 +6546,7 @@
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
-    // ── Sign out ─────────────────────────────────────────────────
+    // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
       sessionStorage.removeItem("fish_guest_nick");
       _playerNickname = ""; _friendCode = "";
@@ -6380,6 +6555,62 @@
       $a("auth-profile-bar").style.display = "none";
       showStep("auth-step-choose");
     });
+
+    // ── Stats lobby buttons ───────────────────────────────────────
+    $a("stats-create-btn").addEventListener("click", () => {
+      enterGameLobby();
+      const box = $a("pv-create-box");
+      if (box) setTimeout(() => box.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+    });
+
+    $a("stats-join-toggle-btn").addEventListener("click", () => {
+      const row = $a("stats-join-row");
+      if (!row) return;
+      row.classList.toggle("open");
+      if (row.classList.contains("open")) {
+        const inp = $a("stats-join-code"); if (inp) inp.focus();
+      }
+    });
+
+    $a("stats-join-go-btn").addEventListener("click", () => {
+      const code = ($a("stats-join-code").value || "").trim().toUpperCase();
+      if (code.length < 3) { $a("stats-join-code").focus(); return; }
+      const codeInput = $a("pv-join-code-home");
+      if (codeInput) codeInput.value = code;
+      enterGameLobby();
+      const checkBtn = $a("pv-check-room-btn");
+      if (checkBtn) checkBtn.click();
+    });
+
+    $a("stats-join-code").addEventListener("keydown", e => {
+      if (e.key === "Enter") $a("stats-join-go-btn").click();
+    });
+
+    $a("stats-comp-btn").addEventListener("click", () => {
+      enterGameLobby();
+      const btn = $a("pv-comp-open-btn"); if (btn) btn.click();
+    });
+
+    const statsSignoutBtn = $a("stats-signout-btn");
+    if (statsSignoutBtn) {
+      statsSignoutBtn.addEventListener("click", async () => {
+        sessionStorage.removeItem("fish_guest_nick");
+        _playerNickname = ""; _friendCode = "";
+        if (_auth) { try { await _auth.signOut(); } catch {} }
+        _authUser = null;
+        enterGameLobby();
+        $a("auth-profile-bar").style.display = "none";
+        showStep("auth-step-choose");
+      });
+    }
+
+    const statsFriendBtn = $a("stats-friend-btn");
+    if (statsFriendBtn) {
+      statsFriendBtn.addEventListener("click", () => {
+        $a("auth-friend-modal").classList.add("open");
+        if (_authUser && _db) renderFriendsList();
+      });
+    }
 
     // ── Friends modal ────────────────────────────────────────────
     $a("auth-friend-btn").addEventListener("click", async () => {
