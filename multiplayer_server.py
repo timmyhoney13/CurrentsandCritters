@@ -1944,6 +1944,13 @@ class GameRoom:
                         self.status_note = "Invalid action submitted. Try again."
                         self._bump_locked()
                     continue
+                # Discard actions end the discard phase; clear the stale cache so the
+                # client's red banner disappears on the next poll rather than persisting
+                # until the player's next turn recalculates legal actions.
+                if chosen.kind in {"discard_to_pool", "discard_batch_to_pool"}:
+                    with self.cond:
+                        self.legal_actions_by_seat.pop(seat_index, None)
+                        self._bump_locked()
                 return chosen
 
         return policy
