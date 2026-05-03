@@ -6596,7 +6596,7 @@
       if (avatarEl) avatarEl.textContent = nick.charAt(0).toUpperCase();
       // Show signed-in actions only for signed-in users
       const signedEl = $a("stats-lobby-signed-actions");
-      if (signedEl) signedEl.style.display = (_authUser && _friendCode) ? "flex" : "none";
+      if (signedEl) signedEl.style.display = (_authUser && _friendCode) ? "grid" : "none";
       // Settings nick display
       const settingsNick = $a("settings-current-nick");
       if (settingsNick) settingsNick.textContent = nick;
