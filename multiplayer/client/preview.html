@@ -1958,58 +1958,155 @@
       background: var(--bg);
       display: none; flex-direction: column;
       align-items: center; overflow-y: auto;
-      padding: 28px 20px 48px; gap: 16px;
+      padding: 28px 20px 60px; gap: 14px;
     }
     #auth-stats-lobby.visible { display: flex; }
-    .stats-lobby-logo {
+    .stats-logo {
       font-family: 'Cinzel', serif; color: var(--cyan);
       font-size: 22px; font-weight: 900; text-align: center;
       text-shadow: 0 0 18px rgba(34,216,248,.35); letter-spacing: 1px;
     }
+    .stats-player-header {
+      display: flex; align-items: center; gap: 14px;
+      width: 100%; max-width: 420px;
+      background: rgba(11,36,72,.85); border: 1px solid rgba(58,120,204,.4);
+      border-radius: 14px; padding: 14px 16px;
+    }
+    .stats-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, #1a5276, #0e3454);
+      border: 2px solid rgba(34,216,248,.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900; color: var(--cyan);
+      font-family: 'Cinzel', serif; flex-shrink: 0;
+    }
+    .stats-player-info { display: flex; flex-direction: column; gap: 3px; }
     .stats-lobby-nick {
-      font-size: 22px; font-weight: 800; color: var(--text);
-      font-family: 'Nunito', sans-serif; text-align: center;
+      font-size: 20px; font-weight: 800; color: var(--text);
+      font-family: 'Nunito', sans-serif;
     }
-    .stats-lobby-fc {
-      font-size: 12px; color: var(--muted); text-align: center;
-    }
+    .stats-lobby-fc { font-size: 11px; color: var(--muted); }
     .stats-lobby-actions {
       display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
     }
+    .stats-empty-state {
+      width: 100%; max-width: 420px;
+      text-align: center; color: var(--muted); font-size: 13px;
+      padding: 18px; background: rgba(11,36,72,.7);
+      border: 1px solid rgba(58,120,204,.25); border-radius: 12px;
+    }
+    .stats-empty-icon { font-size: 28px; margin-bottom: 6px; }
     .stats-section-label {
       width: 100%; max-width: 420px;
       font-size: 11px; font-weight: 700; color: var(--muted);
       text-transform: uppercase; letter-spacing: 1px;
     }
+    .stats-mode-block { width: 100%; max-width: 420px; }
+    .stats-mode-header {
+      font-size: 11px; font-weight: 700; letter-spacing: .8px;
+      text-transform: uppercase; margin-bottom: 8px; padding: 0 2px;
+    }
+    .stats-mode-header.normal { color: var(--cyan); }
+    .stats-mode-header.comp   { color: var(--gold); }
     .stats-grid {
       display: grid; grid-template-columns: repeat(2, 1fr);
       gap: 10px; width: 100%; max-width: 420px;
     }
+    .stats-grid.three-col { grid-template-columns: repeat(3, 1fr); }
     .stat-panel {
       background: rgba(11,36,72,.85); border: 1px solid rgba(58,120,204,.4);
-      border-radius: 12px; padding: 13px 14px;
-      display: flex; flex-direction: column; gap: 4px;
+      border-radius: 12px; padding: 11px 12px;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .stat-panel.comp-panel {
+      background: rgba(42,28,8,.85); border-color: rgba(240,200,64,.25);
     }
     .stat-label {
-      font-size: 10px; color: var(--muted); font-weight: 700;
+      font-size: 9px; color: var(--muted); font-weight: 700;
       text-transform: uppercase; letter-spacing: .8px;
     }
     .stat-value {
       font-size: 22px; font-weight: 800; color: var(--text);
       font-family: 'Nunito', sans-serif;
     }
-    .stats-no-games {
-      color: var(--muted); font-size: 13px; text-align: center;
-      font-style: italic; width: 100%; max-width: 420px;
-    }
-    .stats-cta-box {
+    .stat-value.rank-val { font-size: 16px; }
+    .stat-value.strategy-val { font-size: 13px; font-weight: 700; }
+    .stats-friends-mini {
       width: 100%; max-width: 420px;
-      display: flex; flex-direction: column; gap: 10px;
+      background: rgba(11,36,72,.7); border: 1px solid rgba(58,120,204,.3);
+      border-radius: 12px; padding: 12px 14px; display: flex;
+      flex-direction: column; gap: 8px;
     }
+    .stats-friends-mini .stats-section-label { width: auto; }
+    .stats-friend-entry-mini {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--text); padding: 4px 0;
+      border-bottom: 1px solid rgba(58,120,204,.12);
+    }
+    .stats-friend-entry-mini:last-child { border-bottom: none; }
+    .stats-friend-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .stats-nav-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 10px; width: 100%; max-width: 420px;
+    }
+    .stats-nav-btn {
+      padding: 12px 8px; border-radius: 10px; font-size: 13px;
+      font-weight: 700; cursor: pointer; border: 1px solid rgba(58,120,204,.4);
+      background: rgba(11,36,72,.85); color: var(--text);
+      transition: background .15s; font-family: 'Nunito', sans-serif;
+    }
+    .stats-nav-btn.primary {
+      background: linear-gradient(135deg, #0a4a8c, #0c3060);
+      border-color: rgba(34,216,248,.45); color: var(--cyan);
+    }
+    .stats-nav-btn:hover { background: rgba(34,72,140,.7); }
+    .stats-nav-btn.primary:hover { background: linear-gradient(135deg,#0e5aa0,#0f3a70); }
     .stats-join-row {
       display: none; flex-direction: row; gap: 8px; align-items: center;
+      width: 100%; max-width: 420px;
     }
     .stats-join-row.open { display: flex; }
+
+    /* ── OVERLAY MODALS (Settings, Leaderboard) ───────────────── */
+    .overlay-modal {
+      position: fixed; inset: 0; z-index: 9100;
+      background: rgba(0,0,0,.72); display: none;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .overlay-modal.open { display: flex; }
+    .modal-box {
+      background: rgba(11,36,72,.97); border: 1px solid rgba(58,120,204,.55);
+      border-radius: 14px; padding: 20px 18px; width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .modal-title {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 16px; text-align: center; font-weight: 700;
+    }
+    .settings-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 0; border-bottom: 1px solid rgba(58,120,204,.18);
+    }
+    .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
+    .settings-row-val { color: var(--text); font-size: 13px; }
+    .lb-tabs { display: flex; gap: 6px; }
+    .lb-tab {
+      flex: 1; padding: 7px; border-radius: 8px; font-size: 12px;
+      font-weight: 700; cursor: pointer; border: 1px solid rgba(58,120,204,.4);
+      background: rgba(11,36,72,.7); color: var(--muted); transition: all .15s;
+    }
+    .lb-tab.active { background: rgba(34,72,140,.6); color: var(--cyan); border-color: var(--cyan); }
+    .lb-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 4px; border-bottom: 1px solid rgba(58,120,204,.12);
+      font-size: 13px;
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank { width: 24px; color: var(--muted); font-size: 12px; flex-shrink: 0; }
+    .lb-name { flex: 1; color: var(--text); font-weight: 700; }
+    .lb-score { color: var(--cyan); font-weight: 800; font-family: 'Nunito', sans-serif; }
+    .lb-you { color: var(--gold) !important; }
   </style>
 </head>
 <body>
@@ -2027,6 +2124,15 @@
     <div class="auth-subtitle">Play as a guest with just a nickname — no account needed.<br>Sign in to track stats, friends, and leaderboard history.</div>
     <button id="auth-guest-btn" class="pv-btn gold full">🐠 Play as Guest</button>
     <div class="auth-divider">or</div>
+    <button id="auth-choose-google-btn" class="auth-btn-google">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
     <button id="auth-signin-nav-btn" class="pv-btn full">Sign In / Create Account</button>
     <div class="auth-err" id="auth-choose-err"></div>
   </div>
@@ -2114,56 +2220,149 @@
   </div>
 </div>
 
+<!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════ -->
+<div id="settings-modal" class="overlay-modal">
+  <div class="modal-box">
+    <div class="modal-title">⚙️ Settings</div>
+    <div class="settings-row">
+      <div class="settings-row-label">Account</div>
+      <div class="settings-row-val" id="settings-account-status">Guest</div>
+    </div>
+    <div class="settings-row" id="settings-nick-row">
+      <div class="settings-row-label">Nickname</div>
+      <div style="display:flex;align-items:center;gap:8px;flex:1;">
+        <span id="settings-current-nick" style="color:var(--cyan);font-weight:700;">—</span>
+        <button class="auth-pbtn" id="settings-edit-nick-btn">Edit</button>
+      </div>
+    </div>
+    <div id="settings-nick-form" style="display:none;flex-direction:column;gap:8px;">
+      <input class="pv-input" id="settings-nick-input" placeholder="New nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+      <div class="auth-err" id="settings-nick-err"></div>
+      <button class="pv-btn gold full" id="settings-nick-save-btn">Save Nickname →</button>
+      <span class="auth-link" id="settings-nick-cancel">Cancel</span>
+    </div>
+    <button class="pv-btn full" id="settings-signout-btn"
+      style="background:rgba(180,40,40,.15);border-color:rgba(180,40,40,.4);color:#f08080;margin-top:4px;">
+      Sign Out
+    </button>
+    <button class="pv-btn full" id="settings-close-btn">Close</button>
+  </div>
+</div>
+
+<!-- ══ LEADERBOARD MODAL ════════════════════════════════════════════ -->
+<div id="leaderboard-modal" class="overlay-modal">
+  <div class="modal-box" style="max-width:400px;">
+    <div class="modal-title">🏆 Leaderboard</div>
+    <div class="lb-tabs">
+      <button class="lb-tab active" id="lb-tab-normal" data-mode="normal">Normal Play</button>
+      <button class="lb-tab" id="lb-tab-comp" data-mode="comp">Competitive</button>
+    </div>
+    <div id="lb-list" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div>
+    <div class="auth-err" id="lb-err"></div>
+    <button class="pv-btn full" id="lb-close-btn" style="margin-top:8px;">Close</button>
+  </div>
+</div>
+
 <!-- ══ PLAYER STATS LOBBY ════════════════════════════════════════ -->
 <div id="auth-stats-lobby">
+  <div class="stats-logo">Currents &amp; Critters</div>
 
-  <div class="stats-lobby-logo">Currents &amp; Critters</div>
-  <div class="stats-lobby-nick" id="stats-lobby-nick">—</div>
-  <div class="stats-lobby-fc" id="stats-lobby-fc"></div>
+  <!-- Player header -->
+  <div class="stats-player-header">
+    <div class="stats-avatar" id="stats-avatar-letter">?</div>
+    <div class="stats-player-info">
+      <div class="stats-lobby-nick" id="stats-lobby-nick">—</div>
+      <div class="stats-lobby-fc" id="stats-lobby-fc"></div>
+    </div>
+  </div>
+
+  <!-- Signed-in action row (Friends + Sign Out, shown only for signed-in users) -->
   <div class="stats-lobby-actions" id="stats-lobby-signed-actions" style="display:none;">
     <button class="auth-pbtn" id="stats-friend-btn">👥 Friends</button>
     <button class="auth-pbtn" id="stats-signout-btn">Sign Out</button>
   </div>
 
-  <div class="stats-section-label">Your Stats</div>
+  <!-- No games state -->
+  <div class="stats-empty-state" id="stats-no-games">
+    <div class="stats-empty-icon">🐟</div>
+    <div>No games completed yet.</div>
+    <div style="font-size:11px;margin-top:4px;opacity:.7;">Play your first game to start tracking stats.</div>
+  </div>
 
-  <div class="stats-no-games" id="stats-no-games" style="display:none;">No games completed yet.</div>
-  <div class="stats-grid" id="stats-grid">
-    <div class="stat-panel">
-      <div class="stat-label">Most Played Strategy</div>
-      <div class="stat-value" id="stat-strategy">—</div>
-    </div>
-    <div class="stat-panel">
-      <div class="stat-label">Leaderboard Ranking</div>
-      <div class="stat-value" id="stat-rank">—</div>
-    </div>
-    <div class="stat-panel">
-      <div class="stat-label">Highest Score</div>
-      <div class="stat-value" id="stat-top-score">—</div>
-    </div>
-    <div class="stat-panel">
-      <div class="stat-label">Normal Wins</div>
-      <div class="stat-value" id="stat-normal-wins">—</div>
-    </div>
-    <div class="stat-panel">
-      <div class="stat-label">Competitive Wins</div>
-      <div class="stat-value" id="stat-comp-wins">—</div>
-    </div>
-    <div class="stat-panel">
-      <div class="stat-label">Completed Games</div>
-      <div class="stat-value" id="stat-completed">—</div>
+  <!-- Normal Play stats -->
+  <div class="stats-mode-block" id="stats-normal-block" style="display:none;">
+    <div class="stats-mode-header normal">🎮 Normal Play</div>
+    <div class="stats-grid three-col">
+      <div class="stat-panel">
+        <div class="stat-label">Top Score</div>
+        <div class="stat-value" id="stat-normal-top">—</div>
+      </div>
+      <div class="stat-panel">
+        <div class="stat-label">Rank</div>
+        <div class="stat-value rank-val" id="stat-normal-rank">—</div>
+      </div>
+      <div class="stat-panel">
+        <div class="stat-label">Wins</div>
+        <div class="stat-value" id="stat-normal-wins">—</div>
+      </div>
     </div>
   </div>
 
-  <div class="stats-cta-box">
-    <button class="pv-btn full gold" id="stats-create-btn">🌊 Create a Current</button>
-    <button class="pv-btn full" id="stats-join-toggle-btn">🎮 Join a Current</button>
-    <div class="stats-join-row" id="stats-join-row">
-      <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
-        maxlength="5" style="flex:1;text-transform:uppercase;"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-      <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
+  <!-- Competitive stats -->
+  <div class="stats-mode-block" id="stats-comp-block" style="display:none;">
+    <div class="stats-mode-header comp">⚔️ Competitive</div>
+    <div class="stats-grid three-col">
+      <div class="stat-panel comp-panel">
+        <div class="stat-label">Top Score</div>
+        <div class="stat-value" id="stat-comp-top">—</div>
+      </div>
+      <div class="stat-panel comp-panel">
+        <div class="stat-label">Rank</div>
+        <div class="stat-value rank-val" id="stat-comp-rank">—</div>
+      </div>
+      <div class="stat-panel comp-panel">
+        <div class="stat-label">Wins</div>
+        <div class="stat-value" id="stat-comp-wins">—</div>
+      </div>
     </div>
+  </div>
+
+  <!-- Summary stats row -->
+  <div class="stats-grid" id="stats-summary-grid" style="display:none;">
+    <div class="stat-panel">
+      <div class="stat-label">Total Games</div>
+      <div class="stat-value" id="stat-completed">—</div>
+    </div>
+    <div class="stat-panel">
+      <div class="stat-label">Top Strategy</div>
+      <div class="stat-value strategy-val" id="stat-strategy">—</div>
+    </div>
+  </div>
+
+  <!-- Friends mini preview (signed-in only) -->
+  <div class="stats-friends-mini" id="stats-friends-mini" style="display:none;">
+    <div class="stats-section-label">Friends</div>
+    <div id="stats-friends-preview"></div>
+  </div>
+
+  <!-- Nav buttons -->
+  <div class="stats-nav-grid">
+    <button class="stats-nav-btn primary" id="stats-create-btn">🌊 Create</button>
+    <button class="stats-nav-btn" id="stats-join-toggle-btn">🎮 Join</button>
+    <button class="stats-nav-btn" id="stats-leaderboard-btn">🏆 Leaderboard</button>
+    <button class="stats-nav-btn" id="stats-settings-btn">⚙️ Settings</button>
+  </div>
+
+  <!-- Join row (inline, hidden until join is toggled) -->
+  <div class="stats-join-row" id="stats-join-row">
+    <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
+      maxlength="5" style="flex:1;text-transform:uppercase;"
+      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+    <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
+  </div>
+
+  <!-- Competitive 1v1 button -->
+  <div style="width:100%;max-width:420px;">
     <button class="pv-btn full" id="stats-comp-btn"
       style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border:1px solid rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
       ⚔️ Competitive 1v1
@@ -6041,9 +6240,46 @@
 
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
+  let _lastSavedWinner = null;
+  async function saveGameStats(winner, finalScores) {
+    const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+    const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+    const myNick   = typeof window.__fishNickname === "function" ? window.__fishNickname() : "";
+    if (!authUser || !db || !winner) return;
+    if (winner === _lastSavedWinner) return; // already saved this game result
+    const myEntry = (finalScores || []).find(p => p.name === myNick);
+    if (!myEntry) return; // player not in this game
+    _lastSavedWinner = winner;
+    const myScore  = Number(myEntry.score || 0);
+    const isWinner = (winner === myNick);
+    const isComp   = typeof compMode !== "undefined" && compMode;
+    try {
+      const docRef = db.collection("users").doc(authUser.uid);
+      const snap   = await docRef.get();
+      const cStats = (snap.data() || {}).stats || {};
+      const updates = {
+        "stats.completed_games": firebase.firestore.FieldValue.increment(1),
+      };
+      if (isWinner) {
+        if (isComp) updates["stats.competitive_wins"] = firebase.firestore.FieldValue.increment(1);
+        else        updates["stats.normal_wins"]       = firebase.firestore.FieldValue.increment(1);
+      }
+      // Update high scores (only if new score is higher)
+      const highNormal = cStats.highest_score_normal || 0;
+      const highComp   = cStats.highest_score_competitive || 0;
+      const highOverall= cStats.highest_score || 0;
+      if (!isComp && myScore > highNormal)   updates["stats.highest_score_normal"] = myScore;
+      if (isComp  && myScore > highComp)     updates["stats.highest_score_competitive"] = myScore;
+      if (myScore > highOverall)             updates["stats.highest_score"] = myScore;
+      await docRef.update(updates);
+    } catch(e) {
+      console.warn("Could not save game stats:", e);
+    }
+  }
   function renderEndGame(winner, finalScores) {
     const overlay = document.getElementById("pv-endgame-overlay");
-    if (!winner) { _endgameDismissed = false; overlay.classList.remove("open"); return; }
+    if (!winner) { _endgameDismissed = false; overlay.classList.remove("open"); _lastSavedWinner = null; return; }
+    saveGameStats(winner, finalScores);
     if (_endgameDismissed) { overlay.classList.remove("open"); return; }
     overlay.classList.add("open");
     document.getElementById("pv-endgame-winner").textContent = `Winner: ${winner}`;
@@ -6344,7 +6580,6 @@
 
     // ── Stats lobby helpers ───────────────────────────────────────
     function showStatsLobby() {
-      // If the player arrived via an invite link, skip the stats lobby entirely
       if (typeof roomFromUrl === "function" && roomFromUrl()) {
         enterGameLobby(); return;
       }
@@ -6352,16 +6587,29 @@
       if (!el) { return; }
       el.classList.add("visible");
       // Populate header
-      const nickEl = $a("stats-lobby-nick");
-      const fcEl   = $a("stats-lobby-fc");
-      if (nickEl) nickEl.textContent = _playerNickname || "Guest";
-      if (fcEl)   fcEl.textContent   = _friendCode ? "Friend code: " + _playerNickname + "#" + _friendCode : "";
-      // Show sign-in actions only for signed-in users with a friend code
+      const nickEl  = $a("stats-lobby-nick");
+      const fcEl    = $a("stats-lobby-fc");
+      const avatarEl= $a("stats-avatar-letter");
+      const nick    = _playerNickname || "Guest";
+      if (nickEl)   nickEl.textContent  = nick;
+      if (fcEl)     fcEl.textContent    = _friendCode ? "Friend code: " + nick + "#" + _friendCode : "";
+      if (avatarEl) avatarEl.textContent = nick.charAt(0).toUpperCase();
+      // Show signed-in actions only for signed-in users
       const signedEl = $a("stats-lobby-signed-actions");
       if (signedEl) signedEl.style.display = (_authUser && _friendCode) ? "flex" : "none";
+      // Settings nick display
+      const settingsNick = $a("settings-current-nick");
+      if (settingsNick) settingsNick.textContent = nick;
+      const settingsStatus = $a("settings-account-status");
+      if (settingsStatus) {
+        settingsStatus.textContent = _authUser
+          ? (_authUser.providerData?.[0]?.providerId === "google.com" ? "Google account" : "Email account")
+          : "Guest session";
+      }
       // Load stats
       if (_authUser) {
         loadAndRenderStats(_authUser.uid);
+        loadFriendsMini(_authUser.uid);
       } else {
         renderStats(null);
       }
@@ -6373,24 +6621,97 @@
     }
 
     function renderStats(stats) {
-      const completed = stats && stats.completed_games > 0;
+      const completed = stats && (stats.completed_games || 0) > 0;
+      // Show/hide empty state and stat blocks
       const noGamesEl = $a("stats-no-games");
-      const gridEl    = $a("stats-grid");
-      if (noGamesEl) noGamesEl.style.display = completed ? "none" : "";
-      if (gridEl)    gridEl.style.display    = completed ? ""     : "none";
+      const normalBlock = $a("stats-normal-block");
+      const compBlock   = $a("stats-comp-block");
+      const summaryGrid = $a("stats-summary-grid");
+      if (noGamesEl)    noGamesEl.style.display    = completed ? "none" : "";
+      if (normalBlock)  normalBlock.style.display  = completed ? ""     : "none";
+      if (compBlock)    compBlock.style.display    = completed ? ""     : "none";
+      if (summaryGrid)  summaryGrid.style.display  = completed ? ""     : "none";
       if (!completed) return;
-      const s = (id, val) => { const el = $a(id); if (el) el.textContent = val != null ? String(val) : "—"; };
-      s("stat-strategy",    stats.most_played_strategy || "—");
-      s("stat-rank",        stats.leaderboard_rank     || "—");
-      s("stat-top-score",   stats.highest_score        != null ? stats.highest_score   : "—");
-      s("stat-normal-wins", stats.normal_wins          != null ? stats.normal_wins     : "—");
-      s("stat-comp-wins",   stats.competitive_wins     != null ? stats.competitive_wins : "—");
-      s("stat-completed",   stats.completed_games      != null ? stats.completed_games  : "—");
+      const s = (id, val) => { const el = $a(id); if (el) el.textContent = (val != null && val !== "" && val !== 0) ? String(val) : "—"; };
+      s("stat-normal-top",   stats.highest_score_normal  ?? stats.highest_score ?? null);
+      s("stat-normal-rank",  stats.rank_normal            || null);
+      s("stat-normal-wins",  stats.normal_wins            ?? null);
+      s("stat-comp-top",     stats.highest_score_competitive ?? null);
+      s("stat-comp-rank",    stats.rank_competitive       || null);
+      s("stat-comp-wins",    stats.competitive_wins       ?? null);
+      s("stat-completed",    stats.completed_games        ?? null);
+      s("stat-strategy",     stats.most_played_strategy   || null);
+    }
+
+    async function loadFriendsMini(uid) {
+      const miniBox     = $a("stats-friends-mini");
+      const previewEl   = $a("stats-friends-preview");
+      if (!miniBox || !previewEl) return;
+      const friends = await loadFriends(uid);
+      miniBox.style.display = "flex";
+      if (!friends.length) {
+        previewEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">No friends added yet.</div>';
+        return;
+      }
+      previewEl.innerHTML = "";
+      friends.slice(0, 4).forEach(f => {
+        const d = document.createElement("div");
+        d.className = "stats-friend-entry-mini";
+        d.innerHTML = `<span class="stats-friend-dot"></span><span>${f.nickname || "—"}</span>`;
+        previewEl.appendChild(d);
+      });
+      if (friends.length > 4) {
+        const more = document.createElement("div");
+        more.style.cssText = "color:var(--muted);font-size:11px;text-align:right;padding-top:2px;";
+        more.textContent = `+${friends.length - 4} more`;
+        previewEl.appendChild(more);
+      }
     }
 
     function enterGameLobby() {
       const el = $a("auth-stats-lobby");
       if (el) el.classList.remove("visible");
+    }
+
+    let _lbMode = "normal";
+    async function loadLeaderboard(mode) {
+      _lbMode = mode || "normal";
+      const listEl = $a("lb-list");
+      const errEl  = $a("lb-err");
+      if (!listEl) return;
+      if (!_db) { if (errEl) errEl.textContent = "Not connected."; return; }
+      listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">Loading…</div>';
+      if (errEl) errEl.textContent = "";
+      try {
+        const field = _lbMode === "comp" ? "stats.highest_score_competitive" : "stats.highest_score_normal";
+        const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get();
+        if (snap.empty) {
+          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No ranked players yet.</div>';
+          return;
+        }
+        listEl.innerHTML = "";
+        snap.docs.forEach((doc, i) => {
+          const d    = doc.data();
+          const nick = d.nickname || "Unknown";
+          const score = _lbMode === "comp"
+            ? (d.stats?.highest_score_competitive || 0)
+            : (d.stats?.highest_score_normal || 0);
+          if (!score) return;
+          const row = document.createElement("div");
+          row.className = "lb-row";
+          const isMe = (_authUser && doc.id === _authUser.uid);
+          row.innerHTML = `
+            <span class="lb-rank">#${i+1}</span>
+            <span class="lb-name${isMe?" lb-you":""}">${nick}${isMe?" (you)":""}</span>
+            <span class="lb-score${isMe?" lb-you":""}">${score}</span>`;
+          listEl.appendChild(row);
+        });
+        if (listEl.children.length === 0) {
+          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No ranked players yet.</div>';
+        }
+      } catch(e) {
+        if (errEl) errEl.textContent = "Could not load leaderboard.";
+      }
     }
 
     // ── Startup ──────────────────────────────────────────────────
@@ -6436,6 +6757,21 @@
     $a("auth-guest-back").addEventListener("click", () => {
       if (_auth) showStep("auth-step-choose");
       // If no Firebase, stay on guest step (only option)
+    });
+
+    const chooseGoogleBtn = $a("auth-choose-google-btn");
+    if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
+      if (!_auth) {
+        setAuthMsg("auth-choose-err", "Sign-in is not yet configured for this server.", false);
+        return;
+      }
+      setAuthMsg("auth-choose-err", "", false);
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await _auth.signInWithPopup(provider);
+      } catch(e) {
+        setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
+      }
     });
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
@@ -6591,6 +6927,106 @@
       const btn = $a("pv-comp-open-btn"); if (btn) btn.click();
     });
 
+    // ── Leaderboard button ────────────────────────────────────────
+    const lbBtn = $a("stats-leaderboard-btn");
+    if (lbBtn) lbBtn.addEventListener("click", () => {
+      $a("leaderboard-modal").classList.add("open");
+      loadLeaderboard("normal");
+      $a("lb-tab-normal").classList.add("active");
+      $a("lb-tab-comp").classList.remove("active");
+    });
+    $a("lb-close-btn").addEventListener("click", () => $a("leaderboard-modal").classList.remove("open"));
+    $a("lb-tab-normal").addEventListener("click", () => {
+      $a("lb-tab-normal").classList.add("active");
+      $a("lb-tab-comp").classList.remove("active");
+      loadLeaderboard("normal");
+    });
+    $a("lb-tab-comp").addEventListener("click", () => {
+      $a("lb-tab-comp").classList.add("active");
+      $a("lb-tab-normal").classList.remove("active");
+      loadLeaderboard("comp");
+    });
+
+    // ── Settings button ───────────────────────────────────────────
+    const settingsBtn = $a("stats-settings-btn");
+    if (settingsBtn) settingsBtn.addEventListener("click", () => {
+      const nick = _playerNickname || "—";
+      const nickEl = $a("settings-current-nick");
+      if (nickEl) nickEl.textContent = nick;
+      const statusEl = $a("settings-account-status");
+      if (statusEl) statusEl.textContent = _authUser
+        ? (_authUser.providerData?.[0]?.providerId === "google.com" ? "Google account" : "Email account")
+        : "Guest session";
+      const signoutRow = $a("settings-signout-btn");
+      if (signoutRow) signoutRow.style.display = _authUser ? "" : "none";
+      const nickRow = $a("settings-nick-row");
+      if (nickRow) nickRow.style.display = _authUser ? "" : "none";
+      $a("settings-modal").classList.add("open");
+    });
+    $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
+    $a("settings-edit-nick-btn").addEventListener("click", () => {
+      const form = $a("settings-nick-form");
+      if (form) { form.style.display = "flex"; $a("settings-nick-input").focus(); }
+    });
+    $a("settings-nick-cancel").addEventListener("click", () => {
+      const form = $a("settings-nick-form");
+      if (form) form.style.display = "none";
+    });
+    $a("settings-nick-save-btn").addEventListener("click", async () => {
+      if (!_authUser) return;
+      const newNick = ($a("settings-nick-input").value || "").trim();
+      const err = validateNick(newNick);
+      if (err) { setAuthMsg("settings-nick-err", err, false); return; }
+      if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your nickname.", false); return; }
+      setAuthMsg("settings-nick-err", "Saving…", true);
+      try {
+        // Remove old friend_lookup entry
+        if (_friendCode && _playerNickname) {
+          const oldKey = _playerNickname.toLowerCase() + "_" + _friendCode;
+          await _db.collection("friend_lookup").doc(oldKey).delete();
+        }
+        // Save new nickname + new friend_lookup
+        const code = _friendCode || genFriendCode();
+        const newKey = newNick.toLowerCase() + "_" + code;
+        await _db.collection("users").doc(_authUser.uid).update({
+          nickname: newNick, nickname_lower: newNick.toLowerCase(),
+          friend_code: code,
+        });
+        await _db.collection("friend_lookup").doc(newKey).set({ uid: _authUser.uid, nickname: newNick });
+        _playerNickname = newNick;
+        _friendCode = code;
+        setAuthMsg("settings-nick-err", "✓ Nickname updated!", true);
+        // Update all name inputs
+        ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
+          const el = $a(id); if (el) el.value = newNick;
+        });
+        // Refresh stats lobby header
+        const nickEl = $a("stats-lobby-nick");
+        const avatarEl = $a("stats-avatar-letter");
+        const fcEl = $a("stats-lobby-fc");
+        const settingsNickEl = $a("settings-current-nick");
+        if (nickEl) nickEl.textContent = newNick;
+        if (avatarEl) avatarEl.textContent = newNick.charAt(0).toUpperCase();
+        if (fcEl) fcEl.textContent = code ? "Friend code: " + newNick + "#" + code : "";
+        if (settingsNickEl) settingsNickEl.textContent = newNick;
+        const form = $a("settings-nick-form");
+        if (form) form.style.display = "none";
+      } catch(e) {
+        setAuthMsg("settings-nick-err", "Could not update nickname.", false);
+      }
+    });
+    const settingsSignoutBtn = $a("settings-signout-btn");
+    if (settingsSignoutBtn) settingsSignoutBtn.addEventListener("click", async () => {
+      sessionStorage.removeItem("fish_guest_nick");
+      _playerNickname = ""; _friendCode = "";
+      if (_auth) { try { await _auth.signOut(); } catch {} }
+      _authUser = null;
+      $a("settings-modal").classList.remove("open");
+      $a("auth-stats-lobby").classList.remove("visible");
+      $a("auth-profile-bar").style.display = "none";
+      showStep("auth-step-choose");
+    });
+
     const statsSignoutBtn = $a("stats-signout-btn");
     if (statsSignoutBtn) {
       statsSignoutBtn.addEventListener("click", async () => {
@@ -6655,8 +7091,10 @@
       });
     }
 
-    // Expose nickname getter so other game code can read it if needed
-    window.__fishNickname = () => _playerNickname;
+    // Expose getters so outer game code can read auth state if needed
+    window.__fishNickname  = () => _playerNickname;
+    window.__fishAuthUser  = () => _authUser;
+    window.__fishDb        = () => _db;
 
   })(); // end auth IIFE
 </script>
