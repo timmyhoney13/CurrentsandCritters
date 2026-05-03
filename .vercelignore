@@ -11,6 +11,7 @@ live_game_viewer.html
 *.py
 *.json
 !vercel.json
+!package.json
 *.txt
 *.md
 Dockerfile
