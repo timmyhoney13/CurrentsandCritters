@@ -8,6 +8,8 @@
 !vercel.json
 !.vercelignore
 !DEPLOY_ONLINE.md
+!package.json
+!build.js
 !multiplayer_server.py
 !fish_game_all_in_one.py
 !fish_ai_brain.json

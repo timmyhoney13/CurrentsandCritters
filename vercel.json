@@ -1,6 +1,11 @@
 {
+  "buildCommand": "node build.js",
   "outputDirectory": ".",
   "headers": [
+    {
+      "source": "/firebase-config.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
     {
       "source": "/sw.js",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
