@@ -2809,6 +2809,7 @@
   let _prevTurnIdx = null;
   let _prevScore = null;
   let _myIdxGlobal = null;
+  let _prevReplayTurn = false;
 
   function buildStateUrl() {
     if (!roomId) return null;
@@ -3386,17 +3387,25 @@
       banner.textContent = `⚠ END GAME — ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
+      const isReplayTurn = Boolean(lw.is_replay_turn);
       banner.className = "my-turn";
       if (compMode) {
         const activeSeat = Number(payload.active_action_seat);
         const handNum = compMySeats.indexOf(activeSeat) + 1;
         const myName = compMySeats[0] % 2 === 0 ? compP1Name : compP2Name;
         banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
+      } else if (isReplayTurn) {
+        banner.textContent = "★ PLAY AGAIN — take another turn! ★";
       } else {
         banner.textContent = "✦  YOUR CURRENT  ✦";
       }
       endBtn.classList.add("pulse-glow");
-      if (_prevTurnIdx !== myIdx && !compMode) showToast("Your turn!", "turn");
+      if (isReplayTurn && !_prevReplayTurn) {
+        showToast("★ Play again! Take another turn.", "turn");
+      } else if (!isReplayTurn && _prevTurnIdx !== myIdx && !compMode) {
+        showToast("Your turn!", "turn");
+      }
+      _prevReplayTurn = isReplayTurn;
     } else {
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
@@ -5841,7 +5850,7 @@
     closeMenu();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
-    roomId=null; _prevTurnIdx=null; _prevScore=null;
+    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false;
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
     const compHandsSection = document.getElementById("pv-menu-comp-hands");

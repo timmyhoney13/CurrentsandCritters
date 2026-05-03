@@ -510,8 +510,9 @@ def _execute_main_pattern(
     is_human_turn = bool((ctx or {}).get("is_human_turn", False))
     turn_state = (ctx or {}).get("turn_state")
 
-    # Direct +X values.
-    for m in re.finditer(r"\+(\d+)", t):
+    # Direct +X values. Skip "+N" that are part of "+N per <type>" patterns to
+    # avoid double-counting when the per-type loop below also runs.
+    for m in re.finditer(r"\+(\d+)(?!\s+per\b)", t):
         player.score += int(m.group(1))
 
     # Register reactive draw listeners ("when ... is played") as persistent board effects.
@@ -670,6 +671,10 @@ def _execute_main_pattern(
             continue
         if "yellowfin tuna" in raw:
             count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
+            player.score += n * count
+            continue
+        if "mandarin goby" in raw:
+            count = sum(1 for c in board if c.name.lower() == "mandarin goby")
             player.score += n * count
             continue
         if "card attached" in raw:
@@ -8335,6 +8340,8 @@ def run_match(
                     live_recorder.event(f"{p.name} uses replay pickup (1 card).")
                 replay_added = consume_replay_actions(p)
                 action_budget += replay_added
+                if replay_added > 0:
+                    p.flags["_replay_turn_next"] = True
                 if verbose:
                     if replay_added == 1:
                         print(f"{p.name} gets an extra action.")

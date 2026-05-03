@@ -1866,8 +1866,10 @@ class GameRoom:
                 if replay_action is not None:
                     return replay_action
 
+                is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
                 try:
                     legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
+                    legal_payload["is_replay_turn"] = is_replay_turn
                 except Exception as exc:
                     self._record_event(f"_serialize_legal_actions error for {player.name}: {exc}")
                     legal_payload = {
@@ -1883,6 +1885,7 @@ class GameRoom:
                         "discard_excess": max(0, len(player.hand) - 10),
                         "hand_limit": 10,
                         "actions": [],
+                        "is_replay_turn": is_replay_turn,
                     }
                 with self.cond:
                     if self.phase != "running":
@@ -1900,6 +1903,8 @@ class GameRoom:
                         self.status_note = (
                             f"{player.name} has {len(player.hand)} cards — select {excess} or more to discard to the pool."
                         )
+                    elif is_replay_turn:
+                        self.status_note = f"★ Play again! {player.name} takes another turn."
                     else:
                         self.status_note = f"Waiting for action from {player.name}."
                     self._bump_locked()
