@@ -1730,9 +1730,17 @@
       background: linear-gradient(135deg, #0d6cb0, #0a5490); color: #fff;
       border: 2px solid #2a80c0; border-radius: 10px;
       padding: 10px 28px; font-size: 14px; font-weight: 800; cursor: pointer;
-      transition: transform .15s;
+      transition: transform .15s; width: 100%;
     }
     #pv-endgame-close:hover { transform: translateY(-2px); }
+    #pv-endgame-menu {
+      background: rgba(11,36,72,.7); color: var(--cyan);
+      border: 1px solid rgba(34,216,248,.4); border-radius: 10px;
+      padding: 10px 28px; font-size: 14px; font-weight: 800; cursor: pointer;
+      transition: transform .15s; width: 100%;
+    }
+    #pv-endgame-menu:hover { background: rgba(11,36,72,.95); transform: translateY(-2px); }
+    #pv-endgame-btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
 
     /* ── COMPETITIVE MODE ───────────────────────────────────────── */
     #comp-overlay {
@@ -2720,7 +2728,10 @@
     <h2>Game Over</h2>
     <div id="pv-endgame-winner"></div>
     <div id="pv-endgame-scores"></div>
-    <button id="pv-endgame-close">Continue</button>
+    <div id="pv-endgame-btn-row">
+      <button id="pv-endgame-close">View Results</button>
+      <button id="pv-endgame-menu">🏠 Go to Menu</button>
+    </div>
   </div>
 </div>
 
@@ -6045,7 +6056,7 @@
   }
 
   // ── Back / leave ───────────────────────────────────────────────
-  document.getElementById("pv-back-btn").addEventListener("click", () => {
+  function _leaveGameCleanup() {
     closeMenu();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
@@ -6062,10 +6073,33 @@
     document.getElementById("pv-endgame-overlay").classList.remove("open");
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set();
     document.getElementById("pv-game").style.display="none";
-    document.getElementById("pv-lobby").style.display="flex";
     pvLogVisible = false;
     const lf = document.getElementById("pv-log-float");
     if (lf) lf.classList.remove("open");
+  }
+
+  function returnToMenu() {
+    _leaveGameCleanup();
+    // Show the stats lobby (home menu) so the player sees their updated stats
+    const statsLobby = document.getElementById("auth-stats-lobby");
+    if (statsLobby) {
+      statsLobby.classList.add("visible");
+      // Refresh stats so the newly saved game shows up
+      if (typeof showStatsLobby === "function") showStatsLobby();
+    } else {
+      document.getElementById("pv-lobby").style.display="flex";
+    }
+  }
+
+  document.getElementById("pv-back-btn").addEventListener("click", () => {
+    // If game is finished, go to the home menu; otherwise back to the game lobby
+    const isFinished = !!(latestPayload && latestPayload.winner);
+    if (isFinished) {
+      returnToMenu();
+    } else {
+      _leaveGameCleanup();
+      document.getElementById("pv-lobby").style.display="flex";
+    }
   });
 
   // ── Dropdown menu ───────────────────────────────────────────────
@@ -6299,6 +6333,9 @@
   document.getElementById("pv-endgame-close").addEventListener("click", () => {
     _endgameDismissed = true;
     document.getElementById("pv-endgame-overlay").classList.remove("open");
+  });
+  document.getElementById("pv-endgame-menu").addEventListener("click", () => {
+    returnToMenu();
   });
 
   // ── Chat ───────────────────────────────────────────────────────
