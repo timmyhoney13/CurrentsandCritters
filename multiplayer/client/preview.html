@@ -3609,22 +3609,15 @@
 
   // ── INVITED VIEW (arrived via share link) ──────────────────────
   async function loadInvitedSeats(rid) {
-    const grid    = document.getElementById("pv-seat-grid");
-    const joinBtn = document.getElementById("pv-join-btn");
-    grid.innerHTML = '<span style="font-size:12px;color:var(--muted);">Loading seats…</span>';
-    joinBtn.disabled = true;
-    joinBtn.textContent = "Choose a seat above";
-    _selectedSeat = null;
     const data = await fetchSeats(rid);
     if (!data) {
-      grid.innerHTML = '<span style="font-size:12px;color:var(--red);">Room not found. Ask the host to re-share the invite link.</span>';
-      showToast("Room not found — ask the host to share again.", "err");
+      showToast("Room not found — ask the host to re-share the invite link.", "err");
       return;
     }
-    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeat = i; });
     if (data.seatObjs.every(s => s.claimed_name)) {
       showToast("All seats are taken in this room.", "warn");
     }
+    openSeatPickerModal(rid, data.seatObjs);
   }
 
   document.getElementById("pv-join-btn").addEventListener("click", async () => {
@@ -3638,31 +3631,18 @@
     await doJoin(rid, name, _selectedSeat, btn);
   });
 
-  // ── HOME VIEW (manual join with code input) ────────────────────
+  // ── Manual code join ──────────────────────────────────────────
   async function checkRoomSeats() {
-    const rid = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
-    if (!rid) { lobbyStatus("Enter a valid 5-letter room code first.", true); return; }
-    roomId = null;
-
-    const checkBtn = document.getElementById("pv-check-room-btn");
-    checkBtn.disabled = true;
-    checkBtn.textContent = "Checking…";
-    lobbyStatus("", false);
+    const codeEl = document.getElementById("pv-join-code-home");
+    const rid = normalizeRoomId((codeEl ? codeEl.value : "").trim());
+    if (!rid) { showToast("Enter a valid room code first.", "err"); return; }
 
     const data = await fetchSeats(rid);
-    checkBtn.disabled = false;
-    checkBtn.textContent = "Enter Current →";
-
     if (!data) {
-      lobbyStatus("Room not found — check the code and try again.", true);
+      showToast("Room not found — check the code and try again.", "err");
       return;
     }
-
-    _selectedSeatHome = null;
-    const grid    = document.getElementById("pv-seat-grid-home");
-    const joinBtn = document.getElementById("pv-join-btn-home");
-    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeatHome = i; });
-    document.getElementById("pv-seat-picker-home").style.display = "flex";
+    openSeatPickerModal(rid, data.seatObjs);
   }
 
   document.getElementById("pv-check-room-btn").addEventListener("click", checkRoomSeats);
@@ -3878,12 +3858,13 @@
   });
 
   // Manual code entry inside the browser modal
-  document.getElementById("lb-manual-enter").addEventListener("click", () => {
-    const code = document.getElementById("lb-manual-code").value.trim().toUpperCase();
+  document.getElementById("lb-manual-enter").addEventListener("click", async () => {
+    const code = normalizeRoomId(document.getElementById("lb-manual-code").value.trim());
     if (!code) return;
     closeLobbyBrowser();
-    document.getElementById("pv-join-code-home").value = code;
-    checkRoomSeats();
+    const data = await fetchSeats(code);
+    if (!data) { showToast("Room not found — check the code.", "err"); return; }
+    openSeatPickerModal(code, data.seatObjs);
   });
   document.getElementById("lb-manual-code").addEventListener("keydown", (e) => {
     if (e.key === "Enter") document.getElementById("lb-manual-enter").click();
@@ -7090,18 +7071,11 @@
     roomId = urlRoom;
     if (urlSeat) setSeatToken(urlSeat);
     if (urlHost) setHostToken(urlHost);
-    // show invited-only view, hide the host+join home view
-    document.getElementById("pv-invited-view").style.display = "flex";
-    document.getElementById("pv-home-view").style.display = "none";
-    document.getElementById("pv-invited-subtitle").textContent =
-      `You've been invited to room ${urlRoom}`;
-    // pre-fill hidden code field used by invited view
-    document.getElementById("pv-join-code").value = urlRoom;
     if (getSeatToken() || getHostToken()) {
       // already have a token — go straight in
       enterRoom(urlRoom);
     } else {
-      // no token — load seats for this room so they just pick + click Join
+      // no token — show seat picker modal so they can pick + join
       loadInvitedSeats(urlRoom);
     }
   })();
