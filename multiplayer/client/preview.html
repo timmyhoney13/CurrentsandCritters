@@ -3683,6 +3683,10 @@
 
   function openLobbyBrowser() {
     document.getElementById("lobby-browser-modal").classList.add("open");
+    if (window.__fishIsGuest && window.__fishIsGuest()) {
+      renderLobbyList(); // will show sign-in gate
+      return;
+    }
     fetchAndRenderRooms();
     _lbRefreshTimer = setInterval(fetchAndRenderRooms, 8000);
   }
@@ -3709,6 +3713,22 @@
   function renderLobbyList() {
     const list = document.getElementById("lb-browser-list");
     if (!list) return;
+
+    // Guests cannot browse open games
+    if (window.__fishIsGuest && window.__fishIsGuest()) {
+      list.innerHTML = `<div class="lb-browser-empty" style="padding:28px 12px;">
+        <div style="font-size:22px;margin-bottom:8px;">🔐</div>
+        <div style="font-weight:700;color:var(--text);margin-bottom:4px;">Sign in to browse games</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;">Create a free account to see open rooms, track stats, and play with friends.</div>
+        <button class="pv-btn gold" id="lb-guest-signin-btn" style="width:100%;">Sign In / Create Account →</button>
+      </div>`;
+      const signinBtn = document.getElementById("lb-guest-signin-btn");
+      if (signinBtn) signinBtn.addEventListener("click", () => {
+        closeLobbyBrowser();
+        if (window.__fishGoToSignIn) window.__fishGoToSignIn();
+      });
+      return;
+    }
 
     let rooms = _lbAllRooms;
 
@@ -7288,9 +7308,11 @@
       if (nickEl)   nickEl.textContent  = nick;
       if (fcEl)     fcEl.textContent    = _friendCode ? "Friend code: " + nick + "#" + _friendCode : "";
       if (avatarEl) avatarEl.textContent = nick.charAt(0).toUpperCase();
-      // Show signed-in actions only for signed-in users
+      // Show sign out for everyone; show Friends only for signed-in users
       const signedEl = $a("stats-lobby-signed-actions");
-      if (signedEl) signedEl.style.display = (_authUser && _friendCode) ? "grid" : "none";
+      if (signedEl) signedEl.style.display = "grid";
+      const friendBtn = $a("stats-friend-btn");
+      if (friendBtn) friendBtn.style.display = (_authUser && _friendCode) ? "" : "none";
       // Settings nick display
       const settingsNick = $a("settings-current-nick");
       if (settingsNick) settingsNick.textContent = nick;
@@ -7718,8 +7740,9 @@
         _playerNickname = ""; _friendCode = "";
         if (_auth) { try { await _auth.signOut(); } catch {} }
         _authUser = null;
-        enterGameLobby();
+        $a("auth-stats-lobby").classList.remove("visible");
         $a("auth-profile-bar").style.display = "none";
+        $a("auth-screen").classList.remove("hidden");
         showStep("auth-step-choose");
       });
     }
@@ -7781,6 +7804,15 @@
     window.__fishDb             = () => _db;
     window.__fishShowStatsLobby = () => showStatsLobby();
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
+    window.__fishIsGuest        = () => !_authUser && !!_playerNickname;
+    window.__fishGoToSignIn     = () => {
+      localStorage.removeItem("fish_guest_nick");
+      _playerNickname = ""; _friendCode = "";
+      _authUser = null;
+      const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
+      $a("auth-screen").classList.remove("hidden");
+      showStep("auth-step-choose");
+    };
 
   })(); // end auth IIFE
 </script>
