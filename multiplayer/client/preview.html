@@ -3375,7 +3375,9 @@
   });
 
   document.getElementById("pv-create-btn").addEventListener("click", async () => {
-    const name = document.getElementById("pv-host-name").value.trim() || "Host";
+    if (window.__fishSyncNickname) window.__fishSyncNickname();
+    const name = (window.__fishNickname && window.__fishNickname()) ||
+                 document.getElementById("pv-host-name").value.trim() || "Host";
     let rid = normalizeRoomId(document.getElementById("pv-room-code-new").value.trim() ||
       Math.random().toString(36).slice(2,7).toUpperCase());
     if (!rid) rid = Math.random().toString(36).slice(2,7).toUpperCase().slice(0,5);
@@ -3543,7 +3545,8 @@
   document.getElementById("pv-join-btn").addEventListener("click", async () => {
     const btn  = document.getElementById("pv-join-btn");
     const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
-    const name = document.getElementById("pv-join-name").value.trim() || "Player";
+    const name = (window.__fishNickname && window.__fishNickname()) ||
+                 document.getElementById("pv-join-name").value.trim() || "Player";
     if (!rid)  { lobbyStatus("Room code missing.", true); return; }
     if (_selectedSeat === null) { lobbyStatus("Pick a seat first.", true); return; }
     lobbyStatus("Joining…", false);
@@ -3585,7 +3588,8 @@
   document.getElementById("pv-join-btn-home").addEventListener("click", async () => {
     const btn  = document.getElementById("pv-join-btn-home");
     const rid  = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
-    const name = document.getElementById("pv-join-name-home").value.trim() || "Player";
+    const name = (window.__fishNickname && window.__fishNickname()) ||
+                 document.getElementById("pv-join-name-home").value.trim() || "Player";
     if (!rid)  { lobbyStatus("Room code missing.", true); return; }
     if (_selectedSeatHome === null) { lobbyStatus("Pick a seat first.", true); return; }
     lobbyStatus("Joining…", false);
@@ -6566,6 +6570,7 @@
 
   function returnToMenu() {
     _leaveGameCleanup();
+    if (window.__fishSyncNickname) window.__fishSyncNickname();
     const statsLobby = document.getElementById("auth-stats-lobby");
     if (statsLobby) {
       statsLobby.classList.add("visible");
@@ -6945,7 +6950,7 @@
 
   // ═══════════════════════════════════════════════════════════════
   // AUTH / PROFILE / FRIENDS SYSTEM
-  // Guests: nickname stored in sessionStorage — no account required.
+  // Guests: nickname stored in localStorage — persists across sessions.
   // Signed-in: nickname + friend code stored in Firestore.
   // ═══════════════════════════════════════════════════════════════
   (function() {
@@ -7076,13 +7081,22 @@
       $a("auth-screen").classList.remove("hidden");
     }
 
+    function lockNameInputs(nick) {
+      ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
+        const el = $a(id);
+        if (!el) return;
+        el.value = nick;
+        el.readOnly = true;
+        el.title = "Change your nickname in the lobby settings";
+        el.style.opacity = "0.75";
+        el.style.cursor = "not-allowed";
+      });
+    }
+
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
-      // Pre-fill every name input so they're ready when the player enters the game lobby
-      ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
-        const el = $a(id); if (el) el.value = _playerNickname;
-      });
+      lockNameInputs(_playerNickname);
       // Pre-populate in-lobby profile bar for when the player enters game lobby
       if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
@@ -7239,7 +7253,7 @@
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
-      const guestNick = sessionStorage.getItem("fish_guest_nick") || "";
+      const guestNick = localStorage.getItem("fish_guest_nick") || "";
 
       if (!_auth) {
         // Firebase not configured — guest-only mode, but still show the choose screen
@@ -7302,7 +7316,7 @@
       const err  = validateNick(nick);
       if (err) { setAuthMsg("auth-guest-err", err, false); return; }
       setAuthMsg("auth-guest-err", "", false);
-      sessionStorage.setItem("fish_guest_nick", nick);
+      localStorage.setItem("fish_guest_nick", nick);
       revealLobby(nick);
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
@@ -7407,7 +7421,7 @@
 
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
-      sessionStorage.removeItem("fish_guest_nick");
+      localStorage.removeItem("fish_guest_nick");
       _playerNickname = ""; _friendCode = "";
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
@@ -7519,10 +7533,7 @@
         _playerNickname = newNick;
         _friendCode = code;
         setAuthMsg("settings-nick-err", "✓ Nickname updated!", true);
-        // Update all name inputs
-        ["pv-host-name","pv-join-name","pv-join-name-home"].forEach(id => {
-          const el = $a(id); if (el) el.value = newNick;
-        });
+        lockNameInputs(newNick);
         // Refresh stats lobby header
         const nickEl = $a("stats-lobby-nick");
         const avatarEl = $a("stats-avatar-letter");
@@ -7540,7 +7551,7 @@
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
     if (settingsSignoutBtn) settingsSignoutBtn.addEventListener("click", async () => {
-      sessionStorage.removeItem("fish_guest_nick");
+      localStorage.removeItem("fish_guest_nick");
       _playerNickname = ""; _friendCode = "";
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
@@ -7553,7 +7564,7 @@
     const statsSignoutBtn = $a("stats-signout-btn");
     if (statsSignoutBtn) {
       statsSignoutBtn.addEventListener("click", async () => {
-        sessionStorage.removeItem("fish_guest_nick");
+        localStorage.removeItem("fish_guest_nick");
         _playerNickname = ""; _friendCode = "";
         if (_auth) { try { await _auth.signOut(); } catch {} }
         _authUser = null;
@@ -7615,10 +7626,11 @@
     }
 
     // Expose getters so outer game code can read auth state if needed
-    window.__fishNickname      = () => _playerNickname;
-    window.__fishAuthUser      = () => _authUser;
-    window.__fishDb            = () => _db;
+    window.__fishNickname       = () => _playerNickname;
+    window.__fishAuthUser       = () => _authUser;
+    window.__fishDb             = () => _db;
     window.__fishShowStatsLobby = () => showStatsLobby();
+    window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
 
   })(); // end auth IIFE
 </script>
