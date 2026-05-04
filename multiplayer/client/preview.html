@@ -3659,8 +3659,12 @@
     const endGame       = state.end_game || {};
     const endTriggered  = Boolean(endGame.triggered);
 
-    // end-game cinematic: fire once when triggered first appears
-    if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
+    // end-game cinematic: fire when triggered transitions false→true mid-session.
+    // On the very first render (_prevTurnIdx===null) just seed the flag so we
+    // don't show the cinematic for a game whose end-game was already triggered.
+    if (_prevTurnIdx === null) {
+      _prevEndTriggered = endTriggered;
+    } else if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
       const triggerPlayer = state.current_player || "";
       showEndGameCinematic(endGame.end_game_uid, triggerPlayer);
     }
