@@ -2160,11 +2160,16 @@
     }
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
-    .lb-tabs { display: flex; gap: 6px; }
+    .lb-tabs {
+      display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
+      scrollbar-width: none;
+    }
+    .lb-tabs::-webkit-scrollbar { display: none; }
     .lb-tab {
-      flex: 1; padding: 7px; border-radius: 8px; font-size: 12px;
+      flex-shrink: 0; padding: 6px 10px; border-radius: 8px; font-size: 12px;
       font-weight: 700; cursor: pointer; border: 1px solid rgba(58,120,204,.4);
       background: rgba(11,36,72,.7); color: var(--muted); transition: all .15s;
+      white-space: nowrap;
     }
     .lb-tab.active { background: rgba(34,72,140,.6); color: var(--cyan); border-color: var(--cyan); }
     .lb-row {
@@ -2323,9 +2328,16 @@
 <div id="leaderboard-modal" class="overlay-modal">
   <div class="modal-box" style="max-width:400px;">
     <div class="modal-title">🏆 Leaderboard</div>
-    <div class="lb-tabs">
-      <button class="lb-tab active" id="lb-tab-normal" data-mode="normal">Normal Play</button>
-      <button class="lb-tab" id="lb-tab-comp" data-mode="comp">Competitive</button>
+    <div class="lb-tabs" id="lb-tabs-row">
+      <button class="lb-tab active" data-size="2">2 Players</button>
+      <button class="lb-tab" data-size="3">3 Players</button>
+      <button class="lb-tab" data-size="4">4 Players</button>
+      <button class="lb-tab" data-size="5">5 Players</button>
+      <button class="lb-tab" data-size="6">6 Players</button>
+      <button class="lb-tab" data-size="7">7 Players</button>
+      <button class="lb-tab" data-size="8">8 Players</button>
+      <button class="lb-tab" data-size="9">9 Players</button>
+      <button class="lb-tab" data-size="10">10 Players</button>
     </div>
     <div id="lb-list" style="max-height:280px;overflow-y:auto;margin-top:8px;"></div>
     <div class="auth-err" id="lb-err"></div>
@@ -6411,9 +6423,10 @@
     const myEntry = (finalScores || []).find(p => p.name === myNick);
     if (!myEntry) return; // player not in this game
     _lastSavedWinner = winner;
-    const myScore  = Number(myEntry.score || 0);
-    const isWinner = (winner === myNick);
-    const isComp   = typeof compMode !== "undefined" && compMode;
+    const myScore    = Number(myEntry.score || 0);
+    const isWinner   = (winner === myNick);
+    const isComp     = typeof compMode !== "undefined" && compMode;
+    const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
     try {
       const docRef = db.collection("users").doc(authUser.uid);
       const snap   = await docRef.get();
@@ -6425,13 +6438,13 @@
         if (isComp) updates["stats.competitive_wins"] = firebase.firestore.FieldValue.increment(1);
         else        updates["stats.normal_wins"]       = firebase.firestore.FieldValue.increment(1);
       }
-      // Update high scores (only if new score is higher)
-      const highNormal = cStats.highest_score_normal || 0;
-      const highComp   = cStats.highest_score_competitive || 0;
-      const highOverall= cStats.highest_score || 0;
-      if (!isComp && myScore > highNormal)   updates["stats.highest_score_normal"] = myScore;
-      if (isComp  && myScore > highComp)     updates["stats.highest_score_competitive"] = myScore;
-      if (myScore > highOverall)             updates["stats.highest_score"] = myScore;
+      // Update overall high score
+      if (myScore > (cStats.highest_score || 0)) updates["stats.highest_score"] = myScore;
+      // Update per-player-count high score (2p–10p)
+      if (playerCount >= 2 && playerCount <= 10) {
+        const pKey = `highest_score_${playerCount}p`;
+        if (myScore > (cStats[pKey] || 0)) updates[`stats.${pKey}`] = myScore;
+      }
       await docRef.update(updates);
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -6837,9 +6850,9 @@
       if (el) el.classList.remove("visible");
     }
 
-    let _lbMode = "normal";
-    async function loadLeaderboard(mode) {
-      _lbMode = mode || "normal";
+    let _lbSize = 2; // current player-count tab
+    async function loadLeaderboard(size) {
+      _lbSize = Number(size) || 2;
       const listEl = $a("lb-list");
       const errEl  = $a("lb-err");
       if (!listEl) return;
@@ -6847,31 +6860,31 @@
       listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">Loading…</div>';
       if (errEl) errEl.textContent = "";
       try {
-        const field = _lbMode === "comp" ? "stats.highest_score_competitive" : "stats.highest_score_normal";
+        const field = `stats.highest_score_${_lbSize}p`;
         const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get();
         if (snap.empty) {
-          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No ranked players yet.</div>';
+          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No scores yet for this size.</div>';
           return;
         }
         listEl.innerHTML = "";
+        let shown = 0;
         snap.docs.forEach((doc, i) => {
           const d    = doc.data();
           const nick = d.nickname || "Unknown";
-          const score = _lbMode === "comp"
-            ? (d.stats?.highest_score_competitive || 0)
-            : (d.stats?.highest_score_normal || 0);
+          const score = d.stats?.[`highest_score_${_lbSize}p`] || 0;
           if (!score) return;
+          shown++;
           const row = document.createElement("div");
           row.className = "lb-row";
           const isMe = (_authUser && doc.id === _authUser.uid);
           row.innerHTML = `
-            <span class="lb-rank">#${i+1}</span>
+            <span class="lb-rank">#${shown}</span>
             <span class="lb-name${isMe?" lb-you":""}">${nick}${isMe?" (you)":""}</span>
-            <span class="lb-score${isMe?" lb-you":""}">${score}</span>`;
+            <span class="lb-score${isMe?" lb-you":""}">${score} pts</span>`;
           listEl.appendChild(row);
         });
-        if (listEl.children.length === 0) {
-          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No ranked players yet.</div>';
+        if (shown === 0) {
+          listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No scores yet for this size.</div>';
         }
       } catch(e) {
         if (errEl) errEl.textContent = "Could not load leaderboard.";
@@ -7095,20 +7108,20 @@
     const lbBtn = $a("stats-leaderboard-btn");
     if (lbBtn) lbBtn.addEventListener("click", () => {
       $a("leaderboard-modal").classList.add("open");
-      loadLeaderboard("normal");
-      $a("lb-tab-normal").classList.add("active");
-      $a("lb-tab-comp").classList.remove("active");
+      // activate first tab and load
+      const tabs = $a("lb-tabs-row").querySelectorAll(".lb-tab");
+      tabs.forEach(t => t.classList.remove("active"));
+      tabs[0].classList.add("active");
+      loadLeaderboard(2);
     });
     $a("lb-close-btn").addEventListener("click", () => $a("leaderboard-modal").classList.remove("open"));
-    $a("lb-tab-normal").addEventListener("click", () => {
-      $a("lb-tab-normal").classList.add("active");
-      $a("lb-tab-comp").classList.remove("active");
-      loadLeaderboard("normal");
-    });
-    $a("lb-tab-comp").addEventListener("click", () => {
-      $a("lb-tab-comp").classList.add("active");
-      $a("lb-tab-normal").classList.remove("active");
-      loadLeaderboard("comp");
+    // Wire all player-count tabs dynamically
+    $a("lb-tabs-row").addEventListener("click", (e) => {
+      const btn = e.target.closest(".lb-tab");
+      if (!btn) return;
+      $a("lb-tabs-row").querySelectorAll(".lb-tab").forEach(t => t.classList.remove("active"));
+      btn.classList.add("active");
+      loadLeaderboard(Number(btn.dataset.size));
     });
 
     // ── Settings button ───────────────────────────────────────────
