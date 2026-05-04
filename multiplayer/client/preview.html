@@ -275,6 +275,12 @@
       letter-spacing: 1px;
       min-width: 48px;
       text-align: center;
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    #pv-my-score-badge:hover {
+      border-color: rgba(48,200,240,.7);
+      box-shadow: 0 0 8px rgba(48,200,240,.3);
     }
     #pv-status-text { flex: 1; text-align: center; color: var(--gold); font-weight: 700; font-size: 12px; }
     #pv-notice .notice-btns { display: flex; gap: 6px; }
@@ -4144,6 +4150,14 @@
       content.appendChild(msg); return;
     }
 
+    // Player count header
+    const countMap = {2:"Two",3:"Three",4:"Four",5:"Five",6:"Six",7:"Seven",8:"Eight",9:"Nine",10:"Ten"};
+    const countLabel = countMap[players.length] || String(players.length);
+    const countEl = document.createElement("div");
+    countEl.style.cssText = "font-size:11px;color:var(--muted);text-align:center;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;";
+    countEl.textContent = `${countLabel}-Player Game · ${players.length} Competitors`;
+    content.appendChild(countEl);
+
     const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
 
     // Leaderboard pills
@@ -4215,6 +4229,7 @@
     document.getElementById("pv-score-modal").classList.add("open");
   }
 
+  document.getElementById("pv-my-score-badge").addEventListener("click", openScoreBreakdown);
   document.getElementById("pv-score-close").addEventListener("click", () => {
     document.getElementById("pv-score-modal").classList.remove("open");
   });
