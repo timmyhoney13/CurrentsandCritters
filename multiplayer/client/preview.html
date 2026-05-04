@@ -4518,8 +4518,9 @@
         wrap.title = `Click to zoom ${p.name || `Player ${p.index}`}'s board`;
         wrap.addEventListener("click", () => openBoardFocus(p));
         // Label stays readable regardless of rotation
+        const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
         const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
-        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span>`;
+        lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">🃏${hc}</span>`;
         wrap.appendChild(lbl);
         // Board content — scale + rotate across opponent
         const boardEl = renderReadOnlyBoard(p);
@@ -4542,7 +4543,8 @@
         const nm = document.createElement("div"); nm.className = "pv-opp-name";
         nm.textContent = (p.index === turnIndex ? "▶ " : "") + (p.name || `Player ${p.index}`);
         const sc = document.createElement("div"); sc.className = "pv-opp-score";
-        sc.textContent = `${p.score ?? 0} pts`;
+        const hcMini = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
+        sc.textContent = `${p.score ?? 0} pts · 🃏${hcMini}`;
         hdr.appendChild(nm); hdr.appendChild(sc); mini.appendChild(hdr);
         const thumbs = document.createElement("div"); thumbs.style.cssText = "display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;";
         (Array.isArray(p.board) ? p.board : []).slice(0, 5).forEach(ocean => {
@@ -4587,8 +4589,10 @@
       sc.textContent = `${p.score??0} pts`;
       hdr.appendChild(nm); hdr.appendChild(sc); card.appendChild(hdr);
 
-      // face-down hand cards strip
-      const handSize = Array.isArray(p.hand) ? p.hand.length : (p.hand_size ?? 0);
+      // face-down hand cards strip — use hand_count for opponents (server sends hand:[])
+      const handSize = (Array.isArray(p.hand) && p.hand.length > 0)
+        ? p.hand.length
+        : (p.hand_count ?? p.hand_size ?? 0);
       if (handSize > 0) {
         const handStrip = document.createElement("div");
         handStrip.className = "pv-opp-hand";
