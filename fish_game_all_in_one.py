@@ -204,13 +204,20 @@ def run_star_ability(gs: GameState, card_uid: int, player: PlayerState, ctx: Opt
 # Core rules
 # -----------------------------
 
-def draw(gs: GameState, player: PlayerState, n: int = 1) -> None:
-    for _ in range(n):
+def draw(gs: GameState, player: PlayerState, n: int = 1, ms=None) -> None:
+    drew = 0
+    while drew < n:
         if not gs.deck:
             gs.log.append("Deck is empty; cannot draw.")
             return
-        # treat index 0 as the top of the deck for predictable drawing order
-        player.hand.append(gs.deck.pop(0))
+        uid = gs.deck.pop(0)
+        if ms is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
+            trigger_end_game(ms, gs)
+            ms.discard_pile.append(uid)
+            gs.log.append(f"END GAME card drawn by {player.name} via card ability — end game triggered.")
+            continue  # draw a replacement card
+        player.hand.append(uid)
+        drew += 1
 
 
 def start_game(gs: GameState, starting_hand: int = 5, shuffle: bool = True) -> None:
@@ -530,7 +537,7 @@ def _execute_main_pattern(
     if "draw one for each yellowfin tuna" in t:
         yf_count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
         if yf_count > 0:
-            draw(gs, player, yf_count)
+            draw(gs, player, yf_count, ms)
             gs.log.append(f"{player.name} draws {yf_count} from {card.name} (1 per Yellowfin Tuna).")
 
     # Draw-now text (not "draw one when ..." or "draw one for each ...").
@@ -546,11 +553,11 @@ def _execute_main_pattern(
     draw_one_is_or_alt = bool(re.search(r"draw one or\s*$", t))
     if "draw one" in t and not has_reactive_draw_one and not (star_active and draw_one_is_or_alt):
         n = choose_optional_draw_count(gs, player, 1)
-        draw(gs, player, n)
+        draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} main ability.")
     if "draw 2" in t or "draw two" in t:
         n = choose_optional_draw_count(gs, player, 2)
-        draw(gs, player, n)
+        draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} main ability.")
 
     # Tarpon-style hand cycling: "Discard and draw that many cards".
@@ -627,7 +634,7 @@ def _execute_main_pattern(
                                 player.discard.append(uid)
                         else:
                             player.discard.append(uid)
-                draw(gs, player, len(chosen))
+                draw(gs, player, len(chosen), ms)
                 gs.log.append(
                     f"{player.name} discards {len(chosen)} and draws {len(chosen)} from {card.name} main ability."
                 )
@@ -766,18 +773,19 @@ def _execute_star_pattern(
 ) -> None:
     """Execute common star ability patterns."""
     t = text.lower()
-    
+    ms = (ctx or {}).get("ms")
+
     if "draw one" in t:
         n = choose_optional_draw_count(gs, player, 1)
-        draw(gs, player, n)
+        draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
     if "draw three" in t:
         n = choose_optional_draw_count(gs, player, 3)
-        draw(gs, player, n)
+        draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
     if "draw 2" in t or "draw two" in t:
         n = choose_optional_draw_count(gs, player, 2)
-        draw(gs, player, n)
+        draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
     if "play again" in t or "go again" in t:
         if should_take_optional_replay(gs, player, card):
@@ -813,6 +821,7 @@ def resolve_reactive_draw_triggers(
     played_by: PlayerState,
     played_card: CardDef,
     action_kind: str,
+    ms=None,
 ) -> None:
     """Resolve persistent 'draw one when ...' listeners after a successful play."""
     species = played_card.species.strip().lower()
@@ -827,7 +836,7 @@ def resolve_reactive_draw_triggers(
         if owner is played_by and is_cephalopod_play:
             n = int(owner.flags.get("trigger_draw_on_cephalopod", 0))
             if n > 0:
-                draw(gs, owner, n)
+                draw(gs, owner, n, ms)
                 gs.log.append(
                     f"{owner.name} draws {n} from reactive trigger (cephalopod played)."
                 )
@@ -839,7 +848,7 @@ def resolve_reactive_draw_triggers(
             if not _card_draws:
                 n = int(owner.flags.get("trigger_draw_on_game_fish", 0))
                 if n > 0:
-                    draw(gs, owner, n)
+                    draw(gs, owner, n, ms)
                     gs.log.append(
                         f"{owner.name} draws {n} from reactive trigger (game fish played)."
                     )
@@ -847,7 +856,7 @@ def resolve_reactive_draw_triggers(
         if owner is played_by and is_surface_play:
             n = int(owner.flags.get("trigger_draw_on_surface_play", 0))
             if n > 0:
-                draw(gs, owner, n)
+                draw(gs, owner, n, ms)
                 gs.log.append(
                     f"{owner.name} draws {n} from reactive trigger (played on ocean surface)."
                 )
@@ -855,7 +864,7 @@ def resolve_reactive_draw_triggers(
         if owner is played_by and is_floor_play:
             n = int(owner.flags.get("trigger_draw_on_floor_play", 0))
             if n > 0:
-                draw(gs, owner, n)
+                draw(gs, owner, n, ms)
                 gs.log.append(
                     f"{owner.name} draws {n} from reactive trigger (played on ocean floor)."
                 )
@@ -937,7 +946,7 @@ def trigger_board_symbol_star_draws(
         if not star_text or "draw" not in star_text.lower():
             continue
         triggered.add(face_uid)
-        draw(gs, player, 1)
+        draw(gs, player, 1, ms)
         gs.log.append(
             f"{player.name}: {cd.name} ({sym}) drew 1 — matching symbol discarded."
         )
@@ -6035,7 +6044,7 @@ def apply_action(
                 },
             )
             sync_reactive_trigger_flags(gs, player)
-            resolve_reactive_draw_triggers(gs, player, card, action.kind)
+            resolve_reactive_draw_triggers(gs, player, card, action.kind, ms)
             if verbose:
                 drew = len(player.hand) - before_hand
                 if drew > 0:
@@ -6063,7 +6072,7 @@ def apply_action(
                 },
             )
             sync_reactive_trigger_flags(gs, player)
-            resolve_reactive_draw_triggers(gs, player, card, action.kind)
+            resolve_reactive_draw_triggers(gs, player, card, action.kind, ms)
             if verbose:
                 print(f"{player.name} plays {card.uid}:{card.name} to ocean {action.ocean_uid}")
                 drew = len(player.hand) - before_hand
