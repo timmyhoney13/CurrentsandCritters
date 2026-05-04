@@ -7437,22 +7437,28 @@
     });
 
     $a("stats-join-toggle-btn").addEventListener("click", () => {
-      const row = $a("stats-join-row");
-      if (!row) return;
-      row.classList.toggle("open");
-      if (row.classList.contains("open")) {
-        const inp = $a("stats-join-code"); if (inp) inp.focus();
-      }
+      // Open the lobby browser modal directly
+      enterGameLobby();
+      setTimeout(() => {
+        if (window.__fishSyncNickname) window.__fishSyncNickname();
+        const browseBtn = document.getElementById("pv-browse-btn");
+        if (browseBtn) browseBtn.click();
+      }, 60);
     });
 
     $a("stats-join-go-btn").addEventListener("click", () => {
       const code = ($a("stats-join-code").value || "").trim().toUpperCase();
-      if (code.length < 3) { $a("stats-join-code").focus(); return; }
-      const codeInput = $a("pv-join-code-home");
-      if (codeInput) codeInput.value = code;
       enterGameLobby();
-      const checkBtn = $a("pv-check-room-btn");
-      if (checkBtn) checkBtn.click();
+      setTimeout(() => {
+        if (window.__fishSyncNickname) window.__fishSyncNickname();
+        if (code.length >= 3) {
+          // Pre-fill manual code in the modal and open it
+          const manualInput = document.getElementById("lb-manual-code");
+          if (manualInput) manualInput.value = code;
+        }
+        const browseBtn = document.getElementById("pv-browse-btn");
+        if (browseBtn) browseBtn.click();
+      }, 60);
     });
 
     $a("stats-join-code").addEventListener("keydown", e => {
