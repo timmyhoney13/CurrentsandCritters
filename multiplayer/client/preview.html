@@ -3111,7 +3111,7 @@
   let _prevScore = null;
   let _myIdxGlobal = null;
   let _prevReplayTurn = false;
-  let _prevEndTriggered = false;
+  let _prevEndTriggered = true; // start true so we only fire on a real false→true transition
 
   function buildStateUrl() {
     if (!roomId) return null;
@@ -3659,12 +3659,11 @@
     const endGame       = state.end_game || {};
     const endTriggered  = Boolean(endGame.triggered);
 
-    // end-game cinematic: fire when triggered transitions false→true mid-session.
-    // On the very first render (_prevTurnIdx===null) just seed the flag so we
-    // don't show the cinematic for a game whose end-game was already triggered.
-    if (_prevTurnIdx === null) {
-      _prevEndTriggered = endTriggered;
-    } else if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
+    // end-game cinematic: only fire when triggered transitions false→true
+    // within this session. _prevEndTriggered starts as true (and resets to
+    // true on cleanup) so stale/old state arriving on game entry can never
+    // spuriously trigger the animation.
+    if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
       const triggerPlayer = state.current_player || "";
       showEndGameCinematic(endGame.end_game_uid, triggerPlayer);
     }
@@ -6163,7 +6162,7 @@
     closeMenu();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
-    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=false;
+    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
     dismissEndGameCinematic();
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
