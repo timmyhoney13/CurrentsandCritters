@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import mimetypes
 import os
@@ -500,12 +501,14 @@ class Seat:
 
 
 class GameRoom:
-    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False) -> None:
+    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False, visibility: str = "public", password_hash: Optional[str] = None) -> None:
         self.room_id = room_id
         self.total_players = total_players
         self.human_players = human_players
         self.ai_players = ai_players
         self.competitive = competitive
+        self.visibility = visibility  # "public" | "private"
+        self.password_hash = password_hash  # sha256 hex, None if public
         self._competitive_saved = False
         self.seed = (now_unix() ^ secrets.randbits(31)) & 0x7FFFFFFF
         self.created_unix = now_unix()
@@ -641,6 +644,8 @@ class GameRoom:
             "human_players": int(self.human_players),
             "ai_players": int(self.ai_players),
             "competitive": bool(self.competitive),
+            "visibility": str(self.visibility),
+            "password_hash": self.password_hash,
             "seed": int(self.seed),
             "created_unix": int(self.created_unix),
             "started_unix": self.started_unix,
@@ -790,7 +795,10 @@ class GameRoom:
                     break
 
         competitive = bool(payload.get("competitive", False))
-        room = cls(room_id, host_name, total_players, human_players, ai_players, competitive=competitive)
+        vis_raw = str(payload.get("visibility") or "public").strip().lower()
+        visibility = vis_raw if vis_raw in {"public", "private"} else "public"
+        pw_hash = payload.get("password_hash") if isinstance(payload.get("password_hash"), str) else None
+        room = cls(room_id, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=pw_hash)
         with room.cond:
             room.seed = clamp_int(payload.get("seed"), room.seed, 0, 0x7FFFFFFF)
             room.created_unix = clamp_int(payload.get("created_unix"), room.created_unix, 0, 2**31 - 1)
@@ -2652,6 +2660,16 @@ class RoomLiveRecorder:
         self.snapshot(gs, ms, turn_number=0, note="game_start")
 
 
+def _ago(seconds: int) -> str:
+    if seconds < 60:
+        return "just now"
+    if seconds < 3600:
+        m = seconds // 60
+        return f"{m} min ago"
+    h = seconds // 3600
+    return f"{h} hr ago"
+
+
 class RoomManager:
     def __init__(self) -> None:
         self.lock = threading.Lock()
@@ -2672,17 +2690,16 @@ class RoomManager:
         requested_room_id: Optional[str] = None,
         replace_active: bool = False,
         competitive: bool = False,
+        visibility: str = "public",
+        password_hash: Optional[str] = None,
     ) -> GameRoom:
         with self.lock:
-            active = self._active_room_locked()
-            if active is not None:
-                if replace_active:
-                    if active.phase != "lobby":
-                        raise RuntimeError(f"active room is {active.phase}; cannot replace ({active.room_id})")
+            if replace_active:
+                # Legacy: replace the single active lobby room if requested explicitly.
+                active = self._active_room_locked()
+                if active is not None and active.phase == "lobby":
                     self.rooms.pop(active.room_id, None)
                     remove_room_state_file(active.room_id)
-                else:
-                    raise RuntimeError(f"active room already exists ({active.room_id})")
             if requested_room_id is not None:
                 rid = str(requested_room_id).strip().upper()
                 if not ROOM_ID_RE.fullmatch(rid):
@@ -2694,18 +2711,47 @@ class RoomManager:
                         remove_room_state_file(rid)
                     else:
                         raise RuntimeError(f"room id already exists ({rid})")
-                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive)
+                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash)
                 self.rooms[rid] = room
                 room.persist_now()
                 return room
             for _ in range(100):
                 rid = room_code(ROOM_ID_LENGTH)
                 if rid not in self.rooms:
-                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive)
+                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash)
                     self.rooms[rid] = room
                     room.persist_now()
                     return room
         raise RuntimeError("unable to allocate room code")
+
+    def list_open_rooms(self) -> List[Dict[str, Any]]:
+        """Return metadata for all lobby-phase rooms that are not full."""
+        with self.lock:
+            result = []
+            now = now_unix()
+            for room in self.rooms.values():
+                if room.phase != "lobby":
+                    continue
+                with room.cond:
+                    filled, total = room._human_seat_counts_locked()
+                if filled >= total:
+                    continue  # full
+                host_seat = room.host_seat()
+                host_name = host_seat.claimed_name if host_seat else "Unknown"
+                result.append({
+                    "room_id": room.room_id,
+                    "host_name": host_name,
+                    "mode": "competitive" if room.competitive else "normal",
+                    "total_players": room.total_players,
+                    "human_players": room.human_players,
+                    "filled": filled,
+                    "visibility": room.visibility,
+                    "has_password": room.password_hash is not None,
+                    "created_unix": room.created_unix,
+                    "created_ago": _ago(now - room.created_unix),
+                })
+            result.sort(key=lambda r: r["created_unix"], reverse=True)
+            return result
 
     def get(self, room_id: str) -> Optional[GameRoom]:
         with self.lock:
@@ -3152,6 +3198,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": True, "games": games[:100]})
             return
 
+        if parsed.path == "/api/rooms":
+            self._send_json({"ok": True, "rooms": ROOMS.list_open_rooms()})
+            return
+
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "state":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -3277,6 +3327,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             requested_room_id = body.get("room_id") if isinstance(body.get("room_id"), str) else None
             replace_active = bool(body.get("replace_active")) if isinstance(body.get("replace_active"), bool) else False
             competitive = bool(body.get("competitive")) if isinstance(body.get("competitive"), bool) else False
+            vis_raw = str(body.get("visibility") or "public").strip().lower()
+            visibility = vis_raw if vis_raw in {"public", "private"} else "public"
+            password_plain = body.get("password") if isinstance(body.get("password"), str) else None
+            if visibility == "private" and password_plain:
+                password_hash: Optional[str] = hashlib.sha256(password_plain.strip().encode()).hexdigest()
+            else:
+                password_hash = None
             try:
                 room = ROOMS.create_room(
                     host_name,
@@ -3286,6 +3343,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     requested_room_id=requested_room_id,
                     replace_active=replace_active,
                     competitive=competitive,
+                    visibility=visibility,
+                    password_hash=password_hash,
                 )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -3327,6 +3386,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
+            # Password check for private rooms (skip if the joiner already holds a token for this room)
+            if room.password_hash is not None:
+                existing_tok = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+                with room.cond:
+                    already_seated = room._seat_from_token_locked(existing_tok) is not None
+                if not already_seated:
+                    pw_plain = body.get("password") if isinstance(body.get("password"), str) else ""
+                    pw_given = hashlib.sha256(pw_plain.strip().encode()).hexdigest() if pw_plain else ""
+                    if not secrets.compare_digest(pw_given, room.password_hash):
+                        self._send_json({"ok": False, "error": "Incorrect password."}, status=HTTPStatus.FORBIDDEN)
+                        return
             seat_index_raw = body.get("seat_index")
             seat_index = int(seat_index_raw) if isinstance(seat_index_raw, int) else None
             player_name = safe_name(body.get("player_name"), "Player")

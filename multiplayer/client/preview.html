@@ -2160,6 +2160,66 @@
     }
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
+    /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
+    #lobby-browser-modal {
+      display: none; position: fixed; inset: 0; z-index: 8000;
+      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    #lobby-browser-modal.open { display: flex; }
+    #lobby-browser-box {
+      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
+      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
+      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
+      padding: 22px 20px 20px; width: 95%; max-width: 500px;
+      max-height: 88vh; display: flex; flex-direction: column; gap: 12px;
+      position: relative; overflow: hidden;
+    }
+    #lobby-browser-box h2 {
+      font-family: "Cinzel", serif; font-size: 1.1rem; color: var(--gold);
+      letter-spacing: 1.5px; margin: 0;
+    }
+    .lb-browser-tabs { display: flex; gap: 5px; }
+    .lb-browser-tab {
+      flex: 1; padding: 7px 4px; border-radius: 8px; font-size: 12px;
+      font-weight: 700; cursor: pointer; border: 1px solid rgba(58,120,204,.4);
+      background: rgba(11,36,72,.7); color: var(--muted); transition: all .15s;
+      text-align: center;
+    }
+    .lb-browser-tab.active { background: rgba(34,72,140,.6); color: var(--cyan); border-color: var(--cyan); }
+    #lb-browser-list {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
+      min-height: 120px; max-height: 340px;
+    }
+    .room-card {
+      background: rgba(11,36,72,.6); border: 1px solid rgba(58,120,204,.22);
+      border-radius: 10px; padding: 10px 12px; display: flex; align-items: center;
+      gap: 10px; transition: border-color .15s;
+    }
+    .room-card:hover { border-color: rgba(34,216,248,.4); }
+    .room-card-info { flex: 1; min-width: 0; }
+    .room-card-host { font-weight: 800; color: var(--text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .room-card-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .room-card-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+      background: rgba(34,216,248,.12); color: var(--cyan); border: 1px solid rgba(34,216,248,.25);
+    }
+    .room-card-badge.private { background: rgba(240,200,64,.1); color: var(--gold); border-color: rgba(240,200,64,.3); }
+    .room-card-join {
+      padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
+      background: linear-gradient(135deg,#1560b0,#0e3a7a); border: 1px solid rgba(48,200,240,.4);
+      color: var(--cyan); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: background .15s, transform .1s;
+    }
+    .room-card-join:hover { background: linear-gradient(135deg,#1a78cc,#1050a0); transform: translateY(-1px); }
+    .lb-browser-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
+    #lb-browser-code-row { border-top: 1px solid rgba(58,120,204,.18); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+    #lb-browser-code-row .label { font-size: 11px; color: var(--muted); font-weight: 700; }
+    /* password prompt inside browser */
+    #lb-pw-prompt { display: none; flex-direction: column; gap: 8px; padding: 12px; background: rgba(11,36,72,.8); border-radius: 10px; border: 1px solid rgba(240,200,64,.3); }
+    #lb-pw-prompt.open { display: flex; }
+    #lb-pw-err { color: var(--red); font-size: 12px; min-height: 16px; }
+
     .lb-tabs {
       display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
       scrollbar-width: none;
@@ -2515,28 +2575,36 @@
           <span style="font-size:11px;color:var(--muted);font-weight:700;">AI Critters</span>
           <input class="pv-input" id="pv-ai-players" type="number" min="0" max="5" value="0" />
         </div>
-        <div style="display:flex;flex-direction:column;gap:3px;justify-content:flex-end;">
-          <span style="font-size:11px;color:transparent;">x</span>
-          <button class="pv-btn gold" id="pv-create-btn">Generate Current →</button>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
+          <span style="font-size:11px;color:var(--muted);font-weight:700;">Privacy</span>
+          <select class="pv-input" id="pv-visibility" style="cursor:pointer;">
+            <option value="public">🌊 Public</option>
+            <option value="private">🔒 Password</option>
+          </select>
         </div>
+      </div>
+      <div id="pv-password-row" style="display:none;margin-top:4px;">
+        <input class="pv-input" id="pv-room-password" type="password" placeholder="Set a password for this Current" style="width:100%;" />
+      </div>
+      <div style="margin-top:8px;">
+        <button class="pv-btn gold full" id="pv-create-btn">Generate Current →</button>
       </div>
     </div>
 
-    <!-- JOIN (from home — has code input) -->
+    <!-- JOIN (from home — browse lobby or enter code) -->
     <div class="pv-lobby-box" style="width:100%;">
       <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
-      <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--cyan);">1.</b> Enter your name and the 5-letter Current code &nbsp;
-        <b style="color:var(--cyan);">2.</b> Preview the ecosystem &nbsp;
-        <b style="color:var(--cyan);">3.</b> Enter the Current
+      <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" style="width:100%;margin-bottom:8px;" />
+      <button class="pv-btn full" id="pv-browse-btn" style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.45);color:var(--cyan);">🔍 Browse Open Currents</button>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(58,120,204,.18);">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:700;">Have a Current code?</div>
+        <div class="pv-row">
+          <input class="pv-input" id="pv-join-code-home" placeholder="5-letter code" maxlength="5"
+            style="text-transform:uppercase;width:120px;flex:none;"
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+          <button class="pv-btn" id="pv-check-room-btn">Enter →</button>
+        </div>
       </div>
-      <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" />
-        <input class="pv-input" id="pv-join-code-home" placeholder="Current code" maxlength="5"
-          style="text-transform:uppercase;width:120px;flex:none;"
-          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-      </div>
-      <button class="pv-btn full" id="pv-check-room-btn">Enter Current →</button>
       <div id="pv-seat-picker-home" style="display:none;flex-direction:column;gap:10px;">
         <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open spot to enter</div>
         <div class="seat-grid" id="pv-seat-grid-home"></div>
@@ -2823,6 +2891,42 @@
 </div>
 
 <!-- ══ CARD ZOOM MODAL ════════════════════════════════════════════ -->
+<!-- ══ LOBBY BROWSER MODAL ═══════════════════════════════════════════ -->
+<div id="lobby-browser-modal">
+  <div id="lobby-browser-box">
+    <button class="pv-modal-close" id="lb-browser-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <h2>🌊 Open Currents</h2>
+    <div class="lb-browser-tabs">
+      <button class="lb-browser-tab active" data-tab="public">🌊 Public</button>
+      <button class="lb-browser-tab" data-tab="private">🔒 Private</button>
+      <button class="lb-browser-tab" data-tab="friends">👥 Friends</button>
+    </div>
+    <div id="lb-browser-list">
+      <div class="lb-browser-empty">Loading…</div>
+    </div>
+    <!-- Password prompt (shown inline when joining a private room) -->
+    <div id="lb-pw-prompt">
+      <div style="font-size:12px;color:var(--gold);font-weight:700;">🔒 Password Required</div>
+      <input class="pv-input" id="lb-pw-input" type="password" placeholder="Enter room password" />
+      <div id="lb-pw-err"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="pv-btn gold" id="lb-pw-confirm">Join</button>
+        <button class="pv-btn" id="lb-pw-cancel" style="flex:none;">Cancel</button>
+      </div>
+    </div>
+    <!-- Manual code fallback -->
+    <div id="lb-browser-code-row">
+      <div class="label">Have a Current code?</div>
+      <div class="pv-row">
+        <input class="pv-input" id="lb-manual-code" placeholder="5-letter code" maxlength="5"
+          style="text-transform:uppercase;width:120px;flex:none;"
+          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+        <button class="pv-btn" id="lb-manual-enter">Enter →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ END-GAME CINEMATIC OVERLAY ═══════════════════════════════════ -->
 <div id="endgame-cinematic">
   <div class="eg-title">⚠ END GAME</div>
@@ -3282,10 +3386,16 @@
     const createBtn = document.getElementById("pv-create-btn");
     createBtn.disabled = true;
     lobbyStatus("Generating Current…", false);
+    const visibility = document.getElementById("pv-visibility").value;
+    const password   = visibility === "private" ? (document.getElementById("pv-room-password").value.trim()) : "";
+    if (visibility === "private" && !password) {
+      lobbyStatus("Enter a password for the private Current.", true);
+      createBtn.disabled = false; return;
+    }
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
-      replace_active: false,
+      replace_active: false, visibility, password,
     }, { timeoutMs:10000 });
     createBtn.disabled = false;
     if (!r.ok) {
@@ -3480,6 +3590,242 @@
     if (_selectedSeatHome === null) { lobbyStatus("Pick a seat first.", true); return; }
     lobbyStatus("Joining…", false);
     await doJoin(rid, name, _selectedSeatHome, btn);
+  });
+
+  // ── Lobby Browser ──────────────────────────────────────────────
+  let _lbRefreshTimer = null;
+  let _lbActiveTab = "public";
+  let _lbAllRooms  = [];
+  let _lbPendingRoom = null; // room object awaiting password entry
+
+  function openLobbyBrowser() {
+    document.getElementById("lobby-browser-modal").classList.add("open");
+    fetchAndRenderRooms();
+    _lbRefreshTimer = setInterval(fetchAndRenderRooms, 8000);
+  }
+
+  function closeLobbyBrowser() {
+    document.getElementById("lobby-browser-modal").classList.remove("open");
+    if (_lbRefreshTimer) { clearInterval(_lbRefreshTimer); _lbRefreshTimer = null; }
+    _lbPendingRoom = null;
+    document.getElementById("lb-pw-prompt").classList.remove("open");
+    document.getElementById("lb-pw-err").textContent = "";
+    document.getElementById("lb-pw-input").value = "";
+  }
+
+  async function fetchAndRenderRooms() {
+    try {
+      const res = await apiFetch("/api/rooms", { method:"GET", timeoutMs:6000 });
+      if (res.ok && Array.isArray(res.data?.rooms)) {
+        _lbAllRooms = res.data.rooms;
+      }
+    } catch {}
+    renderLobbyList();
+  }
+
+  function renderLobbyList() {
+    const list = document.getElementById("lb-browser-list");
+    if (!list) return;
+
+    let rooms = _lbAllRooms;
+
+    if (_lbActiveTab === "public") {
+      rooms = rooms.filter(r => r.visibility === "public");
+    } else if (_lbActiveTab === "private") {
+      rooms = rooms.filter(r => r.visibility === "private");
+    } else if (_lbActiveTab === "friends") {
+      // Friends tab: show rooms where host_name matches a friend's nickname
+      const friendNicks = _lbFriendNicks; // Set populated below
+      rooms = rooms.filter(r => friendNicks.has((r.host_name || "").toLowerCase()));
+    }
+
+    if (!rooms.length) {
+      const label = _lbActiveTab === "friends" ? "No friends are currently hosting a room." :
+                    _lbActiveTab === "private" ? "No open private rooms right now." :
+                    "No open public rooms right now.";
+      list.innerHTML = `<div class="lb-browser-empty">${label}</div>`;
+      return;
+    }
+
+    list.innerHTML = "";
+    for (const room of rooms) {
+      const card = document.createElement("div");
+      card.className = "room-card";
+
+      const modeBadge = room.mode === "competitive"
+        ? `<span class="room-badge competitive">⚔ Competitive</span>`
+        : `<span class="room-badge">🌊 Normal</span>`;
+
+      const lockIcon = room.has_password ? "🔒 " : "";
+      const sizeLabel = `${room.filled}/${room.total_players} players`;
+      const aiCount = (room.total_players - room.human_players);
+      const aiLabel = aiCount > 0 ? ` · ${aiCount} AI` : "";
+
+      card.innerHTML = `
+        <div class="room-card-info">
+          <div class="room-card-host">${lockIcon}${escHtml(room.host_name || "Unknown")}</div>
+          <div class="room-card-meta">${sizeLabel}${aiLabel} · ${escHtml(room.created_ago || "")}</div>
+          ${modeBadge}
+        </div>
+        <button class="room-card-join pv-btn gold" data-rid="${escHtml(room.room_id)}">Join →</button>`;
+
+      card.querySelector(".room-card-join").addEventListener("click", () => lbJoinRoom(room));
+      list.appendChild(card);
+    }
+  }
+
+  // Set of friend nicknames (lowercase) for the friends tab filter
+  const _lbFriendNicks = new Set();
+  async function refreshFriendNicks() {
+    const authUser = window.__fishAuthUser ? window.__fishAuthUser() : null;
+    const db = window.__fishDb ? window.__fishDb() : null;
+    if (!authUser || !db) return;
+    try {
+      const snap = await db.collection("users").doc(authUser.uid).get();
+      const friends = snap.data()?.friends || [];
+      _lbFriendNicks.clear();
+      for (const f of friends) {
+        if (f.nickname) _lbFriendNicks.add(f.nickname.toLowerCase());
+      }
+    } catch {}
+  }
+
+  function escHtml(s) {
+    return String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
+  async function lbJoinRoom(room) {
+    if (room.has_password) {
+      _lbPendingRoom = room;
+      document.getElementById("lb-pw-err").textContent = "";
+      document.getElementById("lb-pw-input").value = "";
+      document.getElementById("lb-pw-prompt").classList.add("open");
+      document.getElementById("lb-pw-input").focus();
+    } else {
+      await lbDoJoinRoom(room, "");
+    }
+  }
+
+  async function lbDoJoinRoom(room, password) {
+    const rid  = normalizeRoomId(room.room_id);
+    const name = (window.__fishNickname ? window.__fishNickname() : "") ||
+                 document.getElementById("pv-join-name-home").value.trim() || "Player";
+    closeLobbyBrowser();
+
+    // Pre-populate manual code field so checkRoomSeats works
+    document.getElementById("pv-join-code-home").value = rid;
+
+    // Fetch seats then auto-join if only one seat is open, else show picker
+    const data = await fetchSeats(rid);
+    if (!data || !data.seatObjs.length) {
+      lobbyStatus("Room is full or no longer available.", true);
+      return;
+    }
+
+    const open = data.seatObjs.filter(s => !s.claimed_name);
+    if (!open.length) {
+      lobbyStatus("All seats are taken.", true);
+      return;
+    }
+
+    // If password room, pass the password through doJoin via a wrapped post
+    if (password) {
+      const seat = open[0].index;
+      const joinBtn = document.getElementById("pv-join-btn-home");
+      if (joinBtn) { joinBtn.disabled = true; joinBtn.textContent = "Joining…"; }
+      roomId = rid;
+      try {
+        const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat, password }, { timeoutMs:12000 });
+        if (!j.ok) {
+          lobbyStatus("Join failed: " + (j.data?.error || j.status), true);
+          showToast("Join failed: " + (j.data?.error || j.status), "err");
+          roomId = null;
+          if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat+1} →`; }
+          return;
+        }
+        if (j.data?.seat_token) setSeatToken(j.data.seat_token);
+        document.getElementById("pv-my-name-badge").textContent = name;
+        showToast("Joined! Waiting for host to start…", "ok");
+        enterRoom(rid);
+      } catch {
+        lobbyStatus("Connection error.", true);
+        roomId = null;
+        if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat+1} →`; }
+      }
+      return;
+    }
+
+    // Public room — show seat picker in home view
+    _selectedSeatHome = null;
+    const grid    = document.getElementById("pv-seat-grid-home");
+    const joinBtn = document.getElementById("pv-join-btn-home");
+    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeatHome = i; });
+    document.getElementById("pv-seat-picker-home").style.display = "flex";
+    // Show the home lobby panel so user can pick seat
+    document.getElementById("pv-lobby").style.display = "";
+    lobbyStatus("Pick a seat to join " + rid, false);
+  }
+
+  // Visibility toggle
+  document.getElementById("pv-visibility").addEventListener("change", (e) => {
+    document.getElementById("pv-password-row").style.display = e.target.value === "private" ? "" : "none";
+    if (e.target.value !== "private") document.getElementById("pv-room-password").value = "";
+  });
+
+  // Browse button
+  document.getElementById("pv-browse-btn").addEventListener("click", () => {
+    refreshFriendNicks();
+    openLobbyBrowser();
+  });
+
+  // Modal close
+  document.getElementById("lb-browser-close").addEventListener("click", closeLobbyBrowser);
+  document.getElementById("lobby-browser-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("lobby-browser-modal")) closeLobbyBrowser();
+  });
+
+  // Tab switching
+  document.querySelectorAll(".lb-browser-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".lb-browser-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      _lbActiveTab = tab.dataset.tab;
+      if (_lbActiveTab === "friends") refreshFriendNicks().then(() => renderLobbyList());
+      else renderLobbyList();
+    });
+  });
+
+  // Password confirm
+  document.getElementById("lb-pw-confirm").addEventListener("click", async () => {
+    const pw = document.getElementById("lb-pw-input").value.trim();
+    if (!pw) { document.getElementById("lb-pw-err").textContent = "Enter a password."; return; }
+    if (!_lbPendingRoom) { document.getElementById("lb-pw-prompt").classList.remove("open"); return; }
+    const room = _lbPendingRoom;
+    _lbPendingRoom = null;
+    document.getElementById("lb-pw-prompt").classList.remove("open");
+    await lbDoJoinRoom(room, pw);
+  });
+  document.getElementById("lb-pw-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("lb-pw-confirm").click();
+  });
+
+  // Password cancel
+  document.getElementById("lb-pw-cancel").addEventListener("click", () => {
+    _lbPendingRoom = null;
+    document.getElementById("lb-pw-prompt").classList.remove("open");
+    document.getElementById("lb-pw-err").textContent = "";
+  });
+
+  // Manual code entry inside the browser modal
+  document.getElementById("lb-manual-enter").addEventListener("click", () => {
+    const code = document.getElementById("lb-manual-code").value.trim().toUpperCase();
+    if (!code) return;
+    closeLobbyBrowser();
+    document.getElementById("pv-join-code-home").value = code;
+    checkRoomSeats();
+  });
+  document.getElementById("lb-manual-code").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("lb-manual-enter").click();
   });
 
   // ── Action submission ──────────────────────────────────────────
