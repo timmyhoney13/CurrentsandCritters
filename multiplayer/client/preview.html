@@ -2543,11 +2543,15 @@
     <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
   </div>
 
-  <!-- Competitive 1v1 button -->
-  <div style="width:100%;max-width:420px;">
-    <button class="pv-btn full" id="stats-comp-btn"
-      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border:1px solid rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
-      ⚔️ Competitive 1v1
+  <!-- Tutorial + Competitive row -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:420px;">
+    <button class="stats-nav-btn" id="stats-tutorial-btn"
+      style="border-color:rgba(34,216,248,.3);color:var(--cyan);">
+      🐠 Tutorial
+    </button>
+    <button class="stats-nav-btn" id="stats-comp-btn"
+      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border-color:rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
+      ⚔️ Competitive
     </button>
   </div>
 
@@ -7627,6 +7631,12 @@
 
     $a("stats-comp-btn").addEventListener("click", () => {
       compOpenOverlay();
+    });
+
+    $a("stats-tutorial-btn").addEventListener("click", () => {
+      const sl = $a("auth-stats-lobby");
+      if (sl) sl.classList.remove("visible");
+      startTutorial();
     });
 
     // ── Leaderboard button ────────────────────────────────────────
