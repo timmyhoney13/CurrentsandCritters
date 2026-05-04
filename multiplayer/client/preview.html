@@ -7140,17 +7140,23 @@
 
     function friendlyAuthErr(code) {
       const map = {
-        "auth/wrong-password":       "Incorrect password.",
-        "auth/invalid-credential":   "Incorrect email or password.",
-        "auth/user-not-found":       "No account found with that email.",
-        "auth/email-already-in-use": "An account already exists with that email.",
-        "auth/weak-password":        "Password must be at least 6 characters.",
-        "auth/invalid-email":        "Invalid email address.",
-        "auth/popup-closed-by-user": "Sign-in popup was closed.",
-        "auth/network-request-failed":"Network error. Check your connection.",
-        "auth/too-many-requests":    "Too many attempts. Please wait and try again.",
+        "auth/wrong-password":         "Incorrect password.",
+        "auth/invalid-credential":     "Incorrect email or password.",
+        "auth/user-not-found":         "No account found with that email.",
+        "auth/email-already-in-use":   "An account already exists with that email.",
+        "auth/weak-password":          "Password must be at least 6 characters.",
+        "auth/invalid-email":          "Invalid email address.",
+        "auth/popup-closed-by-user":   "Sign-in popup was closed.",
+        "auth/popup-cancelled-by-user":"Sign-in popup was cancelled.",
+        "auth/popup-blocked":          "Popup was blocked. Allow popups for this site and try again.",
+        "auth/cancelled-popup-request":"Sign-in cancelled.",
+        "auth/network-request-failed": "Network error. Check your connection.",
+        "auth/too-many-requests":      "Too many attempts. Please wait and try again.",
+        "auth/unauthorized-domain":    "This domain isn't authorized for Google sign-in. Add it in Firebase console → Authentication → Authorized Domains.",
+        "auth/operation-not-allowed":  "Google sign-in is not enabled. Enable it in Firebase console → Authentication → Sign-in providers.",
+        "auth/internal-error":         "Google sign-in failed (internal error). Try again.",
       };
-      return map[code] || "Something went wrong. Try again.";
+      return map[code] || `Sign-in error (${code || "unknown"}). Try again.`;
     }
 
     // ── Firestore helpers ────────────────────────────────────────
@@ -7454,6 +7460,10 @@
         const provider = new firebase.auth.GoogleAuthProvider();
         await _auth.signInWithPopup(provider);
       } catch(e) {
+        const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
+        if (popupBlocked) {
+          try { await _auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); return; } catch {}
+        }
         setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
       }
     });
@@ -7497,9 +7507,24 @@
         await _auth.signInWithPopup(provider);
         // onAuthStateChanged handles the rest
       } catch (e) {
+        const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
+        if (popupBlocked) {
+          try { await _auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); return; } catch {}
+        }
         setAuthMsg("auth-signin-err", friendlyAuthErr(e.code), false);
       }
     });
+
+    // Handle redirect result from signInWithRedirect (fires on page load after Google redirect)
+    if (_auth) {
+      _auth.getRedirectResult().then(result => {
+        // onAuthStateChanged fires automatically if sign-in succeeded
+      }).catch(e => {
+        if (e.code && e.code !== "auth/no-current-user") {
+          setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
+        }
+      });
+    }
 
     // ── Email/password sign-in ───────────────────────────────────
     $a("auth-signin-go-btn").addEventListener("click", async () => {
