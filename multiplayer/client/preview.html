@@ -3969,6 +3969,7 @@
       btn.disabled = false; btn.textContent = `Join as Seat ${_spSelectedSeat + 1} →`;
       return;
     }
+    roomId = rid; // must be set before setSeatToken (which keys by roomId)
     if (j.data?.seat_token) setSeatToken(j.data.seat_token);
     document.getElementById("pv-my-name-badge").textContent = name;
     closeSeatPickerModal();
