@@ -2220,6 +2220,40 @@
     #lb-pw-prompt.open { display: flex; }
     #lb-pw-err { color: var(--red); font-size: 12px; min-height: 16px; }
 
+    /* ── NEW CURRENT MODAL ──────────────────────────────────────── */
+    #new-current-modal {
+      display: none; position: fixed; inset: 0; z-index: 8500;
+      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    #new-current-modal.open { display: flex; }
+    #new-current-box {
+      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
+      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
+      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
+      padding: 24px 22px 20px; width: 95%; max-width: 420px;
+      position: relative; display: flex; flex-direction: column; gap: 14px;
+    }
+    #new-current-box h2 { font-family:"Cinzel",serif; font-size:1.1rem; color:var(--gold); letter-spacing:1.5px; margin:0; }
+    #new-current-err { color: var(--red); font-size: 12px; min-height: 16px; }
+
+    /* ── SEAT PICKER MODAL ──────────────────────────────────────── */
+    #seat-picker-modal {
+      display: none; position: fixed; inset: 0; z-index: 8500;
+      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center;
+    }
+    #seat-picker-modal.open { display: flex; }
+    #seat-picker-box {
+      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
+      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
+      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
+      padding: 24px 22px 20px; width: 95%; max-width: 380px;
+      position: relative; display: flex; flex-direction: column; gap: 14px;
+    }
+    #seat-picker-box h2 { font-family:"Cinzel",serif; font-size:1.05rem; color:var(--cyan); letter-spacing:1.5px; margin:0; }
+    #seat-picker-err { color: var(--red); font-size: 12px; min-height: 16px; }
+
     .lb-tabs {
       display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
       scrollbar-width: none;
@@ -2927,6 +2961,48 @@
   </div>
 </div>
 
+<!-- ══ NEW CURRENT MODAL ═════════════════════════════════════════════ -->
+<div id="new-current-modal">
+  <div id="new-current-box">
+    <button class="pv-modal-close" id="nc-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <h2>🌊 New Current</h2>
+    <div class="pv-row" style="gap:10px;">
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">Players</span>
+        <input class="pv-input" id="nc-total" type="number" min="1" max="10" value="2" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">AI Critters</span>
+        <input class="pv-input" id="nc-ai" type="number" min="0" max="9" value="0" />
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;">Privacy</span>
+        <select class="pv-input" id="nc-visibility" style="cursor:pointer;">
+          <option value="public">🌊 Public</option>
+          <option value="private">🔒 Private</option>
+        </select>
+      </div>
+    </div>
+    <div id="nc-password-row" style="display:none;">
+      <input class="pv-input" id="nc-password" type="password" placeholder="Set a password…" style="width:100%;" />
+    </div>
+    <div id="nc-current-err"></div>
+    <button class="pv-btn gold full" id="nc-create-btn">Generate Current →</button>
+  </div>
+</div>
+
+<!-- ══ SEAT PICKER MODAL ═════════════════════════════════════════════ -->
+<div id="seat-picker-modal">
+  <div id="seat-picker-box">
+    <button class="pv-modal-close" id="sp-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <h2 id="sp-title">🪑 Pick a Seat</h2>
+    <div style="font-size:12px;color:var(--muted);">Click an open spot to claim it</div>
+    <div class="seat-grid" id="sp-seat-grid"></div>
+    <div id="seat-picker-err"></div>
+    <button class="pv-btn gold full" id="sp-join-btn" disabled>Choose a seat above</button>
+  </div>
+</div>
+
 <!-- ══ END-GAME CINEMATIC OVERLAY ═══════════════════════════════════ -->
 <div id="endgame-cinematic">
   <div class="eg-title">⚠ END GAME</div>
@@ -3317,6 +3393,9 @@
     roomId = id;
     document.getElementById("pv-room-id-badge").textContent = id;
     document.getElementById("pv-lobby").style.display = "none";
+    // Hide stats lobby if it's showing
+    const statsLobby = document.getElementById("auth-stats-lobby");
+    if (statsLobby) statsLobby.classList.remove("visible");
     document.getElementById("pv-game").style.display = "flex";
     startSSE();
     startPolling();
@@ -3712,62 +3791,34 @@
 
   async function lbDoJoinRoom(room, password) {
     const rid  = normalizeRoomId(room.room_id);
-    const name = (window.__fishNickname ? window.__fishNickname() : "") ||
-                 document.getElementById("pv-join-name-home").value.trim() || "Player";
+    const name = (window.__fishNickname ? window.__fishNickname() : "") || "Player";
     closeLobbyBrowser();
 
-    // Pre-populate manual code field so checkRoomSeats works
-    document.getElementById("pv-join-code-home").value = rid;
-
-    // Fetch seats then auto-join if only one seat is open, else show picker
     const data = await fetchSeats(rid);
     if (!data || !data.seatObjs.length) {
-      lobbyStatus("Room is full or no longer available.", true);
-      return;
+      showToast("Room is full or no longer available.", "err"); return;
     }
-
     const open = data.seatObjs.filter(s => !s.claimed_name);
     if (!open.length) {
-      lobbyStatus("All seats are taken.", true);
-      return;
+      showToast("All seats are taken.", "err"); return;
     }
 
-    // If password room, pass the password through doJoin via a wrapped post
+    // Password rooms — auto-take first open seat (password already confirmed)
     if (password) {
-      const seat = open[0].index;
-      const joinBtn = document.getElementById("pv-join-btn-home");
-      if (joinBtn) { joinBtn.disabled = true; joinBtn.textContent = "Joining…"; }
       roomId = rid;
-      try {
-        const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat, password }, { timeoutMs:12000 });
-        if (!j.ok) {
-          lobbyStatus("Join failed: " + (j.data?.error || j.status), true);
-          showToast("Join failed: " + (j.data?.error || j.status), "err");
-          roomId = null;
-          if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat+1} →`; }
-          return;
-        }
-        if (j.data?.seat_token) setSeatToken(j.data.seat_token);
-        document.getElementById("pv-my-name-badge").textContent = name;
-        showToast("Joined! Waiting for host to start…", "ok");
-        enterRoom(rid);
-      } catch {
-        lobbyStatus("Connection error.", true);
-        roomId = null;
-        if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat+1} →`; }
+      const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: open[0].index, password }, { timeoutMs:12000 });
+      if (!j.ok) {
+        showToast("Join failed: " + (j.data?.error || j.status), "err");
+        roomId = null; return;
       }
-      return;
+      if (j.data?.seat_token) setSeatToken(j.data.seat_token);
+      document.getElementById("pv-my-name-badge").textContent = name;
+      showToast("Joined! Waiting for host to start…", "ok");
+      enterRoom(rid); return;
     }
 
-    // Public room — show seat picker in home view
-    _selectedSeatHome = null;
-    const grid    = document.getElementById("pv-seat-grid-home");
-    const joinBtn = document.getElementById("pv-join-btn-home");
-    buildSeatGrid(grid, joinBtn, data.seatObjs, (i) => { _selectedSeatHome = i; });
-    document.getElementById("pv-seat-picker-home").style.display = "flex";
-    // Show the home lobby panel so user can pick seat
-    document.getElementById("pv-lobby").style.display = "";
-    lobbyStatus("Pick a seat to join " + rid, false);
+    // Public room — show the seat picker modal (stays on stats lobby)
+    openSeatPickerModal(rid, data.seatObjs);
   }
 
   // Visibility toggle
@@ -3830,6 +3881,112 @@
   });
   document.getElementById("lb-manual-code").addEventListener("keydown", (e) => {
     if (e.key === "Enter") document.getElementById("lb-manual-enter").click();
+  });
+
+  // ── New Current Modal ──────────────────────────────────────────
+  function openNewCurrentModal() {
+    document.getElementById("nc-current-err").textContent = "";
+    document.getElementById("nc-password-row").style.display = "none";
+    document.getElementById("nc-password").value = "";
+    document.getElementById("nc-visibility").value = "public";
+    document.getElementById("nc-create-btn").disabled = false;
+    document.getElementById("nc-create-btn").textContent = "Generate Current →";
+    document.getElementById("new-current-modal").classList.add("open");
+  }
+  function closeNewCurrentModal() {
+    document.getElementById("new-current-modal").classList.remove("open");
+  }
+
+  document.getElementById("nc-close").addEventListener("click", closeNewCurrentModal);
+  document.getElementById("new-current-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("new-current-modal")) closeNewCurrentModal();
+  });
+
+  document.getElementById("nc-visibility").addEventListener("change", (e) => {
+    document.getElementById("nc-password-row").style.display = e.target.value === "private" ? "" : "none";
+    if (e.target.value !== "private") document.getElementById("nc-password").value = "";
+  });
+
+  document.getElementById("nc-create-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("nc-create-btn");
+    const errEl = document.getElementById("nc-current-err");
+    const name = (window.__fishNickname && window.__fishNickname()) || "Host";
+    const total = Number(document.getElementById("nc-total").value) || 2;
+    const ai    = Math.min(Number(document.getElementById("nc-ai").value) || 0, total - 1);
+    const visibility = document.getElementById("nc-visibility").value;
+    const password = visibility === "private" ? document.getElementById("nc-password").value.trim() : "";
+    if (visibility === "private" && !password) {
+      errEl.textContent = "Enter a password for the private Current."; return;
+    }
+    const rid = Math.random().toString(36).slice(2,7).toUpperCase();
+    const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    try { localStorage.setItem(createKeyKey(), createKey); } catch {}
+    btn.disabled = true; btn.textContent = "Generating…";
+    errEl.textContent = "";
+    const r = await apiPost("/api/rooms", {
+      create_key: createKey, host_name: name, room_id: rid,
+      total_players: total, human_players: total - ai, ai_players: ai,
+      replace_active: false, visibility, password,
+    }, { timeoutMs:10000 });
+    btn.disabled = false; btn.textContent = "Generate Current →";
+    if (!r.ok) { errEl.textContent = "Failed: " + (r.data?.error || r.status); return; }
+    const rId = normalizeRoomId(r.data?.room_id || rid);
+    roomId = rId;
+    if (r.data?.host_token) setHostToken(r.data.host_token);
+    if (r.data?.seat_token) setSeatToken(r.data.seat_token);
+    document.getElementById("pv-my-name-badge").textContent = name;
+    closeNewCurrentModal();
+    enterRoom(rId);
+    showWaitingRoom(rId, true);
+  });
+
+  // ── Seat Picker Modal (for joining public rooms from lobby browser) ──
+  let _spPendingRid = null;
+  let _spSelectedSeat = null;
+
+  function openSeatPickerModal(rid, seatObjs) {
+    _spPendingRid = rid;
+    _spSelectedSeat = null;
+    document.getElementById("sp-title").textContent = "🪑 Join " + rid;
+    document.getElementById("seat-picker-err").textContent = "";
+    const joinBtn = document.getElementById("sp-join-btn");
+    joinBtn.disabled = true;
+    joinBtn.textContent = "Choose a seat above";
+    buildSeatGrid(
+      document.getElementById("sp-seat-grid"),
+      joinBtn,
+      seatObjs,
+      (i) => { _spSelectedSeat = i; }
+    );
+    document.getElementById("seat-picker-modal").classList.add("open");
+  }
+  function closeSeatPickerModal() {
+    document.getElementById("seat-picker-modal").classList.remove("open");
+    _spPendingRid = null; _spSelectedSeat = null;
+  }
+
+  document.getElementById("sp-close").addEventListener("click", closeSeatPickerModal);
+  document.getElementById("seat-picker-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("seat-picker-modal")) closeSeatPickerModal();
+  });
+
+  document.getElementById("sp-join-btn").addEventListener("click", async () => {
+    if (_spSelectedSeat === null || !_spPendingRid) return;
+    const rid = _spPendingRid;
+    const name = (window.__fishNickname && window.__fishNickname()) || "Player";
+    const btn = document.getElementById("sp-join-btn");
+    btn.disabled = true; btn.textContent = "Joining…";
+    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: _spSelectedSeat }, { timeoutMs:12000 });
+    if (!j.ok) {
+      document.getElementById("seat-picker-err").textContent = "Join failed: " + (j.data?.error || j.status);
+      btn.disabled = false; btn.textContent = `Join as Seat ${_spSelectedSeat + 1} →`;
+      return;
+    }
+    if (j.data?.seat_token) setSeatToken(j.data.seat_token);
+    document.getElementById("pv-my-name-badge").textContent = name;
+    closeSeatPickerModal();
+    showToast("Joined! Waiting for host to start…", "ok");
+    enterRoom(rid);
   });
 
   // ── Action submission ──────────────────────────────────────────
@@ -7431,34 +7588,22 @@
 
     // ── Stats lobby buttons ───────────────────────────────────────
     $a("stats-create-btn").addEventListener("click", () => {
-      enterGameLobby();
-      const box = $a("pv-create-box");
-      if (box) setTimeout(() => box.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+      openNewCurrentModal();
     });
 
     $a("stats-join-toggle-btn").addEventListener("click", () => {
-      // Open the lobby browser modal directly
-      enterGameLobby();
-      setTimeout(() => {
-        if (window.__fishSyncNickname) window.__fishSyncNickname();
-        const browseBtn = document.getElementById("pv-browse-btn");
-        if (browseBtn) browseBtn.click();
-      }, 60);
+      refreshFriendNicks();
+      openLobbyBrowser();
     });
 
     $a("stats-join-go-btn").addEventListener("click", () => {
       const code = ($a("stats-join-code").value || "").trim().toUpperCase();
-      enterGameLobby();
-      setTimeout(() => {
-        if (window.__fishSyncNickname) window.__fishSyncNickname();
-        if (code.length >= 3) {
-          // Pre-fill manual code in the modal and open it
-          const manualInput = document.getElementById("lb-manual-code");
-          if (manualInput) manualInput.value = code;
-        }
-        const browseBtn = document.getElementById("pv-browse-btn");
-        if (browseBtn) browseBtn.click();
-      }, 60);
+      if (code.length >= 3) {
+        const manualInput = document.getElementById("lb-manual-code");
+        if (manualInput) manualInput.value = code;
+      }
+      refreshFriendNicks();
+      openLobbyBrowser();
     });
 
     $a("stats-join-code").addEventListener("keydown", e => {
@@ -7466,8 +7611,7 @@
     });
 
     $a("stats-comp-btn").addEventListener("click", () => {
-      enterGameLobby();
-      const btn = $a("pv-comp-open-btn"); if (btn) btn.click();
+      compOpenOverlay();
     });
 
     // ── Leaderboard button ────────────────────────────────────────
