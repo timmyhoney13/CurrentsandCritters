@@ -2651,7 +2651,7 @@
   <div id="pv-notice">
     <span class="room-badge" id="pv-room-id-badge">—</span>
     <span id="pv-my-name-badge"></span>
-    <span id="pv-my-score-badge">0</span>
+    <span id="pv-my-score-badge" title="Tap for Score Breakdown">📊 0 pts</span>
     <span id="pv-status-text">Connecting…</span>
     <div class="pv-menu-wrap">
       <button id="pv-menu-btn">&#9776; Menu</button>
@@ -3637,7 +3637,7 @@
       el.style.color = diff > 0 ? "var(--green)" : "var(--red)";
       setTimeout(() => { el.style.transition = "color 1s"; el.style.color = "var(--gold)"; }, 900);
     }
-    el.textContent = next + " pts";
+    el.textContent = "📊 " + next + " pts";
   }
 
   // ── Main payload renderer ──────────────────────────────────────
@@ -4154,8 +4154,19 @@
     const countMap = {2:"Two",3:"Three",4:"Four",5:"Five",6:"Six",7:"Seven",8:"Eight",9:"Nine",10:"Ten"};
     const countLabel = countMap[players.length] || String(players.length);
     const countEl = document.createElement("div");
-    countEl.style.cssText = "font-size:11px;color:var(--muted);text-align:center;margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;";
-    countEl.textContent = `${countLabel}-Player Game · ${players.length} Competitors`;
+    countEl.style.cssText = [
+      "font-family:'Cinzel',serif",
+      "font-size:1rem",
+      "font-weight:900",
+      "color:var(--cyan)",
+      "text-align:center",
+      "margin-bottom:14px",
+      "letter-spacing:.1em",
+      "text-transform:uppercase",
+      "padding:8px 0",
+      "border-bottom:1px solid rgba(48,200,240,.2)",
+    ].join(";");
+    countEl.textContent = `⚓ ${countLabel}-Player Game`;
     content.appendChild(countEl);
 
     const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
