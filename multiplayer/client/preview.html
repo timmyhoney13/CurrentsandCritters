@@ -6180,12 +6180,11 @@
 
   function returnToMenu() {
     _leaveGameCleanup();
-    // Show the stats lobby (home menu) so the player sees their updated stats
     const statsLobby = document.getElementById("auth-stats-lobby");
     if (statsLobby) {
       statsLobby.classList.add("visible");
-      // Refresh stats so the newly saved game shows up
-      if (typeof showStatsLobby === "function") showStatsLobby();
+      statsLobby.scrollTop = 0;
+      if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
     } else {
       document.getElementById("pv-lobby").style.display="flex";
     }
@@ -7229,9 +7228,10 @@
     }
 
     // Expose getters so outer game code can read auth state if needed
-    window.__fishNickname  = () => _playerNickname;
-    window.__fishAuthUser  = () => _authUser;
-    window.__fishDb        = () => _db;
+    window.__fishNickname      = () => _playerNickname;
+    window.__fishAuthUser      = () => _authUser;
+    window.__fishDb            = () => _db;
+    window.__fishShowStatsLobby = () => showStatsLobby();
 
   })(); // end auth IIFE
 </script>
