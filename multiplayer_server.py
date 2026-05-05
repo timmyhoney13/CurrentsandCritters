@@ -3046,6 +3046,25 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         parts = self._path_parts(parsed.path)
 
+        if parsed.path == "/firebase-config.js":
+            cfg = {
+                "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
+                "authDomain":        os.environ.get("VITE_FIREBASE_AUTH_DOMAIN", ""),
+                "projectId":         os.environ.get("VITE_FIREBASE_PROJECT_ID", ""),
+                "storageBucket":     os.environ.get("VITE_FIREBASE_STORAGE_BUCKET", ""),
+                "messagingSenderId": os.environ.get("VITE_FIREBASE_MESSAGING_SENDER_ID", ""),
+                "appId":             os.environ.get("VITE_FIREBASE_APP_ID", ""),
+            }
+            js = f"window.__FISH_FIREBASE_CONFIG = {json.dumps(cfg)};\n"
+            body = js.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if parsed.path == "/manifest.webmanifest":
             self._send_client_asset(MANIFEST_PATH, content_type="application/manifest+json; charset=utf-8")
             return
