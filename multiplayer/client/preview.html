@@ -7630,11 +7630,14 @@
       setAuthMsg("auth-choose-err", "", false);
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
         await _auth.signInWithPopup(provider);
       } catch(e) {
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
-          try { await _auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); return; } catch {}
+          const rp = new firebase.auth.GoogleAuthProvider();
+          rp.setCustomParameters({ prompt: "select_account" });
+          try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
         setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
       }
@@ -7676,12 +7679,15 @@
       setAuthMsg("auth-signin-err", "", false);
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account" });
         await _auth.signInWithPopup(provider);
         // onAuthStateChanged handles the rest
       } catch (e) {
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
-          try { await _auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); return; } catch {}
+          const rp = new firebase.auth.GoogleAuthProvider();
+          rp.setCustomParameters({ prompt: "select_account" });
+          try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
         setAuthMsg("auth-signin-err", friendlyAuthErr(e.code), false);
       }
