@@ -15,18 +15,20 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
+  "redirects": [
+    { "source": "/game",              "destination": "https://currentsandcritters-1.onrender.com/", "permanent": false },
+    { "source": "/play/:room_id",     "destination": "https://currentsandcritters-1.onrender.com/play/:room_id", "permanent": false },
+    { "source": "/preview",           "destination": "https://currentsandcritters-1.onrender.com/", "permanent": false },
+    { "source": "/preview/:room_id",  "destination": "https://currentsandcritters-1.onrender.com/play/:room_id", "permanent": false }
+  ],
   "rewrites": [
-    { "source": "/game",                 "destination": "/multiplayer/client/preview.html" },
-    { "source": "/play/:room_id",        "destination": "/multiplayer/client/preview.html" },
-    { "source": "/preview",              "destination": "/multiplayer/client/preview.html" },
-    { "source": "/preview/:room_id",     "destination": "/multiplayer/client/preview.html" },
     { "source": "/classic",              "destination": "/multiplayer/client/index.html" },
     { "source": "/classic/:room_id",     "destination": "/multiplayer/client/index.html" },
     { "source": "/old",                  "destination": "/multiplayer/client/index.html" },
     { "source": "/old/:room_id",         "destination": "/multiplayer/client/index.html" },
     { "source": "/rules",                "destination": "/multiplayer/client/rules.html" },
     { "source": "/about",                "destination": "/multiplayer/client/about.html" },
-    { "source": "/sw.js",                "destination": "/multiplayer/client/sw.js" },
+    { "source": "/sw.js",               "destination": "/multiplayer/client/sw.js" },
     { "source": "/icon.svg",             "destination": "/multiplayer/client/icon.svg" },
     { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" }
   ]
