@@ -7177,6 +7177,10 @@
         firebase.initializeApp(window.__FISH_FIREBASE_CONFIG);
         _auth = firebase.auth();
         _db   = firebase.firestore();
+        // Use SESSION persistence: auth state lives only for this browser tab.
+        // This prevents a previously signed-in user from being auto-restored
+        // when someone else opens the game on the same device.
+        _auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(() => {});
       } catch (e) { console.warn("Firebase init failed:", e); }
     }
 
