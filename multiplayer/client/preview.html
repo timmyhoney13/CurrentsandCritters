@@ -4135,6 +4135,14 @@
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
       showToast(desc, "ok");
+      // Competitive: immediately flip to the other hand after submitting
+      if (compMode && myIdx !== null) {
+        const otherSeat = compMySeats.find(s => s !== myIdx);
+        if (otherSeat !== undefined) {
+          _compHsSuppressed = false;
+          showCompHandSwitch(otherSeat);
+        }
+      }
       await sleep(160);
       refreshState();
     } catch(e) { setStatus("Error: " + e.message); showToast("Error: " + e.message, "err"); }
@@ -5752,12 +5760,13 @@
     const activeSeat = Number(payload?.active_action_seat);
     if (isNaN(activeSeat)) return;
     const isMySeat = compMySeats.includes(activeSeat);
-    const prevIsMySeat = _compPrevActiveSeat !== null && compMySeats.includes(_compPrevActiveSeat);
-    // Show hand-switch when BOTH current and previous active seats are mine (switching between my own hands)
-    if (isMySeat && prevIsMySeat && activeSeat !== _compPrevActiveSeat && !_compHsSuppressed) {
-      showCompHandSwitch(activeSeat);
+    if (isMySeat) {
+      // Show switch whenever it becomes a different one of my hands than the last time I played
+      if (!_compHsSuppressed && _compPrevActiveSeat !== null && activeSeat !== _compPrevActiveSeat) {
+        showCompHandSwitch(activeSeat);
+      }
+      _compPrevActiveSeat = activeSeat; // only track my own seats
     }
-    _compPrevActiveSeat = activeSeat;
     _compHsSuppressed = false;
   }
 
