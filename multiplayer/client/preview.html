@@ -2142,6 +2142,38 @@
     }
     .stats-nav-btn:hover { background: rgba(34,72,140,.7); }
     .stats-nav-btn.primary:hover { background: linear-gradient(135deg,#0e5aa0,#0f3a70); }
+    .stats-pie-wrap {
+      display: none; flex-direction: row; align-items: center; gap: 14px;
+      margin-top: 10px; padding: 12px 14px;
+      background: rgba(11,36,72,.6); border: 1px solid rgba(58,120,204,.25);
+      border-radius: 12px; position: relative;
+    }
+    .stats-pie-wrap-comp { background: rgba(42,28,8,.6); border-color: rgba(240,200,64,.2); }
+    .stats-pie-wrap.visible { display: flex; }
+    .stats-pie-svg { flex-shrink: 0; cursor: pointer; }
+    .stats-pie-svg path { transition: transform .15s, filter .15s; transform-origin: 60px 60px; }
+    .stats-pie-svg path:hover { transform: scale(1.08); filter: brightness(1.25); }
+    .stats-pie-legend { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+    .stats-pie-legend-item {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text); cursor: default;
+      padding: 3px 6px; border-radius: 6px; transition: background .12s;
+    }
+    .stats-pie-legend-item:hover { background: rgba(255,255,255,.06); }
+    .stats-pie-legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+    .stats-pie-legend-label { font-weight: 700; min-width: 22px; }
+    .stats-pie-legend-count { color: var(--muted); font-size: 10px; }
+    .stats-pie-tooltip {
+      position: fixed; background: rgba(4,20,35,.96);
+      border: 1px solid rgba(34,216,248,.4); border-radius: 8px;
+      padding: 6px 11px; font-size: 12px; font-weight: 700; color: #fff;
+      pointer-events: none; display: none; z-index: 9999;
+      white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,.5);
+    }
+    .stats-pie-title {
+      font-size: 9px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px;
+    }
     .stats-join-row {
       display: none; flex-direction: row; gap: 8px; align-items: center;
       width: 100%; max-width: 420px;
@@ -2499,6 +2531,7 @@
         <div class="stat-value" id="stat-normal-wins">—</div>
       </div>
     </div>
+    <div id="stat-normal-pie" class="stats-pie-wrap"></div>
   </div>
 
   <!-- Competitive stats -->
@@ -2518,6 +2551,7 @@
         <div class="stat-value" id="stat-comp-wins">—</div>
       </div>
     </div>
+    <div id="stat-comp-pie" class="stats-pie-wrap stats-pie-wrap-comp"></div>
   </div>
 
   <!-- Summary stats row -->
@@ -6959,6 +6993,13 @@
         const pKey = `highest_score_${playerCount}p`;
         if (myScore > (cStats[pKey] || 0)) updates[`stats.${pKey}`] = myScore;
       }
+      // Track games played by player count for pie charts
+      if (playerCount >= 2 && playerCount <= 10) {
+        const sizeField = isComp
+          ? `stats.comp_games_by_size.${playerCount}`
+          : `stats.normal_games_by_size.${playerCount}`;
+        updates[sizeField] = firebase.firestore.FieldValue.increment(1);
+      }
       await docRef.update(updates);
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -7324,9 +7365,111 @@
       renderStats(profile && profile.stats ? profile.stats : null);
     }
 
+    const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
+    const PIE_COLORS_COMP = ["#f0c840","#e06c75","#c678dd","#22d8f8","#2ecc71","#e5c07b"];
+
+    function renderPieChart(containerId, sizeData, isComp) {
+      const el = $a(containerId);
+      if (!el) return;
+      el.innerHTML = "";
+      const entries = Object.entries(sizeData || {})
+        .map(([k, v]) => ({ n: parseInt(k), count: Number(v) }))
+        .filter(e => e.count > 0)
+        .sort((a, b) => a.n - b.n);
+      if (!entries.length) { el.classList.remove("visible"); return; }
+      el.classList.add("visible");
+
+      const total = entries.reduce((s, e) => s + e.count, 0);
+      const colors = isComp ? PIE_COLORS_COMP : PIE_COLORS;
+      const S = 120, cx = 60, cy = 60, r = 44, ri = 18; // donut hole
+      let angle = -Math.PI / 2;
+
+      // Tooltip (appended to body so it's never clipped)
+      const tip = document.createElement("div");
+      tip.className = "stats-pie-tooltip";
+      document.body.appendChild(tip);
+
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", `0 0 ${S} ${S}`);
+      svg.className = "stats-pie-svg";
+      svg.style.width = svg.style.height = "120px";
+
+      entries.forEach((e, i) => {
+        const slice = (e.count / total) * 2 * Math.PI;
+        const end = angle + slice;
+        const x1 = cx + r * Math.cos(angle),  y1 = cy + r * Math.sin(angle);
+        const x2 = cx + r * Math.cos(end),    y2 = cy + r * Math.sin(end);
+        const ix1 = cx + ri * Math.cos(end),  iy1 = cy + ri * Math.sin(end);
+        const ix2 = cx + ri * Math.cos(angle),iy2 = cy + ri * Math.sin(angle);
+        const large = slice > Math.PI ? 1 : 0;
+        const d = `M${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} L${ix1},${iy1} A${ri},${ri} 0 ${large} 0 ${ix2},${iy2} Z`;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", d);
+        path.setAttribute("fill", colors[i % colors.length]);
+        path.setAttribute("stroke", "rgba(4,20,35,.6)");
+        path.setAttribute("stroke-width", "1.5");
+        const pct = Math.round((e.count / total) * 100);
+        path.addEventListener("mouseenter", () => {
+          tip.textContent = `${e.n} Players — ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
+          tip.style.display = "block";
+        });
+        path.addEventListener("mousemove", ev => {
+          tip.style.left = (ev.clientX + 12) + "px";
+          tip.style.top  = (ev.clientY - 32) + "px";
+        });
+        path.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+        svg.appendChild(path);
+        angle = end;
+      });
+
+      // Center label: total games
+      const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      txt.setAttribute("x", cx); txt.setAttribute("y", cy + 1);
+      txt.setAttribute("text-anchor", "middle"); txt.setAttribute("dominant-baseline", "middle");
+      txt.setAttribute("fill", "#fff"); txt.setAttribute("font-size", "13");
+      txt.setAttribute("font-weight", "800"); txt.setAttribute("font-family", "Nunito, sans-serif");
+      txt.textContent = total;
+      svg.appendChild(txt);
+      const sub = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      sub.setAttribute("x", cx); sub.setAttribute("y", cy + 13);
+      sub.setAttribute("text-anchor", "middle"); sub.setAttribute("dominant-baseline", "middle");
+      sub.setAttribute("fill", "rgba(255,255,255,.45)"); sub.setAttribute("font-size", "7");
+      sub.setAttribute("font-family", "Nunito, sans-serif");
+      sub.textContent = "games";
+      svg.appendChild(sub);
+
+      // Legend
+      const legend = document.createElement("div");
+      legend.className = "stats-pie-legend";
+      const title = document.createElement("div");
+      title.className = "stats-pie-title";
+      title.textContent = "Players per game";
+      legend.appendChild(title);
+      entries.forEach((e, i) => {
+        const pct = Math.round((e.count / total) * 100);
+        const item = document.createElement("div");
+        item.className = "stats-pie-legend-item";
+        item.innerHTML = `<span class="stats-pie-legend-dot" style="background:${colors[i % colors.length]}"></span>
+          <span class="stats-pie-legend-label">${e.n}P</span>
+          <span class="stats-pie-legend-count">${e.count} game${e.count !== 1 ? "s" : ""} · ${pct}%</span>`;
+        item.addEventListener("mouseenter", () => {
+          tip.textContent = `${e.n} Players — ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
+          tip.style.display = "block";
+        });
+        item.addEventListener("mousemove", ev => {
+          tip.style.left = (ev.clientX + 12) + "px";
+          tip.style.top  = (ev.clientY - 32) + "px";
+        });
+        item.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+        legend.appendChild(item);
+      });
+
+      el.appendChild(svg);
+      el.appendChild(legend);
+    }
+
     function renderStats(stats) {
       const completed = stats && (stats.completed_games || 0) > 0;
-      // Show/hide empty state and stat blocks
       const noGamesEl = $a("stats-no-games");
       const normalBlock = $a("stats-normal-block");
       const compBlock   = $a("stats-comp-block");
@@ -7345,6 +7488,8 @@
       s("stat-comp-wins",    stats.competitive_wins       ?? null);
       s("stat-completed",    stats.completed_games        ?? null);
       s("stat-strategy",     stats.most_played_strategy   || null);
+      renderPieChart("stat-normal-pie", stats.normal_games_by_size || {}, false);
+      renderPieChart("stat-comp-pie",   stats.comp_games_by_size   || {}, true);
     }
 
     async function loadFriendsMini(uid) {
