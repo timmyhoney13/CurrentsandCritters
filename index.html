@@ -1367,5 +1367,29 @@
 
 <div class="preview-note">✦ Preview Only — Not Applied to Site Yet ✦</div>
 
+<script>
+  (function() {
+    var RENDER = "https://currentsandcritters-1.onrender.com";
+    function fixLinks() {
+      document.querySelectorAll("a").forEach(function(a) {
+        var h = a.getAttribute("href") || "";
+        if (h === "/game" || h === "/preview" || h.startsWith("/play/") || h.startsWith("/preview/")) {
+          a.href = RENDER;
+        }
+      });
+    }
+    fixLinks();
+    document.addEventListener("click", function(e) {
+      var a = e.target.closest("a");
+      if (!a) return;
+      var h = a.getAttribute("href") || "";
+      if (h === "/game" || h === "/preview" || h.startsWith("/play/") || h.startsWith("/preview/")) {
+        e.preventDefault();
+        window.location.href = RENDER;
+      }
+    }, true);
+  })();
+</script>
+
 </body>
 </html>
