@@ -4867,8 +4867,8 @@
     // 5 — click to select ocean
     { title:"Play an Ocean Card", waitFor:"select_ocean",
       highlight:null, highlightHandUid:217,
-      actionHint:"Click the gold Coral Reef — any teal card can pay the 1-card cost.",
-      text:`<p>The <strong>Coral Reef</strong> is your first ocean! Playing it costs <strong>1 card — any card works</strong> (all teal cards are valid payment). Click the <strong>gold Coral Reef</strong> to queue it, then pick your payment.</p>` },
+      actionHint:"Click the glowing gold Coral Reef to select it.",
+      text:`<p>The <strong>Coral Reef</strong> is your first ocean! To play it you'll: <strong>① Select it</strong>, then <strong>② Pay 1 card</strong>. Let's start — <strong>click the glowing gold Coral Reef</strong> to select it.</p>` },
     // 6 — pay for ocean
     { title:"Pay the Ocean's Cost", waitFor:"pay_ocean", highlight:null,
       actionHint:"Click any teal card to pay — any symbol works, then Coral Reef is placed!",
@@ -5146,10 +5146,9 @@
       const isHighlighted = step.highlightHandUid === uid;
       if (isHighlighted) div.classList.add("tut-selectable");
 
-      // select_ocean: Coral Reef glows gold; all non-protected cards glow teal (any can pay)
+      // select_ocean: only Coral Reef glows gold — payment cards don't glow yet
       if (step.waitFor === "select_ocean") {
         if (uid === 217) div.classList.add("tut-drag-ready");
-        else if (![11, 26, 102].includes(uid)) div.classList.add("tut-pay-selectable");
       }
 
       // play_animal: Puffin glows gold to select
