@@ -9,6 +9,17 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
+  <!-- Always serve the game from the stable Render domain so Firebase auth works -->
+  <script>
+    (function() {
+      var GAME_HOST = "currentsandcritters-1.onrender.com";
+      if (location.hostname !== GAME_HOST && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        var dest = "https://" + GAME_HOST + location.pathname + location.search + location.hash;
+        window.location.replace(dest);
+      }
+    })();
+  </script>
+
   <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
