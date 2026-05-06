@@ -1875,9 +1875,26 @@ class GameRoom:
                     return replay_action
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
+                # Build a list of species the player can currently play for free.
+                free_play_species: List[str] = []
+                if player.flags.get("free_mammal"):
+                    free_play_species.append("Mammal")
+                if player.flags.get("free_baitfish") or player.flags.get("free_baitfish_chain"):
+                    free_play_species.append("Baitfish")
+                if player.flags.get("free_game_fish"):
+                    free_play_species.append("Game Fish")
+                if player.flags.get("free_cephalopods") or player.flags.get("free_cephalopod_once"):
+                    free_play_species.append("Cephalopod")
+                if player.flags.get("free_crustacean"):
+                    free_play_species.append("Crustacean")
+                if player.flags.get("free_invertebrate"):
+                    free_play_species.append("Invertebrate")
+                if player.flags.get("free_coral"):
+                    free_play_species.append("Coral")
                 try:
                     legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
                     legal_payload["is_replay_turn"] = is_replay_turn
+                    legal_payload["free_play_species"] = free_play_species
                 except Exception as exc:
                     self._record_event(f"_serialize_legal_actions error for {player.name}: {exc}")
                     legal_payload = {
@@ -1894,6 +1911,7 @@ class GameRoom:
                         "hand_limit": 10,
                         "actions": [],
                         "is_replay_turn": is_replay_turn,
+                        "free_play_species": free_play_species,
                     }
                 with self.cond:
                     if self.phase != "running":
@@ -1913,6 +1931,9 @@ class GameRoom:
                         )
                     elif is_replay_turn:
                         self.status_note = f"★ Play again! {player.name} takes another turn."
+                    elif free_play_species:
+                        species_str = " or ".join(free_play_species)
+                        self.status_note = f"★ FREE PLAY: {player.name} — play a free {species_str} (or click End Turn to skip)."
                     else:
                         self.status_note = f"Waiting for action from {player.name}."
                     self._bump_locked()

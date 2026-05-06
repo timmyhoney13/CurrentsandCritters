@@ -802,9 +802,13 @@ def _execute_star_pattern(
     if "play a free game fish" in t:
         player.flags["free_game_fish"] = True
         gs.log.append(f"{player.name} can play a free Game Fish from {card.name} star ability.")
-    if "play any number of cephalopods for free" in t or "play a free cephalopod" in t:
+    if "play any number of cephalopods for free" in t:
         player.flags["free_cephalopods"] = True
         gs.log.append(f"{player.name} can play Cephalopods for free from {card.name} star ability.")
+    elif "play a free cephalopod" in t:
+        # Single-use free cephalopod (e.g. Grooved Brain Coral) — consumed after one play.
+        player.flags["free_cephalopod_once"] = True
+        gs.log.append(f"{player.name} can play one free Cephalopod from {card.name} star ability.")
     if "free crustacean" in t:
         player.flags["free_crustacean"] = True
         gs.log.append(f"{player.name} can play a free Crustacean from {card.name} star ability.")
@@ -855,6 +859,11 @@ def resolve_reactive_draw_triggers(
 
         if owner is played_by and is_surface_play:
             n = int(owner.flags.get("trigger_draw_on_surface_play", 0))
+            # Prevent self-trigger: if the card just placed IS a surface-draw listener,
+            # subtract 1 so it doesn't fire for its own placement.
+            played_text = played_card.text.lower()
+            if "draw one when you play an animal on the ocean surface" in played_text:
+                n = max(0, n - 1)
             if n > 0:
                 draw(gs, owner, n, ms)
                 gs.log.append(
@@ -863,6 +872,11 @@ def resolve_reactive_draw_triggers(
 
         if owner is played_by and is_floor_play:
             n = int(owner.flags.get("trigger_draw_on_floor_play", 0))
+            # Prevent self-trigger: if the card just played IS itself a floor-draw listener,
+            # subtract 1 so it doesn't fire for its own placement.
+            played_text = played_card.text.lower()
+            if "draw one when you play a card on the ocean floor" in played_text:
+                n = max(0, n - 1)
             if n > 0:
                 draw(gs, owner, n, ms)
                 gs.log.append(
@@ -1097,6 +1111,7 @@ FREE_PLAY_FLAGS = (
     "free_baitfish",
     "free_game_fish",
     "free_cephalopods",
+    "free_cephalopod_once",
     "free_crustacean",
     "free_invertebrate",
     "free_coral",
@@ -1584,6 +1599,7 @@ def has_multi_play_window(player: PlayerState) -> bool:
         player.flags.get("multi_play_paid_turn", False)
         or player.flags.get("free_baitfish_chain", False)
         or player.flags.get("free_cephalopods", False)
+        or player.flags.get("free_cephalopod_once", False)
         or int(player.flags.get("free_yellowfin_tuna", 0)) > 0
     )
 
@@ -1912,6 +1928,8 @@ def is_free_play_eligible(player: PlayerState, card: CardDef) -> bool:
     if player.flags.get("free_game_fish", False) and species == "game fish":
         return True
     if player.flags.get("free_cephalopods", False) and species == "cephalopod":
+        return True
+    if player.flags.get("free_cephalopod_once", False) and species == "cephalopod":
         return True
     if player.flags.get("free_crustacean", False) and species == "crustacean":
         return True
@@ -5154,7 +5172,13 @@ def consume_free_flag_if_applicable(player: PlayerState, card: CardDef) -> bool:
     if not key:
         return False
 
+    # Single-use free cephalopod (Grooved Brain Coral star) — consumed after one play.
+    if player.flags.get("free_cephalopod_once", False) and card.species.strip().lower() == "cephalopod":
+        player.flags["free_cephalopod_once"] = False
+        return True
+
     if key == "free_cephalopods":
+        # Unlimited free cephalopods (Reef Trigger Fish star) — never consumed.
         return bool(player.flags.get(key, False))
 
     if player.flags.get(key, False):
@@ -5483,7 +5507,7 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     free_only = bool(player.flags.get("_free_action_only", False))
     multi_paid = bool(player.flags.get("multi_play_paid_turn", False))
     multi_baitfish = bool(player.flags.get("free_baitfish_chain", False))
-    multi_cephalopods = bool(player.flags.get("free_cephalopods", False))
+    multi_cephalopods = bool(player.flags.get("free_cephalopods", False)) or bool(player.flags.get("free_cephalopod_once", False))
     multi_yellowfin = int(player.flags.get("free_yellowfin_tuna", 0)) > 0
     has_manual_end_window = free_only or multi_paid or multi_baitfish or multi_cephalopods or multi_yellowfin
     if has_manual_end_window:
@@ -5762,6 +5786,7 @@ def clear_turn_only_flags(player: PlayerState) -> None:
         "free_yellowfin_tuna",
         "free_game_fish",
         "free_cephalopods",
+        "free_cephalopod_once",
         "free_crustacean",
         "free_invertebrate",
         "free_coral",
@@ -6007,8 +6032,6 @@ def apply_action(
     if verbose and payments:
         paid = ", ".join(entry_short_label(ms, gs, uid) for uid in payments)
         print(f"{player.name} pays cost by discarding: {paid}")
-    if payments:
-        trigger_board_symbol_star_draws(gs, ms, player, payments)
 
     # Play card.
     try:
