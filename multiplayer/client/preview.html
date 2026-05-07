@@ -2038,7 +2038,7 @@
     /* ── PLAYER HOME (ph-*) ─────────────────────────────────────── */
     #auth-stats-lobby {
       position: fixed; inset: 0; z-index: 8900;
-      background: linear-gradient(180deg,#d8f4fc 0%,#a8dcf4 22%,#70b8e8 52%,#4090cc 100%);
+      background: linear-gradient(180deg,#bce8fa 0%,#88caf2 30%,#54a8e0 60%,#3286c2 100%);
       display: none; flex-direction: column; align-items: center; overflow-y: auto;
       font-family: 'Nunito',sans-serif; color: #1a3a5c;
     }
@@ -2066,7 +2066,7 @@
     .ph-icon-btn:hover { background: rgba(255,255,255,.97); }
     .ph-topbar-title {
       font-family: 'Cinzel',serif;
-      font-size: clamp(1.8rem,3.2vw,3.0rem); font-weight: 900;
+      font-size: clamp(1.3rem,3.5vw,2.4rem); font-weight: 900;
       color: #1a2e4a; letter-spacing: 2px; text-align: center; flex: 1;
       text-shadow: 0 1px 0 rgba(255,255,255,.7),0 3px 16px rgba(26,90,180,.1);
     }
@@ -2093,12 +2093,12 @@
       display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     }
     .ph-avatar {
-      width: 104px; height: 104px; border-radius: 50%; flex-shrink: 0;
+      width: 84px; height: 84px; border-radius: 50%; flex-shrink: 0;
       background: linear-gradient(135deg,#2680c8,#0d4a96);
       border: 4px solid rgba(255,255,255,.95);
       box-shadow: 0 0 0 3px #5aace0,0 6px 22px rgba(26,90,180,.28);
       display: flex; align-items: center; justify-content: center;
-      font-size: 38px; font-weight: 900; color: white; font-family: 'Cinzel',serif;
+      font-size: 32px; font-weight: 900; color: white; font-family: 'Cinzel',serif;
     }
     .ph-pinfo { flex: 1; min-width: 160px; }
     .ph-pname-row { display: flex; align-items: center; gap: 9px; }
@@ -2145,8 +2145,8 @@
     .ph-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
     .ph-action-card {
       background: rgba(255,255,255,.96); border: 1.5px solid rgba(220,236,250,.9); border-radius: 18px;
-      padding: 16px 20px; display: flex; flex-direction: row; align-items: center;
-      gap: 16px; cursor: pointer; transition: all .18s;
+      padding: 20px 18px; display: flex; flex-direction: column; align-items: flex-start;
+      gap: 2px; cursor: pointer; transition: all .18s;
       box-shadow: 0 3px 16px rgba(26,90,180,.07); font-family: 'Nunito',sans-serif;
     }
     .ph-action-card:hover { border-color: #5aace0; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(26,90,180,.14); }
@@ -2154,10 +2154,9 @@
     .ph-action-card.ph-action-gold .ph-action-label { color: #8a5800; }
     .ph-action-card.ph-action-gold:hover { border-color: #c89010; }
     .ph-action-icon {
-      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 12px; margin-bottom: 8px;
       display: flex; align-items: center; justify-content: center; font-size: 22px;
     }
-    .ph-action-text { display: flex; flex-direction: column; gap: 2px; }
     .ph-ai-blue  { background: rgba(26,154,215,.13); }
     .ph-ai-green { background: rgba(46,204,113,.13); }
     .ph-ai-teal  { background: rgba(26,200,200,.13); }
@@ -2771,26 +2770,26 @@
     <circle cx="214" cy="700" r="9" fill="#4aaac0"/>
   </svg>
   <svg class="ph-coral ph-coral-right" viewBox="0 0 230 700" preserveAspectRatio="xMaxYMax meet" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M55 700 Q50 608 64 520 Q70 476 54 408 Q46 366 60 304 Q68 270 52 214 Q44 178 58 142 Q66 118 50 84 Q42 62 56 30" stroke="#f09878" stroke-width="10" stroke-linecap="round"/>
-    <path d="M57 528 Q26 496 6 482" stroke="#f09878" stroke-width="7" stroke-linecap="round"/>
-    <path d="M57 438 Q84 406 103 396" stroke="#f09878" stroke-width="6" stroke-linecap="round"/>
-    <path d="M57 348 Q24 314 6 304" stroke="#f09878" stroke-width="6" stroke-linecap="round"/>
-    <path d="M57 268 Q82 234 98 224" stroke="#f09878" stroke-width="5" stroke-linecap="round"/>
-    <path d="M57 196 Q28 164 10 156" stroke="#e07858" stroke-width="5" stroke-linecap="round"/>
-    <ellipse cx="50" cy="470" rx="78" ry="52" fill="rgba(240,170,140,.18)" stroke="#f0a888" stroke-width="1.5" transform="rotate(-18 50 470)"/>
-    <path d="M162 700 Q157 632 170 572 Q178 536 162 484 Q154 450 167 406 Q174 382 162 348 Q155 326 167 294" stroke="#e88060" stroke-width="9" stroke-linecap="round"/>
-    <path d="M165 522 Q188 494 207 486" stroke="#e88060" stroke-width="6" stroke-linecap="round"/>
-    <path d="M165 438 Q140 412 122 404" stroke="#e88060" stroke-width="6" stroke-linecap="round"/>
+    <path d="M55 700 Q50 608 64 520 Q70 476 54 408 Q46 366 60 304 Q68 270 52 214 Q44 178 58 142 Q66 118 50 84 Q42 62 56 30" stroke="#c8a0e0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M57 528 Q26 496 6 482" stroke="#c8a0e0" stroke-width="7" stroke-linecap="round"/>
+    <path d="M57 438 Q84 406 103 396" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 348 Q24 314 6 304" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 268 Q82 234 98 224" stroke="#c8a0e0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M57 196 Q28 164 10 156" stroke="#b890d8" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="50" cy="470" rx="78" ry="52" fill="rgba(240,152,210,.16)" stroke="#e090c2" stroke-width="1.5" transform="rotate(-18 50 470)"/>
+    <path d="M162 700 Q157 632 170 572 Q178 536 162 484 Q154 450 167 406 Q174 382 162 348 Q155 326 167 294" stroke="#e090c4" stroke-width="9" stroke-linecap="round"/>
+    <path d="M165 522 Q188 494 207 486" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
+    <path d="M165 438 Q140 412 122 404" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
     <path d="M100 700 Q113 648 97 602 Q85 560 103 516 Q115 480 99 442" stroke="#70c898" stroke-width="7" stroke-linecap="round"/>
-    <circle cx="32"  cy="690" r="22" fill="rgba(240,168,138,.28)"/>
-    <circle cx="70"  cy="697" r="18" fill="rgba(240,138,108,.26)"/>
-    <circle cx="110" cy="692" r="14" fill="rgba(248,200,178,.28)"/>
-    <circle cx="148" cy="694" r="19" fill="rgba(200,230,158,.24)"/>
-    <circle cx="188" cy="688" r="13" fill="rgba(240,200,140,.24)"/>
-    <path d="M214 700 Q213 672 209 658" stroke="#e88060" stroke-width="5" stroke-linecap="round"/>
-    <path d="M214 700 Q222 670 226 656" stroke="#e88060" stroke-width="5" stroke-linecap="round"/>
-    <path d="M214 700 Q204 668 199 654" stroke="#e88060" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="214" cy="700" r="9" fill="#d46840"/>
+    <circle cx="32"  cy="690" r="22" fill="rgba(200,150,228,.26)"/>
+    <circle cx="70"  cy="697" r="18" fill="rgba(228,158,208,.26)"/>
+    <circle cx="110" cy="692" r="14" fill="rgba(178,210,248,.26)"/>
+    <circle cx="148" cy="694" r="19" fill="rgba(240,166,138,.24)"/>
+    <circle cx="188" cy="688" r="13" fill="rgba(200,230,158,.24)"/>
+    <path d="M214 700 Q213 672 209 658" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q222 670 226 656" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q204 668 199 654" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="214" cy="700" r="9" fill="#4aaac0"/>
   </svg>
 
   <!-- Top bar -->
@@ -2859,37 +2858,29 @@
         <div class="ph-action-icon ph-ai-blue">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#1a9ad7" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="#1a9ad7" stroke-width="2" stroke-linecap="round"/></svg>
         </div>
-        <div class="ph-action-text">
-          <div class="ph-action-label">Create Game</div>
-          <div class="ph-action-sub">Start a new current</div>
-        </div>
+        <div class="ph-action-label">Create Game</div>
+        <div class="ph-action-sub">Start a new current</div>
       </button>
       <button class="ph-action-card" id="stats-join-toggle-btn">
         <div class="ph-action-icon ph-ai-green">
           <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="#27ae60" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="#27ae60" stroke-width="1.8" opacity=".6"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="#27ae60" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="#27ae60" stroke-width="1.8" fill="none" opacity=".6"/></svg>
         </div>
-        <div class="ph-action-text">
-          <div class="ph-action-label">Join Game</div>
-          <div class="ph-action-sub">Browse or enter code</div>
-        </div>
+        <div class="ph-action-label">Join Game</div>
+        <div class="ph-action-sub">Browse or enter code</div>
       </button>
       <button class="ph-action-card" id="stats-tutorial-btn">
         <div class="ph-action-icon ph-ai-teal">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#1ac8a0" stroke-width="1.8"/><path d="M8 7l8 4-8 4V7z" fill="#1ac8a0"/></svg>
         </div>
-        <div class="ph-action-text">
-          <div class="ph-action-label">Tutorial</div>
-          <div class="ph-action-sub">Learn the ropes</div>
-        </div>
+        <div class="ph-action-label">Tutorial</div>
+        <div class="ph-action-sub">Learn the ropes</div>
       </button>
       <button class="ph-action-card ph-action-gold" id="stats-comp-btn">
         <div class="ph-action-icon ph-ai-gold">
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M6 3L16 11 6 19" stroke="#d4a017" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3L6 11 16 19" stroke="#d4a017" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/></svg>
         </div>
-        <div class="ph-action-text">
-          <div class="ph-action-label">Competitive</div>
-          <div class="ph-action-sub">Ranked matches</div>
-        </div>
+        <div class="ph-action-label">Competitive</div>
+        <div class="ph-action-sub">Ranked matches</div>
       </button>
     </div>
 
