@@ -2035,233 +2035,251 @@
 
     /* ── PLAYER STATS LOBBY ───────────────────────────────────── */
     /* ══ PLAYER HOME MENU ══════════════════════════════════════════ */
+    /* ── PLAYER HOME (ph-*) ─────────────────────────────────────── */
     #auth-stats-lobby {
       position: fixed; inset: 0; z-index: 8900;
-      background: linear-gradient(170deg,#dff0fb 0%,#cce5f5 40%,#b8d8ee 100%);
+      background: linear-gradient(180deg,#bce8fa 0%,#88caf2 30%,#54a8e0 60%,#3286c2 100%);
       display: none; flex-direction: column; align-items: center; overflow-y: auto;
       font-family: 'Nunito',sans-serif; color: #1a3a5c;
     }
     #auth-stats-lobby.visible { display: flex; }
+    /* Coral art */
+    .ph-coral {
+      position: fixed; bottom: 0; height: 88vh; width: 230px;
+      pointer-events: none; z-index: 1; overflow: visible;
+    }
+    .ph-coral-left { left: 0; }
+    .ph-coral-right { right: 0; transform: scaleX(-1); }
+    /* Topbar */
     .ph-topbar {
       position: sticky; top: 0; z-index: 20; width: 100%;
-      background: rgba(255,255,255,.9); backdrop-filter: blur(12px);
       display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 18px; border-bottom: 1px solid rgba(26,90,180,.1);
+      padding: 22px 26px 8px; background: transparent;
     }
     .ph-icon-btn {
-      width: 36px; height: 36px; border: none; background: transparent;
-      border-radius: 8px; cursor: pointer; font-size: 18px; color: #1a3a5c;
-      display: flex; align-items: center; justify-content: center; transition: background .15s;
+      width: 44px; height: 44px; border: none;
+      background: rgba(255,255,255,.82); backdrop-filter: blur(10px);
+      border-radius: 12px; cursor: pointer; font-size: 19px; color: #1a2e4a;
+      display: flex; align-items: center; justify-content: center; transition: all .15s;
+      box-shadow: 0 2px 12px rgba(26,90,180,.13); flex-shrink: 0;
     }
-    .ph-icon-btn:hover { background: rgba(26,90,180,.08); }
+    .ph-icon-btn:hover { background: rgba(255,255,255,.97); }
     .ph-topbar-title {
-      font-family: 'Cinzel',serif; font-size: 1.1rem; font-weight: 900;
-      color: #1a3a5c; letter-spacing: .8px; text-align: center; flex: 1;
+      font-family: 'Cinzel',serif;
+      font-size: clamp(1.3rem,3.5vw,2.4rem); font-weight: 900;
+      color: #1a2e4a; letter-spacing: 2px; text-align: center; flex: 1;
+      text-shadow: 0 1px 0 rgba(255,255,255,.7),0 3px 16px rgba(26,90,180,.1);
+    }
+    .ph-topbar-title::before,.ph-topbar-title::after {
+      content: '〜'; font-family: sans-serif;
+      color: #5aace0; font-size: .65em; margin: 0 10px; opacity: .75;
     }
     .ph-bell-wrap { position: relative; }
     .ph-notif-dot {
-      position: absolute; top: 5px; right: 5px; width: 8px; height: 8px;
-      background: #e53935; border-radius: 50%; border: 2px solid white; display: none;
+      position: absolute; top: 2px; right: 2px; width: 9px; height: 9px;
+      background: #e53935; border-radius: 50%; border: 2px solid #bce8fa; display: none;
     }
     .ph-notif-dot.show { display: block; }
+    /* Content wrapper */
     .ph-wrap {
-      width: 100%; max-width: 980px; padding: 16px 16px 48px;
+      width: 100%; max-width: 1080px; padding: 10px 22px 64px;
+      position: relative; z-index: 2;
       display: flex; flex-direction: column; gap: 14px;
     }
     /* Profile card */
     .ph-profile-card {
-      background: white; border-radius: 18px; padding: 18px 22px;
-      box-shadow: 0 2px 20px rgba(26,90,180,.08);
-      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: rgba(255,255,255,.96); border-radius: 22px; padding: 22px 26px;
+      box-shadow: 0 6px 40px rgba(26,90,180,.13); border: 1.5px solid rgba(255,255,255,.9);
+      display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
     }
     .ph-avatar {
-      width: 68px; height: 68px; border-radius: 50%; flex-shrink: 0;
-      background: linear-gradient(135deg,#1a5fbe,#0d3a8c);
-      border: 3px solid #1a5fbe; box-shadow: 0 0 0 4px rgba(26,95,190,.15);
+      width: 84px; height: 84px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#2680c8,#0d4a96);
+      border: 4px solid rgba(255,255,255,.95);
+      box-shadow: 0 0 0 3px #5aace0,0 6px 22px rgba(26,90,180,.28);
       display: flex; align-items: center; justify-content: center;
-      font-size: 26px; font-weight: 900; color: white; font-family: 'Cinzel',serif;
+      font-size: 32px; font-weight: 900; color: white; font-family: 'Cinzel',serif;
     }
-    .ph-pinfo { flex: 1; min-width: 0; }
-    .ph-pname-row { display: flex; align-items: center; gap: 7px; }
-    .ph-pname { font-size: 1.2rem; font-weight: 900; color: #1a3a5c; }
-    .ph-verified { font-size: 14px; color: #1a5fbe; }
-    .ph-pfc { font-size: 11px; color: #5a8ab0; margin-top: 1px; }
-    .ph-pranks { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-left: auto; }
+    .ph-pinfo { flex: 1; min-width: 160px; }
+    .ph-pname-row { display: flex; align-items: center; gap: 9px; }
+    .ph-pname { font-size: 1.55rem; font-weight: 900; color: #1a2e4a; }
+    .ph-verified { font-size: 17px; color: #2680c8; }
+    .ph-pfc { font-size: 13px; color: #2680c8; margin-top: 4px; font-weight: 600; }
+    .ph-pranks { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-left: auto; }
     .ph-rank-badge {
-      border: 1.5px solid; border-radius: 10px; padding: 7px 13px;
-      text-align: center; min-width: 84px;
+      border: 1.5px solid; border-radius: 13px; padding: 10px 18px;
+      text-align: center; min-width: 112px;
     }
-    .ph-rank-badge.ph-rank-normal { border-color: #1a9ad7; color: #1a7ab0; background: rgba(26,154,215,.07); }
-    .ph-rank-badge.ph-rank-comp   { border-color: #c8a820; color: #a08010; background: rgba(200,168,32,.07); }
-    .ph-rank-type { font-size: 10px; font-weight: 700; opacity: .8; display: flex; align-items: center; gap: 4px; justify-content: center; }
-    .ph-rank-val  { font-size: 13px; font-weight: 900; margin-top: 2px; }
-    .ph-signed-row { display: flex; }
-    /* JS sets style.display="grid" on stats-lobby-signed-actions; override to flex */
+    .ph-rank-badge.ph-rank-normal { border-color: #5aace0; color: #1a6aaa; background: rgba(90,172,224,.07); }
+    .ph-rank-badge.ph-rank-comp   { border-color: #d4a017; color: #8a6000; background: rgba(212,160,23,.07); }
+    .ph-rank-type { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 5px; justify-content: center; opacity: .75; }
+    .ph-rank-val  { font-size: 15px; font-weight: 900; margin-top: 4px; color: #1a2e4a; }
     #stats-lobby-signed-actions { display: flex !important; gap: 8px; align-items: center; flex-wrap: wrap; }
     .ph-signout-btn {
-      border: 1.5px solid #d0dce8; border-radius: 10px; padding: 8px 14px;
-      font-size: 12px; font-weight: 700; color: #5a8ab0; background: white; cursor: pointer;
+      border: 1.5px solid #d0dce8; border-radius: 11px; padding: 10px 18px;
+      font-size: 13px; font-weight: 700; color: #5a8ab0; background: white; cursor: pointer;
       transition: all .15s; font-family: 'Nunito',sans-serif; white-space: nowrap;
+      display: flex; align-items: center; gap: 6px;
     }
     .ph-signout-btn:hover { background: #f5f8fa; border-color: #b0c4d4; }
     .ph-guest-notice {
-      background: rgba(200,168,32,.08); border: 1px solid rgba(200,168,32,.25);
+      background: rgba(212,160,23,.08); border: 1px solid rgba(212,160,23,.25);
       border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #8a6820; line-height: 1.6;
-      width: 100%;
     }
     /* Tabs */
     .ph-tabs {
-      display: flex; background: white; border-radius: 12px;
-      box-shadow: 0 2px 12px rgba(26,90,180,.07); overflow: hidden; flex-wrap: wrap;
+      display: flex; background: rgba(255,255,255,.96); border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(26,90,180,.1); overflow: hidden; flex-wrap: nowrap;
+      border: 1.5px solid rgba(255,255,255,.9);
     }
     .ph-tab {
-      flex: 1; padding: 11px 8px; border: none; background: transparent;
+      flex: 1; padding: 14px 8px; border: none; background: transparent;
       font-size: 13px; font-weight: 700; color: #7a9ab8; cursor: pointer;
       border-bottom: 2.5px solid transparent; transition: all .15s;
-      white-space: nowrap; font-family: 'Nunito',sans-serif; position: relative;
+      white-space: nowrap; font-family: 'Nunito',sans-serif;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
     }
-    .ph-tab:hover { color: #1a5fbe; background: rgba(26,95,190,.04); }
-    .ph-tab.active { color: #1a5fbe; border-bottom-color: #1a5fbe; }
+    .ph-tab:hover  { color: #1a6fbe; background: rgba(26,111,190,.04); }
+    .ph-tab.active { color: #1a6fbe; border-bottom-color: #1a6fbe; }
     /* Action row */
-    .ph-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .ph-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
     .ph-action-card {
-      background: white; border: 1.5px solid #e0ecf5; border-radius: 14px;
-      padding: 15px 12px; display: flex; flex-direction: column; align-items: flex-start;
-      gap: 3px; cursor: pointer; transition: all .15s;
-      box-shadow: 0 1px 8px rgba(26,90,180,.05); font-family: 'Nunito',sans-serif;
-      text-align: left;
+      background: rgba(255,255,255,.96); border: 1.5px solid rgba(220,236,250,.9); border-radius: 18px;
+      padding: 20px 18px; display: flex; flex-direction: column; align-items: flex-start;
+      gap: 2px; cursor: pointer; transition: all .18s;
+      box-shadow: 0 3px 16px rgba(26,90,180,.07); font-family: 'Nunito',sans-serif;
     }
-    .ph-action-card:hover { border-color: #1a9ad7; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,90,180,.12); }
-    .ph-action-card.ph-action-gold { background: linear-gradient(135deg,#fffbea,#fef5c0); border-color: #d4b000; }
-    .ph-action-card.ph-action-gold:hover { border-color: #b89000; }
+    .ph-action-card:hover { border-color: #5aace0; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(26,90,180,.14); }
+    .ph-action-card.ph-action-gold { background: linear-gradient(135deg,rgba(255,251,226,.98),rgba(255,240,168,.9)); border-color: rgba(212,160,23,.38); }
+    .ph-action-card.ph-action-gold .ph-action-label { color: #8a5800; }
+    .ph-action-card.ph-action-gold:hover { border-color: #c89010; }
     .ph-action-icon {
-      width: 38px; height: 38px; border-radius: 10px; margin-bottom: 4px;
-      display: flex; align-items: center; justify-content: center; font-size: 17px;
+      width: 44px; height: 44px; border-radius: 12px; margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
     }
-    .ph-ai-blue { background: rgba(26,154,215,.12); }
-    .ph-ai-green { background: rgba(46,204,113,.12); }
-    .ph-ai-teal { background: rgba(26,200,200,.12); }
-    .ph-ai-gold { background: rgba(200,168,32,.12); }
-    .ph-action-label { font-size: 13px; font-weight: 800; color: #1a3a5c; }
-    .ph-action-sub { font-size: 11px; color: #7a9ab8; }
-    /* Join row override for new theme */
-    .stats-join-row {
-      display: none; flex-direction: row; gap: 8px; align-items: center; width: 100%;
-    }
+    .ph-ai-blue  { background: rgba(26,154,215,.13); }
+    .ph-ai-green { background: rgba(46,204,113,.13); }
+    .ph-ai-teal  { background: rgba(26,200,200,.13); }
+    .ph-ai-gold  { background: rgba(212,160,23,.13); }
+    .ph-action-label { font-size: 14px; font-weight: 800; color: #1a2e4a; }
+    .ph-action-sub { font-size: 11px; color: #7a9ab8; margin-top: 1px; }
+    /* Join row */
+    .stats-join-row { display: none; flex-direction: row; gap: 8px; align-items: center; width: 100%; }
     .stats-join-row.open { display: flex; }
     /* Tab panels */
     .ph-panel { width: 100%; }
-    /* 2-col layout */
-    .ph-main { display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start; }
-    .ph-side { display: flex; flex-direction: column; gap: 12px; }
+    .ph-main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+    .ph-side { display: flex; flex-direction: column; gap: 14px; }
     /* Stats card */
     .ph-stats-card {
-      background: white; border-radius: 16px; overflow: hidden;
-      box-shadow: 0 2px 16px rgba(26,90,180,.07);
+      background: rgba(255,255,255,.97); border-radius: 20px; overflow: hidden;
+      box-shadow: 0 5px 32px rgba(26,90,180,.1); border: 1.5px solid rgba(220,236,250,.8);
     }
-    .ph-stats-card.ph-comp-card { background: linear-gradient(135deg,#fffbf0,#fff7d4); border: 1.5px solid rgba(200,168,32,.2); }
+    .ph-stats-card.ph-comp-card {
+      background: linear-gradient(135deg,rgba(255,252,234,.98),rgba(255,245,198,.97));
+      border-color: rgba(212,160,23,.25);
+    }
     .ph-stats-top {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 15px 18px 11px; border-bottom: 1px solid #f0f4f8;
+      padding: 17px 22px 13px; border-bottom: 1px solid #edf2f9;
     }
-    .ph-stats-title { font-size: 15px; font-weight: 900; color: #1a3a5c; display: flex; align-items: center; gap: 7px; }
-    /* Player count tabs */
-    .ph-pcounts { display: flex; gap: 5px; }
+    .ph-stats-title { font-size: 17px; font-weight: 900; color: #1a2e4a; display: flex; align-items: center; gap: 9px; }
+    /* Player count tabs – filled blue when active */
+    .ph-pcounts { display: flex; gap: 6px; }
     .ph-pc {
-      padding: 4px 9px; border-radius: 7px; font-size: 12px; font-weight: 700;
+      padding: 5px 13px; border-radius: 8px; font-size: 13px; font-weight: 700;
       border: 1.5px solid #d0dce8; background: white; color: #7a9ab8; cursor: pointer;
       transition: all .15s; font-family: 'Nunito',sans-serif;
     }
-    .ph-pc:hover, .ph-pc.active { border-color: #1a9ad7; color: #1a5fbe; background: rgba(26,154,215,.1); }
+    .ph-pc:hover  { border-color: #5aace0; color: #1a5fbe; }
+    .ph-pc.active { background: #1a6fbe; color: white; border-color: #1a6fbe; box-shadow: 0 2px 8px rgba(26,111,190,.3); }
     .ph-pc-wrap { position: relative; }
     .ph-pc-menu {
       position: absolute; top: calc(100% + 4px); right: 0; z-index: 60;
       background: white; border: 1.5px solid #d0dce8; border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(26,90,180,.15); display: none;
-      flex-direction: column; overflow: hidden; min-width: 60px;
+      box-shadow: 0 6px 26px rgba(26,90,180,.16); display: none;
+      flex-direction: column; overflow: hidden; min-width: 68px;
     }
     .ph-pc-menu.open { display: flex; }
     .ph-pc-menu button {
-      padding: 8px 12px; font-size: 12px; font-weight: 700; color: #5a8ab0;
+      padding: 9px 14px; font-size: 13px; font-weight: 700; color: #5a8ab0;
       cursor: pointer; border: none; background: transparent; font-family: 'Nunito',sans-serif;
       transition: background .1s; text-align: center;
     }
     .ph-pc-menu button:hover { background: rgba(26,154,215,.08); color: #1a5fbe; }
     /* Stats grid */
-    .ph-sg { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: #f0f4f8; }
-    .ph-sc { background: white; padding: 16px 14px; display: flex; flex-direction: column; gap: 5px; }
-    .ph-sci { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-bottom: 2px; }
-    .ph-sci-blue { background: rgba(26,154,215,.1); }
-    .ph-sci-gold { background: rgba(200,168,32,.1); }
-    .ph-sci-teal { background: rgba(26,200,200,.1); }
+    .ph-sg { display: grid; grid-template-columns: repeat(3,1fr); gap: 2px; background: #edf2f9; }
+    .ph-sc { background: white; padding: 22px 20px; display: flex; flex-direction: column; gap: 6px; }
+    .ph-sc-feat .ph-scv { font-size: 44px; }
+    .ph-sc-feat .ph-scs { font-size: 13px; }
+    .ph-sci { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 4px; }
+    .ph-sci-blue   { background: rgba(26,154,215,.1); }
+    .ph-sci-gold   { background: rgba(212,160,23,.1); }
+    .ph-sci-teal   { background: rgba(26,200,200,.1); }
     .ph-sci-purple { background: rgba(120,80,220,.1); }
-    .ph-sci-green { background: rgba(46,204,113,.1); }
-    .ph-scl { font-size: 10px; color: #7a9ab8; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; line-height: 1.3; }
-    .ph-scv { font-size: 22px; font-weight: 900; color: #1a3a5c; line-height: 1; }
-    .ph-scs { font-size: 11px; color: #27ae60; font-weight: 700; }
-    .ph-card-list { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
-    .ph-card-item { font-size: 12px; color: #1a3a5c; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+    .ph-sci-green  { background: rgba(46,204,113,.1); }
+    .ph-scl { font-size: 11px; color: #7a9ab8; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; line-height: 1.4; }
+    .ph-scv { font-size: 30px; font-weight: 900; color: #1a2e4a; line-height: 1.1; }
+    .ph-scs { font-size: 12px; color: #27ae60; font-weight: 700; }
+    .ph-card-list { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+    .ph-card-item { font-size: 12px; color: #1a2e4a; font-weight: 600; display: flex; align-items: center; gap: 7px; }
     /* Side cards */
     .ph-scard {
-      background: white; border-radius: 16px; overflow: hidden;
-      box-shadow: 0 2px 16px rgba(26,90,180,.07);
+      background: rgba(255,255,255,.97); border-radius: 18px; overflow: hidden;
+      box-shadow: 0 5px 32px rgba(26,90,180,.1); border: 1.5px solid rgba(220,236,250,.8);
     }
     .ph-scard.ph-full { width: 100%; }
-    .ph-sh {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 16px 8px;
-    }
-    .ph-st { font-size: 14px; font-weight: 900; color: #1a3a5c; display: flex; align-items: center; gap: 6px; }
-    .ph-sl {
-      font-size: 11px; color: #1a9ad7; font-weight: 700; background: none; border: none;
-      cursor: pointer; padding: 0; font-family: 'Nunito',sans-serif;
-    }
+    .ph-sh { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 10px; }
+    .ph-st { font-size: 15px; font-weight: 900; color: #1a2e4a; display: flex; align-items: center; gap: 8px; }
+    .ph-sl { font-size: 11px; color: #2680c8; font-weight: 700; background: none; border: none; cursor: pointer; padding: 0; font-family: 'Nunito',sans-serif; white-space: nowrap; }
     .ph-sl:hover { text-decoration: underline; }
     /* Recent game rows */
-    .ph-rg {
-      display: flex; align-items: center; gap: 9px; padding: 8px 16px;
-      border-top: 1px solid #f0f4f8;
-    }
-    .ph-rg-ico { font-size: 15px; flex-shrink: 0; }
-    .ph-rg-opp { font-size: 12px; font-weight: 700; color: #1a3a5c; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .ph-rg-badge { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 5px; flex-shrink: 0; }
-    .ph-rg-badge.win { background: rgba(46,204,113,.12); color: #27ae60; }
-    .ph-rg-badge.loss { background: rgba(220,60,60,.1); color: #c0392b; }
-    .ph-rg-pts { font-size: 12px; font-weight: 800; color: #1a3a5c; white-space: nowrap; }
-    .ph-rg-date { font-size: 10px; color: #9ab8d0; white-space: nowrap; }
+    .ph-rg { display: flex; align-items: center; gap: 10px; padding: 11px 20px; border-top: 1px solid #f0f5fa; }
+    .ph-rg-ico  { font-size: 16px; flex-shrink: 0; }
+    .ph-rg-opp  { font-size: 13px; font-weight: 700; color: #1a2e4a; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-rg-badge { font-size: 12px; font-weight: 800; padding: 3px 9px; border-radius: 6px; flex-shrink: 0; }
+    .ph-rg-badge.win  { background: rgba(46,204,113,.12); color: #27ae60; }
+    .ph-rg-badge.loss { background: rgba(220,60,60,.10); color: #c0392b; }
+    .ph-rg-pts  { font-size: 13px; font-weight: 800; color: #1a2e4a; white-space: nowrap; }
+    .ph-rg-date { font-size: 11px; color: #9ab8d0; white-space: nowrap; }
     /* Friends rows */
-    .ph-fr {
-      display: flex; align-items: center; gap: 10px; padding: 8px 16px;
-      border-top: 1px solid #f0f4f8;
-    }
+    .ph-fr { display: flex; align-items: center; gap: 12px; padding: 11px 20px; border-top: 1px solid #f0f5fa; }
     .ph-fr-av {
-      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-      background: linear-gradient(135deg,#1a5fbe,#0d3a8c);
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#2680c8,#1050a0);
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 900; color: white;
+      font-size: 14px; font-weight: 900; color: white; border: 2px solid rgba(90,172,224,.35);
     }
-    .ph-fr-name { flex: 1; font-size: 13px; font-weight: 700; color: #1a3a5c; }
-    .ph-fr-status { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
-    .ph-fr-dot { width: 7px; height: 7px; border-radius: 50%; }
-    .ph-fr-online { color: #27ae60; }
-    .ph-fr-online .ph-fr-dot { background: #27ae60; box-shadow: 0 0 4px #27ae60; }
+    .ph-fr-name   { flex: 1; font-size: 13px; font-weight: 700; color: #1a2e4a; }
+    .ph-fr-status { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+    .ph-fr-dot    { width: 8px; height: 8px; border-radius: 50%; }
+    .ph-fr-online  { color: #27ae60; }
+    .ph-fr-online  .ph-fr-dot { background: #27ae60; box-shadow: 0 0 5px #27ae60; }
     .ph-fr-offline { color: #9ab8d0; }
     .ph-fr-offline .ph-fr-dot { background: #c0d0dc; }
-    .ph-empty { padding: 18px; text-align: center; color: #9ab8d0; font-size: 13px; }
+    .ph-empty { padding: 22px; text-align: center; color: #9ab8d0; font-size: 13px; }
     /* Footer */
     .ph-footer { display: flex; gap: 10px; justify-content: flex-end; }
     .ph-footer-btn {
-      padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 700;
-      border: 1.5px solid #d0dce8; background: white; color: #5a8ab0; cursor: pointer;
-      transition: all .15s; font-family: 'Nunito',sans-serif;
+      padding: 10px 18px; border-radius: 11px; font-size: 12px; font-weight: 700;
+      border: 1.5px solid rgba(255,255,255,.8); background: rgba(255,255,255,.9); color: #5a8ab0;
+      cursor: pointer; transition: all .15s; font-family: 'Nunito',sans-serif;
+      box-shadow: 0 2px 10px rgba(26,90,180,.09);
     }
-    .ph-footer-btn:hover { background: #f0f6fb; border-color: #1a9ad7; color: #1a5fbe; }
+    .ph-footer-btn:hover { background: white; border-color: #5aace0; color: #1a6fbe; }
     /* Responsive */
+    @media (max-width: 1020px) {
+      .ph-coral { display: none; }
+      .ph-main  { grid-template-columns: 1fr; }
+    }
     @media (max-width: 720px) {
-      .ph-main { grid-template-columns: 1fr; }
       .ph-actions { grid-template-columns: repeat(2,1fr); }
       .ph-sg { grid-template-columns: repeat(2,1fr); }
       .ph-pranks { margin-left: 0; }
+      .ph-topbar-title { font-size: 1.2rem; letter-spacing: .8px; }
+      .ph-topbar-title::before,.ph-topbar-title::after { display: none; }
+      .ph-tabs { overflow-x: auto; }
+      .ph-tab  { flex-shrink: 0; padding: 12px 8px; font-size: 12px; }
     }
     /* Keep old auth-fc-badge for friend code display in modal */
     .stats-player-header {
@@ -2728,13 +2746,63 @@
 <!-- ══ PLAYER STATS LOBBY ════════════════════════════════════════ -->
 <div id="auth-stats-lobby">
 
+  <!-- Coral art – left (right side is CSS mirror) -->
+  <svg class="ph-coral ph-coral-left" viewBox="0 0 230 700" preserveAspectRatio="xMaxYMax meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M55 700 Q50 608 64 520 Q70 476 54 408 Q46 366 60 304 Q68 270 52 214 Q44 178 58 142 Q66 118 50 84 Q42 62 56 30" stroke="#c8a0e0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M57 528 Q26 496 6 482" stroke="#c8a0e0" stroke-width="7" stroke-linecap="round"/>
+    <path d="M57 438 Q84 406 103 396" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 348 Q24 314 6 304" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 268 Q82 234 98 224" stroke="#c8a0e0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M57 196 Q28 164 10 156" stroke="#b890d8" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="50" cy="470" rx="78" ry="52" fill="rgba(240,152,210,.16)" stroke="#e090c2" stroke-width="1.5" transform="rotate(-18 50 470)"/>
+    <path d="M162 700 Q157 632 170 572 Q178 536 162 484 Q154 450 167 406 Q174 382 162 348 Q155 326 167 294" stroke="#e090c4" stroke-width="9" stroke-linecap="round"/>
+    <path d="M165 522 Q188 494 207 486" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
+    <path d="M165 438 Q140 412 122 404" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
+    <path d="M100 700 Q113 648 97 602 Q85 560 103 516 Q115 480 99 442" stroke="#70c898" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="32"  cy="690" r="22" fill="rgba(200,150,228,.26)"/>
+    <circle cx="70"  cy="697" r="18" fill="rgba(228,158,208,.26)"/>
+    <circle cx="110" cy="692" r="14" fill="rgba(178,210,248,.26)"/>
+    <circle cx="148" cy="694" r="19" fill="rgba(240,166,138,.24)"/>
+    <circle cx="188" cy="688" r="13" fill="rgba(200,230,158,.24)"/>
+    <path d="M214 700 Q213 672 209 658" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q222 670 226 656" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q204 668 199 654" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="214" cy="700" r="9" fill="#4aaac0"/>
+  </svg>
+  <svg class="ph-coral ph-coral-right" viewBox="0 0 230 700" preserveAspectRatio="xMaxYMax meet" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M55 700 Q50 608 64 520 Q70 476 54 408 Q46 366 60 304 Q68 270 52 214 Q44 178 58 142 Q66 118 50 84 Q42 62 56 30" stroke="#c8a0e0" stroke-width="10" stroke-linecap="round"/>
+    <path d="M57 528 Q26 496 6 482" stroke="#c8a0e0" stroke-width="7" stroke-linecap="round"/>
+    <path d="M57 438 Q84 406 103 396" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 348 Q24 314 6 304" stroke="#c8a0e0" stroke-width="6" stroke-linecap="round"/>
+    <path d="M57 268 Q82 234 98 224" stroke="#c8a0e0" stroke-width="5" stroke-linecap="round"/>
+    <path d="M57 196 Q28 164 10 156" stroke="#b890d8" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="50" cy="470" rx="78" ry="52" fill="rgba(240,152,210,.16)" stroke="#e090c2" stroke-width="1.5" transform="rotate(-18 50 470)"/>
+    <path d="M162 700 Q157 632 170 572 Q178 536 162 484 Q154 450 167 406 Q174 382 162 348 Q155 326 167 294" stroke="#e090c4" stroke-width="9" stroke-linecap="round"/>
+    <path d="M165 522 Q188 494 207 486" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
+    <path d="M165 438 Q140 412 122 404" stroke="#e090c4" stroke-width="6" stroke-linecap="round"/>
+    <path d="M100 700 Q113 648 97 602 Q85 560 103 516 Q115 480 99 442" stroke="#70c898" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="32"  cy="690" r="22" fill="rgba(200,150,228,.26)"/>
+    <circle cx="70"  cy="697" r="18" fill="rgba(228,158,208,.26)"/>
+    <circle cx="110" cy="692" r="14" fill="rgba(178,210,248,.26)"/>
+    <circle cx="148" cy="694" r="19" fill="rgba(240,166,138,.24)"/>
+    <circle cx="188" cy="688" r="13" fill="rgba(200,230,158,.24)"/>
+    <path d="M214 700 Q213 672 209 658" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q222 670 226 656" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <path d="M214 700 Q204 668 199 654" stroke="#5ab8d4" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="214" cy="700" r="9" fill="#4aaac0"/>
+  </svg>
+
   <!-- Top bar -->
   <div class="ph-topbar">
-    <button class="ph-icon-btn">☰</button>
+    <button class="ph-icon-btn" aria-label="Menu">
+      <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="6" width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="12" width="18" height="2" rx="1" fill="#1a2e4a"/></svg>
+    </button>
     <div class="ph-topbar-title">Currents &amp; Critters</div>
     <div class="ph-bell-wrap">
-      <button class="ph-icon-btn">🔔</button>
-      <div class="ph-notif-dot" id="ph-notif-dot"></div>
+      <button class="ph-icon-btn" aria-label="Notifications">
+        <svg width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M9 0C9.552 0 10 .448 10 1v.07A7 7 0 0 1 16 8v5l2 2v1H0v-1l2-2V8A7 7 0 0 1 8 1.07V1C8 .448 8.448 0 9 0zm0 20a2 2 0 0 0 2-2H7a2 2 0 0 0 2 2z" fill="#1a2e4a"/></svg>
+      </button>
+      <div class="ph-notif-dot show" id="ph-notif-dot"></div>
     </div>
   </div>
 
@@ -2746,25 +2814,35 @@
       <div class="ph-pinfo">
         <div class="ph-pname-row">
           <div class="ph-pname" id="stats-lobby-nick">—</div>
+          <svg class="ph-verified" width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="9" fill="#2680c8"/><path d="M5 9l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
       </div>
       <div class="ph-pranks">
         <div class="ph-rank-badge ph-rank-normal">
-          <div class="ph-rank-type">🎮 Normal</div>
-          <div class="ph-rank-val" id="stat-normal-rank">—</div>
+          <div class="ph-rank-type">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1C3.24 1 1 3.24 1 6s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 9c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="#1a6aaa"/><path d="M6 3C4.34 3 3 4.34 3 6s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="#5aace0"/></svg>
+            Normal
+          </div>
+          <div class="ph-rank-val" id="stat-normal-rank">No Rank</div>
         </div>
         <div class="ph-rank-badge ph-rank-comp">
-          <div class="ph-rank-type">⚔️ Comp</div>
-          <div class="ph-rank-val" id="stat-comp-rank">—</div>
+          <div class="ph-rank-type">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L3 4H1l1 4 4 3 4-3 1-4H9L6 1z" fill="#d4a017" opacity=".7"/></svg>
+            Competitive
+          </div>
+          <div class="ph-rank-val" id="stat-comp-rank">No Rank</div>
         </div>
       </div>
-      <!-- stats-lobby-signed-actions: JS sets display="grid"; flex override keeps it row-like -->
       <div id="stats-lobby-signed-actions" style="display:none;gap:8px;align-items:center;">
         <button class="ph-icon-btn" id="stats-friend-btn" title="Friends" style="display:none;position:relative;">
-          👥<span class="friend-badge" id="friend-req-badge"></span>
+          <svg width="20" height="16" viewBox="0 0 20 16" fill="none"><circle cx="7" cy="5" r="4" fill="#5a8ab0"/><circle cx="14" cy="5" r="3" fill="#8ab0c8"/><path d="M0 15c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="#5a8ab0" stroke-width="1.5" fill="none"/><path d="M13 10c2.21.9 3.7 3.06 3.7 5.57" stroke="#8ab0c8" stroke-width="1.5" fill="none"/></svg>
+          <span class="friend-badge" id="friend-req-badge"></span>
         </button>
-        <button class="ph-signout-btn" id="stats-signout-btn">Sign Out</button>
+        <button class="ph-signout-btn" id="stats-signout-btn">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M10 10l3-3-3-3M13 7H5" stroke="#5a8ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Sign Out
+        </button>
       </div>
     </div>
 
@@ -2776,29 +2854,37 @@
 
     <!-- Action row -->
     <div class="ph-actions">
-      <button class="ph-action-card ph-action-gold" id="stats-create-btn">
-        <div class="ph-action-icon ph-ai-blue">🌊</div>
-        <div class="ph-action-label">Create</div>
-        <div class="ph-action-sub">New game</div>
+      <button class="ph-action-card" id="stats-create-btn">
+        <div class="ph-action-icon ph-ai-blue">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#1a9ad7" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="#1a9ad7" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="ph-action-label">Create Game</div>
+        <div class="ph-action-sub">Start a new current</div>
       </button>
       <button class="ph-action-card" id="stats-join-toggle-btn">
-        <div class="ph-action-icon ph-ai-green">🎮</div>
-        <div class="ph-action-label">Join</div>
-        <div class="ph-action-sub">Browse or code</div>
+        <div class="ph-action-icon ph-ai-green">
+          <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="#27ae60" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="#27ae60" stroke-width="1.8" opacity=".6"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="#27ae60" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="#27ae60" stroke-width="1.8" fill="none" opacity=".6"/></svg>
+        </div>
+        <div class="ph-action-label">Join Game</div>
+        <div class="ph-action-sub">Browse or enter code</div>
       </button>
       <button class="ph-action-card" id="stats-tutorial-btn">
-        <div class="ph-action-icon ph-ai-teal">🐠</div>
+        <div class="ph-action-icon ph-ai-teal">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#1ac8a0" stroke-width="1.8"/><path d="M8 7l8 4-8 4V7z" fill="#1ac8a0"/></svg>
+        </div>
         <div class="ph-action-label">Tutorial</div>
-        <div class="ph-action-sub">Learn to play</div>
+        <div class="ph-action-sub">Learn the ropes</div>
       </button>
-      <button class="ph-action-card" id="stats-comp-btn">
-        <div class="ph-action-icon ph-ai-gold">⚔️</div>
+      <button class="ph-action-card ph-action-gold" id="stats-comp-btn">
+        <div class="ph-action-icon ph-ai-gold">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M6 3L16 11 6 19" stroke="#d4a017" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3L6 11 16 19" stroke="#d4a017" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" opacity=".5"/></svg>
+        </div>
         <div class="ph-action-label">Competitive</div>
-        <div class="ph-action-sub">Ranked match</div>
+        <div class="ph-action-sub">Ranked matches</div>
       </button>
     </div>
 
-    <!-- Join row (quick-join input, toggled open by JS) -->
+    <!-- Join row (quick-join, toggled open by JS) -->
     <div class="stats-join-row" id="stats-join-row">
       <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
         maxlength="5" style="flex:1;text-transform:uppercase;"
@@ -2806,35 +2892,99 @@
       <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
     </div>
 
-    <!-- Nav tabs -->
+    <!-- Nav tabs (5 tabs) -->
     <div class="ph-tabs" id="ph-tabs">
-      <button class="ph-tab active" data-tab="normal">🎮 Normal</button>
-      <button class="ph-tab" data-tab="competitive">⚔️ Competitive</button>
-      <button class="ph-tab" data-tab="history">📋 History</button>
-      <button class="ph-tab" data-tab="friends">👥 Friends</button>
+      <button class="ph-tab" data-tab="overview">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        Overview
+      </button>
+      <button class="ph-tab active" data-tab="normal">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1C4 1 2 3 2 6s2 5 5 5 5-2.24 5-5-2-5-5-5z" stroke="currentColor" stroke-width="1.4"/><path d="M7 4v4M5 6h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Normal
+      </button>
+      <button class="ph-tab" data-tab="competitive">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M4 2L10 7 4 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M10 2L4 7 10 12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" opacity=".5"/></svg>
+        Competitive
+      </button>
+      <button class="ph-tab" data-tab="history">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.4"/><path d="M7 4v3.5l2 1.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        History
+      </button>
+      <button class="ph-tab" data-tab="friends">
+        <svg width="15" height="12" viewBox="0 0 15 12" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M0 11.5c0-3.038 2.462-5.5 5.5-5.5S11 8.462 11 11.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M12 2a2.5 2.5 0 0 1 0 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13 9c1.2.9 2 2.3 2 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg>
+        Friends
+      </button>
+    </div>
+
+    <!-- ── Overview tab ───────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-overview" style="display:none;">
+      <div class="ph-main">
+        <div class="ph-stats-card">
+          <div class="ph-stats-top">
+            <div class="ph-stats-title">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#2680c8" stroke-width="1.6"/><path d="M5 9l3 3 5-5" stroke="#2680c8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Quick Stats
+            </div>
+          </div>
+          <div class="ph-sg">
+            <div class="ph-sc ph-sc-feat">
+              <div class="ph-sci ph-sci-teal">🏆</div>
+              <div class="ph-scl">Win %</div>
+              <div class="ph-scv" id="ph-ov-win-pct">—</div>
+              <div class="ph-scs" id="ph-ov-winsub"></div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-purple">🎯</div>
+              <div class="ph-scl">Avg Pts / Game</div>
+              <div class="ph-scv" id="ph-ov-avg-pts">—</div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-gold">🥇</div>
+              <div class="ph-scl">Total Wins</div>
+              <div class="ph-scv" id="ph-ov-wins">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="ph-side">
+          <div class="ph-scard">
+            <div class="ph-sh">
+              <div class="ph-st">📋 Recent Games</div>
+              <button class="ph-sl" id="ph-ov-hist-btn">View Full History</button>
+            </div>
+            <div id="ph-ov-recent"><div class="ph-empty">No games yet.</div></div>
+          </div>
+          <div class="ph-scard" id="ph-ov-friends-mini" style="display:none;">
+            <div class="ph-sh">
+              <div class="ph-st">👥 Friends</div>
+              <button class="ph-sl" id="ph-ov-friends-btn">View All Friends</button>
+            </div>
+            <div id="ph-ov-friends-list"></div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── Normal tab ─────────────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-normal">
-      <!-- Empty state (hidden by renderStats when games exist) -->
-      <div id="stats-no-games" style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 16px rgba(26,90,180,.07);text-align:center;color:#7a9ab8;font-size:13px;">
-        🐟 No games completed yet.<br><span style="font-size:11px;opacity:.7;">Play your first game to start tracking stats.</span>
+      <div id="stats-no-games" style="background:rgba(255,255,255,.96);border-radius:20px;padding:40px;box-shadow:0 5px 32px rgba(26,90,180,.1);text-align:center;color:#7a9ab8;font-size:14px;border:1.5px solid rgba(220,236,250,.8);">
+        🐟 No games completed yet.<br><span style="font-size:12px;opacity:.7;display:block;margin-top:6px;">Play your first game to start tracking stats.</span>
       </div>
-      <!-- Stats content (shown by renderStats when games exist) -->
       <div id="stats-normal-block" style="display:none;">
         <div class="ph-main">
-          <!-- Stats card -->
           <div class="ph-stats-card">
             <div class="ph-stats-top">
-              <div class="ph-stats-title">🎮 Normal Play</div>
+              <div class="ph-stats-title">
+                <svg width="18" height="16" viewBox="0 0 18 16" fill="none"><path d="M9 1L2 6v9h5v-5h4v5h5V6L9 1z" stroke="#2680c8" stroke-width="1.6" stroke-linejoin="round"/></svg>
+                Normal Stats
+              </div>
               <div class="ph-pcounts">
                 <button class="ph-pc active" data-ps="2">2P</button>
                 <button class="ph-pc" data-ps="3">3P</button>
                 <button class="ph-pc" data-ps="4">4P</button>
-                <button class="ph-pc" data-ps="5">5P</button>
                 <div class="ph-pc-wrap">
-                  <button class="ph-pc" id="ph-pc-plus">5+▾</button>
+                  <button class="ph-pc" id="ph-pc-plus">5P+▾</button>
                   <div class="ph-pc-menu" id="ph-pc-menu">
+                    <button data-ps="5">5P</button>
                     <button data-ps="6">6P</button>
                     <button data-ps="7">7P</button>
                     <button data-ps="8">8P</button>
@@ -2844,63 +2994,65 @@
               </div>
             </div>
             <div class="ph-sg">
+              <div class="ph-sc ph-sc-feat">
+                <div class="ph-sci ph-sci-teal">🏆</div>
+                <div class="ph-scl">Win %</div>
+                <div class="ph-scv" id="ph-win-pct">—</div>
+                <div class="ph-scs" id="ph-win-pct-sub"></div>
+              </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-blue">🏆</div>
-                <div class="ph-scl">High Score</div>
-                <div class="ph-scv" id="ph-high-score">—</div>
-                <div class="ph-scs" id="ph-hs-label"></div>
+                <div class="ph-sci ph-sci-blue">🃏</div>
+                <div class="ph-scl">Most Played Cards</div>
+                <div class="ph-card-list" id="ph-most-cards"><div style="font-size:12px;color:#9ab8d0;">No data yet.</div></div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-purple">🎯</div>
+                <div class="ph-scl">Most Played Strategy</div>
+                <div class="ph-scv" style="font-size:15px;margin-top:4px;" id="stat-strategy">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-gold">⭐</div>
+                <div class="ph-scl">Avg Points Per Game</div>
+                <div class="ph-scv" id="ph-avg-pts">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-green">🎮</div>
+                <div class="ph-scl">Total Games</div>
+                <div class="ph-scv" id="stat-completed">—</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-gold">🥇</div>
                 <div class="ph-scl">Wins</div>
                 <div class="ph-scv" id="stat-normal-wins">—</div>
               </div>
-              <div class="ph-sc">
-                <div class="ph-sci ph-sci-teal">📊</div>
-                <div class="ph-scl">Win %</div>
-                <div class="ph-scv" id="ph-win-pct">—</div>
-              </div>
-              <div class="ph-sc">
-                <div class="ph-sci ph-sci-purple">🎯</div>
-                <div class="ph-scl">Avg Pts</div>
-                <div class="ph-scv" id="ph-avg-pts">—</div>
-              </div>
-              <div class="ph-sc">
-                <div class="ph-sci ph-sci-green">🎮</div>
-                <div class="ph-scl">Games</div>
-                <div class="ph-scv" id="stat-completed">—</div>
-              </div>
-              <div class="ph-sc">
-                <div class="ph-sci ph-sci-blue">♟️</div>
-                <div class="ph-scl">Strategy</div>
-                <div class="ph-scv" style="font-size:14px;" id="stat-strategy">—</div>
-              </div>
             </div>
-            <div style="padding:8px 16px;" id="stat-normal-pie"></div>
+            <div style="padding:10px 18px 6px;" id="stat-normal-pie"></div>
           </div>
-          <!-- Sidebar -->
           <div class="ph-side">
             <div class="ph-scard">
               <div class="ph-sh">
-                <div class="ph-st">📋 Recent Games</div>
-                <button class="ph-sl" id="ph-hist-btn">See all</button>
+                <div class="ph-st">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2680c8" stroke-width="1.4"/><path d="M8 5v4l2.5 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  Recent Games
+                </div>
+                <button class="ph-sl" id="ph-hist-btn">View Full History</button>
               </div>
               <div id="ph-recent-games"><div class="ph-empty">No games yet.</div></div>
             </div>
             <div class="ph-scard" id="stats-friends-mini" style="display:none;">
               <div class="ph-sh">
-                <div class="ph-st">👥 Friends</div>
-                <button class="ph-sl" id="ph-friends-open-btn">See all</button>
+                <div class="ph-st">
+                  <svg width="16" height="13" viewBox="0 0 16 13" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="#2680c8" stroke-width="1.4"/><path d="M0 12c0-3.038 2.462-5.5 5.5-5.5S11 8.962 11 12" stroke="#2680c8" stroke-width="1.4" fill="none"/><path d="M12 2a2 2 0 0 1 0 4" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/><path d="M13.5 8.5c1 .8 1.7 2 1.7 3.5" stroke="#2680c8" stroke-width="1.4" opacity=".6"/></svg>
+                  Friends
+                </div>
+                <button class="ph-sl" id="ph-friends-open-btn">View All Friends</button>
               </div>
               <div id="stats-friends-preview"></div>
             </div>
           </div>
         </div>
       </div>
-      <!-- Hidden compat wrappers for JS-managed IDs -->
-      <div id="stats-summary-grid" style="display:none;">
-        <span id="stat-normal-top"></span>
-      </div>
+      <div id="stats-summary-grid" style="display:none;"><span id="stat-normal-top"></span></div>
     </div>
 
     <!-- ── Competitive tab ────────────────────────────────────── -->
@@ -2908,25 +3060,28 @@
       <div id="stats-comp-block" style="display:none;">
         <div class="ph-stats-card ph-comp-card">
           <div class="ph-stats-top">
-            <div class="ph-stats-title">⚔️ Competitive</div>
+            <div class="ph-stats-title">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 3L13 9 5 15" stroke="#d4a017" stroke-width="2" stroke-linecap="round"/><path d="M13 3L5 9 13 15" stroke="#d4a017" stroke-width="2" stroke-linecap="round" opacity=".45"/></svg>
+              Competitive
+            </div>
           </div>
           <div class="ph-sg">
-            <div class="ph-sc">
+            <div class="ph-sc ph-sc-feat">
               <div class="ph-sci ph-sci-gold">🏆</div>
               <div class="ph-scl">Top Score</div>
               <div class="ph-scv" id="stat-comp-top">—</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">🥇</div>
-              <div class="ph-scl">Wins</div>
+              <div class="ph-scl">Comp Wins</div>
               <div class="ph-scv" id="stat-comp-wins">—</div>
             </div>
           </div>
-          <div style="padding:8px 16px;" id="stat-comp-pie"></div>
+          <div style="padding:10px 18px 6px;" id="stat-comp-pie"></div>
         </div>
       </div>
-      <div id="ph-comp-empty" class="ph-empty" style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 16px rgba(26,90,180,.07);">
-        ⚔️ No games yet.<br><span style="font-size:11px;opacity:.7;">Play your first game to unlock competitive stats.</span>
+      <div id="ph-comp-empty" class="ph-empty" style="background:rgba(255,255,255,.96);border-radius:20px;padding:40px;box-shadow:0 5px 32px rgba(26,90,180,.1);border:1.5px solid rgba(220,236,250,.8);">
+        ⚔️ No competitive games yet.<br><span style="font-size:12px;opacity:.7;display:block;margin-top:6px;">Play a ranked match to track your comp stats.</span>
       </div>
     </div>
 
@@ -2934,7 +3089,10 @@
     <div class="ph-panel" id="ph-panel-history" style="display:none;">
       <div class="ph-scard ph-full">
         <div class="ph-sh">
-          <div class="ph-st">📋 Game History</div>
+          <div class="ph-st">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2680c8" stroke-width="1.4"/><path d="M8 5v4l2.5 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
+            Game History
+          </div>
         </div>
         <div id="ph-full-history"><div class="ph-empty">No games completed yet.</div></div>
       </div>
@@ -2944,20 +3102,23 @@
     <div class="ph-panel" id="ph-panel-friends" style="display:none;">
       <div class="ph-scard ph-full">
         <div class="ph-sh">
-          <div class="ph-st">👥 Friends</div>
+          <div class="ph-st">
+            <svg width="16" height="13" viewBox="0 0 16 13" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="#2680c8" stroke-width="1.4"/><path d="M0 12c0-3.038 2.462-5.5 5.5-5.5S11 8.962 11 12" stroke="#2680c8" stroke-width="1.4" fill="none"/></svg>
+            Friends
+          </div>
         </div>
-        <div style="padding:8px 16px 14px;">
-          <div style="font-size:11px;color:#5a8ab0;font-weight:700;margin-bottom:4px;">Your friend code</div>
-          <div id="ph-fc-display" style="font-size:20px;font-weight:900;color:#1a3a5c;letter-spacing:3px;margin-bottom:14px;">—</div>
-          <div id="ph-friend-requests" style="display:none;margin-bottom:10px;">
-            <div style="font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:6px;">⬇ Friend Requests</div>
+        <div style="padding:10px 20px 14px;">
+          <div style="font-size:11px;color:#5a8ab0;font-weight:700;margin-bottom:5px;">Your friend code</div>
+          <div id="ph-fc-display" style="font-size:22px;font-weight:900;color:#1a2e4a;letter-spacing:3px;margin-bottom:16px;">—</div>
+          <div id="ph-friend-requests" style="display:none;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:700;color:#1a2e4a;margin-bottom:7px;">⬇ Friend Requests</div>
             <div id="ph-req-list"></div>
           </div>
-          <div style="display:flex;gap:8px;margin-bottom:6px;">
-            <input id="ph-add-friend-input" class="pv-input" placeholder="4-digit code or Name#Code" style="flex:1;font-size:12px;" />
+          <div style="display:flex;gap:8px;margin-bottom:7px;">
+            <input id="ph-add-friend-input" class="pv-input" placeholder="4-digit code or Name#Code" style="flex:1;font-size:13px;" />
             <button id="ph-add-friend-btn" class="pv-btn sm">Add</button>
           </div>
-          <div id="ph-friend-err" style="color:#c0392b;font-size:12px;min-height:14px;"></div>
+          <div id="ph-friend-err" style="color:#c0392b;font-size:12px;min-height:16px;"></div>
         </div>
         <div id="ph-friends-list" style="max-height:400px;overflow-y:auto;"></div>
       </div>
@@ -8661,7 +8822,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends" };
+      const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends" };
       function switchTab(name) {
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
         Object.entries(panels).forEach(([k, id]) => {
@@ -8670,6 +8831,7 @@
         });
         if (name === "friends" && _authUser) renderPhFriendsList();
         if (name === "history") renderPhHistory();
+        if (name === "overview") renderPhOverview();
       }
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
       // See-all shortcuts
@@ -8677,6 +8839,10 @@
       if (histBtn) histBtn.addEventListener("click", () => switchTab("history"));
       const frBtn = $a("ph-friends-open-btn");
       if (frBtn) frBtn.addEventListener("click", () => switchTab("friends"));
+      const ovHistBtn = $a("ph-ov-hist-btn");
+      if (ovHistBtn) ovHistBtn.addEventListener("click", () => switchTab("history"));
+      const ovFrBtn = $a("ph-ov-friends-btn");
+      if (ovFrBtn) ovFrBtn.addEventListener("click", () => switchTab("friends"));
     })();
 
     // ── Player Home: player-count high score tabs ─────────────────
@@ -8717,15 +8883,33 @@
       _phStats = stats;
       const totalGames = (stats.completed_games || 0);
       const wins = (stats.normal_wins || 0);
-      const wpEl = $a("ph-win-pct");
-      if (wpEl) wpEl.textContent = totalGames > 0 ? Math.round((wins / totalGames) * 100) + "%" : "—";
+      const winPct = totalGames > 0 ? Math.round((wins / totalGames) * 100) + "%" : "—";
+      const winSub = totalGames > 0 && wins / totalGames >= .6 ? "Great job!" : "";
       const totalScore = stats.total_score || 0;
-      const avgEl = $a("ph-avg-pts");
-      if (avgEl) avgEl.textContent = totalGames > 0 ? Math.round(totalScore / totalGames) : "—";
-      // Update high-score for current tab selection
+      const avgPts = totalGames > 0 ? Math.round(totalScore / totalGames) : "—";
+      // Normal tab
+      const wpEl = $a("ph-win-pct"); if (wpEl) wpEl.textContent = winPct;
+      const wpSub = $a("ph-win-pct-sub"); if (wpSub) wpSub.textContent = winSub;
+      const avgEl = $a("ph-avg-pts"); if (avgEl) avgEl.textContent = avgPts;
+      // Overview tab
+      const ovWp = $a("ph-ov-win-pct"); if (ovWp) ovWp.textContent = winPct;
+      const ovSub = $a("ph-ov-winsub"); if (ovSub) ovSub.textContent = winSub;
+      const ovAvg = $a("ph-ov-avg-pts"); if (ovAvg) ovAvg.textContent = avgPts;
+      const ovWins = $a("ph-ov-wins"); if (ovWins) ovWins.textContent = wins || "—";
+      // Most Played Cards (from stats.most_played_cards array or strategy data)
+      const mcEl = $a("ph-most-cards");
+      if (mcEl) {
+        const cards = stats.most_played_cards;
+        if (cards && cards.length) {
+          mcEl.innerHTML = cards.slice(0,3).map(c => `<div class="ph-card-item">🐟 ${c}</div>`).join("");
+        } else {
+          mcEl.innerHTML = '<div style="font-size:12px;color:#9ab8d0;">No data yet.</div>';
+        }
+      }
+      // Player count tab update
       const activePs = document.querySelector(".ph-pc.active[data-ps]");
       if (window._phSetPs && activePs) window._phSetPs(Number(activePs.dataset.ps));
-      // Competitive tab: show/hide empty state
+      // Competitive empty state
       const compBlock = $a("stats-comp-block"), compEmpty = $a("ph-comp-empty");
       if (compBlock && compEmpty) {
         const hasComp = (stats.competitive_wins || 0) > 0 || (stats.highest_score_competitive || 0) > 0;
@@ -8733,43 +8917,62 @@
       }
     }
 
+    // ── Player Home: overview tab ──────────────────────────────────
+    function renderPhOverview() {
+      // Populate overview recent games
+      const el = $a("ph-ov-recent");
+      if (el && _phStats && _phStats.recent_games) renderPhRecentGamesTo(el, _phStats.recent_games, 4);
+      // Populate overview friends mini
+      if (_authUser) {
+        const miniBox = $a("ph-ov-friends-mini");
+        loadFriends(_authUser.uid).then(friends => {
+          if (!miniBox || !friends.length) return;
+          miniBox.style.display = "";
+          const listEl = $a("ph-ov-friends-list");
+          if (!listEl) return;
+          loadProfile(_authUser.uid).then(() => {}).catch(() => {});
+          const shown = friends.slice(0, 3);
+          Promise.all(shown.map(f => loadProfile(f.uid).catch(() => null))).then(profiles => {
+            listEl.innerHTML = "";
+            shown.forEach((f, i) => {
+              const online = isFriendOnline(profiles[i]);
+              const d = document.createElement("div");
+              d.className = "ph-fr";
+              d.innerHTML = `<div class="ph-fr-av">${(f.nickname||"?").charAt(0).toUpperCase()}</div><div class="ph-fr-name">${f.nickname||"—"}</div><div class="ph-fr-status ${online?"ph-fr-online":"ph-fr-offline"}"><div class="ph-fr-dot"></div>${online?"Online":"Offline"}</div>`;
+              listEl.appendChild(d);
+            });
+          });
+        });
+      }
+    }
+
     // ── Player Home: recent games rendering ───────────────────────
-    function renderPhRecentGames(games) {
-      const el = $a("ph-recent-games");
+    function renderPhRecentGamesTo(el, games, limit) {
       if (!el) return;
       if (!games || !games.length) { el.innerHTML = '<div class="ph-empty">No games yet.</div>'; return; }
       el.innerHTML = "";
-      const shown = games.slice(0, 5);
-      shown.forEach(g => {
+      games.slice(0, limit || 5).forEach(g => {
         const d = document.createElement("div");
         d.className = "ph-rg";
         const isWin = g.r === 1, pts = g.s || 0;
         const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
         const opps = Array.isArray(g.opp) ? g.opp.slice(0,2).join(", ") + (g.opp.length > 2 ? "…" : "") : (g.opp || "");
-        d.innerHTML = `<span class="ph-rg-ico">${isWin ? "🥇" : "🐟"}</span><span class="ph-rg-opp">${opps || "Solo"}</span><span class="ph-rg-badge ${isWin ? "win" : "loss"}">${isWin ? "W" : "L"}</span><span class="ph-rg-pts">${pts} pts</span><span class="ph-rg-date">${date}</span>`;
+        d.innerHTML = `<span class="ph-rg-ico">${isWin?"🥇":"🐟"}</span><span class="ph-rg-opp">vs ${opps||"Solo"}</span><span class="ph-rg-badge ${isWin?"win":"loss"}">${isWin?"Win":"Loss"}</span><span class="ph-rg-pts">${pts} pts</span><span class="ph-rg-date">${date}</span>`;
         el.appendChild(d);
       });
+    }
+    function renderPhRecentGames(games) {
+      renderPhRecentGamesTo($a("ph-recent-games"), games, 5);
     }
 
     // ── Player Home: full history tab ─────────────────────────────
     function renderPhHistory() {
       const el = $a("ph-full-history");
-      if (!el || !_authUser) return;
+      if (!el) return;
       if (!_phStats || !_phStats.recent_games || !_phStats.recent_games.length) {
-        el.innerHTML = '<div class="ph-empty">No games completed yet.</div>';
-        return;
+        el.innerHTML = '<div class="ph-empty">No games completed yet.</div>'; return;
       }
-      el.innerHTML = "";
-      _phStats.recent_games.forEach(g => {
-        const d = document.createElement("div");
-        d.className = "ph-rg";
-        const isWin = g.r === 1, pts = g.s || 0;
-        const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "";
-        const opps = Array.isArray(g.opp) ? g.opp.join(", ") : (g.opp || "");
-        const mode = g.c ? "⚔️" : "🎮";
-        d.innerHTML = `<span class="ph-rg-ico">${isWin ? "🥇" : "🐟"}</span><span class="ph-rg-opp">${mode} ${opps || "Solo"}</span><span class="ph-rg-badge ${isWin ? "win" : "loss"}">${isWin ? "W" : "L"}</span><span class="ph-rg-pts">${pts} pts</span><span class="ph-rg-date">${date}</span>`;
-        el.appendChild(d);
-      });
+      renderPhRecentGamesTo(el, _phStats.recent_games, 50);
     }
 
     // ── Player Home: friends tab ───────────────────────────────────
