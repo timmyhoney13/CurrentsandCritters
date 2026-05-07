@@ -2034,19 +2034,236 @@
     .auth-friend-add-row { display: flex; gap: 8px; align-items: center; }
 
     /* ── PLAYER STATS LOBBY ───────────────────────────────────── */
+    /* ══ PLAYER HOME MENU ══════════════════════════════════════════ */
     #auth-stats-lobby {
       position: fixed; inset: 0; z-index: 8900;
-      background: var(--bg);
-      display: none; flex-direction: column;
-      align-items: center; overflow-y: auto;
-      padding: 28px 20px 60px; gap: 14px;
+      background: linear-gradient(170deg,#dff0fb 0%,#cce5f5 40%,#b8d8ee 100%);
+      display: none; flex-direction: column; align-items: center; overflow-y: auto;
+      font-family: 'Nunito',sans-serif; color: #1a3a5c;
     }
     #auth-stats-lobby.visible { display: flex; }
-    .stats-logo {
-      font-family: 'Cinzel', serif; color: var(--cyan);
-      font-size: 22px; font-weight: 900; text-align: center;
-      text-shadow: 0 0 18px rgba(34,216,248,.35); letter-spacing: 1px;
+    .ph-topbar {
+      position: sticky; top: 0; z-index: 20; width: 100%;
+      background: rgba(255,255,255,.9); backdrop-filter: blur(12px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 18px; border-bottom: 1px solid rgba(26,90,180,.1);
     }
+    .ph-icon-btn {
+      width: 36px; height: 36px; border: none; background: transparent;
+      border-radius: 8px; cursor: pointer; font-size: 18px; color: #1a3a5c;
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    .ph-icon-btn:hover { background: rgba(26,90,180,.08); }
+    .ph-topbar-title {
+      font-family: 'Cinzel',serif; font-size: 1.1rem; font-weight: 900;
+      color: #1a3a5c; letter-spacing: .8px; text-align: center; flex: 1;
+    }
+    .ph-bell-wrap { position: relative; }
+    .ph-notif-dot {
+      position: absolute; top: 5px; right: 5px; width: 8px; height: 8px;
+      background: #e53935; border-radius: 50%; border: 2px solid white; display: none;
+    }
+    .ph-notif-dot.show { display: block; }
+    .ph-wrap {
+      width: 100%; max-width: 980px; padding: 16px 16px 48px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    /* Profile card */
+    .ph-profile-card {
+      background: white; border-radius: 18px; padding: 18px 22px;
+      box-shadow: 0 2px 20px rgba(26,90,180,.08);
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    }
+    .ph-avatar {
+      width: 68px; height: 68px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#1a5fbe,#0d3a8c);
+      border: 3px solid #1a5fbe; box-shadow: 0 0 0 4px rgba(26,95,190,.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 900; color: white; font-family: 'Cinzel',serif;
+    }
+    .ph-pinfo { flex: 1; min-width: 0; }
+    .ph-pname-row { display: flex; align-items: center; gap: 7px; }
+    .ph-pname { font-size: 1.2rem; font-weight: 900; color: #1a3a5c; }
+    .ph-verified { font-size: 14px; color: #1a5fbe; }
+    .ph-pfc { font-size: 11px; color: #5a8ab0; margin-top: 1px; }
+    .ph-pranks { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-left: auto; }
+    .ph-rank-badge {
+      border: 1.5px solid; border-radius: 10px; padding: 7px 13px;
+      text-align: center; min-width: 84px;
+    }
+    .ph-rank-badge.ph-rank-normal { border-color: #1a9ad7; color: #1a7ab0; background: rgba(26,154,215,.07); }
+    .ph-rank-badge.ph-rank-comp   { border-color: #c8a820; color: #a08010; background: rgba(200,168,32,.07); }
+    .ph-rank-type { font-size: 10px; font-weight: 700; opacity: .8; display: flex; align-items: center; gap: 4px; justify-content: center; }
+    .ph-rank-val  { font-size: 13px; font-weight: 900; margin-top: 2px; }
+    .ph-signed-row { display: flex; }
+    /* JS sets style.display="grid" on stats-lobby-signed-actions; override to flex */
+    #stats-lobby-signed-actions { display: flex !important; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .ph-signout-btn {
+      border: 1.5px solid #d0dce8; border-radius: 10px; padding: 8px 14px;
+      font-size: 12px; font-weight: 700; color: #5a8ab0; background: white; cursor: pointer;
+      transition: all .15s; font-family: 'Nunito',sans-serif; white-space: nowrap;
+    }
+    .ph-signout-btn:hover { background: #f5f8fa; border-color: #b0c4d4; }
+    .ph-guest-notice {
+      background: rgba(200,168,32,.08); border: 1px solid rgba(200,168,32,.25);
+      border-radius: 10px; padding: 10px 14px; font-size: 12px; color: #8a6820; line-height: 1.6;
+      width: 100%;
+    }
+    /* Tabs */
+    .ph-tabs {
+      display: flex; background: white; border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(26,90,180,.07); overflow: hidden; flex-wrap: wrap;
+    }
+    .ph-tab {
+      flex: 1; padding: 11px 8px; border: none; background: transparent;
+      font-size: 13px; font-weight: 700; color: #7a9ab8; cursor: pointer;
+      border-bottom: 2.5px solid transparent; transition: all .15s;
+      white-space: nowrap; font-family: 'Nunito',sans-serif; position: relative;
+    }
+    .ph-tab:hover { color: #1a5fbe; background: rgba(26,95,190,.04); }
+    .ph-tab.active { color: #1a5fbe; border-bottom-color: #1a5fbe; }
+    /* Action row */
+    .ph-actions { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+    .ph-action-card {
+      background: white; border: 1.5px solid #e0ecf5; border-radius: 14px;
+      padding: 15px 12px; display: flex; flex-direction: column; align-items: flex-start;
+      gap: 3px; cursor: pointer; transition: all .15s;
+      box-shadow: 0 1px 8px rgba(26,90,180,.05); font-family: 'Nunito',sans-serif;
+      text-align: left;
+    }
+    .ph-action-card:hover { border-color: #1a9ad7; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,90,180,.12); }
+    .ph-action-card.ph-action-gold { background: linear-gradient(135deg,#fffbea,#fef5c0); border-color: #d4b000; }
+    .ph-action-card.ph-action-gold:hover { border-color: #b89000; }
+    .ph-action-icon {
+      width: 38px; height: 38px; border-radius: 10px; margin-bottom: 4px;
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .ph-ai-blue { background: rgba(26,154,215,.12); }
+    .ph-ai-green { background: rgba(46,204,113,.12); }
+    .ph-ai-teal { background: rgba(26,200,200,.12); }
+    .ph-ai-gold { background: rgba(200,168,32,.12); }
+    .ph-action-label { font-size: 13px; font-weight: 800; color: #1a3a5c; }
+    .ph-action-sub { font-size: 11px; color: #7a9ab8; }
+    /* Join row override for new theme */
+    .stats-join-row {
+      display: none; flex-direction: row; gap: 8px; align-items: center; width: 100%;
+    }
+    .stats-join-row.open { display: flex; }
+    /* Tab panels */
+    .ph-panel { width: 100%; }
+    /* 2-col layout */
+    .ph-main { display: grid; grid-template-columns: 1fr 340px; gap: 14px; align-items: start; }
+    .ph-side { display: flex; flex-direction: column; gap: 12px; }
+    /* Stats card */
+    .ph-stats-card {
+      background: white; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 2px 16px rgba(26,90,180,.07);
+    }
+    .ph-stats-card.ph-comp-card { background: linear-gradient(135deg,#fffbf0,#fff7d4); border: 1.5px solid rgba(200,168,32,.2); }
+    .ph-stats-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 18px 11px; border-bottom: 1px solid #f0f4f8;
+    }
+    .ph-stats-title { font-size: 15px; font-weight: 900; color: #1a3a5c; display: flex; align-items: center; gap: 7px; }
+    /* Player count tabs */
+    .ph-pcounts { display: flex; gap: 5px; }
+    .ph-pc {
+      padding: 4px 9px; border-radius: 7px; font-size: 12px; font-weight: 700;
+      border: 1.5px solid #d0dce8; background: white; color: #7a9ab8; cursor: pointer;
+      transition: all .15s; font-family: 'Nunito',sans-serif;
+    }
+    .ph-pc:hover, .ph-pc.active { border-color: #1a9ad7; color: #1a5fbe; background: rgba(26,154,215,.1); }
+    .ph-pc-wrap { position: relative; }
+    .ph-pc-menu {
+      position: absolute; top: calc(100% + 4px); right: 0; z-index: 60;
+      background: white; border: 1.5px solid #d0dce8; border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(26,90,180,.15); display: none;
+      flex-direction: column; overflow: hidden; min-width: 60px;
+    }
+    .ph-pc-menu.open { display: flex; }
+    .ph-pc-menu button {
+      padding: 8px 12px; font-size: 12px; font-weight: 700; color: #5a8ab0;
+      cursor: pointer; border: none; background: transparent; font-family: 'Nunito',sans-serif;
+      transition: background .1s; text-align: center;
+    }
+    .ph-pc-menu button:hover { background: rgba(26,154,215,.08); color: #1a5fbe; }
+    /* Stats grid */
+    .ph-sg { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: #f0f4f8; }
+    .ph-sc { background: white; padding: 16px 14px; display: flex; flex-direction: column; gap: 5px; }
+    .ph-sci { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; margin-bottom: 2px; }
+    .ph-sci-blue { background: rgba(26,154,215,.1); }
+    .ph-sci-gold { background: rgba(200,168,32,.1); }
+    .ph-sci-teal { background: rgba(26,200,200,.1); }
+    .ph-sci-purple { background: rgba(120,80,220,.1); }
+    .ph-sci-green { background: rgba(46,204,113,.1); }
+    .ph-scl { font-size: 10px; color: #7a9ab8; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; line-height: 1.3; }
+    .ph-scv { font-size: 22px; font-weight: 900; color: #1a3a5c; line-height: 1; }
+    .ph-scs { font-size: 11px; color: #27ae60; font-weight: 700; }
+    .ph-card-list { display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+    .ph-card-item { font-size: 12px; color: #1a3a5c; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+    /* Side cards */
+    .ph-scard {
+      background: white; border-radius: 16px; overflow: hidden;
+      box-shadow: 0 2px 16px rgba(26,90,180,.07);
+    }
+    .ph-scard.ph-full { width: 100%; }
+    .ph-sh {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 16px 8px;
+    }
+    .ph-st { font-size: 14px; font-weight: 900; color: #1a3a5c; display: flex; align-items: center; gap: 6px; }
+    .ph-sl {
+      font-size: 11px; color: #1a9ad7; font-weight: 700; background: none; border: none;
+      cursor: pointer; padding: 0; font-family: 'Nunito',sans-serif;
+    }
+    .ph-sl:hover { text-decoration: underline; }
+    /* Recent game rows */
+    .ph-rg {
+      display: flex; align-items: center; gap: 9px; padding: 8px 16px;
+      border-top: 1px solid #f0f4f8;
+    }
+    .ph-rg-ico { font-size: 15px; flex-shrink: 0; }
+    .ph-rg-opp { font-size: 12px; font-weight: 700; color: #1a3a5c; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-rg-badge { font-size: 11px; font-weight: 800; padding: 2px 6px; border-radius: 5px; flex-shrink: 0; }
+    .ph-rg-badge.win { background: rgba(46,204,113,.12); color: #27ae60; }
+    .ph-rg-badge.loss { background: rgba(220,60,60,.1); color: #c0392b; }
+    .ph-rg-pts { font-size: 12px; font-weight: 800; color: #1a3a5c; white-space: nowrap; }
+    .ph-rg-date { font-size: 10px; color: #9ab8d0; white-space: nowrap; }
+    /* Friends rows */
+    .ph-fr {
+      display: flex; align-items: center; gap: 10px; padding: 8px 16px;
+      border-top: 1px solid #f0f4f8;
+    }
+    .ph-fr-av {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#1a5fbe,#0d3a8c);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 900; color: white;
+    }
+    .ph-fr-name { flex: 1; font-size: 13px; font-weight: 700; color: #1a3a5c; }
+    .ph-fr-status { font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+    .ph-fr-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .ph-fr-online { color: #27ae60; }
+    .ph-fr-online .ph-fr-dot { background: #27ae60; box-shadow: 0 0 4px #27ae60; }
+    .ph-fr-offline { color: #9ab8d0; }
+    .ph-fr-offline .ph-fr-dot { background: #c0d0dc; }
+    .ph-empty { padding: 18px; text-align: center; color: #9ab8d0; font-size: 13px; }
+    /* Footer */
+    .ph-footer { display: flex; gap: 10px; justify-content: flex-end; }
+    .ph-footer-btn {
+      padding: 9px 16px; border-radius: 10px; font-size: 12px; font-weight: 700;
+      border: 1.5px solid #d0dce8; background: white; color: #5a8ab0; cursor: pointer;
+      transition: all .15s; font-family: 'Nunito',sans-serif;
+    }
+    .ph-footer-btn:hover { background: #f0f6fb; border-color: #1a9ad7; color: #1a5fbe; }
+    /* Responsive */
+    @media (max-width: 720px) {
+      .ph-main { grid-template-columns: 1fr; }
+      .ph-actions { grid-template-columns: repeat(2,1fr); }
+      .ph-sg { grid-template-columns: repeat(2,1fr); }
+      .ph-pranks { margin-left: 0; }
+    }
+    /* Keep old auth-fc-badge for friend code display in modal */
     .stats-player-header {
       display: flex; align-items: center; gap: 14px;
       width: 100%; max-width: 420px;
@@ -2510,122 +2727,249 @@
 
 <!-- ══ PLAYER STATS LOBBY ════════════════════════════════════════ -->
 <div id="auth-stats-lobby">
-  <div class="stats-logo">Currents &amp; Critters</div>
 
-  <!-- Player header -->
-  <div class="stats-player-header">
-    <div class="stats-avatar" id="stats-avatar-letter">?</div>
-    <div class="stats-player-info">
-      <div class="stats-lobby-nick" id="stats-lobby-nick">—</div>
-      <div class="stats-lobby-fc" id="stats-lobby-fc"></div>
+  <!-- Top bar -->
+  <div class="ph-topbar">
+    <button class="ph-icon-btn">☰</button>
+    <div class="ph-topbar-title">Currents &amp; Critters</div>
+    <div class="ph-bell-wrap">
+      <button class="ph-icon-btn">🔔</button>
+      <div class="ph-notif-dot" id="ph-notif-dot"></div>
     </div>
   </div>
 
-  <!-- Signed-in action row (Friends + Sign Out, shown only for signed-in users) -->
-  <div class="stats-nav-grid" id="stats-lobby-signed-actions" style="display:none;">
-    <button class="stats-nav-btn" id="stats-friend-btn">👥 Friends<span class="friend-badge" id="friend-req-badge"></span></button>
-    <button class="stats-nav-btn" id="stats-signout-btn">🚪 Sign Out</button>
-  </div>
+  <div class="ph-wrap">
 
-  <!-- Guest notice (shown only when signed in as guest) -->
-  <div id="stats-guest-notice" style="display:none;background:rgba(240,200,64,.08);border:1px solid rgba(240,200,64,.25);border-radius:10px;padding:10px 14px;width:100%;max-width:420px;font-size:12px;color:var(--muted);line-height:1.6;">
-    Playing as guest — games, scores, and stats won't be saved.
-    <span id="stats-guest-signin-link" style="color:var(--gold);cursor:pointer;font-weight:700;margin-left:4px;">Create a free account →</span>
-  </div>
-
-  <!-- No games state -->
-  <div class="stats-empty-state" id="stats-no-games">
-    <div class="stats-empty-icon">🐟</div>
-    <div>No games completed yet.</div>
-    <div style="font-size:11px;margin-top:4px;opacity:.7;">Play your first game to start tracking stats.</div>
-  </div>
-
-  <!-- Normal Play stats -->
-  <div class="stats-mode-block" id="stats-normal-block" style="display:none;">
-    <div class="stats-mode-header normal">🎮 Normal Play</div>
-    <div class="stats-grid three-col">
-      <div class="stat-panel">
-        <div class="stat-label">Top Score</div>
-        <div class="stat-value" id="stat-normal-top">—</div>
+    <!-- Profile card -->
+    <div class="ph-profile-card">
+      <div class="ph-avatar" id="stats-avatar-letter">?</div>
+      <div class="ph-pinfo">
+        <div class="ph-pname-row">
+          <div class="ph-pname" id="stats-lobby-nick">—</div>
+        </div>
+        <div class="ph-pfc" id="stats-lobby-fc"></div>
       </div>
-      <div class="stat-panel">
-        <div class="stat-label">Rank</div>
-        <div class="stat-value rank-val" id="stat-normal-rank">—</div>
+      <div class="ph-pranks">
+        <div class="ph-rank-badge ph-rank-normal">
+          <div class="ph-rank-type">🎮 Normal</div>
+          <div class="ph-rank-val" id="stat-normal-rank">—</div>
+        </div>
+        <div class="ph-rank-badge ph-rank-comp">
+          <div class="ph-rank-type">⚔️ Comp</div>
+          <div class="ph-rank-val" id="stat-comp-rank">—</div>
+        </div>
       </div>
-      <div class="stat-panel">
-        <div class="stat-label">Wins</div>
-        <div class="stat-value" id="stat-normal-wins">—</div>
+      <!-- stats-lobby-signed-actions: JS sets display="grid"; flex override keeps it row-like -->
+      <div id="stats-lobby-signed-actions" style="display:none;gap:8px;align-items:center;">
+        <button class="ph-icon-btn" id="stats-friend-btn" title="Friends" style="display:none;position:relative;">
+          👥<span class="friend-badge" id="friend-req-badge"></span>
+        </button>
+        <button class="ph-signout-btn" id="stats-signout-btn">Sign Out</button>
       </div>
     </div>
-    <div id="stat-normal-pie" class="stats-pie-wrap"></div>
-  </div>
 
-  <!-- Competitive stats -->
-  <div class="stats-mode-block" id="stats-comp-block" style="display:none;">
-    <div class="stats-mode-header comp">⚔️ Competitive</div>
-    <div class="stats-grid three-col">
-      <div class="stat-panel comp-panel">
-        <div class="stat-label">Top Score</div>
-        <div class="stat-value" id="stat-comp-top">—</div>
+    <!-- Guest notice -->
+    <div id="stats-guest-notice" class="ph-guest-notice" style="display:none;">
+      Playing as guest — games, scores, and stats won't be saved.
+      <span id="stats-guest-signin-link" style="color:#a08010;cursor:pointer;font-weight:700;margin-left:4px;">Create a free account →</span>
+    </div>
+
+    <!-- Action row -->
+    <div class="ph-actions">
+      <button class="ph-action-card ph-action-gold" id="stats-create-btn">
+        <div class="ph-action-icon ph-ai-blue">🌊</div>
+        <div class="ph-action-label">Create</div>
+        <div class="ph-action-sub">New game</div>
+      </button>
+      <button class="ph-action-card" id="stats-join-toggle-btn">
+        <div class="ph-action-icon ph-ai-green">🎮</div>
+        <div class="ph-action-label">Join</div>
+        <div class="ph-action-sub">Browse or code</div>
+      </button>
+      <button class="ph-action-card" id="stats-tutorial-btn">
+        <div class="ph-action-icon ph-ai-teal">🐠</div>
+        <div class="ph-action-label">Tutorial</div>
+        <div class="ph-action-sub">Learn to play</div>
+      </button>
+      <button class="ph-action-card" id="stats-comp-btn">
+        <div class="ph-action-icon ph-ai-gold">⚔️</div>
+        <div class="ph-action-label">Competitive</div>
+        <div class="ph-action-sub">Ranked match</div>
+      </button>
+    </div>
+
+    <!-- Join row (quick-join input, toggled open by JS) -->
+    <div class="stats-join-row" id="stats-join-row">
+      <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
+        maxlength="5" style="flex:1;text-transform:uppercase;"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+      <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
+    </div>
+
+    <!-- Nav tabs -->
+    <div class="ph-tabs" id="ph-tabs">
+      <button class="ph-tab active" data-tab="normal">🎮 Normal</button>
+      <button class="ph-tab" data-tab="competitive">⚔️ Competitive</button>
+      <button class="ph-tab" data-tab="history">📋 History</button>
+      <button class="ph-tab" data-tab="friends">👥 Friends</button>
+    </div>
+
+    <!-- ── Normal tab ─────────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-normal">
+      <!-- Empty state (hidden by renderStats when games exist) -->
+      <div id="stats-no-games" style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 16px rgba(26,90,180,.07);text-align:center;color:#7a9ab8;font-size:13px;">
+        🐟 No games completed yet.<br><span style="font-size:11px;opacity:.7;">Play your first game to start tracking stats.</span>
       </div>
-      <div class="stat-panel comp-panel">
-        <div class="stat-label">Rank</div>
-        <div class="stat-value rank-val" id="stat-comp-rank">—</div>
+      <!-- Stats content (shown by renderStats when games exist) -->
+      <div id="stats-normal-block" style="display:none;">
+        <div class="ph-main">
+          <!-- Stats card -->
+          <div class="ph-stats-card">
+            <div class="ph-stats-top">
+              <div class="ph-stats-title">🎮 Normal Play</div>
+              <div class="ph-pcounts">
+                <button class="ph-pc active" data-ps="2">2P</button>
+                <button class="ph-pc" data-ps="3">3P</button>
+                <button class="ph-pc" data-ps="4">4P</button>
+                <button class="ph-pc" data-ps="5">5P</button>
+                <div class="ph-pc-wrap">
+                  <button class="ph-pc" id="ph-pc-plus">5+▾</button>
+                  <div class="ph-pc-menu" id="ph-pc-menu">
+                    <button data-ps="6">6P</button>
+                    <button data-ps="7">7P</button>
+                    <button data-ps="8">8P</button>
+                    <button data-ps="9">9P</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ph-sg">
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-blue">🏆</div>
+                <div class="ph-scl">High Score</div>
+                <div class="ph-scv" id="ph-high-score">—</div>
+                <div class="ph-scs" id="ph-hs-label"></div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-gold">🥇</div>
+                <div class="ph-scl">Wins</div>
+                <div class="ph-scv" id="stat-normal-wins">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-teal">📊</div>
+                <div class="ph-scl">Win %</div>
+                <div class="ph-scv" id="ph-win-pct">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-purple">🎯</div>
+                <div class="ph-scl">Avg Pts</div>
+                <div class="ph-scv" id="ph-avg-pts">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-green">🎮</div>
+                <div class="ph-scl">Games</div>
+                <div class="ph-scv" id="stat-completed">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-blue">♟️</div>
+                <div class="ph-scl">Strategy</div>
+                <div class="ph-scv" style="font-size:14px;" id="stat-strategy">—</div>
+              </div>
+            </div>
+            <div style="padding:8px 16px;" id="stat-normal-pie"></div>
+          </div>
+          <!-- Sidebar -->
+          <div class="ph-side">
+            <div class="ph-scard">
+              <div class="ph-sh">
+                <div class="ph-st">📋 Recent Games</div>
+                <button class="ph-sl" id="ph-hist-btn">See all</button>
+              </div>
+              <div id="ph-recent-games"><div class="ph-empty">No games yet.</div></div>
+            </div>
+            <div class="ph-scard" id="stats-friends-mini" style="display:none;">
+              <div class="ph-sh">
+                <div class="ph-st">👥 Friends</div>
+                <button class="ph-sl" id="ph-friends-open-btn">See all</button>
+              </div>
+              <div id="stats-friends-preview"></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="stat-panel comp-panel">
-        <div class="stat-label">Wins</div>
-        <div class="stat-value" id="stat-comp-wins">—</div>
+      <!-- Hidden compat wrappers for JS-managed IDs -->
+      <div id="stats-summary-grid" style="display:none;">
+        <span id="stat-normal-top"></span>
       </div>
     </div>
-    <div id="stat-comp-pie" class="stats-pie-wrap stats-pie-wrap-comp"></div>
-  </div>
 
-  <!-- Summary stats row -->
-  <div class="stats-grid" id="stats-summary-grid" style="display:none;">
-    <div class="stat-panel">
-      <div class="stat-label">Total Games</div>
-      <div class="stat-value" id="stat-completed">—</div>
+    <!-- ── Competitive tab ────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-competitive" style="display:none;">
+      <div id="stats-comp-block" style="display:none;">
+        <div class="ph-stats-card ph-comp-card">
+          <div class="ph-stats-top">
+            <div class="ph-stats-title">⚔️ Competitive</div>
+          </div>
+          <div class="ph-sg">
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-gold">🏆</div>
+              <div class="ph-scl">Top Score</div>
+              <div class="ph-scv" id="stat-comp-top">—</div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-gold">🥇</div>
+              <div class="ph-scl">Wins</div>
+              <div class="ph-scv" id="stat-comp-wins">—</div>
+            </div>
+          </div>
+          <div style="padding:8px 16px;" id="stat-comp-pie"></div>
+        </div>
+      </div>
+      <div id="ph-comp-empty" class="ph-empty" style="background:white;border-radius:16px;padding:32px;box-shadow:0 2px 16px rgba(26,90,180,.07);">
+        ⚔️ No games yet.<br><span style="font-size:11px;opacity:.7;">Play your first game to unlock competitive stats.</span>
+      </div>
     </div>
-    <div class="stat-panel">
-      <div class="stat-label">Top Strategy</div>
-      <div class="stat-value strategy-val" id="stat-strategy">—</div>
+
+    <!-- ── History tab ────────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-history" style="display:none;">
+      <div class="ph-scard ph-full">
+        <div class="ph-sh">
+          <div class="ph-st">📋 Game History</div>
+        </div>
+        <div id="ph-full-history"><div class="ph-empty">No games completed yet.</div></div>
+      </div>
     </div>
-  </div>
 
-  <!-- Friends mini preview (signed-in only) -->
-  <div class="stats-friends-mini" id="stats-friends-mini" style="display:none;">
-    <div class="stats-section-label">Friends</div>
-    <div id="stats-friends-preview"></div>
-  </div>
+    <!-- ── Friends tab ────────────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-friends" style="display:none;">
+      <div class="ph-scard ph-full">
+        <div class="ph-sh">
+          <div class="ph-st">👥 Friends</div>
+        </div>
+        <div style="padding:8px 16px 14px;">
+          <div style="font-size:11px;color:#5a8ab0;font-weight:700;margin-bottom:4px;">Your friend code</div>
+          <div id="ph-fc-display" style="font-size:20px;font-weight:900;color:#1a3a5c;letter-spacing:3px;margin-bottom:14px;">—</div>
+          <div id="ph-friend-requests" style="display:none;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:700;color:#1a3a5c;margin-bottom:6px;">⬇ Friend Requests</div>
+            <div id="ph-req-list"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:6px;">
+            <input id="ph-add-friend-input" class="pv-input" placeholder="4-digit code or Name#Code" style="flex:1;font-size:12px;" />
+            <button id="ph-add-friend-btn" class="pv-btn sm">Add</button>
+          </div>
+          <div id="ph-friend-err" style="color:#c0392b;font-size:12px;min-height:14px;"></div>
+        </div>
+        <div id="ph-friends-list" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+    </div>
 
-  <!-- Nav buttons -->
-  <div class="stats-nav-grid">
-    <button class="stats-nav-btn primary" id="stats-create-btn">🌊 Create</button>
-    <button class="stats-nav-btn" id="stats-join-toggle-btn">🎮 Join</button>
-    <button class="stats-nav-btn" id="stats-leaderboard-btn">🏆 Leaderboard</button>
-    <button class="stats-nav-btn" id="stats-settings-btn">⚙️ Settings</button>
-  </div>
+    <!-- Footer -->
+    <div class="ph-footer">
+      <button class="ph-footer-btn" id="stats-leaderboard-btn">🏆 Leaderboard</button>
+      <button class="ph-footer-btn" id="stats-settings-btn">⚙️ Settings</button>
+    </div>
 
-  <!-- Join row (inline, hidden until join is toggled) -->
-  <div class="stats-join-row" id="stats-join-row">
-    <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
-      maxlength="5" style="flex:1;text-transform:uppercase;"
-      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-    <button class="pv-btn gold" id="stats-join-go-btn">Join →</button>
   </div>
-
-  <!-- Tutorial + Competitive row -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%;max-width:420px;">
-    <button class="stats-nav-btn" id="stats-tutorial-btn"
-      style="border-color:rgba(34,216,248,.3);color:var(--cyan);">
-      🐠 Tutorial
-    </button>
-    <button class="stats-nav-btn" id="stats-comp-btn"
-      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border-color:rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
-      ⚔️ Competitive
-    </button>
-  </div>
-
 </div>
 
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
@@ -8313,6 +8657,187 @@
         list.appendChild(d);
       });
     }
+
+    // ── Player Home: tab switching ───────────────────────────────
+    (function() {
+      const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
+      const panels = { normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends" };
+      function switchTab(name) {
+        tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+        Object.entries(panels).forEach(([k, id]) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = k === name ? "" : "none";
+        });
+        if (name === "friends" && _authUser) renderPhFriendsList();
+        if (name === "history") renderPhHistory();
+      }
+      tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+      // See-all shortcuts
+      const histBtn = $a("ph-hist-btn");
+      if (histBtn) histBtn.addEventListener("click", () => switchTab("history"));
+      const frBtn = $a("ph-friends-open-btn");
+      if (frBtn) frBtn.addEventListener("click", () => switchTab("friends"));
+    })();
+
+    // ── Player Home: player-count high score tabs ─────────────────
+    let _phStats = null;
+    (function() {
+      const pcBtns = document.querySelectorAll(".ph-pc[data-ps]");
+      const plus = $a("ph-pc-plus"), menu = $a("ph-pc-menu");
+      function setActivePs(ps) {
+        pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(ps)));
+        if (plus && menu) { plus.classList.toggle("active", ps >= 6); if (ps >= 6) plus.textContent = ps + "P▾"; else plus.textContent = "5+▾"; }
+        updatePhHighScore(ps);
+      }
+      function updatePhHighScore(ps) {
+        const el = $a("ph-high-score"), lbl = $a("ph-hs-label");
+        if (!_phStats) return;
+        const key = ps === 2 ? "highest_score_2p" : `highest_score_${ps}p`;
+        const val = _phStats[key] ?? (_phStats.highest_score || null);
+        if (el) el.textContent = val != null && val > 0 ? String(val) : "—";
+        if (lbl) lbl.textContent = val != null && val > 0 ? ps + "P game" : "";
+      }
+      pcBtns.forEach(b => b.addEventListener("click", () => {
+        if (menu) menu.classList.remove("open");
+        setActivePs(Number(b.dataset.ps));
+      }));
+      if (plus && menu) {
+        plus.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.toggle("open"); });
+        menu.querySelectorAll("button[data-ps]").forEach(b => b.addEventListener("click", () => {
+          menu.classList.remove("open");
+          setActivePs(Number(b.dataset.ps));
+        }));
+        document.addEventListener("click", () => { if (menu) menu.classList.remove("open"); });
+      }
+      window._phSetPs = setActivePs;
+    })();
+
+    // ── Player Home: populate extra stats cells ────────────────────
+    function updatePhStats(stats) {
+      _phStats = stats;
+      const totalGames = (stats.completed_games || 0);
+      const wins = (stats.normal_wins || 0);
+      const wpEl = $a("ph-win-pct");
+      if (wpEl) wpEl.textContent = totalGames > 0 ? Math.round((wins / totalGames) * 100) + "%" : "—";
+      const totalScore = stats.total_score || 0;
+      const avgEl = $a("ph-avg-pts");
+      if (avgEl) avgEl.textContent = totalGames > 0 ? Math.round(totalScore / totalGames) : "—";
+      // Update high-score for current tab selection
+      const activePs = document.querySelector(".ph-pc.active[data-ps]");
+      if (window._phSetPs && activePs) window._phSetPs(Number(activePs.dataset.ps));
+      // Competitive tab: show/hide empty state
+      const compBlock = $a("stats-comp-block"), compEmpty = $a("ph-comp-empty");
+      if (compBlock && compEmpty) {
+        const hasComp = (stats.competitive_wins || 0) > 0 || (stats.highest_score_competitive || 0) > 0;
+        compEmpty.style.display = hasComp ? "none" : "";
+      }
+    }
+
+    // ── Player Home: recent games rendering ───────────────────────
+    function renderPhRecentGames(games) {
+      const el = $a("ph-recent-games");
+      if (!el) return;
+      if (!games || !games.length) { el.innerHTML = '<div class="ph-empty">No games yet.</div>'; return; }
+      el.innerHTML = "";
+      const shown = games.slice(0, 5);
+      shown.forEach(g => {
+        const d = document.createElement("div");
+        d.className = "ph-rg";
+        const isWin = g.r === 1, pts = g.s || 0;
+        const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
+        const opps = Array.isArray(g.opp) ? g.opp.slice(0,2).join(", ") + (g.opp.length > 2 ? "…" : "") : (g.opp || "");
+        d.innerHTML = `<span class="ph-rg-ico">${isWin ? "🥇" : "🐟"}</span><span class="ph-rg-opp">${opps || "Solo"}</span><span class="ph-rg-badge ${isWin ? "win" : "loss"}">${isWin ? "W" : "L"}</span><span class="ph-rg-pts">${pts} pts</span><span class="ph-rg-date">${date}</span>`;
+        el.appendChild(d);
+      });
+    }
+
+    // ── Player Home: full history tab ─────────────────────────────
+    function renderPhHistory() {
+      const el = $a("ph-full-history");
+      if (!el || !_authUser) return;
+      if (!_phStats || !_phStats.recent_games || !_phStats.recent_games.length) {
+        el.innerHTML = '<div class="ph-empty">No games completed yet.</div>';
+        return;
+      }
+      el.innerHTML = "";
+      _phStats.recent_games.forEach(g => {
+        const d = document.createElement("div");
+        d.className = "ph-rg";
+        const isWin = g.r === 1, pts = g.s || 0;
+        const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}) : "";
+        const opps = Array.isArray(g.opp) ? g.opp.join(", ") : (g.opp || "");
+        const mode = g.c ? "⚔️" : "🎮";
+        d.innerHTML = `<span class="ph-rg-ico">${isWin ? "🥇" : "🐟"}</span><span class="ph-rg-opp">${mode} ${opps || "Solo"}</span><span class="ph-rg-badge ${isWin ? "win" : "loss"}">${isWin ? "W" : "L"}</span><span class="ph-rg-pts">${pts} pts</span><span class="ph-rg-date">${date}</span>`;
+        el.appendChild(d);
+      });
+    }
+
+    // ── Player Home: friends tab ───────────────────────────────────
+    async function renderPhFriendsList() {
+      if (!_authUser) return;
+      // Populate friend code
+      const fcEl = $a("ph-fc-display");
+      if (fcEl) fcEl.textContent = _friendCode ? (_playerNickname || "") + "#" + _friendCode : "—";
+      // Pending requests
+      const reqSection = $a("ph-friend-requests"), reqList = $a("ph-req-list");
+      if (reqSection && reqList) {
+        const requests = await loadPendingRequests(_authUser.uid);
+        if (requests.length) {
+          reqSection.style.display = "";
+          reqList.innerHTML = "";
+          requests.forEach(req => {
+            const row = document.createElement("div");
+            row.className = "ph-rg";
+            row.innerHTML = `<span class="ph-rg-opp">${req.from_nickname || "Unknown"}${req.from_code ? " <span style='color:#9ab8d0;font-size:11px;'>#"+req.from_code+"</span>" : ""}</span><span style='display:flex;gap:6px;'><button class='pv-btn sm ph-req-accept'>✓</button><button class='pv-btn sm ph-req-deny' style='background:rgba(220,60,60,.08);border-color:rgba(220,60,60,.3);color:#c0392b;'>✕</button></span>`;
+            row.querySelector(".ph-req-accept").onclick = async () => { row.style.opacity = ".5"; await acceptFriendRequest(_authUser.uid, _playerNickname, req); renderPhFriendsList(); loadFriendsMini(_authUser.uid); };
+            row.querySelector(".ph-req-deny").onclick = async () => { row.style.opacity = ".5"; await denyFriendRequest(_authUser.uid, req.from_uid); renderPhFriendsList(); };
+            reqList.appendChild(row);
+          });
+        } else { reqSection.style.display = "none"; }
+      }
+      // Friends list
+      const list = $a("ph-friends-list");
+      if (!list) return;
+      list.innerHTML = '<div class="ph-empty">Loading…</div>';
+      const friends = await loadFriends(_authUser.uid);
+      if (!friends.length) { list.innerHTML = '<div class="ph-empty">No friends added yet.</div>'; return; }
+      const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
+      const withStatus = friends.map((f, i) => ({ ...f, isOnline: isFriendOnline(profiles[i]) }));
+      withStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+      list.innerHTML = "";
+      withStatus.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "ph-fr";
+        d.innerHTML = `<div class="ph-fr-av">${(f.nickname||"?").charAt(0).toUpperCase()}</div><div class="ph-fr-name">${f.nickname||"—"}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "online" : "offline"}</div>`;
+        list.appendChild(d);
+      });
+    }
+
+    // Wire Friends tab add-friend button
+    const phAddBtn = $a("ph-add-friend-btn");
+    if (phAddBtn) {
+      phAddBtn.addEventListener("click", async () => {
+        if (!_authUser) { setAuthMsg("ph-friend-err", "Sign in to add friends.", false); return; }
+        const rawCode = ($a("ph-add-friend-input").value || "").trim();
+        if (!rawCode) { setAuthMsg("ph-friend-err", "Enter a friend code.", false); return; }
+        setAuthMsg("ph-friend-err", "Looking up…", true);
+        const result = await addFriend(_authUser.uid, rawCode, _playerNickname);
+        if (result.error) { setAuthMsg("ph-friend-err", result.error, false); }
+        else if (result.autoAccepted) { setAuthMsg("ph-friend-err", "✓ Now friends with " + result.nickname + "!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); }
+        else if (result.requested) { setAuthMsg("ph-friend-err", "✓ Request sent to " + result.nickname + "!", true); $a("ph-add-friend-input").value = ""; }
+        else { setAuthMsg("ph-friend-err", "✓ Done!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); }
+      });
+      const phAddInput = $a("ph-add-friend-input");
+      if (phAddInput) phAddInput.addEventListener("keydown", e => { if (e.key === "Enter") phAddBtn.click(); });
+    }
+
+    // Hook renderStats to also call updatePhStats + renderPhRecentGames
+    const _origRenderStats = renderStats;
+    renderStats = function(stats) {
+      _origRenderStats(stats);
+      updatePhStats(stats);
+      if (stats && stats.recent_games) renderPhRecentGames(stats.recent_games);
+    };
 
     // Expose getters so outer game code can read auth state if needed
     window.__fishNickname       = () => _playerNickname;
