@@ -4041,10 +4041,10 @@
                 <button class="ph-pc" data-ps="2">2P</button>
                 <button class="ph-pc" data-ps="3">3P</button>
                 <button class="ph-pc active" data-ps="4">4P</button>
+                <button class="ph-pc" data-ps="5">5P</button>
                 <div class="ph-pc-wrap">
-                  <button class="ph-pc" id="ph-pc-plus" data-ps="5">5P</button>
+                  <button class="ph-pc" id="ph-pc-plus" data-ps="6">6P▾</button>
                   <div class="ph-pc-menu" id="ph-pc-menu">
-                    <button data-ps="6">6P</button>
                     <button data-ps="7">7P</button>
                     <button data-ps="8">8P</button>
                   </div>
@@ -10529,8 +10529,8 @@
         const size = normalizePhPlayerCount(ps);
         pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(size)));
         if (plus && menu) {
-          plus.classList.toggle("active", size >= 5);
-          plus.textContent = size >= 6 ? `${size}P▾` : "5P";
+          plus.classList.toggle("active", size >= 6);
+          plus.textContent = size >= 7 ? `${size}P▾` : "6P▾";
         }
         const el = $a("ph-high-score"), lbl = $a("ph-hs-label");
         if (_phStats) {
