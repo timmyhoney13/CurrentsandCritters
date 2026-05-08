@@ -1968,6 +1968,63 @@
       font-size: 17px; text-align: center;
     }
     .auth-subtitle { color: var(--muted); font-size: 12px; text-align: center; line-height: 1.55; }
+    .auth-avatar-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .7px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .auth-avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .auth-avatar-option {
+      position: relative;
+      border: 1px solid rgba(58,120,204,.35);
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      padding: 3px;
+      cursor: pointer;
+      transition: border-color .14s, transform .14s, box-shadow .14s;
+    }
+    .auth-avatar-option img {
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      object-fit: cover;
+      display: block;
+    }
+    .auth-avatar-option:hover {
+      border-color: rgba(34,216,248,.55);
+      transform: translateY(-1px);
+    }
+    .auth-avatar-option.active {
+      border-color: rgba(34,216,248,.95);
+      box-shadow: 0 0 0 2px rgba(34,216,248,.3);
+      background: rgba(34,216,248,.16);
+    }
+    .auth-avatar-option.active::after {
+      content: "✓";
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #2f7ee0;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 18px;
+      text-align: center;
+      box-shadow: 0 1px 6px rgba(18,58,116,.35);
+      pointer-events: none;
+    }
     .auth-err { color: var(--red); font-size: 12px; text-align: center; min-height: 16px; }
     .auth-ok  { color: var(--green); font-size: 12px; text-align: center; min-height: 16px; }
     .auth-link {
@@ -2184,6 +2241,14 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+    .ph-avatar.ph-avatar-clickable { cursor: pointer; }
+    .ph-avatar.ph-avatar-clickable:hover {
+      box-shadow: 0 0 0 2px rgba(35,121,206,.8), 0 10px 22px rgba(25,92,167,.3);
+    }
+    .ph-avatar.ph-avatar-clickable:focus-visible {
+      outline: 3px solid rgba(34,216,248,.72);
+      outline-offset: 2px;
     }
     .ph-avatar img {
       width: 100%;
@@ -2830,9 +2895,7 @@
       content: none;
     }
     #auth-stats-lobby::after {
-      background:
-        radial-gradient(ellipse at 50% 55%, rgba(247,252,255,.93) 0%, rgba(247,252,255,.86) 46%, rgba(247,252,255,.58) 72%, rgba(247,252,255,.2) 100%),
-        linear-gradient(180deg, rgba(244,252,255,.3) 0%, rgba(232,248,255,.4) 100%);
+      content: none;
     }
     .ph-coral { display: none; }
     .ph-topbar {
@@ -3421,6 +3484,7 @@
       display: flex; flex-direction: column; gap: 12px;
       box-shadow: 0 8px 32px rgba(0,0,0,.5);
     }
+    .avatar-modal-box { max-width: 430px; }
     .modal-title {
       font-family: 'Cinzel', serif; color: var(--cyan);
       font-size: 16px; text-align: center; font-weight: 700;
@@ -3639,6 +3703,8 @@
     <div class="auth-title">Choose Your Nickname</div>
     <div class="auth-subtitle">Your public name in-game, on leaderboards, and for friend search.<br>Not your email or Google name.</div>
     <input id="auth-nick-input" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+    <div class="auth-avatar-label">Choose Avatar</div>
+    <div class="auth-avatar-grid" id="auth-avatar-grid"></div>
     <div class="auth-err" id="auth-nick-err"></div>
     <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
   </div>
@@ -3691,6 +3757,17 @@
       Sign Out
     </button>
     <button class="pv-btn full" id="settings-close-btn">Close</button>
+  </div>
+</div>
+
+<div id="avatar-picker-modal" class="overlay-modal">
+  <div class="modal-box avatar-modal-box">
+    <div class="modal-title">Choose Avatar</div>
+    <div class="auth-subtitle">Pick how your profile appears to friends and opponents.</div>
+    <div class="auth-avatar-grid" id="avatar-modal-grid"></div>
+    <div class="auth-err" id="avatar-modal-err"></div>
+    <button class="pv-btn gold full" id="avatar-modal-save-btn">Save Avatar →</button>
+    <span class="auth-link" id="avatar-modal-cancel">Cancel</span>
   </div>
 </div>
 
@@ -8833,6 +8910,11 @@
     // ── Firebase init (only if config is filled in) ────────────
     let _auth = null, _db = null, _authUser = null;
     let _playerNickname = "", _friendCode = "";
+    let _guestSessionActive = false;
+    let _guestAvatarUrl = "";
+    let _avatarSelectionRequired = false;
+    const GUEST_NICK_KEY = "fish_guest_nick";
+    const GUEST_AVATAR_KEY = "fish_guest_avatar";
 
     function firebaseConfigured() {
       const c = window.__FISH_FIREBASE_CONFIG;
@@ -8874,6 +8956,74 @@
       return String(Math.floor(1000 + Math.random() * 9000));
     }
 
+    const AVATAR_OPTIONS = Array.from({ length: 12 }, (_, idx) => `/avatars/avatar-${String(idx + 1).padStart(2, "0")}.png`);
+    let _signupAvatarUrl = "";
+    let _avatarModalSelection = "";
+
+    function hashString(value) {
+      const text = String(value || "");
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+      }
+      return Math.abs(hash);
+    }
+
+    function normalizeAvatarUrl(raw) {
+      if (typeof raw !== "string") return "";
+      const trimmed = raw.trim();
+      if (!trimmed) return "";
+      if (/^https?:\/\//i.test(trimmed)) return trimmed;
+      const absolute = trimmed.startsWith("/") ? trimmed : `/${trimmed.replace(/^\.?\//, "")}`;
+      if (/^\/avatars\/avatar-\d{2}\.png$/i.test(absolute)) return absolute.toLowerCase();
+      return trimmed;
+    }
+
+    function getDefaultAvatar(seed) {
+      const base = String(seed || "player-default");
+      const idx = AVATAR_OPTIONS.length ? (hashString(base) % AVATAR_OPTIONS.length) : 0;
+      return AVATAR_OPTIONS[idx] || AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+    }
+
+    function sanitizeSelectableAvatar(url, seed) {
+      const normalized = normalizeAvatarUrl(url);
+      if (AVATAR_OPTIONS.includes(normalized)) return normalized;
+      return getDefaultAvatar(seed);
+    }
+
+    function renderAvatarGrid(containerId, selectedUrl, onSelect) {
+      const container = $a(containerId);
+      if (!container) return;
+      const active = sanitizeSelectableAvatar(selectedUrl, _authUser?.uid || _authUser?.email);
+      container.innerHTML = "";
+      AVATAR_OPTIONS.forEach((url, idx) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "auth-avatar-option" + (url === active ? " active" : "");
+        btn.setAttribute("aria-label", `Select avatar ${idx + 1}`);
+        btn.setAttribute("data-avatar", url);
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = `Avatar ${idx + 1}`;
+        img.loading = "lazy";
+        btn.appendChild(img);
+        btn.addEventListener("click", () => onSelect(url));
+        container.appendChild(btn);
+      });
+    }
+
+    document.addEventListener("error", (ev) => {
+      const target = ev && ev.target;
+      if (!(target instanceof HTMLImageElement)) return;
+      if (!target.closest(".ph-avatar") && !target.closest(".ph-fr-av")) return;
+      const fallback = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+      if ((target.dataset && target.dataset.avatarFallbackApplied === "1") || (target.src || "").includes(fallback)) {
+        return;
+      }
+      if (target.dataset) target.dataset.avatarFallbackApplied = "1";
+      target.src = fallback;
+    }, true);
+
     function friendlyAuthErr(code) {
       const map = {
         "auth/wrong-password":         "Incorrect password.",
@@ -8900,7 +9050,7 @@
       if (!_db) return null;
       try {
         const snap = await _db.collection("users").doc(uid).get();
-        return snap.exists ? snap.data() : null;
+        return snap.exists ? { uid, ...snap.data() } : null;
       } catch { return null; }
     }
 
@@ -8909,7 +9059,7 @@
       const nick = nickname.trim();
       const code = genFriendCode();
       const isAdmin = (email || "").toLowerCase() === "currentsandcritters@gmail.com";
-      const cleanAvatar = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
+      const cleanAvatar = sanitizeSelectableAvatar(avatarUrl, uid || email || nick);
       const data = {
         nickname:       nick,
         nickname_lower: nick.toLowerCase(),
@@ -8931,7 +9081,10 @@
       if (!_db) return [];
       try {
         const snap = await _db.collection("users").doc(uid).collection("friends").get();
-        return snap.docs.map(d => d.data());
+        return snap.docs.map(d => {
+          const data = d.data() || {};
+          return { ...data, uid: data.uid || d.id };
+        });
       } catch { return []; }
     }
 
@@ -8975,13 +9128,18 @@
     async function acceptFriendRequest(myUid, myNick, req) {
       if (!_db) return;
       const batch = _db.batch();
+      const requesterSeed = req?.from_uid || req?.from_nickname || "friend";
+      const requesterAvatar = normalizeAvatarUrl(req?.from_avatar_url || "") || getDefaultAvatar(requesterSeed);
+      const myAvatar = resolveAvatarUrl(_activeProfile, { includeAuthFallback: false, seed: myUid || myNick || "me" });
       // Create mutual friendship
       batch.set(_db.collection("users").doc(myUid).collection("friends").doc(req.from_uid), {
         uid: req.from_uid, nickname: req.from_nickname,
+        avatar_url: requesterAvatar,
         added_at: firebase.firestore.FieldValue.serverTimestamp(),
       });
       batch.set(_db.collection("users").doc(req.from_uid).collection("friends").doc(myUid), {
         uid: myUid, nickname: myNick,
+        avatar_url: myAvatar,
         added_at: firebase.firestore.FieldValue.serverTimestamp(),
       });
       // Delete request
@@ -9045,10 +9203,12 @@
       }
 
       // Send the friend request
+      const myAvatar = resolveAvatarUrl(_activeProfile, { includeAuthFallback: false, seed: myUid || myNick || "me" });
       await _db.collection("users").doc(targetUid).collection("friend_requests").doc(myUid).set({
         from_uid:      myUid,
         from_nickname: myNick || _playerNickname || "Unknown",
         from_code:     _friendCode || "",
+        from_avatar_url: myAvatar,
         sent_at:       firebase.firestore.FieldValue.serverTimestamp(),
       });
       return { ok: true, nickname: targetNick, requested: true };
@@ -9099,6 +9259,7 @@
     }
 
     let _activeProfile = null;
+    let _avatarPromptShownForUid = "";
 
     // Per-account player-home data mode (no shared demo profile).
     const HOME_REFERENCE_MODE = false;
@@ -9180,16 +9341,29 @@
       return t ? t.charAt(0).toUpperCase() : "?";
     }
 
-    function resolveAvatarUrl(profile) {
+    function resolveAvatarUrl(profile, opts) {
+      const options = opts || {};
+      const includeAuthFallback = !!options.includeAuthFallback;
+      const seed = options.seed || profile?.uid || profile?.email || profile?.nickname || "";
       const fromProfile = profile && (
         profile.avatar_url ||
         profile.avatarUrl ||
         profile.photo_url ||
         profile.photoURL
       );
-      const fromAuth = _authUser && _authUser.photoURL;
-      const raw = fromProfile || fromAuth || "";
-      return typeof raw === "string" ? raw.trim() : "";
+      const profileAvatar = normalizeAvatarUrl(fromProfile || "");
+      if (AVATAR_OPTIONS.includes(profileAvatar)) return profileAvatar;
+      if (includeAuthFallback && _authUser && _authUser.photoURL) {
+        const authAvatar = normalizeAvatarUrl(_authUser.photoURL);
+        if (AVATAR_OPTIONS.includes(authAvatar)) return authAvatar;
+      }
+      return getDefaultAvatar(seed);
+    }
+
+    function resolveFriendAvatarUrl(rawAvatar, seed) {
+      const normalized = normalizeAvatarUrl(rawAvatar || "");
+      if (!normalized || !AVATAR_OPTIONS.includes(normalized)) return getDefaultAvatar(seed);
+      return normalized;
     }
 
     function renderStatsAvatar(profile, nickname) {
@@ -9198,15 +9372,21 @@
       const letter = $a("stats-avatar-letter");
       if (letter) letter.textContent = safeInitial(nickname || _playerNickname || "Guest");
       if (!wrap || !img) return;
-      const avatarUrl = resolveAvatarUrl(profile);
+      const avatarSeed = _authUser?.uid || _playerNickname || nickname || "guest";
+      const avatarUrl = resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed });
       if (!avatarUrl) {
         wrap.classList.remove("has-image");
         img.removeAttribute("src");
         return;
       }
       img.onerror = () => {
-        wrap.classList.remove("has-image");
-        img.removeAttribute("src");
+        const fallback = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+        if (img.src && img.src.includes(fallback)) {
+          wrap.classList.remove("has-image");
+          img.removeAttribute("src");
+          return;
+        }
+        img.src = fallback;
       };
       img.src = avatarUrl;
       wrap.classList.add("has-image");
@@ -9236,9 +9416,113 @@
       renderStatsAvatar(profile || _activeProfile, nick);
     }
 
+    function setStatsAvatarClickable(enabled) {
+      const wrap = $a("stats-avatar");
+      if (!wrap) return;
+      if (enabled) {
+        wrap.classList.add("ph-avatar-clickable");
+        wrap.tabIndex = 0;
+        wrap.setAttribute("role", "button");
+        wrap.setAttribute("aria-label", "Change avatar");
+        wrap.title = "Change avatar";
+      } else {
+        wrap.classList.remove("ph-avatar-clickable");
+        wrap.tabIndex = -1;
+        wrap.removeAttribute("role");
+        wrap.removeAttribute("aria-label");
+        wrap.title = "";
+      }
+    }
+
+    function prepareSignupAvatarSelection(seed) {
+      const baseSeed = seed || _authUser?.uid || _authUser?.email;
+      _signupAvatarUrl = sanitizeSelectableAvatar(_signupAvatarUrl, baseSeed);
+      const rerender = () => {
+        renderAvatarGrid("auth-avatar-grid", _signupAvatarUrl, (selected) => {
+          _signupAvatarUrl = sanitizeSelectableAvatar(selected, baseSeed);
+          rerender();
+        });
+      };
+      rerender();
+    }
+
+    function openAvatarPickerModal(opts) {
+      const options = opts || {};
+      const modal = $a("avatar-picker-modal");
+      if (!modal) return;
+      const forceRequired = !!options.required;
+      const guestMode = !!options.guestMode || (!_authUser && _guestSessionActive);
+      const seed = guestMode
+        ? (_playerNickname || "guest")
+        : (_authUser?.uid || _authUser?.email || _playerNickname || "player");
+      const currentAvatar = guestMode
+        ? normalizeAvatarUrl(_guestAvatarUrl || _activeProfile?.avatar_url || "")
+        : normalizeAvatarUrl(_activeProfile?.avatar_url || "");
+      _avatarModalSelection = sanitizeSelectableAvatar(currentAvatar, seed);
+      const rerender = () => {
+        renderAvatarGrid("avatar-modal-grid", _avatarModalSelection, (selected) => {
+          _avatarModalSelection = sanitizeSelectableAvatar(selected, seed);
+          rerender();
+        });
+      };
+      rerender();
+      _avatarSelectionRequired = forceRequired;
+      const cancelBtn = $a("avatar-modal-cancel");
+      if (cancelBtn) cancelBtn.style.display = _avatarSelectionRequired ? "none" : "";
+      setAuthMsg("avatar-modal-err", "", false);
+      modal.classList.add("open");
+    }
+
+    function closeAvatarPickerModal() {
+      if (_avatarSelectionRequired) return;
+      const modal = $a("avatar-picker-modal");
+      if (modal) modal.classList.remove("open");
+      _avatarSelectionRequired = false;
+    }
+
+    async function saveAvatarSelection() {
+      const seed = _authUser?.uid || _playerNickname || "guest";
+      const selected = sanitizeSelectableAvatar(_avatarModalSelection, seed);
+      if (!selected) {
+        setAuthMsg("avatar-modal-err", "Choose an avatar first.", false);
+        return;
+      }
+      setAuthMsg("avatar-modal-err", "Saving…", true);
+      try {
+        if (_authUser && _db) {
+          await _db.collection("users").doc(_authUser.uid).set({ avatar_url: selected }, { merge: true });
+          _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, avatar_url: selected };
+          syncStatsHeader(_activeProfile);
+          loadFriendsMini(_authUser.uid);
+          renderPhOverview();
+          renderPhFriendsList();
+        } else if (_guestSessionActive) {
+          _guestAvatarUrl = selected;
+          localStorage.setItem(GUEST_AVATAR_KEY, selected);
+          _activeProfile = {
+            ...(_activeProfile || {}),
+            nickname: _playerNickname || "Guest",
+            avatar_url: selected,
+          };
+          syncStatsHeader(_activeProfile);
+          const previewEl = $a("stats-friends-preview");
+          if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+        } else {
+          setAuthMsg("avatar-modal-err", "Sign in or start a guest session first.", false);
+          return;
+        }
+        _avatarSelectionRequired = false;
+        const modal = $a("avatar-picker-modal");
+        if (modal) modal.classList.remove("open");
+      } catch (e) {
+        setAuthMsg("avatar-modal-err", "Could not save avatar. Try again.", false);
+      }
+    }
+
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
+      _guestSessionActive = !_authUser;
       lockNameInputs(_playerNickname);
       if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
@@ -9260,12 +9544,19 @@
       showStatsLobby();
     }
 
+    function clearGuestSessionStorage() {
+      localStorage.removeItem(GUEST_NICK_KEY);
+      localStorage.removeItem(GUEST_AVATAR_KEY);
+      _guestSessionActive = false;
+      _guestAvatarUrl = "";
+    }
+
     // ── Stats lobby helpers ───────────────────────────────────────
     function showStatsLobby() {
       if (typeof roomFromUrl === "function" && roomFromUrl()) {
         enterGameLobby(); return;
       }
-      if (!_authUser) {
+      if (!_authUser && !_guestSessionActive) {
         const sl = $a("auth-stats-lobby");
         if (sl) sl.classList.remove("visible");
         $a("auth-loading-screen").classList.add("hidden");
@@ -9283,35 +9574,54 @@
       const signedEl = $a("stats-lobby-signed-actions");
       if (signedEl) signedEl.style.display = "grid";
       const friendBtn = $a("stats-friend-btn");
-      if (friendBtn) friendBtn.style.display = _friendCode ? "" : "none";
+      if (friendBtn) friendBtn.style.display = (_authUser && _friendCode) ? "" : "none";
+      setStatsAvatarClickable(!!_authUser || _guestSessionActive);
       // Guest notice
       const guestNotice = $a("stats-guest-notice");
-      if (guestNotice) guestNotice.style.display = "none";
+      if (guestNotice) guestNotice.style.display = _guestSessionActive ? "" : "none";
       // Settings nick display
       const settingsNick = $a("settings-current-nick");
       if (settingsNick) settingsNick.textContent = nick;
       const settingsStatus = $a("settings-account-status");
       if (settingsStatus) {
-        settingsStatus.textContent = (_authUser.providerData?.[0]?.providerId === "google.com")
-          ? "Google account"
-          : "Email account";
+        settingsStatus.textContent = _authUser
+          ? ((_authUser.providerData?.[0]?.providerId === "google.com") ? "Google account" : "Email account")
+          : "Guest session";
       }
       // Load stats
-      loadAndRenderStats(_authUser.uid);
-      loadFriendsMini(_authUser.uid);
+      if (_authUser) {
+        loadAndRenderStats(_authUser.uid);
+        loadFriendsMini(_authUser.uid);
+      } else {
+        _activeProfile = {
+          ...(_activeProfile || {}),
+          nickname: _playerNickname || "Guest",
+          avatar_url: sanitizeSelectableAvatar(_guestAvatarUrl, _playerNickname || "guest"),
+        };
+        syncStatsHeader(_activeProfile);
+        renderStats(null);
+        const previewEl = $a("stats-friends-preview");
+        if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+      }
     }
 
     async function loadAndRenderStats(uid) {
       const profile = await loadProfile(uid);
-      if (_db && _authUser && _authUser.photoURL && (!profile || !profile.avatar_url)) {
-        _db.collection("users").doc(uid).set({ avatar_url: String(_authUser.photoURL).trim() }, { merge: true }).catch(() => {});
-      }
       _activeProfile = profile || null;
-      if (_activeProfile && !_activeProfile.avatar_url && _authUser && _authUser.photoURL) {
-        _activeProfile = { ..._activeProfile, avatar_url: String(_authUser.photoURL).trim() };
-      }
+      const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
+      const hasSelectableAvatar = AVATAR_OPTIONS.includes(savedAvatar);
+      if (_activeProfile) _activeProfile = { ..._activeProfile, uid };
+      if (_activeProfile && savedAvatar) _activeProfile.avatar_url = savedAvatar;
       syncStatsHeader(_activeProfile);
       renderStats(profile && profile.stats ? profile.stats : null);
+      if (_authUser && _authUser.uid === uid && !hasSelectableAvatar && _avatarPromptShownForUid !== uid) {
+        _avatarPromptShownForUid = uid;
+        _avatarModalSelection = getDefaultAvatar(uid || _playerNickname || "player");
+        setTimeout(() => {
+          openAvatarPickerModal({ required: true, guestMode: false });
+          setAuthMsg("avatar-modal-err", "Select your avatar, then save to continue.", false);
+        }, 60);
+      }
     }
 
     const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
@@ -9464,7 +9774,7 @@
       const friends = await loadFriends(uid);
       miniBox.style.display = "";
       if (!friends.length) {
-        previewEl.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:4px 0;">No friends added yet.</div>';
+        previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
         return;
       }
       // Fetch online status for each friend (up to 4 shown)
@@ -9472,18 +9782,21 @@
       const profiles = await Promise.all(shown.map(f => loadProfile(f.uid).catch(() => null)));
       previewEl.innerHTML = "";
       shown.forEach((f, i) => {
-        const online = isFriendOnline(profiles[i]);
+        const profile = profiles[i];
+        const online = isFriendOnline(profile);
+        const friendName = escapeHtml(f.nickname || "—");
+        const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
+          { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
+          { seed: f.uid || f.nickname || `friend-${i}` }
+        ), f.uid || f.nickname || `friend-${i}`);
+        const avatarHtml = avatarUrl
+          ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
+          : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const d = document.createElement("div");
-        d.className = "stats-friend-entry-mini";
-        d.innerHTML = `<span class="stats-friend-dot${online ? " online" : ""}"></span><span>${f.nickname || "—"}</span>${online ? '<span style="color:#2ecc71;font-size:10px;margin-left:auto;">online</span>' : ""}`;
+        d.className = "ph-fr";
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(d);
       });
-      if (friends.length > 4) {
-        const more = document.createElement("div");
-        more.style.cssText = "color:var(--muted);font-size:11px;text-align:right;padding-top:2px;";
-        more.textContent = `+${friends.length - 4} more`;
-        previewEl.appendChild(more);
-      }
     }
 
     function enterGameLobby() {
@@ -9534,11 +9847,21 @@
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
+      const guestBtn = $a("auth-guest-btn");
+      if (guestBtn) guestBtn.style.display = "";
+      const signinAsGuest = $a("auth-signin-as-guest");
+      if (signinAsGuest) signinAsGuest.style.display = "";
       if (!_auth) {
-        // Firebase must be configured for account sign-in.
+        const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+        const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
+        if (savedGuestNick) {
+          _guestAvatarUrl = savedGuestAvatar;
+          revealLobby(savedGuestNick, "");
+          return;
+        }
         $a("auth-loading-screen").classList.add("hidden");
         showStep("auth-step-choose");
-        setAuthMsg("auth-choose-err", "Sign-in is not configured on this server.", false);
+        setAuthMsg("auth-choose-err", "Sign-in is not configured on this server. You can still play as guest.", false);
         return;
       }
 
@@ -9546,6 +9869,7 @@
       _auth.onAuthStateChanged(async (user) => {
         if (user) {
           _authUser = user;
+          _guestSessionActive = false;
           const profile = await loadProfile(user.uid);
           _activeProfile = profile || null;
           $a("auth-loading-screen").classList.add("hidden");
@@ -9557,23 +9881,33 @@
             const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
             const nickInput = $a("auth-nick-input");
             if (nickInput && hint) nickInput.value = hint;
+            _signupAvatarUrl = sanitizeSelectableAvatar(profile?.avatar_url, user.uid || user.email || hint || "player");
+            prepareSignupAvatarSelection(user.uid || user.email || hint || "player");
             showStep("auth-step-nickname");
           }
         } else {
           _authUser = null;
           _activeProfile = null;
+          const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+          const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
+          _avatarPromptShownForUid = "";
+          setStatsAvatarClickable(false);
           $a("auth-loading-screen").classList.add("hidden");
-          showStep("auth-step-choose");
+          if (savedGuestNick) {
+            _guestAvatarUrl = savedGuestAvatar;
+            revealLobby(savedGuestNick, "");
+          } else {
+            showStep("auth-step-choose");
+          }
         }
       });
     })();
 
     // ── Guest flow ───────────────────────────────────────────────
-    $a("auth-guest-btn").addEventListener("click", () => showStep("auth-step-signin"));
+    $a("auth-guest-btn").addEventListener("click", () => showStep("auth-step-guest"));
 
     $a("auth-guest-back").addEventListener("click", () => {
-      if (_auth) showStep("auth-step-choose");
-      // If no Firebase, stay on guest step (only option)
+      showStep("auth-step-choose");
     });
 
     const chooseGoogleBtn = $a("auth-choose-google-btn");
@@ -9599,8 +9933,17 @@
     });
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
-      setAuthMsg("auth-guest-err", "Guest mode is disabled. Please sign in.", false);
-      showStep("auth-step-signin");
+      const nick = ($a("auth-guest-nick").value || "").trim();
+      const err = validateNick(nick);
+      if (err) { setAuthMsg("auth-guest-err", err, false); return; }
+      _authUser = null;
+      _guestSessionActive = true;
+      _friendCode = "";
+      _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
+      localStorage.setItem(GUEST_NICK_KEY, nick);
+      localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
+      _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
+      revealLobby(nick, "");
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
 
@@ -9616,7 +9959,7 @@
     });
 
     $a("auth-signin-back").addEventListener("click", () => showStep("auth-step-choose"));
-    $a("auth-signin-as-guest").addEventListener("click", () => showStep("auth-step-signin"));
+    $a("auth-signin-as-guest").addEventListener("click", () => showStep("auth-step-guest"));
     $a("auth-to-create").addEventListener("click", () => showStep("auth-step-create"));
     $a("auth-to-forgot").addEventListener("click", () => {
       const emailVal = ($a("auth-email").value || "").trim();
@@ -9712,7 +10055,8 @@
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
-        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", _authUser.photoURL || "");
+        const selectedAvatar = sanitizeSelectableAvatar(_signupAvatarUrl, _authUser.uid || nick || _authUser.email);
+        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", selectedAvatar);
         revealLobby(nick, code);
       } catch (e) {
         setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
@@ -9720,15 +10064,44 @@
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
+    const statsAvatarBtn = $a("stats-avatar");
+    if (statsAvatarBtn) {
+      statsAvatarBtn.addEventListener("click", () => {
+        if (_authUser || _guestSessionActive) {
+          openAvatarPickerModal({ required: false, guestMode: !_authUser });
+        }
+      });
+      statsAvatarBtn.addEventListener("keydown", (e) => {
+        if (!_authUser && !_guestSessionActive) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openAvatarPickerModal({ required: false, guestMode: !_authUser });
+        }
+      });
+    }
+
+    const avatarModalSaveBtn = $a("avatar-modal-save-btn");
+    if (avatarModalSaveBtn) avatarModalSaveBtn.addEventListener("click", saveAvatarSelection);
+    const avatarModalCancel = $a("avatar-modal-cancel");
+    if (avatarModalCancel) avatarModalCancel.addEventListener("click", closeAvatarPickerModal);
+    const avatarModal = $a("avatar-picker-modal");
+    if (avatarModal) avatarModal.addEventListener("click", (e) => {
+      if (e.target === avatarModal) closeAvatarPickerModal();
+    });
+
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
-      localStorage.removeItem("fish_guest_nick");
+      clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
+      _avatarPromptShownForUid = "";
+      _avatarSelectionRequired = false;
       $a("auth-profile-bar").style.display = "none";
+      closeAvatarPickerModal();
+      setStatsAvatarClickable(false);
       showStep("auth-step-choose");
     });
 
@@ -9795,9 +10168,9 @@
       const statusEl = $a("settings-account-status");
       if (statusEl) statusEl.textContent = _authUser
         ? (_authUser.providerData?.[0]?.providerId === "google.com" ? "Google account" : "Email account")
-        : "Not signed in";
+        : (_guestSessionActive ? "Guest session" : "Not signed in");
       const signoutRow = $a("settings-signout-btn");
-      if (signoutRow) signoutRow.style.display = _authUser ? "" : "none";
+      if (signoutRow) signoutRow.style.display = (_authUser || _guestSessionActive) ? "" : "none";
       const nickRow = $a("settings-nick-row");
       if (nickRow) nickRow.style.display = _authUser ? "" : "none";
       $a("settings-modal").classList.add("open");
@@ -9849,29 +10222,37 @@
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
     if (settingsSignoutBtn) settingsSignoutBtn.addEventListener("click", async () => {
-      localStorage.removeItem("fish_guest_nick");
+      clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
+      _avatarPromptShownForUid = "";
+      _avatarSelectionRequired = false;
       $a("settings-modal").classList.remove("open");
       $a("auth-stats-lobby").classList.remove("visible");
       $a("auth-profile-bar").style.display = "none";
+      closeAvatarPickerModal();
+      setStatsAvatarClickable(false);
       showStep("auth-step-choose");
     });
 
     const statsSignoutBtn = $a("stats-signout-btn");
     if (statsSignoutBtn) {
       statsSignoutBtn.addEventListener("click", async () => {
-        localStorage.removeItem("fish_guest_nick");
+        clearGuestSessionStorage();
         if (_authUser) stopPresencePing(_authUser.uid);
         if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
         _playerNickname = ""; _friendCode = ""; _activeProfile = null;
         if (_auth) { try { await _auth.signOut(); } catch {} }
         _authUser = null;
+        _avatarPromptShownForUid = "";
+        _avatarSelectionRequired = false;
         $a("auth-stats-lobby").classList.remove("visible");
         $a("auth-profile-bar").style.display = "none";
+        closeAvatarPickerModal();
+        setStatsAvatarClickable(false);
         $a("auth-screen").classList.remove("hidden");
         showStep("auth-step-choose");
       });
@@ -9982,14 +10363,24 @@
       list.innerHTML = "";
       // Sort: online first
       const withStatus = friends.map((f, i) => ({ ...f, isOnline: isFriendOnline(profiles[i]) }));
+      const profileByUid = new Map(friends.map((f, i) => [f.uid, profiles[i]]));
       withStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
       withStatus.forEach(f => {
         const d = document.createElement("div");
         d.className = "auth-friend-entry";
-        d.style.display = "flex";
+        d.style.display = "grid";
+        d.style.gridTemplateColumns = "26px minmax(0,1fr) auto";
         d.style.alignItems = "center";
-        d.style.gap = "8px";
-        d.innerHTML = `<span class="stats-friend-dot${f.isOnline ? " online" : ""}"></span><span style="flex:1">${escapeHtml(f.nickname || "—")}</span>${f.isOnline ? '<span style="color:#2ecc71;font-size:11px;">● online</span>' : '<span style="color:var(--muted);font-size:11px;">offline</span>'}`;
+        d.style.columnGap = "8px";
+        const friendProfile = profileByUid.get(f.uid) || null;
+        const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
+          { ...(friendProfile || {}), avatar_url: (friendProfile && friendProfile.avatar_url) || f.avatar_url || "" },
+          { seed: f.uid || f.nickname || "friend" }
+        ), f.uid || f.nickname || "friend");
+        const avatarHtml = avatarUrl
+          ? `<span class="ph-fr-av" style="width:26px;height:26px;border-width:1px;"><img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(f.nickname || "Friend")} avatar" loading="lazy" referrerpolicy="no-referrer"></span>`
+          : `<span class="ph-fr-av" style="width:26px;height:26px;border-width:1px;font-size:11px;">${safeInitial(f.nickname || "?")}</span>`;
+        d.innerHTML = `${avatarHtml}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.nickname || "—")}</span>${f.isOnline ? '<span style="color:#2ecc71;font-size:11px;">Online</span>' : '<span style="color:var(--muted);font-size:11px;">Offline</span>'}`;
         list.appendChild(d);
       });
     }
@@ -10148,7 +10539,10 @@
           shown.forEach((f, i) => {
             const online = isFriendOnline(profiles[i]);
             const friendName = escapeHtml(f.nickname || "—");
-            const avatarUrl = resolveAvatarUrl(profiles[i]);
+            const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
+              { ...(profiles[i] || {}), avatar_url: (profiles[i] && profiles[i].avatar_url) || f.avatar_url || "" },
+              { seed: f.uid || f.nickname || `friend-${i}` }
+            ), f.uid || f.nickname || `friend-${i}`);
             const avatarHtml = avatarUrl
               ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
               : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
@@ -10256,11 +10650,14 @@
         d.className = "ph-fr";
         const avatarProfile = profileByUid.get(f.uid) || null;
         const friendName = escapeHtml(f.nickname || "—");
-        const avatarUrl = resolveAvatarUrl(avatarProfile);
+        const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
+          { ...(avatarProfile || {}), avatar_url: (avatarProfile && avatarProfile.avatar_url) || f.avatar_url || "" },
+          { seed: f.uid || f.nickname || "friend" }
+        ), f.uid || f.nickname || "friend");
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "online" : "offline"}</div>`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         list.appendChild(d);
       });
     }
@@ -10299,9 +10696,11 @@
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
     window.__fishIsGuest        = () => !_authUser && !!_playerNickname;
     window.__fishGoToSignIn     = () => {
-      localStorage.removeItem("fish_guest_nick");
+      clearGuestSessionStorage();
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       _authUser = null;
+      _avatarSelectionRequired = false;
+      closeAvatarPickerModal();
       const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
       $a("auth-screen").classList.remove("hidden");
       showStep("auth-step-choose");

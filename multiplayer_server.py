@@ -73,6 +73,11 @@ CLIENT_DIR = os.path.join(BASE_DIR, "multiplayer", "client")
 MANIFEST_PATH = os.path.join(CLIENT_DIR, "manifest.webmanifest")
 SERVICE_WORKER_PATH = os.path.join(CLIENT_DIR, "sw.js")
 ICON_PATH = os.path.join(CLIENT_DIR, "icon.svg")
+PLAYER_HOME_REFERENCE_PATH = os.path.join(CLIENT_DIR, "player-home-reference.jpg")
+PLAYER_HOME_AVATAR_PATH = os.path.join(CLIENT_DIR, "player-home-avatar.jpg")
+PLAYER_HOME_FRIEND_TWIN_PATH = os.path.join(CLIENT_DIR, "player-home-friend-twin.jpg")
+PLAYER_HOME_FRIEND_MOM_PATH = os.path.join(CLIENT_DIR, "player-home-friend-mom.jpg")
+AVATAR_DIR = os.path.join(CLIENT_DIR, "avatars")
 
 
 def room_state_path(room_id: str) -> str:
@@ -3103,6 +3108,31 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_client_asset(ICON_PATH, content_type="image/svg+xml")
             return
 
+        if parsed.path == "/player-home-reference.jpg":
+            self._send_client_asset(PLAYER_HOME_REFERENCE_PATH, content_type="image/jpeg")
+            return
+
+        if parsed.path == "/player-home-avatar.jpg":
+            self._send_client_asset(PLAYER_HOME_AVATAR_PATH, content_type="image/jpeg")
+            return
+
+        if parsed.path == "/player-home-friend-twin.jpg":
+            self._send_client_asset(PLAYER_HOME_FRIEND_TWIN_PATH, content_type="image/jpeg")
+            return
+
+        if parsed.path == "/player-home-friend-mom.jpg":
+            self._send_client_asset(PLAYER_HOME_FRIEND_MOM_PATH, content_type="image/jpeg")
+            return
+
+        if parsed.path.startswith("/avatars/"):
+            avatar_name = os.path.basename(parsed.path)
+            if not re.fullmatch(r"avatar-\d{2}\.png", avatar_name):
+                self._send_json({"ok": False, "error": "invalid avatar path"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            avatar_path = os.path.join(AVATAR_DIR, avatar_name)
+            self._send_client_asset(avatar_path, cache_control="public, max-age=86400")
+            return
+
         if parsed.path == "/api/health":
             self._send_json(
                 {
@@ -3126,6 +3156,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if len(parts) == 2 and parts[0] == "play":
+            self._send_preview_html()
+            return
+
+        if parsed.path in {"/preview.html", "/multiplayer/client/preview.html"}:
             self._send_preview_html()
             return
 
@@ -3572,9 +3606,19 @@ def main() -> None:
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 
     ACTIVE_SERVER = StableThreadingHTTPServer((args.host, args.port), MultiplayerHandler)
-    print(f"Serving Fish multiplayer on http://{args.host}:{args.port}")
+    bound_host = str(args.host or "").strip() or "0.0.0.0"
+    open_host = bound_host
+    if open_host in {"0.0.0.0", "::", "[::]"}:
+        open_host = "127.0.0.1"
+    local_open_url = f"http://{open_host}:{args.port}"
+    print(f"Serving Fish multiplayer (listening on {bound_host}:{args.port})")
+    print(f"Open in this browser: {local_open_url}/")
+    if bound_host in {"0.0.0.0", "::", "[::]", "127.0.0.1", "localhost"}:
+        lan_ip = detect_lan_ipv4()
+        if lan_ip:
+            print(f"Open from another device: http://{lan_ip}:{args.port}/")
     print(f"Host lobby create key: {CREATE_KEY}")
-    print(f"Host setup URL: http://{args.host}:{args.port}/?create_key={CREATE_KEY}")
+    print(f"Host setup URL: {local_open_url}/?create_key={CREATE_KEY}")
     print(
         "Recovered rooms: "
         f"{restore_stats.get('loaded', 0)} loaded, "
