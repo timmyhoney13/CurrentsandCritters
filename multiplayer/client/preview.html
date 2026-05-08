@@ -4042,12 +4042,11 @@
                 <button class="ph-pc" data-ps="3">3P</button>
                 <button class="ph-pc active" data-ps="4">4P</button>
                 <div class="ph-pc-wrap">
-                  <button class="ph-pc" id="ph-pc-plus" data-ps="5">5P+</button>
+                  <button class="ph-pc" id="ph-pc-plus" data-ps="5">5P</button>
                   <div class="ph-pc-menu" id="ph-pc-menu">
                     <button data-ps="6">6P</button>
                     <button data-ps="7">7P</button>
                     <button data-ps="8">8P</button>
-                    <button data-ps="9">9P</button>
                   </div>
                 </div>
               </div>
@@ -4055,13 +4054,13 @@
             <div class="ph-sg">
               <div class="ph-sc ph-sc-feat">
                 <div class="ph-sci ph-sci-teal"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v3a5 5 0 0 1-10 0V4z" stroke="#2d86e4" stroke-width="1.9"/><path d="M5 6H3a3 3 0 0 0 3 3M19 6h2a3 3 0 0 1-3 3M12 12v4M8 20h8" stroke="#2d86e4" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-                <div class="ph-scl">Win %</div>
+                <div class="ph-scl" id="ph-label-win-pct">Win %</div>
                 <div class="ph-scv" id="ph-win-pct">75%</div>
                 <div class="ph-scs" id="ph-win-pct-sub">Great job!</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="11" height="15" rx="2" stroke="#2d86e4" stroke-width="1.8"/><rect x="9" y="2" width="11" height="15" rx="2" stroke="#2d86e4" stroke-width="1.8" opacity=".75"/></svg></div>
-                <div class="ph-scl">Most Played Cards</div>
+                <div class="ph-scl" id="ph-label-most-cards">Most Played Cards</div>
                 <div class="ph-card-list" id="ph-most-cards">
                   <div class="ph-card-item"><span class="ph-card-g">🐟</span>Yellowfin Tuna</div>
                   <div class="ph-card-item"><span class="ph-card-g">🪸</span>Coral Reef</div>
@@ -4070,22 +4069,22 @@
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-                <div class="ph-scl">Most Played Strategy</div>
+                <div class="ph-scl" id="ph-label-most-strategy">Most Played Strategy</div>
                 <div class="ph-scv" style="font-size:15px;margin-top:4px;" id="stat-strategy">Game Fish Stack</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-gold"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 3.2l2.5 5.2 5.8.8-4.2 4.1 1 5.8L12 16.3 6.9 19l1-5.8L3.7 9.2l5.8-.8L12 3.2z" stroke="#2d86e4" stroke-width="1.8" stroke-linejoin="round"/></svg></div>
-                <div class="ph-scl">Avg Points Per Game</div>
+                <div class="ph-scl" id="ph-label-avg-pts">Avg Points Per Game</div>
                 <div class="ph-scv" id="ph-avg-pts">184</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-green"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M6.2 10h11.6a3.7 3.7 0 0 1 3.6 4.6l-.6 2.2a2.8 2.8 0 0 1-4.9 1.1l-1.5-1.9H9.6L8.1 18a2.8 2.8 0 0 1-4.9-1.1l-.6-2.2A3.7 3.7 0 0 1 6.2 10z" stroke="#2d86e4" stroke-width="1.8"/><path d="M8.3 12.8v2.8M6.9 14.2h2.8M16.8 13.6h.01M18.8 15.4h.01" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
-                <div class="ph-scl">Total Games</div>
+                <div class="ph-scl" id="ph-label-total-games">Total Games</div>
                 <div class="ph-scv" id="stat-completed">24</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-gold"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v3a5 5 0 0 1-10 0V4z" stroke="#25a57c" stroke-width="1.9"/><path d="M5 6H3a3 3 0 0 0 3 3M19 6h2a3 3 0 0 1-3 3M12 12v4M8 20h8" stroke="#25a57c" stroke-width="1.9" stroke-linecap="round"/></svg></div>
-                <div class="ph-scl">Wins</div>
+                <div class="ph-scl" id="ph-label-wins">Wins</div>
                 <div class="ph-scv" id="stat-normal-wins">9</div>
               </div>
             </div>
@@ -4096,7 +4095,7 @@
               <div class="ph-sh">
                 <div class="ph-st">
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2680c8" stroke-width="1.4"/><path d="M8 5v4l2.5 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
-                  Recent Games
+                  <span id="ph-label-recent-games">Recent Games</span>
                 </div>
                 <button class="ph-sl" id="ph-hist-btn">View Full History</button>
               </div>
@@ -9269,10 +9268,10 @@
       avatarUrl: "player-home-avatar.jpg",
     };
     const HOME_REFERENCE_RECENT_GAMES = [
-      { r: 1, s: 196, t: "2026-05-04T12:00:00Z", opp: "TwinMidi" },
-      { r: 1, s: 172, t: "2026-05-02T12:00:00Z", opp: "MomOfFishMan" },
-      { r: 0, s: 151, t: "2026-04-30T12:00:00Z", opp: "Baitfish Swarm" },
-      { r: 1, s: 184, t: "2026-04-28T12:00:00Z", opp: "Starter Reef" },
+      { r: 1, s: 196, t: "2026-05-04T12:00:00Z", opp: "TwinMidi", pc: 4, mode: "normal" },
+      { r: 1, s: 172, t: "2026-05-02T12:00:00Z", opp: "MomOfFishMan", pc: 4, mode: "normal" },
+      { r: 0, s: 151, t: "2026-04-30T12:00:00Z", opp: "Baitfish Swarm", pc: 4, mode: "normal" },
+      { r: 1, s: 184, t: "2026-04-28T12:00:00Z", opp: "Starter Reef", pc: 4, mode: "normal" },
     ];
     const HOME_REFERENCE_FRIENDS = [
       { uid: "__home_twin__", nickname: "TwinMidi", isOnline: true, avatarUrl: "player-home-friend-twin.jpg" },
@@ -10413,24 +10412,134 @@
 
     // ── Player Home: player-count high score tabs ─────────────────
     let _phStats = null;
+    let _phStatsRaw = null;
+    let _phSelectedPlayerCount = 4;
+    function normalizePhPlayerCount(ps) {
+      const n = Number(ps);
+      if (!Number.isFinite(n)) return 4;
+      const rounded = Math.round(n);
+      if (rounded < 2) return 2;
+      if (rounded > 8) return 8;
+      return rounded;
+    }
+
+    function getPhPlayerCountLabel(ps) {
+      return `${normalizePhPlayerCount(ps)}P`;
+    }
+
+    function setPhCountPrefixedLabels(ps) {
+      const prefix = getPhPlayerCountLabel(ps);
+      const setLabel = (id, suffix) => {
+        const el = $a(id);
+        if (el) el.textContent = `${prefix} ${suffix}`;
+      };
+      setLabel("ph-label-win-pct", "Win %");
+      setLabel("ph-label-most-cards", "Most Played Cards");
+      setLabel("ph-label-most-strategy", "Most Played Strategy");
+      setLabel("ph-label-avg-pts", "Avg Points Per Game");
+      setLabel("ph-label-total-games", "Total Games");
+      setLabel("ph-label-wins", "Wins");
+      setLabel("ph-label-recent-games", "Recent Games");
+    }
+
+    function getExactNormalGamesByPlayerCount(stats, ps) {
+      const size = normalizePhPlayerCount(ps);
+      const allGames = Array.isArray(stats?.recent_games) ? stats.recent_games : [];
+      return allGames.filter((g) => {
+        if (!g || typeof g !== "object") return false;
+        const pc = Number(g.pc ?? g.player_count ?? g.total_players ?? 0);
+        if (!Number.isFinite(pc) || Math.round(pc) !== size) return false;
+        const mode = String(g.mode || "normal").toLowerCase();
+        return mode !== "competitive";
+      });
+    }
+
+    function getPerSizeCards(stats, ps) {
+      const size = normalizePhPlayerCount(ps);
+      const bySize = stats?.most_played_cards_by_size;
+      if (bySize && typeof bySize === "object") {
+        const list = bySize[String(size)] ?? bySize[size];
+        if (Array.isArray(list)) return list.filter(Boolean);
+      }
+      const direct = stats?.[`most_played_cards_${size}p`];
+      if (Array.isArray(direct)) return direct.filter(Boolean);
+      return [];
+    }
+
+    function getPerSizeStrategy(stats, ps) {
+      const size = normalizePhPlayerCount(ps);
+      const bySize = stats?.most_played_strategy_by_size;
+      if (bySize && typeof bySize === "object") {
+        const strategy = bySize[String(size)] ?? bySize[size];
+        if (typeof strategy === "string" && strategy.trim()) return strategy.trim();
+      }
+      const direct = stats?.[`most_played_strategy_${size}p`];
+      if (typeof direct === "string" && direct.trim()) return direct.trim();
+      return "";
+    }
+
+    function applyPhNormalStatsForPlayerCount(ps) {
+      const size = normalizePhPlayerCount(ps);
+      _phSelectedPlayerCount = size;
+      setPhCountPrefixedLabels(size);
+
+      const statsSource = _phStatsRaw || {};
+      const filteredGames = getExactNormalGamesByPlayerCount(statsSource, size);
+      const totalGames = filteredGames.length;
+      const wins = filteredGames.reduce((acc, g) => acc + (Number(g?.r) === 1 ? 1 : 0), 0);
+      const totalScore = filteredGames.reduce((acc, g) => acc + (Number(g?.s) || 0), 0);
+      const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "—";
+      const winSub = totalGames > 0 && wins / totalGames >= 0.6 ? "Great job!" : "";
+      const avgPts = totalGames > 0 ? Math.round(totalScore / totalGames) : "—";
+
+      const wpEl = $a("ph-win-pct"); if (wpEl) wpEl.textContent = winPct;
+      const wpSub = $a("ph-win-pct-sub"); if (wpSub) wpSub.textContent = winSub;
+      const avgEl = $a("ph-avg-pts"); if (avgEl) avgEl.textContent = avgPts;
+      const completedEl = $a("stat-completed"); if (completedEl) completedEl.textContent = String(totalGames);
+      const winsEl = $a("stat-normal-wins"); if (winsEl) winsEl.textContent = String(wins);
+
+      const strategyEl = $a("stat-strategy");
+      const strategy = getPerSizeStrategy(statsSource, size);
+      if (strategyEl) strategyEl.textContent = strategy || "No games completed yet.";
+
+      const mcEl = $a("ph-most-cards");
+      if (mcEl) {
+        const cards = getPerSizeCards(statsSource, size);
+        if (cards.length) {
+          const glyph = (name) => {
+            const n = String(name || "").toLowerCase();
+            if (n.includes("yellowfin")) return "🐟";
+            if (n.includes("coral")) return "🪸";
+            if (n.includes("dolphin")) return "🐬";
+            return "•";
+          };
+          mcEl.innerHTML = cards.slice(0, 3).map(c => `<div class="ph-card-item"><span class="ph-card-g">${glyph(c)}</span>${escapeHtml(c)}</div>`).join("");
+        } else {
+          mcEl.innerHTML = '<div style="font-size:12px;color:#7a9ab8;">No games completed yet.</div>';
+        }
+      }
+
+      renderPhRecentGames(filteredGames);
+    }
+
     (function() {
       const pcBtns = document.querySelectorAll(".ph-pc[data-ps]");
       const plus = $a("ph-pc-plus"), menu = $a("ph-pc-menu");
       function setActivePs(ps) {
-        pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(ps)));
+        const size = normalizePhPlayerCount(ps);
+        pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(size)));
         if (plus && menu) {
-          plus.classList.toggle("active", ps >= 5);
-          plus.textContent = ps >= 6 ? ps + "P▾" : "5P+";
+          plus.classList.toggle("active", size >= 5);
+          plus.textContent = size >= 6 ? `${size}P▾` : "5P";
         }
-        updatePhHighScore(ps);
-      }
-      function updatePhHighScore(ps) {
         const el = $a("ph-high-score"), lbl = $a("ph-hs-label");
-        if (!_phStats) return;
-        const key = ps === 2 ? "highest_score_2p" : `highest_score_${ps}p`;
-        const val = _phStats[key] ?? (_phStats.highest_score || null);
-        if (el) el.textContent = val != null && val > 0 ? String(val) : "—";
-        if (lbl) lbl.textContent = val != null && val > 0 ? ps + "P game" : "";
+        if (_phStats) {
+          const key = `highest_score_${size}p`;
+          const val = _phStats[key] ?? (_phStats.highest_score || null);
+          if (el) el.textContent = val != null && val > 0 ? String(val) : "—";
+          if (lbl) lbl.textContent = val != null && val > 0 ? `${size}P game` : "";
+        }
+        applyPhNormalStatsForPlayerCount(size);
       }
       pcBtns.forEach(b => b.addEventListener("click", () => {
         if (menu) menu.classList.remove("open");
@@ -10451,42 +10560,22 @@
     function updatePhStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
       _phStats = safeStats;
+      _phStatsRaw = safeStats;
       const totalGames = (safeStats.completed_games || 0);
       const wins = (safeStats.normal_wins || 0);
       const winPct = HOME_REFERENCE_MODE ? "75%" : (totalGames > 0 ? Math.round((wins / totalGames) * 100) + "%" : "—");
       const winSub = HOME_REFERENCE_MODE ? "Great job!" : (totalGames > 0 && wins / totalGames >= .6 ? "Great job!" : "");
       const totalScore = safeStats.total_score || 0;
       const avgPts = HOME_REFERENCE_MODE ? 184 : (totalGames > 0 ? Math.round(totalScore / totalGames) : "—");
-      // Normal tab
-      const wpEl = $a("ph-win-pct"); if (wpEl) wpEl.textContent = winPct;
-      const wpSub = $a("ph-win-pct-sub"); if (wpSub) wpSub.textContent = winSub;
-      const avgEl = $a("ph-avg-pts"); if (avgEl) avgEl.textContent = avgPts;
-      // Overview tab
       const ovWp = $a("ph-ov-win-pct"); if (ovWp) ovWp.textContent = winPct;
       const ovSub = $a("ph-ov-winsub"); if (ovSub) ovSub.textContent = winSub;
       const ovAvg = $a("ph-ov-avg-pts"); if (ovAvg) ovAvg.textContent = avgPts;
       const ovWins = $a("ph-ov-wins"); if (ovWins) ovWins.textContent = totalGames > 0 ? String(wins) : "—";
-      // Most Played Cards (from stats.most_played_cards array or strategy data)
-      const mcEl = $a("ph-most-cards");
-      if (mcEl) {
-        const cards = safeStats.most_played_cards;
-        if (cards && cards.length) {
-          const glyph = (name) => {
-            const n = String(name || "").toLowerCase();
-            if (n.includes("yellowfin")) return "🐟";
-            if (n.includes("coral")) return "🪸";
-            if (n.includes("dolphin")) return "🐬";
-            return "•";
-          };
-          mcEl.innerHTML = cards.slice(0,3).map(c => `<div class="ph-card-item"><span class="ph-card-g">${glyph(c)}</span>${escapeHtml(c)}</div>`).join("");
-        } else {
-          mcEl.innerHTML = '<div style="font-size:12px;color:#7a9ab8;">No games completed yet.</div>';
-        }
-      }
-      // Player count tab update
+
       const activePs = document.querySelector(".ph-pc.active[data-ps]");
-      if (window._phSetPs && activePs) window._phSetPs(Number(activePs.dataset.ps));
-      // Competitive empty state
+      const requestedPs = normalizePhPlayerCount(activePs ? Number(activePs.dataset.ps) : _phSelectedPlayerCount);
+      if (window._phSetPs) window._phSetPs(requestedPs);
+
       const compBlock = $a("stats-comp-block"), compEmpty = $a("ph-comp-empty");
       if (compBlock && compEmpty) {
         const hasComp = (safeStats.competitive_wins || 0) > 0 || (safeStats.highest_score_competitive || 0) > 0;
@@ -10558,9 +10647,7 @@
     // ── Player Home: recent games rendering ───────────────────────
     function renderPhRecentGamesTo(el, games, limit) {
       if (!el) return;
-      const sourceGames = (HOME_REFERENCE_MODE && (!games || !games.length))
-        ? HOME_REFERENCE_RECENT_GAMES
-        : (games || []);
+      const sourceGames = games || [];
       if (!sourceGames.length) { el.innerHTML = '<div class="ph-empty">No games completed yet.</div>'; return; }
       el.innerHTML = "";
       sourceGames.slice(0, limit || 5).forEach(g => {
@@ -10574,8 +10661,7 @@
       });
     }
     function renderPhRecentGames(games) {
-      const sourceGames = HOME_REFERENCE_MODE ? HOME_REFERENCE_RECENT_GAMES : games;
-      renderPhRecentGamesTo($a("ph-recent-games"), sourceGames, 5);
+      renderPhRecentGamesTo($a("ph-recent-games"), games || [], 5);
     }
 
     // ── Player Home: full history tab ─────────────────────────────
@@ -10685,7 +10771,6 @@
     renderStats = function(stats) {
       _origRenderStats(stats);
       updatePhStats(stats);
-      renderPhRecentGames((stats && stats.recent_games) || []);
     };
 
     // Expose getters so outer game code can read auth state if needed
