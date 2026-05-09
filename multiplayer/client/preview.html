@@ -2987,6 +2987,7 @@
     .ph-rank-badge {
       padding: 11px 13px;
     }
+    .ph-rank-badge.ph-rank-level { color: #145fb4; }
     .ph-rank-type {
       font-size: .96rem;
       font-weight: 800;
@@ -3001,6 +3002,31 @@
       font-size: .98rem;
       color: #2e4e73;
       font-weight: 700;
+    }
+    .ph-level-xp-wrap {
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ph-level-xp-bar {
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #dfebf6;
+      overflow: hidden;
+    }
+    .ph-level-xp-fill {
+      width: 68%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #34a5f3 0%, #1f79df 100%);
+    }
+    .ph-level-xp-text {
+      font-size: .78rem;
+      color: #5f7f9f;
+      font-weight: 700;
+      line-height: 1;
     }
     #stats-lobby-signed-actions {
       justify-content: flex-end;
@@ -3264,6 +3290,142 @@
       width: 10px;
       height: 10px;
     }
+    .ph-ach-card .ph-sh {
+      padding-bottom: 10px;
+    }
+    .ph-ach-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 4px 0;
+    }
+    .ph-ach-item + .ph-ach-item {
+      border-top: 1px solid #e6eff6;
+    }
+    .ph-ach-summary {
+      width: 100%;
+      border: none;
+      background: transparent;
+      text-align: left;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      cursor: pointer;
+      transition: background .14s ease;
+      font-family: "Nunito", sans-serif;
+    }
+    .ph-ach-summary:hover {
+      background: rgba(43,129,211,.05);
+    }
+    .ph-ach-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ph-ach-label {
+      font-size: .98rem;
+      font-weight: 800;
+      color: #1a4f97;
+      line-height: 1.2;
+    }
+    .ph-ach-subtitle {
+      font-size: .84rem;
+      color: #6788a8;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .ph-ach-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      justify-content: flex-end;
+    }
+    .ph-ach-mini {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .74rem;
+      font-weight: 800;
+      color: #1f5da8;
+      border: 1px solid #bcd5e8;
+      background: #f2f9ff;
+    }
+    .ph-ach-mini.completed {
+      background: rgba(45,189,130,.16);
+      border-color: rgba(45,189,130,.45);
+      color: #1f7f5b;
+    }
+    .ph-ach-mini.uncompleted {
+      background: #f0f4f8;
+      border-color: #d6e0ea;
+      color: #8ea4bb;
+    }
+    .ph-ach-mini.progress {
+      background: #eef7ff;
+      border-color: #a9cae8;
+      color: #296ab4;
+    }
+    .ph-ach-details {
+      display: none;
+      padding: 0 14px 12px;
+    }
+    .ph-ach-item.open .ph-ach-details {
+      display: block;
+    }
+    .ph-ach-detail-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid #dce9f4;
+      border-radius: 12px;
+      background: #fff;
+      padding: 8px 10px;
+      margin-top: 7px;
+    }
+    .ph-ach-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: .89rem;
+      color: #244d81;
+      font-weight: 700;
+    }
+    .ph-ach-progress {
+      flex-shrink: 0;
+      font-size: .8rem;
+      color: #5d7d9d;
+      font-weight: 800;
+    }
+    .ph-ach-badge-dot {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #c2d8ec;
+      background: #f0f8ff;
+      font-size: .92rem;
+    }
+    .ph-ach-badge-dot.completed {
+      background: rgba(45,189,130,.16);
+      border-color: rgba(45,189,130,.42);
+    }
+    .ph-ach-badge-dot.uncompleted {
+      background: #f0f4f8;
+      border-color: #d6e0ea;
+      color: #8ea4bb;
+    }
 
     @media (max-width: 1180px) {
       .ph-profile-card {
@@ -3293,6 +3455,14 @@
       .ph-stats-title,
       .ph-st {
         font-size: 1.35rem;
+      }
+      .ph-ach-summary {
+        padding: 10px 12px;
+      }
+      .ph-ach-mini {
+        width: 31px;
+        height: 31px;
+        font-size: .7rem;
       }
     }
     @media (max-width: 560px) {
@@ -3871,12 +4041,18 @@
         <div class="ph-pfc" id="stats-lobby-fc"></div>
       </div>
       <div class="ph-pranks">
-        <div class="ph-rank-badge ph-rank-normal">
+        <div class="ph-rank-badge ph-rank-level">
           <div class="ph-rank-type">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1C3.24 1 1 3.24 1 6s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 9c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="#1a6aaa"/><path d="M6 3C4.34 3 3 4.34 3 6s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="#5aace0"/></svg>
-            Normal
+            <span id="stat-level-label">Level 7</span>
           </div>
-          <div class="ph-rank-val" id="stat-normal-rank">No rank yet.</div>
+          <div class="ph-rank-val" id="stat-level-title">Ocean Explorer</div>
+          <div class="ph-level-xp-wrap">
+            <div class="ph-level-xp-bar">
+              <div class="ph-level-xp-fill" id="stat-level-xp-fill"></div>
+            </div>
+            <div class="ph-level-xp-text" id="stat-level-xp-text">340 / 500 XP</div>
+          </div>
         </div>
         <div class="ph-rank-badge ph-rank-comp">
           <div class="ph-rank-type">
@@ -4006,19 +4182,41 @@
           </div>
         </div>
         <div class="ph-side">
-          <div class="ph-scard">
+          <div class="ph-scard ph-ach-card" id="ph-overview-achievements">
             <div class="ph-sh">
-              <div class="ph-st">📋 Recent Games</div>
-              <button class="ph-sl" id="ph-ov-hist-btn">View Full History</button>
+              <div class="ph-st">🏅 Achievements</div>
+              <button class="ph-sl" id="ph-ov-ach-all-btn">View All Achievements</button>
             </div>
-            <div id="ph-ov-recent"><div class="ph-empty">No games completed yet.</div></div>
-          </div>
-          <div class="ph-scard" id="ph-ov-friends-mini" style="display:none;">
-            <div class="ph-sh">
-              <div class="ph-st">👥 Friends</div>
-              <button class="ph-sl" id="ph-ov-friends-btn">View All Friends</button>
+            <div class="ph-ach-list">
+              <div class="ph-ach-item" data-ach-kind="daily">
+                <button class="ph-ach-summary" id="ph-ach-daily-toggle" data-ach-kind="daily" type="button">
+                  <div class="ph-ach-meta">
+                    <div class="ph-ach-label">Daily (<span id="ph-ach-daily-count">0</span>)</div>
+                    <div class="ph-ach-subtitle">New day, new rewards!</div>
+                  </div>
+                  <div class="ph-ach-preview" id="ph-ach-daily-preview"></div>
+                </button>
+                <div class="ph-ach-details" id="ph-ach-daily-details"></div>
+              </div>
+              <div class="ph-ach-item" data-ach-kind="completed">
+                <button class="ph-ach-summary" id="ph-ach-completed-toggle" data-ach-kind="completed" type="button">
+                  <div class="ph-ach-meta">
+                    <div class="ph-ach-label">Completed (<span id="ph-ach-completed-count">0</span>)</div>
+                  </div>
+                  <div class="ph-ach-preview" id="ph-ach-completed-preview"></div>
+                </button>
+                <div class="ph-ach-details" id="ph-ach-completed-details"></div>
+              </div>
+              <div class="ph-ach-item" data-ach-kind="uncompleted">
+                <button class="ph-ach-summary" id="ph-ach-uncompleted-toggle" data-ach-kind="uncompleted" type="button">
+                  <div class="ph-ach-meta">
+                    <div class="ph-ach-label">Uncompleted (<span id="ph-ach-uncompleted-count">0</span>)</div>
+                  </div>
+                  <div class="ph-ach-preview" id="ph-ach-uncompleted-preview"></div>
+                </button>
+                <div class="ph-ach-details" id="ph-ach-uncompleted-details"></div>
+              </div>
             </div>
-            <div id="ph-ov-friends-list"></div>
           </div>
         </div>
       </div>
@@ -9313,6 +9511,23 @@
       comp_games_by_size: {},
       recent_games: HOME_REFERENCE_RECENT_GAMES,
     };
+    const DEFAULT_OVERVIEW_ACHIEVEMENTS = {
+      dailyAchievements: [
+        { id: "daily_play_3", name: "Play 3 games", progress: 2, goal: 3 },
+        { id: "daily_win_3", name: "Win 3 games", progress: 1, goal: 3 },
+        { id: "daily_friend_1", name: "Play with 1 friend", progress: 0, goal: 3 },
+      ],
+      completedAchievements: [
+        { id: "comp_first_win", name: "First Win", icon: "🏆" },
+        { id: "comp_reef_rookie", name: "Reef Rookie", icon: "🪸" },
+        { id: "comp_tidal_starter", name: "Tidal Starter", icon: "🌊" },
+      ],
+      uncompletedAchievements: [
+        { id: "uncomp_master_tactician", name: "Master Tactician", icon: "🔒" },
+        { id: "uncomp_rank_climber", name: "Rank Climber", icon: "🔒" },
+        { id: "uncomp_legendary_shoal", name: "Legendary Shoal", icon: "🔒" },
+      ],
+    };
 
     function getHomeReferenceStats(rawStats) {
       const base = (rawStats && typeof rawStats === "object") ? rawStats : {};
@@ -9754,6 +9969,27 @@
       el.appendChild(legend);
     }
 
+    function setProfileLevelCard(stats) {
+      const source = (stats && typeof stats === "object") ? stats : {};
+      const levelVal = Number(source.level ?? source.player_level ?? 7);
+      const level = Number.isFinite(levelVal) && levelVal > 0 ? Math.floor(levelVal) : 7;
+      const levelTitle = String(source.level_title || source.level_name || "Ocean Explorer").trim() || "Ocean Explorer";
+      const xpCurrentVal = Number(source.xp_current ?? source.level_xp_current ?? 340);
+      const xpGoalVal = Number(source.xp_goal ?? source.level_xp_goal ?? 500);
+      const xpCurrent = Number.isFinite(xpCurrentVal) && xpCurrentVal >= 0 ? Math.floor(xpCurrentVal) : 340;
+      const xpGoal = Number.isFinite(xpGoalVal) && xpGoalVal > 0 ? Math.floor(xpGoalVal) : 500;
+      const fill = Math.max(0, Math.min(100, Math.round((xpCurrent / xpGoal) * 100)));
+
+      const levelLabelEl = $a("stat-level-label");
+      if (levelLabelEl) levelLabelEl.textContent = `Level ${level}`;
+      const levelTitleEl = $a("stat-level-title");
+      if (levelTitleEl) levelTitleEl.textContent = levelTitle;
+      const xpTextEl = $a("stat-level-xp-text");
+      if (xpTextEl) xpTextEl.textContent = `${xpCurrent} / ${xpGoal} XP`;
+      const xpFillEl = $a("stat-level-xp-fill");
+      if (xpFillEl) xpFillEl.style.width = `${fill}%`;
+    }
+
     function renderStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
       const completed = (safeStats.completed_games || 0) > 0;
@@ -9775,7 +10011,7 @@
         const hasVal = val != null && val !== "" && (allowZero || val !== 0);
         el.textContent = hasVal ? String(val) : fallback;
       };
-      s("stat-normal-rank", safeStats.rank_normal || null, { fallback: "No rank yet." });
+      setProfileLevelCard(safeStats);
       s("stat-comp-rank", safeStats.rank_competitive || null, { fallback: "No rank yet." });
 
       if (!completed) {
@@ -10491,10 +10727,14 @@
       if (histBtn) histBtn.addEventListener("click", () => switchTab("history"));
       const frBtn = $a("ph-friends-open-btn");
       if (frBtn) frBtn.addEventListener("click", () => switchTab("friends"));
-      const ovHistBtn = $a("ph-ov-hist-btn");
-      if (ovHistBtn) ovHistBtn.addEventListener("click", () => switchTab("history"));
-      const ovFrBtn = $a("ph-ov-friends-btn");
-      if (ovFrBtn) ovFrBtn.addEventListener("click", () => switchTab("friends"));
+      const ovAchAllBtn = $a("ph-ov-ach-all-btn");
+      if (ovAchAllBtn) {
+        ovAchAllBtn.addEventListener("click", () => {
+          openAchievementSection("daily", true);
+          openAchievementSection("completed", true);
+          openAchievementSection("uncompleted", true);
+        });
+      }
     })();
 
     // ── Player Home: player-count high score tabs ─────────────────
@@ -10626,6 +10866,149 @@
       return "";
     }
 
+    let _overviewAchievements = {
+      dailyAchievements: [],
+      completedAchievements: [],
+      uncompletedAchievements: [],
+    };
+
+    function normalizeOverviewAchievements(stats) {
+      const source = (stats && typeof stats === "object") ? stats : {};
+      const root = (source.achievements && typeof source.achievements === "object") ? source.achievements : source;
+
+      const normalizeDaily = (entry, idx) => {
+        if (typeof entry === "string") {
+          return { id: `daily_${idx}`, name: entry, progress: 0, goal: 3 };
+        }
+        const item = (entry && typeof entry === "object") ? entry : {};
+        const goalVal = Number(item.goal ?? item.target ?? item.total ?? 3);
+        const progressVal = Number(item.progress ?? item.current ?? item.done ?? 0);
+        const goal = Number.isFinite(goalVal) && goalVal > 0 ? Math.floor(goalVal) : 3;
+        const progress = Number.isFinite(progressVal) && progressVal >= 0 ? Math.floor(progressVal) : 0;
+        return {
+          id: String(item.id || item.key || `daily_${idx}`),
+          name: String(item.name || item.title || `Daily challenge ${idx + 1}`),
+          progress,
+          goal,
+        };
+      };
+
+      const normalizeBadge = (entry, idx, fallbackIcon) => {
+        if (typeof entry === "string") {
+          return { id: `badge_${idx}`, name: entry, icon: fallbackIcon };
+        }
+        const item = (entry && typeof entry === "object") ? entry : {};
+        return {
+          id: String(item.id || item.key || `badge_${idx}`),
+          name: String(item.name || item.title || `Achievement ${idx + 1}`),
+          icon: String(item.icon || fallbackIcon),
+        };
+      };
+
+      const dailyRaw = Array.isArray(root.dailyAchievements) ? root.dailyAchievements : [];
+      const completedRaw = Array.isArray(root.completedAchievements) ? root.completedAchievements : [];
+      const uncompletedRaw = Array.isArray(root.uncompletedAchievements) ? root.uncompletedAchievements : [];
+
+      return {
+        dailyAchievements: (dailyRaw.length ? dailyRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.dailyAchievements).map(normalizeDaily),
+        completedAchievements: (completedRaw.length ? completedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.completedAchievements).map((entry, idx) => normalizeBadge(entry, idx, "🏆")),
+        uncompletedAchievements: (uncompletedRaw.length ? uncompletedRaw : DEFAULT_OVERVIEW_ACHIEVEMENTS.uncompletedAchievements).map((entry, idx) => normalizeBadge(entry, idx, "🔒")),
+      };
+    }
+
+    function openAchievementSection(kind, shouldOpen) {
+      const item = document.querySelector(`.ph-ach-item[data-ach-kind="${kind}"]`);
+      if (!item) return;
+      const open = typeof shouldOpen === "boolean" ? shouldOpen : !item.classList.contains("open");
+      item.classList.toggle("open", open);
+    }
+
+    function renderAchievementPreview(containerId, list, kind) {
+      const el = $a(containerId);
+      if (!el) return;
+      el.innerHTML = "";
+      const preview = Array.isArray(list) ? list.slice(0, 3) : [];
+      if (!preview.length) {
+        const empty = document.createElement("span");
+        empty.className = "ph-ach-progress";
+        empty.textContent = "0";
+        el.appendChild(empty);
+        return;
+      }
+      preview.forEach((item) => {
+        const badge = document.createElement("span");
+        const styleKind = kind === "daily" ? "progress" : kind;
+        badge.className = `ph-ach-mini ${styleKind}`;
+        if (kind === "daily") {
+          const progress = Math.max(0, Number(item.progress) || 0);
+          const goal = Math.max(1, Number(item.goal) || 1);
+          badge.textContent = `${progress}/${goal}`;
+        } else {
+          badge.textContent = String(item.icon || (kind === "completed" ? "🏆" : "🔒"));
+        }
+        el.appendChild(badge);
+      });
+    }
+
+    function renderAchievementDetails(containerId, list, kind) {
+      const el = $a(containerId);
+      if (!el) return;
+      if (!Array.isArray(list) || !list.length) {
+        el.innerHTML = '<div class="ph-empty" style="padding:10px 4px;">No achievements yet.</div>';
+        return;
+      }
+      el.innerHTML = "";
+      list.forEach((item) => {
+        const row = document.createElement("div");
+        row.className = "ph-ach-detail-row";
+        const name = escapeHtml(item.name || "Achievement");
+        if (kind === "daily") {
+          const progress = Math.max(0, Number(item.progress) || 0);
+          const goal = Math.max(1, Number(item.goal) || 1);
+          row.innerHTML = `<div class="ph-ach-name">${name}</div><div class="ph-ach-progress">${progress}/${goal}</div>`;
+        } else {
+          const icon = escapeHtml(item.icon || (kind === "completed" ? "🏆" : "🔒"));
+          const badgeClass = kind === "completed" ? "completed" : "uncompleted";
+          const status = kind === "completed" ? "Earned" : "Locked";
+          row.innerHTML = `<span class="ph-ach-badge-dot ${badgeClass}">${icon}</span><div class="ph-ach-name">${name}</div><div class="ph-ach-progress">${status}</div>`;
+        }
+        el.appendChild(row);
+      });
+    }
+
+    function renderOverviewAchievements(stats) {
+      _overviewAchievements = normalizeOverviewAchievements(stats);
+      const daily = _overviewAchievements.dailyAchievements;
+      const completed = _overviewAchievements.completedAchievements;
+      const uncompleted = _overviewAchievements.uncompletedAchievements;
+
+      const setCount = (id, value) => {
+        const el = $a(id);
+        if (el) el.textContent = String(value);
+      };
+      setCount("ph-ach-daily-count", daily.length);
+      setCount("ph-ach-completed-count", completed.length);
+      setCount("ph-ach-uncompleted-count", uncompleted.length);
+
+      renderAchievementPreview("ph-ach-daily-preview", daily, "daily");
+      renderAchievementPreview("ph-ach-completed-preview", completed, "completed");
+      renderAchievementPreview("ph-ach-uncompleted-preview", uncompleted, "uncompleted");
+
+      renderAchievementDetails("ph-ach-daily-details", daily, "daily");
+      renderAchievementDetails("ph-ach-completed-details", completed, "completed");
+      renderAchievementDetails("ph-ach-uncompleted-details", uncompleted, "uncompleted");
+    }
+
+    (function wireOverviewAchievementToggles() {
+      ["daily", "completed", "uncompleted"].forEach((kind) => {
+        const btn = $a(`ph-ach-${kind}-toggle`);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          openAchievementSection(kind);
+        });
+      });
+    })();
+
     function applyPhNormalStatsForPlayerCount(ps) {
       const size = normalizePhPlayerCount(ps);
       _phSelectedPlayerCount = size;
@@ -10719,6 +11102,7 @@
       const ovMostCardSub = $a("ph-ov-most-card-sub"); if (ovMostCardSub) ovMostCardSub.textContent = mostPlayedCard ? "Across all game modes" : "";
       const ovTotalGames = $a("ph-ov-total-games"); if (ovTotalGames) ovTotalGames.textContent = String(Math.max(0, Number(totalGames) || 0));
       const ovTotalWins = $a("ph-ov-total-wins"); if (ovTotalWins) ovTotalWins.textContent = String(Math.max(0, Number(totalWins) || 0));
+      renderOverviewAchievements(safeStats);
 
       const activePs = document.querySelector(".ph-pc.active[data-ps]");
       const requestedPs = normalizePhPlayerCount(activePs ? Number(activePs.dataset.ps) : _phSelectedPlayerCount);
@@ -10733,63 +11117,7 @@
 
     // ── Player Home: overview tab ──────────────────────────────────
     function renderPhOverview() {
-      // Populate overview recent games
-      const el = $a("ph-ov-recent");
-      if (el) {
-        const overviewGames = HOME_REFERENCE_MODE
-          ? HOME_REFERENCE_RECENT_GAMES
-          : ((_phStats && _phStats.recent_games) || []);
-        renderPhRecentGamesTo(el, overviewGames, 4);
-      }
-      const miniBox = $a("ph-ov-friends-mini");
-      const listEl = $a("ph-ov-friends-list");
-      if (HOME_REFERENCE_MODE) {
-        if (miniBox) miniBox.style.display = "";
-        if (listEl) {
-          listEl.innerHTML = "";
-          HOME_REFERENCE_FRIENDS.forEach(f => {
-            const d = document.createElement("div");
-            d.className = "ph-fr";
-            const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div>`;
-            d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
-            listEl.appendChild(d);
-          });
-        }
-        return;
-      }
-      if (!_authUser) {
-        if (miniBox) miniBox.style.display = "none";
-        if (listEl) listEl.innerHTML = "";
-        return;
-      }
-      // Populate overview friends mini
-      loadFriends(_authUser.uid).then(friends => {
-        if (!miniBox || !listEl) return;
-        miniBox.style.display = "";
-        if (!friends.length) {
-          listEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
-          return;
-        }
-        const shown = friends.slice(0, 3);
-        Promise.all(shown.map(f => loadProfile(f.uid).catch(() => null))).then(profiles => {
-          listEl.innerHTML = "";
-          shown.forEach((f, i) => {
-            const online = isFriendOnline(profiles[i]);
-            const friendName = escapeHtml(f.nickname || "—");
-            const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
-              { ...(profiles[i] || {}), avatar_url: (profiles[i] && profiles[i].avatar_url) || f.avatar_url || "" },
-              { seed: f.uid || f.nickname || `friend-${i}` }
-            ), f.uid || f.nickname || `friend-${i}`);
-            const avatarHtml = avatarUrl
-              ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
-              : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
-            const d = document.createElement("div");
-            d.className = "ph-fr";
-            d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${online?"ph-fr-online":"ph-fr-offline"}"><div class="ph-fr-dot"></div>${online?"Online":"Offline"}</div>`;
-            listEl.appendChild(d);
-          });
-        });
-      });
+      renderOverviewAchievements(_phStatsRaw || _phStats || {});
     }
 
     // ── Player Home: recent games rendering ───────────────────────
