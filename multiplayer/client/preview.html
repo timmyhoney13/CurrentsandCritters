@@ -9939,26 +9939,42 @@
       showStep("auth-step-choose");
     });
 
-    const chooseGoogleBtn = $a("auth-choose-google-btn");
-    if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
+    async function beginCleanGoogleSignIn(errId) {
       if (!_auth) {
-        setAuthMsg("auth-choose-err", "Sign-in is not yet configured for this server.", false);
+        setAuthMsg(errId, "Sign-in is not yet configured for this server.", false);
         return;
       }
-      setAuthMsg("auth-choose-err", "", false);
+      setAuthMsg(errId, "", false);
+      clearGuestSessionStorage();
+      _playerNickname = "";
+      _friendCode = "";
+      _activeProfile = null;
+      syncStatsHeader(null);
+      const sl = $a("auth-stats-lobby");
+      if (sl) sl.classList.remove("visible");
+      const bar = $a("auth-profile-bar");
+      if (bar) bar.style.display = "none";
+      if (_auth.currentUser) {
+        try { await _auth.signOut(); } catch {}
+      }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account" });
         await _auth.signInWithPopup(provider);
-      } catch(e) {
+      } catch (e) {
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
           const rp = new firebase.auth.GoogleAuthProvider();
           rp.setCustomParameters({ prompt: "select_account" });
           try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
-        setAuthMsg("auth-choose-err", friendlyAuthErr(e.code), false);
+        setAuthMsg(errId, friendlyAuthErr(e.code), false);
       }
+    }
+
+    const chooseGoogleBtn = $a("auth-choose-google-btn");
+    if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
+      await beginCleanGoogleSignIn("auth-choose-err");
     });
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
@@ -9998,22 +10014,7 @@
 
     // ── Google sign-in ───────────────────────────────────────────
     $a("auth-google-btn").addEventListener("click", async () => {
-      if (!_auth) return;
-      setAuthMsg("auth-signin-err", "", false);
-      try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account" });
-        await _auth.signInWithPopup(provider);
-        // onAuthStateChanged handles the rest
-      } catch (e) {
-        const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
-        if (popupBlocked) {
-          const rp = new firebase.auth.GoogleAuthProvider();
-          rp.setCustomParameters({ prompt: "select_account" });
-          try { await _auth.signInWithRedirect(rp); return; } catch {}
-        }
-        setAuthMsg("auth-signin-err", friendlyAuthErr(e.code), false);
-      }
+      await beginCleanGoogleSignIn("auth-signin-err");
     });
 
     // Handle redirect result from signInWithRedirect (fires on page load after Google redirect)
