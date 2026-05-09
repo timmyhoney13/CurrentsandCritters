@@ -8912,6 +8912,8 @@
     let _guestSessionActive = false;
     let _guestAvatarUrl = "";
     let _avatarSelectionRequired = false;
+    let _authStateSeq = 0;
+    let _statsLoadSeq = 0;
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
 
@@ -9397,9 +9399,15 @@
     }
 
     function syncStatsHeader(profile) {
-      if (profile && profile.nickname) _playerNickname = String(profile.nickname).trim() || _playerNickname;
-      if (profile && profile.friend_code) _friendCode = String(profile.friend_code);
-      const nick = _playerNickname || "Player";
+      if (profile && typeof profile === "object") {
+        _playerNickname = String(profile.nickname || "").trim();
+        _friendCode = profile.friend_code ? String(profile.friend_code).trim() : "";
+      } else if (_authUser) {
+        // Prevent cross-account bleed when profile data is not yet loaded.
+        _playerNickname = "";
+        _friendCode = "";
+      }
+      const nick = _playerNickname || (_guestSessionActive ? "Guest" : "Player");
       const displayNick = nick;
       const displayFc = formatFriendCodeLabel(nick, _friendCode);
       const nickEl = $a("stats-lobby-nick");
@@ -9605,7 +9613,11 @@
     }
 
     async function loadAndRenderStats(uid) {
+      const expectedUid = String(uid || "");
+      if (!_authUser || _authUser.uid !== expectedUid) return;
+      const loadSeq = ++_statsLoadSeq;
       const profile = await loadProfile(uid);
+      if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
       _activeProfile = profile || null;
       const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
       const hasSelectableAvatar = AVATAR_OPTIONS.includes(savedAvatar);
@@ -9866,10 +9878,20 @@
 
       // Firebase ready — wait for persisted auth state
       _auth.onAuthStateChanged(async (user) => {
+        const authSeq = ++_authStateSeq;
         if (user) {
+          const prevUid = _authUser?.uid || "";
+          if (prevUid && prevUid !== user.uid) {
+            stopPresencePing(prevUid);
+            if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
+          }
           _authUser = user;
           _guestSessionActive = false;
+          _playerNickname = "";
+          _friendCode = "";
+          _activeProfile = null;
           const profile = await loadProfile(user.uid);
+          if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
           $a("auth-loading-screen").classList.add("hidden");
           if (profile && profile.nickname) {
@@ -9877,6 +9899,10 @@
           } else {
             // New account — needs nickname setup.
             // Pre-fill hint from Google display name (user must still confirm).
+            const sl = $a("auth-stats-lobby");
+            if (sl) sl.classList.remove("visible");
+            const bar = $a("auth-profile-bar");
+            if (bar) bar.style.display = "none";
             const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
             const nickInput = $a("auth-nick-input");
             if (nickInput && hint) nickInput.value = hint;
@@ -9885,8 +9911,12 @@
             showStep("auth-step-nickname");
           }
         } else {
+          if (_authUser?.uid) stopPresencePing(_authUser.uid);
+          if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
           _authUser = null;
           _activeProfile = null;
+          _playerNickname = "";
+          _friendCode = "";
           const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
           const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
           _avatarPromptShownForUid = "";
