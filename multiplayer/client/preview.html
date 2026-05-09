@@ -9945,6 +9945,7 @@
         return;
       }
       setAuthMsg(errId, "", false);
+      const previousUid = _auth.currentUser?.uid || "";
       clearGuestSessionStorage();
       _playerNickname = "";
       _friendCode = "";
@@ -9959,13 +9960,17 @@
       }
       try {
         const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: "select_account" });
-        await _auth.signInWithPopup(provider);
+        provider.setCustomParameters({ prompt: "select_account consent" });
+        const result = await _auth.signInWithPopup(provider);
+        const signedUid = result?.user?.uid || "";
+        if (previousUid && signedUid && signedUid === previousUid) {
+          setAuthMsg(errId, "You selected the same Google account. Choose a different account in the Google picker.", false);
+        }
       } catch (e) {
         const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
         if (popupBlocked) {
           const rp = new firebase.auth.GoogleAuthProvider();
-          rp.setCustomParameters({ prompt: "select_account" });
+          rp.setCustomParameters({ prompt: "select_account consent" });
           try { await _auth.signInWithRedirect(rp); return; } catch {}
         }
         setAuthMsg(errId, friendlyAuthErr(e.code), false);
