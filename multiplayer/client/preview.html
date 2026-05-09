@@ -3989,19 +3989,19 @@
           <div class="ph-sg">
             <div class="ph-sc ph-sc-feat">
               <div class="ph-sci ph-sci-teal">🏆</div>
-              <div class="ph-scl">Win %</div>
-              <div class="ph-scv" id="ph-ov-win-pct">—</div>
-              <div class="ph-scs" id="ph-ov-winsub"></div>
+              <div class="ph-scl">Most Played Card</div>
+              <div class="ph-scv" id="ph-ov-most-card">—</div>
+              <div class="ph-scs" id="ph-ov-most-card-sub"></div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-purple">🎯</div>
-              <div class="ph-scl">Avg Pts / Game</div>
-              <div class="ph-scv" id="ph-ov-avg-pts">—</div>
+              <div class="ph-scl">Total Games Played</div>
+              <div class="ph-scv" id="ph-ov-total-games">—</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">🥇</div>
               <div class="ph-scl">Total Wins</div>
-              <div class="ph-scv" id="ph-ov-wins">—</div>
+              <div class="ph-scv" id="ph-ov-total-wins">—</div>
             </div>
           </div>
         </div>
@@ -8914,6 +8914,7 @@
     let _avatarSelectionRequired = false;
     let _authStateSeq = 0;
     let _statsLoadSeq = 0;
+    let _pendingOnboardingUid = "";
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
 
@@ -8992,6 +8993,15 @@
       return getDefaultAvatar(seed);
     }
 
+    function hasStoredNickname(profile) {
+      return !!String(profile?.nickname || "").trim();
+    }
+
+    function hasStoredSelectableAvatar(profile) {
+      const saved = normalizeAvatarUrl(profile?.avatar_url || "");
+      return AVATAR_OPTIONS.includes(saved);
+    }
+
     function renderAvatarGrid(containerId, selectedUrl, onSelect) {
       const container = $a(containerId);
       if (!container) return;
@@ -9060,7 +9070,8 @@
       const nick = nickname.trim();
       const code = genFriendCode();
       const isAdmin = (email || "").toLowerCase() === "currentsandcritters@gmail.com";
-      const cleanAvatar = sanitizeSelectableAvatar(avatarUrl, uid || email || nick);
+      const rawAvatar = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
+      const cleanAvatar = rawAvatar ? sanitizeSelectableAvatar(rawAvatar, uid || email || nick) : "";
       const data = {
         nickname:       nick,
         nickname_lower: nick.toLowerCase(),
@@ -9488,6 +9499,7 @@
     }
 
     async function saveAvatarSelection() {
+      const wasRequired = !!_avatarSelectionRequired;
       const seed = _authUser?.uid || _playerNickname || "guest";
       const selected = sanitizeSelectableAvatar(_avatarModalSelection, seed);
       if (!selected) {
@@ -9521,6 +9533,10 @@
         _avatarSelectionRequired = false;
         const modal = $a("avatar-picker-modal");
         if (modal) modal.classList.remove("open");
+        if (_authUser && wasRequired && _pendingOnboardingUid && _pendingOnboardingUid === _authUser.uid) {
+          _pendingOnboardingUid = "";
+          revealLobby(_playerNickname, _friendCode);
+        }
       } catch (e) {
         setAuthMsg("avatar-modal-err", "Could not save avatar. Try again.", false);
       }
@@ -9894,21 +9910,36 @@
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
           $a("auth-loading-screen").classList.add("hidden");
-          if (profile && profile.nickname) {
+          const hasNickname = hasStoredNickname(profile);
+          const hasAvatar = hasStoredSelectableAvatar(profile);
+          if (hasNickname && hasAvatar) {
+            _pendingOnboardingUid = "";
             revealLobby(profile.nickname, profile.friend_code || "");
           } else {
-            // New account — needs nickname setup.
-            // Pre-fill hint from Google display name (user must still confirm).
             const sl = $a("auth-stats-lobby");
             if (sl) sl.classList.remove("visible");
             const bar = $a("auth-profile-bar");
             if (bar) bar.style.display = "none";
-            const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
-            const nickInput = $a("auth-nick-input");
-            if (nickInput && hint) nickInput.value = hint;
-            _signupAvatarUrl = sanitizeSelectableAvatar(profile?.avatar_url, user.uid || user.email || hint || "player");
-            prepareSignupAvatarSelection(user.uid || user.email || hint || "player");
-            showStep("auth-step-nickname");
+            _pendingOnboardingUid = user.uid;
+            if (!hasNickname) {
+              // New account path: must choose nickname first.
+              const hint = (user.displayName || "").split(" ")[0].slice(0, 15);
+              const nickInput = $a("auth-nick-input");
+              if (nickInput && hint) nickInput.value = hint;
+              _signupAvatarUrl = sanitizeSelectableAvatar(profile?.avatar_url, user.uid || user.email || hint || "player");
+              prepareSignupAvatarSelection(user.uid || user.email || hint || "player");
+              showStep("auth-step-nickname");
+            } else {
+              // Existing account missing avatar: require avatar before lobby.
+              _playerNickname = String(profile.nickname || "").trim();
+              _friendCode = profile?.friend_code ? String(profile.friend_code).trim() : "";
+              _activeProfile = { ...(profile || {}), uid: user.uid, avatar_url: "" };
+              syncStatsHeader(_activeProfile);
+              $a("auth-screen").classList.add("hidden");
+              _avatarModalSelection = getDefaultAvatar(user.uid || _playerNickname || "player");
+              openAvatarPickerModal({ required: true, guestMode: false });
+              setAuthMsg("avatar-modal-err", "Choose your avatar to continue.", false);
+            }
           }
         } else {
           if (_authUser?.uid) stopPresencePing(_authUser.uid);
@@ -9917,6 +9948,7 @@
           _activeProfile = null;
           _playerNickname = "";
           _friendCode = "";
+          _pendingOnboardingUid = "";
           const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
           const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
           _avatarPromptShownForUid = "";
@@ -9950,6 +9982,8 @@
       _playerNickname = "";
       _friendCode = "";
       _activeProfile = null;
+      _pendingOnboardingUid = "";
+      _avatarPromptShownForUid = "";
       syncStatsHeader(null);
       const sl = $a("auth-stats-lobby");
       if (sl) sl.classList.remove("visible");
@@ -10090,9 +10124,23 @@
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
-        const selectedAvatar = sanitizeSelectableAvatar(_signupAvatarUrl, _authUser.uid || nick || _authUser.email);
-        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", selectedAvatar);
-        revealLobby(nick, code);
+        const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", "");
+        _playerNickname = nick;
+        _friendCode = code;
+        _activeProfile = {
+          ...(_activeProfile || {}),
+          uid: _authUser.uid,
+          nickname: nick,
+          friend_code: code,
+          avatar_url: "",
+        };
+        _pendingOnboardingUid = _authUser.uid;
+        _avatarPromptShownForUid = _authUser.uid;
+        _avatarModalSelection = sanitizeSelectableAvatar(_signupAvatarUrl, _authUser.uid || nick || _authUser.email);
+        syncStatsHeader(_activeProfile);
+        $a("auth-screen").classList.add("hidden");
+        openAvatarPickerModal({ required: true, guestMode: false });
+        setAuthMsg("avatar-modal-err", "Choose your avatar to continue.", false);
       } catch (e) {
         setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
       }
@@ -10134,6 +10182,7 @@
       _authUser = null;
       _avatarPromptShownForUid = "";
       _avatarSelectionRequired = false;
+      _pendingOnboardingUid = "";
       $a("auth-profile-bar").style.display = "none";
       closeAvatarPickerModal();
       setStatsAvatarClickable(false);
@@ -10265,6 +10314,7 @@
       _authUser = null;
       _avatarPromptShownForUid = "";
       _avatarSelectionRequired = false;
+      _pendingOnboardingUid = "";
       $a("settings-modal").classList.remove("open");
       $a("auth-stats-lobby").classList.remove("visible");
       $a("auth-profile-bar").style.display = "none";
@@ -10284,6 +10334,7 @@
         _authUser = null;
         _avatarPromptShownForUid = "";
         _avatarSelectionRequired = false;
+        _pendingOnboardingUid = "";
         $a("auth-stats-lobby").classList.remove("visible");
         $a("auth-profile-bar").style.display = "none";
         closeAvatarPickerModal();
@@ -10514,6 +10565,67 @@
       return "";
     }
 
+    function getOverallMostPlayedCard(stats) {
+      const source = (stats && typeof stats === "object") ? stats : {};
+      const directSingle = String(source.most_played_card || "").trim();
+      if (directSingle) return directSingle;
+
+      if (Array.isArray(source.most_played_cards)) {
+        const first = source.most_played_cards.find((name) => String(name || "").trim());
+        if (first) return String(first).trim();
+      }
+
+      const counts = Object.create(null);
+      const addCount = (name, count) => {
+        const card = String(name || "").trim();
+        const inc = Number(count);
+        if (!card || !Number.isFinite(inc) || inc <= 0) return;
+        counts[card] = (counts[card] || 0) + inc;
+      };
+
+      const mergeCountMap = (obj) => {
+        if (!obj || typeof obj !== "object") return;
+        Object.entries(obj).forEach(([name, count]) => addCount(name, count));
+      };
+
+      mergeCountMap(source.card_usage_all);
+      mergeCountMap(source.card_usage);
+      mergeCountMap(source.card_usage_normal);
+      mergeCountMap(source.card_usage_competitive);
+
+      if (source.card_usage_by_mode && typeof source.card_usage_by_mode === "object") {
+        Object.values(source.card_usage_by_mode).forEach((modeMap) => mergeCountMap(modeMap));
+      }
+
+      const topsByMode = [
+        source.most_played_card_normal,
+        source.most_played_card_competitive,
+      ];
+      topsByMode.forEach((name) => {
+        const card = String(name || "").trim();
+        if (card) addCount(card, 1);
+      });
+
+      const topFromCounts = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+      if (topFromCounts && topFromCounts[0]) return topFromCounts[0];
+
+      if (source.most_played_cards_by_size && typeof source.most_played_cards_by_size === "object") {
+        const fallbackCounts = Object.create(null);
+        Object.values(source.most_played_cards_by_size).forEach((list) => {
+          if (!Array.isArray(list)) return;
+          list.forEach((name) => {
+            const card = String(name || "").trim();
+            if (!card) return;
+            fallbackCounts[card] = (fallbackCounts[card] || 0) + 1;
+          });
+        });
+        const topFallback = Object.entries(fallbackCounts).sort((a, b) => b[1] - a[1])[0];
+        if (topFallback && topFallback[0]) return topFallback[0];
+      }
+
+      return "";
+    }
+
     function applyPhNormalStatsForPlayerCount(ps) {
       const size = normalizePhPlayerCount(ps);
       _phSelectedPlayerCount = size;
@@ -10598,15 +10710,15 @@
       _phStats = safeStats;
       _phStatsRaw = safeStats;
       const totalGames = (safeStats.completed_games || 0);
-      const wins = (safeStats.normal_wins || 0);
-      const winPct = HOME_REFERENCE_MODE ? "75%" : (totalGames > 0 ? Math.round((wins / totalGames) * 100) + "%" : "—");
-      const winSub = HOME_REFERENCE_MODE ? "Great job!" : (totalGames > 0 && wins / totalGames >= .6 ? "Great job!" : "");
-      const totalScore = safeStats.total_score || 0;
-      const avgPts = HOME_REFERENCE_MODE ? 184 : (totalGames > 0 ? Math.round(totalScore / totalGames) : "—");
-      const ovWp = $a("ph-ov-win-pct"); if (ovWp) ovWp.textContent = winPct;
-      const ovSub = $a("ph-ov-winsub"); if (ovSub) ovSub.textContent = winSub;
-      const ovAvg = $a("ph-ov-avg-pts"); if (ovAvg) ovAvg.textContent = avgPts;
-      const ovWins = $a("ph-ov-wins"); if (ovWins) ovWins.textContent = totalGames > 0 ? String(wins) : "—";
+      const normalWins = Number(safeStats.normal_wins || 0);
+      const compWins = Number(safeStats.competitive_wins || 0);
+      const explicitTotalWins = Number(safeStats.total_wins);
+      const totalWins = Number.isFinite(explicitTotalWins) ? explicitTotalWins : (normalWins + compWins);
+      const mostPlayedCard = getOverallMostPlayedCard(safeStats);
+      const ovMostCard = $a("ph-ov-most-card"); if (ovMostCard) ovMostCard.textContent = mostPlayedCard || "No games completed yet.";
+      const ovMostCardSub = $a("ph-ov-most-card-sub"); if (ovMostCardSub) ovMostCardSub.textContent = mostPlayedCard ? "Across all game modes" : "";
+      const ovTotalGames = $a("ph-ov-total-games"); if (ovTotalGames) ovTotalGames.textContent = String(Math.max(0, Number(totalGames) || 0));
+      const ovTotalWins = $a("ph-ov-total-wins"); if (ovTotalWins) ovTotalWins.textContent = String(Math.max(0, Number(totalWins) || 0));
 
       const activePs = document.querySelector(".ph-pc.active[data-ps]");
       const requestedPs = normalizePhPlayerCount(activePs ? Number(activePs.dataset.ps) : _phSelectedPlayerCount);
@@ -10821,6 +10933,7 @@
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
       _authUser = null;
       _avatarSelectionRequired = false;
+      _pendingOnboardingUid = "";
       closeAvatarPickerModal();
       const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
       $a("auth-screen").classList.remove("hidden");
