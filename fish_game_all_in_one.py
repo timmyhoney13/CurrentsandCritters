@@ -775,16 +775,16 @@ def _execute_star_pattern(
     t = text.lower()
     ms = (ctx or {}).get("ms")
 
-    if "draw one" in t:
-        n = choose_optional_draw_count(gs, player, 1)
-        draw(gs, player, n, ms)
-        gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
     if "draw three" in t:
         n = choose_optional_draw_count(gs, player, 3)
         draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
-    if "draw 2" in t or "draw two" in t:
+    elif "draw 2" in t or "draw two" in t:
         n = choose_optional_draw_count(gs, player, 2)
+        draw(gs, player, n, ms)
+        gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
+    elif "draw one" in t:
+        n = choose_optional_draw_count(gs, player, 1)
         draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
     if "play again" in t or "go again" in t:
@@ -5443,14 +5443,14 @@ def draw_from_deck(gs: GameState, ms: MatchState, player: PlayerState, n: int) -
 
 def draw_from_pool(ms: MatchState, player: PlayerState, n: int, gs: Optional["GameState"] = None) -> List[int]:
     drew: List[int] = []
-    for _ in range(n):
+    while len(drew) < n:
         if not ms.pool:
             break
         uid = ms.pool.pop()  # top of pool = most recent
         if gs is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
             trigger_end_game(ms, gs)
             ms.discard_pile.append(uid)
-            continue
+            continue  # draw a replacement card
         player.hand.append(uid)
         drew.append(uid)
     return drew
@@ -5520,6 +5520,9 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
             actions.append(Action(kind="draw", draw_from_pool=1))
         if len(ms.pool) >= 2:
             actions.append(Action(kind="draw", draw_from_pool=2))
+        # During the final round, the player may end their turn without drawing.
+        if ms.end_game_triggered:
+            actions.append(Action(kind="end_turn"))
 
     for entry_uid in list(player.hand):
         faces = entry_faces(ms, entry_uid)
@@ -8176,6 +8179,7 @@ def run_match(
                     break
 
         # One action per turn by default; abilities may grant extra actions.
+        undo_occurred = False
         action_budget = 1
         while action_budget > 0:
             was_free_only = bool(p.flags.get("_free_action_only", False))
@@ -8184,6 +8188,9 @@ def run_match(
                 policy_index = policy_index % len(action_policies)
             policy = action_policies[policy_index]
             chosen = policy(gs, ms, p)
+            if chosen is not None and getattr(chosen, 'kind', None) == 'undo':
+                undo_occurred = True
+                break
             is_human_turn = policy_index in human_idx_set
             interactive_human_turn = is_human_turn and (not web_control_mode)
             if chosen is None:
@@ -8388,6 +8395,9 @@ def run_match(
             if has_multi_play_window(p):
                 action_budget += 1
             action_budget -= 1
+
+        if undo_occurred:
+            continue
 
         # Tarpon interactive discard loop (web human only).
         # _tarpon_discard_active is set by _execute_main_pattern when a web human plays Tarpon.

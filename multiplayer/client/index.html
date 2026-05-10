@@ -1139,6 +1139,7 @@
           <button id="quickActionBtn">Do Action</button>
           <select id="moveActionSelect"></select>
           <button id="moveActionBtn">Move Card</button>
+          <button id="undoBtn" style="display:none; background:#e67e22; color:#fff; border:none; border-radius:4px; padding:6px 14px; font-weight:bold; cursor:pointer; font-size:0.95em;">&#8617; Undo My Last Turn</button>
         </div>
         <div id="discardBatchBanner" style="display:none; margin-bottom:10px; padding:10px; background:#fff3cd; border:1px solid #ffc107; border-radius:6px;">
           <strong id="discardBatchStatus">Select cards to discard</strong>
@@ -3190,6 +3191,40 @@
             return;
           }
           await submitAction(chosen);
+        };
+      }
+
+      // Undo button: shown to the player who just finished their turn, disappears once the next player acts.
+      const undoBtn = document.getElementById("undoBtn");
+      if (undoBtn) {
+        const undoInfo = payload.undo || {};
+        const undoEligibleSeat = Number.isInteger(undoInfo.eligible_seat) ? undoInfo.eligible_seat : null;
+        const undoValid = Boolean(undoInfo.valid);
+        const myUndoAvailable = undoValid && undoEligibleSeat !== null && undoEligibleSeat === myIdx && !canInteract;
+        undoBtn.style.display = myUndoAvailable ? "" : "none";
+        undoBtn.onclick = async () => {
+          undoBtn.disabled = true;
+          undoBtn.textContent = "Undoing…";
+          try {
+            const res = await fetch(apiUrl(`/api/rooms/${roomId}/undo`), {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ seat_token: getSeatToken() }),
+            });
+            const out = await res.json();
+            if (out.ok) {
+              undoBtn.style.display = "none";
+              setGameStatus("Undo sent — your turn is being replayed.");
+            } else {
+              setGameStatus(`Undo failed: ${out.error || "unknown error"}`);
+              undoBtn.disabled = false;
+              undoBtn.textContent = "↩ Undo My Last Turn";
+            }
+          } catch (err) {
+            setGameStatus(`Undo error: ${err.message || err}`);
+            undoBtn.disabled = false;
+            undoBtn.textContent = "↩ Undo My Last Turn";
+          }
         };
       }
 

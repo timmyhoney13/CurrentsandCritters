@@ -52,6 +52,7 @@ GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
 HISTORY_LOCK = threading.Lock()
+COMPETITIVE_LOCK = threading.Lock()
 PUBLIC_BASE_URL = ""
 LAN_IP_CACHE: Optional[str] = None
 ACTIVE_SERVER: Optional[StableThreadingHTTPServer] = None
@@ -594,6 +595,12 @@ class GameRoom:
 
         self._persist_dirty = True
         self._last_persist_monotonic = 0.0
+
+        self.undo_snapshot_gs: Any = None
+        self.undo_snapshot_ms: Any = None
+        self.undo_eligible_seat: Optional[int] = None
+        self.undo_valid: bool = False
+        self.undo_requested: bool = False
 
     def _bump_locked(self, force_persist: bool = False) -> None:
         self.state_version += 1
@@ -1834,10 +1841,31 @@ class GameRoom:
             }
             self._last_turn_scores = scores_now
 
+        # Save undo snapshot for human turns (deepcopy done outside the lock for performance).
+        undo_gs_copy: Any = None
+        undo_ms_copy: Any = None
+        undo_seat_for_snap: Optional[int] = None
+        if note.startswith("turn_start:"):
+            try:
+                snap_idx = int(gs.turn_index) % max(len(gs.players), 1)
+                snap_seat = next((s for s in self.seats if s.index == snap_idx), None)
+                if snap_seat is not None and snap_seat.kind == "human":
+                    undo_gs_copy = copy.deepcopy(gs)
+                    undo_ms_copy = copy.deepcopy(ms)
+                    undo_seat_for_snap = snap_idx
+            except Exception:
+                pass
+
         with self.cond:
             self.latest_public_state = public_state
             self.latest_private_hands = private_hands
             self.last_turn_number = int(turn_number)
+            if undo_gs_copy is not None:
+                self.undo_snapshot_gs = undo_gs_copy
+                self.undo_snapshot_ms = undo_ms_copy
+                self.undo_eligible_seat = undo_seat_for_snap
+                self.undo_valid = True
+                self.undo_requested = False
 
             self.training_snapshots.append(training_snapshot)
             if len(self.training_snapshots) > 1200:
@@ -1939,6 +1967,8 @@ class GameRoom:
                     elif free_play_species:
                         species_str = " or ".join(free_play_species)
                         self.status_note = f"★ FREE PLAY: {player.name} — play a free {species_str} (or click End Turn to skip)."
+                    elif ms.end_game_triggered:
+                        self.status_note = f"Final round! {player.name} — draw and play, or choose 'end turn now' to pass."
                     else:
                         self.status_note = f"Waiting for action from {player.name}."
                     self._bump_locked()
@@ -1960,6 +1990,30 @@ class GameRoom:
                 )
                 wait_sec = 1800.0 if only_discards else 300.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
+                if cmd is not None and cmd.get("kind") == "undo_confirm":
+                    # Previous player requested undo — restore state and signal engine.
+                    gs_restore: Any = None
+                    ms_restore: Any = None
+                    with self.cond:
+                        if self.undo_valid and self.undo_snapshot_gs is not None:
+                            gs_restore = copy.deepcopy(self.undo_snapshot_gs)
+                            ms_restore = copy.deepcopy(self.undo_snapshot_ms)
+                    if gs_restore is not None:
+                        gs.__dict__.clear()
+                        gs.__dict__.update(gs_restore.__dict__)
+                        ms.__dict__.clear()
+                        ms.__dict__.update(ms_restore.__dict__)
+                        with self.cond:
+                            self.undo_requested = False
+                            self.undo_valid = False
+                            self.undo_snapshot_gs = None
+                            self.undo_snapshot_ms = None
+                            self.legal_actions_by_seat.clear()
+                            self.active_action_seat = None
+                            self.status_note = "Undo granted — replaying previous player's turn."
+                            self._bump_locked()
+                        return fish.Action(kind="undo")
+                    continue
                 if cmd is None:
                     # Phase ended or player timed out.
                     if self.phase != "running":
@@ -1989,6 +2043,11 @@ class GameRoom:
                 if chosen.kind in {"discard_to_pool", "discard_batch_to_pool"}:
                     with self.cond:
                         self.legal_actions_by_seat.pop(seat_index, None)
+                        self._bump_locked()
+                # Close the previous player's undo window the moment a different player acts.
+                with self.cond:
+                    if self.undo_valid and self.undo_eligible_seat != seat_index:
+                        self.undo_valid = False
                         self._bump_locked()
                 return chosen
 
@@ -2226,31 +2285,27 @@ class GameRoom:
 
     def _update_competitive_leaderboard(self, p1_name: str, p2_name: str, winner: str) -> None:
         try:
-            try:
-                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
-                    board: Dict[str, Any] = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
-                board = {}
-            for name in (p1_name, p2_name):
-                if name not in board:
-                    board[name] = {"wins": 0, "losses": 0, "games": 0}
-                board[name]["games"] = board[name].get("games", 0) + 1
-            board[winner]["wins"] = board[winner].get("wins", 0) + 1
-            loser = p2_name if winner == p1_name else p1_name
-            board[loser]["losses"] = board[loser].get("losses", 0) + 1
-            atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
+            with COMPETITIVE_LOCK:
+                try:
+                    with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                        board: Dict[str, Any] = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    board = {}
+                for name in (p1_name, p2_name):
+                    if name not in board:
+                        board[name] = {"wins": 0, "losses": 0, "games": 0}
+                    board[name]["games"] = board[name].get("games", 0) + 1
+                board[winner]["wins"] = board[winner].get("wins", 0) + 1
+                loser = p2_name if winner == p1_name else p1_name
+                board[loser]["losses"] = board[loser].get("losses", 0) + 1
+                atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
         except Exception as exc:
             self._record_event(f"Leaderboard update warning: {exc}")
 
     def _save_game_history(self, gs: Any, ms: Any, standings: List[Dict[str, Any]], human_indices: set) -> None:
         """Save a completed human game to the history directory with full score breakdowns."""
         try:
-            # Only save games that ended via the proper end-game trigger.
-            # Stalls, max-turn truncations, and zero-turn crashes are excluded.
-            if not getattr(ms, "end_game_triggered", False):
-                return
             # Require at least one full round of turns played.
-            min_turns = max(len(gs.players), 2)
             rounds_played = getattr(gs, "round_count", 0)
             if rounds_played < 1:
                 return
@@ -2258,6 +2313,7 @@ class GameRoom:
             any_board = any(len(getattr(p, "board_oceans", [])) > 0 for p in gs.players)
             if not any_board:
                 return
+            ended_normally = getattr(ms, "end_game_triggered", False)
             os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
             player_details = []
             for p in gs.players:
@@ -2309,7 +2365,7 @@ class GameRoom:
             record = {
                 "room_id": self.room_id,
                 "recorded_unix": now_unix(),
-                "mode": "competitive" if self.competitive else "standard",
+                "mode": ("competitive" if self.competitive else "standard") if ended_normally else "truncated",
                 "player_count": len(gs.players),
                 "human_count": len(human_indices),
                 "winner": winner_name,
@@ -2318,7 +2374,9 @@ class GameRoom:
             }
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
-            self._update_history_leaderboard(player_details, winner_name)
+            # Only count truncated games in leaderboard if they went a reasonable distance.
+            if ended_normally or rounds_played >= 3:
+                self._update_history_leaderboard(player_details, winner_name)
         except Exception as exc:
             self._record_event(f"Game history save warning: {exc}")
 
@@ -2350,6 +2408,12 @@ class GameRoom:
 
     def _run_game_thread(self, card_db: Dict[int, fish.CardDef]) -> None:
         recorder = RoomLiveRecorder(self)
+        gs: Any = None
+        ms: Any = None
+        standings: List[Dict[str, Any]] = []
+        human_indices: set = set()
+        human_game = False
+        _game_saved = False
         try:
             with BRAIN_LOCK:
                 try:
@@ -2392,7 +2456,6 @@ class GameRoom:
 
             player_names: List[str] = []
             policies = []
-            human_indices: set[int] = set()
             for seat in self.seats:
                 if seat.kind == "human":
                     human_indices.add(seat.index)
@@ -2415,6 +2478,8 @@ class GameRoom:
                     policies.append(
                         self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy)
                     )
+
+            human_game = bool(human_indices)
 
             gs, ms = fish.run_match(
                 card_db=card_db,
@@ -2443,8 +2508,6 @@ class GameRoom:
                 for p in sorted(gs.players, key=lambda x: _safe_score(x), reverse=True)
             ]
             winner_name = standings[0]["name"] if standings else None
-
-            human_game = bool(human_indices)
             training_record: Dict[str, Any]
             try:
                 training_record = self._build_training_record(gs, ms, standings, human_indices)
@@ -2491,6 +2554,7 @@ class GameRoom:
             if self.competitive:
                 self._save_competitive_game(gs, ms, standings)
 
+            _game_saved = True
             with self.cond:
                 self.phase = "ended"
                 self.ended_unix = now_unix()
@@ -2503,6 +2567,25 @@ class GameRoom:
 
         except Exception as exc:
             trace = traceback.format_exc(limit=20)
+            # If run_match completed (gs/ms exist) but post-processing threw, still try to save.
+            if not _game_saved and gs is not None and ms is not None:
+                try:
+                    if not standings and hasattr(gs, "players"):
+                        standings = [
+                            {"name": p.name, "score": int(getattr(p, "score", 0))}
+                            for p in sorted(gs.players, key=lambda x: int(getattr(x, "score", 0)), reverse=True)
+                        ]
+                    try:
+                        tr = self._build_training_record(gs, ms, standings, human_indices)
+                        self._append_training_record(tr)
+                    except Exception:
+                        pass
+                    if human_game:
+                        self._save_game_history(gs, ms, standings, human_indices)
+                    if self.competitive:
+                        self._save_competitive_game(gs, ms, standings)
+                except Exception as save_exc:
+                    self._record_event(f"Emergency save warning: {save_exc}")
             with self.cond:
                 self.phase = "error"
                 self.error_message = f"{exc}"
@@ -2606,6 +2689,10 @@ class GameRoom:
                     "target_count": int(self.recovery_target_count),
                     "error": self.recovery_error,
                 },
+                "undo": {
+                    "eligible_seat": self.undo_eligible_seat,
+                    "valid": bool(self.undo_valid),
+                },
             }
             return payload
 
@@ -2629,6 +2716,26 @@ class GameRoom:
                 self.chat_messages = self.chat_messages[-200:]
             self._persist_dirty = True
             self.cond.notify_all()
+        return {"ok": True}
+
+    def submit_undo(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            if self.phase != "running":
+                return {"ok": False, "error": "game not running"}
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if not self.undo_valid:
+                return {"ok": False, "error": "undo not available"}
+            if seat.index != self.undo_eligible_seat:
+                return {"ok": False, "error": "not your undo to use"}
+            active = self.active_action_seat
+            if active is None or active == seat.index:
+                return {"ok": False, "error": "no active opposing player to undo through"}
+            self.undo_requested = True
+            self.pending_actions.setdefault(active, []).insert(0, {"kind": "undo_confirm"})
+            self._bump_locked()
         return {"ok": True}
 
     def wait_for_update(self, last_version: int, timeout_sec: float) -> bool:
@@ -3548,6 +3655,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_chat(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "undo":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.submit_undo(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
