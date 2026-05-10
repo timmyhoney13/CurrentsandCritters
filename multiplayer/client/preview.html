@@ -6007,6 +6007,7 @@
   let legalActions = [];
   let myIdx = null;
   let canInteract = false;
+  let _latestPlayers = [];
 
   function renderPayload(payload) {
     const state   = payload.state || {};
@@ -6016,6 +6017,7 @@
     myIdx         = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
     _myIdxGlobal  = myIdx;
     const players = Array.isArray(state.players) ? state.players : [];
+    _latestPlayers = players;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
     const current = state.current_player || "";
@@ -8892,22 +8894,34 @@
     const myNick   = typeof window.__fishNickname === "function" ? window.__fishNickname() : "";
     if (!authUser || !db || !winner) return;
     if (winner === _lastSavedWinner) return; // already saved this game result
-    const myEntry = (finalScores || []).find(p => p.name === myNick);
+    // Try exact match first, then case-insensitive, then by seat index
+    const nickLower = (myNick || "").trim().toLowerCase();
+    let myEntry = (finalScores || []).find(p => p.name === myNick)
+      || (nickLower ? (finalScores || []).find(p => String(p.name||"").trim().toLowerCase() === nickLower) : null)
+      || (() => {
+        // Fallback: find name via seat index from latest state snapshot
+        if (myIdx !== null) {
+          const statPlayer = _latestPlayers.find(p => p.index === myIdx);
+          if (statPlayer?.name) return (finalScores || []).find(p => p.name === statPlayer.name) || null;
+        }
+        return null;
+      })();
     if (!myEntry) return; // player not in this game
     _lastSavedWinner = winner;
     const myScore    = Number(myEntry.score || 0);
-    const isWinner   = (winner === myNick);
+    const myGameName = myEntry.name || myNick;
+    const isWinner   = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     const isComp     = typeof compMode !== "undefined" && compMode;
     const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
     try {
       const docRef = db.collection("users").doc(authUser.uid);
       const snap   = await docRef.get();
       const cStats = (snap.data() || {}).stats || {};
-      const myNickLower = String(myNick || "").trim().toLowerCase();
+      const myGameNameLower = String(myGameName || "").trim().toLowerCase();
       const oppNames = (Array.isArray(finalScores) ? finalScores : [])
         .map(p => String(p?.name || "").trim())
         .filter(Boolean)
-        .filter(name => name.toLowerCase() !== myNickLower)
+        .filter(name => name.toLowerCase() !== myGameNameLower)
         .slice(0, 8);
       const recentEntry = {
         r: isWinner ? 1 : 0,

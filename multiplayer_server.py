@@ -2305,13 +2305,13 @@ class GameRoom:
     def _save_game_history(self, gs: Any, ms: Any, standings: List[Dict[str, Any]], human_indices: set) -> None:
         """Save a completed human game to the history directory with full score breakdowns."""
         try:
-            # Require at least one full round of turns played.
-            rounds_played = getattr(gs, "round_count", 0)
+            rounds_played = getattr(gs, "round_count", 0) or 0
             if rounds_played < 1:
+                self._record_event(f"Game history skip: rounds_played={rounds_played} < 1")
                 return
-            # Require at least one player to have cards on their board.
             any_board = any(len(getattr(p, "board_oceans", [])) > 0 for p in gs.players)
             if not any_board:
+                self._record_event("Game history skip: no player has board cards")
                 return
             ended_normally = getattr(ms, "end_game_triggered", False)
             os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
@@ -2324,9 +2324,9 @@ class GameRoom:
                 board_cards = []
                 for ocean_uid in getattr(p, "board_oceans", []):
                     ocean_card = gs.card_db.get(int(ocean_uid)) if gs.card_db else None
-                    slots = getattr(p, "board_slots", {}).get(int(ocean_uid))
+                    slots = p.ocean_slots.get(int(ocean_uid)) if hasattr(p, "ocean_slots") else None
                     animals = []
-                    if slots:
+                    if slots is not None:
                         for direction in ("up", "down", "left", "right"):
                             for uid in getattr(slots, direction, []):
                                 c = gs.card_db.get(int(uid))
@@ -2374,11 +2374,13 @@ class GameRoom:
             }
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
+            self._record_event(f"Game history saved: {fname} (rounds={rounds_played})")
             # Only count truncated games in leaderboard if they went a reasonable distance.
             if ended_normally or rounds_played >= 3:
                 self._update_history_leaderboard(player_details, winner_name)
         except Exception as exc:
-            self._record_event(f"Game history save warning: {exc}")
+            import traceback as _tb
+            self._record_event(f"Game history save ERROR: {exc} | {_tb.format_exc(limit=5)}")
 
     def _update_history_leaderboard(self, player_details: List[Dict[str, Any]], winner_name: Optional[str]) -> None:
         try:
@@ -3720,6 +3722,7 @@ def main() -> None:
     CORS_ALLOW_ORIGIN = str(args.cors_allow_origin or "*").strip() or "*"
 
     os.makedirs(os.path.dirname(DATASET_PATH), exist_ok=True)
+    os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 
     ACTIVE_SERVER = StableThreadingHTTPServer((args.host, args.port), MultiplayerHandler)
