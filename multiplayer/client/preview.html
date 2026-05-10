@@ -2553,38 +2553,6 @@
       background: linear-gradient(180deg, #3a94f0 0%, #1f73dd 100%);
       color: #fff;
     }
-    .ph-pc-wrap { position: relative; }
-    .ph-pc-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 60;
-      display: none;
-      flex-direction: column;
-      min-width: 70px;
-      overflow: hidden;
-      border-radius: 10px;
-      border: 1px solid #c5dbef;
-      background: #fff;
-      box-shadow: 0 12px 24px rgba(33,90,150,.18);
-    }
-    .ph-pc-menu.open { display: flex; }
-    .ph-pc-menu button {
-      border: none;
-      background: transparent;
-      color: #385f8b;
-      font-size: .94rem;
-      font-weight: 700;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-family: "Nunito", sans-serif;
-      transition: background .1s, color .1s;
-      text-align: center;
-    }
-    .ph-pc-menu button:hover {
-      color: #1f65be;
-      background: rgba(47,126,224,.08);
-    }
     .ph-sg {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -3159,7 +3127,6 @@
       background: linear-gradient(180deg, #3f95f4 0%, #2a7ee5 100%);
       color: #fff;
     }
-    .ph-pc-wrap .ph-pc { min-width: 96px; }
 
     .ph-sg {
       gap: 9px;
@@ -4240,13 +4207,9 @@
                 <button class="ph-pc" data-ps="3">3P</button>
                 <button class="ph-pc active" data-ps="4">4P</button>
                 <button class="ph-pc" data-ps="5">5P</button>
-                <div class="ph-pc-wrap">
-                  <button class="ph-pc" id="ph-pc-plus" data-ps="6">6P▾</button>
-                  <div class="ph-pc-menu" id="ph-pc-menu">
-                    <button data-ps="7">7P</button>
-                    <button data-ps="8">8P</button>
-                  </div>
-                </div>
+                <button class="ph-pc" data-ps="6">6P</button>
+                <button class="ph-pc" data-ps="7">7P</button>
+                <button class="ph-pc" data-ps="8">8P</button>
               </div>
             </div>
             <div class="ph-sg">
@@ -11069,14 +11032,9 @@
 
     (function() {
       const pcBtns = document.querySelectorAll(".ph-pc[data-ps]");
-      const plus = $a("ph-pc-plus"), menu = $a("ph-pc-menu");
       function setActivePs(ps) {
         const size = normalizePhPlayerCount(ps);
         pcBtns.forEach(b => b.classList.toggle("active", b.dataset.ps === String(size)));
-        if (plus && menu) {
-          plus.classList.toggle("active", size >= 6);
-          plus.textContent = size >= 7 ? `${size}P▾` : "6P▾";
-        }
         const el = $a("ph-high-score"), lbl = $a("ph-hs-label");
         if (_phStats) {
           const key = `highest_score_${size}p`;
@@ -11087,17 +11045,8 @@
         applyPhNormalStatsForPlayerCount(size);
       }
       pcBtns.forEach(b => b.addEventListener("click", () => {
-        if (menu) menu.classList.remove("open");
         setActivePs(Number(b.dataset.ps));
       }));
-      if (plus && menu) {
-        plus.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.toggle("open"); });
-        menu.querySelectorAll("button[data-ps]").forEach(b => b.addEventListener("click", () => {
-          menu.classList.remove("open");
-          setActivePs(Number(b.dataset.ps));
-        }));
-        document.addEventListener("click", () => { if (menu) menu.classList.remove("open"); });
-      }
       window._phSetPs = setActivePs;
     })();
 
