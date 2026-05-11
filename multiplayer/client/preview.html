@@ -11477,8 +11477,8 @@
       const filteredGames = getExactNormalGamesByPlayerCount(statsSource, size);
 
       // Prefer aggregated totals; fall back to counting recent_games entries
-      const totalGames = totalGamesAgg > 0 ? totalGamesAgg : filteredGames.length;
-      const wins = winsAgg !== null
+      let totalGames = totalGamesAgg > 0 ? totalGamesAgg : filteredGames.length;
+      let wins = winsAgg !== null
         ? winsAgg
         : filteredGames.reduce((acc, g) => acc + (Number(g?.r) === 1 ? 1 : 0), 0);
 
@@ -11491,6 +11491,17 @@
           const sumScore = filteredGames.reduce((acc, g) => acc + (Number(g?.s) || 0), 0);
           avgPts = Math.round(sumScore / filteredGames.length);
         }
+      }
+
+      // If every per-size bucket is empty (old games predate the pc field), fall back to
+      // overall totals so players always see their real data rather than a wall of zeros.
+      const hasAnySizeData = Object.values(normalGamesBySize).some(n => Number(n) > 0)
+        || (Array.isArray(statsSource.recent_games) && statsSource.recent_games.some(g => g?.pc != null));
+      if (!hasAnySizeData && totalGames === 0 && Number(statsSource.completed_games || 0) > 0) {
+        totalGames = Number(statsSource.completed_games || 0);
+        wins       = Number(statsSource.normal_wins || 0);
+        const overallScore = Number(statsSource.total_score || 0);
+        avgPts = (totalGames > 0 && overallScore > 0) ? Math.round(overallScore / totalGames) : "—";
       }
 
       const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "—";
@@ -11550,7 +11561,13 @@
     function updatePhStats(stats) {
       const safeStats = getHomeReferenceStats(stats);
       _phStats = safeStats;
-      _phStatsRaw = safeStats;
+      // Only replace _phStatsRaw if incoming stats have actual content.
+      // This prevents a null/empty renderStats call (e.g. mid-reload) from erasing cached data.
+      const incomingHasContent = (safeStats.completed_games || 0) > 0
+        || Object.values(safeStats.normal_games_by_size || {}).some(n => Number(n) > 0);
+      if (incomingHasContent || !_phStatsRaw) {
+        _phStatsRaw = safeStats;
+      }
 
       // Total games: prefer completed_games; fall back to summing normal+comp by-size counts
       const byNormal = Object.values(safeStats.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0);
