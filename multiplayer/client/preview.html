@@ -8636,6 +8636,7 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
+    _lastSavedWinner = null; _latestPlayers = [];
     dismissEndGameCinematic();
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
@@ -8652,6 +8653,11 @@
     pvLogVisible = false;
     const lf = document.getElementById("pv-log-float");
     if (lf) lf.classList.remove("open");
+    // Clear room ID from URL so showStatsLobby won't redirect back into a game lobby
+    try {
+      const cleanPath = location.pathname.replace(/\/[A-Z0-9]{5,8}\/?$/, "/") || "/";
+      history.replaceState({}, "", cleanPath);
+    } catch {}
   }
 
   function returnToMenu() {
