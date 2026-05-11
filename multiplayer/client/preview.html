@@ -11507,6 +11507,17 @@
       const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "—";
       const winSub = totalGames > 0 && wins / totalGames >= 0.6 ? "Great job!" : "";
 
+      // If we have data, make sure the stats block is visible regardless of how it was hidden
+      const hasData = totalGames > 0
+        || Number(statsSource.completed_games || 0) > 0
+        || Number(statsSource.normal_wins || 0) > 0;
+      if (hasData) {
+        const normalBlock = $a("stats-normal-block");
+        const noGamesEl   = $a("stats-no-games");
+        if (normalBlock) normalBlock.style.display = "";
+        if (noGamesEl)   noGamesEl.style.display   = "none";
+      }
+
       const wpEl = $a("ph-win-pct"); if (wpEl) wpEl.textContent = winPct;
       const wpSub = $a("ph-win-pct-sub"); if (wpSub) wpSub.textContent = winSub;
       const avgEl = $a("ph-avg-pts"); if (avgEl) avgEl.textContent = String(avgPts);
