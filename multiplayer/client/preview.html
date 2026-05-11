@@ -11685,8 +11685,8 @@
         avgPts = (totalGames > 0 && overallScore > 0) ? Math.round(overallScore / totalGames) : "—";
       }
 
-      const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "—";
-      const winSub = totalGames > 0 && wins / totalGames >= 0.6 ? "Great job!" : "";
+      const winPct = totalGames === 0 ? "100%" : `${Math.round((wins / totalGames) * 100)}%`;
+      const winSub = totalGames === 0 ? "Play a game!" : (wins / totalGames >= 0.6 ? "Great job!" : "");
 
       // If we have data, make sure the stats block is visible regardless of how it was hidden
       const hasData = totalGames > 0
