@@ -10335,7 +10335,7 @@
 
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.setAttribute("viewBox", `0 0 ${S} ${S}`);
-      svg.className = "stats-pie-svg";
+      svg.setAttribute("class", "stats-pie-svg");
       svg.style.width = svg.style.height = "120px";
 
       entries.forEach((e, i) => {
@@ -11563,7 +11563,6 @@
         applyPhNormalStatsForPlayerCount(size);
       }
       pcBtns.forEach(b => b.addEventListener("click", () => {
-        console.log("[TAB] clicked", b.dataset.ps, "| _phStatsRaw:", _phStatsRaw ? JSON.stringify({completed_games: _phStatsRaw.completed_games, normal_wins: _phStatsRaw.normal_wins, normal_games_by_size: _phStatsRaw.normal_games_by_size, recent_games_count: (_phStatsRaw.recent_games||[]).length}) : "NULL");
         setActivePs(Number(b.dataset.ps));
       }));
       window._phSetPs = setActivePs;
@@ -11577,7 +11576,6 @@
       // This prevents a null/empty renderStats call (e.g. mid-reload) from erasing cached data.
       const incomingHasContent = (safeStats.completed_games || 0) > 0
         || Object.values(safeStats.normal_games_by_size || {}).some(n => Number(n) > 0);
-      console.log("[updatePhStats] incomingHasContent:", incomingHasContent, "| completed_games:", safeStats.completed_games, "| normal_games_by_size:", JSON.stringify(safeStats.normal_games_by_size||{}), "| recent_games:", (safeStats.recent_games||[]).length);
       if (incomingHasContent || !_phStatsRaw) {
         _phStatsRaw = safeStats;
       }
@@ -11772,7 +11770,7 @@
         updatePhStats(_phStatsRaw);
         return;
       }
-      _origRenderStats(stats);
+      try { _origRenderStats(stats); } catch(e) { console.error("[renderStats] _origRenderStats threw:", e); }
       updatePhStats(stats);
     };
 
