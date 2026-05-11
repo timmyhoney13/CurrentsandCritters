@@ -2212,36 +2212,62 @@ class GameRoom:
                 f.write(row + "\n")
 
     def _detect_strategy(self, gs: Any) -> str:
+        """Classify the winning strategy using the official strategy guide names."""
         type_counts: Dict[str, int] = {}
+        name_counts: Dict[str, int] = {}
         total_cards = 0
         for player in gs.players:
-            for ocean in getattr(player, "board", []):
-                for card in getattr(ocean, "cards", []):
-                    ctype = str(getattr(card, "type", "") or "").strip()
+            for ocean_uid in getattr(player, "board_oceans", []):
+                slots = player.ocean_slots.get(int(ocean_uid)) if hasattr(player, "ocean_slots") else None
+                card_uids = slots.all_cards() if slots else []
+                for uid in card_uids:
+                    card = gs.card_db.get(uid)
+                    if card is None:
+                        continue
+                    ctype = str(getattr(card, "species", "") or "").strip().lower()
+                    cname = str(getattr(card, "name", "") or "").strip().lower()
                     if ctype:
                         type_counts[ctype] = type_counts.get(ctype, 0) + 1
-                        total_cards += 1
+                    if cname:
+                        name_counts[cname] = name_counts.get(cname, 0) + 1
+                    total_cards += 1
         if total_cards == 0:
             return "Best Guess"
-        dominant = max(type_counts, key=lambda k: type_counts[k])
-        ratio = type_counts[dominant] / total_cards
-        if dominant == "Game Fish" and ratio >= 0.5:
-            return "Game Fish"
-        if dominant == "Mammal" and ratio >= 0.5:
-            return "Mammals"
-        if dominant == "Cephalopod" and ratio >= 0.4:
-            if type_counts.get("Coral", 0) > 0:
-                return "Coral/Cephalopods"
-            return "Cephalopods"
-        if type_counts.get("Baitfish", 0) and type_counts.get("Baitfish", 0) / total_cards >= 0.35:
-            return "Baitfish Swarm"
-        if type_counts.get("Bird", 0) > 0:
-            if type_counts.get("Lobster", 0) > 0:
-                return "Bird/Lobster"
-            if type_counts.get("Coral", 0) > 0:
-                return "Bird/Coral"
-        if type_counts.get("Goby", 0) > 0:
+        def pct(key: str) -> float:
+            return type_counts.get(key, 0) / total_cards
+        # Goby "Shooting the Moon" — any Goby present is the tell.
+        if name_counts.get("mandarin goby", 0) >= 1:
             return "Goby"
+        # Coral/Cephalopods — cephalopods + meaningful coral base.
+        if pct("cephalopod") >= 0.30 and pct("coral") >= 0.15:
+            return "Coral/Cephalopods (CC)"
+        # Pure Cephalopods
+        if pct("cephalopod") >= 0.40:
+            return "Cephalopods"
+        # Bird/Lobster — birds + crustaceans.
+        if pct("bird") >= 0.20 and (pct("crustacean") >= 0.10 or name_counts.get("lobster", 0) >= 1 or name_counts.get("mantis shrimp", 0) >= 1):
+            return "Bird/Lobster (B-Lob)"
+        # Bird/Coral — birds + coral base.
+        if pct("bird") >= 0.20 and pct("coral") >= 0.15:
+            return "Bird/Coral (B-Coral)"
+        # Pure bird board.
+        if pct("bird") >= 0.35:
+            return "Bird/Coral (B-Coral)"
+        # Baitfish Barrage
+        if pct("baitfish") >= 0.35:
+            return "Baitfish Barrage"
+        # Mammals
+        if pct("mammal") >= 0.45:
+            return "Mammals"
+        # Yellowfin Tuna Stack — key engine card present.
+        if name_counts.get("yellowfin tuna", 0) >= 1:
+            return "Yellowfin Tuna"
+        # Ocean All Blue — majority ocean cards.
+        if pct("ocean") >= 0.40 or pct("coral") >= 0.50:
+            return "Ocean All Blue"
+        # Game Fish catch-all
+        if pct("game fish") >= 0.40:
+            return "Game Fish"
         return "Best Guess"
 
     def _save_competitive_game(self, gs: Any, ms: Any, standings: List[Dict[str, Any]]) -> None:
@@ -2540,15 +2566,22 @@ class GameRoom:
                 try:
                     with BRAIN_LOCK:
                         brain2 = fish.load_brain(fish.BRAIN_PATH)
+                        # Full synergy/weight update for human-only games.
                         if human_only_game:
-                            # Human-only games can safely use full winner/loser match updates.
                             fish.update_brain_from_match(gs, brain2)
+                        # Move-sequence learning runs for every human game.
+                        fish.update_strategy_memory_from_match(gs, brain2, boost=demo_boost)
+                        # Per-archetype win-rate stats (used to bias future archetype selection).
+                        finals = [fish.final_points(gs, p) for p in gs.players]
+                        fish.update_archetype_stats(brain2, gs.players, finals)
+                        fish.append_game_memory(brain2, gs, finals)
+                        # Human-board reinforcement — highest-signal learning pass.
                         fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
                         fish.save_brain(brain2, fish.BRAIN_PATH)
                     learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
                     self._record_event(
                         f"AI learned from {len(human_indices)} real human player(s) "
-                        f"(mode={learn_mode}, boost={demo_boost:.2f})."
+                        f"(mode={learn_mode}, boost={demo_boost:.2f}, strategy_memory=yes, archetype_stats=yes)."
                     )
                 except Exception as exc:
                     self._record_event(f"Human-learning warning: {exc}")

@@ -2885,20 +2885,22 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
         bonus += 1.6 + min(2.0, 0.35 * best_strength)
 
     t = card.text.lower()
+    # Hand+board bias: scale bonus by how many matching cards the player holds/has placed.
+    # Higher coefficients = AI commits harder to whatever strategy is in its hand.
     if "per baitfish" in t:
-        bonus += min(3.0, 0.26 * (sum(1 for s in board_species if s == "baitfish") + hand_species_counts.get("baitfish", 0)))
+        bonus += min(3.8, 0.42 * (sum(1 for s in board_species if s == "baitfish") + hand_species_counts.get("baitfish", 0)))
     if "per cephalopod" in t:
-        bonus += min(3.0, 0.28 * (sum(1 for s in board_species if s == "cephalopod") + hand_species_counts.get("cephalopod", 0)))
+        bonus += min(3.8, 0.44 * (sum(1 for s in board_species if s == "cephalopod") + hand_species_counts.get("cephalopod", 0)))
     if "per crustacean" in t:
-        bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)))
+        bonus += min(3.4, 0.36 * (sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)))
     if "per bird" in t:
-        bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "bird") + hand_species_counts.get("bird", 0)))
+        bonus += min(3.4, 0.36 * (sum(1 for s in board_species if s == "bird") + hand_species_counts.get("bird", 0)))
     if "per coral" in t:
-        bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "coral") + hand_species_counts.get("coral", 0)))
+        bonus += min(3.2, 0.34 * (sum(1 for s in board_species if s == "coral") + hand_species_counts.get("coral", 0)))
     if "per invertebrate" in t:
-        bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "invertebrate") + hand_species_counts.get("invertebrate", 0)))
+        bonus += min(3.2, 0.34 * (sum(1 for s in board_species if s == "invertebrate") + hand_species_counts.get("invertebrate", 0)))
     if "per mammal" in t:
-        bonus += min(2.8, 0.24 * (sum(1 for s in board_species if s == "mammal") + hand_species_counts.get("mammal", 0)))
+        bonus += min(3.4, 0.36 * (sum(1 for s in board_species if s == "mammal") + hand_species_counts.get("mammal", 0)))
     if "per n/a animal" in t or "per uncharted animal" in t or "per crosscurrent animal" in t:
         n_uncharted = (
             sum(1 for s in board_species if s in {"uncharted", "n/a", "crosscurrent"})
@@ -2906,25 +2908,31 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
             + hand_species_counts.get("n/a", 0)
             + hand_species_counts.get("crosscurrent", 0)
         )
-        bonus += min(2.4, 0.22 * n_uncharted)
+        bonus += min(2.8, 0.30 * n_uncharted)
     if "per yellowfin tuna" in t:
-        bonus += min(2.8, 0.45 * (board_names.count("yellowfin tuna") + hand_name_counts.get("yellowfin tuna", 0)))
+        bonus += min(3.4, 0.55 * (board_names.count("yellowfin tuna") + hand_name_counts.get("yellowfin tuna", 0)))
+    # Ocean All-Blue: bonus for playing oceans when hand is ocean-heavy.
+    hand_ocean_count = sum(1 for entry_uid in player.hand if any(
+        is_ocean(gs.card_db[fu]) for fu in entry_faces(ms, entry_uid) if fu in gs.card_db
+    ))
+    if is_ocean(card) and hand_ocean_count >= 2:
+        bonus += min(2.0, 0.50 * hand_ocean_count)
 
     bait_support = sum(1 for s in board_species if s == "baitfish") + hand_species_counts.get("baitfish", 0)
     ceph_support = sum(1 for s in board_species if s == "cephalopod") + hand_species_counts.get("cephalopod", 0)
     goby_support = board_names.count("mandarin goby") + hand_name_counts.get("mandarin goby", 0)
     gamefish_support = sum(1 for s in board_species if s == "game fish") + hand_species_counts.get("game fish", 0)
     if cname in {"hermit crab", "whale shark", "roosterfish"}:
-        bonus += min(2.8, 0.55 * bait_support)
-    if cname in {"reef trigger fish", "manta ray"}:
-        bonus += min(2.8, 0.60 * ceph_support)
+        bonus += min(3.4, 0.70 * bait_support)
+    if cname in {"reef trigger fish", "reef triggerfish", "manta ray"}:
+        bonus += min(3.4, 0.75 * ceph_support)
     if cname == "spiny lobster":
-        bonus += min(2.8, 0.75 * goby_support)
+        bonus += min(3.4, 0.90 * goby_support)
     if cname == "california seagull":
         crust_support = sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)
-        bonus += min(2.4, 0.45 * crust_support)
+        bonus += min(3.0, 0.60 * crust_support)
     if cname == "sea cucumber":
-        bonus += min(1.6, 0.35 * gamefish_support)
+        bonus += min(2.2, 0.48 * gamefish_support)
     if cname == "loggerhead sea turtle":
         cheap_hand = 0
         for entry_uid in player.hand:
@@ -3565,116 +3573,148 @@ def update_strategy_family_stats(brain: Dict[str, object], gs: GameState, player
 
 def default_archetype_profiles() -> List[Dict[str, Any]]:
     return [
+        # ── Beginner ─────────────────────────────────────────────────────────
         {
-            "label": "Birds",
-            "species": ["bird"],
+            # "The All Blue" — maximize ocean cards for easy board presence.
+            "label": "Ocean All Blue",
+            "species": ["ocean", "coral"],
             "names": [
-                "emperor penguin",
-                "horned puffin",
-                "california seagull",
-                "peruvian pelican",
-                "great albatross",
-                "osprey",
-                "magnificent frigatebird",
-                "razorbill auk",
+                "mangrove", "great albatross", "tide pool", "artificial reef",
+                "coral reef", "arctic ocean", "deep ocean", "kelp forest", "pier",
             ],
-            "name_contains": ["penguin", "puffin", "seagull", "pelican", "albatross", "osprey", "frigatebird", "auk"],
-            "text_keywords": ["per bird"],
-            # Bird variant support package:
-            # California Seagull + crustaceans, and Sea Urchin with bird-heavy boards.
-            "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin"],
+            "name_contains": ["ocean", "reef", "tide", "mangrove", "kelp", "pier"],
+            "text_keywords": ["place an ocean", "ocean card", "per ocean"],
+            "support_names": ["coral reef", "artificial reef", "kelp forest", "deep ocean"],
         },
         {
-            "label": "Baitfish Engine",
-            "species": ["baitfish"],
+            # Yellowfin Tuna — stack fish in one ocean to maximize space and scoring.
+            "label": "Yellowfin Tuna Stack",
+            "species": ["game fish"],
             "names": [
-                "mullet",
-                "bunker",
-                "sardine",
-                "flying fish",
-                "bonito",
-                "amberjack",
-                "whale shark",
+                "yellowfin tuna", "bigeye tuna", "big eye tuna", "sea cucumber",
+                "artificial reef", "clownfish",
             ],
-            "name_contains": [],
-            "text_keywords": ["baitfish", "whale shark", "amberjack", "per baitfish", "sharing an ocean with baitfish"],
-            "support_names": ["sea cucumber", "sea urchin", "hermit crab", "loggerhead sea turtle", "roosterfish"],
-        },
-        {
-            "label": "Yellowfin BigEye Cleaner",
-            "species": [],
-            "names": ["yellowfin tuna", "big eye tuna", "cleaner wrasse", "sailfish", "clownfish"],
-            "name_contains": [],
-            "text_keywords": ["yellowfin tuna", "big eye tuna", "cleaner wrasse", "free game fish"],
+            "name_contains": ["yellowfin", "bigeye", "big eye"],
+            "text_keywords": ["yellowfin tuna", "big eye tuna", "free game fish", "cleaner wrasse"],
             "support_names": ["sea cucumber", "artificial reef", "clownfish"],
         },
         {
-            "label": "Mammals Sharks",
+            # Mammals — simple stack of dolphins/sharks/narwhals for steady scoring.
+            "label": "Mammals",
             "species": ["mammal"],
             "names": [
-                "great white shark",
-                "spinner dolphin",
-                "bottlenose dolphin",
-                "narwhal",
+                "great white shark", "spinner dolphin", "bottlenose dolphin", "narwhal",
+                "blue tang",
             ],
-            "name_contains": ["dolphin", "shark"],
+            "name_contains": ["dolphin", "shark", "narwhal", "whale"],
             "text_keywords": ["per mammal", "free mammal"],
             "support_names": [
-                "elk horn coral",
-                "staghorn coral",
-                "stagehorn coral",
-                "deep sea coral",
-                "red tree coral",
-                "king salmon",
+                "elk horn coral", "elkhorn coral", "staghorn coral", "deep sea coral",
+                "red tree coral", "blue tang",
             ],
         },
+        # ── Intermediate ─────────────────────────────────────────────────────
         {
+            # Baitfish Barrage — flood board with baitfish, scale with predators.
+            "label": "Baitfish Barrage",
+            "species": ["baitfish"],
+            "names": [
+                "whale shark", "hermit crab", "roosterfish",
+                "mullet", "bunker", "sardine", "flying fish", "bonito", "amberjack",
+            ],
+            "name_contains": [],
+            "text_keywords": ["baitfish", "per baitfish", "sharing an ocean with baitfish", "whale shark"],
+            "support_names": ["sea cucumber", "sea urchin", "hermit crab", "loggerhead sea turtle", "roosterfish"],
+        },
+        # ── Advanced ─────────────────────────────────────────────────────────
+        {
+            # Bird/Lobster (B-Lob) — birds + invertebrate synergies.
+            "label": "Bird Lobster",
+            "species": ["bird", "crustacean"],
+            "names": [
+                "emperor penguin", "razorbill auk", "california seagull", "horned puffin",
+                "peruvian pelican", "lobster", "mantis shrimp", "artificial reef",
+                "sea star", "common sea star", "clownfish",
+            ],
+            "name_contains": ["penguin", "puffin", "seagull", "pelican", "auk", "lobster"],
+            "text_keywords": ["per bird", "california seagull", "crustacean"],
+            "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin", "sea star"],
+        },
+        {
+            # Bird/Coral (B-Coral) — high-scoring birds + coral passive generation.
+            "label": "Bird Coral",
+            "species": ["bird", "coral"],
+            "names": [
+                "emperor penguin", "horned puffin", "peruvian pelican", "razorbill auk",
+                "magnificent frigatebird", "staghorn coral", "deep sea coral",
+                "grooved brain coral", "elkhorn coral", "elk horn coral", "coral reef",
+            ],
+            "name_contains": ["penguin", "puffin", "pelican", "auk", "frigatebird", "coral"],
+            "text_keywords": ["per bird", "magnificent frigatebird", "coral"],
+            "support_names": ["staghorn coral", "deep sea coral", "grooved brain coral", "elkhorn coral"],
+        },
+        {
+            # Coral/Cephalopods (CC) — coral base + cephalopod explosive turns.
+            "label": "Coral Cephalopods",
+            "species": ["cephalopod", "coral"],
+            "names": [
+                "grooved brain coral", "staghorn coral", "deep sea coral", "elkhorn coral",
+                "elk horn coral", "reef triggerfish", "reef trigger fish", "manta ray",
+                "giant squid", "bobtail squid", "common octopus", "cuttlefish",
+            ],
+            "name_contains": ["octopus", "squid", "cuttlefish", "coral"],
+            "text_keywords": ["cephalopod", "per cephalopod", "at least three cephalopods", "reef trigger fish"],
+            "support_names": ["manta ray", "blue tang", "grooved brain coral"],
+        },
+        # ── Expert ───────────────────────────────────────────────────────────
+        {
+            # Goby "Shooting the Moon" — high-risk Goby + Spiny Lobster combo.
+            "label": "Goby Moon Shot",
+            "species": ["crosscurrent", "n/a", "crustacean"],
+            "names": [
+                "mandarin goby", "spiny lobster", "blue tang",
+                "sea star", "common sea star",
+            ],
+            "name_contains": ["goby", "spiny"],
+            "text_keywords": ["mandarin goby", "spiny lobster", "crosscurrent animal"],
+            "support_names": ["california seagull", "artificial reef", "clownfish", "sea star", "blue tang"],
+        },
+        # ── Support / Hybrid ─────────────────────────────────────────────────
+        {
+            # Generic birds catch-all for any bird-heavy opening hand.
+            "label": "Birds",
+            "species": ["bird"],
+            "names": [
+                "emperor penguin", "horned puffin", "california seagull", "peruvian pelican",
+                "great albatross", "osprey", "magnificent frigatebird", "razorbill auk",
+            ],
+            "name_contains": ["penguin", "puffin", "seagull", "pelican", "albatross", "osprey", "frigatebird", "auk"],
+            "text_keywords": ["per bird"],
+            "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin"],
+        },
+        {
+            # Cephalopods-only for hands heavy on squids/octopus without much coral.
             "label": "Cephalopods",
             "species": ["cephalopod"],
             "names": [
-                "reef trigger fish",
-                "reef triggerfish",
-                "bobtail squid",
-                "cuttlefish",
-                "common octopus",
-                "giant squid",
-                "manta ray",
+                "reef trigger fish", "reef triggerfish", "bobtail squid", "cuttlefish",
+                "common octopus", "giant squid", "manta ray",
             ],
             "name_contains": ["octopus", "squid", "cuttlefish"],
-            "text_keywords": ["cephalopod", "reef trigger fish", "at least three cephalopods", "free cephalopods", "draw one when you play a cephalopod"],
-            "support_names": [
-                "manta ray",
-                "blue tang",
-            ],
+            "text_keywords": ["cephalopod", "free cephalopods", "draw one when you play a cephalopod"],
+            "support_names": ["manta ray", "blue tang"],
         },
         {
-            "label": "Goby Spiny Combo",
-            "species": ["crosscurrent", "n/a", "crustacean"],
-            "names": [
-                "mandarin goby",
-                "spiny lobster",
-                "blue tang",
-            ],
-            "name_contains": ["goby", "spiny", "tang"],
-            "text_keywords": ["mandarin goby", "spiny lobster", "crosscurrent animal"],
-            "support_names": ["california seagull", "artificial reef", "clownfish", "common sea star", "sea star"],
-        },
-        {
+            # King Salmon / Coral Fill — fill oceans for bonus scoring.
             "label": "King Salmon Coral Fill",
             "species": ["coral", "game fish"],
             "names": [
-                "king salmon",
-                "red tree coral",
-                "clownfish",
-                "artificial reef",
-                "coral reef",
-                "staghorn coral",
-                "elk horn coral",
-                "deep sea coral",
+                "king salmon", "red tree coral", "clownfish", "artificial reef",
+                "coral reef", "staghorn coral", "elk horn coral", "elkhorn coral", "deep sea coral",
             ],
             "name_contains": [],
             "text_keywords": ["fully occupied ocean", "sharing an ocean with a king salmon", "card attached"],
-            "support_names": ["common sea star", "sea star", "sea urchin", "sea anemone", "bottlenose dolphin"],
+            "support_names": ["sea star", "common sea star", "sea urchin", "sea anemone", "bottlenose dolphin"],
         },
     ]
 
@@ -4566,19 +4606,20 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
     losers = [p for p in ranked if scores[p.name] < top_score]
 
     # Learn card combinations from winners and dampen losing combinations.
+    # Rates are 2-3× higher than self-play to learn fast from real human games.
     for p in winners:
         names = [gs.card_db[uid].name for uid in player_board_face_uids(p)]
         for i in range(len(names)):
             for j in range(i + 1, len(names)):
                 k = synergy_key(names[i], names[j])
-                synergy_map[k] = float(synergy_map.get(k, 0.0) + 0.05)
+                synergy_map[k] = float(synergy_map.get(k, 0.0) + 0.14)
 
     for p in losers:
         names = [gs.card_db[uid].name for uid in player_board_face_uids(p)]
         for i in range(len(names)):
             for j in range(i + 1, len(names)):
                 k = synergy_key(names[i], names[j])
-                synergy_map[k] = float(synergy_map.get(k, 0.0) - 0.01)
+                synergy_map[k] = float(synergy_map.get(k, 0.0) - 0.04)
 
     # Learn species combinations from winners and dampen loser species mixes.
     for p in winners:
@@ -4587,7 +4628,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         for i in range(len(species)):
             for j in range(i + 1, len(species)):
                 k = species_synergy_key(species[i], species[j])
-                species_map[k] = float(species_map.get(k, 0.0) + 0.04)
+                species_map[k] = float(species_map.get(k, 0.0) + 0.10)
 
     for p in losers:
         species = [gs.card_db[uid].species for uid in player_board_face_uids(p)]
@@ -4595,16 +4636,16 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         for i in range(len(species)):
             for j in range(i + 1, len(species)):
                 k = species_synergy_key(species[i], species[j])
-                species_map[k] = float(species_map.get(k, 0.0) - 0.01)
+                species_map[k] = float(species_map.get(k, 0.0) - 0.03)
 
-    # Learn same-ocean card combinations more strongly.
+    # Learn same-ocean card combinations more strongly (highest-signal feature).
     for p in winners:
         for ocean_uid in p.board_oceans:
             local = [gs.card_db[uid].name for uid in p.ocean_slots[ocean_uid].all_cards()]
             for i in range(len(local)):
                 for j in range(i + 1, len(local)):
                     k = synergy_key(local[i], local[j])
-                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) + 0.08)
+                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) + 0.20)
 
     for p in losers:
         for ocean_uid in p.board_oceans:
@@ -4612,7 +4653,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
             for i in range(len(local)):
                 for j in range(i + 1, len(local)):
                     k = synergy_key(local[i], local[j])
-                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) - 0.02)
+                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) - 0.05)
 
     # Keep map bounded in size and magnitude.
     for k in list(synergy_map.keys()):
