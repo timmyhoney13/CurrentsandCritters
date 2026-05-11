@@ -2031,6 +2031,27 @@
          2px  2px 0 #2b4f6d,
          0 6px 14px rgba(44,97,141,.35);
     }
+    /* Use the background artwork as the visible login UI; keep front controls clickable only. */
+    #auth-step-choose.auth-box {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+    #auth-screen .auth-logo,
+    #auth-step-choose .auth-title,
+    #auth-step-choose .auth-subtitle,
+    #auth-step-choose .auth-err {
+      visibility: hidden;
+    }
+    #auth-step-choose .pv-btn,
+    #auth-step-choose .auth-btn-google {
+      color: transparent !important;
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+      text-shadow: none !important;
+    }
     .auth-box {
       background: rgba(11,36,72,.9); border: 1px solid rgba(58,120,204,.45);
       border-radius: 14px; padding: 22px 20px;
@@ -2129,13 +2150,10 @@
       padding: 34px 46px 40px;
       border-radius: 28px;
       border: 1px solid rgba(216,248,255,.66);
-      background:
-        linear-gradient(180deg, rgba(145,212,230,.88) 0%, rgba(110,193,216,.86) 100%);
-      box-shadow:
-        0 14px 42px rgba(21,94,139,.25),
-        inset 0 1px 0 rgba(227,251,255,.55);
+      background: transparent;
+      box-shadow: none;
       gap: 18px;
-      backdrop-filter: blur(2px);
+      backdrop-filter: none;
       justify-content: center;
     }
     #auth-step-choose .auth-title {
@@ -2183,8 +2201,8 @@
     #auth-step-choose .pv-btn:hover,
     #auth-step-choose .auth-btn-google:hover {
       transform: translateY(-1px);
-      box-shadow: 0 12px 20px rgba(20,93,141,.24);
-      filter: saturate(1.02);
+      box-shadow: none;
+      filter: none;
     }
     #auth-step-choose #auth-guest-btn {
       background: #f3e2ae;
