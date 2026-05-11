@@ -2306,6 +2306,7 @@
       align-items: center;
       gap: 10px;
       min-width: 0;
+      flex-wrap: wrap;
     }
     .ph-pname {
       font-size: clamp(1.5rem, 2.7vw, 3rem);
@@ -2317,6 +2318,35 @@
       text-overflow: ellipsis;
     }
     .ph-verified { flex-shrink: 0; }
+    .ph-name-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      min-width: 0;
+      white-space: nowrap;
+    }
+    .ph-name-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(110,151,190,.45);
+      background: rgba(247,252,255,.92);
+      color: #4a6888;
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .01em;
+      line-height: 1;
+    }
+    .ph-name-chip.level {
+      color: #1e63b8;
+      border-color: rgba(74,139,212,.42);
+      background: rgba(234,245,255,.95);
+    }
+    .ph-name-chip.active {
+      color: #567494;
+    }
     .ph-pfc {
       font-size: 1.12rem;
       color: #2b6ec3;
@@ -2973,6 +3003,13 @@
     .ph-verified {
       width: 27px;
       height: 27px;
+    }
+    .ph-name-meta {
+      gap: 6px;
+    }
+    .ph-name-chip {
+      font-size: .74rem;
+      padding: 4px 8px;
     }
     .ph-pfc {
       font-size: 1.01rem;
@@ -4075,6 +4112,10 @@
         <div class="ph-pname-row">
           <div class="ph-pname" id="stats-lobby-nick">—</div>
           <svg class="ph-verified" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V5l7-3z" fill="#1d73da"/><path d="M12 6v9M9 9h6M10 12h4" stroke="#f8fdff" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <div class="ph-name-meta">
+            <span class="ph-name-chip level" id="stats-name-level">Level 1</span>
+            <span class="ph-name-chip active" id="stats-name-active">Active now</span>
+          </div>
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
       </div>
@@ -9544,6 +9585,15 @@
         const payload = { online: isOnline };
         if (isOnline) payload.last_active = firebase.firestore.FieldValue.serverTimestamp();
         await _db.collection("users").doc(uid).update(payload);
+        if (_authUser && _authUser.uid === uid) {
+          _activeProfile = {
+            ...(_activeProfile || {}),
+            uid,
+            online: !!isOnline,
+            last_active: isOnline ? new Date() : (_activeProfile?.last_active || null),
+          };
+          syncStatsHeader(_activeProfile);
+        }
       } catch { /* best-effort */ }
     }
     function startPresencePing(uid) {
@@ -9862,10 +9912,60 @@
       return `Friend code: ${name}#${code}`;
     }
 
+    function toDateFromFirestoreLike(value) {
+      if (!value) return null;
+      if (value instanceof Date) return value;
+      if (typeof value.toDate === "function") {
+        try {
+          const d = value.toDate();
+          return d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+        } catch {
+          return null;
+        }
+      }
+      if (typeof value.seconds === "number") {
+        const ms = value.seconds * 1000 + Math.floor((Number(value.nanoseconds || 0) || 0) / 1000000);
+        const d = new Date(ms);
+        return Number.isNaN(d.getTime()) ? null : d;
+      }
+      const d = new Date(value);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+
+    function formatLastActiveLabel(profile) {
+      if (!_authUser && _guestSessionActive) return "Active now";
+      const date = toDateFromFirestoreLike(profile?.last_active);
+      if (!date) return "Last active: —";
+      const diff = Math.max(0, Date.now() - date.getTime());
+      const mins = Math.floor(diff / 60000);
+      if (mins <= 1) return "Active now";
+      if (mins < 60) return `Active ${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `Active ${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `Active ${days}d ago`;
+      return `Active ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    }
+
+    function resolveHeaderLevel(statsSource) {
+      const src = (statsSource && typeof statsSource === "object") ? statsSource : {};
+      const progress = getLevelProgressFromTotalXp(getStoredTotalXp(src));
+      return progress.level;
+    }
+
     function syncStatsHeader(profile) {
-      if (profile && typeof profile === "object") {
-        _playerNickname = String(profile.nickname || "").trim();
-        _friendCode = profile.friend_code ? String(profile.friend_code).trim() : "";
+      const incomingProfile = (profile && typeof profile === "object") ? profile : null;
+      const currentAccountProfile = (_authUser && _activeProfile && _activeProfile.uid === _authUser.uid)
+        ? _activeProfile
+        : null;
+      const incomingMatchesCurrentUid = !!(_authUser && incomingProfile && incomingProfile.uid === _authUser.uid);
+      const headerProfile = _authUser
+        ? (incomingMatchesCurrentUid ? incomingProfile : currentAccountProfile)
+        : (incomingProfile || _activeProfile || null);
+
+      if (headerProfile && typeof headerProfile === "object") {
+        _playerNickname = String(headerProfile.nickname || "").trim();
+        _friendCode = headerProfile.friend_code ? String(headerProfile.friend_code).trim() : "";
       } else if (_authUser) {
         // Prevent cross-account bleed when profile data is not yet loaded.
         _playerNickname = "";
@@ -9884,7 +9984,21 @@
       if (profileBarName) profileBarName.textContent = nick;
       if (profileBarFc) profileBarFc.textContent = _friendCode ? "#" + _friendCode : "";
       if (fcDisplay) fcDisplay.textContent = _friendCode || "—";
-      renderStatsAvatar(profile || _activeProfile, nick);
+
+      const statsSource =
+        (headerProfile && typeof headerProfile.stats === "object" ? headerProfile.stats : null)
+        || (_guestSessionActive ? loadGuestStats(_playerNickname || "guest") : null)
+        || {};
+      const levelChip = $a("stats-name-level");
+      if (levelChip) levelChip.textContent = `Level ${resolveHeaderLevel(statsSource)}`;
+      const activeSourceProfile =
+        (headerProfile ? headerProfile : null)
+        || (!_authUser && _guestSessionActive ? _activeProfile : null)
+        || null;
+      const activeChip = $a("stats-name-active");
+      if (activeChip) activeChip.textContent = formatLastActiveLabel(activeSourceProfile);
+
+      renderStatsAvatar(headerProfile || _activeProfile, nick);
     }
 
     function setStatsAvatarClickable(enabled) {
@@ -9999,6 +10113,12 @@
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
       _guestSessionActive = !_authUser;
+      _activeProfile = {
+        ...(_activeProfile || {}),
+        nickname: _playerNickname,
+        friend_code: _friendCode,
+        last_active: new Date(),
+      };
       lockNameInputs(_playerNickname);
       if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
