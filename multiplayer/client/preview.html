@@ -1982,11 +1982,7 @@
     #auth-loading-screen.hidden { display: none; }
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
-      background:
-        radial-gradient(68% 54% at 50% 17%, rgba(58,171,225,.72) 0%, rgba(58,171,225,.36) 62%, rgba(58,171,225,0) 100%),
-        radial-gradient(58% 42% at 15% 73%, rgba(158,178,238,.58) 0%, rgba(158,178,238,0) 100%),
-        radial-gradient(56% 42% at 84% 71%, rgba(171,183,238,.52) 0%, rgba(171,183,238,0) 100%),
-        linear-gradient(180deg, #f5ddb7 0%, #90d5ed 30%, #49b8ea 100%);
+      background: linear-gradient(180deg, #a4ddee 0%, #75c7e4 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -1997,12 +1993,11 @@
     #auth-screen::before {
       content: "";
       position: absolute;
-      inset: -5% -7%;
-      background:
-        radial-gradient(28% 14% at 14% 44%, rgba(130,211,236,.75) 0%, rgba(130,211,236,0) 100%),
-        radial-gradient(31% 14% at 84% 45%, rgba(126,214,238,.72) 0%, rgba(126,214,238,0) 100%),
-        radial-gradient(39% 22% at 50% 92%, rgba(62,160,224,.72) 0%, rgba(62,160,224,0) 100%),
-        radial-gradient(37% 16% at 50% 8%, rgba(66,178,232,.74) 0%, rgba(66,178,232,0) 100%);
+      inset: -8%;
+      background: url("/multiplayer/client/auth-signin-reference.png") center center / cover no-repeat;
+      transform: scale(1.1);
+      filter: blur(20px) saturate(1.06);
+      opacity: .95;
       pointer-events: none;
       z-index: 0;
     }
@@ -2011,18 +2006,11 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(30px 14px at 18% 18%, rgba(180,227,122,.74) 0%, rgba(180,227,122,0) 100%),
-        radial-gradient(26px 12px at 24% 26%, rgba(186,234,130,.72) 0%, rgba(186,234,130,0) 100%),
-        radial-gradient(34px 15px at 78% 21%, rgba(176,227,122,.72) 0%, rgba(176,227,122,0) 100%),
-        radial-gradient(28px 13px at 71% 34%, rgba(180,230,126,.72) 0%, rgba(180,230,126,0) 100%),
-        radial-gradient(36px 15px at 14% 57%, rgba(172,228,120,.66) 0%, rgba(172,228,120,0) 100%),
-        radial-gradient(32px 14px at 84% 61%, rgba(168,222,116,.66) 0%, rgba(168,222,116,0) 100%),
-        radial-gradient(28px 12px at 50% 84%, rgba(170,226,120,.62) 0%, rgba(170,226,120,0) 100%),
-        radial-gradient(36px 16px at 54% 15%, rgba(150,213,249,.35) 0%, rgba(150,213,249,0) 100%),
-        radial-gradient(28px 13px at 63% 80%, rgba(144,209,246,.32) 0%, rgba(144,209,246,0) 100%);
+        radial-gradient(88% 62% at 50% 46%, rgba(166,227,242,.52) 0%, rgba(166,227,242,.34) 54%, rgba(166,227,242,.2) 100%),
+        linear-gradient(180deg, rgba(216,241,247,.2) 0%, rgba(120,194,223,.24) 42%, rgba(99,182,215,.28) 100%);
       pointer-events: none;
       z-index: 0;
-      opacity: .9;
+      opacity: .93;
       mix-blend-mode: normal;
     }
     #auth-screen > * { position: relative; z-index: 1; }
