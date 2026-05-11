@@ -13,9 +13,43 @@
   <script>
     (function() {
       var GAME_HOST = "currentsandcritters-1.onrender.com";
-      if (location.hostname !== GAME_HOST && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-        var dest = "https://" + GAME_HOST + location.pathname + location.search + location.hash;
-        window.location.replace(dest);
+      var LOCAL_HOSTS = { "localhost": true, "127.0.0.1": true };
+      var ROOM_PATH_RE = /^\/(?:play|preview|classic)\/[A-Z0-9]{5,8}\/?$/i;
+
+      function normalizeRenderPath(pathname) {
+        var p = String(pathname || "/");
+        if (ROOM_PATH_RE.test(p)) {
+          return p
+            .replace(/^\/preview\//i, "/play/")
+            .replace(/^\/classic\//i, "/play/");
+        }
+        if (/^\/(?:game|preview|classic|old)\/?$/i.test(p)) return "/";
+        if (p === "/" || p === "/index.html") return "/";
+        if (p === "/multiplayer/client/preview.html" || p === "/multiplayer/client/index.html") return "/";
+        return "/";
+      }
+
+      // Local file open (file:///...) should always jump to a valid live URL.
+      if (location.protocol === "file:") {
+        window.location.replace("https://" + GAME_HOST + "/");
+        return;
+      }
+
+      // Keep local dev endpoints untouched.
+      if (LOCAL_HOSTS[location.hostname]) return;
+
+      var normalizedPath = normalizeRenderPath(location.pathname);
+      var search = location.search || "";
+      var hash = location.hash || "";
+
+      if (location.hostname !== GAME_HOST) {
+        window.location.replace("https://" + GAME_HOST + normalizedPath + search + hash);
+        return;
+      }
+
+      // If we are already on Render but at a legacy/non-canonical path, normalize it.
+      if (location.pathname !== normalizedPath) {
+        window.location.replace(normalizedPath + search + hash);
       }
     })();
   </script>
@@ -3117,17 +3151,21 @@
       overflow: hidden;
       display: grid;
       grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 1px;
       flex: 1 1 540px;
       min-width: 0;
       max-width: 560px;
     }
     .ph-pc {
+      box-sizing: border-box;
+      border-right: none;
       min-width: 0;
       width: 100%;
       height: 41px;
       font-size: .98rem;
       font-weight: 700;
       color: #4c6788;
+      background: #f8fbff;
       padding-left: 0;
       padding-right: 0;
     }
@@ -3157,12 +3195,6 @@
         grid-template-columns: repeat(4, minmax(0, 1fr));
       }
       .ph-pc {
-        border-bottom: 1px solid #ddeaf5;
-      }
-      .ph-pc:nth-child(4n) {
-        border-right: none;
-      }
-      .ph-pc:nth-child(n+5) {
         border-bottom: none;
       }
     }
@@ -4050,14 +4082,14 @@
         <div class="ph-rank-badge ph-rank-level">
           <div class="ph-rank-type">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1C3.24 1 1 3.24 1 6s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0 9c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z" fill="#1a6aaa"/><path d="M6 3C4.34 3 3 4.34 3 6s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" fill="#5aace0"/></svg>
-            <span id="stat-level-label">Level 7</span>
+            <span id="stat-level-label">Level 1</span>
           </div>
           <div class="ph-rank-val" id="stat-level-title">Ocean Explorer</div>
           <div class="ph-level-xp-wrap">
             <div class="ph-level-xp-bar">
               <div class="ph-level-xp-fill" id="stat-level-xp-fill"></div>
             </div>
-            <div class="ph-level-xp-text" id="stat-level-xp-text">340 / 500 XP</div>
+            <div class="ph-level-xp-text" id="stat-level-xp-text">0 / 50 XP</div>
           </div>
         </div>
         <div class="ph-rank-badge ph-rank-comp">
@@ -4082,7 +4114,7 @@
 
     <!-- Guest notice -->
     <div id="stats-guest-notice" class="ph-guest-notice" style="display:none;">
-      Playing as guest — games, scores, and stats won't be saved.
+      Playing as guest — progress is saved on this device for this guest nickname.
       <span id="stats-guest-signin-link" style="color:#a08010;cursor:pointer;font-weight:700;margin-left:4px;">Create a free account →</span>
     </div>
 
@@ -8896,11 +8928,88 @@
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
   let _lastSavedWinner = null;
+  const LEVEL_XP_TOTALS = [
+    0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
+    4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
+    23300, 26150, 29150, 32400, 35800, 39400, 43200, 47200, 51400, 55850,
+    60450, 65300, 70350, 75650, 81150, 86850, 92800, 99000, 105400, 112000,
+    118900, 126000, 133300, 140900, 148700, 156800, 165100, 173650, 182450, 191500,
+    200850, 210400, 220200, 230300, 240650, 251250, 262100, 273250, 284650, 296300,
+    308250, 320450, 332950, 345700, 358750, 372050, 385650, 399500, 413650, 428100,
+    442850, 457850, 473150, 488750, 504600, 520800, 537250, 554000, 571050, 588400,
+    606050, 624000, 642250, 660850, 679700, 698850, 718350, 738100, 758200, 778600,
+    800000, 825000, 852500, 882500, 915000, 950000, 987500, 1027500, 1070000, 1125000,
+  ];
+
+  function isLikelyAiName(name) {
+    const n = String(name || "").trim();
+    return /^ai\b/i.test(n) || /\bai player\b/i.test(n) || /\bbot\b/i.test(n);
+  }
+
+  function getPlacementRank(finalScores, myScore) {
+    const target = Number(myScore || 0);
+    const uniqueScores = [...new Set((Array.isArray(finalScores) ? finalScores : [])
+      .map(p => Number(p?.score || 0))
+      .filter(Number.isFinite)
+    )].sort((a, b) => b - a);
+    const idx = uniqueScores.findIndex(s => s === target);
+    return idx >= 0 ? (idx + 1) : uniqueScores.length + 1;
+  }
+
+  function getGameXpAward(finalScores, myScore) {
+    const rank = getPlacementRank(finalScores, myScore);
+    const hasAi = (Array.isArray(finalScores) ? finalScores : []).some(p => isLikelyAiName(p?.name))
+      || (Array.isArray(_latestPlayers) ? _latestPlayers : []).some(p => isLikelyAiName(p?.name));
+    if (rank <= 1) return hasAi ? 50 : 100;
+    if (rank === 2) return hasAi ? 25 : 50;
+    return hasAi ? 13 : 25;
+  }
+
+  function getStoredTotalXp(stats) {
+    const src = (stats && typeof stats === "object") ? stats : {};
+    const direct = Number(src.total_xp);
+    if (Number.isFinite(direct) && direct >= 0) return Math.floor(direct);
+    const lvlRaw = Number(src.level ?? src.player_level ?? 1);
+    const level = Number.isFinite(lvlRaw) && lvlRaw >= 1 ? Math.floor(lvlRaw) : 1;
+    const boundedLevel = Math.max(1, Math.min(LEVEL_XP_TOTALS.length, level));
+    const levelStart = LEVEL_XP_TOTALS[boundedLevel - 1] || 0;
+    const xpRaw = Number(src.xp_current ?? src.level_xp_current ?? 0);
+    const xpInto = Number.isFinite(xpRaw) && xpRaw >= 0 ? Math.floor(xpRaw) : 0;
+    return levelStart + xpInto;
+  }
+
+  function getLevelProgressFromTotalXp(totalXp) {
+    const totals = LEVEL_XP_TOTALS;
+    const maxLevel = totals.length;
+    const xp = Math.max(0, Math.floor(Number(totalXp) || 0));
+    let level = 1;
+    for (let i = maxLevel; i >= 1; i--) {
+      if (xp >= totals[i - 1]) {
+        level = i;
+        break;
+      }
+    }
+    if (level >= maxLevel) {
+      const cap = totals[maxLevel - 1];
+      return { totalXp: xp, level: maxLevel, xpCurrent: cap, xpGoal: cap };
+    }
+    const start = totals[level - 1];
+    const next = totals[level];
+    return {
+      totalXp: xp,
+      level,
+      xpCurrent: Math.max(0, xp - start),
+      xpGoal: Math.max(1, next - start),
+    };
+  }
+
   async function saveGameStats(winner, finalScores) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
     const myNick   = typeof window.__fishNickname === "function" ? window.__fishNickname() : "";
-    if (!authUser || !db || !winner) return;
+    const isGuestSession = typeof window.__fishIsGuest === "function" ? !!window.__fishIsGuest() : false;
+    if (!winner) return;
+    if ((!authUser || !db) && !isGuestSession) return;
     if (winner === _lastSavedWinner) return; // already saved this game result
     // Try exact match first, then case-insensitive, then by seat index
     const nickLower = (myNick || "").trim().toLowerCase();
@@ -8921,10 +9030,15 @@
     const isWinner   = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     const isComp     = typeof compMode !== "undefined" && compMode;
     const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
+    const xpAward = getGameXpAward(finalScores, myScore);
     try {
-      const docRef = db.collection("users").doc(authUser.uid);
-      const snap   = await docRef.get();
-      const cStats = (snap.data() || {}).stats || {};
+      const guestStatsGetter = (typeof window.__fishGuestStatsGet === "function") ? window.__fishGuestStatsGet : null;
+      const cStats = (authUser && db)
+        ? (((await db.collection("users").doc(authUser.uid).get()).data() || {}).stats || {})
+        : (guestStatsGetter ? (guestStatsGetter() || {}) : {});
+      const oldTotalXp = getStoredTotalXp(cStats);
+      const nextTotalXp = oldTotalXp + xpAward;
+      const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
       const myGameNameLower = String(myGameName || "").trim().toLowerCase();
       const oppNames = (Array.isArray(finalScores) ? finalScores : [])
         .map(p => String(p?.name || "").trim())
@@ -8941,39 +9055,86 @@
       };
       const existingRecent = Array.isArray(cStats.recent_games) ? cStats.recent_games : [];
       const nextRecent = [recentEntry, ...existingRecent].slice(0, 50);
-      const updates = {
-        "stats.completed_games": firebase.firestore.FieldValue.increment(1),
-        "stats.total_score": firebase.firestore.FieldValue.increment(myScore),
-        "stats.recent_games": nextRecent,
-      };
-      if (isWinner) {
-        if (isComp) updates["stats.competitive_wins"] = firebase.firestore.FieldValue.increment(1);
-        else        updates["stats.normal_wins"]       = firebase.firestore.FieldValue.increment(1);
-      }
-      if (isComp) {
-        if (myScore > (cStats.highest_score_competitive || 0)) {
-          updates["stats.highest_score_competitive"] = myScore;
+      const levelTitle = String(cStats.level_title || cStats.level_name || "Ocean Explorer");
+
+      if (authUser && db) {
+        const docRef = db.collection("users").doc(authUser.uid);
+        const updates = {
+          "stats.completed_games": firebase.firestore.FieldValue.increment(1),
+          "stats.total_score": firebase.firestore.FieldValue.increment(myScore),
+          "stats.total_xp": levelProgress.totalXp,
+          "stats.level": levelProgress.level,
+          "stats.player_level": levelProgress.level,
+          "stats.level_title": levelTitle,
+          "stats.xp_current": levelProgress.xpCurrent,
+          "stats.level_xp_current": levelProgress.xpCurrent,
+          "stats.xp_goal": levelProgress.xpGoal,
+          "stats.level_xp_goal": levelProgress.xpGoal,
+          "stats.last_game_xp": xpAward,
+          "stats.recent_games": nextRecent,
+        };
+        if (isWinner) {
+          if (isComp) updates["stats.competitive_wins"] = firebase.firestore.FieldValue.increment(1);
+          else        updates["stats.normal_wins"]       = firebase.firestore.FieldValue.increment(1);
         }
-      } else {
-        if (myScore > (cStats.highest_score_normal || 0)) {
-          updates["stats.highest_score_normal"] = myScore;
+        if (isComp) {
+          if (myScore > (cStats.highest_score_competitive || 0)) {
+            updates["stats.highest_score_competitive"] = myScore;
+          }
+        } else {
+          if (myScore > (cStats.highest_score_normal || 0)) {
+            updates["stats.highest_score_normal"] = myScore;
+          }
         }
+        if (myScore > (cStats.highest_score || 0)) updates["stats.highest_score"] = myScore;
+        if (playerCount >= 2 && playerCount <= 10) {
+          const pKey = `highest_score_${playerCount}p`;
+          if (myScore > (cStats[pKey] || 0)) updates[`stats.${pKey}`] = myScore;
+          const sizeField = isComp
+            ? `stats.comp_games_by_size.${playerCount}`
+            : `stats.normal_games_by_size.${playerCount}`;
+          updates[sizeField] = firebase.firestore.FieldValue.increment(1);
+        }
+        await docRef.update(updates);
+      } else if (isGuestSession) {
+        const saveGuest = (typeof window.__fishGuestStatsSave === "function") ? window.__fishGuestStatsSave : null;
+        const nextStats = { ...(cStats && typeof cStats === "object" ? cStats : {}) };
+        nextStats.completed_games = Number(nextStats.completed_games || 0) + 1;
+        nextStats.total_score = Number(nextStats.total_score || 0) + myScore;
+        nextStats.total_xp = levelProgress.totalXp;
+        nextStats.level = levelProgress.level;
+        nextStats.player_level = levelProgress.level;
+        nextStats.level_title = levelTitle;
+        nextStats.xp_current = levelProgress.xpCurrent;
+        nextStats.level_xp_current = levelProgress.xpCurrent;
+        nextStats.xp_goal = levelProgress.xpGoal;
+        nextStats.level_xp_goal = levelProgress.xpGoal;
+        nextStats.last_game_xp = xpAward;
+        nextStats.recent_games = nextRecent;
+
+        if (isWinner) {
+          if (isComp) nextStats.competitive_wins = Number(nextStats.competitive_wins || 0) + 1;
+          else        nextStats.normal_wins = Number(nextStats.normal_wins || 0) + 1;
+        }
+        if (isComp) {
+          nextStats.highest_score_competitive = Math.max(Number(nextStats.highest_score_competitive || 0), myScore);
+        } else {
+          nextStats.highest_score_normal = Math.max(Number(nextStats.highest_score_normal || 0), myScore);
+        }
+        nextStats.highest_score = Math.max(Number(nextStats.highest_score || 0), myScore);
+
+        if (playerCount >= 2 && playerCount <= 10) {
+          const pKey = `highest_score_${playerCount}p`;
+          nextStats[pKey] = Math.max(Number(nextStats[pKey] || 0), myScore);
+          const mapKey = isComp ? "comp_games_by_size" : "normal_games_by_size";
+          const sizeMap = { ...(nextStats[mapKey] && typeof nextStats[mapKey] === "object" ? nextStats[mapKey] : {}) };
+          const sizeKey = String(playerCount);
+          sizeMap[sizeKey] = Number(sizeMap[sizeKey] || 0) + 1;
+          nextStats[mapKey] = sizeMap;
+        }
+
+        if (saveGuest) saveGuest(nextStats);
       }
-      // Update overall high score
-      if (myScore > (cStats.highest_score || 0)) updates["stats.highest_score"] = myScore;
-      // Update per-player-count high score (2p–10p)
-      if (playerCount >= 2 && playerCount <= 10) {
-        const pKey = `highest_score_${playerCount}p`;
-        if (myScore > (cStats[pKey] || 0)) updates[`stats.${pKey}`] = myScore;
-      }
-      // Track games played by player count for pie charts
-      if (playerCount >= 2 && playerCount <= 10) {
-        const sizeField = isComp
-          ? `stats.comp_games_by_size.${playerCount}`
-          : `stats.normal_games_by_size.${playerCount}`;
-        updates[sizeField] = firebase.firestore.FieldValue.increment(1);
-      }
-      await docRef.update(updates);
     } catch(e) {
       console.warn("Could not save game stats:", e);
     }
@@ -9120,8 +9281,8 @@
 
   // ═══════════════════════════════════════════════════════════════
   // AUTH / PROFILE / FRIENDS SYSTEM
-  // Guests: nickname stored in localStorage — persists across sessions.
-  // Signed-in: nickname + friend code stored in Firestore.
+  // Guests: nickname/avatar/stats stored in localStorage (device-local persistence).
+  // Signed-in: profile/stats stored per Firebase UID in Firestore.
   // ═══════════════════════════════════════════════════════════════
   (function() {
     "use strict";
@@ -9137,6 +9298,7 @@
     let _pendingOnboardingUid = "";
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
+    const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
 
     function firebaseConfigured() {
       const c = window.__FISH_FIREBASE_CONFIG;
@@ -9211,6 +9373,59 @@
       const normalized = normalizeAvatarUrl(url);
       if (AVATAR_OPTIONS.includes(normalized)) return normalized;
       return getDefaultAvatar(seed);
+    }
+
+    function guestStatsKeyForNickname(nickname) {
+      const raw = String(nickname || "").trim().toLowerCase();
+      return GUEST_STATS_KEY_PREFIX + (raw || "guest");
+    }
+
+    function defaultGuestStats() {
+      return {
+        completed_games: 0,
+        normal_wins: 0,
+        competitive_wins: 0,
+        total_score: 0,
+        highest_score: 0,
+        highest_score_normal: 0,
+        highest_score_competitive: 0,
+        normal_games_by_size: {},
+        comp_games_by_size: {},
+        recent_games: [],
+        total_xp: 0,
+        level: 1,
+        player_level: 1,
+        level_title: "Ocean Explorer",
+        xp_current: 0,
+        level_xp_current: 0,
+        xp_goal: 50,
+        level_xp_goal: 50,
+        last_game_xp: 0,
+      };
+    }
+
+    function loadGuestStats(nickname) {
+      try {
+        const key = guestStatsKeyForNickname(nickname);
+        const raw = localStorage.getItem(key);
+        if (!raw) return defaultGuestStats();
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return defaultGuestStats();
+        return { ...defaultGuestStats(), ...parsed };
+      } catch {
+        return defaultGuestStats();
+      }
+    }
+
+    function saveGuestStats(nickname, stats) {
+      if (!nickname) return;
+      try {
+        const key = guestStatsKeyForNickname(nickname);
+        const safe = { ...defaultGuestStats(), ...(stats && typeof stats === "object" ? stats : {}) };
+        localStorage.setItem(key, JSON.stringify(safe));
+      } catch {
+        // best-effort
+      }
     }
 
     function hasStoredNickname(profile) {
@@ -9302,6 +9517,7 @@
         online:         true,
         last_active:    firebase.firestore.FieldValue.serverTimestamp(),
         created_at:     firebase.firestore.FieldValue.serverTimestamp(),
+        stats:          defaultGuestStats(),
       };
       await _db.collection("users").doc(uid).set(data, { merge: true });
       const fcKey = nick.toLowerCase() + "_" + code;
@@ -9859,7 +10075,7 @@
           avatar_url: sanitizeSelectableAvatar(_guestAvatarUrl, _playerNickname || "guest"),
         };
         syncStatsHeader(_activeProfile);
-        renderStats(null);
+        renderStats(loadGuestStats(_playerNickname || "guest"));
         const previewEl = $a("stats-friends-preview");
         if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
       }
@@ -9869,7 +10085,15 @@
       const expectedUid = String(uid || "");
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
-      const profile = await loadProfile(uid);
+      let profile = await loadProfile(uid);
+      if (_authUser && _db && (!profile || !profile.stats || typeof profile.stats !== "object")) {
+        try {
+          await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
+          profile = await loadProfile(uid);
+        } catch {
+          // best-effort initialization
+        }
+      }
       if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
       _activeProfile = profile || null;
       const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
@@ -9993,13 +10217,11 @@
 
     function setProfileLevelCard(stats) {
       const source = (stats && typeof stats === "object") ? stats : {};
-      const levelVal = Number(source.level ?? source.player_level ?? 7);
-      const level = Number.isFinite(levelVal) && levelVal > 0 ? Math.floor(levelVal) : 7;
+      const progress = getLevelProgressFromTotalXp(getStoredTotalXp(source));
+      const level = progress.level;
       const levelTitle = String(source.level_title || source.level_name || "Ocean Explorer").trim() || "Ocean Explorer";
-      const xpCurrentVal = Number(source.xp_current ?? source.level_xp_current ?? 340);
-      const xpGoalVal = Number(source.xp_goal ?? source.level_xp_goal ?? 500);
-      const xpCurrent = Number.isFinite(xpCurrentVal) && xpCurrentVal >= 0 ? Math.floor(xpCurrentVal) : 340;
-      const xpGoal = Number.isFinite(xpGoalVal) && xpGoalVal > 0 ? Math.floor(xpGoalVal) : 500;
+      const xpCurrent = progress.xpCurrent;
+      const xpGoal = progress.xpGoal;
       const fill = Math.max(0, Math.min(100, Math.round((xpCurrent / xpGoal) * 100)));
 
       const levelLabelEl = $a("stat-level-label");
@@ -11263,7 +11485,9 @@
     window.__fishDb             = () => _db;
     window.__fishShowStatsLobby = () => showStatsLobby();
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
-    window.__fishIsGuest        = () => !_authUser && !!_playerNickname;
+    window.__fishIsGuest        = () => !_authUser && _guestSessionActive;
+    window.__fishGuestStatsGet  = () => loadGuestStats(_playerNickname || "guest");
+    window.__fishGuestStatsSave = (stats) => saveGuestStats(_playerNickname || "guest", stats);
     window.__fishGoToSignIn     = () => {
       clearGuestSessionStorage();
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
