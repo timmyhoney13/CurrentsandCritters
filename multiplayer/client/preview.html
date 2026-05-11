@@ -11563,6 +11563,7 @@
         applyPhNormalStatsForPlayerCount(size);
       }
       pcBtns.forEach(b => b.addEventListener("click", () => {
+        console.log("[TAB] clicked", b.dataset.ps, "| _phStatsRaw:", _phStatsRaw ? JSON.stringify({completed_games: _phStatsRaw.completed_games, normal_wins: _phStatsRaw.normal_wins, normal_games_by_size: _phStatsRaw.normal_games_by_size, recent_games_count: (_phStatsRaw.recent_games||[]).length}) : "NULL");
         setActivePs(Number(b.dataset.ps));
       }));
       window._phSetPs = setActivePs;
@@ -11576,6 +11577,7 @@
       // This prevents a null/empty renderStats call (e.g. mid-reload) from erasing cached data.
       const incomingHasContent = (safeStats.completed_games || 0) > 0
         || Object.values(safeStats.normal_games_by_size || {}).some(n => Number(n) > 0);
+      console.log("[updatePhStats] incomingHasContent:", incomingHasContent, "| completed_games:", safeStats.completed_games, "| normal_games_by_size:", JSON.stringify(safeStats.normal_games_by_size||{}), "| recent_games:", (safeStats.recent_games||[]).length);
       if (incomingHasContent || !_phStatsRaw) {
         _phStatsRaw = safeStats;
       }
