@@ -2790,6 +2790,22 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    .ph-fr-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ph-fr-meta {
+      font-size: .76rem;
+      font-weight: 700;
+      color: #6f8dad;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
     .ph-fr-status {
       font-size: .84rem;
       font-weight: 700;
@@ -3320,6 +3336,11 @@
     .ph-fr-name {
       font-size: .96rem;
       color: #173f70;
+      font-weight: 700;
+    }
+    .ph-fr-meta {
+      font-size: .78rem;
+      color: #6a89aa;
       font-weight: 700;
     }
     .ph-rg-ico {
@@ -4388,8 +4409,8 @@
                 <button class="ph-sl" id="ph-friends-open-btn">View All Friends</button>
               </div>
               <div id="stats-friends-preview">
-                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-twin.jpg" alt="TwinMidi avatar" loading="lazy"></div><div class="ph-fr-name">TwinMidi</div><div class="ph-fr-status ph-fr-online"><div class="ph-fr-dot"></div>Online</div></div>
-                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-mom.jpg" alt="MomOfFishMan avatar" loading="lazy"></div><div class="ph-fr-name">MomOfFishMan</div><div class="ph-fr-status ph-fr-offline"><div class="ph-fr-dot"></div>Offline</div></div>
+                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-twin.jpg" alt="TwinMidi avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">TwinMidi</div><div class="ph-fr-meta">Level 7 • Active now</div></div><div class="ph-fr-status ph-fr-online"><div class="ph-fr-dot"></div>Online</div></div>
+                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-mom.jpg" alt="MomOfFishMan avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">MomOfFishMan</div><div class="ph-fr-meta">Level 4 • Last active 2h ago</div></div><div class="ph-fr-status ph-fr-offline"><div class="ph-fr-dot"></div>Offline</div></div>
               </div>
             </div>
           </div>
@@ -9837,7 +9858,9 @@
       HOME_REFERENCE_FRIENDS.forEach(f => {
         const row = document.createElement("div");
         row.className = "ph-fr";
-        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
+        const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
+        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(row);
       });
     }
@@ -9945,6 +9968,26 @@
       const days = Math.floor(hours / 24);
       if (days < 7) return `Active ${days}d ago`;
       return `Active ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    }
+
+    function formatFriendLastActiveLabel(profile, isOnline) {
+      if (isOnline) return "Active now";
+      const date = toDateFromFirestoreLike(profile?.last_active);
+      if (!date) return "Last active: —";
+      const diff = Math.max(0, Date.now() - date.getTime());
+      const mins = Math.floor(diff / 60000);
+      if (mins <= 1) return "Last active just now";
+      if (mins < 60) return `Last active ${mins}m ago`;
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return `Last active ${hours}h ago`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `Last active ${days}d ago`;
+      return `Last active ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    }
+
+    function getFriendLevelLabel(profile) {
+      const statsSource = (profile && typeof profile.stats === "object") ? profile.stats : {};
+      return `Level ${resolveHeaderLevel(statsSource)}`;
     }
 
     function resolveHeaderLevel(statsSource) {
@@ -10412,6 +10455,8 @@
         const profile = profiles[i];
         const online = isFriendOnline(profile);
         const friendName = escapeHtml(f.nickname || "—");
+        const levelText = getFriendLevelLabel(profile);
+        const activeText = formatFriendLastActiveLabel(profile, online);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
           { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
           { seed: f.uid || f.nickname || `friend-${i}` }
@@ -10421,7 +10466,7 @@
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(d);
       });
     }
@@ -11518,7 +11563,9 @@
           d.className = "ph-fr";
           const friendName = escapeHtml(f.nickname || "—");
           const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${friendName} avatar" loading="lazy"></div>`;
-          d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+          const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
+          const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
+          d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
           list.appendChild(d);
         });
         return;
@@ -11562,6 +11609,8 @@
         d.className = "ph-fr";
         const avatarProfile = profileByUid.get(f.uid) || null;
         const friendName = escapeHtml(f.nickname || "—");
+        const levelText = getFriendLevelLabel(avatarProfile);
+        const activeText = formatFriendLastActiveLabel(avatarProfile, f.isOnline);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
           { ...(avatarProfile || {}), avatar_url: (avatarProfile && avatarProfile.avatar_url) || f.avatar_url || "" },
           { seed: f.uid || f.nickname || "friend" }
@@ -11569,7 +11618,7 @@
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-name">${friendName}</div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         list.appendChild(d);
       });
     }
