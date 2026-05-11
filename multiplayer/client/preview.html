@@ -7,7 +7,7 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Always serve the game from the stable Render domain so Firebase auth works -->
   <script>
@@ -1972,23 +1972,76 @@
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;
-      background: var(--bg);
+      background:
+        radial-gradient(circle at 20% 22%, rgba(98,205,233,.45) 0%, rgba(98,205,233,0) 34%),
+        radial-gradient(circle at 79% 72%, rgba(96,189,229,.42) 0%, rgba(96,189,229,0) 36%),
+        linear-gradient(180deg, #f0ddbc 0%, #98d8ee 34%, #43afe2 100%);
       display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-size: 14px; font-family: 'Cinzel', serif; letter-spacing: 1px;
+      color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
     }
     #auth-loading-screen.hidden { display: none; }
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
-      background: var(--bg);
+      background:
+        radial-gradient(68% 54% at 50% 17%, rgba(58,171,225,.72) 0%, rgba(58,171,225,.36) 62%, rgba(58,171,225,0) 100%),
+        radial-gradient(58% 42% at 15% 73%, rgba(158,178,238,.58) 0%, rgba(158,178,238,0) 100%),
+        radial-gradient(56% 42% at 84% 71%, rgba(171,183,238,.52) 0%, rgba(171,183,238,0) 100%),
+        linear-gradient(180deg, #f5ddb7 0%, #90d5ed 30%, #49b8ea 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      padding: 24px 20px; gap: 14px; overflow-y: auto;
+      padding: 30px 20px 34px;
+      gap: 18px;
+      overflow: hidden;
+      isolation: isolate;
     }
+    #auth-screen::before {
+      content: "";
+      position: absolute;
+      inset: -5% -7%;
+      background:
+        radial-gradient(28% 14% at 14% 44%, rgba(130,211,236,.75) 0%, rgba(130,211,236,0) 100%),
+        radial-gradient(31% 14% at 84% 45%, rgba(126,214,238,.72) 0%, rgba(126,214,238,0) 100%),
+        radial-gradient(39% 22% at 50% 92%, rgba(62,160,224,.72) 0%, rgba(62,160,224,0) 100%),
+        radial-gradient(37% 16% at 50% 8%, rgba(66,178,232,.74) 0%, rgba(66,178,232,0) 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    #auth-screen::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(30px 14px at 18% 18%, rgba(180,227,122,.74) 0%, rgba(180,227,122,0) 100%),
+        radial-gradient(26px 12px at 24% 26%, rgba(186,234,130,.72) 0%, rgba(186,234,130,0) 100%),
+        radial-gradient(34px 15px at 78% 21%, rgba(176,227,122,.72) 0%, rgba(176,227,122,0) 100%),
+        radial-gradient(28px 13px at 71% 34%, rgba(180,230,126,.72) 0%, rgba(180,230,126,0) 100%),
+        radial-gradient(36px 15px at 14% 57%, rgba(172,228,120,.66) 0%, rgba(172,228,120,0) 100%),
+        radial-gradient(32px 14px at 84% 61%, rgba(168,222,116,.66) 0%, rgba(168,222,116,0) 100%),
+        radial-gradient(28px 12px at 50% 84%, rgba(170,226,120,.62) 0%, rgba(170,226,120,0) 100%),
+        radial-gradient(36px 16px at 54% 15%, rgba(150,213,249,.35) 0%, rgba(150,213,249,0) 100%),
+        radial-gradient(28px 13px at 63% 80%, rgba(144,209,246,.32) 0%, rgba(144,209,246,0) 100%);
+      pointer-events: none;
+      z-index: 0;
+      opacity: .9;
+      mix-blend-mode: normal;
+    }
+    #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
     #auth-screen .auth-logo {
-      font-family: 'Cinzel', serif; color: var(--cyan);
-      font-size: 24px; font-weight: 900; text-align: center;
-      text-shadow: 0 0 18px rgba(34,216,248,.35); letter-spacing: 1px;
+      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
+      color: #f1dfb7;
+      font-size: clamp(3.1rem, 5.6vw, 6.2rem);
+      font-weight: 400;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 2.4px;
+      line-height: .98;
+      text-shadow:
+        -2px -2px 0 #2b4f6d,
+         2px -2px 0 #2b4f6d,
+        -2px  2px 0 #2b4f6d,
+         2px  2px 0 #2b4f6d,
+         0 6px 14px rgba(44,97,141,.35);
     }
     .auth-box {
       background: rgba(11,36,72,.9); border: 1px solid rgba(58,120,204,.45);
@@ -2081,6 +2134,115 @@
       transition: background .15s;
     }
     .auth-btn-google:hover { background: rgba(255,255,255,.14); }
+    #auth-step-choose.auth-box {
+      width: min(780px, 94vw);
+      max-width: 780px;
+      min-height: 532px;
+      padding: 34px 46px 40px;
+      border-radius: 28px;
+      border: 1px solid rgba(216,248,255,.66);
+      background:
+        linear-gradient(180deg, rgba(145,212,230,.88) 0%, rgba(110,193,216,.86) 100%);
+      box-shadow:
+        0 14px 42px rgba(21,94,139,.25),
+        inset 0 1px 0 rgba(227,251,255,.55);
+      gap: 18px;
+      backdrop-filter: blur(2px);
+      justify-content: center;
+    }
+    #auth-step-choose .auth-title {
+      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
+      color: #0f4169;
+      font-size: clamp(2.2rem, 4.5vw, 3.55rem);
+      font-weight: 400;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      line-height: 1;
+      text-align: center;
+      margin-top: 2px;
+    }
+    #auth-step-choose .auth-subtitle {
+      color: #163f64;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: clamp(1.03rem, 1.45vw, 1.16rem);
+      font-weight: 700;
+      line-height: 1.28;
+      text-align: center;
+      letter-spacing: .2px;
+      max-width: 650px;
+      margin: 0 auto 4px;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+    #auth-step-choose .auth-divider {
+      display: none !important;
+    }
+    #auth-step-choose .pv-btn,
+    #auth-step-choose .auth-btn-google {
+      width: 100%;
+      min-height: 78px;
+      border-radius: 17px;
+      border: 0;
+      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
+      font-size: clamp(1.16rem, 2.05vw, 2.02rem);
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      box-shadow: 0 9px 16px rgba(20,93,141,.19);
+      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+      padding: 14px 18px 12px;
+    }
+    #auth-step-choose .pv-btn:hover,
+    #auth-step-choose .auth-btn-google:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 20px rgba(20,93,141,.24);
+      filter: saturate(1.02);
+    }
+    #auth-step-choose #auth-guest-btn {
+      background: #f3e2ae;
+      color: #654b20;
+    }
+    #auth-step-choose #auth-choose-google-btn {
+      background: #ddd3ee;
+      color: #3f2e64;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+    #auth-step-choose #auth-choose-google-btn svg {
+      display: none;
+    }
+    #auth-step-choose #auth-signin-nav-btn {
+      background: linear-gradient(180deg, #38a7e8 0%, #1f81c9 100%);
+      color: #f8fcff;
+    }
+    #auth-step-choose .auth-err {
+      min-height: 20px;
+      font-size: .9rem;
+      color: #9a2d37;
+      font-weight: 700;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+    }
+    @media (max-width: 920px) {
+      #auth-screen {
+        padding: 20px 14px 24px;
+        gap: 12px;
+        overflow-y: auto;
+      }
+      #auth-step-choose.auth-box {
+        width: min(780px, 100%);
+        min-height: auto;
+        padding: 24px 18px 24px;
+        border-radius: 22px;
+        gap: 13px;
+      }
+      #auth-step-choose .pv-btn,
+      #auth-step-choose .auth-btn-google {
+        min-height: 62px;
+        border-radius: 14px;
+      }
+    }
     .auth-fc-badge {
       background: rgba(34,216,248,.08); border: 1px solid rgba(34,216,248,.35);
       border-radius: 8px; padding: 8px 14px;
@@ -3891,19 +4053,11 @@
   <!-- Step 1: choose mode -->
   <div id="auth-step-choose" class="auth-box">
     <div class="auth-title">Sign In</div>
-    <div class="auth-subtitle">Sign in with your account to access your own nickname, stats, friends, recent games, and history.</div>
-    <button id="auth-guest-btn" class="pv-btn gold full" style="display:none;">🐠 Play as Guest</button>
+    <div class="auth-subtitle">Sign in with your account to access your own nickname,<br>stats, friends, recent games, and history.</div>
+    <button id="auth-guest-btn" class="pv-btn gold full" style="display:none;">Play as Guest</button>
     <div class="auth-divider" style="display:none;">or</div>
-    <button id="auth-choose-google-btn" class="auth-btn-google">
-      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-      </svg>
-      Continue with Google
-    </button>
-    <button id="auth-signin-nav-btn" class="pv-btn full">Sign In / Create Account</button>
+    <button id="auth-choose-google-btn" class="auth-btn-google">Continue with Google</button>
+    <button id="auth-signin-nav-btn" class="pv-btn full">Sign In or Create Account</button>
     <div class="auth-err" id="auth-choose-err"></div>
   </div>
 
