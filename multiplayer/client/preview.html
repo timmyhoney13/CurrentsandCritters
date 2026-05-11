@@ -1982,7 +1982,7 @@
     #auth-loading-screen.hidden { display: none; }
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
-      background: linear-gradient(180deg, #a4ddee 0%, #75c7e4 100%);
+      background: #92dbef url("/multiplayer/client/auth-signin-reference.png") center center / cover no-repeat;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -1991,27 +1991,10 @@
       isolation: isolate;
     }
     #auth-screen::before {
-      content: "";
-      position: absolute;
-      inset: -8%;
-      background: url("/multiplayer/client/auth-signin-reference.png") center center / cover no-repeat;
-      transform: scale(1.1);
-      filter: blur(20px) saturate(1.06);
-      opacity: .95;
-      pointer-events: none;
-      z-index: 0;
+      content: none;
     }
     #auth-screen::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(88% 62% at 50% 46%, rgba(166,227,242,.52) 0%, rgba(166,227,242,.34) 54%, rgba(166,227,242,.2) 100%),
-        linear-gradient(180deg, rgba(216,241,247,.2) 0%, rgba(120,194,223,.24) 42%, rgba(99,182,215,.28) 100%);
-      pointer-events: none;
-      z-index: 0;
-      opacity: .93;
-      mix-blend-mode: normal;
+      content: none;
     }
     #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
