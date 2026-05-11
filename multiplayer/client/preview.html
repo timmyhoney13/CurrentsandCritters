@@ -11746,6 +11746,19 @@
     // Hook renderStats to also call updatePhStats + renderPhRecentGames
     const _origRenderStats = renderStats;
     renderStats = function(stats) {
+      // If incoming stats are null/empty but we already have good cached stats,
+      // skip _origRenderStats — it would hide stats-normal-block, erasing the UI.
+      const incomingEmpty = !stats || typeof stats !== "object"
+        || (!(stats.completed_games > 0)
+            && !Object.values(stats.normal_games_by_size || {}).some(n => Number(n) > 0));
+      const haveGoodCache = !!_phStatsRaw
+        && ((_phStatsRaw.completed_games || 0) > 0
+            || Object.values(_phStatsRaw.normal_games_by_size || {}).some(n => Number(n) > 0));
+      if (incomingEmpty && haveGoodCache) {
+        // Re-apply the cached stats without touching block visibility
+        updatePhStats(_phStatsRaw);
+        return;
+      }
       _origRenderStats(stats);
       updatePhStats(stats);
     };
