@@ -3089,6 +3089,15 @@
         radial-gradient(circle at 16% 10%, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 38%),
         radial-gradient(circle at 84% 18%, rgba(190,231,255,.36) 0%, rgba(190,231,255,0) 42%),
         linear-gradient(180deg, #b6e9fa 0%, #daf4ff 45%, #c8ecfb 100%);
+      background-repeat: no-repeat;
+      background-position: center top;
+      background-size: cover;
+    }
+    /* Per-tab background art hooks. Replace these files as you design each tab. */
+    #auth-stats-lobby[data-bg-tab="overview"] {
+      background:
+        linear-gradient(180deg, rgba(236,249,255,.52) 0%, rgba(219,242,255,.55) 48%, rgba(209,236,249,.58) 100%),
+        url("/multiplayer/client/ph-bg-overview.png") center top / cover no-repeat;
     }
     #auth-stats-lobby::before {
       content: none;
@@ -11311,7 +11320,9 @@
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
       const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends" };
+      const statsLobby = document.getElementById("auth-stats-lobby");
       function switchTab(name) {
+        if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
         Object.entries(panels).forEach(([k, id]) => {
           const el = document.getElementById(id);
@@ -11322,6 +11333,8 @@
         if (name === "overview") renderPhOverview();
       }
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+      const initialTab = Array.from(tabs).find(t => t.classList.contains("active"))?.dataset.tab || "normal";
+      switchTab(initialTab);
       // See-all shortcuts
       const histBtn = $a("ph-hist-btn");
       if (histBtn) histBtn.addEventListener("click", () => switchTab("history"));
