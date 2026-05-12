@@ -3113,35 +3113,13 @@
         radial-gradient(circle at 16% 8%, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 36%),
         radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
         linear-gradient(180deg, #b7e9fa 0%, #d9f4ff 46%, #c8ecfb 100%);
-      background-repeat: no-repeat;
-      background-position: center top;
-      background-size: cover;
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::before {
-      content: "";
-      position: fixed;
-      inset: 0;
+    #auth-stats-lobby[data-bg-tab="overview"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="overview"]::after  { content: none; }
+    /* Show SVG coral art only on overview, in front of content (z-index 3) but behind topbar (z-index 20) */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-coral {
+      display: block;
       z-index: 4;
-      background:
-        url("/multiplayer/client/player-home-bg-left.jpg") left bottom / min(22vw, 360px) auto no-repeat,
-        url("/multiplayer/client/player-home-bg-right.jpg") right bottom / min(22vw, 360px) auto no-repeat,
-        url("/multiplayer/client/player-home-bg-bottom.jpg") center bottom / 100% auto no-repeat;
-      opacity: .96;
-      filter: none;
-      transform: none;
-      pointer-events: none;
-    }
-    #auth-stats-lobby[data-bg-tab="overview"]::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background:
-        radial-gradient(ellipse at 50% -8%, rgba(255,255,255,.54) 0%, rgba(255,255,255,0) 48%),
-        radial-gradient(ellipse at 14% 50%, rgba(180,225,248,.23) 0%, rgba(180,225,248,0) 58%),
-        radial-gradient(ellipse at 86% 52%, rgba(170,219,248,.23) 0%, rgba(170,219,248,0) 58%),
-        linear-gradient(180deg, rgba(241,251,255,.26) 0%, rgba(232,246,255,.08) 100%);
-      pointer-events: none;
     }
 
     /* ── Casual tab: soft seafoam green ── */
