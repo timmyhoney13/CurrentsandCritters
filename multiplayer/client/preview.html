@@ -3109,8 +3109,8 @@
     }
     /* ── Overview: full-cover reef background ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
-      /* Fallback color if image fails to load */
-      background: linear-gradient(180deg, #8ed3f0 0%, #b2e8ff 55%, #9bdef8 100%);
+      /* Vivid teal ocean gradient — shows at ~18% through semi-opaque ::before */
+      background: linear-gradient(160deg, #5ec8e5 0%, #3db4d6 40%, #229ec8 70%, #0f88b8 100%);
     }
     /* Layer 1: blurred full-cover reef art fills the entire viewport */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
@@ -3119,7 +3119,8 @@
       inset: -12px;
       z-index: 1;
       background: url("/multiplayer/client/ph-bg-overview.png") center/cover no-repeat;
-      filter: blur(7px) saturate(1.18) brightness(1.04);
+      filter: blur(9px) saturate(2.5) brightness(0.78);
+      opacity: 0.82;
       transform: none;
       pointer-events: none;
     }
