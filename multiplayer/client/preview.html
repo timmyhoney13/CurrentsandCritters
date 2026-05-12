@@ -3107,8 +3107,8 @@
     #auth-stats-lobby::after {
       content: none;
     }
-    #auth-stats-lobby[data-bg-tab="overview"],
-    #auth-stats-lobby[data-bg-tab="friends"] {
+    /* ── Overview: ocean art background (exclusive) ── */
+    #auth-stats-lobby[data-bg-tab="overview"] {
       background:
         radial-gradient(circle at 16% 8%, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 36%),
         radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
@@ -3117,8 +3117,7 @@
       background-position: center top;
       background-size: cover;
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::before,
-    #auth-stats-lobby[data-bg-tab="friends"]::before {
+    #auth-stats-lobby[data-bg-tab="overview"]::before {
       content: "";
       position: fixed;
       inset: 0;
@@ -3130,8 +3129,7 @@
       opacity: .96;
       pointer-events: none;
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::after,
-    #auth-stats-lobby[data-bg-tab="friends"]::after {
+    #auth-stats-lobby[data-bg-tab="overview"]::after {
       content: "";
       position: fixed;
       inset: 0;
@@ -3143,6 +3141,56 @@
         linear-gradient(180deg, rgba(241,251,255,.26) 0%, rgba(232,246,255,.08) 100%);
       pointer-events: none;
     }
+
+    /* ── Casual tab: soft seafoam green ── */
+    #auth-stats-lobby[data-bg-tab="normal"] {
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255,255,255,.38) 0%, transparent 38%),
+        radial-gradient(circle at 80% 15%, rgba(184,243,220,.40) 0%, transparent 44%),
+        linear-gradient(180deg, #aeecd5 0%, #d5f7eb 46%, #c2f0df 100%);
+    }
+    #auth-stats-lobby[data-bg-tab="normal"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="normal"]::after  { content: none; }
+
+    /* ── Competitive tab: deep navy / golden ── */
+    #auth-stats-lobby[data-bg-tab="competitive"] {
+      background:
+        radial-gradient(circle at 18% 8%, rgba(255,220,100,.22) 0%, transparent 40%),
+        radial-gradient(circle at 82% 18%, rgba(255,190,50,.18) 0%, transparent 42%),
+        linear-gradient(180deg, #0e2a58 0%, #1a3f7a 46%, #122d62 100%);
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="competitive"]::after  { content: none; }
+
+    /* ── History tab: warm slate / parchment ── */
+    #auth-stats-lobby[data-bg-tab="history"] {
+      background:
+        radial-gradient(circle at 15% 12%, rgba(255,255,255,.32) 0%, transparent 36%),
+        radial-gradient(circle at 85% 20%, rgba(210,200,255,.28) 0%, transparent 44%),
+        linear-gradient(180deg, #c8d8f4 0%, #e4ecfb 46%, #d4e2f6 100%);
+    }
+    #auth-stats-lobby[data-bg-tab="history"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="history"]::after  { content: none; }
+
+    /* ── Friends tab: warm coral / social ── */
+    #auth-stats-lobby[data-bg-tab="friends"] {
+      background:
+        radial-gradient(circle at 20% 8%, rgba(255,255,255,.38) 0%, transparent 38%),
+        radial-gradient(circle at 80% 18%, rgba(255,204,170,.28) 0%, transparent 44%),
+        linear-gradient(180deg, #fadadc 0%, #fff0f0 46%, #fce8ea 100%);
+    }
+    #auth-stats-lobby[data-bg-tab="friends"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="friends"]::after  { content: none; }
+
+    /* ── Achievements tab: gold / trophy ── */
+    #auth-stats-lobby[data-bg-tab="achievements"] {
+      background:
+        radial-gradient(circle at 18% 10%, rgba(255,255,220,.44) 0%, transparent 38%),
+        radial-gradient(circle at 82% 18%, rgba(255,220,80,.24) 0%, transparent 44%),
+        linear-gradient(180deg, #fdf3c4 0%, #fffae8 46%, #fef6d0 100%);
+    }
+    #auth-stats-lobby[data-bg-tab="achievements"]::before { content: none; }
+    #auth-stats-lobby[data-bg-tab="achievements"]::after  { content: none; }
     #ph-panel-friends .ph-scard {
       background: rgba(250,253,255,.95);
       border: 1px solid #c8ddec;
