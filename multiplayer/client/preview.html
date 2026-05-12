@@ -3111,13 +3111,13 @@
     #auth-stats-lobby[data-bg-tab="overview"] {
       background: #9dd8f0;
     }
-    /* Layer 1: unblurred reference image covers the full viewport */
+    /* Layer 1: unblurred reference image — 100% width keeps reef art at edges */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
       content: "";
       position: fixed;
       inset: 0;
       z-index: 1;
-      background: url("/multiplayer/client/ph-bg-overview.png") center/cover no-repeat;
+      background: url("/multiplayer/client/ph-bg-overview.png") center top / 100% auto no-repeat;
       filter: none;
       opacity: 1;
       transform: none;
@@ -3179,9 +3179,11 @@
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
       background: rgba(242,249,255,0.70) !important;
     }
-    /* Topbar stays fully readable */
+    /* Topbar: blur kills ghost screenshot title behind it */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
-      background: rgba(255,255,255,0.10);
+      background: rgba(200,235,255,0.28);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
     }
 
     /* ── Casual tab: soft seafoam green ── */
