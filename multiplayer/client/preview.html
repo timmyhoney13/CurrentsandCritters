@@ -102,7 +102,8 @@
 
     /* ── LOBBY ──────────────────────────────────────────────────── */
     #pv-lobby {
-      display: flex;
+      /* Legacy lobby retired: keep mounted for compatibility, never display it */
+      display: none !important;
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -2295,6 +2296,10 @@
         linear-gradient(180deg, #b7e9fb 0%, #d4f2ff 42%, #c2e9ff 100%);
     }
     #auth-stats-lobby.visible { display: flex; }
+    #auth-stats-lobby > * {
+      position: relative;
+      z-index: 1;
+    }
     #auth-stats-lobby::before {
       content: "";
       position: fixed;
@@ -3093,17 +3098,63 @@
       background-position: center top;
       background-size: cover;
     }
-    /* Per-tab background art hooks. Replace these files as you design each tab. */
+    /* Per-tab background art hooks.
+       Important: keep these as scene art only (no full UI screenshots), so the
+       interactive foreground UI remains a single playable layer. */
     #auth-stats-lobby[data-bg-tab="overview"] {
       background:
-        linear-gradient(180deg, rgba(236,249,255,.52) 0%, rgba(219,242,255,.55) 48%, rgba(209,236,249,.58) 100%),
-        url("/multiplayer/client/ph-bg-overview.png") center top / cover no-repeat;
+        radial-gradient(circle at 16% 8%, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 36%),
+        radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
+        linear-gradient(180deg, #b7e9fa 0%, #d9f4ff 46%, #c8ecfb 100%);
+      background-repeat: no-repeat;
+      background-position: center top;
+      background-size: cover;
     }
     #auth-stats-lobby::before {
       content: none;
     }
     #auth-stats-lobby::after {
       content: none;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"]::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: url("/multiplayer/client/ph-bg-overview.png") center top / cover no-repeat;
+      opacity: .92;
+      pointer-events: none;
+      /* Keep artwork on edges while hiding screenshot UI in the center. */
+      -webkit-mask-image: radial-gradient(
+        ellipse at 50% 44%,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,0) 54%,
+        rgba(0,0,0,.66) 74%,
+        rgba(0,0,0,1) 88%
+      );
+      mask-image: radial-gradient(
+        ellipse at 50% 44%,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,0) 54%,
+        rgba(0,0,0,.66) 74%,
+        rgba(0,0,0,1) 88%
+      );
+    }
+    #auth-stats-lobby[data-bg-tab="overview"]::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(
+          ellipse at 50% 44%,
+          rgba(246,252,255,.995) 0%,
+          rgba(242,250,255,.975) 58%,
+          rgba(236,248,255,.82) 73%,
+          rgba(232,246,255,.44) 86%,
+          rgba(232,246,255,.08) 100%
+        );
+      pointer-events: none;
     }
     .ph-coral { display: none; }
     .ph-topbar {
@@ -5482,7 +5533,7 @@
       _roomLostShown = false;
       roomId = null;
       document.getElementById("pv-game").style.display = "none";
-      document.getElementById("pv-lobby").style.display = "flex";
+      if (typeof showStatsLobby === "function") showStatsLobby();
       lobbyStatus("Session ended — server restarted. Create or join a new room.", true);
     }, 2500);
   }
@@ -8983,7 +9034,7 @@
       statsLobby.scrollTop = 0;
       if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
     } else {
-      document.getElementById("pv-lobby").style.display="flex";
+      if (typeof showStatsLobby === "function") showStatsLobby();
     }
   }
 
@@ -8994,7 +9045,7 @@
       returnToMenu();
     } else {
       _leaveGameCleanup();
-      document.getElementById("pv-lobby").style.display="flex";
+      if (typeof showStatsLobby === "function") showStatsLobby();
     }
   });
 
