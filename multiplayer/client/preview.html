@@ -3114,6 +3114,7 @@
         radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
         linear-gradient(180deg, #b7e9fa 0%, #d9f4ff 46%, #c8ecfb 100%);
     }
+    /* Right side: actual coral illustration */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
       content: "";
       position: fixed;
@@ -3124,14 +3125,16 @@
       transform: none;
       pointer-events: none;
     }
+    /* Left side: extract left-edge art from the full reference screenshot */
     #auth-stats-lobby[data-bg-tab="overview"]::after {
       content: "";
       position: fixed;
       inset: 0;
       z-index: 4;
-      background: url("/multiplayer/client/player-home-bg-right.jpg") right bottom / min(22vw, 360px) auto no-repeat;
-      transform: scaleX(-1);
+      background: url("/multiplayer/client/ph-bg-overview.png") left bottom / 100% auto no-repeat;
+      clip-path: inset(0 calc(100% - min(9vw, 130px)) 0 0);
       filter: none;
+      transform: none;
       pointer-events: none;
     }
 
