@@ -3114,13 +3114,19 @@
         radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
         linear-gradient(180deg, #b7e9fa 0%, #d9f4ff 46%, #c8ecfb 100%);
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::before { content: none; }
-    #auth-stats-lobby[data-bg-tab="overview"]::after  { content: none; }
-    /* Show SVG coral art only on overview, in front of content (z-index 3) but behind topbar (z-index 20) */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-coral {
-      display: block;
+    #auth-stats-lobby[data-bg-tab="overview"]::before {
+      content: "";
+      position: fixed;
+      inset: 0;
       z-index: 4;
+      background:
+        url("/multiplayer/client/player-home-bg-left.jpg")  left  bottom / min(22vw, 360px) auto no-repeat,
+        url("/multiplayer/client/player-home-bg-right.jpg") right bottom / min(22vw, 360px) auto no-repeat;
+      filter: none;
+      transform: none;
+      pointer-events: none;
     }
+    #auth-stats-lobby[data-bg-tab="overview"]::after { content: none; }
 
     /* ── Casual tab: soft seafoam green ── */
     #auth-stats-lobby[data-bg-tab="normal"] {
