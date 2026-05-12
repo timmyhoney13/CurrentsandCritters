@@ -3132,15 +3132,15 @@
       transform: none;
       pointer-events: none;
     }
-    /* Layer 2: right-side coral illustration on top of content */
+    /* Layer 2: no foreground art overlay */
     #auth-stats-lobby[data-bg-tab="overview"]::after {
-      content: "";
+      content: none;
       position: fixed;
       inset: 0;
       z-index: 4;
-      background: url("/multiplayer/client/player-home-bg-right.jpg") right bottom / min(22vw, 360px) auto no-repeat;
-      -webkit-mask-image: linear-gradient(to left, black 55%, transparent 100%);
-      mask-image: linear-gradient(to left, black 55%, transparent 100%);
+      background: none;
+      -webkit-mask-image: none;
+      mask-image: none;
       filter: none;
       transform: none;
       pointer-events: none;
