@@ -9374,6 +9374,8 @@ def main() -> None:
     parser.add_argument("--max-turns", type=int, default=0, help="0 means unlimited turns (until END GAME final round ends)")
     parser.add_argument("--num-players", type=int, default=2)
     parser.add_argument("--export-final-board", type=str, default="", help="Write end-game visual board HTML to this path")
+    parser.add_argument("--num-games", type=int, default=1, help="Number of AI-only games to run (default: 1)")
+    parser.add_argument("--open-board", action="store_true", help="Open each saved board HTML in the browser after the game")
     parser.add_argument(
         "--unlearn-inert-games",
         action="store_true",
@@ -9457,13 +9459,27 @@ def main() -> None:
         return
 
     if args.ai_only:
-        run_ai_only_game(
-            card_db=card_db,
-            seed=seed,
-            max_turns=args.max_turns,
-            num_players=args.num_players,
-            export_final_board=args.export_final_board or None,
-        )
+        boards_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "game_boards")
+        os.makedirs(boards_dir, exist_ok=True)
+        num_games = max(1, args.num_games)
+        for game_idx in range(1, num_games + 1):
+            game_seed = seed + game_idx - 1
+            if num_games > 1:
+                print(f"\n=== Game {game_idx} of {num_games} ===")
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            auto_path = os.path.join(boards_dir, f"game_{ts}_{game_idx}.html")
+            export_path = args.export_final_board if args.export_final_board and num_games == 1 else auto_path
+            run_ai_only_game(
+                card_db=card_db,
+                seed=game_seed,
+                max_turns=args.max_turns,
+                num_players=args.num_players,
+                export_final_board=export_path,
+            )
+            print(f"Board saved → {export_path}")
+            if args.open_board:
+                import webbrowser
+                webbrowser.open(f"file://{export_path}")
         return
 
     best = learn_strategy(
