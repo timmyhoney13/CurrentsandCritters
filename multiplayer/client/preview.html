@@ -3107,7 +3107,8 @@
     #auth-stats-lobby::after {
       content: none;
     }
-    #auth-stats-lobby[data-bg-tab="overview"] {
+    #auth-stats-lobby[data-bg-tab="overview"],
+    #auth-stats-lobby[data-bg-tab="friends"] {
       background:
         radial-gradient(circle at 16% 8%, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 36%),
         radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
@@ -3116,7 +3117,8 @@
       background-position: center top;
       background-size: cover;
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::before {
+    #auth-stats-lobby[data-bg-tab="overview"]::before,
+    #auth-stats-lobby[data-bg-tab="friends"]::before {
       content: "";
       position: fixed;
       inset: 0;
@@ -3128,7 +3130,8 @@
       opacity: .96;
       pointer-events: none;
     }
-    #auth-stats-lobby[data-bg-tab="overview"]::after {
+    #auth-stats-lobby[data-bg-tab="overview"]::after,
+    #auth-stats-lobby[data-bg-tab="friends"]::after {
       content: "";
       position: fixed;
       inset: 0;
@@ -3139,6 +3142,51 @@
         radial-gradient(ellipse at 86% 52%, rgba(170,219,248,.23) 0%, rgba(170,219,248,0) 58%),
         linear-gradient(180deg, rgba(241,251,255,.26) 0%, rgba(232,246,255,.08) 100%);
       pointer-events: none;
+    }
+    #ph-panel-friends .ph-scard {
+      background: rgba(250,253,255,.95);
+      border: 1px solid #c8ddec;
+      box-shadow: 0 5px 16px rgba(44,111,166,.09);
+    }
+    #ph-panel-friends .pv-input {
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid #bdd6ea;
+      background: #ffffff;
+      color: #1b4679;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85);
+      font-family: "Nunito", sans-serif;
+    }
+    #ph-panel-friends .pv-input::placeholder {
+      color: #7793b0;
+    }
+    #ph-panel-friends #ph-add-friend-btn {
+      height: 44px;
+      padding: 0 16px;
+      border-radius: 12px;
+      border: 1px solid #79afe0;
+      background: linear-gradient(135deg, #2c8ce7 0%, #1e71d4 100%);
+      color: #f7fbff;
+      font-size: .94rem;
+      font-weight: 800;
+      font-family: "Nunito", sans-serif;
+    }
+    #ph-panel-friends #ph-friends-list {
+      max-height: 420px;
+      overflow-y: auto;
+      padding: 2px 10px 12px;
+    }
+    #ph-panel-friends .ph-fr {
+      border: 1px solid #dbe9f4;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 1px 0 rgba(255,255,255,.8);
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-top-color: #dbe9f4;
+    }
+    #ph-panel-friends .ph-empty {
+      padding: 18px 12px;
     }
     .ph-coral { display: none; }
     .ph-topbar {
@@ -11496,7 +11544,7 @@
           const el = document.getElementById(id);
           if (el) el.style.display = k === name ? "" : "none";
         });
-        if (name === "friends" && _authUser) renderPhFriendsList();
+        if (name === "friends") renderPhFriendsList();
         if (name === "history") renderPhHistory();
         if (name === "overview") renderPhOverview();
         if (name === "achievements") renderPhAchievements();
@@ -12124,7 +12172,15 @@
         });
         return;
       }
-      if (!_authUser) return;
+      if (!_authUser) {
+        const fcEl = $a("ph-fc-display");
+        if (fcEl) fcEl.textContent = _friendCode ? (_playerNickname || "") + "#" + _friendCode : "—";
+        const reqSection = $a("ph-friend-requests");
+        if (reqSection) reqSection.style.display = "none";
+        const list = $a("ph-friends-list");
+        if (list) list.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+        return;
+      }
       // Populate friend code
       const fcEl = $a("ph-fc-display");
       if (fcEl) fcEl.textContent = _friendCode ? (_playerNickname || "") + "#" + _friendCode : "—";
