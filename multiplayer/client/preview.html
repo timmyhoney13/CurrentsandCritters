@@ -3107,15 +3107,24 @@
     #auth-stats-lobby::after {
       content: none;
     }
-    /* ── Overview: ocean art background (exclusive) ── */
+    /* ── Overview: full-cover reef background ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
-      background:
-        radial-gradient(circle at 16% 8%, rgba(255,255,255,.40) 0%, rgba(255,255,255,0) 36%),
-        radial-gradient(circle at 84% 20%, rgba(184,230,255,.40) 0%, rgba(184,230,255,0) 42%),
-        linear-gradient(180deg, #b7e9fa 0%, #d9f4ff 46%, #c8ecfb 100%);
+      /* Fallback color if image fails to load */
+      background: linear-gradient(180deg, #8ed3f0 0%, #b2e8ff 55%, #9bdef8 100%);
     }
-    /* Right side: coral illustration with soft left-edge fade */
+    /* Layer 1: blurred full-cover reef art fills the entire viewport */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
+      content: "";
+      position: fixed;
+      inset: -12px;
+      z-index: 1;
+      background: url("/multiplayer/client/ph-bg-overview.png") center/cover no-repeat;
+      filter: blur(7px) saturate(1.18) brightness(1.04);
+      transform: none;
+      pointer-events: none;
+    }
+    /* Layer 2: right-side coral illustration on top of content */
+    #auth-stats-lobby[data-bg-tab="overview"]::after {
       content: "";
       position: fixed;
       inset: 0;
@@ -3127,19 +3136,52 @@
       transform: none;
       pointer-events: none;
     }
-    /* Left side: ocean art strip extracted from reference screenshot */
-    #auth-stats-lobby[data-bg-tab="overview"]::after {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: 4;
-      background: url("/multiplayer/client/ph-bg-overview.png") left bottom / auto 92vh no-repeat;
-      clip-path: inset(0 calc(100% - min(15vw, 200px)) 0 0);
-      -webkit-mask-image: linear-gradient(to right, black 55%, transparent 100%);
-      mask-image: linear-gradient(to right, black 55%, transparent 100%);
-      filter: none;
-      transform: none;
-      pointer-events: none;
+    /* Frosted glass cards — let reef show through */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
+      background: rgba(255,255,255,0.58) !important;
+      backdrop-filter: blur(16px) saturate(1.05);
+      -webkit-backdrop-filter: blur(16px) saturate(1.05);
+      border: 1px solid rgba(255,255,255,0.72) !important;
+      box-shadow: 0 6px 28px rgba(0,40,120,0.13) !important;
+    }
+    /* Nav tabs bar */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
+      background: rgba(255,255,255,0.58) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.72) !important;
+      box-shadow: 0 4px 18px rgba(0,40,120,0.11) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
+      background: rgba(255,255,255,0.85) !important;
+    }
+    /* Action buttons */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
+      background: rgba(255,255,255,0.62) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.70) !important;
+      box-shadow: 0 4px 18px rgba(0,40,120,0.10) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
+      background: rgba(255,248,220,0.70) !important;
+    }
+    /* Stat grid and cells */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
+      background: rgba(210,238,255,0.22) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sc {
+      background: rgba(255,255,255,0.48) !important;
+    }
+    /* Section header inside achievement card */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
+      background: rgba(242,249,255,0.70) !important;
+    }
+    /* Topbar stays fully readable */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
+      background: rgba(255,255,255,0.10);
     }
 
     /* ── Casual tab: soft seafoam green ── */
