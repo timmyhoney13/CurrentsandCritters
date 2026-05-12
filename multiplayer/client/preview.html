@@ -3109,18 +3109,26 @@
     }
     /* ── Overview: full-cover reef background ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
-      /* Vivid teal ocean gradient — shows at ~18% through semi-opaque ::before */
-      background: linear-gradient(160deg, #5ec8e5 0%, #3db4d6 40%, #229ec8 70%, #0f88b8 100%);
+      /*
+        Gradient shows at ~22% through the blurred ::before layer.
+        Radial blobs position teal (bottom-left) and coral-pink (bottom-right)
+        to match the reef illustration's natural color distribution.
+      */
+      background:
+        radial-gradient(ellipse at 10% 85%, rgba(72,210,185,0.72) 0%, transparent 38%),
+        radial-gradient(ellipse at 90% 78%, rgba(248,152,148,0.50) 0%, transparent 32%),
+        radial-gradient(ellipse at 50% 100%, rgba(60,190,220,0.55) 0%, transparent 50%),
+        linear-gradient(160deg, #52c3e2 0%, #36afcf 40%, #1a9bc2 70%, #0c82af 100%);
     }
-    /* Layer 1: blurred full-cover reef art fills the entire viewport */
+    /* Layer 1: blurred full-cover reef art — heavy blur kills ghost UI */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
       content: "";
       position: fixed;
-      inset: -12px;
+      inset: -24px;
       z-index: 1;
-      background: url("/multiplayer/client/ph-bg-overview.png") center/cover no-repeat;
-      filter: blur(9px) saturate(2.5) brightness(0.78);
-      opacity: 0.82;
+      background: url("/multiplayer/client/ph-bg-overview.png") center bottom/cover no-repeat;
+      filter: blur(22px) saturate(3.2) brightness(0.72);
+      opacity: 0.78;
       transform: none;
       pointer-events: none;
     }
