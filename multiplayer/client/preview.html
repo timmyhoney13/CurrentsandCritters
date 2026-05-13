@@ -3136,52 +3136,52 @@
       transform: none;
       pointer-events: none;
     }
-    /* Frosted glass cards — let reef show through */
+    /* Cards — opaque enough to hide ghost screenshot underneath */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
-      background: rgba(255,255,255,0.58) !important;
-      backdrop-filter: blur(16px) saturate(1.05);
-      -webkit-backdrop-filter: blur(16px) saturate(1.05);
-      border: 1px solid rgba(255,255,255,0.72) !important;
+      background: rgba(255,255,255,0.90) !important;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(200,225,245,0.80) !important;
       box-shadow: 0 6px 28px rgba(0,40,120,0.13) !important;
     }
     /* Nav tabs bar */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
-      background: rgba(255,255,255,0.58) !important;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255,255,255,0.72) !important;
+      background: rgba(255,255,255,0.90) !important;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(200,225,245,0.80) !important;
       box-shadow: 0 4px 18px rgba(0,40,120,0.11) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
-      background: rgba(255,255,255,0.85) !important;
+      background: rgba(255,255,255,0.98) !important;
     }
     /* Action buttons */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      background: rgba(255,255,255,0.62) !important;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255,255,255,0.70) !important;
+      background: rgba(255,255,255,0.90) !important;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(200,225,245,0.80) !important;
       box-shadow: 0 4px 18px rgba(0,40,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
-      background: rgba(255,248,220,0.70) !important;
+      background: rgba(255,248,220,0.92) !important;
     }
     /* Stat grid and cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
-      background: rgba(210,238,255,0.22) !important;
+      background: rgba(210,238,255,0.30) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sc {
-      background: rgba(255,255,255,0.48) !important;
+      background: rgba(255,255,255,0.88) !important;
     }
     /* Section header inside achievement card */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
-      background: rgba(242,249,255,0.70) !important;
+      background: rgba(242,249,255,0.92) !important;
     }
-    /* Topbar: blur kills ghost screenshot title behind it */
+    /* Topbar: solid enough to cover ghost title from screenshot */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
-      background: rgba(200,235,255,0.28);
+      background: rgba(210,238,255,0.55);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
