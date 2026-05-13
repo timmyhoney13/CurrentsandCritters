@@ -274,43 +274,47 @@
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
-      background: url("/ph-bg-game-art.png") center center / cover no-repeat;
+      /* Mid-ocean depth scene — lighter than lobby to distinguish zones */
+      background:
+        radial-gradient(ellipse at 28% 18%, rgba(34,216,248,.10) 0%, transparent 42%),
+        radial-gradient(ellipse at 72% 78%, rgba(24,200,168,.09) 0%, transparent 42%),
+        radial-gradient(ellipse at 50% 50%, rgba(26,66,128,.15) 0%, transparent 60%),
+        linear-gradient(180deg, #142E62 0%, #0E2450 60%, #0B2248 100%);
     }
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: rgba(210,240,255,0.82);
-      border-bottom: 1px solid rgba(100,180,230,0.35);
+      background: linear-gradient(90deg, rgba(13,38,88,.97) 0%, rgba(18,48,100,.97) 50%, rgba(13,38,88,.97) 100%);
+      border-bottom: 1px solid rgba(58,120,204,.25);
       font-size: 12px;
-      color: #17365a;
+      color: var(--muted);
       padding: 5px 14px;
       display: flex;
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(6px);
       position: sticky;
       top: 0;
       z-index: 200;
     }
     .room-badge {
-      background: rgba(30,120,200,0.20);
+      background: var(--border);
       border-radius: 6px;
       padding: 2px 8px;
       font-weight: 800;
-      color: #17365a;
+      color: var(--text);
       font-size: 11px;
       letter-spacing: 1.5px;
     }
-    #pv-my-name-badge { color: #0a6a9a; font-weight: 700; }
+    #pv-my-name-badge { color: var(--cyan); font-weight: 700; }
     #pv-my-score-badge {
-      background: rgba(255,245,210,0.90);
-      border: 1px solid rgba(200,160,30,0.45);
+      background: linear-gradient(135deg, #1A4890, #122E72);
+      border: 1px solid rgba(48,200,240,.35);
       border-radius: 8px;
       padding: 2px 10px;
       font-weight: 900;
-      color: #7a5010;
+      color: var(--gold);
       font-size: 13px;
       font-family: "Cinzel", serif;
       letter-spacing: 1px;
@@ -320,10 +324,10 @@
       transition: border-color .15s, box-shadow .15s;
     }
     #pv-my-score-badge:hover {
-      border-color: rgba(200,160,30,0.7);
-      box-shadow: 0 0 8px rgba(200,160,30,0.3);
+      border-color: rgba(48,200,240,.7);
+      box-shadow: 0 0 8px rgba(48,200,240,.3);
     }
-    #pv-status-text { flex: 1; text-align: center; color: #0a7a50; font-weight: 700; font-size: 12px; }
+    #pv-status-text { flex: 1; text-align: center; color: var(--gold); font-weight: 700; font-size: 12px; }
     #pv-notice .notice-btns { display: flex; gap: 6px; }
 
     /* ── TURN BANNER ────────────────────────────────────────────── */
@@ -338,16 +342,16 @@
       transition: background .4s, color .4s, box-shadow .4s;
     }
     #pv-turn-banner.my-turn {
-      background: transparent;
-      color: #c47500;
+      background: linear-gradient(90deg, rgba(13,42,90,0) 0%, rgba(20,70,140,.65) 30%, rgba(20,70,140,.65) 70%, rgba(13,42,90,0) 100%);
+      color: var(--gold);
       animation: banner-glow 2s ease-in-out infinite;
-      text-shadow: 0 0 18px rgba(240,184,64,.55), 0 1px 0 rgba(255,255,255,.5);
+      text-shadow: 0 0 20px rgba(240,184,64,.6), 0 0 40px rgba(48,200,240,.2);
     }
     @keyframes banner-glow {
-      0%,100% { text-shadow: 0 0 18px rgba(240,184,64,.45), 0 1px 0 rgba(255,255,255,.5); }
-      50%      { text-shadow: 0 0 28px rgba(240,184,64,.85), 0 1px 0 rgba(255,255,255,.5); }
+      0%,100% { box-shadow: inset 0 -2px 20px rgba(245,200,66,.12); }
+      50%      { box-shadow: inset 0 -2px 30px rgba(245,200,66,.3); }
     }
-    #pv-turn-banner.their-turn { background: rgba(100,160,220,0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #17365a; }
+    #pv-turn-banner.their-turn { background: rgba(10,14,24,.6); color: var(--muted); }
     #pv-turn-banner.endgame {
       background: linear-gradient(90deg, rgba(40,10,10,0) 0%, rgba(80,10,10,.7) 30%, rgba(80,10,10,.7) 70%, rgba(40,10,10,0) 100%);
       color: var(--red);
@@ -385,9 +389,8 @@
     }
 
     .pv-opp-card {
-      background: rgba(210,240,255,0.74);
-      border: 1px solid rgba(100,180,230,0.40);
-      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 7px 11px;
       min-width: 170px;
@@ -396,19 +399,18 @@
       transition: border-color .3s, box-shadow .3s;
     }
     .pv-opp-card.active-turn {
-      border-color: rgba(200,160,30,0.60);
+      border-color: var(--gold2);
       box-shadow: 0 0 14px rgba(245,200,66,.2);
     }
     .pv-opp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-    .pv-opp-name { font-weight: 800; font-size: 13px; color: #17365a; }
+    .pv-opp-name { font-weight: 800; font-size: 13px; }
     .pv-opp-score {
-      background: rgba(255,245,210,0.88);
-      border: 1px solid rgba(200,160,30,0.40);
+      background: #143268;
       border-radius: 6px; padding: 2px 8px;
       font-size: 12px; font-weight: 800;
-      color: #7a5010; font-family: "Cinzel", serif;
+      color: var(--gold); font-family: "Cinzel", serif;
     }
-    .pv-opp-stats { display: flex; gap: 10px; font-size: 11px; color: #4a6a8a; margin-bottom: 5px; }
+    .pv-opp-stats { display: flex; gap: 10px; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
 
     /* face-down hand cards strip */
     .pv-opp-hand {
@@ -461,7 +463,7 @@
     }
     .pv-section-label {
       font-size: 9px;
-      color: #4a6a8a;
+      color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1.5px;
       text-align: center;
@@ -505,7 +507,7 @@
       border-radius: 5px;
     }
     .pv-deck-pile:hover .pv-deck-face { border-color: var(--cyan); box-shadow: 3px 3px 0 #122E60, 5px 5px 0 #0E2450, 0 0 16px rgba(34,216,248,.4); }
-    .pv-deck-count { font-size: 11px; color: #4a6a8a; font-weight: 700; }
+    .pv-deck-count { font-size: 11px; color: var(--muted); font-weight: 700; }
 
     /* Pool */
     #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
@@ -750,8 +752,8 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: rgba(205,238,255,0.82);
-      border-top: 1px solid rgba(100,180,230,0.35);
+      background: linear-gradient(180deg, rgba(18,46,98,.97) 0%, rgba(13,36,80,.98) 100%);
+      border-top: 1px solid rgba(48,200,240,.15);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -759,29 +761,28 @@
       gap: 8px;
       flex-shrink: 0;
       flex-wrap: wrap;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
+      backdrop-filter: blur(6px);
     }
     #pv-action-bar select {
-      background: rgba(240,252,255,0.90);
-      border: 1px solid rgba(80,160,220,0.45);
+      background: #122E6A;
+      border: 1px solid var(--border);
       border-radius: 7px;
-      color: #17365a;
+      color: var(--text);
       font-family: "Nunito", inherit;
       font-size: 13px; font-weight: 600;
       padding: 7px 10px;
       outline: none; flex: 1; min-width: 160px; cursor: pointer;
       transition: border-color .15s;
     }
-    #pv-action-bar select:focus { border-color: rgba(60,180,240,0.70); }
-    #pv-action-bar select option { background: #e8f6ff; color: #17365a; }
-    .pv-action-divider { width: 1px; height: 30px; background: rgba(100,170,220,0.35); flex-shrink: 0; }
+    #pv-action-bar select:focus { border-color: var(--cyan); }
+    #pv-action-bar select option { background: #1A3A7A; }
+    .pv-action-divider { width: 1px; height: 30px; background: var(--border); flex-shrink: 0; }
     .pv-star-wrap {
       display: flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 700; color: #17365a; cursor: pointer;
+      font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer;
     }
     .pv-star-wrap input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; }
-    .pv-star-wrap:has(input:checked) { color: #7a5010; }
+    .pv-star-wrap:has(input:checked) { color: var(--gold); }
 
     #pv-payment-info {
       font-size: 12px; color: var(--muted);
@@ -794,7 +795,7 @@
 
     /* ── HAND ZONE — subtle sandy seafloor tint ────────────────── */
     #pv-hand-zone {
-      background: linear-gradient(0deg, rgba(195,232,255,0.80) 0%, rgba(215,242,255,0.40) 100%);
+      background: linear-gradient(0deg, rgba(11,30,72,.99) 0%, rgba(16,44,90,.55) 100%);
       flex-shrink: 0;
       padding: 6px 20px 14px;
       display: flex;
@@ -803,8 +804,6 @@
       min-height: 190px;
       position: relative;
       overflow: visible;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
     }
     #pv-hand {
       display: flex;
@@ -1109,22 +1108,19 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: rgba(200,238,255,0.78);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: linear-gradient(90deg, rgba(13,38,88,0) 0%, rgba(20,54,110,.95) 10%, rgba(20,54,110,.95) 90%, rgba(13,38,88,0) 100%);
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
-      color: #17365a;
+      color: var(--cyan);
       text-align: center;
       flex-shrink: 0;
       letter-spacing: .3px;
-      border-bottom: 1px solid rgba(100,180,230,0.30);
     }
     #pv-guide-bar.visible { display: block; }
     #pv-guide-bar .guide-step { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
-    .gs { background: rgba(180,235,255,0.75); border: 1px solid rgba(80,170,220,0.45); border-radius: 20px; padding: 3px 12px; white-space: nowrap; color: #17365a; }
-    .gs.done  { background: rgba(180,240,215,0.75); border-color: rgba(40,160,110,0.45); color: #0a5a3a; }
-    .gs.active { background: rgba(255,242,190,0.85); border-color: rgba(200,155,30,0.50); color: #7a5010; }
+    .gs { background: rgba(61,214,245,.12); border: 1px solid rgba(61,214,245,.25); border-radius: 20px; padding: 3px 12px; white-space: nowrap; }
+    .gs.done  { background: rgba(31,187,138,.1); border-color: rgba(31,187,138,.3); color: var(--green); }
+    .gs.active { background: rgba(245,200,66,.15); border-color: rgba(245,200,66,.4); color: var(--gold); }
 
     /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
     #pv-quick-draw-btn {
@@ -1700,18 +1696,17 @@
 
     /* ── FULL OPPONENT BOARDS (inline, toggled) ─────────────────── */
     .pv-opp-full-wrap {
-      background: rgba(210,240,255,0.68); border: 1px solid rgba(100,180,230,0.40);
-      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      background: var(--panel); border: 1px solid var(--border);
       border-radius: 10px; padding: 6px; cursor: pointer;
       transition: border-color .2s; overflow: hidden;
     }
-    .pv-opp-full-wrap:hover { border-color: rgba(60,180,240,0.70); }
-    .pv-opp-full-wrap.active-turn { border-color: rgba(200,160,30,0.60); box-shadow: 0 0 14px rgba(245,200,66,.2); }
+    .pv-opp-full-wrap:hover { border-color: var(--cyan); }
+    .pv-opp-full-wrap.active-turn { border-color: var(--gold2); box-shadow: 0 0 14px rgba(245,200,66,.2); }
     .pv-opp-full-label {
-      font-size: 10px; color: #17365a; text-align: center;
+      font-size: 10px; color: var(--muted); text-align: center;
       margin-bottom: 3px; font-weight: 700; pointer-events: none;
     }
-    .pv-opp-full-label .opp-score { color: #8a5800; margin-left: 4px; }
+    .pv-opp-full-label .opp-score { color: var(--gold); margin-left: 4px; }
     .pv-ro-board { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; padding: 2px; }
     .pv-ro-board .pv-lane-slot { cursor: default; }
     .pv-ro-board .pv-lane-slot:hover { transform: none; background: none; border-color: var(--border); }
