@@ -3275,6 +3275,26 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_client_asset(avatar_path, cache_control="public, max-age=86400")
             return
 
+        # Serve background art PNGs (tab backgrounds, game background, etc.)
+        if re.fullmatch(r"/ph-bg-[\w-]+\.png", parsed.path):
+            bg_name = os.path.basename(parsed.path)
+            bg_path = os.path.join(CLIENT_DIR, bg_name)
+            if os.path.exists(bg_path):
+                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        # Serve background art PNGs referenced with full client path (used by preview.html on Vercel)
+        if re.fullmatch(r"/multiplayer/client/ph-bg-[\w-]+\.png", parsed.path):
+            bg_name = os.path.basename(parsed.path)
+            bg_path = os.path.join(CLIENT_DIR, bg_name)
+            if os.path.exists(bg_path):
+                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if parsed.path == "/api/health":
             self._send_json(
                 {

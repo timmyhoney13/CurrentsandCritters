@@ -274,18 +274,13 @@
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
-      /* Mid-ocean depth scene — lighter than lobby to distinguish zones */
-      background:
-        radial-gradient(ellipse at 28% 18%, rgba(34,216,248,.10) 0%, transparent 42%),
-        radial-gradient(ellipse at 72% 78%, rgba(24,200,168,.09) 0%, transparent 42%),
-        radial-gradient(ellipse at 50% 50%, rgba(26,66,128,.15) 0%, transparent 60%),
-        linear-gradient(180deg, #142E62 0%, #0E2450 60%, #0B2248 100%);
+      background: url("/ph-bg-achievements-art.png") center center / cover no-repeat;
     }
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: linear-gradient(90deg, rgba(13,38,88,.97) 0%, rgba(18,48,100,.97) 50%, rgba(13,38,88,.97) 100%);
-      border-bottom: 1px solid rgba(58,120,204,.25);
+      background: linear-gradient(90deg, rgba(13,38,88,.80) 0%, rgba(18,48,100,.80) 50%, rgba(13,38,88,.80) 100%);
+      border-bottom: 1px solid rgba(58,120,204,.30);
       font-size: 12px;
       color: var(--muted);
       padding: 5px 14px;
@@ -293,7 +288,8 @@
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       position: sticky;
       top: 0;
       z-index: 200;
@@ -752,8 +748,8 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: linear-gradient(180deg, rgba(18,46,98,.97) 0%, rgba(13,36,80,.98) 100%);
-      border-top: 1px solid rgba(48,200,240,.15);
+      background: linear-gradient(180deg, rgba(18,46,98,.82) 0%, rgba(13,36,80,.88) 100%);
+      border-top: 1px solid rgba(48,200,240,.25);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -761,7 +757,8 @@
       gap: 8px;
       flex-shrink: 0;
       flex-wrap: wrap;
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
     }
     #pv-action-bar select {
       background: #122E6A;
@@ -795,7 +792,7 @@
 
     /* ── HAND ZONE — subtle sandy seafloor tint ────────────────── */
     #pv-hand-zone {
-      background: linear-gradient(0deg, rgba(11,30,72,.99) 0%, rgba(16,44,90,.55) 100%);
+      background: linear-gradient(0deg, rgba(11,30,72,.88) 0%, rgba(16,44,90,.40) 100%);
       flex-shrink: 0;
       padding: 6px 20px 14px;
       display: flex;
@@ -804,6 +801,8 @@
       min-height: 190px;
       position: relative;
       overflow: visible;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
     }
     #pv-hand {
       display: flex;
