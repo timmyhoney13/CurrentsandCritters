@@ -3109,68 +3109,59 @@
     }
     /* ── Overview: ocean reef illustration background ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
-      background: #8de4f5;
+      background: url("/multiplayer/client/ph-bg-overview-art.png") center center / cover no-repeat !important;
     }
-    /* Layer 1: clean ocean art fills the viewport */
-    #auth-stats-lobby[data-bg-tab="overview"]::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      background: url("/multiplayer/client/ph-bg-overview-art.png") center center / cover no-repeat;
-      pointer-events: none;
-    }
-    /* Layer 2: none — no overlay so the art shows at full vibrancy */
+    #auth-stats-lobby[data-bg-tab="overview"]::before,
     #auth-stats-lobby[data-bg-tab="overview"]::after {
-      content: none;
+      content: none !important;
     }
-    /* Cards — semi-transparent so ocean art bleeds through */
+    /* Cards — frosted sea glass over the ocean art */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
-      background: rgba(228,248,255,0.78) !important;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(140,210,240,0.55) !important;
-      box-shadow: 0 6px 28px rgba(0,60,120,0.12) !important;
+      background: rgba(220,245,255,0.68) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(120,200,235,0.50) !important;
+      box-shadow: 0 6px 28px rgba(0,60,120,0.14) !important;
     }
     /* Nav tabs bar */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
-      background: rgba(215,244,255,0.78) !important;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(140,210,240,0.50) !important;
+      background: rgba(210,242,255,0.70) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(120,200,235,0.45) !important;
       box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
-      background: rgba(245,252,255,0.92) !important;
+      background: rgba(240,252,255,0.90) !important;
     }
     /* Action buttons */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      background: rgba(228,248,255,0.78) !important;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(140,210,240,0.55) !important;
+      background: rgba(220,245,255,0.68) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(120,200,235,0.50) !important;
       box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
-      background: rgba(255,248,220,0.82) !important;
+      background: rgba(255,246,210,0.75) !important;
     }
-    /* Stat grid container */
+    /* Stat grid container — nearly invisible so art shows between cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
-      background: rgba(180,235,255,0.12) !important;
+      background: rgba(160,225,255,0.08) !important;
     }
     /* Individual stat cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sc {
-      background: rgba(238,252,255,0.80) !important;
+      background: rgba(230,250,255,0.72) !important;
     }
     /* Section header */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
-      background: rgba(220,246,255,0.82) !important;
+      background: rgba(215,245,255,0.75) !important;
     }
-    /* Topbar: sky-blue tinted, ocean art's sky bleeds through backdrop blur */
+    /* Topbar: sky tinted, art's sky visible through blur */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
-      background: rgba(175,228,250,0.55);
+      background: rgba(165,222,248,0.52);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
