@@ -338,14 +338,14 @@
       transition: background .4s, color .4s, box-shadow .4s;
     }
     #pv-turn-banner.my-turn {
-      background: linear-gradient(90deg, rgba(13,42,90,0) 0%, rgba(20,70,140,.65) 30%, rgba(20,70,140,.65) 70%, rgba(13,42,90,0) 100%);
-      color: var(--gold);
+      background: transparent;
+      color: #c47500;
       animation: banner-glow 2s ease-in-out infinite;
-      text-shadow: 0 0 20px rgba(240,184,64,.6), 0 0 40px rgba(48,200,240,.2);
+      text-shadow: 0 0 18px rgba(240,184,64,.55), 0 1px 0 rgba(255,255,255,.5);
     }
     @keyframes banner-glow {
-      0%,100% { box-shadow: inset 0 -2px 20px rgba(245,200,66,.12); }
-      50%      { box-shadow: inset 0 -2px 30px rgba(245,200,66,.3); }
+      0%,100% { text-shadow: 0 0 18px rgba(240,184,64,.45), 0 1px 0 rgba(255,255,255,.5); }
+      50%      { text-shadow: 0 0 28px rgba(240,184,64,.85), 0 1px 0 rgba(255,255,255,.5); }
     }
     #pv-turn-banner.their-turn { background: rgba(100,160,220,0.35); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #17365a; }
     #pv-turn-banner.endgame {
@@ -385,8 +385,9 @@
     }
 
     .pv-opp-card {
-      background: var(--panel);
-      border: 1px solid var(--border);
+      background: rgba(210,240,255,0.74);
+      border: 1px solid rgba(100,180,230,0.40);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border-radius: 10px;
       padding: 7px 11px;
       min-width: 170px;
@@ -395,18 +396,19 @@
       transition: border-color .3s, box-shadow .3s;
     }
     .pv-opp-card.active-turn {
-      border-color: var(--gold2);
+      border-color: rgba(200,160,30,0.60);
       box-shadow: 0 0 14px rgba(245,200,66,.2);
     }
     .pv-opp-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
-    .pv-opp-name { font-weight: 800; font-size: 13px; }
+    .pv-opp-name { font-weight: 800; font-size: 13px; color: #17365a; }
     .pv-opp-score {
-      background: #143268;
+      background: rgba(255,245,210,0.88);
+      border: 1px solid rgba(200,160,30,0.40);
       border-radius: 6px; padding: 2px 8px;
       font-size: 12px; font-weight: 800;
-      color: var(--gold); font-family: "Cinzel", serif;
+      color: #7a5010; font-family: "Cinzel", serif;
     }
-    .pv-opp-stats { display: flex; gap: 10px; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+    .pv-opp-stats { display: flex; gap: 10px; font-size: 11px; color: #4a6a8a; margin-bottom: 5px; }
 
     /* face-down hand cards strip */
     .pv-opp-hand {
@@ -459,7 +461,7 @@
     }
     .pv-section-label {
       font-size: 9px;
-      color: var(--muted);
+      color: #4a6a8a;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       text-align: center;
@@ -503,7 +505,7 @@
       border-radius: 5px;
     }
     .pv-deck-pile:hover .pv-deck-face { border-color: var(--cyan); box-shadow: 3px 3px 0 #122E60, 5px 5px 0 #0E2450, 0 0 16px rgba(34,216,248,.4); }
-    .pv-deck-count { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .pv-deck-count { font-size: 11px; color: #4a6a8a; font-weight: 700; }
 
     /* Pool */
     #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
@@ -1698,17 +1700,18 @@
 
     /* ── FULL OPPONENT BOARDS (inline, toggled) ─────────────────── */
     .pv-opp-full-wrap {
-      background: var(--panel); border: 1px solid var(--border);
+      background: rgba(210,240,255,0.68); border: 1px solid rgba(100,180,230,0.40);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
       border-radius: 10px; padding: 6px; cursor: pointer;
       transition: border-color .2s; overflow: hidden;
     }
-    .pv-opp-full-wrap:hover { border-color: var(--cyan); }
-    .pv-opp-full-wrap.active-turn { border-color: var(--gold2); box-shadow: 0 0 14px rgba(245,200,66,.2); }
+    .pv-opp-full-wrap:hover { border-color: rgba(60,180,240,0.70); }
+    .pv-opp-full-wrap.active-turn { border-color: rgba(200,160,30,0.60); box-shadow: 0 0 14px rgba(245,200,66,.2); }
     .pv-opp-full-label {
-      font-size: 10px; color: var(--muted); text-align: center;
+      font-size: 10px; color: #17365a; text-align: center;
       margin-bottom: 3px; font-weight: 700; pointer-events: none;
     }
-    .pv-opp-full-label .opp-score { color: var(--gold); margin-left: 4px; }
+    .pv-opp-full-label .opp-score { color: #8a5800; margin-left: 4px; }
     .pv-ro-board { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; padding: 2px; }
     .pv-ro-board .pv-lane-slot { cursor: default; }
     .pv-ro-board .pv-lane-slot:hover { transform: none; background: none; border-color: var(--border); }
