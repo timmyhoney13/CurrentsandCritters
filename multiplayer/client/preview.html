@@ -3167,14 +3167,58 @@
     }
 
     /* ── Casual tab: soft seafoam green ── */
+    /* ── Casual tab: beachside pier illustration ── */
     #auth-stats-lobby[data-bg-tab="normal"] {
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,.38) 0%, transparent 38%),
-        radial-gradient(circle at 80% 15%, rgba(184,243,220,.40) 0%, transparent 44%),
-        linear-gradient(180deg, #aeecd5 0%, #d5f7eb 46%, #c2f0df 100%);
+      background: url("/multiplayer/client/ph-bg-casual-art.png") center center / cover no-repeat !important;
     }
-    #auth-stats-lobby[data-bg-tab="normal"]::before { content: none; }
-    #auth-stats-lobby[data-bg-tab="normal"]::after  { content: none; }
+    #auth-stats-lobby[data-bg-tab="normal"]::before,
+    #auth-stats-lobby[data-bg-tab="normal"]::after {
+      content: none !important;
+    }
+    /* Cards — warm sandy-cream frosted glass matching the pier's peach tones */
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-scard {
+      background: rgba(255,244,228,0.80) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(200,170,130,0.45) !important;
+      box-shadow: 0 6px 28px rgba(80,50,20,0.14) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-tabs {
+      background: rgba(255,242,220,0.78) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(200,170,130,0.40) !important;
+      box-shadow: 0 4px 18px rgba(80,50,20,0.12) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-tab.active {
+      background: rgba(255,252,244,0.94) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-action-card {
+      background: rgba(255,244,228,0.78) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(200,170,130,0.45) !important;
+      box-shadow: 0 4px 18px rgba(80,50,20,0.12) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-action-card.ph-action-gold {
+      background: rgba(255,242,200,0.84) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-sg {
+      background: rgba(200,160,100,0.08) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-sc {
+      background: rgba(255,247,234,0.80) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-sh {
+      background: rgba(255,244,228,0.80) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="normal"] .ph-topbar {
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
 
     /* ── Competitive tab: deep navy / golden ── */
     /* ── Competitive tab: iceberg deep-ocean illustration ── */
