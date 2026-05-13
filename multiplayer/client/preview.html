@@ -3177,14 +3177,58 @@
     #auth-stats-lobby[data-bg-tab="normal"]::after  { content: none; }
 
     /* ── Competitive tab: deep navy / golden ── */
+    /* ── Competitive tab: iceberg deep-ocean illustration ── */
     #auth-stats-lobby[data-bg-tab="competitive"] {
-      background:
-        radial-gradient(circle at 18% 8%, rgba(255,220,100,.22) 0%, transparent 40%),
-        radial-gradient(circle at 82% 18%, rgba(255,190,50,.18) 0%, transparent 42%),
-        linear-gradient(180deg, #0e2a58 0%, #1a3f7a 46%, #122d62 100%);
+      background: url("/multiplayer/client/ph-bg-competitive-art.png") center center / cover no-repeat !important;
     }
-    #auth-stats-lobby[data-bg-tab="competitive"]::before { content: none; }
-    #auth-stats-lobby[data-bg-tab="competitive"]::after  { content: none; }
+    #auth-stats-lobby[data-bg-tab="competitive"]::before,
+    #auth-stats-lobby[data-bg-tab="competitive"]::after {
+      content: none !important;
+    }
+    /* Cards — icy blue frosted glass; enough opacity for dark text on mid-blue bg */
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-scard {
+      background: rgba(215,235,255,0.80) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(100,160,240,0.45) !important;
+      box-shadow: 0 6px 28px rgba(20,40,120,0.20) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-tabs {
+      background: rgba(210,232,255,0.78) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(100,160,240,0.40) !important;
+      box-shadow: 0 4px 18px rgba(20,40,120,0.16) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-tab.active {
+      background: rgba(238,248,255,0.94) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-action-card {
+      background: rgba(215,235,255,0.78) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(100,160,240,0.45) !important;
+      box-shadow: 0 4px 18px rgba(20,40,120,0.16) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-action-card.ph-action-gold {
+      background: rgba(255,246,210,0.84) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-sg {
+      background: rgba(100,150,240,0.10) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-sc {
+      background: rgba(222,240,255,0.80) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-sh {
+      background: rgba(210,232,255,0.80) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-topbar {
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
 
     /* ── History tab: warm slate / parchment ── */
     /* ── History tab: deep-sea purple coral illustration ── */
