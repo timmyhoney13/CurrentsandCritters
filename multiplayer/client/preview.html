@@ -3107,81 +3107,75 @@
     #auth-stats-lobby::after {
       content: none;
     }
-    /* ── Overview: crisp full-cover reef background ── */
+    /* ── Overview: ocean reef illustration background ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
-      background: #9dd8f0;
+      background: #8de4f5;
     }
-    /* Layer 1: unblurred reference image — 100% width keeps reef art at edges */
+    /* Layer 1: clean ocean art fills the viewport */
     #auth-stats-lobby[data-bg-tab="overview"]::before {
       content: "";
       position: fixed;
       inset: 0;
       z-index: 1;
-      background: url("/multiplayer/client/ph-bg-overview.png") center top / 100% auto no-repeat;
-      filter: none;
-      opacity: 1;
-      transform: none;
+      background: url("/multiplayer/client/ph-bg-overview-art.png") center center / cover no-repeat;
       pointer-events: none;
     }
-    /* Layer 2: no foreground art overlay */
+    /* Layer 2: soft center glow — mimics water caustics, ties card area to the ocean */
     #auth-stats-lobby[data-bg-tab="overview"]::after {
-      content: none;
+      content: "";
       position: fixed;
       inset: 0;
-      z-index: 4;
-      background: none;
-      -webkit-mask-image: none;
-      mask-image: none;
-      filter: none;
-      transform: none;
+      z-index: 2;
+      background: radial-gradient(ellipse 65% 55% at 50% 48%, rgba(255,255,255,0.22) 0%, transparent 70%);
       pointer-events: none;
     }
-    /* Cards — opaque enough to hide ghost screenshot underneath */
+    /* Cards — ocean-tinted sea glass; backdrop-filter pulls real art color through */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
-      background: rgba(255,255,255,0.90) !important;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(200,225,245,0.80) !important;
-      box-shadow: 0 6px 28px rgba(0,40,120,0.13) !important;
+      background: rgba(228,248,255,0.88) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(140,210,240,0.55) !important;
+      box-shadow: 0 6px 28px rgba(0,60,120,0.12) !important;
     }
     /* Nav tabs bar */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
-      background: rgba(255,255,255,0.90) !important;
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(200,225,245,0.80) !important;
-      box-shadow: 0 4px 18px rgba(0,40,120,0.11) !important;
+      background: rgba(215,244,255,0.88) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(140,210,240,0.50) !important;
+      box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
-      background: rgba(255,255,255,0.98) !important;
+      background: rgba(245,252,255,0.96) !important;
     }
     /* Action buttons */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      background: rgba(255,255,255,0.90) !important;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(200,225,245,0.80) !important;
-      box-shadow: 0 4px 18px rgba(0,40,120,0.10) !important;
+      background: rgba(228,248,255,0.88) !important;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(140,210,240,0.55) !important;
+      box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
-      background: rgba(255,248,220,0.92) !important;
+      background: rgba(255,248,220,0.90) !important;
     }
-    /* Stat grid and cells */
+    /* Stat grid container */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
-      background: rgba(210,238,255,0.30) !important;
+      background: rgba(180,235,255,0.18) !important;
     }
+    /* Individual stat cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sc {
-      background: rgba(255,255,255,0.88) !important;
+      background: rgba(238,252,255,0.90) !important;
     }
-    /* Section header inside achievement card */
+    /* Section header */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
-      background: rgba(242,249,255,0.92) !important;
+      background: rgba(220,246,255,0.92) !important;
     }
-    /* Topbar: solid enough to cover ghost title from screenshot */
+    /* Topbar: sky-blue tinted, ocean art's sky bleeds through backdrop blur */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
-      background: rgba(210,238,255,0.55);
+      background: rgba(175,228,250,0.62);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
@@ -3642,7 +3636,7 @@
     }
 
     #ph-panel-overview .ph-main {
-      grid-template-columns: minmax(0, 1fr) 412px;
+      grid-template-columns: minmax(0, 1fr);
       gap: 12px;
       align-items: start;
     }
@@ -3650,13 +3644,13 @@
       min-height: 0;
     }
     #ph-panel-overview .ph-sg {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       grid-auto-rows: 1fr;
       gap: 10px;
       padding: 10px;
     }
     #ph-panel-overview .ph-sc {
-      min-height: 146px;
+      min-height: 110px;
     }
     #ph-panel-overview .ph-sc .ph-scl {
       min-height: 2.45em;
@@ -4695,44 +4689,6 @@
               <div class="ph-sci ph-sci-blue">📉</div>
               <div class="ph-scl">Average Competitive Score</div>
               <div class="ph-scv" id="ph-ov-avg-comp">—</div>
-            </div>
-          </div>
-        </div>
-        <div class="ph-side">
-          <div class="ph-scard ph-ach-card" id="ph-overview-achievements">
-            <div class="ph-sh">
-              <div class="ph-st">🏅 Achievements</div>
-              <button class="ph-sl" id="ph-ov-ach-all-btn">View All Achievements</button>
-            </div>
-            <div class="ph-ach-list">
-              <div class="ph-ach-item" data-ach-kind="daily">
-                <button class="ph-ach-summary" id="ph-ach-daily-toggle" data-ach-kind="daily" type="button">
-                  <div class="ph-ach-meta">
-                    <div class="ph-ach-label">Daily (<span id="ph-ach-daily-count">0</span>)</div>
-                    <div class="ph-ach-subtitle">New day, new rewards!</div>
-                  </div>
-                  <div class="ph-ach-preview" id="ph-ach-daily-preview"></div>
-                </button>
-                <div class="ph-ach-details" id="ph-ach-daily-details"></div>
-              </div>
-              <div class="ph-ach-item" data-ach-kind="completed">
-                <button class="ph-ach-summary" id="ph-ach-completed-toggle" data-ach-kind="completed" type="button">
-                  <div class="ph-ach-meta">
-                    <div class="ph-ach-label">Completed (<span id="ph-ach-completed-count">0</span>)</div>
-                  </div>
-                  <div class="ph-ach-preview" id="ph-ach-completed-preview"></div>
-                </button>
-                <div class="ph-ach-details" id="ph-ach-completed-details"></div>
-              </div>
-              <div class="ph-ach-item" data-ach-kind="uncompleted">
-                <button class="ph-ach-summary" id="ph-ach-uncompleted-toggle" data-ach-kind="uncompleted" type="button">
-                  <div class="ph-ach-meta">
-                    <div class="ph-ach-label">Uncompleted (<span id="ph-ach-uncompleted-count">0</span>)</div>
-                  </div>
-                  <div class="ph-ach-preview" id="ph-ach-uncompleted-preview"></div>
-                </button>
-                <div class="ph-ach-details" id="ph-ach-uncompleted-details"></div>
-              </div>
             </div>
           </div>
         </div>
