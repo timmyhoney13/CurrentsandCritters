@@ -567,7 +567,7 @@
       border: 1px solid var(--border);
       border-radius: 16px;
       box-shadow: 0 20px 60px rgba(0,0,0,.7);
-      width: min(92vw, 660px);
+      width: min(96vw, 800px);
       max-height: 82vh;
       display: flex;
       flex-direction: column;
@@ -606,39 +606,39 @@
     }
     #pv-pm-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 14px;
     }
     .pv-pm-card {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       cursor: pointer;
     }
     .pv-pm-card-img {
-      width: 90px; height: 128px;
-      border-radius: 8px;
+      width: 100%; aspect-ratio: 48 / 68;
+      border-radius: 10px;
       overflow: hidden;
       border: 2px solid var(--border);
       transition: transform .18s, border-color .15s, box-shadow .15s;
     }
     .pv-pm-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-pm-card:hover .pv-pm-card-img {
-      transform: translateY(-6px) scale(1.05);
+      transform: translateY(-8px) scale(1.05);
       border-color: var(--cyan);
-      box-shadow: 0 8px 24px var(--glow-c);
+      box-shadow: 0 10px 28px var(--glow-c);
     }
     .pv-pm-card.selected .pv-pm-card-img {
       border-color: var(--gold);
-      box-shadow: 0 0 14px var(--glow-gold);
-      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 0 18px var(--glow-gold);
+      transform: translateY(-5px) scale(1.04);
     }
     .pv-pm-card-name {
-      font-size: .7rem;
+      font-size: .8rem;
       color: var(--muted);
       text-align: center;
-      max-width: 90px;
+      width: 100%;
       line-height: 1.3;
     }
     #pv-pm-hint {
@@ -5645,7 +5645,7 @@
     <!-- center strip: pool + deck + draw buttons -->
     <div id="pv-center-strip">
       <div id="pv-pool-area">
-        <div class="pv-section-label">Pool<button id="pv-pool-expand-btn" title="View all pool cards">view all</button></div>
+        <div class="pv-section-label">Pool<button id="pv-pool-expand-btn" title="View pool cards larger">View Cards</button></div>
         <div id="pv-pool-wrap"></div>
         <div id="pv-pool-pick-hint" style="display:none;font-size:10px;color:var(--cyan);text-align:center;margin-top:2px;"></div>
       </div>
