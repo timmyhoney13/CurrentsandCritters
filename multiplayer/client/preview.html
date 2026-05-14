@@ -279,8 +279,8 @@
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: rgba(10,24,60,0.55);
-      border-bottom: 1px solid rgba(48,120,200,0.30);
+      background: rgba(8,18,52,0.92);
+      border-bottom: 1px solid rgba(48,120,200,0.40);
       font-size: 12px;
       color: var(--text);
       padding: 5px 14px;
@@ -288,8 +288,6 @@
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
     }
     .room-badge {
       background: var(--border);
@@ -344,7 +342,7 @@
       0%,100% { text-shadow: 0 0 16px rgba(240,184,64,.5); }
       50%      { text-shadow: 0 0 28px rgba(240,184,64,.9), 0 0 50px rgba(240,184,64,.4); }
     }
-    #pv-turn-banner.their-turn { background: rgba(5,12,30,0.45); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: var(--muted); }
+    #pv-turn-banner.their-turn { background: rgba(8,18,52,0.88); color: var(--muted); }
     #pv-turn-banner.endgame {
       background: linear-gradient(90deg, rgba(40,10,10,0) 0%, rgba(80,10,10,.7) 30%, rgba(80,10,10,.7) 70%, rgba(40,10,10,0) 100%);
       color: var(--red);
@@ -745,8 +743,8 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: rgba(8,20,55,0.60);
-      border-top: 1px solid rgba(48,200,240,.20);
+      background: rgba(8,18,52,0.94);
+      border-top: 1px solid rgba(48,200,240,.25);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -754,8 +752,6 @@
       gap: 8px;
       flex-shrink: 0;
       flex-wrap: wrap;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
     }
     #pv-action-bar select {
       background: #122E6A;
@@ -787,11 +783,9 @@
     #pv-payment-info.visible { display: flex; }
     .clear-pay { cursor: pointer; color: var(--red); font-size: 11px; }
 
-    /* ── HAND ZONE — subtle sandy seafloor tint ────────────────── */
+    /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
-      background: linear-gradient(0deg, rgba(8,20,55,0.72) 0%, rgba(10,28,70,0.35) 100%);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: linear-gradient(0deg, rgba(8,18,52,0.95) 0%, rgba(8,18,52,0.60) 100%);
       flex-shrink: 0;
       padding: 6px 20px 14px;
       display: flex;
@@ -1104,7 +1098,8 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: rgba(8,20,55,0.60);
+      background: rgba(8,18,52,0.90);
+      border-bottom: 1px solid rgba(48,120,200,0.25);
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
       color: var(--cyan);
