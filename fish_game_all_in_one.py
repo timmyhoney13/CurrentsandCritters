@@ -4518,14 +4518,17 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
             out.append(a)
             continue
 
-        # keep default behavior as a candidate
-        out.append(a)
         scored = [(uid, pool_entry_value_for_player(ms, gs, uid, player)) for uid in ms.pool]
         scored.sort(key=lambda x: x[1], reverse=True)
         top = [uid for uid, _ in scored[: min(4, len(scored))]]
         if not top:
+            # No scorable pool cards — keep the original action as a safe fallback.
+            out.append(a)
             continue
 
+        # Replace the generic pool draw with targeted picks so the AI always
+        # intentionally selects specific cards rather than taking whatever
+        # happens to be at the top of the pool stack.
         if a.draw_from_pool == 1:
             for uid in top:
                 b = copy.deepcopy(a)
@@ -4537,6 +4540,9 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
                     b = copy.deepcopy(a)
                     b.pool_pick_uids = [top[i], top[j]]
                     out.append(b)
+        else:
+            # draw_from_pool == 2 but fewer than 2 scorable cards — keep original.
+            out.append(a)
     return out
 
 
@@ -4544,6 +4550,12 @@ def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState)
     acts = [a for a in legal_actions(gs, ms, player, include_draw=True) if a.kind != "end_turn"]
     if not acts:
         return []
+    # If already at hand limit, avoid drawing (draw → immediate end-of-turn discard
+    # is wasteful). Only suppress draws when play actions exist so the AI isn't stuck.
+    if len(player.hand) >= HAND_LIMIT:
+        play_acts = [a for a in acts if a.kind not in {"draw", "end_turn"}]
+        if play_acts:
+            acts = play_acts
     star_keys = {
         (a.kind, a.card_uid, a.face_uid if a.face_uid is not None else a.card_uid, a.ocean_uid)
         for a in acts
