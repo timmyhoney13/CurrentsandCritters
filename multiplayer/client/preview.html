@@ -533,6 +533,127 @@
     }
     .pv-pool-card.flip-in { animation: flipCardIn .32s ease-out; }
 
+    /* ── POOL EXPAND BUTTON ─────────────────────────────────────── */
+    #pv-pool-expand-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 1px 4px;
+      font-size: 9px;
+      line-height: 1.5;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      transition: color .15s, border-color .15s;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    #pv-pool-expand-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+
+    /* ── POOL OVERVIEW MODAL ────────────────────────────────────── */
+    #pv-pool-modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,12,30,.88);
+      z-index: 1500;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #pv-pool-modal.open { display: flex; }
+    #pv-pm-box {
+      background: var(--felt);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.7);
+      width: min(92vw, 660px);
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #pv-pm-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #pv-pm-title {
+      font-family: "Cinzel", serif;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: .5px;
+    }
+    #pv-pm-close {
+      width: 30px; height: 30px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      border-radius: 50%;
+      color: var(--muted);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .15s, border-color .15s;
+    }
+    #pv-pm-close:hover { color: var(--red); border-color: var(--red); }
+    #pv-pm-body {
+      overflow-y: auto;
+      padding: 16px 16px 20px;
+    }
+    #pv-pm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: 14px;
+    }
+    .pv-pm-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+    .pv-pm-card-img {
+      width: 90px; height: 128px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      transition: transform .18s, border-color .15s, box-shadow .15s;
+    }
+    .pv-pm-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pv-pm-card:hover .pv-pm-card-img {
+      transform: translateY(-6px) scale(1.05);
+      border-color: var(--cyan);
+      box-shadow: 0 8px 24px var(--glow-c);
+    }
+    .pv-pm-card.selected .pv-pm-card-img {
+      border-color: var(--gold);
+      box-shadow: 0 0 14px var(--glow-gold);
+      transform: translateY(-4px) scale(1.04);
+    }
+    .pv-pm-card-name {
+      font-size: .7rem;
+      color: var(--muted);
+      text-align: center;
+      max-width: 90px;
+      line-height: 1.3;
+    }
+    #pv-pm-hint {
+      font-size: .8rem;
+      color: var(--cyan);
+      text-align: center;
+      padding: 10px 0 2px;
+    }
+    #pv-pm-empty {
+      font-size: .88rem;
+      color: var(--muted);
+      text-align: center;
+      padding: 36px 0;
+    }
+
     /* ── CARD ANIMATIONS ────────────────────────────────────────── */
     @keyframes dealIn {
       0%   { transform: translateY(-55px) translateX(-10px) scale(.55) rotate(-6deg); opacity: 0; }
@@ -3201,7 +3322,7 @@
       .ph-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .ph-tab { font-size: .92rem; }
-      .ph-rg { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+      .ph-rg { grid-template-columns: auto minmax(0, 1fr) auto auto auto; }
       .ph-rg-date { grid-column: 2 / -1; justify-self: end; }
     }
     @media (max-width: 560px) {
@@ -5524,7 +5645,7 @@
     <!-- center strip: pool + deck + draw buttons -->
     <div id="pv-center-strip">
       <div id="pv-pool-area">
-        <div class="pv-section-label">Pool</div>
+        <div class="pv-section-label">Pool<button id="pv-pool-expand-btn" title="View all pool cards">view all</button></div>
         <div id="pv-pool-wrap"></div>
         <div id="pv-pool-pick-hint" style="display:none;font-size:10px;color:var(--cyan);text-align:center;margin-top:2px;"></div>
       </div>
@@ -5734,6 +5855,21 @@
       <div class="zm-species" id="pv-zm-species"></div>
       <div class="zm-text" id="pv-zm-text"></div>
       <div class="zm-star" id="pv-zm-star" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ POOL OVERVIEW MODAL ════════════════════════════════════════ -->
+<div id="pv-pool-modal">
+  <div id="pv-pm-box">
+    <div id="pv-pm-hdr">
+      <div id="pv-pm-title">Pool</div>
+      <button id="pv-pm-close">✕</button>
+    </div>
+    <div id="pv-pm-body">
+      <div id="pv-pm-hint" style="display:none;"></div>
+      <div id="pv-pm-grid"></div>
+      <div id="pv-pm-empty" style="display:none;">The pool is empty.</div>
     </div>
   </div>
 </div>
@@ -6031,6 +6167,102 @@
   document.getElementById("pv-zoom-modal").addEventListener("click", (e) => {
     if (e.target === document.getElementById("pv-zoom-modal")) closeZoom();
   });
+
+  // ── Pool overview modal ────────────────────────────────────────
+  function openPoolModal() {
+    document.getElementById("pv-pool-modal").classList.add("open");
+    renderPoolModal();
+  }
+  function closePoolModal() {
+    document.getElementById("pv-pool-modal").classList.remove("open");
+  }
+  function renderPoolModal() {
+    const modal = document.getElementById("pv-pool-modal");
+    if (!modal.classList.contains("open")) return;
+    const pool = _latestPool;
+    const actions = _latestPoolActions;
+    const drawActions = actions.filter(a => a.kind === "draw");
+    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) > 0);
+    const titleEl = document.getElementById("pv-pm-title");
+    const hintEl  = document.getElementById("pv-pm-hint");
+    const gridEl  = document.getElementById("pv-pm-grid");
+    const emptyEl = document.getElementById("pv-pm-empty");
+    titleEl.textContent = `Pool · ${pool.length} card${pool.length !== 1 ? "s" : ""}`;
+    if (pendingPoolDrawPicks.size === 1 && canInteract && canDrawPool) {
+      hintEl.textContent = "1 card selected — select a second, or click the deck to draw";
+      hintEl.style.display = "";
+    } else {
+      hintEl.style.display = "none";
+    }
+    if (!pool.length) {
+      gridEl.innerHTML = "";
+      emptyEl.style.display = "";
+      return;
+    }
+    emptyEl.style.display = "none";
+    gridEl.innerHTML = "";
+    pool.forEach(entry => {
+      const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+      const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
+      const isPending = pendingPoolDrawPicks.has(faceUid);
+      const card = document.createElement("div");
+      card.className = "pv-pm-card" + (isPending ? " selected" : "");
+      const imgWrap = document.createElement("div");
+      imgWrap.className = "pv-pm-card-img";
+      const img = document.createElement("img");
+      img.src = imagePathForUid(faceUid);
+      img.alt = face.name || "";
+      img.loading = "lazy";
+      imgWrap.appendChild(img);
+      const nameEl = document.createElement("div");
+      nameEl.className = "pv-pm-card-name";
+      nameEl.textContent = face.name || "";
+      card.appendChild(imgWrap);
+      card.appendChild(nameEl);
+      if (canDrawPool && canInteract) {
+        let _pmTimer = null;
+        card.addEventListener("dblclick", e => {
+          e.stopPropagation();
+          clearTimeout(_pmTimer);
+          openZoom(faceUid, face.name, face.text, face.species);
+        });
+        card.addEventListener("click", e => {
+          e.stopPropagation();
+          clearTimeout(_pmTimer);
+          _pmTimer = setTimeout(() => {
+            if (pendingPoolDrawPicks.has(faceUid)) {
+              pendingPoolDrawPicks.delete(faceUid);
+            } else if (pendingPoolDrawPicks.size >= 2) {
+              showToast("You can only draw up to 2 cards from the pool.", "warn");
+              return;
+            } else {
+              pendingPoolDrawPicks.add(faceUid);
+              if (pendingPoolDrawPicks.size === 2) {
+                closePoolModal();
+                _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+                renderPool(_latestPool, _latestPoolActions);
+                return;
+              }
+            }
+            renderPoolModal();
+            renderPool(_latestPool, _latestPoolActions);
+          }, 200);
+        });
+      } else {
+        card.addEventListener("click", e => {
+          e.stopPropagation();
+          openZoom(faceUid, face.name, face.text, face.species);
+        });
+      }
+      gridEl.appendChild(card);
+    });
+  }
+  document.getElementById("pv-pool-expand-btn").addEventListener("click", openPoolModal);
+  document.getElementById("pv-pm-close").addEventListener("click", closePoolModal);
+  document.getElementById("pv-pool-modal").addEventListener("click", e => {
+    if (e.target === document.getElementById("pv-pool-modal")) closePoolModal();
+  });
+
   document.getElementById("ph-gdm-close").addEventListener("click", () => {
     document.getElementById("ph-game-detail-modal").classList.remove("open");
   });
@@ -7053,6 +7285,8 @@
 
   // ── Pool renderer ──────────────────────────────────────────────
   let _prevPoolUids = [];
+  let _latestPool = [];
+  let _latestPoolActions = [];
   // Pool cards the player has dragged to hand, queued for drawing
   const pendingPoolDrawPicks = new Set();
   let _poolDrawActions = null; // cached draw actions for deck-click handler
@@ -7070,6 +7304,9 @@
   }
 
   function renderPool(pool, actions) {
+    _latestPool = pool;
+    _latestPoolActions = actions;
+    renderPoolModal();
     const wrap = document.getElementById("pv-pool-wrap");
     const curUids = pool.map(e => Number((Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
     const prevSet = new Set(_prevPoolUids);
