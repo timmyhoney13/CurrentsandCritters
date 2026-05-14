@@ -2872,7 +2872,7 @@
     .ph-rg,
     .ph-fr {
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+      grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
       align-items: center;
       column-gap: 10px;
       row-gap: 5px;
@@ -2912,6 +2912,162 @@
       color: #6f8dab;
       white-space: nowrap;
     }
+    .ph-rg-view-btn {
+      font-size: .8rem;
+      font-weight: 700;
+      color: #1a6fc4;
+      background: rgba(38,128,200,.10);
+      border: 1px solid rgba(38,128,200,.30);
+      border-radius: 7px;
+      padding: 4px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, border-color .15s;
+    }
+    .ph-rg-view-btn:hover { background: rgba(38,128,200,.20); border-color: rgba(38,128,200,.55); }
+
+    /* ── Game Detail Modal ─────────────────────────────────────────── */
+    #ph-game-detail-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9800;
+      background: rgba(10,28,60,.55);
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    #ph-game-detail-modal.open { display: flex; }
+    #ph-gdm-box {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 12px 48px rgba(10,30,70,.22);
+      width: 100%;
+      max-width: 560px;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #143d6d;
+      font-family: "Nunito", sans-serif;
+    }
+    #ph-gdm-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid #e8f0f9;
+    }
+    #ph-gdm-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: #0e2f5a;
+    }
+    #ph-gdm-close {
+      background: #f0f4f9;
+      border: none;
+      border-radius: 50%;
+      width: 30px; height: 30px;
+      cursor: pointer;
+      font-size: 14px;
+      color: #4a6f9a;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    #ph-gdm-close:hover { background: #dce8f5; }
+    #ph-gdm-body {
+      overflow-y: auto;
+      padding: 18px 20px 24px;
+      flex: 1;
+    }
+    .ph-gdm-section-label {
+      font-size: .78rem;
+      font-weight: 800;
+      color: #4a7aaa;
+      letter-spacing: .7px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .ph-gdm-score-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: #f5f9ff;
+      margin-bottom: 6px;
+    }
+    .ph-gdm-score-row.winner {
+      background: rgba(245,200,66,.12);
+      border: 1.5px solid rgba(245,200,66,.45);
+    }
+    .ph-gdm-rank {
+      font-size: .8rem;
+      font-weight: 800;
+      color: #7aaad0;
+      width: 18px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .ph-gdm-pname {
+      flex: 1;
+      font-size: .96rem;
+      font-weight: 700;
+      color: #0e2f5a;
+      min-width: 0;
+    }
+    .ph-gdm-pscore {
+      font-size: .95rem;
+      font-weight: 800;
+      color: #1a6fc4;
+      white-space: nowrap;
+    }
+    .ph-gdm-score-row.winner .ph-gdm-pscore { color: #c47a00; }
+    .ph-gdm-player-board {
+      margin-bottom: 14px;
+      background: #f5f9ff;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .ph-gdm-pb-name {
+      font-size: .9rem;
+      font-weight: 800;
+      color: #0e2f5a;
+      padding: 9px 12px 6px;
+      border-bottom: 1px solid #e4eef8;
+    }
+    .ph-gdm-pb-name.winner { color: #a06500; }
+    .ph-gdm-ocean-row {
+      display: flex;
+      flex-direction: column;
+      padding: 6px 12px 7px;
+      border-bottom: 1px solid #edf3fa;
+      gap: 2px;
+    }
+    .ph-gdm-ocean-row:last-child { border-bottom: none; }
+    .ph-gdm-ocean-name {
+      font-size: .88rem;
+      font-weight: 700;
+      color: #1a6fc4;
+    }
+    .ph-gdm-animals {
+      font-size: .83rem;
+      color: #4a6f9a;
+    }
+    .ph-gdm-pb-empty {
+      padding: 8px 12px;
+      font-size: .85rem;
+      color: #8aa5c0;
+      font-style: italic;
+    }
+    .ph-gdm-no-board {
+      font-size: .88rem;
+      color: #8aa5c0;
+      font-style: italic;
+      text-align: center;
+      padding: 16px 0;
+    }
+
     .ph-fr-av {
       width: 38px;
       height: 38px;
@@ -5591,6 +5747,25 @@
   </div>
 </div>
 
+<!-- ══ GAME DETAIL MODAL ══════════════════════════════════════════ -->
+<div id="ph-game-detail-modal">
+  <div id="ph-gdm-box">
+    <div id="ph-gdm-hdr">
+      <div>
+        <div id="ph-gdm-title">Game Details</div>
+        <div id="ph-gdm-mode" style="font-size:12px;color:#6b9dcc;margin-top:2px;"></div>
+      </div>
+      <button id="ph-gdm-close">✕</button>
+    </div>
+    <div id="ph-gdm-body">
+      <div class="ph-gdm-section-label">Final Scores</div>
+      <div id="ph-gdm-scores"></div>
+      <div class="ph-gdm-section-label" style="margin-top:18px;">Final Boards</div>
+      <div id="ph-gdm-boards"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ TUTORIAL MODE (full-screen interactive) ════════════════════ -->
 <div id="pv-tutorial">
   <!-- top bar -->
@@ -5855,6 +6030,13 @@
   document.getElementById("pv-zoom-close").addEventListener("click", closeZoom);
   document.getElementById("pv-zoom-modal").addEventListener("click", (e) => {
     if (e.target === document.getElementById("pv-zoom-modal")) closeZoom();
+  });
+  document.getElementById("ph-gdm-close").addEventListener("click", () => {
+    document.getElementById("ph-game-detail-modal").classList.remove("open");
+  });
+  document.getElementById("ph-game-detail-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("ph-game-detail-modal"))
+      document.getElementById("ph-game-detail-modal").classList.remove("open");
   });
 
   // ── State polling ──────────────────────────────────────────────
@@ -9715,6 +9897,17 @@
         .filter(Boolean)
         .filter(name => name.toLowerCase() !== myGameNameLower)
         .slice(0, 8);
+      const allScores = [...(finalScores || [])].sort((a,b)=>(b.score||0)-(a.score||0))
+        .map(p => ({ n: String(p.name||""), s: Number(p.score||0) }));
+      const boardSnaps = _latestPlayers.map(p => ({
+        n: String(p.name||""),
+        b: (Array.isArray(p.board)?p.board:[]).map(ocean => ({
+          o: ocean.ocean?.name || String(ocean.ocean_uid||"Ocean"),
+          a: ["up","down","left","right"].flatMap(dir =>
+            (Array.isArray(ocean[dir])?ocean[dir]:[]).map(c=>String(c.name||""))
+          ).filter(Boolean)
+        }))
+      }));
       const recentEntry = {
         r: isWinner ? 1 : 0,
         s: myScore,
@@ -9722,6 +9915,9 @@
         opp: oppNames,
         pc: playerCount,
         mode: isComp ? "competitive" : "normal",
+        all: allScores,
+        bds: boardSnaps,
+        win: winner || "",
       };
       const existingRecent = Array.isArray(cStats.recent_games) ? cStats.recent_games : [];
       const nextRecent = [recentEntry, ...existingRecent].slice(0, 50);
@@ -12370,7 +12566,14 @@
         const isWin = g.r === 1, pts = g.s || 0;
         const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
         const opps = Array.isArray(g.opp) ? g.opp.slice(0,2).join(", ") + (g.opp.length > 2 ? "…" : "") : (g.opp || "");
-        d.innerHTML = `<span class="ph-rg-ico" aria-hidden="true"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph-rg-opp">vs ${escapeHtml(opps || "Solo")}</span><span class="ph-rg-badge ${isWin?"win":"loss"}">${isWin?"Win":"Loss"}</span><span class="ph-rg-pts">${Number(pts) || 0} pts</span><span class="ph-rg-date">${escapeHtml(date)}</span>`;
+        const hasDetail = Array.isArray(g.all) && g.all.length > 0;
+        d.innerHTML = `<span class="ph-rg-ico" aria-hidden="true"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph-rg-opp">vs ${escapeHtml(opps || "Solo")}</span><span class="ph-rg-badge ${isWin?"win":"loss"}">${isWin?"Win":"Loss"}</span><span class="ph-rg-pts">${Number(pts) || 0} pts</span><span class="ph-rg-date">${escapeHtml(date)}</span>${hasDetail ? `<button class="ph-rg-view-btn">View Game</button>` : ""}`;
+        if (hasDetail) {
+          d.querySelector(".ph-rg-view-btn").addEventListener("click", (e) => {
+            e.stopPropagation();
+            openGameDetailModal(g);
+          });
+        }
         el.appendChild(d);
       });
     }
@@ -12389,6 +12592,65 @@
         el.innerHTML = '<div class="ph-empty">No games completed yet.</div>'; return;
       }
       renderPhRecentGamesTo(el, historyGames, 50);
+    }
+
+    // ── Game Detail Modal ─────────────────────────────────────────
+    function openGameDetailModal(g) {
+      const modal = document.getElementById("ph-game-detail-modal");
+      if (!modal) return;
+      const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"long", day:"numeric", year:"numeric"}) : "";
+      const modeLabel = g.mode === "competitive" ? "Competitive" : "Normal";
+      document.getElementById("ph-gdm-title").textContent = date ? `Game on ${date}` : "Game Details";
+      document.getElementById("ph-gdm-mode").textContent = `${modeLabel} · ${g.pc || (Array.isArray(g.all)?g.all.length:0)} players`;
+
+      // Scores table
+      const scoresEl = document.getElementById("ph-gdm-scores");
+      scoresEl.innerHTML = "";
+      const sorted = Array.isArray(g.all) ? [...g.all] : [];
+      const winnerName = g.win || (sorted[0]?.n || "");
+      sorted.forEach((p, i) => {
+        const row = document.createElement("div");
+        const isWinner = p.n && p.n.toLowerCase() === winnerName.toLowerCase();
+        row.className = "ph-gdm-score-row" + (isWinner ? " winner" : "");
+        row.innerHTML = `<span class="ph-gdm-rank">${i+1}</span><span class="ph-gdm-pname">${escapeHtml(p.n)}${isWinner?" 🏆":""}</span><span class="ph-gdm-pscore">${p.s} pts</span>`;
+        scoresEl.appendChild(row);
+      });
+
+      // Boards
+      const boardsEl = document.getElementById("ph-gdm-boards");
+      boardsEl.innerHTML = "";
+      const boards = Array.isArray(g.bds) ? g.bds : [];
+      if (!boards.length) {
+        boardsEl.innerHTML = '<div class="ph-gdm-no-board">Board data not available for this game.</div>';
+      } else {
+        boards.forEach(player => {
+          const section = document.createElement("div");
+          section.className = "ph-gdm-player-board";
+          const isW = player.n && player.n.toLowerCase() === winnerName.toLowerCase();
+          const hdr = document.createElement("div");
+          hdr.className = "ph-gdm-pb-name" + (isW ? " winner" : "");
+          hdr.textContent = player.n + (isW ? " 🏆" : "");
+          section.appendChild(hdr);
+          const oceans = Array.isArray(player.b) ? player.b : [];
+          if (!oceans.length) {
+            const empty = document.createElement("div");
+            empty.className = "ph-gdm-pb-empty";
+            empty.textContent = "No oceans played";
+            section.appendChild(empty);
+          } else {
+            oceans.forEach(ocean => {
+              const row = document.createElement("div");
+              row.className = "ph-gdm-ocean-row";
+              const animals = Array.isArray(ocean.a) ? ocean.a : [];
+              row.innerHTML = `<span class="ph-gdm-ocean-name">🌊 ${escapeHtml(ocean.o)}</span><span class="ph-gdm-animals">${animals.length ? escapeHtml(animals.join(", ")) : "No creatures"}</span>`;
+              section.appendChild(row);
+            });
+          }
+          boardsEl.appendChild(section);
+        });
+      }
+
+      modal.classList.add("open");
     }
 
     // ── Player Home: friends tab ───────────────────────────────────
