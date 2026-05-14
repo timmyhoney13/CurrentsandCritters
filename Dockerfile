@@ -23,4 +23,4 @@ RUN mkdir -p /app/multiplayer/state /var/data/fish-room-state
 
 EXPOSE 10000
 
-CMD ["sh", "-lc", "python3 multiplayer_server.py --host 0.0.0.0 --port ${PORT:-10000} ${PUBLIC_BASE_URL:+--public-base-url ${PUBLIC_BASE_URL}} ${FISH_CREATE_KEY:+--create-key ${FISH_CREATE_KEY}} ${FISH_CORS_ALLOW_ORIGIN:+--cors-allow-origin ${FISH_CORS_ALLOW_ORIGIN}}"]
+CMD ["sh", "-c", "cd /app && python3 multiplayer_server.py --host 0.0.0.0 --port ${PORT:-10000} ${PUBLIC_BASE_URL:+--public-base-url ${PUBLIC_BASE_URL}} ${FISH_CREATE_KEY:+--create-key ${FISH_CREATE_KEY}} ${FISH_CORS_ALLOW_ORIGIN:+--cors-allow-origin ${FISH_CORS_ALLOW_ORIGIN}}"]
