@@ -274,13 +274,13 @@
       flex-direction: column;
       height: 100vh;
       overflow: hidden;
-      background: url("/ph-bg-game-art.png") center center / cover no-repeat;
+      background: #050d1a;
     }
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: rgba(8,18,52,0.92);
-      border-bottom: 1px solid rgba(48,120,200,0.40);
+      background: linear-gradient(90deg, rgba(13,38,88,.97) 0%, rgba(18,48,100,.97) 50%, rgba(13,38,88,.97) 100%);
+      border-bottom: 1px solid rgba(58,120,204,.25);
       font-size: 12px;
       color: var(--text);
       padding: 5px 14px;
@@ -333,16 +333,16 @@
       transition: background .4s, color .4s, box-shadow .4s;
     }
     #pv-turn-banner.my-turn {
-      background: transparent;
+      background: linear-gradient(90deg, rgba(13,42,90,0) 0%, rgba(20,70,140,.65) 30%, rgba(20,70,140,.65) 70%, rgba(13,42,90,0) 100%);
       color: var(--gold);
       animation: banner-glow 2s ease-in-out infinite;
-      text-shadow: 0 0 20px rgba(240,184,64,.7), 0 0 40px rgba(240,184,64,.3);
+      text-shadow: 0 0 20px rgba(240,184,64,.6), 0 0 40px rgba(48,200,240,.2);
     }
     @keyframes banner-glow {
-      0%,100% { text-shadow: 0 0 16px rgba(240,184,64,.5); }
-      50%      { text-shadow: 0 0 28px rgba(240,184,64,.9), 0 0 50px rgba(240,184,64,.4); }
+      0%,100% { box-shadow: inset 0 -2px 20px rgba(245,200,66,.12); }
+      50%      { box-shadow: inset 0 -2px 30px rgba(245,200,66,.3); }
     }
-    #pv-turn-banner.their-turn { background: rgba(8,18,52,0.88); color: var(--muted); }
+    #pv-turn-banner.their-turn { background: rgba(10,14,24,.6); color: var(--muted); }
     #pv-turn-banner.endgame {
       background: linear-gradient(90deg, rgba(40,10,10,0) 0%, rgba(80,10,10,.7) 30%, rgba(80,10,10,.7) 70%, rgba(40,10,10,0) 100%);
       color: var(--red);
@@ -743,8 +743,8 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: rgba(8,18,52,0.94);
-      border-top: 1px solid rgba(48,200,240,.25);
+      background: linear-gradient(180deg, rgba(18,46,98,.97) 0%, rgba(13,36,80,.98) 100%);
+      border-top: 1px solid rgba(48,200,240,.15);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -785,7 +785,7 @@
 
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
-      background: linear-gradient(0deg, rgba(8,18,52,0.95) 0%, rgba(8,18,52,0.60) 100%);
+      background: linear-gradient(0deg, rgba(11,30,72,.99) 0%, rgba(16,44,90,.55) 100%);
       flex-shrink: 0;
       padding: 6px 20px 14px;
       display: flex;
@@ -1098,8 +1098,7 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: rgba(8,18,52,0.90);
-      border-bottom: 1px solid rgba(48,120,200,0.25);
+      background: linear-gradient(90deg, rgba(13,38,88,0) 0%, rgba(20,54,110,.95) 10%, rgba(20,54,110,.95) 90%, rgba(13,38,88,0) 100%);
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
       color: var(--cyan);
