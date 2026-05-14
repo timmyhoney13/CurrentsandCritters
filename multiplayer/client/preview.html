@@ -290,9 +290,6 @@
       flex-shrink: 0;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      position: sticky;
-      top: 0;
-      z-index: 200;
     }
     .room-badge {
       background: var(--border);
@@ -1107,9 +1104,7 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: rgba(8,20,55,0.52);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(8,20,55,0.60);
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
       color: var(--cyan);
@@ -6819,7 +6814,7 @@
     if (mustDiscard) {
       setStatus(`Discard exactly ${discardExcess} card(s) — cannot go below 10`);
     } else if (isMyTurn) {
-      setStatus("Your current — cast your line");
+      setStatus("Cast your line");
     } else {
       setStatus(payload.status_note || `Waiting for ${current}…`);
     }
