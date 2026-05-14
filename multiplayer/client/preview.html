@@ -2805,6 +2805,37 @@
       color: #4b6f94;
       line-height: 1.2;
     }
+    .ph-practice-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px 18px;
+      border: 1.5px dashed rgba(44,197,185,.55);
+      border-radius: 14px;
+      background: rgba(44,197,185,.06);
+      color: #1a8080;
+      cursor: pointer;
+      transition: background .15s, border-color .15s, transform .12s;
+      font-family: "Nunito", sans-serif;
+    }
+    .ph-practice-btn:hover {
+      background: rgba(44,197,185,.12);
+      border-color: rgba(44,197,185,.85);
+      transform: translateY(-1px);
+    }
+    .ph-practice-btn svg { flex-shrink: 0; opacity: .85; }
+    .ph-practice-btn span:first-of-type {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #157070;
+    }
+    .ph-practice-sub {
+      font-size: .82rem;
+      color: #4a9090;
+      margin-left: auto;
+    }
+
     .stats-join-row {
       display: none;
       flex-direction: row;
@@ -5052,6 +5083,13 @@
       </button>
     </div>
 
+    <!-- Practice vs AI quick-start -->
+    <button class="ph-practice-btn" id="stats-practice-btn">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6l1.5-1.5M19 8h1.5M17.5 10l1 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <span>Practice vs AI</span>
+      <span class="ph-practice-sub">Quick 1v1 — starts instantly</span>
+    </button>
+
     <!-- Join row (quick-join, toggled open by JS) -->
     <div class="stats-join-row" id="stats-join-row">
       <input class="pv-input" id="stats-join-code" placeholder="Current code (5 letters)"
@@ -6278,6 +6316,7 @@
   let refreshInFlight = false;
   let _prevTurnIdx = null;
   let _prevScore = null;
+  let _aiAutoStartFired = false;
   let _myIdxGlobal = null;
   let _prevReplayTurn = false;
   let _prevEndTriggered = true; // start true so we only fire on a real false→true transition
@@ -6367,6 +6406,7 @@
 
   function enterRoom(id) {
     roomId = id;
+    _aiAutoStartFired = false;
     document.getElementById("pv-room-id-badge").textContent = id;
     document.getElementById("pv-lobby").style.display = "none";
     // Hide stats lobby if it's showing
@@ -7178,8 +7218,15 @@
       const lobbySeats = (Array.isArray(payload.seats) ? payload.seats : [])
         .filter(s => s.kind === "human");
       updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn, Boolean(getHostToken()));
+      // Auto-start AI games once all human seats are ready — no need to click Start
+      const aiCount = Number(payload.room?.ai_players ?? 0);
+      if (payload.can_start && aiCount > 0 && getHostToken() && !_aiAutoStartFired) {
+        _aiAutoStartFired = true;
+        setTimeout(() => startFn(), 800);
+      }
     } else {
       hideWaitingRoom();
+      _aiAutoStartFired = false; // reset when game starts so a future lobby works
     }
 
     // turn banner + "your turn" toast
@@ -11956,6 +12003,66 @@
       const sl = $a("auth-stats-lobby");
       if (sl) sl.classList.remove("visible");
       startTutorial();
+    });
+
+    // ── Practice vs AI quick-start ────────────────────────────────
+    $a("stats-practice-btn").addEventListener("click", async () => {
+      const btn = $a("stats-practice-btn");
+      btn.disabled = true;
+      btn.querySelector("span").textContent = "Starting…";
+      const name = (window.__fishNickname && window.__fishNickname()) || "Player";
+      const rid = Math.random().toString(36).slice(2,7).toUpperCase();
+      const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+      try { localStorage.setItem(createKeyKey(), createKey); } catch {}
+      const cr = await apiPost("/api/rooms", {
+        create_key: createKey, host_name: name, room_id: rid,
+        total_players: 2, human_players: 1, ai_players: 1,
+        replace_active: false, visibility: "public",
+      }, { timeoutMs: 10000 });
+      if (!cr.ok) {
+        // If there's already an active room, force-replace it so Practice always works
+        if (cr.data?.active_room_id) {
+          const cr2 = await apiPost("/api/rooms", {
+            create_key: createKey, host_name: name, room_id: rid,
+            total_players: 2, human_players: 1, ai_players: 1,
+            replace_active: true, visibility: "public",
+          }, { timeoutMs: 10000 });
+          if (!cr2.ok) {
+            showToast("Couldn't start practice game. Try again.", "warn");
+            btn.disabled = false;
+            btn.querySelector("span").textContent = "Practice vs AI";
+            return;
+          }
+          const rId = normalizeRoomId(cr2.data?.room_id || rid);
+          roomId = rId;
+          if (cr2.data?.host_token) setHostToken(cr2.data.host_token);
+          if (cr2.data?.seat_token) setSeatToken(cr2.data.seat_token);
+        } else {
+          showToast("Couldn't start practice game: " + (cr.data?.error || ""), "warn");
+          btn.disabled = false;
+          btn.querySelector("span").textContent = "Practice vs AI";
+          return;
+        }
+      } else {
+        const rId = normalizeRoomId(cr.data?.room_id || rid);
+        roomId = rId;
+        if (cr.data?.host_token) setHostToken(cr.data.host_token);
+        if (cr.data?.seat_token) setSeatToken(cr.data.seat_token);
+      }
+      // Start the game immediately — no waiting room needed for solo AI
+      const sr = await apiPost(`/api/rooms/${roomId}/start`,
+        { seat_token: getSeatToken(), host_token: getHostToken(), create_key: getCreateKey() },
+        { timeoutMs: 8000 });
+      document.getElementById("pv-my-name-badge").textContent = name;
+      btn.disabled = false;
+      btn.querySelector("span").textContent = "Practice vs AI";
+      if (sr.ok) {
+        enterRoom(roomId);
+      } else {
+        // Game started but might need a moment — enter anyway and let polling handle it
+        enterRoom(roomId);
+        showWaitingRoom(roomId, true);
+      }
     });
 
     // ── Leaderboard button ────────────────────────────────────────
