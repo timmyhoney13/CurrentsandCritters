@@ -1,0 +1,29 @@
+# Exclude everything by default, then allow only what the server needs.
+*
+
+# Git history — huge and never needed inside the image.
+.git
+
+# Allow the Python server and engine.
+!multiplayer_server.py
+!fish_game_all_in_one.py
+
+# Allow the AI brain and card data files.
+!fish_ai_brain.json
+!cards_vertical.txt
+!cards_lr.txt
+!cards_oceans.txt
+
+# Allow the web client (served statically by the server).
+!multiplayer/
+!multiplayer/client/
+!multiplayer/client/**
+!multiplayer/human_game_dataset.jsonl
+
+# Allow card image sheets (served as static assets).
+!horizontal_cards/
+!horizontal_cards/**
+!vertical_cards/
+!vertical_cards/**
+!oceans_cards/
+!oceans_cards/**

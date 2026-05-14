@@ -2,6 +2,7 @@
 *
 
 !.gitignore
+!.dockerignore
 !index.html
 !Dockerfile
 !render.yaml
