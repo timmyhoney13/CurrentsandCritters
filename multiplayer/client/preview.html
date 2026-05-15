@@ -6861,15 +6861,25 @@
   }
 
   async function fetchSeats(rid) {
-    // returns { seatObjs } or null on error
-    // Response shape: { ok, room: { total_players, ... }, seats: [{index, kind, claimed_name, ...}], ... }
+    // returns { seatObjs, mode } or null on error
+    // Response shape: { ok, room: { total_players, mode, ... }, seats: [{index, kind, claimed_name, ...}], ... }
     const res = await apiFetch(`/api/rooms/${rid}/state`, { method:"GET", timeoutMs:8000 });
     if (!res.ok) return null;
     const allSeats = Array.isArray(res.data?.seats) ? res.data.seats : [];
     // Only offer human seats in the picker; AI seats can't be joined
     const seatObjs = allSeats.filter(s => s.kind === "human");
     if (seatObjs.length === 0) return null;
-    return { seatObjs };
+    const isComp = Boolean(res.data?.room?.competitive) || (res.data?.room?.mode === "competitive");
+    return { seatObjs, mode: isComp ? "competitive" : "" };
+  }
+
+  // Redirect to competitive join overlay, pre-filling the room code
+  function _openCompJoinOverlay(rid) {
+    compOpenOverlay();
+    compSwitchTab("join");
+    const codeEl = document.getElementById("comp-join-code");
+    if (codeEl) codeEl.value = normalizeRoomId(rid || "").toUpperCase();
+    compSetStatus("", false);
   }
 
   async function doJoin(rid, name, seat, joinBtn) {
@@ -6905,6 +6915,10 @@
       showToast("Room not found — ask the host to re-share the invite link.", "err");
       return;
     }
+    if (data.mode === "competitive") {
+      _openCompJoinOverlay(rid);
+      return;
+    }
     if (data.seatObjs.every(s => s.claimed_name)) {
       showToast("All seats are taken in this room.", "warn");
     }
@@ -6931,6 +6945,10 @@
     const data = await fetchSeats(rid);
     if (!data) {
       showToast("Room not found — check the code and try again.", "err");
+      return;
+    }
+    if (data.mode === "competitive") {
+      _openCompJoinOverlay(rid);
       return;
     }
     openSeatPickerModal(rid, data.seatObjs);
@@ -7055,6 +7073,12 @@
   }
 
   async function lbJoinRoom(room) {
+    // Competitive rooms use the dedicated comp overlay join flow (asks for two player names)
+    if (room.mode === "competitive") {
+      closeLobbyBrowser();
+      _openCompJoinOverlay(room.room_id);
+      return;
+    }
     if (room.has_password) {
       _lbPendingRoom = room;
       document.getElementById("lb-pw-err").textContent = "";
@@ -7155,6 +7179,7 @@
     closeLobbyBrowser();
     const data = await fetchSeats(code);
     if (!data) { showToast("Room not found — check the code.", "err"); return; }
+    if (data.mode === "competitive") { _openCompJoinOverlay(code); return; }
     openSeatPickerModal(code, data.seatObjs);
   });
   document.getElementById("lb-manual-code").addEventListener("keydown", (e) => {
