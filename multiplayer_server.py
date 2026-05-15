@@ -525,6 +525,10 @@ class GameRoom:
         self.visibility = visibility  # "public" | "private"
         self.password_hash = password_hash  # sha256 hex, None if public
         self._competitive_saved = False
+        # Competitive turn-order remapping: game_engine_idx → seat_idx
+        # Seats go 0,2,1,3 so turns alternate P1h1,P2h1,P1h2,P2h2
+        self._comp_game_to_seat: Dict[int, int] = {}
+        self._comp_seat_to_game: Dict[int, int] = {}
         self.seed = (now_unix() ^ secrets.randbits(31)) & 0x7FFFFFFF
         self.created_unix = now_unix()
         self.started_unix: Optional[int] = None
@@ -1719,7 +1723,9 @@ class GameRoom:
         private_hands: Dict[int, List[Dict[str, Any]]] = {}
         scores_now: Dict[str, int] = {}
 
-        for idx, p in enumerate(gs.players):
+        for game_idx, p in enumerate(gs.players):
+            # Map game-engine index back to seat index for the client
+            seat_idx = self._comp_game_to_seat.get(game_idx, game_idx)
             try:
                 full_breakdown = fish.full_score_breakdown(gs, p)
                 score = int(full_breakdown.get("total", 0))
@@ -1750,7 +1756,7 @@ class GameRoom:
             scores_now[p.name] = score
             players_public.append(
                 {
-                    "index": idx,
+                    "index": seat_idx,
                     "name": p.name,
                     "score": score,
                     "score_breakdown": {
@@ -1767,7 +1773,7 @@ class GameRoom:
                 if not isinstance(uid, int):
                     continue
                 hand_payload.append(entry_to_dict(ms, gs, uid))
-            private_hands[idx] = hand_payload
+            private_hands[seat_idx] = hand_payload
 
         pool_payload = [entry_to_dict(ms, gs, uid) for uid in list(ms.pool) if isinstance(uid, int)]
         current_player = None
@@ -1856,12 +1862,13 @@ class GameRoom:
         undo_seat_for_snap: Optional[int] = None
         if note.startswith("turn_start:"):
             try:
-                snap_idx = int(gs.turn_index) % max(len(gs.players), 1)
-                snap_seat = next((s for s in self.seats if s.index == snap_idx), None)
+                snap_game_idx = int(gs.turn_index) % max(len(gs.players), 1)
+                snap_seat_idx = self._comp_game_to_seat.get(snap_game_idx, snap_game_idx)
+                snap_seat = next((s for s in self.seats if s.index == snap_seat_idx), None)
                 if snap_seat is not None and snap_seat.kind == "human":
                     undo_gs_copy = copy.deepcopy(gs)
                     undo_ms_copy = copy.deepcopy(ms)
-                    undo_seat_for_snap = snap_idx
+                    undo_seat_for_snap = snap_seat_idx
             except Exception:
                 pass
 
@@ -2518,15 +2525,26 @@ class GameRoom:
                 else {}
             )
 
+            # Competitive: interleave P1/P2 hands so turns go 0→2→1→3
+            # (Player 1, Player 3, Player 2, Player 4)
+            if self.competitive and len(self.seats) == 4:
+                seat_turn_order = [0, 2, 1, 3]
+            else:
+                seat_turn_order = [s.index for s in self.seats]
+            self._comp_game_to_seat = {gi: si for gi, si in enumerate(seat_turn_order)}
+            self._comp_seat_to_game = {si: gi for gi, si in enumerate(seat_turn_order)}
+
             player_names: List[str] = []
             policies = []
-            for seat in self.seats:
+            for game_idx, seat_idx in enumerate(seat_turn_order):
+                seat = next(s for s in self.seats if s.index == seat_idx)
                 if seat.kind == "human":
-                    human_indices.add(seat.index)
+                    human_indices.add(game_idx)
                     player_names.append(seat.claimed_name or seat.label)
                     human_policy = self._human_policy(seat.index)
                     policies.append(self._wrap_policy_with_fallback(seat.claimed_name or seat.label, human_policy))
                 else:
+                    human_indices.discard(game_idx)
                     player_names.append(seat.claimed_name or seat.label)
                     ai_policy = self._build_ai_policy(
                         seat.index,

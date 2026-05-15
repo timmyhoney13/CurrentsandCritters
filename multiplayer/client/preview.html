@@ -7561,8 +7561,15 @@
       endBtn.classList.add("pulse-glow");
       if (isReplayTurn && !_prevReplayTurn) {
         showToast("★ Play again! Take another turn.", "turn");
-      } else if (!isReplayTurn && _prevTurnIdx !== myIdx && !compMode) {
+      } else if (!isReplayTurn && !compMode && _prevTurnIdx !== myIdx) {
         showToast("Your turn!", "turn");
+      } else if (!isReplayTurn && compMode) {
+        const activeSeat = Number(payload.active_action_seat);
+        if (_compPrevActiveSeat !== activeSeat) {
+          const handNum = compMySeats.indexOf(activeSeat) + 1;
+          const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
+          showToast(`${myName} — Hand ${handNum} — your turn!`, "turn");
+        }
       }
       _prevReplayTurn = isReplayTurn;
     } else {
@@ -9121,32 +9128,14 @@
   }
 
   function checkCompHandSwitch(payload) {
+    // Competitive is two-device mode — never show "pass the device" screen
     if (!compMode) return;
     const activeSeat = Number(payload?.active_action_seat);
     if (isNaN(activeSeat)) return;
-    const isMySeat = compMySeats.includes(activeSeat);
-    if (isMySeat) {
-      // Show switch whenever it becomes a different one of my hands than the last time I played
-      if (!_compHsSuppressed && _compPrevActiveSeat !== null && activeSeat !== _compPrevActiveSeat) {
-        showCompHandSwitch(activeSeat);
-      }
-      _compPrevActiveSeat = activeSeat; // only track my own seats
+    if (compMySeats.includes(activeSeat)) {
+      _compPrevActiveSeat = activeSeat;
     }
     _compHsSuppressed = false;
-  }
-
-  function showCompHandSwitch(seatIdx) {
-    const physPlayer = compMySeats[0] < 2 ? 1 : 2;
-    const playerName = physPlayer === 1 ? compP1Name : compP2Name;
-    const handNum = compMySeats.indexOf(Number(seatIdx)) + 1;
-    const pEl = document.getElementById("hs-player-name");
-    const hEl = document.getElementById("hs-hand-label");
-    const shEl = document.getElementById("hs-shield");
-    pEl.textContent = playerName;
-    pEl.className = `hs-player p${physPlayer}`;
-    hEl.textContent = `Your Hand ${handNum}`;
-    shEl.textContent = physPlayer === 1 ? "🌊" : "⚔️";
-    document.getElementById("comp-handswitch").classList.add("open");
   }
 
   document.getElementById("comp-handswitch").addEventListener("click", () => {
