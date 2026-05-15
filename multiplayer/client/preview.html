@@ -5717,7 +5717,7 @@
       <div style="font-size:12px;color:var(--muted);line-height:1.7;">
         Enter your name, then click a seat to claim it.
       </div>
-      <input class="pv-input" id="pv-join-name" placeholder="Your name" value="Player" style="margin-top:4px;" />
+      <input class="pv-input" id="pv-join-name" type="hidden" value="Player" />
       <!-- hidden code field still used by JS -->
       <input id="pv-join-code" type="hidden" />
       <div id="pv-seat-picker" style="margin-top:4px;">
@@ -5744,7 +5744,7 @@
       </div>
       <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a Current code? Use the <b>Join a Current</b> section below.</div>
       <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-host-name" placeholder="Your name" value="Host" />
+        <input class="pv-input" id="pv-host-name" type="hidden" value="Host" />
         <input class="pv-input" id="pv-room-code-new" placeholder="Current code" maxlength="5"
           style="width:120px;flex:none;text-transform:uppercase;"
           oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
@@ -5777,7 +5777,7 @@
     <!-- JOIN (from home — browse lobby or enter code) -->
     <div class="pv-lobby-box" style="width:100%;">
       <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
-      <input class="pv-input" id="pv-join-name-home" placeholder="Your name" value="Player" style="width:100%;margin-bottom:8px;" />
+      <input class="pv-input" id="pv-join-name-home" type="hidden" value="Player" />
       <button class="pv-btn full" id="pv-browse-btn" style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.45);color:var(--cyan);">🔍 Browse Open Currents</button>
       <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(58,120,204,.18);">
         <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:700;">Have a Current code?</div>
@@ -5821,17 +5821,13 @@
 
     <!-- CREATE PANEL -->
     <div class="comp-panel active" id="comp-panel-create">
-      <div class="comp-label">Your name (Player 1 — Hands 1 & 2)</div>
+      <div class="comp-label">You are Player 1 (Hands 1 & 2)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p1">1</div>
-        <input class="pv-input" id="comp-p1-name" placeholder="Player 1 name" value="Player 1" style="flex:1;" />
+        <div id="comp-p1-name-display" style="flex:1;padding:6px 10px;background:rgba(34,120,240,.08);border:1px solid rgba(34,120,240,.25);border-radius:6px;font-size:13px;color:var(--cyan);font-weight:700;">—</div>
       </div>
-      <div class="comp-label" style="margin-top:6px;">Opponent's name (Player 2 — Hands 3 & 4)</div>
-      <div class="comp-player-row">
-        <div class="comp-player-badge p2">2</div>
-        <input class="pv-input" id="comp-p2-name" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
-      </div>
-      <div class="comp-label" style="margin-top:4px;">Room code (optional)</div>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 6px;opacity:.8;">Player 2's name is set automatically when they join on their device.</div>
+      <div class="comp-label">Room code (optional)</div>
       <input class="pv-input" id="comp-create-code" placeholder="e.g. SWORD — leave blank to auto-generate" maxlength="5"
         style="width:100%;text-transform:uppercase;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
@@ -5848,16 +5844,16 @@
     <!-- JOIN PANEL -->
     <div class="comp-panel" id="comp-panel-join">
       <div style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:4px;">
-        Player 2 joins here. Enter the 5-letter code from Player 1 and your name.
+        Enter the 5-letter code from Player 1. You'll join as Player 2 using your nickname.
       </div>
       <div class="comp-label">Room code (from Player 1)</div>
       <input class="pv-input" id="comp-join-code" placeholder="5-letter code, e.g. SWORD" maxlength="5"
         style="width:100%;text-transform:uppercase;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-      <div class="comp-label" style="margin-top:6px;">Your name (Player 2 — Hands 3 & 4)</div>
+      <div class="comp-label" style="margin-top:6px;">You are Player 2 (Hands 3 & 4)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p2">2</div>
-        <input class="pv-input" id="comp-join-p2" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
+        <div id="comp-join-p2-display" style="flex:1;padding:6px 10px;background:rgba(240,200,64,.07);border:1px solid rgba(240,200,64,.25);border-radius:6px;font-size:13px;color:var(--gold);font-weight:700;">—</div>
       </div>
       <button class="pv-btn full gold" id="comp-join-btn" style="margin-top:8px;">🌊 Join as Player 2 →</button>
     </div>
@@ -9156,6 +9152,12 @@
       const el = document.getElementById(id);
       if (el) el.style.display = "";
     });
+    // Populate nickname displays
+    const nick = (window.__fishNickname && window.__fishNickname()) || "—";
+    const p1D = document.getElementById("comp-p1-name-display");
+    if (p1D) p1D.textContent = nick;
+    const p2D = document.getElementById("comp-join-p2-display");
+    if (p2D) p2D.textContent = nick;
   }
 
   function compCloseOverlay() {
@@ -9203,8 +9205,8 @@
 
   // ── Create: P1 creates the room, claims seats 0+1, shows code to share
   async function createCompMatch() {
-    const p1 = document.getElementById("comp-p1-name").value.trim() || "Player 1";
-    const p2Preset = document.getElementById("comp-p2-name").value.trim() || "Player 2";
+    const p1 = (window.__fishNickname && window.__fishNickname()) || "Player 1";
+    const p2Preset = "Player 2"; // P2 name comes from their own device when they join
     const codeRaw = document.getElementById("comp-create-code").value.trim().toUpperCase();
     const rid = codeRaw || null;
     compSetStatus("Creating match…", false);
@@ -9301,7 +9303,7 @@
   // ── Join: P2 joins by entering the code, claims seats 2+3
   async function joinCompMatch() {
     const code = normalizeRoomId(document.getElementById("comp-join-code").value.trim().toUpperCase());
-    const p2 = document.getElementById("comp-join-p2").value.trim() || "Player 2";
+    const p2 = (window.__fishNickname && window.__fishNickname()) || "Player 2";
     if (!code) { compSetStatus("Enter a valid 5-letter room code.", true); return; }
 
     // Check if this device already has a saved session for this code
@@ -11527,10 +11529,12 @@
         if (!el) return;
         el.value = nick;
         el.readOnly = true;
-        el.title = "Change your nickname in the lobby settings";
-        el.style.opacity = "0.75";
-        el.style.cursor = "not-allowed";
       });
+      // Populate competitive nickname displays
+      const p1Disp = $a("comp-p1-name-display");
+      if (p1Disp) p1Disp.textContent = nick || "—";
+      const p2Disp = $a("comp-join-p2-display");
+      if (p2Disp) p2Disp.textContent = nick || "—";
     }
 
     let _activeProfile = null;

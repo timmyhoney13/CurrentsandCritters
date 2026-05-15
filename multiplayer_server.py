@@ -3070,6 +3070,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Cache-Control")
 
+    def _apply_html_security_headers(self) -> None:
+        # Allow Firebase auth popups to work (they need same-origin-allow-popups)
+        self.send_header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+        self._apply_cors_headers()
+
     def _send_client_asset(
         self,
         file_path: str,
@@ -3124,7 +3129,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         # Keep clients in sync so all players render the same UI version.
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
@@ -3144,7 +3149,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         try:
@@ -3162,7 +3167,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         try:
@@ -3180,7 +3185,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         try:
@@ -3198,7 +3203,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         try:
@@ -3216,7 +3221,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_cors_headers()
+        self._apply_html_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(raw)))
         try:
