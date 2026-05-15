@@ -3053,6 +3053,7 @@
     }
     .ph-rg-badge.win { color: #1d9b4e; background: rgba(31,175,95,.13); }
     .ph-rg-badge.loss { color: #c0392b; background: rgba(220,60,60,.11); }
+    .ph-rg-badge.draw { color: #7a6800; background: rgba(224,184,90,.18); }
     .ph-rg-pts {
       font-size: .94rem;
       font-weight: 800;
@@ -4229,6 +4230,7 @@
     }
     .ph-rg-badge.win { color: #29994a; background: transparent; }
     .ph-rg-badge.loss { color: #d45a5a; background: transparent; }
+    .ph-rg-badge.draw { color: #7a6800; background: transparent; }
     .ph-rg-pts {
       font-size: .95rem;
       font-weight: 800;
@@ -4748,6 +4750,136 @@
     .lb-name { flex: 1; color: var(--text); font-weight: 700; }
     .lb-score { color: var(--cyan); font-weight: 800; font-family: 'Nunito', sans-serif; }
     .lb-you { color: var(--gold) !important; }
+
+    /* ── Competitive Tab: Ranked Dashboard ───────────────────────── */
+    .ph-comp-rank-section {
+      padding: 14px 18px 12px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(224,184,90,.22);
+    }
+    .ph-comp-rank-name {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #a16f04;
+      letter-spacing: .3px;
+      min-width: 120px;
+    }
+    .ph-comp-cp-wrap { flex: 1; min-width: 150px; }
+    .ph-comp-cp-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #7a5a10;
+      margin-bottom: 5px;
+    }
+    .ph-cp-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: rgba(224,184,90,.2);
+      overflow: hidden;
+    }
+    .ph-cp-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #d4a017, #f0c840);
+      transition: width .5s ease;
+      min-width: 4px;
+    }
+    .ph-comp-season-row {
+      font-size: 11px;
+      color: rgba(121,88,12,.75);
+      width: 100%;
+      margin-top: 5px;
+    }
+    .ph-king-card {
+      background: linear-gradient(135deg, rgba(255,250,230,.97) 0%, rgba(255,243,195,.94) 100%);
+      border: 1px solid rgba(224,184,90,.52) !important;
+    }
+    .ph-king-content {
+      padding: 10px 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ph-king-crown { font-size: 26px; line-height: 1; flex-shrink: 0; }
+    .ph-king-info  { flex: 1; min-width: 0; }
+    .ph-king-name  { font-size: 14px; font-weight: 800; color: #1a2e4a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-king-meta  { font-size: 12px; color: #7a5a10; margin-top: 2px; }
+    /* competitive tab overrides for the dash elements */
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-rank-section {
+      border-bottom-color: rgba(34,120,240,.18);
+    }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-rank-name { color: #0d52a2; }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-cp-row    { color: #1a4a90; }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-comp-season-row{ color: rgba(22,70,160,.7); }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-cp-bar         { background: rgba(34,120,240,.14); }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-cp-fill        { background: linear-gradient(90deg, #1c82d6, #56c2f8); }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-king-card      { background: rgba(215,235,255,.84) !important; border-color: rgba(34,120,240,.28) !important; }
+    #auth-stats-lobby[data-bg-tab="competitive"] .ph-king-meta      { color: #1a4a90; }
+
+    /* ── Rank tier badge colors ─────────────────────────────────── */
+    .ph-rank-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-weight: 900; border-radius: 6px; padding: 2px 8px;
+      font-size: .82rem; white-space: nowrap;
+    }
+    .ph-rank-bronze   { background: rgba(176,113,50,.15); color: #8b5a1a; border: 1px solid rgba(176,113,50,.35); }
+    .ph-rank-silver   { background: rgba(140,154,166,.15); color: #4a6375; border: 1px solid rgba(140,154,166,.4); }
+    .ph-rank-gold     { background: rgba(212,160,0,.16); color: #7a5a00; border: 1px solid rgba(212,160,0,.38); }
+    .ph-rank-diamond  { background: rgba(60,160,220,.14); color: #1558a0; border: 1px solid rgba(60,160,220,.35); }
+    .ph-rank-emerald  { background: rgba(30,165,100,.13); color: #0e6040; border: 1px solid rgba(30,165,100,.38); }
+    .ph-rank-king     { background: linear-gradient(135deg,rgba(255,200,0,.22),rgba(255,140,0,.18)); color: #7a3e00; border: 1px solid rgba(255,160,0,.5); }
+    /* CP progress bar tier colors */
+    .ph-cp-fill.tier-silver   { background: linear-gradient(90deg,#8fa8b8,#b8cdd8); }
+    .ph-cp-fill.tier-gold     { background: linear-gradient(90deg,#d4a017,#f0c840); }
+    .ph-cp-fill.tier-diamond  { background: linear-gradient(90deg,#1c82d6,#56c2f8); }
+    .ph-cp-fill.tier-emerald  { background: linear-gradient(90deg,#1ea864,#42d68a); }
+    .ph-cp-fill.tier-king     { background: linear-gradient(90deg,#ff9800,#ffd740,#ff9800); background-size: 200%; animation: ph-king-shimmer 2s linear infinite; }
+    @keyframes ph-king-shimmer { 0%{background-position:0%} 100%{background-position:200%} }
+    /* Season history */
+    .ph-season-history-btn {
+      background: rgba(34,120,240,.08); border: 1px solid rgba(34,120,240,.22);
+      border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 700;
+      color: #1a5cbf; cursor: pointer; transition: background .15s;
+    }
+    .ph-season-history-btn:hover { background: rgba(34,120,240,.15); }
+    /* Season history modal */
+    #ph-season-modal {
+      position: fixed; inset: 0; z-index: 9999; display: none;
+      background: rgba(4,18,40,.65); align-items: center; justify-content: center;
+    }
+    #ph-season-modal.open { display: flex; }
+    .ph-season-modal-box {
+      background: linear-gradient(160deg,#f0f8ff 0%,#e8f4fd 100%);
+      border: 1px solid rgba(34,120,240,.28); border-radius: 16px;
+      width: 90%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+      padding: 20px 22px; box-shadow: 0 12px 48px rgba(4,18,80,.22);
+    }
+    .ph-season-modal-title { font-size: 1.1rem; font-weight: 900; color: #0d3a78; margin-bottom: 14px; }
+    .ph-season-hist-row {
+      display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px;
+      border-radius: 9px; background: rgba(255,255,255,.72); margin-bottom: 8px;
+      border: 1px solid rgba(34,120,240,.12);
+    }
+    .ph-season-hist-id { font-weight: 800; color: #0d3a78; font-size: .9rem; min-width: 72px; }
+    .ph-season-hist-info { flex: 1; font-size: .82rem; color: #2a4a6e; line-height: 1.5; }
+    .ph-season-hist-king { font-size: .78rem; color: #7a5a10; margin-top: 2px; }
+    /* Enhanced leaderboard in overlay */
+    .comp-lb-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+    .comp-lb-tab {
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18);
+      color: rgba(255,255,255,.7); border-radius: 6px; padding: 5px 10px;
+      font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s;
+    }
+    .comp-lb-tab.active { background: rgba(34,120,240,.5); border-color: rgba(34,120,240,.8); color: #fff; }
+    .comp-lb-tab:hover:not(.active) { background: rgba(255,255,255,.14); }
+    .comp-lb-cell-cp   { font-weight: 800; color: #f5d060; font-size: 11px; }
+    .comp-lb-cell-rank { font-size: 10px; color: rgba(255,255,255,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+    .comp-lb-cell-pct  { font-size: 11px; color: rgba(255,255,255,.8); }
   </style>
 </head>
 <body>
@@ -5183,20 +5315,20 @@
               <div class="ph-scl">Average Casual Score</div>
               <div class="ph-scv" id="ph-ov-avg-casual">—</div>
             </div>
-            <div class="ph-sc">
+            <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-gold">⚔️</div>
-              <div class="ph-scl">Competitive Wins</div>
-              <div class="ph-scv" id="ph-ov-comp-wins">—</div>
+              <div class="ph-scl">Competitive Rank</div>
+              <div class="ph-scv" id="ph-ov-comp-rank">No rank yet</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-purple">🏆</div>
-              <div class="ph-scl">Competitive Top Score</div>
+              <div class="ph-scl">Best Competitive Score</div>
               <div class="ph-scv" id="ph-ov-comp-top">—</div>
             </div>
             <div class="ph-sc">
-              <div class="ph-sci ph-sci-blue">📉</div>
-              <div class="ph-scl">Average Competitive Score</div>
-              <div class="ph-scv" id="ph-ov-avg-comp">—</div>
+              <div class="ph-sci ph-sci-blue">🎮</div>
+              <div class="ph-scl">Competitive Games</div>
+              <div class="ph-scv" id="ph-ov-comp-games">—</div>
             </div>
           </div>
         </div>
@@ -5302,41 +5434,185 @@
 
     <!-- ── Competitive tab ────────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-competitive" style="display:none;">
-      <div id="stats-comp-block" style="display:none;">
-        <div class="ph-stats-card ph-comp-card">
-          <div class="ph-stats-top">
-            <div class="ph-stats-title">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M5 3L13 9 5 15" stroke="#d4a017" stroke-width="2" stroke-linecap="round"/><path d="M13 3L5 9 13 15" stroke="#d4a017" stroke-width="2" stroke-linecap="round" opacity=".45"/></svg>
-              Competitive
+      <!-- Loading -->
+      <div id="ph-comp-loading" class="ph-empty-panel" style="display:none;">
+        Loading ranked stats…
+      </div>
+      <!-- Empty state -->
+      <div id="ph-comp-ranked-empty" class="ph-empty-panel" style="display:none;">
+        No ranked games yet.<small>Play Competitive 1v1 to earn CP.</small>
+      </div>
+      <!-- Full ranked dashboard -->
+      <div id="ph-comp-ranked-dash" style="display:none;">
+        <div class="ph-main">
+          <!-- Main: rank card + stats grid -->
+          <div class="ph-stats-card ph-comp-card">
+            <div class="ph-stats-top">
+              <div class="ph-stats-title">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="#d4a017" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                Ranked 1v1
+              </div>
+            </div>
+            <!-- Rank / Division / CP progress -->
+            <div class="ph-comp-rank-section">
+              <div>
+                <div class="ph-comp-rank-name" id="ph-comp-rank-name">—</div>
+                <div id="ph-comp-rank-badge" style="margin-top:4px;"></div>
+              </div>
+              <div class="ph-comp-cp-wrap">
+                <div class="ph-comp-cp-row">
+                  <span id="ph-comp-cp-val">0 CP</span>
+                  <span id="ph-comp-cp-next-label"></span>
+                </div>
+                <div class="ph-cp-bar">
+                  <div class="ph-cp-fill" id="ph-comp-cp-fill" style="width:0%"></div>
+                </div>
+              </div>
+              <div class="ph-comp-season-row" id="ph-comp-season-row"></div>
+              <div style="width:100%;display:flex;align-items:center;justify-content:space-between;margin-top:4px;">
+                <span id="ph-comp-season-label" style="font-size:11px;color:rgba(22,70,160,.65);font-style:italic;"></span>
+                <button class="ph-season-history-btn" id="ph-season-history-btn">📅 Season History</button>
+              </div>
+            </div>
+            <!-- Stats grid -->
+            <div class="ph-sg">
+              <div class="ph-sc ph-sc-feat">
+                <div class="ph-sci ph-sci-gold">🥇</div>
+                <div class="ph-scl">Wins</div>
+                <div class="ph-scv" id="ph-comp-wins">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci" style="background:rgba(220,60,60,.1);">💀</div>
+                <div class="ph-scl">Losses</div>
+                <div class="ph-scv" id="ph-comp-losses">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci" style="background:rgba(224,184,90,.12);">🤝</div>
+                <div class="ph-scl">Draws</div>
+                <div class="ph-scv" id="ph-comp-draws">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-teal">📈</div>
+                <div class="ph-scl">Win %</div>
+                <div class="ph-scv" id="ph-comp-winpct">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-gold">🏆</div>
+                <div class="ph-scl">Best Score</div>
+                <div class="ph-scv" id="ph-comp-best">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-blue">📊</div>
+                <div class="ph-scl">Avg Best Score</div>
+                <div class="ph-scv" id="ph-comp-avg">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-teal">🔥</div>
+                <div class="ph-scl">Win Streak</div>
+                <div class="ph-scv" id="ph-comp-streak">—</div>
+              </div>
+              <div class="ph-sc">
+                <div class="ph-sci ph-sci-purple">⭐</div>
+                <div class="ph-scl">Best Streak</div>
+                <div class="ph-scv" id="ph-comp-best-streak">—</div>
+              </div>
+              <div class="ph-sc ph-sc-string">
+                <div class="ph-sci ph-sci-blue">🎯</div>
+                <div class="ph-scl">Top Strategy</div>
+                <div class="ph-scv" id="ph-comp-strategy">—</div>
+              </div>
             </div>
           </div>
-          <div class="ph-sg">
-            <div class="ph-sc ph-sc-feat">
-              <div class="ph-sci ph-sci-gold">🏆</div>
-              <div class="ph-scl">Top Score</div>
-              <div class="ph-scv" id="stat-comp-top">—</div>
+          <!-- Sidebar: King + Actions + Recent Games -->
+          <div class="ph-side">
+            <!-- King of the Critters -->
+            <div class="ph-scard ph-king-card" id="ph-comp-king-card" style="display:none;">
+              <div class="ph-sh">
+                <div class="ph-st" style="font-family:'Cinzel',serif;letter-spacing:.5px;">👑 King of the Critters</div>
+              </div>
+              <div class="ph-king-content">
+                <div class="ph-king-crown" style="font-size:32px;">👑</div>
+                <div class="ph-king-info">
+                  <div class="ph-king-name" id="ph-comp-king-name" style="font-family:'Cinzel',serif;">—</div>
+                  <div class="ph-king-meta" id="ph-comp-king-meta">—</div>
+                  <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
+                    <span id="ph-comp-king-cp" style="font-size:11px;font-weight:800;color:#c47a00;"></span>
+                    <span id="ph-comp-king-pct" style="font-size:11px;color:#7a5a10;"></span>
+                    <span id="ph-comp-king-streak" style="font-size:11px;color:#1a6060;"></span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="ph-sc">
-              <div class="ph-sci ph-sci-gold">🥇</div>
-              <div class="ph-scl">Comp Wins</div>
-              <div class="ph-scv" id="stat-comp-wins">—</div>
+            <!-- No king yet placeholder -->
+            <div class="ph-scard" id="ph-comp-no-king" style="display:none;border:1px dashed rgba(34,120,240,.25);">
+              <div style="padding:10px 14px;font-size:12px;color:rgba(22,70,160,.6);text-align:center;">No King of the Critters yet this season.</div>
+            </div>
+            <!-- Action cards -->
+            <div class="ph-scard">
+              <div class="ph-sh"><div class="ph-st">⚔️ Ranked Play</div></div>
+              <div style="padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px;">
+                <button class="ph-action-card ph-action-gold" id="ph-comp-play-ranked-btn" style="width:100%;">
+                  <div class="ph-action-icon ph-ai-gold">
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M5 5l12 12M17 5L5 17M13 2l6 6M3 14l6 6" stroke="#d9a12b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div class="ph-action-copy">
+                    <div class="ph-action-label">Play Ranked 1v1</div>
+                    <div class="ph-action-sub">Earn CP · climb the ladder</div>
+                  </div>
+                </button>
+                <button class="ph-action-card" id="ph-comp-lb-view-btn" style="width:100%;">
+                  <div class="ph-action-icon ph-ai-blue">
+                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L11 14.4l-4.8 2.5.9-5.4L3.2 7.7l5.4-.8L11 2z" stroke="#1c82d6" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  </div>
+                  <div class="ph-action-copy">
+                    <div class="ph-action-label">Leaderboard</div>
+                    <div class="ph-action-sub">See the top ranked players</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <!-- Recent competitive games -->
+            <div class="ph-scard">
+              <div class="ph-sh">
+                <div class="ph-st">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#2680c8" stroke-width="1.4"/><path d="M7 4v3.5l2 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  Recent Ranked Games
+                </div>
+                <button class="ph-sl" id="ph-comp-hist-link">View History</button>
+              </div>
+              <div id="ph-comp-recent-games"><div class="ph-empty">No ranked games yet.</div></div>
             </div>
           </div>
-          <div style="padding:10px 18px 6px;" id="stat-comp-pie"></div>
         </div>
       </div>
-      <div id="ph-comp-empty" class="ph-empty-panel">
-        No games completed yet.<small>Play your first game to start tracking stats.</small>
+      <!-- Legacy hidden elements kept for renderStats() compatibility -->
+      <div style="display:none;" id="stats-comp-block">
+        <div id="stat-comp-top"></div>
+        <div id="stat-comp-wins"></div>
+        <div id="stat-comp-pie"></div>
       </div>
+      <div id="ph-comp-empty" style="display:none;"></div>
     </div>
 
     <!-- ── History tab ────────────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-history" style="display:none;">
+      <!-- Competitive 1v1 history (fetched from server) -->
+      <div class="ph-scard ph-full" style="margin-bottom:12px;">
+        <div class="ph-sh">
+          <div class="ph-st">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="#d4a017" stroke-width="1.8" stroke-linecap="round"/></svg>
+            Competitive 1v1 History
+          </div>
+          <button class="ph-sl" id="ph-hist-comp-tab-btn">Go to Ranked</button>
+        </div>
+        <div id="ph-full-history-comp"><div class="ph-empty">No competitive games yet.</div></div>
+      </div>
+      <!-- All games history -->
       <div class="ph-scard ph-full">
         <div class="ph-sh">
           <div class="ph-st">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2680c8" stroke-width="1.4"/><path d="M8 5v4l2.5 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
-            Game History
+            All Games
           </div>
         </div>
         <div id="ph-full-history"><div class="ph-empty">No games completed yet.</div></div>
@@ -5545,10 +5821,15 @@
 
     <!-- CREATE PANEL -->
     <div class="comp-panel active" id="comp-panel-create">
-      <div class="comp-label">Your name (Player 1 — Hands 1 & 3)</div>
+      <div class="comp-label">Your name (Player 1 — Hands 1 & 2)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p1">1</div>
         <input class="pv-input" id="comp-p1-name" placeholder="Player 1 name" value="Player 1" style="flex:1;" />
+      </div>
+      <div class="comp-label" style="margin-top:6px;">Opponent's name (Player 2 — Hands 3 & 4)</div>
+      <div class="comp-player-row">
+        <div class="comp-player-badge p2">2</div>
+        <input class="pv-input" id="comp-p2-name" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
       </div>
       <div class="comp-label" style="margin-top:4px;">Room code (optional)</div>
       <input class="pv-input" id="comp-create-code" placeholder="e.g. SWORD — leave blank to auto-generate" maxlength="5"
@@ -5556,8 +5837,8 @@
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       <div class="comp-hands-grid" style="margin-top:4px;">
         <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 1</div><div style="color:var(--muted);font-size:11px;">Your hand</div></div>
-        <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 2</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
-        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 3</div><div style="color:var(--muted);font-size:11px;">Your hand</div></div>
+        <div class="comp-hand-slot p1-hand"><div class="comp-hand-label p1">Hand 2</div><div style="color:var(--muted);font-size:11px;">Your hand</div></div>
+        <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 3</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
         <div class="comp-hand-slot p2-hand"><div class="comp-hand-label p2">Hand 4</div><div style="color:var(--muted);font-size:11px;">Player 2</div></div>
       </div>
       <button class="pv-btn full gold" id="comp-create-btn" style="margin-top:6px;">⚔️ Create Match →</button>
@@ -5573,7 +5854,7 @@
       <input class="pv-input" id="comp-join-code" placeholder="5-letter code, e.g. SWORD" maxlength="5"
         style="width:100%;text-transform:uppercase;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-      <div class="comp-label" style="margin-top:6px;">Your name (Player 2 — Hands 2 & 4)</div>
+      <div class="comp-label" style="margin-top:6px;">Your name (Player 2 — Hands 3 & 4)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge p2">2</div>
         <input class="pv-input" id="comp-join-p2" placeholder="Player 2 name" value="Player 2" style="flex:1;" />
@@ -7170,6 +7451,7 @@
   let myIdx = null;
   let canInteract = false;
   let _latestPlayers = [];
+  let _latestRoundCount = 0;
 
   function renderPayload(payload) {
     const state   = payload.state || {};
@@ -7180,6 +7462,7 @@
     _myIdxGlobal  = myIdx;
     const players = Array.isArray(state.players) ? state.players : [];
     _latestPlayers = players;
+    if (state.round_count != null) _latestRoundCount = Number(state.round_count) || 0;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
     const current = state.current_player || "";
@@ -7243,7 +7526,7 @@
       if (compMode) {
         const activeSeat = Number(payload.active_action_seat);
         const handNum = compMySeats.indexOf(activeSeat) + 1;
-        const myName = compMySeats[0] % 2 === 0 ? compP1Name : compP2Name;
+        const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
         banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
       } else if (isReplayTurn) {
         banner.textContent = "★ PLAY AGAIN — take another turn! ★";
@@ -8695,7 +8978,7 @@
   let compMode = false;
   let compTokens = {};       // seat index → seat token (only my seats)
   let compHostToken = "";
-  let compMySeats = [];      // [0,2] for P1, [1,3] for P2
+  let compMySeats = [];      // [0,1] for P1, [2,3] for P2
   let compP1Name = "Player 1";
   let compP2Name = "Player 2";
   let compHandNames = {};    // seat index → display name (e.g. { 0:"Hand 1", 1:"Hand 2", 2:"Hand 3", 3:"Hand 4" })
@@ -8747,7 +9030,7 @@
       const p = players.find(pl => pl.index === i);
       const score = p ? (p.score ?? 0) : 0;
       const handName = compGetHandName(i);
-      const owner = (i % 2 === 0) ? compP1Name : compP2Name;
+      const owner = (i < 2) ? compP1Name : compP2Name;
 
       if (_compRenameOpen === i) {
         // Show rename input
@@ -8828,7 +9111,7 @@
   }
 
   function showCompHandSwitch(seatIdx) {
-    const physPlayer = compMySeats[0] % 2 === 0 ? 1 : 2;
+    const physPlayer = compMySeats[0] < 2 ? 1 : 2;
     const playerName = physPlayer === 1 ? compP1Name : compP2Name;
     const handNum = compMySeats.indexOf(Number(seatIdx)) + 1;
     const pEl = document.getElementById("hs-player-name");
@@ -8904,9 +9187,10 @@
     startPolling();
   }
 
-  // ── Create: P1 creates the room, claims seats 0+2, shows code to share
+  // ── Create: P1 creates the room, claims seats 0+1, shows code to share
   async function createCompMatch() {
     const p1 = document.getElementById("comp-p1-name").value.trim() || "Player 1";
+    const p2Preset = document.getElementById("comp-p2-name").value.trim() || "Player 2";
     const codeRaw = document.getElementById("comp-create-code").value.trim().toUpperCase();
     const rid = codeRaw || null;
     compSetStatus("Creating match…", false);
@@ -8928,23 +9212,24 @@
     const hToken = r.data?.host_token || "";
     const seat0Token = r.data?.seat_token || "";
 
-    // Claim seat 2 (P1's second hand) using host authority
-    const j2 = await apiPost(`/api/rooms/${code}/join`, {
-      player_name: p1, seat_index: 2, host_token: hToken,
+    // Claim seat 1 (P1's second hand) using host authority
+    const jSeat1 = await apiPost(`/api/rooms/${code}/join`, {
+      player_name: p1, seat_index: 1, host_token: hToken,
     }, { timeoutMs: 8000 });
-    if (!j2.ok) {
-      compSetStatus("Failed to claim Hand 3. Try again.", true);
+    if (!jSeat1.ok) {
+      compSetStatus("Failed to claim Hand 2. Try again.", true);
       return;
     }
-    const seat2Token = j2.data?.seat_token || "";
+    const seat1Token = jSeat1.data?.seat_token || "";
 
     compP1Name = p1;
+    compP2Name = p2Preset;
     _compPendingRoomCode = code;
     _compPendingHToken = hToken;
-    const tokens = { 0: seat0Token, 2: seat2Token };
+    const tokens = { 0: seat0Token, 1: seat1Token };
 
     // Store P1 session so they can reconnect
-    try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 2], tokens, p1: compP1Name, p2: "Player 2" })); } catch {}
+    try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 1], tokens, p1: compP1Name, p2: compP2Name })); } catch {}
     try { sessionStorage.setItem(hostTokenKey(code), hToken); } catch {}
 
     // Switch overlay to "waiting for P2" view
@@ -8954,22 +9239,22 @@
       if (el) el.style.display = "none";
     });
     document.getElementById("comp-room-code-display").textContent = code;
-    document.getElementById("comp-p2-status").textContent = "Waiting for Player 2 to join…";
+    document.getElementById("comp-p2-status").textContent = `Waiting for ${compP2Name} to join…`;
     document.getElementById("comp-start-btn").style.display = "none";
     document.getElementById("comp-waiting-p2").style.display = "flex";
     compSetStatus("", false);
 
-    // Poll for P2 joining (seats 1+3 filled)
+    // Poll for P2 joining (seats 2+3 filled)
     if (_compWaitPollTimer) clearInterval(_compWaitPollTimer);
     _compWaitPollTimer = setInterval(async () => {
       const sv = await apiFetch(`/api/rooms/${code}/state?host_token=${hToken}`, { method: "GET", timeoutMs: 4000 });
       if (!sv.ok) return;
       const seats = sv.data?.seats || [];
-      const seat1 = seats.find(s => s.index === 1);
+      const seat2 = seats.find(s => s.index === 2);
       const seat3 = seats.find(s => s.index === 3);
-      const p2Joined = seat1?.claimed_name && seat3?.claimed_name;
+      const p2Joined = seat2?.claimed_name && seat3?.claimed_name;
       if (p2Joined) {
-        compP2Name = seat1.claimed_name;
+        compP2Name = seat2.claimed_name;
         const p2Status = document.getElementById("comp-p2-status");
         if (p2Status) p2Status.textContent = `${compP2Name} has joined! Host can start.`;
         const startBtn = document.getElementById("comp-start-btn");
@@ -8978,8 +9263,8 @@
       if (sv.data?.room?.phase === "running") {
         clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
         // Update saved names
-        try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 2], tokens, p1: compP1Name, p2: compP2Name })); } catch {}
-        compEnterGame(code, compP1Name, [0, 2], tokens, hToken);
+        try { sessionStorage.setItem(`fish_comp_seats_${code}_0`, JSON.stringify({ seats: [0, 1], tokens, p1: compP1Name, p2: compP2Name })); } catch {}
+        compEnterGame(code, compP1Name, [0, 1], tokens, hToken);
       }
     }, 1200);
 
@@ -8989,7 +9274,7 @@
       const sr = await apiPost(`/api/rooms/${code}/start`, { host_token: hToken }, { timeoutMs: 10000 });
       if (!sr.ok) { compSetStatus("Start failed: " + (sr.data?.error || sr.status), true); return; }
       clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
-      compEnterGame(code, compP1Name, [0, 2], tokens, hToken);
+      compEnterGame(code, compP1Name, [0, 1], tokens, hToken);
     };
 
     // Cancel button
@@ -8999,7 +9284,7 @@
     };
   }
 
-  // ── Join: P2 joins by entering the code, claims seats 1+3
+  // ── Join: P2 joins by entering the code, claims seats 2+3
   async function joinCompMatch() {
     const code = normalizeRoomId(document.getElementById("comp-join-code").value.trim().toUpperCase());
     const p2 = document.getElementById("comp-join-p2").value.trim() || "Player 2";
@@ -9009,44 +9294,44 @@
     const tryKey = (seatBase) => {
       try { return JSON.parse(sessionStorage.getItem(`fish_comp_seats_${code}_${seatBase}`) || "null"); } catch { return null; }
     };
-    const savedP2 = tryKey(1);
+    const savedP2 = tryKey(2);
     if (savedP2) {
       // Reconnect from same device
       compP1Name = savedP2.p1 || "Player 1";
       compP2Name = savedP2.p2 || p2;
-      compEnterGame(code, compP2Name, savedP2.seats || [1, 3], savedP2.tokens || {}, "");
+      compEnterGame(code, compP2Name, savedP2.seats || [2, 3], savedP2.tokens || {}, "");
       return;
     }
 
     compSetStatus("Joining match…", false);
     document.getElementById("comp-join-btn").disabled = true;
 
-    // Claim seats 1 and 3 for P2
-    const j1 = await apiPost(`/api/rooms/${code}/join`, {
-      player_name: p2, seat_index: 1,
+    // Claim seats 2 and 3 for P2
+    const jSeat2 = await apiPost(`/api/rooms/${code}/join`, {
+      player_name: p2, seat_index: 2,
     }, { timeoutMs: 8000 });
-    if (!j1.ok) {
-      compSetStatus("Join failed: " + (j1.data?.error || j1.status), true);
+    if (!jSeat2.ok) {
+      compSetStatus("Join failed: " + (jSeat2.data?.error || jSeat2.status), true);
       document.getElementById("comp-join-btn").disabled = false;
       return;
     }
-    const seat1Token = j1.data?.seat_token || "";
+    const seat2Token = jSeat2.data?.seat_token || "";
 
-    const j3 = await apiPost(`/api/rooms/${code}/join`, {
+    const jSeat3 = await apiPost(`/api/rooms/${code}/join`, {
       player_name: p2, seat_index: 3,
     }, { timeoutMs: 8000 });
     document.getElementById("comp-join-btn").disabled = false;
 
-    if (!j3.ok) {
-      compSetStatus("Join failed (Hand 4): " + (j3.data?.error || j3.status), true);
+    if (!jSeat3.ok) {
+      compSetStatus("Join failed (Hand 4): " + (jSeat3.data?.error || jSeat3.status), true);
       return;
     }
-    const seat3Token = j3.data?.seat_token || "";
+    const seat3Token = jSeat3.data?.seat_token || "";
 
-    const tokens = { 1: seat1Token, 3: seat3Token };
+    const tokens = { 2: seat2Token, 3: seat3Token };
 
     // Fetch state to get P1's name
-    const sv = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat1Token}`, { method: "GET", timeoutMs: 4000 });
+    const sv = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat2Token}`, { method: "GET", timeoutMs: 4000 });
     if (sv.ok) {
       const seats = sv.data?.seats || [];
       const seat0 = seats.find(s => s.index === 0);
@@ -9057,11 +9342,11 @@
     compSetStatus("Joined! Waiting for host to start…", false);
     // Poll for game start, then enter
     const waitStart = setInterval(async () => {
-      const sv2 = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat1Token}`, { method: "GET", timeoutMs: 4000 });
+      const sv2 = await apiFetch(`/api/rooms/${code}/state?seat_token=${seat2Token}`, { method: "GET", timeoutMs: 4000 });
       if (!sv2.ok) return;
       if (sv2.data?.room?.phase === "running") {
         clearInterval(waitStart);
-        compEnterGame(code, p2, [1, 3], tokens, "");
+        compEnterGame(code, p2, [2, 3], tokens, "");
       }
     }, 1200);
   }
@@ -9070,19 +9355,145 @@
     const el = document.getElementById("comp-lb-content");
     el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
     try {
-      const { ok, data } = await apiFetch("/api/competitive/leaderboard", { method: "GET" });
-      if (!ok || !data?.leaderboard) { el.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;">Failed to load.</div>'; return; }
-      const rows = data.leaderboard;
-      if (!rows.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">No games played yet.</div>'; return; }
-      el.innerHTML = `<div class="comp-lb-row" style="font-size:11px;font-weight:800;color:var(--muted);">
-        <span class="comp-lb-rank">#</span><span class="comp-lb-name">Player</span>
-        <span class="comp-lb-wins">Wins</span><span class="comp-lb-losses">Losses</span>
-      </div>` + rows.map((r, i) => `<div class="comp-lb-row">
-        <span class="comp-lb-rank">${i+1}</span>
-        <span class="comp-lb-name">${r.name}</span>
-        <span class="comp-lb-wins">${r.wins || 0}</span>
-        <span class="comp-lb-losses">${r.losses || 0}</span>
-      </div>`).join("");
+      const seasonId = typeof _compGetSeasonId === "function" ? _compGetSeasonId() : "";
+      const [lbRes, histRes] = await Promise.all([
+        apiFetch(`/api/competitive/leaderboard${seasonId ? "?season=" + seasonId : ""}`, { method: "GET" }),
+        apiFetch(`/api/competitive/history${seasonId ? "?season=" + seasonId : ""}`,     { method: "GET" }),
+      ]);
+      const rows  = (lbRes.ok  && lbRes.data?.leaderboard) ? lbRes.data.leaderboard : [];
+      const games = (histRes.ok && histRes.data?.games)     ? histRes.data.games     : [];
+
+      // Compute per-player stats from game history for best-hand and streaks
+      const playerStats = {};
+      games.forEach(g => {
+        [g.p1_name, g.p2_name].forEach((nm, idx) => {
+          if (!nm) return;
+          if (!playerStats[nm]) playerStats[nm] = { best_score: 0, best_score_opp: "", best_score_strat: "", best_score_date: "", streak: 0, best_streak: 0, _run: 0 };
+          const ps    = playerStats[nm];
+          const score = idx === 0 ? Number(g.p1_best_score || 0) : Number(g.p2_best_score || 0);
+          if (score > ps.best_score) {
+            ps.best_score       = score;
+            ps.best_score_opp   = idx === 0 ? (g.p2_name || "") : (g.p1_name || "");
+            ps.best_score_strat = g.strategy || "";
+            ps.best_score_date  = g.recorded_unix ? new Date(g.recorded_unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+          }
+        });
+      });
+      // Compute streaks (games are newest-first)
+      Object.keys(playerStats).forEach(nm => {
+        const ps = playerStats[nm];
+        const sorted = [...games]
+          .filter(g => g.p1_name === nm || g.p2_name === nm)
+          .sort((a, b) => (b.recorded_unix || 0) - (a.recorded_unix || 0));
+        let run = 0, broke = false, best = 0;
+        sorted.forEach(g => {
+          if (g.winner === nm) { run++; best = Math.max(best, run); if (!broke) ps.streak = run; }
+          else { broke = true; run = 0; }
+        });
+        ps.best_streak = best;
+      });
+
+      // Merge leaderboard rows with computed stats
+      const enriched = rows.map(r => ({ ...r, ...(playerStats[r.name] || {}) }));
+
+      // Sort by CP desc for rank leaderboard
+      const byRank     = [...enriched].sort((a, b) => (b.cp || 0) - (a.cp || 0) || (b.wins || 0) - (a.wins || 0));
+      const byBestHand = [...enriched].sort((a, b) => (b.best_score || 0) - (a.best_score || 0));
+      const byStreak   = [...enriched].sort((a, b) => (b.best_streak || 0) - (a.best_streak || 0) || (b.streak || 0) - (a.streak || 0));
+      const king       = byRank.find(r => (r.cp || 0) >= 1200) || (byRank[0]?.cp >= 600 ? byRank[0] : null);
+
+      const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const rankFn = typeof _compGetRankFromCp === "function" ? _compGetRankFromCp : null;
+      const getRankName = cp => rankFn ? rankFn(Number(cp) || 0).division : "—";
+
+      const [yearStr, qStr] = seasonId.split("-Q");
+      const seasonLabel = seasonId ? `Season Q${qStr} ${yearStr}` : "Current Season";
+
+      el.innerHTML = `
+        <div style="font-size:10.5px;color:rgba(255,255,255,.45);margin-bottom:8px;text-align:center;">${esc(seasonLabel)}</div>
+        <div class="comp-lb-tabs">
+          <button class="comp-lb-tab active" data-lb="rank">🏆 Rank</button>
+          <button class="comp-lb-tab" data-lb="hand">✋ Best Hand</button>
+          <button class="comp-lb-tab" data-lb="streak">🔥 Streak</button>
+        </div>
+        <div id="comp-lb-section-rank"></div>
+        <div id="comp-lb-section-hand" style="display:none;"></div>
+        <div id="comp-lb-section-streak" style="display:none;"></div>`;
+
+      // King of the Critters block
+      const kingHtml = king ? `<div style="background:rgba(255,200,0,.12);border:1px solid rgba(255,160,0,.4);border-radius:8px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:22px;">👑</span>
+        <div>
+          <div style="font-family:'Cinzel',serif;font-weight:900;color:#f5d060;font-size:13px;">${esc(king.name)}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,.7);">${king.cp || 0} CP · ${king.wins || 0}W / ${king.losses || 0}L · ${esc(getRankName(king.cp))}</div>
+        </div>
+      </div>` : `<div style="font-size:11px;color:rgba(255,255,255,.4);text-align:center;padding:8px;">No King of the Critters yet this season.</div>`;
+
+      // Rank leaderboard
+      const rankSection = document.getElementById("comp-lb-section-rank");
+      if (rankSection) {
+        if (!byRank.length) { rankSection.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px;">No ranked games yet.</div>'; }
+        else {
+          const total = byRank.length;
+          rankSection.innerHTML = kingHtml + byRank.slice(0, 15).map((r, i) => {
+            const w = r.wins || 0, l = r.losses || 0;
+            const pct = (w + l) > 0 ? Math.round((w / (w + l)) * 100) : 0;
+            return `<div class="comp-lb-row">
+              <span class="comp-lb-rank" style="color:${i===0?"#f5d060":i===1?"#c0c0c0":i===2?"#cd7f32":"rgba(255,255,255,.4)"};">${i+1}/${total}</span>
+              <span class="comp-lb-name">${esc(r.name)}</span>
+              <span class="comp-lb-cell-rank">${esc(r.rank || getRankName(r.cp))}</span>
+              <span class="comp-lb-cell-cp">${r.cp || 0} CP</span>
+              <span class="comp-lb-cell-pct">${(w+l)>0?pct+"%":"—"}</span>
+            </div>`;
+          }).join("");
+        }
+      }
+
+      // Best hand leaderboard
+      const handSection = document.getElementById("comp-lb-section-hand");
+      if (handSection) {
+        const top = byBestHand.filter(r => r.best_score > 0);
+        if (!top.length) { handSection.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px;">No hand scores yet.</div>'; }
+        else {
+          handSection.innerHTML = top.slice(0, 10).map((r, i) => `<div class="comp-lb-row" style="flex-direction:column;align-items:flex-start;gap:2px;padding:7px 6px;">
+            <div style="display:flex;gap:8px;width:100%;align-items:center;">
+              <span class="comp-lb-rank">${i+1}</span>
+              <span class="comp-lb-name">${esc(r.name)}</span>
+              <span class="comp-lb-cell-cp">${r.best_score} pts</span>
+            </div>
+            <div style="font-size:10px;color:rgba(255,255,255,.5);padding-left:26px;">${r.best_score_strat ? esc(r.best_score_strat) + " · " : ""}${r.best_score_opp ? "vs " + esc(r.best_score_opp) : ""}${r.best_score_date ? " · " + esc(r.best_score_date) : ""}</div>
+          </div>`).join("");
+        }
+      }
+
+      // Streak leaderboard
+      const streakSection = document.getElementById("comp-lb-section-streak");
+      if (streakSection) {
+        const top = byStreak.filter(r => (r.best_streak || 0) > 0 || (r.streak || 0) > 0);
+        if (!top.length) { streakSection.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:8px;">No streak data yet.</div>'; }
+        else {
+          streakSection.innerHTML = top.slice(0, 10).map((r, i) => `<div class="comp-lb-row">
+            <span class="comp-lb-rank">${i+1}</span>
+            <span class="comp-lb-name">${esc(r.name)}</span>
+            <span style="font-size:11px;color:#f5d060;">🔥 ${r.streak || 0} now</span>
+            <span style="font-size:11px;color:rgba(255,255,255,.7);">Best: ${r.best_streak || 0}</span>
+            <span class="comp-lb-cell-rank">${esc(r.rank || getRankName(r.cp))}</span>
+          </div>`).join("");
+        }
+      }
+
+      // Tab switching
+      el.querySelectorAll(".comp-lb-tab").forEach(btn => {
+        btn.addEventListener("click", () => {
+          el.querySelectorAll(".comp-lb-tab").forEach(b => b.classList.remove("active"));
+          btn.classList.add("active");
+          ["rank", "hand", "streak"].forEach(k => {
+            const sec = document.getElementById(`comp-lb-section-${k}`);
+            if (sec) sec.style.display = btn.dataset.lb === k ? "" : "none";
+          });
+        });
+      });
+
     } catch { el.innerHTML = '<div style="color:var(--red);font-size:12px;text-align:center;">Error loading.</div>'; }
   }
 
@@ -9847,7 +10258,7 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
-    _lastSavedWinner = null; _latestPlayers = [];
+    _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     dismissEndGameCinematic();
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
@@ -10064,6 +10475,7 @@
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
   let _lastSavedWinner = null;
+  let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
   const LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
     4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
@@ -10224,14 +10636,11 @@
           "stats.recent_games": nextRecent,
         };
         if (isWinner) {
-          if (isComp) updates["stats.competitive_wins"] = firebase.firestore.FieldValue.increment(1);
-          else        updates["stats.normal_wins"]       = firebase.firestore.FieldValue.increment(1);
+          // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
+          if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
         }
-        if (isComp) {
-          if (myScore > (cStats.highest_score_competitive || 0)) {
-            updates["stats.highest_score_competitive"] = myScore;
-          }
-        } else {
+        // highest_score_competitive is managed by processRankedGameEnd in compMode
+        if (!isComp) {
           if (myScore > (cStats.highest_score_normal || 0)) {
             updates["stats.highest_score_normal"] = myScore;
           }
@@ -10267,13 +10676,11 @@
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
 
-        if (isWinner) {
-          if (isComp) nextStats.competitive_wins = Number(nextStats.competitive_wins || 0) + 1;
-          else        nextStats.normal_wins = Number(nextStats.normal_wins || 0) + 1;
+        // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
+        if (isWinner && !isComp) {
+          nextStats.normal_wins = Number(nextStats.normal_wins || 0) + 1;
         }
-        if (isComp) {
-          nextStats.highest_score_competitive = Math.max(Number(nextStats.highest_score_competitive || 0), myScore);
-        } else {
+        if (!isComp) {
           nextStats.highest_score_normal = Math.max(Number(nextStats.highest_score_normal || 0), myScore);
         }
         nextStats.highest_score = Math.max(Number(nextStats.highest_score || 0), myScore);
@@ -10303,10 +10710,191 @@
       console.warn("Could not save game stats:", e);
     }
   }
+  async function processRankedGameEnd(finalScores) {
+    if (!compMode) return;
+    if (!roomId) return;
+    if (_lastRankedProcessed === roomId) return;
+    _lastRankedProcessed = roomId;
+
+    const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+    const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+    const isGuest  = typeof window.__fishIsGuest  === "function" ? !!window.__fishIsGuest() : false;
+    if (isGuest || !authUser || !db) return;
+    if (_latestRoundCount < 3) return;
+    if (!compP1Name || !compP2Name || compP1Name === compP2Name) return;
+
+    try {
+      const p1Names = [], p2Names = [];
+      (_latestPlayers || []).forEach(p => {
+        if (p.index === 0 || p.index === 1) p1Names.push(p.name);
+        if (p.index === 2 || p.index === 3) p2Names.push(p.name);
+      });
+      if (!p1Names.length || !p2Names.length) return;
+
+      const scoreByName = {};
+      (finalScores || []).forEach(p => { scoreByName[String(p.name || "")] = Number(p.score || 0); });
+      const p1Scores = p1Names.map(n => scoreByName[n] || 0);
+      const p2Scores = p2Names.map(n => scoreByName[n] || 0);
+      const p1Best   = Math.max(...p1Scores);
+      const p2Best   = Math.max(...p2Scores);
+      const p1Second = p1Scores.length >= 2 ? Math.min(...p1Scores) : p1Best;
+      const p2Second = p2Scores.length >= 2 ? Math.min(...p2Scores) : p2Best;
+
+      let winner = null, isDraw = false;
+      if (p1Best > p2Best)           winner = compP1Name;
+      else if (p2Best > p1Best)      winner = compP2Name;
+      else if (p1Second > p2Second)  winner = compP1Name;
+      else if (p2Second > p1Second)  winner = compP2Name;
+      else                           isDraw = true;
+
+      const amP1   = compMySeats.length > 0 && compMySeats[0] < 2;
+      const myPhys = amP1 ? compP1Name : compP2Name;
+      const iWon   = !isDraw && winner === myPhys;
+      const iLost  = !isDraw && winner !== myPhys;
+
+      const docRef = db.collection("users").doc(authUser.uid);
+      const snap   = await docRef.get();
+      const cStats = ((snap.data() || {}).stats) || {};
+
+      // ── Season reset check ──────────────────────────────────────
+      const rankFn     = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+      const getSeasonId = typeof _compGetSeasonId === "function" ? _compGetSeasonId : () => "2026-Q2";
+      const curSeasonId    = getSeasonId();
+      const storedSeasonId = cStats.comp_season_id || "";
+      const seasonUpdates  = {};
+
+      if (storedSeasonId && storedSeasonId !== curSeasonId) {
+        // Archive current season before resetting
+        const oldEntry = {
+          id:          storedSeasonId,
+          final_rank:  cStats.rank_competitive || "Unranked",
+          final_cp:    Number(cStats.comp_cp || 0),
+          wins:        Number(cStats.competitive_wins || 0),
+          losses:      Number(cStats.competitive_losses || 0),
+          draws:       Number(cStats.competitive_draws || 0),
+          best_score:  Number(cStats.highest_score_competitive || 0),
+        };
+        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
+        const alreadyArchived = existing.some(e => e.id === storedSeasonId);
+        if (!alreadyArchived) {
+          seasonUpdates["stats.seasons_history"] = [oldEntry, ...existing].slice(0, 20);
+        }
+        // Reset season fields
+        seasonUpdates["stats.comp_cp"]                   = 0;
+        seasonUpdates["stats.competitive_wins"]          = 0;
+        seasonUpdates["stats.competitive_losses"]        = 0;
+        seasonUpdates["stats.competitive_draws"]         = 0;
+        seasonUpdates["stats.competitive_streak"]        = 0;
+        seasonUpdates["stats.competitive_best_streak"]   = 0;
+        seasonUpdates["stats.average_competitive_score"] = 0;
+        seasonUpdates["stats.rank_competitive"]          = "Unranked";
+        seasonUpdates["stats.comp_season_id"]            = curSeasonId;
+        if (Object.keys(seasonUpdates).length > 0) await docRef.update(seasonUpdates);
+      }
+
+      // After possible reset, recompute base values
+      const curCp           = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.comp_cp || 0);
+      const curWins         = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_wins || 0);
+      const curLosses       = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_losses || 0);
+      const curDraws        = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_draws || 0);
+      const curStreak       = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_streak || 0);
+      const curBestStreak   = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.competitive_best_streak || 0);
+      const curBeginnerWins = Number(cStats.comp_beginner_wins || 0);
+      const curGames        = curWins + curLosses + curDraws;
+      const curAvgBest      = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.average_competitive_score || 0);
+      const curBestComp     = Number(cStats.highest_score_competitive || 0);
+
+      // ── CP delta ────────────────────────────────────────────────
+      let cpDelta = 0;
+      if (isDraw)       { cpDelta = 5; }
+      else if (iWon)    { cpDelta = curBeginnerWins < 5 ? 30 : 25; }
+      else if (iLost)   { cpDelta = curCp > 0 ? -12 : 0; }
+
+      const newCp         = Math.max(0, curCp + cpDelta);
+      const newStreak     = iWon ? curStreak + 1 : 0;
+      const newBestStreak = Math.max(curBestStreak, newStreak);
+      const newWins         = iWon   ? curWins   + 1 : curWins;
+      const newLosses       = iLost  ? curLosses + 1 : curLosses;
+      const newDraws        = isDraw ? curDraws  + 1 : curDraws;
+      const newBeginnerWins = (iWon && curBeginnerWins < 5) ? curBeginnerWins + 1 : curBeginnerWins;
+      const newGames        = newWins + newLosses + newDraws;
+      const myBestHand      = amP1 ? p1Best : p2Best;
+      const newBestComp     = Math.max(curBestComp, myBestHand);
+      const newAvgBest      = newGames > 0 ? Math.round((curAvgBest * curGames + myBestHand) / newGames) : myBestHand;
+
+      const newRankDiv  = rankFn ? rankFn(newCp) : null;
+      const newRankName = newRankDiv ? newRankDiv.division : (newCp > 0 ? "Bronze Barracuda III" : "Unranked");
+
+      // ── Lifetime stats ──────────────────────────────────────────
+      const lifetimeUpdates = {};
+      if (iWon)  lifetimeUpdates["stats.lifetime_comp_wins"]   = firebase.firestore.FieldValue.increment(1);
+      if (iLost) lifetimeUpdates["stats.lifetime_comp_losses"] = firebase.firestore.FieldValue.increment(1);
+      if (isDraw) lifetimeUpdates["stats.lifetime_comp_draws"] = firebase.firestore.FieldValue.increment(1);
+      const lifeBest = Number(cStats.lifetime_comp_best_score || 0);
+      if (myBestHand > lifeBest) lifetimeUpdates["stats.lifetime_comp_best_score"] = myBestHand;
+
+      // ── Write season stats ──────────────────────────────────────
+      const updates = {
+        "stats.comp_cp":                    newCp,
+        "stats.comp_season_id":             curSeasonId,
+        "stats.competitive_wins":           newWins,
+        "stats.competitive_losses":         newLosses,
+        "stats.competitive_draws":          newDraws,
+        "stats.competitive_streak":         newStreak,
+        "stats.competitive_best_streak":    newBestStreak,
+        "stats.comp_beginner_wins":         newBeginnerWins,
+        "stats.highest_score_competitive":  newBestComp,
+        "stats.average_competitive_score":  newAvgBest,
+        "stats.rank_competitive":           newRankName,
+        ...lifetimeUpdates,
+      };
+      await docRef.update(updates);
+
+      // ── Notify server ───────────────────────────────────────────
+      const isHost = compMySeats.includes(0) || compMySeats.includes(1);
+      if (isHost && roomId) {
+        const oppBestHand = amP1 ? p2Best : p1Best;
+        const oppName     = amP1 ? compP2Name : compP1Name;
+        // Compute opponent's approximate new rank for server (we don't have their Firebase)
+        // Send our own deltas; opponent's are unknown (they'll update their own Firebase)
+        const myKey  = amP1 ? "p1" : "p2";
+        const oppKey = amP1 ? "p2" : "p1";
+        try {
+          await apiPost("/api/competitive/ranked_result", {
+            room_id:          roomId,
+            season_id:        curSeasonId,
+            [`${myKey}_cp_after`]:   newCp,
+            [`${myKey}_cp_delta`]:   cpDelta,
+            [`${myKey}_rank_after`]: newRankName,
+          });
+        } catch (e) {
+          console.warn("Ranked result server update failed:", e);
+        }
+      }
+
+      // ── CP change notification ──────────────────────────────────
+      if (cpDelta !== 0 || isDraw) {
+        const sign  = cpDelta > 0 ? "+" : "";
+        const label = isDraw ? "Draw" : (iWon ? "Win" : "Loss");
+        const msg   = `${label} · ${sign}${cpDelta} CP → ${newCp} CP (${newRankName})`;
+        console.info("[Ranked]", msg);
+        const banner = document.getElementById("pv-discard-banner");
+        if (banner) {
+          banner.textContent = msg;
+          banner.classList.add("visible");
+          setTimeout(() => banner.classList.remove("visible"), 5000);
+        }
+      }
+    } catch (e) {
+      console.warn("processRankedGameEnd error:", e);
+    }
+  }
+
   function renderEndGame(winner, finalScores) {
     const overlay = document.getElementById("pv-endgame-overlay");
     if (!winner) { _endgameDismissed = false; overlay.classList.remove("open"); _lastSavedWinner = null; return; }
     saveGameStats(winner, finalScores);
+    if (compMode) processRankedGameEnd(finalScores);
     if (_endgameDismissed) { overlay.classList.remove("open"); return; }
     overlay.classList.add("open");
     document.getElementById("pv-endgame-winner").textContent = `Winner: ${winner}`;
@@ -12325,10 +12913,11 @@
           const el = document.getElementById(id);
           if (el) el.style.display = k === name ? "" : "none";
         });
-        if (name === "friends") renderPhFriendsList();
-        if (name === "history") renderPhHistory();
-        if (name === "overview") renderPhOverview();
+        if (name === "friends")      renderPhFriendsList();
+        if (name === "history")      renderPhHistory();
+        if (name === "overview")     renderPhOverview();
         if (name === "achievements") renderPhAchievements();
+        if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
       }
       window._switchPhTab = switchTab;
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
@@ -12339,6 +12928,30 @@
       if (frBtn) frBtn.addEventListener("click", () => switchTab("friends"));
       const ovAchAllBtn = $a("ph-ov-ach-all-btn");
       if (ovAchAllBtn) ovAchAllBtn.addEventListener("click", () => switchTab("achievements"));
+
+      // Competitive tab button wiring (deferred so elements exist)
+      setTimeout(() => {
+        // "Play Ranked 1v1" → open the competitive overlay (Create tab)
+        const playRankedBtn = $a("ph-comp-play-ranked-btn");
+        if (playRankedBtn) playRankedBtn.addEventListener("click", () => {
+          if (typeof compOpenOverlay === "function") compOpenOverlay();
+          if (typeof compSwitchTab === "function") compSwitchTab("create");
+        });
+        // "Leaderboard" → open competitive overlay on LB tab
+        const lbViewBtn = $a("ph-comp-lb-view-btn");
+        if (lbViewBtn) lbViewBtn.addEventListener("click", () => {
+          if (typeof compOpenOverlay === "function") compOpenOverlay();
+          if (typeof compSwitchTab === "function") compSwitchTab("lb");
+          if (typeof loadCompLeaderboard === "function") loadCompLeaderboard();
+        });
+        // "View History" link in competitive tab sidebar
+        const compHistLink = $a("ph-comp-hist-link");
+        if (compHistLink) compHistLink.addEventListener("click", () => switchTab("history"));
+        // "Go to Ranked" link in history tab comp section
+        const compTabFromHist = $a("ph-hist-comp-tab-btn");
+        if (compTabFromHist) compTabFromHist.addEventListener("click", () => switchTab("competitive"));
+        // stats-comp-btn already has a listener (compOpenOverlay) wired earlier — no duplicate needed.
+      }, 0);
     })();
 
     // ── Player Home: player-count high score tabs ─────────────────
@@ -12874,9 +13487,11 @@
       set("ph-ov-casual-wins", String(normalWins));
       set("ph-ov-casual-top",  casualTop > 0 ? String(casualTop) : "—");
       set("ph-ov-avg-casual", avgCasual != null && Number.isFinite(avgCasual) ? String(avgCasual) : "—");
-      set("ph-ov-comp-wins",   String(compWins));
-      set("ph-ov-comp-top",    compTop   > 0 ? String(compTop)   : "—");
-      set("ph-ov-avg-comp", avgComp != null && Number.isFinite(avgComp) ? String(avgComp) : "—");
+      // Overview competitive summary (rank, top score, total comp games)
+      const compRankLabel = safeStats.rank_competitive || "No rank yet";
+      set("ph-ov-comp-rank", compRankLabel);
+      set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "—");
+      set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "—");
 
       renderOverviewAchievements(safeStats);
 
@@ -12884,13 +13499,7 @@
       const requestedPs = normalizePhPlayerCount(activePs ? Number(activePs.dataset.ps) : _phSelectedPlayerCount);
       if (window._phSetPs) window._phSetPs(requestedPs);
 
-      const compBlock = $a("stats-comp-block"), compEmpty = $a("ph-comp-empty");
-      if (compBlock && compEmpty) {
-        const hasComp = compWins > 0 || compTop > 0
-          || Object.values(safeStats.comp_games_by_size || {}).some(n => Number(n) > 0);
-        compEmpty.style.display = hasComp ? "none" : "";
-        compBlock.style.display = hasComp ? "" : "none";
-      }
+      // Legacy comp block elements are kept hidden; ranked dashboard is managed by renderPhCompetitive().
     }
 
     // ── Player Home: overview tab ──────────────────────────────────
@@ -12926,17 +13535,453 @@
     }
 
     // ── Player Home: full history tab ─────────────────────────────
-    function renderPhHistory() {
+    async function renderPhHistory() {
+      // All-games section (casual / normal)
       const el = $a("ph-full-history");
-      if (!el) return;
-      const historyGames = HOME_REFERENCE_MODE
-        ? HOME_REFERENCE_RECENT_GAMES
-        : ((_phStats && _phStats.recent_games) || []);
-      if (!historyGames.length) {
-        el.innerHTML = '<div class="ph-empty">No games completed yet.</div>'; return;
+      if (el) {
+        const historyGames = HOME_REFERENCE_MODE
+          ? HOME_REFERENCE_RECENT_GAMES
+          : ((_phStats && _phStats.recent_games) || []);
+        if (!historyGames.length) {
+          el.innerHTML = '<div class="ph-empty">No games completed yet.</div>';
+        } else {
+          renderPhRecentGamesTo(el, historyGames, 50);
+        }
       }
-      renderPhRecentGamesTo(el, historyGames, 50);
+      // Competitive 1v1 section
+      const compEl = $a("ph-full-history-comp");
+      if (!compEl) return;
+      compEl.innerHTML = '<div class="ph-empty">Loading…</div>';
+      try {
+        const { ok, data } = await apiFetch("/api/competitive/history", { method: "GET", timeoutMs: 6000 });
+        if (!ok || !data?.games?.length) {
+          compEl.innerHTML = '<div class="ph-empty">No competitive games yet.</div>'; return;
+        }
+        const myName = ($a("stats-lobby-nick")?.textContent || "").trim();
+        compEl.innerHTML = "";
+        data.games.slice(0, 30).forEach(g => {
+          const isDraw   = Boolean(g.is_draw);
+          const isWin    = !isDraw && myName ? g.winner === myName : false;
+          const opp      = myName
+            ? (g.p1_name === myName ? g.p2_name : g.p1_name)
+            : `${g.p1_name} vs ${g.p2_name}`;
+          const myScore  = myName
+            ? Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0
+            : Math.max(Number(g.p1_best_score || 0), Number(g.p2_best_score || 0));
+          const oppScore = myName
+            ? Number(g.p1_name === myName ? g.p2_best_score : g.p1_best_score) || 0
+            : 0;
+          const cpDelta  = myName ? (g.p1_name === myName ? g.p1_cp_delta : g.p2_cp_delta) : null;
+          const rankAfter= myName ? (g.p1_name === myName ? g.p1_rank_after : g.p2_rank_after) : null;
+          const date     = g.recorded_unix
+            ? new Date(g.recorded_unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+            : "";
+          const resultLabel = isDraw ? "Draw" : (isWin ? "Win" : "Loss");
+          const resultClass = isDraw ? "draw" : (isWin ? "win" : "loss");
+          const cpStr = cpDelta != null ? ` <span style="font-size:10.5px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : (g.ranked ? "" : ' <span style="font-size:10px;color:rgba(20,50,100,.4);">unranked</span>');
+          const d = document.createElement("div");
+          d.className = "ph-rg";
+          d.style.cssText = "flex-wrap:wrap;gap:4px 8px;align-items:center;";
+          d.innerHTML = `<span class="ph-rg-opp" style="font-weight:800;">vs ${escapeHtml(opp || "Unknown")}</span>`
+            + `<span class="ph-rg-badge ${resultClass}">${resultLabel}</span>${cpStr}`
+            + `<span class="ph-rg-pts">${myScore} pts</span>`
+            + (oppScore ? `<span style="font-size:10.5px;color:rgba(20,50,100,.55);">opp: ${oppScore} pts</span>` : "")
+            + (rankAfter ? `<span style="font-size:10.5px;color:#7a5a10;font-weight:700;">${escapeHtml(rankAfter)}</span>` : "")
+            + `<span class="ph-rg-date">${escapeHtml(date)}</span>`;
+          compEl.appendChild(d);
+        });
+      } catch {
+        compEl.innerHTML = '<div class="ph-empty">Could not load history.</div>';
+      }
     }
+
+    // ── Competitive Tab: Ranked Dashboard ────────────────────────
+    const _COMP_RANK_DIVS = [
+      { name: "Bronze Barracuda III",      tier: "bronze",  emoji: "🐠", minCp: 1,   maxCp: 44   },
+      { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,  maxCp: 89   },
+      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 90,  maxCp: 134  },
+      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 135, maxCp: 199  },
+      { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200, maxCp: 264  },
+      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 265, maxCp: 329  },
+      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 330, maxCp: 419  },
+      { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420, maxCp: 509  },
+      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 510, maxCp: 599  },
+      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 600, maxCp: 719  },
+      { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720, maxCp: 839  },
+      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 840, maxCp: 959  },
+      { name: "Emerald Emperor Penguin",   tier: "emerald", emoji: "🐧", minCp: 960, maxCp: 1199 },
+      { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity },
+    ];
+
+    function _compGetRankFromCp(cp) {
+      if (cp <= 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda III", pct: 0 };
+      const idx = _COMP_RANK_DIVS.findIndex(d => cp >= d.minCp && cp <= d.maxCp);
+      const div = idx >= 0 ? _COMP_RANK_DIVS[idx] : _COMP_RANK_DIVS[_COMP_RANK_DIVS.length - 1];
+      const next = idx >= 0 && idx + 1 < _COMP_RANK_DIVS.length ? _COMP_RANK_DIVS[idx + 1] : null;
+      const range = div.maxCp === Infinity ? 200 : (div.maxCp - div.minCp + 1);
+      const pct = div.maxCp === Infinity ? 100 : Math.min(100, Math.floor(((cp - div.minCp) / range) * 100));
+      return { division: div.name, tier: div.tier, emoji: div.emoji, cp, nextCp: next ? next.minCp : null, nextDiv: next ? next.name : null, pct };
+    }
+    window._compGetRankFromCp = _compGetRankFromCp;
+
+    function _compGetRankInfo(wins, losses) {
+      const total = wins + losses;
+      if (total === 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda III", pct: 0 };
+      const cp = Math.max(0, wins * 25 - losses * 12);
+      return _compGetRankFromCp(cp);
+    }
+
+    function _compGetSeasonId(date) {
+      const d = date instanceof Date ? date : new Date();
+      const year = d.getUTCFullYear();
+      const q = Math.floor(d.getUTCMonth() / 3) + 1;
+      return `${year}-Q${q}`;
+    }
+
+    function _compGetSeasonDates(seasonId) {
+      const parts = (seasonId || "").split("-Q");
+      const year = parseInt(parts[0]) || new Date().getUTCFullYear();
+      const q    = parseInt(parts[1]) || 1;
+      const startMonth = (q - 1) * 3;
+      const start = new Date(Date.UTC(year, startMonth, 1));
+      const end   = new Date(Date.UTC(year, startMonth + 3, 0));
+      return { id: seasonId, start, end };
+    }
+
+    function _compSeasonLabel() {
+      const { end } = _compGetSeasonDates(_compGetSeasonId());
+      const days = Math.floor((end - Date.now()) / 86400000);
+      if (days <= 0) return "Season ended";
+      if (days >= 14) return `Season ends in ${Math.ceil(days / 7)} weeks`;
+      return `Season ends in ${days} day${days !== 1 ? "s" : ""}`;
+    }
+
+    function _compSeasonDisplayLabel() {
+      const sid = _compGetSeasonId();
+      const [yearStr, qStr] = sid.split("-Q");
+      const { start, end } = _compGetSeasonDates(sid);
+      const fmt = { month: "short", day: "numeric" };
+      const startStr = start.toLocaleDateString("en-US", fmt);
+      const endStr   = end.toLocaleDateString("en-US", fmt);
+      return `Season Q${qStr} ${yearStr}  ·  ${startStr} – ${endStr}`;
+    }
+
+    function _compRankBadgeHtml(division, tier) {
+      const cls = tier ? `ph-rank-${tier}` : "ph-rank-bronze";
+      const info = _COMP_RANK_DIVS.find(d => d.name === division);
+      const emo  = info ? info.emoji : "🐟";
+      return `<span class="ph-rank-badge ${cls}">${emo} ${escapeHtml(division)}</span>`;
+    }
+
+    async function checkAndApplySeasonReset() {
+      // Called when opening the competitive tab; if season changed, archive + reset Firebase
+      const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+      const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+      if (!authUser || !db) return;
+      const curSeasonId = _compGetSeasonId();
+      const stats = _phStats || {};
+      const storedSeasonId = stats.comp_season_id || "";
+      if (!storedSeasonId || storedSeasonId === curSeasonId) return; // nothing to do
+
+      try {
+        const docRef = db.collection("users").doc(authUser.uid);
+        const snap   = await docRef.get();
+        const cStats = ((snap.data() || {}).stats) || {};
+        const stored = cStats.comp_season_id || "";
+        if (!stored || stored === curSeasonId) return;
+
+        const oldEntry = {
+          id:         stored,
+          final_rank: cStats.rank_competitive || "Unranked",
+          final_cp:   Number(cStats.comp_cp || 0),
+          wins:       Number(cStats.competitive_wins || 0),
+          losses:     Number(cStats.competitive_losses || 0),
+          draws:      Number(cStats.competitive_draws || 0),
+          best_score: Number(cStats.highest_score_competitive || 0),
+        };
+        const existing = Array.isArray(cStats.seasons_history) ? cStats.seasons_history : [];
+        const alreadyArchived = existing.some(e => e.id === stored);
+        const historyUpdate = alreadyArchived
+          ? {}
+          : { "stats.seasons_history": [oldEntry, ...existing].slice(0, 20) };
+
+        await docRef.update({
+          ...historyUpdate,
+          "stats.comp_cp":                   0,
+          "stats.comp_season_id":            curSeasonId,
+          "stats.competitive_wins":          0,
+          "stats.competitive_losses":        0,
+          "stats.competitive_draws":         0,
+          "stats.competitive_streak":        0,
+          "stats.competitive_best_streak":   0,
+          "stats.average_competitive_score": 0,
+          "stats.rank_competitive":          "Unranked",
+          "stats.highest_score_competitive": 0,
+        });
+        // Refresh local stats cache
+        if (_phStats) {
+          _phStats.comp_cp = 0;
+          _phStats.comp_season_id = curSeasonId;
+          _phStats.competitive_wins = 0;
+          _phStats.competitive_losses = 0;
+          _phStats.competitive_draws = 0;
+          _phStats.competitive_streak = 0;
+          _phStats.competitive_best_streak = 0;
+          _phStats.rank_competitive = "Unranked";
+        }
+        console.info("[Season] Reset to new season:", curSeasonId);
+      } catch (e) {
+        console.warn("checkAndApplySeasonReset error:", e);
+      }
+    }
+
+    async function renderPhCompetitive() {
+      const loadEl  = $a("ph-comp-loading");
+      const emptyEl = $a("ph-comp-ranked-empty");
+      const dashEl  = $a("ph-comp-ranked-dash");
+      if (!dashEl) return;
+
+      if (loadEl)  loadEl.style.display  = "";
+      if (emptyEl) emptyEl.style.display = "none";
+      dashEl.style.display = "none";
+
+      const stats     = _phStats || {};
+      const wins      = Number(stats.competitive_wins || 0);
+      const losses    = Number(stats.competitive_losses || 0);
+      const draws     = Number(stats.competitive_draws || 0);
+      const bestScore = Number(stats.highest_score_competitive || 0);
+      const storedCp  = Number(stats.comp_cp || 0);
+      const curSeasonId = _compGetSeasonId();
+
+      // Season reset: if stored season differs from current, trigger reset UI note
+      const storedSeasonId = stats.comp_season_id || "";
+      const seasonChanged  = storedSeasonId && storedSeasonId !== curSeasonId;
+
+      let games = [], leaderboard = [];
+      try {
+        const [hr, lr] = await Promise.all([
+          apiFetch(`/api/competitive/history?season=${curSeasonId}`,    { method: "GET", timeoutMs: 6000 }),
+          apiFetch(`/api/competitive/leaderboard?season=${curSeasonId}`,{ method: "GET", timeoutMs: 6000 }),
+        ]);
+        if (hr.ok && hr.data?.games)        games       = hr.data.games;
+        if (lr.ok && lr.data?.leaderboard)  leaderboard = lr.data.leaderboard;
+      } catch {}
+
+      if (loadEl) loadEl.style.display = "none";
+
+      const myName = ($a("stats-lobby-nick")?.textContent || "").trim();
+      const myGames = myName
+        ? games.filter(g => g.p1_name === myName || g.p2_name === myName)
+        : games;
+
+      // Prefer Firebase-stored season stats; fall back to computing from game history
+      const effWins   = wins;
+      const effLosses = losses;
+      const effDraws  = draws;
+      const total     = effWins + effLosses + effDraws;
+
+      if (total === 0 && storedCp === 0 && !seasonChanged) {
+        if (emptyEl) emptyEl.style.display = "";
+        if (loadEl)  loadEl.style.display  = "none";
+        return;
+      }
+
+      const winPct = (effWins + effLosses) > 0 ? Math.round((effWins / (effWins + effLosses)) * 100) : 0;
+
+      // Average best score — prefer Firebase, fallback to history
+      const avgBest = Number(stats.average_competitive_score || 0) ||
+        (myGames.length > 0 && myName
+          ? Math.round(myGames.map(g => Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0).reduce((a, b) => a + b, 0) / myGames.length)
+          : 0);
+
+      // Streak — prefer Firebase
+      const curStreak  = Number(stats.competitive_streak || 0);
+      const bestStreak = Number(stats.competitive_best_streak || 0);
+
+      // Top strategy — prefer Firebase, fallback to history
+      let topStrat = stats.most_played_strategy || null;
+      if (!topStrat && myGames.length > 0) {
+        const sc = {};
+        myGames.forEach(g => { if (g.strategy) sc[g.strategy] = (sc[g.strategy] || 0) + 1; });
+        topStrat = Object.entries(sc).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      }
+
+      // Rank / CP
+      const rankInfo = storedCp > 0 ? _compGetRankFromCp(storedCp) : _compGetRankInfo(effWins, effLosses);
+
+      // Season-aware king: player with highest CP in leaderboard
+      const king = leaderboard.find(r => r.tier === "king" || (r.cp || 0) >= 1200)
+                   || (leaderboard.length > 0 ? leaderboard[0] : null);
+      const kingIsKing = king && ((king.cp || 0) >= 1200 || king.tier === "king");
+
+      // ── Populate elements ──────────────────────────────────────
+      const set = (id, val) => { const el = $a(id); if (el) el.textContent = String(val ?? "—"); };
+      const setHtml = (id, html) => { const el = $a(id); if (el) el.innerHTML = html; };
+
+      set("ph-comp-rank-name",  rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
+      setHtml("ph-comp-rank-badge", rankInfo.division !== "Unranked" ? _compRankBadgeHtml(rankInfo.division, rankInfo.tier) : "");
+
+      // CP bar tier coloring
+      const fillEl = $a("ph-comp-cp-fill");
+      if (fillEl) {
+        fillEl.className = `ph-cp-fill tier-${rankInfo.tier || "bronze"}`;
+        fillEl.style.width = `${rankInfo.pct}%`;
+      }
+      set("ph-comp-cp-val", `${rankInfo.cp} CP`);
+      set("ph-comp-cp-next-label", rankInfo.nextDiv
+        ? `${rankInfo.nextCp - rankInfo.cp} CP until ${rankInfo.nextDiv}`
+        : "Max rank reached 🎉");
+      set("ph-comp-season-row",   _compSeasonLabel());
+      set("ph-comp-season-label", _compSeasonDisplayLabel());
+
+      set("ph-comp-wins",        effWins > 0 ? effWins : "—");
+      set("ph-comp-losses",      effLosses > 0 ? effLosses : "—");
+      set("ph-comp-draws",       effDraws > 0 ? effDraws : "—");
+      set("ph-comp-winpct",      (effWins + effLosses) > 0 ? `${winPct}%` : "—");
+      set("ph-comp-best",        bestScore > 0 ? bestScore : "—");
+      set("ph-comp-avg",         avgBest  > 0 ? avgBest  : "—");
+      set("ph-comp-streak",      curStreak  > 0 ? `${curStreak} 🔥` : "—");
+      set("ph-comp-best-streak", bestStreak > 0 ? bestStreak : "—");
+      set("ph-comp-strategy",    topStrat || "—");
+
+      // King of the Critters card
+      const kingCard   = $a("ph-comp-king-card");
+      const noKingCard = $a("ph-comp-no-king");
+      if (kingIsKing && king && kingCard) {
+        kingCard.style.display = "";
+        if (noKingCard) noKingCard.style.display = "none";
+        set("ph-comp-king-name", king.name);
+        const kWins    = king.wins || 0;
+        const kLosses  = king.losses || 0;
+        const kTotal   = kWins + kLosses;
+        const kWinPct  = kTotal > 0 ? Math.round((kWins / kTotal) * 100) : 0;
+        const kStreak  = king.best_streak || king.streak || 0;
+        set("ph-comp-king-meta",   `${kWins}W · ${kLosses}L`);
+        set("ph-comp-king-cp",     `${king.cp || 0} CP`);
+        set("ph-comp-king-pct",    kTotal > 0 ? `${kWinPct}% win rate` : "");
+        set("ph-comp-king-streak", kStreak > 0 ? `${kStreak} 🔥 streak` : "");
+      } else {
+        if (kingCard)   kingCard.style.display   = "none";
+        if (noKingCard) noKingCard.style.display = "";
+      }
+
+      // Recent ranked games in sidebar
+      const recentEl = $a("ph-comp-recent-games");
+      if (recentEl) {
+        const ranked = myGames.filter(g => g.ranked);
+        const displayGames = ranked.length > 0 ? ranked : myGames;
+        if (!displayGames.length) {
+          recentEl.innerHTML = '<div class="ph-empty">No ranked games yet.</div>';
+        } else {
+          recentEl.innerHTML = "";
+          const sorted = [...displayGames].sort((a, b) => (b.recorded_unix || 0) - (a.recorded_unix || 0));
+          sorted.slice(0, 5).forEach(g => {
+            const isDraw = Boolean(g.is_draw);
+            const isWin  = !isDraw && g.winner === myName;
+            const opp    = myName ? (g.p1_name === myName ? g.p2_name : g.p1_name) : (g.p1_name || "?");
+            const myScore = myName ? Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0 : 0;
+            const oppScore= myName ? Number(g.p1_name === myName ? g.p2_best_score : g.p1_best_score) || 0 : 0;
+            const cpDelta = myName ? (g.p1_name === myName ? g.p1_cp_delta : g.p2_cp_delta) : null;
+            const rankAfter = myName ? (g.p1_name === myName ? g.p1_rank_after : g.p2_rank_after) : null;
+            const date = g.recorded_unix
+              ? new Date(g.recorded_unix * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+              : "";
+            const resultLabel = isDraw ? "Draw" : (isWin ? "Win" : "Loss");
+            const resultClass = isDraw ? "draw" : (isWin ? "win" : "loss");
+            const cpStr = cpDelta != null ? ` <span style="font-size:10px;font-weight:700;color:${cpDelta>0?"#1d9b4e":cpDelta<0?"#c0392b":"#7a6800"};">${cpDelta>0?"+":""}${cpDelta} CP</span>` : "";
+            const d = document.createElement("div");
+            d.className = "ph-rg";
+            d.style.cssText = "flex-wrap:wrap;gap:4px 8px;";
+            d.innerHTML = `<span class="ph-rg-opp">vs ${escapeHtml(opp || "Unknown")}</span>`
+              + `<span class="ph-rg-badge ${resultClass}">${resultLabel}</span>${cpStr}`
+              + `<span class="ph-rg-pts">${myScore} pts</span>`
+              + (oppScore ? `<span style="font-size:10px;color:rgba(20,50,100,.5);">opp ${oppScore} pts</span>` : "")
+              + (rankAfter ? `<span style="font-size:10px;color:#7a5a10;">${escapeHtml(rankAfter)}</span>` : "")
+              + `<span class="ph-rg-date">${escapeHtml(date)}</span>`;
+            recentEl.appendChild(d);
+          });
+        }
+      }
+
+      dashEl.style.display = "";
+    }
+
+    // ── Season History Modal ──────────────────────────────────────
+    async function openSeasonHistoryModal() {
+      const modal = document.getElementById("ph-season-modal");
+      const body  = document.getElementById("ph-season-modal-body");
+      if (!modal || !body) return;
+      modal.classList.add("open");
+      body.innerHTML = '<div class="ph-empty">Loading…</div>';
+
+      try {
+        // Combine Firebase seasons_history with server seasons list
+        const stats = _phStats || {};
+        const fbHistory = Array.isArray(stats.seasons_history) ? stats.seasons_history : [];
+        const { ok, data } = await apiFetch("/api/competitive/seasons", { method: "GET", timeoutMs: 5000 });
+        const serverSeasons = (ok && data?.seasons) ? data.seasons : [];
+
+        if (!fbHistory.length && !serverSeasons.length) {
+          body.innerHTML = '<div class="ph-empty">No past seasons yet. Season history will appear here at the end of each quarter.</div>';
+          return;
+        }
+
+        // Merge: server seasons as base, enrich with Firebase personal data
+        const byId = {};
+        serverSeasons.forEach(s => { byId[s.id] = { ...s }; });
+        fbHistory.forEach(s => {
+          if (!byId[s.id]) byId[s.id] = { id: s.id };
+          byId[s.id].personal = s;
+        });
+
+        const all = Object.values(byId).sort((a, b) => (b.id > a.id ? 1 : -1));
+        const curId = _compGetSeasonId();
+        const pastSeasons = all.filter(s => s.id !== curId);
+
+        if (!pastSeasons.length) {
+          body.innerHTML = '<div class="ph-empty">No completed seasons yet. Check back after ' + curId + ' ends!</div>';
+          return;
+        }
+
+        body.innerHTML = "";
+        pastSeasons.forEach(s => {
+          const p = s.personal || {};
+          const [yearStr, qStr] = s.id.split("-Q");
+          const { start, end } = _compGetSeasonDates(s.id);
+          const endStr = end.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+          const kingName = s.king_name || p.king_name || null;
+          const kingCp   = s.king_cp   || p.king_cp   || 0;
+          const row = document.createElement("div");
+          row.className = "ph-season-hist-row";
+          row.innerHTML = `<div class="ph-season-hist-id">Q${qStr} ${yearStr}</div>`
+            + `<div class="ph-season-hist-info">`
+            + (kingName
+              ? `<div class="ph-season-hist-king">👑 ${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} CP` : ""}</div>`
+              : `<div style="font-size:.78rem;color:rgba(22,70,160,.5);">No King crowned this season.</div>`)
+            + (p.final_rank ? `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank)}</b></div>` : "")
+            + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final CP: <b>${p.final_cp}</b></div>` : "")
+            + (p.wins != null ? `<div style="font-size:.78rem;color:rgba(22,70,160,.6);">${p.wins}W / ${p.losses || 0}L · ${
+                (p.wins + (p.losses || 0)) > 0
+                  ? Math.round((p.wins / (p.wins + (p.losses || 0))) * 100) + "% win rate"
+                  : "—"
+              }</div>` : "")
+            + `</div>`;
+          body.appendChild(row);
+        });
+      } catch (e) {
+        body.innerHTML = '<div class="ph-empty">Could not load season history.</div>';
+      }
+    }
+
+    // Wire season history button + modal close
+    ;(function() {
+      const btn   = $a("ph-season-history-btn");
+      const close = document.getElementById("ph-season-modal-close");
+      const modal = document.getElementById("ph-season-modal");
+      if (btn)   btn.addEventListener("click", openSeasonHistoryModal);
+      if (close) close.addEventListener("click", () => modal?.classList.remove("open"));
+      if (modal) modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("open"); });
+    })();
 
     // ── Game Detail Modal ─────────────────────────────────────────
     function openGameDetailModal(g) {
@@ -13141,5 +14186,18 @@
 
   })(); // end auth IIFE
 </script>
+
+<!-- ── Season History Modal ─────────────────────────────────────── -->
+<div id="ph-season-modal" role="dialog" aria-modal="true" aria-label="Season History">
+  <div class="ph-season-modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="ph-season-modal-title">📅 Season History</div>
+      <button id="ph-season-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
+    </div>
+    <div id="ph-season-modal-body">
+      <div class="ph-empty">Loading season history…</div>
+    </div>
+  </div>
+</div>
 </body>
 </html>

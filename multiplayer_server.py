@@ -44,6 +44,7 @@ COMPETITIVE_GAMES_DIR = str(
     os.environ.get("FISH_COMPETITIVE_GAMES_DIR", os.path.join(BASE_DIR, "multiplayer", "competitive_games"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "competitive_games")
 COMPETITIVE_LEADERBOARD_PATH = os.path.join(COMPETITIVE_GAMES_DIR, "leaderboard.json")
+COMPETITIVE_SEASONS_PATH     = os.path.join(COMPETITIVE_GAMES_DIR, "seasons.json")
 GAMES_HISTORY_DIR = str(
     os.environ.get("FISH_GAMES_HISTORY_DIR", os.path.join(BASE_DIR, "multiplayer", "games_history"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
@@ -127,6 +128,14 @@ def json_dumps(payload: Dict[str, Any]) -> bytes:
 
 def now_unix() -> int:
     return int(time.time())
+
+
+def get_season_id(ts: Optional[int] = None) -> str:
+    """Return quarterly season ID string like '2026-Q2' for the given unix timestamp (or now)."""
+    import datetime
+    dt = datetime.datetime.utcfromtimestamp(ts if ts is not None else time.time())
+    q = (dt.month - 1) // 3 + 1
+    return f"{dt.year}-Q{q}"
 
 
 def clamp_int(value: Any, default: int, lo: int, hi: int) -> int:
@@ -2281,35 +2290,58 @@ class GameRoom:
             return
         try:
             seats = self.seats
+            # P1 owns seats 0 & 1; P2 owns seats 2 & 3
             p1_name = seats[0].claimed_name or "Player 1" if len(seats) > 0 else "Player 1"
-            p2_name = seats[1].claimed_name or "Player 2" if len(seats) > 1 else "Player 2"
+            p2_name = seats[2].claimed_name or "Player 2" if len(seats) > 2 else "Player 2"
             score_map = {s.get("name"): s.get("score", 0) for s in standings}
-            p1_scores = [score_map.get(seats[i].claimed_name, 0) for i in (0, 2) if i < len(seats) and seats[i].claimed_name]
-            p2_scores = [score_map.get(seats[i].claimed_name, 0) for i in (1, 3) if i < len(seats) and seats[i].claimed_name]
-            p1_best = max(p1_scores) if p1_scores else 0
-            p2_best = max(p2_scores) if p2_scores else 0
-            winner = p1_name if p1_best >= p2_best else p2_name
+            p1_scores = [score_map.get(seats[i].claimed_name, 0) for i in (0, 1) if i < len(seats) and seats[i].claimed_name]
+            p2_scores = [score_map.get(seats[i].claimed_name, 0) for i in (2, 3) if i < len(seats) and seats[i].claimed_name]
+            p1_best   = max(p1_scores) if p1_scores else 0
+            p2_best   = max(p2_scores) if p2_scores else 0
+            p1_second = min(p1_scores) if len(p1_scores) >= 2 else p1_best
+            p2_second = min(p2_scores) if len(p2_scores) >= 2 else p2_best
+            # Determine winner with tiebreaker (second-best hand); exact tie = draw
+            is_draw = False
+            if p1_best > p2_best:
+                winner: Optional[str] = p1_name
+            elif p2_best > p1_best:
+                winner = p2_name
+            elif p1_second > p2_second:
+                winner = p1_name
+            elif p2_second > p1_second:
+                winner = p2_name
+            else:
+                winner = None
+                is_draw = True
             strategy = self._detect_strategy(gs)
+            turn_count = getattr(gs, "round_count", 0)
             board_snapshot = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else {}
+            ts = now_unix()
             record = {
                 "room_id": self.room_id,
-                "recorded_unix": now_unix(),
+                "recorded_unix": ts,
+                "season_id": get_season_id(ts),
                 "p1_name": p1_name,
                 "p2_name": p2_name,
                 "p1_best_score": p1_best,
                 "p2_best_score": p2_best,
+                "p1_second_score": p1_second,
+                "p2_second_score": p2_second,
                 "winner": winner,
+                "is_draw": is_draw,
+                "ranked": False,
+                "turn_count": turn_count,
                 "strategy": strategy,
                 "standings": standings,
                 "board_snapshot": board_snapshot,
             }
             game_path = os.path.join(COMPETITIVE_GAMES_DIR, f"game_{self.room_id}_{now_unix()}.json")
             atomic_write_json(game_path, record)
-            self._update_competitive_leaderboard(p1_name, p2_name, winner)
+            self._update_competitive_leaderboard(p1_name, p2_name, winner, is_draw)
         except Exception as exc:
             self._record_event(f"Competitive save warning: {exc}")
 
-    def _update_competitive_leaderboard(self, p1_name: str, p2_name: str, winner: str) -> None:
+    def _update_competitive_leaderboard(self, p1_name: str, p2_name: str, winner: Optional[str], is_draw: bool = False) -> None:
         try:
             with COMPETITIVE_LOCK:
                 try:
@@ -2319,11 +2351,15 @@ class GameRoom:
                     board = {}
                 for name in (p1_name, p2_name):
                     if name not in board:
-                        board[name] = {"wins": 0, "losses": 0, "games": 0}
+                        board[name] = {"wins": 0, "losses": 0, "draws": 0, "games": 0}
                     board[name]["games"] = board[name].get("games", 0) + 1
-                board[winner]["wins"] = board[winner].get("wins", 0) + 1
-                loser = p2_name if winner == p1_name else p1_name
-                board[loser]["losses"] = board[loser].get("losses", 0) + 1
+                if is_draw:
+                    board[p1_name]["draws"] = board[p1_name].get("draws", 0) + 1
+                    board[p2_name]["draws"] = board[p2_name].get("draws", 0) + 1
+                elif winner:
+                    board[winner]["wins"] = board[winner].get("wins", 0) + 1
+                    loser = p2_name if winner == p1_name else p1_name
+                    board[loser]["losses"] = board[loser].get("losses", 0) + 1
                 atomic_write_json(COMPETITIVE_LEADERBOARD_PATH, board)
         except Exception as exc:
             self._record_event(f"Leaderboard update warning: {exc}")
@@ -3375,19 +3411,70 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/competitive/leaderboard":
-            try:
-                with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
-                    board = json.load(f)
-            except (FileNotFoundError, json.JSONDecodeError):
-                board = {}
+            qs = parse_qs(parsed.query)
+            season_filter = qs.get("season", [None])[0]
+            if season_filter:
+                # Return season-specific leaderboard
+                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_filter}.json")
+                try:
+                    with open(season_lb_path, "r", encoding="utf-8") as f:
+                        board = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    board = {}
+            else:
+                try:
+                    with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                        board = json.load(f)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    board = {}
             rows = sorted(
                 [{"name": k, **v} for k, v in board.items()],
-                key=lambda x: (-(x.get("wins", 0)), x.get("losses", 0), x.get("name", "")),
+                key=lambda x: (-(x.get("cp", 0) or x.get("wins", 0) * 25), x.get("losses", 0), x.get("name", "")),
             )
-            self._send_json({"ok": True, "leaderboard": rows})
+            self._send_json({"ok": True, "leaderboard": rows, "season_id": season_filter or get_season_id()})
+            return
+
+        if parsed.path == "/api/competitive/seasons":
+            # Return list of seasons that have game records, plus current season
+            seasons: Dict[str, Any] = {}
+            current = get_season_id()
+            seasons[current] = {"id": current, "game_count": 0, "is_current": True}
+            try:
+                for fname in os.listdir(COMPETITIVE_GAMES_DIR):
+                    if fname.startswith("game_") and fname.endswith(".json"):
+                        fpath = os.path.join(COMPETITIVE_GAMES_DIR, fname)
+                        try:
+                            with open(fpath, "r", encoding="utf-8") as f:
+                                rec = json.load(f)
+                            sid = rec.get("season_id") or get_season_id(rec.get("recorded_unix"))
+                            if sid not in seasons:
+                                seasons[sid] = {"id": sid, "game_count": 0, "is_current": sid == current}
+                            if rec.get("ranked"):
+                                seasons[sid]["game_count"] = seasons[sid].get("game_count", 0) + 1
+                        except Exception:
+                            pass
+            except FileNotFoundError:
+                pass
+            # Enrich each season with leaderboard king
+            for sid, sdata in seasons.items():
+                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{sid}.json")
+                try:
+                    with open(season_lb_path, "r", encoding="utf-8") as f:
+                        slb = json.load(f)
+                    if slb:
+                        best = max(slb.items(), key=lambda kv: (kv[1].get("cp", 0), kv[1].get("wins", 0)))
+                        sdata["king_name"] = best[0]
+                        sdata["king_cp"] = best[1].get("cp", 0)
+                        sdata["king_rank"] = best[1].get("rank", "")
+                except Exception:
+                    pass
+            result = sorted(seasons.values(), key=lambda s: s["id"], reverse=True)
+            self._send_json({"ok": True, "seasons": result})
             return
 
         if parsed.path == "/api/competitive/history":
+            qs = parse_qs(parsed.query)
+            season_filter = qs.get("season", [None])[0]
             games = []
             try:
                 for fname in sorted(os.listdir(COMPETITIVE_GAMES_DIR)):
@@ -3395,13 +3482,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         fpath = os.path.join(COMPETITIVE_GAMES_DIR, fname)
                         try:
                             with open(fpath, "r", encoding="utf-8") as f:
-                                games.append(json.load(f))
+                                g = json.load(f)
+                            if season_filter:
+                                g_season = g.get("season_id") or get_season_id(g.get("recorded_unix"))
+                                if g_season != season_filter:
+                                    continue
+                            games.append(g)
                         except Exception:
                             pass
             except FileNotFoundError:
                 pass
             games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
-            self._send_json({"ok": True, "games": games})
+            self._send_json({"ok": True, "games": games, "season_id": season_filter or get_season_id()})
             return
 
         if parsed.path == "/api/history/leaderboard":
@@ -3722,6 +3814,99 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.submit_undo(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
+            return
+
+        if parsed.path == "/api/competitive/ranked_result":
+            room_id = body.get("room_id", "")
+            if not room_id:
+                self._send_json({"ok": False, "error": "room_id required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                os.makedirs(COMPETITIVE_GAMES_DIR, exist_ok=True)
+                prefix = f"game_{room_id}_"
+                files = sorted(
+                    [f for f in os.listdir(COMPETITIVE_GAMES_DIR) if f.startswith(prefix) and f.endswith(".json")],
+                    reverse=True,
+                )
+                if not files:
+                    self._send_json({"ok": False, "error": "game record not found"}, status=HTTPStatus.NOT_FOUND)
+                    return
+                fpath = os.path.join(COMPETITIVE_GAMES_DIR, files[0])
+                with COMPETITIVE_LOCK:
+                    try:
+                        with open(fpath, "r", encoding="utf-8") as f:
+                            record = json.load(f)
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        self._send_json({"ok": False, "error": "could not read game record"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                        return
+                    confirmed_ts = now_unix()
+                    record["ranked"] = True
+                    record["ranked_confirmed_unix"] = confirmed_ts
+                    # Enrich with client-supplied data if provided
+                    if "season_id" in body:
+                        record["season_id"] = str(body["season_id"])
+                    elif "season_id" not in record:
+                        record["season_id"] = get_season_id(confirmed_ts)
+                    if "p1_cp_after" in body:
+                        record["p1_cp_after"] = int(body.get("p1_cp_after", 0))
+                    if "p2_cp_after" in body:
+                        record["p2_cp_after"] = int(body.get("p2_cp_after", 0))
+                    if "p1_cp_delta" in body:
+                        record["p1_cp_delta"] = int(body.get("p1_cp_delta", 0))
+                    if "p2_cp_delta" in body:
+                        record["p2_cp_delta"] = int(body.get("p2_cp_delta", 0))
+                    if "p1_rank_after" in body:
+                        record["p1_rank_after"] = str(body.get("p1_rank_after", ""))
+                    if "p2_rank_after" in body:
+                        record["p2_rank_after"] = str(body.get("p2_rank_after", ""))
+                    atomic_write_json(fpath, record)
+                # Update seasonal leaderboard
+                season_id = record.get("season_id", get_season_id())
+                p1_name = record.get("p1_name", "")
+                p2_name = record.get("p2_name", "")
+                winner  = record.get("winner")
+                is_draw = bool(record.get("is_draw", False))
+                season_lb_path = os.path.join(COMPETITIVE_GAMES_DIR, f"leaderboard_{season_id}.json")
+                with COMPETITIVE_LOCK:
+                    try:
+                        with open(season_lb_path, "r", encoding="utf-8") as f:
+                            season_board: Dict[str, Any] = json.load(f)
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        season_board = {}
+                    for nm in (p1_name, p2_name):
+                        if nm and nm not in season_board:
+                            season_board[nm] = {"wins": 0, "losses": 0, "draws": 0, "games": 0,
+                                                "best_score": 0, "best_streak": 0, "season_id": season_id}
+                    if p1_name:
+                        season_board[p1_name]["games"] = season_board[p1_name].get("games", 0) + 1
+                        bs = max(int(record.get("p1_best_score", 0)), int(season_board[p1_name].get("best_score", 0)))
+                        season_board[p1_name]["best_score"] = bs
+                        if "p1_cp_after" in record:
+                            season_board[p1_name]["cp"] = int(record["p1_cp_after"])
+                        if "p1_rank_after" in record:
+                            season_board[p1_name]["rank"] = str(record["p1_rank_after"])
+                    if p2_name:
+                        season_board[p2_name]["games"] = season_board[p2_name].get("games", 0) + 1
+                        bs = max(int(record.get("p2_best_score", 0)), int(season_board[p2_name].get("best_score", 0)))
+                        season_board[p2_name]["best_score"] = bs
+                        if "p2_cp_after" in record:
+                            season_board[p2_name]["cp"] = int(record["p2_cp_after"])
+                        if "p2_rank_after" in record:
+                            season_board[p2_name]["rank"] = str(record["p2_rank_after"])
+                    if is_draw:
+                        for nm in (p1_name, p2_name):
+                            if nm:
+                                season_board[nm]["draws"] = season_board[nm].get("draws", 0) + 1
+                    elif winner:
+                        loser = p2_name if winner == p1_name else p1_name
+                        if winner in season_board:
+                            season_board[winner]["wins"] = season_board[winner].get("wins", 0) + 1
+                        if loser and loser in season_board:
+                            season_board[loser]["losses"] = season_board[loser].get("losses", 0) + 1
+                    atomic_write_json(season_lb_path, season_board)
+                self._send_json({"ok": True, "season_id": season_id})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         if parsed.path == "/api/competitive/reset":
