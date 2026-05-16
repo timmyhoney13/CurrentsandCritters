@@ -3334,6 +3334,15 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_client_asset(avatar_path, cache_control="public, max-age=86400")
             return
 
+        # Serve general client PNG assets (game bg, button art, etc.)
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full)\.png", parsed.path):
+            asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
+            if os.path.exists(asset_path):
+                self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         # Serve background art PNGs (tab backgrounds, game background, etc.)
         if re.fullmatch(r"/ph-bg-[\w-]+\.png", parsed.path):
             bg_name = os.path.basename(parsed.path)
