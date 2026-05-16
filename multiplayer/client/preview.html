@@ -4799,10 +4799,10 @@
     #nc-create-btn {
       position: relative; z-index: 1;
       width: 100%; height: 82px;
-      background: linear-gradient(100deg, #fbbf58 0%, #fdc964 50%, #fcc55c 100%);
+      background: url(nc-btn-full.png) center/100% 100% no-repeat;
       border: none; border-radius: 18px;
       font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 700;
-      color: #0c2858; letter-spacing: .5px;
+      color: transparent; letter-spacing: .5px;
       cursor: pointer; overflow: hidden;
       display: flex; align-items: center; justify-content: center;
       transition: filter .15s, transform .12s;
@@ -4811,16 +4811,12 @@
     #nc-create-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(200,110,0,.38); }
     #nc-create-btn:active:not(:disabled) { transform: translateY(0); filter: brightness(.97); }
     #nc-create-btn:disabled { opacity: .55; cursor: not-allowed; transform: none !important; }
-    #nc-create-btn .nc-btn-coral-img {
-      position: absolute; left: 0; bottom: 0; height: 108%; width: auto;
-      pointer-events: none; display: block;
-    }
-    #nc-create-btn .nc-btn-sil-img {
-      position: absolute; right: 0; bottom: 0; height: 108%; width: auto;
-      pointer-events: none; display: block;
+    #nc-create-btn.generating {
+      background: linear-gradient(100deg, #fbbf58 0%, #fdc964 50%, #fcc55c 100%);
+      color: #0c2858;
     }
     #nc-create-btn .nc-btn-label {
-      position: relative; z-index: 1;
+      position: relative; z-index: 1; color: inherit;
     }
 
     /* ── SEAT PICKER MODAL ──────────────────────────────────────── */
@@ -6235,8 +6231,6 @@
     <div id="nc-current-err"></div>
 
     <button id="nc-create-btn">
-      <img class="nc-btn-coral-img" src="nc-coral.png" alt="" aria-hidden="true">
-      <img class="nc-btn-sil-img" src="nc-sil.png" alt="" aria-hidden="true">
       <span class="nc-btn-label">Generate Current →</span>
     </button>
   </div>
@@ -7254,8 +7248,10 @@
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
-    document.getElementById("nc-create-btn").disabled = false;
-    const _ncLabel = document.querySelector("#nc-create-btn .nc-btn-label");
+    const _ncBtn = document.getElementById("nc-create-btn");
+    _ncBtn.disabled = false;
+    _ncBtn.classList.remove("generating");
+    const _ncLabel = _ncBtn.querySelector(".nc-btn-label");
     if (_ncLabel) _ncLabel.textContent = "Generate Current →";
     document.getElementById("new-current-modal").classList.add("open");
   }
@@ -7288,6 +7284,7 @@
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
     btn.disabled = true;
+    btn.classList.add("generating");
     const _ncBtnLabel = btn.querySelector(".nc-btn-label");
     if (_ncBtnLabel) _ncBtnLabel.textContent = "Generating…";
     errEl.textContent = "";
@@ -7297,6 +7294,7 @@
       replace_active: false, visibility, password,
     }, { timeoutMs:10000 });
     btn.disabled = false;
+    btn.classList.remove("generating");
     if (_ncBtnLabel) _ncBtnLabel.textContent = "Generate Current →";
     if (!r.ok) { errEl.textContent = "Failed: " + (r.data?.error || r.status); return; }
     const rId = normalizeRoomId(r.data?.room_id || rid);
