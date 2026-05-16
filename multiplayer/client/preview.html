@@ -4609,60 +4609,75 @@
     /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
     #lobby-browser-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
-      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
-      align-items: center; justify-content: center;
+      background: rgba(10,40,100,.72); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 16px;
     }
     #lobby-browser-modal.open { display: flex; }
     #lobby-browser-box {
-      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
-      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
-      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
-      padding: 22px 20px 20px; width: 95%; max-width: 500px;
-      max-height: 88vh; display: flex; flex-direction: column; gap: 12px;
+      background: linear-gradient(180deg, #cce6f8 0%, #b4d4ee 55%, #9ec4e4 100%);
+      border: 1.5px solid rgba(130,195,240,.55); border-radius: 26px;
+      box-shadow: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
+      padding: 28px 26px 26px; width: 100%; max-width: 640px;
+      max-height: 88vh; display: flex; flex-direction: column; gap: 18px;
       position: relative; overflow: hidden;
     }
+    #lobby-browser-box::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.42) 0%, transparent 68%);
+    }
     #lobby-browser-box h2 {
-      font-family: "Cinzel", serif; font-size: 1.1rem; color: var(--gold);
-      letter-spacing: 1.5px; margin: 0;
+      font-family: "Cinzel", serif; font-size: 1.6rem; font-weight: 700;
+      color: #0c2858; letter-spacing: .5px; margin: 0; position: relative; z-index: 1;
     }
-    .lb-browser-tabs { display: flex; gap: 5px; }
+    #lb-browser-close {
+      position: absolute; top: 18px; right: 18px; z-index: 2;
+      width: 42px; height: 42px; border-radius: 50%;
+      background: rgba(190,220,248,.72); border: 1.5px solid rgba(120,185,235,.55);
+      color: #2a5888; font-size: 18px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s, border-color .15s;
+    }
+    #lb-browser-close:hover { background: rgba(210,235,255,.9); border-color: rgba(70,150,230,.65); }
+    .lb-browser-tabs { display: flex; gap: 10px; position: relative; z-index: 1; }
     .lb-browser-tab {
-      flex: 1; padding: 7px 4px; border-radius: 8px; font-size: 12px;
-      font-weight: 700; cursor: pointer; border: 1px solid rgba(58,120,204,.4);
-      background: rgba(11,36,72,.7); color: var(--muted); transition: all .15s;
-      text-align: center;
+      flex: 1; padding: 13px 8px; border-radius: 16px; font-size: 15px;
+      font-weight: 700; cursor: pointer;
+      background: rgba(255,255,255,.52); border: 1.5px solid rgba(150,200,240,.45);
+      color: #5a82b0; transition: all .15s; text-align: center;
     }
-    .lb-browser-tab.active { background: rgba(34,72,140,.6); color: var(--cyan); border-color: var(--cyan); }
+    .lb-browser-tab.active {
+      background: rgba(255,255,255,.88); border-color: #4a82cc;
+      color: #0c2858; box-shadow: 0 2px 10px rgba(30,80,180,.13);
+    }
     #lb-browser-list {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;
-      min-height: 120px; max-height: 340px;
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+      min-height: 140px; max-height: 360px; position: relative; z-index: 1;
     }
     .room-card {
-      background: rgba(11,36,72,.6); border: 1px solid rgba(58,120,204,.22);
-      border-radius: 10px; padding: 10px 12px; display: flex; align-items: center;
-      gap: 10px; transition: border-color .15s;
+      background: rgba(255,255,255,.72); border: 1.5px solid rgba(150,200,240,.4);
+      border-radius: 14px; padding: 12px 16px; display: flex; align-items: center;
+      gap: 12px; transition: border-color .15s;
     }
-    .room-card:hover { border-color: rgba(34,216,248,.4); }
+    .room-card:hover { border-color: rgba(60,130,220,.5); }
     .room-card-info { flex: 1; min-width: 0; }
-    .room-card-host { font-weight: 800; color: var(--text); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .room-card-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .room-card-host { font-weight: 800; color: #0c2858; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .room-card-meta { font-size: 12px; color: #5a7a9a; margin-top: 2px; }
     .room-card-badge {
-      font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
-      background: rgba(34,216,248,.12); color: var(--cyan); border: 1px solid rgba(34,216,248,.25);
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+      background: rgba(60,130,220,.1); color: #2a60b0; border: 1px solid rgba(60,130,220,.25);
     }
-    .room-card-badge.private { background: rgba(240,200,64,.1); color: var(--gold); border-color: rgba(240,200,64,.3); }
+    .room-card-badge.private { background: rgba(180,130,20,.1); color: #8a6010; border-color: rgba(180,130,20,.3); }
     .room-card-join {
-      padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
-      background: linear-gradient(135deg,#1560b0,#0e3a7a); border: 1px solid rgba(48,200,240,.4);
-      color: var(--cyan); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      padding: 7px 16px; border-radius: 10px; font-size: 13px; font-weight: 700;
+      background: linear-gradient(135deg,#1a60c0,#0e3a80); border: none;
+      color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0;
       transition: background .15s, transform .1s;
     }
-    .room-card-join:hover { background: linear-gradient(135deg,#1a78cc,#1050a0); transform: translateY(-1px); }
-    .lb-browser-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
-    /* password prompt inside browser */
-    #lb-pw-prompt { display: none; flex-direction: column; gap: 8px; padding: 12px; background: rgba(11,36,72,.8); border-radius: 10px; border: 1px solid rgba(240,200,64,.3); }
+    .room-card-join:hover { background: linear-gradient(135deg,#2070d8,#1048a0); transform: translateY(-1px); }
+    .lb-browser-empty { color: #6a8aaa; font-size: 15px; text-align: center; padding: 36px 0; }
+    #lb-pw-prompt { display: none; flex-direction: column; gap: 10px; padding: 14px; background: rgba(255,255,255,.8); border-radius: 14px; border: 1.5px solid rgba(150,200,240,.5); position: relative; z-index: 1; }
     #lb-pw-prompt.open { display: flex; }
-    #lb-pw-err { color: var(--red); font-size: 12px; min-height: 16px; }
+    #lb-pw-err { color: #c0202a; font-size: 12px; min-height: 16px; }
 
     /* ── NEW CURRENT MODAL ──────────────────────────────────────── */
     #new-current-modal {
@@ -6094,7 +6109,7 @@
 <!-- ══ LOBBY BROWSER MODAL ═══════════════════════════════════════════ -->
 <div id="lobby-browser-modal">
   <div id="lobby-browser-box">
-    <button class="pv-modal-close" id="lb-browser-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <button id="lb-browser-close" aria-label="Close">✕</button>
     <h2>🌊 Open Currents</h2>
     <div class="lb-browser-tabs">
       <button class="lb-browser-tab active" data-tab="public">🌊 Public</button>
@@ -6106,8 +6121,8 @@
     </div>
     <!-- Password prompt (shown inline when joining a private room) -->
     <div id="lb-pw-prompt">
-      <div style="font-size:12px;color:var(--gold);font-weight:700;">🔒 Password Required</div>
-      <input class="pv-input" id="lb-pw-input" type="password" placeholder="Enter room password" />
+      <div style="font-size:13px;color:#6a4a10;font-weight:700;">🔒 Password Required</div>
+      <input class="nc-big-input" id="lb-pw-input" type="password" placeholder="Enter room password" style="font-size:1rem;" />
       <div id="lb-pw-err"></div>
       <div style="display:flex;gap:8px;">
         <button class="pv-btn gold" id="lb-pw-confirm">Join</button>
@@ -6331,6 +6346,19 @@
 
 <!-- ══ TOASTS ════════════════════════════════════════════════════ -->
 <div id="pv-toasts"></div>
+
+<!-- ── Season History Modal ─────────────────────────────────────── -->
+<div id="ph-season-modal" role="dialog" aria-modal="true" aria-label="Season History">
+  <div class="ph-season-modal-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="ph-season-modal-title">📅 Season History</div>
+      <button id="ph-season-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
+    </div>
+    <div id="ph-season-modal-body">
+      <div class="ph-empty">Loading season history…</div>
+    </div>
+  </div>
+</div>
 
 <script>
   /* ================================================================
@@ -14112,18 +14140,5 @@
 
   })(); // end auth IIFE
 </script>
-
-<!-- ── Season History Modal ─────────────────────────────────────── -->
-<div id="ph-season-modal" role="dialog" aria-modal="true" aria-label="Season History">
-  <div class="ph-season-modal-box">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div class="ph-season-modal-title">📅 Season History</div>
-      <button id="ph-season-modal-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
-    </div>
-    <div id="ph-season-modal-body">
-      <div class="ph-empty">Loading season history…</div>
-    </div>
-  </div>
-</div>
 </body>
 </html>
