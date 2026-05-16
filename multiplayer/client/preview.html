@@ -2354,12 +2354,6 @@
         border-radius: 14px;
       }
     }
-    .auth-fc-badge {
-      background: rgba(34,216,248,.08); border: 1px solid rgba(34,216,248,.35);
-      border-radius: 8px; padding: 8px 14px;
-      color: var(--cyan); font-size: 17px; font-weight: 800;
-      text-align: center; letter-spacing: 2px; font-family: 'Nunito', sans-serif;
-    }
     /* Profile bar inside lobby */
     #auth-profile-bar {
       width: 100%; max-width: 420px;
@@ -2376,26 +2370,6 @@
       color: var(--text); border-radius: 6px; cursor: pointer;
     }
     #auth-profile-bar .auth-pbtn:hover { background: rgba(255,255,255,.13); }
-    /* Friend modal */
-    #auth-friend-modal {
-      position: fixed; inset: 0; z-index: 9100;
-      background: rgba(0,0,0,.72); display: none;
-      align-items: center; justify-content: center; padding: 20px;
-    }
-    #auth-friend-modal.open { display: flex; }
-    .auth-friend-box {
-      background: rgba(11,36,72,.97); border: 1px solid rgba(58,120,204,.55);
-      border-radius: 14px; padding: 20px 18px; width: 100%; max-width: 330px;
-      display: flex; flex-direction: column; gap: 10px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.5);
-    }
-    .auth-friend-box h3 { color: var(--cyan); font-size: 15px; font-family:'Cinzel',serif; text-align:center; }
-    .auth-fc-label { color: var(--muted); font-size: 11px; text-align: center; }
-    .auth-friend-entry {
-      padding: 5px 0; border-bottom: 1px solid rgba(58,120,204,.18);
-      color: var(--text); font-size: 13px;
-    }
-    .auth-friend-add-row { display: flex; gap: 8px; align-items: center; }
 
     /* ── PLAYER STATS LOBBY ───────────────────────────────────── */
     /* ══ PLAYER HOME MENU ══════════════════════════════════════════ */
@@ -4545,8 +4519,6 @@
     }
     .friend-badge:empty, .friend-badge[data-count="0"] { display: none; }
     /* Friend requests section */
-    .friend-req-section { border-top: 1px solid rgba(58,120,204,.25); padding-top: 8px; }
-    .friend-req-label { color: var(--gold); font-size: 11px; font-weight: 700; margin-bottom: 6px; }
     .friend-req-entry {
       display: flex; align-items: center; gap: 8px; padding: 5px 0;
       border-bottom: 1px solid rgba(58,120,204,.12); font-size: 13px;
@@ -4687,8 +4659,6 @@
     }
     .room-card-join:hover { background: linear-gradient(135deg,#1a78cc,#1050a0); transform: translateY(-1px); }
     .lb-browser-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 24px 0; }
-    #lb-browser-code-row { border-top: 1px solid rgba(58,120,204,.18); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
-    #lb-browser-code-row .label { font-size: 11px; color: var(--muted); font-weight: 700; }
     /* password prompt inside browser */
     #lb-pw-prompt { display: none; flex-direction: column; gap: 8px; padding: 12px; background: rgba(11,36,72,.8); border-radius: 10px; border: 1px solid rgba(240,200,64,.3); }
     #lb-pw-prompt.open { display: flex; }
@@ -4697,19 +4667,99 @@
     /* ── NEW CURRENT MODAL ──────────────────────────────────────── */
     #new-current-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
-      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
-      align-items: center; justify-content: center;
+      background: rgba(10,40,100,.72); backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 16px;
     }
     #new-current-modal.open { display: flex; }
     #new-current-box {
-      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
-      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
-      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
-      padding: 24px 22px 20px; width: 95%; max-width: 420px;
-      position: relative; display: flex; flex-direction: column; gap: 14px;
+      background: linear-gradient(180deg, #cce6f8 0%, #b4d4ee 55%, #9ec4e4 100%);
+      border: 1.5px solid rgba(130,195,240,.55);
+      border-radius: 26px;
+      box-shadow: 0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
+      padding: 28px 26px 22px; width: 100%; max-width: 500px;
+      position: relative; display: flex; flex-direction: column; gap: 22px;
+      overflow: hidden;
     }
-    #new-current-box h2 { font-family:"Cinzel",serif; font-size:1.1rem; color:var(--gold); letter-spacing:1.5px; margin:0; }
-    #nc-current-err { color: var(--red); font-size: 12px; min-height: 16px; }
+    #new-current-box::before {
+      content: "";
+      position: absolute; inset: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse at 25% 80%, rgba(255,255,255,.22) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(180,230,255,.18) 0%, transparent 50%);
+    }
+    #new-current-box h2 {
+      font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 700;
+      color: #0c3472; letter-spacing: 1.5px; margin: 0; position: relative; z-index: 1;
+    }
+    #new-current-box .nc-fields-row {
+      display: flex; gap: 14px; position: relative; z-index: 1;
+    }
+    #new-current-box .nc-field {
+      display: flex; flex-direction: column; gap: 6px; flex: 1;
+    }
+    #new-current-box .nc-field-label {
+      font-size: 13px; font-weight: 700; color: #2050a0; letter-spacing: .3px;
+    }
+    #new-current-box .nc-big-input {
+      background: rgba(255,255,255,.88);
+      border: 1.5px solid rgba(140,200,240,.55);
+      border-radius: 16px; padding: 16px 18px;
+      font-size: 1.35rem; font-weight: 800; color: #0d3070;
+      width: 100%; font-family: "Nunito", sans-serif;
+      transition: border-color .15s, box-shadow .15s;
+      appearance: none; -webkit-appearance: none;
+      cursor: pointer;
+    }
+    #new-current-box .nc-big-input:focus {
+      outline: none;
+      border-color: rgba(50,140,240,.65);
+      box-shadow: 0 0 0 3px rgba(50,140,240,.15);
+    }
+    #new-current-box .nc-select-wrap {
+      position: relative;
+    }
+    #new-current-box .nc-select-wrap::after {
+      content: "⌄";
+      position: absolute; right: 16px; top: 50%; transform: translateY(-56%);
+      font-size: 18px; color: #2050a0; pointer-events: none; line-height: 1;
+    }
+    #nc-password-row { position: relative; z-index: 1; }
+    #nc-current-err { color: #c01830; font-size: 12px; min-height: 14px; position: relative; z-index: 1; }
+    #nc-close {
+      position: absolute; top: 16px; right: 16px;
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(190,220,248,.72); border: 1.5px solid rgba(120,185,235,.55);
+      color: #2a5888; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s, border-color .15s; z-index: 2;
+    }
+    #nc-close:hover { background: rgba(210,235,255,.9); border-color: rgba(70,150,230,.65); }
+    #nc-create-btn {
+      position: relative; z-index: 1;
+      width: 100%; height: 82px;
+      background: linear-gradient(100deg, #f7a927 0%, #e98d10 60%, #d97a08 100%);
+      border: none; border-radius: 18px;
+      font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 700;
+      color: #0c2858; letter-spacing: .5px;
+      cursor: pointer; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      transition: filter .15s, transform .12s;
+      box-shadow: 0 4px 20px rgba(200,110,0,.3);
+    }
+    #nc-create-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 6px 24px rgba(200,110,0,.38); }
+    #nc-create-btn:active:not(:disabled) { transform: translateY(0); filter: brightness(.97); }
+    #nc-create-btn:disabled { opacity: .55; cursor: not-allowed; transform: none !important; }
+    #nc-create-btn .nc-btn-coral {
+      position: absolute; left: 0; bottom: 0; height: 100%; width: 90px;
+      pointer-events: none;
+    }
+    #nc-create-btn .nc-btn-coral-r {
+      position: absolute; right: 0; bottom: 0; height: 100%; width: 70px;
+      pointer-events: none; opacity: .45;
+    }
+    #nc-create-btn .nc-btn-label {
+      position: relative; z-index: 1;
+    }
 
     /* ── SEAT PICKER MODAL ──────────────────────────────────────── */
     #seat-picker-modal {
@@ -4972,25 +5022,6 @@
 </div>
 
 <!-- ══ FRIEND MODAL ════════════════════════════════════════════════ -->
-<div id="auth-friend-modal">
-  <div class="auth-friend-box">
-    <h3>👥 Friends</h3>
-    <div class="auth-fc-label">Your friend code — share this so people can add you</div>
-    <div class="auth-fc-badge" id="auth-my-fc-display">—</div>
-    <!-- Pending friend requests -->
-    <div id="auth-friend-requests" class="friend-req-section" style="display:none;">
-      <div class="friend-req-label">⬇ Friend Requests</div>
-      <div id="auth-req-list"></div>
-    </div>
-    <div class="auth-friend-add-row">
-      <input id="auth-add-friend-input" class="pv-input" placeholder="4-digit code or Name#Code" style="flex:1;font-size:12px;" />
-      <button id="auth-add-friend-btn" class="pv-btn sm">Add</button>
-    </div>
-    <div class="auth-err" id="auth-friend-err"></div>
-    <div id="auth-friends-list" style="max-height:160px;overflow-y:auto;"></div>
-    <button id="auth-friend-close" class="pv-btn full" style="margin-top:2px;">Close</button>
-  </div>
-</div>
 
 <!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════ -->
 <div id="settings-modal" class="overlay-modal">
@@ -5779,20 +5810,6 @@
       <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
       <input class="pv-input" id="pv-join-name-home" type="hidden" value="Player" />
       <button class="pv-btn full" id="pv-browse-btn" style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.45);color:var(--cyan);">🔍 Browse Open Currents</button>
-      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(58,120,204,.18);">
-        <div style="font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:700;">Have a Current code?</div>
-        <div class="pv-row">
-          <input class="pv-input" id="pv-join-code-home" placeholder="5-letter code" maxlength="5"
-            style="text-transform:uppercase;width:120px;flex:none;"
-            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-          <button class="pv-btn" id="pv-check-room-btn">Enter →</button>
-        </div>
-      </div>
-      <div id="pv-seat-picker-home" style="display:none;flex-direction:column;gap:10px;">
-        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Click an open spot to enter</div>
-        <div class="seat-grid" id="pv-seat-grid-home"></div>
-        <button class="pv-btn full gold" id="pv-join-btn-home" disabled>Enter the Current</button>
-      </div>
     </div>
 
     <div id="pv-home-status"></div>
@@ -5864,7 +5881,6 @@
         <div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>
       </div>
       <button class="pv-btn sm" id="comp-hist-btn" style="margin-top:4px;">📜 View Game History</button>
-      <button class="pv-btn sm" id="comp-reset-btn" style="margin-top:2px;background:rgba(232,64,87,.15);border-color:var(--red);color:var(--red);">🗑 Reset All Competitive Data</button>
     </div>
 
     <!-- WAITING FOR P2 (shown after Create, hidden otherwise) -->
@@ -6098,46 +6114,67 @@
         <button class="pv-btn" id="lb-pw-cancel" style="flex:none;">Cancel</button>
       </div>
     </div>
-    <!-- Manual code fallback -->
-    <div id="lb-browser-code-row">
-      <div class="label">Have a Current code?</div>
-      <div class="pv-row">
-        <input class="pv-input" id="lb-manual-code" placeholder="5-letter code" maxlength="5"
-          style="text-transform:uppercase;width:120px;flex:none;"
-          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
-        <button class="pv-btn" id="lb-manual-enter">Enter →</button>
-      </div>
-    </div>
   </div>
 </div>
 
 <!-- ══ NEW CURRENT MODAL ═════════════════════════════════════════════ -->
 <div id="new-current-modal">
   <div id="new-current-box">
-    <button class="pv-modal-close" id="nc-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <button id="nc-close" aria-label="Close">✕</button>
     <h2>🌊 New Current</h2>
-    <div class="pv-row" style="gap:10px;">
-      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">Players</span>
-        <input class="pv-input" id="nc-total" type="number" min="1" max="10" value="2" />
+
+    <div class="nc-fields-row">
+      <div class="nc-field">
+        <span class="nc-field-label">Players</span>
+        <input class="nc-big-input" id="nc-total" type="number" min="1" max="10" value="2" />
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">AI Critters</span>
-        <input class="pv-input" id="nc-ai" type="number" min="0" max="9" value="0" />
+      <div class="nc-field">
+        <span class="nc-field-label">AI Critters</span>
+        <input class="nc-big-input" id="nc-ai" type="number" min="0" max="9" value="0" />
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
-        <span style="font-size:11px;color:var(--muted);font-weight:700;">Privacy</span>
-        <select class="pv-input" id="nc-visibility" style="cursor:pointer;">
-          <option value="public">🌊 Public</option>
-          <option value="private">🔒 Private</option>
-        </select>
+      <div class="nc-field">
+        <span class="nc-field-label">Privacy</span>
+        <div class="nc-select-wrap">
+          <select class="nc-big-input" id="nc-visibility">
+            <option value="public">🌊 Public</option>
+            <option value="private">🔒 Private</option>
+          </select>
+        </div>
       </div>
     </div>
+
     <div id="nc-password-row" style="display:none;">
-      <input class="pv-input" id="nc-password" type="password" placeholder="Set a password…" style="width:100%;" />
+      <input class="nc-big-input" id="nc-password" type="password" placeholder="Set a password for private room…" style="width:100%;font-size:1rem;" />
     </div>
+
     <div id="nc-current-err"></div>
-    <button class="pv-btn gold full" id="nc-create-btn">Generate Current →</button>
+
+    <button id="nc-create-btn">
+      <!-- Left coral character -->
+      <svg class="nc-btn-coral" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 90 82" preserveAspectRatio="xMinYMax meet">
+        <path d="M45 82 C45 82 45 60 45 54" stroke="#c0650a" stroke-width="9" stroke-linecap="round"/>
+        <path d="M45 54 C45 54 30 44 24 30" stroke="#c86c0e" stroke-width="7" stroke-linecap="round"/>
+        <path d="M45 54 C45 54 58 46 64 32" stroke="#c86c0e" stroke-width="7" stroke-linecap="round"/>
+        <ellipse cx="21" cy="24" rx="11" ry="12" fill="#db7c12"/>
+        <ellipse cx="67" cy="27" rx="11" ry="12" fill="#db7c12"/>
+        <ellipse cx="44" cy="46" rx="9" ry="10" fill="#db7c12"/>
+        <circle cx="20" cy="22" r="5" fill="#eda030" opacity=".5"/>
+        <circle cx="67" cy="25" r="5" fill="#eda030" opacity=".5"/>
+        <circle cx="41" cy="68" r="2.8" fill="#7a3a08"/>
+        <circle cx="50" cy="68" r="2.8" fill="#7a3a08"/>
+        <path d="M38.5 73 Q45.5 78 52.5 73" stroke="#7a3a08" stroke-width="2" fill="none" stroke-linecap="round"/>
+      </svg>
+      <!-- Right subtle coral silhouettes -->
+      <svg class="nc-btn-coral-r" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 82" preserveAspectRatio="xMaxYMax meet">
+        <path d="M40 82 L40 60" stroke="#c0650a" stroke-width="7" stroke-linecap="round"/>
+        <path d="M40 60 C40 60 28 50 24 38" stroke="#c0650a" stroke-width="5" stroke-linecap="round"/>
+        <path d="M40 60 C40 60 52 52 56 40" stroke="#c0650a" stroke-width="5" stroke-linecap="round"/>
+        <ellipse cx="22" cy="33" rx="9" ry="10" fill="#c86c0e"/>
+        <ellipse cx="58" cy="36" rx="9" ry="10" fill="#c86c0e"/>
+        <ellipse cx="40" cy="53" rx="7" ry="8" fill="#c86c0e"/>
+      </svg>
+      <span class="nc-btn-label">Generate Current →</span>
+    </button>
   </div>
 </div>
 
@@ -6776,9 +6813,7 @@
       const activeId = normalizeRoomId(r.data?.active_room_id || "");
       if (activeId) {
         // A room is already active — guide user to join it; do NOT auto-replace
-        lobbyStatus(`A room (${activeId}) is already open — join it in the section below, or force-replace it.`, false);
-        document.getElementById("pv-join-code-home").value = activeId;
-        document.getElementById("pv-join-code-home").focus();
+        lobbyStatus(`A room (${activeId}) is already open — force-replace it or close it from another device first.`, false);
         // Show a one-time "Force replace" link next to the status
         const statusEl = document.getElementById("pv-home-status");
         if (statusEl && !statusEl.querySelector(".force-replace-btn")) {
@@ -6932,39 +6967,6 @@
     await doJoin(rid, name, _selectedSeat, btn);
   });
 
-  // ── Manual code join ──────────────────────────────────────────
-  async function checkRoomSeats() {
-    const codeEl = document.getElementById("pv-join-code-home");
-    const rid = normalizeRoomId((codeEl ? codeEl.value : "").trim());
-    if (!rid) { showToast("Enter a valid room code first.", "err"); return; }
-
-    const data = await fetchSeats(rid);
-    if (!data) {
-      showToast("Room not found — check the code and try again.", "err");
-      return;
-    }
-    if (data.mode === "competitive") {
-      _openCompJoinOverlay(rid);
-      return;
-    }
-    openSeatPickerModal(rid, data.seatObjs);
-  }
-
-  document.getElementById("pv-check-room-btn").addEventListener("click", checkRoomSeats);
-  document.getElementById("pv-join-code-home").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") checkRoomSeats();
-  });
-
-  document.getElementById("pv-join-btn-home").addEventListener("click", async () => {
-    const btn  = document.getElementById("pv-join-btn-home");
-    const rid  = normalizeRoomId(document.getElementById("pv-join-code-home").value.trim());
-    const name = (window.__fishNickname && window.__fishNickname()) ||
-                 document.getElementById("pv-join-name-home").value.trim() || "Player";
-    if (!rid)  { lobbyStatus("Room code missing.", true); return; }
-    if (_selectedSeatHome === null) { lobbyStatus("Pick a seat first.", true); return; }
-    lobbyStatus("Joining…", false);
-    await doJoin(rid, name, _selectedSeatHome, btn);
-  });
 
   // ── Lobby Browser ──────────────────────────────────────────────
   let _lbRefreshTimer = null;
@@ -7168,19 +7170,6 @@
     document.getElementById("lb-pw-err").textContent = "";
   });
 
-  // Manual code entry inside the browser modal
-  document.getElementById("lb-manual-enter").addEventListener("click", async () => {
-    const code = normalizeRoomId(document.getElementById("lb-manual-code").value.trim());
-    if (!code) return;
-    closeLobbyBrowser();
-    const data = await fetchSeats(code);
-    if (!data) { showToast("Room not found — check the code.", "err"); return; }
-    if (data.mode === "competitive") { _openCompJoinOverlay(code); return; }
-    openSeatPickerModal(code, data.seatObjs);
-  });
-  document.getElementById("lb-manual-code").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") document.getElementById("lb-manual-enter").click();
-  });
 
   // ── New Current Modal ──────────────────────────────────────────
   function openNewCurrentModal() {
@@ -7189,7 +7178,8 @@
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
     document.getElementById("nc-create-btn").disabled = false;
-    document.getElementById("nc-create-btn").textContent = "Generate Current →";
+    const _ncLabel = document.querySelector("#nc-create-btn .nc-btn-label");
+    if (_ncLabel) _ncLabel.textContent = "Generate Current →";
     document.getElementById("new-current-modal").classList.add("open");
   }
   function closeNewCurrentModal() {
@@ -7220,14 +7210,17 @@
     const rid = Math.random().toString(36).slice(2,7).toUpperCase();
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
-    btn.disabled = true; btn.textContent = "Generating…";
+    btn.disabled = true;
+    const _ncBtnLabel = btn.querySelector(".nc-btn-label");
+    if (_ncBtnLabel) _ncBtnLabel.textContent = "Generating…";
     errEl.textContent = "";
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
       replace_active: false, visibility, password,
     }, { timeoutMs:10000 });
-    btn.disabled = false; btn.textContent = "Generate Current →";
+    btn.disabled = false;
+    if (_ncBtnLabel) _ncBtnLabel.textContent = "Generate Current →";
     if (!r.ok) { errEl.textContent = "Failed: " + (r.data?.error || r.status); return; }
     const rId = normalizeRoomId(r.data?.room_id || rid);
     roomId = rId;
@@ -9556,16 +9549,6 @@
     if (code && code !== "—") { try { navigator.clipboard.writeText(code); compSetStatus("Code copied!", false); } catch {} }
   });
   document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
-  document.getElementById("comp-reset-btn").addEventListener("click", async () => {
-    if (!confirm("Delete ALL competitive games and leaderboard data? This cannot be undone.")) return;
-    const r = await apiPost("/api/competitive/reset", {}, { timeoutMs: 8000 });
-    if (r.ok) {
-      compSetStatus(`Deleted ${r.data?.deleted_games || 0} games and leaderboard.`, false);
-      loadCompLeaderboard();
-    } else {
-      compSetStatus("Reset failed: " + (r.data?.error || r.status), true);
-    }
-  });
 
   // ── Event listeners ──────────────────────────────────────────────
   document.getElementById("pv-tutorial-open-btn").addEventListener("click", startTutorial);
@@ -10613,7 +10596,7 @@
       isWinner = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     }
     const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
-    const xpAward = getGameXpAward(finalScores, myScore);
+    const xpAward = isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore);
     try {
       const guestStatsGetter = (typeof window.__fishGuestStatsGet === "function") ? window.__fishGuestStatsGet : null;
       const cStats = (authUser && db)
@@ -10843,7 +10826,7 @@
       let cpDelta = 0;
       if (isDraw)       { cpDelta = 5; }
       else if (iWon)    { cpDelta = curBeginnerWins < 5 ? 30 : 25; }
-      else if (iLost)   { cpDelta = curCp > 0 ? -12 : 0; }
+      else if (iLost)   { cpDelta = 6; }
 
       const newCp         = Math.max(0, curCp + cpDelta);
       const newStreak     = iWon ? curStreak + 1 : 0;
@@ -11984,7 +11967,6 @@
         "pv-endgame-overlay",
         "leaderboard-modal",
         "settings-modal",
-        "auth-friend-modal",
         "avatar-picker-modal",
         "pv-zoom-modal",
       ].forEach((id) => {
@@ -12640,11 +12622,6 @@
     });
 
     $a("stats-join-go-btn").addEventListener("click", () => {
-      const code = ($a("stats-join-code").value || "").trim().toUpperCase();
-      if (code.length >= 3) {
-        const manualInput = document.getElementById("lb-manual-code");
-        if (manualInput) manualInput.value = code;
-      }
       refreshFriendNicks();
       openLobbyBrowser();
     });
@@ -12852,8 +12829,7 @@
     const statsFriendBtn = $a("stats-friend-btn");
     if (statsFriendBtn) {
       statsFriendBtn.addEventListener("click", () => {
-        $a("auth-friend-modal").classList.add("open");
-        if (_authUser && _db) renderFriendsList();
+        if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
       });
     }
 
@@ -12863,113 +12839,14 @@
       if (window.__fishGoToSignIn) window.__fishGoToSignIn();
     });
 
-    // ── Friends modal ────────────────────────────────────────────
-    $a("auth-friend-btn").addEventListener("click", async () => {
-      $a("auth-friend-modal").classList.add("open");
-      if (_authUser && _db) renderFriendsList();
+    // ── Friends button (legacy lobby) — navigate to friends tab ──
+    const _authFriendBtn = $a("auth-friend-btn");
+    if (_authFriendBtn) _authFriendBtn.addEventListener("click", () => {
+      if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
     });
 
-    $a("auth-friend-close").addEventListener("click", () => {
-      $a("auth-friend-modal").classList.remove("open");
-    });
-
-    $a("auth-add-friend-btn").addEventListener("click", async () => {
-      if (!_authUser) return;
-      const rawCode = ($a("auth-add-friend-input").value || "").trim();
-      if (!rawCode) { setAuthMsg("auth-friend-err", "Enter a friend code.", false); return; }
-      setAuthMsg("auth-friend-err", "Looking up…", true);
-      const result = await addFriend(_authUser.uid, rawCode, _playerNickname);
-      if (result.error) {
-        setAuthMsg("auth-friend-err", result.error, false);
-      } else if (result.ambiguous) {
-        // Multiple users with same code — show picker
-        setAuthMsg("auth-friend-err", "Multiple users with that code — use Name#Code format.", false);
-      } else if (result.autoAccepted) {
-        setAuthMsg("auth-friend-err", `✓ Now friends with ${result.nickname}!`, true);
-        $a("auth-add-friend-input").value = "";
-        renderFriendsList();
-      } else if (result.requested) {
-        setAuthMsg("auth-friend-err", `✓ Friend request sent to ${result.nickname}!`, true);
-        $a("auth-add-friend-input").value = "";
-      } else {
-        setAuthMsg("auth-friend-err", "✓ Done!", true);
-        $a("auth-add-friend-input").value = "";
-        renderFriendsList();
-      }
-    });
-    $a("auth-add-friend-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-add-friend-btn").click(); });
-
-    async function renderFriendsList() {
-      const list = $a("auth-friends-list");
-      const reqSection = $a("auth-friend-requests");
-      const reqList = $a("auth-req-list");
-      if (!list || !_authUser) return;
-
-      // Load pending requests
-      if (reqSection && reqList) {
-        const requests = await loadPendingRequests(_authUser.uid);
-        if (requests.length) {
-          reqSection.style.display = "";
-          reqList.innerHTML = "";
-          requests.forEach(req => {
-            const row = document.createElement("div");
-            row.className = "friend-req-entry";
-            row.innerHTML = `
-              <span class="friend-req-name">${req.from_nickname || "Unknown"}${req.from_code ? ` <span style="color:var(--muted);font-size:11px;">#${req.from_code}</span>` : ""}</span>
-              <span class="friend-req-btns">
-                <button class="friend-req-accept">✓ Accept</button>
-                <button class="friend-req-deny">✕ Deny</button>
-              </span>`;
-            row.querySelector(".friend-req-accept").onclick = async () => {
-              row.style.opacity = "0.5";
-              await acceptFriendRequest(_authUser.uid, _playerNickname, req);
-              renderFriendsList();
-              loadFriendsMini(_authUser.uid);
-            };
-            row.querySelector(".friend-req-deny").onclick = async () => {
-              row.style.opacity = "0.5";
-              await denyFriendRequest(_authUser.uid, req.from_uid);
-              renderFriendsList();
-            };
-            reqList.appendChild(row);
-          });
-        } else {
-          reqSection.style.display = "none";
-        }
-      }
-
-      // Load friends with online status
-      list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;">Loading…</div>';
-      const friends = await loadFriends(_authUser.uid);
-      if (!friends.length) {
-        list.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:6px 0;">No friends added yet.</div>';
-        return;
-      }
-      const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
-      list.innerHTML = "";
-      // Sort: online first
-      const withStatus = friends.map((f, i) => ({ ...f, isOnline: isFriendOnline(profiles[i]) }));
-      const profileByUid = new Map(friends.map((f, i) => [f.uid, profiles[i]]));
-      withStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
-      withStatus.forEach(f => {
-        const d = document.createElement("div");
-        d.className = "auth-friend-entry";
-        d.style.display = "grid";
-        d.style.gridTemplateColumns = "26px minmax(0,1fr) auto";
-        d.style.alignItems = "center";
-        d.style.columnGap = "8px";
-        const friendProfile = profileByUid.get(f.uid) || null;
-        const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
-          { ...(friendProfile || {}), avatar_url: (friendProfile && friendProfile.avatar_url) || f.avatar_url || "" },
-          { seed: f.uid || f.nickname || "friend" }
-        ), f.uid || f.nickname || "friend");
-        const avatarHtml = avatarUrl
-          ? `<span class="ph-fr-av" style="width:26px;height:26px;border-width:1px;"><img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(f.nickname || "Friend")} avatar" loading="lazy" referrerpolicy="no-referrer"></span>`
-          : `<span class="ph-fr-av" style="width:26px;height:26px;border-width:1px;font-size:11px;">${safeInitial(f.nickname || "?")}</span>`;
-        d.innerHTML = `${avatarHtml}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(f.nickname || "—")}</span>${f.isOnline ? '<span style="color:#2ecc71;font-size:11px;">Online</span>' : '<span style="color:var(--muted);font-size:11px;">Offline</span>'}`;
-        list.appendChild(d);
-      });
-    }
+    // renderFriendsList no-op: modal removed, friends tab uses renderPhFriendsList
+    async function renderFriendsList() {}
 
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
@@ -14028,7 +13905,7 @@
             + (kingName
               ? `<div class="ph-season-hist-king">👑 ${escapeHtml(kingName)}${kingCp ? ` · ${kingCp} CP` : ""}</div>`
               : `<div style="font-size:.78rem;color:rgba(22,70,160,.5);">No King crowned this season.</div>`)
-            + (p.final_rank ? `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank)}</b></div>` : "")
+            + `<div style="margin-top:3px;font-size:.78rem;">Your final rank: <b>${escapeHtml(p.final_rank || "Unranked")}</b></div>`
             + (p.final_cp   != null ? `<div style="font-size:.78rem;">Final CP: <b>${p.final_cp}</b></div>` : "")
             + (p.wins != null ? `<div style="font-size:.78rem;color:rgba(22,70,160,.6);">${p.wins}W / ${p.losses || 0}L · ${
                 (p.wins + (p.losses || 0)) > 0
@@ -14050,7 +13927,7 @@
       const modal = document.getElementById("ph-season-modal");
       if (btn)   btn.addEventListener("click", openSeasonHistoryModal);
       if (close) close.addEventListener("click", () => modal?.classList.remove("open"));
-      if (modal) modal.addEventListener("click", e => { if (e.target === modal) modal.classList.remove("open"); });
+      if (modal) modal.addEventListener("click", e => { if (!e.target.closest(".ph-season-modal-box")) modal.classList.remove("open"); });
     })();
 
     // ── Game Detail Modal ─────────────────────────────────────────

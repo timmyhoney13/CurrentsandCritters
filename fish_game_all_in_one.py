@@ -1599,7 +1599,6 @@ def has_multi_play_window(player: PlayerState) -> bool:
         player.flags.get("multi_play_paid_turn", False)
         or player.flags.get("free_baitfish_chain", False)
         or player.flags.get("free_cephalopods", False)
-        or player.flags.get("free_cephalopod_once", False)
         or int(player.flags.get("free_yellowfin_tuna", 0)) > 0
     )
 
