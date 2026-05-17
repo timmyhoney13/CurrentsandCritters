@@ -5296,8 +5296,7 @@
   <div id="auth-step-choose" class="auth-box">
     <div class="auth-title">Sign In</div>
     <div class="auth-subtitle">Sign in with your account to access your own nickname,<br>stats, friends, recent games, and history.</div>
-    <button id="auth-guest-btn" class="pv-btn gold full" style="display:none;">Play as Guest</button>
-    <div class="auth-divider" style="display:none;">or</div>
+    <button id="auth-guest-btn" class="pv-btn gold full">Play as Guest</button>
     <button id="auth-choose-google-btn" class="auth-btn-google">Continue with Google</button>
     <button id="auth-signin-nav-btn" class="pv-btn full">Sign In or Create Account</button>
     <div class="auth-err" id="auth-choose-err"></div>
@@ -12756,8 +12755,6 @@
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
-      const guestBtn = $a("auth-guest-btn");
-      if (guestBtn) guestBtn.style.display = "";
       const signinAsGuest = $a("auth-signin-as-guest");
       if (signinAsGuest) signinAsGuest.style.display = "";
       if (!_auth) {
@@ -12918,10 +12915,6 @@
     // ── Navigate to sign-in ──────────────────────────────────────
     const signinNavBtn = $a("auth-signin-nav-btn");
     if (signinNavBtn) signinNavBtn.addEventListener("click", () => {
-      if (!_auth) {
-        setAuthMsg("auth-choose-err", "Sign-in is not yet configured for this server.", false);
-        return;
-      }
       setAuthMsg("auth-choose-err", "", false);
       showStep("auth-step-signin");
     });
