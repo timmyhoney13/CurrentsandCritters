@@ -2141,12 +2141,14 @@
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
       background:
-        /* Sandy beach: top-right corner — large golden blob bleeds off screen */
-        radial-gradient(ellipse 75% 65% at 116% -6%, #d9a530 0%, #e4b840 18%, rgba(230,182,55,.88) 38%, rgba(218,168,45,0) 62%),
-        /* Sandy beach: bottom-right corner */
-        radial-gradient(ellipse 68% 72% at 114% 116%, #d5a028 0%, #e0b038 20%, rgba(226,175,48,.84) 40%, rgba(214,162,40,0) 64%),
+        /* Sandy beach: top-right — sweeps from corner, very large */
+        radial-gradient(ellipse 92% 80% at 128% -12%,
+          #eac862 0%, #dfa832 20%, rgba(220,165,38,.86) 42%, rgba(206,150,24,0) 63%),
+        /* Sandy beach: bottom-right */
+        radial-gradient(ellipse 85% 88% at 125% 125%,
+          #e6bc38 0%, #d8a028 18%, rgba(215,158,30,.83) 40%, rgba(200,143,18,0) 62%),
         /* Vivid turquoise/cyan water base */
-        linear-gradient(168deg, #48dff5 0%, #22c8ec 40%, #16b2d8 100%);
+        linear-gradient(175deg, #40d8f3 0%, #26c2e8 42%, #18b0d5 80%, #12a8cc 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -2159,12 +2161,18 @@
       position: absolute;
       inset: 0;
       background:
-        /* Large purple/lavender rock mass: bottom-left, bleeds off */
-        radial-gradient(ellipse 70% 74% at -14% 114%, #b49ed8 0%, #c2aee2 16%, rgba(188,168,228,.90) 36%, rgba(176,155,220,0) 58%),
-        /* Purple rock cluster: left side, mid-lower */
-        radial-gradient(ellipse 34% 55% at -9% 64%, rgba(188,165,228,.94) 0%, rgba(172,150,218,.72) 34%, rgba(160,140,210,0) 57%),
-        /* Small purple rock accent: bottom-left area */
-        radial-gradient(ellipse 24% 18% at 16% 97%, rgba(178,158,220,.82) 0%, rgba(165,143,212,.56) 50%, rgba(152,132,206,0) 72%);
+        /* Large purple blob: bottom-left, bleeds off left+bottom */
+        radial-gradient(ellipse 78% 85% at -10% 122%,
+          #c0b0e6 0%, #cab8ea 13%, rgba(202,183,236,.88) 31%, rgba(186,167,230,0) 53%),
+        /* Medium purple blob: right-center, bleeds off right edge */
+        radial-gradient(ellipse 50% 65% at 120% 66%,
+          rgba(208,194,240,.94) 0%, rgba(194,180,236,.80) 22%, rgba(180,165,230,0) 47%),
+        /* Small purple cloud: top-center-left */
+        radial-gradient(ellipse 24% 18% at 38% 11%,
+          rgba(218,208,244,.94) 0%, rgba(206,196,240,.78) 40%, rgba(192,182,235,0) 66%),
+        /* Purple accent: bottom-right, bleeds off corner */
+        radial-gradient(ellipse 32% 28% at 118% 94%,
+          rgba(200,187,237,.82) 0%, rgba(186,173,232,.64) 43%, rgba(172,158,226,0) 70%);
       pointer-events: none;
       z-index: 0;
     }
@@ -2173,21 +2181,54 @@
       position: absolute;
       inset: 0;
       background:
-        /* Green algae patches scattered in water */
-        radial-gradient(ellipse 7% 4.5% at 36% 16%, rgba(68,172,82,.92) 0%, rgba(56,160,70,.55) 50%, transparent 75%),
-        radial-gradient(ellipse 5.5% 3.5% at 63% 25%, rgba(74,178,88,.88) 0%, rgba(62,166,76,.50) 52%, transparent 76%),
-        radial-gradient(ellipse 6.5% 4% at 75% 73%, rgba(66,170,80,.86) 0%, rgba(54,158,68,.50) 50%, transparent 74%),
-        radial-gradient(ellipse 5% 3.5% at 30% 70%, rgba(70,174,84,.82) 0%, rgba(58,162,72,.46) 50%, transparent 74%),
-        radial-gradient(ellipse 4.5% 3% at 87% 42%, rgba(64,168,78,.80) 0%, rgba(52,156,66,.44) 52%, transparent 75%),
-        radial-gradient(ellipse 5% 3% at 53% 89%, rgba(68,172,82,.78) 0%, rgba(56,160,70,.42) 52%, transparent 74%),
-        radial-gradient(ellipse 4% 2.5% at 13% 46%, rgba(72,176,86,.76) 0%, rgba(60,164,74,.40) 52%, transparent 74%),
-        /* Light teal water bubble ovals */
-        radial-gradient(ellipse 10% 6% at 26% 38%, rgba(178,240,252,.62) 0%, rgba(158,230,248,.28) 55%, transparent 80%),
-        radial-gradient(ellipse 8% 5% at 67% 53%, rgba(172,237,250,.57) 0%, rgba(152,227,246,.24) 55%, transparent 80%),
-        radial-gradient(ellipse 12% 7% at 81% 83%, rgba(180,242,253,.52) 0%, rgba(160,232,249,.22) 55%, transparent 80%),
-        radial-gradient(ellipse 9% 5.5% at 8% 26%, rgba(175,238,252,.54) 0%, rgba(155,228,248,.22) 55%, transparent 80%),
-        radial-gradient(ellipse 6% 4% at 47% 60%, rgba(170,235,250,.48) 0%, rgba(150,225,246,.20) 55%, transparent 80%),
-        radial-gradient(ellipse 5% 3% at 93% 17%, rgba(167,233,248,.46) 0%, rgba(147,223,244,.18) 55%, transparent 80%);
+        /* === WATER OVAL BUBBLES (light, brighter-than-water) === */
+        /* These are large, prominent, horizontally elongated */
+        radial-gradient(ellipse 26% 14% at 8% 48%,
+          rgba(130,238,254,.66) 0%, rgba(116,229,250,.62) 55%, rgba(95,216,243,.14) 78%, transparent 92%),
+        radial-gradient(ellipse 20% 11% at 18% 75%,
+          rgba(126,235,252,.62) 0%, rgba(112,226,248,.58) 55%, rgba(92,214,241,.13) 78%, transparent 92%),
+        radial-gradient(ellipse 30% 16% at 14% 92%,
+          rgba(134,240,255,.64) 0%, rgba(120,231,251,.60) 55%, rgba(98,218,244,.14) 78%, transparent 92%),
+        radial-gradient(ellipse 22% 12% at 38% 90%,
+          rgba(128,236,253,.60) 0%, rgba(114,227,249,.55) 55%, rgba(94,215,242,.12) 78%, transparent 92%),
+        radial-gradient(ellipse 18% 10% at 58% 84%,
+          rgba(124,234,252,.58) 0%, rgba(110,225,248,.53) 55%, rgba(90,213,241,.12) 78%, transparent 92%),
+        radial-gradient(ellipse 15% 8% at 74% 78%,
+          rgba(130,237,254,.56) 0%, rgba(116,228,250,.51) 55%, rgba(95,216,243,.11) 78%, transparent 92%),
+        radial-gradient(ellipse 11% 6% at 87% 70%,
+          rgba(126,235,252,.52) 0%, rgba(112,226,248,.47) 55%, rgba(92,214,241,.10) 78%, transparent 92%),
+        radial-gradient(ellipse 16% 9% at 4% 28%,
+          rgba(132,238,254,.54) 0%, rgba(118,229,250,.50) 55%, rgba(96,217,243,.11) 78%, transparent 92%),
+        /* === WATER OVAL BUBBLES (dark, deeper teal/navy-cyan) === */
+        radial-gradient(ellipse 18% 10% at 24% 58%,
+          rgba(42,182,216,.58) 0%, rgba(34,172,208,.53) 55%, rgba(22,157,196,.12) 78%, transparent 92%),
+        radial-gradient(ellipse 14% 8% at 36% 74%,
+          rgba(38,178,213,.54) 0%, rgba(30,168,205,.49) 55%, rgba(18,153,193,.11) 78%, transparent 92%),
+        radial-gradient(ellipse 24% 13% at 30% 82%,
+          rgba(44,185,219,.56) 0%, rgba(36,175,211,.51) 55%, rgba(24,160,199,.12) 78%, transparent 92%),
+        radial-gradient(ellipse 16% 9% at 66% 94%,
+          rgba(40,180,215,.52) 0%, rgba(32,170,207,.47) 55%, rgba(20,155,195,.10) 78%, transparent 92%),
+        radial-gradient(ellipse 11% 6% at 50% 97%,
+          rgba(42,183,217,.50) 0%, rgba(34,173,209,.45) 55%, rgba(22,158,197,.10) 78%, transparent 92%),
+        radial-gradient(ellipse 12% 7% at 10% 62%,
+          rgba(38,177,212,.50) 0%, rgba(30,167,204,.45) 55%, rgba(18,152,192,.10) 78%, transparent 92%),
+        /* === ALGAE PATCHES (olive/yellow-green, not bright green) === */
+        radial-gradient(ellipse 11% 7% at 6% 24%,
+          rgba(150,200,40,.93) 0%, rgba(130,180,26,.78) 50%, rgba(110,160,14,.26) 72%, transparent 86%),
+        radial-gradient(ellipse 9% 5.5% at 16% 40%,
+          rgba(144,194,34,.89) 0%, rgba(124,174,20,.74) 52%, rgba(104,154,8,.23) 74%, transparent 87%),
+        radial-gradient(ellipse 13% 8% at 11% 62%,
+          rgba(154,206,44,.87) 0%, rgba(134,186,30,.72) 50%, rgba(114,166,18,.23) 72%, transparent 86%),
+        radial-gradient(ellipse 10% 6% at 36% 24%,
+          rgba(147,198,38,.85) 0%, rgba(127,178,24,.70) 52%, rgba(107,158,12,.21) 74%, transparent 87%),
+        radial-gradient(ellipse 8% 5% at 63% 17%,
+          rgba(141,192,32,.81) 0%, rgba(121,172,18,.66) 52%, rgba(101,152,6,.19) 74%, transparent 87%),
+        radial-gradient(ellipse 10% 6% at 78% 58%,
+          rgba(148,198,38,.79) 0%, rgba(128,178,24,.64) 50%, rgba(108,158,12,.19) 72%, transparent 86%),
+        radial-gradient(ellipse 9% 5.5% at 89% 80%,
+          rgba(143,193,34,.77) 0%, rgba(123,173,20,.62) 52%, rgba(103,153,8,.17) 74%, transparent 87%),
+        radial-gradient(ellipse 10% 6% at 47% 92%,
+          rgba(145,195,36,.75) 0%, rgba(125,175,22,.60) 52%, rgba(105,155,10,.17) 74%, transparent 87%);
       pointer-events: none;
       z-index: 0;
       opacity: 1;
