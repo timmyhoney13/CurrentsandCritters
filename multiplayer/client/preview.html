@@ -5748,13 +5748,9 @@
                 <div class="ph-scs" id="ph-win-pct-sub">Great job!</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="6" y="4" width="11" height="15" rx="2" stroke="#2d86e4" stroke-width="1.8"/><rect x="9" y="2" width="11" height="15" rx="2" stroke="#2d86e4" stroke-width="1.8" opacity=".75"/></svg></div>
-                <div class="ph-scl" id="ph-label-most-cards">Most Played Cards</div>
-                <div class="ph-card-list" id="ph-most-cards">
-                  <div class="ph-card-item"><span class="ph-card-g">🐟</span>Yellowfin Tuna</div>
-                  <div class="ph-card-item"><span class="ph-card-g">🪸</span>Coral Reef</div>
-                  <div class="ph-card-item"><span class="ph-card-g">🐬</span>Bottlenose Dolphin</div>
-                </div>
+                <div class="ph-sci ph-sci-blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2d86e4" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                <div class="ph-scl">Hours Played</div>
+                <div class="ph-scv" id="stat-hours-played">0 hrs</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
@@ -12793,6 +12789,7 @@
           _playerNickname = "";
           _friendCode = "";
           _activeProfile = null;
+          startHoursTimer(user.uid);
           const profile = await loadProfile(user.uid);
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
@@ -12831,6 +12828,7 @@
         } else {
           if (_authUser?.uid) stopPresencePing(_authUser.uid);
           if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
+          stopHoursTimer();
           _authUser = null;
           _activeProfile = null;
           _playerNickname = "";
@@ -13390,7 +13388,6 @@
         if (el) el.textContent = `${prefix} ${suffix}`;
       };
       setLabel("ph-label-win-pct", "Win %");
-      setLabel("ph-label-most-cards", "Most Played Cards");
       setLabel("ph-label-most-strategy", "Most Played Strategy");
       setLabel("ph-label-avg-pts", "Avg Points Per Game");
       setLabel("ph-label-total-games", "Total Games");
@@ -13849,21 +13846,10 @@
       const strategy = getPerSizeStrategy(statsSource, size);
       if (strategyEl) strategyEl.textContent = strategy || (totalGames > 0 ? "—" : "No games completed yet.");
 
-      const mcEl = $a("ph-most-cards");
-      if (mcEl) {
-        const cards = getPerSizeCards(statsSource, size);
-        if (cards.length) {
-          const glyph = (name) => {
-            const n = String(name || "").toLowerCase();
-            if (n.includes("yellowfin")) return "🐟";
-            if (n.includes("coral")) return "🪸";
-            if (n.includes("dolphin")) return "🐬";
-            return "•";
-          };
-          mcEl.innerHTML = cards.slice(0, 3).map(c => `<div class="ph-card-item"><span class="ph-card-g">${glyph(c)}</span>${escapeHtml(c)}</div>`).join("");
-        } else {
-          mcEl.innerHTML = `<div style="font-size:12px;color:#7a9ab8;">${totalGames > 0 ? "—" : "No games completed yet."}</div>`;
-        }
+      const hoursEl = $a("stat-hours-played");
+      if (hoursEl) {
+        const h = Number(statsSource.hours_played || 0);
+        hoursEl.textContent = h === 1 ? "1 hr" : `${h} hrs`;
       }
 
       renderPhRecentGames(filteredGames);
@@ -14633,6 +14619,39 @@
       try { _origRenderStats(stats); } catch(e) { console.error("[renderStats] _origRenderStats threw:", e); }
       updatePhStats(stats);
     };
+
+    // ═══════════════════════════════════════════════════════════════
+    // HOURS PLAYED TRACKER
+    // ═══════════════════════════════════════════════════════════════
+    let _hoursTimer = null;
+
+    function _formatHours(h) {
+      return h === 1 ? "1 hr" : `${h} hrs`;
+    }
+
+    function startHoursTimer(uid) {
+      if (_hoursTimer) clearInterval(_hoursTimer);
+      // Fire every 30 minutes (1800000 ms)
+      _hoursTimer = setInterval(async () => {
+        if (!_db || !_authUser || _authUser.uid !== uid) { stopHoursTimer(); return; }
+        try {
+          await _db.collection("users").doc(uid).update({
+            "stats.hours_played": firebase.firestore.FieldValue.increment(0.5),
+          });
+          // Refresh the displayed value
+          const snap = await _db.collection("users").doc(uid).get();
+          const h = Number(((snap.data() || {}).stats || {}).hours_played || 0);
+          const el = document.getElementById("stat-hours-played");
+          if (el) el.textContent = _formatHours(h);
+        } catch(e) {
+          console.warn("[hours] increment error:", e);
+        }
+      }, 1800000);
+    }
+
+    function stopHoursTimer() {
+      if (_hoursTimer) { clearInterval(_hoursTimer); _hoursTimer = null; }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     // ACHIEVEMENT SYSTEM (inside auth IIFE — has access to _authUser, _db)
