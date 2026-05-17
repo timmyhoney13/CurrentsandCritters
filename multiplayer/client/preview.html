@@ -2131,9 +2131,11 @@
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;
       background:
-        radial-gradient(circle at 20% 22%, rgba(98,205,233,.45) 0%, rgba(98,205,233,0) 34%),
-        radial-gradient(circle at 79% 72%, rgba(96,189,229,.42) 0%, rgba(96,189,229,0) 36%),
-        linear-gradient(180deg, #f0ddbc 0%, #98d8ee 34%, #43afe2 100%);
+        radial-gradient(ellipse 90% 76% at 124% -10%,
+          #eac85e 0%, #dfaa2e 22%, rgba(220,166,34,.84) 44%, rgba(204,150,20,0) 65%),
+        radial-gradient(ellipse 82% 85% at 122% 122%,
+          #e4ba32 0%, #d89e22 20%, rgba(212,156,26,.82) 42%, rgba(196,141,12,0) 63%),
+        linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
       display: flex; align-items: center; justify-content: center;
       color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
     }
@@ -2178,48 +2180,48 @@
       content: "";
       position: absolute; inset: 0;
       background:
-        /* === LIGHT WATER OVALS — 5-12% wide, high opacity, sharp edge === */
+        /* === LIGHT WATER OVALS — flat filled, sharp edge (matches illustration) === */
         radial-gradient(ellipse 8% 4.5% at 5% 42%,
-          rgba(158,244,255,.73) 0%, rgba(155,242,254,.71) 58%, rgba(132,228,248,.13) 78%, transparent 90%),
+          rgba(158,244,255,.72) 0%, rgba(158,244,255,.72) 64%, rgba(132,228,248,.08) 80%, transparent 88%),
         radial-gradient(ellipse 6% 3.5% at 13% 32%,
-          rgba(153,241,254,.69) 0%, rgba(150,239,253,.67) 58%, rgba(128,225,246,.12) 78%, transparent 90%),
+          rgba(155,242,254,.68) 0%, rgba(155,242,254,.68) 64%, rgba(128,225,246,.07) 80%, transparent 88%),
         radial-gradient(ellipse 10% 5.5% at 9% 66%,
-          rgba(160,245,255,.71) 0%, rgba(157,243,254,.69) 58%, rgba(134,230,249,.13) 78%, transparent 90%),
+          rgba(160,245,255,.70) 0%, rgba(160,245,255,.70) 64%, rgba(134,230,249,.08) 80%, transparent 88%),
         radial-gradient(ellipse 7% 4% at 21% 80%,
-          rgba(154,242,254,.67) 0%, rgba(151,240,253,.65) 58%, rgba(129,226,247,.12) 78%, transparent 90%),
+          rgba(156,243,254,.66) 0%, rgba(156,243,254,.66) 64%, rgba(129,226,247,.07) 80%, transparent 88%),
         radial-gradient(ellipse 12% 6.5% at 8% 90%,
-          rgba(162,246,255,.69) 0%, rgba(159,244,254,.67) 58%, rgba(136,231,250,.13) 78%, transparent 90%),
+          rgba(162,246,255,.68) 0%, rgba(162,246,255,.68) 64%, rgba(136,231,250,.07) 80%, transparent 88%),
         radial-gradient(ellipse 9% 5% at 36% 89%,
-          rgba(155,242,254,.65) 0%, rgba(152,240,253,.63) 58%, rgba(130,227,247,.11) 78%, transparent 90%),
+          rgba(157,243,254,.64) 0%, rgba(157,243,254,.64) 64%, rgba(130,227,247,.06) 80%, transparent 88%),
         radial-gradient(ellipse 7% 4% at 51% 95%,
-          rgba(152,241,254,.63) 0%, rgba(149,239,253,.61) 58%, rgba(127,225,246,.11) 78%, transparent 90%),
+          rgba(154,241,254,.62) 0%, rgba(154,241,254,.62) 64%, rgba(127,225,246,.06) 80%, transparent 88%),
         radial-gradient(ellipse 11% 6% at 63% 87%,
-          rgba(157,243,255,.61) 0%, rgba(154,241,254,.59) 58%, rgba(131,228,248,.11) 78%, transparent 90%),
+          rgba(158,244,255,.60) 0%, rgba(158,244,255,.60) 64%, rgba(131,228,248,.06) 80%, transparent 88%),
         radial-gradient(ellipse 8% 4.5% at 76% 81%,
-          rgba(154,242,254,.59) 0%, rgba(151,240,253,.57) 58%, rgba(129,226,247,.10) 78%, transparent 90%),
+          rgba(155,242,254,.58) 0%, rgba(155,242,254,.58) 64%, rgba(129,226,247,.06) 80%, transparent 88%),
         radial-gradient(ellipse 6% 3.5% at 86% 65%,
-          rgba(150,240,253,.57) 0%, rgba(147,238,252,.55) 58%, rgba(125,224,245,.10) 78%, transparent 90%),
+          rgba(152,240,253,.56) 0%, rgba(152,240,253,.56) 64%, rgba(125,224,245,.05) 80%, transparent 88%),
         radial-gradient(ellipse 5% 3% at 94% 51%,
-          rgba(152,241,254,.55) 0%, rgba(149,239,253,.53) 58%, rgba(127,225,246,.09) 78%, transparent 90%),
+          rgba(154,241,254,.54) 0%, rgba(154,241,254,.54) 64%, rgba(127,225,246,.05) 80%, transparent 88%),
         radial-gradient(ellipse 7% 4% at 4% 26%,
-          rgba(156,243,255,.57) 0%, rgba(153,241,254,.55) 58%, rgba(130,228,248,.10) 78%, transparent 90%),
-        /* === DARK WATER OVALS — 5-11% wide === */
+          rgba(157,243,255,.56) 0%, rgba(157,243,255,.56) 64%, rgba(130,228,248,.05) 80%, transparent 88%),
+        /* === DARK WATER OVALS — flat filled, sharp edge === */
         radial-gradient(ellipse 9% 5% at 17% 56%,
-          rgba(40,178,213,.63) 0%, rgba(38,176,211,.61) 58%, rgba(22,158,197,.12) 78%, transparent 90%),
+          rgba(40,178,213,.62) 0%, rgba(40,178,213,.62) 64%, rgba(22,158,197,.07) 80%, transparent 88%),
         radial-gradient(ellipse 7% 4% at 29% 71%,
-          rgba(36,174,210,.59) 0%, rgba(34,172,208,.57) 58%, rgba(18,153,193,.11) 78%, transparent 90%),
+          rgba(36,174,210,.58) 0%, rgba(36,174,210,.58) 64%, rgba(18,153,193,.06) 80%, transparent 88%),
         radial-gradient(ellipse 11% 6% at 23% 85%,
-          rgba(42,180,215,.61) 0%, rgba(40,178,213,.59) 58%, rgba(24,160,199,.12) 78%, transparent 90%),
+          rgba(42,180,215,.60) 0%, rgba(42,180,215,.60) 64%, rgba(24,160,199,.06) 80%, transparent 88%),
         radial-gradient(ellipse 8% 4.5% at 43% 97%,
-          rgba(38,176,212,.57) 0%, rgba(36,174,210,.55) 58%, rgba(20,155,195,.10) 78%, transparent 90%),
+          rgba(38,176,212,.56) 0%, rgba(38,176,212,.56) 64%, rgba(20,155,195,.06) 80%, transparent 88%),
         radial-gradient(ellipse 6% 3.5% at 56% 81%,
-          rgba(36,173,210,.55) 0%, rgba(34,171,208,.53) 58%, rgba(18,152,193,.10) 78%, transparent 90%),
+          rgba(36,173,210,.54) 0%, rgba(36,173,210,.54) 64%, rgba(18,152,193,.05) 80%, transparent 88%),
         radial-gradient(ellipse 10% 5.5% at 69% 93%,
-          rgba(40,178,213,.53) 0%, rgba(38,176,211,.51) 58%, rgba(22,157,197,.10) 78%, transparent 90%),
+          rgba(40,178,213,.52) 0%, rgba(40,178,213,.52) 64%, rgba(22,157,197,.05) 80%, transparent 88%),
         radial-gradient(ellipse 7% 4% at 81% 86%,
-          rgba(38,176,212,.51) 0%, rgba(36,174,210,.49) 58%, rgba(20,155,195,.09) 78%, transparent 90%),
+          rgba(38,176,212,.50) 0%, rgba(38,176,212,.50) 64%, rgba(20,155,195,.05) 80%, transparent 88%),
         radial-gradient(ellipse 5% 3% at 5% 25%,
-          rgba(36,174,210,.53) 0%, rgba(34,172,208,.51) 58%, rgba(18,153,193,.10) 78%, transparent 90%),
+          rgba(36,174,210,.52) 0%, rgba(36,174,210,.52) 64%, rgba(18,153,193,.05) 80%, transparent 88%),
         /* === ALGAE PATCHES — 5-8% wide, olive/yellow-green === */
         radial-gradient(ellipse 7% 4.5% at 5% 22%,
           rgba(150,200,40,.95) 0%, rgba(148,198,38,.91) 56%, rgba(120,168,20,.27) 75%, transparent 88%),
