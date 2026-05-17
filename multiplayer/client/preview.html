@@ -2130,27 +2130,14 @@
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;
-      background:
-        radial-gradient(ellipse 90% 76% at 124% -10%,
-          #eac85e 0%, #dfaa2e 22%, rgba(220,166,34,.84) 44%, rgba(204,150,20,0) 65%),
-        radial-gradient(ellipse 82% 85% at 122% 122%,
-          #e4ba32 0%, #d89e22 20%, rgba(212,156,26,.82) 42%, rgba(196,141,12,0) 63%),
-        linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
+      background: linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
       display: flex; align-items: center; justify-content: center;
       color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
     }
     #auth-loading-screen.hidden { display: none; }
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
-      background:
-        /* Sandy beach: top-right corner */
-        radial-gradient(ellipse 90% 76% at 124% -10%,
-          #eac85e 0%, #dfaa2e 22%, rgba(220,166,34,.84) 44%, rgba(204,150,20,0) 65%),
-        /* Sandy beach: bottom-right corner */
-        radial-gradient(ellipse 82% 85% at 122% 122%,
-          #e4ba32 0%, #d89e22 20%, rgba(212,156,26,.82) 42%, rgba(196,141,12,0) 63%),
-        /* Vivid turquoise water base */
-        linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
+      background: linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -2158,88 +2145,13 @@
       overflow: hidden;
       isolation: isolate;
     }
-    #auth-screen::before {
-      content: "";
-      position: absolute; inset: 0;
-      background:
-        /* Large purple blob: bottom-left */
-        radial-gradient(ellipse 76% 82% at -10% 120%,
-          #beaee2 0%, #c8b6e6 14%, rgba(200,180,233,.87) 32%, rgba(183,164,227,0) 54%),
-        /* Medium purple blob: right side — moved closer so ~20% visible */
-        radial-gradient(ellipse 44% 56% at 110% 64%,
-          rgba(206,192,237,.94) 0%, rgba(192,177,233,.80) 24%, rgba(177,162,227,0) 50%),
-        /* Small purple cloud: top-center */
-        radial-gradient(ellipse 22% 16% at 38% 10%,
-          rgba(216,206,242,.93) 0%, rgba(204,193,238,.77) 41%, rgba(189,179,233,0) 67%),
-        /* Purple accent: bottom-right corner */
-        radial-gradient(ellipse 28% 24% at 115% 92%,
-          rgba(197,184,235,.80) 0%, rgba(183,169,229,.62) 44%, rgba(169,154,223,0) 71%);
-      pointer-events: none; z-index: 0;
-    }
-    #auth-screen::after {
-      content: "";
-      position: absolute; inset: 0;
-      background:
-        /* === LIGHT WATER OVALS — flat filled, sharp edge (matches illustration) === */
-        radial-gradient(ellipse 8% 4.5% at 5% 42%,
-          rgba(158,244,255,.72) 0%, rgba(158,244,255,.72) 64%, rgba(132,228,248,.08) 80%, transparent 88%),
-        radial-gradient(ellipse 6% 3.5% at 13% 32%,
-          rgba(155,242,254,.68) 0%, rgba(155,242,254,.68) 64%, rgba(128,225,246,.07) 80%, transparent 88%),
-        radial-gradient(ellipse 10% 5.5% at 9% 66%,
-          rgba(160,245,255,.70) 0%, rgba(160,245,255,.70) 64%, rgba(134,230,249,.08) 80%, transparent 88%),
-        radial-gradient(ellipse 7% 4% at 21% 80%,
-          rgba(156,243,254,.66) 0%, rgba(156,243,254,.66) 64%, rgba(129,226,247,.07) 80%, transparent 88%),
-        radial-gradient(ellipse 12% 6.5% at 8% 90%,
-          rgba(162,246,255,.68) 0%, rgba(162,246,255,.68) 64%, rgba(136,231,250,.07) 80%, transparent 88%),
-        radial-gradient(ellipse 9% 5% at 36% 89%,
-          rgba(157,243,254,.64) 0%, rgba(157,243,254,.64) 64%, rgba(130,227,247,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 7% 4% at 51% 95%,
-          rgba(154,241,254,.62) 0%, rgba(154,241,254,.62) 64%, rgba(127,225,246,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 11% 6% at 63% 87%,
-          rgba(158,244,255,.60) 0%, rgba(158,244,255,.60) 64%, rgba(131,228,248,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 8% 4.5% at 76% 81%,
-          rgba(155,242,254,.58) 0%, rgba(155,242,254,.58) 64%, rgba(129,226,247,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 6% 3.5% at 86% 65%,
-          rgba(152,240,253,.56) 0%, rgba(152,240,253,.56) 64%, rgba(125,224,245,.05) 80%, transparent 88%),
-        radial-gradient(ellipse 5% 3% at 94% 51%,
-          rgba(154,241,254,.54) 0%, rgba(154,241,254,.54) 64%, rgba(127,225,246,.05) 80%, transparent 88%),
-        radial-gradient(ellipse 7% 4% at 4% 26%,
-          rgba(157,243,255,.56) 0%, rgba(157,243,255,.56) 64%, rgba(130,228,248,.05) 80%, transparent 88%),
-        /* === DARK WATER OVALS — flat filled, sharp edge === */
-        radial-gradient(ellipse 9% 5% at 17% 56%,
-          rgba(40,178,213,.62) 0%, rgba(40,178,213,.62) 64%, rgba(22,158,197,.07) 80%, transparent 88%),
-        radial-gradient(ellipse 7% 4% at 29% 71%,
-          rgba(36,174,210,.58) 0%, rgba(36,174,210,.58) 64%, rgba(18,153,193,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 11% 6% at 23% 85%,
-          rgba(42,180,215,.60) 0%, rgba(42,180,215,.60) 64%, rgba(24,160,199,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 8% 4.5% at 43% 97%,
-          rgba(38,176,212,.56) 0%, rgba(38,176,212,.56) 64%, rgba(20,155,195,.06) 80%, transparent 88%),
-        radial-gradient(ellipse 6% 3.5% at 56% 81%,
-          rgba(36,173,210,.54) 0%, rgba(36,173,210,.54) 64%, rgba(18,152,193,.05) 80%, transparent 88%),
-        radial-gradient(ellipse 10% 5.5% at 69% 93%,
-          rgba(40,178,213,.52) 0%, rgba(40,178,213,.52) 64%, rgba(22,157,197,.05) 80%, transparent 88%),
-        radial-gradient(ellipse 7% 4% at 81% 86%,
-          rgba(38,176,212,.50) 0%, rgba(38,176,212,.50) 64%, rgba(20,155,195,.05) 80%, transparent 88%),
-        radial-gradient(ellipse 5% 3% at 5% 25%,
-          rgba(36,174,210,.52) 0%, rgba(36,174,210,.52) 64%, rgba(18,153,193,.05) 80%, transparent 88%),
-        /* === ALGAE PATCHES — 5-8% wide, olive/yellow-green === */
-        radial-gradient(ellipse 7% 4.5% at 5% 22%,
-          rgba(150,200,40,.95) 0%, rgba(148,198,38,.91) 56%, rgba(120,168,20,.27) 75%, transparent 88%),
-        radial-gradient(ellipse 5.5% 3.5% at 15% 38%,
-          rgba(144,193,34,.91) 0%, rgba(142,191,32,.87) 56%, rgba(114,161,14,.25) 75%, transparent 88%),
-        radial-gradient(ellipse 8% 5% at 10% 58%,
-          rgba(154,205,44,.89) 0%, rgba(152,203,42,.85) 56%, rgba(124,172,22,.26) 75%, transparent 88%),
-        radial-gradient(ellipse 6% 4% at 34% 22%,
-          rgba(147,197,38,.86) 0%, rgba(145,195,36,.82) 56%, rgba(117,165,18,.24) 75%, transparent 88%),
-        radial-gradient(ellipse 5% 3.5% at 61% 16%,
-          rgba(141,191,32,.82) 0%, rgba(139,189,30,.78) 56%, rgba(111,159,12,.22) 75%, transparent 88%),
-        radial-gradient(ellipse 6.5% 4% at 77% 57%,
-          rgba(147,197,36,.80) 0%, rgba(145,195,34,.76) 56%, rgba(117,165,16,.22) 75%, transparent 88%),
-        radial-gradient(ellipse 5.5% 3.5% at 89% 79%,
-          rgba(142,192,33,.78) 0%, rgba(140,190,31,.74) 56%, rgba(112,160,13,.21) 75%, transparent 88%),
-        radial-gradient(ellipse 6.5% 4% at 46% 91%,
-          rgba(144,194,34,.76) 0%, rgba(142,192,32,.72) 56%, rgba(114,162,14,.21) 75%, transparent 88%);
-      pointer-events: none; z-index: 0; opacity: 1;
+    #auth-screen > .auth-bg-svg {
+      position: absolute !important;
+      inset: 0 !important;
+      z-index: 0 !important;
+      pointer-events: none !important;
+      width: 100%;
+      height: 100%;
     }
     #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
@@ -5348,6 +5260,74 @@
 
 <!-- ══ AUTH SCREEN ════════════════════════════════════════════════ -->
 <div id="auth-screen" class="hidden">
+  <!-- illustrated tide-pool background — SVG for crisp shapes unlike CSS radial-gradients -->
+  <svg class="auth-bg-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <defs>
+      <!-- blob: large soft feather for sand/rock masses -->
+      <filter id="abf-blob" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="52"/>
+      </filter>
+      <!-- oval: tiny blur for crisp illustrated water ovals -->
+      <filter id="abf-oval" x="-15%" y="-25%" width="130%" height="150%">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+      <!-- algae: slight blur for soft-edged patches -->
+      <filter id="abf-alg" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="8"/>
+      </filter>
+    </defs>
+    <!-- sandy beach: top-right -->
+    <ellipse cx="1720" cy="-70" rx="760" ry="600" fill="#e8c055" filter="url(#abf-blob)"/>
+    <!-- sandy beach: bottom-right -->
+    <ellipse cx="1700" cy="1000" rx="740" ry="640" fill="#e2b235" filter="url(#abf-blob)"/>
+    <!-- purple rock: bottom-left large mass -->
+    <ellipse cx="-55" cy="1010" rx="590" ry="600" fill="#c8b2e6" filter="url(#abf-blob)"/>
+    <!-- purple rock: right-center -->
+    <ellipse cx="1695" cy="635" rx="430" ry="530" fill="#c8a8e0" filter="url(#abf-blob)"/>
+    <!-- purple cloud: top-center -->
+    <ellipse cx="585" cy="75" rx="195" ry="128" fill="#d6caee" filter="url(#abf-blob)"/>
+    <!-- purple accent: bottom-right corner -->
+    <ellipse cx="1670" cy="890" rx="270" ry="225" fill="#cab8e6" filter="url(#abf-blob)"/>
+    <!-- light water ovals (brighter than water, horizontally elongated) -->
+    <g filter="url(#abf-oval)" fill="#b8eaff" fill-opacity="0.72">
+      <ellipse cx="72"   cy="382" rx="62" ry="37"/>
+      <ellipse cx="202"  cy="290" rx="50" ry="30"/>
+      <ellipse cx="136"  cy="592" rx="78" ry="46"/>
+      <ellipse cx="328"  cy="722" rx="57" ry="34"/>
+      <ellipse cx="116"  cy="814" rx="100" ry="59"/>
+      <ellipse cx="560"  cy="802" rx="72" ry="43"/>
+      <ellipse cx="792"  cy="854" rx="57" ry="34"/>
+      <ellipse cx="988"  cy="790" rx="86" ry="51"/>
+      <ellipse cx="1182" cy="734" rx="65" ry="39"/>
+      <ellipse cx="1360" cy="592" rx="50" ry="30"/>
+      <ellipse cx="1472" cy="462" rx="43" ry="26"/>
+      <ellipse cx="63"   cy="240" rx="55" ry="33"/>
+      <ellipse cx="437"  cy="870" rx="65" ry="39"/>
+      <ellipse cx="680"  cy="784" rx="51" ry="31"/>
+    </g>
+    <!-- dark water ovals (deeper teal, slightly below light ovals) -->
+    <g filter="url(#abf-oval)" fill="#26aed0" fill-opacity="0.56">
+      <ellipse cx="264"  cy="506" rx="72" ry="43"/>
+      <ellipse cx="444"  cy="644" rx="57" ry="34"/>
+      <ellipse cx="360"  cy="772" rx="90" ry="53"/>
+      <ellipse cx="650"  cy="874" rx="65" ry="39"/>
+      <ellipse cx="844"  cy="738" rx="50" ry="30"/>
+      <ellipse cx="1058" cy="840" rx="80" ry="47"/>
+      <ellipse cx="1250" cy="778" rx="57" ry="34"/>
+      <ellipse cx="73"   cy="230" rx="43" ry="26"/>
+    </g>
+    <!-- algae patches (olive/yellow-green blobs) -->
+    <g filter="url(#abf-alg)" fill="#92c02a" fill-opacity="0.90">
+      <ellipse cx="92"   cy="204" rx="64" ry="42"/>
+      <ellipse cx="224"  cy="346" rx="47" ry="31"/>
+      <ellipse cx="159"  cy="526" rx="67" ry="44"/>
+      <ellipse cx="542"  cy="202" rx="41" ry="28"/>
+      <ellipse cx="988"  cy="146" rx="37" ry="25"/>
+      <ellipse cx="1214" cy="522" rx="55" ry="37"/>
+      <ellipse cx="1418" cy="722" rx="47" ry="31"/>
+      <ellipse cx="708"  cy="828" rx="55" ry="36"/>
+    </g>
+  </svg>
   <div class="auth-logo">Currents &amp; Critters</div>
 
   <!-- Step 1: choose mode -->
