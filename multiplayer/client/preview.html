@@ -4995,12 +4995,12 @@
       top: 18px;
       right: -380px;
       z-index: 99999;
-      width: 320px;
-      background: linear-gradient(135deg, #0d2d52 0%, #0a1e36 60%, #071828 100%);
-      border: 1.5px solid rgba(38,200,240,.5);
-      border-radius: 16px;
-      padding: 14px 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(38,200,240,.12), inset 0 1px 0 rgba(255,255,255,.06);
+      width: 300px;
+      background: linear-gradient(135deg, #e8f7ff 0%, #d0f0f8 50%, #c8efe6 100%);
+      border: 2px solid rgba(37,165,124,.55);
+      border-radius: 18px;
+      padding: 13px 15px;
+      box-shadow: 0 6px 28px rgba(34,130,190,.22), 0 0 0 4px rgba(37,165,124,.10), inset 0 1px 0 rgba(255,255,255,.8);
       transition: right .45s cubic-bezier(.22,1,.36,1), opacity .3s ease;
       opacity: 0;
       pointer-events: none;
@@ -5011,11 +5011,11 @@
     }
     .ach-popup-label {
       font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 1.5px;
+      font-weight: 900;
+      letter-spacing: 1.6px;
       text-transform: uppercase;
-      color: #f0c840;
-      margin-bottom: 9px;
+      color: #1a8a6a;
+      margin-bottom: 8px;
     }
     .ach-popup-body {
       display: flex;
@@ -5023,23 +5023,23 @@
       gap: 12px;
     }
     .ach-popup-icon {
-      font-size: 2.1rem;
-      width: 52px;
-      height: 52px;
-      border-radius: 12px;
-      background: rgba(38,200,240,.13);
-      border: 1.5px solid rgba(38,200,240,.35);
+      font-size: 2rem;
+      width: 50px;
+      height: 50px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, rgba(37,165,124,.18) 0%, rgba(34,216,248,.18) 100%);
+      border: 1.5px solid rgba(37,165,124,.4);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      box-shadow: 0 0 18px rgba(38,200,240,.2);
+      box-shadow: 0 2px 12px rgba(37,165,124,.2);
     }
     .ach-popup-info { min-width: 0; }
     .ach-popup-name {
-      font-size: .97rem;
+      font-size: .95rem;
       font-weight: 800;
-      color: #e8f4ff;
+      color: #0d4a3a;
       line-height: 1.25;
       margin-bottom: 4px;
       white-space: nowrap;
@@ -5047,9 +5047,9 @@
       text-overflow: ellipsis;
     }
     .ach-popup-xp {
-      font-size: .85rem;
-      font-weight: 800;
-      color: #f0c840;
+      font-size: .84rem;
+      font-weight: 900;
+      color: #c07a00;
     }
 
     /* ── ACHIEVEMENT PAGE (Steam-inspired, ocean themed) ─────────────── */
@@ -5651,11 +5651,10 @@
             </div>
           </div>
           <div class="ph-sg">
-            <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-teal">🏆</div>
-              <div class="ph-scl">Most Played Card</div>
-              <div class="ph-scv" id="ph-ov-most-card">—</div>
-              <div class="ph-scs" id="ph-ov-most-card-sub"></div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-teal"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+              <div class="ph-scl">Hours Played</div>
+              <div class="ph-scv" id="stat-hours-played">0 hrs</div>
             </div>
             <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-blue">🎯</div>
@@ -13904,8 +13903,8 @@
 
       const set = (id, val) => { const el = $a(id); if (el) el.textContent = val; };
 
-      set("ph-ov-most-card",     mostPlayedCard || (noGames ? "No games completed yet." : "—"));
-      set("ph-ov-most-card-sub", mostPlayedCard ? "Across all game modes" : "");
+      const hoursOv = Number(safeStats.hours_played || 0);
+      set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
       set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "—"));
       set("ph-ov-total-games",   String(Math.max(0, totalGames)));
       set("ph-ov-total-wins",    String(Math.max(0, totalWins)));
