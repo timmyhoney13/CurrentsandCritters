@@ -2130,47 +2130,23 @@
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;
-      background: linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
+      background: #3ed6f2;
       display: flex; align-items: center; justify-content: center;
       color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
     }
     #auth-loading-screen.hidden { display: none; }
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
-      background: linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
+      background: #3ed6f2;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      padding: 30px 20px 34px;
-      gap: 18px;
+      padding: 0;
+      gap: 0;
       overflow: hidden;
       isolation: isolate;
     }
-    #auth-screen > .auth-bg-svg {
-      position: absolute !important;
-      inset: 0 !important;
-      z-index: 0 !important;
-      pointer-events: none !important;
-      width: 100%;
-      height: 100%;
-    }
-    #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
-    #auth-screen .auth-logo {
-      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
-      color: #f1dfb7;
-      font-size: clamp(3.1rem, 5.6vw, 6.2rem);
-      font-weight: 400;
-      text-align: center;
-      text-transform: uppercase;
-      letter-spacing: 2.4px;
-      line-height: .98;
-      text-shadow:
-        -2px -2px 0 #2b4f6d,
-         2px -2px 0 #2b4f6d,
-        -2px  2px 0 #2b4f6d,
-         2px  2px 0 #2b4f6d,
-         0 6px 14px rgba(44,97,141,.35);
-    }
+    #auth-screen .auth-logo { display: none !important; }
     .auth-box {
       background: rgba(11,36,72,.9); border: 1px solid rgba(58,120,204,.45);
       border-radius: 14px; padding: 22px 20px;
@@ -2263,113 +2239,81 @@
     }
     .auth-btn-google:hover { background: rgba(255,255,255,.14); }
     #auth-step-choose.auth-box {
-      width: min(780px, 94vw);
-      max-width: 780px;
-      min-height: 532px;
-      padding: 34px 46px 40px;
-      border-radius: 28px;
-      border: 1px solid rgba(216,248,255,.66);
-      background:
-        linear-gradient(180deg, rgba(145,212,230,.88) 0%, rgba(110,193,216,.86) 100%);
-      box-shadow:
-        0 14px 42px rgba(21,94,139,.25),
-        inset 0 1px 0 rgba(227,251,255,.55);
-      gap: 18px;
-      backdrop-filter: blur(2px);
-      justify-content: center;
+      position: relative;
+      width: min(100vw, calc(100vh * 1448 / 1086));
+      height: min(100vh, calc(100vw * 1086 / 1448));
+      max-width: none;
+      min-height: 0;
+      padding: 0 !important;
+      border-radius: 0 !important;
+      border: 0 !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      gap: 0 !important;
+      backdrop-filter: none !important;
+      display: block;
+      overflow: visible;
     }
-    #auth-step-choose .auth-title {
-      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
-      color: #0f4169;
-      font-size: clamp(2.2rem, 4.5vw, 3.55rem);
-      font-weight: 400;
-      letter-spacing: 1.6px;
-      text-transform: uppercase;
-      line-height: 1;
-      text-align: center;
-      margin-top: 2px;
+    #auth-step-choose .auth-step-choose-img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
     }
-    #auth-step-choose .auth-subtitle {
-      color: #163f64;
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: clamp(1.03rem, 1.45vw, 1.16rem);
-      font-weight: 700;
-      line-height: 1.28;
-      text-align: center;
-      letter-spacing: .2px;
-      max-width: 650px;
-      margin: 0 auto 4px;
-      text-transform: uppercase;
-      text-wrap: balance;
-    }
+    #auth-step-choose .auth-title,
+    #auth-step-choose .auth-subtitle,
     #auth-step-choose .auth-divider {
       display: none !important;
     }
     #auth-step-choose .pv-btn,
     #auth-step-choose .auth-btn-google {
-      width: 100%;
-      min-height: 78px;
-      border-radius: 17px;
-      border: 0;
-      font-family: "Luckiest Guy", "Baloo 2", "Nunito", sans-serif;
-      font-size: clamp(1.16rem, 2.05vw, 2.02rem);
-      font-weight: 400;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      box-shadow: 0 9px 16px rgba(20,93,141,.19);
-      transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
-      padding: 14px 18px 12px;
+      position: absolute;
+      left: 18.58%;
+      width: 65.33%;
+      height: 8.4%;
+      background: transparent !important;
+      color: transparent !important;
+      border: 0 !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      font-size: 0 !important;
+      min-height: 0 !important;
+      border-radius: 14px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: rgba(255,255,255,.15);
+      z-index: 2;
     }
-    #auth-step-choose .pv-btn:hover,
-    #auth-step-choose .auth-btn-google:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 12px 20px rgba(20,93,141,.24);
-      filter: saturate(1.02);
+    #auth-step-choose .pv-btn:focus-visible,
+    #auth-step-choose .auth-btn-google:focus-visible {
+      outline: 2px solid rgba(255,255,255,.75);
+      outline-offset: -3px;
     }
-    #auth-step-choose #auth-guest-btn {
-      background: #f3e2ae;
-      color: #654b20;
+    #auth-step-choose .pv-btn:active,
+    #auth-step-choose .auth-btn-google:active {
+      transform: translateY(1px);
     }
-    #auth-step-choose #auth-choose-google-btn {
-      background: #ddd3ee;
-      color: #3f2e64;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-    }
-    #auth-step-choose #auth-choose-google-btn svg {
-      display: none;
-    }
-    #auth-step-choose #auth-signin-nav-btn {
-      background: linear-gradient(180deg, #38a7e8 0%, #1f81c9 100%);
-      color: #f8fcff;
-    }
+    #auth-step-choose #auth-guest-btn        { top: 46.04%; }
+    #auth-step-choose #auth-choose-google-btn { top: 56.54%; }
+    #auth-step-choose #auth-signin-nav-btn   { top: 67.13%; }
+    #auth-step-choose #auth-choose-google-btn svg { display: none; }
     #auth-step-choose .auth-err {
-      min-height: 20px;
-      font-size: .9rem;
+      position: absolute;
+      left: 18.58%;
+      top: 88%;
+      width: 65.33%;
+      text-align: center;
+      min-height: 18px;
+      font-size: .92rem;
       color: #9a2d37;
       font-weight: 700;
       font-family: "Baloo 2", "Nunito", sans-serif;
-    }
-    @media (max-width: 920px) {
-      #auth-screen {
-        padding: 20px 14px 24px;
-        gap: 12px;
-        overflow-y: auto;
-      }
-      #auth-step-choose.auth-box {
-        width: min(780px, 100%);
-        min-height: auto;
-        padding: 24px 18px 24px;
-        border-radius: 22px;
-        gap: 13px;
-      }
-      #auth-step-choose .pv-btn,
-      #auth-step-choose .auth-btn-google {
-        min-height: 62px;
-        border-radius: 14px;
-      }
+      z-index: 3;
     }
     /* Profile bar inside lobby */
     #auth-profile-bar {
@@ -5260,83 +5204,12 @@
 
 <!-- ══ AUTH SCREEN ════════════════════════════════════════════════ -->
 <div id="auth-screen" class="hidden">
-  <!-- illustrated tide-pool background — SVG for crisp shapes unlike CSS radial-gradients -->
-  <svg class="auth-bg-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-    <defs>
-      <!-- blob: large soft feather for sand/rock masses -->
-      <filter id="abf-blob" x="-30%" y="-30%" width="160%" height="160%">
-        <feGaussianBlur stdDeviation="52"/>
-      </filter>
-      <!-- oval: tiny blur for crisp illustrated water ovals -->
-      <filter id="abf-oval" x="-15%" y="-25%" width="130%" height="150%">
-        <feGaussianBlur stdDeviation="5"/>
-      </filter>
-      <!-- algae: slight blur for soft-edged patches -->
-      <filter id="abf-alg" x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="8"/>
-      </filter>
-    </defs>
-    <!-- sandy beach: top-right -->
-    <ellipse cx="1720" cy="-70" rx="760" ry="600" fill="#e8c055" filter="url(#abf-blob)"/>
-    <!-- sandy beach: bottom-right -->
-    <ellipse cx="1700" cy="1000" rx="740" ry="640" fill="#e2b235" filter="url(#abf-blob)"/>
-    <!-- purple rock: bottom-left large mass -->
-    <ellipse cx="-55" cy="1010" rx="590" ry="600" fill="#c8b2e6" filter="url(#abf-blob)"/>
-    <!-- purple rock: right-center -->
-    <ellipse cx="1695" cy="635" rx="430" ry="530" fill="#c8a8e0" filter="url(#abf-blob)"/>
-    <!-- purple cloud: top-center -->
-    <ellipse cx="585" cy="75" rx="195" ry="128" fill="#d6caee" filter="url(#abf-blob)"/>
-    <!-- purple accent: bottom-right corner -->
-    <ellipse cx="1670" cy="890" rx="270" ry="225" fill="#cab8e6" filter="url(#abf-blob)"/>
-    <!-- light water ovals (brighter than water, horizontally elongated) -->
-    <g filter="url(#abf-oval)" fill="#b8eaff" fill-opacity="0.72">
-      <ellipse cx="72"   cy="382" rx="62" ry="37"/>
-      <ellipse cx="202"  cy="290" rx="50" ry="30"/>
-      <ellipse cx="136"  cy="592" rx="78" ry="46"/>
-      <ellipse cx="328"  cy="722" rx="57" ry="34"/>
-      <ellipse cx="116"  cy="814" rx="100" ry="59"/>
-      <ellipse cx="560"  cy="802" rx="72" ry="43"/>
-      <ellipse cx="792"  cy="854" rx="57" ry="34"/>
-      <ellipse cx="988"  cy="790" rx="86" ry="51"/>
-      <ellipse cx="1182" cy="734" rx="65" ry="39"/>
-      <ellipse cx="1360" cy="592" rx="50" ry="30"/>
-      <ellipse cx="1472" cy="462" rx="43" ry="26"/>
-      <ellipse cx="63"   cy="240" rx="55" ry="33"/>
-      <ellipse cx="437"  cy="870" rx="65" ry="39"/>
-      <ellipse cx="680"  cy="784" rx="51" ry="31"/>
-    </g>
-    <!-- dark water ovals (deeper teal, slightly below light ovals) -->
-    <g filter="url(#abf-oval)" fill="#26aed0" fill-opacity="0.56">
-      <ellipse cx="264"  cy="506" rx="72" ry="43"/>
-      <ellipse cx="444"  cy="644" rx="57" ry="34"/>
-      <ellipse cx="360"  cy="772" rx="90" ry="53"/>
-      <ellipse cx="650"  cy="874" rx="65" ry="39"/>
-      <ellipse cx="844"  cy="738" rx="50" ry="30"/>
-      <ellipse cx="1058" cy="840" rx="80" ry="47"/>
-      <ellipse cx="1250" cy="778" rx="57" ry="34"/>
-      <ellipse cx="73"   cy="230" rx="43" ry="26"/>
-    </g>
-    <!-- algae patches (olive/yellow-green blobs) -->
-    <g filter="url(#abf-alg)" fill="#92c02a" fill-opacity="0.90">
-      <ellipse cx="92"   cy="204" rx="64" ry="42"/>
-      <ellipse cx="224"  cy="346" rx="47" ry="31"/>
-      <ellipse cx="159"  cy="526" rx="67" ry="44"/>
-      <ellipse cx="542"  cy="202" rx="41" ry="28"/>
-      <ellipse cx="988"  cy="146" rx="37" ry="25"/>
-      <ellipse cx="1214" cy="522" rx="55" ry="37"/>
-      <ellipse cx="1418" cy="722" rx="47" ry="31"/>
-      <ellipse cx="708"  cy="828" rx="55" ry="36"/>
-    </g>
-  </svg>
-  <div class="auth-logo">Currents &amp; Critters</div>
-
-  <!-- Step 1: choose mode -->
+  <!-- Step 1: choose mode — the entire panel is the login-bg.png image with invisible click overlays on top of the painted buttons -->
   <div id="auth-step-choose" class="auth-box">
-    <div class="auth-title">Sign In</div>
-    <div class="auth-subtitle">Sign in with your account to access your own nickname,<br>stats, friends, recent games, and history.</div>
-    <button id="auth-guest-btn" class="pv-btn gold full">Play as Guest</button>
-    <button id="auth-choose-google-btn" class="auth-btn-google">Continue with Google</button>
-    <button id="auth-signin-nav-btn" class="pv-btn full">Sign In or Create Account</button>
+    <img src="login-bg.png" alt="Currents &amp; Critters" class="auth-step-choose-img" />
+    <button id="auth-guest-btn" class="pv-btn gold full" aria-label="Play as Guest"></button>
+    <button id="auth-choose-google-btn" class="auth-btn-google" aria-label="Continue with Google"></button>
+    <button id="auth-signin-nav-btn" class="pv-btn full" aria-label="Sign In or Create Account"></button>
     <div class="auth-err" id="auth-choose-err"></div>
   </div>
 
