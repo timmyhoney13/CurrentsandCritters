@@ -2141,14 +2141,14 @@
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
       background:
-        /* Sandy beach: top-right — sweeps from corner, very large */
-        radial-gradient(ellipse 92% 80% at 128% -12%,
-          #eac862 0%, #dfa832 20%, rgba(220,165,38,.86) 42%, rgba(206,150,24,0) 63%),
-        /* Sandy beach: bottom-right */
-        radial-gradient(ellipse 85% 88% at 125% 125%,
-          #e6bc38 0%, #d8a028 18%, rgba(215,158,30,.83) 40%, rgba(200,143,18,0) 62%),
-        /* Vivid turquoise/cyan water base */
-        linear-gradient(175deg, #40d8f3 0%, #26c2e8 42%, #18b0d5 80%, #12a8cc 100%);
+        /* Sandy beach: top-right corner */
+        radial-gradient(ellipse 90% 76% at 124% -10%,
+          #eac85e 0%, #dfaa2e 22%, rgba(220,166,34,.84) 44%, rgba(204,150,20,0) 65%),
+        /* Sandy beach: bottom-right corner */
+        radial-gradient(ellipse 82% 85% at 122% 122%,
+          #e4ba32 0%, #d89e22 20%, rgba(212,156,26,.82) 42%, rgba(196,141,12,0) 63%),
+        /* Vivid turquoise water base */
+        linear-gradient(175deg, #3ed6f2 0%, #24c0e6 42%, #18aed3 80%, #12a6ca 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -2158,80 +2158,86 @@
     }
     #auth-screen::before {
       content: "";
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background:
-        /* Large purple blob: bottom-left, bleeds off left+bottom */
-        radial-gradient(ellipse 78% 85% at -10% 122%,
-          #c0b0e6 0%, #cab8ea 13%, rgba(202,183,236,.88) 31%, rgba(186,167,230,0) 53%),
-        /* Medium purple blob: right-center, bleeds off right edge */
-        radial-gradient(ellipse 50% 65% at 120% 66%,
-          rgba(208,194,240,.94) 0%, rgba(194,180,236,.80) 22%, rgba(180,165,230,0) 47%),
-        /* Small purple cloud: top-center-left */
-        radial-gradient(ellipse 24% 18% at 38% 11%,
-          rgba(218,208,244,.94) 0%, rgba(206,196,240,.78) 40%, rgba(192,182,235,0) 66%),
-        /* Purple accent: bottom-right, bleeds off corner */
-        radial-gradient(ellipse 32% 28% at 118% 94%,
-          rgba(200,187,237,.82) 0%, rgba(186,173,232,.64) 43%, rgba(172,158,226,0) 70%);
-      pointer-events: none;
-      z-index: 0;
+        /* Large purple blob: bottom-left */
+        radial-gradient(ellipse 76% 82% at -10% 120%,
+          #beaee2 0%, #c8b6e6 14%, rgba(200,180,233,.87) 32%, rgba(183,164,227,0) 54%),
+        /* Medium purple blob: right side — moved closer so ~20% visible */
+        radial-gradient(ellipse 44% 56% at 110% 64%,
+          rgba(206,192,237,.94) 0%, rgba(192,177,233,.80) 24%, rgba(177,162,227,0) 50%),
+        /* Small purple cloud: top-center */
+        radial-gradient(ellipse 22% 16% at 38% 10%,
+          rgba(216,206,242,.93) 0%, rgba(204,193,238,.77) 41%, rgba(189,179,233,0) 67%),
+        /* Purple accent: bottom-right corner */
+        radial-gradient(ellipse 28% 24% at 115% 92%,
+          rgba(197,184,235,.80) 0%, rgba(183,169,229,.62) 44%, rgba(169,154,223,0) 71%);
+      pointer-events: none; z-index: 0;
     }
     #auth-screen::after {
       content: "";
-      position: absolute;
-      inset: 0;
+      position: absolute; inset: 0;
       background:
-        /* === WATER OVAL BUBBLES (light, brighter-than-water) === */
-        /* These are large, prominent, horizontally elongated */
-        radial-gradient(ellipse 26% 14% at 8% 48%,
-          rgba(130,238,254,.66) 0%, rgba(116,229,250,.62) 55%, rgba(95,216,243,.14) 78%, transparent 92%),
-        radial-gradient(ellipse 20% 11% at 18% 75%,
-          rgba(126,235,252,.62) 0%, rgba(112,226,248,.58) 55%, rgba(92,214,241,.13) 78%, transparent 92%),
-        radial-gradient(ellipse 30% 16% at 14% 92%,
-          rgba(134,240,255,.64) 0%, rgba(120,231,251,.60) 55%, rgba(98,218,244,.14) 78%, transparent 92%),
-        radial-gradient(ellipse 22% 12% at 38% 90%,
-          rgba(128,236,253,.60) 0%, rgba(114,227,249,.55) 55%, rgba(94,215,242,.12) 78%, transparent 92%),
-        radial-gradient(ellipse 18% 10% at 58% 84%,
-          rgba(124,234,252,.58) 0%, rgba(110,225,248,.53) 55%, rgba(90,213,241,.12) 78%, transparent 92%),
-        radial-gradient(ellipse 15% 8% at 74% 78%,
-          rgba(130,237,254,.56) 0%, rgba(116,228,250,.51) 55%, rgba(95,216,243,.11) 78%, transparent 92%),
-        radial-gradient(ellipse 11% 6% at 87% 70%,
-          rgba(126,235,252,.52) 0%, rgba(112,226,248,.47) 55%, rgba(92,214,241,.10) 78%, transparent 92%),
-        radial-gradient(ellipse 16% 9% at 4% 28%,
-          rgba(132,238,254,.54) 0%, rgba(118,229,250,.50) 55%, rgba(96,217,243,.11) 78%, transparent 92%),
-        /* === WATER OVAL BUBBLES (dark, deeper teal/navy-cyan) === */
-        radial-gradient(ellipse 18% 10% at 24% 58%,
-          rgba(42,182,216,.58) 0%, rgba(34,172,208,.53) 55%, rgba(22,157,196,.12) 78%, transparent 92%),
-        radial-gradient(ellipse 14% 8% at 36% 74%,
-          rgba(38,178,213,.54) 0%, rgba(30,168,205,.49) 55%, rgba(18,153,193,.11) 78%, transparent 92%),
-        radial-gradient(ellipse 24% 13% at 30% 82%,
-          rgba(44,185,219,.56) 0%, rgba(36,175,211,.51) 55%, rgba(24,160,199,.12) 78%, transparent 92%),
-        radial-gradient(ellipse 16% 9% at 66% 94%,
-          rgba(40,180,215,.52) 0%, rgba(32,170,207,.47) 55%, rgba(20,155,195,.10) 78%, transparent 92%),
-        radial-gradient(ellipse 11% 6% at 50% 97%,
-          rgba(42,183,217,.50) 0%, rgba(34,173,209,.45) 55%, rgba(22,158,197,.10) 78%, transparent 92%),
-        radial-gradient(ellipse 12% 7% at 10% 62%,
-          rgba(38,177,212,.50) 0%, rgba(30,167,204,.45) 55%, rgba(18,152,192,.10) 78%, transparent 92%),
-        /* === ALGAE PATCHES (olive/yellow-green, not bright green) === */
-        radial-gradient(ellipse 11% 7% at 6% 24%,
-          rgba(150,200,40,.93) 0%, rgba(130,180,26,.78) 50%, rgba(110,160,14,.26) 72%, transparent 86%),
-        radial-gradient(ellipse 9% 5.5% at 16% 40%,
-          rgba(144,194,34,.89) 0%, rgba(124,174,20,.74) 52%, rgba(104,154,8,.23) 74%, transparent 87%),
-        radial-gradient(ellipse 13% 8% at 11% 62%,
-          rgba(154,206,44,.87) 0%, rgba(134,186,30,.72) 50%, rgba(114,166,18,.23) 72%, transparent 86%),
-        radial-gradient(ellipse 10% 6% at 36% 24%,
-          rgba(147,198,38,.85) 0%, rgba(127,178,24,.70) 52%, rgba(107,158,12,.21) 74%, transparent 87%),
-        radial-gradient(ellipse 8% 5% at 63% 17%,
-          rgba(141,192,32,.81) 0%, rgba(121,172,18,.66) 52%, rgba(101,152,6,.19) 74%, transparent 87%),
-        radial-gradient(ellipse 10% 6% at 78% 58%,
-          rgba(148,198,38,.79) 0%, rgba(128,178,24,.64) 50%, rgba(108,158,12,.19) 72%, transparent 86%),
-        radial-gradient(ellipse 9% 5.5% at 89% 80%,
-          rgba(143,193,34,.77) 0%, rgba(123,173,20,.62) 52%, rgba(103,153,8,.17) 74%, transparent 87%),
-        radial-gradient(ellipse 10% 6% at 47% 92%,
-          rgba(145,195,36,.75) 0%, rgba(125,175,22,.60) 52%, rgba(105,155,10,.17) 74%, transparent 87%);
-      pointer-events: none;
-      z-index: 0;
-      opacity: 1;
+        /* === LIGHT WATER OVALS — 5-12% wide, high opacity, sharp edge === */
+        radial-gradient(ellipse 8% 4.5% at 5% 42%,
+          rgba(158,244,255,.73) 0%, rgba(155,242,254,.71) 58%, rgba(132,228,248,.13) 78%, transparent 90%),
+        radial-gradient(ellipse 6% 3.5% at 13% 32%,
+          rgba(153,241,254,.69) 0%, rgba(150,239,253,.67) 58%, rgba(128,225,246,.12) 78%, transparent 90%),
+        radial-gradient(ellipse 10% 5.5% at 9% 66%,
+          rgba(160,245,255,.71) 0%, rgba(157,243,254,.69) 58%, rgba(134,230,249,.13) 78%, transparent 90%),
+        radial-gradient(ellipse 7% 4% at 21% 80%,
+          rgba(154,242,254,.67) 0%, rgba(151,240,253,.65) 58%, rgba(129,226,247,.12) 78%, transparent 90%),
+        radial-gradient(ellipse 12% 6.5% at 8% 90%,
+          rgba(162,246,255,.69) 0%, rgba(159,244,254,.67) 58%, rgba(136,231,250,.13) 78%, transparent 90%),
+        radial-gradient(ellipse 9% 5% at 36% 89%,
+          rgba(155,242,254,.65) 0%, rgba(152,240,253,.63) 58%, rgba(130,227,247,.11) 78%, transparent 90%),
+        radial-gradient(ellipse 7% 4% at 51% 95%,
+          rgba(152,241,254,.63) 0%, rgba(149,239,253,.61) 58%, rgba(127,225,246,.11) 78%, transparent 90%),
+        radial-gradient(ellipse 11% 6% at 63% 87%,
+          rgba(157,243,255,.61) 0%, rgba(154,241,254,.59) 58%, rgba(131,228,248,.11) 78%, transparent 90%),
+        radial-gradient(ellipse 8% 4.5% at 76% 81%,
+          rgba(154,242,254,.59) 0%, rgba(151,240,253,.57) 58%, rgba(129,226,247,.10) 78%, transparent 90%),
+        radial-gradient(ellipse 6% 3.5% at 86% 65%,
+          rgba(150,240,253,.57) 0%, rgba(147,238,252,.55) 58%, rgba(125,224,245,.10) 78%, transparent 90%),
+        radial-gradient(ellipse 5% 3% at 94% 51%,
+          rgba(152,241,254,.55) 0%, rgba(149,239,253,.53) 58%, rgba(127,225,246,.09) 78%, transparent 90%),
+        radial-gradient(ellipse 7% 4% at 4% 26%,
+          rgba(156,243,255,.57) 0%, rgba(153,241,254,.55) 58%, rgba(130,228,248,.10) 78%, transparent 90%),
+        /* === DARK WATER OVALS — 5-11% wide === */
+        radial-gradient(ellipse 9% 5% at 17% 56%,
+          rgba(40,178,213,.63) 0%, rgba(38,176,211,.61) 58%, rgba(22,158,197,.12) 78%, transparent 90%),
+        radial-gradient(ellipse 7% 4% at 29% 71%,
+          rgba(36,174,210,.59) 0%, rgba(34,172,208,.57) 58%, rgba(18,153,193,.11) 78%, transparent 90%),
+        radial-gradient(ellipse 11% 6% at 23% 85%,
+          rgba(42,180,215,.61) 0%, rgba(40,178,213,.59) 58%, rgba(24,160,199,.12) 78%, transparent 90%),
+        radial-gradient(ellipse 8% 4.5% at 43% 97%,
+          rgba(38,176,212,.57) 0%, rgba(36,174,210,.55) 58%, rgba(20,155,195,.10) 78%, transparent 90%),
+        radial-gradient(ellipse 6% 3.5% at 56% 81%,
+          rgba(36,173,210,.55) 0%, rgba(34,171,208,.53) 58%, rgba(18,152,193,.10) 78%, transparent 90%),
+        radial-gradient(ellipse 10% 5.5% at 69% 93%,
+          rgba(40,178,213,.53) 0%, rgba(38,176,211,.51) 58%, rgba(22,157,197,.10) 78%, transparent 90%),
+        radial-gradient(ellipse 7% 4% at 81% 86%,
+          rgba(38,176,212,.51) 0%, rgba(36,174,210,.49) 58%, rgba(20,155,195,.09) 78%, transparent 90%),
+        radial-gradient(ellipse 5% 3% at 5% 25%,
+          rgba(36,174,210,.53) 0%, rgba(34,172,208,.51) 58%, rgba(18,153,193,.10) 78%, transparent 90%),
+        /* === ALGAE PATCHES — 5-8% wide, olive/yellow-green === */
+        radial-gradient(ellipse 7% 4.5% at 5% 22%,
+          rgba(150,200,40,.95) 0%, rgba(148,198,38,.91) 56%, rgba(120,168,20,.27) 75%, transparent 88%),
+        radial-gradient(ellipse 5.5% 3.5% at 15% 38%,
+          rgba(144,193,34,.91) 0%, rgba(142,191,32,.87) 56%, rgba(114,161,14,.25) 75%, transparent 88%),
+        radial-gradient(ellipse 8% 5% at 10% 58%,
+          rgba(154,205,44,.89) 0%, rgba(152,203,42,.85) 56%, rgba(124,172,22,.26) 75%, transparent 88%),
+        radial-gradient(ellipse 6% 4% at 34% 22%,
+          rgba(147,197,38,.86) 0%, rgba(145,195,36,.82) 56%, rgba(117,165,18,.24) 75%, transparent 88%),
+        radial-gradient(ellipse 5% 3.5% at 61% 16%,
+          rgba(141,191,32,.82) 0%, rgba(139,189,30,.78) 56%, rgba(111,159,12,.22) 75%, transparent 88%),
+        radial-gradient(ellipse 6.5% 4% at 77% 57%,
+          rgba(147,197,36,.80) 0%, rgba(145,195,34,.76) 56%, rgba(117,165,16,.22) 75%, transparent 88%),
+        radial-gradient(ellipse 5.5% 3.5% at 89% 79%,
+          rgba(142,192,33,.78) 0%, rgba(140,190,31,.74) 56%, rgba(112,160,13,.21) 75%, transparent 88%),
+        radial-gradient(ellipse 6.5% 4% at 46% 91%,
+          rgba(144,194,34,.76) 0%, rgba(142,192,32,.72) 56%, rgba(114,162,14,.21) 75%, transparent 88%);
+      pointer-events: none; z-index: 0; opacity: 1;
     }
     #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
