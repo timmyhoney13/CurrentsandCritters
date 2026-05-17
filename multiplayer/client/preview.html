@@ -4988,6 +4988,299 @@
     .comp-lb-cell-cp   { font-weight: 800; color: #f5d060; font-size: 11px; }
     .comp-lb-cell-rank { font-size: 10px; color: rgba(255,255,255,.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
     .comp-lb-cell-pct  { font-size: 11px; color: rgba(255,255,255,.8); }
+
+    /* ── ACHIEVEMENT POPUP ───────────────────────────────────────────── */
+    #ach-unlock-popup {
+      position: fixed;
+      top: 18px;
+      right: -380px;
+      z-index: 99999;
+      width: 320px;
+      background: linear-gradient(135deg, #0d2d52 0%, #0a1e36 60%, #071828 100%);
+      border: 1.5px solid rgba(38,200,240,.5);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 0 1px rgba(38,200,240,.12), inset 0 1px 0 rgba(255,255,255,.06);
+      transition: right .45s cubic-bezier(.22,1,.36,1), opacity .3s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #ach-unlock-popup.visible {
+      right: 18px;
+      opacity: 1;
+    }
+    .ach-popup-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #f0c840;
+      margin-bottom: 9px;
+    }
+    .ach-popup-body {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .ach-popup-icon {
+      font-size: 2.1rem;
+      width: 52px;
+      height: 52px;
+      border-radius: 12px;
+      background: rgba(38,200,240,.13);
+      border: 1.5px solid rgba(38,200,240,.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 0 18px rgba(38,200,240,.2);
+    }
+    .ach-popup-info { min-width: 0; }
+    .ach-popup-name {
+      font-size: .97rem;
+      font-weight: 800;
+      color: #e8f4ff;
+      line-height: 1.25;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ach-popup-xp {
+      font-size: .85rem;
+      font-weight: 800;
+      color: #f0c840;
+    }
+
+    /* ── ACHIEVEMENT PAGE (Steam-inspired, ocean themed) ─────────────── */
+    .ach-main-card { padding: 0 !important; overflow: visible; }
+    .ach-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid rgba(38,128,200,.15);
+    }
+    .ach-page-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #1a4f97;
+    }
+    /* Overall progress panel */
+    .ach-progress-panel {
+      margin: 16px 20px;
+      background: linear-gradient(135deg, rgba(38,128,200,.1) 0%, rgba(13,148,136,.08) 100%);
+      border: 1.5px solid rgba(38,128,200,.22);
+      border-radius: 14px;
+      padding: 16px 20px;
+    }
+    .ach-prog-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .ach-prog-stat {
+      font-size: 1.25rem;
+      font-weight: 900;
+      color: #1a4f97;
+    }
+    .ach-prog-stat span { color: #3a7abf; }
+    .ach-prog-pct-val {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #0d8a6e;
+    }
+    .ach-prog-bar-track {
+      height: 12px;
+      background: rgba(38,128,200,.14);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 1px solid rgba(38,128,200,.18);
+    }
+    .ach-prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1ca87a 0%, #27c8a0 50%, #22d8f8 100%);
+      border-radius: 8px;
+      transition: width .6s ease;
+      box-shadow: 0 0 8px rgba(39,200,160,.4);
+    }
+    .ach-prog-remaining {
+      font-size: .82rem;
+      color: #5a7a9a;
+      font-weight: 700;
+    }
+    /* Filter row */
+    .ach-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+    }
+    .ach-filter-sel {
+      border: 1.5px solid rgba(38,128,200,.3);
+      background: rgba(255,255,255,.85);
+      border-radius: 8px;
+      padding: 6px 28px 6px 10px;
+      font-size: .88rem;
+      font-weight: 700;
+      color: #1a4f97;
+      font-family: "Nunito", sans-serif;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%234a7ab8'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+    }
+    .ach-filter-sel:focus { outline: 2px solid rgba(38,128,200,.4); }
+    /* Achievement list */
+    .ach-steam-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0 16px 20px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .ach-empty {
+      text-align: center;
+      color: #7a9ab8;
+      font-size: .92rem;
+      padding: 28px 16px;
+    }
+    /* Achievement card */
+    .ach-steam-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 13px 14px;
+      border-radius: 12px;
+      margin-bottom: 7px;
+      border: 1.5px solid rgba(38,128,200,.18);
+      background: rgba(255,255,255,.78);
+      transition: border-color .15s, box-shadow .15s;
+      position: relative;
+    }
+    .ach-steam-card:last-child { margin-bottom: 0; }
+    .ach-steam-card:hover { border-color: rgba(38,128,200,.38); box-shadow: 0 2px 10px rgba(38,128,200,.08); }
+    .ach-steam-card.ach-done {
+      background: linear-gradient(135deg, rgba(45,189,130,.08) 0%, rgba(39,200,160,.05) 100%);
+      border-color: rgba(45,189,130,.38);
+      box-shadow: 0 0 0 1px rgba(45,189,130,.12) inset;
+    }
+    .ach-steam-card.ach-done:hover { border-color: rgba(45,189,130,.58); box-shadow: 0 2px 12px rgba(45,189,130,.14); }
+    .ach-steam-card.ach-secret { opacity: .72; }
+    /* Icon */
+    .ach-icon-wrap {
+      width: 50px;
+      height: 50px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.7rem;
+      flex-shrink: 0;
+      background: rgba(38,128,200,.07);
+      border: 1.5px solid rgba(38,128,200,.18);
+    }
+    .ach-icon-done {
+      background: linear-gradient(135deg, rgba(45,189,130,.2) 0%, rgba(39,200,160,.12) 100%);
+      border: 1.5px solid rgba(45,189,130,.4);
+      box-shadow: 0 0 14px rgba(45,189,130,.2);
+    }
+    .ach-icon-locked {
+      background: rgba(38,128,200,.08);
+      border: 1.5px solid rgba(38,128,200,.2);
+      filter: grayscale(.6);
+    }
+    /* Info */
+    .ach-info { flex: 1; min-width: 0; }
+    .ach-name {
+      font-size: .95rem;
+      font-weight: 800;
+      color: #1a3e7a;
+      margin-bottom: 3px;
+      line-height: 1.2;
+    }
+    .ach-steam-card.ach-done .ach-name { color: #0d6040; }
+    .ach-steam-card.ach-secret .ach-name { color: #5a7a9a; }
+    .ach-desc {
+      font-size: .82rem;
+      color: #5a7a9a;
+      line-height: 1.4;
+      margin-bottom: 6px;
+    }
+    .ach-steam-card.ach-done .ach-desc { color: #3a7060; }
+    /* Progress bar on card */
+    .ach-steam-prog-wrap { margin-top: 5px; }
+    .ach-steam-prog-bar {
+      height: 6px;
+      background: rgba(38,128,200,.15);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 3px;
+    }
+    .ach-steam-prog-bar.ach-prog-complete .ach-steam-prog-fill {
+      background: linear-gradient(90deg, #1ca87a, #27c8a0);
+    }
+    .ach-steam-prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2680c8, #22d8f8);
+      border-radius: 4px;
+      transition: width .5s ease;
+    }
+    .ach-steam-prog-text {
+      font-size: .76rem;
+      color: #6a8aaa;
+      font-weight: 700;
+    }
+    /* Right side */
+    .ach-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 5px;
+      flex-shrink: 0;
+      min-width: 90px;
+    }
+    .ach-xp {
+      font-size: .9rem;
+      font-weight: 900;
+      color: #c89a00;
+      white-space: nowrap;
+    }
+    .ach-steam-card.ach-done .ach-xp { color: #1d8a6e; }
+    .ach-badge {
+      font-size: .72rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .ach-badge-done {
+      background: rgba(45,189,130,.16);
+      color: #0d6040;
+      border: 1px solid rgba(45,189,130,.35);
+    }
+    .ach-badge-locked {
+      background: rgba(38,128,200,.1);
+      color: #4a6a8a;
+      border: 1px solid rgba(38,128,200,.2);
+    }
+    .ach-unlock-date {
+      font-size: .72rem;
+      color: #6a8aaa;
+      white-space: nowrap;
+    }
+    @media (max-width: 600px) {
+      .ach-steam-list { max-height: none; }
+      .ach-right { min-width: 72px; }
+      .ach-icon-wrap { width: 42px; height: 42px; font-size: 1.4rem; }
+    }
   </style>
 </head>
 <body>
@@ -5736,42 +6029,32 @@
 
     <!-- ── Achievements tab ──────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-achievements" style="display:none;">
-      <div class="ph-scard ph-full">
-        <div class="ph-sh">
-          <div class="ph-st">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="#2680c8" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
-            Achievements
+      <div class="ach-main-card">
+        <!-- Overall progress panel -->
+        <div class="ach-progress-panel" id="ach-overall-progress">
+          <div class="ach-page-header">
+            <div class="ach-page-title">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4.5 2.25h9v4.5a4.5 4.5 0 0 1-9 0v-4.5z" stroke="#2d86e4" stroke-width="1.6" stroke-linejoin="round"/><path d="M3.375 4.5H1.687A2.812 2.812 0 0 0 4.5 7.312M14.625 4.5h1.687A2.812 2.812 0 0 1 13.5 7.312M9 11.25v3.375M6.75 15.75h4.5" stroke="#2d86e4" stroke-width="1.6" stroke-linecap="round"/></svg>
+              Achievements
+            </div>
+            <div class="ach-filter-row">
+              <select class="ach-filter-sel" id="ach-filter-select">
+                <option value="all">All Achievements</option>
+                <option value="completed">Completed</option>
+                <option value="uncompleted">Uncompleted</option>
+              </select>
+            </div>
           </div>
+          <div class="ach-prog-header">
+            <div class="ach-prog-stat"><span id="ach-stat-done">0</span> / 38 Completed</div>
+            <div class="ach-prog-pct-val"><span id="ach-stat-pct">0</span>% Complete</div>
+            <div class="ach-prog-stat"><span id="ach-stat-left">38</span> Left</div>
+          </div>
+          <div class="ach-prog-bar-track"><div class="ach-prog-fill" id="ach-prog-fill" style="width:0%"></div></div>
         </div>
-        <div class="ph-ach-list" id="ph-full-ach-list">
-          <div class="ph-ach-item open" data-ach-kind="daily">
-            <button class="ph-ach-summary" id="ph-full-ach-daily-toggle" data-ach-kind="daily" type="button">
-              <div class="ph-ach-meta">
-                <div class="ph-ach-label">Daily (<span id="ph-full-ach-daily-count">0</span>)</div>
-                <div class="ph-ach-subtitle">New day, new rewards!</div>
-              </div>
-              <div class="ph-ach-preview" id="ph-full-ach-daily-preview"></div>
-            </button>
-            <div class="ph-ach-details" id="ph-full-ach-daily-details"></div>
-          </div>
-          <div class="ph-ach-item open" data-ach-kind="completed">
-            <button class="ph-ach-summary" id="ph-full-ach-completed-toggle" data-ach-kind="completed" type="button">
-              <div class="ph-ach-meta">
-                <div class="ph-ach-label">Completed (<span id="ph-full-ach-completed-count">0</span>)</div>
-              </div>
-              <div class="ph-ach-preview" id="ph-full-ach-completed-preview"></div>
-            </button>
-            <div class="ph-ach-details" id="ph-full-ach-completed-details"></div>
-          </div>
-          <div class="ph-ach-item open" data-ach-kind="uncompleted">
-            <button class="ph-ach-summary" id="ph-full-ach-uncompleted-toggle" data-ach-kind="uncompleted" type="button">
-              <div class="ph-ach-meta">
-                <div class="ph-ach-label">Uncompleted (<span id="ph-full-ach-uncompleted-count">0</span>)</div>
-              </div>
-              <div class="ph-ach-preview" id="ph-full-ach-uncompleted-preview"></div>
-            </button>
-            <div class="ph-ach-details" id="ph-full-ach-uncompleted-details"></div>
-          </div>
+        <!-- Achievement list -->
+        <div class="ach-steam-list" id="ach-steam-list">
+          <div style="color:var(--muted);text-align:center;padding:32px 0;font-size:13px;">Loading achievements…</div>
         </div>
       </div>
     </div>
@@ -7466,6 +7749,13 @@
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
       showToast(desc, "ok");
+      // Track per-game stats for achievements
+      if (action.kind === "draw" && Number(action.draw_from_pool || 0) > 0) {
+        _gameAchTracker.usedPool = true;
+      }
+      if (action.kind === "move_between_oceans") {
+        _gameAchTracker.animalMoves = (_gameAchTracker.animalMoves || 0) + 1;
+      }
       // Competitive: immediately flip to the other hand after submitting
       if (compMode && myIdx !== null) {
         const otherSeat = compMySeats.find(s => s !== myIdx);
@@ -7570,6 +7860,7 @@
     if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
       const triggerPlayer = state.current_player || "";
       showEndGameCinematic(endGame.end_game_uid, triggerPlayer);
+      _gameAchTracker.endGameSeen = true;
     }
     _prevEndTriggered = endTriggered;
 
@@ -10756,7 +11047,18 @@
             if (isWinner) updates[`stats.normal_wins_by_size.${playerCount}`] = firebase.firestore.FieldValue.increment(1);
           }
         }
+        // Track hosted casual games for Host With the Most achievement
+        if (!isComp && myIdx === 0) {
+          updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
+        }
         await docRef.update(updates);
+        // Check game-end achievements for authenticated users
+        if (typeof window.__fishCheckAchievementsAfterGame === "function") {
+          window.__fishCheckAchievementsAfterGame({
+            isComp, isWinner, myScore, playerCount, finalScores,
+            boardSnaps, uid: authUser.uid,
+          });
+        }
       } else if (isGuestSession) {
         const saveGuest = (typeof window.__fishGuestStatsSave === "function") ? window.__fishGuestStatsSave : null;
         const nextStats = { ...(cStats && typeof cStats === "object" ? cStats : {}) };
@@ -10946,6 +11248,14 @@
         ...lifetimeUpdates,
       };
       await docRef.update(updates);
+      // Check rank + competitive achievements
+      if (typeof window.__fishCheckRankAchievements === "function") {
+        window.__fishCheckRankAchievements({
+          newRankName, iWon, isDraw,
+          p1Best, p2Best, p1Second, p2Second, amP1,
+          uid: authUser.uid,
+        });
+      }
 
       // ── Notify server ───────────────────────────────────────────
       const isHost = compMySeats.includes(0) || compMySeats.includes(1);
@@ -11116,6 +11426,10 @@
     if (!token) return;
     document.getElementById("pv-chat-text").value = "";
     await apiPost(`/api/rooms/${roomId}/chat`, { seat_token: token, message: text, target }, { timeoutMs: 8000 });
+    _gameAchTracker.chatMsgs = (_gameAchTracker.chatMsgs || 0) + 1;
+    if (typeof compMode !== "undefined" && compMode) {
+      _gameAchTracker.compChatMsgs = (_gameAchTracker.compChatMsgs || 0) + 1;
+    }
     refreshState();
   }
 
@@ -11160,6 +11474,77 @@
   function pingServer() { fetch(window.__FISH_API_BASE__+"/api/health",{method:"GET",cache:"no-store"}).catch(()=>{}); }
   pingServer();
   setInterval(pingServer, 9*60*1000);
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACHIEVEMENT DEFINITIONS (outer scope — shared with auth IIFE)
+  // ═══════════════════════════════════════════════════════════════
+  const ACHIEVEMENT_DEFS = [
+    { id:"first_fin",           name:"First Fin",                   icon:"👥", cat:"Friends",      xp:50,    desc:"Add 1 friend." },
+    { id:"cast_off",            name:"Cast Off",                    icon:"🎣", cat:"Casual",       xp:50,    desc:"Play your first Casual game." },
+    { id:"ranked_waters",       name:"Ranked Waters",               icon:"⚔️", cat:"Competitive",  xp:50,    desc:"Play your first Competitive game." },
+    { id:"shoal_formed",        name:"Shoal Formed",                icon:"🐟", cat:"Friends",      xp:100,   desc:"Add 5 friends." },
+    { id:"first_catch",         name:"First Catch",                 icon:"🏅", cat:"Casual",       xp:100,   desc:"Win your first Casual game." },
+    { id:"making_waves",        name:"Making Waves",                icon:"🌊", cat:"Casual",       xp:100,   desc:"Score 100+ in Casual with 4+ players." },
+    { id:"the_all_blue",        name:"The All Blue",                icon:"🌍", cat:"Special",      xp:150,   desc:"Play all 8 Oceans in one game." },
+    { id:"crowded_current",     name:"Crowded Current",             icon:"🐠", cat:"Casual",       xp:150,   desc:"Complete a 6-player Casual game." },
+    { id:"duel_in_the_deep",    name:"Duel in the Deep",            icon:"🥇", cat:"Competitive",  xp:200,   desc:"Win your first Competitive game." },
+    { id:"humuhumunukuapuaa",   name:"Humuhumunukuapua'a",          icon:"🐙", cat:"Special",      xp:250,   desc:"Play 5 cephalopods in one turn." },
+    { id:"big_splash",          name:"Big Splash",                  icon:"💦", cat:"Casual",       xp:250,   desc:"Score 150+ in Casual with 4+ players." },
+    { id:"tidal_victory",       name:"Tidal Victory",               icon:"🌟", cat:"Casual",       xp:250,   desc:"Win by 50+ points in a Casual game." },
+    { id:"host_with_the_most",  name:"Host With the Most",          icon:"🏠", cat:"Casual",       xp:250,   desc:"Create and finish 10 Casual games as host." },
+    { id:"ranked_tidal_wave",   name:"Ranked Tidal Wave",           icon:"🌊", cat:"Competitive",  xp:250,   desc:"Score 125+ in one hand in Competitive." },
+    { id:"silver_spiny_lobster",name:"Silver Spiny Lobster",        icon:"🦞", cat:"Rank",         xp:250,   desc:"Reach Silver rank." },
+    { id:"one_ocean_wonder",    name:"One Ocean Wonder",            icon:"🏝️", cat:"All Modes",    xp:250,   desc:"Win a game where every Ocean is the same type." },
+    { id:"full_boat",           name:"Full Boat",                   icon:"⛵", cat:"Casual",       xp:300,   desc:"Complete an 8-player Casual game." },
+    { id:"tidal_wave",          name:"Tidal Wave",                  icon:"🌊", cat:"Casual",       xp:500,   desc:"Score 250+ in Casual with 4+ players." },
+    { id:"golden_grouper",      name:"Golden Grouper",              icon:"🐡", cat:"Rank",         xp:500,   desc:"Reach Golden rank." },
+    { id:"last_current",        name:"Last Current",                icon:"⏳", cat:"All Modes",    xp:500,   desc:"Win after the End Game card appears." },
+    { id:"twin_tide_triumph",   name:"Twin Tide Triumph",           icon:"🤝", cat:"Competitive",  xp:750,   desc:"Win a Competitive game with both your hands beating your opponent's best." },
+    { id:"nothing_but_deck",    name:"Nothing But Deck",            icon:"🃏", cat:"All Modes",    xp:750,   desc:"Win a game without drawing from the Pool." },
+    { id:"current_controller",  name:"Current Controller",          icon:"🔄", cat:"All Modes",    xp:900,   desc:"Move 15 animals between Oceans in one game." },
+    { id:"shoot_the_moon",      name:"Shoot the Moon",              icon:"🌙", cat:"Special",      xp:1000,  desc:"Have all 4 Mandarin Gobies on the board in one game." },
+    { id:"tsunami",             name:"Tsunami",                     icon:"🌊", cat:"Casual",       xp:1000,  desc:"Score 300+ in a Casual game." },
+    { id:"ranked_tsunami",      name:"Ranked Tsunami",              icon:"⚡", cat:"Competitive",  xp:1000,  desc:"Score 150+ in one hand in Competitive." },
+    { id:"diamond_dolphin",     name:"Diamond Dolphin",             icon:"💎", cat:"Rank",         xp:1000,  desc:"Reach Diamond rank." },
+    { id:"back_to_back_diver",  name:"Back-to-Back Diver",          icon:"🤿", cat:"All Modes",    xp:1000,  desc:"Win without using the Pool in both a Casual AND Competitive game back to back." },
+    { id:"shot_the_moon",       name:"Shot the Moon",               icon:"🌕", cat:"Special",      xp:1500,  desc:"Discard or clear a Goby after someone else has 3 Mandarin Gobies." },
+    { id:"reef_rally",          name:"Reef Rally",                  icon:"🐠", cat:"Friends",      xp:1500,  desc:"Add 15 friends." },
+    { id:"emerald_emperor_penguin",name:"Emerald Emperor Penguin",  icon:"🐧", cat:"Rank",         xp:1500,  desc:"Reach Emerald rank." },
+    { id:"close_current",       name:"Close Current",               icon:"🎯", cat:"Competitive",  xp:2000,  desc:"Win a Competitive game by 5 points or less." },
+    { id:"reef_regular",        name:"Reef Regular",                icon:"🪸", cat:"Casual",       xp:2000,  desc:"Finish 100 Casual games." },
+    { id:"reef_veteran",        name:"Reef Veteran",                icon:"⚓", cat:"Casual",       xp:4000,  desc:"Finish 250 Casual games." },
+    { id:"king_of_the_critters",name:"King of the Critters",        icon:"👑", cat:"Rank",         xp:10000, desc:"Reach King of the Critters rank." },
+    { id:"message_in_a_bottle", name:"Message in a Bottle",         icon:"📬", cat:"Hidden",       xp:1000,  desc:"Send 25 messages in one game.", hidden:true },
+    { id:"ive_swum_there",      name:"I've Swum There",             icon:"🗺️", cat:"Hidden",       xp:1000,  desc:"Play with every player count (2–8) in Casual.", hidden:true },
+    { id:"annoying_messenger",  name:"Annoying Messenger",          icon:"📢", cat:"Hidden",       xp:1500,  desc:"Send 25 messages in one Competitive game.", hidden:true },
+  ];
+
+  // Per-game achievement tracker (reset each game session by window.__fishResetGameAchTracker)
+  let _gameAchTracker = {
+    roomId: null,
+    usedPool: false,
+    animalMoves: 0,
+    chatMsgs: 0,
+    compChatMsgs: 0,
+    endGameSeen: false,
+    lastNoPoolMode: null, // "casual"|"comp"|null — for back-to-back tracker
+    noPoolCasualDone: false,
+    noPoolCompDone: false,
+  };
+  window.__fishResetGameAchTracker = function(newRoomId) {
+    _gameAchTracker = {
+      roomId: newRoomId || null,
+      usedPool: false,
+      animalMoves: 0,
+      chatMsgs: 0,
+      compChatMsgs: 0,
+      endGameSeen: false,
+      lastNoPoolMode: null,
+      noPoolCasualDone: false,
+      noPoolCompDone: false,
+    };
+  };
+  window.__fishGetGameAchTracker = function() { return _gameAchTracker; };
 
   // ═══════════════════════════════════════════════════════════════
   // AUTH / PROFILE / FRIENDS SYSTEM
@@ -12118,6 +12503,7 @@
       if (_activeProfile && savedAvatar) _activeProfile.avatar_url = savedAvatar;
       syncStatsHeader(_activeProfile);
       renderStats(profile && profile.stats ? profile.stats : null);
+      if (typeof window.__fishLoadUserAchievements === "function") window.__fishLoadUserAchievements(uid);
       if (_authUser && _authUser.uid === uid && !hasSelectableAvatar && _avatarPromptShownForUid !== uid) {
         _avatarPromptShownForUid = uid;
         _avatarModalSelection = getDefaultAvatar(uid || _playerNickname || "player");
@@ -13304,31 +13690,90 @@
     })();
 
     function renderPhAchievements() {
-      const data = _overviewAchievements || normalizeOverviewAchievements({});
-      const daily = data.dailyAchievements;
-      const completed = data.completedAchievements;
-      const uncompleted = data.uncompletedAchievements;
-      const setCount = (id, value) => { const el = $a(id); if (el) el.textContent = String(value); };
-      setCount("ph-full-ach-daily-count", daily.length);
-      setCount("ph-full-ach-completed-count", completed.length);
-      setCount("ph-full-ach-uncompleted-count", uncompleted.length);
-      renderAchievementPreview("ph-full-ach-daily-preview", daily, "daily");
-      renderAchievementPreview("ph-full-ach-completed-preview", completed, "completed");
-      renderAchievementPreview("ph-full-ach-uncompleted-preview", uncompleted, "uncompleted");
-      renderAchievementDetails("ph-full-ach-daily-details", daily, "daily");
-      renderAchievementDetails("ph-full-ach-completed-details", completed, "completed");
-      renderAchievementDetails("ph-full-ach-uncompleted-details", uncompleted, "uncompleted");
+      const list = $a("ach-steam-list");
+      if (!list) return;
+      const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
+      const filterVal = ($a("ach-filter-select") || {}).value || "all";
+      const total = ACHIEVEMENT_DEFS.length;
+      const doneCount = ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length;
+      const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
+      const setText = (id, v) => { const e = $a(id); if (e) e.textContent = String(v); };
+      setText("ach-stat-done", doneCount);
+      setText("ach-stat-pct", pct);
+      setText("ach-stat-left", total - doneCount);
+      const fill = $a("ach-prog-fill");
+      if (fill) fill.style.width = pct + "%";
+
+      const defs = ACHIEVEMENT_DEFS.filter(def => {
+        const rec = userAchs[def.id] || {};
+        const done = !!rec.completed;
+        if (filterVal === "completed" && !done) return false;
+        if (filterVal === "uncompleted" && done) return false;
+        return true;
+      });
+      // Sort: completed first, uncompleted second, secret locked last
+      defs.sort((a, b) => {
+        const aRec = userAchs[a.id] || {}, bRec = userAchs[b.id] || {};
+        const aDone = !!aRec.completed, bDone = !!bRec.completed;
+        const aSecretLocked = !!a.hidden && !aDone;
+        const bSecretLocked = !!b.hidden && !bDone;
+        if (aDone && !bDone) return -1;
+        if (!aDone && bDone) return 1;
+        if (aSecretLocked && !bSecretLocked) return 1;
+        if (!aSecretLocked && bSecretLocked) return -1;
+        return 0;
+      });
+
+      if (!defs.length) {
+        list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:32px 0;font-size:13px;">No achievements match this filter.</div>';
+        return;
+      }
+
+      list.innerHTML = "";
+      defs.forEach(def => {
+        const rec = userAchs[def.id] || {};
+        const done = !!rec.completed;
+        const isSecret = !!def.hidden && !done;
+
+        const card = document.createElement("div");
+        card.className = "ach-steam-card" + (done ? " ach-done" : "") + (isSecret ? " ach-secret" : "");
+
+        let iconHtml, nameHtml, descHtml, progHtml = "";
+        if (isSecret) {
+          iconHtml = `<div class="ach-icon-wrap ach-icon-locked"><span>?</span></div>`;
+          nameHtml = `<div class="ach-name">Secret Achievement</div>`;
+          descHtml = `<div class="ach-desc">Unlock this to reveal it.</div>`;
+        } else {
+          const badgeCls = done ? "ach-icon-done" : "";
+          iconHtml = `<div class="ach-icon-wrap ${badgeCls}"><span>${escapeHtml(def.icon)}</span></div>`;
+          nameHtml = `<div class="ach-name">${escapeHtml(def.name)}</div>`;
+          descHtml = `<div class="ach-desc">${escapeHtml(def.desc)}</div>`;
+          if (rec.progress != null && rec.goal != null && !done) {
+            const prog = Math.min(Number(rec.progress || 0), Number(rec.goal));
+            const goal = Number(rec.goal);
+            const pPct = goal > 0 ? Math.round((prog / goal) * 100) : 0;
+            progHtml = `<div class="ach-steam-prog-wrap"><div class="ach-steam-prog-bar"><div class="ach-steam-prog-fill" style="width:${pPct}%"></div></div><div class="ach-steam-prog-text">${prog} / ${goal}</div></div>`;
+          }
+        }
+
+        const xpHtml = isSecret ? `<div class="ach-xp">? XP</div>` : `<div class="ach-xp">+${def.xp} XP</div>`;
+        let badgeHtml = "";
+        if (done) {
+          const dateStr = rec.unlockedAt ? new Date(rec.unlockedAt).toLocaleDateString(undefined, {month:"short",day:"numeric",year:"numeric"}) : "";
+          badgeHtml = `<div class="ach-badge ach-badge-done">✓ Unlocked</div>${dateStr ? `<div class="ach-unlock-date">${escapeHtml(dateStr)}</div>` : ""}`;
+        } else if (!isSecret) {
+          badgeHtml = `<div class="ach-badge ach-badge-locked">Locked</div>`;
+        }
+
+        card.innerHTML = `${iconHtml}<div class="ach-info">${nameHtml}${descHtml}${progHtml}</div><div class="ach-right">${xpHtml}${badgeHtml}</div>`;
+        list.appendChild(card);
+      });
     }
 
-    (function wireFullAchievementToggles() {
-      ["daily", "completed", "uncompleted"].forEach((kind) => {
-        const btn = $a(`ph-full-ach-${kind}-toggle`);
-        if (!btn) return;
-        btn.addEventListener("click", () => {
-          const item = btn.closest(".ph-ach-item");
-          if (item) item.classList.toggle("open");
-        });
-      });
+    // Wire achievement filter
+    (function() {
+      const sel = $a("ach-filter-select");
+      if (sel) sel.addEventListener("change", () => renderPhAchievements());
     })();
 
     function applyPhNormalStatsForPlayerCount(ps) {
@@ -14115,7 +14560,7 @@
             const reqName = escapeHtml(req.from_nickname || "Unknown");
             const reqCode = req.from_code ? ` <span style="color:#9ab8d0;font-size:11px;">#${escapeHtml(req.from_code)}</span>` : "";
             row.innerHTML = `<span class="ph-rg-opp">${reqName}${reqCode}</span><span style='display:flex;gap:6px;'><button class='pv-btn sm ph-req-accept'>✓</button><button class='pv-btn sm ph-req-deny' style='background:rgba(220,60,60,.08);border-color:rgba(220,60,60,.3);color:#c0392b;'>✕</button></span>`;
-            row.querySelector(".ph-req-accept").onclick = async () => { row.style.opacity = ".5"; await acceptFriendRequest(_authUser.uid, _playerNickname, req); renderPhFriendsList(); loadFriendsMini(_authUser.uid); };
+            row.querySelector(".ph-req-accept").onclick = async () => { row.style.opacity = ".5"; await acceptFriendRequest(_authUser.uid, _playerNickname, req); renderPhFriendsList(); loadFriendsMini(_authUser.uid); if (typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); };
             row.querySelector(".ph-req-deny").onclick = async () => { row.style.opacity = ".5"; await denyFriendRequest(_authUser.uid, req.from_uid); renderPhFriendsList(); };
             reqList.appendChild(row);
           });
@@ -14161,9 +14606,9 @@
         setAuthMsg("ph-friend-err", "Looking up…", true);
         const result = await addFriend(_authUser.uid, rawCode, _playerNickname);
         if (result.error) { setAuthMsg("ph-friend-err", result.error, false); }
-        else if (result.autoAccepted) { setAuthMsg("ph-friend-err", "✓ Now friends with " + result.nickname + "!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); }
+        else if (result.autoAccepted) { setAuthMsg("ph-friend-err", "✓ Now friends with " + result.nickname + "!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); if (typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         else if (result.requested) { setAuthMsg("ph-friend-err", "✓ Request sent to " + result.nickname + "!", true); $a("ph-add-friend-input").value = ""; }
-        else { setAuthMsg("ph-friend-err", "✓ Done!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); }
+        else { setAuthMsg("ph-friend-err", "✓ Done!", true); $a("ph-add-friend-input").value = ""; renderPhFriendsList(); loadFriendsMini(_authUser.uid); if (typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
       });
       const phAddInput = $a("ph-add-friend-input");
       if (phAddInput) phAddInput.addEventListener("keydown", e => { if (e.key === "Enter") phAddBtn.click(); });
@@ -14189,6 +14634,320 @@
       updatePhStats(stats);
     };
 
+    // ═══════════════════════════════════════════════════════════════
+    // ACHIEVEMENT SYSTEM (inside auth IIFE — has access to _authUser, _db)
+    // ═══════════════════════════════════════════════════════════════
+
+    // In-memory cache of this user's achievement records
+    let _userAchievements = {}; // achId → { completed, unlockedAt, progress, goal }
+    let _achLoadedUid = null;
+
+    // Popup queue
+    const _achPopupQueue = [];
+    let _achPopupShowing = false;
+
+    function _showNextAchPopup() {
+      if (_achPopupShowing || !_achPopupQueue.length) return;
+      const { def } = _achPopupQueue.shift();
+      _achPopupShowing = true;
+      const popup = document.getElementById("ach-unlock-popup");
+      const iconEl = document.getElementById("ach-popup-icon");
+      const nameEl = document.getElementById("ach-popup-name");
+      const xpEl   = document.getElementById("ach-popup-xp");
+      if (!popup) { _achPopupShowing = false; _showNextAchPopup(); return; }
+      if (iconEl) iconEl.textContent = def.icon;
+      if (nameEl) nameEl.textContent = def.name;
+      if (xpEl)   xpEl.textContent   = "+" + def.xp + " XP";
+      popup.classList.add("visible");
+      setTimeout(() => {
+        popup.classList.remove("visible");
+        setTimeout(() => {
+          _achPopupShowing = false;
+          _showNextAchPopup();
+        }, 400);
+      }, 4500);
+    }
+
+    function _queueAchPopup(def) {
+      _achPopupQueue.push({ def });
+      _showNextAchPopup();
+    }
+
+    async function loadUserAchievements(uid) {
+      if (!_db || !uid) return;
+      try {
+        const snap = await _db.collection("users").doc(uid).get();
+        const data = snap.data() || {};
+        _userAchievements = (data.achievements && typeof data.achievements === "object") ? { ...data.achievements } : {};
+        _achLoadedUid = uid;
+      } catch(e) {
+        console.warn("[achievements] loadUserAchievements error:", e);
+      }
+    }
+
+    async function unlockAchievement(uid, achId) {
+      if (!_db || !uid || !achId) return;
+      if (_userAchievements[achId] && _userAchievements[achId].completed) return; // already done
+      const def = ACHIEVEMENT_DEFS.find(d => d.id === achId);
+      if (!def) return;
+
+      const now = Date.now();
+      const rec = { completed: true, unlockedAt: now };
+      _userAchievements[achId] = rec;
+
+      // Award XP — atomically add to total_xp
+      try {
+        const docRef = _db.collection("users").doc(uid);
+        const updates = {};
+        updates[`achievements.${achId}`] = rec;
+        updates["stats.total_xp"] = firebase.firestore.FieldValue.increment(def.xp);
+        await docRef.update(updates);
+      } catch(e) {
+        console.warn("[achievements] unlockAchievement write error:", e);
+      }
+
+      _queueAchPopup(def);
+      // Re-render achievements page if visible
+      if (typeof renderPhAchievements === "function") {
+        try { renderPhAchievements(); } catch(_) {}
+      }
+    }
+
+    async function updateAchievementProgress(uid, achId, progress, goal) {
+      if (!_db || !uid || !achId) return;
+      if (_userAchievements[achId] && _userAchievements[achId].completed) return;
+      const rec = _userAchievements[achId] || {};
+      const newRec = { ...rec, progress, goal };
+      _userAchievements[achId] = newRec;
+      try {
+        await _db.collection("users").doc(uid).update({ [`achievements.${achId}`]: newRec });
+      } catch(e) {
+        console.warn("[achievements] updateAchievementProgress error:", e);
+      }
+      if (progress >= goal) await unlockAchievement(uid, achId);
+    }
+
+    function _isDone(achId) {
+      return !!(_userAchievements[achId] && _userAchievements[achId].completed);
+    }
+
+    // Rank tier mapping to achievement ids
+    const RANK_ACH_MAP = [
+      { tier: "Silver",  achId: "silver_spiny_lobster" },
+      { tier: "Golden",  achId: "golden_grouper" },
+      { tier: "Diamond", achId: "diamond_dolphin" },
+      { tier: "Emerald", achId: "emerald_emperor_penguin" },
+      { tier: "King",    achId: "king_of_the_critters" },
+    ];
+
+    async function checkRankAchievements({ newRankName, iWon, isDraw, p1Best, p2Best, p1Second, p2Second, amP1, uid }) {
+      if (!uid) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+
+      for (const { tier, achId } of RANK_ACH_MAP) {
+        if (!_isDone(achId) && newRankName && newRankName.includes(tier)) {
+          await unlockAchievement(uid, achId);
+        }
+      }
+
+      // Ranked Waters: first comp game
+      if (!_isDone("ranked_waters")) await unlockAchievement(uid, "ranked_waters");
+
+      // Duel in the Deep: first comp win
+      if (!_isDone("duel_in_the_deep") && iWon) await unlockAchievement(uid, "duel_in_the_deep");
+
+      // Ranked Tidal Wave: score 125+ in one hand
+      const myBest = amP1 ? p1Best : p2Best;
+      if (!_isDone("ranked_tidal_wave") && myBest >= 125) await unlockAchievement(uid, "ranked_tidal_wave");
+
+      // Ranked Tsunami: score 150+ in one hand
+      if (!_isDone("ranked_tsunami") && myBest >= 150) await unlockAchievement(uid, "ranked_tsunami");
+
+      // Twin Tide Triumph: win with both hands > opponent's best
+      if (!_isDone("twin_tide_triumph") && iWon) {
+        const mySecond = amP1 ? p1Second : p2Second;
+        const oppBest  = amP1 ? p2Best   : p1Best;
+        if (mySecond > oppBest) await unlockAchievement(uid, "twin_tide_triumph");
+      }
+
+      // Close Current: win by 5 points or less
+      if (!_isDone("close_current") && iWon && !isDraw) {
+        const myScore  = amP1 ? Math.max(p1Best, p1Second) : Math.max(p2Best, p2Second);
+        const oppScore = amP1 ? Math.max(p2Best, p2Second) : Math.max(p1Best, p1Second);
+        if (myScore - oppScore <= 5) await unlockAchievement(uid, "close_current");
+      }
+
+      // Annoying Messenger (hidden): 25+ comp chat messages in one game
+      if (!_isDone("annoying_messenger") && _gameAchTracker.compChatMsgs >= 25) {
+        await unlockAchievement(uid, "annoying_messenger");
+      }
+    }
+
+    async function checkFriendAchievements(uid) {
+      if (!uid) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (!_db) return;
+      try {
+        const snap = await _db.collection("users").doc(uid).collection("friends").get();
+        const count = snap.size;
+        if (!_isDone("first_fin") && count >= 1) await unlockAchievement(uid, "first_fin");
+        if (!_isDone("shoal_formed") && count >= 5) await unlockAchievement(uid, "shoal_formed");
+        if (!_isDone("reef_rally") && count >= 15) await unlockAchievement(uid, "reef_rally");
+      } catch(e) {
+        console.warn("[achievements] checkFriendAchievements error:", e);
+      }
+    }
+
+    async function checkAchievementsFromStats(uid, stats) {
+      if (!uid || !stats) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+
+      const normalGames  = Number(stats.completed_games || 0);
+      const normalWins   = Number(stats.normal_wins || 0);
+      const gamesBySize  = stats.normal_games_by_size || {};
+      const totalGames   = Object.values(gamesBySize).reduce((s,v)=>s+Number(v),0) || normalGames;
+
+      // Cast Off: first casual game
+      if (!_isDone("cast_off") && totalGames >= 1) await unlockAchievement(uid, "cast_off");
+
+      // First Catch: first casual win
+      if (!_isDone("first_catch") && normalWins >= 1) await unlockAchievement(uid, "first_catch");
+
+      // Reef Regular: 100 casual games
+      if (!_isDone("reef_regular") && normalGames >= 100) await unlockAchievement(uid, "reef_regular");
+
+      // Reef Veteran: 250 casual games
+      if (!_isDone("reef_veteran") && normalGames >= 250) await unlockAchievement(uid, "reef_veteran");
+
+      // Host With the Most: host 10 casual games
+      if (!_isDone("host_with_the_most")) {
+        const hostedGames = Number(stats.hosted_normal_games || 0);
+        if (hostedGames >= 10) await unlockAchievement(uid, "host_with_the_most");
+      }
+
+      // I've Swum There (hidden): played with every player count 2-8
+      if (!_isDone("ive_swum_there")) {
+        const sizes = [2,3,4,5,6,7,8];
+        const allPlayed = sizes.every(s => Number(gamesBySize[String(s)] || 0) > 0);
+        if (allPlayed) await unlockAchievement(uid, "ive_swum_there");
+      }
+    }
+
+    async function checkAchievementsAfterGame({ isComp, isWinner, myScore, playerCount, finalScores, boardSnaps, uid }) {
+      if (!uid) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      const tracker = _gameAchTracker;
+
+      if (!isComp) {
+        // Cast Off: first casual game played
+        if (!_isDone("cast_off")) await unlockAchievement(uid, "cast_off");
+
+        // First Catch: first casual win
+        if (!_isDone("first_catch") && isWinner) await unlockAchievement(uid, "first_catch");
+
+        // Making Waves: 100+ with 4+ players
+        if (!_isDone("making_waves") && myScore >= 100 && playerCount >= 4) await unlockAchievement(uid, "making_waves");
+
+        // Crowded Current: 6-player casual
+        if (!_isDone("crowded_current") && playerCount >= 6) await unlockAchievement(uid, "crowded_current");
+
+        // Big Splash: 150+ with 4+ players
+        if (!_isDone("big_splash") && myScore >= 150 && playerCount >= 4) await unlockAchievement(uid, "big_splash");
+
+        // Tidal Victory: win by 50+
+        if (!_isDone("tidal_victory") && isWinner) {
+          const scores = (finalScores || []).map(p => Number(p.score || 0)).sort((a,b)=>b-a);
+          if (scores.length >= 2 && scores[0] - scores[1] >= 50) await unlockAchievement(uid, "tidal_victory");
+        }
+
+        // Full Boat: 8-player casual
+        if (!_isDone("full_boat") && playerCount >= 8) await unlockAchievement(uid, "full_boat");
+
+        // Tidal Wave: 250+ with 4+
+        if (!_isDone("tidal_wave") && myScore >= 250 && playerCount >= 4) await unlockAchievement(uid, "tidal_wave");
+
+        // Tsunami: 300+ casual
+        if (!_isDone("tsunami") && myScore >= 300) await unlockAchievement(uid, "tsunami");
+
+        // Message in a Bottle (hidden): 25+ chat messages in one game
+        if (!_isDone("message_in_a_bottle") && tracker.chatMsgs >= 25) await unlockAchievement(uid, "message_in_a_bottle");
+      }
+
+      // Both modes:
+      // Last Current: win after end-game card appeared
+      if (!_isDone("last_current") && isWinner && tracker.endGameSeen) await unlockAchievement(uid, "last_current");
+
+      // Nothing But Deck: win without drawing from pool
+      if (!_isDone("nothing_but_deck") && isWinner && !tracker.usedPool) await unlockAchievement(uid, "nothing_but_deck");
+
+      // Current Controller: move 15 animals
+      if (!_isDone("current_controller") && tracker.animalMoves >= 15) await unlockAchievement(uid, "current_controller");
+
+      // Back-to-Back Diver: win without pool in casual AND comp back to back
+      if (!_isDone("back_to_back_diver") && isWinner && !tracker.usedPool) {
+        if (!isComp) {
+          tracker.noPoolCasualDone = true;
+          if (tracker.noPoolCompDone) await unlockAchievement(uid, "back_to_back_diver");
+        } else {
+          tracker.noPoolCompDone = true;
+          if (tracker.noPoolCasualDone) await unlockAchievement(uid, "back_to_back_diver");
+        }
+      }
+
+      // One Ocean Wonder: all oceans same type — check boardSnaps
+      if (!_isDone("one_ocean_wonder") && isWinner && Array.isArray(boardSnaps)) {
+        try {
+          const mySnap = boardSnaps.find(b => {
+            const authUser = _authUser;
+            return authUser && String(b.n || "").toLowerCase() === String(_playerNickname || "").toLowerCase();
+          });
+          if (mySnap && Array.isArray(mySnap.b) && mySnap.b.length > 0) {
+            const oceanNames = mySnap.b.map(o => String(o.o || "").trim().toLowerCase());
+            const first = oceanNames[0];
+            if (first && oceanNames.every(n => n === first)) await unlockAchievement(uid, "one_ocean_wonder");
+          }
+        } catch(_) {}
+      }
+
+      // The All Blue: all 8 oceans played in one game — check from boardSnaps
+      if (!_isDone("the_all_blue") && Array.isArray(boardSnaps)) {
+        try {
+          const allOceanNamesSet = new Set();
+          boardSnaps.forEach(b => { (b.b || []).forEach(o => { if (o.o) allOceanNamesSet.add(String(o.o).toLowerCase().trim()); }); });
+          if (allOceanNamesSet.size >= 8) await unlockAchievement(uid, "the_all_blue");
+        } catch(_) {}
+      }
+
+      // Fetch updated stats for count-based achievements
+      try {
+        if (_db) {
+          const snap = await _db.collection("users").doc(uid).get();
+          const stats = ((snap.data() || {}).stats) || {};
+          await checkAchievementsFromStats(uid, stats);
+        }
+      } catch(_) {}
+
+      // Reset per-game fields so the next game starts clean.
+      // Preserve noPoolCasualDone / noPoolCompDone for back-to-back tracking across games.
+      _gameAchTracker.usedPool     = false;
+      _gameAchTracker.animalMoves  = 0;
+      _gameAchTracker.chatMsgs     = 0;
+      _gameAchTracker.compChatMsgs = 0;
+      _gameAchTracker.endGameSeen  = false;
+    }
+
+    // Expose achievement functions to outer scope
+    window.__fishLoadUserAchievements = loadUserAchievements;
+    window.__fishCheckAchievementsAfterGame = checkAchievementsAfterGame;
+    window.__fishCheckRankAchievements = checkRankAchievements;
+    window.__fishCheckFriendAchievements = checkFriendAchievements;
+    window.__fishGetUserAchievements = () => _userAchievements;
+    window.__fishUnlockAchievement = unlockAchievement;
+
+    // ═══════════════════════════════════════════════════════════════
+    // END ACHIEVEMENT SYSTEM
+    // ═══════════════════════════════════════════════════════════════
+
     // Expose getters so outer game code can read auth state if needed
     window.__fishNickname       = () => _playerNickname;
     window.__fishAuthUser       = () => _authUser;
@@ -14212,5 +14971,17 @@
 
   })(); // end auth IIFE
 </script>
+
+<!-- Achievement unlock popup -->
+<div id="ach-unlock-popup" aria-live="polite">
+  <div class="ach-popup-label">Achievement Unlocked</div>
+  <div class="ach-popup-body">
+    <div class="ach-popup-icon" id="ach-popup-icon">🏆</div>
+    <div class="ach-popup-info">
+      <div class="ach-popup-name" id="ach-popup-name">Achievement Name</div>
+      <div class="ach-popup-xp" id="ach-popup-xp">+0 XP</div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
