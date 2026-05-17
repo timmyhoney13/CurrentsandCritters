@@ -2141,10 +2141,12 @@
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
       background:
-        radial-gradient(68% 54% at 50% 17%, rgba(58,171,225,.72) 0%, rgba(58,171,225,.36) 62%, rgba(58,171,225,0) 100%),
-        radial-gradient(58% 42% at 15% 73%, rgba(158,178,238,.58) 0%, rgba(158,178,238,0) 100%),
-        radial-gradient(56% 42% at 84% 71%, rgba(171,183,238,.52) 0%, rgba(171,183,238,0) 100%),
-        linear-gradient(180deg, #f5ddb7 0%, #90d5ed 30%, #49b8ea 100%);
+        /* Sandy beach: top-right corner — large golden blob bleeds off screen */
+        radial-gradient(ellipse 75% 65% at 116% -6%, #d9a530 0%, #e4b840 18%, rgba(230,182,55,.88) 38%, rgba(218,168,45,0) 62%),
+        /* Sandy beach: bottom-right corner */
+        radial-gradient(ellipse 68% 72% at 114% 116%, #d5a028 0%, #e0b038 20%, rgba(226,175,48,.84) 40%, rgba(214,162,40,0) 64%),
+        /* Vivid turquoise/cyan water base */
+        linear-gradient(168deg, #48dff5 0%, #22c8ec 40%, #16b2d8 100%);
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       padding: 30px 20px 34px;
@@ -2155,12 +2157,14 @@
     #auth-screen::before {
       content: "";
       position: absolute;
-      inset: -5% -7%;
+      inset: 0;
       background:
-        radial-gradient(28% 14% at 14% 44%, rgba(130,211,236,.75) 0%, rgba(130,211,236,0) 100%),
-        radial-gradient(31% 14% at 84% 45%, rgba(126,214,238,.72) 0%, rgba(126,214,238,0) 100%),
-        radial-gradient(39% 22% at 50% 92%, rgba(62,160,224,.72) 0%, rgba(62,160,224,0) 100%),
-        radial-gradient(37% 16% at 50% 8%, rgba(66,178,232,.74) 0%, rgba(66,178,232,0) 100%);
+        /* Large purple/lavender rock mass: bottom-left, bleeds off */
+        radial-gradient(ellipse 70% 74% at -14% 114%, #b49ed8 0%, #c2aee2 16%, rgba(188,168,228,.90) 36%, rgba(176,155,220,0) 58%),
+        /* Purple rock cluster: left side, mid-lower */
+        radial-gradient(ellipse 34% 55% at -9% 64%, rgba(188,165,228,.94) 0%, rgba(172,150,218,.72) 34%, rgba(160,140,210,0) 57%),
+        /* Small purple rock accent: bottom-left area */
+        radial-gradient(ellipse 24% 18% at 16% 97%, rgba(178,158,220,.82) 0%, rgba(165,143,212,.56) 50%, rgba(152,132,206,0) 72%);
       pointer-events: none;
       z-index: 0;
     }
@@ -2169,19 +2173,24 @@
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(30px 14px at 18% 18%, rgba(180,227,122,.74) 0%, rgba(180,227,122,0) 100%),
-        radial-gradient(26px 12px at 24% 26%, rgba(186,234,130,.72) 0%, rgba(186,234,130,0) 100%),
-        radial-gradient(34px 15px at 78% 21%, rgba(176,227,122,.72) 0%, rgba(176,227,122,0) 100%),
-        radial-gradient(28px 13px at 71% 34%, rgba(180,230,126,.72) 0%, rgba(180,230,126,0) 100%),
-        radial-gradient(36px 15px at 14% 57%, rgba(172,228,120,.66) 0%, rgba(172,228,120,0) 100%),
-        radial-gradient(32px 14px at 84% 61%, rgba(168,222,116,.66) 0%, rgba(168,222,116,0) 100%),
-        radial-gradient(28px 12px at 50% 84%, rgba(170,226,120,.62) 0%, rgba(170,226,120,0) 100%),
-        radial-gradient(36px 16px at 54% 15%, rgba(150,213,249,.35) 0%, rgba(150,213,249,0) 100%),
-        radial-gradient(28px 13px at 63% 80%, rgba(144,209,246,.32) 0%, rgba(144,209,246,0) 100%);
+        /* Green algae patches scattered in water */
+        radial-gradient(ellipse 7% 4.5% at 36% 16%, rgba(68,172,82,.92) 0%, rgba(56,160,70,.55) 50%, transparent 75%),
+        radial-gradient(ellipse 5.5% 3.5% at 63% 25%, rgba(74,178,88,.88) 0%, rgba(62,166,76,.50) 52%, transparent 76%),
+        radial-gradient(ellipse 6.5% 4% at 75% 73%, rgba(66,170,80,.86) 0%, rgba(54,158,68,.50) 50%, transparent 74%),
+        radial-gradient(ellipse 5% 3.5% at 30% 70%, rgba(70,174,84,.82) 0%, rgba(58,162,72,.46) 50%, transparent 74%),
+        radial-gradient(ellipse 4.5% 3% at 87% 42%, rgba(64,168,78,.80) 0%, rgba(52,156,66,.44) 52%, transparent 75%),
+        radial-gradient(ellipse 5% 3% at 53% 89%, rgba(68,172,82,.78) 0%, rgba(56,160,70,.42) 52%, transparent 74%),
+        radial-gradient(ellipse 4% 2.5% at 13% 46%, rgba(72,176,86,.76) 0%, rgba(60,164,74,.40) 52%, transparent 74%),
+        /* Light teal water bubble ovals */
+        radial-gradient(ellipse 10% 6% at 26% 38%, rgba(178,240,252,.62) 0%, rgba(158,230,248,.28) 55%, transparent 80%),
+        radial-gradient(ellipse 8% 5% at 67% 53%, rgba(172,237,250,.57) 0%, rgba(152,227,246,.24) 55%, transparent 80%),
+        radial-gradient(ellipse 12% 7% at 81% 83%, rgba(180,242,253,.52) 0%, rgba(160,232,249,.22) 55%, transparent 80%),
+        radial-gradient(ellipse 9% 5.5% at 8% 26%, rgba(175,238,252,.54) 0%, rgba(155,228,248,.22) 55%, transparent 80%),
+        radial-gradient(ellipse 6% 4% at 47% 60%, rgba(170,235,250,.48) 0%, rgba(150,225,246,.20) 55%, transparent 80%),
+        radial-gradient(ellipse 5% 3% at 93% 17%, rgba(167,233,248,.46) 0%, rgba(147,223,244,.18) 55%, transparent 80%);
       pointer-events: none;
       z-index: 0;
-      opacity: .9;
-      mix-blend-mode: normal;
+      opacity: 1;
     }
     #auth-screen > * { position: relative; z-index: 1; }
     #auth-screen.hidden { display: none; }
