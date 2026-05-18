@@ -8303,6 +8303,7 @@ def run_match(
             executed_action = chosen
             executed_feats = chosen_feats
             fail_messages: List[str] = []
+            _eg_before = bool(ms.end_game_triggered)
             ok = apply_action(gs, ms, p, chosen, turn_state, picker, verbose=verbose, fail_reason=fail_messages)
             if not ok:
                 if verbose:
@@ -8448,6 +8449,11 @@ def run_match(
                     print(f"{p.name} gets {turn_state.free_followups} restricted follow-up action(s) for free-play ability.")
                 turn_state.free_followups = 0
             if has_multi_play_window(p):
+                action_budget += 1
+            # When a draw action triggers the end game, give the player one extra
+            # action so they can play their replacement card as their "last turn"
+            # rather than having their whole turn consumed by the trigger draw.
+            if not _eg_before and ms.end_game_triggered and chosen.kind == "draw":
                 action_budget += 1
             action_budget -= 1
 
