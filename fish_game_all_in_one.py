@@ -5519,6 +5519,9 @@ def draw_selected_from_pool(ms: MatchState, player: PlayerState, pick_uids: List
         if gs is not None and ms.end_game_uid is not None and uid == ms.end_game_uid:
             trigger_end_game(ms, gs)
             ms.discard_pile.append(uid)
+            # Draw a deck replacement so the player isn't shorted their expected 2 draws.
+            replacement = draw_from_deck(gs, ms, player, 1)
+            drew.extend(replacement)
             continue
         player.hand.append(uid)
         drew.append(uid)
@@ -5891,7 +5894,7 @@ def apply_action(
             if len(action.pool_pick_uids) != pool_take:
                 return fail(f"wrong pool pick count: expected {pool_take}, got {len(action.pool_pick_uids)}")
             pool_cards = draw_selected_from_pool(ms, player, action.pool_pick_uids, gs)
-            if len(pool_cards) != pool_take:
+            if len(pool_cards) != pool_take and not ms.end_game_triggered:
                 return fail("invalid selected pool cards")
         else:
             pool_cards = draw_from_pool(ms, player, pool_take, gs)
