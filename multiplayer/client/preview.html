@@ -1300,30 +1300,34 @@
       box-shadow: 0 4px 14px rgba(245,192,101,.4), inset 0 1px 0 rgba(255,255,255,.6);
       transition: transform .15s, box-shadow .15s;
       overflow: hidden;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 78px;
+      display: flex; align-items: stretch; justify-content: stretch;
+      min-height: 90px;
       position: relative;
     }
     #wr-start-btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(245,192,101,.5); }
     #wr-start-btn:disabled { cursor: default; }
     .wr-btn-coral {
-      position: absolute;
-      left: 16px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 64px; height: 64px;
+      flex-shrink: 0;
+      width: 96px;
       display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
     }
-    .wr-btn-coral svg { width: 100%; height: 100%; }
+    .wr-btn-coral img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+    }
     .wr-btn-text {
       font-family: "Cinzel", "Cormorant Garamond", serif;
       font-size: 20px;
       font-weight: 700;
       color: #1a3a72;
-      padding: 18px 24px 18px 88px;
+      padding: 18px 24px;
       text-align: center;
       flex: 1;
       letter-spacing: .3px;
+      display: flex; align-items: center; justify-content: center;
     }
     .wr-btn-text.with-play::before {
       content: "▶";
@@ -1338,8 +1342,9 @@
       .wr-subtitle { font-size: 15px; }
       .wr-players { padding: 18px 20px; }
       .wr-player-row { font-size: 16px; }
-      .wr-btn-text { font-size: 17px; padding: 16px 18px 16px 78px; }
-      .wr-btn-coral { width: 56px; height: 56px; left: 12px; }
+      .wr-btn-text { font-size: 17px; padding: 16px 18px; }
+      .wr-btn-coral { width: 80px; }
+      #wr-start-btn { min-height: 78px; }
     }
 
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
@@ -7134,43 +7139,10 @@
   // ── Lobby create / join ────────────────────────────────────────
 
   // ── Waiting room overlay helpers ──────────────────────────────
-  // Inline SVG corals for the bottom action button — one per state.
-  const WR_CORAL_RED = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <g>
-      <path d="M32 58 C 18 54, 12 42, 14 30 C 16 22, 22 18, 24 26 C 25 32, 22 38, 28 36 C 30 32, 26 24, 30 18 C 33 14, 38 16, 36 24 C 34 32, 38 34, 40 28 C 42 22, 48 22, 48 30 C 48 38, 44 42, 50 40 C 56 38, 56 48, 50 52 C 44 56, 38 58, 32 58 Z" fill="#e85d3c" stroke="#a8311a" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M22 32 C 22 28, 20 26, 18 28 M 32 22 C 32 18, 30 16, 28 18 M 40 28 C 42 24, 44 24, 44 28" fill="none" stroke="#a8311a" stroke-width="1.2" stroke-linecap="round"/>
-      <path d="M22 50 L 26 46 M 28 52 L 28 47 M 38 52 L 38 47 M 42 50 L 38 46" stroke="#1a3a72" stroke-width="1.6" stroke-linecap="round" fill="none"/>
-      <ellipse cx="26" cy="52" rx="1.4" ry="1.8" fill="#1a3a72"/>
-      <ellipse cx="38" cy="52" rx="1.4" ry="1.8" fill="#1a3a72"/>
-    </g>
-    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
-    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  </svg>`;
-  const WR_CORAL_ORANGE = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <g>
-      <path d="M32 60 C 22 56, 18 44, 20 32 C 21 24, 26 18, 28 26 C 29 32, 26 38, 32 36 C 34 32, 30 24, 34 18 C 37 14, 42 16, 40 24 C 38 32, 42 34, 44 28 C 46 22, 50 24, 48 32 C 46 40, 42 44, 46 44 C 50 44, 50 52, 44 54 C 38 56, 36 60, 32 60 Z" fill="#f5a050" stroke="#c47020" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M24 30 C 24 26, 22 24, 20 26 M 32 22 C 32 18, 30 16, 28 18 M 42 28 C 44 24, 46 24, 46 28" fill="none" stroke="#c47020" stroke-width="1.2" stroke-linecap="round"/>
-      <ellipse cx="28" cy="50" rx="1.4" ry="2" fill="#1a3a72"/>
-      <ellipse cx="36" cy="50" rx="1.4" ry="2" fill="#1a3a72"/>
-      <path d="M30 56 Q 32 54 34 56" stroke="#1a3a72" stroke-width="1.4" fill="none" stroke-linecap="round"/>
-    </g>
-    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
-    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  </svg>`;
-  const WR_CORAL_YELLOW = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-    <g>
-      <ellipse cx="32" cy="40" rx="22" ry="20" fill="#f5c84a" stroke="#b8851a" stroke-width="1.5"/>
-      <path d="M14 36 Q 18 30 22 36 Q 26 30 30 36 Q 34 30 38 36 Q 42 30 46 36 Q 50 30 54 36
-               M 12 42 Q 16 36 20 42 Q 24 36 28 42 Q 32 36 36 42 Q 40 36 44 42 Q 48 36 52 42
-               M 14 48 Q 18 42 22 48 Q 26 42 30 48 Q 34 42 38 48 Q 42 42 46 48 Q 50 42 54 48"
-            fill="none" stroke="#b8851a" stroke-width="1.4" stroke-linecap="round"/>
-      <ellipse cx="26" cy="44" rx="1.6" ry="2.2" fill="#1a3a72"/>
-      <ellipse cx="38" cy="44" rx="1.6" ry="2.2" fill="#1a3a72"/>
-      <path d="M28 52 Q 32 55 36 52" stroke="#1a3a72" stroke-width="1.6" fill="none" stroke-linecap="round"/>
-    </g>
-    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
-    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-  </svg>`;
+  // Real coral illustrations cropped from the design — one per state.
+  const WR_CORAL_RED    = `<img src="lobby-coral-red.png" alt="">`;
+  const WR_CORAL_ORANGE = `<img src="lobby-coral-orange.png" alt="">`;
+  const WR_CORAL_YELLOW = `<img src="lobby-coral-yellow.png" alt="">`;
 
   function showWaitingRoom(code, isHost) {
     document.getElementById("wr-code-display").textContent = code;
