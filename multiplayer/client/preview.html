@@ -1177,62 +1177,170 @@
     #pv-waiting-room {
       display: none;
       position: fixed; inset: 0;
-      background: rgba(8,24,56,.97);
+      background: linear-gradient(180deg, #4a7bb8 0%, #2c5384 100%);
       z-index: 900;
       align-items: center; justify-content: center;
-      backdrop-filter: blur(6px);
+      padding: 20px;
+      overflow-y: auto;
     }
     #pv-waiting-room.open { display: flex; }
     .wr-box {
-      background: linear-gradient(160deg, rgba(22,58,118,.95) 0%, rgba(15,40,88,.98) 100%);
-      border: 1px solid rgba(58,120,204,.3);
-      border-radius: 18px;
-      box-shadow: 0 0 60px rgba(34,216,248,.12), 0 20px 60px rgba(0,0,0,.4);
-      padding: 32px 36px;
-      max-width: 420px; width: 100%;
+      background: linear-gradient(180deg, #e3edfb 0%, #d8e4f7 100%);
+      border: 3px solid #2c4d80;
+      border-radius: 24px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.6);
+      padding: 36px 40px 32px;
+      max-width: 460px; width: 100%;
       display: flex; flex-direction: column;
-      align-items: center; gap: 16px;
+      align-items: center; gap: 22px;
       text-align: center;
     }
     .wr-box h2 {
-      font-family: "Cinzel", serif;
-      font-size: 1.3rem; font-weight: 900;
-      color: var(--gold); letter-spacing: 1px;
+      font-family: "Cinzel", "Cormorant Garamond", serif;
+      font-size: 2rem; font-weight: 900;
+      color: #1a3a72;
+      letter-spacing: 1px;
+      margin: 0;
+      text-transform: uppercase;
+    }
+    .wr-subtitle {
+      font-size: 17px;
+      color: #2c4d80;
+      font-weight: 500;
+      margin: -6px 0 0;
     }
     .wr-code {
-      font-family: "Cinzel", serif;
-      font-size: 3rem; font-weight: 900;
-      letter-spacing: 12px;
-      color: var(--cyan);
-      background: #122E6A;
-      border: 2px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 24px;
+      font-family: "Cinzel", "Cormorant Garamond", serif;
+      font-size: 3.5rem; font-weight: 900;
+      letter-spacing: 14px;
+      color: #1a3a72;
+      background: linear-gradient(180deg, #f4f8ff 0%, #e8eff9 100%);
+      border: none;
+      border-radius: 18px;
+      padding: 22px 28px 22px 42px;
       cursor: pointer;
-      transition: border-color .2s;
-      text-shadow: 0 0 30px rgba(61,214,245,.4);
+      width: 100%;
+      box-sizing: border-box;
+      box-shadow: 0 4px 12px rgba(26,58,114,.12), inset 0 1px 0 rgba(255,255,255,.8);
+      transition: transform .15s;
+      user-select: all;
     }
-    .wr-code:hover { border-color: var(--cyan); }
-    .wr-subtitle { font-size: 13px; color: var(--muted); }
+    .wr-code:hover { transform: translateY(-1px); }
+    #wr-copy-btn {
+      background: linear-gradient(180deg, #ffffff 0%, #f2f6fc 100%);
+      border: none;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-size: 17px;
+      font-weight: 700;
+      color: #1a3a72;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(26,58,114,.12), inset 0 1px 0 rgba(255,255,255,.8);
+      transition: transform .15s, box-shadow .15s;
+      display: inline-flex; align-items: center; gap: 10px;
+    }
+    #wr-copy-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(26,58,114,.18); }
+    #wr-copy-btn .wr-copy-icon { font-size: 18px; }
     .wr-players {
       width: 100%;
-      background: #122E6A;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
-      font-size: 13px;
+      background: linear-gradient(180deg, #f4f8ff 0%, #e8eff9 100%);
+      border: none;
+      border-radius: 18px;
+      padding: 22px 26px;
       text-align: left;
+      box-shadow: 0 3px 10px rgba(26,58,114,.10), inset 0 1px 0 rgba(255,255,255,.7);
+      box-sizing: border-box;
     }
-    .wr-players-title { font-weight: 800; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-    .wr-player-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #1E4080; }
-    .wr-player-row:last-child { border: none; }
-    .wr-seat-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-    .wr-seat-dot.filled { background: var(--cyan); box-shadow: 0 0 6px rgba(48,200,240,.6); }
-    .wr-seat-dot.empty  { background: var(--border); }
-    .wr-player-name { font-weight: 700; color: var(--text); }
-    .wr-player-empty { color: var(--muted); font-style: italic; }
-    #wr-start-btn { width: 100%; padding: 14px; font-size: 15px; }
-    #wr-start-btn:disabled { filter: brightness(.5); }
+    .wr-players-title {
+      font-weight: 800;
+      color: #1a3a72;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+    }
+    .wr-player-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(26,58,114,.10);
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a3a72;
+    }
+    .wr-player-row:last-child { border: none; padding-bottom: 4px; }
+    .wr-player-row:first-of-type { padding-top: 4px; }
+    .wr-seat-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .wr-seat-dot.filled {
+      background: radial-gradient(circle at 30% 30%, #5aa2e8 0%, #2868c4 100%);
+      box-shadow: 0 1px 3px rgba(40,104,196,.4);
+    }
+    .wr-seat-dot.empty {
+      background: #c4d4ec;
+      border: 2px solid #94b3d6;
+      box-sizing: border-box;
+    }
+    .wr-player-name { font-weight: 700; color: #1a3a72; }
+    .wr-player-empty { color: #6a87b0; font-weight: 600; }
+    .wr-caption {
+      font-size: 15px;
+      color: #2c4d80;
+      font-weight: 500;
+      margin: -4px 0 0;
+    }
+    #wr-start-btn {
+      width: 100%;
+      padding: 0;
+      border: none;
+      border-radius: 18px;
+      cursor: pointer;
+      background: linear-gradient(180deg, #ffdc8a 0%, #f5c065 100%);
+      box-shadow: 0 4px 14px rgba(245,192,101,.4), inset 0 1px 0 rgba(255,255,255,.6);
+      transition: transform .15s, box-shadow .15s;
+      overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 78px;
+      position: relative;
+    }
+    #wr-start-btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(245,192,101,.5); }
+    #wr-start-btn:disabled { cursor: default; }
+    .wr-btn-coral {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .wr-btn-coral svg { width: 100%; height: 100%; }
+    .wr-btn-text {
+      font-family: "Cinzel", "Cormorant Garamond", serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a3a72;
+      padding: 18px 24px 18px 88px;
+      text-align: center;
+      flex: 1;
+      letter-spacing: .3px;
+    }
+    .wr-btn-text.with-play::before {
+      content: "▶";
+      display: inline-block;
+      margin-right: 10px;
+      font-size: 18px;
+    }
+    @media (max-width: 520px) {
+      .wr-box { padding: 28px 22px 24px; gap: 18px; }
+      .wr-box h2 { font-size: 1.6rem; }
+      .wr-code { font-size: 2.6rem; letter-spacing: 10px; padding: 18px 20px 18px 30px; }
+      .wr-subtitle { font-size: 15px; }
+      .wr-players { padding: 18px 20px; }
+      .wr-player-row { font-size: 16px; }
+      .wr-btn-text { font-size: 17px; padding: 16px 18px 16px 78px; }
+      .wr-btn-coral { width: 56px; height: 56px; left: 12px; }
+    }
 
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
@@ -6205,16 +6313,17 @@
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
 <div id="pv-waiting-room">
   <div class="wr-box">
-    <h2 id="wr-title">⚓ Fleet Mustering</h2>
+    <h2 id="wr-title">Room Created!</h2>
     <p class="wr-subtitle">Share this fleet code with your crew:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
-    <button class="pv-btn sm" id="wr-copy-btn" style="width:180px;">📋 Copy Invite Link</button>
+    <button id="wr-copy-btn"><span class="wr-copy-icon">📋</span><span>Copy Invite Link</span></button>
     <div class="wr-players" id="wr-players-list">
-      <div class="wr-players-title">Crew aboard</div>
+      <div class="wr-players-title">Players in Room</div>
     </div>
-    <p class="wr-subtitle" style="font-size:11px;">Once your crew is aboard, cast off below.</p>
-    <button class="pv-btn gold" id="wr-start-btn" style="width:100%;padding:14px;font-size:15px;" disabled>
-      Waiting for crew…
+    <p class="wr-caption">Once your crew is aboard, cast off below.</p>
+    <button id="wr-start-btn" disabled>
+      <span class="wr-btn-coral" id="wr-btn-coral"></span>
+      <span class="wr-btn-text" id="wr-btn-text">Waiting for crew…</span>
     </button>
   </div>
 </div>
@@ -7025,6 +7134,44 @@
   // ── Lobby create / join ────────────────────────────────────────
 
   // ── Waiting room overlay helpers ──────────────────────────────
+  // Inline SVG corals for the bottom action button — one per state.
+  const WR_CORAL_RED = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <path d="M32 58 C 18 54, 12 42, 14 30 C 16 22, 22 18, 24 26 C 25 32, 22 38, 28 36 C 30 32, 26 24, 30 18 C 33 14, 38 16, 36 24 C 34 32, 38 34, 40 28 C 42 22, 48 22, 48 30 C 48 38, 44 42, 50 40 C 56 38, 56 48, 50 52 C 44 56, 38 58, 32 58 Z" fill="#e85d3c" stroke="#a8311a" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M22 32 C 22 28, 20 26, 18 28 M 32 22 C 32 18, 30 16, 28 18 M 40 28 C 42 24, 44 24, 44 28" fill="none" stroke="#a8311a" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M22 50 L 26 46 M 28 52 L 28 47 M 38 52 L 38 47 M 42 50 L 38 46" stroke="#1a3a72" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+      <ellipse cx="26" cy="52" rx="1.4" ry="1.8" fill="#1a3a72"/>
+      <ellipse cx="38" cy="52" rx="1.4" ry="1.8" fill="#1a3a72"/>
+    </g>
+    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
+    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
+  const WR_CORAL_ORANGE = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <path d="M32 60 C 22 56, 18 44, 20 32 C 21 24, 26 18, 28 26 C 29 32, 26 38, 32 36 C 34 32, 30 24, 34 18 C 37 14, 42 16, 40 24 C 38 32, 42 34, 44 28 C 46 22, 50 24, 48 32 C 46 40, 42 44, 46 44 C 50 44, 50 52, 44 54 C 38 56, 36 60, 32 60 Z" fill="#f5a050" stroke="#c47020" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M24 30 C 24 26, 22 24, 20 26 M 32 22 C 32 18, 30 16, 28 18 M 42 28 C 44 24, 46 24, 46 28" fill="none" stroke="#c47020" stroke-width="1.2" stroke-linecap="round"/>
+      <ellipse cx="28" cy="50" rx="1.4" ry="2" fill="#1a3a72"/>
+      <ellipse cx="36" cy="50" rx="1.4" ry="2" fill="#1a3a72"/>
+      <path d="M30 56 Q 32 54 34 56" stroke="#1a3a72" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+    </g>
+    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
+    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
+  const WR_CORAL_YELLOW = `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <g>
+      <ellipse cx="32" cy="40" rx="22" ry="20" fill="#f5c84a" stroke="#b8851a" stroke-width="1.5"/>
+      <path d="M14 36 Q 18 30 22 36 Q 26 30 30 36 Q 34 30 38 36 Q 42 30 46 36 Q 50 30 54 36
+               M 12 42 Q 16 36 20 42 Q 24 36 28 42 Q 32 36 36 42 Q 40 36 44 42 Q 48 36 52 42
+               M 14 48 Q 18 42 22 48 Q 26 42 30 48 Q 34 42 38 48 Q 42 42 46 48 Q 50 42 54 48"
+            fill="none" stroke="#b8851a" stroke-width="1.4" stroke-linecap="round"/>
+      <ellipse cx="26" cy="44" rx="1.6" ry="2.2" fill="#1a3a72"/>
+      <ellipse cx="38" cy="44" rx="1.6" ry="2.2" fill="#1a3a72"/>
+      <path d="M28 52 Q 32 55 36 52" stroke="#1a3a72" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+    </g>
+    <path d="M8 60 Q 12 56 16 60 T 24 60 T 32 60 T 40 60 T 48 60 T 56 60 L 56 64 L 8 64 Z" fill="#f5c065" opacity=".7"/>
+    <path d="M6 60 Q 9 57 12 60 M 50 60 Q 53 57 56 60" stroke="#e8a843" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  </svg>`;
+
   function showWaitingRoom(code, isHost) {
     document.getElementById("wr-code-display").textContent = code;
     document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
@@ -7034,32 +7181,54 @@
     document.getElementById("pv-waiting-room").classList.remove("open");
   }
   function updateWaitingRoom(seats, canStart, startFn, isHost) {
+    // Title reflects host vs non-host
+    document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
+
+    // Seats list
     const list = document.getElementById("wr-players-list");
-    list.innerHTML = '<div class="wr-players-title">Players in room</div>';
+    list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     (seats||[]).forEach(s => {
       const row = document.createElement("div"); row.className = "wr-player-row";
       const dot = document.createElement("div");
       dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
-      const nm  = document.createElement("span"); nm.className = "wr-player-name";
-      nm.textContent = s.claimed_name ? `Seat ${s.index+1}: ${s.claimed_name}` : `Seat ${s.index+1}: Open`;
-      if (!s.claimed_name) nm.style.color = "var(--muted)";
+      const nm = document.createElement("span");
+      if (s.claimed_name) {
+        nm.className = "wr-player-name";
+        nm.textContent = `Seat ${s.index+1}: ${s.claimed_name}`;
+      } else {
+        nm.className = "wr-player-empty";
+        nm.textContent = `Seat ${s.index+1}: Open`;
+      }
       row.appendChild(dot); row.appendChild(nm); list.appendChild(row);
     });
+
     const filled = (seats||[]).filter(s => s.claimed_name).length;
     const total  = (seats||[]).length;
     const btn = document.getElementById("wr-start-btn");
+    const coral = document.getElementById("wr-btn-coral");
+    const text  = document.getElementById("wr-btn-text");
+    btn.onclick = null;
+    text.className = "wr-btn-text";
+
     if (canStart && isHost) {
+      // State 3: host in full room
       btn.disabled = false;
-      btn.textContent = "▶  Start Game";
+      coral.innerHTML = WR_CORAL_YELLOW;
+      text.textContent = "Start Game";
+      text.classList.add("with-play");
       btn.onclick = startFn;
     } else if (canStart) {
+      // State 2: non-host in full room
       btn.disabled = true;
-      btn.textContent = "All players ready — waiting for host to start…";
+      coral.innerHTML = WR_CORAL_ORANGE;
+      text.textContent = "Waiting for host to start";
     } else {
+      // State 1: still waiting for players
       btn.disabled = true;
-      btn.textContent = total > 1
-        ? `Waiting for players… (${filled} of ${total} joined)`
-        : `Waiting for players…`;
+      coral.innerHTML = WR_CORAL_RED;
+      text.textContent = total > 1
+        ? `Waiting for players... (${filled} of ${total} joined)`
+        : `Waiting for players...`;
     }
   }
 
@@ -7067,8 +7236,11 @@
     const code = document.getElementById("wr-code-display").textContent;
     const link = `${location.origin}/play/${code}`;
     navigator.clipboard?.writeText(link).catch(()=>{});
-    document.getElementById("wr-copy-btn").textContent = "✓ Link Copied!";
-    setTimeout(() => document.getElementById("wr-copy-btn").textContent = "📋 Copy Invite Link", 2000);
+    const btn = document.getElementById("wr-copy-btn");
+    btn.innerHTML = '<span class="wr-copy-icon">✓</span><span>Link Copied!</span>';
+    setTimeout(() => {
+      btn.innerHTML = '<span class="wr-copy-icon">📋</span><span>Copy Invite Link</span>';
+    }, 2000);
   });
   document.getElementById("wr-code-display").addEventListener("click", () => {
     document.getElementById("wr-copy-btn").click();
