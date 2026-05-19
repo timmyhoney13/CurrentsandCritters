@@ -614,6 +614,12 @@ class GameRoom:
         self.undo_eligible_seat: Optional[int] = None
         self.undo_valid: bool = False
         self.undo_requested: bool = False
+        # Two-phase undo: at turn_start, save a pending snapshot for the current player.
+        # Promote it to the active undo snapshot only when the NEXT player's turn starts,
+        # so the eligible seat is always the player who just FINISHED, not the one about to play.
+        self._undo_pending_gs: Any = None
+        self._undo_pending_ms: Any = None
+        self._undo_pending_seat: Optional[int] = None
 
     def _bump_locked(self, force_persist: bool = False) -> None:
         self.state_version += 1
@@ -1856,19 +1862,40 @@ class GameRoom:
             }
             self._last_turn_scores = scores_now
 
-        # Save undo snapshot for human turns (deepcopy done outside the lock for performance).
-        undo_gs_copy: Any = None
-        undo_ms_copy: Any = None
-        undo_seat_for_snap: Optional[int] = None
+        # Two-phase undo snapshot (deepcopy done outside the lock for performance).
+        # Phase 1 (turn_start for player X): save a pending snapshot of the state
+        #   BEFORE X plays — this is the correct restore point for X's future undo.
+        # Phase 2 (turn_start for the NEXT player Y): promote the pending snapshot
+        #   as the active undo for X (the player who just FINISHED), not for Y.
+        # This ensures the undo button is only active for the person who just played,
+        # never for the person whose turn is coming up.
+        undo_promote_gs: Any = None
+        undo_promote_ms: Any = None
+        undo_promote_seat: Optional[int] = None
+        undo_new_pending_gs: Any = None
+        undo_new_pending_ms: Any = None
+        undo_new_pending_seat: Optional[int] = None
+
         if note.startswith("turn_start:"):
             try:
-                snap_game_idx = int(gs.turn_index) % max(len(gs.players), 1)
-                snap_seat_idx = self._comp_game_to_seat.get(snap_game_idx, snap_game_idx)
-                snap_seat = next((s for s in self.seats if s.index == snap_seat_idx), None)
-                if snap_seat is not None and snap_seat.kind == "human":
-                    undo_gs_copy = copy.deepcopy(gs)
-                    undo_ms_copy = copy.deepcopy(ms)
-                    undo_seat_for_snap = snap_seat_idx
+                n_players = max(len(gs.players), 1)
+                cur_game_idx = int(gs.turn_index) % n_players
+                cur_seat_idx = self._comp_game_to_seat.get(cur_game_idx, cur_game_idx)
+                cur_seat = next((s for s in self.seats if s.index == cur_seat_idx), None)
+
+                # Promote the pending snapshot from the previous player's turn_start
+                # (= state before they played) as their active undo window.
+                if self._undo_pending_gs is not None and self._undo_pending_seat is not None:
+                    undo_promote_gs = self._undo_pending_gs
+                    undo_promote_ms = self._undo_pending_ms
+                    undo_promote_seat = self._undo_pending_seat
+
+                # Save a new pending snapshot for the current player so it can be
+                # promoted when the NEXT player's turn starts.
+                if cur_seat is not None and cur_seat.kind == "human":
+                    undo_new_pending_gs = copy.deepcopy(gs)
+                    undo_new_pending_ms = copy.deepcopy(ms)
+                    undo_new_pending_seat = cur_seat_idx
             except Exception:
                 pass
 
@@ -1876,10 +1903,18 @@ class GameRoom:
             self.latest_public_state = public_state
             self.latest_private_hands = private_hands
             self.last_turn_number = int(turn_number)
-            if undo_gs_copy is not None:
-                self.undo_snapshot_gs = undo_gs_copy
-                self.undo_snapshot_ms = undo_ms_copy
-                self.undo_eligible_seat = undo_seat_for_snap
+
+            # Always update the pending slot (clears it if current player is AI).
+            if note.startswith("turn_start:"):
+                self._undo_pending_gs = undo_new_pending_gs
+                self._undo_pending_ms = undo_new_pending_ms
+                self._undo_pending_seat = undo_new_pending_seat
+
+            # Promote previous player's pending snapshot to active undo.
+            if undo_promote_gs is not None:
+                self.undo_snapshot_gs = undo_promote_gs
+                self.undo_snapshot_ms = undo_promote_ms
+                self.undo_eligible_seat = undo_promote_seat
                 self.undo_valid = True
                 self.undo_requested = False
 
@@ -1907,6 +1942,14 @@ class GameRoom:
             self.pending_actions.clear()
             self.active_action_seat = None
             self._last_turn_scores = {}
+            self.undo_snapshot_gs = None
+            self.undo_snapshot_ms = None
+            self.undo_eligible_seat = None
+            self.undo_valid = False
+            self.undo_requested = False
+            self._undo_pending_gs = None
+            self._undo_pending_ms = None
+            self._undo_pending_seat = None
             if self.recovery_active:
                 self.status_note = (
                     f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
@@ -2024,6 +2067,11 @@ class GameRoom:
                             self.undo_valid = False
                             self.undo_snapshot_gs = None
                             self.undo_snapshot_ms = None
+                            # Clear the pending snapshot too — the turn being replayed
+                            # means the "next player's" pending is now stale.
+                            self._undo_pending_gs = None
+                            self._undo_pending_ms = None
+                            self._undo_pending_seat = None
                             self.legal_actions_by_seat.clear()
                             self.active_action_seat = None
                             self.status_note = "Undo granted — replaying previous player's turn."
