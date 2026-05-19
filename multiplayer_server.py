@@ -3335,7 +3335,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve general client PNG assets (game bg, button art, etc.)
-        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|lobby-btn-(?:red|orange|yellow))\.png", parsed.path):
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400")
@@ -3354,7 +3354,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve background art PNGs referenced with full client path (used by preview.html on Vercel)
-        if re.fullmatch(r"/multiplayer/client/(ph-bg-[\w-]+|lobby-btn-(?:red|orange|yellow))\.png", parsed.path):
+        if re.fullmatch(r"/multiplayer/client/(ph-bg-[\w-]+|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
             bg_name = os.path.basename(parsed.path)
             bg_path = os.path.join(CLIENT_DIR, bg_name)
             if os.path.exists(bg_path):
