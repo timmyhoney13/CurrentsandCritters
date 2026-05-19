@@ -8235,6 +8235,7 @@ def run_match(
 
         # One action per turn by default; abilities may grant extra actions.
         undo_occurred = False
+        eg_triggered_this_turn = False  # tracks if end game triggered mid-turn (see below)
         action_budget = 1
         while action_budget > 0:
             was_free_only = bool(p.flags.get("_free_action_only", False))
@@ -8450,11 +8451,10 @@ def run_match(
                 turn_state.free_followups = 0
             if has_multi_play_window(p):
                 action_budget += 1
-            # When a draw action triggers the end game, give the player one extra
-            # action so they can play their replacement card as their "last turn"
-            # rather than having their whole turn consumed by the trigger draw.
-            if not _eg_before and ms.end_game_triggered and chosen.kind == "draw":
-                action_budget += 1
+            # Track if end game triggered mid-turn so we can skip the final-turns
+            # decrement below (giving the trigger player their own proper last turn).
+            if not _eg_before and ms.end_game_triggered:
+                eg_triggered_this_turn = True
             action_budget -= 1
 
         if undo_occurred:
@@ -8562,9 +8562,14 @@ def run_match(
                 pass
 
         if ms.end_game_triggered:
-            ms.final_turns_remaining -= 1
-            if ms.final_turns_remaining <= 0:
-                break
+            # Don't count the turn where end game was triggered — that player
+            # completes their current turn normally and still gets a proper final
+            # turn later (same as every other player).  Only decrement for
+            # subsequent turns.
+            if not eg_triggered_this_turn:
+                ms.final_turns_remaining -= 1
+                if ms.final_turns_remaining <= 0:
+                    break
 
         if made_action_this_turn:
             stalled_turns = 0
