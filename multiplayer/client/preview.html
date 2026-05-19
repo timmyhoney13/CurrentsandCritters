@@ -203,7 +203,10 @@
       padding: 7px 14px;
       white-space: nowrap;
       flex-shrink: 0;
-      display: none;
+    }
+    #pv-undo-btn:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
     }
     #pv-undo-btn:hover:not(:disabled) {
       background: linear-gradient(135deg, #d48d1e, #b47010);
@@ -6744,20 +6747,25 @@
 
   // ── End-game cinematic ─────────────────────────────────────────
   let _egDismissTimer = null;
-  function showEndGameCinematic(cardUid, triggerPlayerName) {
+  function showEndGameCinematic(cardUid, triggerPlayerName, isTriggerPlayer) {
     const el = document.getElementById("endgame-cinematic");
     const img = document.getElementById("eg-card-img");
     const sub = document.getElementById("eg-sub-text");
     img.src = imagePathForUid(cardUid);
-    sub.textContent = triggerPlayerName
-      ? `${triggerPlayerName} revealed the END GAME card — each player gets one final turn!`
-      : "The END GAME card has been revealed — each player gets one final turn!";
+    if (isTriggerPlayer) {
+      sub.textContent = "You revealed the END GAME card — play your final card now!";
+    } else {
+      sub.textContent = triggerPlayerName
+        ? `${triggerPlayerName} revealed the END GAME card — each player gets one final turn!`
+        : "The END GAME card has been revealed — each player gets one final turn!";
+    }
     // re-trigger animations by cloning key elements
     el.classList.remove("active");
     void el.offsetWidth;
     el.classList.add("active");
     if (_egDismissTimer) clearTimeout(_egDismissTimer);
-    _egDismissTimer = setTimeout(() => dismissEndGameCinematic(), 5000);
+    // Dismiss faster for the trigger player so they can act immediately
+    _egDismissTimer = setTimeout(() => dismissEndGameCinematic(), isTriggerPlayer ? 2000 : 5000);
   }
   function dismissEndGameCinematic() {
     document.getElementById("endgame-cinematic").classList.remove("active");
@@ -7782,7 +7790,7 @@
     // spuriously trigger the animation.
     if (endTriggered && !_prevEndTriggered && endGame.end_game_uid != null) {
       const triggerPlayer = state.current_player || "";
-      showEndGameCinematic(endGame.end_game_uid, triggerPlayer);
+      showEndGameCinematic(endGame.end_game_uid, triggerPlayer, isMyTurn);
       _gameAchTracker.endGameSeen = true;
     }
     _prevEndTriggered = endTriggered;
@@ -7818,7 +7826,12 @@
     // turn banner + "your turn" toast
     const banner = document.getElementById("pv-turn-banner");
     const endBtn = document.getElementById("pv-end-turn-inline");
-    if (endTriggered) {
+    if (endTriggered && isMyTurn) {
+      // Trigger player still has their turn — make it obvious they need to act
+      banner.className = "my-turn";
+      banner.textContent = "★ YOUR FINAL TURN — draw or play a card! ★";
+      endBtn.classList.add("pulse-glow");
+    } else if (endTriggered) {
       banner.className = "endgame";
       const left = endGame.final_turns_remaining;
       banner.textContent = `⚠ END GAME — ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
@@ -7891,12 +7904,13 @@
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
-    // undo button: visible when the server says this seat may undo their last turn
+    // undo button: always visible; disabled+dimmed when not eligible
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
     if (undoBtn) {
       const canUndo = Boolean(undoInfo.valid) && myIdx !== null && myIdx === undoInfo.eligible_seat;
-      undoBtn.style.display = canUndo ? "" : "none";
+      undoBtn.style.display = "";
+      undoBtn.disabled = !canUndo;
     }
 
     renderLog(payload.log_tail);
