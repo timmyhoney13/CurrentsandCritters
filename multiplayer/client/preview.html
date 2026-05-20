@@ -926,11 +926,10 @@
     #pv-hand-zone {
       background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
       flex-shrink: 0;
-      padding: 6px 12px 14px;
+      padding: 6px 20px 14px;
       display: flex;
       align-items: flex-end;
-      justify-content: space-between;
-      gap: 6px;
+      justify-content: center;
       min-height: 190px;
       position: relative;
       overflow: visible;
@@ -941,68 +940,76 @@
       justify-content: center;
       position: relative;
       overflow: visible;
-      flex: 0 1 auto;
     }
 
     /* ── PLAYER SEATS ───────────────────────────────────────────── */
+    /* Absolute-positioned so they never compete with the hand cards */
     .pv-seat-cluster {
+      position: absolute;
+      bottom: 10px;
       display: flex;
       flex-direction: row;
-      align-items: center;
-      gap: 5px;
-      flex-shrink: 0;
-      align-self: center;
+      align-items: flex-end;
+      gap: 4px;
+      z-index: 5;
+      background: rgba(5,14,38,.72);
+      border: 1px solid rgba(48,200,240,.18);
+      border-radius: 14px;
+      padding: 6px 6px 6px 6px;
+      backdrop-filter: blur(4px);
     }
+    #pv-seats-left  { left: 8px; }
+    #pv-seats-right { right: 8px; }
     .pv-seat {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 3px;
       cursor: pointer;
-      padding: 4px 2px 5px;
-      border-radius: 10px;
+      padding: 4px 3px 5px;
+      border-radius: 9px;
       transition: background .15s;
-      width: 52px;
+      width: 56px;
     }
-    .pv-seat:hover:not(.pv-seat-empty) { background: rgba(14,150,170,.12); }
+    .pv-seat:hover:not(.pv-seat-empty) { background: rgba(14,150,170,.18); }
     .pv-seat-avatar-wrap {
-      width: 40px; height: 40px;
+      width: 44px; height: 44px;
       border-radius: 50%;
-      border: 2px solid rgba(48,200,240,.3);
+      border: 2px solid rgba(48,200,240,.55);
       overflow: hidden;
       flex-shrink: 0;
-      background: rgba(10,25,55,.6);
+      background: rgba(12,30,65,.8);
       display: flex; align-items: center; justify-content: center;
     }
     .pv-seat-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-seat.active-turn .pv-seat-avatar-wrap {
       border: 2.5px solid #ff8c00;
-      box-shadow: 0 0 10px rgba(255,140,0,.7), 0 0 20px rgba(255,140,0,.35);
+      box-shadow: 0 0 10px rgba(255,140,0,.75), 0 0 22px rgba(255,140,0,.4);
       animation: seat-glow 1.8s ease-in-out infinite;
     }
     @keyframes seat-glow {
-      0%,100% { box-shadow: 0 0 8px rgba(255,140,0,.6), 0 0 16px rgba(255,140,0,.25); }
-      50%      { box-shadow: 0 0 18px rgba(255,140,0,.95), 0 0 30px rgba(255,140,0,.55); }
+      0%,100% { box-shadow: 0 0 8px rgba(255,140,0,.65), 0 0 16px rgba(255,140,0,.3); }
+      50%      { box-shadow: 0 0 18px rgba(255,140,0,1),  0 0 32px rgba(255,140,0,.6); }
     }
     .pv-seat-name {
-      font-size: 9px; font-weight: 700;
-      color: rgba(160,200,230,.75);
-      max-width: 52px; text-align: center;
+      font-size: 10px; font-weight: 700;
+      color: rgba(190,220,245,.9);
+      max-width: 56px; text-align: center;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .pv-seat.active-turn .pv-seat-name { color: #ff9c20; }
+    .pv-seat.active-turn .pv-seat-name { color: #ffaa30; }
     .pv-seat-score { font-size: 9px; font-weight: 800; color: var(--gold); }
     .pv-seat-me-badge {
-      font-size: 8px; font-weight: 800; color: var(--cyan);
-      letter-spacing: .5px;
+      font-size: 9px; font-weight: 800; color: var(--cyan);
+      letter-spacing: .4px;
     }
-    .pv-seat-empty { cursor: default; opacity: 0.32; }
+    .pv-seat-empty { cursor: default; opacity: 0.55; }
     .pv-seat-empty .pv-seat-avatar-wrap {
-      background: rgba(20,40,80,.35);
-      border: 2px dashed rgba(48,200,240,.18);
-      font-size: 18px; color: rgba(100,140,180,.5);
+      background: rgba(15,35,75,.6);
+      border: 2px dashed rgba(48,200,240,.4);
+      font-size: 20px; color: rgba(120,160,200,.7);
     }
-    .pv-seat-empty .pv-seat-name { color: rgba(80,110,150,.5); }
+    .pv-seat-empty .pv-seat-name { color: rgba(100,140,175,.7); }
 
     .pv-hand-card {
       width: var(--card-w);
