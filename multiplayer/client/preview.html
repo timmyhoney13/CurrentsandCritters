@@ -927,6 +927,78 @@
     #pv-payment-info.visible { display: flex; }
     .clear-pay { cursor: pointer; color: var(--red); font-size: 11px; }
 
+    /* ── Payment mode bar ──────────────────────────────────────── */
+    #pv-payment-mode-bar {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(220,50,50,.12);
+      border: 1px solid rgba(220,50,50,.4);
+      border-radius: 10px;
+      padding: 6px 12px;
+      flex: 1;
+    }
+    #pv-payment-mode-text {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 700;
+      color: #f07070;
+    }
+    #pv-payment-confirm-btn {
+      background: linear-gradient(135deg, #1fbb8a, #148060);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    #pv-payment-confirm-btn:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    #pv-payment-cancel-btn {
+      background: rgba(200,60,60,.18);
+      color: #f07070;
+      border: 1px solid rgba(220,60,60,.4);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    /* ── Discard button on hand cards during payment mode ──────── */
+    .pv-pay-discard-btn {
+      position: absolute;
+      bottom: 5px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(210,40,40,.88);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .3px;
+      padding: 3px 9px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity .15s, background .15s;
+      white-space: nowrap;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .pv-hand-card:hover .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
+    .pv-hand-card.pay-selected .pv-pay-discard-btn {
+      background: rgba(20,160,100,.88);
+      content: "✓ Selected";
+      opacity: 1;
+      pointer-events: auto;
+    }
+
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
       background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
@@ -6534,6 +6606,13 @@
       </label>
     </div>
 
+    <!-- payment mode: shown when an action is staged waiting for discard selection -->
+    <div id="pv-payment-mode-bar">
+      <span id="pv-payment-mode-text">Hover a hand card and click Discard to pay</span>
+      <button id="pv-payment-confirm-btn" disabled>Choose cards first</button>
+      <button id="pv-payment-cancel-btn">✕ Cancel</button>
+    </div>
+
     <div id="pv-payment-info">
       <span id="pv-payment-text">No payment</span>
       <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
@@ -7826,10 +7905,66 @@
 
   // ── Action submission ──────────────────────────────────────────
   let actionInFlight = false;
+  let pendingPayAction = null; // action staged waiting for payment card selection
   const selectedPayment = new Set();
   const selectedDiscard = new Set();
   const selectedPool    = new Set();
   let handEntryMap = new Map();
+
+  function updatePaymentModeUI() {
+    const bar         = document.getElementById("pv-payment-mode-bar");
+    const playCtrl    = document.getElementById("pv-play-controls");
+    const payInfo     = document.getElementById("pv-payment-info");
+    const confirmBtn  = document.getElementById("pv-payment-confirm-btn");
+    const txt         = document.getElementById("pv-payment-mode-text");
+    if (!bar) return;
+    if (!pendingPayAction) {
+      bar.style.display = "none";
+      if (playCtrl) playCtrl.style.display = "";
+      if (payInfo)  payInfo.style.display  = "";
+      return;
+    }
+    bar.style.display = "flex";
+    if (playCtrl) playCtrl.style.display = "none";
+    if (payInfo)  payInfo.style.display  = "none";
+    const cost    = Number(pendingPayAction.cost_to_pay || 0);
+    const name    = pendingPayAction.face_name || "card";
+    const sym     = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
+    const symHint = sym ? ` — needs a ${sym} card` : "";
+    const sel     = selectedPayment.size;
+    const need    = cost - sel;
+    if (txt) {
+      txt.textContent = sel >= cost
+        ? `✓ Ready to play ${name} — ${cost} card${cost!==1?"s":""} selected`
+        : `Playing ${name} — hover a hand card and click Discard (${need} more needed${symHint})`;
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled    = sel !== cost;
+      confirmBtn.textContent = sel >= cost ? `✓ Confirm Payment` : `Select ${need} more`;
+    }
+  }
+
+  function enterPaymentMode(action) {
+    pendingPayAction = action;
+    selectedPayment.clear();
+    updatePaymentModeUI();
+    _handRenderKey = "";
+    if (_handRenderData) {
+      const { me, actions, mustDiscard, discardExcess } = _handRenderData;
+      renderHand(me, actions, mustDiscard, discardExcess);
+    }
+  }
+
+  function exitPaymentMode() {
+    pendingPayAction = null;
+    selectedPayment.clear();
+    updatePaymentModeUI();
+    _handRenderKey = "";
+    if (_handRenderData) {
+      const { me, actions, mustDiscard, discardExcess } = _handRenderData;
+      renderHand(me, actions, mustDiscard, discardExcess);
+    }
+  }
 
   function setStatus(msg) { document.getElementById("pv-status-text").textContent = msg; }
 
@@ -7929,7 +8064,9 @@
         setStatus(errMsg); showToast(errMsg, "err"); return;
       }
       selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear(); pendingPoolDrawPicks.clear();
+      pendingPayAction = null;
       updatePaymentBadge();
+      updatePaymentModeUI();
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
       showToast(desc, "ok");
@@ -10402,6 +10539,7 @@
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
               if (!act) { showToast("Can't play that card here.", "warn"); return; }
+              if (Number(act.cost_to_pay || 0) > 0) { enterPaymentMode(act); return; }
               submitAction(act);
             });
           }
@@ -10472,6 +10610,7 @@
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
               if (!act) { showToast("Can't stack that card here.", "warn"); return; }
+              if (Number(act.cost_to_pay || 0) > 0) { enterPaymentMode(act); return; }
               submitAction(act);
             });
             lane.appendChild(slot);
@@ -10631,6 +10770,22 @@
       });
 
 
+      // Discard button overlay — shown on hover when payment mode is active
+      if (pendingPayAction) {
+        const payBtn = document.createElement("button");
+        payBtn.className = "pv-pay-discard-btn";
+        payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Discard";
+        payBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
+          else selectedPayment.add(entryUid);
+          updatePaymentModeUI();
+          _handRenderKey = "";
+          renderHand(me, actions, mustDiscard, discardExcess);
+        });
+        card.appendChild(payBtn);
+      }
+
       // click
       card.addEventListener("click", (ev) => {
         ev.stopPropagation();
@@ -10638,6 +10793,15 @@
           if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
           else if (selectedDiscard.size < discardExcess) selectedDiscard.add(entryUid);
           updateDiscardBtn();
+          renderHand(me, actions, mustDiscard, discardExcess);
+          return;
+        }
+        if (pendingPayAction) {
+          // In payment mode: clicking card body also toggles discard selection
+          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
+          else selectedPayment.add(entryUid);
+          updatePaymentModeUI();
+          _handRenderKey = "";
           renderHand(me, actions, mustDiscard, discardExcess);
           return;
         }
@@ -10768,6 +10932,15 @@
     const confirmBtn = document.getElementById("pv-confirm-discard-btn");
     const starWrap   = document.getElementById("pv-star-toggle").closest("label");
 
+    // Payment mode: action staged, waiting for player to pick discard cards
+    if (pendingPayAction) {
+      sel.style.display="none"; playBtn.style.display="none";
+      starWrap.style.display="none"; endBtn.style.display="none";
+      confirmBtn.style.display="none";
+      updatePaymentModeUI();
+      return;
+    }
+
     if (mustDiscard) {
       sel.style.display="none"; playBtn.style.display="none";
       starWrap.style.display="none"; endBtn.style.display="none";
@@ -10843,15 +11016,6 @@
       if (!Number.isInteger(idx)||!sel.value) { setStatus("Pick an action first."); return; }
       const act = actions.find(a=>Number(a.index)===idx);
       if (!act) { setStatus("Action no longer valid."); return; }
-      // Enforce manual payment selection before allowing submission
-      const cost = Number(act.cost_to_pay||0);
-      if (cost > 0 && selectedPayment.size === 0) {
-        const sym = act.required_symbol || act.star_symbol || "";
-        const symHint = sym ? ` — needs a ${sym} card` : "";
-        setStatus(`Select ${cost} payment card(s) from your hand first${symHint}.`);
-        showToast(`Select ${cost} payment card(s) to pay the cost${symHint}.`, "warn");
-        return;
-      }
       const useStarToggle = document.getElementById("pv-star-toggle")?.checked;
       let chosen = act;
       if (useStarToggle && !act.use_star) {
@@ -10867,6 +11031,11 @@
         } else if (act.star_symbol) {
           showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
         }
+      }
+      // If the action costs cards, enter payment selection mode instead of submitting directly
+      if (Number(chosen.cost_to_pay || 0) > 0) {
+        enterPaymentMode(chosen);
+        return;
       }
       submitAction(chosen);
     };
@@ -10898,6 +11067,18 @@
       showToast(`Need exactly ${excess} card(s) to discard.`, "warn"); return;
     }
     submitAction({ ...disc, pool_pick_uids: Array.from(selectedDiscard) });
+  });
+
+  document.getElementById("pv-payment-confirm-btn").addEventListener("click", () => {
+    if (!pendingPayAction) return;
+    const act = pendingPayAction;
+    pendingPayAction = null;
+    updatePaymentModeUI();
+    submitAction(act);
+  });
+
+  document.getElementById("pv-payment-cancel-btn").addEventListener("click", () => {
+    exitPaymentMode();
   });
 
   document.getElementById("pv-clear-pay").addEventListener("click", () => {
