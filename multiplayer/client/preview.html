@@ -8391,6 +8391,24 @@
   }
 
   // ── Player seat row (6 fixed slots, 3-left / 3-right of hand) ─
+  // Self-contained: does NOT reference the IIFE-scoped avatar helpers
+  // (AVATAR_OPTIONS / resolveAvatarUrl / _activeProfile) — those are
+  // private to the auth IIFE and unreachable from this scope, which
+  // previously threw a ReferenceError and prevented any seat from
+  // rendering. The local player's chosen avatar is read via
+  // window.__fishMyAvatarUrl() (exposed by the IIFE) when available.
+  const PV_SEAT_AVATARS = Array.from({ length: 12 },
+    (_, i) => `/avatars/avatar-${String(i + 1).padStart(2, "0")}.png`);
+  function pvSeatHash(s) {
+    const t = String(s || "player");
+    let h = 0;
+    for (let i = 0; i < t.length; i++) h = ((h << 5) - h + t.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+  function pvSeatDefaultAvatar(seed) {
+    return PV_SEAT_AVATARS[pvSeatHash(seed) % 12];
+  }
+
   function renderPlayerSeats(players, turnIndex, myIdx) {
     const leftEl  = document.getElementById("pv-seats-left");
     const rightEl = document.getElementById("pv-seats-right");
@@ -8398,8 +8416,15 @@
     leftEl.innerHTML  = "";
     rightEl.innerHTML = "";
 
+    let myAvatarUrl = "";
+    try {
+      if (typeof window.__fishMyAvatarUrl === "function") {
+        myAvatarUrl = String(window.__fishMyAvatarUrl() || "");
+      }
+    } catch (e) { myAvatarUrl = ""; }
+
     for (let slot = 0; slot < 6; slot++) {
-      const p = players.find(pl => pl.index === slot) || null;
+      const p = (players || []).find(pl => pl && pl.index === slot) || null;
       const cluster = slot < 3 ? leftEl : rightEl;
       const seat = document.createElement("div");
 
@@ -8421,16 +8446,14 @@
       const isMe     = p.index === myIdx;
       seat.className = "pv-seat" + (isActive ? " active-turn" : "");
 
-      const avatarUrl = isMe
-        ? resolveAvatarUrl(_activeProfile, { seed: p.name })
-        : getDefaultAvatar(p.name);
+      const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : pvSeatDefaultAvatar(p.name);
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
       const img = document.createElement("img");
       img.src = avatarUrl;
       img.alt = p.name || `Seat ${slot + 1}`;
-      img.onerror = () => { img.src = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png"; };
+      img.onerror = () => { img.onerror = null; img.src = PV_SEAT_AVATARS[0]; };
       aw.appendChild(img);
 
       const nm = document.createElement("div");
@@ -8451,7 +8474,9 @@
         badge.textContent = "YOU";
         seat.appendChild(badge);
       }
-      seat.addEventListener("click", () => openBoardFocus(p));
+      seat.addEventListener("click", () => {
+        try { openBoardFocus(p); } catch (e) {}
+      });
       seat.title = isMe
         ? "View your board"
         : `View ${p.name || `Player ${slot + 1}`}'s board`;
@@ -12415,6 +12440,24 @@
       if (!normalized || !AVATAR_OPTIONS.includes(normalized)) return getDefaultAvatar(seed);
       return normalized;
     }
+
+    // Bridge for code outside this IIFE (e.g. in-game player seat row)
+    window.__fishMyAvatarUrl = function () {
+      try {
+        const seed = _authUser?.uid || _playerNickname || "guest";
+        const fromProfile = _activeProfile && (
+          _activeProfile.avatar_url ||
+          _activeProfile.avatarUrl ||
+          _activeProfile.photo_url ||
+          _activeProfile.photoURL
+        );
+        const normalized = normalizeAvatarUrl(fromProfile || _guestAvatarUrl || "");
+        if (normalized && AVATAR_OPTIONS.includes(normalized)) return normalized;
+        return getDefaultAvatar(seed);
+      } catch (e) {
+        return "/avatars/avatar-01.png";
+      }
+    };
 
     function renderStatsAvatar(profile, nickname) {
       const wrap = $a("stats-avatar");
