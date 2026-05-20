@@ -918,14 +918,8 @@
     .pv-star-wrap input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; }
     .pv-star-wrap:has(input:checked) { color: var(--gold); }
 
-    #pv-payment-info {
-      font-size: 12px; color: var(--muted);
-      background: #122E6A; border: 1px solid var(--border);
-      border-radius: 6px; padding: 4px 8px;
-      display: none; align-items: center; gap: 6px;
-    }
-    #pv-payment-info.visible { display: flex; }
-    .clear-pay { cursor: pointer; color: var(--red); font-size: 11px; }
+    #pv-payment-info { display: none !important; }
+    .clear-pay { display: none !important; }
 
     /* ── Payment mode bar ──────────────────────────────────────── */
     #pv-payment-mode-bar {
@@ -973,31 +967,34 @@
     /* ── Discard button on hand cards during payment mode ──────── */
     .pv-pay-discard-btn {
       position: absolute;
-      bottom: 5px;
+      bottom: 6px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(210,40,40,.88);
+      background: rgba(210,40,40,.9);
       color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 9px;
+      border-radius: 7px;
+      font-size: 10px;
       font-weight: 900;
       letter-spacing: .3px;
-      padding: 3px 9px;
+      padding: 4px 10px;
       cursor: pointer;
       opacity: 0;
-      transition: opacity .15s, background .15s;
+      transition: opacity .15s, background .15s, transform .1s;
       white-space: nowrap;
       z-index: 20;
       pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,.4);
     }
+    /* Always visible once payment mode is active */
+    #pv-hand.payment-active .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
     .pv-hand-card:hover .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
     .pv-hand-card.pay-selected .pv-pay-discard-btn {
-      background: rgba(20,160,100,.88);
-      content: "✓ Selected";
+      background: rgba(20,160,100,.9);
       opacity: 1;
       pointer-events: auto;
     }
+    .pv-pay-discard-btn:hover { transform: translateX(-50%) scale(1.07); }
 
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
@@ -7948,6 +7945,7 @@
     pendingPayAction = action;
     selectedPayment.clear();
     updatePaymentModeUI();
+    document.getElementById("pv-hand")?.classList.add("payment-active");
     _handRenderKey = "";
     if (_handRenderData) {
       const { me, actions, mustDiscard, discardExcess } = _handRenderData;
@@ -7959,6 +7957,7 @@
     pendingPayAction = null;
     selectedPayment.clear();
     updatePaymentModeUI();
+    document.getElementById("pv-hand")?.classList.remove("payment-active");
     _handRenderKey = "";
     if (_handRenderData) {
       const { me, actions, mustDiscard, discardExcess } = _handRenderData;
@@ -8065,6 +8064,7 @@
       }
       selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear(); pendingPoolDrawPicks.clear();
       pendingPayAction = null;
+      document.getElementById("pv-hand")?.classList.remove("payment-active");
       updatePaymentBadge();
       updatePaymentModeUI();
       const desc = action.description ? action.description : (action.kind || "Action sent");
@@ -10693,6 +10693,8 @@
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
     cl(zone);
+    if (pendingPayAction) zone.classList.add("payment-active");
+    else zone.classList.remove("payment-active");
     if (!me || !Array.isArray(me.hand)) return;
 
     const hand = me.hand;
@@ -10786,7 +10788,7 @@
         card.appendChild(payBtn);
       }
 
-      // click
+      // click: zoom the card (or toggle discard selection when hand is over limit)
       card.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (mustDiscard) {
@@ -10796,25 +10798,6 @@
           renderHand(me, actions, mustDiscard, discardExcess);
           return;
         }
-        if (pendingPayAction) {
-          // In payment mode: clicking card body also toggles discard selection
-          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
-          else selectedPayment.add(entryUid);
-          updatePaymentModeUI();
-          _handRenderKey = "";
-          renderHand(me, actions, mustDiscard, discardExcess);
-          return;
-        }
-        if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
-        else selectedPayment.add(entryUid);
-        updatePaymentBadge();
-        renderHand(me, actions, mustDiscard, discardExcess);
-        prefillActionsForEntry(entryUid, actions);
-      });
-
-      // double-click: zoom
-      card.addEventListener("dblclick", (ev) => {
-        ev.stopPropagation();
         openZoom(faceUid, face.name, face.text, face.species);
       });
 
