@@ -1,5 +1,5 @@
-const APP_CACHE = "fish-multiplayer-v6";
-const CORE_ASSETS = ["/", "/manifest.webmanifest", "/icon.svg"];
+const APP_CACHE = "fish-multiplayer-v7";
+const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -15,9 +15,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) =>
-        Promise.all(keys.filter((key) => key !== APP_CACHE).map((key) => caches.delete(key)))
-      )
+      .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
       .catch(() => {})
   );
