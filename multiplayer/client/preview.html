@@ -1015,6 +1015,7 @@
       justify-content: center;
       position: relative;
       overflow: visible;
+      z-index: 3;
     }
 
     /* ── PLAYER SEATS (coral-reef reference design) ────────────── */
@@ -1026,7 +1027,7 @@
       flex-direction: row;
       align-items: flex-start;
       gap: 3px;
-      z-index: 5;
+      z-index: 1;
       background: linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(232,244,253,.92) 100%);
       border: 1px solid rgba(180,210,235,.65);
       border-radius: 20px;
@@ -1115,6 +1116,8 @@
       box-shadow: none;
     }
     .pv-seat-empty .pv-seat-name { color: rgba(100,140,175,.7); }
+    .pv-seat-score-empty { opacity: 0; pointer-events: none; }
+    .pv-seat-score-empty::before { content: ""; }
 
     .pv-hand-card {
       width: var(--card-w);
@@ -8579,8 +8582,13 @@
         const nm = document.createElement("div");
         nm.className = "pv-seat-name";
         nm.textContent = "Empty";
+        // Score placeholder keeps empty seats the same height as filled ones
+        const sc = document.createElement("div");
+        sc.className = "pv-seat-score pv-seat-score-empty";
+        sc.textContent = "—";
         seat.appendChild(aw);
         seat.appendChild(nm);
+        seat.appendChild(sc);
         cluster.appendChild(seat);
         continue;
       }
