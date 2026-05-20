@@ -179,8 +179,8 @@
     .pv-row .pv-input { flex: 1; }
 
     .pv-btn {
-      background: linear-gradient(135deg, #0e96aa, #0b7a8c);
-      border: none; border-radius: 8px;
+      background: linear-gradient(135deg, #4a98d8, #2f7ac0);
+      border: none; border-radius: 10px;
       color: #fff; cursor: pointer;
       font-family: "Nunito", inherit;
       font-size: 13px; font-weight: 800;
@@ -189,38 +189,43 @@
       white-space: nowrap;
       letter-spacing: .3px;
     }
-    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,150,170,.5); }
+    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(60,130,200,.5); }
     .pv-btn:active:not(:disabled) { transform: translateY(0); }
     .pv-btn:disabled { filter: brightness(.45); cursor: default; }
     .pv-btn.gold { background: linear-gradient(135deg, #c8971a, #a97c14); }
     .pv-btn.gold:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(200,150,26,.6); }
+    /* Coral / End-Turn red — matches reference design */
+    .pv-btn.coral { background: linear-gradient(135deg, #ef5a5a, #d83838); }
+    .pv-btn.coral:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(216,56,56,.55); }
     .pv-btn.danger { background: linear-gradient(135deg, #b03040, #8e1828); }
     #pv-undo-btn {
-      background: linear-gradient(135deg, #c07b14, #9e5e08);
-      color: #fff8ec;
-      border: 1px solid rgba(255,200,80,.35);
+      background: linear-gradient(135deg, #9b89c7, #7d6aae);
+      color: #fff;
+      border: 1px solid rgba(180,165,220,.45);
       font-size: 13px;
       padding: 7px 14px;
       white-space: nowrap;
       flex-shrink: 0;
+      border-radius: 10px;
     }
     #pv-undo-btn:disabled {
-      opacity: 0.38;
+      opacity: 0.4;
       cursor: not-allowed;
     }
     #pv-undo-btn:hover:not(:disabled) {
-      background: linear-gradient(135deg, #d48d1e, #b47010);
+      background: linear-gradient(135deg, #ad9bd6, #8e7bbe);
       transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(125,106,174,.5);
     }
     .pv-btn.sm { font-size: 12px; padding: 6px 11px; }
     .pv-btn.full { width: 100%; }
     .pv-btn.pulse-glow {
       animation: btn-pulse 1.8s ease-in-out infinite;
-      box-shadow: 0 0 12px rgba(245,200,66,.4);
+      box-shadow: 0 0 12px rgba(240,80,80,.45);
     }
     @keyframes btn-pulse {
-      0%,100% { box-shadow: 0 0 8px rgba(245,200,66,.35); }
-      50%      { box-shadow: 0 0 22px rgba(245,200,66,.7); }
+      0%,100% { box-shadow: 0 0 8px rgba(240,80,80,.4); }
+      50%      { box-shadow: 0 0 22px rgba(240,80,80,.75); }
     }
 
     #pv-lobby-status, #pv-home-status { text-align: center; color: var(--muted); font-size: 13px; min-height: 18px; }
@@ -942,72 +947,102 @@
       overflow: visible;
     }
 
-    /* ── PLAYER SEATS ───────────────────────────────────────────── */
-    /* Absolute-positioned so they never compete with the hand cards */
+    /* ── PLAYER SEATS (coral-reef reference design) ────────────── */
+    /* Light pastel pill panels anchored at bottom-left / bottom-right */
     .pv-seat-cluster {
       position: absolute;
-      bottom: 10px;
+      bottom: 14px;
       display: flex;
       flex-direction: row;
-      align-items: flex-end;
+      align-items: flex-start;
       gap: 4px;
       z-index: 5;
-      background: rgba(5,14,38,.72);
-      border: 1px solid rgba(48,200,240,.18);
-      border-radius: 14px;
-      padding: 6px 6px 6px 6px;
-      backdrop-filter: blur(4px);
+      background: linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(232,244,253,.92) 100%);
+      border: 1px solid rgba(180,210,235,.65);
+      border-radius: 20px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 22px rgba(8,30,55,.4), inset 0 1px 0 rgba(255,255,255,.7);
     }
-    #pv-seats-left  { left: 8px; }
-    #pv-seats-right { right: 8px; }
+    #pv-seats-left  { left: 16px; }
+    #pv-seats-right { right: 16px; }
     .pv-seat {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
       cursor: pointer;
-      padding: 4px 3px 5px;
-      border-radius: 9px;
-      transition: background .15s;
-      width: 56px;
+      padding: 6px 5px 6px;
+      border-radius: 12px;
+      transition: background .15s, transform .15s;
+      width: 64px;
+      position: relative;
     }
-    .pv-seat:hover:not(.pv-seat-empty) { background: rgba(14,150,170,.18); }
+    .pv-seat:hover:not(.pv-seat-empty) {
+      background: rgba(180,215,240,.35);
+      transform: translateY(-2px);
+    }
     .pv-seat-avatar-wrap {
-      width: 44px; height: 44px;
+      width: 48px; height: 48px;
       border-radius: 50%;
-      border: 2px solid rgba(48,200,240,.55);
+      border: 3px solid #ffffff;
       overflow: hidden;
       flex-shrink: 0;
-      background: rgba(12,30,65,.8);
+      background: #f5fbff;
       display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(8,30,55,.18);
     }
     .pv-seat-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .pv-seat.active-turn .pv-seat-avatar-wrap {
-      border: 2.5px solid #ff8c00;
-      box-shadow: 0 0 10px rgba(255,140,0,.75), 0 0 22px rgba(255,140,0,.4);
+      border: 3px solid #f05050;
+      box-shadow: 0 0 12px rgba(240,80,80,.7), 0 0 22px rgba(240,80,80,.35);
       animation: seat-glow 1.8s ease-in-out infinite;
     }
     @keyframes seat-glow {
-      0%,100% { box-shadow: 0 0 8px rgba(255,140,0,.65), 0 0 16px rgba(255,140,0,.3); }
-      50%      { box-shadow: 0 0 18px rgba(255,140,0,1),  0 0 32px rgba(255,140,0,.6); }
+      0%,100% { box-shadow: 0 0 10px rgba(240,80,80,.6),  0 0 18px rgba(240,80,80,.3); }
+      50%      { box-shadow: 0 0 18px rgba(240,80,80,.95), 0 0 32px rgba(240,80,80,.55); }
     }
     .pv-seat-name {
-      font-size: 10px; font-weight: 700;
-      color: rgba(190,220,245,.9);
-      max-width: 56px; text-align: center;
+      font-size: 11px; font-weight: 800;
+      color: #1a4d6e;
+      max-width: 64px; text-align: center;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      letter-spacing: .2px;
     }
-    .pv-seat.active-turn .pv-seat-name { color: #ffaa30; }
-    .pv-seat-score { font-size: 9px; font-weight: 800; color: var(--gold); }
+    .pv-seat.active-turn .pv-seat-name { color: #c93030; }
+    .pv-seat-score {
+      font-size: 10px; font-weight: 800;
+      color: #d4922a;
+      display: inline-flex; align-items: center; gap: 3px;
+      white-space: nowrap;
+    }
+    .pv-seat-score::before { content: "⭐"; font-size: 9px; }
+    .pv-seat.active-turn .pv-seat-score {
+      color: #fff;
+      background: linear-gradient(135deg, #f06868, #d83838);
+      padding: 2px 8px;
+      border-radius: 10px;
+      box-shadow: 0 2px 4px rgba(208,56,56,.35);
+    }
+    .pv-seat.active-turn .pv-seat-score::before { color: #ffe8a0; }
     .pv-seat-me-badge {
-      font-size: 9px; font-weight: 800; color: var(--cyan);
+      font-size: 8px; font-weight: 800; color: #fff;
       letter-spacing: .4px;
+      background: linear-gradient(135deg, #f06868, #d83838);
+      padding: 2px 6px;
+      border-radius: 8px;
+      position: absolute;
+      top: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      box-shadow: 0 2px 4px rgba(208,56,56,.3);
     }
-    .pv-seat-empty { cursor: default; opacity: 0.55; }
+    .pv-seat-empty { cursor: default; opacity: 0.6; }
     .pv-seat-empty .pv-seat-avatar-wrap {
-      background: rgba(15,35,75,.6);
-      border: 2px dashed rgba(48,200,240,.4);
-      font-size: 20px; color: rgba(120,160,200,.7);
+      background: rgba(220,232,242,.7);
+      border: 2px dashed rgba(120,150,180,.55);
+      font-size: 22px; color: rgba(120,150,180,.7);
+      box-shadow: none;
     }
     .pv-seat-empty .pv-seat-name { color: rgba(100,140,175,.7); }
 
@@ -1436,19 +1471,19 @@
     #pv-quick-draw-btn {
       display: none;
       flex-direction: column; align-items: center; gap: 2px;
-      background: linear-gradient(135deg, #0e96aa, #0b7a8c);
-      border: 2px solid #1ab0c8;
-      border-radius: 10px;
-      padding: 8px 16px;
+      background: linear-gradient(180deg, #d3e6f5 0%, #b8d4ed 100%);
+      border: 1px solid rgba(110,160,210,.55);
+      border-radius: 16px;
+      padding: 8px 18px;
       cursor: pointer;
       font-family: "Nunito", inherit;
       transition: transform .15s, box-shadow .15s;
       flex-shrink: 0;
     }
-    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(14,150,170,.5); }
+    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(80,140,200,.4); }
     #pv-quick-draw-btn.visible { display: flex; }
-    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #fff; }
-    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(255,255,255,.6); }
+    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #1a4d6e; }
+    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,77,110,.7); }
 
     /* ── TUTORIAL MODE ──────────────────────────────────────────── */
     #pv-tutorial {
@@ -6505,7 +6540,7 @@
     </div>
     <div style="flex:1;"></div>
     <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — only available while the next player hasn't acted yet">↩ Undo Turn</button>
-    <button class="pv-btn gold" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
+    <button class="pv-btn coral" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
 
@@ -8409,16 +8444,17 @@
 
       seat.appendChild(aw);
       seat.appendChild(nm);
+      seat.appendChild(sc);
       if (isMe) {
         const badge = document.createElement("div");
         badge.className = "pv-seat-me-badge";
         badge.textContent = "YOU";
         seat.appendChild(badge);
-      } else {
-        seat.appendChild(sc);
-        seat.addEventListener("click", () => openBoardFocus(p));
-        seat.title = `View ${p.name || `Player ${slot + 1}`}'s board`;
       }
+      seat.addEventListener("click", () => openBoardFocus(p));
+      seat.title = isMe
+        ? "View your board"
+        : `View ${p.name || `Player ${slot + 1}`}'s board`;
 
       cluster.appendChild(seat);
     }
