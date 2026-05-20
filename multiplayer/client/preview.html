@@ -179,7 +179,7 @@
     .pv-row .pv-input { flex: 1; }
 
     .pv-btn {
-      background: linear-gradient(135deg, #1480c8, #0d6cb0);
+      background: linear-gradient(135deg, #0e96aa, #0b7a8c);
       border: none; border-radius: 8px;
       color: #fff; cursor: pointer;
       font-family: "Nunito", inherit;
@@ -189,7 +189,7 @@
       white-space: nowrap;
       letter-spacing: .3px;
     }
-    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(20,128,200,.5); }
+    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(14,150,170,.5); }
     .pv-btn:active:not(:disabled) { transform: translateY(0); }
     .pv-btn:disabled { filter: brightness(.45); cursor: default; }
     .pv-btn.gold { background: linear-gradient(135deg, #c8971a, #a97c14); }
@@ -882,8 +882,8 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: linear-gradient(180deg, rgba(18,46,98,.97) 0%, rgba(13,36,80,.98) 100%);
-      border-top: 1px solid rgba(48,200,240,.15);
+      background: linear-gradient(180deg, rgba(8,40,72,.97) 0%, rgba(5,28,58,.98) 100%);
+      border-top: 1px solid rgba(14,150,170,.25);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -924,12 +924,13 @@
 
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
-      background: linear-gradient(0deg, rgba(11,30,72,.99) 0%, rgba(16,44,90,.55) 100%);
+      background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
       flex-shrink: 0;
-      padding: 6px 20px 14px;
+      padding: 6px 12px 14px;
       display: flex;
       align-items: flex-end;
-      justify-content: center;
+      justify-content: space-between;
+      gap: 6px;
       min-height: 190px;
       position: relative;
       overflow: visible;
@@ -940,7 +941,68 @@
       justify-content: center;
       position: relative;
       overflow: visible;
+      flex: 0 1 auto;
     }
+
+    /* ── PLAYER SEATS ───────────────────────────────────────────── */
+    .pv-seat-cluster {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+      align-self: center;
+    }
+    .pv-seat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      padding: 4px 2px 5px;
+      border-radius: 10px;
+      transition: background .15s;
+      width: 52px;
+    }
+    .pv-seat:hover:not(.pv-seat-empty) { background: rgba(14,150,170,.12); }
+    .pv-seat-avatar-wrap {
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid rgba(48,200,240,.3);
+      overflow: hidden;
+      flex-shrink: 0;
+      background: rgba(10,25,55,.6);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pv-seat-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .pv-seat.active-turn .pv-seat-avatar-wrap {
+      border: 2.5px solid #ff8c00;
+      box-shadow: 0 0 10px rgba(255,140,0,.7), 0 0 20px rgba(255,140,0,.35);
+      animation: seat-glow 1.8s ease-in-out infinite;
+    }
+    @keyframes seat-glow {
+      0%,100% { box-shadow: 0 0 8px rgba(255,140,0,.6), 0 0 16px rgba(255,140,0,.25); }
+      50%      { box-shadow: 0 0 18px rgba(255,140,0,.95), 0 0 30px rgba(255,140,0,.55); }
+    }
+    .pv-seat-name {
+      font-size: 9px; font-weight: 700;
+      color: rgba(160,200,230,.75);
+      max-width: 52px; text-align: center;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .pv-seat.active-turn .pv-seat-name { color: #ff9c20; }
+    .pv-seat-score { font-size: 9px; font-weight: 800; color: var(--gold); }
+    .pv-seat-me-badge {
+      font-size: 8px; font-weight: 800; color: var(--cyan);
+      letter-spacing: .5px;
+    }
+    .pv-seat-empty { cursor: default; opacity: 0.32; }
+    .pv-seat-empty .pv-seat-avatar-wrap {
+      background: rgba(20,40,80,.35);
+      border: 2px dashed rgba(48,200,240,.18);
+      font-size: 18px; color: rgba(100,140,180,.5);
+    }
+    .pv-seat-empty .pv-seat-name { color: rgba(80,110,150,.5); }
 
     .pv-hand-card {
       width: var(--card-w);
@@ -1367,8 +1429,8 @@
     #pv-quick-draw-btn {
       display: none;
       flex-direction: column; align-items: center; gap: 2px;
-      background: linear-gradient(135deg, #0d6cb0, #0a5490);
-      border: 2px solid #2a80c0;
+      background: linear-gradient(135deg, #0e96aa, #0b7a8c);
+      border: 2px solid #1ab0c8;
       border-radius: 10px;
       padding: 8px 16px;
       cursor: pointer;
@@ -1376,7 +1438,7 @@
       transition: transform .15s, box-shadow .15s;
       flex-shrink: 0;
     }
-    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(13,108,176,.5); }
+    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(14,150,170,.5); }
     #pv-quick-draw-btn.visible { display: flex; }
     #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #fff; }
     #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(255,255,255,.6); }
@@ -6440,9 +6502,11 @@
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
 
-  <!-- hand zone -->
+  <!-- hand zone: seats-left | hand cards | seats-right -->
   <div id="pv-hand-zone">
+    <div id="pv-seats-left" class="pv-seat-cluster"></div>
     <div id="pv-hand"></div>
+    <div id="pv-seats-right" class="pv-seat-cluster"></div>
   </div>
 
   <!-- log tail -->
@@ -8043,6 +8107,7 @@
     renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
+    renderPlayerSeats(players, state.turn_index, myIdx);
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
     // undo button: always visible; disabled+dimmed when not eligible
@@ -8281,6 +8346,75 @@
       if (!act) { showToast("Can't discard that card to pool right now.", "warn"); return; }
       submitAction(act);
     } : null;
+  }
+
+  // ── Player seat row (6 fixed slots, 3-left / 3-right of hand) ─
+  function renderPlayerSeats(players, turnIndex, myIdx) {
+    const leftEl  = document.getElementById("pv-seats-left");
+    const rightEl = document.getElementById("pv-seats-right");
+    if (!leftEl || !rightEl) return;
+    leftEl.innerHTML  = "";
+    rightEl.innerHTML = "";
+
+    for (let slot = 0; slot < 6; slot++) {
+      const p = players.find(pl => pl.index === slot) || null;
+      const cluster = slot < 3 ? leftEl : rightEl;
+      const seat = document.createElement("div");
+
+      if (!p) {
+        seat.className = "pv-seat pv-seat-empty";
+        const aw = document.createElement("div");
+        aw.className = "pv-seat-avatar-wrap";
+        aw.textContent = "🔒";
+        const nm = document.createElement("div");
+        nm.className = "pv-seat-name";
+        nm.textContent = "Empty";
+        seat.appendChild(aw);
+        seat.appendChild(nm);
+        cluster.appendChild(seat);
+        continue;
+      }
+
+      const isActive = p.index === turnIndex;
+      const isMe     = p.index === myIdx;
+      seat.className = "pv-seat" + (isActive ? " active-turn" : "");
+
+      const avatarUrl = isMe
+        ? resolveAvatarUrl(_activeProfile, { seed: p.name })
+        : getDefaultAvatar(p.name);
+
+      const aw = document.createElement("div");
+      aw.className = "pv-seat-avatar-wrap";
+      const img = document.createElement("img");
+      img.src = avatarUrl;
+      img.alt = p.name || `Seat ${slot + 1}`;
+      img.onerror = () => { img.src = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png"; };
+      aw.appendChild(img);
+
+      const nm = document.createElement("div");
+      nm.className = "pv-seat-name";
+      nm.textContent = p.name || `P${slot + 1}`;
+      nm.title = p.name || "";
+
+      const sc = document.createElement("div");
+      sc.className = "pv-seat-score";
+      sc.textContent = (p.score ?? 0) + " pts";
+
+      seat.appendChild(aw);
+      seat.appendChild(nm);
+      if (isMe) {
+        const badge = document.createElement("div");
+        badge.className = "pv-seat-me-badge";
+        badge.textContent = "YOU";
+        seat.appendChild(badge);
+      } else {
+        seat.appendChild(sc);
+        seat.addEventListener("click", () => openBoardFocus(p));
+        seat.title = `View ${p.name || `Player ${slot + 1}`}'s board`;
+      }
+
+      cluster.appendChild(seat);
+    }
   }
 
   // ── Opponent renderer ──────────────────────────────────────────
