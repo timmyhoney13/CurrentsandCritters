@@ -386,7 +386,7 @@
     }
 
     /* ── OPPONENTS ──────────────────────────────────────────────── */
-    #pv-opponents { display: grid; gap: 8px; align-items: start; }
+    #pv-opponents { display: none !important; }
     /* 1 opponent — centred */
     #pv-opponents.opp-1 { grid-template-columns: 1fr; justify-items: center; }
     /* 2 opponents — left + across */
@@ -969,12 +969,12 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       cursor: pointer;
-      padding: 6px 5px 6px;
-      border-radius: 12px;
+      padding: 8px 6px 8px;
+      border-radius: 14px;
       transition: background .15s, transform .15s;
-      width: 64px;
+      width: 82px;
       position: relative;
     }
     .pv-seat:hover:not(.pv-seat-empty) {
@@ -982,7 +982,7 @@
       transform: translateY(-2px);
     }
     .pv-seat-avatar-wrap {
-      width: 48px; height: 48px;
+      width: 62px; height: 62px;
       border-radius: 50%;
       border: 3px solid #ffffff;
       overflow: hidden;
@@ -1002,20 +1002,20 @@
       50%      { box-shadow: 0 0 18px rgba(240,80,80,.95), 0 0 32px rgba(240,80,80,.55); }
     }
     .pv-seat-name {
-      font-size: 11px; font-weight: 800;
+      font-size: 12px; font-weight: 800;
       color: #1a4d6e;
-      max-width: 64px; text-align: center;
+      max-width: 82px; text-align: center;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       letter-spacing: .2px;
     }
     .pv-seat.active-turn .pv-seat-name { color: #c93030; }
     .pv-seat-score {
-      font-size: 10px; font-weight: 800;
+      font-size: 11px; font-weight: 800;
       color: #d4922a;
       display: inline-flex; align-items: center; gap: 3px;
       white-space: nowrap;
     }
-    .pv-seat-score::before { content: "⭐"; font-size: 9px; }
+    .pv-seat-score::before { content: "⭐"; font-size: 10px; }
     .pv-seat.active-turn .pv-seat-score {
       color: #fff;
       background: linear-gradient(135deg, #f06868, #d83838);
@@ -8446,7 +8446,8 @@
       const isMe     = p.index === myIdx;
       seat.className = "pv-seat" + (isActive ? " active-turn" : "");
 
-      const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : pvSeatDefaultAvatar(p.name);
+      // Use slot index for others so every client sees the same avatar per seat
+      const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : PV_SEAT_AVATARS[slot % 12];
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
