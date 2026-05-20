@@ -6594,7 +6594,7 @@
     <!-- Play a card controls -->
     <div id="pv-play-controls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
       <select id="pv-action-select" title="Select which card to play and where">
-        <option value="">Click a hand card, then pick where to play it…</option>
+        <option value="">Choose action…</option>
       </select>
       <button class="pv-btn" id="pv-play-btn" title="Play the selected action">Play Card</button>
       <label class="pv-star-wrap" title="Use the card's special ★ ability">
@@ -7917,13 +7917,11 @@
     if (!bar) return;
     if (!pendingPayAction) {
       bar.style.display = "none";
-      if (playCtrl) playCtrl.style.display = "";
-      if (payInfo)  payInfo.style.display  = "";
+      if (playCtrl) playCtrl.style.display = "flex";
       return;
     }
     bar.style.display = "flex";
     if (playCtrl) playCtrl.style.display = "none";
-    if (payInfo)  payInfo.style.display  = "none";
     const cost    = Number(pendingPayAction.cost_to_pay || 0);
     const name    = pendingPayAction.face_name || "card";
     const sym     = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
@@ -10772,8 +10770,10 @@
       });
 
 
-      // Discard button overlay — shown on hover when payment mode is active
-      if (pendingPayAction) {
+      // Discard button overlay — shown when payment mode is active (not on the card being played)
+      const isCardBeingPlayed = pendingPayAction &&
+        (Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid);
+      if (pendingPayAction && !isCardBeingPlayed) {
         const payBtn = document.createElement("button");
         payBtn.className = "pv-pay-discard-btn";
         payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Discard";
@@ -10815,15 +10815,6 @@
     _prevHandUIDs = newHandUIDs;
   }
 
-  function prefillActionsForEntry(entryUid, actions) {
-    const sel = document.getElementById("pv-action-select");
-    const matching = actions.filter(a => Number(a.card_uid)===entryUid || Number(a.face_uid)===entryUid);
-    if (!matching.length) return;
-    for (const opt of sel.options) {
-      if (matching.some(a => String(a.index)===opt.value)) { sel.value=opt.value; break; }
-    }
-  }
-
   // ── Guide bar ──────────────────────────────────────────────────
   function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies) {
     const bar = document.getElementById("pv-guide-bar");
@@ -10832,6 +10823,20 @@
 
     if (!isMyTurn) {
       bar.classList.remove("visible");
+      qdBtn.classList.remove("visible");
+      drawDivider.style.display = "none";
+      return;
+    }
+
+    if (pendingPayAction) {
+      const cost = Number(pendingPayAction.cost_to_pay || 0);
+      const name = pendingPayAction.face_name || "card";
+      const sym  = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
+      const symHint = sym ? ` — pick a <strong>${sym}</strong> card` : "";
+      bar.classList.add("visible");
+      bar.innerHTML = `<div class="guide-step">
+        <span class="gs active">💳 Paying for <strong>${name}</strong> — click <em>Discard</em> on ${cost} card${cost!==1?"s":""} below${symHint}, then hit <em>Confirm Payment</em></span>
+      </div>`;
       qdBtn.classList.remove("visible");
       drawDivider.style.display = "none";
       return;
@@ -11056,6 +11061,7 @@
     if (!pendingPayAction) return;
     const act = pendingPayAction;
     pendingPayAction = null;
+    document.getElementById("pv-hand")?.classList.remove("payment-active");
     updatePaymentModeUI();
     submitAction(act);
   });
