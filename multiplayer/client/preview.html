@@ -964,37 +964,38 @@
       cursor: pointer;
       white-space: nowrap;
     }
-    /* ── Discard button on hand cards during payment mode ──────── */
+    /* ── "Use as Payment" button on hand cards during payment mode ── */
     .pv-pay-discard-btn {
       position: absolute;
-      bottom: 6px;
+      bottom: -14px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(210,40,40,.9);
+      background: linear-gradient(135deg, #0ea5a0, #0d8a86);
       color: #fff;
       border: none;
-      border-radius: 7px;
+      border-radius: 20px;
       font-size: 10px;
-      font-weight: 900;
-      letter-spacing: .3px;
-      padding: 4px 10px;
+      font-weight: 800;
+      letter-spacing: .2px;
+      padding: 4px 12px;
       cursor: pointer;
       opacity: 0;
-      transition: opacity .15s, background .15s, transform .1s;
+      transition: opacity .15s, background .15s, transform .12s;
       white-space: nowrap;
-      z-index: 20;
+      z-index: 30;
       pointer-events: none;
-      box-shadow: 0 2px 6px rgba(0,0,0,.4);
+      box-shadow: 0 2px 8px rgba(13,138,134,.5);
     }
-    /* Always visible once payment mode is active */
+    /* Always visible in payment mode */
     #pv-hand.payment-active .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
     .pv-hand-card:hover .pv-pay-discard-btn { opacity: 1; pointer-events: auto; }
     .pv-hand-card.pay-selected .pv-pay-discard-btn {
-      background: rgba(20,160,100,.9);
+      background: linear-gradient(135deg, #16a34a, #15803d);
+      box-shadow: 0 2px 8px rgba(22,163,74,.5);
       opacity: 1;
       pointer-events: auto;
     }
-    .pv-pay-discard-btn:hover { transform: translateX(-50%) scale(1.07); }
+    .pv-pay-discard-btn:hover { transform: translateX(-50%) scale(1.08); }
 
     /* ── HAND ZONE ──────────────────────────────────────────────── */
     #pv-hand-zone {
@@ -6605,7 +6606,7 @@
 
     <!-- payment mode: shown when an action is staged waiting for discard selection -->
     <div id="pv-payment-mode-bar">
-      <span id="pv-payment-mode-text">Hover a hand card and click Discard to pay</span>
+      <span id="pv-payment-mode-text">Hover a hand card and click "Use as Payment" to pay</span>
       <button id="pv-payment-confirm-btn" disabled>Choose cards first</button>
       <button id="pv-payment-cancel-btn">✕ Cancel</button>
     </div>
@@ -7930,8 +7931,8 @@
     const need    = cost - sel;
     if (txt) {
       txt.textContent = sel >= cost
-        ? `✓ Ready to play ${name} — ${cost} card${cost!==1?"s":""} selected`
-        : `Playing ${name} — hover a hand card and click Discard (${need} more needed${symHint})`;
+        ? `✓ Ready — ${cost} card${cost!==1?"s":""} selected to pay for ${name}`
+        : `Playing ${name} — click or hover a card and tap "Use as Payment" (${need} more needed${symHint})`;
     }
     if (confirmBtn) {
       confirmBtn.disabled    = sel !== cost;
@@ -8017,6 +8018,13 @@
   }
 
   async function submitAction(action) {
+    // If the action costs cards and no payment has been selected yet, enter payment
+    // mode instead of submitting — this catches every code path (drag, click, stack +).
+    if (Number(action.cost_to_pay || 0) > 0 && selectedPayment.size === 0) {
+      enterPaymentMode(action);
+      return;
+    }
+
     // In competitive mode, use the token for whichever of our seats is currently active
     let token;
     if (compMode && myIdx !== null && compTokens[myIdx]) {
@@ -10537,7 +10545,6 @@
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
               if (!act) { showToast("Can't play that card here.", "warn"); return; }
-              if (Number(act.cost_to_pay || 0) > 0) { enterPaymentMode(act); return; }
               submitAction(act);
             });
           }
@@ -10608,7 +10615,6 @@
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
               if (!act) { showToast("Can't stack that card here.", "warn"); return; }
-              if (Number(act.cost_to_pay || 0) > 0) { enterPaymentMode(act); return; }
               submitAction(act);
             });
             lane.appendChild(slot);
@@ -10770,13 +10776,13 @@
       });
 
 
-      // Discard button overlay — shown when payment mode is active (not on the card being played)
+      // "Use as Payment" button — shown in payment mode on every card except the one being played
       const isCardBeingPlayed = pendingPayAction &&
         (Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid);
       if (pendingPayAction && !isCardBeingPlayed) {
         const payBtn = document.createElement("button");
         payBtn.className = "pv-pay-discard-btn";
-        payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Discard";
+        payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Use as Payment";
         payBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
           if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
@@ -10788,16 +10794,27 @@
         card.appendChild(payBtn);
       }
 
-      // click: zoom the card (or toggle discard selection when hand is over limit)
+      // click handler
       card.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (mustDiscard) {
+          // Over hand limit — clicking selects card for discard
           if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
           else if (selectedDiscard.size < discardExcess) selectedDiscard.add(entryUid);
           updateDiscardBtn();
           renderHand(me, actions, mustDiscard, discardExcess);
           return;
         }
+        if (pendingPayAction && !isCardBeingPlayed) {
+          // In payment mode — clicking card body selects it as payment (same as the button)
+          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
+          else selectedPayment.add(entryUid);
+          updatePaymentModeUI();
+          _handRenderKey = "";
+          renderHand(me, actions, mustDiscard, discardExcess);
+          return;
+        }
+        // Default: zoom the card
         openZoom(faceUid, face.name, face.text, face.species);
       });
 
@@ -10835,7 +10852,7 @@
       const symHint = sym ? ` — pick a <strong>${sym}</strong> card` : "";
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">💳 Paying for <strong>${name}</strong> — click <em>Discard</em> on ${cost} card${cost!==1?"s":""} below${symHint}, then hit <em>Confirm Payment</em></span>
+        <span class="gs active">💳 Paying for <strong>${name}</strong> — click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
       </div>`;
       qdBtn.classList.remove("visible");
       drawDivider.style.display = "none";
@@ -11019,11 +11036,6 @@
         } else if (act.star_symbol) {
           showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
         }
-      }
-      // If the action costs cards, enter payment selection mode instead of submitting directly
-      if (Number(chosen.cost_to_pay || 0) > 0) {
-        enterPaymentMode(chosen);
-        return;
       }
       submitAction(chosen);
     };
