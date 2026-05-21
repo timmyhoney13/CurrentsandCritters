@@ -2965,7 +2965,7 @@
     }
     .ph-tabs {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       background: rgba(252,255,255,.94);
       border-radius: 18px;
       box-shadow: 0 6px 22px rgba(35,100,165,.11);
@@ -2978,13 +2978,13 @@
       background: transparent;
       color: #4d6587;
       font-family: "Nunito", sans-serif;
-      font-size: clamp(.91rem, 1.15vw, 1.35rem);
+      font-size: clamp(.78rem, 1.0vw, 1.12rem);
       font-weight: 700;
-      padding: 14px 8px;
+      padding: 12px 5px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
       cursor: pointer;
       border-bottom: 3px solid transparent;
       transition: color .14s, background .14s, border-bottom-color .14s;
@@ -2996,25 +2996,40 @@
       border-bottom-color: #2f7ee0;
       background: #fff;
     }
-    .ph-tab-link {
-      text-decoration: none;
-      border: none;
-      border-right: none;
-      background: transparent;
-      color: #4d6587;
-      font-family: "Nunito", sans-serif;
-      font-size: clamp(.91rem, 1.15vw, 1.35rem);
-      font-weight: 700;
-      padding: 14px 8px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      cursor: pointer;
-      border-bottom: 3px solid transparent;
-      transition: color .14s, background .14s;
+    /* ── Leaderboard panel elements ──────────────────────────────── */
+    .ph-lb-mode-row {
+      display: flex; gap: 6px; padding: 12px 16px 10px;
+      border-bottom: 1px solid #e8f0f8;
     }
-    .ph-tab-link:hover { color: #1f65be; background: rgba(60,131,212,.06); }
+    .ph-lb-mode-btn {
+      padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+      border: 1.5px solid rgba(169,203,230,.8); background: #f5faff; color: #4d6587;
+      cursor: pointer; font-family: "Nunito", sans-serif; transition: all .12s ease;
+    }
+    .ph-lb-mode-btn.active { background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%); color: #fff; border-color: #1c70cc; }
+    .ph-lb-size-row {
+      display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+      padding: 10px 16px 8px;
+    }
+    .ph-lb-size-lbl { font-size: 11px; font-weight: 800; color: #7a9db8; text-transform: uppercase; letter-spacing: .4px; margin-right: 3px; }
+    .ph-lb-size-btn {
+      padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
+      border: 1.5px solid rgba(169,203,230,.7); background: #f5faff; color: #4d6587;
+      cursor: pointer; font-family: "Nunito", sans-serif; transition: all .12s ease;
+    }
+    .ph-lb-size-btn.active { background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%); color: #fff; border-color: #1c70cc; }
+    .ph-lb-list {
+      padding: 6px 14px 14px; max-height: 340px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: #7dd3fc #dff0fb;
+    }
+    .ph-lb-list .lb-row {
+      border-bottom: 1px solid rgba(169,203,230,.35);
+      padding: 8px 4px;
+    }
+    .ph-lb-list .lb-rank  { color: #8aaccc; }
+    .ph-lb-list .lb-name  { color: #143d6d; }
+    .ph-lb-list .lb-score { color: #1a6fcf; }
+    .ph-lb-list .lb-you   { color: #c07a00 !important; font-weight: 900; }
     .ph-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5882,10 +5897,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         Achievements
       </button>
-      <a class="ph-tab-link" href="/leaderboard" target="_blank" rel="noopener">
+      <button class="ph-tab" data-tab="leaderboard">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
         Leaderboard
-      </a>
+      </button>
     </div>
 
     <!-- ── Overview tab ───────────────────────────────────────── -->
@@ -6298,6 +6313,41 @@
         <!-- Achievement list -->
         <div class="ach-steam-list" id="ach-steam-list">
           <div style="color:var(--muted);text-align:center;padding:32px 0;font-size:13px;">Loading achievements…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Leaderboard tab ──────────────────────────────────── -->
+    <div class="ph-panel" id="ph-panel-leaderboard" style="display:none;">
+      <div class="ph-scard ph-full">
+        <div class="ph-sh">
+          <div class="ph-st">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1" y="10" width="5" height="7" rx="1" stroke="#2680c8" stroke-width="1.5"/><rect x="7" y="6" width="5" height="11" rx="1" stroke="#2680c8" stroke-width="1.5"/><rect x="13" y="1" width="5" height="16" rx="1" stroke="#2680c8" stroke-width="1.5"/></svg>
+            Leaderboard
+          </div>
+        </div>
+        <!-- Mode toggle -->
+        <div class="ph-lb-mode-row">
+          <button class="ph-lb-mode-btn active" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
+        </div>
+        <!-- Casual section -->
+        <div id="ph-lb-casual-section">
+          <div class="ph-lb-size-row">
+            <span class="ph-lb-size-lbl">Size</span>
+            <button class="ph-lb-size-btn active" data-phsize="2" onclick="phLbSetSize(2,this)">2P</button>
+            <button class="ph-lb-size-btn" data-phsize="3" onclick="phLbSetSize(3,this)">3P</button>
+            <button class="ph-lb-size-btn" data-phsize="4" onclick="phLbSetSize(4,this)">4P</button>
+            <button class="ph-lb-size-btn" data-phsize="5" onclick="phLbSetSize(5,this)">5P</button>
+            <button class="ph-lb-size-btn" data-phsize="6" onclick="phLbSetSize(6,this)">6P</button>
+            <button class="ph-lb-size-btn" data-phsize="7" onclick="phLbSetSize(7,this)">7P</button>
+            <button class="ph-lb-size-btn" data-phsize="8" onclick="phLbSetSize(8,this)">8P</button>
+          </div>
+          <div class="ph-lb-list" id="ph-lb-casual-list"><div class="ph-empty">Loading…</div></div>
+        </div>
+        <!-- Competitive section -->
+        <div id="ph-lb-comp-section" style="display:none;">
+          <div class="ph-lb-list" id="ph-lb-comp-list"><div class="ph-empty">Loading…</div></div>
         </div>
       </div>
     </div>
@@ -13321,6 +13371,88 @@
       }
     }
 
+    // ── In-game Leaderboard panel ─────────────────────────────────
+    let _phLbMode = "casual";
+    let _phLbSize = 2;
+
+    window.phLbSwitchMode = function phLbSwitchMode(mode) {
+      _phLbMode = mode;
+      const casualBtn = $a("ph-lb-casual-btn");
+      const compBtn   = $a("ph-lb-comp-btn");
+      const casualSec = $a("ph-lb-casual-section");
+      const compSec   = $a("ph-lb-comp-section");
+      if (casualBtn) casualBtn.classList.toggle("active", mode === "casual");
+      if (compBtn)   compBtn.classList.toggle("active", mode === "competitive");
+      if (casualSec) casualSec.style.display = mode === "casual" ? "" : "none";
+      if (compSec)   compSec.style.display   = mode === "competitive" ? "" : "none";
+      renderPhLeaderboard();
+    };
+
+    window.phLbSetSize = function phLbSetSize(size, btn) {
+      _phLbSize = size;
+      const row = $a("ph-lb-casual-section");
+      if (row) row.querySelectorAll(".ph-lb-size-btn").forEach(b => b.classList.toggle("active", b === btn));
+      renderPhLeaderboard();
+    };
+
+    async function renderPhLeaderboard() {
+      if (!_db) return;
+      if (_phLbMode === "casual") {
+        const el = $a("ph-lb-casual-list");
+        if (!el) return;
+        el.innerHTML = '<div class="ph-empty">Loading…</div>';
+        try {
+          const field = `stats.highest_score_${_phLbSize}p`;
+          const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get();
+          if (snap.empty) { el.innerHTML = '<div class="ph-empty">No scores yet for this size.</div>'; return; }
+          let html = "", shown = 0;
+          snap.docs.forEach((doc, i) => {
+            const d = doc.data();
+            const score = d.stats?.[`highest_score_${_phLbSize}p`] || 0;
+            if (!score) return;
+            shown++;
+            const isMe = _authUser && doc.id === _authUser.uid;
+            const medal = shown===1?"🥇":shown===2?"🥈":shown===3?"🥉":"";
+            html += `<div class="lb-row">
+              <span class="lb-rank">${medal||("#"+shown)}</span>
+              <span class="lb-name${isMe?" lb-you":""}">${escHtmlPH(d.nickname||"Unknown")}${isMe?" <em style='font-size:10px;font-weight:800;color:#c07a00;'>(you)</em>":""}</span>
+              <span class="lb-score${isMe?" lb-you":""}">${score.toLocaleString()} pts</span>
+            </div>`;
+          });
+          el.innerHTML = shown ? html : '<div class="ph-empty">No scores yet for this size.</div>';
+        } catch(_) { el.innerHTML = '<div class="ph-empty">Could not load leaderboard.</div>'; }
+      } else {
+        const el = $a("ph-lb-comp-list");
+        if (!el) return;
+        el.innerHTML = '<div class="ph-empty">Loading…</div>';
+        try {
+          const snap = await _db.collection("users").orderBy("stats.comp_cp", "desc").limit(20).get();
+          if (snap.empty) { el.innerHTML = '<div class="ph-empty">No competitive players yet.</div>'; return; }
+          let html = "", shown = 0;
+          snap.docs.forEach((doc) => {
+            const d  = doc.data();
+            const cp = d.stats?.comp_cp || 0;
+            if (!cp) return;
+            shown++;
+            const isMe = _authUser && doc.id === _authUser.uid;
+            const medal = shown===1?"🥇":shown===2?"🥈":shown===3?"🥉":"";
+            const wins   = d.stats?.competitive_wins   || 0;
+            const losses = d.stats?.competitive_losses || 0;
+            html += `<div class="lb-row">
+              <span class="lb-rank">${medal||("#"+shown)}</span>
+              <span class="lb-name${isMe?" lb-you":""}">${escHtmlPH(d.nickname||"Unknown")}${isMe?" <em style='font-size:10px;font-weight:800;color:#c07a00;'>(you)</em>":""}</span>
+              <span class="lb-score${isMe?" lb-you":""}">${cp} CP &nbsp;<small style="font-size:10px;color:#8aaccc;">${wins}W/${losses}L</small></span>
+            </div>`;
+          });
+          el.innerHTML = shown ? html : '<div class="ph-empty">No competitive players yet.</div>';
+        } catch(_) { el.innerHTML = '<div class="ph-empty">Could not load leaderboard.</div>'; }
+      }
+    }
+
+    function escHtmlPH(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
       const signinAsGuest = $a("auth-signin-as-guest");
@@ -13723,15 +13855,10 @@
       }
     });
 
-    // ── Leaderboard button ────────────────────────────────────────
+    // ── Leaderboard button — switches to the in-game leaderboard tab ─
     const lbBtn = $a("stats-leaderboard-btn");
     if (lbBtn) lbBtn.addEventListener("click", () => {
-      $a("leaderboard-modal").classList.add("open");
-      // activate first tab and load
-      const tabs = $a("lb-tabs-row").querySelectorAll(".lb-tab");
-      tabs.forEach(t => t.classList.remove("active"));
-      tabs[0].classList.add("active");
-      loadLeaderboard(2);
+      if (typeof window._switchPhTab === "function") window._switchPhTab("leaderboard");
     });
     $a("lb-close-btn").addEventListener("click", () => $a("leaderboard-modal").classList.remove("open"));
     // Wire all player-count tabs dynamically
@@ -13874,7 +14001,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements" };
+      const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       function switchTab(name) {
         if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
@@ -13888,6 +14015,7 @@
         if (name === "overview")     renderPhOverview();
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
+        if (name === "leaderboard")  renderPhLeaderboard();
       }
       window._switchPhTab = switchTab;
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
