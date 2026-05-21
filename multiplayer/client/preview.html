@@ -2999,37 +2999,98 @@
     /* ── Leaderboard panel elements ──────────────────────────────── */
     .ph-lb-mode-row {
       display: flex; gap: 6px; padding: 12px 16px 10px;
-      border-bottom: 1px solid #e8f0f8;
+      border-bottom: 1px solid #e8f0f8; flex-wrap: wrap;
     }
     .ph-lb-mode-btn {
-      padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
+      padding: 7px 18px; border-radius: 999px; font-size: 12px; font-weight: 800;
       border: 1.5px solid rgba(169,203,230,.8); background: #f5faff; color: #4d6587;
       cursor: pointer; font-family: "Nunito", sans-serif; transition: all .12s ease;
     }
     .ph-lb-mode-btn.active { background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%); color: #fff; border-color: #1c70cc; }
     .ph-lb-size-row {
       display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
-      padding: 10px 16px 8px;
+      padding: 10px 16px 8px; border-bottom: 1px solid #edf3f9;
     }
-    .ph-lb-size-lbl { font-size: 11px; font-weight: 800; color: #7a9db8; text-transform: uppercase; letter-spacing: .4px; margin-right: 3px; }
+    .ph-lb-size-lbl { font-size: 11px; font-weight: 800; color: #7a9db8; text-transform: uppercase; letter-spacing: .4px; margin-right: 3px; white-space: nowrap; }
     .ph-lb-size-btn {
       padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 800;
       border: 1.5px solid rgba(169,203,230,.7); background: #f5faff; color: #4d6587;
       cursor: pointer; font-family: "Nunito", sans-serif; transition: all .12s ease;
     }
     .ph-lb-size-btn.active { background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%); color: #fff; border-color: #1c70cc; }
-    .ph-lb-list {
-      padding: 6px 14px 14px; max-height: 340px; overflow-y: auto;
-      scrollbar-width: thin; scrollbar-color: #7dd3fc #dff0fb;
+    /* Competitive sub-tabs */
+    .ph-lb-comp-tabs {
+      display: flex; border-bottom: 1px solid #e4eef8; overflow: hidden;
     }
-    .ph-lb-list .lb-row {
-      border-bottom: 1px solid rgba(169,203,230,.35);
-      padding: 8px 4px;
+    .ph-lb-comp-tab {
+      flex: 1; padding: 10px 6px; font-size: 11.5px; font-weight: 800;
+      font-family: "Nunito",sans-serif; color: #5a7ea8; background: #f7fbff;
+      border: none; border-right: 1px solid #e4eef8; cursor: pointer;
+      text-align: center; transition: all .12s ease; line-height: 1.3;
     }
-    .ph-lb-list .lb-rank  { color: #8aaccc; }
-    .ph-lb-list .lb-name  { color: #143d6d; }
-    .ph-lb-list .lb-score { color: #1a6fcf; }
-    .ph-lb-list .lb-you   { color: #c07a00 !important; font-weight: 900; }
+    .ph-lb-comp-tab:last-child { border-right: none; }
+    .ph-lb-comp-tab:hover { background: #eaf3fb; color: #1c5fa8; }
+    .ph-lb-comp-tab.active { background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%); color: #fff; }
+    /* Summary card */
+    .ph-lb-summary {
+      display: flex; align-items: center; gap: 14px;
+      margin: 12px 16px 0; padding: 12px 16px;
+      background: linear-gradient(135deg, rgba(44,128,240,.07) 0%, rgba(42,190,140,.06) 100%);
+      border: 1px solid rgba(44,128,240,.18); border-radius: 12px;
+    }
+    .ph-lb-sum-rank {
+      width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: "Nunito",sans-serif; font-size: 18px; font-weight: 900;
+      background: linear-gradient(145deg,#e0f0ff,#c8e4ff); border: 2px solid #90c8f0; color: #1460a8;
+    }
+    .ph-lb-sum-rank.rank-1 { background: linear-gradient(145deg,#fff8e0,#ffe98a); border-color: #f0c820; color: #a07000; }
+    .ph-lb-sum-rank.rank-2 { background: linear-gradient(145deg,#f0f4f8,#dce8f0); border-color: #a8c0d0; color: #5a7080; }
+    .ph-lb-sum-rank.rank-3 { background: linear-gradient(145deg,#fef0e8,#f5d8c0); border-color: #d89060; color: #8a4020; }
+    .ph-lb-sum-body { flex: 1; min-width: 0; }
+    .ph-lb-sum-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #7a9db8; margin-bottom: 4px; }
+    .ph-lb-sum-vals { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 2px; }
+    .ph-lb-sum-val { font-size: 12px; font-weight: 700; color: #143d6d; }
+    .ph-lb-sum-val span { color: #7a9db8; font-weight: 600; }
+    /* Table */
+    .ph-lb-table-wrap { overflow-x: auto; margin-top: 10px; }
+    .ph-lb-table {
+      width: 100%; border-collapse: collapse; font-size: 12.5px;
+    }
+    .ph-lb-table thead th {
+      background: linear-gradient(180deg,#eaf4ff 0%,#ddeefa 100%);
+      color: #3a6a9a; font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .4px; padding: 8px 12px; text-align: left;
+      border-bottom: 1px solid #c4daf0; white-space: nowrap;
+    }
+    .ph-lb-table tbody tr { transition: background .1s; }
+    .ph-lb-table tbody tr:hover { background: rgba(44,128,240,.04); }
+    .ph-lb-table tbody tr.ph-lb-me { background: rgba(208,168,40,.07); }
+    .ph-lb-table tbody tr.ph-lb-me:hover { background: rgba(208,168,40,.12); }
+    .ph-lb-table tbody td {
+      padding: 8px 12px; border-bottom: 1px solid rgba(195,220,240,.5);
+      color: #143d6d; font-weight: 600; vertical-align: middle;
+    }
+    .ph-lb-table tbody tr:last-child td { border-bottom: none; }
+    .ph-lb-rank-cell { font-family: "Nunito",sans-serif; font-size: 15px; font-weight: 900; width: 42px; }
+    .ph-lb-medal { font-size: 17px; line-height: 1; }
+    .ph-lb-player-cell { display: flex; align-items: center; gap: 8px; min-width: 100px; }
+    .ph-lb-avatar {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      object-fit: cover; border: 1.5px solid rgba(120,180,230,.5);
+      background: linear-gradient(145deg,#c8e4ff,#a0ccf0);
+    }
+    .ph-lb-pname { font-weight: 800; color: #143d6d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+    .ph-lb-you-tag { font-size: 9px; font-weight: 900; color: #b07000; background: #fff4cc; border: 1px solid #e8c840; border-radius: 999px; padding: 1px 5px; margin-left: 4px; white-space: nowrap; }
+    .ph-lb-score-cell { font-family: "Nunito",sans-serif; font-size: 14px; font-weight: 900; color: #1a5aca; white-space: nowrap; }
+    .ph-lb-score-cell.lb-top { color: #b07000; }
+    .ph-lb-meta-cell { color: #5a7ea8; font-size: 12px; white-space: nowrap; }
+    .ph-lb-pill {
+      display: inline-block; background: rgba(44,128,240,.10); border: 1px solid rgba(44,128,240,.2);
+      border-radius: 999px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; color: #1a5a9a;
+    }
+    .ph-lb-empty { color: #8aaccc; font-size: 13px; text-align: center; padding: 28px 16px; font-style: italic; }
+    .ph-lb-scroll { max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7dd3fc #dff0fb; }
     .ph-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -6326,29 +6387,145 @@
             Leaderboard
           </div>
         </div>
-        <!-- Mode toggle -->
+
+        <!-- Mode toggle: Casual / Competitive -->
         <div class="ph-lb-mode-row">
           <button class="ph-lb-mode-btn active" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
           <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
         </div>
-        <!-- Casual section -->
+
+        <!-- ── CASUAL SECTION ──────────────────────────────── -->
         <div id="ph-lb-casual-section">
+          <!-- Size filter -->
           <div class="ph-lb-size-row">
             <span class="ph-lb-size-lbl">Size</span>
-            <button class="ph-lb-size-btn active" data-phsize="2" onclick="phLbSetSize(2,this)">2P</button>
-            <button class="ph-lb-size-btn" data-phsize="3" onclick="phLbSetSize(3,this)">3P</button>
-            <button class="ph-lb-size-btn" data-phsize="4" onclick="phLbSetSize(4,this)">4P</button>
-            <button class="ph-lb-size-btn" data-phsize="5" onclick="phLbSetSize(5,this)">5P</button>
-            <button class="ph-lb-size-btn" data-phsize="6" onclick="phLbSetSize(6,this)">6P</button>
-            <button class="ph-lb-size-btn" data-phsize="7" onclick="phLbSetSize(7,this)">7P</button>
-            <button class="ph-lb-size-btn" data-phsize="8" onclick="phLbSetSize(8,this)">8P</button>
+            <button class="ph-lb-size-btn active" data-phsize="all" onclick="phLbSetSize('all',this)">Overall</button>
+            <button class="ph-lb-size-btn" data-phsize="2" onclick="phLbSetSize('2',this)">2P</button>
+            <button class="ph-lb-size-btn" data-phsize="3" onclick="phLbSetSize('3',this)">3P</button>
+            <button class="ph-lb-size-btn" data-phsize="4" onclick="phLbSetSize('4',this)">4P</button>
+            <button class="ph-lb-size-btn" data-phsize="5" onclick="phLbSetSize('5',this)">5P</button>
+            <button class="ph-lb-size-btn" data-phsize="6" onclick="phLbSetSize('6',this)">6P</button>
+            <button class="ph-lb-size-btn" data-phsize="7" onclick="phLbSetSize('7',this)">7P</button>
+            <button class="ph-lb-size-btn" data-phsize="8" onclick="phLbSetSize('8',this)">8P</button>
           </div>
-          <div class="ph-lb-list" id="ph-lb-casual-list"><div class="ph-empty">Loading…</div></div>
+          <!-- Your Best Casual Game summary card -->
+          <div class="ph-lb-summary" id="ph-lb-casual-summary" style="display:none;">
+            <div class="ph-lb-sum-rank" id="ph-lb-casual-rank">—</div>
+            <div class="ph-lb-sum-body">
+              <div class="ph-lb-sum-title">Your Best Casual Game</div>
+              <div class="ph-lb-sum-vals" id="ph-lb-casual-sum-vals"></div>
+            </div>
+          </div>
+          <!-- Casual table -->
+          <div class="ph-lb-table-wrap ph-lb-scroll" style="margin: 10px 0 0;">
+            <table class="ph-lb-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Score</th>
+                  <th>Game Size</th>
+                  <th>Strategy</th>
+                </tr>
+              </thead>
+              <tbody id="ph-lb-casual-tbody">
+                <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <!-- Competitive section -->
+
+        <!-- ── COMPETITIVE SECTION ────────────────────────── -->
         <div id="ph-lb-comp-section" style="display:none;">
-          <div class="ph-lb-list" id="ph-lb-comp-list"><div class="ph-empty">Loading…</div></div>
-        </div>
+          <!-- Competitive sub-tabs -->
+          <div class="ph-lb-comp-tabs">
+            <button class="ph-lb-comp-tab active" id="ph-lb-cp-tab" onclick="phLbSwitchCompTab('cp',this)">CP Leaderboard</button>
+            <button class="ph-lb-comp-tab" id="ph-lb-single-tab" onclick="phLbSwitchCompTab('single',this)">Highest Single Hand</button>
+            <button class="ph-lb-comp-tab" id="ph-lb-combined-tab" onclick="phLbSwitchCompTab('combined',this)">Highest Combined Hands</button>
+          </div>
+
+          <!-- CP Leaderboard sub-section -->
+          <div id="ph-lb-cp-section">
+            <div class="ph-lb-summary" id="ph-lb-cp-summary" style="display:none;">
+              <div class="ph-lb-sum-rank" id="ph-lb-cp-rank">—</div>
+              <div class="ph-lb-sum-body">
+                <div class="ph-lb-sum-title">Your Competitive Rank</div>
+                <div class="ph-lb-sum-vals" id="ph-lb-cp-sum-vals"></div>
+              </div>
+            </div>
+            <div class="ph-lb-table-wrap ph-lb-scroll" style="margin: 10px 0 0;">
+              <table class="ph-lb-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>CP</th>
+                    <th>Rank Title</th>
+                    <th>Strategy</th>
+                  </tr>
+                </thead>
+                <tbody id="ph-lb-cp-tbody">
+                  <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Highest Single Hand sub-section -->
+          <div id="ph-lb-single-section" style="display:none;">
+            <div class="ph-lb-summary" id="ph-lb-single-summary" style="display:none;">
+              <div class="ph-lb-sum-rank" id="ph-lb-single-rank">—</div>
+              <div class="ph-lb-sum-body">
+                <div class="ph-lb-sum-title">Your Best Single Hand</div>
+                <div class="ph-lb-sum-vals" id="ph-lb-single-sum-vals"></div>
+              </div>
+            </div>
+            <div class="ph-lb-table-wrap ph-lb-scroll" style="margin: 10px 0 0;">
+              <table class="ph-lb-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Score</th>
+                    <th>Hand</th>
+                    <th>Strategy</th>
+                  </tr>
+                </thead>
+                <tbody id="ph-lb-single-tbody">
+                  <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Highest Combined Hands sub-section -->
+          <div id="ph-lb-combined-section" style="display:none;">
+            <div class="ph-lb-summary" id="ph-lb-combined-summary" style="display:none;">
+              <div class="ph-lb-sum-rank" id="ph-lb-combined-rank">—</div>
+              <div class="ph-lb-sum-body">
+                <div class="ph-lb-sum-title">Your Best Combined Score</div>
+                <div class="ph-lb-sum-vals" id="ph-lb-combined-sum-vals"></div>
+              </div>
+            </div>
+            <div class="ph-lb-table-wrap ph-lb-scroll" style="margin: 10px 0 0;">
+              <table class="ph-lb-table">
+                <thead>
+                  <tr>
+                    <th>Rank</th>
+                    <th>Player</th>
+                    <th>Combined Score</th>
+                    <th>Hand Pair</th>
+                    <th>Strategy Pair</th>
+                  </tr>
+                </thead>
+                <tbody id="ph-lb-combined-tbody">
+                  <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div><!-- end competitive -->
+
       </div>
     </div>
 
@@ -13372,85 +13549,289 @@
     }
 
     // ── In-game Leaderboard panel ─────────────────────────────────
-    let _phLbMode = "casual";
-    let _phLbSize = 2;
+    let _phLbMode     = "casual";
+    let _phLbSize     = "all";
+    let _phLbCompTab  = "cp";
 
-    window.phLbSwitchMode = function phLbSwitchMode(mode) {
+    /* ── helpers ── */
+    function escHtmlPH(s) {
+      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+    function phLbAvatarImg(avatarUrl, seed) {
+      const raw   = typeof normalizeAvatarUrl === "function" ? normalizeAvatarUrl(avatarUrl || "") : (avatarUrl || "");
+      const final = raw || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/avatar-01.png");
+      return `<img class="ph-lb-avatar" src="${escHtmlPH(final)}" alt="" loading="lazy" onerror="this.src='/avatars/avatar-01.png'">`;
+    }
+    function phLbRankTitle(cp) {
+      const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+      return fn ? fn(Number(cp)||0).division : "—";
+    }
+    function phLbMedal(n) {
+      return n===1?"🥇":n===2?"🥈":n===3?"🥉":`<span style="color:#8aaccc;font-weight:700;">#${n}</span>`;
+    }
+    function phLbRankClass(n) {
+      return n===1?" rank-1":n===2?" rank-2":n===3?" rank-3":"";
+    }
+    function phLbSizeField(size) {
+      return size === "all" ? "stats.highest_score" : `stats.highest_score_${size}p`;
+    }
+    function phLbSizeLabel(size) {
+      return size === "all" ? "Overall" : `${size}P`;
+    }
+    function phLbSetSumCard(id, rankId, valsId, show, rankNum, vals) {
+      const card = $a(id);
+      if (!card) return;
+      card.style.display = show ? "" : "none";
+      if (!show) return;
+      const rankEl = $a(rankId);
+      if (rankEl) {
+        rankEl.textContent = rankNum ? `#${rankNum}` : "—";
+        rankEl.className = "ph-lb-sum-rank" + phLbRankClass(rankNum);
+      }
+      const valsEl = $a(valsId);
+      if (valsEl) valsEl.innerHTML = vals;
+    }
+
+    /* ── mode / tab switches ── */
+    window.phLbSwitchMode = function(mode) {
       _phLbMode = mode;
-      const casualBtn = $a("ph-lb-casual-btn");
-      const compBtn   = $a("ph-lb-comp-btn");
-      const casualSec = $a("ph-lb-casual-section");
-      const compSec   = $a("ph-lb-comp-section");
-      if (casualBtn) casualBtn.classList.toggle("active", mode === "casual");
-      if (compBtn)   compBtn.classList.toggle("active", mode === "competitive");
-      if (casualSec) casualSec.style.display = mode === "casual" ? "" : "none";
-      if (compSec)   compSec.style.display   = mode === "competitive" ? "" : "none";
+      ["casual","comp"].forEach(m => {
+        const btn = $a(`ph-lb-${m}-btn`);
+        const sec = $a(`ph-lb-${m==="casual"?"casual":"comp"}-section`);
+        const isActive = (m==="casual" ? mode==="casual" : mode==="competitive");
+        if (btn) btn.classList.toggle("active", isActive);
+        if (sec) sec.style.display = isActive ? "" : "none";
+      });
       renderPhLeaderboard();
     };
 
-    window.phLbSetSize = function phLbSetSize(size, btn) {
+    window.phLbSetSize = function(size, btn) {
       _phLbSize = size;
       const row = $a("ph-lb-casual-section");
-      if (row) row.querySelectorAll(".ph-lb-size-btn").forEach(b => b.classList.toggle("active", b === btn));
+      if (row) row.querySelectorAll(".ph-lb-size-btn").forEach(b => b.classList.toggle("active", b===btn));
       renderPhLeaderboard();
     };
 
+    window.phLbSwitchCompTab = function(tab, btn) {
+      _phLbCompTab = tab;
+      ["cp","single","combined"].forEach(t => {
+        const b = $a(`ph-lb-${t}-tab`);
+        const s = $a(`ph-lb-${t}-section`);
+        if (b) b.classList.toggle("active", t===tab);
+        if (s) s.style.display = t===tab ? "" : "none";
+      });
+      renderPhLeaderboard();
+    };
+
+    /* ── main render ── */
     async function renderPhLeaderboard() {
       if (!_db) return;
       if (_phLbMode === "casual") {
-        const el = $a("ph-lb-casual-list");
-        if (!el) return;
-        el.innerHTML = '<div class="ph-empty">Loading…</div>';
-        try {
-          const field = `stats.highest_score_${_phLbSize}p`;
-          const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get();
-          if (snap.empty) { el.innerHTML = '<div class="ph-empty">No scores yet for this size.</div>'; return; }
-          let html = "", shown = 0;
-          snap.docs.forEach((doc, i) => {
-            const d = doc.data();
-            const score = d.stats?.[`highest_score_${_phLbSize}p`] || 0;
-            if (!score) return;
-            shown++;
-            const isMe = _authUser && doc.id === _authUser.uid;
-            const medal = shown===1?"🥇":shown===2?"🥈":shown===3?"🥉":"";
-            html += `<div class="lb-row">
-              <span class="lb-rank">${medal||("#"+shown)}</span>
-              <span class="lb-name${isMe?" lb-you":""}">${escHtmlPH(d.nickname||"Unknown")}${isMe?" <em style='font-size:10px;font-weight:800;color:#c07a00;'>(you)</em>":""}</span>
-              <span class="lb-score${isMe?" lb-you":""}">${score.toLocaleString()} pts</span>
-            </div>`;
-          });
-          el.innerHTML = shown ? html : '<div class="ph-empty">No scores yet for this size.</div>';
-        } catch(_) { el.innerHTML = '<div class="ph-empty">Could not load leaderboard.</div>'; }
+        await _phLbRenderCasual();
       } else {
-        const el = $a("ph-lb-comp-list");
-        if (!el) return;
-        el.innerHTML = '<div class="ph-empty">Loading…</div>';
-        try {
-          const snap = await _db.collection("users").orderBy("stats.comp_cp", "desc").limit(20).get();
-          if (snap.empty) { el.innerHTML = '<div class="ph-empty">No competitive players yet.</div>'; return; }
-          let html = "", shown = 0;
-          snap.docs.forEach((doc) => {
-            const d  = doc.data();
-            const cp = d.stats?.comp_cp || 0;
-            if (!cp) return;
-            shown++;
-            const isMe = _authUser && doc.id === _authUser.uid;
-            const medal = shown===1?"🥇":shown===2?"🥈":shown===3?"🥉":"";
-            const wins   = d.stats?.competitive_wins   || 0;
-            const losses = d.stats?.competitive_losses || 0;
-            html += `<div class="lb-row">
-              <span class="lb-rank">${medal||("#"+shown)}</span>
-              <span class="lb-name${isMe?" lb-you":""}">${escHtmlPH(d.nickname||"Unknown")}${isMe?" <em style='font-size:10px;font-weight:800;color:#c07a00;'>(you)</em>":""}</span>
-              <span class="lb-score${isMe?" lb-you":""}">${cp} CP &nbsp;<small style="font-size:10px;color:#8aaccc;">${wins}W/${losses}L</small></span>
-            </div>`;
-          });
-          el.innerHTML = shown ? html : '<div class="ph-empty">No competitive players yet.</div>';
-        } catch(_) { el.innerHTML = '<div class="ph-empty">Could not load leaderboard.</div>'; }
+        if (_phLbCompTab === "cp")       await _phLbRenderCp();
+        else if (_phLbCompTab === "single")   await _phLbRenderSingle();
+        else if (_phLbCompTab === "combined") await _phLbRenderCombined();
       }
     }
 
-    function escHtmlPH(s) {
-      return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    async function _phLbRenderCasual() {
+      const tbody = $a("ph-lb-casual-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const field = phLbSizeField(_phLbSize);
+        const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const stats = d.stats || {};
+          const score = _phLbSize === "all"
+            ? (stats.highest_score || 0)
+            : (stats[`highest_score_${_phLbSize}p`] || 0);
+          if (!score) return;
+          shown++;
+          const isMe  = !!(_authUser && doc.id === _authUser.uid);
+          const strat = escHtmlPH(stats.most_played_strategy || stats.favorite_strategy || "—");
+          const size  = _phLbSize === "all" ? "—" : `${_phLbSize}P`;
+          rows.push({ shown, isMe, score, size, strat, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, score, size, strat }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No scores recorded yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",false);
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.shown===1 ? ' ph-lb-score-cell lb-top' : '';
+          return `<tr class="${meC}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
+            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
+            <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
+            <td class="ph-lb-meta-cell">${r.strat}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Best Score</span> ${myRow.score.toLocaleString()} pts</div>
+            <div class="ph-lb-sum-val"><span>Game Size</span> ${myRow.size}</div>
+            <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
+          phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
+      }
+    }
+
+    async function _phLbRenderCp() {
+      const tbody = $a("ph-lb-cp-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const snap = await _db.collection("users").orderBy("stats.comp_cp","desc").limit(25).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d   = doc.data();
+          const cp  = d.stats?.comp_cp || 0;
+          if (!cp) return;
+          shown++;
+          const isMe  = !!(_authUser && doc.id === _authUser.uid);
+          const title = phLbRankTitle(cp);
+          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "—");
+          rows.push({ shown, isMe, cp, title, strat, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, cp, title, strat }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No competitive games yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-cp-summary","ph-lb-cp-rank","ph-lb-cp-sum-vals",false);
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.shown===1 ? ' lb-top' : '';
+          return `<tr class="${meC}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
+            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="ph-lb-score-cell${sc}">${r.cp} CP</td>
+            <td class="ph-lb-meta-cell">${escHtmlPH(r.title)}</td>
+            <td class="ph-lb-meta-cell">${r.strat}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>CP</span> ${myRow.cp}</div>
+            <div class="ph-lb-sum-val"><span>Rank</span> ${escHtmlPH(myRow.title)}</div>
+            <div class="ph-lb-sum-val"><span>Leaderboard Spot</span> #${myRow.shown}</div>
+            <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
+          phLbSetSumCard("ph-lb-cp-summary","ph-lb-cp-rank","ph-lb-cp-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-cp-summary","ph-lb-cp-rank","ph-lb-cp-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
+      }
+    }
+
+    async function _phLbRenderSingle() {
+      const tbody = $a("ph-lb-single-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const snap = await _db.collection("users").orderBy("stats.comp_best_single_hand","desc").limit(25).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const score = d.stats?.comp_best_single_hand || 0;
+          if (!score) return;
+          shown++;
+          const isMe  = !!(_authUser && doc.id === _authUser.uid);
+          const hand  = escHtmlPH(d.stats?.comp_best_single_hand_label || "Hand 1");
+          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "—");
+          rows.push({ shown, isMe, score, hand, strat, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, score, hand, strat }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No single-hand scores recorded yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-single-summary","ph-lb-single-rank","ph-lb-single-sum-vals",false);
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.shown===1 ? ' lb-top' : '';
+          return `<tr class="${meC}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
+            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
+            <td class="ph-lb-meta-cell">${r.hand}</td>
+            <td class="ph-lb-meta-cell">${r.strat}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Best Single-Hand Score</span> ${myRow.score.toLocaleString()} pts</div>
+            <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
+          phLbSetSumCard("ph-lb-single-summary","ph-lb-single-rank","ph-lb-single-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-single-summary","ph-lb-single-rank","ph-lb-single-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
+      }
+    }
+
+    async function _phLbRenderCombined() {
+      const tbody = $a("ph-lb-combined-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const snap = await _db.collection("users").orderBy("stats.comp_best_combined","desc").limit(25).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const score = d.stats?.comp_best_combined || 0;
+          if (!score) return;
+          shown++;
+          const isMe    = !!(_authUser && doc.id === _authUser.uid);
+          const pair    = escHtmlPH(d.stats?.comp_best_combined_hands || "Hand 1 + Hand 2");
+          const stratPair = escHtmlPH(d.stats?.comp_best_combined_strategies || (d.stats?.most_played_strategy || "—"));
+          rows.push({ shown, isMe, score, pair, stratPair, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, score, pair, stratPair }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No combined scores recorded yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-combined-summary","ph-lb-combined-rank","ph-lb-combined-sum-vals",false);
+          return;
+        }
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.shown===1 ? ' lb-top' : '';
+          return `<tr class="${meC}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
+            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
+            <td class="ph-lb-meta-cell">${r.pair}</td>
+            <td class="ph-lb-meta-cell">${r.stratPair}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Best Combined Score</span> ${myRow.score.toLocaleString()} pts</div>
+            <div class="ph-lb-sum-val"><span>Strategy Pair</span> ${myRow.stratPair}</div>`;
+          phLbSetSumCard("ph-lb-combined-summary","ph-lb-combined-rank","ph-lb-combined-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-combined-summary","ph-lb-combined-rank","ph-lb-combined-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
+      }
     }
 
     // ── Startup ──────────────────────────────────────────────────
