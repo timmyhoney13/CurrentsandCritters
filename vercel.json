@@ -13,6 +13,10 @@
     {
       "source": "/(horizontal_cards|vertical_cards|oceans_cards)/(.*)\\.png",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/leaderboard-bg.jpg",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
   "redirects": [
@@ -29,6 +33,7 @@
     { "source": "/rules",                "destination": "/multiplayer/client/rules.html" },
     { "source": "/about",                "destination": "/multiplayer/client/about.html" },
     { "source": "/leaderboard",          "destination": "/multiplayer/client/leaderboard.html" },
+    { "source": "/leaderboard-bg.jpg",  "destination": "/multiplayer/client/leaderboard-bg.jpg" },
     { "source": "/sw.js",               "destination": "/multiplayer/client/sw.js" },
     { "source": "/icon.svg",             "destination": "/multiplayer/client/icon.svg" },
     { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" }
