@@ -2996,6 +2996,25 @@
       border-bottom-color: #2f7ee0;
       background: #fff;
     }
+    .ph-tab-link {
+      text-decoration: none;
+      border: none;
+      border-right: none;
+      background: transparent;
+      color: #4d6587;
+      font-family: "Nunito", sans-serif;
+      font-size: clamp(.91rem, 1.15vw, 1.35rem);
+      font-weight: 700;
+      padding: 14px 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: color .14s, background .14s;
+    }
+    .ph-tab-link:hover { color: #1f65be; background: rgba(60,131,212,.06); }
     .ph-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5863,6 +5882,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         Achievements
       </button>
+      <a class="ph-tab-link" href="/leaderboard" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        Leaderboard
+      </a>
     </div>
 
     <!-- ── Overview tab ───────────────────────────────────────── -->

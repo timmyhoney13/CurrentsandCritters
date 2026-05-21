@@ -28,6 +28,7 @@
     { "source": "/old/:room_id",         "destination": "/multiplayer/client/index.html" },
     { "source": "/rules",                "destination": "/multiplayer/client/rules.html" },
     { "source": "/about",                "destination": "/multiplayer/client/about.html" },
+    { "source": "/leaderboard",          "destination": "/multiplayer/client/leaderboard.html" },
     { "source": "/sw.js",               "destination": "/multiplayer/client/sw.js" },
     { "source": "/icon.svg",             "destination": "/multiplayer/client/icon.svg" },
     { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" }
