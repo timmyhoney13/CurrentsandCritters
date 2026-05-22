@@ -1,4 +1,4 @@
-const APP_CACHE = "fish-multiplayer-v24";
+const APP_CACHE = "fish-multiplayer-v25";
 const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -26,6 +26,13 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
+
+  // Never cache cross-origin requests (e.g. game API calls to Render server)
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(req).catch(() => new Response("", { status: 503 })));
+    return;
+  }
+
   if (url.pathname.startsWith("/api/")) {
     // Game state must always be live. Strip cache-control to avoid CORS preflight failures
     // when the server is on a different origin (e.g. Render vs Vercel).
@@ -37,7 +44,9 @@ self.addEventListener("fetch", (event) => {
 
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req).catch(() => caches.match("/"))
+      fetch(req).catch(() =>
+        caches.match("/").then((r) => r || new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } }))
+      )
     );
     return;
   }
@@ -53,7 +62,9 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match("/"));
+        .catch(() =>
+          caches.match("/").then((r) => r || new Response("", { status: 503 }))
+        );
     })
   );
 });
