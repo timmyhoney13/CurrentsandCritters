@@ -5433,8 +5433,13 @@
     }
     #sp-join-btn:not(:disabled):hover { background: linear-gradient(90deg, #f0c830, #e0b020); }
     #sp-join-btn:disabled { cursor: default; }
-    #sp-join-btn::before { content: "🦀"; font-size: 26px; position: absolute; left: 18px; top: 50%; transform: translateY(-50%); }
+    #sp-join-btn::before { content: none; }
     #sp-join-btn::after { content: "🪸"; font-size: 26px; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
+    #sp-crab {
+      position: absolute; left: -8px; bottom: 0;
+      width: 90px; height: auto;
+      pointer-events: none; z-index: 10;
+    }
 
     .lb-tabs {
       display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
@@ -7383,7 +7388,10 @@
     <div class="sp-subtitle">Click an open spot to claim it</div>
     <div class="seat-grid" id="sp-seat-grid"></div>
     <div id="seat-picker-err"></div>
-    <button id="sp-join-btn" disabled>Choose a seat above</button>
+    <button id="sp-join-btn" disabled>
+      <img id="sp-crab" src="hermit-crab.png" alt="">
+      <span id="sp-join-text">Choose a seat above</span>
+    </button>
   </div>
 </div>
 
@@ -8127,7 +8135,7 @@
         gridEl.querySelectorAll(".seat-btn").forEach(b => b.classList.remove("selected"));
         btn.classList.add("selected");
         joinBtnEl.disabled = false;
-        joinBtnEl.textContent = `Join as Seat ${seat.index + 1} →`;
+        const _spTxt = document.getElementById("sp-join-text"); if (_spTxt) _spTxt.textContent = `Join as Seat ${seat.index + 1} →`;
         onSelect(seat.index);
       });
       gridEl.appendChild(btn);
@@ -8157,7 +8165,7 @@
   }
 
   async function doJoin(rid, name, seat, joinBtn) {
-    if (joinBtn) { joinBtn.disabled = true; joinBtn.textContent = "Joining…"; }
+    if (joinBtn) { joinBtn.disabled = true; const _t0 = document.getElementById("sp-join-text"); if (_t0) _t0.textContent = "Joining…"; }
     roomId = rid;
     try {
       const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs:12000 });
@@ -8166,7 +8174,7 @@
         lobbyStatus(msg, true);
         showToast(msg, "err");
         roomId = null;
-        if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat + 1} →`; }
+        if (joinBtn) { joinBtn.disabled = false; const _t1 = document.getElementById("sp-join-text"); if (_t1) _t1.textContent = `Join as Seat ${seat + 1} →`; }
         return;
       }
       if (j.data?.seat_token) setSeatToken(j.data.seat_token);
@@ -8178,7 +8186,7 @@
       lobbyStatus(msg, true);
       showToast(msg, "err");
       roomId = null;
-      if (joinBtn) { joinBtn.disabled = false; joinBtn.textContent = `Join as Seat ${seat + 1} →`; }
+      if (joinBtn) { joinBtn.disabled = false; const _t2 = document.getElementById("sp-join-text"); if (_t2) _t2.textContent = `Join as Seat ${seat + 1} →`; }
     }
   }
 
@@ -8490,7 +8498,7 @@
     document.getElementById("seat-picker-err").textContent = "";
     const joinBtn = document.getElementById("sp-join-btn");
     joinBtn.disabled = true;
-    joinBtn.textContent = "Choose a seat above";
+    const _spJoinTxt = document.getElementById("sp-join-text"); if (_spJoinTxt) _spJoinTxt.textContent = "Choose a seat above";
     buildSeatGrid(
       document.getElementById("sp-seat-grid"),
       joinBtn,
@@ -8514,11 +8522,11 @@
     const rid = _spPendingRid;
     const name = (window.__fishNickname && window.__fishNickname()) || "Player";
     const btn = document.getElementById("sp-join-btn");
-    btn.disabled = true; btn.textContent = "Joining…";
+    btn.disabled = true; const _spTxtJ = document.getElementById("sp-join-text"); if (_spTxtJ) _spTxtJ.textContent = "Joining…";
     const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: _spSelectedSeat }, { timeoutMs:12000 });
     if (!j.ok) {
       document.getElementById("seat-picker-err").textContent = "Join failed: " + (j.data?.error || j.status);
-      btn.disabled = false; btn.textContent = `Join as Seat ${_spSelectedSeat + 1} →`;
+      btn.disabled = false; const _spTxtR = document.getElementById("sp-join-text"); if (_spTxtR) _spTxtR.textContent = `Join as Seat ${_spSelectedSeat + 1} →`;
       return;
     }
     roomId = rid; // must be set before setSeatToken (which keys by roomId)
