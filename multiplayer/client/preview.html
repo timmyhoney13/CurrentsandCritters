@@ -2229,195 +2229,223 @@
     /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
       display: none; position: fixed; inset: 0; z-index: 3000;
-      background: #060f22 url('game-bg.png') center/cover no-repeat;
+      background:
+        radial-gradient(ellipse 110% 75% at 12% 20%, rgba(0,70,150,.28) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 65% at 88% 80%, rgba(0,35,90,.2) 0%, transparent 52%),
+        linear-gradient(165deg, #010c1a 0%, #061524 42%, #041220 100%);
       overflow-y: auto;
     }
     #pv-endgame-overlay.open { display: block; }
     #gs-wrap {
-      min-height: 100vh; padding: 10px 14px 18px;
-      display: flex; flex-direction: column; gap: 10px;
+      min-height: 100vh; padding: 14px 16px 28px;
+      display: flex; flex-direction: column; gap: 14px;
       font-family: "Nunito", sans-serif;
-      max-width: 1400px; margin: 0 auto;
+      max-width: 1280px; margin: 0 auto;
     }
     /* ── Header ── */
-    #gs-header { text-align: center; }
+    #gs-header { text-align: center; padding-top: 6px; }
     #gs-game-title {
-      font-family: "Cinzel", serif; font-size: clamp(1.6rem,4vw,2.8rem);
-      color: #fff; text-shadow: 0 0 30px rgba(100,200,255,.6);
-      letter-spacing: 2px; margin: 6px 0 8px;
+      font-family: "Cinzel", serif; font-size: clamp(1.9rem,5vw,3.4rem);
+      color: #e8f4ff; text-shadow: 0 0 38px rgba(100,200,255,.65), 0 2px 0 rgba(0,0,0,.4);
+      letter-spacing: 3px; margin: 4px 0 12px;
+      transition: color .4s, text-shadow .4s;
     }
     #gs-meta-bar {
       display: flex; justify-content: center; gap: 0;
-      background: rgba(8,24,60,.82); border: 1px solid rgba(58,120,204,.4);
-      border-radius: 14px; overflow: hidden; flex-wrap: wrap;
+      background: rgba(5,18,50,.9); border: 1px solid rgba(58,120,210,.32);
+      border-radius: 18px; overflow: hidden; flex-wrap: wrap;
+      max-width: 680px; margin: 0 auto;
+      box-shadow: 0 6px 30px rgba(0,12,50,.55), inset 0 1px 0 rgba(100,180,255,.08);
     }
     .gs-meta-item {
-      padding: 10px 18px; border-right: 1px solid rgba(58,120,204,.3);
-      text-align: center; min-width: 80px;
+      padding: 12px 22px; border-right: 1px solid rgba(58,120,204,.22);
+      text-align: center; min-width: 88px;
     }
     .gs-meta-item:last-child { border-right: none; }
-    .gs-meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #7ab0d8; letter-spacing: .5px; }
-    .gs-meta-val { font-size: 18px; font-weight: 900; color: #e8f4ff; margin-top: 2px; }
-    .gs-meta-val.gs-big { font-size: 24px; }
-    .gs-meta-val.gs-cyan { color: #5ce8ff; }
-    .gs-meta-val.gs-gold { color: #ffd84a; }
+    .gs-meta-label { font-size: 9px; font-weight: 800; text-transform: uppercase; color: #5e92bc; letter-spacing: .9px; }
+    .gs-meta-val { font-size: 18px; font-weight: 900; color: #e0eeff; margin-top: 3px; }
+    .gs-meta-val.gs-big { font-size: 22px; }
+    .gs-meta-val.gs-cyan { color: #4adeff; }
+    .gs-meta-val.gs-gold { color: #ffd44a; }
     /* ── Body ── */
-    #gs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
+    #gs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; }
     @media (max-width: 800px) { #gs-body { grid-template-columns: 1fr; } }
     /* ── Left: standings ── */
-    #gs-left { display: flex; flex-direction: column; gap: 10px; }
+    #gs-left { display: flex; flex-direction: column; gap: 12px; }
     #gs-standings {
-      background: rgba(6,18,52,.85); border: 2px solid rgba(58,120,204,.5);
-      border-radius: 16px; overflow: hidden; flex: 1;
+      background: rgba(4,14,42,.92); border: 1.5px solid rgba(58,120,210,.42);
+      border-radius: 20px; overflow: hidden; flex: 1;
+      box-shadow: 0 8px 36px rgba(0,8,36,.6), inset 0 1px 0 rgba(100,180,255,.06);
     }
     #gs-standings-title {
-      font-family: "Cinzel", serif; font-size: .95rem; font-weight: 700;
-      color: #e8f4ff; text-align: center; padding: 10px 16px 8px;
-      letter-spacing: 1.5px; background: rgba(8,28,72,.7);
-      border-bottom: 1px solid rgba(58,120,204,.4);
+      font-family: "Cinzel", serif; font-size: .85rem; font-weight: 700;
+      color: #b8d4ee; text-align: center; padding: 11px 16px 9px;
+      letter-spacing: 2.5px; background: rgba(5,20,62,.8);
+      border-bottom: 1px solid rgba(58,120,210,.3); text-transform: uppercase;
     }
     .gs-st-row {
-      display: grid; grid-template-columns: 44px 38px 1fr auto;
-      align-items: center; gap: 0; padding: 0 10px 0 0;
-      border-bottom: 1px solid rgba(30,60,120,.4); position: relative;
-      overflow: hidden; min-height: 52px;
+      display: grid; grid-template-columns: 54px 62px 1fr auto;
+      align-items: center; gap: 0; padding: 0 16px 0 0;
+      border-bottom: 1px solid rgba(15,44,100,.55); position: relative;
+      overflow: hidden; min-height: 72px; transition: background .2s;
     }
     .gs-st-row:last-child { border-bottom: none; }
     .gs-st-bg {
       position: absolute; inset: 0;
       background-size: cover; background-position: center;
-      opacity: .32; z-index: 0;
+      opacity: .22; z-index: 0;
     }
     .gs-st-rank {
       position: relative; z-index: 1;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px; font-weight: 900; font-family: "Cinzel",serif;
-      min-width: 44px; color: #c0d8f0;
+      font-size: 22px; font-weight: 900; font-family: "Cinzel",serif;
+      min-width: 54px; color: #b0cce8;
     }
-    .gs-st-rank-1 { color: #ffd84a; }
-    .gs-st-rank-2 { color: #a0c8e8; }
-    .gs-st-rank-3 { color: #d4915a; }
-    .gs-st-av { position: relative; z-index: 1; padding: 6px 4px; }
+    .gs-st-rank-1 { font-size: 26px; }
+    .gs-st-rank-2 { font-size: 24px; }
+    .gs-st-rank-3 { font-size: 24px; }
+    .gs-st-av { position: relative; z-index: 1; padding: 10px 6px; }
     .gs-st-av img {
-      width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
-      border: 2px solid rgba(100,180,240,.4); display: block;
+      width: 48px; height: 48px; border-radius: 50%; object-fit: cover;
+      border: 2.5px solid rgba(80,160,240,.4); display: block;
+      box-shadow: 0 3px 14px rgba(0,0,0,.5);
     }
-    .gs-st-info { position: relative; z-index: 1; padding: 6px 8px; }
-    .gs-st-name { font-size: 16px; font-weight: 900; color: #e8f4ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .gs-st-env { font-size: 10px; font-weight: 700; color: #8ab8d8; text-transform: uppercase; letter-spacing: .4px; }
-    .gs-st-score { position: relative; z-index: 1; font-size: 16px; font-weight: 900; color: #e8f4ff; white-space: nowrap; }
-    .gs-st-row.gs-st-me .gs-st-name { color: #5ce8ff; }
-    .gs-st-row.gs-st-me .gs-st-score { color: #5ce8ff; }
+    .gs-st-info { position: relative; z-index: 1; padding: 8px 10px; min-width: 0; }
+    .gs-st-name { font-size: 17px; font-weight: 900; color: #e0eeff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gs-st-env { font-size: 10px; font-weight: 700; color: #5a8cb0; text-transform: uppercase; letter-spacing: .5px; margin-top: 3px; }
+    .gs-st-score { position: relative; z-index: 1; font-size: 20px; font-weight: 900; color: #e0eeff; white-space: nowrap; letter-spacing: .5px; }
+    .gs-st-row.gs-st-me { background: rgba(70,200,255,.05); }
+    .gs-st-row.gs-st-me .gs-st-name { color: #4adeff; }
+    .gs-st-row.gs-st-me .gs-st-score { color: #4adeff; }
+    .gs-st-row.gs-st-me .gs-st-av img { border-color: rgba(74,222,255,.55); box-shadow: 0 0 14px rgba(74,222,255,.25); }
     /* ── Special feats ── */
     #gs-feats {
-      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.35);
-      border-radius: 14px; padding: 10px 14px;
+      background: rgba(4,14,42,.92); border: 1px solid rgba(58,120,210,.3);
+      border-radius: 18px; padding: 13px 16px;
+      box-shadow: 0 5px 24px rgba(0,8,36,.5);
     }
     #gs-feats-title {
-      font-family: "Cinzel",serif; font-size: .78rem; font-weight: 700;
-      color: #8ab8d8; text-align: center; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase;
+      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 700;
+      color: #6a9ec8; text-align: center; letter-spacing: 2px; margin-bottom: 11px; text-transform: uppercase;
     }
     #gs-feats-row { display: flex; gap: 10px; }
     .gs-feat-card {
-      flex: 1; background: rgba(8,28,72,.6); border: 1px solid rgba(58,120,204,.3);
-      border-radius: 10px; padding: 8px 12px; text-align: center;
+      flex: 1; background: rgba(6,26,72,.7); border: 1px solid rgba(58,120,210,.25);
+      border-radius: 14px; padding: 11px 12px; text-align: center;
     }
-    .gs-feat-label { font-size: 10px; font-weight: 700; color: #7ab0d8; text-transform: uppercase; letter-spacing: .4px; }
-    .gs-feat-val { font-size: 15px; font-weight: 900; color: #e8f4ff; margin-top: 3px; }
+    .gs-feat-label { font-size: 9px; font-weight: 800; color: #5e90b8; text-transform: uppercase; letter-spacing: .6px; }
+    .gs-feat-val { font-size: 14px; font-weight: 900; color: #e0eeff; margin-top: 5px; }
     /* ── Right column ── */
-    #gs-right { display: flex; flex-direction: column; gap: 10px; }
+    #gs-right { display: flex; flex-direction: column; gap: 12px; }
     /* ── XP row ── */
-    #gs-xp-row { display: flex; gap: 10px; }
+    #gs-xp-row { display: flex; gap: 12px; align-items: stretch; }
     #gs-xp-section {
-      flex: 1; background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.4);
-      border-radius: 14px; padding: 10px 14px;
+      flex: 1; background: rgba(4,14,42,.92); border: 1.5px solid rgba(58,120,210,.4);
+      border-radius: 18px; padding: 16px 18px;
+      box-shadow: 0 6px 28px rgba(0,8,36,.55), inset 0 1px 0 rgba(100,180,255,.06);
     }
-    #gs-xp-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #7ab0d8; margin-bottom: 8px; text-align: center; }
-    #gs-xp-bar-row { display: flex; align-items: center; gap: 10px; }
+    #gs-xp-header {
+      font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.4px;
+      color: #5e92bc; margin-bottom: 14px; text-align: center;
+    }
+    #gs-xp-bar-row { display: flex; align-items: center; gap: 14px; }
     #gs-level-badge {
-      background: linear-gradient(135deg, #1a4080, #0d2a58);
-      border: 2px solid #2c6ab8; border-radius: 10px;
-      padding: 6px 10px; text-align: center; flex-shrink: 0;
+      background: linear-gradient(148deg, #102e6a, #09203c);
+      border: 2px solid #1e58a8; border-radius: 16px;
+      padding: 9px 14px; text-align: center; flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(0,20,80,.5);
     }
-    #gs-level-badge .gs-lbl { font-size: 9px; font-weight: 800; color: #7ab0d8; text-transform: uppercase; letter-spacing: .5px; }
-    #gs-level-badge .gs-num { font-size: 22px; font-weight: 900; color: #5ce8ff; line-height: 1.1; }
+    #gs-level-badge .gs-lbl { font-size: 8px; font-weight: 800; color: #5e92bc; text-transform: uppercase; letter-spacing: .9px; }
+    #gs-level-badge .gs-num { font-size: 34px; font-weight: 900; color: #4adeff; line-height: 1.05; }
     #gs-xp-bar-wrap { flex: 1; }
     #gs-xp-bar-track {
-      height: 18px; background: rgba(8,28,72,.8); border-radius: 999px;
-      border: 1px solid rgba(58,120,204,.4); overflow: hidden; position: relative;
+      height: 24px; background: rgba(4,18,52,.95); border-radius: 999px;
+      border: 1px solid rgba(58,120,210,.35); overflow: hidden; position: relative;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,.4);
     }
     #gs-xp-bar-fill {
       height: 100%; border-radius: 999px;
-      background: linear-gradient(90deg, #1c82d6, #56c2f8);
-      transition: width 1.2s ease; width: 0%;
+      background: linear-gradient(90deg, #1068c0, #28a0f0, #4adeff);
+      box-shadow: 0 0 12px rgba(74,222,255,.4);
+      width: 0%;
     }
-    #gs-xp-bar-markers { display: flex; justify-content: space-between; margin-top: 3px; }
-    .gs-xp-mk { font-size: 9px; color: #4a7098; }
+    #gs-xp-bar-markers { display: flex; justify-content: space-between; margin-top: 5px; }
+    .gs-xp-mk { font-size: 9px; color: #304e6a; font-weight: 700; }
     #gs-xp-gain-badge {
-      background: rgba(8,28,72,.7); border: 2px solid #2c6ab8; border-radius: 10px;
-      padding: 6px 10px; text-align: center; flex-shrink: 0;
-      font-size: 10px; font-weight: 800; color: #5ce8ff; text-transform: uppercase;
-      letter-spacing: .5px; line-height: 1.3;
+      background: linear-gradient(148deg, #1a3060, #0e1e42);
+      border: 2px solid #1e58a8; border-radius: 16px;
+      padding: 9px 14px; text-align: center; flex-shrink: 0;
+      box-shadow: 0 4px 16px rgba(0,20,80,.5);
     }
-    #gs-xp-gain-badge .gs-xp-num { font-size: 22px; font-weight: 900; display: block; }
+    #gs-xp-gain-badge .gs-xp-num { font-size: 34px; font-weight: 900; color: #ffd44a; display: block; line-height: 1.05; }
+    #gs-xp-gain-badge .gs-xp-label { font-size: 8px; font-weight: 800; color: #5e92bc; text-transform: uppercase; letter-spacing: .9px; display: block; margin-top: 1px; }
     /* ── Placement table ── */
     #gs-placement-table {
-      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.35);
-      border-radius: 14px; padding: 10px 14px; min-width: 160px;
+      background: rgba(4,14,42,.92); border: 1px solid rgba(58,120,210,.28);
+      border-radius: 18px; padding: 14px 16px; min-width: 162px;
+      box-shadow: 0 5px 24px rgba(0,8,36,.5);
     }
-    .gs-pt-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #7ab0d8; margin-bottom: 7px; text-align: center; }
-    .gs-pt-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(30,60,120,.3); font-size: 12px; font-weight: 700; }
+    .gs-pt-title { font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .9px; color: #5e92bc; margin-bottom: 9px; text-align: center; }
+    .gs-pt-row {
+      display: flex; justify-content: space-between; gap: 8px;
+      padding: 6px 0; border-bottom: 1px solid rgba(15,44,100,.4);
+      font-size: 12px; font-weight: 700;
+    }
     .gs-pt-row:last-child { border-bottom: none; }
-    .gs-pt-rank { color: #a0c8e8; }
-    .gs-pt-xp { color: #5ce8ff; }
-    .gs-pt-row.gs-pt-me .gs-pt-rank, .gs-pt-row.gs-pt-me .gs-pt-xp { color: #ffd84a; font-weight: 900; }
+    .gs-pt-rank { color: #7aaccc; }
+    .gs-pt-xp { color: #4adeff; }
+    .gs-pt-row.gs-pt-me { background: rgba(74,222,255,.04); border-radius: 6px; padding: 6px 4px; }
+    .gs-pt-row.gs-pt-me .gs-pt-rank, .gs-pt-row.gs-pt-me .gs-pt-xp { color: #ffd44a; font-weight: 900; font-size: 13px; }
     /* ── Match Stats ── */
     #gs-match-stats {
-      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.4);
-      border-radius: 14px; padding: 10px 14px; flex: 1;
+      background: rgba(4,14,42,.92); border: 1px solid rgba(58,120,210,.32);
+      border-radius: 18px; padding: 14px 16px; flex: 1;
+      box-shadow: 0 5px 24px rgba(0,8,36,.5);
     }
     #gs-stats-title {
-      font-size: 13px; font-weight: 900; color: #e8f4ff;
-      margin-bottom: 10px; letter-spacing: .5px;
+      font-family: "Cinzel",serif; font-size: 10px; font-weight: 800; color: #b0cce8;
+      margin-bottom: 12px; letter-spacing: 2px; text-transform: uppercase; text-align: center;
     }
-    #gs-stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    #gs-stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
+    @media (max-width: 600px) { #gs-stats-grid { grid-template-columns: repeat(2,1fr); } }
     .gs-stat-card {
-      background: linear-gradient(160deg, rgba(10,36,90,.9) 0%, rgba(6,22,60,.95) 100%);
-      border: 1px solid rgba(58,120,204,.4); border-radius: 12px;
-      padding: 10px 12px; text-align: left; overflow: hidden; position: relative;
-      min-height: 90px;
+      background: linear-gradient(155deg, rgba(6,26,72,.94) 0%, rgba(4,16,50,.98) 100%);
+      border: 1px solid rgba(58,120,210,.32); border-radius: 15px;
+      padding: 12px 13px; text-align: left; overflow: hidden; position: relative;
+      min-height: 100px;
     }
     .gs-sc-num {
-      font-family: "Cinzel",serif; font-size: 26px; font-weight: 900;
-      color: #e8f4ff; line-height: 1.1;
+      font-family: "Cinzel",serif; font-size: 30px; font-weight: 900;
+      color: #e0eeff; line-height: 1.1;
     }
-    .gs-sc-unit { font-size: 12px; font-weight: 700; color: #5ce8ff; }
-    .gs-sc-label { font-size: 10px; font-weight: 800; color: #7ab0d8; margin-top: 4px; line-height: 1.3; }
-    .gs-sc-player { font-size: 12px; font-weight: 800; color: #a0c8e8; margin-top: 3px; }
-    .gs-sc-name { font-size: 14px; font-weight: 900; color: #e8f4ff; }
-    .gs-sc-pts { font-size: 12px; font-weight: 700; color: #5ce8ff; }
+    .gs-sc-unit { font-size: 11px; font-weight: 700; color: #4adeff; margin-top: 1px; }
+    .gs-sc-label { font-size: 10px; font-weight: 800; color: #5e92bc; margin-top: 5px; line-height: 1.35; }
+    .gs-sc-player { font-size: 11px; font-weight: 800; color: #8ab0cc; margin-top: 3px; }
+    .gs-sc-name { font-size: 15px; font-weight: 900; color: #e0eeff; }
+    .gs-sc-pts { font-size: 12px; font-weight: 700; color: #4adeff; }
     .gs-sc-xp {
       position: absolute; bottom: 8px; right: 8px;
-      background: rgba(30,100,200,.3); border: 1px solid rgba(92,232,255,.4);
-      border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; color: #5ce8ff;
+      background: rgba(16,72,180,.35); border: 1px solid rgba(74,222,255,.3);
+      border-radius: 999px; padding: 2px 8px; font-size: 9px; font-weight: 800; color: #4adeff;
     }
     /* ── Buttons ── */
-    #gs-btn-row { display: flex; gap: 12px; }
+    #gs-btn-row { display: flex; gap: 14px; }
     .gs-btn {
-      flex: 1; padding: 14px 20px; border-radius: 14px; font-size: 17px; font-weight: 900;
+      flex: 1; padding: 17px 20px; border-radius: 18px; font-size: 17px; font-weight: 900;
       font-family: "Nunito",sans-serif; cursor: pointer; border: none;
-      transition: transform .12s, box-shadow .12s; letter-spacing: .3px;
+      transition: transform .14s, box-shadow .14s, filter .12s; letter-spacing: .4px;
     }
-    .gs-btn:hover { transform: translateY(-2px); }
+    .gs-btn:hover { transform: translateY(-3px); filter: brightness(1.12); }
+    .gs-btn:active { transform: translateY(0px); filter: brightness(.98); }
     .gs-btn-home {
-      background: linear-gradient(160deg, #0d3072, #07214e);
-      color: #e8f4ff; border: 2px solid #2a5ab8;
-      box-shadow: 0 4px 16px rgba(10,40,120,.4);
+      background: linear-gradient(155deg, #163884, #0c2464);
+      color: #e0eeff; border: 2px solid #2860d0;
+      box-shadow: 0 6px 22px rgba(6,28,120,.5);
     }
     .gs-btn-view {
-      background: linear-gradient(160deg, #0d7070, #074e4e);
-      color: #e8f4ff; border: 2px solid #2a9898;
-      box-shadow: 0 4px 16px rgba(10,120,120,.4);
+      background: linear-gradient(155deg, #0e7272, #084e4e);
+      color: #e0eeff; border: 2px solid #1a9898;
+      box-shadow: 0 6px 22px rgba(6,100,100,.45);
     }
 
     /* ── COMPETITIVE MODE ───────────────────────────────────────── */
@@ -7164,7 +7192,7 @@
                   <span class="gs-xp-mk" id="gs-xp-goal"></span>
                 </div>
               </div>
-              <div id="gs-xp-gain-badge"><span class="gs-xp-num" id="gs-xp-num">0</span>XP</div>
+              <div id="gs-xp-gain-badge"><span class="gs-xp-num" id="gs-xp-num">0</span><span class="gs-xp-label">XP GAINED</span></div>
             </div>
           </div>
           <div id="gs-placement-table">
@@ -11764,7 +11792,8 @@
     const compHandsSection = document.getElementById("pv-menu-comp-hands");
     if (compHandsSection) compHandsSection.style.display = "none";
     document.getElementById("comp-handswitch").classList.remove("open");
-    _endgameDismissed = false; _chatSeenCount = 0; _chatLastCount = -1;
+    _endgameDismissed = false; _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+    _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
@@ -11824,6 +11853,7 @@
   document.getElementById("pv-menu-terminate-btn").addEventListener("click", async () => {
     closeMenu();
     if (!confirm("Terminate the game for ALL players? This cannot be undone.")) return;
+    _gameTerminatedByMe = true;
     try {
       const res = await apiPost(`/api/rooms/${roomId}/terminate`, {
         host_token: getHostToken(),
@@ -11974,6 +12004,9 @@
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
   let _lastSavedWinner = null;
+  let _endgameBarDone = false;       // prevents XP bar re-animating on each poll
+  let _endgameCapturedOldXp = null;  // pre-game XP captured once
+  let _gameTerminatedByMe = false;   // player clicked Terminate → 0 XP
   let _matchStartMs   = 0;
   let _prevScoreMap   = {};            // player name -> last seen score (for goby/score delta detection)
   let _turnStartScores = {};           // player name -> score at start of their current turn
@@ -12448,6 +12481,7 @@
       _endgameDismissed = false;
       overlay.classList.remove("open");
       _lastSavedWinner = null;
+      _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
       // reset tracking for new game
       _matchStartMs=0; _prevScoreMap={}; _turnStartScores={};
       _bestTurnPts=0; _bestTurnNames=[];
@@ -12467,8 +12501,9 @@
     const myRank = getPlacementRank(finalScores, myScore);
     const rankSuffix = (r) => r===1?"st":r===2?"nd":r===3?"rd":"th";
 
-    // Placement XP (1st=100, 2nd=75, 3rd=50, 4th+=25; halved for AI/comp)
-    const xpBase = compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore);
+    // Placement XP (1st=100, 2nd=75, 3rd=50, 4th+=25; halved for AI/comp; 0 if player terminated)
+    const xpBase = _gameTerminatedByMe ? 0
+      : (compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
     // ── Compute match stat winners FIRST (needed for stat XP bonuses) ──
@@ -12525,10 +12560,25 @@
       first100Names.includes(myName),
       highCardWhoList.includes(myName),
     ].filter(Boolean).length;
-    const totalXp = xpBase + myStatWins * 15;
+    const totalXp = _gameTerminatedByMe ? 0 : (xpBase + myStatWins * 15);
 
     // Save stats with the total XP including stat bonuses (kept in sync with display)
     saveGameStats(winner, finalScores, totalXp);
+
+    // ── Header ───────────────────────────────────────────────────
+    const titleEl = document.getElementById("gs-game-title");
+    if (titleEl) {
+      if (_gameTerminatedByMe) {
+        titleEl.textContent = "GAME TERMINATED";
+        titleEl.style.cssText = "color:#e07850;text-shadow:0 0 30px rgba(220,100,60,.5)";
+      } else if (myRank === 1) {
+        titleEl.textContent = "🏆 VICTORY!";
+        titleEl.style.cssText = "color:#ffd84a;text-shadow:0 0 50px rgba(255,210,60,.8),0 2px 0 rgba(0,0,0,.5)";
+      } else {
+        titleEl.textContent = "GAME SUMMARY";
+        titleEl.style.cssText = "";
+      }
+    }
 
     // ── Header meta ──────────────────────────────────────────────
     setText("gs-game-type", compMode ? "Competitive" : "Casual");
@@ -12593,28 +12643,47 @@
       }
     }
 
-    // ── XP Progress bar ──────────────────────────────────────────
-    const guestStats = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
-    const oldTotalXp = getStoredTotalXp(guestStats);
-    const lp = getLevelProgressFromTotalXp(oldTotalXp + totalXp);
-    setText("gs-level-num", lp.level);
-    setText("gs-xp-num", "+" + totalXp);
+    // ── XP Progress bar (renders only once per game) ─────────────
+    if (!_endgameBarDone) {
+      _endgameBarDone = true;
+      // Use Firebase-cached stats for logged-in users, guest localStorage for guests
+      const myStats = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
+      const guestStats = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
+      const statsToUse = (myStats && typeof myStats === "object") ? myStats : guestStats;
+      _endgameCapturedOldXp = getStoredTotalXp(statsToUse);
 
-    const goal = lp.xpGoal;
-    [0,1,2,3,4].forEach(i => {
-      const el = document.getElementById("gs-xp-mk" + i);
-      if (el) el.textContent = Math.round(goal * i / 4);
-    });
-    const goalEl = document.getElementById("gs-xp-goal");
-    if (goalEl) goalEl.textContent = goal;
+      const oldTotalXp = _endgameCapturedOldXp;
+      const lpBefore = getLevelProgressFromTotalXp(oldTotalXp);
+      const lp = getLevelProgressFromTotalXp(oldTotalXp + totalXp);
+      setText("gs-level-num", lp.level);
+      setText("gs-xp-num", "+" + totalXp);
 
-    // Reset bar then animate
-    const fill = document.getElementById("gs-xp-bar-fill");
-    if (fill) fill.style.width = "0%";
-    setTimeout(() => {
-      const f = document.getElementById("gs-xp-bar-fill");
-      if (f) f.style.width = Math.min(100, Math.round(lp.xpCurrent / Math.max(1, lp.xpGoal) * 100)) + "%";
-    }, 300);
+      const goal = lp.xpGoal;
+      [0,1,2,3,4].forEach(i => {
+        const el = document.getElementById("gs-xp-mk" + i);
+        if (el) el.textContent = Math.round(goal * i / 4);
+      });
+      const goalEl = document.getElementById("gs-xp-goal");
+      if (goalEl) goalEl.textContent = goal;
+
+      // Animate bar: start from pre-game fill (same level) or 0% (level-up), then fill to end
+      const startPct = (lpBefore.level === lp.level)
+        ? Math.min(100, Math.round(lpBefore.xpCurrent / Math.max(1, lpBefore.xpGoal) * 100))
+        : 0;
+      const endPct = Math.min(100, Math.round(lp.xpCurrent / Math.max(1, lp.xpGoal) * 100));
+      const fill = document.getElementById("gs-xp-bar-fill");
+      if (fill) {
+        fill.style.transition = "none";
+        fill.style.width = startPct + "%";
+        setTimeout(() => {
+          const f = document.getElementById("gs-xp-bar-fill");
+          if (f) {
+            f.style.transition = "width 1.4s cubic-bezier(0.4,0,0.2,1)";
+            f.style.width = endPct + "%";
+          }
+        }, 80);
+      }
+    }
 
     // Highlight my rank in placement table
     [1,2,3,4].forEach(r => {
@@ -16590,6 +16659,7 @@
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
     window.__fishIsGuest        = () => !_authUser && _guestSessionActive;
     window.__fishGuestStatsGet  = () => loadGuestStats(_playerNickname || "guest");
+    window.__fishGetMyStats     = () => (_activeProfile && typeof _activeProfile.stats === "object") ? _activeProfile.stats : null;
     window.__fishGuestStatsSave = (stats) => saveGuestStats(_playerNickname || "guest", stats);
     window.__fishGoToSignIn     = () => {
       clearGuestSessionStorage();
