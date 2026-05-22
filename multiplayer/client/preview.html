@@ -8729,24 +8729,50 @@
     if (phase === "running" && !_matchStartMs) _matchStartMs = Date.now();
     if (phase === "running" && players.length) {
       const curP = state.current_player || "";
+      const round = _latestRoundCount;
+
+      // Turn-boundary detection: when current_player changes, the PREVIOUS
+      // player just finished their turn — compute their turn's score delta.
+      if (curP !== _prevCurrentPlayer) {
+        if (_prevCurrentPlayer && _turnStartScores[_prevCurrentPlayer] != null) {
+          const prevP = players.find(p => p.name === _prevCurrentPlayer);
+          if (prevP) {
+            const turnDelta = Number(prevP.score || 0) - _turnStartScores[_prevCurrentPlayer];
+            if (turnDelta > _bestTurnPts) { _bestTurnPts = turnDelta; _bestTurnNames = [_prevCurrentPlayer]; }
+            else if (turnDelta > 0 && turnDelta === _bestTurnPts && !_bestTurnNames.includes(_prevCurrentPlayer)) {
+              _bestTurnNames.push(_prevCurrentPlayer);
+            }
+          }
+        }
+        // Record starting score for the new current player's turn
+        if (curP) {
+          const newP = players.find(p => p.name === curP);
+          if (newP) _turnStartScores[curP] = Number(newP.score || 0);
+        }
+        _prevCurrentPlayer = curP;
+      }
+
+      // Per-payload tracking for goby / first-to-100 / score map
       players.forEach(p => {
         const prev = (_prevScoreMap[p.name] != null) ? _prevScoreMap[p.name] : null;
         const score = Number(p.score || 0);
-        if (prev !== null) {
-          const delta = score - prev;
-          if (delta > 0) {
-            if (delta > _bestTurnPts) { _bestTurnPts = delta; _bestTurnNames = [p.name]; }
-            else if (delta === _bestTurnPts && !_bestTurnNames.includes(p.name)) _bestTurnNames.push(p.name);
-            if (!_first100Done && score >= 100 && prev < 100) _first100Names.push(p.name);
-          }
+        // First-to-100: record round_count when player first crosses 100
+        if (prev !== null && score >= 100 && prev < 100 && _first100Crossings[p.name] == null) {
+          _first100Crossings[p.name] = round;
         }
         _prevScoreMap[p.name] = score;
+        // Shot the Moon: detect when someone's mandarin goby count decreases while another player has 3+
         const goby = Number(p.score_breakdown?.mandarin_goby?.count || 0);
         const prevGoby = _prevGobyMap[p.name] || 0;
-        if (goby < prevGoby && prevGoby >= 3 && !_shotTheMoonName) _shotTheMoonName = curP || p.name;
+        if (goby < prevGoby && !_shotTheMoonName) {
+          const otherHas3 = players.some(q => q.name !== p.name && Number(q.score_breakdown?.mandarin_goby?.count || 0) >= 3);
+          if (otherHas3) _shotTheMoonName = curP || p.name;
+        }
         _prevGobyMap[p.name] = goby;
       });
-      if (_first100Names.length && !_first100Done) _first100Done = true;
+
+      // Star ability tracking — limited to the current viewer's free play windows
+      // because the server only sends legal_actions to the viewer.
       const fpa = Array.isArray(lw.free_play_species) && lw.free_play_species.length > 0;
       if (fpa && !_prevFreePlayActive && curP) _starCounts[curP] = (_starCounts[curP] || 0) + 1;
       _prevFreePlayActive = fpa;
@@ -11949,11 +11975,11 @@
   let _endgameDismissed = false;
   let _lastSavedWinner = null;
   let _matchStartMs   = 0;
-  let _prevScoreMap   = {};
+  let _prevScoreMap   = {};            // player name -> last seen score (for goby/score delta detection)
+  let _turnStartScores = {};           // player name -> score at start of their current turn
   let _bestTurnPts    = 0;
   let _bestTurnNames  = [];
-  let _first100Names  = [];
-  let _first100Done   = false;
+  let _first100Crossings = {};         // player name -> round_count when they first crossed 100
   let _starCounts     = {};
   let _prevFreePlayActive = false;
   let _prevCurrentPlayer  = "";
@@ -12037,7 +12063,7 @@
     };
   }
 
-  async function saveGameStats(winner, finalScores) {
+  async function saveGameStats(winner, finalScores, xpOverride) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
     const myNick   = typeof window.__fishNickname === "function" ? window.__fishNickname() : "";
@@ -12083,7 +12109,9 @@
       isWinner = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     }
     const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
-    const xpAward = isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore);
+    const xpAward = (typeof xpOverride === "number" && xpOverride >= 0)
+      ? xpOverride
+      : (isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
     try {
       const guestStatsGetter = (typeof window.__fishGuestStatsGet === "function") ? window.__fishGuestStatsGet : null;
       const cStats = (authUser && db)
@@ -12421,12 +12449,12 @@
       overlay.classList.remove("open");
       _lastSavedWinner = null;
       // reset tracking for new game
-      _matchStartMs=0; _prevScoreMap={}; _bestTurnPts=0; _bestTurnNames=[];
-      _first100Names=[]; _first100Done=false; _starCounts={}; _prevFreePlayActive=false;
-      _shotTheMoonName=null; _prevGobyMap={};
+      _matchStartMs=0; _prevScoreMap={}; _turnStartScores={};
+      _bestTurnPts=0; _bestTurnNames=[];
+      _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
+      _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
       return;
     }
-    saveGameStats(winner, finalScores);
     if (compMode) processRankedGameEnd(finalScores);
     if (_endgameDismissed) { overlay.classList.remove("open"); return; }
     overlay.classList.add("open");
@@ -12439,61 +12467,11 @@
     const myRank = getPlacementRank(finalScores, myScore);
     const rankSuffix = (r) => r===1?"st":r===2?"nd":r===3?"rd":"th";
 
-    // XP calculation (competitive mode halves XP)
+    // Placement XP (1st=100, 2nd=75, 3rd=50, 4th+=25; halved for AI/comp)
     const xpBase = compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore);
-
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
-    // ── Header meta ──────────────────────────────────────────────
-    setText("gs-game-type", compMode ? "Competitive" : "Casual");
-    const gtEl = document.getElementById("gs-game-type");
-    if (gtEl) gtEl.className = "gs-meta-val " + (compMode ? "gs-gold" : "gs-cyan");
-
-    const countEl = document.getElementById("gs-player-count");
-    if (countEl) countEl.textContent = playerCount;
-
-    setText("gs-my-score", myScore + " pts");
-    setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
-
-    const cpItem = document.getElementById("gs-cp-item");
-    if (cpItem) cpItem.style.display = compMode ? "" : "none";
-
-    // ── Final Standings ──────────────────────────────────────────
-    const rowsEl = document.getElementById("gs-standings-rows");
-    if (rowsEl) {
-      rowsEl.innerHTML = "";
-      // assign tied ranks
-      let rankArr = [], curRank = 1;
-      sorted.forEach((p, i) => {
-        if (i > 0 && sorted[i-1].score === p.score) rankArr.push(rankArr[i-1]);
-        else { rankArr.push(curRank); curRank = i + 2; }
-      });
-      sorted.forEach((p, i) => {
-        const r = rankArr[i];
-        const isMe = p.name === myName;
-        const playerObj = (_latestPlayers || []).find(lp => lp.name === p.name);
-        const firstOcean = Array.isArray(playerObj?.board) && playerObj.board[0];
-        const oceanUid = firstOcean ? (firstOcean.ocean_uid || firstOcean.ocean?.uid) : null;
-        const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
-        const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
-        const avatarSeed = p.name || ("p" + i);
-        const avatarUrl = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/avatar-01.png";
-        const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
-        const row = document.createElement("div");
-        row.className = "gs-st-row" + (isMe ? " gs-st-me" : "");
-        row.innerHTML = `
-          <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
-          <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
-          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/avatar-01.png'" loading="lazy"></div>
-          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
-          <div class="gs-st-score">${p.score||0} pts</div>`;
-        rowsEl.appendChild(row);
-      });
-    }
-
-    // ── Compute match stats (needed before XP totals) ────────────
-
-    // Most Points in One Turn (already tracked in _bestTurnPts / _bestTurnNames)
+    // ── Compute match stat winners FIRST (needed for stat XP bonuses) ──
 
     // Most Diverse Ecosystem
     let mostDiverseNames = [], mostDiverseCount = 0;
@@ -12513,37 +12491,101 @@
     let mostStarNames = [], mostStarCount = 0;
     Object.entries(_starCounts).forEach(([name, cnt]) => {
       if (cnt > mostStarCount) { mostStarCount = cnt; mostStarNames = [name]; }
-      else if (cnt === mostStarCount && cnt > 0) mostStarNames.push(name);
+      else if (cnt === mostStarCount && cnt > 0 && !mostStarNames.includes(name)) mostStarNames.push(name);
     });
 
+    // First to 100 — all players who crossed 100 in the same (earliest) round
+    let first100Names = [];
+    const crossings = Object.entries(_first100Crossings);
+    if (crossings.length) {
+      const minRound = Math.min(...crossings.map(([_, r]) => r));
+      first100Names = crossings.filter(([_, r]) => r === minRound).map(([n]) => n);
+    }
+
     // Highest Scoring Card
-    let highCardName = "—", highCardPts = 0, highCardWho = "—";
+    let highCardName = "—", highCardPts = 0, highCardWho = "—", highCardWhoList = [];
     (_latestPlayers || []).forEach(p => {
       const rows = p?.score_breakdown?.full?.card_rows || [];
       rows.forEach(row => {
         const pts = Number(row.total || 0);
-        if (pts > highCardPts) { highCardPts = pts; highCardName = row.card_name || "—"; highCardWho = p.name; }
+        if (pts > highCardPts) {
+          highCardPts = pts; highCardName = row.card_name || "—";
+          highCardWho = p.name; highCardWhoList = [p.name];
+        } else if (pts === highCardPts && pts > 0 && !highCardWhoList.includes(p.name)) {
+          highCardWhoList.push(p.name);
+        }
       });
     });
 
-    // Count stat bonuses (which stats did the current player win?)
+    // Stat XP bonuses for the viewer (+15 each stat won; ties still award XP)
     const myStatWins = [
       _bestTurnNames.includes(myName),
       mostDiverseNames.includes(myName),
       mostStarNames.includes(myName),
-      _first100Names.includes(myName),
-      highCardWho === myName,
+      first100Names.includes(myName),
+      highCardWhoList.includes(myName),
     ].filter(Boolean).length;
-
     const totalXp = xpBase + myStatWins * 15;
 
-    // ── XP Progress ──────────────────────────────────────────────
+    // Save stats with the total XP including stat bonuses (kept in sync with display)
+    saveGameStats(winner, finalScores, totalXp);
+
+    // ── Header meta ──────────────────────────────────────────────
+    setText("gs-game-type", compMode ? "Competitive" : "Casual");
+    const gtEl = document.getElementById("gs-game-type");
+    if (gtEl) gtEl.className = "gs-meta-val " + (compMode ? "gs-gold" : "gs-cyan");
+
+    const countEl = document.getElementById("gs-player-count");
+    if (countEl) countEl.textContent = playerCount;
+
+    setText("gs-my-score", myScore + " pts");
+    setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
+    setText("gs-xp-gained", "+" + totalXp + " XP");
+
+    const cpItem = document.getElementById("gs-cp-item");
+    if (cpItem) cpItem.style.display = compMode ? "" : "none";
+
+    // ── Final Standings ──────────────────────────────────────────
+    const rowsEl = document.getElementById("gs-standings-rows");
+    if (rowsEl) {
+      rowsEl.innerHTML = "";
+      // assign tied ranks
+      let rankArr = [], curRank = 1;
+      sorted.forEach((p, i) => {
+        if (i > 0 && sorted[i-1].score === p.score) rankArr.push(rankArr[i-1]);
+        else { rankArr.push(curRank); curRank = i + 2; }
+      });
+      const myAvatarUrl = (typeof window.__fishMyAvatarUrl === "function") ? window.__fishMyAvatarUrl() : "";
+      sorted.forEach((p, i) => {
+        const r = rankArr[i];
+        const isMe = p.name === myName;
+        const playerObj = (_latestPlayers || []).find(lp => lp.name === p.name);
+        const firstOcean = Array.isArray(playerObj?.board) && playerObj.board[0];
+        const oceanUid = firstOcean ? (firstOcean.ocean_uid || firstOcean.ocean?.uid) : null;
+        const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
+        const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
+        const avatarSeed = p.name || ("p" + i);
+        const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/avatar-01.png";
+        const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
+        const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
+        const row = document.createElement("div");
+        row.className = "gs-st-row" + (isMe ? " gs-st-me" : "");
+        row.innerHTML = `
+          <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
+          <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
+          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/avatar-01.png'" loading="lazy"></div>
+          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
+          <div class="gs-st-score">${p.score||0} pts</div>`;
+        rowsEl.appendChild(row);
+      });
+    }
+
+    // ── XP Progress bar ──────────────────────────────────────────
     const guestStats = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
     const oldTotalXp = getStoredTotalXp(guestStats);
     const lp = getLevelProgressFromTotalXp(oldTotalXp + totalXp);
     setText("gs-level-num", lp.level);
     setText("gs-xp-num", "+" + totalXp);
-    setText("gs-xp-gained", "+" + totalXp + " XP");
 
     const goal = lp.xpGoal;
     [0,1,2,3,4].forEach(i => {
@@ -12567,7 +12609,7 @@
       if (el) el.classList.toggle("gs-pt-me", r === Math.min(myRank, 4));
     });
 
-    // ── Match Stats ──────────────────────────────────────────────
+    // ── Match Stats display ──────────────────────────────────────
     const gameMins = _matchStartMs ? Math.max(1, Math.round((Date.now() - _matchStartMs) / 60000)) : 0;
     setText("gs-sc-length-val", gameMins || "—");
 
@@ -12580,13 +12622,14 @@
     setText("gs-sc-star-val", mostStarCount || "—");
     setText("gs-sc-star-who", mostStarNames.join(", ") || "—");
 
-    setText("gs-sc-100-who", _first100Names.join(", ") || "No one");
+    setText("gs-sc-100-who", first100Names.join(", ") || "No one");
 
     setText("gs-sc-card-name", highCardName);
     setText("gs-sc-card-pts", highCardPts ? highCardPts + " pts" : "—");
-    setText("gs-sc-card-who", highCardWho);
+    setText("gs-sc-card-who", highCardWhoList.join(", ") || "—");
 
     // ── Special Feats ─────────────────────────────────────────────
+    // Two of Aukind: player with the most Mandarin Gobies (≥2)
     let aukindName = "—", aukindMax = 0;
     (_latestPlayers || []).forEach(p => {
       const cnt = Number(p?.score_breakdown?.mandarin_goby?.count || 0);
