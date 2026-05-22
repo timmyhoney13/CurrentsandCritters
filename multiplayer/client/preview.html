@@ -7350,7 +7350,7 @@
 
     <div class="nc-fields-row">
       <div class="nc-field">
-        <span class="nc-field-label">Players</span>
+        <span class="nc-field-label">Human Critters</span>
         <input class="nc-big-input" id="nc-total" type="number" min="1" max="10" value="2" />
       </div>
       <div class="nc-field">
@@ -8453,8 +8453,9 @@
     const btn = document.getElementById("nc-create-btn");
     const errEl = document.getElementById("nc-current-err");
     const name = (window.__fishNickname && window.__fishNickname()) || "Host";
-    const total = Number(document.getElementById("nc-total").value) || 2;
-    const ai    = Math.min(Number(document.getElementById("nc-ai").value) || 0, total - 1);
+    const human = Math.max(1, Number(document.getElementById("nc-total").value) || 2);
+    const ai    = Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
+    const total = human + ai;
     const visibility = document.getElementById("nc-visibility").value;
     const password = visibility === "private" ? document.getElementById("nc-password").value.trim() : "";
     if (visibility === "private" && !password) {
@@ -8470,7 +8471,7 @@
     errEl.textContent = "";
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
-      total_players: total, human_players: total - ai, ai_players: ai,
+      total_players: total, human_players: human, ai_players: ai,
       replace_active: false, visibility, password,
     }, { timeoutMs:10000 });
     btn.disabled = false;
