@@ -1560,6 +1560,25 @@
     #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #1a4d6e; }
     #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,77,110,.7); }
 
+    /* ── DRAW NOTIFICATION ──────────────────────────────────────── */
+    #draw-notif {
+      display: none; position: fixed;
+      bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: rgba(8,24,58,.85); backdrop-filter: blur(10px);
+      border: 1px solid rgba(58,120,204,.45); border-radius: 14px;
+      padding: 9px 18px; font-size: 13px; font-weight: 600;
+      color: #d0e8ff; white-space: nowrap; pointer-events: none;
+      z-index: 800; max-width: 88vw; text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,.45);
+    }
+    #draw-notif.visible { display: block; animation: draw-notif-in .22s ease; }
+    #draw-notif .dn-name { color: var(--gold); font-weight: 800; }
+    #draw-notif .dn-cards { color: #7dd3fc; }
+    @keyframes draw-notif-in {
+      from { opacity:0; transform: translateX(-50%) translateY(8px); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
     /* ── TUTORIAL MODE ──────────────────────────────────────────── */
     #pv-tutorial {
       position: fixed; inset: 0; z-index: 9500;
@@ -7054,7 +7073,6 @@
         <div class="pv-menu-label">Scores</div>
         <div id="pv-menu-scores-list">—</div>
         <div class="pv-menu-divider"></div>
-        <button class="pv-menu-item" id="pv-menu-fullboards-btn">&#128196; Full Boards: On</button>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
@@ -7068,7 +7086,6 @@
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">—</div>
         <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
-        <a class="pv-menu-item" href="/leaderboard" target="_blank" style="text-decoration:none;">&#127942; Leaderboard</a>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
         <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
@@ -7163,6 +7180,9 @@
 
   <!-- log tail -->
   <div id="pv-log" style="display:none;"></div>
+
+  <!-- draw notification -->
+  <div id="draw-notif"></div>
 
 </div><!-- #pv-game -->
 
@@ -8828,6 +8848,19 @@
           if (newP) _turnStartScores[curP] = Number(newP.score || 0);
         }
         _prevCurrentPlayer = curP;
+
+        // Draw notification: when turn changes, show what the PREVIOUS player drew
+        const poolNow = Array.isArray(state.pool) ? state.pool : [];
+        if (_drawPrevPlayer && _drawTurnStartPool !== null) {
+          const nowUidSet = new Set(poolNow.map(e => Number(e.entry_uid)));
+          const drawnFromPool = _drawTurnStartPool.filter(e => !nowUidSet.has(Number(e.entry_uid)));
+          const deckCount = Math.max(0, 2 - drawnFromPool.length);
+          if (drawnFromPool.length > 0 || deckCount > 0) {
+            showDrawNotif(_drawPrevPlayer, drawnFromPool, deckCount);
+          }
+        }
+        _drawTurnStartPool = [...poolNow];
+        _drawPrevPlayer = curP;
       }
 
       // Per-payload tracking for goby / first-to-100 / score map
@@ -11807,6 +11840,25 @@
   });
 
   // ── Log renderer ───────────────────────────────────────────────
+  function showDrawNotif(playerName, poolCards, deckCount) {
+    const el = document.getElementById("draw-notif");
+    if (!el) return;
+    const poolNames = poolCards.map(e => {
+      const face = Array.isArray(e.faces) && e.faces.length > 0 ? e.faces[0] : null;
+      return face?.name || e.label || "a card";
+    });
+    const parts = [];
+    if (poolNames.length > 0) parts.push(poolNames.join(" & "));
+    if (deckCount > 0) parts.push(deckCount === 1 ? "1 card from the deck" : `${deckCount} cards from the deck`);
+    if (!parts.length) return;
+    el.innerHTML = `<span class="dn-name">${playerName}</span> picked up: <span class="dn-cards">${parts.join(" + ")}</span>`;
+    el.classList.remove("visible");
+    void el.offsetWidth; // reflow to restart animation
+    el.classList.add("visible");
+    if (_drawNotifTimer) clearTimeout(_drawNotifTimer);
+    _drawNotifTimer = setTimeout(() => { el.classList.remove("visible"); _drawNotifTimer = null; }, 4500);
+  }
+
   function renderLog(logTail) {
     const el = document.getElementById("pv-log");
     const logs = Array.isArray(logTail) ? logTail : [];
@@ -11847,6 +11899,9 @@
     _bestTurnPts=0; _bestTurnNames=[];
     _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
+    _drawTurnStartPool=null; _drawPrevPlayer="";
+    if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
+    const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible");
     _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");
@@ -11917,14 +11972,6 @@
     } catch (e) {
       showToast("Could not reach server.", "warn");
     }
-  });
-
-  document.getElementById("pv-menu-fullboards-btn").addEventListener("click", () => {
-    pvFullBoards = !pvFullBoards;
-    document.getElementById("pv-menu-fullboards-btn").textContent =
-      pvFullBoards ? "\u{1F4C4} Full Boards: On" : "\u{1F4C4} Full Boards: Off";
-    closeMenu();
-    if (latestPayload) renderPayload(latestPayload);
   });
 
   document.getElementById("pv-menu-log-btn").addEventListener("click", () => {
@@ -12072,6 +12119,9 @@
   let _prevCurrentPlayer  = "";
   let _shotTheMoonName    = null;
   let _prevGobyMap        = {};
+  let _drawTurnStartPool  = null;      // pool snapshot at start of current player's turn
+  let _drawPrevPlayer     = "";        // player name tracked for draw notifications
+  let _drawNotifTimer     = null;
   let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
   const LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
