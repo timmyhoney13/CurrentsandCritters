@@ -1959,12 +1959,27 @@ class GameRoom:
             self._bump_locked()
 
     def _human_policy(self, seat_index: int):
+        # Per-policy state: when a timeout-fallback fires during the draw phase,
+        # auto-end the turn on the very next action request instead of waiting
+        # another full timeout window. Prevents cards from piling up over time.
+        force_end_turn_next = [False]
+
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             while True:
                 actions = fish.legal_actions(gs, ms, player, include_draw=True)
                 replay_action = self._replay_action_if_available(gs, ms, player, seat_index, actions)
                 if replay_action is not None:
+                    force_end_turn_next[0] = False
                     return replay_action
+
+                # If the last fallback was a forced draw, immediately end the
+                # turn now that end_turn is legal — don't wait another window.
+                if force_end_turn_next[0]:
+                    force_end_turn_next[0] = False
+                    for action in actions:
+                        if action.kind == "end_turn":
+                            return action
+                    # end_turn not legal yet (e.g., still must discard) — fall through.
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
                 # Build a list of species the player can currently play for free.
@@ -2041,13 +2056,13 @@ class GameRoom:
                         self._bump_locked()
                     return None
 
-                # Wait for the human to act. During discard phase, give a much longer
-                # window (30 min) because the player must review their hand — auto-discarding
-                # for them would remove cards they didn't choose to lose.
+                # Wait for the human to act. Give a long 30 min window so the game
+                # never auto-draws cards or skips turns under any normal play pace —
+                # only truly-abandoned games will hit the fallback.
                 only_discards = bool(actions) and all(
                     a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
                 )
-                wait_sec = 1800.0 if only_discards else 300.0
+                wait_sec = 1800.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
                 if cmd is not None and cmd.get("kind") == "undo_confirm":
                     # Previous player requested undo — restore state and signal engine.
@@ -2084,7 +2099,17 @@ class GameRoom:
                         return None
                     # Timeout: pick a safe fallback so the game doesn't hang.
                     fallback = self._safe_fallback_action(gs, ms, player)
-                    action_desc = "discarding a card" if only_discards else "auto-drawing"
+                    # If the fallback was a draw (not end_turn), arm the flag so
+                    # the very next policy call will end the turn instead of
+                    # waiting another full timeout window for another action.
+                    if fallback is not None and fallback.kind == "draw":
+                        force_end_turn_next[0] = True
+                    if fallback is not None and fallback.kind == "end_turn":
+                        action_desc = "ending turn"
+                    elif only_discards:
+                        action_desc = "discarding a card"
+                    else:
+                        action_desc = "auto-drawing"
                     with self.cond:
                         self.status_note = (
                             f"{player.name} took too long — {action_desc} to keep game moving."
@@ -2101,6 +2126,8 @@ class GameRoom:
                         self.status_note = "Invalid action submitted. Try again."
                         self._bump_locked()
                     continue
+                # Player submitted a real action — clear any pending forced-end flag.
+                force_end_turn_next[0] = False
                 # Discard actions end the discard phase; clear the stale cache so the
                 # client's red banner disappears on the next poll rather than persisting
                 # until the player's next turn recalculates legal actions.
@@ -2164,18 +2191,23 @@ class GameRoom:
             return None
         if not actions:
             return None
-        # Prefer a plain deck draw fallback when available because it needs no
-        # extra card selection and is robust under partial client desync.
+        # Priority 1: end_turn — cleanest exit, doesn't auto-draw or auto-play.
+        # If end_turn is legal, the player is past the draw phase, so we can
+        # just end their turn without taking any card-modifying action.
+        for action in actions:
+            if action.kind == "end_turn":
+                return action
+        # Priority 2: plain deck draw — required when turn can't end yet (draw
+        # phase). Drawing from the deck is robust under partial client desync.
         for action in actions:
             if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
                 return action
-        # During discard-mode, avoid returning the batch action (which has all cards
-        # pre-filled and would wipe the hand). Use a single discard_to_pool instead
-        # so only one card is discarded per timeout cycle.
+        # Priority 3: single discard — during discard-mode (hand > 10). Avoid
+        # the batch variant which would wipe a hand-load of cards at once.
         for action in actions:
             if action.kind == "discard_to_pool":
                 return action
-        # Last resort: return the first non-batch action to avoid side-effects.
+        # Last resort: first non-batch action to avoid side-effects.
         for action in actions:
             if action.kind != "discard_batch_to_pool":
                 return action
