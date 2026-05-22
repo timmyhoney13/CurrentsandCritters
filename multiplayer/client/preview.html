@@ -265,30 +265,32 @@
 
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
-    .seat-grid { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .seat-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
     .seat-btn {
-      width: 80px; height: 80px;
-      border-radius: 12px;
-      border: 2px solid var(--border);
-      background: #122E6A;
+      width: 140px; height: 140px;
+      border-radius: 16px;
+      border: 2.5px solid #a8c8ee;
+      background: #fff;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 5px; cursor: pointer;
+      gap: 8px; cursor: pointer;
       transition: border-color .18s, background .18s, transform .15s, box-shadow .15s;
       font-family: "Nunito", inherit;
+      box-shadow: 0 2px 12px rgba(30,80,160,.10);
     }
     .seat-btn .seat-num {
       font-family: "Cinzel", serif;
-      font-size: 22px; font-weight: 900;
-      color: var(--cyan);
+      font-size: 44px; font-weight: 900;
+      color: #1a2d5a; line-height: 1;
     }
-    .seat-btn .seat-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-    .seat-btn:hover:not(.taken) { border-color: var(--cyan); background: #1A3E80; transform: translateY(-2px); box-shadow: 0 6px 18px rgba(34,216,248,.28); }
-    .seat-btn.selected { border-color: var(--gold); background: #2A4A10; box-shadow: 0 0 18px var(--glow-gold); }
-    .seat-btn.selected .seat-num { color: var(--gold); }
-    .seat-btn.taken { border-color: #1a2a3a; cursor: not-allowed; opacity: .45; }
-    .seat-btn.taken .seat-num { color: var(--muted); }
-    .seat-btn.taken .seat-label { color: #3a5060; }
+    .seat-btn .seat-label { font-size: 12px; font-weight: 800; color: #1a2d5a; text-transform: uppercase; letter-spacing: 1px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .seat-btn:hover:not(.taken) { border-color: #3a7ad8; background: #f0f6ff; transform: translateY(-3px); box-shadow: 0 8px 24px rgba(58,122,216,.22); }
+    .seat-btn.selected { border-color: #3a7ad8; border-width: 3px; background: #e8f1fc; box-shadow: 0 0 0 4px rgba(58,122,216,.20), 0 8px 24px rgba(58,122,216,.20); }
+    .seat-btn.selected .seat-num { color: #1e58b8; }
+    .seat-btn.selected .seat-label { color: #1e58b8; }
+    .seat-btn.taken { cursor: not-allowed; opacity: .5; border-color: #ccd8e8; background: #f4f7fb; }
+    .seat-btn.taken .seat-num { color: #8a9aaa; }
+    .seat-btn.taken .seat-label { color: #8a9aaa; }
 
     /* ── GAME ROOT ──────────────────────────────────────────────── */
     #pv-game {
@@ -5394,19 +5396,45 @@
     /* ── SEAT PICKER MODAL ──────────────────────────────────────── */
     #seat-picker-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
-      background: rgba(0,0,0,.82); backdrop-filter: blur(6px);
+      background: rgba(180,210,245,.55); backdrop-filter: blur(8px);
       align-items: center; justify-content: center;
     }
     #seat-picker-modal.open { display: flex; }
     #seat-picker-box {
-      background: linear-gradient(160deg,rgba(22,58,118,.98) 0%,rgba(14,40,88,.99) 100%);
-      border: 1px solid rgba(58,120,204,.28); border-radius: 16px;
-      box-shadow: 0 0 60px rgba(34,216,248,.10), 0 20px 60px rgba(0,0,0,.6);
-      padding: 24px 22px 20px; width: 95%; max-width: 380px;
-      position: relative; display: flex; flex-direction: column; gap: 14px;
+      background: linear-gradient(160deg, #deeaf8 0%, #c8d8f0 100%);
+      border: none; border-radius: 28px;
+      box-shadow: 0 8px 48px rgba(30,80,160,.22);
+      padding: 28px 26px 0; width: 95%; max-width: 520px;
+      position: relative; display: flex; flex-direction: column; gap: 16px;
+      overflow: hidden;
     }
-    #seat-picker-box h2 { font-family:"Cinzel",serif; font-size:1.05rem; color:var(--cyan); letter-spacing:1.5px; margin:0; }
-    #seat-picker-err { color: var(--red); font-size: 12px; min-height: 16px; }
+    #seat-picker-box h2 { font-family:"Cinzel",serif; font-size:1.4rem; color:#1a2d5a; letter-spacing:1.5px; margin:0; font-weight:700; }
+    #seat-picker-box .sp-subtitle { font-size:13px; font-weight:600; color:#3a6aaa; margin:0; }
+    #seat-picker-err { color: #c03030; font-size: 12px; min-height: 16px; }
+    #sp-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(30,60,120,.15); border: none;
+      color: #1a2d5a; font-size: 15px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; padding: 0; line-height: 1;
+      transition: background .15s;
+    }
+    #sp-close:hover { background: rgba(30,60,120,.28); }
+    #sp-join-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: calc(100% + 52px); margin-left: -26px;
+      background: linear-gradient(90deg, #e8b820, #d4a010);
+      border: none; border-radius: 0;
+      padding: 20px 24px; font-family: "Cinzel",serif;
+      font-size: 1rem; font-weight: 700; color: #1a2d5a;
+      letter-spacing: 1px; cursor: pointer; position: relative;
+      transition: background .15s;
+    }
+    #sp-join-btn:not(:disabled):hover { background: linear-gradient(90deg, #f0c830, #e0b020); }
+    #sp-join-btn:disabled { cursor: default; }
+    #sp-join-btn::before { content: "🦀"; font-size: 26px; position: absolute; left: 18px; top: 50%; transform: translateY(-50%); }
+    #sp-join-btn::after { content: "🪸"; font-size: 26px; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); }
 
     .lb-tabs {
       display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
@@ -7350,12 +7378,12 @@
 <!-- ══ SEAT PICKER MODAL ═════════════════════════════════════════════ -->
 <div id="seat-picker-modal">
   <div id="seat-picker-box">
-    <button class="pv-modal-close" id="sp-close" style="position:absolute;top:12px;right:12px;">✕</button>
+    <button id="sp-close">✕</button>
     <h2 id="sp-title">🪑 Pick a Seat</h2>
-    <div style="font-size:12px;color:var(--muted);">Click an open spot to claim it</div>
+    <div class="sp-subtitle">Click an open spot to claim it</div>
     <div class="seat-grid" id="sp-seat-grid"></div>
     <div id="seat-picker-err"></div>
-    <button class="pv-btn gold full" id="sp-join-btn" disabled>Choose a seat above</button>
+    <button id="sp-join-btn" disabled>Choose a seat above</button>
   </div>
 </div>
 
