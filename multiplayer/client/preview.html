@@ -2226,46 +2226,199 @@
     #pv-chat-send { background: var(--cyan); color: #0A2448; font-size: 11px; font-weight: 700; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
     #pv-chat-send:hover { opacity: .85; }
 
-    /* ── END GAME OVERLAY ───────────────────────────────────────── */
+    /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
       display: none; position: fixed; inset: 0; z-index: 3000;
-      background: rgba(0,0,0,.88); backdrop-filter: blur(8px);
-      align-items: center; justify-content: center;
+      background: #060f22 url('game-bg.png') center/cover no-repeat;
+      overflow-y: auto;
     }
-    #pv-endgame-overlay.open { display: flex; }
-    #pv-endgame-box {
-      background: linear-gradient(160deg, rgba(22,58,118,.99) 0%, rgba(14,40,88,1) 100%);
-      border: 1px solid rgba(245,200,66,.35); border-radius: 20px;
-      box-shadow: 0 0 80px rgba(245,200,66,.12), 0 24px 80px rgba(0,0,0,.75);
-      padding: 32px; max-width: 480px; width: 95%; text-align: center; position: relative;
+    #pv-endgame-overlay.open { display: block; }
+    #gs-wrap {
+      min-height: 100vh; padding: 10px 14px 18px;
+      display: flex; flex-direction: column; gap: 10px;
+      font-family: "Nunito", sans-serif;
+      max-width: 1400px; margin: 0 auto;
     }
-    #pv-endgame-box h2 { font-family: "Cinzel", serif; font-size: 1.4rem; color: var(--gold); margin-bottom: 6px; }
-    #pv-endgame-winner { font-size: 1.1rem; color: var(--cyan); font-weight: 700; margin-bottom: 20px; }
-    #pv-endgame-scores { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
-    .eg-row {
-      display: flex; align-items: center; justify-content: space-between;
-      background: rgba(22,56,110,.6); border: 1px solid rgba(58,120,204,.25);
-      border-radius: 8px; padding: 8px 14px;
+    /* ── Header ── */
+    #gs-header { text-align: center; }
+    #gs-game-title {
+      font-family: "Cinzel", serif; font-size: clamp(1.6rem,4vw,2.8rem);
+      color: #fff; text-shadow: 0 0 30px rgba(100,200,255,.6);
+      letter-spacing: 2px; margin: 6px 0 8px;
     }
-    .eg-row.winner { border-color: rgba(245,200,66,.5); background: rgba(245,200,66,.08); }
-    .eg-name { font-size: 13px; font-weight: 700; color: #dde; }
-    .eg-score { font-size: 18px; font-weight: 900; color: var(--gold); }
-    .eg-rank  { font-size: 11px; color: var(--muted); margin-right: 8px; }
-    #pv-endgame-close {
-      background: linear-gradient(135deg, #0d6cb0, #0a5490); color: #fff;
-      border: 2px solid #2a80c0; border-radius: 10px;
-      padding: 10px 28px; font-size: 14px; font-weight: 800; cursor: pointer;
-      transition: transform .15s; width: 100%;
+    #gs-meta-bar {
+      display: flex; justify-content: center; gap: 0;
+      background: rgba(8,24,60,.82); border: 1px solid rgba(58,120,204,.4);
+      border-radius: 14px; overflow: hidden; flex-wrap: wrap;
     }
-    #pv-endgame-close:hover { transform: translateY(-2px); }
-    #pv-endgame-menu {
-      background: rgba(11,36,72,.7); color: var(--cyan);
-      border: 1px solid rgba(34,216,248,.4); border-radius: 10px;
-      padding: 10px 28px; font-size: 14px; font-weight: 800; cursor: pointer;
-      transition: transform .15s; width: 100%;
+    .gs-meta-item {
+      padding: 10px 18px; border-right: 1px solid rgba(58,120,204,.3);
+      text-align: center; min-width: 80px;
     }
-    #pv-endgame-menu:hover { background: rgba(11,36,72,.95); transform: translateY(-2px); }
-    #pv-endgame-btn-row { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .gs-meta-item:last-child { border-right: none; }
+    .gs-meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #7ab0d8; letter-spacing: .5px; }
+    .gs-meta-val { font-size: 18px; font-weight: 900; color: #e8f4ff; margin-top: 2px; }
+    .gs-meta-val.gs-big { font-size: 24px; }
+    .gs-meta-val.gs-cyan { color: #5ce8ff; }
+    .gs-meta-val.gs-gold { color: #ffd84a; }
+    /* ── Body ── */
+    #gs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1; }
+    @media (max-width: 800px) { #gs-body { grid-template-columns: 1fr; } }
+    /* ── Left: standings ── */
+    #gs-left { display: flex; flex-direction: column; gap: 10px; }
+    #gs-standings {
+      background: rgba(6,18,52,.85); border: 2px solid rgba(58,120,204,.5);
+      border-radius: 16px; overflow: hidden; flex: 1;
+    }
+    #gs-standings-title {
+      font-family: "Cinzel", serif; font-size: .95rem; font-weight: 700;
+      color: #e8f4ff; text-align: center; padding: 10px 16px 8px;
+      letter-spacing: 1.5px; background: rgba(8,28,72,.7);
+      border-bottom: 1px solid rgba(58,120,204,.4);
+    }
+    .gs-st-row {
+      display: grid; grid-template-columns: 44px 38px 1fr auto;
+      align-items: center; gap: 0; padding: 0 10px 0 0;
+      border-bottom: 1px solid rgba(30,60,120,.4); position: relative;
+      overflow: hidden; min-height: 52px;
+    }
+    .gs-st-row:last-child { border-bottom: none; }
+    .gs-st-bg {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      opacity: .32; z-index: 0;
+    }
+    .gs-st-rank {
+      position: relative; z-index: 1;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 900; font-family: "Cinzel",serif;
+      min-width: 44px; color: #c0d8f0;
+    }
+    .gs-st-rank-1 { color: #ffd84a; }
+    .gs-st-rank-2 { color: #a0c8e8; }
+    .gs-st-rank-3 { color: #d4915a; }
+    .gs-st-av { position: relative; z-index: 1; padding: 6px 4px; }
+    .gs-st-av img {
+      width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+      border: 2px solid rgba(100,180,240,.4); display: block;
+    }
+    .gs-st-info { position: relative; z-index: 1; padding: 6px 8px; }
+    .gs-st-name { font-size: 16px; font-weight: 900; color: #e8f4ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .gs-st-env { font-size: 10px; font-weight: 700; color: #8ab8d8; text-transform: uppercase; letter-spacing: .4px; }
+    .gs-st-score { position: relative; z-index: 1; font-size: 16px; font-weight: 900; color: #e8f4ff; white-space: nowrap; }
+    .gs-st-row.gs-st-me .gs-st-name { color: #5ce8ff; }
+    .gs-st-row.gs-st-me .gs-st-score { color: #5ce8ff; }
+    /* ── Special feats ── */
+    #gs-feats {
+      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.35);
+      border-radius: 14px; padding: 10px 14px;
+    }
+    #gs-feats-title {
+      font-family: "Cinzel",serif; font-size: .78rem; font-weight: 700;
+      color: #8ab8d8; text-align: center; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase;
+    }
+    #gs-feats-row { display: flex; gap: 10px; }
+    .gs-feat-card {
+      flex: 1; background: rgba(8,28,72,.6); border: 1px solid rgba(58,120,204,.3);
+      border-radius: 10px; padding: 8px 12px; text-align: center;
+    }
+    .gs-feat-label { font-size: 10px; font-weight: 700; color: #7ab0d8; text-transform: uppercase; letter-spacing: .4px; }
+    .gs-feat-val { font-size: 15px; font-weight: 900; color: #e8f4ff; margin-top: 3px; }
+    /* ── Right column ── */
+    #gs-right { display: flex; flex-direction: column; gap: 10px; }
+    /* ── XP row ── */
+    #gs-xp-row { display: flex; gap: 10px; }
+    #gs-xp-section {
+      flex: 1; background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.4);
+      border-radius: 14px; padding: 10px 14px;
+    }
+    #gs-xp-header { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #7ab0d8; margin-bottom: 8px; text-align: center; }
+    #gs-xp-bar-row { display: flex; align-items: center; gap: 10px; }
+    #gs-level-badge {
+      background: linear-gradient(135deg, #1a4080, #0d2a58);
+      border: 2px solid #2c6ab8; border-radius: 10px;
+      padding: 6px 10px; text-align: center; flex-shrink: 0;
+    }
+    #gs-level-badge .gs-lbl { font-size: 9px; font-weight: 800; color: #7ab0d8; text-transform: uppercase; letter-spacing: .5px; }
+    #gs-level-badge .gs-num { font-size: 22px; font-weight: 900; color: #5ce8ff; line-height: 1.1; }
+    #gs-xp-bar-wrap { flex: 1; }
+    #gs-xp-bar-track {
+      height: 18px; background: rgba(8,28,72,.8); border-radius: 999px;
+      border: 1px solid rgba(58,120,204,.4); overflow: hidden; position: relative;
+    }
+    #gs-xp-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #1c82d6, #56c2f8);
+      transition: width 1.2s ease; width: 0%;
+    }
+    #gs-xp-bar-markers { display: flex; justify-content: space-between; margin-top: 3px; }
+    .gs-xp-mk { font-size: 9px; color: #4a7098; }
+    #gs-xp-gain-badge {
+      background: rgba(8,28,72,.7); border: 2px solid #2c6ab8; border-radius: 10px;
+      padding: 6px 10px; text-align: center; flex-shrink: 0;
+      font-size: 10px; font-weight: 800; color: #5ce8ff; text-transform: uppercase;
+      letter-spacing: .5px; line-height: 1.3;
+    }
+    #gs-xp-gain-badge .gs-xp-num { font-size: 22px; font-weight: 900; display: block; }
+    /* ── Placement table ── */
+    #gs-placement-table {
+      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.35);
+      border-radius: 14px; padding: 10px 14px; min-width: 160px;
+    }
+    .gs-pt-title { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #7ab0d8; margin-bottom: 7px; text-align: center; }
+    .gs-pt-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(30,60,120,.3); font-size: 12px; font-weight: 700; }
+    .gs-pt-row:last-child { border-bottom: none; }
+    .gs-pt-rank { color: #a0c8e8; }
+    .gs-pt-xp { color: #5ce8ff; }
+    .gs-pt-row.gs-pt-me .gs-pt-rank, .gs-pt-row.gs-pt-me .gs-pt-xp { color: #ffd84a; font-weight: 900; }
+    /* ── Match Stats ── */
+    #gs-match-stats {
+      background: rgba(6,18,52,.85); border: 1px solid rgba(58,120,204,.4);
+      border-radius: 14px; padding: 10px 14px; flex: 1;
+    }
+    #gs-stats-title {
+      font-size: 13px; font-weight: 900; color: #e8f4ff;
+      margin-bottom: 10px; letter-spacing: .5px;
+    }
+    #gs-stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+    .gs-stat-card {
+      background: linear-gradient(160deg, rgba(10,36,90,.9) 0%, rgba(6,22,60,.95) 100%);
+      border: 1px solid rgba(58,120,204,.4); border-radius: 12px;
+      padding: 10px 12px; text-align: left; overflow: hidden; position: relative;
+      min-height: 90px;
+    }
+    .gs-sc-num {
+      font-family: "Cinzel",serif; font-size: 26px; font-weight: 900;
+      color: #e8f4ff; line-height: 1.1;
+    }
+    .gs-sc-unit { font-size: 12px; font-weight: 700; color: #5ce8ff; }
+    .gs-sc-label { font-size: 10px; font-weight: 800; color: #7ab0d8; margin-top: 4px; line-height: 1.3; }
+    .gs-sc-player { font-size: 12px; font-weight: 800; color: #a0c8e8; margin-top: 3px; }
+    .gs-sc-name { font-size: 14px; font-weight: 900; color: #e8f4ff; }
+    .gs-sc-pts { font-size: 12px; font-weight: 700; color: #5ce8ff; }
+    .gs-sc-xp {
+      position: absolute; bottom: 8px; right: 8px;
+      background: rgba(30,100,200,.3); border: 1px solid rgba(92,232,255,.4);
+      border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; color: #5ce8ff;
+    }
+    /* ── Buttons ── */
+    #gs-btn-row { display: flex; gap: 12px; }
+    .gs-btn {
+      flex: 1; padding: 14px 20px; border-radius: 14px; font-size: 17px; font-weight: 900;
+      font-family: "Nunito",sans-serif; cursor: pointer; border: none;
+      transition: transform .12s, box-shadow .12s; letter-spacing: .3px;
+    }
+    .gs-btn:hover { transform: translateY(-2px); }
+    .gs-btn-home {
+      background: linear-gradient(160deg, #0d3072, #07214e);
+      color: #e8f4ff; border: 2px solid #2a5ab8;
+      box-shadow: 0 4px 16px rgba(10,40,120,.4);
+    }
+    .gs-btn-view {
+      background: linear-gradient(160deg, #0d7070, #074e4e);
+      color: #e8f4ff; border: 2px solid #2a9898;
+      box-shadow: 0 4px 16px rgba(10,120,120,.4);
+    }
 
     /* ── COMPETITIVE MODE ───────────────────────────────────────── */
     #comp-overlay {
@@ -6964,13 +7117,113 @@
 
 <!-- ══ END GAME OVERLAY ═══════════════════════════════════════════ -->
 <div id="pv-endgame-overlay">
-  <div id="pv-endgame-box">
-    <h2>Game Over</h2>
-    <div id="pv-endgame-winner"></div>
-    <div id="pv-endgame-scores"></div>
-    <div id="pv-endgame-btn-row">
-      <button id="pv-endgame-close">View Results</button>
-      <button id="pv-endgame-menu">🏠 Go to Menu</button>
+  <div id="gs-wrap">
+    <!-- ── Header ── -->
+    <div id="gs-header">
+      <div id="gs-game-title">GAME SUMMARY</div>
+      <div id="gs-meta-bar">
+        <div class="gs-meta-item"><div class="gs-meta-label">Game Type</div><div class="gs-meta-val" id="gs-game-type">Casual</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Players</div><div class="gs-meta-val gs-big" id="gs-player-count">—</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Final Score</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-score">—</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Final Rank</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-rank">—</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">XP Gained</div><div class="gs-meta-val gs-gold" id="gs-xp-gained">+0 XP</div></div>
+        <div class="gs-meta-item" id="gs-cp-item" style="display:none;"><div class="gs-meta-label">CP Gained</div><div class="gs-meta-val gs-gold" id="gs-cp-gained">+0 CP</div></div>
+      </div>
+    </div>
+    <!-- ── Body ── -->
+    <div id="gs-body">
+      <!-- Left -->
+      <div id="gs-left">
+        <div id="gs-standings">
+          <div id="gs-standings-title">FINAL STANDINGS</div>
+          <div id="gs-standings-rows"></div>
+        </div>
+        <div id="gs-feats">
+          <div id="gs-feats-title">SPECIAL FEATS 🐚</div>
+          <div id="gs-feats-row">
+            <div class="gs-feat-card"><div class="gs-feat-label">Two of Aukind</div><div class="gs-feat-val" id="gs-feat-aukind">—</div></div>
+            <div class="gs-feat-card"><div class="gs-feat-label">Shot the Moon?</div><div class="gs-feat-val" id="gs-feat-moon">No one</div></div>
+          </div>
+        </div>
+      </div>
+      <!-- Right -->
+      <div id="gs-right">
+        <div id="gs-xp-row">
+          <div id="gs-xp-section">
+            <div id="gs-xp-header">XP PROGRESS</div>
+            <div id="gs-xp-bar-row">
+              <div id="gs-level-badge"><div class="gs-lbl">LEVEL</div><div class="gs-num" id="gs-level-num">—</div></div>
+              <div id="gs-xp-bar-wrap">
+                <div id="gs-xp-bar-track"><div id="gs-xp-bar-fill"></div></div>
+                <div id="gs-xp-bar-markers">
+                  <span class="gs-xp-mk" id="gs-xp-mk0">0</span>
+                  <span class="gs-xp-mk" id="gs-xp-mk1"></span>
+                  <span class="gs-xp-mk" id="gs-xp-mk2"></span>
+                  <span class="gs-xp-mk" id="gs-xp-mk3"></span>
+                  <span class="gs-xp-mk" id="gs-xp-mk4"></span>
+                  <span class="gs-xp-mk" id="gs-xp-goal"></span>
+                </div>
+              </div>
+              <div id="gs-xp-gain-badge"><span class="gs-xp-num" id="gs-xp-num">0</span>XP</div>
+            </div>
+          </div>
+          <div id="gs-placement-table">
+            <div class="gs-pt-title">PLACEMENT XP BREAKDOWN</div>
+            <div class="gs-pt-row" id="gs-pt-1"><span class="gs-pt-rank">🥇 1st</span><span class="gs-pt-xp">+100 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-2"><span class="gs-pt-rank">🥈 2nd</span><span class="gs-pt-xp">+75 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-3"><span class="gs-pt-rank">🥉 3rd</span><span class="gs-pt-xp">+50 XP</span></div>
+            <div class="gs-pt-row" id="gs-pt-4"><span class="gs-pt-rank">4th – 8th</span><span class="gs-pt-xp">+25 XP</span></div>
+          </div>
+        </div>
+        <div id="gs-match-stats">
+          <div id="gs-stats-title">⭐ MATCH STATS</div>
+          <div id="gs-stats-grid">
+            <div class="gs-stat-card" id="gs-sc-length">
+              <div class="gs-sc-num" id="gs-sc-length-val">—</div>
+              <div class="gs-sc-unit">min</div>
+              <div class="gs-sc-label">Game Length</div>
+            </div>
+            <div class="gs-stat-card" id="gs-sc-turn">
+              <div class="gs-sc-num" id="gs-sc-turn-val">—</div>
+              <div class="gs-sc-unit">pts</div>
+              <div class="gs-sc-label">Most Points in One Turn</div>
+              <div class="gs-sc-player" id="gs-sc-turn-who">—</div>
+              <div class="gs-sc-xp">⭐ +15 XP</div>
+            </div>
+            <div class="gs-stat-card" id="gs-sc-diverse">
+              <div class="gs-sc-num" id="gs-sc-diverse-val">—</div>
+              <div class="gs-sc-unit">species</div>
+              <div class="gs-sc-label">Most Diverse Ecosystem</div>
+              <div class="gs-sc-player" id="gs-sc-diverse-who">—</div>
+              <div class="gs-sc-xp">⭐ +15 XP</div>
+            </div>
+            <div class="gs-stat-card" id="gs-sc-star">
+              <div class="gs-sc-num" id="gs-sc-star-val">—</div>
+              <div class="gs-sc-label">Most Star Abilities Activated</div>
+              <div class="gs-sc-player" id="gs-sc-star-who">—</div>
+              <div class="gs-sc-xp">⭐ +15 XP</div>
+            </div>
+            <div class="gs-stat-card" id="gs-sc-100">
+              <div class="gs-sc-num">100</div>
+              <div class="gs-sc-unit">pts</div>
+              <div class="gs-sc-label">First to 100 Points</div>
+              <div class="gs-sc-player" id="gs-sc-100-who">—</div>
+              <div class="gs-sc-xp">⭐ +15 XP</div>
+            </div>
+            <div class="gs-stat-card" id="gs-sc-card">
+              <div class="gs-sc-name" id="gs-sc-card-name">—</div>
+              <div class="gs-sc-pts" id="gs-sc-card-pts">— pts</div>
+              <div class="gs-sc-label">Highest Scoring Card</div>
+              <div class="gs-sc-player" id="gs-sc-card-who">—</div>
+              <div class="gs-sc-xp">⭐ +15 XP</div>
+            </div>
+          </div>
+        </div>
+        <div id="gs-btn-row">
+          <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Home</button>
+          <button id="pv-endgame-close" class="gs-btn gs-btn-view">▶ View Board Again</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -8471,6 +8724,33 @@
     if (state.round_count != null) _latestRoundCount = Number(state.round_count) || 0;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
+
+    // ── Match stats tracking ─────────────────────────────
+    if (phase === "running" && !_matchStartMs) _matchStartMs = Date.now();
+    if (phase === "running" && players.length) {
+      const curP = state.current_player || "";
+      players.forEach(p => {
+        const prev = (_prevScoreMap[p.name] != null) ? _prevScoreMap[p.name] : null;
+        const score = Number(p.score || 0);
+        if (prev !== null) {
+          const delta = score - prev;
+          if (delta > 0) {
+            if (delta > _bestTurnPts) { _bestTurnPts = delta; _bestTurnNames = [p.name]; }
+            else if (delta === _bestTurnPts && !_bestTurnNames.includes(p.name)) _bestTurnNames.push(p.name);
+            if (!_first100Done && score >= 100 && prev < 100) _first100Names.push(p.name);
+          }
+        }
+        _prevScoreMap[p.name] = score;
+        const goby = Number(p.score_breakdown?.mandarin_goby?.count || 0);
+        const prevGoby = _prevGobyMap[p.name] || 0;
+        if (goby < prevGoby && prevGoby >= 3 && !_shotTheMoonName) _shotTheMoonName = curP || p.name;
+        _prevGobyMap[p.name] = goby;
+      });
+      if (_first100Names.length && !_first100Done) _first100Done = true;
+      const fpa = Array.isArray(lw.free_play_species) && lw.free_play_species.length > 0;
+      if (fpa && !_prevFreePlayActive && curP) _starCounts[curP] = (_starCounts[curP] || 0) + 1;
+      _prevFreePlayActive = fpa;
+    }
     const current = state.current_player || "";
     const isMyTurn = Boolean(viewer.can_act);
     canInteract = isMyTurn;
@@ -11668,6 +11948,17 @@
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
   let _lastSavedWinner = null;
+  let _matchStartMs   = 0;
+  let _prevScoreMap   = {};
+  let _bestTurnPts    = 0;
+  let _bestTurnNames  = [];
+  let _first100Names  = [];
+  let _first100Done   = false;
+  let _starCounts     = {};
+  let _prevFreePlayActive = false;
+  let _prevCurrentPlayer  = "";
+  let _shotTheMoonName    = null;
+  let _prevGobyMap        = {};
   let _lastRankedProcessed = null; // roomId of last game where ranked result was processed
   const LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
@@ -11699,11 +11990,13 @@
 
   function getGameXpAward(finalScores, myScore) {
     const rank = getPlacementRank(finalScores, myScore);
-    const hasAi = (Array.isArray(finalScores) ? finalScores : []).some(p => isLikelyAiName(p?.name))
-      || (Array.isArray(_latestPlayers) ? _latestPlayers : []).some(p => isLikelyAiName(p?.name));
-    if (rank <= 1) return hasAi ? 50 : 100;
-    if (rank === 2) return hasAi ? 25 : 50;
-    return hasAi ? 13 : 25;
+    const hasAi = (Array.isArray(finalScores)?finalScores:[]).some(p=>isLikelyAiName(p?.name))
+      || (Array.isArray(_latestPlayers)?_latestPlayers:[]).some(p=>isLikelyAiName(p?.name));
+    const mult = hasAi ? 0.5 : 1;
+    if (rank <= 1) return Math.round(100 * mult);
+    if (rank === 2) return Math.round(75 * mult);
+    if (rank === 3) return Math.round(50 * mult);
+    return Math.round(25 * mult);
   }
 
   function getStoredTotalXp(stats) {
@@ -12123,57 +12416,187 @@
 
   function renderEndGame(winner, finalScores) {
     const overlay = document.getElementById("pv-endgame-overlay");
-    if (!winner) { _endgameDismissed = false; overlay.classList.remove("open"); _lastSavedWinner = null; return; }
+    if (!winner) {
+      _endgameDismissed = false;
+      overlay.classList.remove("open");
+      _lastSavedWinner = null;
+      // reset tracking for new game
+      _matchStartMs=0; _prevScoreMap={}; _bestTurnPts=0; _bestTurnNames=[];
+      _first100Names=[]; _first100Done=false; _starCounts={}; _prevFreePlayActive=false;
+      _shotTheMoonName=null; _prevGobyMap={};
+      return;
+    }
     saveGameStats(winner, finalScores);
     if (compMode) processRankedGameEnd(finalScores);
     if (_endgameDismissed) { overlay.classList.remove("open"); return; }
     overlay.classList.add("open");
 
-    // In competitive mode resolve who won at the P1 vs P2 level, not individual hand level
-    let displayWinner = winner;
-    let compDraw = false;
-    if (compMode && Array.isArray(_latestPlayers) && _latestPlayers.length) {
-      const sbN = {};
-      (finalScores || []).forEach(p => { sbN[String(p.name || "")] = Number(p.score || 0); });
-      const p1Ns = _latestPlayers.filter(p => p.index === 0 || p.index === 1).map(p => p.name);
-      const p2Ns = _latestPlayers.filter(p => p.index === 2 || p.index === 3).map(p => p.name);
-      const p1Sc = p1Ns.map(n => sbN[n] || 0);
-      const p2Sc = p2Ns.map(n => sbN[n] || 0);
-      const p1B = p1Sc.length ? Math.max(...p1Sc) : 0;
-      const p2B = p2Sc.length ? Math.max(...p2Sc) : 0;
-      const p1X = p1Sc.length >= 2 ? Math.min(...p1Sc) : p1B;
-      const p2X = p2Sc.length >= 2 ? Math.min(...p2Sc) : p2B;
-      if      (p1B > p2B || (p1B === p2B && p1X > p2X)) displayWinner = compP1Name;
-      else if (p2B > p1B || (p1B === p2B && p2X > p1X)) displayWinner = compP2Name;
-      else { displayWinner = null; compDraw = true; }
+    const myName = (typeof window.__fishNickname === "function") ? window.__fishNickname() : "";
+    const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0) - (a.score||0));
+    const myEntry = sorted.find(p => p.name === myName) || sorted.find(p => winner && p.name === winner) || sorted[0];
+    const myScore = Number(myEntry?.score || 0);
+    const playerCount = sorted.length;
+    const myRank = getPlacementRank(finalScores, myScore);
+    const rankSuffix = (r) => r===1?"st":r===2?"nd":r===3?"rd":"th";
+
+    // XP calculation (competitive mode halves XP)
+    const xpBase = compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore);
+
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    // ── Header meta ──────────────────────────────────────────────
+    setText("gs-game-type", compMode ? "Competitive" : "Casual");
+    const gtEl = document.getElementById("gs-game-type");
+    if (gtEl) gtEl.className = "gs-meta-val " + (compMode ? "gs-gold" : "gs-cyan");
+
+    const countEl = document.getElementById("gs-player-count");
+    if (countEl) countEl.textContent = playerCount;
+
+    setText("gs-my-score", myScore + " pts");
+    setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
+
+    const cpItem = document.getElementById("gs-cp-item");
+    if (cpItem) cpItem.style.display = compMode ? "" : "none";
+
+    // ── Final Standings ──────────────────────────────────────────
+    const rowsEl = document.getElementById("gs-standings-rows");
+    if (rowsEl) {
+      rowsEl.innerHTML = "";
+      // assign tied ranks
+      let rankArr = [], curRank = 1;
+      sorted.forEach((p, i) => {
+        if (i > 0 && sorted[i-1].score === p.score) rankArr.push(rankArr[i-1]);
+        else { rankArr.push(curRank); curRank = i + 2; }
+      });
+      sorted.forEach((p, i) => {
+        const r = rankArr[i];
+        const isMe = p.name === myName;
+        const playerObj = (_latestPlayers || []).find(lp => lp.name === p.name);
+        const firstOcean = Array.isArray(playerObj?.board) && playerObj.board[0];
+        const oceanUid = firstOcean ? (firstOcean.ocean_uid || firstOcean.ocean?.uid) : null;
+        const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
+        const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
+        const avatarSeed = p.name || ("p" + i);
+        const avatarUrl = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/avatar-01.png";
+        const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
+        const row = document.createElement("div");
+        row.className = "gs-st-row" + (isMe ? " gs-st-me" : "");
+        row.innerHTML = `
+          <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
+          <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
+          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/avatar-01.png'" loading="lazy"></div>
+          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
+          <div class="gs-st-score">${p.score||0} pts</div>`;
+        rowsEl.appendChild(row);
+      });
     }
 
-    document.getElementById("pv-endgame-winner").textContent =
-      compDraw ? "Draw!" : `Winner: ${displayWinner || winner}`;
+    // ── Compute match stats (needed before XP totals) ────────────
 
-    const scoresEl = document.getElementById("pv-endgame-scores");
-    cl(scoresEl);
-    const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0)-(a.score||0));
-    sorted.forEach((p, i) => {
-      const row = document.createElement("div");
-      // Highlight the winning physical player's hands in competitive mode
-      const isWinningHand = compMode
-        ? (displayWinner === compP1Name ? (p.name === compP1Name || p.name === compP1Name + " 2") :
-           displayWinner === compP2Name ? (p.name === compP2Name || p.name === compP2Name + " 2") : false)
-        : p.name === winner;
-      row.className = "eg-row" + (isWinningHand ? " winner" : "");
-      const rank = document.createElement("span"); rank.className = "eg-rank"; rank.textContent = `#${i+1}`;
-      // Strip the " 2" suffix for display so "Bob 2" shows as "Bob Hand 2"
-      let dispName = p.name || "?";
-      if (compMode && dispName.endsWith(" 2")) {
-        const base = dispName.slice(0, -2);
-        if (base === compP1Name || base === compP2Name) dispName = base + " (Hand 2)";
-      }
-      const name = document.createElement("span"); name.className = "eg-name"; name.textContent = dispName;
-      const score = document.createElement("span"); score.className = "eg-score"; score.textContent = `${p.score ?? 0} pts`;
-      row.appendChild(rank); row.appendChild(name); row.appendChild(score);
-      scoresEl.appendChild(row);
+    // Most Points in One Turn (already tracked in _bestTurnPts / _bestTurnNames)
+
+    // Most Diverse Ecosystem
+    let mostDiverseNames = [], mostDiverseCount = 0;
+    (_latestPlayers || []).forEach(p => {
+      const species = new Set();
+      (p.board || []).forEach(ocean => {
+        ["up","down","left","right"].forEach(dir => {
+          (ocean[dir] || []).forEach(c => { if (c.species && c.species !== "ocean") species.add(c.species); });
+        });
+      });
+      const cnt = species.size;
+      if (cnt > mostDiverseCount) { mostDiverseCount = cnt; mostDiverseNames = [p.name]; }
+      else if (cnt === mostDiverseCount && cnt > 0 && !mostDiverseNames.includes(p.name)) mostDiverseNames.push(p.name);
     });
+
+    // Most Star Abilities Activated
+    let mostStarNames = [], mostStarCount = 0;
+    Object.entries(_starCounts).forEach(([name, cnt]) => {
+      if (cnt > mostStarCount) { mostStarCount = cnt; mostStarNames = [name]; }
+      else if (cnt === mostStarCount && cnt > 0) mostStarNames.push(name);
+    });
+
+    // Highest Scoring Card
+    let highCardName = "—", highCardPts = 0, highCardWho = "—";
+    (_latestPlayers || []).forEach(p => {
+      const rows = p?.score_breakdown?.full?.card_rows || [];
+      rows.forEach(row => {
+        const pts = Number(row.total || 0);
+        if (pts > highCardPts) { highCardPts = pts; highCardName = row.card_name || "—"; highCardWho = p.name; }
+      });
+    });
+
+    // Count stat bonuses (which stats did the current player win?)
+    const myStatWins = [
+      _bestTurnNames.includes(myName),
+      mostDiverseNames.includes(myName),
+      mostStarNames.includes(myName),
+      _first100Names.includes(myName),
+      highCardWho === myName,
+    ].filter(Boolean).length;
+
+    const totalXp = xpBase + myStatWins * 15;
+
+    // ── XP Progress ──────────────────────────────────────────────
+    const guestStats = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || {}) : {};
+    const oldTotalXp = getStoredTotalXp(guestStats);
+    const lp = getLevelProgressFromTotalXp(oldTotalXp + totalXp);
+    setText("gs-level-num", lp.level);
+    setText("gs-xp-num", "+" + totalXp);
+    setText("gs-xp-gained", "+" + totalXp + " XP");
+
+    const goal = lp.xpGoal;
+    [0,1,2,3,4].forEach(i => {
+      const el = document.getElementById("gs-xp-mk" + i);
+      if (el) el.textContent = Math.round(goal * i / 4);
+    });
+    const goalEl = document.getElementById("gs-xp-goal");
+    if (goalEl) goalEl.textContent = goal;
+
+    // Reset bar then animate
+    const fill = document.getElementById("gs-xp-bar-fill");
+    if (fill) fill.style.width = "0%";
+    setTimeout(() => {
+      const f = document.getElementById("gs-xp-bar-fill");
+      if (f) f.style.width = Math.min(100, Math.round(lp.xpCurrent / Math.max(1, lp.xpGoal) * 100)) + "%";
+    }, 300);
+
+    // Highlight my rank in placement table
+    [1,2,3,4].forEach(r => {
+      const el = document.getElementById("gs-pt-" + r);
+      if (el) el.classList.toggle("gs-pt-me", r === Math.min(myRank, 4));
+    });
+
+    // ── Match Stats ──────────────────────────────────────────────
+    const gameMins = _matchStartMs ? Math.max(1, Math.round((Date.now() - _matchStartMs) / 60000)) : 0;
+    setText("gs-sc-length-val", gameMins || "—");
+
+    setText("gs-sc-turn-val", _bestTurnPts || "—");
+    setText("gs-sc-turn-who", _bestTurnNames.join(", ") || "—");
+
+    setText("gs-sc-diverse-val", mostDiverseCount || "—");
+    setText("gs-sc-diverse-who", mostDiverseNames.join(", ") || "—");
+
+    setText("gs-sc-star-val", mostStarCount || "—");
+    setText("gs-sc-star-who", mostStarNames.join(", ") || "—");
+
+    setText("gs-sc-100-who", _first100Names.join(", ") || "No one");
+
+    setText("gs-sc-card-name", highCardName);
+    setText("gs-sc-card-pts", highCardPts ? highCardPts + " pts" : "—");
+    setText("gs-sc-card-who", highCardWho);
+
+    // ── Special Feats ─────────────────────────────────────────────
+    let aukindName = "—", aukindMax = 0;
+    (_latestPlayers || []).forEach(p => {
+      const cnt = Number(p?.score_breakdown?.mandarin_goby?.count || 0);
+      if (cnt > aukindMax) { aukindMax = cnt; aukindName = p.name; }
+    });
+    const aukindEl = document.getElementById("gs-feat-aukind");
+    if (aukindEl) aukindEl.textContent = aukindMax >= 2 ? aukindName + " (" + aukindMax + ")" : "No one";
+
+    const moonEl = document.getElementById("gs-feat-moon");
+    if (moonEl) moonEl.textContent = _shotTheMoonName || "No one";
   }
   document.getElementById("pv-endgame-close").addEventListener("click", () => {
     _endgameDismissed = true;
