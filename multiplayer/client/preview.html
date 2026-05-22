@@ -11806,6 +11806,10 @@
     if (compHandsSection) compHandsSection.style.display = "none";
     document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+    _matchStartMs=0; _prevScoreMap={}; _turnStartScores={};
+    _bestTurnPts=0; _bestTurnNames=[];
+    _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
+    _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
     _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");
@@ -12495,11 +12499,8 @@
       overlay.classList.remove("open");
       _lastSavedWinner = null;
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
-      // reset tracking for new game
-      _matchStartMs=0; _prevScoreMap={}; _turnStartScores={};
-      _bestTurnPts=0; _bestTurnNames=[];
-      _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
-      _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
+      // Tracking vars (_matchStartMs, _bestTurnPts, etc.) are reset in _leaveGameCleanup(),
+      // not here — resetting here would wipe them on every poll during the running phase.
       return;
     }
     if (compMode) processRankedGameEnd(finalScores);
@@ -12518,6 +12519,19 @@
     const xpBase = _gameTerminatedByMe ? 0
       : (compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    // Flush the last player's turn delta — the current_player never "changes" at game end,
+    // so the turn-boundary handler never fires for the final turn.
+    if (_prevCurrentPlayer && _turnStartScores[_prevCurrentPlayer] != null) {
+      const lastEntry = (finalScores || []).find(p => p.name === _prevCurrentPlayer);
+      if (lastEntry) {
+        const lastDelta = Number(lastEntry.score || 0) - _turnStartScores[_prevCurrentPlayer];
+        if (lastDelta > _bestTurnPts) { _bestTurnPts = lastDelta; _bestTurnNames = [_prevCurrentPlayer]; }
+        else if (lastDelta > 0 && lastDelta === _bestTurnPts && !_bestTurnNames.includes(_prevCurrentPlayer)) {
+          _bestTurnNames.push(_prevCurrentPlayer);
+        }
+      }
+    }
 
     // ── Compute match stat winners FIRST (needed for stat XP bonuses) ──
 
