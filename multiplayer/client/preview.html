@@ -12556,6 +12556,7 @@
         else { rankArr.push(curRank); curRank = i + 2; }
       });
       const myAvatarUrl = (typeof window.__fishMyAvatarUrl === "function") ? window.__fishMyAvatarUrl() : "";
+      const _gsAvatarImgs = [];
       sorted.forEach((p, i) => {
         const r = rankArr[i];
         const isMe = p.name === myName;
@@ -12577,7 +12578,19 @@
           <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
+        if (!isMe) {
+          const img = row.querySelector(".gs-st-av img");
+          if (img) _gsAvatarImgs.push({ name: p.name, img });
+        }
       });
+      // Async: replace fallback avatars with each player's real chosen avatar
+      if (typeof window.__fishAvatarForNick === "function" && _gsAvatarImgs.length) {
+        _gsAvatarImgs.forEach(({ name, img }) => {
+          window.__fishAvatarForNick(name).then(url => {
+            if (url && img) img.src = url;
+          }).catch(() => {});
+        });
+      }
     }
 
     // ── XP Progress bar ──────────────────────────────────────────
@@ -13417,6 +13430,20 @@
       } catch (e) {
         return "/avatars/avatar-01.png";
       }
+    };
+
+    // Async lookup of another player's chosen avatar by nickname (used by game summary)
+    const _nickAvatarCache = {};
+    window.__fishAvatarForNick = async function(nick) {
+      if (!nick) return null;
+      if (_nickAvatarCache[nick] !== undefined) return _nickAvatarCache[nick];
+      try {
+        if (!_db) { _nickAvatarCache[nick] = null; return null; }
+        const snap = await _db.collection("users").where("nickname", "==", nick).limit(1).get();
+        const url = snap.empty ? null : (normalizeAvatarUrl(snap.docs[0].data().avatar_url || "") || null);
+        _nickAvatarCache[nick] = url;
+        return url;
+      } catch(e) { _nickAvatarCache[nick] = null; return null; }
     };
 
     function renderStatsAvatar(profile, nickname) {
