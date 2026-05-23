@@ -9012,13 +9012,14 @@
     }
 
     const freePlaySpecies = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
+    const tarponActive = Boolean(lw.tarpon_discard_active);
     renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
     renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderPlayerSeats(players, state.turn_index, myIdx);
-    renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
-    renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies);
+    renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
+    renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     // undo button: always visible; disabled+dimmed when not eligible
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
@@ -11564,7 +11565,7 @@
   }
 
   // ── Guide bar ──────────────────────────────────────────────────
-  function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies) {
+  function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const bar = document.getElementById("pv-guide-bar");
     const qdBtn = document.getElementById("pv-quick-draw-btn");
     const drawDivider = document.getElementById("pv-draw-divider");
@@ -11584,6 +11585,16 @@
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">💳 Paying for <strong>${name}</strong> — click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
+      </div>`;
+      qdBtn.classList.remove("visible");
+      drawDivider.style.display = "none";
+      return;
+    }
+
+    if (tarponActive) {
+      bar.classList.add("visible");
+      bar.innerHTML = `<div class="guide-step">
+        <span class="gs active">🐟 Tarpon — pick a card to discard from the dropdown, then click Play to discard. Repeat for each card, then click ✓ End Turn to draw that many cards back.</span>
       </div>`;
       qdBtn.classList.remove("visible");
       drawDivider.style.display = "none";
@@ -11661,7 +11672,7 @@
   }
 
   // ── Action bar renderer ────────────────────────────────────────
-  function renderActionBar(actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies) {
+  function renderActionBar(actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const sel        = document.getElementById("pv-action-select");
     const playBtn    = document.getElementById("pv-play-btn");
     const endBtn     = document.getElementById("pv-end-turn-inline");
@@ -11742,6 +11753,21 @@
         grp.appendChild(o);
       });
       sel.appendChild(grp);
+    }
+
+    // Tarpon discard phase: surface each discard_to_pool action in the dropdown
+    if (tarponActive) {
+      const discardActs = actions.filter(a => a.kind === "discard_to_pool");
+      if (discardActs.length) {
+        const grp = document.createElement("optgroup");
+        grp.label = "🐟 Tarpon — Discard a card";
+        discardActs.forEach(a => {
+          const o = document.createElement("option"); o.value = String(a.index);
+          o.textContent = `[${a.index}] Discard ${a.face_name || "?"}`;
+          grp.appendChild(o);
+        });
+        sel.appendChild(grp);
+      }
     }
 
     if (prevVal && Array.from(sel.options).some(o=>o.value===prevVal)) sel.value=prevVal;
