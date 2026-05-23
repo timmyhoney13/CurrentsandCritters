@@ -3415,7 +3415,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve general client PNG assets (game bg, button art, etc.)
-        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|moving-background|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400")
