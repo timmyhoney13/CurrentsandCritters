@@ -81,6 +81,17 @@
       --purple:    #a855f7;
       --sand:      #D0A84E;   /* sandy seafloor accent                  */
       --coral:     #F09880;   /* coral orange-pink accent               */
+      /* ── Coral reef in-game palette (matches game-bg.png) ─────── */
+      --cr-cream:      #fef5e6;
+      --cr-cream-mid:  #f5e8d0;
+      --cr-aqua:       #bcdde6;
+      --cr-teal:       #5fb3d6;
+      --cr-teal-deep:  #2c5a8a;
+      --cr-navy:       #1a2d5a;
+      --cr-coral:      #f4a574;
+      --cr-coral-deep: #e8956b;
+      --cr-gold:       #e8b34a;
+      --cr-gold-deep:  #c89320;
       --card-w:    108px;
       --card-h:    152px;
       --mini-w:    70px;
@@ -179,7 +190,7 @@
     .pv-row .pv-input { flex: 1; }
 
     .pv-btn {
-      background: linear-gradient(135deg, #4a98d8, #2f7ac0);
+      background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
       border: none; border-radius: 10px;
       color: #fff; cursor: pointer;
       font-family: "Nunito", inherit;
@@ -188,8 +199,9 @@
       transition: transform .15s, box-shadow .15s, filter .15s;
       white-space: nowrap;
       letter-spacing: .3px;
+      text-shadow: 0 1px 2px rgba(0,0,0,.25);
     }
-    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(60,130,200,.5); }
+    .pv-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,179,214,.55); }
     .pv-btn:active:not(:disabled) { transform: translateY(0); }
     .pv-btn:disabled { filter: brightness(.45); cursor: default; }
     .pv-btn.gold { background: linear-gradient(135deg, #c8971a, #a97c14); }
@@ -303,10 +315,12 @@
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
     #pv-notice {
-      background: linear-gradient(90deg, rgba(13,38,88,.97) 0%, rgba(18,48,100,.97) 50%, rgba(13,38,88,.97) 100%);
-      border-bottom: 1px solid rgba(58,120,204,.25);
+      background: linear-gradient(90deg, rgba(254,245,230,.92) 0%, rgba(220,238,245,.94) 50%, rgba(254,245,230,.92) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(95,179,214,.45);
       font-size: 12px;
-      color: var(--text);
+      color: var(--cr-navy);
       padding: 5px 14px;
       display: flex;
       align-items: center;
@@ -314,35 +328,38 @@
       flex-shrink: 0;
     }
     .room-badge {
-      background: var(--border);
+      background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
       border-radius: 6px;
       padding: 2px 8px;
       font-weight: 800;
-      color: var(--text);
+      color: #fff;
       font-size: 11px;
       letter-spacing: 1.5px;
+      text-shadow: 0 1px 2px rgba(0,0,0,.25);
     }
-    #pv-my-name-badge { color: var(--cyan); font-weight: 700; }
+    #pv-my-name-badge { color: var(--cr-navy); font-weight: 800; }
     #pv-my-score-badge {
-      background: linear-gradient(135deg, #1A4890, #122E72);
-      border: 1px solid rgba(48,200,240,.35);
+      background: linear-gradient(135deg, var(--cr-coral), var(--cr-coral-deep));
+      border: 1px solid rgba(232,179,74,.65);
       border-radius: 8px;
       padding: 2px 10px;
       font-weight: 900;
-      color: var(--gold);
+      color: var(--cr-navy);
       font-size: 13px;
       font-family: "Cinzel", serif;
       letter-spacing: 1px;
       min-width: 48px;
       text-align: center;
       cursor: pointer;
-      transition: border-color .15s, box-shadow .15s;
+      transition: border-color .15s, box-shadow .15s, transform .12s;
+      text-shadow: 0 1px 0 rgba(255,255,255,.45);
     }
     #pv-my-score-badge:hover {
-      border-color: rgba(48,200,240,.7);
-      box-shadow: 0 0 8px rgba(48,200,240,.3);
+      border-color: var(--cr-gold);
+      box-shadow: 0 0 10px rgba(232,179,74,.4);
+      transform: translateY(-1px);
     }
-    #pv-status-text { flex: 1; text-align: center; color: var(--gold); font-weight: 700; font-size: 12px; }
+    #pv-status-text { flex: 1; text-align: center; color: var(--cr-navy); font-weight: 800; font-size: 12px; letter-spacing: .3px; }
     #pv-notice .notice-btns { display: flex; gap: 6px; }
 
     /* ── TURN BANNER ────────────────────────────────────────────── */
@@ -357,16 +374,21 @@
       transition: background .4s, color .4s, box-shadow .4s;
     }
     #pv-turn-banner.my-turn {
-      background: linear-gradient(90deg, rgba(13,42,90,0) 0%, rgba(20,70,140,.65) 30%, rgba(20,70,140,.65) 70%, rgba(13,42,90,0) 100%);
-      color: var(--gold);
+      background: linear-gradient(90deg, rgba(244,165,116,0) 0%, rgba(244,165,116,.55) 30%, rgba(232,179,74,.6) 50%, rgba(244,165,116,.55) 70%, rgba(244,165,116,0) 100%);
+      color: var(--cr-navy);
       animation: banner-glow 2s ease-in-out infinite;
-      text-shadow: 0 0 20px rgba(240,184,64,.6), 0 0 40px rgba(48,200,240,.2);
+      text-shadow: 0 0 18px rgba(255,255,255,.85), 0 1px 0 rgba(255,255,255,.9);
     }
     @keyframes banner-glow {
-      0%,100% { box-shadow: inset 0 -2px 20px rgba(245,200,66,.12); }
-      50%      { box-shadow: inset 0 -2px 30px rgba(245,200,66,.3); }
+      0%,100% { box-shadow: inset 0 -2px 22px rgba(232,179,74,.18); }
+      50%      { box-shadow: inset 0 -2px 32px rgba(232,179,74,.4); }
     }
-    #pv-turn-banner.their-turn { background: rgba(10,14,24,.6); color: var(--muted); }
+    #pv-turn-banner.their-turn {
+      background: linear-gradient(90deg, rgba(254,245,230,0) 0%, rgba(254,245,230,.55) 30%, rgba(254,245,230,.55) 70%, rgba(254,245,230,0) 100%);
+      backdrop-filter: blur(6px);
+      color: var(--cr-navy);
+      opacity: .85;
+    }
     #pv-turn-banner.endgame {
       background: linear-gradient(90deg, rgba(40,10,10,0) 0%, rgba(80,10,10,.7) 30%, rgba(80,10,10,.7) 70%, rgba(40,10,10,0) 100%);
       color: var(--red);
@@ -478,11 +500,13 @@
     }
     .pv-section-label {
       font-size: 9px;
-      color: var(--muted);
+      color: var(--cr-navy);
       text-transform: uppercase;
       letter-spacing: 1.5px;
       text-align: center;
       margin-bottom: 3px;
+      font-weight: 800;
+      text-shadow: 0 1px 0 rgba(255,255,255,.5);
     }
 
     /* Deck pile */
@@ -501,8 +525,8 @@
     .pv-deck-face {
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, #1C3E80, #2A5AA8);
-      border: 2px solid #3A72C0;
+      background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
+      border: 2px solid var(--cr-gold);
       border-radius: 8px;
       display: flex;
       align-items: center;
@@ -510,19 +534,19 @@
       font-family: "Cinzel", serif;
       font-size: 20px;
       font-weight: 900;
-      color: rgba(255,255,255,.3);
-      box-shadow: 3px 3px 0 #122E60, 5px 5px 0 #0E2450;
-      transition: border-color .2s;
+      color: rgba(255,255,255,.55);
+      box-shadow: 3px 3px 0 rgba(26,45,90,.55), 5px 5px 0 rgba(26,45,90,.4);
+      transition: border-color .2s, box-shadow .2s;
     }
     .pv-deck-face::after {
       content: "";
       position: absolute;
       inset: 4px;
-      border: 1px solid rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.18);
       border-radius: 5px;
     }
-    .pv-deck-pile:hover .pv-deck-face { border-color: var(--cyan); box-shadow: 3px 3px 0 #122E60, 5px 5px 0 #0E2450, 0 0 16px rgba(34,216,248,.4); }
-    .pv-deck-count { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .pv-deck-pile:hover .pv-deck-face { border-color: var(--cr-coral); box-shadow: 3px 3px 0 rgba(26,45,90,.55), 5px 5px 0 rgba(26,45,90,.4), 0 0 18px rgba(244,165,116,.55); }
+    .pv-deck-count { font-size: 11px; color: var(--cr-navy); font-weight: 800; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 
     /* Pool */
     #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
@@ -559,21 +583,22 @@
 
     /* ── POOL EXPAND BUTTON ─────────────────────────────────────── */
     #pv-pool-expand-btn {
-      background: none;
-      border: 1px solid var(--border);
+      background: rgba(232,179,74,.18);
+      border: 1px solid rgba(232,179,74,.55);
       border-radius: 4px;
-      color: var(--muted);
+      color: var(--cr-navy);
       cursor: pointer;
-      padding: 1px 4px;
+      padding: 1px 6px;
       font-size: 9px;
       line-height: 1.5;
       letter-spacing: .5px;
       text-transform: uppercase;
-      transition: color .15s, border-color .15s;
+      font-weight: 800;
+      transition: color .15s, border-color .15s, background .15s;
       vertical-align: middle;
       margin-left: 4px;
     }
-    #pv-pool-expand-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+    #pv-pool-expand-btn:hover { color: var(--cr-navy); border-color: var(--cr-gold); background: rgba(232,179,74,.35); }
 
     /* ── POOL OVERVIEW MODAL ────────────────────────────────────── */
     #pv-pool-modal {
@@ -889,8 +914,10 @@
 
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
-      background: linear-gradient(180deg, rgba(8,40,72,.97) 0%, rgba(5,28,58,.98) 100%);
-      border-top: 1px solid rgba(14,150,170,.25);
+      background: linear-gradient(180deg, rgba(254,245,230,.92) 0%, rgba(245,232,208,.95) 100%);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-top: 1.5px solid rgba(232,179,74,.55);
       border-radius: 12px 12px 0 0;
       padding: 9px 13px;
       display: flex;
@@ -900,25 +927,25 @@
       flex-wrap: wrap;
     }
     #pv-action-bar select {
-      background: #122E6A;
-      border: 1px solid var(--border);
+      background: rgba(255,255,255,.88);
+      border: 1.5px solid rgba(95,179,214,.55);
       border-radius: 7px;
-      color: var(--text);
+      color: var(--cr-navy);
       font-family: "Nunito", inherit;
-      font-size: 13px; font-weight: 600;
+      font-size: 13px; font-weight: 700;
       padding: 7px 10px;
       outline: none; flex: 1; min-width: 160px; cursor: pointer;
-      transition: border-color .15s;
+      transition: border-color .15s, box-shadow .15s;
     }
-    #pv-action-bar select:focus { border-color: var(--cyan); }
-    #pv-action-bar select option { background: #1A3A7A; }
-    .pv-action-divider { width: 1px; height: 30px; background: var(--border); flex-shrink: 0; }
+    #pv-action-bar select:focus { border-color: var(--cr-teal); box-shadow: 0 0 0 3px rgba(95,179,214,.25); }
+    #pv-action-bar select option { background: #fff; color: var(--cr-navy); }
+    .pv-action-divider { width: 1px; height: 30px; background: rgba(95,179,214,.4); flex-shrink: 0; }
     .pv-star-wrap {
       display: flex; align-items: center; gap: 6px;
-      font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer;
+      font-size: 12px; font-weight: 800; color: var(--cr-navy); cursor: pointer;
     }
-    .pv-star-wrap input[type=checkbox] { accent-color: var(--gold); width: 14px; height: 14px; }
-    .pv-star-wrap:has(input:checked) { color: var(--gold); }
+    .pv-star-wrap input[type=checkbox] { accent-color: var(--cr-gold); width: 14px; height: 14px; }
+    .pv-star-wrap:has(input:checked) { color: #8a5200; }
 
     #pv-payment-info { display: none !important; }
     .clear-pay { display: none !important; }
@@ -1528,37 +1555,38 @@
     /* ── GUIDE BAR ──────────────────────────────────────────────── */
     #pv-guide-bar {
       display: none;
-      background: linear-gradient(90deg, rgba(13,38,88,0) 0%, rgba(20,54,110,.95) 10%, rgba(20,54,110,.95) 90%, rgba(13,38,88,0) 100%);
+      background: linear-gradient(90deg, rgba(254,245,230,0) 0%, rgba(254,245,230,.88) 10%, rgba(220,238,245,.9) 50%, rgba(254,245,230,.88) 90%, rgba(254,245,230,0) 100%);
+      backdrop-filter: blur(8px);
       padding: 7px 20px;
       font-size: 12px; font-weight: 700;
-      color: var(--cyan);
+      color: var(--cr-navy);
       text-align: center;
       flex-shrink: 0;
       letter-spacing: .3px;
     }
     #pv-guide-bar.visible { display: block; }
     #pv-guide-bar .guide-step { display: inline-flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
-    .gs { background: rgba(61,214,245,.12); border: 1px solid rgba(61,214,245,.25); border-radius: 20px; padding: 3px 12px; white-space: nowrap; }
-    .gs.done  { background: rgba(31,187,138,.1); border-color: rgba(31,187,138,.3); color: var(--green); }
-    .gs.active { background: rgba(245,200,66,.15); border-color: rgba(245,200,66,.4); color: var(--gold); }
+    .gs { background: rgba(95,179,214,.2); border: 1px solid rgba(95,179,214,.45); border-radius: 20px; padding: 3px 12px; white-space: nowrap; color: var(--cr-navy); }
+    .gs.done  { background: rgba(31,187,138,.18); border-color: rgba(31,187,138,.45); color: #1f7e58; }
+    .gs.active { background: rgba(232,179,74,.28); border-color: rgba(232,179,74,.65); color: #8a5200; font-weight: 800; }
 
     /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
     #pv-quick-draw-btn {
       display: none;
       flex-direction: column; align-items: center; gap: 2px;
-      background: linear-gradient(180deg, #d3e6f5 0%, #b8d4ed 100%);
-      border: 1px solid rgba(110,160,210,.55);
+      background: linear-gradient(180deg, var(--cr-cream) 0%, var(--cr-cream-mid) 100%);
+      border: 1.5px solid rgba(232,179,74,.6);
       border-radius: 16px;
       padding: 8px 18px;
       cursor: pointer;
       font-family: "Nunito", inherit;
-      transition: transform .15s, box-shadow .15s;
+      transition: transform .15s, box-shadow .15s, border-color .15s;
       flex-shrink: 0;
     }
-    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(80,140,200,.4); }
+    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,179,74,.4); border-color: var(--cr-gold); }
     #pv-quick-draw-btn.visible { display: flex; }
-    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: #1a4d6e; }
-    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,77,110,.7); }
+    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: var(--cr-navy); }
+    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
 
     /* ── DRAW NOTIFICATION ──────────────────────────────────────── */
     #draw-notif {
@@ -1577,6 +1605,88 @@
     @keyframes draw-notif-in {
       from { opacity:0; transform: translateX(-50%) translateY(8px); }
       to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* ── DRAW-OVER-10 WARNING MODAL (coral reef theme) ──────────── */
+    #draw-warn-modal {
+      display: none; position: fixed; inset: 0; z-index: 9200;
+      background: rgba(26,45,90,.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #draw-warn-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    @keyframes dwm-fade-in { from { opacity: 0; } to { opacity: 1; } }
+    #draw-warn-box {
+      background: linear-gradient(160deg, var(--cr-cream) 0%, #f5e0c8 70%, #efd0b0 100%);
+      border: 2px solid rgba(232,179,74,.65);
+      border-radius: 20px;
+      box-shadow: 0 14px 50px rgba(26,45,90,.35), inset 0 1px 0 rgba(255,255,255,.6);
+      padding: 24px 28px 22px;
+      width: 92%; max-width: 400px;
+      text-align: center;
+      font-family: "Nunito", sans-serif;
+      animation: dwm-box-in .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    @keyframes dwm-box-in {
+      from { opacity:0; transform: translateY(10px) scale(.96); }
+      to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+    #draw-warn-icon {
+      font-size: 38px;
+      filter: drop-shadow(0 2px 4px rgba(232,179,74,.5));
+      margin-bottom: 4px;
+    }
+    #draw-warn-title {
+      font-family: "Cinzel", serif;
+      color: var(--cr-navy);
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      margin: 0 0 8px;
+    }
+    #draw-warn-msg {
+      color: var(--cr-navy);
+      font-size: 13.5px;
+      line-height: 1.55;
+      margin: 0 0 18px;
+      opacity: .88;
+    }
+    #draw-warn-buttons {
+      display: flex; gap: 10px; justify-content: center;
+    }
+    #draw-warn-cancel,
+    #draw-warn-confirm {
+      border: none; border-radius: 11px;
+      padding: 11px 18px;
+      font-family: "Nunito", sans-serif;
+      font-size: 13px; font-weight: 800;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .15s, filter .15s;
+      letter-spacing: .3px;
+      flex: 1;
+    }
+    #draw-warn-cancel {
+      background: rgba(255,255,255,.78);
+      border: 1.5px solid rgba(95,179,214,.55);
+      color: var(--cr-navy);
+    }
+    #draw-warn-cancel:hover {
+      background: #fff;
+      border-color: var(--cr-teal);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(95,179,214,.35);
+    }
+    #draw-warn-confirm {
+      background: linear-gradient(135deg, var(--cr-coral), var(--cr-coral-deep));
+      color: var(--cr-navy);
+      text-shadow: 0 1px 0 rgba(255,255,255,.45);
+      border: 1.5px solid rgba(232,179,74,.5);
+    }
+    #draw-warn-confirm:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 16px rgba(244,165,116,.55);
+      filter: brightness(1.06);
     }
 
     /* ── TUTORIAL MODE ──────────────────────────────────────────── */
@@ -2051,11 +2161,14 @@
     /* ── NOTICE BAR DROPDOWN MENU ───────────────────────────────── */
     .pv-menu-wrap { position: relative; }
     #pv-menu-btn {
-      background: linear-gradient(135deg,#2A5AA8,#1A3E80);
-      border: 1px solid rgba(48,200,240,.3);
-      color: var(--text); padding: 4px 11px; border-radius: 7px;
-      cursor: pointer; font-size: 12px; font-weight: 700;
+      background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
+      border: 1px solid rgba(232,179,74,.55);
+      color: #fff; padding: 4px 11px; border-radius: 7px;
+      cursor: pointer; font-size: 12px; font-weight: 800;
+      text-shadow: 0 1px 2px rgba(0,0,0,.3);
+      transition: filter .15s, box-shadow .15s;
     }
+    #pv-menu-btn:hover { filter: brightness(1.08); box-shadow: 0 2px 10px rgba(95,179,214,.45); }
     #pv-menu-drop {
       display: none; position: absolute; top: calc(100% + 5px); right: 0;
       min-width: 230px; background: #1A3E80;
@@ -7240,6 +7353,19 @@
   <!-- draw notification -->
   <div id="draw-notif"></div>
 
+  <!-- draw-over-10 warning modal -->
+  <div id="draw-warn-modal">
+    <div id="draw-warn-box">
+      <div id="draw-warn-icon">⚠️</div>
+      <h2 id="draw-warn-title">Hand Over 10</h2>
+      <p id="draw-warn-msg">Picking up these cards will put your hand over 10. You'll have to discard the excess at the end of your turn.</p>
+      <div id="draw-warn-buttons">
+        <button id="draw-warn-cancel">Cancel Draw</button>
+        <button id="draw-warn-confirm">Draw Anyway</button>
+      </div>
+    </div>
+  </div>
+
 </div><!-- #pv-game -->
 
 <!-- ══ CHAT ═══════════════════════════════════════════════════════ -->
@@ -8594,6 +8720,34 @@
     if (e.target === document.getElementById("seat-picker-modal")) closeSeatPickerModal();
   });
 
+  // ── Draw-over-10 warning modal handlers ────────────────────────
+  function closeDrawWarn() {
+    document.getElementById("draw-warn-modal").classList.remove("open");
+  }
+  document.getElementById("draw-warn-cancel").addEventListener("click", () => {
+    closeDrawWarn();
+    _pendingDrawAction = null;
+    // Clear any staged pool picks so the user can re-choose freely
+    pendingPoolDrawPicks.clear();
+    selectedPool.clear();
+    if (latestPayload) renderPayload(latestPayload);
+    setStatus("Draw cancelled — your turn continues.");
+  });
+  document.getElementById("draw-warn-confirm").addEventListener("click", () => {
+    closeDrawWarn();
+    const act = _pendingDrawAction;
+    _pendingDrawAction = null;
+    if (!act) return;
+    _drawWarnBypass = true;
+    submitAction(act);
+  });
+  // Clicking the dim backdrop = cancel
+  document.getElementById("draw-warn-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("draw-warn-modal")) {
+      document.getElementById("draw-warn-cancel").click();
+    }
+  });
+
   document.getElementById("sp-join-btn").addEventListener("click", async () => {
     if (_spSelectedSeat === null || !_spPendingRid) return;
     const rid = _spPendingRid;
@@ -8737,6 +8891,20 @@
       enterPaymentMode(action);
       return;
     }
+
+    // Hand-over-10 warning: ONLY for manual draw actions (pool / deck / mix).
+    // Card-triggered draws don't come through here — they happen server-side
+    // as part of resolving a play. So this naturally only catches user draws.
+    if (action.kind === "draw" && !_drawWarnBypass) {
+      const meNow = (latestPayload?.state?.players || []).find(p => p.index === myIdx);
+      const handCount = Number(meNow?.hand_count ?? (Array.isArray(meNow?.hand) ? meNow.hand.length : 0));
+      if (handCount + 2 > 10) {
+        _pendingDrawAction = action;
+        document.getElementById("draw-warn-modal").classList.add("open");
+        return;
+      }
+    }
+    _drawWarnBypass = false;
 
     // In competitive mode, use the token for whichever of our seats is currently active
     let token;
@@ -9124,6 +9292,9 @@
   // Pool cards the player has dragged to hand, queued for drawing
   const pendingPoolDrawPicks = new Set();
   let _poolDrawActions = null; // cached draw actions for deck-click handler
+  // Hand-over-10 draw warning state
+  let _drawWarnBypass = false;       // set true momentarily after user confirms
+  let _pendingDrawAction = null;     // the draw action awaiting user confirmation
 
   function _submitPoolDraw(drawActions, poolPicks) {
     const n = poolPicks.size;
