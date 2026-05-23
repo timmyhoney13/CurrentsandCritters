@@ -9336,7 +9336,8 @@
 
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
-      sc.textContent = (p.score ?? 0) + " pts";
+      const hcSeat = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
+      sc.textContent = (p.score ?? 0) + " pts · 🃏" + hcSeat;
 
       seat.appendChild(aw);
       seat.appendChild(nm);
