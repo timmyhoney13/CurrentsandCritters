@@ -41,14 +41,14 @@
 241	Artificial Reef	+2 per card attached	Ocean	1	N/A	Square
 242	Artificial Reef	+2 per card attached	Ocean	1	N/A	Triangle
 243	Artificial Reef	+2 per card attached	Ocean	1	N/A	Heart
-244	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Square
+244	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Heart
 245	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
 246	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Diamond
 247	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
 248	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
-249	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Heart
-250	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
-251	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
+249	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Square
+250	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Circle
+251	Arctic Oceans	+4 | *Play again*	Ocean	2	N/A	Triangle
 252	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Heart
 253	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Square
 254	Kelp Forest	+5 if you have ≥ 4 kelp forests | Draw one	Ocean	1	N/A	Diamond
