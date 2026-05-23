@@ -8789,7 +8789,7 @@
   }
 
   // ── Score display (animate on change) ─────────────────────────
-  function updateScoreBadge(score) {
+  function updateScoreBadge(score, handCount) {
     const el = document.getElementById("pv-my-score-badge");
     const cur = Number(el.dataset.score || 0);
     const next = Number(score || 0);
@@ -8800,7 +8800,8 @@
       el.style.color = diff > 0 ? "var(--green)" : "var(--red)";
       setTimeout(() => { el.style.transition = "color 1s"; el.style.color = "var(--gold)"; }, 900);
     }
-    el.textContent = "📊 " + next + " pts";
+    const hc = Number(handCount ?? 0);
+    el.textContent = "📊 " + next + " pts · 🃏" + hc;
   }
 
   // ── Main payload renderer ──────────────────────────────────────
@@ -8909,7 +8910,7 @@
     _prevEndTriggered = endTriggered;
 
     // score badge
-    if (me) updateScoreBadge(me.score ?? 0);
+    if (me) updateScoreBadge(me.score ?? 0, me.hand_count ?? (Array.isArray(me.hand) ? me.hand.length : 0));
 
     // name badge
     const nameEl = document.getElementById("pv-my-name-badge");
@@ -9450,7 +9451,8 @@
       const nm  = document.createElement("div"); nm.className = "pv-opp-name";
       nm.textContent = (p.index===turnIndex?"▶ ":"") + (p.name||`Player ${p.index}`);
       const sc  = document.createElement("div"); sc.className = "pv-opp-score";
-      sc.textContent = `${p.score??0} pts`;
+      const hcCard = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
+      sc.textContent = `${p.score??0} pts · 🃏${hcCard}`;
       hdr.appendChild(nm); hdr.appendChild(sc); card.appendChild(hdr);
 
       // face-down hand cards strip — use hand_count for opponents (server sends hand:[])
@@ -12011,7 +12013,8 @@
     sorted.forEach(p => {
       const row = document.createElement("div");
       const isMe = p.index === viewerIdx;
-      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts`;
+      const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
+      row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts · 🃏${hc}`;
       row.style.fontWeight = isMe ? "700" : "400";
       if (isMe) row.style.color = "var(--gold)";
       el.appendChild(row);
