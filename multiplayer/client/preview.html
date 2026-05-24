@@ -269,6 +269,11 @@
     .pv-hand-card.dragging { opacity: 0.4; cursor: grabbing; }
     .pv-hand-card { cursor: grab; }
     .pv-hand-card.hand-drag-over::before { content: ''; position: absolute; left: -4px; top: 0; bottom: 0; width: 3px; background: var(--cyan); border-radius: 2px; box-shadow: 0 0 8px var(--glow-c); z-index: 99; }
+    .pv-board-card.movable { cursor: grab; }
+    .pv-board-card.movable:hover { border-color: var(--gold) !important; box-shadow: 0 0 12px var(--glow-gold), 0 4px 16px rgba(0,0,0,.6) !important; }
+    .pv-board-card.movable.dragging { opacity: 0.4; cursor: grabbing; }
+    .pv-ocean-hub.move-target { outline: 2px dashed rgba(61,214,245,.55); border-radius: 8px; }
+    .pv-ocean-hub.move-drag-over { outline: 2px solid var(--cyan) !important; border-radius: 8px; box-shadow: 0 0 20px var(--glow-c); background: rgba(48,200,240,.06); }
     .pv-lane-slot.drag-over { background: rgba(61,214,245,.25); border-color: var(--cyan) !important; box-shadow: 0 0 12px var(--cyan); transform: scale(1.12); }
     #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
     #pv-pool-area.drag-over::after { content: "Drop to discard to pool"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
@@ -11467,6 +11472,43 @@
             cardEl.appendChild(img);
             cardEl.title = `${c.name||"?"} — click to zoom`;
             cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
+
+            // Drag-to-move: make movable if a move_between_oceans action exists for this card
+            if (isMyTurn) {
+              const moveActs = actions.filter(a =>
+                a.kind === "move_between_oceans" &&
+                Number(a.face_uid ?? a.card_uid) === Number(fUid) &&
+                Number(a.source_ocean_uid) === Number(ocean.ocean_uid)
+              );
+              if (moveActs.length) {
+                cardEl.draggable = true;
+                cardEl.classList.add("movable");
+                cardEl.title = `${c.name||"?"} — drag to move to another ocean, or click to zoom`;
+                cardEl.addEventListener("dragstart", (ev) => {
+                  ev.dataTransfer.effectAllowed = "move";
+                  ev.dataTransfer.setData("application/x-fish-board-move", JSON.stringify({ faceUid: Number(fUid), sourceOceanUid: Number(ocean.ocean_uid) }));
+                  _boardMoveDragSrc = { faceUid: Number(fUid), sourceOceanUid: Number(ocean.ocean_uid) };
+                  setTimeout(() => {
+                    cardEl.classList.add("dragging");
+                    // Highlight valid target oceans
+                    document.querySelectorAll(".pv-ocean-hub").forEach(hub => {
+                      const tUid = Number(hub.dataset.oceanUid);
+                      if (tUid !== Number(ocean.ocean_uid) && actions.some(a =>
+                        a.kind === "move_between_oceans" &&
+                        Number(a.face_uid ?? a.card_uid) === Number(fUid) &&
+                        Number(a.ocean_uid) === tUid
+                      )) hub.classList.add("move-target");
+                    });
+                  }, 0);
+                });
+                cardEl.addEventListener("dragend", () => {
+                  cardEl.classList.remove("dragging");
+                  _boardMoveDragSrc = null;
+                  document.querySelectorAll(".move-target,.move-drag-over").forEach(h => h.classList.remove("move-target","move-drag-over"));
+                });
+              }
+            }
+
             lane.appendChild(cardEl);
           });
           // Stackable slot: show a + when a stacking action exists (e.g. Lobster, Yellowfin Tuna)
@@ -11538,6 +11580,47 @@
       center.appendChild(oFace);
       hub.appendChild(center);
 
+      // Drop target: accept board-move drags from other oceans
+      if (isMyTurn) {
+        hub.addEventListener("dragover", (ev) => {
+          if (!_boardMoveDragSrc) return;
+          const { faceUid, sourceOceanUid } = _boardMoveDragSrc;
+          if (Number(ocean.ocean_uid) === sourceOceanUid) return;
+          const act = actions.find(a =>
+            a.kind === "move_between_oceans" &&
+            Number(a.face_uid ?? a.card_uid) === faceUid &&
+            Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+            Number(a.source_ocean_uid) === sourceOceanUid
+          );
+          if (!act) return;
+          ev.preventDefault();
+          ev.dataTransfer.dropEffect = "move";
+          hub.classList.add("move-drag-over");
+        });
+        hub.addEventListener("dragleave", (ev) => {
+          if (!hub.contains(ev.relatedTarget)) hub.classList.remove("move-drag-over");
+        });
+        hub.addEventListener("drop", (ev) => {
+          hub.classList.remove("move-drag-over");
+          let data = {};
+          try { data = JSON.parse(ev.dataTransfer.getData("application/x-fish-board-move") || "{}"); } catch {}
+          const faceUid = Number(data.faceUid);
+          const sourceOceanUid = Number(data.sourceOceanUid);
+          if (!faceUid || Number(ocean.ocean_uid) === sourceOceanUid) return;
+          const act = actions.find(a =>
+            a.kind === "move_between_oceans" &&
+            Number(a.face_uid ?? a.card_uid) === faceUid &&
+            Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+            Number(a.source_ocean_uid) === sourceOceanUid
+          );
+          if (!act) { showToast("Can't move that animal to this ocean.", "warn"); return; }
+          ev.preventDefault();
+          _boardMoveDragSrc = null;
+          document.querySelectorAll(".move-target,.move-drag-over").forEach(h => h.classList.remove("move-target","move-drag-over"));
+          submitAction(act);
+        });
+      }
+
       el.appendChild(hub);
     });
     _prevBoardCards = newBoardCards;
@@ -11547,6 +11630,7 @@
   let _handRenderData = null; // { me, actions, mustDiscard, discardExcess }
   let _handOrder = [];   // client-side display order: array of entryUids
   let _handDragSrc = null; // entryUid being dragged within hand for reorder
+  let _boardMoveDragSrc = null; // { faceUid, sourceOceanUid } when dragging a board animal to move oceans
 
   function computeHandTransforms(n, hoveredIdx) {
     const transforms = [];
@@ -12157,7 +12241,7 @@
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
-    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null;
+    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;
     document.getElementById("pv-game").style.display="none";
     pvLogVisible = false;
     const lf = document.getElementById("pv-log-float");
