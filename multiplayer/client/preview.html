@@ -7789,15 +7789,50 @@
   function seatTokenKey(id)  { return `fish_room_${id}_seat_token`; }
   function hostTokenKey(id)  { return `fish_room_${id}_host_token`; }
   function createKeyKey()    { return "fish_create_key"; }
+  function rejoinKey(id)     { return `fish_rejoin_${id}`; }
 
   let roomId = null;
   // sessionStorage is tab-isolated — each browser tab gets its own token so
   // multiple players on the same device don't overwrite each other's seat.
   function getSeatToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
   function getHostToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(hostTokenKey(roomId))||""; } catch { return ""; } }
-  function setSeatToken(v) { if (!roomId) return; try { sessionStorage.setItem(seatTokenKey(roomId), v); } catch {} }
+  function setSeatToken(v) {
+    if (!roomId) return;
+    try { sessionStorage.setItem(seatTokenKey(roomId), v); } catch {}
+    // Mirror to localStorage so the player can rejoin within 5 minutes of closing the tab
+    if (v) { try { localStorage.setItem(rejoinKey(roomId), JSON.stringify({ token: v, savedAt: Date.now() })); } catch {} }
+  }
   function setHostToken(v) { if (!roomId) return; try { sessionStorage.setItem(hostTokenKey(roomId), v); } catch {} }
   function getCreateKey()  { try { return localStorage.getItem(createKeyKey())||""; } catch { return ""; } }
+
+  // Returns a valid rejoin token for a room if it was saved within 5 minutes, else null.
+  function loadRejoinToken(id) {
+    try {
+      const raw = localStorage.getItem(rejoinKey(id));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (!obj?.token || !obj?.savedAt) return null;
+      if (Date.now() - obj.savedAt > 5 * 60 * 1000) { localStorage.removeItem(rejoinKey(id)); return null; }
+      return obj.token;
+    } catch { return null; }
+  }
+  // Keep the rejoin timestamp fresh so the 5-minute window is from the last active moment.
+  function touchRejoinToken() {
+    if (!roomId) return;
+    try {
+      const raw = localStorage.getItem(rejoinKey(roomId));
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      if (!obj?.token) return;
+      obj.savedAt = Date.now();
+      localStorage.setItem(rejoinKey(roomId), JSON.stringify(obj));
+    } catch {}
+  }
+  function clearRejoinToken(id) {
+    const k = id || roomId;
+    if (!k) return;
+    try { localStorage.removeItem(rejoinKey(k)); } catch {}
+  }
   function makeRequestId() { return `preq_${Date.now()}_${Math.random().toString(36).slice(2,7)}`; }
 
   function roomFromUrl() {
@@ -8050,9 +8085,13 @@
     finally { refreshInFlight = false; }
   }
 
+  let _rejoinTouchTimer = null;
   function startPolling() {
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(refreshState, 1000);
+    // Keep the rejoin window alive: refresh the localStorage timestamp every 60 s while active
+    if (_rejoinTouchTimer) clearInterval(_rejoinTouchTimer);
+    _rejoinTouchTimer = setInterval(touchRejoinToken, 60_000);
     refreshState();
   }
 
@@ -8062,6 +8101,7 @@
     _roomLostShown = true;
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (sseSource) { sseSource.close(); sseSource = null; }
+    clearRejoinToken(roomId);
     showToast("Session ended — the server restarted. Please re-join.", "err");
     setTimeout(() => {
       _roomLostShown = false;
@@ -12220,6 +12260,8 @@
     closeMenu();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
+    if (_rejoinTouchTimer) { clearInterval(_rejoinTouchTimer); _rejoinTouchTimer=null; }
+    clearRejoinToken(roomId);
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     dismissEndGameCinematic();
@@ -13286,8 +13328,16 @@
       // already have a token — go straight in
       enterRoom(urlRoom);
     } else {
-      // no token — show seat picker modal so they can pick + join
-      loadInvitedSeats(urlRoom);
+      // Check localStorage for a fresh rejoin token (saved within the last 5 minutes)
+      const rejoinToken = loadRejoinToken(urlRoom);
+      if (rejoinToken) {
+        setSeatToken(rejoinToken); // restore to sessionStorage for this tab
+        showToast("Rejoining your game…", "ok");
+        enterRoom(urlRoom);
+      } else {
+        // no token — show seat picker modal so they can pick + join
+        loadInvitedSeats(urlRoom);
+      }
     }
   })();
 
