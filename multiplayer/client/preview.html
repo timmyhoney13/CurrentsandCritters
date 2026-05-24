@@ -268,6 +268,7 @@
     /* ── Drag and drop ────────────────────────────────── */
     .pv-hand-card.dragging { opacity: 0.4; cursor: grabbing; }
     .pv-hand-card { cursor: grab; }
+    .pv-hand-card.hand-drag-over::before { content: ''; position: absolute; left: -4px; top: 0; bottom: 0; width: 3px; background: var(--cyan); border-radius: 2px; box-shadow: 0 0 8px var(--glow-c); z-index: 99; }
     .pv-lane-slot.drag-over { background: rgba(61,214,245,.25); border-color: var(--cyan) !important; box-shadow: 0 0 12px var(--cyan); transform: scale(1.12); }
     #pv-pool-area.drag-over { outline: 2px dashed var(--gold); border-radius: 8px; background: rgba(245,200,66,.1); }
     #pv-pool-area.drag-over::after { content: "Drop to discard to pool"; display:block; text-align:center; font-size:11px; color:var(--gold); margin-top:4px; }
@@ -11544,6 +11545,8 @@
 
   // ── Hand renderer (Hearthstone fan with JS hover) ──────────────
   let _handRenderData = null; // { me, actions, mustDiscard, discardExcess }
+  let _handOrder = [];   // client-side display order: array of entryUids
+  let _handDragSrc = null; // entryUid being dragged within hand for reorder
 
   function computeHandTransforms(n, hoveredIdx) {
     const transforms = [];
@@ -11595,7 +11598,8 @@
     const zone = document.getElementById("pv-hand");
     // Skip re-render when nothing changed — prevents hover/tooltip from being reset every poll
     const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess,
-      selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(",") });
+      selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
+      handOrder: _handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
     cl(zone);
@@ -11607,6 +11611,18 @@
     const MAX_VISIBLE = 12;
     const visible  = hand.slice(0, MAX_VISIBLE);
     const overflow = hand.length - MAX_VISIBLE;
+
+    // Maintain client-side display order: remove departed cards, add new ones at end
+    const allEntryUids = visible.map(e => Number(e.entry_uid ?? (Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
+    _handOrder = _handOrder.filter(uid => allEntryUids.includes(uid));
+    allEntryUids.forEach(uid => { if (!_handOrder.includes(uid)) _handOrder.push(uid); });
+    // Sort visible array by _handOrder for display
+    visible.sort((a, b) => {
+      const ua = Number(a.entry_uid ?? (Array.isArray(a.faces)&&a.faces[0]?a.faces[0].uid:null) ?? a.uid ?? 0);
+      const ub = Number(b.entry_uid ?? (Array.isArray(b.faces)&&b.faces[0]?b.faces[0].uid:null) ?? b.uid ?? 0);
+      return _handOrder.indexOf(ua) - _handOrder.indexOf(ub);
+    });
+
     const n = visible.length;
 
     // Compute new hand UIDs for deal-in animation
@@ -11655,16 +11671,51 @@
       }).join("") + `<div class="tt-arrow"></div>`;
       card.appendChild(tip);
 
-      // drag: play card by dragging to ocean slot or pool
+      // drag: play card by dragging to ocean slot or pool; also reorder within hand
       card.draggable = true;
       card.addEventListener("dragstart", (ev) => {
         ev.dataTransfer.effectAllowed = "move";
         ev.dataTransfer.setData("application/x-fish-card", JSON.stringify({ entryUid, faceUid }));
+        ev.dataTransfer.setData("application/x-fish-hand-reorder", String(entryUid));
+        _handDragSrc = entryUid;
         setTimeout(() => card.classList.add("dragging"), 0);
       });
       card.addEventListener("dragend", () => {
         card.classList.remove("dragging");
+        _handDragSrc = null;
         document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+        document.querySelectorAll(".hand-drag-over").forEach(el => el.classList.remove("hand-drag-over"));
+      });
+      card.addEventListener("dragover", (ev) => {
+        if (_handDragSrc === null || _handDragSrc === entryUid) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        ev.dataTransfer.dropEffect = "move";
+        document.querySelectorAll(".hand-drag-over").forEach(el => el.classList.remove("hand-drag-over"));
+        card.classList.add("hand-drag-over");
+      });
+      card.addEventListener("dragleave", (ev) => {
+        if (!card.contains(ev.relatedTarget)) card.classList.remove("hand-drag-over");
+      });
+      card.addEventListener("drop", (ev) => {
+        if (_handDragSrc === null || _handDragSrc === entryUid) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        card.classList.remove("hand-drag-over");
+        const srcUid = _handDragSrc;
+        _handDragSrc = null;
+        const srcIdx = _handOrder.indexOf(srcUid);
+        const dstIdx = _handOrder.indexOf(entryUid);
+        if (srcIdx !== -1 && dstIdx !== -1 && srcIdx !== dstIdx) {
+          _handOrder.splice(srcIdx, 1);
+          const newDst = _handOrder.indexOf(entryUid);
+          _handOrder.splice(newDst, 0, srcUid);
+        }
+        _handRenderKey = "";
+        if (_handRenderData) {
+          const { me, actions, mustDiscard, discardExcess } = _handRenderData;
+          renderHand(me, actions, mustDiscard, discardExcess);
+        }
       });
 
       // hover: Hearthstone lift
@@ -12106,7 +12157,7 @@
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
-    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set();
+    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null;
     document.getElementById("pv-game").style.display="none";
     pvLogVisible = false;
     const lf = document.getElementById("pv-log-float");
