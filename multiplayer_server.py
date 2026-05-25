@@ -1919,6 +1919,28 @@ class GameRoom:
                 self.undo_valid = True
                 self.undo_requested = False
 
+            # Mid-turn undo: if the current player has drawn their first card
+            # (_draws_taken == 1) promote the pending snapshot NOW so they can
+            # undo the draw before choosing their second card.
+            if note.startswith("post_action:") and not self.undo_valid:
+                try:
+                    mid_draw_player = next(
+                        (p for p in gs.players if int(p.flags.get("_draws_taken", 0)) == 1),
+                        None,
+                    )
+                    if mid_draw_player is not None and self._undo_pending_gs is not None:
+                        n_players = max(len(gs.players), 1)
+                        cur_game_idx = int(gs.turn_index) % n_players
+                        cur_seat_idx = self._comp_game_to_seat.get(cur_game_idx, cur_game_idx)
+                        if self._undo_pending_seat == cur_seat_idx:
+                            self.undo_snapshot_gs = self._undo_pending_gs
+                            self.undo_snapshot_ms = self._undo_pending_ms
+                            self.undo_eligible_seat = cur_seat_idx
+                            self.undo_valid = True
+                            self.undo_requested = False
+                except Exception:
+                    pass
+
             self.training_snapshots.append(training_snapshot)
             if len(self.training_snapshots) > 1200:
                 del self.training_snapshots[:-1200]
