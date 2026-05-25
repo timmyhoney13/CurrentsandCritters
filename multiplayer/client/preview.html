@@ -2192,6 +2192,80 @@
     }
     .tut-fade-in { animation: tut-fade-in .22s ease-out; }
 
+    /* ══ CARD MOVEMENT ANIMATIONS ══════════════════════════════════
+       Hook reveal (deck draw), pool→player fly, ripple reveal (pool entry).
+       The overlay sits above everything; cloned cards animate within it. */
+    #pv-anim-layer {
+      position: fixed; inset: 0; pointer-events: none; z-index: 9700;
+      overflow: hidden;
+    }
+    .pv-anim-card {
+      position: absolute; width: 90px; height: 126px;
+      border-radius: 10px;
+      border: 2px solid rgba(95,179,214,.85);
+      box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08) inset;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      will-change: transform, opacity;
+      background: linear-gradient(135deg, #2A5AA0, #1A3D78);
+    }
+    .pv-anim-card .pv-anim-face,
+    .pv-anim-card .pv-anim-back {
+      position: absolute; inset: 0; backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 8px; overflow: hidden;
+    }
+    .pv-anim-card .pv-anim-face img {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    .pv-anim-card .pv-anim-back {
+      background: linear-gradient(135deg, #2A5AA0, #1A3D78);
+      display: flex; align-items: center; justify-content: center;
+      transform: rotateY(180deg);
+    }
+    .pv-anim-card .pv-anim-back::after {
+      content: "🐟"; font-size: 38px; opacity: .42;
+    }
+    .pv-anim-card.face-down .pv-anim-face { transform: rotateY(180deg); }
+    .pv-anim-card.face-down .pv-anim-back { transform: rotateY(0deg); }
+
+    /* Pool ripple reveal: circular pulse + card surfacing */
+    .pv-pool-card.surfacing { animation: pool-surface .42s cubic-bezier(.22,.68,0,1.2) both; }
+    @keyframes pool-surface {
+      0%   { opacity: 0; transform: scale(.55) translateY(8px); filter: blur(2px); }
+      55%  { opacity: 1; transform: scale(1.08) translateY(-2px); filter: blur(0); }
+      100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+    }
+    .pv-ripple {
+      position: absolute; pointer-events: none;
+      border-radius: 50%;
+      border: 2px solid rgba(95,179,214,.7);
+      background: radial-gradient(circle, rgba(188,221,230,.35) 0%, rgba(95,179,214,.15) 50%, rgba(95,179,214,0) 80%);
+      animation: pool-ripple .55s ease-out forwards;
+    }
+    @keyframes pool-ripple {
+      0%   { transform: scale(.2); opacity: .9; }
+      100% { transform: scale(2.6); opacity: 0; }
+    }
+    /* Landing bounce for cards arriving at a destination */
+    @keyframes anim-land {
+      0%   { transform: scale(1.05); }
+      60%  { transform: scale(.96); }
+      100% { transform: scale(1); }
+    }
+    /* Hook arc visual aid — subtle trailing glow */
+    .pv-anim-card.hook-trail::before {
+      content: ""; position: absolute; inset: -4px;
+      border-radius: 14px;
+      box-shadow: 0 0 24px rgba(95,179,214,.45);
+      opacity: 0; animation: hook-trail .42s ease-out forwards;
+    }
+    @keyframes hook-trail {
+      0%   { opacity: 0; }
+      40%  { opacity: .6; }
+      100% { opacity: 0; }
+    }
+
     /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
     #pv-score-modal {
       display: none; position: fixed; inset: 0;
@@ -8003,6 +8077,7 @@
 
 <!-- ══ TOASTS ════════════════════════════════════════════════════ -->
 <div id="pv-toasts"></div>
+<div id="pv-anim-layer" aria-hidden="true"></div>
 
 <!-- ── Season History Modal ─────────────────────────────────────── -->
 <div id="ph-season-modal" role="dialog" aria-modal="true" aria-label="Season History">
@@ -9563,13 +9638,43 @@
 
     const freePlaySpecies = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
     const tarponActive = Boolean(lw.tarpon_discard_active);
+
+    // ── Card movement animation pre-pass ─────────────────────────
+    // Snapshot pool slot rects BEFORE renderPool wipes them, then diff
+    // pool/hand counts so we can fly removed pool cards, hook-reveal deck
+    // draws, and ripple-reveal newly-added pool cards after render.
+    const _animOldPoolRects = _snapshotPoolRectsForAnim();
+    const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : []);
+    // Snapshot prev hand UIDs before renderHand mutates _prevHandUIDs.
+    const _animPrevHandUIDs = new Set(_prevHandUIDs);
+    if (_animDiff.addedPoolUids.length) _pvAnim._suppressFlipIn = true;
+
     renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
+    _pvAnim._suppressFlipIn = false;
     renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderPlayerSeats(players, state.turn_index, myIdx);
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
+
+    // Fire the animations after layout settles.
+    requestAnimationFrame(() => {
+      try {
+        _runDrawAnimations({
+          oldPoolRects: _animOldPoolRects,
+          removedPoolUids: _animDiff.removedPoolUids,
+          addedPoolUids:   _animDiff.addedPoolUids,
+          handDeltas:      _animDiff.handDeltas,
+          prevHandUIDs:    _animPrevHandUIDs,
+          players, myIdx,
+          prevTurnIdx: _prevTurnIdx,
+          curTurnIdx: Number.isInteger(state.turn_index) ? state.turn_index : null,
+        });
+        _pvAnim.applyPendingRippleReveals();
+      } catch (e) { /* never block render on animation issues */ }
+      _prevHandCountsForAnim = _animDiff.newHandCounts;
+    });
     // undo button: always visible; disabled+dimmed when not eligible
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
@@ -9620,12 +9725,258 @@
   let _drawWarnBypass = false;       // set true momentarily after user confirms
   let _pendingDrawAction = null;     // the draw action awaiting user confirmation
 
+  // ══ Card-movement animation module ════════════════════════════════
+  // Hook Reveal (deck), pool-to-player fly, Ripple Reveal (pool entry).
+  // State diff in renderPayload feeds the animation queue.
+  const _pvAnim = (function () {
+    const layer = () => document.getElementById("pv-anim-layer");
+    let running = 0;
+    let _suppressFlipIn = false;
+    const pendingPoolReveals = new Map();   // faceUid → true (cards to ripple in)
+
+    function isBusy() { return running > 0; }
+
+    function rectOf(el) {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: r.left, top: r.top, width: r.width, height: r.height };
+    }
+
+    function deckRect() {
+      const face = document.querySelector("#pv-draw-deck .pv-deck-face");
+      return rectOf(face) || rectOf(document.getElementById("pv-draw-deck"));
+    }
+
+    function poolWrapRect() {
+      return rectOf(document.getElementById("pv-pool-wrap"));
+    }
+
+    function playerAnchorRect(playerIdx, isLocal) {
+      // Local player: land in hand zone. Others: land at avatar.
+      if (isLocal) {
+        const hz = document.getElementById("pv-hand-zone") || document.getElementById("pv-hand");
+        return rectOf(hz);
+      }
+      const seat = document.querySelector(`.pv-seat[data-player-index="${playerIdx}"] .pv-seat-avatar-wrap`);
+      return rectOf(seat) || rectOf(document.querySelector(`.pv-seat[data-player-index="${playerIdx}"]`));
+    }
+
+    function makeAnimCard(faceUid, faceDown) {
+      const card = document.createElement("div");
+      card.className = "pv-anim-card" + (faceDown ? " face-down" : "");
+      const face = document.createElement("div");
+      face.className = "pv-anim-face";
+      if (faceUid) {
+        const img = document.createElement("img");
+        img.src = imagePathForUid(faceUid); img.alt = "";
+        face.appendChild(img);
+      }
+      const back = document.createElement("div");
+      back.className = "pv-anim-back";
+      card.appendChild(face);
+      card.appendChild(back);
+      return card;
+    }
+
+    // Animate a card from one rect to another along a curved (hook) path.
+    // mode: "hook" (deck draw - flips mid-flight) | "straight" (pool draw - face-up).
+    function flyCard(fromRect, toRect, opts = {}) {
+      return new Promise((resolve) => {
+        if (!fromRect || !toRect) { resolve(); return; }
+        const mode = opts.mode || "straight";
+        const faceUid = opts.faceUid || 0;
+        const startFaceDown = mode === "hook";
+        const duration = Math.max(280, Math.min(620, opts.duration || 420));
+        const card = makeAnimCard(faceUid, startFaceDown);
+        if (mode === "hook") card.classList.add("hook-trail");
+
+        const fromCx = fromRect.left + fromRect.width / 2;
+        const fromCy = fromRect.top  + fromRect.height / 2;
+        const toCx   = toRect.left   + toRect.width  / 2;
+        const toCy   = toRect.top    + toRect.height / 2;
+        // Scale start to match source thumbnail size, end at target hand size
+        const startScale = Math.max(.4, Math.min(1, (fromRect.width || 70) / 90));
+        const endScale   = Math.max(.4, Math.min(1, (toRect.width || 90) / 200));
+
+        card.style.left = (fromCx - 45) + "px";
+        card.style.top  = (fromCy - 63) + "px";
+        card.style.transform = `scale(${startScale}) rotate(0deg)`;
+        card.style.opacity = "0";
+
+        const host = layer();
+        if (!host) { resolve(); return; }
+        host.appendChild(card);
+        running += 1;
+
+        // Use Web Animations API for a curved path via offset.
+        requestAnimationFrame(() => {
+          // Arc midpoint: lifted up and slightly offset for hook feel
+          const midX = (fromCx + toCx) / 2;
+          const midY = Math.min(fromCy, toCy) - Math.max(40, Math.abs(toCx - fromCx) * 0.15);
+          const dx1 = midX - fromCx, dy1 = midY - fromCy;
+          const dx2 = toCx - fromCx, dy2 = toCy - fromCy;
+
+          const keyframes = [
+            { transform: `translate(0,0) scale(${startScale}) rotate(0deg)`, opacity: 0 },
+            { transform: `translate(0,0) scale(${startScale * 1.05}) rotate(${mode === "hook" ? -3 : 0}deg)`, opacity: 1, offset: 0.05 },
+            { transform: `translate(${dx1}px,${dy1}px) scale(${(startScale + endScale) / 2 * 1.08}) rotate(${mode === "hook" ? 180 : 4}deg)`, offset: 0.55 },
+            { transform: `translate(${dx2}px,${dy2}px) scale(${endScale * 1.06}) rotate(${mode === "hook" ? 360 : 0}deg)`, opacity: 1, offset: 0.92 },
+            { transform: `translate(${dx2}px,${dy2}px) scale(${endScale}) rotate(${mode === "hook" ? 360 : 0}deg)`, opacity: .9 },
+          ];
+          const anim = card.animate(keyframes, { duration, easing: "cubic-bezier(.22,.68,0,1.15)", fill: "forwards" });
+          anim.onfinish = () => {
+            card.style.transition = "opacity .18s ease";
+            card.style.opacity = "0";
+            setTimeout(() => { card.remove(); running = Math.max(0, running - 1); resolve(); }, 180);
+          };
+        });
+      });
+    }
+
+    function playRippleAt(rect) {
+      const host = layer();
+      if (!host || !rect) return;
+      const size = Math.max(rect.width, rect.height) * 1.2;
+      const r = document.createElement("div");
+      r.className = "pv-ripple";
+      r.style.width = size + "px"; r.style.height = size + "px";
+      r.style.left = (rect.left + rect.width / 2 - size / 2) + "px";
+      r.style.top  = (rect.top  + rect.height / 2 - size / 2) + "px";
+      host.appendChild(r);
+      setTimeout(() => r.remove(), 600);
+    }
+
+    // After renderPool runs, surface any new cards that should ripple in.
+    function applyPendingRippleReveals() {
+      if (!pendingPoolReveals.size) return;
+      const wrap = document.getElementById("pv-pool-wrap");
+      if (!wrap) { pendingPoolReveals.clear(); return; }
+      let delay = 0;
+      pendingPoolReveals.forEach((_v, uid) => {
+        const el = wrap.querySelector(`.pv-pool-card[data-face-uid="${uid}"]`);
+        if (!el) return;
+        el.classList.remove("flip-in");
+        el.style.opacity = "0";
+        setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          playRippleAt({ left: r.left, top: r.top, width: r.width, height: r.height });
+          el.style.opacity = "";
+          el.classList.add("surfacing");
+          el.addEventListener("animationend", () => el.classList.remove("surfacing"), { once: true });
+        }, delay);
+        delay += 110;
+      });
+      pendingPoolReveals.clear();
+    }
+
+    function queuePoolReveal(uid) { pendingPoolReveals.set(Number(uid), true); }
+
+    return { flyCard, playRippleAt, queuePoolReveal, applyPendingRippleReveals,
+             isBusy, deckRect, poolWrapRect, playerAnchorRect, rectOf,
+             get _suppressFlipIn() { return _suppressFlipIn; },
+             set _suppressFlipIn(v) { _suppressFlipIn = !!v; } };
+  })();
+
+  // Snapshot pool slot positions BEFORE renderPool wipes the DOM.
+  // Used to fly removed pool cards from their old position.
+  function _snapshotPoolRectsForAnim() {
+    const map = new Map();
+    document.querySelectorAll("#pv-pool-wrap .pv-pool-card").forEach(el => {
+      const uid = Number(el.dataset.faceUid || 0);
+      if (uid) {
+        const r = el.getBoundingClientRect();
+        map.set(uid, { left: r.left, top: r.top, width: r.width, height: r.height });
+      }
+    });
+    return map;
+  }
+
+  // Compute hand-count deltas vs previous render and pick most-likely recipient
+  // for each removed pool card. Returns { handDeltas, removedPoolUids, addedPoolUids }.
+  function _computeDrawAnimDiff(players, currentPool) {
+    const newHandCounts = {};
+    (players || []).forEach(p => {
+      newHandCounts[p.index] = Number(p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0));
+    });
+    const handDeltas = {};
+    Object.keys(newHandCounts).forEach(k => {
+      const prev = (_prevHandCountsForAnim[k] != null) ? _prevHandCountsForAnim[k] : newHandCounts[k];
+      handDeltas[k] = newHandCounts[k] - prev;
+    });
+    const newPoolUids = new Set((currentPool || []).map(e => {
+      const f = (Array.isArray(e.faces) && e.faces[0]) ? e.faces[0] : e;
+      return Number(f.uid ?? e.entry_uid ?? e.uid);
+    }));
+    const removed = _prevPoolUids.filter(u => !newPoolUids.has(u));
+    const added   = [...newPoolUids].filter(u => !_prevPoolUids.includes(u));
+    return { handDeltas, newHandCounts, removedPoolUids: removed, addedPoolUids: added };
+  }
+  let _prevHandCountsForAnim = {};
+
+  // Run all pending draw animations for this state transition.
+  function _runDrawAnimations({ oldPoolRects, removedPoolUids, addedPoolUids, handDeltas, prevHandUIDs, players, myIdx, prevTurnIdx, curTurnIdx }) {
+    if (!removedPoolUids.length && !addedPoolUids.length) return;
+
+    // The player who just acted: previous turn index (their hand grew this poll).
+    // Fall back to whoever's hand grew the most.
+    let recipientIdx = (prevTurnIdx != null && handDeltas[prevTurnIdx] > 0) ? prevTurnIdx : null;
+    if (recipientIdx == null) {
+      let best = null, bestDelta = 0;
+      Object.keys(handDeltas).forEach(k => {
+        if (handDeltas[k] > bestDelta) { bestDelta = handDeltas[k]; best = Number(k); }
+      });
+      recipientIdx = best;
+    }
+
+    const totalGrowth = recipientIdx != null ? Math.max(0, handDeltas[recipientIdx] || 0) : 0;
+    const deckDrawCount = Math.max(0, totalGrowth - removedPoolUids.length);
+
+    // 1) Pool draws: fly each removed card from its old slot to the recipient.
+    removedPoolUids.forEach((uid) => {
+      const fromR = oldPoolRects.get(uid);
+      if (!fromR || recipientIdx == null) return;
+      const isLocal = (recipientIdx === myIdx);
+      const toR = _pvAnim.playerAnchorRect(recipientIdx, isLocal);
+      _pvAnim.flyCard(fromR, toR, { faceUid: uid, mode: "straight", duration: 460 });
+    });
+
+    // 2) Deck draws: fly hook-reveal cards from deck to recipient.
+    if (deckDrawCount > 0 && recipientIdx != null) {
+      const fromR = _pvAnim.deckRect();
+      const isLocal = (recipientIdx === myIdx);
+      const toR = _pvAnim.playerAnchorRect(recipientIdx, isLocal);
+      // Try to identify which faceUids appeared in the local hand if local draw.
+      let revealUids = [];
+      if (isLocal) {
+        // The new hand's UIDs minus what was there before — server already shows our cards face-up.
+        const meNow = (players || []).find(p => p.index === myIdx);
+        if (meNow && Array.isArray(meNow.hand)) {
+          const cur = meNow.hand.map(e => {
+            const f = (Array.isArray(e.faces) && e.faces[0]) ? e.faces[0] : e;
+            return Number(f.uid ?? e.entry_uid ?? e.uid);
+          });
+          const prevSet = prevHandUIDs || _prevHandUIDs;
+          revealUids = cur.filter(u => !prevSet.has(u));
+        }
+      }
+      for (let i = 0; i < deckDrawCount; i++) {
+        const uid = revealUids[i] || 0;  // 0 = stays face-down for non-local recipients
+        setTimeout(() => _pvAnim.flyCard(fromR, toR, { faceUid: uid, mode: "hook", duration: 500 }), i * 140);
+      }
+    }
+
+    // 3) Pool entries: queue ripple-reveal for any added pool cards.
+    addedPoolUids.forEach(uid => _pvAnim.queuePoolReveal(uid));
+  }
+
   function _drawFromDeck(drawActions) {
+    if (_pvAnim.isBusy()) return;  // wait for current animations to finish
     const act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
     if (!act) { showToast("Cannot draw from deck right now.", "warn"); return; }
     submitAction({ ...act, pool_pick_uids: [] });
   }
   function _drawFromPool(drawActions, faceUid) {
+    if (_pvAnim.isBusy()) return;  // wait for current animations to finish
     const act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
     if (!act) { showToast("Cannot draw from pool right now.", "warn"); return; }
     submitAction({ ...act, pool_pick_uids: [faceUid] });
@@ -9685,7 +10036,9 @@
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
       const isNew = !prevSet.has(faceUid);
       const div = document.createElement("div");
-      div.className = "pv-pool-card" + (isNew ? " flip-in" : "");
+      // Skip the legacy flip-in for new cards — Ripple Reveal will play instead.
+      div.className = "pv-pool-card" + (isNew && !_pvAnim._suppressFlipIn ? " flip-in" : "");
+      div.dataset.faceUid = String(faceUid);
       const img = document.createElement("img");
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
@@ -9835,6 +10188,7 @@
       const isActive = p.index === turnIndex;
       const isMe     = p.index === myIdx;
       seat.className = "pv-seat" + (isActive ? " active-turn" : "");
+      seat.dataset.playerIndex = String(p.index);
 
       // Start with a deterministic per-name fallback so every client sees the
       // same default for the same player until the real avatar loads.
