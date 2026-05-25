@@ -1688,26 +1688,6 @@ class GameRoom:
                 remaining = list(candidates)
                 if requires_symbol:
                     target_sym = fish.normalize_symbol(required_symbol)
-                else:
-                    # For star-ability cards played without use_star, prefer a matching
-                    # symbol card so the engine's auto_star check fires automatically.
-                    card_for_star = gs.card_db.get(play_face_uid)
-                    if card_for_star is not None:
-                        try:
-                            if hasattr(fish, "has_star_ability") and fish.has_star_ability(card_for_star):
-                                auto_sym = fish.normalize_symbol(getattr(card_for_star, "symbol", ""))
-                                if auto_sym not in {"", "n/a"}:
-                                    match_uid = next(
-                                        (uid for uid in remaining if fish.symbol_match_for_entry(ms, gs, uid, auto_sym)),
-                                        None,
-                                    )
-                                    if match_uid is not None:
-                                        picks.append(match_uid)
-                                        remaining = [uid for uid in remaining if uid != match_uid]
-                        except Exception:
-                            pass
-                if requires_symbol:
-                    target_sym = fish.normalize_symbol(required_symbol)
                     if target_sym in {"", "n/a"}:
                         card = gs.card_db.get(play_face_uid)
                         if card is None:

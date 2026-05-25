@@ -6629,20 +6629,8 @@ def apply_action(
             return fail("payment selection failed")
     action.payment_uids = [int(uid) for uid in payments]
 
-    # User rules override: if a starred card is played and payment includes
-    # a matching symbol, STAR auto-activates even when non-STAR action is picked.
-    if (
-        (not action.use_star)
-        and has_star_ability(card)
-        and cost_to_pay > 0
-    ):
-        sym = normalize_symbol(card.symbol)
-        if (
-            sym not in {"", "n/a"}
-            and any(symbol_match_for_entry(ms, gs, uid, sym) for uid in payments)
-            and star_has_immediate_value(gs, ms, player, card, played_entry_uid=action.card_uid)
-        ):
-            auto_star = True
+    # Star only fires when the player explicitly chose use_star=True.
+    # auto_star stays False here — symbol match in payment alone does not trigger star.
 
     # Pay cost into pool.
     for uid in payments:
