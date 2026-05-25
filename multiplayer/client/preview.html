@@ -1002,7 +1002,7 @@
     /* ── "Use as Payment" button on hand cards during payment mode ── */
     .pv-pay-discard-btn {
       position: absolute;
-      bottom: -14px;
+      top: -14px;
       left: 50%;
       transform: translateX(-50%);
       background: linear-gradient(135deg, #0ea5a0, #0d8a86);
@@ -1104,8 +1104,14 @@
       animation: seat-glow 1.8s ease-in-out infinite;
     }
     @keyframes seat-glow {
-      0%,100% { box-shadow: 0 0 10px rgba(240,80,80,.6),  0 0 18px rgba(240,80,80,.3); }
-      50%      { box-shadow: 0 0 18px rgba(240,80,80,.95), 0 0 32px rgba(240,80,80,.55); }
+      0%,100% {
+        box-shadow: 0 0 10px rgba(240,80,80,.6), 0 0 18px rgba(240,80,80,.3);
+        transform: translateY(0);
+      }
+      50% {
+        box-shadow: 0 0 20px rgba(240,80,80,.95), 0 0 34px rgba(240,80,80,.55);
+        transform: translateY(-5px);
+      }
     }
     .pv-seat-name {
       font-size: 12px; font-weight: 800;
@@ -2369,7 +2375,21 @@
       transition: border-color .2s; overflow: hidden;
     }
     .pv-opp-full-wrap:hover { border-color: var(--cyan); }
-    .pv-opp-full-wrap.active-turn { border-color: var(--gold2); box-shadow: 0 0 14px rgba(245,200,66,.2); }
+    .pv-opp-full-wrap.active-turn {
+      border-color: var(--gold2);
+      box-shadow: 0 0 14px rgba(245,200,66,.2);
+      animation: opp-turn-bob 1.8s ease-in-out infinite;
+    }
+    @keyframes opp-turn-bob {
+      0%,100% {
+        box-shadow: 0 0 10px rgba(245,200,66,.15);
+        transform: translateY(0);
+      }
+      50% {
+        box-shadow: 0 0 22px rgba(245,200,66,.4);
+        transform: translateY(-4px);
+      }
+    }
     .pv-opp-full-label {
       font-size: 10px; color: var(--muted); text-align: center;
       margin-bottom: 3px; font-weight: 700; pointer-events: none;
@@ -9487,11 +9507,7 @@
         banner.textContent = "✦  YOUR CURRENT  ✦";
       }
       endBtn.classList.add("pulse-glow");
-      if (isReplayTurn && !_prevReplayTurn) {
-        showToast("★ Play again! Take another turn.", "turn");
-      } else if (!isReplayTurn && !compMode && _prevTurnIdx !== myIdx) {
-        showToast("Your turn!", "turn");
-      } else if (!isReplayTurn && compMode) {
+      if (!isReplayTurn && compMode) {
         const activeSeat = Number(payload.active_action_seat);
         if (_compPrevActiveSeat !== activeSeat) {
           const handNum = compMySeats.indexOf(activeSeat) + 1;
