@@ -1576,6 +1576,23 @@
     .gs.done  { background: rgba(31,187,138,.18); border-color: rgba(31,187,138,.45); color: #1f7e58; }
     .gs.active { background: rgba(232,179,74,.28); border-color: rgba(232,179,74,.65); color: #8a5200; font-weight: 800; }
 
+    /* ── DRAW-PHASE HINT BANNER ────────────────────────────────── */
+    #pv-pool-pick-hint {
+      background: linear-gradient(90deg, rgba(61,214,245,.12) 0%, rgba(61,214,245,.22) 50%, rgba(61,214,245,.12) 100%);
+      border: 1.5px solid rgba(61,214,245,.55);
+      border-radius: 9px;
+      padding: 8px 18px;
+      text-align: center;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      color: #3dd6f5;
+      letter-spacing: .2px;
+      text-shadow: 0 1px 8px rgba(61,214,245,.35);
+      width: 100%;
+      box-sizing: border-box;
+    }
+
     /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
     #pv-quick-draw-btn {
       display: none;
@@ -1595,22 +1612,72 @@
     #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
 
     /* ── DRAW NOTIFICATION ──────────────────────────────────────── */
+    /* ── DRAW NOTIFICATION PILL ───────────────────────────────────── */
     #draw-notif {
-      display: none; position: fixed;
-      bottom: 80px; left: 50%; transform: translateX(-50%);
-      background: rgba(8,24,58,.85); backdrop-filter: blur(10px);
-      border: 1px solid rgba(58,120,204,.45); border-radius: 14px;
-      padding: 9px 18px; font-size: 13px; font-weight: 600;
-      color: #d0e8ff; white-space: nowrap; pointer-events: none;
-      z-index: 800; max-width: 88vw; text-align: center;
-      box-shadow: 0 4px 20px rgba(0,0,0,.45);
+      position: fixed;
+      top: 80px; right: 18px;
+      display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(135deg, rgba(6,18,52,.96) 0%, rgba(10,30,74,.96) 100%);
+      backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+      border: 1.5px solid rgba(61,214,245,.38);
+      border-radius: 18px;
+      padding: 10px 18px 10px 10px;
+      pointer-events: none; z-index: 820;
+      max-width: 320px; min-width: 180px;
+      box-shadow: 0 6px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(61,214,245,.12) inset, 0 1px 0 rgba(255,255,255,.06) inset;
+      opacity: 0; transform: translateX(32px);
+      transition: opacity .32s cubic-bezier(.22,.68,0,1.2), transform .32s cubic-bezier(.22,.68,0,1.2);
     }
-    #draw-notif.visible { display: block; animation: draw-notif-in .22s ease; }
-    #draw-notif .dn-name { color: var(--gold); font-weight: 800; }
-    #draw-notif .dn-cards { color: #7dd3fc; }
-    @keyframes draw-notif-in {
-      from { opacity:0; transform: translateX(-50%) translateY(8px); }
-      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    #draw-notif.visible {
+      opacity: 1; transform: translateX(0);
+    }
+    #draw-notif.hiding {
+      opacity: 0; transform: translateX(24px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    /* decorative wave accent bar */
+    #draw-notif::before {
+      content: "";
+      position: absolute; inset: 0; border-radius: 18px;
+      background: linear-gradient(90deg, rgba(61,214,245,.07) 0%, rgba(61,214,245,0) 60%);
+      pointer-events: none;
+    }
+    .dn-avatar-wrap {
+      flex-shrink: 0;
+      width: 44px; height: 44px; border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(61,214,245,.55);
+      box-shadow: 0 0 10px rgba(61,214,245,.3), 0 2px 8px rgba(0,0,0,.4);
+      background: rgba(10,30,74,.8);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dn-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .dn-avatar-letter {
+      font-family: "Cinzel", serif; font-size: 18px; font-weight: 700;
+      color: var(--cyan); text-shadow: 0 0 8px rgba(61,214,245,.6);
+    }
+    .dn-body {
+      display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    }
+    .dn-label {
+      font-family: "Cinzel", serif;
+      font-size: 9px; font-weight: 600; letter-spacing: 1.4px;
+      color: rgba(61,214,245,.65); text-transform: uppercase;
+    }
+    .dn-name {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 14px; font-weight: 800;
+      color: var(--gold); text-shadow: 0 0 10px rgba(240,200,64,.35);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dn-action {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 12px; font-weight: 600; color: #a8d8f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .dn-cards { color: #3dd6f5; font-weight: 700; }
+    @media (max-width: 520px) {
+      #draw-notif { top: 64px; right: 10px; max-width: calc(100vw - 20px); }
     }
 
     /* ── DRAW-OVER-10 WARNING MODAL (coral reef theme) ──────────── */
@@ -7305,7 +7372,6 @@
       <div id="pv-pool-area">
         <div class="pv-section-label">The Pool<button id="pv-pool-expand-btn" title="Browse all pool cards">Inspect</button></div>
         <div id="pv-pool-wrap"></div>
-        <div id="pv-pool-pick-hint" style="display:none;font-size:11px;color:var(--cyan);text-align:center;margin-top:3px;line-height:1.4;"></div>
       </div>
 
       <div class="pv-action-divider" style="height:56px;"></div>
@@ -7318,6 +7384,9 @@
         <span class="pv-deck-count" id="pv-deck-num">? cards</span>
       </div>
     </div>
+
+    <!-- Draw-phase hint banner — shown between center strip and player board -->
+    <div id="pv-pool-pick-hint" style="display:none;"></div>
 
     <!-- my board -->
     <div id="pv-my-board"></div>
@@ -7377,7 +7446,17 @@
   <div id="pv-log" style="display:none;"></div>
 
   <!-- draw notification -->
-  <div id="draw-notif"></div>
+  <div id="draw-notif" aria-live="polite">
+    <div class="dn-avatar-wrap" id="dn-avatar-wrap">
+      <span class="dn-avatar-letter" id="dn-avatar-letter"></span>
+      <img id="dn-avatar-img" src="" alt="" style="display:none">
+    </div>
+    <div class="dn-body">
+      <span class="dn-label">Last Turn</span>
+      <span class="dn-name" id="dn-name"></span>
+      <span class="dn-action" id="dn-action"></span>
+    </div>
+  </div>
 
   <!-- draw-over-10 warning modal -->
   <div id="draw-warn-modal">
@@ -8026,11 +8105,9 @@
     const gridEl  = document.getElementById("pv-pm-grid");
     const emptyEl = document.getElementById("pv-pm-empty");
     titleEl.textContent = `Pool · ${pool.length} card${pool.length !== 1 ? "s" : ""}`;
-    if (_pendingDeckPick && canInteract) {
-      hintEl.textContent = "1 netted from deck — click a pool card to pair it with your deck draw";
-      hintEl.style.display = "";
-    } else if (pendingPoolDrawPicks.size === 1 && canInteract && canDrawPool) {
-      hintEl.textContent = "1 from pool — pick a second pool card, or complete with the deck";
+    const isSecondDrawModal = drawActions.length > 0 && !_latestPoolActions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
+    if (isSecondDrawModal && canInteract && canDrawPool) {
+      hintEl.textContent = "Choose your 2nd card — click any pool card to draw it";
       hintEl.style.display = "";
     } else {
       hintEl.style.display = "none";
@@ -8045,9 +8122,8 @@
     pool.forEach(entry => {
       const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
-      const isPending = pendingPoolDrawPicks.has(faceUid);
       const card = document.createElement("div");
-      card.className = "pv-pm-card" + (isPending ? " selected" : "");
+      card.className = "pv-pm-card";
       const imgWrap = document.createElement("div");
       imgWrap.className = "pv-pm-card-img";
       const img = document.createElement("img");
@@ -8071,32 +8147,8 @@
           e.stopPropagation();
           clearTimeout(_pmTimer);
           _pmTimer = setTimeout(() => {
-            if (_pendingDeckPick) {
-              // First card was from deck — this pool card completes the draw
-              _pendingDeckPick = false;
-              pendingPoolDrawPicks.clear();
-              pendingPoolDrawPicks.add(faceUid);
-              closePoolModal();
-              _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-              renderPool(_latestPool, _latestPoolActions);
-              return;
-            }
-            if (pendingPoolDrawPicks.has(faceUid)) {
-              pendingPoolDrawPicks.delete(faceUid);
-            } else if (pendingPoolDrawPicks.size >= 2) {
-              showToast("You can only draw up to 2 cards from the pool.", "warn");
-              return;
-            } else {
-              pendingPoolDrawPicks.add(faceUid);
-              if (pendingPoolDrawPicks.size === 2) {
-                closePoolModal();
-                _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-                renderPool(_latestPool, _latestPoolActions);
-                return;
-              }
-            }
-            renderPoolModal();
-            renderPool(_latestPool, _latestPoolActions);
+            closePoolModal();
+            _drawFromPool(drawActions, faceUid);
           }, 200);
         });
       } else {
@@ -8806,8 +8858,6 @@
   document.getElementById("draw-warn-cancel").addEventListener("click", () => {
     closeDrawWarn();
     _pendingDrawAction = null;
-    // Clear any staged pool picks so the user can re-choose freely
-    pendingPoolDrawPicks.clear();
     selectedPool.clear();
     if (latestPayload) renderPayload(latestPayload);
     setStatus("Draw cancelled — your turn continues.");
@@ -9028,7 +9078,7 @@
         const errMsg = "Failed: " + (r.data?.error || r.status);
         setStatus(errMsg); showToast(errMsg, "err"); return;
       }
-      selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear(); pendingPoolDrawPicks.clear();
+      selectedPayment.clear(); selectedPool.clear(); selectedDiscard.clear();
       pendingPayAction = null;
       document.getElementById("pv-hand")?.classList.remove("payment-active");
       updatePaymentBadge();
@@ -9368,25 +9418,20 @@
   let _prevPoolUids = [];
   let _latestPool = [];
   let _latestPoolActions = [];
-  // Pool cards the player has dragged to hand, queued for drawing
-  const pendingPoolDrawPicks = new Set();
   let _poolDrawActions = null; // cached draw actions for deck-click handler
-  let _pendingDeckPick = false; // true after first deck click — awaiting second pick
   // Hand-over-10 draw warning state
   let _drawWarnBypass = false;       // set true momentarily after user confirms
   let _pendingDrawAction = null;     // the draw action awaiting user confirmation
 
-  function _submitPoolDraw(drawActions, poolPicks) {
-    _pendingDeckPick = false;
-    const n = poolPicks.size;
-    let act = null;
-    if (n === 0) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
-    else if (n === 1) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
-    else if (n >= 2) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===2);
-    if (!act) { showToast("Draw not available right now.", "warn"); return; }
-    const pickUids = Array.from(poolPicks);
-    pendingPoolDrawPicks.clear();
-    submitAction({ ...act, pool_pick_uids: pickUids });
+  function _drawFromDeck(drawActions) {
+    const act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
+    if (!act) { showToast("Cannot draw from deck right now.", "warn"); return; }
+    submitAction({ ...act, pool_pick_uids: [] });
+  }
+  function _drawFromPool(drawActions, faceUid) {
+    const act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===1);
+    if (!act) { showToast("Cannot draw from pool right now.", "warn"); return; }
+    submitAction({ ...act, pool_pick_uids: [faceUid] });
   }
 
   function renderPool(pool, actions) {
@@ -9402,51 +9447,30 @@
     // Collect available draw actions
     const drawActions = actions.filter(a => a.kind==="draw");
     _poolDrawActions = drawActions;
-    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) > 0);
-    const canDrawDeck = drawActions.some(a => a.kind==="draw");
+    const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) === 1);
+    const canDrawDeck = drawActions.some(a => Number(a.draw_from_pool) === 0);
+    // Detect second-draw phase: server only returns draw actions when player has drawn 1 already
+    const isSecondDraw = drawActions.length > 0 && !actions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
 
-    // Wire deck click: one-at-a-time draw — first click enters pending state,
-    // second click (or selecting a pool card) completes the two-card draw.
-    const canDrawTwoFromDeck = drawActions.some(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
-    if (!canDrawDeck) _pendingDeckPick = false; // reset when not our draw turn
+    // Wire deck click: each click draws exactly 1 card from the deck
     const deckPile = document.getElementById("pv-draw-deck");
     if (canDrawDeck && canInteract) {
       deckPile.style.cursor = "pointer";
-      deckPile.onclick = () => {
-        if (pendingPoolDrawPicks.size > 0) {
-          // Pool picks pending: deck click = draw 1 deck + selected pool
-          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-        } else if (_pendingDeckPick) {
-          // Second deck click: draw 2 from deck
-          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-        } else if (canDrawTwoFromDeck) {
-          // First deck click: enter "1 from deck chosen" state
-          _pendingDeckPick = true;
-          renderPool(pool, actions);
-        } else {
-          // Only 1 deck card available (pool required for 2nd): show hint
-          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-        }
-      };
-      deckPile.querySelector(".pv-deck-face").style.borderColor = _pendingDeckPick ? "var(--gold)" : "var(--cyan)";
+      deckPile.onclick = () => _drawFromDeck(drawActions);
+      deckPile.querySelector(".pv-deck-face").style.borderColor = "var(--cyan)";
     } else {
       deckPile.style.cursor = "default";
       deckPile.onclick = null;
       deckPile.querySelector(".pv-deck-face").style.borderColor = "";
     }
 
-    // Update pending pick hint
+    // Update pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
-    if (_pendingDeckPick && canInteract) {
-      hint.innerHTML = "Reeling in 1 from the deck — click deck again for a 2nd, or grab one from the pool &nbsp;<span id=\"pv-deck-pick-cancel\" style=\"cursor:pointer;color:var(--red);font-weight:700;\" title=\"Cancel and start over\">✕ undo</span>";
-      hint.style.display = "";
-      const cancelEl = document.getElementById("pv-deck-pick-cancel");
-      if (cancelEl) cancelEl.addEventListener("click", () => { _pendingDeckPick = false; renderPool(pool, actions); });
-    } else if (pendingPoolDrawPicks.size === 1 && canInteract) {
-      hint.textContent = "1 from pool — pick a second pool card, or complete with the deck";
-      hint.style.display = "";
-    } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
-      hint.textContent = "2 from the pool — hauling them in…";
+    if (isSecondDraw && canInteract) {
+      hint.textContent = canDrawDeck && canDrawPool
+        ? "Choose your 2nd card — click the deck or pick a card from the pool"
+        : canDrawDeck ? "Choose your 2nd card — click the deck to draw again"
+        : "Choose your 2nd card — pick a card from the pool";
       hint.style.display = "";
     } else {
       hint.style.display = "none";
@@ -9454,7 +9478,7 @@
 
     if (!pool.length) {
       const empty = document.createElement("span");
-      empty.style.cssText = "font-size:11px;color:var(--muted);";
+      empty.style.cssText = "font-size:13px;color:var(--muted);";
       empty.textContent = "The pool is empty";
       wrap.appendChild(empty);
       return;
@@ -9464,45 +9488,21 @@
       const face = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
       const isNew = !prevSet.has(faceUid);
-      const isPending = pendingPoolDrawPicks.has(faceUid);
       const div = document.createElement("div");
-      div.className = "pv-pool-card" + (isPending ? " selected" : "") + (isNew ? " flip-in" : "");
+      div.className = "pv-pool-card" + (isNew ? " flip-in" : "");
       const img = document.createElement("img");
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
       div.title = (canDrawPool && canInteract)
-        ? (_pendingDeckPick ? `${face.name || faceUid} — click to draw this + your deck card` : `${face.name || faceUid} — click to select from pool`)
+        ? `${face.name || faceUid} — click to draw this card from the pool`
         : (face.name || String(faceUid));
 
-      // Single click selects/deselects for draw — no delay, no dblclick gate.
-      // Card preview is available via the "View Cards" pool modal.
       if (canDrawPool && canInteract) {
+        // Each pool card click draws exactly 1 card from the pool immediately
         div.addEventListener("click", (e) => {
           e.stopPropagation();
-          if (_pendingDeckPick) {
-            // First card was from deck — this pool card completes the draw
-            _pendingDeckPick = false;
-            pendingPoolDrawPicks.clear();
-            pendingPoolDrawPicks.add(faceUid);
-            _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
-            return;
-          }
-          if (pendingPoolDrawPicks.has(faceUid)) {
-            pendingPoolDrawPicks.delete(faceUid);
-            renderPool(pool, actions);
-          } else if (pendingPoolDrawPicks.size >= 2) {
-            showToast("You can only draw up to 2 cards from the pool.", "warn");
-          } else {
-            pendingPoolDrawPicks.add(faceUid);
-            if (pendingPoolDrawPicks.size === 2) {
-              _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
-            } else {
-              renderPool(pool, actions);
-            }
-          }
+          _drawFromPool(_poolDrawActions, faceUid);
         });
-
-        // Also keep drag as an alternative way to select
         div.draggable = true;
         div.addEventListener("dragstart", (e) => {
           e.dataTransfer.effectAllowed = "move";
@@ -9511,7 +9511,6 @@
         });
         div.addEventListener("dragend", () => div.classList.remove("dragging"));
       } else {
-        // Not drawable: single click opens zoom
         div.addEventListener("click", (e) => {
           e.stopPropagation();
           openZoom(faceUid, face.name, face.text, face.species);
@@ -9521,7 +9520,7 @@
       wrap.appendChild(div);
     });
 
-    // Hand zone drop target — drag a pool card here to draw it
+    // Hand zone drop target — drag a pool card here to draw it immediately
     const handZone = document.getElementById("pv-hand-zone");
     if (canDrawPool && canInteract) {
       handZone.ondragover = (ev) => {
@@ -9540,24 +9539,7 @@
         try { data = JSON.parse(ev.dataTransfer.getData("application/x-fish-pool-draw") || "{}"); } catch {}
         const uid = Number(data.faceUid);
         if (!uid) return;
-        if (_pendingDeckPick) {
-          // First card was from deck — dragged pool card completes the draw
-          _pendingDeckPick = false;
-          pendingPoolDrawPicks.clear();
-          pendingPoolDrawPicks.add(uid);
-          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-          return;
-        }
-        if (pendingPoolDrawPicks.has(uid)) return; // already queued
-        if (pendingPoolDrawPicks.size >= 2) {
-          showToast("You can only draw up to 2 cards from the pool.", "warn"); return;
-        }
-        pendingPoolDrawPicks.add(uid);
-        if (pendingPoolDrawPicks.size === 2) {
-          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-        } else {
-          renderPool(pool, actions);
-        }
+        _drawFromPool(drawActions, uid);
       };
     } else {
       handZone.ondragover = null;
@@ -12104,27 +12086,14 @@
     const hasOcean = board.length > 0;
     const hasOceanInHand = Array.isArray(me?.hand) && me.hand.some(c => (c.species||"").toLowerCase() === "ocean");
 
-    // Wire up quick draw button — two-step: first click pre-selects deck, second confirms
+    // Quick draw button: draw 1 card from deck immediately
     if (drawAction) {
       qdBtn.classList.add("visible");
       drawDivider.style.display = "";
-      if (_pendingDeckPick) {
-        qdBtn.querySelector(".qd-label").textContent = "🃏 Draw 2nd from Deck";
-        qdBtn.querySelector(".qd-sub").textContent = "complete your draw";
-        qdBtn.title = "Click to draw your 2nd card from deck";
-        qdBtn.onclick = () => {
-          _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
-          renderPool(_latestPool, _latestPoolActions);
-        };
-      } else {
-        qdBtn.querySelector(".qd-label").textContent = "🃏 Draw from Deck";
-        qdBtn.querySelector(".qd-sub").textContent = "then choose your 2nd card";
-        qdBtn.title = "Draw 1 from deck, then pick deck or pool for 2nd card";
-        qdBtn.onclick = () => {
-          _pendingDeckPick = true;
-          renderPool(_latestPool, _latestPoolActions);
-        };
-      }
+      qdBtn.querySelector(".qd-label").textContent = "🃏 Draw from Deck";
+      qdBtn.querySelector(".qd-sub").textContent = "then choose your 2nd card";
+      qdBtn.title = "Draw 1 card from the deck";
+      qdBtn.onclick = () => _drawFromDeck(_poolDrawActions);
     } else {
       qdBtn.classList.remove("visible");
       drawDivider.style.display = "none";
@@ -12133,12 +12102,11 @@
     // Build step chips
     const steps = [];
 
-    if (drawAction) {
-      if (_pendingDeckPick) {
-        steps.push(`<span class="gs active">① Choose your 2nd card — click deck again or snag one from the pool</span>`);
-      } else {
-        steps.push(`<span class="gs active">① Haul Your Catch — click the deck to draw 1, then choose your 2nd from deck or pool</span>`);
-      }
+    const isSecondDrawBar = drawAction && !actions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
+    if (isSecondDrawBar) {
+      steps.push(`<span class="gs active">① Choose your 2nd card — click the deck or pick a card from the pool</span>`);
+    } else if (drawAction) {
+      steps.push(`<span class="gs active">① Haul Your Catch — click the deck to draw 1 card, or pick one from the pool</span>`);
     } else {
       steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
     }
@@ -12360,20 +12328,61 @@
   function showDrawNotif(playerName, poolCards, deckCount) {
     const el = document.getElementById("draw-notif");
     if (!el) return;
+
     const poolNames = poolCards.map(e => {
       const face = Array.isArray(e.faces) && e.faces.length > 0 ? e.faces[0] : null;
       return face?.name || e.label || "a card";
     });
     const parts = [];
-    if (poolNames.length > 0) parts.push(poolNames.join(" & "));
-    if (deckCount > 0) parts.push(deckCount === 1 ? "1 card from the deck" : `${deckCount} cards from the deck`);
+    if (poolNames.length > 0) parts.push(poolNames.map(n => `<span class="dn-cards">${n}</span>`).join(" &amp; "));
+    if (deckCount > 0) parts.push(deckCount === 1 ? `<span class="dn-cards">1 from the deck</span>` : `<span class="dn-cards">${deckCount} from the deck</span>`);
     if (!parts.length) return;
-    el.innerHTML = `<span class="dn-name">${playerName}</span> picked up: <span class="dn-cards">${parts.join(" + ")}</span>`;
-    el.classList.remove("visible");
-    void el.offsetWidth; // reflow to restart animation
+
+    // Populate name
+    const nameEl = document.getElementById("dn-name");
+    if (nameEl) nameEl.textContent = playerName;
+
+    // Populate action text
+    const actionEl = document.getElementById("dn-action");
+    if (actionEl) actionEl.innerHTML = "Drew: " + parts.join(" + ");
+
+    // Populate avatar — look up the player's seat index to get the correct avatar
+    const avatarWrap = document.getElementById("dn-avatar-wrap");
+    const avatarImg  = document.getElementById("dn-avatar-img");
+    const avatarLetter = document.getElementById("dn-avatar-letter");
+    if (avatarWrap && avatarImg && avatarLetter) {
+      const p = (latestPayload?.state?.players || []).find(pl => pl.name === playerName);
+      const slot = p ? (p.index ?? 0) : 0;
+      let avatarSrc = PV_SEAT_AVATARS[slot % 12];
+      // Use the viewer's own avatar URL if it's their notification
+      try {
+        if (p && latestPayload?.viewer?.name === playerName && typeof window.__fishMyAvatarUrl === "function") {
+          const mine = String(window.__fishMyAvatarUrl() || "");
+          if (mine) avatarSrc = mine;
+        }
+      } catch (_) {}
+      avatarImg.src = avatarSrc;
+      avatarImg.alt = playerName;
+      avatarImg.style.display = "block";
+      avatarLetter.style.display = "none";
+      avatarImg.onerror = () => {
+        avatarImg.style.display = "none";
+        avatarLetter.style.display = "";
+        avatarLetter.textContent = playerName.charAt(0).toUpperCase();
+      };
+    }
+
+    // Animate in: clear hiding, force reflow, add visible
+    el.classList.remove("hiding", "visible");
+    void el.offsetWidth;
     el.classList.add("visible");
+
     if (_drawNotifTimer) clearTimeout(_drawNotifTimer);
-    _drawNotifTimer = setTimeout(() => { el.classList.remove("visible"); _drawNotifTimer = null; }, 4500);
+    _drawNotifTimer = setTimeout(() => {
+      el.classList.add("hiding");
+      el.classList.remove("visible");
+      _drawNotifTimer = setTimeout(() => { el.classList.remove("hiding"); _drawNotifTimer = null; }, 420);
+    }, 5000);
   }
 
   function renderLog(logTail) {
@@ -12420,7 +12429,7 @@
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
     _drawTurnStartPool=null; _drawPrevPlayer="";
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
-    const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible");
+    const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
     _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = true;
     document.getElementById("pv-chat-panel").classList.remove("open");

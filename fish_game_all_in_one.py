@@ -5569,12 +5569,21 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
         include_draw = False
 
     if include_draw:
-        if len(gs.deck) >= 2:
+        draws_taken = int(player.flags.get("_draws_taken", 0))
+        if draws_taken >= 1:
+            # Second draw phase: ONLY offer draw options — player must pick their 2nd card.
+            if len(gs.deck) >= 1:
+                actions.append(Action(kind="draw", draw_from_pool=0))
+            if len(ms.pool) >= 1:
+                actions.append(Action(kind="draw", draw_from_pool=1))
+            if ms.end_game_triggered:
+                actions.append(Action(kind="end_turn"))
+            return actions  # no play actions while mid-draw
+        # First draw: offer one card from deck or one from pool.
+        if len(gs.deck) >= 1:
             actions.append(Action(kind="draw", draw_from_pool=0))
-        if len(gs.deck) >= 1 and len(ms.pool) >= 1:
+        if len(ms.pool) >= 1:
             actions.append(Action(kind="draw", draw_from_pool=1))
-        if len(ms.pool) >= 2:
-            actions.append(Action(kind="draw", draw_from_pool=2))
         # During the final round, the player may end their turn without drawing.
         if ms.end_game_triggered:
             actions.append(Action(kind="end_turn"))
@@ -5854,6 +5863,7 @@ def clear_turn_only_flags(player: PlayerState) -> None:
         "_free_action_only",
         "_discard_mode",
         "_tarpon_discard_active",
+        "_draws_taken",
     ]:
         if k in player.flags:
             if k in {"free_yellowfin_tuna", "play_again", "go_again"}:
@@ -5880,25 +5890,28 @@ def apply_action(
     is_human_turn = payment_picker is choose_payment_human
 
     if action.kind == "draw":
-        pool_take = action.draw_from_pool
-        deck_take = 2 - pool_take
-        if pool_take < 0 or pool_take > 2:
-            return fail(f"invalid draw split: pool_take={pool_take}")
-        if len(ms.pool) < pool_take:
-            return fail(f"not enough cards in pool: need {pool_take}, have {len(ms.pool)}")
-        if len(gs.deck) < deck_take:
-            return fail(f"not enough cards in deck: need {deck_take}, have {len(gs.deck)}")
+        # Each draw action draws exactly 1 card (deck or pool).
+        # Two draw actions complete the turn; the first keeps the turn alive via free_followups.
+        pool_take = action.draw_from_pool  # 0 = deck, 1 = pool
+        deck_take = 1 - pool_take
+        draws_taken = int(player.flags.get("_draws_taken", 0))
+        if pool_take not in (0, 1):
+            return fail(f"invalid draw_from_pool: {pool_take}")
+        if pool_take > 0 and len(ms.pool) < 1:
+            return fail(f"pool empty, cannot draw from pool")
+        if deck_take > 0 and len(gs.deck) < 1:
+            return fail(f"deck empty, cannot draw from deck")
 
         pool_cards: List[int] = []
-        if pool_take > 0 and action.pool_pick_uids:
-            if len(action.pool_pick_uids) != pool_take:
-                return fail(f"wrong pool pick count: expected {pool_take}, got {len(action.pool_pick_uids)}")
-            pool_cards = draw_selected_from_pool(ms, player, action.pool_pick_uids, gs)
-            if len(pool_cards) != pool_take and not ms.end_game_triggered:
-                return fail("invalid selected pool cards")
-        else:
-            pool_cards = draw_from_pool(ms, player, pool_take, gs)
         if pool_take > 0:
+            if action.pool_pick_uids:
+                if len(action.pool_pick_uids) != 1:
+                    return fail(f"wrong pool pick count: expected 1, got {len(action.pool_pick_uids)}")
+                pool_cards = draw_selected_from_pool(ms, player, action.pool_pick_uids, gs)
+                if not pool_cards and not ms.end_game_triggered:
+                    return fail("invalid selected pool card")
+            else:
+                pool_cards = draw_from_pool(ms, player, 1, gs)
             action.pool_pick_uids = [int(uid) for uid in pool_cards]
         else:
             action.pool_pick_uids = []
@@ -5909,9 +5922,18 @@ def apply_action(
                 parts.append("pool: " + ", ".join(entry_short_label(ms, gs, uid) for uid in pool_cards))
             if deck_cards:
                 parts.append("deck: " + ", ".join(entry_short_label(ms, gs, uid) for uid in deck_cards))
-            detail = " | ".join(parts) if parts else "no cards drawn"
-            print(f"{player.name} draws 2 -> {detail}")
+            draw_num = draws_taken + 1
+            print(f"{player.name} draws ({draw_num}/2) -> {' | '.join(parts) if parts else 'no cards'}")
         turn_state.draws_this_turn += len(pool_cards) + len(deck_cards)
+
+        if draws_taken == 0:
+            # First of two draws — flag so second draw phase offers only draw options.
+            player.flags["_draws_taken"] = 1
+            turn_state.free_followups += 1  # keeps action_budget alive for 2nd draw
+        else:
+            # Second draw — turn is complete.
+            player.flags.pop("_draws_taken", None)
+            turn_state.force_end_turn = True
         return True
 
     if action.kind == "discard_to_pool":
@@ -6668,7 +6690,8 @@ def continue_turn_followups_greedy(
             action_budget += consume_replay_actions(player)
         if turn_state.free_followups > 0:
             action_budget += turn_state.free_followups
-            player.flags["_free_action_only"] = True
+            if not player.flags.get("_draws_taken"):
+                player.flags["_free_action_only"] = True
             turn_state.free_followups = 0
         if has_multi_play_window(player):
             action_budget += 1
@@ -6730,7 +6753,8 @@ def simulate_one_turn_greedy(
             action_budget += consume_replay_actions(player)
         if turn_state.free_followups > 0:
             action_budget += turn_state.free_followups
-            player.flags["_free_action_only"] = True
+            if not player.flags.get("_draws_taken"):
+                player.flags["_free_action_only"] = True
             turn_state.free_followups = 0
         if has_multi_play_window(player):
             action_budget += 1
@@ -8445,9 +8469,10 @@ def run_match(
                         print(f"{p.name} gets {replay_added} extra actions.")
             if turn_state.free_followups > 0:
                 action_budget += turn_state.free_followups
-                p.flags["_free_action_only"] = True
-                if verbose:
-                    print(f"{p.name} gets {turn_state.free_followups} restricted follow-up action(s) for free-play ability.")
+                if not p.flags.get("_draws_taken"):
+                    p.flags["_free_action_only"] = True
+                    if verbose:
+                        print(f"{p.name} gets {turn_state.free_followups} restricted follow-up action(s) for free-play ability.")
                 turn_state.free_followups = 0
             if has_multi_play_window(p):
                 action_budget += 1

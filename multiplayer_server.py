@@ -1484,6 +1484,7 @@ class GameRoom:
             "discard_excess": max(0, len(player.hand) - (int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10)),
             "hand_limit": int(fish.HAND_LIMIT) if hasattr(fish, "HAND_LIMIT") else 10,
             "actions": payload_actions,
+            "draws_taken": int(player.flags.get("_draws_taken", 0)),
         }
 
     def _resolve_submitted_action(
