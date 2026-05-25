@@ -7330,9 +7330,9 @@
   <!-- action bar -->
   <div id="pv-action-bar">
     <!-- Quick draw button (shown when draw is available) -->
-    <button id="pv-quick-draw-btn" title="Draw 2 cards from the deck to fill your hand">
-      <span class="qd-label">🃏 Draw 2 Cards</span>
-      <span class="qd-sub">from deck</span>
+    <button id="pv-quick-draw-btn" title="Draw 1 from deck, then choose your 2nd card from deck or pool">
+      <span class="qd-label">🃏 Draw from Deck</span>
+      <span class="qd-sub">then choose your 2nd card</span>
     </button>
 
     <div class="pv-action-divider" id="pv-draw-divider" style="display:none;"></div>
@@ -8026,7 +8026,10 @@
     const gridEl  = document.getElementById("pv-pm-grid");
     const emptyEl = document.getElementById("pv-pm-empty");
     titleEl.textContent = `Pool · ${pool.length} card${pool.length !== 1 ? "s" : ""}`;
-    if (pendingPoolDrawPicks.size === 1 && canInteract && canDrawPool) {
+    if (_pendingDeckPick && canInteract) {
+      hintEl.textContent = "1 from deck chosen — click a pool card to draw 1 deck + 1 pool";
+      hintEl.style.display = "";
+    } else if (pendingPoolDrawPicks.size === 1 && canInteract && canDrawPool) {
       hintEl.textContent = "1 card selected — select a second, or click the deck to draw";
       hintEl.style.display = "";
     } else {
@@ -8068,6 +8071,16 @@
           e.stopPropagation();
           clearTimeout(_pmTimer);
           _pmTimer = setTimeout(() => {
+            if (_pendingDeckPick) {
+              // First card was from deck — this pool card completes the draw
+              _pendingDeckPick = false;
+              pendingPoolDrawPicks.clear();
+              pendingPoolDrawPicks.add(faceUid);
+              closePoolModal();
+              _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+              renderPool(_latestPool, _latestPoolActions);
+              return;
+            }
             if (pendingPoolDrawPicks.has(faceUid)) {
               pendingPoolDrawPicks.delete(faceUid);
             } else if (pendingPoolDrawPicks.size >= 2) {
@@ -9358,11 +9371,13 @@
   // Pool cards the player has dragged to hand, queued for drawing
   const pendingPoolDrawPicks = new Set();
   let _poolDrawActions = null; // cached draw actions for deck-click handler
+  let _pendingDeckPick = false; // true after first deck click — awaiting second pick
   // Hand-over-10 draw warning state
   let _drawWarnBypass = false;       // set true momentarily after user confirms
   let _pendingDrawAction = null;     // the draw action awaiting user confirmation
 
   function _submitPoolDraw(drawActions, poolPicks) {
+    _pendingDeckPick = false;
     const n = poolPicks.size;
     let act = null;
     if (n === 0) act = drawActions.find(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
@@ -9390,12 +9405,30 @@
     const canDrawPool = drawActions.some(a => Number(a.draw_from_pool) > 0);
     const canDrawDeck = drawActions.some(a => a.kind==="draw");
 
-    // Wire deck click: draw with whatever pool picks are pending
+    // Wire deck click: one-at-a-time draw — first click enters pending state,
+    // second click (or selecting a pool card) completes the two-card draw.
+    const canDrawTwoFromDeck = drawActions.some(a => a.kind==="draw" && Number(a.draw_from_pool)===0);
+    if (!canDrawDeck) _pendingDeckPick = false; // reset when not our draw turn
     const deckPile = document.getElementById("pv-draw-deck");
     if (canDrawDeck && canInteract) {
       deckPile.style.cursor = "pointer";
-      deckPile.onclick = () => _submitPoolDraw(drawActions, pendingPoolDrawPicks);
-      deckPile.querySelector(".pv-deck-face").style.borderColor = "var(--cyan)";
+      deckPile.onclick = () => {
+        if (pendingPoolDrawPicks.size > 0) {
+          // Pool picks pending: deck click = draw 1 deck + selected pool
+          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+        } else if (_pendingDeckPick) {
+          // Second deck click: draw 2 from deck
+          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+        } else if (canDrawTwoFromDeck) {
+          // First deck click: enter "1 from deck chosen" state
+          _pendingDeckPick = true;
+          renderPool(pool, actions);
+        } else {
+          // Only 1 deck card available (pool required for 2nd): show hint
+          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+        }
+      };
+      deckPile.querySelector(".pv-deck-face").style.borderColor = _pendingDeckPick ? "var(--gold)" : "var(--cyan)";
     } else {
       deckPile.style.cursor = "default";
       deckPile.onclick = null;
@@ -9404,7 +9437,12 @@
 
     // Update pending pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
-    if (pendingPoolDrawPicks.size === 1 && canInteract) {
+    if (_pendingDeckPick && canInteract) {
+      hint.innerHTML = "1 from deck chosen — click the deck again for 2nd from deck, or click a pool card &nbsp;<span id=\"pv-deck-pick-cancel\" style=\"cursor:pointer;color:var(--red);font-weight:700;\" title=\"Cancel and start over\">✕ Cancel</span>";
+      hint.style.display = "";
+      const cancelEl = document.getElementById("pv-deck-pick-cancel");
+      if (cancelEl) cancelEl.addEventListener("click", () => { _pendingDeckPick = false; renderPool(pool, actions); });
+    } else if (pendingPoolDrawPicks.size === 1 && canInteract) {
       hint.textContent = "1 pool card selected — click another pool card, or click the deck";
       hint.style.display = "";
     } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
@@ -9441,6 +9479,14 @@
       if (canDrawPool && canInteract) {
         div.addEventListener("click", (e) => {
           e.stopPropagation();
+          if (_pendingDeckPick) {
+            // First card was from deck — this pool card completes the draw
+            _pendingDeckPick = false;
+            pendingPoolDrawPicks.clear();
+            pendingPoolDrawPicks.add(faceUid);
+            _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
+            return;
+          }
           if (pendingPoolDrawPicks.has(faceUid)) {
             pendingPoolDrawPicks.delete(faceUid);
             renderPool(pool, actions);
@@ -9494,6 +9540,14 @@
         try { data = JSON.parse(ev.dataTransfer.getData("application/x-fish-pool-draw") || "{}"); } catch {}
         const uid = Number(data.faceUid);
         if (!uid) return;
+        if (_pendingDeckPick) {
+          // First card was from deck — dragged pool card completes the draw
+          _pendingDeckPick = false;
+          pendingPoolDrawPicks.clear();
+          pendingPoolDrawPicks.add(uid);
+          _submitPoolDraw(drawActions, pendingPoolDrawPicks);
+          return;
+        }
         if (pendingPoolDrawPicks.has(uid)) return; // already queued
         if (pendingPoolDrawPicks.size >= 2) {
           showToast("You can only draw up to 2 cards from the pool.", "warn"); return;
@@ -12050,11 +12104,27 @@
     const hasOcean = board.length > 0;
     const hasOceanInHand = Array.isArray(me?.hand) && me.hand.some(c => (c.species||"").toLowerCase() === "ocean");
 
-    // Wire up quick draw button
+    // Wire up quick draw button — two-step: first click pre-selects deck, second confirms
     if (drawAction) {
       qdBtn.classList.add("visible");
       drawDivider.style.display = "";
-      qdBtn.onclick = () => submitAction(drawAction);
+      if (_pendingDeckPick) {
+        qdBtn.querySelector(".qd-label").textContent = "🃏 Draw 2nd from Deck";
+        qdBtn.querySelector(".qd-sub").textContent = "complete your draw";
+        qdBtn.title = "Click to draw your 2nd card from deck";
+        qdBtn.onclick = () => {
+          _submitPoolDraw(_poolDrawActions, pendingPoolDrawPicks);
+          renderPool(_latestPool, _latestPoolActions);
+        };
+      } else {
+        qdBtn.querySelector(".qd-label").textContent = "🃏 Draw from Deck";
+        qdBtn.querySelector(".qd-sub").textContent = "then choose your 2nd card";
+        qdBtn.title = "Draw 1 from deck, then pick deck or pool for 2nd card";
+        qdBtn.onclick = () => {
+          _pendingDeckPick = true;
+          renderPool(_latestPool, _latestPoolActions);
+        };
+      }
     } else {
       qdBtn.classList.remove("visible");
       drawDivider.style.display = "none";
@@ -12064,7 +12134,11 @@
     const steps = [];
 
     if (drawAction) {
-      steps.push(`<span class="gs active">① Haul Your Catch — click pool cards to select them, then click the deck (or just click the deck for 2 from deck)</span>`);
+      if (_pendingDeckPick) {
+        steps.push(`<span class="gs active">① Choose 2nd card — click deck again for 2 from deck, or click a pool card for deck + pool</span>`);
+      } else {
+        steps.push(`<span class="gs active">① Haul Your Catch — click deck to draw 1 (then pick your 2nd), or click pool cards first</span>`);
+      }
     } else {
       steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
     }
