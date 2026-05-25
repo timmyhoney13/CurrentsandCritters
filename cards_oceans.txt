@@ -14,19 +14,19 @@
 214	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Circle
 215	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Triangle
 216	Deep Ocean	+1 | Draw one	Ocean	0	N/A	Circle
-217	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Diamond
-218	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Heart
-219	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Circle
-220	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Triangle
-221	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Square
-222	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Diamond
-223	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Heart
-224	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Circle
-225	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Triangle
-226	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Diamond
-227	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Square
-228	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Triangle
-229	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 9 | 6+ = 36 |	Ocean	1	N/A	Heart
+217	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Diamond
+218	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Heart
+219	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Circle
+220	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Triangle
+221	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Square
+222	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Diamond
+223	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Heart
+224	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Circle
+225	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Triangle
+226	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Diamond
+227	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Square
+228	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Triangle
+229	Coral Reef	1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |	Ocean	1	N/A	Heart
 230	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Diamond
 231	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Triangle
 232	Mangrove	+8 if you have all 8 oceans | *play again*	Ocean	1	N/A	Square
