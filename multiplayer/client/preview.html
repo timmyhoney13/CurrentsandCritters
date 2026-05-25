@@ -15555,20 +15555,14 @@
         if (cr.data?.host_token) setHostToken(cr.data.host_token);
         if (cr.data?.seat_token) setSeatToken(cr.data.seat_token);
       }
-      // Start the game immediately — no waiting room needed for solo AI
-      const sr = await apiPost(`/api/rooms/${roomId}/start`,
-        { seat_token: getSeatToken(), host_token: getHostToken(), create_key: getCreateKey() },
-        { timeoutMs: 8000 });
+      // Open the waiting room so the host can pick each bot's difficulty
+      // (Easy / Medium / Hard) before clicking Start. The lobby "Start Game"
+      // button will fire the actual /start call once the host is ready.
       document.getElementById("pv-my-name-badge").textContent = name;
       btn.disabled = false;
       btn.querySelector("span").textContent = "Practice vs AI";
-      if (sr.ok) {
-        enterRoom(roomId);
-      } else {
-        // Game started but might need a moment — enter anyway and let polling handle it
-        enterRoom(roomId);
-        showWaitingRoom(roomId, true);
-      }
+      enterRoom(roomId);
+      showWaitingRoom(roomId, true);
     });
 
     // ── Leaderboard button — switches to the in-game leaderboard tab ─
