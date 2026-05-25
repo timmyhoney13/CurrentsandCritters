@@ -2999,6 +2999,71 @@
       z-index: 3;
       text-shadow: 0 1px 2px rgba(255,255,255,.6);
     }
+    /* ── Guest overlay — rendered inside the octagon on the login image ── */
+    #auth-guest-overlay {
+      display: none;
+      position: absolute;
+      left: 33%;
+      top: 41%;
+      width: 34%;
+      bottom: 27%;
+      z-index: 5;
+      background: rgba(6, 20, 56, 0.90);
+      border: 1px solid rgba(90, 170, 235, 0.45);
+      border-radius: 12px;
+      padding: 4% 4% 3%;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(4px, 0.9vh, 10px);
+      box-shadow: 0 4px 28px rgba(0, 0, 0, 0.6);
+      overflow: hidden;
+    }
+    #auth-guest-overlay.visible { display: flex; }
+    #auth-guest-overlay .ago-title {
+      font-family: 'Cinzel', serif;
+      color: #9ad4f5;
+      font-size: clamp(10px, 1.5vw, 16px);
+      text-align: center;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    #auth-guest-overlay .ago-sub {
+      color: #7ab8d8;
+      font-size: clamp(8px, 0.95vw, 11px);
+      text-align: center;
+      line-height: 1.4;
+    }
+    #auth-guest-overlay .pv-input {
+      background: rgba(10, 38, 95, 0.70) !important;
+      border-color: rgba(100, 180, 240, 0.5) !important;
+      color: #d6eeff !important;
+      font-size: clamp(9px, 1.1vw, 13px) !important;
+      padding: clamp(4px, 0.7vh, 8px) clamp(6px, 1vw, 10px) !important;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #auth-guest-overlay .pv-input::placeholder { color: #4e88b0; }
+    #auth-guest-overlay .pv-btn.gold {
+      font-size: clamp(9px, 1.1vw, 13px) !important;
+      padding: clamp(4px, 0.7vh, 9px) 0 !important;
+      min-height: 0 !important;
+      width: 100%;
+    }
+    #auth-guest-overlay .auth-err {
+      font-size: clamp(8px, 0.9vw, 11px);
+      min-height: 0;
+      text-align: center;
+      color: #e07070;
+    }
+    #auth-guest-overlay .auth-link {
+      color: #7ec8e8;
+      font-size: clamp(8px, 0.9vw, 11px);
+      cursor: pointer;
+      text-align: center;
+    }
+    #auth-guest-overlay .auth-link:hover { text-decoration: underline; }
+
     /* Profile bar inside lobby */
     #auth-profile-bar {
       width: 100%; max-width: 420px;
@@ -6096,17 +6161,19 @@
     <button id="auth-guest-btn" class="pv-btn gold full" aria-label="Play as Guest"></button>
     <button id="auth-choose-google-btn" class="auth-btn-google" aria-label="Continue with Google"></button>
     <div class="auth-err" id="auth-choose-err"></div>
+    <!-- Guest form overlay — shown inside the octagon when guest is chosen -->
+    <div id="auth-guest-overlay">
+      <div class="ago-title">Guest Nickname</div>
+      <div class="ago-sub">Choose a nickname for this session.<br>No account needed.</div>
+      <input id="auth-guest-nick" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+      <div class="auth-err" id="auth-guest-err"></div>
+      <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
+      <span class="auth-link" id="auth-guest-back">← Back</span>
+    </div>
   </div>
 
-  <!-- Step 2a: guest nickname -->
-  <div id="auth-step-guest" class="auth-box" style="display:none">
-    <div class="auth-title">Guest Nickname</div>
-    <div class="auth-subtitle">Choose a nickname for this session. No account needed.</div>
-    <input id="auth-guest-nick" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
-    <div class="auth-err" id="auth-guest-err"></div>
-    <button id="auth-guest-go-btn" class="pv-btn gold full">Dive In →</button>
-    <span class="auth-link" id="auth-guest-back">← Back</span>
-  </div>
+  <!-- Step 2a: guest nickname (kept as empty shell for showStep compatibility) -->
+  <div id="auth-step-guest" class="auth-box" style="display:none"></div>
 
   <!-- Step 3: nickname setup (new signed-in users) -->
   <div id="auth-step-nickname" class="auth-box" style="display:none">
@@ -13840,6 +13907,13 @@
         if (el) el.style.display = id === stepId ? "" : "none";
       });
       $a("auth-screen").classList.remove("hidden");
+      if (stepId === "auth-step-choose") {
+        const ol = $a("auth-guest-overlay");
+        if (ol) ol.classList.remove("visible");
+        const gb = $a("auth-guest-btn"), gg = $a("auth-choose-google-btn");
+        if (gb) gb.style.pointerEvents = "";
+        if (gg) gg.style.pointerEvents = "";
+      }
     }
 
     function lockNameInputs(nick) {
@@ -15040,10 +15114,19 @@
     })();
 
     // ── Guest flow ───────────────────────────────────────────────
-    $a("auth-guest-btn").addEventListener("click", () => showStep("auth-step-guest"));
+    $a("auth-guest-btn").addEventListener("click", () => {
+      $a("auth-guest-overlay").classList.add("visible");
+      $a("auth-guest-btn").style.pointerEvents = "none";
+      $a("auth-choose-google-btn").style.pointerEvents = "none";
+      setAuthMsg("auth-guest-err", "", false);
+      $a("auth-guest-nick").value = "";
+      setTimeout(() => $a("auth-guest-nick").focus(), 60);
+    });
 
     $a("auth-guest-back").addEventListener("click", () => {
-      showStep("auth-step-choose");
+      $a("auth-guest-overlay").classList.remove("visible");
+      $a("auth-guest-btn").style.pointerEvents = "";
+      $a("auth-choose-google-btn").style.pointerEvents = "";
     });
 
     async function beginCleanGoogleSignIn(errId) {
