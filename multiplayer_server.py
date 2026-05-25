@@ -3415,10 +3415,19 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # Serve general client PNG assets (game bg, button art, etc.)
-        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|moving-background|moving-background-left|moving-background-right|login-bg|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
+        if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|moving-background|moving-background-left|moving-background-right|lobby-coral-(?:red|orange|yellow))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        # login-bg.png — short cache so artwork updates land quickly
+        if parsed.path == "/login-bg.png":
+            asset_path = os.path.join(CLIENT_DIR, "login-bg.png")
+            if os.path.exists(asset_path):
+                self._send_client_asset(asset_path, content_type="image/png", cache_control="no-cache")
             else:
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
