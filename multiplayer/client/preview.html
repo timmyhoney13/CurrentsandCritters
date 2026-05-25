@@ -9248,9 +9248,14 @@
   function normalizeSymbol(s) { return String(s||"").trim().toLowerCase(); }
   function entryHasSymbolMatch(entryUid, sym) {
     if (!sym) return false;
-    const face = handEntryMap.get(Number(entryUid));
-    if (!face) return false;
-    return normalizeSymbol(face.symbol) === normalizeSymbol(sym);
+    const entry = handEntryMap.get(Number(entryUid));
+    if (!entry) return false;
+    const target = normalizeSymbol(sym);
+    // Dual-faced cards: a match on EITHER face counts as payable for the star ability.
+    if (Array.isArray(entry.faces) && entry.faces.length > 0) {
+      return entry.faces.some(f => normalizeSymbol(f && f.symbol || "") === target);
+    }
+    return normalizeSymbol(entry.symbol) === target;
   }
 
   function uniqueIntList(arr) {
