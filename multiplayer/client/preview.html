@@ -1297,12 +1297,16 @@
     /* ── DISCARD BANNER ─────────────────────────────────────────── */
     #pv-discard-banner {
       display: none;
-      background: linear-gradient(90deg, rgba(40,12,12,0) 0%, rgba(60,10,10,.9) 20%, rgba(60,10,10,.9) 80%, rgba(40,12,12,0) 100%);
-      border-top: 1px solid var(--red);
-      border-bottom: 1px solid var(--red);
-      padding: 7px 14px;
-      font-size: 13px; font-weight: 700;
-      color: #ff8090; text-align: center;
+      background: linear-gradient(90deg, rgba(60,40,8,0) 0%, rgba(80,55,10,.92) 20%, rgba(80,55,10,.92) 80%, rgba(60,40,8,0) 100%);
+      border-top: 1.5px solid rgba(240,200,64,.65);
+      border-bottom: 1.5px solid rgba(240,200,64,.65);
+      padding: 10px 14px;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 14px; font-weight: 700;
+      color: #f0c840;
+      text-shadow: 0 1px 8px rgba(240,200,64,.45);
+      letter-spacing: .2px;
+      text-align: center;
       flex-shrink: 0;
     }
     #pv-discard-banner.visible { display: block; }
@@ -1578,20 +1582,20 @@
 
     /* ── DRAW-PHASE HINT BANNER ────────────────────────────────── */
     #pv-pool-pick-hint {
-      background: linear-gradient(90deg, rgba(240,200,64,.10) 0%, rgba(240,200,64,.20) 50%, rgba(240,200,64,.10) 100%);
-      border: 1.5px solid rgba(240,200,64,.60);
-      border-radius: 9px;
-      padding: 8px 18px;
-      text-align: center;
+      display: none;
+      background: linear-gradient(90deg, rgba(60,40,8,0) 0%, rgba(80,55,10,.92) 20%, rgba(80,55,10,.92) 80%, rgba(60,40,8,0) 100%);
+      border-top: 1.5px solid rgba(240,200,64,.65);
+      border-bottom: 1.5px solid rgba(240,200,64,.65);
+      padding: 10px 14px;
       font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 14px; font-weight: 700;
       color: #f0c840;
+      text-shadow: 0 1px 8px rgba(240,200,64,.45);
       letter-spacing: .2px;
-      text-shadow: 0 1px 8px rgba(240,200,64,.40);
-      width: 100%;
-      box-sizing: border-box;
+      text-align: center;
+      flex-shrink: 0;
     }
+    #pv-pool-pick-hint.visible { display: block; }
 
     /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
     #pv-quick-draw-btn {
@@ -7385,13 +7389,13 @@
       </div>
     </div>
 
-    <!-- Draw-phase hint banner — shown between center strip and player board -->
-    <div id="pv-pool-pick-hint" style="display:none;"></div>
-
     <!-- my board -->
     <div id="pv-my-board"></div>
 
   </div><!-- #pv-table -->
+
+  <!-- Draw-phase hint banner — sits above the action bar for high visibility -->
+  <div id="pv-pool-pick-hint"></div>
 
   <!-- discard banner -->
   <div id="pv-discard-banner"></div>
@@ -9466,14 +9470,16 @@
 
     // Update pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
-    if (isSecondDraw && canInteract) {
-      hint.textContent = canDrawDeck && canDrawPool
-        ? "Choose your 2nd card — click the deck or pick a card from the pool"
-        : canDrawDeck ? "Choose your 2nd card — click the deck to draw again"
-        : "Choose your 2nd card — pick a card from the pool";
-      hint.style.display = "";
-    } else {
-      hint.style.display = "none";
+    if (hint) {
+      if (isSecondDraw && canInteract) {
+        hint.textContent = canDrawDeck && canDrawPool
+          ? "Choose your 2nd card — click the deck or pick a card from the pool"
+          : canDrawDeck ? "Choose your 2nd card — click the deck to draw again"
+          : "Choose your 2nd card — pick a card from the pool";
+        hint.classList.add("visible");
+      } else {
+        hint.classList.remove("visible");
+      }
     }
 
     if (!pool.length) {
