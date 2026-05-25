@@ -492,9 +492,15 @@ def choose_action_weighted_light(
         score += fish.human_realism_action_adjustment(gs, ms, player, action, feats)
         # Strategy + opponent-awareness signal (scaled by per-bot difficulty).
         # action_archetype_bonus internally pulls _strategy_family and
-        # _opp_snapshot from player.flags and adds blocking value for draws.
+        # _opp_snapshot from player.flags, scores how well the action fits
+        # the chosen strategy, and adds blocking value for draws.
         score += strategy_mult * fish.action_archetype_bonus(gs, ms, player, action, None)
+        # Board-fit: rewards plays that build on the current board's plan
+        # (e.g. dropping baitfish into an ocean already stacked with baitfish).
         score += strategy_mult * fish.action_plan_fit_bonus(gs, player, action)
+        # Future value: rewards plays that set up scoring on later turns,
+        # not just this turn. Makes medium/hard bots think ahead.
+        score += strategy_mult * fish.action_future_value_bonus(gs, ms, player, action)
         scored.append((action, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)

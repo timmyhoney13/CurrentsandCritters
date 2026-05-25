@@ -3520,31 +3520,36 @@ def strategies_allowed_for_skill(skill_level: str) -> set[str]:
 # Mapping from lobby difficulty (host-chosen per bot) to AI behavior knobs.
 # Keeping this here so all difficulty tuning lives in one place.
 AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
+    # Design principle: harder bots COMMIT to their opening-hand strategy and
+    # execute it. They don't switch faster — a great player picks a plan and
+    # carries it through unless the board genuinely demands a pivot.
     "easy": {
         "difficulty":      "easy",
         "skill_level":     "beginner",      # only Ocean / Yellowfin / Mammals
-        "switch_margin":   5.0,             # very sticky — rarely changes plan
+        "switch_margin":   3.0,             # easier to flip — easy bots wander
         "block_weight":    0.0,             # ignores opponents entirely
-        "strategy_weight": 0.65,            # lighter strategy bonus → looser play
+        "strategy_weight": 0.55,            # weak strategy signal → looser play
         "explore_chance":  0.30,            # picks a near-best (not the best) often
         "payment_smart":   False,           # uses naive payment (no strategy keep)
     },
     "medium": {
         "difficulty":      "medium",
         "skill_level":     "advanced",      # all strategies except Goby Moon Shot
-        "switch_margin":   3.0,
+        "switch_margin":   4.0,             # commits but adapts to real shifts
         "block_weight":    1.0,
-        "strategy_weight": 1.0,
-        "explore_chance":  0.08,
+        "strategy_weight": 1.35,            # strategy signal noticeably stronger
+        "explore_chance":  0.05,            # almost always best, very rare slip
         "payment_smart":   True,
     },
     "hard": {
         "difficulty":      "hard",
         "skill_level":     "expert",        # full strategy book including Goby
-        "switch_margin":   2.0,             # adapts strategy quickly when needed
-        "block_weight":    1.6,             # blocks aggressively
-        "strategy_weight": 1.45,            # strategy bonus dominates tiebreaks
-        "explore_chance":  0.0,             # always picks the best-scored action
+        "switch_margin":   6.0,             # commits hard — only pivots when board
+                                            # genuinely demands it (overwhelming shift)
+        "block_weight":    1.5,             # blocks opponents who threaten combos
+        "strategy_weight": 1.8,             # strategy fit strongly weighted but not
+                                            # so high it overrides actual point value
+        "explore_chance":  0.0,             # never random — always picks best
         "payment_smart":   True,            # protects strategy heavy hitters from payment
     },
 }
@@ -3721,7 +3726,12 @@ def assign_strategy_families_from_opening_hands(
                 if committed < 2:
                     continue
             hist = strategy_family_stats_bias(family_stats, label)
-            total = fit + hist + rng.uniform(-0.15, 0.15)
+            # Easy bots tolerate a noisier opening pick (fuzzy commitment).
+            # Medium/Hard pick with near-zero noise so the starting plan is
+            # deterministic and they can actually follow through on it.
+            diff_for_noise = str(p.flags.get("_ai_difficulty", "medium")).strip().lower()
+            jitter = 0.15 if diff_for_noise == "easy" else 0.05 if diff_for_noise == "medium" else 0.02
+            total = fit + hist + rng.uniform(-jitter, jitter)
             if total > best_total:
                 best_total = total
                 best_fit = fit
@@ -3770,10 +3780,15 @@ def maybe_reassess_strategy_family(
         if isinstance(maybe_stats, dict):
             family_stats = maybe_stats
 
+    # Per-difficulty board weight: hard bots weight already-built board higher,
+    # so once they've committed cards to the chosen plan, switching is much harder.
+    diff = str(player.flags.get("_ai_difficulty", "medium")).strip().lower()
+    board_weight = 2.2 if diff == "hard" else 1.7 if diff == "medium" else 1.4
+
     scores: Dict[str, float] = {}
     for fam in families:
         label = str(fam.get("label", "")).strip().lower()
-        # Hand fit (weight 1.0), board fit (weight 1.4 — board commitment is sticky),
+        # Hand fit (weight 1.0), board fit (heavily weighted — board commitment is sticky),
         # pool potential (weight 0.4 — what's grabbable next turn).
         hand_score = hand_strategy_family_fit_score(gs, ms, player.hand, fam)
         if hand_score < -100.0:
@@ -3785,12 +3800,14 @@ def maybe_reassess_strategy_family(
         for entry_uid in pool_uids:
             pool_score += entry_best_strategy_family_score(ms, gs, entry_uid, fam)
         hist = strategy_family_stats_bias(family_stats, label)
-        scores[label] = hand_score + 1.4 * board_score + 0.4 * pool_score + 0.3 * hist
+        scores[label] = hand_score + board_weight * board_score + 0.4 * pool_score + 0.3 * hist
 
-    # Stickiness: give the current strategy a small bonus so we only switch
-    # when there's a real shift.
+    # Stickiness: give the current strategy a bonus so we only switch when
+    # there's a real shift. Hard bots get the biggest stickiness — they
+    # commit to the opening plan and follow through.
+    stick = 3.0 if diff == "hard" else 1.5 if diff == "medium" else 0.6
     if current_label in scores:
-        scores[current_label] += 0.8
+        scores[current_label] += stick
 
     best_label = max(scores, key=scores.get)
     if not current_label:
