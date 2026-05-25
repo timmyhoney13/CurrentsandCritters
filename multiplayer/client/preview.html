@@ -9645,16 +9645,27 @@
       const isMe     = p.index === myIdx;
       seat.className = "pv-seat" + (isActive ? " active-turn" : "");
 
-      // Use slot index for others so every client sees the same avatar per seat
-      const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : PV_SEAT_AVATARS[slot % 12];
+      // Start with a deterministic per-name fallback so every client sees the
+      // same default for the same player until the real avatar loads.
+      const fallbackAvatar = (typeof pvSeatDefaultAvatar === "function")
+        ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
+        : PV_SEAT_AVATARS[slot % 12];
+      const initialUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
       const img = document.createElement("img");
-      img.src = avatarUrl;
+      img.src = initialUrl;
       img.alt = p.name || `Seat ${slot + 1}`;
       img.onerror = () => { img.onerror = null; img.src = PV_SEAT_AVATARS[0]; };
       aw.appendChild(img);
+
+      // Async: replace fallback with each non-self player's real chosen avatar.
+      if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
+        window.__fishAvatarForNick(p.name).then(url => {
+          if (url && img && img.isConnected) img.src = url;
+        }).catch(() => {});
+      }
 
       const nm = document.createElement("div");
       nm.className = "pv-seat-name";
@@ -10667,7 +10678,7 @@
       }
       tutRenderBots();
       if (cb) cb();
-    }, 900);
+    }, 1500);
   }
 
   function tutRunAllBots(round, cb) {
@@ -12351,17 +12362,18 @@
     const actionEl = document.getElementById("dn-action");
     if (actionEl) actionEl.innerHTML = "Drew: " + parts.join(" + ");
 
-    // Populate avatar — look up the player's seat index to get the correct avatar
+    // Populate avatar — look up the player's chosen avatar (async) with a
+    // deterministic per-name fallback so the notif renders immediately.
     const avatarWrap = document.getElementById("dn-avatar-wrap");
     const avatarImg  = document.getElementById("dn-avatar-img");
     const avatarLetter = document.getElementById("dn-avatar-letter");
     if (avatarWrap && avatarImg && avatarLetter) {
-      const p = (latestPayload?.state?.players || []).find(pl => pl.name === playerName);
-      const slot = p ? (p.index ?? 0) : 0;
-      let avatarSrc = PV_SEAT_AVATARS[slot % 12];
-      // Use the viewer's own avatar URL if it's their notification
+      const isMine = latestPayload?.viewer?.name === playerName;
+      let avatarSrc = (typeof pvSeatDefaultAvatar === "function")
+        ? pvSeatDefaultAvatar(playerName)
+        : PV_SEAT_AVATARS[0];
       try {
-        if (p && latestPayload?.viewer?.name === playerName && typeof window.__fishMyAvatarUrl === "function") {
+        if (isMine && typeof window.__fishMyAvatarUrl === "function") {
           const mine = String(window.__fishMyAvatarUrl() || "");
           if (mine) avatarSrc = mine;
         }
@@ -12370,6 +12382,13 @@
       avatarImg.alt = playerName;
       avatarImg.style.display = "block";
       avatarLetter.style.display = "none";
+      // Async-replace with Firebase-stored avatar if this notif belongs to
+      // another player.
+      if (!isMine && typeof window.__fishAvatarForNick === "function") {
+        window.__fishAvatarForNick(playerName).then(url => {
+          if (url && avatarImg && avatarImg.isConnected) avatarImg.src = url;
+        }).catch(() => {});
+      }
       avatarImg.onerror = () => {
         avatarImg.style.display = "none";
         avatarLetter.style.display = "";
