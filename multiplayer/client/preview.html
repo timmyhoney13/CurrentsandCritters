@@ -94,8 +94,8 @@
       --cr-gold-deep:  #c89320;
       --card-w:    108px;
       --card-h:    152px;
-      --mini-w:    70px;
-      --mini-h:    98px;
+      --mini-w:    84px;
+      --mini-h:    118px;
       --radius:    10px;
       --glow-c:    rgba(34,216,248,.45);
       --glow-teal: rgba(24,200,168,.5);
@@ -555,14 +555,14 @@
     .pv-deck-count { font-size: 11px; color: var(--cr-navy); font-weight: 800; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
 
     /* Pool */
-    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0; }
+    #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
     #pv-pool-wrap {
       display: grid;
-      grid-template-columns: repeat(5, 70px);
-      gap: 6px;
+      grid-template-columns: repeat(5, 90px);
+      gap: 8px;
     }
     .pv-pool-card {
-      width: 70px; height: 98px;
+      width: 90px; height: 126px;
       border-radius: 7px; overflow: hidden;
       border: 2px solid var(--border);
       cursor: pointer;
@@ -887,7 +887,7 @@
     .pv-board-card[data-species="Invertebrate"]:hover{ border-color: #a78bfa; box-shadow: 0 4px 14px rgba(167,139,250,.4); }
 
     .pv-ocean-face {
-      width: 84px; height: 118px;
+      width: 100px; height: 140px;
       border-radius: 9px; overflow: hidden;
       border: none;
       /* thin dark-blue ring matches the separator line on card images */
@@ -2276,7 +2276,7 @@
 
     /* Read-only board in the focus overlay */
     #pv-board-focus-content .pv-ro-board { gap: 8px; }
-    #pv-board-focus-content .pv-ocean-face { width: 84px; height: 118px; }
+    #pv-board-focus-content .pv-ocean-face { width: 100px; height: 140px; }
 
     /* ── FLOATING GAME LOG ──────────────────────────────────────── */
     #pv-log-float {
@@ -7303,9 +7303,9 @@
     <!-- center strip: pool + deck + draw buttons -->
     <div id="pv-center-strip">
       <div id="pv-pool-area">
-        <div class="pv-section-label">Pool<button id="pv-pool-expand-btn" title="View pool cards larger">View Cards</button></div>
+        <div class="pv-section-label">The Pool<button id="pv-pool-expand-btn" title="Browse all pool cards">Inspect</button></div>
         <div id="pv-pool-wrap"></div>
-        <div id="pv-pool-pick-hint" style="display:none;font-size:10px;color:var(--cyan);text-align:center;margin-top:2px;"></div>
+        <div id="pv-pool-pick-hint" style="display:none;font-size:11px;color:var(--cyan);text-align:center;margin-top:3px;line-height:1.4;"></div>
       </div>
 
       <div class="pv-action-divider" style="height:56px;"></div>
@@ -8027,10 +8027,10 @@
     const emptyEl = document.getElementById("pv-pm-empty");
     titleEl.textContent = `Pool · ${pool.length} card${pool.length !== 1 ? "s" : ""}`;
     if (_pendingDeckPick && canInteract) {
-      hintEl.textContent = "1 from deck chosen — click a pool card to draw 1 deck + 1 pool";
+      hintEl.textContent = "1 netted from deck — click a pool card to pair it with your deck draw";
       hintEl.style.display = "";
     } else if (pendingPoolDrawPicks.size === 1 && canInteract && canDrawPool) {
-      hintEl.textContent = "1 card selected — select a second, or click the deck to draw";
+      hintEl.textContent = "1 from pool — pick a second pool card, or complete with the deck";
       hintEl.style.display = "";
     } else {
       hintEl.style.display = "none";
@@ -9438,15 +9438,15 @@
     // Update pending pick hint
     const hint = document.getElementById("pv-pool-pick-hint");
     if (_pendingDeckPick && canInteract) {
-      hint.innerHTML = "1 from deck chosen — click the deck again for 2nd from deck, or click a pool card &nbsp;<span id=\"pv-deck-pick-cancel\" style=\"cursor:pointer;color:var(--red);font-weight:700;\" title=\"Cancel and start over\">✕ Cancel</span>";
+      hint.innerHTML = "Reeling in 1 from the deck — click deck again for a 2nd, or grab one from the pool &nbsp;<span id=\"pv-deck-pick-cancel\" style=\"cursor:pointer;color:var(--red);font-weight:700;\" title=\"Cancel and start over\">✕ undo</span>";
       hint.style.display = "";
       const cancelEl = document.getElementById("pv-deck-pick-cancel");
       if (cancelEl) cancelEl.addEventListener("click", () => { _pendingDeckPick = false; renderPool(pool, actions); });
     } else if (pendingPoolDrawPicks.size === 1 && canInteract) {
-      hint.textContent = "1 pool card selected — click another pool card, or click the deck";
+      hint.textContent = "1 from pool — pick a second pool card, or complete with the deck";
       hint.style.display = "";
     } else if (pendingPoolDrawPicks.size >= 2 && canInteract) {
-      hint.textContent = "2 pool cards selected — drawing…";
+      hint.textContent = "2 from the pool — hauling them in…";
       hint.style.display = "";
     } else {
       hint.style.display = "none";
@@ -9455,7 +9455,7 @@
     if (!pool.length) {
       const empty = document.createElement("span");
       empty.style.cssText = "font-size:11px;color:var(--muted);";
-      empty.textContent = "(pool empty)";
+      empty.textContent = "The pool is empty";
       wrap.appendChild(empty);
       return;
     }
@@ -9471,7 +9471,7 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
       div.title = (canDrawPool && canInteract)
-        ? `${face.name || faceUid} — click to select for draw · double-click to preview`
+        ? (_pendingDeckPick ? `${face.name || faceUid} — click to draw this + your deck card` : `${face.name || faceUid} — click to select from pool`)
         : (face.name || String(faceUid));
 
       // Single click selects/deselects for draw — no delay, no dblclick gate.
@@ -12135,9 +12135,9 @@
 
     if (drawAction) {
       if (_pendingDeckPick) {
-        steps.push(`<span class="gs active">① Choose 2nd card — click deck again for 2 from deck, or click a pool card for deck + pool</span>`);
+        steps.push(`<span class="gs active">① Choose your 2nd card — click deck again or snag one from the pool</span>`);
       } else {
-        steps.push(`<span class="gs active">① Haul Your Catch — click deck to draw 1 (then pick your 2nd), or click pool cards first</span>`);
+        steps.push(`<span class="gs active">① Haul Your Catch — click the deck to draw 1, then choose your 2nd from deck or pool</span>`);
       }
     } else {
       steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
