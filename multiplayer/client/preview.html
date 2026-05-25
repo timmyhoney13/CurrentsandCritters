@@ -1225,6 +1225,9 @@
     .pv-hand-card.hovered .pv-card-inner { border-color: var(--cyan); box-shadow: 0 0 22px var(--glow-c), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 22px var(--glow-gold), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.pay-selected .pv-card-inner { border-color: var(--green); box-shadow: 0 0 16px rgba(31,187,138,.55); }
+    /* Star ability — matching-symbol cards glow gold during payment */
+    .pv-hand-card.star-sym-match .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 14px rgba(240,200,64,.55), 0 0 28px rgba(240,200,64,.25); }
+    .pv-hand-card.star-sym-match.pay-selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 20px rgba(240,200,64,.75), 0 0 36px rgba(240,200,64,.35); }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
 
     /* cost badge */
@@ -2348,13 +2351,17 @@
     /* ── BOARD FOCUS OVERLAY ────────────────────────────────────── */
     #pv-board-focus {
       display: none; position: fixed; inset: 0; z-index: 9500;
-      background: rgba(10,28,68,.94); flex-direction: column;
+      background: linear-gradient(160deg, rgba(26,45,90,.97) 0%, rgba(20,56,100,.97) 60%, rgba(44,90,138,.96) 100%);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+      flex-direction: column;
       align-items: center; padding: 20px 16px; overflow-y: auto;
     }
     #pv-board-focus.open { display: flex; }
     #pv-board-focus-label {
-      font-size: 1.2rem; color: var(--cyan); font-weight: 900;
+      font-size: 1.2rem; color: var(--cr-gold); font-weight: 900;
       font-family: "Cinzel", serif; margin-bottom: 14px;
+      text-shadow: 0 0 18px rgba(232,179,74,.5);
+      letter-spacing: 1.5px;
     }
     #pv-board-focus-content {
       display: flex; flex-wrap: wrap; gap: 10px;
@@ -2363,10 +2370,12 @@
     }
     #pv-board-focus-close {
       position: fixed; top: 14px; right: 16px;
-      background: var(--border); border: none; color: var(--text);
-      font-size: 1.2rem; width: 32px; height: 32px;
+      background: rgba(44,90,138,.85); border: 1px solid rgba(95,179,214,.5);
+      color: var(--cr-cream); font-size: 1.2rem; width: 32px; height: 32px;
       border-radius: 50%; cursor: pointer; z-index: 9501;
+      transition: background .15s, border-color .15s;
     }
+    #pv-board-focus-close:hover { background: rgba(44,90,138,1); border-color: var(--cr-teal); }
 
     /* ── FULL OPPONENT BOARDS (inline, toggled) ─────────────────── */
     .pv-opp-full-wrap {
@@ -2423,13 +2432,13 @@
       display: none;
       position: fixed;
       z-index: 9450;
-      background: linear-gradient(135deg, rgba(8,24,58,.97) 0%, rgba(10,30,74,.97) 100%);
+      background: linear-gradient(135deg, rgba(26,45,90,.97) 0%, rgba(44,90,138,.97) 100%);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
-      border: 1.5px solid rgba(61,214,245,.5);
+      border: 1.5px solid rgba(95,179,214,.6);
       border-radius: 12px;
       padding: 10px 12px 8px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.65), 0 0 0 1px rgba(61,214,245,.12) inset;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55), 0 0 0 1px rgba(188,221,230,.1) inset, 0 1px 0 rgba(255,255,255,.06) inset;
       max-width: 540px;
       max-height: 72vh;
       overflow-y: auto;
@@ -2443,15 +2452,16 @@
       font-family: "Cinzel", serif;
       font-size: 12px;
       letter-spacing: .8px;
-      color: var(--cyan);
+      color: var(--cr-gold);
       font-weight: 700;
       text-align: center;
       margin-bottom: 6px;
+      text-shadow: 0 0 10px rgba(232,179,74,.4);
     }
     #pv-board-hover .pv-bh-hint {
       font-family: "Baloo 2", "Nunito", sans-serif;
       font-size: 9.5px;
-      color: rgba(180,210,240,.6);
+      color: rgba(188,221,230,.7);
       text-align: center;
       margin-top: 4px;
       letter-spacing: .3px;
@@ -7438,6 +7448,7 @@
       <span class="wr-btn-coral"></span>
       <span class="wr-btn-text" id="wr-btn-text">Waiting for crew…</span>
     </button>
+    <button id="wr-leave-btn" style="margin-top:10px;background:rgba(232,64,87,.15);border:1px solid rgba(232,64,87,.4);color:#e84057;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:background .15s,border-color .15s;">✕ Leave Room</button>
   </div>
 </div>
 
@@ -7534,7 +7545,7 @@
       </select>
       <button class="pv-btn" id="pv-play-btn" title="Play the selected action">Play Card</button>
       <label class="pv-star-wrap" title="Use the card's special ★ ability">
-        <input type="checkbox" id="pv-star-toggle" />
+        <input type="checkbox" id="pv-star-toggle" checked />
         ★ Star ability
       </label>
     </div>
@@ -12073,6 +12084,13 @@
       if (st) card.classList.add("has-star");
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
+      // Gold highlight for symbol-matching cards when a star-ability card is being paid for
+      if (pendingPayAction?.star_symbol && document.getElementById("pv-star-toggle")?.checked) {
+        const beingPlayed = Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid;
+        if (!beingPlayed && entryHasSymbolMatch(entryUid, pendingPayAction.star_symbol)) {
+          card.classList.add("star-sym-match");
+        }
+      }
       if (!_prevHandUIDs.has(Number(face.uid ?? entryUid))) card.classList.add("deal-in");
 
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
@@ -12501,9 +12519,13 @@
   });
 
   document.getElementById("pv-undo-btn").addEventListener("click", async () => {
-    if (!confirm("Undo your last turn? The game will revert to before you played. This only works if the next player hasn't moved yet.")) return;
-    // In competitive mode, use the token for the eligible seat
     const undoInfo = (latestPayload && latestPayload.undo) || {};
+    const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === _myIdxGlobal && latestPayload?.active_action_seat === _myIdxGlobal;
+    const msg = isMidTurn
+      ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
+      : "Undo your last turn? The game will revert to before you played. This only works if the next player hasn't moved yet.";
+    if (!confirm(msg)) return;
+    // In competitive mode, use the token for the eligible seat
     let token;
     if (compMode && compTokens && undoInfo.eligible_seat != null && compTokens[undoInfo.eligible_seat]) {
       token = compTokens[undoInfo.eligible_seat];
@@ -12514,10 +12536,10 @@
     try {
       const r = await apiPost(`/api/rooms/${roomId}/undo`, { seat_token: token }, { timeoutMs: 8000 });
       if (r && r.ok) {
-        showToast("Turn undone — your cards are back.", "turn");
+        showToast(isMidTurn ? "Draw undone — card shuffled back into the deck." : "Turn undone — your cards are back.", "ok");
         await refreshState();
       } else {
-        showToast((r && r.error) || "Undo no longer available — next player has already moved.", "err");
+        showToast((r && r.error) || "Undo no longer available.", "err");
       }
     } catch (e) {
       showToast("Undo request failed — check connection.", "err");
@@ -12670,8 +12692,38 @@
     }
   }
 
-  document.getElementById("pv-back-btn").addEventListener("click", () => {
-    // Always leave to the signed-in home menu.
+  document.getElementById("pv-back-btn").addEventListener("click", async () => {
+    closeMenu();
+    const phase = latestPayload?.phase;
+    const isRunning = phase === "running";
+    const msg = isRunning
+      ? "Leave the game? If you're host and others remain, they'll get host. If no one is left the room closes."
+      : "Leave and return to the menu?";
+    if (!confirm(msg)) return;
+    const token = getSeatToken();
+    if (token && roomId) {
+      try {
+        const r = await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 });
+        if (r?.action === "host_transferred") {
+          showToast(`You left. ${r.new_host} is now host.`, "ok");
+        }
+      } catch {}
+    }
+    returnToMenu();
+  });
+
+  document.getElementById("wr-leave-btn").addEventListener("click", async () => {
+    if (!confirm("Leave this room?")) return;
+    const token = getSeatToken();
+    if (token && roomId) {
+      try {
+        const r = await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 });
+        if (r?.action === "host_transferred") {
+          showToast(`You left. ${r.new_host} is now host.`, "ok");
+        }
+      } catch {}
+    }
+    hideWaitingRoom();
     returnToMenu();
   });
 

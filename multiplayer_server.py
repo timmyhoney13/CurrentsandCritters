@@ -819,6 +819,45 @@ class GameRoom:
         with self.cond:
             return self._is_host_authorized_locked(host_token, seat_token)
 
+    def leave_room(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            if self.phase == "ended":
+                return {"ok": True, "action": "left"}
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+
+            was_host = seat.is_host
+            leaving_name = seat.claimed_name or seat.label
+
+            # Clear the leaving player's seat
+            seat.claimed_name = None
+            seat.token = None
+            seat.is_host = False
+
+            # Count remaining claimed human seats
+            remaining = [s for s in self.seats if s.kind == "human" and s.token is not None]
+
+            if not remaining:
+                # No humans left — discard the room
+                self.phase = "ended"
+                self.status_note = f"{leaving_name} left. Room closed (no players remaining)."
+                self._bump_locked()
+                return {"ok": True, "action": "discarded"}
+
+            if was_host:
+                # Transfer host to the first remaining human
+                new_host = remaining[0]
+                new_host.is_host = True
+                self.status_note = f"{leaving_name} left. {new_host.claimed_name or new_host.label} is now host."
+                self._bump_locked()
+                return {"ok": True, "action": "host_transferred", "new_host": new_host.claimed_name or new_host.label}
+
+            self.status_note = f"{leaving_name} left the room."
+            self._bump_locked()
+            return {"ok": True, "action": "left"}
+
     def room_link(self, host_header: str, proto_hint: str = "") -> str:
         return f"{share_base_url(host_header, proto_hint)}/play/{self.room_id}"
 
@@ -2158,6 +2197,36 @@ class GameRoom:
                 )
                 wait_sec = 1800.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
+                if cmd is not None and cmd.get("kind") == "undo_mid_turn":
+                    # Player undid during their own turn (e.g. drew first card and changed mind).
+                    # Restore the pre-turn snapshot; shuffle deck so the returned card(s)
+                    # land at a random position rather than exactly where they were drawn from.
+                    gs_restore: Any = None
+                    ms_restore: Any = None
+                    with self.cond:
+                        if self.undo_valid and self.undo_snapshot_gs is not None:
+                            gs_restore = copy.deepcopy(self.undo_snapshot_gs)
+                            ms_restore = copy.deepcopy(self.undo_snapshot_ms)
+                    if gs_restore is not None:
+                        random.shuffle(gs_restore.deck)
+                        gs.__dict__.clear()
+                        gs.__dict__.update(gs_restore.__dict__)
+                        ms.__dict__.clear()
+                        ms.__dict__.update(ms_restore.__dict__)
+                        with self.cond:
+                            self.undo_requested = False
+                            self.undo_valid = False
+                            self.undo_snapshot_gs = None
+                            self.undo_snapshot_ms = None
+                            self._undo_pending_gs = None
+                            self._undo_pending_ms = None
+                            self._undo_pending_seat = None
+                            self.legal_actions_by_seat.clear()
+                            self.active_action_seat = None
+                            self.status_note = f"{player.name} undid their draw — turn restarted."
+                            self._bump_locked()
+                    continue  # Re-loop: offer fresh legal actions for the same player
+
                 if cmd is not None and cmd.get("kind") == "undo_confirm":
                     # Previous player requested undo — restore state and signal engine.
                     gs_restore: Any = None
@@ -2998,8 +3067,17 @@ class GameRoom:
             if seat.index != self.undo_eligible_seat:
                 return {"ok": False, "error": "not your undo to use"}
             active = self.active_action_seat
-            if active is None or active == seat.index:
-                return {"ok": False, "error": "no active opposing player to undo through"}
+            if active is None:
+                return {"ok": False, "error": "undo not available — no active player"}
+            if active == seat.index:
+                # Mid-turn undo: player is still in their own turn (e.g. drew first card).
+                # Inject undo_mid_turn directly into their own pending queue so the
+                # engine picks it up on the next policy wait and restores the snapshot.
+                self.undo_requested = True
+                self.pending_actions.setdefault(seat.index, []).insert(0, {"kind": "undo_mid_turn"})
+                self._bump_locked()
+                return {"ok": True}
+            # Post-turn undo: route through the next active player as before.
             self.undo_requested = True
             self.pending_actions.setdefault(active, []).insert(0, {"kind": "undo_confirm"})
             self._bump_locked()
@@ -4033,6 +4111,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.submit_undo(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "leave":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.leave_room(body)
+            # If the room was discarded and no one remains, remove it from ROOMS
+            if out.get("action") == "discarded":
+                ROOMS.pop(parts[2], None)
+            self._send_json(out, status=HTTPStatus.OK)
             return
 
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "seat_difficulty":
