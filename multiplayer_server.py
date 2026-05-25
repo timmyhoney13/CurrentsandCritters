@@ -588,7 +588,7 @@ class GameRoom:
                         index=i,
                         kind="ai",
                         label=f"Player {i + 1}",
-                        claimed_name=f"AI Player {ai_num}",
+                        claimed_name=f"Bot {ai_num}",
                         token=None,
                     )
                 )
@@ -893,9 +893,9 @@ class GameRoom:
                     if seat_kind == "ai":
                         raw_ai_name = seat_raw.get("claimed_name")
                         claimed_name = (
-                            safe_name(raw_ai_name, f"AI Player {ai_num}")
+                            safe_name(raw_ai_name, f"Bot {ai_num}")
                             if isinstance(raw_ai_name, str) and raw_ai_name.strip()
-                            else f"AI Player {ai_num}"
+                            else f"Bot {ai_num}"
                         )
                         ai_num += 1
                     else:
