@@ -2776,10 +2776,19 @@ LONG_TERM_ENGINE_TAGS = {
 }
 
 STRATEGY_FAMILY_TO_ENGINE_TAG = {
+    # Legacy labels (kept for older brain-data backwards compat).
     "birds": "engine:bird",
     "birds_crustaceans": "engine:crustacean",
     "game_fish": "engine:gamefish",
     "cephalopods": "engine:cephalopod",
+    # New explicit strategy labels.
+    "ocean_all_blue": "engine:ocean",
+    "yellowfin_tuna": "engine:yellowfin",
+    "mammals": "engine:mammal",
+    "baitfish_barrage": "engine:baitfish",
+    "birds_coral": "engine:bird",
+    "coral_cephalopods": "engine:cephalopod",
+    "goby_moon_shot": "engine:goby-spiny",
 }
 
 
@@ -3328,77 +3337,184 @@ def reinforce_human_demo_from_board(gs: GameState, human_indices: set[int], brai
     stabilize_weights(weights)
 
 
+STRATEGY_DIFFICULTY_RANK = {
+    "beginner": 0,
+    "intermediate": 1,
+    "advanced": 2,
+    "expert": 3,
+}
+
+
+def _difficulty_rank(label: str) -> int:
+    return STRATEGY_DIFFICULTY_RANK.get(str(label or "").strip().lower(), 2)
+
+
 def strategy_family_profiles() -> List[Dict[str, Any]]:
-    """High-level strategy families to learn across games."""
-    return [
+    """High-level strategy families used for AI plan picking + scoring.
+
+    Each profile now has:
+      * heavy_hitters  — cards the AI should rarely pay/discard
+      * stack_engines  — cards that multiply the strategy's value
+      * support_names  — useful helpers
+      * names          — core cards (heavy hitters + stack engines folded in for legacy callers)
+      * species        — preferred species (broad bonus)
+      * text_keywords  — synergy text the AI should reward
+      * difficulty     — beginner / intermediate / advanced / expert
+    """
+    profiles = [
+        # ── Beginner ────────────────────────────────────────────────
         {
-            "label": "birds",
-            "species": ["bird"],
-            "names": [
-                "emperor penguin",
-                "horned puffin",
-                "california seagull",
-                "peruvian pelican",
-                "great albatross",
-                "osprey",
-                "magnificent frigatebird",
-                "razorbill auk",
+            "label": "ocean_all_blue",
+            "display_name": "Ocean All Blue",
+            "difficulty": "beginner",
+            "species": ["ocean"],
+            "heavy_hitters": ["mangrove", "great albatross", "tide pool"],
+            "stack_engines": ["artificial reef", "coral reef"],
+            "support_names": [
+                "arctic ocean", "arctic oceans", "deep ocean", "kelp forest", "pier",
             ],
-            "support_names": ["sea urchin", "sea star"],
-            "text_keywords": ["per bird"],
+            "text_keywords": [
+                "per ocean", "ocean card", "for every ocean",
+                "if you have the most piers", "all 8 oceans",
+            ],
         },
+        {
+            "label": "yellowfin_tuna",
+            "display_name": "Yellowfin Tuna Stack",
+            "difficulty": "beginner",
+            "species": ["game fish"],
+            "heavy_hitters": ["bigeye tuna", "big eye tuna"],
+            "stack_engines": ["yellowfin tuna", "artificial reef"],
+            "support_names": ["sea cucumber", "clownfish", "cleaner wrasse"],
+            "text_keywords": [
+                "yellowfin tuna", "big eye tuna", "free game fish", "per game fish",
+            ],
+        },
+        {
+            "label": "mammals",
+            "display_name": "Mammals",
+            "difficulty": "beginner",
+            "species": ["mammal"],
+            "heavy_hitters": ["great white shark"],
+            "stack_engines": ["spinner dolphin", "bottlenose dolphin", "narwhal"],
+            "support_names": ["blue tang"],
+            "text_keywords": ["per mammal", "free mammal", "mammal"],
+        },
+        # ── Intermediate ─────────────────────────────────────────────
+        {
+            "label": "baitfish_barrage",
+            "display_name": "Baitfish Barrage",
+            "difficulty": "intermediate",
+            "species": ["baitfish"],
+            "heavy_hitters": ["whale shark"],
+            "stack_engines": ["hermit crab", "roosterfish"],
+            "support_names": [
+                "mullet", "bunker", "sardine", "flying fish", "bonito",
+                "sea cucumber", "sea urchin", "loggerhead sea turtle",
+            ],
+            "text_keywords": [
+                "per baitfish", "sharing an ocean with baitfish",
+                "whale shark", "baitfish",
+            ],
+        },
+        # ── Advanced ─────────────────────────────────────────────────
         {
             "label": "birds_crustaceans",
+            "display_name": "Bird / Lobster (B-Lob)",
+            "difficulty": "advanced",
             "species": ["bird", "crustacean"],
-            "names": [
-                "california seagull",
-                "lobster",
-                "spiny lobster",
-                "mantis shrimp",
-                "king crab",
-                "hermit crab",
-            ],
-            "support_names": ["sea urchin", "cleaner wrasse"],
-            "text_keywords": ["per crustacean"],
-        },
-        {
-            "label": "game_fish",
-            "species": ["game fish"],
-            "names": [
-                "yellowfin tuna",
-                "big eye tuna",
-                "mahi mahi",
-                "blue marlin",
-                "tarpon",
-                "sailfish",
-                "roosterfish",
-                "goliath grouper",
-                "king salmon",
-                "barracuda",
-            ],
-            "support_names": ["sea cucumber", "artificial reef", "clownfish", "whale shark"],
-            "text_keywords": ["game fish", "yellowfin tuna", "big eye tuna", "sharing an ocean with baitfish"],
-        },
-        {
-            "label": "cephalopods",
-            "species": ["cephalopod"],
-            "names": [
-                "reef trigger fish",
-                "common octopus",
-                "giant squid",
-                "bobtail squid",
-                "cuttlefish",
-            ],
+            "heavy_hitters": ["emperor penguin", "california seagull"],
+            "stack_engines": ["razorbill auk", "horned puffin", "peruvian pelican",
+                              "lobster", "mantis shrimp"],
             "support_names": [
-                "reef trigger fish",
-                "reef triggerfish",
-                "manta ray",
-                "humuhumunukunukuapua'a",
-                "humuhumu-nukunuku-apua'a",
+                "artificial reef", "sea star", "common sea star",
+                "clownfish", "sea urchin", "cleaner wrasse",
             ],
-            "text_keywords": ["cephalopod", "at least three cephalopods", "free cephalopods"],
+            "text_keywords": [
+                "per bird", "per crustacean", "california seagull",
+            ],
+        },
+        {
+            "label": "birds_coral",
+            "display_name": "Bird / Coral (B-Coral)",
+            "difficulty": "advanced",
+            "species": ["bird", "coral"],
+            "heavy_hitters": ["emperor penguin", "magnificent frigatebird"],
+            "stack_engines": [
+                "horned puffin", "peruvian pelican", "razorbill auk",
+                "staghorn coral", "deep sea coral", "grooved brain coral",
+                "elkhorn coral", "elk horn coral",
+            ],
+            "support_names": ["coral reef", "red tree coral", "sea urchin"],
+            "text_keywords": [
+                "per bird", "magnificent frigatebird", "coral", "per coral",
+            ],
+        },
+        {
+            "label": "coral_cephalopods",
+            "display_name": "Coral / Cephalopods (CC)",
+            "difficulty": "advanced",
+            "species": ["cephalopod", "coral"],
+            "heavy_hitters": [
+                "grooved brain coral", "reef trigger fish", "reef triggerfish",
+                "manta ray",
+            ],
+            "stack_engines": [
+                "staghorn coral", "deep sea coral", "elkhorn coral", "elk horn coral",
+                "giant squid", "bobtail squid", "common octopus", "cuttlefish",
+            ],
+            "support_names": ["blue tang", "coral reef"],
+            "text_keywords": [
+                "cephalopod", "per cephalopod", "at least three cephalopods",
+                "reef trigger fish", "free cephalopods",
+            ],
+        },
+        # ── Expert ────────────────────────────────────────────────────
+        {
+            "label": "goby_moon_shot",
+            "display_name": "Goby Moon Shot",
+            "difficulty": "expert",
+            "species": ["crosscurrent", "n/a"],
+            "heavy_hitters": ["mandarin goby", "spiny lobster"],
+            "stack_engines": ["sea star", "common sea star"],
+            "support_names": ["blue tang", "clownfish", "artificial reef", "california seagull"],
+            "text_keywords": [
+                "mandarin goby", "spiny lobster", "crosscurrent animal",
+            ],
         },
     ]
+
+    # Backfill the legacy `names` field so existing code paths still work.
+    for prof in profiles:
+        merged = []
+        seen = set()
+        for src in (prof.get("heavy_hitters", []), prof.get("stack_engines", []),
+                    prof.get("support_names", [])):
+            for n in src:
+                key = str(n).strip().lower()
+                if key and key not in seen:
+                    seen.add(key)
+                    merged.append(key)
+        prof["names"] = merged
+
+    return profiles
+
+
+# Strategies usable at each skill level (cumulative — expert can pick any).
+STRATEGY_SKILL_ALLOWLIST = {
+    "beginner":     {"ocean_all_blue", "yellowfin_tuna", "mammals"},
+    "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
+    "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
+                     "birds_crustaceans", "birds_coral", "coral_cephalopods"},
+    "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
+                     "birds_crustaceans", "birds_coral", "coral_cephalopods",
+                     "goby_moon_shot"},
+}
+
+
+def strategies_allowed_for_skill(skill_level: str) -> set[str]:
+    key = str(skill_level or "advanced").strip().lower()
+    return STRATEGY_SKILL_ALLOWLIST.get(key, STRATEGY_SKILL_ALLOWLIST["advanced"])
 
 
 def strategy_family_profile_by_label(label: str) -> Optional[Dict[str, Any]]:
@@ -3409,28 +3525,67 @@ def strategy_family_profile_by_label(label: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _ensure_profile_sets(family_profile: Dict[str, Any]) -> None:
+    """Lazily cache normalized set/list views on the profile dict so the
+    per-card scorer doesn't rebuild them on every call (hot path)."""
+    if family_profile.get("_normalized"):
+        return
+    family_profile["_species_set"] = {str(x).strip().lower() for x in family_profile.get("species", [])}
+    family_profile["_heavy_set"]   = {str(x).strip().lower() for x in family_profile.get("heavy_hitters", [])}
+    family_profile["_engine_set"]  = {str(x).strip().lower() for x in family_profile.get("stack_engines", [])}
+    family_profile["_support_set"] = {str(x).strip().lower() for x in family_profile.get("support_names", [])}
+    family_profile["_names_set"]   = {str(x).strip().lower() for x in family_profile.get("names", [])}
+    family_profile["_keywords"]    = tuple(str(x).strip().lower() for x in family_profile.get("text_keywords", []))
+    family_profile["_normalized"]  = True
+
+
 def strategy_family_card_score(card: CardDef, family_profile: Optional[Dict[str, Any]]) -> float:
     if not isinstance(family_profile, dict):
         return 0.0
-    species_set = {str(x).strip().lower() for x in family_profile.get("species", [])}
-    names_set = {str(x).strip().lower() for x in family_profile.get("names", [])}
-    support_set = {str(x).strip().lower() for x in family_profile.get("support_names", [])}
-    keywords = [str(x).strip().lower() for x in family_profile.get("text_keywords", [])]
+    _ensure_profile_sets(family_profile)
+    species_set = family_profile["_species_set"]
+    heavy_set   = family_profile["_heavy_set"]
+    engine_set  = family_profile["_engine_set"]
+    support_set = family_profile["_support_set"]
+    names_set   = family_profile["_names_set"]
+    keywords    = family_profile["_keywords"]
 
     name = card.name.strip().lower()
     species = card.species.strip().lower()
     text = card.text.lower()
     score = 0.0
-    if species in species_set:
+    # Tiered priority: heavy hitter > stack engine > generic core > support > species/text.
+    if name in heavy_set:
+        score += 3.5
+    elif name in engine_set:
+        score += 2.6
+    elif name in names_set:
         score += 2.0
-    if name in names_set:
-        score += 2.8
     if name in support_set:
         score += 1.2
+    if species in species_set:
+        score += 1.0
     for kw in keywords:
         if kw and (kw in text or kw in name):
-            score += 0.9
+            score += 0.7
     return score
+
+
+def strategy_family_label_for_card(card: CardDef, family_profile: Optional[Dict[str, Any]]) -> str:
+    """Classify a card within a strategy: heavy / engine / support / off."""
+    if not isinstance(family_profile, dict):
+        return "off"
+    name = card.name.strip().lower()
+    if name in {str(x).strip().lower() for x in family_profile.get("heavy_hitters", [])}:
+        return "heavy"
+    if name in {str(x).strip().lower() for x in family_profile.get("stack_engines", [])}:
+        return "engine"
+    if name in {str(x).strip().lower() for x in family_profile.get("support_names", [])}:
+        return "support"
+    species = card.species.strip().lower()
+    if species in {str(x).strip().lower() for x in family_profile.get("species", [])}:
+        return "support"
+    return "off"
 
 
 def entry_best_strategy_family_score(
@@ -3502,12 +3657,30 @@ def assign_strategy_families_from_opening_hands(
     for i, p in enumerate(gs.players):
         if i in human_indices:
             continue
+        skill = str(p.flags.get("_ai_skill_level", "advanced")).strip().lower()
+        allowlist = strategies_allowed_for_skill(skill)
+        # The Goby moon shot requires real opening fit — gate strictly even for experts.
         best_label = ""
         best_fit = float("-inf")
         best_total = float("-inf")
         for fam in families:
             label = str(fam.get("label", ""))
+            if label not in allowlist:
+                continue
             fit = hand_strategy_family_fit_score(gs, ms, p.hand, fam)
+            # Goby Moon Shot is high risk: experts only commit if hand shows
+            # at least two heavy/engine pieces.
+            if label == "goby_moon_shot":
+                heavy_set = {str(x).strip().lower() for x in fam.get("heavy_hitters", [])}
+                engine_set = {str(x).strip().lower() for x in fam.get("stack_engines", [])}
+                committed = 0
+                for entry_uid in p.hand:
+                    for face_uid in entry_faces(ms, entry_uid):
+                        nm = gs.card_db[face_uid].name.strip().lower()
+                        if nm in heavy_set or nm in engine_set:
+                            committed += 1
+                if committed < 2:
+                    continue
             hist = strategy_family_stats_bias(family_stats, label)
             total = fit + hist + rng.uniform(-0.15, 0.15)
             if total > best_total:
@@ -3520,6 +3693,277 @@ def assign_strategy_families_from_opening_hands(
             p.flags["_strategy_family_source"] = "opening_hand+learned"
             assigned.append((p.name, best_label, float(best_fit)))
     return assigned
+
+
+def maybe_reassess_strategy_family(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    brain: Optional[Dict[str, object]] = None,
+    switch_margin: float = 3.0,
+) -> Optional[str]:
+    """Re-evaluate the chosen strategy against current hand+board+pool.
+
+    Returns the new strategy label if a switch occurred, else None.
+    A switch happens only when another strategy beats the current one by
+    ``switch_margin`` points — keeps the AI from flip-flopping.
+    """
+    skill = str(player.flags.get("_ai_skill_level", "advanced")).strip().lower()
+    allowlist = strategies_allowed_for_skill(skill)
+    families = [f for f in strategy_family_profiles()
+                if str(f.get("label", "")).strip().lower() in allowlist]
+    if not families:
+        return None
+
+    current_label = str(player.flags.get("_strategy_family", "")).strip().lower()
+
+    # Snap-shot hand + board + visible pool — pool cards available
+    # for drawing should reward strategies that can pick them up.
+    pool_uids = list(ms.pool)
+
+    family_stats = None
+    if isinstance(brain, dict):
+        maybe_stats = brain.get("strategy_family_stats")
+        if isinstance(maybe_stats, dict):
+            family_stats = maybe_stats
+
+    scores: Dict[str, float] = {}
+    for fam in families:
+        label = str(fam.get("label", "")).strip().lower()
+        # Hand fit (weight 1.0), board fit (weight 1.4 — board commitment is sticky),
+        # pool potential (weight 0.4 — what's grabbable next turn).
+        hand_score = hand_strategy_family_fit_score(gs, ms, player.hand, fam)
+        if hand_score < -100.0:
+            hand_score = 0.0
+        board_score = 0.0
+        for uid in player_board_face_uids(player):
+            board_score += strategy_family_card_score(gs.card_db[uid], fam)
+        pool_score = 0.0
+        for entry_uid in pool_uids:
+            pool_score += entry_best_strategy_family_score(ms, gs, entry_uid, fam)
+        hist = strategy_family_stats_bias(family_stats, label)
+        scores[label] = hand_score + 1.4 * board_score + 0.4 * pool_score + 0.3 * hist
+
+    # Stickiness: give the current strategy a small bonus so we only switch
+    # when there's a real shift.
+    if current_label in scores:
+        scores[current_label] += 0.8
+
+    best_label = max(scores, key=scores.get)
+    if not current_label:
+        # No strategy yet — adopt the best one.
+        player.flags["_strategy_family"] = best_label
+        player.flags["_strategy_family_fit"] = float(scores[best_label])
+        player.flags["_strategy_family_source"] = "mid_game_adopt"
+        return best_label
+
+    if best_label == current_label:
+        return None
+
+    current_score = scores.get(current_label, float("-inf"))
+    if scores[best_label] - current_score >= switch_margin:
+        player.flags["_strategy_family_prev"] = current_label
+        player.flags["_strategy_family"] = best_label
+        player.flags["_strategy_family_fit"] = float(scores[best_label])
+        player.flags["_strategy_family_source"] = "mid_game_switch"
+        return best_label
+    return None
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  OPPONENT-AWARENESS — track what each opponent is building and let the AI
+#  defensively hate-draft pool cards that would complete their combos.
+# ──────────────────────────────────────────────────────────────────────────
+
+def _opponent_strategy_score_table(
+    gs: GameState,
+    ms: MatchState,
+    opponent: PlayerState,
+) -> Dict[str, float]:
+    """Score every strategy profile against this opponent's board+hand.
+
+    The opponent's own hand is hidden from us in real play, but in this
+    engine all players share `gs`. We weight board (visible, public) very
+    heavily and ignore hand for the inference — that matches what a real
+    player can see.
+    """
+    scores: Dict[str, float] = {}
+    board_uids = player_board_face_uids(opponent)
+    for fam in strategy_family_profiles():
+        label = str(fam.get("label", "")).strip().lower()
+        s = 0.0
+        for uid in board_uids:
+            s += strategy_family_card_score(gs.card_db[uid], fam)
+        scores[label] = s
+    return scores
+
+
+def infer_opponent_strategy(
+    gs: GameState,
+    ms: MatchState,
+    opponent: PlayerState,
+) -> Tuple[str, float]:
+    """Return (best_strategy_label, confidence_0_to_1) for an opponent.
+
+    Confidence rises with how many board cards point at the same plan and
+    by how far ahead the top strategy is over the runner-up.
+    """
+    board_uids = player_board_face_uids(opponent)
+    if not board_uids:
+        return ("unknown", 0.0)
+
+    scores = _opponent_strategy_score_table(gs, ms, opponent)
+    if not scores:
+        return ("unknown", 0.0)
+
+    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    top_label, top_score = ranked[0]
+    runner = ranked[1][1] if len(ranked) > 1 else 0.0
+
+    if top_score <= 0.0:
+        return ("unknown", 0.0)
+
+    # Confidence has two ingredients:
+    #   * commitment   — how many cards on board fit the plan (saturates at 6)
+    #   * separation   — how far ahead the top is over the runner-up
+    commitment = min(1.0, top_score / 14.0)
+    separation = 0.0 if top_score <= 0 else min(1.0, max(0.0, (top_score - runner)) / 6.0)
+    confidence = 0.55 * commitment + 0.45 * separation
+    return (top_label, max(0.0, min(1.0, confidence)))
+
+
+def opponent_strategy_snapshot(
+    gs: GameState,
+    ms: MatchState,
+    me: PlayerState,
+) -> Dict[str, Dict[str, Any]]:
+    """Build a snapshot of every opponent's inferred strategy + needed cards.
+
+    Returns: {opponent_name: {
+        "label": strategy_label,
+        "confidence": 0.0..1.0,
+        "heavy_hitters": set of card-name strings they likely want,
+        "stack_engines": set of card-name strings,
+        "support_names": set of card-name strings,
+        "have_heavy":  count of heavy hitters they already have on board,
+        "have_engine": count of stack engines they already have on board,
+    }}
+    """
+    snapshot: Dict[str, Dict[str, Any]] = {}
+    for opp in gs.players:
+        if opp is me:
+            continue
+        label, conf = infer_opponent_strategy(gs, ms, opp)
+        fam = strategy_family_profile_by_label(label) if label != "unknown" else None
+        if not isinstance(fam, dict):
+            snapshot[opp.name] = {
+                "label": label, "confidence": 0.0,
+                "heavy_hitters": set(), "stack_engines": set(), "support_names": set(),
+                "have_heavy": 0, "have_engine": 0,
+            }
+            continue
+        heavy   = {str(x).strip().lower() for x in fam.get("heavy_hitters", [])}
+        engine  = {str(x).strip().lower() for x in fam.get("stack_engines", [])}
+        support = {str(x).strip().lower() for x in fam.get("support_names", [])}
+        board_names = [gs.card_db[u].name.strip().lower() for u in player_board_face_uids(opp)]
+        have_heavy = sum(1 for n in board_names if n in heavy)
+        have_engine = sum(1 for n in board_names if n in engine)
+        snapshot[opp.name] = {
+            "label": label,
+            "confidence": conf,
+            "heavy_hitters": heavy,
+            "stack_engines": engine,
+            "support_names": support,
+            "have_heavy": have_heavy,
+            "have_engine": have_engine,
+        }
+    return snapshot
+
+
+def refresh_opponent_snapshot(gs: GameState, ms: MatchState, player: PlayerState) -> None:
+    """Compute & cache the snapshot on the player so per-action evaluation is cheap."""
+    try:
+        snap = opponent_strategy_snapshot(gs, ms, player)
+        player.flags["_opp_snapshot"] = snap
+    except Exception:
+        player.flags["_opp_snapshot"] = {}
+
+
+def pool_card_blocking_value(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    entry_uid: int,
+) -> float:
+    """How much should we hate-draft this pool entry to deny opponents?
+
+    Returns 0 if nobody seems to want the card. Higher = more important to
+    block. Capped so it can't overwhelm own-strategy plays.
+    """
+    snap = player.flags.get("_opp_snapshot")
+    if not isinstance(snap, dict) or not snap:
+        return 0.0
+
+    # Goby Moon Shot is so explosive we always weight blockers more heavily.
+    GOBY_LABEL = "goby_moon_shot"
+
+    best = 0.0
+    for face_uid in entry_faces(ms, entry_uid):
+        nm = gs.card_db[face_uid].name.strip().lower()
+        for opp_name, opp in snap.items():
+            conf = float(opp.get("confidence", 0.0))
+            if conf < 0.20:
+                continue  # not enough signal — don't waste blocking power
+            heavy   = opp.get("heavy_hitters", set())
+            engine  = opp.get("stack_engines", set())
+            support = opp.get("support_names", set())
+            label   = str(opp.get("label", "")).strip().lower()
+            have_heavy = int(opp.get("have_heavy", 0))
+            have_engine = int(opp.get("have_engine", 0))
+
+            base = 0.0
+            if nm in heavy:
+                base = 1.8
+            elif nm in engine:
+                base = 1.1
+            elif nm in support:
+                base = 0.45
+            else:
+                continue
+
+            # Scale by confidence (more signal → trust the read more).
+            value = base * (0.55 + 0.45 * conf)
+
+            # Pieces-already-have multiplier: 0 pieces → 1.0×, 3+ pieces → 1.45×.
+            pieces = have_heavy + have_engine
+            value *= 1.0 + min(0.45, 0.12 * pieces)
+
+            # Expert combos are particularly explosive — boost block weight.
+            if label == GOBY_LABEL:
+                value *= 1.40
+
+            if value > best:
+                best = value
+    # Cap so blocking can't dominate the AI's own plan.
+    return min(2.5, best)
+
+
+def best_pool_blocking_target(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+) -> Tuple[Optional[int], float]:
+    """Find the pool entry the AI most wants to deny opponents, plus its block score."""
+    if not ms.pool:
+        return (None, 0.0)
+    best_uid: Optional[int] = None
+    best_val = 0.0
+    for entry_uid in ms.pool:
+        v = pool_card_blocking_value(gs, ms, player, entry_uid)
+        if v > best_val:
+            best_val = v
+            best_uid = entry_uid
+    return (best_uid, best_val)
 
 
 def infer_player_strategy_family_label(gs: GameState, player: PlayerState) -> str:
@@ -3873,6 +4317,10 @@ def action_archetype_bonus(
                     bonus += 0.9 * entry_best_archetype_score(ms, gs, uid, profile)
                 if isinstance(family_profile, dict):
                     bonus += 0.65 * entry_best_strategy_family_score(ms, gs, uid, family_profile)
+                # Defensive hate-draft: add blocking value if a pool card is
+                # critical to an opponent's likely combo. Capped inside the
+                # helper so it can't overwhelm own-strategy moves.
+                bonus += 0.85 * pool_card_blocking_value(gs, ms, player, uid)
         elif action.draw_from_pool > 0 and ms.pool:
             # small upside for pool draw when no explicit pick assigned
             bonus += 0.15
@@ -4036,12 +4484,7 @@ def action_archetype_bonus(
         "engine:na",
         "engine:yellowfin",
     }
-    family_to_engine = {
-        "birds": "engine:bird",
-        "birds_crustaceans": "engine:crustacean",
-        "game_fish": "engine:gamefish",
-        "cephalopods": "engine:cephalopod",
-    }
+    family_to_engine = dict(STRATEGY_FAMILY_TO_ENGINE_TAG)
     board_profile = board_strategy_profile(gs, player)
     best_engine = ""
     best_strength = 0.0
@@ -4517,7 +4960,14 @@ def expand_draw_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerStat
             out.append(a)
             continue
 
-        scored = [(uid, pool_entry_value_for_player(ms, gs, uid, player)) for uid in ms.pool]
+        # Combine own-strategy value with blocking value so high-priority
+        # hate-draft targets surface into the candidate set even if they
+        # are not perfect for the AI's own plan.
+        scored = []
+        for uid in ms.pool:
+            own_val = pool_entry_value_for_player(ms, gs, uid, player)
+            block_val = pool_card_blocking_value(gs, ms, player, uid)
+            scored.append((uid, own_val + 0.55 * block_val))
         scored.sort(key=lambda x: x[1], reverse=True)
         top = [uid for uid, _ in scored[: min(4, len(scored))]]
         if not top:
@@ -4782,6 +5232,18 @@ def entry_keep_priority_for_strategy(ms: MatchState, gs: GameState, player: Play
     has_memory = isinstance(player.flags.get("_visible_memory"), dict)
     best = 0.0
 
+    # Strategy-specific keep weights — cards inside the current strategy's
+    # heavy_hitters / stack_engines are precious and shouldn't be spent.
+    family_label = str(player.flags.get("_strategy_family", "")).strip().lower()
+    family_profile = strategy_family_profile_by_label(family_label) if family_label else None
+    fam_heavy: set = set()
+    fam_engine: set = set()
+    fam_support: set = set()
+    if isinstance(family_profile, dict):
+        fam_heavy   = {str(x).strip().lower() for x in family_profile.get("heavy_hitters", [])}
+        fam_engine  = {str(x).strip().lower() for x in family_profile.get("stack_engines", [])}
+        fam_support = {str(x).strip().lower() for x in family_profile.get("support_names", [])}
+
     for face_uid in entry_faces(ms, entry_uid):
         c = gs.card_db[face_uid]
         name = c.name.strip().lower()
@@ -4792,6 +5254,13 @@ def entry_keep_priority_for_strategy(ms: MatchState, gs: GameState, player: Play
             keep += 2.4
         if name in PAYMENT_ENGINE_KEEPER_NAMES:
             keep += 1.6
+        # Strategy-specific protection (stacks on top of the generic lists).
+        if name in fam_heavy:
+            keep += 3.5
+        elif name in fam_engine:
+            keep += 2.5
+        elif name in fam_support:
+            keep += 0.9
         if "play again" in text or "go again" in text:
             keep += 1.4
         if "for free" in text:
@@ -8229,6 +8698,28 @@ def run_match(
         if human_realism_enabled():
             for mem_p in gs.players:
                 update_visible_memory_for_player(gs, ms, mem_p)
+        # Mid-game strategy reassessment for the AI whose turn it is.
+        # Humans keep their own strategy free of automated override.
+        try:
+            p_index = gs.players.index(p)
+            is_human_turn = (
+                p_index in human_idx_set
+                or bool(p.flags.get("_web_human"))
+                or bool(p.flags.get("_human"))
+            )
+            if not is_human_turn:
+                switched = maybe_reassess_strategy_family(
+                    gs, ms, p, brain=online_state if isinstance(online_state, dict) else None
+                )
+                if switched and live_recorder is not None:
+                    prev = str(p.flags.get("_strategy_family_prev", "")) or "(none)"
+                    live_recorder.event(
+                        f"AI strategy switch — {p.name}: {prev} → {switched}"
+                    )
+                # Build the opponent-awareness snapshot once per AI turn.
+                refresh_opponent_snapshot(gs, ms, p)
+        except Exception:
+            pass
         if verbose_state:
             print("Hands:")
             for hp in gs.players:
