@@ -3517,6 +3517,45 @@ def strategies_allowed_for_skill(skill_level: str) -> set[str]:
     return STRATEGY_SKILL_ALLOWLIST.get(key, STRATEGY_SKILL_ALLOWLIST["advanced"])
 
 
+# Mapping from lobby difficulty (host-chosen per bot) to AI behavior knobs.
+# Keeping this here so all difficulty tuning lives in one place.
+AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
+    "easy": {
+        "difficulty":      "easy",
+        "skill_level":     "beginner",      # only Ocean / Yellowfin / Mammals
+        "switch_margin":   5.0,             # very sticky — rarely changes plan
+        "block_weight":    0.0,             # ignores opponents entirely
+        "strategy_weight": 0.65,            # lighter strategy bonus → looser play
+        "explore_chance":  0.30,            # picks a near-best (not the best) often
+        "payment_smart":   False,           # uses naive payment (no strategy keep)
+    },
+    "medium": {
+        "difficulty":      "medium",
+        "skill_level":     "advanced",      # all strategies except Goby Moon Shot
+        "switch_margin":   3.0,
+        "block_weight":    1.0,
+        "strategy_weight": 1.0,
+        "explore_chance":  0.08,
+        "payment_smart":   True,
+    },
+    "hard": {
+        "difficulty":      "hard",
+        "skill_level":     "expert",        # full strategy book including Goby
+        "switch_margin":   2.0,             # adapts strategy quickly when needed
+        "block_weight":    1.6,             # blocks aggressively
+        "strategy_weight": 1.45,            # strategy bonus dominates tiebreaks
+        "explore_chance":  0.0,             # always picks the best-scored action
+        "payment_smart":   True,            # protects strategy heavy hitters from payment
+    },
+}
+
+
+def ai_difficulty_config(raw: Optional[str]) -> Dict[str, Any]:
+    """Look up the per-difficulty behavior dict. Unknown -> medium."""
+    key = str(raw or "medium").strip().lower()
+    return dict(AI_DIFFICULTY_CONFIGS.get(key, AI_DIFFICULTY_CONFIGS["medium"]))
+
+
 def strategy_family_profile_by_label(label: str) -> Optional[Dict[str, Any]]:
     key = str(label or "").strip().lower()
     for p in strategy_family_profiles():
@@ -3700,8 +3739,12 @@ def maybe_reassess_strategy_family(
     ms: MatchState,
     player: PlayerState,
     brain: Optional[Dict[str, object]] = None,
-    switch_margin: float = 3.0,
+    switch_margin: Optional[float] = None,
 ) -> Optional[str]:
+    # Per-player override (hard bots switch faster, easy bots stay rigid).
+    if switch_margin is None:
+        flag_margin = player.flags.get("_ai_switch_margin")
+        switch_margin = float(flag_margin) if isinstance(flag_margin, (int, float)) else 3.0
     """Re-evaluate the chosen strategy against current hand+board+pool.
 
     Returns the new strategy label if a switch occurred, else None.
@@ -3904,6 +3947,12 @@ def pool_card_blocking_value(
     if not isinstance(snap, dict) or not snap:
         return 0.0
 
+    # Per-player blocking multiplier (easy bots: 0 = don't block at all).
+    block_weight_flag = player.flags.get("_ai_block_weight")
+    block_mult = float(block_weight_flag) if isinstance(block_weight_flag, (int, float)) else 1.0
+    if block_mult <= 0.0:
+        return 0.0
+
     # Goby Moon Shot is so explosive we always weight blockers more heavily.
     GOBY_LABEL = "goby_moon_shot"
 
@@ -3944,8 +3993,11 @@ def pool_card_blocking_value(
 
             if value > best:
                 best = value
-    # Cap so blocking can't dominate the AI's own plan.
-    return min(2.5, best)
+    # Apply per-player block multiplier, then cap so blocking can't dominate
+    # the AI's own plan. Hard bots have a higher effective cap.
+    best *= block_mult
+    cap = 2.5 * max(1.0, block_mult)
+    return min(cap, best)
 
 
 def best_pool_blocking_target(
@@ -5234,8 +5286,13 @@ def entry_keep_priority_for_strategy(ms: MatchState, gs: GameState, player: Play
 
     # Strategy-specific keep weights — cards inside the current strategy's
     # heavy_hitters / stack_engines are precious and shouldn't be spent.
+    # Easy bots have payment_smart=False — they skip these protections so
+    # they sometimes spend their best cards. Default True for human-paced
+    # AI and medium/hard bots.
+    payment_smart_flag = player.flags.get("_ai_payment_smart")
+    payment_smart = bool(payment_smart_flag) if payment_smart_flag is not None else True
     family_label = str(player.flags.get("_strategy_family", "")).strip().lower()
-    family_profile = strategy_family_profile_by_label(family_label) if family_label else None
+    family_profile = strategy_family_profile_by_label(family_label) if (family_label and payment_smart) else None
     fam_heavy: set = set()
     fam_engine: set = set()
     fam_support: set = set()
@@ -8569,6 +8626,7 @@ def run_match(
     player_archetype_profiles: Optional[List[Dict[str, Any]]] = None,
     hand_based_archetypes: bool = False,
     human_learning_boost: float = 1.0,
+    ai_difficulties: Optional[List[str]] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
     web_control_mode = str(os.environ.get("FISH_WEB_CONTROL", "")).strip().lower() in {
@@ -8601,6 +8659,23 @@ def run_match(
         p.flags["_allow_relocate_action"] = bool(i in human_idx_set)
         if web_control_mode and (i in human_idx_set):
             p.flags["_web_human"] = True
+
+    # Per-bot difficulty: easy / medium / hard. The host picks this in the
+    # lobby; the engine maps each tier to skill_level + behavior knobs
+    # (switch margin, blocking weight, randomness, payment carefulness).
+    if ai_difficulties is not None:
+        for i, raw in enumerate(ai_difficulties):
+            if i >= len(players) or i in human_idx_set:
+                continue
+            cfg = ai_difficulty_config(raw)
+            p = players[i]
+            p.flags["_ai_difficulty"]      = cfg["difficulty"]
+            p.flags["_ai_skill_level"]     = cfg["skill_level"]
+            p.flags["_ai_switch_margin"]   = float(cfg["switch_margin"])
+            p.flags["_ai_block_weight"]    = float(cfg["block_weight"])
+            p.flags["_ai_strategy_weight"] = float(cfg["strategy_weight"])
+            p.flags["_ai_explore_chance"]  = float(cfg["explore_chance"])
+            p.flags["_ai_payment_smart"]   = bool(cfg["payment_smart"])
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)

@@ -9,6 +9,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import random
 import re
 import secrets
 import socket
@@ -457,6 +458,10 @@ def choose_action_weighted_light(
     if not acts:
         return None
 
+    # Per-bot difficulty knobs (set when the game launches; defaults if missing).
+    strategy_mult = float(player.flags.get("_ai_strategy_weight", 1.0) or 1.0)
+    explore_chance = float(player.flags.get("_ai_explore_chance", 0.0) or 0.0)
+
     scored: List[tuple[fish.Action, float]] = []
     for action in acts:
         feats = fish.action_features(
@@ -485,10 +490,33 @@ def choose_action_weighted_light(
         score += weights.get("branch_bonus", 0.0) * branch_v
         score += fish.action_engine_timing_bonus(gs, ms, player, action)
         score += fish.human_realism_action_adjustment(gs, ms, player, action, feats)
+        # Strategy + opponent-awareness signal (scaled by per-bot difficulty).
+        # action_archetype_bonus internally pulls _strategy_family and
+        # _opp_snapshot from player.flags and adds blocking value for draws.
+        score += strategy_mult * fish.action_archetype_bonus(gs, ms, player, action, None)
+        score += strategy_mult * fish.action_plan_fit_bonus(gs, player, action)
         scored.append((action, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)
-    best = scored[0][0]
+
+    # Easy bots occasionally pick a near-best action instead of the best one
+    # so they feel beatable. Hard bots always lock onto the top score.
+    if explore_chance > 0.0 and len(scored) > 1 and random.random() < explore_chance:
+        # Pick from the top 3 with mild softmax-like preference for higher scores.
+        topk = scored[: min(3, len(scored))]
+        weights_pick = [max(0.05, s) for _, s in topk]
+        total = sum(weights_pick) or 1.0
+        r = random.random() * total
+        acc = 0.0
+        chosen_idx = 0
+        for i, w in enumerate(weights_pick):
+            acc += w
+            if r <= acc:
+                chosen_idx = i
+                break
+        best = topk[chosen_idx][0]
+    else:
+        best = scored[0][0]
 
     # Keep board-first behavior if a draw only barely wins.
     if best.kind == "draw":
@@ -508,6 +536,7 @@ class Seat:
     claimed_name: Optional[str] = None
     token: Optional[str] = None
     is_host: bool = False
+    difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -694,6 +723,7 @@ class GameRoom:
                     "claimed_name": seat.claimed_name,
                     "token": seat.token,
                     "is_host": bool(seat.is_host),
+                    "difficulty": str(seat.difficulty or "medium"),
                 }
                 for seat in self.seats
             ],
@@ -797,6 +827,7 @@ class GameRoom:
                     "status": seat.status(),
                     "claimed_name": seat.claimed_name,
                     "is_host": bool(seat.is_host),
+                    "difficulty": str(seat.difficulty or "medium"),
                 }
             )
         return out
@@ -872,6 +903,12 @@ class GameRoom:
                         if isinstance(raw_human_name, str) and raw_human_name.strip():
                             claimed_name = safe_name(raw_human_name, seat_label)
                     token = seat_raw.get("token") if seat_kind == "human" and isinstance(seat_raw.get("token"), str) else None
+                    raw_difficulty = seat_raw.get("difficulty")
+                    seat_difficulty = (
+                        str(raw_difficulty).strip().lower()
+                        if isinstance(raw_difficulty, str) and raw_difficulty.strip().lower() in {"easy", "medium", "hard"}
+                        else "medium"
+                    )
                     parsed_seats.append(
                         Seat(
                             index=idx,
@@ -880,6 +917,7 @@ class GameRoom:
                             claimed_name=claimed_name,
                             token=token,
                             is_host=bool(seat_raw.get("is_host")) if seat_kind == "human" else False,
+                            difficulty=seat_difficulty,
                         )
                     )
             if parsed_seats:
@@ -1270,6 +1308,33 @@ class GameRoom:
 
             self._launch_game_locked(card_db, status_note="Game restarted. Waiting for first turn.")
             return {"ok": True}
+
+    def set_seat_difficulty(
+        self,
+        host_token: str,
+        seat_token: Optional[str],
+        seat_index: int,
+        difficulty: str,
+    ) -> Dict[str, Any]:
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "difficulty can only change in the lobby"}
+            if not isinstance(seat_index, int) or seat_index < 0 or seat_index >= len(self.seats):
+                return {"ok": False, "error": "invalid seat index"}
+            target = self.seats[seat_index]
+            if target.kind != "ai":
+                return {"ok": False, "error": "only AI seats have a difficulty"}
+            normalized = str(difficulty or "").strip().lower()
+            if normalized not in {"easy", "medium", "hard"}:
+                return {"ok": False, "error": "difficulty must be easy, medium, or hard"}
+            if target.difficulty == normalized:
+                return {"ok": True, "difficulty": normalized, "unchanged": True}
+            target.difficulty = normalized
+            self.status_note = f"{target.claimed_name or target.label} set to {normalized.title()} difficulty."
+            self._bump_locked()
+            return {"ok": True, "difficulty": normalized}
 
     def terminate_game(self, host_token: str, seat_token: Optional[str]) -> Dict[str, Any]:
         with self.cond:
@@ -2639,6 +2704,7 @@ class GameRoom:
 
             player_names: List[str] = []
             policies = []
+            ai_difficulties_by_game_idx: List[str] = []
             for game_idx, seat_idx in enumerate(seat_turn_order):
                 seat = next(s for s in self.seats if s.index == seat_idx)
                 if seat.kind == "human":
@@ -2646,6 +2712,7 @@ class GameRoom:
                     player_names.append(seat.claimed_name or seat.label)
                     human_policy = self._human_policy(seat.index)
                     policies.append(self._wrap_policy_with_fallback(seat.claimed_name or seat.label, human_policy))
+                    ai_difficulties_by_game_idx.append("")  # placeholder for humans
                 else:
                     human_indices.discard(game_idx)
                     player_names.append(seat.claimed_name or seat.label)
@@ -2663,6 +2730,7 @@ class GameRoom:
                     policies.append(
                         self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy)
                     )
+                    ai_difficulties_by_game_idx.append(str(seat.difficulty or "medium").strip().lower())
 
             human_game = bool(human_indices)
 
@@ -2680,6 +2748,7 @@ class GameRoom:
                 online_state=None,
                 online_state_path=None,
                 live_recorder=recorder,
+                ai_difficulties=ai_difficulties_by_game_idx,
             )
 
             def _safe_score(player: fish.PlayerState) -> int:
@@ -3956,6 +4025,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_undo(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "seat_difficulty":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            try:
+                seat_index = int(body.get("seat_index"))
+            except (TypeError, ValueError):
+                self._send_json({"ok": False, "error": "seat_index must be int"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            difficulty = body.get("difficulty") if isinstance(body.get("difficulty"), str) else ""
+            out = room.set_seat_difficulty(host_token, seat_token, seat_index, difficulty)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

@@ -1500,6 +1500,45 @@
     }
     .wr-player-name { font-weight: 700; color: #1a3a72; }
     .wr-player-empty { color: #6a87b0; font-weight: 600; }
+    /* AI difficulty picker — three small pills (Easy/Medium/Hard) next to each bot */
+    .wr-ai-name { flex: 1; min-width: 0; }
+    .wr-diff-box {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px; border-radius: 10px;
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(26,58,114,.18);
+      margin-left: auto; flex-shrink: 0;
+    }
+    .wr-diff-pill {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: .3px;
+      padding: 5px 10px;
+      border-radius: 7px;
+      border: 1.5px solid transparent;
+      background: transparent;
+      cursor: pointer;
+      color: #6a87b0;
+      transition: transform .08s ease, background .12s ease, color .12s ease, border-color .12s ease;
+      user-select: none;
+    }
+    .wr-diff-pill:hover:not(:disabled) { transform: translateY(-1px); }
+    .wr-diff-pill:disabled { cursor: default; opacity: .55; }
+    .wr-diff-pill.wr-diff-easy.active {
+      background: #2e9e4f; color: #fff; border-color: #1f7a3a;
+      box-shadow: 0 2px 6px rgba(46,158,79,.4);
+    }
+    .wr-diff-pill.wr-diff-medium.active {
+      background: #e8b73a; color: #5a3a00; border-color: #b88a18;
+      box-shadow: 0 2px 6px rgba(232,183,58,.5);
+    }
+    .wr-diff-pill.wr-diff-hard.active {
+      background: #cc3636; color: #fff; border-color: #8a1f1f;
+      box-shadow: 0 2px 6px rgba(204,54,54,.5);
+    }
+    .wr-diff-pill.wr-diff-easy:hover:not(:disabled):not(.active)   { color: #2e9e4f; border-color: rgba(46,158,79,.45); }
+    .wr-diff-pill.wr-diff-medium:hover:not(:disabled):not(.active) { color: #b88a18; border-color: rgba(184,138,24,.45); }
+    .wr-diff-pill.wr-diff-hard:hover:not(:disabled):not(.active)   { color: #cc3636; border-color: rgba(204,54,54,.45); }
     .wr-caption {
       font-size: 15px;
       color: #2c4d80;
@@ -8305,6 +8344,61 @@
   function hideWaitingRoom() {
     document.getElementById("pv-waiting-room").classList.remove("open");
   }
+  // Three difficulty pills (Easy/Medium/Hard) shown next to AI bot seats in
+  // the lobby. Only the host can click them; non-hosts see them as static.
+  function buildDifficultyBox(seat, isHost) {
+    const box = document.createElement("div");
+    box.className = "wr-diff-box";
+    const current = String(seat.difficulty || "medium").toLowerCase();
+    [
+      { id: "easy",   label: "Easy"   },
+      { id: "medium", label: "Medium" },
+      { id: "hard",   label: "Hard"   },
+    ].forEach(opt => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `wr-diff-pill wr-diff-${opt.id}` + (current === opt.id ? " active" : "");
+      btn.textContent = opt.label;
+      btn.disabled = !isHost;
+      if (isHost) {
+        btn.title = `Set ${seat.claimed_name || ("Seat " + (seat.index + 1))} to ${opt.label}`;
+        btn.addEventListener("click", async () => {
+          if (current === opt.id) return;
+          await setBotDifficulty(seat.index, opt.id, btn);
+        });
+      } else {
+        btn.title = `${opt.label}${current === opt.id ? " (selected)" : ""}`;
+      }
+      box.appendChild(btn);
+    });
+    return box;
+  }
+
+  async function setBotDifficulty(seatIndex, difficulty, originBtn) {
+    if (!roomId) return;
+    // Optimistic UI: mark selected pill immediately so the host gets instant feedback,
+    // then sync via the next state poll if the server rejects it.
+    const wrap = originBtn?.parentElement;
+    if (wrap) {
+      wrap.querySelectorAll(".wr-diff-pill").forEach(b => b.classList.remove("active"));
+      originBtn.classList.add("active");
+    }
+    try {
+      const hostToken = getHostToken();
+      const seatToken = getSeatToken();
+      const payload = { seat_index: seatIndex, difficulty };
+      if (hostToken) payload.host_token = hostToken;
+      if (seatToken) payload.seat_token = seatToken;
+      const r = await apiPost(`/api/rooms/${roomId}/seat_difficulty`, payload, { timeoutMs: 6000 });
+      if (!r.ok) {
+        const msg = r.data?.error || ("HTTP " + r.status);
+        showToast("Failed to set difficulty: " + msg, "err");
+      }
+    } catch (e) {
+      showToast("Network error setting difficulty.", "err");
+    }
+  }
+
   function updateWaitingRoom(seats, canStart, startFn, isHost) {
     // Title reflects host vs non-host
     document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
@@ -8317,14 +8411,19 @@
       const dot = document.createElement("div");
       dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
       const nm = document.createElement("span");
+      const isAI = (s.kind === "ai");
       if (s.claimed_name) {
-        nm.className = "wr-player-name";
+        nm.className = "wr-player-name" + (isAI ? " wr-ai-name" : "");
         nm.textContent = `Seat ${s.index+1}: ${s.claimed_name}`;
       } else {
-        nm.className = "wr-player-empty";
+        nm.className = "wr-player-empty" + (isAI ? " wr-ai-name" : "");
         nm.textContent = `Seat ${s.index+1}: Open`;
       }
-      row.appendChild(dot); row.appendChild(nm); list.appendChild(row);
+      row.appendChild(dot); row.appendChild(nm);
+      if (isAI) {
+        row.appendChild(buildDifficultyBox(s, isHost));
+      }
+      list.appendChild(row);
     });
 
     const filled = (seats||[]).filter(s => s.claimed_name).length;
