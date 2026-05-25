@@ -3,6 +3,12 @@
   "outputDirectory": ".",
   "headers": [
     {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" }
+      ]
+    },
+    {
       "source": "/firebase-config.js",
       "headers": [{ "key": "Cache-Control", "value": "no-store" }]
     },

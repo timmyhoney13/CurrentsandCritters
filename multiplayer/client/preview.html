@@ -9028,10 +9028,12 @@
     // Hand-over-10 warning: ONLY for manual draw actions (pool / deck / mix).
     // Card-triggered draws don't come through here — they happen server-side
     // as part of resolving a play. So this naturally only catches user draws.
+    // Draws are now 1 card at a time, so warn only when THIS draw would push
+    // the hand past 10 (not when a hypothetical second draw might).
     if (action.kind === "draw" && !_drawWarnBypass) {
       const meNow = (latestPayload?.state?.players || []).find(p => p.index === myIdx);
       const handCount = Number(meNow?.hand_count ?? (Array.isArray(meNow?.hand) ? meNow.hand.length : 0));
-      if (handCount + 2 > 10) {
+      if (handCount + 1 > 10) {
         _pendingDrawAction = action;
         document.getElementById("draw-warn-modal").classList.add("open");
         return;
@@ -9472,10 +9474,7 @@
     const hint = document.getElementById("pv-pool-pick-hint");
     if (hint) {
       if (isSecondDraw && canInteract) {
-        hint.textContent = canDrawDeck && canDrawPool
-          ? "Choose your 2nd card — click the deck or pick a card from the pool"
-          : canDrawDeck ? "Choose your 2nd card — click the deck to draw again"
-          : "Choose your 2nd card — pick a card from the pool";
+        hint.textContent = "Choose your second card — click the Deck or draw one from the pool";
         hint.classList.add("visible");
       } else {
         hint.classList.remove("visible");
