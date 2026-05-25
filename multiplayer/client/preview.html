@@ -2384,9 +2384,67 @@
     #pv-opponents.full-mode.opp-3 { grid-template-columns: 1fr 1fr 1fr; }
     #pv-opponents.full-mode { overflow-y: auto; max-height: 42vh; }
 
-    /* Read-only board in the focus overlay */
-    #pv-board-focus-content .pv-ro-board { gap: 8px; }
-    #pv-board-focus-content .pv-ocean-face { width: 100px; height: 140px; }
+    /* Read-only board in the focus overlay — adaptive sizing based on how
+       many oceans are on the board. Bigger when there are few, smaller as
+       more oceans need to fit on screen. Set --focus-scale from JS. */
+    #pv-board-focus-content {
+      --focus-scale: 1;
+      --mini-w: calc(84px * var(--focus-scale));
+      --mini-h: calc(118px * var(--focus-scale));
+    }
+    #pv-board-focus-content .pv-ro-board { gap: calc(8px * var(--focus-scale)); }
+    #pv-board-focus-content .pv-ocean-face {
+      width: calc(110px * var(--focus-scale));
+      height: calc(154px * var(--focus-scale));
+    }
+
+    /* ── BOARD HOVER PREVIEW (smaller, floating tooltip) ─────────── */
+    #pv-board-hover {
+      display: none;
+      position: fixed;
+      z-index: 9450;
+      background: linear-gradient(135deg, rgba(8,24,58,.97) 0%, rgba(10,30,74,.97) 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1.5px solid rgba(61,214,245,.5);
+      border-radius: 12px;
+      padding: 10px 12px 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.65), 0 0 0 1px rgba(61,214,245,.12) inset;
+      max-width: 540px;
+      max-height: 72vh;
+      overflow-y: auto;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+    #pv-board-hover.visible { display: block; opacity: 1; transform: translateY(0); }
+    #pv-board-hover .pv-bh-title {
+      font-family: "Cinzel", serif;
+      font-size: 12px;
+      letter-spacing: .8px;
+      color: var(--cyan);
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    #pv-board-hover .pv-bh-hint {
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 9.5px;
+      color: rgba(180,210,240,.6);
+      text-align: center;
+      margin-top: 4px;
+      letter-spacing: .3px;
+    }
+    /* Hover preview uses smaller cards regardless of board size — it's a tooltip. */
+    #pv-board-hover {
+      --mini-w: 50px;
+      --mini-h: 70px;
+    }
+    #pv-board-hover .pv-ro-board { gap: 4px; }
+    #pv-board-hover .pv-ocean-face { width: 62px; height: 88px; }
+    #pv-board-hover .pv-board-card { cursor: default; }
+    #pv-board-hover .pv-board-card:hover { transform: none; }
 
     /* ── FLOATING GAME LOG ──────────────────────────────────────── */
     #pv-log-float {
@@ -7659,6 +7717,13 @@
   <div id="pv-board-focus-content"></div>
 </div>
 
+<!-- ══ BOARD HOVER PREVIEW ════════════════════════════════════════ -->
+<div id="pv-board-hover">
+  <div class="pv-bh-title" id="pv-bh-title"></div>
+  <div id="pv-bh-content"></div>
+  <div class="pv-bh-hint">Click for a bigger view</div>
+</div>
+
 <!-- ══ FLOATING GAME LOG ══════════════════════════════════════════ -->
 <div id="pv-log-float">
   <div id="pv-log-float-hdr"><span>Game Log</span><span>&#10005;</span></div>
@@ -9788,9 +9853,10 @@
       seat.addEventListener("click", () => {
         try { openBoardFocus(p); } catch (e) {}
       });
+      try { attachBoardHover(seat, p); } catch (e) {}
       seat.title = isMe
-        ? "View your board"
-        : `View ${p.name || `Player ${slot + 1}`}'s board`;
+        ? "Hover for a quick view, click to enlarge"
+        : `Hover for ${p.name || `Player ${slot + 1}`}'s board, click to enlarge`;
 
       cluster.appendChild(seat);
     }
@@ -9818,8 +9884,9 @@
         outer.className = posClasses[idx] || "";
         const wrap = document.createElement("div");
         wrap.className = "pv-opp-full-wrap" + (p.index === turnIndex ? " active-turn" : "");
-        wrap.title = `Click to zoom ${p.name || `Player ${p.index}`}'s board`;
+        wrap.title = `Hover for a peek at ${p.name || `Player ${p.index}`}'s board, click to enlarge`;
         wrap.addEventListener("click", () => openBoardFocus(p));
+        try { attachBoardHover(wrap, p); } catch (e) {}
         // Label stays readable regardless of rotation
         const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
         const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
@@ -9858,6 +9925,7 @@
         });
         mini.appendChild(thumbs);
         mini.addEventListener("click", () => openBoardFocus(p));
+        try { attachBoardHover(mini, p); } catch (e) {}
         el.appendChild(mini);
       });
       return;
@@ -9943,8 +10011,9 @@
         more.textContent = `+${board.length-5}`; miniBoard.appendChild(more);
       }
       card.appendChild(miniBoard);
-      card.title = `Click to view ${p.name || `Player ${p.index}`}'s full board`;
+      card.title = `Hover for a quick peek at ${p.name || `Player ${p.index}`}'s board, click to enlarge`;
       card.addEventListener("click", () => openBoardFocus(p));
+      try { attachBoardHover(card, p); } catch (e) {}
       wrap.appendChild(card);
       el.appendChild(wrap);
     });
@@ -12736,14 +12805,79 @@
     return wrap;
   }
 
+  // Cards get smaller as more oceans are on the board so everything stays
+  // on screen. Returns the --focus-scale CSS variable value.
+  function _boardFocusScaleFor(oceanCount) {
+    if (oceanCount <= 1) return 1.65;
+    if (oceanCount === 2) return 1.45;
+    if (oceanCount === 3) return 1.25;
+    if (oceanCount === 4) return 1.05;
+    if (oceanCount === 5) return 0.90;
+    if (oceanCount === 6) return 0.78;
+    if (oceanCount === 7) return 0.68;
+    return 0.60;
+  }
+
   function openBoardFocus(player) {
     const overlay = document.getElementById("pv-board-focus");
     const label = document.getElementById("pv-board-focus-label");
     const content = document.getElementById("pv-board-focus-content");
     label.textContent = `${player.name || `Player ${player.index}`}'s Board`;
     content.innerHTML = "";
+    const board = Array.isArray(player.board) ? player.board : [];
+    const scale = _boardFocusScaleFor(board.length);
+    content.style.setProperty("--focus-scale", String(scale));
+    content.dataset.oceans = String(board.length);
     content.appendChild(renderReadOnlyBoard(player));
     overlay.classList.add("open");
+    // Hide any hover preview so it doesn't sit on top of the modal.
+    hideBoardHover();
+  }
+
+  // ── Board hover preview ─────────────────────────────────────────
+  let _boardHoverTimer = null;
+  function showBoardHover(player, anchorEl) {
+    if (!player) return;
+    const pop = document.getElementById("pv-board-hover");
+    const title = document.getElementById("pv-bh-title");
+    const content = document.getElementById("pv-bh-content");
+    if (!pop || !title || !content) return;
+    title.textContent = `${player.name || `Player ${player.index}`}'s Board`;
+    content.innerHTML = "";
+    content.appendChild(renderReadOnlyBoard(player));
+    // Position adjacent to the anchor, clamped to the viewport.
+    pop.style.left = "0px"; pop.style.top = "0px";
+    pop.classList.add("visible");
+    const popRect = pop.getBoundingClientRect();
+    const rect = anchorEl?.getBoundingClientRect?.();
+    let left, top;
+    if (rect) {
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const placeRight = (rect.right + 12 + popRect.width) <= vw;
+      left = placeRight ? rect.right + 12 : Math.max(8, rect.left - popRect.width - 12);
+      top  = Math.min(Math.max(8, rect.top + (rect.height - popRect.height)/2), vh - popRect.height - 8);
+    } else {
+      left = (window.innerWidth - popRect.width) / 2;
+      top  = (window.innerHeight - popRect.height) / 2;
+    }
+    pop.style.left = `${Math.round(left)}px`;
+    pop.style.top  = `${Math.round(top)}px`;
+  }
+  function hideBoardHover() {
+    const pop = document.getElementById("pv-board-hover");
+    if (pop) pop.classList.remove("visible");
+    if (_boardHoverTimer) { clearTimeout(_boardHoverTimer); _boardHoverTimer = null; }
+  }
+  function attachBoardHover(el, player) {
+    if (!el || !player) return;
+    el.addEventListener("mouseenter", () => {
+      if (_boardHoverTimer) clearTimeout(_boardHoverTimer);
+      // Slight delay so quick mouse-throughs don't flash the popup.
+      _boardHoverTimer = setTimeout(() => showBoardHover(player, el), 110);
+    });
+    el.addEventListener("mouseleave", () => {
+      hideBoardHover();
+    });
   }
 
   document.getElementById("pv-board-focus-close").addEventListener("click", () => {
