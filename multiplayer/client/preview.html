@@ -716,7 +716,12 @@
       100% { transform: translateY(0)     translateX(0)     scale(1)    rotate(0deg); opacity: 1; }
     }
     .pv-hand-card.deal-in {
-      animation: dealIn .45s cubic-bezier(.22,.68,0,1.2) both;
+      animation: handSurfaceIn .46s cubic-bezier(.22,.68,0,1.15) both;
+    }
+    @keyframes handSurfaceIn {
+      0%   { opacity: 0; transform: scale(.55) translateY(10px); filter: blur(2px); }
+      55%  { opacity: 1; transform: scale(1.08) translateY(-2px); filter: blur(0); }
+      100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
     }
 
     /* ── END-GAME CINEMATIC ─────────────────────────────────────── */
@@ -9801,29 +9806,29 @@
         card.style.left = (fromCx - 45) + "px";
         card.style.top  = (fromCy - 63) + "px";
         card.style.transform = `scale(${startScale}) rotate(0deg)`;
-        card.style.opacity = "0";
+        card.style.opacity = "1";
 
         const host = layer();
         if (!host) { resolve(); return; }
         host.appendChild(card);
         running += 1;
 
-        // Use Web Animations API for a curved path via offset.
+        // Single curved path via Web Animations API. Mid keyframe is the arc apex.
         requestAnimationFrame(() => {
-          // Arc midpoint: lifted up and slightly offset for hook feel
           const midX = (fromCx + toCx) / 2;
-          const midY = Math.min(fromCy, toCy) - Math.max(40, Math.abs(toCx - fromCx) * 0.15);
+          const midY = Math.min(fromCy, toCy) - Math.max(50, Math.abs(toCx - fromCx) * 0.18);
           const dx1 = midX - fromCx, dy1 = midY - fromCy;
           const dx2 = toCx - fromCx, dy2 = toCy - fromCy;
+          const midScale = (startScale + endScale) / 2 * 1.08;
+          const midRot = mode === "hook" ? 180 : 3;
+          const endRot = mode === "hook" ? 360 : 0;
 
           const keyframes = [
-            { transform: `translate(0,0) scale(${startScale}) rotate(0deg)`, opacity: 0 },
-            { transform: `translate(0,0) scale(${startScale * 1.05}) rotate(${mode === "hook" ? -3 : 0}deg)`, opacity: 1, offset: 0.05 },
-            { transform: `translate(${dx1}px,${dy1}px) scale(${(startScale + endScale) / 2 * 1.08}) rotate(${mode === "hook" ? 180 : 4}deg)`, offset: 0.55 },
-            { transform: `translate(${dx2}px,${dy2}px) scale(${endScale * 1.06}) rotate(${mode === "hook" ? 360 : 0}deg)`, opacity: 1, offset: 0.92 },
-            { transform: `translate(${dx2}px,${dy2}px) scale(${endScale}) rotate(${mode === "hook" ? 360 : 0}deg)`, opacity: .9 },
+            { transform: `translate(0,0) scale(${startScale}) rotate(0deg)`, opacity: 1 },
+            { transform: `translate(${dx1}px,${dy1}px) scale(${midScale}) rotate(${midRot}deg)`, opacity: 1, offset: 0.55 },
+            { transform: `translate(${dx2}px,${dy2}px) scale(${endScale}) rotate(${endRot}deg)`, opacity: 1 },
           ];
-          const anim = card.animate(keyframes, { duration, easing: "cubic-bezier(.22,.68,0,1.15)", fill: "forwards" });
+          const anim = card.animate(keyframes, { duration, easing: "cubic-bezier(.32,.72,.18,1.05)", fill: "forwards" });
           anim.onfinish = () => {
             card.style.transition = "opacity .18s ease";
             card.style.opacity = "0";
@@ -9871,7 +9876,24 @@
 
     function queuePoolReveal(uid) { pendingPoolReveals.set(Number(uid), true); }
 
+    // Ripple ring at each newly-arrived hand card. Card surfacing comes from
+    // the .deal-in class on the card itself (handSurfaceIn keyframes).
+    function rippleNewHandCards(prevHandUIDsSet) {
+      const cards = document.querySelectorAll("#pv-hand .pv-hand-card.deal-in");
+      if (!cards.length) return;
+      let delay = 0;
+      cards.forEach((el) => {
+        setTimeout(() => {
+          const r = el.getBoundingClientRect();
+          if (r.width <= 0) return;
+          playRippleAt({ left: r.left, top: r.top, width: r.width, height: r.height });
+        }, delay);
+        delay += 90;
+      });
+    }
+
     return { flyCard, playRippleAt, queuePoolReveal, applyPendingRippleReveals,
+             rippleNewHandCards,
              isBusy, deckRect, poolWrapRect, playerAnchorRect, rectOf,
              get _suppressFlipIn() { return _suppressFlipIn; },
              set _suppressFlipIn(v) { _suppressFlipIn = !!v; } };
@@ -9931,41 +9953,39 @@
     const totalGrowth = recipientIdx != null ? Math.max(0, handDeltas[recipientIdx] || 0) : 0;
     const deckDrawCount = Math.max(0, totalGrowth - removedPoolUids.length);
 
-    // 1) Pool draws: fly each removed card from its old slot to the recipient.
+    const recipientIsLocal = (recipientIdx != null && recipientIdx === myIdx);
+
+    // 1) Pool draws.
+    //    Local recipient: skip the fly — the new hand cards will ripple in (handled by renderHand's .deal-in)
+    //    plus we add a ripple ring at each landing spot. The leaving pool slot
+    //    already disappears via the next render; a quick lift-off would feel jittery.
+    //    Other recipients: fly the actual pool card image toward their avatar.
     removedPoolUids.forEach((uid) => {
+      if (recipientIsLocal) return;
       const fromR = oldPoolRects.get(uid);
       if (!fromR || recipientIdx == null) return;
-      const isLocal = (recipientIdx === myIdx);
-      const toR = _pvAnim.playerAnchorRect(recipientIdx, isLocal);
-      _pvAnim.flyCard(fromR, toR, { faceUid: uid, mode: "straight", duration: 460 });
+      const toR = _pvAnim.playerAnchorRect(recipientIdx, false);
+      _pvAnim.flyCard(fromR, toR, { faceUid: uid, mode: "straight", duration: 440 });
     });
 
-    // 2) Deck draws: fly hook-reveal cards from deck to recipient.
-    if (deckDrawCount > 0 && recipientIdx != null) {
+    // 2) Deck draws.
+    //    Local recipient: skip the fly — ripple effect happens in the hand.
+    //    Other recipients: hook-reveal cards flying from the deck to their avatar.
+    if (deckDrawCount > 0 && recipientIdx != null && !recipientIsLocal) {
       const fromR = _pvAnim.deckRect();
-      const isLocal = (recipientIdx === myIdx);
-      const toR = _pvAnim.playerAnchorRect(recipientIdx, isLocal);
-      // Try to identify which faceUids appeared in the local hand if local draw.
-      let revealUids = [];
-      if (isLocal) {
-        // The new hand's UIDs minus what was there before — server already shows our cards face-up.
-        const meNow = (players || []).find(p => p.index === myIdx);
-        if (meNow && Array.isArray(meNow.hand)) {
-          const cur = meNow.hand.map(e => {
-            const f = (Array.isArray(e.faces) && e.faces[0]) ? e.faces[0] : e;
-            return Number(f.uid ?? e.entry_uid ?? e.uid);
-          });
-          const prevSet = prevHandUIDs || _prevHandUIDs;
-          revealUids = cur.filter(u => !prevSet.has(u));
-        }
-      }
+      const toR = _pvAnim.playerAnchorRect(recipientIdx, false);
       for (let i = 0; i < deckDrawCount; i++) {
-        const uid = revealUids[i] || 0;  // 0 = stays face-down for non-local recipients
-        setTimeout(() => _pvAnim.flyCard(fromR, toR, { faceUid: uid, mode: "hook", duration: 500 }), i * 140);
+        setTimeout(() => _pvAnim.flyCard(fromR, toR, { faceUid: 0, mode: "hook", duration: 480 }), i * 130);
       }
     }
 
-    // 3) Pool entries: queue ripple-reveal for any added pool cards.
+    // 3) Local hand ripple: ripple ring at each newly arrived hand card position.
+    if (recipientIsLocal) {
+      // Defer to next frame so renderHand has placed the new cards in the DOM.
+      requestAnimationFrame(() => _pvAnim.rippleNewHandCards(prevHandUIDs || _prevHandUIDs));
+    }
+
+    // 4) Pool entries: queue ripple-reveal for any added pool cards.
     addedPoolUids.forEach(uid => _pvAnim.queuePoolReveal(uid));
   }
 
