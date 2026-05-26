@@ -16,6 +16,12 @@ services:
         value: "1"
       - key: FISH_ROOM_STATE_DIR
         value: /var/data/fish-room-state
+      - key: FISH_GAMES_HISTORY_DIR
+        value: /var/data/fish-room-state/games_history
+      - key: FISH_COMPETITIVE_GAMES_DIR
+        value: /var/data/fish-room-state/competitive_games
+      - key: FISH_STATS_PATH
+        value: /var/data/fish-room-state/site_stats.json
       - key: FISH_CREATE_KEY
         sync: false
       - key: PUBLIC_BASE_URL

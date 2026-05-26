@@ -51,8 +51,8 @@ GAMES_HISTORY_DIR = str(
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
 GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 STATS_PATH = str(
-    os.environ.get("FISH_STATS_PATH", os.path.join(BASE_DIR, "multiplayer", "state", "site_stats.json"))
-).strip() or os.path.join(BASE_DIR, "multiplayer", "state", "site_stats.json")
+    os.environ.get("FISH_STATS_PATH", os.path.join(ROOM_STATE_DIR, "site_stats.json"))
+).strip() or os.path.join(ROOM_STATE_DIR, "site_stats.json")
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
@@ -2671,6 +2671,20 @@ class GameRoom:
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
             self._record_event(f"Game history saved: {fname} (rounds={rounds_played})")
+            # Increment persistent games_played counter for the marketing site stats.
+            if ended_normally:
+                try:
+                    os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+                    with STATS_LOCK:
+                        try:
+                            with open(STATS_PATH, "r", encoding="utf-8") as _sf:
+                                _stats = json.load(_sf)
+                        except (FileNotFoundError, json.JSONDecodeError):
+                            _stats = {"registered_players": 0, "seen_uids": [], "games_played": 0}
+                        _stats["games_played"] = int(_stats.get("games_played", 0)) + 1
+                        atomic_write_json(STATS_PATH, _stats)
+                except Exception as _se:
+                    self._record_event(f"Stats games_played update warning: {_se}")
             # Only count truncated games in leaderboard if they went a reasonable distance.
             if ended_normally or rounds_played >= 3:
                 self._update_history_leaderboard(player_details, winner_name)
@@ -3812,21 +3826,15 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/stats":
-            # Count completed game files for games_played.
+            # Both counters live in STATS_PATH on the persistent disk.
             games_played = 0
-            try:
-                games_played = sum(
-                    1 for f in os.listdir(GAMES_HISTORY_DIR)
-                    if f.startswith("game_") and f.endswith(".json")
-                )
-            except FileNotFoundError:
-                pass
-            # Registered players tracked in STATS_PATH (incremented by POST /api/user/register).
             registered_players = 0
             try:
                 with STATS_LOCK:
                     with open(STATS_PATH, "r", encoding="utf-8") as f:
-                        registered_players = json.load(f).get("registered_players", 0)
+                        _s = json.load(f)
+                        games_played = int(_s.get("games_played", 0))
+                        registered_players = int(_s.get("registered_players", 0))
             except (FileNotFoundError, json.JSONDecodeError):
                 pass
             self._send_json({
