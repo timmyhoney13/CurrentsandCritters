@@ -92,8 +92,8 @@
       --cr-coral-deep: #e8956b;
       --cr-gold:       #e8b34a;
       --cr-gold-deep:  #c89320;
-      --card-w:    108px;
-      --card-h:    152px;
+      --card-w:    122px;
+      --card-h:    172px;
       --mini-w:    84px;
       --mini-h:    118px;
       --radius:    10px;
@@ -1046,7 +1046,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
-      min-height: 190px;
+      min-height: 214px;
       position: relative;
       overflow: visible;
     }
@@ -1174,7 +1174,7 @@
       flex-shrink: 0;
       border-radius: var(--radius);
       overflow: visible;
-      margin-left: -24px;
+      margin-left: -28px;
       will-change: transform;
       /* transition is set by JS per-card */
     }
@@ -1377,6 +1377,24 @@
       transition: color .15s, border-color .15s;
     }
     #pv-zoom-close:hover { color: var(--red); border-color: var(--red); }
+    .pv-zoom-nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      width: 48px; height: 64px;
+      background: rgba(18,46,100,.88); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--cyan);
+      font-size: 28px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center;
+      transition: background .15s, color .15s, opacity .15s;
+      z-index: 2001; user-select: none;
+    }
+    .pv-zoom-nav:hover { background: rgba(30,68,140,.95); color: #fff; }
+    .pv-zoom-nav:disabled { opacity: 0.25; cursor: default; pointer-events: none; }
+    #pv-zoom-prev { left: 14px; }
+    #pv-zoom-next { right: 14px; }
+    #pv-zoom-counter {
+      font-size: 11px; color: var(--muted); text-align: center;
+      margin-top: -6px; letter-spacing: .5px;
+    }
 
     /* ── TOASTS ─────────────────────────────────────────────────── */
     #pv-toasts {
@@ -7930,6 +7948,7 @@
 </div>
 
 <div id="pv-zoom-modal">
+  <button class="pv-zoom-nav" id="pv-zoom-prev" style="display:none;">‹</button>
   <div id="pv-zoom-inner">
     <button id="pv-zoom-close">✕</button>
     <img id="pv-zoom-img" src="" alt="" />
@@ -7939,7 +7958,9 @@
       <div class="zm-text" id="pv-zm-text"></div>
       <div class="zm-star" id="pv-zm-star" style="display:none;"></div>
     </div>
+    <div id="pv-zoom-counter" style="display:none;"></div>
   </div>
+  <button class="pv-zoom-nav" id="pv-zoom-next" style="display:none;">›</button>
 </div>
 
 <!-- ══ POOL OVERVIEW MODAL ════════════════════════════════════════ -->
@@ -8285,7 +8306,11 @@
   }
 
   // ── Card zoom modal ────────────────────────────────────────────
-  function openZoom(uid, name, text, species) {
+  // ── Zoom navigation state ──────────────────────────────────────
+  let _zoomHandEntries = [];   // ordered visible hand entries for prev/next nav
+  let _zoomHandIdx     = -1;  // current index within _zoomHandEntries
+
+  function _zoomPopulateCard(uid, name, text, species) {
     document.getElementById("pv-zoom-img").src = imagePathForUid(uid);
     document.getElementById("pv-zoom-img").alt = name || "";
     document.getElementById("pv-zm-name").textContent = name || "";
@@ -8297,12 +8322,68 @@
     const starEl = document.getElementById("pv-zm-star");
     if (st) { starEl.textContent = "★ " + st; starEl.style.display = ""; }
     else { starEl.style.display = "none"; }
+  }
+
+  function _zoomUpdateNav() {
+    const hasNav = _zoomHandEntries.length > 1 && _zoomHandIdx >= 0;
+    const prevBtn = document.getElementById("pv-zoom-prev");
+    const nextBtn = document.getElementById("pv-zoom-next");
+    const counter = document.getElementById("pv-zoom-counter");
+    prevBtn.style.display = hasNav ? "" : "none";
+    nextBtn.style.display = hasNav ? "" : "none";
+    counter.style.display = hasNav ? "" : "none";
+    if (hasNav) {
+      prevBtn.disabled = _zoomHandIdx <= 0;
+      nextBtn.disabled = _zoomHandIdx >= _zoomHandEntries.length - 1;
+      counter.textContent = `${_zoomHandIdx + 1} / ${_zoomHandEntries.length}`;
+    }
+  }
+
+  function _zoomPreselectDropdown(entryUid, faceUid) {
+    const sel = document.getElementById("pv-action-select");
+    if (!sel || !sel.options.length) return;
+    // Find the first non-star play action for this card
+    const act = legalActions.find(a =>
+      (a.kind === "play_to_ocean" || a.kind === "play_ocean") &&
+      !a.use_star &&
+      (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
+    );
+    if (act) sel.value = String(act.index);
+  }
+
+  function openZoom(uid, name, text, species, handEntries, handIdx) {
+    _zoomHandEntries = Array.isArray(handEntries) ? handEntries : [];
+    _zoomHandIdx     = (typeof handIdx === "number") ? handIdx : -1;
+    _zoomPopulateCard(uid, name, text, species);
+    _zoomUpdateNav();
     document.getElementById("pv-zoom-modal").classList.add("open");
   }
+
+  function _zoomNavTo(idx) {
+    if (idx < 0 || idx >= _zoomHandEntries.length) return;
+    _zoomHandIdx = idx;
+    const entry   = _zoomHandEntries[idx];
+    const face    = (Array.isArray(entry.faces) && entry.faces.length > 0) ? entry.faces[0] : entry;
+    const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
+    const entryUid = Number(entry.entry_uid ?? face.uid ?? entry.uid);
+    _zoomPopulateCard(faceUid, face.name, face.text, face.species);
+    _zoomUpdateNav();
+    _zoomPreselectDropdown(entryUid, faceUid);
+  }
+
   function closeZoom() { document.getElementById("pv-zoom-modal").classList.remove("open"); }
   document.getElementById("pv-zoom-close").addEventListener("click", closeZoom);
+  document.getElementById("pv-zoom-prev").addEventListener("click", () => _zoomNavTo(_zoomHandIdx - 1));
+  document.getElementById("pv-zoom-next").addEventListener("click", () => _zoomNavTo(_zoomHandIdx + 1));
   document.getElementById("pv-zoom-modal").addEventListener("click", (e) => {
     if (e.target === document.getElementById("pv-zoom-modal")) closeZoom();
+  });
+  // Arrow key navigation when zoom is open
+  document.addEventListener("keydown", (e) => {
+    if (!document.getElementById("pv-zoom-modal").classList.contains("open")) return;
+    if (e.key === "ArrowLeft")  { e.preventDefault(); _zoomNavTo(_zoomHandIdx - 1); }
+    if (e.key === "ArrowRight") { e.preventDefault(); _zoomNavTo(_zoomHandIdx + 1); }
+    if (e.key === "Escape")     { e.preventDefault(); closeZoom(); }
   });
 
   // ── Pool overview modal ────────────────────────────────────────
@@ -12416,7 +12497,7 @@
     for (let i = 0; i < n; i++) {
       const pos = i - mid;
       if (hoveredIdx === i) {
-        transforms.push({ angle: 0, translateY: -72, scale: 1.38, zIndex: 500 });
+        transforms.push({ angle: 0, translateY: -80, scale: 1.36, zIndex: 500 });
       } else {
         const angle = pos * (maxAngle * 2 / Math.max(1, n - 1));
         const lift  = pos * pos * 1.9;
@@ -12636,8 +12717,9 @@
           renderHand(me, actions, mustDiscard, discardExcess);
           return;
         }
-        // Default: zoom the card
-        openZoom(faceUid, face.name, face.text, face.species);
+        // Default: zoom the card (with hand nav + dropdown pre-select)
+        openZoom(faceUid, face.name, face.text, face.species, visible, i);
+        _zoomPreselectDropdown(entryUid, faceUid);
       });
 
       zone.appendChild(card);
