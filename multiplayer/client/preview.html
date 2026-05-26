@@ -12117,10 +12117,14 @@
         const entryUid = Number(cardData.entryUid);
         const faceUid  = Number(cardData.faceUid);
         if (!entryUid && !faceUid) return;
-        const act = playOceanActions.find(a =>
+        const matchingOceanActs = playOceanActions.filter(a =>
           Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid
         );
-        if (!act) { showToast("That card can't be played as an ocean here.", "warn"); return; }
+        if (!matchingOceanActs.length) { showToast("That card can't be played as an ocean here.", "warn"); return; }
+        const useStarOcean = document.getElementById("pv-star-toggle")?.checked;
+        const act = useStarOcean
+          ? (matchingOceanActs.find(a => a.use_star) || matchingOceanActs[0])
+          : (matchingOceanActs.find(a => !a.use_star) || matchingOceanActs[0]);
         submitAction(act);
       });
       el.appendChild(oceanDrop);
@@ -12155,7 +12159,9 @@
           if (isMyTurn && laneHasAction(dir)) {
             slot.title = `Click a card in your hand then click here, or drag a card here`;
             slot.addEventListener("click", () => {
+              const useStarClick = document.getElementById("pv-star-toggle")?.checked;
               // If the action-bar dropdown already targets this slot, submit it
+              // (upgrading to the star version if the toggle is on)
               const sel = document.getElementById("pv-action-select");
               if (sel?.value) {
                 const pre = actions.find(a =>
@@ -12164,15 +12170,35 @@
                   Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                   String(a.face_direction||"").toLowerCase() === dir
                 );
-                if (pre) { submitAction(pre); return; }
+                if (pre) {
+                  if (useStarClick && !pre.use_star) {
+                    const sv = actions.find(a =>
+                      Number(a.card_uid) === Number(pre.card_uid) &&
+                      Number(a.face_uid ?? a.card_uid) === Number(pre.face_uid ?? pre.card_uid) &&
+                      a.kind === "play_to_ocean" &&
+                      Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
+                      String(a.face_direction||"").toLowerCase() === dir &&
+                      a.use_star
+                    );
+                    submitAction(sv || pre); return;
+                  }
+                  submitAction(pre); return;
+                }
               }
-              // Single unambiguous action — submit directly
+              // Filter actions for this slot, then pick star/non-star per toggle
               const opts = actions.filter(a =>
                 a.kind === "play_to_ocean" &&
                 Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                 String(a.face_direction||"").toLowerCase() === dir
               );
-              if (opts.length === 1) { submitAction(opts[0]); return; }
+              // Unique card_uids playable here (collapse star/non-star pairs)
+              const uniqueCards = [...new Set(opts.map(a => a.card_uid))];
+              if (uniqueCards.length === 1) {
+                const act = useStarClick
+                  ? (opts.find(a => a.use_star) || opts[0])
+                  : (opts.find(a => !a.use_star) || opts[0]);
+                submitAction(act); return;
+              }
               setStatus("Click a card in your hand first, then click a slot to play it there.");
             });
             slot.addEventListener("dragover", (ev) => {
@@ -12192,13 +12218,17 @@
               const entryUid = Number(cardData.entryUid);
               const faceUid  = Number(cardData.faceUid);
               if (!entryUid && !faceUid) return;
-              const act = actions.find(a =>
+              const matchingActs = actions.filter(a =>
                 a.kind === "play_to_ocean" &&
                 Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                 String(a.face_direction||"").toLowerCase() === dir &&
                 (Number(a.card_uid) === entryUid || Number(a.face_uid) === faceUid)
               );
-              if (!act) { showToast("Can't play that card here.", "warn"); return; }
+              if (!matchingActs.length) { showToast("Can't play that card here.", "warn"); return; }
+              const useStarDrag = document.getElementById("pv-star-toggle")?.checked;
+              const act = useStarDrag
+                ? (matchingActs.find(a => a.use_star) || matchingActs[0])
+                : (matchingActs.find(a => !a.use_star) || matchingActs[0]);
               submitAction(act);
             });
           }
@@ -12474,10 +12504,12 @@
       if (st) card.classList.add("has-star");
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
-      // Gold highlight for symbol-matching cards when a star-ability card is being paid for
-      if (pendingPayAction?.star_symbol && document.getElementById("pv-star-toggle")?.checked) {
+      // Gold highlight for symbol-matching cards when a star-ability card is being paid for.
+      // Works for both the non-star (star_symbol) and star (required_symbol) action paths.
+      const _starPaySym = pendingPayAction?.required_symbol || pendingPayAction?.star_symbol || "";
+      if (_starPaySym) {
         const beingPlayed = Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid;
-        if (!beingPlayed && entryHasSymbolMatch(entryUid, pendingPayAction.star_symbol)) {
+        if (!beingPlayed && entryHasSymbolMatch(entryUid, _starPaySym)) {
           card.classList.add("star-sym-match");
         }
       }

@@ -6727,7 +6727,7 @@ def apply_action(
         pre_free_flags = {k: bool(player.flags.get(k, False)) for k in FREE_PLAY_FLAGS}
         # For two-sided cards, STAR must execute from the face actually played.
         if has_star_text(card):
-            run_star_ability(gs, play_face_uid, player, ctx={"played_with_star": True})
+            run_star_ability(gs, play_face_uid, player, ctx={"played_with_star": True, "ms": ms, "turn_state": turn_state, "is_human_turn": is_human_turn})
         else:
             run_inferred_star_fallback(gs, player, card)
         turn_state.star_activations += 1
