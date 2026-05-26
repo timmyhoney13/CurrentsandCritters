@@ -810,18 +810,19 @@
         ".    up    ."
         "left ocean right"
         ".    down  .";
-      grid-template-columns: auto auto auto;
+      grid-template-columns: calc(var(--mini-w) / 2) auto calc(var(--mini-w) / 2);
       grid-template-rows: auto auto auto;
+      align-items: center;
       gap: 0;
       transition: border-color .2s, box-shadow .2s;
     }
     .pv-ocean-hub:hover { border-color: #2a5070; }
 
-    .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; }
-    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; }
-    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; }
-    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; }
+    .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; align-self: center; }
+    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; align-self: end; }
+    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; align-self: start; }
+    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; align-self: center; }
+    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; align-self: center; }
 
     .pv-board-card {
       width: var(--mini-w);
@@ -2502,8 +2503,8 @@
     }
     #pv-board-focus-content .pv-ro-board { gap: calc(8px * var(--focus-scale)); }
     #pv-board-focus-content .pv-ocean-face {
-      width: calc(110px * var(--focus-scale));
-      height: calc(154px * var(--focus-scale));
+      width: calc(100px * var(--focus-scale));
+      height: calc(140px * var(--focus-scale));
     }
 
     /* ── BOARD HOVER PREVIEW (smaller, floating tooltip) ─────────── */
@@ -2551,7 +2552,7 @@
       --mini-h: 70px;
     }
     #pv-board-hover .pv-ro-board { gap: 4px; }
-    #pv-board-hover .pv-ocean-face { width: 62px; height: 88px; }
+    #pv-board-hover .pv-ocean-face { width: 60px; height: 84px; }
     #pv-board-hover .pv-board-card { cursor: default; }
     #pv-board-hover .pv-board-card:hover { transform: none; }
 
