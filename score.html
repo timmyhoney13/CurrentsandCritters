@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Snap &amp; Score — Currents &amp; Critters</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="assets/logo-icon.svg"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  body { background: linear-gradient(180deg, var(--sky-low) 0%, #c2e7f5 30%, #6fbedb 70%, #1a7faa 100%); min-height: 100vh; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(255,255,255,0.4), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(42,200,143,0.12), transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .score-wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 110px 24px 80px; }
+  .score-head { text-align: center; margin-bottom: 36px; }
+  .score-head .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.95);
+    color: var(--brand-cyan-deep); padding: 7px 16px; border-radius: var(--r-pill);
+    font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .score-head h1 {
+    font-family: var(--font-display); font-weight: 700; line-height: 1;
+    font-size: clamp(40px, 6vw, 68px); letter-spacing: -1.5px;
+    color: var(--brand-deep); margin: 0 0 12px; text-wrap: balance;
+  }
+  .score-head p {
+    font-size: 17px; color: var(--brand-deep); max-width: 580px;
+    margin: 0 auto; line-height: 1.55; opacity: 0.85; text-wrap: pretty;
+  }
+
+  /* ============ STAGE ============ */
+  .stage {
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.95);
+    border-radius: 28px; padding: 32px;
+    box-shadow: 0 30px 60px rgba(10,37,55,0.18);
+    display: grid; grid-template-columns: 1fr 380px; gap: 28px;
+    min-height: 520px;
+  }
+  @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } }
+
+  /* ── Drop zone ── */
+  .drop {
+    position: relative;
+    border: 2px dashed rgba(15,126,164,0.35);
+    border-radius: 20px;
+    background: linear-gradient(160deg, #ecfbff, #ffffff);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 36px;
+    text-align: center;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all .2s var(--ease-out);
+  }
+  .drop:hover { border-color: var(--brand-cyan); background: linear-gradient(160deg, #defaff, #ffffff); }
+  .drop.has-image { padding: 0; border-style: solid; cursor: default; }
+  .drop input[type=file] { display: none; }
+  .drop .pict {
+    width: 92px; height: 92px; border-radius: 22px;
+    background: var(--grad-cyan-btn); color: #fff;
+    display: grid; place-items: center;
+    margin-bottom: 18px; box-shadow: var(--shadow-press);
+  }
+  .drop h3 {
+    font-family: var(--font-display); font-weight: 700; font-size: 22px;
+    color: var(--ink-deep); margin: 0 0 6px; letter-spacing: -0.3px;
+  }
+  .drop p { color: var(--muted-strong); margin: 0 0 18px; font-size: 14px; max-width: 360px; line-height: 1.5; }
+  .drop .picker-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .drop .hint { margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .drop.dragover { border-color: var(--brand-mint); background: linear-gradient(160deg, #dcfaee, #ffffff); }
+
+  .drop-preview { position: relative; width: 100%; height: 100%; min-height: 420px; }
+  .drop-preview img.shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 12px; }
+  .drop-preview .scanner {
+    position: absolute; left: 12px; right: 12px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--glow), transparent);
+    box-shadow: 0 0 14px rgba(93,214,247,0.8);
+    pointer-events: none; opacity: 0; top: 12px;
+  }
+  .drop-preview.analyzing .scanner { opacity: 1; animation: scanLine 1.6s ease-in-out infinite alternate; }
+  @keyframes scanLine { from { top: 12px; } to { top: calc(100% - 14px); } }
+
+  .reset-btn {
+    position: absolute; top: 16px; right: 16px; z-index: 4;
+    background: rgba(8,40,58,0.85); color: #fff; border: 0;
+    border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 12px;
+    cursor: pointer; letter-spacing: 0.3px;
+  }
+  .reset-btn:hover { background: var(--ink-deep); }
+
+  /* ── Results panel ── */
+  .results { display: flex; flex-direction: column; }
+  .results-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-bottom: 16px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .results-head h3 {
+    font-family: var(--font-display); font-weight: 700; font-size: 18px;
+    color: var(--ink-deep); margin: 0; letter-spacing: -0.2px;
+  }
+  .results-head .status { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+  .empty-results {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; color: var(--muted-strong); padding: 20px 8px;
+  }
+  .empty-results svg { opacity: 0.4; margin-bottom: 14px; }
+  .empty-results p { font-size: 14px; line-height: 1.5; margin: 0; }
+
+  .detected-list { display: flex; flex-direction: column; gap: 8px; flex: 1; overflow-y: auto; padding-right: 4px; }
+  .detected {
+    display: grid; grid-template-columns: 38px 1fr auto; gap: 10px; align-items: center;
+    padding: 10px 12px;
+    background: #f7fbff; border: 1px solid var(--line-soft);
+    border-radius: 12px;
+    animation: pop 0.4s var(--ease-spring) both;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+  .detected .thumb {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: var(--brand-cyan-soft); display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 700; color: var(--brand-cyan-deep);
+    overflow: hidden;
+  }
+  .detected .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .detected .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .detected .name { font-weight: 700; font-size: 14px; color: var(--ink-deep); }
+  .detected .note { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .detected .pts {
+    font-family: var(--font-display); font-weight: 700; font-size: 16px;
+    color: var(--brand-mint-deep); letter-spacing: -0.3px;
+  }
+
+  .total-card {
+    margin-top: 16px;
+    background: linear-gradient(160deg, var(--brand-deep), #105775);
+    color: #fff; padding: 20px 22px; border-radius: 18px;
+    display: flex; flex-direction: column; gap: 6px;
+    box-shadow: var(--shadow-press);
+    position: relative; overflow: hidden;
+  }
+  .total-card::before {
+    content: ''; position: absolute; right: -20px; bottom: -20px;
+    width: 140px; height: 140px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(93,214,247,0.35), transparent 70%);
+  }
+  .total-card .row { display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 2; }
+  .total-card .label { font-size: 12px; letter-spacing: 0.6px; text-transform: uppercase; opacity: 0.75; font-weight: 700; }
+  .total-card .total {
+    font-family: var(--font-display); font-weight: 700; font-size: 44px;
+    letter-spacing: -1.5px; color: var(--glow); line-height: 1;
+  }
+  .total-card .breakdown { display: flex; gap: 14px; font-size: 12px; opacity: 0.78; }
+  .total-card .breakdown b { color: var(--brand-mint); font-weight: 700; }
+
+  /* loading shimmer */
+  .skel {
+    height: 56px; border-radius: 12px;
+    background: linear-gradient(90deg, #f0f6fb 0%, #ffffff 50%, #f0f6fb 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+  @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+  /* ============ HOW IT WORKS ============ */
+  .how-row {
+    margin-top: 36px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  @media (max-width: 800px) { .how-row { grid-template-columns: 1fr; } }
+  .how-card {
+    background: rgba(255,255,255,0.85); border: 1px solid rgba(255,255,255,0.95);
+    border-radius: 18px; padding: 22px;
+    box-shadow: var(--shadow-md);
+  }
+  .how-card .n {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--grad-coral-btn); color: #fff;
+    display: grid; place-items: center;
+    font-family: var(--font-display); font-weight: 700; font-size: 14px;
+    box-shadow: 0 4px 14px rgba(224,112,32,0.45);
+    margin-bottom: 12px;
+  }
+  .how-card h4 { font-family: var(--font-display); font-weight: 700; font-size: 16px; color: var(--ink-deep); margin: 0 0 6px; letter-spacing: -0.2px; }
+  .how-card p { font-size: 13px; line-height: 1.55; color: var(--muted-strong); margin: 0; }
+
+  /* ============ ERROR ============ */
+  .err {
+    background: #fff5f5; border: 1px solid #fecaca;
+    color: #b91c1c; padding: 14px 16px; border-radius: 12px;
+    font-size: 13px; line-height: 1.5; margin-bottom: 12px;
+  }
+
+  /* ============ MANUAL FALLBACK ============ */
+  .manual-toggle {
+    background: none; border: 0; cursor: pointer;
+    color: var(--brand-cyan-deep); font-size: 13px; font-weight: 700;
+    text-decoration: underline; padding: 0; margin-top: 8px;
+  }
+
+  /* back link */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 999px; padding: 8px 14px;
+    color: var(--brand-cyan-deep); text-decoration: none;
+    font-size: 13px; font-weight: 700;
+    border: 1px solid rgba(15,126,164,0.2);
+    margin-bottom: 22px;
+    transition: all .15s var(--ease-out);
+  }
+  .back-link:hover { background: #fff; transform: translateX(-2px); }
+
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <a class="brand" href="index.html">
+    <img src="assets/logo-icon.svg" alt="C&amp;C"/>
+    <span class="wordmark">Currents &amp; Critters</span>
+  </a>
+  <div class="links">
+    <a href="index.html#how">How to Play</a>
+    <a href="index.html#critters">The Critters</a>
+    <a href="index.html#oceans">Oceans</a>
+    <a href="score.html">Snap &amp; Score</a>
+    <a href="index.html#sponsor">Sponsor</a>
+  </div>
+  <a class="nav-cta" href="shop.html">Buy the Game →</a>
+</nav>
+
+<div class="score-wrap">
+  <a class="back-link" href="index.html">← Back to home</a>
+
+  <div class="score-head">
+    <span class="eyebrow">📸 Snap &amp; Score · Instant Scoring</span>
+    <h1>Score your hand from a photo.</h1>
+    <p>Take a picture of your cards on the table, drop it in below, and we'll identify every critter, ocean, and synergy — then total your score in seconds.</p>
+  </div>
+
+  <div class="stage">
+    <!-- LEFT: Drop zone -->
+    <div class="drop" id="drop">
+      <input type="file" id="fileInput" accept="image/*" capture="environment"/>
+      <div class="pict" aria-hidden="true">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+      </div>
+      <h3>Drop a photo of your hand</h3>
+      <p>Or take one now. We'll detect cards in the image, match them to our catalog, and total your score.</p>
+      <div class="picker-row">
+        <button class="btn btn-primary" id="pickBtn" type="button">📷 Upload Photo</button>
+        <button class="btn btn-outline" id="demoBtn" type="button">Try a demo image</button>
+      </div>
+      <div class="hint">PNG, JPG up to 4 MB · Works best with cards lying flat &amp; well-lit.</div>
+      <button class="manual-toggle" id="manualToggle" type="button">Or pick cards manually →</button>
+    </div>
+
+    <!-- RIGHT: Results -->
+    <div class="results">
+      <div class="results-head">
+        <h3>Your Hand</h3>
+        <span class="status" id="status">Ready</span>
+      </div>
+      <div id="resultsBody">
+        <div class="empty-results" id="emptyResults">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg>
+          <p>Upload a photo to see your cards detected and scored here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="how-row">
+    <div class="how-card">
+      <div class="n">1</div>
+      <h4>Lay your hand flat</h4>
+      <p>Spread your cards on a table with good light. All cards should be face-up and visible.</p>
+    </div>
+    <div class="how-card">
+      <div class="n">2</div>
+      <h4>Snap or upload</h4>
+      <p>Take a photo from above or upload an existing one. Photos work better than screenshots.</p>
+    </div>
+    <div class="how-card">
+      <div class="n">3</div>
+      <h4>Get your score</h4>
+      <p>We identify every card, calculate base points + bonuses, and explain how each card scored.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MANUAL PICKER MODAL ============ -->
+<div id="manualModal" style="display:none; position:fixed; inset:0; z-index:80; background:rgba(8,40,58,0.6); backdrop-filter:blur(8px); padding:24px;">
+  <div style="max-width:780px; margin:6vh auto; background:#fff; border-radius:24px; padding:28px; box-shadow:var(--shadow-xl); max-height:88vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+      <h3 style="font-family:var(--font-display); font-weight:700; color:var(--ink-deep); margin:0; font-size:22px; letter-spacing:-0.4px;">Pick the cards in your hand</h3>
+      <button id="closeManual" style="background:#f0f6fb; border:0; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:18px; color:var(--ink-deep);">×</button>
+    </div>
+    <p style="color:var(--muted-strong); font-size:14px; margin:0 0 18px;">Click cards to add them to your hand. We'll total the points and bonuses automatically.</p>
+    <div id="manualGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:12px;"></div>
+    <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:22px;">
+      <button class="btn btn-outline" id="manualClear" type="button">Clear</button>
+      <button class="btn btn-mint" id="manualDone" type="button">Score my hand →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// =============================================================
+// CARD DATABASE — small representative set
+// (User said they'd paste a full card list; this seeds the demo.)
+// =============================================================
+const CARD_DB = [
+  { id:'spinner-dolphin',   name:'Spinner Dolphin',   type:'mammal',     base:2, rule:'per-symbol',  ruleNote:'+2 per matching symbol in hand', img:'assets/cards/vertical_01.png' },
+  { id:'tarpon',            name:'Tarpon',            type:'gamefish',   base:5, rule:'flat',        ruleNote:'+5 base. Discard & draw that many cards', img:'assets/cards/vertical_02.png' },
+  { id:'mahi-mahi',         name:'Mahi Mahi',         type:'gamefish',   base:4, rule:'flat',        ruleNote:'+4 base', img:'assets/cards/vertical_04.png' },
+  { id:'blue-tang',         name:'Blue Tang',         type:'baitfish',   base:2, rule:'flat',        ruleNote:'+2 base', img:'assets/cards/vertical_05.png' },
+  { id:'octopus',           name:'Octopus',           type:'cephalopod', base:3, rule:'per-type',    ruleNote:'+3 per unique species type', img:'assets/cards/vertical_07.png' },
+  { id:'sea-turtle',        name:'Sea Turtle',        type:'mammal',     base:4, rule:'flat',        ruleNote:'+4 base', img:'assets/cards/vertical_10.png' },
+  { id:'emperor-penguin',   name:'Emperor Penguin',   type:'bird',       base:0, rule:'per-bird',    ruleNote:'+2 per Bird in hand', img:'assets/cards/horizontal_01.png' },
+  { id:'staghorn-coral',    name:'Staghorn Coral',    type:'coral',      base:0, rule:'per-coral',   ruleNote:'+3 per Coral in hand', img:'assets/cards/horizontal_05.png' },
+  { id:'red-crab',          name:'Red Crab',          type:'crustacean', base:2, rule:'flat',        ruleNote:'+2 base', img:'assets/cards/horizontal_09.png' },
+  { id:'yellowfin-tuna',    name:'Yellowfin Tuna',    type:'gamefish',   base:5, rule:'flat',        ruleNote:'+5 base', img:'assets/cards/horizontal_13.png' },
+  { id:'puffin',            name:'Puffin',            type:'bird',       base:3, rule:'per-bird',    ruleNote:'+3 per Bird in hand', img:'assets/cards/horizontal_17.png' },
+  { id:'coral-reef-ocean',  name:'Coral Reef',        type:'ocean',      base:0, rule:'ocean-coral', ruleNote:'+1 per Coral in your ocean', img:'assets/cards/ocean_coral_reef.png' },
+  { id:'deep-ocean',        name:'Deep Ocean',        type:'ocean',      base:0, rule:'ocean-ceph',  ruleNote:'+2 per Cephalopod', img:'assets/cards/ocean_deep.png' },
+  { id:'kelp-forest',       name:'Kelp Forest',       type:'ocean',      base:0, rule:'ocean-game',  ruleNote:'+1 per Game Fish', img:'assets/cards/ocean_kelp.png' },
+  { id:'arctic-ocean',      name:'Arctic Ocean',      type:'ocean',      base:0, rule:'ocean-mamm',  ruleNote:'+2 per Mammal', img:'assets/cards/ocean_arctic.png' },
+];
+
+const TYPE_LABEL = {
+  mammal:'Mammal', gamefish:'Game Fish', baitfish:'Bait Fish', bird:'Bird',
+  cephalopod:'Cephalopod', coral:'Coral', crustacean:'Crustacean',
+  invert:'Invertebrate', ocean:'Ocean', cross:'Crosscurrent'
+};
+
+// =============================================================
+// SCORING LOGIC
+// =============================================================
+function scoreHand(cardIds) {
+  const hand = cardIds.map(id => CARD_DB.find(c => c.id === id)).filter(Boolean);
+  const counts = {};
+  hand.forEach(c => { counts[c.type] = (counts[c.type] || 0) + 1; });
+  const uniqueTypes = Object.keys(counts).filter(t => t !== 'ocean').length;
+
+  const detailed = hand.map(c => {
+    let pts = c.base;
+    let how = c.base ? `+${c.base} base` : '';
+    if (c.rule === 'per-bird')     { const b = (counts.bird || 0);       pts += (c.base ? 0 : 0) + 2 * b; how = `+2 × ${b} Bird${b!==1?'s':''}`; if (c.base===3) { pts = c.base * b; how = `+3 × ${b} Bird${b!==1?'s':''}`; } }
+    if (c.rule === 'per-coral')    { const b = (counts.coral || 0);      pts += 3 * b; how = `+3 × ${b} Coral`; }
+    if (c.rule === 'per-type')     { pts += 3 * uniqueTypes; how = `+3 × ${uniqueTypes} unique types`; }
+    if (c.rule === 'per-symbol')   { const b = Math.max(0, hand.length - 1); pts += 2 * b; how = `+2 × ${b} matching cards`; }
+    if (c.rule === 'ocean-coral')  { const b = (counts.coral || 0);      pts += 1 * b; how = `+1 × ${b} Coral in ocean`; }
+    if (c.rule === 'ocean-ceph')   { const b = (counts.cephalopod || 0); pts += 2 * b; how = `+2 × ${b} Cephalopod`; }
+    if (c.rule === 'ocean-game')   { const b = (counts.gamefish || 0);   pts += 1 * b; how = `+1 × ${b} Game Fish`; }
+    if (c.rule === 'ocean-mamm')   { const b = (counts.mammal || 0);     pts += 2 * b; how = `+2 × ${b} Mammal`; }
+    return { ...c, points: pts, how: how || `+${pts}` };
+  });
+
+  const total = detailed.reduce((a, c) => a + c.points, 0);
+  const synergyBonus = uniqueTypes >= 4 ? 3 : 0;
+  return { detailed, total: total + synergyBonus, synergyBonus, uniqueTypes };
+}
+
+// =============================================================
+// RENDER RESULTS
+// =============================================================
+const resultsBody = document.getElementById('resultsBody');
+const statusEl = document.getElementById('status');
+
+function renderEmpty() {
+  resultsBody.innerHTML = `<div class="empty-results"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="11" height="15" rx="2"/><rect x="9" y="3" width="11" height="15" rx="2"/></svg><p>Upload a photo to see your cards detected and scored here.</p></div>`;
+  statusEl.textContent = 'Ready';
+}
+function renderLoading() {
+  resultsBody.innerHTML = `<div class="detected-list">${'<div class="skel"></div>'.repeat(4)}</div>`;
+  statusEl.textContent = 'Analyzing…';
+}
+function renderResults(result) {
+  const items = result.detailed.map(c => `
+    <div class="detected">
+      <div class="thumb"><img src="${c.img}" alt=""/></div>
+      <div class="info">
+        <div class="name">${c.name}</div>
+        <div class="note">${c.how}</div>
+      </div>
+      <div class="pts">+${c.points}</div>
+    </div>
+  `).join('');
+
+  const synergyRow = result.synergyBonus
+    ? `<div class="detected"><div class="thumb" style="background:var(--brand-mint-soft);color:var(--brand-mint-deep)">★</div><div class="info"><div class="name">Diversity Bonus</div><div class="note">${result.uniqueTypes} unique species types</div></div><div class="pts">+${result.synergyBonus}</div></div>`
+    : '';
+
+  resultsBody.innerHTML = `
+    <div class="detected-list">${items}${synergyRow}</div>
+    <div class="total-card">
+      <div class="row"><div class="label">Final score</div><div class="total">+${result.total}</div></div>
+      <div class="breakdown">
+        <span><b>${result.detailed.length}</b> cards</span>
+        <span><b>${result.uniqueTypes}</b> unique types</span>
+        ${result.synergyBonus ? `<span><b>+${result.synergyBonus}</b> synergy</span>` : ''}
+      </div>
+    </div>
+  `;
+  statusEl.textContent = `${result.detailed.length} cards · scored`;
+}
+function renderError(msg) {
+  resultsBody.innerHTML = `<div class="err">${msg}</div><div class="empty-results"><p>Try a clearer photo, or use the manual picker.</p></div>`;
+  statusEl.textContent = 'Error';
+}
+
+// =============================================================
+// DROP ZONE
+// =============================================================
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('fileInput');
+const pickBtn = document.getElementById('pickBtn');
+const demoBtn = document.getElementById('demoBtn');
+
+drop.addEventListener('click', e => {
+  if (drop.classList.contains('has-image')) return;
+  if (e.target.tagName === 'BUTTON') return;
+  fileInput.click();
+});
+pickBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+demoBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  // Use the demo card images as a "photo" — random 4
+  const demoIds = ['spinner-dolphin', 'puffin', 'octopus', 'staghorn-coral', 'mahi-mahi'];
+  const r = scoreHand(demoIds);
+  setPreviewFromDemo();
+  renderResults(r);
+});
+
+fileInput.addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (f) handleFile(f);
+});
+
+['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.add('dragover');
+}));
+['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => {
+  e.preventDefault(); drop.classList.remove('dragover');
+}));
+drop.addEventListener('drop', e => {
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+
+function setPreviewFromDemo() {
+  // composite the 5 demo cards into a "photo" look
+  drop.classList.add('has-image');
+  drop.innerHTML = `
+    <button class="reset-btn" id="resetBtn">↻ Try another</button>
+    <div class="drop-preview analyzing" style="display:flex; align-items:center; justify-content:center; background:linear-gradient(160deg,#0a3951,#105775); padding:30px;">
+      <div style="display:flex; gap:8px;">
+        <img src="assets/cards/vertical_01.png" style="width:90px; border-radius:8px; transform:rotate(-9deg)"/>
+        <img src="assets/cards/horizontal_17.png" style="width:90px; border-radius:8px; transform:rotate(-3deg)"/>
+        <img src="assets/cards/vertical_07.png" style="width:90px; border-radius:8px; transform:rotate(2deg)"/>
+        <img src="assets/cards/horizontal_05.png" style="width:90px; border-radius:8px; transform:rotate(6deg)"/>
+        <img src="assets/cards/vertical_04.png" style="width:90px; border-radius:8px; transform:rotate(10deg)"/>
+      </div>
+      <div class="scanner"></div>
+    </div>
+  `;
+  setTimeout(() => {
+    const p = drop.querySelector('.drop-preview');
+    if (p) p.classList.remove('analyzing');
+  }, 1800);
+  document.getElementById('resetBtn').addEventListener('click', reset);
+}
+
+function reset() {
+  drop.classList.remove('has-image');
+  drop.innerHTML = `
+    <input type="file" id="fileInput" accept="image/*" capture="environment"/>
+    <div class="pict" aria-hidden="true">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/></svg>
+    </div>
+    <h3>Drop a photo of your hand</h3>
+    <p>Or take one now. We'll detect cards in the image, match them to our catalog, and total your score.</p>
+    <div class="picker-row">
+      <button class="btn btn-primary" id="pickBtn" type="button">📷 Upload Photo</button>
+      <button class="btn btn-outline" id="demoBtn" type="button">Try a demo image</button>
+    </div>
+    <div class="hint">PNG, JPG up to 4 MB · Works best with cards lying flat &amp; well-lit.</div>
+    <button class="manual-toggle" id="manualToggle" type="button">Or pick cards manually →</button>
+  `;
+  rewireButtons();
+  renderEmpty();
+}
+
+function rewireButtons() {
+  const newFile = document.getElementById('fileInput');
+  const newPick = document.getElementById('pickBtn');
+  const newDemo = document.getElementById('demoBtn');
+  const newManual = document.getElementById('manualToggle');
+  newFile.addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    if (f) handleFile(f);
+  });
+  newPick.addEventListener('click', e => { e.stopPropagation(); newFile.click(); });
+  newDemo.addEventListener('click', e => {
+    e.stopPropagation();
+    const demoIds = ['spinner-dolphin', 'puffin', 'octopus', 'staghorn-coral', 'mahi-mahi'];
+    setPreviewFromDemo();
+    renderResults(scoreHand(demoIds));
+  });
+  newManual.addEventListener('click', e => { e.stopPropagation(); openManual(); });
+}
+
+// =============================================================
+// HANDLE UPLOADED IMAGE (Claude vision)
+// =============================================================
+async function handleFile(file) {
+  if (!file.type.startsWith('image/')) {
+    renderError('That doesn\'t look like an image. Try a PNG or JPG.');
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    renderError('Image is over 4 MB — please use a smaller file.');
+    return;
+  }
+
+  // Show preview + scanner
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUrl = e.target.result;
+    drop.classList.add('has-image');
+    drop.innerHTML = `
+      <button class="reset-btn" id="resetBtn">↻ Try another</button>
+      <div class="drop-preview analyzing">
+        <img class="shot" src="${dataUrl}" alt="Your hand"/>
+        <div class="scanner"></div>
+      </div>
+    `;
+    document.getElementById('resetBtn').addEventListener('click', reset);
+    renderLoading();
+
+    try {
+      const ids = await identifyCards(dataUrl);
+      const p = drop.querySelector('.drop-preview');
+      if (p) p.classList.remove('analyzing');
+      if (!ids || !ids.length) {
+        renderError("We couldn't find any C&C cards in that photo. Try a clearer shot, or use the manual picker.");
+        return;
+      }
+      renderResults(scoreHand(ids));
+    } catch (err) {
+      const p = drop.querySelector('.drop-preview');
+      if (p) p.classList.remove('analyzing');
+      console.error(err);
+      renderError("Couldn't analyze that photo. Try again, or use the manual picker.");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function identifyCards(dataUrl) {
+  // Strip the prefix
+  const m = dataUrl.match(/^data:(image\/[a-z+]+);base64,(.+)$/i);
+  if (!m) throw new Error('Bad data URL');
+  const mediaType = m[1];
+  const b64 = m[2];
+
+  const catalog = CARD_DB.map(c => `- ${c.id}: "${c.name}" (${TYPE_LABEL[c.type]})`).join('\n');
+  const prompt = `You are looking at a photo of cards from the tabletop game "Currents & Critters".
+
+Identify each card visible in the photo. Match them to entries in this catalog:
+
+${catalog}
+
+Return ONLY a JSON object with this shape, no prose, no markdown:
+{ "cards": ["card-id", "card-id", ...] }
+
+Use the exact card-ids from the catalog. If you can't identify a card with confidence, omit it. If the image isn't a hand of Currents & Critters cards, return { "cards": [] }.`;
+
+  let raw;
+  try {
+    raw = await window.claude.complete({
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mediaType, data: b64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    });
+  } catch (e) {
+    // Fallback: try text-only with no image (will get empty)
+    console.warn('vision call failed, falling back', e);
+    throw e;
+  }
+
+  // Try to parse JSON
+  const txt = (raw || '').toString();
+  let match = txt.match(/\{[\s\S]*\}/);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[0]);
+    return Array.isArray(parsed.cards) ? parsed.cards : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// =============================================================
+// MANUAL PICKER
+// =============================================================
+const manualModal = document.getElementById('manualModal');
+const manualGrid = document.getElementById('manualGrid');
+let manualPicked = [];
+
+function openManual() {
+  manualModal.style.display = 'block';
+  renderManualGrid();
+}
+function closeManual() { manualModal.style.display = 'none'; }
+function renderManualGrid() {
+  manualGrid.innerHTML = CARD_DB.map(c => {
+    const picked = manualPicked.filter(x => x === c.id).length;
+    return `
+      <button data-id="${c.id}" style="
+        position:relative; background:#fff; border:2px solid ${picked ? 'var(--brand-mint)' : 'var(--line)'};
+        border-radius:14px; padding:6px; cursor:pointer; text-align:left;
+        ${picked ? 'box-shadow: 0 0 0 4px rgba(42,200,143,0.18);' : ''}
+      ">
+        <img src="${c.img}" alt="" style="width:100%; aspect-ratio:1/1.4; object-fit:cover; border-radius:8px; background:#dff;"/>
+        <div style="padding:6px 4px 2px;">
+          <div style="font-weight:700; font-size:12px; color:var(--ink-deep); line-height:1.2;">${c.name}</div>
+          <div style="font-size:10px; color:var(--muted); margin-top:2px;">${TYPE_LABEL[c.type]} · +${c.base || '*'}</div>
+        </div>
+        ${picked ? `<div style="position:absolute; top:8px; right:8px; background:var(--brand-mint); color:#fff; width:22px; height:22px; border-radius:50%; font-weight:800; font-size:12px; display:grid; place-items:center;">${picked}</div>` : ''}
+      </button>
+    `;
+  }).join('');
+  manualGrid.querySelectorAll('button[data-id]').forEach(b => {
+    b.addEventListener('click', () => {
+      manualPicked.push(b.dataset.id);
+      renderManualGrid();
+    });
+    b.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const i = manualPicked.indexOf(b.dataset.id);
+      if (i >= 0) { manualPicked.splice(i, 1); renderManualGrid(); }
+    });
+  });
+}
+document.getElementById('closeManual').addEventListener('click', closeManual);
+document.getElementById('manualClear').addEventListener('click', () => { manualPicked = []; renderManualGrid(); });
+document.getElementById('manualDone').addEventListener('click', () => {
+  if (!manualPicked.length) { closeManual(); return; }
+  closeManual();
+  // show a virtual "preview" of selected cards
+  drop.classList.add('has-image');
+  const cards = manualPicked.map(id => CARD_DB.find(c => c.id === id)).filter(Boolean);
+  drop.innerHTML = `
+    <button class="reset-btn" id="resetBtn">↻ Try another</button>
+    <div class="drop-preview" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:10px; padding:24px; background:linear-gradient(160deg,#ecfbff,#fff);">
+      ${cards.map((c,i) => `<img src="${c.img}" style="width:84px; border-radius:8px; box-shadow:0 8px 18px rgba(8,40,58,0.18); transform:rotate(${(i-cards.length/2)*4}deg)"/>`).join('')}
+    </div>
+  `;
+  document.getElementById('resetBtn').addEventListener('click', () => { manualPicked = []; reset(); });
+  renderResults(scoreHand(manualPicked));
+});
+document.getElementById('manualToggle').addEventListener('click', e => { e.stopPropagation(); openManual(); });
+
+</script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Buy the Game — Currents &amp; Critters</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="icon" href="assets/logo-icon.svg"/>
+<link rel="stylesheet" href="styles.css"/>
+<style>
+  body { background: var(--grad-beach); min-height: 100vh; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      radial-gradient(circle at 20% 40%, rgba(255,255,255,0.18) 1px, transparent 1px),
+      radial-gradient(circle at 70% 60%, rgba(0,0,0,0.05) 1px, transparent 1px),
+      radial-gradient(circle at 40% 80%, rgba(255,255,255,0.15) 1px, transparent 1px);
+    background-size: 18px 18px, 22px 22px, 14px 14px;
+    pointer-events: none;
+  }
+
+  .shop-wrap { position: relative; max-width: 1180px; margin: 0 auto; padding: 110px 24px 80px; }
+
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.85);
+    border-radius: 999px; padding: 8px 14px;
+    color: var(--sand-ink); text-decoration: none;
+    font-size: 13px; font-weight: 700;
+    border: 1px solid rgba(200,150,60,0.4);
+    margin-bottom: 22px;
+  }
+  .back-link:hover { background: #fff; }
+
+  .shop-head {
+    text-align: center; margin-bottom: 40px;
+  }
+  .shop-head .eyebrow {
+    display: inline-block; background: rgba(255,255,255,0.7); color: var(--sand-ink);
+    border: 1px solid rgba(200,150,60,0.5);
+    padding: 6px 14px; border-radius: 999px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .shop-head h1 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(40px, 6vw, 60px); letter-spacing: -1.5px;
+    color: var(--sand-ink); margin: 0 0 8px; line-height: 1;
+  }
+  .shop-head p { color: var(--sand-ink-soft); font-size: 17px; margin: 0; }
+
+  .shop-grid {
+    display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 32px;
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(10px);
+    border: 1px solid rgba(200,150,60,0.35);
+    border-radius: 28px; padding: 32px;
+    box-shadow: 0 18px 44px rgba(120,80,30,0.16);
+  }
+  @media (max-width: 900px) { .shop-grid { grid-template-columns: 1fr; } }
+
+  .product-hero {
+    background: linear-gradient(160deg, var(--brand-cyan-soft), #f5fffa);
+    border-radius: 20px; padding: 32px; min-height: 480px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px; position: relative; overflow: hidden;
+  }
+  .product-hero::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 30%, rgba(93,214,247,0.2), transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(42,200,143,0.18), transparent 50%);
+    pointer-events: none;
+  }
+  .product-hero .cards-display {
+    position: relative; display: flex; gap: 0;
+  }
+  .product-hero .cards-display img {
+    width: 110px; aspect-ratio: 0.7 / 1; object-fit: cover;
+    border-radius: 12px; box-shadow: 0 18px 36px rgba(8,40,58,0.28);
+    margin-left: -36px;
+  }
+  .product-hero .cards-display img:first-child { margin-left: 0; }
+  .product-hero .cards-display img:nth-child(1) { transform: rotate(-12deg) translateY(8px); }
+  .product-hero .cards-display img:nth-child(2) { transform: rotate(-4deg) translateY(0); z-index: 2; }
+  .product-hero .cards-display img:nth-child(3) { transform: rotate(2deg) translateY(-4px); z-index: 3; }
+  .product-hero .cards-display img:nth-child(4) { transform: rotate(8deg) translateY(0); z-index: 2; }
+  .product-hero .cards-display img:nth-child(5) { transform: rotate(14deg) translateY(8px); }
+
+  .product-hero .box-img {
+    width: 200px; aspect-ratio: 0.75 / 1;
+    background: linear-gradient(170deg, var(--brand-cyan), var(--brand-cyan-deep));
+    border-radius: 14px;
+    box-shadow: 0 24px 50px rgba(8,40,58,0.32);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff;
+    margin-top: 18px;
+  }
+  .product-hero .box-img .top-band { position: absolute; top: 0; left: 0; right: 0; padding: 14px; text-align: center; font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.25); }
+  .product-hero .box-img .reef { position: absolute; bottom: 0; left: 0; right: 0; height: 60%; background: linear-gradient(180deg, transparent, rgba(0,0,0,0.2)); }
+  .product-hero .box-img .reef::before {
+    content: ''; position: absolute; bottom: 10%; left: 8%; right: 8%; height: 50%;
+    background:
+      radial-gradient(ellipse at 20% 80%, rgba(255,160,80,0.6), transparent 40%),
+      radial-gradient(ellipse at 70% 90%, rgba(255,120,180,0.5), transparent 35%),
+      radial-gradient(ellipse at 50% 70%, rgba(120,255,180,0.4), transparent 40%);
+  }
+
+  .product-info h2 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(28px, 3.5vw, 36px); letter-spacing: -0.8px;
+    color: var(--ink-deep); margin: 0 0 8px;
+  }
+  .product-info .subtitle {
+    font-family: var(--font-display); font-size: 16px; font-weight: 500;
+    color: var(--brand-cyan-deep); margin: 0 0 18px;
+  }
+  .product-info .price-row {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px;
+  }
+  .product-info .price {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 48px; color: var(--brand-mint-deep); letter-spacing: -1.5px; line-height: 1;
+  }
+  .product-info .price-strike {
+    font-size: 18px; color: var(--muted); text-decoration: line-through;
+  }
+  .product-info .save-badge {
+    background: var(--grad-coral-btn); color: #fff;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+  }
+  .product-info .stock {
+    color: var(--brand-mint-deep); font-weight: 700; font-size: 13px;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .product-info .stock .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--brand-mint);
+    box-shadow: 0 0 0 3px rgba(42,200,143,0.25);
+  }
+
+  .product-info .feats {
+    list-style: none; padding: 0; margin: 0 0 24px;
+    display: grid; gap: 8px;
+  }
+  .product-info .feats li {
+    font-size: 14px; color: var(--ink-deep);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .product-info .feats li::before {
+    content: '★'; color: var(--brand-mint-deep); flex-shrink: 0;
+  }
+
+  .qty-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+  }
+  .qty-label { font-weight: 700; font-size: 14px; color: var(--ink-deep); }
+  .qty-control {
+    display: flex; align-items: center; background: #fff;
+    border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+  }
+  .qty-control button {
+    background: none; border: 0; width: 36px; height: 36px;
+    font-size: 18px; font-weight: 700; color: var(--brand-cyan-deep);
+    cursor: pointer;
+  }
+  .qty-control button:hover { background: var(--brand-cyan-soft); }
+  .qty-control .n {
+    width: 36px; text-align: center; font-weight: 700; font-size: 15px;
+    color: var(--ink-deep);
+  }
+
+  .add-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .add-row .btn { flex: 1; justify-content: center; min-width: 140px; }
+
+  .impact-note {
+    margin-top: 16px; padding: 12px 16px;
+    background: var(--brand-mint-soft); border-left: 4px solid var(--brand-mint);
+    border-radius: 10px;
+    font-size: 13px; color: var(--brand-mint-deep);
+    line-height: 1.5;
+  }
+
+  /* ====== Trust band ====== */
+  .trust {
+    margin-top: 32px;
+    background: rgba(255,255,255,0.7);
+    border: 1px solid rgba(200,150,60,0.3);
+    border-radius: 20px; padding: 20px;
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  @media (max-width: 700px) { .trust { grid-template-columns: repeat(2, 1fr); } }
+  .trust-item {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  }
+  .trust-item .ico {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--brand-cyan-soft); color: var(--brand-cyan-deep);
+    display: grid; place-items: center; margin-bottom: 4px;
+  }
+  .trust-item .h {
+    font-family: var(--font-display); font-weight: 700; font-size: 14px;
+    color: var(--sand-ink); letter-spacing: -0.2px;
+  }
+  .trust-item .p { font-size: 12px; color: var(--sand-ink-soft); line-height: 1.4; }
+
+  /* ====== What's in the box ====== */
+  .whats-in {
+    margin-top: 56px;
+  }
+  .whats-in h2 {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: clamp(28px, 3.5vw, 38px); color: var(--sand-ink);
+    margin: 0 0 18px; letter-spacing: -0.5px; text-align: center;
+  }
+  .contents-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  @media (max-width: 800px) { .contents-grid { grid-template-columns: repeat(2, 1fr); } }
+  .content-card {
+    background: rgba(255,255,255,0.85); border: 1px solid rgba(200,150,60,0.3);
+    border-radius: 16px; padding: 20px; text-align: center;
+  }
+  .content-card .num {
+    font-family: var(--font-display); font-weight: 700;
+    font-size: 38px; color: var(--brand-cyan-deep); letter-spacing: -1px; line-height: 1;
+  }
+  .content-card .lab {
+    margin-top: 6px; font-size: 12px; font-weight: 700;
+    color: var(--sand-ink); letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  /* ====== TOAST ====== */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--ink-deep); color: #fff;
+    padding: 14px 22px; border-radius: 999px;
+    font-size: 14px; font-weight: 700;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    opacity: 0; transition: all .3s var(--ease-out);
+    z-index: 100;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .check { color: var(--brand-mint); font-weight: 800; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="index.html">
+    <img src="assets/logo-icon.svg" alt="C&amp;C"/>
+    <span class="wordmark">Currents &amp; Critters</span>
+  </a>
+  <div class="links">
+    <a href="index.html#how">How to Play</a>
+    <a href="index.html#critters">The Critters</a>
+    <a href="index.html#oceans">Oceans</a>
+    <a href="score.html">Snap &amp; Score</a>
+    <a href="index.html#sponsor">Sponsor</a>
+  </div>
+  <a class="nav-cta" href="shop.html">Buy the Game →</a>
+</nav>
+
+<div class="shop-wrap">
+  <a class="back-link" href="index.html">← Back to home</a>
+
+  <div class="shop-head">
+    <span class="eyebrow">Pre-Order · Ships May 2026</span>
+    <h1>Currents &amp; Critters</h1>
+    <p>The full base game · 251 cards · 8 oceans · 2–8 players</p>
+  </div>
+
+  <div class="shop-grid">
+    <div class="product-hero">
+      <div class="cards-display">
+        <img src="assets/cards/vertical_01.png" alt=""/>
+        <img src="assets/cards/vertical_05.png" alt=""/>
+        <img src="assets/cards/vertical_07.png" alt=""/>
+        <img src="assets/cards/vertical_04.png" alt=""/>
+        <img src="assets/cards/vertical_10.png" alt=""/>
+      </div>
+      <div class="box-img">
+        <div class="top-band">Currents &amp; Critters</div>
+        <div class="reef"></div>
+      </div>
+    </div>
+
+    <div class="product-info">
+      <h2>The Original Base Game</h2>
+      <div class="subtitle">Educational Strategic Card Game</div>
+      <div class="price-row">
+        <div class="price">$24.99</div>
+        <div class="price-strike">$29.99</div>
+        <div class="save-badge">Save 17%</div>
+      </div>
+      <div class="stock"><span class="dot"></span>In stock · Free US shipping on orders over $35</div>
+
+      <ul class="feats">
+        <li>251 hand-illustrated cards across 9 species groups</li>
+        <li>8 unique oceans, each with its own scoring rules</li>
+        <li>2–8 players · 30 minute games · Ages 10+</li>
+        <li>Easy to learn, deep to master</li>
+        <li>2% of every sale goes toward ocean conservation</li>
+      </ul>
+
+      <div class="qty-row">
+        <span class="qty-label">Quantity</span>
+        <div class="qty-control">
+          <button id="dec" type="button">−</button>
+          <div class="n" id="qtyN">1</div>
+          <button id="inc" type="button">+</button>
+        </div>
+        <div style="margin-left:auto; font-size:15px; color:var(--muted-strong); font-weight:700;">Total: <span id="totalPrice" style="color:var(--ink-deep);">$24.99</span></div>
+      </div>
+
+      <div class="add-row">
+        <button class="btn btn-mint btn-lg" id="addToCart" type="button">🛒 Add to Cart</button>
+        <button class="btn btn-primary btn-lg" id="buyNow" type="button">Buy Now →</button>
+      </div>
+
+      <div class="impact-note">
+        <strong>★ Your purchase makes waves.</strong> 50¢ from this game goes directly to ocean cleanup &amp; reef restoration partners. Help us hit our 2026 goal: $25k donated.
+      </div>
+    </div>
+  </div>
+
+  <div class="trust">
+    <div class="trust-item">
+      <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 8l9-5 9 5"/></svg></div>
+      <div class="h">Free US Shipping</div>
+      <div class="p">On orders over $35</div>
+    </div>
+    <div class="trust-item">
+      <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21V3m0 18l-7-7m7 7l7-7"/></svg></div>
+      <div class="h">30-Day Returns</div>
+      <div class="p">Love it or get a refund</div>
+    </div>
+    <div class="trust-item">
+      <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-4.5-7-10a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-7 10-7 10z"/></svg></div>
+      <div class="h">2% to Ocean</div>
+      <div class="p">Conservation partners</div>
+    </div>
+    <div class="trust-item">
+      <div class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></div>
+      <div class="h">Brothers Made</div>
+      <div class="p">Family-printed in USA</div>
+    </div>
+  </div>
+
+  <section class="whats-in">
+    <h2>What's in the box</h2>
+    <div class="contents-grid">
+      <div class="content-card"><div class="num">251</div><div class="lab">Cards Total</div></div>
+      <div class="content-card"><div class="num">9</div><div class="lab">Species Groups</div></div>
+      <div class="content-card"><div class="num">8</div><div class="lab">Ocean Biomes</div></div>
+      <div class="content-card"><div class="num">1</div><div class="lab">Quick-Start Rulebook</div></div>
+    </div>
+  </section>
+</div>
+
+<div class="toast" id="toast"><span class="check">✓</span><span id="toastMsg">Added to cart</span></div>
+
+<script>
+let qty = 1;
+const price = 24.99;
+function update() {
+  document.getElementById('qtyN').textContent = qty;
+  document.getElementById('totalPrice').textContent = '$' + (qty * price).toFixed(2);
+}
+document.getElementById('inc').addEventListener('click', () => { qty = Math.min(qty + 1, 10); update(); });
+document.getElementById('dec').addEventListener('click', () => { qty = Math.max(qty - 1, 1); update(); });
+
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+function showToast(msg) {
+  toastMsg.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2400);
+}
+document.getElementById('addToCart').addEventListener('click', () => showToast(`Added ${qty} × Currents & Critters to cart`));
+document.getElementById('buyNow').addEventListener('click', () => showToast('Pre-order confirmed — thanks for making waves 🌊'));
+</script>
+
+</body>
+</html>

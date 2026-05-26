@@ -1,0 +1,269 @@
+/* ============================================================
+   CURRENTS & CRITTERS — COLOR & TYPE TOKENS
+   Ocean ecosystem card game · two distinct surfaces:
+   1. Marketing site (zonal: sky → beach → ocean depths)
+   2. Tidal Wave game arena (clean, glassy, app-like)
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  /* ── ZONE: SKY (top of marketing site) ──────────────── */
+  --sky-deep:        #5ba8d8;
+  --sky-top:         #87ceeb;
+  --sky-mid:         #b8e4f9;
+  --sky-low:         #d8f0ff;
+  --horizon:         #ffe9b0;
+  --horizon-warm:    #ffd580;
+  --sun-core:        #fff9c0;
+  --sun-mid:         #ffe066;
+  --sun-edge:        #ffb800;
+
+  /* ── ZONE: BEACH / SAND ─────────────────────────────── */
+  --sand-pale:       #fce48a;
+  --sand-top:        #f5d070;
+  --sand-mid:        #eac060;
+  --sand-bot:        #ddb050;
+  --sand-deep:       #c8a050;
+  --sand-ink:        #3a1a00;   /* primary text on sand */
+  --sand-ink-soft:   #6a3a10;
+  --sand-rule:       rgba(200,150,60,0.4);
+
+  /* ── ZONE: OCEAN (depth gradient, top → abyss) ──────── */
+  --sea-surf:        #48c6e8;
+  --sea-shallow:     #1a7faa;
+  --sea-mid:         #0d5480;
+  --sea-deep:        #083a5e;
+  --sea-night:       #041e30;
+  --abyss:           #020d16;
+  --glow:            #5dd6f7;     /* bioluminescent cyan */
+  --reef:            #16a36b;     /* mint accent */
+  --reef-bright:     #1abb7a;
+  --mint-glow:       #4fe8a8;
+
+  /* ── BRAND CORE (used across both surfaces) ─────────── */
+  --brand-deep:      #08344d;     /* deepest ink */
+  --brand-ink:       #0a2537;
+  --brand-ink-soft:  #0f2330;
+  --brand-cyan:      #0ca4cb;     /* primary action cyan */
+  --brand-cyan-deep: #0f7ea4;
+  --brand-cyan-soft: #d8f5ff;
+  --brand-teal:      #0a8fb8;
+  --brand-teal-deep: #0a6080;
+  --brand-mint:      #2ac88f;
+  --brand-mint-deep: #19aa74;
+  --brand-mint-soft: #dcfaee;
+  --brand-sun:       #ffb661;
+  --brand-coral:     #e07020;     /* step badges, accents */
+  --brand-coral-deep:#c05010;
+
+  /* ── NEUTRALS ───────────────────────────────────────── */
+  --ink:             #0a2537;
+  --ink-deep:        #093349;     /* hero headings */
+  --muted:           #4c6b81;
+  --muted-strong:    #2c4e67;
+  --line:            #bfd8ea;
+  --line-strong:     #92bdd8;
+  --line-soft:       #c4d8e6;
+  --paper:           #f7fbff;
+  --surface:         rgba(255, 255, 255, 0.88);
+  --surface-strong:  #ffffff;
+
+  /* ── SEMANTIC: SPECIES TAG COLORS ───────────────────── */
+  /* Each "species" / card type has a calibrated 3-stop tag set */
+  --tag-bird-bg:        #fef3c7;  --tag-bird-fg:        #92400e;  --tag-bird-bd:        #fcd34d;
+  --tag-invert-bg:      #ede9fe;  --tag-invert-fg:      #5b21b6;  --tag-invert-bd:      #c4b5fd;
+  --tag-coral-bg:       #fce7f3;  --tag-coral-fg:       #9d174d;  --tag-coral-bd:       #f9a8d4;
+  --tag-baitfish-bg:    #dcfce7;  --tag-baitfish-fg:    #166534;  --tag-baitfish-bd:    #86efac;
+  --tag-mammal-bg:      #e0f2fe;  --tag-mammal-fg:      #075985;  --tag-mammal-bd:      #7dd3fc;
+  --tag-gamefish-bg:    #fff7ed;  --tag-gamefish-fg:    #9a3412;  --tag-gamefish-bd:    #fdba74;
+  --tag-crustacean-bg:  #ffedd5;  --tag-crustacean-fg:  #7c2d12;  --tag-crustacean-bd:  #fed7aa;
+  --tag-cephalopod-bg:  #f3e8ff;  --tag-cephalopod-fg:  #6b21a8;  --tag-cephalopod-bd:  #d8b4fe;
+  --tag-cross-bg:       #ecfeff;  --tag-cross-fg:       #155e75;  --tag-cross-bd:       #67e8f9;
+  --tag-ocean-bg:       #f0fdf4;  --tag-ocean-fg:       #14532d;  --tag-ocean-bd:       #6ee7b7;
+
+  /* ── GRADIENTS (named, reusable) ────────────────────── */
+  --grad-sky:        linear-gradient(180deg, #5ba8d8 0%, #87ceeb 18%, #b8e4f9 45%, #d8f0ff 68%, #ffe9b0 88%, #ffd580 100%);
+  --grad-beach:      linear-gradient(180deg, #fce48a 0%, #f5d070 20%, #eac060 50%, #ddb050 78%, #c8a050 100%);
+  --grad-ocean:      linear-gradient(180deg, #48c6e8 0%, #1a7faa 12%, #0d5480 28%, #083a5e 50%, #041e30 78%, #020d16 100%);
+  --grad-cyan-btn:   linear-gradient(180deg, #18a5d0 0%, #0d83ac 100%);
+  --grad-mint-btn:   linear-gradient(180deg, #2ac88f 0%, #19aa74 100%);
+  --grad-coral-btn:  linear-gradient(135deg, #e07020, #c05010);
+  --grad-card-light: linear-gradient(160deg, rgba(255,255,255,0.98) 0%, rgba(236,250,255,0.96) 64%, rgba(236,255,248,0.96) 100%);
+  --grad-card-dark:  linear-gradient(170deg, #0a3951 0%, #105775 100%);
+  --grad-tagline:    linear-gradient(90deg, #e0f7ff, #eafff4, #e0f7ff);
+
+  /* ── ELEVATION ──────────────────────────────────────── */
+  --shadow-sm:       0 2px 8px rgba(8, 40, 58, 0.06);
+  --shadow-md:       0 8px 14px rgba(8, 40, 58, 0.07);
+  --shadow-lg:       0 14px 28px rgba(10, 37, 55, 0.1);
+  --shadow-xl:       0 26px 52px rgba(10, 37, 55, 0.16);
+  --shadow-press:    0 4px 20px rgba(10, 143, 184, 0.45);
+  --shadow-mint:     0 4px 20px rgba(22, 163, 107, 0.4);
+  --shadow-deep:     0 12px 40px rgba(0, 0, 0, 0.4);
+  --glow-cyan:       0 0 14px rgba(93, 214, 247, 0.6);
+  --glow-mint:       0 0 14px rgba(22, 163, 107, 0.4);
+
+  /* ── RADII ──────────────────────────────────────────── */
+  --r-sm:            8px;
+  --r-md:            12px;
+  --r-lg:            14px;
+  --r-xl:            18px;
+  --r-2xl:           22px;
+  --r-3xl:           26px;
+  --r-pill:          999px;
+
+  /* ── SPACING (8pt, with finer 4 increments) ─────────── */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3:  12px;
+  --s-4:  16px;
+  --s-5:  22px;
+  --s-6:  28px;
+  --s-7:  36px;
+  --s-8:  48px;
+  --s-9:  64px;
+  --s-10: 88px;
+
+  /* ── TYPE — FAMILIES ────────────────────────────────── */
+  /* Display: Space Grotesk (geometric, slight quirk; used for h1/h2/brand)  */
+  /* UI / body: Manrope (humanist sans, very legible)                         */
+  /* Marketing fallback: Gill Sans stack (the original site uses this)       */
+  --font-display:    "Space Grotesk", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-body:       "Manrope", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-marketing:  "Gill Sans", "Avenir Next", "Trebuchet MS", sans-serif;
+  --font-mono:       ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ── TYPE — SCALE (semantic) ────────────────────────── */
+  --fs-display:      clamp(38px, 6.5vw, 72px);   /* hero h1 marketing */
+  --fs-h1:           clamp(34px, 5.3vw, 62px);   /* hero h1 app */
+  --fs-h2:           clamp(28px, 4vw, 44px);
+  --fs-h3:           21px;
+  --fs-h4:           18px;
+  --fs-lead:         17px;
+  --fs-body:         15px;
+  --fs-sm:           14px;
+  --fs-xs:           13px;
+  --fs-2xs:          12px;
+  --fs-eyebrow:      11px;
+  --fs-tag:          10px;
+
+  --lh-tight:        1.05;
+  --lh-snug:         1.15;
+  --lh-normal:       1.55;
+  --lh-loose:        1.7;
+
+  --fw-regular:      400;
+  --fw-medium:       500;
+  --fw-semi:         600;
+  --fw-bold:         700;
+  --fw-black:        800;
+  --fw-ultra:        900;
+
+  --ls-tight:        -0.5px;
+  --ls-snug:         -0.2px;
+  --ls-eyebrow:      0.7px;
+  --ls-tag:          0.8px;
+  --ls-button:       0.2px;
+
+  /* ── MOTION ─────────────────────────────────────────── */
+  --ease-out:        cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring:     cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast:        130ms;
+  --dur-base:        170ms;
+  --dur-slow:        300ms;
+  --dur-rise:        620ms;
+}
+
+/* ============================================================
+   SEMANTIC TYPE STYLES (drop into any HTML root)
+   ============================================================ */
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, .h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tight);
+  color: var(--ink-deep);
+  text-wrap: balance;
+  margin: 0 0 var(--s-3);
+}
+h2, .h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: var(--fw-ultra);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-snug);
+  color: var(--ink-deep);
+  margin: 0 0 var(--s-3);
+}
+h3, .h3 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-snug);
+  color: var(--brand-teal-deep);
+  margin: 0 0 var(--s-2);
+}
+h4, .h4 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h4);
+  font-weight: var(--fw-bold);
+  color: var(--brand-teal-deep);
+  margin: 0 0 var(--s-1);
+}
+p, .body {
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  color: var(--muted);
+  margin: 0 0 var(--s-3);
+}
+.lead {
+  font-size: var(--fs-lead);
+  line-height: var(--lh-normal);
+  color: var(--muted);
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--ls-eyebrow);
+  text-transform: uppercase;
+  color: #1f5f79;
+  background: #e9f9ff;
+  border: 1px solid #9ddaf0;
+  border-radius: var(--r-pill);
+  padding: 6px 10px;
+}
+.tag {
+  display: inline-block;
+  font-size: var(--fs-tag);
+  font-weight: var(--fw-black);
+  letter-spacing: var(--ls-tag);
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid;
+  white-space: nowrap;
+}
+.brand-mark {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: var(--fw-bold);
+  color: var(--ink-deep);
+  letter-spacing: 0.2px;
+}
+code, pre, .mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}

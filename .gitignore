@@ -24,6 +24,14 @@
 !cards_oceans.txt
 !update_cards.py
 
+# New marketing site files (Claude Design build)
+!styles.css
+!image-slot.js
+!score.html
+!shop.html
+!assets/
+!assets/**
+
 # Card image slices served by Vercel.
 !horizontal_cards/
 !horizontal_cards/**
