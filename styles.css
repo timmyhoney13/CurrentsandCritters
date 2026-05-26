@@ -1815,3 +1815,548 @@ body.motion-none .cloud, body.motion-none .seagull, body.motion-none .snap-scanl
 @media (max-width: 640px) {
   .sponsors-logos .logo-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ============================================================
+   HOW TO PLAY — redesigned (htp-*)
+   ============================================================ */
+.section.htp-section {
+  background: linear-gradient(180deg, #eef8ff 0%, #e2f3fd 100%);
+  overflow: hidden;
+  position: relative;
+}
+.section.htp-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15,126,164,0.07) 1px, transparent 0);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+/* ── 3-step turn flow ─────────────────────────────────── */
+.htp-steps {
+  display: grid;
+  grid-template-columns: 1fr 36px 1fr 36px 1fr;
+  align-items: start;
+  gap: 0 0;
+  margin-bottom: 36px;
+}
+@media (max-width: 860px) {
+  .htp-steps { grid-template-columns: 1fr; gap: 20px; }
+  .htp-connector { display: none; }
+}
+
+.htp-step {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-2xl);
+  padding: 32px 26px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+  transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out);
+}
+.htp-step::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+}
+.htp-step-1::before { background: var(--grad-cyan-btn); }
+.htp-step-2::before { background: linear-gradient(90deg, #2ac88f, #19aa74); }
+.htp-step-3::before { background: var(--grad-coral-btn); }
+.htp-step:hover { transform: translateY(-6px); box-shadow: var(--shadow-xl); }
+
+.htp-step-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.htp-num {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 20px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.htp-step-1 .htp-num { background: var(--grad-cyan-btn); box-shadow: 0 4px 14px rgba(10,143,184,0.4); }
+.htp-step-2 .htp-num { background: linear-gradient(180deg,#2ac88f,#19aa74); box-shadow: 0 4px 14px rgba(22,163,107,0.4); }
+.htp-step-3 .htp-num { background: var(--grad-coral-btn); box-shadow: 0 4px 14px rgba(224,112,32,0.45); }
+.htp-step-tag {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+}
+
+/* step visuals */
+.htp-step-visual {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 128px;
+}
+/* deck stack */
+.htp-deck-stack {
+  position: relative;
+  width: 90px;
+  height: 128px;
+}
+.htp-deck-card {
+  position: absolute;
+  width: 84px;
+  height: 118px;
+  border-radius: 10px;
+}
+.htp-deck-bg { background: linear-gradient(135deg,#0a5e80,#0f8ab8); }
+.htp-deck-c3 { top: 8px; left: 6px; opacity: 0.45; box-shadow: 0 2px 8px rgba(8,40,58,0.18); }
+.htp-deck-c2 { top: 4px; left: 3px; opacity: 0.7; box-shadow: 0 2px 8px rgba(8,40,58,0.2); }
+.htp-deck-c1 { top: 0; left: 0; object-fit: cover; box-shadow: 0 8px 24px rgba(8,40,58,0.28); }
+/* play demo */
+.htp-play-demo { display: flex; align-items: center; gap: 12px; }
+.htp-mini-ocean {
+  width: 72px; height: 100px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(8,40,58,0.2);
+  flex-shrink: 0;
+}
+.htp-mini-ocean img { width: 100%; height: 100%; object-fit: cover; }
+.htp-play-arrow { font-size: 22px; font-weight: 900; color: var(--brand-mint); }
+.htp-play-card {
+  width: 84px; height: 118px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(8,40,58,0.28);
+}
+/* synergy demo */
+.htp-synergy-demo {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.htp-syn-a, .htp-syn-b {
+  width: 76px; height: 106px;
+  border-radius: 9px;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(8,40,58,0.22);
+}
+.htp-syn-plus { font-size: 24px; font-weight: 900; color: var(--brand-coral); }
+.htp-syn-glow {
+  position: absolute; inset: -12px;
+  border-radius: 18px;
+  background: radial-gradient(ellipse, rgba(42,200,143,0.22) 0%, transparent 70%);
+  pointer-events: none;
+  animation: htpSynGlow 2.4s ease-in-out infinite alternate;
+}
+@keyframes htpSynGlow {
+  from { opacity: 0.4; transform: scale(0.94); }
+  to   { opacity: 1;   transform: scale(1.06); }
+}
+
+/* step body text */
+.htp-step-body h3 {
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--ink-deep);
+  margin: 0 0 8px;
+  letter-spacing: -0.4px;
+}
+.htp-step-body p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--muted-strong);
+  margin: 0 0 12px;
+}
+.htp-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--brand-cyan-soft);
+  border: 1px solid rgba(15,126,164,0.18);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-cyan-deep);
+  line-height: 1.45;
+}
+.htp-tip-icon { flex-shrink: 0; }
+
+/* connector arrows */
+.htp-connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 110px;
+  color: var(--line-strong);
+}
+
+/* ── END GAME banner ──────────────────────────────────── */
+.htp-endgame {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  background: linear-gradient(135deg, #1c0900, #3d1800);
+  border: 1px solid rgba(224,112,32,0.38);
+  border-radius: var(--r-2xl);
+  padding: 28px 32px;
+  box-shadow: 0 14px 44px rgba(0,0,0,0.28);
+  color: #fff;
+}
+.htp-endgame-icon {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: rgba(224,112,32,0.18);
+  border: 1px solid rgba(224,112,32,0.45);
+  display: grid;
+  place-items: center;
+  color: #ffb661;
+  flex-shrink: 0;
+}
+.htp-endgame-body { flex: 1; }
+.htp-endgame-body strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #ffb661;
+  margin-bottom: 6px;
+}
+.htp-endgame-body p {
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.72);
+  margin: 0;
+}
+.htp-endgame-badge {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ffb661;
+  border: 2px solid rgba(224,112,32,0.55);
+  border-radius: var(--r-md);
+  padding: 11px 18px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .htp-endgame { flex-direction: column; text-align: center; }
+  .htp-endgame-icon { margin: 0 auto; }
+  .htp-endgame-badge { display: none; }
+}
+
+/* ============================================================
+   RULES OF THE REEF — dark ocean section (htp-rules)
+   ============================================================ */
+.section.htp-rules {
+  background: linear-gradient(180deg, #071c2a 0%, #040f1c 55%, #020a13 100%);
+  color: #fff;
+  overflow: hidden;
+  position: relative;
+}
+.section.htp-rules::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(93,214,247,0.09), transparent 42%),
+    radial-gradient(ellipse at 82% 80%, rgba(42,200,143,0.07), transparent 42%);
+  pointer-events: none;
+}
+
+/* shared num pill */
+.reef-num {
+  display: inline-block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--glow);
+  background: rgba(93,214,247,0.1);
+  border: 1px solid rgba(93,214,247,0.25);
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  margin-bottom: 16px;
+}
+
+/* ── Rule 1: Ocean Attachment — full-width ────────────── */
+.reef-rule-xl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 52px;
+  align-items: center;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(93,214,247,0.12);
+  border-radius: var(--r-3xl);
+  padding: 52px 48px;
+  margin-bottom: 24px;
+}
+@media (max-width: 880px) {
+  .reef-rule-xl { grid-template-columns: 1fr; gap: 36px; padding: 36px 24px; }
+}
+.reef-rule-xl-text h3 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 2.8vw, 32px);
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 14px;
+  letter-spacing: -0.5px;
+}
+.reef-rule-xl-text > p {
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.72);
+  margin: 0 0 14px;
+}
+.reef-rule-xl-text > p strong { color: var(--glow); font-weight: 700; }
+.reef-rule-bullets {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.reef-rule-bullets li {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255,255,255,0.62);
+  padding-left: 20px;
+  position: relative;
+}
+.reef-rule-bullets li::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 7px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--glow);
+  opacity: 0.65;
+}
+.reef-rule-bullets li em { color: rgba(255,255,255,0.88); font-style: italic; }
+
+/* board diagram */
+.reef-rule-xl-board { display: flex; justify-content: center; align-items: center; }
+.reef-board {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.reef-board-row { display: flex; align-items: center; gap: 10px; justify-content: center; }
+.reef-board-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.reef-board-slot img {
+  width: 80px; height: 112px;
+  border-radius: 10px;
+  object-fit: cover;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+  border: 1.5px solid rgba(93,214,247,0.22);
+}
+.reef-slot-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--glow);
+  background: rgba(93,214,247,0.1);
+  border: 1px solid rgba(93,214,247,0.2);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+}
+.reef-board-ocean {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+}
+.reef-board-ocean img {
+  width: 112px; height: 158px;
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.65);
+  border: 2px solid rgba(93,214,247,0.38);
+}
+.reef-ocean-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+/* ── Rules 2-3-4 trio ───────────────────────────────── */
+.reef-rules-trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 980px) { .reef-rules-trio { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 620px) { .reef-rules-trio { grid-template-columns: 1fr; } }
+
+.reef-rule-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: var(--r-2xl);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform 200ms var(--ease-out), border-color 200ms;
+}
+.reef-rule-card:hover { transform: translateY(-5px); border-color: rgba(93,214,247,0.3); }
+.reef-rule-card h3 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: -0.4px;
+}
+.reef-rule-card > p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.7);
+  margin: 0;
+}
+.reef-rule-card > p em { color: rgba(255,255,255,0.88); font-style: italic; }
+
+/* star card */
+.reef-rule-star-icon { font-size: 30px; color: var(--brand-sun); font-weight: 900; line-height: 1; }
+.reef-ability-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.reef-ability-chip {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--glow);
+  background: rgba(93,214,247,0.1);
+  border: 1px solid rgba(93,214,247,0.22);
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+}
+.reef-star-preview {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+.reef-star-preview img {
+  width: 100px; height: 140px;
+  border-radius: 11px;
+  object-fit: cover;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.55);
+  border: 2px solid rgba(255,182,97,0.38);
+}
+
+/* scoring formula */
+.reef-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(93,214,247,0.14);
+  border-radius: var(--r-xl);
+  padding: 18px;
+}
+.reef-formula-term {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--r-md);
+}
+.reef-formula-term.reef-formula-result {
+  background: rgba(42,200,143,0.14);
+  border: 1px solid rgba(42,200,143,0.28);
+}
+.reef-formula-val {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #fff;
+}
+.reef-formula-result .reef-formula-val { color: #4fe8a8; }
+.reef-formula-sub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.42);
+  font-style: italic;
+}
+.reef-formula-op {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--brand-coral);
+  padding: 2px 0;
+}
+.reef-formula-eq { font-size: 20px; color: var(--mint-glow); }
+.reef-score-note {
+  font-size: 12.5px;
+  color: rgba(255,255,255,0.45);
+  font-style: italic;
+  margin: 0;
+  text-align: center;
+}
+
+/* special cards */
+.reef-special-item { display: flex; flex-direction: column; gap: 8px; }
+.reef-special-item p {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(255,255,255,0.62);
+  margin: 0;
+}
+.reef-special-item p em { color: rgba(255,255,255,0.82); }
+.reef-special-tag {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: var(--r-md);
+}
+.reef-special-end {
+  background: rgba(224,112,32,0.18);
+  border: 1px solid rgba(224,112,32,0.45);
+  color: #ffb661;
+}
+.reef-special-star {
+  background: rgba(255,182,97,0.12);
+  border: 1px solid rgba(255,182,97,0.38);
+  color: var(--brand-sun);
+}
+.reef-special-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+  margin: 4px 0;
+}
