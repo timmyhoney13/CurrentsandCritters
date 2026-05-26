@@ -187,6 +187,22 @@
     color: var(--glow);
     margin: 6px 0 -4px;
   }
+  /* XP perk row — gold-tinted but subtle; clearly cosmetic, not pay-to-win */
+  .tier .perks li.perk-xp-row .perk-main {
+    color: rgba(255, 210, 100, 0.92);
+  }
+  .tier .perks li.perk-xp-row::before {
+    color: rgba(255, 210, 100, 0.85) !important;
+  }
+  .perk-xp-note {
+    display: block;
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 11px;
+    color: rgba(255,210,100,0.5);
+    font-style: italic;
+    line-height: 1.4;
+  }
   /* "Our Story" variant of the cta-band — story sits left, buttons right;
      eyebrow + p-spacing tuned for two short paragraphs. */
   .sponsor-cta-band.our-story .eyebrow {
@@ -574,42 +590,46 @@
     </div>
 
     <div class="tiers">
+
+      <!-- ── Ocean Ally ── -->
       <div class="tier">
         <div class="head">
           <div class="name">Ocean Ally</div>
           <div class="price">$15–$50<small>/one-time</small></div>
         </div>
-        <p class="desc">Help launch Currents &amp; Critters and become part of the first wave of supporters.</p>
+        <p class="desc">Join the first wave of supporters and help bring Currents &amp; Critters to life.</p>
         <ul class="perks">
           <li>
-            <span class="perk-main">Free access to the online simulation</span>
+            <span class="perk-main">Online simulation access</span>
             <span class="perk-sub">After the paid version launches</span>
           </li>
           <li>
             <span class="perk-main"><strong>Founder Supporter number</strong></span>
-            <span class="perk-sub">e.g. Founder Supporter #027</span>
+            <span class="perk-sub">e.g. Founder #027 — permanent</span>
           </li>
           <li>
             <span class="perk-main">Name on the <strong>Supporter Reef Wall</strong></span>
-            <span class="perk-sub">Permanent supporter recognition</span>
+            <span class="perk-sub">Higher donations listed first</span>
           </li>
-          <li>
-            <span class="perk-main"><strong>Ocean Ally</strong> supporter frame</span>
-            <span class="perk-sub">For your online profile</span>
+          <li><span class="perk-main"><strong>Ocean Ally</strong> profile frame</span></li>
+          <li><span class="perk-main">Supporter email updates</span></li>
+          <li><span class="perk-main">Personal thank-you email</span></li>
+          <li class="perk-xp-row">
+            <span class="perk-main">+5,000 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
-          <li><span class="perk-main">Supporter-only email updates</span></li>
-          <li><span class="perk-main">Special thank-you email</span></li>
         </ul>
         <a class="btn btn-outline" href="mailto:currentsandcritters@gmail.com?subject=Become an Ocean Ally">Become an Ocean Ally →</a>
       </div>
 
+      <!-- ── Tide Turner ── -->
       <div class="tier featured">
         <div class="ribbon">Most Popular</div>
         <div class="head">
           <div class="name">Tide Turner</div>
           <div class="price">$60–$90<small>/one-time</small></div>
         </div>
-        <p class="desc">Help bring Currents &amp; Critters to life through launch materials, early supporter rewards, and future game updates.</p>
+        <p class="desc">Make a bigger splash — get a physical copy and exclusive in-game rewards.</p>
         <div class="perk-includes">Everything in Ocean Ally, plus:</div>
         <ul class="perks">
           <li>
@@ -617,59 +637,53 @@
             <span class="perk-sub">Ships when production wraps</span>
           </li>
           <li><span class="perk-main">Thank-you postcard</span></li>
+          <li><span class="perk-main"><strong>Tide Turner</strong> profile frame</span></li>
           <li>
-            <span class="perk-main">Vote on future card &amp; art polls</span>
-            <span class="perk-sub">Through supporter-only emails</span>
+            <span class="perk-main">Exclusive Amberjack player icon</span>
           </li>
-          <li>
-            <span class="perk-main"><strong>Tide Turner</strong> supporter frame</span>
-            <span class="perk-sub">For your online profile</span>
-          </li>
-          <li>
-            <span class="perk-main">Exclusive supporter player icon</span>
-            <span class="perk-sub">Amberjack</span>
+          <li class="perk-xp-row">
+            <span class="perk-main">+25,000 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
         <a class="btn btn-mint" href="mailto:currentsandcritters@gmail.com?subject=Become a Tide Turner">Become a Tide Turner →</a>
       </div>
 
+      <!-- ── King of the Currents ── -->
       <div class="tier">
         <div class="head">
           <div class="name">King of the Currents</div>
           <div class="price">$100+<small>/one-time</small></div>
         </div>
-        <p class="desc">Become one of the top supporters helping Currents &amp; Critters grow from an online game into a real physical board game.</p>
-        <div class="perk-includes">Everything in Ocean Ally, Tide Turner, plus:</div>
+        <p class="desc">Become a top supporter and leave a lasting mark on the game itself.</p>
+        <div class="perk-includes">Everything in Tide Turner, plus:</div>
         <ul class="perks">
           <li>
-            <span class="perk-main">Optional company logo on the front page</span>
-            <span class="perk-sub">If you have one</span>
+            <span class="perk-main">Optional company logo on the website</span>
           </li>
           <li>
-            <span class="perk-main">Premium recognition on the <strong>Supporter Reef Wall</strong></span>
-            <span class="perk-sub">Featured placement</span>
+            <span class="perk-main">Featured <strong>Supporter Reef Wall</strong> placement</span>
           </li>
-          <li><span class="perk-main">Early access to major game updates</span></li>
-          <li><span class="perk-main">Behind-the-scenes development updates</span></li>
+          <li><span class="perk-main">Vote on future expansion pack cards</span></li>
           <li><span class="perk-main">Physical sticker pack</span></li>
-          <li><span class="perk-main">Special top-tier thank-you message</span></li>
+          <li><span class="perk-main"><strong>King of the Currents</strong> profile frame</span></li>
           <li>
-            <span class="perk-main"><strong>King of the Currents</strong> supporter frame</span>
-            <span class="perk-sub">For your online profile</span>
+            <span class="perk-main">Exclusive Amberjack + Rare Fish icon</span>
           </li>
-          <li>
-            <span class="perk-main">Exclusive player icons</span>
-            <span class="perk-sub">Amberjack + Rare Fish</span>
+          <li class="perk-xp-row">
+            <span class="perk-main">+100,000 bonus XP</span>
+            <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
         <a class="btn btn-outline" href="mailto:currentsandcritters@gmail.com?subject=Become King of the Currents">Become King of the Currents →</a>
       </div>
+
     </div>
 
     <p class="tier-fineprint">
-      A portion of every supporter contribution goes toward ocean cleanup and conservation.
-      Supporter frames, icons, and profile cosmetics are cosmetic only and do not affect gameplay.
-      Founder Supporter numbers and names on the Supporter Reef Wall are permanent supporter recognitions.
+      Bonus XP, profile frames, and player icons are cosmetic/progression rewards only and do not affect gameplay.
+      Supporter Reef Wall placement is based on contribution amount, with the highest supporters featured first.
+      A portion of every contribution goes toward ocean cleanup and conservation.
     </p>
 
     <div class="sponsor-cta-band our-story">
