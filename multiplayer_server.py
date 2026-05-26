@@ -53,8 +53,12 @@ GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 STATS_PATH = str(
     os.environ.get("FISH_STATS_PATH", os.path.join(ROOM_STATE_DIR, "site_stats.json"))
 ).strip() or os.path.join(ROOM_STATE_DIR, "site_stats.json")
-STATS_SEED_GAMES   = max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0"))
-STATS_SEED_PLAYERS = max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0"))
+# Hardcoded historical baseline — ensures the counter never shows 0 even if env vars
+# are not synced to the Render dashboard.  The env var acts as an override/increase only.
+_STATS_SEED_GAMES_FLOOR   = 80
+_STATS_SEED_PLAYERS_FLOOR = 10
+STATS_SEED_GAMES   = max(_STATS_SEED_GAMES_FLOOR,   max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0")))
+STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0")))
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()

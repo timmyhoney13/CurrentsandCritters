@@ -920,15 +920,12 @@ window.addEventListener('scroll', () => {
 // ── Live stats from Render server ────────────────────────────────
 (async () => {
   const RENDER_BASE = 'https://currentsandcritters-1.onrender.com';
+  // Historical baseline — shown immediately so the page never displays 0 or em-dashes.
+  // The server seed matches these values and will always return at least this much.
+  const FLOOR_GAMES   = 80;
+  const FLOOR_PLAYERS = 10;
 
-  function setStatEl(placeholder, value) {
-    const el = document.querySelector(`[data-placeholder="${placeholder}"]`);
-    if (!el) return;
-    const target = Number(value);
-    if (!isFinite(target) || target < 0) return;
-    if (target === 0) { el.textContent = '0'; return; }
-    // Animate count-up
-    const duration = 1400;
+  function animateTo(el, target, duration) {
     const start = performance.now();
     function tick(now) {
       const t = Math.min((now - start) / duration, 1);
@@ -939,6 +936,18 @@ window.addEventListener('scroll', () => {
     requestAnimationFrame(tick);
   }
 
+  function setStatEl(placeholder, value, fast) {
+    const el = document.querySelector(`[data-placeholder="${placeholder}"]`);
+    if (!el) return;
+    const target = Number(value);
+    if (!isFinite(target) || target < 0) return;
+    animateTo(el, target, fast ? 600 : 1400);
+  }
+
+  // Show floor values immediately so the page always has meaningful numbers
+  setStatEl('games',   FLOOR_GAMES,   false);
+  setStatEl('players', FLOOR_PLAYERS, false);
+
   // AbortSignal.timeout not available in Safari < 16.4 — use a manual controller
   function fetchWithTimeout(url, ms) {
     const ctrl = new AbortController();
@@ -947,12 +956,16 @@ window.addEventListener('scroll', () => {
   }
 
   try {
-    const resp = await fetchWithTimeout(`${RENDER_BASE}/api/stats`, 12000);
+    // Give the Render free-tier server up to 30 s to wake from a cold start
+    const resp = await fetchWithTimeout(`${RENDER_BASE}/api/stats`, 30000);
     if (!resp.ok) return;
     const data = await resp.json();
-    if (data.games_played      != null) setStatEl('games',   data.games_played);
-    if (data.registered_players != null) setStatEl('players', data.registered_players);
-  } catch (_) { /* server sleeping on free tier — leave em-dashes */ }
+    // Only update if the server value exceeds the floor (never animate down to 0)
+    const live_games   = Number(data.games_played);
+    const live_players = Number(data.registered_players);
+    if (Number.isFinite(live_games)   && live_games   > FLOOR_GAMES)   setStatEl('games',   live_games,   true);
+    if (Number.isFinite(live_players) && live_players > FLOOR_PLAYERS) setStatEl('players', live_players, true);
+  } catch (_) { /* server sleeping — floor values already displayed */ }
 })();
 </script>
 
