@@ -3948,6 +3948,36 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
+        if parsed.path == "/api/stats/seed":
+            # One-time endpoint to backfill historical counts.
+            # Body: { "admin_key": "...", "games_played": N, "registered_players": N }
+            # Protected by the same CREATE_KEY used elsewhere.
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            if not admin_key or not secrets.compare_digest(admin_key, CREATE_KEY or ""):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            new_games   = body.get("games_played")
+            new_players = body.get("registered_players")
+            if not isinstance(new_games, int) or not isinstance(new_players, int):
+                self._send_json({"ok": False, "error": "games_played and registered_players (integers) required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            try:
+                os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+                with STATS_LOCK:
+                    try:
+                        with open(STATS_PATH, "r", encoding="utf-8") as f:
+                            stats = json.load(f)
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        stats = {"registered_players": 0, "seen_uids": [], "games_played": 0}
+                    # Only raise existing counts — never lower them.
+                    stats["games_played"]        = max(int(stats.get("games_played", 0)),        new_games)
+                    stats["registered_players"]  = max(int(stats.get("registered_players", 0)), new_players)
+                    atomic_write_json(STATS_PATH, stats)
+                self._send_json({"ok": True, "games_played": stats["games_played"], "registered_players": stats["registered_players"]})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
         if parsed.path == "/api/server/stop":
             room_id = body.get("room_id") if isinstance(body.get("room_id"), str) else ""
             if not room_id:
