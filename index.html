@@ -902,6 +902,34 @@ window.addEventListener('scroll', () => {
   else nav.classList.remove('nav-hidden');
   lastY = y;
 }, { passive: true });
+
+// ── Live stats from Render server ────────────────────────────────
+(async () => {
+  const RENDER_BASE = 'https://currentsandcritters-1.onrender.com';
+  function setStatEl(placeholder, value) {
+    const el = document.querySelector(`[data-placeholder="${placeholder}"]`);
+    if (!el) return;
+    // Animate count-up from 0
+    const target = Number(value);
+    if (!isFinite(target) || target <= 0) return;
+    const duration = 1200;
+    const start = performance.now();
+    function tick(now) {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.round(eased * target).toLocaleString();
+      if (progress < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  try {
+    const resp = await fetch(`${RENDER_BASE}/api/stats`, { signal: AbortSignal.timeout(6000) });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.games_played != null)       setStatEl('games', data.games_played);
+    if (data.registered_players != null) setStatEl('players', data.registered_players);
+  } catch (_) { /* server may be sleeping on free tier — leave em-dashes */ }
+})();
 </script>
 
 </body>

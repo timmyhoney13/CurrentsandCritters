@@ -50,11 +50,15 @@ GAMES_HISTORY_DIR = str(
     os.environ.get("FISH_GAMES_HISTORY_DIR", os.path.join(BASE_DIR, "multiplayer", "games_history"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
 GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
+STATS_PATH = str(
+    os.environ.get("FISH_STATS_PATH", os.path.join(BASE_DIR, "multiplayer", "state", "site_stats.json"))
+).strip() or os.path.join(BASE_DIR, "multiplayer", "state", "site_stats.json")
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
 HISTORY_LOCK = threading.Lock()
 COMPETITIVE_LOCK = threading.Lock()
+STATS_LOCK = threading.Lock()
 PUBLIC_BASE_URL = ""
 LAN_IP_CACHE: Optional[str] = None
 ACTIVE_SERVER: Optional[StableThreadingHTTPServer] = None
@@ -3807,6 +3811,31 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": True, "rooms": ROOMS.list_open_rooms()})
             return
 
+        if parsed.path == "/api/stats":
+            # Count completed game files for games_played.
+            games_played = 0
+            try:
+                games_played = sum(
+                    1 for f in os.listdir(GAMES_HISTORY_DIR)
+                    if f.startswith("game_") and f.endswith(".json")
+                )
+            except FileNotFoundError:
+                pass
+            # Registered players tracked in STATS_PATH (incremented by POST /api/user/register).
+            registered_players = 0
+            try:
+                with STATS_LOCK:
+                    with open(STATS_PATH, "r", encoding="utf-8") as f:
+                        registered_players = json.load(f).get("registered_players", 0)
+            except (FileNotFoundError, json.JSONDecodeError):
+                pass
+            self._send_json({
+                "ok": True,
+                "games_played": games_played,
+                "registered_players": registered_players,
+            })
+            return
+
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "state":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -3881,6 +3910,34 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         body, body_error = self._read_json_body()
         if body_error:
             self._send_json({"ok": False, "error": body_error}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        if parsed.path == "/api/user/register":
+            # Called by the game client once per new Google account sign-up.
+            # Body: { "uid": "<firebase_uid>" }
+            # Idempotent: tracks seen UIDs so re-registrations don't inflate the count.
+            uid_val = body.get("uid") if isinstance(body.get("uid"), str) else ""
+            if not uid_val:
+                self._send_json({"ok": False, "error": "uid required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            uid_val = uid_val.strip()[:256]
+            try:
+                os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+                with STATS_LOCK:
+                    try:
+                        with open(STATS_PATH, "r", encoding="utf-8") as f:
+                            stats = json.load(f)
+                    except (FileNotFoundError, json.JSONDecodeError):
+                        stats = {"registered_players": 0, "seen_uids": []}
+                    seen = set(stats.get("seen_uids") or [])
+                    if uid_val not in seen:
+                        seen.add(uid_val)
+                        stats["registered_players"] = int(stats.get("registered_players", 0)) + 1
+                        stats["seen_uids"] = list(seen)
+                        atomic_write_json(STATS_PATH, stats)
+                    self._send_json({"ok": True, "registered_players": stats["registered_players"]})
+            except Exception as exc:
+                self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
         if parsed.path == "/api/server/stop":

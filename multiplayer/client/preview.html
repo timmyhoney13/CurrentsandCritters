@@ -16020,6 +16020,12 @@
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
         const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", "");
+        // Ping server to increment the registered-players counter (idempotent by UID).
+        fetch("/api/user/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uid: _authUser.uid }),
+        }).catch(() => {});
         _playerNickname = nick;
         _friendCode = code;
         _activeProfile = {
