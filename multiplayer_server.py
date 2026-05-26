@@ -53,6 +53,8 @@ GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 STATS_PATH = str(
     os.environ.get("FISH_STATS_PATH", os.path.join(ROOM_STATE_DIR, "site_stats.json"))
 ).strip() or os.path.join(ROOM_STATE_DIR, "site_stats.json")
+STATS_SEED_GAMES   = max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0"))
+STATS_SEED_PLAYERS = max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0"))
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
@@ -4363,6 +4365,27 @@ def main() -> None:
 
     os.makedirs(os.path.dirname(DATASET_PATH), exist_ok=True)
     os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
+
+    # Bootstrap the stats file with historical seed values if it doesn't exist yet.
+    if STATS_SEED_GAMES > 0 or STATS_SEED_PLAYERS > 0:
+        try:
+            os.makedirs(os.path.dirname(STATS_PATH), exist_ok=True)
+            with STATS_LOCK:
+                try:
+                    with open(STATS_PATH, "r", encoding="utf-8") as _sf:
+                        _existing = json.load(_sf)
+                except (FileNotFoundError, json.JSONDecodeError):
+                    _existing = {}
+                # Apply seed as a floor — never lower existing counts.
+                _existing["games_played"]       = max(int(_existing.get("games_played", 0)),       STATS_SEED_GAMES)
+                _existing["registered_players"] = max(int(_existing.get("registered_players", 0)), STATS_SEED_PLAYERS)
+                if "seen_uids" not in _existing:
+                    _existing["seen_uids"] = []
+                atomic_write_json(STATS_PATH, _existing)
+            print(f"Stats seeded: games_played={_existing['games_played']} registered_players={_existing['registered_players']}")
+        except Exception as _se:
+            print(f"Stats seed warning: {_se}")
+
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 
     ACTIVE_SERVER = StableThreadingHTTPServer((args.host, args.port), MultiplayerHandler)

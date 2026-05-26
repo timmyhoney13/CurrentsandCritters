@@ -22,6 +22,10 @@ services:
         value: /var/data/fish-room-state/competitive_games
       - key: FISH_STATS_PATH
         value: /var/data/fish-room-state/site_stats.json
+      - key: FISH_STATS_SEED_GAMES
+        value: "80"
+      - key: FISH_STATS_SEED_PLAYERS
+        value: "10"
       - key: FISH_CREATE_KEY
         sync: false
       - key: PUBLIC_BASE_URL
