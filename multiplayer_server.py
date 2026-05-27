@@ -3869,6 +3869,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        # Theme song audio file
+        if re.fullmatch(r"/theme-song\.(m4a|mp3|ogg)", parsed.path):
+            audio_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
+            if os.path.exists(audio_path):
+                ext = parsed.path.rsplit(".", 1)[-1].lower()
+                ctype = {"m4a": "audio/mp4", "mp3": "audio/mpeg", "ogg": "audio/ogg"}.get(ext, "audio/mpeg")
+                self._send_client_asset(audio_path, content_type=ctype, cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "audio not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if parsed.path == "/api/health":
             self._send_json(
                 {
