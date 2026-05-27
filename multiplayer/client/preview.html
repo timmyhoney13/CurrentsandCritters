@@ -471,7 +471,46 @@
       height: 100vh;
       /* overflow: hidden removed — it was clipping the absolutely-positioned
          menu dropdown. html/body already has overflow:hidden to block scroll. */
-      background: #050d1a url(game-bg.png) center/cover no-repeat;
+      background: #050d1a;
+      position: relative;
+    }
+    /* Moving water background — gently drifts the game-bg.png for a "moving water" feel */
+    #pv-game::before {
+      content: "";
+      position: absolute;
+      inset: -2.5%;
+      background: url(game-bg.png) center/cover no-repeat;
+      animation: pv-water-drift 26s ease-in-out infinite alternate;
+      z-index: 0;
+      pointer-events: none;
+      will-change: transform;
+    }
+    /* Subtle shimmer overlay — extra "water" cue layered on top of the bg */
+    #pv-game::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, transparent 35%, rgba(120, 200, 230, 0.06) 50%, transparent 65%);
+      background-size: 220% 220%;
+      animation: pv-water-shimmer 18s linear infinite;
+      z-index: 0;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    /* All immediate children of #pv-game must render above the bg layers */
+    #pv-game > * { position: relative; z-index: 1; }
+    @keyframes pv-water-drift {
+      0%   { transform: translate(-0.9%, -0.6%) scale(1.015); }
+      50%  { transform: translate(0.5%, -0.4%) scale(1.02);  }
+      100% { transform: translate(0.9%, 0.6%)  scale(1.015); }
+    }
+    @keyframes pv-water-shimmer {
+      0%   { background-position: 0% 0%; }
+      100% { background-position: 220% 220%; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #pv-game::before, #pv-game::after { animation: none; }
     }
 
     /* ── NOTICE BAR ─────────────────────────────────────────────── */
@@ -8346,11 +8385,6 @@
 
 <!-- ══ TOASTS ════════════════════════════════════════════════════ -->
 <div id="pv-toasts"></div>
-
-  <!-- Theme song: plays after sign-in, loops continuously -->
-  <audio id="pv-theme-song" loop>
-    <source src="theme-song.m4a" type="audio/mp4">
-  </audio>
 <div id="pv-anim-layer" aria-hidden="true"></div>
 
 <!-- ── Season History Modal ─────────────────────────────────────── -->
@@ -8800,6 +8834,7 @@
   function handleRoomLost() {
     if (_roomLostShown) return;
     _roomLostShown = true;
+    stopThemeSong();
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (sseSource) { sseSource.close(); sseSource = null; }
     clearRejoinToken(roomId);
@@ -8841,6 +8876,75 @@
     } catch {}
   }
 
+  // ── Theme song (Web Audio API for gapless looping) ────────────
+  // Plain <audio loop> on M4A files re-processes the file metadata at
+  // each loop boundary, which on some browsers produces a "drowned out"
+  // / muffled sound after a few cycles. Web Audio API decodes the file
+  // once into a buffer and loops it natively → clean, gapless playback.
+  let _themeAudioCtx = null;
+  let _themeBuffer = null;
+  let _themeSource = null;
+  let _themeGain = null;
+  let _themeBufferLoading = false;
+
+  async function _ensureThemeBuffer() {
+    if (_themeBuffer) return _themeBuffer;
+    if (_themeBufferLoading) return null;
+    _themeBufferLoading = true;
+    try {
+      if (!_themeAudioCtx) {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return null;
+        _themeAudioCtx = new Ctx();
+      }
+      const base = (typeof activeApiBaseUrl === "function" ? activeApiBaseUrl() : "") || "";
+      const url = (base ? base : "") + "/theme-song.m4a";
+      const res = await fetch(url, { cache: "force-cache" });
+      if (!res.ok) return null;
+      const arr = await res.arrayBuffer();
+      _themeBuffer = await new Promise((resolve, reject) => {
+        try {
+          const p = _themeAudioCtx.decodeAudioData(arr, resolve, reject);
+          if (p && typeof p.then === "function") p.then(resolve, reject);
+        } catch (e) { reject(e); }
+      });
+      return _themeBuffer;
+    } catch { return null; }
+    finally { _themeBufferLoading = false; }
+  }
+
+  async function startThemeSong() {
+    try {
+      if (_themeSource) return; // already playing
+      const buffer = await _ensureThemeBuffer();
+      if (!buffer || !_themeAudioCtx) return;
+      if (_themeAudioCtx.state === "suspended") {
+        try { await _themeAudioCtx.resume(); } catch {}
+      }
+      _themeSource = _themeAudioCtx.createBufferSource();
+      _themeSource.buffer = buffer;
+      _themeSource.loop = true;
+      _themeGain = _themeAudioCtx.createGain();
+      _themeGain.gain.value = 0.5;
+      _themeSource.connect(_themeGain).connect(_themeAudioCtx.destination);
+      _themeSource.start(0);
+    } catch {}
+  }
+
+  function stopThemeSong() {
+    try {
+      if (_themeSource) {
+        try { _themeSource.stop(0); } catch {}
+        try { _themeSource.disconnect(); } catch {}
+        _themeSource = null;
+      }
+      if (_themeGain) {
+        try { _themeGain.disconnect(); } catch {}
+        _themeGain = null;
+      }
+    } catch {}
+  }
+
   function enterRoom(id) {
     roomId = id;
     document.getElementById("pv-room-id-badge").textContent = id;
@@ -8851,6 +8955,7 @@
     document.getElementById("pv-game").style.display = "flex";
     startSSE();
     startPolling();
+    startThemeSong();
   }
 
   // ── Lobby create / join ────────────────────────────────────────
@@ -12070,6 +12175,7 @@
     if (_compStatsLobby) _compStatsLobby.classList.remove("visible");
     document.getElementById("pv-game").style.display = "flex";
     startPolling();
+    startThemeSong();
   }
 
   // ── Create: P1 creates the room, claims seats 0+1, shows code to share
@@ -13478,6 +13584,7 @@
   // ── Back / leave ───────────────────────────────────────────────
   function _leaveGameCleanup() {
     closeMenu();
+    stopThemeSong();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     if (_rejoinTouchTimer) { clearInterval(_rejoinTouchTimer); _rejoinTouchTimer=null; }
@@ -15850,26 +15957,6 @@
       }
     }
 
-    function startThemeSong() {
-      try {
-        const audio = document.getElementById("pv-theme-song");
-        if (audio && audio.paused) {
-          audio.volume = 0.5;
-          audio.play().catch(() => {});
-        }
-      } catch {}
-    }
-
-    function stopThemeSong() {
-      try {
-        const audio = document.getElementById("pv-theme-song");
-        if (audio && !audio.paused) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      } catch {}
-    }
-
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
@@ -15898,7 +15985,6 @@
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
-      startThemeSong();
       showStatsLobby();
     }
 
@@ -16801,7 +16887,7 @@
 
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
-      stopThemeSong();
+      try { if (typeof stopThemeSong === "function") stopThemeSong(); } catch {}
       clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
