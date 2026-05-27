@@ -4368,6 +4368,30 @@
       color: #a77000;
       white-space: nowrap;
     }
+    /* Completed state — green tint + checkmark + countdown to next refresh */
+    .ph-cs-card.is-completed {
+      background: linear-gradient(135deg, rgba(232,250,239,.95) 0%, rgba(214,247,229,.92) 100%);
+      border-color: rgba(80,180,120,.55);
+    }
+    .ph-cs-card.is-completed .ph-cs-card-fill {
+      background: linear-gradient(90deg, #2bb673 0%, #1d9b4e 100%);
+    }
+    .ph-cs-card-completed-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .68rem;
+      font-weight: 800;
+      color: #1d9b4e;
+      letter-spacing: .3px;
+    }
+    .ph-cs-card-next {
+      font-size: .68rem;
+      color: #4a7a5a;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-left: auto;
+    }
     /* Right: weekly reward / view challenges */
     .ph-cs-reward {
       flex: 0 0 auto;
@@ -18172,28 +18196,172 @@
     }
 
     // ── Daily / Weekly Challenge Strip ─────────────────────────────
-    // Placeholder data only — real lists will be wired in next.
-    const _PLACEHOLDER_DAILY = [
-      { icon: "🐟", name: "Clean Finish", req: "Finish a game without quitting.", progress: 0, target: 1,   xp: 100 },
-      { icon: "🌊", name: "Daily Splash", req: "Score 100+ points in a game.",     progress: 0, target: 100, xp: 150 },
-      { icon: "👥", name: "Friend Tide",  req: "Play with a friend.",              progress: 0, target: 1,   xp: 150 },
+    // DAILY: pool of 50 challenges. Player has 3 active slots. Each slot
+    // rolls a random challenge from the pool (truly random — duplicates
+    // possible). When the player completes the challenge in a slot, that
+    // slot waits 24 hours and then re-rolls a new random challenge. Each
+    // slot has its own independent timer (finish one at 8 AM → that slot
+    // refreshes at 8 AM next day, separate from the other two slots).
+    const _DAILY_CHALLENGES = [
+      { id: "login_current",     name: "Login Current",              req: "Log in today.",                                                  target: 1,   xp: 1,   icon: "🌅" },
+      { id: "clean_finish",      name: "Clean Finish",               req: "Finish a game without quitting.",                                target: 1,   xp: 100, icon: "🐟" },
+      { id: "casual_current",    name: "Casual Current",             req: "Play 1 Casual game.",                                            target: 1,   xp: 100, icon: "🌊" },
+      { id: "ranked_ripple",     name: "Ranked Ripple",              req: "Play 1 Competitive game.",                                       target: 1,   xp: 125, icon: "⚔️" },
+      { id: "still_swimming",    name: "Still Swimming",             req: "Play 2 games today.",                                            target: 2,   xp: 150, icon: "🏊" },
+      { id: "daily_splash",      name: "Daily Splash",               req: "Score 100+ points in a game.",                                   target: 100, xp: 150, icon: "💦" },
+      { id: "almost_there",      name: "Almost There",               req: "Finish within 15 points of the winner.",                         target: 1,   xp: 150, icon: "🥈" },
+      { id: "play_again_endgame", name: "Play Again End Game",       req: "Play again when the End Game card gets drawn.",                  target: 1,   xp: 50,  icon: "🔄" },
+      { id: "final_current",     name: "Final Current",              req: "Take your final turn after End Game appears.",                   target: 1,   xp: 75,  icon: "🏁" },
+      { id: "pool_watcher",      name: "Pool Watcher",               req: "Take five cards in a row from the Pool that another player discarded.", target: 5, xp: 75, icon: "👀" },
+      { id: "pool_patience",     name: "Pool Patience",              req: "Take a card after it stays in the Pool for one full rotation.",  target: 1,   xp: 75,  icon: "⏳" },
+      { id: "pool_cleaner",      name: "Pool Cleaner",               req: "Trigger a Pool reset.",                                          target: 1,   xp: 100, icon: "🧹" },
+      { id: "fresh_current",     name: "Fresh Current",              req: "Draw the first card after the Pool resets.",                     target: 1,   xp: 75,  icon: "✨" },
+      { id: "discard_duty",      name: "Discard Duty",               req: "Discard down to 10 cards at end of turn.",                       target: 1,   xp: 50,  icon: "🃏" },
+      { id: "coral_start",       name: "Coral Start",                req: "Play a Coral Reef as your first Ocean.",                         target: 1,   xp: 50,  icon: "🪸" },
+      { id: "deep_start",        name: "Deep Start",                 req: "Play a Deep Ocean as your first Ocean.",                         target: 1,   xp: 50,  icon: "🌊" },
+      { id: "mangrove_start",    name: "Mangrove Start",             req: "Play a Mangrove as your first Ocean.",                           target: 1,   xp: 50,  icon: "🌳" },
+      { id: "pier_start",        name: "Pier Start",                 req: "Play a Pier as your first Ocean.",                               target: 1,   xp: 50,  icon: "🛟" },
+      { id: "arctic_start",      name: "Arctic Start",               req: "Play an Arctic Ocean as your first Ocean.",                      target: 1,   xp: 50,  icon: "❄️" },
+      { id: "kelp_start",        name: "Kelp Start",                 req: "Play a Kelp Forest as your first Ocean.",                        target: 1,   xp: 50,  icon: "🌿" },
+      { id: "tide_pool_start",   name: "Tide Pool Start",            req: "Play a Tide Pool as your first Ocean.",                          target: 1,   xp: 50,  icon: "🐚" },
+      { id: "artificial_start",  name: "Artificial Start",           req: "Play an Artificial Reef as your first Ocean.",                   target: 1,   xp: 50,  icon: "🏗️" },
+      { id: "mini_ecosystem",    name: "Mini Ecosystem",             req: "Play 4 different species groups in one game.",                   target: 4,   xp: 150, icon: "🐠" },
+      { id: "surface_life",      name: "Surface Life",               req: "Play 3 cards on top spaces in a row.",                           target: 3,   xp: 75,  icon: "🦅" },
+      { id: "ocean_floor",       name: "Ocean Floor",                req: "Play 3 cards on bottom spaces in a row.",                        target: 3,   xp: 75,  icon: "🦀" },
+      { id: "star_spark",        name: "Star Spark",                 req: "Activate 2 ★ abilities.",                                        target: 2,   xp: 75,  icon: "⭐" },
+      { id: "star_surfer",       name: "Star Surfer",                req: "Activate 5 ★ abilities in one game.",                            target: 5,   xp: 150, icon: "🌟" },
+      { id: "symbol_match",      name: "Symbol Match",               req: "Discard a matching symbol to activate a ★ ability.",             target: 1,   xp: 25,  icon: "🔣" },
+      { id: "combo_current",     name: "Combo Current",              req: "Activate a ★ ability and score 15+ points that turn.",           target: 1,   xp: 150, icon: "💫" },
+      { id: "star_finish",       name: "Star Finish",                req: "Activate a ★ ability after End Game appears.",                   target: 1,   xp: 150, icon: "🎆" },
+      { id: "no_star_needed",    name: "No Star Needed",             req: "Score 100+ without activating a ★ ability.",                     target: 100, xp: 200, icon: "💪" },
+      { id: "better_spot",       name: "Better Spot",                req: "Move an animal to a higher-scoring Ocean.",                      target: 1,   xp: 125, icon: "📈" },
+      { id: "last_turn_move",    name: "Last Turn Move",             req: "Move an animal after End Game appears.",                         target: 1,   xp: 150, icon: "🎯" },
+      { id: "no_moving_needed",  name: "No Moving Needed",           req: "Win without moving any animals.",                                target: 1,   xp: 150, icon: "🛡️" },
+      { id: "current_lite",      name: "Current Controller Lite",    req: "Move 3 animals today.",                                          target: 3,   xp: 150, icon: "🔁" },
+      { id: "board_fixer",       name: "Board Fixer",                req: "Move an animal that changes your final score.",                  target: 1,   xp: 150, icon: "🔧" },
+      { id: "strategy_switch",   name: "Strategy Switch",            req: "Play 2 games using different strategies today.",                 target: 2,   xp: 200, icon: "🎴" },
+      { id: "ranked_warmup",     name: "Ranked Warmup",              req: "Finish a Competitive game without quitting.",                    target: 1,   xp: 125, icon: "🥊" },
+      { id: "one_hand_strong",   name: "One Hand Strong",            req: "Score 100+ with one Competitive hand.",                          target: 100, xp: 125, icon: "✋" },
+      { id: "double_handed",     name: "Double Handed",              req: "Score 100+ with both Competitive hands.",                        target: 2,   xp: 175, icon: "🙌" },
+      { id: "set_it_up",         name: "Set It Up",                  req: "Put a card in the Pool with one hand and take it later with the other.", target: 1, xp: 200, icon: "🎣" },
+      { id: "deny_the_setup",    name: "Deny the Setup",             req: "Take a Pool card your opponent played in the Pool last turn.",   target: 1,   xp: 150, icon: "🚫" },
+      { id: "ranked_win_day",    name: "Ranked Win of the Day",      req: "Win 1 Competitive game today.",                                  target: 1,   xp: 250, icon: "🏆" },
+      { id: "friend_tide",       name: "Friend Tide",                req: "Play with a friend.",                                            target: 1,   xp: 150, icon: "👥" },
+      { id: "table_talk",        name: "Table Talk",                 req: "Send 1 message in a game.",                                      target: 1,   xp: 25,  icon: "💬" },
+      { id: "good_sport",        name: "Good Sport",                 req: 'Send "good game" after the End Game card is shown.',             target: 1,   xp: 50,  icon: "🤝" },
+      { id: "host_harbor",       name: "Host a Harbor",              req: "Create a room and finish the game.",                             target: 1,   xp: 100, icon: "🏠" },
+      { id: "join_current",      name: "Join the Current",           req: "Join someone else's room and finish the game.",                  target: 1,   xp: 100, icon: "🚪" },
+      { id: "no_bots_today",     name: "No Bots Today",              req: "Finish a game with only real players.",                          target: 1,   xp: 150, icon: "🙋" },
+      { id: "new_face",          name: "New Face",                   req: "Play with someone new.",                                         target: 1,   xp: 125, icon: "🆕" },
     ];
+
+    // Weekly challenges remain placeholder until the real list is sent.
     const _PLACEHOLDER_WEEKLY = [
-      { icon: "🏁", name: "Weekly Finisher", req: "Finish 10 games this week.",          progress: 0, target: 10, xp: 1000 },
-      { icon: "⚔️", name: "Ranked Week",     req: "Play 5 Competitive games.",            progress: 0, target: 5,  xp: 2000 },
-      { icon: "🗝️", name: "Weekly Tide Sweep", req: "Complete all 5 weekly achievements.", progress: 0, target: 5,  xp: 1000 },
+      { id: "weekly_finisher",    icon: "🏁", name: "Weekly Finisher",    req: "Finish 10 games this week.",          progress: 0, target: 10, xp: 1000 },
+      { id: "ranked_week",        icon: "⚔️", name: "Ranked Week",        req: "Play 5 Competitive games.",            progress: 0, target: 5,  xp: 2000 },
+      { id: "weekly_tide_sweep",  icon: "🗝️", name: "Weekly Tide Sweep",  req: "Complete all 5 weekly achievements.", progress: 0, target: 5,  xp: 1000 },
     ];
-    let _csView = "daily"; // "daily" | "weekly"
-    let _csWired = false;
+
+    const _DAILY_REFRESH_MS  = 24 * 60 * 60 * 1000;
+    const _DAILY_STATE_KEY   = "cc_daily_state_v1";
+    let _csView   = "daily"; // "daily" | "weekly"
+    let _csWired  = false;
+    let _csTickTimer = null;
+
+    function _rollDailyIndex() {
+      // True random — duplicates across the 3 slots are allowed by spec.
+      return Math.floor(Math.random() * _DAILY_CHALLENGES.length);
+    }
+
+    function _loadDailyState() {
+      try {
+        const raw = localStorage.getItem(_DAILY_STATE_KEY);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
+              && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _DAILY_CHALLENGES.length)) {
+            return obj;
+          }
+        }
+      } catch {}
+      const fresh = { slots: [
+        { idx: _rollDailyIndex(), progress: 0, completedAt: null },
+        { idx: _rollDailyIndex(), progress: 0, completedAt: null },
+        { idx: _rollDailyIndex(), progress: 0, completedAt: null },
+      ]};
+      _saveDailyState(fresh);
+      return fresh;
+    }
+
+    function _saveDailyState(state) {
+      try { localStorage.setItem(_DAILY_STATE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    // Check each slot: if it completed more than 24h ago, roll a new random
+    // challenge into that slot. Returns true if any slot rolled over.
+    function _refreshExpiredDailies(state) {
+      const now = Date.now();
+      let changed = false;
+      state.slots.forEach((slot, i) => {
+        if (slot.completedAt && (now - slot.completedAt) >= _DAILY_REFRESH_MS) {
+          state.slots[i] = { idx: _rollDailyIndex(), progress: 0, completedAt: null };
+          changed = true;
+        }
+      });
+      if (changed) _saveDailyState(state);
+      return changed;
+    }
+
+    function _getCurrentDailySlots() {
+      const state = _loadDailyState();
+      _refreshExpiredDailies(state);
+      return state.slots.map(slot => {
+        const def = _DAILY_CHALLENGES[slot.idx] || _DAILY_CHALLENGES[0];
+        const completed = Boolean(slot.completedAt);
+        return {
+          ...def,
+          progress: completed ? def.target : (Number(slot.progress) || 0),
+          completed,
+          completedAt: slot.completedAt || null,
+          nextRefreshAt: completed ? (slot.completedAt + _DAILY_REFRESH_MS) : null,
+        };
+      });
+    }
+
+    // Format "Xh Ym" countdown until the slot refreshes.
+    function _formatNextRefresh(ms) {
+      if (!Number.isFinite(ms) || ms <= 0) return "Refreshing…";
+      const totalMin = Math.floor(ms / 60000);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      if (h <= 0) return `New in ${m}m`;
+      return `New in ${h}h ${m}m`;
+    }
 
     function _csCardHtml(c, isWeekly) {
-      const target = Math.max(1, Number(c.target) || 1);
-      const cur    = Math.max(0, Math.min(target, Number(c.progress) || 0));
-      const pct    = Math.round((cur / target) * 100);
-      const label  = isWeekly ? "WEEKLY" : "DAILY";
-      const xpFmt  = (Number(c.xp) || 0).toLocaleString();
+      const target    = Math.max(1, Number(c.target) || 1);
+      const cur       = Math.max(0, Math.min(target, Number(c.progress) || 0));
+      const pct       = Math.round((cur / target) * 100);
+      const label     = isWeekly ? "WEEKLY" : "DAILY";
+      const xpFmt     = (Number(c.xp) || 0).toLocaleString();
+      const completed = Boolean(c.completed);
+      const classes   = ["ph-cs-card"];
+      if (isWeekly)   classes.push("is-weekly");
+      if (completed)  classes.push("is-completed");
+      const nextText  = completed && c.nextRefreshAt
+        ? _formatNextRefresh(c.nextRefreshAt - Date.now())
+        : "";
+      const footHtml = completed
+        ? `
+          <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:100%"></div></div>
+          <span class="ph-cs-card-completed-badge">✓ Completed</span>
+          <span class="ph-cs-card-next">${escapeHtml(nextText)}</span>`
+        : `
+          <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:${pct}%"></div></div>
+          <span class="ph-cs-card-progress">${cur}/${target}</span>
+          <span class="ph-cs-card-xp">+${xpFmt} XP</span>`;
       return `
-        <div class="ph-cs-card ${isWeekly ? "is-weekly" : ""}">
+        <div class="${classes.join(" ")}">
           <div class="ph-cs-card-top">
             <div class="ph-cs-card-icon" aria-hidden="true">${escapeHtml(c.icon || "🎯")}</div>
             <div class="ph-cs-card-meta">
@@ -18202,11 +18370,7 @@
             </div>
           </div>
           <div class="ph-cs-card-req" title="${escapeHtml(c.req || "")}">${escapeHtml(c.req || "")}</div>
-          <div class="ph-cs-card-foot">
-            <div class="ph-cs-card-bar"><div class="ph-cs-card-fill" style="width:${pct}%"></div></div>
-            <span class="ph-cs-card-progress">${cur}/${target}</span>
-            <span class="ph-cs-card-xp">+${xpFmt} XP</span>
-          </div>
+          <div class="ph-cs-card-foot">${footHtml}</div>
         </div>`;
     }
 
@@ -18220,7 +18384,9 @@
       if (!cardsEl || !titleEl || !subEl || !pillEl) return;
 
       const isWeekly = _csView === "weekly";
-      const data     = (isWeekly ? _PLACEHOLDER_WEEKLY : _PLACEHOLDER_DAILY).slice(0, 3);
+      const data     = isWeekly
+        ? _PLACEHOLDER_WEEKLY.slice(0, 3)
+        : _getCurrentDailySlots();
 
       titleEl.textContent = isWeekly ? "Weekly Challenges" : "Daily Challenges";
       subEl.textContent   = isWeekly
@@ -18231,7 +18397,7 @@
 
       cardsEl.innerHTML = data.map(c => _csCardHtml(c, isWeekly)).join("");
 
-      // Weekly Tide Sweep progress (placeholder — real value will be plugged in).
+      // Weekly Tide Sweep progress (placeholder — wired in with real list later).
       const sweepDone   = 0;
       const sweepTotal  = 5;
       const sweepPct    = Math.min(100, Math.round((sweepDone / Math.max(1, sweepTotal)) * 100));
@@ -18239,7 +18405,49 @@
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
 
       _wireChallengeStrip();
+      _startChallengeTick();
     }
+
+    // Periodically tick to update "New in Xh Ym" countdowns and to swap in
+    // freshly-rolled challenges when a slot's 24h cooldown elapses.
+    function _startChallengeTick() {
+      if (_csTickTimer) return;
+      _csTickTimer = setInterval(() => {
+        if (_csView !== "daily") return;
+        const state = _loadDailyState();
+        const changed = _refreshExpiredDailies(state);
+        // Re-render if anything updated OR a completed slot is showing
+        // (so the countdown text stays current).
+        const anyCompleted = state.slots.some(s => s.completedAt);
+        if (changed || anyCompleted) renderChallengeStrip();
+      }, 30000);
+    }
+
+    // Public hook — game code can call this when a daily challenge progresses.
+    // amount can be positive (progress) or you can pass {complete:true} to
+    // finish it outright. Only updates slots whose current rolled id matches.
+    function reportDailyChallengeProgress(challengeId, amount = 1, opts = {}) {
+      const state = _loadDailyState();
+      let changed = false;
+      state.slots.forEach((slot, i) => {
+        const def = _DAILY_CHALLENGES[slot.idx];
+        if (!def || def.id !== challengeId) return;
+        if (slot.completedAt) return; // already done — waiting for refresh
+        const target = Math.max(1, Number(def.target) || 1);
+        const cur    = Math.max(0, Number(slot.progress) || 0);
+        const next   = opts.complete ? target : Math.min(target, cur + (Number(amount) || 1));
+        slot.progress = next;
+        if (next >= target) {
+          slot.completedAt = Date.now();
+        }
+        changed = true;
+      });
+      if (changed) {
+        _saveDailyState(state);
+        if (_csView === "daily") renderChallengeStrip();
+      }
+    }
+    window._reportDailyChallengeProgress = reportDailyChallengeProgress;
 
     function _wireChallengeStrip() {
       if (_csWired) return;
