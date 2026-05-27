@@ -10295,6 +10295,55 @@
   let _latestSeatsForSurf = [];      // seat snapshot from payload.seats (away/inactive)
   let _prevActiveSeatForIdle = null; // last active_action_seat, used to reset idle timer on turn change
 
+  // ── Per-payload challenge observer state ─────────────────────────
+  // Tracks events that need diffing between payloads (e.g. "the moment
+  // your board went from 0 to 1 ocean" → that's the type of your first
+  // ocean → fire the matching *_start daily challenge).
+  let _chObsPrevMyBoardLen = 0;     // last seen number of oceans on my board
+
+  // Fires the matching *_start daily challenge for the player's first
+  // ocean of the game. Idempotent — the report function only ticks ACTIVE
+  // slots that match the id, so this is safe to call on rejoin/refresh.
+  const _CH_FIRST_OCEAN_MAP = {
+    "coral reef":     "coral_start",
+    "deep ocean":     "deep_start",
+    "mangrove":       "mangrove_start",
+    "pier":           "pier_start",
+    "arctic ocean":   "arctic_start",
+    "kelp forest":    "kelp_start",
+    "tide pool":      "tide_pool_start",
+    "artificial reef":"artificial_start",
+  };
+  function _challObserveFirstOcean(me) {
+    const board = (me && Array.isArray(me.board)) ? me.board : [];
+    const curLen = board.length;
+    // Detect a 0 -> >=1 transition. Also handles the rejoin-mid-game case
+    // (we start at 0 and the first observed render already has >=1).
+    if (_chObsPrevMyBoardLen === 0 && curLen >= 1) {
+      const oceanName = String(board[0]?.ocean?.name || "").trim().toLowerCase();
+      const challengeId = _CH_FIRST_OCEAN_MAP[oceanName];
+      if (challengeId && typeof window._reportDailyChallengeProgress === "function") {
+        window._reportDailyChallengeProgress(challengeId, 0, { complete: true });
+      }
+    }
+    _chObsPrevMyBoardLen = curLen;
+  }
+
+  // Main per-payload observer entry point. Add new observers here over
+  // time — keeping them all in one place makes the diff state easy to
+  // reason about and easy to reset on game-end / leave.
+  function _runChallengeObservers(me, state, phase, players) {
+    if (phase !== "running") return;
+    if (!me) return;
+    _challObserveFirstOcean(me);
+  }
+
+  // Reset all observer state when leaving the room so a brand-new game
+  // can re-fire the first-ocean detection.
+  function _resetChallengeObservers() {
+    _chObsPrevMyBoardLen = 0;
+  }
+
   function renderPayload(payload) {
     const state   = payload.state || {};
     const lw      = payload.legal_actions || {};
@@ -10307,6 +10356,9 @@
     if (state.round_count != null) _latestRoundCount = Number(state.round_count) || 0;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
+
+    // Per-payload challenge observer (first ocean type, etc.).
+    try { _runChallengeObservers(me, state, phase, players); } catch (e) { /* non-fatal */ }
 
     // ── Match stats tracking ─────────────────────────────
     if (phase === "running" && !_matchStartMs) _matchStartMs = Date.now();
@@ -13972,6 +14024,7 @@
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
+    try { _resetChallengeObservers(); } catch {}
     dismissEndGameCinematic();
     compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
