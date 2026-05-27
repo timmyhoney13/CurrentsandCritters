@@ -10218,6 +10218,91 @@
       // Track per-game stats for achievements
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) > 0) {
         _gameAchTracker.usedPool = true;
+        // ── Pool draw challenge hooks ─────────────────────────────
+        try {
+          const myName = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx)?.name;
+          const pickUids = Array.isArray(action.pool_pick_uids) ? action.pool_pick_uids.map(Number) : [];
+
+          // fresh_current — drawing from a freshly-reset pool (within 60s of reset)
+          if (_chObsPoolJustResetAt && (Date.now() - _chObsPoolJustResetAt) < 60000 && pickUids.length > 0) {
+            window._reportDailyChallengeProgress?.("fresh_current", 0, { complete: true });
+            _chObsPoolJustResetAt = 0;
+          }
+
+          // Check provenance of drawn cards: which were added by other players?
+          let drawnFromOther = false;
+          let drawnFromOpponentLastTurn = false;
+          let drawnFromMyCompPartner = false;
+          const round = Number(latestPayload?.state?.round_count) || 0;
+          for (const uid of pickUids) {
+            const owner = _chObsPoolEntryOwner.get(uid);
+            const addedTurn = _chObsPoolEntryAddedTurn.get(uid);
+            if (!owner) continue;
+            if (owner !== myName) {
+              drawnFromOther = true;
+              // deny_the_setup / stolen_setup — opponent put it in last turn
+              if (addedTurn != null && (round - Number(addedTurn)) <= 1) {
+                drawnFromOpponentLastTurn = true;
+              }
+            }
+            // set_it_up — comp only, this device's seats put it in
+            if (_chObsCompSelfDiscarded.has(uid)) {
+              const ownerSeatIdx = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+                .find(p => p.name === owner)?.index;
+              // Make sure the pickup is by the OPPOSITE hand of the same device.
+              if (Array.isArray(compMySeats) && compMySeats.includes(ownerSeatIdx) && ownerSeatIdx !== myIdx) {
+                drawnFromMyCompPartner = true;
+              }
+            }
+          }
+
+          // pool_watcher — streak of pool draws from OTHER players' cards.
+          // Any pool draw from MY OWN discarded card resets the streak.
+          if (pickUids.length > 0) {
+            if (drawnFromOther && pickUids.every(u => {
+                  const o = _chObsPoolEntryOwner.get(u);
+                  return o && o !== myName;
+                })) {
+              _chObsPoolWatcherStreak++;
+              if (_chObsPoolWatcherStreak >= 5) {
+                window._reportDailyChallengeProgress?.("pool_watcher", 0, { complete: true });
+              }
+            } else {
+              _chObsPoolWatcherStreak = 0;
+            }
+          }
+
+          // deny_the_setup (daily) / stolen_setup (weekly) — drew an opponent's
+          // very-recently-played pool card.
+          if (drawnFromOpponentLastTurn) {
+            window._reportDailyChallengeProgress?.("deny_the_setup", 0, { complete: true });
+            window._reportWeeklyChallengeProgress?.("stolen_setup", 0, { complete: true });
+          }
+
+          // set_it_up (daily, comp only) — pulled out a card that THIS device
+          // had earlier set up via the opposite hand.
+          if (drawnFromMyCompPartner) {
+            window._reportDailyChallengeProgress?.("set_it_up", 0, { complete: true });
+          }
+
+          // pool_patience — a card that has been in the pool for >= one full
+          // rotation (N players * 1 turn each) gets taken by me.
+          const playerCount = (Array.isArray(_latestPlayers) ? _latestPlayers.length : 0) || 4;
+          for (const uid of pickUids) {
+            const addedTurn = _chObsPoolEntryAddedTurn.get(uid);
+            if (addedTurn != null && (round - Number(addedTurn)) >= 1) {
+              window._reportDailyChallengeProgress?.("pool_patience", 0, { complete: true });
+              break;
+            }
+          }
+
+          // Clear taken cards from provenance maps so they don't re-trigger.
+          for (const uid of pickUids) {
+            _chObsPoolEntryOwner.delete(uid);
+            _chObsPoolEntryAddedTurn.delete(uid);
+            _chObsCompSelfDiscarded.delete(uid);
+          }
+        } catch (e) { /* non-fatal */ }
       }
       if (action.kind === "move_between_oceans") {
         _gameAchTracker.animalMoves = (_gameAchTracker.animalMoves || 0) + 1;
@@ -10353,6 +10438,15 @@
   let _chObsStarTurnStartScore= null; // turn-start score recorded when the ★ was activated
   let _chObsPrevTurnPlayer    = null; // last-seen current_player for turn-end detection
   let _chObsPlaysThisGame     = 0;    // free animal plays this game (for free_animal_week)
+  // Pool tracking — diffed every payload to detect resets, provenance, etc.
+  let _chObsPrevPoolUids      = new Set(); // entry_uid set last payload
+  let _chObsPrevPoolSize      = 0;
+  let _chObsPoolEntryOwner    = new Map(); // entry_uid -> name of player who added it
+  let _chObsPoolEntryAddedTurn= new Map(); // entry_uid -> round_count when it was added
+  let _chObsPoolJustResetAt   = 0; // payload counter when reset happened (0 = no reset pending)
+  let _chObsPoolWatcherStreak = 0; // consecutive draws from pool from OTHER players' cards
+  let _chObsCompSelfDiscarded = new Set(); // entry_uids put in pool by THIS device's seats
+                                            // (for set_it_up — competitive only)
 
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent — the report function only ticks ACTIVE
@@ -10429,6 +10523,60 @@
     _chObsStarTurnStartScore = null;
   }
 
+  // Pool observer — tracks provenance, resets, and the streak for
+  // pool_watcher. Hooks into the per-payload diff to update the maps.
+  function _challObservePool(state, players) {
+    const poolNow = Array.isArray(state.pool) ? state.pool : [];
+    const meName  = (players.find(p => p.index === myIdx) || {}).name;
+    const curPlayer = state.current_player || null;
+
+    const nowUids = new Set(poolNow.map(e => Number(e.entry_uid)));
+    const newEntries = [...nowUids].filter(u => !_chObsPrevPoolUids.has(u));
+
+    // The player who LAST took an action is whoever was the current player
+    // BEFORE this payload's diff. If the current_player just changed, the
+    // previous one acted. If not, the current one acted (still their turn).
+    // Heuristic: use _drawPrevPlayer (turn-boundary tracker) when set,
+    // otherwise current_player.
+    const lastActor = (curPlayer && curPlayer === _chObsPrevTurnPlayer)
+      ? curPlayer
+      : (_chObsPrevTurnPlayer || curPlayer);
+
+    // Record provenance for any newly-added pool entries.
+    if (newEntries.length && lastActor) {
+      const round = Number(state.round_count) || 0;
+      for (const uid of newEntries) {
+        _chObsPoolEntryOwner.set(uid, lastActor);
+        _chObsPoolEntryAddedTurn.set(uid, round);
+        // Competitive: track if this card was put into the pool by one of
+        // this device's seats (set_it_up requires opposite-hand pickup later).
+        if (typeof compMode !== "undefined" && compMode) {
+          const ownerSeat = (Array.isArray(players) ? players : [])
+            .find(p => p.name === lastActor)?.index;
+          if (Array.isArray(compMySeats) && compMySeats.includes(ownerSeat)) {
+            _chObsCompSelfDiscarded.add(uid);
+          }
+        }
+      }
+    }
+
+    // Pool reset detection: pool was 9+ (about to overflow) → 0 (cleared).
+    if (_chObsPrevPoolSize >= 9 && poolNow.length === 0) {
+      // Pool resets are triggered by whoever just placed the 10th card.
+      // If it was me, pool_cleaner completes.
+      if (lastActor === meName) {
+        try { window._reportDailyChallengeProgress?.("pool_cleaner", 0, { complete: true }); } catch {}
+      }
+      // Mark fresh-pool window open so the next pool draw can fire fresh_current.
+      _chObsPoolJustResetAt = Date.now();
+      _chObsPoolEntryOwner.clear();
+      _chObsPoolEntryAddedTurn.clear();
+    }
+
+    _chObsPrevPoolUids = nowUids;
+    _chObsPrevPoolSize = poolNow.length;
+  }
+
   // Main per-payload observer entry point. Add new observers here over
   // time — keeping them all in one place makes the diff state easy to
   // reason about and easy to reset on game-end / leave.
@@ -10438,6 +10586,7 @@
     _challObserveFirstOcean(me);
     _challObserveMoveScore(me);
     _challObserveStarCombo(state, players);
+    _challObservePool(state, players);
   }
 
   // Reset all observer state when leaving the room so a brand-new game
@@ -10449,6 +10598,13 @@
     _chObsStarTurnStartScore = null;
     _chObsPrevTurnPlayer = null;
     _chObsPlaysThisGame = 0;
+    _chObsPrevPoolUids = new Set();
+    _chObsPrevPoolSize = 0;
+    _chObsPoolEntryOwner = new Map();
+    _chObsPoolEntryAddedTurn = new Map();
+    _chObsPoolJustResetAt = 0;
+    _chObsPoolWatcherStreak = 0;
+    _chObsCompSelfDiscarded = new Set();
   }
 
   function renderPayload(payload) {
@@ -14803,6 +14959,7 @@
         const quitByMe = (typeof _gameTerminatedByMe !== "undefined") && _gameTerminatedByMe;
         const moveCount = Number(_gameAchTracker?.animalMoves || 0);
         const starCount = Number(_gameAchTracker?.starsActivated || 0);
+        const usedPool  = Boolean(_gameAchTracker?.usedPool);
         if (typeof window._fireChallengeHooksOnGameEnd === "function") {
           window._fireChallengeHooksOnGameEnd({
             isComp,
@@ -14817,6 +14974,7 @@
             quitByMe,
             moveCount,
             starCount,
+            usedPool,
           });
         }
       } catch (e) { /* non-fatal */ }
@@ -18924,6 +19082,7 @@
         const quitByMe    = Boolean(opts.quitByMe);
         const moveCount   = Number(opts.moveCount || 0);
         const starCount   = Number(opts.starCount || 0);
+        const usedPool    = Boolean(opts.usedPool);
 
         const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
         const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
@@ -18973,6 +19132,10 @@
         // Star-ability challenges
         // no_star_needed: scored 100+ without activating any ★ this game.
         if (myScore >= 100 && starCount === 0) rd("no_star_needed", 0, { complete: true });
+
+        // Pool-related game-end
+        // nothing_but_deck_weekly: won the game without drawing from the Pool
+        if (isWinner && !usedPool) rw("nothing_but_deck_weekly", 0, { complete: true });
 
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters

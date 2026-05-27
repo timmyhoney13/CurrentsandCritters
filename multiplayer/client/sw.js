@@ -1,4 +1,4 @@
-const APP_CACHE = "fish-multiplayer-v86";
+const APP_CACHE = "fish-multiplayer-v87";
 const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
