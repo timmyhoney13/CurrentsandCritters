@@ -8722,6 +8722,8 @@
   let pollTimer = null;
   let sseSource = null;
   let refreshInFlight = false;
+  let _serverWaking = false;       // true while Render server is returning 503
+  let _serverWakeToastShown = false; // only show the "waking up" toast once per session
   let _prevTurnIdx = null;
   let _prevScore = null;
   let _myIdxGlobal = null;
@@ -8754,7 +8756,25 @@
     refreshInFlight = true;
     try {
       const url = buildStateUrl();
-      const { ok, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:4000 });
+      const { ok, status, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:6000 });
+      if (status === 503 || status === 502) {
+        // Render free-tier server is starting up — show a one-time toast and
+        // keep polling; it will come back on its own in ~30 seconds.
+        if (!_serverWaking) {
+          _serverWaking = true;
+          try { setStatus("⏳ Server waking up…"); } catch {}
+          if (!_serverWakeToastShown) {
+            _serverWakeToastShown = true;
+            try { showToast("Server is warming up — connecting automatically in ~30 s", "warn"); } catch {}
+          }
+        }
+        return;
+      }
+      if (_serverWaking) {
+        // Server just came back online
+        _serverWaking = false;
+        try { showToast("Connected!", "ok"); } catch {}
+      }
       if (ok && data && data.ok !== false) { latestPayload = data; renderPayload(data); }
       else if (data?.error === "room not found") handleRoomLost();
     } catch {}
@@ -9001,6 +9021,11 @@
     }, { timeoutMs:10000 });
     createBtn.disabled = false;
     if (!r.ok) {
+      if (r.status === 503 || r.status === 502) {
+        lobbyStatus("Server is warming up — please wait ~30 s and try again.", true);
+        showToast("Server is warming up — try again in ~30 s", "warn");
+        return;
+      }
       const activeId = normalizeRoomId(r.data?.active_room_id || "");
       if (activeId) {
         // A room is already active — guide user to join it; do NOT auto-replace
@@ -9110,9 +9135,12 @@
     try {
       const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs:12000 });
       if (!j.ok) {
-        const msg = "Join failed: " + (j.data?.error || j.status);
+        const is503 = j.status === 503 || j.status === 502;
+        const msg = is503
+          ? "Server is warming up — please wait ~30 s and try again."
+          : "Join failed: " + (j.data?.error || j.status);
         lobbyStatus(msg, true);
-        showToast(msg, "err");
+        showToast(msg, is503 ? "warn" : "err");
         roomId = null;
         if (joinBtn) { joinBtn.disabled = false; const _t1 = document.getElementById("sp-join-text"); if (_t1) _t1.textContent = `Join as Seat ${seat + 1} →`; }
         return;
@@ -13470,6 +13498,7 @@
     document.getElementById("pv-chat-panel").classList.remove("open");
     // Reset Surf's Up Away local state + clear any pending idle/warning timers
     _imAway = false; _serverInactiveEligibleSent = false; _prevActiveSeatForIdle = null;
+    _serverWaking = false; _serverWakeToastShown = false;
     if (typeof _hideIdleWarn === "function") _hideIdleWarn();
     if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
     if (typeof _updateSurfBtnLabel === "function") _updateSurfBtnLabel();

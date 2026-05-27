@@ -3565,8 +3565,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, Cache-Control")
 
     def _apply_html_security_headers(self) -> None:
-        # Allow Firebase auth popups to work (they need same-origin-allow-popups)
-        self.send_header("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+        # unsafe-none required so Firebase popup auth (google.com popup) can
+        # check window.closed / call window.close without being blocked by COOP.
+        # same-origin-allow-popups was causing "COOP would block window.closed"
+        # console errors and broken auth popup teardown.
+        self.send_header("Cross-Origin-Opener-Policy", "unsafe-none")
         self._apply_cors_headers()
 
     def _send_client_asset(
