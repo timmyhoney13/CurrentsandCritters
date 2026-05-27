@@ -14464,8 +14464,11 @@
     const myGameName = myEntry.name || myNick;
     const isComp     = typeof compMode !== "undefined" && compMode;
 
-    // In competitive mode, determine winner at the P1 vs P2 level rather than individual hand
+    // In competitive mode, determine winner at the P1 vs P2 level rather than individual hand.
+    // Also expose myCompBest / myCompOther outside this block for the challenge hooks below.
     let isWinner;
+    let myCompBest  = 0;
+    let myCompOther = 0;
     if (isComp && Array.isArray(_latestPlayers) && _latestPlayers.length) {
       const sbN = {};
       (finalScores || []).forEach(p => { sbN[String(p.name || "")] = Number(p.score || 0); });
@@ -14476,6 +14479,8 @@
       const p1X  = p1Ns.length >= 2 ? Math.min(...p1Ns.map(n => sbN[n] || 0)) : p1B;
       const p2X  = p2Ns.length >= 2 ? Math.min(...p2Ns.map(n => sbN[n] || 0)) : p2B;
       const amP1 = typeof compMySeats !== "undefined" && compMySeats.length > 0 && compMySeats[0] < 2;
+      myCompBest  = amP1 ? p1B : p2B;
+      myCompOther = amP1 ? p1X : p2X;
       let cWinner = null;
       if      (p1B > p2B || (p1B === p2B && p1X > p2X)) cWinner = "p1";
       else if (p2B > p1B || (p1B === p2B && p2X > p1X)) cWinner = "p2";
@@ -14625,6 +14630,32 @@
 
         if (saveGuest) saveGuest(nextStats);
       }
+
+      // ── Daily / Weekly challenge hooks ──────────────────────────
+      // saveGameStats runs once per game finish (casual AND competitive),
+      // so this central hook covers all the trackable challenges in both
+      // modes. Comp-specific hand scores (myCompBest / myCompOther) come
+      // from the comp-winner block computed above.
+      try {
+        const hadBots = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+          .some(p => p && (p.kind === "ai" || p.is_ai === true || p.bot === true));
+        const wasHost = (typeof getHostToken === "function") ? !!getHostToken() : false;
+        const quitByMe = (typeof _gameTerminatedByMe !== "undefined") && _gameTerminatedByMe;
+        if (typeof window._fireChallengeHooksOnGameEnd === "function") {
+          window._fireChallengeHooksOnGameEnd({
+            isComp,
+            myScore,
+            isWinner,
+            finalScores,
+            playerCount,
+            hadBots,
+            wasHost,
+            myCompBest,
+            myCompOther,
+            quitByMe,
+          });
+        }
+      } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
     }
@@ -15180,6 +15211,23 @@
     if (typeof compMode !== "undefined" && compMode) {
       _gameAchTracker.compChatMsgs = (_gameAchTracker.compChatMsgs || 0) + 1;
     }
+    // Daily: Table Talk (send 1 message in a game). Also check for the
+    // "good_sport" cue if the end-game card has appeared and the message
+    // resembles a positive ack.
+    try {
+      if (typeof window._reportDailyChallengeProgress === "function") {
+        window._reportDailyChallengeProgress("table_talk", 0, { complete: true });
+        const endgameActive = Boolean(latestPayload?.state?.end_game_triggered || latestPayload?.state?.end_game_card_drawn);
+        const lowered = text.toLowerCase();
+        const positive = /good\s*game|gg|nice game|well played|wp/.test(lowered);
+        if (endgameActive && positive) {
+          window._reportDailyChallengeProgress("good_sport", 0, { complete: true });
+          if (typeof window._reportWeeklyChallengeProgress === "function") {
+            window._reportWeeklyChallengeProgress("good_sport_week", 1);
+          }
+        }
+      }
+    } catch {}
     refreshState();
   }
 
@@ -16396,6 +16444,12 @@
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
       showStatsLobby();
+      // Daily: Login Current — auto-ticks once per slot per 24h window
+      try {
+        if (typeof window._reportDailyChallengeProgress === "function") {
+          window._reportDailyChallengeProgress("login_current", 0, { complete: true });
+        }
+      } catch {}
     }
 
     function clearGuestSessionStorage() {
@@ -18683,6 +18737,107 @@
       }
     }
     window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
+
+    // ── Unified hook called from game-end paths. Fires all daily and
+    // weekly challenges whose progress we can detect from the game-end
+    // payload (game result + final scores + mode + host/join state).
+    // Challenges that require deeper in-game tracking (pool draws,
+    // star activations, animal moves, species counts, first ocean type,
+    // etc.) will be wired up as those events become observable.
+    function _fireChallengeHooksOnGameEnd(opts) {
+      try {
+        const isComp      = Boolean(opts.isComp);
+        const myScore     = Number(opts.myScore || 0);
+        const isWinner    = Boolean(opts.isWinner);
+        const finalScores = Array.isArray(opts.finalScores) ? opts.finalScores : [];
+        const playerCount = Number(opts.playerCount || finalScores.length || 0);
+        const hadBots     = Boolean(opts.hadBots);
+        const wasHost     = Boolean(opts.wasHost);
+        const myCompBest  = Number(opts.myCompBest || 0);
+        const myCompOther = Number(opts.myCompOther || 0);
+        const quitByMe    = Boolean(opts.quitByMe);
+
+        const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
+        const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
+
+        // ─── DAILY ─────────────────────────────────────────────────
+        // Game-finish category (skip "clean / no-quit" challenges if the
+        // player terminated the game themselves).
+        if (!quitByMe) {
+          rd("clean_finish", 1);
+          if (isComp) rd("ranked_warmup", 1);
+        }
+        rd("still_swimming",   1);                                  // Play 2 games today (counts up)
+        rd("final_current",    1);                                  // Took final turn after End Game (assumed; the player finished)
+        rd(isComp ? "ranked_ripple" : "casual_current", 1);         // Play 1 casual / 1 competitive
+
+        // Score thresholds
+        if (myScore >= 100) rd("daily_splash", 0, { complete: true });
+        if (isComp && myCompBest  >= 100) rd("one_hand_strong", 0, { complete: true });
+        if (isComp && myCompBest  >= 100 && myCompOther >= 100) rd("double_handed", 0, { complete: true });
+
+        // Almost there: not the winner, within 15 of the top score
+        if (finalScores.length) {
+          const topScore = finalScores.reduce((m, p) => Math.max(m, Number(p.score || 0)), 0);
+          if (!isWinner && (topScore - myScore) <= 15 && (topScore - myScore) > 0) {
+            rd("almost_there", 0, { complete: true });
+          }
+        }
+
+        // Win-only
+        if (isWinner && isComp) rd("ranked_win_day", 1);
+
+        // Host vs Join
+        if (wasHost) rd("host_harbor", 1);
+        else         rd("join_current", 1);
+
+        // No bots in game
+        if (!hadBots) rd("no_bots_today", 1);
+
+        // ─── WEEKLY ────────────────────────────────────────────────
+        // Game-finish counters
+        rw("weekly_finisher", 1);
+        rw("ocean_regular",   1);
+        rw("reef_grinder",    1);
+
+        // Mode-specific
+        if (isComp) {
+          rw("competitive_week", 1);
+          rw("ranked_week",      1);
+        } else {
+          rw("casual_week",      1);
+        }
+
+        // Cumulative point bank
+        if (myScore > 0) rw("point_surge", myScore);
+        if (myScore >= 100) rw("consistent_current", 1);
+
+        // Weekend wave (Sat=6 / Sun=0 in JS getDay)
+        const jsDay = new Date().getDay();
+        if (jsDay === 0 || jsDay === 6) rw("weekend_wave", 1);
+
+        // Win-only weeklies (no_quit_week requires a no-quit finish)
+        if (isWinner) {
+          if (!quitByMe) rw("no_quit_week", 1);
+          rw("weekly_winner",  1);
+          if (!isComp) rw("casual_champion", 1);
+          if (isComp)  rw("ranked_current",  1);
+          if (playerCount >= 4) rw("table_topper", 1);
+        }
+
+        // Score-threshold weeklies
+        if (!isComp && playerCount >= 4 && myScore >= 150) rw("big_splash_weekly", 0, { complete: true });
+        if (!isComp && playerCount >= 4 && myScore >= 250) rw("tidal_wave_weekly", 0, { complete: true });
+        if (isComp && myCompBest >= 125) rw("ranked_tidal_wave", 0, { complete: true });
+
+        // Other detectable ones
+        if (!hadBots) rw("no_bots_needed", 1);
+        if (!wasHost) rw("join_week", 1);
+      } catch (e) {
+        console.warn("Challenge hook error:", e);
+      }
+    }
+    window._fireChallengeHooksOnGameEnd = _fireChallengeHooksOnGameEnd;
 
     // Auto-fire Tide Sweep / Perfect Week XP grants when criteria met.
     // The actual XP grant routes through Firebase via the existing addXp
