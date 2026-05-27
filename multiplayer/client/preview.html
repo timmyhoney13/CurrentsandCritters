@@ -10447,6 +10447,10 @@
   let _chObsPoolWatcherStreak = 0; // consecutive draws from pool from OTHER players' cards
   let _chObsCompSelfDiscarded = new Set(); // entry_uids put in pool by THIS device's seats
                                             // (for set_it_up — competitive only)
+  let _chObsPrevMyBoardCards    = new Set(); // face_uids on my board last payload
+  let _chObsSpeciesPlayedGame   = new Set(); // species placed this game
+  let _chObsOceanTypesPlayedGame= new Set(); // distinct ocean names this game
+  let _chObsPrevMyHandCount     = 0;        // hand size last payload (for discard_duty)
 
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent — the report function only ticks ACTIVE
@@ -10577,6 +10581,86 @@
     _chObsPrevPoolSize = poolNow.length;
   }
 
+  // Species map — match the server's species strings to weekly challenge ids.
+  const _CH_SPECIES_TO_WEEKLY = {
+    "bird":         "bird_week",
+    "crustacean":   "crustacean_week",
+    "coral":        "coral_week",
+    "game fish":    "game_fish_week",
+    "cephalopod":   "cephalopod_week",
+    "baitfish":     "bait_fish_week",
+    "bait fish":    "bait_fish_week",
+    "mammal":       "mammal_week",
+    "invertebrate": "invertebrate_week",
+    "crosscurrent": "crosscurrent_week",
+  };
+
+  // Species / ocean / hand observer — fires per-card-placed events for the
+  // species weekly counters, plus the per-game distinct-species and
+  // distinct-ocean challenges, plus the discard_duty hand-trim detector.
+  function _challObserveSpeciesAndOcean(me) {
+    const board = (me && Array.isArray(me.board)) ? me.board : [];
+
+    // Walk every animal-attachment slot to collect all card uids currently
+    // on my board, with their species.
+    const curCardUids = new Set();
+    const speciesByUid = new Map();
+    for (const ocean of board) {
+      // Track distinct ocean types this game.
+      const oceanName = String(ocean?.ocean?.name || "").trim();
+      if (oceanName) _chObsOceanTypesPlayedGame.add(oceanName.toLowerCase());
+      for (const dir of ["up", "down", "left", "right"]) {
+        const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+        for (const c of cards) {
+          const uid = Number(c.uid || c.face_uid || 0);
+          if (uid) {
+            curCardUids.add(uid);
+            const sp = String(c.species || "").toLowerCase().trim();
+            if (sp) speciesByUid.set(uid, sp);
+          }
+        }
+      }
+    }
+
+    // Detect newly-placed cards (in curCardUids but not in _chObsPrevMyBoardCards).
+    for (const uid of curCardUids) {
+      if (_chObsPrevMyBoardCards.has(uid)) continue;
+      const sp = speciesByUid.get(uid);
+      if (!sp || sp === "ocean") continue; // ocean cards aren't animals
+      // Weekly: species-specific counts.
+      const cid = _CH_SPECIES_TO_WEEKLY[sp];
+      if (cid) {
+        try { window._reportWeeklyChallengeProgress?.(cid, 1); } catch {}
+      }
+      // Weekly: critter_collector — total animal cards this week (target 50).
+      try { window._reportWeeklyChallengeProgress?.("critter_collector", 1); } catch {}
+
+      // Per-game distinct species set.
+      _chObsSpeciesPlayedGame.add(sp);
+      if (_chObsSpeciesPlayedGame.size >= 4) {
+        try { window._reportDailyChallengeProgress?.("mini_ecosystem", 0, { complete: true }); } catch {}
+      }
+      if (_chObsSpeciesPlayedGame.size >= 6) {
+        try { window._reportWeeklyChallengeProgress?.("balanced_ocean", 0, { complete: true }); } catch {}
+      }
+    }
+
+    // the_all_blue_weekly — 8 distinct Oceans on my board in one game.
+    if (_chObsOceanTypesPlayedGame.size >= 8) {
+      try { window._reportWeeklyChallengeProgress?.("the_all_blue_weekly", 0, { complete: true }); } catch {}
+    }
+
+    _chObsPrevMyBoardCards = curCardUids;
+
+    // discard_duty — at end of turn, was forced to discard down to 10.
+    // Detect via hand size dropping from >10 to <=10 between payloads.
+    const curHand = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 0));
+    if (_chObsPrevMyHandCount > 10 && curHand === 10) {
+      try { window._reportDailyChallengeProgress?.("discard_duty", 0, { complete: true }); } catch {}
+    }
+    _chObsPrevMyHandCount = curHand;
+  }
+
   // Main per-payload observer entry point. Add new observers here over
   // time — keeping them all in one place makes the diff state easy to
   // reason about and easy to reset on game-end / leave.
@@ -10587,6 +10671,7 @@
     _challObserveMoveScore(me);
     _challObserveStarCombo(state, players);
     _challObservePool(state, players);
+    _challObserveSpeciesAndOcean(me);
   }
 
   // Reset all observer state when leaving the room so a brand-new game
@@ -10605,6 +10690,10 @@
     _chObsPoolJustResetAt = 0;
     _chObsPoolWatcherStreak = 0;
     _chObsCompSelfDiscarded = new Set();
+    _chObsPrevMyBoardCards = new Set();
+    _chObsSpeciesPlayedGame = new Set();
+    _chObsOceanTypesPlayedGame = new Set();
+    _chObsPrevMyHandCount = 0;
   }
 
   function renderPayload(payload) {
@@ -14960,6 +15049,8 @@
         const moveCount = Number(_gameAchTracker?.animalMoves || 0);
         const starCount = Number(_gameAchTracker?.starsActivated || 0);
         const usedPool  = Boolean(_gameAchTracker?.usedPool);
+        const oceanTypeCount = (typeof _chObsOceanTypesPlayedGame !== "undefined")
+          ? _chObsOceanTypesPlayedGame.size : 0;
         if (typeof window._fireChallengeHooksOnGameEnd === "function") {
           window._fireChallengeHooksOnGameEnd({
             isComp,
@@ -14975,6 +15066,7 @@
             moveCount,
             starCount,
             usedPool,
+            oceanTypeCount,
           });
         }
       } catch (e) { /* non-fatal */ }
@@ -19083,6 +19175,7 @@
         const moveCount   = Number(opts.moveCount || 0);
         const starCount   = Number(opts.starCount || 0);
         const usedPool    = Boolean(opts.usedPool);
+        const oceanTypeCount = Number(opts.oceanTypeCount || 0);
 
         const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
         const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
@@ -19136,6 +19229,10 @@
         // Pool-related game-end
         // nothing_but_deck_weekly: won the game without drawing from the Pool
         if (isWinner && !usedPool) rw("nothing_but_deck_weekly", 0, { complete: true });
+
+        // Ocean-type game-end
+        // one_ocean_weekly: won using only one type of Ocean on my board
+        if (isWinner && oceanTypeCount === 1) rw("one_ocean_weekly", 0, { complete: true });
 
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters
