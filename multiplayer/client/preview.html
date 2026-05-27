@@ -19379,6 +19379,72 @@
           }
         } catch {}
 
+        // ── Win-streak challenges ─────────────────────────────────
+        try {
+          const STREAK_KEY = "cc_streak_v1";
+          let s = { casualWin: 0, compWin: 0, anyWin: 0, casualBigWinStreak: 0 };
+          try {
+            const r = localStorage.getItem(STREAK_KEY);
+            if (r) s = Object.assign(s, JSON.parse(r));
+          } catch {}
+
+          // Score margin = my score minus the next-highest opponent score.
+          let margin = 0;
+          if (finalScores.length >= 2) {
+            const sorted = [...finalScores].sort((a, b) => (b.score || 0) - (a.score || 0));
+            const winnerScore = Number(sorted[0]?.score || 0);
+            const secondScore = Number(sorted[1]?.score || 0);
+            margin = winnerScore - secondScore;
+          }
+
+          if (isWinner) {
+            s.anyWin = (s.anyWin || 0) + 1;
+            if (s.anyWin >= 2) rw("back_to_back_current", 0, { complete: true });
+            if (s.anyWin >= 3) rw("three_wave_streak", 0, { complete: true });
+            if (!isComp) {
+              s.casualWin = (s.casualWin || 0) + 1;
+              s.compWin = 0;
+              // big_winner — 2 casual wins in a row each by 50+ points
+              if (margin >= 50) {
+                s.casualBigWinStreak = (s.casualBigWinStreak || 0) + 1;
+                if (s.casualBigWinStreak >= 2) rw("big_winner", 0, { complete: true });
+              } else {
+                s.casualBigWinStreak = 0;
+              }
+            } else {
+              s.compWin = (s.compWin || 0) + 1;
+              s.casualWin = 0;
+              s.casualBigWinStreak = 0;
+              if (s.compWin >= 2) rw("ranked_back_to_back", 0, { complete: true });
+            }
+          } else {
+            // any loss / draw resets all streaks
+            s.anyWin = 0;
+            s.casualWin = 0;
+            s.compWin = 0;
+            s.casualBigWinStreak = 0;
+          }
+          try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch {}
+
+          // mixed_waters — 1 casual win + 1 comp win this week (target 2).
+          // Per-week ledger keyed by current Monday midnight.
+          if (isWinner && typeof _getThisMondayMidnight === "function") {
+            const mwKey = "cc_week_mixed_" + _getThisMondayMidnight();
+            let mw = { casual: false, comp: false };
+            try {
+              const r = localStorage.getItem(mwKey);
+              if (r) mw = Object.assign(mw, JSON.parse(r));
+            } catch {}
+            const prevCount = (mw.casual ? 1 : 0) + (mw.comp ? 1 : 0);
+            if (isComp) mw.comp = true; else mw.casual = true;
+            const newCount = (mw.casual ? 1 : 0) + (mw.comp ? 1 : 0);
+            try { localStorage.setItem(mwKey, JSON.stringify(mw)); } catch {}
+            if (newCount === 2 && prevCount < 2) {
+              rw("mixed_waters", 0, { complete: true });
+            }
+          }
+        } catch {}
+
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters
         rw("weekly_finisher", 1);
