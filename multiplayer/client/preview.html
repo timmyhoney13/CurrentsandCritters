@@ -7708,7 +7708,7 @@
   💬
   <span class="chat-badge" id="pv-chat-badge"></span>
 </button>
-<div id="pv-chat-panel" class="open">
+<div id="pv-chat-panel">
   <div id="pv-chat-hdr">
     <span>Chat</span>
     <button id="pv-chat-close">✕</button>
@@ -13174,7 +13174,7 @@
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
     _chatSeenCount = 0; _chatLastCount = -1;
-    _chatPanelOpen = true;
+    _chatPanelOpen = false;
     document.getElementById("pv-chat-panel").classList.remove("open");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
@@ -14215,7 +14215,7 @@
 
   // ── Chat ───────────────────────────────────────────────────────
   let _chatSeenCount = 0;
-  let _chatPanelOpen = true;
+  let _chatPanelOpen = false;
 
   let _chatLastCount = -1;
   function renderChatMessages(messages) {
