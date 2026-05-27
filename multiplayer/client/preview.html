@@ -19443,6 +19443,63 @@
           }
         } catch {}
 
+        // ── strategy_switch (daily) ───────────────────────────────
+        // Play 2 games today using different strategies. Track per-day
+        // (local-date) set of strategies played. We classify all FINISHED
+        // games regardless of win/loss for this challenge — strategy is
+        // about what the player BUILT, not whether they won.
+        try {
+          const detectStrategyAny = (player) => {
+            const board = Array.isArray(player?.board) ? player.board : [];
+            let total = 0; const typeCounts = {}; const nameCounts = {};
+            for (const ocean of board) {
+              for (const dir of ["up", "down", "left", "right"]) {
+                const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+                for (const c of cards) {
+                  const sp = String(c.species || "").toLowerCase().trim();
+                  const nm = String(c.name    || "").toLowerCase().trim();
+                  if (sp) typeCounts[sp] = (typeCounts[sp] || 0) + 1;
+                  if (nm) nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+                  total++;
+                }
+              }
+            }
+            if (total === 0) return null;
+            const pct = sp => (typeCounts[sp] || 0) / total;
+            if ((nameCounts["mandarin goby"] || 0) >= 1) return "Goby";
+            if (pct("cephalopod") >= 0.30 && pct("coral") >= 0.15) return "Coral/Cephalopods";
+            if (pct("cephalopod") >= 0.40) return "Cephalopods";
+            if (pct("bird") >= 0.20 && (pct("crustacean") >= 0.10
+                || (nameCounts["lobster"]||0) >= 1
+                || (nameCounts["mantis shrimp"]||0) >= 1)) return "Bird/Lobster";
+            if (pct("bird") >= 0.20 && pct("coral") >= 0.15) return "Bird/Coral";
+            if (pct("bird") >= 0.35) return "Bird/Coral";
+            if (pct("baitfish") >= 0.35) return "Baitfish Barrage";
+            if (pct("mammal") >= 0.45) return "Mammals";
+            if ((nameCounts["yellowfin tuna"] || 0) >= 1) return "Yellowfin Tuna";
+            if (pct("ocean") >= 0.40 || pct("coral") >= 0.50) return "Ocean All Blue";
+            if (pct("game fish") >= 0.40) return "Game Fish";
+            return "Best Guess";
+          };
+          const myPlayer = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+            .find(p => p.index === myIdx);
+          const strat = detectStrategyAny(myPlayer);
+          if (strat) {
+            const dayKey = new Date().toDateString();
+            const STORAGE_KEY = "cc_today_strategies_" + dayKey;
+            let set = new Set();
+            try {
+              const r = localStorage.getItem(STORAGE_KEY);
+              if (r) JSON.parse(r).forEach(s => set.add(String(s)));
+            } catch {}
+            set.add(strat);
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...set])); } catch {}
+            if (set.size >= 2) {
+              rd("strategy_switch", 0, { complete: true });
+            }
+          }
+        } catch {}
+
         // ── Win-streak challenges ─────────────────────────────────
         try {
           const STREAK_KEY = "cc_streak_v1";
