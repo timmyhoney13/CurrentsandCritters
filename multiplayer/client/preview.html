@@ -9336,6 +9336,16 @@
     startSSE();
     startPolling();
     startThemeSong();
+    // play_again_endgame: previous game ended with End Game card seen,
+    // and now I'm entering a new game → fire the daily challenge.
+    try {
+      if (localStorage.getItem("cc_play_again_pending") === "1") {
+        localStorage.removeItem("cc_play_again_pending");
+        if (typeof window._reportDailyChallengeProgress === "function") {
+          window._reportDailyChallengeProgress("play_again_endgame", 0, { complete: true });
+        }
+      }
+    } catch {}
   }
 
   // ── Lobby create / join ────────────────────────────────────────
@@ -10321,6 +10331,40 @@
         } catch {}
       }
 
+      // ── Surface / Floor streak hooks ──────────────────────────────
+      if (action.kind === "play_to_ocean") {
+        const dir = String(action.face_direction || "").toLowerCase();
+        if (dir === "up") {
+          _chObsSurfaceStreak++;
+          _chObsFloorStreak = 0;
+          if (_chObsSurfaceStreak >= 3) {
+            try { window._reportDailyChallengeProgress?.("surface_life", 0, { complete: true }); } catch {}
+          }
+        } else if (dir === "down") {
+          _chObsFloorStreak++;
+          _chObsSurfaceStreak = 0;
+          if (_chObsFloorStreak >= 3) {
+            try { window._reportDailyChallengeProgress?.("ocean_floor", 0, { complete: true }); } catch {}
+          }
+        } else {
+          // left/right break both streaks
+          _chObsSurfaceStreak = 0;
+          _chObsFloorStreak = 0;
+        }
+
+        // Free animal play — submitted a play during an active free-play window.
+        const fpsBefore = Array.isArray(latestPayload?.legal_actions?.free_play_species)
+          ? latestPayload.legal_actions.free_play_species
+          : [];
+        if (fpsBefore.length > 0) {
+          try { window._reportWeeklyChallengeProgress?.("free_animal_week", 1); } catch {}
+        }
+      } else if (action.kind && action.kind !== "play_ocean") {
+        // Any other action (draw, move, discard, end turn) breaks the streaks.
+        _chObsSurfaceStreak = 0;
+        _chObsFloorStreak = 0;
+      }
+
       // ── Star ability activation hooks ─────────────────────────────
       if (action.use_star) {
         _gameAchTracker.starsActivated = (_gameAchTracker.starsActivated || 0) + 1;
@@ -10451,6 +10495,11 @@
   let _chObsSpeciesPlayedGame   = new Set(); // species placed this game
   let _chObsOceanTypesPlayedGame= new Set(); // distinct ocean names this game
   let _chObsPrevMyHandCount     = 0;        // hand size last payload (for discard_duty)
+  let _chObsSurfaceStreak       = 0;        // consecutive play_to_ocean direction="up"
+  let _chObsFloorStreak         = 0;        // consecutive play_to_ocean direction="down"
+  let _chObsLastTurnStartScore  = null;     // my score at the start of my CURRENT turn
+                                            //  (snapshotted on turn-boundary observer; used
+                                            //   for breaker_turn at turn-end)
 
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent — the report function only ticks ACTIVE
@@ -10694,6 +10743,9 @@
     _chObsSpeciesPlayedGame = new Set();
     _chObsOceanTypesPlayedGame = new Set();
     _chObsPrevMyHandCount = 0;
+    _chObsSurfaceStreak = 0;
+    _chObsFloorStreak = 0;
+    _chObsLastTurnStartScore = null;
   }
 
   function renderPayload(payload) {
@@ -10728,6 +10780,12 @@
             if (turnDelta > _bestTurnPts) { _bestTurnPts = turnDelta; _bestTurnNames = [_prevCurrentPlayer]; }
             else if (turnDelta > 0 && turnDelta === _bestTurnPts && !_bestTurnNames.includes(_prevCurrentPlayer)) {
               _bestTurnNames.push(_prevCurrentPlayer);
+            }
+            // Daily/Weekly: breaker_turn — Score 50+ in one turn (weekly only)
+            //                              Actually weekly says target 50 → completes
+            const meName = (players.find(p => p.index === myIdx) || {}).name;
+            if (turnDelta >= 50 && _prevCurrentPlayer === meName) {
+              try { window._reportWeeklyChallengeProgress?.("breaker_turn", 0, { complete: true }); } catch {}
             }
           }
         }
@@ -17162,6 +17220,16 @@
       const previewEl   = $a("stats-friends-preview");
       if (!miniBox || !previewEl) return;
       const friends = await loadFriends(uid);
+      // Cache friend nicknames (lowercased) so game-end challenge hooks can
+      // detect when an opponent is a friend without re-fetching Firestore.
+      try {
+        const set = new Set();
+        for (const f of (friends || [])) {
+          const nk = String(f?.nickname || "").trim().toLowerCase();
+          if (nk) set.add(nk);
+        }
+        window.__fishFriendNicksLower = set;
+      } catch {}
       miniBox.style.display = "";
       if (!friends.length) {
         previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
@@ -19214,6 +19282,75 @@
         // No bots in game
         if (!hadBots) rd("no_bots_today", 1);
 
+        // Friend / opponent detection — runs only if we have a viewer name
+        // and the game had at least one other real player.
+        try {
+          const myName = (typeof window.__fishNickname === "function")
+            ? String(window.__fishNickname() || "").trim().toLowerCase() : "";
+          const friendNicks = window.__fishFriendNicksLower || new Set();
+          const realOpponents = finalScores
+            .map(p => String(p?.name || "").trim())
+            .filter(n => n && n.toLowerCase() !== myName);
+          // Friend Tide — any opponent is a friend
+          if (myName && friendNicks.size > 0) {
+            const playedWithFriend = realOpponents.some(n => friendNicks.has(n.toLowerCase()));
+            if (playedWithFriend) rd("friend_tide", 0, { complete: true });
+          }
+          // New Face / new_currents / friendly_waters — use localStorage
+          //  ledger of opponent names we've played with.
+          const SEEN_KEY = "cc_seen_opponents_v1";
+          let seenSet = new Set();
+          try {
+            const raw = localStorage.getItem(SEEN_KEY);
+            if (raw) JSON.parse(raw).forEach(n => seenSet.add(String(n)));
+          } catch {}
+          const newOpponents = realOpponents.filter(n => !seenSet.has(n.toLowerCase()));
+          if (newOpponents.length > 0) {
+            rd("new_face", 0, { complete: true });
+            // Weekly: new_currents — accumulate distinct never-played opponents.
+            for (const _ of newOpponents) rw("new_currents", 1);
+          }
+          // Update ledger.
+          if (realOpponents.length > 0) {
+            for (const n of realOpponents) seenSet.add(n.toLowerCase());
+            try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seenSet])); } catch {}
+          }
+          // Weekly: friendly_waters — 5 different real opponents this week.
+          // Uses a separate per-week ledger keyed by the current Monday.
+          if (realOpponents.length > 0 && typeof _getThisMondayMidnight === "function") {
+            const monKey = "cc_week_opp_" + _getThisMondayMidnight();
+            let weekSet = new Set();
+            try {
+              const r = localStorage.getItem(monKey);
+              if (r) JSON.parse(r).forEach(n => weekSet.add(String(n)));
+            } catch {}
+            const before = weekSet.size;
+            for (const n of realOpponents) weekSet.add(n.toLowerCase());
+            try { localStorage.setItem(monKey, JSON.stringify([...weekSet])); } catch {}
+            const added = weekSet.size - before;
+            if (added > 0) rw("friendly_waters", added);
+          }
+          // Weekly: friend_streak — play 3 times with the same friend this
+          // week. Track per-friend game counts in localStorage.
+          if (friendNicks.size > 0) {
+            const friendOpps = realOpponents.filter(n => friendNicks.has(n.toLowerCase()));
+            if (friendOpps.length > 0 && typeof _getThisMondayMidnight === "function") {
+              const fsKey = "cc_week_friend_counts_" + _getThisMondayMidnight();
+              let counts = {};
+              try {
+                const r = localStorage.getItem(fsKey);
+                if (r) counts = JSON.parse(r) || {};
+              } catch {}
+              for (const n of friendOpps) {
+                const key = n.toLowerCase();
+                counts[key] = (counts[key] || 0) + 1;
+                if (counts[key] >= 3) rw("friend_streak", 0, { complete: true });
+              }
+              try { localStorage.setItem(fsKey, JSON.stringify(counts)); } catch {}
+            }
+          }
+        } catch {}
+
         // Move-related challenges
         // no_moving_needed: won the game with zero moves
         if (isWinner && moveCount === 0) rd("no_moving_needed", 0, { complete: true });
@@ -19233,6 +19370,14 @@
         // Ocean-type game-end
         // one_ocean_weekly: won using only one type of Ocean on my board
         if (isWinner && oceanTypeCount === 1) rw("one_ocean_weekly", 0, { complete: true });
+
+        // play_again_endgame: if the end-game card was seen this game, set a
+        // flag so the NEXT game start can fire the daily challenge.
+        try {
+          if (_gameAchTracker?.endGameSeen) {
+            localStorage.setItem("cc_play_again_pending", "1");
+          }
+        } catch {}
 
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters
