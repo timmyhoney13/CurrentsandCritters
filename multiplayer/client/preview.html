@@ -18255,12 +18255,74 @@
       { id: "new_face",          name: "New Face",                   req: "Play with someone new.",                                         target: 1,   xp: 125, icon: "🆕" },
     ];
 
-    // Weekly challenges remain placeholder until the real list is sent.
-    const _PLACEHOLDER_WEEKLY = [
-      { id: "weekly_finisher",    icon: "🏁", name: "Weekly Finisher",    req: "Finish 10 games this week.",          progress: 0, target: 10, xp: 1000 },
-      { id: "ranked_week",        icon: "⚔️", name: "Ranked Week",        req: "Play 5 Competitive games.",            progress: 0, target: 5,  xp: 2000 },
-      { id: "weekly_tide_sweep",  icon: "🗝️", name: "Weekly Tide Sweep",  req: "Complete all 5 weekly achievements.", progress: 0, target: 5,  xp: 1000 },
+    // ── WEEKLY: pool of 56 challenges (Weekly Tide Sweep and Perfect
+    // Week are auto-tracked meta achievements — not in the random pool).
+    // Player rolls 5 unique random challenges per week. Strip shows only
+    // 3 of those 5 at a time (uncompleted first). Resets every Monday
+    // 12:00 AM local time.
+    const _WEEKLY_CHALLENGES = [
+      { id: "weekly_finisher",       name: "Weekly Finisher",          req: "Finish 10 games this week.",                                  target: 10, xp: 1000, icon: "🏁" },
+      { id: "ocean_regular",         name: "Ocean Regular",            req: "Finish 15 games this week.",                                  target: 15, xp: 1500, icon: "🌊" },
+      { id: "reef_grinder",          name: "Reef Grinder",             req: "Finish 25 games this week.",                                  target: 25, xp: 2500, icon: "🪸" },
+      { id: "seven_seas",            name: "Seven Seas",               req: "Play on all 7 days this week.",                                target: 7,  xp: 2500, icon: "📅" },
+      { id: "weekend_wave",          name: "Weekend Wave",             req: "Play 3 games over the weekend.",                              target: 3,  xp: 750,  icon: "🌅" },
+      { id: "no_quit_week",          name: "No Quit Week",             req: "Win 10 games without quitting.",                               target: 10, xp: 1000, icon: "🛡️" },
+      { id: "casual_week",           name: "Casual Week",              req: "Finish 8 Casual games.",                                       target: 8,  xp: 1000, icon: "🎲" },
+      { id: "competitive_week",      name: "Competitive Week",         req: "Finish 5 Competitive games.",                                  target: 5,  xp: 1250, icon: "⚔️" },
+      { id: "weekly_winner",         name: "Weekly Winner",            req: "Win 5 games this week.",                                       target: 5,  xp: 500,  icon: "🏆" },
+      { id: "casual_champion",       name: "Casual Champion",          req: "Win 3 Casual games.",                                          target: 3,  xp: 400,  icon: "🥇" },
+      { id: "ranked_current",        name: "Ranked Current",           req: "Win 3 Competitive games.",                                     target: 3,  xp: 500,  icon: "👑" },
+      { id: "mixed_waters",          name: "Mixed Waters",             req: "Win 1 Casual and 1 Competitive game.",                         target: 2,  xp: 750,  icon: "🌀" },
+      { id: "back_to_back_current",  name: "Back-to-Back Current",     req: "Win 2 games in a row.",                                        target: 2,  xp: 500,  icon: "⏩" },
+      { id: "three_wave_streak",     name: "Three Wave Streak",        req: "Win 3 games in a row.",                                        target: 3,  xp: 2000, icon: "🔥" },
+      { id: "big_winner",            name: "Big Winner",               req: "Win 2 games in a row by 50+ points.",                          target: 2,  xp: 1250, icon: "💯" },
+      { id: "table_topper",          name: "Table Topper",             req: "Finish 1st in a 4+ player game.",                              target: 1,  xp: 400,  icon: "🥇" },
+      { id: "big_splash_weekly",     name: "Big Splash",               req: "Score 150+ in a 4+ player Casual game.",                       target: 150, xp: 750, icon: "💦" },
+      { id: "tidal_wave_weekly",     name: "Tidal Wave",               req: "Score 250+ in a 4+ player Casual game.",                       target: 250, xp: 500, icon: "🌊" },
+      { id: "point_surge",           name: "Point Surge",              req: "Score 1,000 total points this week.",                          target: 1000, xp: 350, icon: "📈" },
+      { id: "breaker_turn",          name: "Breaker Turn",             req: "Score 50+ points in one turn.",                                target: 50, xp: 400,  icon: "⚡" },
+      { id: "consistent_current",    name: "Consistent Current",       req: "Score 100+ in 10 games this week.",                            target: 10, xp: 2000, icon: "📊" },
+      { id: "the_all_blue_weekly",   name: "The All Blue",             req: "Play 8 different Oceans in one game.",                         target: 8,  xp: 750,  icon: "🌍" },
+      { id: "one_ocean_weekly",      name: "One Ocean Weekly",         req: "Win using only one type of Ocean.",                            target: 1,  xp: 1500, icon: "🏝️" },
+      { id: "bird_week",             name: "Bird Week",                req: "Play 30 Birds this week.",                                     target: 30, xp: 1500, icon: "🐦" },
+      { id: "crustacean_week",       name: "Crustacean Week",          req: "Play 30 Crustaceans this week.",                               target: 30, xp: 1500, icon: "🦀" },
+      { id: "coral_week",            name: "Coral Week",               req: "Play 30 Coral cards this week.",                               target: 30, xp: 1500, icon: "🪸" },
+      { id: "game_fish_week",        name: "Game Fish Week",           req: "Play 40 Game Fish this week.",                                 target: 40, xp: 1500, icon: "🐟" },
+      { id: "cephalopod_week",       name: "Cephalopod Week",          req: "Play 30 Cephalopods this week.",                               target: 30, xp: 1500, icon: "🐙" },
+      { id: "bait_fish_week",        name: "Bait Fish Week",           req: "Play 50 Bait Fish this week.",                                 target: 50, xp: 1500, icon: "🎏" },
+      { id: "mammal_week",           name: "Mammal Week",              req: "Play 27 Mammals this week.",                                   target: 27, xp: 1500, icon: "🦭" },
+      { id: "invertebrate_week",     name: "Invertebrate Week",        req: "Play 27 Invertebrates this week.",                             target: 27, xp: 1500, icon: "🪼" },
+      { id: "crosscurrent_week",     name: "Crosscurrent Week",        req: "Play 30 Crosscurrent cards this week.",                        target: 30, xp: 1500, icon: "🔀" },
+      { id: "balanced_ocean",        name: "Balanced Ocean",           req: "Play 6 different species groups in one game.",                 target: 6,  xp: 1250, icon: "⚖️" },
+      { id: "critter_collector",     name: "Critter Collector",        req: "Play 50 total animal cards this week.",                        target: 50, xp: 1500, icon: "🐾" },
+      { id: "all_blue_week",         name: "All Blue Week",            req: "Win using the Ocean-heavy strategy combo 4 times.",            target: 4,  xp: 1000, icon: "💙" },
+      { id: "tuna_week",             name: "Tuna Week",                req: "Win using Yellowfin Tuna stacking combo 4 times.",             target: 4,  xp: 1000, icon: "🐟" },
+      { id: "mammal_pod_week",       name: "Mammal Pod Week",          req: "Win using Mammals combo 4 times.",                             target: 4,  xp: 1000, icon: "🐳" },
+      { id: "baitfish_barrage_week", name: "Baitfish Barrage Week",    req: "Win using Baitfish Barrage combo 4 times.",                    target: 4,  xp: 1000, icon: "🎣" },
+      { id: "b_lob_week",            name: "B-Lob Week",               req: "Win using Bird/Lobster combo 4 times.",                        target: 4,  xp: 1000, icon: "🪺" },
+      { id: "coral_b_week",          name: "Coral-B Week",             req: "Win using Bird/Coral combo 4 times.",                          target: 4,  xp: 1000, icon: "🌸" },
+      { id: "c_c_week",              name: "C-C Week",                 req: "Win using Coral/Cephalopods combo 4 times.",                   target: 4,  xp: 1250, icon: "🎭" },
+      { id: "off_meta_week",         name: "Off-Meta Week",            req: "Win without using a listed strategy.",                         target: 1,  xp: 1000, icon: "🃏" },
+      { id: "counter_current_week",  name: "Counter Current",          req: "Beat someone using the same strategy.",                        target: 1,  xp: 1000, icon: "🔁" },
+      { id: "nothing_but_deck_weekly", name: "Nothing But Deck",       req: "Win without drawing from the Pool.",                           target: 1,  xp: 750,  icon: "🎴" },
+      { id: "star_storm",            name: "Star Storm",               req: "Activate 20 ★ abilities this week.",                           target: 20, xp: 2000, icon: "💫" },
+      { id: "free_animal_week",      name: "Free Animal Week",         req: "Play 5 free animals from your hand.",                          target: 5,  xp: 1500, icon: "🆓" },
+      { id: "ranked_week",           name: "Ranked Week",              req: "Play 5 Competitive games.",                                    target: 5,  xp: 2000, icon: "⚔️" },
+      { id: "ranked_tidal_wave",     name: "Ranked Tidal Wave",        req: "Score 125+ in one Competitive hand.",                          target: 125, xp: 250, icon: "🌊" },
+      { id: "stolen_setup",          name: "Stolen Setup",             req: "Take a card your opponent likely set up.",                     target: 1,  xp: 1000, icon: "🥷" },
+      { id: "ranked_back_to_back",   name: "Ranked Back-to-Back",      req: "Win 2 Competitive games in a row.",                            target: 2,  xp: 1000, icon: "🏅" },
+      { id: "friendly_waters",       name: "Friendly Waters",          req: "Play with 5 different real players.",                          target: 5,  xp: 1000, icon: "👥" },
+      { id: "no_bots_needed",        name: "No Bots Needed",           req: "Complete 3 no-bot games.",                                     target: 3,  xp: 1000, icon: "🙋" },
+      { id: "join_week",             name: "Join Week",                req: "Join and finish 5 games hosted by others.",                    target: 5,  xp: 1000, icon: "🚪" },
+      { id: "good_sport_week",       name: "Good Sport Week",          req: "Send a positive endgame reaction in 5 games.",                 target: 5,  xp: 500,  icon: "🤝" },
+      { id: "friend_streak",         name: "Friend Streak",            req: "Play with the same friend 3 times this week.",                 target: 3,  xp: 750,  icon: "🫂" },
+      { id: "new_currents",          name: "New Currents",             req: "Play with 3 players you have never played before.",            target: 3,  xp: 100,  icon: "🆕" },
     ];
+    // Meta achievements — auto-fired when the 5 random weeklies are completed.
+    const _WEEKLY_META = {
+      tideSweepXp:    1000,  // all 5 weeklies complete
+      perfectWeekXp:  5000,  // all 5 weeklies complete + played all 7 days
+    };
 
     const _DAILY_REFRESH_MS  = 24 * 60 * 60 * 1000;
     const _DAILY_STATE_KEY   = "cc_daily_state_v1";
@@ -18383,9 +18445,14 @@
       const fillEl   = $a("ph-cs-reward-fill");
       if (!cardsEl || !titleEl || !subEl || !pillEl) return;
 
+      // Each render also marks today as played (for Seven Seas / Perfect
+      // Week) and runs the weekly meta claim check.
+      try { _markTodayPlayed(); } catch {}
+      try { _maybeClaimWeeklyMeta(); } catch {}
+
       const isWeekly = _csView === "weekly";
       const data     = isWeekly
-        ? _PLACEHOLDER_WEEKLY.slice(0, 3)
+        ? _getWeeklyDisplaySlots()
         : _getCurrentDailySlots();
 
       titleEl.textContent = isWeekly ? "Weekly Challenges" : "Daily Challenges";
@@ -18397,9 +18464,10 @@
 
       cardsEl.innerHTML = data.map(c => _csCardHtml(c, isWeekly)).join("");
 
-      // Weekly Tide Sweep progress (placeholder — wired in with real list later).
-      const sweepDone   = 0;
-      const sweepTotal  = 5;
+      // Weekly Tide Sweep reward area — live count of 5 weeklies completed.
+      const meta        = _getWeeklyMeta();
+      const sweepDone   = meta.completedCount;
+      const sweepTotal  = meta.totalCount;
       const sweepPct    = Math.min(100, Math.round((sweepDone / Math.max(1, sweepTotal)) * 100));
       if (countEl) countEl.textContent = `${sweepDone} / ${sweepTotal} Completed`;
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
@@ -18448,6 +18516,205 @@
       }
     }
     window._reportDailyChallengeProgress = reportDailyChallengeProgress;
+
+    // ── WEEKLY state management ───────────────────────────────────
+    const _WEEKLY_STATE_KEY = "cc_weekly_state_v1";
+
+    // Returns the epoch ms of the most recent Monday at 00:00 local time.
+    function _getThisMondayMidnight() {
+      const now = new Date();
+      const day = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+      const daysSinceMonday = (day === 0) ? 6 : (day - 1);
+      const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday, 0, 0, 0, 0);
+      return mon.getTime();
+    }
+    function _weekdayKey() {
+      // Mon=0 ... Sun=6 — matches our daysPlayed object keys.
+      const day = new Date().getDay();
+      return (day === 0) ? 6 : (day - 1);
+    }
+    function _isWeekend() {
+      const wd = _weekdayKey();
+      return wd === 5 || wd === 6; // Sat or Sun
+    }
+
+    // Roll N unique random indices into the 56-challenge pool.
+    function _rollWeeklyIndices(count) {
+      const pool = _WEEKLY_CHALLENGES.map((_, i) => i);
+      const out = [];
+      const n = Math.min(count, pool.length);
+      for (let i = 0; i < n; i++) {
+        const j = Math.floor(Math.random() * pool.length);
+        out.push(pool.splice(j, 1)[0]);
+      }
+      return out;
+    }
+
+    function _freshWeeklyState() {
+      return {
+        weekStartMs: _getThisMondayMidnight(),
+        slots: _rollWeeklyIndices(5).map(idx => ({ idx, progress: 0, completedAt: null })),
+        daysPlayed: { 0: false, 1: false, 2: false, 3: false, 4: false, 5: false, 6: false },
+        sweepClaimed: false,
+        perfectClaimed: false,
+      };
+    }
+
+    function _loadWeeklyState() {
+      try {
+        const raw = localStorage.getItem(_WEEKLY_STATE_KEY);
+        if (raw) {
+          const obj = JSON.parse(raw);
+          if (obj && Array.isArray(obj.slots) && obj.slots.length === 5
+              && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _WEEKLY_CHALLENGES.length)
+              && Number.isFinite(obj.weekStartMs)) {
+            return obj;
+          }
+        }
+      } catch {}
+      const fresh = _freshWeeklyState();
+      _saveWeeklyState(fresh);
+      return fresh;
+    }
+    function _saveWeeklyState(state) {
+      try { localStorage.setItem(_WEEKLY_STATE_KEY, JSON.stringify(state)); } catch {}
+    }
+
+    // If the stored weekStartMs is older than this Monday's midnight, the
+    // week has rolled — roll a fresh batch of 5 challenges and reset.
+    function _refreshWeeklyIfNeeded(state) {
+      const monMs = _getThisMondayMidnight();
+      if ((Number(state.weekStartMs) || 0) < monMs) {
+        const fresh = _freshWeeklyState();
+        Object.assign(state, fresh);
+        _saveWeeklyState(state);
+        return true;
+      }
+      return false;
+    }
+
+    function _getCurrentWeeklySlots() {
+      const state = _loadWeeklyState();
+      _refreshWeeklyIfNeeded(state);
+      return state.slots.map(slot => {
+        const def = _WEEKLY_CHALLENGES[slot.idx] || _WEEKLY_CHALLENGES[0];
+        const completed = Boolean(slot.completedAt);
+        return {
+          ...def,
+          progress: completed ? def.target : (Number(slot.progress) || 0),
+          completed,
+          completedAt: slot.completedAt || null,
+        };
+      });
+    }
+
+    // 5 active weeklies, but strip shows only 3. Prefer showing uncompleted
+    // ones first (so the player can see what's still to do), then completed.
+    function _getWeeklyDisplaySlots() {
+      const all = _getCurrentWeeklySlots();
+      const incomplete = all.filter(s => !s.completed);
+      const complete   = all.filter(s => s.completed);
+      return [...incomplete, ...complete].slice(0, 3);
+    }
+
+    function _getWeeklyMeta() {
+      const state = _loadWeeklyState();
+      _refreshWeeklyIfNeeded(state);
+      const completedCount  = state.slots.filter(s => s.completedAt).length;
+      const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
+      return {
+        completedCount,
+        totalCount: 5,
+        sweepDone:      completedCount >= 5,
+        sweepClaimed:   Boolean(state.sweepClaimed),
+        perfectDone:    completedCount >= 5 && daysPlayedCount >= 7,
+        perfectClaimed: Boolean(state.perfectClaimed),
+        daysPlayedCount,
+      };
+    }
+
+    // Mark today as a played day. Called from renderChallengeStrip (user
+    // is in the lobby on the Overview tab) so any active session counts.
+    function _markTodayPlayed() {
+      const state = _loadWeeklyState();
+      const changed = _refreshWeeklyIfNeeded(state);
+      const key = _weekdayKey();
+      if (!state.daysPlayed[key]) {
+        state.daysPlayed[key] = true;
+        _saveWeeklyState(state);
+        // Seven Seas auto-progresses on day flip.
+        reportWeeklyChallengeProgress("seven_seas", 0, { setTo: Object.values(state.daysPlayed).filter(Boolean).length });
+      } else if (changed) {
+        _saveWeeklyState(state);
+      }
+    }
+
+    // Hook for game code: tick progress on the matching weekly challenge.
+    // setTo overrides progress to an absolute value (used for day counters).
+    function reportWeeklyChallengeProgress(challengeId, amount = 1, opts = {}) {
+      const state = _loadWeeklyState();
+      _refreshWeeklyIfNeeded(state);
+      let changed = false;
+      state.slots.forEach(slot => {
+        const def = _WEEKLY_CHALLENGES[slot.idx];
+        if (!def || def.id !== challengeId) return;
+        if (slot.completedAt) return;
+        const target = Math.max(1, Number(def.target) || 1);
+        const cur    = Math.max(0, Number(slot.progress) || 0);
+        let next;
+        if (opts.complete)              next = target;
+        else if (Number.isFinite(opts.setTo)) next = Math.min(target, Math.max(0, Number(opts.setTo)));
+        else                            next = Math.min(target, cur + (Number(amount) || 1));
+        if (next !== cur) {
+          slot.progress = next;
+          if (next >= target) slot.completedAt = Date.now();
+          changed = true;
+        }
+      });
+      if (changed) {
+        _saveWeeklyState(state);
+        _maybeClaimWeeklyMeta(state);
+        if (_csView === "weekly") renderChallengeStrip();
+        else if (_csView === "daily") {
+          // Tide Sweep panel on the right side shows live count even on
+          // the Daily view, so re-render the reward area at minimum.
+          renderChallengeStrip();
+        }
+      }
+    }
+    window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
+
+    // Auto-fire Tide Sweep / Perfect Week XP grants when criteria met.
+    // The actual XP grant routes through Firebase via the existing addXp
+    // pathway if available; otherwise just marks claimed locally.
+    function _maybeClaimWeeklyMeta(stateIn) {
+      const state = stateIn || _loadWeeklyState();
+      const completedCount  = state.slots.filter(s => s.completedAt).length;
+      const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
+      let changed = false;
+      if (completedCount >= 5 && !state.sweepClaimed) {
+        state.sweepClaimed = true;
+        changed = true;
+        _grantWeeklyMetaXp("Weekly Tide Sweep", _WEEKLY_META.tideSweepXp);
+      }
+      if (completedCount >= 5 && daysPlayedCount >= 7 && !state.perfectClaimed) {
+        state.perfectClaimed = true;
+        changed = true;
+        _grantWeeklyMetaXp("Perfect Week", _WEEKLY_META.perfectWeekXp);
+      }
+      if (changed) _saveWeeklyState(state);
+    }
+
+    function _grantWeeklyMetaXp(label, amount) {
+      try {
+        if (typeof window.__fishGrantXp === "function") {
+          window.__fishGrantXp(amount, { reason: label });
+        }
+        if (typeof showToast === "function") {
+          showToast(`${label} complete! +${amount.toLocaleString()} XP`, "ok");
+        }
+      } catch {}
+    }
 
     function _wireChallengeStrip() {
       if (_csWired) return;
