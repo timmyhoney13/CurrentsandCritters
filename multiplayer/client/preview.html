@@ -469,7 +469,8 @@
       display: none;
       flex-direction: column;
       height: 100vh;
-      overflow: hidden;
+      /* overflow: hidden removed — it was clipping the absolutely-positioned
+         menu dropdown. html/body already has overflow:hidden to block scroll. */
       background: #050d1a url(game-bg.png) center/cover no-repeat;
     }
 
@@ -486,6 +487,9 @@
       align-items: center;
       gap: 10px;
       flex-shrink: 0;
+      /* Stacking context so the menu dropdown renders above the game table */
+      position: relative;
+      z-index: 100;
     }
     .room-badge {
       background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
@@ -2634,6 +2638,31 @@
       padding: 4px 8px; color: var(--muted); font-size: 11px; cursor: pointer;
     }
     .pv-menu-hand-rename button:hover { border-color: var(--cyan); color: var(--cyan); }
+
+    /* AI Speed control in menu */
+    #pv-menu-ai-speed-section { padding: 6px 12px 8px; }
+    .ai-speed-label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .6px;
+      margin-bottom: 6px;
+    }
+    .ai-speed-bar {
+      display: flex; gap: 0; width: 100%;
+      border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .ai-speed-btn {
+      flex: 1; padding: 6px 0; background: transparent;
+      color: var(--muted); font-size: 12px; font-weight: 700;
+      border: none; border-right: 1px solid var(--border); cursor: pointer;
+      transition: background .15s, color .15s;
+      font-family: "Nunito", sans-serif;
+    }
+    .ai-speed-btn:last-child { border-right: none; }
+    .ai-speed-btn:hover:not(.active) { background: rgba(48,200,240,.09); color: var(--text); }
+    .ai-speed-btn.active {
+      background: linear-gradient(135deg, #1f7fb4, #155f8a);
+      color: #fff; cursor: default;
+    }
 
     /* ── BOARD FOCUS OVERLAY ────────────────────────────────────── */
     #pv-board-focus {
@@ -7763,6 +7792,16 @@
           <div class="pv-menu-label">⚔️ Hands</div>
           <div id="pv-menu-hands-list"></div>
         </div>
+        <!-- AI Speed — shown to host only when there are AI players -->
+        <div id="pv-menu-ai-speed-section" style="display:none;">
+          <div class="pv-menu-divider"></div>
+          <div class="ai-speed-label">🤖 AI Speed</div>
+          <div class="ai-speed-bar">
+            <button class="ai-speed-btn" data-speed="slow">Slow</button>
+            <button class="ai-speed-btn active" data-speed="normal">Normal</button>
+            <button class="ai-speed-btn" data-speed="fast">Fast</button>
+          </div>
+        </div>
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">—</div>
@@ -10024,6 +10063,7 @@
     if (_mrc) _mrc.textContent = roomId || "—";
     const _termBtn = document.getElementById("pv-menu-terminate-btn");
     if (_termBtn) _termBtn.style.display = (payload.viewer?.is_host || Boolean(getHostToken())) ? "" : "none";
+    try { if (typeof window._syncAiSpeedBar === "function") window._syncAiSpeedBar(payload); } catch (e) {}
 
     const discBanner = document.getElementById("pv-discard-banner");
     if (mustDiscard) {
@@ -13534,6 +13574,52 @@
     }
   });
 
+  // AI Speed bar — host-only, shown when there are AI seats in the room
+  (function setupAiSpeedBar() {
+    const section = document.getElementById("pv-menu-ai-speed-section");
+    const btns    = section ? Array.from(section.querySelectorAll(".ai-speed-btn")) : [];
+
+    function setActiveSpeed(speed) {
+      btns.forEach(b => b.classList.toggle("active", b.dataset.speed === speed));
+    }
+
+    btns.forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const speed = btn.dataset.speed;
+        if (!roomId) return;
+        const hostToken = getHostToken();
+        const seatToken = getSeatToken();
+        if (!hostToken && !seatToken) return;
+        setActiveSpeed(speed); // optimistic update
+        try {
+          const r = await apiPost(`/api/rooms/${roomId}/ai_speed`,
+            { host_token: hostToken, seat_token: seatToken, speed },
+            { timeoutMs: 6000 });
+          if (!r?.data?.ok) {
+            // revert to server state on failure
+            const cur = latestPayload?.ai_speed || "normal";
+            setActiveSpeed(cur);
+            showToast(r?.data?.error || "Could not update AI speed.", "warn");
+          }
+        } catch (e) {
+          const cur = latestPayload?.ai_speed || "normal";
+          setActiveSpeed(cur);
+        }
+      });
+    });
+
+    window._syncAiSpeedBar = function(payload) {
+      if (!section) return;
+      const viewer   = payload?.viewer || {};
+      const isHost   = Boolean(viewer.is_host) || Boolean(getHostToken());
+      const seats    = Array.isArray(payload?.seats) ? payload.seats : [];
+      const hasAi    = seats.some(s => s && s.kind === "ai");
+      const phase    = payload?.room?.phase || "lobby";
+      section.style.display = (isHost && hasAi && phase === "running") ? "" : "none";
+      setActiveSpeed(payload?.ai_speed || "normal");
+    };
+  })();
+
   document.getElementById("pv-menu-log-btn").addEventListener("click", () => {
     pvLogVisible = !pvLogVisible;
     document.getElementById("pv-log-float").classList.toggle("open", pvLogVisible);
@@ -14627,7 +14713,15 @@
     if (!_serverInactiveEligibleSent) return;
     _serverInactiveEligibleSent = false;
     try {
-      const token = getSeatToken();
+      let token;
+      if (typeof compMode !== "undefined" && compMode) {
+        const activeNum = typeof myIdx === "number" ? myIdx : null;
+        token = (activeNum !== null && compTokens && compTokens[activeNum])
+          ? compTokens[activeNum]
+          : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
+      } else {
+        token = getSeatToken();
+      }
       if (!token || !roomId) return;
       await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: false }, { timeoutMs: 5000 });
     } catch (e) {}
@@ -14663,7 +14757,15 @@
       if (m) m.classList.remove("open");
       _serverInactiveEligibleSent = true;
       try {
-        const token = getSeatToken();
+        let token;
+        if (typeof compMode !== "undefined" && compMode) {
+          const activeNum = typeof myIdx === "number" ? myIdx : null;
+          token = (activeNum !== null && compTokens && compTokens[activeNum])
+            ? compTokens[activeNum]
+            : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
+        } else {
+          token = getSeatToken();
+        }
         if (token && roomId) {
           await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: true }, { timeoutMs: 5000 });
         }
@@ -14676,13 +14778,34 @@
     .forEach(ev => window.addEventListener(ev, () => { try { resetIdleTimer(); } catch {} }, { passive: true }));
 
   // Surf's Up!! button
+  let _surfBtnInFlight = false;
   document.getElementById("pv-surf-btn")?.addEventListener("click", async () => {
     if (!roomId) return;
-    const token = getSeatToken();
-    if (!token) return;
+    if (_surfBtnInFlight) return;
+
+    // Resolve the correct seat token — competitive mode may have a token per seat
+    let token;
+    if (typeof compMode !== "undefined" && compMode) {
+      // Use whichever of my seats is currently active, fall back to first
+      const activeNum = typeof myIdx === "number" ? myIdx : null;
+      token = (activeNum !== null && compTokens && compTokens[activeNum])
+        ? compTokens[activeNum]
+        : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
+    } else {
+      token = getSeatToken();
+    }
+
+    if (!token) {
+      try { showToast("No seat token — re-join the game first.", "err"); } catch {}
+      return;
+    }
+
     const want = !_imAway;
+    const btn = document.getElementById("pv-surf-btn");
+    _surfBtnInFlight = true;
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.6"; }
     try {
-      const r = await apiPost(`/api/rooms/${roomId}/away`, { seat_token: token, away: want }, { timeoutMs: 8000 });
+      const r = await apiPost(`/api/rooms/${roomId}/away`, { seat_token: token, away: want }, { timeoutMs: 10000 });
       if (r?.data?.ok) {
         _imAway = Boolean(r.data.is_away);
         _updateSurfBtnLabel();
@@ -14693,8 +14816,15 @@
           resetIdleTimer();
         }
         refreshState();
+      } else {
+        try { showToast(r?.data?.error || "Surf's Up!! request failed — try again.", "warn"); } catch {}
       }
-    } catch (e) {}
+    } catch (e) {
+      try { showToast("Could not reach server — check your connection.", "err"); } catch {}
+    } finally {
+      _surfBtnInFlight = false;
+      if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+    }
   });
 
   function _updateSurfBtnLabel() {

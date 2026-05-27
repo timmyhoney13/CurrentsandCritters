@@ -21,7 +21,7 @@ import traceback
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
 # Force non-interactive payment/discard behavior for human seats in run_match.
@@ -673,6 +673,9 @@ class GameRoom:
         self._undo_pending_ms: Any = None
         self._undo_pending_seat: Optional[int] = None
 
+        # AI speed: "slow" | "normal" | "fast". Host can change mid-game.
+        self.ai_speed: str = "normal"
+
     def _bump_locked(self, force_persist: bool = False) -> None:
         self.state_version += 1
         self.cond.notify_all()
@@ -750,6 +753,7 @@ class GameRoom:
                 }
                 for seat in self.seats
             ],
+            "ai_speed": str(self.ai_speed or "normal"),
             "latest_public_state": copy.deepcopy(self.latest_public_state),
             "latest_private_hands": {str(k): copy.deepcopy(v) for k, v in self.latest_private_hands.items()},
             "last_turn_number": int(self.last_turn_number),
@@ -997,6 +1001,9 @@ class GameRoom:
                 if seat.kind != "human":
                     seat.is_host = False
                     seat.token = None
+
+            ai_speed_raw = str(payload.get("ai_speed") or "normal").strip().lower()
+            room.ai_speed = ai_speed_raw if ai_speed_raw in {"slow", "normal", "fast"} else "normal"
 
             latest_public = payload.get("latest_public_state")
             room.latest_public_state = copy.deepcopy(latest_public) if isinstance(latest_public, dict) else None
@@ -2369,6 +2376,16 @@ class GameRoom:
 
         return policy
 
+    # Think-delay ranges per speed tier (seconds, low..high inclusive).
+    # A random value in the range is sampled each policy call so the bot
+    # never feels mechanical — it occasionally plays fast or slow even on
+    # Normal to mimic natural human rhythm.
+    _AI_THINK_RANGES: Dict[str, Tuple[float, float]] = {
+        "slow":   (3.0, 5.5),
+        "normal": (1.2, 2.8),
+        "fast":   (0.3, 0.9),
+    }
+
     def _build_ai_policy(
         self,
         seat_index: int,
@@ -2400,6 +2417,16 @@ class GameRoom:
                 strategy_transition_map,
                 strategy_transition_count_map,
             )
+
+            # Think delay — simulate the bot "considering" its move so the
+            # game doesn't feel like AI is moving instantly.  Read ai_speed
+            # at call time so host changes take effect immediately.
+            speed = str(getattr(self, "ai_speed", "normal") or "normal").lower()
+            lo, hi = self._AI_THINK_RANGES.get(speed, self._AI_THINK_RANGES["normal"])
+            delay = lo + random.random() * (hi - lo)
+            if delay > 0:
+                time.sleep(delay)
+
             return chosen
 
         return policy
@@ -3083,6 +3110,7 @@ class GameRoom:
                 },
                 "status_note": self.status_note,
                 "error": self.error_message,
+                "ai_speed": str(self.ai_speed or "normal"),
                 "public_links": load_public_links(),
                 "seats": self.seat_snapshot_locked(),
                 "viewer": self._viewer_payload_locked(viewer_seat),
@@ -3129,6 +3157,23 @@ class GameRoom:
             self._persist_dirty = True
             self.cond.notify_all()
         return {"ok": True}
+
+    def set_ai_speed(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Host-only: set how long AI bots pause to 'think' before playing.
+        speed must be 'slow', 'normal', or 'fast'.
+        """
+        host_token  = body.get("host_token")  if isinstance(body.get("host_token"),  str) else ""
+        seat_token  = body.get("seat_token")   if isinstance(body.get("seat_token"),  str) else None
+        speed_raw   = str(body.get("speed") or "normal").strip().lower()
+        if speed_raw not in {"slow", "normal", "fast"}:
+            return {"ok": False, "error": "speed must be 'slow', 'normal', or 'fast'"}
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            self.ai_speed = speed_raw
+            self._persist_dirty = True
+            self._bump_locked()
+        return {"ok": True, "ai_speed": self.ai_speed}
 
     def set_away(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Toggle the calling seat's Surf's Up!! Away flag.
@@ -4379,6 +4424,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_undo(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "ai_speed":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_ai_speed(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
