@@ -8346,6 +8346,11 @@
 
 <!-- ══ TOASTS ════════════════════════════════════════════════════ -->
 <div id="pv-toasts"></div>
+
+  <!-- Theme song: plays after sign-in, loops continuously -->
+  <audio id="pv-theme-song" loop>
+    <source src="theme-song.m4a" type="audio/mp4">
+  </audio>
 <div id="pv-anim-layer" aria-hidden="true"></div>
 
 <!-- ── Season History Modal ─────────────────────────────────────── -->
@@ -15845,6 +15850,26 @@
       }
     }
 
+    function startThemeSong() {
+      try {
+        const audio = document.getElementById("pv-theme-song");
+        if (audio && audio.paused) {
+          audio.volume = 0.5;
+          audio.play().catch(() => {});
+        }
+      } catch {}
+    }
+
+    function stopThemeSong() {
+      try {
+        const audio = document.getElementById("pv-theme-song");
+        if (audio && !audio.paused) {
+          audio.pause();
+          audio.currentTime = 0;
+        }
+      } catch {}
+    }
+
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
@@ -15873,6 +15898,7 @@
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
+      startThemeSong();
       showStatsLobby();
     }
 
@@ -16775,6 +16801,7 @@
 
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
+      stopThemeSong();
       clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
