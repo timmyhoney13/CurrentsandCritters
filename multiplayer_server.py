@@ -553,6 +553,13 @@ class Seat:
     token: Optional[str] = None
     is_host: bool = False
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
+    # Surf's Up! — player explicitly marked themselves Away. Turn pauses
+    # indefinitely on this seat; other seats cannot draw for them.
+    is_away: bool = False
+    # Set true by the client after the 5-min idle + 30-sec warning expires
+    # without any activity; unlocks the "Draw 2 Cards" affordance on the
+    # avatar for other seats to use. Cleared on activity / turn change.
+    inactive_eligible: bool = False
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -883,6 +890,8 @@ class GameRoom:
                     "claimed_name": seat.claimed_name,
                     "is_host": bool(seat.is_host),
                     "difficulty": str(seat.difficulty or "medium"),
+                    "is_away": bool(getattr(seat, "is_away", False)),
+                    "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
                 }
             )
         return out
@@ -1453,6 +1462,11 @@ class GameRoom:
         self.pending_actions.clear()
         self.seen_action_requests.clear()
         self.active_action_seat = None
+        # Clear Surf's Up / inactivity state at game start so a previous
+        # game's flags don't carry over.
+        for s in self.seats:
+            s.is_away = False
+            s.inactive_eligible = False
         self._bump_locked(force_persist=True)
 
         self.game_thread = threading.Thread(target=self._run_game_thread, args=(card_db,), daemon=True)
@@ -2102,7 +2116,17 @@ class GameRoom:
                     for action in actions:
                         if action.kind == "end_turn":
                             return action
-                    # end_turn not legal yet (e.g., still must discard) — fall through.
+                    # end_turn not legal yet — likely hand > 10 from the forced
+                    # draw, so the engine is requiring a discard. For the
+                    # draw-for-inactive path we don't want to leave the table
+                    # waiting on a player who is gone — fall back to a single
+                    # discard so the turn can complete.
+                    only_discards_now = bool(actions) and all(
+                        a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions
+                    )
+                    if only_discards_now:
+                        return self._safe_fallback_action(gs, ms, player)
+                    # Otherwise fall through and re-offer legal actions normally.
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
                 # Build a list of species the player can currently play for free.
@@ -2147,6 +2171,17 @@ class GameRoom:
                     if self.phase != "running":
                         return None
                     self.legal_actions_by_seat[seat_index] = legal_payload
+                    if self.active_action_seat != seat_index:
+                        # Turn boundary — clear any stale inactive_eligible from
+                        # the previous player so the Draw-2 button doesn't show
+                        # on the wrong avatar.
+                        for _s in self.seats:
+                            if _s.index != seat_index and _s.inactive_eligible:
+                                _s.inactive_eligible = False
+                        # Also clear it on the newly-active seat; the client will
+                        # re-flag if their idle timer expires on this turn.
+                        if 0 <= seat_index < len(self.seats):
+                            self.seats[seat_index].inactive_eligible = False
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
@@ -2246,10 +2281,47 @@ class GameRoom:
                             self._bump_locked()
                         return fish.Action(kind="undo")
                     continue
+
+                if cmd is not None and cmd.get("kind") == "draw_for_inactive":
+                    # Another player invoked the draw-2-cards affordance after
+                    # the inactive warning expired. Pick a plain deck-draw, arm
+                    # the force-end flag so the next policy call ends the turn.
+                    by_name = str(cmd.get("by_name") or "Another player")
+                    draw_action: Optional[fish.Action] = None
+                    for action in actions:
+                        if action.kind == "draw" and int(getattr(action, "draw_from_pool", 0)) == 0:
+                            draw_action = action
+                            break
+                    if draw_action is None:
+                        for action in actions:
+                            if action.kind == "end_turn":
+                                draw_action = action
+                                break
+                    if draw_action is None:
+                        with self.cond:
+                            self.status_note = f"Could not draw for {player.name} — no draw or end action available."
+                            self._bump_locked()
+                        continue
+                    if draw_action.kind == "draw":
+                        force_end_turn_next[0] = True
+                    with self.cond:
+                        self.status_note = (
+                            f"{by_name} drew 2 cards for {player.name} (inactive)."
+                        )
+                        self._bump_locked()
+                    self._record_event(
+                        f"{player.name} (seat {seat_index}) drew 2 cards via inactive-rescue by {by_name}."
+                    )
+                    return draw_action
+
                 if cmd is None:
                     # Phase ended or player timed out.
                     if self.phase != "running":
                         return None
+                    # Protected Surf's Up Away — never auto-resolve; wait again.
+                    seat_obj = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
+                    if seat_obj is not None and getattr(seat_obj, "is_away", False):
+                        continue
                     # Timeout: pick a safe fallback so the game doesn't hang.
                     fallback = self._safe_fallback_action(gs, ms, player)
                     # If the fallback was a draw (not end_turn), arm the flag so
@@ -3057,6 +3129,123 @@ class GameRoom:
             self._persist_dirty = True
             self.cond.notify_all()
         return {"ok": True}
+
+    def set_away(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Toggle the calling seat's Surf's Up!! Away flag.
+
+        While Away the turn loop will not auto-draw or end the player's turn,
+        and other seats cannot use the Draw-2-Cards affordance. Returns the
+        new is_away value.
+        """
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if seat.kind != "human":
+                return {"ok": False, "error": "only human seats can use Surf's Up"}
+            want = body.get("away")
+            new_val = (not seat.is_away) if not isinstance(want, bool) else bool(want)
+            seat.is_away = bool(new_val)
+            if not seat.is_away:
+                seat.inactive_eligible = False
+            display = seat.claimed_name or seat.label
+            note = f"{display} is on Surf's Up — Away" if seat.is_away else f"{display} is back."
+            self.chat_messages.append({
+                "sender": "System",
+                "target": "Everyone",
+                "message": note,
+                "ts": time.time(),
+            })
+            if len(self.chat_messages) > 200:
+                self.chat_messages = self.chat_messages[-200:]
+            self.status_note = note
+            self._bump_locked()
+            return {"ok": True, "is_away": seat.is_away}
+
+    def set_inactive_eligible(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Caller (the active player's own client) reports that the 5-min idle
+        + 30-sec warning window expired without activity. Unlocks the
+        Draw-2-Cards avatar action for other seats. Calling with eligible=false
+        cancels it (player responded).
+        """
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if seat.kind != "human":
+                return {"ok": False, "error": "only human seats"}
+            want = body.get("eligible")
+            new_val = True if not isinstance(want, bool) else bool(want)
+            # Never flag eligible while protected Away — Surf's Up always wins.
+            if seat.is_away:
+                new_val = False
+            if seat.inactive_eligible == new_val:
+                return {"ok": True, "inactive_eligible": new_val, "unchanged": True}
+            seat.inactive_eligible = bool(new_val)
+            self._bump_locked()
+            return {"ok": True, "inactive_eligible": seat.inactive_eligible}
+
+    def draw_for_inactive(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Any human seat can invoke this once the target seat is flagged
+        inactive_eligible AND it is their turn. Injects a special command
+        into the target's pending queue; the turn loop draws 2 from the deck
+        and ends the turn.
+        """
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        try:
+            target_idx = int(body.get("target_seat_index"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "target_seat_index must be int"}
+        with self.cond:
+            caller = self._seat_from_token_locked(seat_token)
+            if caller is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if caller.kind != "human":
+                return {"ok": False, "error": "only human seats can act"}
+            if self.phase != "running":
+                return {"ok": False, "error": "game is not running"}
+            if target_idx < 0 or target_idx >= len(self.seats):
+                return {"ok": False, "error": "invalid target seat"}
+            target = self.seats[target_idx]
+            if target.kind != "human":
+                return {"ok": False, "error": "target is not a human seat"}
+            if target.is_away:
+                return {"ok": False, "error": "target is on protected Surf's Up — wait for them to come back"}
+            if not target.inactive_eligible:
+                return {"ok": False, "error": "target is not flagged inactive"}
+            if self.active_action_seat != target.index:
+                return {"ok": False, "error": "not target's turn"}
+            if caller.index == target.index:
+                return {"ok": False, "error": "cannot draw for yourself"}
+            queue = self.pending_actions.setdefault(target.index, [])
+            # If a draw-for-inactive cmd is already queued, do nothing (idempotent).
+            for q in queue:
+                if isinstance(q, dict) and q.get("kind") == "draw_for_inactive":
+                    return {"ok": True, "duplicate": True}
+            queue.insert(0, {
+                "kind": "draw_for_inactive",
+                "by_seat": caller.index,
+                "by_name": caller.claimed_name or caller.label,
+                "submitted_unix": now_unix(),
+            })
+            target.inactive_eligible = False
+            note = (
+                f"{caller.claimed_name or caller.label} drew 2 cards for "
+                f"{target.claimed_name or target.label} because they were inactive."
+            )
+            self.chat_messages.append({
+                "sender": "System",
+                "target": "Everyone",
+                "message": note,
+                "ts": time.time(),
+            })
+            if len(self.chat_messages) > 200:
+                self.chat_messages = self.chat_messages[-200:]
+            self.status_note = note
+            self._bump_locked()
+            return {"ok": True}
 
     def submit_undo(self, body: Dict[str, Any]) -> Dict[str, Any]:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
@@ -4190,6 +4379,36 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.submit_undo(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "away":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_away(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "inactive":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_inactive_eligible(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "draw_for_inactive":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.draw_for_inactive(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

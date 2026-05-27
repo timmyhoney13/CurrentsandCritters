@@ -229,6 +229,160 @@
       transform: translateY(-1px);
       box-shadow: 0 4px 14px rgba(125,106,174,.5);
     }
+    /* Surf's Up!! and Full Screen — match Undo Turn's compact action-row sizing */
+    .pv-btn-surf, .pv-btn-fullscreen {
+      font-size: 13px;
+      padding: 7px 14px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      border-radius: 10px;
+      color: #fff;
+    }
+    .pv-btn-surf {
+      background: linear-gradient(135deg, #3ea8d8, #1f7fb4);
+      border: 1px solid rgba(140,210,240,.45);
+    }
+    .pv-btn-surf:hover:not(:disabled) {
+      background: linear-gradient(135deg, #4fb8e4, #2a8fc4);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(31,127,180,.55);
+    }
+    .pv-btn-surf.is-away {
+      background: linear-gradient(135deg, #d8a13e, #b47f1f);
+      border-color: rgba(240,210,140,.55);
+      animation: surf-pulse 2.2s ease-in-out infinite;
+    }
+    .pv-btn-surf.is-away:hover:not(:disabled) {
+      background: linear-gradient(135deg, #e4b04f, #c4902a);
+      box-shadow: 0 4px 14px rgba(180,127,31,.55);
+    }
+    @keyframes surf-pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(216,161,62,.45); }
+      50%      { box-shadow: 0 0 22px rgba(216,161,62,.85); }
+    }
+    .pv-btn-fullscreen {
+      background: linear-gradient(135deg, #5a7ea8, #3e608c);
+      border: 1px solid rgba(150,180,220,.45);
+    }
+    .pv-btn-fullscreen:hover:not(:disabled) {
+      background: linear-gradient(135deg, #6c91be, #527aa6);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(62,96,140,.55);
+    }
+
+    /* Away badge on seat avatars + Draw-2 affordance */
+    .pv-seat-away-badge {
+      position: absolute;
+      top: -4px; left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #d8a13e, #b47f1f);
+      color: #fff;
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 9px;
+      letter-spacing: .5px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(180,127,31,.55);
+      pointer-events: none;
+      z-index: 5;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .pv-seat-draw2-btn {
+      position: absolute;
+      bottom: 18px; left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #ef5a5a, #d83838);
+      color: #fff;
+      border: 1px solid rgba(255,200,200,.55);
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: .3px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(216,56,56,.55);
+      z-index: 6;
+      animation: draw2-pulse 1.6s ease-in-out infinite;
+      white-space: nowrap;
+    }
+    .pv-seat-draw2-btn:hover {
+      background: linear-gradient(135deg, #f96d6d, #e44545);
+      transform: translateX(-50%) translateY(-1px);
+      box-shadow: 0 5px 14px rgba(216,56,56,.75);
+    }
+    @keyframes draw2-pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(216,56,56,.5); }
+      50%      { box-shadow: 0 0 22px rgba(216,56,56,.9); }
+    }
+    .pv-seat { position: relative; }
+
+    /* Idle warning modal — "Are you there?" */
+    #pv-idle-warn-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 20, 36, .82);
+      z-index: 9000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #pv-idle-warn-modal.open { display: flex; }
+    #pv-idle-warn-box {
+      background: linear-gradient(160deg, #18324d, #0e2238);
+      border: 2px solid rgba(95,179,214,.6);
+      border-radius: 16px;
+      padding: 28px 36px;
+      color: #fff;
+      text-align: center;
+      box-shadow: 0 12px 60px rgba(0,0,0,.55), 0 0 22px rgba(95,179,214,.4);
+      max-width: 360px;
+    }
+    #pv-idle-warn-box h2 {
+      font-family: "Cinzel", serif;
+      font-size: 26px;
+      margin: 0 0 10px 0;
+      color: #ffd17a;
+      text-shadow: 0 2px 6px rgba(0,0,0,.45);
+    }
+    #pv-idle-warn-box p {
+      font-family: "Nunito", sans-serif;
+      font-size: 14px;
+      color: #c9e2f4;
+      margin: 0 0 6px 0;
+    }
+    #pv-idle-warn-countdown {
+      font-family: "Cinzel", serif;
+      font-size: 48px;
+      font-weight: 900;
+      color: #ef6a6a;
+      margin-top: 8px;
+      text-shadow: 0 2px 8px rgba(216,56,56,.55);
+    }
+    /* Welcome-back toast */
+    #pv-welcome-back-toast {
+      display: none;
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #3ea8d8, #1f7fb4);
+      color: #fff;
+      font-family: "Nunito", sans-serif;
+      font-weight: 800;
+      font-size: 14px;
+      padding: 12px 22px;
+      border-radius: 12px;
+      box-shadow: 0 6px 22px rgba(0,0,0,.45), 0 0 16px rgba(95,179,214,.5);
+      z-index: 8500;
+      max-width: 420px;
+      text-align: center;
+      border: 1px solid rgba(150,210,240,.45);
+    }
+    #pv-welcome-back-toast.visible { display: block; }
     .pv-btn.sm { font-size: 12px; padding: 6px 11px; }
     .pv-btn.full { width: 100%; }
     .pv-btn.pulse-glow {
@@ -7660,6 +7814,8 @@
       <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
     </div>
     <div style="flex:1;"></div>
+    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table will wait for you to come back.">🏄 Surf's Up!!</button>
+    <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
     <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — only available while the next player hasn't acted yet">↩ Undo Turn</button>
     <button class="pv-btn coral" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
@@ -7700,6 +7856,18 @@
       </div>
     </div>
   </div>
+
+  <!-- idle "Are you there?" warning -->
+  <div id="pv-idle-warn-modal">
+    <div id="pv-idle-warn-box">
+      <h2>Are you there?</h2>
+      <p>Click anywhere to continue.</p>
+      <div id="pv-idle-warn-countdown">30</div>
+    </div>
+  </div>
+
+  <!-- Welcome-back toast for returning from Surf's Up -->
+  <div id="pv-welcome-back-toast"></div>
 
 </div><!-- #pv-game -->
 
@@ -9532,6 +9700,8 @@
   let canInteract = false;
   let _latestPlayers = [];
   let _latestRoundCount = 0;
+  let _latestSeatsForSurf = [];      // seat snapshot from payload.seats (away/inactive)
+  let _prevActiveSeatForIdle = null; // last active_action_seat, used to reset idle timer on turn change
 
   function renderPayload(payload) {
     const state   = payload.state || {};
@@ -9750,6 +9920,32 @@
     // Snapshot prev hand UIDs before renderHand mutates _prevHandUIDs.
     const _animPrevHandUIDs = new Set(_prevHandUIDs);
     if (_animDiff.addedPoolUids.length) _pvAnim._suppressFlipIn = true;
+
+    // ── Surf's Up!! sync from server seat snapshot ───────────
+    try {
+      const seatsArr = Array.isArray(payload.seats) ? payload.seats : [];
+      _latestSeatsForSurf = seatsArr;
+      const mySeat = (Number.isInteger(myIdx)) ? seatsArr.find(s => s && s.index === myIdx) : null;
+      const wasAway = _imAway;
+      _imAway = Boolean(mySeat && mySeat.is_away);
+      if (wasAway !== _imAway) _updateSurfBtnLabel();
+      // If I just returned (away→not away), reset idle timer and maybe nudge to discard.
+      if (wasAway && !_imAway) {
+        resetIdleTimer();
+        const myHandCount = (me && Array.isArray(me.hand)) ? me.hand.length : 0;
+        if (myHandCount > 10) {
+          _showWelcomeBackToast("Welcome back! Discard down to 10 cards before continuing.");
+        } else {
+          _showWelcomeBackToast("Welcome back!");
+        }
+      }
+      // Turn boundary — reset idle timer when active player changes
+      const aas = payload.active_action_seat;
+      if (aas !== _prevActiveSeatForIdle) {
+        _prevActiveSeatForIdle = aas;
+        resetIdleTimer();
+      }
+    } catch (e) {}
 
     renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
     _pvAnim._suppressFlipIn = false;
@@ -10347,6 +10543,27 @@
         badge.className = "pv-seat-me-badge";
         badge.textContent = "YOU";
         seat.appendChild(badge);
+      }
+      // Surf's Up Away / inactive-eligible badges from the seat snapshot
+      const _seatMeta = (_latestSeatsForSurf || []).find(s => s && s.index === p.index) || null;
+      const _isAway     = Boolean(_seatMeta && _seatMeta.is_away);
+      const _isEligible = Boolean(_seatMeta && _seatMeta.inactive_eligible);
+      if (_isAway) {
+        const ab = document.createElement("div");
+        ab.className = "pv-seat-away-badge";
+        ab.textContent = "🌊 Away";
+        seat.appendChild(ab);
+      } else if (_isEligible && !isMe && isActive) {
+        const db = document.createElement("button");
+        db.className = "pv-seat-draw2-btn";
+        db.type = "button";
+        db.textContent = "Draw 2 Cards";
+        db.title = `Draw 2 cards for ${p.name || "this player"} and end their turn`;
+        db.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          try { window._fishDrawForInactive(p.index, p.name); } catch (e) {}
+        });
+        seat.appendChild(db);
       }
       seat.addEventListener("click", () => {
         try { openBoardFocus(p); } catch (e) {}
@@ -13176,6 +13393,13 @@
     _chatSeenCount = 0; _chatLastCount = -1;
     _chatPanelOpen = false;
     document.getElementById("pv-chat-panel").classList.remove("open");
+    // Reset Surf's Up Away local state + clear any pending idle/warning timers
+    _imAway = false; _serverInactiveEligibleSent = false; _prevActiveSeatForIdle = null;
+    if (typeof _hideIdleWarn === "function") _hideIdleWarn();
+    if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
+    if (typeof _updateSurfBtnLabel === "function") _updateSurfBtnLabel();
+    const _wbT = document.getElementById("pv-welcome-back-toast");
+    if (_wbT) _wbT.classList.remove("visible");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;
@@ -14304,6 +14528,174 @@
   document.getElementById("pv-chat-text").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  // FULL SCREEN BUTTON
+  // ═══════════════════════════════════════════════════════════════
+  (function setupFullScreenBtn() {
+    const btn = document.getElementById("pv-fullscreen-btn");
+    if (!btn) return;
+    function isFs() {
+      return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+    function updateLabel() {
+      btn.innerHTML = isFs() ? "⛶ Exit Full Screen" : "⛶ Full Screen";
+    }
+    btn.addEventListener("click", async () => {
+      try {
+        if (!isFs()) {
+          const target = document.documentElement;
+          if (target.requestFullscreen) await target.requestFullscreen();
+          else if (target.webkitRequestFullscreen) await target.webkitRequestFullscreen();
+        } else {
+          if (document.exitFullscreen) await document.exitFullscreen();
+          else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+        }
+      } catch (e) { /* swallow — browsers may block depending on gesture */ }
+      updateLabel();
+    });
+    document.addEventListener("fullscreenchange", updateLabel);
+    document.addEventListener("webkitfullscreenchange", updateLabel);
+    updateLabel();
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
+  // SURF'S UP!! AWAY SYSTEM + INACTIVITY TIMER
+  // ═══════════════════════════════════════════════════════════════
+  let _imAway = false;
+  let _wasAway = false; // for detecting away→active transition (welcome-back toast)
+  let _idleTimer = null;
+  let _warnTimer = null;
+  let _warnCountdownTimer = null;
+  let _warnEndsAt = 0;
+  let _idleWarnOpen = false;
+  let _serverInactiveEligibleSent = false;
+  const IDLE_MS  = 5 * 60 * 1000; // 5 minutes
+  const WARN_MS  = 30 * 1000;     // 30 seconds
+
+  function _isMyTurnNow() {
+    try {
+      const aas = latestPayload?.active_action_seat;
+      return Number.isInteger(aas) && Number.isInteger(myIdx) && aas === myIdx;
+    } catch { return false; }
+  }
+
+  function _hideIdleWarn() {
+    _idleWarnOpen = false;
+    if (_warnTimer)        { clearTimeout(_warnTimer); _warnTimer = null; }
+    if (_warnCountdownTimer) { clearInterval(_warnCountdownTimer); _warnCountdownTimer = null; }
+    const modal = document.getElementById("pv-idle-warn-modal");
+    if (modal) modal.classList.remove("open");
+  }
+
+  async function _clearServerInactive() {
+    if (!_serverInactiveEligibleSent) return;
+    _serverInactiveEligibleSent = false;
+    try {
+      const token = getSeatToken();
+      if (!token || !roomId) return;
+      await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: false }, { timeoutMs: 5000 });
+    } catch (e) {}
+  }
+
+  function resetIdleTimer() {
+    if (_idleTimer)        { clearTimeout(_idleTimer); _idleTimer = null; }
+    if (_idleWarnOpen) {
+      _hideIdleWarn();
+      _clearServerInactive();
+    }
+    if (!_isMyTurnNow() || _imAway) return;
+    _idleTimer = setTimeout(_startIdleWarning, IDLE_MS);
+  }
+
+  function _startIdleWarning() {
+    if (!_isMyTurnNow() || _imAway) return;
+    _idleWarnOpen = true;
+    const modal = document.getElementById("pv-idle-warn-modal");
+    const cd    = document.getElementById("pv-idle-warn-countdown");
+    if (modal) modal.classList.add("open");
+    _warnEndsAt = Date.now() + WARN_MS;
+    if (cd) cd.textContent = String(Math.ceil(WARN_MS / 1000));
+    if (_warnCountdownTimer) clearInterval(_warnCountdownTimer);
+    _warnCountdownTimer = setInterval(() => {
+      const left = Math.max(0, Math.ceil((_warnEndsAt - Date.now()) / 1000));
+      if (cd) cd.textContent = String(left);
+      if (left <= 0) { clearInterval(_warnCountdownTimer); _warnCountdownTimer = null; }
+    }, 250);
+    _warnTimer = setTimeout(async () => {
+      _idleWarnOpen = false;
+      const m = document.getElementById("pv-idle-warn-modal");
+      if (m) m.classList.remove("open");
+      _serverInactiveEligibleSent = true;
+      try {
+        const token = getSeatToken();
+        if (token && roomId) {
+          await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: true }, { timeoutMs: 5000 });
+        }
+      } catch {}
+    }, WARN_MS);
+  }
+
+  // Activity listeners — any meaningful interaction cancels warning + resets timer.
+  ["click","mousedown","mousemove","keydown","touchstart","wheel","dragstart","dragend"]
+    .forEach(ev => window.addEventListener(ev, () => { try { resetIdleTimer(); } catch {} }, { passive: true }));
+
+  // Surf's Up!! button
+  document.getElementById("pv-surf-btn")?.addEventListener("click", async () => {
+    if (!roomId) return;
+    const token = getSeatToken();
+    if (!token) return;
+    const want = !_imAway;
+    try {
+      const r = await apiPost(`/api/rooms/${roomId}/away`, { seat_token: token, away: want }, { timeoutMs: 8000 });
+      if (r?.data?.ok) {
+        _imAway = Boolean(r.data.is_away);
+        _updateSurfBtnLabel();
+        if (_imAway) {
+          _hideIdleWarn();
+          _clearServerInactive();
+        } else {
+          resetIdleTimer();
+        }
+        refreshState();
+      }
+    } catch (e) {}
+  });
+
+  function _updateSurfBtnLabel() {
+    const btn = document.getElementById("pv-surf-btn");
+    if (!btn) return;
+    btn.classList.toggle("is-away", _imAway);
+    btn.innerHTML = _imAway ? "🌊 I'm Back" : "🏄 Surf's Up!!";
+    btn.title = _imAway
+      ? "Tap when you're back — the table will resume your turn."
+      : "Surf's Up!! — mark yourself officially Away. The table will wait for you to come back.";
+  }
+  _updateSurfBtnLabel();
+
+  function _showWelcomeBackToast(message) {
+    const t = document.getElementById("pv-welcome-back-toast");
+    if (!t) return;
+    t.textContent = message;
+    t.classList.add("visible");
+    clearTimeout(t._hideTo);
+    t._hideTo = setTimeout(() => t.classList.remove("visible"), 6000);
+  }
+
+  async function drawForInactive(targetSeatIndex, targetName) {
+    if (!roomId) return;
+    const token = getSeatToken();
+    if (!token) return;
+    try {
+      const r = await apiPost(`/api/rooms/${roomId}/draw_for_inactive`,
+        { seat_token: token, target_seat_index: targetSeatIndex }, { timeoutMs: 8000 });
+      if (!r?.data?.ok) {
+        try { showToast(r?.data?.error || `Could not draw for ${targetName || "player"}.`, "warn"); } catch {}
+      }
+      refreshState();
+    } catch (e) {}
+  }
+  window._fishDrawForInactive = drawForInactive;
 
   // ── Auto-join from URL ─────────────────────────────────────────
   (function() {
