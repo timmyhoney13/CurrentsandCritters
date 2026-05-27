@@ -19379,6 +19379,70 @@
           }
         } catch {}
 
+        // ── Strategy combo weeklies (win-only) ────────────────────
+        // Mirrors the server's _detect_strategy classifier so we can detect
+        // it on the client without round-tripping. If I won, increment the
+        // matching strategy's weekly counter (target 4 wins for each combo).
+        try {
+          if (isWinner) {
+            const detectStrategy = (player) => {
+              const board = Array.isArray(player?.board) ? player.board : [];
+              let total = 0; const typeCounts = {}; const nameCounts = {};
+              for (const ocean of board) {
+                for (const dir of ["up", "down", "left", "right"]) {
+                  const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+                  for (const c of cards) {
+                    const sp = String(c.species || "").toLowerCase().trim();
+                    const nm = String(c.name    || "").toLowerCase().trim();
+                    if (sp) typeCounts[sp] = (typeCounts[sp] || 0) + 1;
+                    if (nm) nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+                    total++;
+                  }
+                }
+              }
+              if (total === 0) return "Best Guess";
+              const pct = sp => (typeCounts[sp] || 0) / total;
+              if ((nameCounts["mandarin goby"] || 0) >= 1) return "Goby";
+              if (pct("cephalopod") >= 0.30 && pct("coral") >= 0.15) return "Coral/Cephalopods (CC)";
+              if (pct("cephalopod") >= 0.40) return "Cephalopods";
+              if (pct("bird") >= 0.20 && (pct("crustacean") >= 0.10
+                  || (nameCounts["lobster"]||0) >= 1
+                  || (nameCounts["mantis shrimp"]||0) >= 1)) return "Bird/Lobster (B-Lob)";
+              if (pct("bird") >= 0.20 && pct("coral") >= 0.15) return "Bird/Coral (B-Coral)";
+              if (pct("bird") >= 0.35) return "Bird/Coral (B-Coral)";
+              if (pct("baitfish") >= 0.35) return "Baitfish Barrage";
+              if (pct("mammal") >= 0.45) return "Mammals";
+              if ((nameCounts["yellowfin tuna"] || 0) >= 1) return "Yellowfin Tuna";
+              if (pct("ocean") >= 0.40 || pct("coral") >= 0.50) return "Ocean All Blue";
+              if (pct("game fish") >= 0.40) return "Game Fish";
+              return "Best Guess";
+            };
+            // Find my player object — use myIdx via _latestPlayers.
+            const myPlayer = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+              .find(p => p.index === myIdx);
+            const myStrategy = detectStrategy(myPlayer);
+            const STRAT_TO_WEEKLY = {
+              "Ocean All Blue":          "all_blue_week",
+              "Yellowfin Tuna":          "tuna_week",
+              "Mammals":                 "mammal_pod_week",
+              "Baitfish Barrage":        "baitfish_barrage_week",
+              "Bird/Lobster (B-Lob)":    "b_lob_week",
+              "Bird/Coral (B-Coral)":    "coral_b_week",
+              "Coral/Cephalopods (CC)":  "c_c_week",
+            };
+            const stratWeekly = STRAT_TO_WEEKLY[myStrategy];
+            if (stratWeekly) rw(stratWeekly, 1);
+            // off_meta_week: won using a strategy NOT in the listed combos.
+            const META_LIST = new Set(Object.keys(STRAT_TO_WEEKLY));
+            if (!META_LIST.has(myStrategy)) rw("off_meta_week", 0, { complete: true });
+            // counter_current_week: any opponent used the same strategy I did.
+            const opponents = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
+              .filter(p => p.index !== myIdx);
+            const matchedOpponent = opponents.some(p => detectStrategy(p) === myStrategy);
+            if (matchedOpponent) rw("counter_current_week", 0, { complete: true });
+          }
+        } catch {}
+
         // ── Win-streak challenges ─────────────────────────────────
         try {
           const STREAK_KEY = "cc_streak_v1";
