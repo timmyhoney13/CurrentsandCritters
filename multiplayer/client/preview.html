@@ -10221,6 +10221,19 @@
       }
       if (action.kind === "move_between_oceans") {
         _gameAchTracker.animalMoves = (_gameAchTracker.animalMoves || 0) + 1;
+        // Daily: current_lite — Move 3 animals today (target 3, accumulates).
+        try { window._reportDailyChallengeProgress?.("current_lite", 1); } catch {}
+        // Daily: last_turn_move — Move an animal after End Game appears.
+        if (_gameAchTracker.endGameSeen) {
+          try { window._reportDailyChallengeProgress?.("last_turn_move", 0, { complete: true }); } catch {}
+        }
+        // Snapshot my score before the move resolves; the per-payload
+        // observer will compare to the post-move score to detect
+        // 'better_spot' (move increased my score).
+        try {
+          const meNow = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+          if (meNow) _chObsPreMoveScore = Number(meNow.score || 0);
+        } catch {}
       }
       // Competitive: hand-switch is handled by checkCompHandSwitch in renderPayload
       // once the server confirms the active seat changed — no immediate call needed here.
@@ -10300,6 +10313,9 @@
   // your board went from 0 to 1 ocean" → that's the type of your first
   // ocean → fire the matching *_start daily challenge).
   let _chObsPrevMyBoardLen = 0;     // last seen number of oceans on my board
+  let _chObsPreMoveScore   = null;  // my score snapshot taken right before a move
+                                    //  is submitted — compared to the next payload's
+                                    //  score to detect 'better_spot'
 
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent — the report function only ticks ACTIVE
@@ -10329,6 +10345,19 @@
     _chObsPrevMyBoardLen = curLen;
   }
 
+  // 'better_spot' detection — when a move was just submitted, we took a
+  // pre-move score snapshot. If the next observed score is higher than
+  // that snapshot, the move landed the animal in a higher-scoring ocean.
+  function _challObserveMoveScore(me) {
+    if (_chObsPreMoveScore === null) return;
+    const curScore = Number(me?.score || 0);
+    if (curScore > _chObsPreMoveScore) {
+      try { window._reportDailyChallengeProgress?.("better_spot", 0, { complete: true }); } catch {}
+    }
+    // Compare just once per move action (good or bad outcome both clear it).
+    _chObsPreMoveScore = null;
+  }
+
   // Main per-payload observer entry point. Add new observers here over
   // time — keeping them all in one place makes the diff state easy to
   // reason about and easy to reset on game-end / leave.
@@ -10336,12 +10365,14 @@
     if (phase !== "running") return;
     if (!me) return;
     _challObserveFirstOcean(me);
+    _challObserveMoveScore(me);
   }
 
   // Reset all observer state when leaving the room so a brand-new game
   // can re-fire the first-ocean detection.
   function _resetChallengeObservers() {
     _chObsPrevMyBoardLen = 0;
+    _chObsPreMoveScore = null;
   }
 
   function renderPayload(payload) {
@@ -14694,6 +14725,7 @@
           .some(p => p && (p.kind === "ai" || p.is_ai === true || p.bot === true));
         const wasHost = (typeof getHostToken === "function") ? !!getHostToken() : false;
         const quitByMe = (typeof _gameTerminatedByMe !== "undefined") && _gameTerminatedByMe;
+        const moveCount = Number(_gameAchTracker?.animalMoves || 0);
         if (typeof window._fireChallengeHooksOnGameEnd === "function") {
           window._fireChallengeHooksOnGameEnd({
             isComp,
@@ -14706,6 +14738,7 @@
             myCompBest,
             myCompOther,
             quitByMe,
+            moveCount,
           });
         }
       } catch (e) { /* non-fatal */ }
@@ -18809,6 +18842,7 @@
         const myCompBest  = Number(opts.myCompBest || 0);
         const myCompOther = Number(opts.myCompOther || 0);
         const quitByMe    = Boolean(opts.quitByMe);
+        const moveCount   = Number(opts.moveCount || 0);
 
         const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
         const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
@@ -18846,6 +18880,14 @@
 
         // No bots in game
         if (!hadBots) rd("no_bots_today", 1);
+
+        // Move-related challenges
+        // no_moving_needed: won the game with zero moves
+        if (isWinner && moveCount === 0) rd("no_moving_needed", 0, { complete: true });
+        // board_fixer: made at least one move (assumed to affect final score
+        // since the server scores all moved animals into their current oceans).
+        // Skip if the player quit — that move likely didn't matter.
+        if (!quitByMe && moveCount > 0) rd("board_fixer", 0, { complete: true });
 
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters
