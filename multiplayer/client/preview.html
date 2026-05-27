@@ -3753,13 +3753,13 @@
     .ph-notif-dot.show { display: block; }
     .ph-wrap {
       width: 100%;
-      max-width: 1240px;
-      padding: 4px 22px 58px;
+      max-width: 1500px;
+      padding: 4px 22px 22px;
       position: relative;
       z-index: 3;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
     .ph-profile-card {
       background: rgba(252,255,255,.95);
@@ -5766,30 +5766,39 @@
 
     #ph-panel-overview .ph-main {
       grid-template-columns: minmax(0, 1fr);
-      gap: 12px;
+      gap: 10px;
       align-items: start;
     }
     #ph-panel-overview .ph-stats-card {
       min-height: 0;
     }
+    /* Quick Stats: 6 wide × 2 tall — fills the page horizontally */
     #ph-panel-overview .ph-sg {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       grid-auto-rows: 1fr;
       gap: 10px;
-      padding: 10px;
+      padding: 12px;
     }
     #ph-panel-overview .ph-sc {
-      min-height: 110px;
+      min-height: 100px;
+      padding: 12px 14px;
+      gap: 5px;
     }
     #ph-panel-overview .ph-sc .ph-scl {
       min-height: 2.45em;
+      font-size: .78rem;
+    }
+    #ph-panel-overview .ph-sci {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 0;
     }
     #ph-panel-overview .ph-sc:not(.ph-sc-string) .ph-scv {
-      font-size: clamp(2rem, 2.5vw, 2.9rem);
+      font-size: clamp(1.45rem, 1.7vw, 2.0rem);
       line-height: 1.02;
     }
     #ph-panel-overview .ph-sc-string .ph-scv {
-      font-size: clamp(1.16rem, 1.42vw, 1.64rem);
+      font-size: clamp(0.95rem, 1.1vw, 1.2rem);
       line-height: 1.24;
       margin-top: 2px;
       word-break: break-word;
@@ -5797,11 +5806,39 @@
     #ph-panel-overview .ph-sc-string .ph-scs {
       margin-top: 2px;
       color: #6f89a5;
-      font-size: .8rem;
+      font-size: .76rem;
       font-weight: 700;
     }
     #ph-panel-overview .ph-side > .ph-scard {
       min-height: 0;
+    }
+    /* Hide the Practice vs AI quick-button on the Overview tab so
+       Quick Stats can fill the screen without scrolling. The button
+       still exists for other tabs that need it. */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-practice-btn {
+      display: none;
+    }
+    /* Compact spacing for the Overview tab so 6x2 stats fit cleanly */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
+      padding: 14px 18px;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
+      width: 92px;
+      height: 92px;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
+      padding: 12px 14px;
+    }
+    /* Below 1240px or shorter screens, allow the 6-col grid to
+       reduce to 4-col so cards stay readable. */
+    @media (max-width: 1300px) {
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (max-width: 900px) {
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
 
     /* ── Casual tab: match Overview's compact wide-grid dimensions ── */
