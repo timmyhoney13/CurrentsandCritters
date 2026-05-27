@@ -10235,6 +10235,39 @@
           if (meNow) _chObsPreMoveScore = Number(meNow.score || 0);
         } catch {}
       }
+
+      // ── Star ability activation hooks ─────────────────────────────
+      if (action.use_star) {
+        _gameAchTracker.starsActivated = (_gameAchTracker.starsActivated || 0) + 1;
+        _chObsStarTurnPlayer = state?.current_player || null;
+        // Snapshot turn-start score so combo_current can verify the +15 hit.
+        try {
+          const meNow = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+          const myName = meNow?.name;
+          if (myName && _turnStartScores[myName] != null) {
+            _chObsStarTurnStartScore = Number(_turnStartScores[myName]);
+          }
+        } catch {}
+        try {
+          // Daily: star_spark — Activate 2 ★ abilities (target 2, accumulates)
+          window._reportDailyChallengeProgress?.("star_spark", 1);
+          // Daily: star_surfer — Activate 5 ★ in ONE game. Per-game counter
+          // resets in _resetGameAchTracker, so once the in-game count reaches
+          // 5 we mark it complete (idempotent if already done).
+          if (_gameAchTracker.starsActivated >= 5) {
+            window._reportDailyChallengeProgress?.("star_surfer", 0, { complete: true });
+          }
+          // Daily: symbol_match — Discard matching symbol to activate ★
+          // (any successful ★ activation requires a matching symbol).
+          window._reportDailyChallengeProgress?.("symbol_match", 0, { complete: true });
+          // Daily: star_finish — ★ activation after End Game appears
+          if (_gameAchTracker.endGameSeen) {
+            window._reportDailyChallengeProgress?.("star_finish", 0, { complete: true });
+          }
+          // Weekly: star_storm — 20 ★ activations this week
+          window._reportWeeklyChallengeProgress?.("star_storm", 1);
+        } catch {}
+      }
       // Competitive: hand-switch is handled by checkCompHandSwitch in renderPayload
       // once the server confirms the active seat changed — no immediate call needed here.
       await sleep(160);
@@ -10316,6 +10349,10 @@
   let _chObsPreMoveScore   = null;  // my score snapshot taken right before a move
                                     //  is submitted — compared to the next payload's
                                     //  score to detect 'better_spot'
+  let _chObsStarTurnPlayer    = null; // the current_player at the moment a ★ was activated
+  let _chObsStarTurnStartScore= null; // turn-start score recorded when the ★ was activated
+  let _chObsPrevTurnPlayer    = null; // last-seen current_player for turn-end detection
+  let _chObsPlaysThisGame     = 0;    // free animal plays this game (for free_animal_week)
 
   // Fires the matching *_start daily challenge for the player's first
   // ocean of the game. Idempotent — the report function only ticks ACTIVE
@@ -10358,6 +10395,40 @@
     _chObsPreMoveScore = null;
   }
 
+  // 'combo_current' detection — when a star ability was activated this
+  // turn, on the turn boundary check whether the player gained 15+ pts
+  // during the turn. If so, fire the daily challenge.
+  function _challObserveStarCombo(state, players) {
+    const curP = state?.current_player || null;
+    // Only act on turn boundary (current_player changes).
+    if (curP === _chObsPrevTurnPlayer) return;
+    // The player who JUST FINISHED their turn:
+    const finishedPlayer = _chObsPrevTurnPlayer;
+    _chObsPrevTurnPlayer = curP;
+    if (!finishedPlayer) return;
+    if (!_chObsStarTurnPlayer || _chObsStarTurnPlayer !== finishedPlayer) return;
+
+    // Verify it's me who just finished a star turn.
+    const meName = (players.find(p => p.index === myIdx) || {}).name;
+    if (finishedPlayer !== meName) {
+      _chObsStarTurnPlayer = null;
+      _chObsStarTurnStartScore = null;
+      return;
+    }
+
+    // Compute turn delta.
+    const meEntry = players.find(p => p.name === finishedPlayer);
+    if (meEntry) {
+      const endScore = Number(meEntry.score || 0);
+      const startScore = (_chObsStarTurnStartScore != null) ? _chObsStarTurnStartScore : endScore;
+      if ((endScore - startScore) >= 15) {
+        try { window._reportDailyChallengeProgress?.("combo_current", 0, { complete: true }); } catch {}
+      }
+    }
+    _chObsStarTurnPlayer = null;
+    _chObsStarTurnStartScore = null;
+  }
+
   // Main per-payload observer entry point. Add new observers here over
   // time — keeping them all in one place makes the diff state easy to
   // reason about and easy to reset on game-end / leave.
@@ -10366,6 +10437,7 @@
     if (!me) return;
     _challObserveFirstOcean(me);
     _challObserveMoveScore(me);
+    _challObserveStarCombo(state, players);
   }
 
   // Reset all observer state when leaving the room so a brand-new game
@@ -10373,6 +10445,10 @@
   function _resetChallengeObservers() {
     _chObsPrevMyBoardLen = 0;
     _chObsPreMoveScore = null;
+    _chObsStarTurnPlayer = null;
+    _chObsStarTurnStartScore = null;
+    _chObsPrevTurnPlayer = null;
+    _chObsPlaysThisGame = 0;
   }
 
   function renderPayload(payload) {
@@ -14726,6 +14802,7 @@
         const wasHost = (typeof getHostToken === "function") ? !!getHostToken() : false;
         const quitByMe = (typeof _gameTerminatedByMe !== "undefined") && _gameTerminatedByMe;
         const moveCount = Number(_gameAchTracker?.animalMoves || 0);
+        const starCount = Number(_gameAchTracker?.starsActivated || 0);
         if (typeof window._fireChallengeHooksOnGameEnd === "function") {
           window._fireChallengeHooksOnGameEnd({
             isComp,
@@ -14739,6 +14816,7 @@
             myCompOther,
             quitByMe,
             moveCount,
+            starCount,
           });
         }
       } catch (e) { /* non-fatal */ }
@@ -15631,6 +15709,7 @@
     chatMsgs: 0,
     compChatMsgs: 0,
     endGameSeen: false,
+    starsActivated: 0,           // ★ ability uses this game (for star_surfer / no_star_needed)
     lastNoPoolMode: null, // "casual"|"comp"|null — for back-to-back tracker
     noPoolCasualDone: false,
     noPoolCompDone: false,
@@ -15643,6 +15722,7 @@
       chatMsgs: 0,
       compChatMsgs: 0,
       endGameSeen: false,
+      starsActivated: 0,
       lastNoPoolMode: null,
       noPoolCasualDone: false,
       noPoolCompDone: false,
@@ -18843,6 +18923,7 @@
         const myCompOther = Number(opts.myCompOther || 0);
         const quitByMe    = Boolean(opts.quitByMe);
         const moveCount   = Number(opts.moveCount || 0);
+        const starCount   = Number(opts.starCount || 0);
 
         const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
         const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
@@ -18888,6 +18969,10 @@
         // since the server scores all moved animals into their current oceans).
         // Skip if the player quit — that move likely didn't matter.
         if (!quitByMe && moveCount > 0) rd("board_fixer", 0, { complete: true });
+
+        // Star-ability challenges
+        // no_star_needed: scored 100+ without activating any ★ this game.
+        if (myScore >= 100 && starCount === 0) rd("no_star_needed", 0, { complete: true });
 
         // ─── WEEKLY ────────────────────────────────────────────────
         // Game-finish counters
@@ -20008,11 +20093,12 @@
 
       // Reset per-game fields so the next game starts clean.
       // Preserve noPoolCasualDone / noPoolCompDone for back-to-back tracking across games.
-      _gameAchTracker.usedPool     = false;
-      _gameAchTracker.animalMoves  = 0;
-      _gameAchTracker.chatMsgs     = 0;
-      _gameAchTracker.compChatMsgs = 0;
-      _gameAchTracker.endGameSeen  = false;
+      _gameAchTracker.usedPool       = false;
+      _gameAchTracker.animalMoves    = 0;
+      _gameAchTracker.chatMsgs       = 0;
+      _gameAchTracker.compChatMsgs   = 0;
+      _gameAchTracker.endGameSeen    = false;
+      _gameAchTracker.starsActivated = 0;
     }
 
     // Expose achievement functions to outer scope
