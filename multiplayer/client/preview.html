@@ -6386,6 +6386,64 @@
       font-family: 'Cinzel', serif; color: var(--cyan);
       font-size: 16px; text-align: center; font-weight: 700;
     }
+
+    /* ── Challenge of Challenges ──────────────────────────────── */
+    .coc-amp { cursor: pointer; }
+    .coc-modal-box { max-width: 340px; }
+    .coc-modal-desc {
+      color: rgba(200,225,255,.85); font-size: .92rem;
+      text-align: center; margin: 0; line-height: 1.5;
+    }
+    .coc-btn-row {
+      display: flex; gap: 10px; justify-content: center; margin-top: 4px;
+    }
+    .coc-btn-row .pv-btn { flex: 1; }
+    .coc-req-list { display: flex; flex-direction: column; gap: 10px; }
+    .coc-req-row {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(10,30,60,.55); border: 1px solid rgba(58,120,204,.22);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .coc-req-icon { font-size: 1.2rem; min-width: 22px; text-align: center; }
+    .coc-check { color: #2ecc71; }
+    .coc-cross { color: #e06c75; }
+    .coc-req-label { flex: 1; color: rgba(200,225,255,.85); font-size: .9rem; }
+    .coc-req-value { color: rgba(160,200,240,.7); font-size: .82rem; }
+    .coc-trivia-question {
+      color: rgba(200,225,255,.9); font-size: .95rem;
+      text-align: center; line-height: 1.5; margin: 0;
+    }
+    .coc-trivia-options { display: flex; flex-direction: column; gap: 8px; }
+    .coc-trivia-btn {
+      background: rgba(10,30,60,.7); border: 1px solid rgba(58,120,204,.35);
+      border-radius: 8px; color: rgba(200,225,255,.85); font-size: .88rem;
+      padding: 10px 14px; cursor: pointer; text-align: left; transition: background .15s, border-color .15s;
+    }
+    .coc-trivia-btn:hover:not(:disabled) { background: rgba(30,60,100,.8); border-color: rgba(58,120,204,.7); }
+    .coc-trivia-btn:disabled { opacity: .7; cursor: default; }
+    .coc-trivia-btn.coc-correct { background: rgba(20,80,40,.8); border-color: #2ecc71; color: #2ecc71; }
+    .coc-trivia-btn.coc-wrong   { background: rgba(80,20,20,.8); border-color: #e06c75; color: #e06c75; }
+    .coc-trivia-result {
+      text-align: center; font-size: .92rem; font-weight: 700;
+      min-height: 1.4em; padding-top: 2px;
+    }
+    .coc-result-correct { color: #2ecc71; }
+    .coc-result-wrong   { color: #e06c75; }
+    .coc-modal-close {
+      position: absolute; top: 10px; right: 14px;
+      background: none; border: none; color: rgba(160,200,240,.6);
+      font-size: 1.1rem; cursor: pointer; line-height: 1; padding: 2px 4px;
+    }
+    .coc-modal-close:hover { color: #fff; }
+    .coc-modal-box { position: relative; }
+    /* Avatar grid separator for unlocked icons */
+    .auth-avatar-sep {
+      grid-column: 1 / -1; color: var(--cyan); font-size: .78rem;
+      font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+      padding: 6px 0 2px; border-top: 1px solid rgba(58,120,204,.3);
+      text-align: center; margin-top: 4px;
+    }
+
     .settings-row {
       display: flex; align-items: center; gap: 8px;
       padding: 8px 0; border-bottom: 1px solid rgba(58,120,204,.18);
@@ -7223,7 +7281,7 @@
     <button class="ph-icon-btn" aria-label="Menu">
       <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="6" width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="12" width="18" height="2" rx="1" fill="#1a2e4a"/></svg>
     </button>
-    <div class="ph-topbar-title">Currents &amp; Critters</div>
+    <div class="ph-topbar-title">Currents <span class="coc-amp">&amp;</span> Critters</div>
     <div class="ph-bell-wrap">
       <button class="ph-icon-btn" aria-label="Notifications">
         <svg width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M9 0C9.552 0 10 .448 10 1v.07A7 7 0 0 1 16 8v5l2 2v1H0v-1l2-2V8A7 7 0 0 1 8 1.07V1C8 .448 8.448 0 9 0zm0 20a2 2 0 0 0 2-2H7a2 2 0 0 0 2 2z" fill="#1a2e4a"/></svg>
@@ -7990,7 +8048,7 @@
 
 <!-- ══ LOBBY ══════════════════════════════════════════════════════ -->
 <div id="pv-lobby">
-  <h1>Currents &amp; Critters</h1>
+  <h1>Currents <span class="coc-amp">&amp;</span> Critters</h1>
 
   <!-- Signed-in profile strip — hidden until auth completes for a logged-in user -->
   <div id="auth-profile-bar">
@@ -16334,6 +16392,8 @@
     }
 
     const AVATAR_OPTIONS = Array.from({ length: 12 }, (_, idx) => `/avatars/avatar-${String(idx + 1).padStart(2, "0")}.png`);
+    let _unlockedIcons = []; // custom icons unlocked via easter eggs / challenges
+    const GUEST_UNLOCKED_ICONS_PREFIX = "cc_unlocked_icons_";
     let _signupAvatarUrl = "";
     let _avatarModalSelection = "";
 
@@ -16352,7 +16412,7 @@
       if (!trimmed) return "";
       if (/^https?:\/\//i.test(trimmed)) return trimmed;
       const absolute = trimmed.startsWith("/") ? trimmed : `/${trimmed.replace(/^\.?\//, "")}`;
-      if (/^\/avatars\/avatar-\d{2}\.png$/i.test(absolute)) return absolute.toLowerCase();
+      if (/^\/avatars\/[a-z0-9_-]+\.png$/i.test(absolute)) return absolute.toLowerCase();
       return trimmed;
     }
 
@@ -16365,6 +16425,7 @@
     function sanitizeSelectableAvatar(url, seed) {
       const normalized = normalizeAvatarUrl(url);
       if (AVATAR_OPTIONS.includes(normalized)) return normalized;
+      if (_unlockedIcons.length && _unlockedIcons.includes(normalized)) return normalized;
       return getDefaultAvatar(seed);
     }
 
@@ -16427,7 +16488,12 @@
 
     function hasStoredSelectableAvatar(profile) {
       const saved = normalizeAvatarUrl(profile?.avatar_url || "");
-      return AVATAR_OPTIONS.includes(saved);
+      if (AVATAR_OPTIONS.includes(saved)) return true;
+      if (saved && _unlockedIcons.includes(saved)) return true;
+      const profileIcons = Array.isArray(profile?.unlocked_icons)
+        ? profile.unlocked_icons.map(s => normalizeAvatarUrl(String(s || "")))
+        : [];
+      return saved ? profileIcons.includes(saved) : false;
     }
 
     function renderAvatarGrid(containerId, selectedUrl, onSelect) {
@@ -16449,6 +16515,28 @@
         btn.addEventListener("click", () => onSelect(url));
         container.appendChild(btn);
       });
+      if (_unlockedIcons.length) {
+        const sep = document.createElement("div");
+        sep.className = "auth-avatar-sep";
+        sep.textContent = "🔓 Unlocked Icons";
+        container.appendChild(sep);
+        _unlockedIcons.forEach((rawUrl, idx) => {
+          const url = normalizeAvatarUrl(rawUrl);
+          if (!url) return;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "auth-avatar-option" + (url === active ? " active" : "");
+          btn.setAttribute("aria-label", `Unlocked icon ${idx + 1}`);
+          btn.setAttribute("data-avatar", url);
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = `Unlocked icon ${idx + 1}`;
+          img.loading = "lazy";
+          btn.appendChild(img);
+          btn.addEventListener("click", () => onSelect(url));
+          container.appendChild(btn);
+        });
+      }
     }
 
     document.addEventListener("error", (ev) => {
@@ -17267,8 +17355,12 @@
       }
       if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
       _activeProfile = profile || null;
+      // Load unlocked icons from profile
+      _unlockedIcons = Array.isArray(profile?.unlocked_icons)
+        ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+        : [];
       const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
-      const hasSelectableAvatar = AVATAR_OPTIONS.includes(savedAvatar);
+      const hasSelectableAvatar = hasStoredSelectableAvatar(profile);
       if (_activeProfile) _activeProfile = { ..._activeProfile, uid };
       if (_activeProfile && savedAvatar) _activeProfile.avatar_url = savedAvatar;
       syncStatsHeader(_activeProfile);
@@ -17909,6 +18001,11 @@
           $a("auth-loading-screen").classList.add("hidden");
           if (savedGuestNick) {
             _guestAvatarUrl = savedGuestAvatar;
+            try {
+              const _uiKey = GUEST_UNLOCKED_ICONS_PREFIX + savedGuestNick.toLowerCase();
+              const _uiRaw = localStorage.getItem(_uiKey);
+              if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
+            } catch { _unlockedIcons = []; }
             revealLobby(savedGuestNick, "");
           } else {
             showStep("auth-step-choose");
@@ -21179,6 +21276,24 @@
     // ═══════════════════════════════════════════════════════════════
 
     // Expose getters so outer game code can read auth state if needed
+    window.__fishGetUnlockedIcons  = () => [..._unlockedIcons];
+    window.__fishGrantUnlockedIcon = async (iconPath) => {
+      const path = normalizeAvatarUrl(String(iconPath || ""));
+      if (!path || !path.startsWith("/avatars/")) return;
+      if (_unlockedIcons.includes(path)) return; // already unlocked
+      _unlockedIcons = [..._unlockedIcons, path];
+      try {
+        if (_authUser && _db) {
+          await _db.collection("users").doc(_authUser.uid).update({
+            unlocked_icons: firebase.firestore.FieldValue.arrayUnion(path)
+          });
+          if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_icons: _unlockedIcons };
+        } else if (_guestSessionActive && _playerNickname) {
+          const key = GUEST_UNLOCKED_ICONS_PREFIX + _playerNickname.toLowerCase();
+          localStorage.setItem(key, JSON.stringify(_unlockedIcons));
+        }
+      } catch { /* best-effort */ }
+    };
     window.__fishNickname       = () => _playerNickname;
     window.__fishAuthUser       = () => _authUser;
     window.__fishDb             = () => _db;
@@ -21202,6 +21317,222 @@
 
   })(); // end auth IIFE
 </script>
+
+<script>
+/* ══ Challenge of Challenges ══════════════════════════════════════════ */
+(function () {
+  "use strict";
+  const NARWHAL_ICON = "/avatars/narwhal.png";
+
+  function $coc(id) { return document.getElementById(id); }
+
+  function _cocClose(id) {
+    const m = $coc(id);
+    if (m) m.classList.remove("open");
+  }
+
+  // ── Entry: clicking the & in any logo ────────────────────────
+  document.addEventListener("click", function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains("coc-amp")) {
+      _cocOpen();
+    }
+  });
+
+  function _cocOpen() {
+    const m = $coc("coc-confirm-modal");
+    if (m) m.classList.add("open");
+  }
+
+  // ── Step 1: Confirmation ─────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", function () {
+    $coc("coc-confirm-close")?.addEventListener("click", () => _cocClose("coc-confirm-modal"));
+    $coc("coc-confirm-no")?.addEventListener("click",   () => _cocClose("coc-confirm-modal"));
+    $coc("coc-confirm-yes")?.addEventListener("click",  () => {
+      _cocClose("coc-confirm-modal");
+      _cocShowRequirements();
+    });
+
+    // Backdrop click closes confirm and requirements modals
+    $coc("coc-confirm-modal")?.addEventListener("click", function (e) {
+      if (e.target === this) _cocClose("coc-confirm-modal");
+    });
+    $coc("coc-requirements-modal")?.addEventListener("click", function (e) {
+      if (e.target === this) _cocClose("coc-requirements-modal");
+    });
+
+    // ── Step 2: Requirements ──────────────────────────────────
+    $coc("coc-req-leave")?.addEventListener("click",   () => _cocClose("coc-requirements-modal"));
+    $coc("coc-req-proceed")?.addEventListener("click", () => {
+      _cocClose("coc-requirements-modal");
+      _cocShowTrivia();
+    });
+
+    // ── Step 3: Trivia ────────────────────────────────────────
+    $coc("coc-trivia-close")?.addEventListener("click", () => {
+      _cocClose("coc-trivia-modal");
+      if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
+    });
+    document.querySelectorAll(".coc-trivia-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        _cocHandleAnswer(this.dataset.cocAnswer);
+      });
+    });
+  });
+
+  // ── Requirements screen ───────────────────────────────────────
+  function _cocGetStats() {
+    if (typeof window.__fishGetMyStats === "function") {
+      const s = window.__fishGetMyStats();
+      if (s && typeof s === "object") return s;
+    }
+    if (typeof window.__fishGuestStatsGet === "function") {
+      return window.__fishGuestStatsGet() || {};
+    }
+    return {};
+  }
+
+  function _cocShowRequirements() {
+    const stats  = _cocGetStats();
+    const wins   = Number(stats.normal_wins   || 0);
+    const hours  = Number(stats.hours_played  || 0);
+    const winsOk  = wins  >= 25;
+    const hoursOk = hours >= 25;
+
+    const winsIcon  = $coc("coc-req-wins-icon");
+    const hoursIcon = $coc("coc-req-hours-icon");
+    const winsVal   = $coc("coc-req-wins-val");
+    const hoursVal  = $coc("coc-req-hours-val");
+    const proceedBtn = $coc("coc-req-proceed");
+
+    if (winsIcon)  {
+      winsIcon.textContent = winsOk  ? "✓" : "✗";
+      winsIcon.className   = "coc-req-icon " + (winsOk  ? "coc-check" : "coc-cross");
+    }
+    if (hoursIcon) {
+      hoursIcon.textContent = hoursOk ? "✓" : "✗";
+      hoursIcon.className   = "coc-req-icon " + (hoursOk ? "coc-check" : "coc-cross");
+    }
+    if (winsVal)  winsVal.textContent  = `${wins} / 25`;
+    if (hoursVal) hoursVal.textContent = `${hours.toFixed(1)} / 25`;
+    if (proceedBtn) proceedBtn.disabled = !(winsOk && hoursOk);
+
+    const m = $coc("coc-requirements-modal");
+    if (m) m.classList.add("open");
+  }
+
+  // ── Trivia screen ─────────────────────────────────────────────
+  function _cocShowTrivia() {
+    const resultEl = $coc("coc-trivia-result");
+    if (resultEl) { resultEl.textContent = ""; resultEl.className = "coc-trivia-result"; }
+    document.querySelectorAll(".coc-trivia-btn").forEach(function (b) {
+      b.disabled = false;
+      b.classList.remove("coc-correct", "coc-wrong");
+    });
+    const m = $coc("coc-trivia-modal");
+    if (m) m.classList.add("open");
+  }
+
+  async function _cocHandleAnswer(answer) {
+    // Disable all buttons immediately
+    document.querySelectorAll(".coc-trivia-btn").forEach(function (b) { b.disabled = true; });
+    const resultEl = $coc("coc-trivia-result");
+
+    if (answer === "A") {
+      const btn = document.querySelector('.coc-trivia-btn[data-coc-answer="A"]');
+      if (btn) btn.classList.add("coc-correct");
+      await _cocAwardNarwhal(resultEl);
+    } else {
+      const btn = document.querySelector(`.coc-trivia-btn[data-coc-answer="${answer}"]`);
+      if (btn) btn.classList.add("coc-wrong");
+      if (resultEl) {
+        resultEl.textContent = "✗ Incorrect. Try again next time…";
+        resultEl.className   = "coc-trivia-result coc-result-wrong";
+      }
+      setTimeout(function () {
+        _cocClose("coc-trivia-modal");
+        if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
+      }, 2200);
+    }
+  }
+
+  async function _cocAwardNarwhal(resultEl) {
+    // Check if already unlocked
+    const already = typeof window.__fishGetUnlockedIcons === "function"
+      && window.__fishGetUnlockedIcons().includes(NARWHAL_ICON);
+
+    if (resultEl) {
+      resultEl.innerHTML = already
+        ? "✓ You already own the <strong>Narwhal</strong> icon!"
+        : "✓ Correct! You've unlocked the <strong>Narwhal</strong> avatar icon! 🦄";
+      resultEl.className = "coc-trivia-result coc-result-correct";
+    }
+
+    if (!already && typeof window.__fishGrantUnlockedIcon === "function") {
+      try { await window.__fishGrantUnlockedIcon(NARWHAL_ICON); } catch (err) { /* best-effort */ }
+    }
+
+    setTimeout(function () {
+      _cocClose("coc-trivia-modal");
+    }, 3500);
+  }
+
+})();
+</script>
+
+<!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
+
+<!-- Step 1: Confirmation -->
+<div id="coc-confirm-modal" class="overlay-modal">
+  <div class="modal-box coc-modal-box">
+    <button class="coc-modal-close" id="coc-confirm-close" aria-label="Close">✕</button>
+    <div class="modal-title">⚓ Challenge of Challenges</div>
+    <p class="coc-modal-desc">Are you ready for the Challenge of Challenges?</p>
+    <div class="coc-btn-row">
+      <button class="pv-btn" id="coc-confirm-no">Not yet</button>
+      <button class="pv-btn gold" id="coc-confirm-yes">I'm ready! →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Step 2: Requirements -->
+<div id="coc-requirements-modal" class="overlay-modal">
+  <div class="modal-box coc-modal-box">
+    <div class="modal-title">⚓ Challenge of Challenges</div>
+    <p class="coc-modal-desc">Prove your dedication to the seas.</p>
+    <div class="coc-req-list">
+      <div class="coc-req-row">
+        <span class="coc-req-icon coc-cross" id="coc-req-wins-icon">✗</span>
+        <span class="coc-req-label">25 Wins</span>
+        <span class="coc-req-value" id="coc-req-wins-val">0 / 25</span>
+      </div>
+      <div class="coc-req-row">
+        <span class="coc-req-icon coc-cross" id="coc-req-hours-icon">✗</span>
+        <span class="coc-req-label">25 Hours Played</span>
+        <span class="coc-req-value" id="coc-req-hours-val">0.0 / 25</span>
+      </div>
+    </div>
+    <div class="coc-btn-row">
+      <button class="pv-btn" id="coc-req-leave">Leave</button>
+      <button class="pv-btn gold" id="coc-req-proceed" disabled>Proceed →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Step 3: Trivia -->
+<div id="coc-trivia-modal" class="overlay-modal">
+  <div class="modal-box coc-modal-box">
+    <button class="coc-modal-close" id="coc-trivia-close" aria-label="Close">✕</button>
+    <div class="modal-title">⚓ Final Challenge</div>
+    <p class="coc-trivia-question">What nickname are narwhals often called?</p>
+    <div class="coc-trivia-options">
+      <button class="coc-trivia-btn" data-coc-answer="A">A. Unicorns of the Sea</button>
+      <button class="coc-trivia-btn" data-coc-answer="B">B. Wolves of the Reef</button>
+      <button class="coc-trivia-btn" data-coc-answer="C">C. Kings of the Kelp</button>
+      <button class="coc-trivia-btn" data-coc-answer="D">D. Dolphins of the Deep</button>
+    </div>
+    <div class="coc-trivia-result" id="coc-trivia-result"></div>
+  </div>
+</div>
 
 <!-- Achievement unlock popup -->
 <div id="ach-unlock-popup" aria-live="polite">
