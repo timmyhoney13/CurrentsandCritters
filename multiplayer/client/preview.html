@@ -10563,12 +10563,19 @@
           if (playedName === "roosterfish" && action.use_star) {
             _gameAchTracker.freeBaitfishUses = (_gameAchTracker.freeBaitfishUses || 0) + 1;
           }
-          // Grooved Brain Coral avatar: 2 ★ activations + a Giant Squid + a Bobtail Squid.
+          // Grooved Brain Coral avatar: use 2 Grooved Brain Coral ★ abilities and
+          // play a Giant Squid and a Bobtail Squid via those free-cephalopod
+          // windows. Grooved Brain Coral is the ONLY card that grants a free
+          // cephalopod, so a squid played while a free-cephalopod window is open
+          // necessarily came from its ★ ability.
           if (playedName === "grooved brain coral" && action.use_star) {
             _gameAchTracker.grooveBrainStars = (_gameAchTracker.grooveBrainStars || 0) + 1;
           }
-          if (playedName === "giant squid")   _gameAchTracker.giantSquidPlayed = true;
-          if (playedName === "bobtail squid") _gameAchTracker.bobtailSquidPlayed = true;
+          const _fpsAtPlay = Array.isArray(latestPayload?.legal_actions?.free_play_species)
+            ? latestPayload.legal_actions.free_play_species : [];
+          const _freeCephActive = _fpsAtPlay.some(s => String(s).trim().toLowerCase() === "cephalopod");
+          if (_freeCephActive && playedName === "giant squid")   _gameAchTracker.giantSquidViaGBC = true;
+          if (_freeCephActive && playedName === "bobtail squid") _gameAchTracker.bobtailSquidViaGBC = true;
         } catch {}
         const dir = String(action.face_direction || "").toLowerCase();
         if (dir === "up") {
@@ -15605,9 +15612,10 @@
         // Deep Sea Coral — win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
-        // Grooved Brain Coral — 2 Grooved Brain Coral ★ uses + a Giant Squid + a Bobtail Squid in one game.
+        // Grooved Brain Coral — 2 Grooved Brain Coral ★ uses, and a Giant Squid
+        // and a Bobtail Squid each played via a free-cephalopod window (from GBC).
         if (Number(_gameAchTracker?.grooveBrainStars || 0) >= 2
-            && _gameAchTracker?.giantSquidPlayed && _gameAchTracker?.bobtailSquidPlayed
+            && _gameAchTracker?.giantSquidViaGBC && _gameAchTracker?.bobtailSquidViaGBC
             && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
         // granted via the achievement-unlock hook.
@@ -16790,8 +16798,8 @@
       tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
       tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
       grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
-      giantSquidPlayed: false,     // a Giant Squid was played this game
-      bobtailSquidPlayed: false,   // a Bobtail Squid was played this game
+      giantSquidViaGBC: false,     // a Giant Squid played via a free-cephalopod window (only Grooved Brain Coral opens these)
+      bobtailSquidViaGBC: false,   // a Bobtail Squid played via a free-cephalopod window
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
