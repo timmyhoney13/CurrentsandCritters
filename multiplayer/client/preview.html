@@ -15585,10 +15585,15 @@
         // Mahi Mahi — Level 30 · Blue Marlin — Level 70.
         if (lvl >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/mahi-mahi.png")) _queueAnimalUnlock("mahi-mahi");
         if (lvl >= 70 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-marlin.png")) _queueAnimalUnlock("blue-marlin");
-        // Barracuda — Bronze rank · Goliath Grouper — Golden rank.
+        // Rank-based avatars (Barracuda/Bronze, Goliath Grouper/Gold, Bottlenose
+        // Dolphin/Diamond, …). Uses pre-game rank here; the retroactive sync on
+        // the next stats load is authoritative for ranks earned this game.
         const myTier = rankTierValue(cStats?.rank_competitive);
-        if (myTier >= _RANK_TIER_VALUE.bronze && await window.__fishGrantUnlockedIcon?.("/avatars/barracuda.png")) _queueAnimalUnlock("barracuda");
-        if (myTier >= _RANK_TIER_VALUE.gold   && await window.__fishGrantUnlockedIcon?.("/avatars/goliath-grouper.png")) _queueAnimalUnlock("goliath-grouper");
+        for (const ra of ANIMAL_AVATARS) {
+          if (ra.unlock?.type === "rank" && myTier >= (_RANK_TIER_VALUE[ra.unlock.tier] || Infinity)) {
+            if (await window.__fishGrantUnlockedIcon?.(ra.img)) _queueAnimalUnlock(ra.id);
+          }
+        }
         // Roosterfish — 75 lifetime "play a free Baitfish" abilities.
         const postFreeBait = Number(cStats?.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
         if (postFreeBait >= 75 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
@@ -16601,6 +16606,17 @@
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
       unlock:{ type:"achievement", achId:"reef_rally", label:"Complete Reef Rally — add 15 friends." } },
+
+    // ── Mammals ──────────────────────────────────────────────────
+    { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
+      facts:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it.",
+      unlock:{ type:"achievement", achId:"mammal_pod_master", label:"Complete Mammal Pod Master — win using Mammals 30 times." } },
+    { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
+      facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
+      unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
+    { id:"narwhal", name:"Narwhal", species:"Mammals", img:"/avatars/narwhal.png",
+      facts:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length.",
+      unlock:{ type:"secret", label:"Find the secret & answer the question." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
