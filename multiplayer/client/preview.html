@@ -6475,19 +6475,6 @@
       font-size: 16px; text-align: center; font-weight: 700;
     }
 
-    /* ── Hidden Cephalopod easter eggs ────────────────────────── */
-    .ceph-hidden {
-      position: absolute;
-      width: 30px; height: 30px;
-      object-fit: contain;
-      opacity: .07;
-      cursor: pointer;
-      z-index: 5;
-      transition: opacity .18s, transform .18s;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .ceph-hidden:hover { opacity: .85; transform: scale(1.25); }
-
     /* ── Challenge of Challenges ──────────────────────────────── */
     .coc-amp { cursor: pointer; }
     .coc-modal-box { max-width: 340px; }
@@ -7611,7 +7598,7 @@
               <div class="ph-scv" id="stat-hours-played">0 hrs</div>
             </div>
             <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-blue">🎯</div>
+              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
               <div class="ph-scl">Most Played Strategy</div>
               <div class="ph-scv" id="ph-ov-most-strategy">—</div>
             </div>
@@ -15030,8 +15017,17 @@
     el.innerHTML = "";
     const sorted = [...players].sort((a, b) => Number(b.score||0) - Number(a.score||0));
     sorted.forEach(p => {
-      const row = document.createElement("div");
       const isMe = p.index === viewerIdx;
+      if (isMe) {
+        // Hidden Cuttlefish easter egg — tucked right above your own score row.
+        const cf = document.createElement("img");
+        cf.src = "/avatars/cuttlefish.png";
+        cf.alt = ""; cf.draggable = false;
+        cf.style.cssText = "display:block;width:22px;height:22px;object-fit:contain;opacity:.5;margin:1px 0;";
+        cf.addEventListener("click", (e) => { e.stopPropagation(); window.__fishGrantHiddenCeph?.("cuttlefish", "/avatars/cuttlefish.png", cf); });
+        el.appendChild(cf);
+      }
+      const row = document.createElement("div");
       const hc = p.hand_count ?? (Array.isArray(p.hand) ? p.hand.length : 0);
       row.textContent = `${isMe ? "★ " : ""}${p.name || `P${p.index}`}: ${p.score ?? 0} pts · 🃏${hc}`;
       row.style.fontWeight = isMe ? "700" : "400";
@@ -19661,6 +19657,13 @@
         card.innerHTML = `${iconHtml}<div class="ach-info">${nameHtml}${descHtml}${progHtml}</div><div class="ach-right">${xpHtml}${badgeHtml}</div>`;
         list.appendChild(card);
       });
+
+      // Hidden Bobtail Squid easter egg — always pinned to the very end.
+      const bob = document.createElement("div");
+      bob.className = "ach-steam-card";
+      bob.innerHTML = `<div class="ach-icon-wrap"><img src="/avatars/bobtail-squid.png" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;"></div><div class="ach-info"><div class="ach-name">What's bob doing here</div><div class="ach-desc">Hmm… that's not supposed to be on the list.</div></div><div class="ach-right"></div>`;
+      bob.addEventListener("click", () => window.__fishGrantHiddenCeph?.("bobtail-squid", "/avatars/bobtail-squid.png", bob));
+      list.appendChild(bob);
     }
 
     // Wire achievement filter
@@ -22336,56 +22339,44 @@
 
 <script>
 /* ══ Hidden Cephalopods ════════════════════════════════════════════════
-   Three secret avatars unlocked by finding & clicking a faint cephalopod
-   tucked into the UI: Bobtail Squid + Cuttlefish on the home hub,
-   Common Octopus on the lobby. (Giant Squid uses the Level 80 path.) */
+   Three secret avatars unlocked by finding & clicking a cephalopod tucked
+   naturally into the UI: Common Octopus disguised as the "Most Played
+   Strategy" stat icon, Bobtail Squid as the "What's bob doing here" card at
+   the end of achievements, and Cuttlefish above your in-game score row.
+   (Giant Squid uses the Level 80 path.) */
 (function () {
   "use strict";
 
-  const HIDDEN_CEPHS = [
-    { id:"bobtail-squid",  img:"/avatars/bobtail-squid.png",  host:"auth-stats-lobby", style:"left:10px;bottom:74px;" },
-    { id:"cuttlefish",     img:"/avatars/cuttlefish.png",     host:"auth-stats-lobby", style:"right:14px;top:64px;" },
-    { id:"common-octopus", img:"/avatars/common-octopus.png", host:"pv-lobby",         style:"right:16px;bottom:18px;" },
-  ];
-
-  async function _foundCeph(target, el) {
+  window.__fishGrantHiddenCeph = async function (id, img, el) {
     const owned = (typeof window.__fishGetUnlockedIcons === "function"
-      ? window.__fishGetUnlockedIcons() : []).includes(target.img);
+      ? window.__fishGetUnlockedIcons() : []).includes(img);
     if (!owned && typeof window.__fishGrantUnlockedIcon === "function") {
-      try { await window.__fishGrantUnlockedIcon(target.img); } catch (e) { /* best-effort */ }
-      window.__fishQueueAnimalUnlock?.(target.id);
+      try { await window.__fishGrantUnlockedIcon(img); } catch (e) { /* best-effort */ }
+      window.__fishQueueAnimalUnlock?.(id);
       window.__fishShowAnimalUnlocks?.();
-    } else {
+    } else if (el) {
       // Already discovered — quick acknowledging pulse.
-      el.style.opacity = ".85"; el.style.transform = "scale(1.3)";
-      setTimeout(() => { el.style.opacity = ""; el.style.transform = ""; }, 260);
+      el.style.transition = "transform .2s";
+      el.style.transform = "scale(1.2)";
+      setTimeout(() => { el.style.transform = ""; }, 240);
     }
-  }
+  };
 
-  function _placeCephs() {
-    HIDDEN_CEPHS.forEach((t) => {
-      const host = document.getElementById(t.host);
-      if (!host || document.getElementById("ceph-egg-" + t.id)) return;
-      const img = document.createElement("img");
-      img.id = "ceph-egg-" + t.id;
-      img.className = "ceph-hidden";
-      img.src = t.img;
-      img.alt = "";
-      img.setAttribute("aria-hidden", "true");
-      img.style.cssText = "position:fixed;" + t.style;
-      img.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        _foundCeph(t, img);
-      });
-      host.appendChild(img);
+  // Common Octopus — disguised as the "Most Played Strategy" stat icon.
+  function _wireOcto() {
+    const host = document.getElementById("ceph-octo-stat");
+    if (!host || host._cephWired) return;
+    host._cephWired = true;
+    host.addEventListener("click", function (e) {
+      e.stopPropagation();
+      window.__fishGrantHiddenCeph("common-octopus", "/avatars/common-octopus.png", host);
     });
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", _placeCephs);
+    document.addEventListener("DOMContentLoaded", _wireOcto);
   } else {
-    _placeCephs();
+    _wireOcto();
   }
 })();
 </script>
