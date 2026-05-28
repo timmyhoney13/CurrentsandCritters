@@ -11870,8 +11870,12 @@
   // previously threw a ReferenceError and prevented any seat from
   // rendering. The local player's chosen avatar is read via
   // window.__fishMyAvatarUrl() (exposed by the IIFE) when available.
-  const PV_SEAT_AVATARS = Array.from({ length: 12 },
-    (_, i) => `/avatars/avatar-${String(i + 1).padStart(2, "0")}.png`);
+  const PV_SEAT_AVATARS = [
+    "/avatars/mullet.png", "/avatars/sardine.png", "/avatars/flying-fish.png",
+    "/avatars/bunker.png", "/avatars/bonito.png",  "/avatars/mahi-mahi.png",
+    "/avatars/roosterfish.png", "/avatars/blue-tang.png", "/avatars/clownfish.png",
+    "/avatars/blue-marlin.png", "/avatars/barracuda.png", "/avatars/manta-ray.png",
+  ];
   function pvSeatHash(s) {
     const t = String(s || "player");
     let h = 0;
@@ -11937,7 +11941,7 @@
       const img = document.createElement("img");
       img.src = initialUrl;
       img.alt = p.name || `Seat ${slot + 1}`;
-      img.onerror = () => { img.onerror = null; img.src = PV_SEAT_AVATARS[0]; };
+      img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
 
       // Async: replace fallback with each non-self player's real chosen avatar.
