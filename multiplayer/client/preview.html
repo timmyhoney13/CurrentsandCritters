@@ -10577,6 +10577,49 @@
           if (_freeCephActive && playedName === "giant squid")   _gameAchTracker.giantSquidViaGBC = true;
           if (_freeCephActive && playedName === "bobtail squid") _gameAchTracker.bobtailSquidViaGBC = true;
         } catch {}
+
+        // ── Invertebrate "draw one" avatars ───────────────────────────
+        // Each of these animals draws a card when a trigger condition fires,
+        // but only while it is already on your board. Count one draw per copy
+        // on board at play time (the just-played card isn't on board yet).
+        try {
+          // Resolve the played face (name + species) from the hand entry. The
+          // played face uid may be a face uid OR an entry key, so scan faces.
+          let _pf = null, _pe = null;
+          for (const e of handEntryMap.values()) {
+            const hit = (Array.isArray(e.faces) ? e.faces : []).find(f => Number(f.uid) === Number(action.card_uid));
+            if (hit) { _pf = hit; _pe = e; break; }
+          }
+          if (!_pe) { _pe = handEntryMap.get(Number(action.card_uid)) || null; _pf = _pe?.faces?.[0] || null; }
+          const invName    = String(_pf?.name || _pe?.name || "").trim().toLowerCase();
+          const invSpecies = String(_pf?.species || "").trim().toLowerCase();
+          const invDir     = String(action.face_direction || "").toLowerCase();
+          const myBoard = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx)?.board;
+          const countOnBoard = (nm) => {
+            let n = 0;
+            for (const ocean of (Array.isArray(myBoard) ? myBoard : [])) {
+              for (const d of ["up","down","left","right"]) {
+                for (const c of (Array.isArray(ocean[d]) ? ocean[d] : [])) {
+                  if (String(c.name || "").trim().toLowerCase() === nm) n++;
+                }
+              }
+            }
+            return n;
+          };
+          // Sea Urchin — draw one (per Urchin) when you play an animal on the surface.
+          if (invDir === "up")
+            _gameAchTracker.seaUrchinDraws = (_gameAchTracker.seaUrchinDraws || 0) + countOnBoard("sea urchin");
+          // Sea Star — draw one (per Star) when you play a card on the ocean floor.
+          if (invDir === "down")
+            _gameAchTracker.seaStarDraws = (_gameAchTracker.seaStarDraws || 0) + countOnBoard("common sea star");
+          // Sea Cucumber — draw one (per Cucumber) when you play a Game Fish.
+          if (invSpecies === "game fish")
+            _gameAchTracker.seaCucumberDraws = (_gameAchTracker.seaCucumberDraws || 0) + countOnBoard("sea cucumber");
+          // Sea Anemone — its ★ ability draws one card when activated.
+          if (invName === "sea anemone" && action.use_star)
+            _gameAchTracker.seaAnemoneDraws = (_gameAchTracker.seaAnemoneDraws || 0) + 1;
+        } catch {}
+
         const dir = String(action.face_direction || "").toLowerCase();
         if (dir === "up") {
           _chObsSurfaceStreak++;
@@ -15429,6 +15472,15 @@
           updates["stats.lifetime_play_again"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.playAgainUses));
         if (Number(_gameAchTracker?.freeBaitfishUses || 0) > 0)
           updates["stats.lifetime_free_baitfish"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.freeBaitfishUses));
+        // Invertebrate draw-ability counters (Sea Urchin / Sea Star / Sea Cucumber / Sea Anemone).
+        if (Number(_gameAchTracker?.seaUrchinDraws || 0) > 0)
+          updates["stats.lifetime_sea_urchin_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaUrchinDraws));
+        if (Number(_gameAchTracker?.seaStarDraws || 0) > 0)
+          updates["stats.lifetime_sea_star_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaStarDraws));
+        if (Number(_gameAchTracker?.seaCucumberDraws || 0) > 0)
+          updates["stats.lifetime_sea_cucumber_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaCucumberDraws));
+        if (Number(_gameAchTracker?.seaAnemoneDraws || 0) > 0)
+          updates["stats.lifetime_sea_anemone_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaAnemoneDraws));
         if (isWinner) {
           // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
           if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
@@ -15485,6 +15537,10 @@
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
         nextStats.lifetime_free_baitfish = Number(nextStats.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
+        nextStats.lifetime_sea_urchin_draws = Number(nextStats.lifetime_sea_urchin_draws || 0) + Number(_gameAchTracker?.seaUrchinDraws || 0);
+        nextStats.lifetime_sea_star_draws = Number(nextStats.lifetime_sea_star_draws || 0) + Number(_gameAchTracker?.seaStarDraws || 0);
+        nextStats.lifetime_sea_cucumber_draws = Number(nextStats.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
+        nextStats.lifetime_sea_anemone_draws = Number(nextStats.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
         if (isWinner && !isComp) {
@@ -15624,6 +15680,20 @@
             && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
         // granted via the achievement-unlock hook.
+
+        // ── Invertebrates ──────────────────────────────────────────
+        // Sea Sponge — reach Level 20.
+        if (lvl >= 20 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-sponge.png")) _queueAnimalUnlock("sea-sponge");
+        // Sea Urchin / Sea Star / Sea Cucumber / Sea Anemone — 125 lifetime
+        // cards drawn via each animal's ability (pre-game total + this game).
+        const postUrchin = Number(cStats?.lifetime_sea_urchin_draws || 0) + Number(_gameAchTracker?.seaUrchinDraws || 0);
+        if (postUrchin >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-urchin.png")) _queueAnimalUnlock("sea-urchin");
+        const postSeaStar = Number(cStats?.lifetime_sea_star_draws || 0) + Number(_gameAchTracker?.seaStarDraws || 0);
+        if (postSeaStar >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
+        const postCucumber = Number(cStats?.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
+        if (postCucumber >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
+        const postAnemone = Number(cStats?.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
+        if (postAnemone >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-anemone.png")) _queueAnimalUnlock("sea-anemone");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16617,6 +16687,23 @@
     { id:"narwhal", name:"Narwhal", species:"Mammals", img:"/avatars/narwhal.png",
       facts:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length.",
       unlock:{ type:"secret", label:"Find the secret & answer the question." } },
+
+    // ── Invertebrates ────────────────────────────────────────────
+    { id:"sea-sponge", name:"Sea Sponge", species:"Invertebrates", img:"/avatars/sea-sponge.png",
+      facts:"They are one of the oldest animal groups on Earth, appearing roughly 500 million years ago, predating the dinosaurs by over 300 million years.",
+      unlock:{ type:"level", goal:20, label:"Reach Level 20." } },
+    { id:"sea-urchin", name:"Sea Urchin", species:"Invertebrates", img:"/avatars/sea-urchin.png",
+      facts:"To protect themselves from harsh UV rays and predators, many species will use their tube feet and pincer-like organs to pick up and carry shells, rocks, or even stray marine debris over their bodies.",
+      unlock:{ type:"stat", stat:"lifetime_sea_urchin_draws", goal:125, unit:"cards drawn with Sea Urchin", label:"Draw 125 cards using Sea Urchin's ability." } },
+    { id:"sea-star", name:"Sea Star", species:"Invertebrates", img:"/avatars/sea-star.png",
+      facts:"If a predator bites off an arm, the sea star can simply grow a new one. Some species can even regenerate an entirely new body from just a single detached arm.",
+      unlock:{ type:"stat", stat:"lifetime_sea_star_draws", goal:125, unit:"cards drawn with Sea Star", label:"Draw 125 cards using Sea Star ability" } },
+    { id:"sea-cucumber", name:"Sea Cucumber", species:"Invertebrates", img:"/avatars/sea-cucumber.png",
+      facts:"The Johnson's sea cucumber is like the ocean's vacuum cleaner, crawling along the seafloor and digesting tiny scraps from the sediment.",
+      unlock:{ type:"stat", stat:"lifetime_sea_cucumber_draws", goal:125, unit:"cards drawn with Sea Cucumber", label:"Draw 125 cards using Sea Cucumber's ability." } },
+    { id:"sea-anemone", name:"Sea Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
+      facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
+      unlock:{ type:"stat", stat:"lifetime_sea_anemone_draws", goal:125, unit:"cards drawn with Sea Anemone", label:"Draw 125 cards using Sea Anemone's ability." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -16816,6 +16903,10 @@
       grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
       giantSquidViaGBC: false,     // a Giant Squid played via a free-cephalopod window (only Grooved Brain Coral opens these)
       bobtailSquidViaGBC: false,   // a Bobtail Squid played via a free-cephalopod window
+      seaUrchinDraws: 0,           // cards drawn via Sea Urchin "draw on surface play" (Sea Urchin avatar)
+      seaStarDraws: 0,             // cards drawn via Sea Star "draw on floor play" (Sea Star avatar)
+      seaCucumberDraws: 0,         // cards drawn via Sea Cucumber "draw on game-fish play" (Sea Cucumber avatar)
+      seaAnemoneDraws: 0,          // cards drawn via Sea Anemone ★ "draw one" (Sea Anemone avatar)
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
