@@ -10563,6 +10563,12 @@
           if (playedName === "roosterfish" && action.use_star) {
             _gameAchTracker.freeBaitfishUses = (_gameAchTracker.freeBaitfishUses || 0) + 1;
           }
+          // Grooved Brain Coral avatar: 2 ★ activations + a Giant Squid + a Bobtail Squid.
+          if (playedName === "grooved brain coral" && action.use_star) {
+            _gameAchTracker.grooveBrainStars = (_gameAchTracker.grooveBrainStars || 0) + 1;
+          }
+          if (playedName === "giant squid")   _gameAchTracker.giantSquidPlayed = true;
+          if (playedName === "bobtail squid") _gameAchTracker.bobtailSquidPlayed = true;
         } catch {}
         const dir = String(action.face_direction || "").toLowerCase();
         if (dir === "up") {
@@ -15340,22 +15346,26 @@
       // ── My board analysis (for Game Fish avatar unlocks) ───────────
       // nameCount: count of each card name on my board.
       // fullOceans: oceans with all four directional slots occupied.
-      const nameCount = {}; let fullOceans = 0;
+      const nameCount = {}; let fullOceans = 0, oceanCount = 0, oceansExactlyOne = 0;
       try {
         const myP = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
         for (const ocean of (Array.isArray(myP?.board) ? myP.board : [])) {
-          let occupiedDirs = 0;
+          let occupiedDirs = 0, oceanAnimals = 0;
           for (const dir of ["up","down","left","right"]) {
             const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
             if (cards.length) occupiedDirs++;
+            oceanAnimals += cards.length;
             for (const c of cards) {
               const nm = String(c.name || "").trim().toLowerCase();
               if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1;
             }
           }
           if (occupiedDirs === 4) fullOceans++;
+          oceanCount++;
+          if (oceanAnimals === 1) oceansExactlyOne++;
         }
       } catch {}
+      const allOceansExactlyOne = oceanCount > 0 && oceansExactlyOne === oceanCount;
 
       const myGameNameLower = String(myGameName || "").trim().toLowerCase();
       const oppNames = (Array.isArray(finalScores) ? finalScores : [])
@@ -15590,6 +15600,17 @@
         // Tarpon — empty a full 9–10 card hand via Tarpon 3 times, finish 100+ pts, 3+ players.
         if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 3 && Number(myScore) >= 100 && playerCount >= 3
             && await window.__fishGrantUnlockedIcon?.("/avatars/tarpon.png")) _queueAnimalUnlock("tarpon");
+
+        // ── Coral ──────────────────────────────────────────────────
+        // Deep Sea Coral — win with exactly 1 animal on each Ocean.
+        if (isWinner && allOceansExactlyOne
+            && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
+        // Grooved Brain Coral — 2 Grooved Brain Coral ★ uses + a Giant Squid + a Bobtail Squid in one game.
+        if (Number(_gameAchTracker?.grooveBrainStars || 0) >= 2
+            && _gameAchTracker?.giantSquidPlayed && _gameAchTracker?.bobtailSquidPlayed
+            && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
+        // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
+        // granted via the achievement-unlock hook.
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16558,6 +16579,20 @@
     { id:"goliath-grouper", name:"Goliath Grouper", species:"Game Fish", img:"/avatars/goliath-grouper.png",
       facts:"When they feel threatened or want to ward off intruders, Goliath Groupers can flex their swim bladders to emit a loud, low-frequency \"booming\" sound that can actually be felt by nearby divers.",
       unlock:{ type:"rank", tier:"gold", label:"Reach the Golden rank in Competitive." } },
+
+    // ── Coral ────────────────────────────────────────────────────
+    { id:"staghorn-coral", name:"Staghorn Coral", species:"Coral", img:"/avatars/staghorn-coral.png",
+      facts:"Unlike most corals that grow at a snail's pace, staghorn coral branches can shoot up by 4 to 8 inches per year, making it the fastest-growing coral in the western Atlantic.",
+      unlock:{ type:"achievement", achId:"coral_b_master", label:"Complete Coral-B Master — win using Bird/Coral 30 times." } },
+    { id:"deep-sea-coral", name:"Deep Sea Coral", species:"Coral", img:"/avatars/deep-sea-coral.png",
+      facts:"Deep-sea corals live in dark waters far below sunlight, so they cannot rely on algae for energy like shallow-water corals do. Instead, they survive by capturing tiny bits of food drifting through the deep ocean.",
+      unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
+    { id:"grooved-brain-coral", name:"Grooved Brain Coral", species:"Coral", img:"/avatars/grooved-brain-coral.png",
+      facts:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms.",
+      unlock:{ type:"event", event:"grooved_brain_squids", label:"In one game, use two Grooved Brain Corals' ★ ability twice to play a Giant Squid and a Bobtail Squid." } },
+    { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
+      facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
+      unlock:{ type:"achievement", achId:"reef_rally", label:"Complete Reef Rally — add 15 friends." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -16754,6 +16789,9 @@
       freeBaitfishUses: 0,         // Roosterfish "play a free Baitfish" star uses (Roosterfish avatar)
       tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
       tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
+      grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
+      giantSquidPlayed: false,     // a Giant Squid was played this game
+      bobtailSquidPlayed: false,   // a Bobtail Squid was played this game
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
