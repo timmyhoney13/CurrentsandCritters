@@ -9342,6 +9342,8 @@
   let _myIdxGlobal = null;
   let _prevReplayTurn = false;
   let _prevTarponActive = false; // Tarpon avatar: detect each full-hand discard cycle
+  let _lastHandCount = 0;        // viewer hand count from the previous render (pre-Tarpon hand)
+  let _tarponStartHand = 0;      // hand size captured when a Tarpon discard phase begins
   let _prevEndTriggered = true; // start true so we only fire on a real false→true transition
 
   function buildStateUrl() {
@@ -11233,19 +11235,26 @@
     const freePlaySpecies = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
     const tarponActive = Boolean(lw.tarpon_discard_active);
 
-    // Tarpon avatar: count discard cycles where the entire hand was emptied.
+    // Tarpon avatar: count discard cycles where a full 9–10 card hand was
+    // emptied into the Pool via Tarpon.
     try {
-      if (tarponActive && _gameAchTracker) {
-        const myHand = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 99));
-        if (myHand === 0) _gameAchTracker.tarponHandHitZero = true;
+      const myHandNow = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 0));
+      if (!_prevTarponActive && tarponActive) {
+        // Phase just began — the pre-Tarpon hand was the previous render's count.
+        _tarponStartHand = Math.max(_lastHandCount, myHandNow);
+      }
+      if (tarponActive && _gameAchTracker && myHandNow === 0) {
+        _gameAchTracker.tarponHandHitZero = true;
       }
       if (_prevTarponActive && !tarponActive && _gameAchTracker) {
-        if (_gameAchTracker.tarponHandHitZero) {
+        // Count only if the hand was full (9–10) and emptied entirely.
+        if (_gameAchTracker.tarponHandHitZero && _tarponStartHand >= 9) {
           _gameAchTracker.tarponFullDiscards = (_gameAchTracker.tarponFullDiscards || 0) + 1;
         }
         _gameAchTracker.tarponHandHitZero = false;
       }
       _prevTarponActive = tarponActive;
+      _lastHandCount = myHandNow;
     } catch {}
 
     // ── Card movement animation pre-pass ─────────────────────────
@@ -14722,7 +14731,7 @@
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     if (_rejoinTouchTimer) { clearInterval(_rejoinTouchTimer); _rejoinTouchTimer=null; }
     clearRejoinToken(roomId);
-    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _prevEndTriggered=true;
+    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _lastHandCount=0; _tarponStartHand=0; _prevEndTriggered=true;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
@@ -15403,8 +15412,6 @@
           updates["stats.lifetime_play_again"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.playAgainUses));
         if (Number(_gameAchTracker?.freeBaitfishUses || 0) > 0)
           updates["stats.lifetime_free_baitfish"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.freeBaitfishUses));
-        if (isWinner && Number(nameCount?.["yellowfin tuna"] || 0) >= 3)
-          updates["stats.lifetime_yellowfin_wins"] = firebase.firestore.FieldValue.increment(1);
         if (isWinner) {
           // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
           if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
@@ -15461,8 +15468,6 @@
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
         nextStats.lifetime_free_baitfish = Number(nextStats.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
-        if (isWinner && Number(nameCount["yellowfin tuna"] || 0) >= 3)
-          nextStats.lifetime_yellowfin_wins = Number(nextStats.lifetime_yellowfin_wins || 0) + 1;
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
         if (isWinner && !isComp) {
@@ -15570,20 +15575,20 @@
         // Roosterfish — 75 lifetime "play a free Baitfish" abilities.
         const postFreeBait = Number(cStats?.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
         if (postFreeBait >= 75 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
-        // Yellowfin Tuna — 30 lifetime Yellowfin stacking wins (Tuna Tower Master).
-        const postYellowfin = Number(cStats?.lifetime_yellowfin_wins || 0) + ((isWinner && Number(nameCount["yellowfin tuna"] || 0) >= 3) ? 1 : 0);
-        if (postYellowfin >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/yellowfin-tuna.png")) _queueAnimalUnlock("yellowfin-tuna");
+        // Yellowfin Tuna — 8 Yellowfin Tuna on board in a 3+ player game.
+        if (playerCount >= 3 && Number(nameCount["yellowfin tuna"] || 0) >= 8
+            && await window.__fishGrantUnlockedIcon?.("/avatars/yellowfin-tuna.png")) _queueAnimalUnlock("yellowfin-tuna");
         // Big Eye Tuna — play all 5 Big Eye Tuna in one game and win.
         if (isWinner && Number(_gameAchTracker?.bigEyeTunaPlayed || 0) >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/big-eye-tuna.png")) _queueAnimalUnlock("big-eye-tuna");
-        // King Salmon — 2 King Salmon on board, 5 fully-occupied oceans, and win.
+        // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, and win.
         if (isWinner && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Sailfish — win with every Game Fish species on your board.
+        // Sailfish — win with every Game Fish species (all 10) on your board.
         if (isWinner && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
             && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
-        // Tarpon — discard the entire hand 3 times in one game and finish with 100+ points.
-        if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 3 && Number(myScore) >= 100
+        // Tarpon — empty a full 9–10 card hand via Tarpon 3 times, finish 100+ pts, 3+ players.
+        if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 3 && Number(myScore) >= 100 && playerCount >= 3
             && await window.__fishGrantUnlockedIcon?.("/avatars/tarpon.png")) _queueAnimalUnlock("tarpon");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
@@ -16534,7 +16539,7 @@
       unlock:{ type:"event", event:"big_eye_tuna_five", label:"Play all 5 Big Eye Tuna in one game and win." } },
     { id:"yellowfin-tuna", name:"Yellowfin Tuna", species:"Game Fish", img:"/avatars/yellowfin-tuna.png",
       facts:"To sustain their high-speed, active lifestyle, they boast a heart that is ten times larger than most fish relative to their body weight and pump blood at incredibly high pressures.",
-      unlock:{ type:"stat", stat:"lifetime_yellowfin_wins", goal:30, unit:"Yellowfin Tuna stacking wins", label:"Complete Tuna Tower Master — win using Yellowfin Tuna stacking 30 times." } },
+      unlock:{ type:"event", event:"yellowfin_eight", label:"Get 8 Yellowfin Tuna in one game with 3 or more players." } },
     { id:"roosterfish", name:"Roosterfish", species:"Game Fish", img:"/avatars/roosterfish.png",
       facts:"Unlike many other game fish, they are in a taxonomic family all their own. They are the only species in the family Nematistiidae.",
       unlock:{ type:"stat", stat:"lifetime_free_baitfish", goal:75, unit:"Play a free Bait Fish abilities", label:"Use Play a free Bait Fish abilities 75 total times." } },
@@ -16543,7 +16548,7 @@
       unlock:{ type:"event", event:"king_salmon_oceans", label:"Have 2 King Salmon, fill 5 Oceans completely, and win." } },
     { id:"tarpon", name:"Tarpon", species:"Game Fish", img:"/avatars/tarpon.png",
       facts:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!",
-      unlock:{ type:"event", event:"tarpon_triple_discard", label:"Discard your entire hand 3 times in one game and finish with 100+ points." } },
+      unlock:{ type:"event", event:"tarpon_triple_discard", label:"With 9–10 cards in hand, use Tarpon to discard your whole hand into the Pool 3 times in one game, then finish with 100+ points in a game with 3 or more players." } },
     { id:"barracuda", name:"Barracuda", species:"Game Fish", img:"/avatars/barracuda.png",
       facts:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey—sometimes cutting a fish cleanly in half.",
       unlock:{ type:"rank", tier:"bronze", label:"Reach Bronze rank in Competitive." } },
