@@ -6475,6 +6475,19 @@
       font-size: 16px; text-align: center; font-weight: 700;
     }
 
+    /* ── Hidden Cephalopod easter eggs ────────────────────────── */
+    .ceph-hidden {
+      position: absolute;
+      width: 30px; height: 30px;
+      object-fit: contain;
+      opacity: .07;
+      cursor: pointer;
+      z-index: 5;
+      transition: opacity .18s, transform .18s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ceph-hidden:hover { opacity: .85; transform: scale(1.25); }
+
     /* ── Challenge of Challenges ──────────────────────────────── */
     .coc-amp { cursor: pointer; }
     .coc-modal-box { max-width: 340px; }
@@ -15750,6 +15763,11 @@
         const _hermitDone = _gameAchTracker?.hermitSixBaitDone
           || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6);
         if (_hermitDone && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
+
+        // ── Cephalopods ────────────────────────────────────────────
+        // Giant Squid — reach Level 80. (Bobtail Squid, Common Octopus and
+        // Cuttlefish are hidden-click secrets, granted on discovery.)
+        if (lvl >= 80 && await window.__fishGrantUnlockedIcon?.("/avatars/giant-squid.png")) _queueAnimalUnlock("giant-squid");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16806,6 +16824,20 @@
     { id:"hermit-crab", name:"Hermit Crab", species:"Crustaceans", img:"/avatars/hermit-crab.png",
       facts:"Hermit crabs sometimes participate in \"vacancy chains\". When a new, highly desirable shell washes up, crabs will line up in order of size. Once a crab moves into the new, larger shell, its old shell is passed down to the next crab in line.",
       unlock:{ type:"event", event:"hermit_six_bait", label:"Use the Hermit Crab ability and play 6 Bait Fish in one turn." } },
+
+    // ── Cephalopods ──────────────────────────────────────────────
+    { id:"bobtail-squid", name:"Bobtail Squid", species:"Cephalopods", img:"/avatars/bobtail-squid.png",
+      facts:"Every morning, the squid expels about 90% of its bacteria into the ocean. It spends the day growing a fresh batch so it is ready to glow again by nightfall.",
+      unlock:{ type:"secret", label:"Find and click the hidden Bobtail Squid." } },
+    { id:"common-octopus", name:"Common Octopus", species:"Cephalopods", img:"/avatars/common-octopus.png",
+      facts:"While they have a central brain to coordinate the body, about two-thirds of their neurons are spread out directly inside their arms. This means each arm can almost \"think\" and act independently.",
+      unlock:{ type:"secret", label:"Find and click the hidden Common Octopus." } },
+    { id:"cuttlefish", name:"Cuttlefish", species:"Cephalopods", img:"/avatars/cuttlefish.png",
+      facts:"They change color in just 200 milliseconds by manipulating millions of pigment-filled cells in their skin called chromatophores. They can even alter their skin's texture to look like jagged rocks or smooth coral.",
+      unlock:{ type:"secret", label:"Find and click the hidden Cuttlefish." } },
+    { id:"giant-squid", name:"Giant Squid", species:"Cephalopods", img:"/avatars/giant-squid.png",
+      facts:"Their massive 10-inch eyes, about the size of a baseball, help them spot bioluminescent prey in the pitch-black depths of the ocean.",
+      unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -22299,6 +22331,62 @@
     }, 3500);
   }
 
+})();
+</script>
+
+<script>
+/* ══ Hidden Cephalopods ════════════════════════════════════════════════
+   Three secret avatars unlocked by finding & clicking a faint cephalopod
+   tucked into the UI: Bobtail Squid + Cuttlefish on the home hub,
+   Common Octopus on the lobby. (Giant Squid uses the Level 80 path.) */
+(function () {
+  "use strict";
+
+  const HIDDEN_CEPHS = [
+    { id:"bobtail-squid",  img:"/avatars/bobtail-squid.png",  host:"auth-stats-lobby", style:"left:10px;bottom:74px;" },
+    { id:"cuttlefish",     img:"/avatars/cuttlefish.png",     host:"auth-stats-lobby", style:"right:14px;top:64px;" },
+    { id:"common-octopus", img:"/avatars/common-octopus.png", host:"pv-lobby",         style:"right:16px;bottom:18px;" },
+  ];
+
+  async function _foundCeph(target, el) {
+    const owned = (typeof window.__fishGetUnlockedIcons === "function"
+      ? window.__fishGetUnlockedIcons() : []).includes(target.img);
+    if (!owned && typeof window.__fishGrantUnlockedIcon === "function") {
+      try { await window.__fishGrantUnlockedIcon(target.img); } catch (e) { /* best-effort */ }
+      window.__fishQueueAnimalUnlock?.(target.id);
+      window.__fishShowAnimalUnlocks?.();
+    } else {
+      // Already discovered — quick acknowledging pulse.
+      el.style.opacity = ".85"; el.style.transform = "scale(1.3)";
+      setTimeout(() => { el.style.opacity = ""; el.style.transform = ""; }, 260);
+    }
+  }
+
+  function _placeCephs() {
+    HIDDEN_CEPHS.forEach((t) => {
+      const host = document.getElementById(t.host);
+      if (!host || document.getElementById("ceph-egg-" + t.id)) return;
+      const img = document.createElement("img");
+      img.id = "ceph-egg-" + t.id;
+      img.className = "ceph-hidden";
+      img.src = t.img;
+      img.alt = "";
+      img.setAttribute("aria-hidden", "true");
+      img.style.cssText = "position:fixed;" + t.style;
+      img.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        _foundCeph(t, img);
+      });
+      host.appendChild(img);
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", _placeCephs);
+  } else {
+    _placeCephs();
+  }
 })();
 </script>
 
