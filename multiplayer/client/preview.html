@@ -3042,6 +3042,29 @@
     }
     .gs-feat-label { font-size: 9px; font-weight: 800; color: #5a80a8; text-transform: uppercase; letter-spacing: .6px; }
     .gs-feat-val { font-size: 14px; font-weight: 900; color: #1a2d5a; margin-top: 5px; }
+    /* ── Challenges Completed ── */
+    #gs-challenges-done {
+      background: rgba(255,255,255,.80); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(80,180,120,.35); border-radius: 18px; padding: 13px 16px;
+      box-shadow: 0 6px 24px rgba(30,60,140,.1); margin-top: 4px;
+    }
+    #gs-challenges-title {
+      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
+      color: #1a6b3a; text-align: center; letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+    }
+    #gs-challenges-list { display: flex; flex-direction: column; gap: 7px; }
+    .gs-ch-row {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(60,180,100,.12); border: 1px solid rgba(60,180,100,.25);
+      border-radius: 12px; padding: 8px 12px;
+    }
+    .gs-ch-icon { font-size: 20px; flex-shrink: 0; }
+    .gs-ch-info { flex: 1; min-width: 0; }
+    .gs-ch-type { font-size: 9px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase; }
+    .gs-ch-type.daily  { color: #1a7abf; }
+    .gs-ch-type.weekly { color: #8a40b8; }
+    .gs-ch-name { font-size: 13px; font-weight: 800; color: #1a3a20; margin-top: 1px; }
+    .gs-ch-xp { font-size: 12px; font-weight: 900; color: #d4910a; white-space: nowrap; flex-shrink: 0; }
     /* ── Right column ── */
     #gs-right { display: flex; flex-direction: column; gap: 12px; }
     /* ── XP row ── */
@@ -8417,6 +8440,10 @@
             <div class="gs-feat-card"><div class="gs-feat-label">Shot the Moon?</div><div class="gs-feat-val" id="gs-feat-moon">No one</div></div>
           </div>
         </div>
+        <div id="gs-challenges-done" style="display:none;">
+          <div id="gs-challenges-title">🎯 CHALLENGES COMPLETED</div>
+          <div id="gs-challenges-list"></div>
+        </div>
       </div>
       <!-- Right -->
       <div id="gs-right">
@@ -10765,7 +10792,15 @@
     try { _runChallengeObservers(me, state, phase, players); } catch (e) { /* non-fatal */ }
 
     // ── Match stats tracking ─────────────────────────────
-    if (phase === "running" && !_matchStartMs) _matchStartMs = Date.now();
+    if (phase === "running" && !_matchStartMs) {
+      _matchStartMs = Date.now();
+      // Snapshot which challenges are already done so we can show what was earned THIS game
+      try {
+        if (typeof window._getCompletedChallengeSnapshot === "function") {
+          _preGameChallengeSnapshot = window._getCompletedChallengeSnapshot();
+        }
+      } catch {}
+    }
     if (phase === "running" && players.length) {
       const curP = state.current_player || "";
       const round = _latestRoundCount;
@@ -10841,6 +10876,12 @@
         }
         _prevGobyMap[p.name] = goby;
       });
+
+      // Shoot the Moon: track if the viewer ever has all 4 Mandarin Gobies on their board at once
+      if (me) {
+        const myGobyCount = Number(me.score_breakdown?.mandarin_goby?.count || 0);
+        if (myGobyCount >= 4) _gameAchTracker.gotAllGobies = true;
+      }
 
       // Star ability tracking — limited to the current viewer's free play windows
       // because the server only sends legal_actions to the viewer.
@@ -14816,6 +14857,7 @@
   let _prevCurrentPlayer  = "";
   let _shotTheMoonName    = null;
   let _prevGobyMap        = {};
+  let _preGameChallengeSnapshot = null; // {daily: Set<id>, weekly: Set<id>} captured when game starts
   let _drawTurnStartPool   = null;     // pool snapshot at start of current player's turn
   let _drawTurnStartBoards = {};       // playerName → Set of ocean_uid numbers at turn start
   let _drawPrevPlayer      = "";       // player name tracked for draw notifications
@@ -15127,6 +15169,8 @@
             oceanTypeCount,
           });
         }
+        // Update end-game screen challenge section now that all hooks have fired
+        try { if (typeof _renderEndgameChallenges === "function") _renderEndgameChallenges(); } catch {}
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -15337,6 +15381,8 @@
       overlay.classList.remove("open");
       _lastSavedWinner = null;
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+      const _cdWrap = document.getElementById("gs-challenges-done");
+      if (_cdWrap) _cdWrap.style.display = "none";
       // Tracking vars (_matchStartMs, _bestTurnPts, etc.) are reset in _leaveGameCleanup(),
       // not here — resetting here would wipe them on every poll during the running phase.
       return;
@@ -15604,6 +15650,40 @@
     const moonEl = document.getElementById("gs-feat-moon");
     if (moonEl) moonEl.textContent = _shotTheMoonName || "No one";
   }
+  // Render newly-completed challenges on the end-game screen.
+  // Called from saveGameStats after _fireChallengeHooksOnGameEnd runs.
+  function _renderEndgameChallenges() {
+    const wrap = document.getElementById("gs-challenges-done");
+    const list = document.getElementById("gs-challenges-list");
+    if (!wrap || !list) return;
+    if (typeof window._getNewlyCompletedChallenges !== "function") return;
+
+    const snapshot = _preGameChallengeSnapshot || { daily: new Set(), weekly: new Set() };
+    const { daily: newDaily, weekly: newWeekly } = window._getNewlyCompletedChallenges(snapshot);
+
+    if (!newDaily.length && !newWeekly.length) {
+      wrap.style.display = "none";
+      return;
+    }
+
+    list.innerHTML = "";
+    const render = (ch, type) => {
+      const row = document.createElement("div");
+      row.className = "gs-ch-row";
+      row.innerHTML = `
+        <div class="gs-ch-icon">${ch.icon || (type === "weekly" ? "📆" : "📅")}</div>
+        <div class="gs-ch-info">
+          <div class="gs-ch-type ${type}">${type === "weekly" ? "Weekly" : "Daily"} Challenge</div>
+          <div class="gs-ch-name">${ch.name || ch.id}</div>
+        </div>
+        <div class="gs-ch-xp">+${(ch.xp || 0).toLocaleString()} XP</div>`;
+      list.appendChild(row);
+    };
+    newDaily.forEach(ch => render(ch, "daily"));
+    newWeekly.forEach(ch => render(ch, "weekly"));
+    wrap.style.display = "";
+  }
+
   document.getElementById("pv-endgame-close").addEventListener("click", () => {
     _endgameDismissed = true;
     document.getElementById("pv-endgame-overlay").classList.remove("open");
@@ -16021,6 +16101,7 @@
     lastNoPoolMode: null, // "casual"|"comp"|null — for back-to-back tracker
     noPoolCasualDone: false,
     noPoolCompDone: false,
+    gotAllGobies: false,  // true if viewer had all 4 Mandarin Gobies on board in this game
   };
   window.__fishResetGameAchTracker = function(newRoomId) {
     _gameAchTracker = {
@@ -16034,6 +16115,7 @@
       lastNoPoolMode: null,
       noPoolCasualDone: false,
       noPoolCompDone: false,
+      gotAllGobies: false,
     };
   };
   window.__fishGetGameAchTracker = function() { return _gameAchTracker; };
@@ -19055,6 +19137,59 @@
     }
     window._reportDailyChallengeProgress = reportDailyChallengeProgress;
 
+    // Snapshot of which daily/weekly challenges are currently completed (for end-game diff).
+    window._getCompletedChallengeSnapshot = function() {
+      const daily = new Set(), weekly = new Set();
+      try {
+        const ds = _loadDailyState();
+        ds.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _DAILY_CHALLENGES[slot.idx];
+            if (def) daily.add(def.id);
+          }
+        });
+      } catch {}
+      try {
+        const ws = _loadWeeklyState ? _loadWeeklyState() : null;
+        if (ws) ws.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _WEEKLY_CHALLENGES[slot.idx];
+            if (def) weekly.add(def.id);
+          }
+        });
+      } catch {}
+      return { daily, weekly };
+    };
+
+    // Returns challenges newly completed since preSnapshot.
+    window._getNewlyCompletedChallenges = function(preSnapshot) {
+      if (!preSnapshot) preSnapshot = { daily: new Set(), weekly: new Set() };
+      const newDaily = [], newWeekly = [];
+      try {
+        const ds = _loadDailyState();
+        ds.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _DAILY_CHALLENGES[slot.idx];
+            if (def && !preSnapshot.daily.has(def.id)) {
+              newDaily.push({ id: def.id, name: def.name, icon: def.icon || "📅", xp: def.xp || 0 });
+            }
+          }
+        });
+      } catch {}
+      try {
+        const ws = _loadWeeklyState ? _loadWeeklyState() : null;
+        if (ws) ws.slots.forEach(slot => {
+          if (slot.completedAt) {
+            const def = _WEEKLY_CHALLENGES[slot.idx];
+            if (def && !preSnapshot.weekly.has(def.id)) {
+              newWeekly.push({ id: def.id, name: def.name, icon: def.icon || "📆", xp: def.xp || 0 });
+            }
+          }
+        });
+      } catch {}
+      return { daily: newDaily, weekly: newWeekly };
+    };
+
     // ── WEEKLY state management ───────────────────────────────────
     const _WEEKLY_STATE_KEY = "cc_weekly_state_v1";
 
@@ -20633,6 +20768,9 @@
       // Last Current: win after end-game card appeared
       if (!_isDone("last_current") && isWinner && tracker.endGameSeen) await unlockAchievement(uid, "last_current");
 
+      // Shoot the Moon: had all 4 Mandarin Gobies on your board at once
+      if (!_isDone("shoot_the_moon") && tracker.gotAllGobies) await unlockAchievement(uid, "shoot_the_moon");
+
       // Nothing But Deck: win without drawing from pool
       if (!_isDone("nothing_but_deck") && isWinner && !tracker.usedPool) await unlockAchievement(uid, "nothing_but_deck");
 
@@ -20691,6 +20829,7 @@
       _gameAchTracker.compChatMsgs   = 0;
       _gameAchTracker.endGameSeen    = false;
       _gameAchTracker.starsActivated = 0;
+      _gameAchTracker.gotAllGobies   = false;
     }
 
     // Expose achievement functions to outer scope

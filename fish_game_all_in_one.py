@@ -8684,6 +8684,9 @@ def run_match(
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)
+    # Re-shuffle the remaining deck after mulligans so any ordering
+    # patterns from mulligan redraws are fully randomised before play begins.
+    rng.shuffle(gs.deck)
     _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
     assigned_archetypes: List[Tuple[str, str, float]] = []
