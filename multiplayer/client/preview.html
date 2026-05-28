@@ -15723,6 +15723,9 @@
         const _playersAbove = (Array.isArray(finalScores) ? finalScores : []).filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
         if (_turtleFinal >= 2 && _playersAbove < 3
             && await window.__fishGrantUnlockedIcon?.("/avatars/loggerhead-sea-turtle.png")) _queueAnimalUnlock("loggerhead-sea-turtle");
+        // Whale Shark — all four Whale Sharks on my board in one game.
+        if (Number(nameCount["whale shark"] || 0) >= 4
+            && await window.__fishGrantUnlockedIcon?.("/avatars/whale-shark.png")) _queueAnimalUnlock("whale-shark");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16759,6 +16762,9 @@
     { id:"reef-triggerfish", name:"Reef Triggerfish", species:"Crosscurrent", img:"/avatars/reef-triggerfish.png",
       facts:"The triggerfish gets its name from a unique defensive spine on its back. When threatened or sleeping, it wedges itself into a coral crevice and locks its primary spine upright using a smaller \"trigger\" spine, making it nearly impossible for predators to pull it out.",
       unlock:{ type:"achievement", achId:"humuhumunukuapuaa", label:"Complete the Humuhumunukunukuāpuaʻa achievement." } },
+    { id:"whale-shark", name:"Whale Shark", species:"Crosscurrent", img:"/avatars/whale-shark.png",
+      facts:"Whale sharks are the world's largest living fish, growing up to 40 feet or more and weighing up to 20 tons. Despite their intimidating name and massive mouths, these gentle ocean giants are harmless filter feeders that dine almost exclusively on tiny plankton and small fish.",
+      unlock:{ type:"event", event:"all_whale_sharks", label:"Get all four Whale Sharks in one game." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
