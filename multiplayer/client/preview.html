@@ -9341,6 +9341,7 @@
   let _prevScore = null;
   let _myIdxGlobal = null;
   let _prevReplayTurn = false;
+  let _prevTarponActive = false; // Tarpon avatar: detect each full-hand discard cycle
   let _prevEndTriggered = true; // start true so we only fire on a real false→true transition
 
   function buildStateUrl() {
@@ -10542,14 +10543,23 @@
 
       // ── Surface / Floor streak hooks ──────────────────────────────
       if (action.kind === "play_to_ocean") {
-        // Razorbill Auk avatar: play both Razorbill Auks in the same turn.
+        // Card-name based avatar hooks.
         try {
           const playedName = String(handEntryMap.get(Number(action.card_uid))?.name || "").trim().toLowerCase();
+          // Razorbill Auk: play both Razorbill Auks in the same turn.
           if (playedName === "razorbill auk") {
             _gameAchTracker.razorbillThisTurn = (_gameAchTracker.razorbillThisTurn || 0) + 1;
             if (_gameAchTracker.razorbillThisTurn >= 2 && typeof window.__fishGrantUnlockedIcon === "function") {
               if (await window.__fishGrantUnlockedIcon("/avatars/razorbill-auk.png")) _queueAnimalUnlock("razorbill-auk");
             }
+          }
+          // Big Eye Tuna: play all 5 in one game (checked for the win at game end).
+          if (playedName === "big eye tuna") {
+            _gameAchTracker.bigEyeTunaPlayed = (_gameAchTracker.bigEyeTunaPlayed || 0) + 1;
+          }
+          // Roosterfish: its ★ ability is "play a free Baitfish".
+          if (playedName === "roosterfish" && action.use_star) {
+            _gameAchTracker.freeBaitfishUses = (_gameAchTracker.freeBaitfishUses || 0) + 1;
           }
         } catch {}
         const dir = String(action.face_direction || "").toLowerCase();
@@ -11222,6 +11232,21 @@
 
     const freePlaySpecies = Array.isArray(lw.free_play_species) ? lw.free_play_species : [];
     const tarponActive = Boolean(lw.tarpon_discard_active);
+
+    // Tarpon avatar: count discard cycles where the entire hand was emptied.
+    try {
+      if (tarponActive && _gameAchTracker) {
+        const myHand = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 99));
+        if (myHand === 0) _gameAchTracker.tarponHandHitZero = true;
+      }
+      if (_prevTarponActive && !tarponActive && _gameAchTracker) {
+        if (_gameAchTracker.tarponHandHitZero) {
+          _gameAchTracker.tarponFullDiscards = (_gameAchTracker.tarponFullDiscards || 0) + 1;
+        }
+        _gameAchTracker.tarponHandHitZero = false;
+      }
+      _prevTarponActive = tarponActive;
+    } catch {}
 
     // ── Card movement animation pre-pass ─────────────────────────
     // Snapshot pool slot rects BEFORE renderPool wipes them, then diff
@@ -14697,7 +14722,7 @@
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     if (_rejoinTouchTimer) { clearInterval(_rejoinTouchTimer); _rejoinTouchTimer=null; }
     clearRejoinToken(roomId);
-    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevEndTriggered=true;
+    roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _prevEndTriggered=true;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
@@ -15302,6 +15327,27 @@
       const oldTotalXp = getStoredTotalXp(cStats);
       const nextTotalXp = oldTotalXp + xpAward;
       const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
+
+      // ── My board analysis (for Game Fish avatar unlocks) ───────────
+      // nameCount: count of each card name on my board.
+      // fullOceans: oceans with all four directional slots occupied.
+      const nameCount = {}; let fullOceans = 0;
+      try {
+        const myP = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+        for (const ocean of (Array.isArray(myP?.board) ? myP.board : [])) {
+          let occupiedDirs = 0;
+          for (const dir of ["up","down","left","right"]) {
+            const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+            if (cards.length) occupiedDirs++;
+            for (const c of cards) {
+              const nm = String(c.name || "").trim().toLowerCase();
+              if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1;
+            }
+          }
+          if (occupiedDirs === 4) fullOceans++;
+        }
+      } catch {}
+
       const myGameNameLower = String(myGameName || "").trim().toLowerCase();
       const oppNames = (Array.isArray(finalScores) ? finalScores : [])
         .map(p => String(p?.name || "").trim())
@@ -15350,11 +15396,15 @@
           "stats.last_game_xp": xpAward,
           "stats.recent_games": nextRecent,
         };
-        // Lifetime counters for animal avatar unlocks (Pelican / Puffin).
+        // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         if (Number(_gameAchTracker?.deckDraws || 0) > 0)
           updates["stats.lifetime_deck_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.deckDraws));
         if (Number(_gameAchTracker?.playAgainUses || 0) > 0)
           updates["stats.lifetime_play_again"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.playAgainUses));
+        if (Number(_gameAchTracker?.freeBaitfishUses || 0) > 0)
+          updates["stats.lifetime_free_baitfish"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.freeBaitfishUses));
+        if (isWinner && Number(nameCount?.["yellowfin tuna"] || 0) >= 3)
+          updates["stats.lifetime_yellowfin_wins"] = firebase.firestore.FieldValue.increment(1);
         if (isWinner) {
           // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
           if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
@@ -15407,9 +15457,12 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
-        // Lifetime counters for animal avatar unlocks (Pelican / Puffin).
+        // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
+        nextStats.lifetime_free_baitfish = Number(nextStats.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
+        if (isWinner && Number(nameCount["yellowfin tuna"] || 0) >= 3)
+          nextStats.lifetime_yellowfin_wins = Number(nextStats.lifetime_yellowfin_wins || 0) + 1;
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
         if (isWinner && !isComp) {
@@ -15504,6 +15557,34 @@
         if (postPlayAgain >= 75) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/horned-puffin.png")) _queueAnimalUnlock("horned-puffin");
         }
+
+        // ── Game Fish ──────────────────────────────────────────────
+        const lvl = Number(levelProgress?.level || 0);
+        // Mahi Mahi — Level 30 · Blue Marlin — Level 70.
+        if (lvl >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/mahi-mahi.png")) _queueAnimalUnlock("mahi-mahi");
+        if (lvl >= 70 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-marlin.png")) _queueAnimalUnlock("blue-marlin");
+        // Barracuda — Bronze rank · Goliath Grouper — Golden rank.
+        const myTier = rankTierValue(cStats?.rank_competitive);
+        if (myTier >= _RANK_TIER_VALUE.bronze && await window.__fishGrantUnlockedIcon?.("/avatars/barracuda.png")) _queueAnimalUnlock("barracuda");
+        if (myTier >= _RANK_TIER_VALUE.gold   && await window.__fishGrantUnlockedIcon?.("/avatars/goliath-grouper.png")) _queueAnimalUnlock("goliath-grouper");
+        // Roosterfish — 75 lifetime "play a free Baitfish" abilities.
+        const postFreeBait = Number(cStats?.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
+        if (postFreeBait >= 75 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
+        // Yellowfin Tuna — 30 lifetime Yellowfin stacking wins (Tuna Tower Master).
+        const postYellowfin = Number(cStats?.lifetime_yellowfin_wins || 0) + ((isWinner && Number(nameCount["yellowfin tuna"] || 0) >= 3) ? 1 : 0);
+        if (postYellowfin >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/yellowfin-tuna.png")) _queueAnimalUnlock("yellowfin-tuna");
+        // Big Eye Tuna — play all 5 Big Eye Tuna in one game and win.
+        if (isWinner && Number(_gameAchTracker?.bigEyeTunaPlayed || 0) >= 5
+            && await window.__fishGrantUnlockedIcon?.("/avatars/big-eye-tuna.png")) _queueAnimalUnlock("big-eye-tuna");
+        // King Salmon — 2 King Salmon on board, 5 fully-occupied oceans, and win.
+        if (isWinner && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
+            && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
+        // Sailfish — win with every Game Fish species on your board.
+        if (isWinner && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
+            && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
+        // Tarpon — discard the entire hand 3 times in one game and finish with 100+ points.
+        if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 3 && Number(myScore) >= 100
+            && await window.__fishGrantUnlockedIcon?.("/avatars/tarpon.png")) _queueAnimalUnlock("tarpon");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16440,7 +16521,54 @@
     { id:"razorbill-auk", name:"Razorbill Auk", species:"Birds", img:"/avatars/razorbill-auk.png",
       facts:"Chicks leap from cliffside nests before they can fly, then swim with their parents to learn how to forage.",
       unlock:{ type:"event", event:"razorbill_double", label:"Play both Razorbill Auks in the same turn." } },
+
+    // ── Game Fish ────────────────────────────────────────────────
+    { id:"mahi-mahi", name:"Mahi Mahi", species:"Game Fish", img:"/avatars/mahi-mahi.png",
+      facts:"Mahi-mahi are among the fastest-growing fish in the sea. They can grow up to 3 inches per week and reach 40 pounds in their first year.",
+      unlock:{ type:"level", goal:30, label:"Reach Level 30." } },
+    { id:"blue-marlin", name:"Blue Marlin", species:"Game Fish", img:"/avatars/blue-marlin.png",
+      facts:"Female blue marlins are 3 to 4 times larger than males and can reach up to 2,000 pounds. Males rarely exceed 350 pounds.",
+      unlock:{ type:"level", goal:70, label:"Reach Level 70." } },
+    { id:"big-eye-tuna", name:"Big Eye Tuna", species:"Game Fish", img:"/avatars/big-eye-tuna.png",
+      facts:"Unlike most fish, they are endothermic. They have specialized heat-exchange organs that keep their eyes, brain, and internal organs warmer than the surrounding water, allowing them to survive extreme ocean temperatures.",
+      unlock:{ type:"event", event:"big_eye_tuna_five", label:"Play all 5 Big Eye Tuna in one game and win." } },
+    { id:"yellowfin-tuna", name:"Yellowfin Tuna", species:"Game Fish", img:"/avatars/yellowfin-tuna.png",
+      facts:"To sustain their high-speed, active lifestyle, they boast a heart that is ten times larger than most fish relative to their body weight and pump blood at incredibly high pressures.",
+      unlock:{ type:"stat", stat:"lifetime_yellowfin_wins", goal:30, unit:"Yellowfin Tuna stacking wins", label:"Complete Tuna Tower Master — win using Yellowfin Tuna stacking 30 times." } },
+    { id:"roosterfish", name:"Roosterfish", species:"Game Fish", img:"/avatars/roosterfish.png",
+      facts:"Unlike many other game fish, they are in a taxonomic family all their own. They are the only species in the family Nematistiidae.",
+      unlock:{ type:"stat", stat:"lifetime_free_baitfish", goal:75, unit:"Play a free Bait Fish abilities", label:"Use Play a free Bait Fish abilities 75 total times." } },
+    { id:"king-salmon", name:"King Salmon", species:"Game Fish", img:"/avatars/king-salmon.png",
+      facts:"The King Salmon is the largest Pacific salmon species.",
+      unlock:{ type:"event", event:"king_salmon_oceans", label:"Have 2 King Salmon, fill 5 Oceans completely, and win." } },
+    { id:"tarpon", name:"Tarpon", species:"Game Fish", img:"/avatars/tarpon.png",
+      facts:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!",
+      unlock:{ type:"event", event:"tarpon_triple_discard", label:"Discard your entire hand 3 times in one game and finish with 100+ points." } },
+    { id:"barracuda", name:"Barracuda", species:"Game Fish", img:"/avatars/barracuda.png",
+      facts:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey—sometimes cutting a fish cleanly in half.",
+      unlock:{ type:"rank", tier:"bronze", label:"Reach Bronze rank in Competitive." } },
+    { id:"sailfish", name:"Sailfish", species:"Game Fish", img:"/avatars/sailfish.png",
+      facts:"Sailfish are the undisputed sprinters of the sea, capable of reaching incredible speeds up to 68 mph (110 km/h).",
+      unlock:{ type:"event", event:"all_game_fish_board", label:"Win a game with every Game Fish on your board." } },
+    { id:"goliath-grouper", name:"Goliath Grouper", species:"Game Fish", img:"/avatars/goliath-grouper.png",
+      facts:"When they feel threatened or want to ward off intruders, Goliath Groupers can flex their swim bladders to emit a loud, low-frequency \"booming\" sound that can actually be felt by nearby divers.",
+      unlock:{ type:"rank", tier:"gold", label:"Reach the Golden rank in Competitive." } },
   ];
+  // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
+  function rankTierValue(rankName){
+    const n = String(rankName||"").trim().toLowerCase();
+    if (!n || n === "unranked") return 0;
+    if (n.startsWith("bronze"))  return 1;
+    if (n.startsWith("silver"))  return 2;
+    if (n.startsWith("gold"))    return 3; // "Golden Grouper …"
+    if (n.startsWith("diamond")) return 4;
+    if (n.startsWith("emerald")) return 5;
+    if (n.startsWith("king"))    return 6;
+    return 0;
+  }
+  const _RANK_TIER_VALUE = { bronze:1, silver:2, gold:3, golden:3, diamond:4, emerald:5, king:6 };
+  // Lowercased names of every Game Fish species (for the Sailfish board check).
+  const GAME_FISH_NAMES = ANIMAL_AVATARS.filter(a => a.species === "Game Fish").map(a => a.name.toLowerCase());
   const DEFAULT_AVATAR_IMG = "/avatars/mullet.png";
   const _animalByImg = {}, _animalById = {};
   ANIMAL_AVATARS.forEach(a => { _animalByImg[a.img] = a; _animalById[a.id] = a; });
@@ -16454,6 +16582,7 @@
     if (u.type === "level")     return Math.min(1, Number(level||0) / (u.goal||1));
     if (u.type === "comp_wins") return Math.min(1, Number(stats?.lifetime_comp_wins||0) / (u.goal||1));
     if (u.type === "stat")      return Math.min(1, Number(stats?.[u.stat]||0) / (u.goal||1));
+    if (u.type === "rank")      return Math.min(1, rankTierValue(stats?.rank_competitive) / (_RANK_TIER_VALUE[u.tier]||1));
     return null;
   }
   function animalProgressText(a, stats, level){
@@ -16461,6 +16590,7 @@
     if (u.type === "level")     return `Level ${Number(level||0)} / ${u.goal}`;
     if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
     if (u.type === "stat")      return `${Number(stats?.[u.stat]||0)} / ${u.goal}${u.unit ? " " + u.unit : ""}`;
+    if (u.type === "rank")      return `Current rank: ${stats?.rank_competitive || "Unranked"}`;
     return "";
   }
 
@@ -16615,6 +16745,10 @@
       deckDraws: 0,                // cards drawn from the Deck this game (Peruvian Pelican avatar)
       playAgainUses: 0,            // Play Again abilities triggered this game (Horned Puffin avatar)
       razorbillThisTurn: 0,        // Razorbill Auks played in the current turn (Razorbill Auk avatar)
+      bigEyeTunaPlayed: 0,         // Big Eye Tuna cards played this game (Big Eye Tuna avatar)
+      freeBaitfishUses: 0,         // Roosterfish "play a free Baitfish" star uses (Roosterfish avatar)
+      tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
+      tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
@@ -21698,6 +21832,7 @@
         if (u.type === "level")            met = level >= (u.goal || Infinity);
         else if (u.type === "comp_wins")   met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
         else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
+        else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
         else if (u.type === "achievement") met = _isDone(u.achId);
         if (met && !isAvatarUnlocked(a.img)) {
           if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
