@@ -3476,6 +3476,94 @@
       box-shadow: 0 1px 6px rgba(18,58,116,.35);
       pointer-events: none;
     }
+
+    /* ── Animal avatar selection cards ──────────────────────────── */
+    .auth-avatar-grid.animal-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      max-height: 58vh;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .animal-card {
+      display: flex; gap: 10px; align-items: center;
+      text-align: left; width: 100%;
+      border: 1px solid rgba(58,120,204,.35);
+      border-radius: 12px;
+      background: rgba(10,30,60,.5);
+      padding: 8px 10px;
+      cursor: pointer; color: inherit; font: inherit;
+      transition: border-color .14s, background .14s, transform .14s;
+    }
+    .animal-card:hover:not(.locked) { border-color: rgba(34,216,248,.6); transform: translateY(-1px); }
+    .animal-card.active { border-color: rgba(34,216,248,.95); box-shadow: 0 0 0 2px rgba(34,216,248,.3); background: rgba(34,216,248,.12); }
+    .animal-card.locked { cursor: default; background: rgba(8,20,40,.55); }
+    .animal-card-thumb {
+      position: relative; flex: 0 0 auto;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: radial-gradient(circle at 50% 45%, rgba(40,90,150,.5), rgba(8,22,45,.7));
+      display: flex; align-items: center; justify-content: center; overflow: hidden;
+    }
+    .animal-card-thumb img { width: 90%; height: 90%; object-fit: contain; display: block; }
+    .animal-card.locked .animal-card-thumb img { filter: grayscale(1) brightness(.5); }
+    .animal-card-lock {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; background: rgba(4,12,28,.4);
+    }
+    .animal-card-body { flex: 1 1 auto; min-width: 0; }
+    .animal-card-name { font-weight: 800; color: #d7ecff; font-size: .95rem; margin-bottom: 2px; }
+    .animal-card.locked .animal-card-name { color: #9fb6d4; }
+    .animal-card-facts { font-size: .76rem; color: rgba(190,215,245,.8); line-height: 1.35; }
+    .animal-card-req { font-size: .78rem; color: #f0c840; line-height: 1.3; }
+    .animal-card-prog { font-size: .72rem; color: rgba(170,200,235,.75); margin-top: 2px; }
+    .animal-card-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); margin-top: 4px; overflow: hidden; }
+    .animal-card-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,#22d8f8,#2f7ee0); }
+
+    /* ── Post-game animal unlock screen ─────────────────────────── */
+    #animal-unlock-overlay {
+      position: fixed; inset: 0; z-index: 9500; display: none;
+      align-items: center; justify-content: center; padding: 24px;
+      background: rgba(2,10,24,.93); overflow: hidden;
+    }
+    #animal-unlock-overlay.open { display: flex; }
+    .au-wave {
+      position: absolute; left: -10%; right: -10%; height: 280px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(34,216,248,.30), transparent 70%);
+      pointer-events: none; animation: au-wave-sweep 2.8s ease-in-out infinite;
+    }
+    .au-wave.w2 { animation-delay: 1.4s; opacity: .7; }
+    @keyframes au-wave-sweep {
+      0%   { transform: translateY(-300px); opacity: 0; }
+      35%  { opacity: 1; }
+      100% { transform: translateY(115vh); opacity: 0; }
+    }
+    .au-card {
+      position: relative; z-index: 2; text-align: center;
+      max-width: 390px; width: 100%;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      animation: au-pop .55s cubic-bezier(.2,.9,.3,1.3);
+    }
+    @keyframes au-pop { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .au-eyebrow { color: #22d8f8; letter-spacing: .18em; font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+    .au-animal-wrap { position: relative; width: 210px; height: 210px; display: flex; align-items: center; justify-content: center; }
+    .au-glow {
+      position: absolute; inset: -6%; border-radius: 50%;
+      background: radial-gradient(circle, rgba(34,216,248,.55), rgba(47,126,224,.22) 45%, transparent 70%);
+      filter: blur(6px); animation: au-glow-pulse 2.2s ease-in-out infinite;
+    }
+    @keyframes au-glow-pulse { 0%,100% { transform: scale(.9); opacity: .8; } 50% { transform: scale(1.1); opacity: 1; } }
+    .au-animal-wrap img {
+      position: relative; z-index: 2; width: 80%; height: 80%; object-fit: contain;
+      filter: drop-shadow(0 10px 24px rgba(0,0,0,.5)); animation: au-float 3s ease-in-out infinite;
+    }
+    @keyframes au-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    .au-name { font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .au-species { font-size: .7rem; color: rgba(170,200,235,.7); text-transform: uppercase; letter-spacing: .12em; margin-top: -4px; }
+    .au-facts { font-size: .85rem; color: rgba(200,225,255,.85); line-height: 1.5; }
+    .au-q { font-size: .95rem; color: #fff; font-weight: 700; margin-top: 6px; }
+    .au-btn-row { display: flex; gap: 12px; width: 100%; margin-top: 4px; }
+    .au-btn-row .pv-btn { flex: 1; }
+
     .auth-err { color: var(--red); font-size: 12px; text-align: center; min-height: 16px; }
     .auth-ok  { color: var(--green); font-size: 12px; text-align: center; min-height: 16px; }
     .auth-link {
@@ -7203,6 +7291,27 @@
     <div class="auth-err" id="avatar-modal-err"></div>
     <button class="pv-btn gold full" id="avatar-modal-save-btn">Save Avatar →</button>
     <span class="auth-link" id="avatar-modal-cancel">Cancel</span>
+  </div>
+</div>
+
+<!-- ══ ANIMAL UNLOCK SCREEN ═════════════════════════════════════════ -->
+<div id="animal-unlock-overlay" aria-live="polite">
+  <div class="au-wave"></div>
+  <div class="au-wave w2"></div>
+  <div class="au-card">
+    <div class="au-eyebrow">New Animal Unlocked!</div>
+    <div class="au-animal-wrap">
+      <div class="au-glow"></div>
+      <img id="au-animal-img" src="" alt="">
+    </div>
+    <div class="au-name" id="au-animal-name">Animal</div>
+    <div class="au-species" id="au-animal-species"></div>
+    <div class="au-facts" id="au-animal-facts"></div>
+    <div class="au-q">Make this animal your avatar?</div>
+    <div class="au-btn-row">
+      <button class="pv-btn" id="au-btn-no">No</button>
+      <button class="pv-btn gold" id="au-btn-yes">Yes</button>
+    </div>
   </div>
 </div>
 
@@ -14620,6 +14729,8 @@
     } else {
       document.getElementById("pv-lobby").style.display="none";
     }
+    // Surface any animal avatars unlocked during the game just played.
+    setTimeout(() => { try { _showNextAnimalUnlock(); } catch {} }, 600);
   }
 
   document.getElementById("pv-back-btn").addEventListener("click", async () => {
@@ -15335,6 +15446,23 @@
         // Update end-game screen challenge section now that all hooks have fired
         try { if (typeof _renderEndgameChallenges === "function") _renderEndgameChallenges(); } catch {}
       } catch (e) { /* non-fatal */ }
+
+      // ── Animal avatar unlocks (queued; shown on return to home menu) ──
+      try {
+        // Flying Fish — win without drawing from the Pool (Nothing But Deck).
+        if (isWinner && !_gameAchTracker?.usedPool) {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/flying-fish.png")) _queueAnimalUnlock("flying-fish");
+        }
+        // Sardine — reach Level 100 (exact post-game level).
+        if (Number(levelProgress?.level || 0) >= 100) {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/sardine.png")) _queueAnimalUnlock("sardine");
+        }
+        // Bunker — 20 lifetime Competitive wins (pre-game total + this game).
+        const postCompWins = Number(cStats?.lifetime_comp_wins || 0) + ((isComp && isWinner) ? 1 : 0);
+        if (postCompWins >= 20) {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/bunker.png")) _queueAnimalUnlock("bunker");
+        }
+      } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
     }
@@ -15706,7 +15834,7 @@
         const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
         const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
         const avatarSeed = p.name || ("p" + i);
-        const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/avatar-01.png";
+        const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/mullet.png";
         const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
         const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
         const row = document.createElement("div");
@@ -15714,7 +15842,7 @@
         row.innerHTML = `
           <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
           <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
-          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/avatar-01.png'" loading="lazy"></div>
+          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
           <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
@@ -15944,6 +16072,14 @@
             window._reportWeeklyChallengeProgress("good_sport_week", 1);
           }
         }
+      }
+    } catch {}
+    // Bonito avatar unlock: type "good game" once the End Game card is out
+    // (every player is on their final turn).
+    try {
+      const finalTurns = Boolean(latestPayload?.state?.end_game?.triggered);
+      if (finalTurns && /good\s*game/i.test(text)) {
+        if (await window.__fishGrantUnlockedIcon?.("/avatars/bonito.png")) _queueAnimalUnlock("bonito");
       }
     } catch {}
     refreshState();
@@ -16212,6 +16348,98 @@
   setInterval(pingServer, 9*60*1000);
 
   // ═══════════════════════════════════════════════════════════════
+  // ANIMAL AVATAR SYSTEM (outer scope — shared with auth IIFE)
+  // Unlockable animal icons. Order within each species matches its PDF.
+  // unlock.type: starter | level | comp_wins | event
+  //   (future species may add: rank, achievement, secret, combo, progress)
+  // Default avatar for everyone (incl. guests) = Mullet.
+  // Fun facts are taken verbatim from the species PDFs — never invented.
+  // ═══════════════════════════════════════════════════════════════
+  const ANIMAL_AVATARS = [
+    // ── Bait Fish ────────────────────────────────────────────────
+    { id:"mullet", name:"Mullet", species:"Bait Fish", img:"/avatars/mullet.png",
+      facts:"Mullets can thrive in everything from salty marine environments to fresh water, and young mullet often swim all the way up into tidal creeks and inland springs.",
+      unlock:{ type:"starter", label:"Starter icon — unlocked for everyone." } },
+    { id:"bunker", name:"Bunker", species:"Bait Fish", img:"/avatars/bunker.png",
+      facts:"They are one of the most important baitfish in the ocean, feeding striped bass, bluefish, tuna, whales, dolphins, ospreys, and seabirds.",
+      unlock:{ type:"comp_wins", goal:20, label:"Win 20 Competitive games." } },
+    { id:"sardine", name:"Sardine", species:"Bait Fish", img:"/avatars/sardine.png",
+      facts:"The fish got their name from the Italian island of Sardinia, where they were once incredibly abundant.",
+      unlock:{ type:"level", goal:100, label:"Reach Level 100." } },
+    { id:"flying-fish", name:"Flying Fish", species:"Bait Fish", img:"/avatars/flying-fish.png",
+      facts:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight.",
+      unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck — win a game without drawing from the Pool." } },
+    { id:"bonito", name:"Bonito", species:"Bait Fish", img:"/avatars/bonito.png",
+      facts:"The word bonito comes from Spanish, where the adjective translates to \"pretty,\" though its exact linguistic origin as a fish name is tied to medieval Latin (boniton).",
+      unlock:{ type:"event", event:"good_game_final_turn", label:"Type “good game” in the chat when all players are on their final turn." } },
+  ];
+  const DEFAULT_AVATAR_IMG = "/avatars/mullet.png";
+  const _animalByImg = {}, _animalById = {};
+  ANIMAL_AVATARS.forEach(a => { _animalByImg[a.img] = a; _animalById[a.id] = a; });
+  function animalByImg(img){ return _animalByImg[String(img||"").trim().toLowerCase()] || null; }
+  function animalById(id){ return _animalById[id] || null; }
+  function animalFacts(a){ return (a && a.facts) ? a.facts : "Fun facts coming soon."; }
+  // Numeric unlock progress (0..1) for stat-based animals; null for event/secret.
+  function animalUnlockProgress(a, stats, level){
+    const u = a && a.unlock; if (!u) return null;
+    if (u.type === "starter")   return 1;
+    if (u.type === "level")     return Math.min(1, Number(level||0) / (u.goal||1));
+    if (u.type === "comp_wins") return Math.min(1, Number(stats?.lifetime_comp_wins||0) / (u.goal||1));
+    return null;
+  }
+  function animalProgressText(a, stats, level){
+    const u = a && a.unlock; if (!u) return "";
+    if (u.type === "level")     return `Level ${Number(level||0)} / ${u.goal}`;
+    if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
+    return "";
+  }
+
+  // ── Animal unlock screen queue (shown on return to the home menu) ──
+  let _pendingAnimalUnlocks = [];
+  let _animalUnlockShowing = false;
+  function _queueAnimalUnlock(id){
+    if (id && animalById(id) && !_pendingAnimalUnlocks.includes(id)) _pendingAnimalUnlocks.push(id);
+  }
+  function _showNextAnimalUnlock(){
+    if (_animalUnlockShowing) return;
+    const ov = document.getElementById("animal-unlock-overlay");
+    if (!ov) return;
+    const id = _pendingAnimalUnlocks.shift();
+    if (!id) return;
+    const a = animalById(id);
+    if (!a) { _showNextAnimalUnlock(); return; }
+    _animalUnlockShowing = true;
+    ov._currentAnimal = a;
+    const img = document.getElementById("au-animal-img");
+    if (img) { img.src = a.img; img.alt = a.name; }
+    const nm = document.getElementById("au-animal-name");   if (nm) nm.textContent = a.name;
+    const sp = document.getElementById("au-animal-species"); if (sp) sp.textContent = a.species || "";
+    const fc = document.getElementById("au-animal-facts");   if (fc) fc.textContent = animalFacts(a);
+    ov.classList.add("open");
+  }
+  function _closeAnimalUnlock(){
+    const ov = document.getElementById("animal-unlock-overlay");
+    if (ov) { ov.classList.remove("open"); ov._currentAnimal = null; }
+    _animalUnlockShowing = false;
+    if (_pendingAnimalUnlocks.length) setTimeout(_showNextAnimalUnlock, 350);
+  }
+  (function wireAnimalUnlockButtons(){
+    const yes = document.getElementById("au-btn-yes");
+    const no  = document.getElementById("au-btn-no");
+    if (yes) yes.addEventListener("click", async () => {
+      const ov = document.getElementById("animal-unlock-overlay");
+      const a = ov && ov._currentAnimal;
+      if (a && typeof window.__fishEquipAvatar === "function") {
+        try { await window.__fishEquipAvatar(a.img); } catch {}
+      }
+      _closeAnimalUnlock();
+    });
+    if (no) no.addEventListener("click", () => _closeAnimalUnlock());
+  })();
+  window.__fishQueueAnimalUnlock = _queueAnimalUnlock;
+  window.__fishShowAnimalUnlocks = () => { if (_pendingAnimalUnlocks.length) _showNextAnimalUnlock(); };
+
+  // ═══════════════════════════════════════════════════════════════
   // ACHIEVEMENT DEFINITIONS (outer scope — shared with auth IIFE)
   // ═══════════════════════════════════════════════════════════════
   // ── Achievement system v2 (full reset 2026-05) ──────────────────
@@ -16391,8 +16619,12 @@
       return String(Math.floor(1000 + Math.random() * 9000));
     }
 
-    const AVATAR_OPTIONS = Array.from({ length: 12 }, (_, idx) => `/avatars/avatar-${String(idx + 1).padStart(2, "0")}.png`);
-    let _unlockedIcons = []; // custom icons unlocked via easter eggs / challenges
+    // Always-available avatars (the starter set). Everything else must be
+    // unlocked. Mullet is the universal default. Animal definitions live in
+    // the outer-scope ANIMAL_AVATARS registry.
+    const AVATAR_OPTIONS = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type === "starter").map(a => a.img);
+    let _unlockedIcons = []; // animal icons unlocked through gameplay
+    let _iconUnlockCounts = null; // global popularity map (best-effort, loaded lazily)
     const GUEST_UNLOCKED_ICONS_PREFIX = "cc_unlocked_icons_";
     let _signupAvatarUrl = "";
     let _avatarModalSelection = "";
@@ -16417,9 +16649,14 @@
     }
 
     function getDefaultAvatar(seed) {
-      const base = String(seed || "player-default");
-      const idx = AVATAR_OPTIONS.length ? (hashString(base) % AVATAR_OPTIONS.length) : 0;
-      return AVATAR_OPTIONS[idx] || AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+      return DEFAULT_AVATAR_IMG;
+    }
+    // An avatar is selectable if it's a starter or the player has unlocked it.
+    function isAvatarUnlocked(img) {
+      const n = normalizeAvatarUrl(img);
+      if (!n) return false;
+      if (AVATAR_OPTIONS.includes(n)) return true;
+      return _unlockedIcons.includes(n);
     }
 
     function sanitizeSelectableAvatar(url, seed) {
@@ -16496,54 +16733,98 @@
       return saved ? profileIcons.includes(saved) : false;
     }
 
+    function _avatarStatsAndLevel() {
+      const stats = (_activeProfile && typeof _activeProfile.stats === "object")
+        ? _activeProfile.stats
+        : (!_authUser && _guestSessionActive ? loadGuestStats(_playerNickname || "guest") : {});
+      let level = 1;
+      try { level = getLevelProgressFromTotalXp(getStoredTotalXp(stats)).level; } catch {}
+      return { stats: stats || {}, level };
+    }
+
+    // Full animal selection screen: unlocked first, then locked sorted by
+    // closeness-to-unlock, then by global popularity. Unlocked cards show
+    // fun facts and are selectable; locked cards show the unlock requirement
+    // and progress and are not selectable.
     function renderAvatarGrid(containerId, selectedUrl, onSelect) {
       const container = $a(containerId);
       if (!container) return;
+      container.classList.add("animal-grid");
       const active = sanitizeSelectableAvatar(selectedUrl, _authUser?.uid || _authUser?.email);
-      container.innerHTML = "";
-      AVATAR_OPTIONS.forEach((url, idx) => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "auth-avatar-option" + (url === active ? " active" : "");
-        btn.setAttribute("aria-label", `Select avatar ${idx + 1}`);
-        btn.setAttribute("data-avatar", url);
-        const img = document.createElement("img");
-        img.src = url;
-        img.alt = `Avatar ${idx + 1}`;
-        img.loading = "lazy";
-        btn.appendChild(img);
-        btn.addEventListener("click", () => onSelect(url));
-        container.appendChild(btn);
+      const { stats, level } = _avatarStatsAndLevel();
+      const counts = _iconUnlockCounts || {};
+
+      const items = ANIMAL_AVATARS.map(a => {
+        const unlocked = isAvatarUnlocked(a.img);
+        const p = animalUnlockProgress(a, stats, level);
+        return { a, unlocked, prog: (p == null ? -1 : p), pop: Number(counts[a.img] || 0) };
       });
-      if (_unlockedIcons.length) {
-        const sep = document.createElement("div");
-        sep.className = "auth-avatar-sep";
-        sep.textContent = "🔓 Unlocked Icons";
-        container.appendChild(sep);
-        _unlockedIcons.forEach((rawUrl, idx) => {
-          const url = normalizeAvatarUrl(rawUrl);
-          if (!url) return;
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "auth-avatar-option" + (url === active ? " active" : "");
-          btn.setAttribute("aria-label", `Unlocked icon ${idx + 1}`);
-          btn.setAttribute("data-avatar", url);
-          const img = document.createElement("img");
-          img.src = url;
-          img.alt = `Unlocked icon ${idx + 1}`;
-          img.loading = "lazy";
-          btn.appendChild(img);
-          btn.addEventListener("click", () => onSelect(url));
-          container.appendChild(btn);
-        });
-      }
+      items.sort((x, y) => {
+        if (x.unlocked !== y.unlocked) return x.unlocked ? -1 : 1;
+        if (x.unlocked) return 0;
+        if (y.prog !== x.prog) return y.prog - x.prog;
+        return y.pop - x.pop;
+      });
+
+      container.innerHTML = "";
+      items.forEach(({ a, unlocked, prog }) => {
+        const card = document.createElement(unlocked ? "button" : "div");
+        card.className = "animal-card" + (unlocked ? "" : " locked") + (a.img === active ? " active" : "");
+        card.setAttribute("data-avatar", a.img);
+        if (unlocked) { card.type = "button"; card.addEventListener("click", () => onSelect(a.img)); }
+
+        const thumb = document.createElement("div");
+        thumb.className = "animal-card-thumb";
+        const img = document.createElement("img");
+        img.src = a.img; img.alt = a.name; img.loading = "lazy";
+        thumb.appendChild(img);
+        if (!unlocked) {
+          const lock = document.createElement("div");
+          lock.className = "animal-card-lock"; lock.textContent = "🔒";
+          thumb.appendChild(lock);
+        }
+        card.appendChild(thumb);
+
+        const body = document.createElement("div");
+        body.className = "animal-card-body";
+        const name = document.createElement("div");
+        name.className = "animal-card-name"; name.textContent = a.name;
+        body.appendChild(name);
+
+        if (unlocked) {
+          const facts = document.createElement("div");
+          facts.className = "animal-card-facts"; facts.textContent = animalFacts(a);
+          body.appendChild(facts);
+        } else {
+          const req = document.createElement("div");
+          req.className = "animal-card-req"; req.textContent = a.unlock?.label || "Locked.";
+          body.appendChild(req);
+          const ptext = animalProgressText(a, stats, level);
+          if (ptext) {
+            const pr = document.createElement("div");
+            pr.className = "animal-card-prog"; pr.textContent = ptext;
+            body.appendChild(pr);
+          }
+          if (prog >= 0) {
+            const bar = document.createElement("div");
+            bar.className = "animal-card-bar";
+            const fill = document.createElement("div");
+            fill.className = "animal-card-bar-fill";
+            fill.style.width = Math.round(prog * 100) + "%";
+            bar.appendChild(fill);
+            body.appendChild(bar);
+          }
+        }
+        card.appendChild(body);
+        container.appendChild(card);
+      });
     }
 
     document.addEventListener("error", (ev) => {
       const target = ev && ev.target;
       if (!(target instanceof HTMLImageElement)) return;
       if (!target.closest(".ph-avatar") && !target.closest(".ph-fr-av")) return;
-      const fallback = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+      const fallback = DEFAULT_AVATAR_IMG;
       if ((target.dataset && target.dataset.avatarFallbackApplied === "1") || (target.src || "").includes(fallback)) {
         return;
       }
@@ -16917,17 +17198,19 @@
         profile.photoURL
       );
       const profileAvatar = normalizeAvatarUrl(fromProfile || "");
-      if (AVATAR_OPTIONS.includes(profileAvatar)) return profileAvatar;
+      // Display accepts any known animal image (self or other players); only
+      // selection is gated by unlock status.
+      if (animalByImg(profileAvatar)) return profileAvatar;
       if (includeAuthFallback && _authUser && _authUser.photoURL) {
         const authAvatar = normalizeAvatarUrl(_authUser.photoURL);
-        if (AVATAR_OPTIONS.includes(authAvatar)) return authAvatar;
+        if (animalByImg(authAvatar)) return authAvatar;
       }
       return getDefaultAvatar(seed);
     }
 
     function resolveFriendAvatarUrl(rawAvatar, seed) {
       const normalized = normalizeAvatarUrl(rawAvatar || "");
-      if (!normalized || !AVATAR_OPTIONS.includes(normalized)) return getDefaultAvatar(seed);
+      if (!normalized || !animalByImg(normalized)) return getDefaultAvatar(seed);
       return normalized;
     }
 
@@ -16942,10 +17225,10 @@
           _activeProfile.photoURL
         );
         const normalized = normalizeAvatarUrl(fromProfile || _guestAvatarUrl || "");
-        if (normalized && AVATAR_OPTIONS.includes(normalized)) return normalized;
+        if (normalized && animalByImg(normalized)) return normalized;
         return getDefaultAvatar(seed);
       } catch (e) {
-        return "/avatars/avatar-01.png";
+        return "/avatars/mullet.png";
       }
     };
 
@@ -16977,7 +17260,7 @@
         return;
       }
       img.onerror = () => {
-        const fallback = AVATAR_OPTIONS[0] || "/avatars/avatar-01.png";
+        const fallback = DEFAULT_AVATAR_IMG;
         if (img.src && img.src.includes(fallback)) {
           wrap.classList.remove("has-image");
           img.removeAttribute("src");
@@ -17167,6 +17450,32 @@
       _avatarSelectionRequired = false;
     }
 
+    // Persist + apply an avatar selection (shared by the picker and the
+    // post-game unlock screen's "make this my avatar" button).
+    async function applyAvatarSelection(selected) {
+      if (_authUser && _db) {
+        await _db.collection("users").doc(_authUser.uid).set({ avatar_url: selected }, { merge: true });
+        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, avatar_url: selected };
+        syncStatsHeader(_activeProfile);
+        loadFriendsMini(_authUser.uid);
+        renderPhOverview();
+        renderPhFriendsList();
+      } else if (_guestSessionActive) {
+        _guestAvatarUrl = selected;
+        localStorage.setItem(GUEST_AVATAR_KEY, selected);
+        _activeProfile = {
+          ...(_activeProfile || {}),
+          nickname: _playerNickname || "Guest",
+          avatar_url: selected,
+        };
+        syncStatsHeader(_activeProfile);
+        const previewEl = $a("stats-friends-preview");
+        if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
+      } else {
+        throw new Error("no-session");
+      }
+    }
+
     async function saveAvatarSelection() {
       const wasRequired = !!_avatarSelectionRequired;
       const seed = _authUser?.uid || _playerNickname || "guest";
@@ -17177,28 +17486,7 @@
       }
       setAuthMsg("avatar-modal-err", "Saving…", true);
       try {
-        if (_authUser && _db) {
-          await _db.collection("users").doc(_authUser.uid).set({ avatar_url: selected }, { merge: true });
-          _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, avatar_url: selected };
-          syncStatsHeader(_activeProfile);
-          loadFriendsMini(_authUser.uid);
-          renderPhOverview();
-          renderPhFriendsList();
-        } else if (_guestSessionActive) {
-          _guestAvatarUrl = selected;
-          localStorage.setItem(GUEST_AVATAR_KEY, selected);
-          _activeProfile = {
-            ...(_activeProfile || {}),
-            nickname: _playerNickname || "Guest",
-            avatar_url: selected,
-          };
-          syncStatsHeader(_activeProfile);
-          const previewEl = $a("stats-friends-preview");
-          if (previewEl) previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
-        } else {
-          setAuthMsg("avatar-modal-err", "Sign in or start a guest session first.", false);
-          return;
-        }
+        await applyAvatarSelection(selected);
         _avatarSelectionRequired = false;
         const modal = $a("avatar-picker-modal");
         if (modal) modal.classList.remove("open");
@@ -17366,14 +17654,14 @@
       syncStatsHeader(_activeProfile);
       renderStats(profile && profile.stats ? profile.stats : null);
       if (typeof window.__fishLoadUserAchievements === "function") window.__fishLoadUserAchievements(uid);
-      if (_authUser && _authUser.uid === uid && !hasSelectableAvatar && _avatarPromptShownForUid !== uid) {
-        _avatarPromptShownForUid = uid;
-        _avatarModalSelection = getDefaultAvatar(uid || _playerNickname || "player");
-        setTimeout(() => {
-          openAvatarPickerModal({ required: true, guestMode: false });
-          setAuthMsg("avatar-modal-err", "Select your avatar, then save to continue.", false);
-        }, 60);
+      // Avatar-set migration: anyone without a valid (Mullet/unlocked) avatar
+      // is silently defaulted to Mullet — no forced picker.
+      if (_authUser && _authUser.uid === uid && !hasSelectableAvatar) {
+        try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
       }
+      // Best-effort popularity load + retroactive grant of already-earned unlocks.
+      try { window.__fishLoadIconCounts?.(); } catch {}
+      try { if (typeof window.__fishSyncStatUnlocks === "function") await window.__fishSyncStatUnlocks(); } catch {}
     }
 
     const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
@@ -17642,8 +17930,8 @@
     }
     function phLbAvatarImg(avatarUrl, seed) {
       const raw   = typeof normalizeAvatarUrl === "function" ? normalizeAvatarUrl(avatarUrl || "") : (avatarUrl || "");
-      const final = raw || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/avatar-01.png");
-      return `<img class="ph-lb-avatar" src="${escHtmlPH(final)}" alt="" loading="lazy" onerror="this.src='/avatars/avatar-01.png'">`;
+      const final = raw || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
+      return `<img class="ph-lb-avatar" src="${escHtmlPH(final)}" alt="" loading="lazy" onerror="this.src='/avatars/mullet.png'">`;
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
@@ -17951,6 +18239,10 @@
           const profile = await loadProfile(user.uid);
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
+          // Load unlocked animal icons before judging avatar validity.
+          _unlockedIcons = Array.isArray(profile?.unlocked_icons)
+            ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+            : [];
           // One-time achievement system v2 reset (clears old unlocks + XP).
           try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
           $a("auth-loading-screen").classList.add("hidden");
@@ -17974,15 +18266,14 @@
               prepareSignupAvatarSelection(user.uid || user.email || hint || "player");
               showStep("auth-step-nickname");
             } else {
-              // Existing account missing avatar: require avatar before lobby.
+              // Existing account whose stored avatar is no longer valid (the
+              // avatar set changed): silently default to Mullet and continue.
               _playerNickname = String(profile.nickname || "").trim();
               _friendCode = profile?.friend_code ? String(profile.friend_code).trim() : "";
-              _activeProfile = { ...(profile || {}), uid: user.uid, avatar_url: "" };
-              syncStatsHeader(_activeProfile);
-              $a("auth-screen").classList.add("hidden");
-              _avatarModalSelection = getDefaultAvatar(user.uid || _playerNickname || "player");
-              openAvatarPickerModal({ required: true, guestMode: false });
-              setAuthMsg("avatar-modal-err", "Choose your avatar to continue.", false);
+              _activeProfile = { ...(profile || {}), uid: user.uid, avatar_url: DEFAULT_AVATAR_IMG };
+              try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
+              _pendingOnboardingUid = "";
+              revealLobby(profile.nickname, profile.friend_code || "");
             }
           }
         } else {
@@ -21277,10 +21568,13 @@
 
     // Expose getters so outer game code can read auth state if needed
     window.__fishGetUnlockedIcons  = () => [..._unlockedIcons];
+    window.__fishIsIconUnlocked    = (iconPath) => isAvatarUnlocked(iconPath);
+    window.__fishGetEquippedAvatar = () => normalizeAvatarUrl(_activeProfile?.avatar_url || "") || DEFAULT_AVATAR_IMG;
+    // Grant a new animal icon. Returns true if it was newly unlocked.
     window.__fishGrantUnlockedIcon = async (iconPath) => {
       const path = normalizeAvatarUrl(String(iconPath || ""));
-      if (!path || !path.startsWith("/avatars/")) return;
-      if (_unlockedIcons.includes(path)) return; // already unlocked
+      if (!path || !path.startsWith("/avatars/")) return false;
+      if (isAvatarUnlocked(path)) return false; // already owned (starter or unlocked)
       _unlockedIcons = [..._unlockedIcons, path];
       try {
         if (_authUser && _db) {
@@ -21288,11 +21582,52 @@
             unlocked_icons: firebase.firestore.FieldValue.arrayUnion(path)
           });
           if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_icons: _unlockedIcons };
+          // Best-effort global popularity counter (used for picker sorting).
+          try {
+            await _db.collection("meta").doc("icon_unlock_counts").set({
+              [path.replace(/[.#$/\[\]]/g, "_")]: firebase.firestore.FieldValue.increment(1)
+            }, { merge: true });
+          } catch {}
         } else if (_guestSessionActive && _playerNickname) {
           const key = GUEST_UNLOCKED_ICONS_PREFIX + _playerNickname.toLowerCase();
           localStorage.setItem(key, JSON.stringify(_unlockedIcons));
         }
       } catch { /* best-effort */ }
+      return true;
+    };
+    // Equip an avatar the player has unlocked (used by the unlock screen).
+    window.__fishEquipAvatar = async (iconPath) => {
+      const seed = _authUser?.uid || _playerNickname || "guest";
+      const selected = sanitizeSelectableAvatar(iconPath, seed);
+      if (!selected) return false;
+      try { await applyAvatarSelection(selected); return true; } catch { return false; }
+    };
+    // Re-evaluate stat/level based unlocks against current stats. Returns the
+    // list of newly-unlocked animal ids (caller decides whether to show a screen).
+    window.__fishSyncStatUnlocks = async () => {
+      const { stats, level } = _avatarStatsAndLevel();
+      const newly = [];
+      for (const a of ANIMAL_AVATARS) {
+        const u = a.unlock; if (!u) continue;
+        let met = false;
+        if (u.type === "level")     met = level >= (u.goal || Infinity);
+        else if (u.type === "comp_wins") met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
+        if (met && !isAvatarUnlocked(a.img)) {
+          if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
+        }
+      }
+      return newly;
+    };
+    // Lazily load the global popularity map for picker sorting (best-effort).
+    window.__fishLoadIconCounts = async () => {
+      if (_iconUnlockCounts || !_db) return;
+      try {
+        const snap = await _db.collection("meta").doc("icon_unlock_counts").get();
+        const raw = snap.exists ? (snap.data() || {}) : {};
+        const map = {};
+        ANIMAL_AVATARS.forEach(a => { map[a.img] = Number(raw[a.img.replace(/[.#$/\[\]]/g, "_")] || 0); });
+        _iconUnlockCounts = map;
+      } catch { _iconUnlockCounts = {}; }
     };
     window.__fishNickname       = () => _playerNickname;
     window.__fishAuthUser       = () => _authUser;
