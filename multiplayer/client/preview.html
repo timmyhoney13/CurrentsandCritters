@@ -18162,7 +18162,15 @@
       }
       // Best-effort popularity load + retroactive grant of already-earned unlocks.
       try { window.__fishLoadIconCounts?.(); } catch {}
-      try { if (typeof window.__fishSyncStatUnlocks === "function") await window.__fishSyncStatUnlocks(); } catch {}
+      try {
+        if (typeof window.__fishSyncStatUnlocks === "function") {
+          const _syncNewly = await window.__fishSyncStatUnlocks();
+          if (Array.isArray(_syncNewly) && _syncNewly.length) {
+            _syncNewly.forEach(id => window.__fishQueueAnimalUnlock?.(id));
+            setTimeout(() => window.__fishShowAnimalUnlocks?.(), 1400);
+          }
+        }
+      } catch {}
     }
 
     const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
@@ -21716,14 +21724,19 @@
       }
 
       _queueAchPopup(def);
-      // Grant any animal avatar tied to this achievement (queued for the
-      // post-game unlock screen).
+      // Grant any animal avatar tied to this achievement, then immediately
+      // surface the unlock overlay (delayed so the achievement popup animates first).
       try {
+        let _achAvatarGranted = false;
         for (const an of ANIMAL_AVATARS) {
           if (an.unlock && an.unlock.type === "achievement" && an.unlock.achId === achId) {
-            if (await window.__fishGrantUnlockedIcon(an.img)) window.__fishQueueAnimalUnlock?.(an.id);
+            if (await window.__fishGrantUnlockedIcon(an.img)) {
+              window.__fishQueueAnimalUnlock?.(an.id);
+              _achAvatarGranted = true;
+            }
           }
         }
+        if (_achAvatarGranted) setTimeout(() => window.__fishShowAnimalUnlocks?.(), 2200);
       } catch (_) {}
       // Re-render achievements page if visible
       if (typeof renderPhAchievements === "function") {
