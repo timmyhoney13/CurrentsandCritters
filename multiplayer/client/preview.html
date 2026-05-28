@@ -10618,6 +10618,10 @@
           // Sea Anemone — its ★ ability draws one card when activated.
           if (invName === "sea anemone" && action.use_star)
             _gameAchTracker.seaAnemoneDraws = (_gameAchTracker.seaAnemoneDraws || 0) + 1;
+          // Loggerhead Sea Turtle — count cards played in the current turn and
+          // flag when a Turtle was played (its ability chains extra card plays).
+          _gameAchTracker.cardsPlayedThisTurn = (_gameAchTracker.cardsPlayedThisTurn || 0) + 1;
+          if (invName === "loggerhead sea turtle") _gameAchTracker.turtlePlayedThisTurn = true;
         } catch {}
 
         const dir = String(action.face_direction || "").toLowerCase();
@@ -11110,6 +11114,12 @@
         }
         // Reset per-turn cephalopod counter on each turn boundary (humuhumunukuapuaa).
         _gameAchTracker.cephThisTurn = 0;
+        // Loggerhead Sea Turtle: finalize the turn that just ended — a qualifying
+        // chain is a Turtle turn where I played 10+ cards. Then reset per-turn.
+        if (_gameAchTracker.turtlePlayedThisTurn && Number(_gameAchTracker.cardsPlayedThisTurn || 0) >= 10)
+          _gameAchTracker.turtleBigChains = (_gameAchTracker.turtleBigChains || 0) + 1;
+        _gameAchTracker.turtlePlayedThisTurn = false;
+        _gameAchTracker.cardsPlayedThisTurn = 0;
         _prevCurrentPlayer = curP;
 
         // Draw notification: when turn changes, show what the PREVIOUS player did
@@ -15694,6 +15704,25 @@
         if (postCucumber >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
         const postAnemone = Number(cStats?.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
         if (postAnemone >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-anemone.png")) _queueAnimalUnlock("sea-anemone");
+
+        // ── Crosscurrent ───────────────────────────────────────────
+        // Blue Tang (Lv 10) · Manta Ray (Lv 50) · Great White Shark (Lv 90).
+        if (lvl >= 10 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-tang.png")) _queueAnimalUnlock("blue-tang");
+        if (lvl >= 50 && await window.__fishGrantUnlockedIcon?.("/avatars/manta-ray.png")) _queueAnimalUnlock("manta-ray");
+        if (lvl >= 90 && await window.__fishGrantUnlockedIcon?.("/avatars/great-white-shark.png")) _queueAnimalUnlock("great-white-shark");
+        // Mandarin Goby — all 4 Mandarin Gobies on board (Shoot the Moon) in a 3+ player game.
+        if (_gameAchTracker?.gotAllGobies && playerCount >= 3
+            && await window.__fishGrantUnlockedIcon?.("/avatars/mandarin-goby.png")) _queueAnimalUnlock("mandarin-goby");
+        // Clownfish — Clownfish + Blue Tang on the same Ocean (Reef Reunion) and win.
+        if (_gameAchTracker?.reefReunion && isWinner
+            && await window.__fishGrantUnlockedIcon?.("/avatars/clownfish.png")) _queueAnimalUnlock("clownfish");
+        // Loggerhead Sea Turtle — 2 qualifying Turtle chains (Turtle turn + 10 cards)
+        // and finish top 3. Flush the final turn (no turn-boundary fires after it).
+        const _turtleFinal = Number(_gameAchTracker?.turtleBigChains || 0)
+          + ((_gameAchTracker?.turtlePlayedThisTurn && Number(_gameAchTracker?.cardsPlayedThisTurn || 0) >= 10) ? 1 : 0);
+        const _playersAbove = (Array.isArray(finalScores) ? finalScores : []).filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
+        if (_turtleFinal >= 2 && _playersAbove < 3
+            && await window.__fishGrantUnlockedIcon?.("/avatars/loggerhead-sea-turtle.png")) _queueAnimalUnlock("loggerhead-sea-turtle");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16704,6 +16733,32 @@
     { id:"sea-anemone", name:"Sea Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
       facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
       unlock:{ type:"stat", stat:"lifetime_sea_anemone_draws", goal:125, unit:"cards drawn with Sea Anemone", label:"Draw 125 cards using Sea Anemone's ability." } },
+
+    // ── Crosscurrent ─────────────────────────────────────────────
+    { id:"cleaner-wrasse", name:"Cleaner Wrasse", species:"Crosscurrent", img:"/avatars/cleaner-wrasse.png",
+      facts:"Cleaner wrasses are often called the \"doctors of the sea\" because they remove parasites from reef fish, sea turtles, and even sharks. They attract clients by wiggling or \"dancing\" at cleaning stations, while the fish stay still, spread their fins, and open their gills for cleaning.",
+      unlock:{ type:"achievement", achId:"off_meta_master", label:"Complete Off-Meta Master, win 30 games without using a listed strategy." } },
+    { id:"mandarin-goby", name:"Mandarin Goby", species:"Crosscurrent", img:"/avatars/mandarin-goby.png",
+      facts:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins).",
+      unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Complete Shoot the Moon and Shot the Moon in games with 3+ players." } },
+    { id:"loggerhead-sea-turtle", name:"Loggerhead Sea Turtle", species:"Crosscurrent", img:"/avatars/loggerhead-sea-turtle.png",
+      facts:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles—sometimes up to 7,500 miles in the Pacific—to lay eggs on the exact same beach where they hatched decades earlier.",
+      unlock:{ type:"event", event:"turtle_big_chains", label:"Play Loggerhead Sea Turtle twice in one game, play 10 cards during each Turtle turn/chain, and finish top 3." } },
+    { id:"blue-tang", name:"Blue Tang", species:"Crosscurrent", img:"/avatars/blue-tang.png",
+      facts:"Adults can voluntarily alter their hue. They may flush deep purples and violets as a sign of stress or change colors during courting and breeding seasons.",
+      unlock:{ type:"level", goal:10, label:"Reach Level 10." } },
+    { id:"clownfish", name:"Clownfish", species:"Crosscurrent", img:"/avatars/clownfish.png",
+      facts:"All clownfish are born male. They live in strict, female-dominant hierarchies. If the dominant female passes away, the largest, dominant male will physically transform into a female and take her place. This sex change is irreversible.",
+      unlock:{ type:"event", event:"reef_reunion_win", label:"Complete Reef Reunion, place Blue Tang and Clownfish on the same Ocean and win." } },
+    { id:"great-white-shark", name:"Great White Shark", species:"Crosscurrent", img:"/avatars/great-white-shark.png",
+      facts:"Great whites have special pores on their snouts called ampullae of Lorenzini that detect the electrical impulses generated by the movements of nearby prey.",
+      unlock:{ type:"level", goal:90, label:"Reach Level 90." } },
+    { id:"manta-ray", name:"Manta Ray", species:"Crosscurrent", img:"/avatars/manta-ray.png",
+      facts:"Mantas possess massive brains relative to their size. They are one of the few fish species known to recognize themselves in mirrors.",
+      unlock:{ type:"level", goal:50, label:"Reach Level 50." } },
+    { id:"reef-triggerfish", name:"Reef Triggerfish", species:"Crosscurrent", img:"/avatars/reef-triggerfish.png",
+      facts:"The triggerfish gets its name from a unique defensive spine on its back. When threatened or sleeping, it wedges itself into a coral crevice and locks its primary spine upright using a smaller \"trigger\" spine, making it nearly impossible for predators to pull it out.",
+      unlock:{ type:"achievement", achId:"humuhumunukuapuaa", label:"Complete the Humuhumunukunukuāpuaʻa achievement." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -16907,6 +16962,9 @@
       seaStarDraws: 0,             // cards drawn via Sea Star "draw on floor play" (Sea Star avatar)
       seaCucumberDraws: 0,         // cards drawn via Sea Cucumber "draw on game-fish play" (Sea Cucumber avatar)
       seaAnemoneDraws: 0,          // cards drawn via Sea Anemone ★ "draw one" (Sea Anemone avatar)
+      turtlePlayedThisTurn: false, // a Loggerhead Sea Turtle was played in the current turn
+      cardsPlayedThisTurn: 0,      // animal cards I played in the current turn (Loggerhead chain length)
+      turtleBigChains: 0,          // finished turns with a Turtle + 10+ cards played (Loggerhead avatar)
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
