@@ -10253,6 +10253,16 @@
       setStatus("→ " + desc);
       showToast(desc, "ok");
       // Track per-game stats for achievements
+      // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
+      if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
+        _gameAchTracker.manualDeckDraw = true;
+      }
+      // Hard Choices (cumulative): discard cards to pay card costs — bump by the
+      // number of payment cards spent this action.
+      try {
+        const payCount = Array.isArray(pl.payment_uids) ? pl.payment_uids.length : 0;
+        if (payCount > 0) window.__fishBumpAchievement?.("hard_choices", payCount, 100);
+      } catch {}
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) > 0) {
         _gameAchTracker.usedPool = true;
         // ── Pool draw challenge hooks ─────────────────────────────
@@ -10346,7 +10356,10 @@
         // Daily: current_lite — Move 3 animals today (target 3, accumulates).
         try { window._reportDailyChallengeProgress?.("current_lite", 1); } catch {}
         // Daily: last_turn_move — Move an animal after End Game appears.
+        // Achievement board_fixer: moved an animal on the final turn (end-game
+        // window) — combined with a win at game end.
         if (_gameAchTracker.endGameSeen) {
+          _gameAchTracker.movedDuringEndgame = true;
           try { window._reportDailyChallengeProgress?.("last_turn_move", 0, { complete: true }); } catch {}
         }
         // Snapshot my score before the move resolves; the per-payload
@@ -10416,6 +10429,8 @@
           // Daily: symbol_match — Discard matching symbol to activate ★
           // (any successful ★ activation requires a matching symbol).
           window._reportDailyChallengeProgress?.("symbol_match", 0, { complete: true });
+          // Achievement perfect_symbol (cumulative): matching-symbol ★ activation 100×.
+          window.__fishBumpAchievement?.("perfect_symbol", 1, 100);
           // Daily: star_finish — ★ activation after End Game appears
           if (_gameAchTracker.endGameSeen) {
             window._reportDailyChallengeProgress?.("star_finish", 0, { complete: true });
@@ -10563,6 +10578,8 @@
     if (_chObsPreMoveScore === null) return;
     const curScore = Number(me?.score || 0);
     if (curScore > _chObsPreMoveScore) {
+      // Achievement better_spot: a move raised my score; combined with a win at game end.
+      _gameAchTracker.betterSpot = true;
       try { window._reportDailyChallengeProgress?.("better_spot", 0, { complete: true }); } catch {}
     }
     // Compare just once per move action (good or bad outcome both clear it).
@@ -10685,6 +10702,9 @@
       // Track distinct ocean types this game.
       const oceanName = String(ocean?.ocean?.name || "").trim();
       if (oceanName) _chObsOceanTypesPlayedGame.add(oceanName.toLowerCase());
+      // Achievement reef_reunion: a single Ocean holding both a Clownfish and
+      // a Blue Tang.
+      let hasClownfish = false, hasBlueTang = false;
       for (const dir of ["up", "down", "left", "right"]) {
         const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
         for (const c of cards) {
@@ -10694,8 +10714,12 @@
             const sp = String(c.species || "").toLowerCase().trim();
             if (sp) speciesByUid.set(uid, sp);
           }
+          const nm = String(c.name || "").toLowerCase().trim();
+          if (nm === "clownfish") hasClownfish = true;
+          if (nm === "blue tang") hasBlueTang = true;
         }
       }
+      if (hasClownfish && hasBlueTang) _gameAchTracker.reefReunion = true;
     }
 
     // Detect newly-placed cards (in curCardUids but not in _chObsPrevMyBoardCards).
@@ -10710,6 +10734,14 @@
       }
       // Weekly: critter_collector — total animal cards this week (target 50).
       try { window._reportWeeklyChallengeProgress?.("critter_collector", 1); } catch {}
+
+      // Achievement humuhumunukuapuaa: cephalopods placed in one turn (target 5).
+      if (sp === "cephalopod") {
+        _gameAchTracker.cephThisTurn = (_gameAchTracker.cephThisTurn || 0) + 1;
+        if (_gameAchTracker.cephThisTurn > (_gameAchTracker.maxCephInTurn || 0)) {
+          _gameAchTracker.maxCephInTurn = _gameAchTracker.cephThisTurn;
+        }
+      }
 
       // Per-game distinct species set.
       _chObsSpeciesPlayedGame.add(sp);
@@ -10829,6 +10861,8 @@
           const newP = players.find(p => p.name === curP);
           if (newP) _turnStartScores[curP] = Number(newP.score || 0);
         }
+        // Reset per-turn cephalopod counter on each turn boundary (humuhumunukuapuaa).
+        _gameAchTracker.cephThisTurn = 0;
         _prevCurrentPlayer = curP;
 
         // Draw notification: when turn changes, show what the PREVIOUS player did
@@ -14943,6 +14977,76 @@
     };
   }
 
+  // Classify my board into a strategy string (mirrors server _detect_strategy
+  // and the weekly-combo classifier). Used for the strategy-master achievements.
+  function _achDetectStrategy(player) {
+    const board = Array.isArray(player?.board) ? player.board : [];
+    let total = 0; const typeCounts = {}; const nameCounts = {};
+    for (const ocean of board) {
+      for (const dir of ["up", "down", "left", "right"]) {
+        const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
+        for (const c of cards) {
+          const sp = String(c.species || "").toLowerCase().trim();
+          const nm = String(c.name || "").toLowerCase().trim();
+          if (sp && sp !== "ocean") { typeCounts[sp] = (typeCounts[sp] || 0) + 1; total++; }
+          if (nm) nameCounts[nm] = (nameCounts[nm] || 0) + 1;
+        }
+      }
+    }
+    if (total === 0) return "Best Guess";
+    const pct = sp => (typeCounts[sp] || 0) / total;
+    if ((nameCounts["mandarin goby"] || 0) >= 1) return "Goby";
+    if (pct("cephalopod") >= 0.30 && pct("coral") >= 0.15) return "Coral/Cephalopods (CC)";
+    if (pct("cephalopod") >= 0.40) return "Cephalopods";
+    if (pct("bird") >= 0.20 && (pct("crustacean") >= 0.10
+        || (nameCounts["lobster"]||0) >= 1
+        || (nameCounts["mantis shrimp"]||0) >= 1)) return "Bird/Lobster (B-Lob)";
+    if (pct("bird") >= 0.20 && pct("coral") >= 0.15) return "Bird/Coral (B-Coral)";
+    if (pct("bird") >= 0.35) return "Bird/Coral (B-Coral)";
+    if (pct("baitfish") >= 0.35) return "Baitfish Barrage";
+    if (pct("mammal") >= 0.45) return "Mammals";
+    if ((nameCounts["yellowfin tuna"] || 0) >= 1) return "Yellowfin Tuna";
+    if (pct("ocean") >= 0.40 || pct("coral") >= 0.50) return "Ocean All Blue";
+    if (pct("game fish") >= 0.40) return "Game Fish";
+    return "Best Guess";
+  }
+
+  // Gather single-game facts the achievement system can't read from Firestore
+  // stats alone (board composition, timing, strategy). Computed in game scope
+  // where _latestPlayers / myIdx / _matchStartMs live, then passed into the
+  // achievement check.
+  function _computeGameEndAchData() {
+    const players = Array.isArray(_latestPlayers) ? _latestPlayers : [];
+    const me = players.find(p => p.index === myIdx) || null;
+    const hadBots = players.some(p => p && (p.kind === "ai" || p.is_ai === true || p.bot === true || isLikelyAiName(p?.name)));
+    const gameMinutes = _matchStartMs ? Math.max(0, (Date.now() - _matchStartMs) / 60000) : 0;
+
+    // Distinct species + bird purity from my board.
+    const species = new Set();
+    let animalCount = 0, birdCount = 0;
+    const board = (me && Array.isArray(me.board)) ? me.board : [];
+    for (const ocean of board) {
+      for (const dir of ["up", "down", "left", "right"]) {
+        for (const c of (Array.isArray(ocean[dir]) ? ocean[dir] : [])) {
+          const sp = String(c.species || "").toLowerCase().trim();
+          if (sp && sp !== "ocean") { species.add(sp); animalCount++; if (sp === "bird") birdCount++; }
+        }
+      }
+    }
+    const firstOcean = board[0];
+    const firstOceanType = firstOcean ? String(firstOcean.ocean?.name || "").trim().toLowerCase() : "";
+    const myName = me?.name || "";
+    return {
+      hadBots,
+      gameMinutes,
+      distinctSpecies: species.size,
+      firstOceanType,
+      strategy: _achDetectStrategy(me),
+      birdOnly: animalCount >= 3 && birdCount === animalCount,
+      iShotTheMoon: !!(_shotTheMoonName && myName && _shotTheMoonName === myName),
+    };
+  }
+
   async function saveGameStats(winner, finalScores, xpOverride) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
@@ -15087,6 +15191,7 @@
           window.__fishCheckAchievementsAfterGame({
             isComp, isWinner, myScore, playerCount, finalScores,
             boardSnaps, uid: authUser.uid,
+            ..._computeGameEndAchData(),
           });
         }
       } else if (isGuestSession) {
@@ -15762,6 +15867,9 @@
     _gameAchTracker.chatMsgs = (_gameAchTracker.chatMsgs || 0) + 1;
     if (typeof compMode !== "undefined" && compMode) {
       _gameAchTracker.compChatMsgs = (_gameAchTracker.compChatMsgs || 0) + 1;
+      // Achievement annoying_messenger (hidden): 20 compliments in one Competitive game.
+      const _compliment = /good\s*game|gg|nice|well played|wp|great|awesome|amazing|nice job|good job|love|respect|congrats|congratulations|gj|ggwp|so good|clutch/i.test(text);
+      if (_compliment) _gameAchTracker.compCompliments = (_gameAchTracker.compCompliments || 0) + 1;
     }
     // Daily: Table Talk (send 1 message in a game). Also check for the
     // "good_sport" cue if the end-game card has appeared and the message
@@ -16048,77 +16156,121 @@
   // ═══════════════════════════════════════════════════════════════
   // ACHIEVEMENT DEFINITIONS (outer scope — shared with auth IIFE)
   // ═══════════════════════════════════════════════════════════════
+  // ── Achievement system v2 (full reset 2026-05) ──────────────────
+  // Exactly 58 achievements. Order matches the canonical design list.
+  // Secret achievements use hidden:true (UI shows "Secret Achievement"
+  // until unlocked, then reveals name + requirement).
   const ACHIEVEMENT_DEFS = [
-    { id:"first_fin",           name:"First Fin",                   icon:"👥", cat:"Friends",      xp:50,    desc:"Add 1 friend." },
-    { id:"cast_off",            name:"Cast Off",                    icon:"🎣", cat:"Casual",       xp:50,    desc:"Play your first Casual game." },
-    { id:"ranked_waters",       name:"Ranked Waters",               icon:"⚔️", cat:"Competitive",  xp:50,    desc:"Play your first Competitive game." },
-    { id:"shoal_formed",        name:"Shoal Formed",                icon:"🐟", cat:"Friends",      xp:100,   desc:"Add 5 friends." },
-    { id:"first_catch",         name:"First Catch",                 icon:"🏅", cat:"Casual",       xp:100,   desc:"Win your first Casual game." },
-    { id:"making_waves",        name:"Making Waves",                icon:"🌊", cat:"Casual",       xp:100,   desc:"Score 100+ in Casual with 4+ players." },
-    { id:"the_all_blue",        name:"The All Blue",                icon:"🌍", cat:"Special",      xp:150,   desc:"Play all 8 Oceans in one game." },
-    { id:"crowded_current",     name:"Crowded Current",             icon:"🐠", cat:"Casual",       xp:150,   desc:"Complete a 6-player Casual game." },
-    { id:"duel_in_the_deep",    name:"Duel in the Deep",            icon:"🥇", cat:"Competitive",  xp:200,   desc:"Win your first Competitive game." },
-    { id:"humuhumunukuapuaa",   name:"Humuhumunukuapua'a",          icon:"🐙", cat:"Special",      xp:250,   desc:"Play 5 cephalopods in one turn." },
-    { id:"big_splash",          name:"Big Splash",                  icon:"💦", cat:"Casual",       xp:250,   desc:"Score 150+ in Casual with 4+ players." },
-    { id:"tidal_victory",       name:"Tidal Victory",               icon:"🌟", cat:"Casual",       xp:250,   desc:"Win by 50+ points in a Casual game." },
-    { id:"host_with_the_most",  name:"Host With the Most",          icon:"🏠", cat:"Casual",       xp:250,   desc:"Create and finish 10 Casual games as host." },
-    { id:"ranked_tidal_wave",   name:"Ranked Tidal Wave",           icon:"🌊", cat:"Competitive",  xp:250,   desc:"Score 125+ in one hand in Competitive." },
-    { id:"silver_spiny_lobster",name:"Silver Spiny Lobster",        icon:"🦞", cat:"Rank",         xp:250,   desc:"Reach Silver rank." },
-    { id:"one_ocean_wonder",    name:"One Ocean Wonder",            icon:"🏝️", cat:"All Modes",    xp:250,   desc:"Win a game where every Ocean is the same type." },
-    { id:"full_boat",           name:"Full Boat",                   icon:"⛵", cat:"Casual",       xp:300,   desc:"Complete an 8-player Casual game." },
-    { id:"tidal_wave",          name:"Tidal Wave",                  icon:"🌊", cat:"Casual",       xp:500,   desc:"Score 250+ in Casual with 4+ players." },
-    { id:"golden_grouper",      name:"Golden Grouper",              icon:"🐡", cat:"Rank",         xp:500,   desc:"Reach Golden rank." },
-    { id:"last_current",        name:"Last Current",                icon:"⏳", cat:"All Modes",    xp:500,   desc:"Win after the End Game card appears." },
-    { id:"twin_tide_triumph",   name:"Twin Tide Triumph",           icon:"🤝", cat:"Competitive",  xp:750,   desc:"Win a Competitive game with both your hands beating your opponent's best." },
-    { id:"nothing_but_deck",    name:"Nothing But Deck",            icon:"🃏", cat:"All Modes",    xp:750,   desc:"Win a game without drawing from the Pool." },
-    { id:"current_controller",  name:"Current Controller",          icon:"🔄", cat:"All Modes",    xp:900,   desc:"Move 15 animals between Oceans in one game." },
-    { id:"shoot_the_moon",      name:"Shoot the Moon",              icon:"🌙", cat:"Special",      xp:1000,  desc:"Have all 4 Mandarin Gobies on the board in one game." },
-    { id:"tsunami",             name:"Tsunami",                     icon:"🌊", cat:"Casual",       xp:1000,  desc:"Score 300+ in a Casual game." },
-    { id:"ranked_tsunami",      name:"Ranked Tsunami",              icon:"⚡", cat:"Competitive",  xp:1000,  desc:"Score 150+ in one hand in Competitive." },
-    { id:"diamond_dolphin",     name:"Diamond Dolphin",             icon:"💎", cat:"Rank",         xp:1000,  desc:"Reach Diamond rank." },
-    { id:"back_to_back_diver",  name:"Back-to-Back Diver",          icon:"🤿", cat:"All Modes",    xp:1000,  desc:"Win without using the Pool in both a Casual AND Competitive game back to back." },
-    { id:"shot_the_moon",       name:"Shot the Moon",               icon:"🌕", cat:"Special",      xp:1500,  desc:"Discard or clear a Goby after someone else has 3 Mandarin Gobies." },
-    { id:"reef_rally",          name:"Reef Rally",                  icon:"🐠", cat:"Friends",      xp:1500,  desc:"Add 15 friends." },
-    { id:"emerald_emperor_penguin",name:"Emerald Emperor Penguin",  icon:"🐧", cat:"Rank",         xp:1500,  desc:"Reach Emerald rank." },
-    { id:"close_current",       name:"Close Current",               icon:"🎯", cat:"Competitive",  xp:2000,  desc:"Win a Competitive game by 5 points or less." },
-    { id:"reef_regular",        name:"Reef Regular",                icon:"🪸", cat:"Casual",       xp:2000,  desc:"Finish 100 Casual games." },
-    { id:"reef_veteran",        name:"Reef Veteran",                icon:"⚓", cat:"Casual",       xp:4000,  desc:"Finish 250 Casual games." },
-    { id:"king_of_the_critters",name:"King of the Critters",        icon:"👑", cat:"Rank",         xp:10000, desc:"Reach King of the Critters rank." },
-    { id:"message_in_a_bottle", name:"Message in a Bottle",         icon:"📬", cat:"Hidden",       xp:1000,  desc:"Send 25 messages in one game.", hidden:true },
-    { id:"ive_swum_there",      name:"I've Swum There",             icon:"🗺️", cat:"Hidden",       xp:1000,  desc:"Play with every player count (2–8) in Casual.", hidden:true },
-    { id:"annoying_messenger",  name:"Annoying Messenger",          icon:"📢", cat:"Hidden",       xp:1500,  desc:"Send 25 messages in one Competitive game.", hidden:true },
+    { id:"first_fin",               name:"First Fin",                 icon:"👥", cat:"Friends",     xp:50,    desc:"Add 1 friend." },
+    { id:"cast_off",                name:"Cast Off",                  icon:"🎣", cat:"Casual",      xp:50,    desc:"Play your first Casual game." },
+    { id:"ranked_waters",           name:"Ranked Waters",             icon:"⚔️", cat:"Competitive", xp:50,    desc:"Play your first Competitive game." },
+    { id:"shoal_formed",            name:"Shoal Formed",              icon:"🐟", cat:"Friends",     xp:100,   desc:"Add 5 friends." },
+    { id:"first_catch",             name:"First Catch",               icon:"🏅", cat:"Casual",      xp:100,   desc:"Win your first Casual game." },
+    { id:"making_waves",            name:"Making Waves",              icon:"🌊", cat:"Casual",      xp:100,   desc:"Score 100+ in Casual with 4+ players." },
+    { id:"the_all_blue",            name:"The All Blue",              icon:"🌍", cat:"Special",     xp:150,   desc:"Play all 8 Oceans in one game." },
+    { id:"crowded_current",         name:"Crowded Current",           icon:"🐠", cat:"Casual",      xp:150,   desc:"Complete a 6-player Casual game." },
+    { id:"duel_in_the_deep",        name:"Duel in the Deep",          icon:"🥇", cat:"Competitive", xp:200,   desc:"Win your first Competitive game." },
+    { id:"big_splash",              name:"Big Splash",                icon:"💦", cat:"Casual",      xp:250,   desc:"Score 150+ in Casual with 4+ players." },
+    { id:"host_with_the_most",      name:"Host With the Most",        icon:"🏠", cat:"Casual",      xp:250,   desc:"Create and finish 10 Casual games as host." },
+    { id:"ranked_tidal_wave",       name:"Ranked Tidal Wave",         icon:"🌊", cat:"Competitive", xp:250,   desc:"Score 125+ in one hand in Competitive." },
+    { id:"silver_spiny_lobster",    name:"Silver Spiny Lobster",      icon:"🦞", cat:"Rank",        xp:250,   desc:"Reach Silver rank." },
+    { id:"one_ocean_wonder",        name:"One Ocean Wonder",          icon:"🏝️", cat:"All Modes",   xp:250,   desc:"Win a game where every Ocean is the same type." },
+    { id:"humuhumunukuapuaa",       name:"Humuhumunukuapua'a",        icon:"🐙", cat:"Special",     xp:250,   desc:"Play 5 cephalopods in one turn." },
+    { id:"full_boat",               name:"Full Boat",                 icon:"⛵", cat:"Casual",      xp:300,   desc:"Complete an 8-player Casual game with all real players." },
+    { id:"daily_tide_sweep",        name:"Daily Tide Sweep",          icon:"📅", cat:"Challenges",  xp:400,   desc:"Complete all daily achievements in one day." },
+    { id:"last_current",            name:"Last Current",              icon:"⏳", cat:"All Modes",   xp:500,   desc:"Win after the End Game card appears." },
+    { id:"tidal_wave",              name:"Tidal Wave",                icon:"🌊", cat:"Casual",      xp:500,   desc:"Score 250+ in Casual with 4+ players." },
+    { id:"golden_grouper",          name:"Golden Grouper",            icon:"🐡", cat:"Rank",        xp:500,   desc:"Reach Golden rank." },
+    { id:"quick_swim",              name:"Quick Swim",                icon:"⚡", cat:"All Modes",   xp:500,   desc:"Complete a 4-player game in under 30 minutes and win." },
+    { id:"i_dont_need_help",        name:"I Don't Need Help",         icon:"🙅", cat:"All Modes",   xp:2000,  desc:"Win a game without manually drawing from the Pool or Deck." },
+    { id:"reef_reunion",            name:"Reef Reunion",              icon:"🤡", cat:"Special",     xp:500,   desc:"Play a Clownfish and Blue Tang on the same Ocean." },
+    { id:"twin_tide_triumph",       name:"Twin Tide Triumph",         icon:"🤝", cat:"Competitive", xp:750,   desc:"Win a Competitive game with both your hands beating your opponent's best." },
+    { id:"nothing_but_deck",        name:"Nothing But Deck",          icon:"🃏", cat:"All Modes",   xp:750,   desc:"Win a game without drawing from the Pool." },
+    { id:"current_controller",      name:"Current Controller",        icon:"🔄", cat:"All Modes",   xp:900,   desc:"Move 15 animals between Oceans in one game." },
+    { id:"tsunami",                 name:"Tsunami",                   icon:"🌊", cat:"Casual",      xp:1000,  desc:"Score 300+ in a Casual game." },
+    { id:"ranked_tsunami",          name:"Ranked Tsunami",            icon:"⚡", cat:"Competitive", xp:1000,  desc:"Score 150+ in one hand in Competitive." },
+    { id:"shoot_the_moon",          name:"Shoot the Moon",            icon:"🌙", cat:"Special",     xp:1000,  desc:"Have all 4 Mandarin Gobies on the board in one game." },
+    { id:"diamond_dolphin",         name:"Diamond Dolphin",           icon:"💎", cat:"Rank",        xp:1000,  desc:"Reach Diamond rank." },
+    { id:"back_to_back_diver",      name:"Back-to-Back Diver",        icon:"🤿", cat:"All Modes",   xp:1000,  desc:"Win without using the Pool in both a Casual and Competitive game back to back." },
+    { id:"board_fixer",             name:"Board Fixer",               icon:"🔧", cat:"All Modes",   xp:1000,  desc:"Move an animal on your final turn and win." },
+    { id:"first_ocean_master",      name:"First Ocean Master",        icon:"🌐", cat:"All Modes",   xp:1000,  desc:"Win once with every Ocean type as your first Ocean." },
+    { id:"circle_of_life",          name:"Circle of Life",            icon:"♻️", cat:"All Modes",   xp:1000,  desc:"Win with 8 different species on your board." },
+    { id:"shot_the_moon",           name:"Shot the Moon",             icon:"🌕", cat:"Special",     xp:1500,  desc:"Discard or clear a Goby after someone else has 3 Mandarin Gobies." },
+    { id:"reef_rally",              name:"Reef Rally",                icon:"🐠", cat:"Friends",     xp:1500,  desc:"Add 15 friends." },
+    { id:"emerald_emperor_penguin", name:"Emerald Emperor Penguin",   icon:"🐧", cat:"Rank",        xp:1500,  desc:"Reach Emerald rank." },
+    { id:"no_star_needed",          name:"No Star Needed",            icon:"✨", cat:"All Modes",   xp:1500,  desc:"Win a game without activating a ★ ability." },
+    { id:"two_handed_tide",         name:"Two-Handed Tide",           icon:"🙌", cat:"Competitive", xp:1500,  desc:"Score 125+ with both hands in one Competitive game." },
+    { id:"hard_choices",            name:"Hard Choices",              icon:"🔀", cat:"All Modes",   xp:1500,  desc:"Discard 100 cards to pay card costs." },
+    { id:"better_spot",             name:"Better Spot",               icon:"📈", cat:"All Modes",   xp:1500,  desc:"Move an animal to a higher-scoring Ocean and win." },
+    { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
+    { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
+    { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
+    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:2000,  desc:"Complete all weekly achievements in one week." },
+    { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
+    { id:"all_blue_master",         name:"All Blue Master",           icon:"🌀", cat:"Strategy",    xp:5000,  desc:"Win using the Ocean-heavy strategy 30 times." },
+    { id:"birds_of_a_feather",      name:"Birds of a feather",        icon:"🦅", cat:"Strategy",    xp:5000,  desc:"Win by only playing birds 15 times." },
+    { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 30 times." },
+    { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"🎣", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 30 times." },
+    { id:"b_lob_master",            name:"B-Lob Master",              icon:"🪺", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 30 times." },
+    { id:"coral_b_master",          name:"Coral-B Master",            icon:"🪸", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 30 times." },
+    { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 30 times." },
+    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 30 games without using a listed strategy." },
+    { id:"king_of_the_critters",    name:"King of the Critters",      icon:"👑", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
+    { id:"message_in_a_bottle",     name:"Message in a Bottle",       icon:"📬", cat:"Hidden",      xp:1500,  desc:"Send 25 messages in one game.", hidden:true },
+    { id:"ive_swum_there",          name:"I've Swum There",           icon:"🗺️", cat:"Hidden",      xp:1500,  desc:"Play with every player count (2–8) in Casual.", hidden:true },
+    { id:"annoying_messenger",      name:"Annoying Messenger",        icon:"📢", cat:"Hidden",      xp:1500,  desc:"Send 20 compliments during one Competitive game.", hidden:true },
   ];
+  // Old achievement id → XP map. Used ONCE by the v2 reset to subtract XP
+  // that was previously granted from achievements so the reset is clean.
+  const _OLD_ACHIEVEMENT_XP_V1 = {
+    first_fin:50, cast_off:50, ranked_waters:50, shoal_formed:100, first_catch:100,
+    making_waves:100, the_all_blue:150, crowded_current:150, duel_in_the_deep:200,
+    humuhumunukuapuaa:250, big_splash:250, tidal_victory:250, host_with_the_most:250,
+    ranked_tidal_wave:250, silver_spiny_lobster:250, one_ocean_wonder:250, full_boat:300,
+    tidal_wave:500, golden_grouper:500, last_current:500, twin_tide_triumph:750,
+    nothing_but_deck:750, current_controller:900, shoot_the_moon:1000, tsunami:1000,
+    ranked_tsunami:1000, diamond_dolphin:1000, back_to_back_diver:1000, shot_the_moon:1500,
+    reef_rally:1500, emerald_emperor_penguin:1500, close_current:2000, reef_regular:2000,
+    reef_veteran:4000, king_of_the_critters:10000, message_in_a_bottle:1000,
+    ive_swum_there:1000, annoying_messenger:1500,
+  };
 
   // Per-game achievement tracker (reset each game session by window.__fishResetGameAchTracker)
-  let _gameAchTracker = {
-    roomId: null,
-    usedPool: false,
-    animalMoves: 0,
-    chatMsgs: 0,
-    compChatMsgs: 0,
-    endGameSeen: false,
-    starsActivated: 0,           // ★ ability uses this game (for star_surfer / no_star_needed)
-    lastNoPoolMode: null, // "casual"|"comp"|null — for back-to-back tracker
-    noPoolCasualDone: false,
-    noPoolCompDone: false,
-    gotAllGobies: false,  // true if viewer had all 4 Mandarin Gobies on board in this game
-  };
-  window.__fishResetGameAchTracker = function(newRoomId) {
-    _gameAchTracker = {
+  function _freshGameAchTracker(newRoomId) {
+    return {
       roomId: newRoomId || null,
-      usedPool: false,
+      usedPool: false,             // drew from the Pool (manual)
+      manualDeckDraw: false,       // drew from the Deck (manual) — for I Don't Need Help
       animalMoves: 0,
       chatMsgs: 0,
       compChatMsgs: 0,
+      compCompliments: 0,          // positive/compliment messages this comp game (annoying_messenger)
       endGameSeen: false,
-      starsActivated: 0,
-      lastNoPoolMode: null,
+      starsActivated: 0,           // ★ ability uses this game (no_star_needed / star challenges)
+      lastNoPoolMode: null,        // "casual"|"comp"|null — for back-to-back tracker
       noPoolCasualDone: false,
       noPoolCompDone: false,
-      gotAllGobies: false,
+      gotAllGobies: false,         // had all 4 Mandarin Gobies on board this game (shoot_the_moon)
+      reefReunion: false,          // Clownfish + Blue Tang on the same Ocean (reef_reunion)
+      movedDuringEndgame: false,   // moved an animal after End Game appeared (board_fixer)
+      betterSpot: false,           // a move increased my score (better_spot)
+      cephThisTurn: 0,             // cephalopods placed in the current turn
+      maxCephInTurn: 0,            // max cephalopods placed in a single turn (humuhumunukuapuaa)
     };
+  }
+  let _gameAchTracker = _freshGameAchTracker(null);
+  window.__fishResetGameAchTracker = function(newRoomId) {
+    const prev = _gameAchTracker || {};
+    _gameAchTracker = _freshGameAchTracker(newRoomId);
+    // Preserve cross-game back-to-back state.
+    _gameAchTracker.noPoolCasualDone = !!prev.noPoolCasualDone;
+    _gameAchTracker.noPoolCompDone   = !!prev.noPoolCompDone;
   };
   window.__fishGetGameAchTracker = function() { return _gameAchTracker; };
+  // Expose level helpers so the achievement reset migration can recompute
+  // level fields after subtracting old achievement XP.
+  window.__fishLevelFromXp   = (totalXp) => getLevelProgressFromTotalXp(totalXp);
+  window.__fishStoredTotalXp = (stats) => getStoredTotalXp(stats);
 
   // ═══════════════════════════════════════════════════════════════
   // AUTH / PROFILE / FRIENDS SYSTEM
@@ -17707,6 +17859,8 @@
           const profile = await loadProfile(user.uid);
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
+          // One-time achievement system v2 reset (clears old unlocks + XP).
+          try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
           $a("auth-loading-screen").classList.add("hidden");
           const hasNickname = hasStoredNickname(profile);
           const hasAvatar = hasStoredSelectableAvatar(profile);
@@ -19133,6 +19287,10 @@
       if (changed) {
         _saveDailyState(state);
         if (_csView === "daily") renderChallengeStrip();
+        // Achievement daily_tide_sweep: all 3 active daily slots completed.
+        if (state.slots.length === 3 && state.slots.every(s => s.completedAt)) {
+          try { window.__fishUnlockAchievementById?.("daily_tide_sweep"); } catch {}
+        }
       }
     }
     window._reportDailyChallengeProgress = reportDailyChallengeProgress;
@@ -19352,6 +19510,10 @@
           // Tide Sweep panel on the right side shows live count even on
           // the Daily view, so re-render the reward area at minimum.
           renderChallengeStrip();
+        }
+        // Achievement weekly_tide_sweep: all 5 weekly slots completed.
+        if (state.slots.length === 5 && state.slots.every(s => s.completedAt)) {
+          try { window.__fishUnlockAchievementById?.("weekly_tide_sweep"); } catch {}
         }
       }
     }
@@ -20576,6 +20738,66 @@
       }
     }
 
+    // ── Achievement system v2 full reset (one-time per user) ───────
+    // Wipes every player's old achievement records + progress, and removes
+    // the XP that was previously granted from achievements so the reset is
+    // clean. Runs once per account (guarded by stats.achievements_reset_v2),
+    // then the new 58-achievement set earns normally from scratch.
+    const _ACH_RESET_MARKER = 2;
+    async function runAchievementResetIfNeeded(uid, profile) {
+      if (!_db || !uid) return;
+      // Brand-new accounts (no Firestore doc yet) have no old achievement data
+      // to clear — skip so we never wipe freshly-earned v2 unlocks before the
+      // reset marker can be written.
+      if (!profile) return;
+      try {
+        const stats = (profile && typeof profile.stats === "object") ? profile.stats : {};
+        if (Number(stats.achievements_reset_v2 || 0) >= _ACH_RESET_MARKER) return; // already reset
+        const oldAchs = (profile && profile.achievements && typeof profile.achievements === "object")
+          ? profile.achievements : {};
+        // Sum XP previously granted from completed OLD achievements.
+        let oldXp = 0;
+        for (const [id, rec] of Object.entries(oldAchs)) {
+          if (rec && rec.completed && _OLD_ACHIEVEMENT_XP_V1[id]) {
+            oldXp += Number(_OLD_ACHIEVEMENT_XP_V1[id]) || 0;
+          }
+        }
+        const curTotalXp = (typeof window.__fishStoredTotalXp === "function")
+          ? Number(window.__fishStoredTotalXp(stats)) : Number(stats.total_xp || 0);
+        const newTotalXp = Math.max(0, curTotalXp - oldXp);
+
+        const updates = {
+          "achievements": {},                       // clear all unlocks + progress + dates
+          "stats.achievements_reset_v2": _ACH_RESET_MARKER,
+          "stats.total_xp": newTotalXp,
+        };
+        // Recompute level fields from the corrected total XP.
+        if (typeof window.__fishLevelFromXp === "function") {
+          const lp = window.__fishLevelFromXp(newTotalXp);
+          updates["stats.level"]            = lp.level;
+          updates["stats.player_level"]     = lp.level;
+          updates["stats.xp_current"]       = lp.xpCurrent;
+          updates["stats.level_xp_current"] = lp.xpCurrent;
+          updates["stats.xp_goal"]          = lp.xpGoal;
+          updates["stats.level_xp_goal"]    = lp.xpGoal;
+        }
+        await _db.collection("users").doc(uid).update(updates);
+        _userAchievements = {};
+        _achLoadedUid = uid;
+        if (profile) { profile.achievements = {}; if (profile.stats) { profile.stats.achievements_reset_v2 = _ACH_RESET_MARKER; profile.stats.total_xp = newTotalXp; } }
+        // Defensive: remove any legacy achievement caches from local storage.
+        try {
+          for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && /^cc_ach/i.test(k)) localStorage.removeItem(k);
+          }
+        } catch {}
+      } catch (e) {
+        console.warn("[achievements] v2 reset error:", e);
+      }
+    }
+    window.__fishRunAchievementReset = runAchievementResetIfNeeded;
+
     async function unlockAchievement(uid, achId) {
       if (!_db || !uid || !achId) return;
       if (_userAchievements[achId] && _userAchievements[achId].completed) return; // already done
@@ -20622,6 +20844,49 @@
       return !!(_userAchievements[achId] && _userAchievements[achId].completed);
     }
 
+    // Cumulative progress bump: add `inc` to an achievement's stored progress
+    // and unlock when it reaches `goal`. Progress persists in the achievement
+    // record itself (achievements.{id}.progress).
+    async function bumpAchievementProgress(uid, achId, inc, goal) {
+      if (!_db || !uid || !achId) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (_isDone(achId)) return;
+      const rec = _userAchievements[achId] || {};
+      const cur = Number(rec.progress || 0) + (Number(inc) || 1);
+      await updateAchievementProgress(uid, achId, cur, goal);
+    }
+    window.__fishBumpAchievement = (achId, inc, goal) => {
+      const uid = _authUser?.uid;
+      if (!uid) return;
+      return bumpAchievementProgress(uid, achId, inc, goal).catch(() => {});
+    };
+
+    // First Ocean Master: accumulate the SET of distinct first-Ocean types won
+    // with. Stored as achievements.first_ocean_master.oceanTypes (array).
+    async function addFirstOceanWin(uid, oceanType) {
+      if (!_db || !uid || !oceanType) return;
+      if (_achLoadedUid !== uid) await loadUserAchievements(uid);
+      if (_isDone("first_ocean_master")) return;
+      const rec = _userAchievements["first_ocean_master"] || {};
+      const set = new Set(Array.isArray(rec.oceanTypes) ? rec.oceanTypes : []);
+      set.add(String(oceanType).toLowerCase());
+      const arr = [...set];
+      const newRec = { ...rec, progress: arr.length, goal: 8, oceanTypes: arr };
+      _userAchievements["first_ocean_master"] = newRec;
+      try {
+        await _db.collection("users").doc(uid).update({ "achievements.first_ocean_master": newRec });
+      } catch(e) { console.warn("[achievements] addFirstOceanWin error:", e); }
+      if (arr.length >= 8) await unlockAchievement(uid, "first_ocean_master");
+    }
+
+    // Unlock an achievement by id, resolving the current uid internally.
+    // Used by the challenge system for the Tide Sweep meta-achievements.
+    window.__fishUnlockAchievementById = (achId) => {
+      const uid = _authUser?.uid;
+      if (!uid) return;
+      return unlockAchievement(uid, achId).catch(() => {});
+    };
+
     // Rank tier mapping to achievement ids
     const RANK_ACH_MAP = [
       { tier: "Silver",  achId: "silver_spiny_lobster" },
@@ -20654,6 +20919,13 @@
       // Ranked Tsunami: score 150+ in one hand
       if (!_isDone("ranked_tsunami") && myBest >= 150) await unlockAchievement(uid, "ranked_tsunami");
 
+      // Two-Handed Tide: score 125+ with BOTH of my hands in one comp game
+      if (!_isDone("two_handed_tide")) {
+        const myBestH   = amP1 ? p1Best   : p2Best;
+        const mySecondH = amP1 ? p1Second : p2Second;
+        if (myBestH >= 125 && mySecondH >= 125) await unlockAchievement(uid, "two_handed_tide");
+      }
+
       // Twin Tide Triumph: win with both hands > opponent's best
       if (!_isDone("twin_tide_triumph") && iWon) {
         const mySecond = amP1 ? p1Second : p2Second;
@@ -20668,8 +20940,8 @@
         if (myScore - oppScore <= 5) await unlockAchievement(uid, "close_current");
       }
 
-      // Annoying Messenger (hidden): 25+ comp chat messages in one game
-      if (!_isDone("annoying_messenger") && _gameAchTracker.compChatMsgs >= 25) {
+      // Annoying Messenger (hidden): 20 compliments in one Competitive game
+      if (!_isDone("annoying_messenger") && _gameAchTracker.compCompliments >= 20) {
         await unlockAchievement(uid, "annoying_messenger");
       }
     }
@@ -20724,7 +20996,8 @@
       }
     }
 
-    async function checkAchievementsAfterGame({ isComp, isWinner, myScore, playerCount, finalScores, boardSnaps, uid }) {
+    async function checkAchievementsAfterGame({ isComp, isWinner, myScore, playerCount, finalScores, boardSnaps, uid,
+        hadBots = false, gameMinutes = 0, distinctSpecies = 0, firstOceanType = "", strategy = "", birdOnly = false, iShotTheMoon = false }) {
       if (!uid) return;
       if (_achLoadedUid !== uid) await loadUserAchievements(uid);
       const tracker = _gameAchTracker;
@@ -20745,14 +21018,8 @@
         // Big Splash: 150+ with 4+ players
         if (!_isDone("big_splash") && myScore >= 150 && playerCount >= 4) await unlockAchievement(uid, "big_splash");
 
-        // Tidal Victory: win by 50+
-        if (!_isDone("tidal_victory") && isWinner) {
-          const scores = (finalScores || []).map(p => Number(p.score || 0)).sort((a,b)=>b-a);
-          if (scores.length >= 2 && scores[0] - scores[1] >= 50) await unlockAchievement(uid, "tidal_victory");
-        }
-
-        // Full Boat: 8-player casual
-        if (!_isDone("full_boat") && playerCount >= 8) await unlockAchievement(uid, "full_boat");
+        // Full Boat: 8-player casual with all real players (no bots)
+        if (!_isDone("full_boat") && playerCount >= 8 && !hadBots) await unlockAchievement(uid, "full_boat");
 
         // Tidal Wave: 250+ with 4+
         if (!_isDone("tidal_wave") && myScore >= 250 && playerCount >= 4) await unlockAchievement(uid, "tidal_wave");
@@ -20786,6 +21053,66 @@
           tracker.noPoolCompDone = true;
           if (tracker.noPoolCasualDone) await unlockAchievement(uid, "back_to_back_diver");
         }
+      }
+
+      // Humuhumunukuapua'a: 5 cephalopods placed in one turn
+      if (!_isDone("humuhumunukuapuaa") && Number(tracker.maxCephInTurn || 0) >= 5) {
+        await unlockAchievement(uid, "humuhumunukuapuaa");
+      }
+
+      // Quick Swim: 4-player game finished in under 30 min and won
+      if (!_isDone("quick_swim") && isWinner && playerCount === 4
+          && Number(gameMinutes) > 0 && Number(gameMinutes) < 30) {
+        await unlockAchievement(uid, "quick_swim");
+      }
+
+      // I Don't Need Help: win without manually drawing from the Pool OR Deck
+      if (!_isDone("i_dont_need_help") && isWinner && !tracker.usedPool && !tracker.manualDeckDraw) {
+        await unlockAchievement(uid, "i_dont_need_help");
+      }
+
+      // Reef Reunion: Clownfish + Blue Tang on the same Ocean
+      if (!_isDone("reef_reunion") && tracker.reefReunion) await unlockAchievement(uid, "reef_reunion");
+
+      // Board Fixer: moved an animal on the final turn (end-game window) and won
+      if (!_isDone("board_fixer") && isWinner && tracker.movedDuringEndgame) await unlockAchievement(uid, "board_fixer");
+
+      // Better Spot: a move raised my score and I won
+      if (!_isDone("better_spot") && isWinner && tracker.betterSpot) await unlockAchievement(uid, "better_spot");
+
+      // No Star Needed: win without activating any ★ ability
+      if (!_isDone("no_star_needed") && isWinner && Number(tracker.starsActivated || 0) === 0) {
+        await unlockAchievement(uid, "no_star_needed");
+      }
+
+      // Circle of Life: win with 8+ distinct species on my board
+      if (!_isDone("circle_of_life") && isWinner && Number(distinctSpecies) >= 8) {
+        await unlockAchievement(uid, "circle_of_life");
+      }
+
+      // Shot the Moon: I discarded/cleared a Goby after someone else had 3 Gobies
+      if (!_isDone("shot_the_moon") && iShotTheMoon) await unlockAchievement(uid, "shot_the_moon");
+
+      // First Ocean Master: accumulate first-Ocean types won with (8 total)
+      if (isWinner && firstOceanType) await addFirstOceanWin(uid, firstOceanType);
+
+      // Strategy-master cumulative wins (and Off-Meta / Birds of a feather)
+      if (isWinner) {
+        const STRAT_TO_ACH = {
+          "Ocean All Blue":         { id: "all_blue_master",         goal: 30 },
+          "Mammals":                { id: "mammal_pod_master",       goal: 30 },
+          "Baitfish Barrage":       { id: "baitfish_barrage_master", goal: 30 },
+          "Bird/Lobster (B-Lob)":   { id: "b_lob_master",            goal: 30 },
+          "Bird/Coral (B-Coral)":   { id: "coral_b_master",          goal: 30 },
+          "Coral/Cephalopods (CC)": { id: "c_c_master",              goal: 30 },
+        };
+        const LISTED = new Set(Object.keys(STRAT_TO_ACH));
+        const hit = STRAT_TO_ACH[strategy];
+        if (hit) await bumpAchievementProgress(uid, hit.id, 1, hit.goal);
+        // Off-Meta Master: win using a strategy NOT in the listed combos
+        if (!LISTED.has(strategy)) await bumpAchievementProgress(uid, "off_meta_master", 1, 30);
+        // Birds of a feather: win with a bird-only board
+        if (birdOnly) await bumpAchievementProgress(uid, "birds_of_a_feather", 1, 15);
       }
 
       // One Ocean Wonder: all oceans same type — check boardSnaps
@@ -20823,13 +21150,20 @@
 
       // Reset per-game fields so the next game starts clean.
       // Preserve noPoolCasualDone / noPoolCompDone for back-to-back tracking across games.
-      _gameAchTracker.usedPool       = false;
-      _gameAchTracker.animalMoves    = 0;
-      _gameAchTracker.chatMsgs       = 0;
-      _gameAchTracker.compChatMsgs   = 0;
-      _gameAchTracker.endGameSeen    = false;
-      _gameAchTracker.starsActivated = 0;
-      _gameAchTracker.gotAllGobies   = false;
+      _gameAchTracker.usedPool          = false;
+      _gameAchTracker.manualDeckDraw    = false;
+      _gameAchTracker.animalMoves       = 0;
+      _gameAchTracker.chatMsgs          = 0;
+      _gameAchTracker.compChatMsgs      = 0;
+      _gameAchTracker.compCompliments   = 0;
+      _gameAchTracker.endGameSeen       = false;
+      _gameAchTracker.starsActivated    = 0;
+      _gameAchTracker.gotAllGobies      = false;
+      _gameAchTracker.reefReunion       = false;
+      _gameAchTracker.movedDuringEndgame= false;
+      _gameAchTracker.betterSpot        = false;
+      _gameAchTracker.cephThisTurn      = 0;
+      _gameAchTracker.maxCephInTurn     = 0;
     }
 
     // Expose achievement functions to outer scope
