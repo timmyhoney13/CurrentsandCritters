@@ -10622,6 +10622,10 @@
           // flag when a Turtle was played (its ability chains extra card plays).
           _gameAchTracker.cardsPlayedThisTurn = (_gameAchTracker.cardsPlayedThisTurn || 0) + 1;
           if (invName === "loggerhead sea turtle") _gameAchTracker.turtlePlayedThisTurn = true;
+          // Hermit Crab — its ability lets you play baitfish for free this turn.
+          // Flag the Hermit Crab play and count Bait Fish played this turn.
+          if (invName === "hermit crab") _gameAchTracker.hermitUsedThisTurn = true;
+          if (invSpecies === "baitfish") _gameAchTracker.baitFishThisTurn = (_gameAchTracker.baitFishThisTurn || 0) + 1;
         } catch {}
 
         const dir = String(action.face_direction || "").toLowerCase();
@@ -11120,6 +11124,11 @@
           _gameAchTracker.turtleBigChains = (_gameAchTracker.turtleBigChains || 0) + 1;
         _gameAchTracker.turtlePlayedThisTurn = false;
         _gameAchTracker.cardsPlayedThisTurn = 0;
+        // Hermit Crab: a qualifying turn is a Hermit Crab turn with 6+ Bait Fish played.
+        if (_gameAchTracker.hermitUsedThisTurn && Number(_gameAchTracker.baitFishThisTurn || 0) >= 6)
+          _gameAchTracker.hermitSixBaitDone = true;
+        _gameAchTracker.hermitUsedThisTurn = false;
+        _gameAchTracker.baitFishThisTurn = 0;
         _prevCurrentPlayer = curP;
 
         // Draw notification: when turn changes, show what the PREVIOUS player did
@@ -15406,11 +15415,11 @@
       // ── My board analysis (for Game Fish avatar unlocks) ───────────
       // nameCount: count of each card name on my board.
       // fullOceans: oceans with all four directional slots occupied.
-      const nameCount = {}; let fullOceans = 0, oceanCount = 0, oceansExactlyOne = 0;
+      const nameCount = {}; let fullOceans = 0, oceanCount = 0, oceansExactlyOne = 0, maxLobstersOneOcean = 0;
       try {
         const myP = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
         for (const ocean of (Array.isArray(myP?.board) ? myP.board : [])) {
-          let occupiedDirs = 0, oceanAnimals = 0;
+          let occupiedDirs = 0, oceanAnimals = 0, oceanLobsters = 0;
           for (const dir of ["up","down","left","right"]) {
             const cards = Array.isArray(ocean[dir]) ? ocean[dir] : [];
             if (cards.length) occupiedDirs++;
@@ -15418,11 +15427,13 @@
             for (const c of cards) {
               const nm = String(c.name || "").trim().toLowerCase();
               if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1;
+              if (nm === "lobster") oceanLobsters++;
             }
           }
           if (occupiedDirs === 4) fullOceans++;
           oceanCount++;
           if (oceanAnimals === 1) oceansExactlyOne++;
+          if (oceanLobsters > maxLobstersOneOcean) maxLobstersOneOcean = oceanLobsters;
         }
       } catch {}
       const allOceansExactlyOne = oceanCount > 0 && oceansExactlyOne === oceanCount;
@@ -15726,6 +15737,19 @@
         // Whale Shark — all four Whale Sharks on my board in one game.
         if (Number(nameCount["whale shark"] || 0) >= 4
             && await window.__fishGrantUnlockedIcon?.("/avatars/whale-shark.png")) _queueAnimalUnlock("whale-shark");
+
+        // ── Crustaceans ────────────────────────────────────────────
+        // King Crab — reach Level 60. (Mantis Shrimp = quick_swim achievement,
+        // Spiny Lobster = Silver rank: both auto-granted via their hooks.)
+        if (lvl >= 60 && await window.__fishGrantUnlockedIcon?.("/avatars/king-crab.png")) _queueAnimalUnlock("king-crab");
+        // Lobster — 6 Lobsters stacked on the same Ocean in one game.
+        if (maxLobstersOneOcean >= 6
+            && await window.__fishGrantUnlockedIcon?.("/avatars/lobster.png")) _queueAnimalUnlock("lobster");
+        // Hermit Crab — a turn with a Hermit Crab + 6 Bait Fish played. Flush the
+        // final turn too (no turn-boundary fires after the game's last turn).
+        const _hermitDone = _gameAchTracker?.hermitSixBaitDone
+          || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6);
+        if (_hermitDone && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       console.warn("Could not save game stats:", e);
@@ -16765,6 +16789,23 @@
     { id:"whale-shark", name:"Whale Shark", species:"Crosscurrent", img:"/avatars/whale-shark.png",
       facts:"Whale sharks are the world's largest living fish, growing up to 40 feet or more and weighing up to 20 tons. Despite their intimidating name and massive mouths, these gentle ocean giants are harmless filter feeders that dine almost exclusively on tiny plankton and small fish.",
       unlock:{ type:"event", event:"all_whale_sharks", label:"Get all four Whale Sharks in one game." } },
+
+    // ── Crustaceans ──────────────────────────────────────────────
+    { id:"mantis-shrimp", name:"Mantis Shrimp", species:"Crustaceans", img:"/avatars/mantis-shrimp.png",
+      facts:"Mantis Shrimp deliver a punch that accelerates at roughly 80 kilometers per hour, moving fifty times faster than the blink of an eye. Their strike is so forceful that it causes cavitation, a phenomenon where the surrounding water boils and implodes. This implosion generates a secondary shockwave that produces heat, light, and a loud bang.",
+      unlock:{ type:"achievement", achId:"quick_swim", label:"Complete Quick Swim, complete a 4-player game in under 30 minutes and win." } },
+    { id:"spiny-lobster", name:"Spiny Lobster", species:"Crustaceans", img:"/avatars/spiny-lobster.png",
+      facts:"In the Florida Keys and other regions, they march across the ocean floor in single-file lines of up to 50 lobsters to find deeper water or warmer temperatures.",
+      unlock:{ type:"rank", tier:"silver", label:"Reach Silver rank in Competitive." } },
+    { id:"lobster", name:"Lobster", species:"Crustaceans", img:"/avatars/lobster.png",
+      facts:"In the wild, lobsters are usually dark blue, mottled green, or brown. They only turn their iconic red hue when boiled because heat breaks down the dark proteins, revealing a hidden, heat-stable red pigment.",
+      unlock:{ type:"event", event:"lobster_stack_6", label:"Stack 6 Lobsters on the same Ocean in one game." } },
+    { id:"king-crab", name:"King Crab", species:"Crustaceans", img:"/avatars/king-crab.png",
+      facts:"Because they are genetically related to hermit crabs, their claws aren't a matching pair. Their right claw is significantly larger and is used to crush food, while the left is used to tear it apart.",
+      unlock:{ type:"level", goal:60, label:"Reach Level 60." } },
+    { id:"hermit-crab", name:"Hermit Crab", species:"Crustaceans", img:"/avatars/hermit-crab.png",
+      facts:"Hermit crabs sometimes participate in \"vacancy chains\". When a new, highly desirable shell washes up, crabs will line up in order of size. Once a crab moves into the new, larger shell, its old shell is passed down to the next crab in line.",
+      unlock:{ type:"event", event:"hermit_six_bait", label:"Use the Hermit Crab ability and play 6 Bait Fish in one turn." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -16971,6 +17012,9 @@
       turtlePlayedThisTurn: false, // a Loggerhead Sea Turtle was played in the current turn
       cardsPlayedThisTurn: 0,      // animal cards I played in the current turn (Loggerhead chain length)
       turtleBigChains: 0,          // finished turns with a Turtle + 10+ cards played (Loggerhead avatar)
+      hermitUsedThisTurn: false,   // a Hermit Crab was played in the current turn (opens free-baitfish window)
+      baitFishThisTurn: 0,         // Bait Fish I played in the current turn
+      hermitSixBaitDone: false,    // a turn with a Hermit Crab + 6 Bait Fish played (Hermit Crab avatar)
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
