@@ -3824,7 +3824,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         if parsed.path.startswith("/avatars/"):
             avatar_name = os.path.basename(parsed.path)
-            if not re.fullmatch(r"avatar-\d{2}\.png", avatar_name):
+            # Animal avatar icons: lowercase letters/digits/-/_ + .png. basename()
+            # plus this character class prevent any directory traversal.
+            if not re.fullmatch(r"[a-z0-9_-]+\.png", avatar_name):
                 self._send_json({"ok": False, "error": "invalid avatar path"}, status=HTTPStatus.BAD_REQUEST)
                 return
             avatar_path = os.path.join(AVATAR_DIR, avatar_name)
