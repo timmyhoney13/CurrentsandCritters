@@ -10423,6 +10423,8 @@
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
         _gameAchTracker.manualDeckDraw = true;
+        // Peruvian Pelican avatar: cumulative deck draws (1 card per deck draw).
+        _gameAchTracker.deckDraws = (_gameAchTracker.deckDraws || 0) + 1;
       }
       // Hard Choices (cumulative): discard cards to pay card costs — bump by the
       // number of payment cards spent this action.
@@ -10540,6 +10542,16 @@
 
       // ── Surface / Floor streak hooks ──────────────────────────────
       if (action.kind === "play_to_ocean") {
+        // Razorbill Auk avatar: play both Razorbill Auks in the same turn.
+        try {
+          const playedName = String(handEntryMap.get(Number(action.card_uid))?.name || "").trim().toLowerCase();
+          if (playedName === "razorbill auk") {
+            _gameAchTracker.razorbillThisTurn = (_gameAchTracker.razorbillThisTurn || 0) + 1;
+            if (_gameAchTracker.razorbillThisTurn >= 2 && typeof window.__fishGrantUnlockedIcon === "function") {
+              if (await window.__fishGrantUnlockedIcon("/avatars/razorbill-auk.png")) _queueAnimalUnlock("razorbill-auk");
+            }
+          }
+        } catch {}
         const dir = String(action.face_direction || "").toLowerCase();
         if (dir === "up") {
           _chObsSurfaceStreak++;
@@ -11157,6 +11169,8 @@
         banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
       } else if (isReplayTurn) {
         banner.textContent = "★ PLAY AGAIN — take another turn! ★";
+        // Horned Puffin avatar: count each new Play Again turn.
+        if (!_prevReplayTurn && _gameAchTracker) _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses || 0) + 1;
       } else {
         banner.textContent = "✦  YOUR CURRENT  ✦";
       }
@@ -11176,6 +11190,8 @@
       endBtn.classList.remove("pulse-glow");
     }
     _prevTurnIdx = state.turn_index;
+    // Razorbill Auk avatar: the "same turn" window ends when it's no longer my turn.
+    if (!isMyTurn && _gameAchTracker) _gameAchTracker.razorbillThisTurn = 0;
     checkCompHandSwitch(payload);
 
     // status bar
@@ -12978,6 +12994,12 @@
     const navEl = document.getElementById("tut-nav"), finishEl = document.getElementById("tut-finish-btns");
     if (step.isFinish) {
       navEl.style.display = "none"; finishEl.style.display = "flex";
+      // Osprey avatar: completing the tutorial.
+      try {
+        (async () => {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/osprey.png")) _queueAnimalUnlock("osprey");
+        })();
+      } catch {}
     } else {
       navEl.style.display = "flex"; finishEl.style.display = "none";
       document.getElementById("tut-back-btn").disabled = (n === 0);
@@ -13039,6 +13061,8 @@
     document.getElementById("pv-tutorial").classList.remove("active");
     tutState = null;
     tutClearHighlights();
+    // Surface the Osprey unlock (if the tutorial was just completed).
+    setTimeout(() => { try { _showNextAnimalUnlock(); } catch {} }, 500);
   }
 
   // ── COMPETITIVE MODE ─────────────────────────────────────────────
@@ -15326,6 +15350,11 @@
           "stats.last_game_xp": xpAward,
           "stats.recent_games": nextRecent,
         };
+        // Lifetime counters for animal avatar unlocks (Pelican / Puffin).
+        if (Number(_gameAchTracker?.deckDraws || 0) > 0)
+          updates["stats.lifetime_deck_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.deckDraws));
+        if (Number(_gameAchTracker?.playAgainUses || 0) > 0)
+          updates["stats.lifetime_play_again"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.playAgainUses));
         if (isWinner) {
           // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
           if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
@@ -15378,6 +15407,9 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
+        // Lifetime counters for animal avatar unlocks (Pelican / Puffin).
+        nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
+        nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
         if (isWinner && !isComp) {
@@ -15461,6 +15493,16 @@
         const postCompWins = Number(cStats?.lifetime_comp_wins || 0) + ((isComp && isWinner) ? 1 : 0);
         if (postCompWins >= 20) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/bunker.png")) _queueAnimalUnlock("bunker");
+        }
+        // Peruvian Pelican — 300 lifetime deck draws (pre-game total + this game).
+        const postDeckDraws = Number(cStats?.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
+        if (postDeckDraws >= 300) {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/peruvian-pelican.png")) _queueAnimalUnlock("peruvian-pelican");
+        }
+        // Horned Puffin — 75 lifetime Play Again uses (pre-game total + this game).
+        const postPlayAgain = Number(cStats?.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
+        if (postPlayAgain >= 75) {
+          if (await window.__fishGrantUnlockedIcon?.("/avatars/horned-puffin.png")) _queueAnimalUnlock("horned-puffin");
         }
       } catch (e) { /* non-fatal */ }
     } catch(e) {
@@ -16372,6 +16414,32 @@
     { id:"bonito", name:"Bonito", species:"Bait Fish", img:"/avatars/bonito.png",
       facts:"The word bonito comes from Spanish, where the adjective translates to \"pretty,\" though its exact linguistic origin as a fish name is tied to medieval Latin (boniton).",
       unlock:{ type:"event", event:"good_game_final_turn", label:"Type “good game” in the chat when all players are on their final turn." } },
+
+    // ── Birds ────────────────────────────────────────────────────
+    { id:"emperor-penguin", name:"Emperor Penguin", species:"Birds", img:"/avatars/emperor-penguin.png",
+      facts:"They can dive over 1,500 feet deep.",
+      unlock:{ type:"achievement", achId:"birds_of_a_feather", label:"Complete Birds of a Feather — win 15 games using only Bird cards." } },
+    { id:"horned-puffin", name:"Horned Puffin", species:"Birds", img:"/avatars/horned-puffin.png",
+      facts:"Puffins can hold multiple fish at once, averaging 10, but a record-breaking puffin once managed to carry 62.",
+      unlock:{ type:"stat", stat:"lifetime_play_again", goal:75, unit:"Play Again abilities", label:"Use Play Again abilities 75 total times." } },
+    { id:"california-gull", name:"California Gull", species:"Birds", img:"/avatars/california-gull.png",
+      facts:"Young California Gulls practice catching food by dropping sticks midair and swooping down to catch them.",
+      unlock:{ type:"achievement", achId:"b_lob_master", label:"Complete B-Lob Master — win using Bird/Lobster 30 times." } },
+    { id:"peruvian-pelican", name:"Peruvian Pelican", species:"Birds", img:"/avatars/peruvian-pelican.png",
+      facts:"Their flexible throat pouch acts as a massive fishing net. It can hold several gallons of water at a time. Once a fish is caught, the pelican squeezes the water out and swallows its prey whole.",
+      unlock:{ type:"stat", stat:"lifetime_deck_draws", goal:300, unit:"cards drawn from the deck", label:"Draw 300 total cards from the deck." } },
+    { id:"great-albatross", name:"Great Albatross", species:"Birds", img:"/avatars/great-albatross.png",
+      facts:"Possesses the largest wingspans of any living bird (up to 11 feet).",
+      unlock:{ type:"achievement", achId:"all_blue_master", label:"Complete All Blue Master — win using the Ocean-heavy strategy 30 times." } },
+    { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
+      facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
+      unlock:{ type:"event", event:"tutorial_complete", label:"Complete the tutorial." } },
+    { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
+      facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
+      unlock:{ type:"achievement", achId:"c_c_master", label:"Complete C-C Master — win using Coral/Cephalopods 30 times." } },
+    { id:"razorbill-auk", name:"Razorbill Auk", species:"Birds", img:"/avatars/razorbill-auk.png",
+      facts:"Chicks leap from cliffside nests before they can fly, then swim with their parents to learn how to forage.",
+      unlock:{ type:"event", event:"razorbill_double", label:"Play both Razorbill Auks in the same turn." } },
   ];
   const DEFAULT_AVATAR_IMG = "/avatars/mullet.png";
   const _animalByImg = {}, _animalById = {};
@@ -16379,18 +16447,20 @@
   function animalByImg(img){ return _animalByImg[String(img||"").trim().toLowerCase()] || null; }
   function animalById(id){ return _animalById[id] || null; }
   function animalFacts(a){ return (a && a.facts) ? a.facts : "Fun facts coming soon."; }
-  // Numeric unlock progress (0..1) for stat-based animals; null for event/secret.
+  // Numeric unlock progress (0..1) for stat-based animals; null for event/achievement.
   function animalUnlockProgress(a, stats, level){
     const u = a && a.unlock; if (!u) return null;
     if (u.type === "starter")   return 1;
     if (u.type === "level")     return Math.min(1, Number(level||0) / (u.goal||1));
     if (u.type === "comp_wins") return Math.min(1, Number(stats?.lifetime_comp_wins||0) / (u.goal||1));
+    if (u.type === "stat")      return Math.min(1, Number(stats?.[u.stat]||0) / (u.goal||1));
     return null;
   }
   function animalProgressText(a, stats, level){
     const u = a && a.unlock; if (!u) return "";
     if (u.type === "level")     return `Level ${Number(level||0)} / ${u.goal}`;
     if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
+    if (u.type === "stat")      return `${Number(stats?.[u.stat]||0)} / ${u.goal}${u.unit ? " " + u.unit : ""}`;
     return "";
   }
 
@@ -16542,6 +16612,9 @@
       betterSpot: false,           // a move increased my score (better_spot)
       cephThisTurn: 0,             // cephalopods placed in the current turn
       maxCephInTurn: 0,            // max cephalopods placed in a single turn (humuhumunukuapuaa)
+      deckDraws: 0,                // cards drawn from the Deck this game (Peruvian Pelican avatar)
+      playAgainUses: 0,            // Play Again abilities triggered this game (Horned Puffin avatar)
+      razorbillThisTurn: 0,        // Razorbill Auks played in the current turn (Razorbill Auk avatar)
     };
   }
   let _gameAchTracker = _freshGameAchTracker(null);
@@ -21208,6 +21281,15 @@
       }
 
       _queueAchPopup(def);
+      // Grant any animal avatar tied to this achievement (queued for the
+      // post-game unlock screen).
+      try {
+        for (const an of ANIMAL_AVATARS) {
+          if (an.unlock && an.unlock.type === "achievement" && an.unlock.achId === achId) {
+            if (await window.__fishGrantUnlockedIcon(an.img)) window.__fishQueueAnimalUnlock?.(an.id);
+          }
+        }
+      } catch (_) {}
       // Re-render achievements page if visible
       if (typeof renderPhAchievements === "function") {
         try { renderPhAchievements(); } catch(_) {}
@@ -21607,11 +21689,16 @@
     window.__fishSyncStatUnlocks = async () => {
       const { stats, level } = _avatarStatsAndLevel();
       const newly = [];
+      // Make sure achievements are loaded so already-earned achievement-based
+      // unlocks (e.g. Birds of a Feather) are granted retroactively.
+      if (_authUser && _achLoadedUid !== _authUser.uid) { try { await loadUserAchievements(_authUser.uid); } catch {} }
       for (const a of ANIMAL_AVATARS) {
         const u = a.unlock; if (!u) continue;
         let met = false;
-        if (u.type === "level")     met = level >= (u.goal || Infinity);
-        else if (u.type === "comp_wins") met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
+        if (u.type === "level")            met = level >= (u.goal || Infinity);
+        else if (u.type === "comp_wins")   met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
+        else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
+        else if (u.type === "achievement") met = _isDone(u.achId);
         if (met && !isAvatarUnlocked(a.img)) {
           if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
         }
