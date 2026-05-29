@@ -20037,61 +20037,6 @@
       startTutorial();
     });
 
-    // ── Practice vs AI quick-start ────────────────────────────────
-    $a("stats-practice-btn").addEventListener("click", async () => {
-      const btn = $a("stats-practice-btn");
-      btn.disabled = true;
-      btn.querySelector("span").textContent = "Starting…";
-      const name = (window.__fishNickname && window.__fishNickname()) || "Player";
-      const rid = Math.random().toString(36).slice(2,7).toUpperCase();
-      const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-      try { localStorage.setItem(createKeyKey(), createKey); } catch {}
-      const cr = await apiPost("/api/rooms", {
-        create_key: createKey, host_name: name, room_id: rid,
-        total_players: 2, human_players: 1, ai_players: 1,
-        replace_active: false, visibility: "public",
-      }, { timeoutMs: 10000 });
-      if (!cr.ok) {
-        // If there's already an active room, force-replace it so Practice always works
-        if (cr.data?.active_room_id) {
-          const cr2 = await apiPost("/api/rooms", {
-            create_key: createKey, host_name: name, room_id: rid,
-            total_players: 2, human_players: 1, ai_players: 1,
-            replace_active: true, visibility: "public",
-          }, { timeoutMs: 10000 });
-          if (!cr2.ok) {
-            showToast("Couldn't start practice game. Try again.", "warn");
-            btn.disabled = false;
-            btn.querySelector("span").textContent = "Practice vs AI";
-            return;
-          }
-          const rId = normalizeRoomId(cr2.data?.room_id || rid);
-          roomId = rId;
-          if (cr2.data?.host_token) setHostToken(cr2.data.host_token);
-          if (cr2.data?.seat_token) setSeatToken(cr2.data.seat_token);
-        } else {
-          showToast("Couldn't start practice game: " + (cr.data?.error || ""), "warn");
-          btn.disabled = false;
-          btn.querySelector("span").textContent = "Practice vs AI";
-          return;
-        }
-      } else {
-        const rId = normalizeRoomId(cr.data?.room_id || rid);
-        roomId = rId;
-        if (cr.data?.host_token) setHostToken(cr.data.host_token);
-        if (cr.data?.seat_token) setSeatToken(cr.data.seat_token);
-      }
-      // Open the waiting room so the host can pick each bot's difficulty
-      // (Easy / Medium / Hard) before clicking Start. The lobby "Start Game"
-      // button will fire the actual /start call once the host is ready.
-      document.getElementById("pv-my-name-badge").textContent = name;
-      btn.disabled = false;
-      btn.querySelector("span").textContent = "Practice vs AI";
-      _myRoomVisibility = "public"; _myRoomCode = "";
-      enterRoom(roomId);
-      showWaitingRoom(roomId, true);
-    });
-
     // ── Leaderboard button — switches to the in-game leaderboard tab ─
     const lbBtn = $a("stats-leaderboard-btn");
     if (lbBtn) lbBtn.addEventListener("click", () => {
