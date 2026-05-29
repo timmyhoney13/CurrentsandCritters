@@ -8285,30 +8285,6 @@
             <div class="ph-scard" id="ph-comp-no-king" style="display:none;border:1px dashed rgba(34,120,240,.25);">
               <div style="padding:10px 14px;font-size:12px;color:rgba(22,70,160,.6);text-align:center;">No King of the Critters yet this season.</div>
             </div>
-            <!-- Action cards -->
-            <div class="ph-scard">
-              <div class="ph-sh"><div class="ph-st">⚔️ Ranked Play</div></div>
-              <div style="padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px;">
-                <button class="ph-action-card ph-action-gold" id="ph-comp-play-ranked-btn" style="width:100%;">
-                  <div class="ph-action-icon ph-ai-gold">
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M5 5l12 12M17 5L5 17M13 2l6 6M3 14l6 6" stroke="#d9a12b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                  </div>
-                  <div class="ph-action-copy">
-                    <div class="ph-action-label">Play Ranked 1v1</div>
-                    <div class="ph-action-sub">Earn CP · climb the ladder</div>
-                  </div>
-                </button>
-                <button class="ph-action-card" id="ph-comp-lb-view-btn" style="width:100%;">
-                  <div class="ph-action-icon ph-ai-blue">
-                    <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L11 14.4l-4.8 2.5.9-5.4L3.2 7.7l5.4-.8L11 2z" stroke="#1c82d6" stroke-width="1.8" stroke-linejoin="round"/></svg>
-                  </div>
-                  <div class="ph-action-copy">
-                    <div class="ph-action-label">Leaderboard</div>
-                    <div class="ph-action-sub">See the top ranked players</div>
-                  </div>
-                </button>
-              </div>
-            </div>
             <!-- Recent competitive games -->
             <div class="ph-scard">
               <div class="ph-sh">
@@ -9203,7 +9179,7 @@
 <div id="new-current-modal">
   <div id="new-current-box">
     <button id="nc-close" aria-label="Close">✕</button>
-    <h2>🌊 New Current</h2>
+    <h2 id="nc-modal-title">🌊 New Current</h2>
 
     <div class="nc-fields-row">
       <div class="nc-field">
@@ -10616,11 +10592,14 @@
 
 
   // ── New Current Modal ──────────────────────────────────────────
-  function openNewCurrentModal() {
+  function openNewCurrentModal(opts) {
+    const competitive = !!(opts && opts.competitive);
     document.getElementById("nc-current-err").textContent = "";
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
+    const titleEl = document.getElementById("nc-modal-title");
+    if (titleEl) titleEl.textContent = competitive ? "🌊 New Competitive Current" : "🌊 New Current";
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -19877,7 +19856,7 @@
     });
 
     $a("stats-comp-btn").addEventListener("click", () => {
-      compOpenOverlay();
+      openNewCurrentModal({ competitive: true });
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
