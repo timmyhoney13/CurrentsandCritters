@@ -4261,36 +4261,6 @@
       color: #4b6f94;
       line-height: 1.2;
     }
-    .ph-practice-btn {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      padding: 13px 18px;
-      border: 1.5px dashed rgba(44,197,185,.55);
-      border-radius: 14px;
-      background: rgba(44,197,185,.06);
-      color: #1a8080;
-      cursor: pointer;
-      transition: background .15s, border-color .15s, transform .12s;
-      font-family: "Nunito", sans-serif;
-    }
-    .ph-practice-btn:hover {
-      background: rgba(44,197,185,.12);
-      border-color: rgba(44,197,185,.85);
-      transform: translateY(-1px);
-    }
-    .ph-practice-btn svg { flex-shrink: 0; opacity: .85; }
-    .ph-practice-btn span:first-of-type {
-      font-size: 1rem;
-      font-weight: 800;
-      color: #157070;
-    }
-    .ph-practice-sub {
-      font-size: .82rem;
-      color: #4a9090;
-      margin-left: auto;
-    }
 
     .stats-join-row {
       display: none;
@@ -5950,12 +5920,6 @@
     }
     #ph-panel-overview .ph-side > .ph-scard {
       min-height: 0;
-    }
-    /* Hide the Practice vs AI quick-button on the Overview tab so
-       Quick Stats can fill the screen without scrolling. The button
-       still exists for other tabs that need it. */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-practice-btn {
-      display: none;
     }
     /* Compact spacing for the Overview tab so 6x2 stats fit cleanly */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
@@ -7967,13 +7931,6 @@
         </div>
       </button>
     </div>
-
-    <!-- Practice vs AI quick-start -->
-    <button class="ph-practice-btn" id="stats-practice-btn">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="8" r="4.5" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M17 6l1.5-1.5M19 8h1.5M17.5 10l1 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-      <span>Practice vs AI</span>
-      <span class="ph-practice-sub">Quick 1v1 — starts instantly</span>
-    </button>
 
     <!-- Join row (quick-join, toggled open by JS) -->
     <div class="stats-join-row" id="stats-join-row">
@@ -17707,7 +17664,7 @@
     { id:"board_fixer",             name:"Board Fixer",               icon:"🔧", cat:"All Modes",   xp:1000,  desc:"Move an animal on your final turn and win." },
     { id:"first_ocean_master",      name:"First Ocean Master",        icon:"🌐", cat:"All Modes",   xp:1000,  desc:"Win once with every Ocean type as your first Ocean." },
     { id:"circle_of_life",          name:"Circle of Life",            icon:"♻️", cat:"All Modes",   xp:1000,  desc:"Win with 8 different species on your board." },
-    { id:"shot_the_moon",           name:"Shot the Moon",             icon:"🌕", cat:"Special",     xp:1500,  desc:"Discard or clear a Goby after someone else has 3 Mandarin Gobies." },
+    { id:"shot_the_moon",           name:"Shot the Moon",             icon:"🌕", cat:"Special",     xp:1500,  desc:"Clear the pool while one of your cards is a Mandarin Goby, and another player has the other 3 Mandarin Gobies on their board." },
     { id:"reef_rally",              name:"Reef Rally",                icon:"🐠", cat:"Friends",     xp:1500,  desc:"Add 15 friends." },
     { id:"emerald_emperor_penguin", name:"Emerald Emperor Penguin",   icon:"🐧", cat:"Rank",        xp:1500,  desc:"Reach Emerald rank." },
     { id:"no_star_needed",          name:"No Star Needed",            icon:"✨", cat:"All Modes",   xp:1500,  desc:"Win a game without activating a ★ ability." },
@@ -17717,7 +17674,7 @@
     { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
     { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
     { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
-    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:2000,  desc:"Complete all weekly achievements in one week." },
+    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:2000,  desc:"Get all and complete all 58 weekly achievements" },
     { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
     { id:"all_blue_master",         name:"All Blue Master",           icon:"🌀", cat:"Strategy",    xp:5000,  desc:"Win using the Ocean-heavy strategy 30 times." },
     { id:"birds_of_a_feather",      name:"Birds of a feather",        icon:"🦅", cat:"Strategy",    xp:5000,  desc:"Win by only playing birds 15 times." },
