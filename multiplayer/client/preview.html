@@ -19922,8 +19922,8 @@
       const speciesFilter = ($a("av-species-filter") || {}).value || "all";
       const statusFilter  = ($a("av-status-filter")  || {}).value || "all";
 
-      // Non-secret avatars only (secret = hidden easter-egg; no visible progress).
-      const visible = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type !== "secret");
+      // Include all avatars (secrets show with a "Hidden" badge, no progress bar).
+      const visible = ANIMAL_AVATARS.filter(a => !!a.unlock);
 
       const totalCount   = visible.length;
       const unlockedCount = visible.filter(a => isAvatarUnlocked(a.img)).length;
@@ -20011,6 +20011,8 @@
         right.className = "av-right";
         if (unlocked) {
           right.innerHTML = `<div class="av-badge av-badge-done">✓ Unlocked</div>`;
+        } else if (u.type === "secret") {
+          right.innerHTML = `<div class="av-badge av-badge-secret">🔮 Hidden</div>`;
         } else if (u.type === "event" || u.type === "achievement") {
           right.innerHTML = `<div class="av-badge av-badge-locked">Challenge</div>`;
         } else {
