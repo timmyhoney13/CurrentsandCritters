@@ -7604,6 +7604,93 @@
       .gal-tile-img { width: 58px; height: 58px; }
       .gal-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
     }
+
+    /* ── Public Profile Modal ──────────────────────────────────── */
+    #pub-profile-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(8,20,40,.88);
+      backdrop-filter: blur(6px);
+      overflow-y: auto;
+      padding: 20px 16px 40px;
+    }
+    .pub-modal-inner {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    .pub-back-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(38,128,200,.13); border: 1.5px solid rgba(38,128,200,.3);
+      color: #7ecdf5; border-radius: 8px; padding: 7px 14px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      margin-bottom: 18px; transition: background .15s;
+    }
+    .pub-back-btn:hover { background: rgba(38,128,200,.22); }
+    .pub-header {
+      display: flex; align-items: center; gap: 16px;
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px; padding: 16px; margin-bottom: 10px;
+    }
+    .pub-avatar-btn {
+      background: none; border: 2px solid rgba(38,128,200,.4);
+      border-radius: 50%; padding: 3px; cursor: pointer;
+      flex-shrink: 0; transition: border-color .15s;
+    }
+    .pub-avatar-btn:hover { border-color: #2680c8; }
+    .pub-avatar-btn img {
+      width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block;
+    }
+    .pub-header-info { flex: 1; min-width: 0; }
+    .pub-nick { font-size: 20px; font-weight: 800; color: #e8f4ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pub-level-line { font-size: 13px; color: #7ecdf5; margin-top: 3px; }
+    .pub-rank-line { font-size: 13px; color: #f0c040; margin-top: 2px; }
+    .pub-critter-hint {
+      font-size: 12px; color: #7ecdf5; text-align: center;
+      margin-bottom: 14px; opacity: .8;
+    }
+    .pub-stats-title {
+      font-size: 13px; font-weight: 700; color: #7ecdf5;
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px;
+    }
+    .pub-loading, .pub-error {
+      text-align: center; padding: 32px 0; font-size: 14px; color: var(--muted);
+    }
+    .pub-error { color: #c0392b; }
+    /* Critter collection sub-view */
+    .pub-critters-header {
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .pub-critters-header img {
+      width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
+    }
+    .pub-critters-name { font-size: 17px; font-weight: 700; color: #e8f4ff; }
+    .pub-critters-count { font-size: 13px; color: #7ecdf5; margin-top: 2px; }
+    .pub-critters-grid { display: flex; flex-direction: column; gap: 8px; }
+    .pub-av-card {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .pub-av-card.pub-av-unlocked { border-color: rgba(44,197,185,.25); background: rgba(44,197,185,.06); }
+    .pub-av-img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+    .pub-av-info { flex: 1; min-width: 0; }
+    .pub-av-name { font-size: 13px; font-weight: 700; color: #e8f4ff; }
+    .pub-av-species { font-size: 11px; color: #7ecdf5; margin-top: 1px; }
+    .pub-av-req { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .pub-av-badge {
+      flex-shrink: 0; font-size: 11px; font-weight: 600; border-radius: 6px;
+      padding: 3px 8px;
+    }
+    .pub-av-badge-done { background: rgba(44,197,185,.18); color: #2cc5b9; }
+    .pub-av-badge-locked { background: rgba(255,255,255,.07); color: #7390ac; }
+    /* Make ph-fr avatar/name clickable in friends list */
+    .ph-fr-clickable { cursor: pointer; }
+    .ph-fr-clickable:hover { opacity: .82; }
+    /* Make leaderboard player cells clickable */
+    .ph-lb-player-cell.pub-clickable { cursor: pointer; }
+    .ph-lb-player-cell.pub-clickable:hover { opacity: .82; }
   </style>
 </head>
 <body>
@@ -8554,6 +8641,50 @@
       <button class="ph-footer-btn" id="stats-settings-btn">⚙️ Settings</button>
     </div>
 
+  </div>
+</div>
+
+<!-- ══ PUBLIC PROFILE MODAL ═══════════════════════════════════════ -->
+<div id="pub-profile-overlay" style="display:none;" aria-modal="true" role="dialog" aria-label="Public Profile">
+  <!-- Profile stats view -->
+  <div class="pub-modal-inner" id="pub-profile-view">
+    <button class="pub-back-btn" id="pub-close-btn">← Back</button>
+    <div id="pub-loading" class="pub-loading">Loading…</div>
+    <div id="pub-error" class="pub-error" style="display:none;"></div>
+    <div id="pub-content" style="display:none;">
+      <div class="pub-header">
+        <button class="pub-avatar-btn" id="pub-avatar-btn" title="View critter collection" aria-label="View critter collection">
+          <img id="pub-avatar-img" src="/avatars/mullet.png" alt="avatar" loading="lazy">
+        </button>
+        <div class="pub-header-info">
+          <div class="pub-nick" id="pub-nick"></div>
+          <div class="pub-level-line" id="pub-level-line"></div>
+          <div class="pub-rank-line" id="pub-rank-line" style="display:none;"></div>
+        </div>
+      </div>
+      <div class="pub-critter-hint">🐠 Tap avatar to view critter collection</div>
+      <div class="ph-stats-card" style="margin-top:0;">
+        <div class="ph-stats-top">
+          <div class="ph-stats-title">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#2680c8" stroke-width="1.6"/><path d="M5 9l3 3 5-5" stroke="#2680c8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Quick Stats
+          </div>
+        </div>
+        <div class="ph-sg" id="pub-stats-grid"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Critter collection sub-view -->
+  <div class="pub-modal-inner" id="pub-critters-view" style="display:none;">
+    <button class="pub-back-btn" id="pub-critters-back-btn">← Back to Profile</button>
+    <div class="pub-critters-header">
+      <img id="pub-critters-avatar" src="/avatars/mullet.png" alt="avatar" loading="lazy">
+      <div>
+        <div class="pub-critters-name" id="pub-critters-name"></div>
+        <div class="pub-critters-count" id="pub-critters-count"></div>
+      </div>
+    </div>
+    <div class="pub-critters-grid" id="pub-critters-grid"></div>
   </div>
 </div>
 
@@ -19581,9 +19712,9 @@
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' ph-lb-score-cell lb-top' : '';
-          return `<tr class="${meC}">
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19630,9 +19761,9 @@
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
-          return `<tr class="${meC}">
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.cp} CP</td>
             <td class="ph-lb-meta-cell">${escHtmlPH(r.title)}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19680,9 +19811,9 @@
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
-          return `<tr class="${meC}">
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.hand}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19728,9 +19859,9 @@
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
-          return `<tr class="${meC}">
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.pair}</td>
             <td class="ph-lb-meta-cell">${r.stratPair}</td>
@@ -19747,6 +19878,21 @@
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
+
+    // ── Leaderboard: delegated click → public profile ─────────────
+    (function() {
+      ["ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"].forEach(id => {
+        const tb = $a(id);
+        if (!tb) return;
+        tb.addEventListener("click", e => {
+          const cell = e.target.closest(".ph-lb-player-cell.pub-clickable");
+          if (!cell) return;
+          const row = cell.closest("tr[data-uid]");
+          if (!row || !row.dataset.uid) return;
+          openPublicProfile(row.dataset.uid);
+        });
+      });
+    })();
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
@@ -20998,6 +21144,216 @@
       const animalsDone   = allUnlockable.filter(a => isAvatarUnlocked(a.img)).length;
       set("ph-ov-animals", `${animalsDone} / ${allUnlockable.length}`);
     }
+
+    // ── Public Profile Modal ──────────────────────────────────────
+    // View-only: shows another player's public overview stats + critter collection.
+    // Called from Friends list and Leaderboard rows.
+    let _pubProfileData = null; // cached profile for critter view
+
+    function _pubSc(iconHtml, label, value, colorClass) {
+      return `<div class="ph-sc">
+        <div class="ph-sci ${colorClass || "ph-sci-blue"}">${iconHtml}</div>
+        <div class="ph-scl">${escapeHtml(label)}</div>
+        <div class="ph-scv">${escapeHtml(String(value))}</div>
+      </div>`;
+    }
+
+    function _renderPublicStats(profile) {
+      const grid = $a("pub-stats-grid");
+      if (!grid) return;
+      const s = (profile && typeof profile.stats === "object") ? profile.stats : {};
+
+      const totalGames = Math.max(
+        Number(s.completed_games || 0),
+        Object.values(s.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0) +
+        Object.values(s.comp_games_by_size   || {}).reduce((a, n) => a + Number(n || 0), 0)
+      );
+      const normalWins = Number(s.normal_wins || 0);
+      const compWins   = Number(s.competitive_wins || 0);
+      const expTotal   = Number(s.total_wins);
+      const totalWins  = Number.isFinite(expTotal) ? expTotal : normalWins + compWins;
+      const winRate    = totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "—";
+
+      const casualTop  = s.highest_score_normal || s.highest_score || 0;
+      const compTop    = s.highest_score_competitive || 0;
+      const byNormal   = Object.values(s.normal_games_by_size  || {}).reduce((a, n) => a + Number(n || 0), 0);
+      const byComp     = Object.values(s.comp_games_by_size    || {}).reduce((a, n) => a + Number(n || 0), 0);
+      let   compGames  = byComp;
+      const scoreBySize = Object.values(s.total_score_by_size || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
+      const casualGames = byNormal || totalGames - compGames;
+      const avgCasual   = casualGames > 0 && scoreBySize > 0
+        ? Math.round(scoreBySize / Math.max(1, casualGames)) : null;
+
+      const hours = Number(s.hours_played || 0);
+      const strat = s.most_played_strategy || s.favorite_strategy || "—";
+      const mostPCount = getOverallMostPlayedPlayerCountLabel
+        ? getMostPlayedPlayerCountLabel(s) : (s.most_played_player_count ? `${s.most_played_player_count}P` : "—");
+      const compRank   = s.rank_competitive || "No rank yet";
+      const animals    = ANIMAL_AVATARS.filter(a => !!a.unlock);
+      const theirIcons = Array.isArray(profile.unlocked_icons)
+        ? profile.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
+      const animalsDone = animals.filter(a => theirIcons.includes(a.img)).length;
+
+      grid.innerHTML = [
+        _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+          "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
+        _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "—", "ph-sci-purple"),
+        _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "—", "ph-sci-gold"),
+        _pubSc("📈", "Win Rate",      winRate,                           "ph-sci-teal"),
+        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "—","ph-sci-teal"),
+        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "—","ph-sci-blue"),
+        _pubSc("📊", "Avg Casual Score",
+          avgCasual != null && Number.isFinite(avgCasual) ? avgCasual : "—", "ph-sci-gold"),
+        _pubSc("⚔️", "Competitive Rank", compRank,                       "ph-sci-gold"),
+        _pubSc("🏆", "Best Comp Score", compTop > 0 ? compTop : "—",    "ph-sci-purple"),
+        _pubSc("🎮", "Comp Games",    compGames > 0 ? compGames : "—",   "ph-sci-blue"),
+        _pubSc("👥", "Most Played Count", mostPCount,                    "ph-sci-blue"),
+        _pubSc(`<img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;">`,
+          "Most Played Strategy", strat,                                  "ph-sci-blue"),
+        _pubSc("🐠", "Animals Unlocked",
+          `${animalsDone} / ${animals.length}`,                           "ph-sci-teal"),
+      ].join("");
+    }
+
+    function _renderPublicCritters(profile) {
+      const grid = $a("pub-critters-grid");
+      if (!grid) return;
+      const theirIcons = Array.isArray(profile.unlocked_icons)
+        ? profile.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
+      const isUnlocked = img => theirIcons.includes(img);
+      const animals = ANIMAL_AVATARS.filter(a => !!a.unlock);
+      animals.sort((a, b) => (isUnlocked(b.img) ? 1 : 0) - (isUnlocked(a.img) ? 1 : 0));
+      grid.innerHTML = "";
+      animals.forEach(a => {
+        const unlocked = isUnlocked(a.img);
+        const card = document.createElement("div");
+        card.className = "pub-av-card" + (unlocked ? " pub-av-unlocked" : "");
+        const img = document.createElement("img");
+        img.className = "pub-av-img";
+        img.src = a.img; img.alt = a.name; img.loading = "lazy";
+        if (!unlocked) img.style.filter = "grayscale(.55)";
+        const info = document.createElement("div");
+        info.className = "pub-av-info";
+        info.innerHTML = `<div class="pub-av-name">${escapeHtml(a.name)}</div>
+          <div class="pub-av-species">${escapeHtml(a.species || "")}</div>
+          ${!unlocked ? `<div class="pub-av-req">${escapeHtml(a.unlock?.label || "")}</div>` : ""}`;
+        const badge = document.createElement("div");
+        badge.className = "pub-av-badge " + (unlocked ? "pub-av-badge-done" : "pub-av-badge-locked");
+        badge.textContent = unlocked ? "✓ Unlocked" : "Locked";
+        card.appendChild(img); card.appendChild(info); card.appendChild(badge);
+        grid.appendChild(card);
+      });
+    }
+
+    async function openPublicProfile(uid) {
+      if (!uid || !_db) return;
+      const overlay  = $a("pub-profile-overlay");
+      const profView = $a("pub-profile-view");
+      const critView = $a("pub-critters-view");
+      const loading  = $a("pub-loading");
+      const errEl    = $a("pub-error");
+      const content  = $a("pub-content");
+      if (!overlay) return;
+      // Show overlay, profile view
+      overlay.style.display = "";
+      profView.style.display = "";
+      critView.style.display = "none";
+      loading.style.display  = "";
+      errEl.style.display    = "none";
+      content.style.display  = "none";
+      overlay.scrollTop = 0;
+      document.body.style.overflow = "hidden";
+      let profile;
+      try {
+        profile = await loadProfile(uid);
+      } catch (e) {
+        loading.style.display = "none";
+        errEl.style.display   = "";
+        errEl.textContent     = "Could not load profile. Please try again.";
+        return;
+      }
+      if (!profile) {
+        loading.style.display = "none";
+        errEl.style.display   = "";
+        errEl.textContent     = "Profile not found.";
+        return;
+      }
+      _pubProfileData = profile;
+      // Header
+      const avatarUrl = (typeof normalizeAvatarUrl === "function")
+        ? (normalizeAvatarUrl(profile.avatar_url || "") || "/avatars/mullet.png")
+        : (profile.avatar_url || "/avatars/mullet.png");
+      const avatarImg = $a("pub-avatar-img");
+      if (avatarImg) { avatarImg.src = avatarUrl; avatarImg.alt = (profile.nickname || "Player") + " avatar"; }
+      const nickEl = $a("pub-nick");
+      if (nickEl) nickEl.textContent = profile.nickname || "Unknown";
+      let level = 1;
+      try { level = getLevelProgressFromTotalXp(getStoredTotalXp(profile.stats || {})).level; } catch {}
+      const levelEl = $a("pub-level-line");
+      if (levelEl) levelEl.textContent = `Level ${level}`;
+      const rankEl = $a("pub-rank-line");
+      const rankLabel = profile.stats?.rank_competitive;
+      if (rankEl) {
+        if (rankLabel && rankLabel !== "Unranked" && rankLabel !== "No rank yet") {
+          rankEl.textContent = `⚔️ ${rankLabel}`;
+          rankEl.style.display = "";
+        } else {
+          rankEl.style.display = "none";
+        }
+      }
+      // Stats grid
+      _renderPublicStats(profile);
+      // Critters avatar button
+      const critterAvatarImg = $a("pub-critters-avatar");
+      if (critterAvatarImg) { critterAvatarImg.src = avatarUrl; }
+      const crNickEl = $a("pub-critters-name");
+      if (crNickEl) crNickEl.textContent = `${profile.nickname || "Unknown"}'s Critters`;
+      loading.style.display = "none";
+      content.style.display = "";
+    }
+
+    // Wire close / back buttons
+    (function() {
+      const overlay = $a("pub-profile-overlay");
+      const closeBtn = $a("pub-close-btn");
+      const critBackBtn = $a("pub-critters-back-btn");
+      const avatarBtn = $a("pub-avatar-btn");
+      if (closeBtn) closeBtn.addEventListener("click", () => {
+        if (overlay) overlay.style.display = "none";
+        document.body.style.overflow = "";
+        _pubProfileData = null;
+      });
+      if (critBackBtn) critBackBtn.addEventListener("click", () => {
+        $a("pub-critters-view").style.display = "none";
+        $a("pub-profile-view").style.display  = "";
+        if (overlay) overlay.scrollTop = 0;
+      });
+      if (avatarBtn) avatarBtn.addEventListener("click", () => {
+        if (!_pubProfileData) return;
+        const overlay = $a("pub-profile-overlay");
+        const profView = $a("pub-profile-view");
+        const critView = $a("pub-critters-view");
+        profView.style.display = "none";
+        critView.style.display = "";
+        if (overlay) overlay.scrollTop = 0;
+        // Populate critter count
+        const theirIcons = Array.isArray(_pubProfileData.unlocked_icons)
+          ? _pubProfileData.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
+        const animals = ANIMAL_AVATARS.filter(a => !!a.unlock);
+        const done = animals.filter(a => theirIcons.includes(a.img)).length;
+        const countEl = $a("pub-critters-count");
+        if (countEl) countEl.textContent = `${done} / ${animals.length} critters unlocked`;
+        _renderPublicCritters(_pubProfileData);
+      });
+      // Close on overlay background click
+      if (overlay) overlay.addEventListener("click", e => {
+        if (e.target === overlay) {
+          overlay.style.display = "none";
+          document.body.style.overflow = "";
+          _pubProfileData = null;
+        }
+      });
+    })();
 
     // ── Daily / Weekly Challenge Strip ─────────────────────────────
     // DAILY: pool of 50 challenges. Player has 3 active slots. Each slot
@@ -22653,7 +23009,12 @@
         } else {
           statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         }
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
+        // Clicking avatar or name opens public profile
+        const avEl   = d.querySelector(".ph-fr-av");
+        const nameEl = d.querySelector(".ph-fr-name");
+        if (avEl)   { avEl.classList.add("ph-fr-clickable");   avEl.addEventListener("click",   () => openPublicProfile(f.uid)); }
+        if (nameEl) { nameEl.addEventListener("click", () => openPublicProfile(f.uid)); }
         // Wire Spectate button
         const specBtn = d.querySelector(".ph-fr-spectate-btn");
         if (specBtn) specBtn.addEventListener("click", async () => {
