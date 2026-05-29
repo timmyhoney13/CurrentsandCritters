@@ -7361,6 +7361,207 @@
     @media (max-width: 600px) {
       .av-ach-list { max-height: none; }
     }
+
+    /* ════ AVATAR GALLERY (full-screen hero-select) ════════════════ */
+    #avatar-gallery {
+      position: fixed; inset: 0; z-index: 9200; display: none;
+      flex-direction: column;
+      font-family: "Nunito", sans-serif;
+      color: #eaf4ff;
+      background:
+        radial-gradient(ellipse at 50% -8%, rgba(34,216,248,.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 12% 88%, rgba(24,200,168,.12) 0%, transparent 50%),
+        linear-gradient(180deg, #0c2a52 0%, #0a2244 45%, #07182f 100%);
+      overflow: hidden;
+    }
+    #avatar-gallery.open { display: flex; }
+    /* drifting light rays + bubbles */
+    #avatar-gallery::before {
+      content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(120,200,255,.10) 0%, transparent 22%),
+        radial-gradient(circle at 70% 0%, rgba(120,200,255,.08) 0%, transparent 20%);
+    }
+    .gal-header {
+      position: relative; z-index: 2;
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 22px;
+      border-bottom: 1px solid rgba(95,179,214,.22);
+      background: linear-gradient(180deg, rgba(8,28,55,.6), rgba(8,28,55,.2));
+      backdrop-filter: blur(6px);
+      flex-shrink: 0;
+    }
+    .gal-back-btn {
+      flex-shrink: 0;
+      background: rgba(95,179,214,.14); color: #bfe6ff;
+      border: 1.5px solid rgba(95,179,214,.4);
+      border-radius: 10px; padding: 9px 16px;
+      font-weight: 800; font-size: .9rem; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      transition: background .15s, transform .15s;
+    }
+    .gal-back-btn:hover { background: rgba(95,179,214,.26); transform: translateX(-2px); }
+    .gal-hero-avatar {
+      width: 54px; height: 54px; border-radius: 50%;
+      border: 2.5px solid #ffd36b; overflow: hidden; flex-shrink: 0;
+      background: #0e2747; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 16px rgba(255,211,107,.35);
+    }
+    .gal-hero-avatar img { width: 100%; height: 100%; object-fit: contain; }
+    .gal-hero-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+    .gal-title {
+      font-family: "Cinzel", serif; font-size: 1.35rem; font-weight: 900;
+      letter-spacing: 1.5px; color: #ffd36b;
+      text-shadow: 0 0 22px rgba(255,211,107,.4);
+      line-height: 1.1;
+    }
+    .gal-hero-sub { font-size: .82rem; color: #9fc6e8; font-weight: 700; }
+    .gal-hero-sub .gal-hero-name { color: #eaf4ff; }
+    .gal-header-spacer { flex: 1; }
+    .gal-sort-sel {
+      border: 1.5px solid rgba(95,179,214,.4);
+      background: rgba(8,28,55,.7); color: #cfeaff;
+      border-radius: 9px; padding: 8px 30px 8px 12px;
+      font-size: .85rem; font-weight: 700; cursor: pointer;
+      font-family: "Nunito", sans-serif; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237fc0e0'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 11px center;
+    }
+    /* species tabs */
+    .gal-tabs {
+      position: relative; z-index: 2;
+      display: flex; gap: 8px; padding: 12px 22px;
+      overflow-x: auto; flex-shrink: 0;
+      border-bottom: 1px solid rgba(95,179,214,.14);
+      scrollbar-width: thin;
+    }
+    .gal-tab {
+      flex-shrink: 0; white-space: nowrap;
+      background: rgba(95,179,214,.08); color: #9fc6e8;
+      border: 1.5px solid rgba(95,179,214,.2);
+      border-radius: 20px; padding: 7px 16px;
+      font-weight: 800; font-size: .85rem; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      transition: all .15s;
+    }
+    .gal-tab:hover { background: rgba(95,179,214,.18); color: #cfeaff; }
+    .gal-tab.active {
+      background: linear-gradient(135deg, #1ba0d8, #22d8f8); color: #04243c;
+      border-color: #22d8f8; box-shadow: 0 0 14px rgba(34,216,248,.4);
+    }
+    /* body: grid + detail panel */
+    .gal-body {
+      position: relative; z-index: 2;
+      flex: 1; display: flex; min-height: 0;
+    }
+    .gal-grid-wrap { flex: 1; overflow-y: auto; padding: 18px 22px 40px; }
+    .gal-species-section { margin-bottom: 26px; }
+    .gal-species-title {
+      font-family: "Cinzel", serif; font-size: 1.05rem; font-weight: 900;
+      color: #bfe6ff; letter-spacing: .8px; margin-bottom: 12px;
+      padding-bottom: 6px; border-bottom: 1px solid rgba(95,179,214,.2);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .gal-species-count { font-size: .78rem; color: #7fa8cc; font-weight: 700; font-family: "Nunito", sans-serif; }
+    .gal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      gap: 14px;
+    }
+    .gal-tile {
+      position: relative; cursor: pointer;
+      background: rgba(12,40,74,.55);
+      border: 2px solid #ffffff;
+      border-radius: 14px; padding: 10px 8px 9px;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+      transition: transform .14s, box-shadow .14s, border-color .14s;
+    }
+    .gal-tile:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(34,216,248,.22); }
+    .gal-tile.gal-locked { border-color: #1a2c44; background: rgba(8,24,46,.7); }
+    .gal-tile.gal-locked .gal-tile-img { filter: grayscale(.75) brightness(.62); }
+    .gal-tile.gal-selected { border-color: #22d8f8; box-shadow: 0 0 0 2px rgba(34,216,248,.5), 0 6px 20px rgba(34,216,248,.3); }
+    .gal-tile.gal-equipped { border-color: #ffd36b; box-shadow: 0 0 0 2px rgba(255,211,107,.4); }
+    .gal-tile-img {
+      width: 78px; height: 78px; border-radius: 50%;
+      object-fit: contain; background: rgba(255,255,255,.04);
+    }
+    .gal-tile-name {
+      font-size: .82rem; font-weight: 800; color: #eaf4ff; text-align: center;
+      line-height: 1.15; max-width: 100%;
+      overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .gal-tile.gal-locked .gal-tile-name { color: #88a6c4; }
+    .gal-tile-lock {
+      position: absolute; top: 7px; right: 8px;
+      font-size: .82rem; opacity: .85;
+    }
+    .gal-tag {
+      position: absolute; top: 6px; left: 6px;
+      font-size: .62rem; font-weight: 900; letter-spacing: .4px;
+      padding: 2px 7px; border-radius: 7px; text-transform: uppercase;
+    }
+    .gal-tag-equipped { background: #ffd36b; color: #4a2e00; }
+    .gal-tag-new { background: #ff5e7e; color: #fff; box-shadow: 0 0 10px rgba(255,94,126,.6); }
+    /* detail panel */
+    .gal-detail {
+      width: 340px; flex-shrink: 0;
+      border-left: 1px solid rgba(95,179,214,.22);
+      background: linear-gradient(180deg, rgba(10,32,62,.75), rgba(7,22,44,.85));
+      backdrop-filter: blur(8px);
+      overflow-y: auto; padding: 24px 22px;
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    }
+    .gal-detail.gal-detail-empty { justify-content: center; color: #6f93b6; text-align: center; font-size: .92rem; }
+    .gal-detail-img-wrap {
+      position: relative; width: 180px; height: 180px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gal-detail-glow {
+      position: absolute; inset: -4%; border-radius: 50%;
+      background: radial-gradient(circle, rgba(34,216,248,.4), rgba(47,126,224,.12) 50%, transparent 70%);
+      filter: blur(8px); animation: gal-glow-pulse 2.4s ease-in-out infinite;
+    }
+    @keyframes gal-glow-pulse { 0%,100%{transform:scale(.92);opacity:.7;} 50%{transform:scale(1.06);opacity:1;} }
+    .gal-detail-img { position: relative; z-index: 2; width: 84%; height: 84%; object-fit: contain;
+      filter: drop-shadow(0 10px 22px rgba(0,0,0,.5)); }
+    .gal-detail.gal-locked-detail .gal-detail-img { filter: grayscale(.7) brightness(.65) drop-shadow(0 8px 16px rgba(0,0,0,.5)); }
+    .gal-detail-name { font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 900; color: #fff; text-align: center; line-height: 1.1; }
+    .gal-detail-species { font-size: .72rem; color: #8fb8da; text-transform: uppercase; letter-spacing: .12em; font-weight: 800; margin-top: -4px; }
+    .gal-detail-status {
+      font-size: .8rem; font-weight: 800; padding: 4px 12px; border-radius: 8px;
+    }
+    .gal-status-unlocked { background: rgba(45,189,130,.2); color: #6ff0b8; border: 1px solid rgba(45,189,130,.45); }
+    .gal-status-locked  { background: rgba(120,80,255,.16); color: #c9b3ff; border: 1px solid rgba(120,80,255,.4); }
+    .gal-status-equipped { background: rgba(255,211,107,.2); color: #ffe2a0; border: 1px solid rgba(255,211,107,.5); }
+    .gal-detail-facts { font-size: .86rem; color: #c5ddf2; line-height: 1.55; text-align: center; }
+    .gal-detail-reqbox {
+      width: 100%; background: rgba(120,80,255,.1);
+      border: 1px solid rgba(120,80,255,.28); border-radius: 12px; padding: 12px 14px;
+    }
+    .gal-req-label { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #b39aff; margin-bottom: 4px; }
+    .gal-req-text { font-size: .85rem; color: #dcd2ff; line-height: 1.45; }
+    .gal-prog-row { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 5px; }
+    .gal-prog-label { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #b39aff; }
+    .gal-prog-val { font-size: .82rem; font-weight: 800; color: #eaf4ff; }
+    .gal-prog-track { height: 9px; background: rgba(120,80,255,.16); border-radius: 6px; overflow: hidden; border: 1px solid rgba(120,80,255,.22); }
+    .gal-prog-fill { height: 100%; background: linear-gradient(90deg,#7c3aed,#a855f7 55%,#22d8f8); border-radius: 6px; transition: width .5s ease; }
+    .gal-rarity { font-size: .76rem; color: #8fb8da; font-weight: 700; margin-top: 2px; }
+    .gal-equip-q { font-size: .92rem; color: #fff; font-weight: 800; text-align: center; margin-top: 6px; }
+    .gal-equip-row { display: flex; gap: 12px; width: 100%; margin-top: 2px; }
+    .gal-equip-row .pv-btn { flex: 1; }
+    .gal-equip-confirm { font-size: .85rem; font-weight: 800; color: #6ff0b8; text-align: center; }
+    @media (max-width: 760px) {
+      .gal-body { flex-direction: column; }
+      .gal-detail {
+        width: 100%; border-left: none; border-top: 1px solid rgba(95,179,214,.22);
+        max-height: 46%; flex-shrink: 0;
+      }
+      .gal-detail.gal-detail-empty { display: none; }
+      .gal-title { font-size: 1.1rem; }
+      .gal-tile-img { width: 64px; height: 64px; }
+      .gal-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+    }
   </style>
 </head>
 <body>
@@ -7455,6 +7656,34 @@
     <div class="auth-err" id="avatar-modal-err"></div>
     <button class="pv-btn gold full" id="avatar-modal-save-btn">Save Avatar →</button>
     <span class="auth-link" id="avatar-modal-cancel">Cancel</span>
+  </div>
+</div>
+
+<!-- ══ AVATAR GALLERY (full-screen hero-select) ═════════════════════ -->
+<div id="avatar-gallery" aria-hidden="true">
+  <div class="gal-header">
+    <button class="gal-back-btn" id="gal-back-btn">← Back</button>
+    <div class="gal-hero-avatar"><img id="gal-hero-img" src="" alt=""></div>
+    <div class="gal-hero-info">
+      <div class="gal-title">Avatar Gallery</div>
+      <div class="gal-hero-sub"><span class="gal-hero-name" id="gal-hero-name">—</span> · <span id="gal-hero-level">Level 1</span></div>
+    </div>
+    <div class="gal-header-spacer"></div>
+    <select class="gal-sort-sel" id="gal-sort-sel" title="Sort &amp; filter">
+      <option value="all">All</option>
+      <option value="unlocked">Unlocked</option>
+      <option value="locked">Locked</option>
+      <option value="closest">Closest to Unlocking</option>
+      <option value="newest">Newest</option>
+      <option value="rarest">Rarest</option>
+    </select>
+  </div>
+  <div class="gal-tabs" id="gal-tabs"></div>
+  <div class="gal-body">
+    <div class="gal-grid-wrap" id="gal-grid-wrap"></div>
+    <div class="gal-detail gal-detail-empty" id="gal-detail">
+      Select an animal to view details.
+    </div>
   </div>
 </div>
 
@@ -9756,6 +9985,8 @@
     // Hide stats lobby if it's showing
     const statsLobby = document.getElementById("auth-stats-lobby");
     if (statsLobby) statsLobby.classList.remove("visible");
+    const _galEl = document.getElementById("avatar-gallery");
+    if (_galEl) _galEl.classList.remove("open");
     document.getElementById("pv-game").style.display = "flex";
     startSSE();
     startPolling();
@@ -13621,6 +13852,8 @@
     document.getElementById("pv-lobby").style.display = "none";
     const _compStatsLobby = document.getElementById("auth-stats-lobby");
     if (_compStatsLobby) _compStatsLobby.classList.remove("visible");
+    const _galEl2 = document.getElementById("avatar-gallery");
+    if (_galEl2) _galEl2.classList.remove("open");
     document.getElementById("pv-game").style.display = "flex";
     startPolling();
     startThemeSong();
@@ -17111,6 +17344,15 @@
   let _animalUnlockShowing = false;
   function _queueAnimalUnlock(id){
     if (id && animalById(id) && !_pendingAnimalUnlocks.includes(id)) _pendingAnimalUnlocks.push(id);
+    // Flag this avatar as "New" for the Avatar Gallery until the player views it.
+    if (id) {
+      try {
+        const k = "cc_new_avatars";
+        const s = new Set(JSON.parse(localStorage.getItem(k) || "[]"));
+        s.add(id);
+        localStorage.setItem(k, JSON.stringify([...s]));
+      } catch {}
+    }
   }
   function _showNextAnimalUnlock(){
     if (_animalUnlockShowing) return;
@@ -17551,6 +17793,325 @@
         container.appendChild(card);
       });
     }
+
+    // ══════════════════════════════════════════════════════════════
+    // AVATAR GALLERY — full-screen hero-select page
+    // ══════════════════════════════════════════════════════════════
+    const GAL_NEW_KEY = "cc_new_avatars";
+    let _galSpecies = "all";   // active species tab
+    let _galSort    = "all";   // sort/filter dropdown
+    let _galSelectedId = null; // avatar currently shown in detail panel
+
+    function _galGetNewSet() {
+      try { return new Set(JSON.parse(localStorage.getItem(GAL_NEW_KEY) || "[]")); }
+      catch { return new Set(); }
+    }
+    function _galSaveNewSet(set) {
+      try { localStorage.setItem(GAL_NEW_KEY, JSON.stringify([...set])); } catch {}
+    }
+    function _galClearNew(id) {
+      const s = _galGetNewSet();
+      if (s.has(id)) { s.delete(id); _galSaveNewSet(s); }
+    }
+
+    // Species groups, in catalog order (derived dynamically so new species
+    // automatically appear as tabs).
+    function _galSpeciesOrder() {
+      const seen = [];
+      ANIMAL_AVATARS.forEach(a => { if (a.species && !seen.includes(a.species)) seen.push(a.species); });
+      return seen;
+    }
+
+    function _galSeed() {
+      return (!_authUser && _guestSessionActive)
+        ? (_playerNickname || "guest")
+        : (_authUser?.uid || _authUser?.email || _playerNickname || "player");
+    }
+    function _galEquippedImg() {
+      const cur = (!_authUser && _guestSessionActive)
+        ? normalizeAvatarUrl(_guestAvatarUrl || _activeProfile?.avatar_url || "")
+        : normalizeAvatarUrl(_activeProfile?.avatar_url || "");
+      return sanitizeSelectableAvatar(cur, _galSeed());
+    }
+
+    function openAvatarGallery() {
+      const gal = $a("avatar-gallery");
+      if (!gal) return;
+      _galSpecies = "all";
+      _galSort = "all";
+      _galSelectedId = null;
+      const sortSel = $a("gal-sort-sel"); if (sortSel) sortSel.value = "all";
+      try { window.__fishLoadIconCounts?.(); } catch {}
+      _galRenderHeader();
+      _galRenderTabs();
+      _galRenderGrid();
+      _galRenderDetail(null);
+      gal.classList.add("open");
+      gal.setAttribute("aria-hidden", "false");
+    }
+    function closeAvatarGallery() {
+      const gal = $a("avatar-gallery");
+      if (gal) { gal.classList.remove("open"); gal.setAttribute("aria-hidden", "true"); }
+    }
+
+    function _galRenderHeader() {
+      const equipped = _galEquippedImg();
+      const a = animalByImg(equipped);
+      const img = $a("gal-hero-img");
+      if (img) { img.src = equipped; img.alt = a ? a.name : ""; }
+      const nameEl = $a("gal-hero-name");
+      if (nameEl) nameEl.textContent = _playerNickname || (_activeProfile && _activeProfile.nickname) || "Player";
+      const lvlEl = $a("gal-hero-level");
+      if (lvlEl) { const { level } = _avatarStatsAndLevel(); lvlEl.textContent = "Level " + (level || 1); }
+    }
+
+    function _galRenderTabs() {
+      const tabs = $a("gal-tabs");
+      if (!tabs) return;
+      const groups = ["all", ..._galSpeciesOrder()];
+      tabs.innerHTML = "";
+      groups.forEach(g => {
+        const btn = document.createElement("button");
+        btn.className = "gal-tab" + (g === _galSpecies ? " active" : "");
+        btn.textContent = g === "all" ? "All Species" : g;
+        btn.addEventListener("click", () => {
+          _galSpecies = g;
+          _galRenderTabs();
+          _galRenderGrid();
+        });
+        tabs.appendChild(btn);
+      });
+    }
+
+    // Build the {item} list for a set of avatars with computed unlock state.
+    function _galItems(list, stats, level, equipped, newSet, counts) {
+      return list.map(a => {
+        const unlocked = isAvatarUnlocked(a.img);
+        const p = animalUnlockProgress(a, stats, level);
+        return {
+          a, unlocked,
+          equipped: a.img === equipped,
+          isNew: newSet.has(a.id),
+          prog: (p == null ? -1 : p),
+          rarity: Number(counts[a.img] || 0),
+        };
+      });
+    }
+    function _galSortItems(items) {
+      const s = _galSort;
+      return items.slice().sort((x, y) => {
+        // Equipped always first
+        if (x.equipped !== y.equipped) return x.equipped ? -1 : 1;
+        if (s === "newest") {
+          if (x.isNew !== y.isNew) return x.isNew ? -1 : 1;
+        }
+        if (s === "rarest") {
+          // unlocked first, then by fewest owners (rarest) ascending
+          if (x.unlocked !== y.unlocked) return x.unlocked ? -1 : 1;
+          return x.rarity - y.rarity;
+        }
+        if (s === "closest") {
+          if (x.unlocked !== y.unlocked) return x.unlocked ? -1 : 1;
+          return y.prog - x.prog;
+        }
+        // default "all"/"unlocked"/"locked": unlocked first, then closest, then rarer
+        if (x.unlocked !== y.unlocked) return x.unlocked ? -1 : 1;
+        if (!x.unlocked && y.prog !== x.prog) return y.prog - x.prog;
+        return y.rarity - x.rarity;
+      });
+    }
+    function _galPassesFilter(item) {
+      if (_galSort === "unlocked") return item.unlocked;
+      if (_galSort === "locked")   return !item.unlocked;
+      return true;
+    }
+
+    function _galMakeTile(item) {
+      const { a, unlocked, equipped, isNew, prog } = item;
+      const tile = document.createElement("div");
+      tile.className = "gal-tile"
+        + (unlocked ? "" : " gal-locked")
+        + (equipped ? " gal-equipped" : "")
+        + (a.id === _galSelectedId ? " gal-selected" : "");
+      tile.setAttribute("data-avatar-id", a.id);
+
+      const img = document.createElement("img");
+      img.className = "gal-tile-img";
+      img.src = a.img; img.alt = a.name; img.loading = "lazy";
+      tile.appendChild(img);
+
+      const nm = document.createElement("div");
+      nm.className = "gal-tile-name";
+      nm.textContent = a.name;
+      tile.appendChild(nm);
+
+      if (!unlocked) {
+        const lock = document.createElement("div");
+        lock.className = "gal-tile-lock"; lock.textContent = "🔒";
+        tile.appendChild(lock);
+      }
+      if (equipped) {
+        const tag = document.createElement("div");
+        tag.className = "gal-tag gal-tag-equipped"; tag.textContent = "Equipped";
+        tile.appendChild(tag);
+      } else if (isNew && unlocked) {
+        const tag = document.createElement("div");
+        tag.className = "gal-tag gal-tag-new"; tag.textContent = "New";
+        tile.appendChild(tag);
+      }
+
+      tile.addEventListener("click", () => {
+        _galSelectedId = a.id;
+        if (isNew) _galClearNew(a.id);
+        _galRenderGrid();
+        _galRenderDetail(a.id);
+      });
+      return tile;
+    }
+
+    function _galRenderGrid() {
+      const wrap = $a("gal-grid-wrap");
+      if (!wrap) return;
+      const { stats, level } = _avatarStatsAndLevel();
+      const equipped = _galEquippedImg();
+      const newSet = _galGetNewSet();
+      const counts = _iconUnlockCounts || {};
+      wrap.innerHTML = "";
+
+      const renderSection = (titleText, avatars) => {
+        let items = _galItems(avatars, stats, level, equipped, newSet, counts).filter(_galPassesFilter);
+        if (!items.length) return;
+        items = _galSortItems(items);
+        const section = document.createElement("div");
+        section.className = "gal-species-section";
+        if (titleText) {
+          const title = document.createElement("div");
+          title.className = "gal-species-title";
+          const unlockedN = items.filter(i => i.unlocked).length;
+          title.innerHTML = `${escapeHtml(titleText)} <span class="gal-species-count">${unlockedN} / ${items.length} unlocked</span>`;
+          section.appendChild(title);
+        }
+        const grid = document.createElement("div");
+        grid.className = "gal-grid";
+        items.forEach(it => grid.appendChild(_galMakeTile(it)));
+        section.appendChild(grid);
+        wrap.appendChild(section);
+      };
+
+      if (_galSpecies === "all") {
+        // Show every species group with its own titled section.
+        _galSpeciesOrder().forEach(sp => {
+          renderSection(sp, ANIMAL_AVATARS.filter(a => a.species === sp));
+        });
+      } else {
+        renderSection(_galSpecies, ANIMAL_AVATARS.filter(a => a.species === _galSpecies));
+      }
+
+      if (!wrap.children.length) {
+        wrap.innerHTML = '<div style="color:#7fa8cc;text-align:center;padding:48px 0;font-size:.95rem;">No avatars match this filter.</div>';
+      }
+    }
+
+    function _galRenderDetail(id) {
+      const panel = $a("gal-detail");
+      if (!panel) return;
+      const a = id ? animalById(id) : null;
+      if (!a) {
+        panel.className = "gal-detail gal-detail-empty";
+        panel.innerHTML = "Select an animal to view details.";
+        return;
+      }
+      const { stats, level } = _avatarStatsAndLevel();
+      const unlocked = isAvatarUnlocked(a.img);
+      const equipped = a.img === _galEquippedImg();
+      const counts = _iconUnlockCounts || {};
+      const ownerCount = Number(counts[a.img] || 0);
+
+      panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
+
+      let html = "";
+      html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${a.img}" alt="${escapeHtml(a.name)}"></div>`;
+      html += `<div class="gal-detail-name">${escapeHtml(a.name)}</div>`;
+      html += `<div class="gal-detail-species">${escapeHtml(a.species || "")}</div>`;
+
+      if (equipped) {
+        html += `<div class="gal-detail-status gal-status-equipped">★ Currently Equipped</div>`;
+      } else if (unlocked) {
+        html += `<div class="gal-detail-status gal-status-unlocked">✓ Unlocked</div>`;
+      } else {
+        html += `<div class="gal-detail-status gal-status-locked">🔒 Locked</div>`;
+      }
+
+      html += `<div class="gal-detail-facts">${escapeHtml(animalFacts(a))}</div>`;
+
+      if (!unlocked) {
+        html += `<div class="gal-detail-reqbox">`;
+        html += `<div class="gal-req-label">Unlock Requirement</div>`;
+        html += `<div class="gal-req-text">${escapeHtml(a.unlock?.label || "Locked.")}</div>`;
+        const prog = animalUnlockProgress(a, stats, level);  // 0..1 or null
+        const ptext = animalProgressText(a, stats, level);
+        if (prog !== null && ptext) {
+          const pct = Math.round(prog * 100);
+          html += `<div class="gal-prog-row"><span class="gal-prog-label">Progress</span><span class="gal-prog-val">${escapeHtml(ptext)} · ${pct}%</span></div>`;
+          html += `<div class="gal-prog-track"><div class="gal-prog-fill" style="width:${pct}%"></div></div>`;
+        }
+        html += `</div>`;
+      }
+
+      if (ownerCount > 0) {
+        html += `<div class="gal-rarity">🌐 Owned by ${ownerCount.toLocaleString()} player${ownerCount === 1 ? "" : "s"}</div>`;
+      }
+
+      // Equip controls (unlocked + not already equipped)
+      if (unlocked && !equipped) {
+        html += `<div class="gal-equip-q">Do you want to equip this avatar?</div>`;
+        html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-equip-no">No</button><button class="pv-btn gold" id="gal-equip-yes">Yes</button></div>`;
+      }
+
+      panel.innerHTML = html;
+
+      const yesBtn = $a("gal-equip-yes");
+      if (yesBtn) yesBtn.addEventListener("click", async () => {
+        yesBtn.disabled = true;
+        try {
+          await applyAvatarSelection(a.img);
+          _galRenderHeader();
+          _galRenderGrid();
+          // Re-render detail to show "Currently Equipped" + confirmation
+          _galRenderDetail(a.id);
+          const p = $a("gal-detail");
+          if (p) {
+            const note = document.createElement("div");
+            note.className = "gal-equip-confirm";
+            note.textContent = "✓ Avatar equipped!";
+            p.appendChild(note);
+          }
+        } catch (e) {
+          yesBtn.disabled = false;
+        }
+      });
+      const noBtn = $a("gal-equip-no");
+      if (noBtn) noBtn.addEventListener("click", () => {
+        _galSelectedId = null;
+        _galRenderGrid();
+        _galRenderDetail(null);
+      });
+    }
+
+    // Wire gallery controls
+    (function wireGallery() {
+      const back = $a("gal-back-btn");
+      if (back) back.addEventListener("click", closeAvatarGallery);
+      const sortSel = $a("gal-sort-sel");
+      if (sortSel) sortSel.addEventListener("change", () => {
+        _galSort = sortSel.value || "all";
+        _galRenderGrid();
+      });
+      const gal = $a("avatar-gallery");
+      if (gal) document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && gal.classList.contains("open")) closeAvatarGallery();
+      });
+    })();
 
     document.addEventListener("error", (ev) => {
       const target = ev && ev.target;
@@ -19176,14 +19737,14 @@
     if (statsAvatarBtn) {
       statsAvatarBtn.addEventListener("click", () => {
         if (_authUser || _guestSessionActive) {
-          openAvatarPickerModal({ required: false, guestMode: !_authUser });
+          openAvatarGallery();
         }
       });
       statsAvatarBtn.addEventListener("keydown", (e) => {
         if (!_authUser && !_guestSessionActive) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          openAvatarPickerModal({ required: false, guestMode: !_authUser });
+          openAvatarGallery();
         }
       });
     }
