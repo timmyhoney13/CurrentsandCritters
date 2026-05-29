@@ -21186,8 +21186,9 @@
 
       const hours = Number(s.hours_played || 0);
       const strat = s.most_played_strategy || s.favorite_strategy || "—";
-      const mostPCount = getOverallMostPlayedPlayerCountLabel
-        ? getMostPlayedPlayerCountLabel(s) : (s.most_played_player_count ? `${s.most_played_player_count}P` : "—");
+      let mostPCount = "—";
+      try { mostPCount = getMostPlayedPlayerCountLabel(s) || "—"; }
+      catch { mostPCount = s.most_played_player_count ? `${s.most_played_player_count}P` : "—"; }
       const compRank   = s.rank_competitive || "No rank yet";
       const animals    = ANIMAL_AVATARS.filter(a => !!a.unlock);
       const theirIcons = Array.isArray(profile.unlocked_icons)
