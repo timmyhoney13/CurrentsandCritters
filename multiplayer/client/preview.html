@@ -1652,7 +1652,6 @@
     .pv-toast.toast-ok    { border-left-color: var(--green); }
     .pv-toast.toast-warn  { border-left-color: var(--gold); }
     .pv-toast.toast-err   { border-left-color: var(--red); }
-    .pv-toast.toast-turn  { border-left-color: var(--gold); color: var(--gold); font-family: "Cinzel", serif; letter-spacing: 1px; }
 
     /* ── WAITING ROOM OVERLAY ──────────────────────────────────── */
     #pv-waiting-room {
@@ -12092,14 +12091,6 @@
         banner.textContent = "✦  YOUR TURN  ✦";
       }
       endBtn.classList.add("pulse-glow");
-      if (!isReplayTurn && compMode) {
-        const activeSeat = Number(payload.active_action_seat);
-        if (_compPrevActiveSeat !== activeSeat) {
-          const handNum = compMySeats.indexOf(activeSeat) + 1;
-          const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
-          showToast(`${myName} — Hand ${handNum} — your turn!`, "turn");
-        }
-      }
       _prevReplayTurn = isReplayTurn;
     } else {
       banner.className = "their-turn";
