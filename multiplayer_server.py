@@ -2245,6 +2245,19 @@ class GameRoom:
                         gs.__dict__.update(gs_restore.__dict__)
                         ms.__dict__.clear()
                         ms.__dict__.update(ms_restore.__dict__)
+                        # After restoring gs, `player` still references the
+                        # pre-restore PlayerState object — it is no longer in
+                        # gs.players. Sync the restored player's data into the
+                        # same object and put it back into gs.players so that
+                        # any subsequent apply_action(gs, ms, player, …) in the
+                        # outer engine loop writes to the right player.
+                        try:
+                            restored_p = gs.players[gs.turn_index]
+                            player.__dict__.clear()
+                            player.__dict__.update(restored_p.__dict__)
+                            gs.players[gs.turn_index] = player
+                        except Exception:
+                            pass
                         with self.cond:
                             self.undo_requested = False
                             self.undo_valid = False
