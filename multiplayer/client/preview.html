@@ -10547,6 +10547,17 @@
     document.getElementById("nc-visibility").value = "public";
     const titleEl = document.getElementById("nc-modal-title");
     if (titleEl) titleEl.textContent = _ncIsCompetitive ? "🌊 New Competitive Current" : "🌊 New Current";
+    const totalEl = document.getElementById("nc-total");
+    const aiEl    = document.getElementById("nc-ai");
+    // Competitive: lock to exactly 2 humans, 0 AI. Hide the player-count
+    // fields so the host can't change them; only Privacy stays editable.
+    if (_ncIsCompetitive) {
+      if (totalEl) { totalEl.value = "2"; totalEl.disabled = true; }
+      if (aiEl)    { aiEl.value = "0";    aiEl.disabled = true; }
+    } else {
+      if (totalEl) totalEl.disabled = false;
+      if (aiEl)    aiEl.disabled = false;
+    }
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -10572,8 +10583,9 @@
     const btn = document.getElementById("nc-create-btn");
     const errEl = document.getElementById("nc-current-err");
     const name = (window.__fishNickname && window.__fishNickname()) || "Host";
-    const human = Math.max(1, Number(document.getElementById("nc-total").value) || 2);
-    const ai    = Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
+    // Competitive games are always 2 humans, 0 AI regardless of what the inputs say.
+    const human = _ncIsCompetitive ? 2 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
+    const ai    = _ncIsCompetitive ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
     const visibility = document.getElementById("nc-visibility").value;
     let password = "";
