@@ -679,6 +679,133 @@ class GameRoom:
         # AI speed: "slow" | "normal" | "fast". Host can change mid-game.
         self.ai_speed: str = "normal"
 
+        # ── Spectator mode ──────────────────────────────────────────
+        # allow_spectators: True by default for public rooms; private rooms default False.
+        self.allow_spectators: bool = (visibility == "public")
+        # spectators: token → {"name": str, "joined_unix": int}
+        self.spectators: Dict[str, Dict[str, Any]] = {}
+        # kick votes: spectator_token → set of voter seat indices
+        self._spectator_kick_votes: Dict[str, set] = {}
+
+    # ── Spectator helpers ────────────────────────────────────────────
+    def spectator_join(self, name: str) -> Dict[str, Any]:
+        """Add a spectator. Returns {ok, spectator_token} or {ok:False, error}."""
+        name = str(name or "Spectator").strip()[:32] or "Spectator"
+        with self.cond:
+            if not self.allow_spectators:
+                return {"ok": False, "error": "Spectators are not allowed in this game."}
+            if self.phase not in ("lobby", "running"):
+                return {"ok": False, "error": "Game is not active."}
+            token = secrets.token_urlsafe(18)
+            self.spectators[token] = {"name": name, "joined_unix": now_unix()}
+            self._add_system_chat(f"{name} joined as a spectator.")
+            self._bump_locked()
+        return {"ok": True, "spectator_token": token, "name": name}
+
+    def spectator_leave(self, token: str) -> Dict[str, Any]:
+        with self.cond:
+            spec = self.spectators.pop(token, None)
+            self._spectator_kick_votes.pop(token, None)
+            if spec:
+                self._add_system_chat(f"{spec['name']} left spectator mode.")
+                self._bump_locked()
+        return {"ok": True}
+
+    def spectator_kick_vote(self, voter_seat_index: int, target_token: str) -> Dict[str, Any]:
+        with self.cond:
+            if target_token not in self.spectators:
+                return {"ok": False, "error": "Spectator not found."}
+            votes = self._spectator_kick_votes.setdefault(target_token, set())
+            votes.add(voter_seat_index)
+            human_count = sum(1 for s in self.seats if s.kind == "human" and s.claimed_name)
+            needed = max(1, (human_count + 1) // 2)  # ceil(50%)
+            if len(votes) >= needed:
+                spec = self.spectators.pop(target_token, None)
+                self._spectator_kick_votes.pop(target_token, None)
+                if spec:
+                    self._add_system_chat(f"{spec['name']} was removed from spectator mode by vote.")
+                    self._bump_locked()
+                return {"ok": True, "kicked": True, "name": spec["name"] if spec else ""}
+            spec_name = self.spectators[target_token]["name"]
+            self._bump_locked()
+        return {"ok": True, "kicked": False, "votes": len(votes), "needed": needed, "name": spec_name}
+
+    def spectator_list(self) -> List[Dict[str, Any]]:
+        with self.cond:
+            human_count = sum(1 for s in self.seats if s.kind == "human" and s.claimed_name)
+            needed = max(1, (human_count + 1) // 2)
+            result = []
+            for token, spec in self.spectators.items():
+                votes = len(self._spectator_kick_votes.get(token, set()))
+                result.append({"name": spec["name"], "joined_unix": spec["joined_unix"],
+                               "token_tail": token[-6:], "kick_votes": votes, "kick_needed": needed})
+            return result
+
+    def spectator_state_view(self, host_header: str, proto_hint: str = "") -> Dict[str, Any]:
+        """State payload for spectators — same as a non-viewer but boards-only (no hand data)."""
+        with self.cond:
+            state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
+            if isinstance(state_obj, dict):
+                for p in (state_obj.get("players") or []):
+                    if isinstance(p, dict):
+                        p["hand"] = []  # spectators see boards only, no hands
+            human_filled, human_total = self._human_seat_counts_locked()
+            return {
+                "ok": True,
+                "version": self.state_version,
+                "spectator": True,
+                "room": {
+                    "room_id": self.room_id, "phase": self.phase,
+                    "total_players": self.total_players, "visibility": str(self.visibility),
+                    "share_url": self.room_link(host_header, proto_hint),
+                },
+                "status_note": self.status_note,
+                "seats": self.seat_snapshot_locked(),
+                "viewer": {"seat_index": None, "can_act": False, "spectator": True},
+                "state": state_obj,
+                "legal_actions": None,
+                "active_action_seat": self.active_action_seat,
+                "chat_messages": self.chat_messages[-80:],
+                "spectators": self.spectator_list(),
+                "final_scores": self.final_scores,
+                "winner": self.winner,
+                "end_game": (self.latest_public_state or {}).get("end_game", {}),
+            }
+
+    def submit_spectator_chat(self, token: str, message: str) -> Dict[str, Any]:
+        message = str(message or "").strip()[:500]
+        if not message:
+            return {"ok": False, "error": "empty message"}
+        with self.cond:
+            spec = self.spectators.get(token)
+            if not spec:
+                return {"ok": False, "error": "not a spectator"}
+            entry = {
+                "sender": f"[Spectator] {spec['name']}",
+                "message": message,
+                "ts": time.time(),
+                "spectator": True,
+            }
+            self.chat_messages.append(entry)
+            if len(self.chat_messages) > 200:
+                self.chat_messages = self.chat_messages[-200:]
+            self._bump_locked()
+        return {"ok": True}
+
+    def _add_system_chat(self, text: str) -> None:
+        """Append a system notification to chat (must be called under self.cond)."""
+        self.chat_messages.append({"sender": "System", "message": text, "ts": time.time(), "system": True})
+        if len(self.chat_messages) > 200:
+            self.chat_messages = self.chat_messages[-200:]
+
+    def set_allow_spectators(self, host_token: str, seat_token: Optional[str], allow: bool) -> Dict[str, Any]:
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "not authorized"}
+            self.allow_spectators = bool(allow)
+            self._bump_locked()
+        return {"ok": True, "allow_spectators": self.allow_spectators}
+
     def _bump_locked(self, force_persist: bool = False) -> None:
         self.state_version += 1
         self.cond.notify_all()
@@ -3125,7 +3252,9 @@ class GameRoom:
                     "share_url": self.room_link(host_header, proto_hint),
                     "visibility": str(self.visibility),
                     "has_password": self.password_hash is not None,
+                    "allow_spectators": bool(self.allow_spectators),
                 },
+                "spectators": self.spectator_list(),
                 "status_note": self.status_note,
                 "error": self.error_message,
                 "ai_speed": str(self.ai_speed or "normal"),
@@ -4126,8 +4255,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             qs = parse_qs(parsed.query)
             seat_token = qs.get("seat_token", [None])[0]
             host_token = qs.get("host_token", [None])[0]
+            spectator_token = qs.get("spectator_token", [None])[0]
             host_header = self.headers.get("Host", "127.0.0.1:8777")
             proto_hint = self.headers.get("X-Forwarded-Proto", "")
+            if spectator_token:
+                with room.cond:
+                    is_spec = spectator_token in room.spectators
+                if is_spec:
+                    self._send_json(room.spectator_state_view(host_header, proto_hint))
+                else:
+                    self._send_json({"ok": False, "error": "invalid spectator token"}, status=HTTPStatus.FORBIDDEN)
+                return
             self._send_json(
                 room.state_view(
                     seat_token if isinstance(seat_token, str) else None,
@@ -4530,6 +4668,62 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.set_seat_difficulty(host_token, seat_token, seat_index, difficulty)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
+            return
+
+        # ── Spectator endpoints ──────────────────────────────────────
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "spectate":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            name = str(body.get("name") or "Spectator").strip()[:32] or "Spectator"
+            out = room.spectator_join(name)
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.FORBIDDEN)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "spectate_leave":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": True}, status=HTTPStatus.OK)
+                return
+            token = str(body.get("spectator_token") or "")
+            self._send_json(room.spectator_leave(token), status=HTTPStatus.OK)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "spectate_chat":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            token = str(body.get("spectator_token") or "")
+            message = str(body.get("message") or "")
+            self._send_json(room.submit_spectator_chat(token, message), status=HTTPStatus.OK)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "kick_spectator":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            seat_token = str(body.get("seat_token") or "")
+            target_token = str(body.get("spectator_token") or "")
+            with room.cond:
+                voter_seat = room._seat_from_token_locked(seat_token)
+            if voter_seat is None:
+                self._send_json({"ok": False, "error": "invalid seat token"}, status=HTTPStatus.FORBIDDEN)
+                return
+            self._send_json(room.spectator_kick_vote(voter_seat.index, target_token), status=HTTPStatus.OK)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "allow_spectators":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = str(body.get("host_token") or "")
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            allow = bool(body.get("allow", True))
+            self._send_json(room.set_allow_spectators(host_token, seat_token, allow), status=HTTPStatus.OK)
             return
 
         if parsed.path == "/api/competitive/ranked_result":

@@ -7366,6 +7366,40 @@
       .av-ach-list { max-height: none; }
     }
 
+    /* ════ SPECTATOR MODE ════════════════════════════════════════ */
+    #pv-spectator-panel {
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 24px 20px;
+      background: rgba(8,28,60,.88); border-top: 1px solid rgba(95,179,214,.2);
+      min-height: 120px; text-align: center;
+    }
+    #pv-spectator-panel.active { display: flex; }
+    .spec-title { font-family:"Cinzel",serif; font-size:1.1rem; font-weight:900; color:#22d8f8; }
+    .spec-hint { font-size:.82rem; color:rgba(200,225,255,.7); }
+    .spec-viewing { font-size:.88rem; font-weight:800; color:#ffd36b; margin-top:4px; }
+    #pv-spectator-list {
+      display: none; padding: 6px 14px;
+      background: rgba(8,24,50,.7); border-top: 1px solid rgba(95,179,214,.15);
+    }
+    #pv-spectator-list.visible { display: block; }
+    .spec-list-title { font-size:.72rem; font-weight:900; text-transform:uppercase;
+      letter-spacing:.08em; color:#8fb8da; margin-bottom:4px; }
+    .spec-list-row { display:flex; align-items:center; gap:8px;
+      font-size:.8rem; color:#bfe6ff; padding:3px 0; }
+    .spec-list-row .spec-name { flex:1; }
+    .spec-kick-btn { font-size:.7rem; padding:2px 8px; border-radius:5px; cursor:pointer;
+      background:rgba(232,64,87,.15); border:1px solid rgba(232,64,87,.4);
+      color:#e84057; font-weight:800; font-family:"Nunito",sans-serif; }
+    .spec-kick-btn:hover { background:rgba(232,64,87,.3); }
+    .spec-kick-progress { font-size:.7rem; color:#f0a860; font-weight:700; }
+    /* Friends tab in-game status */
+    .ph-fr-ingame { color: #22d8f8; }
+    .ph-fr-ingame .ph-fr-dot { background: #22d8f8; box-shadow: 0 0 6px rgba(34,216,248,.9); }
+    .ph-fr-spectate-btn { font-size:.72rem; font-weight:800; padding:4px 10px;
+      border-radius:8px; background:rgba(34,216,248,.15); border:1px solid rgba(34,216,248,.4);
+      color:#22d8f8; cursor:pointer; font-family:"Nunito",sans-serif; margin-top:5px; display:block; }
+    .ph-fr-spectate-btn:hover { background:rgba(34,216,248,.28); }
+
     /* ════ AVATAR GALLERY (full-screen hero-select) ════════════════ */
     #avatar-gallery {
       position: fixed; inset: 0; z-index: 9200; display: none;
@@ -8910,6 +8944,18 @@
     <div id="pv-seats-right" class="pv-seat-cluster"></div>
   </div>
 
+  <!-- Spectator panel — replaces hand area when spectating -->
+  <div id="pv-spectator-panel">
+    <div class="spec-title">👁 Spectator Mode</div>
+    <div class="spec-hint">Click a player's avatar to view their board.</div>
+    <div class="spec-viewing" id="spec-viewing-label" style="display:none;"></div>
+  </div>
+  <!-- Spectator list — shown to both players and spectators in-game -->
+  <div id="pv-spectator-list">
+    <div class="spec-list-title">👁 Spectators</div>
+    <div id="spec-list-rows"></div>
+  </div>
+
   <!-- log tail -->
   <div id="pv-log" style="display:none;"></div>
 
@@ -9802,7 +9848,9 @@
     if (!roomId || refreshInFlight) return;
     refreshInFlight = true;
     try {
-      const url = buildStateUrl();
+      const url = isSpectating()
+        ? apiUrl(`/api/rooms/${_spectatorRoomId}/state?spectator_token=${encodeURIComponent(_spectatorToken)}`)
+        : buildStateUrl();
       const { ok, status, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:6000 });
       if (status === 503 || status === 502) {
         // Render free-tier server is starting up — show a one-time toast and
@@ -9846,6 +9894,7 @@
   function handleRoomLost() {
     if (_roomLostShown) return;
     _roomLostShown = true;
+    _specSetPresence(null); // clear in-game presence
     stopThemeSong();
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (sseSource) { sseSource.close(); sseSource = null; }
@@ -9958,6 +10007,131 @@
     } catch {}
   }
 
+  // ── Spectator state ───────────────────────────────────────────────
+  let _spectatorToken = "";      // non-empty when we are spectating
+  let _spectatorRoomId = "";     // room we are spectating
+  let _spectatorViewingIdx = null; // player index whose board we're viewing
+
+  function isSpectating() { return !!_spectatorToken; }
+
+  function _specBuildStateUrl() {
+    if (!_spectatorRoomId || !_spectatorToken) return null;
+    return apiUrl(`/api/rooms/${_spectatorRoomId}/state?spectator_token=${encodeURIComponent(_spectatorToken)}`);
+  }
+
+  async function joinAsSpectator(rid) {
+    const name = (window.__fishNickname && window.__fishNickname()) || "Spectator";
+    const r = await apiPost(`/api/rooms/${rid}/spectate`, { name }, { timeoutMs: 10000 });
+    if (!r.ok) { showToast((r.data && r.data.error) || "Cannot spectate this game.", "err"); return; }
+    _spectatorToken = r.data.spectator_token;
+    _spectatorRoomId = rid;
+    roomId = rid;
+    _spectatorViewingIdx = null;
+    // Switch presence in Firestore
+    _specSetPresence(rid);
+    // Show game UI in spectator mode
+    const statsLobby = document.getElementById("auth-stats-lobby");
+    if (statsLobby) statsLobby.classList.remove("visible");
+    const _galEl = document.getElementById("avatar-gallery");
+    if (_galEl) _galEl.classList.remove("open");
+    document.getElementById("pv-game").style.display = "flex";
+    document.getElementById("pv-room-id-badge").textContent = rid + " 👁";
+    _specShowPanel(true);
+    startPolling();
+    startThemeSong();
+    showToast("Joined as spectator. Click a player's avatar to view their board.", "ok");
+  }
+
+  async function leaveSpectator() {
+    if (!_spectatorToken || !_spectatorRoomId) return;
+    await apiPost(`/api/rooms/${_spectatorRoomId}/spectate_leave`, { spectator_token: _spectatorToken }, { timeoutMs: 5000 }).catch(() => {});
+    _spectatorToken = "";
+    _spectatorRoomId = "";
+    _spectatorViewingIdx = null;
+    roomId = null;
+    _specShowPanel(false);
+    _specSetPresence(null);
+    document.getElementById("pv-game").style.display = "none";
+    stopThemeSong();
+    if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
+  }
+
+  function _specShowPanel(active) {
+    const panel = document.getElementById("pv-spectator-panel");
+    const handZone = document.getElementById("pv-hand-zone");
+    const guideBar = document.getElementById("pv-guide-bar");
+    const actionBar = document.getElementById("pv-action-bar");
+    if (active) {
+      if (panel) panel.classList.add("active");
+      if (handZone) handZone.style.display = "none";
+      if (guideBar) guideBar.style.display = "none";
+      if (actionBar) actionBar.style.display = "none";
+    } else {
+      if (panel) panel.classList.remove("active");
+      if (handZone) handZone.style.display = "";
+      if (guideBar) guideBar.style.display = "";
+      if (actionBar) actionBar.style.display = "";
+      const lbl = document.getElementById("spec-viewing-label");
+      if (lbl) { lbl.style.display = "none"; lbl.textContent = ""; }
+    }
+  }
+
+  function _specSetPresence(rid) {
+    // Write current_room_id to Firestore so friends can see "In Game".
+    try {
+      const db = window.__fishDb && window.__fishDb();
+      const user = window.__fishAuthUser && window.__fishAuthUser();
+      if (db && user) {
+        db.collection("users").doc(user.uid).update({ current_room_id: rid || null }).catch(() => {});
+      }
+    } catch {}
+  }
+
+  function _specRenderSpectatorList(spectators) {
+    const wrap = document.getElementById("pv-spectator-list");
+    const rows = document.getElementById("spec-list-rows");
+    if (!wrap || !rows) return;
+    if (!spectators || !spectators.length) { wrap.classList.remove("visible"); return; }
+    wrap.classList.add("visible");
+    rows.innerHTML = "";
+    spectators.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "spec-list-row";
+      const nameEl = document.createElement("span");
+      nameEl.className = "spec-name";
+      nameEl.textContent = s.name;
+      row.appendChild(nameEl);
+      if (s.kick_votes > 0) {
+        const prog = document.createElement("span");
+        prog.className = "spec-kick-progress";
+        prog.textContent = `${s.kick_votes}/${s.kick_needed} votes`;
+        row.appendChild(prog);
+      }
+      if (!isSpectating()) {
+        // Active players see the kick button
+        const kickBtn = document.createElement("button");
+        kickBtn.className = "spec-kick-btn";
+        kickBtn.textContent = "Kick";
+        kickBtn.addEventListener("click", async () => {
+          kickBtn.disabled = true;
+          const seatTok = getSeatToken();
+          if (!seatTok || !roomId) return;
+          // We store token_tail on each entry; client needs the full token from the server payload
+          // Use name to find via payload — we'll store the full token in data attribute
+          const specTok = kickBtn.dataset.specToken;
+          if (!specTok) return;
+          const r = await apiPost(`/api/rooms/${roomId}/kick_spectator`, { seat_token: seatTok, spectator_token: specTok }, { timeoutMs: 8000 });
+          if (r && r.data && r.data.kicked) showToast(`${r.data.name} was removed.`, "ok");
+          else if (r && r.data) showToast(`Vote recorded: ${r.data.votes}/${r.data.needed} needed.`, "ok");
+          kickBtn.disabled = false;
+        });
+        kickBtn.dataset.specToken = s._token || "";
+        row.appendChild(kickBtn);
+      }
+      rows.appendChild(row);
+    });
+  }
+
   function enterRoom(id) {
     roomId = id;
     document.getElementById("pv-room-id-badge").textContent = id;
@@ -9971,6 +10145,8 @@
     startSSE();
     startPolling();
     startThemeSong();
+    // Write current_room_id to Firestore presence
+    _specSetPresence(id);
     // play_again_endgame: previous game ended with End Game card seen,
     // and now I'm entering a new game → fire the daily challenge.
     try {
@@ -11911,6 +12087,55 @@
     const chatMsgs = Array.isArray(payload.chat_messages) ? payload.chat_messages : [];
     renderChatMessages(chatMsgs);
     updateChatTargetOptions(players, myIdx);
+
+    // Spectator list (shown to everyone; spectators have isSpectating()===true)
+    if (Array.isArray(payload.spectators)) {
+      _specRenderSpectatorList(payload.spectators);
+    }
+
+    // If we are spectating, handle board-view on seat click and check for kick
+    if (isSpectating()) {
+      _specShowPanel(true);
+      // Detect if we've been kicked (our token gone — server won't return ok)
+      // The poll error path handles room not found; kicked spectators get a 403
+      // which is caught by the applyServerPayload guard. If state has spectator:true
+      // but our token is no longer in the spectators list, we've been kicked.
+      const stillInList = (payload.spectators || []).some(s => {
+        // Server sends token_tail for display; we compare name as best-effort fallback
+        return s._token === _spectatorToken || s.token_tail === _spectatorToken.slice(-6);
+      });
+      if (payload.spectator === true && !stillInList && (payload.spectators || []).length >= 0) {
+        // Token was valid (got spectator state) but we're not in the list — kicked.
+        // Guard: only trigger if spectators array is present and populated by server.
+        if (payload.spectators !== undefined) {
+          leaveSpectator();
+          showToast("You were removed from spectator mode by player vote.", "err");
+        }
+      }
+
+      // Wire seat avatar clicks to view that player's board
+      document.querySelectorAll(".pv-seat[data-player-index]").forEach(seat => {
+        if (seat._specWired) return;
+        seat._specWired = true;
+        seat.addEventListener("click", () => {
+          const idx = Number(seat.dataset.playerIndex);
+          _spectatorViewingIdx = idx;
+          const p = players.find(pl => pl.index === idx);
+          const lbl = document.getElementById("spec-viewing-label");
+          if (lbl) {
+            lbl.textContent = `Viewing ${p ? (p.name || `Player ${idx + 1}`) : `Player ${idx + 1}`}'s board`;
+            lbl.style.display = "";
+          }
+          if (p && typeof renderReadOnlyBoard === "function") {
+            // Show a read-only board overlay for the selected player
+            const overlay = document.getElementById("board-focus-overlay") || document.querySelector(".board-focus-overlay");
+            if (overlay && typeof _openBoardFocus === "function") {
+              _openBoardFocus(p);
+            }
+          }
+        });
+      });
+    }
   }
 
   // ── Animation state ────────────────────────────────────────────
@@ -15288,6 +15513,9 @@
   // ── Back / leave ───────────────────────────────────────────────
   function _leaveGameCleanup() {
     closeMenu();
+    _specSetPresence(null); // clear in-game Firestore presence
+    _specShowPanel(false);  // restore hand UI if we were spectating
+    _spectatorToken=""; _spectatorRoomId=""; _spectatorViewingIdx=null;
     stopThemeSong();
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
@@ -15355,6 +15583,11 @@
 
   document.getElementById("pv-back-btn").addEventListener("click", async () => {
     closeMenu();
+    if (isSpectating()) {
+      if (!confirm("Leave spectator mode?")) return;
+      await leaveSpectator();
+      return;
+    }
     const phase = latestPayload?.phase;
     const isRunning = phase === "running";
     const msg = isRunning
@@ -16835,9 +17068,14 @@
     const text = document.getElementById("pv-chat-text").value.trim();
     const target = document.getElementById("pv-chat-to").value || "Everyone";
     if (!text || !roomId) return;
+    document.getElementById("pv-chat-text").value = "";
+    // Spectators use a different chat endpoint with their spectator token
+    if (isSpectating() && _spectatorToken) {
+      await apiPost(`/api/rooms/${_spectatorRoomId}/spectate_chat`, { spectator_token: _spectatorToken, message: text }, { timeoutMs: 8000 });
+      return;
+    }
     const token = getSeatToken();
     if (!token) return;
-    document.getElementById("pv-chat-text").value = "";
     await apiPost(`/api/rooms/${roomId}/chat`, { seat_token: token, message: text, target }, { timeoutMs: 8000 });
     _gameAchTracker.chatMsgs = (_gameAchTracker.chatMsgs || 0) + 1;
     if (typeof compMode !== "undefined" && compMode) {
@@ -22462,7 +22700,26 @@
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        const friendRoomId = avatarProfile && avatarProfile.current_room_id
+          ? String(avatarProfile.current_room_id).trim() : "";
+        const inGame = f.isOnline && !!friendRoomId;
+        let statusHtml, extraHtml = "";
+        if (inGame) {
+          statusHtml = `<div class="ph-fr-status ph-fr-ingame"><div class="ph-fr-dot"></div>In Game</div>`;
+          // Check if the game is publicly spectatable (we can't know allow_spectators without fetching state)
+          // Offer a Spectate button; the join endpoint will tell us if spectators aren't allowed.
+          extraHtml = `<button class="ph-fr-spectate-btn" data-rid="${escapeHtml(friendRoomId)}">👁 Spectate Game</button>`;
+        } else {
+          statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        }
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
+        // Wire Spectate button
+        const specBtn = d.querySelector(".ph-fr-spectate-btn");
+        if (specBtn) specBtn.addEventListener("click", async () => {
+          specBtn.disabled = true; specBtn.textContent = "Joining…";
+          await joinAsSpectator(specBtn.dataset.rid);
+          specBtn.disabled = false; specBtn.textContent = "👁 Spectate Game";
+        });
         list.appendChild(d);
       });
     }
