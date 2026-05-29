@@ -9157,7 +9157,7 @@
     <div class="lb-browser-tabs">
       <button class="lb-browser-tab active" data-tab="public">🌊 Public</button>
       <button class="lb-browser-tab" data-tab="private">🔒 Private</button>
-      <button class="lb-browser-tab" data-tab="friends">👥 Friends</button>
+      <button class="lb-browser-tab" data-tab="competitive">👥 Competitive</button>
     </div>
     <div id="lb-browser-list">
       <div class="lb-browser-empty">Loading…</div>
@@ -10364,10 +10364,6 @@
       showToast("Room not found — ask the host to re-share the invite link.", "err");
       return;
     }
-    if (data.mode === "competitive") {
-      _openCompJoinOverlay(rid);
-      return;
-    }
     if (data.seatObjs.every(s => s.claimed_name)) {
       showToast("All seats are taken in this room.", "warn");
     }
@@ -10424,17 +10420,15 @@
     let rooms = _lbAllRooms;
 
     if (_lbActiveTab === "public") {
-      rooms = rooms.filter(r => r.visibility === "public");
+      rooms = rooms.filter(r => r.visibility === "public" && r.mode !== "competitive");
     } else if (_lbActiveTab === "private") {
-      rooms = rooms.filter(r => r.visibility === "private");
-    } else if (_lbActiveTab === "friends") {
-      // Friends tab: show rooms where host_name matches a friend's nickname
-      const friendNicks = _lbFriendNicks; // Set populated below
-      rooms = rooms.filter(r => friendNicks.has((r.host_name || "").toLowerCase()));
+      rooms = rooms.filter(r => r.visibility === "private" && r.mode !== "competitive");
+    } else if (_lbActiveTab === "competitive") {
+      rooms = rooms.filter(r => r.mode === "competitive");
     }
 
     if (!rooms.length) {
-      const label = _lbActiveTab === "friends" ? "No friends are currently hosting a room." :
+      const label = _lbActiveTab === "competitive" ? "No open competitive rooms right now." :
                     _lbActiveTab === "private" ? "No open private rooms right now." :
                     "No open public rooms right now.";
       list.innerHTML = `<div class="lb-browser-empty">${label}</div>`;
@@ -10489,12 +10483,6 @@
   }
 
   async function lbJoinRoom(room) {
-    // Competitive rooms use the dedicated comp overlay join flow (asks for two player names)
-    if (room.mode === "competitive") {
-      closeLobbyBrowser();
-      _openCompJoinOverlay(room.room_id);
-      return;
-    }
     if (room.has_password) {
       _lbPendingRoom = room;
       document.getElementById("lb-pw-err").textContent = "";
@@ -10562,8 +10550,7 @@
       document.querySelectorAll(".lb-browser-tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       _lbActiveTab = tab.dataset.tab;
-      if (_lbActiveTab === "friends") refreshFriendNicks().then(() => renderLobbyList());
-      else renderLobbyList();
+      renderLobbyList();
     });
   });
 
