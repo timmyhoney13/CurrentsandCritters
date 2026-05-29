@@ -11079,6 +11079,14 @@
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
       showToast(desc, "ok");
+      // Optimistically hide the turn banner immediately after any successful action
+      // so it doesn't persist until the next state poll (up to 1 s). The banner
+      // will come back to "my-turn" on the very next renderPayload if can_act is
+      // still true (e.g. mid-turn second draw), so this only flashes briefly.
+      const _optBanner = document.getElementById("pv-turn-banner");
+      const _optEndBtn  = document.getElementById("pv-end-turn-inline");
+      if (_optBanner) _optBanner.className = "their-turn";
+      if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
       // Track per-game stats for achievements
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
