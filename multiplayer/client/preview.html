@@ -9335,6 +9335,12 @@
   let pollTimer = null;
   let sseSource = null;
   let refreshInFlight = false;
+  // Monotonic server state version of the last payload we applied. SSE pushes
+  // and 1 s polling both deliver state; without this guard a slow/late poll
+  // response can overwrite newer state with older, causing turn desync ("says
+  // it's my turn when it isn't" / "my turn but won't let me play"). We drop any
+  // payload whose version is strictly older than what we've already rendered.
+  let _lastStateVersion = -1;
   let _serverWaking = false;       // true while Render server is returning 503
   let _serverWakeToastShown = false; // only show the "waking up" toast once per session
   let _prevTurnIdx = null;
@@ -9367,6 +9373,18 @@
     return apiUrl(`/api/rooms/${roomId}/state${qs?"?"+qs:""}`);
   }
 
+  // Single gate for applying a server state payload from either SSE or polling.
+  // Returns true if applied, false if dropped as stale/out-of-order.
+  function applyServerPayload(d) {
+    if (!d || d.ok === false) return false;
+    const v = Number(d.version);
+    if (Number.isFinite(v) && v < _lastStateVersion) return false; // stale, drop
+    if (Number.isFinite(v)) _lastStateVersion = v;
+    latestPayload = d;
+    renderPayload(d);
+    return true;
+  }
+
   async function refreshState() {
     if (!roomId || refreshInFlight) return;
     refreshInFlight = true;
@@ -9391,7 +9409,7 @@
         _serverWaking = false;
         try { showToast("Connected!", "ok"); } catch {}
       }
-      if (ok && data && data.ok !== false) { latestPayload = data; renderPayload(data); }
+      if (ok && data && data.ok !== false) { applyServerPayload(data); }
       else if (data?.error === "room not found") handleRoomLost();
     } catch {}
     finally { refreshInFlight = false; }
@@ -9399,6 +9417,10 @@
 
   let _rejoinTouchTimer = null;
   function startPolling() {
+    // Reset the version guard: state_version is monotonic per room but a newly
+    // joined room restarts low, so a stale high baseline would drop every
+    // update. Entering/reconnecting always re-establishes the baseline.
+    _lastStateVersion = -1;
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = setInterval(refreshState, 1000);
     // Keep the rejoin window alive: refresh the localStorage timestamp every 60 s while active
@@ -9432,6 +9454,7 @@
   function startSSE() {
     if (!roomId) return;
     if (compMode) return;  // competitive mode uses polling only
+    _lastStateVersion = -1; // re-establish version baseline for this connection
     if (sseSource) { sseSource.close(); sseSource = null; }
     const p = new URLSearchParams();
     const seat = getSeatToken(); const host = getHostToken();
@@ -9443,7 +9466,7 @@
       sseSource.onmessage = (ev) => {
         try {
           const d = JSON.parse(ev.data);
-          if (d && d.ok !== false) { latestPayload = d; renderPayload(d); }
+          if (d && d.ok !== false) { applyServerPayload(d); }
           else if (d?.error === "room not found") handleRoomLost();
         } catch {}
       };
