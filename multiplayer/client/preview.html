@@ -15590,8 +15590,12 @@
     if (!el) return;
 
     const poolNames = poolCards.map(e => {
-      const face = Array.isArray(e.faces) && e.faces.length > 0 ? e.faces[0] : null;
-      return face?.name || e.label || "a card";
+      const faces = Array.isArray(e.faces) && e.faces.length > 0 ? e.faces : null;
+      if (faces) {
+        const names = faces.map(f => f?.name).filter(Boolean);
+        if (names.length) return names.join(" / ");
+      }
+      return e.label || "a card";
     });
     const drawParts = [];
     if (poolNames.length > 0) drawParts.push(poolNames.map(n => `<span class="dn-cards">${n}</span>`).join(" &amp; "));
