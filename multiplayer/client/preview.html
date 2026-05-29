@@ -7195,6 +7195,172 @@
       .ach-right { min-width: 72px; }
       .ach-icon-wrap { width: 42px; height: 42px; font-size: 1.4rem; }
     }
+
+    /* ── Avatar Achievements section ──────────────────────────────── */
+    .av-ach-section {
+      margin: 0 0 4px;
+      border-top: 2px solid rgba(38,128,200,.14);
+    }
+    .av-ach-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 16px 20px 10px;
+    }
+    .av-ach-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1rem;
+      font-weight: 900;
+      color: #1a3e7a;
+      letter-spacing: .2px;
+    }
+    .av-ach-summary {
+      margin: 0 20px 8px;
+      background: linear-gradient(135deg, rgba(107,72,255,.07) 0%, rgba(22,200,180,.06) 100%);
+      border: 1.5px solid rgba(107,72,255,.18);
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .av-ach-sum-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+    .av-ach-sum-stat {
+      font-size: 1.1rem;
+      font-weight: 900;
+      color: #4a2a9a;
+    }
+    .av-ach-sum-stat span { color: #7a4af0; }
+    .av-ach-sum-pct {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #0d8a6e;
+    }
+    .av-ach-bar-track {
+      height: 10px;
+      background: rgba(107,72,255,.12);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(107,72,255,.16);
+    }
+    .av-ach-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed 0%, #a855f7 50%, #22d8f8 100%);
+      border-radius: 6px;
+      transition: width .6s ease;
+      box-shadow: 0 0 8px rgba(168,85,247,.35);
+    }
+    .av-ach-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0 16px 20px;
+      max-height: 480px;
+      overflow-y: auto;
+    }
+    .av-ach-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      margin-bottom: 7px;
+      border: 1.5px solid rgba(107,72,255,.15);
+      background: rgba(255,255,255,.8);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .av-ach-card:last-child { margin-bottom: 0; }
+    .av-ach-card:hover { border-color: rgba(107,72,255,.35); box-shadow: 0 2px 10px rgba(107,72,255,.1); }
+    .av-ach-card.av-done {
+      background: linear-gradient(135deg, rgba(45,189,130,.08) 0%, rgba(39,200,160,.05) 100%);
+      border-color: rgba(45,189,130,.38);
+    }
+    .av-ach-card.av-done:hover { border-color: rgba(45,189,130,.55); box-shadow: 0 2px 10px rgba(45,189,130,.12); }
+    .av-icon-wrap {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 2px solid rgba(107,72,255,.22);
+      background: rgba(107,72,255,.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .av-icon-wrap img { width: 100%; height: 100%; object-fit: contain; }
+    .av-ach-card.av-done .av-icon-wrap { border-color: rgba(45,189,130,.45); background: rgba(45,189,130,.08); }
+    .av-info { flex: 1; min-width: 0; }
+    .av-name {
+      font-size: .9rem;
+      font-weight: 800;
+      color: #1a3e7a;
+      margin-bottom: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .av-ach-card.av-done .av-name { color: #0d6040; }
+    .av-species-tag {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #7a5ab8;
+      margin-bottom: 3px;
+    }
+    .av-req {
+      font-size: .78rem;
+      color: #5a7a9a;
+      line-height: 1.35;
+    }
+    .av-ach-card.av-done .av-req { color: #3a7060; }
+    .av-prog-wrap { margin-top: 5px; }
+    .av-prog-bar {
+      height: 5px;
+      background: rgba(107,72,255,.12);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 2px;
+    }
+    .av-prog-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7c3aed, #a855f7);
+      border-radius: 3px;
+      transition: width .5s ease;
+    }
+    .av-ach-card.av-done .av-prog-fill { background: linear-gradient(90deg, #1ca87a, #27c8a0); }
+    .av-prog-text {
+      font-size: .72rem;
+      color: #7a5ab8;
+      font-weight: 700;
+    }
+    .av-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .av-badge {
+      font-size: .7rem;
+      font-weight: 800;
+      padding: 3px 7px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .av-badge-done { background: rgba(45,189,130,.16); color: #0d6040; border: 1px solid rgba(45,189,130,.35); }
+    .av-badge-locked { background: rgba(107,72,255,.1); color: #5a3ab8; border: 1px solid rgba(107,72,255,.2); }
+    .av-badge-secret { background: rgba(80,80,100,.08); color: #6a7a9a; border: 1px solid rgba(80,80,100,.16); }
+    @media (max-width: 600px) {
+      .av-ach-list { max-height: none; }
+    }
   </style>
 </head>
 <body>
@@ -7989,6 +8155,46 @@
         <!-- Achievement list -->
         <div class="ach-steam-list" id="ach-steam-list">
           <div style="color:var(--muted);text-align:center;padding:32px 0;font-size:13px;">Loading achievements…</div>
+        </div>
+
+        <!-- Avatar Unlock Achievements section -->
+        <div class="av-ach-section">
+          <div class="av-ach-header">
+            <div class="av-ach-title">
+              <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="7.5" stroke="#7c3aed" stroke-width="1.6"/><path d="M5.5 8.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0z" stroke="#7c3aed" stroke-width="1.4"/><path d="M8.5 1v2M8.5 14v2M1 8.5h2M14 8.5h2" stroke="#7c3aed" stroke-width="1.4" stroke-linecap="round"/></svg>
+              Animal Avatars
+            </div>
+            <div class="ach-filter-row">
+              <select class="ach-filter-sel" id="av-species-filter">
+                <option value="all">All Species</option>
+                <option value="Bait Fish">Bait Fish</option>
+                <option value="Birds">Birds</option>
+                <option value="Game Fish">Game Fish</option>
+                <option value="Coral">Coral</option>
+                <option value="Mammals">Mammals</option>
+                <option value="Invertebrates">Invertebrates</option>
+                <option value="Crosscurrent">Crosscurrent</option>
+                <option value="Crustaceans">Crustaceans</option>
+                <option value="Cephalopods">Cephalopods</option>
+              </select>
+              <select class="ach-filter-sel" id="av-status-filter">
+                <option value="all">All</option>
+                <option value="unlocked">Unlocked</option>
+                <option value="locked">Locked</option>
+              </select>
+            </div>
+          </div>
+          <div class="av-ach-summary" id="av-ach-summary">
+            <div class="av-ach-sum-row">
+              <div class="av-ach-sum-stat"><span id="av-stat-done">0</span> / <span id="av-stat-total">0</span> Unlocked</div>
+              <div class="av-ach-sum-pct"><span id="av-stat-pct">0</span>% Complete</div>
+              <div class="av-ach-sum-stat" style="font-size:.95rem;color:#5a3ab8;"><span id="av-stat-left">0</span> remaining</div>
+            </div>
+            <div class="av-ach-bar-track"><div class="av-ach-bar-fill" id="av-ach-bar-fill" style="width:0%"></div></div>
+          </div>
+          <div class="av-ach-list" id="av-ach-list">
+            <div style="color:var(--muted);text-align:center;padding:24px 0;font-size:13px;">Loading…</div>
+          </div>
         </div>
       </div>
     </div>
@@ -19612,6 +19818,7 @@
     })();
 
     function renderPhAchievements() {
+      if (typeof renderAvatarAchievements === "function") renderAvatarAchievements();
       const list = $a("ach-steam-list");
       if (!list) return;
       const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
@@ -19703,6 +19910,128 @@
     (function() {
       const sel = $a("ach-filter-select");
       if (sel) sel.addEventListener("change", () => renderPhAchievements());
+    })();
+
+    // ── Avatar Achievements section ─────────────────────────────
+    function renderAvatarAchievements() {
+      const list   = $a("av-ach-list");
+      const barFill = $a("av-ach-bar-fill");
+      if (!list) return;
+
+      const { stats, level } = _avatarStatsAndLevel();
+      const speciesFilter = ($a("av-species-filter") || {}).value || "all";
+      const statusFilter  = ($a("av-status-filter")  || {}).value || "all";
+
+      // Non-secret avatars only (secret = hidden easter-egg; no visible progress).
+      const visible = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type !== "secret");
+
+      const totalCount   = visible.length;
+      const unlockedCount = visible.filter(a => isAvatarUnlocked(a.img)).length;
+      const pct = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+      const setText = (id, v) => { const e = $a(id); if (e) e.textContent = String(v); };
+      setText("av-stat-done",  unlockedCount);
+      setText("av-stat-total", totalCount);
+      setText("av-stat-pct",   pct);
+      setText("av-stat-left",  totalCount - unlockedCount);
+      if (barFill) barFill.style.width = pct + "%";
+
+      // Filter by species + status
+      let filtered = visible.filter(a => {
+        if (speciesFilter !== "all" && a.species !== speciesFilter) return false;
+        const unlocked = isAvatarUnlocked(a.img);
+        if (statusFilter === "unlocked" && !unlocked) return false;
+        if (statusFilter === "locked"   &&  unlocked) return false;
+        return true;
+      });
+
+      // Sort: unlocked first, then locked by progress descending
+      filtered.sort((a, b) => {
+        const aU = isAvatarUnlocked(a.img), bU = isAvatarUnlocked(b.img);
+        if (aU !== bU) return aU ? -1 : 1;
+        // Both locked — sort by progress fraction descending
+        const ap = animalUnlockProgress(a, stats, level) || 0;
+        const bp = animalUnlockProgress(b, stats, level) || 0;
+        return bp - ap;
+      });
+
+      if (!filtered.length) {
+        list.innerHTML = '<div style="color:var(--muted);text-align:center;padding:24px 0;font-size:13px;">No avatars match this filter.</div>';
+        return;
+      }
+
+      list.innerHTML = "";
+      filtered.forEach(a => {
+        const unlocked = isAvatarUnlocked(a.img);
+        const u        = a.unlock;
+        const prog     = animalUnlockProgress(a, stats, level);  // 0..1 or null
+        const progText = animalProgressText(a, stats, level);     // "X / Y ..." or ""
+
+        const card = document.createElement("div");
+        card.className = "av-ach-card" + (unlocked ? " av-done" : "");
+
+        // Icon
+        const iconWrap = document.createElement("div");
+        iconWrap.className = "av-icon-wrap";
+        const img = document.createElement("img");
+        img.src = a.img; img.alt = a.name; img.loading = "lazy";
+        if (!unlocked) img.style.filter = "grayscale(.55)";
+        iconWrap.appendChild(img);
+
+        // Info
+        const info = document.createElement("div");
+        info.className = "av-info";
+
+        const nameEl = document.createElement("div");
+        nameEl.className = "av-name";
+        nameEl.textContent = a.name;
+
+        const speciesEl = document.createElement("div");
+        speciesEl.className = "av-species-tag";
+        speciesEl.textContent = a.species || "";
+
+        const reqEl = document.createElement("div");
+        reqEl.className = "av-req";
+        reqEl.textContent = u.label || "";
+
+        info.appendChild(nameEl);
+        info.appendChild(speciesEl);
+        info.appendChild(reqEl);
+
+        // Progress bar (for numeric unlock types)
+        if (!unlocked && prog !== null && prog >= 0) {
+          const progWrap = document.createElement("div");
+          progWrap.className = "av-prog-wrap";
+          const pct = Math.round(prog * 100);
+          progWrap.innerHTML = `<div class="av-prog-bar"><div class="av-prog-fill" style="width:${pct}%"></div></div><div class="av-prog-text">${escapeHtml(progText)}</div>`;
+          info.appendChild(progWrap);
+        }
+
+        // Right badge
+        const right = document.createElement("div");
+        right.className = "av-right";
+        if (unlocked) {
+          right.innerHTML = `<div class="av-badge av-badge-done">✓ Unlocked</div>`;
+        } else if (u.type === "event" || u.type === "achievement") {
+          right.innerHTML = `<div class="av-badge av-badge-locked">Challenge</div>`;
+        } else {
+          // Show numeric progress % in badge for level/stat/rank/comp_wins
+          const pctBadge = prog !== null ? Math.round(prog * 100) : 0;
+          right.innerHTML = `<div class="av-badge av-badge-locked">${pctBadge}%</div>`;
+        }
+
+        card.appendChild(iconWrap);
+        card.appendChild(info);
+        card.appendChild(right);
+        list.appendChild(card);
+      });
+    }
+
+    // Wire avatar achievement filters
+    (function() {
+      const sp = $a("av-species-filter");
+      const st = $a("av-status-filter");
+      if (sp) sp.addEventListener("change", renderAvatarAchievements);
+      if (st) st.addEventListener("change", renderAvatarAchievements);
     })();
 
     function applyPhNormalStatsForPlayerCount(ps) {
