@@ -18562,12 +18562,32 @@
     }
 
     // ── Firestore helpers ────────────────────────────────────────
+    // Reject (rather than hang) if a promise takes too long. Firestore's
+    // .get() can stall indefinitely when the WebChannel connection is blocked
+    // or flaky, which would otherwise freeze the post-sign-in flow.
+    function withTimeout(promise, ms, label) {
+      let t;
+      const timeout = new Promise((_, rej) => {
+        t = setTimeout(() => {
+          const e = new Error((label || "operation") + " timed out");
+          e.code = "timeout";
+          rej(e);
+        }, ms);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(t));
+    }
+
+    // Returns the profile object, or null when the doc genuinely doesn't exist
+    // (new account). THROWS on network/timeout/permission errors so callers can
+    // tell "new user" apart from "couldn't read" — never silently misclassify.
     async function loadProfile(uid) {
       if (!_db) return null;
-      try {
-        const snap = await _db.collection("users").doc(uid).get();
-        return snap.exists ? { uid, ...snap.data() } : null;
-      } catch { return null; }
+      const snap = await withTimeout(
+        _db.collection("users").doc(uid).get(),
+        12000,
+        "Loading your profile"
+      );
+      return snap.exists ? { uid, ...snap.data() } : null;
     }
 
     async function saveNewProfile(uid, nickname, email, avatarUrl) {
@@ -19342,7 +19362,7 @@
       const expectedUid = String(uid || "");
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
-      let profile = await loadProfile(uid);
+      let profile = await loadProfile(uid).catch(() => null);
       if (_authUser && _db && (!profile || !profile.stats || typeof profile.stats !== "object")) {
         try {
           await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
@@ -19956,7 +19976,24 @@
           _friendCode = "";
           _activeProfile = null;
           startHoursTimer(user.uid);
-          const profile = await loadProfile(user.uid);
+          // loadProfile now throws on network/timeout errors (vs returning null
+          // for a genuinely-new account). If the read fails we must NOT silently
+          // strand the user on the sign-in screen — surface it and let them retry.
+          let profile;
+          try {
+            profile = await loadProfile(user.uid);
+          } catch (e) {
+            if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
+            console.error("[auth] profile load failed after sign-in:", e);
+            $a("auth-loading-screen").classList.add("hidden");
+            try { window.__authShowChoose && window.__authShowChoose(); } catch {}
+            setAuthMsg(
+              "auth-choose-err",
+              "Signed in, but couldn't reach the database (connection issue). Please reload and try again.",
+              false
+            );
+            return;
+          }
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
           // Load unlocked animal icons before judging avatar validity.
@@ -19964,7 +20001,8 @@
             ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
             : [];
           // One-time achievement system v2 reset (clears old unlocks + XP).
-          try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
+          // Bounded so a hung Firestore write can't freeze the sign-in flow.
+          try { await withTimeout(runAchievementResetIfNeeded(user.uid, _activeProfile), 12000, "Achievement sync"); } catch (e) { console.warn("[auth] achievement reset skipped:", e); }
           $a("auth-loading-screen").classList.add("hidden");
           const hasNickname = hasStoredNickname(profile);
           const hasAvatar = hasStoredSelectableAvatar(profile);
