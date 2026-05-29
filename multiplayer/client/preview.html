@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Cinzel:wght@600;900&family=Luckiest+Guy&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://apis.google.com">
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
 
   <!-- Always serve the game from the stable Render domain so Firebase auth works -->
   <script>
@@ -19828,22 +19832,30 @@
           _activeProfile = null;
           startHoursTimer(user.uid);
           // loadProfile now throws on network/timeout errors (vs returning null
-          // for a genuinely-new account). If the read fails we must NOT silently
-          // strand the user on the sign-in screen — surface it and let them retry.
+          // for a genuinely-new account). Auto-retry once after 3s (handles
+          // Firestore cold-start on Render) before surfacing the error.
           let profile;
           try {
             profile = await loadProfile(user.uid);
           } catch (e) {
             if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
-            console.error("[auth] profile load failed after sign-in:", e);
-            $a("auth-loading-screen").classList.add("hidden");
-            try { window.__authShowChoose && window.__authShowChoose(); } catch {}
-            setAuthMsg(
-              "auth-choose-err",
-              "Signed in, but couldn't reach the database (connection issue). Please reload and try again.",
-              false
-            );
-            return;
+            console.warn("[auth] profile load failed, retrying in 3s:", e);
+            await new Promise(r => setTimeout(r, 3000));
+            if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
+            try {
+              profile = await loadProfile(user.uid);
+            } catch (e2) {
+              if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
+              console.error("[auth] profile load failed after retry:", e2);
+              $a("auth-loading-screen").classList.add("hidden");
+              try { window.__authShowChoose && window.__authShowChoose(); } catch {}
+              setAuthMsg(
+                "auth-choose-err",
+                "Signed in, but couldn't reach the database (connection issue). Please reload and try again.",
+                false
+              );
+              return;
+            }
           }
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
           _activeProfile = profile || null;
