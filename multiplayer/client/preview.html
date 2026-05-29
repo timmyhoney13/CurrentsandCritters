@@ -19909,6 +19909,17 @@
         return;
       }
 
+      // Safety net: if Firebase never resolves within 10s, unblock the UI
+      setTimeout(() => {
+        const ls = $a("auth-loading-screen");
+        if (ls && !ls.classList.contains("hidden")) {
+          ls.classList.add("hidden");
+          const as = $a("auth-screen");
+          if (as) as.classList.remove("hidden");
+          showStep("auth-step-choose");
+        }
+      }, 10000);
+
       // Firebase ready — wait for persisted auth state
       _auth.onAuthStateChanged(async (user) => {
         const authSeq = ++_authStateSeq;
