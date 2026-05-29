@@ -7614,9 +7614,30 @@
       padding: 20px 16px 40px;
     }
     .pub-modal-inner {
-      max-width: 560px;
+      max-width: 1100px;
       margin: 0 auto;
     }
+    /* Make the public Quick Stats grid IDENTICAL to the real Overview page:
+       same 6-wide compact grid, card sizing, and responsive breakpoints. */
+    #pub-profile-overlay .ph-sg {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-auto-rows: 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+    #pub-profile-overlay .ph-sc { min-height: 100px; padding: 12px 14px; gap: 5px; }
+    #pub-profile-overlay .ph-sc .ph-scl { min-height: 2.45em; font-size: .78rem; }
+    #pub-profile-overlay .ph-sci { width: 32px; height: 32px; margin-bottom: 0; }
+    #pub-profile-overlay .ph-sc:not(.ph-sc-string) .ph-scv {
+      font-size: clamp(1.45rem, 1.7vw, 2.0rem); line-height: 1.02;
+    }
+    #pub-profile-overlay .ph-sc-string .ph-scv {
+      font-size: clamp(0.95rem, 1.1vw, 1.2rem); line-height: 1.24;
+      margin-top: 2px; word-break: break-word;
+    }
+    @media (max-width: 1300px) { #pub-profile-overlay .ph-sg { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+    @media (max-width: 900px)  { #pub-profile-overlay .ph-sg { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    @media (max-width: 680px)  { #pub-profile-overlay .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     .pub-back-btn {
       display: inline-flex; align-items: center; gap: 6px;
       background: rgba(38,128,200,.13); border: 1.5px solid rgba(38,128,200,.3);
