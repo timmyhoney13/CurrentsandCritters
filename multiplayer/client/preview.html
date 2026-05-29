@@ -1566,7 +1566,9 @@
       display: none;
       position: fixed; inset: 0;
       background: rgba(0,0,0,.82);
-      z-index: 2000;
+      /* Top-most overlay: above the in-game UI AND the History game-detail
+         modal (9800) so tapping a card to zoom works from both. */
+      z-index: 9990;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(6px);
@@ -4779,7 +4781,7 @@
       border-radius: 16px;
       box-shadow: 0 12px 48px rgba(10,30,70,.22);
       width: 100%;
-      max-width: 560px;
+      max-width: 720px;
       max-height: 88vh;
       display: flex;
       flex-direction: column;
@@ -4969,6 +4971,24 @@
       padding: 3px 8px;
     }
     .ph-gdm-bv-empty { font-size: .8rem; color: #9ab0c8; font-style: italic; }
+    /* Visual board mode: the real card-image board ("screenshot") rendered by
+       renderReadOnlyBoard, on a dark game-table panel so the cards read like
+       they do in-game. Overrides the text-grid layout of #ph-gdm-bv-oceans. */
+    #ph-gdm-bv-oceans.ph-gdm-bv-visual { display: block; }
+    .ph-gdm-ro-host {
+      --focus-scale: 1;
+      --mini-w: calc(70px * var(--focus-scale));
+      --mini-h: calc(98px * var(--focus-scale));
+      background: linear-gradient(160deg, #0d2c54 0%, #0a1f3c 100%);
+      border: 1px solid rgba(95,179,214,.25);
+      border-radius: 12px;
+      padding: 14px 10px;
+      overflow-x: auto;
+    }
+    .ph-gdm-ro-host .pv-ocean-face {
+      width: calc(82px * var(--focus-scale));
+      height: calc(116px * var(--focus-scale));
+    }
 
     .ph-fr-av {
       width: 38px;
@@ -16329,14 +16349,34 @@
         .slice(0, 8);
       const allScores = [...(finalScores || [])].sort((a,b)=>(b.score||0)-(a.score||0))
         .map(p => ({ n: String(p.name||""), s: Number(p.score||0) }));
+      // Compact single card → { u: face uid (for image), n: name }.
+      const _snapCard = c => {
+        const u = Number(c.face_uid ?? c.uid) || 0;
+        const o = { u };
+        const nm = String(c.name || "").trim();
+        if (nm) o.n = nm;
+        return o;
+      };
       const boardSnaps = _latestPlayers.map(p => ({
         n: String(p.name||""),
+        // Lightweight text summary (kept for all games; old-game fallback).
         b: (Array.isArray(p.board)?p.board:[]).map(ocean => ({
           o: ocean.ocean?.name || String(ocean.ocean_uid||"Ocean"),
           a: ["up","down","left","right"].flatMap(dir =>
             (Array.isArray(ocean[dir])?ocean[dir]:[]).map(c=>String(c.name||""))
           ).filter(Boolean)
-        }))
+        })),
+        // Rich visual layout for the History "screenshot": ocean uid/name +
+        // each direction's cards (uid + name) so the real board can be redrawn
+        // with actual card images in their exact positions.
+        bd: (Array.isArray(p.board)?p.board:[]).map(ocean => ({
+          ou: Number(ocean.ocean?.uid ?? ocean.ocean_uid) || 0,
+          on: ocean.ocean?.name || "",
+          u: (Array.isArray(ocean.up)   ?ocean.up   :[]).map(_snapCard),
+          d: (Array.isArray(ocean.down) ?ocean.down :[]).map(_snapCard),
+          l: (Array.isArray(ocean.left) ?ocean.left :[]).map(_snapCard),
+          r: (Array.isArray(ocean.right)?ocean.right:[]).map(_snapCard),
+        })),
       }));
       const recentEntry = {
         r: isWinner ? 1 : 0,
@@ -16350,7 +16390,13 @@
         win: winner || "",
       };
       const existingRecent = Array.isArray(cStats.recent_games) ? cStats.recent_games : [];
-      const nextRecent = [recentEntry, ...existingRecent].slice(0, 50);
+      // Keep the heavy visual-board data (bds[].bd) only for the 30 most
+      // recent games so the user doc stays well under Firestore's 1MB limit;
+      // older games keep their lightweight text summary (bds[].b).
+      const nextRecent = [recentEntry, ...existingRecent].slice(0, 50).map((gEntry, i) => {
+        if (i < 30 || !gEntry || !Array.isArray(gEntry.bds)) return gEntry;
+        return { ...gEntry, bds: gEntry.bds.map(pp => ({ n: pp.n, b: pp.b })) };
+      });
       const levelTitle = String(cStats.level_title || cStats.level_name || "Ocean Explorer");
 
       if (authUser && db) {
@@ -22947,6 +22993,19 @@
 
     let _gdmSelectedName = "";
 
+    // Rebuild a board in the shape renderReadOnlyBoard() expects from the
+    // compact stored layout (bd). face_uid drives the real card image.
+    function _gdmBoardFromStored(bd) {
+      const mapCard = c => ({ face_uid: Number(c && c.u) || 0, name: (c && c.n) || "", species: "" });
+      return (Array.isArray(bd) ? bd : []).map(o => ({
+        ocean: { uid: Number(o && o.ou) || 0, name: (o && o.on) || "" },
+        up:    (Array.isArray(o && o.u) ? o.u : []).map(mapCard),
+        down:  (Array.isArray(o && o.d) ? o.d : []).map(mapCard),
+        left:  (Array.isArray(o && o.l) ? o.l : []).map(mapCard),
+        right: (Array.isArray(o && o.r) ? o.r : []).map(mapCard),
+      }));
+    }
+
     function _gdmRenderBoardView(g, players, name) {
       const viewEl = document.getElementById("ph-gdm-board-view");
       if (!viewEl) return;
@@ -22975,6 +23034,28 @@
       _gdmFillAvatar(document.getElementById("ph-gdm-bv-av"), player.n);
 
       const oceansEl = document.getElementById("ph-gdm-bv-oceans");
+
+      // Preferred: real visual board ("screenshot") from the rich layout,
+      // rendered with the exact same function the live game uses.
+      if (Array.isArray(player.bd) && player.bd.length && typeof renderReadOnlyBoard === "function") {
+        const board = _gdmBoardFromStored(player.bd);
+        oceansEl.classList.add("ph-gdm-bv-visual");
+        oceansEl.innerHTML = "";
+        const host = document.createElement("div");
+        host.className = "ph-gdm-ro-host";
+        const scale = (typeof _boardFocusScaleFor === "function") ? _boardFocusScaleFor(board.length) : 1;
+        host.style.setProperty("--focus-scale", String(scale));
+        try {
+          host.appendChild(renderReadOnlyBoard({ name: player.n, board }));
+        } catch (e) {
+          host.textContent = "Could not render board.";
+        }
+        oceansEl.appendChild(host);
+        return;
+      }
+
+      // Fallback: older games only stored the text summary (b → oceans/names).
+      oceansEl.classList.remove("ph-gdm-bv-visual");
       const oceans = Array.isArray(player.b) ? player.b : [];
       if (!oceans.length) {
         oceansEl.innerHTML = '<div class="ph-gdm-bv-empty">Board data not available for this player.</div>';
@@ -23003,14 +23084,13 @@
       const scores = Array.isArray(g.all) ? [...g.all] : [];
       const boards = Array.isArray(g.bds) ? g.bds : [];
       const boardByName = new Map(boards.map(b => [String(b.n || "").toLowerCase(), b]));
-      let players = scores.map(p => ({
-        n: String(p.n || ""),
-        s: Number(p.s || 0),
-        b: (boardByName.get(String(p.n || "").toLowerCase()) || {}).b || [],
-      }));
+      let players = scores.map(p => {
+        const be = boardByName.get(String(p.n || "").toLowerCase()) || {};
+        return { n: String(p.n || ""), s: Number(p.s || 0), b: be.b || [], bd: be.bd || null };
+      });
       // If no scores recorded but boards exist, build the list from boards.
       if (!players.length && boards.length) {
-        players = boards.map(b => ({ n: String(b.n || ""), s: null, b: b.b || [] }));
+        players = boards.map(b => ({ n: String(b.n || ""), s: null, b: b.b || [], bd: b.bd || null }));
       }
       const winnerName = g.win || (players[0]?.n || "");
 
