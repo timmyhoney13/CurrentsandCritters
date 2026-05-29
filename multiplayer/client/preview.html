@@ -4904,6 +4904,72 @@
       padding: 16px 0;
     }
 
+    /* Clickable player chips (avatar + name + score) */
+    #ph-gdm-players {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px;
+    }
+    .ph-gdm-pchip {
+      display: flex; align-items: center; gap: 9px;
+      background: #f5f9ff; border: 2px solid #e2ecf8;
+      border-radius: 12px; padding: 7px 12px 7px 8px;
+      cursor: pointer; font-family: inherit; text-align: left;
+      transition: border-color .15s, background .15s, transform .1s;
+    }
+    .ph-gdm-pchip:hover { border-color: #9cc4ec; transform: translateY(-1px); }
+    .ph-gdm-pchip.selected { border-color: #2680c8; background: #e9f3ff; }
+    .ph-gdm-pchip.winner { background: rgba(245,200,66,.14); }
+    .ph-gdm-pchip.winner.selected { border-color: #d9a400; }
+    .ph-gdm-pchip-av {
+      width: 38px; height: 38px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg, #2f8be3 0%, #226ec4 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: .95rem; font-weight: 800;
+    }
+    .ph-gdm-pchip-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ph-gdm-pchip-info { display: flex; flex-direction: column; min-width: 0; }
+    .ph-gdm-pchip-name { font-size: .9rem; font-weight: 800; color: #0e2f5a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
+    .ph-gdm-pchip-score { font-size: .8rem; font-weight: 700; color: #1a6fc4; }
+    .ph-gdm-pchip.winner .ph-gdm-pchip-score { color: #c47a00; }
+
+    /* Selected player's board view ("screenshot") */
+    #ph-gdm-board-view { }
+    .ph-gdm-bv-header {
+      display: flex; align-items: center; gap: 12px;
+      background: #eef5fe; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px;
+    }
+    .ph-gdm-bv-header.winner { background: rgba(245,200,66,.16); }
+    .ph-gdm-bv-av {
+      width: 56px; height: 56px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg, #2f8be3 0%, #226ec4 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1.3rem; font-weight: 800;
+      border: 2px solid rgba(38,128,200,.35);
+    }
+    .ph-gdm-bv-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ph-gdm-bv-htext { min-width: 0; }
+    .ph-gdm-bv-name { font-size: 1.05rem; font-weight: 800; color: #0e2f5a; }
+    .ph-gdm-bv-sub { font-size: .85rem; font-weight: 700; color: #1a6fc4; margin-top: 2px; }
+    .ph-gdm-bv-header.winner .ph-gdm-bv-sub { color: #c47a00; }
+    .ph-gdm-bv-oceans {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px;
+    }
+    .ph-gdm-bv-ocean {
+      background: #f5f9ff; border: 1px solid #e4eef8; border-radius: 12px;
+      padding: 10px 11px; display: flex; flex-direction: column; gap: 7px;
+    }
+    .ph-gdm-bv-ocean-name {
+      font-size: .82rem; font-weight: 800; color: #1565b0;
+      display: flex; align-items: center; gap: 5px;
+      padding-bottom: 6px; border-bottom: 1px solid #e4eef8;
+    }
+    .ph-gdm-bv-animals { display: flex; flex-wrap: wrap; gap: 5px; }
+    .ph-gdm-bv-animal {
+      font-size: .76rem; font-weight: 700; color: #2f5a86;
+      background: #e3eefb; border: 1px solid #d2e2f5; border-radius: 7px;
+      padding: 3px 8px;
+    }
+    .ph-gdm-bv-empty { font-size: .8rem; color: #9ab0c8; font-style: italic; }
+
     .ph-fr-av {
       width: 38px;
       height: 38px;
@@ -9376,10 +9442,9 @@
       <button id="ph-gdm-close">✕</button>
     </div>
     <div id="ph-gdm-body">
-      <div class="ph-gdm-section-label">Final Scores</div>
-      <div id="ph-gdm-scores"></div>
-      <div class="ph-gdm-section-label" style="margin-top:18px;">Final Boards</div>
-      <div id="ph-gdm-boards"></div>
+      <div class="ph-gdm-section-label">Players — tap to view their board</div>
+      <div id="ph-gdm-players"></div>
+      <div id="ph-gdm-board-view"></div>
     </div>
   </div>
 </div>
@@ -22860,59 +22925,127 @@
     })();
 
     // ── Game Detail Modal ─────────────────────────────────────────
+    // Avatar markup helper for the game-detail modal. Shows the player's
+    // initial immediately, then swaps in their real icon (looked up live by
+    // nickname) once it resolves. avEl is the .ph-gdm-*-av element.
+    function _gdmFillAvatar(avEl, name) {
+      if (!avEl) return;
+      const initial = (String(name || "?").trim()[0] || "?").toUpperCase();
+      avEl.textContent = initial;
+      const nm = String(name || "").trim();
+      if (!nm || typeof window.__fishAvatarForNick !== "function") return;
+      window.__fishAvatarForNick(nm).then(url => {
+        const finalUrl = url || "";
+        if (!finalUrl) return;
+        avEl.textContent = "";
+        const img = document.createElement("img");
+        img.src = finalUrl; img.alt = nm; img.loading = "lazy";
+        img.onerror = () => { img.remove(); avEl.textContent = initial; };
+        avEl.appendChild(img);
+      }).catch(() => {});
+    }
+
+    let _gdmSelectedName = "";
+
+    function _gdmRenderBoardView(g, players, name) {
+      const viewEl = document.getElementById("ph-gdm-board-view");
+      if (!viewEl) return;
+      _gdmSelectedName = name;
+      const winnerName = g.win || (players[0]?.n || "");
+      const player = players.find(p => p.n && p.n.toLowerCase() === String(name).toLowerCase()) || players[0];
+      if (!player) { viewEl.innerHTML = ""; return; }
+      const isW = player.n && player.n.toLowerCase() === winnerName.toLowerCase();
+      const rank = players.findIndex(p => p === player) + 1;
+
+      // Highlight the selected chip
+      document.querySelectorAll("#ph-gdm-players .ph-gdm-pchip").forEach(chip => {
+        chip.classList.toggle("selected", chip.dataset.pname === player.n);
+      });
+
+      viewEl.innerHTML = `
+        <div class="ph-gdm-bv-header${isW ? " winner" : ""}">
+          <div class="ph-gdm-bv-av" id="ph-gdm-bv-av"></div>
+          <div class="ph-gdm-bv-htext">
+            <div class="ph-gdm-bv-name">${escapeHtml(player.n || "Player")}${isW ? " 🏆" : ""}</div>
+            <div class="ph-gdm-bv-sub">${player.s != null ? player.s + " pts" : ""}${rank ? ` · Rank #${rank}` : ""}</div>
+          </div>
+        </div>
+        <div class="ph-gdm-bv-oceans" id="ph-gdm-bv-oceans"></div>`;
+
+      _gdmFillAvatar(document.getElementById("ph-gdm-bv-av"), player.n);
+
+      const oceansEl = document.getElementById("ph-gdm-bv-oceans");
+      const oceans = Array.isArray(player.b) ? player.b : [];
+      if (!oceans.length) {
+        oceansEl.innerHTML = '<div class="ph-gdm-bv-empty">Board data not available for this player.</div>';
+        return;
+      }
+      oceansEl.innerHTML = oceans.map(ocean => {
+        const animals = Array.isArray(ocean.a) ? ocean.a : [];
+        const chips = animals.length
+          ? animals.map(an => `<span class="ph-gdm-bv-animal">${escapeHtml(an)}</span>`).join("")
+          : `<span class="ph-gdm-bv-empty">No creatures</span>`;
+        return `<div class="ph-gdm-bv-ocean">
+          <div class="ph-gdm-bv-ocean-name">🌊 ${escapeHtml(ocean.o || "Ocean")}</div>
+          <div class="ph-gdm-bv-animals">${chips}</div>
+        </div>`;
+      }).join("");
+    }
+
     function openGameDetailModal(g) {
       const modal = document.getElementById("ph-game-detail-modal");
       if (!modal) return;
       const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"long", day:"numeric", year:"numeric"}) : "";
       const modeLabel = g.mode === "competitive" ? "Competitive" : "Normal";
       document.getElementById("ph-gdm-title").textContent = date ? `Game on ${date}` : "Game Details";
-      document.getElementById("ph-gdm-mode").textContent = `${modeLabel} · ${g.pc || (Array.isArray(g.all)?g.all.length:0)} players`;
 
-      // Scores table
-      const scoresEl = document.getElementById("ph-gdm-scores");
-      scoresEl.innerHTML = "";
-      const sorted = Array.isArray(g.all) ? [...g.all] : [];
-      const winnerName = g.win || (sorted[0]?.n || "");
-      sorted.forEach((p, i) => {
-        const row = document.createElement("div");
+      // Merge scores (g.all) with boards (g.bds) into one player list, keyed by name.
+      const scores = Array.isArray(g.all) ? [...g.all] : [];
+      const boards = Array.isArray(g.bds) ? g.bds : [];
+      const boardByName = new Map(boards.map(b => [String(b.n || "").toLowerCase(), b]));
+      let players = scores.map(p => ({
+        n: String(p.n || ""),
+        s: Number(p.s || 0),
+        b: (boardByName.get(String(p.n || "").toLowerCase()) || {}).b || [],
+      }));
+      // If no scores recorded but boards exist, build the list from boards.
+      if (!players.length && boards.length) {
+        players = boards.map(b => ({ n: String(b.n || ""), s: null, b: b.b || [] }));
+      }
+      const winnerName = g.win || (players[0]?.n || "");
+
+      document.getElementById("ph-gdm-mode").textContent =
+        `${modeLabel} · ${g.pc || players.length} players`;
+
+      // Player chips (avatar + name + score), clickable to switch the board view.
+      const playersEl = document.getElementById("ph-gdm-players");
+      playersEl.innerHTML = "";
+      players.forEach((p, i) => {
         const isWinner = p.n && p.n.toLowerCase() === winnerName.toLowerCase();
-        row.className = "ph-gdm-score-row" + (isWinner ? " winner" : "");
-        row.innerHTML = `<span class="ph-gdm-rank">${i+1}</span><span class="ph-gdm-pname">${escapeHtml(p.n)}${isWinner?" 🏆":""}</span><span class="ph-gdm-pscore">${p.s} pts</span>`;
-        scoresEl.appendChild(row);
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "ph-gdm-pchip" + (isWinner ? " winner" : "");
+        chip.dataset.pname = p.n;
+        chip.innerHTML = `
+          <div class="ph-gdm-pchip-av" data-av="1"></div>
+          <div class="ph-gdm-pchip-info">
+            <span class="ph-gdm-pchip-name">${escapeHtml(p.n || "Player")}${isWinner ? " 🏆" : ""}</span>
+            <span class="ph-gdm-pchip-score">${p.s != null ? p.s + " pts" : "—"}</span>
+          </div>`;
+        _gdmFillAvatar(chip.querySelector('[data-av="1"]'), p.n);
+        chip.addEventListener("click", () => _gdmRenderBoardView(g, players, p.n));
+        playersEl.appendChild(chip);
       });
 
-      // Boards
-      const boardsEl = document.getElementById("ph-gdm-boards");
-      boardsEl.innerHTML = "";
-      const boards = Array.isArray(g.bds) ? g.bds : [];
-      if (!boards.length) {
-        boardsEl.innerHTML = '<div class="ph-gdm-no-board">Board data not available for this game.</div>';
+      // Default selection: the viewer's own board if present, else the winner.
+      const myNm = String(_playerNickname || "").toLowerCase();
+      const mine = players.find(p => p.n && p.n.toLowerCase() === myNm);
+      const defaultName = (mine && mine.n) || winnerName || (players[0] && players[0].n) || "";
+      if (defaultName) {
+        _gdmRenderBoardView(g, players, defaultName);
       } else {
-        boards.forEach(player => {
-          const section = document.createElement("div");
-          section.className = "ph-gdm-player-board";
-          const isW = player.n && player.n.toLowerCase() === winnerName.toLowerCase();
-          const hdr = document.createElement("div");
-          hdr.className = "ph-gdm-pb-name" + (isW ? " winner" : "");
-          hdr.textContent = player.n + (isW ? " 🏆" : "");
-          section.appendChild(hdr);
-          const oceans = Array.isArray(player.b) ? player.b : [];
-          if (!oceans.length) {
-            const empty = document.createElement("div");
-            empty.className = "ph-gdm-pb-empty";
-            empty.textContent = "No oceans played";
-            section.appendChild(empty);
-          } else {
-            oceans.forEach(ocean => {
-              const row = document.createElement("div");
-              row.className = "ph-gdm-ocean-row";
-              const animals = Array.isArray(ocean.a) ? ocean.a : [];
-              row.innerHTML = `<span class="ph-gdm-ocean-name">🌊 ${escapeHtml(ocean.o)}</span><span class="ph-gdm-animals">${animals.length ? escapeHtml(animals.join(", ")) : "No creatures"}</span>`;
-              section.appendChild(row);
-            });
-          }
-          boardsEl.appendChild(section);
-        });
+        document.getElementById("ph-gdm-board-view").innerHTML =
+          '<div class="ph-gdm-no-board">No game data available.</div>';
       }
 
       modal.classList.add("open");
