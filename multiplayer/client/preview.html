@@ -5089,7 +5089,7 @@
     #auth-stats-lobby::after {
       content: none;
     }
-    /* ── Overview: ocean reef illustration background ── */
+    /* ── Overview: ocean reef illustration background (unchanged) ── */
     #auth-stats-lobby[data-bg-tab="overview"] {
       background: url("/multiplayer/client/ph-bg-overview-art.png") center center / cover no-repeat !important;
     }
@@ -5097,55 +5097,210 @@
     #auth-stats-lobby[data-bg-tab="overview"]::after {
       content: none !important;
     }
-    /* Cards — frosted sea glass over the ocean art */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
+
+    /* ── Profile card — deep navy glass, light text ── */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
+      background: rgba(4,18,55,0.78) !important;
+      backdrop-filter: blur(22px) !important;
+      -webkit-backdrop-filter: blur(22px) !important;
+      border: 1.5px solid rgba(55,165,240,0.60) !important;
+      box-shadow: 0 10px 44px rgba(0,25,100,0.58), 0 0 0 1px rgba(45,155,255,0.10), inset 0 1px 0 rgba(100,200,255,0.14) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-pname { color: #e0f2ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-pfc { color: #62b8e0 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-pranks {
+      background: rgba(8,28,78,0.68) !important;
+      border-color: rgba(55,148,225,0.40) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-rank-badge { border-color: rgba(55,148,225,0.26) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-rank-type { color: #82c6f0 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-rank-val { color: #c4e6ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-rank-badge.ph-rank-comp .ph-rank-type { color: #f0c458 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-rank-badge.ph-rank-comp .ph-rank-val { color: #ffdc98 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-name-chip {
+      background: rgba(14,52,128,0.70) !important;
+      border-color: rgba(55,148,225,0.46) !important;
+      color: #a4d6ff !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-name-chip.level { color: #60c6ff !important; border-color: rgba(55,178,255,0.52) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-name-chip.active { color: #72b6d6 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-level-xp-bar { background: rgba(38,78,158,0.55) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-level-xp-text { color: #72aed0 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-signout-btn {
+      background: rgba(10,42,108,0.72) !important;
+      border-color: rgba(55,148,225,0.55) !important;
+      color: #9acef0 !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-signout-btn:hover {
+      background: rgba(18,62,148,0.78) !important;
+      border-color: rgba(72,188,255,0.75) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-icon-btn {
+      background: rgba(8,38,98,0.74) !important;
+      border-color: rgba(55,148,225,0.50) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-icon-btn svg rect,
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-icon-btn svg path { fill: #8ac6e8 !important; stroke: #8ac6e8 !important; }
+
+    /* ── Action cards — vertical, tall, premium dark glass ── */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-actions { gap: 14px !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
+      background: rgba(4,20,60,0.76) !important;
+      backdrop-filter: blur(22px) !important;
+      -webkit-backdrop-filter: blur(22px) !important;
+      border: 1.5px solid rgba(48,158,230,0.62) !important;
+      box-shadow: 0 8px 36px rgba(0,25,105,0.52), inset 0 1px 0 rgba(96,196,255,0.12) !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+      min-height: 185px !important;
+      padding: 22px 18px !important;
+      gap: 12px !important;
+      border-radius: 22px !important;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card:hover {
+      transform: translateY(-4px) scale(1.012) !important;
+      border-color: rgba(55,210,255,0.88) !important;
+      box-shadow: 0 18px 50px rgba(0,45,155,0.58), 0 0 24px rgba(36,175,255,0.24), inset 0 1px 0 rgba(136,220,255,0.18) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-action-icon {
+      width: 70px !important;
+      height: 70px !important;
+      border-radius: 20px !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-action-icon svg {
+      width: 38px !important;
+      height: 38px !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-ai-blue  { background: rgba(26,128,220,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-ai-green { background: rgba(28,184,130,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-ai-teal  { background: rgba(38,198,184,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-ai-gold  { background: rgba(218,168,48,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-action-copy { align-items: center !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-action-label {
+      color: #d6eeff !important;
+      font-size: clamp(1.05rem, 1.3vw, 1.52rem) !important;
+      letter-spacing: .02em !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card .ph-action-sub { color: #62b4d6 !important; font-size: .88rem !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
+      background: rgba(44,28,4,0.78) !important;
+      border-color: rgba(208,162,52,0.70) !important;
+      box-shadow: 0 8px 36px rgba(96,62,0,0.46), inset 0 1px 0 rgba(255,196,78,0.12) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold:hover {
+      border-color: rgba(255,196,78,0.92) !important;
+      box-shadow: 0 18px 50px rgba(128,78,0,0.52), 0 0 24px rgba(218,168,56,0.28) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold .ph-action-label { color: #ffe4a8 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold .ph-action-sub { color: #c49c4c !important; }
+
+    /* ── Nav tabs — dark glass, vivid active ── */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
+      background: rgba(4,18,55,0.78) !important;
+      backdrop-filter: blur(22px) !important;
+      -webkit-backdrop-filter: blur(22px) !important;
+      border: 1.5px solid rgba(48,148,220,0.54) !important;
+      box-shadow: 0 4px 22px rgba(0,25,105,0.42) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tab { color: #52aacc !important; border-right-color: rgba(48,118,198,0.22) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tab:hover { color: #bce4ff !important; background: rgba(28,108,198,0.18) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
+      color: #e6f8ff !important;
+      background: rgba(18,78,172,0.58) !important;
+      border-bottom-color: rgba(52,210,255,0.96) !important;
+    }
+
+    /* ── Daily challenge strip ── */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-strip {
+      background: rgba(4,18,55,0.78) !important;
+      backdrop-filter: blur(22px) !important;
+      -webkit-backdrop-filter: blur(22px) !important;
+      border: 1.5px solid rgba(48,148,220,0.57) !important;
+      box-shadow: 0 6px 32px rgba(0,25,105,0.44) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-title { color: #bce4ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-sub { color: #52aacc !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-header { border-right-color: rgba(48,138,210,0.32) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card {
+      background: rgba(8,26,76,0.72) !important;
+      border: 1.5px solid rgba(48,138,210,0.44) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card:hover {
+      border-color: rgba(48,198,255,0.70) !important;
+      box-shadow: 0 4px 18px rgba(0,55,155,0.34) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-name { color: #b4e2ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-req { color: #52aacc !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-type { color: #48bce8 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-progress { color: #74d0f0 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-xp { color: #eec458 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-bar { background: rgba(36,78,158,0.52) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card.is-completed {
+      background: linear-gradient(135deg, rgba(6,36,20,0.78) 0%, rgba(10,48,28,0.76) 100%) !important;
+      border-color: rgba(48,178,98,0.60) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-card-completed-badge { color: #48de8c !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-reward {
+      background: linear-gradient(135deg, rgba(40,24,4,0.80) 0%, rgba(54,32,5,0.78) 100%) !important;
+      border-color: rgba(198,148,46,0.67) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-reward:hover {
+      border-color: rgba(228,178,68,0.88) !important;
+      box-shadow: 0 6px 18px rgba(136,88,0,0.40) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-reward-label { color: #f2cc68 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-reward-count { color: #c48e3c !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-cs-reward-bar { background: rgba(158,98,18,0.32) !important; }
+
+    /* ── Quick Stats + side cards — dark glass ── */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
-      background: rgba(220,245,255,0.68) !important;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(120,200,235,0.50) !important;
-      box-shadow: 0 6px 28px rgba(0,60,120,0.14) !important;
+      background: rgba(4,18,55,0.78) !important;
+      backdrop-filter: blur(22px) !important;
+      -webkit-backdrop-filter: blur(22px) !important;
+      border: 1.5px solid rgba(48,148,220,0.57) !important;
+      box-shadow: 0 6px 32px rgba(0,25,105,0.44) !important;
     }
-    /* Nav tabs bar */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-tabs {
-      background: rgba(210,242,255,0.70) !important;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(120,200,235,0.45) !important;
-      box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
-    }
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
-      background: rgba(240,252,255,0.90) !important;
-    }
-    /* Action buttons */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      background: rgba(220,245,255,0.68) !important;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(120,200,235,0.50) !important;
-      box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
-    }
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
-      background: rgba(255,246,210,0.75) !important;
-    }
-    /* Stat grid container — nearly invisible so art shows between cells */
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
-      background: rgba(160,225,255,0.08) !important;
-    }
-    /* Individual stat cells */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-title { color: #b4e0ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-top { border-bottom-color: rgba(48,138,210,0.26) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sg { background: transparent !important; gap: 8px !important; }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sc {
-      background: rgba(230,250,255,0.72) !important;
+      background: rgba(8,26,78,0.72) !important;
+      border: 1.5px solid rgba(48,136,210,0.38) !important;
+      box-shadow: inset 0 1px 0 rgba(96,180,255,0.08) !important;
     }
-    /* Section header */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sc:hover {
+      border-color: rgba(48,188,255,0.64) !important;
+      background: rgba(10,36,98,0.74) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-scl { color: #52aacc !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-scv { color: #dcf0ff !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-scs { color: #48bce8 !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sci-blue   { background: rgba(28,128,224,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sci-gold   { background: rgba(218,164,48,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sci-teal   { background: rgba(36,198,178,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sci-purple { background: rgba(118,98,238,0.30) !important; }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-sci-green  { background: rgba(36,188,118,0.30) !important; }
+
+    /* ── Section header bars inside dark cards ── */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sh {
-      background: rgba(215,245,255,0.75) !important;
+      background: rgba(8,26,78,0.72) !important;
+      border-bottom-color: rgba(48,136,210,0.26) !important;
     }
-    /* Topbar: fully transparent so ocean art shows through */
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-st { color: #aedcff !important; }
+
+    /* ── Topbar: transparent so ocean art shows through ── */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar {
       background: transparent;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
+    }
+    #auth-stats-lobby[data-bg-tab="overview"] .ph-topbar-title {
+      color: #e8f6ff !important;
+      text-shadow: 0 2px 12px rgba(0,60,150,0.55), 0 0 40px rgba(0,120,220,0.25) !important;
     }
 
     /* ── Casual tab: soft seafoam green ── */
