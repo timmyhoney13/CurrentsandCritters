@@ -7656,35 +7656,6 @@
       text-align: center; padding: 32px 0; font-size: 14px; color: var(--muted);
     }
     .pub-error { color: #c0392b; }
-    /* Critter collection sub-view */
-    .pub-critters-header {
-      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-      border-radius: 14px; padding: 14px 16px; margin-bottom: 14px;
-      display: flex; align-items: center; gap: 12px;
-    }
-    .pub-critters-header img {
-      width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0;
-    }
-    .pub-critters-name { font-size: 17px; font-weight: 700; color: #e8f4ff; }
-    .pub-critters-count { font-size: 13px; color: #7ecdf5; margin-top: 2px; }
-    .pub-critters-grid { display: flex; flex-direction: column; gap: 8px; }
-    .pub-av-card {
-      display: flex; align-items: center; gap: 12px;
-      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
-      border-radius: 10px; padding: 10px 12px;
-    }
-    .pub-av-card.pub-av-unlocked { border-color: rgba(44,197,185,.25); background: rgba(44,197,185,.06); }
-    .pub-av-img { width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
-    .pub-av-info { flex: 1; min-width: 0; }
-    .pub-av-name { font-size: 13px; font-weight: 700; color: #e8f4ff; }
-    .pub-av-species { font-size: 11px; color: #7ecdf5; margin-top: 1px; }
-    .pub-av-req { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .pub-av-badge {
-      flex-shrink: 0; font-size: 11px; font-weight: 600; border-radius: 6px;
-      padding: 3px 8px;
-    }
-    .pub-av-badge-done { background: rgba(44,197,185,.18); color: #2cc5b9; }
-    .pub-av-badge-locked { background: rgba(255,255,255,.07); color: #7390ac; }
     /* Make ph-fr avatar/name clickable in friends list */
     .ph-fr-clickable { cursor: pointer; }
     .ph-fr-clickable:hover { opacity: .82; }
@@ -8673,18 +8644,6 @@
         <div class="ph-sg" id="pub-stats-grid"></div>
       </div>
     </div>
-  </div>
-  <!-- Critter collection sub-view -->
-  <div class="pub-modal-inner" id="pub-critters-view" style="display:none;">
-    <button class="pub-back-btn" id="pub-critters-back-btn">← Back to Profile</button>
-    <div class="pub-critters-header">
-      <img id="pub-critters-avatar" src="/avatars/mullet.png" alt="avatar" loading="lazy">
-      <div>
-        <div class="pub-critters-name" id="pub-critters-name"></div>
-        <div class="pub-critters-count" id="pub-critters-count"></div>
-      </div>
-    </div>
-    <div class="pub-critters-grid" id="pub-critters-grid"></div>
   </div>
 </div>
 
@@ -10132,6 +10091,7 @@
     if (statsLobby) statsLobby.classList.remove("visible");
     const _galEl = document.getElementById("avatar-gallery");
     if (_galEl) _galEl.classList.remove("open");
+    if (window.__fishExitGalleryViewOnly) window.__fishExitGalleryViewOnly();
     document.getElementById("pv-game").style.display = "flex";
     document.getElementById("pv-room-id-badge").textContent = rid + " 👁";
     _specShowPanel(true);
@@ -10239,6 +10199,7 @@
     if (statsLobby) statsLobby.classList.remove("visible");
     const _galEl = document.getElementById("avatar-gallery");
     if (_galEl) _galEl.classList.remove("open");
+    if (window.__fishExitGalleryViewOnly) window.__fishExitGalleryViewOnly();
     document.getElementById("pv-game").style.display = "flex";
     startSSE();
     startPolling();
@@ -14208,6 +14169,7 @@
     if (_compStatsLobby) _compStatsLobby.classList.remove("visible");
     const _galEl2 = document.getElementById("avatar-gallery");
     if (_galEl2) _galEl2.classList.remove("open");
+    if (window.__fishExitGalleryViewOnly) window.__fishExitGalleryViewOnly();
     document.getElementById("pv-game").style.display = "flex";
     startPolling();
     startThemeSong();
@@ -18171,6 +18133,10 @@
     let _galSpecies = "all";   // active species tab
     let _galSort    = "all";   // sort/filter dropdown
     let _galSelectedId = null; // avatar currently shown in detail panel
+    // View-only mode: when set, the gallery shows another player's collection
+    // (globals are swapped to their data) and the equip controls are hidden.
+    let _galReadOnly = false;
+    let _galSavedState = null;  // { activeProfile, unlockedIcons, playerNickname }
 
     function _galGetNewSet() {
       try { return new Set(JSON.parse(localStorage.getItem(GAL_NEW_KEY) || "[]")); }
@@ -18222,7 +18188,63 @@
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (gal) { gal.classList.remove("open"); gal.setAttribute("aria-hidden", "true"); }
+      // If we were viewing another player's collection, restore our own state
+      // and return to their public-profile modal.
+      if (_galReadOnly) {
+        _galReadOnly = false;
+        if (_galSavedState) {
+          _activeProfile  = _galSavedState.activeProfile;
+          _unlockedIcons  = _galSavedState.unlockedIcons;
+          _playerNickname = _galSavedState.playerNickname;
+          _galSavedState  = null;
+        }
+        const ov = $a("pub-profile-overlay");
+        if (ov && _pubProfileData) {
+          ov.style.display = "";
+          document.body.style.overflow = "hidden";
+        }
+      }
     }
+
+    // Open the REAL avatar gallery in view-only mode for another player.
+    // Swaps the globals the gallery reads to the target's data, opens it, and
+    // restores everything on close (see closeAvatarGallery). Equip is gated off.
+    function openPublicCritterGallery(profile) {
+      if (!profile) return;
+      _galSavedState = {
+        activeProfile:  _activeProfile,
+        unlockedIcons:  _unlockedIcons,
+        playerNickname: _playerNickname,
+      };
+      _activeProfile  = profile;
+      _unlockedIcons  = Array.isArray(profile.unlocked_icons)
+        ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
+      _playerNickname = profile.nickname || "Player";
+      _galReadOnly = true;
+      // Hide the profile modal behind the gallery (re-shown on gallery close).
+      const ov = $a("pub-profile-overlay");
+      if (ov) ov.style.display = "none";
+      openAvatarGallery();
+    }
+
+    // Safety net: if anything closes the gallery WITHOUT going through
+    // closeAvatarGallery (e.g. entering a game / spectating), make sure the
+    // swapped-in state is restored so the viewer never inherits the other
+    // player's profile. Fully exits (does not reopen the profile modal).
+    window.__fishExitGalleryViewOnly = function () {
+      if (!_galReadOnly) return;
+      _galReadOnly = false;
+      if (_galSavedState) {
+        _activeProfile  = _galSavedState.activeProfile;
+        _unlockedIcons  = _galSavedState.unlockedIcons;
+        _playerNickname = _galSavedState.playerNickname;
+        _galSavedState  = null;
+      }
+      const ov = $a("pub-profile-overlay");
+      if (ov) ov.style.display = "none";
+      _pubProfileData = null;
+      document.body.style.overflow = "";
+    };
 
     function _galRenderHeader() {
       const equipped = _galEquippedImg();
@@ -18347,7 +18369,8 @@
       if (!wrap) return;
       const { stats, level } = _avatarStatsAndLevel();
       const equipped = _galEquippedImg();
-      const newSet = _galGetNewSet();
+      // "New" badges are personal — never show them on another player's collection.
+      const newSet = _galReadOnly ? new Set() : _galGetNewSet();
       const counts = _iconUnlockCounts || {};
       wrap.innerHTML = "";
 
@@ -18435,8 +18458,9 @@
         html += `<div class="gal-rarity">🌐 Owned by ${ownerCount.toLocaleString()} player${ownerCount === 1 ? "" : "s"}</div>`;
       }
 
-      // Equip controls (unlocked + not already equipped)
-      if (unlocked && !equipped) {
+      // Equip controls (unlocked + not already equipped). Never shown when
+      // viewing another player's collection — that view is strictly read-only.
+      if (unlocked && !equipped && !_galReadOnly) {
         html += `<div class="gal-equip-q">Do you want to equip this avatar?</div>`;
         html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-equip-no">No</button><button class="pv-btn gold" id="gal-equip-yes">Yes</button></div>`;
       }
@@ -21150,24 +21174,27 @@
     // Called from Friends list and Leaderboard rows.
     let _pubProfileData = null; // cached profile for critter view
 
-    function _pubSc(iconHtml, label, value, colorClass) {
-      return `<div class="ph-sc">
+    // Build a single Quick-Stats card. isString → matches the overview's
+    // .ph-sc-string variant (used for word-valued cards like strategy/rank).
+    function _pubSc(iconHtml, label, value, colorClass, isString) {
+      return `<div class="ph-sc${isString ? " ph-sc-string" : ""}">
         <div class="ph-sci ${colorClass || "ph-sci-blue"}">${iconHtml}</div>
         <div class="ph-scl">${escapeHtml(label)}</div>
         <div class="ph-scv">${escapeHtml(String(value))}</div>
       </div>`;
     }
 
+    // Mirrors the real Overview "Quick Stats" grid exactly (same cards, order,
+    // icons, and .ph-sc-string classes) — populated with the target player's
+    // data. Read-only; touches no global state.
     function _renderPublicStats(profile) {
       const grid = $a("pub-stats-grid");
       if (!grid) return;
       const s = (profile && typeof profile.stats === "object") ? profile.stats : {};
 
-      const totalGames = Math.max(
-        Number(s.completed_games || 0),
-        Object.values(s.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0) +
-        Object.values(s.comp_games_by_size   || {}).reduce((a, n) => a + Number(n || 0), 0)
-      );
+      const byNormal   = Object.values(s.normal_games_by_size || {}).reduce((a, n) => a + Number(n || 0), 0);
+      const byComp     = Object.values(s.comp_games_by_size   || {}).reduce((a, n) => a + Number(n || 0), 0);
+      const totalGames = Math.max(Number(s.completed_games || 0), byNormal + byComp);
       const normalWins = Number(s.normal_wins || 0);
       const compWins   = Number(s.competitive_wins || 0);
       const expTotal   = Number(s.total_wins);
@@ -21176,89 +21203,62 @@
 
       const casualTop  = s.highest_score_normal || s.highest_score || 0;
       const compTop    = s.highest_score_competitive || 0;
-      const byNormal   = Object.values(s.normal_games_by_size  || {}).reduce((a, n) => a + Number(n || 0), 0);
-      const byComp     = Object.values(s.comp_games_by_size    || {}).reduce((a, n) => a + Number(n || 0), 0);
-      let   compGames  = byComp;
+      const compGames  = byComp;
       const scoreBySize = Object.values(s.total_score_by_size || {}).reduce((sum, v) => sum + (Number(v) || 0), 0);
-      const casualGames = byNormal || totalGames - compGames;
+      const casualGames = byNormal || Math.max(0, totalGames - compGames);
       const avgCasual   = casualGames > 0 && scoreBySize > 0
         ? Math.round(scoreBySize / Math.max(1, casualGames)) : null;
 
       const hours = Number(s.hours_played || 0);
-      const strat = s.most_played_strategy || s.favorite_strategy || "—";
+      let strat = "—";
+      try { strat = getOverallMostPlayedStrategy(s) || "—"; }
+      catch { strat = s.most_played_strategy || s.favorite_strategy || "—"; }
       let mostPCount = "—";
       try { mostPCount = getMostPlayedPlayerCountLabel(s) || "—"; }
       catch { mostPCount = s.most_played_player_count ? `${s.most_played_player_count}P` : "—"; }
       const compRank   = s.rank_competitive || "No rank yet";
+
+      // Achievements unlocked (from the target's own achievements map).
+      const tAch = (profile.achievements && typeof profile.achievements === "object") ? profile.achievements : {};
+      const achDone = ACHIEVEMENT_DEFS.filter(d => tAch[d.id] && tAch[d.id].completed).length;
+
+      // Animals unlocked (from the target's own unlocked_icons).
       const animals    = ANIMAL_AVATARS.filter(a => !!a.unlock);
       const theirIcons = Array.isArray(profile.unlocked_icons)
         ? profile.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
       const animalsDone = animals.filter(a => theirIcons.includes(a.img)).length;
 
+      const noGames = totalGames === 0;
       grid.innerHTML = [
         _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
           "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
+        _pubSc(`<img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
+          "Most Played Strategy", strat !== "—" ? strat : (noGames ? "No games completed yet." : "—"), "ph-sci-blue", true),
         _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "—", "ph-sci-purple"),
         _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "—", "ph-sci-gold"),
         _pubSc("📈", "Win Rate",      winRate,                           "ph-sci-teal"),
-        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "—","ph-sci-teal"),
-        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "—","ph-sci-blue"),
-        _pubSc("📊", "Avg Casual Score",
+        _pubSc("👥", "Most Played Player Count", mostPCount !== "—" ? mostPCount : (noGames ? "No games completed yet." : "—"), "ph-sci-blue", true),
+        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "—", "ph-sci-teal"),
+        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "—", "ph-sci-blue"),
+        _pubSc("📊", "Average Casual Score",
           avgCasual != null && Number.isFinite(avgCasual) ? avgCasual : "—", "ph-sci-gold"),
-        _pubSc("⚔️", "Competitive Rank", compRank,                       "ph-sci-gold"),
-        _pubSc("🏆", "Best Comp Score", compTop > 0 ? compTop : "—",    "ph-sci-purple"),
-        _pubSc("🎮", "Comp Games",    compGames > 0 ? compGames : "—",   "ph-sci-blue"),
-        _pubSc("👥", "Most Played Count", mostPCount,                    "ph-sci-blue"),
-        _pubSc(`<img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;">`,
-          "Most Played Strategy", strat,                                  "ph-sci-blue"),
-        _pubSc("🐠", "Animals Unlocked",
-          `${animalsDone} / ${animals.length}`,                           "ph-sci-teal"),
+        _pubSc("⚔️", "Competitive Rank", compRank, "ph-sci-gold", true),
+        _pubSc("🏆", "Best Competitive Score", compTop > 0 ? compTop : "—", "ph-sci-purple"),
+        _pubSc("🎮", "Competitive Games", compGames > 0 ? compGames : "—", "ph-sci-blue"),
+        _pubSc("🏆", "Achievements", `${achDone} / ${ACHIEVEMENT_DEFS.length}`, "ph-sci-gold"),
+        _pubSc("🐠", "Animals Unlocked", `${animalsDone} / ${animals.length}`, "ph-sci-teal"),
       ].join("");
-    }
-
-    function _renderPublicCritters(profile) {
-      const grid = $a("pub-critters-grid");
-      if (!grid) return;
-      const theirIcons = Array.isArray(profile.unlocked_icons)
-        ? profile.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
-      const isUnlocked = img => theirIcons.includes(img);
-      const animals = ANIMAL_AVATARS.filter(a => !!a.unlock);
-      animals.sort((a, b) => (isUnlocked(b.img) ? 1 : 0) - (isUnlocked(a.img) ? 1 : 0));
-      grid.innerHTML = "";
-      animals.forEach(a => {
-        const unlocked = isUnlocked(a.img);
-        const card = document.createElement("div");
-        card.className = "pub-av-card" + (unlocked ? " pub-av-unlocked" : "");
-        const img = document.createElement("img");
-        img.className = "pub-av-img";
-        img.src = a.img; img.alt = a.name; img.loading = "lazy";
-        if (!unlocked) img.style.filter = "grayscale(.55)";
-        const info = document.createElement("div");
-        info.className = "pub-av-info";
-        info.innerHTML = `<div class="pub-av-name">${escapeHtml(a.name)}</div>
-          <div class="pub-av-species">${escapeHtml(a.species || "")}</div>
-          ${!unlocked ? `<div class="pub-av-req">${escapeHtml(a.unlock?.label || "")}</div>` : ""}`;
-        const badge = document.createElement("div");
-        badge.className = "pub-av-badge " + (unlocked ? "pub-av-badge-done" : "pub-av-badge-locked");
-        badge.textContent = unlocked ? "✓ Unlocked" : "Locked";
-        card.appendChild(img); card.appendChild(info); card.appendChild(badge);
-        grid.appendChild(card);
-      });
     }
 
     async function openPublicProfile(uid) {
       if (!uid || !_db) return;
       const overlay  = $a("pub-profile-overlay");
-      const profView = $a("pub-profile-view");
-      const critView = $a("pub-critters-view");
       const loading  = $a("pub-loading");
       const errEl    = $a("pub-error");
       const content  = $a("pub-content");
       if (!overlay) return;
-      // Show overlay, profile view
+      // Show overlay
       overlay.style.display = "";
-      profView.style.display = "";
-      critView.style.display = "none";
       loading.style.display  = "";
       errEl.style.display    = "none";
       content.style.display  = "none";
@@ -21302,49 +21302,26 @@
           rankEl.style.display = "none";
         }
       }
-      // Stats grid
+      // Stats grid (mirrors the real Overview Quick Stats)
       _renderPublicStats(profile);
-      // Critters avatar button
-      const critterAvatarImg = $a("pub-critters-avatar");
-      if (critterAvatarImg) { critterAvatarImg.src = avatarUrl; }
-      const crNickEl = $a("pub-critters-name");
-      if (crNickEl) crNickEl.textContent = `${profile.nickname || "Unknown"}'s Critters`;
       loading.style.display = "none";
       content.style.display = "";
     }
 
-    // Wire close / back buttons
+    // Wire close button + avatar (→ critter gallery)
     (function() {
       const overlay = $a("pub-profile-overlay");
       const closeBtn = $a("pub-close-btn");
-      const critBackBtn = $a("pub-critters-back-btn");
       const avatarBtn = $a("pub-avatar-btn");
       if (closeBtn) closeBtn.addEventListener("click", () => {
         if (overlay) overlay.style.display = "none";
         document.body.style.overflow = "";
         _pubProfileData = null;
       });
-      if (critBackBtn) critBackBtn.addEventListener("click", () => {
-        $a("pub-critters-view").style.display = "none";
-        $a("pub-profile-view").style.display  = "";
-        if (overlay) overlay.scrollTop = 0;
-      });
+      // Avatar → open the real Avatar Gallery in view-only mode for this player
       if (avatarBtn) avatarBtn.addEventListener("click", () => {
         if (!_pubProfileData) return;
-        const overlay = $a("pub-profile-overlay");
-        const profView = $a("pub-profile-view");
-        const critView = $a("pub-critters-view");
-        profView.style.display = "none";
-        critView.style.display = "";
-        if (overlay) overlay.scrollTop = 0;
-        // Populate critter count
-        const theirIcons = Array.isArray(_pubProfileData.unlocked_icons)
-          ? _pubProfileData.unlocked_icons.filter(p => typeof p === "string" && p.startsWith("/avatars/")) : [];
-        const animals = ANIMAL_AVATARS.filter(a => !!a.unlock);
-        const done = animals.filter(a => theirIcons.includes(a.img)).length;
-        const countEl = $a("pub-critters-count");
-        if (countEl) countEl.textContent = `${done} / ${animals.length} critters unlocked`;
-        _renderPublicCritters(_pubProfileData);
+        openPublicCritterGallery(_pubProfileData);
       });
       // Close on overlay background click
       if (overlay) overlay.addEventListener("click", e => {
