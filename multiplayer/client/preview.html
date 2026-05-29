@@ -10592,14 +10592,15 @@
 
 
   // ── New Current Modal ──────────────────────────────────────────
+  let _ncIsCompetitive = false; // tracks whether the modal was opened for a competitive game
   function openNewCurrentModal(opts) {
-    const competitive = !!(opts && opts.competitive);
+    _ncIsCompetitive = !!(opts && opts.competitive);
     document.getElementById("nc-current-err").textContent = "";
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
     const titleEl = document.getElementById("nc-modal-title");
-    if (titleEl) titleEl.textContent = competitive ? "🌊 New Competitive Current" : "🌊 New Current";
+    if (titleEl) titleEl.textContent = _ncIsCompetitive ? "🌊 New Competitive Current" : "🌊 New Current";
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -10653,6 +10654,7 @@
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: human, ai_players: ai,
       replace_active: false, visibility, password,
+      competitive: _ncIsCompetitive,
     }, { timeoutMs:10000 });
     btn.disabled = false;
     btn.classList.remove("generating");
