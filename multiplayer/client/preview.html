@@ -8080,6 +8080,16 @@
               <div class="ph-scl">Competitive Games</div>
               <div class="ph-scv" id="ph-ov-comp-games">—</div>
             </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-gold">🏆</div>
+              <div class="ph-scl">Achievements</div>
+              <div class="ph-scv" id="ph-ov-achievements">—</div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-teal">🐠</div>
+              <div class="ph-scl">Animals Unlocked</div>
+              <div class="ph-scv" id="ph-ov-animals">—</div>
+            </div>
           </div>
         </div>
       </div>
@@ -20952,6 +20962,18 @@
       set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "—");
       set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "—");
 
+      // Achievements unlocked
+      const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
+      const achTotal = ACHIEVEMENT_DEFS.length;
+      const achDone  = ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length;
+      set("ph-ov-achievements", `${achDone} / ${achTotal}`);
+
+      // Animals unlocked
+      const allUnlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
+      const animalsTotal   = allUnlockable.length;
+      const animalsDone    = allUnlockable.filter(a => isAvatarUnlocked(a.img)).length;
+      set("ph-ov-animals", `${animalsDone} / ${animalsTotal}`);
+
       renderOverviewAchievements(safeStats);
       renderChallengeStrip();
 
@@ -20966,6 +20988,15 @@
     function renderPhOverview() {
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();
+      // Refresh achievement and animal counts when tab is opened
+      const set = (id, val) => { const el = $a(id); if (el) el.textContent = val; };
+      const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
+      const achTotal = ACHIEVEMENT_DEFS.length;
+      const achDone  = ACHIEVEMENT_DEFS.filter(d => userAchs[d.id] && userAchs[d.id].completed).length;
+      set("ph-ov-achievements", `${achDone} / ${achTotal}`);
+      const allUnlockable = ANIMAL_AVATARS.filter(a => !!a.unlock);
+      const animalsDone   = allUnlockable.filter(a => isAvatarUnlocked(a.img)).length;
+      set("ph-ov-animals", `${animalsDone} / ${allUnlockable.length}`);
     }
 
     // ── Daily / Weekly Challenge Strip ─────────────────────────────
