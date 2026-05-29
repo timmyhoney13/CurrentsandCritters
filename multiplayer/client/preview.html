@@ -7082,11 +7082,11 @@
     .ach-steam-card:last-child { margin-bottom: 0; }
     .ach-steam-card:hover { border-color: rgba(38,128,200,.38); box-shadow: 0 2px 10px rgba(38,128,200,.08); }
     .ach-steam-card.ach-done {
-      background: linear-gradient(135deg, rgba(45,189,130,.08) 0%, rgba(39,200,160,.05) 100%);
-      border-color: rgba(45,189,130,.38);
-      box-shadow: 0 0 0 1px rgba(45,189,130,.12) inset;
+      background: linear-gradient(135deg, #e6faf3 0%, #d4f5ea 100%);
+      border-color: rgba(22,163,103,.55);
+      box-shadow: 0 0 0 1px rgba(22,163,103,.18) inset, 0 2px 8px rgba(22,163,103,.12);
     }
-    .ach-steam-card.ach-done:hover { border-color: rgba(45,189,130,.58); box-shadow: 0 2px 12px rgba(45,189,130,.14); }
+    .ach-steam-card.ach-done:hover { border-color: rgba(22,163,103,.8); box-shadow: 0 2px 14px rgba(22,163,103,.22); }
     .ach-steam-card.ach-secret { opacity: .72; }
     /* Icon */
     .ach-icon-wrap {
@@ -7102,9 +7102,9 @@
       border: 1.5px solid rgba(38,128,200,.18);
     }
     .ach-icon-done {
-      background: linear-gradient(135deg, rgba(45,189,130,.2) 0%, rgba(39,200,160,.12) 100%);
-      border: 1.5px solid rgba(45,189,130,.4);
-      box-shadow: 0 0 14px rgba(45,189,130,.2);
+      background: linear-gradient(135deg, rgba(22,163,103,.28) 0%, rgba(39,200,160,.18) 100%);
+      border: 1.5px solid rgba(22,163,103,.6);
+      box-shadow: 0 0 14px rgba(22,163,103,.25);
     }
     .ach-icon-locked {
       background: rgba(38,128,200,.08);
@@ -7120,7 +7120,7 @@
       margin-bottom: 3px;
       line-height: 1.2;
     }
-    .ach-steam-card.ach-done .ach-name { color: #0d6040; }
+    .ach-steam-card.ach-done .ach-name { color: #065f39; font-weight: 900; }
     .ach-steam-card.ach-secret .ach-name { color: #5a7a9a; }
     .ach-desc {
       font-size: .82rem;
@@ -7128,7 +7128,7 @@
       line-height: 1.4;
       margin-bottom: 6px;
     }
-    .ach-steam-card.ach-done .ach-desc { color: #3a7060; }
+    .ach-steam-card.ach-done .ach-desc { color: #1a6048; }
     /* Progress bar on card */
     .ach-steam-prog-wrap { margin-top: 5px; }
     .ach-steam-prog-bar {
@@ -7196,10 +7196,8 @@
       .ach-icon-wrap { width: 42px; height: 42px; font-size: 1.4rem; }
     }
 
-    /* ── Avatar Achievements section ──────────────────────────────── */
     .av-ach-section {
-      margin: 0 0 4px;
-      border-top: 2px solid rgba(38,128,200,.14);
+      display: none; /* section removed from achievements panel */
     }
     .av-ach-header {
       display: flex;
@@ -8389,45 +8387,6 @@
           <div style="color:var(--muted);text-align:center;padding:32px 0;font-size:13px;">Loading achievements…</div>
         </div>
 
-        <!-- Avatar Unlock Achievements section -->
-        <div class="av-ach-section">
-          <div class="av-ach-header">
-            <div class="av-ach-title">
-              <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><circle cx="8.5" cy="8.5" r="7.5" stroke="#7c3aed" stroke-width="1.6"/><path d="M5.5 8.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0z" stroke="#7c3aed" stroke-width="1.4"/><path d="M8.5 1v2M8.5 14v2M1 8.5h2M14 8.5h2" stroke="#7c3aed" stroke-width="1.4" stroke-linecap="round"/></svg>
-              Animal Avatars
-            </div>
-            <div class="ach-filter-row">
-              <select class="ach-filter-sel" id="av-species-filter">
-                <option value="all">All Species</option>
-                <option value="Bait Fish">Bait Fish</option>
-                <option value="Birds">Birds</option>
-                <option value="Game Fish">Game Fish</option>
-                <option value="Coral">Coral</option>
-                <option value="Mammals">Mammals</option>
-                <option value="Invertebrates">Invertebrates</option>
-                <option value="Crosscurrent">Crosscurrent</option>
-                <option value="Crustaceans">Crustaceans</option>
-                <option value="Cephalopods">Cephalopods</option>
-              </select>
-              <select class="ach-filter-sel" id="av-status-filter">
-                <option value="all">All</option>
-                <option value="unlocked">Unlocked</option>
-                <option value="locked">Locked</option>
-              </select>
-            </div>
-          </div>
-          <div class="av-ach-summary" id="av-ach-summary">
-            <div class="av-ach-sum-row">
-              <div class="av-ach-sum-stat"><span id="av-stat-done">0</span> / <span id="av-stat-total">0</span> Unlocked</div>
-              <div class="av-ach-sum-pct"><span id="av-stat-pct">0</span>% Complete</div>
-              <div class="av-ach-sum-stat" style="font-size:.95rem;color:#5a3ab8;"><span id="av-stat-left">0</span> remaining</div>
-            </div>
-            <div class="av-ach-bar-track"><div class="av-ach-bar-fill" id="av-ach-bar-fill" style="width:0%"></div></div>
-          </div>
-          <div class="av-ach-list" id="av-ach-list">
-            <div style="color:var(--muted);text-align:center;padding:24px 0;font-size:13px;">Loading…</div>
-          </div>
-        </div>
       </div>
     </div>
 
