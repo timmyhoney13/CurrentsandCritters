@@ -3858,8 +3858,14 @@
       background: #ff4b5d;
       border: 2px solid #f7fdff;
       display: none;
+      animation: notif-pulse 1.8s ease-in-out infinite;
     }
     .ph-notif-dot.show { display: block; }
+    @keyframes notif-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(255,75,93,.5); }
+      50%      { box-shadow: 0 0 0 5px rgba(255,75,93,0); }
+    }
+    #ph-bell-btn.notif-active { filter: drop-shadow(0 0 6px rgba(255,75,93,.7)); }
     .ph-wrap {
       width: 100%;
       max-width: 1500px;
@@ -7823,10 +7829,10 @@
     </button>
     <div class="ph-topbar-title">Currents <span class="coc-amp">&amp;</span> Critters</div>
     <div class="ph-bell-wrap">
-      <button class="ph-icon-btn" aria-label="Notifications">
+      <button class="ph-icon-btn" id="ph-bell-btn" aria-label="Notifications">
         <svg width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M9 0C9.552 0 10 .448 10 1v.07A7 7 0 0 1 16 8v5l2 2v1H0v-1l2-2V8A7 7 0 0 1 8 1.07V1C8 .448 8.448 0 9 0zm0 20a2 2 0 0 0 2-2H7a2 2 0 0 0 2 2z" fill="#1a2e4a"/></svg>
       </button>
-      <div class="ph-notif-dot show" id="ph-notif-dot"></div>
+      <div class="ph-notif-dot" id="ph-notif-dot"></div>
     </div>
   </div>
 
@@ -17369,6 +17375,9 @@
         s.add(id);
         localStorage.setItem(k, JSON.stringify([...s]));
       } catch {}
+      // Ring the notification bell so the player can click straight to the animal.
+      const a = animalById(id);
+      window.__fishNotifPushAnimal?.(id, a ? a.name : id);
     }
   }
   function _showNextAnimalUnlock(){
@@ -22662,6 +22671,7 @@
       }
 
       _queueAchPopup(def);
+      window.__fishNotifPushAchievement?.(achId, def.name);
       // Grant any animal avatar tied to this achievement, then immediately
       // surface the unlock overlay (delayed so the achievement popup animates first).
       try {
@@ -23123,6 +23133,100 @@
       $a("auth-screen").classList.remove("hidden");
       showStep("auth-step-choose");
     };
+
+  // ── Notification bell ─────────────────────────────────────────────
+  // Stores pending notifications in localStorage so they survive navigation.
+  // Each entry: { type:"achievement"|"animal", id, name }
+  //   achievement → id = achId string
+  //   animal      → id = ANIMAL_AVATARS id string
+  const NOTIF_KEY = "cc_notif_queue";
+
+  function _notifLoad() {
+    try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || "[]"); } catch { return []; }
+  }
+  function _notifSave(q) {
+    try { localStorage.setItem(NOTIF_KEY, JSON.stringify(q)); } catch {}
+  }
+  function _notifPush(entry) {
+    const q = _notifLoad();
+    // Deduplicate by type+id
+    if (!q.find(e => e.type === entry.type && e.id === entry.id)) q.push(entry);
+    _notifSave(q);
+    _notifRefreshBell();
+  }
+  function _notifRefreshBell() {
+    const q = _notifLoad();
+    const dot = document.getElementById("ph-notif-dot");
+    const btn = document.getElementById("ph-bell-btn");
+    if (q.length > 0) {
+      if (dot) dot.classList.add("show");
+      if (btn) btn.classList.add("notif-active");
+    } else {
+      if (dot) dot.classList.remove("show");
+      if (btn) btn.classList.remove("notif-active");
+    }
+  }
+
+  // Expose for use by the achievement and animal grant hooks below.
+  window.__fishNotifPushAchievement = function(achId, achName) {
+    _notifPush({ type: "achievement", id: achId, name: achName || achId });
+  };
+  window.__fishNotifPushAnimal = function(animalId, animalName) {
+    _notifPush({ type: "animal", id: animalId, name: animalName || animalId });
+  };
+
+  // Initialise bell state on page load.
+  _notifRefreshBell();
+
+  // Bell click: open the first queued notification.
+  const _bellBtn = document.getElementById("ph-bell-btn");
+  if (_bellBtn) {
+    _bellBtn.addEventListener("click", () => {
+      const q = _notifLoad();
+      if (!q.length) return;
+      const notif = q.shift();
+      _notifSave(q);
+      _notifRefreshBell();
+
+      if (notif.type === "achievement") {
+        // Switch to achievements tab, then scroll to and highlight the card.
+        if (typeof window._switchPhTab === "function") window._switchPhTab("achievements");
+        setTimeout(() => {
+          // Find the card whose ach-name text matches, or fallback to top.
+          const list = document.getElementById("ach-steam-list");
+          if (!list) return;
+          const cards = list.querySelectorAll(".ach-steam-card");
+          let target = null;
+          for (const card of cards) {
+            const nm = card.querySelector(".ach-name");
+            if (nm && nm.textContent.trim() === notif.name) { target = card; break; }
+          }
+          if (target) {
+            target.scrollIntoView({ behavior: "smooth", block: "center" });
+            target.style.outline = "3px solid #22d8f8";
+            target.style.outlineOffset = "2px";
+            setTimeout(() => { target.style.outline = ""; target.style.outlineOffset = ""; }, 2000);
+          }
+        }, 320);
+
+      } else if (notif.type === "animal") {
+        // Open the Avatar Gallery and select that animal's tile.
+        if (typeof openAvatarGallery === "function") {
+          openAvatarGallery();
+          setTimeout(() => {
+            if (typeof _galRenderDetail === "function") {
+              _galSelectedId = notif.id;
+              _galRenderGrid();
+              _galRenderDetail(notif.id);
+              // Scroll the selected tile into view.
+              const tile = document.querySelector(`[data-avatar-id="${notif.id}"]`);
+              if (tile) tile.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+          }, 200);
+        }
+      }
+    });
+  }
 
   })(); // end auth IIFE
 </script>
