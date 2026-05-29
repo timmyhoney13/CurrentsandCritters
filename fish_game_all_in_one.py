@@ -8686,7 +8686,18 @@ def run_match(
     perform_mulligans(gs, ms)
     # Re-shuffle the remaining deck after mulligans so any ordering
     # patterns from mulligan redraws are fully randomised before play begins.
-    rng.shuffle(gs.deck)
+    # IMPORTANT: a plain shuffle would scatter the END GAME card out of the
+    # bottom-10 region where build_deck_with_late_end_game placed it, causing
+    # the game to end far too early. Shuffle only the non-end-game cards, then
+    # re-insert the END GAME card into a random spot within the last 10 cards.
+    if end_uid is not None and end_uid in gs.deck:
+        gs.deck.remove(end_uid)
+        rng.shuffle(gs.deck)
+        bottom_span = min(9, len(gs.deck))
+        insert_pos = len(gs.deck) - rng.randint(0, bottom_span)
+        gs.deck.insert(insert_pos, end_uid)
+    else:
+        rng.shuffle(gs.deck)
     _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
     assigned_archetypes: List[Tuple[str, str, float]] = []
