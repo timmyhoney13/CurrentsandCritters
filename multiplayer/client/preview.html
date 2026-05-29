@@ -7465,33 +7465,72 @@
     .gal-species-count { font-size: .78rem; color: #7fa8cc; font-weight: 700; font-family: "Nunito", sans-serif; }
     .gal-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+      gap: 16px;
     }
     .gal-tile {
       position: relative; cursor: pointer;
-      background: rgba(12,40,74,.55);
-      border: 2px solid #ffffff;
-      border-radius: 14px; padding: 10px 8px 9px;
-      display: flex; flex-direction: column; align-items: center; gap: 7px;
-      transition: transform .14s, box-shadow .14s, border-color .14s;
+      background:
+        radial-gradient(ellipse at 50% 28%, rgba(56,140,210,.28) 0%, transparent 62%),
+        linear-gradient(165deg, rgba(20,54,96,.85) 0%, rgba(9,28,54,.92) 100%);
+      border: 1.5px solid rgba(150,200,240,.5);
+      border-radius: 16px; padding: 13px 9px 11px;
+      display: flex; flex-direction: column; align-items: center; gap: 9px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.3);
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
     }
-    .gal-tile:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(34,216,248,.22); }
-    .gal-tile.gal-locked { border-color: #1a2c44; background: rgba(8,24,46,.7); }
-    .gal-tile.gal-locked .gal-tile-img { filter: grayscale(.75) brightness(.62); }
-    .gal-tile.gal-selected { border-color: #22d8f8; box-shadow: 0 0 0 2px rgba(34,216,248,.5), 0 6px 20px rgba(34,216,248,.3); }
-    .gal-tile.gal-equipped { border-color: #ffd36b; box-shadow: 0 0 0 2px rgba(255,211,107,.4); }
+    .gal-tile:hover {
+      transform: translateY(-4px) scale(1.02);
+      border-color: rgba(34,216,248,.7);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 10px 26px rgba(34,216,248,.3);
+    }
+    .gal-tile.gal-locked {
+      border-color: rgba(70,96,130,.5);
+      background:
+        radial-gradient(ellipse at 50% 28%, rgba(40,70,110,.22) 0%, transparent 62%),
+        linear-gradient(165deg, rgba(12,30,54,.9) 0%, rgba(6,18,36,.95) 100%);
+    }
+    .gal-tile.gal-locked .gal-tile-img { filter: grayscale(.8) brightness(.55); }
+    .gal-tile.gal-locked .gal-tile-img-ring {
+      background: radial-gradient(circle, rgba(120,150,190,.18) 0%, transparent 70%);
+    }
+    .gal-tile.gal-selected {
+      border-color: #22d8f8;
+      box-shadow: 0 0 0 2px rgba(34,216,248,.6), inset 0 1px 0 rgba(255,255,255,.15), 0 10px 26px rgba(34,216,248,.4);
+    }
+    .gal-tile.gal-equipped {
+      border-color: #ffd36b;
+      box-shadow: 0 0 0 2px rgba(255,211,107,.55), inset 0 1px 0 rgba(255,255,255,.15), 0 6px 22px rgba(255,211,107,.32);
+    }
+    /* circular spotlight frame behind each animal */
+    .gal-tile-img-ring {
+      position: relative;
+      width: 86px; height: 86px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle, rgba(120,200,255,.32) 0%, rgba(60,130,220,.10) 50%, transparent 72%);
+      border: 1.5px solid rgba(160,210,255,.35);
+      box-shadow: inset 0 0 14px rgba(34,216,248,.18);
+    }
+    .gal-tile.gal-equipped .gal-tile-img-ring {
+      border-color: rgba(255,211,107,.6);
+      background: radial-gradient(circle, rgba(255,211,107,.3) 0%, rgba(255,180,60,.1) 50%, transparent 72%);
+      box-shadow: inset 0 0 16px rgba(255,211,107,.28);
+    }
     .gal-tile-img {
-      width: 78px; height: 78px; border-radius: 50%;
-      object-fit: contain; background: rgba(255,255,255,.04);
+      width: 70px; height: 70px;
+      object-fit: contain;
+      filter: drop-shadow(0 4px 8px rgba(0,0,0,.45));
+      transition: transform .16s ease;
     }
+    .gal-tile:hover .gal-tile-img { transform: scale(1.08); }
     .gal-tile-name {
-      font-size: .82rem; font-weight: 800; color: #eaf4ff; text-align: center;
-      line-height: 1.15; max-width: 100%;
+      font-size: .84rem; font-weight: 800; color: #eaf4ff; text-align: center;
+      line-height: 1.18; max-width: 100%; letter-spacing: .2px;
+      text-shadow: 0 1px 3px rgba(0,0,0,.4);
       overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
       -webkit-line-clamp: 2; -webkit-box-orient: vertical;
     }
-    .gal-tile.gal-locked .gal-tile-name { color: #88a6c4; }
+    .gal-tile.gal-locked .gal-tile-name { color: #8aa6c6; text-shadow: none; }
     .gal-tile-lock {
       position: absolute; top: 7px; right: 8px;
       font-size: .82rem; opacity: .85;
@@ -7559,8 +7598,9 @@
       }
       .gal-detail.gal-detail-empty { display: none; }
       .gal-title { font-size: 1.1rem; }
-      .gal-tile-img { width: 64px; height: 64px; }
-      .gal-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+      .gal-tile-img-ring { width: 72px; height: 72px; }
+      .gal-tile-img { width: 58px; height: 58px; }
+      .gal-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
     }
   </style>
 </head>
@@ -8124,19 +8164,6 @@
                 <div class="ph-rg"><span class="ph-rg-ico" aria-hidden="true"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph-rg-opp">vs Starter Reef</span><span class="ph-rg-badge win">Win</span><span class="ph-rg-pts">184 pts</span><span class="ph-rg-date">Apr 28</span></div>
               </div>
             </div>
-            <div class="ph-scard" id="stats-friends-mini">
-              <div class="ph-sh">
-                <div class="ph-st">
-                  <svg width="16" height="13" viewBox="0 0 16 13" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="#2680c8" stroke-width="1.4"/><path d="M0 12c0-3.038 2.462-5.5 5.5-5.5S11 8.962 11 12" stroke="#2680c8" stroke-width="1.4" fill="none"/><path d="M12 2a2 2 0 0 1 0 4" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/><path d="M13.5 8.5c1 .8 1.7 2 1.7 3.5" stroke="#2680c8" stroke-width="1.4" opacity=".6"/></svg>
-                  Friends
-                </div>
-                <button class="ph-sl" id="ph-friends-open-btn">View All Friends</button>
-              </div>
-              <div id="stats-friends-preview">
-                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-twin.jpg" alt="TwinMidi avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">TwinMidi</div><div class="ph-fr-meta">Level 7 • Active now</div></div><div class="ph-fr-status ph-fr-online"><div class="ph-fr-dot"></div>Online</div></div>
-                <div class="ph-fr"><div class="ph-fr-av"><img src="player-home-friend-mom.jpg" alt="MomOfFishMan avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">MomOfFishMan</div><div class="ph-fr-meta">Level 4 • Last active 2h ago</div></div><div class="ph-fr-status ph-fr-offline"><div class="ph-fr-dot"></div>Offline</div></div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -8630,16 +8657,14 @@
     <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
       <h2>🌊 Create a Current</h2>
       <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--cyan);">1.</b> Name your Current &nbsp;
+        <b style="color:var(--cyan);">1.</b> Pick Public or Private &nbsp;
         <b style="color:var(--cyan);">2.</b> Generate the ecosystem &nbsp;
-        <b style="color:var(--cyan);">3.</b> Share the Current code — begin when all players have joined
+        <b style="color:var(--cyan);">3.</b> Public: crew joins from the Open Currents list · Private: share your code
       </div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a Current code? Use the <b>Join a Current</b> section below.</div>
+      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a private code? Use the <b>Join a Current</b> section below.</div>
       <div class="pv-row" style="margin-top:6px;">
         <input class="pv-input" id="pv-host-name" type="hidden" value="Host" />
-        <input class="pv-input" id="pv-room-code-new" placeholder="Current code" maxlength="5"
-          style="width:120px;flex:none;text-transform:uppercase;"
-          oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
+        <input class="pv-input" id="pv-room-code-new" type="hidden" />
       </div>
       <div class="pv-row">
         <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
@@ -8654,12 +8679,12 @@
           <span style="font-size:11px;color:var(--muted);font-weight:700;">Privacy</span>
           <select class="pv-input" id="pv-visibility" style="cursor:pointer;">
             <option value="public">🌊 Public</option>
-            <option value="private">🔒 Password</option>
+            <option value="private">🔒 Private</option>
           </select>
         </div>
       </div>
       <div id="pv-password-row" style="display:none;margin-top:4px;">
-        <input class="pv-input" id="pv-room-password" type="password" placeholder="Set a password for this Current" style="width:100%;" />
+        <input class="pv-input" id="pv-room-password" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="Set a join code (4–12 letters/numbers)" style="width:100%;text-transform:uppercase;" />
       </div>
       <div style="margin-top:8px;">
         <button class="pv-btn gold full" id="pv-create-btn">Generate Current →</button>
@@ -8795,7 +8820,7 @@
 <div id="pv-waiting-room">
   <div class="wr-box">
     <h2 id="wr-title">Room Created!</h2>
-    <p class="wr-subtitle">Share this fleet code with your crew:</p>
+    <p class="wr-subtitle" id="wr-subtitle">Share this fleet code with your crew:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
     <button id="wr-copy-btn"><span class="wr-copy-icon">📋</span><span>Copy Invite Link</span></button>
     <div class="wr-players" id="wr-players-list">
@@ -9161,10 +9186,10 @@
     <div id="lb-browser-list">
       <div class="lb-browser-empty">Loading…</div>
     </div>
-    <!-- Password prompt (shown inline when joining a private room) -->
+    <!-- Code prompt (shown inline when joining a private room) -->
     <div id="lb-pw-prompt">
-      <div style="font-size:13px;color:#6a4a10;font-weight:700;">🔒 Password Required</div>
-      <input class="nc-big-input" id="lb-pw-input" type="password" placeholder="Enter room password" style="font-size:1rem;" />
+      <div style="font-size:13px;color:#6a4a10;font-weight:700;">🔒 Enter Room Code</div>
+      <input class="nc-big-input" id="lb-pw-input" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="Enter the room code" style="font-size:1rem;text-transform:uppercase;" />
       <div id="lb-pw-err"></div>
       <div style="display:flex;gap:8px;">
         <button class="pv-btn gold" id="lb-pw-confirm">Join</button>
@@ -9201,7 +9226,7 @@
     </div>
 
     <div id="nc-password-row" style="display:none;">
-      <input class="nc-big-input" id="nc-password" type="password" placeholder="Set a password for private room…" style="width:100%;font-size:1rem;" />
+      <input class="nc-big-input" id="nc-password" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="Set a join code (4–12 letters/numbers)…" style="width:100%;font-size:1rem;text-transform:uppercase;" />
     </div>
 
     <div id="nc-current-err"></div>
@@ -9461,14 +9486,28 @@
   }
 
   // ── Room / token helpers (same localStorage keys as index.html) ─
-  const ROOM_ID_RE = /^[A-Z0-9]{5}$/;
+  // Room codes are 4–12 uppercase letters/numbers. Public rooms get a random
+  // 5-char code (used internally only — never shown). Private rooms use the
+  // host's chosen code as both the join code AND the password.
+  const ROOM_ID_RE = /^[A-Z0-9]{4,12}$/;
   function normalizeRoomId(raw) { const r = String(raw||"").trim().toUpperCase(); return ROOM_ID_RE.test(r)?r:""; }
+  // Turn an arbitrary private "password" into a valid room code: strip to
+  // letters/numbers, uppercase. Returns "" if the result isn't 4–12 chars.
+  function normalizeRoomCode(raw) {
+    const r = String(raw||"").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    return ROOM_ID_RE.test(r) ? r : "";
+  }
   function seatTokenKey(id)  { return `fish_room_${id}_seat_token`; }
   function hostTokenKey(id)  { return `fish_room_${id}_host_token`; }
   function createKeyKey()    { return "fish_create_key"; }
   function rejoinKey(id)     { return `fish_rejoin_${id}`; }
 
   let roomId = null;
+  // Visibility + private code of the room this client just created (host only),
+  // used to drive the waiting-room display: public hides the code, private shows
+  // the code (which is also the password). Cleared when not the creator.
+  let _myRoomVisibility = "";
+  let _myRoomCode = "";
   // sessionStorage is tab-isolated — each browser tab gets its own token so
   // multiple players on the same device don't overwrite each other's seat.
   function getSeatToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
@@ -10009,9 +10048,20 @@
   // Coral state is applied as a CSS class — the full button background
   // (coral + decorations) is loaded via the corresponding image.
 
-  function showWaitingRoom(code, isHost) {
-    document.getElementById("wr-code-display").textContent = code;
+  function showWaitingRoom(code, isHost, visibility) {
+    const vis = visibility || _myRoomVisibility || "public";
+    const codeEl = document.getElementById("wr-code-display");
+    const subEl  = document.getElementById("wr-subtitle");
     document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
+    if (vis === "private") {
+      // Private rooms: the code IS the password the host set — show it to share.
+      if (codeEl) { codeEl.style.display = ""; codeEl.textContent = code; }
+      if (subEl)  subEl.textContent = "Share this code with your crew (it's also the password):";
+    } else {
+      // Public rooms have no fleet code — players join from the Public games list.
+      if (codeEl) codeEl.style.display = "none";
+      if (subEl)  subEl.textContent = "Your crew can join from the Public games list.";
+    }
     document.getElementById("pv-waiting-room").classList.add("open");
   }
   function hideWaitingRoom() {
@@ -10136,7 +10186,9 @@
   }
 
   document.getElementById("wr-copy-btn").addEventListener("click", () => {
-    const code = document.getElementById("wr-code-display").textContent;
+    // Always build the invite link from the real room id (works for public
+    // rooms whose code is hidden, and private rooms where code === room id).
+    const code = roomId || document.getElementById("wr-code-display").textContent;
     const link = `${location.origin}/play/${code}`;
     navigator.clipboard?.writeText(link).catch(()=>{});
     const btn = document.getElementById("wr-copy-btn");
@@ -10164,11 +10216,24 @@
     createBtn.disabled = true;
     lobbyStatus("Generating Current…", false);
     const visibility = document.getElementById("pv-visibility").value;
-    const password   = visibility === "private" ? (document.getElementById("pv-room-password").value.trim()) : "";
-    if (visibility === "private" && !password) {
-      lobbyStatus("Enter a password for the private Current.", true);
-      createBtn.disabled = false; return;
+    let password = "";
+    if (visibility === "private") {
+      const rawPw = document.getElementById("pv-room-password").value.trim();
+      if (!rawPw) {
+        lobbyStatus("Enter a code for the private Current.", true);
+        createBtn.disabled = false; return;
+      }
+      // The private code IS both the join code and the password.
+      const code = normalizeRoomCode(rawPw);
+      if (!code) {
+        lobbyStatus("Code must be 4–12 letters or numbers (no spaces or symbols).", true);
+        createBtn.disabled = false; return;
+      }
+      rid = code;
+      password = code;
     }
+    _myRoomVisibility = visibility;
+    _myRoomCode = password; // empty for public
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: total - ai, ai_players: ai,
@@ -10288,7 +10353,10 @@
     if (joinBtn) { joinBtn.disabled = true; const _t0 = document.getElementById("sp-join-text"); if (_t0) _t0.textContent = "Joining…"; }
     roomId = rid;
     try {
-      const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat }, { timeoutMs:12000 });
+      // For private rooms the code IS the password, so pass the room code as the
+      // password — harmless for public rooms (no password gate), and lets people
+      // join a private room just by typing its code.
+      const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat, password: rid }, { timeoutMs:12000 });
       if (!j.ok) {
         const is503 = j.status === 503 || j.status === 502;
         const msg = is503
@@ -10525,8 +10593,10 @@
 
   // Password confirm
   document.getElementById("lb-pw-confirm").addEventListener("click", async () => {
-    const pw = document.getElementById("lb-pw-input").value.trim();
-    if (!pw) { document.getElementById("lb-pw-err").textContent = "Enter a password."; return; }
+    // The private code is stored uppercased (it's the room code), so normalize
+    // the entered value the same way before sending.
+    const pw = document.getElementById("lb-pw-input").value.trim().toUpperCase();
+    if (!pw) { document.getElementById("lb-pw-err").textContent = "Enter the room code."; return; }
     if (!_lbPendingRoom) { document.getElementById("lb-pw-prompt").classList.remove("open"); return; }
     const room = _lbPendingRoom;
     _lbPendingRoom = null;
@@ -10580,11 +10650,19 @@
     const ai    = Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
     const visibility = document.getElementById("nc-visibility").value;
-    const password = visibility === "private" ? document.getElementById("nc-password").value.trim() : "";
-    if (visibility === "private" && !password) {
-      errEl.textContent = "Enter a password for the private Current."; return;
+    let password = "";
+    let rid = Math.random().toString(36).slice(2,7).toUpperCase();
+    if (visibility === "private") {
+      const rawPw = document.getElementById("nc-password").value.trim();
+      if (!rawPw) { errEl.textContent = "Enter a code for the private Current."; return; }
+      const code = normalizeRoomCode(rawPw);
+      if (!code) { errEl.textContent = "Code must be 4–12 letters or numbers (no spaces or symbols)."; return; }
+      // The private code IS both the join code and the password.
+      rid = code;
+      password = code;
     }
-    const rid = Math.random().toString(36).slice(2,7).toUpperCase();
+    _myRoomVisibility = visibility;
+    _myRoomCode = password;
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
     try { localStorage.setItem(createKeyKey(), createKey); } catch {}
     btn.disabled = true;
@@ -11679,7 +11757,7 @@
       const startFn = () => apiPost(`/api/rooms/${roomId}/start`,
         { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
         { timeoutMs:8000 }).then(()=>refreshState());
-      showWaitingRoom(roomId, Boolean(getHostToken()));
+      showWaitingRoom(roomId, Boolean(getHostToken()), payload?.room?.visibility);
       // Pass ALL seats (human + AI bots) so the waiting room can render bot
       // names and the Easy/Medium/Hard difficulty pills next to each bot.
       const lobbySeats = Array.isArray(payload.seats) ? payload.seats : [];
@@ -17935,10 +18013,13 @@
         + (a.id === _galSelectedId ? " gal-selected" : "");
       tile.setAttribute("data-avatar-id", a.id);
 
+      const ring = document.createElement("div");
+      ring.className = "gal-tile-img-ring";
       const img = document.createElement("img");
       img.className = "gal-tile-img";
       img.src = a.img; img.alt = a.name; img.loading = "lazy";
-      tile.appendChild(img);
+      ring.appendChild(img);
+      tile.appendChild(ring);
 
       const nm = document.createElement("div");
       nm.className = "gal-tile-name";
@@ -19855,6 +19936,7 @@
       document.getElementById("pv-my-name-badge").textContent = name;
       btn.disabled = false;
       btn.querySelector("span").textContent = "Practice vs AI";
+      _myRoomVisibility = "public"; _myRoomCode = "";
       enterRoom(roomId);
       showWaitingRoom(roomId, true);
     });

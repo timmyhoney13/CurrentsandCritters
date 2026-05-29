@@ -79,8 +79,11 @@ ROOM_CHECKPOINT_SCHEMA_VERSION = 1
 ROOM_PERSIST_MIN_INTERVAL_SEC = 0.75
 MAX_ACTION_HISTORY = 16000
 ROOM_ID_LENGTH = 5
-ROOM_ID_RE = re.compile(rf"[A-Z0-9]{{{ROOM_ID_LENGTH}}}")
-ROOM_ID_ACCEPT_RE = re.compile(rf"(?:[A-Z0-9]{{{ROOM_ID_LENGTH}}}|[A-Z0-9]{{8}})")
+# Room codes are 4–12 uppercase letters/numbers. Public rooms use a random
+# 5-char code; private rooms use the host's chosen code (which is also the
+# password). Both create and restore accept the full 4–12 range.
+ROOM_ID_RE = re.compile(r"[A-Z0-9]{4,12}")
+ROOM_ID_ACCEPT_RE = re.compile(r"[A-Z0-9]{4,12}")
 
 CLIENT_DIR = os.path.join(BASE_DIR, "multiplayer", "client")
 MANIFEST_PATH = os.path.join(CLIENT_DIR, "manifest.webmanifest")
@@ -3120,6 +3123,8 @@ class GameRoom:
                     "human_seats_filled": human_filled,
                     "human_seats_total": human_total,
                     "share_url": self.room_link(host_header, proto_hint),
+                    "visibility": str(self.visibility),
+                    "has_password": self.password_hash is not None,
                 },
                 "status_note": self.status_note,
                 "error": self.error_message,
@@ -3432,7 +3437,7 @@ class RoomManager:
             if requested_room_id is not None:
                 rid = str(requested_room_id).strip().upper()
                 if not ROOM_ID_RE.fullmatch(rid):
-                    raise ValueError(f"room_id must be exactly {ROOM_ID_LENGTH} uppercase letters/numbers")
+                    raise ValueError("room_id must be 4–12 uppercase letters/numbers")
                 if rid in self.rooms:
                     existing = self.rooms.get(rid)
                     if existing is not None and existing.phase in {"ended", "error"}:
