@@ -1630,7 +1630,7 @@
 
     /* ── TOASTS ─────────────────────────────────────────────────── */
     #pv-toasts {
-      position: fixed; bottom: 18px; left: 18px;
+      position: fixed; top: 18px; right: 18px;
       display: flex; flex-direction: column; gap: 8px;
       z-index: 3000; pointer-events: none;
     }
@@ -1642,7 +1642,7 @@
       font-size: 13px; font-weight: 700;
       color: var(--text);
       box-shadow: 0 4px 20px rgba(0,0,0,.5);
-      transform: translateX(-120%);
+      transform: translateX(120%);
       transition: transform .3s cubic-bezier(.2,1,.4,1), opacity .3s;
       opacity: 0;
       pointer-events: none;
@@ -12804,12 +12804,19 @@
       seat.className = "pv-seat" + (isActive ? " active-turn" : "");
       seat.dataset.playerIndex = String(p.index);
 
-      // Start with a deterministic per-name fallback so every client sees the
-      // same default for the same player until the real avatar loads.
+      // Resolve avatar: own → use equipped url directly.
+      // Others → check the nick cache first (synchronous) so fast state
+      // redraws don't keep reverting to the fallback while the async query
+      // is still in-flight. If not cached yet, fall back and kick off the
+      // lookup; the next redraw will pick up the cached value synchronously.
       const fallbackAvatar = (typeof pvSeatDefaultAvatar === "function")
         ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
         : PV_SEAT_AVATARS[slot % 12];
-      const initialUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
+      let initialUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
+      if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
+        const cached = window._nickAvatarCache && window._nickAvatarCache[p.name];
+        if (cached) initialUrl = cached;
+      }
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
@@ -12819,11 +12826,15 @@
       img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
 
-      // Async: replace fallback with each non-self player's real chosen avatar.
+      // If not yet cached, fire the async lookup. The result is stored in
+      // _nickAvatarCache so the very next renderPlayerSeats call applies it
+      // synchronously (above) without depending on img.isConnected.
       if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
-        window.__fishAvatarForNick(p.name).then(url => {
-          if (url && img && img.isConnected) img.src = url;
-        }).catch(() => {});
+        if (!window._nickAvatarCache || window._nickAvatarCache[p.name] === undefined) {
+          window.__fishAvatarForNick(p.name).then(url => {
+            if (url && img && img.isConnected) img.src = url;
+          }).catch(() => {});
+        }
       }
 
       const nm = document.createElement("div");
@@ -19054,8 +19065,11 @@
       }
     };
 
-    // Async lookup of another player's chosen avatar by nickname (used by game summary)
+    // Async lookup of another player's chosen avatar by nickname (used by game summary).
+    // Expose the cache on window so renderPlayerSeats (outer scope) can read it
+    // synchronously and avoid the "replaced img before lookup resolved" race.
     const _nickAvatarCache = {};
+    window._nickAvatarCache = _nickAvatarCache;
     window.__fishAvatarForNick = async function(nick) {
       if (!nick) return null;
       if (_nickAvatarCache[nick] !== undefined) return _nickAvatarCache[nick];
