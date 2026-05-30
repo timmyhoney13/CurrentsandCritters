@@ -11277,16 +11277,19 @@
       const desc = action.description ? action.description : (action.kind || "Action sent");
       setStatus("→ " + desc);
       showToast(desc, "ok");
-      // Optimistically hide the turn banner immediately after any successful action
-      // so it doesn't persist until the next state poll (up to 1 s). The banner
-      // will come back to "my-turn" on the very next renderPayload if can_act is
-      // still true (e.g. mid-turn second draw), so this only flashes briefly.
-      const _optBanner = document.getElementById("pv-turn-banner");
-      const _optEndBtn  = document.getElementById("pv-end-turn-inline");
-      if (_optBanner) _optBanner.className = "their-turn";
-      if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
-      canInteract = false;         // clear immediately so avatar/buttons respond right away
-      _lastActionMs = Date.now(); // suppress stale-poll flicker for both banner and canInteract
+      // Only optimistically clear the banner and block canInteract when the
+      // submitted action is end_turn — that's the only action that actually
+      // advances active_action_seat. For mid-turn actions (draw, play card,
+      // move animal, etc.) can_act correctly stays true and the banner should
+      // remain "YOUR TURN" without any confusing flicker.
+      if (action.kind === "end_turn") {
+        const _optBanner = document.getElementById("pv-turn-banner");
+        const _optEndBtn  = document.getElementById("pv-end-turn-inline");
+        if (_optBanner) _optBanner.className = "their-turn";
+        if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
+        canInteract = false;
+        _lastActionMs = Date.now();
+      }
       // Track per-game stats for achievements
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
