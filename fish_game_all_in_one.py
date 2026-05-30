@@ -2788,6 +2788,7 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "baitfish_barrage": "engine:baitfish",
     "birds_of_a_feather": "engine:bird",
     "crustaceans": "engine:crustacean",
+    "invertebrates": "engine:invertebrate",
     "coral": "engine:coral",
     "birds_coral": "engine:bird",
     "coral_cephalopods": "engine:cephalopod",
@@ -3507,6 +3508,20 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             ],
         },
         {
+            "label": "invertebrates",
+            "display_name": "Invertebrates (flexible support)",
+            "difficulty": "advanced",
+            "species": ["invertebrate"],
+            "heavy_hitters": ["sea anemone", "barracuda"],
+            "stack_engines": [
+                "common sea star", "sea urchin", "sea sponge", "sea cucumber",
+            ],
+            "support_names": ["king salmon"],
+            "text_keywords": [
+                "per invertebrate", "invertebrate", "matching symbol",
+            ],
+        },
+        {
             "label": "cephalopods",
             "display_name": "Cephalopods (Reef Triggerfish Burst)",
             "difficulty": "advanced",
@@ -3577,11 +3592,12 @@ STRATEGY_SKILL_ALLOWLIST = {
     "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
     "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
                      "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
-                     "birds_crustaceans", "birds_coral", "coral_cephalopods"},
+                     "invertebrates", "birds_crustaceans", "birds_coral",
+                     "coral_cephalopods"},
     "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
                      "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
-                     "birds_crustaceans", "birds_coral", "coral_cephalopods",
-                     "goby_moon_shot"},
+                     "invertebrates", "birds_crustaceans", "birds_coral",
+                     "coral_cephalopods", "goby_moon_shot"},
 }
 
 
@@ -3798,6 +3814,12 @@ def assign_strategy_families_from_opening_hands(
                             committed += 1
                 if committed < 2:
                     continue
+            # Invertebrates is a flexible SUPPORT plan: weak as a main strategy
+            # in small games, only really viable when 6+ players keep the Pool
+            # flowing. Penalize it as a main opening pick below 6 players so the
+            # bot only commits with an overwhelming invertebrate hand.
+            if label == "invertebrates" and len(gs.players) < 6:
+                fit -= 2.5
             hist = strategy_family_stats_bias(family_stats, label)
             # Easy bots tolerate a noisier opening pick (fuzzy commitment).
             # Medium/Hard pick with near-zero noise so the starting plan is
@@ -5560,6 +5582,31 @@ def action_archetype_bonus(
             bonus += 0.6 + min(2.0, 0.5 * ready)          # bottom-side draw engine, played early
         elif cname == "blue tang":
             bonus += min(1.8, 0.5 * crosscurrent_on_board)  # +2 per Crosscurrent animal
+
+    # ── Invertebrates (flexible support; family-keyed; fires for live bots) ──
+    # Sea Anemone "+3 per invertebrate" is the main scorer; Barracuda "+1 per
+    # invertebrate | free invertebrate" is the engine; Common Sea Star /
+    # Sea Urchin draw on bottom/top plays; Sea Sponge / Sea Cucumber support.
+    # Scaled DOWN in small games (the plan is weak with <6 players) and full
+    # strength in 6+ player games where the Pool keeps flowing.
+    if family_label == "invertebrates":
+        pc_mult  = 1.0 if len(gs.players) >= 6 else 0.65
+        inv_board = sum(1 for s in board_species if s == "invertebrate")
+        inv_hand  = hand_species_counts.get("invertebrate", 0)
+        if cname == "sea anemone":
+            bonus += pc_mult * (1.0 + min(3.0, 0.7 * inv_board))           # main scorer
+        elif cname == "barracuda":
+            bonus += pc_mult * (0.8 + min(2.2, 0.5 * inv_board) + min(1.6, 0.5 * inv_hand))
+        elif cname in {"common sea star", "sea urchin"}:
+            bonus += pc_mult * (0.5 + min(1.8, 0.45 * (inv_board + inv_hand)))  # draw engines
+        elif cname == "sea sponge":
+            bonus += pc_mult * (0.4 + min(1.4, 0.4 * inv_board))
+        elif cname == "sea cucumber":
+            bonus += pc_mult * 0.6                                         # mostly a Yellowfin support card
+        # Generic invertebrate volume feeds Sea Anemone / Barracuda (the scorer
+        # itself is excluded — it scores on the others, it isn't its own fuel).
+        if cspecies == "invertebrate" and cname != "sea anemone":
+            bonus += pc_mult * min(1.8, 0.4 * inv_board)
 
     if bonus > 6.0:
         return 6.0
