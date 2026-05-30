@@ -5006,6 +5006,35 @@ def action_archetype_bonus(
         if cname == "blue tang":
             bonus += min(2.6, 0.90 * shark_count)    # gains from Great White Sharks
 
+    # ── Baitfish Barrage (family-keyed; fires for live bots) ────────────
+    # Flood the board with baitfish, then cash in with Whale Shark. Sea Urchin
+    # draws on each baitfish play; Roosterfish plays free baitfish; Hermit Crab
+    # / Loggerhead dump many at once (their *timing* is already handled by the
+    # global readiness + Turtle-burst blocks above — here we add the baitfish
+    # family scaling those generic checks don't capture).
+    if family_label == "baitfish_barrage":
+        bait_count       = sum(1 for s in board_species if s == "baitfish")
+        whale_count      = board_names.count("whale shark")
+        sea_urchin_count = board_names.count("sea urchin")
+        hand_bait        = hand_species_counts.get("baitfish", 0)
+        if cname == "whale shark":
+            # Main payoff — scales with baitfish; hold it until the board is
+            # flooded enough to make it worth more than the cards it costs.
+            bonus += 0.8 + min(3.4, 0.60 * bait_count)
+            if bait_count < 3:
+                bonus -= 1.4
+        if cspecies == "baitfish":
+            bonus += min(2.6, 0.45 * bait_count)        # flood synergy
+            bonus += min(2.2, 0.70 * whale_count)       # feed the Whale Shark payoff
+            bonus += min(2.0, 0.70 * sea_urchin_count)  # Sea Urchin draws on baitfish plays
+        if cname == "sea urchin":
+            # Early enabler — value scales with baitfish on board AND in hand.
+            bonus += 0.6 + min(2.4, 0.55 * (bait_count + hand_bait))
+        if cname == "roosterfish":
+            bonus += min(2.4, 0.55 * (bait_count + hand_bait))   # free-baitfish engine
+        if cname == "hermit crab":
+            bonus += min(2.0, 0.50 * hand_bait)         # more baitfish in hand → bigger flood
+
     if bonus > 6.0:
         return 6.0
     if bonus < -6.0:
