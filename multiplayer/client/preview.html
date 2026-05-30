@@ -9983,6 +9983,12 @@
   let _prevScore = null;
   let _myIdxGlobal = null;
   let _prevReplayTurn = false;
+  // Timestamp (ms) of the last successfully-submitted action. Any payload
+  // that arrives within 600 ms of an action AND still says can_act=true is
+  // almost certainly a stale poll that raced the action — suppress the banner
+  // update so "YOUR TURN" / "PLAY AGAIN" can't reappear until the fresh state
+  // from the 160 ms post-action refresh arrives.
+  let _lastActionMs = 0;
   let _prevTarponActive = false; // Tarpon avatar: detect each full-hand discard cycle
   let _lastHandCount = 0;        // viewer hand count from the previous render (pre-Tarpon hand)
   let _tarponStartHand = 0;      // hand size captured when a Tarpon discard phase begins
@@ -11266,6 +11272,7 @@
       const _optEndBtn  = document.getElementById("pv-end-turn-inline");
       if (_optBanner) _optBanner.className = "their-turn";
       if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
+      _lastActionMs = Date.now(); // suppress stale-poll banner flicker
       // Track per-game stats for achievements
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
@@ -12092,25 +12099,32 @@
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
       const isReplayTurn = Boolean(lw.is_replay_turn);
-      banner.className = "my-turn";
-      if (compMode) {
-        const activeSeat = Number(payload.active_action_seat);
-        const handNum = compMySeats.indexOf(activeSeat) + 1;
-        const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
-        banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
-      } else if (isReplayTurn) {
-        banner.textContent = "★ PLAY AGAIN — take another turn! ★";
-        // Horned Puffin avatar: count each new Play Again turn.
-        if (!_prevReplayTurn && _gameAchTracker) _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses || 0) + 1;
-      } else {
-        banner.textContent = "✦  YOUR TURN  ✦";
+      // If a payload arrives saying can_act=true within 600ms of us submitting
+      // an action, it's a stale in-flight poll — don't flash "YOUR TURN" back.
+      // The 160ms post-action refresh will apply the confirmed updated state.
+      const stalePollWindow = _lastActionMs > 0 && (Date.now() - _lastActionMs) < 600;
+      if (!stalePollWindow) {
+        banner.className = "my-turn";
+        if (compMode) {
+          const activeSeat = Number(payload.active_action_seat);
+          const handNum = compMySeats.indexOf(activeSeat) + 1;
+          const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
+          banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
+        } else if (isReplayTurn) {
+          banner.textContent = "★ PLAY AGAIN — take another turn! ★";
+        } else {
+          banner.textContent = "✦  YOUR TURN  ✦";
+        }
+        endBtn.classList.add("pulse-glow");
       }
-      endBtn.classList.add("pulse-glow");
+      // Track Play Again for the Horned Puffin avatar regardless of the window.
+      if (!_prevReplayTurn && isReplayTurn && _gameAchTracker) _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses || 0) + 1;
       _prevReplayTurn = isReplayTurn;
     } else {
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
       endBtn.classList.remove("pulse-glow");
+      _lastActionMs = 0; // confirmed not our turn — reset grace window
     }
     _prevTurnIdx = state.turn_index;
     // Razorbill Auk avatar: the "same turn" window ends when it's no longer my turn.
