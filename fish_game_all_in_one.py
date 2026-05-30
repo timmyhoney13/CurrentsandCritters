@@ -3387,7 +3387,9 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "species": ["game fish"],
             "heavy_hitters": ["bigeye tuna", "big eye tuna"],
             "stack_engines": ["yellowfin tuna", "artificial reef"],
-            "support_names": ["sea cucumber", "clownfish", "cleaner wrasse"],
+            "support_names": [
+                "sea cucumber", "clownfish", "cleaner wrasse", "loggerhead sea turtle",
+            ],
             "text_keywords": [
                 "yellowfin tuna", "big eye tuna", "free game fish", "per game fish",
             ],
@@ -4452,6 +4454,32 @@ def action_archetype_bonus(
             if cn and cn not in board_ocean_names:
                 b += 0.6
             return max(-0.5, min(6.0, b))
+        # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ─────
+        # Artificial Reef is THE key ocean — the Yellowfin stacking host.
+        # Other oceans are only useful as space for Bigeye / Sea Cucumber /
+        # Loggerhead, so reward Artificial Reef strongly and other oceans
+        # only mildly (and only when there's a real need for board space).
+        if family_label == "yellowfin_tuna":
+            cn = card.name.strip().lower()
+            engine_count = (
+                board_names.count("yellowfin tuna")
+                + board_names.count("big eye tuna")
+                + board_names.count("cleaner wrasse")
+                + board_names.count("sea cucumber")
+            )
+            has_artificial_reef = "artificial reef" in board_names
+            if cn == "artificial reef":
+                # Highest priority — play it as early as possible.
+                if not has_artificial_reef:
+                    return 2.6 + min(1.5, 0.3 * engine_count)
+                return 0.6 + min(1.5, 0.3 * engine_count)  # a 2nd reef still stacks Tuna
+            # Non-reef ocean: useful as space, more so once the reef is down
+            # and we need somewhere for Bigeye / support cards.
+            if not player.board_oceans:
+                return 0.3
+            if count_empty_oceans(player) > 0:
+                return -0.6 if not has_artificial_reef else -0.2
+            return 0.2
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -4903,6 +4931,58 @@ def action_archetype_bonus(
             bonus += 1.0 + clownfish_ocean_value(ocean_name)
             if ocean_name == "mangrove":
                 bonus += 1.6        # clone the all-8 Mangrove bonus — the ideal Clownfish host
+
+    # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ────────
+    # Artificial Reef = host, Yellowfin Tuna = stacking engine, Bigeye Tuna =
+    # draw payoff (held until enough Yellowfin are down), Sea Cucumber +
+    # Cleaner Wrasse = support, Clownfish clones the reef.
+    if family_label == "yellowfin_tuna":
+        yellow_count   = board_names.count("yellowfin tuna")
+        bigeye_count   = board_names.count("big eye tuna") + board_names.count("bigeye tuna")
+        cleaner_count  = board_names.count("cleaner wrasse")
+        seacuke_count  = board_names.count("sea cucumber")
+        artreef_count  = board_names.count("artificial reef")
+        # Which ocean is this card being placed on?
+        target_ocean = ""
+        on_reef = False
+        if action.ocean_uid is not None:
+            target_ocean = gs.card_db[action.ocean_uid].name.strip().lower()
+            local_names = [gs.card_db[uid].name.strip().lower()
+                           for uid in player.ocean_slots[action.ocean_uid].all_cards()]
+            on_reef = (target_ocean == "artificial reef")
+
+        if cname == "yellowfin tuna":
+            # Stacking engine — scales with Bigeye payoff potential, and is
+            # strongest stacked on the Artificial Reef.
+            bonus += min(3.0, 0.7 * yellow_count) + min(1.6, 0.4 * bigeye_count)
+            bonus += min(1.2, 0.3 * seacuke_count)
+            if on_reef:
+                bonus += 2.2            # the ideal placement
+            elif artreef_count > 0:
+                bonus -= 0.8            # reef exists but stacking elsewhere — wasteful
+        elif cname in {"big eye tuna", "bigeye tuna"}:
+            # Draw payoff: hold until ~4 Yellowfin are on the board so it draws
+            # more than it costs. Allow earlier near the end / when desperate.
+            end_soon = bool(getattr(ms, "end_game_triggered", False))
+            if yellow_count >= 4:
+                bonus += 2.2 + min(2.4, 0.45 * yellow_count)
+            elif yellow_count >= 2:
+                bonus += 0.3 if not end_soon else 1.4
+            else:
+                bonus -= 2.6 if not end_soon else 0.0
+            # Prefer NOT to consume an Artificial Reef slot — keep the reef for
+            # Yellowfin stacking; play Bigeye on a normal ocean.
+            if on_reef and yellow_count < 4:
+                bonus -= 0.8
+        elif cname == "cleaner wrasse":
+            bonus += min(2.6, 0.6 * (yellow_count + bigeye_count))
+        elif cname == "sea cucumber":
+            # Strong early enabler: rewards every Yellowfin / game fish play.
+            bonus += min(2.6, 0.55 * (yellow_count + bigeye_count + cleaner_count))
+            if yellow_count == 0 and bigeye_count == 0:
+                bonus += 0.6           # still worth seeding early
+        elif cname == "clownfish" and on_reef:
+            bonus += 2.4 + min(1.6, 0.4 * (yellow_count + bigeye_count))
 
     if bonus > 6.0:
         return 6.0
