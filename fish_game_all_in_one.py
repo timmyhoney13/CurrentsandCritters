@@ -3528,13 +3528,13 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "species": ["cephalopod", "coral"],
             "heavy_hitters": [
                 "grooved brain coral", "reef trigger fish", "reef triggerfish",
-                "manta ray",
+                "manta ray", "magnificent frigatebird", "giant squid",
             ],
             "stack_engines": [
                 "staghorn coral", "deep sea coral", "elkhorn coral", "elk horn coral",
-                "giant squid", "bobtail squid", "common octopus", "cuttlefish",
+                "bobtail squid", "common octopus", "cuttlefish",
             ],
-            "support_names": ["blue tang", "coral reef"],
+            "support_names": ["blue tang", "coral reef", "loggerhead sea turtle"],
             "text_keywords": [
                 "cephalopod", "per cephalopod", "at least three cephalopods",
                 "reef trigger fish", "free cephalopods",
@@ -4633,6 +4633,23 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return 0.4 if hand_ceph >= 3 else -0.4   # more open space only for a big flood
             return 0.4 if hand_ceph >= 2 else 0.05
+        # ── CC: Coral / Cephalopods (family-keyed; fires for live bots) ──
+        # Coral Reef is the key ocean (Coral base), but also leave room for the
+        # Cephalopod burst — so build oceans while holding cephalopods.
+        if family_label == "coral_cephalopods":
+            cn = card.name.strip().lower()
+            reef_count = board_names.count("coral reef")
+            coral_on_board = sum(1 for s in board_species if s == "coral")
+            hand_corals = hand_species_counts.get("coral", 0)
+            hand_ceph = hand_species_counts.get("cephalopod", 0)
+            if cn == "coral reef":
+                need = max(0, (coral_on_board + hand_corals) - reef_count)
+                return 1.5 + min(1.7, 0.6 * need) + min(1.0, 0.2 * coral_on_board)
+            if not player.board_oceans:
+                return 0.35
+            if count_empty_oceans(player) > 0:
+                return 0.3 if hand_ceph >= 3 else -0.4   # keep flood space when holding cephalopods
+            return 0.3 if hand_ceph >= 2 else 0.1
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5445,6 +5462,62 @@ def action_archetype_bonus(
                 bonus += 1.4
         elif cname == "reef trigger fish":
             bonus += min(2.4, 0.6 * hand_ceph)           # bigger flood = better burst
+
+    # ── CC: Coral / Cephalopods (family-keyed; fires for live bots) ─────
+    # Coral base + Cephalopod burst, bridged by Grooved Brain Coral (a coral
+    # that plays a free cephalopod). Build the Coral side first, then release
+    # the cephalopod flood. Deep Sea Coral isolation matters even more here
+    # because the flood could crowd its ocean.
+    if family_label == "coral_cephalopods":
+        coral_count = sum(1 for s in board_species if s == "coral")
+        ceph_count  = sum(1 for s in board_species if s == "cephalopod")
+        reef_count  = board_names.count("coral reef")
+        manta_count = board_names.count("manta ray")
+        hand_ceph   = hand_species_counts.get("cephalopod", 0)
+        on_reef = False
+        others_on_target = 0
+        if action.ocean_uid is not None:
+            tgt = gs.card_db[action.ocean_uid].name.strip().lower()
+            on_reef = (tgt == "coral reef")
+            others_on_target = len(player.ocean_slots[action.ocean_uid].all_cards())
+
+        # ── Bridge ──
+        if cname == "grooved brain coral":
+            # THE connector — a coral that plays a free cephalopod. Top value,
+            # especially with cephalopods waiting in hand.
+            bonus += 1.6 + min(1.8, 0.4 * coral_count) + min(1.6, 0.5 * hand_ceph)
+        # ── Coral side ──
+        elif cname == "magnificent frigatebird":
+            bonus += 1.2 + min(3.0, 0.6 * coral_count)
+        elif cname == "deep sea coral":
+            if others_on_target == 0:
+                bonus += 2.4 + (0.8 if on_reef else 0.0)
+            else:
+                bonus -= 2.8
+        elif cname == "elk horn coral":
+            bonus += min(2.6, 0.6 * coral_count) + min(1.6, 0.5 * reef_count)
+        elif cname == "staghorn coral":
+            bonus += min(2.6, 0.6 * coral_count)
+        # ── Cephalopod side ──
+        elif cname == "giant squid":
+            bonus += 1.0
+        elif cname == "manta ray":
+            if ceph_count <= 1 and hand_ceph >= 2:
+                bonus += 1.4
+        elif cname == "reef trigger fish":
+            bonus += min(2.4, 0.6 * hand_ceph)
+        # Generic species volume for both halves.
+        if cspecies == "coral" and cname != "grooved brain coral":
+            bonus += min(2.2, 0.5 * coral_count)
+            if on_reef:
+                bonus += 1.4
+            elif reef_count > 0:
+                bonus -= 0.5
+        elif cspecies == "cephalopod":
+            bonus += min(2.2, 0.5 * ceph_count)
+            if ceph_count == 2:
+                bonus += 1.4                              # crosses the 3-cephalopod threshold
+            bonus += min(1.6, 0.55 * manta_count)        # Manta Ray draws per cephalopod
 
     if bonus > 6.0:
         return 6.0
