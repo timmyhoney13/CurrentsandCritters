@@ -4591,6 +4591,22 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return -0.5
             return 0.15
+        # ── Coral-B (family-keyed; fires for live bots) ──────────────────
+        # Coral is the main focus, so Coral Reef is the key ocean; but Birds
+        # also need top-side space, so other oceans are a bit more tolerated.
+        if family_label == "birds_coral":
+            cn = card.name.strip().lower()
+            reef_count = board_names.count("coral reef")
+            coral_on_board = sum(1 for s in board_species if s == "coral")
+            hand_corals = hand_species_counts.get("coral", 0)
+            if cn == "coral reef":
+                need = max(0, (coral_on_board + hand_corals) - reef_count)
+                return 1.5 + min(1.7, 0.6 * need) + min(1.0, 0.2 * coral_on_board)
+            if not player.board_oceans:
+                return 0.35
+            if count_empty_oceans(player) > 0:
+                return -0.4
+            return 0.1
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5324,6 +5340,60 @@ def action_archetype_bonus(
             bonus += min(2.8, 0.6 * coral_count)
         elif cname == "grooved brain coral":
             bonus += 0.8 + min(1.6, 0.4 * coral_count)   # coral package + cephalopod bridge
+
+    # ── Coral-B (family-keyed; fires for live bots) ─────────────────────
+    # Coral is the MAIN focus (full-weight coral scoring); Birds are SUPPORT
+    # (lighter weight) to draw, keep tempo, and add scoring. Magnificent
+    # Frigatebird is the bridge (a Bird that scales with coral + free coral).
+    if family_label == "birds_coral":
+        coral_count = sum(1 for s in board_species if s == "coral")
+        reef_count  = board_names.count("coral reef")
+        bird_count  = sum(1 for s in board_species if s == "bird")
+        penguin_count   = board_names.count("emperor penguin")
+        razorbill_count = board_names.count("razorbill auk")
+        on_reef = False
+        others_on_target = 0
+        if action.ocean_uid is not None:
+            tgt = gs.card_db[action.ocean_uid].name.strip().lower()
+            on_reef = (tgt == "coral reef")
+            others_on_target = len(player.ocean_slots[action.ocean_uid].all_cards())
+
+        # ── Coral side (primary) ──
+        if cspecies == "coral":
+            bonus += min(2.6, 0.55 * coral_count)
+            if on_reef:
+                bonus += 1.6
+            elif reef_count > 0:
+                bonus -= 0.6
+            if coral_count == 5:
+                bonus += 1.6
+        if cname == "magnificent frigatebird":
+            bonus += 1.2 + min(3.0, 0.6 * coral_count)   # bridge + main coral heavy hitter
+        elif cname == "deep sea coral":
+            if others_on_target == 0:
+                bonus += 2.4 + (0.8 if on_reef else 0.0)
+            else:
+                bonus -= 2.8
+        elif cname == "elk horn coral":
+            bonus += min(2.8, 0.6 * coral_count) + min(1.6, 0.5 * reef_count)
+        elif cname == "staghorn coral":
+            bonus += min(2.8, 0.6 * coral_count)
+        elif cname == "grooved brain coral":
+            bonus += 0.8 + min(1.6, 0.4 * coral_count)
+        # ── Bird side (support — lighter weight) ──
+        elif cname == "razorbill auk":
+            bonus += 2.8 if razorbill_count >= 1 else 0.8   # pair still a major threat
+        elif cname == "emperor penguin":
+            bonus += 0.8 + min(2.2, 0.45 * bird_count)
+        elif cname == "horned puffin":
+            bonus += 0.6 + min(1.0, 0.25 * bird_count)      # cheap Play-Again tempo
+        elif cname == "peruvian pelican":
+            bonus += 0.8                                    # draw to find Coral / reefs
+        elif cname == "great albatross":
+            bonus += 0.5 + min(1.0, 0.2 * bird_count)
+        # Light generic bird volume (support only — kept smaller than coral).
+        if cspecies == "bird" and cname != "magnificent frigatebird":
+            bonus += min(1.2, 0.25 * bird_count) + min(1.2, 0.4 * penguin_count)
 
     if bonus > 6.0:
         return 6.0
