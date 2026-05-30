@@ -4650,6 +4650,16 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return 0.3 if hand_ceph >= 3 else -0.4   # keep flood space when holding cephalopods
             return 0.3 if hand_ceph >= 2 else 0.1
+        # ── Goby Moon Shot (family-keyed; fires for live bots) ───────────
+        # Gobies / Spiny Lobster are bottom-side plays needing ocean space, and
+        # playing Oceans early is the DISGUISE (look like an ocean strategy
+        # while quietly holding the Goby package). So oceans are fine here.
+        if family_label == "goby_moon_shot":
+            if not player.board_oceans:
+                return 0.4
+            if count_empty_oceans(player) > 0:
+                return -0.3
+            return 0.15
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5518,6 +5528,38 @@ def action_archetype_bonus(
             if ceph_count == 2:
                 bonus += 1.4                              # crosses the 3-cephalopod threshold
             bonus += min(1.6, 0.55 * manta_count)        # Manta Ray draws per cephalopod
+
+    # ── Goby Moon Shot / "Shooting the Moon" (family-keyed; live bots) ──
+    # Mandarin Goby scores 1=0, 2=14, 3=30, 4=80 — a LONE goby is worthless,
+    # so the bot must hold gobies and play them in a burst toward 3-4. Spiny
+    # Lobster = "+6 per mandarin goby"; Common Sea Star draws on bottom-side
+    # plays; Blue Tang = "+2 per Crosscurrent animal".
+    if family_label == "goby_moon_shot":
+        goby_on_board = board_names.count("mandarin goby")
+        hand_gobies   = hand_name_counts.get("mandarin goby", 0)   # excludes the played card
+        crosscurrent_on_board = sum(1 for c in board_cards if c.species.strip().lower() == "crosscurrent")
+        if cname == "mandarin goby":
+            # Marginal value mirrors the 0/14/30/80 payoff curve.
+            if goby_on_board >= 3:
+                bonus += 5.0          # the 4th goby — the moon shot (80)
+            elif goby_on_board == 2:
+                bonus += 3.0          # the 3rd (30)
+            elif goby_on_board == 1:
+                bonus += 2.6          # the 2nd (14) — first real points
+            else:
+                # Would be a lone goby (0 pts) and reveals the plan — only worth
+                # it as setup when more gobies are waiting in hand to follow.
+                bonus += 0.3 if hand_gobies >= 1 else -2.2
+        elif cname == "spiny lobster":
+            # +6 per mandarin goby ON BOARD — huge once gobies are down.
+            bonus += min(4.0, 1.2 * goby_on_board)
+            if goby_on_board == 0:
+                bonus -= 1.0          # nothing to multiply yet (global check also gates this)
+        elif cname == "common sea star":
+            ready = goby_on_board + hand_gobies + hand_name_counts.get("spiny lobster", 0)
+            bonus += 0.6 + min(2.0, 0.5 * ready)          # bottom-side draw engine, played early
+        elif cname == "blue tang":
+            bonus += min(1.8, 0.5 * crosscurrent_on_board)  # +2 per Crosscurrent animal
 
     if bonus > 6.0:
         return 6.0
