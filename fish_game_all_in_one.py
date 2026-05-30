@@ -4984,6 +4984,28 @@ def action_archetype_bonus(
         elif cname == "clownfish" and on_reef:
             bonus += 2.4 + min(1.6, 0.4 * (yellow_count + bigeye_count))
 
+    # ── Mammals (family-keyed; fires for live bots) ─────────────────────
+    # Stack mammals for volume, Great White Shark boosts them (heavy hitter),
+    # Bottlenose Dolphin plays a free mammal (best with a mammal still in
+    # hand to chain), Blue Tang gains from the Great White Sharks in play.
+    if family_label == "mammals":
+        mammal_count = sum(1 for s in board_species if s == "mammal")
+        shark_count  = board_names.count("great white shark")
+        hand_mammals = hand_species_counts.get("mammal", 0)
+        if cspecies == "mammal":
+            bonus += min(2.6, 0.55 * mammal_count)   # volume stacking
+            bonus += min(2.2, 0.70 * shark_count)    # sharks boost every mammal
+        if cname == "great white shark":
+            # Main payoff: scales with the mammals already on board.
+            bonus += 1.4 + min(3.0, 0.70 * mammal_count)
+        if cname == "bottlenose dolphin":
+            # Free-mammal engine — strong when there's a mammal left to chain.
+            bonus += 0.6 + min(2.4, 0.80 * hand_mammals)
+            if hand_mammals == 0:
+                bonus -= 0.8                          # don't waste it with no follow-up
+        if cname == "blue tang":
+            bonus += min(2.6, 0.90 * shark_count)    # gains from Great White Sharks
+
     if bonus > 6.0:
         return 6.0
     if bonus < -6.0:
