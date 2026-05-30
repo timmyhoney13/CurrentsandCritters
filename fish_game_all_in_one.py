@@ -3507,6 +3507,21 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             ],
         },
         {
+            "label": "cephalopods",
+            "display_name": "Cephalopods (Reef Triggerfish Burst)",
+            "difficulty": "advanced",
+            "species": ["cephalopod"],
+            "heavy_hitters": [
+                "reef trigger fish", "reef triggerfish", "manta ray", "giant squid",
+            ],
+            "stack_engines": ["bobtail squid", "common octopus", "cuttlefish"],
+            "support_names": ["loggerhead sea turtle"],
+            "text_keywords": [
+                "per cephalopod", "cephalopod", "at least three cephalopods",
+                "reef trigger fish", "manta ray",
+            ],
+        },
+        {
             "label": "coral_cephalopods",
             "display_name": "Coral / Cephalopods (CC)",
             "difficulty": "advanced",
@@ -3561,11 +3576,12 @@ STRATEGY_SKILL_ALLOWLIST = {
     "beginner":     {"ocean_all_blue", "yellowfin_tuna", "mammals"},
     "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
     "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "crustaceans", "coral", "birds_crustaceans",
-                     "birds_coral", "coral_cephalopods"},
+                     "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
+                     "birds_crustaceans", "birds_coral", "coral_cephalopods"},
     "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "crustaceans", "coral", "birds_crustaceans",
-                     "birds_coral", "coral_cephalopods", "goby_moon_shot"},
+                     "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
+                     "birds_crustaceans", "birds_coral", "coral_cephalopods",
+                     "goby_moon_shot"},
 }
 
 
@@ -4607,6 +4623,16 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return -0.4
             return 0.1
+        # ── Cephalopods (family-keyed; fires for live bots) ──────────────
+        # Ocean-flexible, but the Reef Triggerfish burst needs OPEN slots, so
+        # build oceans ahead while holding several cephalopods.
+        if family_label == "cephalopods":
+            hand_ceph = hand_species_counts.get("cephalopod", 0)
+            if not player.board_oceans:
+                return 0.4
+            if count_empty_oceans(player) > 0:
+                return 0.4 if hand_ceph >= 3 else -0.4   # more open space only for a big flood
+            return 0.4 if hand_ceph >= 2 else 0.05
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5394,6 +5420,31 @@ def action_archetype_bonus(
         # Light generic bird volume (support only — kept smaller than coral).
         if cspecies == "bird" and cname != "magnificent frigatebird":
             bonus += min(1.2, 0.25 * bird_count) + min(1.2, 0.4 * penguin_count)
+
+    # ── Cephalopods (family-keyed; fires for live bots) ─────────────────
+    # Manta Ray early (draws per cephalopod), then Reef Trigger Fish bursts
+    # several cephalopods at once. Cephalopods spike at 3+ ("+X if you have at
+    # least three cephalopods"), so push toward that threshold. Manta Ray /
+    # Reef Trigger Fish readiness is already gated by the GLOBAL checks above;
+    # here we add the family scaling those generic checks don't capture.
+    if family_label == "cephalopods":
+        ceph_count = sum(1 for s in board_species if s == "cephalopod")
+        manta_count = board_names.count("manta ray")
+        hand_ceph = hand_species_counts.get("cephalopod", 0)
+        if cspecies == "cephalopod":
+            bonus += min(2.4, 0.50 * ceph_count)         # volume toward the 3+ spike
+            if ceph_count == 2:
+                bonus += 1.6                              # this play crosses the 3-cephalopod threshold
+            bonus += min(1.8, 0.6 * manta_count)         # Manta Ray draws on each cephalopod
+        if cname == "giant squid":
+            bonus += 1.0                                 # best cephalopod (+6 at 3+); only 2 exist
+        elif cname == "manta ray":
+            # Play it EARLY — before the cephalopod flood — when cephalopods are
+            # still in hand. (Global check already requires cephalopod support.)
+            if ceph_count <= 1 and hand_ceph >= 2:
+                bonus += 1.4
+        elif cname == "reef trigger fish":
+            bonus += min(2.4, 0.6 * hand_ceph)           # bigger flood = better burst
 
     if bonus > 6.0:
         return 6.0
