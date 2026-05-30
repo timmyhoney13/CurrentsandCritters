@@ -1385,6 +1385,16 @@
       white-space: nowrap;
       box-shadow: 0 2px 4px rgba(208,56,56,.3);
     }
+    /* Own seat: avatar is clickable to open gallery when it's not your turn */
+    .pv-seat.pv-seat-me-avatar-clickable { cursor: pointer; }
+    .pv-seat.pv-seat-me-avatar-clickable .pv-seat-avatar-wrap {
+      border-color: #27d0f5;
+      box-shadow: 0 0 0 2px rgba(39,208,245,.45), 0 2px 8px rgba(8,30,55,.18);
+      transition: box-shadow .2s, border-color .2s;
+    }
+    .pv-seat.pv-seat-me-avatar-clickable:hover .pv-seat-avatar-wrap {
+      box-shadow: 0 0 0 3px rgba(39,208,245,.7), 0 4px 16px rgba(39,208,245,.3);
+    }
     .pv-seat-empty { cursor: default; opacity: 0.6; }
     .pv-seat-empty .pv-seat-avatar-wrap {
       background: rgba(220,232,242,.7);
@@ -12801,7 +12811,9 @@
 
       const isActive = p.index === turnIndex;
       const isMe     = p.index === myIdx;
-      seat.className = "pv-seat" + (isActive ? " active-turn" : "");
+      seat.className = "pv-seat"
+        + (isActive ? " active-turn" : "")
+        + (isMe && !canInteract ? " pv-seat-me-avatar-clickable" : "");
       seat.dataset.playerIndex = String(p.index);
 
       // Resolve avatar: own → use equipped url directly.
@@ -12878,11 +12890,20 @@
         seat.appendChild(db);
       }
       seat.addEventListener("click", () => {
-        try { openBoardFocus(p); } catch (e) {}
+        if (isMe) {
+          // Own seat: open avatar gallery on other players' turns; block on yours.
+          if (canInteract) {
+            showToast("You can't change your icon on your turn.", "warn");
+          } else if (typeof window.__fishOpenAvatarGallery === "function") {
+            window.__fishOpenAvatarGallery();
+          }
+        } else {
+          try { openBoardFocus(p); } catch (e) {}
+        }
       });
       try { attachBoardHover(seat, p); } catch (e) {}
       seat.title = isMe
-        ? "Hover for a quick view, click to enlarge"
+        ? (canInteract ? "Can't change avatar on your turn" : "Click to change your avatar")
         : `Hover for ${p.name || `Player ${slot + 1}`}'s board, click to enlarge`;
 
       cluster.appendChild(seat);
@@ -23900,9 +23921,10 @@
         _iconUnlockCounts = map;
       } catch { _iconUnlockCounts = {}; }
     };
-    window.__fishNickname       = () => _playerNickname;
-    window.__fishAuthUser       = () => _authUser;
-    window.__fishDb             = () => _db;
+    window.__fishNickname          = () => _playerNickname;
+    window.__fishAuthUser          = () => _authUser;
+    window.__fishDb                = () => _db;
+    window.__fishOpenAvatarGallery = () => { if (_authUser || _guestSessionActive) openAvatarGallery(); };
     window.__fishShowStatsLobby = () => showStatsLobby();
     window.__fishSyncNickname   = () => { if (_playerNickname) lockNameInputs(_playerNickname); };
     window.__fishIsGuest        = () => !_authUser && _guestSessionActive;
