@@ -2786,6 +2786,7 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "yellowfin_tuna": "engine:yellowfin",
     "mammals": "engine:mammal",
     "baitfish_barrage": "engine:baitfish",
+    "birds_of_a_feather": "engine:bird",
     "birds_coral": "engine:bird",
     "coral_cephalopods": "engine:cephalopod",
     "goby_moon_shot": "engine:goby-spiny",
@@ -3423,6 +3424,22 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
         },
         # ── Advanced ─────────────────────────────────────────────────
         {
+            "label": "birds_of_a_feather",
+            "display_name": "Birds of a Feather",
+            "difficulty": "advanced",
+            "species": ["bird"],
+            "heavy_hitters": ["emperor penguin", "razorbill auk"],
+            "stack_engines": ["horned puffin", "peruvian pelican", "great albatross"],
+            "support_names": [
+                "sea urchin", "loggerhead sea turtle",
+            ],
+            # NOTE: California Seagull is deliberately NOT listed — it is a
+            # Crustacean buff that belongs in B-Lob, and pure Birds penalizes it.
+            "text_keywords": [
+                "per bird", "emperor penguin", "razorbill auk", "play again",
+            ],
+        },
+        {
             "label": "birds_crustaceans",
             "display_name": "Bird / Lobster (B-Lob)",
             "difficulty": "advanced",
@@ -3509,10 +3526,11 @@ STRATEGY_SKILL_ALLOWLIST = {
     "beginner":     {"ocean_all_blue", "yellowfin_tuna", "mammals"},
     "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
     "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_crustaceans", "birds_coral", "coral_cephalopods"},
+                     "birds_of_a_feather", "birds_crustaceans", "birds_coral",
+                     "coral_cephalopods"},
     "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_crustaceans", "birds_coral", "coral_cephalopods",
-                     "goby_moon_shot"},
+                     "birds_of_a_feather", "birds_crustaceans", "birds_coral",
+                     "coral_cephalopods", "goby_moon_shot"},
 }
 
 
@@ -5034,6 +5052,43 @@ def action_archetype_bonus(
             bonus += min(2.4, 0.55 * (bait_count + hand_bait))   # free-baitfish engine
         if cname == "hermit crab":
             bonus += min(2.0, 0.50 * hand_bait)         # more baitfish in hand → bigger flood
+
+    # ── Birds of a Feather (pure birds; family-keyed; fires for live bots) ──
+    # Emperor Penguin boosts the whole bird package; Razorbill Auk's PAIR is
+    # one of the best two-card combos; Horned Puffin/Peruvian Pelican/Great
+    # Albatross add cheap tempo + draw; Sea Urchin draws on bird plays.
+    # California Seagull is a Crustacean buff and is DISCOURAGED in pure birds.
+    if family_label == "birds_of_a_feather":
+        bird_count       = sum(1 for s in board_species if s == "bird")
+        penguin_count    = board_names.count("emperor penguin")
+        razorbill_count  = board_names.count("razorbill auk")
+        sea_urchin_count = board_names.count("sea urchin")
+        crust_count      = sum(1 for s in board_species if s == "crustacean")
+        hand_birds       = hand_species_counts.get("bird", 0)
+        if cspecies == "bird" and cname != "california seagull":
+            bonus += min(2.4, 0.45 * bird_count)        # bird volume
+            bonus += min(2.2, 0.70 * penguin_count)     # Emperor Penguin boosts birds
+            bonus += min(1.8, 0.60 * sea_urchin_count)  # Sea Urchin draws on bird plays
+        if cname == "emperor penguin":
+            bonus += 1.2 + min(3.0, 0.60 * bird_count)  # main heavy hitter
+        if cname == "razorbill auk":
+            # Complete the pair — 2 Razorbills is a huge two-card total.
+            bonus += 3.2 if razorbill_count >= 1 else 0.9
+        if cname == "sea urchin":
+            bonus += 0.5 + min(2.2, 0.50 * (bird_count + hand_birds))   # early enabler
+        if cname == "peruvian pelican":
+            bonus += 0.8 + min(1.2, 0.25 * bird_count)  # card draw to find more birds
+        if cname == "horned puffin":
+            bonus += 0.6 + min(1.2, 0.25 * bird_count)  # cheap Play-Again tempo
+        if cname == "great albatross":
+            bonus += 0.6 + min(1.6, 0.30 * bird_count)  # cheap bird + draw
+        if cname == "california seagull":
+            # Wrong card for PURE birds — only tolerable if crustaceans are on
+            # board (hybrid drift toward B-Lob); otherwise strongly discourage.
+            if crust_count >= 2:
+                bonus += min(2.0, 0.60 * crust_count)
+            else:
+                bonus -= 3.5
 
     if bonus > 6.0:
         return 6.0
