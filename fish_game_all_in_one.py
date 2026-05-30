@@ -3372,10 +3372,12 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "stack_engines": ["artificial reef", "coral reef"],
             "support_names": [
                 "arctic ocean", "arctic oceans", "deep ocean", "kelp forest", "pier",
+                "clownfish",
             ],
             "text_keywords": [
                 "per ocean", "ocean card", "for every ocean",
-                "if you have the most piers", "all 8 oceans",
+                "if you have the most piers", "if you have the most oceans",
+                "all 8 oceans",
             ],
         },
         {
@@ -4424,6 +4426,32 @@ def action_archetype_bonus(
                 hand_tag_counts[t2] = hand_tag_counts.get(t2, 0) + 1
 
     if action.kind == "play_ocean":
+        # ── Complete Current (ocean_all_blue) ────────────────────────────
+        # Oceans ARE the scoring engine for this plan (Tide Pool, Great
+        # Albatross, the all-8 Mangrove bonus). Unlike other strategies, the
+        # AI should WANT to keep playing oceans toward a full set of 8, so it
+        # is rewarded here rather than penalized for stacking extra oceans.
+        if family_label == "ocean_all_blue":
+            ocean_count = len(player.board_oceans)
+            cn = card.name.strip().lower()
+            b = 0.0
+            if ocean_count < 8:
+                b += 0.8 + 0.20 * (8 - ocean_count)   # most valuable while short of 8
+            else:
+                b += 0.3
+            if cn == "mangrove":
+                b += 2.6                               # main heavy hitter (all-8 payoff)
+            elif cn == "artificial reef":
+                b += 2.2                               # rare; completes the set + best Clownfish host
+            elif cn == "tide pool":
+                b += 1.4 + 0.18 * ocean_count          # scales with total ocean count
+            elif cn in {"coral reef", "kelp forest", "pier"}:
+                b += 0.7
+            # Favor a distinct ocean type not already on the board.
+            board_ocean_names = {gs.card_db[uid].name.strip().lower() for uid in player.board_oceans}
+            if cn and cn not in board_ocean_names:
+                b += 0.6
+            return max(-0.5, min(6.0, b))
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -4861,6 +4889,21 @@ def action_archetype_bonus(
             if cname == "clownfish":
                 ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
                 bonus += 0.8 * clownfish_ocean_value(ocean_name)
+
+    # ── Complete Current (ocean_all_blue) animal payoffs ────────────────
+    # Great Albatross (most-oceans finisher) and Clownfish (clone the best
+    # ocean — Mangrove's all-8 bonus or Artificial Reef) are the key animal
+    # pieces in an otherwise ocean-only plan.
+    if family_label == "ocean_all_blue":
+        ocean_count = len(player.board_oceans)
+        if cname == "great albatross":
+            bonus += 1.4 + min(3.0, 0.30 * ocean_count)
+        if cname == "clownfish" and action.ocean_uid is not None:
+            ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
+            bonus += 1.0 + clownfish_ocean_value(ocean_name)
+            if ocean_name == "mangrove":
+                bonus += 1.6        # clone the all-8 Mangrove bonus — the ideal Clownfish host
+
     if bonus > 6.0:
         return 6.0
     if bonus < -6.0:
