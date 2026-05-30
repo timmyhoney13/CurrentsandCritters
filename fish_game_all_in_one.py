@@ -4537,6 +4537,25 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return -0.6 if not has_artificial_reef else -0.2
             return 0.2
+        # ── B-Lob (family-keyed; fires for live bots) ────────────────────
+        # Artificial Reef hosts the Lobster side; but B-Lob also needs top-side
+        # bird space, so it is more ocean-tolerant than pure Crustaceans.
+        if family_label == "birds_crustaceans":
+            cn = card.name.strip().lower()
+            engine_count = (
+                sum(1 for s in board_species if s == "crustacean")
+                + board_names.count("california seagull")
+            )
+            has_artificial_reef = "artificial reef" in board_names
+            if cn == "artificial reef":
+                if not has_artificial_reef:
+                    return 2.4 + min(1.4, 0.3 * engine_count)
+                return 0.6 + min(1.4, 0.3 * engine_count)
+            if not player.board_oceans:
+                return 0.35
+            if count_empty_oceans(player) > 0:
+                return -0.4
+            return 0.1
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5175,6 +5194,61 @@ def action_archetype_bonus(
             # when crustacean options are otherwise thin.
             end_soon = bool(getattr(ms, "end_game_triggered", False))
             bonus -= 0.0 if end_soon else 1.6
+
+    # ── B-Lob (family-keyed; fires for live bots) ───────────────────────
+    # The best of Birds + Crustaceans, bridged by California Seagull (a bird
+    # that boosts crustaceans). Reward both top-side birds and bottom-side
+    # crustaceans; discourage the off-plan crustaceans (Hermit / Spiny).
+    if family_label == "birds_crustaceans":
+        bird_count       = sum(1 for s in board_species if s == "bird")
+        crust_count      = sum(1 for s in board_species if s == "crustacean")
+        penguin_count    = board_names.count("emperor penguin")
+        seagull_count    = board_names.count("california seagull")
+        razorbill_count  = board_names.count("razorbill auk")
+        mantis_count     = board_names.count("mantis shrimp")
+        seastar_count    = board_names.count("common sea star") + board_names.count("sea star")
+        sea_urchin_count = board_names.count("sea urchin")
+        hand_birds       = hand_species_counts.get("bird", 0)
+        hand_crust       = hand_species_counts.get("crustacean", 0)
+        on_reef = (action.ocean_uid is not None
+                   and gs.card_db[action.ocean_uid].name.strip().lower() == "artificial reef")
+        artreef_on_board = "artificial reef" in board_names
+
+        # California Seagull — the bridge: scales with crustaceans (boost) and
+        # adds bird volume too. Top priority in B-Lob.
+        if cname == "california seagull":
+            bonus += 1.2 + min(3.0, 0.70 * crust_count) + min(1.2, 0.25 * bird_count)
+        elif cname == "emperor penguin":
+            bonus += 1.0 + min(2.8, 0.55 * bird_count)
+        elif cname == "razorbill auk":
+            bonus += 3.2 if razorbill_count >= 1 else 1.0   # complete the pair if possible
+        elif cname == "lobster":
+            bonus += 0.8 + min(2.4, 0.50 * crust_count) + min(1.6, 0.50 * seagull_count)
+            if on_reef:
+                bonus += 2.2
+            elif artreef_on_board:
+                bonus -= 0.8
+        elif cname == "mantis shrimp":
+            bonus += 1.2 + min(2.6, 1.0 * mantis_count) + min(1.2, 0.25 * seagull_count)
+        elif cname == "king crab":
+            bonus += min(2.2, 0.50 * (crust_count + hand_crust)) + min(1.0, 0.3 * (seastar_count + seagull_count))
+        elif cname == "clownfish" and on_reef:
+            bonus += 2.4 + min(1.6, 0.40 * (crust_count + bird_count))
+        elif cname in {"hermit crab", "spiny lobster"}:
+            end_soon = bool(getattr(ms, "end_game_triggered", False))
+            bonus -= 0.0 if end_soon else 1.6
+        # Generic volume for the two halves (boost engines fold in).
+        if cspecies == "bird" and cname != "california seagull":
+            bonus += min(1.8, 0.35 * bird_count) + min(1.6, 0.55 * penguin_count)
+            bonus += min(1.4, 0.45 * sea_urchin_count)     # Sea Urchin draws on top-side birds
+        elif cspecies == "crustacean" and cname not in {"hermit crab", "spiny lobster"}:
+            bonus += min(1.8, 0.35 * crust_count) + min(1.6, 0.55 * seagull_count)
+            bonus += min(1.4, 0.45 * seastar_count)        # Sea Star draws on bottom-side crustaceans
+        # Draw engines: Sea Urchin (top/birds) vs Common Sea Star (bottom/crust).
+        if cname == "sea urchin":
+            bonus += 0.5 + min(1.8, 0.40 * (bird_count + hand_birds))
+        elif cname == "common sea star":
+            bonus += 0.5 + min(1.8, 0.40 * (crust_count + hand_crust))
 
     if bonus > 6.0:
         return 6.0
