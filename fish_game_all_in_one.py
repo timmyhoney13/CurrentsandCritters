@@ -2787,6 +2787,7 @@ STRATEGY_FAMILY_TO_ENGINE_TAG = {
     "mammals": "engine:mammal",
     "baitfish_barrage": "engine:baitfish",
     "birds_of_a_feather": "engine:bird",
+    "crustaceans": "engine:crustacean",
     "birds_coral": "engine:bird",
     "coral_cephalopods": "engine:cephalopod",
     "goby_moon_shot": "engine:goby-spiny",
@@ -3440,6 +3441,23 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             ],
         },
         {
+            "label": "crustaceans",
+            "display_name": "Crustaceans (Lobster Stack)",
+            "difficulty": "advanced",
+            "species": ["crustacean"],
+            "heavy_hitters": ["lobster", "mantis shrimp"],
+            "stack_engines": ["california seagull", "king crab", "artificial reef"],
+            "support_names": [
+                "common sea star", "sea star", "clownfish",
+            ],
+            # Hermit Crab / Spiny Lobster are crustaceans but belong in other
+            # plans (Baitfish / Goby); they are deliberately not listed and are
+            # discouraged in the combo logic below.
+            "text_keywords": [
+                "per crustacean", "california seagull", "lobster", "mantis shrimp",
+            ],
+        },
+        {
             "label": "birds_crustaceans",
             "display_name": "Bird / Lobster (B-Lob)",
             "difficulty": "advanced",
@@ -3526,11 +3544,11 @@ STRATEGY_SKILL_ALLOWLIST = {
     "beginner":     {"ocean_all_blue", "yellowfin_tuna", "mammals"},
     "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
     "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "birds_crustaceans", "birds_coral",
-                     "coral_cephalopods"},
+                     "birds_of_a_feather", "crustaceans", "birds_crustaceans",
+                     "birds_coral", "coral_cephalopods"},
     "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
-                     "birds_of_a_feather", "birds_crustaceans", "birds_coral",
-                     "coral_cephalopods", "goby_moon_shot"},
+                     "birds_of_a_feather", "crustaceans", "birds_crustaceans",
+                     "birds_coral", "coral_cephalopods", "goby_moon_shot"},
 }
 
 
@@ -4498,6 +4516,27 @@ def action_archetype_bonus(
             if count_empty_oceans(player) > 0:
                 return -0.6 if not has_artificial_reef else -0.2
             return 0.2
+        # ── Crustaceans (family-keyed; fires for live bots) ──────────────
+        # Artificial Reef is the key ocean — Lobsters stack below it. Reward
+        # it strongly; other oceans only mildly (bottom-side space for other
+        # crustaceans).
+        if family_label == "crustaceans":
+            cn = card.name.strip().lower()
+            engine_count = (
+                sum(1 for s in board_species if s == "crustacean")
+                + board_names.count("california seagull")
+                + board_names.count("common sea star")
+            )
+            has_artificial_reef = "artificial reef" in board_names
+            if cn == "artificial reef":
+                if not has_artificial_reef:
+                    return 2.6 + min(1.5, 0.3 * engine_count)
+                return 0.6 + min(1.5, 0.3 * engine_count)
+            if not player.board_oceans:
+                return 0.3
+            if count_empty_oceans(player) > 0:
+                return -0.6 if not has_artificial_reef else -0.2
+            return 0.2
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
@@ -5089,6 +5128,53 @@ def action_archetype_bonus(
                 bonus += min(2.0, 0.60 * crust_count)
             else:
                 bonus -= 3.5
+
+    # ── Crustaceans (family-keyed; fires for live bots) ─────────────────
+    # Lobster heavy hitter stacked below Artificial Reef, California Seagull
+    # boosts all crustaceans, Common Sea Star draws on bottom-side plays,
+    # King Crab plays+draws, Mantis Shrimp is a high-value (multi-copy) threat,
+    # Clownfish clones the reef. Hermit Crab / Spiny Lobster belong elsewhere.
+    if family_label == "crustaceans":
+        crust_count   = sum(1 for s in board_species if s == "crustacean")
+        seagull_count = board_names.count("california seagull")
+        seastar_count = board_names.count("common sea star") + board_names.count("sea star")
+        mantis_count  = board_names.count("mantis shrimp")
+        hand_crust    = hand_species_counts.get("crustacean", 0)
+        target_ocean = ""
+        on_reef = False
+        if action.ocean_uid is not None:
+            target_ocean = gs.card_db[action.ocean_uid].name.strip().lower()
+            on_reef = (target_ocean == "artificial reef")
+        artreef_on_board = "artificial reef" in board_names
+
+        if cspecies == "crustacean" and cname not in {"hermit crab", "spiny lobster"}:
+            bonus += min(2.4, 0.45 * crust_count)        # crustacean volume
+            bonus += min(2.4, 0.75 * seagull_count)      # California Seagull boosts crustaceans
+            bonus += min(1.8, 0.55 * seastar_count)      # Sea Star draws on bottom-side plays
+        if cname == "lobster":
+            # Main heavy hitter — best stacked on the Artificial Reef.
+            bonus += 0.8 + min(2.6, 0.55 * crust_count)
+            if on_reef:
+                bonus += 2.2
+            elif artreef_on_board:
+                bonus -= 0.8                              # reef exists but stacking elsewhere — wasteful
+        elif cname == "mantis shrimp":
+            # High-value threat; multiple copies multiply hard.
+            bonus += 1.2 + min(2.8, 1.0 * mantis_count) + min(1.4, 0.3 * crust_count)
+        elif cname == "california seagull":
+            bonus += 1.0 + min(3.0, 0.70 * crust_count)  # boost payoff scales with crustaceans
+        elif cname == "common sea star":
+            bonus += 0.6 + min(2.2, 0.50 * (crust_count + hand_crust))   # early draw engine
+        elif cname == "king crab":
+            bonus += min(2.4, 0.55 * (crust_count + hand_crust))
+            bonus += min(1.2, 0.3 * (seastar_count + seagull_count))
+        elif cname == "clownfish" and on_reef:
+            bonus += 2.4 + min(1.6, 0.4 * crust_count)   # clone the Artificial Reef
+        elif cname in {"hermit crab", "spiny lobster"}:
+            # Belong in Baitfish (Hermit) / Goby (Spiny). Only worth it late or
+            # when crustacean options are otherwise thin.
+            end_soon = bool(getattr(ms, "end_game_triggered", False))
+            bonus -= 0.0 if end_soon else 1.6
 
     if bonus > 6.0:
         return 6.0
