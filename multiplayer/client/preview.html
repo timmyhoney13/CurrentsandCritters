@@ -10027,6 +10027,19 @@
     return true;
   }
 
+  // Force a state refresh after an action — ignores refreshInFlight so a
+  // background poll can't block the corrective fetch that clears "YOUR TURN".
+  async function refreshStateAfterAction() {
+    if (!roomId) return;
+    // Wait for any in-flight poll to finish first, then do our own fetch.
+    // Cap at 400ms so we never wait more than half the polling window.
+    const deadline = Date.now() + 400;
+    while (refreshInFlight && Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 30));
+    }
+    refreshState();
+  }
+
   async function refreshState() {
     if (!roomId || refreshInFlight) return;
     refreshInFlight = true;
@@ -11272,7 +11285,8 @@
       const _optEndBtn  = document.getElementById("pv-end-turn-inline");
       if (_optBanner) _optBanner.className = "their-turn";
       if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
-      _lastActionMs = Date.now(); // suppress stale-poll banner flicker
+      canInteract = false;         // clear immediately so avatar/buttons respond right away
+      _lastActionMs = Date.now(); // suppress stale-poll flicker for both banner and canInteract
       // Track per-game stats for achievements
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
@@ -11548,7 +11562,7 @@
       // Competitive: hand-switch is handled by checkCompHandSwitch in renderPayload
       // once the server confirms the active seat changed — no immediate call needed here.
       await sleep(160);
-      refreshState();
+      refreshStateAfterAction();
     } catch(e) { setStatus("Error: " + e.message); showToast("Error: " + e.message, "err"); }
     finally { actionInFlight = false; }
   }
@@ -12042,7 +12056,12 @@
     }
     const current = state.current_player || "";
     const isMyTurn = Boolean(viewer.can_act);
-    canInteract = isMyTurn;
+    // Suppress canInteract for any payload arriving within 600ms of our last
+    // action submission — the payload is almost certainly a stale poll that
+    // raced the action.  The post-action refreshStateAfterAction() will supply
+    // the authoritative state once the in-flight poll has cleared.
+    const _staleWindow = _lastActionMs > 0 && (Date.now() - _lastActionMs) < 600;
+    canInteract = isMyTurn && !_staleWindow;
 
     const mustDiscard   = Boolean(lw.must_discard_to_ten);
     const discardExcess = Number(lw.discard_excess || 0);
@@ -12099,11 +12118,7 @@
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
       const isReplayTurn = Boolean(lw.is_replay_turn);
-      // If a payload arrives saying can_act=true within 600ms of us submitting
-      // an action, it's a stale in-flight poll — don't flash "YOUR TURN" back.
-      // The 160ms post-action refresh will apply the confirmed updated state.
-      const stalePollWindow = _lastActionMs > 0 && (Date.now() - _lastActionMs) < 600;
-      if (!stalePollWindow) {
+      if (!_staleWindow) {
         banner.className = "my-turn";
         if (compMode) {
           const activeSeat = Number(payload.active_action_seat);
