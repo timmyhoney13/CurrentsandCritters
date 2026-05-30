@@ -2161,6 +2161,15 @@ class GameRoom:
                 self._undo_pending_gs = undo_new_pending_gs
                 self._undo_pending_ms = undo_new_pending_ms
                 self._undo_pending_seat = undo_new_pending_seat
+                # A new turn is starting. Clear the active action seat so it does
+                # NOT keep pointing at the previous (human) player while an AI
+                # bot takes its turn — otherwise that human's client keeps seeing
+                # can_act=true ("YOUR TURN") during everyone else's turn.
+                # _human_policy re-sets active_action_seat to its own seat the
+                # instant it runs (same engine thread, immediately after this
+                # snapshot), so a human's own turn is unaffected; AI turns simply
+                # leave it None → can_act is false for every seat.
+                self.active_action_seat = None
 
             # Promote previous player's pending snapshot to active undo.
             if undo_promote_gs is not None:
