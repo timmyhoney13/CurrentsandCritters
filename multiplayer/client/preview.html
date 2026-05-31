@@ -12249,6 +12249,8 @@
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderPlayerSeats(players, state.turn_index, myIdx);
+    // Make sure the server has our current avatar for this seat (self-throttled).
+    if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} }
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
 
@@ -12810,6 +12812,27 @@
     return PV_SEAT_AVATARS[pvSeatHash(seed) % 12];
   }
 
+  // Push our chosen avatar to the server for this seat so every other client
+  // renders our own icon (and sees changes immediately). Self-throttled: only
+  // sends when the avatar actually changed.
+  let _lastPushedAvatar = "";
+  function pushMySeatAvatar() {
+    if (!roomId) return;
+    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
+    if (!tok) return;
+    let myUrl = "";
+    try {
+      if (typeof window.__fishMyAvatarUrl === "function") myUrl = String(window.__fishMyAvatarUrl() || "");
+    } catch (e) { myUrl = ""; }
+    const key = roomId + "|" + myUrl;   // include room so a new game re-pushes
+    if (!myUrl || key === _lastPushedAvatar) return;
+    _lastPushedAvatar = key;
+    try {
+      apiPost(`/api/rooms/${roomId}/avatar`, { seat_token: tok, avatar: myUrl }, { timeoutMs: 6000 }).catch(() => {});
+    } catch (e) {}
+  }
+  window.__fishPushSeatAvatar = pushMySeatAvatar;
+
   function renderPlayerSeats(players, turnIndex, myIdx) {
     const leftEl  = document.getElementById("pv-seats-left");
     const rightEl = document.getElementById("pv-seats-right");
@@ -12863,11 +12886,13 @@
       const fallbackAvatar = (typeof pvSeatDefaultAvatar === "function")
         ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
         : PV_SEAT_AVATARS[slot % 12];
-      let initialUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
-      if (!isMe && p.name && typeof window.__fishAvatarCached === "function") {
-        const cached = window.__fishAvatarCached(p.name);
-        if (cached) initialUrl = cached;
-      }
+      // Authoritative source: each player's OWN avatar carried per-seat in the
+      // game state (p.avatar). This guarantees every player has a separate icon
+      // and changes propagate immediately. Fall back to my equipped avatar for
+      // my own seat, then to a deterministic per-name default.
+      let initialUrl = fallbackAvatar;
+      if (p.avatar) initialUrl = p.avatar;
+      else if (isMe && myAvatarUrl) initialUrl = myAvatarUrl;
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
@@ -12876,15 +12901,6 @@
       img.alt = p.name || `Seat ${slot + 1}`;
       img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
-
-      // Always kick off the lookup — it self-throttles via the TTL (only hits
-      // Firestore when the cached entry is stale), so this both fills a new
-      // seat AND refreshes the icon within ~12s when a player changes avatar.
-      if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
-        window.__fishAvatarForNick(p.name).then(url => {
-          if (url && img && img.isConnected && img.src !== url) img.src = url;
-        }).catch(() => {});
-      }
 
       const nm = document.createElement("div");
       nm.className = "pv-seat-name";
@@ -17297,22 +17313,17 @@
       const div = document.createElement("div"); div.className = "chat-msg";
       const senderName = m.sender || "?";
 
-      // Sender avatar — show their current player icon next to the name.
+      // Sender avatar — prefer the per-sender avatar the server attached to the
+      // message (each player's own icon); fall back to a deterministic default.
       const av = document.createElement("div"); av.className = "cm-avatar";
       const avImg = document.createElement("img");
-      let avSrc = (typeof window.__fishAvatarCached === "function" && window.__fishAvatarCached(senderName)) || "";
+      let avSrc = (m.avatar && String(m.avatar)) || "";
       if (!avSrc) {
         avSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(senderName) : "/avatars/mullet.png";
       }
       avImg.src = avSrc; avImg.alt = senderName; avImg.loading = "lazy";
       avImg.onerror = () => { avImg.onerror = null; avImg.src = "/avatars/mullet.png"; };
       av.appendChild(avImg);
-      // Resolve / refresh the real chosen avatar (self-throttling via TTL).
-      if (typeof window.__fishAvatarForNick === "function") {
-        window.__fishAvatarForNick(senderName).then(url => {
-          if (url && avImg.isConnected && avImg.src !== url) avImg.src = url;
-        }).catch(() => {});
-      }
 
       const main = document.createElement("div"); main.className = "cm-main";
       const header = document.createElement("div");
@@ -19414,6 +19425,9 @@
       } else {
         throw new Error("no-session");
       }
+      // If we're in a game, push the new avatar to the server immediately so
+      // every other player sees it on this seat right away.
+      try { if (typeof window.__fishPushSeatAvatar === "function") window.__fishPushSeatAvatar(); } catch (e) {}
     }
 
     async function saveAvatarSelection() {

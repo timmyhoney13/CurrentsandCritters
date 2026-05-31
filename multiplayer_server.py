@@ -555,6 +555,10 @@ class Seat:
     claimed_name: Optional[str] = None
     token: Optional[str] = None
     is_host: bool = False
+    # The player's chosen avatar image path (e.g. "/avatars/clownfish.png").
+    # Carried per-seat in game state so every client renders each player's
+    # OWN icon — no shared nickname lookup, so two players never share one.
+    avatar: Optional[str] = None
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
     # Surf's Up! — player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
@@ -3223,6 +3227,18 @@ class GameRoom:
                 if not isinstance(players_list, list):
                     players_list = []
                     state_obj["players"] = players_list
+                # Attach each player's per-seat avatar so every client renders
+                # the correct, separate icon for each player (and picks up
+                # mid-game avatar changes immediately, no nickname lookup).
+                _seat_by_index = {s.index: s for s in self.seats}
+                for p in players_list:
+                    if not isinstance(p, dict):
+                        continue
+                    g_idx = p.get("index")
+                    seat_idx = self._comp_game_to_seat.get(g_idx, g_idx)
+                    seat_for_p = _seat_by_index.get(seat_idx)
+                    if seat_for_p is not None and seat_for_p.avatar:
+                        p["avatar"] = seat_for_p.avatar
                 if viewer_index is not None:
                     for p in players_list:
                         if not isinstance(p, dict):
@@ -3306,6 +3322,7 @@ class GameRoom:
                 "target": target,
                 "message": message,
                 "ts": time.time(),
+                "avatar": (seat.avatar if seat and seat.avatar else ""),
             }
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:
@@ -3330,6 +3347,26 @@ class GameRoom:
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "ai_speed": self.ai_speed}
+
+    def set_avatar(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Set the calling seat's avatar image, so every client renders this
+        player's own icon (and sees mid-game changes immediately)."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        raw = body.get("avatar")
+        avatar = str(raw).strip()[:128] if isinstance(raw, str) else ""
+        # Only accept our own avatar image paths; ignore anything else.
+        if avatar and not re.match(r"^/avatars/[A-Za-z0-9_\-]+\.png$", avatar):
+            avatar = ""
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if seat.avatar == (avatar or None):
+                return {"ok": True, "avatar": seat.avatar or ""}
+            seat.avatar = avatar or None
+            self._persist_dirty = True
+            self._bump_locked()
+        return {"ok": True, "avatar": seat.avatar or ""}
 
     def set_away(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Toggle the calling seat's Surf's Up!! Away flag.
@@ -4625,6 +4662,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.set_away(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "avatar":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_avatar(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
