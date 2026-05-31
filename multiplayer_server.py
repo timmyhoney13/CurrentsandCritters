@@ -2097,6 +2097,10 @@ class GameRoom:
             except Exception:
                 board_payload = []
             scores_now[p.name] = score
+            try:
+                detected_strategy = fish.detect_player_strategy(gs, p)
+            except Exception:
+                detected_strategy = "Best Guess"
             players_public.append(
                 {
                     "index": seat_idx,
@@ -2109,6 +2113,10 @@ class GameRoom:
                     "hand_count": len(p.hand),
                     "board_ocean_count": len(p.board_oceans),
                     "board": board_payload,
+                    # The strategy this player actually built (guide-based,
+                    # per-player). Used by the client for stats / leaderboards /
+                    # recap / achievements — no manual choosing.
+                    "strategy": detected_strategy,
                 }
             )
             hand_payload: List[Dict[str, Any]] = []
@@ -2797,6 +2805,18 @@ class GameRoom:
                 f.write(row + "\n")
 
     def _detect_strategy(self, gs: Any) -> str:
+        """Strategy of the top-scoring player, via the guide-based per-player
+        detector (single source of truth). Used for competitive game records."""
+        try:
+            players = list(getattr(gs, "players", []) or [])
+            if players:
+                top = max(players, key=lambda p: fish.final_points(gs, p))
+                return fish.detect_player_strategy(gs, top)
+        except Exception:
+            pass
+        return self._detect_strategy_legacy(gs)
+
+    def _detect_strategy_legacy(self, gs: Any) -> str:
         """Classify the winning strategy using the official strategy guide names."""
         type_counts: Dict[str, int] = {}
         name_counts: Dict[str, int] = {}

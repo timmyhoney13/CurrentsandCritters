@@ -4777,6 +4777,11 @@
       color: #6f8dab;
       white-space: nowrap;
     }
+    .ph-rg-strat {
+      font-size: 11px; font-weight: 700; color: #2c95d1;
+      background: rgba(44,149,209,.12); border-radius: 8px; padding: 2px 8px;
+      white-space: nowrap;
+    }
     .ph-rg-view-btn {
       font-size: .8rem;
       font-weight: 700;
@@ -16533,6 +16538,15 @@
           r: (Array.isArray(ocean.right)?ocean.right:[]).map(_snapCard),
         })),
       }));
+      // The strategy this player actually built, detected server-side from the
+      // final board using the strategy guide (heavy hitters, B-Lob, tie rules).
+      const myDetectedStrategy = (() => {
+        try {
+          const mine = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+          const s = (mine && typeof mine.strategy === "string") ? mine.strategy.trim() : "";
+          return (s && s !== "Best Guess") ? s : "";
+        } catch { return ""; }
+      })();
       const recentEntry = {
         r: isWinner ? 1 : 0,
         s: myScore,
@@ -16543,6 +16557,7 @@
         all: allScores,
         bds: boardSnaps,
         win: winner || "",
+        strat: myDetectedStrategy,
       };
       const existingRecent = Array.isArray(cStats.recent_games) ? cStats.recent_games : [];
       // Keep the heavy visual-board data (bds[].bd) only for the 30 most
@@ -16570,6 +16585,21 @@
           "stats.last_game_xp": xpAward,
           "stats.recent_games": nextRecent,
         };
+        // ── Strategy tracking ──────────────────────────────────────────
+        // Record the detected strategy: per-player-count (most recent for that
+        // size), a play-count tally, and the overall most-played (argmax of the
+        // tally). Whole objects are written to avoid Firestore field-path issues
+        // with strategy names that contain spaces / slashes / parens.
+        if (myDetectedStrategy) {
+          const _prevCounts = (cStats.strategy_play_counts && typeof cStats.strategy_play_counts === "object") ? cStats.strategy_play_counts : {};
+          const _newCounts = { ..._prevCounts, [myDetectedStrategy]: (Number(_prevCounts[myDetectedStrategy]) || 0) + 1 };
+          const _topStrat = Object.entries(_newCounts).sort((a, b) => b[1] - a[1])[0];
+          const _prevBySize = (cStats.most_played_strategy_by_size && typeof cStats.most_played_strategy_by_size === "object") ? cStats.most_played_strategy_by_size : {};
+          const _newBySize = { ..._prevBySize, [String(playerCount)]: myDetectedStrategy };
+          updates["stats.strategy_play_counts"]        = _newCounts;
+          updates["stats.most_played_strategy"]        = _topStrat ? _topStrat[0] : myDetectedStrategy;
+          updates["stats.most_played_strategy_by_size"] = _newBySize;
+        }
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         if (Number(_gameAchTracker?.deckDraws || 0) > 0)
           updates["stats.lifetime_deck_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.deckDraws));
@@ -16638,6 +16668,17 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
+        // Strategy tracking (guests) — mirror the signed-in path.
+        if (myDetectedStrategy) {
+          const _pc = (nextStats.strategy_play_counts && typeof nextStats.strategy_play_counts === "object") ? nextStats.strategy_play_counts : {};
+          _pc[myDetectedStrategy] = (Number(_pc[myDetectedStrategy]) || 0) + 1;
+          nextStats.strategy_play_counts = _pc;
+          const _top = Object.entries(_pc).sort((a, b) => b[1] - a[1])[0];
+          nextStats.most_played_strategy = _top ? _top[0] : myDetectedStrategy;
+          const _bs = (nextStats.most_played_strategy_by_size && typeof nextStats.most_played_strategy_by_size === "object") ? nextStats.most_played_strategy_by_size : {};
+          _bs[String(playerCount)] = myDetectedStrategy;
+          nextStats.most_played_strategy_by_size = _bs;
+        }
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
@@ -17209,6 +17250,9 @@
         const firstOcean = Array.isArray(playerObj?.board) && playerObj.board[0];
         const oceanUid = firstOcean ? (firstOcean.ocean_uid || firstOcean.ocean?.uid) : null;
         const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
+        // Show each player's detected strategy in the recap (fall back to ocean).
+        const _ds = (playerObj && typeof playerObj.strategy === "string") ? playerObj.strategy.trim() : "";
+        const envLabel = (_ds && _ds !== "Best Guess") ? _ds : oceanName;
         const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
         const avatarSeed = p.name || ("p" + i);
         const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/mullet.png";
@@ -17220,7 +17264,7 @@
           <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
           <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
           <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
-          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${oceanName}</div></div>
+          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${envLabel}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
         if (!isMe) {
@@ -20057,7 +20101,15 @@
           if (!score) return;
           shown++;
           const isMe  = !!(_authUser && doc.id === _authUser.uid);
-          const strat = escHtmlPH(stats.most_played_strategy || stats.favorite_strategy || "—");
+          // On a specific size tab, show that player's strategy FOR that size;
+          // on the Overall tab, show their most-played strategy.
+          let stratRaw = stats.most_played_strategy || stats.favorite_strategy || "—";
+          if (_phLbSize !== "all") {
+            const bs = stats.most_played_strategy_by_size;
+            const perSize = bs && typeof bs === "object" ? (bs[String(_phLbSize)] ?? bs[_phLbSize]) : "";
+            if (perSize && String(perSize).trim()) stratRaw = String(perSize).trim();
+          }
+          const strat = escHtmlPH(stratRaw);
           const size  = _phLbSize === "all" ? "—" : `${_phLbSize}P`;
           rows.push({ shown, isMe, score, size, strat, d, doc });
           if (isMe) { myRank = shown; myRow = { shown, score, size, strat }; }
@@ -22419,7 +22471,22 @@
             // Find my player object — use myIdx via _latestPlayers.
             const myPlayer = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
               .find(p => p.index === myIdx);
-            const myStrategy = detectStrategy(myPlayer);
+            // Prefer the canonical server-detected strategy (guide-based); map
+            // it to the legacy names this block uses. Fall back to the local
+            // classifier only if the server didn't provide one.
+            const _CANON_TO_WEEKLY = {
+              "Ocean": "Ocean All Blue",
+              "Yellowfin Tuna": "Yellowfin Tuna",
+              "Mammals": "Mammals",
+              "Baitfish Barrage": "Baitfish Barrage",
+              "B-Lob": "Bird/Lobster (B-Lob)",
+              "B-Coral": "Bird/Coral (B-Coral)",
+              "Coral/Cephalopods (CC)": "Coral/Cephalopods (CC)",
+            };
+            const _srvStrat = (myPlayer && typeof myPlayer.strategy === "string") ? myPlayer.strategy.trim() : "";
+            const myStrategy = _srvStrat
+              ? (_CANON_TO_WEEKLY[_srvStrat] || _srvStrat)
+              : detectStrategy(myPlayer);
             const STRAT_TO_WEEKLY = {
               "Ocean All Blue":          "all_blue_week",
               "Yellowfin Tuna":          "tuna_week",
@@ -22680,7 +22747,7 @@
         const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"short", day:"numeric"}) : "";
         const opps = Array.isArray(g.opp) ? g.opp.slice(0,2).join(", ") + (g.opp.length > 2 ? "…" : "") : (g.opp || "");
         const hasDetail = Array.isArray(g.all) && g.all.length > 0;
-        d.innerHTML = `<span class="ph-rg-ico" aria-hidden="true"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph-rg-opp">vs ${escapeHtml(opps || "Solo")}</span><span class="ph-rg-badge ${isWin?"win":"loss"}">${isWin?"Win":"Loss"}</span><span class="ph-rg-pts">${Number(pts) || 0} pts</span><span class="ph-rg-date">${escapeHtml(date)}</span>${hasDetail ? `<button class="ph-rg-view-btn">View Game</button>` : ""}`;
+        d.innerHTML = `<span class="ph-rg-ico" aria-hidden="true"><svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#27a9ef" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph-rg-opp">vs ${escapeHtml(opps || "Solo")}</span>${g.strat ? `<span class="ph-rg-strat">${escapeHtml(g.strat)}</span>` : ""}<span class="ph-rg-badge ${isWin?"win":"loss"}">${isWin?"Win":"Loss"}</span><span class="ph-rg-pts">${Number(pts) || 0} pts</span><span class="ph-rg-date">${escapeHtml(date)}</span>${hasDetail ? `<button class="ph-rg-view-btn">View Game</button>` : ""}`;
         if (hasDetail) {
           d.querySelector(".ph-rg-view-btn").addEventListener("click", (e) => {
             e.stopPropagation();
@@ -23301,7 +23368,8 @@
       const winnerName = g.win || (players[0]?.n || "");
 
       document.getElementById("ph-gdm-mode").textContent =
-        `${modeLabel} · ${g.pc || players.length} players`;
+        `${modeLabel} · ${g.pc || players.length} players`
+        + (g.strat ? ` · Your strategy: ${g.strat}` : "");
 
       // Player chips (avatar + name + score), clickable to switch the board view.
       const playersEl = document.getElementById("ph-gdm-players");

@@ -3704,6 +3704,100 @@ def strategy_family_card_score(card: CardDef, family_profile: Optional[Dict[str,
     return score
 
 
+# Display names for each strategy family — the single source of truth for what
+# a player's detected strategy is called everywhere in the UI.
+STRATEGY_DISPLAY_NAMES: Dict[str, str] = {
+    "ocean_all_blue":     "Ocean",
+    "yellowfin_tuna":     "Yellowfin Tuna",
+    "mammals":            "Mammals",
+    "baitfish_barrage":   "Baitfish Barrage",
+    "birds_of_a_feather": "Birds",
+    "crustaceans":        "Crustaceans",
+    "birds_crustaceans":  "B-Lob",
+    "coral":              "Coral",
+    "birds_coral":        "B-Coral",
+    "cephalopods":        "Cephalopods",
+    "coral_cephalopods":  "Coral/Cephalopods (CC)",
+    "invertebrates":      "Invertebrates",
+    "goby_moon_shot":     "Goby Moon Shot",
+}
+# Hybrid plans only count if the board genuinely has BOTH halves — this is what
+# makes a bird+lobster board read as "B-Lob" instead of plain "Birds".
+_HYBRID_REQUIRES: Dict[str, Tuple[str, ...]] = {
+    "birds_crustaceans": ("bird", "crustacean"),
+    "birds_coral":       ("bird", "coral"),
+    "coral_cephalopods": ("coral", "cephalopod"),
+}
+
+
+def detect_player_strategy(gs: GameState, player: PlayerState) -> str:
+    """Detect the strategy a player ACTUALLY built, from their final board,
+    using the strategy guide (strategy_family_profiles) as the source of truth.
+
+    Counts the player's board cards toward each strategy — heavy hitters weigh
+    most, then stack engines, then support, then a plain species match. The
+    highest total wins. Hybrid plans (B-Lob, B-Coral, CC) are only eligible
+    when both of their species are present, so a hand with the most cards from
+    a hybrid naturally beats either single-species half. On a tie, the family
+    with more heavy-hitter cards (≈ the highest-scoring cards) wins; a true tie
+    is reported as "Hybrid Strategy".
+    """
+    cards: List[CardDef] = []
+    try:
+        for ocean_uid in getattr(player, "board_oceans", []):
+            oc = gs.card_db.get(int(ocean_uid))
+            if oc is not None:
+                cards.append(oc)
+            slots = player.ocean_slots.get(int(ocean_uid)) if hasattr(player, "ocean_slots") else None
+            if slots is not None:
+                for uid in slots.all_cards():
+                    cc = gs.card_db.get(uid)
+                    if cc is not None:
+                        cards.append(cc)
+    except Exception:
+        pass
+    if not cards:
+        return "Best Guess"
+
+    species_present = {c.species.strip().lower() for c in cards}
+    scores: Dict[str, float] = {}
+    heavy_hits: Dict[str, int] = {}
+    for prof in strategy_family_profiles():
+        label = str(prof.get("label", "")).strip().lower()
+        req = _HYBRID_REQUIRES.get(label)
+        if req and not all(sp in species_present for sp in req):
+            continue  # hybrid needs both halves on the board
+        _ensure_profile_sets(prof)
+        heavy = prof["_heavy_set"]; engine = prof["_engine_set"]
+        support = prof["_support_set"]; species = prof["_species_set"]
+        s = 0.0; h = 0
+        for c in cards:
+            nm = c.name.strip().lower(); sp = c.species.strip().lower()
+            if nm in heavy:
+                s += 3.0; h += 1
+            elif nm in engine:
+                s += 2.0
+            elif nm in support:
+                s += 1.0
+            elif sp in species:
+                s += 0.7
+        if s > 0:
+            scores[label] = s
+            heavy_hits[label] = h
+    if not scores:
+        return "Best Guess"
+
+    best = max(scores.values())
+    tied = [lbl for lbl, v in scores.items() if abs(v - best) < 1e-9]
+    if len(tied) == 1:
+        return STRATEGY_DISPLAY_NAMES.get(tied[0], tied[0])
+    # Tie-break: most heavy hitters (the biggest scoring cards). Still tied → Hybrid.
+    tied.sort(key=lambda l: heavy_hits.get(l, 0), reverse=True)
+    if heavy_hits.get(tied[0], 0) > heavy_hits.get(tied[1], 0):
+        return STRATEGY_DISPLAY_NAMES.get(tied[0], tied[0])
+    return "Hybrid Strategy"
+
+
 def strategy_family_label_for_card(card: CardDef, family_profile: Optional[Dict[str, Any]]) -> str:
     """Classify a card within a strategy: heavy / engine / support / off."""
     if not isinstance(family_profile, dict):
