@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Currents &amp; Critters — Ocean Ecosystem Card Game</title>
+<title>Currents &amp; Critters - Ocean Ecosystem Card Game</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
 <script src="image-slot.js"></script>
+<script src="/firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -32,7 +35,7 @@
     margin-left: 4px;
   }
   .oldsite-bar a:hover { color: #fff; border-bottom-color: #fff; }
-  /* Crosscurrent thumbs are the printed landscape cards — opt out of the 1:1
+  /* Crosscurrent thumbs are the printed landscape cards - opt out of the 1:1
      square and give them a darker swell background so they stand apart from
      the live critter portraits. */
   .critter .thumb-cc {
@@ -53,7 +56,7 @@
     font-style: italic;
   }
   /* When every visible critter has a fun fact, widen the cards so the text
-     reads in 2–3 lines instead of being squeezed in the default 6-up. */
+     reads in 2-3 lines instead of being squeezed in the default 6-up. */
   .critter-grid.has-facts { grid-template-columns: repeat(4, 1fr); gap: 18px; }
   .critter-grid.has-facts .critter { padding: 12px; gap: 10px; }
   .critter-grid.has-facts .critter .fact { font-size: 13px; }
@@ -61,7 +64,7 @@
     .critter-grid.has-facts { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 520px) {
-    /* Partner stats — four big counter slots. Placeholders show an em-dash
+    /* Partner stats - four big counter slots. Placeholders show an em-dash
      until you wire in real numbers; #/$ are sized down so the value "reads"
      and the unit doesn’t fight it. */
   .impact-band.big-impact { gap: 28px; }
@@ -80,7 +83,7 @@
   }
   .impact-band.big-impact .label { font-size: 13px; margin-top: 8px; }
 
-  /* Supporter tier intro — short header above the three tier cards. */
+  /* Supporter tier intro - short header above the three tier cards. */
   .tier-intro { text-align: center; max-width: 720px; margin: 56px auto 24px; }
   .tier-intro .eyebrow {
     display: inline-block;
@@ -110,7 +113,7 @@
     line-height: 1.55;
   }
 
-  /* Tier-card details — add small extras the existing .tier styles don’t cover. */
+  /* Tier-card details - add small extras the existing .tier styles don’t cover. */
   /* ── Three tier cards laid out across the screen, side-by-side.
         Each card stays a tall column; the GRID is horizontal. ── */
   .tiers {
@@ -170,7 +173,7 @@
     color: rgba(255, 255, 255, 0.55);
     font-style: italic;
   }
-  /* Legacy inline example chip — kept for any plain-text "e.g." usage. */
+  /* Legacy inline example chip - kept for any plain-text "e.g." usage. */
   .tier .perk-eg {
     display: block;
     margin-top: 2px;
@@ -187,7 +190,7 @@
     color: var(--glow);
     margin: 6px 0 -4px;
   }
-  /* XP perk row — gold-tinted but subtle; clearly cosmetic, not pay-to-win */
+  /* XP perk row - gold-tinted but subtle; clearly cosmetic, not pay-to-win */
   .tier .perks li.perk-xp-row .perk-main {
     color: rgba(255, 210, 100, 0.92);
   }
@@ -203,7 +206,7 @@
     font-style: italic;
     line-height: 1.4;
   }
-  /* "Our Story" variant of the cta-band — story sits left, buttons right;
+  /* "Our Story" variant of the cta-band - story sits left, buttons right;
      eyebrow + p-spacing tuned for two short paragraphs. */
   .sponsor-cta-band.our-story .eyebrow {
     display: inline-block;
@@ -268,20 +271,20 @@
   </svg>
 
   <div class="hero-inner rise">
-    <div class="eyebrow"><span class="dot"></span> Ocean Ecosystem Card Game · 2–8 Players · Ages 10+</div>
+    <div class="eyebrow"><span class="dot"></span> Ocean Ecosystem Card Game · 2-8 Players · Ages 10+</div>
     <h1>Currents <span class="amp">&amp;</span> Critters</h1>
     <p class="tagline">From waves to wings.</p>
     <div class="meta">
-      <span><strong>2–8</strong> Players</span>
+      <span><strong>2-8</strong> Players</span>
       <span class="sep">·</span>
-      <span><strong>20–60</strong> Min</span>
+      <span><strong>20-60</strong> Min</span>
       <span class="sep">·</span>
       <span>Ages <strong>10+</strong></span>
     </div>
     <p class="lead">Create vibrant ocean ecosystems, discover powerful card combinations, and outmaneuver your opponents before the END&nbsp;GAME card surfaces. Easy to learn, deep to master, and designed to help support ocean conservation with every game.</p>
     <div class="ctas">
       <a class="btn btn-mint btn-lg" href="https://currentsandcritters-1.onrender.com/">▶ Play Online Free</a>
-      <a class="btn btn-primary btn-lg" href="shop.html">Buy the Game — $24.99</a>
+      <a class="btn btn-primary btn-lg" href="shop.html">Buy the Game - $24.99</a>
       <a class="btn btn-outline btn-lg" href="#how">Learn the Rules</a>
     </div>
 
@@ -304,8 +307,8 @@
       <div class="ico">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 -9 4 18 3 -9h4"/></svg>
       </div>
-      <h4>2–8 Players</h4>
-      <p>Solo, head-to-head, or a crowded table. Plays in 20–60 minutes.</p>
+      <h4>2-8 Players</h4>
+      <p>Solo, head-to-head, or a crowded table. Plays in 20-60 minutes.</p>
     </div>
     <div class="value">
       <div class="ico">
@@ -376,7 +379,7 @@
       <div class="turn-card">
         <div class="turn-token">1</div>
         <h3 class="turn-title">Draw a Card</h3>
-        <p class="turn-desc">Pull from the Critter deck. Your hand is hidden — keep it that way.</p>
+        <p class="turn-desc">Pull from the Critter deck. Your hand is hidden - keep it that way.</p>
       </div>
       <div class="turn-card">
         <div class="turn-token">2</div>
@@ -386,12 +389,12 @@
       <div class="turn-card">
         <div class="turn-token">3</div>
         <h3 class="turn-title">Score Synergy</h3>
-        <p class="turn-desc">Adjacent species combo — bait fish feed game fish, coral shelters everything.</p>
+        <p class="turn-desc">Adjacent species combo - bait fish feed game fish, coral shelters everything.</p>
       </div>
     </div>
 
     <div class="endturn-bar">
-      <strong>End of turn?</strong> Pass the deck. Game ends when the <strong>END&nbsp;GAME</strong> card surfaces — highest combined ocean wins.
+      <strong>End of turn?</strong> Pass the deck. Game ends when the <strong>END&nbsp;GAME</strong> card surfaces - highest combined ocean wins.
     </div>
 
     <div class="section-kicker">
@@ -406,7 +409,7 @@
           <h4>Ocean Attachment</h4>
         </div>
         <div class="rule-body">
-          <p>Animals don't sit on the table — they <strong>attach to an Ocean board</strong> in one of four positions. Position affects who they're "adjacent" to.</p>
+          <p>Animals don't sit on the table - they <strong>attach to an Ocean board</strong> in one of four positions. Position affects who they're "adjacent" to.</p>
           <div class="ocean-diagram-fg">
             <div class="slot top">Top Slot</div>
             <div class="slot left">Left Slot</div>
@@ -424,7 +427,7 @@
         </div>
         <div class="rule-body">
           <img class="polaroid" src="assets/critters/horned-puffin.png" alt=""/>
-          <p>Many cards have a ★ <em>Star Ability</em> — a special move that fires <strong>once</strong> when the card lands. Play Again. Draw Three. Steal a Coral.</p>
+          <p>Many cards have a ★ <em>Star Ability</em> - a special move that fires <strong>once</strong> when the card lands. Play Again. Draw Three. Steal a Coral.</p>
         </div>
       </div>
 
@@ -455,7 +458,7 @@
         <div class="rule-body">
           <dl class="special-list">
             <dt>END&nbsp;GAME</dt>
-            <dd>Shuffled into the bottom third of the deck. When it appears, finish the round and tally — no warning.</dd>
+            <dd>Shuffled into the bottom third of the deck. When it appears, finish the round and tally - no warning.</dd>
             <dt>Star Abilities</dt>
             <dd>Marked with ★. Fire once on play. Most are "play again" or "draw three" but a few rewrite the board.</dd>
           </dl>
@@ -472,10 +475,10 @@
       <div class="snap-copy">
         <div class="eyebrow">★ New Feature</div>
         <h2>Take a <em>Snap</em> of Your Board. We'll Score It.</h2>
-        <p>Don't want to do math at the end of the game? Take a photo of your final board. Our scorer reads every card, runs every synergy, and tells you who won — to the point.</p>
+        <p>Don't want to do math at the end of the game? Take a photo of your final board. Our scorer reads every card, runs every synergy, and tells you who won - to the point.</p>
         <ul class="snap-feats">
-          <li>Photograph any layout — top-down or angled. No grid required.</li>
-          <li>Every Star Ability and Crosscurrent counted automatically.</li>
+          <li>Connect your Gmail when you snap your board to update your online stats.</li>
+          <li>Every Star Ability counted automatically.</li>
           <li>Shareable scorecard with per-ocean breakdown.</li>
           <li>Works on your phone. Free for everyone who owns the game.</li>
         </ul>
@@ -566,27 +569,27 @@
 
     <div class="impact-band big-impact">
       <div class="impact">
-        <div class="num"><span class="prefix">$</span><span class="placeholder" data-placeholder="donated">—</span></div>
+        <div class="num"><span class="prefix">$</span><span class="placeholder" data-placeholder="donated">-</span></div>
         <div class="label">Donated to Ocean Conservation</div>
       </div>
       <div class="impact">
-        <div class="num"><span class="placeholder" data-placeholder="games">—</span></div>
+        <div class="num"><span class="placeholder" data-placeholder="games">-</span></div>
         <div class="label">Online Games Played</div>
       </div>
       <div class="impact">
-        <div class="num"><span class="placeholder" data-placeholder="players">—</span></div>
+        <div class="num"><span class="placeholder" data-placeholder="players">-</span></div>
         <div class="label">Online Registered Players</div>
       </div>
       <div class="impact">
-        <div class="num">80<span class="suffix">%</span></div>
-        <div class="label">of Players Get It by Turn 5</div>
+        <div class="num"><span class="placeholder" data-placeholder="online">-</span></div>
+        <div class="label">Players Online Now!!</div>
       </div>
     </div>
 
     <div class="tier-intro">
       <span class="eyebrow">★ Supporter Tiers</span>
       <h3>Every tier makes a ripple.</h3>
-      <p>Three ways to back the launch. Pick the one that fits — each comes with permanent supporter recognition and a profile frame in the online game.</p>
+      <p>Three ways to back the launch. Pick the one that fits - each comes with permanent supporter recognition and a profile frame in the online game.</p>
     </div>
 
     <div class="tiers">
@@ -595,7 +598,7 @@
       <div class="tier">
         <div class="head">
           <div class="name">Ocean Ally</div>
-          <div class="price">$15–$50<small>/one-time</small></div>
+          <div class="price">$15-$50<small>/one-time</small></div>
         </div>
         <p class="desc">Join the first wave of supporters and help bring Currents &amp; Critters to life.</p>
         <ul class="perks">
@@ -624,9 +627,9 @@
         <div class="ribbon">Most Popular</div>
         <div class="head">
           <div class="name">Tide Turner</div>
-          <div class="price">$60–$90<small>/one-time</small></div>
+          <div class="price">$60-$90<small>/one-time</small></div>
         </div>
-        <p class="desc">Make a bigger splash — get a physical copy and exclusive in-game rewards.</p>
+        <p class="desc">Make a bigger splash - get a physical copy and exclusive in-game rewards.</p>
         <div class="perk-includes">Everything in Ocean Ally, plus:</div>
         <ul class="perks">
           <li>
@@ -688,11 +691,11 @@
         <span class="eyebrow">★ Our Story</span>
         <h3>Our Story</h3>
         <p>Growing up near the Jersey Shore, my family and I spent countless days in and around the ocean. As I got older and moved away, I realized how much those memories shaped my love for the ocean and the life in and around it.</p>
-        <p>That passion is a big part of why I created Currents &amp; Critters. I wanted to build something fun that also gives back — helping support ocean cleanup and conservation so future generations can experience clean, healthy, and abundant oceans the same way I did growing up.</p>
+        <p>That passion is a big part of why I created Currents &amp; Critters. I wanted to build something fun that also gives back - helping support ocean cleanup and conservation so future generations can experience clean, healthy, and abundant oceans the same way I did growing up.</p>
       </div>
       <div class="cta-buttons">
         <a class="btn btn-mint btn-lg" href="mailto:currentsandcritters@gmail.com?subject=Partner with Currents %26 Critters">Partner With Us →</a>
-        <a class="btn btn-outline btn-lg" href="shop.html">Buy the Game — $24.99</a>
+        <a class="btn btn-outline btn-lg" href="shop.html">Buy the Game - $24.99</a>
       </div>
     </div>
   </div>
@@ -716,7 +719,7 @@
     <div>
       <h5>The Box</h5>
       <ul>
-        <li><a href="shop.html">Buy — $24.99</a></li>
+        <li><a href="shop.html">Buy - $24.99</a></li>
         <li><a href="#critters">Meet the Critters</a></li>
         <li><a href="#oceans">Eight Oceans</a></li>
       </ul>
@@ -753,127 +756,127 @@
 const CRITTERS = [
   // Birds (locked to the 8 species in the game)
   { f:'emperor-penguin', n:'Emperor Penguin', t:'bird', p:'+2/bird',
-    fact:'They can dive over 1,500 feet deep.' },
+    fact:"They can dive over 1,500 feet deep." },
   { f:'horned-puffin', n:'Horned Puffin', t:'bird', p:'+3 ★',
-    fact:'Puffins can hold multiple fish at once — average 10, record 62.' },
+    fact:"Puffins can hold multiple fish at once, averaging 10, but a record-breaking puffin once managed to carry 62." },
   { f:'california-gull', n:'California Gull', t:'bird', p:'+3/crust',
-    fact:'Young California Gulls practice catching food by dropping sticks midair and swooping down to catch them.' },
+    fact:"Young California Gulls practice catching food by dropping sticks midair and swooping down to catch them." },
   { f:'peruvian-pelican', n:'Peruvian Pelican', t:'bird', p:'+5 ★',
-    fact:'Their flexible throat pouch holds several gallons of water — a built-in fishing net.' },
+    fact:"Their flexible throat pouch acts as a massive fishing net. It can hold several gallons of water at a time. Once a fish is caught, the pelican squeezes the water out and swallows its prey whole." },
   { f:'great-albatross', n:'Great Albatross', t:'bird', p:'+6 ★',
-    fact:'Possesses the largest wingspans of any living bird — up to 11 feet.' },
+    fact:"Possesses the largest wingspans of any living bird (up to 11 feet)." },
   { f:'osprey', n:'Osprey', t:'bird', p:'+2/sym',
-    fact:'After a deep dive, ospreys shake water from their oily feathers mid-air — like a dog — before flying off.' },
+    fact:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away." },
   { f:'magnificent-frigatebird', n:'Magnificent Frigatebird', t:'bird', p:'+1/coral ★',
-    fact:'Spends months over the ocean, taking “micro-naps” — sometimes shutting off half its brain — mid-glide.' },
+    fact:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding." },
   { f:'razorbill-auk', n:'Razorbill Auk', t:'bird', p:'scales',
-    fact:'Chicks leap from cliffside nests before they can fly, then swim with their parents to learn to forage.' },
+    fact:"Chicks leap from cliffside nests before they can fly, then swim with their parents to learn how to forage." },
 
   // ── MAMMALS ── locked to the 3 species in the game (Mammals.pdf)
   { f:'spinner-dolphin', n:'Spinner Dolphin', t:'mammal', p:'+3/sym ★',
-    fact:'Spinner dolphins can leap up to 10 feet and spin several times in the air — scientists still aren\u2019t sure why.' },
+    fact:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it." },
   { f:'bottlenose-dolphin', n:'Bottlenose Dolphin', t:'mammal', p:'+4 ★',
-    fact:'Bottlenose dolphins develop a signature whistle \u2014 their version of a name \u2014 to introduce themselves to the pod.' },
+    fact:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members." },
   { f:'narwhal', n:'Narwhal', t:'mammal', p:'+5/arctic',
-    fact:'A narwhal\u2019s spiral tusk is actually an enlarged canine tooth that grows straight through its lip \u2014 up to 10 feet long.' },
+    fact:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length." },
 
   // ── GAME FISH ── locked to the 10 species in the game (Game Fish.pdf, in PDF order)
   { f:'mahi-mahi', n:'Mahi Mahi', t:'gamefish', p:'+4 ★',
-    fact:'Among the fastest-growing fish in the sea — up to 3 inches per week, reaching 40 lb in their first year.' },
+    fact:"Mahi-mahi are among the fastest-growing fish in the sea. They can grow up to 3 inches per week and reach 40 pounds in their first year." },
   { f:'blue-marlin', n:'Blue Marlin', t:'gamefish', p:'+5',
-    fact:'Female blue marlins are 3–4× larger than males and can top 2,000 lb — males rarely exceed 350 lb.' },
+    fact:"Female blue marlins are 3 to 4 times larger than males and can reach up to 2,000 pounds. Males rarely exceed 350 pounds." },
   { f:'big-eye-tuna', n:'Big Eye Tuna', t:'gamefish', p:'+4 ★',
-    fact:'Endothermic — heat-exchange organs keep their eyes, brain, and organs warmer than the surrounding water.' },
+    fact:"Unlike most fish, they are endothermic. They have specialized heat-exchange organs that keep their eyes, brain, and internal organs warmer than the surrounding water, allowing them to survive extreme ocean temperatures." },
   { f:'yellowfin-tuna', n:'Yellowfin Tuna', t:'gamefish', p:'+4',
-    fact:'Their heart is ten times larger than most fish (relative to body weight) — built for high-speed living.' },
+    fact:"To sustain their high-speed, active lifestyle, they boast a heart that is ten times larger than most fish relative to their body weight and pump blood at incredibly high pressures." },
   { f:'roosterfish', n:'Roosterfish', t:'gamefish', p:'+4',
-    fact:'In a taxonomic family all their own — the only species in the family Nematistiidae.' },
+    fact:"Unlike many other game fish, they are in a taxonomic family all their own. They are the only species in the family Nematistiidae." },
   { f:'king-salmon', n:'King Salmon', t:'gamefish', p:'+5',
-    fact:'The King Salmon is the largest Pacific salmon species.' },
+    fact:"The King Salmon is the largest Pacific salmon species." },
   { f:'tarpon', n:'Tarpon', t:'gamefish', p:'+5 ★',
-    fact:'Tarpon have roamed the oceans for roughly 120 million years — older than the T-Rex.' },
+    fact:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!" },
   { f:'barracuda', n:'Barracuda', t:'gamefish', p:'+4 ★',
-    fact:'140–220 teeth across two rows: an outer needle row for piercing and inner fangs for slicing prey clean in half.' },
+    fact:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey-sometimes cutting a fish cleanly in half." },
   { f:'sailfish', n:'Sailfish', t:'gamefish', p:'+5 ★',
-    fact:'The undisputed sprinters of the sea — capable of reaching 68 mph (110 km/h).' },
+    fact:"Sailfish are the undisputed sprinters of the sea, capable of reaching incredible speeds up to 68 mph (110 km/h)." },
   { f:'goliath-grouper', n:'Goliath Grouper', t:'gamefish', p:'+7',
-    fact:'When threatened, Goliath Groupers flex their swim bladders to emit a low-frequency "boom" you can feel underwater.' },
+    fact:"When they feel threatened or want to ward off intruders, Goliath Groupers can flex their swim bladders to emit a loud, low-frequency \"booming\" sound that can actually be felt by nearby divers." },
 
   // ── BAIT FISH ── locked to the 5 species in the game (Baitfish.pdf order)
   { f:'mullet', n:'Mullet', t:'baitfish', p:'+1/sym',
-    fact:'Mullets thrive in everything from salty marine waters to fresh — young mullet swim into tidal creeks and inland springs.' },
+    fact:"Mullets can thrive in everything from salty marine environments to fresh water, and young mullet often swim all the way up into tidal creeks and inland springs." },
   { f:'bunker', n:'Bunker', t:'baitfish', p:'+1/gamefish',
-    fact:'One of the most important baitfish in the ocean — feeds striped bass, bluefish, tuna, whales, dolphins, ospreys, and seabirds.' },
+    fact:"They are one of the most important baitfish in the ocean, feeding striped bass, bluefish, tuna, whales, dolphins, ospreys, and seabirds." },
   { f:'sardine', n:'Sardine', t:'baitfish', p:'+1/baitfish',
-    fact:'Named after the Italian island of Sardinia, where they were once incredibly abundant.' },
+    fact:"The fish got their name from the Italian island of Sardinia, where they were once incredibly abundant." },
   { f:'flying-fish', n:'Flying Fish', t:'baitfish', p:'+2 ★',
-    fact:'If they start losing altitude, flying fish briefly touch their tails to the surface to kick themselves forward and extend the flight.' },
+    fact:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight." },
   { f:'bonito', n:'Bonito', t:'baitfish', p:'+3',
-    fact:'"Bonito" comes from Spanish, where the adjective translates to "pretty" — its origin as a fish name traces to medieval Latin (boniton).' },
+    fact:"The word bonito comes from Spanish, where the adjective translates to \"pretty,\" though its exact linguistic origin as a fish name is tied to medieval Latin (boniton)." },
 
   // ── CRUSTACEANS ── locked to the 5 species in the game (Crustaceans.pdf, PDF order)
   { f:'mantis-shrimp', n:'Mantis Shrimp', t:'crustacean', p:'+3 ★',
-    fact:'Their punch accelerates at ~80 km/h — fifty times faster than a blink — and cavitates the surrounding water, producing heat, light and a loud bang.' },
+    fact:"Mantis Shrimp deliver a punch that accelerates at roughly 80 kilometers per hour, moving fifty times faster than the blink of an eye. Their strike is so forceful that it causes cavitation, a phenomenon where the surrounding water boils and implodes. This implosion generates a secondary shockwave that produces heat, light, and a loud bang." },
   { f:'spiny-lobster', n:'Spiny Lobster', t:'crustacean', p:'+3 ★',
-    fact:'In the Florida Keys, they march across the ocean floor in single-file lines of up to 50 lobsters to find deeper or warmer water.' },
+    fact:"In the Florida Keys and other regions, they march across the ocean floor in single-file lines of up to 50 lobsters to find deeper water or warmer temperatures." },
   { f:'lobster', n:'Lobster', t:'crustacean', p:'+3',
-    fact:'Wild lobsters are usually dark blue, mottled green, or brown. The iconic red appears only when boiling breaks down the dark proteins.' },
+    fact:"In the wild, lobsters are usually dark blue, mottled green, or brown. They only turn their iconic red hue when boiled because heat breaks down the dark proteins, revealing a hidden, heat-stable red pigment." },
   { f:'king-crab', n:'King Crab', t:'crustacean', p:'+4 ★',
-    fact:'Genetically related to hermit crabs — their claws don\u2019t match. The larger right claw crushes food; the left tears it apart.' },
+    fact:"Because they are genetically related to hermit crabs, their claws aren't a matching pair. Their right claw is significantly larger and is used to crush food, while the left is used to tear it apart." },
   { f:'hermit-crab', n:'Hermit Crab', t:'crustacean', p:'+2 ★',
-    fact:'Hermit crabs form "vacancy chains" \u2014 when a desirable shell washes up, crabs line up by size and pass the old shells down one by one.' },
+    fact:"Hermit crabs sometimes participate in \"vacancy chains\". When a new, highly desirable shell washes up, crabs will line up in order of size. Once a crab moves into the new, larger shell, its old shell is passed down to the next crab in line." },
 
   // ── CEPHALOPODS ── locked to the 4 species in the game (cephalopod.pdf, PDF order)
   { f:'bobtail-squid', n:'Bobtail Squid', t:'cephalopod', p:'+2 ★',
-    fact:'Every morning the squid expels about 90% of its bioluminescent bacteria into the ocean, then grows a fresh batch by nightfall.' },
+    fact:"Every morning, the squid expels about 90% of its bacteria into the ocean. It spends the day growing a fresh batch so it is ready to glow again by nightfall." },
   { f:'common-octopus', n:'Common Octopus', t:'cephalopod', p:'+4 ★',
-    fact:'About two-thirds of an octopus\u2019s neurons live inside its arms \u2014 each arm can almost "think" and act on its own.' },
+    fact:"While they have a central brain to coordinate the body, about two-thirds of their neurons are spread out directly inside their arms. This means each arm can almost \"think\" and act independently." },
   { f:'cuttlefish', n:'Cuttlefish', t:'cephalopod', p:'+3 ★',
-    fact:'Change color in just 200 milliseconds by flexing millions of pigment-filled chromatophores \u2014 and can shape their skin to mimic rock or coral.' },
+    fact:"They change color in just 200 milliseconds by manipulating millions of pigment-filled cells in their skin called chromatophores. They can even alter their skin's texture to look like jagged rocks or smooth coral." },
   { f:'giant-squid', n:'Giant Squid', t:'cephalopod', p:'+6 ★',
-    fact:'Their 10-inch eyes \u2014 about the size of a baseball \u2014 help them spot bioluminescent prey in the pitch-black deep.' },
+    fact:"Their massive 10-inch eyes, about the size of a baseball, help them spot bioluminescent prey in the pitch-black depths of the ocean." },
 
   // ── CORAL ── locked to the 4 species in the game (Coral.pdf, PDF order)
   { f:'staghorn-coral', n:'Staghorn Coral', t:'coral', p:'+2/coral',
-    fact:'Unlike most corals, staghorn branches can grow 4\u20138 inches per year \u2014 the fastest-growing coral in the western Atlantic.' },
+    fact:"Unlike most corals that grow at a snail's pace, staghorn coral branches can shoot up by 4 to 8 inches per year, making it the fastest-growing coral in the western Atlantic." },
   { f:'deep-sea-coral', n:'Deep Sea Coral', t:'coral', p:'+4 ★',
-    fact:'Lives in dark water far below sunlight, so it can\u2019t rely on algae \u2014 it survives by catching tiny bits of food drifting through the deep ocean.' },
+    fact:"Deep-sea corals live in dark waters far below sunlight, so they cannot rely on algae for energy like shallow-water corals do. Instead, they survive by capturing tiny bits of food drifting through the deep ocean." },
   { f:'grooved-brain-coral', n:'Grooved Brain Coral', t:'coral', p:'+3/baitfish',
-    fact:'Named for its maze-like surface. Can live up to 900 years and grow 6 feet across \u2014 yet only the outer few millimeters are living tissue.' },
+    fact:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms." },
   { f:'elk-horn-coral', n:'Elk Horn Coral', t:'coral', p:'+3/reef',
-    fact:'Hurricanes can snap their branches, but that isn\u2019t always bad \u2014 broken fragments can reattach to the seafloor and grow into a new identical colony.' },
+    fact:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony." },
 
   // ── INVERTS ── locked to the 5 species in the game (Inverts.pdf, PDF order)
   { f:'sea-sponge', n:'Sea Sponge', t:'invert', p:'+1/coral',
-    fact:'One of the oldest animal groups on Earth \u2014 appeared roughly 500 million years ago, predating the dinosaurs by over 300 million years.' },
+    fact:"They are one of the oldest animal groups on Earth, appearing roughly 500 million years ago, predating the dinosaurs by over 300 million years." },
   { f:'sea-urchin', n:'Sea Urchin', t:'invert', p:'+1/sym',
-    fact:'To shield themselves from UV rays and predators, many urchins use their tube feet to carry shells, rocks, or stray debris on top of their bodies.' },
+    fact:"To protect themselves from harsh UV rays and predators, many species will use their tube feet and pincer-like organs to pick up and carry shells, rocks, or even stray marine debris over their bodies." },
   { f:'common-sea-star', n:'Common Sea Star', t:'invert', p:'+2 ★',
-    fact:'If a predator bites off an arm, a sea star can simply grow a new one \u2014 some species regenerate an entire new body from a single detached arm.' },
+    fact:"If a predator bites off an arm, the sea star can simply grow a new one. Some species can even regenerate an entirely new body from just a single detached arm." },
   { f:'johnsons-sea-cucumber', n:'Johnson\u2019s Sea Cucumber', t:'invert', p:'+1',
-    fact:'The ocean\u2019s vacuum cleaner \u2014 crawls along the seafloor digesting tiny scraps from the sediment.' },
+    fact:"The Johnson's sea cucumber is like the ocean's vacuum cleaner, crawling along the seafloor and digesting tiny scraps from the sediment." },
   { f:'red-beaded-anemone', n:'Red Beaded Anemone', t:'invert', p:'+2/baitfish',
-    fact:'Marine biologists have noted individual beadlet anemones display distinct "personalities" \u2014 despite having very simple nervous systems.' },
+    fact:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems." },
 
   // ── CROSSCURRENTS ── locked to the 9 species in the game (CrossCurrent.pdf, PDF order)
   { f:'cleaner-wrasse', n:'Cleaner Wrasse', t:'crosscurrent', p:'crosscurrent',
-    fact:'“Doctors of the sea” — they remove parasites from reef fish, turtles, and even sharks, attracting clients by dancing at cleaning stations.' },
+    fact:"Cleaner wrasses are often called the \"doctors of the sea\" because they remove parasites from reef fish, sea turtles, and even sharks. They attract clients by wiggling or \"dancing\" at cleaning stations, while the fish stay still, spread their fins, and open their gills for cleaning." },
   { f:'mandarin-gobie', n:'Mandarin Gobie', t:'crosscurrent', p:'crosscurrent',
-    fact:'Not actually a goby — officially the Mandarin dragonet (Synchiropus splendidus), named after the ornate robes of ancient Chinese imperial officers.' },
+    fact:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins)." },
   { f:'loggerhead-sea-turtle', n:'Loggerhead Sea Turtle', t:'crosscurrent', p:'crosscurrent',
-    fact:'Built-in magnetic GPS — adult females migrate up to 7,500 miles to lay eggs on the exact beach where they hatched decades earlier.' },
+    fact:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles-sometimes up to 7,500 miles in the Pacific-to lay eggs on the exact same beach where they hatched decades earlier." },
   { f:'blue-tang', n:'Blue Tang', t:'crosscurrent', p:'crosscurrent',
-    fact:'Adults can voluntarily alter their hue — flushing deep purples and violets to signal stress or during courting and breeding.' },
+    fact:"Adults can voluntarily alter their hue. They may flush deep purples and violets as a sign of stress or change colors during courting and breeding seasons." },
   { f:'clownfish', n:'Clownfish', t:'crosscurrent', p:'crosscurrent',
-    fact:'All clownfish are born male. If the dominant female dies, the largest male physically transforms into a female and takes her place — it’s irreversible.' },
+    fact:"All clownfish are born male. They live in strict, female-dominant hierarchies. If the dominant female passes away, the largest, dominant male will physically transform into a female and take her place. This sex change is irreversible." },
   { f:'manta-ray', n:'Manta Ray', t:'crosscurrent', p:'crosscurrent',
-    fact:'Mantas have huge brains relative to their size — one of the few fish species known to recognize themselves in mirrors.' },
+    fact:"Mantas possess massive brains relative to their size. They are one of the few fish species known to recognize themselves in mirrors." },
   { f:'great-white-shark', n:'Great White Shark', t:'crosscurrent', p:'crosscurrent',
-    fact:'Special pores on their snouts — the ampullae of Lorenzini — detect the electrical impulses given off by the movements of nearby prey.' },
+    fact:"Great whites have special pores on their snouts called ampullae of Lorenzini that detect the electrical impulses generated by the movements of nearby prey." },
   { f:'humuhumunukunukuapuaa', n:'Humuhumunukunukuapua‘a', t:'crosscurrent', p:'crosscurrent',
-    fact:'Named for a defensive trick — when threatened, the triggerfish wedges into a coral crevice and locks its dorsal spine upright with a smaller “trigger” spine.' },
+    fact:"The triggerfish gets its name from a unique defensive spine on its back. When threatened or sleeping, it wedges itself into a coral crevice and locks its primary spine upright using a smaller \"trigger\" spine, making it nearly impossible for predators to pull it out." },
   { f:'whale-shark', n:'Whale Shark', t:'crosscurrent', p:'crosscurrent',
-    fact:'The world’s largest living fish — up to 40+ feet and 20 tons — but a harmless gentle giant that filter-feeds on plankton and small fish.' },
+    fact:"Whale sharks are the world's largest living fish, growing up to 40 feet or more and weighing up to 20 tons. Despite their intimidating name and massive mouths, these gentle ocean giants are harmless filter feeders that dine almost exclusively on tiny plankton and small fish." },
 ];
 
 const grid = document.getElementById('critterGrid');
@@ -917,17 +920,18 @@ window.addEventListener('scroll', () => {
 // ── Live stats from Render server ────────────────────────────────
 (async () => {
   const RENDER_BASE = 'https://currentsandcritters-1.onrender.com';
-  // Historical baseline — shown immediately so the page never displays 0 or em-dashes.
+  // Historical baseline - shown immediately so the page never displays 0 or em-dashes.
   // The server seed matches these values and will always return at least this much.
   const FLOOR_GAMES   = 80;
   const FLOOR_PLAYERS = 10;
 
   function animateTo(el, target, duration) {
     const start = performance.now();
+    const initial = Number(String(el.textContent || '').replace(/,/g, '')) || 0;
     function tick(now) {
       const t = Math.min((now - start) / duration, 1);
       const eased = 1 - Math.pow(1 - t, 3);
-      el.textContent = Math.round(eased * target).toLocaleString();
+      el.textContent = Math.round(initial + ((target - initial) * eased)).toLocaleString();
       if (t < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
@@ -944,25 +948,52 @@ window.addEventListener('scroll', () => {
   // Show floor values immediately so the page always has meaningful numbers
   setStatEl('games',   FLOOR_GAMES,   false);
   setStatEl('players', FLOOR_PLAYERS, false);
+  setStatEl('online',  0,             false);
 
-  // AbortSignal.timeout not available in Safari < 16.4 — use a manual controller
+  async function refreshOnlinePlayers() {
+    try {
+      const cfg = window.__FISH_FIREBASE_CONFIG || {};
+      if (!cfg.apiKey || !cfg.projectId || !window.firebase) return;
+      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+      const snap = await app.firestore().collection('users').where('online', '==', true).get();
+      const freshAfter = Date.now() - (5 * 60 * 1000);
+      let onlinePlayers = 0;
+      snap.forEach(doc => {
+        const lastActive = doc.data().last_active;
+        const lastActiveMs = lastActive && typeof lastActive.toMillis === 'function'
+          ? lastActive.toMillis()
+          : new Date(lastActive || 0).getTime();
+        if (lastActiveMs >= freshAfter) onlinePlayers += 1;
+      });
+      setStatEl('online', onlinePlayers, true);
+    } catch (_) { /* leave the visible count at 0 if presence is unavailable */ }
+  }
+
+  refreshOnlinePlayers();
+  setInterval(refreshOnlinePlayers, 60000);
+
+  // AbortSignal.timeout not available in Safari < 16.4 - use a manual controller
   function fetchWithTimeout(url, ms) {
     const ctrl = new AbortController();
     const tid = setTimeout(() => ctrl.abort(), ms);
     return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
   }
 
-  try {
-    // Give the Render free-tier server up to 30 s to wake from a cold start
-    const resp = await fetchWithTimeout(`${RENDER_BASE}/api/stats`, 30000);
-    if (!resp.ok) return;
-    const data = await resp.json();
-    // Only update if the server value exceeds the floor (never animate down to 0)
-    const live_games   = Number(data.games_played);
-    const live_players = Number(data.registered_players);
-    if (Number.isFinite(live_games)   && live_games   > FLOOR_GAMES)   setStatEl('games',   live_games,   true);
-    if (Number.isFinite(live_players) && live_players > FLOOR_PLAYERS) setStatEl('players', live_players, true);
-  } catch (_) { /* server sleeping — floor values already displayed */ }
+  async function refreshRenderStats() {
+    try {
+      // Give the Render free-tier server up to 30 s to wake from a cold start
+      const resp = await fetchWithTimeout(`${RENDER_BASE}/api/stats`, 30000);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const liveGames   = Number(data.games_played);
+      const livePlayers = Number(data.registered_players);
+      if (Number.isFinite(liveGames))   setStatEl('games',   liveGames,   true);
+      if (Number.isFinite(livePlayers)) setStatEl('players', livePlayers, true);
+    } catch (_) { /* server sleeping - keep the latest visible values */ }
+  }
+
+  refreshRenderStats();
+  setInterval(refreshRenderStats, 60000);
 })();
 </script>
 

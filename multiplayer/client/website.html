@@ -100,7 +100,7 @@
     /* Base class for all creature divs */
     .oc { position: absolute; background-repeat: no-repeat; border-radius: 8px; }
 
-    /* --- BIRDS (sky zone, top 2–18% of viewport) ---
+    /* --- BIRDS (sky zone, top 2-18% of viewport) ---
        horizontal_cards: 360×504px, 2 stacked cards, each = 360×252px.
        Display top card at 45% scale: 162px wide, height clipped to 113px. */
     .oc-bird {
@@ -119,7 +119,7 @@
       50%      { transform: translateY(-10px); }
     }
 
-    /* --- FISH / MAMMALS (water zone, 22–62% vh) ---
+    /* --- FISH / MAMMALS (water zone, 22-62% vh) ---
        vertical_cards: 360×504px, 2 side-by-side cards, each = 180×504px.
        Show one card: wrapper clips to 65px wide, inner div is 130px. */
     .oc-fish-wrap {
@@ -153,7 +153,7 @@
       to   { transform: translateX(-200px); }
     }
 
-    /* --- SEA FLOOR ANIMALS (64–79% vh) ---
+    /* --- SEA FLOOR ANIMALS (64-79% vh) ---
        horizontal_cards bottom half: Staghorn Coral, Sea Star, Elk Horn Coral,
        Sea Anemone, Deep Sea Coral, Sea Cucumber. */
     .oc-coral-h {
@@ -165,7 +165,7 @@
       opacity: 0.35;
     }
 
-    /* --- CRUSTACEANS (sand zone, 83–95% vh) ---
+    /* --- CRUSTACEANS (sand zone, 83-95% vh) ---
        horizontal_cards bottom half. */
     .oc-crust {
       width: 150px; height: 105px;
@@ -789,14 +789,14 @@
   <!-- ====== OCEAN SCENE BACKGROUND ====== -->
   <div id="oceanScene" aria-hidden="true">
 
-    <!-- BIRDS — Emperor Penguin, Horned Puffin, Seagull, Pelican, Albatross -->
+    <!-- BIRDS - Emperor Penguin, Horned Puffin, Seagull, Pelican, Albatross -->
     <div id="ob1"><div class="oc oc-bird" style="background-image:url('/horizontal_cards/page_01.png');"></div></div>
     <div id="ob2"><div class="oc oc-bird" style="background-image:url('/horizontal_cards/page_05.png');"></div></div>
     <div id="ob3"><div class="oc oc-bird" style="background-image:url('/horizontal_cards/page_09.png');"></div></div>
     <div id="ob4"><div class="oc oc-bird" style="background-image:url('/horizontal_cards/page_13.png');"></div></div>
     <div id="ob5"><div class="oc oc-bird" style="background-image:url('/horizontal_cards/page_17.png');"></div></div>
 
-    <!-- FISH — Tarpon, Tuna, Dolphin (swimming left and right) -->
+    <!-- FISH - Tarpon, Tuna, Dolphin (swimming left and right) -->
     <div class="oc-fish-wrap oc-swim-r">
       <div class="oc oc-fish" style="background-image:url('/vertical_cards/page_01.png');"></div>
     </div>
@@ -813,7 +813,7 @@
       <div class="oc oc-fish" style="background-image:url('/vertical_cards/page_07.png');"></div>
     </div>
 
-    <!-- SEA FLOOR ANIMALS — Staghorn Coral, Sea Star, Elk Horn Coral, Sea Anemone, Deep Sea Coral, Sea Cucumber -->
+    <!-- SEA FLOOR ANIMALS - Staghorn Coral, Sea Star, Elk Horn Coral, Sea Anemone, Deep Sea Coral, Sea Cucumber -->
     <div id="oc1"><div class="oc oc-coral-h" style="background-image:url('/horizontal_cards/page_09.png');"></div></div>
     <div id="oc2"><div class="oc oc-coral-h" style="background-image:url('/horizontal_cards/page_01.png');"></div></div>
     <div id="oc3"><div class="oc oc-coral-h" style="background-image:url('/horizontal_cards/page_12.png');"></div></div>
@@ -821,7 +821,7 @@
     <div id="oc5"><div class="oc oc-coral-h" style="background-image:url('/horizontal_cards/page_13.png');"></div></div>
     <div id="oc6"><div class="oc oc-coral-h" style="background-image:url('/horizontal_cards/page_10.png');"></div></div>
 
-    <!-- CRUSTACEANS — Hermit Crab, Spiny Lobster, Lobster, King Crab, Mantis Shrimp -->
+    <!-- CRUSTACEANS - Hermit Crab, Spiny Lobster, Lobster, King Crab, Mantis Shrimp -->
     <div id="cc1"><div class="oc oc-crust" style="background-image:url('/horizontal_cards/page_02.png');"></div></div>
     <div id="cc2"><div class="oc oc-crust" style="background-image:url('/horizontal_cards/page_04.png');"></div></div>
     <div id="cc3"><div class="oc oc-crust" style="background-image:url('/horizontal_cards/page_06.png');"></div></div>
@@ -966,7 +966,7 @@
         </article>
       </section>
 
-      <!-- ABOUT link panel — content lives at /about -->
+      <!-- ABOUT link panel - content lives at /about -->
       <section class="panel" aria-label="About" style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
         <div>
           <h3 style="margin:0 0 4px;font-family:'Space Grotesk',sans-serif;color:#124e68;font-size:18px;">🐟 About Currents &amp; Critters</h3>
@@ -1173,7 +1173,7 @@
           if (el) { el.style.cssText += `position:absolute;left:${l}vw;top:${t}vh;`; }
         });
 
-      // Fish — distribute vertical positions across the water zone (25–60vh)
+      // Fish - distribute vertical positions across the water zone (25-60vh)
       const fishEls = document.querySelectorAll(".oc-fish-wrap");
       const fishTops = [28, 40, 34, 51, 57];
       fishEls.forEach((el, i) => { el.style.top = (fishTops[i] || 35) + "vh"; });
