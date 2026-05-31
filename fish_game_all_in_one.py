@@ -3741,17 +3741,128 @@ def hand_strategy_family_fit_score(
     hand_uids: List[int],
     family_profile: Optional[Dict[str, Any]],
 ) -> float:
+    """How well a hand fits a strategy family.
+
+    A strategy is defined by its ANCHOR cards (heavy hitters + stack engines +
+    named core), NOT by generic species matches. Without this, broad-species
+    families (e.g. ocean_all_blue, whose species is "ocean" and matches cards
+    in almost every hand) win by sheer volume and every bot piles onto the same
+    plan. So we count anchors explicitly, weight species/support/keyword
+    matches lightly, and heavily discount a family the hand has no real anchor
+    pieces for.
+    """
     if not hand_uids or not isinstance(family_profile, dict):
         return -999.0
+    _ensure_profile_sets(family_profile)
+    heavy_set   = family_profile["_heavy_set"]
+    engine_set  = family_profile["_engine_set"]
+    names_set   = family_profile["_names_set"]
+    support_set = family_profile["_support_set"]
+    species_set = family_profile["_species_set"]
+    keywords    = family_profile["_keywords"]
+
     total = 0.0
-    hits = 0
+    anchors = 0   # heavy/engine/named core pieces — the cards that DEFINE the plan
     for entry_uid in hand_uids:
-        best = entry_best_strategy_family_score(ms, gs, entry_uid, family_profile)
-        total += best
-        if best >= 1.0:
-            hits += 1
-    total += 0.18 * hits
+        best_val = 0.0
+        best_anchor = False
+        for face_uid in entry_faces(ms, entry_uid):
+            c = gs.card_db[face_uid]
+            nm = c.name.strip().lower()
+            sp = c.species.strip().lower()
+            tx = c.text.lower()
+            v = 0.0
+            is_anchor = False
+            # ONLY heavy hitters + stack engines are anchors (the cards that
+            # define a plan). Support cards — including the common ocean types
+            # folded into ocean_all_blue's support list — are NOT anchors, so a
+            # hand of generic oceans no longer masquerades as Complete Current.
+            if nm in heavy_set:
+                v = 3.5; is_anchor = True
+            elif nm in engine_set:
+                v = 2.4; is_anchor = True
+            elif nm in support_set:
+                v = 0.9
+            elif sp in species_set:
+                v = 0.55                      # generic species match — deliberately small
+            else:
+                for kw in keywords:
+                    if kw and (kw in tx or kw in nm):
+                        v = 0.5
+                        break
+            if v > best_val:
+                best_val = v
+                best_anchor = is_anchor
+        total += best_val
+        if best_anchor:
+            anchors += 1
+
+    # A hand is only a STRONG fit for a plan it actually holds anchor pieces
+    # for. Generic species-only hands get knocked down so they don't masquerade
+    # as a committed plan and cause every bot to cluster on the same broad family.
+    if anchors == 0:
+        total *= 0.30
+    elif anchors == 1:
+        total *= 0.78
+    total += 0.45 * anchors   # reward concentration of defining pieces
     return total
+
+
+# Hybrid families are supersets of two pure plans, so on any hand that touches
+# either half they out-anchor the pure family and starve it. A hybrid should
+# only be chosen when the hand genuinely spans BOTH halves.
+HYBRID_COMPONENTS: Dict[str, Tuple[str, str]] = {
+    "coral_cephalopods": ("coral", "cephalopods"),
+    "birds_crustaceans": ("birds_of_a_feather", "crustaceans"),
+    "birds_coral":       ("birds_of_a_feather", "coral"),
+}
+
+
+def _hand_anchor_count(gs: GameState, ms: MatchState, hand_uids: List[int],
+                       family_profile: Optional[Dict[str, Any]]) -> int:
+    """Number of hand entries whose card is a heavy hitter or stack engine of
+    the family — i.e. the defining 'anchor' pieces."""
+    if not isinstance(family_profile, dict):
+        return 0
+    _ensure_profile_sets(family_profile)
+    heavy = family_profile["_heavy_set"]
+    engine = family_profile["_engine_set"]
+    cnt = 0
+    for entry_uid in hand_uids:
+        for face_uid in entry_faces(ms, entry_uid):
+            nm = gs.card_db[face_uid].name.strip().lower()
+            if nm in heavy or nm in engine:
+                cnt += 1
+                break
+    return cnt
+
+
+def strategy_pick_penalty(gs: GameState, ms: MatchState, hand_uids: List[int],
+                          label: str, profile_by_label: Dict[str, Dict[str, Any]]) -> float:
+    """Opening-pick adjustments so bots spread across plans by hand strength
+    instead of clustering on broad/superset families."""
+    pen = 0.0
+    # Complete Current needs a true ocean payoff, not just a stray shared reef.
+    if label == "ocean_all_blue":
+        oc_heavy = {"mangrove", "tide pool", "great albatross"}
+        has_payoff = False
+        for entry_uid in hand_uids:
+            for face_uid in entry_faces(ms, entry_uid):
+                if gs.card_db[face_uid].name.strip().lower() in oc_heavy:
+                    has_payoff = True
+                    break
+            if has_payoff:
+                break
+        if not has_payoff:
+            pen += 4.0
+    # A hybrid must span both halves; otherwise the matching pure plan wins.
+    comps = HYBRID_COMPONENTS.get(label)
+    if comps:
+        a0 = _hand_anchor_count(gs, ms, hand_uids, profile_by_label.get(comps[0]))
+        a1 = _hand_anchor_count(gs, ms, hand_uids, profile_by_label.get(comps[1]))
+        if a0 == 0 or a1 == 0:
+            pen += 4.5
+    return pen
 
 
 def strategy_family_stats_bias(family_stats: Optional[Dict[str, Any]], label: str) -> float:
@@ -3780,7 +3891,12 @@ def assign_strategy_families_from_opening_hands(
     rng: random.Random,
 ) -> List[Tuple[str, str, float]]:
     families = strategy_family_profiles()
+    profile_by_label = {str(f.get("label", "")): f for f in families}
     assigned: List[Tuple[str, str, float]] = []
+    # Track which plans earlier bots already committed to this game so the table
+    # naturally diversifies — strong players don't all fight over the same cards
+    # (this is the direct fix for "every bot went the same strategy").
+    taken: Dict[str, int] = {}
     family_stats = None
     if isinstance(brain, dict):
         maybe_stats = brain.get("strategy_family_stats")
@@ -3820,6 +3936,13 @@ def assign_strategy_families_from_opening_hands(
             # bot only commits with an overwhelming invertebrate hand.
             if label == "invertebrates" and len(gs.players) < 6:
                 fit -= 2.5
+            # Spread bots across plans: discount broad/superset families
+            # (Complete Current with no real ocean payoff; hybrids that don't
+            # span both halves) so focused hands commit to the matching plan.
+            fit -= strategy_pick_penalty(gs, ms, p.hand, label, profile_by_label)
+            # Table diversity: each bot already on this plan makes it less
+            # attractive, so bots fan out unless a hand is overwhelmingly suited.
+            fit -= 3.0 * taken.get(label, 0)
             hist = strategy_family_stats_bias(family_stats, label)
             # Easy bots tolerate a noisier opening pick (fuzzy commitment).
             # Medium/Hard pick with near-zero noise so the starting plan is
@@ -3835,6 +3958,7 @@ def assign_strategy_families_from_opening_hands(
             p.flags["_strategy_family"] = best_label
             p.flags["_strategy_family_fit"] = float(best_fit)
             p.flags["_strategy_family_source"] = "opening_hand+learned"
+            taken[best_label] = taken.get(best_label, 0) + 1
             assigned.append((p.name, best_label, float(best_fit)))
     return assigned
 
@@ -3849,7 +3973,7 @@ def maybe_reassess_strategy_family(
     # Per-player override (hard bots switch faster, easy bots stay rigid).
     if switch_margin is None:
         flag_margin = player.flags.get("_ai_switch_margin")
-        switch_margin = float(flag_margin) if isinstance(flag_margin, (int, float)) else 3.0
+        switch_margin = float(flag_margin) if isinstance(flag_margin, (int, float)) else 5.0
     """Re-evaluate the chosen strategy against current hand+board+pool.
 
     Returns the new strategy label if a switch occurred, else None.
@@ -3858,7 +3982,9 @@ def maybe_reassess_strategy_family(
     """
     skill = str(player.flags.get("_ai_skill_level", "advanced")).strip().lower()
     allowlist = strategies_allowed_for_skill(skill)
-    families = [f for f in strategy_family_profiles()
+    all_profiles = strategy_family_profiles()
+    profile_by_label = {str(f.get("label", "")): f for f in all_profiles}
+    families = [f for f in all_profiles
                 if str(f.get("label", "")).strip().lower() in allowlist]
     if not families:
         return None
@@ -3895,12 +4021,18 @@ def maybe_reassess_strategy_family(
         for entry_uid in pool_uids:
             pool_score += entry_best_strategy_family_score(ms, gs, entry_uid, fam)
         hist = strategy_family_stats_bias(family_stats, label)
+        # Only penalize SWITCHING INTO a broad/unbalanced family — never the
+        # current plan (penalizing the current plan caused needless flip-flops).
+        if label != current_label:
+            hand_score -= strategy_pick_penalty(gs, ms, player.hand, label, profile_by_label)
+            if label == "invertebrates" and len(gs.players) < 6:
+                hand_score -= 2.5
         scores[label] = hand_score + board_weight * board_score + 0.4 * pool_score + 0.3 * hist
 
-    # Stickiness: give the current strategy a bonus so we only switch when
-    # there's a real shift. Hard bots get the biggest stickiness — they
-    # commit to the opening plan and follow through.
-    stick = 3.0 if diff == "hard" else 1.5 if diff == "medium" else 0.6
+    # Stickiness: give the current strategy a large bonus so the bot commits to
+    # its plan and only switches when the board genuinely demands it (the guide:
+    # "almost never switch"). Hard bots are the most committed.
+    stick = 5.0 if diff == "hard" else 3.5 if diff == "medium" else 1.5
     if current_label in scores:
         scores[current_label] += stick
 
