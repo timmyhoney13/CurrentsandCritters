@@ -79,6 +79,9 @@ ROOM_CHECKPOINT_SCHEMA_VERSION = 1
 ROOM_PERSIST_MIN_INTERVAL_SEC = 0.75
 MAX_ACTION_HISTORY = 16000
 ROOM_ID_LENGTH = 5
+# A player who leaves a running game keeps their seat RESERVED for this long;
+# only they (they hold the seat token) can rejoin it, into the same seat.
+REJOIN_WINDOW_SEC = 8 * 60
 # Room codes are 4–12 uppercase letters/numbers. Public rooms use a random
 # 5-char code; private rooms use the host's chosen code (which is also the
 # password). Both create and restore accept the full 4–12 range.
@@ -567,6 +570,11 @@ class Seat:
     # without any activity; unlocks the "Draw 2 Cards" affordance on the
     # avatar for other seats to use. Cleared on activity / turn change.
     inactive_eligible: bool = False
+    # Unix time the player left a RUNNING game. The seat is then RESERVED: its
+    # token + name are kept so only that player (who holds the seat token) can
+    # rejoin their exact seat, for REJOIN_WINDOW_SEC seconds. Cleared when they
+    # reconnect; the seat is freed by cleanup once the window expires.
+    left_at: Optional[float] = None
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -974,6 +982,44 @@ class GameRoom:
         with self.cond:
             return self._is_host_authorized_locked(host_token, seat_token)
 
+    def _active_human_seats_locked(self) -> List["Seat"]:
+        """Humans currently connected (claimed AND not on a rejoin reservation)."""
+        return [s for s in self.seats if s.kind == "human" and s.token is not None and s.left_at is None]
+
+    def _reserved_human_seats_locked(self) -> List["Seat"]:
+        """Humans who left a running game and can still rejoin (within window)."""
+        now = time.time()
+        return [
+            s for s in self.seats
+            if s.kind == "human" and s.token is not None and s.left_at is not None
+            and (now - s.left_at) <= REJOIN_WINDOW_SEC
+        ]
+
+    def _expire_left_seats_locked(self) -> None:
+        """Free seats whose rejoin reservation has expired, transfer host if the
+        host's reservation lapsed, and close the room if nobody can return."""
+        now = time.time()
+        changed = False
+        for s in self.seats:
+            if s.kind == "human" and s.left_at is not None and (now - s.left_at) > REJOIN_WINDOW_SEC:
+                s.token = None
+                s.claimed_name = None
+                s.left_at = None
+                s.is_host = False
+                changed = True
+        if not changed:
+            return
+        active = self._active_human_seats_locked()
+        reserved = self._reserved_human_seats_locked()
+        if not active and not reserved:
+            if self.phase != "ended":
+                self.phase = "ended"
+                self.status_note = "Room closed — no players returned."
+        elif active and not any(s.is_host for s in active):
+            active[0].is_host = True
+            self.status_note = f"{active[0].claimed_name or active[0].label} is now host."
+        self._bump_locked()
+
     def leave_room(self, body: Dict[str, Any]) -> Dict[str, Any]:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         with self.cond:
@@ -986,23 +1032,45 @@ class GameRoom:
             was_host = seat.is_host
             leaving_name = seat.claimed_name or seat.label
 
-            # Clear the leaving player's seat
+            # ── Running game: RESERVE the seat so this player can rejoin it ──
+            # Keep the token + name (the token is their private key to this exact
+            # seat) and stamp left_at. Only they can reconnect (they hold the
+            # token); others see the seat as occupied. Cleanup frees it after
+            # REJOIN_WINDOW_SEC if they don't return.
+            if self.phase == "running":
+                seat.left_at = time.time()
+                active = self._active_human_seats_locked()
+                if was_host:
+                    if active:
+                        seat.is_host = False
+                        active[0].is_host = True
+                        self.status_note = (
+                            f"{leaving_name} left (can rejoin for {REJOIN_WINDOW_SEC // 60} min). "
+                            f"{active[0].claimed_name or active[0].label} is now host."
+                        )
+                        self._bump_locked()
+                        return {"ok": True, "action": "host_transferred",
+                                "new_host": active[0].claimed_name or active[0].label,
+                                "reserved": True}
+                    # No one active to host — keep the (reserved) host slot.
+                self.status_note = f"{leaving_name} left — seat held for rejoin ({REJOIN_WINDOW_SEC // 60} min)."
+                self._bump_locked()
+                return {"ok": True, "action": "left", "reserved": True}
+
+            # ── Lobby (or other): free the seat normally (freely re-claimable) ──
             seat.claimed_name = None
             seat.token = None
             seat.is_host = False
+            seat.left_at = None
 
-            # Count remaining claimed human seats
             remaining = [s for s in self.seats if s.kind == "human" and s.token is not None]
-
             if not remaining:
-                # No humans left — discard the room
                 self.phase = "ended"
                 self.status_note = f"{leaving_name} left. Room closed (no players remaining)."
                 self._bump_locked()
                 return {"ok": True, "action": "discarded"}
 
             if was_host:
-                # Transfer host to the first remaining human
                 new_host = remaining[0]
                 new_host.is_host = True
                 self.status_note = f"{leaving_name} left. {new_host.claimed_name or new_host.label} is now host."
@@ -1378,10 +1446,16 @@ class GameRoom:
                 # Plain reconnect path only when no explicit seat target was requested.
                 if existing_seat is not None and seat_index is None:
                     new_name = safe_name(player_name, existing_seat.label)
+                    rejoined = existing_seat.left_at is not None
+                    existing_seat.left_at = None  # they're back — lift any reservation
                     if new_name and existing_seat.claimed_name != new_name:
                         existing_seat.claimed_name = new_name
-                        self.status_note = f"{existing_seat.claimed_name} reconnected to {existing_seat.label}."
-                        self._bump_locked()
+                    if rejoined and not any(s.is_host for s in self.seats if s.kind == "human" and s.token is not None and s.left_at is None):
+                        existing_seat.is_host = True
+                    self.status_note = (f"{existing_seat.claimed_name or existing_seat.label} rejoined."
+                                        if rejoined else
+                                        f"{existing_seat.claimed_name or existing_seat.label} reconnected to {existing_seat.label}.")
+                    self._bump_locked()
                     return {
                         "ok": True,
                         "seat_index": existing_seat.index,
@@ -1416,6 +1490,13 @@ class GameRoom:
                     "seat_token": target.token,
                     "reconnected": True,
                 }
+            # A seat reserved for a rejoining player (they left a running game
+            # within the window) can only be reclaimed by them — via the
+            # token-reconnect path above — never taken over by someone else.
+            if (target.left_at is not None
+                    and (time.time() - target.left_at) <= REJOIN_WINDOW_SEC
+                    and not (existing_seat is not None and existing_seat.index == target.index)):
+                return {"ok": False, "error": "seat reserved for a rejoining player"}
             if target.token is not None:
                 host_ok = (not target.is_host) or allow_host_takeover
                 # Idempotent host reclaim: if the same host identity is already on the host
@@ -3215,10 +3296,20 @@ class GameRoom:
         host_token: str = "",
     ) -> Dict[str, Any]:
         with self.cond:
+            # Lazily expire any rejoin reservations whose window has passed.
+            self._expire_left_seats_locked()
             viewer_seat = self._seat_from_token_locked(seat_token)
             if viewer_seat is None and host_token:
                 if secrets.compare_digest(self.host_control_token, host_token):
                     viewer_seat = self.host_seat()
+            # A player polling with their seat token has returned — clear the
+            # rejoin reservation so the seat counts as active again.
+            if viewer_seat is not None and viewer_seat.left_at is not None:
+                viewer_seat.left_at = None
+                if not any(s.is_host for s in self.seats if s.kind == "human" and s.token is not None and s.left_at is None):
+                    viewer_seat.is_host = True
+                self.status_note = f"{viewer_seat.claimed_name or viewer_seat.label} rejoined."
+                self._bump_locked()
             viewer_index = viewer_seat.index if viewer_seat is not None else None
 
             state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None

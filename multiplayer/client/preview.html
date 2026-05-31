@@ -2876,6 +2876,17 @@
       #pv-log-float { width: calc(100vw - 20px); right: 10px; }
     }
 
+    /* ── REJOIN BUTTON ──────────────────────────────────────────── */
+    #rejoin-game-btn {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      z-index: 9000;
+      background: linear-gradient(135deg, #0d6cb0, #0a5490);
+      color: #fff; border: 2px solid #27a9ef; border-radius: 22px;
+      padding: 10px 22px; font-size: 14px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(0,0,0,.45); letter-spacing: .3px;
+    }
+    #rejoin-game-btn:hover { filter: brightness(1.12); transform: translateX(-50%) scale(1.04); }
+
     /* ── CHAT ───────────────────────────────────────────────────── */
     #pv-chat-btn {
       position: fixed; bottom: 18px; right: 18px; z-index: 1800;
@@ -7955,6 +7966,9 @@
   </div>
 </div>
 
+<!-- Rejoin button — appears in the menu when a recently-left game can still be rejoined -->
+<button id="rejoin-game-btn" style="display:none;">🔄 Rejoin Game</button>
+
 <!-- ══ PLAYER STATS LOBBY ════════════════════════════════════════ -->
 <div id="auth-stats-lobby" data-bg-tab="overview">
 
@@ -9686,24 +9700,26 @@
   function setSeatToken(v) {
     if (!roomId) return;
     try { sessionStorage.setItem(seatTokenKey(roomId), v); } catch {}
-    // Mirror to localStorage so the player can rejoin within 5 minutes of closing the tab
+    // Mirror to localStorage so the player can rejoin within 8 minutes of
+    // closing the tab OR leaving the game.
     if (v) { try { localStorage.setItem(rejoinKey(roomId), JSON.stringify({ token: v, savedAt: Date.now() })); } catch {} }
   }
   function setHostToken(v) { if (!roomId) return; try { sessionStorage.setItem(hostTokenKey(roomId), v); } catch {} }
   function getCreateKey()  { try { return localStorage.getItem(createKeyKey())||""; } catch { return ""; } }
 
-  // Returns a valid rejoin token for a room if it was saved within 5 minutes, else null.
+  const REJOIN_WINDOW_MS = 8 * 60 * 1000;  // matches server REJOIN_WINDOW_SEC
+  // Returns a valid rejoin token for a room if it was saved within the window.
   function loadRejoinToken(id) {
     try {
       const raw = localStorage.getItem(rejoinKey(id));
       if (!raw) return null;
       const obj = JSON.parse(raw);
       if (!obj?.token || !obj?.savedAt) return null;
-      if (Date.now() - obj.savedAt > 5 * 60 * 1000) { localStorage.removeItem(rejoinKey(id)); return null; }
+      if (Date.now() - obj.savedAt > REJOIN_WINDOW_MS) { localStorage.removeItem(rejoinKey(id)); return null; }
       return obj.token;
     } catch { return null; }
   }
-  // Keep the rejoin timestamp fresh so the 5-minute window is from the last active moment.
+  // Keep the rejoin timestamp fresh so the window is measured from the last active moment.
   function touchRejoinToken() {
     if (!roomId) return;
     try {
@@ -10336,8 +10352,54 @@
     });
   }
 
+  // Scan localStorage for the most recent still-valid rejoin token across rooms.
+  function findPendingRejoin() {
+    let best = null;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf("fish_rejoin_") !== 0) continue;
+        const rid = k.slice("fish_rejoin_".length);
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        let obj; try { obj = JSON.parse(raw); } catch { continue; }
+        if (!obj || !obj.token || !obj.savedAt) continue;
+        if (Date.now() - obj.savedAt > REJOIN_WINDOW_MS) { try { localStorage.removeItem(k); } catch {} continue; }
+        if (!best || obj.savedAt > best.savedAt) best = { roomId: rid, savedAt: obj.savedAt };
+      }
+    } catch {}
+    return best;
+  }
+  // Show the "Rejoin Game" button in the menu when a recently-left game is still
+  // rejoinable; hide it while in a game.
+  function _refreshRejoinButton() {
+    const btn = document.getElementById("rejoin-game-btn");
+    if (!btn) return;
+    const inGame = document.getElementById("pv-game").style.display !== "none";
+    const pending = inGame ? null : findPendingRejoin();
+    if (pending) { btn.style.display = "block"; btn.dataset.roomId = pending.roomId; }
+    else { btn.style.display = "none"; btn.removeAttribute("data-room-id"); }
+  }
+  (function wireRejoinButton() {
+    const btn = document.getElementById("rejoin-game-btn");
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      const rid = btn.dataset.roomId;
+      if (!rid) { _refreshRejoinButton(); return; }
+      const tok = loadRejoinToken(rid);
+      if (!tok) { _refreshRejoinButton(); try { showToast("Rejoin window expired.", "warn"); } catch {} return; }
+      roomId = rid;
+      setSeatToken(tok);
+      btn.style.display = "none";
+      try { showToast("Rejoining your game…", "ok"); } catch {}
+      enterRoom(rid);
+    });
+  })();
+
   function enterRoom(id) {
     roomId = id;
+    const _rjb = document.getElementById("rejoin-game-btn");
+    if (_rjb) _rjb.style.display = "none";
     document.getElementById("pv-room-id-badge").textContent = id;
     document.getElementById("pv-lobby").style.display = "none";
     // Hide stats lobby if it's showing
@@ -15770,7 +15832,7 @@
   }
 
   // ── Back / leave ───────────────────────────────────────────────
-  function _leaveGameCleanup() {
+  function _leaveGameCleanup(keepRejoin = false) {
     closeMenu();
     _specSetPresence(null); // clear in-game Firestore presence
     _specShowPanel(false);  // restore hand UI if we were spectating
@@ -15779,7 +15841,10 @@
     if (sseSource) { sseSource.close(); sseSource=null; }
     if (pollTimer) { clearInterval(pollTimer); pollTimer=null; }
     if (_rejoinTouchTimer) { clearInterval(_rejoinTouchTimer); _rejoinTouchTimer=null; }
-    clearRejoinToken(roomId);
+    // Keep the rejoin token when leaving a live game so the player can come
+    // back to their reserved seat within the 8-minute window; clear it only on
+    // game end / terminate / room-lost.
+    if (!keepRejoin) clearRejoinToken(roomId);
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _lastHandCount=0; _tarponStartHand=0; _prevEndTriggered=true;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
@@ -15823,8 +15888,8 @@
     } catch {}
   }
 
-  function returnToMenu() {
-    _leaveGameCleanup();
+  function returnToMenu(keepRejoin = false) {
+    _leaveGameCleanup(keepRejoin);
     if (window.__fishSyncNickname) window.__fishSyncNickname();
     const statsLobby = document.getElementById("auth-stats-lobby");
     if (statsLobby) {
@@ -15847,10 +15912,10 @@
       await leaveSpectator();
       return;
     }
-    const phase = latestPayload?.phase;
+    const phase = latestPayload?.room?.phase || latestPayload?.phase;
     const isRunning = phase === "running";
     const msg = isRunning
-      ? "Leave the game? If you're host and others remain, they'll get host. If no one is left the room closes."
+      ? "Leave the game? Your seat is held for 8 minutes — you can rejoin it from the menu."
       : "Leave and return to the menu?";
     if (!confirm(msg)) return;
     const token = getSeatToken();
@@ -15862,7 +15927,12 @@
         }
       } catch {}
     }
-    returnToMenu();
+    // Running game → keep the rejoin token so they can return to their seat.
+    returnToMenu(isRunning);
+    if (isRunning) {
+      try { showToast("Seat held for 8 min — tap “Rejoin Game” to return.", "ok"); } catch {}
+      try { _refreshRejoinButton(); } catch {}
+    }
   });
 
   document.getElementById("wr-leave-btn").addEventListener("click", async () => {
@@ -19545,6 +19615,8 @@
       if (chatBtn) chatBtn.style.display = "none";
       el.classList.add("visible");
       $a("auth-screen").classList.add("hidden");
+      // Surface the "Rejoin Game" button if a recently-left game is still open.
+      try { if (typeof _refreshRejoinButton === "function") _refreshRejoinButton(); } catch (e) {}
       syncStatsHeader(_activeProfile);
       const nick = _playerNickname || "Player";
       // Show sign out for everyone; show Friends only for signed-in users
