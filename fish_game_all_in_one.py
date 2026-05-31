@@ -6887,8 +6887,10 @@ def build_deck_with_late_end_game(
     non_end = [uid for uid in deck_entries if uid != end_entry]
     rng.shuffle(non_end)
 
-    # Place END GAME randomly within the bottom 10 positions.
-    bottom_non_end_count = min(9, len(non_end))
+    # Place END GAME randomly within the bottom 15 cards of the deck (cards are
+    # drawn from the FRONT via pop(0), so "bottom" = the END of this list and
+    # is drawn last). This guarantees the end-game card never comes out early.
+    bottom_non_end_count = min(14, len(non_end))
     top = non_end[:-bottom_non_end_count] if bottom_non_end_count else non_end
     bottom_group = non_end[-bottom_non_end_count:] if bottom_non_end_count else []
     rng.shuffle(bottom_group)
@@ -9566,13 +9568,15 @@ def run_match(
     # Re-shuffle the remaining deck after mulligans so any ordering
     # patterns from mulligan redraws are fully randomised before play begins.
     # IMPORTANT: a plain shuffle would scatter the END GAME card out of the
-    # bottom-10 region where build_deck_with_late_end_game placed it, causing
-    # the game to end far too early. Shuffle only the non-end-game cards, then
-    # re-insert the END GAME card into a random spot within the last 10 cards.
+    # bottom region where build_deck_with_late_end_game placed it, causing the
+    # game to end far too early. Shuffle only the non-end-game cards, then
+    # re-insert the END GAME card into a random spot within the LAST 15 cards
+    # (drawn from the front via pop(0), so the last 15 are drawn last). This is
+    # the authoritative final placement and applies to normal AND competitive.
     if end_uid is not None and end_uid in gs.deck:
         gs.deck.remove(end_uid)
         rng.shuffle(gs.deck)
-        bottom_span = min(9, len(gs.deck))
+        bottom_span = min(14, len(gs.deck))
         insert_pos = len(gs.deck) - rng.randint(0, bottom_span)
         gs.deck.insert(insert_pos, end_uid)
     else:
