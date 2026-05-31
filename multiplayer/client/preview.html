@@ -2912,10 +2912,17 @@
       flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
       min-height: 60px; max-height: 280px;
     }
-    .chat-msg { font-size: 11px; line-height: 1.5; }
+    .chat-msg { font-size: 11px; line-height: 1.5; display: flex; align-items: flex-start; gap: 7px; }
+    .chat-msg .cm-avatar {
+      width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg, #2f8be3 0%, #226ec4 100%);
+      border: 1.5px solid rgba(95,179,214,.5); margin-top: 1px;
+    }
+    .chat-msg .cm-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .chat-msg .cm-main { min-width: 0; flex: 1; }
     .chat-msg .cm-sender { font-weight: 700; color: var(--gold); }
     .chat-msg .cm-target { font-size: 10px; color: var(--muted); margin-left: 4px; }
-    .chat-msg .cm-text   { color: #e0e8f0; }
+    .chat-msg .cm-text   { color: #e0e8f0; word-break: break-word; }
     #pv-chat-input-row {
       display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(48,200,240,.15);
       flex-direction: column;
@@ -12857,8 +12864,8 @@
         ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
         : PV_SEAT_AVATARS[slot % 12];
       let initialUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
-      if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
-        const cached = window._nickAvatarCache && window._nickAvatarCache[p.name];
+      if (!isMe && p.name && typeof window.__fishAvatarCached === "function") {
+        const cached = window.__fishAvatarCached(p.name);
         if (cached) initialUrl = cached;
       }
 
@@ -12870,15 +12877,13 @@
       img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
 
-      // If not yet cached, fire the async lookup. The result is stored in
-      // _nickAvatarCache so the very next renderPlayerSeats call applies it
-      // synchronously (above) without depending on img.isConnected.
+      // Always kick off the lookup — it self-throttles via the TTL (only hits
+      // Firestore when the cached entry is stale), so this both fills a new
+      // seat AND refreshes the icon within ~12s when a player changes avatar.
       if (!isMe && p.name && typeof window.__fishAvatarForNick === "function") {
-        if (!window._nickAvatarCache || window._nickAvatarCache[p.name] === undefined) {
-          window.__fishAvatarForNick(p.name).then(url => {
-            if (url && img && img.isConnected) img.src = url;
-          }).catch(() => {});
-        }
+        window.__fishAvatarForNick(p.name).then(url => {
+          if (url && img && img.isConnected && img.src !== url) img.src = url;
+        }).catch(() => {});
       }
 
       const nm = document.createElement("div");
@@ -17290,14 +17295,36 @@
     cl(el);
     msgs.forEach(m => {
       const div = document.createElement("div"); div.className = "chat-msg";
+      const senderName = m.sender || "?";
+
+      // Sender avatar — show their current player icon next to the name.
+      const av = document.createElement("div"); av.className = "cm-avatar";
+      const avImg = document.createElement("img");
+      let avSrc = (typeof window.__fishAvatarCached === "function" && window.__fishAvatarCached(senderName)) || "";
+      if (!avSrc) {
+        avSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(senderName) : "/avatars/mullet.png";
+      }
+      avImg.src = avSrc; avImg.alt = senderName; avImg.loading = "lazy";
+      avImg.onerror = () => { avImg.onerror = null; avImg.src = "/avatars/mullet.png"; };
+      av.appendChild(avImg);
+      // Resolve / refresh the real chosen avatar (self-throttling via TTL).
+      if (typeof window.__fishAvatarForNick === "function") {
+        window.__fishAvatarForNick(senderName).then(url => {
+          if (url && avImg.isConnected && avImg.src !== url) avImg.src = url;
+        }).catch(() => {});
+      }
+
+      const main = document.createElement("div"); main.className = "cm-main";
       const header = document.createElement("div");
-      const sender = document.createElement("span"); sender.className = "cm-sender"; sender.textContent = m.sender || "?";
+      const sender = document.createElement("span"); sender.className = "cm-sender"; sender.textContent = senderName;
       const ts = m.ts ? new Date(m.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}) : "";
       const targetLabel = (m.target && m.target !== "Everyone") ? ` → ${m.target}` : "";
       const meta = document.createElement("span"); meta.className = "cm-target"; meta.textContent = `${targetLabel} ${ts}`.trim();
       header.appendChild(sender); header.appendChild(meta);
       const body = document.createElement("div"); body.className = "cm-text"; body.textContent = m.message || "";
-      div.appendChild(header); div.appendChild(body);
+      main.appendChild(header); main.appendChild(body);
+
+      div.appendChild(av); div.appendChild(main);
       el.appendChild(div);
     });
     el.scrollTop = el.scrollHeight;
@@ -19118,21 +19145,36 @@
       }
     };
 
-    // Async lookup of another player's chosen avatar by nickname (used by game summary).
-    // Expose the cache on window so renderPlayerSeats (outer scope) can read it
-    // synchronously and avoid the "replaced img before lookup resolved" race.
-    const _nickAvatarCache = {};
+    // Async lookup of another player's chosen avatar by nickname.
+    // Entries carry a timestamp and expire after a short TTL so that when a
+    // player changes their avatar mid-game, every other client re-fetches and
+    // shows the new icon within ~12s (without a stale cache pinning the old
+    // one forever). Exposed on window so renderPlayerSeats / chat can read it
+    // synchronously (avoiding the "img replaced before lookup resolved" race).
+    const _nickAvatarCache = {};   // nick -> { url: string|null, ts: ms }
+    const _NICK_AVATAR_TTL = 12000;
     window._nickAvatarCache = _nickAvatarCache;
+    // Synchronous read: last-known avatar url for a nick (or undefined).
+    window.__fishAvatarCached = function(nick) {
+      const e = nick ? _nickAvatarCache[nick] : null;
+      return e ? e.url : undefined;
+    };
     window.__fishAvatarForNick = async function(nick) {
       if (!nick) return null;
-      if (_nickAvatarCache[nick] !== undefined) return _nickAvatarCache[nick];
+      const e = _nickAvatarCache[nick];
+      if (e && (Date.now() - e.ts) < _NICK_AVATAR_TTL) return e.url;  // fresh — reuse
       try {
-        if (!_db) { _nickAvatarCache[nick] = null; return null; }
+        if (!_db) { _nickAvatarCache[nick] = { url: null, ts: Date.now() }; return null; }
         const snap = await _db.collection("users").where("nickname", "==", nick).limit(1).get();
         const url = snap.empty ? null : (normalizeAvatarUrl(snap.docs[0].data().avatar_url || "") || null);
-        _nickAvatarCache[nick] = url;
+        _nickAvatarCache[nick] = { url, ts: Date.now() };
         return url;
-      } catch(e) { _nickAvatarCache[nick] = null; return null; }
+      } catch(e2) {
+        // On error keep any prior value but refresh the timestamp so we don't hammer.
+        if (!_nickAvatarCache[nick]) _nickAvatarCache[nick] = { url: null, ts: Date.now() };
+        else _nickAvatarCache[nick].ts = Date.now();
+        return _nickAvatarCache[nick].url;
+      }
     };
 
     function renderStatsAvatar(profile, nickname) {
@@ -19342,6 +19384,15 @@
     // Persist + apply an avatar selection (shared by the picker and the
     // post-game unlock screen's "make this my avatar" button).
     async function applyAvatarSelection(selected) {
+      // Refresh our own nick-avatar cache entry immediately so our chat icon
+      // (and anything reading by our nickname) updates instantly on this
+      // client; other clients pick it up from Firestore within the TTL.
+      try {
+        const myNick = (_playerNickname || (_activeProfile && _activeProfile.nickname) || "").trim();
+        if (myNick && _nickAvatarCache) {
+          _nickAvatarCache[myNick] = { url: normalizeAvatarUrl(selected) || selected, ts: Date.now() };
+        }
+      } catch {}
       if (_authUser && _db) {
         await _db.collection("users").doc(_authUser.uid).set({ avatar_url: selected }, { merge: true });
         _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, avatar_url: selected };
