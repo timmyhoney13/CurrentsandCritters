@@ -11511,10 +11511,11 @@
         // Card-name based avatar hooks.
         try {
           const playedName = String(handEntryMap.get(Number(action.card_uid))?.name || "").trim().toLowerCase();
-          // Razorbill Auk: play both Razorbill Auks in the same turn.
+          // Razorbill Auk: play both in same turn in a 4-player game.
           if (playedName === "razorbill auk") {
             _gameAchTracker.razorbillThisTurn = (_gameAchTracker.razorbillThisTurn || 0) + 1;
-            if (_gameAchTracker.razorbillThisTurn >= 2 && typeof window.__fishGrantUnlockedIcon === "function") {
+            const _razPlayers = (Array.isArray(_latestPlayers) ? _latestPlayers.length : 0);
+            if (_gameAchTracker.razorbillThisTurn >= 2 && _razPlayers >= 4 && typeof window.__fishGrantUnlockedIcon === "function") {
               if (await window.__fishGrantUnlockedIcon("/avatars/razorbill-auk.png")) _queueAnimalUnlock("razorbill-auk");
             }
           }
@@ -11522,7 +11523,7 @@
           if (playedName === "big eye tuna") {
             _gameAchTracker.bigEyeTunaPlayed = (_gameAchTracker.bigEyeTunaPlayed || 0) + 1;
           }
-          // Roosterfish: its ★ ability is "play a free Baitfish".
+          // Roosterfish: its ★ ability is "play a free Baitfish" (legacy counter).
           if (playedName === "roosterfish" && action.use_star) {
             _gameAchTracker.freeBaitfishUses = (_gameAchTracker.freeBaitfishUses || 0) + 1;
           }
@@ -11578,9 +11579,18 @@
           // Sea Cucumber — draw one (per Cucumber) when you play a Game Fish.
           if (invSpecies === "game fish")
             _gameAchTracker.seaCucumberDraws = (_gameAchTracker.seaCucumberDraws || 0) + countOnBoard("sea cucumber");
-          // Sea Anemone — its ★ ability draws one card when activated.
+          // Sea Anemone — its ★ ability draws one card when activated (legacy draw count).
           if (invName === "sea anemone" && action.use_star)
             _gameAchTracker.seaAnemoneDraws = (_gameAchTracker.seaAnemoneDraws || 0) + 1;
+          // Sea Anemone — count every Sea Anemone card played this game (avatar: 25 lifetime plays).
+          if (invName === "sea anemone")
+            _gameAchTracker.seaAnemonePlayedThisGame = (_gameAchTracker.seaAnemonePlayedThisGame || 0) + 1;
+          // Coral species — count all Coral cards played this game (Frigatebird avatar: 7 in one game).
+          if (invSpecies === "coral")
+            _gameAchTracker.coralCardsPlayed = (_gameAchTracker.coralCardsPlayed || 0) + 1;
+          // All Bait Fish played this game (Roosterfish avatar: 250 lifetime total).
+          if (invSpecies === "baitfish")
+            _gameAchTracker.baitfishPlayedThisGame = (_gameAchTracker.baitfishPlayedThisGame || 0) + 1;
           // Loggerhead Sea Turtle — count cards played in the current turn and
           // flag when a Turtle was played (its ability chains extra card plays).
           _gameAchTracker.cardsPlayedThisTurn = (_gameAchTracker.cardsPlayedThisTurn || 0) + 1;
@@ -16695,6 +16705,10 @@
           updates["stats.lifetime_sea_cucumber_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaCucumberDraws));
         if (Number(_gameAchTracker?.seaAnemoneDraws || 0) > 0)
           updates["stats.lifetime_sea_anemone_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaAnemoneDraws));
+        if (Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0) > 0)
+          updates["stats.lifetime_sea_anemone_plays"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaAnemonePlayedThisGame));
+        if (Number(_gameAchTracker?.baitfishPlayedThisGame || 0) > 0)
+          updates["stats.lifetime_baitfish_played"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.baitfishPlayedThisGame));
         if (isWinner) {
           // Competitive wins/losses are managed by processRankedGameEnd; skip here when in compMode
           if (!isComp) updates["stats.normal_wins"] = firebase.firestore.FieldValue.increment(1);
@@ -16766,6 +16780,8 @@
         nextStats.lifetime_sea_star_draws = Number(nextStats.lifetime_sea_star_draws || 0) + Number(_gameAchTracker?.seaStarDraws || 0);
         nextStats.lifetime_sea_cucumber_draws = Number(nextStats.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
         nextStats.lifetime_sea_anemone_draws = Number(nextStats.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
+        nextStats.lifetime_sea_anemone_plays = Number(nextStats.lifetime_sea_anemone_plays || 0) + Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0);
+        nextStats.lifetime_baitfish_played = Number(nextStats.lifetime_baitfish_played || 0) + Number(_gameAchTracker?.baitfishPlayedThisGame || 0);
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
         if (isWinner && !isComp) {
@@ -16875,9 +16891,12 @@
             if (await window.__fishGrantUnlockedIcon?.(ra.img)) _queueAnimalUnlock(ra.id);
           }
         }
-        // Roosterfish — 75 lifetime "play a free Baitfish" abilities.
-        const postFreeBait = Number(cStats?.lifetime_free_baitfish || 0) + Number(_gameAchTracker?.freeBaitfishUses || 0);
-        if (postFreeBait >= 75 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
+        // Frigatebird — 7 Coral species cards played in one game.
+        if (Number(_gameAchTracker?.coralCardsPlayed || 0) >= 7
+            && await window.__fishGrantUnlockedIcon?.("/avatars/magnificent-frigatebird.png")) _queueAnimalUnlock("magnificent-frigatebird");
+        // Roosterfish — 250 total Bait Fish played across all games.
+        const postBaitfish = Number(cStats?.lifetime_baitfish_played || 0) + Number(_gameAchTracker?.baitfishPlayedThisGame || 0);
+        if (postBaitfish >= 250 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
         // Yellowfin Tuna — 8 Yellowfin Tuna on board in a 3+ player game.
         if (playerCount >= 3 && Number(nameCount["yellowfin tuna"] || 0) >= 8
             && await window.__fishGrantUnlockedIcon?.("/avatars/yellowfin-tuna.png")) _queueAnimalUnlock("yellowfin-tuna");
@@ -16887,20 +16906,19 @@
         // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, and win.
         if (isWinner && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Sailfish — win with every Game Fish species (all 10) on your board.
-        if (isWinner && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
+        // Sailfish — every Game Fish species on your board in a 5-player game (win not required).
+        if (playerCount >= 5 && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
             && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
-        // Tarpon — empty a full 9–10 card hand via Tarpon 3 times, finish 100+ pts, 3+ players.
-        if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 3 && Number(myScore) >= 100 && playerCount >= 3
+        // Tarpon — empty a full 9–10 card hand via Tarpon 2 times, finish 100+ pts, 4+ players.
+        if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 2 && Number(myScore) >= 100 && playerCount >= 4
             && await window.__fishGrantUnlockedIcon?.("/avatars/tarpon.png")) _queueAnimalUnlock("tarpon");
 
         // ── Coral ──────────────────────────────────────────────────
         // Deep Sea Coral — win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
-        // Grooved Brain Coral — 2 Grooved Brain Coral ★ uses, and a Giant Squid
-        // and a Bobtail Squid each played via a free-cephalopod window (from GBC).
-        if (Number(_gameAchTracker?.grooveBrainStars || 0) >= 2
+        // Grooved Brain Coral — 4+ player game, 2 GBC ★ uses, Giant Squid + Bobtail Squid via GBC.
+        if (playerCount >= 4 && Number(_gameAchTracker?.grooveBrainStars || 0) >= 2
             && _gameAchTracker?.giantSquidViaGBC && _gameAchTracker?.bobtailSquidViaGBC
             && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
@@ -16917,8 +16935,8 @@
         if (postSeaStar >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
         const postCucumber = Number(cStats?.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
         if (postCucumber >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
-        const postAnemone = Number(cStats?.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
-        if (postAnemone >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-anemone.png")) _queueAnimalUnlock("sea-anemone");
+        const postAnemone = Number(cStats?.lifetime_sea_anemone_plays || 0) + Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0);
+        if (postAnemone >= 25 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-anemone.png")) _queueAnimalUnlock("sea-anemone");
 
         // ── Crosscurrent ───────────────────────────────────────────
         // Blue Tang (Lv 10) · Manta Ray (Lv 50) · Great White Shark (Lv 90).
@@ -16949,11 +16967,10 @@
         // Lobster — 6 Lobsters stacked on the same Ocean in one game.
         if (maxLobstersOneOcean >= 6
             && await window.__fishGrantUnlockedIcon?.("/avatars/lobster.png")) _queueAnimalUnlock("lobster");
-        // Hermit Crab — a turn with a Hermit Crab + 6 Bait Fish played. Flush the
-        // final turn too (no turn-boundary fires after the game's last turn).
+        // Hermit Crab — 4+ player game, Hermit Crab + 6 Bait Fish in one turn.
         const _hermitDone = _gameAchTracker?.hermitSixBaitDone
           || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6);
-        if (_hermitDone && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
+        if (_hermitDone && playerCount >= 4 && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
 
         // ── Cephalopods ────────────────────────────────────────────
         // Giant Squid — reach Level 80. (Bobtail Squid, Common Octopus and
@@ -17916,10 +17933,10 @@
       unlock:{ type:"event", event:"tutorial_complete", label:"Complete the tutorial." } },
     { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
       facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
-      unlock:{ type:"achievement", achId:"c_c_master", label:"Complete C-C Master — win using Coral/Cephalopods 30 times." } },
+      unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Coral species cards in one game." } },
     { id:"razorbill-auk", name:"Razorbill Auk", species:"Birds", img:"/avatars/razorbill-auk.png",
       facts:"Chicks leap from cliffside nests before they can fly, then swim with their parents to learn how to forage.",
-      unlock:{ type:"event", event:"razorbill_double", label:"Play both Razorbill Auks in the same turn." } },
+      unlock:{ type:"event", event:"razorbill_double", label:"Play both Razorbill Auks in one turn in a 4-player game." } },
 
     // ── Game Fish ────────────────────────────────────────────────
     { id:"mahi-mahi", name:"Mahi Mahi", species:"Game Fish", img:"/avatars/mahi-mahi.png",
@@ -17933,22 +17950,22 @@
       unlock:{ type:"event", event:"big_eye_tuna_five", label:"Play all 5 Big Eye Tuna in one game and win." } },
     { id:"yellowfin-tuna", name:"Yellowfin Tuna", species:"Game Fish", img:"/avatars/yellowfin-tuna.png",
       facts:"To sustain their high-speed, active lifestyle, they boast a heart that is ten times larger than most fish relative to their body weight and pump blood at incredibly high pressures.",
-      unlock:{ type:"event", event:"yellowfin_eight", label:"Get 8 Yellowfin Tuna in one game with 3 or more players." } },
+      unlock:{ type:"event", event:"yellowfin_eight", label:"Play 8 Yellowfin Tuna in one game with 3 or more players." } },
     { id:"roosterfish", name:"Roosterfish", species:"Game Fish", img:"/avatars/roosterfish.png",
       facts:"Unlike many other game fish, they are in a taxonomic family all their own. They are the only species in the family Nematistiidae.",
-      unlock:{ type:"stat", stat:"lifetime_free_baitfish", goal:75, unit:"Play a free Bait Fish abilities", label:"Use Play a free Bait Fish abilities 75 total times." } },
+      unlock:{ type:"stat", stat:"lifetime_baitfish_played", goal:250, unit:"Bait Fish played", label:"Play 250 total Bait Fish across all games." } },
     { id:"king-salmon", name:"King Salmon", species:"Game Fish", img:"/avatars/king-salmon.png",
       facts:"The King Salmon is the largest Pacific salmon species.",
       unlock:{ type:"event", event:"king_salmon_oceans", label:"Have 2 King Salmon, fill 5 Oceans completely, and win." } },
     { id:"tarpon", name:"Tarpon", species:"Game Fish", img:"/avatars/tarpon.png",
       facts:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!",
-      unlock:{ type:"event", event:"tarpon_triple_discard", label:"With 9–10 cards in hand, use Tarpon to discard your whole hand into the Pool 3 times in one game, then finish with 100+ points in a game with 3 or more players." } },
+      unlock:{ type:"event", event:"tarpon_triple_discard", label:"With 9–10 cards in hand, use Tarpon to discard your whole hand into the Pool 2 times in one game, then finish with 100+ points in a game with 4 or more players." } },
     { id:"barracuda", name:"Barracuda", species:"Game Fish", img:"/avatars/barracuda.png",
       facts:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey—sometimes cutting a fish cleanly in half.",
       unlock:{ type:"rank", tier:"bronze", label:"Reach Bronze rank in Competitive." } },
     { id:"sailfish", name:"Sailfish", species:"Game Fish", img:"/avatars/sailfish.png",
       facts:"Sailfish are the undisputed sprinters of the sea, capable of reaching incredible speeds up to 68 mph (110 km/h).",
-      unlock:{ type:"event", event:"all_game_fish_board", label:"Win a game with every Game Fish on your board." } },
+      unlock:{ type:"event", event:"all_game_fish_board", label:"Play at least one of every Game Fish on your board in a 5-player game." } },
     { id:"goliath-grouper", name:"Goliath Grouper", species:"Game Fish", img:"/avatars/goliath-grouper.png",
       facts:"When they feel threatened or want to ward off intruders, Goliath Groupers can flex their swim bladders to emit a loud, low-frequency \"booming\" sound that can actually be felt by nearby divers.",
       unlock:{ type:"rank", tier:"gold", label:"Reach the Golden rank in Competitive." } },
@@ -17962,7 +17979,7 @@
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
     { id:"grooved-brain-coral", name:"Grooved Brain Coral", species:"Coral", img:"/avatars/grooved-brain-coral.png",
       facts:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms.",
-      unlock:{ type:"event", event:"grooved_brain_squids", label:"In one game, use two Grooved Brain Corals' ★ ability twice to play a Giant Squid and a Bobtail Squid." } },
+      unlock:{ type:"event", event:"grooved_brain_squids", label:"In a 4+ player game, use two Grooved Brain Corals' ★ ability twice to play a Giant Squid and a Bobtail Squid." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
       unlock:{ type:"achievement", achId:"reef_rally", label:"Complete Reef Rally — add 15 friends." } },
@@ -17993,7 +18010,7 @@
       unlock:{ type:"stat", stat:"lifetime_sea_cucumber_draws", goal:125, unit:"cards drawn with Sea Cucumber", label:"Draw 125 cards using Sea Cucumber's ability." } },
     { id:"sea-anemone", name:"Sea Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
       facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
-      unlock:{ type:"stat", stat:"lifetime_sea_anemone_draws", goal:125, unit:"cards drawn with Sea Anemone", label:"Draw 125 cards using Sea Anemone's ability." } },
+      unlock:{ type:"stat", stat:"lifetime_sea_anemone_plays", goal:25, unit:"Sea Anemones played", label:"Play 25 Sea Anemones total across all games." } },
 
     // ── Crosscurrent ─────────────────────────────────────────────
     { id:"cleaner-wrasse", name:"Cleaner Wrasse", species:"Crosscurrent", img:"/avatars/cleaner-wrasse.png",
@@ -18004,7 +18021,7 @@
       unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Complete Shoot the Moon and Shot the Moon in games with 3+ players." } },
     { id:"loggerhead-sea-turtle", name:"Loggerhead Sea Turtle", species:"Crosscurrent", img:"/avatars/loggerhead-sea-turtle.png",
       facts:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles—sometimes up to 7,500 miles in the Pacific—to lay eggs on the exact same beach where they hatched decades earlier.",
-      unlock:{ type:"event", event:"turtle_big_chains", label:"Play Loggerhead Sea Turtle twice in one game, play 10 cards during each Turtle turn/chain, and finish top 3." } },
+      unlock:{ type:"event", event:"turtle_big_chains", label:"Play Loggerhead Sea Turtle twice in one game, play 10 cards during each Turtle turn/chain (including cards discarded to pay for it), and finish top 3." } },
     { id:"blue-tang", name:"Blue Tang", species:"Crosscurrent", img:"/avatars/blue-tang.png",
       facts:"Adults can voluntarily alter their hue. They may flush deep purples and violets as a sign of stress or change colors during courting and breeding seasons.",
       unlock:{ type:"level", goal:10, label:"Reach Level 10." } },
@@ -18039,7 +18056,7 @@
       unlock:{ type:"level", goal:60, label:"Reach Level 60." } },
     { id:"hermit-crab", name:"Hermit Crab", species:"Crustaceans", img:"/avatars/hermit-crab.png",
       facts:"Hermit crabs sometimes participate in \"vacancy chains\". When a new, highly desirable shell washes up, crabs will line up in order of size. Once a crab moves into the new, larger shell, its old shell is passed down to the next crab in line.",
-      unlock:{ type:"event", event:"hermit_six_bait", label:"Use the Hermit Crab ability and play 6 Bait Fish in one turn." } },
+      unlock:{ type:"event", event:"hermit_six_bait", label:"In a game with 4+ players, use the Hermit Crab ability and play 6 Bait Fish in one turn." } },
 
     // ── Cephalopods ──────────────────────────────────────────────
     { id:"bobtail-squid", name:"Bobtail Squid", species:"Cephalopods", img:"/avatars/bobtail-squid.png",
@@ -18259,16 +18276,19 @@
       playAgainUses: 0,            // Play Again abilities triggered this game (Horned Puffin avatar)
       razorbillThisTurn: 0,        // Razorbill Auks played in the current turn (Razorbill Auk avatar)
       bigEyeTunaPlayed: 0,         // Big Eye Tuna cards played this game (Big Eye Tuna avatar)
-      freeBaitfishUses: 0,         // Roosterfish "play a free Baitfish" star uses (Roosterfish avatar)
+      freeBaitfishUses: 0,         // Roosterfish "play a free Baitfish" star uses (legacy stat)
+      baitfishPlayedThisGame: 0,   // ALL Bait Fish played this game (Roosterfish avatar — 250 lifetime)
       tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
       tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
+      coralCardsPlayed: 0,         // Coral species cards played this game (Frigatebird avatar — 7 in one game)
       grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
       giantSquidViaGBC: false,     // a Giant Squid played via a free-cephalopod window (only Grooved Brain Coral opens these)
       bobtailSquidViaGBC: false,   // a Bobtail Squid played via a free-cephalopod window
       seaUrchinDraws: 0,           // cards drawn via Sea Urchin "draw on surface play" (Sea Urchin avatar)
       seaStarDraws: 0,             // cards drawn via Sea Star "draw on floor play" (Sea Star avatar)
       seaCucumberDraws: 0,         // cards drawn via Sea Cucumber "draw on game-fish play" (Sea Cucumber avatar)
-      seaAnemoneDraws: 0,          // cards drawn via Sea Anemone ★ "draw one" (Sea Anemone avatar)
+      seaAnemoneDraws: 0,          // cards drawn via Sea Anemone ★ "draw one" (legacy)
+      seaAnemonePlayedThisGame: 0, // Sea Anemone cards placed on board this game (Sea Anemone avatar — 25 lifetime)
       turtlePlayedThisTurn: false, // a Loggerhead Sea Turtle was played in the current turn
       cardsPlayedThisTurn: 0,      // animal cards I played in the current turn (Loggerhead chain length)
       turtleBigChains: 0,          // finished turns with a Turtle + 10+ cards played (Loggerhead avatar)
