@@ -18938,19 +18938,27 @@
       const isAdmin = (email || "").toLowerCase() === "currentsandcritters@gmail.com";
       const rawAvatar = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
       const cleanAvatar = rawAvatar ? sanitizeSelectableAvatar(rawAvatar, uid || email || nick) : "";
-      const data = {
-        nickname:       nick,
-        nickname_lower: nick.toLowerCase(),
-        friend_code:    code,
-        email:          email || "",
-        avatar_url:     cleanAvatar || "",
-        is_admin:       isAdmin,
-        online:         true,
-        last_active:    firebase.firestore.FieldValue.serverTimestamp(),
-        created_at:     firebase.firestore.FieldValue.serverTimestamp(),
-        stats:          defaultGuestStats(),
-      };
-      await _db.collection("users").doc(uid).set(data, { merge: true });
+      const ref = _db.collection("users").doc(uid);
+      // Use a transaction so we NEVER overwrite existing stats — if the signup
+      // screen is ever shown to an account that already has stats (e.g. due to
+      // a transient load error), those stats are preserved unconditionally.
+      await _db.runTransaction(async (tx) => {
+        const existing = await tx.get(ref);
+        const existingStats = existing.exists ? existing.data()?.stats : null;
+        const data = {
+          nickname:       nick,
+          nickname_lower: nick.toLowerCase(),
+          friend_code:    code,
+          email:          email || "",
+          avatar_url:     cleanAvatar || "",
+          is_admin:       isAdmin,
+          online:         true,
+          last_active:    firebase.firestore.FieldValue.serverTimestamp(),
+          created_at:     firebase.firestore.FieldValue.serverTimestamp(),
+          stats:          existingStats || defaultGuestStats(),
+        };
+        tx.set(ref, data, { merge: true });
+      });
       const fcKey = nick.toLowerCase() + "_" + code;
       await _db.collection("friend_lookup").doc(fcKey).set({ uid, nickname: nick });
       return code;
@@ -20388,13 +20396,12 @@
           try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
           $a("auth-loading-screen").classList.add("hidden");
 
-          // If the profile failed to load (even after retry), don't show the
-          // nickname screen — that would overwrite an existing account. Instead
-          // show the lobby with a default display so the player isn't stranded.
+          // If the profile failed to load (even after retry), don't write anything
+          // to Firestore — just let the player in with their Google display name
+          // so they're never stranded. Their real profile loads on next sign-in.
           if (reason === "error") {
             _playerNickname = (user.displayName || "").split(" ")[0].slice(0, 15) || "Player";
             _activeProfile = { uid: user.uid, nickname: _playerNickname, avatar_url: DEFAULT_AVATAR_IMG };
-            try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
             revealLobby(_playerNickname, "");
             return;
           }
