@@ -12094,24 +12094,35 @@
         _gameAchTracker.baitFishThisTurn = 0;
         _prevCurrentPlayer = curP;
 
-        // Draw notification: when turn changes, show what the PREVIOUS player did
-        const poolNow = Array.isArray(state.pool) ? state.pool : [];
-        if (_drawPrevPlayer && _drawTurnStartPool !== null) {
-          const nowUidSet = new Set(poolNow.map(e => Number(e.entry_uid)));
-          const drawnFromPool = _drawTurnStartPool.filter(e => !nowUidSet.has(Number(e.entry_uid)));
-          const deckCount = Math.max(0, 2 - drawnFromPool.length);
-          // Find newly played ocean card for the previous player
-          const prevBoardUids = _drawTurnStartBoards[_drawPrevPlayer] || new Set();
-          const prevPlayerNow = players.find(p => p.name === _drawPrevPlayer);
-          const prevBoardNow = Array.isArray(prevPlayerNow?.board) ? prevPlayerNow.board : [];
-          const newOceans = prevBoardNow.filter(o => !prevBoardUids.has(Number(o.ocean_uid)));
-          const playedOceanName = newOceans.length > 0 ? (newOceans[0].ocean?.name || null) : null;
-          if (drawnFromPool.length > 0 || deckCount > 0 || playedOceanName) {
-            showDrawNotif(_drawPrevPlayer, drawnFromPool, deckCount, playedOceanName);
+        // Turn-change notification: show what the PREVIOUS player did.
+        // Primary source: turn_summaries[].actions from the server (authoritative,
+        // includes both faces of every two-sided card, works for bots and humans).
+        if (_drawPrevPlayer) {
+          const summaries = Array.isArray(payload.turn_summaries) ? payload.turn_summaries : [];
+          // Find the most recent summary for the player who just finished.
+          const prevSummary = [...summaries].reverse().find(s => s.player === _drawPrevPlayer);
+          const serverActions = prevSummary?.actions;
+          if (Array.isArray(serverActions) && serverActions.length > 0) {
+            showTurnActionsNotif(_drawPrevPlayer, serverActions);
+          } else {
+            // Fallback: diff-based approach for backwards compatibility with older server.
+            const poolNow = Array.isArray(state.pool) ? state.pool : [];
+            const nowUidSet = new Set(poolNow.map(e => Number(e.entry_uid)));
+            const drawnFromPool = (_drawTurnStartPool || []).filter(e => !nowUidSet.has(Number(e.entry_uid)));
+            const deckCount = Math.max(0, 2 - drawnFromPool.length);
+            const prevBoardUids = _drawTurnStartBoards[_drawPrevPlayer] || new Set();
+            const prevPlayerNow = players.find(p => p.name === _drawPrevPlayer);
+            const prevBoardNow = Array.isArray(prevPlayerNow?.board) ? prevPlayerNow.board : [];
+            const newOceans = prevBoardNow.filter(o => !prevBoardUids.has(Number(o.ocean_uid)));
+            const playedOceanName = newOceans.length > 0 ? (newOceans[0].ocean?.name || null) : null;
+            if (drawnFromPool.length > 0 || deckCount > 0 || playedOceanName) {
+              showDrawNotif(_drawPrevPlayer, drawnFromPool, deckCount, playedOceanName);
+            }
           }
         }
+        const poolNow = Array.isArray(state.pool) ? state.pool : [];
         _drawTurnStartPool = [...poolNow];
-        // Snapshot each player's board oceans for next turn's diff
+        // Snapshot each player's board oceans for fallback diff
         _drawTurnStartBoards = {};
         players.forEach(p => {
           _drawTurnStartBoards[p.name] = new Set(
@@ -15833,6 +15844,53 @@
       el.classList.remove("visible");
       _drawNotifTimer = setTimeout(() => { el.classList.remove("hiding"); _drawNotifTimer = null; }, 420);
     }, 5000);
+  }
+
+  // Show a turn notification built from the server's authoritative action list.
+  // Each entry in `actions` is a plain string like
+  //   "Drew Emperor Penguin / Sea Urchin from pool"
+  //   "Played Manta Ray / Green Sea Turtle → Great Barrier Reef"
+  // Both sides of every two-sided card are already in the string.
+  function showTurnActionsNotif(playerName, actions) {
+    const el = document.getElementById("draw-notif");
+    if (!el) return;
+    const lines = actions.filter(Boolean);
+    if (!lines.length) return;
+
+    const nameEl = document.getElementById("dn-name");
+    if (nameEl) nameEl.textContent = playerName;
+
+    const actionEl = document.getElementById("dn-action");
+    if (actionEl) {
+      actionEl.innerHTML = lines
+        .map(l => `<span class="dn-cards">${l.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</span>`)
+        .join("<br>");
+    }
+
+    // Avatar (same logic as showDrawNotif)
+    const avatarWrap = document.getElementById("dn-avatar-wrap");
+    const avatarImg  = document.getElementById("dn-avatar-img");
+    const avatarLetter = document.getElementById("dn-avatar-letter");
+    if (avatarWrap && avatarImg && avatarLetter) {
+      const isMine = latestPayload?.viewer?.name === playerName;
+      let avatarSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(playerName) : "/avatars/mullet.png";
+      try { if (isMine && typeof window.__fishMyAvatarUrl === "function") { const m = String(window.__fishMyAvatarUrl() || ""); if (m) avatarSrc = m; } } catch (_) {}
+      avatarImg.src = avatarSrc; avatarImg.alt = playerName;
+      avatarImg.style.display = "block"; avatarLetter.style.display = "none";
+      if (!isMine && typeof window.__fishAvatarForNick === "function") {
+        window.__fishAvatarForNick(playerName).then(url => { if (url && avatarImg.isConnected) avatarImg.src = url; }).catch(() => {});
+      }
+      avatarImg.onerror = () => { avatarImg.style.display = "none"; avatarLetter.style.display = ""; avatarLetter.textContent = playerName.charAt(0).toUpperCase(); };
+    }
+
+    el.classList.remove("hiding", "visible");
+    void el.offsetWidth;
+    el.classList.add("visible");
+    if (_drawNotifTimer) clearTimeout(_drawNotifTimer);
+    _drawNotifTimer = setTimeout(() => {
+      el.classList.add("hiding"); el.classList.remove("visible");
+      _drawNotifTimer = setTimeout(() => { el.classList.remove("hiding"); _drawNotifTimer = null; }, 420);
+    }, 6000);
   }
 
   function renderLog(logTail) {

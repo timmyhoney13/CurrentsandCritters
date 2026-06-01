@@ -657,6 +657,9 @@ class GameRoom:
         self.log_events: List[str] = []
         self.turn_summaries: List[Dict[str, Any]] = []
         self._last_turn_scores: Dict[str, int] = {}
+        # Accumulates human-readable action descriptions for the current turn,
+        # keyed by player name.  Flushed into turn_summaries at turn_end.
+        self._current_turn_descs: Dict[str, List[str]] = {}
 
         self.training_events: List[str] = []
         self.training_snapshots: List[Dict[str, Any]] = []
@@ -1665,6 +1668,7 @@ class GameRoom:
         self.status_note = status_note
         self.log_events = []
         self.turn_summaries = []
+        self._current_turn_descs = {}
         self.training_events = []
         self.training_snapshots = []
         self.final_scores = []
@@ -2051,6 +2055,83 @@ class GameRoom:
             return cost_to_pay, False, ""
         return cost_to_pay, True, sym
 
+    @staticmethod
+    def _entry_display_name(gs: Any, ms: Any, entry_uid: int) -> str:
+        """Return a display string for a pool/hand entry showing BOTH face names."""
+        try:
+            faces = fish.entry_faces(ms, int(entry_uid))
+            names = []
+            for fuid in faces:
+                c = gs.card_db.get(int(fuid))
+                if c and getattr(c, "name", ""):
+                    names.append(c.name)
+            if names:
+                return " / ".join(names)
+        except Exception:
+            pass
+        return "a card"
+
+    @staticmethod
+    def _ocean_name(gs: Any, ocean_uid: int) -> str:
+        try:
+            c = gs.card_db.get(int(ocean_uid))
+            if c and getattr(c, "name", ""):
+                return c.name
+        except Exception:
+            pass
+        return "an ocean"
+
+    @classmethod
+    def _describe_action(cls, gs: Any, ms: Any, action: Any) -> str:
+        """Build one human-readable line describing what an action did."""
+        kind = str(getattr(action, "kind", ""))
+        card_uid = getattr(action, "card_uid", None)
+        ocean_uid = getattr(action, "ocean_uid", None)
+        draw_from_pool = int(getattr(action, "draw_from_pool", 0))
+        src_ocean = getattr(action, "source_ocean_uid", None)
+
+        if kind == "draw":
+            if draw_from_pool and card_uid is not None:
+                return f"Drew {cls._entry_display_name(gs, ms, card_uid)} from pool"
+            return "Drew 1 card from deck"
+
+        if kind == "play_ocean" and card_uid is not None:
+            return f"Played ocean: {cls._entry_display_name(gs, ms, card_uid)}"
+
+        if kind == "play_to_ocean" and card_uid is not None:
+            card_desc = cls._entry_display_name(gs, ms, card_uid)
+            if ocean_uid is not None:
+                return f"Played {card_desc} → {cls._ocean_name(gs, ocean_uid)}"
+            return f"Played {card_desc}"
+
+        if kind == "discard_to_pool" and card_uid is not None:
+            return f"Discarded {cls._entry_display_name(gs, ms, card_uid)} to pool"
+
+        if kind == "discard_batch_to_pool":
+            uids = list(getattr(action, "pool_pick_uids", []) or [])
+            if uids:
+                names = [cls._entry_display_name(gs, ms, u) for u in uids[:4]]
+                return "Discarded to pool: " + ", ".join(names)
+            return "Discarded cards to pool"
+
+        if kind == "move_card" and card_uid is not None:
+            card_desc = cls._entry_display_name(gs, ms, card_uid)
+            if ocean_uid is not None and src_ocean is not None:
+                return f"Moved {card_desc}: {cls._ocean_name(gs, src_ocean)} → {cls._ocean_name(gs, ocean_uid)}"
+            return f"Moved {card_desc}"
+
+        if kind == "end_turn":
+            return ""  # don't clutter the log with end_turn
+
+        return ""
+
+    def _append_turn_desc(self, player_name: str, desc: str) -> None:
+        if not desc:
+            return
+        with self.cond:
+            parts = self._current_turn_descs.setdefault(player_name, [])
+            parts.append(desc)
+
     def _record_event(self, msg: str) -> None:
         with self.cond:
             self.log_events.append(msg)
@@ -2198,12 +2279,16 @@ class GameRoom:
                 name: int(score - self._last_turn_scores.get(name, score))
                 for name, score in scores_now.items()
             }
+            # Collect and flush the action descriptions accumulated this turn.
+            turn_actions: List[str] = list(self._current_turn_descs.get(ended_player, []))
+            self._current_turn_descs.pop(ended_player, None)
             summary = {
                 "turn_number": int(turn_number),
                 "player": ended_player,
                 "score_deltas": deltas,
                 "pool_count": len(ms.pool),
                 "ocean_counts": {p.name: len(p.board_oceans) for p in gs.players},
+                "actions": turn_actions,
             }
             self._last_turn_scores = scores_now
 
@@ -3652,13 +3737,17 @@ class RoomLiveRecorder:
         action: fish.Action,
         turn_number: int,
     ) -> None:
-        _ = gs, ms
         self.room.record_executed_action(
             seat_index=int(seat_index),
             player_name=player_name,
             action=action,
             turn_number=int(turn_number),
         )
+        try:
+            desc = GameRoom._describe_action(gs, ms, action)
+            self.room._append_turn_desc(player_name, desc)
+        except Exception:
+            pass
 
     def snapshot(self, gs: fish.GameState, ms: fish.MatchState, turn_number: int, note: str) -> None:
         try:
