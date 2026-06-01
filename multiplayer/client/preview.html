@@ -8596,14 +8596,16 @@
           </div>
         </div>
 
-        <!-- Mode toggle: Casual / Competitive -->
+        <!-- Mode toggle -->
         <div class="ph-lb-mode-row">
-          <button class="ph-lb-mode-btn active" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
+          <button class="ph-lb-mode-btn active" id="ph-lb-xp-btn" onclick="phLbSwitchMode('xp')">⭐ XP</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
           <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-wins-btn" onclick="phLbSwitchMode('wins')">🏆 Most Wins</button>
         </div>
 
         <!-- ── CASUAL SECTION ──────────────────────────────── -->
-        <div id="ph-lb-casual-section">
+        <div id="ph-lb-casual-section" style="display:none;">
           <!-- Size filter -->
           <div class="ph-lb-size-row">
             <span class="ph-lb-size-lbl">Size</span>
@@ -8638,6 +8640,61 @@
               </thead>
               <tbody id="ph-lb-casual-tbody">
                 <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── XP LEADERBOARD SECTION ───────────────────────── -->
+        <div id="ph-lb-xp-section">
+          <div class="ph-lb-summary" id="ph-lb-xp-summary" style="display:none;">
+            <div class="ph-lb-sum-rank" id="ph-lb-xp-rank">—</div>
+            <div class="ph-lb-sum-body">
+              <div class="ph-lb-sum-title">Your XP Rank</div>
+              <div class="ph-lb-sum-vals" id="ph-lb-xp-sum-vals"></div>
+            </div>
+          </div>
+          <div class="ph-lb-table-wrap ph-lb-scroll" style="margin:10px 0 0;">
+            <table class="ph-lb-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Level</th>
+                  <th>Total XP</th>
+                  <th>Games</th>
+                </tr>
+              </thead>
+              <tbody id="ph-lb-xp-tbody">
+                <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── MOST WINS SECTION ──────────────────────────── -->
+        <div id="ph-lb-wins-section" style="display:none;">
+          <div class="ph-lb-summary" id="ph-lb-wins-summary" style="display:none;">
+            <div class="ph-lb-sum-rank" id="ph-lb-wins-rank">—</div>
+            <div class="ph-lb-sum-body">
+              <div class="ph-lb-sum-title">Your Wins Rank</div>
+              <div class="ph-lb-sum-vals" id="ph-lb-wins-sum-vals"></div>
+            </div>
+          </div>
+          <div class="ph-lb-table-wrap ph-lb-scroll" style="margin:10px 0 0;">
+            <table class="ph-lb-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Total Wins</th>
+                  <th>Win %</th>
+                  <th>Games</th>
+                  <th>Strategy</th>
+                </tr>
+              </thead>
+              <tbody id="ph-lb-wins-tbody">
+                <tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -20257,7 +20314,7 @@
     }
 
     // ── In-game Leaderboard panel ─────────────────────────────────
-    let _phLbMode     = "casual";
+    let _phLbMode     = "xp";    // XP leaderboard is shown first
     let _phLbSize     = "all";
     let _phLbCompTab  = "cp";
 
@@ -20305,12 +20362,13 @@
     /* ── mode / tab switches ── */
     window.phLbSwitchMode = function(mode) {
       _phLbMode = mode;
-      ["casual","comp"].forEach(m => {
-        const btn = $a(`ph-lb-${m}-btn`);
-        const sec = $a(`ph-lb-${m==="casual"?"casual":"comp"}-section`);
-        const isActive = (m==="casual" ? mode==="casual" : mode==="competitive");
-        if (btn) btn.classList.toggle("active", isActive);
-        if (sec) sec.style.display = isActive ? "" : "none";
+      const sectionMap = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins" };
+      const btnMap     = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins" };
+      Object.entries(sectionMap).forEach(([m, sec]) => {
+        const btn = $a(`ph-lb-${btnMap[m]}-btn`);
+        const el  = $a(`ph-lb-${sec}-section`);
+        if (btn) btn.classList.toggle("active", m === mode);
+        if (el)  el.style.display = m === mode ? "" : "none";
       });
       renderPhLeaderboard();
     };
@@ -20336,12 +20394,145 @@
     /* ── main render ── */
     async function renderPhLeaderboard() {
       if (!_db) return;
-      if (_phLbMode === "casual") {
-        await _phLbRenderCasual();
-      } else {
-        if (_phLbCompTab === "cp")       await _phLbRenderCp();
+      if      (_phLbMode === "xp")           await _phLbRenderXp();
+      else if (_phLbMode === "casual")       await _phLbRenderCasual();
+      else if (_phLbMode === "wins")         await _phLbRenderWins();
+      else {
+        if      (_phLbCompTab === "cp")       await _phLbRenderCp();
         else if (_phLbCompTab === "single")   await _phLbRenderSingle();
         else if (_phLbCompTab === "combined") await _phLbRenderCombined();
+      }
+    }
+
+    async function _phLbRenderXp() {
+      const tbody = $a("ph-lb-xp-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        // Fetch by total_xp; fall back to level for accounts that only have level stored.
+        // Fetch extra to filter out blank/guest accounts (no nickname or 0 XP).
+        const snap = await _db.collection("users").orderBy("stats.total_xp","desc").limit(50).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const stats = d.stats || {};
+          const nick  = String(d.nickname || "").trim();
+          if (!nick || nick.toLowerCase() === "player") return;  // skip blank/guest
+          const totalXp = Number(stats.total_xp || 0);
+          if (totalXp <= 0) return;
+          const lvl   = Number(stats.level || stats.player_level || 1);
+          const games = Number(stats.completed_games || 0);
+          shown++;
+          const isMe = !!(_authUser && doc.id === _authUser.uid);
+          rows.push({ shown, isMe, lvl, totalXp, games, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, lvl, totalXp, games }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No XP data yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-xp-summary","ph-lb-xp-rank","ph-lb-xp-sum-vals",false);
+          return;
+        }
+        // Sort: highest level first, then highest XP as tiebreaker.
+        rows.sort((a,b) => b.lvl !== a.lvl ? b.lvl - a.lvl : b.totalXp - a.totalXp);
+        // Re-assign ranks and find my rank after sort (handles ties correctly — same rank for same level+XP).
+        let rank = 0, prevLvl = -1, prevXp = -1;
+        rows.forEach(r => {
+          if (r.lvl !== prevLvl || r.totalXp !== prevXp) { rank = r.shown; prevLvl = r.lvl; prevXp = r.totalXp; }
+          r.rank = rank;
+          if (r.isMe) { myRank = rank; myRow = { rank, lvl: r.lvl, totalXp: r.totalXp, games: r.games }; }
+        });
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="${sc.trim()}">${escHtmlPH("Lv. " + r.lvl)}</td>
+            <td class="ph-lb-score-cell">${r.totalXp.toLocaleString()} XP</td>
+            <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Level</span> ${myRow.lvl}</div>
+            <div class="ph-lb-sum-val"><span>Total XP</span> ${myRow.totalXp.toLocaleString()} XP</div>
+            <div class="ph-lb-sum-val"><span>Games</span> ${myRow.games.toLocaleString()}</div>`;
+          phLbSetSumCard("ph-lb-xp-summary","ph-lb-xp-rank","ph-lb-xp-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-xp-summary","ph-lb-xp-rank","ph-lb-xp-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load XP leaderboard.</td></tr>`;
+      }
+    }
+
+    async function _phLbRenderWins() {
+      const tbody = $a("ph-lb-wins-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        // Fetch broadly by normal_wins; we'll add comp wins client-side and re-sort.
+        const snap = await _db.collection("users").orderBy("stats.normal_wins","desc").limit(75).get();
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const stats = d.stats || {};
+          const nick  = String(d.nickname || "").trim();
+          if (!nick || nick.toLowerCase() === "player") return;
+          const casualWins = Number(stats.normal_wins || 0);
+          const compWins   = Number(stats.competitive_wins || 0);
+          const totalWins  = casualWins + compWins;
+          if (totalWins <= 0) return;
+          const games    = Number(stats.completed_games || 0);
+          const winPct   = games > 0 ? Math.round((totalWins / games) * 100) : 0;
+          const strat    = escHtmlPH(stats.most_played_strategy || stats.favorite_strategy || "—");
+          shown++;
+          const isMe = !!(_authUser && doc.id === _authUser.uid);
+          rows.push({ shown, isMe, totalWins, casualWins, compWins, games, winPct, strat, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, totalWins, casualWins, compWins, games, winPct, strat }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">No win data yet.</td></tr>`;
+          phLbSetSumCard("ph-lb-wins-summary","ph-lb-wins-rank","ph-lb-wins-sum-vals",false);
+          return;
+        }
+        rows.sort((a,b) => b.totalWins - a.totalWins);
+        // Assign tied ranks.
+        let rank = 0, prevWins = -1;
+        rows.forEach((r,i) => {
+          if (r.totalWins !== prevWins) { rank = i + 1; prevWins = r.totalWins; }
+          r.rank = rank;
+          if (r.isMe) { myRank = rank; myRow = { rank, totalWins: r.totalWins, casualWins: r.casualWins, compWins: r.compWins, games: r.games, winPct: r.winPct, strat: r.strat }; }
+        });
+        // Show only top 25 after sort.
+        rows = rows.slice(0, 25);
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="${sc.trim()}">${r.totalWins.toLocaleString()}</td>
+            <td class="ph-lb-meta-cell">${r.winPct}%</td>
+            <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
+            <td class="ph-lb-meta-cell">${r.strat}</td>
+          </tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Total Wins</span> ${myRow.totalWins.toLocaleString()}</div>
+            <div class="ph-lb-sum-val"><span>Casual</span> ${myRow.casualWins.toLocaleString()} · <span>Comp</span> ${myRow.compWins.toLocaleString()}</div>
+            <div class="ph-lb-sum-val"><span>Win Rate</span> ${myRow.winPct}%</div>
+            <div class="ph-lb-sum-val"><span>Games</span> ${myRow.games.toLocaleString()}</div>
+            <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
+          phLbSetSumCard("ph-lb-wins-summary","ph-lb-wins-rank","ph-lb-wins-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-wins-summary","ph-lb-wins-rank","ph-lb-wins-sum-vals",false);
+        }
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Could not load wins leaderboard.</td></tr>`;
       }
     }
 
