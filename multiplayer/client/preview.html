@@ -18930,6 +18930,33 @@
           : { profile: null, reason: "notfound" };
       } catch { return { profile: null, reason: "error" }; }
     }
+    // Full sign-in lookup: tries UID first, then email, so existing accounts are never
+    // mistaken for new ones even if the UID mapping is missing or changed.
+    async function loadProfileWithFallbacks(user) {
+      if (!_db || !user) return { profile: null, reason: "error" };
+      // 1. Fast path — UID lookup
+      let result = await loadProfileWithReason(user.uid);
+      if (result.reason !== "notfound") return result; // ok or error
+      // 2. Email fallback — catches cases where account exists under a different UID
+      //    or the UID→doc link is missing (e.g. after account migration).
+      const email = (user.email || "").trim();
+      if (email) {
+        try {
+          const snap = await _db.collection("users").where("email", "==", email).limit(1).get();
+          if (!snap.empty) {
+            const doc = snap.docs[0];
+            const profileData = doc.data();
+            // Re-link this profile to the current Google UID so future UID lookups work.
+            try {
+              await _db.collection("users").doc(user.uid).set(profileData, { merge: true });
+            } catch {}
+            return { profile: { uid: user.uid, ...profileData }, reason: "ok" };
+          }
+        } catch {}
+      }
+      // 3. Truly not found anywhere — new account.
+      return { profile: null, reason: "notfound" };
+    }
 
     async function saveNewProfile(uid, nickname, email, avatarUrl) {
       if (!_db) return "";
@@ -19742,13 +19769,24 @@
       if (!_authUser || _authUser.uid !== expectedUid) return;
       const loadSeq = ++_statsLoadSeq;
       let profile = await loadProfile(uid);
-      if (_authUser && _db && (!profile || !profile.stats || typeof profile.stats !== "object")) {
+      // SAFETY: Only write defaultGuestStats if the Firestore doc truly does not exist.
+      // Never overwrite stats on a transient load error — that was the primary data-loss bug.
+      if (_authUser && _db && !profile) {
+        try {
+          const { reason } = await loadProfileWithReason(uid);
+          if (reason === "notfound") {
+            // Doc doesn't exist yet — safe to initialise (brand new sign-in, no stats to lose).
+            await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
+            profile = await loadProfile(uid);
+          }
+          // reason === "error": leave profile null — don't touch Firestore.
+        } catch {}
+      } else if (_authUser && _db && profile && (!profile.stats || typeof profile.stats !== "object")) {
+        // Profile exists but stats field is missing/corrupt — patch only the missing field.
         try {
           await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
           profile = await loadProfile(uid);
-        } catch {
-          // best-effort initialization
-        }
+        } catch {}
       }
       if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
       _activeProfile = profile || null;
@@ -20377,13 +20415,13 @@
           _activeProfile = null;
           startHoursTimer(user.uid);
 
-          // Load profile — retry once on error to handle transient Firestore failures.
-          // Only send new users to the nickname screen if the doc truly doesn't exist.
-          let { profile, reason } = await loadProfileWithReason(user.uid);
+          // Load profile: tries UID, then email fallback, then retries on error.
+          // Only sends to nickname screen if the account truly does not exist anywhere.
+          let { profile, reason } = await loadProfileWithFallbacks(user);
           if (reason === "error") {
             await new Promise(r => setTimeout(r, 1500));
             if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
-            ({ profile, reason } = await loadProfileWithReason(user.uid));
+            ({ profile, reason } = await loadProfileWithFallbacks(user));
           }
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
 
