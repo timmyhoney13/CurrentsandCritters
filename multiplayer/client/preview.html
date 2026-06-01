@@ -18922,39 +18922,78 @@
     }
     // Like loadProfile but tells callers WHY it returned null: "notfound" vs "error".
     async function loadProfileWithReason(uid) {
-      if (!_db) return { profile: null, reason: "error" };
+      if (!_db) { console.warn("[auth] _db is null — Firebase not initialized"); return { profile: null, reason: "error" }; }
       try {
         const snap = await _db.collection("users").doc(uid).get();
-        return snap.exists
+        const found = snap.exists;
+        console.log(`[auth] UID lookup ${uid}: ${found ? "FOUND" : "not found"}`);
+        return found
           ? { profile: { uid, ...snap.data() }, reason: "ok" }
           : { profile: null, reason: "notfound" };
-      } catch { return { profile: null, reason: "error" }; }
+      } catch(e) {
+        console.warn("[auth] UID lookup threw:", e && e.message);
+        return { profile: null, reason: "error" };
+      }
     }
-    // Full sign-in lookup: tries UID first, then email, so existing accounts are never
-    // mistaken for new ones even if the UID mapping is missing or changed.
+    // Full sign-in lookup: UID → email → nickname; logs every step.
+    // Returns reason "ok" | "notfound" | "error".
+    // "notfound" = confirmed the account does not exist anywhere.
+    // "error"    = Firestore unavailable; do NOT create a new account.
     async function loadProfileWithFallbacks(user) {
-      if (!_db || !user) return { profile: null, reason: "error" };
-      // 1. Fast path — UID lookup
+      if (!_db || !user) {
+        console.warn("[auth] loadProfileWithFallbacks: _db or user missing");
+        return { profile: null, reason: "error" };
+      }
+      console.log(`[auth] Looking up Google UID=${user.uid} email=${user.email} displayName=${user.displayName}`);
+
+      // 1. UID-based lookup (fast path)
       let result = await loadProfileWithReason(user.uid);
-      if (result.reason !== "notfound") return result; // ok or error
-      // 2. Email fallback — catches cases where account exists under a different UID
-      //    or the UID→doc link is missing (e.g. after account migration).
+      if (result.reason === "ok")    { console.log("[auth] Found by UID →", result.profile.nickname); return result; }
+      if (result.reason === "error") { console.warn("[auth] UID lookup error — will retry"); return result; }
+
+      // 2. Email-based lookup (catches UID mismatches / account migrations)
       const email = (user.email || "").trim();
       if (email) {
+        console.log(`[auth] UID not found — trying email query: ${email}`);
         try {
           const snap = await _db.collection("users").where("email", "==", email).limit(1).get();
           if (!snap.empty) {
             const doc = snap.docs[0];
             const profileData = doc.data();
-            // Re-link this profile to the current Google UID so future UID lookups work.
+            console.log(`[auth] Found by email → nickname=${profileData.nickname} docId=${doc.id}`);
+            // Re-link: write the found profile to the current UID doc so future UID lookups work
             try {
               await _db.collection("users").doc(user.uid).set(profileData, { merge: true });
-            } catch {}
+              console.log(`[auth] Re-linked profile to UID ${user.uid}`);
+            } catch(linkErr) { console.warn("[auth] Re-link write failed (non-fatal):", linkErr && linkErr.message); }
             return { profile: { uid: user.uid, ...profileData }, reason: "ok" };
+          } else {
+            console.log("[auth] Email query returned no docs");
           }
-        } catch {}
+        } catch(e) { console.warn("[auth] Email query threw:", e && e.message); }
       }
-      // 3. Truly not found anywhere — new account.
+
+      // 3. Nickname-based lookup using Google display name (last resort)
+      const hint = (user.displayName || "").trim();
+      if (hint) {
+        console.log(`[auth] Trying nickname lookup: ${hint}`);
+        try {
+          const nickSnap = await _db.collection("users")
+            .where("nickname_lower", "==", hint.toLowerCase()).limit(3).get();
+          if (!nickSnap.empty) {
+            // Among matches, prefer one whose email matches
+            const matching = nickSnap.docs.find(d => d.data().email === email) || nickSnap.docs[0];
+            const profileData = matching.data();
+            console.log(`[auth] Found by nickname → nickname=${profileData.nickname} docId=${matching.id}`);
+            try { await _db.collection("users").doc(user.uid).set(profileData, { merge: true }); } catch {}
+            return { profile: { uid: user.uid, ...profileData }, reason: "ok" };
+          } else {
+            console.log("[auth] Nickname query returned no docs");
+          }
+        } catch(e) { console.warn("[auth] Nickname query threw:", e && e.message); }
+      }
+
+      console.log("[auth] All lookups exhausted — treating as new account (notfound)");
       return { profile: null, reason: "notfound" };
     }
 
@@ -20415,15 +20454,29 @@
           _activeProfile = null;
           startHoursTimer(user.uid);
 
-          // Load profile: tries UID, then email fallback, then retries on error.
-          // Only sends to nickname screen if the account truly does not exist anywhere.
+          // Load profile: tries UID → email → nickname, then retries on error.
+          // NEVER creates a new account or shows a wrong name on any error.
           let { profile, reason } = await loadProfileWithFallbacks(user);
-          if (reason === "error") {
-            await new Promise(r => setTimeout(r, 1500));
+          // Retry up to 3 times with backoff if Firestore is temporarily unavailable
+          for (let attempt = 1; reason === "error" && attempt <= 3; attempt++) {
+            const delay = attempt * 1500;
+            console.log(`[auth] Retry ${attempt}/3 in ${delay}ms…`);
+            await new Promise(r => setTimeout(r, delay));
             if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
             ({ profile, reason } = await loadProfileWithFallbacks(user));
           }
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
+
+          // Firestore still unreachable after 3 retries — show a recoverable error.
+          // Do NOT create a "Player" profile. Do NOT overwrite anything.
+          if (reason === "error") {
+            console.error("[auth] Firestore unavailable after 3 retries — showing retry screen");
+            $a("auth-loading-screen").classList.add("hidden");
+            showStep("auth-step-choose");
+            setAuthMsg("auth-choose-err",
+              "Could not load your profile. Please check your connection and try signing in again.", false);
+            return;
+          }
 
           _activeProfile = profile || null;
           // Load unlocked animal icons before judging avatar validity.
@@ -20433,16 +20486,6 @@
           // One-time achievement system v2 reset (clears old unlocks + XP).
           try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
           $a("auth-loading-screen").classList.add("hidden");
-
-          // If the profile failed to load (even after retry), don't write anything
-          // to Firestore — just let the player in with their Google display name
-          // so they're never stranded. Their real profile loads on next sign-in.
-          if (reason === "error") {
-            _playerNickname = (user.displayName || "").split(" ")[0].slice(0, 15) || "Player";
-            _activeProfile = { uid: user.uid, nickname: _playerNickname, avatar_url: DEFAULT_AVATAR_IMG };
-            revealLobby(_playerNickname, "");
-            return;
-          }
 
           const hasNickname = hasStoredNickname(profile);
           const hasAvatar = hasStoredSelectableAvatar(profile);
