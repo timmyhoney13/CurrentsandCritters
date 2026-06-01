@@ -16513,7 +16513,7 @@
         || (nameCounts["lobster"]||0) >= 1
         || (nameCounts["mantis shrimp"]||0) >= 1)) return "Bird/Lobster (B-Lob)";
     if (pct("bird") >= 0.20 && pct("coral") >= 0.15) return "Bird/Coral (B-Coral)";
-    if (pct("bird") >= 0.35) return "Bird/Coral (B-Coral)";
+    if (pct("bird") >= 0.45) return "Birds";
     if (pct("baitfish") >= 0.35) return "Baitfish Barrage";
     if (pct("mammal") >= 0.45) return "Mammals";
     if ((nameCounts["yellowfin tuna"] || 0) >= 1) return "Yellowfin Tuna";
@@ -17991,19 +17991,19 @@
     // ── Birds ────────────────────────────────────────────────────
     { id:"emperor-penguin", name:"Emperor Penguin", species:"Birds", img:"/avatars/emperor-penguin.png",
       facts:"They can dive over 1,500 feet deep.",
-      unlock:{ type:"achievement", achId:"birds_of_a_feather", label:"Complete Birds of a Feather — win 15 games using only Bird cards." } },
+      unlock:{ type:"achievement", achId:"birds_of_a_feather", goal:15, label:"Win 15 games using only Bird cards (Birds of a Feather)." } },
     { id:"horned-puffin", name:"Horned Puffin", species:"Birds", img:"/avatars/horned-puffin.png",
       facts:"Puffins can hold multiple fish at once, averaging 10, but a record-breaking puffin once managed to carry 62.",
       unlock:{ type:"stat", stat:"lifetime_play_again", goal:75, unit:"Play Again abilities", label:"Use Play Again abilities 75 total times." } },
     { id:"california-gull", name:"California Gull", species:"Birds", img:"/avatars/california-gull.png",
       facts:"Young California Gulls practice catching food by dropping sticks midair and swooping down to catch them.",
-      unlock:{ type:"achievement", achId:"b_lob_master", label:"Complete B-Lob Master — win using Bird/Lobster 30 times." } },
+      unlock:{ type:"achievement", achId:"b_lob_master", goal:30, label:"Win 30 games using the Bird/Lobster (B-Lob) strategy." } },
     { id:"peruvian-pelican", name:"Peruvian Pelican", species:"Birds", img:"/avatars/peruvian-pelican.png",
       facts:"Their flexible throat pouch acts as a massive fishing net. It can hold several gallons of water at a time. Once a fish is caught, the pelican squeezes the water out and swallows its prey whole.",
       unlock:{ type:"stat", stat:"lifetime_deck_draws", goal:300, unit:"cards drawn from the deck", label:"Draw 300 total cards from the deck." } },
     { id:"great-albatross", name:"Great Albatross", species:"Birds", img:"/avatars/great-albatross.png",
       facts:"Possesses the largest wingspans of any living bird (up to 11 feet).",
-      unlock:{ type:"achievement", achId:"all_blue_master", label:"Complete All Blue Master — win using the Ocean-heavy strategy 30 times." } },
+      unlock:{ type:"achievement", achId:"all_blue_master", goal:30, label:"Win 30 games using the Ocean All Blue strategy." } },
     { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
       facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
       unlock:{ type:"event", event:"tutorial_complete", label:"Complete the tutorial." } },
@@ -18049,7 +18049,7 @@
     // ── Coral ────────────────────────────────────────────────────
     { id:"staghorn-coral", name:"Staghorn Coral", species:"Coral", img:"/avatars/staghorn-coral.png",
       facts:"Unlike most corals that grow at a snail's pace, staghorn coral branches can shoot up by 4 to 8 inches per year, making it the fastest-growing coral in the western Atlantic.",
-      unlock:{ type:"achievement", achId:"coral_b_master", label:"Complete Coral-B Master — win using Bird/Coral 30 times." } },
+      unlock:{ type:"achievement", achId:"coral_b_master", goal:30, label:"Win 30 games using the Bird/Coral (B-Coral) strategy." } },
     { id:"deep-sea-coral", name:"Deep Sea Coral", species:"Coral", img:"/avatars/deep-sea-coral.png",
       facts:"Deep-sea corals live in dark waters far below sunlight, so they cannot rely on algae for energy like shallow-water corals do. Instead, they survive by capturing tiny bits of food drifting through the deep ocean.",
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
@@ -18058,12 +18058,12 @@
       unlock:{ type:"event", event:"grooved_brain_squids", label:"In a 4+ player game, use two Grooved Brain Corals' ★ ability twice to play a Giant Squid and a Bobtail Squid." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
-      unlock:{ type:"achievement", achId:"reef_rally", label:"Complete Reef Rally — add 15 friends." } },
+      unlock:{ type:"achievement", achId:"reef_rally", goal:15, label:"Add 15 friends (Reef Rally)." } },
 
     // ── Mammals ──────────────────────────────────────────────────
     { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
       facts:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it.",
-      unlock:{ type:"achievement", achId:"mammal_pod_master", label:"Complete Mammal Pod Master — win using Mammals 30 times." } },
+      unlock:{ type:"achievement", achId:"mammal_pod_master", goal:30, label:"Win 30 games using the Mammals strategy." } },
     { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
       facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
       unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
@@ -18091,10 +18091,10 @@
     // ── Crosscurrent ─────────────────────────────────────────────
     { id:"cleaner-wrasse", name:"Cleaner Wrasse", species:"Crosscurrent", img:"/avatars/cleaner-wrasse.png",
       facts:"Cleaner wrasses are often called the \"doctors of the sea\" because they remove parasites from reef fish, sea turtles, and even sharks. They attract clients by wiggling or \"dancing\" at cleaning stations, while the fish stay still, spread their fins, and open their gills for cleaning.",
-      unlock:{ type:"achievement", achId:"off_meta_master", label:"Complete Off-Meta Master, win 30 games without using a listed strategy." } },
+      unlock:{ type:"achievement", achId:"off_meta_master", goal:30, label:"Win 30 games without using a listed strategy (Off-Meta Master)." } },
     { id:"mandarin-goby", name:"Mandarin Goby", species:"Crosscurrent", img:"/avatars/mandarin-goby.png",
       facts:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins).",
-      unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Complete Shoot the Moon and Shot the Moon in games with 3+ players." } },
+      unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Get all 4 Mandarin Gobies on your board in one game with 3+ players (Shoot the Moon)." } },
     { id:"loggerhead-sea-turtle", name:"Loggerhead Sea Turtle", species:"Crosscurrent", img:"/avatars/loggerhead-sea-turtle.png",
       facts:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles—sometimes up to 7,500 miles in the Pacific—to lay eggs on the exact same beach where they hatched decades earlier.",
       unlock:{ type:"event", event:"turtle_big_chains", label:"Play Loggerhead Sea Turtle twice in one game, play 10 cards during each Turtle turn/chain (including cards discarded to pay for it), and finish top 3." } },
@@ -18112,7 +18112,7 @@
       unlock:{ type:"level", goal:50, label:"Reach Level 50." } },
     { id:"reef-triggerfish", name:"Reef Triggerfish", species:"Crosscurrent", img:"/avatars/reef-triggerfish.png",
       facts:"The triggerfish gets its name from a unique defensive spine on its back. When threatened or sleeping, it wedges itself into a coral crevice and locks its primary spine upright using a smaller \"trigger\" spine, making it nearly impossible for predators to pull it out.",
-      unlock:{ type:"achievement", achId:"humuhumunukuapuaa", label:"Complete the Humuhumunukunukuāpuaʻa achievement." } },
+      unlock:{ type:"achievement", achId:"humuhumunukuapuaa", goal:1, label:"Play 5 Cephalopods in one turn (Humuhumunukunukuāpuaʻa)." } },
     { id:"whale-shark", name:"Whale Shark", species:"Crosscurrent", img:"/avatars/whale-shark.png",
       facts:"Whale sharks are the world's largest living fish, growing up to 40 feet or more and weighing up to 20 tons. Despite their intimidating name and massive mouths, these gentle ocean giants are harmless filter feeders that dine almost exclusively on tiny plankton and small fish.",
       unlock:{ type:"event", event:"all_whale_sharks", label:"Get all four Whale Sharks in one game." } },
@@ -18120,7 +18120,7 @@
     // ── Crustaceans ──────────────────────────────────────────────
     { id:"mantis-shrimp", name:"Mantis Shrimp", species:"Crustaceans", img:"/avatars/mantis-shrimp.png",
       facts:"Mantis Shrimp deliver a punch that accelerates at roughly 80 kilometers per hour, moving fifty times faster than the blink of an eye. Their strike is so forceful that it causes cavitation, a phenomenon where the surrounding water boils and implodes. This implosion generates a secondary shockwave that produces heat, light, and a loud bang.",
-      unlock:{ type:"achievement", achId:"quick_swim", label:"Complete Quick Swim, complete a 4-player game in under 30 minutes and win." } },
+      unlock:{ type:"achievement", achId:"quick_swim", goal:1, label:"Win a 4-player game in under 30 minutes (Quick Swim)." } },
     { id:"spiny-lobster", name:"Spiny Lobster", species:"Crustaceans", img:"/avatars/spiny-lobster.png",
       facts:"In the Florida Keys and other regions, they march across the ocean floor in single-file lines of up to 50 lobsters to find deeper water or warmer temperatures.",
       unlock:{ type:"rank", tier:"silver", label:"Reach Silver rank in Competitive." } },
@@ -18177,6 +18177,14 @@
     if (u.type === "comp_wins") return Math.min(1, Number(stats?.lifetime_comp_wins||0) / (u.goal||1));
     if (u.type === "stat")      return Math.min(1, Number(stats?.[u.stat]||0) / (u.goal||1));
     if (u.type === "rank")      return Math.min(1, rankTierValue(stats?.rank_competitive) / (_RANK_TIER_VALUE[u.tier]||1));
+    if (u.type === "achievement" && u.achId && u.goal) {
+      const achs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
+      const rec = achs[u.achId] || {};
+      if (rec.completed) return 1;
+      const cur = Number(rec.progress || 0);
+      return Math.min(1, cur / u.goal);
+    }
+    // Events and secrets: return null (no numeric progress bar — shown as "Complete the challenge")
     return null;
   }
   function animalProgressText(a, stats, level){
@@ -18185,6 +18193,15 @@
     if (u.type === "comp_wins") return `${Number(stats?.lifetime_comp_wins||0)} / ${u.goal} Competitive wins`;
     if (u.type === "stat")      return `${Number(stats?.[u.stat]||0)} / ${u.goal}${u.unit ? " " + u.unit : ""}`;
     if (u.type === "rank")      return `Current rank: ${stats?.rank_competitive || "Unranked"}`;
+    if (u.type === "achievement" && u.achId && u.goal) {
+      const achs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
+      const rec = achs[u.achId] || {};
+      if (rec.completed) return "✓ Achievement completed!";
+      const cur = Number(rec.progress || 0);
+      const goal = u.goal;
+      if (goal === 1) return cur > 0 ? "In progress — finish the challenge to unlock" : "Not yet achieved";
+      return `${cur} / ${goal} qualifying wins`;
+    }
     return "";
   }
 
