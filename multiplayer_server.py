@@ -3908,6 +3908,102 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             return
 
+    def _build_recovery_export(self) -> Dict[str, Any]:
+        """
+        Read every game-history JSON file and every competitive game file on disk,
+        compute per-player stats, and return a recovery payload that apply_recovery.js
+        can use to restore Firestore stats for accounts hit by the loadAndRenderStats bug.
+        """
+        player_stats: Dict[str, Any] = {}
+
+        def ensure(name: str) -> Dict[str, Any]:
+            if name not in player_stats:
+                player_stats[name] = {
+                    "nickname": name,
+                    "completed_games": 0,
+                    "normal_wins": 0,
+                    "competitive_wins": 0,
+                    "total_score": 0,
+                    "highest_score": 0,
+                    "highest_score_normal": 0,
+                    "highest_score_competitive": 0,
+                    "normal_games_by_size": {},
+                    "comp_games_by_size": {},
+                    "recent_games": [],
+                    "game_timestamps": [],
+                    "comp_cp": 0,
+                    "comp_wins": 0,
+                    "comp_losses": 0,
+                    "comp_draws": 0,
+                }
+            return player_stats[name]
+
+        # ── 1. Standard game history ──────────────────────────────────
+        try:
+            for fname in sorted(os.listdir(GAMES_HISTORY_DIR)):
+                if not fname.endswith(".json") or fname == "leaderboard.json":
+                    continue
+                try:
+                    with open(os.path.join(GAMES_HISTORY_DIR, fname), "r", encoding="utf-8") as f:
+                        rec = json.load(f)
+                except Exception:
+                    continue
+                mode = rec.get("mode", "standard")
+                is_comp = mode == "competitive"
+                pc = int(rec.get("player_count", 0))
+                winner = rec.get("winner")
+                ts = int(rec.get("recorded_unix", 0))
+                for p in rec.get("players", []):
+                    pname = p.get("name", "")
+                    if not pname or not p.get("is_human"):
+                        continue
+                    # Strip " 2" suffix used for second hands in competitive
+                    base_name = pname.rstrip(" ").rstrip("2").rstrip() if is_comp and pname.endswith(" 2") else pname
+                    ps = ensure(base_name)
+                    score = int(p.get("score", 0))
+                    ps["completed_games"] += 1
+                    ps["total_score"] += score
+                    ps["highest_score"] = max(ps["highest_score"], score)
+                    if not is_comp:
+                        ps["normal_wins"] += (1 if pname == winner else 0)
+                        ps["highest_score_normal"] = max(ps["highest_score_normal"], score)
+                        key = str(pc)
+                        ps["normal_games_by_size"][key] = ps["normal_games_by_size"].get(key, 0) + 1
+                    else:
+                        ps["competitive_wins"] += (1 if base_name == winner else 0)
+                        ps["highest_score_competitive"] = max(ps["highest_score_competitive"], score)
+                        key = str(pc)
+                        ps["comp_games_by_size"][key] = ps["comp_games_by_size"].get(key, 0) + 1
+                    if ts:
+                        ps["game_timestamps"].append(ts)
+                    # Keep up to 50 most recent game entries for recent_games
+                    ps["recent_games"].append({
+                        "ts": ts, "mode": mode, "score": score,
+                        "won": pname == winner, "players": pc,
+                    })
+        except Exception:
+            pass
+
+        # ── 2. Competitive leaderboard (CP) ───────────────────────────
+        try:
+            with open(COMPETITIVE_LEADERBOARD_PATH, "r", encoding="utf-8") as f:
+                lb = json.load(f)
+            for name, entry in lb.items():
+                ps = ensure(name)
+                ps["comp_cp"]     = int(entry.get("cp", 0))
+                ps["comp_wins"]   = int(entry.get("wins", 0))
+                ps["comp_losses"] = int(entry.get("losses", 0))
+                ps["comp_draws"]  = int(entry.get("draws", 0))
+        except Exception:
+            pass
+
+        # ── 3. Sort recent_games and trim to 50 ───────────────────────
+        for ps in player_stats.values():
+            ps["recent_games"] = sorted(ps["recent_games"], key=lambda g: g["ts"], reverse=True)[:50]
+            del ps["game_timestamps"]
+
+        return {"ok": True, "players": player_stats, "count": len(player_stats)}
+
     def _send_json(self, payload: Dict[str, Any], status: int = HTTPStatus.OK) -> None:
         raw = json_dumps(payload)
         try:
@@ -4379,6 +4475,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 pass
             games.sort(key=lambda g: g.get("recorded_unix", 0), reverse=True)
             self._send_json({"ok": True, "games": games[:100]})
+            return
+
+        if parsed.path == "/api/admin/recovery_export":
+            # Returns per-player stats rebuilt from every saved game history file
+            # and competitive leaderboard. Used by apply_recovery.js to restore
+            # Firestore stats for accounts affected by the loadAndRenderStats bug.
+            # Protected: requires ?admin_key= matching ADMIN_RECOVERY_KEY env var.
+            qs_r = parse_qs(parsed.query)
+            supplied_key = qs_r.get("admin_key", [None])[0] or ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or supplied_key != env_key:
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            self._send_json(self._build_recovery_export())
             return
 
         if parsed.path == "/api/rooms":
