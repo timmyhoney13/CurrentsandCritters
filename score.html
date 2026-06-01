@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Snap &amp; Score — Currents &amp; Critters</title>
+<title>Snap &amp; Score - Currents &amp; Critters</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
@@ -249,7 +249,7 @@
   <div class="score-head">
     <span class="eyebrow">📸 Snap &amp; Score · Instant Scoring</span>
     <h1>Score your hand from a photo.</h1>
-    <p>Take a picture of your cards on the table, drop it in below, and we'll identify every critter, ocean, and synergy — then total your score in seconds.</p>
+    <p>Take a picture of your cards on the table, drop it in below, and we'll identify every critter, ocean, and synergy - then total your score in seconds.</p>
   </div>
 
   <div class="stage">
@@ -321,7 +321,7 @@
 
 <script>
 // =============================================================
-// CARD DATABASE — small representative set
+// CARD DATABASE - small representative set
 // (User said they'd paste a full card list; this seeds the demo.)
 // =============================================================
 const CARD_DB = [
@@ -440,7 +440,7 @@ drop.addEventListener('click', e => {
 pickBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
 demoBtn.addEventListener('click', e => {
   e.stopPropagation();
-  // Use the demo card images as a "photo" — random 4
+  // Use the demo card images as a "photo" - random 4
   const demoIds = ['spinner-dolphin', 'puffin', 'octopus', 'staghorn-coral', 'mahi-mahi'];
   const r = scoreHand(demoIds);
   setPreviewFromDemo();
@@ -534,7 +534,7 @@ async function handleFile(file) {
     return;
   }
   if (file.size > 4 * 1024 * 1024) {
-    renderError('Image is over 4 MB — please use a smaller file.');
+    renderError('Image is over 4 MB - please use a smaller file.');
     return;
   }
 
