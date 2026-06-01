@@ -16737,6 +16737,16 @@
         if (!isComp && myIdx === 0) {
           updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
         }
+        // ── Balanced (player-count-fair) average score for the Overall leaderboard ──
+        // Raw scores skew high in 2P (one shared deck/pool split among fewer players)
+        // and low in 8P. We rescale each casual game by playerCount/4 so every size is
+        // comparable, then store a running average. Computed for casual games only.
+        if (!isComp && playerCount >= 2 && playerCount <= 10) {
+          const bal = computeBalancedUpdate(cStats, myScore, playerCount);
+          updates["stats.balanced_score_sum"] = bal.sum;
+          updates["stats.balanced_games"]     = bal.games;
+          updates["stats.balanced_avg_score"] = bal.avg;
+        }
         await docRef.update(updates);
         // Check game-end achievements for authenticated users
         if (typeof window.__fishCheckAchievementsAfterGame === "function") {
@@ -16791,6 +16801,15 @@
           nextStats.highest_score_normal = Math.max(Number(nextStats.highest_score_normal || 0), myScore);
         }
         nextStats.highest_score = Math.max(Number(nextStats.highest_score || 0), myScore);
+
+        // Balanced (player-count-fair) average — computed BEFORE the per-size
+        // maps below are mutated, so first-time seeding from history is correct.
+        if (!isComp && playerCount >= 2 && playerCount <= 10) {
+          const bal = computeBalancedUpdate(nextStats, myScore, playerCount);
+          nextStats.balanced_score_sum = bal.sum;
+          nextStats.balanced_games     = bal.games;
+          nextStats.balanced_avg_score = bal.avg;
+        }
 
         if (playerCount >= 2 && playerCount <= 10) {
           const pKey = `highest_score_${playerCount}p`;
@@ -18389,6 +18408,52 @@
         hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
       }
       return Math.abs(hash);
+    }
+
+    // Balanced-score anchor: a 4-player game is the reference, so a raw score is
+    // scaled by playerCount/4. 2P scores scale down, 8P scores scale up, making
+    // the Overall leaderboard fair across table sizes.
+    const BALANCED_ANCHOR = 4;
+    // Returns the updated { sum, games, avg } for a player's balanced-score average
+    // after one casual game. Back-fills the running totals from existing per-size
+    // history the first time (so every player's average is retroactively correct).
+    function computeBalancedUpdate(stats, gameScore, playerCount) {
+      const s = stats && typeof stats === "object" ? stats : {};
+      let sum = Number(s.balanced_score_sum);
+      let games = Number(s.balanced_games);
+      if (!Number.isFinite(sum) || !Number.isFinite(games) || games <= 0) {
+        // Retroactive seed from per-size history we already store.
+        sum = 0; games = 0;
+        const tss = (s.total_score_by_size && typeof s.total_score_by_size === "object") ? s.total_score_by_size : {};
+        const ngs = (s.normal_games_by_size && typeof s.normal_games_by_size === "object") ? s.normal_games_by_size : {};
+        for (const k of Object.keys(ngs)) {
+          const n = Number(k), g = Number(ngs[k] || 0), tot = Number(tss[k] || 0);
+          if (n >= 2 && g > 0) { sum += tot * (n / BALANCED_ANCHOR); games += g; }
+        }
+      }
+      sum += Number(gameScore || 0) * (Number(playerCount) / BALANCED_ANCHOR);
+      games += 1;
+      return { sum, games, avg: games > 0 ? Math.round(sum / games) : 0 };
+    }
+    // Read-only balanced average for a player's stats, for leaderboard display.
+    // Prefers the materialized field; otherwise derives it from per-size history
+    // so existing players rank correctly without having to play a new game first.
+    function balancedAvgFromStats(stats) {
+      const s = stats && typeof stats === "object" ? stats : {};
+      const games = Number(s.balanced_games);
+      const sum   = Number(s.balanced_score_sum);
+      if (Number.isFinite(games) && games > 0 && Number.isFinite(sum)) {
+        return Math.round(sum / games);
+      }
+      // Derive from per-size history.
+      let dSum = 0, dGames = 0;
+      const tss = (s.total_score_by_size && typeof s.total_score_by_size === "object") ? s.total_score_by_size : {};
+      const ngs = (s.normal_games_by_size && typeof s.normal_games_by_size === "object") ? s.normal_games_by_size : {};
+      for (const k of Object.keys(ngs)) {
+        const n = Number(k), g = Number(ngs[k] || 0), tot = Number(tss[k] || 0);
+        if (n >= 2 && g > 0) { dSum += tot * (n / BALANCED_ANCHOR); dGames += g; }
+      }
+      return dGames > 0 ? Math.round(dSum / dGames) : 0;
     }
 
     function normalizeAvatarUrl(raw) {
@@ -20216,7 +20281,9 @@
       return n===1?" rank-1":n===2?" rank-2":n===3?" rank-3":"";
     }
     function phLbSizeField(size) {
-      return size === "all" ? "stats.highest_score" : `stats.highest_score_${size}p`;
+      // Overall tab ranks by the balanced (player-count-fair) average score;
+      // per-size tabs rank by best score for that size.
+      return size === "all" ? "stats.balanced_avg_score" : `stats.highest_score_${size}p`;
     }
     function phLbSizeLabel(size) {
       return size === "all" ? "Overall" : `${size}P`;
@@ -20283,16 +20350,27 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const field = phLbSizeField(_phLbSize);
-        const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get();
+        // Overall tab: fetch a broad set (proxy: total_score) and rank by the
+        // client-computed balanced average so existing players appear immediately
+        // without needing the materialized field. Size tabs: orderBy best score.
+        let candidates;
+        if (_phLbSize === "all") {
+          const snap = await _db.collection("users").orderBy("stats.total_score","desc").limit(150).get();
+          candidates = snap.docs
+            .map(doc => ({ doc, d: doc.data(), score: balancedAvgFromStats((doc.data()||{}).stats) }))
+            .filter(c => c.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 25);
+        } else {
+          const field = phLbSizeField(_phLbSize);
+          const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get();
+          candidates = snap.docs
+            .map(doc => ({ doc, d: doc.data(), score: ((doc.data()||{}).stats || {})[`highest_score_${_phLbSize}p`] || 0 }))
+            .filter(c => c.score > 0);
+        }
         let rows = [], myRank = 0, myRow = null, shown = 0;
-        snap.docs.forEach(doc => {
-          const d     = doc.data();
+        candidates.forEach(({ doc, d, score }) => {
           const stats = d.stats || {};
-          const score = _phLbSize === "all"
-            ? (stats.highest_score || 0)
-            : (stats[`highest_score_${_phLbSize}p`] || 0);
-          if (!score) return;
           shown++;
           const isMe  = !!(_authUser && doc.id === _authUser.uid);
           // On a specific size tab, show that player's strategy FOR that size;
@@ -20304,10 +20382,13 @@
             if (perSize && String(perSize).trim()) stratRaw = String(perSize).trim();
           }
           const strat = escHtmlPH(stratRaw);
-          const size  = _phLbSize === "all" ? "—" : `${_phLbSize}P`;
+          const size  = _phLbSize === "all" ? "All" : `${_phLbSize}P`;
           rows.push({ shown, isMe, score, size, strat, d, doc });
           if (isMe) { myRank = shown; myRow = { shown, score, size, strat }; }
         });
+        // Overall tab shows the balanced average; size tabs show best score.
+        const scoreUnit  = _phLbSize === "all" ? "avg" : "pts";
+        const scoreLabel = _phLbSize === "all" ? "Balanced Avg" : "Best Score";
         if (!rows.length) {
           tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No scores recorded yet.</td></tr>`;
           phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",false);
@@ -20321,13 +20402,13 @@
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
             <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
-            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
+            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} ${scoreUnit}</td>
             <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
           </tr>`;
         }).join("");
         if (myRow) {
-          const v = `<div class="ph-lb-sum-val"><span>Best Score</span> ${myRow.score.toLocaleString()} pts</div>
+          const v = `<div class="ph-lb-sum-val"><span>${scoreLabel}</span> ${myRow.score.toLocaleString()} ${scoreUnit}</div>
             <div class="ph-lb-sum-val"><span>Game Size</span> ${myRow.size}</div>
             <div class="ph-lb-sum-val"><span>Strategy</span> ${myRow.strat}</div>`;
           phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",true,myRank,v);
