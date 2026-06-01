@@ -1086,16 +1086,16 @@
     .pv-lane-right .pv-board-card { position: relative; }
     .pv-lane-up    .pv-board-card + .pv-board-card,
     .pv-lane-up    .pv-board-card + .pv-lane-slot,
-    .pv-lane-up    .pv-lane-slot  + .pv-board-card { margin-bottom: calc(var(--mini-h) * -0.32); }
+    .pv-lane-up    .pv-lane-slot  + .pv-board-card { margin-bottom: calc(var(--mini-h) / -2); }
     .pv-lane-down  .pv-board-card + .pv-board-card,
     .pv-lane-down  .pv-board-card + .pv-lane-slot,
-    .pv-lane-down  .pv-lane-slot  + .pv-board-card { margin-top:    calc(var(--mini-h) * -0.32); }
+    .pv-lane-down  .pv-lane-slot  + .pv-board-card { margin-top:    calc(var(--mini-h) / -2); }
     .pv-lane-left  .pv-board-card + .pv-board-card,
     .pv-lane-left  .pv-board-card + .pv-lane-slot,
-    .pv-lane-left  .pv-lane-slot  + .pv-board-card { margin-right:  calc(var(--mini-w) * -0.32); }
+    .pv-lane-left  .pv-lane-slot  + .pv-board-card { margin-right:  calc(var(--mini-w) / -2); }
     .pv-lane-right .pv-board-card + .pv-board-card,
     .pv-lane-right .pv-board-card + .pv-lane-slot,
-    .pv-lane-right .pv-lane-slot  + .pv-board-card { margin-left:   calc(var(--mini-w) * -0.32); }
+    .pv-lane-right .pv-lane-slot  + .pv-board-card { margin-left:   calc(var(--mini-w) / -2); }
     /* Newer cards layer on top of older ones so the stack reads correctly. */
     .pv-lane-up    .pv-board-card:nth-child(n+2),
     .pv-lane-down  .pv-board-card:nth-child(n+2),
