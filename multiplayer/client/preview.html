@@ -10907,6 +10907,31 @@
       showToast("All seats are taken.", "err"); return;
     }
 
+    // Competitive: auto-claim the first two open seats as P2's two hands.
+    if (data.mode === "competitive") {
+      if (open.length < 2) { showToast("This competitive room is already full.", "err"); return; }
+      roomId = rid;
+      const pw = password || "";
+      const j2 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: open[0].index, password: pw }, { timeoutMs:12000 });
+      if (!j2.ok) { showToast("Join failed: " + (j2.data?.error || j2.status), "err"); roomId = null; return; }
+      const j3 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name + " 2", seat_index: open[1].index, password: pw }, { timeoutMs:12000 });
+      if (!j3.ok) { showToast("Join failed (Hand 4): " + (j3.data?.error || j3.status), "err"); return; }
+      const s2 = open[0].index, s3 = open[1].index;
+      const tokens = { [s2]: j2.data?.seat_token || "", [s3]: j3.data?.seat_token || "" };
+      const p1Seat = data.seatObjs.find(s => s.index === 0);
+      compMode = true; compMySeats = [s2, s3]; compTokens = tokens;
+      compHostToken = ""; compHandNames = {}; _compHsSuppressed = true;
+      _compPrevActiveSeat = null;
+      compP1Name = p1Seat?.claimed_name?.replace(/ 2$/, "") || "Player 1";
+      compP2Name = name;
+      setSeatToken(j2.data?.seat_token || "");
+      document.getElementById("pv-my-name-badge").textContent = name;
+      try { sessionStorage.setItem(`fish_comp_seats_${rid}_${s2}`, JSON.stringify({ seats: [s2, s3], tokens, p1: compP1Name, p2: name })); } catch {}
+      showToast("Joined! Waiting for host to start…", "ok");
+      enterRoom(rid);
+      return;
+    }
+
     // Password rooms — auto-take first open seat (password already confirmed)
     if (password) {
       roomId = rid;
@@ -10986,13 +11011,12 @@
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
     const titleEl = document.getElementById("nc-modal-title");
-    if (titleEl) titleEl.textContent = _ncIsCompetitive ? "🌊 New Competitive Current" : "🌊 New Current";
+    if (titleEl) titleEl.textContent = _ncIsCompetitive ? "⚔️ Competitive 1v1 — 2 hands per player" : "🌊 New Current";
     const totalEl = document.getElementById("nc-total");
     const aiEl    = document.getElementById("nc-ai");
-    // Competitive: lock to exactly 2 humans, 0 AI. Hide the player-count
-    // fields so the host can't change them; only Privacy stays editable.
+    // Competitive: lock to 4 humans (2 per player), 0 AI.
     if (_ncIsCompetitive) {
-      if (totalEl) { totalEl.value = "2"; totalEl.disabled = true; }
+      if (totalEl) { totalEl.value = "4"; totalEl.disabled = true; }
       if (aiEl)    { aiEl.value = "0";    aiEl.disabled = true; }
     } else {
       if (totalEl) totalEl.disabled = false;
@@ -11023,8 +11047,8 @@
     const btn = document.getElementById("nc-create-btn");
     const errEl = document.getElementById("nc-current-err");
     const name = (window.__fishNickname && window.__fishNickname()) || "Host";
-    // Competitive games are always 2 humans, 0 AI regardless of what the inputs say.
-    const human = _ncIsCompetitive ? 2 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
+    // Competitive games are always 4 humans (2 per player), 0 AI.
+    const human = _ncIsCompetitive ? 4 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
     const ai    = _ncIsCompetitive ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
     const visibility = document.getElementById("nc-visibility").value;
@@ -11064,6 +11088,19 @@
     if (r.data?.seat_token) setSeatToken(r.data.seat_token);
     document.getElementById("pv-my-name-badge").textContent = name;
     closeNewCurrentModal();
+    // Competitive: claim seat 1 for P1's second hand, then enter as comp mode.
+    if (_ncIsCompetitive) {
+      const hToken = r.data?.host_token || "";
+      const seat0Tok = r.data?.seat_token || "";
+      const j1 = await apiPost(`/api/rooms/${rId}/join`, { player_name: name + " 2", seat_index: 1, host_token: hToken }, { timeoutMs: 8000 });
+      if (j1.ok) {
+        const tokens = { 0: seat0Tok, 1: j1.data?.seat_token || "" };
+        compMode = true; compMySeats = [0, 1]; compTokens = tokens;
+        compHostToken = hToken; compHandNames = {}; _compHsSuppressed = true;
+        _compPrevActiveSeat = null; compP1Name = name; compP2Name = "Player 2";
+        try { sessionStorage.setItem(`fish_comp_seats_${rId}_0`, JSON.stringify({ seats: [0,1], tokens, p1: name, p2: "Player 2" })); } catch {}
+      }
+    }
     enterRoom(rId);
     showWaitingRoom(rId, true);
   });
@@ -14749,7 +14786,7 @@
   }
 
   // Event listeners
-  document.getElementById("pv-comp-open-btn").addEventListener("click", compOpenOverlay);
+  document.getElementById("pv-comp-open-btn").addEventListener("click", () => openNewCurrentModal({ competitive: true }));
   document.getElementById("comp-close-btn").addEventListener("click", () => {
     clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
     compCloseOverlay();
@@ -20582,7 +20619,7 @@
     });
 
     $a("stats-comp-btn").addEventListener("click", () => {
-      compOpenOverlay();
+      openNewCurrentModal({ competitive: true });
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
