@@ -7841,8 +7841,6 @@
     <div class="auth-title">Choose Your Nickname</div>
     <div class="auth-subtitle">Your public name in-game, on leaderboards, and for friend search.<br>Not your email or Google name.</div>
     <input id="auth-nick-input" class="pv-input" placeholder="Nickname (3–15 chars)" maxlength="15" autocomplete="off" />
-    <div class="auth-avatar-label">Choose Avatar</div>
-    <div class="auth-avatar-grid" id="auth-avatar-grid"></div>
     <div class="auth-err" id="auth-nick-err"></div>
     <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
   </div>
@@ -20528,7 +20526,6 @@
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
         const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", "");
-        // Ping server to increment the registered-players counter (idempotent by UID).
         fetch("/api/user/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -20536,20 +20533,11 @@
         }).catch(() => {});
         _playerNickname = nick;
         _friendCode = code;
-        _activeProfile = {
-          ...(_activeProfile || {}),
-          uid: _authUser.uid,
-          nickname: nick,
-          friend_code: code,
-          avatar_url: "",
-        };
-        _pendingOnboardingUid = _authUser.uid;
+        _pendingOnboardingUid = "";
         _avatarPromptShownForUid = _authUser.uid;
-        _avatarModalSelection = sanitizeSelectableAvatar(_signupAvatarUrl, _authUser.uid || nick || _authUser.email);
-        syncStatsHeader(_activeProfile);
-        $a("auth-screen").classList.add("hidden");
-        openAvatarPickerModal({ required: true, guestMode: false });
-        setAuthMsg("avatar-modal-err", "Choose your avatar to continue.", false);
+        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG };
+        await applyAvatarSelection(DEFAULT_AVATAR_IMG);
+        revealLobby(nick, code);
       } catch (e) {
         setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
       }
