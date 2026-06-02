@@ -11378,10 +11378,11 @@
     }
     _drawWarnBypass = false;
 
-    // In competitive mode, use the token for whichever of our seats is currently active
+    // In competitive mode, use the token for whichever of our seats is currently active.
+    // mySeatIdx is the seat index (token key); myIdx is the game/player index.
     let token;
-    if (compMode && myIdx !== null && compTokens[myIdx]) {
-      token = compTokens[myIdx];
+    if (compMode && mySeatIdx !== null && compTokens[mySeatIdx]) {
+      token = compTokens[mySeatIdx];
     } else {
       token = getSeatToken();
     }
@@ -11800,7 +11801,8 @@
 
   // ── Main payload renderer ──────────────────────────────────────
   let legalActions = [];
-  let myIdx = null;
+  let myIdx = null;     // game index (position in gs.players) — used for players array lookups
+  let mySeatIdx = null; // seat index — used for tokens, can_act, undo, hosting checks
   let canInteract = false;
   let _latestPlayers = [];
   let _latestRoundCount = 0;
@@ -12118,7 +12120,17 @@
     const lw      = payload.legal_actions || {};
     legalActions  = Array.isArray(lw.actions) ? lw.actions : [];
     const viewer  = payload.viewer || {};
-    myIdx         = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
+    // In competitive, the turn order is [seat0, seat2, seat1, seat3], so the
+    // seat index ≠ the position in gs.players (the game index). We need both:
+    //   myIdx       = game_index — used to find "me" in the players[] array
+    //   mySeatIdx   = seat_index — used for token lookup and can_act comparison
+    // The server now sends game_index explicitly. Falls back to seat_index for
+    // normal rooms where they are always identical.
+    const _newSeatIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
+    mySeatIdx = _newSeatIdx;
+    myIdx     = Number.isInteger(viewer.game_index)
+      ? viewer.game_index
+      : _newSeatIdx;
     _myIdxGlobal  = myIdx;
     const players = Array.isArray(state.players) ? state.players : [];
     _latestPlayers = players;
@@ -12468,7 +12480,8 @@
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
     if (undoBtn) {
-      const canUndo = Boolean(undoInfo.valid) && myIdx !== null && myIdx === undoInfo.eligible_seat;
+      // eligible_seat is a seat index; compare to mySeatIdx (never game index)
+      const canUndo = Boolean(undoInfo.valid) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat;
       undoBtn.style.display = "";
       undoBtn.disabled = !canUndo;
     }
@@ -15832,7 +15845,8 @@
 
   document.getElementById("pv-undo-btn").addEventListener("click", async () => {
     const undoInfo = (latestPayload && latestPayload.undo) || {};
-    const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === _myIdxGlobal && latestPayload?.active_action_seat === _myIdxGlobal;
+    // eligible_seat and active_action_seat are both seat indices
+    const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === mySeatIdx && latestPayload?.active_action_seat === mySeatIdx;
     const msg = isMidTurn
       ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
       : "Undo your last turn? The game will revert to before you played. This only works if the next player hasn't moved yet.";
@@ -16024,6 +16038,7 @@
     // game end / terminate / room-lost.
     if (!keepRejoin) clearRejoinToken(roomId);
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _lastHandCount=0; _tarponStartHand=0; _prevEndTriggered=true;
+    myIdx=null; mySeatIdx=null; _myIdxGlobal=null;
     _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
@@ -16818,7 +16833,7 @@
           }
         }
         // Track hosted casual games for Host With the Most achievement
-        if (!isComp && myIdx === 0) {
+        if (!isComp && mySeatIdx === 0) {
           updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
         }
         // ── Balanced (player-count-fair) average score for the Overall leaderboard ──
