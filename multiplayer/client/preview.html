@@ -5138,52 +5138,64 @@
       border-color: #78add6;
     }
     /* ── Desktop sidebar layout ──────────────────────────────────── */
+    /* ID-scoped (#auth-stats-lobby) so these beat the bare .ph-wrap
+       max-width:1170px override that lives later in the stylesheet. */
     @media (min-width: 1100px) {
       #auth-stats-lobby { flex-direction: row; align-items: flex-start; }
-      .ph-topbar { display: none !important; }
-      .ph-footer { display: none !important; }
-      .ph-sidebar {
+      #auth-stats-lobby .ph-topbar { display: none !important; }
+      #auth-stats-lobby .ph-footer { display: none !important; }
+      #auth-stats-lobby .ph-sidebar {
         display: flex !important;
         flex-direction: column;
-        width: 226px;
+        width: 268px;
         flex-shrink: 0;
-        padding: 20px 12px 20px;
-        margin: 18px 0 18px 18px;
+        padding: 0;
+        margin: 22px 0 22px 24px;
         position: sticky;
-        top: 18px;
-        max-height: calc(100vh - 36px);
+        top: 22px;
+        max-height: calc(100vh - 44px);
         overflow-y: auto;
-        gap: 0;
+        gap: 18px;
         z-index: 10;
-        /* Glassmorphism card — matches reference image */
-        background: rgba(248,253,255,.92);
+        /* Transparent container — the nav card and streak card each carry
+           their own glassmorphism, so the sidebar itself has no background. */
+        background: transparent;
+        border: none;
+        box-shadow: none;
+      }
+      /* Nav card — the top glassmorphism card holding logo + navigation. */
+      #auth-stats-lobby .ph-sidebar-nav-card {
+        background: rgba(248,253,255,.94);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
         border: 1px solid rgba(140,200,235,.5);
-        border-radius: 22px;
+        border-radius: 26px;
         box-shadow: 0 8px 32px rgba(0,60,120,.12);
+        padding: 26px 16px 22px;
       }
-      .ph-wrap {
-        flex: 1;
+      /* Fill the rest of the screen — no max-width cap on desktop. */
+      #auth-stats-lobby .ph-wrap {
+        flex: 1 1 auto;
         min-width: 0;
-        padding: 18px 20px 32px 12px;
-        max-width: none;
+        width: auto;
+        max-width: none !important;
+        padding: 22px 32px 36px 18px;
+        gap: 14px;
       }
-      #ph-tabs { display: flex; }
+      #auth-stats-lobby #ph-tabs { display: flex; }
     }
 
     /* Sidebar branding */
     .ph-sidebar-logo {
       font-family: "Cinzel", serif;
-      font-size: 1.05rem;
+      font-size: 1.42rem;
       font-weight: 900;
-      color: #0f346f;
+      color: #1558b0;
       text-align: center;
-      line-height: 1.25;
-      padding: 0 4px 20px;
-      border-bottom: 1px solid rgba(100,170,220,.25);
-      margin-bottom: 10px;
-      letter-spacing: .3px;
+      line-height: 1.2;
+      padding: 4px 4px 22px;
+      margin-bottom: 14px;
+      letter-spacing: .4px;
     }
     .ph-sidebar-logo span { color: #2ea8ea; }
 
@@ -5191,15 +5203,15 @@
     .ph-sidebar-nav {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 5px;
     }
     .ph-snav-item {
       display: flex;
       align-items: center;
-      gap: 11px;
-      padding: 10px 12px;
-      border-radius: 11px;
-      font-size: .93rem;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      font-size: 1.02rem;
       font-weight: 700;
       color: #3a6088;
       background: transparent;
@@ -5215,68 +5227,72 @@
       color: #1a5fa0;
     }
     .ph-snav-item.active {
-      background: rgba(38,128,200,.13);
+      background: rgba(70,160,225,.16);
       color: #1558b0;
-      border-left: 3px solid #2680c8;
-      padding-left: 9px;
     }
-    .ph-snav-item svg { flex-shrink: 0; opacity: .85; }
+    .ph-snav-item svg { flex-shrink: 0; opacity: .9; width: 20px; height: 20px; }
     .ph-snav-divider {
       height: 1px;
-      background: rgba(100,170,220,.2);
-      margin: 8px 6px;
+      background: rgba(100,170,220,.22);
+      margin: 12px 8px;
     }
 
     /* Daily Streak card in sidebar */
     .ph-sidebar-streak {
-      margin-top: 16px;
-      background: rgba(220,245,255,0.78);
+      background: rgba(232,248,255,0.85);
       backdrop-filter: blur(12px);
       -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(100,190,235,.45);
-      border-radius: 18px;
-      padding: 16px 14px 14px;
-      box-shadow: 0 4px 16px rgba(0,60,120,.1);
+      border: 1px solid rgba(100,190,235,.5);
+      border-radius: 22px;
+      padding: 22px 18px 18px;
+      box-shadow: 0 4px 18px rgba(0,60,120,.1);
     }
     .ph-ss-header {
       font-family: "Cinzel", serif;
-      font-size: .8rem;
+      font-size: 1.05rem;
       font-weight: 900;
-      color: #1a5fa0;
+      color: #1558b0;
       text-align: center;
       letter-spacing: .5px;
-      margin-bottom: 10px;
+      margin-bottom: 4px;
+    }
+    .ph-ss-sub {
+      text-align: center;
+      font-size: .78rem;
+      color: #5a86b0;
+      font-weight: 600;
+      margin-bottom: 16px;
     }
     .ph-ss-main {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
-    .ph-ss-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 2px; }
+    .ph-ss-icon { font-size: 2.4rem; line-height: 1; margin-bottom: 4px; }
     .ph-ss-days {
-      font-size: 2rem;
+      font-size: 2.6rem;
       font-weight: 900;
       color: #0f4080;
       line-height: 1;
     }
-    .ph-ss-label { font-size: .72rem; color: #4a7aaa; font-weight: 600; margin-top: 2px; }
+    .ph-ss-label { font-size: .8rem; color: #4a7aaa; font-weight: 600; margin-top: 4px; }
     .ph-ss-week {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 3px;
-      margin-bottom: 10px;
+      gap: 4px;
+      margin-bottom: 16px;
     }
     .ph-ss-day-col {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 3px;
+      gap: 5px;
     }
-    .ph-ss-day-lbl { font-size: .62rem; font-weight: 700; color: #6a96bb; }
+    .ph-ss-day-lbl { font-size: .68rem; font-weight: 700; color: #6a96bb; }
     .ph-ss-dot {
-      width: 22px; height: 22px;
+      width: 26px; height: 26px;
       border-radius: 50%;
       background: rgba(130,190,230,.2);
       border: 1.5px solid rgba(100,170,220,.3);
@@ -5291,30 +5307,30 @@
       box-shadow: 0 0 8px rgba(34,216,248,.5);
     }
     .ph-ss-xp {
-      background: rgba(200,240,255,.5);
-      border-radius: 9px;
-      padding: 7px 10px;
-      font-size: .74rem;
+      background: rgba(200,240,255,.55);
+      border-radius: 12px;
+      padding: 11px 13px;
+      font-size: .84rem;
       font-weight: 700;
       color: #1a5fa0;
-      margin-bottom: 10px;
-      line-height: 1.5;
+      margin-bottom: 14px;
+      line-height: 1.6;
     }
     .ph-ss-xp span { color: #1a9ad7; font-weight: 800; }
     .ph-ss-btn {
       width: 100%;
-      padding: 8px;
-      border-radius: 9px;
+      padding: 11px;
+      border-radius: 12px;
       border: 1px solid rgba(100,180,225,.45);
-      background: rgba(255,255,255,.5);
+      background: rgba(255,255,255,.55);
       color: #2272b6;
-      font-size: .78rem;
+      font-size: .88rem;
       font-weight: 700;
       cursor: pointer;
       font-family: "Nunito", sans-serif;
       transition: background .15s;
     }
-    .ph-ss-btn:hover { background: rgba(255,255,255,.75); }
+    .ph-ss-btn:hover { background: rgba(255,255,255,.8); }
 
     /* Hide sidebar on mobile */
     .ph-sidebar { display: none; }
@@ -6248,6 +6264,50 @@
     }
     @media (max-width: 520px) {
       #ph-panel-overview .ph-sg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* ── Desktop: enlarge cards to fill the wider layout (matches reference) ── */
+    @media (min-width: 1100px) {
+      #auth-stats-lobby .ph-sg {
+        gap: 14px;
+        padding: 16px;
+      }
+      #auth-stats-lobby #ph-panel-overview .ph-sc {
+        min-height: 132px;
+        padding: 18px 20px;
+        gap: 8px;
+        border-radius: 18px;
+      }
+      #auth-stats-lobby #ph-panel-overview .ph-sci {
+        width: 38px;
+        height: 38px;
+      }
+      #auth-stats-lobby #ph-panel-overview .ph-sc .ph-scl {
+        font-size: .9rem;
+      }
+      #auth-stats-lobby #ph-panel-overview .ph-sc:not(.ph-sc-string) .ph-scv {
+        font-size: clamp(1.8rem, 1.9vw, 2.3rem);
+      }
+      #auth-stats-lobby #ph-panel-overview .ph-sc-string .ph-scv {
+        font-size: clamp(1.1rem, 1.25vw, 1.4rem);
+      }
+      /* Action cards — taller, larger text */
+      #auth-stats-lobby .ph-actions { gap: 16px; }
+      #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
+        padding: 22px 24px;
+      }
+      /* Profile header — roomier */
+      #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
+        padding: 22px 28px;
+      }
+      #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
+        width: 110px;
+        height: 110px;
+      }
+      /* Quick Stats section title bigger */
+      #auth-stats-lobby .ph-stats-title { font-size: 1.4rem; }
+      /* Daily challenge strip cards — larger */
+      #auth-stats-lobby .ph-cs-cards { gap: 14px; }
     }
 
     /* ── Casual tab: match Overview's compact wide-grid dimensions ── */
@@ -8219,6 +8279,7 @@
 
   <!-- ── Desktop Left Sidebar ──────────────────────────────────── -->
   <div class="ph-sidebar" id="ph-sidebar">
+   <div class="ph-sidebar-nav-card">
     <div class="ph-sidebar-logo">≈ Currents <span>&amp;</span> Critters ≈</div>
     <nav class="ph-sidebar-nav">
       <button class="ph-snav-item active" id="snav-overview" data-tab="overview">
@@ -8255,10 +8316,12 @@
         Settings
       </button>
     </nav>
+   </div>
 
     <!-- Daily Streak card -->
     <div class="ph-sidebar-streak">
       <div class="ph-ss-header">≈ Daily Streak ≈</div>
+      <div class="ph-ss-sub">Keep the tide rolling</div>
       <div class="ph-ss-main">
         <div class="ph-ss-icon">🔥</div>
         <div class="ph-ss-days" id="ph-ss-days">4 Days</div>
