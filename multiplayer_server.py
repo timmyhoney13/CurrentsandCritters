@@ -2244,10 +2244,18 @@ class GameRoom:
                 }
             )
 
+        # turn_index is the game-engine index (0-3 mod n_players). For
+        # competitive, translate to the seat index so the client can match it
+        # against players[i].index (which is seat_idx, not game_idx).
+        raw_turn_idx = int(gs.turn_index)
+        if gs.players:
+            raw_turn_idx = raw_turn_idx % len(gs.players)
+        seat_turn_idx = self._comp_game_to_seat.get(raw_turn_idx, raw_turn_idx)
+
         public_state = {
             "seed": self.seed,
             "turn_number": int(turn_number),
-            "turn_index": int(gs.turn_index),
+            "turn_index": seat_turn_idx,
             "round_count": int(gs.round_count),
             "current_player": current_player,
             "note": note,
@@ -3386,14 +3394,12 @@ class GameRoom:
                 "is_host": False,
                 "can_act": False,
             }
-        # In competitive mode the seat order ≠ game order ([0,2,1,3] turn order).
-        # game_index is the player's position in gs.players — the index used in
-        # the 'players' array the client renders. The client must use game_index
-        # (not seat_index) to identify "me" in the players list.
-        game_index = self._comp_seat_to_game.get(seat.index, seat.index)
+        # The 'players' array the client renders uses seat_index as p.index
+        # (set in _record_snapshot). So the client must use seat_index to find
+        # "me" in the players list — game_index equals seat_index here.
         return {
             "seat_index": seat.index,
-            "game_index": game_index,
+            "game_index": seat.index,
             "seat_kind": seat.kind,
             "display_name": seat.claimed_name or seat.label,
             "is_host": bool(seat.is_host),
@@ -3423,15 +3429,10 @@ class GameRoom:
                 self.status_note = f"{viewer_seat.claimed_name or viewer_seat.label} rejoined."
                 self._bump_locked()
             # viewer_index is the SEAT index (from the seat token).
+            # The players array uses seat_idx as p["index"] (see _record_snapshot),
+            # so viewer_index is used both to find "me" in the players list AND
+            # to look up private_hands (also keyed by seat_idx).
             viewer_index = viewer_seat.index if viewer_seat is not None else None
-            # viewer_game_index is the position in gs.players for this seat.
-            # In competitive mode the turn order is [0,2,1,3] so seat ≠ game idx.
-            # private_hands is keyed by seat_idx (see _record_snapshot), so we
-            # use viewer_index directly when reading it.
-            viewer_game_index: Optional[int] = (
-                self._comp_seat_to_game.get(viewer_index, viewer_index)
-                if viewer_index is not None else None
-            )
 
             state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
             if isinstance(state_obj, dict):
@@ -3455,11 +3456,10 @@ class GameRoom:
                     for p in players_list:
                         if not isinstance(p, dict):
                             continue
-                        g_idx = p.get("index")
-                        # Hand belongs to this player if their game-index matches
-                        # the viewer's game-index. private_hands is keyed by
-                        # seat_idx (set in _record_snapshot via _comp_game_to_seat).
-                        if g_idx == viewer_game_index:
+                        # p["index"] is the SEAT index (set in _record_snapshot as
+                        # seat_idx). viewer_index is also a seat index (from seat token).
+                        # private_hands is keyed by seat_idx. All three match.
+                        if p.get("index") == viewer_index:
                             p["hand"] = copy.deepcopy(
                                 self.latest_private_hands.get(viewer_index, [])
                             )

@@ -12148,17 +12148,11 @@
     const lw      = payload.legal_actions || {};
     legalActions  = Array.isArray(lw.actions) ? lw.actions : [];
     const viewer  = payload.viewer || {};
-    // In competitive, the turn order is [seat0, seat2, seat1, seat3], so the
-    // seat index ≠ the position in gs.players (the game index). We need both:
-    //   myIdx       = game_index — used to find "me" in the players[] array
-    //   mySeatIdx   = seat_index — used for token lookup and can_act comparison
-    // The server now sends game_index explicitly. Falls back to seat_index for
-    // normal rooms where they are always identical.
-    const _newSeatIdx = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
-    mySeatIdx = _newSeatIdx;
-    myIdx     = Number.isInteger(viewer.game_index)
-      ? viewer.game_index
-      : _newSeatIdx;
+    // viewer.seat_index is used as both the player-lookup key (players[i].index
+    // is seat_idx in the server payload) and the token/action key. They're the
+    // same value — seat_index is canonical for competitive and normal games.
+    myIdx    = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
+    mySeatIdx = myIdx;
     _myIdxGlobal  = myIdx;
     const players = Array.isArray(state.players) ? state.players : [];
     _latestPlayers = players;
@@ -16870,7 +16864,7 @@
           }
         }
         // Track hosted casual games for Host With the Most achievement
-        if (!isComp && mySeatIdx === 0) {
+        if (!isComp && myIdx === 0) {
           updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
         }
         // ── Balanced (player-count-fair) average score for the Overall leaderboard ──
