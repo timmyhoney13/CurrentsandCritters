@@ -7055,7 +7055,7 @@ def build_deck_with_late_end_game(
     # Place END GAME randomly within the bottom 15 cards of the deck (cards are
     # drawn from the FRONT via pop(0), so "bottom" = the END of this list and
     # is drawn last). This guarantees the end-game card never comes out early.
-    bottom_non_end_count = min(14, len(non_end))
+    bottom_non_end_count = min(15, len(non_end))
     top = non_end[:-bottom_non_end_count] if bottom_non_end_count else non_end
     bottom_group = non_end[-bottom_non_end_count:] if bottom_non_end_count else []
     rng.shuffle(bottom_group)
@@ -9754,8 +9754,9 @@ def run_match(
     if end_uid is not None and end_uid in gs.deck:
         gs.deck.remove(end_uid)
         rng.shuffle(gs.deck)
-        bottom_span = min(14, len(gs.deck))
-        insert_pos = len(gs.deck) - rng.randint(0, bottom_span)
+        # Guarantee END is in bottom 15: insert at position [deck_len-15, deck_len]
+        bottom_15_start = max(0, len(gs.deck) - 15)
+        insert_pos = rng.randint(bottom_15_start, len(gs.deck))
         gs.deck.insert(insert_pos, end_uid)
     else:
         rng.shuffle(gs.deck)
