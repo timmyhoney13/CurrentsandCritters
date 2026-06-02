@@ -11656,6 +11656,16 @@
           // Flag the Hermit Crab play and count Bait Fish played this turn.
           if (invName === "hermit crab") _gameAchTracker.hermitUsedThisTurn = true;
           if (invSpecies === "baitfish") _gameAchTracker.baitFishThisTurn = (_gameAchTracker.baitFishThisTurn || 0) + 1;
+          // Grant the Hermit Crab avatar the moment the requirement is met — a
+          // Hermit Crab turn with 6+ Bait Fish in a 4+ player game — rather than
+          // waiting for game end (which could be missed if the game ends first).
+          if (_gameAchTracker.hermitUsedThisTurn && Number(_gameAchTracker.baitFishThisTurn || 0) >= 6) {
+            _gameAchTracker.hermitSixBaitDone = true;
+            const _hcPlayers = (Array.isArray(_latestPlayers) ? _latestPlayers.length : 0);
+            if (_hcPlayers >= 4 && typeof window.__fishGrantUnlockedIcon === "function") {
+              if (await window.__fishGrantUnlockedIcon("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
+            }
+          }
         } catch {}
 
         const dir = String(action.face_direction || "").toLowerCase();
@@ -12026,6 +12036,17 @@
         if (_gameAchTracker.cephThisTurn > (_gameAchTracker.maxCephInTurn || 0)) {
           _gameAchTracker.maxCephInTurn = _gameAchTracker.cephThisTurn;
         }
+        // Grant the moment 5 cephalopods are on the board this turn — don't wait
+        // for game end. unlockAchievement is idempotent and also grants the
+        // linked Reef Triggerfish avatar.
+        if (_gameAchTracker.cephThisTurn >= 5) {
+          try {
+            const _uid = window.__fishAuthUser?.()?.uid;
+            if (_uid && typeof window.__fishUnlockAchievement === "function") {
+              window.__fishUnlockAchievement(_uid, "humuhumunukuapuaa");
+            }
+          } catch {}
+        }
       }
 
       // Per-game distinct species set.
@@ -12111,6 +12132,12 @@
     // ── Match stats tracking ─────────────────────────────
     if (phase === "running" && !_matchStartMs) {
       _matchStartMs = Date.now();
+      // Start the per-game achievement tracker clean. Without this, per-turn
+      // and per-game counters (cephThisTurn, baitFishThisTurn, maxCephInTurn,
+      // hermitSixBaitDone, …) leak across games and can cause both missed and
+      // false unlocks. Also reset the challenge-observer diff state.
+      try { window.__fishResetGameAchTracker?.(roomId); } catch {}
+      try { _resetChallengeObservers(); } catch {}
       // Snapshot which challenges are already done so we can show what was earned THIS game
       try {
         if (typeof window._getCompletedChallengeSnapshot === "function") {
