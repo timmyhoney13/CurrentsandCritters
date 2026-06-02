@@ -3295,6 +3295,8 @@
     .comp-status.err { color: #c0202a; }
 
     /* Hand-switch overlay */
+    @keyframes hs-fadein { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
+    @keyframes hs-progress { from { width:100%; } to { width:0%; } }
     #comp-handswitch {
       display: none;
       position: fixed; inset: 0;
@@ -3305,7 +3307,7 @@
       gap: 20px; text-align: center;
       cursor: pointer; user-select: none;
     }
-    #comp-handswitch.open { display: flex; }
+    #comp-handswitch.open { display: flex; animation: hs-fadein .18s ease; }
     #comp-handswitch .hs-title {
       font-family: "Cinzel", serif;
       font-size: 1rem; color: var(--muted);
@@ -3329,6 +3331,19 @@
     }
     #comp-handswitch .hs-shield {
       font-size: 3rem; margin-bottom: 4px;
+    }
+    #comp-hs-bar-wrap {
+      width: 160px; height: 3px;
+      background: rgba(255,255,255,.1);
+      border-radius: 2px; overflow: hidden;
+      margin-top: -10px;
+    }
+    #comp-hs-bar {
+      height: 100%; background: var(--cyan);
+      border-radius: 2px;
+    }
+    #comp-handswitch.open #comp-hs-bar {
+      animation: hs-progress 2.2s linear forwards;
     }
 
     /* Leaderboard/history in comp overlay */
@@ -9029,11 +9044,12 @@
 
 <!-- ══ HAND-SWITCH OVERLAY ══════════════════════════════════════════ -->
 <div id="comp-handswitch">
-  <div class="hs-shield" id="hs-shield">🤚</div>
-  <div class="hs-title">Pass the Device to</div>
+  <div class="hs-shield" id="hs-shield">🎣</div>
+  <div class="hs-title">Your Turn</div>
   <div class="hs-player" id="hs-player-name">Player 1</div>
   <div class="hs-hand" id="hs-hand-label">Hand 1</div>
-  <div class="hs-tap" id="hs-tap-btn">Tap to reveal your hand →</div>
+  <div id="comp-hs-bar-wrap"><div id="comp-hs-bar"></div></div>
+  <div class="hs-tap" id="hs-tap-btn">Tap to play now →</div>
 </div>
 
 <!-- ══ WAITING ROOM OVERLAY ════════════════════════════════════════ -->
@@ -14497,6 +14513,13 @@
     }
   }
 
+  let _compHsAutoTimer = null;
+
+  function _dismissCompHandSwitch() {
+    document.getElementById("comp-handswitch").classList.remove("open");
+    if (_compHsAutoTimer) { clearTimeout(_compHsAutoTimer); _compHsAutoTimer = null; }
+  }
+
   function showCompHandSwitch(nextSeat) {
     if (_compHsSuppressed) return;
     const isP1Seat = nextSeat < 2;
@@ -14509,14 +14532,24 @@
       playerEl.className = "hs-player " + (isP1Seat ? "p1" : "p2");
     }
     if (handEl) handEl.textContent = handName;
-    document.getElementById("comp-handswitch").classList.add("open");
+    // Restart the progress-bar animation by briefly removing/re-adding open.
+    const el = document.getElementById("comp-handswitch");
+    el.classList.remove("open");
+    const bar = document.getElementById("comp-hs-bar");
+    if (bar) { bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = ""; }
+    void el.offsetWidth; // force reflow so animation restarts
+    el.classList.add("open");
+    // Auto-dismiss after 2.2 s — tap anywhere to skip immediately.
+    if (_compHsAutoTimer) clearTimeout(_compHsAutoTimer);
+    _compHsAutoTimer = setTimeout(_dismissCompHandSwitch, 2200);
   }
 
   function checkCompHandSwitch(payload) {
     if (!compMode) return;
     const activeSeat = Number(payload?.active_action_seat);
     if (isNaN(activeSeat)) return;
-    // If it's now one of our seats that we haven't seen as active yet, show the hand-switch overlay
+    // Show the hand-switch overlay whenever one of our seats becomes active
+    // and it's a different seat than the last time we acted.
     if (compMySeats.includes(activeSeat) && activeSeat !== _compPrevActiveSeat) {
       if (!_compHsSuppressed) {
         showCompHandSwitch(activeSeat);
@@ -14527,11 +14560,11 @@
   }
 
   document.getElementById("comp-handswitch").addEventListener("click", () => {
-    document.getElementById("comp-handswitch").classList.remove("open");
+    _dismissCompHandSwitch();
   });
   document.getElementById("hs-tap-btn").addEventListener("click", (e) => {
     e.stopPropagation();
-    document.getElementById("comp-handswitch").classList.remove("open");
+    _dismissCompHandSwitch();
   });
 
   function compOpenOverlay() {
