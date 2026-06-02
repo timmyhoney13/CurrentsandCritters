@@ -24,8 +24,9 @@
 !cards_oceans.txt
 !update_cards.py
 
-# Recovery tool (run locally with service account key — never commit serviceAccountKey.json)
+# Recovery + learning tools (run locally — never commit serviceAccountKey.json)
 !apply_recovery.js
+!apply_history_learning.js
 serviceAccountKey.json
 
 # New marketing site files (Claude Design build)

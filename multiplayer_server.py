@@ -4114,6 +4114,132 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         return {"ok": True, "players": player_stats, "count": len(player_stats)}
 
+    def _run_learn_from_history(
+        self,
+        card_db: Dict[int, fish.CardDef],
+        priority_nick: str = "",
+        min_score: int = 0,
+    ) -> Dict[str, Any]:
+        """Replay every saved game-history JSON through the AI learning pipeline.
+
+        Reconstructs a synthetic GameState (board layout only) from the saved
+        JSON record so update_brain_from_match and reinforce_human_demo_from_board
+        can learn card synergies from real human games.
+
+        priority_nick — if set, games containing this player (case-insensitive)
+            are boosted 5× over the baseline 2.4× human demo boost.
+        min_score — only include games where the winner scored at least this many
+            points (use 0 to include everything; set e.g. 80 for leaderboard-quality).
+        """
+        name_to_uid: Dict[str, int] = {}
+        for uid, c in card_db.items():
+            key = c.name.strip().lower()
+            if key not in name_to_uid:
+                name_to_uid[key] = uid
+
+        def _build_synthetic_gs(rec: Dict) -> Optional[tuple]:
+            """Return (gs, human_indices) or None if the record is unusable."""
+            players_data = rec.get("players", [])
+            if not players_data:
+                return None
+            winner_name = rec.get("winner", "")
+            ps_list = []
+            human_indices: set = set()
+            for i, pd in enumerate(players_data):
+                p = fish.PlayerState(pd.get("name", f"Player{i}"))
+                # Reconstruct board: add ocean + animals to ocean_slots
+                for ocean_rec in pd.get("board", []):
+                    ocean_name = str(ocean_rec.get("ocean", "")).strip().lower()
+                    ocean_uid = name_to_uid.get(ocean_name)
+                    if ocean_uid is None:
+                        continue
+                    p.board_oceans.append(ocean_uid)
+                    slots = fish.OceanSlots()
+                    dirs = ["up", "down", "left", "right"]
+                    animals = ocean_rec.get("animals", [])
+                    for j, a in enumerate(animals):
+                        aname = str(a.get("name", "")).strip().lower()
+                        auid = name_to_uid.get(aname)
+                        if auid is None:
+                            continue
+                        # Place animals in order across directions
+                        d = dirs[j % len(dirs)]
+                        getattr(slots, d).append(auid)
+                    p.ocean_slots[ocean_uid] = slots
+                if pd.get("is_human"):
+                    human_indices.add(i)
+                ps_list.append(p)
+            if not ps_list or not any(len(p.board_oceans) > 0 for p in ps_list):
+                return None
+            gs = fish.GameState(card_db=card_db, players=ps_list, deck=[])
+            # Inject final scores so update_brain_from_match can rank winners/losers
+            standings = rec.get("standings", [])
+            score_map = {s["name"]: int(s.get("score", 0)) for s in standings}
+            for p in gs.players:
+                p.score = score_map.get(p.name, 0)
+            return gs, human_indices, winner_name
+
+        results = {"processed": 0, "skipped": 0, "boosted": 0, "errors": 0}
+
+        try:
+            with BRAIN_LOCK:
+                brain = fish.load_brain(fish.BRAIN_PATH)
+
+                files = sorted(f for f in os.listdir(GAMES_HISTORY_DIR)
+                               if f.endswith(".json") and f != "leaderboard.json")
+
+                for fname in files:
+                    try:
+                        with open(os.path.join(GAMES_HISTORY_DIR, fname), "r", encoding="utf-8") as f:
+                            rec = json.load(f)
+                    except Exception:
+                        results["errors"] += 1
+                        continue
+
+                    # Quality gate: skip truncated / empty games
+                    mode = rec.get("mode", "standard")
+                    if mode == "truncated":
+                        results["skipped"] += 1
+                        continue
+
+                    winner_score = rec.get("standings", [{}])[0].get("score", 0) if rec.get("standings") else 0
+                    if int(winner_score) < min_score:
+                        results["skipped"] += 1
+                        continue
+
+                    built = _build_synthetic_gs(rec)
+                    if built is None:
+                        results["skipped"] += 1
+                        continue
+                    gs, human_indices, winner_name = built
+
+                    # Decide boost level: priority player's games get an extra kick.
+                    has_priority = priority_nick and any(
+                        str(pd.get("name", "")).lower().replace(" 2", "") == priority_nick.lower()
+                        for pd in rec.get("players", []) if pd.get("is_human")
+                    )
+                    boost = 5.0 if has_priority else 2.4
+                    if has_priority:
+                        results["boosted"] += 1
+
+                    try:
+                        fish.update_brain_from_match(gs, brain)
+                        fish.update_strategy_memory_from_match(gs, brain, boost=boost)
+                        if human_indices:
+                            fish.reinforce_human_demo_from_board(gs, human_indices, brain, boost=boost)
+                    except Exception:
+                        results["errors"] += 1
+                        continue
+
+                    results["processed"] += 1
+
+                fish.save_brain(brain, fish.BRAIN_PATH)
+
+        except Exception as exc:
+            return {"ok": False, "error": str(exc), **results}
+
+        return {"ok": True, **results}
+
     def _send_json(self, payload: Dict[str, Any], status: int = HTTPStatus.OK) -> None:
         raw = json_dumps(payload)
         try:
@@ -4599,6 +4725,28 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             self._send_json(self._build_recovery_export())
+            return
+
+        if parsed.path == "/api/admin/learn_from_history":
+            # Run the full AI learning pipeline over every saved game-history JSON.
+            # Games containing priority_nick are boosted 5× (default: TheFishManTim).
+            # Games where the winner scored < min_score are skipped (default: 0 = all).
+            # Protected: requires ?admin_key= matching ADMIN_RECOVERY_KEY env var.
+            qs_r = parse_qs(parsed.query)
+            supplied_key = qs_r.get("admin_key", [None])[0] or ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or supplied_key != env_key:
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            priority_nick = (qs_r.get("priority_nick", [None])[0] or "TheFishManTim").strip()
+            min_score = 0
+            try:
+                min_score = int(qs_r.get("min_score", [0])[0])
+            except Exception:
+                pass
+            card_db = CARD_DB
+            result = self._run_learn_from_history(card_db, priority_nick=priority_nick, min_score=min_score)
+            self._send_json(result)
             return
 
         if parsed.path == "/api/rooms":
