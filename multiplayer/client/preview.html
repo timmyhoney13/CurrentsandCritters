@@ -10457,12 +10457,14 @@
     const codeEl = document.getElementById("wr-code-display");
     const subEl  = document.getElementById("wr-subtitle");
     document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
-    if (vis === "private") {
-      // Private rooms: the code IS the password the host set — show it to share.
+    if (compMode) {
+      // Competitive: always show the room code so P2 can join by entering it.
+      if (codeEl) { codeEl.style.display = ""; codeEl.textContent = code; }
+      if (subEl)  subEl.textContent = "Share this code with your opponent to join:";
+    } else if (vis === "private") {
       if (codeEl) { codeEl.style.display = ""; codeEl.textContent = code; }
       if (subEl)  subEl.textContent = "Share this code with your crew (it's also the password):";
     } else {
-      // Public rooms have no fleet code — players join from the Public games list.
       if (codeEl) codeEl.style.display = "none";
       if (subEl)  subEl.textContent = "Your crew can join from the Public games list.";
     }
@@ -10527,35 +10529,61 @@
   }
 
   function updateWaitingRoom(seats, canStart, startFn, isHost) {
-    // Title reflects host vs non-host
-    document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
+    // In competitive mode, group seats by player: P1 = seats 0+1, P2 = seats 2+3.
+    const isComp = !!(compMode || (seats && seats.length === 4 && seats.every(s => s.kind === "human")));
+    document.getElementById("wr-title").textContent = isHost
+      ? (isComp ? "⚔️ Competitive Room Created!" : "Room Created!")
+      : (isComp ? "⚔️ Competitive Lobby"        : "Game Lobby");
 
-    // Seats list — show humans + bots. Bot rows include the Easy/Medium/Hard pills.
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
-    (seats||[]).forEach(s => {
-      const row = document.createElement("div"); row.className = "wr-player-row";
-      const dot = document.createElement("div");
-      dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
-      const nm = document.createElement("span");
-      const isAI = (s.kind === "ai");
-      if (isAI) {
-        // Bots: render just the bot name (e.g. "Bot 1"), no "Seat N:" prefix
-        nm.className = "wr-player-name wr-ai-name";
-        nm.textContent = s.claimed_name || `Bot ${s.index}`;
-      } else if (s.claimed_name) {
-        nm.className = "wr-player-name";
-        nm.textContent = `Seat ${s.index+1}: ${s.claimed_name}`;
-      } else {
-        nm.className = "wr-player-empty";
-        nm.textContent = `Seat ${s.index+1}: Open`;
-      }
-      row.appendChild(dot); row.appendChild(nm);
-      if (isAI) {
-        row.appendChild(buildDifficultyBox(s, isHost));
-      }
-      list.appendChild(row);
-    });
+
+    if (isComp && seats && seats.length === 4) {
+      // Show as two grouped players instead of four individual seats.
+      const groups = [
+        { label: "Player 1", seats: seats.filter(s => s.index < 2) },
+        { label: "Player 2", seats: seats.filter(s => s.index >= 2) },
+      ];
+      groups.forEach(({ label, seats: gs }) => {
+        const row = document.createElement("div"); row.className = "wr-player-row";
+        const dot = document.createElement("div");
+        const anyJoined = gs.some(s => s.claimed_name);
+        dot.className = "wr-seat-dot" + (anyJoined ? " filled" : " empty");
+        const nm = document.createElement("span");
+        if (anyJoined) {
+          const firstName = gs.find(s => s.claimed_name)?.claimed_name?.replace(/ 2$/, "") || label;
+          nm.className = "wr-player-name";
+          nm.textContent = `${label}: ${firstName} (2 hands)`;
+        } else {
+          nm.className = "wr-player-empty";
+          nm.textContent = `${label}: Waiting to join…`;
+        }
+        row.appendChild(dot); row.appendChild(nm);
+        list.appendChild(row);
+      });
+    } else {
+      // Normal (non-competitive) seat list.
+      (seats||[]).forEach(s => {
+        const row = document.createElement("div"); row.className = "wr-player-row";
+        const dot = document.createElement("div");
+        dot.className = "wr-seat-dot" + (s.claimed_name ? " filled" : " empty");
+        const nm = document.createElement("span");
+        const isAI = (s.kind === "ai");
+        if (isAI) {
+          nm.className = "wr-player-name wr-ai-name";
+          nm.textContent = s.claimed_name || `Bot ${s.index}`;
+        } else if (s.claimed_name) {
+          nm.className = "wr-player-name";
+          nm.textContent = `Seat ${s.index+1}: ${s.claimed_name}`;
+        } else {
+          nm.className = "wr-player-empty";
+          nm.textContent = `Seat ${s.index+1}: Open`;
+        }
+        row.appendChild(dot); row.appendChild(nm);
+        if (isAI) row.appendChild(buildDifficultyBox(s, isHost));
+        list.appendChild(row);
+      });
+    }
 
     // Only humans count toward "(X of Y joined)" — bots auto-fill instantly.
     const humanSeats = (seats||[]).filter(s => s.kind === "human");
@@ -12302,18 +12330,27 @@
     if (me && !nameEl.textContent) nameEl.textContent = me.name;
 
     // waiting room overlay: show during lobby phase, hide once game starts
-    if (phase === "lobby" && !compMode) {
-      const startFn = () => apiPost(`/api/rooms/${roomId}/start`,
-        { seat_token:getSeatToken(), host_token:getHostToken(), create_key:getCreateKey() },
-        { timeoutMs:8000 }).then(()=>refreshState());
-      showWaitingRoom(roomId, Boolean(getHostToken()), payload?.room?.visibility);
-      // Pass ALL seats (human + AI bots) so the waiting room can render bot
-      // names and the Easy/Medium/Hard difficulty pills next to each bot.
+    // Show the waiting room whenever the room is still in lobby phase.
+    // This applies to both normal and competitive games — compMode must NOT
+    // skip it, because competitive rooms also need all 4 seats filled before
+    // the host can start. (compMode=true was previously blocking the waiting
+    // room for competitive lobbies, causing an instant empty-game jump.)
+    if (phase === "lobby") {
+      const startFn = async () => {
+        const r = await apiPost(`/api/rooms/${roomId}/start`,
+          { seat_token: compMode ? (compTokens[compMySeats[0]] || getSeatToken()) : getSeatToken(),
+            host_token: compMode ? compHostToken || getHostToken() : getHostToken(),
+            create_key: getCreateKey() },
+          { timeoutMs: 8000 });
+        if (!r.ok) showToast("Could not start: " + (r.data?.error || r.status), "err");
+        refreshState();
+      };
+      showWaitingRoom(roomId, Boolean(compMode ? compHostToken || getHostToken() : getHostToken()), payload?.room?.visibility);
+      // Pass ALL seats so the waiting room shows who has joined.
       const lobbySeats = Array.isArray(payload.seats) ? payload.seats : [];
-      updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn, Boolean(getHostToken()));
-      // NOTE: the game NEVER auto-starts. The host must click Start Game in
-      // the waiting room to launch the match. This lets the host set each
-      // bot's difficulty (Easy/Medium/Hard) before the game begins.
+      updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn,
+        Boolean(compMode ? compHostToken || getHostToken() : getHostToken()));
+      // NOTE: the game NEVER auto-starts. The host must click Start Game.
     } else {
       hideWaitingRoom();
     }
