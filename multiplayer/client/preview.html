@@ -5145,26 +5145,31 @@
       .ph-sidebar {
         display: flex !important;
         flex-direction: column;
-        width: 220px;
+        width: 226px;
         flex-shrink: 0;
-        padding: 24px 14px 24px;
+        padding: 20px 12px 20px;
+        margin: 18px 0 18px 18px;
         position: sticky;
-        top: 0;
-        height: 100vh;
+        top: 18px;
+        max-height: calc(100vh - 36px);
         overflow-y: auto;
         gap: 0;
         z-index: 10;
+        /* Glassmorphism card — matches reference image */
+        background: rgba(248,253,255,.92);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid rgba(140,200,235,.5);
+        border-radius: 22px;
+        box-shadow: 0 8px 32px rgba(0,60,120,.12);
       }
       .ph-wrap {
         flex: 1;
         min-width: 0;
-        padding: 18px 24px 32px 10px;
+        padding: 18px 20px 32px 12px;
         max-width: none;
       }
-      /* On desktop the horizontal tabs are redundant with sidebar — keep but slim */
-      #ph-tabs {
-        display: flex;
-      }
+      #ph-tabs { display: flex; }
     }
 
     /* Sidebar branding */
@@ -5210,8 +5215,10 @@
       color: #1a5fa0;
     }
     .ph-snav-item.active {
-      background: rgba(38,128,200,.14);
+      background: rgba(38,128,200,.13);
       color: #1558b0;
+      border-left: 3px solid #2680c8;
+      padding-left: 9px;
     }
     .ph-snav-item svg { flex-shrink: 0; opacity: .85; }
     .ph-snav-divider {
@@ -6178,9 +6185,9 @@
     #ph-panel-overview .ph-stats-card {
       min-height: 0;
     }
-    /* Quick Stats: 7 wide × 2 tall — Achievements col 7 row 1, Animals col 7 row 2 */
+    /* Quick Stats: 5 wide × 3 tall — matches reference image layout */
     #ph-panel-overview .ph-sg {
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       grid-auto-rows: 1fr;
       gap: 10px;
       padding: 12px;
@@ -6218,7 +6225,7 @@
     #ph-panel-overview .ph-side > .ph-scard {
       min-height: 0;
     }
-    /* Compact spacing for the Overview tab so 6x2 stats fit cleanly */
+    /* Compact spacing for the Overview tab */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
       padding: 14px 18px;
     }
@@ -6229,10 +6236,9 @@
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
       padding: 12px 14px;
     }
-    /* Responsive breakpoints: reduce columns on smaller screens while keeping
-       the 7-card row boundary intact at the largest sizes. */
+    /* Responsive breakpoints for 5-col grid */
     @media (max-width: 1400px) {
-      #ph-panel-overview .ph-sg { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+      #ph-panel-overview .ph-sg { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     }
     @media (max-width: 1050px) {
       #ph-panel-overview .ph-sg { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -8442,7 +8448,8 @@
         </div>
         <div class="ph-cs-cards" id="ph-cs-cards"></div>
         <button class="ph-cs-reward" id="ph-cs-reward-btn" type="button"
-                aria-label="View all challenges and Weekly Tide Sweep">
+                aria-label="View all challenges and Weekly Tide Sweep"
+                style="display:none;">
           <div class="ph-cs-reward-icon">🗝️</div>
           <div class="ph-cs-reward-info">
             <div class="ph-cs-reward-label">Weekly Tide Sweep</div>
@@ -8461,7 +8468,7 @@
             </div>
           </div>
           <div class="ph-sg">
-            <!-- Row 1: 7 cards -->
+            <!-- Row 1: 5 cards -->
             <div class="ph-sc">
               <div class="ph-sci ph-sci-teal"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
               <div class="ph-scl">Hours Played</div>
@@ -8487,6 +8494,7 @@
               <div class="ph-scl">Win Rate</div>
               <div class="ph-scv" id="ph-ov-win-rate">—</div>
             </div>
+            <!-- Row 2: 5 cards -->
             <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-blue">👥</div>
               <div class="ph-scl">Most Played Player Count</div>
@@ -8497,16 +8505,10 @@
               <div class="ph-scl">Achievements</div>
               <div class="ph-scv" id="ph-ov-achievements">—</div>
             </div>
-            <!-- Row 2: 7 cards -->
             <div class="ph-sc">
               <div class="ph-sci ph-sci-teal">🌊</div>
               <div class="ph-scl">Casual Wins</div>
               <div class="ph-scv" id="ph-ov-casual-wins">—</div>
-            </div>
-            <div class="ph-sc">
-              <div class="ph-sci ph-sci-blue">🏅</div>
-              <div class="ph-scl">Casual Top Score</div>
-              <div class="ph-scv" id="ph-ov-casual-top">—</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">📊</div>
@@ -8518,6 +8520,7 @@
               <div class="ph-scl">Competitive Rank</div>
               <div class="ph-scv" id="ph-ov-comp-rank">No rank yet</div>
             </div>
+            <!-- Row 3: 5 cards -->
             <div class="ph-sc">
               <div class="ph-sci ph-sci-purple">🏆</div>
               <div class="ph-scl">Best Competitive Score</div>
@@ -8532,6 +8535,16 @@
               <div class="ph-sci ph-sci-teal">🐠</div>
               <div class="ph-scl">Animals Unlocked</div>
               <div class="ph-scv" id="ph-ov-animals">—</div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-blue">🏅</div>
+              <div class="ph-scl">Casual Top Score</div>
+              <div class="ph-scv" id="ph-ov-casual-top">—</div>
+            </div>
+            <div class="ph-sc">
+              <div class="ph-sci ph-sci-gold"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#d9a12b" stroke-width="1.8"/><path d="M12 7v2M12 11h.01M8 14h8M9 17h6" stroke="#d9a12b" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+              <div class="ph-scl">Total XP Earned</div>
+              <div class="ph-scv" id="ph-ov-total-xp">—</div>
             </div>
           </div>
         </div>
@@ -22401,6 +22414,10 @@
       set("ph-ov-comp-rank", compRankLabel);
       set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "—");
       set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "—");
+
+      // Total XP Earned
+      const totalXpVal = Number(safeStats.total_xp || 0);
+      set("ph-ov-total-xp", totalXpVal > 0 ? totalXpVal.toLocaleString() : "—");
 
       // Achievements unlocked
       const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
