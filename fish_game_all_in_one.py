@@ -3931,6 +3931,39 @@ def _hand_anchor_count(gs: GameState, ms: MatchState, hand_uids: List[int],
     return cnt
 
 
+def _board_anchor_count(gs: GameState, player: PlayerState,
+                        family_profile: Optional[Dict[str, Any]]) -> int:
+    """Number of cards ALREADY on the board that are heavy hitters or stack
+    engines of the family — the defining 'anchor' pieces the bot has committed."""
+    if not isinstance(family_profile, dict):
+        return 0
+    _ensure_profile_sets(family_profile)
+    heavy = family_profile["_heavy_set"]
+    engine = family_profile["_engine_set"]
+    cnt = 0
+    for uid in player_board_face_uids(player):
+        nm = gs.card_db[uid].name.strip().lower()
+        if nm in heavy or nm in engine:
+            cnt += 1
+    return cnt
+
+
+def _board_heavy_count(gs: GameState, player: PlayerState,
+                       family_profile: Optional[Dict[str, Any]]) -> int:
+    """Number of HEAVY-HITTER cards already on the board for the family. Heavy
+    hitters are the biggest scoring pieces, so a board with two of them means
+    the bot is deeply committed and should almost never abandon the plan."""
+    if not isinstance(family_profile, dict):
+        return 0
+    _ensure_profile_sets(family_profile)
+    heavy = family_profile["_heavy_set"]
+    cnt = 0
+    for uid in player_board_face_uids(player):
+        if gs.card_db[uid].name.strip().lower() in heavy:
+            cnt += 1
+    return cnt
+
+
 def strategy_pick_penalty(gs: GameState, ms: MatchState, hand_uids: List[int],
                           label: str, profile_by_label: Dict[str, Dict[str, Any]]) -> float:
     """Opening-pick adjustments so bots spread across plans by hand strength
@@ -4123,10 +4156,21 @@ def maybe_reassess_strategy_family(
                 hand_score -= 2.5
         scores[label] = hand_score + board_weight * board_score + 0.4 * pool_score + 0.3 * hist
 
-    # Stickiness: give the current strategy a large bonus so the bot commits to
-    # its plan and only switches when the board genuinely demands it (the guide:
-    # "almost never switch"). Hard bots are the most committed.
-    stick = 5.0 if diff == "hard" else 3.5 if diff == "medium" else 1.5
+    # ── Commitment-scaled stickiness ────────────────────────────────────
+    # A good player picks a plan early and carries it through. The further a bot
+    # is into its current strategy — measured by the heavy hitters and stack
+    # engines it has ALREADY committed to the board — the harder it should be to
+    # leave. Stickiness therefore grows with commitment depth, with heavy hitters
+    # (the biggest scoring pieces) counting double.
+    cur_profile = profile_by_label.get(current_label) if current_label else None
+    committed_anchors = _board_anchor_count(gs, player, cur_profile)
+    committed_heavy   = _board_heavy_count(gs, player, cur_profile)
+
+    base_stick = 5.0 if diff == "hard" else 3.5 if diff == "medium" else 1.5
+    # Each committed anchor makes the plan progressively stickier; capped so a
+    # genuinely dominant alternative can still win out in the early/mid game.
+    depth_stick = min(9.0, 1.6 * committed_anchors + 1.4 * committed_heavy)
+    stick = base_stick + depth_stick
     if current_label in scores:
         scores[current_label] += stick
 
@@ -4141,8 +4185,35 @@ def maybe_reassess_strategy_family(
     if best_label == current_label:
         return None
 
+    # ── Switch gates: only pivot when the new plan is genuinely ready ────
+    # The guide: switch ONLY if the new strategy is clearly much stronger AND
+    # already has enough core cards to support it AND we are not too far into the
+    # current plan. Heavy hitters / core cards matter far more than stray support.
+
+    # Gate 1 — the NEW plan must already hold real anchor pieces (heavy hitters
+    # or stack engines) in hand or on board. A bot never abandons its plan to
+    # chase a strategy it cannot yet build.
+    new_profile = profile_by_label.get(best_label)
+    new_anchors_ready = (
+        _hand_anchor_count(gs, ms, player.hand, new_profile)
+        + _board_anchor_count(gs, player, new_profile)
+    )
+    if new_anchors_ready < 2:
+        return None
+
+    # Gate 2 — once deeply committed to the current plan, almost never pivot.
+    # Two heavy hitters (or four anchors) down means the plan is built: stay.
+    # Otherwise the required margin escalates the deeper we already are.
+    if committed_heavy >= 2 or committed_anchors >= 4:
+        return None  # too far in — carry the plan to the finish
+    effective_margin = switch_margin
+    if committed_anchors >= 2:
+        effective_margin = switch_margin * 2.0
+    elif committed_anchors >= 1:
+        effective_margin = switch_margin * 1.4
+
     current_score = scores.get(current_label, float("-inf"))
-    if scores[best_label] - current_score >= switch_margin:
+    if scores[best_label] - current_score >= effective_margin:
         player.flags["_strategy_family_prev"] = current_label
         player.flags["_strategy_family"] = best_label
         player.flags["_strategy_family_fit"] = float(scores[best_label])
