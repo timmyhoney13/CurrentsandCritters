@@ -8797,6 +8797,13 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     ocean_count = len(player.board_oceans)
     other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
+    # Distinct ocean types for the Mangrove "+8 if you have all 8 oceans" bonus.
+    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards.
+    distinct_ocean_types = len({
+        gs.card_db[uid].name.strip().lower()
+        for uid in player.board_oceans
+        if gs.card_db.get(uid)
+    })
 
     def has_most_piers() -> bool:
         my = sum(1 for uid in player.board_oceans if ((gs.card_db.get(uid).name.lower() == "pier") if gs.card_db.get(uid) else False))
@@ -8946,7 +8953,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             if has_most_animals():
                 pts += 4
         if "if you have all 8 oceans" in t:
-            if ocean_count >= 8:
+            if distinct_ocean_types >= 8:
                 m = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
                 pts += int(m.group(1)) if m else 8
         pier_m = re.search(r"\+2 or \+(\d+) if you have the most piers", t)
@@ -9119,6 +9126,12 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
     ocean_count = len(player.board_oceans)
     other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
+    # Distinct ocean types for Mangrove "+8 if you have all 8 oceans" — needs 8 DIFFERENT types.
+    _distinct_ocean_types = len({
+        gs.card_db[uid].name.strip().lower()
+        for uid in player.board_oceans
+        if gs.card_db.get(uid)
+    })
 
     def _has_most_piers() -> bool:
         def pier_count(p: PlayerState) -> int:
@@ -9268,7 +9281,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         if "if you have the most animals" in t and _has_most_animals():
             add(4, "most animals")
 
-        if "if you have all 8 oceans" in t and ocean_count >= 8:
+        if "if you have all 8 oceans" in t and _distinct_ocean_types >= 8:
             m2 = re.search(r"\+(\d+)\s*if you have all 8 oceans", t)
             add(int(m2.group(1)) if m2 else 8, "all 8 oceans")
 

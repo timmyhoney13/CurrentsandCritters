@@ -20300,7 +20300,7 @@
       if (errEl) errEl.textContent = "";
       try {
         const field = `stats.highest_score_${_lbSize}p`;
-        const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get();
+        const snap  = await _db.collection("users").orderBy(field, "desc").limit(20).get({ source: "server" });
         if (snap.empty) {
           listEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">No scores yet for this size.</div>';
           return;
@@ -20428,7 +20428,7 @@
       try {
         // Fetch by total_xp; fall back to level for accounts that only have level stored.
         // Fetch extra to filter out blank/guest accounts (no nickname or 0 XP).
-        const snap = await _db.collection("users").orderBy("stats.total_xp","desc").limit(50).get();
+        const snap = await _db.collection("users").orderBy("stats.total_xp","desc").limit(50).get({ source: "server" });
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20480,6 +20480,7 @@
           phLbSetSumCard("ph-lb-xp-summary","ph-lb-xp-rank","ph-lb-xp-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] XP leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load XP leaderboard.</td></tr>`;
       }
     }
@@ -20490,7 +20491,7 @@
       tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         // Fetch broadly by normal_wins; we'll add comp wins client-side and re-sort.
-        const snap = await _db.collection("users").orderBy("stats.normal_wins","desc").limit(75).get();
+        const snap = await _db.collection("users").orderBy("stats.normal_wins","desc").limit(75).get({ source: "server" });
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20549,6 +20550,7 @@
           phLbSetSumCard("ph-lb-wins-summary","ph-lb-wins-rank","ph-lb-wins-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] Wins leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Could not load wins leaderboard.</td></tr>`;
       }
     }
@@ -20563,7 +20565,7 @@
         // without needing the materialized field. Size tabs: orderBy best score.
         let candidates;
         if (_phLbSize === "all") {
-          const snap = await _db.collection("users").orderBy("stats.total_score","desc").limit(150).get();
+          const snap = await _db.collection("users").orderBy("stats.total_score","desc").limit(150).get({ source: "server" });
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: balancedAvgFromStats((doc.data()||{}).stats) }))
             .filter(c => c.score > 0)
@@ -20571,7 +20573,7 @@
             .slice(0, 25);
         } else {
           const field = phLbSizeField(_phLbSize);
-          const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get();
+          const snap  = await _db.collection("users").orderBy(field,"desc").limit(25).get({ source: "server" });
           candidates = snap.docs
             .map(doc => ({ doc, d: doc.data(), score: ((doc.data()||{}).stats || {})[`highest_score_${_phLbSize}p`] || 0 }))
             .filter(c => c.score > 0);
@@ -20624,6 +20626,7 @@
           phLbSetSumCard("ph-lb-casual-summary","ph-lb-casual-rank","ph-lb-casual-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] Casual leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
@@ -20633,7 +20636,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_cp","desc").limit(25).get();
+        const snap = await _db.collection("users").orderBy("stats.comp_cp","desc").limit(25).get({ source: "server" });
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d   = doc.data();
@@ -20674,6 +20677,7 @@
           phLbSetSumCard("ph-lb-cp-summary","ph-lb-cp-rank","ph-lb-cp-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] CP leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
@@ -20683,7 +20687,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_best_single_hand","desc").limit(25).get();
+        const snap = await _db.collection("users").orderBy("stats.comp_best_single_hand","desc").limit(25).get({ source: "server" });
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20722,6 +20726,7 @@
           phLbSetSumCard("ph-lb-single-summary","ph-lb-single-rank","ph-lb-single-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] Single-hand leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
@@ -20731,7 +20736,7 @@
       if (!tbody) return;
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
-        const snap = await _db.collection("users").orderBy("stats.comp_best_combined","desc").limit(25).get();
+        const snap = await _db.collection("users").orderBy("stats.comp_best_combined","desc").limit(25).get({ source: "server" });
         let rows = [], myRank = 0, myRow = null, shown = 0;
         snap.docs.forEach(doc => {
           const d     = doc.data();
@@ -20770,6 +20775,7 @@
           phLbSetSumCard("ph-lb-combined-summary","ph-lb-combined-rank","ph-lb-combined-sum-vals",false);
         }
       } catch(e) {
+        console.error("[LB] Combined-hands leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
     }
