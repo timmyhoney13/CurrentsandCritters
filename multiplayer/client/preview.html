@@ -22378,8 +22378,25 @@
               if (_msgOpenConvId) _msgRenderOpenConversation();
               else _msgRenderList();
             }
-          }, err => console.warn("[msg] listener error:", err));
+          }, err => {
+            console.warn("[msg] listener error:", err);
+            if (err && err.code === "permission-denied") _msgShowRulesNeeded();
+          });
       } catch (e) { console.warn("[msg] listen failed:", e); }
+    }
+
+    // Shown when Firestore rules block the messages subcollection.
+    function _msgShowRulesNeeded() {
+      const listEl = $a("ccm-list");
+      const msgsEl = $a("ccm-messages");
+      const banner = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔒</div>"
+        + "<b>Messaging needs one Firestore rule.</b><br><br>"
+        + "In Firebase Console &rarr; Firestore &rarr; Rules, inside your "
+        + "<code>match /users/{userId}</code> block add:<br><br>"
+        + "<code style=\"font-size:11px;background:rgba(0,40,90,.08);padding:6px 8px;border-radius:6px;display:block;text-align:left;\">match /messages/{m} {<br>&nbsp;&nbsp;allow read, write: if request.auth != null;<br>}</code>"
+        + "<br>then click Publish and refresh.</div>";
+      if (listEl && !_msgOpenConvId) listEl.innerHTML = banner;
+      if (msgsEl && _msgOpenConvId) msgsEl.innerHTML = banner;
     }
 
     async function _msgRenderList(searchTerm) {
@@ -22592,6 +22609,7 @@
           .set(Object.assign({}, base, { read: false }));
       } catch (e) {
         console.warn("[msg] send failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return; }
         if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
       }
     }
