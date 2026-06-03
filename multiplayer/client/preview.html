@@ -8761,10 +8761,7 @@
         <div class="ph-pname-row">
           <div class="ph-pname" id="stats-lobby-nick">—</div>
           <svg class="ph-verified" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V5l7-3z" fill="#1d73da"/><path d="M12 6v9M9 9h6M10 12h4" stroke="#f8fdff" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <div class="ph-name-meta">
-            <span class="ph-name-chip level" id="stats-name-level">Level 1</span>
-            <span class="ph-name-chip active" id="stats-name-active">Active now</span>
-          </div>
+          <!-- Level and Active chips removed — duplicated by XP card and meta chips -->
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
         <div class="ph-pmeta2">
@@ -22303,26 +22300,25 @@
       });
     }
 
-    // ════════════════════════════════════════════════════════════════
-    //  MESSAGING SYSTEM — Firestore-backed DMs + room-chat bridge
-    //  Schema:
-    //    conversations/{convId}                  convId = sorted uid pair
-    //      participants: [uidA, uidB]
-    //      names: { uidA: nameA, uidB: nameB }
-    //      last_text, last_ts, last_sender
-    //      unread: { uidA: n, uidB: n }
-    //    conversations/{convId}/messages/{auto}  { sender, text, ts }
-    //  NOTE: production should add Firestore security rules restricting
-    //  read/write to request.auth.uid in resource.data.participants.
-    // ════════════════════════════════════════════════════════════════
-    let _msgConvUnsub = null;        // listener for the open conversation's messages
-    let _msgListUnsub = null;        // listener for my conversation list
-    let _msgConversations = [];      // cached conv docs
-    let _msgOpenConvId = null;       // currently open conversation id
-    let _msgOpenPeer = null;         // { uid, name }
+    // Messaging system — Firestore-backed DMs + room-chat bridge
+    //  Schema: conversations/{convId} (sortedUid__sortedUid)
+    //    participants[], names{}, last_text, last_ts, last_sender, unread_A, unread_B
+    //    subcollection messages/{auto}: sender, text, ts
+
+    let _msgConvUnsub = null;
+    let _msgListUnsub = null;
+    let _msgConversations = [];
+    let _msgOpenConvId = null;
+    let _msgOpenPeer = null;
     let _msgTotalUnread = 0;
 
     function _convIdFor(a, b) { return [String(a), String(b)].sort().join("__"); }
+
+    // Which flat unread field belongs to this uid in this conv?
+    function _unreadFieldFor(convId, uid) {
+      const [a] = convId.split("__");
+      return a === String(uid) ? "unread_A" : "unread_B";
+    }
 
     function _msgUpdateBadge() {
       const badge = $a("msg-unread-badge");
@@ -22335,76 +22331,57 @@
       }
     }
 
-    function _msgTimeLabel(ts) {
-      if (!ts) return "";
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      if (Number.isNaN(d.getTime())) return "";
-      const now = new Date();
-      const sameDay = d.toDateString() === now.toDateString();
-      return sameDay
-        ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-        : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    }
-
-    // Subscribe to my conversation list (newest first) → list + unread badge.
     function _msgStartListListener() {
       if (!_db || !_authUser) return;
-      if (_msgListUnsub) { _msgListUnsub(); _msgListUnsub = null; }
+      if (_msgListUnsub) { try { _msgListUnsub(); } catch {} _msgListUnsub = null; }
       try {
         _msgListUnsub = _db.collection("conversations")
           .where("participants", "array-contains", _authUser.uid)
-          .onSnapshot(snap => {
+          .onSnapshot({ includeMetadataChanges: false }, snap => {
             _msgConversations = snap.docs.map(d => ({ id: d.id, ...d.data() }))
               .sort((a, b) => {
-                const ta = a.last_ts?.toMillis ? a.last_ts.toMillis() : 0;
-                const tb = b.last_ts?.toMillis ? b.last_ts.toMillis() : 0;
+                const ta = a.last_ts && a.last_ts.toMillis ? a.last_ts.toMillis() : 0;
+                const tb = b.last_ts && b.last_ts.toMillis ? b.last_ts.toMillis() : 0;
                 return tb - ta;
               });
-            _msgTotalUnread = _msgConversations.reduce((sum, c) =>
-              sum + Number((c.unread && c.unread[_authUser.uid]) || 0), 0);
+            _msgTotalUnread = _msgConversations.reduce((sum, c) => {
+              const f = _unreadFieldFor(c.id, _authUser.uid);
+              return sum + Number(c[f] || 0);
+            }, 0);
             _msgUpdateBadge();
-            // Re-render list if drawer open on list view
             const drawer = $a("cc-msg-drawer");
             if (drawer && drawer.classList.contains("open") && !_msgOpenConvId) _msgRenderList();
-          }, err => console.warn("conv list listener:", err));
-      } catch (e) { console.warn("msg list listen failed", e); }
-    }
-
-    function _msgStopListeners() {
-      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
-      if (_msgListUnsub) { _msgListUnsub(); _msgListUnsub = null; }
+          }, err => console.warn("[msg] list listener:", err));
+      } catch (e) { console.warn("[msg] list listen failed:", e); }
     }
 
     async function _msgRenderList(searchTerm) {
-      const listEl = $a("ccm-list");
-      const convView = $a("ccm-conv-view");
+      const listEl    = $a("ccm-list");
+      const convView  = $a("ccm-conv-view");
       const searchRow = $a("ccm-search-row");
-      const backBtn = $a("ccm-back-btn");
-      const titleEl = $a("ccm-title");
+      const backBtn   = $a("ccm-back-btn");
+      const titleEl   = $a("ccm-title");
       if (!listEl) return;
+
       listEl.classList.remove("hide");
       if (searchRow) searchRow.classList.remove("hide");
-      if (convView) convView.classList.remove("show");
-      if (backBtn) backBtn.classList.remove("show");
-      if (titleEl) titleEl.textContent = "Friend Messages";
+      if (convView)  convView.classList.remove("show");
+      if (backBtn)   backBtn.classList.remove("show");
+      if (titleEl)   titleEl.textContent = "Friend Messages";
       _msgOpenConvId = null; _msgOpenPeer = null;
-      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
 
       listEl.innerHTML = "";
       const term = (searchTerm || "").trim().toLowerCase();
 
-      // In-game: show the room group chat entry at the top
+      // In-game room-chat bridge
       if (typeof roomId !== "undefined" && roomId && !term) {
         const room = document.createElement("div");
         room.className = "ccm-conv room-chat";
-        room.innerHTML = `
-          <div class="ccm-av"><span class="ccm-av-letter">🎮</span></div>
-          <div class="ccm-conv-body">
-            <div class="ccm-conv-top"><span class="ccm-conv-name">Room Chat</span></div>
-            <div class="ccm-conv-preview">Everyone in this game</div>
-          </div>`;
+        room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">\uD83C\uDFAE</span></div>"
+          + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">Room Chat</span></div>"
+          + "<div class=\"ccm-conv-preview\">Everyone in this game</div></div>";
         room.addEventListener("click", () => {
-          // Bridge to the existing in-game room chat panel
           _msgCloseDrawer();
           const chatBtn = $a("pv-chat-btn");
           if (chatBtn && !_chatPanelOpen) chatBtn.click();
@@ -22415,56 +22392,53 @@
 
       if (!_authUser) {
         listEl.insertAdjacentHTML("beforeend",
-          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Sign in to message friends.</div>`);
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Sign in to message friends.</div>");
         return;
       }
 
-      // Build a merged view: existing conversations + searchable friends
       let friends = [];
       try { friends = await loadFriends(_authUser.uid); } catch {}
 
-      // Search mode: show matching friends to start a new chat
       if (term) {
         const matches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
         if (!matches.length) {
-          listEl.innerHTML = `<div class="ccm-empty"><div class="ccm-empty-ico">🔍</div>No friends match “${escapeHtml(searchTerm)}”.</div>`;
+          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDD0D</div>No friends match.</div>";
           return;
         }
         matches.forEach(f => listEl.appendChild(_msgFriendRow(f)));
         return;
       }
 
-      // No conversations and no friends
       if (!_msgConversations.length && !friends.length) {
         listEl.insertAdjacentHTML("beforeend",
-          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Add friends to start messaging.</div>`);
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Add friends to start messaging.</div>");
         return;
       }
 
-      // Render existing conversations
       if (_msgConversations.length) {
         _msgConversations.forEach(c => {
-          const peerUid = (c.participants || []).find(u => u !== _authUser.uid);
+          const peerUid  = (c.participants || []).find(u => u !== _authUser.uid) || "";
           const peerName = (c.names && c.names[peerUid]) || "Player";
-          const unread = Number((c.unread && c.unread[_authUser.uid]) || 0);
+          const uf       = _unreadFieldFor(c.id, _authUser.uid);
+          const unread   = Number(c[uf] || 0);
           const row = document.createElement("div");
           row.className = "ccm-conv";
           const letter = (peerName[0] || "?").toUpperCase();
-          row.innerHTML = `
-            <div class="ccm-av"><span class="ccm-av-letter">${escapeHtml(letter)}</span><span class="ccm-online-dot" data-peer="${escapeHtml(peerUid||"")}"></span></div>
-            <div class="ccm-conv-body">
-              <div class="ccm-conv-top"><span class="ccm-conv-name">${escapeHtml(peerName)}</span><span class="ccm-conv-time">${_msgTimeLabel(c.last_ts)}</span></div>
-              <div class="ccm-conv-preview">${escapeHtml(c.last_text || "No messages yet")}</div>
-            </div>
-            ${unread > 0 ? `<span class="ccm-conv-unread">${unread > 9 ? "9+" : unread}</span>` : ""}`;
+          const previewText = escapeHtml(c.last_text || "No messages yet");
+          const timeText    = _msgTimeLabel(c.last_ts);
+          row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">" + escapeHtml(letter) + "</span>"
+            + "<span class=\"ccm-online-dot\"></span></div>"
+            + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(peerName) + "</span>"
+            + "<span class=\"ccm-conv-time\">" + timeText + "</span></div>"
+            + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>"
+            + (unread > 0 ? "<span class=\"ccm-conv-unread\">" + (unread > 9 ? "9+" : unread) + "</span>" : "");
           row.addEventListener("click", () => _msgOpenConversation(peerUid, peerName));
-          listEl.appendChild(row);
-          // async avatar + presence
           _msgDecorateRow(row, peerUid, peerName);
+          listEl.appendChild(row);
         });
       } else {
         listEl.insertAdjacentHTML("beforeend",
-          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Choose a friend to start messaging.</div>`);
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Choose a friend to start messaging.</div>");
       }
     }
 
@@ -22472,12 +22446,9 @@
       const row = document.createElement("div");
       row.className = "ccm-conv";
       const letter = (String(f.nickname || "?")[0] || "?").toUpperCase();
-      row.innerHTML = `
-        <div class="ccm-av"><span class="ccm-av-letter">${escapeHtml(letter)}</span></div>
-        <div class="ccm-conv-body">
-          <div class="ccm-conv-top"><span class="ccm-conv-name">${escapeHtml(f.nickname || "Player")}</span></div>
-          <div class="ccm-conv-preview">Start a conversation</div>
-        </div>`;
+      row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">" + escapeHtml(letter) + "</span></div>"
+        + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(f.nickname || "Player") + "</span></div>"
+        + "<div class=\"ccm-conv-preview\">Start a conversation</div></div>";
       row.addEventListener("click", () => _msgOpenConversation(f.uid, f.nickname || "Player"));
       _msgDecorateRow(row, f.uid, f.nickname);
       return row;
@@ -22487,12 +22458,17 @@
       try {
         if (typeof window.__fishAvatarForNick === "function" && peerName) {
           const url = await window.__fishAvatarForNick(peerName);
-          const av = row.querySelector(".ccm-av");
-          if (url && av) av.innerHTML = `<img src="${url}" alt="">` + (av.querySelector(".ccm-online-dot")?.outerHTML || "");
+          const avEl = row.querySelector(".ccm-av");
+          if (url && avEl) {
+            const dotHtml = (avEl.querySelector(".ccm-online-dot") || { outerHTML: "" }).outerHTML;
+            avEl.innerHTML = "<img src=\"" + escapeHtml(url) + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%;\"> " + dotHtml;
+          }
         }
         if (_db && peerUid) {
-          const snap = await _db.collection("users").doc(peerUid).get();
-          const online = !!(snap.data() || {}).online;
+          let snap = null;
+          try { snap = await _db.collection("users").doc(peerUid).get({ source: "cache" }); } catch {}
+          if (!snap || !snap.exists) snap = await _db.collection("users").doc(peerUid).get();
+          const online = !!((snap && snap.data()) || {}).online;
           const dot = row.querySelector(".ccm-online-dot");
           if (dot) dot.classList.toggle("on", online);
         }
@@ -22501,63 +22477,68 @@
 
     function _msgOpenConversation(peerUid, peerName) {
       if (!_authUser || !peerUid) return;
-      _msgOpenPeer = { uid: peerUid, name: peerName };
+      _msgOpenPeer   = { uid: peerUid, name: peerName };
       _msgOpenConvId = _convIdFor(_authUser.uid, peerUid);
-      const listEl = $a("ccm-list");
-      const convView = $a("ccm-conv-view");
-      const searchRow = $a("ccm-search-row");
-      const backBtn = $a("ccm-back-btn");
-      const titleEl = $a("ccm-title");
-      if (listEl) listEl.classList.add("hide");
-      if (searchRow) searchRow.classList.add("hide");
-      if (convView) convView.classList.add("show");
-      if (backBtn) backBtn.classList.add("show");
-      if (titleEl) titleEl.textContent = peerName || "Conversation";
 
-      // Guests cannot send
+      const listEl    = $a("ccm-list");
+      const convView  = $a("ccm-conv-view");
+      const searchRow = $a("ccm-search-row");
+      const backBtn   = $a("ccm-back-btn");
+      const titleEl   = $a("ccm-title");
+      if (listEl)    listEl.classList.add("hide");
+      if (searchRow) searchRow.classList.add("hide");
+      if (convView)  convView.classList.add("show");
+      if (backBtn)   backBtn.classList.add("show");
+      if (titleEl)   titleEl.textContent = peerName || "Conversation";
+
       const guestNote = $a("ccm-guest-note");
-      const inputRow = $a("ccm-input-row");
-      const isGuest = !_authUser || (typeof _guestSessionActive !== "undefined" && _guestSessionActive && !_authUser);
+      const inputRow  = $a("ccm-input-row");
+      const isGuest   = (_guestSessionActive === true);
       if (guestNote) guestNote.style.display = isGuest ? "" : "none";
-      if (inputRow) inputRow.style.display = isGuest ? "none" : "flex";
+      if (inputRow)  inputRow.style.display  = isGuest ? "none" : "flex";
 
       const msgsEl = $a("ccm-messages");
-      if (msgsEl) msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">Loading…</div>`;
+      if (msgsEl) msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">Loading\u2026</div>";
 
-      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
       try {
+        // No orderBy — sort client-side to avoid Firestore index requirements.
         _msgConvUnsub = _db.collection("conversations").doc(_msgOpenConvId)
-          .collection("messages").orderBy("ts", "asc").limitToLast(200)
-          .onSnapshot(snap => {
+          .collection("messages")
+          .onSnapshot({ includeMetadataChanges: false }, snap => {
             if (!msgsEl) return;
             msgsEl.innerHTML = "";
             if (snap.empty) {
-              msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">No messages yet. Say hi! 🐟</div>`;
+              msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! \uD83D\uDC1F</div>";
             } else {
-              snap.docs.forEach(d => {
-                const m = d.data();
+              const docs = Array.prototype.slice.call(snap.docs).sort(function(a, b) {
+                const ta = a.data().ts && a.data().ts.toMillis ? a.data().ts.toMillis() : Date.now();
+                const tb = b.data().ts && b.data().ts.toMillis ? b.data().ts.toMillis() : Date.now();
+                return ta - tb;
+              });
+              docs.forEach(function(d) {
+                const m    = d.data();
                 const mine = m.sender === _authUser.uid;
-                const b = document.createElement("div");
-                b.className = "ccm-bubble " + (mine ? "mine" : "theirs");
-                b.innerHTML = `${escapeHtml(m.text || "")}<span class="ccm-bubble-time">${_msgTimeLabel(m.ts)}</span>`;
-                msgsEl.appendChild(b);
+                const bub  = document.createElement("div");
+                bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
+                bub.innerHTML = escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
+                msgsEl.appendChild(bub);
               });
               msgsEl.scrollTop = msgsEl.scrollHeight;
             }
-            // Mark my unread for this conversation as read
             _msgMarkRead(_msgOpenConvId);
-          }, err => {
-            if (msgsEl) msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">Could not load messages.</div>`;
-            console.warn("conv messages listener:", err);
+          }, function(err) {
+            console.warn("[msg] messages listener error:", err);
+            if (msgsEl) msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">Could not load messages. " + escapeHtml((err && err.code) || "") + "</div>";
           });
-      } catch (e) { console.warn("open conv failed", e); }
+      } catch (e) { console.warn("[msg] open conv failed:", e); }
     }
 
     async function _msgMarkRead(convId) {
       if (!_db || !_authUser || !convId) return;
       try {
-        const ref = _db.collection("conversations").doc(convId);
-        await ref.update({ [`unread.${_authUser.uid}`]: 0 });
+        const f = _unreadFieldFor(convId, _authUser.uid);
+        await _db.collection("conversations").doc(convId).update({ [f]: 0 });
       } catch {}
     }
 
@@ -22566,39 +22547,68 @@
       const input = $a("ccm-input");
       if (!input) return;
       const text = (input.value || "").trim();
-      if (!text) return;                       // block empty messages
-      if (text.length > 500) return;
+      if (!text || text.length > 500) return;
+
       const peerUid = _msgOpenPeer.uid;
-      const convId = _convIdFor(_authUser.uid, peerUid);
-      input.value = "";
+      const convId  = _convIdFor(_authUser.uid, peerUid);
+      input.value   = "";
+
       try {
         const convRef = _db.collection("conversations").doc(convId);
-        const now = firebase.firestore.FieldValue.serverTimestamp();
-        // Ensure conversation doc exists with participants + names
-        await convRef.set({
-          participants: [_authUser.uid, peerUid],
-          names: { [_authUser.uid]: _playerNickname || "Player", [peerUid]: _msgOpenPeer.name || "Player" },
-          last_text: text,
-          last_ts: now,
-          last_sender: _authUser.uid,
-          [`unread.${peerUid}`]: firebase.firestore.FieldValue.increment(1),
-          [`unread.${_authUser.uid}`]: 0,
-        }, { merge: true });
+        const now     = firebase.firestore.FieldValue.serverTimestamp();
+        const fPeer   = _unreadFieldFor(convId, peerUid);
+        const fMine   = _unreadFieldFor(convId, _authUser.uid);
+
+        // Check if conversation doc exists to decide set vs update
+        let convExists = false;
+        try { const cs = await convRef.get(); convExists = cs.exists; } catch {}
+
+        if (!convExists) {
+          // First message — create the conversation document
+          const initData = {
+            participants: [_authUser.uid, peerUid],
+            names: {},
+            last_text:   text,
+            last_ts:     now,
+            last_sender: _authUser.uid,
+          };
+          initData.names[_authUser.uid] = _playerNickname || "Player";
+          initData.names[peerUid]       = _msgOpenPeer.name || "Player";
+          initData[fPeer] = 1;
+          initData[fMine] = 0;
+          await convRef.set(initData);
+        } else {
+          // Subsequent message — update with plain increment (no FieldValue.increment in set)
+          const snap = await convRef.get();
+          const prevPeerUnread = Number((snap.data() || {})[fPeer] || 0);
+          const updateData = {
+            last_text:   text,
+            last_ts:     now,
+            last_sender: _authUser.uid,
+          };
+          updateData[fPeer] = prevPeerUnread + 1;
+          updateData[fMine] = 0;
+          updateData["names." + _authUser.uid] = _playerNickname || "Player";
+          await convRef.update(updateData);
+        }
+
+        // Add the message document
         await convRef.collection("messages").add({
-          sender: _authUser.uid, text, ts: now,
+          sender: _authUser.uid,
+          text:   text,
+          ts:     now,
         });
       } catch (e) {
-        console.warn("send message failed", e);
-        showToast && showToast("Could not send message.", "err");
+        console.warn("[msg] send failed:", e);
+        if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
       }
     }
 
     function _msgOpenDrawer() {
       const drawer = $a("cc-msg-drawer");
       if (!drawer) return;
-      // In-game styling
-      const inGame = (typeof roomId !== "undefined" && roomId);
-      drawer.classList.toggle("in-game", !!inGame);
+      const inGame = (typeof roomId !== "undefined" && !!roomId);
+      drawer.classList.toggle("in-game", inGame);
       drawer.classList.add("open");
       if (_authUser) _msgStartListListener();
       _msgRenderList();
@@ -22606,7 +22616,7 @@
     function _msgCloseDrawer() {
       const drawer = $a("cc-msg-drawer");
       if (drawer) drawer.classList.remove("open");
-      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
       _msgOpenConvId = null; _msgOpenPeer = null;
     }
     window.__fishOpenMessages = _msgOpenDrawer;
