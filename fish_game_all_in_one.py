@@ -3587,14 +3587,19 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
 
 
 # Strategies usable at each skill level (cumulative — expert can pick any).
+# NOTE: "ocean_all_blue" is intentionally NOT a bot-pickable MAIN strategy.
+# You can't win off the Ocean / All-Blue payoff alone, so bots never commit to
+# it as their primary plan — they still place oceans and use ocean cards as
+# support within every other strategy. (The ocean_all_blue profile still exists
+# for detecting/labelling a HUMAN player's ocean strategy in stats & avatars.)
 STRATEGY_SKILL_ALLOWLIST = {
-    "beginner":     {"ocean_all_blue", "yellowfin_tuna", "mammals"},
-    "intermediate": {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage"},
-    "advanced":     {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
+    "beginner":     {"yellowfin_tuna", "mammals"},
+    "intermediate": {"yellowfin_tuna", "mammals", "baitfish_barrage"},
+    "advanced":     {"yellowfin_tuna", "mammals", "baitfish_barrage",
                      "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
                      "invertebrates", "birds_crustaceans", "birds_coral",
                      "coral_cephalopods"},
-    "expert":       {"ocean_all_blue", "yellowfin_tuna", "mammals", "baitfish_barrage",
+    "expert":       {"yellowfin_tuna", "mammals", "baitfish_barrage",
                      "birds_of_a_feather", "crustaceans", "coral", "cephalopods",
                      "invertebrates", "birds_crustaceans", "birds_coral",
                      "coral_cephalopods", "goby_moon_shot"},
@@ -6176,6 +6181,11 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         return
 
     top_score = scores[ranked[0].name]
+    # Quality gate: don't learn from BAD games. If the winner never built a real
+    # board (top score below the floor), the game is noise — skip it so the AI
+    # doesn't pick up garbage card/species/ocean combinations.
+    if top_score < 50.0:
+        return
     winners = [p for p in ranked if scores[p.name] == top_score]
     losers = [p for p in ranked if scores[p.name] < top_score]
 
@@ -10277,8 +10287,32 @@ def run_match(
         except Exception:
             pass
 
+    # ── Game-quality gate: don't learn from BAD games ──────────────────
+    # A "bad game" teaches the AI noise/garbage patterns. We only learn from
+    # games that actually completed and developed:
+    #   * reached the natural end (END GAME card drawn), not a stall/abandon, AND
+    #   * the winner built a real board (top score above a floor).
+    # Bad games still get played and scored — they just don't update the brain.
+    _q_finals = [float(_safe_fp(p)) for p in gs.players]
+    _q_top = max(_q_finals) if _q_finals else 0.0
+    _q_stalled = bool(stalled_turns >= len(gs.players) * 6)
+    _game_is_good_for_learning = (
+        bool(getattr(ms, "end_game_triggered", False))
+        and not _q_stalled
+        and _q_top >= 50.0
+    )
+    if not _game_is_good_for_learning:
+        try:
+            gs.log.append(
+                f"Learning skipped — low-quality game (top={_q_top:.0f}, "
+                f"ended_naturally={bool(getattr(ms, 'end_game_triggered', False))}, "
+                f"stalled={_q_stalled})."
+            )
+        except Exception:
+            pass
+
     # End-of-game self-play learning: reinforce moves that led to higher final outcomes.
-    if online_weights is not None and any(move_histories.values()):
+    if _game_is_good_for_learning and online_weights is not None and any(move_histories.values()):
         finals = [_safe_fp(p) for p in gs.players]
         for i, feats_list in move_histories.items():
             if not feats_list:
@@ -10311,7 +10345,7 @@ def run_match(
                 if online_state is not None:
                     online_state["move_updates"] = int(online_state.get("move_updates", 0)) + 1
 
-    if online_state is not None and online_state_path:
+    if _game_is_good_for_learning and online_state is not None and online_state_path:
         if online_weights is not None:
             stabilize_weights(online_weights)
 

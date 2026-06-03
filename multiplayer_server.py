@@ -3317,28 +3317,40 @@ class GameRoom:
                     demo_boost += 0.25
                 if human_only_game:
                     demo_boost += 0.2
-                try:
-                    with BRAIN_LOCK:
-                        brain2 = fish.load_brain(fish.BRAIN_PATH)
-                        # Full synergy/weight update for human-only games.
-                        if human_only_game:
-                            fish.update_brain_from_match(gs, brain2)
-                        # Move-sequence learning runs for every human game.
-                        fish.update_strategy_memory_from_match(gs, brain2, boost=demo_boost)
-                        # Per-archetype win-rate stats (used to bias future archetype selection).
-                        finals = [fish.final_points(gs, p) for p in gs.players]
-                        fish.update_archetype_stats(brain2, gs.players, finals)
-                        fish.append_game_memory(brain2, gs, finals)
-                        # Human-board reinforcement — highest-signal learning pass.
-                        fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
-                        fish.save_brain(brain2, fish.BRAIN_PATH)
-                    learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
+                # ── Quality gate: don't learn from BAD games ──────────────
+                # Skip truncated/abandoned games and games where nobody built a
+                # real board, so the AI never trains on garbage patterns.
+                _top_score = int(standings[0].get("score", 0)) if standings else 0
+                _ended_naturally = bool(getattr(ms, "end_game_triggered", False))
+                _game_good_to_learn = _ended_naturally and _top_score >= 50
+                if not _game_good_to_learn:
                     self._record_event(
-                        f"AI learned from {len(human_indices)} real human player(s) "
-                        f"(mode={learn_mode}, boost={demo_boost:.2f}, strategy_memory=yes, archetype_stats=yes)."
+                        f"AI learning skipped — low-quality game "
+                        f"(top={_top_score}, ended_naturally={_ended_naturally})."
                     )
-                except Exception as exc:
-                    self._record_event(f"Human-learning warning: {exc}")
+                elif _game_good_to_learn:
+                    try:
+                        with BRAIN_LOCK:
+                            brain2 = fish.load_brain(fish.BRAIN_PATH)
+                            # Full synergy/weight update for human-only games.
+                            if human_only_game:
+                                fish.update_brain_from_match(gs, brain2)
+                            # Move-sequence learning runs for every human game.
+                            fish.update_strategy_memory_from_match(gs, brain2, boost=demo_boost)
+                            # Per-archetype win-rate stats (used to bias future archetype selection).
+                            finals = [fish.final_points(gs, p) for p in gs.players]
+                            fish.update_archetype_stats(brain2, gs.players, finals)
+                            fish.append_game_memory(brain2, gs, finals)
+                            # Human-board reinforcement — highest-signal learning pass.
+                            fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
+                            fish.save_brain(brain2, fish.BRAIN_PATH)
+                        learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
+                        self._record_event(
+                            f"AI learned from {len(human_indices)} real human player(s) "
+                            f"(mode={learn_mode}, boost={demo_boost:.2f}, strategy_memory=yes, archetype_stats=yes)."
+                        )
+                    except Exception as exc:
+                        self._record_event(f"Human-learning warning: {exc}")
 
             if self.competitive:
                 self._save_competitive_game(gs, ms, standings)
