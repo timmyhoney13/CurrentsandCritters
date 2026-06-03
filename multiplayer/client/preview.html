@@ -1154,6 +1154,28 @@
       50%      { box-shadow: 0 0 10px rgba(31,187,138,.45); }
     }
 
+    /* ── Stackable slot (Yellowfin / Lobster stacking on existing cards) ──
+       Pop the slot clear of the overlap so it's visible and clearly separate.
+       The negative margin from the overlap rule is cancelled out, then we add
+       a small positive gap and a distinct "stack +" appearance. */
+    .pv-lane-up    .pv-lane-slot.stack-slot { margin-bottom: 0 !important; margin-top: 3px; }
+    .pv-lane-down  .pv-lane-slot.stack-slot { margin-top:    0 !important; margin-bottom: 3px; }
+    .pv-lane-left  .pv-lane-slot.stack-slot { margin-right:  0 !important; margin-left:  3px; }
+    .pv-lane-right .pv-lane-slot.stack-slot { margin-left:   0 !important; margin-right: 3px; }
+    .pv-lane-slot.stack-slot {
+      border-style: dashed;
+      border-color: #3dd8a8;
+      color: #3dd8a8;
+      font-size: 16px;
+      font-weight: 900;
+      background: rgba(31,187,138,.07);
+    }
+    .pv-lane-slot.stack-slot:hover {
+      background: rgba(31,187,138,.18);
+      border-color: #3ee8a8;
+      transform: scale(1.08);
+    }
+
     /* ── ACTION BAR ─────────────────────────────────────────────── */
     #pv-action-bar {
       background: linear-gradient(180deg, rgba(254,245,230,.92) 0%, rgba(245,232,208,.95) 100%);
@@ -15874,10 +15896,12 @@
 
             lane.appendChild(cardEl);
           });
-          // Stackable slot: show a + when a stacking action exists (e.g. Lobster, Yellowfin Tuna)
+          // Stackable slot: show a clearly separated + slot when stacking is possible
+          // (e.g. Lobster, Yellowfin Tuna). The stack-slot class cancels the overlap
+          // margin so the slot visually pops out from under the last card.
           if (isMyTurn && laneHasAction(dir)) {
             const slot = document.createElement("div");
-            slot.className = "pv-lane-slot playable";
+            slot.className = "pv-lane-slot playable stack-slot";
             slot.textContent = "+";
             slot.title = "Stack another card here";
             slot.addEventListener("click", () => {
