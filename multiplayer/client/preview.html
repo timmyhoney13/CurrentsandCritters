@@ -6907,6 +6907,23 @@
     }
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
+    /* Music toggle */
+    .settings-toggle-track {
+      width: 42px; height: 24px; border-radius: 12px;
+      background: rgba(80,110,160,.4); border: 1.5px solid rgba(100,160,220,.4);
+      position: relative; transition: background .2s, border-color .2s; cursor: pointer;
+    }
+    .settings-toggle-track.on {
+      background: rgba(34,200,130,.55); border-color: rgba(34,200,130,.8);
+    }
+    .settings-toggle-thumb {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(200,230,255,.85); position: absolute; top: 2px; left: 2px;
+      transition: left .2s, background .2s; box-shadow: 0 1px 4px rgba(0,0,0,.3);
+    }
+    .settings-toggle-track.on .settings-toggle-thumb {
+      left: 20px; background: #fff;
+    }
     /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
     #lobby-browser-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
@@ -8362,17 +8379,36 @@
       <div class="settings-row-val" id="settings-account-status">Guest</div>
     </div>
     <div class="settings-row" id="settings-nick-row">
-      <div class="settings-row-label">Nickname</div>
+      <div class="settings-row-label">Username</div>
       <div style="display:flex;align-items:center;gap:8px;flex:1;">
         <span id="settings-current-nick" style="color:var(--cyan);font-weight:700;">—</span>
-        <button class="auth-pbtn" id="settings-edit-nick-btn">Edit</button>
+        <button class="auth-pbtn" id="settings-edit-nick-btn">Change</button>
       </div>
     </div>
+    <div id="settings-nick-cooldown" style="display:none;font-size:11px;color:#e08030;padding:2px 0 6px;"></div>
     <div id="settings-nick-form" style="display:none;flex-direction:column;gap:8px;">
-      <input class="pv-input" id="settings-nick-input" placeholder="New nickname (3–15 chars)" maxlength="15" autocomplete="off" />
+      <div style="font-size:11px;color:rgba(150,200,240,.7);line-height:1.4;">
+        Your public name and friend code will update. You can only change your name once every 30 days.
+      </div>
+      <input class="pv-input" id="settings-nick-input" placeholder="New username (3–15 chars)" maxlength="15" autocomplete="off" />
       <div class="auth-err" id="settings-nick-err"></div>
-      <button class="pv-btn gold full" id="settings-nick-save-btn">Save Nickname →</button>
+      <button class="pv-btn gold full" id="settings-nick-save-btn">Save Username →</button>
       <span class="auth-link" id="settings-nick-cancel">Cancel</span>
+    </div>
+    <!-- Music toggle -->
+    <div class="settings-row" style="margin-top:8px;">
+      <div class="settings-row-label">🎵 Music</div>
+      <div style="display:flex;align-items:center;gap:10px;flex:1;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
+          <div class="settings-toggle-wrap" id="settings-music-wrap">
+            <input type="checkbox" id="settings-music-toggle" style="display:none;" />
+            <div class="settings-toggle-track" id="settings-music-track">
+              <div class="settings-toggle-thumb"></div>
+            </div>
+          </div>
+          <span id="settings-music-label" style="font-size:12px;font-weight:700;color:rgba(200,230,255,.8);">Off</span>
+        </label>
+      </div>
     </div>
     <button class="pv-btn full" id="settings-signout-btn"
       style="background:rgba(180,40,40,.15);border-color:rgba(180,40,40,.4);color:#f08080;margin-top:4px;">
@@ -21895,8 +21931,30 @@
     });
 
     // ── Settings button ───────────────────────────────────────────
+    // ── Music toggle (persisted in localStorage) ───────────────────
+    const MUSIC_PREF_KEY = "fish_music_on";
+    let _musicEnabled = localStorage.getItem(MUSIC_PREF_KEY) !== "0";
+
+    function _applyMusicToggle(on) {
+      _musicEnabled = on;
+      localStorage.setItem(MUSIC_PREF_KEY, on ? "1" : "0");
+      const track = $a("settings-music-track");
+      const label = $a("settings-music-label");
+      if (track) track.classList.toggle("on", on);
+      if (label) label.textContent = on ? "On" : "Off";
+      if (on) { startThemeSong(); }
+      else    { stopThemeSong(); }
+    }
+
+    const musicTrack = $a("settings-music-track");
+    if (musicTrack) {
+      _applyMusicToggle(_musicEnabled); // init state
+      musicTrack.addEventListener("click", () => _applyMusicToggle(!_musicEnabled));
+    }
+
+    // ── Settings modal open ─────────────────────────────────────────
     const settingsBtn = $a("stats-settings-btn");
-    if (settingsBtn) settingsBtn.addEventListener("click", () => {
+    function _openSettingsModal() {
       const nick = _playerNickname || "—";
       const nickEl = $a("settings-current-nick");
       if (nickEl) nickEl.textContent = nick;
@@ -21908,8 +21966,35 @@
       if (signoutRow) signoutRow.style.display = (_authUser || _guestSessionActive) ? "" : "none";
       const nickRow = $a("settings-nick-row");
       if (nickRow) nickRow.style.display = _authUser ? "" : "none";
+
+      // Show cooldown status on open
+      if (_authUser && _activeProfile) {
+        const lastChange = _activeProfile.nickname_changed_at;
+        const cooldownEl = $a("settings-nick-cooldown");
+        const editBtn = $a("settings-edit-nick-btn");
+        const msLeft = lastChange
+          ? (30 * 24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime())
+          : 0;
+        if (msLeft > 0) {
+          const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+          if (cooldownEl) { cooldownEl.textContent = `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`; cooldownEl.style.display = ""; }
+          if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; editBtn.title = `Available in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`; }
+        } else {
+          if (cooldownEl) cooldownEl.style.display = "none";
+          if (editBtn) { editBtn.disabled = false; editBtn.style.opacity = ""; editBtn.title = ""; }
+        }
+      }
+
+      // Sync music toggle UI
+      const track = $a("settings-music-track");
+      if (track) track.classList.toggle("on", _musicEnabled);
+      const label = $a("settings-music-label");
+      if (label) label.textContent = _musicEnabled ? "On" : "Off";
+
       $a("settings-modal").classList.add("open");
-    });
+    }
+    if (settingsBtn) settingsBtn.addEventListener("click", _openSettingsModal);
+
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
     $a("settings-edit-nick-btn").addEventListener("click", () => {
       const form = $a("settings-nick-form");
@@ -21924,35 +22009,78 @@
       const newNick = ($a("settings-nick-input").value || "").trim();
       const err = validateNick(newNick);
       if (err) { setAuthMsg("settings-nick-err", err, false); return; }
-      if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your nickname.", false); return; }
+      if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your username.", false); return; }
+
+      // 30-day cooldown check (re-read from Firestore for accuracy)
+      try {
+        const docSnap = await _db.collection("users").doc(_authUser.uid).get();
+        const data = docSnap.data() || {};
+        const lastChange = data.nickname_changed_at;
+        if (lastChange) {
+          const msLeft = (30 * 24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime());
+          if (msLeft > 0) {
+            const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
+            setAuthMsg("settings-nick-err", `You can change your username in ${daysLeft} more day${daysLeft !== 1 ? "s" : ""}.`, false);
+            return;
+          }
+        }
+      } catch { /* proceed if check fails */ }
+
+      // Check the new name isn't already taken
+      setAuthMsg("settings-nick-err", "Checking availability…", true);
+      try {
+        const taken = await _db.collection("users").where("nickname_lower", "==", newNick.toLowerCase()).get();
+        if (!taken.empty && taken.docs[0].id !== _authUser.uid) {
+          setAuthMsg("settings-nick-err", "That username is already taken.", false); return;
+        }
+      } catch { /* proceed if check fails */ }
+
       setAuthMsg("settings-nick-err", "Saving…", true);
       try {
-        // Remove old friend_lookup entry
+        // Remove old friend_lookup entry (keep same 4-digit code)
         if (_friendCode && _playerNickname) {
           const oldKey = _playerNickname.toLowerCase() + "_" + _friendCode;
-          await _db.collection("friend_lookup").doc(oldKey).delete();
+          await _db.collection("friend_lookup").doc(oldKey).delete().catch(() => {});
         }
-        // Save new nickname + new friend_lookup
+        // Keep the same 4-digit code — only the name changes
         const code = _friendCode || genFriendCode();
         const newKey = newNick.toLowerCase() + "_" + code;
+        const now = firebase.firestore.FieldValue.serverTimestamp();
         await _db.collection("users").doc(_authUser.uid).update({
-          nickname: newNick, nickname_lower: newNick.toLowerCase(),
+          nickname: newNick,
+          nickname_lower: newNick.toLowerCase(),
           friend_code: code,
+          nickname_changed_at: now,   // 30-day cooldown timestamp
         });
-        await _db.collection("friend_lookup").doc(newKey).set({ uid: _authUser.uid, nickname: newNick });
+        // Public lookup doc uses new name + same code
+        await _db.collection("friend_lookup").doc(newKey).set({
+          uid: _authUser.uid, nickname: newNick, updated_at: now,
+        });
         _playerNickname = newNick;
         _friendCode = code;
-        _activeProfile = { ...(_activeProfile || {}), nickname: newNick, friend_code: code };
-        setAuthMsg("settings-nick-err", "✓ Nickname updated!", true);
+        _activeProfile = {
+          ...(_activeProfile || {}),
+          nickname: newNick,
+          nickname_lower: newNick.toLowerCase(),
+          friend_code: code,
+          nickname_changed_at: new Date(),
+        };
+        setAuthMsg("settings-nick-err", `✓ Username updated! Your friend code is ${newNick}#${code}`, true);
         lockNameInputs(newNick);
-        // Refresh stats lobby header
+        // Refresh ALL public-facing name displays
         syncStatsHeader(_activeProfile);
+        if (typeof window.__fishSyncNickname === "function") window.__fishSyncNickname();
         const settingsNickEl = $a("settings-current-nick");
         if (settingsNickEl) settingsNickEl.textContent = newNick;
         const form = $a("settings-nick-form");
         if (form) form.style.display = "none";
+        // Show cooldown note
+        const cooldownEl = $a("settings-nick-cooldown");
+        const editBtn = $a("settings-edit-nick-btn");
+        if (cooldownEl) { cooldownEl.textContent = "You can change your username again in 30 days."; cooldownEl.style.display = ""; }
+        if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; }
       } catch(e) {
-        setAuthMsg("settings-nick-err", "Could not update nickname.", false);
+        setAuthMsg("settings-nick-err", "Could not update username.", false);
       }
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
@@ -22057,8 +22185,8 @@
       // Settings sidebar button → open settings modal
       const snavSettings = document.getElementById("snav-settings");
       if (snavSettings) snavSettings.addEventListener("click", () => {
-        const settingsBtn = document.getElementById("stats-settings-btn");
-        if (settingsBtn) settingsBtn.click();
+        if (typeof _openSettingsModal === "function") _openSettingsModal();
+        else { const sb = document.getElementById("stats-settings-btn"); if (sb) sb.click(); }
       });
       // Daily streak XP formula: 75 + (day-1)*0.25, cap at day 730
       (function initStreakCard() {
