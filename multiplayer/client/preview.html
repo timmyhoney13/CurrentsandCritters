@@ -11228,6 +11228,9 @@
 
   async function startThemeSong() {
     try {
+      // Respect the player's music toggle (Settings). If music is off, never
+      // start — this keeps it off in-game even after toggling it off.
+      try { if (localStorage.getItem("fish_music_on") === "0") return; } catch {}
       if (_themeSource) return; // already playing
       const buffer = await _ensureThemeBuffer();
       if (!buffer || !_themeAudioCtx) return;
@@ -22318,20 +22321,31 @@
     const MUSIC_PREF_KEY = "fish_music_on";
     let _musicEnabled = localStorage.getItem(MUSIC_PREF_KEY) !== "0";
 
-    function _applyMusicToggle(on) {
+    // Is the player currently inside the game simulation (not the lobby)?
+    function _inGameSimulation() {
+      const g = document.getElementById("pv-game");
+      return !!(g && g.style.display !== "none" && g.offsetParent !== null);
+    }
+    function _applyMusicToggle(on, opts) {
       _musicEnabled = on;
       localStorage.setItem(MUSIC_PREF_KEY, on ? "1" : "0");
       const track = $a("settings-music-track");
       const label = $a("settings-music-label");
       if (track) track.classList.toggle("on", on);
       if (label) label.textContent = on ? "On" : "Off";
-      if (on) { startThemeSong(); }
-      else    { stopThemeSong(); }
+      if (on) {
+        // Audio lives ONLY in the game simulation — only (re)start it if we're
+        // actually in a game right now. In the lobby, nothing plays.
+        if (!(opts && opts.uiOnly) && _inGameSimulation() && typeof startThemeSong === "function") startThemeSong();
+      } else {
+        // Off → stop immediately, works in-game and in the lobby.
+        if (typeof stopThemeSong === "function") stopThemeSong();
+      }
     }
 
     const musicTrack = $a("settings-music-track");
     if (musicTrack) {
-      _applyMusicToggle(_musicEnabled); // init state
+      _applyMusicToggle(_musicEnabled, { uiOnly: true }); // sync UI only — never auto-start in the lobby
       musicTrack.addEventListener("click", () => _applyMusicToggle(!_musicEnabled));
     }
 
