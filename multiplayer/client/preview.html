@@ -7044,6 +7044,84 @@
     .ccm-send:disabled { opacity: .5; cursor: not-allowed; }
     .ccm-guest-note { padding: 14px; text-align: center; font-size: .82rem; color: #b06800; background: rgba(255,238,200,.5); }
 
+    /* ══ STREAK CALENDAR MODAL ══════════════════════════════════════ */
+    #streak-cal-modal {
+      display: none; position: fixed; inset: 0; z-index: 9750;
+      background: rgba(8,40,90,.55); backdrop-filter: blur(6px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #streak-cal-modal.open { display: flex; }
+    #streak-cal-box {
+      width: 100%; max-width: 1080px; max-height: 90vh; overflow-y: auto;
+      background: linear-gradient(180deg, rgba(232,247,255,.98) 0%, rgba(206,234,252,.98) 100%);
+      border: 1px solid rgba(120,190,235,.6); border-radius: 24px;
+      box-shadow: 0 16px 60px rgba(0,50,120,.3);
+      padding: 24px 28px 28px;
+    }
+    #streak-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    #streak-cal-title { font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 900; color: #15407e; }
+    #streak-cal-close {
+      width: 38px; height: 38px; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.6); color: #1a5cbf; font-size: 19px; cursor: pointer;
+    }
+    #streak-cal-close:hover { background: rgba(255,255,255,.9); }
+    #streak-cal-stats { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    .sc-stat {
+      flex: 1; min-width: 130px; background: rgba(255,255,255,.6);
+      border: 1px solid rgba(120,190,235,.4); border-radius: 16px; padding: 14px 18px; text-align: center;
+    }
+    .sc-stat-val { font-size: 2rem; font-weight: 900; color: #0f4080; line-height: 1; }
+    .sc-stat-lbl { font-size: .76rem; font-weight: 700; color: #5a86b0; margin-top: 5px; }
+    #streak-cal-legend { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+    .sc-leg { display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 700; color: #3a6090; }
+    .sc-leg-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
+    .sc-leg-dot.done   { background: linear-gradient(135deg,#3ec0ee,#1a77c9); }
+    .sc-leg-dot.missed { background: rgba(150,165,180,.45); }
+    .sc-leg-dot.avatar { background: linear-gradient(135deg,#ffd86a,#f5a623); color: #fff; }
+    #streak-cal-year-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; }
+    #streak-cal-year-row button {
+      width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.6); color: #1a5cbf; font-size: 18px; font-weight: 900; cursor: pointer;
+    }
+    #streak-cal-year-row button:hover { background: rgba(255,255,255,.9); }
+    #sc-year-label { font-family: "Cinzel", serif; font-size: 1.3rem; font-weight: 900; color: #15407e; min-width: 80px; text-align: center; }
+    /* 12-month grid: responsive columns */
+    #streak-cal-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    }
+    @media (max-width: 900px) { #streak-cal-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 680px) { #streak-cal-grid { grid-template-columns: repeat(2, 1fr); } }
+    .sc-month {
+      background: rgba(255,255,255,.5); border: 1px solid rgba(120,190,235,.35);
+      border-radius: 14px; padding: 12px 14px 14px;
+    }
+    .sc-month-name { font-size: .9rem; font-weight: 800; color: #1a4a90; text-align: center; margin-bottom: 8px; }
+    /* 7-col day grid with generous padding so Sat/Sun never clip */
+    .sc-dow, .sc-days {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 4px; justify-items: center;
+    }
+    .sc-dow { margin-bottom: 4px; }
+    .sc-dow span { font-size: .58rem; font-weight: 700; color: #7a9cc0; width: 100%; text-align: center; }
+    .sc-day {
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .58rem; font-weight: 800; box-sizing: border-box;
+    }
+    .sc-day.blank { background: transparent; }
+    .sc-day.done {
+      background: linear-gradient(135deg,#46c8f0,#1a77c9); color: #fff;
+      box-shadow: 0 1px 3px rgba(26,119,201,.4);
+    }
+    .sc-day.missed { background: rgba(150,165,180,.35); color: transparent; }
+    .sc-day.today-empty { background: rgba(120,190,235,.18); border: 1.5px dashed rgba(80,150,210,.5); }
+    .sc-day.avatar {
+      background: linear-gradient(135deg,#ffd86a,#f5a623);
+      box-shadow: 0 0 0 2px rgba(245,166,35,.4), 0 2px 6px rgba(200,120,0,.35);
+      overflow: hidden; padding: 0;
+    }
+    .sc-day.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+
     /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
     #lobby-browser-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
@@ -10096,6 +10174,32 @@
   </div>
 </div>
 
+<!-- ══ STREAK CALENDAR MODAL (yearly view) ════════════════════════ -->
+<div id="streak-cal-modal">
+  <div id="streak-cal-box">
+    <div id="streak-cal-head">
+      <div id="streak-cal-title">≈ Daily Streak ≈</div>
+      <button id="streak-cal-close" aria-label="Close">✕</button>
+    </div>
+    <div id="streak-cal-stats">
+      <div class="sc-stat"><div class="sc-stat-val" id="sc-current">0</div><div class="sc-stat-lbl">Current Streak</div></div>
+      <div class="sc-stat"><div class="sc-stat-val" id="sc-longest">0</div><div class="sc-stat-lbl">Longest Streak</div></div>
+      <div class="sc-stat"><div class="sc-stat-val" id="sc-total">0</div><div class="sc-stat-lbl">Total Days</div></div>
+    </div>
+    <div id="streak-cal-legend">
+      <span class="sc-leg"><span class="sc-leg-dot done"></span> Streak day</span>
+      <span class="sc-leg"><span class="sc-leg-dot missed"></span> Missed day</span>
+      <span class="sc-leg"><span class="sc-leg-dot avatar">★</span> Current day</span>
+    </div>
+    <div id="streak-cal-year-row">
+      <button id="sc-year-prev" aria-label="Previous year">‹</button>
+      <span id="sc-year-label">2026</span>
+      <button id="sc-year-next" aria-label="Next year">›</button>
+    </div>
+    <div id="streak-cal-grid"></div>
+  </div>
+</div>
+
 <!-- ══ END GAME OVERLAY ═══════════════════════════════════════════ -->
 <div id="pv-endgame-overlay">
   <div id="gs-wrap">
@@ -13012,6 +13116,10 @@
     // ── Match stats tracking ─────────────────────────────
     if (phase === "running" && !_matchStartMs) {
       _matchStartMs = Date.now();
+      // Capture the player's LOCAL date at game start. Streak credit is given
+      // for the day a game STARTED (so a game begun at 11:55pm that ends after
+      // midnight still counts for the start day). Read at game-end in saveGameStats.
+      try { _gameStartLocalDate = _streakLocalDateStr(new Date()); } catch { _gameStartLocalDate = ""; }
       // Start the per-game achievement tracker clean. Without this, per-turn
       // and per-game counters (cephThisTurn, baitFishThisTurn, maxCephInTurn,
       // hermitSixBaitDone, …) leak across games and can cause both missed and
@@ -17330,6 +17438,7 @@
   let _endgameCapturedOldXp = null;  // pre-game XP captured once
   let _gameTerminatedByMe = false;   // player clicked Terminate → 0 XP
   let _matchStartMs   = 0;
+  let _gameStartLocalDate = "";        // local "YYYY-MM-DD" when THIS game started (for streak credit)
   let _prevScoreMap   = {};            // player name -> last seen score (for goby/score delta detection)
   let _turnStartScores = {};           // player name -> score at start of their current turn
   let _bestTurnPts    = 0;
@@ -17495,6 +17604,56 @@
       iShotTheMoon: !!(_shotTheMoonName && myName && _shotTheMoonName === myName),
     };
   }
+
+  // ── Daily streak (based on COMPLETED games, credited to local start date) ──
+  // Stored as stats.streak_days = ["YYYY-MM-DD", ...] (one entry per local day
+  // a game was finished). All streak numbers everywhere derive from this list.
+  function _streakLocalDateStr(d) {
+    const dt = (d instanceof Date) ? d : new Date(d);
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+  function _streakParseDate(str) {
+    const p = String(str).split("-").map(Number);
+    return new Date(p[0], (p[1] || 1) - 1, p[2] || 1);
+  }
+  function _streakDayDiff(aStr, bStr) {
+    return Math.round((_streakParseDate(bStr) - _streakParseDate(aStr)) / 86400000);
+  }
+  // Returns { set, sorted, total, longest, current, dayNum, mostRecent, firstDay, alive }
+  function _computeStreakInfo(streakDays) {
+    const arr = Array.isArray(streakDays) ? streakDays.filter(Boolean).map(String) : [];
+    const set = new Set(arr);
+    const sorted = [...set].sort();            // lexicographic sort works for YYYY-MM-DD
+    const dayNum = {};
+    let run = 0, prev = null, longest = 0;
+    for (const ds of sorted) {
+      if (prev && _streakDayDiff(prev, ds) === 1) run++; else run = 1;
+      dayNum[ds] = run;
+      if (run > longest) longest = run;
+      prev = ds;
+    }
+    const today     = _streakLocalDateStr(new Date());
+    const yesterday = _streakLocalDateStr(new Date(Date.now() - 86400000));
+    const mostRecent = sorted.length ? sorted[sorted.length - 1] : null;
+    const alive = mostRecent === today || mostRecent === yesterday;
+    const current = alive ? dayNum[mostRecent] : 0;
+    return { set, sorted, total: sorted.length, longest, current, dayNum, mostRecent, firstDay: sorted[0] || null, alive };
+  }
+  // Add today's (or the game's start) local date to a streak_days array; returns
+  // the updated array (deduped). Stored back to Firestore/guest stats by caller.
+  function _streakAddDay(streakDays, dateStr) {
+    const arr = Array.isArray(streakDays) ? streakDays.filter(Boolean).map(String) : [];
+    const d = dateStr || _streakLocalDateStr(new Date());
+    if (!arr.includes(d)) arr.push(d);
+    // Keep tidy + bounded (sorted, last ~800 days is plenty for a yearly view)
+    const sorted = [...new Set(arr)].sort();
+    return sorted.slice(-800);
+  }
+  window._computeStreakInfo = _computeStreakInfo;
+  window._streakLocalDateStr = _streakLocalDateStr;
 
   async function saveGameStats(winner, finalScores, xpOverride) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
@@ -17669,6 +17828,14 @@
           "stats.last_game_xp": xpAward,
           "stats.recent_games": nextRecent,
         };
+        // ── Daily streak: credit this game's local START date ──────────
+        // Finishing a game is what counts (this code only runs on completion).
+        const _creditDate = _gameStartLocalDate || _streakLocalDateStr(new Date());
+        const _newStreakDays = _streakAddDay(cStats.streak_days, _creditDate);
+        const _streakInfo = _computeStreakInfo(_newStreakDays);
+        updates["stats.streak_days"]    = _newStreakDays;
+        updates["stats.daily_streak"]   = _streakInfo.current;
+        updates["stats.streak_longest"] = Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0));
         // ── Strategy tracking ──────────────────────────────────────────
         // Record the detected strategy: per-player-count (most recent for that
         // size), a play-count tally, and the overall most-played (argmax of the
@@ -17778,6 +17945,12 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
+        // Daily streak (guests) — credit this game's local START date.
+        const _gCreditDate = _gameStartLocalDate || _streakLocalDateStr(new Date());
+        nextStats.streak_days = _streakAddDay(nextStats.streak_days, _gCreditDate);
+        const _gStreakInfo = _computeStreakInfo(nextStats.streak_days);
+        nextStats.daily_streak = _gStreakInfo.current;
+        nextStats.streak_longest = Math.max(_gStreakInfo.longest, Number(nextStats.streak_longest || 0));
         // Strategy tracking (guests) — mirror the signed-in path.
         if (myDetectedStrategy) {
           const _pc = (nextStats.strategy_play_counts && typeof nextStats.strategy_play_counts === "object") ? nextStats.strategy_play_counts : {};
@@ -20727,11 +20900,20 @@
         const tx = getStoredTotalXp(statsSource);
         totalXpEl.textContent = tx > 0 ? tx.toLocaleString() : "0";
       }
+      // Daily streak — computed from streak_days (the single source of truth),
+      // so the header chip, sidebar card, and yearly calendar always agree.
+      let _streakCount = 0;
+      try {
+        if (typeof _computeStreakInfo === "function") {
+          _streakCount = _computeStreakInfo(statsSource.streak_days).current;
+        } else {
+          _streakCount = Number(statsSource.daily_streak || 0);
+        }
+      } catch { _streakCount = Number(statsSource.daily_streak || 0); }
       const streakEl = $a("hdr-streak");
-      if (streakEl) {
-        const sd = Number(statsSource.daily_streak || statsSource.login_streak || statsSource.streak_days || 0);
-        streakEl.textContent = sd > 0 ? `${sd} day${sd !== 1 ? "s" : ""}` : "0 days";
-      }
+      if (streakEl) streakEl.textContent = _streakCount > 0 ? `${_streakCount} day${_streakCount !== 1 ? "s" : ""}` : "0 days";
+      // Sidebar streak card (big number + XP labels) — one source of truth.
+      if (typeof window._updateStreakXp === "function") window._updateStreakXp(_streakCount);
 
       renderStatsAvatar(headerProfile || _activeProfile, nick);
     }
@@ -22718,18 +22900,109 @@
         const todayXpEl = document.getElementById("ph-ss-today-xp");
         const tomorrowXpEl = document.getElementById("ph-ss-tomorrow-xp");
         if (!todayXpEl) return;
-        // Will be updated by real streak data when available; show defaults for now
+        // Driven by real streak data via syncStatsHeader → window._updateStreakXp(count).
         function updateStreakXp(day) {
-          const d = Math.min(Math.max(1, day), 730);
-          const todayXp = Math.round((75 + (d - 1) * 0.25) * 100) / 100;
-          const tomorrowXp = Math.round((75 + d * 0.25) * 100) / 100;
+          const d = Math.max(0, Math.min(Number(day) || 0, 730));
+          const effDay = Math.max(1, d);
+          const todayXp = Math.round((75 + (effDay - 1) * 0.25) * 100) / 100;
+          const tomorrowXp = Math.round((75 + effDay * 0.25) * 100) / 100;
           if (streakDayEl) streakDayEl.textContent = d + " Day" + (d !== 1 ? "s" : "");
-          if (todayXpEl) todayXpEl.textContent = "+" + todayXp + " XP";
+          if (todayXpEl) todayXpEl.textContent = (d > 0 ? "+" + todayXp : "+75.00") + " XP";
           if (tomorrowXpEl) tomorrowXpEl.textContent = "+" + tomorrowXp + " XP";
         }
         window._updateStreakXp = updateStreakXp;
-        updateStreakXp(4); // default until real data loads
+        updateStreakXp(0); // 0 until real data loads
       })();
+
+      // ── Yearly streak calendar (View Streak Details) ──────────────
+      let _scYear = new Date().getFullYear();
+      const _SC_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const _SC_DOW = ["S","M","T","W","T","F","S"];
+
+      function _streakStatsSource() {
+        const s = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
+        return s || {};
+      }
+
+      function _renderStreakCalendar() {
+        const stats = _streakStatsSource();
+        const info = (typeof _computeStreakInfo === "function")
+          ? _computeStreakInfo(stats.streak_days)
+          : { set: new Set(), current: 0, longest: 0, total: 0, dayNum: {}, mostRecent: null, alive: false, firstDay: null };
+
+        const setTxt = (id, v) => { const el = $a(id); if (el) el.textContent = v; };
+        setTxt("sc-current", info.current);
+        setTxt("sc-longest", Math.max(info.longest, Number(stats.streak_longest || 0)));
+        setTxt("sc-total", info.total);
+        setTxt("sc-year-label", _scYear);
+
+        const avatarUrl = (typeof window.__fishMyAvatarUrl === "function") ? (window.__fishMyAvatarUrl() || "") : "";
+        const todayStr = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(new Date()) : "";
+        const grid = $a("streak-cal-grid");
+        if (!grid) return;
+        grid.innerHTML = "";
+
+        for (let m = 0; m < 12; m++) {
+          const monthEl = document.createElement("div");
+          monthEl.className = "sc-month";
+          let html = "<div class=\"sc-month-name\">" + _SC_MONTHS[m] + "</div>"
+            + "<div class=\"sc-dow\">" + _SC_DOW.map(d => "<span>" + d + "</span>").join("") + "</div>"
+            + "<div class=\"sc-days\">";
+          const startDow = new Date(_scYear, m, 1).getDay();      // 0 = Sunday
+          const daysInMonth = new Date(_scYear, m + 1, 0).getDate();
+          for (let i = 0; i < startDow; i++) html += "<div class=\"sc-day blank\"></div>";
+          for (let d = 1; d <= daysInMonth; d++) {
+            const ds = _scYear + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+            let cls = "sc-day", content = "";
+            const isDone     = info.set.has(ds);
+            const isFuture   = ds > todayStr;
+            const beforeFirst = info.firstDay && ds < info.firstDay;
+            if (isDone) {
+              const isCurrentDay = info.alive && ds === info.mostRecent;
+              if (isCurrentDay && avatarUrl) {
+                cls += " avatar";
+                content = "<img src=\"" + avatarUrl + "\" alt=\"\">";
+              } else {
+                cls += " done";
+                content = String(info.dayNum[ds] || "");
+              }
+            } else if (isFuture || beforeFirst) {
+              cls += " blank";
+            } else if (ds === todayStr) {
+              cls += " today-empty";   // today, not played yet → not a miss
+            } else {
+              cls += " missed";        // past gap day after first activity
+            }
+            html += "<div class=\"" + cls + "\" title=\"" + ds + "\">" + content + "</div>";
+          }
+          html += "</div>";
+          monthEl.innerHTML = html;
+          grid.appendChild(monthEl);
+        }
+      }
+
+      function _openStreakCalendar() {
+        _scYear = new Date().getFullYear();
+        _renderStreakCalendar();
+        const modal = $a("streak-cal-modal");
+        if (modal) modal.classList.add("open");
+      }
+      function _closeStreakCalendar() {
+        const modal = $a("streak-cal-modal");
+        if (modal) modal.classList.remove("open");
+      }
+      window.__fishOpenStreakCalendar = _openStreakCalendar;
+
+      const _ssDetailsBtn = $a("ph-ss-details-btn");
+      if (_ssDetailsBtn) _ssDetailsBtn.addEventListener("click", _openStreakCalendar);
+      const _scClose = $a("streak-cal-close");
+      if (_scClose) _scClose.addEventListener("click", _closeStreakCalendar);
+      const _scModal = $a("streak-cal-modal");
+      if (_scModal) _scModal.addEventListener("click", (e) => { if (e.target === _scModal) _closeStreakCalendar(); });
+      const _scPrev = $a("sc-year-prev");
+      if (_scPrev) _scPrev.addEventListener("click", () => { _scYear--; _renderStreakCalendar(); });
+      const _scNext = $a("sc-year-next");
+      if (_scNext) _scNext.addEventListener("click", () => { _scYear++; _renderStreakCalendar(); });
 
       // See-all shortcuts
       const histBtn = $a("ph-hist-btn");
