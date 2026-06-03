@@ -4284,16 +4284,23 @@
     /* Coral art SVG container */
     .ph-ac-art {
       position: absolute;
-      bottom: 0; right: -8px;
-      height: 95%;
-      width: 55%;
+      bottom: 10px; right: 4px;
+      height: 86%;
+      width: 54%;
       pointer-events: none;
       z-index: 1;
       display: flex;
       align-items: flex-end;
-      justify-content: flex-end;
+      justify-content: center;
     }
-    .ph-ac-art svg { width: 100%; height: 100%; }
+    /* Exact coral creature image — full art visible, no distortion */
+    .ph-ac-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      object-position: center bottom;
+      filter: drop-shadow(0 5px 12px rgba(0,30,70,.28));
+    }
     /* Text in front */
     .ph-action-copy { position: relative; z-index: 2; }
     .ph-ai-blue, .ph-ai-green, .ph-ai-teal, .ph-ai-gold { background: transparent; }
@@ -8416,19 +8423,7 @@
           <svg width="24" height="24" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="white" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
         </div>
         <div class="ph-ac-art" aria-hidden="true">
-          <svg viewBox="0 0 110 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M55 170 Q52 138 50 112 Q48 86 56 68" stroke="rgba(255,210,90,.9)" stroke-width="14" stroke-linecap="round"/>
-            <path d="M51 108 Q30 88 14 80" stroke="rgba(255,210,90,.85)" stroke-width="10" stroke-linecap="round"/>
-            <path d="M53 94 Q74 72 88 62" stroke="rgba(255,210,90,.85)" stroke-width="10" stroke-linecap="round"/>
-            <path d="M50 125 Q32 112 22 108" stroke="rgba(255,190,70,.75)" stroke-width="7" stroke-linecap="round"/>
-            <path d="M52 100 Q46 82 50 68" stroke="rgba(255,190,70,.7)" stroke-width="7" stroke-linecap="round"/>
-            <path d="M14 80 Q6 66 10 54" stroke="rgba(255,180,60,.65)" stroke-width="6" stroke-linecap="round"/>
-            <path d="M88 62 Q96 48 92 36" stroke="rgba(255,180,60,.65)" stroke-width="6" stroke-linecap="round"/>
-            <circle cx="63" cy="58" r="22" fill="rgba(255,200,80,.5)" stroke="rgba(255,225,130,.35)" stroke-width="2"/>
-            <circle cx="56" cy="54" r="3.5" fill="white" opacity=".9"/>
-            <circle cx="70" cy="54" r="3.5" fill="white" opacity=".9"/>
-            <path d="M56 64 Q63 70 70 64" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
-          </svg>
+          <img src="/avatars/staghorn-coral.png" alt="" draggable="false" loading="lazy">
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Create Game</div>
@@ -8442,19 +8437,7 @@
           <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="white" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="rgba(255,255,255,.7)" stroke-width="1.8"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="white" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="rgba(255,255,255,.7)" stroke-width="1.8" fill="none"/></svg>
         </div>
         <div class="ph-ac-art" aria-hidden="true">
-          <svg viewBox="0 0 110 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M55 170 Q55 145 52 122" stroke="rgba(240,190,255,.9)" stroke-width="14" stroke-linecap="round"/>
-            <path d="M53 132 Q32 108 16 96" stroke="rgba(240,190,255,.85)" stroke-width="11" stroke-linecap="round"/>
-            <path d="M54 118 Q76 94 90 82" stroke="rgba(240,190,255,.85)" stroke-width="11" stroke-linecap="round"/>
-            <path d="M16 96 Q6 80 10 64" stroke="rgba(220,170,255,.7)" stroke-width="8" stroke-linecap="round"/>
-            <path d="M18 98 Q4 93 2 80" stroke="rgba(220,170,255,.65)" stroke-width="6" stroke-linecap="round"/>
-            <path d="M90 82 Q100 66 96 50" stroke="rgba(220,170,255,.7)" stroke-width="8" stroke-linecap="round"/>
-            <path d="M10 64 Q8 50 16 40" stroke="rgba(200,150,255,.6)" stroke-width="6" stroke-linecap="round"/>
-            <circle cx="56" cy="64" r="22" fill="rgba(220,150,255,.45)" stroke="rgba(240,200,255,.35)" stroke-width="2"/>
-            <circle cx="49" cy="60" r="3.5" fill="white" opacity=".9"/>
-            <circle cx="63" cy="60" r="3.5" fill="white" opacity=".9"/>
-            <path d="M49 70 Q56 76 63 70" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
-          </svg>
+          <img src="/avatars/deep-sea-coral.png" alt="" draggable="false" loading="lazy">
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Join Game</div>
@@ -8468,15 +8451,7 @@
           <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 7l10-5 10 5-10 5L2 7z" fill="white"/><path d="M6 10v4.5C6 16.9 8.7 18 12 18s6-1.1 6-3.5V10" stroke="white" stroke-width="1.6" stroke-linecap="round"/><path d="M22 8v4" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
         <div class="ph-ac-art" aria-hidden="true">
-          <svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="60" cy="78" rx="50" ry="46" fill="rgba(220,190,80,.52)" stroke="rgba(240,210,100,.35)" stroke-width="2"/>
-            <path d="M24 68 Q40 58 60 66 Q80 74 96 64" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-            <path d="M22 80 Q38 70 60 78 Q82 86 98 76" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-            <path d="M26 92 Q42 82 62 90 Q80 98 96 88" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-            <circle cx="50" cy="72" r="4.5" fill="white" opacity=".85"/>
-            <circle cx="70" cy="72" r="4.5" fill="white" opacity=".85"/>
-            <path d="M50 84 Q60 91 70 84" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85"/>
-          </svg>
+          <img src="/avatars/grooved-brain-coral.png" alt="" draggable="false" loading="lazy">
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Tutorial</div>
@@ -8490,19 +8465,7 @@
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 4l14 14M18 4L4 18M13 2l7 7M2 13l7 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="ph-ac-art" aria-hidden="true">
-          <svg viewBox="0 0 130 170" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M65 170 Q62 138 60 112" stroke="rgba(255,225,140,.9)" stroke-width="16" stroke-linecap="round"/>
-            <path d="M61 122 Q36 98 16 86" stroke="rgba(255,225,140,.85)" stroke-width="13" stroke-linecap="round"/>
-            <path d="M62 110 Q90 86 108 74" stroke="rgba(255,225,140,.85)" stroke-width="13" stroke-linecap="round"/>
-            <path d="M16 86 Q6 70 10 54" stroke="rgba(255,205,110,.75)" stroke-width="9" stroke-linecap="round"/>
-            <path d="M18 88 Q4 83 2 70" stroke="rgba(255,205,110,.68)" stroke-width="7" stroke-linecap="round"/>
-            <path d="M108 74 Q118 58 114 42" stroke="rgba(255,205,110,.75)" stroke-width="9" stroke-linecap="round"/>
-            <path d="M110 76 Q124 70 122 58" stroke="rgba(255,205,110,.68)" stroke-width="7" stroke-linecap="round"/>
-            <circle cx="66" cy="70" r="22" fill="rgba(255,200,100,.5)" stroke="rgba(255,230,150,.35)" stroke-width="2"/>
-            <circle cx="59" cy="66" r="3.5" fill="white" opacity=".9"/>
-            <circle cx="73" cy="66" r="3.5" fill="white" opacity=".9"/>
-            <path d="M59 76 Q66 82 73 76" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
-          </svg>
+          <img src="/avatars/elkhorn-coral.png" alt="" draggable="false" loading="lazy">
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Competitive</div>
