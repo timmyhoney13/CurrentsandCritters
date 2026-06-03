@@ -10424,19 +10424,36 @@
   async function apiFetch(path, opts = {}) {
     const url = apiUrl(path);
     const timeoutMs = opts.timeoutMs || 5000;
-    const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const tid = ac ? setTimeout(() => ac.abort(), timeoutMs) : null;
-    try {
-      const res = await fetch(url, {
-        cache: "no-store",
-        signal: ac?.signal,
-        ...(opts.method && { method: opts.method }),
-        ...(opts.body !== undefined && { body: JSON.stringify(opts.body), headers: { "Content-Type": "application/json" } }),
-      });
-      const text = await res.text();
-      let data; try { data = JSON.parse(text); } catch { data = {}; }
-      return { ok: res.ok, status: res.status, data };
-    } finally { if (tid) clearTimeout(tid); }
+    const maxRetries = opts.retries ?? 1; // auto-retry once on 503/502 (Render waking up)
+    let attempt = 0;
+    while (true) {
+      const ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const tid = ac ? setTimeout(() => ac.abort(), timeoutMs) : null;
+      try {
+        const res = await fetch(url, {
+          cache: "no-store",
+          signal: ac?.signal,
+          ...(opts.method && { method: opts.method }),
+          ...(opts.body !== undefined && { body: JSON.stringify(opts.body), headers: { "Content-Type": "application/json" } }),
+        });
+        const text = await res.text();
+        let data; try { data = JSON.parse(text); } catch { data = {}; }
+        // On 503/502 (server waking up), retry once after a short wait
+        if ((res.status === 503 || res.status === 502) && attempt < maxRetries) {
+          attempt++;
+          await new Promise(r => setTimeout(r, 2500));
+          continue;
+        }
+        return { ok: res.ok, status: res.status, data };
+      } catch (err) {
+        if (attempt < maxRetries && err?.name !== "AbortError") {
+          attempt++;
+          await new Promise(r => setTimeout(r, 2500));
+          continue;
+        }
+        throw err;
+      } finally { if (tid) clearTimeout(tid); }
+    }
   }
   async function apiPost(path, body, opts={}) { return apiFetch(path, { ...opts, method:"POST", body }); }
 
@@ -18670,7 +18687,7 @@
   // Keep server warm
   function pingServer() { fetch(window.__FISH_API_BASE__+"/api/health",{method:"GET",cache:"no-store"}).catch(()=>{}); }
   pingServer();
-  setInterval(pingServer, 9*60*1000);
+  setInterval(pingServer, 4*60*1000); // ping every 4 min to prevent Render free-tier sleep
 
   // ═══════════════════════════════════════════════════════════════
   // ANIMAL AVATAR SYSTEM (outer scope — shared with auth IIFE)
