@@ -3317,16 +3317,22 @@ class GameRoom:
                     demo_boost += 0.25
                 if human_only_game:
                     demo_boost += 0.2
-                # ── Quality gate: don't learn from BAD games ──────────────
-                # Skip truncated/abandoned games and games where nobody built a
-                # real board, so the AI never trains on garbage patterns.
+                # ── Quality gate: only learn from GOOD 4-/5-player games ───
+                # Scores aren't comparable across player counts, so we only
+                # train on the balanced 4P/5P format with a real developed
+                # board (top score >= 100) that ended naturally. Learning there
+                # applies to every player count (the AI brain is global).
                 _top_score = int(standings[0].get("score", 0)) if standings else 0
+                _pcount = len(gs.players)
                 _ended_naturally = bool(getattr(ms, "end_game_triggered", False))
-                _game_good_to_learn = _ended_naturally and _top_score >= 50
+                _game_good_to_learn = (
+                    _pcount in (4, 5) and _ended_naturally and _top_score >= 100
+                )
                 if not _game_good_to_learn:
                     self._record_event(
-                        f"AI learning skipped — low-quality game "
-                        f"(top={_top_score}, ended_naturally={_ended_naturally})."
+                        f"AI learning skipped — only 4P/5P games with top>=100 train "
+                        f"the AI (players={_pcount}, top={_top_score}, "
+                        f"ended_naturally={_ended_naturally})."
                     )
                 elif _game_good_to_learn:
                     try:

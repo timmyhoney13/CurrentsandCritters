@@ -6181,10 +6181,11 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         return
 
     top_score = scores[ranked[0].name]
-    # Quality gate: don't learn from BAD games. If the winner never built a real
-    # board (top score below the floor), the game is noise — skip it so the AI
-    # doesn't pick up garbage card/species/ocean combinations.
-    if top_score < 50.0:
+    # Quality gate: only learn from balanced, developed 4- and 5-player games.
+    # Scores differ too much across player counts to threshold fairly, so we
+    # train only on 4P/5P games with a real winner (top score >= 100). What's
+    # learned there generalizes to every player count via the shared brain.
+    if len(gs.players) not in (4, 5) or top_score < 100.0:
         return
     winners = [p for p in ranked if scores[p.name] == top_score]
     losers = [p for p in ranked if scores[p.name] < top_score]
@@ -10287,19 +10288,25 @@ def run_match(
         except Exception:
             pass
 
-    # ── Game-quality gate: don't learn from BAD games ──────────────────
-    # A "bad game" teaches the AI noise/garbage patterns. We only learn from
-    # games that actually completed and developed:
+    # ── Game-quality gate: only learn from GOOD 4- and 5-player games ──
+    # Scores aren't comparable across player counts (2P runs high, 8P runs
+    # low), so we ONLY train on 4- and 5-player games — the balanced "standard"
+    # format — and require a real developed board (top score >= 100). What the
+    # brain learns there applies to every player count (the brain is global).
+    # A game is used for learning only when it:
+    #   * has 4 or 5 players, AND
     #   * reached the natural end (END GAME card drawn), not a stall/abandon, AND
-    #   * the winner built a real board (top score above a floor).
-    # Bad games still get played and scored — they just don't update the brain.
+    #   * the winner scored at least 100 (a real, developed game).
+    # All other games still play + score normally — they just don't train the AI.
     _q_finals = [float(_safe_fp(p)) for p in gs.players]
     _q_top = max(_q_finals) if _q_finals else 0.0
+    _q_pcount = len(gs.players)
     _q_stalled = bool(stalled_turns >= len(gs.players) * 6)
     _game_is_good_for_learning = (
-        bool(getattr(ms, "end_game_triggered", False))
+        _q_pcount in (4, 5)
+        and bool(getattr(ms, "end_game_triggered", False))
         and not _q_stalled
-        and _q_top >= 50.0
+        and _q_top >= 100.0
     )
     if not _game_is_good_for_learning:
         try:
