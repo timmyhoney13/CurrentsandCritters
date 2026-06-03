@@ -4237,61 +4237,78 @@
     .ph-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+      gap: 14px;
     }
+    /* ── Action cards: tall, colorful, ocean-art style ── */
     .ph-action-card {
-      border: 1px solid rgba(165,204,233,.7);
-      border-radius: 18px;
-      background: rgba(252,255,255,.94);
-      padding: 17px 16px;
+      border: none;
+      border-radius: 22px;
+      height: 185px;
+      padding: 18px 20px 20px;
       display: flex;
-      align-items: center;
-      gap: 12px;
+      flex-direction: column;
+      justify-content: flex-end;
       text-align: left;
       cursor: pointer;
-      transition: transform .14s, box-shadow .14s, border-color .14s;
-      box-shadow: 0 4px 18px rgba(34,98,162,.09);
+      transition: transform .16s, box-shadow .16s;
+      box-shadow: 0 6px 28px rgba(0,50,120,.18);
+      overflow: hidden;
+      position: relative;
     }
     .ph-action-card:hover {
-      transform: translateY(-2px);
-      border-color: #7fb6dd;
-      box-shadow: 0 10px 24px rgba(34,98,162,.14);
+      transform: translateY(-3px);
+      box-shadow: 0 14px 36px rgba(0,50,120,.26);
     }
-    .ph-action-card.ph-action-gold {
-      border-color: rgba(226,186,98,.72);
-      background: linear-gradient(130deg, rgba(255,253,246,.96) 0%, rgba(255,243,212,.95) 100%);
-    }
+    /* Individual card gradient themes */
+    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #74ddf5 0%, #2cb8e8 35%, #1785cc 70%, #0e65a8 100%); }
+    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #f892c8 0%, #e0448a 35%, #b82872 70%, #901858 100%); }
+    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b5d96a 0%, #84b93a 35%, #5e9828 70%, #427814 100%); }
+    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #ffd070 0%, #f59030 35%, #d46010 70%, #b04000 100%); }
+    /* Circular icon holder */
     .ph-action-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.26);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255,255,255,.5);
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      margin-bottom: 0;
+      position: absolute;
+      top: 18px;
+      left: 20px;
+      z-index: 2;
     }
-    .ph-ai-blue  { background: rgba(28,130,214,.12); }
-    .ph-ai-green { background: rgba(32,185,132,.12); }
-    .ph-ai-teal  { background: rgba(44,197,185,.12); }
-    .ph-ai-gold  { background: rgba(224,173,52,.16); }
-    .ph-action-copy {
-      min-width: 0;
+    /* Coral art SVG container */
+    .ph-ac-art {
+      position: absolute;
+      bottom: 0; right: -8px;
+      height: 95%;
+      width: 55%;
+      pointer-events: none;
+      z-index: 1;
       display: flex;
-      flex-direction: column;
-      gap: 1px;
+      align-items: flex-end;
+      justify-content: flex-end;
     }
+    .ph-ac-art svg { width: 100%; height: 100%; }
+    /* Text in front */
+    .ph-action-copy { position: relative; z-index: 2; }
+    .ph-ai-blue, .ph-ai-green, .ph-ai-teal, .ph-ai-gold { background: transparent; }
     .ph-action-label {
-      font-size: clamp(1rem, 1.2vw, 1.45rem);
-      font-weight: 800;
-      color: #1559b0;
-      line-height: 1.12;
+      font-size: clamp(1.05rem, 1.3vw, 1.5rem);
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      text-shadow: 0 2px 8px rgba(0,0,0,.2);
     }
-    .ph-action-card.ph-action-gold .ph-action-label { color: #a77000; }
+    .ph-action-card.ph-action-gold .ph-action-label { color: #fff; }
     .ph-action-sub {
-      margin-top: 2px;
-      font-size: .92rem;
-      color: #4b6f94;
+      margin-top: 3px;
+      font-size: .88rem;
+      color: rgba(255,255,255,.88);
       line-height: 1.2;
     }
 
@@ -5147,23 +5164,21 @@
       #auth-stats-lobby .ph-sidebar {
         display: flex !important;
         flex-direction: column;
-        width: 268px;
+        width: 220px;
         flex-shrink: 0;
         padding: 0;
-        margin: 22px 0 22px 24px;
+        margin: 20px 0 20px 20px;
         position: sticky;
-        top: 22px;
-        max-height: calc(100vh - 44px);
+        top: 20px;
+        max-height: calc(100vh - 40px);
         overflow-y: auto;
-        gap: 18px;
+        gap: 0;
         z-index: 10;
-        /* Transparent container — the nav card and streak card each carry
-           their own glassmorphism, so the sidebar itself has no background. */
         background: transparent;
         border: none;
         box-shadow: none;
       }
-      /* Nav card — the top glassmorphism card holding logo + navigation. */
+      /* Nav card — holds logo + navigation + daily streak section */
       #auth-stats-lobby .ph-sidebar-nav-card {
         background: rgba(248,253,255,.94);
         backdrop-filter: blur(18px);
@@ -5172,6 +5187,10 @@
         border-radius: 26px;
         box-shadow: 0 8px 32px rgba(0,60,120,.12);
         padding: 26px 16px 22px;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
       }
       /* Fill the rest of the screen — no max-width cap on desktop. */
       #auth-stats-lobby .ph-wrap {
@@ -5237,31 +5256,27 @@
       margin: 12px 8px;
     }
 
-    /* Daily Streak card in sidebar */
+    /* Daily Streak — section at bottom of nav card, no separate card bg */
     .ph-sidebar-streak {
-      background: rgba(232,248,255,0.85);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(100,190,235,.5);
-      border-radius: 22px;
-      padding: 22px 18px 18px;
-      box-shadow: 0 4px 18px rgba(0,60,120,.1);
+      margin-top: 14px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(100,170,220,.22);
     }
     .ph-ss-header {
       font-family: "Cinzel", serif;
-      font-size: 1.05rem;
+      font-size: .92rem;
       font-weight: 900;
       color: #1558b0;
       text-align: center;
       letter-spacing: .5px;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     .ph-ss-sub {
       text-align: center;
-      font-size: .78rem;
+      font-size: .75rem;
       color: #5a86b0;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
     .ph-ss-main {
       display: flex;
@@ -5438,16 +5453,9 @@
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
       background: rgba(240,252,255,0.90) !important;
     }
-    /* Action buttons */
+    /* Action cards keep their vibrant gradient — no glassmorphism override */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      background: rgba(220,245,255,0.68) !important;
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid rgba(120,200,235,0.50) !important;
-      box-shadow: 0 4px 18px rgba(0,60,120,0.10) !important;
-    }
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card.ph-action-gold {
-      background: rgba(255,246,210,0.75) !important;
+      box-shadow: 0 8px 30px rgba(0,30,80,.22) !important;
     }
     /* Stat grid container — nearly invisible so art shows between cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
@@ -6241,16 +6249,13 @@
     #ph-panel-overview .ph-side > .ph-scard {
       min-height: 0;
     }
-    /* Compact spacing for the Overview tab */
+    /* Overview tab profile/avatar sizing */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
-      padding: 14px 18px;
+      padding: 18px 22px;
     }
     #auth-stats-lobby[data-bg-tab="overview"] .ph-avatar {
-      width: 92px;
-      height: 92px;
-    }
-    #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-      padding: 12px 14px;
+      width: 96px;
+      height: 96px;
     }
     /* Responsive breakpoints for 5-col grid */
     @media (max-width: 1400px) {
@@ -6291,10 +6296,11 @@
       #auth-stats-lobby #ph-panel-overview .ph-sc-string .ph-scv {
         font-size: clamp(1.1rem, 1.25vw, 1.4rem);
       }
-      /* Action cards — taller, larger text */
+      /* Action cards — full-height colorful cards on desktop */
       #auth-stats-lobby .ph-actions { gap: 16px; }
       #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
-        padding: 22px 24px;
+        height: 195px;
+        padding: 18px 20px 20px;
       }
       /* Profile header — roomier */
       #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
@@ -8316,14 +8322,13 @@
         Settings
       </button>
     </nav>
-   </div>
 
-    <!-- Daily Streak card -->
+    <!-- Daily Streak section inside the nav card -->
     <div class="ph-sidebar-streak">
-      <div class="ph-ss-header">≈ Daily Streak ≈</div>
-      <div class="ph-ss-sub">Keep the tide rolling</div>
+      <div class="ph-ss-header">= Daily Streak =</div>
+      <div class="ph-ss-sub">Keep the tide rolling!</div>
       <div class="ph-ss-main">
-        <div class="ph-ss-icon">🔥</div>
+        <div class="ph-ss-icon">🌟</div>
         <div class="ph-ss-days" id="ph-ss-days">4 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
@@ -8337,12 +8342,13 @@
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">S</div><div class="ph-ss-dot"></div></div>
       </div>
       <div class="ph-ss-xp">
-        Today earned: <span id="ph-ss-today-xp">+75.75 XP</span><br>
-        More tomorrow: <span id="ph-ss-tomorrow-xp">+76 XP</span>
+        Today: awarded <span id="ph-ss-today-xp">+75.75 XP</span> ⭐<br>
+        Next tomorrow: <span id="ph-ss-tomorrow-xp">+76 XP</span>
       </div>
       <button class="ph-ss-btn" id="ph-ss-details-btn">View streak details</button>
-    </div>
-  </div>
+    </div><!-- /.ph-sidebar-streak -->
+   </div><!-- /.ph-sidebar-nav-card -->
+  </div><!-- /.ph-sidebar -->
 
   <div class="ph-wrap">
 
@@ -8404,36 +8410,99 @@
 
     <!-- Action row -->
     <div class="ph-actions">
+      <!-- Create Game — teal/blue · staghorn coral art -->
       <button class="ph-action-card" id="stats-create-btn">
-        <div class="ph-action-icon ph-ai-blue">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="#1a9ad7" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="#1a9ad7" stroke-width="2" stroke-linecap="round"/></svg>
+        <div class="ph-action-icon">
+          <svg width="24" height="24" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="white" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </div>
+        <div class="ph-ac-art" aria-hidden="true">
+          <svg viewBox="0 0 110 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M55 170 Q52 138 50 112 Q48 86 56 68" stroke="rgba(255,210,90,.9)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M51 108 Q30 88 14 80" stroke="rgba(255,210,90,.85)" stroke-width="10" stroke-linecap="round"/>
+            <path d="M53 94 Q74 72 88 62" stroke="rgba(255,210,90,.85)" stroke-width="10" stroke-linecap="round"/>
+            <path d="M50 125 Q32 112 22 108" stroke="rgba(255,190,70,.75)" stroke-width="7" stroke-linecap="round"/>
+            <path d="M52 100 Q46 82 50 68" stroke="rgba(255,190,70,.7)" stroke-width="7" stroke-linecap="round"/>
+            <path d="M14 80 Q6 66 10 54" stroke="rgba(255,180,60,.65)" stroke-width="6" stroke-linecap="round"/>
+            <path d="M88 62 Q96 48 92 36" stroke="rgba(255,180,60,.65)" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="63" cy="58" r="22" fill="rgba(255,200,80,.5)" stroke="rgba(255,225,130,.35)" stroke-width="2"/>
+            <circle cx="56" cy="54" r="3.5" fill="white" opacity=".9"/>
+            <circle cx="70" cy="54" r="3.5" fill="white" opacity=".9"/>
+            <path d="M56 64 Q63 70 70 64" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
+          </svg>
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Create Game</div>
-          <div class="ph-action-sub"></div>
+          <div class="ph-action-sub">Start a new adventure</div>
         </div>
       </button>
+
+      <!-- Join Game — pink/rose · fan coral art -->
       <button class="ph-action-card" id="stats-join-toggle-btn">
-        <div class="ph-action-icon ph-ai-green">
-          <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="#2d85e5" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="#2d85e5" stroke-width="1.8" opacity=".6"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="#2d85e5" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="#2d85e5" stroke-width="1.8" fill="none" opacity=".6"/></svg>
+        <div class="ph-action-icon">
+          <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="white" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="rgba(255,255,255,.7)" stroke-width="1.8"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="white" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="rgba(255,255,255,.7)" stroke-width="1.8" fill="none"/></svg>
+        </div>
+        <div class="ph-ac-art" aria-hidden="true">
+          <svg viewBox="0 0 110 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M55 170 Q55 145 52 122" stroke="rgba(240,190,255,.9)" stroke-width="14" stroke-linecap="round"/>
+            <path d="M53 132 Q32 108 16 96" stroke="rgba(240,190,255,.85)" stroke-width="11" stroke-linecap="round"/>
+            <path d="M54 118 Q76 94 90 82" stroke="rgba(240,190,255,.85)" stroke-width="11" stroke-linecap="round"/>
+            <path d="M16 96 Q6 80 10 64" stroke="rgba(220,170,255,.7)" stroke-width="8" stroke-linecap="round"/>
+            <path d="M18 98 Q4 93 2 80" stroke="rgba(220,170,255,.65)" stroke-width="6" stroke-linecap="round"/>
+            <path d="M90 82 Q100 66 96 50" stroke="rgba(220,170,255,.7)" stroke-width="8" stroke-linecap="round"/>
+            <path d="M10 64 Q8 50 16 40" stroke="rgba(200,150,255,.6)" stroke-width="6" stroke-linecap="round"/>
+            <circle cx="56" cy="64" r="22" fill="rgba(220,150,255,.45)" stroke="rgba(240,200,255,.35)" stroke-width="2"/>
+            <circle cx="49" cy="60" r="3.5" fill="white" opacity=".9"/>
+            <circle cx="63" cy="60" r="3.5" fill="white" opacity=".9"/>
+            <path d="M49 70 Q56 76 63 70" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
+          </svg>
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Join Game</div>
-          <div class="ph-action-sub"></div>
+          <div class="ph-action-sub">Play with friends</div>
         </div>
       </button>
+
+      <!-- Tutorial — olive/green · brain coral art -->
       <button class="ph-action-card" id="stats-tutorial-btn">
-        <div class="ph-action-icon ph-ai-teal">
-          <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 7l10-5 10 5-10 5L2 7z" fill="#2eb5b7"/><path d="M6 10v4.5C6 16.9 8.7 18 12 18s6-1.1 6-3.5V10" stroke="#2eb5b7" stroke-width="1.6" stroke-linecap="round"/><path d="M22 8v4" stroke="#2eb5b7" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <div class="ph-action-icon">
+          <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 7l10-5 10 5-10 5L2 7z" fill="white"/><path d="M6 10v4.5C6 16.9 8.7 18 12 18s6-1.1 6-3.5V10" stroke="white" stroke-width="1.6" stroke-linecap="round"/><path d="M22 8v4" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div class="ph-ac-art" aria-hidden="true">
+          <svg viewBox="0 0 120 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="60" cy="78" rx="50" ry="46" fill="rgba(220,190,80,.52)" stroke="rgba(240,210,100,.35)" stroke-width="2"/>
+            <path d="M24 68 Q40 58 60 66 Q80 74 96 64" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M22 80 Q38 70 60 78 Q82 86 98 76" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M26 92 Q42 82 62 90 Q80 98 96 88" stroke="rgba(200,165,50,.65)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <circle cx="50" cy="72" r="4.5" fill="white" opacity=".85"/>
+            <circle cx="70" cy="72" r="4.5" fill="white" opacity=".85"/>
+            <path d="M50 84 Q60 91 70 84" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity=".85"/>
+          </svg>
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Tutorial</div>
           <div class="ph-action-sub">Learn the ropes</div>
         </div>
       </button>
+
+      <!-- Competitive — orange/amber · elkhorn coral art -->
       <button class="ph-action-card ph-action-gold" id="stats-comp-btn">
-        <div class="ph-action-icon ph-ai-gold">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M5 5l14 14M19 5L5 19M15 2l7 7M2 15l7 7" stroke="#d9a12b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div class="ph-action-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 4l14 14M18 4L4 18M13 2l7 7M2 13l7 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="ph-ac-art" aria-hidden="true">
+          <svg viewBox="0 0 130 170" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M65 170 Q62 138 60 112" stroke="rgba(255,225,140,.9)" stroke-width="16" stroke-linecap="round"/>
+            <path d="M61 122 Q36 98 16 86" stroke="rgba(255,225,140,.85)" stroke-width="13" stroke-linecap="round"/>
+            <path d="M62 110 Q90 86 108 74" stroke="rgba(255,225,140,.85)" stroke-width="13" stroke-linecap="round"/>
+            <path d="M16 86 Q6 70 10 54" stroke="rgba(255,205,110,.75)" stroke-width="9" stroke-linecap="round"/>
+            <path d="M18 88 Q4 83 2 70" stroke="rgba(255,205,110,.68)" stroke-width="7" stroke-linecap="round"/>
+            <path d="M108 74 Q118 58 114 42" stroke="rgba(255,205,110,.75)" stroke-width="9" stroke-linecap="round"/>
+            <path d="M110 76 Q124 70 122 58" stroke="rgba(255,205,110,.68)" stroke-width="7" stroke-linecap="round"/>
+            <circle cx="66" cy="70" r="22" fill="rgba(255,200,100,.5)" stroke="rgba(255,230,150,.35)" stroke-width="2"/>
+            <circle cx="59" cy="66" r="3.5" fill="white" opacity=".9"/>
+            <circle cx="73" cy="66" r="3.5" fill="white" opacity=".9"/>
+            <path d="M59 76 Q66 82 73 76" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".9"/>
+          </svg>
         </div>
         <div class="ph-action-copy">
           <div class="ph-action-label">Competitive</div>
@@ -8526,7 +8595,7 @@
         <div class="ph-stats-card">
           <div class="ph-stats-top">
             <div class="ph-stats-title">
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" stroke="#2680c8" stroke-width="1.6"/><path d="M5 9l3 3 5-5" stroke="#2680c8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <svg width="20" height="16" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="#2680c8" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="#2680c8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Quick Stats
             </div>
           </div>
