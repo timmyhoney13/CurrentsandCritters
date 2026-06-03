@@ -4038,15 +4038,21 @@
     }
     .ph-pranks {
       display: grid;
-      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      grid-template-columns: minmax(170px, 1fr) minmax(210px, 1.25fr);
       gap: 0;
       border: 1px solid #c5dbef;
       border-radius: 14px;
       overflow: hidden;
       min-height: 84px;
-      max-width: 412px;
+      max-width: 470px;
       width: 100%;
       background: #fafdff;
+    }
+    /* Competitive rank: allow the full name to wrap instead of clipping */
+    .ph-rank-badge.ph-rank-comp .ph-rank-val {
+      white-space: normal;
+      line-height: 1.2;
+      font-size: .96rem;
     }
     .ph-rank-badge {
       padding: 12px 16px;
@@ -5920,7 +5926,7 @@
     .ph-footer { display: none !important; }
 
     .ph-profile-card {
-      grid-template-columns: 132px minmax(220px, 1fr) minmax(338px, 390px) auto;
+      grid-template-columns: 132px minmax(220px, 1fr) minmax(400px, 460px) auto;
       gap: 21px;
       padding: 17px 22px;
       border-radius: 23px;
@@ -6021,6 +6027,33 @@
       padding: 0 20px;
       color: #285596;
       background: #fafdff;
+    }
+    /* Header Total XP + Streak chips */
+    .ph-pmeta2 {
+      display: flex; gap: 10px; margin-top: 9px; flex-wrap: wrap;
+    }
+    .ph-meta-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(235,247,255,.85);
+      border: 1px solid #c5dbef;
+      border-radius: 12px;
+      padding: 6px 12px 6px 10px;
+    }
+    .ph-meta-chip-ico { font-size: 1.05rem; line-height: 1; }
+    .ph-meta-chip-txt { display: flex; flex-direction: column; line-height: 1.1; }
+    .ph-meta-chip-lbl { font-size: .66rem; font-weight: 700; color: #6a93bd; }
+    .ph-meta-chip-val { font-size: .98rem; font-weight: 900; color: #16407e; }
+    /* Bigger, more visible XP progress bar (desktop) */
+    .ph-level-xp-bar { height: 11px !important; box-shadow: inset 0 1px 2px rgba(40,90,150,.12); }
+    .ph-level-xp-fill { transition: width .55s cubic-bezier(.4,0,.2,1); box-shadow: 0 0 8px rgba(52,165,243,.5); }
+    .ph-level-xp-text { font-size: .86rem !important; }
+    /* Message button badge */
+    .msg-badge {
+      position: absolute; top: -5px; right: -5px;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      border-radius: 9px; background: #e8404f; color: #fff;
+      font-size: 11px; font-weight: 800; line-height: 18px; text-align: center;
+      box-shadow: 0 1px 4px rgba(180,30,50,.5); border: 1.5px solid #fff;
     }
 
     .ph-tabs {
@@ -6924,6 +6957,93 @@
     .settings-toggle-track.on .settings-toggle-thumb {
       left: 20px; background: #fff;
     }
+
+    /* ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ */
+    #cc-msg-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: 380px; max-width: 92vw; z-index: 9700;
+      transform: translateX(100%);
+      transition: transform .28s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column;
+      background: linear-gradient(180deg, rgba(225,243,255,.97) 0%, rgba(200,230,250,.97) 100%);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-left: 1px solid rgba(120,190,235,.55);
+      box-shadow: -8px 0 40px rgba(0,50,120,.22);
+    }
+    #cc-msg-drawer.open { transform: translateX(0); }
+    /* When inside a game room, make it a touch wider */
+    #cc-msg-drawer.in-game { width: 420px; }
+    .ccm-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 16px 13px; border-bottom: 1px solid rgba(120,190,235,.4);
+      flex-shrink: 0;
+    }
+    .ccm-back-btn {
+      width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0;
+      border: 1px solid rgba(120,190,235,.5); background: rgba(255,255,255,.5);
+      color: #1a5cbf; font-size: 17px; cursor: pointer; display: none;
+      align-items: center; justify-content: center;
+    }
+    .ccm-back-btn.show { display: flex; }
+    .ccm-title { font-family:"Cinzel",serif; font-size: 1.1rem; font-weight: 900; color: #15407e; flex: 1; min-width: 0; }
+    .ccm-close { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(120,190,235,.5); background: rgba(255,255,255,.5); color: #1a5cbf; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+    .ccm-close:hover, .ccm-back-btn:hover { background: rgba(255,255,255,.85); }
+    .ccm-search-row { padding: 10px 14px; display: flex; gap: 8px; flex-shrink: 0; }
+    .ccm-search-row input {
+      flex: 1; min-width: 0; border-radius: 10px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.7); padding: 9px 12px; font-size: 13px; color: #16407e;
+      font-family: inherit;
+    }
+    .ccm-search-row input::placeholder { color: #6a93bd; }
+    .ccm-newchat-btn {
+      border-radius: 10px; border: 1px solid rgba(34,130,240,.4); background: rgba(34,130,240,.12);
+      color: #1a5cbf; font-size: 18px; font-weight: 900; cursor: pointer; width: 40px; flex-shrink: 0;
+    }
+    .ccm-newchat-btn:hover { background: rgba(34,130,240,.22); }
+    .ccm-list { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
+    .ccm-conv {
+      display: flex; align-items: center; gap: 11px; padding: 10px 11px;
+      border-radius: 13px; cursor: pointer; transition: background .14s; position: relative;
+    }
+    .ccm-conv:hover { background: rgba(255,255,255,.55); }
+    .ccm-conv.room-chat { background: rgba(255,238,200,.5); border: 1px solid rgba(220,170,40,.4); margin-bottom: 6px; }
+    .ccm-conv.room-chat:hover { background: rgba(255,238,200,.75); }
+    .ccm-av { width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; position: relative; overflow: hidden; background: linear-gradient(145deg,#3ec0ee,#1f66bc); display:flex;align-items:center;justify-content:center; }
+    .ccm-av img { width: 100%; height: 100%; object-fit: cover; }
+    .ccm-av-letter { color:#fff; font-weight:900; font-size:18px; font-family:"Cinzel",serif; }
+    .ccm-online-dot { position: absolute; bottom: 1px; right: 1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid #e6f3ff; background: #9bb5cc; }
+    .ccm-online-dot.on { background: #2ec866; }
+    .ccm-conv-body { flex: 1; min-width: 0; }
+    .ccm-conv-top { display: flex; align-items: baseline; gap: 6px; }
+    .ccm-conv-name { font-size: .92rem; font-weight: 800; color: #16407e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .ccm-conv-time { font-size: .66rem; color: #6a93bd; flex-shrink: 0; }
+    .ccm-conv-preview { font-size: .78rem; color: #5a7fa8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .ccm-conv-unread { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #e8404f; color: #fff; font-size: 10.5px; font-weight: 800; line-height: 18px; text-align: center; flex-shrink: 0; }
+    .ccm-empty { text-align: center; color: #5a7fa8; font-size: .86rem; padding: 40px 24px; line-height: 1.6; }
+    .ccm-empty-ico { font-size: 2.6rem; opacity: .55; margin-bottom: 10px; }
+    /* Conversation view */
+    .ccm-conv-view { flex: 1; display: none; flex-direction: column; min-height: 0; }
+    .ccm-conv-view.show { display: flex; }
+    .ccm-list.hide { display: none; }
+    .ccm-search-row.hide { display: none; }
+    .ccm-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+    .ccm-bubble { max-width: 78%; padding: 8px 12px; border-radius: 14px; font-size: .86rem; line-height: 1.4; word-break: break-word; }
+    .ccm-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
+    .ccm-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.8); color: #16407e; border: 1px solid rgba(120,190,235,.4); border-bottom-left-radius: 4px; }
+    .ccm-bubble-time { font-size: .62rem; opacity: .7; margin-top: 3px; display: block; }
+    .ccm-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid rgba(120,190,235,.4); flex-shrink: 0; }
+    .ccm-input-row textarea {
+      flex: 1; min-width: 0; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.8); padding: 9px 12px; font-size: 13px; color: #16407e;
+      resize: none; font-family: inherit; max-height: 80px;
+    }
+    .ccm-send {
+      border-radius: 11px; border: none; background: linear-gradient(135deg,#2e90e0,#1a6ad0);
+      color: #fff; font-weight: 800; font-size: 13px; padding: 0 18px; cursor: pointer; flex-shrink: 0;
+    }
+    .ccm-send:disabled { opacity: .5; cursor: not-allowed; }
+    .ccm-guest-note { padding: 14px; text-align: center; font-size: .82rem; color: #b06800; background: rgba(255,238,200,.5); }
+
     /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
     #lobby-browser-modal {
       display: none; position: fixed; inset: 0; z-index: 9100;
@@ -8647,6 +8767,16 @@
           </div>
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
+        <div class="ph-pmeta2">
+          <span class="ph-meta-chip" id="hdr-total-xp-chip">
+            <span class="ph-meta-chip-ico">⭐</span>
+            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="hdr-total-xp">—</span></span>
+          </span>
+          <span class="ph-meta-chip" id="hdr-streak-chip">
+            <span class="ph-meta-chip-ico">🔥</span>
+            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">—</span></span>
+          </span>
+        </div>
       </div>
       <div class="ph-pranks">
         <div class="ph-rank-badge ph-rank-level">
@@ -8670,9 +8800,9 @@
         </div>
       </div>
       <div id="stats-lobby-signed-actions" style="display:none;gap:8px;align-items:center;">
-        <button class="ph-icon-btn" id="stats-friend-btn" title="Friends" style="display:none;position:relative;">
-          <svg width="20" height="16" viewBox="0 0 20 16" fill="none"><circle cx="7" cy="5" r="4" fill="#5a8ab0"/><circle cx="14" cy="5" r="3" fill="#8ab0c8"/><path d="M0 15c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="#5a8ab0" stroke-width="1.5" fill="none"/><path d="M13 10c2.21.9 3.7 3.06 3.7 5.57" stroke="#8ab0c8" stroke-width="1.5" fill="none"/></svg>
-          <span class="friend-badge" id="friend-req-badge"></span>
+        <button class="ph-icon-btn" id="stats-message-btn" title="Messages" style="position:relative;">
+          <svg width="22" height="20" viewBox="0 0 22 20" fill="none"><path d="M2 3a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-5 4v-4H4a2 2 0 0 1-2-2V3z" stroke="#2f6eba" stroke-width="1.7" fill="rgba(120,190,235,.18)" stroke-linejoin="round"/><circle cx="7.5" cy="8" r="1.1" fill="#2f6eba"/><circle cx="11" cy="8" r="1.1" fill="#2f6eba"/><circle cx="14.5" cy="8" r="1.1" fill="#2f6eba"/></svg>
+          <span class="msg-badge" id="msg-unread-badge" style="display:none;">0</span>
         </button>
         <button class="ph-signout-btn" id="stats-signout-btn">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M10 10l3-3-3-3M13 7H5" stroke="#5a8ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -9942,6 +10072,30 @@
       <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
       <button id="pv-chat-send">Send</button>
     </div>
+  </div>
+</div>
+
+<!-- ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ -->
+<div id="cc-msg-drawer">
+  <div class="ccm-header">
+    <button class="ccm-back-btn" id="ccm-back-btn" title="Back to messages">‹</button>
+    <div class="ccm-title" id="ccm-title">Friend Messages</div>
+    <button class="ccm-close" id="ccm-close" title="Close">✕</button>
+  </div>
+  <!-- Conversation list view -->
+  <div class="ccm-search-row" id="ccm-search-row">
+    <input id="ccm-search" type="text" placeholder="Search friends or players…" maxlength="30" autocomplete="off" />
+    <button class="ccm-newchat-btn" id="ccm-newchat-btn" title="Start new chat">+</button>
+  </div>
+  <div class="ccm-list" id="ccm-list"></div>
+  <!-- Single conversation view -->
+  <div class="ccm-conv-view" id="ccm-conv-view">
+    <div class="ccm-messages" id="ccm-messages"></div>
+    <div class="ccm-input-row" id="ccm-input-row">
+      <textarea id="ccm-input" rows="1" placeholder="Type a message…" maxlength="500"></textarea>
+      <button class="ccm-send" id="ccm-send">Send</button>
+    </div>
+    <div class="ccm-guest-note" id="ccm-guest-note" style="display:none;">Sign in to send messages.</div>
   </div>
 </div>
 
@@ -20570,6 +20724,18 @@
       const activeChip = $a("stats-name-active");
       if (activeChip) activeChip.textContent = formatLastActiveLabel(activeSourceProfile);
 
+      // Total XP + Daily Streak chips in the header
+      const totalXpEl = $a("hdr-total-xp");
+      if (totalXpEl) {
+        const tx = getStoredTotalXp(statsSource);
+        totalXpEl.textContent = tx > 0 ? tx.toLocaleString() : "0";
+      }
+      const streakEl = $a("hdr-streak");
+      if (streakEl) {
+        const sd = Number(statsSource.daily_streak || statsSource.login_streak || statsSource.streak_days || 0);
+        streakEl.textContent = sd > 0 ? `${sd} day${sd !== 1 ? "s" : ""}` : "0 days";
+      }
+
       renderStatsAvatar(headerProfile || _activeProfile, nick);
     }
 
@@ -20723,6 +20889,8 @@
         // Start presence ping and listen for incoming friend requests
         startPresencePing(_authUser.uid);
         listenForFriendRequests(_authUser.uid);
+        // Start DM conversation listener (drives the header unread badge)
+        if (typeof _msgStartListListener === "function") _msgStartListListener();
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
@@ -22134,6 +22302,343 @@
         if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
       });
     }
+
+    // ════════════════════════════════════════════════════════════════
+    //  MESSAGING SYSTEM — Firestore-backed DMs + room-chat bridge
+    //  Schema:
+    //    conversations/{convId}                  convId = sorted uid pair
+    //      participants: [uidA, uidB]
+    //      names: { uidA: nameA, uidB: nameB }
+    //      last_text, last_ts, last_sender
+    //      unread: { uidA: n, uidB: n }
+    //    conversations/{convId}/messages/{auto}  { sender, text, ts }
+    //  NOTE: production should add Firestore security rules restricting
+    //  read/write to request.auth.uid in resource.data.participants.
+    // ════════════════════════════════════════════════════════════════
+    let _msgConvUnsub = null;        // listener for the open conversation's messages
+    let _msgListUnsub = null;        // listener for my conversation list
+    let _msgConversations = [];      // cached conv docs
+    let _msgOpenConvId = null;       // currently open conversation id
+    let _msgOpenPeer = null;         // { uid, name }
+    let _msgTotalUnread = 0;
+
+    function _convIdFor(a, b) { return [String(a), String(b)].sort().join("__"); }
+
+    function _msgUpdateBadge() {
+      const badge = $a("msg-unread-badge");
+      if (!badge) return;
+      if (_msgTotalUnread > 0) {
+        badge.textContent = _msgTotalUnread > 99 ? "99+" : String(_msgTotalUnread);
+        badge.style.display = "";
+      } else {
+        badge.style.display = "none";
+      }
+    }
+
+    function _msgTimeLabel(ts) {
+      if (!ts) return "";
+      const d = ts.toDate ? ts.toDate() : new Date(ts);
+      if (Number.isNaN(d.getTime())) return "";
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      return sameDay
+        ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+
+    // Subscribe to my conversation list (newest first) → list + unread badge.
+    function _msgStartListListener() {
+      if (!_db || !_authUser) return;
+      if (_msgListUnsub) { _msgListUnsub(); _msgListUnsub = null; }
+      try {
+        _msgListUnsub = _db.collection("conversations")
+          .where("participants", "array-contains", _authUser.uid)
+          .onSnapshot(snap => {
+            _msgConversations = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+              .sort((a, b) => {
+                const ta = a.last_ts?.toMillis ? a.last_ts.toMillis() : 0;
+                const tb = b.last_ts?.toMillis ? b.last_ts.toMillis() : 0;
+                return tb - ta;
+              });
+            _msgTotalUnread = _msgConversations.reduce((sum, c) =>
+              sum + Number((c.unread && c.unread[_authUser.uid]) || 0), 0);
+            _msgUpdateBadge();
+            // Re-render list if drawer open on list view
+            const drawer = $a("cc-msg-drawer");
+            if (drawer && drawer.classList.contains("open") && !_msgOpenConvId) _msgRenderList();
+          }, err => console.warn("conv list listener:", err));
+      } catch (e) { console.warn("msg list listen failed", e); }
+    }
+
+    function _msgStopListeners() {
+      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      if (_msgListUnsub) { _msgListUnsub(); _msgListUnsub = null; }
+    }
+
+    async function _msgRenderList(searchTerm) {
+      const listEl = $a("ccm-list");
+      const convView = $a("ccm-conv-view");
+      const searchRow = $a("ccm-search-row");
+      const backBtn = $a("ccm-back-btn");
+      const titleEl = $a("ccm-title");
+      if (!listEl) return;
+      listEl.classList.remove("hide");
+      if (searchRow) searchRow.classList.remove("hide");
+      if (convView) convView.classList.remove("show");
+      if (backBtn) backBtn.classList.remove("show");
+      if (titleEl) titleEl.textContent = "Friend Messages";
+      _msgOpenConvId = null; _msgOpenPeer = null;
+      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+
+      listEl.innerHTML = "";
+      const term = (searchTerm || "").trim().toLowerCase();
+
+      // In-game: show the room group chat entry at the top
+      if (typeof roomId !== "undefined" && roomId && !term) {
+        const room = document.createElement("div");
+        room.className = "ccm-conv room-chat";
+        room.innerHTML = `
+          <div class="ccm-av"><span class="ccm-av-letter">🎮</span></div>
+          <div class="ccm-conv-body">
+            <div class="ccm-conv-top"><span class="ccm-conv-name">Room Chat</span></div>
+            <div class="ccm-conv-preview">Everyone in this game</div>
+          </div>`;
+        room.addEventListener("click", () => {
+          // Bridge to the existing in-game room chat panel
+          _msgCloseDrawer();
+          const chatBtn = $a("pv-chat-btn");
+          if (chatBtn && !_chatPanelOpen) chatBtn.click();
+          else { const p = $a("pv-chat-panel"); if (p) p.classList.add("open"); }
+        });
+        listEl.appendChild(room);
+      }
+
+      if (!_authUser) {
+        listEl.insertAdjacentHTML("beforeend",
+          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Sign in to message friends.</div>`);
+        return;
+      }
+
+      // Build a merged view: existing conversations + searchable friends
+      let friends = [];
+      try { friends = await loadFriends(_authUser.uid); } catch {}
+
+      // Search mode: show matching friends to start a new chat
+      if (term) {
+        const matches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
+        if (!matches.length) {
+          listEl.innerHTML = `<div class="ccm-empty"><div class="ccm-empty-ico">🔍</div>No friends match “${escapeHtml(searchTerm)}”.</div>`;
+          return;
+        }
+        matches.forEach(f => listEl.appendChild(_msgFriendRow(f)));
+        return;
+      }
+
+      // No conversations and no friends
+      if (!_msgConversations.length && !friends.length) {
+        listEl.insertAdjacentHTML("beforeend",
+          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Add friends to start messaging.</div>`);
+        return;
+      }
+
+      // Render existing conversations
+      if (_msgConversations.length) {
+        _msgConversations.forEach(c => {
+          const peerUid = (c.participants || []).find(u => u !== _authUser.uid);
+          const peerName = (c.names && c.names[peerUid]) || "Player";
+          const unread = Number((c.unread && c.unread[_authUser.uid]) || 0);
+          const row = document.createElement("div");
+          row.className = "ccm-conv";
+          const letter = (peerName[0] || "?").toUpperCase();
+          row.innerHTML = `
+            <div class="ccm-av"><span class="ccm-av-letter">${escapeHtml(letter)}</span><span class="ccm-online-dot" data-peer="${escapeHtml(peerUid||"")}"></span></div>
+            <div class="ccm-conv-body">
+              <div class="ccm-conv-top"><span class="ccm-conv-name">${escapeHtml(peerName)}</span><span class="ccm-conv-time">${_msgTimeLabel(c.last_ts)}</span></div>
+              <div class="ccm-conv-preview">${escapeHtml(c.last_text || "No messages yet")}</div>
+            </div>
+            ${unread > 0 ? `<span class="ccm-conv-unread">${unread > 9 ? "9+" : unread}</span>` : ""}`;
+          row.addEventListener("click", () => _msgOpenConversation(peerUid, peerName));
+          listEl.appendChild(row);
+          // async avatar + presence
+          _msgDecorateRow(row, peerUid, peerName);
+        });
+      } else {
+        listEl.insertAdjacentHTML("beforeend",
+          `<div class="ccm-empty"><div class="ccm-empty-ico">💬</div>Choose a friend to start messaging.</div>`);
+      }
+    }
+
+    function _msgFriendRow(f) {
+      const row = document.createElement("div");
+      row.className = "ccm-conv";
+      const letter = (String(f.nickname || "?")[0] || "?").toUpperCase();
+      row.innerHTML = `
+        <div class="ccm-av"><span class="ccm-av-letter">${escapeHtml(letter)}</span></div>
+        <div class="ccm-conv-body">
+          <div class="ccm-conv-top"><span class="ccm-conv-name">${escapeHtml(f.nickname || "Player")}</span></div>
+          <div class="ccm-conv-preview">Start a conversation</div>
+        </div>`;
+      row.addEventListener("click", () => _msgOpenConversation(f.uid, f.nickname || "Player"));
+      _msgDecorateRow(row, f.uid, f.nickname);
+      return row;
+    }
+
+    async function _msgDecorateRow(row, peerUid, peerName) {
+      try {
+        if (typeof window.__fishAvatarForNick === "function" && peerName) {
+          const url = await window.__fishAvatarForNick(peerName);
+          const av = row.querySelector(".ccm-av");
+          if (url && av) av.innerHTML = `<img src="${url}" alt="">` + (av.querySelector(".ccm-online-dot")?.outerHTML || "");
+        }
+        if (_db && peerUid) {
+          const snap = await _db.collection("users").doc(peerUid).get();
+          const online = !!(snap.data() || {}).online;
+          const dot = row.querySelector(".ccm-online-dot");
+          if (dot) dot.classList.toggle("on", online);
+        }
+      } catch {}
+    }
+
+    function _msgOpenConversation(peerUid, peerName) {
+      if (!_authUser || !peerUid) return;
+      _msgOpenPeer = { uid: peerUid, name: peerName };
+      _msgOpenConvId = _convIdFor(_authUser.uid, peerUid);
+      const listEl = $a("ccm-list");
+      const convView = $a("ccm-conv-view");
+      const searchRow = $a("ccm-search-row");
+      const backBtn = $a("ccm-back-btn");
+      const titleEl = $a("ccm-title");
+      if (listEl) listEl.classList.add("hide");
+      if (searchRow) searchRow.classList.add("hide");
+      if (convView) convView.classList.add("show");
+      if (backBtn) backBtn.classList.add("show");
+      if (titleEl) titleEl.textContent = peerName || "Conversation";
+
+      // Guests cannot send
+      const guestNote = $a("ccm-guest-note");
+      const inputRow = $a("ccm-input-row");
+      const isGuest = !_authUser || (typeof _guestSessionActive !== "undefined" && _guestSessionActive && !_authUser);
+      if (guestNote) guestNote.style.display = isGuest ? "" : "none";
+      if (inputRow) inputRow.style.display = isGuest ? "none" : "flex";
+
+      const msgsEl = $a("ccm-messages");
+      if (msgsEl) msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">Loading…</div>`;
+
+      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      try {
+        _msgConvUnsub = _db.collection("conversations").doc(_msgOpenConvId)
+          .collection("messages").orderBy("ts", "asc").limitToLast(200)
+          .onSnapshot(snap => {
+            if (!msgsEl) return;
+            msgsEl.innerHTML = "";
+            if (snap.empty) {
+              msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">No messages yet. Say hi! 🐟</div>`;
+            } else {
+              snap.docs.forEach(d => {
+                const m = d.data();
+                const mine = m.sender === _authUser.uid;
+                const b = document.createElement("div");
+                b.className = "ccm-bubble " + (mine ? "mine" : "theirs");
+                b.innerHTML = `${escapeHtml(m.text || "")}<span class="ccm-bubble-time">${_msgTimeLabel(m.ts)}</span>`;
+                msgsEl.appendChild(b);
+              });
+              msgsEl.scrollTop = msgsEl.scrollHeight;
+            }
+            // Mark my unread for this conversation as read
+            _msgMarkRead(_msgOpenConvId);
+          }, err => {
+            if (msgsEl) msgsEl.innerHTML = `<div class="ccm-empty" style="padding:24px;">Could not load messages.</div>`;
+            console.warn("conv messages listener:", err);
+          });
+      } catch (e) { console.warn("open conv failed", e); }
+    }
+
+    async function _msgMarkRead(convId) {
+      if (!_db || !_authUser || !convId) return;
+      try {
+        const ref = _db.collection("conversations").doc(convId);
+        await ref.update({ [`unread.${_authUser.uid}`]: 0 });
+      } catch {}
+    }
+
+    async function _msgSend() {
+      if (!_db || !_authUser || !_msgOpenPeer) return;
+      const input = $a("ccm-input");
+      if (!input) return;
+      const text = (input.value || "").trim();
+      if (!text) return;                       // block empty messages
+      if (text.length > 500) return;
+      const peerUid = _msgOpenPeer.uid;
+      const convId = _convIdFor(_authUser.uid, peerUid);
+      input.value = "";
+      try {
+        const convRef = _db.collection("conversations").doc(convId);
+        const now = firebase.firestore.FieldValue.serverTimestamp();
+        // Ensure conversation doc exists with participants + names
+        await convRef.set({
+          participants: [_authUser.uid, peerUid],
+          names: { [_authUser.uid]: _playerNickname || "Player", [peerUid]: _msgOpenPeer.name || "Player" },
+          last_text: text,
+          last_ts: now,
+          last_sender: _authUser.uid,
+          [`unread.${peerUid}`]: firebase.firestore.FieldValue.increment(1),
+          [`unread.${_authUser.uid}`]: 0,
+        }, { merge: true });
+        await convRef.collection("messages").add({
+          sender: _authUser.uid, text, ts: now,
+        });
+      } catch (e) {
+        console.warn("send message failed", e);
+        showToast && showToast("Could not send message.", "err");
+      }
+    }
+
+    function _msgOpenDrawer() {
+      const drawer = $a("cc-msg-drawer");
+      if (!drawer) return;
+      // In-game styling
+      const inGame = (typeof roomId !== "undefined" && roomId);
+      drawer.classList.toggle("in-game", !!inGame);
+      drawer.classList.add("open");
+      if (_authUser) _msgStartListListener();
+      _msgRenderList();
+    }
+    function _msgCloseDrawer() {
+      const drawer = $a("cc-msg-drawer");
+      if (drawer) drawer.classList.remove("open");
+      if (_msgConvUnsub) { _msgConvUnsub(); _msgConvUnsub = null; }
+      _msgOpenConvId = null; _msgOpenPeer = null;
+    }
+    window.__fishOpenMessages = _msgOpenDrawer;
+
+    // Wire drawer controls
+    const _msgBtn = $a("stats-message-btn");
+    if (_msgBtn) _msgBtn.addEventListener("click", _msgOpenDrawer);
+    const _ccmClose = $a("ccm-close");
+    if (_ccmClose) _ccmClose.addEventListener("click", _msgCloseDrawer);
+    const _ccmBack = $a("ccm-back-btn");
+    if (_ccmBack) _ccmBack.addEventListener("click", () => _msgRenderList());
+    const _ccmSend = $a("ccm-send");
+    if (_ccmSend) _ccmSend.addEventListener("click", _msgSend);
+    const _ccmInput = $a("ccm-input");
+    if (_ccmInput) _ccmInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); _msgSend(); }
+    });
+    const _ccmSearch = $a("ccm-search");
+    if (_ccmSearch) {
+      let _searchTimer = null;
+      _ccmSearch.addEventListener("input", () => {
+        clearTimeout(_searchTimer);
+        _searchTimer = setTimeout(() => _msgRenderList(_ccmSearch.value), 200);
+      });
+    }
+    const _ccmNew = $a("ccm-newchat-btn");
+    if (_ccmNew) _ccmNew.addEventListener("click", () => {
+      const s = $a("ccm-search");
+      if (s) { s.focus(); s.placeholder = "Type a friend's name to start…"; }
+    });
+    // Start listening to conversations as soon as we know the user (badge updates)
+    if (_authUser) _msgStartListListener();
 
     // Guest notice sign-in link
     const guestSigninLink = $a("stats-guest-signin-link");
