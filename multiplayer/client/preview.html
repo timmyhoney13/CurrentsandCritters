@@ -22300,25 +22300,23 @@
       });
     }
 
-    // Messaging system — Firestore-backed DMs + room-chat bridge
-    //  Schema: conversations/{convId} (sortedUid__sortedUid)
-    //    participants[], names{}, last_text, last_ts, last_sender, unread_A, unread_B
-    //    subcollection messages/{auto}: sender, text, ts
+    // Messaging system — stored under users/{uid}/messages (works under existing rules).
+    //  Each message is dual-written: a copy in the sender's subcollection AND
+    //  a copy in the recipient's subcollection. We only ever READ our own
+    //  subcollection, and writing to another user's subcollection is already
+    //  permitted by the rules (the friend-request system does the same).
+    //  Schema  users/{uid}/messages/{msgId}:
+    //    conv_id, sender, sender_name, receiver, receiver_name, text, ts, read
 
-    let _msgConvUnsub = null;
-    let _msgListUnsub = null;
-    let _msgConversations = [];
+    let _msgListUnsub = null;       // listener on my messages subcollection
+    let _msgAllMessages = [];       // cache of all my message docs
+    let _msgConversations = [];     // derived: one entry per conversation
     let _msgOpenConvId = null;
-    let _msgOpenPeer = null;
+    let _msgOpenPeer = null;        // { uid, name }
     let _msgTotalUnread = 0;
 
     function _convIdFor(a, b) { return [String(a), String(b)].sort().join("__"); }
-
-    // Which flat unread field belongs to this uid in this conv?
-    function _unreadFieldFor(convId, uid) {
-      const [a] = convId.split("__");
-      return a === String(uid) ? "unread_A" : "unread_B";
-    }
+    function _msgTs(m) { return (m && m.ts && m.ts.toMillis) ? m.ts.toMillis() : Date.now(); }
 
     function _msgUpdateBadge() {
       const badge = $a("msg-unread-badge");
@@ -22331,14 +22329,13 @@
       }
     }
 
-    // Format a Firestore timestamp (or Date / millis) into a short label.
-    // Returns "" for a pending server-timestamp (so optimistic sends don't error).
+    // Format a Firestore timestamp / Date / millis into a short label.
+    // Returns "" for a pending serverTimestamp so optimistic sends don't error.
     function _msgTimeLabel(ts) {
       if (!ts) return "";
       let d;
-      try {
-        d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
-      } catch { return ""; }
+      try { d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts)); }
+      catch { return ""; }
       if (!d || Number.isNaN(d.getTime())) return "";
       const now = new Date();
       const sameDay = d.toDateString() === now.toDateString();
@@ -22347,28 +22344,42 @@
         : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
 
+    // Group my cached messages into per-conversation summaries (newest first).
+    function _msgRebuildConversations() {
+      const byConv = {};
+      _msgAllMessages.forEach(m => {
+        if (!m.conv_id) return;
+        (byConv[m.conv_id] = byConv[m.conv_id] || []).push(m);
+      });
+      _msgConversations = Object.keys(byConv).map(cid => {
+        const msgs = byConv[cid].slice().sort((a, b) => _msgTs(a) - _msgTs(b));
+        const last = msgs[msgs.length - 1];
+        const iSent = last.sender === _authUser.uid;
+        const peerUid  = iSent ? last.receiver : last.sender;
+        const peerName = (iSent ? last.receiver_name : last.sender_name) || "Player";
+        const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
+        return { id: cid, peerUid, peerName, last_text: last.text, last_ts: last.ts, unread };
+      }).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
+    }
+
+    // Single listener on my own messages subcollection — drives everything.
     function _msgStartListListener() {
       if (!_db || !_authUser) return;
       if (_msgListUnsub) { try { _msgListUnsub(); } catch {} _msgListUnsub = null; }
       try {
-        _msgListUnsub = _db.collection("conversations")
-          .where("participants", "array-contains", _authUser.uid)
+        _msgListUnsub = _db.collection("users").doc(_authUser.uid).collection("messages")
           .onSnapshot({ includeMetadataChanges: false }, snap => {
-            _msgConversations = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-              .sort((a, b) => {
-                const ta = a.last_ts && a.last_ts.toMillis ? a.last_ts.toMillis() : 0;
-                const tb = b.last_ts && b.last_ts.toMillis ? b.last_ts.toMillis() : 0;
-                return tb - ta;
-              });
-            _msgTotalUnread = _msgConversations.reduce((sum, c) => {
-              const f = _unreadFieldFor(c.id, _authUser.uid);
-              return sum + Number(c[f] || 0);
-            }, 0);
+            _msgAllMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            _msgTotalUnread = _msgAllMessages.filter(m => m.sender !== _authUser.uid && !m.read).length;
             _msgUpdateBadge();
+            _msgRebuildConversations();
             const drawer = $a("cc-msg-drawer");
-            if (drawer && drawer.classList.contains("open") && !_msgOpenConvId) _msgRenderList();
-          }, err => console.warn("[msg] list listener:", err));
-      } catch (e) { console.warn("[msg] list listen failed:", e); }
+            if (drawer && drawer.classList.contains("open")) {
+              if (_msgOpenConvId) _msgRenderOpenConversation();
+              else _msgRenderList();
+            }
+          }, err => console.warn("[msg] listener error:", err));
+      } catch (e) { console.warn("[msg] listen failed:", e); }
     }
 
     async function _msgRenderList(searchTerm) {
@@ -22385,16 +22396,15 @@
       if (backBtn)   backBtn.classList.remove("show");
       if (titleEl)   titleEl.textContent = "Friend Messages";
       _msgOpenConvId = null; _msgOpenPeer = null;
-      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
 
       listEl.innerHTML = "";
       const term = (searchTerm || "").trim().toLowerCase();
 
-      // In-game room-chat bridge
+      // In-game room-chat bridge entry
       if (typeof roomId !== "undefined" && roomId && !term) {
         const room = document.createElement("div");
         room.className = "ccm-conv room-chat";
-        room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">\uD83C\uDFAE</span></div>"
+        room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">🎮</span></div>"
           + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">Room Chat</span></div>"
           + "<div class=\"ccm-conv-preview\">Everyone in this game</div></div>";
         room.addEventListener("click", () => {
@@ -22408,17 +22418,18 @@
 
       if (!_authUser) {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Sign in to message friends.</div>");
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Sign in to message friends.</div>");
         return;
       }
 
       let friends = [];
       try { friends = await loadFriends(_authUser.uid); } catch {}
 
+      // Search mode → matching friends to start a new chat
       if (term) {
         const matches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
         if (!matches.length) {
-          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDD0D</div>No friends match.</div>";
+          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔍</div>No friends match.</div>";
           return;
         }
         matches.forEach(f => listEl.appendChild(_msgFriendRow(f)));
@@ -22427,34 +22438,30 @@
 
       if (!_msgConversations.length && !friends.length) {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Add friends to start messaging.</div>");
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Add friends to start messaging.</div>");
         return;
       }
 
       if (_msgConversations.length) {
         _msgConversations.forEach(c => {
-          const peerUid  = (c.participants || []).find(u => u !== _authUser.uid) || "";
-          const peerName = (c.names && c.names[peerUid]) || "Player";
-          const uf       = _unreadFieldFor(c.id, _authUser.uid);
-          const unread   = Number(c[uf] || 0);
           const row = document.createElement("div");
           row.className = "ccm-conv";
-          const letter = (peerName[0] || "?").toUpperCase();
+          const letter = (String(c.peerName || "?")[0] || "?").toUpperCase();
           const previewText = escapeHtml(c.last_text || "No messages yet");
           const timeText    = _msgTimeLabel(c.last_ts);
           row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">" + escapeHtml(letter) + "</span>"
             + "<span class=\"ccm-online-dot\"></span></div>"
-            + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(peerName) + "</span>"
+            + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(c.peerName) + "</span>"
             + "<span class=\"ccm-conv-time\">" + timeText + "</span></div>"
             + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>"
-            + (unread > 0 ? "<span class=\"ccm-conv-unread\">" + (unread > 9 ? "9+" : unread) + "</span>" : "");
-          row.addEventListener("click", () => _msgOpenConversation(peerUid, peerName));
-          _msgDecorateRow(row, peerUid, peerName);
+            + (c.unread > 0 ? "<span class=\"ccm-conv-unread\">" + (c.unread > 9 ? "9+" : c.unread) + "</span>" : "");
+          row.addEventListener("click", () => _msgOpenConversation(c.peerUid, c.peerName));
+          _msgDecorateRow(row, c.peerUid, c.peerName);
           listEl.appendChild(row);
         });
       } else {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">\uD83D\uDCAC</div>Choose a friend to start messaging.</div>");
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Choose a friend to start messaging.</div>");
       }
     }
 
@@ -22481,9 +22488,7 @@
           }
         }
         if (_db && peerUid) {
-          let snap = null;
-          try { snap = await _db.collection("users").doc(peerUid).get({ source: "cache" }); } catch {}
-          if (!snap || !snap.exists) snap = await _db.collection("users").doc(peerUid).get();
+          const snap = await _db.collection("users").doc(peerUid).get();
           const online = !!((snap && snap.data()) || {}).online;
           const dot = row.querySelector(".ccm-online-dot");
           if (dot) dot.classList.toggle("on", online);
@@ -22513,107 +22518,78 @@
       if (guestNote) guestNote.style.display = isGuest ? "" : "none";
       if (inputRow)  inputRow.style.display  = isGuest ? "none" : "flex";
 
-      const msgsEl = $a("ccm-messages");
-      if (msgsEl) msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">Loading\u2026</div>";
-
-      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
-      try {
-        // No orderBy — sort client-side to avoid Firestore index requirements.
-        _msgConvUnsub = _db.collection("conversations").doc(_msgOpenConvId)
-          .collection("messages")
-          .onSnapshot({ includeMetadataChanges: false }, snap => {
-            if (!msgsEl) return;
-            msgsEl.innerHTML = "";
-            if (snap.empty) {
-              msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! \uD83D\uDC1F</div>";
-            } else {
-              const docs = Array.prototype.slice.call(snap.docs).sort(function(a, b) {
-                const ta = a.data().ts && a.data().ts.toMillis ? a.data().ts.toMillis() : Date.now();
-                const tb = b.data().ts && b.data().ts.toMillis ? b.data().ts.toMillis() : Date.now();
-                return ta - tb;
-              });
-              docs.forEach(function(d) {
-                const m    = d.data();
-                const mine = m.sender === _authUser.uid;
-                const bub  = document.createElement("div");
-                bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
-                bub.innerHTML = escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
-                msgsEl.appendChild(bub);
-              });
-              msgsEl.scrollTop = msgsEl.scrollHeight;
-            }
-            _msgMarkRead(_msgOpenConvId);
-          }, function(err) {
-            console.warn("[msg] messages listener error:", err);
-            if (msgsEl) msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">Could not load messages. " + escapeHtml((err && err.code) || "") + "</div>";
-          });
-      } catch (e) { console.warn("[msg] open conv failed:", e); }
+      _msgRenderOpenConversation();
     }
 
-    async function _msgMarkRead(convId) {
+    // Render the currently-open conversation from the cached messages.
+    function _msgRenderOpenConversation() {
+      const msgsEl = $a("ccm-messages");
+      if (!msgsEl || !_msgOpenConvId) return;
+      const msgs = _msgAllMessages
+        .filter(m => m.conv_id === _msgOpenConvId)
+        .sort((a, b) => _msgTs(a) - _msgTs(b));
+      msgsEl.innerHTML = "";
+      if (!msgs.length) {
+        msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! 🐟</div>";
+      } else {
+        msgs.forEach(m => {
+          const mine = m.sender === _authUser.uid;
+          const bub  = document.createElement("div");
+          bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
+          bub.innerHTML = escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
+          msgsEl.appendChild(bub);
+        });
+        msgsEl.scrollTop = msgsEl.scrollHeight;
+      }
+      _msgMarkConvRead(_msgOpenConvId);
+    }
+
+    // Mark my received messages in this conversation as read.
+    async function _msgMarkConvRead(convId) {
       if (!_db || !_authUser || !convId) return;
-      try {
-        const f = _unreadFieldFor(convId, _authUser.uid);
-        await _db.collection("conversations").doc(convId).update({ [f]: 0 });
-      } catch {}
+      const unread = _msgAllMessages.filter(m =>
+        m.conv_id === convId && m.sender !== _authUser.uid && !m.read);
+      for (const m of unread) {
+        try {
+          await _db.collection("users").doc(_authUser.uid)
+            .collection("messages").doc(m.id).update({ read: true });
+        } catch {}
+      }
     }
 
     async function _msgSend() {
       if (!_db || !_authUser || !_msgOpenPeer) return;
+      if (_guestSessionActive === true) return;   // guests cannot send
       const input = $a("ccm-input");
       if (!input) return;
       const text = (input.value || "").trim();
-      if (!text || text.length > 500) return;
+      if (!text || text.length > 500) return;       // block empty / oversized
 
       const peerUid = _msgOpenPeer.uid;
       const convId  = _convIdFor(_authUser.uid, peerUid);
       input.value   = "";
+      input.style.height = "";
 
+      // Shared id so both copies line up (handy for future dedup).
+      const msgId = _db.collection("users").doc(_authUser.uid).collection("messages").doc().id;
+      const now   = firebase.firestore.FieldValue.serverTimestamp();
+      const base  = {
+        conv_id:       convId,
+        sender:        _authUser.uid,
+        sender_name:   _playerNickname || "Player",
+        receiver:      peerUid,
+        receiver_name: _msgOpenPeer.name || "Player",
+        text:          text,
+        ts:            now,
+      };
       try {
-        const convRef = _db.collection("conversations").doc(convId);
-        const now     = firebase.firestore.FieldValue.serverTimestamp();
-        const fPeer   = _unreadFieldFor(convId, peerUid);
-        const fMine   = _unreadFieldFor(convId, _authUser.uid);
-
-        // Check if conversation doc exists to decide set vs update
-        let convExists = false;
-        try { const cs = await convRef.get(); convExists = cs.exists; } catch {}
-
-        if (!convExists) {
-          // First message — create the conversation document
-          const initData = {
-            participants: [_authUser.uid, peerUid],
-            names: {},
-            last_text:   text,
-            last_ts:     now,
-            last_sender: _authUser.uid,
-          };
-          initData.names[_authUser.uid] = _playerNickname || "Player";
-          initData.names[peerUid]       = _msgOpenPeer.name || "Player";
-          initData[fPeer] = 1;
-          initData[fMine] = 0;
-          await convRef.set(initData);
-        } else {
-          // Subsequent message — update with plain increment (no FieldValue.increment in set)
-          const snap = await convRef.get();
-          const prevPeerUnread = Number((snap.data() || {})[fPeer] || 0);
-          const updateData = {
-            last_text:   text,
-            last_ts:     now,
-            last_sender: _authUser.uid,
-          };
-          updateData[fPeer] = prevPeerUnread + 1;
-          updateData[fMine] = 0;
-          updateData["names." + _authUser.uid] = _playerNickname || "Player";
-          await convRef.update(updateData);
-        }
-
-        // Add the message document
-        await convRef.collection("messages").add({
-          sender: _authUser.uid,
-          text:   text,
-          ts:     now,
-        });
+        // My copy (already read, since I sent it)
+        await _db.collection("users").doc(_authUser.uid).collection("messages").doc(msgId)
+          .set(Object.assign({}, base, { read: true }));
+        // Recipient's copy (unread for them). Writing to another user's
+        // subcollection is allowed by the same rule the friend system uses.
+        await _db.collection("users").doc(peerUid).collection("messages").doc(msgId)
+          .set(Object.assign({}, base, { read: false }));
       } catch (e) {
         console.warn("[msg] send failed:", e);
         if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
@@ -22632,7 +22608,6 @@
     function _msgCloseDrawer() {
       const drawer = $a("cc-msg-drawer");
       if (drawer) drawer.classList.remove("open");
-      if (_msgConvUnsub) { try { _msgConvUnsub(); } catch {} _msgConvUnsub = null; }
       _msgOpenConvId = null; _msgOpenPeer = null;
     }
     window.__fishOpenMessages = _msgOpenDrawer;
