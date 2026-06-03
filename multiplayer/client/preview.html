@@ -5159,6 +5159,27 @@
       font-size: 1rem;
       line-height: 1.55;
     }
+    /* Guest sign-in gate: shown over stat/social tabs for guests */
+    .ph-guest-gate { display: none; }
+    .ph-panel.is-guest-gated > *:not(.ph-guest-gate) { display: none !important; }
+    .ph-panel.is-guest-gated > .ph-guest-gate {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 14px; text-align: center;
+      min-height: 320px; padding: 48px 28px;
+      border: 1px solid rgba(140,200,240,.55); border-radius: 22px;
+      background: linear-gradient(180deg, rgba(240,250,255,.92), rgba(216,238,252,.88));
+      box-shadow: 0 8px 30px rgba(0,60,120,.1);
+    }
+    .ph-guest-gate-ico { font-size: 3rem; opacity: .7; }
+    .ph-guest-gate-msg { font-size: 1.25rem; font-weight: 800; color: #1a4a90; max-width: 420px; line-height: 1.4; }
+    .ph-guest-gate-sub { font-size: .9rem; color: #5a86b0; max-width: 380px; line-height: 1.5; margin-top: -6px; }
+    .ph-guest-gate-btn {
+      margin-top: 6px; padding: 12px 32px; border-radius: 12px; border: none;
+      background: linear-gradient(135deg, #2e90e0, #1a6ad0); color: #fff;
+      font-size: 1rem; font-weight: 800; cursor: pointer; font-family: inherit;
+      box-shadow: 0 4px 14px rgba(26,106,208,.35); transition: transform .12s;
+    }
+    .ph-guest-gate-btn:hover { transform: translateY(-2px); }
     .ph-empty-panel small {
       display: block;
       margin-top: 6px;
@@ -19931,6 +19952,11 @@
     function openAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (!gal) return;
+      // Guests can't open the avatar collection — locked to the Mullet.
+      if (!_authUser) {
+        if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
+        return;
+      }
       _galSpecies = "all";
       _galSort = "all";
       _galSelectedId = null;
@@ -20749,6 +20775,8 @@
     // Bridge for code outside this IIFE (e.g. in-game player seat row)
     window.__fishMyAvatarUrl = function () {
       try {
+        // Guests are always the Mullet — they cannot choose an avatar.
+        if (!_authUser) return "/avatars/mullet.png";
         const seed = _authUser?.uid || _playerNickname || "guest";
         const fromProfile = _activeProfile && (
           _activeProfile.avatar_url ||
@@ -20803,7 +20831,10 @@
       if (letter) letter.textContent = safeInitial(nickname || _playerNickname || "Guest");
       if (!wrap || !img) return;
       const avatarSeed = _authUser?.uid || _playerNickname || nickname || "guest";
-      const avatarUrl = resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed });
+      // Guests are locked to the Mullet — never show a chosen/saved avatar.
+      const avatarUrl = !_authUser
+        ? "/avatars/mullet.png"
+        : resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed });
       if (!avatarUrl) {
         wrap.classList.remove("has-image");
         img.removeAttribute("src");
@@ -20991,6 +21022,11 @@
       const options = opts || {};
       const modal = $a("avatar-picker-modal");
       if (!modal) return;
+      // Guests cannot change their avatar — they're locked to the Mullet.
+      if (!_authUser) {
+        if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
+        return;
+      }
       const forceRequired = !!options.required;
       const guestMode = !!options.guestMode || (!_authUser && _guestSessionActive);
       const seed = guestMode
@@ -21185,7 +21221,8 @@
       if (signedEl) signedEl.style.display = "grid";
       const friendBtn = $a("stats-friend-btn");
       if (friendBtn) friendBtn.style.display = (_authUser && _friendCode) ? "" : "none";
-      setStatsAvatarClickable(!!_authUser || _guestSessionActive);
+      // Guests are locked to the Mullet — only signed-in players can change avatar.
+      setStatsAvatarClickable(!!_authUser);
       // Guest notice
       const guestNotice = $a("stats-guest-notice");
       if (guestNotice) guestNotice.style.display = _guestSessionActive ? "" : "none";
@@ -22232,12 +22269,15 @@
     const statsAvatarBtn = $a("stats-avatar");
     if (statsAvatarBtn) {
       statsAvatarBtn.addEventListener("click", () => {
-        if (_authUser || _guestSessionActive) {
+        // Guests are locked to the Mullet — only signed-in players open the gallery.
+        if (_authUser) {
           openAvatarGallery();
+        } else if (_guestSessionActive && typeof showToast === "function") {
+          showToast("Sign in to choose your avatar.", "warn");
         }
       });
       statsAvatarBtn.addEventListener("keydown", (e) => {
-        if (!_authUser && !_guestSessionActive) return;
+        if (!_authUser) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           openAvatarGallery();
@@ -22911,13 +22951,46 @@
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
       const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard" };
       const statsLobby = document.getElementById("auth-stats-lobby");
+      // Tabs that require a real account; guests see a "Sign in to…" gate.
+      const GUEST_GATE_MSGS = {
+        normal:      "Sign in to track your stats",
+        competitive: "Sign in to track your competitive stats",
+        history:     "Sign in to view your game history",
+        friends:     "Sign in to add friends",
+        leaderboard: "Sign in to view the leaderboards",
+      };
+      function _ensureGuestGate(panelEl, msg) {
+        let gate = panelEl.querySelector(":scope > .ph-guest-gate");
+        if (!gate) {
+          gate = document.createElement("div");
+          gate.className = "ph-guest-gate";
+          gate.innerHTML = '<div class="ph-guest-gate-ico">🔒</div>'
+            + '<div class="ph-guest-gate-msg"></div>'
+            + '<div class="ph-guest-gate-sub">Create a free account to save your progress across devices.</div>'
+            + '<button class="ph-guest-gate-btn">Sign In</button>';
+          gate.querySelector(".ph-guest-gate-btn").addEventListener("click", () => {
+            if (typeof window.__fishGoToSignIn === "function") window.__fishGoToSignIn();
+          });
+          panelEl.insertBefore(gate, panelEl.firstChild);
+        }
+        gate.querySelector(".ph-guest-gate-msg").textContent = msg;
+      }
       function switchTab(name) {
         if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+        const isGuest = !_authUser;   // guest or not-signed-in
         Object.entries(panels).forEach(([k, id]) => {
           const el = document.getElementById(id);
-          if (el) el.style.display = k === name ? "" : "none";
+          if (!el) return;
+          el.style.display = k === name ? "" : "none";
+          // Apply / clear the guest gate on gated panels
+          const gated = isGuest && !!GUEST_GATE_MSGS[k];
+          el.classList.toggle("is-guest-gated", gated);
+          if (gated) _ensureGuestGate(el, GUEST_GATE_MSGS[k]);
         });
+        // Skip data renders for gated panels (content is hidden anyway).
+        const gatedNow = isGuest && !!GUEST_GATE_MSGS[name];
+        if (gatedNow) return;
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
         if (name === "overview")     renderPhOverview();
