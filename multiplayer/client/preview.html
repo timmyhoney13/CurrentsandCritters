@@ -17607,7 +17607,7 @@
       // ── CP delta — based on the player's CURRENT rank ──────────
       // The deltas come from _COMP_RANK_DIVS via _compGetCpDelta. CP can never
       // drop below 0. After the first competitive game, the player leaves
-      // Unranked and is placed in Bronze Barracuda III (CP 0-44).
+      // Unranked and is placed in Bronze Barracuda I (CP 0-44).
       const hasPlayedBefore = curGames > 0;
       let cpDelta = 0;
       if (isDraw)       cpDelta = _compGetCpDelta(curCp, "draw", hasPlayedBefore);
@@ -17628,7 +17628,7 @@
 
       // After at least one game, the player is no longer Unranked even at 0 CP.
       const newRankDiv  = rankFn ? rankFn(newCp, true) : null;
-      const newRankName = newRankDiv ? newRankDiv.division : "Bronze Barracuda III";
+      const newRankName = newRankDiv ? newRankDiv.division : "Bronze Barracuda I";
 
       // Surface the delta to renderEndGame so the post-game card shows it.
       _lastCompCpDelta = cpDelta;
@@ -23824,31 +23824,31 @@
     // Emerald  = elite climb;               loss: -20 → -24
     // King     = hardest to keep;           loss: -28
     const _COMP_RANK_DIVS = [
-      { name: "Bronze Barracuda III",      tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 5, loss: -3  },
+      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 0,    maxCp: 44,   win: 26, draw: 5, loss: -3  },
       { name: "Bronze Barracuda II",       tier: "bronze",  emoji: "🐠", minCp: 45,   maxCp: 89,   win: 26, draw: 5, loss: -3  },
-      { name: "Bronze Barracuda I",        tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 5, loss: -3  },
-      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 4, loss: -5  },
+      { name: "Bronze Barracuda III",     tier: "bronze",  emoji: "🐠", minCp: 90,   maxCp: 134,  win: 26, draw: 5, loss: -3  },
+      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 135,  maxCp: 199,  win: 24, draw: 4, loss: -5  },
       { name: "Silver Spiny Lobster II",   tier: "silver",  emoji: "🦞", minCp: 200,  maxCp: 264,  win: 24, draw: 4, loss: -5  },
-      { name: "Silver Spiny Lobster I",    tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 4, loss: -5  },
-      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 3, loss: -7  },
+      { name: "Silver Spiny Lobster III",  tier: "silver",  emoji: "🦞", minCp: 265,  maxCp: 329,  win: 24, draw: 4, loss: -5  },
+      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 330,  maxCp: 419,  win: 22, draw: 3, loss: -7  },
       { name: "Golden Grouper II",         tier: "gold",    emoji: "🐡", minCp: 420,  maxCp: 509,  win: 22, draw: 3, loss: -9  },
-      { name: "Golden Grouper I",          tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 3, loss: -12 },
-      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 2, loss: -14 },
+      { name: "Golden Grouper III",        tier: "gold",    emoji: "🐡", minCp: 510,  maxCp: 599,  win: 22, draw: 3, loss: -12 },
+      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 600,  maxCp: 719,  win: 21, draw: 2, loss: -14 },
       { name: "Diamond Dolphin II",        tier: "diamond", emoji: "🐬", minCp: 720,  maxCp: 839,  win: 21, draw: 2, loss: -16 },
-      { name: "Diamond Dolphin I",         tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 2, loss: -18 },
-      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 1, loss: -20 },
+      { name: "Diamond Dolphin III",       tier: "diamond", emoji: "🐬", minCp: 840,  maxCp: 959,  win: 21, draw: 2, loss: -18 },
+      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 960,  maxCp: 1039, win: 20, draw: 1, loss: -20 },
       { name: "Emerald Emperor Penguin II",  tier: "emerald", emoji: "🐧", minCp: 1040, maxCp: 1119, win: 20, draw: 1, loss: -22 },
-      { name: "Emerald Emperor Penguin I",   tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 1, loss: -24 },
+      { name: "Emerald Emperor Penguin III", tier: "emerald", emoji: "🐧", minCp: 1120, maxCp: 1199, win: 20, draw: 1, loss: -24 },
       { name: "King of the Critters",      tier: "king",    emoji: "👑", minCp: 1200, maxCp: Infinity, win: 18, draw: 0, loss: -28 },
     ];
 
     // Returns the rank info for a given CP. If hasPlayed is true, 0 CP still maps
-    // to Bronze Barracuda III (a played player can sit at the floor but is not Unranked).
+    // to Bronze Barracuda I (a played player can sit at the floor but is not Unranked).
     // If hasPlayed is false or omitted, 0 CP returns Unranked.
     function _compGetRankFromCp(cp, hasPlayed) {
       const cleanCp = Math.max(0, Number(cp) || 0);
       if (cleanCp === 0 && !hasPlayed) {
-        return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda III", pct: 0,
+        return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0,
                  win: 26, draw: 5, loss: -3 };
       }
       const idx = _COMP_RANK_DIVS.findIndex(d => cleanCp >= d.minCp && cleanCp <= d.maxCp);
@@ -23877,7 +23877,7 @@
 
     function _compGetRankInfo(wins, losses) {
       const total = wins + losses;
-      if (total === 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda III", pct: 0 };
+      if (total === 0) return { division: "Unranked", tier: "bronze", emoji: "🐟", cp: 0, nextCp: 1, nextDiv: "Bronze Barracuda I", pct: 0 };
       const cp = Math.max(0, wins * 25 - losses * 12);
       return _compGetRankFromCp(cp, true);
     }
