@@ -22953,11 +22953,12 @@
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
-        normal:      "Sign in to track your stats",
-        competitive: "Sign in to track your competitive stats",
-        history:     "Sign in to view your game history",
-        friends:     "Sign in to add friends",
-        leaderboard: "Sign in to view the leaderboards",
+        normal:       "Sign in to track your stats",
+        competitive:  "Sign in to track your competitive stats",
+        history:      "Sign in to view your game history",
+        friends:      "Sign in to add friends",
+        leaderboard:  "Sign in to view the leaderboards",
+        achievements: "Sign in to see Achievements",
       };
       function _ensureGuestGate(panelEl, msg) {
         let gate = panelEl.querySelector(":scope > .ph-guest-gate");
