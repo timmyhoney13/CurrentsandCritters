@@ -5331,21 +5331,24 @@
     .ph-ss-week {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 4px;
+      gap: 3px;
       margin-bottom: 16px;
+      padding: 0 2px;
     }
     .ph-ss-day-col {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 5px;
+      min-width: 0;
     }
-    .ph-ss-day-lbl { font-size: .68rem; font-weight: 700; color: #6a96bb; }
+    .ph-ss-day-lbl { font-size: .66rem; font-weight: 700; color: #6a96bb; }
     .ph-ss-dot {
-      width: 26px; height: 26px;
+      width: 100%; max-width: 24px; aspect-ratio: 1 / 1; height: auto;
       border-radius: 50%;
       background: rgba(130,190,230,.2);
       border: 1.5px solid rgba(100,170,220,.3);
+      box-sizing: border-box;
     }
     .ph-ss-dot.done {
       background: linear-gradient(135deg, #2ea8ea, #1a77c9);
@@ -5359,14 +5362,15 @@
     .ph-ss-xp {
       background: rgba(200,240,255,.55);
       border-radius: 12px;
-      padding: 11px 13px;
-      font-size: .84rem;
-      font-weight: 700;
-      color: #1a5fa0;
+      padding: 12px 13px;
       margin-bottom: 14px;
-      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    .ph-ss-xp span { color: #1a9ad7; font-weight: 800; }
+    .ph-ss-xp-row { display: flex; flex-direction: column; gap: 1px; }
+    .ph-ss-xp-lbl { font-size: .76rem; font-weight: 700; color: #4a7aaa; }
+    .ph-ss-xp-val { font-size: 1.05rem; font-weight: 900; color: #1a9ad7; line-height: 1.1; }
     .ph-ss-btn {
       width: 100%;
       padding: 11px;
@@ -7047,78 +7051,104 @@
     /* ══ STREAK CALENDAR MODAL ══════════════════════════════════════ */
     #streak-cal-modal {
       display: none; position: fixed; inset: 0; z-index: 9750;
-      background: rgba(8,40,90,.55); backdrop-filter: blur(6px);
+      background: rgba(8,40,90,.6); backdrop-filter: blur(8px);
       align-items: center; justify-content: center; padding: 24px;
     }
     #streak-cal-modal.open { display: flex; }
     #streak-cal-box {
-      width: 100%; max-width: 1080px; max-height: 90vh; overflow-y: auto;
-      background: linear-gradient(180deg, rgba(232,247,255,.98) 0%, rgba(206,234,252,.98) 100%);
-      border: 1px solid rgba(120,190,235,.6); border-radius: 24px;
-      box-shadow: 0 16px 60px rgba(0,50,120,.3);
-      padding: 24px 28px 28px;
+      width: 100%; max-width: 1120px; max-height: 90vh; overflow-y: auto;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(255,255,255,.7) 0%, rgba(255,255,255,0) 40%),
+        linear-gradient(180deg, #eaf7ff 0%, #d2ecfc 55%, #c2e4f8 100%);
+      border: 1px solid rgba(140,200,240,.7); border-radius: 28px;
+      box-shadow: 0 20px 70px rgba(0,50,120,.34);
+      padding: 26px 30px 30px;
     }
-    #streak-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-    #streak-cal-title { font-family: "Cinzel", serif; font-size: 1.5rem; font-weight: 900; color: #15407e; }
+    #streak-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    #streak-cal-title {
+      font-family: "Cinzel", serif; font-size: 1.6rem; font-weight: 900; color: #15407e;
+      letter-spacing: .5px;
+    }
     #streak-cal-close {
-      width: 38px; height: 38px; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
-      background: rgba(255,255,255,.6); color: #1a5cbf; font-size: 19px; cursor: pointer;
+      width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.7); color: #1a5cbf; font-size: 19px; cursor: pointer;
+      transition: background .15s, transform .12s;
     }
-    #streak-cal-close:hover { background: rgba(255,255,255,.9); }
-    #streak-cal-stats { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+    #streak-cal-close:hover { background: #fff; transform: scale(1.05); }
+    #streak-cal-stats { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
     .sc-stat {
-      flex: 1; min-width: 130px; background: rgba(255,255,255,.6);
-      border: 1px solid rgba(120,190,235,.4); border-radius: 16px; padding: 14px 18px; text-align: center;
+      flex: 1; min-width: 140px;
+      background: linear-gradient(160deg, rgba(255,255,255,.85), rgba(232,246,255,.7));
+      border: 1px solid rgba(120,190,235,.5); border-radius: 18px; padding: 16px 18px; text-align: center;
+      box-shadow: 0 3px 12px rgba(0,60,120,.07);
     }
-    .sc-stat-val { font-size: 2rem; font-weight: 900; color: #0f4080; line-height: 1; }
-    .sc-stat-lbl { font-size: .76rem; font-weight: 700; color: #5a86b0; margin-top: 5px; }
-    #streak-cal-legend { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
-    .sc-leg { display: inline-flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 700; color: #3a6090; }
-    .sc-leg-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; }
-    .sc-leg-dot.done   { background: linear-gradient(135deg,#3ec0ee,#1a77c9); }
-    .sc-leg-dot.missed { background: rgba(150,165,180,.45); }
-    .sc-leg-dot.avatar { background: linear-gradient(135deg,#ffd86a,#f5a623); color: #fff; }
-    #streak-cal-year-row { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 18px; }
+    .sc-stat-val {
+      font-size: 2.2rem; font-weight: 900; line-height: 1;
+      background: linear-gradient(135deg, #1a9ad7, #1558b0);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .sc-stat-lbl { font-size: .76rem; font-weight: 700; color: #5a86b0; margin-top: 6px; text-transform: uppercase; letter-spacing: .4px; }
+    #streak-cal-legend {
+      display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px;
+      background: rgba(255,255,255,.45); border-radius: 12px; padding: 10px 16px;
+      border: 1px solid rgba(120,190,235,.3);
+    }
+    .sc-leg { display: inline-flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; color: #3a6090; }
+    .sc-leg-dot { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
+    .sc-leg-dot.done   { background: linear-gradient(135deg,#5cd0f5,#1a77c9); box-shadow: 0 1px 4px rgba(26,119,201,.4); }
+    .sc-leg-dot.missed { background: rgba(150,165,180,.4); }
+    .sc-leg-dot.avatar { background: linear-gradient(135deg,#ffd86a,#f5a623); color: #fff; box-shadow: 0 0 0 2px rgba(245,166,35,.35); }
+    #streak-cal-year-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 20px; }
     #streak-cal-year-row button {
-      width: 34px; height: 34px; border-radius: 10px; border: 1px solid rgba(120,190,235,.5);
-      background: rgba(255,255,255,.6); color: #1a5cbf; font-size: 18px; font-weight: 900; cursor: pointer;
+      width: 36px; height: 36px; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
+      background: rgba(255,255,255,.7); color: #1a5cbf; font-size: 18px; font-weight: 900; cursor: pointer;
+      transition: background .15s, transform .12s;
     }
-    #streak-cal-year-row button:hover { background: rgba(255,255,255,.9); }
-    #sc-year-label { font-family: "Cinzel", serif; font-size: 1.3rem; font-weight: 900; color: #15407e; min-width: 80px; text-align: center; }
+    #streak-cal-year-row button:hover { background: #fff; transform: scale(1.06); }
+    #sc-year-label { font-family: "Cinzel", serif; font-size: 1.4rem; font-weight: 900; color: #15407e; min-width: 90px; text-align: center; }
     /* 12-month grid: responsive columns */
     #streak-cal-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
     }
-    @media (max-width: 900px) { #streak-cal-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (max-width: 680px) { #streak-cal-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 980px) { #streak-cal-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 720px) { #streak-cal-grid { grid-template-columns: repeat(2, 1fr); } }
     .sc-month {
-      background: rgba(255,255,255,.5); border: 1px solid rgba(120,190,235,.35);
-      border-radius: 14px; padding: 12px 14px 14px;
+      background: linear-gradient(170deg, rgba(255,255,255,.78), rgba(238,248,255,.6));
+      border: 1px solid rgba(130,195,240,.45);
+      border-radius: 18px; padding: 14px 16px 16px;
+      box-shadow: 0 3px 12px rgba(0,60,120,.06);
     }
-    .sc-month-name { font-size: .9rem; font-weight: 800; color: #1a4a90; text-align: center; margin-bottom: 8px; }
-    /* 7-col day grid with generous padding so Sat/Sun never clip */
+    .sc-month.sc-cur-month { border-color: rgba(34,150,235,.7); box-shadow: 0 0 0 2px rgba(34,150,235,.22), 0 4px 14px rgba(0,60,120,.1); }
+    .sc-month-name {
+      font-family: "Cinzel", serif; font-size: .95rem; font-weight: 800; color: #1a4a90;
+      text-align: center; margin-bottom: 10px; letter-spacing: .3px;
+    }
+    /* 7-col day grid — generous gap + month padding so Sat/Sun never clip */
     .sc-dow, .sc-days {
       display: grid; grid-template-columns: repeat(7, 1fr);
-      gap: 4px; justify-items: center;
+      gap: 5px; justify-items: center; align-items: center;
     }
-    .sc-dow { margin-bottom: 4px; }
-    .sc-dow span { font-size: .58rem; font-weight: 700; color: #7a9cc0; width: 100%; text-align: center; }
+    .sc-dow { margin-bottom: 6px; }
+    .sc-dow span { font-size: .56rem; font-weight: 800; color: #8aa8c8; width: 100%; text-align: center; }
     .sc-day {
-      width: 22px; height: 22px; border-radius: 50%;
+      width: 100%; max-width: 24px; aspect-ratio: 1 / 1; height: auto;
+      border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .58rem; font-weight: 800; box-sizing: border-box;
+      font-size: .56rem; font-weight: 800; box-sizing: border-box;
+      transition: transform .1s;
     }
+    .sc-day.done:hover, .sc-day.avatar:hover { transform: scale(1.18); }
     .sc-day.blank { background: transparent; }
     .sc-day.done {
-      background: linear-gradient(135deg,#46c8f0,#1a77c9); color: #fff;
-      box-shadow: 0 1px 3px rgba(26,119,201,.4);
+      background: linear-gradient(135deg,#5cd0f5,#1a77c9); color: #fff;
+      box-shadow: 0 1px 4px rgba(26,119,201,.4);
     }
-    .sc-day.missed { background: rgba(150,165,180,.35); color: transparent; }
-    .sc-day.today-empty { background: rgba(120,190,235,.18); border: 1.5px dashed rgba(80,150,210,.5); }
+    .sc-day.missed { background: rgba(150,165,180,.32); color: transparent; }
+    .sc-day.today-empty { background: rgba(120,190,235,.16); border: 1.5px dashed rgba(70,150,215,.6); }
     .sc-day.avatar {
       background: linear-gradient(135deg,#ffd86a,#f5a623);
-      box-shadow: 0 0 0 2px rgba(245,166,35,.4), 0 2px 6px rgba(200,120,0,.35);
-      overflow: hidden; padding: 0;
+      box-shadow: 0 0 0 2.5px rgba(245,166,35,.45), 0 2px 8px rgba(200,120,0,.4);
+      overflow: hidden; padding: 0; max-width: 26px;
     }
     .sc-day.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
 
@@ -8819,8 +8849,14 @@
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">S</div><div class="ph-ss-dot"></div></div>
       </div>
       <div class="ph-ss-xp">
-        Today's login bonus: <span id="ph-ss-today-xp">+75.75 XP</span><br>
-        Tomorrow's login bonus: <span id="ph-ss-tomorrow-xp">+76 XP</span>
+        <div class="ph-ss-xp-row">
+          <div class="ph-ss-xp-lbl">Today's login bonus</div>
+          <div class="ph-ss-xp-val" id="ph-ss-today-xp">+75.00 XP</div>
+        </div>
+        <div class="ph-ss-xp-row">
+          <div class="ph-ss-xp-lbl">Tomorrow's login bonus</div>
+          <div class="ph-ss-xp-val" id="ph-ss-tomorrow-xp">+75.25 XP</div>
+        </div>
       </div>
       <button class="ph-ss-btn" id="ph-ss-details-btn">View streak details</button>
     </div><!-- /.ph-sidebar-streak -->
@@ -22904,10 +22940,12 @@
         function updateStreakXp(day) {
           const d = Math.max(0, Math.min(Number(day) || 0, 730));
           const effDay = Math.max(1, d);
-          const todayXp = Math.round((75 + (effDay - 1) * 0.25) * 100) / 100;
-          const tomorrowXp = Math.round((75 + effDay * 0.25) * 100) / 100;
+          // Today's bonus = XP for the current streak day (day 1 = 75.00, +0.25/day).
+          // At streak 0, "today" previews day 1 (75.00). Always 2 decimals.
+          const todayXp = (75 + ((d > 0 ? d : 1) - 1) * 0.25).toFixed(2);
+          const tomorrowXp = (75 + (d > 0 ? d : 1) * 0.25).toFixed(2);
           if (streakDayEl) streakDayEl.textContent = d + " Day" + (d !== 1 ? "s" : "");
-          if (todayXpEl) todayXpEl.textContent = (d > 0 ? "+" + todayXp : "+75.00") + " XP";
+          if (todayXpEl) todayXpEl.textContent = "+" + todayXp + " XP";
           if (tomorrowXpEl) tomorrowXpEl.textContent = "+" + tomorrowXp + " XP";
         }
         window._updateStreakXp = updateStreakXp;
@@ -22937,14 +22975,17 @@
         setTxt("sc-year-label", _scYear);
 
         const avatarUrl = (typeof window.__fishMyAvatarUrl === "function") ? (window.__fishMyAvatarUrl() || "") : "";
-        const todayStr = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(new Date()) : "";
+        const now = new Date();
+        const todayStr = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(now) : "";
+        const curMonth = now.getMonth();
+        const curYear  = now.getFullYear();
         const grid = $a("streak-cal-grid");
         if (!grid) return;
         grid.innerHTML = "";
 
         for (let m = 0; m < 12; m++) {
           const monthEl = document.createElement("div");
-          monthEl.className = "sc-month";
+          monthEl.className = "sc-month" + ((m === curMonth && _scYear === curYear) ? " sc-cur-month" : "");
           let html = "<div class=\"sc-month-name\">" + _SC_MONTHS[m] + "</div>"
             + "<div class=\"sc-dow\">" + _SC_DOW.map(d => "<span>" + d + "</span>").join("") + "</div>"
             + "<div class=\"sc-days\">";
@@ -22956,7 +22997,10 @@
             let cls = "sc-day", content = "";
             const isDone     = info.set.has(ds);
             const isFuture   = ds > todayStr;
-            const beforeFirst = info.firstDay && ds < info.firstDay;
+            // Blank (not grey) for days before the player's first completed
+            // game — including when they've never played (firstDay is null).
+            // Grey is ONLY for missed days AFTER activity started.
+            const beforeFirst = !info.firstDay || ds < info.firstDay;
             if (isDone) {
               const isCurrentDay = info.alive && ds === info.mostRecent;
               if (isCurrentDay && avatarUrl) {
