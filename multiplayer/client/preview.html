@@ -7211,6 +7211,220 @@
     .ph-cp-fill.tier-emerald  { background: linear-gradient(90deg,#1ea864,#42d68a); }
     .ph-cp-fill.tier-king     { background: linear-gradient(90deg,#ff9800,#ffd740,#ff9800); background-size: 200%; animation: ph-king-shimmer 2s linear infinite; }
     @keyframes ph-king-shimmer { 0%{background-position:0%} 100%{background-position:200%} }
+    /* ── Rank Progression Strip ─────────────────────────────────── */
+    .ph-rank-prog-strip {
+      background: rgba(230,245,255,.82);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(120,190,235,.4);
+      border-radius: 20px;
+      padding: 18px 22px 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 18px rgba(0,50,120,.08);
+    }
+    .ph-rank-prog-title {
+      font-size: .82rem;
+      font-weight: 800;
+      color: #3a6090;
+      letter-spacing: .5px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .ph-rank-prog-tiers {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .ph-rank-prog-tier {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 0;
+    }
+    /* Connector dots between tiers */
+    .ph-rank-prog-connector {
+      width: 28px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 28px;
+    }
+    .ph-rank-prog-connector::after {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: rgba(130,185,230,.4);
+      border-radius: 1px;
+      border-top: 1.5px dashed rgba(100,170,220,.5);
+      background: none;
+    }
+    .ph-rank-prog-badge-wrap {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      position: relative;
+      border: 2.5px solid transparent;
+      transition: transform .15s;
+    }
+    .ph-rank-prog-badge-wrap.tier-bronze  { background: linear-gradient(145deg,#f5dbb0,#dfa060); border-color: #c87830; }
+    .ph-rank-prog-badge-wrap.tier-silver  { background: linear-gradient(145deg,#dce8f4,#aac0d0); border-color: #88a8c0; }
+    .ph-rank-prog-badge-wrap.tier-gold    { background: linear-gradient(145deg,#fff0a0,#e8c030); border-color: #c8a000; }
+    .ph-rank-prog-badge-wrap.tier-diamond { background: linear-gradient(145deg,#c0e0f8,#70b8f0); border-color: #3890d8; }
+    .ph-rank-prog-badge-wrap.tier-emerald { background: linear-gradient(145deg,#b0e8c8,#50c880); border-color: #28a060; }
+    .ph-rank-prog-badge-wrap.tier-king    { background: linear-gradient(145deg,#fff0c0,#ffc840,#ff9800); border-color: #e08000; }
+    .ph-rank-prog-badge-wrap.prog-active {
+      transform: scale(1.18);
+      box-shadow: 0 0 0 3px rgba(34,130,240,.35), 0 6px 18px rgba(34,130,240,.22);
+      border-color: #2282f0 !important;
+    }
+    .ph-rank-prog-badge-wrap.prog-done { opacity: .7; }
+    .ph-rank-prog-badge-wrap.prog-future { opacity: .42; filter: grayscale(.4); }
+    .ph-rank-prog-tier-name {
+      font-size: .68rem;
+      font-weight: 700;
+      color: #4a7aaa;
+      text-align: center;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .ph-rank-prog-divs {
+      display: flex;
+      gap: 4px;
+    }
+    .ph-rank-prog-div {
+      width: 20px; height: 20px;
+      border-radius: 5px;
+      background: rgba(130,190,230,.2);
+      border: 1.5px solid rgba(100,170,220,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: .6rem;
+      font-weight: 800;
+      color: #6a96bb;
+    }
+    .ph-rank-prog-div.div-done  { background: rgba(34,130,240,.18); border-color: #2282f0; color: #1a5cbf; }
+    .ph-rank-prog-div.div-active { background: #2282f0; border-color: #1a6ad8; color: #fff; box-shadow: 0 2px 6px rgba(34,130,240,.4); }
+    .ph-rank-prog-div.div-king  { font-size: .72rem; color: #c87800; }
+
+    /* ── Season Summary Card (right panel) ──────────────────────── */
+    .ph-season-summary-card {
+      background: rgba(230,245,255,.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(120,190,235,.45);
+      border-radius: 20px;
+      padding: 18px 18px 14px;
+      box-shadow: 0 4px 18px rgba(0,50,120,.1);
+      margin-bottom: 14px;
+    }
+    .ph-ss-card-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; font-weight: 800; color: #1a4a90;
+      margin-bottom: 14px;
+    }
+    .ph-ss-rank-row {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(255,255,255,.6);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(120,190,235,.3);
+    }
+    .ph-ss-rank-badge-img {
+      width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem;
+    }
+    .ph-ss-rank-info { min-width: 0; }
+    .ph-ss-rank-label { font-size: .72rem; font-weight: 700; color: #5a86b0; }
+    .ph-ss-rank-name  { font-size: 1.05rem; font-weight: 900; color: #1a3a7a; line-height: 1.1; }
+    .ph-ss-rank-cp    { font-size: .82rem; font-weight: 800; color: #2a7ad8; margin-top: 2px; }
+    .ph-ss-mini-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px; margin-bottom: 12px;
+    }
+    .ph-ss-mini-stat {
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(120,190,235,.3);
+      border-radius: 10px;
+      padding: 8px 6px;
+      text-align: center;
+    }
+    .ph-ss-mini-label { font-size: .65rem; font-weight: 700; color: #5a86b0; }
+    .ph-ss-mini-val   { font-size: 1.05rem; font-weight: 900; color: #1a3a7a; }
+    .ph-ss-breakdown-btn {
+      width: 100%;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(34,130,240,.3);
+      background: rgba(34,130,240,.08);
+      color: #1a5cbf;
+      font-size: .85rem; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background .15s;
+    }
+    .ph-ss-breakdown-btn:hover { background: rgba(34,130,240,.15); }
+
+    /* ── King of the Critters redesign ─────────────────────────── */
+    .ph-king-redesign {
+      background: rgba(230,245,255,.88);
+      backdrop-filter: blur(14px);
+      border: 1px solid rgba(120,190,235,.45);
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 4px 18px rgba(0,50,120,.1);
+    }
+    .ph-king-redesign-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1rem; font-weight: 800; color: #1a4a90;
+      margin-bottom: 14px;
+    }
+    .ph-king-art {
+      text-align: center;
+      font-size: 4rem;
+      line-height: 1;
+      margin: 8px 0 12px;
+      filter: drop-shadow(0 4px 8px rgba(200,140,0,.35));
+    }
+    .ph-king-desc {
+      text-align: center;
+      font-size: .82rem;
+      color: #2a5090;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .ph-king-empty-state {
+      text-align: center;
+      padding: 10px 0 6px;
+    }
+    .ph-king-empty-art {
+      font-size: 3rem;
+      opacity: .5;
+      margin-bottom: 8px;
+    }
+    .ph-king-empty-text {
+      font-size: .82rem;
+      color: #4a7aaa;
+      font-style: italic;
+    }
+    .ph-king-current {
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(200,160,0,.35);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .ph-king-current-name { font-size: 1rem; font-weight: 900; color: #1a3a7a; }
+    .ph-king-current-meta { font-size: .78rem; color: #7a5a10; margin-top: 2px; }
+
     /* Season history */
     .ph-season-history-btn {
       background: rgba(34,120,240,.08); border: 1px solid rgba(34,120,240,.22);
@@ -8738,6 +8952,18 @@
       </div>
       <!-- Full ranked dashboard -->
       <div id="ph-comp-ranked-dash" style="display:none;">
+
+        <!-- Rank Progression Strip -->
+        <div class="ph-rank-prog-strip">
+          <div class="ph-rank-prog-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#3a6090" stroke-width="1.4"/><path d="M4 8h8M8 4l4 4-4 4" stroke="#3a6090" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Rank Progression
+          </div>
+          <div class="ph-rank-prog-tiers" id="ph-rank-prog-tiers">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
         <div class="ph-main">
           <!-- Main: rank card + stats grid -->
           <div class="ph-stats-card ph-comp-card">
@@ -8817,41 +9043,72 @@
               </div>
             </div>
           </div>
-          <!-- Sidebar: King + Actions + Recent Games -->
+          <!-- Sidebar: Season Summary + King of the Critters -->
           <div class="ph-side">
-            <!-- King of the Critters -->
-            <div class="ph-scard ph-king-card" id="ph-comp-king-card" style="display:none;">
-              <div class="ph-sh">
-                <div class="ph-st" style="font-family:'Cinzel',serif;letter-spacing:.5px;">👑 King of the Critters</div>
+
+            <!-- Season Summary -->
+            <div class="ph-season-summary-card">
+              <div class="ph-ss-card-title">
+                🏆 Season Summary
               </div>
-              <div class="ph-king-content">
-                <div class="ph-king-crown" style="font-size:32px;">👑</div>
-                <div class="ph-king-info">
-                  <div class="ph-king-name" id="ph-comp-king-name" style="font-family:'Cinzel',serif;">—</div>
-                  <div class="ph-king-meta" id="ph-comp-king-meta">—</div>
+              <div class="ph-ss-rank-row">
+                <div class="ph-ss-rank-badge-img" id="ph-ss-badge-img">🐠</div>
+                <div class="ph-ss-rank-info">
+                  <div class="ph-ss-rank-label">Current Rank</div>
+                  <div class="ph-ss-rank-name" id="ph-ss-rank-name">—</div>
+                  <div class="ph-ss-rank-cp" id="ph-ss-rank-cp">— CP</div>
+                </div>
+              </div>
+              <div class="ph-ss-mini-stats">
+                <div class="ph-ss-mini-stat">
+                  <div class="ph-ss-mini-label">Win Rate</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-winrate">—</div>
+                </div>
+                <div class="ph-ss-mini-stat">
+                  <div class="ph-ss-mini-label">Matches</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-matches">—</div>
+                </div>
+                <div class="ph-ss-mini-stat">
+                  <div class="ph-ss-mini-label">Best Streak</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-bstreak">—</div>
+                </div>
+              </div>
+              <button class="ph-ss-breakdown-btn" id="ph-season-history-btn-2">
+                View full season breakdown
+                <span>›</span>
+              </button>
+            </div>
+
+            <!-- King of the Critters (redesigned) -->
+            <div class="ph-king-redesign">
+              <div class="ph-king-redesign-title">
+                👑 King of the Critters
+              </div>
+              <!-- King present -->
+              <div id="ph-comp-king-card" style="display:none;">
+                <div class="ph-king-art">👑</div>
+                <div class="ph-king-current">
+                  <div class="ph-king-current-name" id="ph-comp-king-name">—</div>
+                  <div class="ph-king-current-meta" id="ph-comp-king-meta">—</div>
                   <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
                     <span id="ph-comp-king-cp" style="font-size:11px;font-weight:800;color:#c47a00;"></span>
                     <span id="ph-comp-king-pct" style="font-size:11px;color:#7a5a10;"></span>
                     <span id="ph-comp-king-streak" style="font-size:11px;color:#1a6060;"></span>
                   </div>
                 </div>
+                <div class="ph-king-desc">The highest rank in Currents &amp; Critters.<br><strong>Only #1 can wear the crown.</strong></div>
               </div>
-            </div>
-            <!-- No king yet placeholder -->
-            <div class="ph-scard" id="ph-comp-no-king" style="display:none;border:1px dashed rgba(34,120,240,.25);">
-              <div style="padding:10px 14px;font-size:12px;color:rgba(22,70,160,.6);text-align:center;">No King of the Critters yet this season.</div>
-            </div>
-            <!-- Recent competitive games -->
-            <div class="ph-scard">
-              <div class="ph-sh">
-                <div class="ph-st">
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#2680c8" stroke-width="1.4"/><path d="M7 4v3.5l2 1.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round"/></svg>
-                  Recent Ranked Games
+              <!-- No king yet -->
+              <div id="ph-comp-no-king" style="display:none;">
+                <div class="ph-king-empty-state">
+                  <div class="ph-king-empty-art">👑</div>
+                  <div class="ph-king-desc" style="margin-bottom:4px;">The highest rank in Currents &amp; Critters.<br><strong>Only #1 can wear the crown.</strong></div>
+                  <div class="ph-king-empty-text">No King of the Critters listed yet.</div>
                 </div>
-                <button class="ph-sl" id="ph-comp-hist-link">View History</button>
+                <div class="ph-king-desc" style="margin-top:10px;font-style:italic;color:#3a7aaa;">Keep climbing. The ocean is watching.</div>
               </div>
-              <div id="ph-comp-recent-games"><div class="ph-empty">No ranked games yet.</div></div>
             </div>
+
           </div>
         </div>
       </div>
@@ -24074,6 +24331,77 @@
 
       set("ph-comp-rank-name",  rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
       setHtml("ph-comp-rank-badge", rankInfo.division !== "Unranked" ? _compRankBadgeHtml(rankInfo.division, rankInfo.tier) : "");
+
+      // ── Season Summary card ────────────────────────────────────
+      const tierEmoji = { bronze:"🐠", silver:"🦞", gold:"🐡", diamond:"🐬", emerald:"🐧", king:"👑" };
+      const summBadge = $a("ph-ss-badge-img");
+      if (summBadge) {
+        summBadge.textContent = tierEmoji[rankInfo.tier] || "🐠";
+        summBadge.className = "ph-ss-rank-badge-img ph-rank-prog-badge-wrap tier-" + (rankInfo.tier || "bronze");
+      }
+      set("ph-ss-rank-name", rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
+      set("ph-ss-rank-cp",   rankInfo.division === "Unranked" ? "0 CP" : `${rankInfo.cp} CP`);
+      set("ph-ss-winrate",   (effWins + effLosses) > 0 ? `${winPct}%` : "—");
+      set("ph-ss-matches",   total > 0 ? String(total) : "—");
+      set("ph-ss-bstreak",   bestStreak > 0 ? String(bestStreak) : "—");
+
+      // Wire the second Season History button
+      const btn2 = $a("ph-season-history-btn-2");
+      if (btn2) btn2.addEventListener("click", () => {
+        const btn = $a("ph-season-history-btn");
+        if (btn) btn.click();
+      });
+
+      // ── Rank Progression Strip ──────────────────────────────────
+      const progEl = $a("ph-rank-prog-tiers");
+      if (progEl) {
+        // Tier definitions (name, emoji, subdivisions count, tier key)
+        const tiers = [
+          { name: "Bronze\nBarracuda",    emoji: "🐠", key: "bronze",  divs: 3 },
+          { name: "Silver\nSpiny Lobster",emoji: "🦞", key: "silver",  divs: 3 },
+          { name: "Golden\nGrouper",      emoji: "🐡", key: "gold",    divs: 3 },
+          { name: "Diamond\nDolphin",     emoji: "🐬", key: "diamond", divs: 3 },
+          { name: "Emerald\nPenguin",     emoji: "🐧", key: "emerald", divs: 3 },
+          { name: "King of\nthe Critters",emoji: "👑", key: "king",    divs: 0 },
+        ];
+        const myTier = rankInfo.tier || "bronze";
+        const myDiv  = rankInfo.division || "";
+        // Figure out which sub-division number (1,2,3) we're in
+        const myDivNum = (() => {
+          const m = myDiv.match(/\b(I{1,3}|IV|V)$/);
+          if (!m) return 0;
+          const r = { "I":1,"II":2,"III":3,"IV":4,"V":5 };
+          return r[m[1]] || 0;
+        })();
+
+        const tierOrder = ["bronze","silver","gold","diamond","emerald","king"];
+        const myTierIdx = tierOrder.indexOf(myTier);
+
+        progEl.innerHTML = tiers.map((t, ti) => {
+          const rel = ti < myTierIdx ? "done" : ti === myTierIdx ? "active" : "future";
+          const badgeCls = `ph-rank-prog-badge-wrap tier-${t.key} prog-${rel}`;
+          let divHtml = "";
+          if (t.divs > 0) {
+            divHtml = `<div class="ph-rank-prog-divs">`;
+            for (let d = 1; d <= t.divs; d++) {
+              let cls = "ph-rank-prog-div";
+              if (rel === "done") cls += " div-done";
+              else if (rel === "active") cls += (d < myDivNum ? " div-done" : d === myDivNum ? " div-active" : "");
+              const roman = ["I","II","III"][d-1];
+              divHtml += `<div class="${cls}">${roman}</div>`;
+            }
+            divHtml += `</div>`;
+          } else {
+            divHtml = `<div class="ph-rank-prog-divs"><div class="ph-rank-prog-div div-king" style="width:auto;padding:0 5px;">👑</div></div>`;
+          }
+          const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
+          return `<div class="ph-rank-prog-tier">
+            <div class="${badgeCls}">${t.emoji}</div>
+            <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
+            ${divHtml}
+          </div>${connector}`;
+        }).join("");
+      }
 
       // CP bar tier coloring
       const fillEl = $a("ph-comp-cp-fill");
