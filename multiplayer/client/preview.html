@@ -17532,6 +17532,18 @@
           updates["stats.balanced_avg_score"] = bal.avg;
         }
         await docRef.update(updates);
+        // Immediately update in-memory stats so History tab shows the new game
+        // without requiring a page reload or navigation away.
+        if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
+          const updatedStats = Object.assign({}, _phStats || {}, {
+            recent_games: nextRecent,
+            completed_games: Number((_phStats || {}).completed_games || 0) + 1,
+            total_score: Number((_phStats || {}).total_score || 0) + myScore,
+            total_xp: levelProgress.totalXp,
+            level: levelProgress.level,
+          });
+          updatePhStats(updatedStats);
+        }
         // Check game-end achievements for authenticated users
         if (typeof window.__fishCheckAchievementsAfterGame === "function") {
           window.__fishCheckAchievementsAfterGame({
@@ -17615,6 +17627,8 @@
         }
 
         if (saveGuest) saveGuest(nextStats);
+        // Update in-memory stats so History tab shows the new game immediately
+        if (typeof updatePhStats === "function") updatePhStats(nextStats);
       }
 
       // ── Daily / Weekly challenge hooks ──────────────────────────
@@ -18249,10 +18263,18 @@
     setText("gs-sc-card-who", highCardWhoList.join(", ") || "—");
 
     // ── Special Feats ─────────────────────────────────────────────
-    // Two of Aukind: player with the most Mandarin Gobies (≥2)
+    // Two of Aukind: player who played the most Razorbill Auks this game (≥2 = feat).
+    // Counts Razorbill Auks found on each player's final board.
     let aukindName = "—", aukindMax = 0;
     (_latestPlayers || []).forEach(p => {
-      const cnt = Number(p?.score_breakdown?.mandarin_goby?.count || 0);
+      let cnt = 0;
+      (Array.isArray(p?.board) ? p.board : []).forEach(ocean => {
+        ["up","down","left","right"].forEach(dir => {
+          (Array.isArray(ocean[dir]) ? ocean[dir] : []).forEach(card => {
+            if (String(card?.name || "").trim().toLowerCase() === "razorbill auk") cnt++;
+          });
+        });
+      });
       if (cnt > aukindMax) { aukindMax = cnt; aukindName = p.name; }
     });
     const aukindEl = document.getElementById("gs-feat-aukind");
