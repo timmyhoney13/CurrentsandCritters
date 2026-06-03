@@ -22331,6 +22331,22 @@
       }
     }
 
+    // Format a Firestore timestamp (or Date / millis) into a short label.
+    // Returns "" for a pending server-timestamp (so optimistic sends don't error).
+    function _msgTimeLabel(ts) {
+      if (!ts) return "";
+      let d;
+      try {
+        d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+      } catch { return ""; }
+      if (!d || Number.isNaN(d.getTime())) return "";
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      return sameDay
+        ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    }
+
     function _msgStartListListener() {
       if (!_db || !_authUser) return;
       if (_msgListUnsub) { try { _msgListUnsub(); } catch {} _msgListUnsub = null; }
