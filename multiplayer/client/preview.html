@@ -17103,7 +17103,7 @@
     if (!keepRejoin) clearRejoinToken(roomId);
     roomId=null; _prevTurnIdx=null; _prevScore=null; _prevReplayTurn=false; _prevTarponActive=false; _lastHandCount=0; _tarponStartHand=0; _prevEndTriggered=true;
     myIdx=null; mySeatIdx=null; _myIdxGlobal=null;
-    _lastSavedWinner = null; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
+    _lastSavedWinner = null; _saveInFlight = false; _lastRankedProcessed = null; _latestPlayers = []; _latestRoundCount = 0;
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
     dismissEndGameCinematic();
@@ -17493,7 +17493,19 @@
 
   // ── End game overlay ──────────────────────────────────────────
   let _endgameDismissed = false;
-  let _lastSavedWinner = null;
+  let _lastSavedWinner = null;   // set ONLY after a save fully succeeds (enables retry on failure)
+  let _saveInFlight = false;     // guards against concurrent polls double-writing the same game
+
+  // Real-player vs bot/AI detection. A real player has a logged-in account
+  // (uid / kind "human"); a bot has kind "ai", is_ai/bot flags, or an AI-style
+  // name. Used so saves are NEVER blocked by bots and bots NEVER get saved.
+  function isBotPlayer(p) {
+    if (!p || typeof p !== "object") return false;
+    if (p.kind === "ai" || p.is_ai === true || p.bot === true || p.is_bot === true) return true;
+    if (typeof isLikelyAiName === "function" && isLikelyAiName(p.name)) return true;
+    return false;
+  }
+  function isRealPlayer(p) { return !!p && !isBotPlayer(p); }
   let _endgameBarDone = false;       // prevents XP bar re-animating on each poll
   let _endgameCapturedOldXp = null;  // pre-game XP captured once
   let _gameTerminatedByMe = false;   // player clicked Terminate → 0 XP
@@ -17722,8 +17734,14 @@
     const isGuestSession = typeof window.__fishIsGuest === "function" ? !!window.__fishIsGuest() : false;
     if (!winner) return;
     if ((!authUser || !db) && !isGuestSession) return;
+    // Dedup is keyed on a SUCCESSFUL save: _lastSavedWinner is only set after
+    // the write fully completes (see end of the try). So a transient write
+    // failure no longer permanently blocks the save — the next poll retries.
     if (winner === _lastSavedWinner) return; // already saved this game result
-    // Try exact match first, then case-insensitive, then by seat index
+    if (_saveInFlight) return;               // a save for this game is already running
+    // Find MY entry in the final scores. The logged-in user is always a real
+    // player and is one of the finalScores entries — bots in the lobby never
+    // affect this. Try exact name, case-insensitive, then seat-index fallback.
     const nickLower = (myNick || "").trim().toLowerCase();
     let myEntry = (finalScores || []).find(p => p.name === myNick)
       || (nickLower ? (finalScores || []).find(p => String(p.name||"").trim().toLowerCase() === nickLower) : null)
@@ -17735,8 +17753,11 @@
         }
         return null;
       })();
-    if (!myEntry) return; // player not in this game
-    _lastSavedWinner = winner;
+    if (!myEntry) {
+      console.warn("[saveGameStats] could not locate my entry in final scores yet (will retry next poll). myNick=", myNick, "myIdx=", myIdx);
+      return; // player entry not resolvable yet — DON'T set dedup, retry next poll
+    }
+    _saveInFlight = true;   // claim this save; _lastSavedWinner is set only on success
     const myScore    = Number(myEntry.score || 0);
     const myGameName = myEntry.name || myNick;
     const isComp     = typeof compMode !== "undefined" && compMode;
@@ -17970,6 +17991,11 @@
           updates["stats.balanced_avg_score"] = bal.avg;
         }
         await docRef.update(updates);
+        // History + leaderboard data is now persisted to Firestore — mark this
+        // game saved so later polls don't re-write it. (Set ONLY after success,
+        // so a failed write above leaves it unset and the next poll retries.)
+        _lastSavedWinner = winner;
+        console.info("[saveGameStats] saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
         // Immediately update in-memory stats so History tab shows the new game
         // without requiring a page reload or navigation away.
         if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
@@ -18071,6 +18097,8 @@
         }
 
         if (saveGuest) saveGuest(nextStats);
+        // Guest history persisted to localStorage — mark saved (only on success).
+        _lastSavedWinner = winner;
         // Update in-memory stats so History tab shows the new game immediately
         if (typeof updatePhStats === "function") updatePhStats(nextStats);
       }
@@ -18239,14 +18267,21 @@
         if (lvl >= 80 && await window.__fishGrantUnlockedIcon?.("/avatars/giant-squid.png")) _queueAnimalUnlock("giant-squid");
       } catch (e) { /* non-fatal */ }
     } catch(e) {
-      console.warn("Could not save game stats:", e);
+      // The write failed — because _lastSavedWinner was NOT set (it's only set
+      // right after a successful write), the next end-game poll will retry this
+      // save automatically. Log loudly so failures are visible.
+      console.error("[saveGameStats] SAVE FAILED (will retry on next poll):", (e && e.code) || "", e);
+    } finally {
+      // Release the in-flight claim so a retry (or the next game) can proceed.
+      _saveInFlight = false;
     }
   }
   async function processRankedGameEnd(finalScores) {
     if (!compMode) return;
     if (!roomId) return;
+    // Dedup is keyed on a SUCCESSFUL write (set after docRef.update below), so a
+    // failed competitive write retries on the next poll instead of being skipped.
     if (_lastRankedProcessed === roomId) return;
-    _lastRankedProcessed = roomId;
 
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
@@ -18391,6 +18426,11 @@
         ...lifetimeUpdates,
       };
       await docRef.update(updates);
+      // Competitive stats + leaderboard fields (comp_cp, comp_best_single_hand,
+      // comp_best_combined) persisted — mark processed ONLY now, so a failed
+      // write above retries on the next poll instead of being permanently skipped.
+      _lastRankedProcessed = roomId;
+      console.info("[processRankedGameEnd] saved ranked result for", myPhys, "CP→", newCp);
       // Check rank + competitive achievements
       if (typeof window.__fishCheckRankAchievements === "function") {
         window.__fishCheckRankAchievements({
@@ -18436,7 +18476,8 @@
         }
       }
     } catch (e) {
-      console.warn("processRankedGameEnd error:", e);
+      // Not marked processed → next poll retries the ranked save.
+      console.error("[processRankedGameEnd] SAVE FAILED (will retry on next poll):", (e && e.code) || "", e);
     }
   }
 
