@@ -18307,8 +18307,8 @@
         // so a failed write above leaves it unset and the next poll retries.)
         _lastSavedWinner = winner;
         console.info("[saveGameStats] saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
-        // Immediately update in-memory stats so History tab shows the new game
-        // without requiring a page reload or navigation away.
+        // Immediately update in-memory stats so History tab + streak UI show the
+        // new game without requiring a page reload or navigation away.
         if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
           const updatedStats = Object.assign({}, _phStats || {}, {
             recent_games: nextRecent,
@@ -18316,9 +18316,23 @@
             total_score: Number((_phStats || {}).total_score || 0) + myScore,
             total_xp: levelProgress.totalXp,
             level: levelProgress.level,
+            // Include streak so the sidebar day counter + week dots update now.
+            streak_days:    _newStreakDays,
+            daily_streak:   _streakInfo.current,
+            streak_longest: Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0)),
           });
           updatePhStats(updatedStats);
         }
+        // Patch _activeProfile.stats so __fishGetMyStats() returns the new streak
+        // data right away (syncStatsHeader reads from there).
+        try {
+          if (_activeProfile && typeof _activeProfile.stats === "object") {
+            _activeProfile.stats.streak_days    = _newStreakDays;
+            _activeProfile.stats.daily_streak   = _streakInfo.current;
+            _activeProfile.stats.streak_longest = Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0));
+          }
+          if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile);
+        } catch (_) {}
         // Check game-end achievements for authenticated users
         if (typeof window.__fishCheckAchievementsAfterGame === "function") {
           window.__fishCheckAchievementsAfterGame({
@@ -18412,6 +18426,16 @@
         _lastSavedWinner = winner;
         // Update in-memory stats so History tab shows the new game immediately
         if (typeof updatePhStats === "function") updatePhStats(nextStats);
+        // Patch _activeProfile.stats so __fishGetMyStats() returns the new streak
+        // data right away (syncStatsHeader reads from there).
+        try {
+          if (_activeProfile && typeof _activeProfile.stats === "object") {
+            _activeProfile.stats.streak_days    = nextStats.streak_days;
+            _activeProfile.stats.daily_streak   = nextStats.daily_streak;
+            _activeProfile.stats.streak_longest = nextStats.streak_longest;
+          }
+          if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile);
+        } catch (_) {}
       }
 
       // ── Daily / Weekly challenge hooks ──────────────────────────
