@@ -12332,6 +12332,26 @@
     }
   }
 
+  // Toggle a card in/out of the payment selection, capping the total at the
+  // card's required cost. Returns true if the selection changed. A player can
+  // always UNSELECT, but can never select MORE than the cost — so overpaying
+  // is impossible at the source (the UI), and the server re-validates anyway.
+  function _togglePaymentCard(entryUid) {
+    const id = Number(entryUid);
+    const cost = Number(pendingPayAction?.cost_to_pay || 0);
+    if (selectedPayment.has(id)) {
+      selectedPayment.delete(id);   // unselect is always allowed
+      return true;
+    }
+    if (selectedPayment.size >= cost) {
+      // Already at the required count — block the extra selection.
+      showToast(`You selected too many cards. This card only costs ${cost}.`, "warn");
+      return false;
+    }
+    selectedPayment.add(id);
+    return true;
+  }
+
   function exitPaymentMode() {
     pendingPayAction = null;
     selectedPayment.clear();
@@ -16579,8 +16599,7 @@
         payBtn.textContent = selectedPayment.has(entryUid) ? "✓ Selected" : "Use as Payment";
         payBtn.addEventListener("click", (ev) => {
           ev.stopPropagation();
-          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
-          else selectedPayment.add(entryUid);
+          if (!_togglePaymentCard(entryUid)) return; // blocked (would overpay)
           updatePaymentModeUI();
           _handRenderKey = "";
           renderHand(me, actions, mustDiscard, discardExcess);
@@ -16600,9 +16619,9 @@
           return;
         }
         if (pendingPayAction && !isCardBeingPlayed) {
-          // In payment mode — clicking card body selects it as payment (same as the button)
-          if (selectedPayment.has(entryUid)) selectedPayment.delete(entryUid);
-          else selectedPayment.add(entryUid);
+          // In payment mode — clicking card body selects it as payment (same as
+          // the button), capped at the required cost so you can't overpay.
+          if (!_togglePaymentCard(entryUid)) return;
           updatePaymentModeUI();
           _handRenderKey = "";
           renderHand(me, actions, mustDiscard, discardExcess);
