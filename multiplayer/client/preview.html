@@ -8976,14 +8976,14 @@
       <div class="ph-ss-sub">Keep the tide rolling!</div>
       <div class="ph-ss-main">
         <div class="ph-ss-icon"><img src="/avatars/sea-star.png" alt="sea star" class="ph-ss-star-img" draggable="false"></div>
-        <div class="ph-ss-days" id="ph-ss-days">4 Days</div>
+        <div class="ph-ss-days" id="ph-ss-days">0 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
       <div class="ph-ss-week">
-        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">M</div><div class="ph-ss-dot done"></div></div>
-        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">T</div><div class="ph-ss-dot done"></div></div>
-        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">W</div><div class="ph-ss-dot done"></div></div>
-        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">T</div><div class="ph-ss-dot today"></div></div>
+        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">M</div><div class="ph-ss-dot"></div></div>
+        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">T</div><div class="ph-ss-dot"></div></div>
+        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">W</div><div class="ph-ss-dot"></div></div>
+        <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">T</div><div class="ph-ss-dot"></div></div>
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">F</div><div class="ph-ss-dot"></div></div>
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">S</div><div class="ph-ss-dot"></div></div>
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">S</div><div class="ph-ss-dot"></div></div>
@@ -21384,6 +21384,8 @@
       if (streakEl) streakEl.textContent = _streakCount > 0 ? `${_streakCount} day${_streakCount !== 1 ? "s" : ""}` : "0 days";
       // Sidebar streak card (big number + XP labels) — one source of truth.
       if (typeof window._updateStreakXp === "function") window._updateStreakXp(_streakCount);
+      // Weekly Mon→Sun dots, driven by the same streak data.
+      if (typeof window._renderStreakWeek === "function") window._renderStreakWeek();
 
       renderStatsAvatar(headerProfile || _activeProfile, nick);
     }
@@ -23450,9 +23452,40 @@
       const _SC_DOW = ["S","M","T","W","T","F","S"];
 
       function _streakStatsSource() {
+        // Signed-in: the active profile's stats. Guest: stats live in
+        // localStorage (active profile has no .stats), so fall back to the
+        // guest getter — otherwise the calendar + week dots show empty.
+        // __fishGetMyStats returns the signed-in profile's stats object (or null
+        // when there's no signed-in profile — i.e. a guest). Only fall back to
+        // guest stats when there's genuinely no signed-in stats, so a fresh
+        // signed-in user with no streak_days yet doesn't read guest data.
         const s = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
-        return s || {};
+        if (s && typeof s === "object") return s;
+        const g = (typeof window.__fishGuestStatsGet === "function") ? (window.__fishGuestStatsGet() || null) : null;
+        if (g && typeof g === "object") return g;
+        return {};
       }
+
+      // Paint the 7 sidebar week dots (Mon→Sun) from REAL streak data so the
+      // little weekly tracker matches the calendar and the big day counter.
+      function _renderStreakWeek() {
+        const dots = document.querySelectorAll(".ph-ss-week .ph-ss-day-col .ph-ss-dot");
+        if (dots.length !== 7 || typeof _computeStreakInfo !== "function") return;
+        const info = _computeStreakInfo(_streakStatsSource().streak_days);
+        const now = new Date();
+        const todayStr = _streakLocalDateStr(now);
+        const offset = (now.getDay() + 6) % 7;            // 0 = Monday
+        const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+        for (let i = 0; i < 7; i++) {
+          const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+          const ds = _streakLocalDateStr(d);
+          const dot = dots[i];
+          dot.className = "ph-ss-dot";
+          if (info.set.has(ds)) dot.classList.add("done");
+          if (ds === todayStr) dot.classList.add("today");
+        }
+      }
+      window._renderStreakWeek = _renderStreakWeek;
 
       function _renderStreakCalendar() {
         const stats = _streakStatsSource();
