@@ -18038,6 +18038,35 @@
   window._computeStreakInfo = _computeStreakInfo;
   window._streakLocalDateStr = _streakLocalDateStr;
 
+  // Called right after a game's stats are saved. Patches the in-memory profile
+  // stats (creating the object if needed) and drives EVERY streak UI surface so
+  // the sidebar day counter, the Mon→Sun week dots, and the calendar all reflect
+  // the game immediately — no page reload, no navigation required.
+  function _refreshStreakUiAfterSave(streakDays, current, longest) {
+    try {
+      // Signed-in: keep _activeProfile.stats in sync (it's the calendar/sidebar
+      // source via __fishGetMyStats). Guests read localStorage, already saved.
+      if (typeof _activeProfile === "object" && _activeProfile) {
+        if (typeof _activeProfile.stats !== "object" || !_activeProfile.stats) _activeProfile.stats = {};
+        _activeProfile.stats.streak_days    = streakDays;
+        _activeProfile.stats.daily_streak   = current;
+        _activeProfile.stats.streak_longest = longest;
+      }
+    } catch (_) {}
+    // Drive the header + sidebar (big counter + week dots) and, if the calendar
+    // modal happens to be open, re-render it too.
+    try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch (_) {}
+    try { if (typeof window._updateStreakXp === "function") window._updateStreakXp(Number(current) || 0); } catch (_) {}
+    try { if (typeof window._renderStreakWeek === "function") window._renderStreakWeek(); } catch (_) {}
+    try {
+      const calOpen = document.getElementById("streak-cal-modal");
+      if (calOpen && calOpen.classList.contains("open") && typeof window.__fishRenderStreakCalendar === "function") {
+        window.__fishRenderStreakCalendar();
+      }
+    } catch (_) {}
+  }
+  window._refreshStreakUiAfterSave = _refreshStreakUiAfterSave;
+
   async function saveGameStats(winner, finalScores, xpOverride) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
@@ -18323,16 +18352,11 @@
           });
           updatePhStats(updatedStats);
         }
-        // Patch _activeProfile.stats so __fishGetMyStats() returns the new streak
-        // data right away (syncStatsHeader reads from there).
-        try {
-          if (_activeProfile && typeof _activeProfile.stats === "object") {
-            _activeProfile.stats.streak_days    = _newStreakDays;
-            _activeProfile.stats.daily_streak   = _streakInfo.current;
-            _activeProfile.stats.streak_longest = Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0));
-          }
-          if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile);
-        } catch (_) {}
+        // Refresh the streak UI right now so the sidebar counter, week dots and
+        // calendar reflect this game without a reload. Bulletproof: create the
+        // stats object if missing, patch it, then drive every streak UI updater.
+        _refreshStreakUiAfterSave(_newStreakDays, _streakInfo.current,
+          Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0)));
         // Check game-end achievements for authenticated users
         if (typeof window.__fishCheckAchievementsAfterGame === "function") {
           window.__fishCheckAchievementsAfterGame({
@@ -18426,16 +18450,9 @@
         _lastSavedWinner = winner;
         // Update in-memory stats so History tab shows the new game immediately
         if (typeof updatePhStats === "function") updatePhStats(nextStats);
-        // Patch _activeProfile.stats so __fishGetMyStats() returns the new streak
-        // data right away (syncStatsHeader reads from there).
-        try {
-          if (_activeProfile && typeof _activeProfile.stats === "object") {
-            _activeProfile.stats.streak_days    = nextStats.streak_days;
-            _activeProfile.stats.daily_streak   = nextStats.daily_streak;
-            _activeProfile.stats.streak_longest = nextStats.streak_longest;
-          }
-          if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile);
-        } catch (_) {}
+        // Refresh the streak UI right now (guests read from localStorage via the
+        // guest getter, but we still drive every updater for an instant refresh).
+        _refreshStreakUiAfterSave(nextStats.streak_days, nextStats.daily_streak, nextStats.streak_longest);
       }
 
       // ── Daily / Weekly challenge hooks ──────────────────────────
@@ -18830,8 +18847,11 @@
       return;
     }
     if (compMode) processRankedGameEnd(finalScores);
-    if (_endgameDismissed) { overlay.classList.remove("open"); return; }
-    overlay.classList.add("open");
+    // NOTE: we no longer early-return here when the overlay was dismissed —
+    // saveGameStats (streak/XP/history) MUST still run on every end-game poll
+    // until it succeeds. We only skip the *visual* overlay rendering below.
+    if (_endgameDismissed) overlay.classList.remove("open");
+    else overlay.classList.add("open");
 
     const myName = (typeof window.__fishNickname === "function") ? window.__fishNickname() : "";
     const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0) - (a.score||0));
@@ -18915,8 +18935,13 @@
     ].filter(Boolean).length;
     const totalXp = _gameTerminatedByMe ? 0 : (xpBase + myStatWins * 15);
 
-    // Save stats with the total XP including stat bonuses (kept in sync with display)
+    // Save stats with the total XP including stat bonuses (kept in sync with display).
+    // This runs on every end-game poll until it succeeds — even if the overlay was
+    // dismissed — so the streak/XP/history always persist.
     saveGameStats(winner, finalScores, totalXp);
+
+    // Overlay was dismissed: the save above still ran; skip only the visual render.
+    if (_endgameDismissed) { overlay.classList.remove("open"); return; }
 
     // ── Header ───────────────────────────────────────────────────
     const titleEl = document.getElementById("gs-game-title");
@@ -23669,6 +23694,7 @@
         if (modal) modal.classList.remove("open");
       }
       window.__fishOpenStreakCalendar = _openStreakCalendar;
+      window.__fishRenderStreakCalendar = _renderStreakCalendar;
 
       const _ssDetailsBtn = $a("ph-ss-details-btn");
       if (_ssDetailsBtn) _ssDetailsBtn.addEventListener("click", _openStreakCalendar);
