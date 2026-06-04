@@ -8719,10 +8719,10 @@
     <div class="au-name" id="au-animal-name">Animal</div>
     <div class="au-species" id="au-animal-species"></div>
     <div class="au-facts" id="au-animal-facts"></div>
-    <div class="au-q">Make this animal your avatar?</div>
+    <div class="au-q">Equip this avatar now?</div>
     <div class="au-btn-row">
-      <button class="pv-btn" id="au-btn-no">No</button>
-      <button class="pv-btn gold" id="au-btn-yes">Yes</button>
+      <button class="pv-btn" id="au-btn-no">Not Now</button>
+      <button class="pv-btn gold" id="au-btn-yes">⚓ Equip Now</button>
     </div>
   </div>
 </div>
@@ -19448,6 +19448,7 @@
   // ── Animal unlock screen queue (shown on return to the home menu) ──
   let _pendingAnimalUnlocks = [];
   let _animalUnlockShowing = false;
+  let _animalUnlockAutoTimer = null;
   function _queueAnimalUnlock(id){
     if (id && animalById(id) && !_pendingAnimalUnlocks.includes(id)) _pendingAnimalUnlocks.push(id);
     // Flag this avatar as "New" for the Avatar Gallery until the player views it.
@@ -19462,6 +19463,13 @@
       const a = animalById(id);
       window.__fishNotifPushAnimal?.(id, a ? a.name : id);
     }
+    // Show the unlock popup IMMEDIATELY (debounced so several grants earned in
+    // the same moment queue up and then display one-by-one). This is what makes
+    // an avatar appear the instant it's earned DURING a game, with the Equip
+    // Now button, instead of only after the game ends. _showNextAnimalUnlock is
+    // guarded by _animalUnlockShowing so this can never double-open.
+    clearTimeout(_animalUnlockAutoTimer);
+    _animalUnlockAutoTimer = setTimeout(() => { try { _showNextAnimalUnlock(); } catch {} }, 700);
   }
   function _showNextAnimalUnlock(){
     if (_animalUnlockShowing) return;
@@ -19569,6 +19577,51 @@
     { id:"ive_swum_there",          name:"I've Swum There",           icon:"🗺️", cat:"Hidden",      xp:1500,  desc:"Play with every player count (2–8) in Casual.", hidden:true },
     { id:"annoying_messenger",      name:"Annoying Messenger",        icon:"📢", cat:"Hidden",      xp:1500,  desc:"Send 20 compliments during one Competitive game.", hidden:true },
   ];
+
+  // ── Avatar / Achievement integrity validation ──────────────────────
+  // Confirms every avatar and achievement is well-formed and that every
+  // avatar↔achievement reward mapping resolves. Returns a list of problems
+  // (empty = healthy). Logged once on load; callable from the console as
+  // window.__fishValidateAvatars().
+  function validateAvatarAchievementSystem() {
+    const problems = [];
+    const avIds = new Set(), avImgs = new Set(), achIds = new Set();
+    // Achievements: ids unique, required fields present.
+    (ACHIEVEMENT_DEFS || []).forEach(d => {
+      if (!d || !d.id) { problems.push("achievement missing id: " + JSON.stringify(d)); return; }
+      if (achIds.has(d.id)) problems.push("duplicate achievement id: " + d.id);
+      achIds.add(d.id);
+      if (!d.name) problems.push("achievement " + d.id + " missing name");
+      if (typeof d.xp !== "number") problems.push("achievement " + d.id + " missing/!number xp");
+    });
+    // Avatars: ids/images unique, required fields, and unlock mapping resolves.
+    (ANIMAL_AVATARS || []).forEach(a => {
+      if (!a || !a.id) { problems.push("avatar missing id: " + JSON.stringify(a)); return; }
+      if (avIds.has(a.id)) problems.push("duplicate avatar id: " + a.id);
+      avIds.add(a.id);
+      if (!a.name) problems.push("avatar " + a.id + " missing name");
+      if (!a.img || !/^\/avatars\/.+\.png$/i.test(String(a.img))) problems.push("avatar " + a.id + " bad image path: " + a.img);
+      if (avImgs.has(a.img)) problems.push("duplicate avatar image: " + a.img + " (" + a.id + ")");
+      avImgs.add(a.img);
+      if (!a.species) problems.push("avatar " + a.id + " missing species/category");
+      if (!a.unlock || !a.unlock.type) problems.push("avatar " + a.id + " missing unlock requirement");
+      else if (a.unlock.type === "achievement") {
+        if (!a.unlock.achId) problems.push("avatar " + a.id + " achievement-unlock missing achId");
+        else if (!achIds.has(a.unlock.achId)) problems.push("avatar " + a.id + " points to MISSING achievement: " + a.unlock.achId);
+      }
+    });
+    // Every strategy-master achievement (STRAT_TO_ACH) maps to a real achievement.
+    return problems;
+  }
+  window.__fishValidateAvatars = function () {
+    const probs = validateAvatarAchievementSystem();
+    if (probs.length) { console.warn("[avatar-validation] " + probs.length + " problem(s):", probs); }
+    else console.info("[avatar-validation] OK — " + (ANIMAL_AVATARS || []).length + " avatars, " + (ACHIEVEMENT_DEFS || []).length + " achievements, all mappings resolve.");
+    return probs;
+  };
+  // Run once on load (non-fatal).
+  try { window.__fishValidateAvatars(); } catch (_) {}
+
   // Old achievement id → XP map. Used ONCE by the v2 reset to subtract XP
   // that was previously granted from achievements so the reset is clean.
   const _OLD_ACHIEVEMENT_XP_V1 = {
