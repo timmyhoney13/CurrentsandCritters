@@ -7087,6 +7087,63 @@ def build_deck_with_late_end_game(
     return deck, end_uid
 
 
+def validate_end_game_placement(gs: GameState, ms: MatchState, where: str = "") -> List[str]:
+    """Debug/validation: confirm the END GAME card is exactly one card, lives
+    ONLY in the draw deck, sits within the bottom 15 cards (drawn from the
+    FRONT via pop(0), so the bottom = the last 15 of gs.deck), and is not in
+    any hand or the pool. Returns a list of problem strings (empty = all good).
+    Safe to call after deck creation, dealing, pool setup, AI setup, undo,
+    save/load, and every draw during testing. Never raises.
+
+    Note: once the END GAME card has been drawn/triggered it legitimately leaves
+    the deck (into discard), so this check is skipped after end_game_triggered.
+    """
+    problems: List[str] = []
+    try:
+        eg = getattr(ms, "end_game_uid", None)
+        # Count how many END GAME-named cards exist in the card_db.
+        named = [uid for uid, c in gs.card_db.items() if c.name.strip().lower() == "end game"]
+        if len(named) != 1:
+            problems.append(f"expected exactly 1 END GAME card in card_db, found {len(named)}")
+        if eg is None:
+            problems.append("ms.end_game_uid is None (END GAME not tracked)")
+            return [f"[{where}] {p}" for p in problems] if where else problems
+
+        # Already triggered → END GAME has left the deck by design; nothing to check.
+        if getattr(ms, "end_game_triggered", False):
+            return []
+
+        deck = list(gs.deck)
+        # Not in any hand
+        for i, p in enumerate(gs.players):
+            if eg in p.hand:
+                problems.append(f"END GAME found in player {i} ({p.name}) hand")
+        # Not in the pool
+        if eg in getattr(ms, "pool", []):
+            problems.append("END GAME found in the pool")
+        # Not in discard yet (pre-trigger)
+        if eg in getattr(ms, "discard_pile", []):
+            problems.append("END GAME found in discard before triggering")
+        # In the deck exactly once
+        deck_count = deck.count(eg)
+        if deck_count == 0:
+            problems.append("END GAME not in the draw deck (and not yet triggered)")
+        elif deck_count > 1:
+            problems.append(f"END GAME duplicated in deck ({deck_count} copies)")
+        else:
+            # Within the bottom 15 (last 15 entries of the deck list).
+            pos = deck.index(eg)
+            from_bottom = len(deck) - pos  # 1 = very last card
+            if from_bottom > 15:
+                problems.append(
+                    f"END GAME ABOVE bottom 15: pos={pos}, {from_bottom} cards from bottom "
+                    f"(deck size {len(deck)}) — it could be drawn far too early"
+                )
+    except Exception as exc:  # never crash the engine over a validation
+        problems.append(f"validation error: {exc}")
+    return [f"[{where}] {p}" for p in problems] if where else problems
+
+
 def draw_from_deck(gs: GameState, ms: MatchState, player: PlayerState, n: int) -> List[int]:
     drew: List[int] = []
     while len(drew) < n:
@@ -9783,6 +9840,14 @@ def run_match(
     else:
         rng.shuffle(gs.deck)
     _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
+    # Validate END GAME is in the bottom 15 right after setup (deal + mulligans +
+    # placement). Logs a loud warning if it ever ends up above the bottom 15.
+    _eg_problems = validate_end_game_placement(gs, ms, where="post-setup")
+    for _p in _eg_problems:
+        gs.log.append(f"⚠ END GAME PLACEMENT: {_p}")
+        if live_recorder is not None:
+            try: live_recorder.event(f"⚠ END GAME PLACEMENT: {_p}")
+            except Exception: pass
 
     assigned_archetypes: List[Tuple[str, str, float]] = []
     if player_archetype_profiles:

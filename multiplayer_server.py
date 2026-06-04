@@ -99,6 +99,34 @@ PLAYER_HOME_FRIEND_MOM_PATH = os.path.join(CLIENT_DIR, "player-home-friend-mom.j
 AVATAR_DIR = os.path.join(CLIENT_DIR, "avatars")
 
 
+def _shuffle_deck_keep_end_bottom15(gs, ms) -> None:
+    """Shuffle gs.deck for anti-peek (used on undo) WITHOUT scattering the END
+    GAME card out of the bottom 15. Cards are drawn from the FRONT (pop(0)), so
+    the "bottom" is the END of the list. END GAME is removed, the rest is
+    shuffled, then END GAME is re-inserted at a random position within the last
+    15 cards — identical to the engine's authoritative placement in run_match.
+    A plain random.shuffle(gs.deck) would move END GAME anywhere, which made the
+    game end far too early (e.g. END drawn with 53 cards left) after an undo.
+    """
+    try:
+        deck = gs.deck
+        eg = getattr(ms, "end_game_uid", None)
+        if eg is not None and eg in deck:
+            deck.remove(eg)
+            random.shuffle(deck)
+            span = min(14, len(deck))
+            pos = len(deck) - random.randint(0, span)
+            deck.insert(pos, eg)
+        else:
+            random.shuffle(deck)
+    except Exception:
+        # Never let a shuffle helper crash the undo path.
+        try:
+            random.shuffle(gs.deck)
+        except Exception:
+            pass
+
+
 def room_state_path(room_id: str) -> str:
     safe = re.sub(r"[^A-Z0-9]", "", str(room_id or "").upper())
     if not safe:
@@ -2565,7 +2593,19 @@ class GameRoom:
                             gs_restore = copy.deepcopy(self.undo_snapshot_gs)
                             ms_restore = copy.deepcopy(self.undo_snapshot_ms)
                     if gs_restore is not None:
-                        random.shuffle(gs_restore.deck)
+                        # Reshuffle the restored deck for anti-peek (undone draws must
+                        # not land back on top), BUT keep the END GAME card pinned to
+                        # the bottom 15. A plain full shuffle scatters END GAME out of
+                        # the bottom region, which is exactly what made the game end
+                        # far too early (e.g. END drawn with 53 cards left) after an undo.
+                        _shuffle_deck_keep_end_bottom15(gs_restore, ms_restore)
+                        # Validate the reshuffle kept END GAME in the bottom 15.
+                        try:
+                            _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-reshuffle")
+                            for _p in _eg_probs:
+                                self._record_event(f"⚠ END GAME PLACEMENT: {_p}")
+                        except Exception:
+                            pass
                         gs.__dict__.clear()
                         gs.__dict__.update(gs_restore.__dict__)
                         ms.__dict__.clear()
