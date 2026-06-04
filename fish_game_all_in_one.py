@@ -2059,6 +2059,7 @@ def load_brain(path: str = BRAIN_PATH) -> Dict[str, object]:
                             "games": float(v.get("games", 0.0)),
                             "wins": float(v.get("wins", 0.0)),
                             "score_sum": float(v.get("score_sum", 0.0)),
+                            "winner_notes": float(v.get("winner_notes", 0.0)),
                         }
                 brain["strategy_family_stats"] = fam_stats
             if isinstance(data.get("game_memory"), list):
@@ -4008,10 +4009,14 @@ def strategy_family_stats_bias(family_stats: Optional[Dict[str, Any]], label: st
         return 0.0
     wins = max(0.0, float(rec.get("wins", 0.0)))
     score_sum = float(rec.get("score_sum", 0.0))
-    win_rate = wins / games
+    win_rate = min(1.0, wins / games)
     avg_score = score_sum / games
     confidence = min(1.0, games / 25.0)
-    bias = ((win_rate - 0.35) * 1.8) + min(1.2, avg_score / 45.0)
+    # Winner emphasis: a strategy that has actually WON games gets an extra
+    # lift, so the bot leans toward proven winning plans (capped for stability).
+    winner_notes = max(0.0, float(rec.get("winner_notes", 0.0)))
+    winner_rate = min(1.0, winner_notes / games)
+    bias = ((win_rate - 0.35) * 1.8) + min(1.2, avg_score / 45.0) + (winner_rate * 0.6)
     return bias * (0.15 + 0.85 * confidence)
 
 
@@ -4467,17 +4472,22 @@ def update_strategy_family_stats(brain: Dict[str, object], gs: GameState, player
     if not players or not scores or len(players) != len(scores):
         return
     top = max(float(s) for s in scores) if scores else 0.0
+    # "Take notes on whoever won" — the winning strategy is the strongest signal,
+    # so the game's top scorer gets an EXTRA note on top of the normal win credit.
+    # This makes winning strategies rise faster in the bot's plan-picking bias.
     for p, s_raw in zip(players, scores):
         s = float(s_raw)
         label = infer_player_strategy_family_label(gs, p)
         rec = stats.get(label)
         if not isinstance(rec, dict):
-            rec = {"games": 0.0, "wins": 0.0, "score_sum": 0.0}
+            rec = {"games": 0.0, "wins": 0.0, "score_sum": 0.0, "winner_notes": 0.0}
             stats[label] = rec
         rec["games"] = float(rec.get("games", 0.0)) + 1.0
         rec["score_sum"] = float(rec.get("score_sum", 0.0)) + s
         if s >= top:
             rec["wins"] = float(rec.get("wins", 0.0)) + 1.0
+            # Extra emphasis for the actual winner's strategy.
+            rec["winner_notes"] = float(rec.get("winner_notes", 0.0)) + 1.0
 
 
 def default_archetype_profiles() -> List[Dict[str, Any]]:
