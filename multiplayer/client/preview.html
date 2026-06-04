@@ -7263,34 +7263,76 @@
       font-family: "Cinzel", serif; font-size: .95rem; font-weight: 800; color: #1a4a90;
       text-align: center; margin-bottom: 10px; letter-spacing: .3px;
     }
-    /* 7-col day grid — generous gap + month padding so Sat/Sun never clip */
-    .sc-dow, .sc-days {
+    /* 7-col day-of-week header */
+    .sc-dow {
       display: grid; grid-template-columns: repeat(7, 1fr);
-      gap: 5px; justify-items: center; align-items: center;
+      gap: 0; justify-items: center; align-items: center;
+      margin-bottom: 4px;
     }
-    .sc-dow { margin-bottom: 6px; }
     .sc-dow span { font-size: .56rem; font-weight: 800; color: #8aa8c8; width: 100%; text-align: center; }
+    /* Days grid — no gap so trail bridges connect flush between cells */
+    .sc-days {
+      display: grid; grid-template-columns: repeat(7, 1fr);
+      gap: 0; justify-items: center; align-items: center;
+    }
+    /* Wrapper cell: holds the trail bridges + the inner day circle */
+    .sc-cell {
+      position: relative; width: 100%;
+      display: flex; align-items: center; justify-content: center;
+      padding: 2.5px 0; box-sizing: border-box;
+    }
+    /* Left trail half: shown when previous day in SAME ROW is done */
+    .sc-cell::before {
+      content: ""; display: none;
+      position: absolute; z-index: 0;
+      top: 50%; transform: translateY(-50%);
+      height: 38%; left: 0; right: 50%;
+      background: rgba(92,208,245,.38);
+      border-radius: 0;
+    }
+    /* Right trail half: shown when next day in SAME ROW is done */
+    .sc-cell::after {
+      content: ""; display: none;
+      position: absolute; z-index: 0;
+      top: 50%; transform: translateY(-50%);
+      height: 38%; left: 50%; right: 0;
+      background: rgba(92,208,245,.38);
+      border-radius: 0;
+    }
+    .sc-cell[data-tl="1"]::before { display: block; }
+    .sc-cell[data-tr="1"]::after  { display: block; }
+    /* The actual day circle */
     .sc-day {
-      width: 100%; max-width: 24px; aspect-ratio: 1 / 1; height: auto;
+      position: relative; z-index: 1;
+      width: clamp(16px, 76%, 24px); aspect-ratio: 1 / 1; height: auto;
       border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: .56rem; font-weight: 800; box-sizing: border-box;
-      transition: transform .1s;
+      font-size: .52rem; font-weight: 800; box-sizing: border-box;
+      transition: transform .12s;
     }
-    .sc-day.done:hover, .sc-day.avatar:hover { transform: scale(1.18); }
+    .sc-day.done:hover, .sc-day.avatar:hover { transform: scale(1.22); cursor: default; }
     .sc-day.blank { background: transparent; }
     .sc-day.done {
       background: linear-gradient(135deg,#5cd0f5,#1a77c9); color: #fff;
-      box-shadow: 0 1px 4px rgba(26,119,201,.4);
+      box-shadow: 0 1px 5px rgba(26,119,201,.45);
     }
-    .sc-day.missed { background: rgba(150,165,180,.32); color: transparent; }
-    .sc-day.today-empty { background: rgba(120,190,235,.16); border: 1.5px dashed rgba(70,150,215,.6); }
+    .sc-day.missed {
+      background: rgba(150,165,180,.28);
+    }
+    .sc-day.today-empty {
+      background: rgba(120,190,235,.14); border: 1.5px dashed rgba(70,150,215,.55);
+    }
+    /* Avatar cell: the player's current position on the trail */
     .sc-day.avatar {
-      background: linear-gradient(135deg,#ffd86a,#f5a623);
-      box-shadow: 0 0 0 2.5px rgba(245,166,35,.45), 0 2px 8px rgba(200,120,0,.4);
-      overflow: hidden; padding: 0; max-width: 26px;
+      background: transparent;
+      box-shadow: 0 0 0 2.5px rgba(245,166,35,.55), 0 2px 8px rgba(200,120,0,.35);
+      overflow: hidden; padding: 0;
+      width: clamp(18px, 85%, 26px);
     }
     .sc-day.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    /* Trail colour on the avatar's bridge matches the done trail */
+    .sc-cell.sc-avatar-cell::before,
+    .sc-cell.sc-avatar-cell::after { background: rgba(245,166,35,.38); }
 
     /* ── LOBBY BROWSER MODAL ────────────────────────────────────── */
     #lobby-browser-modal {
@@ -10362,9 +10404,9 @@
       <div class="sc-stat"><div class="sc-stat-val" id="sc-total">0</div><div class="sc-stat-lbl">Total Days</div></div>
     </div>
     <div id="streak-cal-legend">
-      <span class="sc-leg"><span class="sc-leg-dot done"></span> Streak day</span>
-      <span class="sc-leg"><span class="sc-leg-dot missed"></span> Missed day</span>
-      <span class="sc-leg"><span class="sc-leg-dot avatar">★</span> Current day</span>
+      <span class="sc-leg"><span class="sc-leg-dot done"></span> Played</span>
+      <span class="sc-leg"><span class="sc-leg-dot missed"></span> Missed</span>
+      <span class="sc-leg"><span class="sc-leg-dot avatar">🐠</span> You are here</span>
     </div>
     <div id="streak-cal-year-row">
       <button id="sc-year-prev" aria-label="Previous year">‹</button>
@@ -23500,10 +23542,10 @@
         setTxt("sc-year-label", _scYear);
 
         const avatarUrl = (typeof window.__fishMyAvatarUrl === "function") ? (window.__fishMyAvatarUrl() || "") : "";
-        const now = new Date();
-        const todayStr = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(now) : "";
-        const curMonth = now.getMonth();
-        const curYear  = now.getFullYear();
+        const now       = new Date();
+        const todayStr  = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(now) : "";
+        const curMonth  = now.getMonth();
+        const curYear   = now.getFullYear();
         const grid = $a("streak-cal-grid");
         if (!grid) return;
         grid.innerHTML = "";
@@ -23511,39 +23553,66 @@
         for (let m = 0; m < 12; m++) {
           const monthEl = document.createElement("div");
           monthEl.className = "sc-month" + ((m === curMonth && _scYear === curYear) ? " sc-cur-month" : "");
-          let html = "<div class=\"sc-month-name\">" + _SC_MONTHS[m] + "</div>"
-            + "<div class=\"sc-dow\">" + _SC_DOW.map(d => "<span>" + d + "</span>").join("") + "</div>"
-            + "<div class=\"sc-days\">";
-          const startDow = new Date(_scYear, m, 1).getDay();      // 0 = Sunday
+
+          const startDow   = new Date(_scYear, m, 1).getDay(); // 0=Sun
           const daysInMonth = new Date(_scYear, m + 1, 0).getDate();
-          for (let i = 0; i < startDow; i++) html += "<div class=\"sc-day blank\"></div>";
+
+          // Pre-compute date strings for the month so we can look ahead/behind
+          const dsArr = [];
           for (let d = 1; d <= daysInMonth; d++) {
-            const ds = _scYear + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
-            let cls = "sc-day", content = "";
-            const isDone     = info.set.has(ds);
-            const isFuture   = ds > todayStr;
-            // Blank (not grey) for days before the player's first completed
-            // game — including when they've never played (firstDay is null).
-            // Grey is ONLY for missed days AFTER activity started.
+            dsArr.push(_scYear + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0"));
+          }
+
+          let html = "<div class=\"sc-month-name\">" + _SC_MONTHS[m] + "</div>"
+            + "<div class=\"sc-dow\">" + _SC_DOW.map(dow => "<span>" + dow + "</span>").join("") + "</div>"
+            + "<div class=\"sc-days\">";
+
+          // Leading blank cells to align day 1 to the right weekday column
+          for (let i = 0; i < startDow; i++) {
+            html += "<div class=\"sc-cell\"><div class=\"sc-day blank\"></div></div>";
+          }
+
+          for (let d = 1; d <= daysInMonth; d++) {
+            const ds       = dsArr[d - 1];
+            const isDone   = info.set.has(ds);
+            const isFuture = ds > todayStr;
             const beforeFirst = !info.firstDay || ds < info.firstDay;
+
+            // Column index in the 7-col grid (0=Sun … 6=Sat)
+            const col = (startDow + d - 1) % 7;
+
+            let dayCls  = "sc-day";
+            let cellCls = "sc-cell";
+            let content = "";
+
             if (isDone) {
-              const isCurrentDay = info.alive && ds === info.mostRecent;
-              if (isCurrentDay && avatarUrl) {
-                cls += " avatar";
-                content = "<img src=\"" + avatarUrl + "\" alt=\"\">";
+              // Avatar on the most-recent streak day (player's current position)
+              if (info.alive && ds === info.mostRecent && avatarUrl) {
+                dayCls  += " avatar";
+                cellCls += " sc-avatar-cell";
+                content  = "<img src=\"" + avatarUrl + "\" alt=\"\" loading=\"lazy\">";
               } else {
-                cls += " done";
+                dayCls += " done";
+                // Show the day-number within the current streak run
                 content = String(info.dayNum[ds] || "");
               }
-            } else if (isFuture || beforeFirst) {
-              cls += " blank";
-            } else if (ds === todayStr) {
-              cls += " today-empty";   // today, not played yet → not a miss
+
+              // Trail bridges: only connect to adjacent done days in the SAME row
+              const prevDone = d > 1 && info.set.has(dsArr[d - 2]) && col > 0;
+              const nextDone = d < daysInMonth && info.set.has(dsArr[d])     && col < 6;
+              if (prevDone) cellCls += " tl";  // handled via data attr below
+              if (nextDone) cellCls += " tr";
+
+              const tl = prevDone ? " data-tl=\"1\"" : "";
+              const tr = nextDone ? " data-tr=\"1\"" : "";
+              html += "<div class=\"" + cellCls + "\"" + tl + tr + "><div class=\"" + dayCls + "\">" + content + "</div></div>";
             } else {
-              cls += " missed";        // past gap day after first activity
+              if (!isFuture && !beforeFirst && ds !== todayStr) dayCls += " missed";
+              else if (ds === todayStr && !isFuture) dayCls += " today-empty";
+              html += "<div class=\"" + cellCls + "\"><div class=\"" + dayCls + " title=\"" + ds + "\"></div></div>";
             }
-            html += "<div class=\"" + cls + "\" title=\"" + ds + "\">" + content + "</div>";
           }
+
           html += "</div>";
           monthEl.innerHTML = html;
           grid.appendChild(monthEl);
