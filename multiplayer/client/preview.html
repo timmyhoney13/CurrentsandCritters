@@ -3572,6 +3572,87 @@
     .animal-card-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); margin-top: 4px; overflow: hidden; }
     .animal-card-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,#22d8f8,#2f7ee0); }
 
+    /* ── Click-to-place card picker ─────────────────────────────── */
+    #ctp-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 4990;
+      background: rgba(0,0,0,.42);
+    }
+    #ctp-backdrop.open { display: block; }
+    #ctp-panel {
+      display: none; position: fixed; bottom: 0;
+      left: 50%; transform: translateX(-50%);
+      z-index: 4991;
+      background: rgba(8,22,58,.97);
+      border: 1px solid rgba(58,120,204,.55); border-bottom: none;
+      border-radius: 14px 14px 0 0;
+      width: min(96vw, 800px); padding: 14px 16px 22px;
+      box-shadow: 0 -6px 36px rgba(0,0,0,.65);
+      max-height: 46vh; overflow-y: auto;
+    }
+    #ctp-panel.open { display: block; }
+    .ctp-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; padding-bottom: 8px;
+      border-bottom: 1px solid rgba(58,120,204,.25);
+    }
+    #ctp-title {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 14px; font-weight: 700;
+    }
+    .ctp-cancel-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,.2);
+      color: rgba(200,225,255,.7); border-radius: 6px; padding: 4px 12px;
+      font-size: 12px; cursor: pointer;
+    }
+    .ctp-cancel-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+    #ctp-cards {
+      display: flex; flex-wrap: wrap; gap: 10px;
+    }
+    .ctp-card-item {
+      position: relative; width: 74px; flex: 0 0 74px;
+      cursor: pointer;
+      border: 2px solid rgba(58,120,204,.4); border-radius: 9px;
+      overflow: hidden; background: rgba(10,22,54,.7);
+      transition: border-color .12s, transform .12s, box-shadow .12s;
+    }
+    .ctp-card-item:hover {
+      border-color: rgba(34,216,248,.9);
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0,0,0,.55);
+    }
+    .ctp-card-item img {
+      width: 100%; display: block; height: 98px; object-fit: cover;
+    }
+    .ctp-card-label {
+      padding: 4px 4px 3px; font-size: 9.5px; color: #b8d8f8;
+      text-align: center; line-height: 1.3; word-break: break-word;
+    }
+    .ctp-card-cost {
+      position: absolute; top: 3px; right: 3px;
+      background: rgba(8,24,64,.88); color: var(--gold);
+      font-size: 10px; font-weight: 800;
+      border-radius: 4px; padding: 1px 5px;
+      border: 1px solid rgba(240,184,64,.45);
+    }
+    .ctp-card-star {
+      position: absolute; top: 3px; left: 3px;
+      font-size: 10px; color: var(--gold); text-shadow: 0 0 6px rgba(240,184,64,.8);
+    }
+    .ctp-empty {
+      color: rgba(170,200,240,.6); font-size: 13px;
+      text-align: center; padding: 18px 0;
+    }
+    /* Glow on board slot while CTP picker is open */
+    .ctp-slot-active {
+      animation: ctp-pulse 1.1s ease-in-out infinite !important;
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 0 2px rgba(34,216,248,.4), 0 0 16px rgba(34,216,248,.35) !important;
+    }
+    @keyframes ctp-pulse {
+      0%,100% { box-shadow: 0 0 0 2px rgba(34,216,248,.4), 0 0 16px rgba(34,216,248,.35); }
+      50%      { box-shadow: 0 0 0 3px rgba(34,216,248,.65), 0 0 26px rgba(34,216,248,.55); }
+    }
+
     /* ── Post-game animal unlock screen ─────────────────────────── */
     #animal-unlock-overlay {
       position: fixed; inset: 0; z-index: 9500; display: none;
@@ -10122,6 +10203,17 @@
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
 
+  <!-- Click-to-place card picker panel -->
+  <div id="ctp-backdrop"></div>
+  <div id="ctp-panel">
+    <div class="ctp-header">
+      <span id="ctp-title">Select a card</span>
+      <button id="ctp-cancel-btn" class="ctp-cancel-btn">✕ Cancel</button>
+    </div>
+    <div id="ctp-cards"></div>
+    <div id="ctp-empty" class="ctp-empty" style="display:none"></div>
+  </div>
+
   <!-- hand zone: seats-left | hand cards | seats-right -->
   <div id="pv-hand-zone">
     <div id="pv-seats-left" class="pv-seat-cluster"></div>
@@ -16087,6 +16179,8 @@
 
   // ── My board renderer ──────────────────────────────────────────
   function renderMyBoard(me, actions, isMyTurn) {
+    // Close the card picker on any state change so stale actions don't persist.
+    closeCTP();
     const el = document.getElementById("pv-my-board");
     cl(el);
     if (!me) return;
@@ -16108,8 +16202,12 @@
     if (playOceanActions.length) {
       const oceanDrop = document.createElement("div");
       oceanDrop.id = "pv-ocean-drop-zone";
-      oceanDrop.textContent = "⊕ Drop ocean card here";
+      oceanDrop.textContent = "⊕ Click or drag an Ocean card here";
       oceanDrop.style.cssText = "border:2px dashed var(--teal);border-radius:10px;padding:14px 24px;color:var(--teal);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:10px;text-align:center;";
+      // Click-to-place: open ocean card picker
+      oceanDrop.addEventListener("click", () => {
+        openCTP("Select an Ocean card to place", playOceanActions, oceanDrop);
+      });
       oceanDrop.addEventListener("dragover", (ev) => {
         ev.preventDefault(); ev.dataTransfer.dropEffect = "move";
         oceanDrop.style.background = "rgba(13,148,136,.18)";
@@ -16167,11 +16265,10 @@
           slot.className = "pv-lane-slot" + (isMyTurn && laneHasAction(dir) ? " playable" : "");
           slot.textContent = "+";
           if (isMyTurn && laneHasAction(dir)) {
-            slot.title = `Click a card in your hand then click here, or drag a card here`;
+            slot.title = `Click to pick a card, or drag one here`;
             slot.addEventListener("click", () => {
               const useStarClick = document.getElementById("pv-star-toggle")?.checked;
-              // If the action-bar dropdown already targets this slot, submit it
-              // (upgrading to the star version if the toggle is on)
+              // Fast-path: action-bar dropdown already targets this exact slot
               const sel = document.getElementById("pv-action-select");
               if (sel?.value) {
                 const pre = actions.find(a =>
@@ -16195,21 +16292,15 @@
                   submitAction(pre); return;
                 }
               }
-              // Filter actions for this slot, then pick star/non-star per toggle
+              // Open the card picker for this slot
               const opts = actions.filter(a =>
                 a.kind === "play_to_ocean" &&
                 Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                 String(a.face_direction||"").toLowerCase() === dir
               );
-              // Unique card_uids playable here (collapse star/non-star pairs)
-              const uniqueCards = [...new Set(opts.map(a => a.card_uid))];
-              if (uniqueCards.length === 1) {
-                const act = useStarClick
-                  ? (opts.find(a => a.use_star) || opts[0])
-                  : (opts.find(a => !a.use_star) || opts[0]);
-                submitAction(act); return;
-              }
-              setStatus("Click a card in your hand first, then click a slot to play it there.");
+              const oceanName = ocean.ocean?.name || "Ocean";
+              const dirLabel  = { up:"top", down:"bottom", left:"left", right:"right" }[dir] || dir;
+              openCTP(`Select a card for the ${dirLabel} of ${oceanName}`, opts, slot);
             });
             slot.addEventListener("dragover", (ev) => {
               const acts = actions.filter(a =>
@@ -16304,8 +16395,9 @@
             const slot = document.createElement("div");
             slot.className = "pv-lane-slot playable stack-slot";
             slot.textContent = "+";
-            slot.title = "Stack another card here";
+            slot.title = "Click to pick a card to stack, or drag one here";
             slot.addEventListener("click", () => {
+              // Fast-path: action-bar dropdown already targets this slot
               const sel = document.getElementById("pv-action-select");
               if (sel?.value) {
                 const pre = actions.find(a =>
@@ -16316,13 +16408,15 @@
                 );
                 if (pre) { submitAction(pre); return; }
               }
+              // Open the card picker for this stack slot
               const opts = actions.filter(a =>
                 a.kind === "play_to_ocean" &&
                 Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                 String(a.face_direction||"").toLowerCase() === dir
               );
-              if (opts.length === 1) { submitAction(opts[0]); return; }
-              setStatus("Click a card in your hand first, then click the slot to stack it.");
+              const oceanName = ocean.ocean?.name || "Ocean";
+              const dirLabel  = { up:"top", down:"bottom", left:"left", right:"right" }[dir] || dir;
+              openCTP(`Stack a card on the ${dirLabel} of ${oceanName}`, opts, slot);
             });
             slot.addEventListener("dragover", (ev) => {
               const acts = actions.filter(a =>
@@ -16413,6 +16507,108 @@
     });
     _prevBoardCards = newBoardCards;
   }
+
+  // ── Click-to-place card picker ────────────────────────────────
+  let _ctpSlotEl = null;
+
+  function openCTP(title, acts, slotEl) {
+    closeCTP();
+    const panel    = document.getElementById("ctp-panel");
+    const backdrop = document.getElementById("ctp-backdrop");
+    const titleEl  = document.getElementById("ctp-title");
+    const cardsEl  = document.getElementById("ctp-cards");
+    const emptyEl  = document.getElementById("ctp-empty");
+
+    titleEl.textContent = title;
+    cardsEl.innerHTML   = "";
+    emptyEl.style.display = "none";
+    cardsEl.style.display = "";
+
+    if (slotEl) { _ctpSlotEl = slotEl; slotEl.classList.add("ctp-slot-active"); }
+
+    // Deduplicate by card_uid: prefer non-star action per card so we show each
+    // card once; the star toggle at selection time picks the right variant.
+    const seen = new Set();
+    const deduped = [];
+    // non-star first so they're the base action when no star toggle
+    const sorted = [...acts].sort((a, b) => (a.use_star ? 1 : 0) - (b.use_star ? 1 : 0));
+    for (const a of sorted) {
+      if (seen.has(Number(a.card_uid))) continue;
+      seen.add(Number(a.card_uid));
+      deduped.push(a);
+    }
+
+    if (!deduped.length) {
+      emptyEl.textContent = title.toLowerCase().includes("ocean")
+        ? "You do not have any Ocean cards to place."
+        : "No valid cards can be placed here.";
+      emptyEl.style.display = "";
+      cardsEl.style.display = "none";
+      panel.classList.add("open");
+      backdrop.classList.add("open");
+      return;
+    }
+
+    const useStarToggle = document.getElementById("pv-star-toggle")?.checked;
+    deduped.forEach(baseAct => {
+      const act = useStarToggle
+        ? (acts.find(a => Number(a.card_uid) === Number(baseAct.card_uid) && a.use_star) || baseAct)
+        : baseAct;
+
+      const item = document.createElement("div");
+      item.className = "ctp-card-item";
+      item.title = act.description || act.face_name || "Play card";
+
+      const img = document.createElement("img");
+      img.src = imagePathForUid(act.face_uid);
+      img.alt = act.face_name || "";
+      img.loading = "eager";
+      img.style.objectPosition = cardHalfPos(act.face_uid);
+      item.appendChild(img);
+
+      const lbl = document.createElement("div");
+      lbl.className = "ctp-card-label";
+      lbl.textContent = act.face_name || "?";
+      item.appendChild(lbl);
+
+      if (Number(act.cost_to_pay) > 0) {
+        const costEl = document.createElement("div");
+        costEl.className = "ctp-card-cost";
+        costEl.textContent = String(act.cost_to_pay);
+        item.appendChild(costEl);
+      }
+      if (act.has_star_ability) {
+        const starEl = document.createElement("div");
+        starEl.className = "ctp-card-star";
+        starEl.textContent = "★";
+        item.appendChild(starEl);
+      }
+
+      item.addEventListener("click", () => {
+        closeCTP();
+        submitAction(act);
+      });
+
+      cardsEl.appendChild(item);
+    });
+
+    panel.classList.add("open");
+    backdrop.classList.add("open");
+  }
+
+  function closeCTP() {
+    document.getElementById("ctp-panel")?.classList.remove("open");
+    document.getElementById("ctp-backdrop")?.classList.remove("open");
+    if (_ctpSlotEl) {
+      _ctpSlotEl.classList.remove("ctp-slot-active");
+      _ctpSlotEl = null;
+    }
+  }
+
+  (function _initCTP() {
+    document.getElementById("ctp-cancel-btn").addEventListener("click", closeCTP);
+    document.getElementById("ctp-backdrop").addEventListener("click", closeCTP);
+  })();
 
   // ── Hand renderer (Hearthstone fan with JS hover) ──────────────
   let _handRenderData = null; // { me, actions, mustDiscard, discardExcess }
