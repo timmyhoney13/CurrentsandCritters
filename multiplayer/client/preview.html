@@ -19629,6 +19629,13 @@
         firebase.initializeApp(window.__FISH_FIREBASE_CONFIG);
         _auth = firebase.auth();
         _db   = firebase.firestore();
+        // Auto-detect long-polling. Firestore's default WebChannel streaming
+        // gets broken by some browser extensions, ad-blockers, antivirus, and
+        // corporate proxies, producing repeated "Listen/Write 400 transport
+        // errored: hn" failures. Auto-detect falls back to long-polling only
+        // when needed, which eliminates those errors without slowing the
+        // common case. Must be set before any other Firestore use.
+        try { _db.settings({ experimentalAutoDetectLongPolling: true, merge: true }); } catch {}
         // Use SESSION persistence: auth state lives only for this browser tab.
         // This prevents a previously signed-in user from being auto-restored
         // when someone else opens the game on the same device.
@@ -19987,7 +19994,17 @@
     }
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
-      if (gal) { gal.classList.remove("open"); gal.setAttribute("aria-hidden", "true"); }
+      if (gal) {
+        // Move focus OUT before hiding from assistive tech — setting
+        // aria-hidden="true" on an element that contains the focused element
+        // (e.g. the back button) triggers a browser accessibility warning.
+        try {
+          const focused = document.activeElement;
+          if (focused && gal.contains(focused) && typeof focused.blur === "function") focused.blur();
+        } catch {}
+        gal.classList.remove("open");
+        gal.setAttribute("aria-hidden", "true");
+      }
       // If we were viewing another player's collection, restore our own state
       // and return to their public-profile modal.
       if (_galReadOnly) {
@@ -20829,7 +20846,11 @@
       try {
         if (!_db) { _nickAvatarCache[nick] = { url: null, ts: Date.now() }; return null; }
         const snap = await _db.collection("users").where("nickname", "==", nick).limit(1).get();
-        const url = snap.empty ? null : (normalizeAvatarUrl(snap.docs[0].data().avatar_url || "") || null);
+        // Validate against the known avatar set — a stale/invalid stored value
+        // (e.g. a deleted "/avatars/avatar-04.png") must NOT be used as an
+        // <img> src or it 404s. Return null so callers fall back to the default.
+        const norm = snap.empty ? "" : normalizeAvatarUrl(snap.docs[0].data().avatar_url || "");
+        const url = (norm && animalByImg(norm)) ? norm : null;
         _nickAvatarCache[nick] = { url, ts: Date.now() };
         return url;
       } catch(e2) {
@@ -21589,7 +21610,11 @@
     }
     function phLbAvatarImg(avatarUrl, seed) {
       const raw   = typeof normalizeAvatarUrl === "function" ? normalizeAvatarUrl(avatarUrl || "") : (avatarUrl || "");
-      const final = raw || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
+      // Only use a stored avatar if it's a real, known avatar — otherwise an
+      // invalid value (e.g. an old "/avatars/avatar-04.png") 404s. Fall back
+      // to the default mullet. The onerror is a last-resort safety net.
+      const valid = (raw && typeof animalByImg === "function" && animalByImg(raw)) ? raw : "";
+      const final = valid || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
       return `<img class="ph-lb-avatar" src="${escHtmlPH(final)}" alt="" loading="lazy" onerror="this.src='/avatars/mullet.png'">`;
     }
     function phLbRankTitle(cp) {
