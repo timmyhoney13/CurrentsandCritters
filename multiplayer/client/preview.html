@@ -10406,7 +10406,7 @@
     <div id="streak-cal-legend">
       <span class="sc-leg"><span class="sc-leg-dot done"></span> Played</span>
       <span class="sc-leg"><span class="sc-leg-dot missed"></span> Missed</span>
-      <span class="sc-leg"><span class="sc-leg-dot avatar">🐠</span> You are here</span>
+      <span class="sc-leg"><span class="sc-leg-dot avatar" id="sc-leg-avatar-dot"></span> You are here</span>
     </div>
     <div id="streak-cal-year-row">
       <button id="sc-year-prev" aria-label="Previous year">‹</button>
@@ -23546,6 +23546,21 @@
         const todayStr  = (typeof _streakLocalDateStr === "function") ? _streakLocalDateStr(now) : "";
         const curMonth  = now.getMonth();
         const curYear   = now.getFullYear();
+
+        // Update the legend "You are here" dot with the player's real avatar.
+        const legAvatarDot = document.querySelector("#streak-cal-legend .sc-leg-dot.avatar");
+        if (legAvatarDot) {
+          if (avatarUrl) {
+            legAvatarDot.innerHTML = `<img src="${avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none'">`;
+            legAvatarDot.style.background = "transparent";
+            legAvatarDot.style.boxShadow   = "0 0 0 2px rgba(245,166,35,.55)";
+          } else {
+            legAvatarDot.innerHTML = "🐠";
+            legAvatarDot.style.background  = "";
+            legAvatarDot.style.boxShadow   = "";
+          }
+        }
+
         const grid = $a("streak-cal-grid");
         if (!grid) return;
         grid.innerHTML = "";
