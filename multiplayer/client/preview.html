@@ -19968,6 +19968,22 @@
       _galRenderDetail(null);
       gal.classList.add("open");
       gal.setAttribute("aria-hidden", "false");
+      // Re-evaluate stat / level / achievement / rank unlocks RIGHT NOW, so any
+      // avatar the player has earned but not yet been granted appears unlocked
+      // immediately when they open the collection (don't make them wait for a
+      // lobby reload). Refresh the grid if anything new was granted.
+      (async () => {
+        try {
+          if (typeof window.__fishSyncStatUnlocks === "function") {
+            const newly = await window.__fishSyncStatUnlocks();
+            if (Array.isArray(newly) && newly.length) {
+              _galRenderHeader();
+              _galRenderGrid();
+              newly.forEach(id => { try { window.__fishQueueAnimalUnlock?.(id); } catch {} });
+            }
+          }
+        } catch {}
+      })();
     }
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
@@ -26576,16 +26592,20 @@
       // unlocks (e.g. Birds of a Feather) are granted retroactively.
       if (_authUser && _achLoadedUid !== _authUser.uid) { try { await loadUserAchievements(_authUser.uid); } catch {} }
       for (const a of ANIMAL_AVATARS) {
-        const u = a.unlock; if (!u) continue;
-        let met = false;
-        if (u.type === "level")            met = level >= (u.goal || Infinity);
-        else if (u.type === "comp_wins")   met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
-        else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
-        else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
-        else if (u.type === "achievement") met = _isDone(u.achId);
-        if (met && !isAvatarUnlocked(a.img)) {
-          if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
-        }
+        // Each avatar is checked independently — a single bad definition can
+        // never throw out of the loop and block every other unlock.
+        try {
+          const u = a.unlock; if (!u) continue;
+          let met = false;
+          if (u.type === "level")            met = level >= (u.goal || Infinity);
+          else if (u.type === "comp_wins")   met = Number(stats.lifetime_comp_wins || 0) >= (u.goal || Infinity);
+          else if (u.type === "stat")        met = Number(stats[u.stat] || 0) >= (u.goal || Infinity);
+          else if (u.type === "rank")        met = rankTierValue(stats.rank_competitive) >= (_RANK_TIER_VALUE[u.tier] || Infinity);
+          else if (u.type === "achievement") met = _isDone(u.achId);
+          if (met && !isAvatarUnlocked(a.img)) {
+            if (await window.__fishGrantUnlockedIcon(a.img)) newly.push(a.id);
+          }
+        } catch (e) { console.warn("[unlock] check failed for", a && a.id, e); }
       }
       return newly;
     };
