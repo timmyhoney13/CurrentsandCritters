@@ -8213,14 +8213,14 @@
 
     /* ════ SPECTATOR MODE ════════════════════════════════════════ */
     #pv-spectator-panel {
-      display: none; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; padding: 24px 20px;
-      background: rgba(8,28,60,.88); border-top: 1px solid rgba(95,179,214,.2);
-      min-height: 120px; text-align: center;
+      display: none; flex-direction: row; align-items: center; justify-content: center;
+      gap: 12px; padding: 7px 18px; flex-wrap: wrap;
+      background: rgba(8,28,60,.92); border-top: 1px solid rgba(95,179,214,.25);
+      text-align: center; flex-shrink: 0;
     }
     #pv-spectator-panel.active { display: flex; }
-    .spec-title { font-family:"Cinzel",serif; font-size:1.1rem; font-weight:900; color:#22d8f8; }
-    .spec-hint { font-size:.82rem; color:rgba(200,225,255,.7); }
+    .spec-title { font-family:"Cinzel",serif; font-size:.95rem; font-weight:900; color:#22d8f8; }
+    .spec-hint { font-size:.8rem; color:rgba(200,225,255,.7); }
     .spec-viewing { font-size:.88rem; font-weight:800; color:#ffd36b; margin-top:4px; }
     #pv-spectator-list {
       display: none; padding: 6px 14px;
@@ -11335,16 +11335,23 @@
   function _specShowPanel(active) {
     const panel = document.getElementById("pv-spectator-panel");
     const handZone = document.getElementById("pv-hand-zone");
+    const handCards = document.getElementById("pv-hand");   // the cards ONLY (not the seats)
     const guideBar = document.getElementById("pv-guide-bar");
     const actionBar = document.getElementById("pv-action-bar");
     if (active) {
       if (panel) panel.classList.add("active");
-      if (handZone) handZone.style.display = "none";
+      // IMPORTANT: the player seat avatars (#pv-seats-left / #pv-seats-right)
+      // live INSIDE #pv-hand-zone. Hiding the whole zone (the old behaviour)
+      // also hid the avatars, so a spectator had nothing to click. Instead,
+      // keep the zone visible and hide only the spectator's own hand cards.
+      if (handZone) handZone.style.display = "";
+      if (handCards) handCards.style.display = "none";
       if (guideBar) guideBar.style.display = "none";
       if (actionBar) actionBar.style.display = "none";
     } else {
       if (panel) panel.classList.remove("active");
       if (handZone) handZone.style.display = "";
+      if (handCards) handCards.style.display = "";
       if (guideBar) guideBar.style.display = "";
       if (actionBar) actionBar.style.display = "";
       const lbl = document.getElementById("spec-viewing-label");
@@ -13597,12 +13604,11 @@
             lbl.textContent = `Viewing ${p ? (p.name || `Player ${idx + 1}`) : `Player ${idx + 1}`}'s board`;
             lbl.style.display = "";
           }
-          if (p && typeof renderReadOnlyBoard === "function") {
-            // Show a read-only board overlay for the selected player
-            const overlay = document.getElementById("board-focus-overlay") || document.querySelector(".board-focus-overlay");
-            if (overlay && typeof _openBoardFocus === "function") {
-              _openBoardFocus(p);
-            }
+          if (p && typeof openBoardFocus === "function") {
+            // Show the read-only board overlay (#pv-board-focus) for this player.
+            // (Was referencing a non-existent "board-focus-overlay" element and
+            // an "_openBoardFocus" function, so clicking a seat did nothing.)
+            try { openBoardFocus(p); } catch (e) { console.warn("[spectate] openBoardFocus failed:", e); }
           }
         });
       });
