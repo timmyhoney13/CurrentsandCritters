@@ -4364,20 +4364,6 @@
       overflow: hidden;
       position: relative;
     }
-    /* Soft bottom-left scrim — lifts text off the gradient without touching art.
-       Radial anchor at the bottom-left corner fades to transparent well before
-       reaching the coral art on the right. */
-    .ph-action-card::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(135% 95% at 0% 100%,
-                  rgba(0,20,50,.34) 0%,
-                  rgba(0,20,50,.12) 42%,
-                  rgba(0,20,50,0) 68%);
-      z-index: 1;
-      pointer-events: none;
-    }
     .ph-action-card:hover {
       transform: translateY(-3px);
       box-shadow: 0 16px 38px rgba(0,45,110,.30), inset 0 1px 0 rgba(255,255,255,.22);
@@ -4387,18 +4373,14 @@
     .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join — clean red */
     .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial — reef green */
     .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive — clean purple */
-    /* Circular icon holder */
+    /* Circular icon holder — no backdrop-filter (causes GPU blur on entire card) */
     .ph-action-icon {
       width: 50px;
       height: 50px;
       border-radius: 50%;
-      /* Clean frosted disc: solid-ish white fill + crisp hairline ring + soft
-         depth, so the circle reads as intentional on every card color. */
-      background: rgba(255,255,255,.20);
-      backdrop-filter: blur(10px) saturate(120%);
-      -webkit-backdrop-filter: blur(10px) saturate(120%);
-      border: 1.5px solid rgba(255,255,255,.7);
-      box-shadow: inset 0 1px 2px rgba(255,255,255,.4),
+      background: rgba(255,255,255,.28);
+      border: 1.5px solid rgba(255,255,255,.75);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.5),
                   0 2px 8px rgba(0,30,70,.18);
       display: flex;
       align-items: center;
