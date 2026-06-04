@@ -4394,13 +4394,14 @@
     /* Coral art SVG container */
     .ph-ac-art {
       position: absolute;
-      bottom: 10px; right: 4px;
-      height: 86%;
-      width: 54%;
+      top: 50%; right: 8px;
+      transform: translateY(-50%);
+      height: 90%;
+      width: 56%;
       pointer-events: none;
       z-index: 1;
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
     }
     /* Exact coral creature image — full art visible, no distortion */
@@ -4408,7 +4409,7 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
-      object-position: center bottom;
+      object-position: center center;
       filter: drop-shadow(0 5px 12px rgba(0,30,70,.28));
     }
     /* Text in front */
@@ -5940,6 +5941,23 @@
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
     }
+
+    /* ── Action cards stay COLORFUL on every tab (consistent everywhere) ──
+       Placed after all per-tab overrides so these win the !important ties.
+       Each tab used to repaint these cards as frosted glass; we force the
+       blue / red / green / purple identity to match the reference on all
+       pages (Overview, Casual, Competitive, History, Friends, Achievements,
+       Leaderboard). */
+    #auth-stats-lobby[data-bg-tab] .ph-action-card {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      border: none !important;
+      box-shadow: 0 8px 26px rgba(0,45,110,.20), inset 0 1px 0 rgba(255,255,255,.18) !important;
+    }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%) !important; }
+    #auth-stats-lobby[data-bg-tab] .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%) !important; }
 
     #ph-panel-friends .ph-scard {
       background: rgba(250,253,255,.95);
@@ -9039,9 +9057,6 @@
     <div class="ph-actions">
       <!-- Create Game — teal/blue · staghorn coral art -->
       <button class="ph-action-card" id="stats-create-btn">
-        <div class="ph-action-icon">
-          <svg width="24" height="24" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="white" stroke-width="1.8"/><path d="M11 6v10M6 11h10" stroke="white" stroke-width="2.2" stroke-linecap="round"/></svg>
-        </div>
         <div class="ph-ac-art" aria-hidden="true">
           <img src="/avatars/staghorn-coral.png" alt="" draggable="false" loading="lazy">
         </div>
@@ -9053,9 +9068,6 @@
 
       <!-- Join Game — pink/rose · fan coral art -->
       <button class="ph-action-card" id="stats-join-toggle-btn">
-        <div class="ph-action-icon">
-          <svg width="22" height="18" viewBox="0 0 22 18" fill="none"><circle cx="7" cy="6" r="5" stroke="white" stroke-width="1.8"/><circle cx="16" cy="6" r="4" stroke="rgba(255,255,255,.7)" stroke-width="1.8"/><path d="M0 17c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="white" stroke-width="1.8" fill="none"/><path d="M14 11.5c2.5.7 4 3.2 4 5.5" stroke="rgba(255,255,255,.7)" stroke-width="1.8" fill="none"/></svg>
-        </div>
         <div class="ph-ac-art" aria-hidden="true">
           <img src="/avatars/deep-sea-coral.png" alt="" draggable="false" loading="lazy">
         </div>
@@ -9067,9 +9079,6 @@
 
       <!-- Tutorial — olive/green · brain coral art -->
       <button class="ph-action-card" id="stats-tutorial-btn">
-        <div class="ph-action-icon">
-          <svg width="24" height="20" viewBox="0 0 24 20" fill="none"><path d="M2 7l10-5 10 5-10 5L2 7z" fill="white"/><path d="M6 10v4.5C6 16.9 8.7 18 12 18s6-1.1 6-3.5V10" stroke="white" stroke-width="1.6" stroke-linecap="round"/><path d="M22 8v4" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
-        </div>
         <div class="ph-ac-art" aria-hidden="true">
           <img src="/avatars/grooved-brain-coral.png" alt="" draggable="false" loading="lazy">
         </div>
@@ -9081,9 +9090,6 @@
 
       <!-- Competitive — orange/amber · elkhorn coral art -->
       <button class="ph-action-card ph-action-gold" id="stats-comp-btn">
-        <div class="ph-action-icon">
-          <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 4l14 14M18 4L4 18M13 2l7 7M2 13l7 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </div>
         <div class="ph-ac-art" aria-hidden="true">
           <img src="/avatars/elkhorn-coral.png" alt="" draggable="false" loading="lazy">
         </div>
