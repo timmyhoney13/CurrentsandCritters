@@ -18161,8 +18161,21 @@
       const cStats = (authUser && db)
         ? (((await db.collection("users").doc(authUser.uid).get()).data() || {}).stats || {})
         : (guestStatsGetter ? (guestStatsGetter() || {}) : {});
+      // ── Daily streak + login-bonus XP ──────────────────────────────
+      // The FIRST completed game of a new local day adds today to the streak
+      // and grants a daily login-bonus XP (75 + (streakDay-1)*0.25). Compute it
+      // here so it folds into the XP/level math and the saved streak fields.
+      const _creditDate    = _gameStartLocalDate || _streakLocalDateStr(new Date());
+      const _prevStreakArr = Array.isArray(cStats.streak_days) ? cStats.streak_days.map(String) : [];
+      const _isNewStreakDay = !_prevStreakArr.includes(_creditDate);
+      const _newStreakDays = _streakAddDay(cStats.streak_days, _creditDate);
+      const _streakInfo    = _computeStreakInfo(_newStreakDays);
+      const _streakDayNum  = Math.max(1, Number(_streakInfo.current) || 1);
+      const _streakBonusXp = _isNewStreakDay
+        ? Math.round((75 + (_streakDayNum - 1) * 0.25) * 100) / 100
+        : 0;
       const oldTotalXp = getStoredTotalXp(cStats);
-      const nextTotalXp = oldTotalXp + xpAward;
+      const nextTotalXp = oldTotalXp + xpAward + _streakBonusXp;
       const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
 
       // ── My board analysis (for Game Fish avatar unlocks) ───────────
@@ -18277,10 +18290,7 @@
           "stats.recent_games": nextRecent,
         };
         // ── Daily streak: credit this game's local START date ──────────
-        // Finishing a game is what counts (this code only runs on completion).
-        const _creditDate = _gameStartLocalDate || _streakLocalDateStr(new Date());
-        const _newStreakDays = _streakAddDay(cStats.streak_days, _creditDate);
-        const _streakInfo = _computeStreakInfo(_newStreakDays);
+        // (_creditDate / _newStreakDays / _streakInfo computed once above.)
         updates["stats.streak_days"]    = _newStreakDays;
         updates["stats.daily_streak"]   = _streakInfo.current;
         updates["stats.streak_longest"] = Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0));
@@ -18426,12 +18436,11 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
-        // Daily streak (guests) — credit this game's local START date.
-        const _gCreditDate = _gameStartLocalDate || _streakLocalDateStr(new Date());
-        nextStats.streak_days = _streakAddDay(nextStats.streak_days, _gCreditDate);
-        const _gStreakInfo = _computeStreakInfo(nextStats.streak_days);
-        nextStats.daily_streak = _gStreakInfo.current;
-        nextStats.streak_longest = Math.max(_gStreakInfo.longest, Number(nextStats.streak_longest || 0));
+        // Daily streak (guests) — use the shared computation from above so the
+        // streak, login bonus and calendar all agree with the signed-in path.
+        nextStats.streak_days    = _newStreakDays;
+        nextStats.daily_streak   = _streakInfo.current;
+        nextStats.streak_longest = Math.max(_streakInfo.longest, Number(nextStats.streak_longest || 0));
         // Strategy tracking (guests) — mirror the signed-in path.
         if (myDetectedStrategy) {
           const _pc = (nextStats.strategy_play_counts && typeof nextStats.strategy_play_counts === "object") ? nextStats.strategy_play_counts : {};
@@ -18499,6 +18508,14 @@
         // Refresh the streak UI right now (guests read from localStorage via the
         // guest getter, but we still drive every updater for an instant refresh).
         _refreshStreakUiAfterSave(nextStats.streak_days, nextStats.daily_streak, nextStats.streak_longest);
+      }
+
+      // ── Confirm the daily streak login bonus (first game of a new day) ──
+      // Runs for both signed-in and guest after the save succeeds.
+      if (_streakBonusXp > 0) {
+        try {
+          showToast(`🔥 Daily streak bonus! +${_streakBonusXp} XP — Day ${_streakDayNum}`, "info");
+        } catch (_) {}
       }
 
       // ── Daily / Weekly challenge hooks ──────────────────────────
@@ -23719,7 +23736,7 @@
             } else {
               if (!isFuture && !beforeFirst && ds !== todayStr) dayCls += " missed";
               else if (ds === todayStr && !isFuture) dayCls += " today-empty";
-              html += "<div class=\"" + cellCls + "\"><div class=\"" + dayCls + " title=\"" + ds + "\"></div></div>";
+              html += "<div class=\"" + cellCls + "\"><div class=\"" + dayCls + "\" title=\"" + ds + "\"></div></div>";
             }
           }
 
