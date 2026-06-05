@@ -17917,6 +17917,30 @@
     };
   }
 
+  // Player-count-fair "balanced" average used by saveGameStats + the leaderboard.
+  // MUST live at module scope so saveGameStats (also module scope) can call it —
+  // a copy existed only inside the auth IIFE, so this call threw ReferenceError
+  // and silently killed the ENTIRE game save (XP shown, nothing persisted).
+  const BALANCED_ANCHOR = 4;
+  function computeBalancedUpdate(stats, gameScore, playerCount) {
+    const s = stats && typeof stats === "object" ? stats : {};
+    let sum = Number(s.balanced_score_sum);
+    let games = Number(s.balanced_games);
+    if (!Number.isFinite(sum) || !Number.isFinite(games) || games <= 0) {
+      // Retroactive seed from per-size history we already store.
+      sum = 0; games = 0;
+      const tss = (s.total_score_by_size && typeof s.total_score_by_size === "object") ? s.total_score_by_size : {};
+      const ngs = (s.normal_games_by_size && typeof s.normal_games_by_size === "object") ? s.normal_games_by_size : {};
+      for (const k of Object.keys(ngs)) {
+        const n = Number(k), g = Number(ngs[k] || 0), tot = Number(tss[k] || 0);
+        if (n >= 2 && g > 0) { sum += tot * (n / BALANCED_ANCHOR); games += g; }
+      }
+    }
+    sum += Number(gameScore || 0) * (Number(playerCount) / BALANCED_ANCHOR);
+    games += 1;
+    return { sum, games, avg: games > 0 ? Math.round(sum / games) : 0 };
+  }
+
   // Classify my board into a strategy string (mirrors server _detect_strategy
   // and the weekly-combo classifier). Used for the strategy-master achievements.
   function _achDetectStrategy(player) {
