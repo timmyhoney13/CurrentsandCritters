@@ -1075,27 +1075,26 @@
     .pv-lane-left  .pv-board-card:hover { transform: translateX(-4px) scale(1.05); transform-origin: right center; }
     .pv-lane-right .pv-board-card:hover { transform: translateX(4px)  scale(1.05); transform-origin: left center; }
 
-    /* Stacked cards (Yellowfin Tuna, Lobster, etc.) — overlap so a long
-       stack stays inside the ocean hub and doesn't push into the neighbor.
-       The first card sits at full size; every additional card overlaps the
-       previous one by ~32% of a full mini-card so the lane stays bounded
-       and you can keep stacking. */
+    /* Stacked cards (Yellowfin Tuna, Lobster, etc.) — cascade so each
+       additional card peeks out ~16px from under the previous one, making the
+       stack clearly readable instead of all cards landing on the same spot.
+       Negative margin = half-card-size minus the visible peek amount. */
     .pv-lane-up    .pv-board-card,
     .pv-lane-down  .pv-board-card,
     .pv-lane-left  .pv-board-card,
     .pv-lane-right .pv-board-card { position: relative; }
     .pv-lane-up    .pv-board-card + .pv-board-card,
     .pv-lane-up    .pv-board-card + .pv-lane-slot,
-    .pv-lane-up    .pv-lane-slot  + .pv-board-card { margin-bottom: calc(var(--mini-h) / -2); }
+    .pv-lane-up    .pv-lane-slot  + .pv-board-card { margin-bottom: calc(var(--mini-h) / -2 + 16px); }
     .pv-lane-down  .pv-board-card + .pv-board-card,
     .pv-lane-down  .pv-board-card + .pv-lane-slot,
-    .pv-lane-down  .pv-lane-slot  + .pv-board-card { margin-top:    calc(var(--mini-h) / -2); }
+    .pv-lane-down  .pv-lane-slot  + .pv-board-card { margin-top:    calc(var(--mini-h) / -2 + 16px); }
     .pv-lane-left  .pv-board-card + .pv-board-card,
     .pv-lane-left  .pv-board-card + .pv-lane-slot,
-    .pv-lane-left  .pv-lane-slot  + .pv-board-card { margin-right:  calc(var(--mini-w) / -2); }
+    .pv-lane-left  .pv-lane-slot  + .pv-board-card { margin-right:  calc(var(--mini-w) / -2 + 12px); }
     .pv-lane-right .pv-board-card + .pv-board-card,
     .pv-lane-right .pv-board-card + .pv-lane-slot,
-    .pv-lane-right .pv-lane-slot  + .pv-board-card { margin-left:   calc(var(--mini-w) / -2); }
+    .pv-lane-right .pv-lane-slot  + .pv-board-card { margin-left:   calc(var(--mini-w) / -2 + 12px); }
     /* Newer cards layer on top of older ones so the stack reads correctly. */
     .pv-lane-up    .pv-board-card:nth-child(n+2),
     .pv-lane-down  .pv-board-card:nth-child(n+2),
