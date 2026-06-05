@@ -20661,6 +20661,16 @@
     function getDefaultAvatar(seed) {
       return DEFAULT_AVATAR_IMG;
     }
+    // Display-only cache-bust for avatar images: appends a version query so a
+    // refreshed avatar PNG (same path) is never served stale. Bump when art
+    // changes. Does NOT affect stored/compared avatar paths (equality uses the
+    // clean /avatars/x.png), and the server ignores the query (matches basename).
+    const _AVATAR_ART_VERSION = "ws2";
+    function _avSrc(url) {
+      const u = String(url || "");
+      if (!u || u.includes("?")) return u;
+      return u + "?v=" + _AVATAR_ART_VERSION;
+    }
     // An avatar is selectable if it's a starter or the player has unlocked it.
     function isAvatarUnlocked(img) {
       const n = normalizeAvatarUrl(img);
@@ -20985,7 +20995,7 @@
       const equipped = _galEquippedImg();
       const a = animalByImg(equipped);
       const img = $a("gal-hero-img");
-      if (img) { img.src = equipped; img.alt = a ? a.name : ""; }
+      if (img) { img.src = _avSrc(equipped); img.alt = a ? a.name : ""; }
       const nameEl = $a("gal-hero-name");
       if (nameEl) nameEl.textContent = _playerNickname || (_activeProfile && _activeProfile.nickname) || "Player";
       const lvlEl = $a("gal-hero-level");
@@ -21066,7 +21076,7 @@
       ring.className = "gal-tile-img-ring";
       const img = document.createElement("img");
       img.className = "gal-tile-img";
-      img.src = a.img; img.alt = a.name; img.loading = "lazy";
+      img.src = _avSrc(a.img); img.alt = a.name; img.loading = "lazy";
       ring.appendChild(img);
       tile.appendChild(ring);
 
@@ -21161,7 +21171,7 @@
       panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
 
       let html = "";
-      html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${a.img}" alt="${escapeHtml(a.name)}"></div>`;
+      html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${_avSrc(a.img)}" alt="${escapeHtml(a.name)}"></div>`;
       html += `<div class="gal-detail-name">${escapeHtml(a.name)}</div>`;
       html += `<div class="gal-detail-species">${escapeHtml(a.species || "")}</div>`;
 

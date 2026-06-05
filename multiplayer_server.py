@@ -4524,7 +4524,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "invalid avatar path"}, status=HTTPStatus.BAD_REQUEST)
                 return
             avatar_path = os.path.join(AVATAR_DIR, avatar_name)
-            self._send_client_asset(avatar_path, cache_control="public, max-age=86400")
+            # Short cache so avatar art swaps propagate quickly (was 1 day).
+            self._send_client_asset(avatar_path, cache_control="public, max-age=600")
             return
 
         # Serve general client PNG assets (game bg, button art, action cards, etc.)
