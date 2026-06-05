@@ -20008,13 +20008,13 @@
     // ── Mammals ──────────────────────────────────────────────────
     { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
       facts:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it.",
-      unlock:{ type:"achievement", achId:"mammal_pod_master", goal:30, label:"Win 30 games using the Mammals strategy." } },
+      unlock:{ type:"achievement", achId:"saving_the_invertebrates", label:"Complete the hidden 'Saving the Invertebrates' achievement." } },
     { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
       facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
-      unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive, or find the hidden 'Saving the Invertebrates' achievement." } },
+      unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
     { id:"narwhal", name:"Narwhal", species:"Mammals", img:"/avatars/narwhal.png",
       facts:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length.",
-      unlock:{ type:"secret", label:"Find the secret & answer the question." } },
+      unlock:{ type:"achievement", achId:"narwhal_mammal_wins", label:"Win 10 games using the Mammals strategy." } },
 
     // ── Invertebrates ────────────────────────────────────────────
     { id:"sea-sponge", name:"Sea Sponge", species:"Invertebrates", img:"/avatars/sea-sponge.png",
@@ -20281,8 +20281,9 @@
     { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"📬", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
     { id:"ive_swum_there",               name:"I've Swum There",               icon:"🗺️", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
     { id:"annoying_messenger",           name:"Annoying Messenger",            icon:"📢", cat:"Hidden", xp:1500, desc:"Send 20 compliments during one Competitive game.", hidden:true },
-    { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"🪼", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the bottlenose dolphin.", hidden:true,
-      avatarReward:"/avatars/bottlenose-dolphin.png" },
+    { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"🪼", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the spinner dolphin.", hidden:true,
+      avatarReward:"/avatars/spinner-dolphin.png" },
+    { id:"narwhal_mammal_wins",          name:"Pod of Ten",                    icon:"🐬", cat:"Hidden", xp:0, desc:"Win 10 games using the Mammals strategy.", hidden:true },
   ];
 
   // ── Avatar / Achievement integrity validation ──────────────────────
@@ -26948,13 +26949,12 @@
               window.__fishUnlockAchievementById("saving_the_invertebrates");
             }
           } catch (_) {}
-          // Unlock + surface the Bottlenose Dolphin avatar (it's primarily a
-          // rank reward, so grant it explicitly here too).
+          // Unlock + surface the Spinner Dolphin avatar (the achievement reward).
           try {
             if (typeof window.__fishGrantUnlockedIcon === "function") {
-              const granted = await window.__fishGrantUnlockedIcon("/avatars/bottlenose-dolphin.png");
+              const granted = await window.__fishGrantUnlockedIcon("/avatars/spinner-dolphin.png");
               if (granted) {
-                (window.__fishQueueAnimalUnlock || _queueAnimalUnlock)?.("bottlenose-dolphin");
+                (window.__fishQueueAnimalUnlock || _queueAnimalUnlock)?.("spinner-dolphin");
                 setTimeout(() => window.__fishShowAnimalUnlocks?.(), 2400);
               }
             }
@@ -27466,6 +27466,8 @@
         const LISTED = new Set(Object.keys(STRAT_TO_ACH));
         const hit = STRAT_TO_ACH[strategy];
         if (hit) await bumpAchievementProgress(uid, hit.id, 1, hit.goal);
+        // Narwhal unlock: also bump the separate 10-win mammal counter
+        if (strategy === "Mammals") await bumpAchievementProgress(uid, "narwhal_mammal_wins", 1, 10);
         // Off-Meta Master: win using a strategy NOT in the listed combos
         if (!LISTED.has(strategy)) await bumpAchievementProgress(uid, "off_meta_master", 1, 30);
         // Birds of a feather: win with a bird-only board
