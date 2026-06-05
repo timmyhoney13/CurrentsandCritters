@@ -17803,6 +17803,8 @@
   let _endgameDismissed = false;
   let _lastSavedWinner = null;   // set ONLY after a save fully succeeds (enables retry on failure)
   let _saveInFlight = false;     // guards against concurrent polls double-writing the same game
+  let _saveInFlightAt = 0;       // when the in-flight claim was made (auto-recovery if it ever sticks)
+  let _saveFailToastAt = 0;      // throttle the visible "save failed" toast
 
   // Real-player vs bot/AI detection. A real player has a logged-in account
   // (uid / kind "human"); a bot has kind "ai", is_ai/bot flags, or an AI-style
@@ -18104,26 +18106,50 @@
     // the write fully completes (see end of the try). So a transient write
     // failure no longer permanently blocks the save — the next poll retries.
     if (winner === _lastSavedWinner) return; // already saved this game result
-    if (_saveInFlight) return;               // a save for this game is already running
+    // In-flight guard with auto-recovery: if a previous claim somehow never
+    // released (e.g. an unexpected throw), don't block saves forever — release
+    // it after 30s so the next poll can retry. This alone can cause "nothing
+    // ever saves" if it sticks.
+    if (_saveInFlight && (Date.now() - _saveInFlightAt) < 30000) return;
     // Find MY entry in the final scores. The logged-in user is always a real
     // player and is one of the finalScores entries — bots in the lobby never
-    // affect this. Try exact name, case-insensitive, then seat-index fallback.
+    // affect this. Try several strategies, most specific first.
     const nickLower = (myNick || "").trim().toLowerCase();
-    let myEntry = (finalScores || []).find(p => p.name === myNick)
-      || (nickLower ? (finalScores || []).find(p => String(p.name||"").trim().toLowerCase() === nickLower) : null)
+    const _fs = Array.isArray(finalScores) ? finalScores : [];
+    const _isBotEntry = (p) => {
+      const lp = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(q => String(q.name||"") === String(p.name||""));
+      return !!(lp && (lp.kind === "ai" || lp.is_ai === true || lp.bot === true));
+    };
+    let myEntry =
+      // 1) exact nickname
+      _fs.find(p => p.name === myNick)
+      // 2) case-insensitive nickname
+      || (nickLower ? _fs.find(p => String(p.name||"").trim().toLowerCase() === nickLower) : null)
+      // 3) seat index → name from the latest state snapshot
       || (() => {
-        // Fallback: find name via seat index from latest state snapshot
-        if (myIdx !== null) {
-          const statPlayer = _latestPlayers.find(p => p.index === myIdx);
-          if (statPlayer?.name) return (finalScores || []).find(p => p.name === statPlayer.name) || null;
+        if (myIdx !== null && myIdx !== undefined) {
+          const statPlayer = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+          if (statPlayer?.name) return _fs.find(p => String(p.name||"") === String(statPlayer.name)) || null;
         }
         return null;
+      })()
+      // 4) viewer name from the latest payload (covers nickname/display drift)
+      || (() => {
+        const vn = String(latestPayload?.viewer?.name || latestPayload?.viewer?.nickname || "").trim();
+        if (vn) return _fs.find(p => String(p.name||"").trim().toLowerCase() === vn.toLowerCase()) || null;
+        return null;
+      })()
+      // 5) LAST RESORT: exactly one non-bot human in the scores → that's me.
+      //    Better to save the game than to silently drop it forever.
+      || (() => {
+        const humans = _fs.filter(p => !_isBotEntry(p));
+        return humans.length === 1 ? humans[0] : null;
       })();
     if (!myEntry) {
-      console.warn("[saveGameStats] could not locate my entry in final scores yet (will retry next poll). myNick=", myNick, "myIdx=", myIdx);
+      console.warn("[saveGameStats] could not locate my entry in final scores (will retry next poll). myNick=", myNick, "myIdx=", myIdx, "names=", _fs.map(p=>p.name));
       return; // player entry not resolvable yet — DON'T set dedup, retry next poll
     }
-    _saveInFlight = true;   // claim this save; _lastSavedWinner is set only on success
+    _saveInFlight = true; _saveInFlightAt = Date.now();   // claim this save; _lastSavedWinner is set only on success
     const myScore    = Number(myEntry.score || 0);
     const myGameName = myEntry.name || myNick;
     const isComp     = typeof compMode !== "undefined" && compMode;
@@ -18385,11 +18411,36 @@
           if (_v === undefined) delete updates[_k];
           else if (typeof _v === "number" && !Number.isFinite(_v)) updates[_k] = 0;
         }
-        await docRef.update(updates);                 // core stats — small + reliable
+        try {
+          await docRef.update(updates);               // core stats — small + reliable
+        } catch (eCore) {
+          // A single bad/oversized dynamic field (strategy maps, lifetime
+          // increments) must NEVER block the leaderboard/level/wins from saving.
+          // Retry with only the essential leaderboard fields so those persist.
+          console.warn("[saveGameStats] core update failed (" + ((eCore && eCore.code) || "?") + ") — retrying essentials only");
+          const ESSENTIAL = new Set([
+            "stats.completed_games","stats.total_score","stats.total_xp","stats.level",
+            "stats.player_level","stats.level_title","stats.xp_current","stats.level_xp_current",
+            "stats.xp_goal","stats.level_xp_goal","stats.last_game_xp","stats.daily_streak",
+            "stats.streak_days","stats.streak_longest","stats.normal_wins",
+            "stats.highest_score","stats.highest_score_normal",
+            "stats.balanced_score_sum","stats.balanced_games","stats.balanced_avg_score",
+          ]);
+          const essentialUpdates = {};
+          for (const _k of Object.keys(updates)) {
+            // Keep the static essentials AND the dynamic per-size score/games keys
+            // (highest_score_Np / *_by_size.N) the leaderboard reads.
+            if (ESSENTIAL.has(_k) || /^stats\.(highest_score_\d+p|normal_games_by_size\.|comp_games_by_size\.|normal_wins_by_size\.|total_score_by_size\.)/.test(_k)) {
+              essentialUpdates[_k] = updates[_k];
+            }
+          }
+          await docRef.update(essentialUpdates);       // throws to outer catch only if even this fails
+        }
         // Core stats persisted → mark saved so polls don't re-write. (Set ONLY
         // after success; a failed write above leaves it unset and retries.)
         _lastSavedWinner = winner;
         console.info("[saveGameStats] core stats saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
+        try { showToast("✓ Game saved to your stats & leaderboard", "info"); } catch (_) {}
         // History (best-effort, never blocks the core save above).
         await _saveRecentGamesResilient(docRef, _recentGamesValue);
         // Immediately update in-memory stats so History tab + streak UI show the
@@ -18685,7 +18736,18 @@
       // The write failed — because _lastSavedWinner was NOT set (it's only set
       // right after a successful write), the next end-game poll will retry this
       // save automatically. Log loudly so failures are visible.
-      console.error("[saveGameStats] SAVE FAILED (will retry on next poll):", (e && e.code) || "", e);
+      const _code = (e && e.code) || (e && e.name) || "error";
+      console.error("[saveGameStats] SAVE FAILED (will retry on next poll):", _code, e);
+      // Make the failure VISIBLE (throttled) so a silent, repeated save failure
+      // can't go unnoticed — the code points straight at the cause
+      // (permission-denied = rules, resource-exhausted = 1MB doc,
+      // failed-precondition = missing index, invalid-argument = bad field).
+      try {
+        if (Date.now() - _saveFailToastAt > 8000) {
+          _saveFailToastAt = Date.now();
+          showToast(`⚠️ Couldn't save your game (${_code}). Retrying…`, "err");
+        }
+      } catch (_) {}
     } finally {
       // Release the in-flight claim so a retry (or the next game) can proceed.
       _saveInFlight = false;
