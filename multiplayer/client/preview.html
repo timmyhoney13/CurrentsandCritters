@@ -4335,6 +4335,41 @@
     @keyframes secret-num-in { from { opacity:0; transform: translate(-50%,-50%) scale(.3); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }
     .secret-icon { display: block; object-fit: contain; }
     .ph-lb-secret-slot { display: flex; justify-content: center; align-items: center; min-height: 0; margin: 2px 0 0; }
+
+    /* ── Giant Squid challenge modal ──────────────────────────────── */
+    #giant-squid-modal {
+      display: none; position: fixed; inset: 0; z-index: 9800;
+      background: radial-gradient(circle at 50% 30%, rgba(20,10,60,.72), rgba(2,6,24,.92));
+      backdrop-filter: blur(8px);
+      align-items: center; justify-content: center; padding: 24px;
+    }
+    #giant-squid-modal.open { display: flex; }
+    #gs-challenge-box {
+      width: 100%; max-width: 460px; text-align: center;
+      background: linear-gradient(180deg, #122046 0%, #0a1430 100%);
+      border: 1px solid rgba(120,90,220,.5); border-radius: 22px;
+      box-shadow: 0 20px 70px rgba(40,10,90,.55), inset 0 1px 0 rgba(180,160,255,.18);
+      padding: 26px 26px 24px; position: relative;
+      animation: gs-rise .3s cubic-bezier(.2,.8,.2,1.2) both;
+    }
+    @keyframes gs-rise { from { opacity:0; transform: translateY(24px) scale(.96); } to { opacity:1; transform: none; } }
+    #gs-challenge-img {
+      width: 116px; height: 116px; object-fit: contain; margin: 0 auto 6px;
+      filter: drop-shadow(0 6px 18px rgba(150,80,255,.5));
+      animation: gs-float 3.4s ease-in-out infinite;
+    }
+    @keyframes gs-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+    #gs-challenge-title { font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 900; color: #c9b6ff; letter-spacing: .5px; margin-bottom: 8px; }
+    #gs-challenge-msg { color: #dfe8ff; font-size: 1rem; line-height: 1.5; font-weight: 600; margin: 0 12px 18px; min-height: 48px; }
+    #gs-challenge-actions { display: flex; flex-direction: column; gap: 10px; }
+    .gs-ch-btn {
+      border: none; border-radius: 13px; padding: 13px 18px; font-size: 15px; font-weight: 800;
+      cursor: pointer; font-family: "Baloo 2","Nunito",sans-serif; transition: transform .12s, box-shadow .12s, filter .12s;
+    }
+    .gs-ch-btn.fight { background: linear-gradient(135deg,#8a4bff,#5a1fd0); color: #fff; box-shadow: 0 6px 20px rgba(120,60,230,.5); }
+    .gs-ch-btn.fight:hover { transform: translateY(-2px); filter: brightness(1.08); }
+    .gs-ch-btn.later { background: rgba(255,255,255,.08); color: #b9c6e8; border: 1px solid rgba(150,170,230,.3); }
+    .gs-ch-btn.later:hover { background: rgba(255,255,255,.14); }
     /* Table */
     .ph-lb-table-wrap { overflow-x: auto; margin-top: 10px; }
     .ph-lb-table {
@@ -10713,6 +10748,19 @@
   </div>
 </div>
 
+<!-- ══ GIANT SQUID CHALLENGE MODAL ════════════════════════════════ -->
+<div id="giant-squid-modal">
+  <div id="gs-challenge-box">
+    <img id="gs-challenge-img" src="/avatars/giant-squid.png" alt="Giant Squid">
+    <div id="gs-challenge-title">The Giant Squid</div>
+    <div id="gs-challenge-msg">If you want to save the Sea Anemone, you have to beat me in a fight.</div>
+    <div id="gs-challenge-actions">
+      <button class="gs-ch-btn fight" id="gs-challenge-fight-btn">⚔️ Challenge the Giant Squid</button>
+      <button class="gs-ch-btn later" id="gs-challenge-later-btn">Not now</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ SCORE BREAKDOWN MODAL ══════════════════════════════════════ -->
 <div id="pv-score-modal">
   <div class="pv-modal-box">
@@ -12489,6 +12537,47 @@
     document.getElementById("new-current-modal").classList.remove("open");
   }
 
+  // ── Giant Squid challenge: a 1v1 vs-AI match. Winning unlocks the Sea
+  // Anemone + the "It Is Finally Over" achievement (+1000 XP). ─────────
+  let _giantSquidChallengeActive = false;
+  let _giantSquidChallengeRoom = "";
+  async function _startGiantSquidChallenge() {
+    const name = (window.__fishNickname && window.__fishNickname()) || "Challenger";
+    const rid = "SQUID" + Math.random().toString(36).slice(2,5).toUpperCase();
+    const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+    try { localStorage.setItem(createKeyKey(), createKey); } catch {}
+    const r = await apiPost("/api/rooms", {
+      create_key: createKey, host_name: name, room_id: rid,
+      total_players: 2, human_players: 1, ai_players: 1,
+      replace_active: false, visibility: "private", password: rid,
+      competitive: false,
+    }, { timeoutMs: 10000 });
+    if (!r.ok) { try { showToast("The Giant Squid slipped away — try again.", "err"); } catch (_) {} return; }
+    const rId = normalizeRoomId(r.data?.room_id || rid);
+    roomId = rId;
+    _giantSquidChallengeActive = true;
+    _giantSquidChallengeRoom = rId;
+    if (r.data?.host_token) setHostToken(r.data.host_token);
+    if (r.data?.seat_token) setSeatToken(r.data.seat_token);
+    _myRoomVisibility = "private"; _myRoomCode = rId;
+    const badge = document.getElementById("pv-my-name-badge"); if (badge) badge.textContent = name;
+    enterRoom(rId);
+    showWaitingRoom(rId, true);
+  }
+  window.__fishStartGiantSquidChallenge = _startGiantSquidChallenge;
+  // Called from saveGameStats when a game ends: if it was the challenge room
+  // and the player won, grant the reward. Clears the challenge either way.
+  function _resolveGiantSquidChallenge(isWinner) {
+    if (!_giantSquidChallengeActive) return;
+    if (roomId && _giantSquidChallengeRoom && roomId !== _giantSquidChallengeRoom) return;
+    _giantSquidChallengeActive = false;
+    _giantSquidChallengeRoom = "";
+    if (isWinner) {
+      try { window.__fishUnlockAchievementById?.("it_is_finally_over"); } catch (_) {}
+      try { showToast("🦑 You beat the Giant Squid! The Sea Anemone is saved.", "info", 6000); } catch (_) {}
+    }
+  }
+
   document.getElementById("nc-close").addEventListener("click", closeNewCurrentModal);
   document.getElementById("new-current-modal").addEventListener("click", (e) => {
     if (e.target === document.getElementById("new-current-modal")) closeNewCurrentModal();
@@ -13064,6 +13153,9 @@
           // Sea Anemone — count every Sea Anemone card played this game (avatar: 25 lifetime plays).
           if (invName === "sea anemone")
             _gameAchTracker.seaAnemonePlayedThisGame = (_gameAchTracker.seaAnemonePlayedThisGame || 0) + 1;
+          // Sea Cucumber — count every Sea Cucumber card played this game (avatar: 25 lifetime plays).
+          if (invName === "sea cucumber")
+            _gameAchTracker.seaCucumberPlayedThisGame = (_gameAchTracker.seaCucumberPlayedThisGame || 0) + 1;
           // Coral species — count all Coral cards played this game (Frigatebird avatar: 7 in one game).
           if (invSpecies === "coral")
             _gameAchTracker.coralCardsPlayed = (_gameAchTracker.coralCardsPlayed || 0) + 1;
@@ -18570,6 +18662,8 @@
           updates["stats.lifetime_sea_anemone_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaAnemoneDraws));
         if (Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0) > 0)
           updates["stats.lifetime_sea_anemone_plays"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaAnemonePlayedThisGame));
+        if (Number(_gameAchTracker?.seaCucumberPlayedThisGame || 0) > 0)
+          updates["stats.lifetime_sea_cucumber_played"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.seaCucumberPlayedThisGame));
         if (Number(_gameAchTracker?.baitfishPlayedThisGame || 0) > 0)
           updates["stats.lifetime_baitfish_played"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.baitfishPlayedThisGame));
         if (isWinner) {
@@ -18735,6 +18829,7 @@
         nextStats.lifetime_sea_cucumber_draws = Number(nextStats.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
         nextStats.lifetime_sea_anemone_draws = Number(nextStats.lifetime_sea_anemone_draws || 0) + Number(_gameAchTracker?.seaAnemoneDraws || 0);
         nextStats.lifetime_sea_anemone_plays = Number(nextStats.lifetime_sea_anemone_plays || 0) + Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0);
+        nextStats.lifetime_sea_cucumber_played = Number(nextStats.lifetime_sea_cucumber_played || 0) + Number(_gameAchTracker?.seaCucumberPlayedThisGame || 0);
         nextStats.lifetime_baitfish_played = Number(nextStats.lifetime_baitfish_played || 0) + Number(_gameAchTracker?.baitfishPlayedThisGame || 0);
 
         // Competitive wins/highest_score_competitive managed by processRankedGameEnd; guests skip ranked
@@ -18791,6 +18886,9 @@
           showToast(`🔥 Daily streak bonus! +${_streakBonusXp} XP — Day ${_streakDayNum}`, "info");
         } catch (_) {}
       }
+
+      // ── Giant Squid challenge resolution (win → Sea Anemone + achievement) ──
+      try { _resolveGiantSquidChallenge(isWinner); } catch (_) {}
 
       // ── Daily / Weekly challenge hooks ──────────────────────────
       // saveGameStats runs once per game finish (casual AND competitive),
@@ -18860,6 +18958,8 @@
         // Mahi Mahi — Level 30 · Blue Marlin — Level 70.
         if (lvl >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/mahi-mahi.png")) _queueAnimalUnlock("mahi-mahi");
         if (lvl >= 70 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-marlin.png")) _queueAnimalUnlock("blue-marlin");
+        // Great Albatross — reach Level 80.
+        if (lvl >= 80 && await window.__fishGrantUnlockedIcon?.("/avatars/great-albatross.png")) _queueAnimalUnlock("great-albatross");
         // Rank-based avatars (Barracuda/Bronze, Goliath Grouper/Gold, Bottlenose
         // Dolphin/Diamond, …). Uses pre-game rank here; the retroactive sync on
         // the next stats load is authoritative for ranks earned this game.
@@ -18881,9 +18981,18 @@
         // Big Eye Tuna — play all 5 Big Eye Tuna in one game and win.
         if (isWinner && Number(_gameAchTracker?.bigEyeTunaPlayed || 0) >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/big-eye-tuna.png")) _queueAnimalUnlock("big-eye-tuna");
-        // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, and win.
-        if (isWinner && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
+        // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
+        if (isWinner && playerCount >= 3 && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
+        // Emperor Penguin — finish Top 2 in a 4–8 player game having NEVER drawn
+        // from the Deck (only the Pool).
+        {
+          const _playersAbovePeng = (Array.isArray(finalScores) ? finalScores : [])
+            .filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
+          if (playerCount >= 4 && playerCount <= 8 && _playersAbovePeng <= 1
+              && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
+              && await window.__fishGrantUnlockedIcon?.("/avatars/emperor-penguin.png")) _queueAnimalUnlock("emperor-penguin");
+        }
         // Sailfish — every Game Fish species on your board in a 5-player game (win not required).
         if (playerCount >= 5 && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
             && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
@@ -18911,10 +19020,10 @@
         if (postUrchin >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-urchin.png")) _queueAnimalUnlock("sea-urchin");
         const postSeaStar = Number(cStats?.lifetime_sea_star_draws || 0) + Number(_gameAchTracker?.seaStarDraws || 0);
         if (postSeaStar >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
-        const postCucumber = Number(cStats?.lifetime_sea_cucumber_draws || 0) + Number(_gameAchTracker?.seaCucumberDraws || 0);
-        if (postCucumber >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
-        const postAnemone = Number(cStats?.lifetime_sea_anemone_plays || 0) + Number(_gameAchTracker?.seaAnemonePlayedThisGame || 0);
-        if (postAnemone >= 25 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-anemone.png")) _queueAnimalUnlock("sea-anemone");
+        // Sea Cucumber — 25 Sea Cucumbers PLAYED across all games (pre-game + this game).
+        const postCucumber = Number(cStats?.lifetime_sea_cucumber_played || 0) + Number(_gameAchTracker?.seaCucumberPlayedThisGame || 0);
+        if (postCucumber >= 25 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
+        // (Sea Anemone now unlocks ONLY by beating the Giant Squid 1v1 — see challenge flow.)
 
         // ── Crosscurrent ───────────────────────────────────────────
         // Blue Tang (Lv 10) · Manta Ray (Lv 50) · Great White Shark (Lv 90).
@@ -18951,9 +19060,9 @@
         if (_hermitDone && playerCount >= 4 && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
 
         // ── Cephalopods ────────────────────────────────────────────
-        // Giant Squid — reach Level 80. (Bobtail Squid, Common Octopus and
-        // Cuttlefish are hidden-click secrets, granted on discovery.)
-        if (lvl >= 80 && await window.__fishGrantUnlockedIcon?.("/avatars/giant-squid.png")) _queueAnimalUnlock("giant-squid");
+        // Giant Squid now unlocks at King of the Critters rank (via the rank
+        // loop above), NOT from leveling. Bobtail Squid, Common Octopus and
+        // Cuttlefish are hidden-click secrets, granted on discovery.
       } catch (e) { /* non-fatal */ }
     } catch(e) {
       // The write failed — because _lastSavedWinner was NOT set (it's only set
@@ -19936,19 +20045,19 @@
     // ── Birds ────────────────────────────────────────────────────
     { id:"emperor-penguin", name:"Emperor Penguin", species:"Birds", img:"/avatars/emperor-penguin.png",
       facts:"They can dive over 1,500 feet deep.",
-      unlock:{ type:"achievement", achId:"birds_of_a_feather", goal:15, label:"Win 15 games using only Bird cards (Birds of a Feather)." } },
+      unlock:{ type:"event", event:"emperor_penguin_pool_top2", label:"Win by only drawing from the Pool and finish Top 2 in a 4–8 player game." } },
     { id:"horned-puffin", name:"Horned Puffin", species:"Birds", img:"/avatars/horned-puffin.png",
       facts:"Puffins can hold multiple fish at once, averaging 10, but a record-breaking puffin once managed to carry 62.",
       unlock:{ type:"stat", stat:"lifetime_play_again", goal:75, unit:"Play Again abilities", label:"Use Play Again abilities 75 total times." } },
     { id:"california-gull", name:"California Gull", species:"Birds", img:"/avatars/california-gull.png",
       facts:"Young California Gulls practice catching food by dropping sticks midair and swooping down to catch them.",
-      unlock:{ type:"achievement", achId:"b_lob_master", goal:30, label:"Win 30 games using the Bird/Lobster (B-Lob) strategy." } },
+      unlock:{ type:"achievement", achId:"b_lob_master", goal:12, label:"Win 12 games using the Bird/Lobster strategy." } },
     { id:"peruvian-pelican", name:"Peruvian Pelican", species:"Birds", img:"/avatars/peruvian-pelican.png",
       facts:"Their flexible throat pouch acts as a massive fishing net. It can hold several gallons of water at a time. Once a fish is caught, the pelican squeezes the water out and swallows its prey whole.",
       unlock:{ type:"stat", stat:"lifetime_deck_draws", goal:300, unit:"cards drawn from the deck", label:"Draw 300 total cards from the deck." } },
     { id:"great-albatross", name:"Great Albatross", species:"Birds", img:"/avatars/great-albatross.png",
       facts:"Possesses the largest wingspans of any living bird (up to 11 feet).",
-      unlock:{ type:"achievement", achId:"all_blue_master", goal:30, label:"Win 30 games using the Ocean All Blue strategy." } },
+      unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
     { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
       facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
       unlock:{ type:"event", event:"tutorial_complete", label:"Complete the tutorial." } },
@@ -19977,7 +20086,7 @@
       unlock:{ type:"stat", stat:"lifetime_baitfish_played", goal:250, unit:"Bait Fish played", label:"Play 250 total Bait Fish across all games." } },
     { id:"king-salmon", name:"King Salmon", species:"Game Fish", img:"/avatars/king-salmon.png",
       facts:"The King Salmon is the largest Pacific salmon species.",
-      unlock:{ type:"event", event:"king_salmon_oceans", label:"Have 2 King Salmon, fill 5 Oceans completely, and win." } },
+      unlock:{ type:"event", event:"king_salmon_oceans", label:"Have 2 King Salmon, fill 5 Oceans completely, and win in a 3+ player game." } },
     { id:"tarpon", name:"Tarpon", species:"Game Fish", img:"/avatars/tarpon.png",
       facts:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!",
       unlock:{ type:"event", event:"tarpon_triple_discard", label:"With 9–10 cards in hand, use Tarpon to discard your whole hand into the Pool 2 times in one game, then finish with 100+ points in a game with 4 or more players." } },
@@ -19994,7 +20103,7 @@
     // ── Coral ────────────────────────────────────────────────────
     { id:"staghorn-coral", name:"Staghorn Coral", species:"Coral", img:"/avatars/staghorn-coral.png",
       facts:"Unlike most corals that grow at a snail's pace, staghorn coral branches can shoot up by 4 to 8 inches per year, making it the fastest-growing coral in the western Atlantic.",
-      unlock:{ type:"achievement", achId:"coral_b_master", goal:30, label:"Win 30 games using the Bird/Coral (B-Coral) strategy." } },
+      unlock:{ type:"achievement", achId:"coral_b_master", goal:12, label:"Win 12 games using the Bird/Coral strategy." } },
     { id:"deep-sea-coral", name:"Deep Sea Coral", species:"Coral", img:"/avatars/deep-sea-coral.png",
       facts:"Deep-sea corals live in dark waters far below sunlight, so they cannot rely on algae for energy like shallow-water corals do. Instead, they survive by capturing tiny bits of food drifting through the deep ocean.",
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
@@ -20028,15 +20137,15 @@
       unlock:{ type:"stat", stat:"lifetime_sea_star_draws", goal:125, unit:"cards drawn with Sea Star", label:"Draw 125 cards using Sea Star ability" } },
     { id:"sea-cucumber", name:"Sea Cucumber", species:"Invertebrates", img:"/avatars/sea-cucumber.png",
       facts:"The Johnson's sea cucumber is like the ocean's vacuum cleaner, crawling along the seafloor and digesting tiny scraps from the sediment.",
-      unlock:{ type:"stat", stat:"lifetime_sea_cucumber_draws", goal:125, unit:"cards drawn with Sea Cucumber", label:"Draw 125 cards using Sea Cucumber's ability." } },
+      unlock:{ type:"stat", stat:"lifetime_sea_cucumber_played", goal:25, unit:"Sea Cucumbers played", label:"Play 25 Sea Cucumbers across all games." } },
     { id:"sea-anemone", name:"Sea Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
       facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
-      unlock:{ type:"stat", stat:"lifetime_sea_anemone_plays", goal:25, unit:"Sea Anemones played", label:"Play 25 Sea Anemones total across all games." } },
+      unlock:{ type:"achievement", achId:"it_is_finally_over", label:"Beat the Giant Squid in a 1v1 match." } },
 
     // ── Crosscurrent ─────────────────────────────────────────────
     { id:"cleaner-wrasse", name:"Cleaner Wrasse", species:"Crosscurrent", img:"/avatars/cleaner-wrasse.png",
       facts:"Cleaner wrasses are often called the \"doctors of the sea\" because they remove parasites from reef fish, sea turtles, and even sharks. They attract clients by wiggling or \"dancing\" at cleaning stations, while the fish stay still, spread their fins, and open their gills for cleaning.",
-      unlock:{ type:"achievement", achId:"off_meta_master", goal:30, label:"Win 30 games without using a listed strategy (Off-Meta Master)." } },
+      unlock:{ type:"achievement", achId:"off_meta_master", goal:12, label:"Win 12 games without using a listed strategy (Off-Meta Master)." } },
     { id:"mandarin-goby", name:"Mandarin Goby", species:"Crosscurrent", img:"/avatars/mandarin-goby.png",
       facts:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins).",
       unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Get all 4 Mandarin Gobies on your board in one game with 3+ players (Shoot the Moon)." } },
@@ -20091,7 +20200,7 @@
       unlock:{ type:"secret", label:"Find and click the hidden Cuttlefish." } },
     { id:"giant-squid", name:"Giant Squid", species:"Cephalopods", img:"/avatars/giant-squid.png",
       facts:"Their massive 10-inch eyes, about the size of a baseball, help them spot bioluminescent prey in the pitch-black depths of the ocean.",
-      unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
+      unlock:{ type:"rank", tier:"king", label:"I will be King of the Critters." } },
   ];
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
@@ -20269,14 +20378,12 @@
     { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
     { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:2000,  desc:"Get all and complete all 58 weekly achievements" },
     { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
-    { id:"all_blue_master",         name:"All Blue Master",           icon:"🌀", cat:"Strategy",    xp:5000,  desc:"Win using the Ocean-heavy strategy 30 times." },
-    { id:"birds_of_a_feather",      name:"Birds of a feather",        icon:"🦅", cat:"Strategy",    xp:5000,  desc:"Win by only playing birds 15 times." },
-    { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 30 times." },
-    { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"🎣", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 30 times." },
-    { id:"b_lob_master",            name:"B-Lob Master",              icon:"🪺", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 30 times." },
-    { id:"coral_b_master",          name:"Coral-B Master",            icon:"🪸", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 30 times." },
-    { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 30 times." },
-    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 30 games without using a listed strategy." },
+    { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 12 times." },
+    { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"🎣", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 12 times." },
+    { id:"b_lob_master",            name:"B-Lob Master",              icon:"🪺", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 12 times." },
+    { id:"coral_b_master",          name:"Coral-B Master",            icon:"🪸", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 12 times." },
+    { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 12 times." },
+    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 12 games without using a listed strategy." },
     { id:"king_of_the_critters",    name:"King of the Critters",      icon:"👑", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
     { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"📬", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
     { id:"ive_swum_there",               name:"I've Swum There",               icon:"🗺️", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
@@ -20284,6 +20391,8 @@
     { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"🪼", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the spinner dolphin.", hidden:true,
       avatarReward:"/avatars/spinner-dolphin.png" },
     { id:"narwhal_mammal_wins",          name:"Pod of Ten",                    icon:"🐬", cat:"Hidden", xp:0, desc:"Win 10 games using the Mammals strategy.", hidden:true },
+    { id:"it_is_finally_over",           name:"It Is Finally Over",            icon:"🦑", cat:"Hidden", xp:1000, desc:"Beat the Giant Squid in a 1v1 match.", hidden:true,
+      avatarReward:"/avatars/sea-anemone.png" },
   ];
 
   // ── Avatar / Achievement integrity validation ──────────────────────
@@ -20383,6 +20492,7 @@
       seaCucumberDraws: 0,         // cards drawn via Sea Cucumber "draw on game-fish play" (Sea Cucumber avatar)
       seaAnemoneDraws: 0,          // cards drawn via Sea Anemone ★ "draw one" (legacy)
       seaAnemonePlayedThisGame: 0, // Sea Anemone cards placed on board this game (Sea Anemone avatar — 25 lifetime)
+      seaCucumberPlayedThisGame: 0,// Sea Cucumber cards placed on board this game (Sea Cucumber avatar — 25 lifetime)
       turtlePlayedThisTurn: false, // a Loggerhead Sea Turtle was played in the current turn
       cardsPlayedThisTurn: 0,      // animal cards I played in the current turn (Loggerhead chain length)
       turtleBigChains: 0,          // finished turns with a Turtle + 10+ cards played (Loggerhead avatar)
@@ -21940,6 +22050,45 @@
       // If we're in a game, push the new avatar to the server immediately so
       // every other player sees it on this seat right away.
       try { if (typeof window.__fishPushSeatAvatar === "function") window.__fishPushSeatAvatar(); } catch (e) {}
+
+      // Equipping the Spinner Dolphin summons the Giant Squid challenge (only
+      // while the Sea Anemone is still locked).
+      try {
+        if (String(selected) === "/avatars/spinner-dolphin.png"
+            && typeof isAvatarUnlocked === "function"
+            && !isAvatarUnlocked("/avatars/sea-anemone.png")) {
+          setTimeout(_showGiantSquidChallenge, 450);
+        }
+      } catch (_) {}
+    }
+
+    // ── Giant Squid challenge modal (King of the Critters gate) ──────────
+    let _gsChallengeWired = false;
+    function _showGiantSquidChallenge() {
+      const modal = $a("giant-squid-modal");
+      if (!modal) return;
+      const msg = $a("gs-challenge-msg");
+      const fightBtn = $a("gs-challenge-fight-btn");
+      if (msg) msg.textContent = "If you want to save the Sea Anemone, you have to beat me in a fight.";
+      if (fightBtn) fightBtn.style.display = "";
+      if (!_gsChallengeWired) {
+        _gsChallengeWired = true;
+        if (fightBtn) fightBtn.addEventListener("click", async () => {
+          // Must be King of the Critters to challenge.
+          const rank = (_activeProfile && _activeProfile.stats && _activeProfile.stats.rank_competitive) || "";
+          if (rankTierValue(rank) < 6) {
+            if (msg) msg.textContent = "Come back when you are stronger.";
+            fightBtn.style.display = "none";
+            return;
+          }
+          modal.classList.remove("open");
+          try { if (typeof window.__fishStartGiantSquidChallenge === "function") await window.__fishStartGiantSquidChallenge(); } catch (_) {}
+        });
+        const laterBtn = $a("gs-challenge-later-btn");
+        if (laterBtn) laterBtn.addEventListener("click", () => modal.classList.remove("open"));
+        modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
+      }
+      modal.classList.add("open");
     }
 
     async function saveAvatarSelection() {
@@ -27453,15 +27602,15 @@
       // First Ocean Master: accumulate first-Ocean types won with (8 total)
       if (isWinner && firstOceanType) await addFirstOceanWin(uid, firstOceanType);
 
-      // Strategy-master cumulative wins (and Off-Meta / Birds of a feather)
+      // Strategy-master cumulative wins (and Off-Meta). All strategy masters
+      // now complete at 12 wins.
       if (isWinner) {
         const STRAT_TO_ACH = {
-          "Ocean All Blue":         { id: "all_blue_master",         goal: 30 },
-          "Mammals":                { id: "mammal_pod_master",       goal: 30 },
-          "Baitfish Barrage":       { id: "baitfish_barrage_master", goal: 30 },
-          "Bird/Lobster (B-Lob)":   { id: "b_lob_master",            goal: 30 },
-          "Bird/Coral (B-Coral)":   { id: "coral_b_master",          goal: 30 },
-          "Coral/Cephalopods (CC)": { id: "c_c_master",              goal: 30 },
+          "Mammals":                { id: "mammal_pod_master",       goal: 12 },
+          "Baitfish Barrage":       { id: "baitfish_barrage_master", goal: 12 },
+          "Bird/Lobster (B-Lob)":   { id: "b_lob_master",            goal: 12 },
+          "Bird/Coral (B-Coral)":   { id: "coral_b_master",          goal: 12 },
+          "Coral/Cephalopods (CC)": { id: "c_c_master",              goal: 12 },
         };
         const LISTED = new Set(Object.keys(STRAT_TO_ACH));
         const hit = STRAT_TO_ACH[strategy];
@@ -27469,9 +27618,7 @@
         // Narwhal unlock: also bump the separate 10-win mammal counter
         if (strategy === "Mammals") await bumpAchievementProgress(uid, "narwhal_mammal_wins", 1, 10);
         // Off-Meta Master: win using a strategy NOT in the listed combos
-        if (!LISTED.has(strategy)) await bumpAchievementProgress(uid, "off_meta_master", 1, 30);
-        // Birds of a feather: win with a bird-only board
-        if (birdOnly) await bumpAchievementProgress(uid, "birds_of_a_feather", 1, 15);
+        if (!LISTED.has(strategy)) await bumpAchievementProgress(uid, "off_meta_master", 1, 12);
       }
 
       // One Ocean Wonder: all oceans same type — check boardSnaps
