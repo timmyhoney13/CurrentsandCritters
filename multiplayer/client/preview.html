@@ -20665,7 +20665,7 @@
     // refreshed avatar PNG (same path) is never served stale. Bump when art
     // changes. Does NOT affect stored/compared avatar paths (equality uses the
     // clean /avatars/x.png), and the server ignores the query (matches basename).
-    const _AVATAR_ART_VERSION = "ws2";
+    const _AVATAR_ART_VERSION = "ws3";
     function _avSrc(url) {
       const u = String(url || "");
       if (!u || u.includes("?")) return u;
