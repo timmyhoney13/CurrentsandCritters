@@ -4342,7 +4342,14 @@
       border-radius: 999px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; color: #1a5a9a;
     }
     .ph-lb-empty { color: #8aaccc; font-size: 13px; text-align: center; padding: 28px 16px; font-style: italic; }
-    .ph-lb-scroll { max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7dd3fc #dff0fb; }
+    .ph-lb-scroll {
+      max-height: calc(100vh - 340px); /* expand: fills available screen, leaving room for header + filters */
+      min-height: 200px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #7dd3fc #dff0fb;
+      padding-bottom: 16px; /* last row never clipped */
+    }
     .ph-actions {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
