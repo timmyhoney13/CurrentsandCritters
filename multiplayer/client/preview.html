@@ -4303,6 +4303,38 @@
     .ph-lb-sum-vals { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 2px; }
     .ph-lb-sum-val { font-size: 12px; font-weight: 700; color: #143d6d; }
     .ph-lb-sum-val span { color: #7a9db8; font-weight: 600; }
+
+    /* ── Hidden invertebrate easter-egg (click 3× to reveal a digit) ── */
+    .secret-wrap { position: relative; display: inline-block; line-height: 0; vertical-align: middle; }
+    .secret-critter { cursor: pointer; -webkit-user-drag: none; user-select: none;
+      transition: opacity 1s ease, transform 1s ease, filter .15s; }
+    .secret-critter:hover { filter: brightness(1.08); }
+    .secret-critter.secret-fading { opacity: 0; transform: scale(.55) rotate(-6deg); }
+    .secret-bubble {
+      position: fixed; z-index: 99999; transform: translate(-50%, -100%);
+      background: rgba(8,24,58,.97); color: #eaf6ff;
+      border: 1px solid rgba(120,190,235,.55); border-radius: 12px;
+      padding: 8px 13px; font-size: 13px; font-weight: 700; line-height: 1.3;
+      max-width: 240px; text-align: center; pointer-events: none;
+      box-shadow: 0 8px 26px rgba(0,0,0,.45);
+      font-family: "Baloo 2","Nunito",sans-serif;
+      animation: secret-bubble-in .18s ease both;
+    }
+    .secret-bubble::after {
+      content:""; position:absolute; left:50%; bottom:-7px; transform:translateX(-50%);
+      border:7px solid transparent; border-top-color: rgba(8,24,58,.97); border-bottom:none;
+    }
+    @keyframes secret-bubble-in { from { opacity:0; transform: translate(-50%,-88%); } to { opacity:1; transform: translate(-50%,-100%); } }
+    .secret-number {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+      font-family: "Cinzel", serif; font-weight: 900; color: #22d8f8;
+      text-shadow: 0 0 12px rgba(34,216,248,.85), 0 2px 6px rgba(0,0,0,.55);
+      font-size: clamp(1.4rem, 3vw, 2.1rem); pointer-events: none; z-index: 6;
+      animation: secret-num-in .55s cubic-bezier(.2,.8,.2,1.5) both; white-space: nowrap;
+    }
+    @keyframes secret-num-in { from { opacity:0; transform: translate(-50%,-50%) scale(.3); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }
+    .secret-icon { display: block; object-fit: contain; }
+    .ph-lb-secret-slot { display: flex; justify-content: center; align-items: center; min-height: 0; margin: 2px 0 0; }
     /* Table */
     .ph-lb-table-wrap { overflow-x: auto; margin-top: 10px; }
     .ph-lb-table {
@@ -9717,6 +9749,8 @@
               <div class="ph-lb-sum-vals" id="ph-lb-casual-sum-vals"></div>
             </div>
           </div>
+          <!-- Hidden critter slot (Sea Cucumber on 4P, Sea Sponge on 8P) -->
+          <div class="ph-lb-secret-slot" id="ph-lb-casual-secret"></div>
           <!-- Casual table -->
           <div class="ph-lb-table-wrap ph-lb-scroll" style="margin: 10px 0 0;">
             <table class="ph-lb-table">
@@ -11034,6 +11068,160 @@
       setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 350);
     }, Math.max(1500, Number(durationMs) || 3200));
   }
+
+  // ── Hidden invertebrate easter-egg: click 3× to reveal a digit ──────
+  // Four critters hidden around the UI. Each: click → line 1; click again
+  // within ~5s → line 2; again → line 3; then it fades and the digit appears
+  // in its exact spot. Idle >5s resets to line 1. State is in-memory only, so
+  // navigating/refreshing returns every critter to its original spot.
+  const _SECRET_CRITTERS = {
+    star:     { img:"/avatars/sea-star.png",     number:"7", size:52,
+      lines:["Stop touching me","I gotta stay hidden","They can turn invisible. I have to stay ready."] },
+    sponge:   { img:"/avatars/sea-sponge.png",   number:"3", size:46,
+      lines:["I won’t speak to you","It wasn’t fair that he stayed behind","He entrusted this to me"] },
+    urchin:   { img:"/avatars/sea-urchin.png",   number:"9", size:28,
+      lines:["Go away","I can hide in plain sight","I gotta go check up on the others"] },
+    cucumber: { img:"/avatars/sea-cucumber.png", number:"1", size:46,
+      lines:["I don’t know where my friends are","I think one is gone","Put the digits together and save us"] },
+  };
+  const _secretState = {}; // key -> { stage, timer, revealed }
+
+  function _hideSecretBubbles() {
+    document.querySelectorAll(".secret-bubble").forEach(b => b.remove());
+  }
+  function _showSecretBubble(el, text) {
+    _hideSecretBubbles();
+    const b = document.createElement("div");
+    b.className = "secret-bubble";
+    b.textContent = text;
+    document.body.appendChild(b);
+    const r = el.getBoundingClientRect();
+    b.style.left = Math.round(r.left + r.width / 2) + "px";
+    b.style.top  = Math.round(r.top - 6) + "px";
+    setTimeout(() => { if (b.parentNode) b.remove(); }, 4800);
+  }
+  // Restore a critter to its untouched state (clears reveal + bubble + timer).
+  function _resetSecretCritter(key) {
+    const st = _secretState[key];
+    if (st && st.timer) clearTimeout(st.timer);
+    _secretState[key] = { stage: 0, timer: null, revealed: false };
+    document.querySelectorAll(`.secret-wrap[data-secret="${key}"]`).forEach(wrap => {
+      const img = wrap.querySelector(".secret-critter");
+      if (img) img.classList.remove("secret-fading");
+      const num = wrap.querySelector(".secret-number");
+      if (num) num.remove();
+    });
+    _hideSecretBubbles();
+  }
+  function _resetAllSecretCritters() { Object.keys(_SECRET_CRITTERS).forEach(_resetSecretCritter); }
+  window.__fishResetSecrets = _resetAllSecretCritters;
+
+  function _wireSecretCritter(img, key) {
+    const cfg = _SECRET_CRITTERS[key];
+    if (!img || !cfg || img.__secretWired) return;
+    img.__secretWired = true;
+    img.classList.add("secret-critter");
+    img.draggable = false;
+    const wrap = img.closest(".secret-wrap");
+    if (wrap) wrap.dataset.secret = key;
+    img.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      let st = _secretState[key];
+      if (!st) st = _secretState[key] = { stage: 0, timer: null, revealed: false };
+      if (st.revealed) return;
+      if (st.timer) clearTimeout(st.timer);
+      st.stage += 1;
+      if (st.stage > 3) return;
+      _showSecretBubble(img, cfg.lines[st.stage - 1]);
+      if (st.stage === 3) {
+        st.revealed = true;
+        img.classList.add("secret-fading");
+        setTimeout(() => {
+          const w = img.closest(".secret-wrap");
+          if (!w) return;
+          if (!w.querySelector(".secret-number")) {
+            const num = document.createElement("div");
+            num.className = "secret-number";
+            num.textContent = cfg.number;
+            w.appendChild(num);
+          }
+        }, 1050);
+        setTimeout(_hideSecretBubbles, 2600);
+      } else {
+        st.timer = setTimeout(() => { st.stage = 0; _hideSecretBubbles(); }, 5000);
+      }
+    }, true);
+  }
+
+  // Create a fresh critter <img> (wrapped) inside `container`, reset its state.
+  // Used for the dynamically-rendered spots (leaderboard). Returns the wrap.
+  function _placeSecretCritter(key, container) {
+    if (!container) return null;
+    const cfg = _SECRET_CRITTERS[key];
+    if (!cfg) return null;
+    _resetSecretCritter(key);
+    const wrap = document.createElement("span");
+    wrap.className = "secret-wrap";
+    wrap.dataset.secret = key;
+    const img = document.createElement("img");
+    img.className = "secret-icon";
+    img.src = cfg.img;
+    img.alt = "";
+    img.width = cfg.size; img.height = cfg.size;
+    img.style.width = cfg.size + "px"; img.style.height = cfg.size + "px";
+    wrap.appendChild(img);
+    container.appendChild(wrap);
+    _wireSecretCritter(img, key);
+    return wrap;
+  }
+  window.__fishPlaceSecretCritter = _placeSecretCritter;
+
+  // Wrap an EXISTING element (e.g. the daily-streak star img) as a critter.
+  function _wrapExistingSecretCritter(img, key) {
+    if (!img || img.__secretWired) return;
+    if (!img.closest(".secret-wrap")) {
+      const wrap = document.createElement("span");
+      wrap.className = "secret-wrap";
+      wrap.dataset.secret = key;
+      img.parentNode.insertBefore(wrap, img);
+      wrap.appendChild(img);
+    }
+    _wireSecretCritter(img, key);
+  }
+  window.__fishWrapSecretCritter = _wrapExistingSecretCritter;
+
+  // Wire the two STATIC-location critters: the daily-streak Sea Star and the
+  // Sea Urchin next to the Pool's "Inspect" button. Safe to call repeatedly.
+  function _initStaticSecrets() {
+    // Sea Star — already present in the Daily Streak sidebar.
+    const starImg = document.querySelector('.ph-ss-icon .ph-ss-star-img')
+                 || document.querySelector('.ph-ss-icon img[src*="sea-star"]');
+    if (starImg) _wrapExistingSecretCritter(starImg, "star");
+    // Sea Urchin — injected next to the "Inspect" button on The Pool label.
+    const poolLabel = document.querySelector('#pv-pool-area .pv-section-label');
+    if (poolLabel && !poolLabel.querySelector('.secret-wrap[data-secret="urchin"]')) {
+      const cfg = _SECRET_CRITTERS.urchin;
+      const wrap = document.createElement("span");
+      wrap.className = "secret-wrap";
+      wrap.dataset.secret = "urchin";
+      wrap.style.marginLeft = "8px";
+      const img = document.createElement("img");
+      img.className = "secret-icon";
+      img.src = cfg.img; img.alt = "";
+      img.style.width = cfg.size + "px"; img.style.height = cfg.size + "px";
+      img.style.verticalAlign = "middle";
+      wrap.appendChild(img);
+      poolLabel.appendChild(wrap);
+      _wireSecretCritter(img, "urchin");
+    }
+  }
+  window.__fishInitStaticSecrets = _initStaticSecrets;
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", _initStaticSecrets);
+  } else {
+    _initStaticSecrets();
+  }
+  setTimeout(_initStaticSecrets, 1800);
 
   // ── Card zoom modal ────────────────────────────────────────────
   // ── Zoom navigation state ──────────────────────────────────────
@@ -19824,7 +20012,7 @@
       unlock:{ type:"achievement", achId:"mammal_pod_master", goal:30, label:"Win 30 games using the Mammals strategy." } },
     { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
       facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
-      unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
+      unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive, or find the hidden 'Saving the Invertebrates' achievement." } },
     { id:"narwhal", name:"Narwhal", species:"Mammals", img:"/avatars/narwhal.png",
       facts:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length.",
       unlock:{ type:"secret", label:"Find the secret & answer the question." } },
@@ -20091,9 +20279,11 @@
     { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 30 times." },
     { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 30 games without using a listed strategy." },
     { id:"king_of_the_critters",    name:"King of the Critters",      icon:"👑", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
-    { id:"message_in_a_bottle",     name:"Message in a Bottle",       icon:"📬", cat:"Hidden",      xp:1500,  desc:"Send 25 messages in one game.", hidden:true },
-    { id:"ive_swum_there",          name:"I've Swum There",           icon:"🗺️", cat:"Hidden",      xp:1500,  desc:"Play with every player count (2–8) in Casual.", hidden:true },
-    { id:"annoying_messenger",      name:"Annoying Messenger",        icon:"📢", cat:"Hidden",      xp:1500,  desc:"Send 20 compliments during one Competitive game.", hidden:true },
+    { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"📬", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
+    { id:"ive_swum_there",               name:"I've Swum There",               icon:"🗺️", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
+    { id:"annoying_messenger",           name:"Annoying Messenger",            icon:"📢", cat:"Hidden", xp:1500, desc:"Send 20 compliments during one Competitive game.", hidden:true },
+    { id:"saving_the_invertebrates",     name:"Saving the Invertebrates",      icon:"🪼", cat:"Hidden", xp:2500, desc:"Find all the invertebrates and recruit the bottlenose dolphin.", hidden:true,
+      avatarReward:"/avatars/bottlenose-dolphin.png" },
   ];
 
   // ── Avatar / Achievement integrity validation ──────────────────────
@@ -21869,6 +22059,9 @@
       if (chatBtn) chatBtn.style.display = "none";
       el.classList.add("visible");
       $a("auth-screen").classList.add("hidden");
+      // Returning to the lobby restores hidden critters + (re)wires the star.
+      try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
+      try { if (typeof window.__fishInitStaticSecrets === "function") setTimeout(window.__fishInitStaticSecrets, 200); } catch (_) {}
       // Surface the "Rejoin Game" button if a recently-left game is still open.
       try { if (typeof _refreshRejoinButton === "function") _refreshRejoinButton(); } catch (e) {}
       syncStatsHeader(_activeProfile);
@@ -22176,6 +22369,10 @@
     function enterGameLobby() {
       const el = $a("auth-stats-lobby");
       if (el) el.classList.remove("visible");
+      // Going into a game returns hidden critters to their original spots.
+      try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
+      // Wire the in-game Sea Urchin once the game DOM is on screen.
+      try { if (typeof window.__fishInitStaticSecrets === "function") setTimeout(window.__fishInitStaticSecrets, 300); } catch (_) {}
     }
 
     let _lbSize = 2; // current player-count tab
@@ -22522,6 +22719,18 @@
         console.error("[LB] Casual leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
+      // Hidden critters: Sea Cucumber on the 4P tab, Sea Sponge on the 8P tab.
+      try {
+        const slot = $a("ph-lb-casual-secret");
+        if (slot) {
+          slot.innerHTML = "";
+          if (_phLbSize === "4" && typeof window.__fishPlaceSecretCritter === "function") {
+            window.__fishPlaceSecretCritter("cucumber", slot);
+          } else if (_phLbSize === "8" && typeof window.__fishPlaceSecretCritter === "function") {
+            window.__fishPlaceSecretCritter("sponge", slot);
+          }
+        }
+      } catch (_) {}
     }
 
     async function _phLbRenderCp() {
@@ -23638,6 +23847,8 @@
         gate.querySelector(".ph-guest-gate-msg").textContent = msg;
       }
       function switchTab(name) {
+        // Changing tabs returns every hidden critter to its untouched state.
+        try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
         if (statsLobby) statsLobby.setAttribute("data-bg-tab", name || "normal");
         tabs.forEach(t => t.classList.toggle("active", t.dataset.tab === name));
         const isGuest = !_authUser;   // guest or not-signed-in
@@ -26696,6 +26907,38 @@
         if (!_authUser) { setAuthMsg("ph-friend-err", "Sign in to add friends.", false); return; }
         const rawCode = ($a("ph-add-friend-input").value || "").trim();
         if (!rawCode) { setAuthMsg("ph-friend-err", "Enter a friend code.", false); return; }
+
+        // ── Hidden easter egg: "Saving the Invertebrates" (code 3197) ──
+        // The four hidden invertebrate digits, in avatar-gallery order:
+        // Sea Sponge 3 · Sea Cucumber 1 · Sea Urchin 9 · Common Sea Star 7.
+        // This intercepts BEFORE any friend lookup, so the regular Add Friends
+        // flow is never touched for this code; any other input falls through.
+        if (rawCode === "3197") {
+          $a("ph-add-friend-input").value = "";
+          // Complete the hidden achievement. unlockAchievement() shows the
+          // achievement popup, awards its XP, and pushes a notification.
+          try {
+            if (typeof window.__fishUnlockAchievementById === "function") {
+              window.__fishUnlockAchievementById("saving_the_invertebrates");
+            }
+          } catch (_) {}
+          // Unlock + surface the Bottlenose Dolphin avatar (it's primarily a
+          // rank reward, so grant it explicitly here too).
+          try {
+            if (typeof window.__fishGrantUnlockedIcon === "function") {
+              const granted = await window.__fishGrantUnlockedIcon("/avatars/bottlenose-dolphin.png");
+              if (granted) {
+                (window.__fishQueueAnimalUnlock || _queueAnimalUnlock)?.("bottlenose-dolphin");
+                setTimeout(() => window.__fishShowAnimalUnlocks?.(), 2400);
+              }
+            }
+          } catch (_) {}
+          // Clean confirmation — no explanation of how the secret was solved.
+          setAuthMsg("ph-friend-err", "🐬 You saved the invertebrates.", true);
+          return;
+        }
+        // ──────────────────────────────────────────────────────────────
+
         setAuthMsg("ph-friend-err", "Looking up…", true);
         const result = await addFriend(_authUser.uid, rawCode, _playerNickname);
         if (result.error) { setAuthMsg("ph-friend-err", result.error, false); }
