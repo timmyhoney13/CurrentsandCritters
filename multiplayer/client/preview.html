@@ -18064,6 +18064,35 @@
   }
   window._refreshStreakUiAfterSave = _refreshStreakUiAfterSave;
 
+  // Persist game history (stats.recent_games) WITHOUT ever blocking the core
+  // stat save. If the full array would push the user doc over Firestore's 1MB
+  // limit, progressively strip the heavy per-card board snapshots until a
+  // version fits. The leaderboard/XP/wins are already saved by the caller, so
+  // the worst case here is a lighter history — never a total save failure.
+  async function _saveRecentGamesResilient(docRef, recent) {
+    if (!Array.isArray(recent) || !recent.length) return;
+    // Tier 1: as built (rich boards on the most recent games).
+    // Tier 2: keep only light text board summaries (drop card-image data).
+    // Tier 3: minimal — no board data at all, fewer games.
+    const lightSummaries = (arr) => arr.map(g =>
+      (g && Array.isArray(g.bds)) ? { ...g, bds: g.bds.map(pp => ({ n: pp.n, b: pp.b })) } : g
+    );
+    const minimal = (arr) => arr.slice(0, 40).map(g => g ? {
+      r: g.r, s: g.s, t: g.t, opp: g.opp, pc: g.pc, mode: g.mode, all: g.all, win: g.win, strat: g.strat,
+    } : g);
+    const tiers = [recent, lightSummaries(recent), minimal(recent)];
+    for (let i = 0; i < tiers.length; i++) {
+      try {
+        await docRef.update({ "stats.recent_games": tiers[i] });
+        if (i > 0) console.warn(`[saveGameStats] history saved at trim tier ${i} (doc was near the 1MB limit)`);
+        return;
+      } catch (e) {
+        console.warn(`[saveGameStats] history write tier ${i} failed (${(e && e.code) || "?"}) — trying a lighter version`);
+      }
+    }
+    console.error("[saveGameStats] could not persist game history even minimal — core stats are still saved");
+  }
+
   async function saveGameStats(winner, finalScores, xpOverride) {
     const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
@@ -18221,11 +18250,12 @@
         strat: myDetectedStrategy,
       };
       const existingRecent = Array.isArray(cStats.recent_games) ? cStats.recent_games : [];
-      // Keep the heavy visual-board data (bds[].bd) only for the 30 most
-      // recent games so the user doc stays well under Firestore's 1MB limit;
-      // older games keep their lightweight text summary (bds[].b).
+      // Keep the heavy visual-board data (bds[].bd) only for the 12 most recent
+      // games so the user doc stays comfortably under Firestore's 1MB limit
+      // (heavy 8-player boards add up fast); older games keep their lightweight
+      // text summary (bds[].b). The resilient writer trims further if needed.
       const nextRecent = [recentEntry, ...existingRecent].slice(0, 50).map((gEntry, i) => {
-        if (i < 30 || !gEntry || !Array.isArray(gEntry.bds)) return gEntry;
+        if (i < 12 || !gEntry || !Array.isArray(gEntry.bds)) return gEntry;
         return { ...gEntry, bds: gEntry.bds.map(pp => ({ n: pp.n, b: pp.b })) };
       });
       const levelTitle = String(cStats.level_title || cStats.level_name || "Ocean Explorer");
@@ -18327,12 +18357,31 @@
           updates["stats.balanced_games"]     = bal.games;
           updates["stats.balanced_avg_score"] = bal.avg;
         }
-        await docRef.update(updates);
-        // History + leaderboard data is now persisted to Firestore — mark this
-        // game saved so later polls don't re-write it. (Set ONLY after success,
-        // so a failed write above leaves it unset and the next poll retries.)
+        // CRITICAL FIX: split the heavy game-history array out of the core write.
+        // Firestore rejects the ENTIRE update if the resulting doc would exceed
+        // 1MB. For a heavy player, the rich board snapshots in recent_games can
+        // push the doc over the limit, which previously blocked EVERYTHING —
+        // XP, wins, scores, history — from saving. Now we write the small core
+        // stats first (so the leaderboard/level/wins ALWAYS persist), then save
+        // the history separately, trimming it down on size failure.
+        const _recentGamesValue = updates["stats.recent_games"];
+        delete updates["stats.recent_games"];
+        // Firestore rejects undefined and non-finite (NaN/Infinity) values and
+        // fails the WHOLE update if any field has one. Strip/repair top-level
+        // fields so a single bad value can never block the core save. (Numeric
+        // FieldValue.increment() objects are typeof "object", so untouched.)
+        for (const _k of Object.keys(updates)) {
+          const _v = updates[_k];
+          if (_v === undefined) delete updates[_k];
+          else if (typeof _v === "number" && !Number.isFinite(_v)) updates[_k] = 0;
+        }
+        await docRef.update(updates);                 // core stats — small + reliable
+        // Core stats persisted → mark saved so polls don't re-write. (Set ONLY
+        // after success; a failed write above leaves it unset and retries.)
         _lastSavedWinner = winner;
-        console.info("[saveGameStats] saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
+        console.info("[saveGameStats] core stats saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
+        // History (best-effort, never blocks the core save above).
+        await _saveRecentGamesResilient(docRef, _recentGamesValue);
         // Immediately update in-memory stats so History tab + streak UI show the
         // new game without requiring a page reload or navigation away.
         if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
