@@ -9400,7 +9400,7 @@
                 <div class="ph-scv" id="stat-hours-played">0 hrs</div>
               </div>
               <div class="ph-sc">
-                <div class="ph-sci ph-sci-purple"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
+                <div class="ph-sci ph-sci-purple" id="ph-strategy-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
                 <div class="ph-scl" id="ph-label-most-strategy">Most Played Strategy</div>
                 <div class="ph-scv" style="font-size:15px;margin-top:4px;" id="stat-strategy">Game Fish Stack</div>
               </div>
@@ -22718,15 +22718,14 @@
         console.error("[LB] Casual leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load leaderboard.</td></tr>`;
       }
-      // Hidden critters: Sea Cucumber on the 4P tab, Sea Sponge on the 8P tab.
+      // Hidden critter: Sea Cucumber on the 4P leaderboard tab only.
+      // Sea Sponge moved to 7P stats (the strategy icon cell there).
       try {
         const slot = $a("ph-lb-casual-secret");
         if (slot) {
           slot.innerHTML = "";
           if (_phLbSize === "4" && typeof window.__fishPlaceSecretCritter === "function") {
             window.__fishPlaceSecretCritter("cucumber", slot);
-          } else if (_phLbSize === "8" && typeof window.__fishPlaceSecretCritter === "function") {
-            window.__fishPlaceSecretCritter("sponge", slot);
           }
         }
       } catch (_) {}
@@ -24727,6 +24726,34 @@
       const strategyEl = $a("stat-strategy");
       const strategy = getPerSizeStrategy(statsSource, size);
       if (strategyEl) strategyEl.textContent = strategy || (totalGames > 0 ? "—" : "No games completed yet.");
+
+      // On the 7P tab, replace the strategy icon with the hidden sea sponge.
+      // Any other tab restores the original SVG. The sponge is wired as a
+      // 3-click secret (reveals the digit 3) once the image is in the DOM.
+      const stratIconEl = $a("ph-strategy-icon");
+      if (stratIconEl) {
+        const _origSvg = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+        if (size === 7) {
+          // Only inject once per reset (check for already-wired img)
+          if (!stratIconEl.querySelector('img.secret-critter')) {
+            stratIconEl.innerHTML = "";
+            if (typeof window.__fishPlaceSecretCritter === "function") {
+              const wrap = window.__fishPlaceSecretCritter("sponge", stratIconEl);
+              // style the img to fit the icon cell nicely
+              if (wrap) {
+                const img = wrap.querySelector("img");
+                if (img) { img.style.width = "38px"; img.style.height = "38px"; }
+              }
+            }
+          }
+        } else {
+          // Restore original SVG and reset sponge state so it can be triggered again
+          if (!stratIconEl.querySelector("svg")) {
+            stratIconEl.innerHTML = _origSvg;
+            try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
+          }
+        }
+      }
 
       const hoursEl = $a("stat-hours-played");
       if (hoursEl) {
