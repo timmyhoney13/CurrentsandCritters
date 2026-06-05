@@ -10699,7 +10699,10 @@
 <div id="pv-pool-modal">
   <div id="pv-pm-box">
     <div id="pv-pm-hdr">
-      <div id="pv-pm-title">Pool</div>
+      <div id="pv-pm-title-row" style="display:flex;align-items:center;gap:6px;">
+        <div id="pv-pm-title">Pool</div>
+        <span class="secret-wrap" data-secret="urchin" id="pv-pm-urchin-slot"></span>
+      </div>
       <button id="pv-pm-close">✕</button>
     </div>
     <div id="pv-pm-body">
@@ -11197,21 +11200,17 @@
     const starImg = document.querySelector('.ph-ss-icon .ph-ss-star-img')
                  || document.querySelector('.ph-ss-icon img[src*="sea-star"]');
     if (starImg) _wrapExistingSecretCritter(starImg, "star");
-    // Sea Urchin — injected next to the "Inspect" button on The Pool label.
-    const poolLabel = document.querySelector('#pv-pool-area .pv-section-label');
-    if (poolLabel && !poolLabel.querySelector('.secret-wrap[data-secret="urchin"]')) {
+    // Sea Urchin — lives INSIDE the Pool Overview Modal, next to the
+    // "Pool · N cards" title. Only visible when the player opens Inspect.
+    const slot = document.getElementById("pv-pm-urchin-slot");
+    if (slot && !slot.querySelector("img")) {
       const cfg = _SECRET_CRITTERS.urchin;
-      const wrap = document.createElement("span");
-      wrap.className = "secret-wrap";
-      wrap.dataset.secret = "urchin";
-      wrap.style.marginLeft = "8px";
       const img = document.createElement("img");
       img.className = "secret-icon";
       img.src = cfg.img; img.alt = "";
       img.style.width = cfg.size + "px"; img.style.height = cfg.size + "px";
-      img.style.verticalAlign = "middle";
-      wrap.appendChild(img);
-      poolLabel.appendChild(wrap);
+      img.style.display = "block";
+      slot.appendChild(img);
       _wireSecretCritter(img, "urchin");
     }
   }
