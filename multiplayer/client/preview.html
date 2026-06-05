@@ -11016,7 +11016,7 @@
   });
 
   // ── Toast system ───────────────────────────────────────────────
-  function showToast(msg, type = "info") {
+  function showToast(msg, type = "info", durationMs = 3200) {
     const container = document.getElementById("pv-toasts");
     const t = document.createElement("div");
     t.className = `pv-toast toast-${type}`;
@@ -11026,7 +11026,7 @@
     setTimeout(() => {
       t.classList.remove("show");
       setTimeout(() => { if (t.parentNode) t.parentNode.removeChild(t); }, 350);
-    }, 3200);
+    }, Math.max(1500, Number(durationMs) || 3200));
   }
 
   // ── Card zoom modal ────────────────────────────────────────────
@@ -18411,8 +18411,14 @@
           if (_v === undefined) delete updates[_k];
           else if (typeof _v === "number" && !Number.isFinite(_v)) updates[_k] = 0;
         }
+        // SHRINK HISTORY FIRST. If an old bloated recent_games already fills the
+        // doc near Firestore's 1MB limit, even the small core write below has no
+        // room and fails. _saveRecentGamesResilient REPLACES recent_games with a
+        // trimmed (and, if needed, board-stripped) array — only ever removing
+        // bytes — which frees space so the core write fits. It never throws.
+        await _saveRecentGamesResilient(docRef, _recentGamesValue);
         try {
-          await docRef.update(updates);               // core stats — small + reliable
+          await docRef.update(updates);               // core stats — now has room
         } catch (eCore) {
           // A single bad/oversized dynamic field (strategy maps, lifetime
           // increments) must NEVER block the leaderboard/level/wins from saving.
@@ -18441,8 +18447,8 @@
         _lastSavedWinner = winner;
         console.info("[saveGameStats] core stats saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
         try { showToast("✓ Game saved to your stats & leaderboard", "info"); } catch (_) {}
-        // History (best-effort, never blocks the core save above).
-        await _saveRecentGamesResilient(docRef, _recentGamesValue);
+        // (History already written above, before the core write, so a bloated
+        // doc can't block the leaderboard save.)
         // Immediately update in-memory stats so History tab + streak UI show the
         // new game without requiring a page reload or navigation away.
         if (typeof updatePhStats === "function" && typeof _phStats !== "undefined") {
@@ -18735,17 +18741,20 @@
     } catch(e) {
       // The write failed — because _lastSavedWinner was NOT set (it's only set
       // right after a successful write), the next end-game poll will retry this
-      // save automatically. Log loudly so failures are visible.
+      // save automatically. Capture FULL detail so we can pinpoint the cause.
       const _code = (e && e.code) || (e && e.name) || "error";
-      console.error("[saveGameStats] SAVE FAILED (will retry on next poll):", _code, e);
-      // Make the failure VISIBLE (throttled) so a silent, repeated save failure
-      // can't go unnoticed — the code points straight at the cause
-      // (permission-denied = rules, resource-exhausted = 1MB doc,
-      // failed-precondition = missing index, invalid-argument = bad field).
+      const _msg  = (e && e.message) ? String(e.message) : String(e);
+      console.error("[saveGameStats] SAVE FAILED:", _code, "|", _msg, "|", e);
+      // Expose for inspection from the console: window.__lastSaveError
+      try { window.__lastSaveError = { code: _code, message: _msg, error: e, at: new Date().toISOString() }; } catch (_) {}
+      // Show the full reason on screen, long enough to read/screenshot. The
+      // message states the exact cause (e.g. 'Missing or insufficient
+      // permissions' = rules; 'maximum entity size' / 'longer than 1048487
+      // bytes' = 1MB doc; 'invalid data' = bad field).
       try {
         if (Date.now() - _saveFailToastAt > 8000) {
           _saveFailToastAt = Date.now();
-          showToast(`⚠️ Couldn't save your game (${_code}). Retrying…`, "err");
+          showToast(`⚠️ Save failed [${_code}]: ${_msg.slice(0, 140)}`, "err", 12000);
         }
       } catch (_) {}
     } finally {
