@@ -4383,6 +4383,30 @@
       transform: translateY(-3px);
       box-shadow: 0 16px 38px rgba(0,45,110,.30), inset 0 1px 0 rgba(255,255,255,.22);
     }
+    /* ── Image-based action cards: the exact reference artwork ───────
+       The button shows ONE image (text + coral baked in). It matches the
+       image aspect ratio so nothing is cropped, and the image sits on top of
+       any gradient/scrim/per-tab styling so the artwork is identical on every
+       tab. The button stays fully clickable. */
+    .ph-action-img-card {
+      aspect-ratio: 472 / 304;
+      height: auto !important;
+      min-height: 0 !important;
+      padding: 0 !important;
+      border: none !important;
+      background: transparent !important;
+    }
+    .ph-action-img-card::before { display: none !important; }  /* no scrim — text is in the image */
+    .ph-action-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+      z-index: 2;
+      -webkit-user-drag: none; user-select: none;
+      pointer-events: none;   /* clicks pass through to the button */
+    }
     /* Individual card gradient themes — cleaner, evenly-weighted stops */
     .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create — ocean blue */
     .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join — clean red */
@@ -9110,50 +9134,23 @@
       <span id="stats-guest-signin-link" style="color:#a08010;cursor:pointer;font-weight:700;margin-left:4px;">Create a free account →</span>
     </div>
 
-    <!-- Action row -->
+    <!-- Action row — each card is the exact reference image; the button stays
+         clickable and routes to its action exactly as before. -->
     <div class="ph-actions">
-      <!-- Create Game — teal/blue · staghorn coral art -->
-      <button class="ph-action-card" id="stats-create-btn">
-        <div class="ph-ac-art" aria-hidden="true">
-          <img src="/avatars/staghorn-coral.png" alt="" draggable="false" loading="lazy">
-        </div>
-        <div class="ph-action-copy">
-          <div class="ph-action-label">Create Game</div>
-          <div class="ph-action-sub">Start a new adventure</div>
-        </div>
+      <button class="ph-action-card ph-action-img-card" id="stats-create-btn" aria-label="Create Game — Start a new adventure">
+        <img class="ph-action-img" src="/action-card-create.png?v=1" alt="Create Game" draggable="false">
       </button>
 
-      <!-- Join Game — pink/rose · fan coral art -->
-      <button class="ph-action-card" id="stats-join-toggle-btn">
-        <div class="ph-ac-art" aria-hidden="true">
-          <img src="/avatars/deep-sea-coral.png" alt="" draggable="false" loading="lazy">
-        </div>
-        <div class="ph-action-copy">
-          <div class="ph-action-label">Join Game</div>
-          <div class="ph-action-sub">Play with friends</div>
-        </div>
+      <button class="ph-action-card ph-action-img-card" id="stats-join-toggle-btn" aria-label="Join Game — Play with friends">
+        <img class="ph-action-img" src="/action-card-join.png?v=1" alt="Join Game" draggable="false">
       </button>
 
-      <!-- Tutorial — olive/green · brain coral art -->
-      <button class="ph-action-card" id="stats-tutorial-btn">
-        <div class="ph-ac-art" aria-hidden="true">
-          <img src="/avatars/grooved-brain-coral.png" alt="" draggable="false" loading="lazy">
-        </div>
-        <div class="ph-action-copy">
-          <div class="ph-action-label">Tutorial</div>
-          <div class="ph-action-sub">Learn the ropes</div>
-        </div>
+      <button class="ph-action-card ph-action-img-card" id="stats-tutorial-btn" aria-label="Tutorial — Learn the ropes">
+        <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" draggable="false">
       </button>
 
-      <!-- Competitive — orange/amber · elkhorn coral art -->
-      <button class="ph-action-card ph-action-gold" id="stats-comp-btn">
-        <div class="ph-ac-art" aria-hidden="true">
-          <img src="/avatars/elkhorn-coral.png" alt="" draggable="false" loading="lazy">
-        </div>
-        <div class="ph-action-copy">
-          <div class="ph-action-label">Competitive</div>
-          <div class="ph-action-sub">Ranked matches</div>
-        </div>
+      <button class="ph-action-card ph-action-img-card ph-action-gold" id="stats-comp-btn" aria-label="Competitive — Ranked matches">
+        <img class="ph-action-img" src="/action-card-competitive.png?v=1" alt="Competitive" draggable="false">
       </button>
     </div>
 
