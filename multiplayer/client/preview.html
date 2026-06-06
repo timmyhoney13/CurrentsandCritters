@@ -11108,7 +11108,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws5";
+  const _AVATAR_ART_VERSION = "ws6";
   function _avSrc(url) {
     const u = String(url || "");
     if (!u.startsWith("/avatars/") || u.includes("?")) return u;
