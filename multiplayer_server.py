@@ -3612,6 +3612,7 @@ class GameRoom:
                 "message": message,
                 "ts": time.time(),
                 "avatar": (seat.avatar if seat and seat.avatar else ""),
+                "background": (seat.background if seat and seat.background else ""),
             }
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:

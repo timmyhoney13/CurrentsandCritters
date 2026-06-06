@@ -11109,6 +11109,14 @@
     if (!u.startsWith("/backgrounds/") || u.includes("?")) return u;
     return u + "?v=" + _AVATAR_ART_VERSION;
   }
+  // Inline style string for an avatar wrapper built via innerHTML, so the
+  // background shows behind a (transparent) avatar image. Empty when no bg.
+  function _bgStyle(url) {
+    const u = String(url || "");
+    if (!u.startsWith("/backgrounds/")) return "";
+    return `background-image:url('${_bgSrc(u)}');background-size:cover;background-position:center;`;
+  }
+  window.__fishBgStyle = _bgStyle;
   // Render (or clear) an exclusive background behind an avatar. `wrapEl` is the
   // circular/rounded avatar container that holds the avatar <img>. Passing a
   // falsy bgUrl removes any previously-applied background. The avatar <img> is
@@ -17870,6 +17878,17 @@
           if (url && avatarImg && avatarImg.isConnected) avatarImg.src = url;
         }).catch(() => {});
       }
+      // Equipped background behind the notif avatar.
+      try {
+        const dnBg = isMine ? String(window.__fishEquippedBackground?.() || "")
+                            : String(window.__fishBackgroundCached?.(playerName) || "");
+        window.__fishApplyAvBg?.(avatarWrap, dnBg);
+        if (!isMine && typeof window.__fishBackgroundForNick === "function") {
+          window.__fishBackgroundForNick(playerName).then(bg => {
+            if (avatarWrap.isConnected) window.__fishApplyAvBg?.(avatarWrap, bg);
+          }).catch(() => {});
+        }
+      } catch (_) {}
       avatarImg.onerror = () => {
         avatarImg.style.display = "none";
         avatarLetter.style.display = "";
@@ -17924,6 +17943,14 @@
       if (!isMine && typeof window.__fishAvatarForNick === "function") {
         window.__fishAvatarForNick(playerName).then(url => { if (url && avatarImg.isConnected) avatarImg.src = url; }).catch(() => {});
       }
+      try {
+        const dnBg = isMine ? String(window.__fishEquippedBackground?.() || "")
+                            : String(window.__fishBackgroundCached?.(playerName) || "");
+        window.__fishApplyAvBg?.(avatarWrap, dnBg);
+        if (!isMine && typeof window.__fishBackgroundForNick === "function") {
+          window.__fishBackgroundForNick(playerName).then(bg => { if (avatarWrap.isConnected) window.__fishApplyAvBg?.(avatarWrap, bg); }).catch(() => {});
+        }
+      } catch (_) {}
       avatarImg.onerror = () => { avatarImg.style.display = "none"; avatarLetter.style.display = ""; avatarLetter.textContent = playerName.charAt(0).toUpperCase(); };
     }
 
@@ -19948,6 +19975,8 @@
       avImg.src = (window.__fishAvSrc?window.__fishAvSrc(avSrc):avSrc); avImg.alt = senderName; avImg.loading = "lazy";
       avImg.onerror = () => { avImg.onerror = null; avImg.src = "/avatars/mullet.png"; };
       av.appendChild(avImg);
+      // Sender's equipped background (server-relayed per message; cached fallback).
+      try { _applyAvBg(av, String(m.background || window.__fishBackgroundCached?.(senderName) || "")); } catch (_) {}
 
       const main = document.createElement("div"); main.className = "cm-main";
       const header = document.createElement("div");
@@ -22241,7 +22270,7 @@
     // shows the new icon within ~12s (without a stale cache pinning the old
     // one forever). Exposed on window so renderPlayerSeats / chat can read it
     // synchronously (avoiding the "img replaced before lookup resolved" race).
-    const _nickAvatarCache = {};   // nick -> { url: string|null, ts: ms }
+    const _nickAvatarCache = {};   // nick -> { url: string|null, bg: string|null, ts: ms }
     const _NICK_AVATAR_TTL = 12000;
     window._nickAvatarCache = _nickAvatarCache;
     // Synchronous read: last-known avatar url for a nick (or undefined).
@@ -22249,26 +22278,44 @@
       const e = nick ? _nickAvatarCache[nick] : null;
       return e ? e.url : undefined;
     };
+    // Synchronous read: last-known equipped background for a nick ("" if none/unknown).
+    window.__fishBackgroundCached = function(nick) {
+      const e = nick ? _nickAvatarCache[nick] : null;
+      return e ? (e.bg || "") : "";
+    };
     window.__fishAvatarForNick = async function(nick) {
       if (!nick) return null;
       const e = _nickAvatarCache[nick];
       if (e && (Date.now() - e.ts) < _NICK_AVATAR_TTL) return e.url;  // fresh — reuse
       try {
-        if (!_db) { _nickAvatarCache[nick] = { url: null, ts: Date.now() }; return null; }
+        if (!_db) { _nickAvatarCache[nick] = { url: null, bg: null, ts: Date.now() }; return null; }
         const snap = await _db.collection("users").where("nickname", "==", nick).limit(1).get();
         // Validate against the known avatar set — a stale/invalid stored value
         // (e.g. a deleted "/avatars/avatar-04.png") must NOT be used as an
         // <img> src or it 404s. Return null so callers fall back to the default.
-        const norm = snap.empty ? "" : normalizeAvatarUrl(snap.docs[0].data().avatar_url || "");
+        const data = snap.empty ? {} : (snap.docs[0].data() || {});
+        const norm = normalizeAvatarUrl(data.avatar_url || "");
         const url = (norm && animalByImg(norm)) ? norm : null;
-        _nickAvatarCache[nick] = { url, ts: Date.now() };
+        const bgn = normalizeBgUrl(data.background_url || "");
+        const bg  = (bgn && _BG_BY_IMG[bgn]) ? bgn : null;
+        _nickAvatarCache[nick] = { url, bg, ts: Date.now() };
         return url;
       } catch(e2) {
         // On error keep any prior value but refresh the timestamp so we don't hammer.
-        if (!_nickAvatarCache[nick]) _nickAvatarCache[nick] = { url: null, ts: Date.now() };
+        if (!_nickAvatarCache[nick]) _nickAvatarCache[nick] = { url: null, bg: null, ts: Date.now() };
         else _nickAvatarCache[nick].ts = Date.now();
         return _nickAvatarCache[nick].url;
       }
+    };
+    // Resolve another player's equipped background by nickname (cached alongside
+    // their avatar). Returns "" if none. Triggers an avatar fetch if not cached.
+    window.__fishBackgroundForNick = async function(nick) {
+      if (!nick) return "";
+      const e = _nickAvatarCache[nick];
+      if (e && (Date.now() - e.ts) < _NICK_AVATAR_TTL) return e.bg || "";
+      try { await window.__fishAvatarForNick(nick); } catch {}
+      const e2 = _nickAvatarCache[nick];
+      return e2 ? (e2.bg || "") : "";
     };
 
     function renderStatsAvatar(profile, nickname) {
@@ -23011,8 +23058,10 @@
           { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
           { seed: f.uid || f.nickname || `friend-${i}` }
         ), f.uid || f.nickname || `friend-${i}`);
+        let _fbgn = ""; try { _fbgn = normalizeBgUrl(profile && profile.background_url || ""); if (!_BG_BY_IMG[_fbgn]) _fbgn = ""; } catch {}
+        const _fbgStyle = _fbgn ? ` style="${_bgStyle(_fbgn)}"` : "";
         const avatarHtml = avatarUrl
-          ? `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
+          ? `<div class="ph-fr-av"${_fbgStyle}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
@@ -23080,14 +23129,18 @@
     function escHtmlPH(s) {
       return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     }
-    function phLbAvatarImg(avatarUrl, seed) {
+    function phLbAvatarImg(avatarUrl, seed, bgUrl) {
       const raw   = typeof normalizeAvatarUrl === "function" ? normalizeAvatarUrl(avatarUrl || "") : (avatarUrl || "");
       // Only use a stored avatar if it's a real, known avatar — otherwise an
       // invalid value (e.g. an old "/avatars/avatar-04.png") 404s. Fall back
       // to the default mullet. The onerror is a last-resort safety net.
       const valid = (raw && typeof animalByImg === "function" && animalByImg(raw)) ? raw : "";
       const final = valid || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
-      return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy" onerror="this.src='/avatars/mullet.png'">`;
+      // Equipped background paints behind the transparent avatar art (no wrapper
+      // needed — the <img>'s own background-image shows through transparent pixels).
+      let bgn = ""; try { bgn = normalizeBgUrl(bgUrl || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
+      const bgStyle = bgn ? ` style="${_bgStyle(bgn)}"` : "";
+      return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy"${bgStyle} onerror="this.src='/avatars/mullet.png'">`;
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
@@ -23204,7 +23257,7 @@
           if (r.isMe) { myRank = rank; myRow = { rank, lvl: r.lvl, totalXp: r.totalXp, games: r.games }; }
         });
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
@@ -23271,7 +23324,7 @@
         // Show only top 25 after sort.
         rows = rows.slice(0, 25);
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
@@ -23350,7 +23403,7 @@
           return;
         }
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' ph-lb-score-cell lb-top' : '';
@@ -23411,7 +23464,7 @@
           return;
         }
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
@@ -23462,7 +23515,7 @@
           return;
         }
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
@@ -23511,7 +23564,7 @@
           return;
         }
         tbody.innerHTML = rows.map(r => {
-          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id);
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' lb-top' : '';
@@ -25677,7 +25730,10 @@
         ? (normalizeAvatarUrl(profile.avatar_url || "") || "/avatars/mullet.png")
         : (profile.avatar_url || "/avatars/mullet.png");
       const avatarImg = $a("pub-avatar-img");
-      if (avatarImg) { avatarImg.src = _avSrc(avatarUrl); avatarImg.alt = (profile.nickname || "Player") + " avatar"; }
+      if (avatarImg) {
+        avatarImg.src = _avSrc(avatarUrl); avatarImg.alt = (profile.nickname || "Player") + " avatar";
+        try { const bgn = normalizeBgUrl(profile.background_url || ""); _applyAvBg(avatarImg.parentElement, (bgn && _BG_BY_IMG[bgn]) ? bgn : ""); } catch {}
+      }
       const nickEl = $a("pub-nick");
       if (nickEl) nickEl.textContent = profile.nickname || "Unknown";
       let level = 1;
@@ -27571,8 +27627,10 @@
           { ...(avatarProfile || {}), avatar_url: (avatarProfile && avatarProfile.avatar_url) || f.avatar_url || "" },
           { seed: f.uid || f.nickname || "friend" }
         ), f.uid || f.nickname || "friend");
+        let _fbgn = ""; try { _fbgn = normalizeBgUrl(avatarProfile && avatarProfile.background_url || ""); if (!_BG_BY_IMG[_fbgn]) _fbgn = ""; } catch {}
+        const _fbgStyle = _fbgn ? ` style="${_bgStyle(_fbgn)}"` : "";
         const avatarHtml = avatarUrl
-          ? `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
+          ? `<div class="ph-fr-av"${_fbgStyle}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const friendRoomId = avatarProfile && avatarProfile.current_room_id
           ? String(avatarProfile.current_room_id).trim() : "";
