@@ -14640,7 +14640,7 @@
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
       const img = document.createElement("img");
-      img.src = initialUrl;
+      img.src = _avSrc(initialUrl);
       img.alt = p.name || `Seat ${slot + 1}`;
       img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
@@ -24189,7 +24189,7 @@
               if (info.alive && ds === info.mostRecent && avatarUrl) {
                 dayCls  += " avatar";
                 cellCls += " sc-avatar-cell";
-                content  = "<img src=\"" + avatarUrl + "\" alt=\"\" loading=\"lazy\">";
+                content  = "<img src=\"" + _avSrc(avatarUrl) + "\" alt=\"\" loading=\"lazy\">";
               } else {
                 dayCls += " done";
                 // Show the day-number within the current streak run
