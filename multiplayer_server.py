@@ -2593,15 +2593,16 @@ class GameRoom:
                             gs_restore = copy.deepcopy(self.undo_snapshot_gs)
                             ms_restore = copy.deepcopy(self.undo_snapshot_ms)
                     if gs_restore is not None:
-                        # Reshuffle the restored deck for anti-peek (undone draws must
-                        # not land back on top), BUT keep the END GAME card pinned to
-                        # the bottom 15. A plain full shuffle scatters END GAME out of
-                        # the bottom region, which is exactly what made the game end
-                        # far too early (e.g. END drawn with 53 cards left) after an undo.
-                        _shuffle_deck_keep_end_bottom15(gs_restore, ms_restore)
-                        # Validate the reshuffle kept END GAME in the bottom 15.
+                        # TRUE REVERT: restore the pre-turn deck EXACTLY as it was —
+                        # do NOT reshuffle. Reshuffling on undo handed the player a
+                        # different ("random") card every time they undid a draw, and
+                        # worse, let them reroll their draw by undoing repeatedly. The
+                        # snapshot is the turn-start state, so the undone card simply
+                        # goes back on top and re-drawing yields the same card. END GAME
+                        # also stays exactly where it was at turn start (no scatter), so
+                        # the early-end-game bug a plain shuffle caused cannot occur.
                         try:
-                            _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-reshuffle")
+                            _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore")
                             for _p in _eg_probs:
                                 self._record_event(f"⚠ END GAME PLACEMENT: {_p}")
                         except Exception:

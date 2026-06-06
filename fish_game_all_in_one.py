@@ -10274,12 +10274,15 @@ def run_match(
                     discard_down_to_ten_ai(gs, ms, p)
                     break
                 if chosen_discard.kind == "discard_batch_to_pool":
-                    # Human submitted a batch — process all at once then exit loop.
+                    # Human submitted a batch — process all at once.
                     discard_ok = apply_action(gs, ms, p, chosen_discard, turn_state, choose_payment_ai, verbose=verbose)
                     if not discard_ok:
                         # Batch failed (e.g. empty picks got through) — try again next loop.
                         continue
-                    break
+                    # Do NOT unconditionally break: an under-sized batch (fewer cards
+                    # than needed) would otherwise end the turn still over the limit.
+                    # Let the while-condition re-check and re-prompt if still over.
+                    continue
                 if chosen_discard.kind != "discard_to_pool":
                     # Unexpected action kind during discard phase — ignore and try again.
                     continue
@@ -10290,6 +10293,16 @@ def run_match(
         elif (gs.turn_index in human_idx_set) and (not web_control_mode):
             discard_down_to_ten_human(gs, ms, p)
         else:
+            discard_down_to_ten_ai(gs, ms, p)
+
+        # HARD SAFETY NET — a turn must NEVER end above the hand limit, for any
+        # player, under any circumstance. If the interactive web-human discard
+        # above exited early (an abandoned turn that timed out, an under-sized
+        # batch, or any edge case), force the remaining excess down now. This is
+        # the 100%-guarantee that every player is at or below 10 cards when their
+        # turn ends.
+        if len(p.hand) > HAND_LIMIT:
+            p.flags["_discard_mode"] = False
             discard_down_to_ten_ai(gs, ms, p)
 
         clear_turn_only_flags(p)
