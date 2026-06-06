@@ -2100,6 +2100,85 @@
       filter: brightness(1.06);
     }
 
+    /* ── STAR-SKIP CONFIRMATION MODAL ──────────────────────────── */
+    #star-skip-modal {
+      display: none; position: fixed; inset: 0; z-index: 9200;
+      background: rgba(26,45,90,.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #star-skip-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    #star-skip-box {
+      background: linear-gradient(160deg, var(--cr-cream) 0%, #f5e0c8 70%, #efd0b0 100%);
+      border: 2px solid rgba(232,179,74,.65);
+      border-radius: 20px;
+      box-shadow: 0 14px 50px rgba(26,45,90,.35), inset 0 1px 0 rgba(255,255,255,.6);
+      padding: 24px 28px 22px;
+      width: 92%; max-width: 400px;
+      text-align: center;
+      font-family: "Nunito", sans-serif;
+      animation: dwm-box-in .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    #star-skip-icon {
+      font-size: 38px;
+      color: var(--cr-gold, #e8b34a);
+      filter: drop-shadow(0 2px 4px rgba(232,179,74,.5));
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+    #star-skip-title {
+      font-family: "Cinzel", serif;
+      color: var(--cr-navy);
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      margin: 0 0 8px;
+    }
+    #star-skip-msg {
+      color: var(--cr-navy);
+      font-size: 13.5px;
+      line-height: 1.55;
+      margin: 0 0 18px;
+      opacity: .88;
+    }
+    #star-skip-buttons {
+      display: flex; gap: 10px; justify-content: center;
+    }
+    #star-skip-back,
+    #star-skip-confirm {
+      border: none; border-radius: 11px;
+      padding: 11px 18px;
+      font-family: "Nunito", sans-serif;
+      font-size: 13px; font-weight: 800;
+      cursor: pointer;
+      transition: transform .12s, box-shadow .15s, filter .15s;
+      letter-spacing: .3px;
+      flex: 1;
+    }
+    #star-skip-back {
+      background: rgba(255,255,255,.78);
+      border: 1.5px solid rgba(95,179,214,.55);
+      color: var(--cr-navy);
+    }
+    #star-skip-back:hover {
+      background: #fff;
+      border-color: var(--cr-teal);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(95,179,214,.35);
+    }
+    #star-skip-confirm {
+      background: linear-gradient(135deg, var(--cr-teal, #5fb3d6), #3a8fb5);
+      color: #fff;
+      text-shadow: 0 1px 0 rgba(0,0,0,.2);
+      border: 1.5px solid rgba(95,179,214,.5);
+    }
+    #star-skip-confirm:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 16px rgba(95,179,214,.5);
+      filter: brightness(1.06);
+    }
+
     /* ── TUTORIAL MODE ──────────────────────────────────────────── */
     #pv-tutorial {
       position: fixed; inset: 0; z-index: 9500;
@@ -10402,6 +10481,19 @@
     </div>
   </div>
 
+  <!-- Star-skip confirmation: shown when playing a card with an available star ability without using it -->
+  <div id="star-skip-modal">
+    <div id="star-skip-box">
+      <div id="star-skip-icon">★</div>
+      <h2 id="star-skip-title">Skip Star Ability?</h2>
+      <p id="star-skip-msg"></p>
+      <div id="star-skip-buttons">
+        <button id="star-skip-back">Let me go back</button>
+        <button id="star-skip-confirm">Yes, that's okay</button>
+      </div>
+    </div>
+  </div>
+
   <!-- idle "Are you there?" warning -->
   <div id="pv-idle-warn-modal">
     <div id="pv-idle-warn-box">
@@ -13295,6 +13387,58 @@
   function mainText(text) {
     return String(text||"").replace(/\*[^*]+\*/g,"").replace(/\|\s*\|/g,"|")
       .replace(/^\s*\|\s*/,"").replace(/\s*\|\s*$/,"").trim();
+  }
+
+  // Star-skip guard: if the player is about to play a card with an available star
+  // ability WITHOUT activating it, show a quick confirmation so they don't
+  // accidentally skip it. "Let me go back" cancels; "Yes, that's okay" proceeds.
+  let _starSkipPendingCb = null;
+  (function _initStarSkipModal() {
+    const modal    = document.getElementById("star-skip-modal");
+    const backBtn  = document.getElementById("star-skip-back");
+    const okBtn    = document.getElementById("star-skip-confirm");
+    if (!modal || !backBtn || !okBtn) return;
+    backBtn.addEventListener("click", () => {
+      modal.classList.remove("open");
+      _starSkipPendingCb = null;
+    });
+    okBtn.addEventListener("click", () => {
+      modal.classList.remove("open");
+      const cb = _starSkipPendingCb;
+      _starSkipPendingCb = null;
+      if (cb) cb();
+    });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) { modal.classList.remove("open"); _starSkipPendingCb = null; }
+    });
+  })();
+
+  // Call instead of submitAction(act) for play actions.
+  // If the card has a usable star ability and this action skips it,
+  // shows a confirmation. Otherwise calls submitAction(act) immediately.
+  function _playOrConfirmStarSkip(act, currentActions) {
+    const isPlay = act && (act.kind === "play_to_ocean" || act.kind === "play_ocean");
+    if (!isPlay || act.use_star) { submitAction(act); return; }
+    const sym = act.star_symbol;
+    if (!sym) { submitAction(act); return; }
+    // Only warn when the star IS currently available (a use_star:true variant exists).
+    const starVariant = (currentActions || []).find(a =>
+      a.use_star &&
+      Number(a.card_uid) === Number(act.card_uid) &&
+      String(a.kind) === String(act.kind) &&
+      Number(a.ocean_uid ?? -1) === Number(act.ocean_uid ?? -1)
+    );
+    if (!starVariant) { submitAction(act); return; }
+    // Get the star ability label from hand card text.
+    const entry = handEntryMap.get(Number(act.card_uid));
+    const face  = entry?.faces?.[0] || entry;
+    const sText = starText(face?.text || entry?.text || "");
+    const abilityLabel = sText || "the star ability";
+    const msg = document.getElementById("star-skip-msg");
+    if (msg) msg.textContent =
+      `If you don't discard a ${sym} card you will not get "${abilityLabel}".`;
+    _starSkipPendingCb = () => submitAction(act);
+    document.getElementById("star-skip-modal")?.classList.add("open");
   }
 
   function updatePaymentBadge() {
@@ -16595,7 +16739,7 @@
         const act = useStarOcean
           ? (matchingOceanActs.find(a => a.use_star) || matchingOceanActs[0])
           : (matchingOceanActs.find(a => !a.use_star) || matchingOceanActs[0]);
-        submitAction(act);
+        _playOrConfirmStarSkip(act, actions);
       });
       el.appendChild(oceanDrop);
     }
@@ -16649,9 +16793,9 @@
                       String(a.face_direction||"").toLowerCase() === dir &&
                       a.use_star
                     );
-                    submitAction(sv || pre); return;
+                    _playOrConfirmStarSkip(sv || pre, actions); return;
                   }
-                  submitAction(pre); return;
+                  _playOrConfirmStarSkip(pre, actions); return;
                 }
               }
               // Open the card picker for this slot
@@ -16692,7 +16836,7 @@
               const act = useStarDrag
                 ? (matchingActs.find(a => a.use_star) || matchingActs[0])
                 : (matchingActs.find(a => !a.use_star) || matchingActs[0]);
-              submitAction(act);
+              _playOrConfirmStarSkip(act, actions);
             });
           }
           lane.appendChild(slot);
@@ -16768,7 +16912,7 @@
                   Number(a.ocean_uid) === Number(ocean.ocean_uid) &&
                   String(a.face_direction||"").toLowerCase() === dir
                 );
-                if (pre) { submitAction(pre); return; }
+                if (pre) { _playOrConfirmStarSkip(pre, actions); return; }
               }
               // Open the card picker for this stack slot
               const opts = actions.filter(a =>
@@ -16948,7 +17092,7 @@
 
       item.addEventListener("click", () => {
         closeCTP();
-        submitAction(act);
+        _playOrConfirmStarSkip(act, acts);
       });
 
       cardsEl.appendChild(item);
@@ -17462,7 +17606,7 @@
           showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
         }
       }
-      submitAction(chosen);
+      _playOrConfirmStarSkip(chosen, actions);
     };
 
     if (endAct) {
