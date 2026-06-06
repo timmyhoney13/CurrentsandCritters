@@ -10931,6 +10931,18 @@
     return "";
   }
 
+  // Display-only cache-bust for LOCAL avatar PNGs: appends ?v=VERSION so a
+  // refreshed avatar image (same /avatars/x.png path) is never served stale.
+  // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
+  // Stored/compared paths stay clean; the server ignores the query (basename match).
+  const _AVATAR_ART_VERSION = "ws4";
+  function _avSrc(url) {
+    const u = String(url || "");
+    if (!u.startsWith("/avatars/") || u.includes("?")) return u;
+    return u + "?v=" + _AVATAR_ART_VERSION;
+  }
+  window.__fishAvSrc = _avSrc;
+
   // ── URL / API utilities (identical to index.html) ──────────────
   function normalizeBaseUrl(raw) { return String(raw||"").trim().replace(/\/+$/,""); }
   function normalizeAbsoluteBaseUrl(raw) {
@@ -17580,7 +17592,7 @@
           if (mine) avatarSrc = mine;
         }
       } catch (_) {}
-      avatarImg.src = avatarSrc;
+      avatarImg.src = (window.__fishAvSrc?window.__fishAvSrc(avatarSrc):avatarSrc);
       avatarImg.alt = playerName;
       avatarImg.style.display = "block";
       avatarLetter.style.display = "none";
@@ -17640,7 +17652,7 @@
       const isMine = latestPayload?.viewer?.name === playerName;
       let avatarSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(playerName) : "/avatars/mullet.png";
       try { if (isMine && typeof window.__fishMyAvatarUrl === "function") { const m = String(window.__fishMyAvatarUrl() || ""); if (m) avatarSrc = m; } } catch (_) {}
-      avatarImg.src = avatarSrc; avatarImg.alt = playerName;
+      avatarImg.src = (window.__fishAvSrc?window.__fishAvSrc(avatarSrc):avatarSrc); avatarImg.alt = playerName;
       avatarImg.style.display = "block"; avatarLetter.style.display = "none";
       if (!isMine && typeof window.__fishAvatarForNick === "function") {
         window.__fishAvatarForNick(playerName).then(url => { if (url && avatarImg.isConnected) avatarImg.src = url; }).catch(() => {});
@@ -19481,7 +19493,7 @@
         row.innerHTML = `
           <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
           <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
-          <div class="gs-st-av"><img src="${avatarUrl}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
+          <div class="gs-st-av"><img src="${_avSrc(avatarUrl)}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
           <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${envLabel}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
@@ -19661,7 +19673,7 @@
       if (!avSrc) {
         avSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(senderName) : "/avatars/mullet.png";
       }
-      avImg.src = avSrc; avImg.alt = senderName; avImg.loading = "lazy";
+      avImg.src = (window.__fishAvSrc?window.__fishAvSrc(avSrc):avSrc); avImg.alt = senderName; avImg.loading = "lazy";
       avImg.onerror = () => { avImg.onerror = null; avImg.src = "/avatars/mullet.png"; };
       av.appendChild(avImg);
 
@@ -20660,16 +20672,6 @@
 
     function getDefaultAvatar(seed) {
       return DEFAULT_AVATAR_IMG;
-    }
-    // Display-only cache-bust for avatar images: appends a version query so a
-    // refreshed avatar PNG (same path) is never served stale. Bump when art
-    // changes. Does NOT affect stored/compared avatar paths (equality uses the
-    // clean /avatars/x.png), and the server ignores the query (matches basename).
-    const _AVATAR_ART_VERSION = "ws3";
-    function _avSrc(url) {
-      const u = String(url || "");
-      if (!u || u.includes("?")) return u;
-      return u + "?v=" + _AVATAR_ART_VERSION;
     }
     // An avatar is selectable if it's a starter or the player has unlocked it.
     function isAvatarUnlocked(img) {
@@ -21687,7 +21689,7 @@
         row.className = "ph-fr";
         const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
         const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
-        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(row);
       });
     }
@@ -21814,7 +21816,7 @@
         }
         img.src = fallback;
       };
-      img.src = avatarUrl;
+      img.src = _avSrc(avatarUrl);
       wrap.classList.add("has-image");
     }
 
@@ -22516,7 +22518,7 @@
           { seed: f.uid || f.nickname || `friend-${i}` }
         ), f.uid || f.nickname || `friend-${i}`);
         const avatarHtml = avatarUrl
-          ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
+          ? `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
@@ -22591,7 +22593,7 @@
       // to the default mullet. The onerror is a last-resort safety net.
       const valid = (raw && typeof animalByImg === "function" && animalByImg(raw)) ? raw : "";
       const final = valid || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
-      return `<img class="ph-lb-avatar" src="${escHtmlPH(final)}" alt="" loading="lazy" onerror="this.src='/avatars/mullet.png'">`;
+      return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy" onerror="this.src='/avatars/mullet.png'">`;
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
@@ -24133,7 +24135,7 @@
         const legAvatarDot = document.querySelector("#streak-cal-legend .sc-leg-dot.avatar");
         if (legAvatarDot) {
           if (avatarUrl) {
-            legAvatarDot.innerHTML = `<img src="${avatarUrl}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none'">`;
+            legAvatarDot.innerHTML = `<img src="${_avSrc(avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" onerror="this.style.display='none'">`;
             legAvatarDot.style.background = "transparent";
             legAvatarDot.style.boxShadow   = "0 0 0 2px rgba(245,166,35,.55)";
           } else {
@@ -25178,7 +25180,7 @@
         ? (normalizeAvatarUrl(profile.avatar_url || "") || "/avatars/mullet.png")
         : (profile.avatar_url || "/avatars/mullet.png");
       const avatarImg = $a("pub-avatar-img");
-      if (avatarImg) { avatarImg.src = avatarUrl; avatarImg.alt = (profile.nickname || "Player") + " avatar"; }
+      if (avatarImg) { avatarImg.src = _avSrc(avatarUrl); avatarImg.alt = (profile.nickname || "Player") + " avatar"; }
       const nickEl = $a("pub-nick");
       if (nickEl) nickEl.textContent = profile.nickname || "Unknown";
       let level = 1;
@@ -26993,7 +26995,7 @@
           const d = document.createElement("div");
           d.className = "ph-fr";
           const friendName = escapeHtml(f.nickname || "—");
-          const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(f.avatarUrl)}" alt="${friendName} avatar" loading="lazy"></div>`;
+          const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${friendName} avatar" loading="lazy"></div>`;
           const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
           const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
           d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
@@ -27055,7 +27057,7 @@
           { seed: f.uid || f.nickname || "friend" }
         ), f.uid || f.nickname || "friend");
         const avatarHtml = avatarUrl
-          ? `<div class="ph-fr-av"><img src="${escapeHtml(avatarUrl)}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
+          ? `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
         const friendRoomId = avatarProfile && avatarProfile.current_room_id
           ? String(avatarProfile.current_room_id).trim() : "";
