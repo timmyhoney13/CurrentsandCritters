@@ -590,6 +590,9 @@ class Seat:
     # Carried per-seat in game state so every client renders each player's
     # OWN icon — no shared nickname lookup, so two players never share one.
     avatar: Optional[str] = None
+    # The player's equipped exclusive background (e.g. "/backgrounds/bg-kelp.png"),
+    # rendered behind their avatar on every seat. Empty/None = no background.
+    background: Optional[str] = None
     difficulty: str = "medium"  # easy | medium | hard (only meaningful for ai seats)
     # Surf's Up! — player explicitly marked themselves Away. Turn pauses
     # indefinitely on this seat; other seats cannot draw for them.
@@ -3519,6 +3522,8 @@ class GameRoom:
                     seat_for_p = _seat_by_index.get(seat_idx)
                     if seat_for_p is not None and seat_for_p.avatar:
                         p["avatar"] = seat_for_p.avatar
+                    if seat_for_p is not None and seat_for_p.background:
+                        p["background"] = seat_for_p.background
                 if viewer_index is not None:
                     for p in players_list:
                         if not isinstance(p, dict):
@@ -3651,6 +3656,26 @@ class GameRoom:
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "avatar": seat.avatar or ""}
+
+    def set_background(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """Set the calling seat's equipped background image, so every client
+        renders it behind this player's avatar. Empty string clears it."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        raw = body.get("background")
+        background = str(raw).strip()[:128] if isinstance(raw, str) else ""
+        # Only accept our own background image paths; ignore anything else.
+        if background and not re.match(r"^/backgrounds/[A-Za-z0-9_\-]+\.png$", background):
+            background = ""
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if seat.background == (background or None):
+                return {"ok": True, "background": seat.background or ""}
+            seat.background = background or None
+            self._persist_dirty = True
+            self._bump_locked()
+        return {"ok": True, "background": seat.background or ""}
 
     def set_away(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Toggle the calling seat's Surf's Up!! Away flag.
@@ -4537,6 +4562,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_client_asset(avatar_path, cache_control="public, max-age=600")
             return
 
+        # Exclusive backgrounds (cosmetic, rendered behind avatars).
+        if parsed.path.startswith("/backgrounds/"):
+            bg_name = os.path.basename(parsed.path)
+            if not re.fullmatch(r"[a-z0-9_-]+\.png", bg_name):
+                self._send_json({"ok": False, "error": "invalid background path"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            bg_path = os.path.join(CLIENT_DIR, "backgrounds", bg_name)
+            self._send_client_asset(bg_path, cache_control="public, max-age=600")
+            return
+
         # Serve general client PNG assets (game bg, button art, action cards, etc.)
         if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|moving-background|moving-background-left|moving-background-right|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
@@ -5219,6 +5254,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.set_avatar(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "background":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.set_background(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

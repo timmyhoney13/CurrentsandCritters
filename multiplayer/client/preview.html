@@ -1355,6 +1355,15 @@
       box-shadow: 0 2px 8px rgba(8,30,55,.18);
     }
     .pv-seat-avatar-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    /* Exclusive background layer rendered behind any avatar. */
+    .cc-avbg {
+      position: absolute; inset: 0; z-index: 0;
+      background-size: cover; background-position: center;
+      border-radius: inherit; pointer-events: none;
+    }
+    .cc-has-bg > img { position: relative; z-index: 1; }
+    /* When a background is present, the wrap's own fill shouldn't show through. */
+    .cc-has-bg { background: transparent !important; }
     .pv-seat.active-turn .pv-seat-avatar-wrap {
       border: 3px solid #f05050;
       box-shadow: 0 0 12px rgba(240,80,80,.7), 0 0 22px rgba(240,80,80,.35);
@@ -8637,6 +8646,43 @@
     }
     .gal-hero-sub { font-size: .82rem; color: #9fc6e8; font-weight: 700; }
     .gal-hero-sub .gal-hero-name { color: #eaf4ff; }
+    .gal-code-box {
+      position: relative; flex-shrink: 0;
+      display: flex; align-items: center; gap: 7px;
+      margin-left: 16px;
+    }
+    .gal-code-input {
+      width: 108px; border-radius: 9px;
+      border: 1.5px solid rgba(255,211,107,.45);
+      background: rgba(8,28,55,.72); color: #ffe9b8;
+      padding: 8px 11px; font-size: .9rem; font-weight: 800;
+      letter-spacing: 2.5px; text-align: center;
+      font-family: "Nunito", sans-serif; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .gal-code-input::placeholder { color: #7fa8cc; letter-spacing: .5px; font-weight: 700; }
+    .gal-code-input:focus { border-color: #ffd36b; box-shadow: 0 0 12px rgba(255,211,107,.35); }
+    .gal-code-btn {
+      border: 1.5px solid rgba(255,211,107,.5);
+      background: linear-gradient(135deg, #e8b34a, #c8971a); color: #1a2d5a;
+      border-radius: 9px; padding: 8px 14px;
+      font-size: .85rem; font-weight: 900; cursor: pointer;
+      font-family: "Nunito", sans-serif; letter-spacing: .3px;
+      transition: transform .12s, filter .15s, box-shadow .15s;
+    }
+    .gal-code-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 4px 14px rgba(232,179,74,.45); }
+    .gal-code-btn:disabled { opacity: .55; cursor: default; }
+    .gal-code-msg {
+      position: absolute; top: calc(100% + 5px); left: 0; right: 0;
+      font-size: .72rem; font-weight: 800; text-align: center;
+      line-height: 1.25; pointer-events: none;
+    }
+    .gal-code-msg.ok  { color: #7be0a4; }
+    .gal-code-msg.err { color: #ff9a9a; }
+    @media (max-width: 620px) {
+      .gal-code-box { margin-left: 8px; }
+      .gal-code-input { width: 84px; }
+    }
     .gal-header-spacer { flex: 1; }
     .gal-sort-sel {
       border: 1.5px solid rgba(95,179,214,.4);
@@ -8743,6 +8789,22 @@
       transition: transform .16s ease;
     }
     .gal-tile:hover .gal-tile-img { transform: scale(1.08); }
+    /* Background tiles: rounded-rectangle preview instead of a round avatar */
+    .gal-bg-ring {
+      width: 92px; height: 70px; border-radius: 12px; overflow: hidden;
+      padding: 0; background: #0b2140;
+    }
+    .gal-bg-img {
+      width: 100%; height: 100%; object-fit: cover; border-radius: 12px;
+      filter: none;
+    }
+    .gal-bg-tile.gal-locked .gal-bg-img { filter: grayscale(.7) brightness(.6); }
+    .gal-bg-detail-preview {
+      width: 100%; max-width: 260px; aspect-ratio: 4 / 3;
+      border-radius: 16px; overflow: hidden; margin: 4px auto 10px;
+      border: 2px solid rgba(255,211,107,.4); box-shadow: 0 8px 28px rgba(0,0,0,.4);
+    }
+    .gal-bg-detail-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .gal-tile-name {
       font-size: .84rem; font-weight: 800; color: #eaf4ff; text-align: center;
       line-height: 1.18; max-width: 100%; letter-spacing: .2px;
@@ -9023,6 +9085,12 @@
     <div class="gal-hero-info">
       <div class="gal-title">Avatar Gallery</div>
       <div class="gal-hero-sub"><span class="gal-hero-name" id="gal-hero-name">—</span> · <span id="gal-hero-level">Level 1</span></div>
+    </div>
+    <div class="gal-code-box">
+      <input id="gal-code-input" class="gal-code-input" type="text" inputmode="numeric" maxlength="6"
+             placeholder="Insert code" autocomplete="off" aria-label="Redeem 6-digit donation code">
+      <button id="gal-code-btn" class="gal-code-btn" type="button">Redeem</button>
+      <div id="gal-code-msg" class="gal-code-msg"></div>
     </div>
     <div class="gal-header-spacer"></div>
     <select class="gal-sort-sel" id="gal-sort-sel" title="Sort &amp; filter">
@@ -11034,6 +11102,36 @@
     return u + "?v=" + _AVATAR_ART_VERSION;
   }
   window.__fishAvSrc = _avSrc;
+
+  // Cache-busted URL for an exclusive background path.
+  function _bgSrc(url) {
+    const u = String(url || "");
+    if (!u.startsWith("/backgrounds/") || u.includes("?")) return u;
+    return u + "?v=" + _AVATAR_ART_VERSION;
+  }
+  // Render (or clear) an exclusive background behind an avatar. `wrapEl` is the
+  // circular/rounded avatar container that holds the avatar <img>. Passing a
+  // falsy bgUrl removes any previously-applied background. The avatar <img> is
+  // lifted above the background layer so transparent avatar art shows the scene.
+  function _applyAvBg(wrapEl, bgUrl) {
+    if (!wrapEl) return;
+    let layer = wrapEl.querySelector(":scope > .cc-avbg");
+    const clean = String(bgUrl || "");
+    if (!clean || !clean.startsWith("/backgrounds/")) {
+      if (layer) layer.remove();
+      wrapEl.classList.remove("cc-has-bg");
+      return;
+    }
+    if (getComputedStyle(wrapEl).position === "static") wrapEl.style.position = "relative";
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.className = "cc-avbg";
+      wrapEl.insertBefore(layer, wrapEl.firstChild);
+    }
+    layer.style.backgroundImage = `url("${_bgSrc(clean)}")`;
+    wrapEl.classList.add("cc-has-bg");
+  }
+  window.__fishApplyAvBg = _applyAvBg;
 
   // ── URL / API utilities (identical to index.html) ──────────────
   function normalizeBaseUrl(raw) { return String(raw||"").trim().replace(/\/+$/,""); }
@@ -14130,8 +14228,8 @@
     renderMyBoard(me, legalActions, isMyTurn);
     renderHand(me, legalActions, mustDiscard, discardExcess);
     renderPlayerSeats(players, state.turn_index, myIdx);
-    // Make sure the server has our current avatar for this seat (self-throttled).
-    if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} }
+    // Make sure the server has our current avatar + background for this seat (self-throttled).
+    if (myIdx != null) { try { pushMySeatAvatar(); } catch (e) {} try { pushMySeatBackground(); } catch (e) {} }
     renderActionBar(legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
     renderGuideBar(me, legalActions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive);
 
@@ -14714,6 +14812,26 @@
   }
   window.__fishPushSeatAvatar = pushMySeatAvatar;
 
+  // Push our equipped background to the server for this seat so every client
+  // renders it behind our avatar. Self-throttled like the avatar push.
+  let _lastPushedBg = "";
+  function pushMySeatBackground() {
+    if (!roomId) return;
+    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
+    if (!tok) return;
+    let myBg = "";
+    try { if (typeof window.__fishEquippedBackground === "function") myBg = String(window.__fishEquippedBackground() || ""); } catch (e) { myBg = ""; }
+    const key = roomId + "|" + myBg;
+    if (key === _lastPushedBg) return;
+    _lastPushedBg = key;
+    try {
+      apiPost(`/api/rooms/${roomId}/background`, { seat_token: tok, background: myBg }, { timeoutMs: 6000 }).catch(() => {});
+    } catch (e) {}
+  }
+  window.__fishPushSeatBackground = pushMySeatBackground;
+  // Called when the player equips/removes a background mid-session.
+  window.__fishReportBackground = function () { _lastPushedBg = ""; try { pushMySeatBackground(); } catch (e) {} };
+
   function renderPlayerSeats(players, turnIndex, myIdx) {
     const leftEl  = document.getElementById("pv-seats-left");
     const rightEl = document.getElementById("pv-seats-right");
@@ -14788,6 +14906,11 @@
       img.alt = p.name || `Seat ${slot + 1}`;
       img.onerror = () => { img.onerror = null; img.src = "/avatars/mullet.png"; };
       aw.appendChild(img);
+      // Exclusive background behind this player's avatar. Mine comes from my
+      // equipped selection; others' from the per-seat value the server relays.
+      let seatBg = String(p.background || "");
+      if (isMe) { try { seatBg = String(window.__fishEquippedBackground?.() || seatBg || ""); } catch (_) {} }
+      _applyAvBg(aw, seatBg);
 
       const nm = document.createElement("div");
       nm.className = "pv-seat-name";
@@ -20362,7 +20485,39 @@
     { id:"giant-squid", name:"Giant Squid", species:"Cephalopods", img:"/avatars/giant-squid.png",
       facts:"Their massive 10-inch eyes, about the size of a baseball, help them spot bioluminescent prey in the pitch-black depths of the ocean.",
       unlock:{ type:"rank", tier:"king", label:"I will be King of the Critters." } },
+
+    // ── Exclusive Avatars (donation / code-unlocked) ─────────────
+    { id:"amberjack", name:"Amberjack", species:"Exclusive Avatars", img:"/avatars/amberjack.png",
+      facts:"Amberjack have a dark stripe on their head that acts as a mood ring; it gets much darker and more defined when the fish is excited or hunting.",
+      unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
+    { id:"fish", name:"Fish", species:"Exclusive Avatars", img:"/avatars/fish.png",
+      facts:"It's just a fish…",
+      unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
   ];
+
+  // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
+  // Cosmetic backgrounds that render behind your avatar everywhere it appears.
+  // One per in-game ocean. $2.50 each — unlocked by entering a donation code.
+  const EXCLUSIVE_BACKGROUNDS = [
+    { id:"bg-kelp",           name:"Kelp Forest",      img:"/backgrounds/bg-kelp.png",            facts:"Golden kelp swaying in sunlit green water." },
+    { id:"bg-coral-reef",     name:"Coral Reef",       img:"/backgrounds/bg-coral-reef.png",      facts:"A vivid coral garden bursting with color." },
+    { id:"bg-artificial-reef",name:"Artificial Reef",  img:"/backgrounds/bg-artificial-reef.png", facts:"A sunken structure reclaimed by the sea." },
+    { id:"bg-tide-pool",      name:"Tide Pool",        img:"/backgrounds/bg-tide-pool.png",       facts:"A shimmering rocky pool left by the tide." },
+    { id:"bg-arctic",         name:"Arctic Ocean",     img:"/backgrounds/bg-arctic.png",          facts:"Icy blue water beneath drifting floes." },
+    { id:"bg-deep",           name:"Deep Ocean",       img:"/backgrounds/bg-deep.png",            facts:"The dark, mysterious open deep." },
+    { id:"bg-pier",           name:"Pier",             img:"/backgrounds/bg-pier.png",            facts:"Pilings and dappled light under the dock." },
+  ];
+  const _BG_BY_ID  = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.id, b]));
+  const _BG_BY_IMG = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.img, b]));
+  function backgroundById(id){ return _BG_BY_ID[id] || null; }
+  function normalizeBgUrl(u){
+    let s = String(u||"").trim();
+    if (!s) return "";
+    const i = s.indexOf("/backgrounds/");
+    if (i >= 0) s = s.slice(i);
+    s = s.split("?")[0];
+    return s.startsWith("/backgrounds/") ? s : "";
+  }
   // Competitive rank tier ordering (Unranked < Bronze < Silver < Gold < Diamond < Emerald < King).
   function rankTierValue(rankName){
     const n = String(rankName||"").trim().toLowerCase();
@@ -20749,6 +20904,7 @@
     // the outer-scope ANIMAL_AVATARS registry.
     const AVATAR_OPTIONS = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type === "starter").map(a => a.img);
     let _unlockedIcons = []; // animal icons unlocked through gameplay
+    let _unlockedBackgrounds = []; // exclusive backgrounds unlocked via donation codes
     let _iconUnlockCounts = null; // global popularity map (best-effort, loaded lazily)
     const GUEST_UNLOCKED_ICONS_PREFIX = "cc_unlocked_icons_";
     let _signupAvatarUrl = "";
@@ -21091,6 +21247,7 @@
         if (_galSavedState) {
           _activeProfile  = _galSavedState.activeProfile;
           _unlockedIcons  = _galSavedState.unlockedIcons;
+          _unlockedBackgrounds = _galSavedState.unlockedBackgrounds || [];
           _playerNickname = _galSavedState.playerNickname;
           _galSavedState  = null;
         }
@@ -21110,11 +21267,14 @@
       _galSavedState = {
         activeProfile:  _activeProfile,
         unlockedIcons:  _unlockedIcons,
+        unlockedBackgrounds: _unlockedBackgrounds,
         playerNickname: _playerNickname,
       };
       _activeProfile  = profile;
       _unlockedIcons  = Array.isArray(profile.unlocked_icons)
         ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
+      _unlockedBackgrounds = Array.isArray(profile.unlocked_backgrounds)
+        ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : [];
       _playerNickname = profile.nickname || "Player";
       _galReadOnly = true;
       // Hide the profile modal behind the gallery (re-shown on gallery close).
@@ -21133,6 +21293,7 @@
       if (_galSavedState) {
         _activeProfile  = _galSavedState.activeProfile;
         _unlockedIcons  = _galSavedState.unlockedIcons;
+        _unlockedBackgrounds = _galSavedState.unlockedBackgrounds || [];
         _playerNickname = _galSavedState.playerNickname;
         _galSavedState  = null;
       }
@@ -21146,22 +21307,27 @@
       const equipped = _galEquippedImg();
       const a = animalByImg(equipped);
       const img = $a("gal-hero-img");
-      if (img) { img.src = _avSrc(equipped); img.alt = a ? a.name : ""; }
+      if (img) {
+        img.src = _avSrc(equipped); img.alt = a ? a.name : "";
+        try { _applyAvBg(img.parentElement, _galEquippedBg()); } catch {}
+      }
       const nameEl = $a("gal-hero-name");
       if (nameEl) nameEl.textContent = _playerNickname || (_activeProfile && _activeProfile.nickname) || "Player";
       const lvlEl = $a("gal-hero-level");
       if (lvlEl) { const { level } = _avatarStatsAndLevel(); lvlEl.textContent = "Level " + (level || 1); }
+      const codeBox = document.querySelector(".gal-code-box");
+      if (codeBox) codeBox.style.display = _galReadOnly ? "none" : "";
     }
 
     function _galRenderTabs() {
       const tabs = $a("gal-tabs");
       if (!tabs) return;
-      const groups = ["all", ..._galSpeciesOrder()];
+      const groups = ["all", ..._galSpeciesOrder(), "__backgrounds__"];
       tabs.innerHTML = "";
       groups.forEach(g => {
         const btn = document.createElement("button");
         btn.className = "gal-tab" + (g === _galSpecies ? " active" : "");
-        btn.textContent = g === "all" ? "All Species" : g;
+        btn.textContent = g === "all" ? "All Species" : (g === "__backgrounds__" ? "Backgrounds" : g);
         btn.addEventListener("click", () => {
           _galSpecies = g;
           _galRenderTabs();
@@ -21295,6 +21461,9 @@
         _galSpeciesOrder().forEach(sp => {
           renderSection(sp, ANIMAL_AVATARS.filter(a => a.species === sp));
         });
+        _galRenderBgSection(wrap);
+      } else if (_galSpecies === "__backgrounds__") {
+        _galRenderBgSection(wrap);
       } else {
         renderSection(_galSpecies, ANIMAL_AVATARS.filter(a => a.species === _galSpecies));
       }
@@ -21304,9 +21473,74 @@
       }
     }
 
+    // Render the "Exclusive Backgrounds" section (cosmetic, code-unlocked).
+    function _galRenderBgSection(wrap) {
+      const equippedBg = _galEquippedBg();
+      let bgs = EXCLUSIVE_BACKGROUNDS.slice();
+      // Honor the unlocked/locked filter (reuse the avatar filter intent).
+      if (_galSort === "unlocked") bgs = bgs.filter(b => isBackgroundUnlocked(b.img));
+      else if (_galSort === "locked") bgs = bgs.filter(b => !isBackgroundUnlocked(b.img));
+      if (!bgs.length) return;
+      const section = document.createElement("div");
+      section.className = "gal-species-section";
+      const title = document.createElement("div");
+      title.className = "gal-species-title";
+      const unlockedN = bgs.filter(b => isBackgroundUnlocked(b.img)).length;
+      title.innerHTML = `Exclusive Backgrounds <span class="gal-species-count">${unlockedN} / ${bgs.length} unlocked</span>`;
+      section.appendChild(title);
+      const grid = document.createElement("div");
+      grid.className = "gal-grid";
+      bgs.forEach(bg => grid.appendChild(_galMakeBgTile(bg, equippedBg)));
+      section.appendChild(grid);
+      wrap.appendChild(section);
+    }
+
+    function _galMakeBgTile(bg, equippedBg) {
+      const unlocked = isBackgroundUnlocked(bg.img);
+      const equipped = bg.img === equippedBg;
+      const tile = document.createElement("div");
+      tile.className = "gal-tile gal-bg-tile"
+        + (unlocked ? "" : " gal-locked")
+        + (equipped ? " gal-equipped" : "")
+        + (bg.id === _galSelectedId ? " gal-selected" : "");
+      tile.setAttribute("data-bg-id", bg.id);
+
+      const ring = document.createElement("div");
+      ring.className = "gal-tile-img-ring gal-bg-ring";
+      const im = document.createElement("img");
+      im.className = "gal-tile-img gal-bg-img";
+      im.src = _avSrc(bg.img); im.alt = bg.name; im.loading = "lazy";
+      ring.appendChild(im);
+      tile.appendChild(ring);
+
+      const nm = document.createElement("div");
+      nm.className = "gal-tile-name";
+      nm.textContent = bg.name;
+      tile.appendChild(nm);
+
+      if (!unlocked) {
+        const lock = document.createElement("div");
+        lock.className = "gal-tile-lock"; lock.textContent = "🔒";
+        tile.appendChild(lock);
+      }
+      if (equipped) {
+        const tag = document.createElement("div");
+        tag.className = "gal-tag gal-tag-equipped"; tag.textContent = "Equipped";
+        tile.appendChild(tag);
+      }
+
+      tile.addEventListener("click", () => {
+        _galSelectedId = bg.id;
+        _galRenderGrid();
+        _galRenderBgDetail(bg.id);
+      });
+      return tile;
+    }
+
     function _galRenderDetail(id) {
       const panel = $a("gal-detail");
       if (!panel) return;
+      if (id && _BG_BY_ID[id]) { _galRenderBgDetail(id); return; }
       const a = id ? animalById(id) : null;
       if (!a) {
         panel.className = "gal-detail gal-detail-empty";
@@ -21392,6 +21626,64 @@
       });
     }
 
+    // Detail panel for an exclusive background (preview, unlock req, equip).
+    function _galRenderBgDetail(id) {
+      const panel = $a("gal-detail");
+      if (!panel) return;
+      const bg = _BG_BY_ID[id];
+      if (!bg) { panel.className = "gal-detail gal-detail-empty"; panel.innerHTML = "Select an animal to view details."; return; }
+      const unlocked = isBackgroundUnlocked(bg.img);
+      const equipped = bg.img === _galEquippedBg();
+
+      panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
+      let html = "";
+      html += `<div class="gal-bg-detail-preview"><img src="${_avSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
+      html += `<div class="gal-detail-name">${escapeHtml(bg.name)}</div>`;
+      html += `<div class="gal-detail-species">Exclusive Background</div>`;
+      if (equipped)       html += `<div class="gal-detail-status gal-status-equipped">★ Currently Equipped</div>`;
+      else if (unlocked)  html += `<div class="gal-detail-status gal-status-unlocked">✓ Unlocked</div>`;
+      else                html += `<div class="gal-detail-status gal-status-locked">🔒 Locked</div>`;
+      html += `<div class="gal-detail-facts">${escapeHtml(bg.facts || "")}</div>`;
+
+      if (!unlocked) {
+        html += `<div class="gal-detail-reqbox">`;
+        html += `<div class="gal-req-label">Unlock Requirement</div>`;
+        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($2.50 per background)</div>`;
+        html += `</div>`;
+      }
+
+      if (unlocked && !_galReadOnly) {
+        if (!equipped) {
+          html += `<div class="gal-equip-q">Equip this background behind your avatar?</div>`;
+          html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-bg-no">No</button><button class="pv-btn gold" id="gal-bg-yes">Equip</button></div>`;
+        } else {
+          html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-bg-remove">Remove background</button></div>`;
+        }
+      }
+      panel.innerHTML = html;
+
+      const yesBtn = $a("gal-bg-yes");
+      if (yesBtn) yesBtn.addEventListener("click", async () => {
+        yesBtn.disabled = true;
+        try {
+          await applyBackgroundSelection(bg.img);
+          _galRenderHeader(); _galRenderGrid(); _galRenderBgDetail(bg.id);
+          const p = $a("gal-detail");
+          if (p) { const n = document.createElement("div"); n.className = "gal-equip-confirm"; n.textContent = "✓ Background equipped!"; p.appendChild(n); }
+        } catch { yesBtn.disabled = false; }
+      });
+      const noBtn = $a("gal-bg-no");
+      if (noBtn) noBtn.addEventListener("click", () => { _galSelectedId = null; _galRenderGrid(); _galRenderDetail(null); });
+      const rmBtn = $a("gal-bg-remove");
+      if (rmBtn) rmBtn.addEventListener("click", async () => {
+        rmBtn.disabled = true;
+        try {
+          await applyBackgroundSelection("");
+          _galRenderHeader(); _galRenderGrid(); _galRenderBgDetail(bg.id);
+        } catch { rmBtn.disabled = false; }
+      });
+    }
+
     // Wire gallery controls
     (function wireGallery() {
       const back = $a("gal-back-btn");
@@ -21404,6 +21696,44 @@
       const gal = $a("avatar-gallery");
       if (gal) document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && gal.classList.contains("open")) closeAvatarGallery();
+      });
+
+      // Donation code redemption
+      const codeInput = $a("gal-code-input");
+      const codeBtn   = $a("gal-code-btn");
+      const codeMsg   = $a("gal-code-msg");
+      const showCodeMsg = (text, ok) => {
+        if (!codeMsg) return;
+        codeMsg.textContent = text || "";
+        codeMsg.className = "gal-code-msg" + (text ? (ok ? " ok" : " err") : "");
+      };
+      if (codeInput) {
+        codeInput.addEventListener("input", () => {
+          // Numeric only, max 6 — clear any stale message as they type.
+          codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
+          showCodeMsg("", false);
+        });
+        codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") codeBtn?.click(); });
+      }
+      if (codeBtn) codeBtn.addEventListener("click", async () => {
+        if (_galReadOnly) return; // never redeem while viewing someone else's collection
+        const code = String(codeInput?.value || "").replace(/\D/g, "");
+        if (code.length !== 6) { showCodeMsg("Enter a 6-digit code.", false); return; }
+        codeBtn.disabled = true;
+        showCodeMsg("Checking…", true);
+        try {
+          const res = await redeemDonationCode(code);
+          showCodeMsg(res.msg, res.ok);
+          if (res.ok) {
+            if (codeInput) codeInput.value = "";
+            try { _galRenderHeader(); _galRenderTabs(); _galRenderGrid(); } catch {}
+            if (res.refresh) setTimeout(() => showCodeMsg("", false), 4000);
+          }
+        } catch {
+          showCodeMsg("Could not redeem — try again.", false);
+        } finally {
+          codeBtn.disabled = false;
+        }
       });
     })();
 
@@ -21968,6 +22298,17 @@
       };
       img.src = _avSrc(avatarUrl);
       wrap.classList.add("has-image");
+      // Own equipped background behind the home/stats avatar.
+      try { if (_authUser) _applyAvBg(wrap, _galEquippedBg()); else _applyAvBg(wrap, ""); } catch {}
+    }
+
+    // Re-apply my equipped background to all currently-visible own-avatar spots
+    // (called right after equip/remove so the change shows without a reload).
+    function _applyOwnBackgroundEverywhere() {
+      const bg = (typeof _galEquippedBg === "function") ? _galEquippedBg() : "";
+      try { const w = $a("stats-avatar"); if (w) _applyAvBg(w, bg); } catch {}
+      try { const hi = $a("gal-hero-img"); if (hi && hi.parentElement) _applyAvBg(hi.parentElement, bg); } catch {}
+      // In-game: my seat re-applies on the next state render via renderPlayerSeats.
     }
 
     function formatFriendCodeLabel(name, code) {
@@ -22442,6 +22783,9 @@
       // Load unlocked icons from profile
       _unlockedIcons = Array.isArray(profile?.unlocked_icons)
         ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+        : [];
+      _unlockedBackgrounds = Array.isArray(profile?.unlocked_backgrounds)
+        ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean)
         : [];
       const savedAvatar = normalizeAvatarUrl(_activeProfile?.avatar_url || "");
       const hasSelectableAvatar = hasStoredSelectableAvatar(profile);
@@ -23267,6 +23611,9 @@
           // Load unlocked animal icons before judging avatar validity.
           _unlockedIcons = Array.isArray(profile?.unlocked_icons)
             ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
+            : [];
+          _unlockedBackgrounds = Array.isArray(profile?.unlocked_backgrounds)
+            ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean)
             : [];
           // One-time achievement system v2 reset (clears old unlocks + XP).
           try { await runAchievementResetIfNeeded(user.uid, _activeProfile); } catch {}
@@ -27900,6 +28247,89 @@
       if (!selected) return false;
       try { await applyAvatarSelection(selected); return true; } catch { return false; }
     };
+
+    // ── Exclusive backgrounds: unlock state, grant, and equip ─────────
+    function isBackgroundUnlocked(img) {
+      const n = normalizeBgUrl(img);
+      return !!n && _unlockedBackgrounds.includes(n);
+    }
+    function _galEquippedBg() {
+      const n = normalizeBgUrl(_activeProfile?.background_url || "");
+      return (n && isBackgroundUnlocked(n)) ? n : "";
+    }
+    // The equipped background URL for ANY render (own profile). Returns "" if none.
+    window.__fishEquippedBackground = () => _galEquippedBg();
+    window.__fishGetUnlockedBackgrounds = () => [..._unlockedBackgrounds];
+    // Grant a background (donation reward). Returns true if newly unlocked.
+    window.__fishGrantUnlockedBackground = async (bgImg) => {
+      const path = normalizeBgUrl(bgImg);
+      if (!path || !_BG_BY_IMG[path]) return false;
+      if (_unlockedBackgrounds.includes(path)) return false; // already owned
+      _unlockedBackgrounds = [..._unlockedBackgrounds, path];
+      try {
+        if (_authUser && _db) {
+          await _db.collection("users").doc(_authUser.uid).update({
+            unlocked_backgrounds: firebase.firestore.FieldValue.arrayUnion(path)
+          });
+          if (_activeProfile) _activeProfile = { ..._activeProfile, unlocked_backgrounds: _unlockedBackgrounds };
+        }
+      } catch { /* best-effort */ }
+      return true;
+    };
+    // Equip (or, with "", unequip) an unlocked background. Persists background_url.
+    async function applyBackgroundSelection(bgImg) {
+      const path = bgImg ? normalizeBgUrl(bgImg) : "";
+      if (path && !isBackgroundUnlocked(path)) return false;
+      if (_activeProfile) _activeProfile = { ..._activeProfile, background_url: path };
+      try {
+        if (_authUser && _db) {
+          await _db.collection("users").doc(_authUser.uid).update({ background_url: path });
+        }
+      } catch { /* best-effort */ }
+      // Report to the live game so other players see it behind your seat avatar.
+      try { window.__fishReportBackground?.(path); } catch {}
+      try { _applyOwnBackgroundEverywhere?.(); } catch {}
+      return true;
+    }
+
+    // ── Donation code redemption (Firestore-validated, per-item) ──────
+    // Codes live in the `donation_codes` collection (doc id = the 6-digit code).
+    // Each doc: { reward_type:"avatar"|"background", reward_img:"/avatars/..png"|"/backgrounds/..png" }.
+    // Security rules allow GET (validate a known code) but not LIST (no enumeration).
+    async function redeemDonationCode(rawCode) {
+      const code = String(rawCode || "").replace(/\D/g, "").trim();
+      if (code.length !== 6) return { ok:false, msg:"Enter a 6-digit code." };
+      if (!_authUser || !_db)  return { ok:false, msg:"Sign in to redeem a code." };
+      let data = null;
+      try {
+        const snap = await _db.collection("donation_codes").doc(code).get();
+        if (!snap.exists) return { ok:false, msg:"Invalid code." };
+        data = snap.data() || {};
+      } catch (e) {
+        return { ok:false, msg:"Could not check code — try again." };
+      }
+      const type = String(data.reward_type || "").toLowerCase();
+      if (type === "avatar") {
+        const img = normalizeAvatarUrl(data.reward_img || "");
+        const an  = img ? animalByImg(img) : null;
+        if (!img || !an) return { ok:false, msg:"Code reward not found." };
+        if (isAvatarUnlocked(img)) return { ok:false, msg:`You already own ${an.name}.` };
+        const granted = await window.__fishGrantUnlockedIcon(img);
+        if (!granted) return { ok:false, msg:`You already own ${an.name}.` };
+        try { window.__fishQueueAnimalUnlock?.(an.id); } catch {}
+        return { ok:true, msg:`Unlocked ${an.name}! 🎉`, refresh:true };
+      }
+      if (type === "background") {
+        const img = normalizeBgUrl(data.reward_img || "");
+        const bg  = img ? _BG_BY_IMG[img] : null;
+        if (!img || !bg) return { ok:false, msg:"Code reward not found." };
+        if (isBackgroundUnlocked(img)) return { ok:false, msg:`You already own the ${bg.name} background.` };
+        const granted = await window.__fishGrantUnlockedBackground(img);
+        if (!granted) return { ok:false, msg:`You already own the ${bg.name} background.` };
+        return { ok:true, msg:`Unlocked the ${bg.name} background! 🎉`, refresh:true };
+      }
+      return { ok:false, msg:"Code reward not recognized." };
+    }
     // Re-evaluate stat/level based unlocks against current stats. Returns the
     // list of newly-unlocked animal ids (caller decides whether to show a screen).
     window.__fishSyncStatUnlocks = async () => {
