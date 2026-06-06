@@ -26427,11 +26427,30 @@
       return `Season Q${qStr} ${yearStr}  ·  ${startStr} – ${endStr}`;
     }
 
+    // Real creature icons for each competitive rank tier (replaces the emoji).
+    // King keeps the 👑 crown (no creature avatar).
+    const _COMP_RANK_IMG = {
+      bronze:  "/avatars/barracuda.png",
+      silver:  "/avatars/spiny-lobster.png",
+      gold:    "/avatars/goliath-grouper.png",
+      diamond: "/avatars/bottlenose-dolphin.png",
+      emerald: "/avatars/emperor-penguin.png",
+    };
+    function _compRankIcon(tier, emoji, size) {
+      const img = _COMP_RANK_IMG[tier];
+      const s = size || 18;
+      if (img) {
+        const src = (typeof _avSrc === "function") ? _avSrc(img) : img;
+        return `<img src="${src}" alt="" style="width:${s}px;height:${s}px;object-fit:contain;vertical-align:middle;display:inline-block;border-radius:50%;">`;
+      }
+      return emoji || "🐟";
+    }
+
     function _compRankBadgeHtml(division, tier) {
       const cls = tier ? `ph-rank-${tier}` : "ph-rank-bronze";
       const info = _COMP_RANK_DIVS.find(d => d.name === division);
       const emo  = info ? info.emoji : "🐟";
-      return `<span class="ph-rank-badge ${cls}">${emo} ${escapeHtml(division)}</span>`;
+      return `<span class="ph-rank-badge ${cls}" style="display:inline-flex;align-items:center;gap:5px;">${_compRankIcon(tier, emo, 18)} ${escapeHtml(division)}</span>`;
     }
 
     async function checkAndApplySeasonReset() {
@@ -26586,10 +26605,9 @@
       setHtml("ph-comp-rank-badge", rankInfo.division !== "Unranked" ? _compRankBadgeHtml(rankInfo.division, rankInfo.tier) : "");
 
       // ── Season Summary card ────────────────────────────────────
-      const tierEmoji = { bronze:"🐠", silver:"🦞", gold:"🐡", diamond:"🐬", emerald:"🐧", king:"👑" };
       const summBadge = $a("ph-ss-badge-img");
       if (summBadge) {
-        summBadge.textContent = tierEmoji[rankInfo.tier] || "🐠";
+        summBadge.innerHTML = _compRankIcon(rankInfo.tier, "👑", 44);
         summBadge.className = "ph-ss-rank-badge-img ph-rank-prog-badge-wrap tier-" + (rankInfo.tier || "bronze");
       }
       set("ph-ss-rank-name", rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
@@ -26649,7 +26667,7 @@
           }
           const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
           return `<div class="ph-rank-prog-tier">
-            <div class="${badgeCls}">${t.emoji}</div>
+            <div class="${badgeCls}">${_compRankIcon(t.tier, t.emoji, 44)}</div>
             <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
             ${divHtml}
           </div>${connector}`;
