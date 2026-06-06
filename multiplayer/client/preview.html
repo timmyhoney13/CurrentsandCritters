@@ -11108,10 +11108,12 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws6";
+  const _AVATAR_ART_VERSION = "ws7";
   function _avSrc(url) {
     const u = String(url || "");
-    if (!u.startsWith("/avatars/") || u.includes("?")) return u;
+    // Cache-bust both avatar AND background art so a version bump always refreshes
+    // them (background tiles in the gallery pass through here too).
+    if (u.includes("?") || !(u.startsWith("/avatars/") || u.startsWith("/backgrounds/"))) return u;
     return u + "?v=" + _AVATAR_ART_VERSION;
   }
   window.__fishAvSrc = _avSrc;
@@ -21552,7 +21554,7 @@
       ring.className = "gal-tile-img-ring gal-bg-ring";
       const im = document.createElement("img");
       im.className = "gal-tile-img gal-bg-img";
-      im.src = _avSrc(bg.img); im.alt = bg.name; im.loading = "lazy";
+      im.src = _bgSrc(bg.img); im.alt = bg.name; im.loading = "lazy";
       ring.appendChild(im);
       tile.appendChild(ring);
 
@@ -21680,7 +21682,7 @@
 
       panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
       let html = "";
-      html += `<div class="gal-bg-detail-preview"><img src="${_avSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
+      html += `<div class="gal-bg-detail-preview"><img src="${_bgSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
       html += `<div class="gal-detail-name">${escapeHtml(bg.name)}</div>`;
       html += `<div class="gal-detail-species">Exclusive Background</div>`;
       if (equipped)       html += `<div class="gal-detail-status gal-status-equipped">★ Currently Equipped</div>`;
