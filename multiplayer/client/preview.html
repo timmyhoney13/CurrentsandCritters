@@ -20535,6 +20535,7 @@
     { id:"bg-arctic",         name:"Arctic Ocean",     img:"/backgrounds/bg-arctic.png",          facts:"Icy blue water beneath drifting floes." },
     { id:"bg-deep",           name:"Deep Ocean",       img:"/backgrounds/bg-deep.png",            facts:"The dark, mysterious open deep." },
     { id:"bg-pier",           name:"Pier",             img:"/backgrounds/bg-pier.png",            facts:"Pilings and dappled light under the dock." },
+    { id:"bg-mangrove",       name:"Mangrove",         img:"/backgrounds/bg-mangrove.png",        facts:"Tangled roots mirrored in warm, shallow water." },
   ];
   const _BG_BY_ID  = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.id, b]));
   const _BG_BY_IMG = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.img, b]));
@@ -28358,35 +28359,69 @@
       const code = String(rawCode || "").replace(/\D/g, "").trim();
       if (code.length !== 6) return { ok:false, msg:"Enter a 6-digit code." };
       if (!_authUser || !_db)  return { ok:false, msg:"Sign in to redeem a code." };
+
+      // 1) Read the code document to learn the reward + remaining uses.
+      const ref = _db.collection("donation_codes").doc(code);
       let data = null;
       try {
-        const snap = await _db.collection("donation_codes").doc(code).get();
+        const snap = await ref.get();
         if (!snap.exists) return { ok:false, msg:"Invalid code." };
         data = snap.data() || {};
       } catch (e) {
         return { ok:false, msg:"Could not check code — try again." };
       }
       const type = String(data.reward_type || "").toLowerCase();
+      // max_uses: 1 = single-use (default); 0 / absent-with-unlimited:true = unlimited.
+      const unlimited = data.unlimited === true || Number(data.max_uses) === 0;
+      const maxUses   = unlimited ? Infinity : (Number(data.max_uses) > 0 ? Number(data.max_uses) : 1);
+
+      // Resolve + validate the reward, and bail early if already owned (so we
+      // don't burn a use of the code for nothing).
+      let kind, img, label, alreadyMsg, grant;
       if (type === "avatar") {
-        const img = normalizeAvatarUrl(data.reward_img || "");
-        const an  = img ? animalByImg(img) : null;
+        img = normalizeAvatarUrl(data.reward_img || "");
+        const an = img ? animalByImg(img) : null;
         if (!img || !an) return { ok:false, msg:"Code reward not found." };
+        kind = "avatar"; label = an.name;
         if (isAvatarUnlocked(img)) return { ok:false, msg:`You already own ${an.name}.` };
-        const granted = await window.__fishGrantUnlockedIcon(img);
-        if (!granted) return { ok:false, msg:`You already own ${an.name}.` };
-        try { window.__fishQueueAnimalUnlock?.(an.id); } catch {}
-        return { ok:true, msg:`Unlocked ${an.name}! 🎉`, refresh:true };
-      }
-      if (type === "background") {
-        const img = normalizeBgUrl(data.reward_img || "");
-        const bg  = img ? _BG_BY_IMG[img] : null;
+        grant = async () => { const g = await window.__fishGrantUnlockedIcon(img); if (g) { try { window.__fishQueueAnimalUnlock?.(an.id); } catch {} } return g; };
+      } else if (type === "background") {
+        img = normalizeBgUrl(data.reward_img || "");
+        const bg = img ? _BG_BY_IMG[img] : null;
         if (!img || !bg) return { ok:false, msg:"Code reward not found." };
+        kind = "background"; label = bg.name;
         if (isBackgroundUnlocked(img)) return { ok:false, msg:`You already own the ${bg.name} background.` };
-        const granted = await window.__fishGrantUnlockedBackground(img);
-        if (!granted) return { ok:false, msg:`You already own the ${bg.name} background.` };
-        return { ok:true, msg:`Unlocked the ${bg.name} background! 🎉`, refresh:true };
+        grant = async () => window.__fishGrantUnlockedBackground(img);
+      } else {
+        return { ok:false, msg:"Code reward not recognized." };
       }
-      return { ok:false, msg:"Code reward not recognized." };
+
+      // 2) Atomically reserve one use of the code (rejects if all uses spent).
+      //    Unlimited codes still bump `uses` for your own bookkeeping.
+      try {
+        await _db.runTransaction(async (tx) => {
+          const s = await tx.get(ref);
+          if (!s.exists) throw new Error("missing");
+          const d = s.data() || {};
+          const used = Number(d.uses || 0);
+          if (!unlimited && used >= maxUses) throw new Error("spent");
+          tx.update(ref, { uses: used + 1 });
+        });
+      } catch (e) {
+        if (String(e && e.message) === "spent") return { ok:false, msg:"This code has already been used." };
+        return { ok:false, msg:"Could not redeem — try again." };
+      }
+
+      // 3) Grant the reward (the use is already reserved).
+      const granted = await grant();
+      if (!granted) {
+        return kind === "avatar"
+          ? { ok:false, msg:`You already own ${label}.` }
+          : { ok:false, msg:`You already own the ${label} background.` };
+      }
+      return kind === "avatar"
+        ? { ok:true, msg:`Unlocked ${label}! 🎉`, refresh:true }
+        : { ok:true, msg:`Unlocked the ${label} background! 🎉`, refresh:true };
     }
     // Re-evaluate stat/level based unlocks against current stats. Returns the
     // list of newly-unlocked animal ids (caller decides whether to show a screen).
