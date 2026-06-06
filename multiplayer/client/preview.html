@@ -26667,7 +26667,7 @@
           }
           const connector = ti < tiers.length - 1 ? `<div class="ph-rank-prog-connector"></div>` : "";
           return `<div class="ph-rank-prog-tier">
-            <div class="${badgeCls}">${_compRankIcon(t.tier, t.emoji, 44)}</div>
+            <div class="${badgeCls}">${_compRankIcon(t.key, t.emoji, 44)}</div>
             <div class="ph-rank-prog-tier-name">${t.name.replace("\n","<br>")}</div>
             ${divHtml}
           </div>${connector}`;
