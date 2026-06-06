@@ -10338,7 +10338,7 @@
     <div style="flex:1;"></div>
     <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table will wait for you to come back.">🏄 Surf's Up!!</button>
     <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
-    <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — only available while the next player hasn't acted yet">↩ Undo Turn</button>
+    <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
     <button class="pv-btn coral" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
@@ -17518,7 +17518,7 @@
     const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === mySeatIdx && latestPayload?.active_action_seat === mySeatIdx;
     const msg = isMidTurn
       ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
-      : "Undo your last turn? The game will revert to before you played. This only works if the next player hasn't moved yet.";
+      : "Undo your last turn? The game will revert to before you played. (Bot turns are fine — this only locks once another human plays after you.)";
     if (!confirm(msg)) return;
     // In competitive mode, use the token for the eligible seat
     let token;
@@ -18529,6 +18529,7 @@
       // nameCount: count of each card name on my board.
       // fullOceans: oceans with all four directional slots occupied.
       const nameCount = {}; let fullOceans = 0, oceanCount = 0, oceansExactlyOne = 0, maxLobstersOneOcean = 0;
+      let baitfishOnBoard = 0, hermitOnBoard = 0;
       try {
         const myP = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
         for (const ocean of (Array.isArray(myP?.board) ? myP.board : [])) {
@@ -18541,6 +18542,8 @@
               const nm = String(c.name || "").trim().toLowerCase();
               if (nm) nameCount[nm] = (nameCount[nm] || 0) + 1;
               if (nm === "lobster") oceanLobsters++;
+              if (nm === "hermit crab") hermitOnBoard++;
+              if (String(c.species || "").trim().toLowerCase() === "baitfish") baitfishOnBoard++;
             }
           }
           if (occupiedDirs === 4) fullOceans++;
@@ -19066,8 +19069,11 @@
         if (maxLobstersOneOcean >= 6
             && await window.__fishGrantUnlockedIcon?.("/avatars/lobster.png")) _queueAnimalUnlock("lobster");
         // Hermit Crab — 4+ player game, Hermit Crab + 6 Bait Fish in one turn.
+        // Primary: per-turn tracker. Fallback: finish with a Hermit Crab and 6+
+        // Bait Fish on your board (the reliable board-state proxy for the combo).
         const _hermitDone = _gameAchTracker?.hermitSixBaitDone
-          || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6);
+          || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6)
+          || (hermitOnBoard >= 1 && baitfishOnBoard >= 6);
         if (_hermitDone && playerCount >= 4 && await window.__fishGrantUnlockedIcon?.("/avatars/hermit-crab.png")) _queueAnimalUnlock("hermit-crab");
 
         // ── Cephalopods ────────────────────────────────────────────
@@ -21192,7 +21198,8 @@
         html += `<div class="gal-req-text">${escapeHtml(a.unlock?.label || "Locked.")}</div>`;
         const prog = animalUnlockProgress(a, stats, level);  // 0..1 or null
         const ptext = animalProgressText(a, stats, level);
-        if (prog !== null && ptext) {
+        // Giant Squid: hide the rank-progress line (just show the requirement).
+        if (prog !== null && ptext && a.id !== "giant-squid") {
           const pct = Math.round(prog * 100);
           html += `<div class="gal-prog-row"><span class="gal-prog-label">Progress</span><span class="gal-prog-val">${escapeHtml(ptext)} · ${pct}%</span></div>`;
           html += `<div class="gal-prog-track"><div class="gal-prog-fill" style="width:${pct}%"></div></div>`;
@@ -24776,8 +24783,8 @@
         info.appendChild(speciesEl);
         info.appendChild(reqEl);
 
-        // Progress bar (for numeric unlock types)
-        if (!unlocked && prog !== null && prog >= 0) {
+        // Progress bar (for numeric unlock types). Giant Squid hides progress.
+        if (!unlocked && prog !== null && prog >= 0 && a.id !== "giant-squid") {
           const progWrap = document.createElement("div");
           progWrap.className = "av-prog-wrap";
           const pct = Math.round(prog * 100);
@@ -24790,7 +24797,7 @@
         right.className = "av-right";
         if (unlocked) {
           right.innerHTML = `<div class="av-badge av-badge-done">✓ Unlocked</div>`;
-        } else if (u.type === "secret") {
+        } else if (u.type === "secret" || a.id === "giant-squid") {
           right.innerHTML = `<div class="av-badge av-badge-secret">🔮 Hidden</div>`;
         } else if (u.type === "event" || u.type === "achievement") {
           right.innerHTML = `<div class="av-badge av-badge-locked">Challenge</div>`;

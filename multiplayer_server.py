@@ -2745,11 +2745,19 @@ class GameRoom:
                     with self.cond:
                         self.legal_actions_by_seat.pop(seat_index, None)
                         self._bump_locked()
-                # Close the previous player's undo window the moment a different player acts.
+                # Close the previous player's undo window ONLY when a HUMAN at a
+                # different seat acts. Bot turns NEVER lock in your turn — you can
+                # still undo after any number of bots have played; only a human
+                # acting after you makes it permanent. (This policy runs for human
+                # seats, so the actor is human; we resolve the seat kind defensively
+                # so e.g. drawing for an away human still counts as a human action.)
                 with self.cond:
                     if self.undo_valid and self.undo_eligible_seat != seat_index:
-                        self.undo_valid = False
-                        self._bump_locked()
+                        _acting_seat = next((s for s in self.seats if s.index == seat_index), None)
+                        _acting_is_human = (_acting_seat is None) or (_acting_seat.kind == "human")
+                        if _acting_is_human:
+                            self.undo_valid = False
+                            self._bump_locked()
                 return chosen
 
         return policy
