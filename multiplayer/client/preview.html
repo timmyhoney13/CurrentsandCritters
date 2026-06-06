@@ -4496,6 +4496,19 @@
       border-radius: 999px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; color: #1a5a9a;
     }
     .ph-lb-empty { color: #8aaccc; font-size: 13px; text-align: center; padding: 28px 16px; font-style: italic; }
+    .ph-lb-add-cell { width: 36px; text-align: center; padding: 0 2px; }
+    .ph-lb-add-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 1.5px solid rgba(44,128,240,.35);
+      background: rgba(44,128,240,.08);
+      color: #2c80f0; font-size: 16px; font-weight: 900; line-height: 1;
+      cursor: pointer; transition: background .15s, border-color .15s, transform .12s;
+      font-family: "Nunito",sans-serif; padding: 0;
+    }
+    .ph-lb-add-btn:hover { background: rgba(44,128,240,.18); border-color: rgba(44,128,240,.6); transform: scale(1.12); }
+    .ph-lb-add-btn.lb-add-sent { border-color: rgba(45,189,130,.5); background: rgba(45,189,130,.12); color: #1daa72; font-size: 13px; cursor: default; transform: none; }
+    .ph-lb-add-btn.lb-add-friends { border-color: rgba(255,180,0,.4); background: rgba(255,180,0,.1); color: #b07000; font-size: 13px; cursor: default; transform: none; }
     .ph-lb-scroll {
       max-height: calc(100vh - 340px); /* expand: fills available screen, leaving room for header + filters */
       min-height: 200px;
@@ -23125,6 +23138,8 @@
     let _phLbMode     = "xp";    // XP leaderboard is shown first
     let _phLbSize     = "all";
     let _phLbCompTab  = "cp";
+    // Cache of friend UIDs so add-friend cells render instantly (refreshed each open).
+    let _lbFriendUids = new Set();
 
     /* ── helpers ── */
     function escHtmlPH(s) {
@@ -23142,6 +23157,14 @@
       let bgn = ""; try { bgn = normalizeBgUrl(bgUrl || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
       const bgStyle = bgn ? ` style="${_bgStyle(bgn)}"` : "";
       return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy"${bgStyle} onerror="this.src='/avatars/mullet.png'">`;
+    }
+    // Returns the HTML for the add-friend cell on a leaderboard row.
+    function phLbAddCell(uid, isMe) {
+      if (!_authUser || isMe) return `<td class="ph-lb-add-cell"></td>`;
+      if (_lbFriendUids.has(uid)) {
+        return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn lb-add-friends" title="Already friends" disabled>★</button></td>`;
+      }
+      return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn" data-add-uid="${escHtmlPH(uid)}" title="Add friend">+</button></td>`;
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
@@ -23210,6 +23233,10 @@
     /* ── main render ── */
     async function renderPhLeaderboard() {
       if (!_db) return;
+      // Refresh friend UIDs so add-friend cells are accurate.
+      if (_authUser) {
+        try { const fl = await loadFriends(_authUser.uid); _lbFriendUids = new Set(fl.map(f => f.uid)); } catch { _lbFriendUids = new Set(); }
+      }
       if      (_phLbMode === "xp")           await _phLbRenderXp();
       else if (_phLbMode === "casual")       await _phLbRenderCasual();
       else if (_phLbMode === "wins")         await _phLbRenderWins();
@@ -23268,7 +23295,7 @@
             <td class="${sc.trim()}">${escHtmlPH("Lv. " + r.lvl)}</td>
             <td class="ph-lb-score-cell">${r.totalXp.toLocaleString()} XP</td>
             <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>Level</span> ${myRow.lvl}</div>
@@ -23336,7 +23363,7 @@
             <td class="ph-lb-meta-cell">${r.winPct}%</td>
             <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>Total Wins</span> ${myRow.totalWins.toLocaleString()}</div>
@@ -23414,7 +23441,7 @@
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} ${scoreUnit}</td>
             <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>${scoreLabel}</span> ${myRow.score.toLocaleString()} ${scoreUnit}</div>
@@ -23475,7 +23502,7 @@
             <td class="ph-lb-score-cell${sc}">${r.cp} CP</td>
             <td class="ph-lb-meta-cell">${escHtmlPH(r.title)}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>CP</span> ${myRow.cp}</div>
@@ -23526,7 +23553,7 @@
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.hand}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>Best Single-Hand Score</span> ${myRow.score.toLocaleString()} pts</div>
@@ -23575,7 +23602,7 @@
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.pair}</td>
             <td class="ph-lb-meta-cell">${r.stratPair}</td>
-          </tr>`;
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
         }).join("");
         if (myRow) {
           const v = `<div class="ph-lb-sum-val"><span>Best Combined Score</span> ${myRow.score.toLocaleString()} pts</div>
@@ -23590,12 +23617,44 @@
       }
     }
 
-    // ── Leaderboard: delegated click → public profile ─────────────
+    // ── Leaderboard: delegated clicks → public profile + add friend ──
     (function() {
-      ["ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"].forEach(id => {
+      const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
+      ALL_LB_TBODIES.forEach(id => {
         const tb = $a(id);
         if (!tb) return;
-        tb.addEventListener("click", e => {
+        tb.addEventListener("click", async e => {
+          // Add-friend button
+          const addBtn = e.target.closest(".ph-lb-add-btn[data-add-uid]");
+          if (addBtn) {
+            e.stopPropagation();
+            if (addBtn.disabled) return;
+            const targetUid = addBtn.dataset.addUid;
+            if (!targetUid || !_authUser) return;
+            addBtn.disabled = true;
+            addBtn.textContent = "…";
+            try {
+              // Load the target's profile to get their friend code / nickname
+              const tp = await loadProfile(targetUid);
+              const code = tp?.friend_code || "";
+              const nick = tp?.nickname || "";
+              const input = code ? String(code) : nick;
+              if (!input) { addBtn.textContent = "!"; return; }
+              const res = await addFriend(_authUser.uid, input, _playerNickname);
+              if (res.ok || res.requested || res.autoAccepted) {
+                addBtn.classList.add("lb-add-sent");
+                addBtn.textContent = "✓";
+                addBtn.title = res.autoAccepted ? "Now friends!" : "Request sent!";
+                if (res.autoAccepted) { addBtn.classList.add("lb-add-friends"); _lbFriendUids.add(targetUid); }
+              } else {
+                addBtn.textContent = "+";
+                addBtn.disabled = false;
+                addBtn.title = res.error || "Could not send request";
+              }
+            } catch { addBtn.textContent = "+"; addBtn.disabled = false; }
+            return;
+          }
+          // Profile click (not the add-btn)
           const cell = e.target.closest(".ph-lb-player-cell.pub-clickable");
           if (!cell) return;
           const row = cell.closest("tr[data-uid]");
@@ -27600,8 +27659,21 @@
             const reqName = escapeHtml(req.from_nickname || "Unknown");
             const reqCode = req.from_code ? ` <span style="color:#9ab8d0;font-size:11px;">#${escapeHtml(req.from_code)}</span>` : "";
             row.innerHTML = `<span class="ph-rg-opp">${reqName}${reqCode}</span><span style='display:flex;gap:6px;'><button class='pv-btn sm ph-req-accept'>✓</button><button class='pv-btn sm ph-req-deny' style='background:rgba(220,60,60,.08);border-color:rgba(220,60,60,.3);color:#c0392b;'>✕</button></span>`;
-            row.querySelector(".ph-req-accept").onclick = async () => { row.style.opacity = ".5"; await acceptFriendRequest(_authUser.uid, _playerNickname, req); renderPhFriendsList(); loadFriendsMini(_authUser.uid); if (typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); };
-            row.querySelector(".ph-req-deny").onclick = async () => { row.style.opacity = ".5"; await denyFriendRequest(_authUser.uid, req.from_uid); renderPhFriendsList(); };
+            row.querySelector(".ph-req-accept").onclick = async function() {
+              const btn = this; btn.disabled = true; row.style.opacity = ".5";
+              try {
+                await acceptFriendRequest(_authUser.uid, _playerNickname, req);
+              } catch(e) { btn.disabled = false; row.style.opacity = ""; return; }
+              // Re-render after Firestore write is confirmed — not before.
+              await renderPhFriendsList();
+              loadFriendsMini(_authUser.uid);
+              try { window.__fishCheckFriendAchievements?.(_authUser.uid); } catch {}
+            };
+            row.querySelector(".ph-req-deny").onclick = async function() {
+              const btn = this; btn.disabled = true; row.style.opacity = ".5";
+              try { await denyFriendRequest(_authUser.uid, req.from_uid); } catch {}
+              await renderPhFriendsList();
+            };
             reqList.appendChild(row);
           });
         } else { reqSection.style.display = "none"; }
