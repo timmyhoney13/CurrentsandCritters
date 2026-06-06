@@ -18996,14 +18996,16 @@
         // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
         if (isWinner && playerCount >= 3 && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Emperor Penguin — finish Top 2 in a 4–8 player game having NEVER drawn
-        // from the Deck (only the Pool).
+        // Grooved Brain Coral — finish Top 2 in a 4–8 player game having NEVER
+        // manually drawn from the Deck (only the Pool). Card abilities that draw
+        // from the deck don't count against this (deckDraws only counts manual
+        // deck draws). (Emperor Penguin is now an Emerald-rank reward.)
         {
-          const _playersAbovePeng = (Array.isArray(finalScores) ? finalScores : [])
+          const _playersAboveGbc = (Array.isArray(finalScores) ? finalScores : [])
             .filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
-          if (playerCount >= 4 && playerCount <= 8 && _playersAbovePeng <= 1
+          if (playerCount >= 4 && playerCount <= 8 && _playersAboveGbc <= 1
               && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
-              && await window.__fishGrantUnlockedIcon?.("/avatars/emperor-penguin.png")) _queueAnimalUnlock("emperor-penguin");
+              && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         }
         // Sailfish — every Game Fish species on your board in a 5-player game (win not required).
         if (playerCount >= 5 && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
@@ -19016,10 +19018,7 @@
         // Deep Sea Coral — win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
-        // Grooved Brain Coral — 4+ player game, 2 GBC ★ uses, Giant Squid + Bobtail Squid via GBC.
-        if (playerCount >= 4 && Number(_gameAchTracker?.grooveBrainStars || 0) >= 2
-            && _gameAchTracker?.giantSquidViaGBC && _gameAchTracker?.bobtailSquidViaGBC
-            && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
+        // Grooved Brain Coral is granted by the only-Pool/Top-2 check above.
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
         // granted via the achievement-unlock hook.
 
@@ -20057,7 +20056,7 @@
     // ── Birds ────────────────────────────────────────────────────
     { id:"emperor-penguin", name:"Emperor Penguin", species:"Birds", img:"/avatars/emperor-penguin.png",
       facts:"They can dive over 1,500 feet deep.",
-      unlock:{ type:"event", event:"emperor_penguin_pool_top2", label:"Win by only drawing from the Pool and finish Top 2 in a 4–8 player game." } },
+      unlock:{ type:"rank", tier:"emerald", label:"Reach Emerald Emperor Penguin rank in Competitive." } },
     { id:"horned-puffin", name:"Horned Puffin", species:"Birds", img:"/avatars/horned-puffin.png",
       facts:"Puffins can hold multiple fish at once, averaging 10, but a record-breaking puffin once managed to carry 62.",
       unlock:{ type:"stat", stat:"lifetime_play_again", goal:75, unit:"Play Again abilities", label:"Use Play Again abilities 75 total times." } },
@@ -20121,7 +20120,7 @@
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
     { id:"grooved-brain-coral", name:"Grooved Brain Coral", species:"Coral", img:"/avatars/grooved-brain-coral.png",
       facts:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms.",
-      unlock:{ type:"event", event:"grooved_brain_squids", label:"In a 4+ player game, use two Grooved Brain Corals' ★ ability twice to play a Giant Squid and a Bobtail Squid." } },
+      unlock:{ type:"event", event:"grooved_pool_top2", label:"Win by only drawing from the Pool (card-draws from the deck are fine) and finish Top 2 in a 4–8 player game." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
       unlock:{ type:"achievement", achId:"reef_rally", goal:15, label:"Add 15 friends (Reef Rally)." } },
