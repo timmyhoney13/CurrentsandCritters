@@ -4506,9 +4506,10 @@
       cursor: pointer; transition: background .15s, border-color .15s, transform .12s;
       font-family: "Nunito",sans-serif; padding: 0;
     }
+    .ph-lb-add-btn svg { width: 14px; height: 14px; flex-shrink: 0; pointer-events: none; }
     .ph-lb-add-btn:hover { background: rgba(44,128,240,.18); border-color: rgba(44,128,240,.6); transform: scale(1.12); }
-    .ph-lb-add-btn.lb-add-sent { border-color: rgba(45,189,130,.5); background: rgba(45,189,130,.12); color: #1daa72; font-size: 13px; cursor: default; transform: none; }
-    .ph-lb-add-btn.lb-add-friends { border-color: rgba(255,180,0,.4); background: rgba(255,180,0,.1); color: #b07000; font-size: 13px; cursor: default; transform: none; }
+    .ph-lb-add-btn.lb-add-sent { border-color: rgba(45,189,130,.5); background: rgba(45,189,130,.12); color: #1daa72; cursor: default; transform: none; }
+    .ph-lb-add-btn.lb-add-friends { border-color: rgba(255,180,0,.4); background: rgba(255,180,0,.1); color: #b07000; cursor: default; transform: none; }
     .ph-lb-scroll {
       max-height: calc(100vh - 340px); /* expand: fills available screen, leaving room for header + filters */
       min-height: 200px;
@@ -7136,6 +7137,20 @@
       margin-left: 4px; vertical-align: middle; line-height: 1;
     }
     .friend-badge:empty, .friend-badge[data-count="0"] { display: none; }
+    /* Left-nav Friends tab request badge */
+    .ph-snav-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #e53e3e; color: #fff; border-radius: 999px;
+      min-width: 18px; height: 18px; font-size: 10.5px; font-weight: 800;
+      padding: 0 4px; margin-left: auto; line-height: 1;
+      box-shadow: 0 1px 4px rgba(229,62,62,.45);
+      animation: ph-snav-badge-pop .22s cubic-bezier(.3,1.5,.5,1) both;
+    }
+    .ph-snav-badge:empty { display: none; }
+    @keyframes ph-snav-badge-pop {
+      from { transform: scale(0.4); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
     /* Friend requests section */
     .friend-req-entry {
       display: flex; align-items: center; gap: 8px; padding: 5px 0;
@@ -9252,7 +9267,7 @@
       </button>
       <button class="ph-snav-item" id="snav-friends" data-tab="friends">
         <svg width="15" height="12" viewBox="0 0 15 12" fill="none"><circle cx="5.5" cy="4" r="3.5" stroke="currentColor" stroke-width="1.4"/><path d="M0 11.5c0-3.038 2.462-5.5 5.5-5.5S11 8.462 11 11.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M12 2a2.5 2.5 0 0 1 0 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13 9c1.2.9 2 2.3 2 3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" opacity=".6"/></svg>
-        Friends
+        Friends<span class="ph-snav-badge" id="snav-friend-badge"></span>
       </button>
       <button class="ph-snav-item" id="snav-achievements" data-tab="achievements">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h8v4a4 4 0 0 1-8 0V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3 4H1.5A2.5 2.5 0 0 0 4 6.5M13 4h1.5A2.5 2.5 0 0 1 12 6.5M8 10v3M5.5 14h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -22087,11 +22102,12 @@
       _reqUnsubscribe = _db.collection("users").doc(uid).collection("friend_requests")
         .onSnapshot(snap => {
           const count = snap.size;
-          const b1 = $a("friend-req-badge");
-          const b2 = $a("friend-req-badge-bar");
-          [b1, b2].forEach(b => {
+          const label = count > 0 ? String(count) : "";
+          // Update all badge elements: lobby bar button, left nav Friends tab, legacy id
+          ["friend-req-badge", "friend-req-badge-bar", "snav-friend-badge"].forEach(id => {
+            const b = $a(id);
             if (!b) return;
-            b.textContent = count > 0 ? String(count) : "";
+            b.textContent = label;
             b.style.display = count > 0 ? "inline-flex" : "none";
           });
         }, () => {});
@@ -23161,12 +23177,15 @@
       return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy"${bgStyle} onerror="this.src='/avatars/mullet.png'">`;
     }
     // Returns the HTML for the add-friend cell on a leaderboard row.
+    // SVG icons for the leaderboard add-friend cell
+    const _LB_ICON_ADD = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="5.5" cy="4.5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M0 13c0-3.038 2.462-5.5 5.5-5.5 1.18 0 2.27.372 3.17.998" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M11 8v5M8.5 10.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+    const _LB_ICON_FRIENDS = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="5.5" cy="4.5" r="3" stroke="currentColor" stroke-width="1.5"/><path d="M0 13c0-3.038 2.462-5.5 5.5-5.5S11 9.962 11 13" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M9 8l1.5 1.5L13 7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     function phLbAddCell(uid, isMe) {
       if (!_authUser || isMe) return `<td class="ph-lb-add-cell"></td>`;
       if (_lbFriendUids.has(uid)) {
-        return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn lb-add-friends" title="Already friends" disabled>★</button></td>`;
+        return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn lb-add-friends" title="Already friends" disabled>${_LB_ICON_FRIENDS}</button></td>`;
       }
-      return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn" data-add-uid="${escHtmlPH(uid)}" title="Add friend">+</button></td>`;
+      return `<td class="ph-lb-add-cell"><button class="ph-lb-add-btn" data-add-uid="${escHtmlPH(uid)}" title="Add friend">${_LB_ICON_ADD}</button></td>`;
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
@@ -23634,26 +23653,26 @@
             const targetUid = addBtn.dataset.addUid;
             if (!targetUid || !_authUser) return;
             addBtn.disabled = true;
-            addBtn.textContent = "…";
+            addBtn.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.4" stroke-dasharray="2 2"/></svg>`;
             try {
               // Load the target's profile to get their friend code / nickname
               const tp = await loadProfile(targetUid);
               const code = tp?.friend_code || "";
               const nick = tp?.nickname || "";
               const input = code ? String(code) : nick;
-              if (!input) { addBtn.textContent = "!"; return; }
+              if (!input) { addBtn.innerHTML = "!"; return; }
               const res = await addFriend(_authUser.uid, input, _playerNickname);
               if (res.ok || res.requested || res.autoAccepted) {
                 addBtn.classList.add("lb-add-sent");
-                addBtn.textContent = "✓";
+                addBtn.innerHTML = _LB_ICON_FRIENDS;
                 addBtn.title = res.autoAccepted ? "Now friends!" : "Request sent!";
                 if (res.autoAccepted) { addBtn.classList.add("lb-add-friends"); _lbFriendUids.add(targetUid); }
               } else {
-                addBtn.textContent = "+";
+                addBtn.innerHTML = _LB_ICON_ADD;
                 addBtn.disabled = false;
                 addBtn.title = res.error || "Could not send request";
               }
-            } catch { addBtn.textContent = "+"; addBtn.disabled = false; }
+            } catch { addBtn.innerHTML = _LB_ICON_ADD; addBtn.disabled = false; }
             return;
           }
           // Profile click (not the add-btn)
