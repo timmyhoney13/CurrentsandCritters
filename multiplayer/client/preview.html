@@ -11708,6 +11708,7 @@
   let _lastHandCount = 0;        // viewer hand count from the previous render (pre-Tarpon hand)
   let _tarponStartHand = 0;      // hand size captured when a Tarpon discard phase begins
   let _prevEndTriggered = true; // start true so we only fire on a real false→true transition
+  let _prevMustDiscard = false;  // detect false→true transition to reset selection state
 
   function buildStateUrl() {
     if (!roomId) return null;
@@ -14097,6 +14098,16 @@
 
     const mustDiscard   = Boolean(lw.must_discard_to_ten);
     const discardExcess = Number(lw.discard_excess || 0);
+
+    // Entering discard phase: kill any stale payment mode so it doesn't
+    // overlay "Use as Payment" buttons on top of discard-selectable cards
+    // and hide the Confirm Discard button behind the payment UI guard.
+    if (mustDiscard && !_prevMustDiscard) {
+      if (pendingPayAction) exitPaymentMode();
+      selectedDiscard.clear();
+    }
+    _prevMustDiscard = mustDiscard;
+
     const endGame       = state.end_game || {};
     const endTriggered  = Boolean(endGame.triggered);
 
@@ -17359,7 +17370,8 @@
     if (!me || !Array.isArray(me.hand)) return;
 
     const hand = me.hand;
-    const MAX_VISIBLE = 12;
+    // In discard mode every card must be selectable — show them all.
+    const MAX_VISIBLE = mustDiscard ? hand.length : 12;
     const visible  = hand.slice(0, MAX_VISIBLE);
     const overflow = hand.length - MAX_VISIBLE;
 
@@ -17511,8 +17523,15 @@
         ev.stopPropagation();
         if (mustDiscard) {
           // Over hand limit — clicking selects card for discard
-          if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
-          else if (selectedDiscard.size < discardExcess) selectedDiscard.add(entryUid);
+          if (selectedDiscard.has(entryUid)) {
+            selectedDiscard.delete(entryUid);
+          } else if (selectedDiscard.size < discardExcess) {
+            selectedDiscard.add(entryUid);
+          } else {
+            // Already have enough selected — tell the user to deselect one first
+            showToast(`Tap a selected card to swap it out.`, "warn");
+            return;
+          }
           updateDiscardBtn();
           renderHand(me, actions, mustDiscard, discardExcess);
           return;
