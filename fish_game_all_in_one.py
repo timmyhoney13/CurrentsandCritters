@@ -5690,7 +5690,7 @@ def action_archetype_bonus(
 
     # ── Coral Reef Stack (family-keyed; fires for live bots) ────────────
     # Corals score best ON Coral Reefs. Staghorn (+3/coral) & Magnificent
-    # Frigatebird (+1/coral) scale with coral count; Elk Horn (+2/coral on a
+    # Frigatebird (+2/coral) scale with coral count; Elk Horn (+2/coral on a
     # reef) rewards reef placement; Deep Sea Coral (+10 if ALONE) wants an
     # empty ocean; Grooved Brain Coral bridges to cephalopods.
     if family_label == "coral":
@@ -9046,6 +9046,12 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         and gs.card_db.get(o_uid) is not None
         and gs.card_db.get(o_uid).name.lower() == "coral reef"
     )
+    kelp_forest_count_total = name_count("kelp forest") + sum(
+        1 for uid, c, o_uid in board
+        if c.name.lower() == "clownfish"
+        and gs.card_db.get(o_uid) is not None
+        and gs.card_db.get(o_uid).name.lower() == "kelp forest"
+    )
     coral_reef_table_applied = False
     count_table_applied: set = set()  # tracks card names whose threshold table has been scored once
 
@@ -9116,7 +9122,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             attached = len(cards_on_same_ocean(ocean_uid))
             pts += 2 * attached
         if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
-            kelp_total = name_count("kelp forest")
+            kelp_total = kelp_forest_count_total
             if kelp_total >= 4:
                 if "per kelp forest" in t:
                     pts += 5 * kelp_total
@@ -9356,6 +9362,12 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         and gs.card_db.get(o_uid) is not None
         and gs.card_db.get(o_uid).name.lower() == "coral reef"
     )
+    kelp_forest_total = _name_count("kelp forest") + sum(
+        1 for uid, c, o_uid in board
+        if c.name.lower() == "clownfish"
+        and gs.card_db.get(o_uid) is not None
+        and gs.card_db.get(o_uid).name.lower() == "kelp forest"
+    )
     coral_reef_table_applied = False
     breakdown_count_table_applied: set = set()
 
@@ -9456,7 +9468,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
                 add(2 * len(same), f"+2 per card on same ocean × {len(same)}")
 
         if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
-            kt = _name_count("kelp forest")
+            kt = kelp_forest_total
             if kt >= 4:
                 if "per kelp forest" in t:
                     add(5 * kt, f"+5 per Kelp Forest × {kt}")

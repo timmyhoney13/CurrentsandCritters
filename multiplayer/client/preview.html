@@ -9049,7 +9049,7 @@
     <div id="settings-nick-cooldown" style="display:none;font-size:11px;color:#e08030;padding:2px 0 6px;"></div>
     <div id="settings-nick-form" style="display:none;flex-direction:column;gap:8px;">
       <div style="font-size:11px;color:rgba(150,200,240,.7);line-height:1.4;">
-        Your public name and friend code will update. You can only change your name once every 30 days.
+        Your public name and friend code will update. You can change your name once per day.
       </div>
       <input class="pv-input" id="settings-nick-input" placeholder="New username (3–15 chars)" maxlength="15" autocomplete="off" />
       <div class="auth-err" id="settings-nick-err"></div>
@@ -11108,7 +11108,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws7";
+  const _AVATAR_ART_VERSION = "ws9";
   function _avSrc(url) {
     const u = String(url || "");
     // Cache-bust both avatar AND background art so a version bump always refreshes
@@ -24052,12 +24052,13 @@
         const cooldownEl = $a("settings-nick-cooldown");
         const editBtn = $a("settings-edit-nick-btn");
         const msLeft = lastChange
-          ? (30 * 24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime())
+          ? (24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime())
           : 0;
         if (msLeft > 0) {
-          const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
-          if (cooldownEl) { cooldownEl.textContent = `You can change your username again in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}.`; cooldownEl.style.display = ""; }
-          if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; editBtn.title = `Available in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`; }
+          const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
+          const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
+          if (cooldownEl) { cooldownEl.textContent = `You can change your username again ${label}.`; cooldownEl.style.display = ""; }
+          if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; editBtn.title = `Available ${label}`; }
         } else {
           if (cooldownEl) cooldownEl.style.display = "none";
           if (editBtn) { editBtn.disabled = false; editBtn.style.opacity = ""; editBtn.title = ""; }
@@ -24090,16 +24091,17 @@
       if (err) { setAuthMsg("settings-nick-err", err, false); return; }
       if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your username.", false); return; }
 
-      // 30-day cooldown check (re-read from Firestore for accuracy)
+      // 1-day cooldown check (re-read from Firestore for accuracy)
       try {
         const docSnap = await _db.collection("users").doc(_authUser.uid).get();
         const data = docSnap.data() || {};
         const lastChange = data.nickname_changed_at;
         if (lastChange) {
-          const msLeft = (30 * 24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime());
+          const msLeft = (24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime());
           if (msLeft > 0) {
-            const daysLeft = Math.ceil(msLeft / (24 * 60 * 60 * 1000));
-            setAuthMsg("settings-nick-err", `You can change your username in ${daysLeft} more day${daysLeft !== 1 ? "s" : ""}.`, false);
+            const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
+            const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
+            setAuthMsg("settings-nick-err", `You can change your username again ${label}.`, false);
             return;
           }
         }
@@ -24129,7 +24131,7 @@
           nickname: newNick,
           nickname_lower: newNick.toLowerCase(),
           friend_code: code,
-          nickname_changed_at: now,   // 30-day cooldown timestamp
+          nickname_changed_at: now,   // 1-day cooldown timestamp
         });
         // Public lookup doc uses new name + same code
         await _db.collection("friend_lookup").doc(newKey).set({
@@ -24156,7 +24158,7 @@
         // Show cooldown note
         const cooldownEl = $a("settings-nick-cooldown");
         const editBtn = $a("settings-edit-nick-btn");
-        if (cooldownEl) { cooldownEl.textContent = "You can change your username again in 30 days."; cooldownEl.style.display = ""; }
+        if (cooldownEl) { cooldownEl.textContent = "You can change your username again tomorrow."; cooldownEl.style.display = ""; }
         if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; }
       } catch(e) {
         setAuthMsg("settings-nick-err", "Could not update username.", false);
