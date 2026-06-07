@@ -22006,25 +22006,41 @@
       } catch { return []; }
     }
     async function acceptFriendRequest(myUid, myNick, req) {
-      if (!_db) return;
-      const batch = _db.batch();
-      const requesterSeed = req?.from_uid || req?.from_nickname || "friend";
-      const requesterAvatar = normalizeAvatarUrl(req?.from_avatar_url || "") || getDefaultAvatar(requesterSeed);
+      if (!_db) throw new Error("Not connected to database.");
+      // from_uid is stored in the doc data; fall back to doc id which IS the sender UID.
+      const fromUid = req.from_uid || req.id;
+      if (!fromUid) throw new Error("Friend request is missing sender UID.");
+      const requesterAvatar = normalizeAvatarUrl(req.from_avatar_url || "") || getDefaultAvatar(fromUid);
       const myAvatar = resolveAvatarUrl(_activeProfile, { includeAuthFallback: false, seed: myUid || myNick || "me" });
-      // Create mutual friendship
-      batch.set(_db.collection("users").doc(myUid).collection("friends").doc(req.from_uid), {
-        uid: req.from_uid, nickname: req.from_nickname,
+
+      // Phase 1: batch only the writes the current user owns — these MUST succeed together.
+      //   - Add the requester to MY friends list
+      //   - Delete the incoming friend_request doc
+      // Keeping the cross-user write OUT of this batch so a rules rejection on that
+      // path doesn't silently roll back the whole acceptance.
+      const batch = _db.batch();
+      batch.set(_db.collection("users").doc(myUid).collection("friends").doc(fromUid), {
+        uid: fromUid, nickname: req.from_nickname || "Unknown",
         avatar_url: requesterAvatar,
         added_at: firebase.firestore.FieldValue.serverTimestamp(),
       });
-      batch.set(_db.collection("users").doc(req.from_uid).collection("friends").doc(myUid), {
-        uid: myUid, nickname: myNick,
-        avatar_url: myAvatar,
-        added_at: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-      // Delete request
-      batch.delete(_db.collection("users").doc(myUid).collection("friend_requests").doc(req.from_uid));
-      await batch.commit();
+      batch.delete(_db.collection("users").doc(myUid).collection("friend_requests").doc(fromUid));
+      await batch.commit();  // throws on failure — caller will show error
+
+      // Phase 2: write the requester's side (separate path they own).
+      // If Firestore rules don't allow this client-side write, it fails silently here;
+      // the friendship is already recorded on the acceptor's side above.
+      try {
+        await _db.collection("users").doc(fromUid).collection("friends").doc(myUid).set({
+          uid: myUid, nickname: myNick || "Unknown",
+          avatar_url: myAvatar,
+          added_at: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      } catch(e) {
+        // Non-fatal: acceptor's side is confirmed. Requester will see the friendship
+        // once server-side logic (or their next login) reconciles the data.
+        console.warn("acceptFriendRequest: could not write requester side:", e);
+      }
     }
     async function denyFriendRequest(myUid, fromUid) {
       if (!_db) return;
@@ -27684,9 +27700,16 @@
             row.innerHTML = `<span class="ph-rg-opp">${reqName}${reqCode}</span><span style='display:flex;gap:6px;'><button class='pv-btn sm ph-req-accept'>✓</button><button class='pv-btn sm ph-req-deny' style='background:rgba(220,60,60,.08);border-color:rgba(220,60,60,.3);color:#c0392b;'>✕</button></span>`;
             row.querySelector(".ph-req-accept").onclick = async function() {
               const btn = this; btn.disabled = true; row.style.opacity = ".5";
+              const errEl = $a("ph-friend-err");
+              if (errEl) errEl.textContent = "";
               try {
                 await acceptFriendRequest(_authUser.uid, _playerNickname, req);
-              } catch(e) { btn.disabled = false; row.style.opacity = ""; return; }
+              } catch(e) {
+                btn.disabled = false; row.style.opacity = "";
+                if (errEl) { errEl.textContent = "Could not accept request — please try again."; errEl.style.color = "#c0392b"; }
+                console.error("acceptFriendRequest failed:", e);
+                return;
+              }
               // Re-render after Firestore write is confirmed — not before.
               await renderPhFriendsList();
               loadFriendsMini(_authUser.uid);
@@ -27694,7 +27717,8 @@
             };
             row.querySelector(".ph-req-deny").onclick = async function() {
               const btn = this; btn.disabled = true; row.style.opacity = ".5";
-              try { await denyFriendRequest(_authUser.uid, req.from_uid); } catch {}
+              const fromUid = req.from_uid || req.id;
+              try { await denyFriendRequest(_authUser.uid, fromUid); } catch {}
               await renderPhFriendsList();
             };
             reqList.appendChild(row);
