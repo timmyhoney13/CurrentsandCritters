@@ -11123,7 +11123,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws9";
+  const _AVATAR_ART_VERSION = "ws10";
   function _avSrc(url) {
     const u = String(url || "");
     // Cache-bust both avatar AND background art so a version bump always refreshes
@@ -13105,11 +13105,21 @@
   }
 
   async function submitAction(action) {
-    // If the action costs cards and no payment has been selected yet, enter payment
-    // mode instead of submitting — this catches every code path (drag, click, stack +).
-    if (Number(action.cost_to_pay || 0) > 0 && selectedPayment.size === 0) {
-      enterPaymentMode(action);
-      return;
+    // If the action costs cards, ensure we have valid payment staged for THIS action.
+    // enterPaymentMode() clears any stale selection from a prior action.
+    if (Number(action.cost_to_pay || 0) > 0) {
+      // Payment is considered "confirmed" (pendingPayAction=null) only when the user
+      // explicitly clicked Confirm Payment, clearing pendingPayAction before calling here.
+      // In every other path (drag, slot-click, picker) pendingPayAction is still set or null
+      // from a prior action — if it doesn't match the current action, re-enter payment mode.
+      const confirmedPath = pendingPayAction === null && selectedPayment.size > 0;
+      const sameStagedAction = pendingPayAction !== null &&
+        Number(pendingPayAction.card_uid) === Number(action.card_uid) &&
+        Number(pendingPayAction.ocean_uid ?? -1) === Number(action.ocean_uid ?? -1);
+      if (!confirmedPath && !sameStagedAction) {
+        enterPaymentMode(action);
+        return;
+      }
     }
 
     // Hand-over-10 warning: ONLY for manual draw actions (pool / deck / mix).
@@ -13159,7 +13169,11 @@
     const cost = Number(action.cost_to_pay||0);
     if (cost > 0) {
       const pay = choosePayment(action);
-      if (pay.error) { setStatus(pay.error); showToast(pay.error, "err"); return; }
+      if (pay.error) {
+        // Invalid selection — re-enter payment mode so the user can pick valid cards.
+        enterPaymentMode(action);
+        setStatus(pay.error); showToast(pay.error, "err"); return;
+      }
       pl.payment_uids = pay.picks;
     }
 
