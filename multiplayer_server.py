@@ -4867,12 +4867,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
-        # Serve full-page tab background JPGs (store / leaderboard) by full client path
-        if re.fullmatch(r"/multiplayer/client/(store-bg|leaderboard-bg)\.jpg", parsed.path):
+        # Serve full-page tab background images (store / leaderboard)
+        _bg_match = re.fullmatch(r"/multiplayer/client/(store-bg|leaderboard-bg)\.(jpg|png)", parsed.path)
+        if _bg_match:
             bg_name = os.path.basename(parsed.path)
             bg_path = os.path.join(CLIENT_DIR, bg_name)
+            _ct = "image/png" if parsed.path.endswith(".png") else "image/jpeg"
             if os.path.exists(bg_path):
-                self._send_client_asset(bg_path, content_type="image/jpeg", cache_control="public, max-age=86400")
+                self._send_client_asset(bg_path, content_type=_ct, cache_control="public, max-age=86400")
             else:
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
