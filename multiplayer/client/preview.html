@@ -8964,7 +8964,10 @@
         linear-gradient(180deg, #0c2a52 0%, #0a2244 45%, #07182f 100%);
       overflow: hidden;
     }
-    #avatar-gallery.open { display: flex; }
+    #avatar-gallery.open { display: flex; animation: gal-pop-in .22s cubic-bezier(.2,.9,.4,1) both; }
+    #avatar-gallery.gal-closing { display: flex !important; animation: gal-pop-out .18s cubic-bezier(.4,0,.6,1) both !important; }
+    @keyframes gal-pop-in  { from { opacity:0; transform:scale(.94) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+    @keyframes gal-pop-out { from { opacity:1; transform:scale(1) translateY(0); } to { opacity:0; transform:scale(.94) translateY(8px); } }
     /* drifting light rays + bubbles */
     #avatar-gallery::before {
       content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
@@ -21872,8 +21875,10 @@
           const focused = document.activeElement;
           if (focused && gal.contains(focused) && typeof focused.blur === "function") focused.blur();
         } catch {}
-        gal.classList.remove("open");
         gal.setAttribute("aria-hidden", "true");
+        // Play shrink-out animation, then hide.
+        gal.classList.add("gal-closing");
+        setTimeout(() => { gal.classList.remove("open"); gal.classList.remove("gal-closing"); }, 190);
       }
       // If we were viewing another player's collection, restore our own state
       // and return to their public-profile modal.
@@ -30943,57 +30948,127 @@
   }
   function openSettings() { const b = document.getElementById("snav-settings"); if (b) try { b.click(); } catch (_) {} }
 
+  // advanceWhen helpers for interactive tab/modal steps
+  const gtTabActive  = id => () => !!document.getElementById(id)?.classList.contains("active");
+  const gtGalOpen    = ()  => !!document.getElementById("avatar-gallery")?.classList.contains("open");
+  const gtSettingsOpen = () => !!document.getElementById("settings-modal")?.classList.contains("open");
+
   const MENU_STEPS = [
+
+    // ── Welcome ──────────────────────────────────────────────────────
     { target: null, badge: "Main Menu Tour", title: "Welcome to your home base",
       before: closeMenuOverlays,
       text: "This is the <strong>Main Menu</strong>, where you start games, track your progress, and customise your critter. We will walk through every part of it together. Use the <strong>Next</strong> and <strong>Back</strong> buttons to move at your own pace." },
+
+    // ── Profile card (top bar / XP) ───────────────────────────────────
     { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
       before: closeMenuOverlays,
       text: "Your <strong>avatar, name, level, and rank</strong> all live here. The XP bar fills as you play, and every game you finish earns XP toward your next level." },
-    { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
-      before: () => { closeMenuOverlays(); openGallery(); },
-      text: "Tapping your avatar opens the <strong>Avatar Gallery</strong>, shown here. This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it." },
-    { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",
-      before: closeMenuOverlays,
-      text: "Play on consecutive days to build a <strong>streak</strong>. Each day in a row gives a larger <strong>daily login XP bonus</strong>, so logging in regularly pays off." },
-    { target: "#ph-ss-details-btn", badge: "Daily Streak", title: "View Streak Details",
-      before: closeMenuOverlays,
-      text: "Select <strong>View streak details</strong> to see your full streak history, your current and longest streaks, and exactly how much bonus XP each day is worth." },
-    { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
-      before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "The <strong>Overview</strong> tab is your dashboard. It gathers <strong>the combined stats from every game you have ever played</strong> across all modes, so you can see your progress at a glance." },
-    { target: "#ph-panel-normal", badge: "Casual Tab", title: "Casual Stats",
-      before: () => { closeMenuOverlays(); navTab("casual"); },
-      text: "The <strong>Casual</strong> tab breaks your record down by player count, from <strong>P2 all the way to P8</strong>. For each size you can see your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average points</strong>, and your total <strong>games and wins</strong>." },
-    { target: "#ph-panel-competitive", badge: "Competitive Tab", title: "Competitive",
-      before: () => { closeMenuOverlays(); navTab("competitive"); },
-      text: "Competitive games give you a <strong>rank</strong>. The more competitive games you win, the higher you climb toward the top title, <strong>King of the Critters</strong>. Competitive is also unique because you <strong>control two hands at once</strong>, which doubles your options and your strategy." },
-    { target: "#ph-panel-history", badge: "History Tab", title: "Match History",
-      before: () => { closeMenuOverlays(); navTab("history"); },
-      cta: { label: "View a sample match", onClick: () => showSampleMatch() },
-      text: "The <strong>History</strong> tab lets you reopen any past match and see <strong>exactly what every player had on their board</strong>, along with the final scores. Select the button below to view a sample match.",
-    },
-    { target: "#ph-panel-friends", badge: "Friends Tab", title: "Friends",
-      before: () => { closeMenuOverlays(); navTab("friends"); },
-      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can start private games with them and challenge them directly." },
-    { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
-      before: () => { closeMenuOverlays(); navTab("friends"); },
-      text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their Name and code</strong> into the box just below and select Add." },
-    { target: "#ph-panel-achievements", badge: "Achievements Tab", title: "Achievements",
-      before: () => { closeMenuOverlays(); navTab("achievements"); },
-      text: "The <strong>Achievements</strong> tab tracks badges you earn for reaching milestones. Many achievements also <strong>unlock new critter avatars</strong>, and a few hidden ones are waiting to be discovered." },
-    { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Leaderboard",
-      before: () => { closeMenuOverlays(); navTab("leaderboard"); },
-      text: "The <strong>Leaderboard</strong> shows the global rankings. The small <strong>button on the right of each row</strong> sends that player a friend request, so you can add people straight from the board. The colours mark each player's rank tier: <strong>bronze, silver, gold, diamond, emerald, and the golden King of the Critters</strong> at the very top." },
-    { target: "#ph-panel-store", badge: "Store Tab", title: "Store",
-      before: () => { closeMenuOverlays(); navTab("store"); },
-      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one." },
+
+    // ── Chat (top-right, same area as profile card) ──────────────────
     { target: "#stats-message-btn", badge: "Messages", title: "Chat and Messages",
       before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "The <strong>message icon</strong> sits at the top right, next to Sign Out. Once you have added friends, you can open it to <strong>send and read direct messages</strong> with them at any time." },
+
+    // ── Avatar click (interactive) ───────────────────────────────────
+    { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtGalOpen,
+      text: "Click your <strong>avatar</strong> to open the Avatar Gallery." },
+
+    // ── Avatar Gallery description (gallery is now open) ─────────────
+    { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
+      text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it." },
+
+    // ── Overview tab (navigate away first so click is required) ───────
+    { target: "#snav-overview", badge: "Overview Tab", title: "Overview",
+      before: () => { closeMenuOverlays(); navTab("friends"); },
+      interactive: true,
+      advanceWhen: gtTabActive("snav-overview"),
+      text: "The <strong>Overview</strong> tab is your dashboard. It gathers <strong>the combined stats from every game you have ever played</strong> across all modes. Click it to continue." },
+
+    // ── Casual tab ───────────────────────────────────────────────────
+    { target: "#snav-casual", badge: "Casual Tab", title: "Casual Stats",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-casual"),
+      text: "The <strong>Casual</strong> tab breaks your record down by player count, from <strong>P2 all the way to P8</strong>. For each size you can see your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average points</strong>, and your total <strong>games and wins</strong>. Click it to continue." },
+
+    // ── Competitive tab ──────────────────────────────────────────────
+    { target: "#snav-competitive", badge: "Competitive Tab", title: "Competitive",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-competitive"),
+      text: "Competitive games give you a <strong>rank</strong>. The more you win, the higher you climb toward <strong>King of the Critters</strong>. It is also unique because you <strong>control two hands at once</strong>, which doubles your options and strategy. Click it to continue." },
+
+    // ── History tab (click step) ──────────────────────────────────────
+    { target: "#snav-history", badge: "History Tab", title: "Match History",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-history"),
+      text: "The <strong>History</strong> tab lets you reopen any past match and see <strong>exactly what every player had on their board</strong>, along with the final scores. Click it to continue." },
+
+    // ── History description (with sample match CTA) ───────────────────
+    { target: "#ph-panel-history", badge: "History Tab", title: "Sample Match",
+      cta: { label: "View a sample match", onClick: () => showSampleMatch() },
+      text: "Select the button below to view a sample match and see what the history view looks like." },
+
+    // ── Friends tab ──────────────────────────────────────────────────
+    { target: "#snav-friends", badge: "Friends Tab", title: "Friends",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-friends"),
+      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can start private games with them and challenge them directly. Click it to continue." },
+
+    // ── Friend code ───────────────────────────────────────────────────
+    { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
+      before: () => { closeMenuOverlays(); navTab("friends"); },
+      text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their Name and code</strong> into the box just below and select Add." },
+
+    // ── Leaderboard tab (click step) ──────────────────────────────────
+    { target: "#snav-leaderboard", badge: "Leaderboard Tab", title: "Leaderboard",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-leaderboard"),
+      text: "The <strong>Leaderboard</strong> shows the global rankings. Click it to continue." },
+
+    // ── Leaderboard description (no tier colours) ─────────────────────
+    { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Reading the Leaderboard",
+      text: "Each row shows a player's <strong>name, level, and score</strong>. The small <strong>button on the right of each row</strong> sends that player a friend request, so you can add people straight from the board." },
+
+    // ── Achievements tab ──────────────────────────────────────────────
+    { target: "#snav-achievements", badge: "Achievements Tab", title: "Achievements",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-achievements"),
+      text: "The <strong>Achievements</strong> tab tracks badges you earn for reaching milestones. Many achievements also <strong>unlock new critter avatars</strong>, and a few hidden ones are waiting to be discovered. Click it to continue." },
+
+    // ── Settings (click step) ─────────────────────────────────────────
     { target: "#snav-settings", badge: "Settings", title: "Settings",
       before: closeMenuOverlays,
-      text: "<strong>Settings</strong> lets you turn music and sound effects on or off, mute the in game chat, and sign out. Adjust it however suits you best." },
+      interactive: true,
+      advanceWhen: gtSettingsOpen,
+      text: "<strong>Settings</strong> lets you turn music and sound effects on or off, mute the in game chat, and sign out. Click it to open." },
+
+    // ── Store tab (after settings so user can still close and navigate) ─
+    { target: "#snav-store", badge: "Store Tab", title: "Store",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-store"),
+      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one. Click it to continue." },
+
+    // ── Daily Streak ──────────────────────────────────────────────────
+    { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",
+      before: closeMenuOverlays,
+      text: "Play on consecutive days to build a <strong>streak</strong>. Each day in a row gives a larger <strong>daily login XP bonus</strong>, so logging in regularly pays off." },
+
+    // ── View Streak Details ───────────────────────────────────────────
+    { target: "#ph-ss-details-btn", badge: "Daily Streak", title: "View Streak Details",
+      before: closeMenuOverlays,
+      text: "Select <strong>View streak details</strong> to see your full streak history, your current and longest streaks, and exactly how much bonus XP each day is worth." },
+
+    // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
       before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all three tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
