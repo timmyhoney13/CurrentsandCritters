@@ -30741,7 +30741,7 @@
   //  REUSABLE COACHMARK ENGINE
   //  steps: [{ target:selector|null, badge, title, text, before?() }]
   // ════════════════════════════════════════════════════════════════
-  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null, coachWait = null, coachPoll = null;
+  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null, coachWait = null, coachPoll = null, coachNoBack = false;
 
   function coachAdvance() {
     if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
@@ -30790,8 +30790,9 @@
     return coach;
   }
 
-  function runCoach(steps, onDone, onCleanup) {
+  function runCoach(steps, onDone, onCleanup, options) {
     buildCoach();
+    coachNoBack = !!(options && options.noBack);
     coachSteps = steps; coachIdx = 0; coachDone = onDone || null; coachCleanup = onCleanup || null;
     coach.classList.add("open");
     gotoStep(0);
@@ -30805,7 +30806,7 @@
     }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
     const cu = coachCleanup;
-    coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null;
+    coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null; coachNoBack = false;
     try { cu && cu(); } catch (_) {}
   }
 
@@ -30834,16 +30835,24 @@
       if (ctaBtn) ctaBtn.addEventListener("click", () => { try { step.cta.onClick(); } catch (_) {} });
     }
     coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
-    coach.querySelector("#tut3-back").disabled = (i === 0);
-    // Interactive step: let real clicks/drags reach the highlighted element, and
-    // wait for the user to actually do it. Next becomes a gentle "Skip step".
+    // Back: always disabled when noBack mode is on; otherwise only on step 0.
+    const backBtn = coach.querySelector("#tut3-back");
+    backBtn.disabled = coachNoBack || (i === 0);
+    // Interactive step: let real clicks/drags reach the highlighted element.
+    // Disable Next so the user cannot skip — they must perform the action.
     coachWait = step.interactive ? (step.wait || null) : null;
     const catchEl = coach.querySelector("#tut3-catch");
     const hole = coach.querySelector("#tut3-hole");
     if (catchEl) catchEl.style.pointerEvents = step.interactive ? "none" : "auto";
     if (hole) hole.classList.toggle("pulse", !!step.interactive);
     const nextBtn = coach.querySelector("#tut3-next");
-    nextBtn.textContent = (i >= coachSteps.length - 1) ? "Finish ✓" : (step.interactive ? "Skip step ›" : "Next →");
+    if (i >= coachSteps.length - 1) {
+      nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
+    } else if (step.interactive) {
+      nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
+    } else {
+      nextBtn.textContent = "Next →"; nextBtn.disabled = false;
+    }
     // Scroll target into view, then position after a tick so layout settles.
     const el = step.target ? document.querySelector(step.target) : null;
     if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
@@ -30949,124 +30958,145 @@
   function openSettings() { const b = document.getElementById("snav-settings"); if (b) try { b.click(); } catch (_) {} }
 
   // advanceWhen helpers for interactive tab/modal steps
-  const gtTabActive  = id => () => !!document.getElementById(id)?.classList.contains("active");
-  const gtGalOpen    = ()  => !!document.getElementById("avatar-gallery")?.classList.contains("open");
-  const gtSettingsOpen = () => !!document.getElementById("settings-modal")?.classList.contains("open");
+  const gtTabActive    = id => () => !!document.getElementById(id)?.classList.contains("active");
+  const gtGalOpen      = ()  => !!document.getElementById("avatar-gallery")?.classList.contains("open");
+  const gtGalClosed    = ()  => !document.getElementById("avatar-gallery")?.classList.contains("open");
+  const gtSettingsOpen = ()  => !!document.getElementById("settings-modal")?.classList.contains("open");
+  const gtStreakCalOpen = ()  => !!document.getElementById("streak-cal-modal")?.classList.contains("open");
 
   const MENU_STEPS = [
 
     // ── Welcome ──────────────────────────────────────────────────────
     { target: null, badge: "Main Menu Tour", title: "Welcome to your home base",
       before: closeMenuOverlays,
-      text: "This is the <strong>Main Menu</strong>, where you start games, track your progress, and customise your critter. We will walk through every part of it together. Use the <strong>Next</strong> and <strong>Back</strong> buttons to move at your own pace." },
+      text: "This is the <strong>Main Menu</strong>, where you start games, track your progress, and customise your critter. We will walk through every part of it together." },
 
     // ── Profile card (top bar / XP) ───────────────────────────────────
     { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
-      before: closeMenuOverlays,
+      before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "Your <strong>avatar, name, level, and rank</strong> all live here. The XP bar fills as you play, and every game you finish earns XP toward your next level." },
 
     // ── Chat (top-right, same area as profile card) ──────────────────
     { target: "#stats-message-btn", badge: "Messages", title: "Chat and Messages",
-      before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "The <strong>message icon</strong> sits at the top right, next to Sign Out. Once you have added friends, you can open it to <strong>send and read direct messages</strong> with them at any time." },
+      text: "The <strong>message icon</strong> sits at the top right. Once you have added friends, you can open it to <strong>send and read direct messages</strong> with them at any time." },
 
-    // ── Avatar click (interactive) ───────────────────────────────────
+    // ── Avatar click (interactive — must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtGalOpen,
       text: "Click your <strong>avatar</strong> to open the Avatar Gallery." },
 
-    // ── Avatar Gallery description (gallery is now open) ─────────────
+    // ── Avatar Gallery — must close before advancing ──────────────────
     { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
-      text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it." },
-
-    // ── Overview tab (navigate away first so click is required) ───────
-    { target: "#snav-overview", badge: "Overview Tab", title: "Overview",
-      before: () => { closeMenuOverlays(); navTab("friends"); },
       interactive: true,
-      advanceWhen: gtTabActive("snav-overview"),
-      text: "The <strong>Overview</strong> tab is your dashboard. It gathers <strong>the combined stats from every game you have ever played</strong> across all modes. Click it to continue." },
+      advanceWhen: gtGalClosed,
+      text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it. When you are ready, click the <strong>back arrow</strong> to close the gallery." },
 
-    // ── Casual tab ───────────────────────────────────────────────────
+    // ── Overview panel ────────────────────────────────────────────────
+    { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "This is the <strong>Overview</strong> tab. It shows your combined stats from every game you have ever played across all modes." },
+
+    // ── Casual tab (click to navigate) ───────────────────────────────
     { target: "#snav-casual", badge: "Casual Tab", title: "Casual Stats",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-casual"),
-      text: "The <strong>Casual</strong> tab breaks your record down by player count, from <strong>P2 all the way to P8</strong>. For each size you can see your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average points</strong>, and your total <strong>games and wins</strong>. Click it to continue." },
+      text: "Click <strong>Casual</strong> to see your record." },
 
-    // ── Competitive tab ──────────────────────────────────────────────
+    // ── Casual panel description ──────────────────────────────────────
+    { target: "#ph-panel-normal", badge: "Casual Tab", title: "Your Casual Record",
+      text: "The Casual tab breaks down your record by player count, from <strong>2 all the way to 8 players</strong>. Each group shows your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average score</strong>, and your total <strong>games and wins</strong>." },
+
+    // ── Competitive tab (click to navigate) ──────────────────────────
     { target: "#snav-competitive", badge: "Competitive Tab", title: "Competitive",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-competitive"),
-      text: "Competitive games give you a <strong>rank</strong>. The more you win, the higher you climb toward <strong>King of the Critters</strong>. It is also unique because you <strong>control two hands at once</strong>, which doubles your options and strategy. Click it to continue." },
+      text: "Click <strong>Competitive</strong> to see it." },
 
-    // ── History tab (click step) ──────────────────────────────────────
+    // ── Competitive panel description ─────────────────────────────────
+    { target: "#ph-panel-competitive", badge: "Competitive Tab", title: "Competitive",
+      text: "When you play a Competitive game, there will be a rank bar here. <strong>Competitive games give you a rank.</strong> The more you win, the higher you climb toward <strong>King of the Critters</strong>. It is also unique because you <strong>control two hands at once</strong>, which doubles your options and strategy." },
+
+    // ── History tab (click to navigate) ──────────────────────────────
     { target: "#snav-history", badge: "History Tab", title: "Match History",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-history"),
-      text: "The <strong>History</strong> tab lets you reopen any past match and see <strong>exactly what every player had on their board</strong>, along with the final scores. Click it to continue." },
+      text: "Click <strong>History</strong> to see your past matches." },
 
-    // ── History description (with sample match CTA) ───────────────────
-    { target: "#ph-panel-history", badge: "History Tab", title: "Sample Match",
+    // ── History panel + sample match CTA ──────────────────────────────
+    { target: "#ph-panel-history", badge: "History Tab", title: "Match History",
       cta: { label: "View a sample match", onClick: () => showSampleMatch() },
-      text: "Select the button below to view a sample match and see what the history view looks like." },
+      text: "The <strong>History</strong> tab lets you reopen any past match and see exactly what every player had on their board, along with the final scores. Select the button below to see a sample." },
 
-    // ── Friends tab ──────────────────────────────────────────────────
+    // ── Friends tab (click to navigate) ──────────────────────────────
     { target: "#snav-friends", badge: "Friends Tab", title: "Friends",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-friends"),
-      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can start private games with them and challenge them directly. Click it to continue." },
+      text: "Click <strong>Friends</strong> to go there." },
+
+    // ── Friends panel description ─────────────────────────────────────
+    { target: "#ph-panel-friends", badge: "Friends Tab", title: "Friends",
+      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can challenge them to a private game directly from here." },
 
     // ── Friend code ───────────────────────────────────────────────────
     { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
-      before: () => { closeMenuOverlays(); navTab("friends"); },
-      text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their Name and code</strong> into the box just below and select Add." },
+      text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their name and code</strong> into the box just below and select Add." },
 
-    // ── Leaderboard tab (click step) ──────────────────────────────────
-    { target: "#snav-leaderboard", badge: "Leaderboard Tab", title: "Leaderboard",
-      before: closeMenuOverlays,
-      interactive: true,
-      advanceWhen: gtTabActive("snav-leaderboard"),
-      text: "The <strong>Leaderboard</strong> shows the global rankings. Click it to continue." },
-
-    // ── Leaderboard description (no tier colours) ─────────────────────
-    { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Reading the Leaderboard",
-      text: "Each row shows a player's <strong>name, level, and score</strong>. The small <strong>button on the right of each row</strong> sends that player a friend request, so you can add people straight from the board." },
-
-    // ── Achievements tab ──────────────────────────────────────────────
+    // ── Achievements tab (click to navigate) ─────────────────────────
     { target: "#snav-achievements", badge: "Achievements Tab", title: "Achievements",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-achievements"),
-      text: "The <strong>Achievements</strong> tab tracks badges you earn for reaching milestones. Many achievements also <strong>unlock new critter avatars</strong>, and a few hidden ones are waiting to be discovered. Click it to continue." },
+      text: "Click <strong>Achievements</strong> to see your badges." },
 
-    // ── Settings (click step) ─────────────────────────────────────────
-    { target: "#snav-settings", badge: "Settings", title: "Settings",
+    // ── Achievements panel description ────────────────────────────────
+    { target: "#ph-panel-achievements", badge: "Achievements Tab", title: "Achievements",
+      text: "The <strong>Achievements</strong> tab tracks every badge you earn for reaching milestones. Many achievements also <strong>unlock new critter avatars</strong>, and a few hidden ones are waiting to be discovered." },
+
+    // ── Leaderboard tab (click to navigate) ──────────────────────────
+    { target: "#snav-leaderboard", badge: "Leaderboard Tab", title: "Leaderboard",
       before: closeMenuOverlays,
       interactive: true,
-      advanceWhen: gtSettingsOpen,
-      text: "<strong>Settings</strong> lets you turn music and sound effects on or off, mute the in game chat, and sign out. Click it to open." },
+      advanceWhen: gtTabActive("snav-leaderboard"),
+      text: "Click <strong>Leaderboard</strong> to see the global rankings." },
 
-    // ── Store tab (after settings so user can still close and navigate) ─
+    // ── Leaderboard panel description ─────────────────────────────────
+    { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Reading the Leaderboard",
+      text: "Each row shows a player's <strong>name, level, and score</strong>. The small <strong>button on the right of each row</strong> sends that player a friend request so you can add people straight from the board." },
+
+    // ── Store tab (click to navigate) ────────────────────────────────
     { target: "#snav-store", badge: "Store Tab", title: "Store",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtTabActive("snav-store"),
-      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one. Click it to continue." },
+      text: "Click <strong>Store</strong> to go there." },
 
-    // ── Daily Streak ──────────────────────────────────────────────────
+    // ── Store panel description ───────────────────────────────────────
+    { target: "#ph-panel-store", badge: "Store Tab", title: "The Store",
+      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one." },
+
+    // ── Settings (click to open) ──────────────────────────────────────
+    { target: "#snav-settings", badge: "Settings", title: "Settings",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtSettingsOpen,
+      text: "Click <strong>Settings</strong> to open it. Here you can turn music and sound effects on or off, mute the in game chat, and sign out." },
+
+    // ── Daily Streak (after settings closes) ─────────────────────────
     { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",
       before: closeMenuOverlays,
-      text: "Play on consecutive days to build a <strong>streak</strong>. Each day in a row gives a larger <strong>daily login XP bonus</strong>, so logging in regularly pays off." },
+      text: "The <strong>flame icon</strong> here shows your current streak. Every day you log in and play, the streak grows. The longer your streak, the <strong>more bonus XP</strong> you earn each day, so playing regularly pays off." },
 
-    // ── View Streak Details ───────────────────────────────────────────
+    // ── View Streak Details (interactive — must click) ────────────────
     { target: "#ph-ss-details-btn", badge: "Daily Streak", title: "View Streak Details",
-      before: closeMenuOverlays,
-      text: "Select <strong>View streak details</strong> to see your full streak history, your current and longest streaks, and exactly how much bonus XP each day is worth." },
+      interactive: true,
+      advanceWhen: gtStreakCalOpen,
+      text: "Click <strong>View streak details</strong> to open your streak calendar. It shows every day you have logged in, your current and longest streaks, and exactly how much bonus XP each day is worth." },
 
     // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
@@ -31088,7 +31118,7 @@
       setDone("menu");
       showToast("Main Menu tour complete", completionSubtitle());
       setTimeout(openChooser, 900);
-    }, () => { closeMenuOverlays(); });
+    }, () => { closeMenuOverlays(); }, { noBack: true });
   }
 
   // ── Tutorial-only sample match viewer ─────────────────────────────
