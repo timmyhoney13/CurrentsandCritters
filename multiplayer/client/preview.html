@@ -11498,6 +11498,11 @@
     return "";
   }
 
+  // Current Controller (admin) — visual card tiles in the mod viewers.
+  // Returns the sprite-sheet URL plus which half of the sheet holds this face,
+  // so a tile can crop to the correct single card face.
+  window.__ccCardImg = (faceUid) => ({ url: imagePathForUid(faceUid), pos: cardHalfPos(faceUid) });
+
   // Display-only cache-bust for LOCAL avatar PNGs: appends ?v=VERSION so a
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
@@ -12078,6 +12083,16 @@
   // payload whose version is strictly older than what we've already rendered.
   let _lastStateVersion = -1;
   let _lastRenderedVersion = -1; // skip full re-render when server version hasn't changed
+
+  // ── Current Controller (admin mod tools) bridges ──────────────────
+  // Read-only accessors so the Current Controller module (a separate <script>
+  // at the end of the file) can reach the authoritative client state without
+  // sharing lexical scope. Exposes nothing privileged — just what the client
+  // already holds.
+  window.__ccGetPayload = () => latestPayload;
+  window.__ccConnInfo   = () => ({ version: _lastStateVersion, sse: !!sseSource, polling: !!pollTimer, room: (typeof roomId !== "undefined" ? roomId : null) || null });
+  window.__ccLastAction = null;
+  window.__ccNoteAction = (a) => { try { window.__ccLastAction = { kind: a && a.kind, action: a, at: Date.now() }; } catch (_) {} };
   let _serverWaking = false;       // true while Render server is returning 503
   let _serverWakeToastShown = false; // only show the "waking up" toast once per session
   let _prevTurnIdx = null;
@@ -13492,6 +13507,7 @@
   }
 
   async function submitAction(action) {
+    try { window.__ccNoteAction && window.__ccNoteAction(action); } catch (_) {} // Current Controller bug-log breadcrumb
     // If the action costs cards, ensure we have valid payment staged for THIS action.
     // enterPaymentMode() clears any stale selection from a prior action.
     if (Number(action.cost_to_pay || 0) > 0) {
@@ -21320,6 +21336,8 @@
     { id:"it_is_finally_over",           name:"It Is Finally Over",            icon:"🦑", cat:"Hidden", xp:1000, desc:"Beat the Giant Squid in a 1v1 match.", hidden:true,
       avatarReward:"/avatars/sea-anemone.png" },
   ];
+  // Current Controller (admin) — Achievement Tester reads the full def list.
+  window.__ccAchievementDefs = () => ACHIEVEMENT_DEFS;
 
   // ── Avatar / Achievement integrity validation ──────────────────────
   // Confirms every avatar and achievement is well-formed and that every
@@ -28807,6 +28825,41 @@
       }
     }
 
+    // ── Current Controller: admin-only Achievement Tester hooks ──────
+    // Both verify the signed-in account is the admin before touching Firestore,
+    // so a non-admin calling them from the console gets a hard `false` and no
+    // write. They only ever affect the admin's OWN user document.
+    function __ccAuthIsAdmin() {
+      try { return ((_authUser && _authUser.email) || "").toLowerCase() === "currentsandcritters@gmail.com"; }
+      catch (_) { return false; }
+    }
+    window.__ccAuthIsAdmin = __ccAuthIsAdmin;
+    window.__fishAdminUnlockAchievement = async function(achId) {
+      if (!__ccAuthIsAdmin()) return false;
+      const uid = _authUser && _authUser.uid;
+      if (!uid || !achId) return false;
+      try { await unlockAchievement(uid, achId); return true; }
+      catch (e) { console.warn("[cc] unlock error", e); return false; }
+    };
+    window.__fishAdminLockAchievement = async function(achId) {
+      if (!__ccAuthIsAdmin()) return false;
+      const uid = _authUser && _authUser.uid;
+      if (!uid || !achId || !_db) return false;
+      try {
+        const def = (ACHIEVEMENT_DEFS || []).find(d => d.id === achId);
+        const wasCompleted = !!(_userAchievements[achId] && _userAchievements[achId].completed);
+        delete _userAchievements[achId];
+        const updates = {};
+        updates[`achievements.${achId}`] = firebase.firestore.FieldValue.delete();
+        if (def && wasCompleted) {
+          updates["stats.total_xp"] = firebase.firestore.FieldValue.increment(-(Number(def.xp) || 0));
+        }
+        await _db.collection("users").doc(uid).update(updates);
+        if (typeof renderPhAchievements === "function") { try { renderPhAchievements(); } catch (_) {} }
+        return true;
+      } catch (e) { console.warn("[cc] lock error", e); return false; }
+    };
+
     async function updateAchievementProgress(uid, achId, progress, goal) {
       if (!_db || !uid || !achId) return;
       if (_userAchievements[achId] && _userAchievements[achId].completed) return;
@@ -29741,5 +29794,569 @@
     </div>
   </div>
 </div>
+<!-- ══════════════════════════════════════════════════════════════════
+     CURRENT CONTROLLER — admin-only mod / dev control panel (Phase 1)
+     Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
+     behind its own ON/OFF toggle; OFF fully disables the tool.
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  "use strict";
+  const ADMIN_EMAIL = "currentsandcritters@gmail.com";
+
+  // ── Access control ───────────────────────────────────────────────
+  function isAdmin() {
+    try {
+      const u = window.__fishAuthUser && window.__fishAuthUser();
+      return !!(u && u.email && String(u.email).toLowerCase() === ADMIN_EMAIL);
+    } catch (_) { return false; }
+  }
+
+  // ── Tool registry ────────────────────────────────────────────────
+  // phase "live"  = fully working client-side now.
+  // phase "server"= UI present; mutations land in the server pass.
+  const TOOLS = [
+    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See a bot's strategy, intended move, reasoning and scored alternatives before it plays." },
+    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Pause a bot before its move and force a specific action (draw, play, move, ability, end turn)." },
+    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"live",   desc:"See every player's hand by seat. Live: seats + your real cards. Editing arrives with the server pass." },
+    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Click the deck on your turn to open a searchable picker and place any card anywhere." },
+    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, replace, or force exact cards into the pool." },
+    { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview alternate moves and estimated results. Apply requires the server pass." },
+    { id:"bug_log",      icon:"🐞", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
+    { id:"state_viewer", icon:"📊", name:"Game State Viewer",         phase:"live",   desc:"Live snapshot of turn, deck, pool, scores, hands, oceans, end-game and sync." },
+    { id:"ach_tester",   icon:"🏆", name:"Achievement Tester",        phase:"live",   desc:"Unlock or lock any achievement on your own account to test flows." },
+    { id:"replay",       icon:"⏪", name:"Replay Last Turn",          phase:"live",   desc:"Scrub recent state snapshots captured this session." },
+    { id:"cinematic",    icon:"🎬", name:"Screenshot / Cinematic Mode", phase:"live", desc:"Hide UI chrome for a clean board capture. Toggle off to restore." },
+  ];
+  const TOOL_BY_ID = {};
+  TOOLS.forEach(t => { TOOL_BY_ID[t.id] = t; });
+
+  // ── Toggle persistence ───────────────────────────────────────────
+  const LS_KEY = "cc_toggles_v1";
+  let toggles = {};
+  try { toggles = JSON.parse(localStorage.getItem(LS_KEY) || "{}") || {}; } catch (_) { toggles = {}; }
+  function saveToggles() { try { localStorage.setItem(LS_KEY, JSON.stringify(toggles)); } catch (_) {} }
+  const isOn = (id) => !!toggles[id];
+
+  // ── Helpers ──────────────────────────────────────────────────────
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+  function payload() { try { return (window.__ccGetPayload && window.__ccGetPayload()) || null; } catch (_) { return null; } }
+  function myIndex(p) { const v = p && p.viewer; return v && Number.isInteger(v.seat_index) ? v.seat_index : null; }
+
+  // Visual card tile cropped to the correct face of the sprite sheet.
+  function cardTile(face, fallbackLabel) {
+    const uid = Number(face && face.uid) || 0;
+    const info = (window.__ccCardImg && uid) ? window.__ccCardImg(uid) : { url:"", pos:"center" };
+    const name = (face && (face.name || face.species)) || fallbackLabel || ("#" + uid);
+    const pts  = (face && face.points != null) ? face.points : "";
+    let bg = "";
+    if (info.url) {
+      let size = "cover", pos = "center";
+      if (info.pos === "top")    { size = "100% 200%"; pos = "center top"; }
+      else if (info.pos === "bottom") { size = "100% 200%"; pos = "center bottom"; }
+      else if (info.pos === "left")   { size = "200% 100%"; pos = "left center"; }
+      else if (info.pos === "right")  { size = "200% 100%"; pos = "right center"; }
+      bg = `background-image:url('${info.url}');background-size:${size};background-position:${pos};`;
+    }
+    return `<div class="cc-card" title="${esc(name)}"><div class="cc-card-img" style="${bg}"></div><div class="cc-card-name">${esc(name)}${pts !== "" ? " · " + esc(pts) : ""}</div></div>`;
+  }
+  function cardBack(n) {
+    let out = "";
+    for (let i = 0; i < n; i++) out += `<div class="cc-card cc-card-back"><div class="cc-card-img"></div><div class="cc-card-name">hidden</div></div>`;
+    return out;
+  }
+  const firstFace = (entry) => (entry && Array.isArray(entry.faces) && entry.faces[0]) ? entry.faces[0] : null;
+
+  // ── Bug log (records only while the toggle is ON) ─────────────────
+  const bugLog = [];
+  function pushBug(message, explanation) {
+    if (!isOn("bug_log")) return;
+    const p = payload() || {};
+    const st = p.state || {};
+    const la = window.__ccLastAction;
+    bugLog.unshift({
+      message: String(message || "").slice(0, 600),
+      turn: st.round_count != null ? st.round_count : "—",
+      currentPlayer: st.current_player || "—",
+      affectedPlayer: st.current_player || "—",
+      action: la ? (la.kind || (la.action && la.action.kind) || "action") : "—",
+      ts: new Date().toISOString(),
+      explanation: explanation || ""
+    });
+    if (bugLog.length > 100) bugLog.length = 100;
+    if (panelOpen() && isOn("bug_log")) renderBody("bug_log");
+  }
+  window.addEventListener("error", (e) => { try { pushBug((e.message || "error") + (e.filename ? " @ " + e.filename + ":" + e.lineno : ""), "Uncaught error"); } catch (_) {} });
+  window.addEventListener("unhandledrejection", (e) => { try { pushBug("Unhandled rejection: " + (e.reason && (e.reason.message || e.reason)), "Promise rejected"); } catch (_) {} });
+  const _origErr = console.error.bind(console);
+  console.error = function (...a) {
+    try { pushBug(a.map(x => typeof x === "string" ? x : (x && x.message) || (function(){ try { return JSON.stringify(x); } catch(_) { return String(x); } })()).join(" "), "console.error"); } catch (_) {}
+    return _origErr(...a);
+  };
+
+  // ── Replay snapshot ring (captures only while the toggle is ON) ───
+  const snaps = [];
+  let _lastSnapVer = -1;
+  setInterval(() => {
+    if (!isOn("replay")) return;
+    const p = payload(); if (!p) return;
+    const ver = Number(p.version);
+    if (!Number.isFinite(ver) || ver === _lastSnapVer) return;
+    _lastSnapVer = ver;
+    const st = p.state || {};
+    snaps.push({
+      ver, ts: Date.now(),
+      cur: st.current_player || "—",
+      round: st.round_count != null ? st.round_count : "—",
+      pool: Array.isArray(st.pool) ? st.pool.length : 0,
+      scores: (st.players || []).map(pl => `${pl.name}:${pl.score}`).join("  ")
+    });
+    if (snaps.length > 40) snaps.shift();
+  }, 1200);
+
+  // ════════════════════════════════════════════════════════════════
+  //  STYLES
+  // ════════════════════════════════════════════════════════════════
+  const css = `
+  #cc-overlay { position:fixed; inset:0; z-index:100000; display:none; background:rgba(2,18,38,.62); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); }
+  #cc-overlay.open { display:flex; align-items:flex-start; justify-content:center; padding:24px 14px; overflow:auto; }
+  #cc-panel { width:100%; max-width:1000px; margin:auto; background:linear-gradient(160deg,#0a2742 0%,#0d3a5e 48%,#0a2c4a 100%); border:1px solid rgba(80,200,235,.45); border-radius:20px; box-shadow:0 24px 80px rgba(0,0,0,.6),0 0 0 1px rgba(60,170,220,.18) inset; color:#dff1fb; font-family:"Nunito",system-ui,sans-serif; overflow:hidden; }
+  #cc-head { display:flex; align-items:center; gap:12px; padding:16px 20px; border-bottom:1px solid rgba(80,200,235,.25); background:linear-gradient(90deg,rgba(20,90,140,.55),rgba(12,60,100,.2)); }
+  #cc-head .cc-logo { font-family:"Cinzel",serif; font-size:1.2rem; font-weight:900; letter-spacing:.5px; color:#7fe3ff; text-shadow:0 1px 8px rgba(40,180,230,.5); flex:1; }
+  #cc-head .cc-tag { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#0a2742; background:#5fd0e8; padding:3px 8px; border-radius:6px; }
+  #cc-close { background:rgba(255,255,255,.08); border:1px solid rgba(120,205,235,.4); color:#cfeeff; width:32px; height:32px; border-radius:9px; font-size:18px; cursor:pointer; line-height:1; }
+  #cc-close:hover { background:rgba(232,64,87,.25); border-color:#e84057; color:#fff; }
+  #cc-body { padding:14px 18px 22px; max-height:calc(100vh - 130px); overflow:auto; }
+  .cc-tool { border:1px solid rgba(80,170,215,.28); border-radius:14px; margin-bottom:12px; background:rgba(8,40,68,.55); overflow:hidden; }
+  .cc-tool.cc-active { border-color:rgba(95,208,232,.7); box-shadow:0 0 0 1px rgba(95,208,232,.25) inset; }
+  .cc-row { display:flex; align-items:center; gap:14px; padding:13px 16px; }
+  .cc-ico { font-size:1.4rem; width:30px; text-align:center; flex-shrink:0; }
+  .cc-meta { flex:1; min-width:0; }
+  .cc-name { font-weight:800; font-size:1rem; color:#eaf8ff; display:flex; align-items:center; gap:8px; }
+  .cc-badge { font-size:.58rem; font-weight:800; text-transform:uppercase; letter-spacing:.6px; padding:2px 6px; border-radius:5px; }
+  .cc-badge.live { background:rgba(31,187,138,.22); color:#5ff0bf; border:1px solid rgba(31,187,138,.5); }
+  .cc-badge.server { background:rgba(240,180,60,.18); color:#ffd574; border:1px solid rgba(240,180,60,.45); }
+  .cc-desc { font-size:.8rem; color:#9fc6e0; margin-top:3px; line-height:1.4; }
+  .cc-switch { position:relative; width:50px; height:28px; flex-shrink:0; border-radius:999px; background:rgba(120,150,175,.35); border:1px solid rgba(150,190,215,.4); cursor:pointer; transition:background .18s; }
+  .cc-switch::after { content:""; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:50%; background:#dceffb; transition:transform .18s; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+  .cc-switch.on { background:linear-gradient(90deg,#1f9ad7,#22d8c8); border-color:#3de0e0; }
+  .cc-switch.on::after { transform:translateX(22px); }
+  .cc-toolbody { display:none; padding:0 16px 16px; border-top:1px solid rgba(80,170,215,.2); }
+  .cc-tool.cc-active .cc-toolbody { display:block; }
+  .cc-sub { font-size:.72rem; color:#8fb6d2; margin:12px 0 6px; text-transform:uppercase; letter-spacing:.8px; font-weight:800; }
+  .cc-btn { background:rgba(40,150,210,.28); border:1px solid rgba(95,208,232,.5); color:#dff1fb; padding:7px 13px; border-radius:9px; font-weight:700; font-size:.82rem; cursor:pointer; font-family:inherit; }
+  .cc-btn:hover { background:rgba(40,150,210,.5); }
+  .cc-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .cc-btn.cc-danger { background:rgba(232,64,87,.22); border-color:rgba(232,64,87,.55); }
+  .cc-btn.cc-danger:hover { background:rgba(232,64,87,.42); }
+  .cc-btnrow { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .cc-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:10px; }
+  .cc-kv { display:flex; justify-content:space-between; gap:10px; padding:6px 10px; background:rgba(8,40,68,.5); border:1px solid rgba(80,170,215,.2); border-radius:8px; font-size:.82rem; }
+  .cc-kv b { color:#7fe3ff; font-weight:800; }
+  .cc-cards { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; }
+  .cc-card { width:64px; }
+  .cc-card-img { width:64px; height:64px; border-radius:8px; border:1px solid rgba(95,208,232,.4); background:#0a2742 center/cover no-repeat; overflow:hidden; }
+  .cc-card-back .cc-card-img { background:repeating-linear-gradient(45deg,#0d3a5e,#0d3a5e 6px,#0a2c4a 6px,#0a2c4a 12px); }
+  .cc-card-name { font-size:.62rem; color:#bfe0f2; text-align:center; margin-top:2px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cc-seat { border:1px solid rgba(80,170,215,.25); border-radius:11px; padding:10px 12px; margin-bottom:10px; background:rgba(6,32,56,.5); }
+  .cc-seat-hd { font-weight:800; color:#eaf8ff; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .cc-note { font-size:.76rem; color:#ffd574; background:rgba(240,180,60,.1); border:1px dashed rgba(240,180,60,.45); border-radius:9px; padding:9px 12px; margin:8px 0; line-height:1.5; }
+  .cc-pending { font-size:.82rem; color:#cfe6f4; line-height:1.6; }
+  .cc-pending ul { margin:6px 0 0; padding-left:18px; }
+  .cc-loglist { max-height:280px; overflow:auto; font-family:ui-monospace,monospace; font-size:.74rem; }
+  .cc-logitem { border:1px solid rgba(232,64,87,.3); background:rgba(232,64,87,.07); border-radius:8px; padding:8px 10px; margin-bottom:7px; }
+  .cc-logitem .m { color:#ff9aa8; font-weight:700; word-break:break-word; }
+  .cc-logitem .meta { color:#9fc6e0; margin-top:4px; }
+  .cc-input { background:rgba(8,40,68,.7); border:1px solid rgba(95,208,232,.4); color:#eaf8ff; border-radius:9px; padding:7px 11px; font-family:inherit; font-size:.85rem; width:100%; box-sizing:border-box; }
+  .cc-achrow { display:flex; align-items:center; gap:10px; padding:7px 10px; border:1px solid rgba(80,170,215,.2); border-radius:9px; margin-bottom:6px; background:rgba(8,40,68,.45); }
+  .cc-achrow .ai { font-size:1.1rem; }
+  .cc-achrow .an { flex:1; min-width:0; font-size:.84rem; }
+  .cc-achrow .an small { display:block; color:#8fb6d2; font-size:.7rem; }
+  .cc-achrow.done { border-color:rgba(31,187,138,.5); }
+  #cc-menu-item { color:#5fd0e8 !important; font-weight:800; }
+  #cc-cine-exit { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:100001; display:none; background:rgba(10,40,68,.9); border:1px solid #5fd0e8; color:#dff1fb; padding:9px 18px; border-radius:999px; font-weight:800; cursor:pointer; font-family:"Nunito",sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.5); }
+  body.cc-cinematic #cc-cine-exit { display:block; }
+  body.cc-cinematic .pv-menu-wrap, body.cc-cinematic #pv-turn-banner, body.cc-cinematic #pv-guide-bar, body.cc-cinematic #pv-log-float { opacity:0 !important; pointer-events:none !important; }
+  @media (max-width:640px){ .cc-card{width:54px} .cc-card-img{width:54px;height:54px} }
+  `;
+  const styleEl = document.createElement("style");
+  styleEl.id = "cc-styles";
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+
+  // ════════════════════════════════════════════════════════════════
+  //  PANEL DOM
+  // ════════════════════════════════════════════════════════════════
+  let overlay = null;
+  const panelOpen = () => !!(overlay && overlay.classList.contains("open"));
+
+  function buildPanel() {
+    if (overlay) return overlay;
+    overlay = document.createElement("div");
+    overlay.id = "cc-overlay";
+    overlay.innerHTML =
+      `<div id="cc-panel" role="dialog" aria-label="Current Controller">
+        <div id="cc-head">
+          <span class="cc-logo">🌊 Current Controller</span>
+          <span class="cc-tag">Admin</span>
+          <button id="cc-close" title="Close">✕</button>
+        </div>
+        <div id="cc-body">${TOOLS.map(toolRowHtml).join("")}</div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector("#cc-close").addEventListener("click", close);
+    TOOLS.forEach(t => {
+      const sw = overlay.querySelector(`#cc-sw-${t.id}`);
+      if (sw) sw.addEventListener("click", () => toggleTool(t.id));
+    });
+    return overlay;
+  }
+
+  function toolRowHtml(t) {
+    const on = isOn(t.id);
+    return `<div class="cc-tool ${on ? "cc-active" : ""}" id="cc-tool-${t.id}">
+      <div class="cc-row">
+        <div class="cc-ico">${t.icon}</div>
+        <div class="cc-meta">
+          <div class="cc-name">${esc(t.name)} <span class="cc-badge ${t.phase}">${t.phase === "live" ? "Live" : "Server pass"}</span></div>
+          <div class="cc-desc">${esc(t.desc)}</div>
+        </div>
+        <div class="cc-switch ${on ? "on" : ""}" id="cc-sw-${t.id}" role="switch" aria-checked="${on}" tabindex="0"></div>
+      </div>
+      <div class="cc-toolbody" id="cc-body-${t.id}"></div>
+    </div>`;
+  }
+
+  function toggleTool(id) {
+    if (!isAdmin()) { close(); return; }      // hard re-check on every action
+    toggles[id] = !toggles[id];
+    saveToggles();
+    const tool = overlay && overlay.querySelector(`#cc-tool-${id}`);
+    const sw = overlay && overlay.querySelector(`#cc-sw-${id}`);
+    if (tool) tool.classList.toggle("cc-active", isOn(id));
+    if (sw) { sw.classList.toggle("on", isOn(id)); sw.setAttribute("aria-checked", String(isOn(id))); }
+    onToolStateChange(id);
+    renderBody(id);
+  }
+
+  // Side-effects when a tool flips on/off.
+  function onToolStateChange(id) {
+    if (id === "cinematic") {
+      if (isOn("cinematic")) { document.body.classList.add("cc-cinematic"); close(); }
+      else document.body.classList.remove("cc-cinematic");
+    }
+  }
+
+  function open() {
+    if (!isAdmin()) return;
+    buildPanel();
+    TOOLS.forEach(t => renderBody(t.id));
+    overlay.classList.add("open");
+  }
+  function close() { if (overlay) overlay.classList.remove("open"); }
+
+  // ════════════════════════════════════════════════════════════════
+  //  TOOL BODIES
+  // ════════════════════════════════════════════════════════════════
+  function renderBody(id) {
+    const el = overlay && overlay.querySelector(`#cc-body-${id}`);
+    if (!el) return;
+    if (!isOn(id)) { el.innerHTML = ""; return; }
+    try { (BODY[id] || (() => { el.innerHTML = ""; }))(el); }
+    catch (e) { el.innerHTML = `<div class="cc-note">Tool render error: ${esc(e && e.message)}</div>`; }
+  }
+
+  const BODY = {
+    // ── Game State Viewer ─────────────────────────────────────────
+    state_viewer(el) {
+      const p = payload();
+      if (!p) { el.innerHTML = `<div class="cc-note">No active game state. Join a game to populate this.</div>`; return; }
+      const st = p.state || {};
+      const conn = (window.__ccConnInfo && window.__ccConnInfo()) || {};
+      const players = Array.isArray(st.players) ? st.players : [];
+      const mi = myIndex(p);
+      const deck = st.deck_remaining ?? st.deck_size ?? st.deck_count ?? (Array.isArray(st.deck) ? st.deck.length : "—");
+      const eg = st.end_game || {};
+      const pool = Array.isArray(st.pool) ? st.pool : [];
+      let h = "";
+      h += `<div class="cc-sub">Turn & Sync</div><div class="cc-grid">
+        <div class="cc-kv"><span>Current player</span><b>${esc(st.current_player || "—")}</b></div>
+        <div class="cc-kv"><span>Round</span><b>${esc(st.round_count ?? "—")}</b></div>
+        <div class="cc-kv"><span>Deck remaining</span><b>${esc(deck)}</b></div>
+        <div class="cc-kv"><span>Pool size</span><b>${pool.length}</b></div>
+        <div class="cc-kv"><span>State version</span><b>${esc(conn.version ?? "—")}</b></div>
+        <div class="cc-kv"><span>Connection</span><b>${conn.sse ? "SSE" : (conn.polling ? "Polling" : "—")}</b></div>
+        <div class="cc-kv"><span>End Game card</span><b>${esc(eg.end_game_uid ?? eg.location ?? (eg.triggered ? "triggered" : "in deck"))}</b></div>
+        <div class="cc-kv"><span>Room</span><b>${esc(conn.room || p.room?.room_id || "—")}</b></div>
+      </div>`;
+      h += `<div class="cc-sub">Pool (${pool.length})</div><div class="cc-cards">${pool.length ? pool.map(e => cardTile(firstFace(e), e.label)).join("") : '<span class="cc-desc">empty</span>'}</div>`;
+      h += `<div class="cc-sub">Players</div>`;
+      players.forEach(pl => {
+        const mine = pl.index === mi;
+        const hc = pl.hand_count ?? (Array.isArray(pl.hand) ? pl.hand.length : 0);
+        const oceans = Array.isArray(pl.board) ? pl.board.length : (pl.board_ocean_count ?? "—");
+        h += `<div class="cc-kv"><span>P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""}</span><b>${esc(pl.score ?? 0)} pts · ${esc(hc)} cards · ${esc(oceans)} oceans${pl.strategy ? " · " + esc(pl.strategy) : ""}</b></div>`;
+      });
+      const me = players.find(pl => pl.index === mi);
+      if (me && Array.isArray(me.hand) && me.hand.length) {
+        h += `<div class="cc-sub">Your hand</div><div class="cc-cards">${me.hand.map(e => cardTile(firstFace(e), e.label)).join("")}</div>`;
+      }
+      h += `<div class="cc-btnrow"><button class="cc-btn" id="cc-sv-copy">📋 Copy Debug Report</button></div>`;
+      el.innerHTML = h;
+      const cp = el.querySelector("#cc-sv-copy");
+      if (cp) cp.addEventListener("click", () => {
+        const report = buildDebugReport(p, conn);
+        copyText(report, cp);
+      });
+    },
+
+    // ── Enemy Hand Viewer (Phase 1: view-only) ────────────────────
+    enemy_hands(el) {
+      const p = payload();
+      if (!p) { el.innerHTML = `<div class="cc-note">No active game.</div>`; return; }
+      const st = p.state || {};
+      const players = Array.isArray(st.players) ? st.players : [];
+      const mi = myIndex(p);
+      let h = `<div class="cc-note">Live view shows every seat plus <b>your</b> real cards. Opponents' faces are hidden because the server never sends them to the browser — revealing &amp; editing them lands in the server pass.</div>`;
+      players.forEach(pl => {
+        const mine = pl.index === mi;
+        const hc = pl.hand_count ?? (Array.isArray(pl.hand) ? pl.hand.length : 0);
+        h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${esc(hc)} cards</span></div>`;
+        h += `<div class="cc-cards">`;
+        if (mine && Array.isArray(pl.hand) && pl.hand.length) h += pl.hand.map(e => cardTile(firstFace(e), e.label)).join("");
+        else h += cardBack(Number(hc) || 0);
+        h += `</div>`;
+        h += `<div class="cc-btnrow">
+          <button class="cc-btn" disabled title="Server pass">＋ Add card</button>
+          <button class="cc-btn" disabled title="Server pass">－ Remove card</button>
+          <button class="cc-btn cc-danger" disabled title="Server pass">Clear hand</button>
+          <button class="cc-btn" disabled title="Server pass">Copy to my hand</button>
+        </div></div>`;
+      });
+      el.innerHTML = h;
+    },
+
+    // ── What If Menu (Phase 1: preview-only estimates) ────────────
+    what_if(el) {
+      const p = payload();
+      if (!p) { el.innerHTML = `<div class="cc-note">No active game.</div>`; return; }
+      const st = p.state || {};
+      const lw = p.legal_actions || {};
+      const mi = myIndex(p);
+      const me = (st.players || []).find(pl => pl.index === mi);
+      const pool = Array.isArray(st.pool) ? st.pool : [];
+      let h = `<div class="cc-note">Preview-only estimates from data the browser has. Numbers are rough — accurate simulation &amp; <b>Apply This Move</b> need the server pass.</div>`;
+      h += `<div class="cc-sub">What if I play…</div><div class="cc-grid">`;
+      const hand = (me && Array.isArray(me.hand)) ? me.hand : [];
+      if (hand.length) hand.forEach(e => {
+        const f = firstFace(e); const pts = f && f.points != null ? f.points : "?";
+        h += `<div class="cc-kv"><span>${esc((f && f.name) || e.label)}</span><b>≈ +${esc(pts)} pts</b></div>`;
+      });
+      else h += `<span class="cc-desc">No cards in hand.</span>`;
+      h += `</div>`;
+      h += `<div class="cc-sub">What if I take from the pool…</div><div class="cc-grid">`;
+      if (pool.length) pool.forEach(e => {
+        const f = firstFace(e); const pts = f && f.points != null ? f.points : "?";
+        h += `<div class="cc-kv"><span>${esc((f && f.name) || e.label)}</span><b>+1 card · ${esc(pts)} pts</b></div>`;
+      });
+      else h += `<span class="cc-desc">Pool empty.</span>`;
+      h += `</div>`;
+      h += `<div class="cc-sub">What if I draw from the deck</div><div class="cc-kv"><span>Unknown card</span><b>+1 card (random)</b></div>`;
+      h += `<div class="cc-btnrow" style="margin-top:12px"><button class="cc-btn" disabled>👁 Preview Only (active)</button><button class="cc-btn" disabled title="Server pass">✓ Apply This Move</button></div>`;
+      el.innerHTML = h;
+    },
+
+    // ── Recent Bug Log ────────────────────────────────────────────
+    bug_log(el) {
+      let h = `<div class="cc-btnrow"><button class="cc-btn" id="cc-bug-copy">📋 Copy Bug Report</button><button class="cc-btn cc-danger" id="cc-bug-clear">Clear Bug Log</button></div>`;
+      if (!bugLog.length) h += `<div class="cc-desc">No issues recorded yet this session. Errors, console.error calls and rejected promises will appear here while this is ON.</div>`;
+      else h += `<div class="cc-loglist">` + bugLog.map(b =>
+        `<div class="cc-logitem"><div class="m">${esc(b.message)}</div><div class="meta">turn ${esc(b.turn)} · current: ${esc(b.currentPlayer)} · affected: ${esc(b.affectedPlayer)} · action: ${esc(b.action)} · ${esc(b.ts)}${b.explanation ? " · " + esc(b.explanation) : ""}</div></div>`
+      ).join("") + `</div>`;
+      el.innerHTML = h;
+      el.querySelector("#cc-bug-copy")?.addEventListener("click", (e) => copyText(JSON.stringify(bugLog, null, 2), e.target));
+      el.querySelector("#cc-bug-clear")?.addEventListener("click", () => { bugLog.length = 0; renderBody("bug_log"); });
+    },
+
+    // ── Achievement Tester ────────────────────────────────────────
+    ach_tester(el) {
+      const defs = (window.__ccAchievementDefs && window.__ccAchievementDefs()) || [];
+      const done = (window.__fishGetUserAchievements && window.__fishGetUserAchievements()) || {};
+      el.innerHTML =
+        `<div class="cc-note">Affects <b>your own</b> account only. Unlock awards XP + any tied avatar; Lock removes it and refunds XP.</div>
+         <input class="cc-input" id="cc-ach-search" placeholder="Search achievements…" style="margin-bottom:10px">
+         <div id="cc-ach-list"></div>`;
+      const list = el.querySelector("#cc-ach-list");
+      const search = el.querySelector("#cc-ach-search");
+      function paint(filter) {
+        const f = (filter || "").toLowerCase();
+        const cur = (window.__fishGetUserAchievements && window.__fishGetUserAchievements()) || done;
+        list.innerHTML = defs.filter(d => !f || (d.name + " " + d.id + " " + (d.cat || "")).toLowerCase().includes(f)).map(d => {
+          const isDone = !!(cur[d.id] && cur[d.id].completed);
+          return `<div class="cc-achrow ${isDone ? "done" : ""}">
+            <span class="ai">${d.icon || "🏆"}</span>
+            <span class="an">${esc(d.name)}<small>${esc(d.cat || "")} · ${esc(d.xp || 0)} XP · ${esc(d.id)}</small></span>
+            <button class="cc-btn" data-unlock="${esc(d.id)}" ${isDone ? "disabled" : ""}>Unlock</button>
+            <button class="cc-btn cc-danger" data-lock="${esc(d.id)}" ${isDone ? "" : "disabled"}>Lock</button>
+          </div>`;
+        }).join("") || `<div class="cc-desc">No matches.</div>`;
+        list.querySelectorAll("[data-unlock]").forEach(b => b.addEventListener("click", async () => {
+          b.disabled = true; b.textContent = "…";
+          const ok = window.__fishAdminUnlockAchievement && await window.__fishAdminUnlockAchievement(b.getAttribute("data-unlock"));
+          if (!ok) { b.disabled = false; b.textContent = "Unlock"; alert("Not authorized."); return; }
+          setTimeout(() => paint(search.value), 400);
+        }));
+        list.querySelectorAll("[data-lock]").forEach(b => b.addEventListener("click", async () => {
+          b.disabled = true; b.textContent = "…";
+          const ok = window.__fishAdminLockAchievement && await window.__fishAdminLockAchievement(b.getAttribute("data-lock"));
+          if (!ok) { b.disabled = false; b.textContent = "Lock"; alert("Not authorized."); return; }
+          setTimeout(() => paint(search.value), 400);
+        }));
+      }
+      search.addEventListener("input", () => paint(search.value));
+      paint("");
+    },
+
+    // ── Replay Last Turn (snapshot scrubber) ──────────────────────
+    replay(el) {
+      if (!snaps.length) { el.innerHTML = `<div class="cc-desc">Capturing snapshots… they appear here as the game state changes while this is ON.</div>`; return; }
+      el.innerHTML =
+        `<div class="cc-sub">${snaps.length} snapshot(s) captured</div>
+         <input type="range" id="cc-rp-slider" min="0" max="${snaps.length - 1}" value="${snaps.length - 1}" style="width:100%">
+         <div id="cc-rp-info"></div>`;
+      const slider = el.querySelector("#cc-rp-slider");
+      const info = el.querySelector("#cc-rp-info");
+      function show(i) {
+        const s = snaps[i]; if (!s) return;
+        info.innerHTML = `<div class="cc-grid">
+          <div class="cc-kv"><span>Version</span><b>${esc(s.ver)}</b></div>
+          <div class="cc-kv"><span>Round</span><b>${esc(s.round)}</b></div>
+          <div class="cc-kv"><span>Current</span><b>${esc(s.cur)}</b></div>
+          <div class="cc-kv"><span>Pool size</span><b>${esc(s.pool)}</b></div>
+          <div class="cc-kv"><span>Time</span><b>${esc(new Date(s.ts).toLocaleTimeString())}</b></div>
+          <div class="cc-kv"><span>Scores</span><b>${esc(s.scores || "—")}</b></div>
+        </div>`;
+      }
+      slider.addEventListener("input", () => show(Number(slider.value)));
+      show(snaps.length - 1);
+    },
+
+    // ── Screenshot / Cinematic Mode ───────────────────────────────
+    cinematic(el) {
+      el.innerHTML = `<div class="cc-pending">Turning this ON hides the menu, turn banner and guide bar and closes this panel for a clean board capture. An <b>Exit Cinematic</b> pill appears at the bottom; clicking it (or toggling off) restores everything.</div>`;
+    },
+
+    // ── Server-pass tools (UI present; mutations next pass) ───────
+    bot_brain(el) { el.innerHTML = pendingHtml("When it's a bot's turn this will show the bot's strategy, intended move, the reasoning, and the top scored alternatives — with <b>Use Bot Move</b> / <b>Choose Different Move</b> buttons.", ["Exposes the AI's candidate-action scores from the Python server", "Reads the bot's chosen action before it commits"]); },
+    bot_override(el) { el.innerHTML = pendingHtml("Pause a bot before it moves and force: draw from deck/pool, play a specific card, move a card, use an ability, or end turn — then the game continues normally.", ["New admin endpoint to intercept & replace the bot's queued action", "Server-side admin identity verification"]); },
+    deck_picker(el) { el.innerHTML = pendingHtml("On your turn, clicking the deck opens a full searchable picker (by name, type, ocean, points, ability, remaining copies). Pick any card → add to a hand, the pool, top of deck, or discard.", ["Server must expose full deck contents + remaining copies", "New admin placement endpoint"]); },
+    force_pool(el) { el.innerHTML = pendingHtml("Choose exactly what's in the pool: clear, refill, replace one card, or force specific cards in.", ["New admin pool-mutation endpoint", "Server-side validation so the deck/pool stay consistent"]); },
+  };
+
+  function pendingHtml(summary, needs) {
+    return `<div class="cc-pending">${summary}<div class="cc-note" style="margin-top:10px">⚙️ Wiring in the server pass — this needs:<ul>${needs.map(n => `<li>${n}</li>`).join("")}</ul></div></div>`;
+  }
+
+  function buildDebugReport(p, conn) {
+    const st = p.state || {};
+    const lines = [];
+    lines.push("=== Currents & Critters — Debug Report ===");
+    lines.push("time: " + new Date().toISOString());
+    lines.push("room: " + (conn.room || p.room?.room_id || "—") + "  version: " + (conn.version ?? "—") + "  conn: " + (conn.sse ? "SSE" : conn.polling ? "Polling" : "—"));
+    lines.push("current_player: " + (st.current_player || "—") + "  round: " + (st.round_count ?? "—"));
+    lines.push("deck_remaining: " + (st.deck_remaining ?? st.deck_size ?? st.deck_count ?? "—"));
+    lines.push("end_game: " + JSON.stringify(st.end_game || {}));
+    lines.push("pool: " + (Array.isArray(st.pool) ? st.pool.map(e => e.label).join(" | ") : "—"));
+    (st.players || []).forEach(pl => {
+      lines.push(`P${(pl.index ?? 0) + 1} ${pl.name}: ${pl.score ?? 0} pts, ${pl.hand_count ?? (pl.hand ? pl.hand.length : 0)} cards${pl.strategy ? ", " + pl.strategy : ""}`);
+    });
+    lines.push("--- raw state ---");
+    try { lines.push(JSON.stringify(p, null, 2)); } catch (_) { lines.push("(unserializable)"); }
+    return lines.join("\n");
+  }
+
+  function copyText(text, btn) {
+    const done = () => { if (btn) { const o = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(() => { btn.textContent = o; }, 1400); } };
+    try {
+      navigator.clipboard.writeText(text).then(done, () => fallback());
+    } catch (_) { fallback(); }
+    function fallback() {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  MENU INTEGRATION + ADMIN VISIBILITY
+  // ════════════════════════════════════════════════════════════════
+  function ensureMenuButton() {
+    const drop = document.getElementById("pv-menu-drop");
+    if (!drop) return;
+    let item = document.getElementById("cc-menu-item");
+    const admin = isAdmin();
+    if (admin && !item) {
+      const div = document.createElement("div");
+      div.className = "pv-menu-divider";
+      div.id = "cc-menu-divider";
+      item = document.createElement("button");
+      item.className = "pv-menu-item";
+      item.id = "cc-menu-item";
+      item.innerHTML = "🌊 Current Controller";
+      item.addEventListener("click", () => { document.getElementById("pv-menu-drop")?.classList.remove("open"); open(); });
+      const back = document.getElementById("pv-back-btn");
+      if (back) { drop.insertBefore(div, back); drop.insertBefore(item, back); }
+      else { drop.appendChild(div); drop.appendChild(item); }
+    }
+    // Hard hide / show based on current auth.
+    if (item) item.style.display = admin ? "" : "none";
+    const div = document.getElementById("cc-menu-divider");
+    if (div) div.style.display = admin ? "" : "none";
+    if (!admin) {
+      close();
+      if (document.body.classList.contains("cc-cinematic")) document.body.classList.remove("cc-cinematic");
+    }
+  }
+
+  // Exit Cinematic pill.
+  const cineExit = document.createElement("button");
+  cineExit.id = "cc-cine-exit";
+  cineExit.textContent = "Exit Cinematic Mode";
+  cineExit.addEventListener("click", () => {
+    toggles.cinematic = false; saveToggles();
+    document.body.classList.remove("cc-cinematic");
+    const sw = overlay && overlay.querySelector("#cc-sw-cinematic");
+    if (sw) sw.classList.remove("on");
+    const tool = overlay && overlay.querySelector("#cc-tool-cinematic");
+    if (tool) tool.classList.remove("cc-active");
+  });
+  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(cineExit));
+  if (document.readyState !== "loading") document.body.appendChild(cineExit);
+
+  // Re-evaluate admin visibility continuously (auth can resolve after load,
+  // and a sign-out must immediately strip the button + any open panel).
+  setInterval(ensureMenuButton, 1200);
+  ensureMenuButton();
+
+  // Live-refresh open data tools while the panel is visible.
+  setInterval(() => {
+    if (!panelOpen()) return;
+    if (isOn("state_viewer")) renderBody("state_viewer");
+    if (isOn("enemy_hands")) renderBody("enemy_hands");
+    if (isOn("replay")) renderBody("replay");
+  }, 1000);
+
+  // ESC closes the panel.
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelOpen()) close(); });
+
+  // If cinematic was left ON from a previous session, restore it (admin only).
+  if (isAdmin() && isOn("cinematic")) document.body.classList.add("cc-cinematic");
+})();
+</script>
 </body>
 </html>
