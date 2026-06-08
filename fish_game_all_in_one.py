@@ -7207,6 +7207,69 @@ def perform_mulligans(gs: GameState, ms: MatchState) -> None:
         draw_from_deck(gs, ms, p, 8)
 
 
+def rig_tutorial_opening_hand(
+    gs: GameState, ms: MatchState, idx: Optional[int], end_uid: Optional[int] = None
+) -> None:
+    """Tutorial games only: guarantee the human at game-index ``idx`` opens with a
+    fully playable hand so the guided turn ("play an Ocean, then two creatures")
+    always works. ``perform_mulligans`` already guarantees an Ocean is present;
+    this adds the safety net of at least two creatures spanning two distinct
+    directions (so both can be placed on a single ocean). Cards are swapped in
+    from the deck 1-for-1, so the hand size and every other player are untouched.
+
+    No-op when ``idx`` is None (every normal game), so this never affects real
+    matches. Called after the deal + mulligans but before the END GAME card's
+    final placement, so deck reordering here is harmless.
+    """
+    if idx is None or not (0 <= idx < len(gs.players)):
+        return
+    p = gs.players[idx]
+
+    def dirs_of(uid: int) -> set:
+        s: set = set()
+        for u in entry_faces(ms, uid):
+            c = gs.card_db.get(u)
+            if c is not None and not is_ocean(c):
+                d = normalize_direction(c.direction)
+                if d != "n/a":
+                    s.add(d)
+        return s
+
+    non_ocean = [u for u in p.hand if not entry_is_ocean(ms, gs, u)]
+    union: set = set()
+    for u in non_ocean:
+        union |= dirs_of(u)
+    if len(non_ocean) >= 2 and len(union) >= 2:
+        return  # already playable — nothing to do
+
+    wanted = [d for d in ("up", "down", "left", "right") if d not in union]
+    # How many fresh cards we must add to reach 2 distinct directions AND 2 creatures.
+    need = max(2 - len(union), 2 - len(non_ocean), 0)
+    added = 0
+    for want_dir in (wanted or ["up", "down", "left", "right"]):
+        if added >= need:
+            break
+        donor = None
+        for u in gs.deck:
+            if end_uid is not None and u == end_uid:
+                continue
+            if entry_is_ocean(ms, gs, u):
+                continue
+            if want_dir in dirs_of(u):
+                donor = u
+                break
+        if donor is None:
+            continue
+        gs.deck.remove(donor)
+        # Send a spare non-ocean hand card back to the deck to keep hand size stable.
+        victim = next((u for u in p.hand if not entry_is_ocean(ms, gs, u)), None)
+        if victim is not None and len(p.hand) >= 8:
+            p.hand.remove(victim)
+            gs.deck.append(victim)
+        p.hand.append(donor)
+        added += 1
+
+
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
     # Tarpon discard phase: player chooses any cards to discard (0 or more), then ends.
     if player.flags.get("_tarpon_discard_active"):
@@ -9781,6 +9844,7 @@ def run_match(
     hand_based_archetypes: bool = False,
     human_learning_boost: float = 1.0,
     ai_difficulties: Optional[List[str]] = None,
+    tutorial_human_index: Optional[int] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
     web_control_mode = str(os.environ.get("FISH_WEB_CONTROL", "")).strip().lower() in {
@@ -9833,6 +9897,9 @@ def run_match(
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)
+    # Tutorial games only: guarantee the human opens with a playable hand (Ocean +
+    # two creatures of distinct directions). No-op for every normal match.
+    rig_tutorial_opening_hand(gs, ms, tutorial_human_index, end_uid)
     # Re-shuffle the remaining deck after mulligans so any ordering
     # patterns from mulligan redraws are fully randomised before play begins.
     # IMPORTANT: a plain shuffle would scatter the END GAME card out of the

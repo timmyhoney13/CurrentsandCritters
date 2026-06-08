@@ -12103,6 +12103,18 @@
   window.__ccLegalActions = () => (typeof legalActions !== "undefined" && Array.isArray(legalActions) ? legalActions : []);
   window.__ccApplyAction = (i) => { try { return submitAction(legalActions[i]); } catch (_) { return null; } };
   window.__ccApiUrl = (p) => { try { return (typeof apiUrl === "function") ? apiUrl(p) : p; } catch (_) { return p; } };
+  // Used by "The Game" tutorial to leave the rigged practice game and return to
+  // the menu (the tour then reopens the tutorial chooser).
+  window.__tutLeaveGame = async () => {
+    try {
+      const token = (typeof getSeatToken === "function") ? getSeatToken() : null;
+      const rid = (typeof roomId !== "undefined") ? roomId : null;
+      if (token && rid) {
+        try { await apiPost(`/api/rooms/${rid}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+      }
+    } catch (_) {}
+    try { returnToMenu(false); } catch (_) {}
+  };
   let _serverWaking = false;       // true while Render server is returning 503
   let _serverWakeToastShown = false; // only show the "waking up" toast once per session
   let _prevTurnIdx = null;
@@ -13269,11 +13281,15 @@
     const _ncBtnLabel = btn.querySelector(".nc-btn-label");
     if (_ncBtnLabel) _ncBtnLabel.textContent = "Generating…";
     errEl.textContent = "";
+    // Tutorial flag is a one-shot set by "The Game" tour; consume it here so a
+    // later manual create is never mis-flagged as a tutorial game.
+    const _isTutGame = (window.__ccTutorialGame === true);
+    window.__ccTutorialGame = false;
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: human, ai_players: ai,
       replace_active: false, visibility, password,
-      competitive: _ncIsCompetitive,
+      competitive: _ncIsCompetitive, tutorial: _isTutGame,
     }, { timeoutMs:10000 });
     btn.disabled = false;
     btn.classList.remove("generating");
@@ -30748,6 +30764,14 @@
     else gotoStep(coachIdx + 1);
   }
 
+  // A step.target may be a CSS selector string OR a function that returns an
+  // element (used for dynamic targets like "another player's seat").
+  function coachResolveEl(step) {
+    if (!step || step.target == null) return null;
+    if (typeof step.target === "function") { try { return step.target(); } catch (_) { return null; } }
+    try { return document.querySelector(step.target); } catch (_) { return null; }
+  }
+
   // Called by an interactive mock element when the user performs an action.
   // If the current step is waiting for exactly that action, advance the tour.
   function coachHit(action) {
@@ -30854,7 +30878,7 @@
       nextBtn.textContent = "Next →"; nextBtn.disabled = false;
     }
     // Scroll target into view, then position after a tick so layout settles.
-    const el = step.target ? document.querySelector(step.target) : null;
+    const el = coachResolveEl(step);
     if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
     setTimeout(positionCoach, 120);
   }
@@ -30874,7 +30898,7 @@
     const hole = coach.querySelector("#tut3-hole");
     const pop = coach.querySelector("#tut3-pop");
     const arrow = coach.querySelector("#tut3-arrow");
-    const el = step.target ? document.querySelector(step.target) : null;
+    const el = coachResolveEl(step);
     const vw = window.innerWidth, vh = window.innerHeight;
     const pr = pop.getBoundingClientRect();
     const popW = pr.width || 320, popH = pr.height || 160;
@@ -31230,6 +31254,41 @@
     }, 400);
   }
 
+  // ── Live-game state predicates (read the real payload via the cc bridges) ──
+  function gtPay() { try { return (window.__ccGetPayload && window.__ccGetPayload()) || null; } catch (_) { return null; } }
+  function gtMe() {
+    const p = gtPay(); if (!p) return null;
+    const st = p.state || {};
+    const players = Array.isArray(st.players) ? st.players : [];
+    const vi = p.viewer && p.viewer.seat_index;
+    return players.find(x => x.index === vi) || null;
+  }
+  function gtMyTurn() { const p = gtPay(); return !!(p && p.viewer && p.viewer.can_act); }
+  function gtOceanCount() { const me = gtMe(); return (me && Array.isArray(me.board)) ? me.board.length : 0; }
+  function gtCreatureCount() {
+    const me = gtMe(); if (!me || !Array.isArray(me.board)) return 0;
+    let n = 0;
+    me.board.forEach(o => ["up", "down", "left", "right"].forEach(d => { if (Array.isArray(o[d])) n += o[d].length; }));
+    return n;
+  }
+  function gtLegal() { try { return (window.__ccLegalActions && window.__ccLegalActions()) || []; } catch (_) { return []; } }
+  function gtDrawDone() { return gtMyTurn() && !gtLegal().some(a => a && a.kind === "draw"); }
+  function gtZoomOpen() { const m = document.getElementById("pv-zoom-modal"); return !!(m && m.classList.contains("open")); }
+  function gtZoomClosed() { const m = document.getElementById("pv-zoom-modal"); return !(m && m.classList.contains("open")); }
+  function gtBoardFocusOpen() { const m = document.getElementById("pv-board-focus"); return !!(m && m.classList.contains("open")); }
+  function gtBoardFocusClosed() { const m = document.getElementById("pv-board-focus"); return !(m && m.classList.contains("open")); }
+  function gtBoardPeek() { return gtBoardFocusOpen() || !!document.getElementById("pv-board-hover")?.classList.contains("visible"); }
+  // Snapshot of the hand's left-to-right order, for detecting a manual reorder.
+  function gtHandSig() { return Array.from(document.querySelectorAll("#pv-hand .pv-hand-card")).map(c => c.dataset.entryUid).join(","); }
+  let _tutHandSig = "";
+  // First seat belonging to another player (always an AI in the 1-human tutorial).
+  function gtOtherSeat() {
+    const me = gtMe();
+    const myIdx = me ? me.index : 0;
+    const seats = Array.from(document.querySelectorAll(".pv-seat[data-player-index]"));
+    return seats.find(s => Number(s.dataset.playerIndex) !== myIdx) || seats[0] || null;
+  }
+
   const GAME_STEPS = [
     { target: null, badge: "The Game", title: "Let's play a real game",
       text: "We will create and start an <strong>actual game</strong> together. Follow the glowing highlights and <strong>click for real</strong>. This is the exact path every game takes." },
@@ -31249,30 +31308,60 @@
       text: "Each bot has a difficulty: <strong>Easy, Medium, or Hard</strong>. We set them all to <strong>Easy</strong> for now. As the host you can change any of them right here whenever you want." },
     { target: "#wr-start-btn", badge: "Step 5", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
       text: "Your crew is aboard. <strong>Click Start Game</strong> to begin. The real board will load in a moment." },
+    // ── Board orientation ────────────────────────────────────────────
     { target: "#pv-room-id-badge", badge: "In Game", title: "Your Info",
       text: "Welcome to the real game. The <strong>top left</strong> shows your room code, your name, and your live <strong>score</strong>." },
     { target: "#pv-menu-btn", badge: "In Game", title: "The Menu",
       text: "The <strong>Menu</strong> is here on the <strong>top right</strong>. Inside you will find the Game Log, Chat, Score Breakdown, AI Speed, and Leave or Terminate." },
     { target: "#pv-guide-bar", badge: "In Game", title: "The Guide Bar",
-      text: "This <strong>guide bar</strong> always tells you what to do on your turn: draw, play, then end your turn." },
-    { target: "#pv-draw-deck", badge: "Drawing", title: "The Deck",
-      text: "Each turn you draw <strong>two cards</strong>. <strong>Click the Deck</strong> to draw, or take a card from the Pool." },
-    { target: "#pv-pool-area", badge: "Drawing", title: "The Pool",
-      text: "The <strong>Pool</strong> holds face up cards that anyone can take. Use the <strong>Inspect</strong> button to view them all." },
-    { target: "#pv-my-board", badge: "Playing Cards", title: "Claim an Ocean",
-      text: "You play onto <strong>oceans</strong>. There are three ways to play a card: <strong>drag it from your hand</strong>, <strong>click an ocean</strong> to drop it, or <strong>click a side slot</strong> to attach it to that exact spot." },
-    { target: "#pv-hand", badge: "Your Hand", title: "Your Hand",
-      text: "Your cards sit at the <strong>bottom</strong>. Each shows its points, symbol, and ability. Drag one up to play it, or use the action bar." },
-    { target: "#pv-action-bar", badge: "Controls", title: "The Action Bar",
-      text: "The action bar holds <strong>Draw from Deck</strong>, a card picker with <strong>Play Card</strong>, the <strong>Star ability</strong> toggle, <strong>Surf's Up</strong>, Full Screen, Undo Turn, and End Turn." },
-    { target: "#pv-surf-btn", badge: "Surf's Up", title: "Going Away",
-      text: "Need a break? <strong>Surf's Up</strong> marks you Away so your turns pause and no one draws for you. If a player goes quiet without it, the others can vote them <strong>AFK</strong> in chat so the game keeps moving." },
-    { target: "#pv-seats-left", badge: "Players", title: "The Players",
-      text: "Every player and their <strong>score</strong> appear here, so you can always see how you stack up." },
-    { target: "#pv-end-turn-inline", badge: "Finishing", title: "End Your Turn",
-      text: "When you are done drawing and playing, <strong>click End Turn</strong> to pass to the next player." },
-    { target: null, badge: "All Done", title: "You are in a real game",
-      text: "That is the whole game, and you are now in a live match. Play it out for fun, or come back to the tutorials later. Select <strong>Finish</strong> to mark this tour complete." },
+      text: "It is <strong>your turn</strong>. This <strong>guide bar</strong> always tells you what to do: first <strong>draw</strong>, then <strong>play</strong> cards, and only then end your turn. Let's go through it for real." },
+
+    // ── 1. Draw (interactive) ────────────────────────────────────────
+    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Your Cards", interactive: true, advanceWhen: gtDrawDone,
+      text: "Start your turn by drawing. <strong>Click the Deck</strong> to draw a card, or take one from the <strong>Pool</strong>. You draw <strong>two cards</strong> each turn — go ahead and draw both now." },
+
+    // ── 2. Claim an ocean (interactive) ──────────────────────────────
+    { target: "#pv-my-board", badge: "Your Turn", title: "Claim an Ocean", interactive: true, advanceWhen: () => gtOceanCount() >= 1,
+      text: "Every creature needs an <strong>ocean</strong> to live on, so play one first. You can either <strong>drag an Ocean card</strong> from your hand onto the glowing zone, or <strong>click the zone</strong> and pick one. Do it now to claim your first ocean." },
+
+    // ── 3. Play your first creature (interactive) ────────────────────
+    { target: "#pv-my-board", badge: "Your Turn", title: "Play a Creature", interactive: true, advanceWhen: () => gtCreatureCount() >= 1,
+      text: "Now deploy a creature. There are three ways: <strong>drag a card</strong> from your hand onto an open ocean slot, <strong>click a glowing + slot</strong> to pick one for that exact side, or use the dropdown in the action bar. Play one creature now." },
+
+    // ── 4. End Turn explanation (no action — just teach) ─────────────
+    { target: "#pv-end-turn-inline", badge: "Your Turn", title: "About End Turn",
+      text: "See <strong>End Turn</strong>? You do <strong>not</strong> need it while you still have moves. You only click it when you are <strong>out of plays</strong> — which mostly matters near the end of the game. <strong>Do not click it yet</strong> — we have a little more to do this turn." },
+
+    // ── 5. Peek at other boards (interactive: open) ──────────────────
+    { target: gtOtherSeat, badge: "Scouting", title: "Peek at Other Boards", interactive: true, advanceWhen: gtBoardPeek,
+      text: "You can scout your opponents. <strong>Hover a player</strong> to peek at their board, or <strong>click them</strong> to enlarge it. Try clicking a player now." },
+
+    // ── 6. Board focus description (interactive: close) ──────────────
+    { target: "#pv-board-focus", badge: "Scouting", title: "Their Whole Board", interactive: true, advanceWhen: gtBoardFocusClosed,
+      text: "This shows <strong>everything they have played</strong> — every ocean and creature, exactly as it scores. Use this to plan your moves. Click the <strong>✕</strong> to close it and continue.",
+      before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} } },
+
+    // ── 7. Full screen a card (interactive: open) ────────────────────
+    { target: "#pv-hand", badge: "Your Hand", title: "View a Card Full Screen", interactive: true, advanceWhen: gtZoomOpen,
+      text: "Want a closer look? <strong>Click any card in your hand</strong> to view it full screen, big and clear. Try it now." },
+
+    // ── 8. Zoom arrows + close (interactive: close) ──────────────────
+    { target: "#pv-zoom-modal", badge: "Your Hand", title: "Flip Through Your Hand", interactive: true, advanceWhen: gtZoomClosed,
+      text: "Use the <strong>‹ and › arrows</strong> on the sides to flip through every card in your hand without leaving full screen. When you are done, click the <strong>✕</strong> to close." },
+
+    // ── 9. Reorder hand (interactive) ────────────────────────────────
+    { target: "#pv-hand", badge: "Your Hand", title: "Rearrange Your Hand", interactive: true,
+      before: () => { _tutHandSig = gtHandSig(); },
+      advanceWhen: () => gtHandSig() !== _tutHandSig,
+      text: "You can tidy your hand any time. <strong>Drag a card and drop it onto another card</strong> to move it. Rearrange one now to see how it works." },
+
+    // ── 10. Play your second creature → finale (interactive) ─────────
+    { target: "#pv-my-board", badge: "Your Turn", title: "Play One More Creature", interactive: true, advanceWhen: () => gtCreatureCount() >= 2,
+      text: "Last thing: <strong>play a second creature</strong> onto another open side of your ocean, the same way as before. This completes your turn's plays." },
+
+    // ── Done ─────────────────────────────────────────────────────────
+    { target: null, badge: "Part 2 Complete", title: "Tutorial Part 2 Complete!",
+      text: "Nicely done — you drew, claimed an ocean, played creatures, scouted opponents, and learned full screen and hand sorting. That is a full turn. Select <strong>Finish</strong> to head back to the tutorial menu." },
   ];
 
   function runGameTour() {
@@ -31283,11 +31372,16 @@
         text: "This tutorial creates a real game from the menu. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial, then The Game</strong>." }], null);
       return;
     }
-    runCoach(GAME_STEPS, () => {
+    // Flag the next created game as a tutorial so the server rigs a playable
+    // opening hand. Consumed (cleared) by the create handler.
+    window.__ccTutorialGame = true;
+    runCoach(GAME_STEPS, async () => {
       setDone("game");
-      showToast("Game tutorial complete", completionSubtitle());
-      // Do not reopen the chooser over a live game; the player is now playing.
-    }, null);
+      showToast("Tutorial Part 2 complete", completionSubtitle());
+      // Leave the practice game, then return to the tutorial chooser.
+      try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
+      setTimeout(openChooser, 700);
+    }, () => { window.__ccTutorialGame = false; }, { noBack: true });
   }
 
   // ════════════════════════════════════════════════════════════════
