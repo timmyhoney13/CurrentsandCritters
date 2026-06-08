@@ -30685,14 +30685,32 @@
   #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
   /* No target → keep the full-screen dim (box-shadow) but hide the ring. */
   #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
-  #tut3-pop { position:fixed; max-width:340px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1px solid rgba(120,200,235,.65); border-radius:18px; box-shadow:0 18px 50px rgba(8,40,80,.5); padding:15px 17px 14px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; }
-  #tut3-pop .t3-badge { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
-  #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.12rem; font-weight:900; color:#1769b0; margin:3px 0 6px; }
-  #tut3-pop .t3-text { font-size:.86rem; line-height:1.5; color:#345f82; }
-  #tut3-pop .t3-text strong { color:#0f4d86; }
-  #tut3-pop .t3-bar { display:flex; align-items:center; gap:8px; margin-top:13px; }
-  #tut3-pop .t3-count { font-size:.74rem; color:#6a92b5; font-weight:700; flex:1; }
-  #tut3-pop .t3-btn { border:none; border-radius:10px; padding:8px 14px; font-weight:800; font-size:.82rem; cursor:pointer; font-family:inherit; }
+  #tut3-pop { position:fixed; max-width:440px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:20px; box-shadow:0 22px 58px rgba(8,40,80,.55); padding:20px 24px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; }
+  #tut3-pop .t3-badge { font-size:.76rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
+  #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.42rem; font-weight:900; color:#1769b0; margin:4px 0 10px; line-height:1.2; }
+  #tut3-pop .t3-text { font-size:1.04rem; line-height:1.62; color:#2b5575; }
+  #tut3-pop .t3-text strong { color:#0d456f; font-weight:800; }
+  #tut3-pop .t3-cta { display:inline-block; margin-top:13px; background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; border:none; border-radius:12px; padding:10px 18px; font-weight:800; font-size:.98rem; cursor:pointer; font-family:inherit; }
+  #tut3-pop .t3-cta:hover { filter:brightness(1.07); }
+  #tut3-pop .t3-bar { display:flex; align-items:center; gap:9px; margin-top:18px; }
+  #tut3-pop .t3-count { font-size:.84rem; color:#6a92b5; font-weight:700; flex:1; }
+  #tut3-pop .t3-btn { border:none; border-radius:12px; padding:11px 18px; font-weight:800; font-size:.94rem; cursor:pointer; font-family:inherit; }
+  /* Tutorial-only sample match viewer */
+  #tut3-sample { position:fixed; inset:0; z-index:100070; display:none; align-items:center; justify-content:center; padding:20px 14px; background:rgba(5,22,42,.82); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
+  #tut3-sample.open { display:flex; }
+  .t3-sample-card { width:100%; max-width:560px; background:linear-gradient(165deg,#0c2c52,#0a2244 60%,#08203c); border:1px solid rgba(95,180,225,.5); border-radius:20px; box-shadow:0 24px 70px rgba(0,0,0,.6); padding:20px 22px; color:#eaf6ff; font-family:"Nunito",sans-serif; }
+  .t3-sample-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .t3-sample-hd h3 { font-family:"Cinzel",serif; font-size:1.25rem; font-weight:900; color:#7fe3ff; margin:0; }
+  .t3-sample-sub { font-size:.86rem; color:#9fc6e0; margin-bottom:14px; }
+  .t3-sample-player { display:flex; align-items:center; gap:12px; background:rgba(8,40,68,.6); border:1px solid rgba(80,170,215,.3); border-radius:13px; padding:11px 13px; margin-bottom:10px; }
+  .t3-sample-av { width:42px; height:42px; border-radius:50%; overflow:hidden; flex-shrink:0; border:2px solid rgba(95,208,232,.5); background:#0a2742; }
+  .t3-sample-av img { width:100%; height:100%; object-fit:contain; }
+  .t3-sample-info { flex:1; min-width:0; }
+  .t3-sample-name { font-weight:800; font-size:1rem; }
+  .t3-sample-board { font-size:.8rem; color:#9fc6e0; margin-top:2px; }
+  .t3-sample-score { font-family:"Cinzel",serif; font-weight:900; font-size:1.2rem; color:#ffd574; flex-shrink:0; }
+  .t3-sample-close { background:rgba(255,255,255,.1); border:1px solid rgba(120,205,235,.4); color:#dff1fb; border-radius:10px; width:32px; height:32px; font-size:17px; cursor:pointer; }
+  .t3-sample-close:hover { background:rgba(232,64,87,.25); border-color:#e84057; }
   #tut3-pop .t3-next { background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
   #tut3-pop .t3-next:hover { filter:brightness(1.06); }
   #tut3-pop .t3-back { background:#e3eef7; color:#3a6e9c; }
@@ -30714,7 +30732,7 @@
   //  REUSABLE COACHMARK ENGINE
   //  steps: [{ target:selector|null, badge, title, text, before?() }]
   // ════════════════════════════════════════════════════════════════
-  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null;
+  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null;
 
   function buildCoach() {
     if (coach) return coach;
@@ -30747,16 +30765,18 @@
     return coach;
   }
 
-  function runCoach(steps, onDone) {
+  function runCoach(steps, onDone, onCleanup) {
     buildCoach();
-    coachSteps = steps; coachIdx = 0; coachDone = onDone || null;
+    coachSteps = steps; coachIdx = 0; coachDone = onDone || null; coachCleanup = onCleanup || null;
     coach.classList.add("open");
     gotoStep(0);
   }
 
   function endCoach() {
     if (coach) coach.classList.remove("open");
-    coachSteps = []; coachDone = null;
+    const cu = coachCleanup;
+    coachSteps = []; coachDone = null; coachCleanup = null;
+    try { cu && cu(); } catch (_) {}
   }
 
   function gotoStep(i) {
@@ -30766,14 +30786,21 @@
     try { step.before && step.before(); } catch (_) {}
     coach.querySelector("#tut3-badge").textContent = step.badge || "";
     coach.querySelector("#tut3-title").innerHTML = step.title || "";
-    coach.querySelector("#tut3-text").innerHTML = step.text || "";
+    let bodyHtml = step.text || "";
+    if (step.cta) bodyHtml += `<div><button class="t3-cta" id="tut3-cta">${esc(step.cta.label)}</button></div>`;
+    const textEl = coach.querySelector("#tut3-text");
+    textEl.innerHTML = bodyHtml;
+    if (step.cta) {
+      const ctaBtn = textEl.querySelector("#tut3-cta");
+      if (ctaBtn) ctaBtn.addEventListener("click", () => { try { step.cta.onClick(); } catch (_) {} });
+    }
     coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
     coach.querySelector("#tut3-back").disabled = (i === 0);
     coach.querySelector("#tut3-next").textContent = (i >= coachSteps.length - 1) ? "Finish ✓" : "Next →";
     // Scroll target into view, then position after a tick so layout settles.
     const el = step.target ? document.querySelector(step.target) : null;
     if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
-    setTimeout(positionCoach, 60);
+    setTimeout(positionCoach, 120);
   }
 
   function isVisible(el) {
@@ -30806,6 +30833,21 @@
     }
     hole.classList.remove("nohole");
     const r = el.getBoundingClientRect();
+
+    // Tall target (a content panel or an opened overlay such as the Avatar
+    // Gallery): spotlight it but anchor the popup at the bottom so it never
+    // covers the thing we are explaining.
+    if (r.height > vh * 0.62) {
+      const p2 = 8;
+      hole.style.left = Math.max(2, r.left - p2) + "px";
+      hole.style.top = Math.max(2, r.top - p2) + "px";
+      hole.style.width = Math.min(vw - 4, r.width + p2 * 2) + "px";
+      hole.style.height = Math.min(vh - 4, r.height + p2 * 2) + "px";
+      arrow.style.display = "none";
+      pop.style.left = Math.max(8, (vw - popW) / 2) + "px";
+      pop.style.top = Math.max(8, vh - popH - 16) + "px";
+      return;
+    }
     const pad = 8;
     const hx = Math.max(2, r.left - pad), hy = Math.max(2, r.top - pad);
     const hw = Math.min(vw - 4, r.width + pad * 2), hh = Math.min(vh - 4, r.height + pad * 2);
@@ -30841,50 +30883,128 @@
   // ════════════════════════════════════════════════════════════════
   //  MAIN MENU TOUR
   // ════════════════════════════════════════════════════════════════
+  // Helpers used by the tour to drive the real menu.
+  function navTab(name) { const b = document.getElementById("snav-" + name); if (b) try { b.click(); } catch (_) {} }
+  function openGallery() {
+    if (typeof window.__fishOpenAvatarGallery === "function") { try { window.__fishOpenAvatarGallery(); return; } catch (_) {} }
+    const av = document.getElementById("stats-avatar"); if (av) try { av.click(); } catch (_) {}
+  }
+  function closeMenuOverlays() {
+    const gal = document.getElementById("avatar-gallery");
+    if (gal && gal.classList.contains("open")) {
+      const back = gal.querySelector(".gal-back-btn");
+      if (back) { try { back.click(); } catch (_) {} }
+      gal.classList.remove("open");
+    }
+    const sm = document.getElementById("settings-modal");
+    if (sm) sm.classList.remove("open");
+  }
+  function openSettings() { const b = document.getElementById("snav-settings"); if (b) try { b.click(); } catch (_) {} }
+
   const MENU_STEPS = [
-    { target: null, badge: "Main Menu Tour", title: "Welcome to your home base 🌊",
-      text: "This is the <strong>Main Menu</strong> — where you start games, track progress, and customize your critter. Let's walk through everything on it. Use <strong>Next</strong> and <strong>Back</strong> anytime." },
+    { target: null, badge: "Main Menu Tour", title: "Welcome to your home base",
+      before: closeMenuOverlays,
+      text: "This is the <strong>Main Menu</strong>, where you start games, track your progress, and customise your critter. We will walk through every part of it together. Use the <strong>Next</strong> and <strong>Back</strong> buttons to move at your own pace." },
     { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
-      text: "Your <strong>avatar, name, level and rank</strong> live here. Your XP bar fills as you play — every game earns XP toward your next level." },
-    { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak 🔥",
-      text: "Play on consecutive days to build a <strong>streak</strong>. Each day gives a growing <strong>login XP bonus</strong> — keep the tide rolling!" },
-    { target: "#snav-overview", badge: "Navigation", title: "Overview",
-      text: "Your <strong>dashboard</strong> — a snapshot of recent games, stats and what's new." },
-    { target: "#snav-casual", badge: "Navigation", title: "Casual Games",
-      text: "Start a <strong>relaxed game</strong> (2–8 players, vs friends or bots). No ranking pressure — perfect for learning and fun." },
-    { target: "#snav-competitive", badge: "Navigation", title: "Competitive",
-      text: "Ranked <strong>1v1 matches</strong> that move your rating up the ladder: Spiny Lobster → Grouper → Dolphin → and beyond." },
-    { target: "#snav-history", badge: "Navigation", title: "History",
-      text: "Revisit your <strong>past games</strong> — final boards, scores and who you played." },
-    { target: "#snav-friends", badge: "Navigation", title: "Friends",
-      text: "Add friends by username, see their <strong>rank and stats</strong>, and start private games together." },
-    { target: "#snav-achievements", badge: "Navigation", title: "Achievements 🏆",
-      text: "Earn <strong>badges</strong> for milestones. Many achievements <strong>unlock new critter avatars</strong> — including some hidden ones!" },
-    { target: "#snav-leaderboard", badge: "Navigation", title: "Leaderboard",
-      text: "See the <strong>global rankings</strong> — top scores and the best critters in the sea." },
-    { target: "#snav-store", badge: "Navigation", title: "Store 🛍️",
-      text: "Spend on <strong>backgrounds</strong> that frame your avatar, browse <strong>seasonal</strong> cosmetics, or redeem a donation code." },
-    { target: "#snav-settings", badge: "Navigation", title: "Settings",
-      text: "Toggle <strong>music & sound</strong>, mute chat, and sign out. Tweak the experience to your liking." },
-    { target: "#stats-tutorial-btn", badge: "Tutorials", title: "That's the menu! ✓",
-      text: "You've toured the whole menu. Come back to this <strong>Tutorial</strong> button anytime — finish all three tutorials to unlock the <strong>Osprey</strong> 🦅. Hit Finish to mark this one complete!" },
+      before: closeMenuOverlays,
+      text: "Your <strong>avatar, name, level, and rank</strong> all live here. The XP bar fills as you play, and every game you finish earns XP toward your next level." },
+    { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
+      before: () => { closeMenuOverlays(); openGallery(); },
+      text: "Tapping your avatar opens the <strong>Avatar Gallery</strong>, shown here. This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it." },
+    { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",
+      before: closeMenuOverlays,
+      text: "Play on consecutive days to build a <strong>streak</strong>. Each day in a row gives a larger <strong>daily login XP bonus</strong>, so logging in regularly pays off." },
+    { target: "#ph-ss-details-btn", badge: "Daily Streak", title: "View Streak Details",
+      before: closeMenuOverlays,
+      text: "Select <strong>View streak details</strong> to see your full streak history, your current and longest streaks, and exactly how much bonus XP each day is worth." },
+    { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "The <strong>Overview</strong> tab is your dashboard. It gathers <strong>the combined stats from every game you have ever played</strong> across all modes, so you can see your progress at a glance." },
+    { target: "#ph-panel-normal", badge: "Casual Tab", title: "Casual Stats",
+      before: () => { closeMenuOverlays(); navTab("casual"); },
+      text: "The <strong>Casual</strong> tab breaks your record down by player count, from <strong>P2 all the way to P8</strong>. For each size you can see your <strong>win percentage</strong>, your <strong>most played strategy</strong>, your <strong>average points</strong>, and your total <strong>games and wins</strong>." },
+    { target: "#ph-panel-competitive", badge: "Competitive Tab", title: "Competitive",
+      before: () => { closeMenuOverlays(); navTab("competitive"); },
+      text: "Competitive games give you a <strong>rank</strong>. The more competitive games you win, the higher you climb toward the top title, <strong>King of the Critters</strong>. Competitive is also unique because you <strong>control two hands at once</strong>, which doubles your options and your strategy." },
+    { target: "#ph-panel-history", badge: "History Tab", title: "Match History",
+      before: () => { closeMenuOverlays(); navTab("history"); },
+      cta: { label: "View a sample match", onClick: () => showSampleMatch() },
+      text: "The <strong>History</strong> tab lets you reopen any past match and see <strong>exactly what every player had on their board</strong>, along with the final scores. Select the button below to view a sample match.",
+    },
+    { target: "#ph-panel-friends", badge: "Friends Tab", title: "Friends",
+      before: () => { closeMenuOverlays(); navTab("friends"); },
+      text: "The <strong>Friends</strong> tab shows everyone you have added, with their rank and status. You can start private games with them and challenge them directly." },
+    { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
+      before: () => { closeMenuOverlays(); navTab("friends"); },
+      text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their Name and code</strong> into the box just below and select Add." },
+    { target: "#ph-panel-achievements", badge: "Achievements Tab", title: "Achievements",
+      before: () => { closeMenuOverlays(); navTab("achievements"); },
+      text: "The <strong>Achievements</strong> tab tracks badges you earn for reaching milestones. Many achievements also <strong>unlock new critter avatars</strong>, and a few hidden ones are waiting to be discovered." },
+    { target: "#ph-panel-leaderboard", badge: "Leaderboard Tab", title: "Leaderboard",
+      before: () => { closeMenuOverlays(); navTab("leaderboard"); },
+      text: "The <strong>Leaderboard</strong> shows the global rankings. The small <strong>button on the right of each row</strong> sends that player a friend request, so you can add people straight from the board. The colours mark each player's rank tier: <strong>bronze, silver, gold, diamond, emerald, and the golden King of the Critters</strong> at the very top." },
+    { target: "#ph-panel-store", badge: "Store Tab", title: "Store",
+      before: () => { closeMenuOverlays(); navTab("store"); },
+      text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one." },
+    { target: "#stats-message-btn", badge: "Messages", title: "Chat and Messages",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "The <strong>message icon</strong> sits at the top right, next to Sign Out. Once you have added friends, you can open it to <strong>send and read direct messages</strong> with them at any time." },
+    { target: "#snav-settings", badge: "Settings", title: "Settings",
+      before: closeMenuOverlays,
+      text: "<strong>Settings</strong> lets you turn music and sound effects on or off, mute the in game chat, and sign out. Adjust it however suits you best." },
+    { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all three tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
   ];
 
   function runMenuTour() {
     closeChooser();
-    // The Main Menu Tour needs the lobby visible.
     const lobby = document.getElementById("auth-stats-lobby");
     if (!lobby || !lobby.classList.contains("visible")) {
-      // Open from the menu for the spotlight to line up.
       runCoach([{ target: null, badge: "Main Menu Tour", title: "Open from the Main Menu",
-        text: "This tour spotlights the <strong>main menu</strong>. Head to the menu screen and tap <strong>Tutorial → Main Menu Tour</strong> to take it with everything in place." }], null);
+        text: "This tour spotlights the <strong>main menu</strong>. Please open it from the menu screen, then select <strong>Tutorial, then Main Menu Tour</strong>, so every part lines up correctly." }], null);
       return;
     }
     runCoach(MENU_STEPS, () => {
+      closeMenuOverlays();
+      navTab("overview");
       setDone("menu");
-      showToast("🗺️ Main Menu mastered!", completionSubtitle());
+      showToast("Main Menu tour complete", completionSubtitle());
       setTimeout(openChooser, 900);
-    });
+    }, () => { closeMenuOverlays(); });
+  }
+
+  // ── Tutorial-only sample match viewer ─────────────────────────────
+  let sampleEl = null;
+  function showSampleMatch() {
+    if (!sampleEl) {
+      sampleEl = document.createElement("div");
+      sampleEl.id = "tut3-sample";
+      sampleEl.addEventListener("click", (e) => { if (e.target === sampleEl) sampleEl.classList.remove("open"); });
+      document.body.appendChild(sampleEl);
+    }
+    const players = [
+      { name: "You", av: "/avatars/osprey.png", score: 142, board: "Coral Reef, Horned Puffin, Spiny Lobster, Sea Anemone" },
+      { name: "Billy", av: "/avatars/clownfish.png", score: 128, board: "Kelp Forest, Mahi Mahi, Blue Marlin" },
+      { name: "Diana", av: "/avatars/manta-ray.png", score: 119, board: "Open Ocean, King Crab, Common Octopus, Cuttlefish" },
+    ];
+    const rows = players.map(p => `
+      <div class="t3-sample-player">
+        <div class="t3-sample-av"><img src="${p.av}" alt=""></div>
+        <div class="t3-sample-info">
+          <div class="t3-sample-name">${esc(p.name)}</div>
+          <div class="t3-sample-board">Board: ${esc(p.board)}</div>
+        </div>
+        <div class="t3-sample-score">${p.score}</div>
+      </div>`).join("");
+    sampleEl.innerHTML = `<div class="t3-sample-card">
+      <div class="t3-sample-hd"><h3>Sample Match</h3><button class="t3-sample-close" id="tut3-sample-x">✕</button></div>
+      <div class="t3-sample-sub">This is an example of what an old match looks like in History. You can see every player, their final board, and their score.</div>
+      ${rows}
+      <div class="t3-sample-sub" style="margin:8px 0 0">In a real match you can tap any player to inspect each card on their board.</div>
+    </div>`;
+    sampleEl.querySelector("#tut3-sample-x").addEventListener("click", () => sampleEl.classList.remove("open"));
+    sampleEl.classList.add("open");
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -30901,9 +31021,9 @@
   }
 
   const OPTS = [
-    { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu — profile, streak, tabs and the store.", run: runMenuTour, ready: true },
-    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game — the board, pool, deck, chat, Surf's Up, AFK and more.", run: null, ready: false },
-    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird/Lobster strategy. Learn every way to play a card.", run: null, ready: false },
+    { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu: profile, streak, tabs, and the store.", run: runMenuTour, ready: true },
+    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: null, ready: false },
+    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird and Lobster strategy. Learn every way to play a card.", run: null, ready: false },
   ];
 
   function renderChooser() {
@@ -30927,7 +31047,7 @@
       <div class="tut3-hd"><h2>How to Play</h2><p>Three quick tutorials. Finish all three to earn a reward.</p></div>
       <div class="tut3-opts">${optHtml}</div>
       <div class="tut3-foot">
-        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all three to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "— unlocked! ✓" : `(${count}/3)`}</div>
+        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all three to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "(unlocked) ✓" : `(${count}/3)`}</div>
         <div class="tut3-prog">${pips}</div>
         <button class="tut3-close" id="tut3-chooser-close">Maybe later</button>
       </div>
@@ -30946,7 +31066,7 @@
   let toastEl = null;
   function completionSubtitle() {
     const n = ["menu", "game", "practice"].filter(k => getDone()[k]).length;
-    return allDone() ? "All three done — Osprey unlocked! 🦅" : `${n} of 3 complete`;
+    return allDone() ? "All three done. Osprey unlocked! 🦅" : `${n} of 3 complete`;
   }
   function showToast(title, sub) {
     if (!toastEl) { toastEl = document.createElement("div"); toastEl.id = "tut3-toast"; document.body.appendChild(toastEl); }
