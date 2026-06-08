@@ -20259,6 +20259,10 @@
       _idleWarnOpen = false;
       const m = document.getElementById("pv-idle-warn-modal");
       if (m) m.classList.remove("open");
+      // Re-check at fire time: if the player went Away (Surf's Up) or it's no
+      // longer their turn, do NOT flag them inactive-eligible. Surf's Up always
+      // wins, so an Away player must never expose the "Draw 2" affordance.
+      if (_imAway || !_isMyTurnNow()) return;
       _serverInactiveEligibleSent = true;
       try {
         let token;

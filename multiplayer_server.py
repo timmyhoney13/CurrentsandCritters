@@ -2472,6 +2472,15 @@ class GameRoom:
                     force_end_turn_next[0] = False
                     return replay_action
 
+                # Surf's Up!! Away ALWAYS wins. If the player marked themselves
+                # Away — even mid-turn, after a prior timeout already armed a
+                # forced end/draw — disarm it and never auto-resolve. The cmd-is-
+                # None timeout path below keeps waiting while Away, so the table
+                # parks the turn instead of drawing cards for an Away player.
+                seat_away_now = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
+                if seat_away_now is not None and getattr(seat_away_now, "is_away", False):
+                    force_end_turn_next[0] = False
+
                 # If the last fallback was a forced draw, immediately end the
                 # turn now that end_turn is legal — don't wait another window.
                 if force_end_turn_next[0]:
@@ -3695,7 +3704,20 @@ class GameRoom:
             want = body.get("away")
             new_val = (not seat.is_away) if not isinstance(want, bool) else bool(want)
             seat.is_away = bool(new_val)
-            if not seat.is_away:
+            # Going Away (or coming back) always clears the inactive-eligible flag:
+            # Surf's Up overrides the idle/inactive system entirely, so other
+            # seats must never see a "Draw 2 for inactive" affordance on an Away
+            # player. Also purge any draw-for-inactive command another seat may
+            # have queued just before this player went Away.
+            if seat.is_away:
+                seat.inactive_eligible = False
+                queue = self.pending_actions.get(seat.index)
+                if queue:
+                    self.pending_actions[seat.index] = [
+                        q for q in queue
+                        if not (isinstance(q, dict) and q.get("kind") == "draw_for_inactive")
+                    ]
+            else:
                 seat.inactive_eligible = False
             display = seat.claimed_name or seat.label
             note = f"{display} is on Surf's Up — Away" if seat.is_away else f"{display} is back."
