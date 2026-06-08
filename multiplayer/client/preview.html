@@ -30963,6 +30963,7 @@
   const gtGalClosed    = ()  => !document.getElementById("avatar-gallery")?.classList.contains("open");
   const gtSettingsOpen = ()  => !!document.getElementById("settings-modal")?.classList.contains("open");
   const gtStreakCalOpen = ()  => !!document.getElementById("streak-cal-modal")?.classList.contains("open");
+  const gtWeeklyPill   = ()  => !!document.getElementById("ph-cs-pill")?.classList.contains("weekly");
 
   const MENU_STEPS = [
 
@@ -30987,11 +30988,41 @@
       advanceWhen: gtGalOpen,
       text: "Click your <strong>avatar</strong> to open the Avatar Gallery." },
 
-    // ── Avatar Gallery — must close before advancing ──────────────────
+    // ── Avatar Gallery — intro context ───────────────────────────────
     { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
+      text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Click any locked animal to see its fun fact and exactly what you need to do to earn it." },
+
+    // ── Click the Osprey tile (interactive) ──────────────────────────
+    { target: "[data-avatar-id='osprey']", badge: "Avatar Gallery", title: "Click an Animal",
+      before: () => { try { document.querySelector("[data-avatar-id='osprey']")?.scrollIntoView({ block: "center", behavior: "instant" }); } catch(_) {} },
+      interactive: true,
+      advanceWhen: () => !!document.querySelector("[data-avatar-id='osprey'].gal-selected"),
+      text: "Click the <strong>Osprey</strong> to see its fun fact and unlock requirement." },
+
+    // ── Osprey detail panel ───────────────────────────────────────────
+    { target: "#gal-detail", badge: "Avatar Gallery", title: "Fun Fact and Unlock",
+      text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all three tutorials. You are already on your way!" },
+
+    // ── Back button — must click to exit gallery ──────────────────────
+    { target: "#gal-back-btn", badge: "Avatar Gallery", title: "Back to the Menu",
       interactive: true,
       advanceWhen: gtGalClosed,
-      text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Each locked critter shows exactly what you need to do to earn it. When you are ready, click the <strong>back arrow</strong> to close the gallery." },
+      text: "Click the <strong>back arrow</strong> at the top to close the gallery and return to the menu." },
+
+    // ── Daily Challenges ──────────────────────────────────────────────
+    { target: "#ph-cs-strip", badge: "Daily Challenges", title: "Daily Challenges",
+      before: () => { closeMenuOverlays(); navTab("overview"); },
+      text: "These are your <strong>Daily Challenges</strong>. Each day you get three new challenges to complete for <strong>XP</strong>. They reset <strong>24 hours after you complete them</strong>, so come back every day for fresh ones." },
+
+    // ── Toggle to Weekly (interactive — must click the calendar icon) ──
+    { target: "#ph-cs-toggle-btn", badge: "Weekly Challenges", title: "Switch to Weekly",
+      interactive: true,
+      advanceWhen: gtWeeklyPill,
+      text: "Click the <strong>calendar icon</strong> to switch to your Weekly Challenges." },
+
+    // ── Weekly Challenges description ─────────────────────────────────
+    { target: "#ph-cs-strip", badge: "Weekly Challenges", title: "Weekly Challenges",
+      text: "These are your <strong>Weekly Challenges</strong>. Completing them earns bigger XP rewards than daily challenges. They reset every <strong>Monday</strong>, so you have the whole week to finish them." },
 
     // ── Overview panel ────────────────────────────────────────────────
     { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",
