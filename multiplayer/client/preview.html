@@ -3138,6 +3138,7 @@
     }
     .chat-msg { font-size: 11px; line-height: 1.5; display: flex; align-items: flex-start; gap: 7px; }
     .chat-msg .cm-avatar {
+      position: relative; /* contain the .cc-avbg layer inside the 26px circle */
       width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
       background: linear-gradient(145deg, #2f8be3 0%, #226ec4 100%);
       border: 1.5px solid rgba(95,179,214,.5); margin-top: 1px;
@@ -11290,7 +11291,14 @@
       wrapEl.classList.remove("cc-has-bg");
       return;
     }
-    if (getComputedStyle(wrapEl).position === "static") wrapEl.style.position = "relative";
+    // Force a positioning context so the absolute .cc-avbg can't escape the
+    // wrap. getComputedStyle returns "" for detached elements (chat avatars are
+    // built off-DOM), so a "=== static" check alone would miss them and let the
+    // background bleed out to the nearest positioned ancestor (the whole chat).
+    const _pos = getComputedStyle(wrapEl).position;
+    if (_pos !== "relative" && _pos !== "absolute" && _pos !== "fixed" && _pos !== "sticky") {
+      wrapEl.style.position = "relative";
+    }
     if (!layer) {
       layer = document.createElement("div");
       layer.className = "cc-avbg";
@@ -15051,9 +15059,15 @@
       }
     } catch (e) { myAvatarUrl = ""; }
 
+    // Include per-seat background AND my own equipped background in the render
+    // key — otherwise equipping/removing a background doesn't change name/score/
+    // avatar/turn, the key stays identical, and the seat never re-renders (so a
+    // removed background stays stuck on screen).
+    let _myBgKey = "";
+    try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>({i:p.index,n:p.name,s:p.score,av:p.avatar_url}))
-    ) + "|" + turnIndex + "|" + myAvatarUrl;
+      (players||[]).map(p=>({i:p.index,n:p.name,s:p.score,av:p.avatar_url,bg:String(p.background||"")}))
+    ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
     leftEl.innerHTML  = "";
@@ -15115,8 +15129,17 @@
       aw.appendChild(img);
       // Exclusive background behind this player's avatar. Mine comes from my
       // equipped selection; others' from the per-seat value the server relays.
+      // For my own seat my local equipped value is authoritative — including ""
+      // (just removed) which must override any stale server-relayed background,
+      // otherwise removal appears to do nothing until the server catches up.
       let seatBg = String(p.background || "");
-      if (isMe) { try { seatBg = String(window.__fishEquippedBackground?.() || seatBg || ""); } catch (_) {} }
+      if (isMe) {
+        try {
+          if (typeof window.__fishEquippedBackground === "function") {
+            seatBg = String(window.__fishEquippedBackground() || "");
+          }
+        } catch (_) {}
+      }
       _applyAvBg(aw, seatBg);
 
       const nm = document.createElement("div");
