@@ -699,6 +699,20 @@ class GameRoom:
         self.winner: Optional[str] = None
         self.chat_messages: List[Dict[str, Any]] = []
 
+        # ── Chat-based AFK voting ────────────────────────────────────────
+        # Players type "P3 is AFK" / "<username> afk" in chat to vote the
+        # CURRENT active player as AFK. At >=50% of the OTHER active players,
+        # the active player gets a 10-second "Are you still here?" challenge;
+        # if they don't interact, they auto-draw 2 and the turn passes.
+        self.afk_votes: Dict[int, set] = {}          # target_seat -> set(voter_seat) this turn
+        self.afk_nominated_this_turn: set = set()     # seats already challenged this turn (no re-nom)
+        self.afk_challenge_seat: Optional[int] = None # seat currently under the 10s challenge
+        self.afk_challenge_id: int = 0                # bumped each challenge; cancel/turn-change invalidates
+        self.afk_challenge_deadline: Optional[float] = None  # time.time() when auto-draw fires
+        self.afk_immune_until: Dict[int, float] = {}  # seat_index -> time.time() until Surf's Up immunity ends
+        self.AFK_CHALLENGE_SECONDS = 10.0
+        self.AFK_SURF_IMMUNE_SECONDS = 600.0          # 10 minutes
+
         self.game_thread: Optional[threading.Thread] = None
         self.action_history: List[Dict[str, Any]] = []
         self.recovery_active = False
@@ -1724,6 +1738,13 @@ class GameRoom:
         for s in self.seats:
             s.is_away = False
             s.inactive_eligible = False
+        # Reset chat-based AFK voting state for the fresh game.
+        self.afk_votes = {}
+        self.afk_nominated_this_turn = set()
+        self.afk_challenge_seat = None
+        self.afk_challenge_deadline = None
+        self.afk_challenge_id += 1
+        self.afk_immune_until = {}
         self._bump_locked(force_persist=True)
 
         self.game_thread = threading.Thread(target=self._run_game_thread, args=(card_db,), daemon=True)
@@ -2498,6 +2519,17 @@ class GameRoom:
                     )
                     if only_discards_now:
                         return self._safe_fallback_action(gs, ms, player)
+                    # Still mid-draw (the 2nd of the 2 turn draws is pending): take
+                    # that draw now so an auto-drawn/inactive/AFK player completes a
+                    # full 2-card draw and the turn ends — instead of falling
+                    # through and parking for another full wait window.
+                    second_draw = next(
+                        (a for a in actions
+                         if a.kind == "draw" and int(getattr(a, "draw_from_pool", 0)) == 0),
+                        None,
+                    ) or next((a for a in actions if a.kind == "draw"), None)
+                    if second_draw is not None:
+                        return second_draw
                     # Otherwise fall through and re-offer legal actions normally.
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
@@ -2554,6 +2586,9 @@ class GameRoom:
                         # re-flag if their idle timer expires on this turn.
                         if 0 <= seat_index < len(self.seats):
                             self.seats[seat_index].inactive_eligible = False
+                        # New active player → reset AFK votes/nominations and drop
+                        # any stale challenge so each player starts fresh each turn.
+                        self._afk_reset_turn_locked()
                     self.active_action_seat = seat_index
                     only_discards = bool(actions) and all(a.kind in {"discard_to_pool", "discard_batch_to_pool"} for a in actions)
                     is_tarpon_phase = bool(player.flags.get("_tarpon_discard_active", False))
@@ -3588,6 +3623,14 @@ class GameRoom:
                 "state": state_obj,
                 "legal_actions": legal_payload,
                 "active_action_seat": self.active_action_seat,
+                "afk_challenge": (
+                    {
+                        "seat": self.afk_challenge_seat,
+                        "remaining": max(0.0, round(float(self.afk_challenge_deadline) - time.time(), 2)),
+                    }
+                    if self.afk_challenge_seat is not None and self.afk_challenge_deadline is not None
+                    else None
+                ),
                 "log_tail": self.log_events[-120:],
                 "turn_summaries": self.turn_summaries[-80:],
                 "final_scores": self.final_scores,
@@ -3627,8 +3670,191 @@ class GameRoom:
             if len(self.chat_messages) > 200:
                 self.chat_messages = self.chat_messages[-200:]
             self._persist_dirty = True
+            # Recognize "<P3 / username> is afk" votes against the active player.
+            try:
+                if seat is not None:
+                    self._afk_handle_chat_locked(seat, message)
+            except Exception as exc:
+                self._record_event(f"AFK vote parse error: {exc}")
             self.cond.notify_all()
         return {"ok": True}
+
+    # ── Chat-based AFK voting ────────────────────────────────────────────
+    def _afk_label_for_seat(self, seat: "Seat") -> str:
+        """Short P-label (P1, P2, …) for a seat, based on its index."""
+        try:
+            return f"P{int(seat.index) + 1}"
+        except Exception:
+            return str(getattr(seat, "label", "?"))
+
+    def _afk_reset_turn_locked(self) -> None:
+        """Clear all per-turn AFK state and cancel any live challenge.
+        Called on every turn boundary. Immunity (time-based) is NOT cleared."""
+        self.afk_votes = {}
+        self.afk_nominated_this_turn = set()
+        if self.afk_challenge_seat is not None:
+            self.afk_challenge_seat = None
+            self.afk_challenge_deadline = None
+            self.afk_challenge_id += 1  # invalidate any pending resolve timer
+
+    def _afk_eligible_voter_indices_locked(self, target_idx: int) -> List[int]:
+        """Seat indices of the OTHER active players who count toward the vote:
+        seated humans, not the target, not on Surf's Up (Away), still present."""
+        out: List[int] = []
+        for s in self.seats:
+            if s.index == target_idx:
+                continue                     # target never counts toward the %
+            if s.kind != "human":
+                continue                     # bots can't vote
+            if not s.claimed_name or s.token is None:
+                continue                     # empty / unseated
+            if getattr(s, "left_at", None) is not None:
+                continue                     # reserved-but-gone seat
+            if getattr(s, "is_away", False):
+                continue                     # Away players aren't "active"
+            out.append(s.index)
+        return out
+
+    def _afk_resolve_target_locked(self, raw: str) -> Optional["Seat"]:
+        """Resolve a vote target string to a seat. Accepts 'P3'/'p3' (seat
+        index N-1) or a (case-insensitive) claimed username, exact-first then
+        unique prefix match. Returns None if unresolved/ambiguous."""
+        token = (raw or "").strip()
+        if not token:
+            return None
+        m = re.fullmatch(r"[Pp]\s*(\d{1,2})", token)
+        if m:
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < len(self.seats):
+                s = self.seats[idx]
+                if s.kind == "human":
+                    return s
+            return None
+        low = token.lower()
+        humans = [s for s in self.seats if s.kind == "human" and s.claimed_name]
+        for s in humans:
+            if (s.claimed_name or "").strip().lower() == low:
+                return s
+        prefixed = [s for s in humans if (s.claimed_name or "").strip().lower().startswith(low)]
+        if len(prefixed) == 1:
+            return prefixed[0]
+        return None
+
+    def _afk_handle_chat_locked(self, voter: "Seat", message: str) -> None:
+        """Parse one chat line for an AFK vote and process it (lock held)."""
+        if self.phase != "running":
+            return
+        # Pattern: "<target> [is] afk" — tolerant of case and extra spaces.
+        m = re.match(r"^\s*(.+?)\s+(?:is\s+)?afk\s*[!.\s]*$", message, re.IGNORECASE)
+        if not m:
+            return
+        target_seat = self._afk_resolve_target_locked(m.group(1))
+        if target_seat is None:
+            return  # not a recognizable player — treat as ordinary chat
+        # Only the CURRENT active player can be reported.
+        if self.active_action_seat is None or target_seat.index != self.active_action_seat:
+            self._add_system_chat("You can only report the current player as AFK.")
+            self.cond.notify_all()
+            return
+        if voter.kind != "human" or not voter.claimed_name or voter.token is None:
+            return
+        if voter.index == target_seat.index:
+            return  # can't vote yourself
+        target_name = target_seat.claimed_name or self._afk_label_for_seat(target_seat)
+        # Surf's Up immunity — can't be voted on for 10 minutes after pressing it.
+        if time.time() < float(self.afk_immune_until.get(target_seat.index, 0.0)):
+            self._add_system_chat(f"{target_name} is protected by Surf's Up and can't be reported right now.")
+            self.cond.notify_all()
+            return
+        # Already challenged this turn — no re-nomination until their next turn.
+        if target_seat.index in self.afk_nominated_this_turn:
+            return
+        voters = self._afk_eligible_voter_indices_locked(target_seat.index)
+        if voter.index not in voters:
+            return
+        denom = len(voters)
+        if denom <= 0:
+            return
+        ballots = self.afk_votes.setdefault(target_seat.index, set())
+        if voter.index in ballots:
+            return  # one vote per player per target per turn
+        ballots.add(voter.index)
+        pct = int(round(100.0 * len(ballots) / denom))
+        self._add_system_chat(f"{pct}% of players want {target_name} to draw 2 cards.")
+        # >=50% of the other active players → start the 10-second challenge.
+        needed = -(-denom // 2)  # ceil(denom / 2)
+        if len(ballots) >= needed:
+            self._afk_start_challenge_locked(target_seat.index)
+        self.cond.notify_all()
+
+    def _afk_start_challenge_locked(self, target_idx: int) -> None:
+        if self.afk_challenge_seat is not None:
+            return  # a challenge is already running
+        if target_idx in self.afk_nominated_this_turn:
+            return
+        self.afk_challenge_id += 1
+        cid = self.afk_challenge_id
+        self.afk_challenge_seat = target_idx
+        self.afk_challenge_deadline = time.time() + self.AFK_CHALLENGE_SECONDS
+        self.afk_nominated_this_turn.add(target_idx)
+        self._bump_locked()  # wake SSE streamers so the popup shows immediately
+        t = threading.Timer(self.AFK_CHALLENGE_SECONDS, self._afk_resolve_challenge, args=[cid, target_idx])
+        t.daemon = True
+        t.start()
+
+    def _afk_resolve_challenge(self, challenge_id: int, target_idx: int) -> None:
+        """Timer callback: if the challenge wasn't cancelled, force the AFK
+        player to draw 2 and end their turn (reuses the inactive-rescue path)."""
+        with self.cond:
+            if self.phase != "running":
+                return
+            if self.afk_challenge_id != challenge_id or self.afk_challenge_seat != target_idx:
+                return  # cancelled, superseded, or turn moved on
+            if self.active_action_seat != target_idx:
+                self.afk_challenge_seat = None
+                self.afk_challenge_deadline = None
+                return
+            if 0 <= target_idx < len(self.seats):
+                seat = self.seats[target_idx]
+                # Last-moment Surf's Up wins — never auto-draw an Away player.
+                if getattr(seat, "is_away", False):
+                    self.afk_challenge_seat = None
+                    self.afk_challenge_deadline = None
+                    return
+                name = seat.claimed_name or self._afk_label_for_seat(seat)
+            else:
+                name = f"Player {target_idx + 1}"
+            queue = self.pending_actions.setdefault(target_idx, [])
+            already = any(isinstance(q, dict) and q.get("kind") == "draw_for_inactive" for q in queue)
+            if not already:
+                queue.insert(0, {
+                    "kind": "draw_for_inactive",
+                    "by_seat": -1,
+                    "by_name": "AFK vote",
+                    "submitted_unix": now_unix(),
+                })
+            self.afk_challenge_seat = None
+            self.afk_challenge_deadline = None
+            self._add_system_chat(f"{name} was AFK — drawing 2 cards and passing the turn.")
+            self._bump_locked()
+
+    def afk_cancel(self, body: Dict[str, Any]) -> Dict[str, Any]:
+        """The challenged player clicked / moved inside the game — cancel the
+        AFK check. They can't be re-nominated until their next turn."""
+        seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+        with self.cond:
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None:
+                return {"ok": False, "error": "invalid seat token"}
+            if self.afk_challenge_seat is None or self.afk_challenge_seat != seat.index:
+                return {"ok": True, "no_challenge": True}
+            self.afk_challenge_seat = None
+            self.afk_challenge_deadline = None
+            self.afk_challenge_id += 1  # invalidate the pending resolve timer
+            # afk_nominated_this_turn keeps the seat → no re-nomination this turn.
+            self.afk_votes.pop(seat.index, None)
+            self._bump_locked()
+            return {"ok": True, "cancelled": True}
 
     def set_ai_speed(self, body: Dict[str, Any]) -> Dict[str, Any]:
         """Host-only: set how long AI bots pause to 'think' before playing.
@@ -3704,6 +3930,15 @@ class GameRoom:
             want = body.get("away")
             new_val = (not seat.is_away) if not isinstance(want, bool) else bool(want)
             seat.is_away = bool(new_val)
+            # Pressing Surf's Up grants 10 minutes of AFK-vote immunity — this
+            # holds even if they toggle Surf's Up back off before it expires.
+            # Also cancel any live AFK challenge currently aimed at this seat.
+            self.afk_immune_until[seat.index] = time.time() + self.AFK_SURF_IMMUNE_SECONDS
+            if self.afk_challenge_seat == seat.index:
+                self.afk_challenge_seat = None
+                self.afk_challenge_deadline = None
+                self.afk_challenge_id += 1
+            self.afk_votes.pop(seat.index, None)
             # Going Away (or coming back) always clears the inactive-eligible flag:
             # Surf's Up overrides the idle/inactive system entirely, so other
             # seats must never see a "Draw 2 for inactive" affordance on an Away
@@ -5267,6 +5502,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.set_away(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "afk_cancel":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            out = room.afk_cancel(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return

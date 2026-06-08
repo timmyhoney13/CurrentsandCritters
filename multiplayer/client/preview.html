@@ -362,6 +362,101 @@
       margin-top: 8px;
       text-shadow: 0 2px 8px rgba(216,56,56,.55);
     }
+    /* AFK-vote "Are you still here?" challenge — deep-ocean panel, on-theme */
+    #pv-afk-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 40%, rgba(13,42,82,.78), rgba(6,16,30,.92));
+      z-index: 9100;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+    #pv-afk-modal.open { display: flex; animation: afkFadeIn .25s ease both; }
+    @keyframes afkFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    #pv-afk-box {
+      position: relative;
+      background: linear-gradient(165deg, #1A4280 0%, #123265 45%, #0B2448 100%);
+      border: 2px solid var(--border);
+      border-radius: 18px;
+      padding: 30px 38px 34px;
+      color: var(--text);
+      text-align: center;
+      box-shadow: 0 18px 70px rgba(0,0,0,.6), 0 0 30px var(--glow-c), inset 0 1px 0 rgba(255,255,255,.08);
+      max-width: 400px;
+      animation: afkPop .32s cubic-bezier(.22,.68,0,1.2) both;
+    }
+    @keyframes afkPop { from { transform: translateY(14px) scale(.94); } to { transform: none; } }
+    #pv-afk-box h2 {
+      font-family: "Cinzel", serif;
+      font-size: 27px;
+      margin: 0 0 6px 0;
+      color: var(--gold);
+      text-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 16px rgba(240,200,64,.35);
+    }
+    #pv-afk-box .pv-afk-sub {
+      font-family: "Nunito", sans-serif;
+      font-size: 14px;
+      color: var(--muted);
+      margin: 0 0 20px 0;
+      letter-spacing: .2px;
+    }
+    /* Draining countdown ring — conic gradient depletes as time runs out. */
+    #pv-afk-ring {
+      --pct: 100%;
+      --ring: var(--teal);
+      position: relative;
+      width: 132px; height: 132px;
+      margin: 4px auto 14px;
+      border-radius: 50%;
+      background:
+        conic-gradient(var(--ring) var(--pct), rgba(255,255,255,.08) var(--pct) 100%);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 22px -4px var(--ring), inset 0 0 18px rgba(0,0,0,.45);
+      transition: background .25s linear, box-shadow .35s linear;
+    }
+    #pv-afk-ring::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,.06);
+      pointer-events: none;
+    }
+    #pv-afk-ring-inner {
+      width: 104px; height: 104px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 38%, #0f2c52, #081a30);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 2px 10px rgba(0,0,0,.6);
+    }
+    #pv-afk-countdown {
+      font-family: "Cinzel", serif;
+      font-size: 52px;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--ring, var(--teal));
+      text-shadow: 0 2px 10px rgba(0,0,0,.5);
+      transition: color .25s linear, transform .15s ease;
+    }
+    #pv-afk-ring.urgent #pv-afk-countdown { animation: afkPulse .7s ease-in-out infinite; }
+    @keyframes afkPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+    #pv-afk-box .pv-afk-seconds {
+      font-family: "Nunito", sans-serif;
+      font-size: 13px; font-weight: 700;
+      color: var(--muted);
+      margin: 0 0 14px 0;
+      letter-spacing: .3px;
+    }
+    #pv-afk-box .pv-afk-seconds #pv-afk-seconds-num { color: var(--text); }
+    #pv-afk-box .pv-afk-foot {
+      font-family: "Nunito", sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      opacity: .82;
+    }
+    #pv-afk-box .pv-afk-foot b { color: var(--cyan); }
     /* Welcome-back toast */
     #pv-welcome-back-toast {
       display: none;
@@ -1392,6 +1487,20 @@
       letter-spacing: .2px;
     }
     .pv-seat.active-turn .pv-seat-name { color: #c93030; }
+    /* P# seat label chip (P1, P2, …) — used for AFK reporting */
+    .pv-seat-plabel {
+      display: inline-block;
+      font-size: 9px; font-weight: 900;
+      line-height: 1;
+      color: #0b2448;
+      background: linear-gradient(135deg, #5fb3d6, #2c5a8a);
+      border-radius: 5px;
+      padding: 2px 4px;
+      margin-right: 4px;
+      vertical-align: middle;
+      letter-spacing: .3px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.25);
+    }
     .pv-seat-score {
       font-size: 11px; font-weight: 800;
       color: #d4922a;
@@ -10605,6 +10714,21 @@
     </div>
   </div>
 
+  <!-- AFK-vote challenge: shown to the active player when >=50% report them AFK -->
+  <div id="pv-afk-modal">
+    <div id="pv-afk-box">
+      <h2>Are you still here?</h2>
+      <p class="pv-afk-sub">The table thinks you stepped away.</p>
+      <div id="pv-afk-ring">
+        <div id="pv-afk-ring-inner">
+          <div id="pv-afk-countdown">10</div>
+        </div>
+      </div>
+      <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">10</span> seconds remaining</div>
+      <div class="pv-afk-foot"><b>Click anywhere or move your mouse</b> to cancel.</div>
+    </div>
+  </div>
+
   <!-- Welcome-back toast for returning from Surf's Up -->
   <div id="pv-welcome-back-toast"></div>
 
@@ -14291,6 +14415,20 @@
       }
     } catch (e) {}
 
+    // ── AFK-vote challenge sync ──────────────────────────────────
+    // Server flags afk_challenge.seat when >=50% of the other active players
+    // report the current player AFK. If that's ME, show the 10s "Are you
+    // still here?" popup; clearing the challenge (resolve/cancel) hides it.
+    try {
+      const ch = payload.afk_challenge;
+      const challengingMe = ch && Number.isInteger(myIdx) && Number(ch.seat) === Number(myIdx);
+      if (challengingMe && Date.now() >= _afkSuppressUntil) {
+        _showAfkChallenge(Number(ch.remaining));
+      } else {
+        _hideAfkChallenge();
+      }
+    } catch (e) {}
+
     renderPool(Array.isArray(state.pool) ? state.pool : [], legalActions);
     _pvAnim._suppressFlipIn = false;
     renderOpponents(players.filter(p => p.index !== myIdx), state.turn_index);
@@ -14983,8 +15121,14 @@
 
       const nm = document.createElement("div");
       nm.className = "pv-seat-name";
-      nm.textContent = p.name || `P${slot + 1}`;
-      nm.title = p.name || "";
+      const plabel = document.createElement("span");
+      plabel.className = "pv-seat-plabel";
+      plabel.textContent = `P${p.index + 1}`;
+      const nmText = document.createElement("span");
+      nmText.textContent = p.name || `P${p.index + 1}`;
+      nm.appendChild(plabel);
+      nm.appendChild(nmText);
+      nm.title = `${p.name || `Player ${p.index + 1}`} — report by typing "P${p.index + 1} is AFK"`;
 
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
@@ -20369,6 +20513,98 @@
     } catch (e) {}
   }
   window._fishDrawForInactive = drawForInactive;
+
+  // ═══════════════════════════════════════════════════════════════
+  // AFK-VOTE CHALLENGE — "Are you still here?" popup for the active player
+  // ═══════════════════════════════════════════════════════════════
+  let _afkOpen = false;
+  let _afkTicker = null;
+  let _afkEndsAt = 0;
+  let _afkCancelInFlight = false;
+  let _afkSuppressUntil = 0;  // bridge the poll gap after a cancel so it can't re-open
+  const AFK_TOTAL_SEC = 10;
+
+  function _afkRingColor(frac) {
+    // frac: 1 = full time left (teal), 0 = out of time (red). Teal→gold→red.
+    if (frac > 0.5)  return "#18C8A8"; // --teal
+    if (frac > 0.25) return "#F0C840"; // --gold
+    return "#ef6a6a";                  // urgent red
+  }
+
+  function _afkPaint() {
+    const ring = document.getElementById("pv-afk-ring");
+    const cd   = document.getElementById("pv-afk-countdown");
+    if (!ring || !cd) return;
+    const leftMs = Math.max(0, _afkEndsAt - Date.now());
+    const secs   = Math.ceil(leftMs / 1000);
+    const frac   = Math.max(0, Math.min(1, leftMs / (AFK_TOTAL_SEC * 1000)));
+    cd.textContent = String(secs);
+    const secNum = document.getElementById("pv-afk-seconds-num");
+    if (secNum) secNum.textContent = String(secs);
+    ring.style.setProperty("--pct", (frac * 100).toFixed(1) + "%");
+    ring.style.setProperty("--ring", _afkRingColor(frac));
+    ring.classList.toggle("urgent", frac <= 0.3);
+    if (leftMs <= 0) {
+      // Time's up on the client — the server resolves authoritatively and the
+      // next poll will clear the challenge. Stop the local ticker.
+      if (_afkTicker) { clearInterval(_afkTicker); _afkTicker = null; }
+    }
+  }
+
+  function _showAfkChallenge(remainingSec) {
+    const modal = document.getElementById("pv-afk-modal");
+    if (!modal) return;
+    // Anchor the end time once when the popup first opens; later polls don't
+    // restart the countdown (avoids the timer "jumping" each refresh).
+    if (!_afkOpen) {
+      const rem = (typeof remainingSec === "number" && remainingSec > 0)
+        ? Math.min(AFK_TOTAL_SEC, remainingSec) : AFK_TOTAL_SEC;
+      _afkEndsAt = Date.now() + rem * 1000;
+      _afkOpen = true;
+      modal.classList.add("open");
+      _afkPaint();
+      if (_afkTicker) clearInterval(_afkTicker);
+      _afkTicker = setInterval(_afkPaint, 120);
+    }
+  }
+
+  function _hideAfkChallenge() {
+    if (!_afkOpen) return;
+    _afkOpen = false;
+    if (_afkTicker) { clearInterval(_afkTicker); _afkTicker = null; }
+    const modal = document.getElementById("pv-afk-modal");
+    if (modal) modal.classList.remove("open");
+  }
+
+  async function _cancelAfkChallenge() {
+    if (!_afkOpen || _afkCancelInFlight) return;
+    _afkCancelInFlight = true;
+    _afkSuppressUntil = Date.now() + 4000;  // don't let a stale poll re-open it
+    _hideAfkChallenge();  // optimistic close — feels instant on interaction
+    try {
+      let token;
+      if (typeof compMode !== "undefined" && compMode) {
+        const activeNum = typeof myIdx === "number" ? myIdx : null;
+        token = (activeNum !== null && compTokens && compTokens[activeNum])
+          ? compTokens[activeNum]
+          : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
+      } else {
+        token = getSeatToken();
+      }
+      if (token && roomId) {
+        await apiPost(`/api/rooms/${roomId}/afk_cancel`, { seat_token: token }, { timeoutMs: 6000 });
+      }
+      refreshState();
+    } catch (e) {
+    } finally {
+      _afkCancelInFlight = false;
+    }
+  }
+
+  // Any interaction inside the game cancels the AFK check (only while open).
+  ["click","mousedown","mousemove","keydown","touchstart","wheel"].forEach(ev =>
+    window.addEventListener(ev, () => { if (_afkOpen) { try { _cancelAfkChallenge(); } catch {} } }, { passive: true })
+  );
 
   // ── Auto-join from URL ─────────────────────────────────────────
   (function() {
