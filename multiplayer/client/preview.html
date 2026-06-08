@@ -5658,7 +5658,7 @@
         border: 1px solid rgba(140,200,235,.5);
         border-radius: 26px;
         box-shadow: 0 8px 32px rgba(0,60,120,.12);
-        padding: 26px 16px 22px;
+        padding: 16px 16px 14px;
         display: flex;
         flex-direction: column;
         flex: 1;
@@ -5684,8 +5684,8 @@
       color: #1558b0;
       text-align: center;
       line-height: 1.2;
-      padding: 4px 4px 22px;
-      margin-bottom: 14px;
+      padding: 2px 4px 10px;
+      margin-bottom: 6px;
       letter-spacing: .4px;
     }
     .ph-sidebar-logo span { color: #2ea8ea; }
@@ -5694,14 +5694,14 @@
     .ph-sidebar-nav {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 2px;
     }
     .ph-snav-item {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 14px 16px;
-      border-radius: 14px;
+      padding: 9px 16px;
+      border-radius: 12px;
       font-size: 1.02rem;
       font-weight: 700;
       color: #3a6088;
@@ -5727,111 +5727,186 @@
       background: rgba(100,170,220,.22);
       margin: 12px 8px;
     }
-    /* ── Background Store ─────────────────────────────────────────── */
-    #ph-panel-store .ph-scard { padding: 20px 24px; }
+    /* ── Background Store (coral-reef themed, light frosted glass) ──── */
+    #ph-panel-store .ph-scard { padding: 22px 26px 26px; }
+    .phst-section-title {
+      font-family: "Cinzel", serif;
+      font-size: 1.1rem; font-weight: 900; color: #0f5390;
+      display: flex; align-items: center; gap: 9px;
+      margin: 26px 0 14px;
+    }
+    .phst-section-title:first-child { margin-top: 4px; }
+    .phst-section-title .phst-sec-rule { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(80,180,225,.5), transparent); }
+    .phst-section-sub { font-size: .8rem; color: #4f7ba6; font-weight: 600; margin: -8px 0 14px; }
+
+    /* Redeem-a-code box (donation codes arrive by email) */
+    .phst-code-box {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      background: linear-gradient(120deg, rgba(255,231,214,.85) 0%, rgba(255,214,224,.82) 55%, rgba(214,242,255,.85) 100%);
+      border: 1px solid rgba(244,160,150,.5);
+      border-radius: 16px; padding: 16px 20px; margin-bottom: 6px;
+      box-shadow: 0 4px 20px rgba(210,110,120,.14);
+    }
+    .phst-code-ico { font-size: 1.8rem; flex-shrink: 0; }
+    .phst-code-text { flex: 1; min-width: 160px; }
+    .phst-code-title { font-size: .96rem; font-weight: 900; color: #c0506a; margin-bottom: 2px; }
+    .phst-code-desc { font-size: .76rem; color: #7a5a6a; line-height: 1.45; }
+    .phst-code-form { display: flex; gap: 8px; flex-shrink: 0; }
+    .phst-code-form input {
+      width: 130px; font-size: 1rem; font-weight: 800; letter-spacing: 3px; text-align: center;
+      background: rgba(255,255,255,.85); border: 1px solid rgba(200,120,130,.45);
+      color: #5a3a48; border-radius: 9px; padding: 9px 10px;
+    }
+    .phst-code-form input:focus { outline: none; border-color: #f08aa0; box-shadow: 0 0 0 3px rgba(240,138,160,.18); }
+    .phst-code-form button {
+      background: linear-gradient(120deg,#ff8f6b 0%,#f0628a 100%);
+      color: #fff; font-size: .85rem; font-weight: 800;
+      border: none; border-radius: 9px; padding: 9px 18px; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(240,98,138,.35); white-space: nowrap;
+      transition: filter .15s, transform .12s;
+    }
+    .phst-code-form button:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    #phst-code-msg { width: 100%; font-size: .78rem; font-weight: 700; min-height: 0; }
+    #phst-code-msg.ok  { color: #1d9a6c; min-height: 1.2em; }
+    #phst-code-msg.err { color: #d6526a; min-height: 1.2em; }
+
+    /* Bundle hero */
     .phst-hero {
       display: flex; align-items: center; justify-content: space-between;
       gap: 16px; flex-wrap: wrap;
-      background: linear-gradient(115deg, #0a2a5e 0%, #0e3a7a 55%, #0b4060 100%);
-      border: 1px solid rgba(48,200,240,.28);
-      border-radius: 14px; padding: 18px 22px; margin-bottom: 22px;
+      background: linear-gradient(120deg, rgba(40,180,200,.92) 0%, rgba(70,150,220,.9) 50%, rgba(150,120,220,.9) 100%);
+      border: 1px solid rgba(255,255,255,.35);
+      border-radius: 16px; padding: 20px 24px; margin-bottom: 8px;
+      box-shadow: 0 6px 26px rgba(30,110,160,.25);
     }
     .phst-hero-text { flex: 1; min-width: 0; }
-    .phst-hero-title { font-size: 1.25rem; font-weight: 900; color: #fff; margin: 0 0 4px; }
-    .phst-hero-sub { font-size: .82rem; color: rgba(180,220,255,.75); line-height: 1.5; }
+    .phst-hero-title { font-size: 1.3rem; font-weight: 900; color: #fff; margin: 0 0 4px; text-shadow: 0 1px 6px rgba(0,50,80,.3); }
+    .phst-hero-sub { font-size: .84rem; color: rgba(255,255,255,.92); line-height: 1.5; }
+    .phst-hero-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
     .phst-bundle-price {
-      font-size: 1.55rem; font-weight: 900;
-      color: #ffd700; text-shadow: 0 0 12px rgba(255,215,0,.4);
-      white-space: nowrap;
+      font-size: 1.7rem; font-weight: 900; color: #fff;
+      text-shadow: 0 2px 10px rgba(0,40,70,.35); white-space: nowrap;
     }
     .phst-buy-all-btn {
-      background: linear-gradient(120deg,#22c084 0%,#18a06e 100%);
-      color: #fff; font-size: .88rem; font-weight: 800;
-      border: none; border-radius: 8px; padding: 10px 20px;
-      cursor: pointer; white-space: nowrap; flex-shrink: 0;
-      box-shadow: 0 3px 14px rgba(34,192,132,.35);
+      background: linear-gradient(120deg,#fff 0%,#eafaff 100%);
+      color: #0d6cb0; font-size: .9rem; font-weight: 900;
+      border: none; border-radius: 10px; padding: 11px 22px;
+      cursor: pointer; white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(0,40,80,.22);
       transition: filter .15s, transform .12s;
     }
-    .phst-buy-all-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .phst-buy-all-btn:hover { filter: brightness(1.04); transform: translateY(-1px); }
+    .phst-hero-owned {
+      font-size: .9rem; font-weight: 900; color: #fff;
+      background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.5);
+      border-radius: 9px; padding: 9px 16px; white-space: nowrap;
+    }
+
     .phst-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
       gap: 16px;
     }
     .phst-card {
-      background: rgba(10,36,80,.7);
-      border: 1px solid rgba(48,200,240,.18);
-      border-radius: 12px; overflow: hidden;
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(120,200,230,.5);
+      border-radius: 14px; overflow: hidden;
       display: flex; flex-direction: column;
+      box-shadow: 0 3px 14px rgba(30,110,160,.12);
       transition: transform .15s, box-shadow .15s;
     }
-    .phst-card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,.28); }
-    .phst-card-img {
-      width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
-    }
-    .phst-card-body { padding: 10px 12px 12px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-    .phst-card-name { font-size: .85rem; font-weight: 800; color: #d4eaff; }
-    .phst-card-fact { font-size: .72rem; color: rgba(140,180,220,.7); line-height: 1.4; flex: 1; }
+    .phst-card:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(30,110,160,.22); }
+    .phst-card-img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+    .phst-card-body { padding: 11px 13px 13px; flex: 1; display: flex; flex-direction: column; gap: 7px; }
+    .phst-card-name { font-size: .9rem; font-weight: 800; color: #11588f; }
+    .phst-card-fact { font-size: .73rem; color: #5b82a3; line-height: 1.4; flex: 1; }
     .phst-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
-    .phst-card-price { font-size: .85rem; font-weight: 900; color: #ffd700; }
+    .phst-card-price { font-size: .95rem; font-weight: 900; color: #e8736a; }
     .phst-card-owned {
-      font-size: .72rem; font-weight: 800; color: #22c084;
-      background: rgba(34,192,132,.15); border: 1px solid rgba(34,192,132,.35);
-      border-radius: 5px; padding: 3px 8px;
+      font-size: .73rem; font-weight: 800; color: #1d9a6c;
+      background: rgba(34,192,132,.14); border: 1px solid rgba(34,192,132,.4);
+      border-radius: 6px; padding: 3px 9px;
     }
     .phst-card-buy {
-      font-size: .75rem; font-weight: 800; color: #0a2448;
-      background: linear-gradient(120deg,#30c8f0 0%,#1faadc 100%);
-      border: none; border-radius: 6px; padding: 5px 12px; cursor: pointer;
+      font-size: .8rem; font-weight: 800; color: #fff;
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      border: none; border-radius: 8px; padding: 6px 15px; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(31,143,207,.3);
       transition: filter .12s, transform .1s;
     }
-    .phst-card-buy:hover { filter: brightness(1.1); transform: translateY(-1px); }
-    /* Purchase modal */
+    .phst-card-buy:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+    /* Seasonal — Coming Soon teaser cards */
+    .phst-card.phst-seasonal { position: relative; }
+    .phst-seasonal .phst-card-img-wrap { position: relative; overflow: hidden; }
+    .phst-seasonal .phst-card-img { filter: saturate(.7) brightness(.82); }
+    .phst-seasonal .phst-card-img-wrap::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(120deg, rgba(120,150,220,.45), rgba(150,120,200,.35));
+    }
+    .phst-season-ribbon {
+      position: absolute; top: 10px; right: -28px;
+      transform: rotate(38deg);
+      background: linear-gradient(120deg,#ffb347,#ff8f6b);
+      color: #fff; font-size: .62rem; font-weight: 900; letter-spacing: .5px;
+      padding: 3px 34px; box-shadow: 0 2px 8px rgba(200,90,40,.3); z-index: 2;
+    }
+    .phst-season-lock {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; z-index: 2; text-shadow: 0 2px 8px rgba(0,0,0,.35);
+    }
+    .phst-seasonal .phst-card-buy {
+      background: rgba(120,140,180,.35); color: #fff; cursor: default;
+      box-shadow: none;
+    }
+    .phst-seasonal .phst-card-buy:hover { filter: none; transform: none; }
+
+    /* Purchase modal (light frosted ocean) */
     #phst-modal {
       position: fixed; inset: 0; z-index: 9200;
-      background: rgba(4,14,35,.78); backdrop-filter: blur(6px);
+      background: rgba(8,40,70,.55); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
       display: none; align-items: center; justify-content: center;
     }
     #phst-modal.open { display: flex; }
     #phst-modal-box {
-      background: linear-gradient(160deg,#0c2150 0%,#0a3060 60%,#0b3a50 100%);
-      border: 1px solid rgba(48,200,240,.3); border-radius: 18px;
-      padding: 28px 30px; max-width: 420px; width: 92%;
-      box-shadow: 0 20px 70px rgba(0,0,0,.6);
+      background: linear-gradient(165deg, rgba(238,250,255,.97) 0%, rgba(224,244,255,.97) 60%, rgba(244,236,255,.97) 100%);
+      border: 1px solid rgba(120,200,235,.6); border-radius: 20px;
+      padding: 26px 28px; max-width: 420px; width: 92%;
+      box-shadow: 0 24px 70px rgba(10,50,90,.4);
       animation: phstFadeIn .2s ease;
     }
     @keyframes phstFadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
     #phst-modal-close {
-      float: right; background: none; border: none; color: rgba(140,180,220,.6);
-      font-size: 18px; cursor: pointer; line-height: 1; margin: -6px -6px 0 0;
+      float: right; background: none; border: none; color: #6a92b5;
+      font-size: 18px; cursor: pointer; line-height: 1; margin: -4px -4px 0 0;
     }
-    #phst-modal-close:hover { color: #fff; }
-    #phst-modal-preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 10px; margin: 14px 0 10px; display: block; }
-    #phst-modal-name { font-size: 1.1rem; font-weight: 900; color: #d4eaff; margin: 0 0 4px; }
-    #phst-modal-price { font-size: 1.55rem; font-weight: 900; color: #ffd700; margin: 0 0 14px; }
-    #phst-modal-info { font-size: .8rem; color: rgba(140,180,220,.75); line-height: 1.55; margin-bottom: 16px; }
+    #phst-modal-close:hover { color: #1a5a90; }
+    #phst-modal-preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; margin: 14px 0 12px; display: block; box-shadow: 0 4px 16px rgba(30,110,160,.2); }
+    #phst-modal-name { font-size: 1.15rem; font-weight: 900; color: #11588f; margin: 0 0 4px; }
+    #phst-modal-price { font-size: 1.7rem; font-weight: 900; color: #e8736a; margin: 0 0 14px; }
+    #phst-modal-info { font-size: .82rem; color: #5b82a3; line-height: 1.55; margin-bottom: 14px; }
     .phst-modal-code-row { display: flex; gap: 8px; margin-top: 10px; }
     .phst-modal-code-row input {
-      flex: 1; font-size: .9rem; font-weight: 700; background: rgba(22,56,110,.8);
-      border: 1px solid rgba(48,200,240,.3); color: #dde; border-radius: 7px;
-      padding: 8px 10px; letter-spacing: 2px; text-align: center;
+      flex: 1; font-size: 1rem; font-weight: 800; background: rgba(255,255,255,.85);
+      border: 1px solid rgba(120,180,215,.5); color: #2a4a66; border-radius: 9px;
+      padding: 9px 10px; letter-spacing: 3px; text-align: center;
     }
-    .phst-modal-code-row input:focus { outline: none; border-color: var(--cyan); }
+    .phst-modal-code-row input:focus { outline: none; border-color: #2bb8d8; box-shadow: 0 0 0 3px rgba(43,184,216,.18); }
     .phst-modal-redeem-btn {
-      background: linear-gradient(120deg,#30c8f0 0%,#1faadc 100%);
-      color: #0a2448; font-size: .8rem; font-weight: 800;
-      border: none; border-radius: 7px; padding: 8px 14px; cursor: pointer;
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      color: #fff; font-size: .85rem; font-weight: 800;
+      border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer;
       white-space: nowrap;
     }
-    .phst-modal-redeem-btn:hover { filter: brightness(1.1); }
-    #phst-modal-msg { font-size: .78rem; margin-top: 8px; min-height: 1.2em; }
-    #phst-modal-msg.ok  { color: #22c084; }
-    #phst-modal-msg.err { color: #f06060; }
+    .phst-modal-redeem-btn:hover { filter: brightness(1.08); }
+    #phst-modal-msg { font-size: .8rem; font-weight: 700; margin-top: 8px; min-height: 1.2em; }
+    #phst-modal-msg.ok  { color: #1d9a6c; }
+    #phst-modal-msg.err { color: #d6526a; }
 
     /* Daily Streak — section at bottom of nav card, no separate card bg */
     .ph-sidebar-streak {
-      margin-top: 14px;
-      padding-top: 16px;
+      margin-top: 8px;
+      padding-top: 10px;
       border-top: 1px solid rgba(100,170,220,.22);
     }
     .ph-ss-header {
@@ -5848,14 +5923,14 @@
       font-size: .75rem;
       color: #5a86b0;
       font-weight: 600;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .ph-ss-main {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
     .ph-ss-icon { font-size: 2.4rem; line-height: 1; margin-bottom: 4px; display:flex; align-items:center; justify-content:center; }
     .ph-ss-star-img { width: 52px; height: 52px; object-fit: contain; display: block; filter: drop-shadow(0 2px 6px rgba(200,40,100,.25)); }
@@ -5870,7 +5945,7 @@
       display: grid;
       grid-template-columns: repeat(7, 1fr);
       gap: 3px;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
       padding: 0 2px;
     }
     .ph-ss-day-col {
@@ -5900,11 +5975,11 @@
     .ph-ss-xp {
       background: rgba(200,240,255,.55);
       border-radius: 12px;
-      padding: 12px 13px;
-      margin-bottom: 14px;
+      padding: 10px 13px;
+      margin-bottom: 10px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 7px;
     }
     .ph-ss-xp-row { display: flex; flex-direction: column; gap: 1px; }
     .ph-ss-xp-lbl { font-size: .76rem; font-weight: 700; color: #4a7aaa; }
@@ -6367,6 +6442,47 @@
       background: rgba(210,246,255,0.82) !important;
     }
     #auth-stats-lobby[data-bg-tab="leaderboard"] .ph-topbar {
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    /* ── Store tab: soft coral-reef scene (user-supplied store-bg.jpg) ──
+       A coral/turquoise gradient sits behind the image as a graceful
+       fallback so the tab still looks themed if store-bg.jpg isn't present. */
+    #auth-stats-lobby[data-bg-tab="store"] {
+      background:
+        url("/multiplayer/client/store-bg.jpg") center center / cover no-repeat,
+        linear-gradient(160deg, #aee9f5 0%, #bfe6ff 40%, #e6d9f7 100%) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="store"]::before,
+    #auth-stats-lobby[data-bg-tab="store"]::after {
+      content: none !important;
+    }
+    /* Cards — frosted glass tinted to the turquoise/coral/lavender palette */
+    #auth-stats-lobby[data-bg-tab="store"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="store"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="store"] .ph-scard {
+      background: rgba(228,248,255,0.72) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(120,205,235,0.5) !important;
+      box-shadow: 0 6px 30px rgba(20,90,140,0.16) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="store"] .ph-tabs {
+      background: rgba(222,246,255,0.74) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(120,205,235,0.42) !important;
+      box-shadow: 0 4px 18px rgba(20,90,140,0.10) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="store"] .ph-tab.active {
+      background: rgba(240,252,255,0.92) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="store"] .ph-sh {
+      background: rgba(222,246,255,0.78) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="store"] .ph-topbar {
       background: transparent;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -10348,6 +10464,18 @@
       </div>
     </div>
 
+    <div class="ph-panel" id="ph-panel-store" style="display:none;">
+      <div class="ph-scard ph-full">
+        <div class="ph-sh">
+          <div class="ph-st">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 3.5h14L14.5 12H3.5L2 3.5z" stroke="#2680c8" stroke-width="1.5" stroke-linejoin="round"/><circle cx="6" cy="15.5" r="1.3" stroke="#2680c8" stroke-width="1.3"/><circle cx="13" cy="15.5" r="1.3" stroke="#2680c8" stroke-width="1.3"/><path d="M1 1h2l.5 2.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Store
+          </div>
+        </div>
+        <div id="ph-store-content"></div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <div class="ph-footer">
       <button class="ph-footer-btn" id="stats-leaderboard-btn">🏆 Leaderboard</button>
@@ -11074,18 +11202,6 @@
     </div>
   </div>
 </div>
-
-    <div class="ph-panel" id="ph-panel-store" style="display:none;">
-      <div class="ph-scard ph-full">
-        <div class="ph-sh">
-          <div class="ph-st">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 3.5h14L14.5 12H3.5L2 3.5z" stroke="#2680c8" stroke-width="1.5" stroke-linejoin="round"/><circle cx="6" cy="15.5" r="1.3" stroke="#2680c8" stroke-width="1.3"/><circle cx="13" cy="15.5" r="1.3" stroke="#2680c8" stroke-width="1.3"/><path d="M1 1h2l.5 2.5" stroke="#2680c8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Store
-          </div>
-        </div>
-        <div id="ph-store-content"></div>
-      </div>
-    </div>
 
 <!-- ── Purchase / Code Modal ───────────────────────────────────────── -->
 <div id="phst-modal">
@@ -25229,48 +25345,126 @@
         window._phstOpenModal = _phstOpenModal;
       })();
 
+      // Seasonal teaser line-up (Coming Soon — no purchasing yet).
+      const PHST_SEASONAL = [
+        { name:"Summer Tide",     emoji:"🏖️", grad:"linear-gradient(135deg,#ffd86b,#ff9a6b)" },
+        { name:"Spooky Abyss",    emoji:"🎃", grad:"linear-gradient(135deg,#7a3fb0,#2a1840)" },
+        { name:"Winter Frost",    emoji:"❄️", grad:"linear-gradient(135deg,#a8e6ff,#5b8fd6)" },
+        { name:"Spring Bloom",    emoji:"🌸", grad:"linear-gradient(135deg,#ffc7e0,#8fd6a0)" },
+      ];
+
       function renderPhStore() {
         const el = document.getElementById("ph-store-content");
         if (!el) return;
         const unlocked = (typeof window.__fishGetUnlockedBackgrounds === "function")
           ? (window.__fishGetUnlockedBackgrounds() || []) : [];
         const unlockedSet = new Set(unlocked);
-        const all = EXCLUSIVE_BACKGROUNDS;
-        const allOwned = all.every(b => unlockedSet.has(b.img));
+        const esc = (typeof escapeHtml === "function") ? escapeHtml : (s)=>String(s);
+        const bgsrc = (typeof _bgSrc === "function") ? _bgSrc : (u)=>u;
+        const all = (typeof EXCLUSIVE_BACKGROUNDS !== "undefined") ? EXCLUSIVE_BACKGROUNDS : [];
+        const allOwned = all.length > 0 && all.every(b => unlockedSet.has(b.img));
 
-        let html = `<div class="phst-hero">
-          <div class="phst-hero-text">
-            <div class="phst-hero-title">🌊 All Backgrounds Bundle</div>
-            <div class="phst-hero-sub">Own all ${all.length} exclusive ocean scenes — Kelp Forest, Coral Reef, Arctic, Deep Ocean, and more.</div>
+        // 1) Redeem-a-code box (donation codes arrive by email)
+        let html = `<div class="phst-code-box">
+          <div class="phst-code-ico">✉️</div>
+          <div class="phst-code-text">
+            <div class="phst-code-title">Have a code?</div>
+            <div class="phst-code-desc">Donate to unlock a background or avatar — your 6-digit code is emailed to you. Enter it here to redeem instantly.</div>
           </div>
-          <div class="phst-bundle-price">$15.00</div>`;
+          <div class="phst-code-form">
+            <input id="phst-store-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
+            <button id="phst-store-redeem">Redeem</button>
+          </div>
+          <div id="phst-code-msg"></div>
+        </div>`;
+
+        // 2) Backgrounds section — bundle hero + grid
+        html += `<div class="phst-section-title">🌊 Exclusive Backgrounds<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-hero">
+          <div class="phst-hero-text">
+            <div class="phst-hero-title">All Backgrounds Bundle</div>
+            <div class="phst-hero-sub">Own all ${all.length} exclusive ocean scenes — Kelp Forest, Coral Reef, Arctic, Deep Ocean &amp; more — for one low price.</div>
+          </div>
+          <div class="phst-hero-right">
+            <div class="phst-bundle-price">$15.00</div>`;
         if (allOwned) {
-          html += `<div class="phst-card-owned" style="font-size:.85rem;padding:8px 14px;">✓ All Owned</div>`;
+          html += `<div class="phst-hero-owned">✓ All Owned</div>`;
         } else {
           html += `<button class="phst-buy-all-btn" onclick="window._phstOpenModal('bundle')">Buy Bundle</button>`;
         }
-        html += `</div>`;
+        html += `</div></div>`;
 
-        html += `<div class="phst-grid">`;
+        html += `<div class="phst-grid" style="margin-top:16px;">`;
         for (const bg of all) {
           const owned = unlockedSet.has(bg.img);
-          const imgSrc = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
+          const imgSrc = bgsrc(bg.img);
           html += `<div class="phst-card">
-            <img class="phst-card-img" src="${imgSrc}" alt="${escapeHtml(bg.name)}" loading="lazy">
+            <img class="phst-card-img" src="${imgSrc}" alt="${esc(bg.name)}" loading="lazy">
             <div class="phst-card-body">
-              <div class="phst-card-name">${escapeHtml(bg.name)}</div>
-              <div class="phst-card-fact">${escapeHtml(bg.facts || "")}</div>
+              <div class="phst-card-name">${esc(bg.name)}</div>
+              <div class="phst-card-fact">${esc(bg.facts || "")}</div>
               <div class="phst-card-footer">
                 <div class="phst-card-price">$2.50</div>`;
           if (owned) {
             html += `<div class="phst-card-owned">✓ Owned</div>`;
           } else {
-            html += `<button class="phst-card-buy" onclick="window._phstOpenModal('${escapeHtml(bg.id)}')">Buy</button>`;
+            html += `<button class="phst-card-buy" onclick="window._phstOpenModal('${esc(bg.id)}')">Buy</button>`;
           }
           html += `</div></div></div>`;
         }
         html += `</div>`;
+
+        // 3) Seasonal section — Coming Soon teasers
+        html += `<div class="phst-section-title">✨ Seasonal Exclusives<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-sub">Limited-time skins that wash in with each season. Check back soon!</div>`;
+        html += `<div class="phst-grid">`;
+        for (const s of PHST_SEASONAL) {
+          html += `<div class="phst-card phst-seasonal">
+            <div class="phst-card-img-wrap">
+              <div class="phst-season-ribbon">SOON</div>
+              <div class="phst-season-lock">🔒</div>
+              <div class="phst-card-img" style="background:${s.grad};display:flex;align-items:center;justify-content:center;font-size:2.2rem;">${s.emoji}</div>
+            </div>
+            <div class="phst-card-body">
+              <div class="phst-card-name">${esc(s.name)}</div>
+              <div class="phst-card-fact">A limited seasonal skin — arriving soon.</div>
+              <div class="phst-card-footer">
+                <div class="phst-card-price" style="color:#8a93b0;">— —</div>
+                <button class="phst-card-buy" disabled>Coming Soon</button>
+              </div>
+            </div>
+          </div>`;
+        }
+        html += `</div>`;
+
         el.innerHTML = html;
+
+        // Wire the redeem-a-code box (rebuilt each render)
+        const codeInput = document.getElementById("phst-store-code");
+        const codeBtn = document.getElementById("phst-store-redeem");
+        const codeMsg = document.getElementById("phst-code-msg");
+        async function _doStoreRedeem() {
+          const code = String(codeInput ? codeInput.value : "").replace(/\D/g, "").trim();
+          if (code.length !== 6) { codeMsg.textContent = "Enter a 6-digit code."; codeMsg.className = "err"; return; }
+          if (!_authUser) { codeMsg.textContent = "Sign in to redeem a code."; codeMsg.className = "err"; return; }
+          codeBtn.disabled = true; codeMsg.textContent = "Checking…"; codeMsg.className = "";
+          try {
+            const res = await window.__fishRedeemCode?.(code);
+            if (!res) { codeMsg.textContent = "Redemption unavailable — try again."; codeMsg.className = "err"; codeBtn.disabled = false; return; }
+            codeMsg.textContent = res.msg || (res.ok ? "Unlocked!" : "Error.");
+            codeMsg.className = res.ok ? "ok" : "err";
+            if (res.ok) { renderPhStore(); }
+          } catch { codeMsg.textContent = "Error — try again."; codeMsg.className = "err"; }
+          codeBtn.disabled = false;
+        }
+        if (codeBtn) codeBtn.addEventListener("click", _doStoreRedeem);
+        if (codeInput) {
+          codeInput.addEventListener("input", () => {
+            codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
+            if (codeMsg) { codeMsg.textContent = ""; codeMsg.className = ""; }
+          });
+          codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") _doStoreRedeem(); });
+        }
       }
       window.renderPhStore = renderPhStore;
 

@@ -4867,6 +4867,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        # Serve full-page tab background JPGs (store / leaderboard) by full client path
+        if re.fullmatch(r"/multiplayer/client/(store-bg|leaderboard-bg)\.jpg", parsed.path):
+            bg_name = os.path.basename(parsed.path)
+            bg_path = os.path.join(CLIENT_DIR, bg_name)
+            if os.path.exists(bg_path):
+                self._send_client_asset(bg_path, content_type="image/jpeg", cache_control="public, max-age=86400")
+            else:
+                self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         # Theme song audio file
         if re.fullmatch(r"/theme-song\.(m4a|mp3|ogg)", parsed.path):
             audio_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
