@@ -31130,7 +31130,15 @@
   const gtVisible = (sel) => { const e = document.querySelector(sel); return !!(e && e.offsetParent !== null && e.getBoundingClientRect().width > 0); };
   const gtModalOpen = () => { const m = document.getElementById("new-current-modal"); return !!(m && m.classList.contains("open")); };
   const gtWaitingOpen = () => { const m = document.getElementById("pv-waiting-room"); return !!(m && m.classList.contains("open")); };
-  const gtGameOpen = () => { const g = document.getElementById("pv-game"); return !!(g && getComputedStyle(g).display !== "none"); };
+  const gtGameOpen = () => {
+    const g = document.getElementById("pv-game");
+    if (!g || getComputedStyle(g).display === "none") return false;
+    // Wait until the waiting room is fully dismissed — joinRoom shows pv-game
+    // immediately, but hideWaitingRoom() only fires after the first SSE update.
+    const wr = document.getElementById("pv-waiting-room");
+    if (wr && wr.classList.contains("open")) return false;
+    return true;
+  };
   // Set a number field and fire the events any listeners expect.
   function gtSetInput(id, val) {
     const el = document.getElementById(id);
