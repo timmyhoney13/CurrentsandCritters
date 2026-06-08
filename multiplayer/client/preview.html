@@ -31127,7 +31127,17 @@
     { target: "#ph-ss-details-btn", badge: "Daily Streak", title: "View Streak Details",
       interactive: true,
       advanceWhen: gtStreakCalOpen,
-      text: "Click <strong>View streak details</strong> to open your streak calendar. It shows every day you have logged in, your current and longest streaks, and exactly how much bonus XP each day is worth." },
+      text: "Click <strong>View streak details</strong> to open your streak calendar." },
+
+    // ── Streak calendar — spotlight the entire calendar ───────────────
+    { target: "#streak-cal-box", badge: "Daily Streak", title: "Your Streak Calendar",
+      text: "This calendar shows <strong>every day you have logged in</strong>. The stats at the top show your current streak, your longest streak ever, and exactly how much <strong>bonus XP</strong> each consecutive day is worth. Keep your streak alive for bigger and bigger rewards." },
+
+    // ── Click X to close the calendar (interactive) ───────────────────
+    { target: "#streak-cal-close", badge: "Daily Streak", title: "Close the Calendar",
+      interactive: true,
+      advanceWhen: () => !document.getElementById("streak-cal-modal")?.classList.contains("open"),
+      text: "Click the <strong>✕</strong> to close the calendar." },
 
     // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
