@@ -3669,14 +3669,13 @@ class GameRoom:
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:
                 self.chat_messages = self.chat_messages[-200:]
-            self._persist_dirty = True
             # Recognize "<P3 / username> is afk" votes against the active player.
             try:
                 if seat is not None:
                     self._afk_handle_chat_locked(seat, message)
             except Exception as exc:
                 self._record_event(f"AFK vote parse error: {exc}")
-            self.cond.notify_all()
+            self._bump_locked()  # increment version so SSE pushes chat instantly
         return {"ok": True}
 
     # ── Chat-based AFK voting ────────────────────────────────────────────
