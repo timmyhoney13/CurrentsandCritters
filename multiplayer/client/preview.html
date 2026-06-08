@@ -30721,7 +30721,60 @@
   /* Completion toast */
   #tut3-toast { position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px); z-index:100060; background:linear-gradient(135deg,#1fbb8a,#159e9e); color:#fff; padding:13px 22px; border-radius:14px; font-family:"Nunito",sans-serif; font-weight:800; box-shadow:0 12px 36px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; display:flex; align-items:center; gap:10px; }
   #tut3-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-  @media (max-width:560px){ .tut3-opt-desc{display:none} }
+  #tut3-hole.pulse { animation:tut3pulse 1.25s ease-in-out infinite; }
+  @keyframes tut3pulse { 0%,100%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 16px rgba(95,208,232,.5); } 50%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 30px 6px rgba(95,208,232,.95); } }
+
+  /* ── Stage 2: mock in-game board (matches the real game UI + bg) ── */
+  #tut2-stage { position:fixed; inset:0; z-index:100045; display:none; flex-direction:column; padding:16px 16px 20px; gap:13px;
+    background:#050d1a; font-family:"Nunito",sans-serif; color:var(--cr-navy); overflow:auto; }
+  #tut2-stage.open { display:flex; }
+  #tut2-stage::before { content:""; position:absolute; inset:-2.5%; background:url('/multiplayer/client/game-bg.png') center/cover no-repeat; z-index:0; pointer-events:none; animation:pv-water-drift 26s ease-in-out infinite alternate; }
+  #tut2-stage > * { position:relative; z-index:1; }
+  .gt-topbar { display:flex; align-items:center; gap:12px; }
+  .gt-menu-wrap { position:relative; }
+  #gt-menu-btn { background:linear-gradient(135deg,var(--cr-teal),var(--cr-teal-deep)); color:#fff; border:1px solid rgba(232,179,74,.55); border-radius:8px; padding:9px 15px; font-weight:800; font-size:.95rem; cursor:pointer; font-family:inherit; text-shadow:0 1px 2px rgba(0,0,0,.3); }
+  #gt-menu-btn:hover { filter:brightness(1.06); }
+  #gt-menu-drop { position:absolute; top:46px; left:0; width:236px; background:rgba(254,245,230,.98); border:1px solid var(--cr-teal); border-radius:12px; box-shadow:0 14px 40px rgba(26,45,90,.4); padding:6px; display:none; z-index:5; }
+  #gt-menu-drop.open { display:block; }
+  .gt-mi { display:block; width:100%; text-align:left; background:none; border:none; color:var(--cr-navy); padding:9px 12px; border-radius:8px; font-weight:700; font-size:.88rem; cursor:pointer; font-family:inherit; }
+  .gt-mi:hover { background:rgba(95,179,214,.18); }
+  .gt-mi-div { height:1px; background:rgba(44,90,138,.22); margin:5px 6px; }
+  .gt-speed-row { display:flex; gap:5px; padding:4px 10px 8px; }
+  .gt-speed-btn { flex:1; background:rgba(95,179,214,.16); border:1px solid var(--cr-teal); color:var(--cr-teal-deep); border-radius:7px; padding:6px; font-weight:800; font-size:.76rem; cursor:pointer; font-family:inherit; }
+  .gt-speed-btn.active { background:linear-gradient(135deg,var(--cr-teal),var(--cr-teal-deep)); color:#fff; }
+  .gt-banner { flex:1; text-align:center; font-family:"Cinzel",serif; font-weight:900; font-size:1.1rem; letter-spacing:1.5px; color:var(--cr-coral-deep); text-shadow:0 1px 3px rgba(255,255,255,.6); }
+  .gt-banner.away { color:var(--cr-teal-deep); }
+  .gt-score { font-weight:900; color:var(--cr-teal-deep); font-size:1rem; flex-shrink:0; background:rgba(254,245,230,.8); border:1px solid var(--cr-teal); border-radius:8px; padding:5px 11px; }
+  .gt-opps { display:flex; gap:10px; justify-content:center; }
+  .gt-opp { display:flex; align-items:center; gap:9px; background:rgba(254,245,230,.9); border:1px solid var(--cr-teal); border-radius:13px; padding:8px 13px; box-shadow:0 3px 12px rgba(26,45,90,.14); }
+  .gt-opp img { width:34px; height:34px; border-radius:50%; object-fit:contain; background:#dff1fb; border:2px solid var(--cr-teal); }
+  .gt-opp-n { font-weight:800; font-size:.86rem; color:var(--cr-navy); }
+  .gt-opp-s { font-size:.74rem; color:var(--cr-teal-deep); }
+  .gt-center { display:flex; gap:24px; align-items:center; justify-content:center; }
+  .gt-sec-lbl { font-size:.66rem; color:var(--cr-navy); font-weight:800; text-transform:uppercase; letter-spacing:1.2px; text-align:center; margin-bottom:5px; text-shadow:0 1px 2px rgba(255,255,255,.5); }
+  .gt-pool { display:flex; gap:8px; }
+  .gt-deck { display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer; }
+  .gt-deck-face { width:64px; height:88px; border-radius:9px; border:2px solid var(--cr-teal); background:linear-gradient(160deg,#2c5a8a,#1a2d5a); display:flex; align-items:center; justify-content:center; font-size:1.6rem; color:#cfe7ff; box-shadow:0 4px 12px rgba(26,45,90,.3); }
+  .gt-deck:hover .gt-deck-face { border-color:var(--cr-gold); box-shadow:0 0 14px rgba(232,179,74,.6); }
+  .gt-deck-count { font-size:.72rem; color:var(--cr-navy); font-weight:800; }
+  .gt-card { width:64px; height:88px; border-radius:9px; border:2px solid #fff; overflow:hidden; background:#0a2742; position:relative; cursor:pointer; flex-shrink:0; box-shadow:0 4px 12px rgba(26,45,90,.28); transition:transform .12s, box-shadow .12s, border-color .12s; }
+  .gt-card:hover { transform:translateY(-4px); border-color:var(--cr-teal); box-shadow:0 8px 20px rgba(44,90,138,.4); }
+  .gt-card.sel { border-color:var(--cr-gold); box-shadow:0 0 16px rgba(232,179,74,.7); transform:translateY(-4px); }
+  .gt-card-img { width:100%; height:100%; }
+  .gt-board { display:flex; justify-content:center; }
+  .gt-ocean-hub { position:relative; display:grid; grid-template-columns:auto auto auto; grid-template-rows:auto auto auto; align-items:center; justify-items:center; gap:3px; }
+  .gt-ocean { width:80px; height:80px; border-radius:11px; border:2px solid var(--cr-gold); overflow:hidden; background:#0a2742; grid-column:2; grid-row:2; cursor:pointer; box-shadow:0 4px 14px rgba(26,45,90,.3); }
+  .gt-ocean:hover { border-color:var(--cr-gold-deep); box-shadow:0 0 16px rgba(232,179,74,.6); }
+  .gt-ocean-img { width:100%; height:100%; }
+  .gt-slot { width:46px; height:46px; border:2px dashed var(--cr-teal); border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--cr-teal-deep); font-size:1.1rem; cursor:pointer; background:rgba(254,245,230,.55); transition:all .12s; }
+  .gt-slot:hover { border-color:var(--cr-gold); background:rgba(232,179,74,.18); color:var(--cr-gold-deep); }
+  .gt-slot.filled { border-style:solid; border-color:var(--cr-coral-deep); padding:0; background:#0a2742; }
+  .gt-slot.filled img { width:100%; height:100%; object-fit:cover; border-radius:7px; }
+  .gt-slot.up{grid-column:2;grid-row:1} .gt-slot.left{grid-column:1;grid-row:2} .gt-slot.right{grid-column:3;grid-row:2} .gt-slot.down{grid-column:2;grid-row:3}
+  .gt-hand { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .gt-hand .gt-card.dragging { opacity:.4; }
+  .gt-ocean.drop-hot, .gt-slot.drop-hot { border-color:var(--cr-gold) !important; background:rgba(232,179,74,.3) !important; }
+  @media (max-width:560px){ .gt-center{gap:12px} .gt-card,.gt-deck-face{width:50px;height:70px} .gt-ocean{width:64px;height:64px} .gt-slot{width:38px;height:38px} }
   `;
   const styleEl = document.createElement("style");
   styleEl.id = "tut3-styles";
@@ -30732,7 +30785,18 @@
   //  REUSABLE COACHMARK ENGINE
   //  steps: [{ target:selector|null, badge, title, text, before?() }]
   // ════════════════════════════════════════════════════════════════
-  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null;
+  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null, coachWait = null;
+
+  // Called by an interactive mock element when the user performs an action.
+  // If the current step is waiting for exactly that action, advance the tour.
+  function coachHit(action) {
+    if (!coach || !coach.classList.contains("open")) return;
+    if (coachWait && action === coachWait) {
+      coachWait = null;
+      if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
+      else setTimeout(() => gotoStep(coachIdx + 1), 350);
+    }
+  }
 
   function buildCoach() {
     if (coach) return coach;
@@ -30773,9 +30837,13 @@
   }
 
   function endCoach() {
-    if (coach) coach.classList.remove("open");
+    if (coach) {
+      coach.classList.remove("open");
+      const ce = coach.querySelector("#tut3-catch"); if (ce) ce.style.pointerEvents = "auto";
+      const h = coach.querySelector("#tut3-hole"); if (h) h.classList.remove("pulse");
+    }
     const cu = coachCleanup;
-    coachSteps = []; coachDone = null; coachCleanup = null;
+    coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null;
     try { cu && cu(); } catch (_) {}
   }
 
@@ -30796,7 +30864,15 @@
     }
     coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
     coach.querySelector("#tut3-back").disabled = (i === 0);
-    coach.querySelector("#tut3-next").textContent = (i >= coachSteps.length - 1) ? "Finish ✓" : "Next →";
+    // Interactive step: let real clicks/drags reach the highlighted element, and
+    // wait for the user to actually do it. Next becomes a gentle "Skip step".
+    coachWait = step.interactive ? (step.wait || null) : null;
+    const catchEl = coach.querySelector("#tut3-catch");
+    const hole = coach.querySelector("#tut3-hole");
+    if (catchEl) catchEl.style.pointerEvents = step.interactive ? "none" : "auto";
+    if (hole) hole.classList.toggle("pulse", !!step.interactive);
+    const nextBtn = coach.querySelector("#tut3-next");
+    nextBtn.textContent = (i >= coachSteps.length - 1) ? "Finish ✓" : (step.interactive ? "Skip step ›" : "Next →");
     // Scroll target into view, then position after a tick so layout settles.
     const el = step.target ? document.querySelector(step.target) : null;
     if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
@@ -31008,6 +31084,280 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  THE GAME TOUR (interactive mock board)
+  // ════════════════════════════════════════════════════════════════
+  let gtStage = null, gtSelected = null, gtDragUid = null;
+  const GT_HAND = [11, 1, 26, 25];          // Horned Puffin, Emperor Penguin, Sea Anemone, Peruvian Pelican
+  const GT_POOL = [13, 17, 6];              // Horned Puffin, California Seagull, Mantis Shrimp
+  const GT_OCEAN = 217;                     // Coral Reef
+  const GT_SLOTS = ["up", "left", "right", "down"];
+
+  function gtCardInner(uid) {
+    const info = (window.__ccCardImg && window.__ccCardImg(uid)) || { url: "", pos: "center" };
+    let size = "cover", pos = "center";
+    if (info.pos === "top") { size = "100% 200%"; pos = "center top"; }
+    else if (info.pos === "bottom") { size = "100% 200%"; pos = "center bottom"; }
+    else if (info.pos === "left") { size = "200% 100%"; pos = "left center"; }
+    else if (info.pos === "right") { size = "200% 100%"; pos = "right center"; }
+    return `<div class="gt-card-img" style="background:url('${info.url}') ${pos}/${size} no-repeat;"></div>`;
+  }
+
+  function buildGameStage() {
+    if (gtStage) return gtStage;
+    gtStage = document.createElement("div");
+    gtStage.id = "tut2-stage";
+    document.body.appendChild(gtStage);
+    return gtStage;
+  }
+
+  function gtResetState() {
+    gtSelected = null; gtDragUid = null;
+    const hand = GT_HAND.slice(), pool = GT_POOL.slice();
+    const stage = buildGameStage();
+    stage.innerHTML = `
+      <div class="gt-topbar">
+        <div class="gt-menu-wrap">
+          <button id="gt-menu-btn">☰ Menu</button>
+          <div id="gt-menu-drop">
+            <button class="gt-mi" id="gt-mi-log">📋 Game Log</button>
+            <button class="gt-mi" id="gt-mi-chat">💬 Chat: On</button>
+            <button class="gt-mi" id="gt-mi-score">🏆 Score Breakdown</button>
+            <div class="gt-mi-div"></div>
+            <div class="gt-sec-lbl" style="text-align:left;padding:2px 12px">🤖 AI Speed (host)</div>
+            <div class="gt-speed-row">
+              <button class="gt-speed-btn" data-sp="slow">Slow</button>
+              <button class="gt-speed-btn active" data-sp="normal">Normal</button>
+              <button class="gt-speed-btn" data-sp="fast">Fast</button>
+            </div>
+            <div class="gt-mi-div"></div>
+            <button class="gt-mi" id="gt-mi-surf">🏄 Surf's Up (Away)</button>
+            <button class="gt-mi" id="gt-mi-leave" style="color:#ff8a98">⬅ Leave Game</button>
+          </div>
+        </div>
+        <div class="gt-banner" id="gt-banner">Your Turn</div>
+        <div class="gt-score" id="gt-score">Score: 0</div>
+      </div>
+      <div class="gt-opps">
+        <div class="gt-opp"><img src="/avatars/clownfish.png" alt=""><div><div class="gt-opp-n">Billy</div><div class="gt-opp-s">12 pts · 6 cards</div></div></div>
+        <div class="gt-opp"><img src="/avatars/manta-ray.png" alt=""><div><div class="gt-opp-n">Diana</div><div class="gt-opp-s">9 pts · 7 cards</div></div></div>
+      </div>
+      <div class="gt-center">
+        <div><div class="gt-sec-lbl">The Pool</div><div class="gt-pool" id="gt-pool">${pool.map(u => `<div class="gt-card" data-pool="${u}">${gtCardInner(u)}</div>`).join("")}</div></div>
+        <div class="gt-deck" id="gt-deck"><div class="gt-deck-face">🂠</div><div class="gt-deck-count" id="gt-deck-count">38 left</div></div>
+      </div>
+      <div><div class="gt-sec-lbl">Your Board</div>
+        <div class="gt-board"><div class="gt-ocean-hub" id="gt-ocean-hub">
+          <div class="gt-slot up" data-slot="up">↑</div>
+          <div class="gt-slot left" data-slot="left">←</div>
+          <div class="gt-ocean" id="gt-ocean">${gtCardInner(GT_OCEAN)}</div>
+          <div class="gt-slot right" data-slot="right">→</div>
+          <div class="gt-slot down" data-slot="down">↓</div>
+        </div></div>
+      </div>
+      <div><div class="gt-sec-lbl">Your Hand</div><div class="gt-hand" id="gt-hand">${hand.map(u => `<div class="gt-card" draggable="true" data-hand="${u}">${gtCardInner(u)}</div>`).join("")}</div></div>
+    `;
+    gtWire();
+    return stage;
+  }
+
+  function gtWire() {
+    const stage = gtStage;
+    // Hand cards: click to select; drag to play.
+    stage.querySelectorAll("[data-hand]").forEach(c => {
+      c.addEventListener("click", () => {
+        stage.querySelectorAll(".gt-hand .gt-card").forEach(x => x.classList.remove("sel"));
+        c.classList.add("sel"); gtSelected = c;
+        coachHit("select");
+      });
+      c.addEventListener("dragstart", (e) => { gtDragUid = c.getAttribute("data-hand"); c.classList.add("dragging"); try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", gtDragUid); } catch (_) {} });
+      c.addEventListener("dragend", () => c.classList.remove("dragging"));
+    });
+    // Deck: draw a card.
+    const deck = stage.querySelector("#gt-deck");
+    deck.addEventListener("click", () => {
+      const newUid = 9; // Horned Puffin
+      const hand = stage.querySelector("#gt-hand");
+      const el = document.createElement("div");
+      el.className = "gt-card"; el.draggable = true; el.setAttribute("data-hand", newUid); el.innerHTML = gtCardInner(newUid);
+      hand.appendChild(el);
+      const dc = stage.querySelector("#gt-deck-count"); if (dc) dc.textContent = "37 left";
+      gtWireHandCard(el);
+      coachHit("draw");
+    });
+    // Pool cards: take into hand.
+    stage.querySelectorAll("[data-pool]").forEach(c => {
+      c.addEventListener("click", () => {
+        const uid = c.getAttribute("data-pool");
+        c.remove();
+        const hand = stage.querySelector("#gt-hand");
+        const el = document.createElement("div");
+        el.className = "gt-card"; el.draggable = true; el.setAttribute("data-hand", uid); el.innerHTML = gtCardInner(uid);
+        hand.appendChild(el); gtWireHandCard(el);
+        coachHit("take_pool");
+      });
+    });
+    // Ocean: drop target (drag) + click to play.
+    const ocean = stage.querySelector("#gt-ocean");
+    ocean.addEventListener("dragover", (e) => { e.preventDefault(); ocean.classList.add("drop-hot"); });
+    ocean.addEventListener("dragleave", () => ocean.classList.remove("drop-hot"));
+    ocean.addEventListener("drop", (e) => { e.preventDefault(); ocean.classList.remove("drop-hot"); if (gtPlayToNextSlot(gtDragUid)) coachHit("drag_play"); gtDragUid = null; });
+    ocean.addEventListener("click", () => { if (gtPlaySelected()) coachHit("click_ocean"); });
+    // Side slots: click to attach.
+    stage.querySelectorAll(".gt-slot").forEach(s => {
+      s.addEventListener("dragover", (e) => { e.preventDefault(); s.classList.add("drop-hot"); });
+      s.addEventListener("dragleave", () => s.classList.remove("drop-hot"));
+      s.addEventListener("drop", (e) => { e.preventDefault(); s.classList.remove("drop-hot"); if (!s.classList.contains("filled") && gtFillSlot(s, gtDragUid)) coachHit("drag_play"); gtDragUid = null; });
+      s.addEventListener("click", () => {
+        if (s.classList.contains("filled")) return;
+        const uid = gtTakeFromHand(); if (!uid) return;
+        gtFillSlot(s, uid); coachHit("click_slot");
+      });
+    });
+    // Menu
+    const mb = stage.querySelector("#gt-menu-btn");
+    mb.addEventListener("click", () => { stage.querySelector("#gt-menu-drop").classList.toggle("open"); coachHit("open_menu"); });
+    stage.querySelector("#gt-mi-log").addEventListener("click", () => { gtPopup("Game Log", "Billy played Mahi Mahi to Kelp Forest.<br>Diana drew 2 from the deck.<br>You attached Horned Puffin to Coral Reef."); coachHit("game_log"); });
+    const chatItem = stage.querySelector("#gt-mi-chat");
+    chatItem.addEventListener("click", () => { const on = chatItem.textContent.includes("On"); chatItem.textContent = on ? "💬 Chat: Off" : "💬 Chat: On"; coachHit("chat"); });
+    stage.querySelector("#gt-mi-score").addEventListener("click", () => { gtPopup("Score Breakdown", "You: 0 pts<br>Billy: 12 pts<br>Diana: 9 pts<br><br>Points come from cards on your oceans."); coachHit("score_break"); });
+    stage.querySelectorAll(".gt-speed-btn").forEach(b => b.addEventListener("click", () => {
+      stage.querySelectorAll(".gt-speed-btn").forEach(x => x.classList.remove("active")); b.classList.add("active");
+      if (b.getAttribute("data-sp") === "fast") coachHit("ai_speed");
+    }));
+    stage.querySelector("#gt-mi-surf").addEventListener("click", () => {
+      const ban = stage.querySelector("#gt-banner"); ban.textContent = "You are Away (Surf's Up)"; ban.classList.add("away");
+      coachHit("surfs_up");
+    });
+    stage.querySelector("#gt-mi-leave").addEventListener("click", () => coachHit("leave"));
+  }
+
+  function gtWireHandCard(el) {
+    el.addEventListener("click", () => {
+      gtStage.querySelectorAll(".gt-hand .gt-card").forEach(x => x.classList.remove("sel"));
+      el.classList.add("sel"); gtSelected = el; coachHit("select");
+    });
+    el.addEventListener("dragstart", (e) => { gtDragUid = el.getAttribute("data-hand"); el.classList.add("dragging"); try { e.dataTransfer.setData("text/plain", gtDragUid); } catch (_) {} });
+    el.addEventListener("dragend", () => el.classList.remove("dragging"));
+  }
+
+  function gtTakeFromHand() {
+    let card = gtSelected && gtSelected.isConnected ? gtSelected : gtStage.querySelector(".gt-hand .gt-card");
+    if (!card) return null;
+    const uid = card.getAttribute("data-hand");
+    card.remove(); gtSelected = null;
+    return uid;
+  }
+  function gtFillSlot(slotEl, uid) {
+    if (!uid || slotEl.classList.contains("filled")) return false;
+    slotEl.classList.add("filled");
+    slotEl.textContent = "";
+    slotEl.innerHTML = gtCardInner(Number(uid)); // cropped to the single card face
+    gtBumpScore();
+    return true;
+  }
+  function gtPlayToNextSlot(uid) {
+    if (!uid) uid = gtTakeFromHand();
+    else {
+      // remove that card from hand
+      const card = gtStage.querySelector(`.gt-hand .gt-card[data-hand="${uid}"]`);
+      if (card) card.remove();
+    }
+    if (!uid) return false;
+    const slot = Array.from(gtStage.querySelectorAll(".gt-slot")).find(s => !s.classList.contains("filled"));
+    if (!slot) return false;
+    return gtFillSlot(slot, uid);
+  }
+  function gtPlaySelected() {
+    const uid = gtTakeFromHand(); if (!uid) return false;
+    const slot = Array.from(gtStage.querySelectorAll(".gt-slot")).find(s => !s.classList.contains("filled"));
+    if (!slot) return false;
+    return gtFillSlot(slot, uid);
+  }
+  function gtBumpScore() {
+    const s = gtStage.querySelector("#gt-score");
+    const cur = parseInt((s.textContent.match(/\d+/) || [0])[0], 10) || 0;
+    s.textContent = "Score: " + (cur + 3);
+  }
+  // Shown at the bottom of the screen, ABOVE the coach overlay, so it is never
+  // dimmed and never covers the coach popup (which sits near the menu up top).
+  let gtPopTimer = null;
+  function gtPopup(title, html) {
+    let p = document.getElementById("gt-popup");
+    if (!p) { p = document.createElement("div"); p.id = "gt-popup"; document.body.appendChild(p); }
+    p.style.cssText = "position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:100066;background:#0e2f57;border:1px solid #2f6eba;border-radius:14px;box-shadow:0 16px 44px rgba(0,0,0,.6);padding:14px 18px;max-width:320px;width:calc(100vw - 32px);color:#daeeff;font-size:.9rem;line-height:1.55;font-family:'Nunito',sans-serif;";
+    p.innerHTML = `<div style="font-family:'Cinzel',serif;font-weight:900;color:#7fe3ff;margin-bottom:7px;">${esc(title)}</div><div>${html}</div><button id="gt-popup-x" style="margin-top:10px;background:rgba(48,200,240,.18);border:1px solid #3a78cc;color:#daeeff;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer;font-family:inherit;">Close</button>`;
+    p.querySelector("#gt-popup-x").addEventListener("click", () => p.remove());
+    if (gtPopTimer) clearTimeout(gtPopTimer);
+    gtPopTimer = setTimeout(() => { if (p && p.parentNode) p.remove(); }, 5000);
+  }
+  function openGtMenu() { const d = gtStage && gtStage.querySelector("#gt-menu-drop"); if (d) d.classList.add("open"); }
+
+  const GAME_STEPS = [
+    { target: null, badge: "The Game", title: "Welcome to a practice board",
+      text: "This is exactly what a real game looks like. We will explore every part together, and you will get to <strong>click things yourself</strong>. When a step asks you to act, the highlight will <strong>pulse</strong>." },
+    { target: ".gt-opps", badge: "Players", title: "The Other Players",
+      text: "These panels show the other players, with their <strong>avatars, scores, and how many cards</strong> they hold. You can watch their boards grow during the game." },
+    { target: ".gt-banner", badge: "Turn", title: "Whose Turn It Is",
+      text: "This banner glows gold when it is <strong>your turn</strong>. On your turn you draw cards, play cards, and can move cards between oceans." },
+    { target: "#gt-hand", badge: "Your Hand", title: "Your Hand", interactive: true, wait: "select",
+      text: "These are the cards in your hand. <strong>Click any card now to select it.</strong>" },
+    { target: "#gt-deck", badge: "Drawing", title: "Draw From the Deck", interactive: true, wait: "draw",
+      text: "Each turn you draw <strong>two cards</strong> in any mix. <strong>Click the Deck</strong> to draw one now." },
+    { target: "#gt-pool", badge: "Drawing", title: "Take From the Pool", interactive: true, wait: "take_pool",
+      text: "The <strong>Pool</strong> holds face up cards anyone can take. <strong>Click a pool card</strong> to take it into your hand." },
+    { target: "#gt-ocean", badge: "Playing Cards (1 of 3)", title: "Method 1: Drag", interactive: true, wait: "drag_play",
+      text: "There are three ways to play a card. First, <strong>drag a card from your hand up onto your ocean</strong> (the glowing tile). Try it now." },
+    { target: "#gt-ocean", badge: "Playing Cards (2 of 3)", title: "Method 2: Click the Ocean", interactive: true, wait: "click_ocean",
+      text: "Second, <strong>click the center of the ocean</strong> to play your selected card onto it." },
+    { target: "#gt-ocean-hub", badge: "Playing Cards (3 of 3)", title: "Method 3: Click a Slot", interactive: true, wait: "click_slot",
+      text: "Third, <strong>click one of the four side slots</strong> (the arrows) to attach a card to that exact spot." },
+    { target: ".gt-score", badge: "Scoring", title: "Your Score",
+      text: "Your <strong>score updates live</strong> as cards score points. Most points come from the cards attached to your oceans." },
+    { target: "#gt-menu-btn", badge: "In Game Menu", title: "Open the Menu", interactive: true, wait: "open_menu",
+      text: "The in game <strong>Menu</strong> holds extra tools. <strong>Click the Menu button</strong> to open it." },
+    { target: "#gt-mi-log", badge: "In Game Menu", title: "Game Log", interactive: true, wait: "game_log",
+      before: openGtMenu,
+      text: "<strong>Click Game Log</strong> to review every move that has been made this game." },
+    { target: "#gt-mi-chat", badge: "In Game Menu", title: "Chat", interactive: true, wait: "chat",
+      before: openGtMenu,
+      text: "<strong>Click Chat</strong> to turn the in game chat on or off whenever you like." },
+    { target: "#gt-mi-score", badge: "In Game Menu", title: "Score Breakdown", interactive: true, wait: "score_break",
+      before: openGtMenu,
+      text: "<strong>Click Score Breakdown</strong> to see exactly how every player's points add up." },
+    { target: ".gt-speed-row", badge: "Host Control", title: "AI Speed", interactive: true, wait: "ai_speed",
+      before: openGtMenu,
+      text: "As the host, you control how fast the bots think. <strong>Click Fast</strong> to speed them up." },
+    { target: "#gt-mi-surf", badge: "Surf's Up", title: "Going Away", interactive: true, wait: "surfs_up",
+      before: openGtMenu,
+      text: "Need a break? <strong>Click Surf's Up</strong> to pause your turns. While you are away, no one can draw for you and the table waits." },
+    { target: ".gt-banner", badge: "Staying Active", title: "AFK Voting",
+      before: () => { const d = gtStage && gtStage.querySelector("#gt-menu-drop"); if (d) d.classList.remove("open"); },
+      text: "If a player goes quiet for too long without marking Surf's Up, the others can <strong>vote them AFK in the chat</strong>. That keeps the game moving so no one waits forever." },
+    { target: "#gt-mi-leave", badge: "Leaving", title: "Leave or Terminate",
+      before: openGtMenu,
+      text: "<strong>Leave Game</strong> exits the match for you. The host can also <strong>Terminate</strong> the game to end it for everyone at once." },
+    { target: null, badge: "All Done", title: "That is the whole game",
+      before: () => { const d = gtStage && gtStage.querySelector("#gt-menu-drop"); if (d) d.classList.remove("open"); },
+      text: "You have seen every part of the game screen and tried each way to play a card. Select <strong>Finish</strong> to mark this tour complete. Next up, the hands on Practice Game." },
+  ];
+
+  function gtCleanup() {
+    if (gtStage) gtStage.classList.remove("open");
+    const p = document.getElementById("gt-popup"); if (p) p.remove();
+  }
+  function runGameTour() {
+    closeChooser();
+    gtResetState();
+    gtStage.classList.add("open");
+    runCoach(GAME_STEPS, () => {
+      gtCleanup();
+      setDone("game");
+      showToast("Game tour complete", completionSubtitle());
+      setTimeout(openChooser, 900);
+    }, gtCleanup);
+  }
+
+  // ════════════════════════════════════════════════════════════════
   //  CHOOSER MODAL
   // ════════════════════════════════════════════════════════════════
   let chooser = null;
@@ -31022,7 +31372,7 @@
 
   const OPTS = [
     { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu: profile, streak, tabs, and the store.", run: runMenuTour, ready: true },
-    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: null, ready: false },
+    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: runGameTour, ready: true },
     { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird and Lobster strategy. Learn every way to play a card.", run: null, ready: false },
   ];
 
