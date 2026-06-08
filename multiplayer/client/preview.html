@@ -30679,13 +30679,15 @@
   .tut3-close:hover { color:#1769b0; }
 
   /* Coachmark spotlight */
-  #tut3-coach { position:fixed; inset:0; z-index:100050; display:none; }
+  /* Container is passthrough by default; only the popup and catch-layer are
+     interactive. This lets real clicks reach the game during interactive steps. */
+  #tut3-coach { position:fixed; inset:0; z-index:100050; display:none; pointer-events:none; }
   #tut3-coach.open { display:block; }
-  #tut3-catch { position:fixed; inset:0; background:transparent; }
+  #tut3-catch { position:fixed; inset:0; background:transparent; pointer-events:none; }
   #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
   /* No target → keep the full-screen dim (box-shadow) but hide the ring. */
   #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
-  #tut3-pop { position:fixed; max-width:440px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:20px; box-shadow:0 22px 58px rgba(8,40,80,.55); padding:20px 24px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; }
+  #tut3-pop { position:fixed; max-width:440px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:20px; box-shadow:0 22px 58px rgba(8,40,80,.55); padding:20px 24px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; pointer-events:auto; }
   #tut3-pop .t3-badge { font-size:.76rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
   #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.42rem; font-weight:900; color:#1769b0; margin:4px 0 10px; line-height:1.2; }
   #tut3-pop .t3-text { font-size:1.04rem; line-height:1.62; color:#2b5575; }
@@ -30793,7 +30795,7 @@
   function endCoach() {
     if (coach) {
       coach.classList.remove("open");
-      const ce = coach.querySelector("#tut3-catch"); if (ce) ce.style.pointerEvents = "auto";
+      const ce = coach.querySelector("#tut3-catch"); if (ce) ce.style.pointerEvents = "none";
       const h = coach.querySelector("#tut3-hole"); if (h) h.classList.remove("pulse");
     }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
