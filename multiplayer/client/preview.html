@@ -5630,7 +5630,7 @@
     /* ID-scoped (#auth-stats-lobby) so these beat the bare .ph-wrap
        max-width:1170px override that lives later in the stylesheet. */
     @media (min-width: 1100px) {
-      #auth-stats-lobby { flex-direction: row; align-items: flex-start; }
+      #auth-stats-lobby { flex-direction: row; align-items: stretch; }
       #auth-stats-lobby .ph-topbar { display: none !important; }
       #auth-stats-lobby .ph-footer { display: none !important; }
       #auth-stats-lobby .ph-sidebar {
@@ -5642,6 +5642,7 @@
         margin: 20px 0 20px 20px;
         position: sticky;
         top: 20px;
+        align-self: stretch;
         max-height: calc(100vh - 40px);
         overflow-y: auto;
         gap: 0;
