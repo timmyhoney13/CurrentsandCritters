@@ -9625,7 +9625,7 @@
       <div class="ph-ss-header">= Daily Streak =</div>
       <div class="ph-ss-sub">Keep the tide rolling!</div>
       <div class="ph-ss-main">
-        <div class="ph-ss-icon"><img src="/avatars/sea-star.png" alt="sea star" class="ph-ss-star-img" draggable="false"></div>
+        <div class="ph-ss-icon"><img src="/avatars/sea-star.png?v=ws12" alt="sea star" class="ph-ss-star-img" draggable="false"></div>
         <div class="ph-ss-days" id="ph-ss-days">0 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
@@ -9834,7 +9834,7 @@
               <div class="ph-scv" id="stat-hours-played">0 hrs</div>
             </div>
             <div class="ph-sc ph-sc-string">
-              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
+              <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
               <div class="ph-scl">Most Played Strategy</div>
               <div class="ph-scv" id="ph-ov-most-strategy">—</div>
             </div>
@@ -11502,7 +11502,7 @@
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
-  const _AVATAR_ART_VERSION = "ws11";
+  const _AVATAR_ART_VERSION = "ws12";
   function _avSrc(url) {
     const u = String(url || "");
     // Cache-bust both avatar AND background art so a version bump always refreshes
@@ -26546,7 +26546,7 @@
       grid.innerHTML = [
         _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
           "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
-        _pubSc(`<img src="/avatars/common-octopus.png" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
+        _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
           "Most Played Strategy", strat !== "—" ? strat : (noGames ? "No games completed yet." : "—"), "ph-sci-blue", true),
         _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "—", "ph-sci-purple"),
         _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "—", "ph-sci-gold"),
