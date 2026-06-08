@@ -12093,6 +12093,13 @@
   window.__ccConnInfo   = () => ({ version: _lastStateVersion, sse: !!sseSource, polling: !!pollTimer, room: (typeof roomId !== "undefined" ? roomId : null) || null });
   window.__ccLastAction = null;
   window.__ccNoteAction = (a) => { try { window.__ccLastAction = { kind: a && a.kind, action: a, at: Date.now() }; } catch (_) {} };
+  // Server-mod bridges: room id, this client's seat token, the live legal-action
+  // list, and an apply hook (used by What If → Apply This Move).
+  window.__ccRoomId = () => (typeof roomId !== "undefined" ? roomId : null);
+  window.__ccSeatToken = () => { try { return (typeof getSeatToken === "function") ? getSeatToken() : null; } catch (_) { return null; } };
+  window.__ccLegalActions = () => (typeof legalActions !== "undefined" && Array.isArray(legalActions) ? legalActions : []);
+  window.__ccApplyAction = (i) => { try { return submitAction(legalActions[i]); } catch (_) { return null; } };
+  window.__ccApiUrl = (p) => { try { return (typeof apiUrl === "function") ? apiUrl(p) : p; } catch (_) { return p; } };
   let _serverWaking = false;       // true while Render server is returning 503
   let _serverWakeToastShown = false; // only show the "waking up" toast once per session
   let _prevTurnIdx = null;
@@ -29816,12 +29823,12 @@
   // phase "live"  = fully working client-side now.
   // phase "server"= UI present; mutations land in the server pass.
   const TOOLS = [
-    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See a bot's strategy, intended move, reasoning and scored alternatives before it plays." },
-    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Pause a bot before its move and force a specific action (draw, play, move, ability, end turn)." },
-    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"live",   desc:"See every player's hand by seat. Live: seats + your real cards. Editing arrives with the server pass." },
-    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Click the deck on your turn to open a searchable picker and place any card anywhere." },
-    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, replace, or force exact cards into the pool." },
-    { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview alternate moves and estimated results. Apply requires the server pass." },
+    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives. Needs admin key." },
+    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally. Needs admin key." },
+    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every player's real hand; add / remove / clear / copy cards. Needs admin key." },
+    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse the real deck (search + remaining copies) and place any card to a hand, pool, deck or discard. Needs admin key." },
+    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool. Needs admin key." },
+    { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview move estimates, then commit a real legal move with Apply This Move." },
     { id:"bug_log",      icon:"🐞", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
     { id:"state_viewer", icon:"📊", name:"Game State Viewer",         phase:"live",   desc:"Live snapshot of turn, deck, pool, scores, hands, oceans, end-game and sync." },
     { id:"ach_tester",   icon:"🏆", name:"Achievement Tester",        phase:"live",   desc:"Unlock or lock any achievement on your own account to test flows." },
@@ -29979,6 +29986,13 @@
   #cc-cine-exit { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:100001; display:none; background:rgba(10,40,68,.9); border:1px solid #5fd0e8; color:#dff1fb; padding:9px 18px; border-radius:999px; font-weight:800; cursor:pointer; font-family:"Nunito",sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.5); }
   body.cc-cinematic #cc-cine-exit { display:block; }
   body.cc-cinematic .pv-menu-wrap, body.cc-cinematic #pv-turn-banner, body.cc-cinematic #pv-guide-bar, body.cc-cinematic #pv-log-float { opacity:0 !important; pointer-events:none !important; }
+  .cc-keybar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 12px; margin-bottom:10px; border:1px solid rgba(95,208,232,.35); border-radius:11px; background:rgba(8,40,68,.6); }
+  .cc-pick { position:fixed; inset:0; z-index:100002; background:rgba(2,18,38,.7); display:flex; align-items:flex-start; justify-content:center; padding:30px 14px; overflow:auto; }
+  .cc-pick-inner { width:100%; max-width:720px; background:linear-gradient(160deg,#0a2742,#0d3a5e); border:1px solid rgba(95,208,232,.5); border-radius:16px; padding:14px 16px; color:#dff1fb; box-shadow:0 20px 60px rgba(0,0,0,.6); }
+  .cc-pick-hd { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .cc-pick-grid { display:flex; flex-wrap:wrap; gap:8px; max-height:60vh; overflow:auto; }
+  .cc-pick-cell { cursor:pointer; border-radius:9px; transition:transform .1s; }
+  .cc-pick-cell:hover { transform:scale(1.06); }
   @media (max-width:640px){ .cc-card{width:54px} .cc-card-img{width:54px;height:54px} }
   `;
   const styleEl = document.createElement("style");
@@ -30022,7 +30036,7 @@
       <div class="cc-row">
         <div class="cc-ico">${t.icon}</div>
         <div class="cc-meta">
-          <div class="cc-name">${esc(t.name)} <span class="cc-badge ${t.phase}">${t.phase === "live" ? "Live" : "Server pass"}</span></div>
+          <div class="cc-name">${esc(t.name)} <span class="cc-badge ${t.phase}">${t.phase === "live" ? "Live" : "Server"}</span></div>
           <div class="cc-desc">${esc(t.desc)}</div>
         </div>
         <div class="cc-switch ${on ? "on" : ""}" id="cc-sw-${t.id}" role="switch" aria-checked="${on}" tabindex="0"></div>
@@ -30070,6 +30084,86 @@
     catch (e) { el.innerHTML = `<div class="cc-note">Tool render error: ${esc(e && e.message)}</div>`; }
   }
 
+  // ── Server-mod bridge (hard-gated by ADMIN_MOD_KEY on the server) ──
+  const ADMIN_KEY_LS = "cc_admin_key";
+  function ccAdminKey() { try { return localStorage.getItem(ADMIN_KEY_LS) || ""; } catch (_) { return ""; } }
+  function ccSetAdminKey(v) { try { v ? localStorage.setItem(ADMIN_KEY_LS, v) : localStorage.removeItem(ADMIN_KEY_LS); } catch (_) {} }
+  async function ccAdminFetch(op, params) {
+    const room = window.__ccRoomId && window.__ccRoomId();
+    const token = window.__ccSeatToken && window.__ccSeatToken();
+    const key = ccAdminKey();
+    if (!room) return { ok: false, error: "no active game — join a game first" };
+    if (!key) return { ok: false, error: "no admin key set" };
+    const url = window.__ccApiUrl ? window.__ccApiUrl("/api/rooms/" + room + "/admin_mod") : ("/api/rooms/" + room + "/admin_mod");
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_key: key, seat_token: token, op, params: params || {} }) });
+      return await res.json();
+    } catch (e) { return { ok: false, error: String((e && e.message) || e) }; }
+  }
+  const entryTiles = (entries) => (Array.isArray(entries) && entries.length) ? entries.map(e => cardTile(firstFace(e), e.label)).join("") : '<span class="cc-desc">none</span>';
+  const speciesOf = (e) => { const f = firstFace(e); return (f && f.species) || ""; };
+  const pointsOf  = (e) => { const f = firstFace(e); return (f && f.points != null) ? f.points : ""; };
+
+  // Admin-key status bar shown atop every server-backed tool.
+  function adminKeyBar() {
+    const has = !!ccAdminKey();
+    return `<div class="cc-keybar">
+      <span class="cc-badge ${has ? "live" : "server"}">${has ? "🔑 Key set" : "🔒 No key"}</span>
+      <span class="cc-desc" style="flex:1">${has ? "Server mod tools are unlocked on this device." : "Enter the server ADMIN_MOD_KEY to unlock server mod tools."}</span>
+      <button class="cc-btn" data-cc-keyset>${has ? "Change" : "Set key"}</button>
+      ${has ? `<button class="cc-btn cc-danger" data-cc-keyclear>Clear</button>` : ""}
+    </div>`;
+  }
+  function wireKeyBar(el, reRenderId) {
+    el.querySelector("[data-cc-keyset]")?.addEventListener("click", () => {
+      const v = prompt("Enter the server ADMIN_MOD_KEY (set as an env var on the game server):", ccAdminKey() || "");
+      if (v !== null) { ccSetAdminKey(v.trim()); renderBody(reRenderId); }
+    });
+    el.querySelector("[data-cc-keyclear]")?.addEventListener("click", () => { ccSetAdminKey(""); renderBody(reRenderId); });
+  }
+
+  // Inline searchable card picker (used to choose a card from the deck / a hand).
+  function ccPick(title, entries, onPick) {
+    const modal = document.createElement("div");
+    modal.className = "cc-pick";
+    modal.innerHTML = `<div class="cc-pick-inner">
+      <div class="cc-pick-hd"><b>${esc(title)}</b><button class="cc-btn" data-cc-pickclose>✕</button></div>
+      <input class="cc-input" data-cc-picksearch placeholder="Search by name, species, points…" style="margin:8px 0">
+      <div class="cc-pick-grid"></div>
+    </div>`;
+    (overlay || document.body).appendChild(modal);
+    const grid = modal.querySelector(".cc-pick-grid");
+    const search = modal.querySelector("[data-cc-picksearch]");
+    function paint(f) {
+      f = (f || "").toLowerCase();
+      const list = (entries || []).filter(e => {
+        if (!f) return true;
+        const fc = firstFace(e) || {};
+        return ((fc.name || "") + " " + (fc.species || "") + " " + (e.label || "") + " " + (fc.points != null ? fc.points : "")).toLowerCase().includes(f);
+      });
+      grid.innerHTML = list.length ? list.map((e, i) =>
+        `<div class="cc-pick-cell" data-uid="${e.entry_uid}">${cardTile(firstFace(e), e.label)}</div>`).join("")
+        : `<div class="cc-desc">No matches.</div>`;
+      grid.querySelectorAll(".cc-pick-cell").forEach(c => c.addEventListener("click", () => {
+        const uid = Number(c.getAttribute("data-uid"));
+        document.body.contains(modal) && modal.remove();
+        onPick(uid);
+      }));
+    }
+    search.addEventListener("input", () => paint(search.value));
+    modal.querySelector("[data-cc-pickclose]").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+    paint("");
+  }
+
+  // Count remaining copies of each species in a list of deck entries.
+  function copiesBySpecies(deck) {
+    const m = {};
+    (deck || []).forEach(e => { const s = speciesOf(e) || (firstFace(e) || {}).name || "?"; m[s] = (m[s] || 0) + 1; });
+    return m;
+  }
+
   const BODY = {
     // ── Game State Viewer ─────────────────────────────────────────
     state_viewer(el) {
@@ -30115,41 +30209,60 @@
     },
 
     // ── Enemy Hand Viewer (Phase 1: view-only) ────────────────────
-    enemy_hands(el) {
-      const p = payload();
-      if (!p) { el.innerHTML = `<div class="cc-note">No active game.</div>`; return; }
-      const st = p.state || {};
-      const players = Array.isArray(st.players) ? st.players : [];
-      const mi = myIndex(p);
-      let h = `<div class="cc-note">Live view shows every seat plus <b>your</b> real cards. Opponents' faces are hidden because the server never sends them to the browser — revealing &amp; editing them lands in the server pass.</div>`;
-      players.forEach(pl => {
+    // ── Enemy Hand Viewer (full reveal + edit) ────────────────────
+    async enemy_hands(el) {
+      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Revealing hands…</div>`;
+      wireKeyBar(el, "enemy_hands");
+      if (!ccAdminKey()) { el.innerHTML = adminKeyBar(); wireKeyBar(el, "enemy_hands"); return; }
+      const r = await ccAdminFetch("reveal", {});
+      let h = adminKeyBar();
+      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "reveal failed")}</div>`; wireKeyBar(el, "enemy_hands"); return; }
+      const mi = myIndex(payload());
+      const deck = r.deck || [];
+      h += `<div class="cc-note">Full reveal — every player's real hand. Edits relocate real cards and apply on the match thread (works best during a human turn).</div>`;
+      (r.players || []).forEach(pl => {
         const mine = pl.index === mi;
-        const hc = pl.hand_count ?? (Array.isArray(pl.hand) ? pl.hand.length : 0);
-        h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${esc(hc)} cards</span></div>`;
-        h += `<div class="cc-cards">`;
-        if (mine && Array.isArray(pl.hand) && pl.hand.length) h += pl.hand.map(e => cardTile(firstFace(e), e.label)).join("");
-        else h += cardBack(Number(hc) || 0);
-        h += `</div>`;
+        h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${(pl.hand || []).length} cards · ${esc(pl.score)} pts</span></div>`;
+        h += `<div class="cc-cards">${entryTiles(pl.hand)}</div>`;
         h += `<div class="cc-btnrow">
-          <button class="cc-btn" disabled title="Server pass">＋ Add card</button>
-          <button class="cc-btn" disabled title="Server pass">－ Remove card</button>
-          <button class="cc-btn cc-danger" disabled title="Server pass">Clear hand</button>
-          <button class="cc-btn" disabled title="Server pass">Copy to my hand</button>
+          <button class="cc-btn" data-act="add" data-seat="${pl.index}">＋ Add from deck…</button>
+          <button class="cc-btn" data-act="remove" data-seat="${pl.index}">－ Remove card…</button>
+          <button class="cc-btn cc-danger" data-act="clear" data-seat="${pl.index}">Clear hand</button>
+          ${mine ? "" : `<button class="cc-btn" data-act="copy" data-seat="${pl.index}" data-myseat="${mi}">Copy to my hand</button>`}
         </div></div>`;
       });
       el.innerHTML = h;
+      wireKeyBar(el, "enemy_hands");
+      const refresh = () => renderBody("enemy_hands");
+      el.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", async () => {
+        const seat = Number(b.getAttribute("data-seat"));
+        const act = b.getAttribute("data-act");
+        if (act === "add") {
+          ccPick("Add which card to P" + (seat + 1) + "?", deck, async (uid) => { await ccAdminFetch("hand_add", { seat, uid }); refresh(); });
+        } else if (act === "remove") {
+          const pl = (r.players || []).find(x => x.index === seat);
+          ccPick("Remove which card from P" + (seat + 1) + "?", pl ? pl.hand : [], async (uid) => { await ccAdminFetch("hand_remove", { seat, uid }); refresh(); });
+        } else if (act === "clear") {
+          if (confirm("Clear P" + (seat + 1) + "'s entire hand to discard?")) { await ccAdminFetch("hand_clear", { seat }); refresh(); }
+        } else if (act === "copy") {
+          const myseat = Number(b.getAttribute("data-myseat"));
+          const res = await ccAdminFetch("hand_copy_to_me", { seat, my_seat: myseat });
+          if (res && res.ok) alert(`Copied ${res.copied} card(s) from the deck` + (res.unavailable ? `, ${res.unavailable} unavailable (no deck copy).` : "."));
+          refresh();
+        }
+      }));
     },
 
-    // ── What If Menu (Phase 1: preview-only estimates) ────────────
+    // ── What If Menu (preview estimates + real Apply) ─────────────
     what_if(el) {
       const p = payload();
       if (!p) { el.innerHTML = `<div class="cc-note">No active game.</div>`; return; }
       const st = p.state || {};
-      const lw = p.legal_actions || {};
       const mi = myIndex(p);
       const me = (st.players || []).find(pl => pl.index === mi);
       const pool = Array.isArray(st.pool) ? st.pool : [];
-      let h = `<div class="cc-note">Preview-only estimates from data the browser has. Numbers are rough — accurate simulation &amp; <b>Apply This Move</b> need the server pass.</div>`;
+      const legal = (window.__ccLegalActions && window.__ccLegalActions()) || [];
+      let h = `<div class="cc-note">Estimates are quick previews. <b>Apply This Move</b> commits a <i>real</i>, legal move on your turn through the normal game pipeline.</div>`;
       h += `<div class="cc-sub">What if I play…</div><div class="cc-grid">`;
       const hand = (me && Array.isArray(me.hand)) ? me.hand : [];
       if (hand.length) hand.forEach(e => {
@@ -30159,15 +30272,21 @@
       else h += `<span class="cc-desc">No cards in hand.</span>`;
       h += `</div>`;
       h += `<div class="cc-sub">What if I take from the pool…</div><div class="cc-grid">`;
-      if (pool.length) pool.forEach(e => {
-        const f = firstFace(e); const pts = f && f.points != null ? f.points : "?";
-        h += `<div class="cc-kv"><span>${esc((f && f.name) || e.label)}</span><b>+1 card · ${esc(pts)} pts</b></div>`;
-      });
+      if (pool.length) pool.forEach(e => { const f = firstFace(e); const pts = f && f.points != null ? f.points : "?"; h += `<div class="cc-kv"><span>${esc((f && f.name) || e.label)}</span><b>+1 card · ${esc(pts)} pts</b></div>`; });
       else h += `<span class="cc-desc">Pool empty.</span>`;
       h += `</div>`;
-      h += `<div class="cc-sub">What if I draw from the deck</div><div class="cc-kv"><span>Unknown card</span><b>+1 card (random)</b></div>`;
-      h += `<div class="cc-btnrow" style="margin-top:12px"><button class="cc-btn" disabled>👁 Preview Only (active)</button><button class="cc-btn" disabled title="Server pass">✓ Apply This Move</button></div>`;
+      h += `<div class="cc-sub">Apply a real move (your legal moves right now)</div>`;
+      if (legal.length) {
+        h += `<div id="cc-wi-legal">` + legal.map((a, i) =>
+          `<div class="cc-kv"><span>${esc(ccActionLabel(a))}</span><button class="cc-btn" data-apply="${i}">✓ Apply This Move</button></div>`).join("") + `</div>`;
+      } else {
+        h += `<div class="cc-desc">No legal moves right now — it's not your turn, or you're mid-resolution.</div>`;
+      }
       el.innerHTML = h;
+      el.querySelectorAll("[data-apply]").forEach(b => b.addEventListener("click", () => {
+        const i = Number(b.getAttribute("data-apply"));
+        if (confirm("Apply this real move now?")) { window.__ccApplyAction && window.__ccApplyAction(i); close(); }
+      }));
     },
 
     // ── Recent Bug Log ────────────────────────────────────────────
@@ -30250,15 +30369,154 @@
       el.innerHTML = `<div class="cc-pending">Turning this ON hides the menu, turn banner and guide bar and closes this panel for a clean board capture. An <b>Exit Cinematic</b> pill appears at the bottom; clicking it (or toggling off) restores everything.</div>`;
     },
 
-    // ── Server-pass tools (UI present; mutations next pass) ───────
-    bot_brain(el) { el.innerHTML = pendingHtml("When it's a bot's turn this will show the bot's strategy, intended move, the reasoning, and the top scored alternatives — with <b>Use Bot Move</b> / <b>Choose Different Move</b> buttons.", ["Exposes the AI's candidate-action scores from the Python server", "Reads the bot's chosen action before it commits"]); },
-    bot_override(el) { el.innerHTML = pendingHtml("Pause a bot before it moves and force: draw from deck/pool, play a specific card, move a card, use an ability, or end turn — then the game continues normally.", ["New admin endpoint to intercept & replace the bot's queued action", "Server-side admin identity verification"]); },
-    deck_picker(el) { el.innerHTML = pendingHtml("On your turn, clicking the deck opens a full searchable picker (by name, type, ocean, points, ability, remaining copies). Pick any card → add to a hand, the pool, top of deck, or discard.", ["Server must expose full deck contents + remaining copies", "New admin placement endpoint"]); },
-    force_pool(el) { el.innerHTML = pendingHtml("Choose exactly what's in the pool: clear, refill, replace one card, or force specific cards in.", ["New admin pool-mutation endpoint", "Server-side validation so the deck/pool stay consistent"]); },
+    // ── Bot Brain Viewer (reads recorded bot decisions) ───────────
+    async bot_brain(el) {
+      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Reading bot brain…</div>`;
+      wireKeyBar(el, "bot_brain");
+      if (!ccAdminKey()) return;
+      const r = await ccAdminFetch("bot_brain", {});
+      let h = adminKeyBar();
+      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "bot_brain"); return; }
+      const brain = r.brain || {};
+      const seats = Object.keys(brain);
+      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot decisions recorded yet. This fills in as bots take turns.</div>`; wireKeyBar(el, "bot_brain"); return; }
+      seats.forEach(sk => {
+        const b = brain[sk];
+        h += `<div class="cc-seat"><div class="cc-seat-hd">🧠 P${(Number(sk) + 1)} · ${esc(b.name)} <span class="cc-desc">${esc(b.strategy || "")}</span></div>`;
+        h += `<div class="cc-kv"><span>Wants to play</span><b>${esc(b.chosen ? b.chosen.label : "—")}</b></div>`;
+        if (b.reason) h += `<div class="cc-desc" style="margin:4px 0">${esc(b.reason)}</div>`;
+        h += `<div class="cc-sub">Top scored alternatives</div>`;
+        (b.candidates || []).forEach((c, i) => {
+          h += `<div class="cc-kv"><span>${i + 1}. ${esc(c.label)}</span><b>${esc(c.score)}</b></div>`;
+        });
+        h += `<div class="cc-desc" style="margin-top:6px">Use <b>Bot Move Override</b> to force a different move for this seat.</div>`;
+        h += `</div>`;
+      });
+      el.innerHTML = h;
+      wireKeyBar(el, "bot_brain");
+    },
+
+    // ── Bot Move Override (arm a forced move for a bot seat) ───────
+    async bot_override(el) {
+      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading bot seats…</div>`;
+      wireKeyBar(el, "bot_override");
+      if (!ccAdminKey()) return;
+      const r = await ccAdminFetch("bot_brain", {});
+      let h = adminKeyBar() + `<div class="cc-note">Pick a bot's next move from its current legal actions. The bot uses it on its next turn, then play continues normally.</div>`;
+      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "bot_override"); return; }
+      const brain = r.brain || {};
+      const seats = Object.keys(brain);
+      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet — let a bot reach its turn, then return here.</div>`; wireKeyBar(el, "bot_override"); return; }
+      seats.forEach(sk => {
+        const b = brain[sk];
+        h += `<div class="cc-seat" data-seat="${sk}"><div class="cc-seat-hd">🎮 P${(Number(sk) + 1)} · ${esc(b.name)}</div>`;
+        h += `<div class="cc-desc">Currently wants: ${esc(b.chosen ? b.chosen.label : "—")}</div>`;
+        h += `<div class="cc-sub">Force this seat to:</div><div id="cc-ovr-${sk}">`;
+        (b.legal_actions || []).forEach((a, i) => {
+          h += `<div class="cc-kv"><span>${esc(a.label)}</span><button class="cc-btn" data-ovr-seat="${sk}" data-ovr-idx="${i}">Force</button></div>`;
+        });
+        h += `</div><div class="cc-btnrow"><button class="cc-btn cc-danger" data-ovr-clear="${sk}">Clear override</button></div></div>`;
+      });
+      el.innerHTML = h;
+      wireKeyBar(el, "bot_override");
+      el.querySelectorAll("[data-ovr-idx]").forEach(btn => btn.addEventListener("click", async () => {
+        const seat = Number(btn.getAttribute("data-ovr-seat"));
+        const idx = Number(btn.getAttribute("data-ovr-idx"));
+        const desc = ((brain[String(seat)] || {}).legal_actions || [])[idx] || null;
+        const res = await ccAdminFetch("bot_override_arm", { seat, action_index: idx, action: desc });
+        btn.textContent = res && res.ok ? "Armed ✓" : "Failed";
+        setTimeout(() => { btn.textContent = "Force"; }, 1200);
+      }));
+      el.querySelectorAll("[data-ovr-clear]").forEach(btn => btn.addEventListener("click", async () => {
+        const seat = Number(btn.getAttribute("data-ovr-clear"));
+        await ccAdminFetch("bot_override_arm", { seat, action_index: null });
+        btn.textContent = "Cleared";
+        setTimeout(() => { btn.textContent = "Clear override"; }, 1200);
+      }));
+    },
+
+    // ── Full Deck Picker (browse the real deck + place any card) ───
+    async deck_picker(el) {
+      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading deck…</div>`;
+      wireKeyBar(el, "deck_picker");
+      if (!ccAdminKey()) return;
+      const r = await ccAdminFetch("reveal", {});
+      let h = adminKeyBar();
+      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "deck_picker"); return; }
+      const deck = r.deck || [];
+      const copies = copiesBySpecies(deck);
+      const mi = myIndex(payload());
+      h += `<div class="cc-note">${deck.length} cards in the deck. Click any card, then choose where to place it. Remaining copies shown per species.</div>`;
+      h += `<input class="cc-input" id="cc-dp-search" placeholder="Search by name, species, points…" style="margin-bottom:10px">`;
+      h += `<div class="cc-sub">Remaining copies by species</div><div class="cc-grid">` +
+        Object.keys(copies).sort().map(s => `<div class="cc-kv"><span>${esc(s)}</span><b>${copies[s]}</b></div>`).join("") + `</div>`;
+      h += `<div class="cc-sub">Deck</div><div class="cc-cards" id="cc-dp-grid"></div>`;
+      el.innerHTML = h;
+      wireKeyBar(el, "deck_picker");
+      const grid = el.querySelector("#cc-dp-grid");
+      const search = el.querySelector("#cc-dp-search");
+      function paint(f) {
+        f = (f || "").toLowerCase();
+        const list = deck.filter(e => { const fc = firstFace(e) || {}; return !f || ((fc.name || "") + " " + (fc.species || "") + " " + (e.label || "") + " " + (fc.points != null ? fc.points : "")).toLowerCase().includes(f); });
+        grid.innerHTML = list.length ? list.map(e => `<div data-uid="${e.entry_uid}" style="cursor:pointer">${cardTile(firstFace(e), e.label)}</div>`).join("") : `<span class="cc-desc">No matches.</span>`;
+        grid.querySelectorAll("[data-uid]").forEach(c => c.addEventListener("click", () => {
+          const uid = Number(c.getAttribute("data-uid"));
+          const dest = prompt("Place this card where? Type one of:\nhand · pool · deck_top · discard", "hand");
+          if (!dest) return;
+          const params = { uid, dest: dest.trim() };
+          if (params.dest === "hand") params.seat = mi;
+          ccAdminFetch("deck_place", params).then(res => {
+            if (res && res.ok) renderBody("deck_picker");
+            else alert("Place failed: " + (res && res.error));
+          });
+        }));
+      }
+      search.addEventListener("input", () => paint(search.value));
+      paint("");
+    },
+
+    // ── Force Pool Cards (clear / refill / replace / force) ────────
+    async force_pool(el) {
+      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading pool…</div>`;
+      wireKeyBar(el, "force_pool");
+      if (!ccAdminKey()) return;
+      const r = await ccAdminFetch("reveal", {});
+      let h = adminKeyBar();
+      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "force_pool"); return; }
+      const pool = r.pool || [];
+      const deck = r.deck || [];
+      h += `<div class="cc-note">Shape the pool directly. Removed pool cards go to the discard pile; added cards are pulled from the deck.</div>`;
+      h += `<div class="cc-sub">Current pool (${pool.length})</div><div class="cc-cards">`;
+      pool.forEach(e => { h += `<div data-poolrm="${e.entry_uid}" title="Click to remove" style="cursor:pointer">${cardTile(firstFace(e), e.label)}</div>`; });
+      if (!pool.length) h += `<span class="cc-desc">empty</span>`;
+      h += `</div>`;
+      h += `<div class="cc-btnrow">
+        <button class="cc-btn cc-danger" data-fp="clear">Clear pool</button>
+        <button class="cc-btn" data-fp="refill">Refill to 6</button>
+        <button class="cc-btn" data-fp="add">＋ Force a card in…</button>
+      </div>`;
+      el.innerHTML = h;
+      wireKeyBar(el, "force_pool");
+      const refresh = () => renderBody("force_pool");
+      el.querySelectorAll("[data-poolrm]").forEach(c => c.addEventListener("click", async () => {
+        await ccAdminFetch("pool_remove", { uid: Number(c.getAttribute("data-poolrm")) }); refresh();
+      }));
+      el.querySelector('[data-fp="clear"]')?.addEventListener("click", async () => { if (confirm("Clear the entire pool?")) { await ccAdminFetch("pool_clear", {}); refresh(); } });
+      el.querySelector('[data-fp="refill"]')?.addEventListener("click", async () => { await ccAdminFetch("pool_refill", { count: 6 }); refresh(); });
+      el.querySelector('[data-fp="add"]')?.addEventListener("click", () => {
+        ccPick("Force which deck card into the pool?", deck, async (uid) => { await ccAdminFetch("pool_add", { uid }); refresh(); });
+      });
+    },
   };
 
-  function pendingHtml(summary, needs) {
-    return `<div class="cc-pending">${summary}<div class="cc-note" style="margin-top:10px">⚙️ Wiring in the server pass — this needs:<ul>${needs.map(n => `<li>${n}</li>`).join("")}</ul></div></div>`;
+  // Best-effort label for a client-side legal action object (What If apply list).
+  function ccActionLabel(a) {
+    if (!a) return "move";
+    const k = a.kind || "move";
+    if (k === "draw") return a.draw_from_pool ? "Draw from pool" : "Draw from deck";
+    if (k === "end_turn") return "End turn";
+    const name = a.face_name || a.card_name || (a.face_uid != null ? "#" + a.face_uid : "");
+    return [k, name].filter(Boolean).join(" ");
   }
 
   function buildDebugReport(p, conn) {
@@ -30343,11 +30601,12 @@
   setInterval(ensureMenuButton, 1200);
   ensureMenuButton();
 
-  // Live-refresh open data tools while the panel is visible.
+  // Live-refresh the cheap client-side tools while the panel is visible.
+  // Server-backed tools (enemy_hands, deck_picker, force_pool, bot_*) refresh
+  // on demand / after each action — not on a timer — to avoid network spam.
   setInterval(() => {
     if (!panelOpen()) return;
     if (isOn("state_viewer")) renderBody("state_viewer");
-    if (isOn("enemy_hands")) renderBody("enemy_hands");
     if (isOn("replay")) renderBody("replay");
   }, 1000);
 

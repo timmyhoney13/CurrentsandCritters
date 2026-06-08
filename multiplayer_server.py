@@ -488,11 +488,15 @@ def choose_action_weighted_light(
     strategy_count_map: Dict[str, int],
     strategy_transition_map: Dict[str, float],
     strategy_transition_count_map: Dict[str, int],
+    out_scored: Optional[List["tuple[fish.Action, float]"]] = None,
 ) -> Optional[fish.Action]:
     """
     Lightweight AI chooser for live multiplayer.
     Avoids deep simulated lookahead to keep turns responsive and avoid
     constant simulation-heavy evaluation.
+
+    If out_scored is provided, the full (action, score) list (sorted best-first)
+    is copied into it — used by the Current Controller's Bot Brain Viewer.
     """
     acts = fish.candidate_actions_for_ai(gs, ms, player)
     acts = fish.filter_overbuild_ocean_actions(gs, ms, player, acts)
@@ -548,6 +552,9 @@ def choose_action_weighted_light(
         scored.append((action, score))
 
     scored.sort(key=lambda x: x[1], reverse=True)
+    if out_scored is not None:
+        out_scored.clear()
+        out_scored.extend(scored)
 
     # Easy bots occasionally pick a near-best action instead of the best one
     # so they feel beatable. Hard bots always lock onto the top score.
@@ -1727,6 +1734,19 @@ class GameRoom:
         # Hard reset of published state so every game starts from a clean board view.
         self.latest_public_state = None
         self.latest_private_hands = {}
+        # ── Current Controller (admin mod tools) live state ──────────────
+        # Captured each snapshot for the admin reveal endpoint, and mutated only
+        # on the match thread (drained inside _wait_for_action) so we never race
+        # the game engine. All reset here so a new game starts clean.
+        self._live_gs = None                 # live engine refs (match thread only)
+        self._live_ms = None
+        self._admin_deck_entries = []        # [entry_to_dict,...] for the deck picker
+        self._admin_discards = {}            # seat_idx -> [entry_to_dict,...]
+        self._admin_pool_entries = []        # [entry_to_dict,...]
+        self._admin_endgame = {}             # end-game card location snapshot
+        self._bot_brain = {}                 # seat_idx -> last bot decision {chosen, candidates}
+        self._admin_mod_queue = []           # [{id, op, params, event, result}]
+        self._bot_override = {}              # seat_idx -> armed override action spec
         self.last_turn_number = 0
         self._last_turn_scores = {}
         self.legal_actions_by_seat.clear()
@@ -1830,6 +1850,9 @@ class GameRoom:
         deadline = time.monotonic() + timeout_sec
         with self.cond:
             while self.phase == "running":
+                # Apply any queued Current Controller mod mutations here — this
+                # runs on the match thread, so engine state is never raced.
+                self._drain_admin_mods_locked()
                 q = self.pending_actions.get(seat_index)
                 if q:
                     return q.pop(0)
@@ -2393,6 +2416,31 @@ class GameRoom:
             self.latest_public_state = public_state
             self.latest_private_hands = private_hands
             self.last_turn_number = int(turn_number)
+            # ── Current Controller: capture hidden state for the admin reveal ──
+            # and keep live engine refs so mod mutations can be applied on the
+            # match thread (via _wait_for_action) without racing the engine.
+            # Only do the extra (deck/discard) capture when admin tools are
+            # actually enabled on this server, so normal games pay nothing.
+            self._live_gs = gs
+            self._live_ms = ms
+            if os.environ.get("ADMIN_MOD_KEY", "").strip():
+                try:
+                    self._admin_pool_entries = list(pool_payload)
+                    self._admin_deck_entries = [entry_to_dict(ms, gs, uid) for uid in list(gs.deck) if isinstance(uid, int)]
+                    discards: Dict[int, List[Dict[str, Any]]] = {}
+                    for g_idx, pl in enumerate(gs.players):
+                        s_idx = self._comp_game_to_seat.get(g_idx, g_idx)
+                        discards[s_idx] = [entry_to_dict(ms, gs, uid) for uid in list(pl.discard) if isinstance(uid, int)]
+                    self._admin_discards = discards
+                    eg_uid = getattr(ms, "end_game_uid", None)
+                    self._admin_endgame = {
+                        "end_game_uid": eg_uid,
+                        "triggered": bool(getattr(ms, "end_game_triggered", False)),
+                        "in_deck": isinstance(eg_uid, int) and eg_uid in gs.deck,
+                        "deck_position_from_bottom": (len(gs.deck) - gs.deck.index(eg_uid)) if (isinstance(eg_uid, int) and eg_uid in gs.deck) else None,
+                    }
+                except Exception as _exc:
+                    self._record_event(f"admin snapshot capture warning: {_exc}")
 
             # Always update the pending slot (clears it if current player is AI).
             if note.startswith("turn_start:"):
@@ -2838,6 +2886,7 @@ class GameRoom:
             if replay_action is not None:
                 return replay_action
 
+            _brain_scored: List["tuple[fish.Action, float]"] = []
             chosen = choose_action_weighted_light(
                 gs,
                 ms,
@@ -2850,7 +2899,20 @@ class GameRoom:
                 strategy_count_map,
                 strategy_transition_map,
                 strategy_transition_count_map,
+                out_scored=_brain_scored,
             )
+
+            # ── Current Controller: record what this bot is thinking, and let an
+            # admin override its move. Both are no-ops unless the admin has armed
+            # them, so normal bot play is unaffected.
+            if os.environ.get("ADMIN_MOD_KEY", "").strip():
+                try:
+                    self._record_bot_brain(seat_index, gs, ms, player, chosen, _brain_scored, actions)
+                    override = self._consume_bot_override(seat_index, gs, ms, player, actions)
+                    if override is not None:
+                        return override
+                except Exception as _exc:
+                    self._record_event(f"bot brain/override warning ({player.name}): {_exc}")
 
             # Think delay — simulate the bot "considering" its move so the
             # game doesn't feel like AI is moving instantly.  Read ai_speed
@@ -2864,6 +2926,279 @@ class GameRoom:
             return chosen
 
         return policy
+
+    # ════════════════════════════════════════════════════════════════
+    #  CURRENT CONTROLLER — admin mod tools (server side, hard-gated)
+    #  Reads come from the latest snapshot; mutations are queued and applied
+    #  on the MATCH THREAD (drained in _wait_for_action) so they can never race
+    #  the game engine.
+    # ════════════════════════════════════════════════════════════════
+    def _describe_action(self, gs, ms, action) -> Dict[str, Any]:
+        try:
+            kind = getattr(action, "kind", "?")
+            if kind == "draw":
+                label = "draw from pool" if int(getattr(action, "draw_from_pool", 0) or 0) else "draw from deck"
+                return {"kind": kind, "label": label, "draw_from_pool": int(getattr(action, "draw_from_pool", 0) or 0)}
+            face_uid = action.face_uid if getattr(action, "face_uid", None) is not None else getattr(action, "card_uid", None)
+            card = gs.card_db.get(face_uid) if face_uid is not None else None
+            name = card.name if card is not None else (f"#{face_uid}" if face_uid is not None else "")
+            ocean_uid = getattr(action, "ocean_uid", None)
+            ocard = gs.card_db.get(ocean_uid) if ocean_uid is not None else None
+            ocean = ocard.name if ocard is not None else None
+            parts = [kind]
+            if name:
+                parts.append(name)
+            if ocean:
+                parts.append("→ " + ocean)
+            if getattr(action, "use_star", False):
+                parts.append("★")
+            return {
+                "kind": kind, "label": " ".join(parts),
+                "card_uid": getattr(action, "card_uid", None), "face_uid": face_uid,
+                "ocean_uid": ocean_uid, "use_star": bool(getattr(action, "use_star", False)),
+                "draw_from_pool": int(getattr(action, "draw_from_pool", 0) or 0),
+            }
+        except Exception:
+            return {"kind": getattr(action, "kind", "?"), "label": str(getattr(action, "kind", "?"))}
+
+    def _record_bot_brain(self, seat_index, gs, ms, player, chosen, scored, actions) -> None:
+        try:
+            strat = str(player.flags.get("_strategy_family") or fish.detect_player_strategy(gs, player) or "")
+        except Exception:
+            strat = ""
+        cands = []
+        for act, score in (scored or [])[:6]:
+            d = self._describe_action(gs, ms, act)
+            d["score"] = round(float(score), 3)
+            cands.append(d)
+        reason = ""
+        if cands:
+            reason = f"Highest score {cands[0]['score']} → {cands[0]['label']}" + (f" (strategy: {strat})" if strat else "")
+        with self.cond:
+            self._bot_brain[seat_index] = {
+                "seat": seat_index, "name": player.name, "strategy": strat,
+                "chosen": self._describe_action(gs, ms, chosen) if chosen is not None else None,
+                "candidates": cands, "reason": reason, "at": time.time(),
+                "legal_actions": [self._describe_action(gs, ms, a) for a in (actions or [])[:40]],
+            }
+
+    def _consume_bot_override(self, seat_index, gs, ms, player, actions):
+        with self.cond:
+            spec = self._bot_override.pop(seat_index, None)
+        if not spec:
+            return None
+        # Prefer matching by action signature (robust if the legal-action list
+        # shifted since the override was armed); fall back to the raw index.
+        desc = spec.get("desc")
+        if isinstance(desc, dict):
+            for a in actions:
+                d = self._describe_action(gs, ms, a)
+                if (d.get("kind") == desc.get("kind")
+                        and d.get("card_uid") == desc.get("card_uid")
+                        and d.get("ocean_uid") == desc.get("ocean_uid")
+                        and int(d.get("draw_from_pool", 0) or 0) == int(desc.get("draw_from_pool", 0) or 0)
+                        and bool(d.get("use_star")) == bool(desc.get("use_star"))):
+                    self._record_event(f"Admin override: {player.name} forced to {d.get('label')}")
+                    return a
+        idx = spec.get("action_index")
+        if isinstance(idx, int) and 0 <= idx < len(actions):
+            chosen = actions[idx]
+            self._record_event(f"Admin override: {player.name} forced to {self._describe_action(gs, ms, chosen).get('label')}")
+            return chosen
+        return None
+
+    def _seat_player(self, gs, seat_index):
+        g_idx = getattr(self, "_comp_seat_to_game", {}).get(seat_index, seat_index)
+        if 0 <= g_idx < len(gs.players):
+            return gs.players[g_idx]
+        return None
+
+    def _zone_find_and_remove(self, gs, ms, uid):
+        uid = int(uid)
+        if uid in gs.deck:
+            gs.deck.remove(uid); return "deck"
+        if uid in ms.pool:
+            ms.pool.remove(uid); return "pool"
+        if uid in ms.discard_pile:
+            ms.discard_pile.remove(uid); return "pool_discard"
+        for p in gs.players:
+            if uid in p.hand:
+                p.hand.remove(uid); return "hand"
+            if uid in p.discard:
+                p.discard.remove(uid); return "discard"
+        return None
+
+    def _admin_apply_mod_locked(self, gs, ms, op, params) -> Dict[str, Any]:
+        """Apply one mod mutation. Caller holds self.cond and runs on the match thread."""
+        op = str(op or "")
+        P = params or {}
+        if op == "hand_add":
+            pl = self._seat_player(gs, int(P.get("seat")))
+            if pl is None:
+                return {"ok": False, "error": "bad seat"}
+            src = self._zone_find_and_remove(gs, ms, int(P.get("uid")))
+            if src is None:
+                return {"ok": False, "error": "uid not found in any zone"}
+            pl.hand.append(int(P.get("uid")))
+            return {"ok": True, "moved_from": src}
+        if op == "hand_remove":
+            pl = self._seat_player(gs, int(P.get("seat")))
+            uid = int(P.get("uid"))
+            if pl is None or uid not in pl.hand:
+                return {"ok": False, "error": "card not in that hand"}
+            pl.hand.remove(uid); pl.discard.append(uid)
+            return {"ok": True}
+        if op == "hand_clear":
+            pl = self._seat_player(gs, int(P.get("seat")))
+            if pl is None:
+                return {"ok": False, "error": "bad seat"}
+            n = len(pl.hand); pl.discard.extend(pl.hand); pl.hand.clear()
+            return {"ok": True, "cleared": n}
+        if op == "hand_copy_to_me":
+            target = self._seat_player(gs, int(P.get("seat")))
+            me = self._seat_player(gs, int(P.get("my_seat")))
+            if target is None or me is None:
+                return {"ok": False, "error": "bad seat"}
+            copied = missed = 0
+            for uid in list(target.hand):
+                cd0 = gs.card_db.get(uid)
+                match = None
+                for duid in list(gs.deck):
+                    dcd = gs.card_db.get(duid)
+                    if dcd and cd0 and dcd.name == cd0.name:
+                        match = duid; break
+                if match is not None:
+                    gs.deck.remove(match); me.hand.append(match); copied += 1
+                else:
+                    missed += 1
+            return {"ok": True, "copied": copied, "unavailable": missed}
+        if op == "pool_clear":
+            n = len(ms.pool); ms.discard_pile.extend(ms.pool); ms.pool.clear()
+            return {"ok": True, "cleared": n}
+        if op == "pool_add":
+            src = self._zone_find_and_remove(gs, ms, int(P.get("uid")))
+            if src is None:
+                return {"ok": False, "error": "uid not found"}
+            fish.add_to_pool(ms, int(P.get("uid")))
+            return {"ok": True, "moved_from": src}
+        if op == "pool_remove":
+            uid = int(P.get("uid"))
+            if uid not in ms.pool:
+                return {"ok": False, "error": "not in pool"}
+            ms.pool.remove(uid); ms.discard_pile.append(uid)
+            return {"ok": True}
+        if op == "pool_refill":
+            target = int(P.get("count", 6)); added = 0
+            while len(ms.pool) < target and gs.deck:
+                fish.add_to_pool(ms, gs.deck.pop(0)); added += 1
+            return {"ok": True, "added": added}
+        if op == "deck_place":
+            uid = int(P.get("uid")); dest = str(P.get("dest"))
+            src = self._zone_find_and_remove(gs, ms, uid)
+            if src is None:
+                return {"ok": False, "error": "uid not found"}
+            if dest == "deck_top":
+                gs.deck.insert(0, uid)
+            elif dest == "deck_bottom":
+                gs.deck.append(uid)
+            elif dest == "pool":
+                fish.add_to_pool(ms, uid)
+            elif dest == "discard":
+                ms.discard_pile.append(uid)
+            elif dest == "hand":
+                pl = self._seat_player(gs, int(P.get("seat")))
+                if pl is None:
+                    gs.deck.insert(0, uid); return {"ok": False, "error": "bad seat — returned to deck"}
+                pl.hand.append(uid)
+            else:
+                gs.deck.insert(0, uid); return {"ok": False, "error": "bad dest — returned to deck"}
+            return {"ok": True, "moved_from": src}
+        return {"ok": False, "error": f"unknown op {op}"}
+
+    def _drain_admin_mods_locked(self) -> None:
+        """Drain queued mod mutations. Caller holds self.cond; runs on match thread."""
+        if not self._admin_mod_queue:
+            return
+        gs = self._live_gs; ms = self._live_ms
+        applied = False
+        for item in list(self._admin_mod_queue):
+            try:
+                if gs is None or ms is None:
+                    item["result"] = {"ok": False, "error": "no live game state"}
+                else:
+                    res = self._admin_apply_mod_locked(gs, ms, item.get("op"), item.get("params") or {})
+                    item["result"] = res
+                    if res.get("ok"):
+                        applied = True
+            except Exception as exc:
+                item["result"] = {"ok": False, "error": f"{exc}"}
+            ev = item.get("event")
+            if ev is not None:
+                ev.set()
+        self._admin_mod_queue.clear()
+        self.cond.notify_all()
+        if applied and gs is not None and ms is not None:
+            try:
+                self._record_snapshot(gs, ms, turn_number=self.last_turn_number, note="admin_mod")
+            except Exception as exc:
+                self._record_event(f"admin_mod re-snapshot warning: {exc}")
+            self._bump_locked()
+
+    def admin_enqueue_mod(self, op, params, timeout=6.0) -> Dict[str, Any]:
+        ev = threading.Event()
+        item = {"id": secrets.token_hex(6), "op": op, "params": params, "event": ev, "result": None}
+        with self.cond:
+            if self.phase != "running":
+                return {"ok": False, "error": "game is not running"}
+            self._admin_mod_queue.append(item)
+            self.cond.notify_all()
+        if not ev.wait(timeout=timeout):
+            with self.cond:
+                try:
+                    self._admin_mod_queue.remove(item)
+                except ValueError:
+                    pass
+            return {"ok": False, "error": "timed out — mutations apply during a human turn; try again on your own turn"}
+        return item.get("result") or {"ok": False, "error": "no result"}
+
+    def admin_arm_bot_override(self, seat_index, action_index, action_desc=None) -> Dict[str, Any]:
+        with self.cond:
+            if action_index is None and not action_desc:
+                self._bot_override.pop(int(seat_index), None)
+                return {"ok": True, "cleared": True}
+            self._bot_override[int(seat_index)] = {
+                "action_index": int(action_index) if action_index is not None else None,
+                "desc": action_desc if isinstance(action_desc, dict) else None,
+            }
+        return {"ok": True, "armed": True}
+
+    def admin_reveal(self) -> Dict[str, Any]:
+        with self.cond:
+            pub = self.latest_public_state if isinstance(self.latest_public_state, dict) else {}
+            players = []
+            for p in (pub.get("players") or []):
+                s_idx = p.get("index")
+                players.append({
+                    "index": s_idx, "name": p.get("name"), "score": p.get("score"),
+                    "hand": copy.deepcopy(self.latest_private_hands.get(s_idx, [])),
+                    "hand_count": p.get("hand_count"),
+                    "discard": copy.deepcopy(self._admin_discards.get(s_idx, [])),
+                    "strategy": p.get("strategy"),
+                    "board": p.get("board"),
+                })
+            return {
+                "ok": True,
+                "phase": self.phase,
+                "current_player": pub.get("current_player"),
+                "round_count": pub.get("round_count"),
+                "players": players,
+                "pool": copy.deepcopy(self._admin_pool_entries),
+                "deck": copy.deepcopy(self._admin_deck_entries),
+                "deck_count": len(self._admin_deck_entries),
+                "end_game": copy.deepcopy(self._admin_endgame),
+                "bot_brain": copy.deepcopy(self._bot_brain),
+                "seat_kinds": {s.index: s.kind for s in self.seats},
+            }
 
     def _safe_fallback_action(
         self,
@@ -5475,6 +5810,48 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.submit_action(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
+            return
+
+        # ── Current Controller: hard-gated admin mod tools ──────────────────
+        # Requires BOTH (1) the server ADMIN_MOD_KEY env secret (constant-time
+        # compared) and (2) a valid seat token for THIS room. Without the key,
+        # every op is rejected — so console/URL tampering by non-admins fails.
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "admin_mod":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            env_key = os.environ.get("ADMIN_MOD_KEY", "").strip()
+            supplied = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            if not env_key or not supplied or not secrets.compare_digest(supplied, env_key):
+                self._send_json({"ok": False, "error": "not authorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            with room.cond:
+                seat = room._seat_from_token_locked(seat_token)
+            if seat is None:
+                self._send_json({"ok": False, "error": "valid seat token required"}, status=HTTPStatus.FORBIDDEN)
+                return
+            op = body.get("op") if isinstance(body.get("op"), str) else ""
+            params = body.get("params") if isinstance(body.get("params"), dict) else {}
+            try:
+                if op == "reveal":
+                    out = room.admin_reveal()
+                elif op == "bot_brain":
+                    with room.cond:
+                        out = {"ok": True, "brain": copy.deepcopy(room._bot_brain)}
+                elif op == "bot_override_arm":
+                    out = room.admin_arm_bot_override(params.get("seat"), params.get("action_index"), params.get("action"))
+                elif op in (
+                    "hand_add", "hand_remove", "hand_clear", "hand_copy_to_me",
+                    "pool_clear", "pool_add", "pool_remove", "pool_refill", "deck_place",
+                ):
+                    out = room.admin_enqueue_mod(op, params)
+                else:
+                    out = {"ok": False, "error": f"unknown op {op}"}
+            except Exception as exc:
+                out = {"ok": False, "error": f"{exc}"}
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
             return
 
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "chat":
