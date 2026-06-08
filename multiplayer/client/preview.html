@@ -17263,7 +17263,7 @@
   document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
 
   // ── Event listeners ──────────────────────────────────────────────
-  document.getElementById("pv-tutorial-open-btn").addEventListener("click", startTutorial);
+  document.getElementById("pv-tutorial-open-btn").addEventListener("click", () => { if (window.__openTutorialChooser) window.__openTutorialChooser(); });
 
   document.getElementById("tut-x-btn").addEventListener("click", () => {
     document.getElementById("tut-exit-confirm").classList.add("open");
@@ -24588,9 +24588,9 @@
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
-      const sl = $a("auth-stats-lobby");
-      if (sl) sl.classList.remove("visible");
-      startTutorial();
+      // New 3-mode tutorial chooser — opens OVER the lobby (kept visible) so the
+      // Main Menu Tour can spotlight the real menu. Defined in the tutorial module.
+      if (window.__openTutorialChooser) window.__openTutorialChooser();
     });
 
     // ── Leaderboard button — switches to the in-game leaderboard tab ─
@@ -30615,6 +30615,348 @@
 
   // If cinematic was left ON from a previous session, restore it (admin only).
   if (isAdmin() && isOn("cinematic")) document.body.classList.add("cc-cinematic");
+})();
+</script>
+<!-- ══════════════════════════════════════════════════════════════════
+     TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
+     Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
+     completion tracking + the Main Menu Tour (spotlight coachmarks over the
+     real lobby). The Game tour and B-Lob practice arrive in later stages.
+     ══════════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  "use strict";
+
+  // ── Completion tracking ───────────────────────────────────────────
+  const LS = "tut3_done_v1";
+  const OSPREY = "/avatars/osprey.png";
+  function getDone() { try { return JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (_) { return {}; } }
+  function setDone(k) { const d = getDone(); d[k] = true; try { localStorage.setItem(LS, JSON.stringify(d)); } catch (_) {} grantOspreyIfComplete(); }
+  function allDone() { const d = getDone(); return !!(d.menu && d.game && d.practice); }
+  async function grantOspreyIfComplete() {
+    if (!allDone()) return;
+    try {
+      const owned = (typeof window.__fishGetUnlockedIcons === "function") && window.__fishGetUnlockedIcons().includes(OSPREY);
+      if (owned) return;
+      if (await window.__fishGrantUnlockedIcon?.(OSPREY)) {
+        window.__fishQueueAnimalUnlock?.("osprey");
+        window.__fishShowAnimalUnlocks?.();
+      }
+    } catch (_) {}
+  }
+
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  // ════════════════════════════════════════════════════════════════
+  //  STYLES (lobby vibe: light frosted cyan)
+  // ════════════════════════════════════════════════════════════════
+  const css = `
+  #tut3-chooser { position:fixed; inset:0; z-index:100040; display:none; align-items:center; justify-content:center; padding:22px 14px; background:rgba(6,26,46,.55); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); overflow:auto; }
+  #tut3-chooser.open { display:flex; }
+  .tut3-card { width:100%; max-width:640px; margin:auto; background:linear-gradient(165deg,#fbfeff 0%,#eaf6ff 55%,#e3f0fb 100%); border:1px solid rgba(120,200,235,.6); border-radius:24px; box-shadow:0 24px 70px rgba(10,60,110,.45); padding:22px 22px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; }
+  .tut3-hd { text-align:center; margin-bottom:6px; }
+  .tut3-hd h2 { font-family:"Cinzel",serif; font-size:1.5rem; font-weight:900; color:#1769b0; margin:0; letter-spacing:.4px; }
+  .tut3-hd p { font-size:.86rem; color:#4f7ba6; margin:5px 0 0; }
+  .tut3-opts { display:flex; flex-direction:column; gap:12px; margin:16px 0 12px; }
+  .tut3-opt { display:flex; align-items:center; gap:14px; text-align:left; background:#fff; border:1.5px solid rgba(130,200,235,.55); border-radius:16px; padding:14px 16px; cursor:pointer; transition:transform .12s, box-shadow .12s, border-color .12s; font-family:inherit; }
+  .tut3-opt:hover:not(.tut3-locked) { transform:translateY(-2px); box-shadow:0 8px 24px rgba(30,120,190,.2); border-color:#3aa8e0; }
+  .tut3-opt.tut3-locked { opacity:.6; cursor:default; }
+  .tut3-opt-ico { font-size:2rem; width:46px; height:46px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:linear-gradient(145deg,#d7f1ff,#bfe4fb); border-radius:13px; }
+  .tut3-opt-body { flex:1; min-width:0; }
+  .tut3-opt-title { font-weight:900; font-size:1.05rem; color:#0f4d86; }
+  .tut3-opt-desc { font-size:.8rem; color:#5a83a8; margin-top:2px; line-height:1.35; }
+  .tut3-opt-status { flex-shrink:0; font-size:.72rem; font-weight:800; padding:5px 10px; border-radius:999px; }
+  .tut3-st-start { background:#1f9ad7; color:#fff; }
+  .tut3-st-done { background:#1fbb8a; color:#fff; }
+  .tut3-st-soon { background:#e6eef5; color:#7a98b2; }
+  .tut3-foot { text-align:center; margin-top:6px; padding-top:12px; border-top:1px solid rgba(120,190,225,.35); }
+  .tut3-foot .tut3-reward { display:flex; align-items:center; justify-content:center; gap:9px; font-size:.86rem; font-weight:800; color:#1769b0; }
+  .tut3-foot .tut3-reward img { width:30px; height:30px; object-fit:contain; }
+  .tut3-prog { display:flex; gap:5px; justify-content:center; margin-top:8px; }
+  .tut3-pip { width:34px; height:6px; border-radius:3px; background:#d6e6f1; }
+  .tut3-pip.on { background:linear-gradient(90deg,#2ea8ea,#22d8c8); }
+  .tut3-close { display:block; margin:8px auto 0; background:none; border:none; color:#6a92b5; font-size:.84rem; font-weight:700; cursor:pointer; font-family:inherit; }
+  .tut3-close:hover { color:#1769b0; }
+
+  /* Coachmark spotlight */
+  #tut3-coach { position:fixed; inset:0; z-index:100050; display:none; }
+  #tut3-coach.open { display:block; }
+  #tut3-catch { position:fixed; inset:0; background:transparent; }
+  #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
+  /* No target → keep the full-screen dim (box-shadow) but hide the ring. */
+  #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
+  #tut3-pop { position:fixed; max-width:340px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1px solid rgba(120,200,235,.65); border-radius:18px; box-shadow:0 18px 50px rgba(8,40,80,.5); padding:15px 17px 14px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; }
+  #tut3-pop .t3-badge { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
+  #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.12rem; font-weight:900; color:#1769b0; margin:3px 0 6px; }
+  #tut3-pop .t3-text { font-size:.86rem; line-height:1.5; color:#345f82; }
+  #tut3-pop .t3-text strong { color:#0f4d86; }
+  #tut3-pop .t3-bar { display:flex; align-items:center; gap:8px; margin-top:13px; }
+  #tut3-pop .t3-count { font-size:.74rem; color:#6a92b5; font-weight:700; flex:1; }
+  #tut3-pop .t3-btn { border:none; border-radius:10px; padding:8px 14px; font-weight:800; font-size:.82rem; cursor:pointer; font-family:inherit; }
+  #tut3-pop .t3-next { background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
+  #tut3-pop .t3-next:hover { filter:brightness(1.06); }
+  #tut3-pop .t3-back { background:#e3eef7; color:#3a6e9c; }
+  #tut3-pop .t3-back:disabled { opacity:.4; cursor:default; }
+  #tut3-pop .t3-skip { position:absolute; top:10px; right:12px; background:none; border:none; color:#8aa8c2; font-size:.72rem; font-weight:700; cursor:pointer; }
+  #tut3-pop .t3-skip:hover { color:#e8556c; }
+  #tut3-arrow { position:fixed; width:0; height:0; border:10px solid transparent; transition:top .28s ease, left .28s ease; pointer-events:none; }
+  /* Completion toast */
+  #tut3-toast { position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px); z-index:100060; background:linear-gradient(135deg,#1fbb8a,#159e9e); color:#fff; padding:13px 22px; border-radius:14px; font-family:"Nunito",sans-serif; font-weight:800; box-shadow:0 12px 36px rgba(0,0,0,.35); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; display:flex; align-items:center; gap:10px; }
+  #tut3-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  @media (max-width:560px){ .tut3-opt-desc{display:none} }
+  `;
+  const styleEl = document.createElement("style");
+  styleEl.id = "tut3-styles";
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+
+  // ════════════════════════════════════════════════════════════════
+  //  REUSABLE COACHMARK ENGINE
+  //  steps: [{ target:selector|null, badge, title, text, before?() }]
+  // ════════════════════════════════════════════════════════════════
+  let coach = null, coachSteps = [], coachIdx = 0, coachDone = null;
+
+  function buildCoach() {
+    if (coach) return coach;
+    coach = document.createElement("div");
+    coach.id = "tut3-coach";
+    coach.innerHTML =
+      `<div id="tut3-catch"></div>
+       <div id="tut3-hole"></div>
+       <div id="tut3-arrow"></div>
+       <div id="tut3-pop">
+         <button class="t3-skip" id="tut3-skip">Skip ✕</button>
+         <div class="t3-badge" id="tut3-badge"></div>
+         <h3 id="tut3-title"></h3>
+         <div class="t3-text" id="tut3-text"></div>
+         <div class="t3-bar">
+           <span class="t3-count" id="tut3-count"></span>
+           <button class="t3-btn t3-back" id="tut3-back">← Back</button>
+           <button class="t3-btn t3-next" id="tut3-next">Next →</button>
+         </div>
+       </div>`;
+    document.body.appendChild(coach);
+    coach.querySelector("#tut3-skip").addEventListener("click", endCoach);
+    coach.querySelector("#tut3-back").addEventListener("click", () => gotoStep(coachIdx - 1));
+    coach.querySelector("#tut3-next").addEventListener("click", () => {
+      if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
+      else gotoStep(coachIdx + 1);
+    });
+    window.addEventListener("resize", positionCoach);
+    window.addEventListener("scroll", positionCoach, true);
+    return coach;
+  }
+
+  function runCoach(steps, onDone) {
+    buildCoach();
+    coachSteps = steps; coachIdx = 0; coachDone = onDone || null;
+    coach.classList.add("open");
+    gotoStep(0);
+  }
+
+  function endCoach() {
+    if (coach) coach.classList.remove("open");
+    coachSteps = []; coachDone = null;
+  }
+
+  function gotoStep(i) {
+    if (i < 0 || i >= coachSteps.length) return;
+    coachIdx = i;
+    const step = coachSteps[i];
+    try { step.before && step.before(); } catch (_) {}
+    coach.querySelector("#tut3-badge").textContent = step.badge || "";
+    coach.querySelector("#tut3-title").innerHTML = step.title || "";
+    coach.querySelector("#tut3-text").innerHTML = step.text || "";
+    coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
+    coach.querySelector("#tut3-back").disabled = (i === 0);
+    coach.querySelector("#tut3-next").textContent = (i >= coachSteps.length - 1) ? "Finish ✓" : "Next →";
+    // Scroll target into view, then position after a tick so layout settles.
+    const el = step.target ? document.querySelector(step.target) : null;
+    if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
+    setTimeout(positionCoach, 60);
+  }
+
+  function isVisible(el) {
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return false;
+    const st = getComputedStyle(el);
+    return st.display !== "none" && st.visibility !== "hidden";
+  }
+
+  function positionCoach() {
+    if (!coach || !coach.classList.contains("open")) return;
+    const step = coachSteps[coachIdx];
+    if (!step) return;
+    const hole = coach.querySelector("#tut3-hole");
+    const pop = coach.querySelector("#tut3-pop");
+    const arrow = coach.querySelector("#tut3-arrow");
+    const el = step.target ? document.querySelector(step.target) : null;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const pr = pop.getBoundingClientRect();
+    const popW = pr.width || 320, popH = pr.height || 160;
+
+    if (!el || !isVisible(el)) {
+      // No target → center the popup, hide the spotlight.
+      hole.classList.add("nohole");
+      arrow.style.display = "none";
+      pop.style.left = Math.max(8, (vw - popW) / 2) + "px";
+      pop.style.top = Math.max(8, (vh - popH) / 2) + "px";
+      return;
+    }
+    hole.classList.remove("nohole");
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    const hx = Math.max(2, r.left - pad), hy = Math.max(2, r.top - pad);
+    const hw = Math.min(vw - 4, r.width + pad * 2), hh = Math.min(vh - 4, r.height + pad * 2);
+    hole.style.left = hx + "px"; hole.style.top = hy + "px";
+    hole.style.width = hw + "px"; hole.style.height = hh + "px";
+
+    // Place popup below the target if room, else above, else beside.
+    const gap = 18;
+    let top, left, arrowDir;
+    if (r.bottom + gap + popH < vh) { top = r.bottom + gap; arrowDir = "up"; }
+    else if (r.top - gap - popH > 0) { top = r.top - gap - popH; arrowDir = "down"; }
+    else { top = Math.max(8, Math.min(vh - popH - 8, r.top)); arrowDir = "none"; }
+    left = r.left + r.width / 2 - popW / 2;
+    left = Math.max(8, Math.min(vw - popW - 8, left));
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+
+    // Arrow
+    if (arrowDir === "none") { arrow.style.display = "none"; }
+    else {
+      arrow.style.display = "block";
+      const ax = Math.max(left + 14, Math.min(left + popW - 14, r.left + r.width / 2));
+      if (arrowDir === "up") {
+        arrow.style.borderColor = "transparent transparent #eaf5ff transparent";
+        arrow.style.top = (top - 18) + "px"; arrow.style.left = (ax - 10) + "px";
+      } else {
+        arrow.style.borderColor = "#fbfeff transparent transparent transparent";
+        arrow.style.top = (top + popH - 2) + "px"; arrow.style.left = (ax - 10) + "px";
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  MAIN MENU TOUR
+  // ════════════════════════════════════════════════════════════════
+  const MENU_STEPS = [
+    { target: null, badge: "Main Menu Tour", title: "Welcome to your home base 🌊",
+      text: "This is the <strong>Main Menu</strong> — where you start games, track progress, and customize your critter. Let's walk through everything on it. Use <strong>Next</strong> and <strong>Back</strong> anytime." },
+    { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
+      text: "Your <strong>avatar, name, level and rank</strong> live here. Your XP bar fills as you play — every game earns XP toward your next level." },
+    { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak 🔥",
+      text: "Play on consecutive days to build a <strong>streak</strong>. Each day gives a growing <strong>login XP bonus</strong> — keep the tide rolling!" },
+    { target: "#snav-overview", badge: "Navigation", title: "Overview",
+      text: "Your <strong>dashboard</strong> — a snapshot of recent games, stats and what's new." },
+    { target: "#snav-casual", badge: "Navigation", title: "Casual Games",
+      text: "Start a <strong>relaxed game</strong> (2–8 players, vs friends or bots). No ranking pressure — perfect for learning and fun." },
+    { target: "#snav-competitive", badge: "Navigation", title: "Competitive",
+      text: "Ranked <strong>1v1 matches</strong> that move your rating up the ladder: Spiny Lobster → Grouper → Dolphin → and beyond." },
+    { target: "#snav-history", badge: "Navigation", title: "History",
+      text: "Revisit your <strong>past games</strong> — final boards, scores and who you played." },
+    { target: "#snav-friends", badge: "Navigation", title: "Friends",
+      text: "Add friends by username, see their <strong>rank and stats</strong>, and start private games together." },
+    { target: "#snav-achievements", badge: "Navigation", title: "Achievements 🏆",
+      text: "Earn <strong>badges</strong> for milestones. Many achievements <strong>unlock new critter avatars</strong> — including some hidden ones!" },
+    { target: "#snav-leaderboard", badge: "Navigation", title: "Leaderboard",
+      text: "See the <strong>global rankings</strong> — top scores and the best critters in the sea." },
+    { target: "#snav-store", badge: "Navigation", title: "Store 🛍️",
+      text: "Spend on <strong>backgrounds</strong> that frame your avatar, browse <strong>seasonal</strong> cosmetics, or redeem a donation code." },
+    { target: "#snav-settings", badge: "Navigation", title: "Settings",
+      text: "Toggle <strong>music & sound</strong>, mute chat, and sign out. Tweak the experience to your liking." },
+    { target: "#stats-tutorial-btn", badge: "Tutorials", title: "That's the menu! ✓",
+      text: "You've toured the whole menu. Come back to this <strong>Tutorial</strong> button anytime — finish all three tutorials to unlock the <strong>Osprey</strong> 🦅. Hit Finish to mark this one complete!" },
+  ];
+
+  function runMenuTour() {
+    closeChooser();
+    // The Main Menu Tour needs the lobby visible.
+    const lobby = document.getElementById("auth-stats-lobby");
+    if (!lobby || !lobby.classList.contains("visible")) {
+      // Open from the menu for the spotlight to line up.
+      runCoach([{ target: null, badge: "Main Menu Tour", title: "Open from the Main Menu",
+        text: "This tour spotlights the <strong>main menu</strong>. Head to the menu screen and tap <strong>Tutorial → Main Menu Tour</strong> to take it with everything in place." }], null);
+      return;
+    }
+    runCoach(MENU_STEPS, () => {
+      setDone("menu");
+      showToast("🗺️ Main Menu mastered!", completionSubtitle());
+      setTimeout(openChooser, 900);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  CHOOSER MODAL
+  // ════════════════════════════════════════════════════════════════
+  let chooser = null;
+  function buildChooser() {
+    if (chooser) return chooser;
+    chooser = document.createElement("div");
+    chooser.id = "tut3-chooser";
+    document.body.appendChild(chooser);
+    chooser.addEventListener("click", (e) => { if (e.target === chooser) closeChooser(); });
+    return chooser;
+  }
+
+  const OPTS = [
+    { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu — profile, streak, tabs and the store.", run: runMenuTour, ready: true },
+    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game — the board, pool, deck, chat, Surf's Up, AFK and more.", run: null, ready: false },
+    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird/Lobster strategy. Learn every way to play a card.", run: null, ready: false },
+  ];
+
+  function renderChooser() {
+    const done = getDone();
+    const c = buildChooser();
+    const pips = ["menu", "game", "practice"].map(k => `<span class="tut3-pip ${done[k] ? "on" : ""}"></span>`).join("");
+    const optHtml = OPTS.map(o => {
+      const isDone = !!done[o.key];
+      const locked = !o.ready;
+      const status = isDone ? `<span class="tut3-opt-status tut3-st-done">✓ Done</span>`
+        : locked ? `<span class="tut3-opt-status tut3-st-soon">Coming soon</span>`
+        : `<span class="tut3-opt-status tut3-st-start">Start ▶</span>`;
+      return `<button class="tut3-opt ${locked ? "tut3-locked" : ""}" data-key="${o.key}" ${locked ? "disabled" : ""}>
+        <span class="tut3-opt-ico">${o.ico}</span>
+        <span class="tut3-opt-body"><span class="tut3-opt-title">${esc(o.title)}</span><span class="tut3-opt-desc">${esc(o.desc)}</span></span>
+        ${status}
+      </button>`;
+    }).join("");
+    const count = ["menu", "game", "practice"].filter(k => done[k]).length;
+    c.innerHTML = `<div class="tut3-card">
+      <div class="tut3-hd"><h2>How to Play</h2><p>Three quick tutorials. Finish all three to earn a reward.</p></div>
+      <div class="tut3-opts">${optHtml}</div>
+      <div class="tut3-foot">
+        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all three to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "— unlocked! ✓" : `(${count}/3)`}</div>
+        <div class="tut3-prog">${pips}</div>
+        <button class="tut3-close" id="tut3-chooser-close">Maybe later</button>
+      </div>
+    </div>`;
+    c.querySelectorAll(".tut3-opt").forEach(btn => btn.addEventListener("click", () => {
+      const o = OPTS.find(x => x.key === btn.getAttribute("data-key"));
+      if (o && o.ready && o.run) o.run();
+    }));
+    c.querySelector("#tut3-chooser-close").addEventListener("click", closeChooser);
+  }
+
+  function openChooser() { renderChooser(); chooser.classList.add("open"); }
+  function closeChooser() { if (chooser) chooser.classList.remove("open"); }
+
+  // ── Completion toast ──────────────────────────────────────────────
+  let toastEl = null;
+  function completionSubtitle() {
+    const n = ["menu", "game", "practice"].filter(k => getDone()[k]).length;
+    return allDone() ? "All three done — Osprey unlocked! 🦅" : `${n} of 3 complete`;
+  }
+  function showToast(title, sub) {
+    if (!toastEl) { toastEl = document.createElement("div"); toastEl.id = "tut3-toast"; document.body.appendChild(toastEl); }
+    toastEl.innerHTML = `<span style="font-size:1.3rem">🎉</span><span><div>${esc(title)}</div><div style="font-size:.74rem;opacity:.9;font-weight:600">${esc(sub)}</div></span>`;
+    toastEl.classList.add("show");
+    setTimeout(() => toastEl.classList.remove("show"), 3200);
+  }
+
+  // ── Public entry ──────────────────────────────────────────────────
+  window.__openTutorialChooser = openChooser;
 })();
 </script>
 </body>
