@@ -46,6 +46,13 @@ COMPETITIVE_GAMES_DIR = str(
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "competitive_games")
 COMPETITIVE_LEADERBOARD_PATH = os.path.join(COMPETITIVE_GAMES_DIR, "leaderboard.json")
 COMPETITIVE_SEASONS_PATH     = os.path.join(COMPETITIVE_GAMES_DIR, "seasons.json")
+# Pending forfeit losses for players who left a competitive match. The loser is
+# offline at forfeit time, so their CP penalty is applied the next time their
+# client loads (it queries /api/competitive/forfeit_pending by name).
+COMPETITIVE_FORFEITS_PATH    = os.path.join(COMPETITIVE_GAMES_DIR, "forfeits_pending.json")
+# Competitive: a player who leaves a running match and does not return within
+# this many seconds forfeits — the player still present wins.
+COMPETITIVE_FORFEIT_SEC = 30.0
 GAMES_HISTORY_DIR = str(
     os.environ.get("FISH_GAMES_HISTORY_DIR", os.path.join(BASE_DIR, "multiplayer", "games_history"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
@@ -613,6 +620,10 @@ class Seat:
     # rejoin their exact seat, for REJOIN_WINDOW_SEC seconds. Cleared when they
     # reconnect; the seat is freed by cleanup once the window expires.
     left_at: Optional[float] = None
+    # Unix time this seat's token last polled state. Used by the competitive
+    # forfeit check to detect a player who left/closed/crashed (their client
+    # stops polling) — independent of whether they clicked "Leave".
+    last_seen: Optional[float] = None
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -634,6 +645,10 @@ class GameRoom:
         self.visibility = visibility  # "public" | "private"
         self.password_hash = password_hash  # sha256 hex, None if public
         self._competitive_saved = False
+        # Set when a competitive match ends because a player left and did not
+        # return within COMPETITIVE_FORFEIT_SEC. Surfaced in the state payload so
+        # the remaining player's client records the win (and the right loser).
+        self._forfeit_result: Optional[Dict[str, Any]] = None
         # Competitive turn-order remapping: game_engine_idx → seat_idx
         # Seats go 0,2,1,3 so turns alternate P1h1,P2h1,P1h2,P2h2
         self._comp_game_to_seat: Dict[int, int] = {}
@@ -1701,6 +1716,14 @@ class GameRoom:
             self.legal_actions_by_seat.clear()
             self.pending_actions.clear()
             self.active_action_seat = None
+            # Give every human a fresh forfeit window after a server restart, so a
+            # player who polls first can't forfeit one who simply hasn't re-polled
+            # yet. Real inactivity is re-detected from here as polls resume.
+            _now_seen = time.time()
+            for _s in self.seats:
+                if _s.kind == "human":
+                    _s.last_seen = _now_seen
+            self._forfeit_result = None
             if self.recovery_active:
                 self.status_note = (
                     f"Resyncing game after server restart — step {self.recovery_cursor} of {self.recovery_target_count}. Room is staying open, please wait..."
@@ -1722,6 +1745,13 @@ class GameRoom:
         self.ended_unix = None
         self.error_message = None
         self.status_note = status_note
+        # Seed last-seen for every human seat so the competitive forfeit window
+        # is measured from game start, not from the first poll.
+        _now_seen = time.time()
+        for _s in self.seats:
+            if _s.kind == "human":
+                _s.last_seen = _now_seen
+        self._forfeit_result = None
         self.log_events = []
         self.turn_summaries = []
         self._current_turn_descs = {}
@@ -1774,6 +1804,20 @@ class GameRoom:
         self.game_thread = threading.Thread(target=self._run_game_thread, args=(card_db,), daemon=True)
         self.game_thread.start()
 
+    def _competitive_same_owner(self, seat_a: Optional[int], seat_b: Optional[int]) -> bool:
+        """Competitive only: each human controls TWO seats (their two hands).
+        P1 owns seats {0,1}, P2 owns seats {2,3}. Returns True when both seat
+        indices belong to the same human, so a token for one of a player's hands
+        is authorized to act for the player's OTHER hand when it's that hand's
+        turn. Returns False for any non-competitive or non-4-seat room."""
+        if not (self.competitive and len(self.seats) == 4):
+            return False
+        if seat_a is None or seat_b is None:
+            return False
+        if not (0 <= seat_a < 4 and 0 <= seat_b < 4):
+            return False
+        return (seat_a // 2) == (seat_b // 2)
+
     def submit_action(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         token = payload.get("seat_token")
         with self.cond:
@@ -1784,7 +1828,17 @@ class GameRoom:
                 return {"ok": False, "error": "game is not running"}
             if seat.kind != "human":
                 return {"ok": False, "error": "AI seats cannot submit actions"}
-            if self.active_action_seat != seat.index:
+            # The seat this action will act AS. Normally the token's own seat. In
+            # competitive, a player controls two hands (two seats); accept the
+            # token for whichever of the owner's hands is currently active so the
+            # second hand never reports "not your turn" if the client's polled
+            # token lagged a cycle behind the turn switch.
+            act_seat_index = seat.index
+            if (self.active_action_seat is not None
+                    and self.active_action_seat != seat.index
+                    and self._competitive_same_owner(seat.index, self.active_action_seat)):
+                act_seat_index = self.active_action_seat
+            if self.active_action_seat != act_seat_index:
                 return {"ok": False, "error": "not your turn"}
 
             req_id_raw = payload.get("request_id")
@@ -1794,7 +1848,7 @@ class GameRoom:
             if req_id:
                 if len(req_id) > 96:
                     return {"ok": False, "error": "request_id too long"}
-                seen = self.seen_action_requests.setdefault(seat.index, {})
+                seen = self.seen_action_requests.setdefault(act_seat_index, {})
                 req_now = now_unix()
                 stale_before = req_now - 900
                 if seen:
@@ -1839,7 +1893,7 @@ class GameRoom:
             if req_id:
                 cmd["request_id"] = req_id
 
-            queue = self.pending_actions.setdefault(seat.index, [])
+            queue = self.pending_actions.setdefault(act_seat_index, [])
             if len(queue) >= 12:
                 return {"ok": False, "error": "too many queued actions; wait for state update"}
             if req_id and seen is not None:
@@ -3403,6 +3457,166 @@ class GameRoom:
             return "Game Fish"
         return "Best Guess"
 
+    def _check_competitive_forfeit_locked(self) -> None:
+        """Competitive only: if one player left the running match and has not
+        returned within COMPETITIVE_FORFEIT_SEC, end the game as a forfeit — the
+        player still present wins, the one who left loses. MUST be called with
+        self.cond held (it mutates phase/winner). Polled from state_view, so the
+        remaining player's own polling naturally triggers it within ~1s of the
+        30-second mark."""
+        if not (self.competitive and len(self.seats) == 4):
+            return
+        if self.phase != "running":
+            return
+        if self._forfeit_result is not None:
+            return
+        now = time.time()
+        # Each physical player owns two seats: P1 = {0,1}, P2 = {2,3}. A player
+        # is "present" while either of their seats is still polling (last_seen
+        # fresh) and not on an expired leave reservation. A player whose most
+        # recent activity across BOTH hands is older than the forfeit window has
+        # left/closed/crashed — they forfeit. This is polled from state_view, so
+        # the player still here just refreshed their own last_seen and counts as
+        # present; we only ever forfeit the OTHER (absent) player.
+        def _group_present(group: int) -> bool:
+            for s in self.seats:
+                if s.kind != "human" or (s.index // 2) != group:
+                    continue
+                ls = s.last_seen
+                if ls is not None and (now - ls) < COMPETITIVE_FORFEIT_SEC:
+                    if s.left_at is None or (now - s.left_at) < COMPETITIVE_FORFEIT_SEC:
+                        return True
+            return False
+        p1_present = _group_present(0)
+        p2_present = _group_present(1)
+        # Only call a forfeit when exactly one side is present (the other left).
+        # If neither is present, no one is around to award the win to — let the
+        # room be cleaned up normally instead.
+        leaver_group: Optional[int] = None
+        if p1_present and not p2_present:
+            leaver_group = 1
+        elif p2_present and not p1_present:
+            leaver_group = 0
+        if leaver_group is None:
+            return
+        p1_name = (self.seats[0].claimed_name or "Player 1") if len(self.seats) > 0 else "Player 1"
+        p2_name = (self.seats[2].claimed_name or "Player 2") if len(self.seats) > 2 else "Player 2"
+        loser_name  = p1_name if leaver_group == 0 else p2_name
+        winner_name = p2_name if leaver_group == 0 else p1_name
+        self.phase = "ended"
+        self.ended_unix = now_unix()
+        self.winner = winner_name
+        self.active_action_seat = None
+        self.legal_actions_by_seat.clear()
+        # Publish a final_scores tally from the current board so the winner's
+        # client can locate its entry and award XP/streak/history normally (the
+        # match was mid-play, so final_scores was still empty).
+        try:
+            fs: List[Dict[str, Any]] = []
+            if isinstance(self.latest_public_state, dict):
+                for p in self.latest_public_state.get("players", []) or []:
+                    if isinstance(p, dict) and p.get("name"):
+                        fs.append({"name": str(p["name"]), "score": int(p.get("score", 0) or 0)})
+            if fs:
+                fs.sort(key=lambda e: e["score"], reverse=True)
+                self.final_scores = fs
+        except Exception:
+            pass
+        self._forfeit_result = {
+            "forfeit": True,
+            "winner": winner_name,
+            "loser": loser_name,
+            "reason": (f"{loser_name} left the match and did not return within "
+                       f"{int(COMPETITIVE_FORFEIT_SEC)} seconds — {winner_name} wins by forfeit."),
+        }
+        self.status_note = (
+            f"{loser_name} forfeited (left the match for {int(COMPETITIVE_FORFEIT_SEC)}s). "
+            f"{winner_name} wins."
+        )
+        # Block the normal end-of-game competitive save (no end-game trigger here).
+        self._competitive_saved = True
+        try:
+            self._save_competitive_forfeit(winner_name, loser_name)
+        except Exception as exc:
+            self._record_event(f"Forfeit save warning: {exc}")
+        self._record_event(f"Competitive forfeit: {loser_name} left; {winner_name} wins.")
+        self._bump_locked(force_persist=True)
+
+    def _save_competitive_forfeit(self, winner_name: str, loser_name: str) -> None:
+        """Write a competitive game record for a forfeit AND enqueue a pending
+        forfeit-loss for the (offline) loser so their CP penalty is applied the
+        next time their client loads. Winner's CP is applied live by their
+        client when it sees the forfeit result in the state payload."""
+        os.makedirs(COMPETITIVE_GAMES_DIR, exist_ok=True)
+        ts = now_unix()
+        # Best-effort current scores for the record (forfeits have no final tally).
+        score_map: Dict[str, int] = {}
+        try:
+            if isinstance(self.latest_public_state, dict):
+                for p in self.latest_public_state.get("players", []) or []:
+                    if isinstance(p, dict) and p.get("name"):
+                        score_map[str(p["name"])] = int(p.get("score", 0) or 0)
+        except Exception:
+            score_map = {}
+        p1_name = (self.seats[0].claimed_name or "Player 1") if len(self.seats) > 0 else "Player 1"
+        p2_name = (self.seats[2].claimed_name or "Player 2") if len(self.seats) > 2 else "Player 2"
+        record = {
+            "room_id": self.room_id,
+            "recorded_unix": ts,
+            "season_id": get_season_id(ts),
+            "p1_name": p1_name,
+            "p2_name": p2_name,
+            "p1_best_score": int(score_map.get(p1_name, 0)),
+            "p2_best_score": int(score_map.get(p2_name, 0)),
+            "p1_second_score": int(score_map.get(p1_name, 0)),
+            "p2_second_score": int(score_map.get(p2_name, 0)),
+            "winner": winner_name,
+            "loser": loser_name,
+            "is_draw": False,
+            "forfeit": True,
+            "ranked": False,
+            "turn_count": 0,
+            "strategy": "Forfeit",
+            "standings": [
+                {"name": winner_name, "score": int(score_map.get(winner_name, 0))},
+                {"name": loser_name,  "score": int(score_map.get(loser_name, 0))},
+            ],
+            "board_snapshot": {},
+        }
+        game_path = os.path.join(COMPETITIVE_GAMES_DIR, f"game_{self.room_id}_{ts}.json")
+        atomic_write_json(game_path, record)
+        try:
+            self._update_competitive_leaderboard(p1_name, p2_name, winner_name, is_draw=False)
+        except Exception as exc:
+            self._record_event(f"Forfeit leaderboard warning: {exc}")
+        # Enqueue the pending loss for the offline loser (CP applied on next login).
+        with COMPETITIVE_LOCK:
+            try:
+                with open(COMPETITIVE_FORFEITS_PATH, "r", encoding="utf-8") as f:
+                    pending = json.load(f)
+                if not isinstance(pending, dict):
+                    pending = {}
+            except (FileNotFoundError, json.JSONDecodeError):
+                pending = {}
+            entry_id = f"{self.room_id}_{ts}"
+            pending[entry_id] = {
+                "id": entry_id,
+                "loser": loser_name,
+                "winner": winner_name,
+                "room_id": self.room_id,
+                "ts": ts,
+                "season_id": get_season_id(ts),
+                "processed": False,
+            }
+            # Keep the file from growing unbounded — drop processed entries older
+            # than 30 days.
+            cutoff = ts - 30 * 24 * 3600
+            for k in list(pending.keys()):
+                v = pending.get(k) or {}
+                if v.get("processed") and int(v.get("ts", 0)) < cutoff:
+                    del pending[k]
+            atomic_write_json(COMPETITIVE_FORFEITS_PATH, pending)
+
     def _save_competitive_game(self, gs: Any, ms: Any, standings: List[Dict[str, Any]]) -> None:
         if self._competitive_saved:
             return
@@ -3805,11 +4019,16 @@ class GameRoom:
 
             _game_saved = True
             with self.cond:
-                self.phase = "ended"
-                self.ended_unix = now_unix()
-                self.status_note = "Game ended."
-                self.final_scores = standings
-                self.winner = winner_name
+                # If a forfeit already decided the result (a player left), keep it —
+                # the match loop may have wound down to completion afterward, but the
+                # forfeit winner/loser is authoritative. Don't overwrite it with a
+                # score-based tally from the fallback-played-out turns.
+                if self._forfeit_result is None:
+                    self.phase = "ended"
+                    self.ended_unix = now_unix()
+                    self.status_note = "Game ended."
+                    self.final_scores = standings
+                    self.winner = winner_name
                 self.active_action_seat = None
                 self.legal_actions_by_seat.clear()
                 self._bump_locked(force_persist=True)
@@ -3836,10 +4055,13 @@ class GameRoom:
                 except Exception as save_exc:
                     self._record_event(f"Emergency save warning: {save_exc}")
             with self.cond:
-                self.phase = "error"
-                self.error_message = f"{exc}"
-                self.status_note = "Game error."
-                self.log_events.append(trace)
+                # A forfeit result is authoritative — never downgrade an
+                # already-decided forfeit win to an error state.
+                if self._forfeit_result is None:
+                    self.phase = "error"
+                    self.error_message = f"{exc}"
+                    self.status_note = "Game error."
+                    self.log_events.append(trace)
                 self.active_action_seat = None
                 self.legal_actions_by_seat.clear()
                 self._bump_locked(force_persist=True)
@@ -3880,6 +4102,10 @@ class GameRoom:
             if viewer_seat is None and host_token:
                 if secrets.compare_digest(self.host_control_token, host_token):
                     viewer_seat = self.host_seat()
+            # Record this seat's last activity so the competitive forfeit check
+            # can tell when a player's client has stopped polling (left/closed).
+            if viewer_seat is not None:
+                viewer_seat.last_seen = time.time()
             # A player polling with their seat token has returned — clear the
             # rejoin reservation so the seat counts as active again.
             if viewer_seat is not None and viewer_seat.left_at is not None:
@@ -3888,6 +4114,10 @@ class GameRoom:
                     viewer_seat.is_host = True
                 self.status_note = f"{viewer_seat.claimed_name or viewer_seat.label} rejoined."
                 self._bump_locked()
+            # Competitive: end the match as a forfeit if a player left and never
+            # came back within the window. Runs AFTER the viewer's own rejoin is
+            # cleared above, so a returning player is never forfeited by mistake.
+            self._check_competitive_forfeit_locked()
             # viewer_index is the SEAT index (from the seat token).
             # The players array uses seat_idx as p["index"] (see _record_snapshot),
             # so viewer_index is used both to find "me" in the players list AND
@@ -3992,6 +4222,10 @@ class GameRoom:
                     "eligible_seat": self.undo_eligible_seat,
                     "valid": bool(self.undo_valid),
                 },
+                # Set only when the match ended because a player left (competitive
+                # forfeit). The remaining player's client uses winner/loser here to
+                # record the result instead of the (incomplete) score tally.
+                "forfeit": self._forfeit_result,
             }
             return payload
 
@@ -5316,6 +5550,39 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_preview_html()
             return
 
+        if parsed.path == "/api/competitive/forfeit_pending":
+            # Unprocessed forfeit losses for a player (matched by name). The
+            # loser was offline when the forfeit happened, so their client calls
+            # this on load and applies the CP penalty, then acks each entry.
+            qs = parse_qs(parsed.query)
+            who = (qs.get("name", [""])[0] or "").strip()
+            if not who:
+                self._send_json({"ok": False, "error": "name required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            out: List[Dict[str, Any]] = []
+            with COMPETITIVE_LOCK:
+                try:
+                    with open(COMPETITIVE_FORFEITS_PATH, "r", encoding="utf-8") as f:
+                        pending = json.load(f)
+                    if not isinstance(pending, dict):
+                        pending = {}
+                except (FileNotFoundError, json.JSONDecodeError):
+                    pending = {}
+            for entry in pending.values():
+                if (isinstance(entry, dict) and not entry.get("processed")
+                        and str(entry.get("loser", "")).strip() == who):
+                    out.append({
+                        "id": entry.get("id"),
+                        "winner": entry.get("winner"),
+                        "loser": entry.get("loser"),
+                        "room_id": entry.get("room_id"),
+                        "ts": entry.get("ts"),
+                        "season_id": entry.get("season_id"),
+                    })
+            out.sort(key=lambda e: int(e.get("ts", 0)))
+            self._send_json({"ok": True, "pending": out})
+            return
+
         if parsed.path == "/api/competitive/leaderboard":
             qs = parse_qs(parsed.query)
             season_filter = qs.get("season", [None])[0]
@@ -6042,6 +6309,42 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
             allow = bool(body.get("allow", True))
             self._send_json(room.set_allow_spectators(host_token, seat_token, allow), status=HTTPStatus.OK)
+            return
+
+        if parsed.path == "/api/competitive/forfeit_ack":
+            # The loser's client has applied the CP penalty for a forfeit loss —
+            # mark the pending entry processed so it is never applied twice.
+            entry_id = str(body.get("id", "")).strip()
+            who = str(body.get("name", "")).strip()
+            if not entry_id or not who:
+                self._send_json({"ok": False, "error": "id and name required"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            with COMPETITIVE_LOCK:
+                try:
+                    with open(COMPETITIVE_FORFEITS_PATH, "r", encoding="utf-8") as f:
+                        pending = json.load(f)
+                    if not isinstance(pending, dict):
+                        pending = {}
+                except (FileNotFoundError, json.JSONDecodeError):
+                    pending = {}
+                entry = pending.get(entry_id)
+                if not isinstance(entry, dict):
+                    self._send_json({"ok": False, "error": "unknown forfeit id"}, status=HTTPStatus.NOT_FOUND)
+                    return
+                # Guard: only the named loser may ack their own forfeit loss.
+                if str(entry.get("loser", "")).strip() != who:
+                    self._send_json({"ok": False, "error": "name mismatch"}, status=HTTPStatus.FORBIDDEN)
+                    return
+                entry["processed"] = True
+                entry["processed_unix"] = now_unix()
+                if "cp_delta" in body:
+                    try:
+                        entry["cp_delta"] = int(body.get("cp_delta", 0))
+                    except (TypeError, ValueError):
+                        pass
+                pending[entry_id] = entry
+                atomic_write_json(COMPETITIVE_FORFEITS_PATH, pending)
+            self._send_json({"ok": True})
             return
 
         if parsed.path == "/api/competitive/ranked_result":

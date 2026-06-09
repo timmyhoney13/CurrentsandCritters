@@ -12168,6 +12168,18 @@
     if (Number.isFinite(v) && v < _lastStateVersion) return false; // stale, drop
     if (Number.isFinite(v)) _lastStateVersion = v;
     latestPayload = d;
+    // Competitive: a player controls two hands (two seats). When the turn
+    // switches to my OTHER hand, the just-completed poll may have used my first
+    // hand's token, so this payload's viewer is the wrong hand (can_act=false →
+    // "waiting…"). Detect that and immediately re-fetch with the now-active
+    // hand's token so its board + YOUR TURN go live without a poll-cycle lag.
+    if (compMode && Array.isArray(compMySeats)) {
+      const aas = Number(d.active_action_seat);
+      const viewerSeat = Number(d.viewer && d.viewer.seat_index);
+      if (compMySeats.includes(aas) && compTokens[aas] && viewerSeat !== aas) {
+        setTimeout(() => { try { refreshState(); } catch (_) {} }, 0);
+      }
+    }
     // Skip the full DOM rebuild when the server state hasn't changed since last render.
     // Manual calls to renderPayload() bypass this and always re-render (local state changes).
     if (Number.isFinite(v) && v === _lastRenderedVersion) return true;
@@ -14807,7 +14819,9 @@
       discBanner.classList.remove("visible");
     }
 
-    // end game overlay
+    // end game overlay. Capture any competitive forfeit result first so the
+    // ranked-result handler records the win/loss by forfeit (not by score).
+    _forfeitResult = (payload.forfeit && typeof payload.forfeit === "object") ? payload.forfeit : null;
     renderEndGame(payload.winner || null, Array.isArray(payload.final_scores) ? payload.final_scores : []);
 
     // chat
@@ -16722,6 +16736,10 @@
   let _compPendingRoomCode = "";
   let _compPendingHToken = "";
   let _compRenameOpen = -1;  // seat index currently being renamed, or -1
+  // Set from the state payload when a competitive match ends by forfeit (a
+  // player left). { forfeit:true, winner, loser, reason }. Consumed by
+  // processRankedGameEnd so the result is recorded by forfeit, not by score.
+  let _forfeitResult = null;
 
   function compDefaultHandName(seatIdx) {
     const num = seatIdx + 1;
@@ -19961,7 +19979,10 @@
     const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
     const isGuest  = typeof window.__fishIsGuest  === "function" ? !!window.__fishIsGuest() : false;
     if (isGuest || !authUser || !db) return;
-    if (_latestRoundCount < 3) return;
+    // Forfeit wins/losses count no matter how early the match ended; only the
+    // normal score-based path requires a real game (>= 3 rounds).
+    const _isForfeit = !!(_forfeitResult && _forfeitResult.forfeit);
+    if (!_isForfeit && _latestRoundCount < 3) return;
     if (!compP1Name || !compP2Name || compP1Name === compP2Name) return;
 
     try {
@@ -19982,7 +20003,13 @@
       const p2Second = p2Scores.length >= 2 ? Math.min(...p2Scores) : p2Best;
 
       let winner = null, isDraw = false;
-      if (p1Best > p2Best)           winner = compP1Name;
+      if (_isForfeit) {
+        // Forfeit: the server already decided the winner (player who stayed).
+        // Never a draw. Match the forfeit name to a physical player.
+        const fw = String(_forfeitResult.winner || "");
+        winner = (fw === compP1Name) ? compP1Name : (fw === compP2Name) ? compP2Name : fw;
+        isDraw = false;
+      } else if (p1Best > p2Best)    winner = compP1Name;
       else if (p2Best > p1Best)      winner = compP2Name;
       else if (p1Second > p2Second)  winner = compP1Name;
       else if (p2Second > p1Second)  winner = compP2Name;
@@ -19992,6 +20019,13 @@
       const myPhys = amP1 ? compP1Name : compP2Name;
       const iWon   = !isDraw && winner === myPhys;
       const iLost  = !isDraw && winner !== myPhys;
+
+      // Forfeit LOSER: their CP penalty is applied exclusively by the
+      // pending-forfeit mechanism (checkPendingForfeitLosses) on their next
+      // lobby load — the single source of truth. This avoids double-counting if
+      // the loser happens to still be connected when the forfeit fires. (The
+      // forfeit WINNER continues through the normal win path below.)
+      if (_isForfeit && iLost) { _lastRankedProcessed = roomId; return; }
 
       const docRef = db.collection("users").doc(authUser.uid);
       const snap   = await docRef.get();
@@ -20155,6 +20189,72 @@
     }
   }
 
+  // ── Pending forfeit losses (applied on lobby load) ─────────────────
+  // When a player leaves a competitive match and doesn't return within 30s, the
+  // server records a forfeit loss for them. They are offline at that moment, so
+  // their CP penalty (no XP, loss counted) is applied here the next time they
+  // reach the lobby. Idempotent: the server marks each entry processed on ack,
+  // and a session guard prevents repeat passes.
+  let _forfeitCheckInFlight = false;
+  async function checkPendingForfeitLosses() {
+    if (_forfeitCheckInFlight) return;
+    const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+    const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+    const isGuest  = typeof window.__fishIsGuest  === "function" ? !!window.__fishIsGuest() : false;
+    if (isGuest || !authUser || !db) return;
+    const myName = (_playerNickname || "").trim();
+    if (!myName) return;
+    _forfeitCheckInFlight = true;
+    try {
+      const r = await apiFetch(`/api/competitive/forfeit_pending?name=${encodeURIComponent(myName)}`, { method: "GET", timeoutMs: 8000 });
+      const pending = (r && r.ok && r.data && Array.isArray(r.data.pending)) ? r.data.pending : [];
+      for (const item of pending) {
+        try { await _applyForfeitLoss(item, authUser, db, myName); } catch (_) {}
+      }
+    } catch (_) {
+    } finally {
+      _forfeitCheckInFlight = false;
+    }
+  }
+
+  async function _applyForfeitLoss(item, authUser, db, myName) {
+    if (!item || !item.id) return;
+    const curSeasonId = (typeof _compGetSeasonId === "function") ? _compGetSeasonId() : "";
+    // Stale forfeit from a previous season — ack without touching this season's CP.
+    if (item.season_id && curSeasonId && String(item.season_id) !== String(curSeasonId)) {
+      try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: 0 }); } catch (_) {}
+      return;
+    }
+    const docRef = db.collection("users").doc(authUser.uid);
+    const snap   = await docRef.get();
+    const cStats = ((snap.data() || {}).stats) || {};
+    const curCp     = Number(cStats.comp_cp || 0);
+    const curWins   = Number(cStats.competitive_wins   || 0);
+    const curLosses = Number(cStats.competitive_losses || 0);
+    const curDraws  = Number(cStats.competitive_draws  || 0);
+    const hasPlayedBefore = (curWins + curLosses + curDraws) > 0;
+    const cpDelta = (typeof _compGetCpDelta === "function") ? _compGetCpDelta(curCp, "loss", hasPlayedBefore) : 0;
+    const newCp   = Math.max(0, curCp + cpDelta);
+    const rankFn  = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
+    const newRankDiv  = rankFn ? rankFn(newCp, true) : null;
+    const newRankName = newRankDiv ? newRankDiv.division : (cStats.rank_competitive || "Bronze Barracuda I");
+    // Apply: CP down (never below 0), loss counted, streak reset. NO XP.
+    await docRef.update({
+      "stats.comp_cp":                 newCp,
+      "stats.comp_season_id":          curSeasonId || (cStats.comp_season_id || ""),
+      "stats.competitive_losses":      curLosses + 1,
+      "stats.competitive_streak":      0,
+      "stats.rank_competitive":        newRankName,
+      "stats.lifetime_comp_losses":    firebase.firestore.FieldValue.increment(1),
+    });
+    // Mark processed so it never applies twice.
+    try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: cpDelta }); } catch (_) {}
+    try {
+      showToast(`Forfeit loss vs ${item.winner || "opponent"}: ${cpDelta} CP → ${newCp}`, "warn", 9000);
+    } catch (_) {}
+    console.info("[forfeit] applied pending loss", item.id, "CP", curCp, "→", newCp);
+  }
+
   function renderEndGame(winner, finalScores) {
     const overlay = document.getElementById("pv-endgame-overlay");
     if (!winner) {
@@ -20255,7 +20355,11 @@
       first100Names.includes(myName),
       highCardWhoList.includes(myName),
     ].filter(Boolean).length;
-    const totalXp = _gameTerminatedByMe ? 0 : (xpBase + myStatWins * 15);
+    // Forfeit loser earns NO XP (they abandoned the match); their CP penalty is
+    // applied separately via the pending-forfeit mechanism.
+    const _amForfeitLoser = !!(_forfeitResult && _forfeitResult.forfeit && compMySeats.length
+      && ((compMySeats[0] < 2 ? compP1Name : compP2Name) === _forfeitResult.loser));
+    const totalXp = (_gameTerminatedByMe || _amForfeitLoser) ? 0 : (xpBase + myStatWins * 15);
 
     // Save stats with the total XP including stat bonuses (kept in sync with display).
     // This runs on every end-game poll until it succeeds — even if the overlay was
@@ -23360,6 +23464,8 @@
         listenForFriendRequests(_authUser.uid);
         // Start DM conversation listener (drives the header unread badge)
         if (typeof _msgStartListListener === "function") _msgStartListListener();
+        // Apply any competitive forfeit losses incurred while we were offline.
+        try { setTimeout(() => { checkPendingForfeitLosses().catch(() => {}); }, 1500); } catch (_) {}
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
@@ -28014,6 +28120,8 @@
       const emptyEl = $a("ph-comp-ranked-empty");
       const dashEl  = $a("ph-comp-ranked-dash");
       if (!dashEl) return;
+      // Apply any pending forfeit losses (e.g. left a match) before rendering CP.
+      try { if (typeof checkPendingForfeitLosses === "function") await checkPendingForfeitLosses(); } catch (_) {}
 
       if (loadEl)  loadEl.style.display  = "";
       if (emptyEl) emptyEl.style.display = "none";
