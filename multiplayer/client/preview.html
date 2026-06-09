@@ -31384,9 +31384,13 @@
     { target: "#pv-my-board", badge: "Your Turn", title: "Your Turn Is Back!",
       text: "The AI players are done — <strong>it's your turn again</strong>. This time we'll <strong>play your Ocean card before drawing</strong>. In Currents &amp; Critters you can always play cards at the start of your turn, before (or instead of) drawing. Let's get your ocean down!" },
 
-    // ── 2. Claim an ocean (interactive) ──────────────────────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Claim an Ocean", interactive: true, allowNext: true, advanceWhen: () => gtOceanCount() >= 1,
-      text: "<strong>Drag an Ocean card</strong> from your hand to the glowing board zone above, or <strong>click the zone</strong> to open a card picker and play one. Your hand has an Ocean card ready to go — claim your first ocean now!" },
+    // ── 2. Claim a Mangrove ocean (interactive) ──────────────────────
+    { target: "#pv-my-board", badge: "Your Turn", title: "Claim Your Mangrove", interactive: true, allowNext: true, advanceWhen: () => gtOceanCount() >= 1,
+      text: "Your hand holds a <strong>Mangrove</strong> ocean — a great one to learn on. <strong>Drag the Mangrove</strong> from your hand onto the glowing board zone above, or <strong>click the zone</strong> to pick it. <em>Fun fact:</em> if you ever get all <strong>8 different ocean types</strong> onto your board in one game, the Mangrove hands you a big bonus. Claim it now!" },
+
+    // ── 2b. Star abilities ★ (info) ──────────────────────────────────
+    { target: "#pv-star-toggle", badge: "Your Hand", title: "Star Abilities ★",
+      text: "See the cards in your hand edged in <strong style=\"color:#F0C840\">gold</strong>? Those carry a <strong>★ Star ability</strong> — an extra effect like <em>“Play again.”</em> Here's the trick: when you play a card you pay its cost by <strong>discarding cards</strong>, and if at least one discarded card's <strong>symbol matches</strong> (♥ ♦ ▲ etc.), the Star fires. The <strong>★ toggle</strong> here decides whether you try for it. Matching cards glow gold while you pick payment — discard one and you might get a free <strong>Play Again</strong>!" },
 
     // ── 3. Play your first creature (interactive) ────────────────────
     { target: "#pv-my-board", badge: "Your Turn", title: "Play a Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 1,
@@ -31398,7 +31402,7 @@
 
     // ── 5. Peek at other boards (interactive: open) ──────────────────
     { target: gtOtherSeat, badge: "Scouting", title: "Peek at Other Boards", interactive: true, allowNext: true, advanceWhen: gtBoardPeek,
-      text: "You can scout your opponents. <strong>Hover a player</strong> to peek at their board, or <strong>click them</strong> to enlarge it. Try clicking a player now." },
+      text: "You can scout your opponents. <strong>Hover a player</strong> to peek at their board, or <strong>click them</strong> to enlarge it. <strong>Click any opponent now</strong> to open their board. <em>Tip:</em> when it's <strong>not your turn</strong>, you can click <strong>your own avatar</strong> to swap your icon any time." },
 
     // ── 6. Board focus description (interactive: close) ──────────────
     { target: "#pv-board-focus", badge: "Scouting", title: "Their Whole Board", interactive: true, allowNext: true, advanceWhen: gtBoardFocusClosed,
@@ -31423,9 +31427,21 @@
     { target: "#pv-my-board", badge: "Your Turn", title: "Play One More Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 2,
       text: "Last thing: <strong>play a second creature</strong> onto another open side of your ocean, the same way as before. This completes your turn's plays." },
 
+    // ── 11. Score breakdown (info) ───────────────────────────────────
+    { target: "#pv-my-score-badge", badge: "Scoring", title: "Track Your Score",
+      text: "Your <strong>live score</strong> sits up here in the top-left. <strong>Tap it any time</strong> (or open <strong>Menu → 🏆 Score Breakdown</strong>) to see exactly how your points add up — each creature, every bonus, and the Mangrove's all-8 reward — so you always know where you stand." },
+
+    // ── 12. Chat, Surf's Up & AFK (info) ─────────────────────────────
+    { target: "#pv-surf-btn", badge: "At the Table", title: "Chat, Surf's Up & AFK",
+      text: "Need a break? Hit <strong>🏄 Surf's Up!!</strong> to mark yourself <strong>Away</strong> — the table waits for you and won't time you out. Open <strong>💬 Chat</strong> to talk with the table. And if someone goes quiet on <em>their</em> turn, anyone can type <strong>“&lt;name&gt; is AFK”</strong> in chat: once <strong>half the table</strong> agrees, that player gets a quick 10-second “Are you still here?” check, then auto-draws so the game keeps flowing." },
+
+    // ── 13. How the game ends (info) ─────────────────────────────────
+    { target: "#pv-draw-deck", badge: "Endgame", title: "How the Game Ends",
+      text: "Hidden in the <strong>bottom of the deck</strong> is a single <strong>END GAME</strong> card. The moment <em>anyone</em> draws it, the end is triggered — <strong>everyone, including the player who drew it, gets one final turn</strong>, and then the game is over. When the dust settles, the <strong>highest score wins</strong>. So build your board, chase those bonuses, and watch that deck get thin!" },
+
     // ── Done ─────────────────────────────────────────────────────────
     { target: null, badge: "Part 2 Complete", title: "Tutorial Part 2 Complete!",
-      text: "Nicely done — you drew, claimed an ocean, played creatures, scouted opponents, and learned full screen and hand sorting. That is a full turn. Select <strong>Finish</strong> to head back to the tutorial menu." },
+      text: "Nicely done — you drew, claimed a Mangrove, played creatures, and learned Star abilities, scouting, full screen, hand sorting, scoring, Surf's Up &amp; chat, and how the game ends. That's everything you need to play for real. Select <strong>Finish</strong> to head back to the tutorial menu." },
   ];
 
   function runGameTour() {

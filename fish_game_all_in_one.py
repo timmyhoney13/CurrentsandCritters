@@ -7225,6 +7225,40 @@ def rig_tutorial_opening_hand(
         return
     p = gs.players[idx]
 
+    # Tutorial Part 2 teaches the Mangrove ocean (it has the famous "all 8
+    # oceans" bonus). Best-effort: ensure the player opens with at least one
+    # Mangrove so the guided "Claim Your Mangrove" step is accurate. Runs FIRST,
+    # before the playability check below, so it applies to every tutorial hand —
+    # not only hands that needed fixing. If the hand already has a Mangrove, or
+    # the deck has none to swap in, this is a no-op and the game is unaffected.
+    def _is_mangrove(u: int) -> bool:
+        for fu in entry_faces(ms, u):
+            c = gs.card_db.get(fu)
+            if c is not None and is_ocean(c) and c.name.strip().lower() == "mangrove":
+                return True
+        return False
+
+    if not any(_is_mangrove(u) for u in p.hand):
+        mangrove_donor = next(
+            (u for u in gs.deck if u != end_uid and _is_mangrove(u)), None
+        )
+        if mangrove_donor is not None:
+            gs.deck.remove(mangrove_donor)
+            # Prefer to swap out an existing (non-Mangrove) ocean; otherwise swap
+            # a spare non-ocean card, to keep the hand size stable.
+            swap_out = next(
+                (u for u in p.hand if entry_is_ocean(ms, gs, u) and not _is_mangrove(u)),
+                None,
+            )
+            if swap_out is None:
+                swap_out = next(
+                    (u for u in p.hand if not entry_is_ocean(ms, gs, u)), None
+                )
+            if swap_out is not None:
+                p.hand.remove(swap_out)
+                gs.deck.append(swap_out)
+            p.hand.append(mangrove_donor)
+
     def dirs_of(uid: int) -> set:
         s: set = set()
         for u in entry_faces(ms, uid):
