@@ -12096,6 +12096,12 @@
   window.__ccConnInfo   = () => ({ version: _lastStateVersion, sse: !!sseSource, polling: !!pollTimer, room: (typeof roomId !== "undefined" ? roomId : null) || null });
   window.__ccLastAction = null;
   window.__ccNoteAction = (a) => { try { window.__ccLastAction = { kind: a && a.kind, action: a, at: Date.now() }; } catch (_) {} };
+  // Monotonic count of successfully-submitted draw actions (deck OR pool). The
+  // guided tutorial uses this to detect "the player drew their 2 cards" — needed
+  // because the 2nd draw ends the turn, so a turn-state check (can_act) can't be
+  // relied on to confirm the draw completed.
+  let _ccDrawCount = 0;
+  window.__ccDrawCount = () => _ccDrawCount;
   // Server-mod bridges: room id, this client's seat token, the live legal-action
   // list, and an apply hook (used by What If → Apply This Move).
   window.__ccRoomId = () => (typeof roomId !== "undefined" ? roomId : null);
@@ -13260,7 +13266,11 @@
     const human = _ncIsCompetitive ? 4 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
     const ai    = _ncIsCompetitive ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
-    const visibility = document.getElementById("nc-visibility").value;
+    // Tutorial flag is a one-shot set by "The Game" tour; consume it here so a
+    // later manual create is never mis-flagged as a tutorial game.
+    const _isTutGame = (window.__ccTutorialGame === true);
+    window.__ccTutorialGame = false;
+    let visibility = document.getElementById("nc-visibility").value;
     let password = "";
     let rid = Math.random().toString(36).slice(2,7).toUpperCase();
     if (visibility === "private") {
@@ -13272,6 +13282,17 @@
       rid = code;
       password = code;
     }
+    if (_isTutGame) {
+      // Keep the tutorial game completely separate from every other game:
+      // force it PRIVATE with a unique TUT… code so it never appears in the
+      // Open Currents list and no real player can join and disrupt the guided
+      // turn (which would scramble turn order and trap the draw step).
+      visibility = "private";
+      const tutSuffix = (Date.now().toString(36) + Math.random().toString(36).slice(2))
+        .replace(/[^a-z0-9]/gi, "").toUpperCase();
+      rid = ("TUT" + tutSuffix).slice(0, 12);   // always 4–12 uppercase alphanumerics
+      password = rid;
+    }
     _myRoomVisibility = visibility;
     _myRoomCode = password;
     const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
@@ -13281,10 +13302,6 @@
     const _ncBtnLabel = btn.querySelector(".nc-btn-label");
     if (_ncBtnLabel) _ncBtnLabel.textContent = "Generating…";
     errEl.textContent = "";
-    // Tutorial flag is a one-shot set by "The Game" tour; consume it here so a
-    // later manual create is never mis-flagged as a tutorial game.
-    const _isTutGame = (window.__ccTutorialGame === true);
-    window.__ccTutorialGame = false;
     const r = await apiPost("/api/rooms", {
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: human, ai_players: ai,
@@ -13606,11 +13623,18 @@
       pl.payment_uids = pay.picks;
     }
 
+    // Increment the draw counter OPTIMISTICALLY before the network round-trip so
+    // a slow or 503-ing server can never leave the tutorial stuck on the draw step.
+    // Reverted below if the server rejects the action.
+    const _isDrawAction = (action.kind === "draw");
+    if (_isDrawAction) _ccDrawCount++;
+
     actionInFlight = true;
     setStatus("Submitting…");
     try {
       const r = await apiPost(`/api/rooms/${roomId}/action`, pl, { timeoutMs:15000 });
       if (!r.ok) {
+        if (_isDrawAction) _ccDrawCount--;  // revert optimistic increment on rejection
         if (r.data?.error === "room not found") { handleRoomLost(); return; }
         const errMsg = "Failed: " + (r.data?.error || r.status);
         setStatus(errMsg); showToast(errMsg, "err"); return;
@@ -13636,6 +13660,7 @@
         canInteract = false;
         _lastActionMs = Date.now();
       }
+      // (draw counter already incremented optimistically above)
       // Track per-game stats for achievements
       // I Don't Need Help: any manual draw (Pool OR Deck) disqualifies the game.
       if (action.kind === "draw" && Number(action.draw_from_pool || 0) === 0) {
@@ -30872,8 +30897,12 @@
     const nextBtn = coach.querySelector("#tut3-next");
     if (i >= coachSteps.length - 1) {
       nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
-    } else if (step.interactive) {
+    } else if (step.interactive && !step.allowNext) {
       nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
+    } else if (step.interactive && step.allowNext) {
+      // Interactive but never trapping: the step auto-advances when the action
+      // is detected, and the user can also click Next to move on manually.
+      nextBtn.textContent = "Next →"; nextBtn.disabled = false;
     } else {
       nextBtn.textContent = "Next →"; nextBtn.disabled = false;
     }
@@ -31271,8 +31300,6 @@
     me.board.forEach(o => ["up", "down", "left", "right"].forEach(d => { if (Array.isArray(o[d])) n += o[d].length; }));
     return n;
   }
-  function gtLegal() { try { return (window.__ccLegalActions && window.__ccLegalActions()) || []; } catch (_) { return []; } }
-  function gtDrawDone() { return gtMyTurn() && !gtLegal().some(a => a && a.kind === "draw"); }
   function gtZoomOpen() { const m = document.getElementById("pv-zoom-modal"); return !!(m && m.classList.contains("open")); }
   function gtZoomClosed() { const m = document.getElementById("pv-zoom-modal"); return !(m && m.classList.contains("open")); }
   function gtBoardFocusOpen() { const m = document.getElementById("pv-board-focus"); return !!(m && m.classList.contains("open")); }
@@ -31281,6 +31308,20 @@
   // Snapshot of the hand's left-to-right order, for detecting a manual reorder.
   function gtHandSig() { return Array.from(document.querySelectorAll("#pv-hand .pv-hand-card")).map(c => c.dataset.entryUid).join(","); }
   let _tutHandSig = "";
+  // Draw-count baseline captured when the "Draw Your Cards" step opens. The step
+  // advances once the player has drawn 2 cards (deck/pool, any mix). We can't use
+  // gtDrawDone() here: drawing the 2nd card ends the turn, so can_act flips to
+  // false and a turn-state check would never see the completed draw.
+  let _gtDrawBase = 0;
+  let _gtDrawSawTurn = false;
+  let _gtHandBase = -1;  // DOM hand card count when the draw step opens
+  function gtDrawCount() { try { return window.__ccDrawCount ? window.__ccDrawCount() : 0; } catch (_) { return 0; } }
+  function gtHandCardCount() { try { return document.querySelectorAll("#pv-hand .pv-hand-card").length; } catch (_) { return 0; } }
+  // "Opponents Are Going" step: only advance to the play steps once the turn has
+  // actually left the player (bots took over) AND come back. Guards against the
+  // brief window right after the 2nd draw where can_act may still read true
+  // before the server processes the forced end-of-turn.
+  let _gtSawOppTurn = false;
   // First seat belonging to another player (always an AI in the 1-human tutorial).
   function gtOtherSeat() {
     const me = gtMe();
@@ -31301,6 +31342,8 @@
     { target: "#nc-ai", badge: "Step 2", title: "AI Critters",
       before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2); },
       text: "And this sets the <strong>computer opponents</strong>. We chose <strong>2 AI Critters</strong>. Together that is a 3 player game. You can pick any mix you like, up to 8 players." },
+    { target: "#nc-visibility", badge: "Step 2", title: "Public or Private",
+      text: "You can also choose who's allowed in. <strong>🌊 Public</strong> games show up in the Open Currents list so anyone can hop in. <strong>🔒 Private</strong> games are invite-only — you share a join code with just the friends you want. Switch between them anytime right here. (This practice game runs as a <strong>private</strong> table, so no one else can wander in while you learn.)" },
     { target: "#nc-create-btn", badge: "Step 3", title: "Generate the Current", interactive: true, advanceWhen: gtWaitingOpen,
       text: "Now <strong>click Generate Current</strong> to create the room." },
     { target: "#wr-players-list", badge: "Step 4", title: "Choose Bot Difficulty",
@@ -31317,15 +31360,36 @@
       text: "It is <strong>your turn</strong>. This <strong>guide bar</strong> always tells you what to do: first <strong>draw</strong>, then <strong>play</strong> cards, and only then end your turn. Let's go through it for real." },
 
     // ── 1. Draw (interactive) ────────────────────────────────────────
-    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Your Cards", interactive: true, advanceWhen: gtDrawDone,
+    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Your Cards", interactive: true, allowNext: true,
+      before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
+      advanceWhen: () => {
+        // Primary: hand started at 8 cards; drawing 2 brings it to 10.
+        if (_gtHandBase >= 0 && gtHandCardCount() >= _gtHandBase + 2) return true;
+        // Backup 1: optimistic draw counter fires the moment the 2nd draw is submitted.
+        if (gtDrawCount() >= _gtDrawBase + 2) return true;
+        // Backup 2: drawing the 2nd card ends the turn — losing can_act after
+        // we confirmed it was our turn means both draws completed.
+        if (gtMyTurn()) { _gtDrawSawTurn = true; return false; }
+        return _gtDrawSawTurn;
+      },
       text: "Start your turn by drawing. <strong>Click the Deck</strong> to draw a card, or take one from the <strong>Pool</strong>. You draw <strong>two cards</strong> each turn — go ahead and draw both now." },
 
+    // ── 1b. Opponents go (info) ──────────────────────────────────────
+    { target: gtOtherSeat, badge: "Their Turn", title: "Opponents Are Going",
+      before: () => { _gtSawOppTurn = false; },
+      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
+      text: "Nice draw! Drawing your second card ends your turn automatically, so the AI players take their turns now. We'll come back the moment it's yours again." },
+
+    // ── 1c. Your turn is back — orient before ocean step ────────────
+    { target: "#pv-my-board", badge: "Your Turn", title: "Your Turn Is Back!",
+      text: "The AI players are done — <strong>it's your turn again</strong>. This time we'll <strong>play your Ocean card before drawing</strong>. In Currents &amp; Critters you can always play cards at the start of your turn, before (or instead of) drawing. Let's get your ocean down!" },
+
     // ── 2. Claim an ocean (interactive) ──────────────────────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Claim an Ocean", interactive: true, advanceWhen: () => gtOceanCount() >= 1,
-      text: "Every creature needs an <strong>ocean</strong> to live on, so play one first. You can either <strong>drag an Ocean card</strong> from your hand onto the glowing zone, or <strong>click the zone</strong> and pick one. Do it now to claim your first ocean." },
+    { target: "#pv-my-board", badge: "Your Turn", title: "Claim an Ocean", interactive: true, allowNext: true, advanceWhen: () => gtOceanCount() >= 1,
+      text: "<strong>Drag an Ocean card</strong> from your hand to the glowing board zone above, or <strong>click the zone</strong> to open a card picker and play one. Your hand has an Ocean card ready to go — claim your first ocean now!" },
 
     // ── 3. Play your first creature (interactive) ────────────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Play a Creature", interactive: true, advanceWhen: () => gtCreatureCount() >= 1,
+    { target: "#pv-my-board", badge: "Your Turn", title: "Play a Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 1,
       text: "Now deploy a creature. There are three ways: <strong>drag a card</strong> from your hand onto an open ocean slot, <strong>click a glowing + slot</strong> to pick one for that exact side, or use the dropdown in the action bar. Play one creature now." },
 
     // ── 4. End Turn explanation (no action — just teach) ─────────────
@@ -31333,30 +31397,30 @@
       text: "See <strong>End Turn</strong>? You do <strong>not</strong> need it while you still have moves. You only click it when you are <strong>out of plays</strong> — which mostly matters near the end of the game. <strong>Do not click it yet</strong> — we have a little more to do this turn." },
 
     // ── 5. Peek at other boards (interactive: open) ──────────────────
-    { target: gtOtherSeat, badge: "Scouting", title: "Peek at Other Boards", interactive: true, advanceWhen: gtBoardPeek,
+    { target: gtOtherSeat, badge: "Scouting", title: "Peek at Other Boards", interactive: true, allowNext: true, advanceWhen: gtBoardPeek,
       text: "You can scout your opponents. <strong>Hover a player</strong> to peek at their board, or <strong>click them</strong> to enlarge it. Try clicking a player now." },
 
     // ── 6. Board focus description (interactive: close) ──────────────
-    { target: "#pv-board-focus", badge: "Scouting", title: "Their Whole Board", interactive: true, advanceWhen: gtBoardFocusClosed,
+    { target: "#pv-board-focus", badge: "Scouting", title: "Their Whole Board", interactive: true, allowNext: true, advanceWhen: gtBoardFocusClosed,
       text: "This shows <strong>everything they have played</strong> — every ocean and creature, exactly as it scores. Use this to plan your moves. Click the <strong>✕</strong> to close it and continue.",
       before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} } },
 
     // ── 7. Full screen a card (interactive: open) ────────────────────
-    { target: "#pv-hand", badge: "Your Hand", title: "View a Card Full Screen", interactive: true, advanceWhen: gtZoomOpen,
+    { target: "#pv-hand", badge: "Your Hand", title: "View a Card Full Screen", interactive: true, allowNext: true, advanceWhen: gtZoomOpen,
       text: "Want a closer look? <strong>Click any card in your hand</strong> to view it full screen, big and clear. Try it now." },
 
     // ── 8. Zoom arrows + close (interactive: close) ──────────────────
-    { target: "#pv-zoom-modal", badge: "Your Hand", title: "Flip Through Your Hand", interactive: true, advanceWhen: gtZoomClosed,
+    { target: "#pv-zoom-modal", badge: "Your Hand", title: "Flip Through Your Hand", interactive: true, allowNext: true, advanceWhen: gtZoomClosed,
       text: "Use the <strong>‹ and › arrows</strong> on the sides to flip through every card in your hand without leaving full screen. When you are done, click the <strong>✕</strong> to close." },
 
     // ── 9. Reorder hand (interactive) ────────────────────────────────
-    { target: "#pv-hand", badge: "Your Hand", title: "Rearrange Your Hand", interactive: true,
+    { target: "#pv-hand", badge: "Your Hand", title: "Rearrange Your Hand", interactive: true, allowNext: true,
       before: () => { _tutHandSig = gtHandSig(); },
       advanceWhen: () => gtHandSig() !== _tutHandSig,
       text: "You can tidy your hand any time. <strong>Drag a card and drop it onto another card</strong> to move it. Rearrange one now to see how it works." },
 
     // ── 10. Play your second creature → finale (interactive) ─────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Play One More Creature", interactive: true, advanceWhen: () => gtCreatureCount() >= 2,
+    { target: "#pv-my-board", badge: "Your Turn", title: "Play One More Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 2,
       text: "Last thing: <strong>play a second creature</strong> onto another open side of your ocean, the same way as before. This completes your turn's plays." },
 
     // ── Done ─────────────────────────────────────────────────────────
