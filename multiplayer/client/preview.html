@@ -12102,6 +12102,12 @@
   // relied on to confirm the draw completed.
   let _ccDrawCount = 0;
   window.__ccDrawCount = () => _ccDrawCount;
+  // Live payment-mode bridge for the guided tutorial: returns the action that is
+  // currently staged waiting for the player to pick discard cards (or null when
+  // not paying). Lets the tour detect "the player started paying for the Ocean /
+  // creature" and walk them through Confirm Payment. (pendingPayAction is a let
+  // in this same scope, assigned far below — only read at runtime mid-game.)
+  window.__ccPendingPay = () => { try { return pendingPayAction || null; } catch (_) { return null; } };
   // Server-mod bridges: room id, this client's seat token, the live legal-action
   // list, and an apply hook (used by What If → Apply This Move).
   window.__ccRoomId = () => (typeof roomId !== "undefined" ? roomId : null);
@@ -30841,6 +30847,24 @@
   #tut3-hole { position:fixed; top:0; left:0; width:0; height:0; border-radius:14px; border:2.5px solid #5fd0e8; box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 22px rgba(95,208,232,.6); transition:top .28s ease, left .28s ease, width .28s ease, height .28s ease; pointer-events:none; }
   /* No target → keep the full-screen dim (box-shadow) but hide the ring. */
   #tut3-hole.nohole { width:0!important; height:0!important; left:50%!important; top:-12px!important; border-color:transparent!important; box-shadow:0 0 0 9999px rgba(5,24,44,.74)!important; }
+  /* Secondary highlight: glowing rings drawn over EXTRA elements a step wants to
+     call out (e.g. the board drop-zone while the spotlight sits on the matching
+     hand card). Painted above the dim but below the popup, so two things light up
+     at once without ever covering the instructions. */
+  #tut3-glows { position:fixed; inset:0; pointer-events:none; }
+  .tut3-glow-ring { position:fixed; border-radius:14px; border:3px solid #ffd574; box-shadow:0 0 22px rgba(255,213,116,.9), inset 0 0 0 3px rgba(255,213,116,.3); animation:tut3-glow-pulse 1.15s ease-in-out infinite; pointer-events:none; }
+  @keyframes tut3-glow-pulse { 0%,100%{ opacity:.62; } 50%{ opacity:1; } }
+  /* Teaching card-row inside the popup: card images + glowing symbol badges, used
+     by the Star-ability lesson to show matching symbols side by side. */
+  .t2-row { display:flex; align-items:center; justify-content:center; gap:8px; margin:4px 0 12px; flex-wrap:wrap; }
+  .t2-card { display:flex; flex-direction:column; align-items:center; gap:5px; margin:0; }
+  .t2-card img { width:104px; max-width:32vw; height:auto; border-radius:9px; box-shadow:0 5px 16px rgba(8,40,80,.45); border:1px solid rgba(120,200,235,.55); background:#fff; display:block; }
+  .t2-row-single .t2-card img { width:158px; max-width:52vw; }
+  .t2-card figcaption { font-size:.72rem; font-weight:800; color:#1769b0; text-align:center; display:flex; align-items:center; gap:5px; line-height:1.1; }
+  .t2-sym { display:inline-flex; align-items:center; justify-content:center; min-width:21px; height:21px; padding:0 3px; border-radius:50%; font-size:.92rem; font-weight:900; background:#fffae8; border:2px solid #ffcf4d; box-shadow:0 0 10px rgba(255,200,60,.85); animation:tut3-glow-pulse 1.15s ease-in-out infinite; }
+  .t2-sym-heart, .t2-sym-diamond { color:#e23b5a; }
+  .t2-sym-triangle, .t2-sym-square, .t2-sym-circle { color:#1f7ad0; }
+  .t2-eq { font-size:1.5rem; font-weight:900; color:#2f8bd0; }
   #tut3-pop { position:fixed; max-width:440px; width:calc(100vw - 28px); background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:20px; box-shadow:0 22px 58px rgba(8,40,80,.55); padding:20px 24px 18px; font-family:"Nunito",sans-serif; color:#0f3a5e; transition:top .28s ease, left .28s ease; box-sizing:border-box; pointer-events:auto; }
   #tut3-pop .t3-badge { font-size:.76rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
   #tut3-pop h3 { font-family:"Cinzel",serif; font-size:1.42rem; font-weight:900; color:#1769b0; margin:4px 0 10px; line-height:1.2; }
@@ -30905,6 +30929,42 @@
     try { return document.querySelector(step.target); } catch (_) { return null; }
   }
 
+  // Resolve one glow descriptor (selector string OR function → element).
+  function coachResolveOne(g) {
+    if (g == null) return null;
+    if (typeof g === "function") { try { return g(); } catch (_) { return null; } }
+    try { return document.querySelector(g); } catch (_) { return null; }
+  }
+  // Secondary highlights (step.glow): draw pulsing rings over extra elements
+  // alongside the main spotlight. Rings live inside #tut3-glows (above the dim,
+  // below the popup) and are re-positioned every tick because the hand/board
+  // re-render on each poll and shift around.
+  function clearCoachGlows() {
+    const box = coach && coach.querySelector("#tut3-glows");
+    if (box) box.innerHTML = "";
+  }
+  function applyCoachGlows() {
+    const box = coach && coach.querySelector("#tut3-glows");
+    if (!box) return;
+    const step = coachSteps[coachIdx];
+    const want = (step && step.glow) ? (Array.isArray(step.glow) ? step.glow : [step.glow]) : [];
+    const els = want.map(coachResolveOne).filter(el => el && isVisible(el));
+    // Reuse ring nodes to avoid flicker; create/remove to match the target count.
+    while (box.children.length > els.length) box.removeChild(box.lastChild);
+    while (box.children.length < els.length) {
+      const ring = document.createElement("div"); ring.className = "tut3-glow-ring"; box.appendChild(ring);
+    }
+    els.forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      const pad = 6;
+      const ring = box.children[i];
+      ring.style.left   = Math.max(2, r.left - pad) + "px";
+      ring.style.top    = Math.max(2, r.top - pad) + "px";
+      ring.style.width  = Math.max(0, r.width + pad * 2) + "px";
+      ring.style.height = Math.max(0, r.height + pad * 2) + "px";
+    });
+  }
+
   // Called by an interactive mock element when the user performs an action.
   // If the current step is waiting for exactly that action, advance the tour.
   function coachHit(action) {
@@ -30924,6 +30984,7 @@
       `<div id="tut3-catch"></div>
        <div id="tut3-hole"></div>
        <div id="tut3-arrow"></div>
+       <div id="tut3-glows"></div>
        <div id="tut3-pop">
          <button class="t3-skip" id="tut3-skip">Skip ✕</button>
          <div class="t3-badge" id="tut3-badge"></div>
@@ -30962,6 +31023,7 @@
       const h = coach.querySelector("#tut3-hole"); if (h) h.classList.remove("pulse");
     }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
+    clearCoachGlows();
     const cu = coachCleanup;
     coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null; coachNoBack = false;
     try { cu && cu(); } catch (_) {}
@@ -30972,6 +31034,7 @@
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
     coachIdx = i;
     const step = coachSteps[i];
+    clearCoachGlows();
     try { step.before && step.before(); } catch (_) {}
     // Auto-advance once a real UI transition completes (modal opens, room
     // created, game started, etc.). Re-positions while it waits so the spotlight
@@ -30983,7 +31046,9 @@
     }
     coach.querySelector("#tut3-badge").textContent = step.badge || "";
     coach.querySelector("#tut3-title").innerHTML = step.title || "";
-    let bodyHtml = step.text || "";
+    // text may be a function so a step can build dynamic HTML (e.g. live card
+    // images) the moment it opens, after its before() has run.
+    let bodyHtml = (typeof step.text === "function" ? (step.text() || "") : (step.text || ""));
     if (step.cta) bodyHtml += `<div><button class="t3-cta" id="tut3-cta">${esc(step.cta.label)}</button></div>`;
     const textEl = coach.querySelector("#tut3-text");
     textEl.innerHTML = bodyHtml;
@@ -31032,6 +31097,7 @@
     if (!coach || !coach.classList.contains("open")) return;
     const step = coachSteps[coachIdx];
     if (!step) return;
+    applyCoachGlows();
     const hole = coach.querySelector("#tut3-hole");
     const pop = coach.querySelector("#tut3-pop");
     const arrow = coach.querySelector("#tut3-arrow");
@@ -31438,6 +31504,133 @@
     return seats.find(s => Number(s.dataset.playerIndex) !== myIdx) || seats[0] || null;
   }
 
+  // ── Hand-card lookups (for spotlighting a SPECIFIC card the player must play) ──
+  function gtFirstFace(entry) { return (entry && Array.isArray(entry.faces) && entry.faces[0]) ? entry.faces[0] : entry; }
+  function gtEntryUid(entry) {
+    const f = gtFirstFace(entry);
+    return Number(entry?.entry_uid ?? f?.uid ?? entry?.uid ?? 0);
+  }
+  // DOM node for a hand entry by its entry_uid (so we can spotlight that card).
+  function gtHandCardEl(entryUid) {
+    if (!entryUid) return null;
+    return document.querySelector(`#pv-hand .pv-hand-card[data-entry-uid="${entryUid}"]`) || null;
+  }
+  // The Mangrove ocean in the player's hand (rigged to always be present).
+  function gtMangroveEntry() {
+    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
+    return me.hand.find(e => {
+      const f = gtFirstFace(e);
+      return String(f?.name || "").trim().toLowerCase() === "mangrove";
+    }) || null;
+  }
+  function gtMangroveCardEl() { const e = gtMangroveEntry(); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
+  // Pick ONE creature for the player to deploy: prefer a payable (cost ≥ 1)
+  // creature that has a real placement direction, so the "pay for it" step always
+  // has something to pay. Cached per play so the claim + pay sub-steps agree.
+  let _gtChosenCreatureUid = 0;
+  function gtPickChosenCreature() {
+    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return 0;
+    let fallback = 0;
+    for (const e of me.hand) {
+      const f = gtFirstFace(e);
+      const sp = String(f?.species || "").toLowerCase();
+      if (sp.includes("ocean")) continue;
+      const dir = String(f?.direction || "").trim().toLowerCase();
+      if (!dir || dir === "n/a") continue;
+      const uid = gtEntryUid(e);
+      if (Number(f?.cost || 0) >= 1) return uid;   // payable creature — ideal
+      if (!fallback) fallback = uid;                // any placeable creature
+    }
+    return fallback;
+  }
+  function gtChosenCreatureEl() {
+    if (!_gtChosenCreatureUid) _gtChosenCreatureUid = gtPickChosenCreature();  // late-bind if before() ran before state loaded
+    return _gtChosenCreatureUid ? gtHandCardEl(_gtChosenCreatureUid) : null;
+  }
+  // Is the player mid-payment for an Ocean / a creature right now?
+  function gtPendingPay() { try { return (window.__ccPendingPay && window.__ccPendingPay()) || null; } catch (_) { return null; } }
+  function gtPayingOcean()   { const a = gtPendingPay(); return !!(a && a.kind === "play_ocean"); }
+  function gtPayingCreature(){ const a = gtPendingPay(); return !!(a && a.kind === "play_to_ocean"); }
+  // The live payment bar (spotlight target while the player picks discard cards).
+  function gtPayBarEl() { const el = document.getElementById("pv-payment-mode-bar"); return (el && el.offsetParent !== null) ? el : null; }
+  // The board's "play an Ocean here" drop zone (only present while it's legal);
+  // falls back to the whole board so the destination always lights up.
+  function gtOceanDropEl() { return document.getElementById("pv-ocean-drop-zone") || document.getElementById("pv-my-board"); }
+  function gtPoolEl() { return document.getElementById("pv-pool-area"); }
+  let _gtOceanBase = 0, _gtCreatureBase = 0;
+
+  // ── Star-ability lesson plumbing (Tutorial Part 2) ───────────────────────
+  // The server rigs an exact hand: Mangrove + Arctic Oceans share a symbol
+  // (fires Mangrove's *Play again*), and Great Albatross + Kelp Forest share a
+  // symbol (fires Albatross's *Draw one*). We locate those cards in the live
+  // hand, cache their face uids + symbols BEFORE they're played/discarded (so we
+  // can show them side by side afterward), force the ★ toggle on, and render the
+  // matching symbols as glowing badges.
+  const T2_GLYPH = { heart: "♥", diamond: "♦", triangle: "▲", square: "■", circle: "●" };
+  const _t2 = { mangrove: null, arctic: null, albatross: null, kelp: null };
+  function _t2FindByName(nameLc) {
+    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
+    for (const e of me.hand) {
+      const faces = Array.isArray(e.faces) && e.faces.length ? e.faces : [e];
+      for (const f of faces) {
+        if (String(f && f.name || "").trim().toLowerCase() === nameLc) {
+          return { entryUid: gtEntryUid(e), faceUid: Number(f.uid), sym: String(f.symbol || "").trim().toLowerCase() };
+        }
+      }
+    }
+    return null;
+  }
+  function t2ForceStarOn() {
+    const t = document.getElementById("pv-star-toggle");
+    if (t && !t.checked) { t.checked = true; try { t.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) {} }
+  }
+  // Find ALL hand records (entry+face+symbol) matching a card name.
+  function _t2FindAll(nameLc) {
+    const me = gtMe(); const out = [];
+    if (!me || !Array.isArray(me.hand)) return out;
+    for (const e of me.hand) {
+      const faces = Array.isArray(e.faces) && e.faces.length ? e.faces : [e];
+      for (const f of faces) {
+        if (String(f && f.name || "").trim().toLowerCase() === nameLc) {
+          out.push({ entryUid: gtEntryUid(e), faceUid: Number(f.uid), sym: String(f.symbol || "").trim().toLowerCase() });
+        }
+      }
+    }
+    return out;
+  }
+  // Resolve the rigged teaching PAIR: prefer an A and B that share a symbol (the
+  // coordinated pair), so a randomly-drawn duplicate never gets picked instead.
+  function _t2FindPair(nameA, nameB) {
+    const as = _t2FindAll(nameA), bs = _t2FindAll(nameB);
+    for (const a of as) for (const b of bs) { if (a.sym && a.sym === b.sym) return [a, b]; }
+    return (as.length && bs.length) ? [as[0], bs[0]] : null;
+  }
+  function t2CacheOceanPair() { const pr = _t2FindPair("mangrove", "arctic oceans"); if (pr) { _t2.mangrove = pr[0]; _t2.arctic = pr[1]; } }
+  function t2CacheBirdPair()  { const pr = _t2FindPair("great albatross", "kelp forest"); if (pr) { _t2.albatross = pr[0]; _t2.kelp = pr[1]; } }
+  // Spotlight targets: the specific teaching card in the hand (cache or live).
+  function t2HandEl(slot, nameLc) {
+    const e = _t2[slot] || _t2FindByName(nameLc);
+    return e ? gtHandCardEl(e.entryUid) : null;
+  }
+  function gtMangroveHandEl()  { return t2HandEl("mangrove", "mangrove"); }
+  function gtArcticHandEl()    { return t2HandEl("arctic", "arctic oceans"); }
+  function gtAlbatrossHandEl() { return t2HandEl("albatross", "great albatross"); }
+  function gtKelpHandEl()      { return t2HandEl("kelp", "kelp forest"); }
+  function t2Glyph(sym) { return T2_GLYPH[String(sym || "").toLowerCase()] || "★"; }
+  function t2Img(faceUid) { try { return (window.__ccCardImg && window.__ccCardImg(faceUid).url) || ""; } catch (_) { return ""; } }
+  // Build a row of card images, each with a glowing symbol badge underneath.
+  // `cards` = [{ rec:_t2.x, name:"…" }]; joined by an "=" to imply the match.
+  function t2Row(cards) {
+    const cells = cards.map(c => {
+      const rec = c.rec || {};
+      const glyph = t2Glyph(rec.sym), symCls = String(rec.sym || "").toLowerCase();
+      return `<figure class="t2-card"><img src="${t2Img(rec.faceUid)}" alt="${esc(c.name)}">`
+           + `<figcaption>${esc(c.name)} <span class="t2-sym t2-sym-${symCls}">${glyph}</span></figcaption></figure>`;
+    });
+    const single = cards.length === 1 ? " t2-row-single" : "";
+    return `<div class="t2-row${single}">${cells.join('<div class="t2-eq">=</div>')}</div>`;
+  }
+
   const GAME_STEPS = [
     { target: null, badge: "The Game", title: "Let's play a real game",
       text: "We will create and start an <strong>actual game</strong> together. Follow the glowing highlights and <strong>click for real</strong>. This is the exact path every game takes." },
@@ -31492,17 +31685,49 @@
     { target: "#pv-my-board", badge: "Your Turn", title: "Your Turn Is Back!",
       text: "The AI players are done — <strong>it's your turn again</strong>. This time we'll <strong>play your Ocean card before drawing</strong>. In Currents &amp; Critters you can always play cards at the start of your turn, before (or instead of) drawing. Let's get your ocean down!" },
 
-    // ── 2. Claim a Mangrove ocean (interactive) ──────────────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Claim Your Mangrove", interactive: true, allowNext: true, advanceWhen: () => gtOceanCount() >= 1,
-      text: "Your hand holds a <strong>Mangrove</strong> ocean — a great one to learn on. <strong>Drag the Mangrove</strong> from your hand onto the glowing board zone above, or <strong>click the zone</strong> to pick it. <em>Fun fact:</em> if you ever get all <strong>8 different ocean types</strong> onto your board in one game, the Mangrove hands you a big bonus. Claim it now!" },
+    // ── 2a. How paying & Star abilities work (info, before the 1st play) ──
+    { target: "#pv-star-toggle", badge: "Your Hand", title: "Paying &amp; Star Abilities ★",
+      before: () => { t2ForceStarOn(); },
+      text: "Before you play: <strong>every card costs cards</strong> — you pay by <strong>discarding cards from your hand</strong>. Cards edged in <strong style=\"color:#F0C840\">gold</strong> also carry a <strong>★ Star ability</strong> (a bonus like <em>“Play again”</em> or <em>“Draw one”</em>). The trick: if a card you discard to pay shares the <strong>same symbol</strong> as the card you're playing, that Star <strong>fires for free</strong>. Keep the <strong>★ toggle ON</strong> — we'll chain <strong>two</strong> Stars this turn!" },
 
-    // ── 2b. Star abilities ★ (info) ──────────────────────────────────
-    { target: "#pv-star-toggle", badge: "Your Hand", title: "Star Abilities ★",
-      text: "See the cards in your hand edged in <strong style=\"color:#F0C840\">gold</strong>? Those carry a <strong>★ Star ability</strong> — an extra effect like <em>“Play again.”</em> Here's the trick: when you play a card you pay its cost by <strong>discarding cards</strong>, and if at least one discarded card's <strong>symbol matches</strong> (♥ ♦ ▲ etc.), the Star fires. The <strong>★ toggle</strong> here decides whether you try for it. Matching cards glow gold while you pick payment — discard one and you might get a free <strong>Play Again</strong>!" },
+    // ── 2b. Play the Mangrove with its Star ON (gated) ───────────────────
+    { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Star Combo 1", title: "Play the Mangrove ★",
+      interactive: true,
+      before: () => { t2ForceStarOn(); t2CacheOceanPair(); _gtOceanBase = gtOceanCount(); },
+      advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
+      text: () => `<strong>Drag the glowing Mangrove</strong> from your hand onto the glowing board zone (leave the <strong>★ toggle ON</strong>). Its symbol is <span class="t2-sym t2-sym-${(_t2.mangrove&&_t2.mangrove.sym)||''}">${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</span> and its Star is <strong>★ Play Again</strong> — to fire it you'll pay with a matching card next.` },
 
-    // ── 3. Play your first creature (interactive) ────────────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Play a Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 1,
-      text: "Now deploy a creature. There are three ways: <strong>drag a card</strong> from your hand onto an open ocean slot, <strong>click a glowing + slot</strong> to pick one for that exact side, or use the dropdown in the action bar. Play one creature now." },
+    // ── 2c. Pay with the symbol-matched Arctic Oceans (gated) ────────────
+    { target: gtArcticHandEl, glow: [gtPayBarEl], badge: "Star Combo 1", title: "Pay — Matching Symbol",
+      interactive: true, advanceWhen: () => gtOceanCount() > _gtOceanBase,
+      text: () => `To fire the Mangrove's Star, pay with a <strong>${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</strong> card. On the glowing <strong>Arctic Oceans</strong> (also <span class="t2-sym t2-sym-${(_t2.arctic&&_t2.arctic.sym)||''}">${t2Glyph(_t2.arctic&&_t2.arctic.sym)}</span>) tap <strong>“Use as Payment”</strong>, then <strong>✓ Confirm Payment</strong>.` },
+
+    // ── 2d. Explain Play Again — symbols side by side ────────────────────
+    { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Play Again!",
+      text: () => t2Row([{ rec: _t2.arctic, name: "Arctic — paid" }, { rec: _t2.mangrove, name: "Mangrove — played" }])
+        + `Both show <span class="t2-sym t2-sym-${(_t2.mangrove&&_t2.mangrove.sym)||''}">${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</span> — that <strong>matching symbol</strong> fired the Mangrove's <strong>★ Play Again</strong>, so you get <strong>another play!</strong> The Arctic you discarded now sits in your <strong>Pool</strong> (glowing below).` },
+
+    // ── 2e. Use Play Again to deploy the Great Albatross (gated) ─────────
+    { target: gtAlbatrossHandEl, glow: ["#pv-my-board"], badge: "Star Combo 2", title: "Play the Great Albatross ★",
+      interactive: true,
+      before: () => { t2ForceStarOn(); t2CacheBirdPair(); _gtCreatureBase = gtCreatureCount(); },
+      advanceWhen: () => gtPayingCreature() || gtCreatureCount() > _gtCreatureBase,
+      text: () => `Spend your <strong>Play Again</strong> on a creature: <strong>drag the glowing Great Albatross</strong> onto your Mangrove (keep <strong>★ ON</strong>). Its Star is <strong>★ Draw One</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>.` },
+
+    // ── 2f. Zoom the Albatross + its Draw One Star (info, payment staged) ─
+    { target: gtPayBarEl, badge: "Star Combo 2", title: "Albatross — Draw One ★", allowNext: true,
+      text: () => t2Row([{ rec: _t2.albatross, name: "Great Albatross" }])
+        + `Meet the <strong>Great Albatross</strong>. Its <strong>★ Star is “Draw One”</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>. Just like the Mangrove — pay with a matching <strong>${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</strong> card and you'll <strong>draw a card</strong>. Tap <strong>Next</strong> to pick your payment.` },
+
+    // ── 2g. Pay with the symbol-matched Kelp Forest (gated) ──────────────
+    { target: gtKelpHandEl, glow: [gtPayBarEl], badge: "Star Combo 2", title: "Pay — Matching Symbol",
+      interactive: true, advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
+      text: () => `On the glowing <strong>Kelp Forest</strong> (<span class="t2-sym t2-sym-${(_t2.kelp&&_t2.kelp.sym)||''}">${t2Glyph(_t2.kelp&&_t2.kelp.sym)}</span>, matching the Albatross) tap <strong>“Use as Payment”</strong>, then <strong>✓ Confirm Payment</strong> — its Star <strong>draws you a card!</strong>` },
+
+    // ── 2h. Explain Draw One — symbols side by side ──────────────────────
+    { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Draw One!",
+      text: () => t2Row([{ rec: _t2.kelp, name: "Kelp — paid" }, { rec: _t2.albatross, name: "Albatross — played" }])
+        + `Both show <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>, so the <strong>matching symbol</strong> fired the Albatross's <strong>★ Draw One</strong> — you just <strong>drew a card!</strong> The Kelp Forest you discarded is now in your <strong>Pool</strong>. That's the core combo: <strong>match symbols to chain Star abilities.</strong>` },
 
     // ── 4. End Turn explanation (no action — just teach) ─────────────
     { target: "#pv-end-turn-inline", badge: "Your Turn", title: "About End Turn",
@@ -31531,9 +31756,6 @@
       advanceWhen: () => gtHandSig() !== _tutHandSig,
       text: "You can tidy your hand any time. <strong>Drag a card and drop it onto another card</strong> to move it. Rearrange one now to see how it works." },
 
-    // ── 10. Play your second creature → finale (interactive) ─────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Play One More Creature", interactive: true, allowNext: true, advanceWhen: () => gtCreatureCount() >= 2,
-      text: "Last thing: <strong>play a second creature</strong> onto another open side of your ocean, the same way as before. This completes your turn's plays." },
 
     // ── 11. Score breakdown (info) ───────────────────────────────────
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Track Your Score",

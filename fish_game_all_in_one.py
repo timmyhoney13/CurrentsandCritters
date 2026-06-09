@@ -7225,39 +7225,8 @@ def rig_tutorial_opening_hand(
         return
     p = gs.players[idx]
 
-    # Tutorial Part 2 teaches the Mangrove ocean (it has the famous "all 8
-    # oceans" bonus). Best-effort: ensure the player opens with at least one
-    # Mangrove so the guided "Claim Your Mangrove" step is accurate. Runs FIRST,
-    # before the playability check below, so it applies to every tutorial hand —
-    # not only hands that needed fixing. If the hand already has a Mangrove, or
-    # the deck has none to swap in, this is a no-op and the game is unaffected.
-    def _is_mangrove(u: int) -> bool:
-        for fu in entry_faces(ms, u):
-            c = gs.card_db.get(fu)
-            if c is not None and is_ocean(c) and c.name.strip().lower() == "mangrove":
-                return True
-        return False
-
-    if not any(_is_mangrove(u) for u in p.hand):
-        mangrove_donor = next(
-            (u for u in gs.deck if u != end_uid and _is_mangrove(u)), None
-        )
-        if mangrove_donor is not None:
-            gs.deck.remove(mangrove_donor)
-            # Prefer to swap out an existing (non-Mangrove) ocean; otherwise swap
-            # a spare non-ocean card, to keep the hand size stable.
-            swap_out = next(
-                (u for u in p.hand if entry_is_ocean(ms, gs, u) and not _is_mangrove(u)),
-                None,
-            )
-            if swap_out is None:
-                swap_out = next(
-                    (u for u in p.hand if not entry_is_ocean(ms, gs, u)), None
-                )
-            if swap_out is not None:
-                p.hand.remove(swap_out)
-                gs.deck.append(swap_out)
-            p.hand.append(mangrove_donor)
+    # (The Mangrove itself is guaranteed — with a coordinated symbol — by the
+    # STAR-ABILITY teaching rig further below, so no separate Mangrove pass here.)
 
     def dirs_of(uid: int) -> set:
         s: set = set()
@@ -7273,35 +7242,138 @@ def rig_tutorial_opening_hand(
     union: set = set()
     for u in non_ocean:
         union |= dirs_of(u)
-    if len(non_ocean) >= 2 and len(union) >= 2:
-        return  # already playable — nothing to do
-
-    wanted = [d for d in ("up", "down", "left", "right") if d not in union]
-    # How many fresh cards we must add to reach 2 distinct directions AND 2 creatures.
-    need = max(2 - len(union), 2 - len(non_ocean), 0)
-    added = 0
-    for want_dir in (wanted or ["up", "down", "left", "right"]):
-        if added >= need:
-            break
-        donor = None
-        for u in gs.deck:
-            if end_uid is not None and u == end_uid:
-                continue
-            if entry_is_ocean(ms, gs, u):
-                continue
-            if want_dir in dirs_of(u):
-                donor = u
+    # Add creatures until the hand has at least 2 creatures spanning 2 distinct
+    # directions (so both guided creature plays land on the single Mangrove).
+    # Skipped when the hand already qualifies. (Was an early `return`; now a guard
+    # so the payable-creature guarantee below still runs on every tutorial hand.)
+    if not (len(non_ocean) >= 2 and len(union) >= 2):
+        wanted = [d for d in ("up", "down", "left", "right") if d not in union]
+        # How many fresh cards we must add to reach 2 distinct directions AND 2 creatures.
+        need = max(2 - len(union), 2 - len(non_ocean), 0)
+        added = 0
+        for want_dir in (wanted or ["up", "down", "left", "right"]):
+            if added >= need:
                 break
+            donor = None
+            for u in gs.deck:
+                if end_uid is not None and u == end_uid:
+                    continue
+                if entry_is_ocean(ms, gs, u):
+                    continue
+                if want_dir in dirs_of(u):
+                    donor = u
+                    break
+            if donor is None:
+                continue
+            gs.deck.remove(donor)
+            # Send a spare non-ocean hand card back to the deck to keep hand size stable.
+            victim = next((u for u in p.hand if not entry_is_ocean(ms, gs, u)), None)
+            if victim is not None and len(p.hand) >= 8:
+                p.hand.remove(victim)
+                gs.deck.append(victim)
+            p.hand.append(donor)
+            added += 1
+
+    # ── Tutorial Part 2 STAR-ABILITY lesson: rig an exact teaching hand ──────
+    # The guided turn demonstrates symbol-matched Star abilities by pairing each
+    # played card with a partner that shares its symbol (discarding the partner
+    # as payment fires the Star):
+    #   • Mangrove + Arctic Oceans  (shared symbol) → Mangrove's *Play again*
+    #   • Great Albatross + Kelp Forest (shared symbol) → Albatross's *Draw one*
+    # Symbols are chosen dynamically (whatever variants the deck can supply); the
+    # client reads the actual symbols back, so the lesson stays correct. Best-
+    # effort — if the deck can't supply a variant, that pair is simply left as-is.
+    def _is_card(u: int, name_lc: str, sym_lc: Optional[str], primary_only: bool) -> bool:
+        faces = entry_faces(ms, u)
+        cand = [faces[0]] if (primary_only and faces) else faces
+        for fu in cand:
+            c = gs.card_db.get(fu)
+            if c is None:
+                continue
+            if c.name.strip().lower() == name_lc and (sym_lc is None or normalize_symbol(c.symbol) == sym_lc):
+                return True
+        return False
+
+    _SYM_ORDER = ("heart", "diamond", "triangle", "square", "circle")
+
+    def _shared_symbol(name_a, prim_a, name_b, prim_b, prefer):
+        pool = list(p.hand) + [u for u in gs.deck if end_uid is None or u != end_uid]
+        order = list(prefer) + [s for s in _SYM_ORDER if s not in prefer]
+        for s in order:
+            if any(_is_card(u, name_a, s, prim_a) for u in pool) and any(_is_card(u, name_b, s, prim_b) for u in pool):
+                return s
+        return None
+
+    _installed: set = set()
+
+    def _install(name_lc, sym_lc, primary_only):
+        have = next((u for u in p.hand if _is_card(u, name_lc, sym_lc, primary_only)), None)
+        if have is not None:
+            _installed.add(have)
+            return have
+        donor = next(
+            (u for u in gs.deck if (end_uid is None or u != end_uid) and _is_card(u, name_lc, sym_lc, primary_only)),
+            None,
+        )
         if donor is None:
-            continue
+            return None
         gs.deck.remove(donor)
-        # Send a spare non-ocean hand card back to the deck to keep hand size stable.
-        victim = next((u for u in p.hand if not entry_is_ocean(ms, gs, u)), None)
-        if victim is not None and len(p.hand) >= 8:
-            p.hand.remove(victim)
-            gs.deck.append(victim)
+        # Swap out a spare hand card to keep size; never drop a card we already
+        # installed for this lesson. Prefer dropping a same-name DUPLICATE (e.g. a
+        # different-symbol Mangrove) so the player isn't shown two of the teaching
+        # card; then a non-ocean spare; then anything.
+        swap_out = next((u for u in p.hand if u not in _installed and _is_card(u, name_lc, None, False)), None)
+        if swap_out is None:
+            swap_out = next((u for u in p.hand if u not in _installed and not entry_is_ocean(ms, gs, u)), None)
+        if swap_out is None:
+            swap_out = next((u for u in p.hand if u not in _installed), None)
+        if swap_out is not None and len(p.hand) >= 8:
+            p.hand.remove(swap_out)
+            gs.deck.append(swap_out)
         p.hand.append(donor)
-        added += 1
+        _installed.add(donor)
+        return donor
+
+    # Pair 1 — Mangrove + Arctic Oceans share a symbol (prefer Heart).
+    s1 = _shared_symbol("mangrove", False, "arctic oceans", False, ("heart",))
+    if s1 is not None:
+        _install("mangrove", s1, False)
+        _install("arctic oceans", s1, False)
+    # Pair 2 — Great Albatross (its face must be the primary) + Kelp Forest share
+    # a symbol (prefer Diamond).
+    s2 = _shared_symbol("great albatross", True, "kelp forest", False, ("diamond",))
+    if s2 is not None:
+        _install("great albatross", s2, True)
+        _install("kelp forest", s2, False)
+
+    # Dedup: the original deal can already contain extra / wrong-symbol copies of a
+    # teaching card (e.g. a second Mangrove with a different symbol). Keep exactly
+    # ONE copy of each — the coordinated-symbol one — and swap every other copy
+    # back to the deck for a non-teaching filler, so the spotlight is unambiguous.
+    _keep = [("mangrove", s1, False), ("arctic oceans", s1, False),
+             ("great albatross", s2, True), ("kelp forest", s2, False)]
+    def _any_teaching_name(u: int) -> bool:
+        return any(_is_card(u, n, None, False) for (n, _s, _p) in _keep)
+    for name_lc, sym_lc, primary in _keep:
+        if sym_lc is None:
+            continue
+        kept = False
+        for u in list(p.hand):
+            if not _is_card(u, name_lc, None, False):
+                continue
+            if _is_card(u, name_lc, sym_lc, primary) and not kept:
+                kept = True
+                continue
+            filler = next(
+                (d for d in gs.deck if (end_uid is None or d != end_uid) and not _any_teaching_name(d)),
+                None,
+            )
+            if filler is None:
+                break
+            gs.deck.remove(filler)
+            p.hand.remove(u)
+            gs.deck.append(u)
+            p.hand.append(filler)
 
 
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
