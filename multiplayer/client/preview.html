@@ -380,27 +380,28 @@
       background: linear-gradient(165deg, #1A4280 0%, #123265 45%, #0B2448 100%);
       border: 2px solid var(--border);
       border-radius: 18px;
-      padding: 30px 38px 34px;
+      padding: 28px 36px 30px;
       color: var(--text);
       text-align: center;
       box-shadow: 0 18px 70px rgba(0,0,0,.6), 0 0 30px var(--glow-c), inset 0 1px 0 rgba(255,255,255,.08);
-      max-width: 400px;
+      max-width: 460px; width: 94%;
       animation: afkPop .32s cubic-bezier(.22,.68,0,1.2) both;
     }
     @keyframes afkPop { from { transform: translateY(14px) scale(.94); } to { transform: none; } }
+    #pv-afk-box .pv-afk-icon { font-size: 32px; line-height: 1; margin-bottom: 4px; }
     #pv-afk-box h2 {
       font-family: "Cinzel", serif;
-      font-size: 27px;
-      margin: 0 0 6px 0;
+      font-size: 28px;
+      margin: 0 0 8px 0;
       color: var(--gold);
       text-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 16px rgba(240,200,64,.35);
     }
     #pv-afk-box .pv-afk-sub {
       font-family: "Nunito", sans-serif;
-      font-size: 14px;
-      color: var(--muted);
-      margin: 0 0 20px 0;
-      letter-spacing: .2px;
+      font-size: 15px;
+      color: #b8d0ee;
+      margin: 0 0 18px 0;
+      line-height: 1.45;
     }
     /* Draining countdown ring — conic gradient depletes as time runs out. */
     #pv-afk-ring {
@@ -444,19 +445,33 @@
     @keyframes afkPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.14); } }
     #pv-afk-box .pv-afk-seconds {
       font-family: "Nunito", sans-serif;
-      font-size: 13px; font-weight: 700;
+      font-size: 14px; font-weight: 700;
       color: var(--muted);
       margin: 0 0 14px 0;
       letter-spacing: .3px;
     }
-    #pv-afk-box .pv-afk-seconds #pv-afk-seconds-num { color: var(--text); }
+    #pv-afk-box .pv-afk-seconds #pv-afk-seconds-num { color: var(--text); font-size: 16px; }
+    #pv-afk-box .pv-afk-warn {
+      font-family: "Nunito", sans-serif;
+      font-size: 13px; line-height: 1.5;
+      color: #f5c260;
+      background: rgba(240,200,64,.1);
+      border: 1px solid rgba(240,200,64,.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin: 0 0 14px 0;
+    }
+    #pv-afk-box .pv-afk-warn strong { color: #f5c260; font-weight: 900; }
     #pv-afk-box .pv-afk-foot {
       font-family: "Nunito", sans-serif;
-      font-size: 13px;
+      font-size: 14px; font-weight: 700;
       color: var(--text);
-      opacity: .82;
+      background: rgba(61,214,245,.08);
+      border: 1px solid rgba(61,214,245,.2);
+      border-radius: 8px;
+      padding: 10px 14px;
     }
-    #pv-afk-box .pv-afk-foot b { color: var(--cyan); }
+    #pv-afk-box .pv-afk-foot b { color: var(--cyan); font-size: 15px; }
     /* Welcome-back toast */
     #pv-welcome-back-toast {
       display: none;
@@ -11042,15 +11057,17 @@
   <!-- AFK-vote challenge: shown to the active player when >=50% report them AFK -->
   <div id="pv-afk-modal">
     <div id="pv-afk-box">
-      <h2>Are you still here?</h2>
-      <p class="pv-afk-sub">The table thinks you stepped away.</p>
+      <div class="pv-afk-icon">⚠️</div>
+      <h2>Are You There?</h2>
+      <p class="pv-afk-sub">Your tablemates think you stepped away and voted to draw for you.</p>
       <div id="pv-afk-ring">
         <div id="pv-afk-ring-inner">
-          <div id="pv-afk-countdown">10</div>
+          <div id="pv-afk-countdown">30</div>
         </div>
       </div>
-      <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">10</span> seconds remaining</div>
-      <div class="pv-afk-foot"><b>Click anywhere or move your mouse</b> to cancel.</div>
+      <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">30</span> seconds to respond</div>
+      <div class="pv-afk-warn">If time runs out, 2 cards will be drawn for you automatically — and you will <strong>not</strong> be able to undo.</div>
+      <div class="pv-afk-foot"><b>Move your mouse or click anywhere</b> to stay in the game.</div>
     </div>
   </div>
 
@@ -14913,10 +14930,17 @@
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
     if (undoBtn) {
-      // eligible_seat is a seat index; compare to mySeatIdx (never game index)
-      const canUndo = Boolean(undoInfo.valid) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat;
+      // Clear the AFK-forced flag once it's no longer this player's turn —
+      // the forced draw has resolved and future turns start fresh.
+      if (!isMyTurn) _afkForced = false;
+      // eligible_seat is a seat index; compare to mySeatIdx (never game index).
+      // Block undo when the action was auto-drawn due to an AFK vote (player did not interact).
+      const canUndo = Boolean(undoInfo.valid) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat && !_afkForced;
       undoBtn.style.display = "";
       undoBtn.disabled = !canUndo;
+      undoBtn.title = _afkForced
+        ? "Undo is not available — your cards were drawn automatically because you did not respond to the AFK vote."
+        : "Undo your last turn — stays available through bot turns; only locks once another human plays after you";
     }
 
     renderLog(payload.log_tail);
@@ -21230,7 +21254,8 @@
   let _afkEndsAt = 0;
   let _afkCancelInFlight = false;
   let _afkSuppressUntil = 0;  // bridge the poll gap after a cancel so it can't re-open
-  const AFK_TOTAL_SEC = 10;
+  let _afkForced = false;     // true when AFK timer ran out without any player interaction
+  const AFK_TOTAL_SEC = 30;
 
   function _afkRingColor(frac) {
     // frac: 1 = full time left (teal), 0 = out of time (red). Teal→gold→red.
@@ -21256,6 +21281,8 @@
       // Time's up on the client — the server resolves authoritatively and the
       // next poll will clear the challenge. Stop the local ticker.
       if (_afkTicker) { clearInterval(_afkTicker); _afkTicker = null; }
+      // Player did not interact before timer expired: mark as forced so undo is blocked.
+      _afkForced = true;
     }
   }
 
@@ -21287,6 +21314,7 @@
   async function _cancelAfkChallenge() {
     if (!_afkOpen || _afkCancelInFlight) return;
     _afkCancelInFlight = true;
+    _afkForced = false;   // player was active — undo stays available
     _afkSuppressUntil = Date.now() + 4000;  // don't let a stale poll re-open it
     _hideAfkChallenge();  // optimistic close — feels instant on interaction
     try {
