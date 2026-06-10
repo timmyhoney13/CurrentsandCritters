@@ -31769,10 +31769,10 @@
 
     // ── 2c. Pay with the symbol-matched Arctic Oceans (gated) ────────────
     { target: gtArcticHandEl,
-      glow: [() => gtGoldenHandEls()[0], () => gtGoldenHandEls()[1], “#pv-payment-confirm-btn”, gtPayBarEl],
-      badge: “Star Combo 1”, title: “Pay — Matching Symbol”,
+      glow: [() => gtGoldenHandEls()[0], () => gtGoldenHandEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
+      badge: "Star Combo 1", title: "Pay — Matching Symbol",
       interactive: true, advanceWhen: () => gtOceanCount() > _gtOceanBase,
-      text: () => `To fire the Mangrove's Star, pay with a <strong>${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</strong> card. <strong>Click anywhere on a card</strong> to select it as payment. The glowing <strong>Arctic Oceans</strong> (<span class=”t2-sym t2-sym-${(_t2.arctic&&_t2.arctic.sym)||''}”>${t2Glyph(_t2.arctic&&_t2.arctic.sym)}</span>) is the best choice — its symbol matches. Other gold-edged cards like <strong>Coral</strong> or <strong>Spinner Dolphin</strong> can also pay, but won't fire the Star. Select your payment card, then click <strong>✓ Confirm Payment</strong>.` },
+      text: () => `To fire the Mangrove's Star, pay with a <strong>${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</strong> card. <strong>Click anywhere on a card</strong> to select it as payment. The glowing <strong>Arctic Oceans</strong> (<span class="t2-sym t2-sym-${(_t2.arctic&&_t2.arctic.sym)||''}">${t2Glyph(_t2.arctic&&_t2.arctic.sym)}</span>) is the best choice — its symbol matches. Other gold-edged cards like <strong>Coral</strong> or <strong>Spinner Dolphin</strong> can also pay, but won't fire the Star. Select your payment card, then click <strong>✓ Confirm Payment</strong>.` },
 
     // ── 2d. Explain Play Again — symbols side by side ────────────────────
     { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Play Again!",
@@ -31792,9 +31792,9 @@
         + `Meet the <strong>Great Albatross</strong>. Its <strong>★ Star is “Draw One”</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>. Just like the Mangrove — pay with a matching <strong>${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</strong> card and you'll <strong>draw a card</strong>. Tap <strong>Next</strong> to pick your payment.` },
 
     // ── 2g. Pay with the symbol-matched Kelp Forest (gated) ──────────────
-    { target: gtKelpHandEl, glow: [gtKelpHandEl, “#pv-payment-confirm-btn”, gtPayBarEl], badge: “Star Combo 2”, title: “Pay — Matching Symbol”,
+    { target: gtKelpHandEl, glow: [gtKelpHandEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Star Combo 2", title: "Pay — Matching Symbol",
       interactive: true, advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: () => `On the glowing <strong>Kelp Forest</strong> (<span class=”t2-sym t2-sym-${(_t2.kelp&&_t2.kelp.sym)||''}”>${t2Glyph(_t2.kelp&&_t2.kelp.sym)}</span>, matching the Albatross) <strong>click anywhere on it</strong> to select it as payment, then click the glowing <strong>✓ Confirm Payment</strong> button — its Star <strong>draws you a card!</strong>` },
+      text: () => `On the glowing <strong>Kelp Forest</strong> (<span class="t2-sym t2-sym-${(_t2.kelp&&_t2.kelp.sym)||''}">${t2Glyph(_t2.kelp&&_t2.kelp.sym)}</span>, matching the Albatross) <strong>click anywhere on it</strong> to select it as payment, then click the glowing <strong>✓ Confirm Payment</strong> button — its Star <strong>draws you a card!</strong>` },
 
     // ── 2h. Explain Draw One — symbols side by side ──────────────────────
     { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Draw One!",
