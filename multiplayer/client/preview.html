@@ -17544,9 +17544,13 @@
       const slot = lane.querySelector(".pv-lane-slot");
       if (!slot) return;
       slot.classList.add("action-preview-slot");
+      const ghostUid = Number(act.face_uid ?? act.card_uid);
       const ghost = document.createElement("img");
       ghost.className = "action-preview-ghost-img";
-      ghost.src = imagePathForUid(Number(act.face_uid ?? act.card_uid));
+      ghost.src = imagePathForUid(ghostUid);
+      // Crop to exactly the half being played (same as a real board card),
+      // so the silhouette shows only the played face — not the other half.
+      ghost.style.objectPosition = cardHalfPos(ghostUid);
       ghost.alt = act.face_name || "";
       slot.appendChild(ghost);
     }
