@@ -2510,13 +2510,15 @@
       font-size: 6px; font-weight: 700; color: #fff; background: rgba(0,0,0,.75); padding: 2px;
     }
     /* ── Board drop zone (shown when drag_ocean step) ── */
+    /* Large, easy-to-hit target for the first ocean — matches the roomy drop
+       zone used in real games so dragging the first ocean is never fiddly. */
     .tut-board-droptarget {
-      min-width: 60px; min-height: 82px; border-radius: 8px;
+      min-width: 150px; min-height: 150px; border-radius: 12px;
       border: 2.5px dashed var(--cyan); background: rgba(48,200,240,.1);
       display: flex; align-items: center; justify-content: center;
-      color: var(--cyan); font-size: 9px; font-weight: 800; text-align: center;
+      color: var(--cyan); font-size: 13px; font-weight: 800; text-align: center;
       animation: tut-card-pulse-teal 1s ease-in-out infinite; cursor: copy;
-      position: relative; z-index: 9600;
+      position: relative; z-index: 9600; padding: 18px;
     }
     /* ── Ocean slot drop target (drag_animal step) ── */
     .tut-empty-slot.tut-ocean-droptarget {
@@ -17406,8 +17408,18 @@
     if (playOceanActions.length) {
       const oceanDrop = document.createElement("div");
       oceanDrop.id = "pv-ocean-drop-zone";
-      oceanDrop.textContent = "⊕ Click or drag an Ocean card here";
-      oceanDrop.style.cssText = "border:2px dashed var(--teal);border-radius:10px;padding:14px 24px;color:var(--teal);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:10px;text-align:center;";
+      // First ocean (empty board): make the drop target a large, easy-to-hit
+      // area roughly the footprint of an ocean hub, so dragging the very first
+      // ocean isn't a fiddly thin strip. Once oceans exist, keep it compact.
+      const isFirstOcean = !board.length;
+      if (isFirstOcean) {
+        oceanDrop.classList.add("first-ocean-drop");
+        oceanDrop.innerHTML = `<span style="font-size:26px;line-height:1;">⊕</span><span>Drag an Ocean card here<br><span style="opacity:.8;font-weight:600;">— or click here to choose one</span></span>`;
+        oceanDrop.style.cssText = "border:2.5px dashed var(--teal);border-radius:14px;padding:34px 24px;min-height:170px;width:100%;max-width:300px;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;margin:6px auto 12px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;";
+      } else {
+        oceanDrop.textContent = "⊕ Click or drag an Ocean card here";
+        oceanDrop.style.cssText = "border:2px dashed var(--teal);border-radius:10px;padding:14px 24px;color:var(--teal);font-size:13px;cursor:pointer;transition:all .15s;margin-bottom:10px;text-align:center;";
+      }
       // Click-to-place: open ocean card picker
       oceanDrop.addEventListener("click", () => {
         openCTP("Select an Ocean card to place", playOceanActions, oceanDrop);
@@ -17445,7 +17457,7 @@
     if (!board.length) {
       const hint = document.createElement("div");
       hint.style.cssText = "color:var(--muted);font-size:13px;padding:12px;text-align:center;width:100%;";
-      hint.textContent = "No oceans yet — drag an ocean card to the zone above.";
+      hint.textContent = "No oceans yet — drag an Ocean card to the zone above, or click the zone to choose one.";
       el.appendChild(hint); return;
     }
 
@@ -18174,11 +18186,11 @@
     }
 
     if (!hasOcean && hasOceanInHand) {
-      steps.push(`<span class="gs active">② Chart Your Waters — deploy an Ocean card from your hand to claim your first ocean</span>`);
+      steps.push(`<span class="gs active">② Chart Your Waters — drag an Ocean card to the board, or click the drop zone to place it</span>`);
     } else if (!hasOcean) {
-      steps.push(`<span class="gs">② Chart Your Waters — deploy an Ocean card to claim your first ocean</span>`);
+      steps.push(`<span class="gs">② Chart Your Waters — drag an Ocean card to the board, or click the drop zone to place it</span>`);
     } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction?"":" active"}">② Deploy a creature from hand to an ocean slot — or use the dropdown below</span>`);
+      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a creature to an ocean slot, or click the slot where you want to place it — or use the dropdown below</span>`);
     } else {
       steps.push(`<span class="gs done">② All creatures deployed ✓</span>`);
     }
