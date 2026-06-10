@@ -530,6 +530,80 @@
     #pv-hand-zone.pool-drag-over { outline: 2px dashed var(--cyan); background: rgba(48,200,240,.1); border-radius: 8px; transition: background .15s; }
     #tut-hand-zone.pool-drag-over { outline: 2px dashed var(--cyan); background: rgba(48,200,240,.1); border-radius: 6px; }
 
+    /* ── ACTION DROPDOWN PREVIEW ─────────────────────────────────── */
+    .pv-ocean-hub.action-preview-target {
+      outline: 3px solid var(--cyan) !important;
+      border-radius: 8px;
+      box-shadow: 0 0 22px rgba(61,214,245,.55);
+      background: rgba(48,200,240,.06);
+      animation: preview-hub-pulse 1.1s ease-in-out infinite;
+    }
+    #pv-ocean-drop-zone.action-preview-target {
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 18px rgba(61,214,245,.5) !important;
+      background: rgba(48,200,240,.1) !important;
+    }
+    .pv-lane-slot.action-preview-slot {
+      border-color: var(--cyan) !important;
+      background: rgba(48,200,240,.18);
+      position: relative;
+    }
+    .action-preview-ghost-img {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; border-radius: 6px;
+      opacity: 0.5;
+      filter: saturate(0.55) brightness(1.1);
+      pointer-events: none; z-index: 1;
+    }
+    @keyframes preview-hub-pulse {
+      0%, 100% { box-shadow: 0 0 12px rgba(61,214,245,.35); }
+      50%       { box-shadow: 0 0 26px rgba(61,214,245,.7); }
+    }
+
+    /* ── MOVE CONFIRMATION MODAL ─────────────────────────────────── */
+    #move-confirm-modal {
+      display: none; position: fixed; inset: 0; z-index: 9200;
+      background: rgba(26,45,90,.45);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #move-confirm-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    #move-confirm-box {
+      background: linear-gradient(160deg, var(--cr-cream) 0%, #f5e0c8 70%, #efd0b0 100%);
+      border: 2px solid rgba(232,179,74,.65); border-radius: 20px;
+      box-shadow: 0 14px 50px rgba(26,45,90,.35), inset 0 1px 0 rgba(255,255,255,.6);
+      padding: 24px 28px 22px; width: 92%; max-width: 420px;
+      text-align: center; font-family: "Nunito", sans-serif;
+      animation: dwm-box-in .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    #move-confirm-icon { font-size: 36px; margin-bottom: 4px; line-height: 1; }
+    #move-confirm-title {
+      font-family: "Cinzel", serif; color: var(--cr-navy);
+      font-size: 1.3rem; font-weight: 700; letter-spacing: 1.2px; margin: 0 0 8px;
+    }
+    #move-confirm-msg {
+      color: var(--cr-navy); font-size: 13.5px; line-height: 1.55;
+      margin: 0 0 18px; opacity: .88;
+    }
+    #move-confirm-buttons { display: flex; gap: 10px; justify-content: center; }
+    #move-confirm-cancel, #move-confirm-ok {
+      border: none; border-radius: 11px; padding: 11px 18px;
+      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800;
+      cursor: pointer; transition: transform .12s, box-shadow .15s, filter .15s;
+      letter-spacing: .3px; flex: 1;
+    }
+    #move-confirm-cancel {
+      background: rgba(255,255,255,.78); border: 1.5px solid rgba(95,179,214,.55);
+      color: var(--cr-navy);
+    }
+    #move-confirm-cancel:hover { background: #fff; border-color: var(--cr-teal); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,179,214,.35); }
+    #move-confirm-ok {
+      background: linear-gradient(135deg, #3dd8a8, #2ab88a); color: #fff;
+      text-shadow: 0 1px 0 rgba(0,0,0,.2); border: 1.5px solid rgba(61,214,168,.5);
+    }
+    #move-confirm-ok:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(61,214,168,.5); filter: brightness(1.06); }
+
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
     .seat-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
@@ -10943,6 +11017,19 @@
     </div>
   </div>
 
+  <!-- move confirmation dialog -->
+  <div id="move-confirm-modal">
+    <div id="move-confirm-box">
+      <div id="move-confirm-icon">🔀</div>
+      <h2 id="move-confirm-title">Move Card?</h2>
+      <p id="move-confirm-msg"></p>
+      <div id="move-confirm-buttons">
+        <button id="move-confirm-cancel">Cancel</button>
+        <button id="move-confirm-ok">Yes, Move Card</button>
+      </div>
+    </div>
+  </div>
+
   <!-- idle "Are you there?" warning -->
   <div id="pv-idle-warn-modal">
     <div id="pv-idle-warn-box">
@@ -14017,6 +14104,10 @@
   // ability WITHOUT activating it, show a quick confirmation so they don't
   // accidentally skip it. "Let me go back" cancels; "Yes, that's okay" proceeds.
   let _starSkipPendingCb = null;
+  // Move confirmation dialog state
+  let _moveConfirmPendingCb = null;
+  // Pending move animation: set when a move is confirmed so renderMyBoard can FLIP-animate the card
+  let _pendingMoveAnim = null; // { srcRect, faceUid, tgtUid }
   (function _initStarSkipModal() {
     const modal    = document.getElementById("star-skip-modal");
     const backBtn  = document.getElementById("star-skip-back");
@@ -14034,6 +14125,24 @@
     });
     modal.addEventListener("click", (e) => {
       if (e.target === modal) { modal.classList.remove("open"); _starSkipPendingCb = null; }
+    });
+  })();
+
+  // Move confirmation dialog: "You are about to MOVE this card from X to Y. Are you sure?"
+  // Only shown for move_between_oceans actions (never for play-from-hand).
+  (function _initMoveConfirmModal() {
+    const modal     = document.getElementById("move-confirm-modal");
+    const cancelBtn = document.getElementById("move-confirm-cancel");
+    const okBtn     = document.getElementById("move-confirm-ok");
+    if (!modal || !cancelBtn || !okBtn) return;
+    cancelBtn.addEventListener("click", () => { modal.classList.remove("open"); _moveConfirmPendingCb = null; });
+    okBtn.addEventListener("click", () => {
+      modal.classList.remove("open");
+      const cb = _moveConfirmPendingCb; _moveConfirmPendingCb = null;
+      if (cb) cb();
+    });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) { modal.classList.remove("open"); _moveConfirmPendingCb = null; }
     });
   })();
 
@@ -17383,6 +17492,42 @@
     if (advance && tutState) tutGoStep(tutState.step + 1);
   });
 
+  // ── Action preview helpers ─────────────────────────────────────
+  // Clear all highlights/ghosts from the board produced by the dropdown preview.
+  function _clearActionPreview() {
+    document.querySelectorAll(".action-preview-target").forEach(el => el.classList.remove("action-preview-target"));
+    document.querySelectorAll(".action-preview-slot").forEach(el => el.classList.remove("action-preview-slot"));
+    document.querySelectorAll(".action-preview-ghost-img").forEach(el => el.remove());
+  }
+
+  // Highlight the target ocean hub / lane slot and show a ghost card image.
+  function _showActionPreview(act) {
+    _clearActionPreview();
+    if (!act) return;
+    if (act.kind === "play_ocean") {
+      const dz = document.getElementById("pv-ocean-drop-zone");
+      if (dz) dz.classList.add("action-preview-target");
+      return;
+    }
+    if (act.kind === "play_to_ocean" || act.kind === "move_between_oceans") {
+      const tUid = Number(act.ocean_uid);
+      const dir  = String(act.face_direction || "").toLowerCase();
+      const hub  = document.querySelector(`.pv-ocean-hub[data-ocean-uid="${tUid}"]`);
+      if (!hub) return;
+      hub.classList.add("action-preview-target");
+      const lane = hub.querySelector(`.pv-lane-${dir}`);
+      if (!lane) return;
+      const slot = lane.querySelector(".pv-lane-slot");
+      if (!slot) return;
+      slot.classList.add("action-preview-slot");
+      const ghost = document.createElement("img");
+      ghost.className = "action-preview-ghost-img";
+      ghost.src = imagePathForUid(Number(act.face_uid ?? act.card_uid));
+      ghost.alt = act.face_name || "";
+      slot.appendChild(ghost);
+    }
+  }
+
   // ── My board renderer ──────────────────────────────────────────
   function renderMyBoard(me, actions, isMyTurn) {
     // Close the card picker on any state change so stale actions don't persist.
@@ -17392,6 +17537,9 @@
     if (!me) return;
 
     const board = Array.isArray(me.board) ? me.board : [];
+
+    // Accumulate moved card element for FLIP animation after render
+    let _moveAnimTarget = null;
 
     // Snapshot new board card keys for place-in animation
     const newBoardCards = new Set();
@@ -17554,9 +17702,14 @@
           cards.forEach((c, cIdx) => {
             const cardEl = document.createElement("div");
             const fUid = c.face_uid ?? c.uid;
+            const isMoveAnim = _pendingMoveAnim && Number(fUid) === _pendingMoveAnim.faceUid && Number(ocean.ocean_uid) === _pendingMoveAnim.tgtUid;
+            if (isMoveAnim) {
+              _moveAnimTarget = { cardEl, srcRect: _pendingMoveAnim.srcRect };
+              _pendingMoveAnim = null;
+            }
             const isNew = !_prevBoardCards.has(`${ocean.ocean_uid}|${dir}|${cIdx}|${fUid}`);
-            cardEl.className = "pv-board-card" + (isNew ? " place-in" : "");
-            if (isNew) cardEl.addEventListener("animationend", () => cardEl.classList.remove("place-in"), { once: true });
+            cardEl.className = "pv-board-card" + ((!isMoveAnim && isNew) ? " place-in" : "");
+            if (!isMoveAnim && isNew) cardEl.addEventListener("animationend", () => cardEl.classList.remove("place-in"), { once: true });
             cardEl.dataset.species = c.species || "";
             const img = document.createElement("img");
             img.src = imagePathForUid(fUid);
@@ -17722,6 +17875,28 @@
       el.appendChild(hub);
     });
     _prevBoardCards = newBoardCards;
+
+    // FLIP animation: card travels from source ocean hub to new position
+    if (_moveAnimTarget) {
+      const { cardEl: animEl, srcRect } = _moveAnimTarget;
+      requestAnimationFrame(() => {
+        const newRect = animEl.getBoundingClientRect();
+        if (!newRect.width) return;
+        const dx = Math.round(srcRect.left + srcRect.width / 2 - newRect.left - newRect.width / 2);
+        const dy = Math.round(srcRect.top + srcRect.height / 2 - newRect.top - newRect.height / 2);
+        if (!dx && !dy) return;
+        animEl.style.transition = "none";
+        animEl.style.transform = `translate(${dx}px, ${dy}px)`;
+        animEl.style.opacity = "0.4";
+        animEl.style.zIndex = "50";
+        requestAnimationFrame(() => {
+          animEl.style.transition = "transform 0.5s cubic-bezier(.2,.7,.3,1), opacity 0.35s ease";
+          animEl.style.transform = "";
+          animEl.style.opacity = "";
+          setTimeout(() => { animEl.style.zIndex = ""; animEl.style.transition = ""; }, 600);
+        });
+      });
+    }
   }
 
   // ── Click-to-place card picker ────────────────────────────────
@@ -18239,15 +18414,33 @@
     }
 
     const endAct      = actions.find(a => a.kind==="end_turn");
-    const playActions = actions.filter(a => a.kind!=="draw" && a.kind!=="end_turn" && a.kind!=="discard_to_pool" && a.kind!=="discard_batch_to_pool");
+    const moveActions = actions.filter(a => a.kind==="move_between_oceans");
+    const playActions = actions.filter(a => a.kind!=="draw" && a.kind!=="end_turn" && a.kind!=="discard_to_pool" && a.kind!=="discard_batch_to_pool" && a.kind!=="move_between_oceans");
     const drawActions = actions.filter(a => a.kind==="draw" && !Number(a.draw_from_pool));
+
+    // Build ocean name map from live board state for human-readable labels
+    const _boardArr = Array.isArray(latestPayload?.state?.players)
+      ? (latestPayload.state.players.find(p => p.index === myIdx)?.board || [])
+      : [];
+    const oceanNameMap = new Map(_boardArr.map(o => [Number(o.ocean_uid), String(o.ocean?.name || "Ocean")]));
+
+    // Direction → human label
+    function _dirLabel(d) {
+      return d === "up" ? "Surface" : d === "down" ? "Floor" : d === "left" ? "Port" : "Starboard";
+    }
 
     // Rebuild select only when available actions change — prevents the native
     // picker from closing on every 1-second poll tick.
-    const actionFingerprint = actions.map(a => `${a.index}:${a.kind}:${a.face_uid}:${a.ocean_uid}:${a.face_direction}`).join("|");
+    const actionFingerprint = actions.map(a => `${a.index}:${a.kind}:${a.face_uid}:${a.ocean_uid}:${a.face_direction}:${a.source_ocean_uid}`).join("|");
     const prevVal = sel.value;
     if (sel.dataset.fingerprint === actionFingerprint) {
       sel.disabled = false; playBtn.disabled = false;
+      // Re-apply preview for currently selected option (board re-renders clear hub classes)
+      if (sel.value) {
+        const idx = Number(sel.value);
+        const act = actions.find(a => Number(a.index) === idx);
+        if (act) _showActionPreview(act);
+      }
       if (endAct) {
         const isFreeWindow = Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0;
         const confirmMsg = isFreeWindow
@@ -18258,6 +18451,7 @@
       return;
     }
     sel.dataset.fingerprint = actionFingerprint;
+    _clearActionPreview();
     cl(sel);
     const firstOpt = document.createElement("option");
     firstOpt.value=""; firstOpt.textContent="Choose action…"; sel.appendChild(firstOpt);
@@ -18266,7 +18460,7 @@
       const grp = document.createElement("optgroup"); grp.label="Draw";
       drawActions.forEach(a => {
         const o=document.createElement("option"); o.value=String(a.index);
-        o.textContent=`[${a.index}] ${a.description||"Draw 2 from deck"}`; grp.appendChild(o);
+        o.textContent=`${a.description||"Draw 2 from deck"}`; grp.appendChild(o);
       });
       sel.appendChild(grp);
     }
@@ -18279,7 +18473,29 @@
         const cost = Number(a.cost_to_pay||0);
         const star = a.use_star?" ★":(a.star_symbol?` (★ if ${a.star_symbol})`:"");
         const freeTag = (isFreeWindow && cost === 0) ? " [FREE]" : "";
-        o.textContent=`[${a.index}] ${a.face_name||"?"} → ${a.face_direction||a.kind}${cost?` (cost ${cost})`:freeTag} ${star}`;
+        const faceName = a.face_name || "?";
+        let label;
+        if (a.kind === "play_ocean") {
+          label = `Play ${faceName} as new ocean`;
+        } else {
+          const oceanName = oceanNameMap.get(Number(a.ocean_uid)) || "Ocean";
+          const dir = _dirLabel(String(a.face_direction||"").toLowerCase());
+          label = `Play ${faceName} on ${dir} of ${oceanName}`;
+        }
+        o.textContent = `${label}${cost ? ` (cost ${cost})` : freeTag}${star}`;
+        grp.appendChild(o);
+      });
+      sel.appendChild(grp);
+    }
+    if (moveActions.length) {
+      const grp = document.createElement("optgroup"); grp.label = "Move Card";
+      moveActions.forEach(a => {
+        const o=document.createElement("option"); o.value=String(a.index);
+        const faceName = a.face_name || "?";
+        const srcName  = oceanNameMap.get(Number(a.source_ocean_uid)) || "current ocean";
+        const tgtName  = oceanNameMap.get(Number(a.ocean_uid)) || "target ocean";
+        const dir = _dirLabel(String(a.face_direction||"").toLowerCase());
+        o.textContent = `Move ${faceName}: ${srcName} → ${tgtName} (${dir})`;
         grp.appendChild(o);
       });
       sel.appendChild(grp);
@@ -18293,17 +18509,33 @@
         grp.label = "🐟 Tarpon — Discard a card";
         discardActs.forEach(a => {
           const o = document.createElement("option"); o.value = String(a.index);
-          o.textContent = `[${a.index}] Discard ${a.face_name || "?"}`;
+          o.textContent = `Discard ${a.face_name || "?"}`;
           grp.appendChild(o);
         });
         sel.appendChild(grp);
       }
     }
 
-    if (prevVal && Array.from(sel.options).some(o=>o.value===prevVal)) sel.value=prevVal;
+    if (prevVal && Array.from(sel.options).some(o=>o.value===prevVal)) {
+      sel.value = prevVal;
+      // Re-apply preview for restored selection
+      const prevAct = actions.find(a => Number(a.index) === Number(prevVal));
+      if (prevAct) _showActionPreview(prevAct);
+    }
     sel.disabled=false; playBtn.disabled=false;
 
+    // Preview: on dropdown selection change, highlight target ocean and show ghost card
+    if (sel._previewListener) sel.removeEventListener("change", sel._previewListener);
+    sel._previewListener = () => {
+      const idx = Number(sel.value);
+      if (!Number.isInteger(idx) || !sel.value) { _clearActionPreview(); return; }
+      const act = actions.find(a => Number(a.index) === idx);
+      _showActionPreview(act || null);
+    };
+    sel.addEventListener("change", sel._previewListener);
+
     playBtn.onclick = () => {
+      _clearActionPreview();
       const idx = Number(sel.value);
       if (!Number.isInteger(idx)||!sel.value) { setStatus("Pick an action first."); return; }
       const act = actions.find(a=>Number(a.index)===idx);
@@ -18323,6 +18555,22 @@
         } else if (act.star_symbol) {
           showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
         }
+      }
+      // Move confirmation: warn before moving a card between oceans
+      if (chosen.kind === "move_between_oceans") {
+        const srcName = oceanNameMap.get(Number(chosen.source_ocean_uid)) || "current ocean";
+        const tgtName = oceanNameMap.get(Number(chosen.ocean_uid)) || "target ocean";
+        const cardName = chosen.face_name || "card";
+        const msgEl = document.getElementById("move-confirm-msg");
+        if (msgEl) msgEl.textContent = `You are about to MOVE "${cardName}" from "${srcName}" to "${tgtName}". Are you sure?`;
+        _moveConfirmPendingCb = () => {
+          // Capture source hub position for FLIP animation
+          const srcHub = document.querySelector(`.pv-ocean-hub[data-ocean-uid="${chosen.source_ocean_uid}"]`);
+          if (srcHub) _pendingMoveAnim = { srcRect: srcHub.getBoundingClientRect(), faceUid: Number(chosen.face_uid ?? chosen.card_uid), tgtUid: Number(chosen.ocean_uid) };
+          submitAction(chosen);
+        };
+        document.getElementById("move-confirm-modal")?.classList.add("open");
+        return;
       }
       _playOrConfirmStarSkip(chosen, actions);
     };
