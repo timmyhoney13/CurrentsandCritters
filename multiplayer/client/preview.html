@@ -619,6 +619,116 @@
     }
     #move-confirm-ok:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(61,214,168,.5); filter: brightness(1.06); }
 
+    /* ── HELP / STRATEGY GUIDE ───────────────────────────────────── */
+    #pv-help-modal {
+      display: none; position: fixed; inset: 0; z-index: 9300;
+      background: rgba(26,45,90,.5);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #pv-help-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    #pv-help-box {
+      background: linear-gradient(165deg, #11305f 0%, #0c244a 60%, #081b38 100%);
+      border: 2px solid rgba(95,179,214,.45);
+      border-radius: 20px;
+      box-shadow: 0 18px 70px rgba(0,0,0,.6), 0 0 30px rgba(61,214,245,.18);
+      width: 94%; max-width: 720px; max-height: 88vh;
+      display: flex; flex-direction: column;
+      font-family: "Nunito", sans-serif; color: #eaf4ff;
+      animation: dwm-box-in .24s cubic-bezier(.2,.9,.3,1.2);
+    }
+    #pv-help-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 20px 12px; border-bottom: 1px solid rgba(95,179,214,.2);
+    }
+    #pv-help-title {
+      flex: 1; text-align: center; margin: 0;
+      font-family: "Cinzel", serif; font-size: 22px; font-weight: 700;
+      color: var(--cr-gold, #e8b34a); letter-spacing: 1px;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+    }
+    #pv-help-back, #pv-help-close {
+      background: rgba(255,255,255,.08); border: 1.5px solid rgba(95,179,214,.4);
+      color: #eaf4ff; border-radius: 10px; cursor: pointer;
+      font-family: "Nunito", sans-serif; font-weight: 800; font-size: 13px;
+      padding: 7px 12px; transition: background .15s, border-color .15s, transform .12s;
+      flex-shrink: 0;
+    }
+    #pv-help-back:hover, #pv-help-close:hover { background: rgba(61,214,245,.18); border-color: var(--cyan); transform: translateY(-1px); }
+    #pv-help-back { visibility: hidden; }            /* shown only in detail view */
+    #pv-help-modal.detail #pv-help-back { visibility: visible; }
+    #pv-help-intro {
+      padding: 12px 22px 4px; margin: 0; font-size: 13.5px; line-height: 1.5;
+      color: #b8d0ee; text-align: center;
+    }
+    #pv-help-modal.detail #pv-help-intro { display: none; }
+    #pv-help-list {
+      padding: 14px 18px 20px; overflow-y: auto;
+      flex: 1 1 auto; min-height: 0;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-content: start;
+    }
+    #pv-help-modal.detail #pv-help-list { display: none; }
+    #pv-help-detail { display: none; padding: 8px 22px 22px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+    #pv-help-modal.detail #pv-help-detail { display: block; }
+    @media (max-width: 560px) { #pv-help-list { grid-template-columns: 1fr; } }
+
+    .help-strat-card {
+      background: linear-gradient(160deg, rgba(95,179,214,.12), rgba(61,214,245,.04));
+      border: 1.5px solid rgba(95,179,214,.35);
+      border-radius: 14px; padding: 14px 16px; cursor: pointer;
+      transition: transform .14s, border-color .14s, box-shadow .14s, background .14s;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .help-strat-card:hover {
+      transform: translateY(-2px); border-color: var(--cyan);
+      box-shadow: 0 6px 22px rgba(61,214,245,.25);
+      background: linear-gradient(160deg, rgba(61,214,245,.2), rgba(61,214,245,.06));
+    }
+    .help-strat-card .hsc-top { display: flex; align-items: center; gap: 8px; }
+    .help-strat-card .hsc-name { font-family: "Cinzel", serif; font-weight: 700; font-size: 15px; color: #fff; flex: 1; }
+    .help-tier {
+      font-size: 10px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+      padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
+    }
+    .help-tier.Beginner    { background: rgba(94,201,137,.22); color: #7fe0a8; border: 1px solid rgba(94,201,137,.5); }
+    .help-tier.Intermediate{ background: rgba(95,179,214,.22); color: #8fd0f0; border: 1px solid rgba(95,179,214,.5); }
+    .help-tier.Advanced    { background: rgba(232,179,74,.2);  color: #f0c860; border: 1px solid rgba(232,179,74,.5); }
+    .help-tier.Expert      { background: rgba(248,113,113,.2); color: #f8a0a0; border: 1px solid rgba(248,113,113,.5); }
+    .help-tier.Hybrid      { background: rgba(192,132,252,.2); color: #c8a8fc; border: 1px solid rgba(192,132,252,.5); }
+    .help-strat-card .hsc-blurb { font-size: 12px; line-height: 1.45; color: #c4dbf2; }
+    .help-strat-card .hsc-go { font-size: 11px; font-weight: 800; color: var(--cyan); margin-top: 2px; }
+
+    /* detail view */
+    #pv-help-detail .hd-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    #pv-help-detail .hd-name { font-family: "Cinzel", serif; font-size: 20px; font-weight: 700; color: #fff; }
+    #pv-help-detail .hd-blurb { font-size: 13.5px; line-height: 1.5; color: #c4dbf2; margin: 0 0 16px; }
+    #pv-help-detail .hd-section-title {
+      font-family: "Cinzel", serif; font-size: 15px; font-weight: 700; color: var(--cr-gold, #e8b34a);
+      margin: 18px 0 8px; display: flex; align-items: center; gap: 8px;
+    }
+    #pv-help-detail ol.hd-steps { margin: 0; padding-left: 22px; }
+    #pv-help-detail ol.hd-steps li { font-size: 13px; line-height: 1.5; color: #eaf4ff; margin-bottom: 7px; }
+    #pv-help-detail ul.hd-tips { margin: 0; padding-left: 20px; list-style: none; }
+    #pv-help-detail ul.hd-tips li { font-size: 12.5px; line-height: 1.5; color: #c4dbf2; margin-bottom: 7px; position: relative; padding-left: 4px; }
+    #pv-help-detail ul.hd-tips li::before { content: "💡"; position: absolute; left: -18px; }
+    .hd-cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+      gap: 10px; margin-top: 4px;
+    }
+    .hd-card-tile {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(95,179,214,.25);
+      border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 5px;
+      cursor: pointer; transition: transform .12s, border-color .12s, box-shadow .12s;
+    }
+    .hd-card-tile:hover { transform: translateY(-2px); border-color: var(--cyan); box-shadow: 0 4px 14px rgba(61,214,245,.25); }
+    .hd-card-img {
+      width: 100%; aspect-ratio: 1 / 1; border-radius: 7px; overflow: hidden;
+      background: #0a1c36; position: relative;
+    }
+    .hd-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hd-card-name { font-size: 10.5px; font-weight: 800; color: #fff; line-height: 1.2; text-align: center; }
+    .hd-card-text { font-size: 9.5px; line-height: 1.3; color: #a8c4e0; text-align: center; }
+
     /* ── SEAT PICKER ─────────────────────────────────────────────── */
     #pv-seat-picker { display: none; flex-direction: column; gap: 10px; }
     .seat-grid { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
@@ -2144,8 +2254,8 @@
     #pv-pool-pick-hint.visible { display: block; }
 
     /* ── QUICK DRAW BUTTON ──────────────────────────────────────── */
-    #pv-quick-draw-btn {
-      display: none;
+    #pv-help-btn {
+      display: flex;
       flex-direction: column; align-items: center; gap: 2px;
       background: linear-gradient(180deg, var(--cr-cream) 0%, var(--cr-cream-mid) 100%);
       border: 1.5px solid rgba(232,179,74,.6);
@@ -2156,10 +2266,9 @@
       transition: transform .15s, box-shadow .15s, border-color .15s;
       flex-shrink: 0;
     }
-    #pv-quick-draw-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,179,74,.4); border-color: var(--cr-gold); }
-    #pv-quick-draw-btn.visible { display: flex; }
-    #pv-quick-draw-btn .qd-label { font-size: 13px; font-weight: 800; color: var(--cr-navy); }
-    #pv-quick-draw-btn .qd-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
+    #pv-help-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,179,74,.4); border-color: var(--cr-gold); }
+    #pv-help-btn .help-label { font-size: 13px; font-weight: 800; color: var(--cr-navy); }
+    #pv-help-btn .help-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
 
     /* ── DRAW NOTIFICATION ──────────────────────────────────────── */
     /* ── DRAW NOTIFICATION PILL ───────────────────────────────────── */
@@ -10921,13 +11030,13 @@
 
   <!-- action bar -->
   <div id="pv-action-bar">
-    <!-- Quick draw button (shown when draw is available) -->
-    <button id="pv-quick-draw-btn" title="Draw 1 from deck, then choose your 2nd card from deck or pool">
-      <span class="qd-label">🃏 Draw from Deck</span>
-      <span class="qd-sub">then choose your 2nd card</span>
+    <!-- Help / Strategy guide button (always available) -->
+    <button id="pv-help-btn" title="Strategies, what to do next, cards to look for & quick tips">
+      <span class="help-label">💡 Help</span>
+      <span class="help-sub">strategies &amp; tips</span>
     </button>
 
-    <div class="pv-action-divider" id="pv-draw-divider" style="display:none;"></div>
+    <div class="pv-action-divider" id="pv-draw-divider"></div>
 
     <!-- Play a card controls -->
     <div id="pv-play-controls" style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap;">
@@ -11042,6 +11151,20 @@
         <button id="move-confirm-cancel">Cancel</button>
         <button id="move-confirm-ok">Yes, Move Card</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Help / Strategy guide -->
+  <div id="pv-help-modal">
+    <div id="pv-help-box">
+      <div id="pv-help-header">
+        <button id="pv-help-back" title="Back to all strategies">‹ Back</button>
+        <h2 id="pv-help-title">Strategies</h2>
+        <button id="pv-help-close" title="Close">✕</button>
+      </div>
+      <p id="pv-help-intro">Pick a strategy to see what to do next, the cards to look for, and quick tips. You can mix any strategies you like.</p>
+      <div id="pv-help-list"><!-- strategy cards injected here --></div>
+      <div id="pv-help-detail"><!-- selected strategy detail injected here --></div>
     </div>
   </div>
 
@@ -14162,6 +14285,899 @@
       if (e.target === modal) { modal.classList.remove("open"); _moveConfirmPendingCb = null; }
     });
   })();
+
+  // ── Help / Strategy guide ──────────────────────────────────────
+  // Strategy data generated from the real archetype profiles and card
+  // database (default_archetype_profiles + cards_*.txt). Do not hand-edit.
+  const HELP_STRATEGIES = [
+  {
+    "label": "Ocean All Blue",
+    "tier": "Beginner",
+    "blurb": "Maximize ocean cards for easy board presence — the more oceans you control, the more your ocean bonuses stack.",
+    "cards": [
+      {
+        "uid": 230,
+        "name": "Mangrove",
+        "species": "Ocean",
+        "text": "+8 if you have all 8 oceans | *play again*"
+      },
+      {
+        "uid": 33,
+        "name": "Great Albatross",
+        "species": "Bird",
+        "text": "+6 if you have the most oceans | *Draw one*"
+      },
+      {
+        "uid": 261,
+        "name": "Tide Pool",
+        "species": "Ocean",
+        "text": "+1 per every two Oceans you control"
+      },
+      {
+        "uid": 238,
+        "name": "Artificial Reef",
+        "species": "Ocean",
+        "text": "+2 per card attached"
+      },
+      {
+        "uid": 217,
+        "name": "Coral Reef",
+        "species": "Ocean",
+        "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |"
+      },
+      {
+        "uid": 244,
+        "name": "Arctic Oceans",
+        "species": "Ocean",
+        "text": "+4 | *Play again*"
+      },
+      {
+        "uid": 209,
+        "name": "Deep Ocean",
+        "species": "Ocean",
+        "text": "+1 | Draw one"
+      },
+      {
+        "uid": 252,
+        "name": "Kelp Forest",
+        "species": "Ocean",
+        "text": "+5 if you have ≥ 4 kelp forests | Draw one"
+      },
+      {
+        "uid": 201,
+        "name": "Pier",
+        "species": "Ocean",
+        "text": "+2 or +4 if you have the most piers"
+      }
+    ],
+    "steps": [
+      "Play an ocean card almost every turn to build a wide board.",
+      "Use Deep Ocean and Kelp Forest — they draw a card when played, so they keep your hand full.",
+      "Add Great Albatross: +6 if you have the most oceans, and it draws a card.",
+      "Tide Pool scores +1 per every two oceans, and Mangrove gives +8 if you collect all 8 ocean types."
+    ],
+    "tips": [
+      "Deep Ocean costs 0 — it's a free ocean that also draws you a card.",
+      "Arctic Oceans and Mangrove say *play again*, so they don't end your turn.",
+      "Aim for all 8 different ocean types to cash in Mangrove's +8."
+    ]
+  },
+  {
+    "label": "Yellowfin Tuna Stack",
+    "tier": "Beginner",
+    "blurb": "Stack Yellowfin Tuna in one ocean — any number can share the same spot — then cash in with Big Eye Tuna.",
+    "cards": [
+      {
+        "uid": 107,
+        "name": "Yellowfin Tuna",
+        "species": "Game Fish",
+        "text": "+2 | Any number of yellowfin may share the same spot"
+      },
+      {
+        "uid": 120,
+        "name": "Big Eye Tuna",
+        "species": "Crosscurrent",
+        "text": "+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board"
+      },
+      {
+        "uid": 18,
+        "name": "Sea Cucumber",
+        "species": "Invertebrate",
+        "text": "Draw one when you play a game fish"
+      },
+      {
+        "uid": 238,
+        "name": "Artificial Reef",
+        "species": "Ocean",
+        "text": "+2 per card attached"
+      },
+      {
+        "uid": 113,
+        "name": "Clownfish",
+        "species": "Crosscurrent",
+        "text": "Copies the Ocean’s ability this card is attached to"
+      }
+    ],
+    "steps": [
+      "Drop Yellowfin Tuna into one ocean slot — any number can share the same spot.",
+      "Keep stacking; each Yellowfin is +2 on its own.",
+      "Play Big Eye Tuna: +3 per Yellowfin AND draw one card for each Yellowfin on your board.",
+      "Artificial Reef scores +2 per card attached, so a packed reef pays off too."
+    ],
+    "tips": [
+      "Sea Cucumber draws a card every time you play a game fish — great engine here.",
+      "Big Eye Tuna is the payoff: build Yellowfin first, then play it for a big swing.",
+      "Clownfish copies the ability of the ocean it's attached to."
+    ]
+  },
+  {
+    "label": "Mammals",
+    "tier": "Beginner",
+    "blurb": "A simple stack of dolphins, sharks and narwhals for steady per-mammal scoring.",
+    "cards": [
+      {
+        "uid": 105,
+        "name": "Great White Shark",
+        "species": "Crosscurrent",
+        "text": "+3 per mammal | *Play again*"
+      },
+      {
+        "uid": 102,
+        "name": "Spinner Dolphin",
+        "species": "Mammal",
+        "text": "+2 per matching symbol | *Draw one*"
+      },
+      {
+        "uid": 109,
+        "name": "Bottlenose Dolphin",
+        "species": "Mammal",
+        "text": "+1 per Crosscurrent animal | *play a free mammal*"
+      },
+      {
+        "uid": 117,
+        "name": "Narwhal",
+        "species": "Mammal",
+        "text": "+2 per Mammal | *Draw one*"
+      },
+      {
+        "uid": 14,
+        "name": "Blue Tang",
+        "species": "Crosscurrent",
+        "text": "+2 per Crosscurrent animal"
+      },
+      {
+        "uid": 24,
+        "name": "Elk Horn Coral",
+        "species": "Coral",
+        "text": "+2 per coral that is attached to a coral reef"
+      },
+      {
+        "uid": 2,
+        "name": "Staghorn Coral",
+        "species": "Coral",
+        "text": "+3 per coral"
+      },
+      {
+        "uid": 20,
+        "name": "Deep Sea Coral",
+        "species": "Coral",
+        "text": "+10 if this is the only creature on this ocean"
+      }
+    ],
+    "steps": [
+      "Play mammals each turn — Spinner Dolphin and Narwhal both draw a card when you pay their matching symbol.",
+      "Narwhal scores +2 per mammal, so it grows as your stack grows.",
+      "Bottlenose Dolphin lets you play a free mammal — chain them.",
+      "Finish with Great White Shark: +3 per mammal and *play again*."
+    ],
+    "tips": [
+      "Great White Shark counts every mammal you own, so play it after you've built up.",
+      "Spinner Dolphin's ★ draws a card when you pay a matching ◆ symbol.",
+      "Blue Tang adds +2 per Crosscurrent animal if you splash some in."
+    ]
+  },
+  {
+    "label": "Baitfish Barrage",
+    "tier": "Intermediate",
+    "blurb": "Flood the board with baitfish, then scale up with predators like Whale Shark that score per baitfish.",
+    "cards": [
+      {
+        "uid": 142,
+        "name": "Whale Shark",
+        "species": "Crosscurrent",
+        "text": "+3 per baitfish | *Draw one*"
+      },
+      {
+        "uid": 4,
+        "name": "Hermit Crab",
+        "species": "Crustacean",
+        "text": "Play any number of baitfish this turn for free"
+      },
+      {
+        "uid": 112,
+        "name": "Roosterfish",
+        "species": "Game Fish",
+        "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*"
+      },
+      {
+        "uid": 53,
+        "name": "Mullet",
+        "species": "Baitfish",
+        "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30"
+      },
+      {
+        "uid": 61,
+        "name": "Bunker",
+        "species": "Baitfish",
+        "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30"
+      },
+      {
+        "uid": 69,
+        "name": "Sardine",
+        "species": "Baitfish",
+        "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30"
+      },
+      {
+        "uid": 77,
+        "name": "Flying Fish",
+        "species": "Baitfish",
+        "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30"
+      },
+      {
+        "uid": 85,
+        "name": "Bonito",
+        "species": "Baitfish",
+        "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30"
+      },
+      {
+        "uid": 18,
+        "name": "Sea Cucumber",
+        "species": "Invertebrate",
+        "text": "Draw one when you play a game fish"
+      },
+      {
+        "uid": 70,
+        "name": "Sea Urchin",
+        "species": "Invertebrate",
+        "text": "Draw one when you play an animal on the ocean surface"
+      },
+      {
+        "uid": 52,
+        "name": "Loggerhead Sea Turtle",
+        "species": "Crosscurrent",
+        "text": "Play any number of cards by paying the costs"
+      }
+    ],
+    "steps": [
+      "Play Hermit Crab — it lets you play any number of baitfish this turn for free.",
+      "Flood the board with different baitfish (Mullet, Bunker, Sardine, Flying Fish, Bonito).",
+      "Each baitfish scores by # of DIFFERENT species: 1=1, 2=3, 3=11, 4=18, 5=30 — variety matters most.",
+      "Cap it with Whale Shark: +3 per baitfish and draw one."
+    ],
+    "tips": [
+      "You want 5 DIFFERENT baitfish species for the 30-point tier — not 5 of the same.",
+      "Sea Urchin draws a card each time you play an animal on the ocean surface.",
+      "Loggerhead Sea Turtle lets you play any number of cards by paying their costs."
+    ]
+  },
+  {
+    "label": "Bird Lobster",
+    "tier": "Advanced",
+    "blurb": "The classic B-Lob: birds plus crustaceans. California Seagull scores +3 per crustacean, and Lobsters stack freely.",
+    "cards": [
+      {
+        "uid": 1,
+        "name": "Emperor Penguin",
+        "species": "Bird",
+        "text": "+2 per Bird"
+      },
+      {
+        "uid": 93,
+        "name": "Razorbill Auk",
+        "species": "Bird",
+        "text": "# of razorbill auks 1 = 5 | 2 = 25"
+      },
+      {
+        "uid": 17,
+        "name": "California Seagull",
+        "species": "Bird",
+        "text": "+3 per crustacean"
+      },
+      {
+        "uid": 9,
+        "name": "Horned Puffin",
+        "species": "Bird",
+        "text": "+3 | *play again*"
+      },
+      {
+        "uid": 25,
+        "name": "Peruvian Pelican",
+        "species": "Bird",
+        "text": "+5 | Draw one or *draw three*"
+      },
+      {
+        "uid": 12,
+        "name": "Lobster",
+        "species": "Crustacean",
+        "text": "+5 | Any number of lobsters can share the same spot"
+      },
+      {
+        "uid": 6,
+        "name": "Mantis Shrimp",
+        "species": "Crustacean",
+        "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |"
+      },
+      {
+        "uid": 8,
+        "name": "Spiny Lobster",
+        "species": "Crustacean",
+        "text": "+6 per mandarin goby"
+      },
+      {
+        "uid": 238,
+        "name": "Artificial Reef",
+        "species": "Ocean",
+        "text": "+2 per card attached"
+      },
+      {
+        "uid": 10,
+        "name": "Common Sea Star",
+        "species": "Invertebrate",
+        "text": "Draw one when you play a card on the ocean floor"
+      },
+      {
+        "uid": 113,
+        "name": "Clownfish",
+        "species": "Crosscurrent",
+        "text": "Copies the Ocean’s ability this card is attached to"
+      },
+      {
+        "uid": 70,
+        "name": "Sea Urchin",
+        "species": "Invertebrate",
+        "text": "Draw one when you play an animal on the ocean surface"
+      }
+    ],
+    "steps": [
+      "Play California Seagull: +3 per crustacean on your board.",
+      "Stack Lobsters in one spot — any number can share it — to pump the Seagull.",
+      "Add birds like Emperor Penguin (+2 per bird) and Horned Puffin (+3, *play again*).",
+      "Mantis Shrimp rewards a deep crustacean set: 1=5, 2=15, 3=30 points."
+    ],
+    "tips": [
+      "Lobsters share a single slot, so they're a cheap way to grow your crustacean count fast.",
+      "Horned Puffin and Peruvian Pelican keep your turn going / your hand full.",
+      "Common Sea Star draws a card whenever you play on the ocean floor."
+    ]
+  },
+  {
+    "label": "Bird Coral",
+    "tier": "Advanced",
+    "blurb": "High-scoring birds plus coral passive generation. Magnificent Frigatebird plays free coral to feed your coral count.",
+    "cards": [
+      {
+        "uid": 1,
+        "name": "Emperor Penguin",
+        "species": "Bird",
+        "text": "+2 per Bird"
+      },
+      {
+        "uid": 9,
+        "name": "Horned Puffin",
+        "species": "Bird",
+        "text": "+3 | *play again*"
+      },
+      {
+        "uid": 25,
+        "name": "Peruvian Pelican",
+        "species": "Bird",
+        "text": "+5 | Draw one or *draw three*"
+      },
+      {
+        "uid": 93,
+        "name": "Razorbill Auk",
+        "species": "Bird",
+        "text": "# of razorbill auks 1 = 5 | 2 = 25"
+      },
+      {
+        "uid": 49,
+        "name": "Magnificent Frigatebird",
+        "species": "Bird",
+        "text": "+2 per coral | *Play a free coral*"
+      },
+      {
+        "uid": 2,
+        "name": "Staghorn Coral",
+        "species": "Coral",
+        "text": "+3 per coral"
+      },
+      {
+        "uid": 20,
+        "name": "Deep Sea Coral",
+        "species": "Coral",
+        "text": "+10 if this is the only creature on this ocean"
+      },
+      {
+        "uid": 64,
+        "name": "Grooved Brain Coral",
+        "species": "Coral",
+        "text": "+3 | *Play a free cephalopod*"
+      },
+      {
+        "uid": 24,
+        "name": "Elk Horn Coral",
+        "species": "Coral",
+        "text": "+2 per coral that is attached to a coral reef"
+      },
+      {
+        "uid": 217,
+        "name": "Coral Reef",
+        "species": "Ocean",
+        "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |"
+      }
+    ],
+    "steps": [
+      "Build a coral base — Staghorn Coral scores +3 per coral, and most corals cost 0–1.",
+      "Play Magnificent Frigatebird: +2 per coral AND play a free coral.",
+      "Add birds (Emperor Penguin +2 per bird, Peruvian Pelican +5 & draw).",
+      "Elk Horn Coral gives +2 per coral attached to a Coral Reef."
+    ],
+    "tips": [
+      "Magnificent Frigatebird both scores on coral and gives you a free coral — double value.",
+      "Deep Sea Coral gives +10 if it's the only creature on its ocean.",
+      "Razorbill Auk pairs up: 1 = 5, but 2 = 25 points."
+    ]
+  },
+  {
+    "label": "Coral Cephalopods",
+    "tier": "Advanced",
+    "blurb": "A coral base plus cephalopod explosive turns — most cephalopods spike once you have at least three on board.",
+    "cards": [
+      {
+        "uid": 64,
+        "name": "Grooved Brain Coral",
+        "species": "Coral",
+        "text": "+3 | *Play a free cephalopod*"
+      },
+      {
+        "uid": 2,
+        "name": "Staghorn Coral",
+        "species": "Coral",
+        "text": "+3 per coral"
+      },
+      {
+        "uid": 20,
+        "name": "Deep Sea Coral",
+        "species": "Coral",
+        "text": "+10 if this is the only creature on this ocean"
+      },
+      {
+        "uid": 24,
+        "name": "Elk Horn Coral",
+        "species": "Coral",
+        "text": "+2 per coral that is attached to a coral reef"
+      },
+      {
+        "uid": 115,
+        "name": "Reef Trigger Fish",
+        "species": "Crosscurrent",
+        "text": "+4 per Cephalopod | *Play any number of cephalopods for free*"
+      },
+      {
+        "uid": 111,
+        "name": "Manta Ray",
+        "species": "Crosscurrent",
+        "text": "+3 | Draw one when you play a cephalopod"
+      },
+      {
+        "uid": 150,
+        "name": "Giant Squid",
+        "species": "Cephalopod",
+        "text": "+6 if you have at least three cephalopods"
+      },
+      {
+        "uid": 155,
+        "name": "Bobtail Squid",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      },
+      {
+        "uid": 110,
+        "name": "Common Octopus",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      },
+      {
+        "uid": 139,
+        "name": "Cuttlefish",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      }
+    ],
+    "steps": [
+      "Lay down coral early (Staghorn +3 per coral) for steady points.",
+      "Play Grooved Brain Coral — it lets you play a free cephalopod.",
+      "Get at least THREE cephalopods out: Octopus/Cuttlefish/Bobtail each become +4, Giant Squid +6.",
+      "Manta Ray draws a card every time you play a cephalopod."
+    ],
+    "tips": [
+      "Cephalopod bonuses only trigger at 3+ cephalopods — rush to that threshold.",
+      "Reef Trigger Fish is the payoff: +4 per cephalopod AND play any number of them for free.",
+      "Manta Ray turns each cephalopod into a card draw."
+    ]
+  },
+  {
+    "label": "Goby Moon Shot",
+    "tier": "Expert",
+    "blurb": "High-risk Mandarin Goby plus Spiny Lobster. Goby's threshold pays off huge at 3-4, and Spiny Lobster scores +6 per Goby.",
+    "cards": [
+      {
+        "uid": 28,
+        "name": "Mandarin Goby",
+        "species": "Crosscurrent",
+        "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80"
+      },
+      {
+        "uid": 8,
+        "name": "Spiny Lobster",
+        "species": "Crustacean",
+        "text": "+6 per mandarin goby"
+      },
+      {
+        "uid": 14,
+        "name": "Blue Tang",
+        "species": "Crosscurrent",
+        "text": "+2 per Crosscurrent animal"
+      },
+      {
+        "uid": 10,
+        "name": "Common Sea Star",
+        "species": "Invertebrate",
+        "text": "Draw one when you play a card on the ocean floor"
+      },
+      {
+        "uid": 17,
+        "name": "California Seagull",
+        "species": "Bird",
+        "text": "+3 per crustacean"
+      },
+      {
+        "uid": 238,
+        "name": "Artificial Reef",
+        "species": "Ocean",
+        "text": "+2 per card attached"
+      },
+      {
+        "uid": 113,
+        "name": "Clownfish",
+        "species": "Crosscurrent",
+        "text": "Copies the Ocean’s ability this card is attached to"
+      }
+    ],
+    "steps": [
+      "Collect Mandarin Gobies — their threshold is 1=0, 2=14, 3=30, 4=80 points.",
+      "Play Spiny Lobster: +6 per Mandarin Goby on your board.",
+      "Blue Tang adds +2 per Crosscurrent animal (Goby is Crosscurrent).",
+      "Common Sea Star draws a card when you play on the ocean floor — where Gobies go."
+    ],
+    "tips": [
+      "One Goby is worth 0 — you MUST reach 2+ (and ideally 4 = 80) for it to pay.",
+      "Spiny Lobster multiplies your Gobies, so play it once you have several.",
+      "This is high-risk: commit early and dig for Gobies, or it falls flat."
+    ]
+  },
+  {
+    "label": "Birds",
+    "tier": "Hybrid",
+    "blurb": "A bird catch-all for any bird-heavy opening hand — flexible and consistent.",
+    "cards": [
+      {
+        "uid": 1,
+        "name": "Emperor Penguin",
+        "species": "Bird",
+        "text": "+2 per Bird"
+      },
+      {
+        "uid": 9,
+        "name": "Horned Puffin",
+        "species": "Bird",
+        "text": "+3 | *play again*"
+      },
+      {
+        "uid": 17,
+        "name": "California Seagull",
+        "species": "Bird",
+        "text": "+3 per crustacean"
+      },
+      {
+        "uid": 25,
+        "name": "Peruvian Pelican",
+        "species": "Bird",
+        "text": "+5 | Draw one or *draw three*"
+      },
+      {
+        "uid": 33,
+        "name": "Great Albatross",
+        "species": "Bird",
+        "text": "+6 if you have the most oceans | *Draw one*"
+      },
+      {
+        "uid": 41,
+        "name": "Osprey",
+        "species": "Bird",
+        "text": "+2 per matching symbol"
+      },
+      {
+        "uid": 49,
+        "name": "Magnificent Frigatebird",
+        "species": "Bird",
+        "text": "+2 per coral | *Play a free coral*"
+      },
+      {
+        "uid": 93,
+        "name": "Razorbill Auk",
+        "species": "Bird",
+        "text": "# of razorbill auks 1 = 5 | 2 = 25"
+      },
+      {
+        "uid": 6,
+        "name": "Mantis Shrimp",
+        "species": "Crustacean",
+        "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |"
+      },
+      {
+        "uid": 12,
+        "name": "Lobster",
+        "species": "Crustacean",
+        "text": "+5 | Any number of lobsters can share the same spot"
+      },
+      {
+        "uid": 8,
+        "name": "Spiny Lobster",
+        "species": "Crustacean",
+        "text": "+6 per mandarin goby"
+      },
+      {
+        "uid": 70,
+        "name": "Sea Urchin",
+        "species": "Invertebrate",
+        "text": "Draw one when you play an animal on the ocean surface"
+      }
+    ],
+    "steps": [
+      "Play birds every turn — Emperor Penguin scores +2 per bird, so they snowball.",
+      "Horned Puffin (*play again*) and Peruvian Pelican (draw) keep your turn and hand going.",
+      "Great Albatross gives +6 if you have the most oceans, plus a draw.",
+      "Splash crustaceans (Lobster, Mantis Shrimp) to feed California Seagull's +3 per crustacean."
+    ],
+    "tips": [
+      "Emperor Penguin counts ALL your birds — play it after you've built a flock.",
+      "Osprey scores +2 per matching-symbol card, rewarding symbol consistency.",
+      "Razorbill Auk pairs: 1 = 5 but 2 = 25 points."
+    ]
+  },
+  {
+    "label": "Cephalopods",
+    "tier": "Hybrid",
+    "blurb": "Cephalopods-only, for hands heavy on squids and octopus without much coral. Reef Trigger Fish plays them all for free.",
+    "cards": [
+      {
+        "uid": 115,
+        "name": "Reef Trigger Fish",
+        "species": "Crosscurrent",
+        "text": "+4 per Cephalopod | *Play any number of cephalopods for free*"
+      },
+      {
+        "uid": 155,
+        "name": "Bobtail Squid",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      },
+      {
+        "uid": 139,
+        "name": "Cuttlefish",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      },
+      {
+        "uid": 110,
+        "name": "Common Octopus",
+        "species": "Cephalopod",
+        "text": "+4 if you have at least three cephalopods"
+      },
+      {
+        "uid": 150,
+        "name": "Giant Squid",
+        "species": "Cephalopod",
+        "text": "+6 if you have at least three cephalopods"
+      },
+      {
+        "uid": 111,
+        "name": "Manta Ray",
+        "species": "Crosscurrent",
+        "text": "+3 | Draw one when you play a cephalopod"
+      },
+      {
+        "uid": 14,
+        "name": "Blue Tang",
+        "species": "Crosscurrent",
+        "text": "+2 per Crosscurrent animal"
+      }
+    ],
+    "steps": [
+      "Get three or more cephalopods on the board fast — that's when they activate.",
+      "Common Octopus, Cuttlefish and Bobtail Squid each give +4 at 3+ cephalopods; Giant Squid +6.",
+      "Play Reef Trigger Fish: +4 per cephalopod AND play any number of cephalopods for free.",
+      "Manta Ray draws a card each time you play a cephalopod."
+    ],
+    "tips": [
+      "Below three cephalopods, most of these score nothing — rush the threshold.",
+      "Reef Trigger Fish can dump your whole hand of cephalopods in one turn for free.",
+      "Blue Tang adds +2 per Crosscurrent animal (Manta Ray and Reef Trigger Fish count)."
+    ]
+  },
+  {
+    "label": "King Salmon Coral Fill",
+    "tier": "Hybrid",
+    "blurb": "Fill oceans completely for bonus scoring — King Salmon scores +5 per fully occupied ocean.",
+    "cards": [
+      {
+        "uid": 141,
+        "name": "King Salmon",
+        "species": "Game Fish",
+        "text": "+5 per fully occupied ocean | *Draw one*"
+      },
+      {
+        "uid": 113,
+        "name": "Clownfish",
+        "species": "Crosscurrent",
+        "text": "Copies the Ocean’s ability this card is attached to"
+      },
+      {
+        "uid": 238,
+        "name": "Artificial Reef",
+        "species": "Ocean",
+        "text": "+2 per card attached"
+      },
+      {
+        "uid": 217,
+        "name": "Coral Reef",
+        "species": "Ocean",
+        "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 18 | 5 = 0 | 6+ = 36 |"
+      },
+      {
+        "uid": 2,
+        "name": "Staghorn Coral",
+        "species": "Coral",
+        "text": "+3 per coral"
+      },
+      {
+        "uid": 24,
+        "name": "Elk Horn Coral",
+        "species": "Coral",
+        "text": "+2 per coral that is attached to a coral reef"
+      },
+      {
+        "uid": 20,
+        "name": "Deep Sea Coral",
+        "species": "Coral",
+        "text": "+10 if this is the only creature on this ocean"
+      },
+      {
+        "uid": 10,
+        "name": "Common Sea Star",
+        "species": "Invertebrate",
+        "text": "Draw one when you play a card on the ocean floor"
+      },
+      {
+        "uid": 70,
+        "name": "Sea Urchin",
+        "species": "Invertebrate",
+        "text": "Draw one when you play an animal on the ocean surface"
+      },
+      {
+        "uid": 26,
+        "name": "Sea Anemone",
+        "species": "Invertebrate",
+        "text": "+3 per invertebrate | *Draw one*"
+      },
+      {
+        "uid": 109,
+        "name": "Bottlenose Dolphin",
+        "species": "Mammal",
+        "text": "+1 per Crosscurrent animal | *play a free mammal*"
+      }
+    ],
+    "steps": [
+      "Spread out oceans, then fill every slot (Up/Down/Left/Right) on each one.",
+      "Cheap corals (Staghorn, Elk Horn) and invertebrates fill slots without costing much.",
+      "Play King Salmon: +5 per FULLY occupied ocean — so completed oceans pay big.",
+      "Artificial Reef scores +2 per card attached, rewarding a packed board."
+    ],
+    "tips": [
+      "A 'fully occupied' ocean has all its slots filled — plan to complete oceans, not spread thin.",
+      "Sea Anemone (+3 per invertebrate, draw) and Sea Urchin keep cards flowing as you fill.",
+      "Clownfish copies the ability of the ocean it's attached to."
+    ]
+  }
+];
+
+  (function _initHelpModal() {
+    const btn      = document.getElementById("pv-help-btn");
+    const modal    = document.getElementById("pv-help-modal");
+    const listEl   = document.getElementById("pv-help-list");
+    const detailEl = document.getElementById("pv-help-detail");
+    const titleEl  = document.getElementById("pv-help-title");
+    const backBtn  = document.getElementById("pv-help-back");
+    const closeBtn = document.getElementById("pv-help-close");
+    if (!btn || !modal) return;
+
+    const hesc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+    function renderList() {
+      modal.classList.remove("detail");
+      titleEl.textContent = "Strategies";
+      listEl.innerHTML = HELP_STRATEGIES.map((s, i) => `
+        <div class="help-strat-card" data-strat="${i}">
+          <div class="hsc-top">
+            <span class="hsc-name">${hesc(s.label)}</span>
+            <span class="help-tier ${hesc(s.tier)}">${hesc(s.tier)}</span>
+          </div>
+          <div class="hsc-blurb">${hesc(s.blurb)}</div>
+          <div class="hsc-go">View cards & plan ›</div>
+        </div>`).join("");
+    }
+
+    function renderDetail(i) {
+      const s = HELP_STRATEGIES[i];
+      if (!s) return;
+      modal.classList.add("detail");
+      titleEl.textContent = s.label;
+      const stepsHtml = (s.steps || []).map(t => `<li>${hesc(t)}</li>`).join("");
+      const tipsHtml  = (s.tips  || []).map(t => `<li>${hesc(t)}</li>`).join("");
+      const cardsHtml = (s.cards || []).map(c => `
+        <div class="hd-card-tile" data-uid="${c.uid}" title="${hesc(c.name)} — click to zoom">
+          <div class="hd-card-img"><img src="${imagePathForUid(c.uid)}" style="object-position:${cardHalfPos(c.uid)};" alt="${hesc(c.name)}" loading="lazy"></div>
+          <div class="hd-card-name">${hesc(c.name)}</div>
+          <div class="hd-card-text">${hesc(c.text)}</div>
+        </div>`).join("");
+      detailEl.innerHTML = `
+        <div class="hd-head"><span class="help-tier ${hesc(s.tier)}">${hesc(s.tier)}</span></div>
+        <p class="hd-blurb">${hesc(s.blurb)}</p>
+        <div class="hd-section-title">🧭 What do I do next</div>
+        <ol class="hd-steps">${stepsHtml}</ol>
+        <div class="hd-section-title">🃏 Cards to look for</div>
+        <div class="hd-cards-grid">${cardsHtml}</div>
+        <div class="hd-section-title">💡 Quick tips</div>
+        <ul class="hd-tips">${tipsHtml}</ul>`;
+      detailEl.scrollTop = 0;
+    }
+
+    function openModal() { renderList(); modal.classList.add("open"); }
+    function closeModal() { modal.classList.remove("open"); }
+
+    btn.addEventListener("click", openModal);
+    closeBtn.addEventListener("click", closeModal);
+    backBtn.addEventListener("click", renderList);
+    modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+    listEl.addEventListener("click", (e) => {
+      const card = e.target.closest(".help-strat-card");
+      if (!card) return;
+      renderDetail(Number(card.dataset.strat));
+    });
+    detailEl.addEventListener("click", (e) => {
+      const tile = e.target.closest(".hd-card-tile");
+      if (!tile) return;
+      const uid = Number(tile.dataset.uid);
+      let found = null;
+      for (const s of HELP_STRATEGIES) { const c = (s.cards||[]).find(x => x.uid === uid); if (c) { found = c; break; } }
+      if (found) { try { openZoom(uid, found.name, found.text, found.species); } catch (_) {} }
+    });
+    // Esc closes
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape" && modal.classList.contains("open")) closeModal(); });
+  })();
+
 
   // Call instead of submitAction(act) for play actions.
   // If the card has a usable star ability and this action skips it,
@@ -18294,13 +19310,9 @@
   // ── Guide bar ──────────────────────────────────────────────────
   function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const bar = document.getElementById("pv-guide-bar");
-    const qdBtn = document.getElementById("pv-quick-draw-btn");
-    const drawDivider = document.getElementById("pv-draw-divider");
 
     if (!isMyTurn) {
       bar.classList.remove("visible");
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
       return;
     }
 
@@ -18313,8 +19325,6 @@
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">💳 Paying for <strong>${name}</strong> — click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
       </div>`;
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
       return;
     }
 
@@ -18323,8 +19333,6 @@
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">🐟 Tarpon — pick a card to discard from the dropdown, then click Play to discard. Repeat for each card, then click ✓ End Turn to draw that many cards back.</span>
       </div>`;
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
       return;
     }
 
@@ -18333,8 +19341,6 @@
       bar.innerHTML = `<div class="guide-step">
         <span class="gs active">✂ You have too many cards — select exactly ${discardExcess} to discard, then click Confirm Discard</span>
       </div>`;
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
       return;
     }
 
@@ -18352,8 +19358,6 @@
           <span class="gs" style="color:#ffd700">★ FREE PLAY (${speciesStr}) — no eligible card in hand. Click ✓ End Turn to continue.</span>
         </div>`;
       }
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
       return;
     }
 
@@ -18362,19 +19366,6 @@
     const board = Array.isArray(me?.board) ? me.board : [];
     const hasOcean = board.length > 0;
     const hasOceanInHand = Array.isArray(me?.hand) && me.hand.some(c => (c.species||"").toLowerCase() === "ocean");
-
-    // Quick draw button: draw 1 card from deck immediately
-    if (drawAction) {
-      qdBtn.classList.add("visible");
-      drawDivider.style.display = "";
-      qdBtn.querySelector(".qd-label").textContent = "🃏 Draw from Deck";
-      qdBtn.querySelector(".qd-sub").textContent = "then choose your 2nd card";
-      qdBtn.title = "Draw 1 card from the deck";
-      qdBtn.onclick = () => _drawFromDeck(_poolDrawActions);
-    } else {
-      qdBtn.classList.remove("visible");
-      drawDivider.style.display = "none";
-    }
 
     // Build step chips
     const steps = [];
