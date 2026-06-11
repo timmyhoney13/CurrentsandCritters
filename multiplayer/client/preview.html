@@ -21997,7 +21997,7 @@
       unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
     { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
       facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
-      unlock:{ type:"event", event:"tutorial_complete", label:"Complete the tutorial." } },
+      unlock:{ type:"event", event:"tutorial_complete", label:"Complete all 3 tutorials." } },
     { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
       facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
       unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Coral species cards in one game." } },
@@ -32355,6 +32355,7 @@
   function gtBoardFocusOpen() { const m = document.getElementById("pv-board-focus"); return !!(m && m.classList.contains("open")); }
   function gtBoardFocusClosed() { const m = document.getElementById("pv-board-focus"); return !(m && m.classList.contains("open")); }
   function gtBoardPeek() { return gtBoardFocusOpen() || !!document.getElementById("pv-board-hover")?.classList.contains("visible"); }
+  function gtEndgameOpen() { const el = document.getElementById("pv-endgame-overlay"); return !!(el && el.classList.contains("open")); }
   // Snapshot of the hand's left-to-right order, for detecting a manual reorder.
   function gtHandSig() { return Array.from(document.querySelectorAll("#pv-hand .pv-hand-card")).map(c => c.dataset.entryUid).join(","); }
   let _tutHandSig = "";
@@ -32769,6 +32770,8 @@
   function blNarwhalEl() { return blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
   function blEndTurnEl() { const el = document.getElementById("pv-end-turn-inline"); return (el && el.offsetParent !== null) ? el : null; }
 
+  let _blobGameCompleted = false;
+
   const BLOB_STEPS = [
     { target: null, badge: "B-Lob Tutorial", title: "Join a private game",
       text: "There are two main types of casual games. <strong>Casual public matches</strong> can be joined by anyone. <strong>Private matches</strong> require a room code. This time we are going to set up and play a <strong>private game</strong> — follow the glowing highlights and <strong>click for real</strong>." },
@@ -32864,8 +32867,9 @@
     // ── Recap + hint ─────────────────────────────────────────────────
     { target: null, badge: "B-Lob", title: "You've Got the Basics",
       text: "Now you understand the basics of <strong>B-Lob</strong>. Look for <strong>Lobsters</strong>, <strong>birds that buff your board</strong> (California Seagull, Emperor Penguin), and Oceans like <strong>Artificial Reef</strong> that make your stacked cards stronger. Check the <strong>Pool</strong> before drawing, and use cards that don't fit B-Lob as <strong>payment</strong>." },
-    { target: null, badge: "B-Lob", title: "Keep Playing",
-      text: "You can keep playing from here. Quick B-Lob tips:<br>• Look for <strong>Lobster</strong>.<br>• Stack Lobsters on <strong>Artificial Reef</strong>.<br>• <strong>California Seagull</strong> helps crustaceans; <strong>Emperor Penguin</strong> helps birds.<br>• Check the <strong>Pool</strong> before the deck.<br>• Pay with cards that don't help B-Lob, and keep the ones that do.<br><br>Select <strong>Finish</strong> to complete the tutorial." },
+    { target: null, badge: "B-Lob", title: "Finish the Game",
+      advanceWhen: () => { if (gtEndgameOpen()) { _blobGameCompleted = true; return true; } return false; },
+      text: "Quick B-Lob tips:<br>• Look for <strong>Lobster</strong>.<br>• Stack Lobsters on <strong>Artificial Reef</strong>.<br>• <strong>California Seagull</strong> helps crustaceans; <strong>Emperor Penguin</strong> helps birds.<br>• Check the <strong>Pool</strong> before the deck.<br>• Pay with cards that don't help B-Lob, and keep the ones that do.<br><br><strong>Play the game to the end</strong> — the tutorial completes automatically when the game finishes!" },
   ];
 
   function runBLobTour() {
@@ -32881,18 +32885,34 @@
     window.__ccTutorialGame = true;
     window.__ccTutorialVariant = "blob";
     let _exited = false;
+    let _completionHandled = false;
     const _exitAndReturn = async () => {
       if (_exited) return;
+      // If the game ended naturally, hold the exit until the completion
+      // coachmark is dismissed — prevents the lobby from appearing
+      // underneath the "Tutorial Completed!" step.
+      if (_blobGameCompleted && !_completionHandled) return;
       _exited = true;
       window.__ccTutorialGame = false;
       window.__ccTutorialVariant = "";
       try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
       setTimeout(openChooser, 700);
     };
+    _blobGameCompleted = false;
     runCoach(BLOB_STEPS, async () => {
-      setDone("practice");
-      showToast("Practice complete", completionSubtitle());
-      await _exitAndReturn();
+      if (_blobGameCompleted) {
+        setDone("practice");
+        runCoach([{
+          target: null, badge: "Tutorial Complete!", title: "Tutorial Completed!",
+          text: "You played a full B-Lob game from start to finish! Stack <strong>Lobsters</strong> on <strong>Artificial Reef</strong>, buff with <strong>California Seagull</strong> and <strong>Emperor Penguin</strong>, and watch the Pool. You've got the B-Lob strategy down. 🦞"
+        }], async () => {
+          _completionHandled = true;
+          showToast("Tutorial complete!", completionSubtitle());
+          await _exitAndReturn();
+        }, () => { _completionHandled = true; _exitAndReturn(); });
+      } else {
+        await _exitAndReturn();
+      }
     }, _exitAndReturn);
   }
 
