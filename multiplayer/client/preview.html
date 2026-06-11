@@ -25797,8 +25797,7 @@
     });
 
     $a("stats-comp-btn").addEventListener("click", () => {
-      if (typeof compOpenOverlay === "function") compOpenOverlay();
-      if (typeof compSwitchTab === "function") compSwitchTab("create");
+      openNewCurrentModal({ competitive: true });
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
@@ -33107,103 +33106,92 @@
 
   // ════════════════════════════════════════════════════════════════
   //  COMPETITIVE 1v1 TOUR
-  //  A walkthrough of the competitive overlay + stats tab. No live
-  //  game is created — competitive requires two real human players.
+  //  Walks the REAL competitive entry: the Competitive action card opens
+  //  the New Current setup modal (locked to 4 humans = 2 players × 2
+  //  hands), then the standard waiting room. No live game is created —
+  //  competitive needs two real human players — so we explain the setup
+  //  and joining, then cover ranks, CP, the hand-switch, and strategy.
   // ════════════════════════════════════════════════════════════════
-  const gtCompOverlayOpen   = () => !!document.getElementById("comp-overlay")?.classList.contains("open");
-  const gtCompOverlayClosed = () => !document.getElementById("comp-overlay")?.classList.contains("open");
-  const gtCompTabActive     = t  => () => !!document.getElementById(`comp-tab-${t}`)?.classList.contains("active");
-  function closeCompTourOverlay() {
-    try { if (typeof compCloseOverlay === "function") compCloseOverlay(); } catch (_) {}
+  const gtCompModalOpen   = () => !!document.getElementById("new-current-modal")?.classList.contains("open");
+  const gtCompModalClosed = () => !document.getElementById("new-current-modal")?.classList.contains("open");
+  function closeCompTourModal() {
+    try { if (typeof closeNewCurrentModal === "function") closeNewCurrentModal(); } catch (_) {}
   }
 
   const COMP_STEPS = [
 
     // ── 1. Welcome ──────────────────────────────────────────────────
     { target: null, badge: "Competitive 1v1", title: "What is Competitive?",
-      before: () => { closeMenuOverlays(); closeCompTourOverlay(); try { navTab("overview"); } catch (_) {} },
-      text: "Welcome to <strong>Competitive 1v1</strong> — the ranked way to play Currents &amp; Critters. Two players go head-to-head, but each player controls <strong>two hands</strong> at once and plays both on the same device. Your best-scoring hand is compared to your opponent's best — whoever scores higher <strong>wins the match and earns CP</strong> (Competitive Points)." },
+      before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
+      text: "Welcome to <strong>Competitive 1v1</strong> — the ranked way to play Currents &amp; Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best — the higher score <strong>wins the match and earns CP</strong> (Competitive Points) toward your rank." },
 
-    // ── 2. Open the overlay (interactive) ──────────────────────────
+    // ── 2. Open Competitive (interactive) → opens the setup modal ───
     { target: "#stats-comp-btn", badge: "Step 1", title: "Open Competitive",
-      before: () => { closeMenuOverlays(); closeCompTourOverlay(); try { navTab("overview"); } catch (_) {} },
-      interactive: true, advanceWhen: gtCompOverlayOpen,
-      text: "The <strong>⚔️ Competitive</strong> action card is your gateway to ranked play. <strong>Click it now</strong> to open the matchmaking overlay." },
+      before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
+      interactive: true, advanceWhen: gtCompModalOpen,
+      text: "The <strong>⚔️ Competitive</strong> action card on your menu is the gateway to ranked play. <strong>Click it now</strong> to open the match-setup window." },
 
-    // ── 3. The overlay ──────────────────────────────────────────────
-    { target: "#comp-overlay", badge: "The Overlay", title: "Competitive 1v1 Overlay",
-      text: "This is the Competitive hub. It has three tabs: <strong>Create Match</strong> (start a room as Player 1), <strong>Join Match</strong> (enter as Player 2), and <strong>Leaderboard</strong> (global rankings). Creating and joining are always done on <em>separate</em> devices — one player creates, the other joins with the room code." },
+    // ── 3. The setup modal ──────────────────────────────────────────
+    { target: "#new-current-modal", badge: "Match Setup", title: "Competitive Setup",
+      text: "Competitive reuses the same <strong>game-setup window</strong> you already know — but locked to the ranked format. The title reads <strong>⚔️ Competitive 1v1 — 2 hands per player</strong>. Let's look at why the player counts are fixed." },
 
-    // ── 4. Create panel — heading ───────────────────────────────────
-    { target: "#comp-panel-create", badge: "Create Tab", title: "You Are Player 1",
-      before: () => { try { compSwitchTab("create"); } catch (_) {} },
-      text: "When you click <strong>⚔️ Create Match →</strong>, you become <strong>Player 1</strong>. You own <strong>Hand 1 and Hand 2</strong> — two independent seats at the same four-player table. Both hands deal you separate cards, and you take turns playing each one." },
+    // ── 4. Human Critters locked to 4 ───────────────────────────────
+    { target: "#nc-total", badge: "Match Setup", title: "Four Hands = Two Players",
+      before: () => { closeMenuOverlays(); },
+      text: "<strong>Human Critters is locked to 4.</strong> That's <strong>2 players × 2 hands each</strong> — a full four-seat table shared between just two people. You can't change it: competitive is always this exact shape." },
 
-    // ── 5. The four-hand grid ───────────────────────────────────────
-    { target: ".comp-hands-grid", badge: "Four Hands", title: "Two Hands Each",
-      text: "The grid shows all four hands. <strong>🦈 Hand 1 and 🦀 Hand 2 are yours</strong> as Player 1. Your opponent (Player 2) controls <strong>🐡 Hand 3 and 🐋 Hand 4</strong> on their device. Turns cycle in order: 1 → 2 → 3 → 4 → 1…, so the two players alternate frequently." },
+    // ── 5. AI Critters locked to 0 ──────────────────────────────────
+    { target: "#nc-ai", badge: "Match Setup", title: "No Bots in Ranked",
+      text: "<strong>AI Critters is locked to 0.</strong> Competitive is strictly human-vs-human — there are no bots in a ranked match, because CP and your rank are on the line. Every hand at the table is controlled by a real player." },
 
-    // ── 6. Room code field ──────────────────────────────────────────
-    { target: "#comp-create-code", badge: "Room Code", title: "Custom or Auto Code",
-      text: "You can type a <strong>custom 5-letter code</strong> (e.g. SWORD) for your room — great for playing with a specific friend. Or leave it blank and the server <strong>auto-generates one</strong> for you. After creating, share the code with your opponent so they can join." },
+    // ── 6. Privacy + code ───────────────────────────────────────────
+    { target: "#nc-visibility", badge: "Match Setup", title: "Public or Private",
+      text: "<strong>🌊 Public</strong> matches appear in <strong>Open Currents</strong> so anyone can find and join yours. <strong>🔒 Private</strong> matches ask you to set a <strong>join code</strong> — only someone with that code can get in, perfect for challenging a specific friend." },
 
-    // ── 7. Create button ────────────────────────────────────────────
-    { target: "#comp-create-btn", badge: "Creating", title: "Create the Room",
-      text: "Click <strong>⚔️ Create Match →</strong> to create the room. The overlay will show a <strong>waiting screen</strong> with your room code. Share that code with Player 2 and wait for them to join — once they're in, the Start button appears." },
+    // ── 7. Generate Current (explain, don't create) ────────────────
+    { target: "#nc-create-btn", badge: "Match Setup", title: "Generate the Match",
+      text: "Clicking <strong>Generate Current →</strong> creates the room and drops you into the <strong>waiting room</strong>, where your room code is shown to share. You'd wait there for your opponent to join, then press Start.<br><br>We <em>won't</em> actually create one now — a real match needs a second human player. Let's close this and learn how that second player gets in." },
 
-    // ── 8. Switch to Join tab (interactive) ────────────────────────
-    { target: "#comp-tab-join", badge: "Join Tab", title: "Player 2 Joins",
-      interactive: true, advanceWhen: gtCompTabActive("join"),
-      text: "On Player 2's device, they open this same overlay and click <strong>Join Match</strong>. <strong>Click it now</strong> to see what they see." },
+    // ── 8. Close the setup (interactive) ───────────────────────────
+    { target: "#nc-close", badge: "Match Setup", title: "Close the Setup",
+      interactive: true, advanceWhen: gtCompModalClosed,
+      text: "Click the <strong>✕</strong> to close the setup window." },
 
-    // ── 9. Join panel ───────────────────────────────────────────────
-    { target: "#comp-panel-join", badge: "Join Tab", title: "Entering the Code",
-      text: "Player 2 types the <strong>5-letter room code</strong> into this field and clicks <strong>🌊 Join as Player 2 →</strong>. They automatically claim <strong>Hands 3 and 4</strong>. No seat picking, no waiting — once joined, Player 1's screen shows a <strong>Start button</strong>. Player 1 clicks it and the game begins." },
+    // ── 9. How Player 2 joins ───────────────────────────────────────
+    { target: "#stats-comp-btn", badge: "Joining", title: "How Player 2 Joins",
+      before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
+      text: "Your opponent joins from <em>their</em> device. If your match is <strong>Public</strong>, they find it in <strong>Open Currents</strong> (the Join / Browse list) and tap it. If it's <strong>Private</strong>, they enter your <strong>join code</strong>. Either way the app <strong>automatically hands them BOTH of their seats</strong> (Hands 3 &amp; 4) — no seat-picking. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
 
-    // ── 10. Leaderboard tab (interactive) ──────────────────────────
-    { target: "#comp-tab-lb", badge: "Leaderboard", title: "Global Rankings",
-      interactive: true, advanceWhen: gtCompTabActive("lb"),
-      text: "The <strong>Leaderboard tab</strong> shows everyone who has played competitive this season. <strong>Click it now</strong> to take a look." },
-
-    // ── 11. Leaderboard panel ───────────────────────────────────────
-    { target: "#comp-panel-lb", badge: "Leaderboard", title: "Three Leaderboard Views",
-      text: "The leaderboard has three sub-tabs:<br>• <strong>🏆 Rank</strong> — total CP earned this season, with the top player earning the <strong>👑 King of the Critters</strong> title.<br>• <strong>✋ Best Hand</strong> — the highest single-hand score anyone has ever achieved in a ranked game.<br>• <strong>🔥 Streak</strong> — the longest consecutive win streaks.<br>These reset each season, so everyone can climb the ranks." },
-
-    // ── 12. Close overlay (interactive) ────────────────────────────
-    { target: "#comp-close-btn", badge: "Close", title: "Close the Overlay",
-      interactive: true, advanceWhen: gtCompOverlayClosed,
-      text: "Click <strong>✕ Close</strong> to return to the menu." },
-
-    // ── 13. Navigate to Competitive stats tab (interactive) ─────────
+    // ── 10. Navigate to Competitive stats tab (interactive) ─────────
     { target: "#snav-competitive", badge: "Your Stats", title: "Your Competitive Record",
       before: () => { closeMenuOverlays(); try { navTab("overview"); } catch (_) {} },
       interactive: true, advanceWhen: gtTabActive("snav-competitive"),
       text: "Your personal ranked history lives in the <strong>Competitive tab</strong> on the menu sidebar. <strong>Click it now</strong> to see your rank." },
 
-    // ── 14. Competitive panel — rank and CP ─────────────────────────
-    { target: "#ph-panel-competitive", badge: "Your Rank", title: "CP and Rank Divisions",
-      text: "Once you've played ranked games, this panel shows your <strong>Competitive Points (CP)</strong>, your current <strong>rank division</strong>, and a progress bar toward the next. The six divisions are:<br><strong>🦐 Shrimp → 🐠 Seahorse → 🦀 Crab → 🦈 Shark → 🐋 Orca → 👑 King of the Critters</strong>.<br>Each win earns CP; each loss costs some — so every match matters." },
+    // ── 11. Competitive panel — rank divisions ──────────────────────
+    { target: "#ph-panel-competitive", badge: "Your Rank", title: "The Rank Ladder",
+      text: "Once you've played ranked games, this panel shows your <strong>Competitive Points (CP)</strong>, your current <strong>rank division</strong>, and a bar toward the next. The ladder climbs through six tiers:<br><strong>🐠 Bronze Barracuda → 🦞 Silver Spiny Lobster → 🐡 Golden Grouper → 🐬 Diamond Dolphin → 🐧 Emerald Emperor Penguin → 👑 King of the Critters</strong>.<br>Each tier (except King) has three sub-divisions: <strong>I, II, III</strong>." },
 
-    // ── 15. CP formula ─────────────────────────────────────────────
+    // ── 12. CP formula ─────────────────────────────────────────────
     { target: null, badge: "How CP Works", title: "Earning and Losing CP",
-      text: "After every competitive match:<br>• <strong>Win</strong> — earn CP. The bigger your score advantage, the more you gain.<br>• <strong>Loss</strong> — lose a smaller amount of CP.<br>• <strong>Tie on best hand</strong> — the <em>second-best hand</em> score breaks the tie; whoever has the higher second hand wins.<br>Your first few games of a season include a placement bonus so new players settle into their true rank quickly." },
+      text: "After every ranked match:<br>• <strong>Win</strong> — gain CP (about +18 to +26).<br>• <strong>Loss</strong> — lose CP.<br>• <strong>Draw</strong> — a small CP gain.<br>The higher your rank, the <strong>more CP a loss costs</strong> and the less a win gives — so the climb gets steeper near the top. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 CP</strong> to become <strong>👑 King of the Critters</strong> — the season's top rank." },
 
-    // ── 16. Hand-switch in the game ────────────────────────────────
+    // ── 13. Hand-switch in the game ────────────────────────────────
     { target: null, badge: "In the Game", title: "The Hand-Switch Overlay",
-      text: "In a competitive game, turns alternate automatically. When the active turn switches to <em>your other hand</em>, a full-screen <strong>\"Your Turn\"</strong> overlay slides in — it shows your name and which hand is now active. <strong>Tap anywhere to dismiss it</strong> and play that hand. This prevents you from accidentally playing the wrong board." },
+      text: "In a competitive game, turns cycle through all four seats automatically. When the active turn reaches <em>your other hand</em>, a full-screen <strong>\"Your Turn\"</strong> overlay slides in — showing your name and which hand is now up. <strong>Tap anywhere to dismiss it</strong> and play that hand. It's there so you never accidentally play the wrong board." },
 
-    // ── 17. Strategy: two hands ────────────────────────────────────
+    // ── 14. Strategy: two hands ────────────────────────────────────
     { target: null, badge: "Strategy", title: "Playing Two Hands",
-      text: "Controlling two hands gives you real advantages — if you use them wisely:<br>• <strong>Coordinate</strong> — a card that doesn't fit Hand 1's strategy can be used as <em>payment</em> on Hand 2 instead of being wasted.<br>• <strong>Diversify</strong> — run two different strategies (e.g. B-Lob on Hand 1, a bird build on Hand 2) so at least one lands well.<br>• <strong>Focus your best cards</strong> — the best hand wins, so pour your strongest draws into whichever hand is pulling ahead." },
+      text: "Controlling two hands is a real edge — if you use it well:<br>• <strong>Coordinate</strong> — a card that doesn't fit Hand 1's plan can be spent as <em>payment</em> on Hand 2 instead of being wasted.<br>• <strong>Diversify</strong> — run two different strategies (say B-Lob on Hand 1, a bird build on Hand 2) so at least one lands big.<br>• <strong>Feed your leader</strong> — only your <em>best</em> hand decides the match, so pour your strongest draws into whichever hand is pulling ahead." },
 
-    // ── 18. In-game menu ───────────────────────────────────────────
+    // ── 15. In-game menu ───────────────────────────────────────────
     { target: null, badge: "In the Game", title: "Tracking All Four Hands",
-      text: "During a competitive match the <strong>☰ Menu</strong> in the top bar has a special <strong>⚔️ Hands</strong> section. It shows the current score of every hand at a glance, including your opponent's — so you always know whether you're ahead, behind, or tied without having to scroll around the board." },
+      text: "During a ranked match the <strong>☰ Menu</strong> in the top bar gains a <strong>⚔️ Hands</strong> section listing the live score of every hand — including your opponent's. Check it any time to see whether you're ahead, behind, or tied without scrolling around the board." },
 
-    // ── 19. Done ───────────────────────────────────────────────────
+    // ── 16. Done ───────────────────────────────────────────────────
     { target: "#stats-comp-btn", badge: "All Done!", title: "Ready to Compete!",
-      before: () => { closeMenuOverlays(); try { navTab("overview"); } catch (_) {} },
-      text: "You now know everything about Competitive 1v1 in Currents &amp; Critters. To play: click <strong>⚔️ Competitive</strong>, either <strong>Create</strong> a room and share the code with a friend, or <strong>Join</strong> one with their code. Build two great hands, watch your opponent's score, and climb to <strong>King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
+      before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
+      text: "That's Competitive 1v1! To play for real: tap <strong>⚔️ Competitive</strong>, set it <strong>Public</strong> or <strong>Private</strong>, and <strong>Generate</strong> the match. Share the code (or have a friend find it in Open Currents), start once they're in, then build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
   ];
 
   function runCompTour() {
@@ -33211,17 +33199,17 @@
     const lobby = document.getElementById("auth-stats-lobby");
     if (!lobby || !lobby.classList.contains("visible")) {
       runCoach([{ target: null, badge: "Competitive Tour", title: "Open from the Main Menu",
-        text: "This tour walks through the Competitive overlay and stats. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial → Competitive 1v1</strong>." }], null);
+        text: "This tour walks through Competitive match setup and your rank. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial → Competitive 1v1</strong>." }], null);
       return;
     }
     runCoach(COMP_STEPS, () => {
       closeMenuOverlays();
-      closeCompTourOverlay();
+      closeCompTourModal();
       try { navTab("overview"); } catch (_) {}
       setDone("competitive");
       showToast("Competitive tour complete", completionSubtitle());
       setTimeout(openChooser, 900);
-    }, () => { closeMenuOverlays(); closeCompTourOverlay(); });
+    }, () => { closeMenuOverlays(); closeCompTourModal(); });
   }
 
   // ════════════════════════════════════════════════════════════════
