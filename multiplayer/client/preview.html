@@ -32746,6 +32746,25 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  PRACTICE GAME (B-Lob) — self-contained simulated game.
+  //  The full guided sim lives in its own module below; here we just hand
+  //  off to it and let it call back when the player finishes.
+  // ════════════════════════════════════════════════════════════════
+  function runBLobPractice() {
+    closeChooser();
+    if (typeof window.__ccRunBLobPractice === "function") window.__ccRunBLobPractice();
+    else runCoach([{ target: null, badge: "Practice", title: "Loading…",
+      text: "The practice game could not start. Please reload the page and try again." }], null);
+  }
+  // Called by the B-Lob sim when the guided walkthrough is complete, so the
+  // "practice" pip lights up and (with menu + game done) the Osprey unlocks.
+  window.__ccTut3FinishPractice = () => {
+    setDone("practice");
+    showToast("Practice complete", completionSubtitle());
+  };
+  window.__ccTut3OpenChooser = openChooser;
+
+  // ════════════════════════════════════════════════════════════════
   //  CHOOSER MODAL
   // ════════════════════════════════════════════════════════════════
   let chooser = null;
@@ -32761,7 +32780,7 @@
   const OPTS = [
     { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu: profile, streak, tabs, and the store.", run: runMenuTour, ready: true },
     { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: runGameTour, ready: true },
-    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird and Lobster strategy. Learn every way to play a card.", run: null, ready: false },
+    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Join a private game and learn the Bird + Lobster strategy step by step.", run: runBLobPractice, ready: true },
   ];
 
   function renderChooser() {
@@ -32815,6 +32834,1209 @@
 
   // ── Public entry ──────────────────────────────────────────────────
   window.__openTutorialChooser = openChooser;
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     PRACTICE GAME (B-Lob) — self-contained simulated tutorial.
+     A fully client-side fake game (no server) that teaches the Bird +
+     Lobster strategy: join a private match, inspect cards, play an Ocean
+     with payment, the Pool, scripted bot turns, playing a Lobster, picking
+     useful Pool cards, and a Hint button. Wired to the "practice" slot of
+     the Tutorial v2 chooser; calls window.__ccTut3FinishPractice when the
+     guided walkthrough completes (3rd of 3 tutorials → Osprey).
+     ══════════════════════════════════════════════════════════════════ -->
+<style id="blob-tut-styles">
+  #blob-tut { position:fixed; inset:0; z-index:100080; display:none;
+    background:linear-gradient(180deg,#142E62 0%,#0E2450 60%,#0B2248 100%);
+    font-family:"Nunito",sans-serif; color:#dff1fb; overflow:hidden; }
+  #blob-tut.open { display:block; }
+  #blob-tut * { box-sizing:border-box; }
+  .blob-topbar { display:flex; align-items:center; gap:10px; padding:8px 14px;
+    background:rgba(16,44,100,.97); border-bottom:1px solid rgba(95,180,225,.3); }
+  .blob-room { font-family:"Cinzel",serif; font-size:13px; font-weight:900; color:#F0C840; letter-spacing:1px; }
+  .blob-topbar-spacer { flex:1; }
+  .blob-hint-btn { background:linear-gradient(135deg,#2ea8ea,#1a77c9); border:none; color:#fff;
+    border-radius:10px; padding:7px 14px; font-weight:800; font-size:.85rem; cursor:pointer; font-family:inherit; }
+  .blob-hint-btn:hover { filter:brightness(1.08); }
+  .blob-exit-btn { background:none; border:none; color:#9fc6e0; font-size:18px; width:32px; height:32px;
+    border-radius:50%; cursor:pointer; }
+  .blob-exit-btn:hover { background:rgba(232,64,87,.25); color:#ff8095; }
+
+  /* ── Join lobby ── */
+  #blob-lobby { position:absolute; inset:42px 0 0 0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; gap:18px; padding:20px; text-align:center; }
+  #blob-lobby h2 { font-family:"Cinzel",serif; color:#7fe3ff; font-size:1.5rem; margin:0; }
+  #blob-lobby p { color:#bcd9ee; max-width:460px; line-height:1.5; margin:0; }
+  .blob-lobby-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .blob-big-btn { background:linear-gradient(135deg,#2ea8ea,#1769b0); border:none; color:#fff;
+    border-radius:14px; padding:16px 28px; font-weight:900; font-size:1.05rem; cursor:pointer; font-family:inherit;
+    box-shadow:0 8px 22px rgba(10,60,110,.5); }
+  .blob-big-btn.alt { background:linear-gradient(135deg,#3a4f74,#2a3a5a); }
+  .blob-big-btn:hover { filter:brightness(1.08); }
+
+  /* ── Join modal ── */
+  #blob-join-modal { position:absolute; inset:0; z-index:100090; display:none; align-items:center;
+    justify-content:center; background:rgba(5,22,42,.7); }
+  #blob-join-modal.open { display:flex; }
+  .blob-join-card { width:min(420px,92vw); background:linear-gradient(165deg,#103060,#0c2244);
+    border:1px solid rgba(95,180,225,.5); border-radius:18px; padding:18px; box-shadow:0 22px 60px rgba(0,0,0,.55); }
+  .blob-join-card h3 { font-family:"Cinzel",serif; color:#7fe3ff; margin:0 0 12px; text-align:center; }
+  .blob-tabs { display:flex; gap:8px; margin-bottom:14px; }
+  .blob-tab { flex:1; background:rgba(20,52,110,.7); border:1.5px solid rgba(95,180,225,.3); color:#bcd9ee;
+    border-radius:10px; padding:10px; font-weight:800; cursor:pointer; font-family:inherit; }
+  .blob-tab.active { background:linear-gradient(135deg,#2ea8ea,#1769b0); color:#fff; border-color:#5fd0e8; }
+  .blob-tab-panel { display:none; }
+  .blob-tab-panel.active { display:block; }
+  .blob-field-lbl { font-size:.8rem; color:#9fc6e0; font-weight:700; margin-bottom:6px; }
+  #blob-code { width:100%; background:rgba(8,28,54,.9); border:1.5px solid rgba(95,180,225,.4); color:#fff;
+    border-radius:10px; padding:12px; font-size:1.1rem; font-family:monospace; letter-spacing:3px; text-align:center;
+    text-transform:uppercase; }
+  .blob-join-confirm { width:100%; margin-top:14px; background:linear-gradient(135deg,#1fbb8a,#159e9e); border:none;
+    color:#fff; border-radius:12px; padding:13px; font-weight:900; font-size:1rem; cursor:pointer; font-family:inherit; }
+  .blob-join-confirm:disabled { opacity:.45; cursor:default; }
+  .blob-public-note { color:#9fc6e0; font-size:.86rem; line-height:1.5; text-align:center; padding:8px 0; }
+
+  /* ── Game board ── */
+  #blob-game { position:absolute; inset:42px 0 0 0; display:none; flex-direction:column; gap:6px; padding:8px; overflow:auto; }
+  #blob-game.open { display:flex; }
+  .blob-players { display:flex; gap:8px; justify-content:center; flex-wrap:wrap; flex-shrink:0; }
+  .blob-player { display:flex; flex-direction:column; align-items:center; gap:3px; min-width:78px;
+    background:rgba(22,58,118,.55); border:1px solid rgba(95,180,225,.25); border-radius:12px; padding:7px 8px; }
+  .blob-av { width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:26px; background:radial-gradient(circle at 50% 35%,#1b4378,#0c2348);
+    border:3px solid #30C8F0; box-shadow:0 0 10px rgba(48,200,240,.4); }
+  .blob-player.turn .blob-av { border-color:#E84057; box-shadow:0 0 14px rgba(232,64,87,.7); }
+  .blob-pname { font-size:.78rem; font-weight:800; color:#bcd9ee; }
+  .blob-pstat { font-size:.72rem; color:#9fc6e0; }
+  .blob-pstat b { color:#F0C840; }
+  .blob-pstat .blob-cardcount { color:#7fe3ff; }
+
+  .blob-center { display:flex; align-items:flex-start; justify-content:center; gap:22px; flex-shrink:0; padding:4px 0; }
+  .blob-zone-lbl { font-size:.68rem; color:#9fc6e0; font-weight:800; text-transform:uppercase; letter-spacing:.6px; text-align:center; margin-bottom:4px; }
+  #blob-pool-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .blob-pool-cards { display:flex; gap:4px; min-height:54px; align-items:center; flex-wrap:wrap; justify-content:center; max-width:340px; }
+  .blob-mini-card { width:38px; height:52px; border-radius:5px; overflow:hidden; border:1.5px solid rgba(95,180,225,.4); position:relative; }
+  .blob-mini-card img { width:100%; height:100%; }
+  .blob-pool-inspect-btn { background:rgba(20,52,110,.9); border:1.5px solid #5fd0e8; color:#7fe3ff;
+    border-radius:9px; padding:5px 13px; font-weight:800; font-size:.78rem; cursor:pointer; font-family:inherit; }
+  .blob-pool-inspect-btn:hover { background:rgba(48,200,240,.2); }
+  #blob-deck-wrap { display:flex; flex-direction:column; align-items:center; gap:5px; }
+  .blob-deck { width:40px; height:54px; border-radius:7px; background:linear-gradient(135deg,#1C3E80,#2A5AA8);
+    border:2px solid #3A72C0; display:flex; align-items:center; justify-content:center;
+    font-family:"Cinzel",serif; font-weight:900; color:rgba(255,255,255,.25); font-size:11px; cursor:pointer; }
+  .blob-deck-count { font-size:.7rem; color:#9fc6e0; }
+
+  #blob-board-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; min-height:120px; }
+  #blob-board { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; align-items:center; min-height:120px; }
+  .blob-ocean-zone { width:160px; height:104px; border:2.5px dashed rgba(95,180,225,.45); border-radius:12px;
+    display:flex; align-items:center; justify-content:center; color:#9fc6e0; font-weight:700; font-size:.85rem;
+    text-align:center; cursor:pointer; padding:8px; }
+  .blob-ocean-zone:hover { border-color:#5fd0e8; background:rgba(48,200,240,.08); }
+  .blob-hub { display:flex; flex-direction:column; align-items:center; position:relative; }
+  .blob-slot-up { margin-bottom:-26px; z-index:1; display:flex; gap:3px; }
+  .blob-slot-down { margin-top:-26px; z-index:1; display:flex; gap:3px; }
+  .blob-hub-row { display:flex; align-items:center; z-index:3; }
+  .blob-slot-left { margin-right:-18px; z-index:1; }
+  .blob-slot-right { margin-left:-18px; z-index:1; }
+  .blob-ocean-card { width:64px; height:88px; border-radius:8px; overflow:hidden; border:2px solid #2fd0b8; }
+  .blob-ocean-card img { width:100%; height:100%; }
+  .blob-attached { width:44px; height:60px; border-radius:5px; overflow:hidden; border:1.5px solid #30C8F0;
+    box-shadow:0 0 6px rgba(48,200,240,.35); }
+  .blob-attached img { width:100%; height:100%; }
+  .blob-attached.stacked { margin-left:-30px; }
+  .blob-empty-slot { width:44px; height:60px; border-radius:5px; border:1.5px dashed rgba(48,200,240,.25); }
+  .blob-silhouette { width:44px; height:60px; border-radius:5px; overflow:hidden; border:2px dashed #F0C840;
+    box-shadow:0 0 14px rgba(240,184,64,.6); opacity:.72; cursor:pointer; animation:blob-pulse 1.2s ease-in-out infinite; }
+  .blob-silhouette img { width:100%; height:100%; filter:grayscale(.4) brightness(.85); }
+
+  /* ── Hand ── */
+  #blob-hand-zone { flex-shrink:0; background:rgba(12,34,80,.85); border-top:1px solid rgba(95,180,225,.3);
+    padding:6px 8px 8px; }
+  .blob-hand-top { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:5px; }
+  .blob-hand-lbl { font-size:.7rem; color:#9fc6e0; font-weight:800; text-transform:uppercase; letter-spacing:.6px; }
+  .blob-play-dd { position:relative; }
+  .blob-play-dd-btn { background:linear-gradient(135deg,#F0B840,#d89a1e); border:none; color:#3a2600;
+    border-radius:9px; padding:6px 14px; font-weight:900; font-size:.8rem; cursor:pointer; font-family:inherit; }
+  .blob-play-dd-btn:hover { filter:brightness(1.06); }
+  .blob-dd-menu { position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
+    background:#0c2348; border:1.5px solid #5fd0e8; border-radius:12px; padding:8px; display:none;
+    min-width:200px; box-shadow:0 14px 40px rgba(0,0,0,.5); z-index:5; }
+  .blob-dd-menu.open { display:block; }
+  .blob-dd-opt { display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:8px; cursor:pointer; }
+  .blob-dd-opt:hover { background:rgba(48,200,240,.18); }
+  .blob-dd-opt img { width:26px; height:36px; border-radius:4px; object-fit:cover; }
+  .blob-dd-opt span { font-size:.84rem; font-weight:700; color:#dff1fb; }
+  .blob-dd-empty { color:#9fc6e0; font-size:.8rem; padding:8px; text-align:center; }
+  #blob-hand { display:flex; gap:6px; justify-content:center; flex-wrap:wrap; }
+  .blob-hand-card { width:62px; height:86px; border-radius:7px; overflow:hidden; position:relative; cursor:pointer;
+    border:1.5px solid rgba(95,180,225,.4); transition:transform .14s, border-color .14s; background:#0a2240; }
+  .blob-hand-card:hover { transform:translateY(-7px); border-color:#5fd0e8; }
+  .blob-hand-card img { width:100%; height:100%; }
+  .blob-cost { position:absolute; top:3px; left:3px; min-width:18px; height:18px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%,#f6e2a8,#c9a24a); color:#4a3208; font-size:.7rem; font-weight:900;
+    display:flex; align-items:center; justify-content:center; border:1px solid #8a6a22; box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .blob-sym { position:absolute; top:3px; right:3px; width:17px; height:17px; border-radius:50%; background:#fffae8;
+    border:1.5px solid #ffcf4d; display:flex; align-items:center; justify-content:center; font-size:.74rem; font-weight:900; }
+  .blob-sym.s-red { color:#e23b5a; } .blob-sym.s-blue { color:#1f7ad0; }
+
+  /* ── Generic overlays (zoom / chooser / payment / pool inspect / hint) ── */
+  .blob-ov { position:absolute; inset:0; z-index:100090; display:none; align-items:center; justify-content:center;
+    background:rgba(5,22,42,.82); padding:18px; }
+  .blob-ov.open { display:flex; }
+  .blob-ov-card { background:linear-gradient(165deg,#103060,#0a2244); border:1px solid rgba(95,180,225,.5);
+    border-radius:18px; padding:18px; box-shadow:0 22px 60px rgba(0,0,0,.55); max-width:min(640px,94vw);
+    max-height:88vh; overflow:auto; width:100%; }
+  .blob-ov-card h3 { font-family:"Cinzel",serif; color:#7fe3ff; margin:0 0 12px; text-align:center; }
+  .blob-ov-close { position:absolute; top:14px; right:16px; background:rgba(255,255,255,.1); border:1px solid rgba(120,205,235,.4);
+    color:#dff1fb; border-radius:9px; width:34px; height:34px; font-size:17px; cursor:pointer; z-index:2; }
+  .blob-ov-close:hover { background:rgba(232,64,87,.25); }
+
+  /* Zoom (single card flip-through) */
+  #blob-zoom .blob-zoom-inner { display:flex; flex-direction:column; align-items:center; gap:8px; position:relative; }
+  #blob-zoom img { width:min(280px,70vw); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.55); }
+  .blob-zoom-name { font-family:"Cinzel",serif; font-size:1.15rem; font-weight:900; color:#F0C840; }
+  .blob-zoom-meta { font-size:.86rem; color:#bcd9ee; text-align:center; max-width:300px; line-height:1.4; }
+  .blob-zoom-arrow { position:absolute; top:42%; background:rgba(20,52,110,.9); border:1.5px solid #5fd0e8;
+    color:#7fe3ff; width:42px; height:42px; border-radius:50%; font-size:20px; cursor:pointer; }
+  .blob-zoom-arrow.prev { left:-8px; } .blob-zoom-arrow.next { right:-8px; }
+  .blob-zoom-arrow:hover { background:rgba(48,200,240,.25); }
+
+  /* Ocean chooser + payment + pool inspect grids */
+  .blob-grid { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+  .blob-grid-card { width:96px; cursor:pointer; border:2px solid transparent; border-radius:10px; padding:5px;
+    background:rgba(20,52,110,.4); transition:border-color .12s, transform .12s; position:relative; }
+  .blob-grid-card:hover { transform:translateY(-4px); }
+  .blob-grid-card .blob-gc-img { width:100%; height:118px; border-radius:7px; overflow:hidden; border:1px solid rgba(95,180,225,.4); }
+  .blob-grid-card .blob-gc-img img { width:100%; height:100%; }
+  .blob-grid-card .blob-gc-name { font-size:.74rem; font-weight:800; text-align:center; margin-top:4px; color:#dff1fb; }
+  .blob-grid-card .blob-gc-text { font-size:.66rem; color:#9fc6e0; text-align:center; line-height:1.3; margin-top:2px; }
+  .blob-grid-card.sel { border-color:#1fbb8a; background:rgba(31,187,138,.18); }
+  .blob-grid-card .blob-gc-check { position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%;
+    background:#1fbb8a; color:#fff; display:none; align-items:center; justify-content:center; font-weight:900; font-size:.85rem; }
+  .blob-grid-card.sel .blob-gc-check { display:flex; }
+  .blob-pay-bar { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:14px; }
+  .blob-confirm-btn { background:linear-gradient(135deg,#1fbb8a,#159e9e); border:none; color:#fff; border-radius:11px;
+    padding:11px 20px; font-weight:900; cursor:pointer; font-family:inherit; }
+  .blob-confirm-btn:disabled { opacity:.45; cursor:default; }
+  .blob-sub { text-align:center; color:#bcd9ee; font-size:.88rem; margin:-4px 0 12px; line-height:1.45; }
+
+  /* Pool inspect detail (dual faces) */
+  .blob-detail { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .blob-detail figure { margin:0; display:flex; flex-direction:column; align-items:center; gap:6px; max-width:200px; }
+  .blob-detail img { width:150px; max-width:42vw; border-radius:10px; box-shadow:0 8px 26px rgba(0,0,0,.5); }
+  .blob-detail figcaption { font-size:.8rem; color:#bcd9ee; text-align:center; line-height:1.4; }
+  .blob-detail figcaption b { color:#F0C840; }
+
+  /* Hint panel */
+  #blob-hint .blob-ov-card { max-width:min(520px,94vw); }
+  .blob-hint-strat { background:rgba(20,52,110,.5); border:1.5px solid rgba(95,180,225,.3); border-radius:12px;
+    padding:12px 14px; margin-bottom:10px; }
+  .blob-hint-strat.blob { border-color:#F0C840; box-shadow:0 0 14px rgba(240,184,64,.3); }
+  .blob-hint-strat h4 { margin:0 0 8px; font-family:"Cinzel",serif; color:#F0C840; font-size:1.05rem; }
+  .blob-hint-cards { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .blob-hint-cards .blob-mini-card { width:42px; height:58px; }
+  .blob-hint-strat ul { margin:6px 0 0; padding-left:18px; }
+  .blob-hint-strat li { font-size:.85rem; color:#dff1fb; line-height:1.5; margin-bottom:3px; }
+  .blob-hint-other { color:#9fc6e0; font-size:.82rem; }
+
+  /* Instruction panel */
+  #blob-panel { position:absolute; right:14px; bottom:14px; width:min(380px,calc(100vw - 28px)); z-index:100095;
+    background:linear-gradient(160deg,#fbfeff,#e9f5ff); border:1.5px solid rgba(120,200,235,.7); border-radius:18px;
+    box-shadow:0 18px 50px rgba(8,40,80,.5); padding:16px 18px; color:#0f3a5e; display:none; }
+  #blob-panel.open { display:block; }
+  #blob-panel .blob-p-badge { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#2f8bd0; }
+  #blob-panel h3 { font-family:"Cinzel",serif; font-size:1.2rem; font-weight:900; color:#1769b0; margin:3px 0 8px; line-height:1.2; }
+  #blob-panel .blob-p-text { font-size:.96rem; line-height:1.55; color:#2b5575; }
+  #blob-panel .blob-p-text strong { color:#0d456f; }
+  #blob-panel .blob-p-err { color:#c0392b; font-weight:800; font-size:.88rem; margin-top:8px; display:none; }
+  #blob-panel .blob-p-err.show { display:block; }
+  #blob-panel .blob-p-bar { display:flex; align-items:center; gap:9px; margin-top:13px; }
+  #blob-panel .blob-p-count { font-size:.78rem; color:#6a92b5; font-weight:700; flex:1; }
+  #blob-panel .blob-p-next { border:none; border-radius:11px; padding:10px 18px; font-weight:800; font-size:.92rem;
+    cursor:pointer; font-family:inherit; background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
+  #blob-panel .blob-p-next:disabled { opacity:.5; cursor:default; background:#9fc0d8; }
+
+  .blob-hl { outline:3px solid #F0C840 !important; outline-offset:3px; border-radius:10px;
+    box-shadow:0 0 20px rgba(240,184,64,.7) !important; animation:blob-pulse 1.2s ease-in-out infinite; position:relative; z-index:6; }
+  @keyframes blob-pulse { 0%,100%{ filter:brightness(1); } 50%{ filter:brightness(1.18); } }
+
+  /* Free-play helper note */
+  #blob-freeplay-note { position:absolute; left:50%; bottom:14px; transform:translateX(-50%); z-index:100094;
+    background:rgba(16,44,100,.95); border:1px solid rgba(95,180,225,.4); color:#bcd9ee; border-radius:12px;
+    padding:9px 16px; font-size:.85rem; display:none; align-items:center; gap:10px; }
+  #blob-freeplay-note.open { display:flex; }
+</style>
+
+<div id="blob-tut">
+  <div class="blob-topbar">
+    <span class="blob-room" id="blob-room-badge"></span>
+    <span class="blob-topbar-spacer"></span>
+    <button class="blob-hint-btn" id="blob-hint-btn" style="display:none">🐠 Hint</button>
+    <button class="blob-exit-btn" id="blob-exit-btn" title="Exit tutorial">✕</button>
+  </div>
+
+  <!-- Join lobby -->
+  <div id="blob-lobby">
+    <h2>🌊 Casual Games</h2>
+    <p>There are two main types of casual games. <strong>Casual public matches</strong> can be joined by anyone. <strong>Private matches</strong> require a room code, like the room you made in the previous tutorial. This time, we are going to join a private game.</p>
+    <div class="blob-lobby-actions">
+      <button class="blob-big-btn alt" disabled style="opacity:.5">➕ Create Game</button>
+      <button class="blob-big-btn" id="blob-joinbtn">🔗 Join Game</button>
+    </div>
+  </div>
+
+  <!-- Join modal -->
+  <div id="blob-join-modal">
+    <div class="blob-join-card">
+      <h3>Join a Game</h3>
+      <div class="blob-tabs">
+        <button class="blob-tab active" id="blob-tab-public">🌊 Public</button>
+        <button class="blob-tab" id="blob-tab-private">🔒 Private</button>
+      </div>
+      <div class="blob-tab-panel active" id="blob-panel-public">
+        <div class="blob-public-note">Public games appear in <em>Open Currents</em> and can be joined by anyone — no code needed. For this tutorial we are joining a private game instead.</div>
+      </div>
+      <div class="blob-tab-panel" id="blob-panel-private">
+        <div class="blob-field-lbl">Room code</div>
+        <input id="blob-code" maxlength="12" placeholder="CODE" autocomplete="off" spellcheck="false">
+        <button class="blob-join-confirm" id="blob-join-confirm" disabled>Join</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game board -->
+  <div id="blob-game">
+    <div class="blob-players" id="blob-players"></div>
+    <div class="blob-center">
+      <div id="blob-pool-wrap">
+        <div class="blob-zone-lbl">Pool</div>
+        <div class="blob-pool-cards" id="blob-pool-cards"></div>
+        <button class="blob-pool-inspect-btn" id="blob-pool-inspect-btn">🔍 Inspect</button>
+      </div>
+      <div id="blob-deck-wrap">
+        <div class="blob-zone-lbl">Deck</div>
+        <div class="blob-deck" id="blob-deck">C&amp;C</div>
+        <div class="blob-deck-count" id="blob-deck-count">48 left</div>
+      </div>
+    </div>
+    <div id="blob-board-wrap">
+      <div class="blob-zone-lbl">Your Board</div>
+      <div id="blob-board"></div>
+    </div>
+    <div id="blob-hand-zone">
+      <div class="blob-hand-top">
+        <span class="blob-hand-lbl">Your Hand</span>
+        <div class="blob-play-dd">
+          <button class="blob-play-dd-btn" id="blob-play-dd-btn">▾ Play a card</button>
+          <div class="blob-dd-menu" id="blob-dd-menu"></div>
+        </div>
+      </div>
+      <div id="blob-hand"></div>
+    </div>
+  </div>
+
+  <!-- Zoom (flip through a single card) -->
+  <div class="blob-ov" id="blob-zoom">
+    <div class="blob-ov-card" style="position:relative;background:none;border:none;box-shadow:none;display:flex;justify-content:center">
+      <button class="blob-ov-close" id="blob-zoom-close">✕</button>
+      <div class="blob-zoom-inner">
+        <button class="blob-zoom-arrow prev" id="blob-zoom-prev">‹</button>
+        <img id="blob-zoom-img" src="" alt="">
+        <button class="blob-zoom-arrow next" id="blob-zoom-next">›</button>
+        <div class="blob-zoom-name" id="blob-zoom-name"></div>
+        <div class="blob-zoom-meta" id="blob-zoom-meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ocean chooser -->
+  <div class="blob-ov" id="blob-ocean-chooser">
+    <div class="blob-ov-card" style="position:relative">
+      <button class="blob-ov-close" id="blob-oc-close">✕</button>
+      <h3>Choose an Ocean to play</h3>
+      <div class="blob-sub">Pick which Ocean card to lay down as the base for your animals.</div>
+      <div class="blob-grid" id="blob-oc-grid"></div>
+    </div>
+  </div>
+
+  <!-- Payment -->
+  <div class="blob-ov" id="blob-payment">
+    <div class="blob-ov-card" style="position:relative">
+      <button class="blob-ov-close" id="blob-pay-close">✕</button>
+      <h3>Choose as Payment</h3>
+      <div class="blob-sub" id="blob-pay-sub"></div>
+      <div class="blob-grid" id="blob-pay-grid"></div>
+      <div class="blob-pay-bar">
+        <button class="blob-confirm-btn" id="blob-pay-confirm" disabled>✓ Confirm Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pool inspect -->
+  <div class="blob-ov" id="blob-pool-inspect">
+    <div class="blob-ov-card" style="position:relative">
+      <button class="blob-ov-close" id="blob-pi-close">✕</button>
+      <h3 id="blob-pi-title">The Pool</h3>
+      <div class="blob-sub" id="blob-pi-sub"></div>
+      <div id="blob-pi-body"></div>
+      <div class="blob-pay-bar" id="blob-pi-bar" style="display:none">
+        <button class="blob-confirm-btn" id="blob-pi-confirm" disabled>✓ Choose these 2</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hint panel -->
+  <div class="blob-ov" id="blob-hint">
+    <div class="blob-ov-card" style="position:relative">
+      <button class="blob-ov-close" id="blob-hint-close">✕</button>
+      <h3>Strategy Hints</h3>
+      <div class="blob-sub">Scroll to <strong>B-Lob</strong> for the cards and tips you need.</div>
+      <div id="blob-hint-body"></div>
+    </div>
+  </div>
+
+  <!-- Free-play note -->
+  <div id="blob-freeplay-note">🎉 Guided tutorial complete — keep playing! Tap <strong>🐠 Hint</strong> any time, or ✕ to exit.</div>
+
+  <!-- Instruction panel -->
+  <div id="blob-panel">
+    <div class="blob-p-badge" id="blob-p-badge"></div>
+    <h3 id="blob-p-title"></h3>
+    <div class="blob-p-text" id="blob-p-text"></div>
+    <div class="blob-p-err" id="blob-p-err"></div>
+    <div class="blob-p-bar">
+      <span class="blob-p-count" id="blob-p-count"></span>
+      <button class="blob-p-next" id="blob-p-next">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Card art (self-contained sprite-sheet logic) ─────────────────
+  const IMG_VER = "20260419-full159";
+  const pad2 = n => String(n).padStart(2, "0");
+  function imgUrl(uid) {
+    const u = Number(uid);
+    if (u >= 1   && u <= 96)  return `/horizontal_cards/page_${pad2(Math.floor((u + 1) / 2))}.png?v=${IMG_VER}`;
+    if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u - 101) / 2) + 1)}.png?v=${IMG_VER}`;
+    if (u >= 201 && u <= 266) return `/oceans_cards/page_${pad2(u - 200)}.png?v=${IMG_VER}`;
+    return "";
+  }
+  function imgPos(uid) {
+    const u = Number(uid);
+    if (u >= 1   && u <= 96)  return u % 2 === 1 ? "50% 0%"  : "50% 100%";
+    if (u >= 101 && u <= 188) return u % 2 === 1 ? "0% 50%"  : "100% 50%";
+    return "50% 50%";
+  }
+  function cardImg(uid) {
+    return `<img src="${imgUrl(uid)}" style="object-fit:cover;object-position:${imgPos(uid)};" alt="" loading="lazy">`;
+  }
+
+  // ── Card database for the practice game (matches the real cards) ──
+  const BC = {
+    238: { name: "Artificial Reef",   sym: "circle",   species: "Ocean",        cost: 1, dir: "n/a",   text: "+2 points for each card attached to it." },
+    230: { name: "Mangrove",          sym: "diamond",  species: "Ocean",        cost: 1, dir: "n/a",   text: "+8 points if you have all 8 oceans. Play again." },
+    217: { name: "Coral Reef",        sym: "diamond",  species: "Ocean",        cost: 1, dir: "n/a",   text: "Scales with attached cards: 1=1, 2=4, 3=9, 4=18, 6+=36 points." },
+    244: { name: "Arctic Oceans",     sym: "square",   species: "Ocean",        cost: 2, dir: "n/a",   text: "+4 points. Play again." },
+    40:  { name: "Lobster",           sym: "circle",   species: "Crustacean",   cost: 0, dir: "down",  text: "+5 points. Any number of Lobsters can share the same spot." },
+    1:   { name: "Emperor Penguin",   sym: "triangle", species: "Bird",         cost: 2, dir: "up",    text: "+2 points per Bird on your board." },
+    17:  { name: "California Seagull", sym: "diamond", species: "Bird",         cost: 2, dir: "up",    text: "+3 points per Crustacean on your board." },
+    113: { name: "Clownfish",         sym: "triangle", species: "CrossCurrent", cost: 1, dir: "left",  text: "Copies the ability of the Ocean it is attached to." },
+    120: { name: "Big Eye Tuna",      sym: "heart",    species: "CrossCurrent", cost: 3, dir: "right", text: "+3 points per Yellowfin Tuna. Draw one for each Yellowfin Tuna on your board." },
+    119: { name: "Narwhal",           sym: "diamond",  species: "Mammal",       cost: 2, dir: "left",  text: "+2 points per Mammal. Draw one." },
+    102: { name: "Spinner Dolphin",   sym: "diamond",  species: "Mammal",       cost: 2, dir: "left",  text: "+2 points per matching-symbol card. Draw one." },
+    26:  { name: "Sea Anemone",       sym: "circle",   species: "Invertebrate", cost: 1, dir: "up",    text: "+3 points per Invertebrate. Draw one." },
+    105: { name: "Great White Shark", sym: "diamond",  species: "CrossCurrent", cost: 4, dir: "left",  text: "+3 points per Mammal. Play again." },
+    104: { name: "Blue Marlin",       sym: "square",   species: "Game Fish",    cost: 3, dir: "left",  text: "+9 points if sharing an ocean with a Mahi Mahi." },
+  };
+  // The dual-faced physical card: Big Eye Tuna (front) / Narwhal (back).
+  const NB_FRONT = 120, NB_BACK = 119;
+  function card(uid) { return BC[uid] || { name: "Card", sym: "", species: "", cost: 0, dir: "n/a", text: "" }; }
+  const GLYPH = { heart: "♥", diamond: "◆", triangle: "▲", square: "■", circle: "●" };
+  function symHtml(sym) {
+    const g = GLYPH[sym] || "★";
+    const cls = (sym === "heart" || sym === "diamond") ? "s-red" : "s-blue";
+    return `<span class="blob-sym ${cls}">${g}</span>`;
+  }
+
+  // ── State ────────────────────────────────────────────────────────
+  let root, panel, S, stepIdx, waitAction;
+  // A hand entry: { uid, faces:[uid,...] }. Duplicates are distinct entries.
+  function freshState() {
+    return {
+      // Hand order (left→right): Lobster, Artificial Reef, California Seagull,
+      // Emperor Penguin, Lobster(2), Narwhal/Big Eye Tuna, Mangrove, Coral Reef.
+      hand: [
+        { uid: 40, faces: [40] },
+        { uid: 238, faces: [238] },
+        { uid: 17, faces: [17] },
+        { uid: 1, faces: [1] },
+        { uid: 40, faces: [40] },
+        { uid: NB_FRONT, faces: [NB_FRONT, NB_BACK] },
+        { uid: 230, faces: [230] },
+        { uid: 217, faces: [217] },
+      ],
+      pool: [ { uid: 40, faces: [40] }, { uid: 102, faces: [102] } ],
+      deckQueue: [26, 105, 104, 26, 102],   // cards that flip up when an Ocean is played
+      deckCount: 48,
+      board: { ocean: null, up: [], down: [], left: [], right: [] },
+      players: [
+        { name: "You",   av: "🐠", score: 0, cards: 8 },
+        { name: "Bot 1", av: "🦈", score: 0, cards: 7 },
+        { name: "Bot 2", av: "🐙", score: 0, cards: 7 },
+        { name: "Bot 3", av: "🐡", score: 0, cards: 7 },
+      ],
+      bot1Board: { ocean: null },
+      activeSeat: 0,
+      zoomList: [], zoomIdx: 0, zoomDual: false,
+      paySel: null,            // index into payment options
+      payContext: null,        // { playUid }
+      pendingPlace: null,      // { uid, slot } silhouette awaiting confirm
+      piMode: "browse",        // pool inspect mode: browse | pick
+      piSel: new Set(),
+      hoverBot1: false,
+      freePlay: false,
+      _ran: new Set(),
+      done: false,
+    };
+  }
+
+  // ── Score (simple, cosmetic) ─────────────────────────────────────
+  function recalcMyScore() {
+    let s = 0; const b = S.board;
+    if (b.ocean) {
+      const attached = [].concat(b.up, b.down, b.left, b.right);
+      if (b.ocean === 238) s += 2 * attached.length;     // Artificial Reef
+      attached.forEach(u => { if (card(u).name === "Lobster") s += 5; else s += 0; });
+    }
+    S.players[0].score = s;
+  }
+
+  // ── Rendering ────────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+  function renderPlayers() {
+    const wrap = el("blob-players");
+    wrap.innerHTML = S.players.map((p, i) =>
+      `<div class="blob-player ${S.activeSeat === i ? "turn" : ""}" data-seat="${i}">
+        <div class="blob-av">${p.av}</div>
+        <div class="blob-pname">${p.name}</div>
+        <div class="blob-pstat"><b>${p.score} pts</b> · <span class="blob-cardcount">${p.cards} 🂠</span></div>
+        ${p.boardOcean ? `<div class="blob-mini-card" style="width:30px;height:42px;margin-top:3px">${cardImg(p.boardOcean)}</div>` : ""}
+      </div>`).join("");
+  }
+  function slotHtml(arr, extraIfPending) {
+    if (arr && arr.length) {
+      return arr.map((u, i) => `<div class="blob-attached ${i > 0 ? "stacked" : ""}">${cardImg(u)}</div>`).join("");
+    }
+    if (extraIfPending) return extraIfPending;
+    return `<div class="blob-empty-slot"></div>`;
+  }
+  function renderBoard() {
+    const wrap = el("blob-board");
+    const b = S.board;
+    if (!b.ocean) {
+      wrap.innerHTML = `<div class="blob-ocean-zone" id="blob-ocean-zone">Click here to play an Ocean<br>(the base for your animals)</div>`;
+      return;
+    }
+    // Silhouette goes into its target slot when a placement is pending.
+    const sil = S.pendingPlace;
+    const silHtml = slot => (sil && sil.slot === slot)
+      ? `<div class="blob-silhouette" id="blob-place-target" data-slot="${slot}">${cardImg(sil.uid)}</div>` : "";
+    wrap.innerHTML = `
+      <div class="blob-hub">
+        <div class="blob-slot-up">${slotHtml(b.up, silHtml("up"))}</div>
+        <div class="blob-hub-row">
+          <div class="blob-slot-left">${slotHtml(b.left, silHtml("left"))}</div>
+          <div class="blob-ocean-card">${cardImg(b.ocean)}</div>
+          <div class="blob-slot-right">${slotHtml(b.right, silHtml("right"))}</div>
+        </div>
+        <div class="blob-slot-down">${slotHtml(b.down, silHtml("down"))}</div>
+      </div>`;
+  }
+  function renderPool() {
+    el("blob-pool-cards").innerHTML = S.pool.length
+      ? S.pool.map(e => `<div class="blob-mini-card">${cardImg(e.uid)}</div>`).join("")
+      : `<span style="color:#9fc6e0;font-size:.8rem">empty</span>`;
+    el("blob-deck-count").textContent = S.deckCount + " left";
+  }
+  function handCardHtml(e, idx) {
+    const c = card(e.uid);
+    const cost = c.cost > 0 ? `<span class="blob-cost" title="cost">${c.cost}</span>` : "";
+    return `<div class="blob-hand-card" data-idx="${idx}" data-uid="${e.uid}">
+      ${cardImg(e.uid)}${cost}${c.sym ? symHtml(c.sym) : ""}</div>`;
+  }
+  function renderHand() {
+    el("blob-hand").innerHTML = S.hand.map((e, i) => handCardHtml(e, i)).join("");
+  }
+  function renderAll() {
+    recalcMyScore();
+    renderPlayers(); renderPool(); renderBoard(); renderHand();
+  }
+
+  // ── Highlights ───────────────────────────────────────────────────
+  function clearHl() { root.querySelectorAll(".blob-hl").forEach(n => n.classList.remove("blob-hl")); }
+  function applyHl(targets) {
+    clearHl();
+    (targets || []).forEach(sel => {
+      let nodes = [];
+      try { nodes = (typeof sel === "function") ? [sel()].filter(Boolean) : Array.from(root.querySelectorAll(sel)); } catch (_) {}
+      nodes.forEach(n => n && n.classList && n.classList.add("blob-hl"));
+    });
+  }
+
+  // ── Step engine ──────────────────────────────────────────────────
+  function hit(action) {
+    if (waitAction && action === waitAction) { waitAction = null; next(); }
+  }
+  function next() { if (stepIdx < STEPS.length - 1) goto(stepIdx + 1); else finish(); }
+  function goto(i) {
+    stepIdx = i;
+    const step = STEPS[i];
+    if (step.before && !S._ran.has(i)) { try { step.before(); } catch (e) { console.error(e); } S._ran.add(i); }
+    renderAll();
+    const errEl = el("blob-p-err"); errEl.classList.remove("show"); errEl.textContent = "";
+    el("blob-p-badge").textContent = step.badge || "";
+    el("blob-p-title").textContent = step.title || "";
+    el("blob-p-text").innerHTML = (typeof step.html === "function") ? step.html() : (step.html || "");
+    el("blob-p-count").textContent = `Step ${i + 1} of ${STEPS.length}`;
+    waitAction = step.wait || null;
+    const nb = el("blob-p-next");
+    if (i >= STEPS.length - 1) { nb.textContent = step.finishLabel || "Finish ✓"; nb.disabled = false; }
+    else if (waitAction && !step.allowNext) { nb.textContent = "Do the highlighted step →"; nb.disabled = true; }
+    else { nb.textContent = "Next →"; nb.disabled = false; }
+    // Highlights apply after render so the new DOM exists.
+    setTimeout(() => applyHl(typeof step.hi === "function" ? step.hi() : step.hi), 30);
+  }
+  function showErr(msg) { const e = el("blob-p-err"); e.textContent = msg; e.classList.add("show"); }
+
+  // ── Overlay helpers ──────────────────────────────────────────────
+  function openOv(id) { el(id).classList.add("open"); }
+  function closeOv(id) { el(id).classList.remove("open"); }
+
+  // ── Zoom (flip through cards) ────────────────────────────────────
+  function openZoomAt(uid) {
+    // Build a flip-list following the current hand order (front faces only).
+    S.zoomList = S.hand.map(e => e.uid);
+    S.zoomIdx = Math.max(0, S.zoomList.indexOf(uid));
+    S.zoomDual = false;
+    renderZoom(); openOv("blob-zoom");
+  }
+  function renderZoom() {
+    const uid = S.zoomList[S.zoomIdx]; const c = card(uid);
+    el("blob-zoom-img").src = imgUrl(uid);
+    el("blob-zoom-img").style.objectFit = "cover";
+    el("blob-zoom-img").style.objectPosition = imgPos(uid);
+    el("blob-zoom-name").textContent = c.name;
+    const costTxt = c.cost > 0 ? `Cost ${c.cost}` : "Free (no cost)";
+    el("blob-zoom-meta").innerHTML = `${symHtml(c.sym)} <strong>${c.species}</strong> · ${costTxt}<br>${c.text}`;
+  }
+  function zoomNav(dir) {
+    const ni = S.zoomIdx + dir;
+    if (ni < 0 || ni >= S.zoomList.length) return;
+    S.zoomIdx = ni; renderZoom();
+    const shown = card(S.zoomList[S.zoomIdx]).name;
+    // Gated arrow steps advance when the expected card is reached.
+    const step = STEPS[stepIdx];
+    if (step && step.expectZoom && shown === step.expectZoom) hit(step.wait);
+  }
+
+  // ── Ocean chooser ────────────────────────────────────────────────
+  function openOceanChooser() {
+    const oceans = S.hand.filter(e => card(e.uid).species === "Ocean");
+    el("blob-oc-grid").innerHTML = oceans.map(e => {
+      const c = card(e.uid);
+      return `<div class="blob-grid-card" data-uid="${e.uid}">
+        <div class="blob-gc-img">${cardImg(e.uid)}</div>
+        <div class="blob-gc-name">${c.name}</div>
+        <div class="blob-gc-text">Cost ${c.cost}</div></div>`;
+    }).join("");
+    openOv("blob-ocean-chooser");
+  }
+
+  // ── Payment ──────────────────────────────────────────────────────
+  function openPayment(playUid) {
+    S.payContext = { playUid };
+    S.paySel = null;
+    const c = card(playUid);
+    el("blob-pay-sub").innerHTML = `<strong>${c.name}</strong> costs <strong>${c.cost}</strong> — choose ${c.cost === 1 ? "a card" : c.cost + " cards"} from your hand to discard as payment.`;
+    // Payment options = hand minus one instance of the card being played.
+    let removed = false;
+    S._payOpts = S.hand.filter(e => { if (!removed && e.uid === playUid) { removed = true; return false; } return true; });
+    el("blob-pay-grid").innerHTML = S._payOpts.map((e, i) => {
+      const cc = card(e.uid);
+      const label = (e.uid === NB_FRONT) ? "Narwhal / Big Eye Tuna" : cc.name;
+      return `<div class="blob-grid-card" data-payidx="${i}">
+        <div class="blob-gc-img">${cardImg(e.uid)}</div>
+        <div class="blob-gc-check">✓</div>
+        <div class="blob-gc-name">${label}</div></div>`;
+    }).join("");
+    el("blob-pay-confirm").disabled = true;
+    openOv("blob-payment");
+  }
+  function selectPayment(i) {
+    S.paySel = i;
+    el("blob-pay-grid").querySelectorAll(".blob-grid-card").forEach(n =>
+      n.classList.toggle("sel", Number(n.dataset.payidx) === i));
+    el("blob-pay-confirm").disabled = false;
+  }
+  function confirmPayment() {
+    const playUid = S.payContext.playUid;
+    const payEntry = S._payOpts[S.paySel];
+    // Remove the played card (one instance) and the payment card from hand.
+    let removedPlay = false;
+    S.hand = S.hand.filter(e => {
+      if (!removedPlay && e.uid === playUid) { removedPlay = true; return false; }
+      return e !== payEntry;
+    });
+    // Place the ocean.
+    S.board.ocean = playUid;
+    // Payment goes to the Pool; show its front face.
+    S.pool.push({ uid: payEntry.uid, faces: payEntry.faces });
+    S.players[0].cards = S.hand.length;
+    // Playing an Ocean flips one card from the deck into the Pool.
+    flipDeckToPool();
+    closeOv("blob-payment");
+    renderAll();
+  }
+  function flipDeckToPool() {
+    const u = S.deckQueue.length ? S.deckQueue.shift() : 102;
+    S.pool.push({ uid: u, faces: [u] });
+    S.deckCount = Math.max(0, S.deckCount - 1);
+  }
+
+  // ── Pool inspect ─────────────────────────────────────────────────
+  function openPoolInspect(mode) {
+    S.piMode = mode; S.piSel = new Set();
+    el("blob-pi-title").textContent = mode === "pick" ? "Pick 2 from the Pool" : "The Pool";
+    el("blob-pi-sub").innerHTML = mode === "pick"
+      ? "Read each card and select the <strong>two</strong> that help the B-Lob (Bird/Lobster) strategy most."
+      : "Tap a card to take a closer look.";
+    renderPoolInspectGrid();
+    el("blob-pi-bar").style.display = (mode === "pick") ? "flex" : "none";
+    el("blob-pi-confirm").disabled = true;
+    openOv("blob-pool-inspect");
+  }
+  function renderPoolInspectGrid() {
+    el("blob-pi-body").innerHTML = `<div class="blob-grid">` + S.pool.map((e, i) => {
+      const c = card(e.uid);
+      const label = (e.uid === NB_FRONT) ? "Narwhal / Big Eye Tuna" : c.name;
+      return `<div class="blob-grid-card ${S.piSel.has(i) ? "sel" : ""}" data-piidx="${i}">
+        <div class="blob-gc-img">${cardImg(e.uid)}</div>
+        <div class="blob-gc-check">✓</div>
+        <div class="blob-gc-name">${label}</div>
+        <div class="blob-gc-text">${c.text}</div></div>`;
+    }).join("") + `</div>`;
+  }
+  function showDualDetail() {
+    el("blob-pi-body").innerHTML = `<div class="blob-detail">
+      <figure><img src="${imgUrl(NB_FRONT)}" style="object-fit:cover;object-position:${imgPos(NB_FRONT)}">
+        <figcaption><b>Big Eye Tuna</b> — Cost 3 · CrossCurrent<br>+3 per Yellowfin Tuna. Star: draw one for each Yellowfin Tuna.</figcaption></figure>
+      <figure><img src="${imgUrl(NB_BACK)}" style="object-fit:cover;object-position:${imgPos(NB_BACK)}">
+        <figcaption><b>Narwhal</b> (other side) — Cost 2 · Mammal<br>+2 per Mammal. Draw one.</figcaption></figure>
+    </div>`;
+    el("blob-pi-sub").innerHTML = "This card has two sides. Neither one fits the B-Lob strategy.";
+  }
+  function togglePiSel(i) {
+    if (S.piMode !== "pick") return;
+    if (S.piSel.has(i)) S.piSel.delete(i);
+    else { if (S.piSel.size >= 2) return; S.piSel.add(i); }
+    renderPoolInspectGrid();
+    el("blob-pi-confirm").disabled = (S.piSel.size !== 2);
+  }
+  function confirmPiPick() {
+    const names = Array.from(S.piSel).map(i => card(S.pool[i].uid).name).sort();
+    const ok = names.length === 2 && names.includes("Clownfish") && names.includes("Lobster");
+    if (!ok) {
+      showErr("Try again. Read the card descriptions and choose the cards that help your strategy the most.");
+      S.piSel = new Set(); renderPoolInspectGrid(); el("blob-pi-confirm").disabled = true;
+      return;
+    }
+    // Move the two picked cards from pool to hand.
+    const picked = Array.from(S.piSel).sort((a, b) => b - a).map(i => S.pool.splice(i, 1)[0]);
+    picked.forEach(e => S.hand.push(e));
+    S.players[0].cards = S.hand.length;
+    closeOv("blob-pool-inspect");
+    renderAll();
+    hit("pool_pick_correct");
+  }
+
+  // ── Play-card dropdown ───────────────────────────────────────────
+  function toggleDropdown(force) {
+    const menu = el("blob-dd-menu");
+    const open = force != null ? force : !menu.classList.contains("open");
+    if (open) {
+      // Playable = creatures that can attach to an ocean already on the board.
+      const hasOcean = !!S.board.ocean;
+      const opts = S.hand.filter(e => hasOcean && card(e.uid).species !== "Ocean");
+      menu.innerHTML = opts.length
+        ? opts.map(e => { const c = card(e.uid); const label = (e.uid === NB_FRONT) ? "Narwhal / Big Eye Tuna" : c.name;
+            return `<div class="blob-dd-opt" data-ddidx="${S.hand.indexOf(e)}"><img src="${imgUrl(e.uid)}" style="object-fit:cover;object-position:${imgPos(e.uid)}"><span>${label}${c.cost ? " · cost " + c.cost : " · free"}</span></div>`; }).join("")
+        : `<div class="blob-dd-empty">Play an Ocean first, then you can attach animals here.</div>`;
+      menu.classList.add("open");
+    } else { menu.classList.remove("open"); }
+  }
+  function dropdownPick(handIdx) {
+    const e = S.hand[handIdx]; if (!e) return;
+    const c = card(e.uid);
+    // Guided dropdown step only accepts the Lobster.
+    if (!S.freePlay && STEPS[stepIdx].wait === "dropdown_select_lobster" && c.name !== "Lobster") {
+      toggleDropdown(false); return;
+    }
+    toggleDropdown(false);
+    // Show a silhouette on the target ocean in the card's slot direction.
+    const slot = (c.dir && c.dir !== "n/a") ? c.dir : "up";
+    S.pendingPlace = { uid: e.uid, slot, handIdx };
+    renderBoard();
+    // Gated step: selecting the Lobster advances the dropdown step.
+    const step = STEPS[stepIdx];
+    if (step && step.wait === "dropdown_select_lobster" && c.name === "Lobster") hit("dropdown_select_lobster");
+    setTimeout(() => applyHl(STEPS[stepIdx] && (typeof STEPS[stepIdx].hi === "function" ? STEPS[stepIdx].hi() : STEPS[stepIdx].hi)), 30);
+  }
+  function confirmPlacement() {
+    const pp = S.pendingPlace; if (!pp) return;
+    const c = card(pp.uid);
+    // Free creatures cost nothing; otherwise (free-play) just attach for simplicity.
+    S.board[pp.slot].push(pp.uid);
+    // Remove from hand (the exact entry by index, re-found by uid since indices may shift).
+    const hi = S.hand.findIndex(e => e.uid === pp.uid);
+    if (hi >= 0) S.hand.splice(hi, 1);
+    S.players[0].cards = S.hand.length;
+    S.pendingPlace = null;
+    renderAll();
+  }
+
+  // ── Scripted bot turns ───────────────────────────────────────────
+  function bot1PlayArctic() {
+    S.activeSeat = 1;
+    S.bot1Board.ocean = 244;           // Arctic Oceans
+    S.players[1].boardOcean = 244;     // show a thumbnail on Bot 1's icon
+    S.players[1].score = 4;            // +4
+    S.players[1].cards = Math.max(0, S.players[1].cards - 3); // played 1 + paid 2
+    flipDeckToPool();                  // Ocean played → 1 card flips up
+    renderAll();
+  }
+  function bot2DrawLobster() {
+    S.activeSeat = 2;
+    // Take the Lobster from the Pool (first one found), then draw 1 from deck.
+    const li = S.pool.findIndex(e => card(e.uid).name === "Lobster");
+    if (li >= 0) S.pool.splice(li, 1);
+    S.players[2].cards += 2;
+    S.deckCount = Math.max(0, S.deckCount - 1);
+    renderAll();
+  }
+  function bot3DrawTwo() {
+    S.activeSeat = 3;
+    S.players[3].cards += 2;
+    S.deckCount = Math.max(0, S.deckCount - 2);
+    renderAll();
+  }
+  function botsRound2Discard() {
+    // Round-2 bots take quick turns; the last bot (Bot 3) discards the two
+    // cards a B-Lob player wants — Clownfish + Lobster — into the Pool.
+    S.activeSeat = 1; S.players[1].cards = Math.max(0, S.players[1].cards - 1);
+    S.activeSeat = 2; S.players[2].cards = Math.max(0, S.players[2].cards - 1);
+    S.activeSeat = 3;
+    S.pool.push({ uid: 113, faces: [113] });   // Clownfish
+    S.pool.push({ uid: 40,  faces: [40] });     // Lobster
+    S.players[3].cards = Math.max(0, S.players[3].cards - 2);
+    renderAll();
+  }
+
+  // ── Hint panel ───────────────────────────────────────────────────
+  function renderHint() {
+    const need = [40, 238, 17, 1]; // Lobster, Artificial Reef, California Seagull, Emperor Penguin
+    el("blob-hint-body").innerHTML = `
+      <div class="blob-hint-strat blob">
+        <h4>🦞 B-Lob — Bird & Lobster</h4>
+        <div class="blob-hint-cards">${need.map(u => `<div class="blob-mini-card">${cardImg(u)}</div>`).join("")}</div>
+        <ul>
+          <li>Look for <strong>Lobster</strong>.</li>
+          <li>Stack Lobsters on <strong>Artificial Reef</strong> when possible.</li>
+          <li><strong>California Seagull</strong> helps crustaceans (+3 each).</li>
+          <li><strong>Emperor Penguin</strong> helps birds (+2 each).</li>
+          <li>Check the <strong>Pool</strong> before drawing from the deck.</li>
+          <li>Watch for cards that do not match your strategy.</li>
+          <li>Use cards that do not help B-Lob as <strong>payment</strong>.</li>
+          <li>Try to keep important B-Lob cards instead of discarding them.</li>
+        </ul>
+      </div>
+      <div class="blob-hint-other">Other strategies (Bait, Cleaner, Crustaceans…) live above — scroll up in a real game to see them all.</div>`;
+  }
+
+  // ══ STEP DEFINITIONS ══════════════════════════════════════════════
+  const STEPS = [
+    { badge: "Casual Games", title: "Public vs. Private",
+      html: "There are two main types of casual games. <strong>Casual public matches</strong> can be joined by anyone. <strong>Private matches</strong> require a room code, like the room you made in the previous tutorial. This time, we are going to <strong>join a private game</strong>." },
+
+    { badge: "Join", title: "Open Join Game", wait: "click_join",
+      hi: ["#blob-joinbtn"],
+      html: "Click <strong>Join Game</strong> to find a match to join." },
+
+    { badge: "Join", title: "Go to Private", wait: "click_private_tab",
+      hi: ["#blob-tab-private"],
+      html: "Public matches are open to anyone. We have a code, so click the <strong>Private</strong> tab." },
+
+    { badge: "Join", title: "Enter the Room Code", wait: "enter_code",
+      hi: ["#blob-code"],
+      html: "Enter the private room code: <strong style=\"font-family:monospace;letter-spacing:2px\">FUNKY</strong>" },
+
+    { badge: "Join", title: "Join the Game", wait: "click_join_confirm",
+      hi: ["#blob-join-confirm"],
+      html: "Great — now click <strong>Join</strong> to enter the private game." },
+
+    { badge: "The Table", title: "Scores & Card Counts",
+      before: () => { S.activeSeat = 0; },
+      hi: ["#blob-players"],
+      html: "Everyone’s <strong>score</strong> is shown near their player icon. The number next to the score (🂠) shows <strong>how many cards</strong> that player has." },
+
+    { badge: "The Table", title: "The Ring Around Your Name",
+      hi: [() => root.querySelector('.blob-player[data-seat="0"] .blob-av')],
+      html: "When the ring around your name is <strong style=\"color:#30C8F0\">blue</strong>, you can open your character menu. When the ring is <strong style=\"color:#E84057\">red</strong>, that means it is <strong>your turn</strong>, and you cannot open the character menu." },
+
+    { badge: "Turn 1", title: "Read Your Hand",
+      hi: ["#blob-hand"],
+      html: "Your hand looks like a great game to play <strong>B-Lob</strong>, which means <strong>Bird/Lobster</strong> strategy. The first thing you want to do is <strong>look at your cards</strong>." },
+
+    { badge: "Turn 1", title: "Inspect the First Card", wait: "open_zoom_lobster",
+      hi: [() => root.querySelector('#blob-hand .blob-hand-card[data-idx="0"]')],
+      html: "Click the <strong>farthest left card</strong> to take a closer look." },
+
+    { badge: "Turn 1", title: "Lobster",
+      hi: ["#blob-zoom-img"],
+      html: "This is one of the <strong>key cards</strong> that goes with the B-Lob strategy. <strong>Lobster</strong> has the ability to stack multiple Lobsters on the same space, so you can build a stronger ocean by putting them together." },
+
+    { badge: "Turn 1", title: "Next Card", wait: "zoom_reef", expectZoom: "Artificial Reef",
+      hi: ["#blob-zoom-next"],
+      html: "Click the <strong>right arrow</strong> (or the › button) to look at the next card." },
+
+    { badge: "Turn 1", title: "Artificial Reef",
+      hi: ["#blob-zoom-img"],
+      html: "This is an <strong>Ocean card</strong>, so it acts as the basis for animals. This Ocean is special because <strong>each card attached to it gives you +2 points</strong>. For B-Lob, you want to play Lobsters on Artificial Reef and <strong>stack them</strong> so they all get the extra +2 points." },
+
+    { badge: "Turn 1", title: "Next Card", wait: "zoom_seagull", expectZoom: "California Seagull",
+      hi: ["#blob-zoom-next"],
+      html: "Click the <strong>right arrow</strong> again." },
+
+    { badge: "Turn 1", title: "California Seagull",
+      hi: ["#blob-zoom-img"],
+      html: "California Seagull may be a bird, but it buffs all crustaceans by giving <strong>+3 per crustacean</strong>. This card is essential for B-Lob because <strong>Lobster is a crustacean</strong>." },
+
+    { badge: "Turn 1", title: "Next Card", wait: "zoom_penguin", expectZoom: "Emperor Penguin",
+      hi: ["#blob-zoom-next"],
+      html: "Click <strong>next</strong>." },
+
+    { badge: "Turn 1", title: "Emperor Penguin",
+      hi: ["#blob-zoom-img"],
+      html: "Emperor Penguin gives <strong>+2 per bird</strong>. This is good because it buffs California Seagull and any other bird you may play later. <em>Enough talking. Let’s play.</em>" },
+
+    { badge: "Turn 1", title: "Play Artificial Reef", wait: "click_ocean_zone",
+      before: () => { closeOv("blob-zoom"); },
+      hi: ["#blob-ocean-zone"],
+      html: "Play <strong>Artificial Reef</strong> by dragging it to the Ocean Zone, or by clicking the spot on the board. Let’s try <strong>clicking the board spot</strong> first." },
+
+    { badge: "Turn 1", title: "Choose Artificial Reef", wait: "choose_reef",
+      hi: [() => root.querySelector('#blob-oc-grid .blob-grid-card[data-uid="238"]')],
+      html: "Choose <strong>Artificial Reef</strong> from your oceans." },
+
+    { badge: "Turn 1", title: "Pay the Cost", wait: "pay_narwhal",
+      hi: [() => root.querySelector('#blob-pay-grid .blob-grid-card[data-payidx="' + (S._payOpts ? S._payOpts.findIndex(e => e.uid === NB_FRONT) : -1) + '"]')],
+      html: "Artificial Reef has a cost, so you need to use a card as payment. Click the <strong>Narwhal / Big Eye Tuna</strong> card as payment." },
+
+    { badge: "Turn 1", title: "Confirm Payment", wait: "pay_confirm",
+      hi: ["#blob-pay-confirm"],
+      html: "Click <strong>Confirm Payment</strong>." },
+
+    { badge: "Turn 1", title: "Reef Played!",
+      hi: ["#blob-board", "#blob-pool-wrap"],
+      html: "Now <strong>Artificial Reef is on your board</strong>, and the card you used as payment went to the <strong>Pool</strong>." },
+
+    { badge: "The Pool", title: "Inspect the Pool", wait: "pool_inspect_open",
+      hi: ["#blob-pool-inspect-btn"],
+      html: "Click <strong>Inspect</strong> in the Pool." },
+
+    { badge: "The Pool", title: "Inspect That Card", wait: "pool_pick_narwhal",
+      hi: [() => { const i = S.pool.findIndex(e => e.uid === NB_FRONT); return root.querySelector('#blob-pi-body .blob-grid-card[data-piidx="' + i + '"]'); }],
+      html: "Click the <strong>Narwhal / Big Eye Tuna</strong> card." },
+
+    { badge: "The Pool", title: "Not a B-Lob Card",
+      hi: ["#blob-pi-body"],
+      html: "This card does not go with B-Lob. <strong>Big Eye Tuna</strong> says +3 per Yellowfin Tuna; activating its Star (by paying with a matching symbol) copies that card’s ability. It costs <strong>3</strong> and is a <strong>CrossCurrent</strong> species, so it does not help a Bird/Crustacean strategy.<br><br>The other side is <strong>Narwhal</strong> — cost 2, a Mammal, +2 per Mammal and draw one. Neither the species nor the ability helps B-Lob, so this was a card you did not need." },
+
+    { badge: "The Pool", title: "Exit Inspect", wait: "pool_inspect_close",
+      hi: ["#blob-pi-close"],
+      html: "Exit the Inspect screen." },
+
+    { badge: "The Pool", title: "How the Pool Works",
+      hi: ["#blob-pool-wrap"],
+      html: "When anyone plays an Ocean, one card flips into the Pool from the deck. The <strong>Pool</strong> is where players can draw cards on their turn, and where discarded payment cards go. When the Pool reaches <strong>10 cards, it clears</strong> — so keep an eye on it. If there is a card you want, you don’t want it cleared out of the game." },
+
+    { badge: "Bot 1", title: "Bot 1 Plays an Ocean", wait: "hover_bot1", allowNext: true,
+      before: () => { bot1PlayArctic(); },
+      hi: [() => root.querySelector('.blob-player[data-seat="1"]')],
+      html: "Bot 1 played <strong>Arctic Ocean</strong> (cost 2), and one card flipped into the Pool. <strong>Hover over Bot 1’s player icon</strong> to see what they did (or tap Next)." },
+
+    { badge: "Bot 1", title: "Why Bot 1 Plays Again",
+      hi: [() => root.querySelector('.blob-player[data-seat="1"]')],
+      html: "Bot 1 gets to <strong>play again</strong> because one of the two cards they discarded as payment had a <strong>matching symbol</strong> with Arctic Ocean. Only <strong>one</strong> card needs the matching symbol — Arctic Ocean costs 2, but a single matching symbol was enough to activate the play-again bonus." },
+
+    { badge: "Bot 2", title: "Bot 2 Draws",
+      before: () => { bot2DrawLobster(); },
+      hi: [() => root.querySelector('.blob-player[data-seat="2"]')],
+      html: "Bot 2 drew two cards — one <strong>Lobster from the Pool</strong> and one from the deck. They took the Lobster from the Pool, so they may play it later or use it as payment for another card." },
+
+    { badge: "Bot 3", title: "Bot 3 Draws",
+      before: () => { bot3DrawTwo(); },
+      hi: [() => root.querySelector('.blob-player[data-seat="3"]')],
+      html: "Bot 3 drew two cards from the deck. This is a 4-player game, so after <strong>Bot 3</strong> takes their turn, it comes back to you." },
+
+    { badge: "Turn 2", title: "Play a Lobster", wait: "open_zoom_lobster2",
+      before: () => { S.activeSeat = 0; },
+      hi: [() => { const i = S.hand.findIndex(e => card(e.uid).name === "Lobster"); return root.querySelector('#blob-hand .blob-hand-card[data-idx="' + i + '"]'); }],
+      html: "Let’s try playing <strong>Lobster</strong>. Click the <strong>Lobster</strong> card." },
+
+    { badge: "Turn 2", title: "Lobster Is Free",
+      hi: ["#blob-zoom-img"],
+      html: "This card does <strong>not</strong> have a sand dollar cost on it, so it is <strong>free</strong>. You do not have to discard any cards to play it." },
+
+    { badge: "Turn 2", title: "Close the Card", wait: "close_zoom",
+      hi: ["#blob-zoom-close"],
+      html: "Click out of the card (the ✕ or the dark background) to close it." },
+
+    { badge: "Turn 2", title: "Use the Play Dropdown", wait: "dropdown_select_lobster",
+      hi: ["#blob-play-dd-btn"],
+      html: "Now let’s use the <strong>dropdown menu</strong> to play the Lobster. Open it and <strong>select Lobster</strong>." },
+
+    { badge: "Turn 2", title: "The Silhouette",
+      hi: ["#blob-board"],
+      html: "The <strong>silhouette</strong> shows what Ocean the card is being played on. This helps make sure you are placing the card in the correct spot. There is <strong>no sand dollar cost</strong> on the left side of the Lobster card, so it costs nothing — it is free, and you do not have to discard any cards." },
+
+    { badge: "Turn 2", title: "Place the Lobster", wait: "place_lobster",
+      hi: ["#blob-place-target"],
+      html: "Click the glowing silhouette to play <strong>Lobster onto Artificial Reef</strong>." },
+
+    { badge: "Bots", title: "The Bots Take Their Turns",
+      before: () => { botsRound2Discard(); },
+      hi: ["#blob-pool-wrap", () => root.querySelector('.blob-player[data-seat="3"]')],
+      html: "The other bots take their turns. On the last bot’s turn, it discarded a <strong>Clownfish</strong> and a <strong>Lobster</strong> — both went to the <strong>Pool</strong>." },
+
+    { badge: "Turn 3", title: "Pick 2 Good Cards", wait: "pool_pick_correct",
+      before: () => { openPoolInspect("pick"); },
+      hi: ["#blob-pool-inspect-btn", "#blob-pi-body"],
+      html: "Inspect the Pool and choose <strong>two cards</strong> you think are good for the B-Lob strategy by <strong>reading the card descriptions</strong>. (Tap a card to select it, then confirm.)" },
+
+    { badge: "Turn 3", title: "Good Choice",
+      hi: ["#blob-hand"],
+      html: "Good choice. <strong>Lobster</strong> helps because it is one of the main cards in B-Lob, and <strong>Clownfish</strong> can be useful because it can copy helpful abilities depending on how the game is going." },
+
+    { badge: "B-Lob", title: "You’ve Got the Basics",
+      html: "Now you understand the basics of the <strong>B-Lob</strong> strategy. Look for <strong>Lobsters</strong>, <strong>birds that buff your board</strong>, and Oceans like <strong>Artificial Reef</strong> that make your stacked cards stronger." },
+
+    { badge: "B-Lob", title: "Keep Playing", finishLabel: "Play freely ✓",
+      before: () => { markDone(); },
+      hi: ["#blob-hint-btn"],
+      html: "You can keep playing the game from here. If you need help, click the <strong>🐠 Hint</strong> button, then scroll to <strong>B-Lob</strong> — it will show you the cards you need for the B-Lob strategy." },
+  ];
+
+  // ── Finish / free play / exit ────────────────────────────────────
+  let _markedDone = false;
+  function markDone() {
+    if (_markedDone) return; _markedDone = true;
+    try { window.__ccTut3FinishPractice && window.__ccTut3FinishPractice(); } catch (_) {}
+  }
+  function finish() {
+    // Last step's button → enter free play (board stays interactive).
+    markDone();
+    S.freePlay = true;
+    panel.classList.remove("open");
+    el("blob-freeplay-note").classList.add("open");
+    el("blob-hint-btn").style.display = "";
+    clearHl();
+  }
+  function exitTutorial() {
+    root.classList.remove("open");
+    document.body.style.overflow = "";
+    try { window.__ccTut3OpenChooser && window.__ccTut3OpenChooser(); } catch (_) {}
+  }
+
+  // ── Wiring (one-time) ────────────────────────────────────────────
+  let _wired = false;
+  function wire() {
+    if (_wired) return; _wired = true;
+    root = el("blob-tut"); panel = el("blob-panel");
+
+    el("blob-exit-btn").addEventListener("click", () => {
+      if (S && S.freePlay) { exitTutorial(); return; }
+      if (confirm("Exit the practice game?")) exitTutorial();
+    });
+    el("blob-hint-btn").addEventListener("click", () => { renderHint(); openOv("blob-hint"); });
+    el("blob-hint-close").addEventListener("click", () => closeOv("blob-hint"));
+    el("blob-p-next").addEventListener("click", () => next());
+
+    // Join flow
+    el("blob-joinbtn").addEventListener("click", () => { openOv("blob-join-modal"); hit("click_join"); });
+    el("blob-tab-public").addEventListener("click", () => switchJoinTab("public"));
+    el("blob-tab-private").addEventListener("click", () => { switchJoinTab("private"); hit("click_private_tab"); });
+    el("blob-code").addEventListener("input", () => {
+      const v = el("blob-code").value.trim().toUpperCase();
+      el("blob-code").value = v;
+      const ok = v === "FUNKY";
+      el("blob-join-confirm").disabled = !ok;
+      if (ok) hit("enter_code");
+    });
+    el("blob-join-confirm").addEventListener("click", () => {
+      if (el("blob-code").value.trim().toUpperCase() !== "FUNKY") return;
+      closeOv("blob-join-modal");
+      el("blob-lobby").style.display = "none";
+      el("blob-game").classList.add("open");
+      renderAll();
+      hit("click_join_confirm");
+    });
+
+    // Zoom — closing is only allowed in free play or on the "close the card"
+    // step, so the Turn-1 flip-through can't be accidentally dismissed mid-way.
+    const zoomMayClose = () => S.freePlay || STEPS[stepIdx].wait === "close_zoom";
+    el("blob-zoom-prev").addEventListener("click", () => zoomNav(-1));
+    el("blob-zoom-next").addEventListener("click", () => zoomNav(1));
+    el("blob-zoom-close").addEventListener("click", () => { if (!zoomMayClose()) return; closeOv("blob-zoom"); hit("close_zoom"); });
+    el("blob-zoom").addEventListener("click", (ev) => { if (ev.target.id === "blob-zoom" && zoomMayClose()) { closeOv("blob-zoom"); hit("close_zoom"); } });
+
+    // Ocean chooser
+    el("blob-oc-close").addEventListener("click", () => { if (S.freePlay) closeOv("blob-ocean-chooser"); });
+    el("blob-oc-grid").addEventListener("click", (ev) => {
+      const cardEl = ev.target.closest(".blob-grid-card"); if (!cardEl) return;
+      const uid = Number(cardEl.dataset.uid);
+      if (!S.freePlay && !(stepIdx >= 0 && STEPS[stepIdx].wait === "choose_reef" && uid === 238)) return;
+      closeOv("blob-ocean-chooser");
+      openPayment(uid);
+      hit("choose_reef");
+    });
+
+    // Payment
+    el("blob-pay-close").addEventListener("click", () => { if (S.freePlay) closeOv("blob-payment"); });
+    el("blob-pay-grid").addEventListener("click", (ev) => {
+      const cardEl = ev.target.closest(".blob-grid-card"); if (!cardEl) return;
+      const i = Number(cardEl.dataset.payidx);
+      // Guided pay step: only the Narwhal/Big Eye Tuna card is accepted.
+      if (!S.freePlay && STEPS[stepIdx].wait === "pay_narwhal") {
+        if (S._payOpts[i].uid !== NB_FRONT) return;
+      }
+      selectPayment(i);
+      if (S._payOpts[i].uid === NB_FRONT) hit("pay_narwhal");
+    });
+    el("blob-pay-confirm").addEventListener("click", () => {
+      if (S.paySel == null) return;
+      confirmPayment();
+      hit("pay_confirm");
+    });
+
+    // Pool inspect
+    el("blob-pool-inspect-btn").addEventListener("click", () => {
+      if (S.freePlay) { openPoolInspect("browse"); return; }
+      const w = STEPS[stepIdx].wait;
+      if (w === "pool_inspect_open") { openPoolInspect("browse"); hit("pool_inspect_open"); }
+      else if (w === "pool_pick_correct") { openPoolInspect("pick"); }  // reopen if closed
+    });
+    el("blob-pi-close").addEventListener("click", () => {
+      // Block closing during the guided browse (steps 22-23) until the "exit"
+      // step; pick-mode and free play may always close (can be reopened).
+      if (!S.freePlay && S.piMode !== "pick" && STEPS[stepIdx].wait !== "pool_inspect_close") return;
+      closeOv("blob-pool-inspect"); hit("pool_inspect_close");
+    });
+    el("blob-pi-body").addEventListener("click", (ev) => {
+      const cardEl = ev.target.closest(".blob-grid-card"); if (!cardEl) return;
+      const i = Number(cardEl.dataset.piidx);
+      if (S.piMode === "pick") { togglePiSel(i); return; }
+      // Browse mode: clicking the dual card shows both faces.
+      if (S.pool[i] && S.pool[i].uid === NB_FRONT) { showDualDetail(); hit("pool_pick_narwhal"); }
+    });
+    el("blob-pi-confirm").addEventListener("click", () => confirmPiPick());
+
+    // Board: ocean zone click
+    el("blob-board").addEventListener("click", (ev) => {
+      if (ev.target.closest("#blob-ocean-zone")) {
+        if (!S.freePlay && STEPS[stepIdx].wait !== "click_ocean_zone") return;
+        openOceanChooser(); hit("click_ocean_zone"); return;
+      }
+      if (ev.target.closest("#blob-place-target")) {
+        if (!S.freePlay && STEPS[stepIdx].wait !== "place_lobster") return;
+        confirmPlacement(); hit("place_lobster"); return;
+      }
+    });
+
+    // Hand: click a card to inspect (zoom)
+    el("blob-hand").addEventListener("click", (ev) => {
+      const cardEl = ev.target.closest(".blob-hand-card"); if (!cardEl) return;
+      const idx = Number(cardEl.dataset.idx);
+      const e = S.hand[idx]; if (!e) return;
+      const isLobster = card(e.uid).name === "Lobster";
+      if (!S.freePlay) {
+        const w = STEPS[stepIdx].wait;
+        if (w === "open_zoom_lobster") { if (idx !== 0) return; openZoomAt(e.uid); hit("open_zoom_lobster"); return; }
+        if (w === "open_zoom_lobster2") { if (!isLobster) return; openZoomAt(e.uid); hit("open_zoom_lobster2"); return; }
+        return; // other cards not clickable during guided play
+      }
+      openZoomAt(e.uid); // free play: inspect anything
+    });
+
+    // Play dropdown
+    el("blob-play-dd-btn").addEventListener("click", () => {
+      if (!S.freePlay && STEPS[stepIdx].wait !== "dropdown_select_lobster") return;
+      toggleDropdown();
+      setTimeout(() => applyHl(typeof STEPS[stepIdx].hi === "function" ? STEPS[stepIdx].hi() : STEPS[stepIdx].hi), 30);
+    });
+    el("blob-dd-menu").addEventListener("click", (ev) => {
+      const opt = ev.target.closest(".blob-dd-opt"); if (!opt) return;
+      dropdownPick(Number(opt.dataset.ddidx));
+    });
+
+    // Hover Bot 1 (advances the optional hover step)
+    el("blob-players").addEventListener("mouseover", (ev) => {
+      const seatEl = ev.target.closest(".blob-player"); if (!seatEl) return;
+      if (Number(seatEl.dataset.seat) === 1) hit("hover_bot1");
+    });
+
+    // Free-play deck draw
+    el("blob-deck").addEventListener("click", () => {
+      if (!S.freePlay) return;
+      const u = S.deckQueue.length ? S.deckQueue.shift() : 102;
+      S.hand.push({ uid: u, faces: [u] });
+      S.players[0].cards = S.hand.length;
+      S.deckCount = Math.max(0, S.deckCount - 1);
+      renderAll();
+    });
+  }
+  function switchJoinTab(which) {
+    el("blob-tab-public").classList.toggle("active", which === "public");
+    el("blob-tab-private").classList.toggle("active", which === "private");
+    el("blob-panel-public").classList.toggle("active", which === "public");
+    el("blob-panel-private").classList.toggle("active", which === "private");
+  }
+
+  // ── Public entry ─────────────────────────────────────────────────
+  function run() {
+    wire();
+    _markedDone = false;
+    S = freshState(); stepIdx = 0; waitAction = null;
+    el("blob-room-badge").textContent = "Room: FUNKY";
+    el("blob-hint-btn").style.display = "none";
+    el("blob-freeplay-note").classList.remove("open");
+    el("blob-lobby").style.display = "flex";
+    el("blob-game").classList.remove("open");
+    ["blob-join-modal","blob-zoom","blob-ocean-chooser","blob-payment","blob-pool-inspect","blob-hint"]
+      .forEach(closeOv);
+    switchJoinTab("public");
+    el("blob-code").value = "";
+    el("blob-join-confirm").disabled = true;
+    root.classList.add("open");
+    panel.classList.add("open");
+    document.body.style.overflow = "hidden";
+    goto(0);
+  }
+  window.__ccRunBLobPractice = run;
 })();
 </script>
 </body>
