@@ -1481,10 +1481,11 @@
     .pv-ocean-hub:hover { border-color: #2a5070; }
 
     .pv-ocean-center { grid-area: ocean; display: flex; align-items: center; justify-content: center; align-self: center; }
-    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 2px; align-self: end; }
-    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 2px; align-self: start; }
-    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 2px; align-self: center; }
-    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 2px; align-self: center; }
+    /* gap:0 so stacked cards touch and connect flush (see stacking rules below) */
+    .pv-lane-up    { grid-area: up;    display: flex; flex-direction: column-reverse; align-items: center; gap: 0; align-self: end; }
+    .pv-lane-down  { grid-area: down;  display: flex; flex-direction: column; align-items: center; gap: 0; align-self: start; }
+    .pv-lane-left  { grid-area: left;  display: flex; flex-direction: row-reverse; align-items: center; gap: 0; align-self: center; }
+    .pv-lane-right { grid-area: right; display: flex; flex-direction: row; align-items: center; gap: 0; align-self: center; }
 
     .pv-board-card {
       width: var(--mini-w);
@@ -1542,26 +1543,21 @@
     .pv-lane-left  .pv-board-card:hover { transform: translateX(-4px) scale(1.05); transform-origin: right center; }
     .pv-lane-right .pv-board-card:hover { transform: translateX(4px)  scale(1.05); transform-origin: left center; }
 
-    /* Stacked cards (Yellowfin Tuna, Lobster, etc.) — cascade so each
-       additional card peeks out ~16px from under the previous one, making the
-       stack clearly readable instead of all cards landing on the same spot.
-       Negative margin = half-card-size minus the visible peek amount. */
+    /* Stacked cards (Yellowfin Tuna, Lobster, etc.) sit FLUSH against each
+       other — every card's visible half connects seamlessly to the next so the
+       whole stack reads as one smooth, even column with every animal fully
+       shown, instead of clumping into thin overlapping slivers. The inner edge
+       still tucks under the ocean via the half-card clip above. */
     .pv-lane-up    .pv-board-card,
     .pv-lane-down  .pv-board-card,
     .pv-lane-left  .pv-board-card,
-    .pv-lane-right .pv-board-card { position: relative; }
-    .pv-lane-up    .pv-board-card + .pv-board-card,
-    .pv-lane-up    .pv-board-card + .pv-lane-slot,
-    .pv-lane-up    .pv-lane-slot  + .pv-board-card { margin-bottom: calc(var(--mini-h) / -2 + 16px); }
-    .pv-lane-down  .pv-board-card + .pv-board-card,
-    .pv-lane-down  .pv-board-card + .pv-lane-slot,
-    .pv-lane-down  .pv-lane-slot  + .pv-board-card { margin-top:    calc(var(--mini-h) / -2 + 16px); }
-    .pv-lane-left  .pv-board-card + .pv-board-card,
-    .pv-lane-left  .pv-board-card + .pv-lane-slot,
-    .pv-lane-left  .pv-lane-slot  + .pv-board-card { margin-right:  calc(var(--mini-w) / -2 + 12px); }
-    .pv-lane-right .pv-board-card + .pv-board-card,
-    .pv-lane-right .pv-board-card + .pv-lane-slot,
-    .pv-lane-right .pv-lane-slot  + .pv-board-card { margin-left:   calc(var(--mini-w) / -2 + 12px); }
+    .pv-lane-right .pv-board-card { position: relative; margin: 0; }
+    /* Drop the border + rounded corner on the edge that meets the next card in
+       the stack, so only the outermost card keeps a finished edge. */
+    .pv-lane-down  .pv-board-card:not(:last-child) { border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .pv-lane-up    .pv-board-card:not(:last-child) { border-top:    none; border-top-left-radius: 0;    border-top-right-radius: 0; }
+    .pv-lane-right .pv-board-card:not(:last-child) { border-right:  none; border-top-right-radius: 0;   border-bottom-right-radius: 0; }
+    .pv-lane-left  .pv-board-card:not(:last-child) { border-left:   none; border-top-left-radius: 0;    border-bottom-left-radius: 0; }
     /* Newer cards layer on top of older ones so the stack reads correctly. */
     .pv-lane-up    .pv-board-card:nth-child(n+2),
     .pv-lane-down  .pv-board-card:nth-child(n+2),
@@ -1624,9 +1620,8 @@
     }
 
     /* ── Stackable slot (Yellowfin / Lobster stacking on existing cards) ──
-       Pop the slot clear of the overlap so it's visible and clearly separate.
-       The negative margin from the overlap rule is cancelled out, then we add
-       a small positive gap and a distinct "stack +" appearance. */
+       The "+ stack here" slot sits flush at the end of the stack with a
+       distinct dashed-green appearance so it reads as the next card in line. */
     .pv-lane-up    .pv-lane-slot.stack-slot { margin-bottom: 0 !important; margin-top: 3px; }
     .pv-lane-down  .pv-lane-slot.stack-slot { margin-top:    0 !important; margin-bottom: 3px; }
     .pv-lane-left  .pv-lane-slot.stack-slot { margin-right:  0 !important; margin-left:  3px; }
@@ -17646,7 +17641,7 @@
   }
 
   // ── COMPETITIVE MODE ─────────────────────────────────────────────
-  // compMySeats: the seat indices this device owns (P1=[0,2], P2=[1,3])
+  // compMySeats: the seat indices this device owns (P1=[0,1], P2=[2,3])
   let compMode = false;
   let compTokens = {};       // seat index → seat token (only my seats)
   let compHostToken = "";
@@ -25802,7 +25797,8 @@
     });
 
     $a("stats-comp-btn").addEventListener("click", () => {
-      openNewCurrentModal({ competitive: true });
+      if (typeof compOpenOverlay === "function") compOpenOverlay();
+      if (typeof compSwitchTab === "function") compSwitchTab("create");
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
@@ -31857,7 +31853,7 @@
   const OSPREY = "/avatars/osprey.png";
   function getDone() { try { return JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (_) { return {}; } }
   function setDone(k) { const d = getDone(); d[k] = true; try { localStorage.setItem(LS, JSON.stringify(d)); } catch (_) {} grantOspreyIfComplete(); }
-  function allDone() { const d = getDone(); return !!(d.menu && d.game && d.practice); }
+  function allDone() { const d = getDone(); return !!(d.menu && d.game && d.practice && d.competitive); }
   async function grantOspreyIfComplete() {
     if (!allDone()) return;
     try {
@@ -32297,7 +32293,7 @@
 
     // ── Osprey detail panel ───────────────────────────────────────────
     { target: "#gal-detail", badge: "Avatar Gallery", title: "Fun Fact and Unlock",
-      text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all three tutorials. You are already on your way!" },
+      text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all four tutorials. You are already on your way!" },
 
     // ── Back button — must click to exit gallery ──────────────────────
     { target: "#gal-back-btn", badge: "Avatar Gallery", title: "Back to the Menu",
@@ -32438,7 +32434,7 @@
     // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
       before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all three tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
+      text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all four tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
   ];
 
   function runMenuTour() {
@@ -33110,6 +33106,125 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  COMPETITIVE 1v1 TOUR
+  //  A walkthrough of the competitive overlay + stats tab. No live
+  //  game is created — competitive requires two real human players.
+  // ════════════════════════════════════════════════════════════════
+  const gtCompOverlayOpen   = () => !!document.getElementById("comp-overlay")?.classList.contains("open");
+  const gtCompOverlayClosed = () => !document.getElementById("comp-overlay")?.classList.contains("open");
+  const gtCompTabActive     = t  => () => !!document.getElementById(`comp-tab-${t}`)?.classList.contains("active");
+  function closeCompTourOverlay() {
+    try { if (typeof compCloseOverlay === "function") compCloseOverlay(); } catch (_) {}
+  }
+
+  const COMP_STEPS = [
+
+    // ── 1. Welcome ──────────────────────────────────────────────────
+    { target: null, badge: "Competitive 1v1", title: "What is Competitive?",
+      before: () => { closeMenuOverlays(); closeCompTourOverlay(); try { navTab("overview"); } catch (_) {} },
+      text: "Welcome to <strong>Competitive 1v1</strong> — the ranked way to play Currents &amp; Critters. Two players go head-to-head, but each player controls <strong>two hands</strong> at once and plays both on the same device. Your best-scoring hand is compared to your opponent's best — whoever scores higher <strong>wins the match and earns CP</strong> (Competitive Points)." },
+
+    // ── 2. Open the overlay (interactive) ──────────────────────────
+    { target: "#stats-comp-btn", badge: "Step 1", title: "Open Competitive",
+      before: () => { closeMenuOverlays(); closeCompTourOverlay(); try { navTab("overview"); } catch (_) {} },
+      interactive: true, advanceWhen: gtCompOverlayOpen,
+      text: "The <strong>⚔️ Competitive</strong> action card is your gateway to ranked play. <strong>Click it now</strong> to open the matchmaking overlay." },
+
+    // ── 3. The overlay ──────────────────────────────────────────────
+    { target: "#comp-overlay", badge: "The Overlay", title: "Competitive 1v1 Overlay",
+      text: "This is the Competitive hub. It has three tabs: <strong>Create Match</strong> (start a room as Player 1), <strong>Join Match</strong> (enter as Player 2), and <strong>Leaderboard</strong> (global rankings). Creating and joining are always done on <em>separate</em> devices — one player creates, the other joins with the room code." },
+
+    // ── 4. Create panel — heading ───────────────────────────────────
+    { target: "#comp-panel-create", badge: "Create Tab", title: "You Are Player 1",
+      before: () => { try { compSwitchTab("create"); } catch (_) {} },
+      text: "When you click <strong>⚔️ Create Match →</strong>, you become <strong>Player 1</strong>. You own <strong>Hand 1 and Hand 2</strong> — two independent seats at the same four-player table. Both hands deal you separate cards, and you take turns playing each one." },
+
+    // ── 5. The four-hand grid ───────────────────────────────────────
+    { target: ".comp-hands-grid", badge: "Four Hands", title: "Two Hands Each",
+      text: "The grid shows all four hands. <strong>🦈 Hand 1 and 🦀 Hand 2 are yours</strong> as Player 1. Your opponent (Player 2) controls <strong>🐡 Hand 3 and 🐋 Hand 4</strong> on their device. Turns cycle in order: 1 → 2 → 3 → 4 → 1…, so the two players alternate frequently." },
+
+    // ── 6. Room code field ──────────────────────────────────────────
+    { target: "#comp-create-code", badge: "Room Code", title: "Custom or Auto Code",
+      text: "You can type a <strong>custom 5-letter code</strong> (e.g. SWORD) for your room — great for playing with a specific friend. Or leave it blank and the server <strong>auto-generates one</strong> for you. After creating, share the code with your opponent so they can join." },
+
+    // ── 7. Create button ────────────────────────────────────────────
+    { target: "#comp-create-btn", badge: "Creating", title: "Create the Room",
+      text: "Click <strong>⚔️ Create Match →</strong> to create the room. The overlay will show a <strong>waiting screen</strong> with your room code. Share that code with Player 2 and wait for them to join — once they're in, the Start button appears." },
+
+    // ── 8. Switch to Join tab (interactive) ────────────────────────
+    { target: "#comp-tab-join", badge: "Join Tab", title: "Player 2 Joins",
+      interactive: true, advanceWhen: gtCompTabActive("join"),
+      text: "On Player 2's device, they open this same overlay and click <strong>Join Match</strong>. <strong>Click it now</strong> to see what they see." },
+
+    // ── 9. Join panel ───────────────────────────────────────────────
+    { target: "#comp-panel-join", badge: "Join Tab", title: "Entering the Code",
+      text: "Player 2 types the <strong>5-letter room code</strong> into this field and clicks <strong>🌊 Join as Player 2 →</strong>. They automatically claim <strong>Hands 3 and 4</strong>. No seat picking, no waiting — once joined, Player 1's screen shows a <strong>Start button</strong>. Player 1 clicks it and the game begins." },
+
+    // ── 10. Leaderboard tab (interactive) ──────────────────────────
+    { target: "#comp-tab-lb", badge: "Leaderboard", title: "Global Rankings",
+      interactive: true, advanceWhen: gtCompTabActive("lb"),
+      text: "The <strong>Leaderboard tab</strong> shows everyone who has played competitive this season. <strong>Click it now</strong> to take a look." },
+
+    // ── 11. Leaderboard panel ───────────────────────────────────────
+    { target: "#comp-panel-lb", badge: "Leaderboard", title: "Three Leaderboard Views",
+      text: "The leaderboard has three sub-tabs:<br>• <strong>🏆 Rank</strong> — total CP earned this season, with the top player earning the <strong>👑 King of the Critters</strong> title.<br>• <strong>✋ Best Hand</strong> — the highest single-hand score anyone has ever achieved in a ranked game.<br>• <strong>🔥 Streak</strong> — the longest consecutive win streaks.<br>These reset each season, so everyone can climb the ranks." },
+
+    // ── 12. Close overlay (interactive) ────────────────────────────
+    { target: "#comp-close-btn", badge: "Close", title: "Close the Overlay",
+      interactive: true, advanceWhen: gtCompOverlayClosed,
+      text: "Click <strong>✕ Close</strong> to return to the menu." },
+
+    // ── 13. Navigate to Competitive stats tab (interactive) ─────────
+    { target: "#snav-competitive", badge: "Your Stats", title: "Your Competitive Record",
+      before: () => { closeMenuOverlays(); try { navTab("overview"); } catch (_) {} },
+      interactive: true, advanceWhen: gtTabActive("snav-competitive"),
+      text: "Your personal ranked history lives in the <strong>Competitive tab</strong> on the menu sidebar. <strong>Click it now</strong> to see your rank." },
+
+    // ── 14. Competitive panel — rank and CP ─────────────────────────
+    { target: "#ph-panel-competitive", badge: "Your Rank", title: "CP and Rank Divisions",
+      text: "Once you've played ranked games, this panel shows your <strong>Competitive Points (CP)</strong>, your current <strong>rank division</strong>, and a progress bar toward the next. The six divisions are:<br><strong>🦐 Shrimp → 🐠 Seahorse → 🦀 Crab → 🦈 Shark → 🐋 Orca → 👑 King of the Critters</strong>.<br>Each win earns CP; each loss costs some — so every match matters." },
+
+    // ── 15. CP formula ─────────────────────────────────────────────
+    { target: null, badge: "How CP Works", title: "Earning and Losing CP",
+      text: "After every competitive match:<br>• <strong>Win</strong> — earn CP. The bigger your score advantage, the more you gain.<br>• <strong>Loss</strong> — lose a smaller amount of CP.<br>• <strong>Tie on best hand</strong> — the <em>second-best hand</em> score breaks the tie; whoever has the higher second hand wins.<br>Your first few games of a season include a placement bonus so new players settle into their true rank quickly." },
+
+    // ── 16. Hand-switch in the game ────────────────────────────────
+    { target: null, badge: "In the Game", title: "The Hand-Switch Overlay",
+      text: "In a competitive game, turns alternate automatically. When the active turn switches to <em>your other hand</em>, a full-screen <strong>\"Your Turn\"</strong> overlay slides in — it shows your name and which hand is now active. <strong>Tap anywhere to dismiss it</strong> and play that hand. This prevents you from accidentally playing the wrong board." },
+
+    // ── 17. Strategy: two hands ────────────────────────────────────
+    { target: null, badge: "Strategy", title: "Playing Two Hands",
+      text: "Controlling two hands gives you real advantages — if you use them wisely:<br>• <strong>Coordinate</strong> — a card that doesn't fit Hand 1's strategy can be used as <em>payment</em> on Hand 2 instead of being wasted.<br>• <strong>Diversify</strong> — run two different strategies (e.g. B-Lob on Hand 1, a bird build on Hand 2) so at least one lands well.<br>• <strong>Focus your best cards</strong> — the best hand wins, so pour your strongest draws into whichever hand is pulling ahead." },
+
+    // ── 18. In-game menu ───────────────────────────────────────────
+    { target: null, badge: "In the Game", title: "Tracking All Four Hands",
+      text: "During a competitive match the <strong>☰ Menu</strong> in the top bar has a special <strong>⚔️ Hands</strong> section. It shows the current score of every hand at a glance, including your opponent's — so you always know whether you're ahead, behind, or tied without having to scroll around the board." },
+
+    // ── 19. Done ───────────────────────────────────────────────────
+    { target: "#stats-comp-btn", badge: "All Done!", title: "Ready to Compete!",
+      before: () => { closeMenuOverlays(); try { navTab("overview"); } catch (_) {} },
+      text: "You now know everything about Competitive 1v1 in Currents &amp; Critters. To play: click <strong>⚔️ Competitive</strong>, either <strong>Create</strong> a room and share the code with a friend, or <strong>Join</strong> one with their code. Build two great hands, watch your opponent's score, and climb to <strong>King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
+  ];
+
+  function runCompTour() {
+    closeChooser();
+    const lobby = document.getElementById("auth-stats-lobby");
+    if (!lobby || !lobby.classList.contains("visible")) {
+      runCoach([{ target: null, badge: "Competitive Tour", title: "Open from the Main Menu",
+        text: "This tour walks through the Competitive overlay and stats. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial → Competitive 1v1</strong>." }], null);
+      return;
+    }
+    runCoach(COMP_STEPS, () => {
+      closeMenuOverlays();
+      closeCompTourOverlay();
+      try { navTab("overview"); } catch (_) {}
+      setDone("competitive");
+      showToast("Competitive tour complete", completionSubtitle());
+      setTimeout(openChooser, 900);
+    }, () => { closeMenuOverlays(); closeCompTourOverlay(); });
+  }
+
+  // ════════════════════════════════════════════════════════════════
   //  CHOOSER MODAL
   // ════════════════════════════════════════════════════════════════
   let chooser = null;
@@ -33123,15 +33238,16 @@
   }
 
   const OPTS = [
-    { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu: profile, streak, tabs, and the store.", run: runMenuTour, ready: true },
-    { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: runGameTour, ready: true },
-    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Set up a private game and learn the Bird + Lobster strategy on the real board.", run: runBLobTour, ready: true },
+    { key: "menu",        ico: "🗺️",  title: "Main Menu Tour",       desc: "Everything on the menu: profile, streak, tabs, and the store.",                                   run: runMenuTour, ready: true },
+    { key: "game",        ico: "🎴",  title: "The Game",             desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.",                    run: runGameTour, ready: true },
+    { key: "practice",   ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Set up a private game and learn the Bird + Lobster strategy on the real board.",                  run: runBLobTour, ready: true },
+    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, CP, rank divisions, the hand-switch, and strategy.", run: runCompTour, ready: true },
   ];
 
   function renderChooser() {
     const done = getDone();
     const c = buildChooser();
-    const pips = ["menu", "game", "practice"].map(k => `<span class="tut3-pip ${done[k] ? "on" : ""}"></span>`).join("");
+    const pips = ["menu", "game", "practice", "competitive"].map(k => `<span class="tut3-pip ${done[k] ? "on" : ""}"></span>`).join("");
     const optHtml = OPTS.map(o => {
       const isDone = !!done[o.key];
       const locked = !o.ready;
@@ -33144,12 +33260,12 @@
         ${status}
       </button>`;
     }).join("");
-    const count = ["menu", "game", "practice"].filter(k => done[k]).length;
+    const count = ["menu", "game", "practice", "competitive"].filter(k => done[k]).length;
     c.innerHTML = `<div class="tut3-card">
-      <div class="tut3-hd"><h2>How to Play</h2><p>Three quick tutorials. Finish all three to earn a reward.</p></div>
+      <div class="tut3-hd"><h2>How to Play</h2><p>Four tutorials. Finish all four to earn a reward.</p></div>
       <div class="tut3-opts">${optHtml}</div>
       <div class="tut3-foot">
-        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all three to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "(unlocked) ✓" : `(${count}/3)`}</div>
+        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all four to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "(unlocked) ✓" : `(${count}/4)`}</div>
         <div class="tut3-prog">${pips}</div>
         <button class="tut3-close" id="tut3-chooser-close">Maybe later</button>
       </div>
@@ -33167,8 +33283,8 @@
   // ── Completion toast ──────────────────────────────────────────────
   let toastEl = null;
   function completionSubtitle() {
-    const n = ["menu", "game", "practice"].filter(k => getDone()[k]).length;
-    return allDone() ? "All three done. Osprey unlocked! 🦅" : `${n} of 3 complete`;
+    const n = ["menu", "game", "practice", "competitive"].filter(k => getDone()[k]).length;
+    return allDone() ? "All four done. Osprey unlocked! 🦅" : `${n} of 4 complete`;
   }
   function showToast(title, sub) {
     if (!toastEl) { toastEl = document.createElement("div"); toastEl.id = "tut3-toast"; document.body.appendChild(toastEl); }
