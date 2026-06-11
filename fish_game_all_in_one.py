@@ -7207,8 +7207,116 @@ def perform_mulligans(gs: GameState, ms: MatchState) -> None:
         draw_from_deck(gs, ms, p, 8)
 
 
+def _rig_blob_tutorial_hand(
+    gs: GameState, ms: MatchState, idx: int, end_uid: Optional[int] = None
+) -> None:
+    """B-Lob Strategy tutorial: rig the human's opening hand to an EXACT set so the
+    guided lesson always lines up:
+        Artificial Reef · Lobster · Lobster · Emperor Penguin ·
+        Narwhal/Big Eye Tuna (dual-faced, used as payment) ·
+        California Seagull · Mangrove · Coral Reef
+    Cards are sourced from the post-deal deck (or already in hand); displaced hand
+    cards go back to the deck so card-conservation and hand size (8) are preserved.
+    Best-effort per card — if the deck can't supply one, that slot is left as dealt.
+    """
+    p = gs.players[idx]
+
+    def faces_of(entry_uid: int):
+        return [gs.card_db.get(u) for u in entry_faces(ms, entry_uid)]
+
+    def entry_face_names(entry_uid: int):
+        return {(c.name.strip().lower()) for c in faces_of(entry_uid) if c is not None}
+
+    def is_end(entry_uid: int) -> bool:
+        return end_uid is not None and entry_uid == end_uid
+
+    # Pool of every entry we may pull from: the human's hand + the deck + every
+    # OTHER player's hand (minus END GAME). Including bot hands matters — a needed
+    # card (e.g. the Narwhal/Big Eye Tuna dual) is sometimes dealt to a bot, and
+    # would otherwise be unreachable.
+    def all_sources():
+        srcs = list(p.hand) + list(gs.deck) + list(getattr(ms, "discard_pile", []))
+        for bi, bp in enumerate(gs.players):
+            if bi != idx:
+                srcs += list(bp.hand)
+        return [u for u in srcs if not is_end(u)]
+
+    def find_single(name_lc: str, want_ocean: bool, used: set):
+        """An entry that has a face named name_lc (ocean-ness must match)."""
+        for u in all_sources():
+            if u in used:
+                continue
+            if entry_is_ocean(ms, gs, u) != want_ocean:
+                continue
+            if name_lc in entry_face_names(u):
+                return u
+        return None
+
+    def find_pair(name_a: str, name_b: str, used: set):
+        """A dual-faced entry whose two faces are exactly name_a + name_b."""
+        for u in all_sources():
+            if u in used:
+                continue
+            nm = entry_face_names(u)
+            if name_a in nm and name_b in nm:
+                return u
+        return None
+
+    used: set = set()
+    targets: list = []
+
+    def add(u):
+        if u is not None and u not in used:
+            used.add(u)
+            targets.append(u)
+
+    # Order matters: the client lesson reads the hand left→right.
+    add(find_single("lobster", False, used))            # 1st Lobster (leftmost)
+    add(find_single("artificial reef", True, used))      # Artificial Reef
+    add(find_single("california seagull", False, used))  # California Seagull
+    add(find_single("emperor penguin", False, used))     # Emperor Penguin
+    add(find_single("lobster", False, used))             # 2nd Lobster (duplicate)
+    add(find_pair("narwhal", "big eye tuna", used))      # dual-faced payment card
+    add(find_single("mangrove", True, used))             # Mangrove
+    add(find_single("coral reef", True, used))           # Coral Reef
+
+    if not targets:
+        return
+
+    # Pull each target into the human's hand from wherever it lives (their hand,
+    # the deck, or a bot's hand — replacing it in the bot's hand with a spare deck
+    # card so bot hand sizes stay correct). Then return every other card the human
+    # was dealt to the deck. Card-conservation is preserved throughout.
+    new_hand: list = []
+    for t in targets:
+        if t in p.hand:
+            p.hand.remove(t)
+            new_hand.append(t)
+        elif t in gs.deck:
+            gs.deck.remove(t)
+            new_hand.append(t)
+        elif t in getattr(ms, "discard_pile", []):
+            ms.discard_pile.remove(t)
+            new_hand.append(t)
+        else:
+            for bi, bp in enumerate(gs.players):
+                if bi == idx or t not in bp.hand:
+                    continue
+                bp.hand.remove(t)
+                repl = next((d for d in gs.deck if not is_end(d) and d not in used), None)
+                if repl is not None:
+                    gs.deck.remove(repl)
+                    bp.hand.append(repl)
+                new_hand.append(t)
+                break
+    for leftover in list(p.hand):
+        gs.deck.append(leftover)
+    p.hand = new_hand
+
+
 def rig_tutorial_opening_hand(
-    gs: GameState, ms: MatchState, idx: Optional[int], end_uid: Optional[int] = None
+    gs: GameState, ms: MatchState, idx: Optional[int], end_uid: Optional[int] = None,
+    variant: Optional[str] = None,
 ) -> None:
     """Tutorial games only: guarantee the human at game-index ``idx`` opens with a
     fully playable hand so the guided turn ("play an Ocean, then two creatures")
@@ -7222,6 +7330,11 @@ def rig_tutorial_opening_hand(
     final placement, so deck reordering here is harmless.
     """
     if idx is None or not (0 <= idx < len(gs.players)):
+        return
+    # B-Lob Strategy tutorial uses a dedicated exact hand; the default "playable
+    # hand + Star-ability lesson" rig below is skipped entirely for that variant.
+    if str(variant or "").strip().lower() == "blob":
+        _rig_blob_tutorial_hand(gs, ms, idx, end_uid)
         return
     p = gs.players[idx]
 
@@ -9951,6 +10064,7 @@ def run_match(
     human_learning_boost: float = 1.0,
     ai_difficulties: Optional[List[str]] = None,
     tutorial_human_index: Optional[int] = None,
+    tutorial_variant: Optional[str] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
     web_control_mode = str(os.environ.get("FISH_WEB_CONTROL", "")).strip().lower() in {
@@ -10005,7 +10119,7 @@ def run_match(
     perform_mulligans(gs, ms)
     # Tutorial games only: guarantee the human opens with a playable hand (Ocean +
     # two creatures of distinct directions). No-op for every normal match.
-    rig_tutorial_opening_hand(gs, ms, tutorial_human_index, end_uid)
+    rig_tutorial_opening_hand(gs, ms, tutorial_human_index, end_uid, variant=tutorial_variant)
     # Re-shuffle the remaining deck after mulligans so any ordering
     # patterns from mulligan redraws are fully randomised before play begins.
     # IMPORTANT: a plain shuffle would scatter the END GAME card out of the

@@ -632,7 +632,7 @@ class Seat:
 
 
 class GameRoom:
-    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False, visibility: str = "public", password_hash: Optional[str] = None, tutorial: bool = False) -> None:
+    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False, visibility: str = "public", password_hash: Optional[str] = None, tutorial: bool = False, tutorial_variant: Optional[str] = None) -> None:
         self.room_id = room_id
         self.total_players = total_players
         self.human_players = human_players
@@ -640,8 +640,10 @@ class GameRoom:
         self.competitive = competitive
         # Tutorial games rig the human's opening hand so the guided "play an
         # ocean, then two creatures" walkthrough always works. Never set for
-        # normal matches.
+        # normal matches. ``tutorial_variant`` selects which rig: None/"" = the
+        # default "The Game" hand; "blob" = the B-Lob Strategy tutorial hand.
         self.is_tutorial = bool(tutorial)
+        self.tutorial_variant = (str(tutorial_variant).strip().lower() or None) if tutorial_variant else None
         self.visibility = visibility  # "public" | "private"
         self.password_hash = password_hash  # sha256 hex, None if public
         self._competitive_saved = False
@@ -3933,6 +3935,7 @@ class GameRoom:
                 live_recorder=recorder,
                 ai_difficulties=ai_difficulties_by_game_idx,
                 tutorial_human_index=tutorial_human_index,
+                tutorial_variant=getattr(self, "tutorial_variant", None),
             )
 
             def _safe_score(player: fish.PlayerState) -> int:
@@ -4752,6 +4755,7 @@ class RoomManager:
         visibility: str = "public",
         password_hash: Optional[str] = None,
         tutorial: bool = False,
+        tutorial_variant: Optional[str] = None,
     ) -> GameRoom:
         with self.lock:
             if replace_active:
@@ -4771,14 +4775,14 @@ class RoomManager:
                         remove_room_state_file(rid)
                     else:
                         raise RuntimeError(f"room id already exists ({rid})")
-                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial)
+                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial, tutorial_variant=tutorial_variant)
                 self.rooms[rid] = room
                 room.persist_now()
                 return room
             for _ in range(100):
                 rid = room_code(ROOM_ID_LENGTH)
                 if rid not in self.rooms:
-                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial)
+                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial, tutorial_variant=tutorial_variant)
                     self.rooms[rid] = room
                     room.persist_now()
                     return room
@@ -5951,6 +5955,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             replace_active = bool(body.get("replace_active")) if isinstance(body.get("replace_active"), bool) else False
             competitive = bool(body.get("competitive")) if isinstance(body.get("competitive"), bool) else False
             tutorial = bool(body.get("tutorial")) if isinstance(body.get("tutorial"), bool) else False
+            tutorial_variant = body.get("tutorial_variant") if isinstance(body.get("tutorial_variant"), str) else None
             vis_raw = str(body.get("visibility") or "public").strip().lower()
             visibility = vis_raw if vis_raw in {"public", "private"} else "public"
             password_plain = body.get("password") if isinstance(body.get("password"), str) else None
@@ -5970,6 +5975,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     visibility=visibility,
                     password_hash=password_hash,
                     tutorial=tutorial,
+                    tutorial_variant=tutorial_variant,
                 )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)

@@ -13634,6 +13634,10 @@
     // later manual create is never mis-flagged as a tutorial game.
     const _isTutGame = (window.__ccTutorialGame === true);
     window.__ccTutorialGame = false;
+    // Tutorial variant ("blob" = B-Lob Strategy tutorial) tells the server which
+    // opening-hand rig to apply. One-shot, consumed here like the tutorial flag.
+    const _tutVariant = _isTutGame ? String(window.__ccTutorialVariant || "") : "";
+    window.__ccTutorialVariant = "";
     let visibility = document.getElementById("nc-visibility").value;
     let password = "";
     let rid = Math.random().toString(36).slice(2,7).toUpperCase();
@@ -13670,7 +13674,7 @@
       create_key: createKey, host_name: name, room_id: rid,
       total_players: total, human_players: human, ai_players: ai,
       replace_active: false, visibility, password,
-      competitive: _ncIsCompetitive, tutorial: _isTutGame,
+      competitive: _ncIsCompetitive, tutorial: _isTutGame, tutorial_variant: _tutVariant,
     }, { timeoutMs:10000 });
     btn.disabled = false;
     btn.classList.remove("generating");
@@ -32746,6 +32750,153 @@
   }
 
   // ════════════════════════════════════════════════════════════════
+  //  PRACTICE GAME (B-Lob) — real game, like "The Game" tour, but the
+  //  server rigs an exact Bird+Lobster hand (tutorial_variant="blob") and
+  //  the lesson teaches the B-Lob strategy on the real board.
+  // ════════════════════════════════════════════════════════════════
+  // Find the live hand entry whose any face matches a card name.
+  function blHandEntryByName(nameLc) {
+    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
+    for (const e of me.hand) {
+      const faces = (Array.isArray(e.faces) && e.faces.length) ? e.faces : [e];
+      for (const f of faces) {
+        if (String((f && f.name) || "").trim().toLowerCase() === nameLc) return e;
+      }
+    }
+    return null;
+  }
+  function blHandElByName(nameLc) { const e = blHandEntryByName(nameLc); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
+  function blNarwhalEl() { return blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
+  function blEndTurnEl() { const el = document.getElementById("pv-end-turn-inline"); return (el && el.offsetParent !== null) ? el : null; }
+
+  const BLOB_STEPS = [
+    { target: null, badge: "B-Lob Tutorial", title: "Join a private game",
+      text: "There are two main types of casual games. <strong>Casual public matches</strong> can be joined by anyone. <strong>Private matches</strong> require a room code. This time we are going to set up and play a <strong>private game</strong> — follow the glowing highlights and <strong>click for real</strong>." },
+    { target: "#stats-create-btn", badge: "Step 1", title: "Open Game Setup", interactive: true, advanceWhen: gtModalOpen,
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "First, <strong>click Create Game</strong> to open the setup window for our private room." },
+    { target: "#nc-total", badge: "Step 2", title: "Human Critters",
+      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 3); },
+      text: "This sets how many <strong>human players</strong> join. We set it to <strong>1 (just you)</strong> for this practice game." },
+    { target: "#nc-ai", badge: "Step 2", title: "AI Critters — make it 4 players",
+      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 3); },
+      text: "And this sets the <strong>computer opponents</strong>. We chose <strong>3 AI Critters</strong> — together that is a <strong>4-player game</strong> (you, Bot 1, Bot 2, Bot 3)." },
+    { target: "#nc-visibility", badge: "Room Setup", title: "Public or Private?",
+      interactive: true,
+      before: () => {
+        const sel = document.getElementById("nc-visibility");
+        if (sel && sel.value === "private") { sel.value = "public"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      advanceWhen: () => { const sel = document.getElementById("nc-visibility"); return !!(sel && sel.value === "private"); },
+      text: "<strong>🌊 Public</strong> games appear in Open Currents so anyone can join. <strong>🔒 Private</strong> games are invite-only — only players with the room code can get in. <strong>Change the dropdown to Private</strong> to continue." },
+    { target: "#nc-password", badge: "Room Setup", title: "Enter the Room Code",
+      before: () => {
+        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
+        const pw = document.getElementById("nc-password");
+        if (pw) { pw.value = "FUNKY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      text: "Private matches need a <strong>room code</strong>. To join one, a player clicks <strong>Join Game</strong>, opens the <strong>Private</strong> tab, and types the code. We've entered ours: <strong style=\"font-family:monospace;letter-spacing:2px\">FUNKY</strong>." },
+    { target: "#nc-create-btn", badge: "Step 3", title: "Start the Private Room", interactive: true, advanceWhen: gtWaitingOpen,
+      before: () => {
+        const sel = document.getElementById("nc-visibility");
+        if (sel && sel.value !== "private") { sel.value = "private"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
+        const pw = document.getElementById("nc-password");
+        if (pw && !pw.value.trim()) { pw.value = "FUNKY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      text: "Our private room code is <strong style=\"font-family:monospace;letter-spacing:2px\">FUNKY</strong>. Now <strong>click Generate Current</strong> to create the room." },
+    { target: "#wr-players-list", badge: "Step 4", title: "Your Opponents",
+      before: gtAllBotsEasy,
+      text: "Your <strong>3 bots</strong> are aboard, set to <strong>Easy</strong>. As host you can change any bot's difficulty here." },
+    { target: "#wr-start-btn", badge: "Step 5", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+      text: "<strong>Click Start Game</strong> to begin. The real board — coral-reef backgrounds and all — loads in a moment." },
+
+    // ── In game: orientation ─────────────────────────────────────────
+    { target: () => (gtOtherSeats()[0] || gtMySeat()), glow: [() => gtMySeat(), () => gtOtherSeats()[0], () => gtOtherSeats()[1], () => gtOtherSeats()[2]],
+      badge: "The Table", title: "Player Icons",
+      text: "Welcome to the real game! Everyone's <strong>score</strong> is shown near their player icon, and the number beside it shows <strong>how many cards</strong> that player holds. The player whose <strong>turn it is</strong> is highlighted — on your turn, that's you." },
+    { target: "#pv-guide-bar", badge: "Your Turn", title: "The Guide Bar",
+      text: "Your hand looks like a great game to play <strong>B-Lob</strong> — Bird/Lobster strategy. The <strong>guide bar</strong> always tells you what to do. You can <strong>play cards at the start of your turn</strong>, before drawing. First, let's look at your cards." },
+
+    // ── Inspect the key cards (spotlight each in hand) ──────────────
+    { target: () => (blHandElByName("lobster") || document.querySelector("#pv-hand .pv-hand-card")),
+      badge: "Turn 1", title: "Lobster", allowNext: true, interactive: true, advanceWhen: gtZoomOpen,
+      text: "This <strong>Lobster</strong> is a key B-Lob card. Lobsters can <strong>stack multiple on the same space</strong>, so you build a stronger ocean by putting them together. <em>Tap it</em> to see it up close (then close it), or tap Next." },
+    { target: () => blHandElByName("artificial reef"), badge: "Turn 1", title: "Artificial Reef",
+      before: () => { const m = document.getElementById("pv-zoom-modal"); if (m && m.classList.contains("open")) { const x = m.querySelector(".pv-zoom-close,[data-close]"); if (x) try { x.click(); } catch (_) {} } },
+      text: "This is an <strong>Ocean card</strong> — the base animals attach to. It's special: <strong>each card attached to it gives +2 points</strong>. For B-Lob you play Lobsters on Artificial Reef and <strong>stack them</strong> so they all get the extra +2." },
+    { target: () => blHandElByName("california seagull"), badge: "Turn 1", title: "California Seagull",
+      text: "California Seagull is a bird, but it buffs crustaceans: <strong>+3 per crustacean</strong>. Essential for B-Lob because <strong>Lobster is a crustacean</strong>." },
+    { target: () => blHandElByName("emperor penguin"), badge: "Turn 1", title: "Emperor Penguin",
+      text: "Emperor Penguin gives <strong>+2 per bird</strong> — it buffs California Seagull and any other birds you play later. <em>Enough talking. Let's play.</em>" },
+
+    // ── Play Artificial Reef (real drag + payment) ──────────────────
+    { target: () => blHandElByName("artificial reef"), glow: [gtOceanDropEl], badge: "Turn 1", title: "Play Artificial Reef",
+      interactive: true,
+      before: () => { _gtOceanBase = gtOceanCount(); },
+      advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
+      text: "Play <strong>Artificial Reef</strong>: <strong>drag the glowing Reef</strong> from your hand onto the glowing board zone (or tap it and choose the board)." },
+    { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
+      interactive: true, advanceWhen: () => gtOceanCount() > _gtOceanBase,
+      text: "Artificial Reef has a cost, so you pay with a card. The <strong>Narwhal / Big Eye Tuna</strong> card doesn't fit B-Lob, so it's a perfect payment — <strong>select it</strong>, then click <strong>✓ Confirm Payment</strong>." },
+    { target: "#pv-my-board", glow: [gtPoolEl], badge: "The Pool", title: "Reef Played → Pool",
+      text: "Artificial Reef is now on your board, and the card you paid went to the <strong>Pool</strong>. When anyone plays an Ocean, one card also flips into the Pool from the deck. The <strong>Pool</strong> is where you can draw on your turn and where discarded payments go — and when it reaches <strong>10 cards it clears</strong>, so watch for cards you want." },
+
+    // ── End turn so the bots play ────────────────────────────────────
+    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn",
+      interactive: true, allowNext: true,
+      before: () => { _gtSawOppTurn = false; },
+      advanceWhen: () => !gtMyTurn(),
+      text: "You've made your play. <strong>Click End Turn</strong> to pass to the bots (Bot 1, Bot 2, Bot 3). Watch their scores and card counts change as they take their turns." },
+    { target: () => (gtOtherSeats()[0] || gtMySeat()), badge: "Their Turn", title: "The Bots Play",
+      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
+      text: "The bots play Oceans, draw cards from the deck or Pool, and discard payments back into the Pool — just like you. We'll come back the moment it's your turn again." },
+
+    // ── Turn 2: play a Lobster ───────────────────────────────────────
+    { target: () => blHandElByName("lobster"), glow: ["#pv-my-board"], badge: "Turn 2", title: "Play a Lobster",
+      interactive: true,
+      before: () => { _gtCreatureBase = gtCreatureCount(); },
+      advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
+      text: "It's your turn again. Let's play <strong>Lobster</strong>. Notice it has <strong>no sand-dollar cost</strong> — it's <strong>free</strong>, so you don't discard anything. <strong>Drag the Lobster onto your Artificial Reef.</strong>" },
+    { target: "#pv-my-board", badge: "Turn 2", title: "Stacking Lobsters",
+      text: "Your Lobster scores <strong>+5</strong>, and because it's on <strong>Artificial Reef</strong> it also earns the Reef's <strong>+2 per card</strong>. Stack your <strong>second Lobster</strong> on the same Reef later and both get the bonus — that's the heart of B-Lob." },
+
+    // ── Recap + hint ─────────────────────────────────────────────────
+    { target: null, badge: "B-Lob", title: "You've Got the Basics",
+      text: "Now you understand the basics of <strong>B-Lob</strong>. Look for <strong>Lobsters</strong>, <strong>birds that buff your board</strong> (California Seagull, Emperor Penguin), and Oceans like <strong>Artificial Reef</strong> that make your stacked cards stronger. Check the <strong>Pool</strong> before drawing, and use cards that don't fit B-Lob as <strong>payment</strong>." },
+    { target: null, badge: "B-Lob", title: "Keep Playing",
+      text: "You can keep playing from here. Quick B-Lob tips:<br>• Look for <strong>Lobster</strong>.<br>• Stack Lobsters on <strong>Artificial Reef</strong>.<br>• <strong>California Seagull</strong> helps crustaceans; <strong>Emperor Penguin</strong> helps birds.<br>• Check the <strong>Pool</strong> before the deck.<br>• Pay with cards that don't help B-Lob, and keep the ones that do.<br><br>Select <strong>Finish</strong> to complete the tutorial." },
+  ];
+
+  function runBLobTour() {
+    closeChooser();
+    const lobby = document.getElementById("auth-stats-lobby");
+    if (!lobby || !lobby.classList.contains("visible")) {
+      runCoach([{ target: null, badge: "Practice", title: "Open from the Main Menu",
+        text: "This tutorial sets up a real game from the menu. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial, then Practice Game (B-Lob)</strong>." }], null);
+      return;
+    }
+    // Flag the next created game as a B-Lob tutorial so the server rigs the exact
+    // Bird+Lobster opening hand. Both flags are consumed by the create handler.
+    window.__ccTutorialGame = true;
+    window.__ccTutorialVariant = "blob";
+    let _exited = false;
+    const _exitAndReturn = async () => {
+      if (_exited) return;
+      _exited = true;
+      window.__ccTutorialGame = false;
+      window.__ccTutorialVariant = "";
+      try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
+      setTimeout(openChooser, 700);
+    };
+    runCoach(BLOB_STEPS, async () => {
+      setDone("practice");
+      showToast("Practice complete", completionSubtitle());
+      await _exitAndReturn();
+    }, _exitAndReturn);
+  }
+
+  // ════════════════════════════════════════════════════════════════
   //  CHOOSER MODAL
   // ════════════════════════════════════════════════════════════════
   let chooser = null;
@@ -32761,7 +32912,7 @@
   const OPTS = [
     { key: "menu", ico: "🗺️", title: "Main Menu Tour", desc: "Everything on the menu: profile, streak, tabs, and the store.", run: runMenuTour, ready: true },
     { key: "game", ico: "🎴", title: "The Game", desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.", run: runGameTour, ready: true },
-    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Play a guided game with the Bird and Lobster strategy. Learn every way to play a card.", run: null, ready: false },
+    { key: "practice", ico: "🦞", title: "Practice Game (B-Lob)", desc: "Set up a private game and learn the Bird + Lobster strategy on the real board.", run: runBLobTour, ready: true },
   ];
 
   function renderChooser() {
