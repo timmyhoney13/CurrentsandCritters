@@ -624,6 +624,10 @@ class Seat:
     # forfeit check to detect a player who left/closed/crashed (their client
     # stops polling) — independent of whether they clicked "Leave".
     last_seen: Optional[float] = None
+    # Post-game "Play Again" ready-up flag. Set true when this seat clicks Play
+    # Again on the end screen; cleared on every fresh game launch. When all
+    # active human seats are ready, the game auto-restarts (bots ready implicitly).
+    play_again_ready: bool = False
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -665,6 +669,10 @@ class GameRoom:
         self.phase = "lobby"  # lobby | running | ended | error
         self.status_note = "Lobby open. Claim seats and start when ready."
         self.error_message: Optional[str] = None
+        # Names of real players who left while the post-game end screen was up.
+        # Surfaced in the live state so every remaining client shows a persistent
+        # "<name> left" notice and lowers the play-again ready denominator.
+        self.post_game_left: List[str] = []
 
         self.host_control_token = secrets.token_urlsafe(18)
         self.seats: List[Seat] = []
@@ -1096,12 +1104,45 @@ class GameRoom:
             self.status_note = f"{active[0].claimed_name or active[0].label} is now host."
         self._bump_locked()
 
-    def leave_room(self, body: Dict[str, Any]) -> Dict[str, Any]:
+    def leave_room(self, body: Dict[str, Any], card_db: Optional[Dict[int, "fish.CardDef"]] = None) -> Dict[str, Any]:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         with self.cond:
-            if self.phase == "ended":
-                return {"ok": True, "action": "left"}
             seat = self._seat_from_token_locked(seat_token)
+
+            # ── Post-game (end screen up): free the seat, record the leaver so
+            # remaining clients show "<name> left" and the play-again denominator
+            # drops, then re-check readiness (the un-ready leaver going may now
+            # complete the ready set and auto-start the next game). ────────────
+            if self.phase == "ended":
+                if seat is None:
+                    return {"ok": True, "action": "left"}
+                leaving_name = seat.claimed_name or seat.label
+                was_host = seat.is_host
+                seat.token = None
+                seat.claimed_name = None
+                seat.is_host = False
+                seat.left_at = None
+                seat.play_again_ready = False
+                if leaving_name and leaving_name not in self.post_game_left:
+                    self.post_game_left.append(leaving_name)
+
+                remaining = self._active_human_seats_locked()
+                if not remaining:
+                    self.status_note = f"{leaving_name} left. Room closed (no players remaining)."
+                    self._bump_locked()
+                    return {"ok": True, "action": "discarded"}
+                if was_host and not any(s.is_host for s in remaining):
+                    remaining[0].is_host = True
+
+                started = False
+                if card_db is not None:
+                    started = self._maybe_start_play_again_locked(card_db)
+                if not started:
+                    ready, active, bots = self._play_again_counts_locked()
+                    self.status_note = f"{leaving_name} left. {ready}/{active + bots} ready to play again…"
+                    self._bump_locked()
+                return {"ok": True, "action": "left", "post_game": True}
+
             if seat is None:
                 return {"ok": False, "error": "invalid seat token"}
 
@@ -1671,6 +1712,61 @@ class GameRoom:
             self._launch_game_locked(card_db, status_note="Game restarted. Waiting for first turn.")
             return {"ok": True}
 
+    def _play_again_counts_locked(self) -> tuple[int, int, int]:
+        """(ready_humans, active_humans, bots) for the post-game ready-up.
+
+        active_humans = claimed humans still present (not on a left/rejoin slot).
+        ready_humans  = those who have pressed Play Again.
+        bots          = AI seats. Bots "auto-ready" implicitly: they never count
+                        toward ready_humans, but they ARE in the denominator the
+                        client shows (N = active_humans + bots), and the game
+                        starts the instant every active human is ready.
+        """
+        active = self._active_human_seats_locked()
+        ready = sum(1 for s in active if s.play_again_ready)
+        bots = sum(1 for s in self.seats if s.kind == "ai")
+        return ready, len(active), bots
+
+    def _maybe_start_play_again_locked(self, card_db: Dict[int, fish.CardDef]) -> bool:
+        """Start a fresh game if every active human has readied up. Returns True
+        if a new game was launched."""
+        if self.phase != "ended":
+            return False
+        if self.game_thread is not None and self.game_thread.is_alive():
+            return False
+        active = self._active_human_seats_locked()
+        if not active:
+            return False
+        if not all(s.play_again_ready for s in active):
+            return False
+        # Everyone who is still here is ready — bots ready implicitly. Go.
+        self._launch_game_locked(card_db, status_note="New game starting — everyone readied up!")
+        return True
+
+    def play_again(self, seat_token: Optional[str], card_db: Dict[int, fish.CardDef]) -> Dict[str, Any]:
+        with self.cond:
+            if self.phase != "ended":
+                return {"ok": False, "error": "play again is only available after the game ends"}
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None or seat.kind != "human" or seat.left_at is not None:
+                return {"ok": False, "error": "invalid seat token"}
+
+            seat.play_again_ready = True
+            seat.last_seen = time.time()  # readying counts as activity
+
+            started = self._maybe_start_play_again_locked(card_db)
+            ready, active, bots = self._play_again_counts_locked()
+            if not started:
+                total = active + bots
+                self.status_note = f"{ready}/{total} ready to play again…"
+                self._bump_locked()
+            return {
+                "ok": True,
+                "started": bool(started),
+                "ready_count": ready,
+                "total": (active + bots),
+            }
+
     def set_seat_difficulty(
         self,
         host_token: str,
@@ -1754,6 +1850,10 @@ class GameRoom:
             if _s.kind == "human":
                 _s.last_seen = _now_seen
         self._forfeit_result = None
+        # Fresh game — clear any post-game ready-up state from the prior round.
+        self.post_game_left = []
+        for _s in self.seats:
+            _s.play_again_ready = False
         self.log_events = []
         self.turn_summaries = []
         self._current_turn_descs = {}
@@ -4229,6 +4329,16 @@ class GameRoom:
                 # forfeit). The remaining player's client uses winner/loser here to
                 # record the result instead of the (incomplete) score tally.
                 "forfeit": self._forfeit_result,
+                # Post-game "Play Again" ready-up state. ready_count humans have
+                # readied; total = active humans + bots (bots ready implicitly, so
+                # the game starts the moment ready_count reaches the human count).
+                # left_names lists real players who left while the end screen was up.
+                "play_again": {
+                    "ready_seats": [s.index for s in self._active_human_seats_locked() if s.play_again_ready],
+                    "ready_count": self._play_again_counts_locked()[0],
+                    "total": (self._play_again_counts_locked()[1] + self._play_again_counts_locked()[2]),
+                    "left_names": list(self.post_game_left),
+                },
             }
             return payload
 
@@ -6077,6 +6187,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json(out, status=status)
             return
 
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "play_again":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            out = room.play_again(seat_token, CARD_DB)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "terminate":
             room = ROOMS.get(parts[2])
             if room is None:
@@ -6236,7 +6357,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            out = room.leave_room(body)
+            out = room.leave_room(body, CARD_DB)
             # If the room was discarded and no one remains, remove it from ROOMS
             if out.get("action") == "discarded":
                 ROOMS.pop(parts[2], None)

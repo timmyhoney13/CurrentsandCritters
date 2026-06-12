@@ -3564,12 +3564,15 @@
     /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
       display: none; position: fixed; inset: 0; z-index: 3000;
-      background: url('/multiplayer/client/game-bg.png') center/cover no-repeat;
+      /* Clean flat/gradient light background — no underwater scene art. */
+      background: linear-gradient(170deg, #dff0fb 0%, #cfe6f8 45%, #bfdcf3 100%);
       overflow-y: auto;
     }
     #pv-endgame-overlay::before {
       content: ''; position: fixed; inset: 0; z-index: 0;
-      background: rgba(180,220,240,.18);
+      background:
+        radial-gradient(ellipse at 18% 0%, rgba(255,255,255,.55) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 8%, rgba(255,255,255,.35) 0%, transparent 50%);
       pointer-events: none;
     }
     #pv-endgame-overlay.open { display: block; }
@@ -3846,15 +3849,82 @@
       background: rgba(30,120,200,.18); border: 1px solid rgba(30,120,200,.3);
       border-radius: 999px; padding: 2px 8px; font-size: 9px; font-weight: 800; color: #1868b0;
     }
+    /* ── Rewards Earned ── */
+    #gs-rewards {
+      background: rgba(255,255,255,.80); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(100,160,220,.3); border-radius: 18px; padding: 13px 16px;
+      box-shadow: 0 6px 24px rgba(30,60,140,.1);
+    }
+    #gs-rewards-title {
+      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
+      color: #b86800; text-align: center; letter-spacing: 2px; margin-bottom: 10px; text-transform: uppercase;
+    }
+    #gs-rewards-list {
+      display: flex; flex-direction: column; gap: 7px;
+      max-height: 188px; overflow-y: auto; padding-right: 4px;
+      scrollbar-width: thin; scrollbar-color: rgba(232,152,10,.5) rgba(255,238,210,.4);
+    }
+    #gs-rewards-list::-webkit-scrollbar { width: 7px; }
+    #gs-rewards-list::-webkit-scrollbar-track { background: rgba(255,238,210,.4); border-radius: 4px; }
+    #gs-rewards-list::-webkit-scrollbar-thumb { background: rgba(232,152,10,.5); border-radius: 4px; }
+    #gs-rewards-empty { font-size: 12px; color: #8a98aa; text-align: center; padding: 10px 0; }
+    .gs-rw-row {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,236,205,.5); border: 1px solid rgba(232,170,70,.3);
+      border-radius: 12px; padding: 8px 12px;
+    }
+    .gs-rw-icon { font-size: 19px; flex-shrink: 0; }
+    .gs-rw-info { flex: 1; min-width: 0; }
+    .gs-rw-name { font-size: 13px; font-weight: 800; color: #5a3a0a; }
+    .gs-rw-desc { font-size: 10px; font-weight: 700; color: #9a7a3a; margin-top: 1px; }
+    .gs-rw-xp { font-size: 13px; font-weight: 900; color: #c87800; white-space: nowrap; flex-shrink: 0; }
+    .gs-rw-xp.gs-rw-status { color: #2a8a4a; font-size: 16px; }
+
+    /* ── Strategy search ── */
+    #gs-strat-search {
+      width: 100%; padding: 9px 12px; margin-bottom: 9px;
+      border: 1.5px solid rgba(100,160,220,.35); border-radius: 11px;
+      background: rgba(255,255,255,.7); font-family: "Nunito",sans-serif;
+      font-size: 13px; font-weight: 700; color: #1a2d5a; outline: none;
+      transition: border-color .12s, box-shadow .12s;
+    }
+    #gs-strat-search::placeholder { color: #8aa6c4; font-weight: 600; }
+    #gs-strat-search:focus { border-color: rgba(40,120,216,.6); box-shadow: 0 0 0 3px rgba(40,120,216,.14); }
+    .gs-strat-row.gs-strat-hidden { display: none; }
+    #gs-strat-no-match { font-size: 12px; color: #8a98aa; text-align: center; padding: 8px 0; display: none; }
+
+    /* ── Post-game ready-up status + leaver notices ── */
+    #gs-left-notices { display: flex; flex-direction: column; gap: 5px; margin-bottom: 4px; }
+    .gs-left-notice {
+      text-align: center; font-size: 13px; font-weight: 800; color: #b03a3a;
+      background: rgba(224,80,80,.10); border: 1px solid rgba(224,80,80,.28);
+      border-radius: 10px; padding: 7px 12px;
+    }
+    .gs-left-notice em { font-style: italic; color: #8a2a2a; }
+    #gs-again-status {
+      text-align: center; font-size: 14px; font-weight: 900; color: #1868b0;
+      letter-spacing: .4px; min-height: 0; display: none;
+    }
+    #gs-again-status.show { display: block; margin-bottom: 2px; }
     /* ── Buttons ── */
-    #gs-btn-row { display: flex; gap: 14px; }
+    #gs-btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
     .gs-btn {
-      flex: 1; padding: 17px 20px; border-radius: 18px; font-size: 17px; font-weight: 900;
+      flex: 1; min-width: 150px; padding: 16px 18px; border-radius: 18px; font-size: 16px; font-weight: 900;
       font-family: "Nunito",sans-serif; cursor: pointer; border: none;
       transition: transform .14s, box-shadow .14s, filter .12s; letter-spacing: .4px;
     }
     .gs-btn:hover { transform: translateY(-3px); filter: brightness(1.08); }
     .gs-btn:active { transform: translateY(0px); filter: brightness(.96); }
+    .gs-btn:disabled { cursor: default; opacity: .82; transform: none; filter: none; }
+    .gs-btn-again {
+      background: linear-gradient(155deg, #f7a927, #e07f08);
+      color: #fff; border: 2px solid rgba(255,255,255,.45);
+      box-shadow: 0 6px 22px rgba(220,130,0,.32);
+    }
+    .gs-btn-again.gs-btn-readied {
+      background: linear-gradient(155deg, #3fbf6a, #1f9a4a);
+      box-shadow: 0 6px 22px rgba(30,150,70,.3);
+    }
     .gs-btn-home {
       background: linear-gradient(155deg, #3a7ad8, #1e58b8);
       color: #fff; border: 2px solid rgba(255,255,255,.4);
@@ -3864,6 +3934,11 @@
       background: linear-gradient(155deg, #38b8a0, #229080);
       color: #fff; border: 2px solid rgba(255,255,255,.4);
       box-shadow: 0 6px 22px rgba(30,140,120,.3);
+    }
+    .gs-btn-secondary {
+      background: rgba(255,255,255,.78); color: #2a5888;
+      border: 1.5px solid rgba(100,160,220,.45);
+      box-shadow: 0 4px 16px rgba(30,60,140,.1);
     }
 
     /* ── COMPETITIVE MODE ───────────────────────────────────────── */
@@ -11569,10 +11644,12 @@
         <div id="gs-strat-confirm">
           <div id="gs-strat-title">🧠 WHAT STRATEGY DID YOU PLAY?</div>
           <div id="gs-strat-hint">Confirm or update — this helps the AI learn what works.</div>
+          <input type="text" id="gs-strat-search" placeholder="🔍 Search strategies…" autocomplete="off" spellcheck="false">
           <div id="gs-strat-list"><!-- populated by JS --></div>
+          <div id="gs-strat-no-match">No strategies match your search.</div>
           <div id="gs-strat-none-row">
             <label class="gs-strat-none-label">
-              <input type="checkbox" id="gs-strat-none-chk"> None / just improvised
+              <input type="checkbox" id="gs-strat-none-chk"> Other / Custom — none of these (just improvised)
             </label>
           </div>
         </div>
@@ -11605,6 +11682,10 @@
             <div class="gs-pt-row" id="gs-pt-3"><span class="gs-pt-rank">🥉 3rd</span><span class="gs-pt-xp">+50 XP</span></div>
             <div class="gs-pt-row" id="gs-pt-4"><span class="gs-pt-rank">4th – 8th</span><span class="gs-pt-xp">+25 XP</span></div>
           </div>
+        </div>
+        <div id="gs-rewards">
+          <div id="gs-rewards-title">🎁 REWARDS EARNED</div>
+          <div id="gs-rewards-list"><!-- populated by JS --></div>
         </div>
         <div id="gs-match-stats">
           <div id="gs-stats-title">⭐ MATCH STATS</div>
@@ -11650,8 +11731,15 @@
             </div>
           </div>
         </div>
+        <div id="gs-left-notices"><!-- "<name> left" notices, populated by JS --></div>
+        <div id="gs-again-status"><!-- "READY x/N" populated by JS --></div>
         <div id="gs-btn-row">
-          <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Home</button>
+          <button id="pv-endgame-again" class="gs-btn gs-btn-again">🔄 Play Again</button>
+          <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Back to Lobby</button>
+          <button id="pv-endgame-leaderboard" class="gs-btn gs-btn-secondary">🏆 Leaderboard</button>
+          <button id="pv-endgame-achievements" class="gs-btn gs-btn-secondary">🎖️ Achievements</button>
+        </div>
+        <div id="gs-btn-row" style="margin-top:2px;">
           <button id="pv-endgame-close" class="gs-btn gs-btn-view">▶ View Board Again</button>
         </div>
       </div>
@@ -21537,10 +21625,14 @@
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
       const _cdWrap = document.getElementById("gs-challenges-done");
       if (_cdWrap) _cdWrap.style.display = "none";
+      // Fresh game (or no game) — clear the post-game ready-up button + notices.
+      try { _resetPlayAgainUI(); } catch (_) {}
       // Tracking vars (_matchStartMs, _bestTurnPts, etc.) are reset in _leaveGameCleanup(),
       // not here — resetting here would wipe them on every poll during the running phase.
       return;
     }
+    // Keep the Play Again tally + "<name> left" notices in sync every poll.
+    try { updatePlayAgainUI(latestPayload && latestPayload.play_again); } catch (_) {}
     if (compMode) processRankedGameEnd(finalScores);
     // NOTE: we no longer early-return here when the overlay was dismissed —
     // saveGameStats (streak/XP/history) MUST still run on every end-game poll
@@ -21678,6 +21770,47 @@
     setText("gs-my-score", myScore + " pts");
     setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
     setText("gs-xp-gained", "+" + totalXp + " XP");
+
+    // ── Rewards Earned (scrollable list) ─────────────────────────
+    try {
+      const rl = document.getElementById("gs-rewards-list");
+      if (rl) {
+        const rows = [];
+        const addReward = (icon, name, desc, xp, status) => rows.push(
+          `<div class="gs-rw-row">
+             <div class="gs-rw-icon">${icon}</div>
+             <div class="gs-rw-info"><div class="gs-rw-name">${name}</div><div class="gs-rw-desc">${desc}</div></div>
+             <div class="gs-rw-xp${status ? " gs-rw-status" : ""}">${status ? "✓" : ("+" + xp + " XP")}</div>
+           </div>`);
+        // Placement reward (only when XP was actually awarded).
+        if (xpBase > 0) addReward("🏆", "Placement Reward", myRank + rankSuffix(myRank) + " place", xpBase, false);
+        // Per-stat +15 bonuses the viewer won.
+        const statRewards = [
+          [_bestTurnNames.includes(myName),   "Most Points in One Turn"],
+          [mostDiverseNames.includes(myName), "Most Diverse Ecosystem"],
+          [mostStarNames.includes(myName),    "Most Star Abilities"],
+          [first100Names.includes(myName),    "First to 100 Points"],
+          [highCardWhoList.includes(myName),  "Highest Scoring Card"],
+        ];
+        statRewards.forEach(([won, label]) => { if (won) addReward("⭐", "Match Stat Bonus", label, 15, false); });
+        // Newly-completed daily/weekly challenges (mirror the Challenges panel).
+        try {
+          if (typeof window._getNewlyCompletedChallenges === "function") {
+            const snap = _preGameChallengeSnapshot || { daily: new Set(), weekly: new Set() };
+            const { daily: nd, weekly: nw } = window._getNewlyCompletedChallenges(snap);
+            nd.forEach(ch => addReward(ch.icon || "📅", (ch.name || ch.id), "Daily Challenge", ch.xp || 0, false));
+            nw.forEach(ch => addReward(ch.icon || "📆", (ch.name || ch.id), "Weekly Challenge", ch.xp || 0, false));
+          }
+        } catch (_) {}
+        // Progress status rows.
+        addReward("🧠", "Strategy Progress", "Updated", 0, true);
+        addReward("🎖️", "Achievement Progress", "Updated", 0, true);
+        addReward("📈", "Level Progress", "Updated", 0, true);
+        rl.innerHTML = rows.length
+          ? rows.join("")
+          : `<div id="gs-rewards-empty">No rewards earned this game.</div>`;
+      }
+    } catch (_) {}
 
     const cpItem = document.getElementById("gs-cp-item");
     if (cpItem) cpItem.style.display = compMode ? "" : "none";
@@ -21880,6 +22013,13 @@
     const listEl  = document.getElementById("gs-strat-list");
     const noneChk = document.getElementById("gs-strat-none-chk");
     if (!listEl || !noneChk) return;
+    // Reset any stale search filter from a prior game.
+    try {
+      const ss = document.getElementById("gs-strat-search");
+      if (ss) ss.value = "";
+      const nm = document.getElementById("gs-strat-no-match");
+      if (nm) nm.style.display = "none";
+    } catch (_) {}
 
     // Pre-select whatever was active during the game (from active strategy set).
     const preSelected = new Set();
@@ -22036,10 +22176,156 @@
     _endgameDismissed = true;
     document.getElementById("pv-endgame-overlay").classList.remove("open");
   });
-  document.getElementById("pv-endgame-menu").addEventListener("click", () => {
+
+  // ── Post-game "Play Again" ready-up ───────────────────────────────
+  // Pressing it readies THIS player on the server. The live state then reports
+  // how many of the remaining humans are ready (X/N, N = humans + bots). When
+  // every active human is ready the server auto-launches a fresh game; the next
+  // poll arrives with winner=null and renderEndGame() closes this overlay,
+  // pulling every client straight into the new match.
+  let _playAgainPressed = false;
+  function _playAgainSeatToken() {
+    try {
+      if (typeof compMode !== "undefined" && compMode &&
+          typeof compTokens !== "undefined" && typeof compMySeats !== "undefined" && compMySeats.length) {
+        return compTokens[compMySeats[0]] || getSeatToken();
+      }
+    } catch (_) {}
+    return getSeatToken();
+  }
+  function _resetPlayAgainUI() {
+    _playAgainPressed = false;
+    const btn = document.getElementById("pv-endgame-again");
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove("gs-btn-readied");
+      btn.innerHTML = "🔄 Play Again";
+    }
+    const status = document.getElementById("gs-again-status");
+    if (status) { status.classList.remove("show"); status.textContent = ""; }
+    const notices = document.getElementById("gs-left-notices");
+    if (notices) notices.innerHTML = "";
+  }
+  // Reflect the server-reported ready count + leaver notices on every poll while
+  // the end screen is up. Called from renderEndGame with payload.play_again.
+  function updatePlayAgainUI(pa) {
+    if (!pa || typeof pa !== "object") return;
+    const btn = document.getElementById("pv-endgame-again");
+    const status = document.getElementById("gs-again-status");
+    const notices = document.getElementById("gs-left-notices");
+
+    // Persistent "<name> left" notices.
+    if (notices) {
+      const names = Array.isArray(pa.left_names) ? pa.left_names : [];
+      const wanted = names.map(n => `<div class="gs-left-notice"><em>${String(n)}</em> left</div>`).join("");
+      if (notices.innerHTML !== wanted) notices.innerHTML = wanted;
+    }
+
+    // Am I already marked ready on the server? (survives a reload / re-poll.)
+    // viewer.seat_index is the authoritative seat id (== myIdx in practice).
+    let iAmReady = false;
+    try {
+      let mySeat = latestPayload?.viewer?.seat_index;
+      if (mySeat == null && typeof myIdx !== "undefined") mySeat = myIdx;
+      if (Array.isArray(pa.ready_seats) && mySeat != null) {
+        iAmReady = pa.ready_seats.includes(mySeat);
+      }
+    } catch (_) {}
+    if (iAmReady) _playAgainPressed = true;
+
+    const ready = Number(pa.ready_count || 0);
+    const total = Number(pa.total || 0);
+    // Show the X/N tally as soon as anyone (me or another player) has readied.
+    if (status) {
+      if (ready > 0 || _playAgainPressed) {
+        status.textContent = `${ready}/${total} ready to play again`;
+        status.classList.add("show");
+      } else {
+        status.classList.remove("show");
+      }
+    }
+    if (btn) {
+      if (_playAgainPressed || iAmReady) {
+        btn.disabled = true;
+        btn.classList.add("gs-btn-readied");
+        btn.innerHTML = total > 0 ? `✓ Ready (${ready}/${total})` : "✓ Ready";
+      } else {
+        btn.disabled = false;
+        btn.classList.remove("gs-btn-readied");
+        btn.innerHTML = "🔄 Play Again";
+      }
+    }
+  }
+  window.__ccUpdatePlayAgainUI = updatePlayAgainUI;
+  window.__ccResetPlayAgainUI = _resetPlayAgainUI;
+
+  document.getElementById("pv-endgame-again").addEventListener("click", async () => {
+    if (_playAgainPressed || !roomId) return;
+    _playAgainPressed = true;
     _saveConfirmedStrategyStats();
+    const btn = document.getElementById("pv-endgame-again");
+    if (btn) { btn.disabled = true; btn.classList.add("gs-btn-readied"); btn.innerHTML = "✓ Ready"; }
+    try {
+      const r = await apiPost(`/api/rooms/${roomId}/play_again`,
+        { seat_token: _playAgainSeatToken() }, { timeoutMs: 8000 });
+      if (!r.ok) {
+        showToast("Could not ready up: " + (r.data?.error || r.status), "err");
+        _resetPlayAgainUI();
+      } else {
+        // Reflect the immediate count; the next poll keeps it in sync for everyone.
+        updatePlayAgainUI(r.data);
+        if (r.data?.started) { try { _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses||0) + 1; } catch (_) {} }
+      }
+      refreshState();
+    } catch (e) {
+      showToast("Could not ready up — check your connection.", "err");
+      _resetPlayAgainUI();
+    }
+  });
+
+  // Back to Lobby → leave this seat (so remaining players see "<name> left" and
+  // the ready count drops) and return to the main menu.
+  document.getElementById("pv-endgame-menu").addEventListener("click", async () => {
+    _saveConfirmedStrategyStats();
+    const token = getSeatToken();
+    if (token && roomId) {
+      try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+    }
     returnToMenu();
   });
+
+  // View Leaderboard / View Achievements → leave the table, open the stats hub
+  // on the requested tab.
+  function _endgameGotoStatsTab(tab) {
+    _saveConfirmedStrategyStats();
+    const token = getSeatToken();
+    if (token && roomId) {
+      try { apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+    }
+    returnToMenu();
+    setTimeout(() => { try { if (typeof window._switchPhTab === "function") window._switchPhTab(tab); } catch (_) {} }, 80);
+  }
+  document.getElementById("pv-endgame-leaderboard").addEventListener("click", () => _endgameGotoStatsTab("leaderboard"));
+  document.getElementById("pv-endgame-achievements").addEventListener("click", () => _endgameGotoStatsTab("achievements"));
+
+  // ── Choose-a-Strategy search filter ───────────────────────────────
+  (function _wireStratSearch() {
+    const search = document.getElementById("gs-strat-search");
+    const listEl = document.getElementById("gs-strat-list");
+    const noMatch = document.getElementById("gs-strat-no-match");
+    if (!search || !listEl) return;
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      let visible = 0;
+      listEl.querySelectorAll(".gs-strat-row").forEach(row => {
+        const name = (row.querySelector(".gs-strat-row-name")?.textContent || "").toLowerCase();
+        const hit = !q || name.includes(q);
+        row.classList.toggle("gs-strat-hidden", !hit);
+        if (hit) visible++;
+      });
+      if (noMatch) noMatch.style.display = (visible === 0 && q) ? "block" : "none";
+    });
+  })();
 
   // ── Chat ───────────────────────────────────────────────────────
   let _chatSeenCount = 0;
