@@ -2023,15 +2023,16 @@
     /* cost badge */
     .pv-cost-badge {
       position: absolute; top: 5px; left: 5px;
-      width: 24px; height: 24px;
+      min-width: 24px; height: 24px; padding: 0 5px;
       background: linear-gradient(135deg, #2A5AAC, #1A3E88);
       border: 1.5px solid #4080D0;
-      border-radius: 50%;
+      border-radius: 12px;
       font-size: 11px; font-weight: 900; color: var(--cyan);
       display: flex; align-items: center; justify-content: center;
-      z-index: 4;
+      z-index: 4; white-space: nowrap;
     }
     .pv-cost-badge.free { background: linear-gradient(135deg, #1E4A90, #14367A); border-color: rgba(34,216,248,.5); color: var(--cyan); }
+    .pv-cost-badge-dual { font-size: 9px; letter-spacing: 0; }
 
     /* symbol pip — top-right */
     .pv-sym-pip {
@@ -3563,7 +3564,7 @@
 
     /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
-      display: none; position: fixed; inset: 0; z-index: 3000;
+      display: none; position: fixed; inset: 0; z-index: 9850;
       /* Clean flat/gradient light background — no underwater scene art. */
       background: linear-gradient(170deg, #dff0fb 0%, #cfe6f8 45%, #bfdcf3 100%);
       overflow-y: auto;
@@ -3575,12 +3576,12 @@
         radial-gradient(ellipse at 85% 8%, rgba(255,255,255,.35) 0%, transparent 50%);
       pointer-events: none;
     }
-    #pv-endgame-overlay.open { display: block; }
+    #pv-endgame-overlay.open { display: flex; flex-direction: column; }
     #gs-wrap {
-      min-height: 100vh; padding: 14px 16px 28px;
+      flex: 1; min-height: 100vh; padding: 14px 16px 28px;
       display: flex; flex-direction: column; gap: 14px;
       font-family: "Nunito", sans-serif;
-      max-width: 1280px; margin: 0 auto;
+      width: 100%;
       position: relative; z-index: 1;
     }
     /* ── Header ── */
@@ -11737,7 +11738,6 @@
           <button id="pv-endgame-again" class="gs-btn gs-btn-again">🔄 Play Again</button>
           <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Back to Lobby</button>
           <button id="pv-endgame-leaderboard" class="gs-btn gs-btn-secondary">🏆 Leaderboard</button>
-          <button id="pv-endgame-achievements" class="gs-btn gs-btn-secondary">🎖️ Achievements</button>
         </div>
         <div id="gs-btn-row" style="margin-top:2px;">
           <button id="pv-endgame-close" class="gs-btn gs-btn-view">▶ View Board Again</button>
@@ -16596,7 +16596,7 @@
     let _myBgKey = "";
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>({i:p.index,n:p.name,s:p.score,av:p.avatar_url,bg:String(p.background||"")}))
+      (players||[]).map(p=>({i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar_url,bg:String(p.background||"")}))
     ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
@@ -19216,6 +19216,32 @@
       const cost = Number(face.cost ?? 0);
       const sym = face.symbol || "";
       card.appendChild(inner);
+
+      // cost badge(s) on the hand card
+      const allFacesForBadge = Array.isArray(entry.faces) && entry.faces.length > 1 ? entry.faces : [face];
+      const hasDualCost = allFacesForBadge.length > 1 && Number(allFacesForBadge[0].cost??0) !== Number(allFacesForBadge[1].cost??0);
+      if (hasDualCost) {
+        // Two faces with different costs — show "←2 / →FREE" in a wider pill
+        const dirArrows = { left:"←", right:"→", up:"↑", down:"↓" };
+        const parts = allFacesForBadge.map(f => {
+          const fc = Number(f.cost??0);
+          const arrow = dirArrows[String(f.direction||"").trim().toLowerCase()] || "";
+          return arrow + (fc===0?"FREE":fc);
+        });
+        const badge = document.createElement("div");
+        badge.className = "pv-cost-badge pv-cost-badge-dual";
+        badge.textContent = parts.join(" / ");
+        badge.title = allFacesForBadge.map(f => {
+          const fc = Number(f.cost??0);
+          return `${f.direction||""} slot: costs ${fc===0?"nothing":fc+" card"+(fc!==1?"s":"")}`;
+        }).join(" · ");
+        card.appendChild(badge);
+      } else if (cost > 0) {
+        const badge = document.createElement("div");
+        badge.className = "pv-cost-badge";
+        badge.textContent = String(cost);
+        card.appendChild(badge);
+      }
 
       // tooltip — shows all faces (dual-face horizontal/vertical cards show both animals)
       const tip = document.createElement("div"); tip.className = "pv-tooltip";
@@ -22306,7 +22332,6 @@
     setTimeout(() => { try { if (typeof window._switchPhTab === "function") window._switchPhTab(tab); } catch (_) {} }, 80);
   }
   document.getElementById("pv-endgame-leaderboard").addEventListener("click", () => _endgameGotoStatsTab("leaderboard"));
-  document.getElementById("pv-endgame-achievements").addEventListener("click", () => _endgameGotoStatsTab("achievements"));
 
   // ── Choose-a-Strategy search filter ───────────────────────────────
   (function _wireStratSearch() {
