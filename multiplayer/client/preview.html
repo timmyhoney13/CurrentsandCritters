@@ -30830,6 +30830,9 @@
     window.__fishCheckFriendAchievements = checkFriendAchievements;
     window.__fishGetUserAchievements = () => _userAchievements;
     window.__fishUnlockAchievement = unlockAchievement;
+    // Lets the tutorial open the REAL History game-detail modal (so the sample
+    // match the learner sees is exactly what a real past game looks like).
+    window.__fishOpenGameDetail = (g) => openGameDetailModal(g);
 
     // ═══════════════════════════════════════════════════════════════
     // END ACHIEVEMENT SYSTEM
@@ -32331,22 +32334,6 @@
   #tut3-pop .t3-bar { display:flex; align-items:center; gap:9px; margin-top:18px; }
   #tut3-pop .t3-count { font-size:.84rem; color:#6a92b5; font-weight:700; flex:1; }
   #tut3-pop .t3-btn { border:none; border-radius:12px; padding:11px 18px; font-weight:800; font-size:.94rem; cursor:pointer; font-family:inherit; }
-  /* Tutorial-only sample match viewer */
-  #tut3-sample { position:fixed; inset:0; z-index:100070; display:none; align-items:center; justify-content:center; padding:20px 14px; background:rgba(5,22,42,.82); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
-  #tut3-sample.open { display:flex; }
-  .t3-sample-card { width:100%; max-width:560px; background:linear-gradient(165deg,#0c2c52,#0a2244 60%,#08203c); border:1px solid rgba(95,180,225,.5); border-radius:20px; box-shadow:0 24px 70px rgba(0,0,0,.6); padding:20px 22px; color:#eaf6ff; font-family:"Nunito",sans-serif; }
-  .t3-sample-hd { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
-  .t3-sample-hd h3 { font-family:"Cinzel",serif; font-size:1.25rem; font-weight:900; color:#7fe3ff; margin:0; }
-  .t3-sample-sub { font-size:.86rem; color:#9fc6e0; margin-bottom:14px; }
-  .t3-sample-player { display:flex; align-items:center; gap:12px; background:rgba(8,40,68,.6); border:1px solid rgba(80,170,215,.3); border-radius:13px; padding:11px 13px; margin-bottom:10px; }
-  .t3-sample-av { width:42px; height:42px; border-radius:50%; overflow:hidden; flex-shrink:0; border:2px solid rgba(95,208,232,.5); background:#0a2742; }
-  .t3-sample-av img { width:100%; height:100%; object-fit:contain; }
-  .t3-sample-info { flex:1; min-width:0; }
-  .t3-sample-name { font-weight:800; font-size:1rem; }
-  .t3-sample-board { font-size:.8rem; color:#9fc6e0; margin-top:2px; }
-  .t3-sample-score { font-family:"Cinzel",serif; font-weight:900; font-size:1.2rem; color:#ffd574; flex-shrink:0; }
-  .t3-sample-close { background:rgba(255,255,255,.1); border:1px solid rgba(120,205,235,.4); color:#dff1fb; border-radius:10px; width:32px; height:32px; font-size:17px; cursor:pointer; }
-  .t3-sample-close:hover { background:rgba(232,64,87,.25); border-color:#e84057; }
   #tut3-pop .t3-next { background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
   #tut3-pop .t3-next:hover { filter:brightness(1.06); }
   #tut3-pop .t3-back { background:#e3eef7; color:#3a6e9c; }
@@ -32577,6 +32564,25 @@
     hole.classList.remove("nohole");
     const r = el.getBoundingClientRect();
 
+    // Per-step popup anchor: pin the popup to a screen edge so its text can
+    // never sit over the drag corridor (hand → board) or the drop zone. Every
+    // "place a card" step uses popAnchor:"top" so the words stay out of the way
+    // of dragging or clicking to put a card down. The spotlight still surrounds
+    // the target card; the drop zone is lit separately via the step's glow.
+    if (step.popAnchor === "top" || step.popAnchor === "bottom") {
+      const p2 = 8;
+      hole.style.left = Math.max(2, r.left - p2) + "px";
+      hole.style.top = Math.max(2, r.top - p2) + "px";
+      hole.style.width = Math.min(vw - 4, r.width + p2 * 2) + "px";
+      hole.style.height = Math.min(vh - 4, r.height + p2 * 2) + "px";
+      arrow.style.display = "none";
+      pop.style.left = Math.max(8, (vw - popW) / 2) + "px";
+      pop.style.top = (step.popAnchor === "top")
+        ? "12px"
+        : Math.max(8, vh - popH - 12) + "px";
+      return;
+    }
+
     // Tall target (a content panel or an opened overlay such as the Avatar
     // Gallery): spotlight it but anchor the popup at the bottom so it never
     // covers the thing we are explaining.
@@ -32641,6 +32647,9 @@
     }
     const sm = document.getElementById("settings-modal");
     if (sm) sm.classList.remove("open");
+    // Tutorial sample match (the real History game-detail modal).
+    const gdm = document.getElementById("ph-game-detail-modal");
+    if (gdm) gdm.classList.remove("open");
   }
   function openSettings() { const b = document.getElementById("snav-settings"); if (b) try { b.click(); } catch (_) {} }
 
@@ -32746,9 +32755,15 @@
       text: "Click <strong>History</strong> to see your past matches." },
 
     // ── History panel + sample match CTA ──────────────────────────────
-    { target: "#ph-panel-history", badge: "History Tab", title: "Match History",
+    // Opens the REAL game-detail modal with one of TheFishManTim's matches and
+    // makes the learner tap each opponent's board before the tour continues.
+    { target: () => (document.getElementById("ph-game-detail-modal")?.classList.contains("open")
+        ? document.getElementById("ph-gdm-box") : document.getElementById("ph-panel-history")),
+      badge: "History Tab", title: "Match History",
+      interactive: true,
+      advanceWhen: tutSampleAllOppsViewed,
       cta: { label: "View a sample match", onClick: () => showSampleMatch() },
-      text: "The <strong>History</strong> tab lets you reopen any past match and see exactly what every player had on their board, along with the final scores. Select the button below to see a sample." },
+      text: "The <strong>History</strong> tab lets you reopen any past match and see exactly what every player had on their board, along with the final scores. Select the button below to open a real example — a game played by <strong>TheFishManTim</strong>. Then <strong>tap each of the other players</strong> (CoralCara, ReefRiley, KelpQuinn) to inspect their boards." },
 
     // ── Friends tab (click to navigate) ──────────────────────────────
     { target: "#snav-friends", badge: "Friends Tab", title: "Friends",
@@ -32850,36 +32865,82 @@
   }
 
   // ── Tutorial-only sample match viewer ─────────────────────────────
-  let sampleEl = null;
+  // Opens the REAL History game-detail modal with a real past game so the
+  // learner sees exactly what an old match looks like — not a mock-up. The
+  // game is one of TheFishManTim's, with every player's real final board.
+  // The History step requires the learner to inspect each opponent's board
+  // before advancing, so we record which player chips they open here.
+  let _tutSampleOpponents = [];
+  let _tutSampleViewed = new Set();
+  function tutSampleAllOppsViewed() {
+    return _tutSampleOpponents.length > 0 && _tutSampleOpponents.every(n => _tutSampleViewed.has(n));
+  }
   function showSampleMatch() {
-    if (!sampleEl) {
-      sampleEl = document.createElement("div");
-      sampleEl.id = "tut3-sample";
-      sampleEl.addEventListener("click", (e) => { if (e.target === sampleEl) sampleEl.classList.remove("open"); });
-      document.body.appendChild(sampleEl);
-    }
-    const players = [
-      { name: "You", av: "/avatars/osprey.png", score: 142, board: "Coral Reef, Horned Puffin, Spiny Lobster, Sea Anemone" },
-      { name: "Billy", av: "/avatars/clownfish.png", score: 128, board: "Kelp Forest, Mahi Mahi, Blue Marlin" },
-      { name: "Diana", av: "/avatars/manta-ray.png", score: 119, board: "Open Ocean, King Crab, Common Octopus, Cuttlefish" },
+    // Final scores for an example 4-player game (TheFishManTim wins).
+    const sAll = [
+      { n: "TheFishManTim", s: 78 },
+      { n: "CoralCara", s: 64 },
+      { n: "ReefRiley", s: 58 },
+      { n: "KelpQuinn", s: 41 },
     ];
-    const rows = players.map(p => `
-      <div class="t3-sample-player">
-        <div class="t3-sample-av"><img src="${p.av}" alt=""></div>
-        <div class="t3-sample-info">
-          <div class="t3-sample-name">${esc(p.name)}</div>
-          <div class="t3-sample-board">Board: ${esc(p.board)}</div>
-        </div>
-        <div class="t3-sample-score">${p.score}</div>
-      </div>`).join("");
-    sampleEl.innerHTML = `<div class="t3-sample-card">
-      <div class="t3-sample-hd"><h3>Sample Match</h3><button class="t3-sample-close" id="tut3-sample-x">✕</button></div>
-      <div class="t3-sample-sub">This is an example of what an old match looks like in History. You can see every player, their final board, and their score.</div>
-      ${rows}
-      <div class="t3-sample-sub" style="margin:8px 0 0">In a real match you can tap any player to inspect each card on their board.</div>
-    </div>`;
-    sampleEl.querySelector("#tut3-sample-x").addEventListener("click", () => sampleEl.classList.remove("open"));
-    sampleEl.classList.add("open");
+    // Real end-game boards (ocean + each attachment slot) from actual games.
+    const sBds = [
+      { n: "TheFishManTim", bd: [
+          {ou:207,on:"Pier",u:[{u:15,n:"Horned Puffin"}],d:[{u:22,n:"Sea Sponge"}],l:[{u:175,n:"Yellowfin Tuna"}],r:[{u:174,n:"Yellowfin Tuna"}]},
+          {ou:224,on:"Coral Reef",u:[{u:41,n:"Osprey"}],d:[{u:26,n:"Sea Anemone"}],l:[],r:[{u:188,n:"Clownfish"}]},
+          {ou:242,on:"Arctic Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[],r:[]},
+          {ou:252,on:"Kelp Forest",u:[{u:19,n:"California Seagull"}],d:[{u:92,n:"Sea Urchin"}],l:[],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:208,on:"Deep Ocean",u:[{u:95,n:"Razorbill Auk"}],d:[],l:[],r:[]},
+          {ou:251,on:"Kelp Forest",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[],r:[]},
+          {ou:234,on:"Mangrove",u:[],d:[],l:[],r:[]}
+        ] },
+      { n: "CoralCara", bd: [
+          {ou:208,on:"Deep Ocean",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[{u:115,n:"Reef Trigger Fish"}],r:[{u:166,n:"Common Octopus"}]},
+          {ou:244,on:"Arctic Ocean",u:[{u:47,n:"Osprey"}],d:[{u:26,n:"Sea Anemone"}],l:[{u:139,n:"Cuttlefish"}],r:[{u:110,n:"Common Octopus"}]},
+          {ou:246,on:"Arctic Ocean",u:[],d:[],l:[],r:[{u:124,n:"Narwhal"}]},
+          {ou:212,on:"Deep Ocean",u:[],d:[{u:78,n:"Loggerhead Sea Turtle"}],l:[],r:[]},
+          {ou:211,on:"Deep Ocean",u:[{u:9,n:"Horned Puffin"}],d:[],l:[],r:[]},
+          {ou:255,on:"Kelp Forest",u:[{u:35,n:"Great Albatross"}],d:[],l:[{u:171,n:"Bobtail Squid"}],r:[{u:150,n:"Manta Ray"}]}
+        ] },
+      { n: "ReefRiley", bd: [
+          {ou:230,on:"Mangrove",u:[{u:33,n:"Great Albatross"}],d:[{u:30,n:"Cleaner Wrasse"}],l:[{u:151,n:"Tarpon"}],r:[{u:162,n:"King Salmon"}]},
+          {ou:238,on:"Artificial Reef",u:[{u:37,n:"Great Albatross"}],d:[{u:22,n:"Sea Sponge"}],l:[{u:133,n:"Goliath Grouper"}],r:[]},
+          {ou:212,on:"Deep Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[{u:139,n:"Cuttlefish"}],r:[{u:122,n:"Giant Squid"}]},
+          {ou:248,on:"Arctic Ocean",u:[{u:43,n:"Osprey"}],d:[{u:16,n:"Mantis Shrimp"}],l:[{u:103,n:"Spinner Dolphin"}],r:[]},
+          {ou:242,on:"Arctic Ocean",u:[{u:13,n:"Horned Puffin"}],d:[],l:[{u:187,n:"Manta Ray"}],r:[{u:112,n:"Giant Squid"}]},
+          {ou:211,on:"Deep Ocean",u:[],d:[],l:[],r:[]}
+        ] },
+      { n: "KelpQuinn", bd: [
+          {ou:243,on:"Arctic Ocean",u:[{u:59,n:"Mullet"}],d:[{u:56,n:"Cleaner Wrasse"}],l:[{u:177,n:"King Salmon"}],r:[{u:128,n:"Sailfish"}]},
+          {ou:253,on:"Kelp Forest",u:[{u:57,n:"Mullet"}],d:[],l:[{u:111,n:"Roosterfish"}],r:[{u:162,n:"King Salmon"}]},
+          {ou:258,on:"Kelp Forest",u:[{u:89,n:"Bonito"}],d:[],l:[{u:167,n:"Goliath Grouper"}],r:[]},
+          {ou:251,on:"Kelp Forest",u:[{u:77,n:"Flying Fish"}],d:[{u:32,n:"Lobster"}],l:[{u:135,n:"Mahi Mahi"}],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:249,on:"Arctic Ocean",u:[{u:65,n:"Bunker"}],d:[],l:[{u:145,n:"Mahi Mahi"}],r:[]},
+          {ou:215,on:"Deep Ocean",u:[],d:[],l:[{u:101,n:"Tarpon"}],r:[]}
+        ] },
+    ];
+    const g = {
+      t: Date.UTC(2026, 4, 11),   // a believable past date
+      mode: "normal",
+      pc: 4,
+      win: "TheFishManTim",
+      all: sAll,
+      bds: sBds,
+    };
+    _tutSampleOpponents = sAll.map(p => p.n).filter(n => n !== "TheFishManTim");
+    _tutSampleViewed = new Set();
+    if (typeof window.__fishOpenGameDetail !== "function") return;
+    window.__fishOpenGameDetail(g);
+    // Record which players the learner inspects. The chips' own handler still
+    // switches the board view; this extra listener just tracks progress so the
+    // History step can require every opponent to be opened before advancing.
+    setTimeout(() => {
+      document.querySelectorAll("#ph-game-detail-modal .ph-gdm-pchip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          if (chip.dataset.pname) _tutSampleViewed.add(chip.dataset.pname);
+        });
+      });
+    }, 0);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -33219,7 +33280,7 @@
 
     // ── 2b. Play the Mangrove with its Star ON (gated) ───────────────────
     { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Star Combo 1", title: "Play the Mangrove ★",
-      interactive: true,
+      interactive: true, popAnchor: "top",
       before: () => { t2ForceStarOn(); t2CacheOceanPair(); _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
       text: () => `<strong>Drag the glowing Mangrove</strong> from your hand onto the glowing board zone (leave the <strong>★ toggle ON</strong>). Its symbol is <span class="t2-sym t2-sym-${(_t2.mangrove&&_t2.mangrove.sym)||''}">${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</span> and its Star is <strong>★ Play Again</strong> — to fire it you'll pay with a matching card next.` },
@@ -33228,7 +33289,7 @@
     { target: gtArcticHandEl,
       glow: [() => gtGoldenHandEls()[0], () => gtGoldenHandEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Star Combo 1", title: "Pay — Matching Symbol",
-      interactive: true, advanceWhen: () => gtOceanCount() > _gtOceanBase,
+      interactive: true, popAnchor: "top", advanceWhen: () => gtOceanCount() > _gtOceanBase,
       text: () => `To fire the Mangrove's Star, pay with a <strong>${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</strong> card. <strong>Click anywhere on a card</strong> to select it as payment. The glowing <strong>Arctic Oceans</strong> (<span class="t2-sym t2-sym-${(_t2.arctic&&_t2.arctic.sym)||''}">${t2Glyph(_t2.arctic&&_t2.arctic.sym)}</span>) is the best choice — its symbol matches. Other gold-edged cards like <strong>Coral</strong> or <strong>Spinner Dolphin</strong> can also pay, but won't fire the Star. Select your payment card, then click <strong>✓ Confirm Payment</strong>.` },
 
     // ── 2d. Explain Play Again — symbols side by side ────────────────────
@@ -33238,7 +33299,7 @@
 
     // ── 2e. Use Play Again to deploy the Great Albatross (gated) ─────────
     { target: gtAlbatrossHandEl, glow: ["#pv-my-board"], badge: "Star Combo 2", title: "Play the Great Albatross ★",
-      interactive: true,
+      interactive: true, popAnchor: "top",
       before: () => { t2ForceStarOn(); t2CacheBirdPair(); _gtCreatureBase = gtCreatureCount(); },
       advanceWhen: () => gtPayingCreature() || gtCreatureCount() > _gtCreatureBase,
       text: () => `Spend your <strong>Play Again</strong> on a creature: <strong>drag the glowing Great Albatross</strong> to the <strong>top of your Mangrove</strong> — look for the <strong>+ sign and green dots</strong> that appear there (keep <strong>★ ON</strong>). Its Star is <strong>★ Draw One</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>.` },
@@ -33250,7 +33311,7 @@
 
     // ── 2g. Pay with the symbol-matched Kelp Forest (gated) ──────────────
     { target: gtKelpHandEl, glow: [gtKelpHandEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Star Combo 2", title: "Pay — Matching Symbol",
-      interactive: true, advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
+      interactive: true, popAnchor: "top", advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
       text: () => `On the glowing <strong>Kelp Forest</strong> (<span class="t2-sym t2-sym-${(_t2.kelp&&_t2.kelp.sym)||''}">${t2Glyph(_t2.kelp&&_t2.kelp.sym)}</span>, matching the Albatross) <strong>click anywhere on it</strong> to select it as payment, then click the glowing <strong>✓ Confirm Payment</strong> button — its Star <strong>draws you a card!</strong>` },
 
     // ── 2h. Explain Draw One — symbols side by side ──────────────────────
@@ -33419,12 +33480,12 @@
 
     // ── Play Artificial Reef (real drag + payment) ──────────────────
     { target: () => blHandElByName("artificial reef"), glow: [gtOceanDropEl], badge: "Turn 1", title: "Play Artificial Reef",
-      interactive: true,
+      interactive: true, popAnchor: "top",
       before: () => { _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
       text: "Play <strong>Artificial Reef</strong>: <strong>drag the glowing Reef</strong> from your hand onto the glowing board zone (or tap it and choose the board)." },
     { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
-      interactive: true, advanceWhen: () => gtOceanCount() > _gtOceanBase,
+      interactive: true, popAnchor: "top", advanceWhen: () => gtOceanCount() > _gtOceanBase,
       text: "Artificial Reef has a cost, so you pay with a card. The <strong>Narwhal / Big Eye Tuna</strong> card doesn't fit B-Lob, so it's a perfect payment — <strong>select it</strong>, then click <strong>✓ Confirm Payment</strong>." },
     { target: "#pv-my-board", glow: [gtPoolEl], badge: "The Pool", title: "Reef Played → Pool",
       text: "Artificial Reef is now on your board, and the card you paid went to the <strong>Pool</strong>. When anyone plays an Ocean, one card also flips into the Pool from the deck. The <strong>Pool</strong> is where you can draw on your turn and where discarded payments go — and when it reaches <strong>10 cards it clears</strong>, so watch for cards you want." },
@@ -33441,7 +33502,7 @@
 
     // ── Turn 2: play a Lobster ───────────────────────────────────────
     { target: () => blHandElByName("lobster"), glow: ["#pv-my-board"], badge: "Turn 2", title: "Play a Lobster",
-      interactive: true,
+      interactive: true, popAnchor: "top",
       before: () => { _gtCreatureBase = gtCreatureCount(); },
       advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
       text: "It's your turn again. Let's play <strong>Lobster</strong>. Notice it has <strong>no sand-dollar cost</strong> — it's <strong>free</strong>, so you don't discard anything. <strong>Drag the Lobster onto your Artificial Reef.</strong>" },
