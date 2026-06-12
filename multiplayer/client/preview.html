@@ -3707,6 +3707,53 @@
     .gs-ch-type.weekly { color: #8a40b8; }
     .gs-ch-name { font-size: 13px; font-weight: 800; color: #1a3a20; margin-top: 1px; }
     .gs-ch-xp { font-size: 12px; font-weight: 900; color: #d4910a; white-space: nowrap; flex-shrink: 0; }
+    /* ── Strategy confirm panel ── */
+    #gs-strat-confirm {
+      background: rgba(255,255,255,.80); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(100,160,220,.3); border-radius: 18px; padding: 14px 16px;
+      box-shadow: 0 6px 24px rgba(30,60,140,.1);
+    }
+    #gs-strat-title {
+      font-family: "Cinzel",serif; font-size: .74rem; font-weight: 800;
+      color: #1a2d5a; text-align: center; letter-spacing: 2px; margin-bottom: 5px; text-transform: uppercase;
+    }
+    #gs-strat-hint {
+      font-size: 11px; font-weight: 700; color: #5a7090; text-align: center; margin-bottom: 10px;
+    }
+    #gs-strat-list {
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 220px; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: rgba(100,160,220,.5) rgba(220,235,255,.3);
+      padding-right: 3px; margin-bottom: 8px;
+    }
+    #gs-strat-list::-webkit-scrollbar { width: 6px; }
+    #gs-strat-list::-webkit-scrollbar-thumb { background: rgba(100,160,220,.5); border-radius: 4px; }
+    .gs-strat-row {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(220,235,255,.45); border: 1px solid rgba(100,160,220,.25);
+      border-radius: 10px; padding: 8px 12px; cursor: pointer;
+      transition: background .12s, border-color .12s;
+      user-select: none;
+    }
+    .gs-strat-row:hover { background: rgba(180,215,255,.65); border-color: rgba(80,140,220,.4); }
+    .gs-strat-row.selected {
+      background: rgba(30,100,220,.12); border-color: rgba(30,100,220,.55);
+      box-shadow: 0 0 0 1.5px rgba(30,100,220,.25);
+    }
+    .gs-strat-row input[type="checkbox"] { accent-color: #1c64d0; width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+    .gs-strat-row-text { flex: 1; min-width: 0; }
+    .gs-strat-row-name { font-size: 13px; font-weight: 800; color: #1a2d5a; }
+    .gs-strat-row-tier { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; opacity: .65; }
+    .gs-strat-row-swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; border: 1.5px solid rgba(0,0,0,.15); }
+    #gs-strat-none-row {
+      margin-top: 4px; padding-top: 8px;
+      border-top: 1px solid rgba(100,160,220,.2);
+    }
+    .gs-strat-none-label {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-size: 12px; font-weight: 700; color: #5a7090;
+    }
+    .gs-strat-none-label input[type="checkbox"] { accent-color: #8aabb8; width: 14px; height: 14px; cursor: pointer; }
     /* ── Right column ── */
     #gs-right { display: flex; flex-direction: column; gap: 12px; }
     /* ── XP row ── */
@@ -10346,8 +10393,8 @@
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-blue"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#2d86e4" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                <div class="ph-scl">Hours Played</div>
-                <div class="ph-scv" id="stat-hours-played">0 hrs</div>
+                <div class="ph-scl" id="ph-label-hours">Hours Played</div>
+                <div class="ph-scv" id="stat-hours-played-pc">0 hrs</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-purple" id="ph-strategy-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7" stroke="#2d86e4" stroke-width="1.8"/><circle cx="12" cy="12" r="3.5" stroke="#2d86e4" stroke-width="1.8"/><path d="M20 4l-5.5 5.5" stroke="#2d86e4" stroke-width="1.8" stroke-linecap="round"/></svg></div>
@@ -11517,6 +11564,17 @@
         <div id="gs-challenges-done" style="display:none;">
           <div id="gs-challenges-title">🎯 CHALLENGES COMPLETED</div>
           <div id="gs-challenges-list"></div>
+        </div>
+        <!-- Strategy confirmation: shown after every game so data feeds AI learning -->
+        <div id="gs-strat-confirm">
+          <div id="gs-strat-title">🧠 WHAT STRATEGY DID YOU PLAY?</div>
+          <div id="gs-strat-hint">Confirm or update — this helps the AI learn what works.</div>
+          <div id="gs-strat-list"><!-- populated by JS --></div>
+          <div id="gs-strat-none-row">
+            <label class="gs-strat-none-label">
+              <input type="checkbox" id="gs-strat-none-chk"> None / just improvised
+            </label>
+          </div>
         </div>
       </div>
       <!-- Right -->
@@ -15413,6 +15471,7 @@
     // ── Match stats tracking ─────────────────────────────
     if (phase === "running" && !_matchStartMs) {
       _matchStartMs = Date.now();
+      _endRevealMs = 0; // fresh game — playtime clock restarts at the next end screen
       // Capture the player's LOCAL date at game start. Streak credit is given
       // for the day a game STARTED (so a game begun at 11:55pm that ends after
       // midnight still counts for the start day). Read at game-end in saveGameStats.
@@ -15432,6 +15491,8 @@
           _applyStrategyHighlights();
         }
       } catch (_) {}
+      // Reset the strategy confirmation so the end-game panel re-populates fresh.
+      try { _confirmedStrategies = null; _strategyConfirmSaved = false; } catch (_) {}
       // Snapshot which challenges are already done so we can show what was earned THIS game
       try {
         if (typeof window._getCompletedChallengeSnapshot === "function") {
@@ -19723,7 +19784,7 @@
     if (compHandsSection) compHandsSection.style.display = "none";
     document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
-    _matchStartMs=0; _prevScoreMap={}; _turnStartScores={};
+    _matchStartMs=0; _endRevealMs=0; _prevScoreMap={}; _turnStartScores={};
     _bestTurnPts=0; _bestTurnNames=[];
     _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
@@ -20128,6 +20189,7 @@
   let _endgameCapturedOldXp = null;  // pre-game XP captured once
   let _gameTerminatedByMe = false;   // player clicked Terminate → 0 XP
   let _matchStartMs   = 0;
+  let _endRevealMs    = 0;             // when the end-game screen first revealed (playtime stops counting here)
   let _gameStartLocalDate = "";        // local "YYYY-MM-DD" when THIS game started (for streak credit)
   let _prevScoreMap   = {};            // player name -> last seen score (for goby/score delta detection)
   let _turnStartScores = {};           // player name -> score at start of their current turn
@@ -20511,6 +20573,18 @@
       isWinner = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     }
     const playerCount = Array.isArray(finalScores) ? finalScores.length : 0;
+    // ── Per-game playtime (hours), from game start → end-screen reveal ──
+    // Clock started at _matchStartMs (game went "running") and stopped at
+    // _endRevealMs (end screen first shown). Falls back to now if the reveal
+    // timestamp is somehow missing. Clamped to a sane 0–24h range so a clock
+    // skew or stale timer can never write a garbage value.
+    const _gameHours = (() => {
+      if (!_matchStartMs) return 0;
+      const endMs = _endRevealMs || Date.now();
+      const h = (endMs - _matchStartMs) / 3600000;
+      return (Number.isFinite(h) && h > 0) ? Math.min(h, 24) : 0;
+    })();
+    const _modeKey = isComp ? "competitive" : "normal";
     const xpAward = (typeof xpOverride === "number" && xpOverride >= 0)
       ? xpOverride
       : (isComp ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
@@ -20656,20 +20730,12 @@
         updates["stats.daily_streak"]   = _streakInfo.current;
         updates["stats.streak_longest"] = Math.max(_streakInfo.longest, Number(cStats.streak_longest || 0));
         // ── Strategy tracking ──────────────────────────────────────────
-        // Record the detected strategy: per-player-count (most recent for that
-        // size), a play-count tally, and the overall most-played (argmax of the
-        // tally). Whole objects are written to avoid Firestore field-path issues
-        // with strategy names that contain spaces / slashes / parens.
-        if (myDetectedStrategy) {
-          const _prevCounts = (cStats.strategy_play_counts && typeof cStats.strategy_play_counts === "object") ? cStats.strategy_play_counts : {};
-          const _newCounts = { ..._prevCounts, [myDetectedStrategy]: (Number(_prevCounts[myDetectedStrategy]) || 0) + 1 };
-          const _topStrat = Object.entries(_newCounts).sort((a, b) => b[1] - a[1])[0];
-          const _prevBySize = (cStats.most_played_strategy_by_size && typeof cStats.most_played_strategy_by_size === "object") ? cStats.most_played_strategy_by_size : {};
-          const _newBySize = { ..._prevBySize, [String(playerCount)]: myDetectedStrategy };
-          updates["stats.strategy_play_counts"]        = _newCounts;
-          updates["stats.most_played_strategy"]        = _topStrat ? _topStrat[0] : myDetectedStrategy;
-          updates["stats.most_played_strategy_by_size"] = _newBySize;
-        }
+        // Aggregate strategy stats (play counts, most-played, most-played-by-size)
+        // are now written from the end-game STRATEGY CONFIRMATION the player makes
+        // before leaving the summary (_saveConfirmedStrategyStats). That self-
+        // reported answer is authoritative — writing the auto-detected strategy
+        // here too would double-count. The detected strategy is still saved on
+        // each recent_games entry above (recentEntry.strat) as a per-game snapshot.
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         if (Number(_gameAchTracker?.deckDraws || 0) > 0)
           updates["stats.lifetime_deck_draws"] = firebase.firestore.FieldValue.increment(Number(_gameAchTracker.deckDraws));
@@ -20715,6 +20781,17 @@
             updates[`stats.total_score_by_size.${playerCount}`] = firebase.firestore.FieldValue.increment(myScore);
             if (isWinner) updates[`stats.normal_wins_by_size.${playerCount}`] = firebase.firestore.FieldValue.increment(1);
           }
+          // Per-size playtime hours (mode-aware, mirrors *_games_by_size).
+          if (_gameHours > 0) {
+            const ptField = isComp
+              ? `stats.comp_playtime_by_size.${playerCount}`
+              : `stats.normal_playtime_by_size.${playerCount}`;
+            updates[ptField] = firebase.firestore.FieldValue.increment(_gameHours);
+          }
+        }
+        // Per-mode playtime hours (normal vs competitive), independent of size.
+        if (_gameHours > 0) {
+          updates[`stats.playtime_by_mode.${_modeKey}`] = firebase.firestore.FieldValue.increment(_gameHours);
         }
         // Track hosted casual games for Host With the Most achievement
         if (!isComp && myIdx === 0) {
@@ -20835,17 +20912,10 @@
         nextStats.streak_days    = _newStreakDays;
         nextStats.daily_streak   = _streakInfo.current;
         nextStats.streak_longest = Math.max(_streakInfo.longest, Number(nextStats.streak_longest || 0));
-        // Strategy tracking (guests) — mirror the signed-in path.
-        if (myDetectedStrategy) {
-          const _pc = (nextStats.strategy_play_counts && typeof nextStats.strategy_play_counts === "object") ? nextStats.strategy_play_counts : {};
-          _pc[myDetectedStrategy] = (Number(_pc[myDetectedStrategy]) || 0) + 1;
-          nextStats.strategy_play_counts = _pc;
-          const _top = Object.entries(_pc).sort((a, b) => b[1] - a[1])[0];
-          nextStats.most_played_strategy = _top ? _top[0] : myDetectedStrategy;
-          const _bs = (nextStats.most_played_strategy_by_size && typeof nextStats.most_played_strategy_by_size === "object") ? nextStats.most_played_strategy_by_size : {};
-          _bs[String(playerCount)] = myDetectedStrategy;
-          nextStats.most_played_strategy_by_size = _bs;
-        }
+        // Strategy tracking (guests): aggregate stats come from the end-game
+        // strategy confirmation (_saveConfirmedStrategyStats), not the auto-
+        // detected strategy here — see the signed-in note above. recent_games
+        // still carries the detected per-game snapshot via recentEntry.strat.
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         nextStats.lifetime_play_again = Number(nextStats.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
@@ -20893,6 +20963,19 @@
             nextStats.normal_wins_by_size = winsMap;
             nextStats.total_score_by_size = scoreMap;
           }
+          // Per-size playtime hours (mode-aware), mirrors the signed-in path.
+          if (_gameHours > 0) {
+            const ptKey = isComp ? "comp_playtime_by_size" : "normal_playtime_by_size";
+            const ptMap = { ...(nextStats[ptKey] && typeof nextStats[ptKey] === "object" ? nextStats[ptKey] : {}) };
+            ptMap[sizeKey] = Number(ptMap[sizeKey] || 0) + _gameHours;
+            nextStats[ptKey] = ptMap;
+          }
+        }
+        // Per-mode playtime hours (guest).
+        if (_gameHours > 0) {
+          const modeMap = { ...(nextStats.playtime_by_mode && typeof nextStats.playtime_by_mode === "object" ? nextStats.playtime_by_mode : {}) };
+          modeMap[_modeKey] = Number(modeMap[_modeKey] || 0) + _gameHours;
+          nextStats.playtime_by_mode = modeMap;
         }
 
         if (saveGuest) saveGuest(nextStats);
@@ -21420,8 +21503,18 @@
     // NOTE: we no longer early-return here when the overlay was dismissed —
     // saveGameStats (streak/XP/history) MUST still run on every end-game poll
     // until it succeeds. We only skip the *visual* overlay rendering below.
+    // Stop the per-game playtime clock the instant the end screen is revealed.
+    // Captured once (first reveal) so it never drifts if the player lingers or
+    // the end-game poll fires repeatedly.
+    if (!_endRevealMs) _endRevealMs = Date.now();
     if (_endgameDismissed) overlay.classList.remove("open");
-    else overlay.classList.add("open");
+    else {
+      overlay.classList.add("open");
+      // Populate strategy confirm panel once per game (guard with _confirmedStrategies === null)
+      if (_confirmedStrategies === null) {
+        try { _populateStratConfirm(); } catch (_) {}
+      }
+    }
 
     const myName = (typeof window.__fishNickname === "function") ? window.__fishNickname() : "";
     const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0) - (a.score||0));
@@ -21736,11 +21829,173 @@
     wrap.style.display = "";
   }
 
+  // ── Post-game strategy confirmation ───────────────────────────
+  // Stores the player's confirmed strategy selection for this game.
+  // Set when they leave the end-game screen; read by saveGameStats.
+  let _confirmedStrategies = null; // null = not yet confirmed; [] = none/improvised; ["Birds", ...] = chosen
+
+  function _populateStratConfirm() {
+    const listEl  = document.getElementById("gs-strat-list");
+    const noneChk = document.getElementById("gs-strat-none-chk");
+    if (!listEl || !noneChk) return;
+
+    // Pre-select whatever was active during the game (from active strategy set).
+    const preSelected = new Set();
+    try {
+      if (typeof HELP_STRATEGIES !== "undefined" && typeof _activeStrategies !== "undefined") {
+        _activeStrategies.forEach(i => {
+          const s = HELP_STRATEGIES[i];
+          if (s && s.label) preSelected.add(s.label);
+        });
+      }
+    } catch (_) {}
+    // If the player never used the in-game strategy panel, fall back to the
+    // strategy the server detected from their final board — so simply clicking
+    // through still records a sensible answer (they can correct it).
+    if (!preSelected.size) {
+      try {
+        const mine = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
+        const detected = (mine && typeof mine.strategy === "string") ? mine.strategy.trim() : "";
+        if (detected && detected !== "Best Guess" &&
+            (typeof HELP_STRATEGIES !== "undefined") &&
+            HELP_STRATEGIES.some(s => s.label === detected)) {
+          preSelected.add(detected);
+        }
+      } catch (_) {}
+    }
+
+    listEl.innerHTML = "";
+    try {
+      const strats = (typeof HELP_STRATEGIES !== "undefined") ? HELP_STRATEGIES : [];
+      const colors = (typeof STRAT_COLORS !== "undefined") ? STRAT_COLORS : [];
+      strats.forEach((s, i) => {
+        const checked = preSelected.has(s.label);
+        const row = document.createElement("label");
+        row.className = "gs-strat-row" + (checked ? " selected" : "");
+        const swatch = colors[i] || "#aab8cc";
+        row.innerHTML = `
+          <div class="gs-strat-row-swatch" style="background:${swatch}"></div>
+          <input type="checkbox" ${checked ? "checked" : ""} data-label="${s.label.replace(/"/g,'&quot;')}">
+          <div class="gs-strat-row-text">
+            <div class="gs-strat-row-name">${s.label}</div>
+            <div class="gs-strat-row-tier" style="color:${swatch}">${s.tier || ""}</div>
+          </div>`;
+        row.addEventListener("change", () => {
+          row.classList.toggle("selected", row.querySelector("input").checked);
+          if (row.querySelector("input").checked) noneChk.checked = false;
+        });
+        listEl.appendChild(row);
+      });
+    } catch (_) {}
+
+    noneChk.checked = preSelected.size === 0;
+    noneChk.addEventListener("change", () => {
+      if (noneChk.checked) listEl.querySelectorAll("input[type=checkbox]").forEach(c => { c.checked = false; c.closest(".gs-strat-row")?.classList.remove("selected"); });
+    });
+  }
+
+  function _readConfirmedStrategies() {
+    const listEl  = document.getElementById("gs-strat-list");
+    const noneChk = document.getElementById("gs-strat-none-chk");
+    if (!listEl) return [];
+    if (noneChk && noneChk.checked) return [];
+    const picked = [];
+    listEl.querySelectorAll("input[type=checkbox]:checked").forEach(c => {
+      if (c.dataset.label) picked.push(c.dataset.label);
+    });
+    return picked;
+  }
+
+  // Save confirmed strategy into stats — the player's self-reported answer,
+  // written once when they leave the end-game summary. Guarded so leaving via
+  // both buttons (View Board → Home) can't double-count.
+  let _strategyConfirmSaved = false;
+  function _saveConfirmedStrategyStats() {
+    if (_strategyConfirmSaved) return;
+    const confirmed = _readConfirmedStrategies();
+    _confirmedStrategies = confirmed; // remember the answer for this game
+    _strategyConfirmSaved = true;     // never save twice for the same game
+    if (!confirmed.length) return;
+    // Record each chosen strategy. For multi-strategy games we credit every label.
+    try {
+      // Same playerCount saveGameStats uses (total scoreboard entries, incl. bots)
+      // so the most_played_strategy_by_size key matches the games-by-size buckets.
+      const playerCount = (() => {
+        const fs = Array.isArray(latestPayload?.final_scores) ? latestPayload.final_scores : [];
+        return fs.length || (Array.isArray(_latestPlayers) ? _latestPlayers.length : 0) || 0;
+      })();
+      const authUser = typeof window.__fishAuthUser === "function" ? window.__fishAuthUser() : null;
+      const db       = typeof window.__fishDb       === "function" ? window.__fishDb()       : null;
+      const isGuestSession = typeof window.__fishIsGuest === "function" ? !!window.__fishIsGuest() : false;
+      if ((!authUser || !db) && !isGuestSession) return;
+
+      // For each strategy the player confirmed, increment its play count.
+      confirmed.forEach(label => {
+        try {
+          // Track in localStorage (feeds the in-game "most played" display)
+          const counts = JSON.parse(localStorage.getItem("cc_strat_play_counts") || "{}");
+          counts[label] = (counts[label] || 0) + 1;
+          localStorage.setItem("cc_strat_play_counts", JSON.stringify(counts));
+        } catch (_) {}
+      });
+
+      // Persist to Firestore (signed-in) or localStorage (guest) using the
+      // first confirmed strategy as the "primary" for per-size tracking (mirrors
+      // how myDetectedStrategy is used in saveGameStats).
+      const primary = confirmed[0];
+      if (authUser && db) {
+        const docRef = db.collection("users").doc(authUser.uid);
+        docRef.get().then(snap => {
+          if (!snap.exists) return;
+          const cStats = snap.data()?.stats || {};
+          const _prevCounts = (cStats.strategy_play_counts && typeof cStats.strategy_play_counts === "object") ? cStats.strategy_play_counts : {};
+          const _newCounts = { ..._prevCounts };
+          confirmed.forEach(label => { _newCounts[label] = (Number(_newCounts[label]) || 0) + 1; });
+          const _topStrat = Object.entries(_newCounts).sort((a, b) => b[1] - a[1])[0];
+          const upd = {
+            "stats.strategy_play_counts": _newCounts,
+            "stats.most_played_strategy": _topStrat ? _topStrat[0] : primary,
+          };
+          if (!isNaN(playerCount) && playerCount >= 2 && playerCount <= 10) {
+            const _prevBySize = (cStats.most_played_strategy_by_size && typeof cStats.most_played_strategy_by_size === "object") ? cStats.most_played_strategy_by_size : {};
+            upd["stats.most_played_strategy_by_size"] = { ..._prevBySize, [String(playerCount)]: primary };
+          }
+          docRef.update(upd).catch(() => {});
+        }).catch(() => {});
+      } else {
+        // Guest path: update the guest stats object via the real getter/saver
+        // (keyed per nickname under fish_guest_stats_v1::). Writing a raw
+        // localStorage key here would never be read back by the stats UI.
+        try {
+          const getG  = (typeof window.__fishGuestStatsGet  === "function") ? window.__fishGuestStatsGet  : null;
+          const saveG = (typeof window.__fishGuestStatsSave === "function") ? window.__fishGuestStatsSave : null;
+          if (getG && saveG) {
+            const gs = getG() || {};
+            const _pc = (gs.strategy_play_counts && typeof gs.strategy_play_counts === "object") ? gs.strategy_play_counts : {};
+            confirmed.forEach(label => { _pc[label] = (Number(_pc[label]) || 0) + 1; });
+            gs.strategy_play_counts = _pc;
+            const _top = Object.entries(_pc).sort((a, b) => b[1] - a[1])[0];
+            gs.most_played_strategy = _top ? _top[0] : primary;
+            if (!isNaN(playerCount) && playerCount >= 2 && playerCount <= 10) {
+              const _bs = (gs.most_played_strategy_by_size && typeof gs.most_played_strategy_by_size === "object") ? gs.most_played_strategy_by_size : {};
+              _bs[String(playerCount)] = primary;
+              gs.most_played_strategy_by_size = _bs;
+            }
+            saveG(gs);
+            if (typeof updatePhStats === "function") { try { updatePhStats(gs); } catch (_) {} }
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   document.getElementById("pv-endgame-close").addEventListener("click", () => {
+    _saveConfirmedStrategyStats();
     _endgameDismissed = true;
     document.getElementById("pv-endgame-overlay").classList.remove("open");
   });
   document.getElementById("pv-endgame-menu").addEventListener("click", () => {
+    _saveConfirmedStrategyStats();
     returnToMenu();
   });
 
@@ -27051,6 +27306,7 @@
       setLabel("ph-label-avg-pts", "Avg Points Per Game");
       setLabel("ph-label-total-games", "Total Games");
       setLabel("ph-label-wins", "Wins");
+      setLabel("ph-label-hours", "Hours Played");
       setLabel("ph-label-recent-games", "Recent Games");
     }
 
@@ -27670,10 +27926,17 @@
         }
       }
 
-      const hoursEl = $a("stat-hours-played");
+      // Hours in THIS player count (casual playtime for the selected size).
+      // Falls back to the global hours_played only when no per-size data exists
+      // yet (older accounts that predate per-size playtime tracking).
+      const hoursEl = $a("stat-hours-played-pc");
       if (hoursEl) {
-        const h = Number(statsSource.hours_played || 0);
-        hoursEl.textContent = h === 1 ? "1 hr" : `${h} hrs`;
+        const ptBySize = (statsSource.normal_playtime_by_size && typeof statsSource.normal_playtime_by_size === "object") ? statsSource.normal_playtime_by_size : {};
+        const hasPerSize = Object.keys(ptBySize).length > 0;
+        const sizeHours = Number(ptBySize[sKey] ?? ptBySize[size] ?? 0);
+        const h = hasPerSize ? sizeHours : Number(statsSource.hours_played || 0);
+        const hr = Math.round(h * 10) / 10; // one decimal so short games still register
+        hoursEl.textContent = hr === 1 ? "1 hr" : `${hr} hrs`;
       }
 
       renderPhRecentGames(filteredGames);
