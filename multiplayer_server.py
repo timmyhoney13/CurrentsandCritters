@@ -3940,35 +3940,48 @@ class GameRoom:
                     brain = {"weights": fish.default_weights()}
                     self._record_event(f"Brain load warning: {exc}. Continuing with default live weights.")
 
+            # Per-player-count bot: pick the brain trained for THIS table size,
+            # seeded from the shared brain on first use. Bots play each count with
+            # their own learned weights + strategy values.
+            player_count = len(self.seats)
+            cbrain = fish.get_count_brain(brain, player_count)
+            # Turtle learning gate: live bots refuse to play the turtle until this
+            # count's brain has learned it wins games (training unlocks it). Passed
+            # into run_match per-player so concurrent games don't clobber it.
+            try:
+                turtle_gated_flag = not fish.turtle_is_effective(cbrain)
+            except Exception:
+                turtle_gated_flag = False
+
             use_history = fish.use_historical_policy_bias()
             ai_weights = dict(fish.default_weights())
             if use_history:
-                ai_weights.update(brain.get("weights", {}))
+                ai_weights.update(cbrain.get("weights", {}))
             ai_weights = fish.stabilize_weights(ai_weights)
 
-            synergy_map = brain.get("synergy", {}) if use_history and isinstance(brain.get("synergy"), dict) else {}
+            synergy_map = cbrain.get("synergy", {}) if use_history and isinstance(cbrain.get("synergy"), dict) else {}
             species_map = (
-                brain.get("species_synergy", {}) if use_history and isinstance(brain.get("species_synergy"), dict) else {}
+                cbrain.get("species_synergy", {}) if use_history and isinstance(cbrain.get("species_synergy"), dict) else {}
             )
             same_ocean_map = (
-                brain.get("same_ocean_synergy", {})
-                if use_history and isinstance(brain.get("same_ocean_synergy"), dict)
+                cbrain.get("same_ocean_synergy", {})
+                if use_history and isinstance(cbrain.get("same_ocean_synergy"), dict)
                 else {}
             )
             strategy_value_map = (
-                brain.get("strategy_value", {}) if use_history and isinstance(brain.get("strategy_value"), dict) else {}
+                cbrain.get("strategy_value", {}) if use_history and isinstance(cbrain.get("strategy_value"), dict) else {}
             )
             strategy_count_map = (
-                brain.get("strategy_count", {}) if use_history and isinstance(brain.get("strategy_count"), dict) else {}
+                cbrain.get("strategy_count", {}) if use_history and isinstance(cbrain.get("strategy_count"), dict) else {}
             )
             strategy_transition_map = (
-                brain.get("strategy_transition", {})
-                if use_history and isinstance(brain.get("strategy_transition"), dict)
+                cbrain.get("strategy_transition", {})
+                if use_history and isinstance(cbrain.get("strategy_transition"), dict)
                 else {}
             )
             strategy_transition_count_map = (
-                brain.get("strategy_transition_count", {})
-                if use_history and isinstance(brain.get("strategy_transition_count"), dict)
+                cbrain.get("strategy_transition_count", {})
+                if use_history and isinstance(cbrain.get("strategy_transition_count"), dict)
                 else {}
             )
 
@@ -4036,6 +4049,7 @@ class GameRoom:
                 ai_difficulties=ai_difficulties_by_game_idx,
                 tutorial_human_index=tutorial_human_index,
                 tutorial_variant=getattr(self, "tutorial_variant", None),
+                turtle_gated=turtle_gated_flag,
             )
 
             def _safe_score(player: fish.PlayerState) -> int:
@@ -4097,17 +4111,19 @@ class GameRoom:
                     try:
                         with BRAIN_LOCK:
                             brain2 = fish.load_brain(fish.BRAIN_PATH)
+                            # Learn into THIS table size's per-count brain.
+                            cbrain2 = fish.get_count_brain(brain2, len(gs.players))
                             # Full synergy/weight update for human-only games.
                             if human_only_game:
-                                fish.update_brain_from_match(gs, brain2)
+                                fish.update_brain_from_match(gs, cbrain2)
                             # Move-sequence learning runs for every human game.
-                            fish.update_strategy_memory_from_match(gs, brain2, boost=demo_boost)
+                            fish.update_strategy_memory_from_match(gs, cbrain2, boost=demo_boost)
                             # Per-archetype win-rate stats (used to bias future archetype selection).
                             finals = [fish.final_points(gs, p) for p in gs.players]
-                            fish.update_archetype_stats(brain2, gs.players, finals)
+                            fish.update_archetype_stats(cbrain2, gs.players, finals)
                             fish.append_game_memory(brain2, gs, finals)
                             # Human-board reinforcement — highest-signal learning pass.
-                            fish.reinforce_human_demo_from_board(gs, human_indices, brain2, boost=demo_boost)
+                            fish.reinforce_human_demo_from_board(gs, human_indices, cbrain2, boost=demo_boost)
                             fish.save_brain(brain2, fish.BRAIN_PATH)
                         learn_mode = "full_match+human_demo" if human_only_game else "human_demo_only"
                         self._record_event(
@@ -5266,11 +5282,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     if has_priority:
                         results["boosted"] += 1
 
+                    # Learn each replayed game into its own table-size brain.
+                    cbrain = fish.get_count_brain(brain, len(gs.players))
                     try:
-                        fish.update_brain_from_match(gs, brain)
-                        fish.update_strategy_memory_from_match(gs, brain, boost=boost)
+                        fish.update_brain_from_match(gs, cbrain)
+                        fish.update_strategy_memory_from_match(gs, cbrain, boost=boost)
                         if human_indices:
-                            fish.reinforce_human_demo_from_board(gs, human_indices, brain, boost=boost)
+                            fish.reinforce_human_demo_from_board(gs, human_indices, cbrain, boost=boost)
                     except Exception:
                         results["errors"] += 1
                         continue

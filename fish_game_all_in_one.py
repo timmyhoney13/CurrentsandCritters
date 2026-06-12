@@ -2087,6 +2087,16 @@ def load_brain(path: str = BRAIN_PATH) -> Dict[str, object]:
                 brain["games_played"] = data["games_played"]
             if isinstance(data.get("move_updates"), int):
                 brain["move_updates"] = data["move_updates"]
+            # Per-player-count brains: a separate learnable mini-brain per table
+            # size (2..8). load_brain rebuilds the brain from scratch, so this
+            # block is required or every per-count slot would be silently dropped.
+            if isinstance(data.get("by_count"), dict):
+                by_count: Dict[str, Dict[str, Any]] = {}
+                for ck, cv in data["by_count"].items():
+                    if isinstance(ck, str) and ck.isdigit() and isinstance(cv, dict):
+                        by_count[ck] = _validate_count_brain(cv)
+                if by_count:
+                    brain["by_count"] = by_count
     except Exception as e:
         raise BrainFileCorruptionError(brain_fix_prompt(path, f"Validation error: {e}")) from e
     brain["weights"] = stabilize_weights(dict(brain.get("weights", {})))
@@ -2118,6 +2128,174 @@ def save_brain(brain: Dict[str, object], path: str = BRAIN_PATH) -> None:
                 os.remove(tmp_path)
             except OSError:
                 pass
+
+
+# ──────────────────────────────────────────────────────────────────────────
+#  PER-PLAYER-COUNT BRAINS
+#  Each table size (2..8) learns its own bot: you play a 2-player game very
+#  differently from a 6-player one (different turn counts, different strategy
+#  payoffs), so weights + synergies + strategy values are kept per count. Every
+#  count is SEEDED from the shared/legacy top-level brain the first time it is
+#  used, then diverges as that size trains and is played.
+# ──────────────────────────────────────────────────────────────────────────
+
+# Learnable maps that make up one count's mini-brain. game_memory is kept global
+# (top-level only) so the file does not balloon with 8 copies of match history.
+LEARNABLE_BRAIN_MAPS = (
+    "weights",
+    "synergy",
+    "species_synergy",
+    "same_ocean_synergy",
+    "strategy_value",
+    "strategy_count",
+    "strategy_transition",
+    "strategy_transition_count",
+    "strategy_family_stats",
+    "archetype_stats",
+)
+
+# Player counts that get their own learnable bot.
+COUNT_BRAIN_MIN = 2
+COUNT_BRAIN_MAX = 8
+
+# Turtle (Loggerhead Sea Turtle) learning gate. Live bots refuse to PLAY the
+# turtle until their count's brain has seen it win enough finished games to
+# "understand" it; training keeps it OFF so the bot can explore + learn.
+TURTLE_MIN_ATTEMPTS = 8       # finished games with a turtle on a player's board
+TURTLE_MIN_WINS = 3           # of those, how many the turtle-player won
+_TURTLE_SUPPRESS = False      # set per game by the orchestrator (live vs train)
+
+
+def set_turtle_suppressed(flag: bool) -> None:
+    """Live games set True until the count's brain has learned the turtle;
+    training sets False so the bot can explore the turtle and accumulate data."""
+    global _TURTLE_SUPPRESS
+    _TURTLE_SUPPRESS = bool(flag)
+
+
+def turtle_suppressed() -> bool:
+    return _TURTLE_SUPPRESS
+
+
+def _empty_count_brain() -> Dict[str, Any]:
+    return {
+        "weights": default_weights(),
+        "synergy": {},
+        "species_synergy": {},
+        "same_ocean_synergy": {},
+        "strategy_value": {},
+        "strategy_count": {},
+        "strategy_transition": {},
+        "strategy_transition_count": {},
+        "strategy_family_stats": {},
+        "archetype_stats": {},
+        "turtle_stats": {"attempts": 0.0, "wins": 0.0},
+        "games_played": 0,
+        "move_updates": 0,
+    }
+
+
+def _validate_count_brain(cv: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate/coerce one persisted per-count mini-brain on load."""
+    out = _empty_count_brain()
+    if isinstance(cv.get("weights"), dict):
+        merged = default_weights()
+        merged.update({k: float(v) for k, v in cv["weights"].items() if isinstance(v, (int, float))})
+        out["weights"] = stabilize_weights(merged)
+    for key in ("synergy", "species_synergy", "same_ocean_synergy", "strategy_value", "strategy_transition"):
+        src = cv.get(key)
+        if isinstance(src, dict):
+            out[key] = {str(k): float(v) for k, v in src.items() if isinstance(v, (int, float))}
+    for key in ("strategy_count", "strategy_transition_count"):
+        src = cv.get(key)
+        if isinstance(src, dict):
+            out[key] = {str(k): int(v) for k, v in src.items() if isinstance(v, (int, float)) and int(v) >= 0}
+    if isinstance(cv.get("strategy_family_stats"), dict):
+        fam: Dict[str, Dict[str, float]] = {}
+        for k, v in cv["strategy_family_stats"].items():
+            if isinstance(k, str) and isinstance(v, dict):
+                fam[k] = {
+                    "games": float(v.get("games", 0.0)),
+                    "wins": float(v.get("wins", 0.0)),
+                    "score_sum": float(v.get("score_sum", 0.0)),
+                    "winner_notes": float(v.get("winner_notes", 0.0)),
+                }
+        out["strategy_family_stats"] = fam
+    if isinstance(cv.get("archetype_stats"), dict):
+        arch: Dict[str, Dict[str, float]] = {}
+        for k, v in cv["archetype_stats"].items():
+            if isinstance(k, str) and isinstance(v, dict):
+                arch[k] = {
+                    "games": float(v.get("games", 0.0)),
+                    "wins": float(v.get("wins", 0.0)),
+                    "score_sum": float(v.get("score_sum", 0.0)),
+                }
+        out["archetype_stats"] = arch
+    if isinstance(cv.get("turtle_stats"), dict):
+        ts = cv["turtle_stats"]
+        out["turtle_stats"] = {
+            "attempts": float(ts.get("attempts", 0.0)),
+            "wins": float(ts.get("wins", 0.0)),
+        }
+    if isinstance(cv.get("games_played"), int):
+        out["games_played"] = cv["games_played"]
+    if isinstance(cv.get("move_updates"), int):
+        out["move_updates"] = cv["move_updates"]
+    return out
+
+
+def get_count_brain(brain: Dict[str, object], num_players: int) -> Dict[str, object]:
+    """Return the learnable mini-brain for this table size, creating it (seeded
+    from the shared top-level brain) on first use. All policy reads and learning
+    writes for a game of ``num_players`` players should go through this slot."""
+    try:
+        n = int(num_players)
+    except (TypeError, ValueError):
+        n = 0
+    n = max(COUNT_BRAIN_MIN, min(COUNT_BRAIN_MAX, n)) if n > 0 else COUNT_BRAIN_MIN
+    key = str(n)
+    by_count = brain.get("by_count")
+    if not isinstance(by_count, dict):
+        by_count = {}
+        brain["by_count"] = by_count
+    slot = by_count.get(key)
+    if not isinstance(slot, dict):
+        # Seed this count from the shared/legacy top-level brain so it starts
+        # with all existing learning, then diverges from here.
+        slot = _empty_count_brain()
+        for mk in LEARNABLE_BRAIN_MAPS:
+            src = brain.get(mk)
+            if isinstance(src, dict):
+                slot[mk] = copy.deepcopy(src)
+        by_count[key] = slot
+    # Repair older slots that predate turtle tracking.
+    if not isinstance(slot.get("turtle_stats"), dict):
+        slot["turtle_stats"] = {"attempts": 0.0, "wins": 0.0}
+    return slot
+
+
+def record_turtle_outcome(cbrain: Dict[str, object], gs: "GameState", winners: List["PlayerState"]) -> None:
+    """Track, per count, how often a turtle-on-board player WINS — the signal the
+    live gate uses to decide the bot 'understands' the turtle."""
+    ts = cbrain.get("turtle_stats")
+    if not isinstance(ts, dict):
+        ts = {"attempts": 0.0, "wins": 0.0}
+        cbrain["turtle_stats"] = ts
+    winner_set = set(id(w) for w in winners)
+    for p in gs.players:
+        names = [gs.card_db[uid].name.strip().lower() for uid in player_board_face_uids(p)]
+        if "loggerhead sea turtle" in names:
+            ts["attempts"] = float(ts.get("attempts", 0.0)) + 1.0
+            if id(p) in winner_set:
+                ts["wins"] = float(ts.get("wins", 0.0)) + 1.0
+
+
+def turtle_is_effective(cbrain: Dict[str, object]) -> bool:
+    """True once this count's brain has enough winning turtle games to 'understand' it."""
+    ts = cbrain.get("turtle_stats") if isinstance(cbrain, dict) else None
+    if not isinstance(ts, dict):
+        return False
+    return float(ts.get("attempts", 0.0)) >= TURTLE_MIN_ATTEMPTS and float(ts.get("wins", 0.0)) >= TURTLE_MIN_WINS
 
 
 def is_ocean(card: CardDef) -> bool:
@@ -4128,6 +4306,13 @@ def maybe_reassess_strategy_family(
 
     current_label = str(player.flags.get("_strategy_family", "")).strip().lower()
 
+    # PIVOTING REMOVED: a bot commits to ONE strategy and trains/plays it to the
+    # end. Constant mid-game pivoting was hurting results, so once a strategy
+    # family is chosen we never switch away from it — we only adopt one the first
+    # time (when none is set yet). Everything below this guard is pure adoption.
+    if current_label:
+        return None
+
     # Snap-shot hand + board + visible pool — pool cards available
     # for drawing should reward strategies that can pick them up.
     pool_uids = list(ms.pool)
@@ -5035,7 +5220,15 @@ def action_archetype_bonus(
     turtle_burst_ready = hand_after_size >= 7 and cheap_hand_cards >= 4 and cheap_density >= 0.5
     turtle_almost_ready = hand_after_size >= 6 and cheap_hand_cards >= 3 and cheap_density >= 0.45
     if cname == "loggerhead sea turtle":
-        if turtle_burst_ready:
+        # Per-player turtle gate (thread-safe: set per game in run_match). Falls
+        # back to the module default for standalone self-play drivers.
+        turtle_gated = bool(player.flags.get("_turtle_gated", turtle_suppressed()))
+        if turtle_gated:
+            # Learning gate: until this table size's brain has learned the turtle
+            # wins games (see turtle_is_effective), refuse to PLAY it — a hard
+            # avoid so it is only ever played if it is the sole legal move.
+            bonus -= 100.0
+        elif turtle_burst_ready:
             bonus += 2.2 + min(2.8, 0.55 * cheap_hand_cards)
         elif turtle_almost_ready:
             bonus += 0.25 + min(0.6, 0.2 * cheap_hand_cards)
@@ -5043,11 +5236,12 @@ def action_archetype_bonus(
         else:
             # User strategy: do NOT spend turtle early; wait for a loaded hand.
             bonus -= 4.8
-        if hand_after_size <= 5:
-            bonus -= 1.8
-        if cheap_density < 0.45:
-            bonus -= 1.4
-        bonus -= min(1.2, 0.25 * expensive_hand_cards)
+        if not turtle_gated:
+            if hand_after_size <= 5:
+                bonus -= 1.8
+            if cheap_density < 0.45:
+                bonus -= 1.4
+            bonus -= min(1.2, 0.25 * expensive_hand_cards)
     if logger_count > 0 and card.cost <= 1:
         bonus += min(2.3, 0.65 * logger_count)
     if cname == "roosterfish":
@@ -6127,12 +6321,21 @@ def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState)
     acts = [a for a in legal_actions(gs, ms, player, include_draw=True) if a.kind != "end_turn"]
     if not acts:
         return []
+    play_acts = [a for a in acts if a.kind not in {"draw", "end_turn"}]
     # If already at hand limit, avoid drawing (draw → immediate end-of-turn discard
     # is wasteful). Only suppress draws when play actions exist so the AI isn't stuck.
-    if len(player.hand) >= HAND_LIMIT:
-        play_acts = [a for a in acts if a.kind not in {"draw", "end_turn"}]
-        if play_acts:
-            acts = play_acts
+    if len(player.hand) >= HAND_LIMIT and play_acts:
+        acts = play_acts
+    # Final round = this bot's LAST turn: always play instead of drawing a card it
+    # can never use before the game ends. Never draw on the last turn.
+    elif getattr(ms, "end_game_triggered", False) and play_acts:
+        acts = play_acts
+    # Hand has nothing worth playing ("doesn't like its hand"): when the bot draws
+    # to fish for a better card, draw from the DECK — never grab from the pool.
+    elif not play_acts:
+        deck_draws = [a for a in acts if a.kind == "draw" and a.draw_from_pool <= 0]
+        if deck_draws:
+            acts = deck_draws
     star_keys = {
         (a.kind, a.card_uid, a.face_uid if a.face_uid is not None else a.card_uid, a.ocean_uid)
         for a in acts
@@ -6191,14 +6394,24 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         return
 
     top_score = scores[ranked[0].name]
-    # Quality gate: only learn from balanced, developed 4- and 5-player games.
-    # Scores differ too much across player counts to threshold fairly, so we
-    # train only on 4P/5P games with a real winner (top score >= 100). What's
-    # learned there generalizes to every player count via the shared brain.
-    if len(gs.players) not in (4, 5) or top_score < 100.0:
+    # Quality gate: only learn from balanced, developed games with a real winner.
+    # Each table size now learns into its OWN per-count brain (see get_count_brain),
+    # so we no longer restrict learning to 4P/5P — we just require a developed
+    # game. Smaller tables score lower, so the winner floor scales with size.
+    n_players = len(gs.players)
+    min_top = 100.0
+    if n_players <= 2:
+        min_top = 55.0
+    elif n_players == 3:
+        min_top = 80.0
+    if top_score < min_top:
         return
     winners = [p for p in ranked if scores[p.name] == top_score]
     losers = [p for p in ranked if scores[p.name] < top_score]
+
+    # Per-count turtle learning signal: how often a turtle-on-board player wins.
+    # This is what the live gate reads to decide the bot 'understands' the turtle.
+    record_turtle_outcome(brain, gs, winners)
 
     # Learn card combinations from winners and dampen losing combinations.
     # Rates are 2-3× higher than self-play to learn fast from real human games.
@@ -10065,6 +10278,7 @@ def run_match(
     ai_difficulties: Optional[List[str]] = None,
     tutorial_human_index: Optional[int] = None,
     tutorial_variant: Optional[str] = None,
+    turtle_gated: Optional[bool] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
     web_control_mode = str(os.environ.get("FISH_WEB_CONTROL", "")).strip().lower() in {
@@ -10114,6 +10328,13 @@ def run_match(
             p.flags["_ai_strategy_weight"] = float(cfg["strategy_weight"])
             p.flags["_ai_explore_chance"]  = float(cfg["explore_chance"])
             p.flags["_ai_payment_smart"]   = bool(cfg["payment_smart"])
+
+    # Turtle learning gate, snapshotted per-player so concurrent games (a live
+    # server hosting different table sizes at once) never clobber each other.
+    if turtle_gated is not None:
+        for i, p in enumerate(players):
+            if i not in human_idx_set:
+                p.flags["_turtle_gated"] = bool(turtle_gated)
 
     start_game(gs, starting_hand=8, shuffle=False)
     perform_mulligans(gs, ms)
