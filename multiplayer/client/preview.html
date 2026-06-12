@@ -32760,7 +32760,7 @@
     { target: () => (document.getElementById("ph-game-detail-modal")?.classList.contains("open")
         ? document.getElementById("ph-gdm-box") : document.getElementById("ph-panel-history")),
       badge: "History Tab", title: "Match History",
-      interactive: true,
+      interactive: true, popAnchor: "top",
       advanceWhen: tutSampleAllOppsViewed,
       cta: { label: "View a sample match", onClick: () => showSampleMatch() },
       text: "The <strong>History</strong> tab lets you reopen any past match and see exactly what every player had on their board, along with the final scores. Select the button below to open a real example — a game played by <strong>TheFishManTim</strong>. Then <strong>tap each of the other players</strong> (CoralCara, ReefRiley, KelpQuinn) to inspect their boards." },
