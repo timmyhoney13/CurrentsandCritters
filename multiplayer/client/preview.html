@@ -14327,9 +14327,16 @@
           // Sea Cucumber — count every Sea Cucumber card played this game (avatar: 25 lifetime plays).
           if (invName === "sea cucumber")
             _gameAchTracker.seaCucumberPlayedThisGame = (_gameAchTracker.seaCucumberPlayedThisGame || 0) + 1;
-          // Coral species — count all Coral cards played this game (Frigatebird avatar: 7 in one game).
-          if (invSpecies === "coral")
-            _gameAchTracker.coralCardsPlayed = (_gameAchTracker.coralCardsPlayed || 0) + 1;
+          // Frigatebird avatar: 7 Coral cards played onto a Coral Reef ocean in one game.
+          if (invSpecies === "coral") {
+            const targetOceanUid = Number(action.ocean_uid ?? -1);
+            const playedOnCoralReef = (Array.isArray(myBoard) ? myBoard : []).some(o =>
+              Number(o.ocean_uid) === targetOceanUid &&
+              String(o.ocean?.name || "").trim().toLowerCase() === "coral reef"
+            );
+            if (playedOnCoralReef)
+              _gameAchTracker.coralCardsPlayed = (_gameAchTracker.coralCardsPlayed || 0) + 1;
+          }
           // All Bait Fish played this game (Roosterfish avatar: 250 lifetime total).
           if (invSpecies === "baitfish")
             _gameAchTracker.baitfishPlayedThisGame = (_gameAchTracker.baitfishPlayedThisGame || 0) + 1;
@@ -15416,6 +15423,15 @@
       // false unlocks. Also reset the challenge-observer diff state.
       try { window.__fishResetGameAchTracker?.(roomId); } catch {}
       try { _resetChallengeObservers(); } catch {}
+      // Clear any strategies the player had active in a previous game so the
+      // card highlights don't carry over. They can re-select fresh each game.
+      try {
+        if (typeof _activeStrategies !== "undefined") {
+          _activeStrategies.clear();
+          _saveActiveStrategies();
+          _applyStrategyHighlights();
+        }
+      } catch (_) {}
       // Snapshot which challenges are already done so we can show what was earned THIS game
       try {
         if (typeof window._getCompletedChallengeSnapshot === "function") {
@@ -20979,7 +20995,7 @@
             if (await window.__fishGrantUnlockedIcon?.(ra.img)) _queueAnimalUnlock(ra.id);
           }
         }
-        // Frigatebird — 7 Coral species cards played in one game.
+        // Frigatebird — 7 Coral cards played onto Coral Reef oceans in one game.
         if (Number(_gameAchTracker?.coralCardsPlayed || 0) >= 7
             && await window.__fishGrantUnlockedIcon?.("/avatars/magnificent-frigatebird.png")) _queueAnimalUnlock("magnificent-frigatebird");
         // Roosterfish — 250 total Bait Fish played across all games.
@@ -22263,7 +22279,7 @@
       unlock:{ type:"event", event:"tutorial_complete", label:"Complete all 3 tutorials." } },
     { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
       facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
-      unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Coral species cards in one game." } },
+      unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Corals on Coral Reefs in one game." } },
     { id:"razorbill-auk", name:"Razorbill Auk", species:"Birds", img:"/avatars/razorbill-auk.png",
       facts:"Chicks leap from cliffside nests before they can fly, then swim with their parents to learn how to forage.",
       unlock:{ type:"event", event:"razorbill_double", label:"Play both Razorbill Auks in one turn in a 4-player game." } },
@@ -22718,7 +22734,7 @@
       baitfishPlayedThisGame: 0,   // ALL Bait Fish played this game (Roosterfish avatar — 250 lifetime)
       tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
       tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
-      coralCardsPlayed: 0,         // Coral species cards played this game (Frigatebird avatar — 7 in one game)
+      coralCardsPlayed: 0,         // Coral cards played onto a Coral Reef ocean this game (Frigatebird avatar — 7 in one game)
       grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
       giantSquidViaGBC: false,     // a Giant Squid played via a free-cephalopod window (only Grooved Brain Coral opens these)
       bobtailSquidViaGBC: false,   // a Bobtail Squid played via a free-cephalopod window
