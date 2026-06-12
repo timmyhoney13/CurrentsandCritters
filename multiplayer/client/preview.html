@@ -14790,28 +14790,64 @@
     return u;
   }
 
+  // Label keywords → animal family. Used to work out which families a strategy
+  // is genuinely BUILT AROUND (its "core" families), versus cross-family support
+  // cards it merely benefits from (e.g. Birds likes crustaceans for the Seagull).
+  const _FAMILY_KEYWORDS = [
+    ["bird", "bird"], ["lobster", "crustacean"], ["crustacean", "crustacean"],
+    ["coral", "coral"], ["cephalopod", "cephalopod"], ["mammal", "mammal"],
+    ["baitfish", "baitfish"], ["yellowfin", "game fish"], ["tuna", "game fish"],
+    ["salmon", "game fish"], ["game fish", "game fish"], ["moon", "crosscurrent"],
+    ["cross", "crosscurrent"], ["invertebrate", "invertebrate"],
+    ["ocean", "ocean"], ["blue", "ocean"],
+  ];
+  // The families a strategy is actually about: its author-set primary family
+  // (_STRAT_PRIMARY) plus any families named in its label. Custom strategies (no
+  // primary, free-text label) fall back to every family they contain.
+  function _strategyCoreFamilies(s, idx) {
+    const fams = new Set();
+    if (idx < _STRAT_PRIMARY.length && _STRAT_PRIMARY[idx]) fams.add(_normFamily(_STRAT_PRIMARY[idx]));
+    const lbl = String(s.label || "").toLowerCase();
+    for (const [kw, fam] of _FAMILY_KEYWORDS) if (lbl.includes(kw)) fams.add(fam);
+    if (!fams.size) for (const c of (s.cards || [])) fams.add(_normFamily(c.species));
+    return fams;
+  }
+
   // Apply strategy highlighting to every relevant card. Non-invasive: adds an
   // outline/glow and small corner tags, never alters card logic.
-  //  • Hand + pool cards can be played as either face, so they match the
-  //    physical card (pair key) — this is what fixes strategies whose animal
-  //    sits on the back face (Crustaceans, Mammals, Cephalopods, etc.).
+  //  • Hand + pool cards can be played as either face. We match the physical
+  //    card (pair key) ONLY for the strategy's CORE families — this is what
+  //    lets a strategy whose animal sits on the back face still light up
+  //    (Crustaceans, Mammals, Cephalopods…). Cross-family SUPPORT cards match
+  //    by exact face only, so e.g. a Baitfish card whose back happens to be a
+  //    crustacean is never mislabelled as part of the Birds strategy.
   //  • Board cards (mine, opponents, the full-screen focus view, the hover
   //    peek) are committed to one face, so they match that exact face only.
   function _applyStrategyHighlights() {
     document.querySelectorAll(".strat-hl").forEach(el => { el.classList.remove("strat-hl"); el.style.removeProperty("--strat-c"); });
     document.querySelectorAll(".strat-tags").forEach(el => el.remove());
     if (!_activeStrategies.size) return;
-    const pairMap  = new Map(); // pairKey -> [stratIdx,...]  (hand / pool)
-    const exactMap = new Map(); // faceUid -> [stratIdx,...]  (boards)
+    const pairMap  = new Map(); // pairKey -> [stratIdx,...]  (hand / pool, core families only)
+    const exactMap = new Map(); // faceUid -> [stratIdx,...]  (boards + exact hand/pool match)
     const push = (map, key, idx) => {
       if (!map.has(key)) map.set(key, []);
       if (!map.get(key).includes(idx)) map.get(key).push(idx);
     };
     for (const idx of _activeStrategies) {
-      const s = HELP_STRATEGIES[idx]; if (!s || !Array.isArray(s.uids)) continue;
-      for (const u of s.uids) {
-        push(pairMap, _stratPairKey(u), idx);
-        push(exactMap, Number(u), idx);
+      const s = HELP_STRATEGIES[idx]; if (!s) continue;
+      const cards = Array.isArray(s.cards) ? s.cards : null;
+      if (cards && cards.length) {
+        const core = _strategyCoreFamilies(s, idx);
+        for (const c of cards) {
+          const isCore = core.has(_normFamily(c.species));
+          for (const u of (c.uids || [])) {
+            push(exactMap, Number(u), idx);                 // committed face (board + exact hand)
+            if (isCore) push(pairMap, _stratPairKey(u), idx); // back-face match for core families only
+          }
+        }
+      } else if (Array.isArray(s.uids)) {
+        // Defensive fallback (a strategy with uids but no card list): old behaviour.
+        for (const u of s.uids) { push(pairMap, _stratPairKey(u), idx); push(exactMap, Number(u), idx); }
       }
     }
     const decorate = (el, strs) => {
@@ -14834,9 +14870,15 @@
       tags.innerHTML = shown + more;
       el.appendChild(tags);
     };
-    // Hand + pool: match the physical card (either face).
+    // Hand + pool: a card matches if its shown face is the physical card of one
+    // of a strategy's CORE families (pair key), OR its shown face is exactly a
+    // card the strategy lists (covers cross-family support cards shown directly).
     document.querySelectorAll("#pv-hand .pv-hand-card, #pv-pool-wrap .pv-pool-card").forEach(el => {
-      decorate(el, pairMap.get(_stratPairKey(el.dataset.faceUid)));
+      const fu = Number(el.dataset.faceUid);
+      const a = pairMap.get(_stratPairKey(fu)) || [];
+      const b = exactMap.get(fu) || [];
+      const merged = b.length ? a.concat(b.filter(x => !a.includes(x))) : a;
+      decorate(el, merged);
     });
     // Every board surface: match the committed face. Covers my board, the
     // always-visible opponent boards, the click-to-open focus view, and the
