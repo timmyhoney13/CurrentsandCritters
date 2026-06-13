@@ -2020,21 +2020,7 @@
     .pv-hand-card.star-sym-match.pay-selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 20px rgba(240,200,64,.75), 0 0 36px rgba(240,200,64,.35); }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
 
-    /* cost badge */
-    .pv-cost-badge {
-      position: absolute; top: 5px; left: 5px;
-      min-width: 24px; height: 24px; padding: 0 5px;
-      background: linear-gradient(135deg, #2A5AAC, #1A3E88);
-      border: 1.5px solid #4080D0;
-      border-radius: 12px;
-      font-size: 11px; font-weight: 900; color: var(--cyan);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 4; white-space: nowrap;
-    }
-    .pv-cost-badge.free { background: linear-gradient(135deg, #1E4A90, #14367A); border-color: rgba(34,216,248,.5); color: var(--cyan); }
-    .pv-cost-badge-dual { font-size: 9px; letter-spacing: 0; }
-
-    /* symbol pip — top-right */
+/* symbol pip — top-right */
     .pv-sym-pip {
       position: absolute; top: 4px; right: 4px;
       font-size: 11px;
@@ -4835,6 +4821,90 @@
     .ph-name-chip.active {
       color: #567494;
     }
+    /* ── Alpha version banner (between the player name and the Level badge) ── */
+    .ph-alpha-banner {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 9px 14px;
+      border-radius: 13px;
+      border: 1px solid rgba(74,139,212,.32);
+      background: linear-gradient(135deg, rgba(234,245,255,.96) 0%, rgba(220,239,255,.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 8px rgba(28,90,150,.08);
+    }
+    .ph-alpha-banner.update-available {
+      border-color: rgba(225,150,30,.55);
+      background: linear-gradient(135deg, rgba(255,247,228,.97) 0%, rgba(255,238,205,.97) 100%);
+      animation: phAlphaPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes phAlphaPulse {
+      0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 8px rgba(225,150,30,.18); }
+      50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 16px rgba(225,150,30,.42); }
+    }
+    .ph-alpha-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .ph-alpha-tag {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #2d8be0 0%, #1e63b8 100%);
+      color: #fff;
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      box-shadow: 0 1px 4px rgba(30,99,184,.4);
+    }
+    .ph-alpha-banner.update-available .ph-alpha-tag {
+      background: linear-gradient(135deg, #f0a020 0%, #d4800e 100%);
+      box-shadow: 0 1px 4px rgba(212,128,14,.45);
+    }
+    .ph-alpha-msg {
+      font-size: .86rem;
+      font-weight: 700;
+      color: #2b5f9e;
+      line-height: 1.25;
+    }
+    .ph-alpha-banner.update-available .ph-alpha-msg { color: #9a5a05; }
+    .ph-alpha-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .ph-alpha-whatsnew, .ph-alpha-refresh {
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 6px 13px;
+      font-size: .8rem;
+      transition: transform .12s ease, box-shadow .12s ease, background .15s ease;
+    }
+    .ph-alpha-whatsnew {
+      background: rgba(255,255,255,.85);
+      border: 1px solid rgba(74,139,212,.4);
+      color: #1e63b8;
+    }
+    .ph-alpha-whatsnew:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(30,99,184,.22); background: #fff; }
+    .ph-alpha-refresh {
+      background: linear-gradient(135deg, #f0a020 0%, #d4800e 100%);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(212,128,14,.35);
+    }
+    .ph-alpha-refresh:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212,128,14,.5); }
     .ph-pfc {
       font-size: 1.12rem;
       color: #2b6ec3;
@@ -8957,6 +9027,33 @@
       background: rgba(4,18,40,.65); align-items: center; justify-content: center;
     }
     #ph-season-modal.open { display: flex; }
+    #ph-whatsnew-modal {
+      position: fixed; inset: 0; z-index: 10000; display: none;
+      background: rgba(4,18,40,.65); align-items: center; justify-content: center;
+    }
+    #ph-whatsnew-modal.open { display: flex; }
+    .ph-whatsnew-box {
+      background: linear-gradient(160deg,#f0f8ff 0%,#e8f4fd 100%);
+      border: 1px solid rgba(34,120,240,.28); border-radius: 16px;
+      width: 90%; max-width: 500px; max-height: 82vh; overflow-y: auto;
+      padding: 20px 22px; box-shadow: 0 12px 48px rgba(4,18,80,.22);
+    }
+    .ph-whatsnew-title { font-size: 1.15rem; font-weight: 900; color: #0d3a78; }
+    .ph-whatsnew-sub { font-size: .82rem; font-weight: 700; color: #4a78b8; margin-bottom: 14px; }
+    .ph-wn-entry {
+      padding: 11px 13px; margin-bottom: 9px; border-radius: 11px;
+      background: rgba(255,255,255,.78); border: 1px solid rgba(34,120,240,.14);
+    }
+    .ph-wn-entry-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    }
+    .ph-wn-ver {
+      font-size: .72rem; font-weight: 900; color: #fff; letter-spacing: .04em;
+      background: linear-gradient(135deg,#2d8be0,#1e63b8); padding: 3px 9px; border-radius: 999px;
+    }
+    .ph-wn-entry-title { font-size: .95rem; font-weight: 800; color: #0e2f5a; }
+    .ph-wn-list { margin: 0; padding-left: 18px; }
+    .ph-wn-list li { font-size: .86rem; color: #335c8a; line-height: 1.45; margin-bottom: 3px; }
     .ph-season-modal-box {
       background: linear-gradient(160deg,#f0f8ff 0%,#e8f4fd 100%);
       border: 1px solid rgba(34,120,240,.28); border-radius: 16px;
@@ -10191,8 +10288,7 @@
       <div class="ph-pinfo">
         <div class="ph-pname-row">
           <div class="ph-pname" id="stats-lobby-nick">—</div>
-          <svg class="ph-verified" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.4 8.6-7 10-3.6-1.4-7-5-7-10V5l7-3z" fill="#1d73da"/><path d="M12 6v9M9 9h6M10 12h4" stroke="#f8fdff" stroke-width="1.8" stroke-linecap="round"/></svg>
-          <!-- Level and Active chips removed — duplicated by XP card and meta chips -->
+          <!-- Verified badge removed; Level/Active chips live in the XP card + meta chips -->
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
         <div class="ph-pmeta2">
@@ -10204,6 +10300,17 @@
             <span class="ph-meta-chip-ico">🔥</span>
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">—</span></span>
           </span>
+        </div>
+        <!-- Alpha version banner: shows the build, whether a refresh is needed, and a What's New link. Sits between the name and the Level badge. -->
+        <div class="ph-alpha-banner" id="ph-alpha-banner">
+          <div class="ph-alpha-left">
+            <span class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.0</span>
+            <span class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</span>
+          </div>
+          <div class="ph-alpha-actions">
+            <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
+            <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
+          </div>
         </div>
       </div>
       <div class="ph-pranks">
@@ -12058,6 +12165,18 @@
   </div>
 </div>
 
+<!-- What's New modal -->
+<div id="ph-whatsnew-modal" role="dialog" aria-modal="true" aria-label="What's New">
+  <div class="ph-whatsnew-box">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <div class="ph-whatsnew-title">✨ What's New</div>
+      <button id="ph-whatsnew-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
+    </div>
+    <div class="ph-whatsnew-sub" id="ph-whatsnew-sub">Currents &amp; Critters · Alpha V1.0</div>
+    <div id="ph-whatsnew-body"></div>
+  </div>
+</div>
+
 <script>
   /* ================================================================
    * Currents & Critters — multiplayer client
@@ -12066,6 +12185,34 @@
 
   window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
   const CARD_IMAGE_VERSION = "20260419-full159";
+
+  // ── App version + update detection ──────────────────────────────────────
+  // APP_VERSION → shown in the Alpha badge. APP_BUILD → bumped on every deploy;
+  // the client polls /version.json and prompts a refresh when the served build differs.
+  const APP_VERSION = "1.0";
+  const APP_BUILD   = "2026-06-13.1";
+
+  // Quick changelog shown in the "What's New" modal — newest first.
+  const APP_CHANGELOG = [
+    { ver: "Alpha V1.0", title: "Player Home polish", items: [
+      "New Alpha version banner with a one-tap refresh when fresh features ship.",
+      "Added this “What’s New” summary so you always know what changed.",
+      "Cleaned up the profile header — removed the badge next to your name.",
+    ]},
+    { ver: "v348", title: "Smarter AI learning", items: [
+      "AI uses n-step credit and is far better at synergising with human players.",
+      "Plan-aware draw/discard decisions for tougher, more natural bots.",
+    ]},
+    { ver: "v347", title: "Per-player-count AI brains", items: [
+      "Separate AI brains tuned for each table size, plus improved AI card draws.",
+    ]},
+    { ver: "v346", title: "Hand display fixes", items: [
+      "Correct hand-count display for all players and a dual-cost badge for LR cards.",
+    ]},
+    { ver: "v345", title: "End-game refresh", items: [
+      "Lighter end-game screen and a server-synced “Play Again” ready-up.",
+    ]},
+  ];
 
   function pad2(n) { return String(n).padStart(2, "0"); }
   // Returns the object-position value so the board card naturally shows
@@ -19217,31 +19364,6 @@
       const sym = face.symbol || "";
       card.appendChild(inner);
 
-      // cost badge(s) on the hand card
-      const allFacesForBadge = Array.isArray(entry.faces) && entry.faces.length > 1 ? entry.faces : [face];
-      const hasDualCost = allFacesForBadge.length > 1 && Number(allFacesForBadge[0].cost??0) !== Number(allFacesForBadge[1].cost??0);
-      if (hasDualCost) {
-        // Two faces with different costs — show "←2 / →FREE" in a wider pill
-        const dirArrows = { left:"←", right:"→", up:"↑", down:"↓" };
-        const parts = allFacesForBadge.map(f => {
-          const fc = Number(f.cost??0);
-          const arrow = dirArrows[String(f.direction||"").trim().toLowerCase()] || "";
-          return arrow + (fc===0?"FREE":fc);
-        });
-        const badge = document.createElement("div");
-        badge.className = "pv-cost-badge pv-cost-badge-dual";
-        badge.textContent = parts.join(" / ");
-        badge.title = allFacesForBadge.map(f => {
-          const fc = Number(f.cost??0);
-          return `${f.direction||""} slot: costs ${fc===0?"nothing":fc+" card"+(fc!==1?"s":"")}`;
-        }).join(" · ");
-        card.appendChild(badge);
-      } else if (cost > 0) {
-        const badge = document.createElement("div");
-        badge.className = "pv-cost-badge";
-        badge.textContent = String(cost);
-        card.appendChild(badge);
-      }
 
       // tooltip — shows all faces (dual-face horizontal/vertical cards show both animals)
       const tip = document.createElement("div"); tip.className = "pv-tooltip";
@@ -30209,6 +30331,66 @@
       if (btn)   btn.addEventListener("click", openSeasonHistoryModal);
       if (close) close.addEventListener("click", () => modal?.classList.remove("open"));
       if (modal) modal.addEventListener("click", e => { if (!e.target.closest(".ph-season-modal-box")) modal.classList.remove("open"); });
+    })();
+
+    // ── Alpha version banner + What's New modal ───────────────────
+    function openWhatsNewModal() {
+      const modal = document.getElementById("ph-whatsnew-modal");
+      const body  = document.getElementById("ph-whatsnew-body");
+      if (!modal || !body) return;
+      body.innerHTML = APP_CHANGELOG.map(e => `
+        <div class="ph-wn-entry">
+          <div class="ph-wn-entry-head">
+            <span class="ph-wn-ver">${escapeHtml(e.ver)}</span>
+            <span class="ph-wn-entry-title">${escapeHtml(e.title)}</span>
+          </div>
+          <ul class="ph-wn-list">${e.items.map(i => `<li>${escapeHtml(i)}</li>`).join("")}</ul>
+        </div>`).join("");
+      modal.classList.add("open");
+    }
+
+    // Flip the banner into "refresh available" mode when a newer build is live.
+    function markUpdateAvailable(newVersion) {
+      const banner  = document.getElementById("ph-alpha-banner");
+      const msg     = document.getElementById("ph-alpha-msg");
+      const refresh = document.getElementById("ph-alpha-refresh");
+      if (!banner) return;
+      banner.classList.add("update-available");
+      if (msg)     msg.textContent = newVersion
+        ? `New features are out (${newVersion}) — refresh to update!`
+        : "New features are out — refresh to update!";
+      if (refresh) refresh.style.display = "";
+    }
+
+    // Poll /version.json; if the served build differs from the one we loaded,
+    // a new deploy is live, so prompt the player to refresh.
+    async function checkForAppUpdate() {
+      try {
+        const r = await fetch("/version.json?_=" + Date.now(), { cache: "no-store" });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j && j.build && String(j.build) !== APP_BUILD) {
+          markUpdateAvailable(j.version || "");
+        }
+      } catch (_) { /* offline / not deployed yet — leave banner as-is */ }
+    }
+
+    ;(function() {
+      const tag     = document.getElementById("ph-alpha-tag");
+      const wn      = document.getElementById("ph-alpha-whatsnew");
+      const refresh = document.getElementById("ph-alpha-refresh");
+      const close   = document.getElementById("ph-whatsnew-close");
+      const modal   = document.getElementById("ph-whatsnew-modal");
+      if (tag)     tag.textContent = "ALPHA V" + APP_VERSION;
+      if (wn)      wn.addEventListener("click", openWhatsNewModal);
+      if (refresh) refresh.addEventListener("click", () => location.reload());
+      if (close)   close.addEventListener("click", () => modal?.classList.remove("open"));
+      if (modal)   modal.addEventListener("click", e => { if (!e.target.closest(".ph-whatsnew-box")) modal.classList.remove("open"); });
+
+      // Check on load, when the tab regains focus, and every 3 minutes.
+      checkForAppUpdate();
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) checkForAppUpdate(); });
+      setInterval(checkForAppUpdate, 180000);
     })();
 
     // ── Game Detail Modal ─────────────────────────────────────────

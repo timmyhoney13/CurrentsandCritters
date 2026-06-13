@@ -1,4 +1,4 @@
-const APP_CACHE = "fish-multiplayer-v125";
+const APP_CACHE = "fish-multiplayer-v126";
 const CORE_ASSETS = ["/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -30,6 +30,12 @@ self.addEventListener("fetch", (event) => {
   // Never cache cross-origin requests (e.g. game API calls to Render server)
   if (url.origin !== self.location.origin) {
     event.respondWith(fetch(req).catch(() => new Response("", { status: 503 })));
+    return;
+  }
+
+  // Version manifest must always be live so the in-app update prompt is accurate.
+  if (url.pathname === "/version.json") {
+    event.respondWith(fetch(req, { cache: "no-store" }).catch(() => new Response("{}", { status: 503, headers: { "Content-Type": "application/json" } })));
     return;
   }
 
