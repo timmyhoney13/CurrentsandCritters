@@ -4732,7 +4732,7 @@
       box-shadow: 0 9px 30px rgba(28,90,150,.11);
       padding: 20px 22px;
       display: grid;
-      grid-template-columns: auto minmax(210px, 1fr) auto auto;
+      grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
       align-items: center;
       gap: 18px;
     }
@@ -4821,47 +4821,40 @@
     .ph-name-chip.active {
       color: #567494;
     }
-    /* ── Alpha version banner (between the player name and the Level badge) ── */
+    /* ── Alpha version square (own column, between the player name and the Level badge) ── */
     .ph-alpha-banner {
-      width: 100%;
+      align-self: stretch;
+      width: 158px;
       box-sizing: border-box;
-      margin-top: 12px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding: 9px 14px;
-      border-radius: 13px;
+      justify-content: center;
+      text-align: center;
+      gap: 8px;
+      padding: 14px 12px;
+      border-radius: 18px;
       border: 1px solid rgba(74,139,212,.32);
-      background: linear-gradient(135deg, rgba(234,245,255,.96) 0%, rgba(220,239,255,.96) 100%);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 8px rgba(28,90,150,.08);
+      background: linear-gradient(160deg, rgba(234,245,255,.96) 0%, rgba(214,236,255,.96) 100%);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 10px rgba(28,90,150,.1);
     }
     .ph-alpha-banner.update-available {
       border-color: rgba(225,150,30,.55);
-      background: linear-gradient(135deg, rgba(255,247,228,.97) 0%, rgba(255,238,205,.97) 100%);
+      background: linear-gradient(160deg, rgba(255,247,228,.97) 0%, rgba(255,235,200,.97) 100%);
       animation: phAlphaPulse 1.8s ease-in-out infinite;
     }
     @keyframes phAlphaPulse {
-      0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 8px rgba(225,150,30,.18); }
-      50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 16px rgba(225,150,30,.42); }
-    }
-    .ph-alpha-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-      flex-wrap: wrap;
+      0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 10px rgba(225,150,30,.2); }
+      50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 2px 20px rgba(225,150,30,.46); }
     }
     .ph-alpha-tag {
-      flex-shrink: 0;
       display: inline-flex;
       align-items: center;
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 999px;
       background: linear-gradient(135deg, #2d8be0 0%, #1e63b8 100%);
       color: #fff;
-      font-size: .72rem;
+      font-size: .76rem;
       font-weight: 900;
       letter-spacing: .06em;
       text-transform: uppercase;
@@ -4872,29 +4865,23 @@
       box-shadow: 0 1px 4px rgba(212,128,14,.45);
     }
     .ph-alpha-msg {
-      font-size: .86rem;
+      font-size: .8rem;
       font-weight: 700;
       color: #2b5f9e;
-      line-height: 1.25;
+      line-height: 1.3;
     }
     .ph-alpha-banner.update-available .ph-alpha-msg { color: #9a5a05; }
-    .ph-alpha-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-shrink: 0;
-    }
     .ph-alpha-whatsnew, .ph-alpha-refresh {
       border: none;
       cursor: pointer;
       font-weight: 800;
       border-radius: 999px;
-      padding: 6px 13px;
+      padding: 6px 14px;
       font-size: .8rem;
       transition: transform .12s ease, box-shadow .12s ease, background .15s ease;
     }
     .ph-alpha-whatsnew {
-      background: rgba(255,255,255,.85);
+      background: rgba(255,255,255,.9);
       border: 1px solid rgba(74,139,212,.4);
       color: #1e63b8;
     }
@@ -6605,6 +6592,15 @@
         grid-template-columns: auto minmax(180px, 1fr);
         gap: 14px;
       }
+      .ph-alpha-banner {
+        grid-column: 1 / -1;
+        width: 100%;
+        align-self: auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px 14px;
+      }
       .ph-pranks {
         grid-column: 1 / -1;
         max-width: none;
@@ -7196,7 +7192,7 @@
     .ph-footer { display: none !important; }
 
     .ph-profile-card {
-      grid-template-columns: 132px minmax(220px, 1fr) minmax(400px, 460px) auto;
+      grid-template-columns: 132px minmax(200px, 1fr) auto minmax(340px, 430px) auto;
       gap: 21px;
       padding: 17px 22px;
       border-radius: 23px;
@@ -10301,17 +10297,13 @@
             <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">—</span></span>
           </span>
         </div>
-        <!-- Alpha version banner: shows the build, whether a refresh is needed, and a What's New link. Sits between the name and the Level badge. -->
-        <div class="ph-alpha-banner" id="ph-alpha-banner">
-          <div class="ph-alpha-left">
-            <span class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.0</span>
-            <span class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</span>
-          </div>
-          <div class="ph-alpha-actions">
-            <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
-            <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
-          </div>
-        </div>
+      </div>
+      <!-- Alpha version square: its own column, sitting between the name and the Level badge. -->
+      <div class="ph-alpha-banner" id="ph-alpha-banner">
+        <div class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.0</div>
+        <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</div>
+        <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
+        <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
       </div>
       <div class="ph-pranks">
         <div class="ph-rank-badge ph-rank-level">
@@ -12190,7 +12182,7 @@
   // APP_VERSION → shown in the Alpha badge. APP_BUILD → bumped on every deploy;
   // the client polls /version.json and prompts a refresh when the served build differs.
   const APP_VERSION = "1.0";
-  const APP_BUILD   = "2026-06-13.1";
+  const APP_BUILD   = "2026-06-13.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
