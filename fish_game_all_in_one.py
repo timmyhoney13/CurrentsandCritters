@@ -599,18 +599,24 @@ def _execute_main_pattern(
                     break
             else:
                 # AI: discard many when cycling, keep only the most useful few.
-                # Higher score = better discard candidate.
-                def discard_priority(uid: int) -> float:
-                    c = gs.card_db[uid]
-                    score = float(c.cost)
-                    if is_ocean(c):
-                        score += 0.4
-                    txt = c.text.lower()
-                    if "draw" in txt:
-                        score -= 0.3
-                    if "play again" in txt or "go again" in txt or "for free" in txt:
-                        score -= 0.35
-                    return score
+                # Rank by deliberate keep value (low keep = best discard) so we
+                # cycle away off-plan clutter and hold engine/plan pieces.
+                if ms is not None:
+                    def discard_priority(uid: int) -> float:
+                        # Negate keep score: higher priority = better to discard.
+                        return -discard_keep_score(gs, ms, player, uid)
+                else:
+                    def discard_priority(uid: int) -> float:
+                        c = gs.card_db[uid]
+                        score = float(c.cost)
+                        if is_ocean(c):
+                            score += 0.4
+                        txt = c.text.lower()
+                        if "draw" in txt:
+                            score -= 0.3
+                        if "play again" in txt or "go again" in txt or "for free" in txt:
+                            score -= 0.35
+                        return score
 
                 ranked = sorted(candidates, key=discard_priority, reverse=True)
                 if len(candidates) >= 8:
@@ -1791,7 +1797,11 @@ def stabilize_weights(weights: Dict[str, float]) -> Dict[str, float]:
         "target_occupancy": (-0.6, 1.8),
         "fills_empty_ocean": (0.1, 2.2),
         "draw_from_pool": (-0.4, 0.6),
-        "pool_pick_value": (0.0, 3.0),
+        # Floor pool_pick_value well above zero. Draws rarely produce an
+        # immediate point delta, so online learning used to decay this weight to
+        # ~0, which made pool drafting near-random. Keeping a real floor forces
+        # the AI to actually value which pool cards it picks up.
+        "pool_pick_value": (0.55, 3.0),
         "immediate_delta": (0.4, 3.0),
         "synergy_bonus": (0.0, 2.5),
         "species_bonus": (0.0, 2.5),
@@ -6121,10 +6131,49 @@ def action_archetype_bonus(
     return bonus
 
 
+def owned_plan_context(
+    ms: MatchState, gs: GameState, player: PlayerState, exclude_entry_uid: int = -1
+) -> Tuple[Dict[str, int], Dict[str, int], Dict[str, int]]:
+    """Count the species / strategy tags / names a player already holds across
+    BOARD + HAND (optionally excluding one entry). This is the raw material for
+    "how much does this card complete the plan I'm already building" used by
+    pool drafting and discard decisions."""
+    owned_species: Dict[str, int] = {}
+    owned_tags: Dict[str, int] = {}
+    owned_names: Dict[str, int] = {}
+    face_uids = list(player_board_face_uids(player))
+    for h_uid in player.hand:
+        if h_uid == exclude_entry_uid:
+            continue
+        face_uids.extend(entry_faces(ms, h_uid))
+    for fu in face_uids:
+        oc = gs.card_db.get(fu)
+        if oc is None:
+            continue
+        sp = oc.species.strip().lower()
+        if sp and sp not in {"n/a", "ocean"}:
+            owned_species[sp] = owned_species.get(sp, 0) + 1
+        owned_names[oc.name.strip().lower()] = owned_names.get(oc.name.strip().lower(), 0) + 1
+        for t in card_strategy_tags(oc):
+            owned_tags[t] = owned_tags.get(t, 0) + 1
+    return owned_species, owned_tags, owned_names
+
+
 def pool_entry_value_for_player(ms: MatchState, gs: GameState, entry_uid: int, player: PlayerState) -> float:
     faces = entry_faces(ms, entry_uid)
     profile = board_strategy_profile(gs, player)
     need_symbols, need_species = star_prep_needs(gs, ms, player)
+
+    # ── Build a picture of the plan I'm already committed to ────────────────
+    # A pool card is worth far more when it COMPLETES an archetype I'm already
+    # building (a second Big Eye Tuna for my Yellowfin engine) than when it is a
+    # random off-plan card. Count the species / strategy tags I already own
+    # across board AND hand so "how much does this card complete my plan" is a
+    # real, measured signal instead of near-random pool drafting.
+    family_label = str(player.flags.get("_strategy_family", "")).strip().lower()
+    family_profile = strategy_family_profile_by_label(family_label) if family_label else None
+    owned_species, owned_tags, owned_names = owned_plan_context(ms, gs, player, exclude_entry_uid=entry_uid)
+
     best = -1e9
     for uid in faces:
         c = gs.card_db[uid]
@@ -6141,6 +6190,21 @@ def pool_entry_value_for_player(ms: MatchState, gs: GameState, entry_uid: int, p
         if c.species.strip().lower() in need_species:
             v += 2.6
             v += 0.10 * max(0, 4 - c.cost)
+
+        # ── Plan-completion value (the core "does this advance my plan" term) ─
+        cspecies = c.species.strip().lower()
+        # Species I'm already stacking: each existing copy makes another one
+        # more valuable (engines/payoffs scale with same-species count).
+        if cspecies and cspecies not in {"n/a", "ocean"}:
+            v += min(2.4, 0.45 * owned_species.get(cspecies, 0))
+        # Strategy tags that overlap cards I already own (engine/payoff pieces).
+        for t in card_strategy_tags(c):
+            v += min(1.6, 0.30 * owned_tags.get(t, 0))
+        # Named combo partners already on board/in hand (e.g. Yellowfin + Big
+        # Eye Tuna, Blue Marlin + Mahi Mahi). card_archetype machinery already
+        # scores these as part of the family plan.
+        if isinstance(family_profile, dict):
+            v += 0.85 * strategy_family_card_score(c, family_profile)
         if v > best:
             best = v
     return best if best > -1e8 else 0.0
@@ -6375,7 +6439,19 @@ def simulated_point_delta(gs: GameState, ms: MatchState, player: PlayerState, ac
     return delta
 
 
-def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
+def update_brain_from_match(
+    gs: GameState, brain: Dict[str, object], human_weight: float = 1.0
+) -> None:
+    """Learn card / species / same-ocean synergies from a finished game.
+
+    ``human_weight`` scales how hard winners' combinations are reinforced. For
+    self-play it stays 1.0. For REAL human games (the highest-signal data we
+    have) callers pass a large multiplier (~10×) so the synergy maps are pulled
+    strongly toward how actual players build winning boards. To make sure that
+    10× signal only comes from GOOD games, the quality gate below is also raised
+    for human games so marginal / undeveloped human games are discarded instead
+    of teaching the AI noise.
+    """
     synergy_map = brain.get("synergy")
     species_map = brain.get("species_synergy")
     same_ocean_map = brain.get("same_ocean_synergy")
@@ -6387,6 +6463,12 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         or not isinstance(weights, dict)
     ):
         return
+
+    # Reinforcement scales with human_weight; dampening of losing combos grows
+    # much more slowly so a strongly-weighted human game can't wipe the map.
+    win_mult = max(1.0, float(human_weight))
+    lose_mult = min(2.5, win_mult)
+    is_human_game = win_mult > 1.5
 
     scores = {p.name: final_points(gs, p) for p in gs.players}
     ranked = sorted(gs.players, key=lambda p: scores[p.name], reverse=True)
@@ -6404,6 +6486,13 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         min_top = 55.0
     elif n_players == 3:
         min_top = 80.0
+    if is_human_game:
+        # Human games train the maps 10× harder, so only well-developed human
+        # games qualify — discard marginal ones rather than amplify their noise.
+        min_top *= 1.15
+        # And require a real margin: a near-tie human game is low-signal.
+        if len(ranked) >= 2 and (top_score - scores[ranked[-1].name]) < 0.20 * min_top:
+            return
     if top_score < min_top:
         return
     winners = [p for p in ranked if scores[p.name] == top_score]
@@ -6414,20 +6503,20 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
     record_turtle_outcome(brain, gs, winners)
 
     # Learn card combinations from winners and dampen losing combinations.
-    # Rates are 2-3× higher than self-play to learn fast from real human games.
+    # Base rates are 2-3× higher than self-play; human games multiply further.
     for p in winners:
         names = [gs.card_db[uid].name for uid in player_board_face_uids(p)]
         for i in range(len(names)):
             for j in range(i + 1, len(names)):
                 k = synergy_key(names[i], names[j])
-                synergy_map[k] = float(synergy_map.get(k, 0.0) + 0.14)
+                synergy_map[k] = float(synergy_map.get(k, 0.0) + 0.14 * win_mult)
 
     for p in losers:
         names = [gs.card_db[uid].name for uid in player_board_face_uids(p)]
         for i in range(len(names)):
             for j in range(i + 1, len(names)):
                 k = synergy_key(names[i], names[j])
-                synergy_map[k] = float(synergy_map.get(k, 0.0) - 0.04)
+                synergy_map[k] = float(synergy_map.get(k, 0.0) - 0.04 * lose_mult)
 
     # Learn species combinations from winners and dampen loser species mixes.
     for p in winners:
@@ -6436,7 +6525,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         for i in range(len(species)):
             for j in range(i + 1, len(species)):
                 k = species_synergy_key(species[i], species[j])
-                species_map[k] = float(species_map.get(k, 0.0) + 0.10)
+                species_map[k] = float(species_map.get(k, 0.0) + 0.10 * win_mult)
 
     for p in losers:
         species = [gs.card_db[uid].species for uid in player_board_face_uids(p)]
@@ -6444,7 +6533,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
         for i in range(len(species)):
             for j in range(i + 1, len(species)):
                 k = species_synergy_key(species[i], species[j])
-                species_map[k] = float(species_map.get(k, 0.0) - 0.03)
+                species_map[k] = float(species_map.get(k, 0.0) - 0.03 * lose_mult)
 
     # Learn same-ocean card combinations more strongly (highest-signal feature).
     for p in winners:
@@ -6453,7 +6542,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
             for i in range(len(local)):
                 for j in range(i + 1, len(local)):
                     k = synergy_key(local[i], local[j])
-                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) + 0.20)
+                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) + 0.20 * win_mult)
 
     for p in losers:
         for ocean_uid in p.board_oceans:
@@ -6461,7 +6550,7 @@ def update_brain_from_match(gs: GameState, brain: Dict[str, object]) -> None:
             for i in range(len(local)):
                 for j in range(i + 1, len(local)):
                     k = synergy_key(local[i], local[j])
-                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) - 0.05)
+                    same_ocean_map[k] = float(same_ocean_map.get(k, 0.0) - 0.05 * lose_mult)
 
     # Keep map bounded in size and magnitude.
     for k in list(synergy_map.keys()):
@@ -7982,12 +8071,63 @@ def choose_payment_human(
         return picked
 
 
+def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry_uid: int) -> float:
+    """Higher = keep, lower = discard. A deliberate, plan-aware valuation so the
+    AI dumps the card that hurts its plan least instead of discarding by raw
+    cost. Considers strategic protection, how much the card completes the plan
+    it is already building (board + rest of hand), raw card power, redundancy,
+    and whether the card can realistically be deployed."""
+    owned_species, owned_tags, owned_names = owned_plan_context(
+        ms, gs, player, exclude_entry_uid=entry_uid
+    )
+    hand_size = len(player.hand)
+    # Strategic protection (heavy hitters, engines, scarcity, draw/replay text).
+    keep = 2.8 * entry_keep_priority_for_strategy(ms, gs, player, entry_uid)
+
+    best_face = 0.0
+    for face_uid in entry_faces(ms, entry_uid):
+        c = gs.card_db.get(face_uid)
+        if c is None:
+            continue
+        face_keep = 0.0
+        # Raw card power — pluses and a modest cost term (expensive payoffs are
+        # worth holding for when we can afford them).
+        plus = sum(int(m.group(1)) for m in re.finditer(r"\+(\d+)", c.text))
+        face_keep += 0.45 * plus
+        face_keep += 0.18 * c.cost
+        if is_ocean(c):
+            # Oceans are board capacity; keep them unless we already have plenty.
+            face_keep += 1.4 if len(player.board_oceans) < 4 else 0.4
+        sp = c.species.strip().lower()
+        # ── Plan completion: this card extends species / tags I already own ──
+        if sp and sp not in {"n/a", "ocean"}:
+            face_keep += min(2.2, 0.50 * owned_species.get(sp, 0))
+        for t in card_strategy_tags(c):
+            face_keep += min(1.4, 0.32 * owned_tags.get(t, 0))
+        # Redundancy: keep the first couple of copies (engines want multiples),
+        # but extra duplicates beyond that are the safest thing to dump.
+        dupes = owned_names.get(c.name.strip().lower(), 0)
+        if dupes >= 2:
+            face_keep -= min(1.8, 0.6 * (dupes - 1))
+        # Deployability: a card I cannot pay for any time soon is a weaker hold.
+        # Cost is paid by discarding other hand cards, so cost must fit the hand.
+        if c.cost > max(0, hand_size - 1):
+            face_keep -= 0.8
+        if face_keep > best_face:
+            best_face = face_keep
+    return keep + best_face
+
+
 def discard_down_to_ten_ai(gs: GameState, ms: MatchState, player: PlayerState) -> None:
     while len(player.hand) > 10:
-        ordered = sort_hand_for_payment(gs, ms, list(player.hand), player=player)
-        uid = ordered[0]
-        player.hand.remove(uid)
-        add_to_pool(ms, uid)
+        # Re-evaluate every turn: discard the single card whose loss hurts the
+        # current plan least. Deterministic tie-break on uid (never random).
+        worst_uid = min(
+            player.hand,
+            key=lambda u: (discard_keep_score(gs, ms, player, u), u),
+        )
+        player.hand.remove(worst_uid)
+        add_to_pool(ms, worst_uid)
 
 
 def discard_down_to_ten_human(gs: GameState, ms: MatchState, player: PlayerState) -> None:
@@ -9148,6 +9288,48 @@ def online_update_weights(
         elif weights[k] < -6.0:
             weights[k] = -6.0
     stabilize_weights(weights)
+
+
+# ── Multi-step (n-step) credit assignment ───────────────────────────────────
+# A great early play (setting up a synergy engine on turn 3) often only pays off
+# in points many turns later. A one-step update credits a move only with the
+# point delta of that single move, so those early engine-building plays get no
+# learning signal. The n-step return fixes this: each move is credited with the
+# DISCOUNTED SUM of the rewards over the player's next several own-moves, plus a
+# discounted bootstrap from the final game outcome. A turn-3 setup therefore
+# inherits credit for the points it generates on turns 8-12 — teaching the AI to
+# think far ahead and plan winning engines instead of chasing instant points.
+N_STEP_LOOKAHEAD = 10      # how many of the player's OWN future moves to look ahead over
+N_STEP_GAMMA = 0.90        # per-own-move discount (0.90^10 ≈ 0.35 → long, real horizon)
+
+
+def compute_n_step_returns(
+    rewards: List[float],
+    terminal: float,
+    gamma: float = N_STEP_GAMMA,
+    lookahead: int = N_STEP_LOOKAHEAD,
+) -> List[float]:
+    """Return the n-step return G_t for each move in a player's own move order.
+
+    G_t = Σ_{k=0}^{W-1} gamma^k * rewards[t+k]  +  gamma^(n-t) * terminal
+
+    The first term accumulates the concrete point rewards the move helped cause
+    over the next ``lookahead`` of the player's own moves; the second bootstraps
+    the eventual win/loss margin, discounted by how far the move is from the end
+    (so late moves lean on the outcome, early moves lean on what they set up).
+    """
+    n = len(rewards)
+    returns: List[float] = []
+    for t in range(n):
+        g = 0.0
+        w = 1.0
+        steps = min(lookahead, n - t)
+        for k in range(steps):
+            g += w * rewards[t + k]
+            w *= gamma
+        g += (gamma ** (n - t)) * terminal
+        returns.append(g)
+    return returns
 
 
 def choose_action_random(gs: GameState, ms: MatchState, player: PlayerState) -> Optional[Action]:
@@ -10413,6 +10595,9 @@ def run_match(
     stalled_turns = 0
     sanitize_log_budget = 40
     move_histories: Dict[int, List[Dict[str, float]]] = {i: [] for i in range(len(gs.players))}
+    # Per-player immediate rewards, kept in lockstep with move_histories so the
+    # end-of-game pass can compute n-step returns (multi-step credit assignment).
+    move_rewards: Dict[int, List[float]] = {i: [] for i in range(len(gs.players))}
     move_signatures: Dict[int, List[str]] = {i: [] for i in range(len(gs.players))}
 
     # Crash-safe score helper used in logging throughout the loop and after it ends.
@@ -10661,6 +10846,9 @@ def run_match(
                     reward = -8.0
                 online_update_weights(online_weights, executed_feats, reward, lr=effective_online_lr)
                 move_histories.setdefault(int(gs.turn_index), []).append(dict(executed_feats))
+                # Record this move's immediate reward so the end-of-game pass can
+                # roll it forward into earlier moves' n-step returns.
+                move_rewards.setdefault(int(gs.turn_index), []).append(float(reward))
                 if online_state is not None:
                     online_state["move_updates"] = int(online_state.get("move_updates", 0)) + 1
                     if online_state_path:
@@ -10926,7 +11114,13 @@ def run_match(
         except Exception:
             pass
 
-    # End-of-game self-play learning: reinforce moves that led to higher final outcomes.
+    # End-of-game learning with multi-step (n-step) credit assignment.
+    # Instead of crediting every move with only the flat final-outcome margin,
+    # each move is credited with the discounted sum of the rewards it helped
+    # cause over the player's next ~10 own-moves, plus a discounted bootstrap of
+    # the final win/loss margin. This propagates credit BACKWARD through time, so
+    # an early engine-setup play that pays off ten turns later actually learns it
+    # was good — the AI plans far ahead instead of chasing instant points.
     if _game_is_good_for_learning and online_weights is not None and any(move_histories.values()):
         finals = [_safe_fp(p) for p in gs.players]
         for i, feats_list in move_histories.items():
@@ -10937,14 +11131,30 @@ def run_match(
             my = finals[i]
             others = [s for j, s in enumerate(finals) if j != i]
             avg_other = (sum(others) / len(others)) if others else 0.0
-            target = (my - avg_other) / 10.0
-            if target > 4.0:
-                target = 4.0
-            elif target < -4.0:
-                target = -4.0
-            n = len(feats_list)
+            terminal = (my - avg_other) / 10.0
+            if terminal > 4.0:
+                terminal = 4.0
+            elif terminal < -4.0:
+                terminal = -4.0
+
+            rewards_i = move_rewards.get(i, [])
+            # Defensive: if rewards somehow drifted out of lockstep, fall back to
+            # zero immediate rewards so we still apply the terminal bootstrap.
+            if len(rewards_i) != len(feats_list):
+                rewards_i = [0.0] * len(feats_list)
+            returns_i = compute_n_step_returns(rewards_i, terminal)
+
+            lr_scale = human_learning_boost if i in human_idx_set else 1.0
             for step, feats in enumerate(feats_list):
-                discount = 0.9985 ** (n - step - 1)
+                g = returns_i[step] if step < len(returns_i) else terminal
+                # Keep the n-step return in a sane band (per-move rewards are
+                # already clipped, but a long winning streak can still stack up).
+                if g > 6.0:
+                    g = 6.0
+                elif g < -6.0:
+                    g = -6.0
+                # Extra nudge for moves that built future value / engine pieces,
+                # so genuine setup plays are reinforced a touch harder.
                 future_v = max(0.0, float(feats.get("future_value", 0.0)))
                 setup_v = max(
                     0.0,
@@ -10955,8 +11165,7 @@ def run_match(
                     + float(feats.get("stack_bonus", 0.0)),
                 )
                 setup_boost = 1.0 + min(0.35, 0.045 * future_v + 0.015 * setup_v)
-                lr_scale = human_learning_boost if i in human_idx_set else 1.0
-                online_update_weights(online_weights, feats, target * discount * setup_boost, lr=online_lr * 0.25 * lr_scale)
+                online_update_weights(online_weights, feats, g * setup_boost, lr=online_lr * 0.25 * lr_scale)
                 if online_state is not None:
                     online_state["move_updates"] = int(online_state.get("move_updates", 0)) + 1
 
@@ -11366,7 +11575,9 @@ def run_all_human_teaching_game(
     print(f"Deck remaining: {len(gs.deck)} | Pool cards: {len(ms.pool)} | Discard pile: {len(ms.discard_pile)}")
 
     if use_history:
-        update_brain_from_match(gs, brain)
+        # All-human teaching game: this is real human play, so weight its synergy
+        # signal ~10× (scaled by the teaching boost) like other human-game data.
+        update_brain_from_match(gs, brain, human_weight=max(10.0, human_teach_boost * 2.0))
         reinforce_human_demo_from_board(gs, human_set, brain, boost=max(1.0, human_teach_boost))
     save_brain(brain, BRAIN_PATH)
     print(

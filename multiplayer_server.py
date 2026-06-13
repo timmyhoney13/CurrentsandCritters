@@ -4114,8 +4114,15 @@ class GameRoom:
                             # Learn into THIS table size's per-count brain.
                             cbrain2 = fish.get_count_brain(brain2, len(gs.players))
                             # Full synergy/weight update for human-only games.
+                            # Real human play is the highest-signal data we have,
+                            # so weight its synergy learning ~10× over self-play
+                            # (the demo_boost nudges it a bit higher for valuable
+                            # / human-won games). The quality gate inside
+                            # update_brain_from_match discards marginal games.
                             if human_only_game:
-                                fish.update_brain_from_match(gs, cbrain2)
+                                fish.update_brain_from_match(
+                                    gs, cbrain2, human_weight=max(10.0, demo_boost * 4.0)
+                                )
                             # Move-sequence learning runs for every human game.
                             fish.update_strategy_memory_from_match(gs, cbrain2, boost=demo_boost)
                             # Per-archetype win-rate stats (used to bias future archetype selection).
@@ -5283,9 +5290,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         results["boosted"] += 1
 
                     # Learn each replayed game into its own table-size brain.
+                    # These are all real human games — weight synergy learning
+                    # ~10× (priority players higher). update_brain_from_match's
+                    # internal quality gate discards undeveloped / near-tie games.
                     cbrain = fish.get_count_brain(brain, len(gs.players))
                     try:
-                        fish.update_brain_from_match(gs, cbrain)
+                        fish.update_brain_from_match(
+                            gs, cbrain, human_weight=max(10.0, boost * 2.5)
+                        )
                         fish.update_strategy_memory_from_match(gs, cbrain, boost=boost)
                         if human_indices:
                             fish.reinforce_human_demo_from_board(gs, human_indices, cbrain, boost=boost)
