@@ -319,49 +319,6 @@
     }
     .pv-seat { position: relative; }
 
-    /* Idle warning modal — "Are you there?" */
-    #pv-idle-warn-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(8, 20, 36, .82);
-      z-index: 9000;
-      align-items: center;
-      justify-content: center;
-      backdrop-filter: blur(4px);
-    }
-    #pv-idle-warn-modal.open { display: flex; }
-    #pv-idle-warn-box {
-      background: linear-gradient(160deg, #18324d, #0e2238);
-      border: 2px solid rgba(95,179,214,.6);
-      border-radius: 16px;
-      padding: 28px 36px;
-      color: #fff;
-      text-align: center;
-      box-shadow: 0 12px 60px rgba(0,0,0,.55), 0 0 22px rgba(95,179,214,.4);
-      max-width: 360px;
-    }
-    #pv-idle-warn-box h2 {
-      font-family: "Cinzel", serif;
-      font-size: 26px;
-      margin: 0 0 10px 0;
-      color: #ffd17a;
-      text-shadow: 0 2px 6px rgba(0,0,0,.45);
-    }
-    #pv-idle-warn-box p {
-      font-family: "Nunito", sans-serif;
-      font-size: 14px;
-      color: #c9e2f4;
-      margin: 0 0 6px 0;
-    }
-    #pv-idle-warn-countdown {
-      font-family: "Cinzel", serif;
-      font-size: 48px;
-      font-weight: 900;
-      color: #ef6a6a;
-      margin-top: 8px;
-      text-shadow: 0 2px 8px rgba(216,56,56,.55);
-    }
     /* AFK-vote "Are you still here?" challenge — deep-ocean panel, on-theme */
     #pv-afk-modal {
       display: none;
@@ -11602,15 +11559,6 @@
     </div>
   </div>
 
-  <!-- idle "Are you there?" warning -->
-  <div id="pv-idle-warn-modal">
-    <div id="pv-idle-warn-box">
-      <h2>Are you there?</h2>
-      <p>Click anywhere to continue.</p>
-      <div id="pv-idle-warn-countdown">30</div>
-    </div>
-  </div>
-
   <!-- AFK-vote challenge: shown to the active player when >=50% report them AFK -->
   <div id="pv-afk-modal">
     <div id="pv-afk-box">
@@ -22651,14 +22599,13 @@
   // ═══════════════════════════════════════════════════════════════
   let _imAway = false;
   let _wasAway = false; // for detecting away→active transition (welcome-back toast)
+  // The automatic 5-minute idle "Are you there?" timer has been REMOVED. Players
+  // are no longer auto-flagged inactive just for taking a while on their turn.
+  // AFK is now handled solely by the chat-vote system (type "<player> is AFK" /
+  // "<player> away"). These declarations + no-op stubs remain so the existing
+  // callers (state sync, Surf's Up handler, game cleanup) keep working unchanged.
   let _idleTimer = null;
-  let _warnTimer = null;
-  let _warnCountdownTimer = null;
-  let _warnEndsAt = 0;
-  let _idleWarnOpen = false;
   let _serverInactiveEligibleSent = false;
-  const IDLE_MS  = 5 * 60 * 1000; // 5 minutes
-  const WARN_MS  = 30 * 1000;     // 30 seconds
 
   function _isMyTurnNow() {
     try {
@@ -22667,85 +22614,9 @@
     } catch { return false; }
   }
 
-  function _hideIdleWarn() {
-    _idleWarnOpen = false;
-    if (_warnTimer)        { clearTimeout(_warnTimer); _warnTimer = null; }
-    if (_warnCountdownTimer) { clearInterval(_warnCountdownTimer); _warnCountdownTimer = null; }
-    const modal = document.getElementById("pv-idle-warn-modal");
-    if (modal) modal.classList.remove("open");
-  }
-
-  async function _clearServerInactive() {
-    if (!_serverInactiveEligibleSent) return;
-    _serverInactiveEligibleSent = false;
-    try {
-      let token;
-      if (typeof compMode !== "undefined" && compMode) {
-        const activeNum = typeof myIdx === "number" ? myIdx : null;
-        token = (activeNum !== null && compTokens && compTokens[activeNum])
-          ? compTokens[activeNum]
-          : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
-      } else {
-        token = getSeatToken();
-      }
-      if (!token || !roomId) return;
-      await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: false }, { timeoutMs: 5000 });
-    } catch (e) {}
-  }
-
-  function resetIdleTimer() {
-    if (_idleTimer)        { clearTimeout(_idleTimer); _idleTimer = null; }
-    if (_idleWarnOpen) {
-      _hideIdleWarn();
-      _clearServerInactive();
-    }
-    if (!_isMyTurnNow() || _imAway) return;
-    _idleTimer = setTimeout(_startIdleWarning, IDLE_MS);
-  }
-
-  function _startIdleWarning() {
-    if (!_isMyTurnNow() || _imAway) return;
-    _idleWarnOpen = true;
-    const modal = document.getElementById("pv-idle-warn-modal");
-    const cd    = document.getElementById("pv-idle-warn-countdown");
-    if (modal) modal.classList.add("open");
-    _warnEndsAt = Date.now() + WARN_MS;
-    if (cd) cd.textContent = String(Math.ceil(WARN_MS / 1000));
-    if (_warnCountdownTimer) clearInterval(_warnCountdownTimer);
-    _warnCountdownTimer = setInterval(() => {
-      const left = Math.max(0, Math.ceil((_warnEndsAt - Date.now()) / 1000));
-      if (cd) cd.textContent = String(left);
-      if (left <= 0) { clearInterval(_warnCountdownTimer); _warnCountdownTimer = null; }
-    }, 250);
-    _warnTimer = setTimeout(async () => {
-      _idleWarnOpen = false;
-      const m = document.getElementById("pv-idle-warn-modal");
-      if (m) m.classList.remove("open");
-      // Re-check at fire time: if the player went Away (Surf's Up) or it's no
-      // longer their turn, do NOT flag them inactive-eligible. Surf's Up always
-      // wins, so an Away player must never expose the "Draw 2" affordance.
-      if (_imAway || !_isMyTurnNow()) return;
-      _serverInactiveEligibleSent = true;
-      try {
-        let token;
-        if (typeof compMode !== "undefined" && compMode) {
-          const activeNum = typeof myIdx === "number" ? myIdx : null;
-          token = (activeNum !== null && compTokens && compTokens[activeNum])
-            ? compTokens[activeNum]
-            : (compTokens && compMySeats && compTokens[compMySeats[0]]) || getSeatToken();
-        } else {
-          token = getSeatToken();
-        }
-        if (token && roomId) {
-          await apiPost(`/api/rooms/${roomId}/inactive`, { seat_token: token, eligible: true }, { timeoutMs: 5000 });
-        }
-      } catch {}
-    }, WARN_MS);
-  }
-
-  // Activity listeners — any meaningful interaction cancels warning + resets timer.
-  ["click","mousedown","mousemove","keydown","touchstart","wheel","dragstart","dragend"]
-    .forEach(ev => window.addEventListener(ev, () => { try { resetIdleTimer(); } catch {} }, { passive: true }));
+  function _hideIdleWarn() { /* idle warning removed — no-op */ }
+  async function _clearServerInactive() { /* idle auto-flagging removed — no-op */ }
+  function resetIdleTimer() { /* idle timer removed — no-op */ }
 
   // Surf's Up!! button
   let _surfBtnInFlight = false;
