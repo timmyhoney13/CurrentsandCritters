@@ -10257,7 +10257,7 @@
       </div>
       <!-- Alpha version square: its own column, sitting between the name and the Level badge. -->
       <div class="ph-alpha-banner" id="ph-alpha-banner">
-        <div class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.0</div>
+        <div class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.3.5</div>
         <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</div>
         <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
         <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
@@ -12112,7 +12112,7 @@
       <div class="ph-whatsnew-title">✨ What's New</div>
       <button id="ph-whatsnew-close" style="background:none;border:none;font-size:20px;cursor:pointer;color:#4a6a9a;line-height:1;" aria-label="Close">✕</button>
     </div>
-    <div class="ph-whatsnew-sub" id="ph-whatsnew-sub">Currents &amp; Critters · Alpha V1.0</div>
+    <div class="ph-whatsnew-sub" id="ph-whatsnew-sub">Currents &amp; Critters · Alpha V1.3.5</div>
     <div id="ph-whatsnew-body"></div>
   </div>
 </div>
@@ -12127,29 +12127,36 @@
   const CARD_IMAGE_VERSION = "20260419-full159";
 
   // ── App version + update detection ──────────────────────────────────────
-  // APP_VERSION → shown in the Alpha badge. APP_BUILD → bumped on every deploy;
-  // the client polls /version.json and prompts a refresh when the served build differs.
-  const APP_VERSION = "1.0";
-  const APP_BUILD   = "2026-06-13.2";
+  // APP_VERSION → shown in the Alpha badge ("ALPHA V<APP_VERSION>").
+  // Versioning scheme: 1.<2nd>.<3rd> derived from the cumulative update count N.
+  //   3rd digit = floor(N/10) % 10  → ticks up every 10 pushes
+  //   2nd digit = floor(N/100)      → ticks up every 100 pushes
+  //   1st digit = major version     → bumped only for a major release (by request)
+  // e.g. update #350 → 1.3.5. Current update count N ≈ 353 → 1.3.5.
+  // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
+  // polls version.json and prompts a one-tap refresh when the served build differs;
+  // if these two drift apart, refreshed clients get stuck re-prompting forever.
+  const APP_VERSION = "1.3.5";
+  const APP_BUILD   = "2026-06-14.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
-    { ver: "Alpha V1.0", title: "Player Home polish", items: [
-      "New Alpha version banner with a one-tap refresh when fresh features ship.",
-      "Added this “What’s New” summary so you always know what changed.",
-      "Cleaned up the profile header — removed the badge next to your name.",
+    { ver: "V1.3.5", title: "AFK & Surf's Up overhaul", items: [
+      "The AFK “Are you still here?” check is now 20 seconds.",
+      "Report a quiet player by typing “P3 is AFK”, “P3 afk”, “P3 is away”, or “P3 away” — capitals don't matter, and names work too.",
+      "Players drawn for while away keep their cards up to 20 instead of being forced down to 10, so they come back to a fuller hand.",
+      "Surf's Up now fully pauses you — you can't make a move until you tap “I'm Back”.",
+      "Removed the automatic 5-minute idle timer; only chat AFK votes flag a player now.",
+      "Expanded the in-game tutorial to walk through all of it.",
     ]},
-    { ver: "v348", title: "Smarter AI learning", items: [
-      "AI uses n-step credit and is far better at synergising with human players.",
-      "Plan-aware draw/discard decisions for tougher, more natural bots.",
+    { ver: "V1.3.4", title: "Player Home polish & smarter AI", items: [
+      "New Alpha version banner with a one-tap refresh, plus this “What's New” summary.",
+      "Cleaned up the profile header.",
+      "Smarter AI: n-step credit, stronger human synergy, and plan-aware draw/discard.",
+      "Per-table-size AI brains and improved AI card draws.",
+      "Correct hand-count display for everyone and a dual-cost badge for LR cards.",
     ]},
-    { ver: "v347", title: "Per-player-count AI brains", items: [
-      "Separate AI brains tuned for each table size, plus improved AI card draws.",
-    ]},
-    { ver: "v346", title: "Hand display fixes", items: [
-      "Correct hand-count display for all players and a dual-cost badge for LR cards.",
-    ]},
-    { ver: "v345", title: "End-game refresh", items: [
+    { ver: "V1.3.3", title: "End-game refresh", items: [
       "Lighter end-game screen and a server-synced “Play Again” ready-up.",
     ]},
   ];
@@ -30251,6 +30258,8 @@
       const close   = document.getElementById("ph-whatsnew-close");
       const modal   = document.getElementById("ph-whatsnew-modal");
       if (tag)     tag.textContent = "ALPHA V" + APP_VERSION;
+      const sub = document.getElementById("ph-whatsnew-sub");
+      if (sub)     sub.textContent = "Currents & Critters · Alpha V" + APP_VERSION;
       if (wn)      wn.addEventListener("click", openWhatsNewModal);
       if (refresh) refresh.addEventListener("click", () => location.reload());
       if (close)   close.addEventListener("click", () => modal?.classList.remove("open"));
