@@ -746,7 +746,7 @@ class GameRoom:
         self.afk_challenge_id: int = 0                # bumped each challenge; cancel/turn-change invalidates
         self.afk_challenge_deadline: Optional[float] = None  # time.time() when auto-draw fires
         self.afk_immune_until: Dict[int, float] = {}  # seat_index -> time.time() until Surf's Up immunity ends
-        self.AFK_CHALLENGE_SECONDS = 10.0
+        self.AFK_CHALLENGE_SECONDS = 20.0
         self.AFK_SURF_IMMUNE_SECONDS = 600.0          # 10 minutes
 
         self.game_thread: Optional[threading.Thread] = None
@@ -1943,6 +1943,13 @@ class GameRoom:
             if self.active_action_seat != act_seat_index:
                 return {"ok": False, "error": "not your turn"}
 
+            # Surf's Up!! — while a seat is officially Away it cannot make any
+            # move. The player must tap "I'm Back" (toggle Away off) before they
+            # can act again. This keeps Surf's Up a true "I've stepped away" state.
+            act_seat = self.seats[act_seat_index] if 0 <= act_seat_index < len(self.seats) else seat
+            if getattr(act_seat, "is_away", False):
+                return {"ok": False, "error": "You're on Surf's Up (Away) — tap “I'm Back” before you can make a move."}
+
             req_id_raw = payload.get("request_id")
             req_id = req_id_raw.strip() if isinstance(req_id_raw, str) else ""
             seen: Optional[Dict[str, int]] = None
@@ -2945,6 +2952,11 @@ class GameRoom:
                         continue
                     if draw_action.kind == "draw":
                         force_end_turn_next[0] = True
+                        # The player isn't at their screen, so don't force them to
+                        # discard back down to the normal hand limit at end of turn.
+                        # They keep the cards (up to the extended AFK limit of 20)
+                        # so they can return to a fuller hand.
+                        player.flags["_afk_no_discard"] = True
                     with self.cond:
                         self.status_note = (
                             f"{by_name} drew 2 cards for {player.name} (inactive)."
@@ -4459,8 +4471,9 @@ class GameRoom:
         """Parse one chat line for an AFK vote and process it (lock held)."""
         if self.phase != "running":
             return
-        # Pattern: "<target> [is] afk" — tolerant of case and extra spaces.
-        m = re.match(r"^\s*(.+?)\s+(?:is\s+)?afk\s*[!.\s]*$", message, re.IGNORECASE)
+        # Pattern: "<target> [is] afk|away" — tolerant of case and extra spaces.
+        # Accepts variations like "P3 is AFK", "P3 afk", "P3 is away", "P3 away".
+        m = re.match(r"^\s*(.+?)\s+(?:is\s+)?(?:afk|away)\s*[!.\s]*$", message, re.IGNORECASE)
         if not m:
             return
         target_seat = self._afk_resolve_target_locked(m.group(1))

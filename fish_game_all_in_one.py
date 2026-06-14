@@ -1104,6 +1104,10 @@ class MatchState:
 BRAIN_PATH = "fish_ai_brain.json"
 LIVE_LOG_PATH = "last_live_game_log.txt"
 HAND_LIMIT = 10
+# Extended end-of-turn hand limit for a player who is being drawn for while AFK
+# (not at their screen). They are not forced to discard back down to HAND_LIMIT;
+# instead they may keep up to this many cards so they return to a fuller hand.
+AFK_HAND_LIMIT = 20
 LIVE_STATE_PATH = "last_live_game_state.json"
 BRAIN_GAME_MEMORY_CAP = 20000
 STRATEGIC_SHORTLIST_SIZE = 7
@@ -8118,8 +8122,8 @@ def discard_keep_score(gs: GameState, ms: MatchState, player: PlayerState, entry
     return keep + best_face
 
 
-def discard_down_to_ten_ai(gs: GameState, ms: MatchState, player: PlayerState) -> None:
-    while len(player.hand) > 10:
+def discard_down_to_ten_ai(gs: GameState, ms: MatchState, player: PlayerState, limit: int = 10) -> None:
+    while len(player.hand) > limit:
         # Re-evaluate every turn: discard the single card whose loss hurts the
         # current plan least. Deterministic tie-break on uid (never random).
         worst_uid = min(
@@ -8166,6 +8170,7 @@ def clear_turn_only_flags(player: PlayerState) -> None:
         "_discard_mode",
         "_tarpon_discard_active",
         "_draws_taken",
+        "_afk_no_discard",
     ]:
         if k in player.flags:
             if k in {"free_yellowfin_tuna", "play_again", "go_again"}:
@@ -10964,13 +10969,15 @@ def run_match(
                     except Exception:
                         pass
 
-        # End-turn hand limit.
-        if (gs.turn_index in human_idx_set) and web_control_mode and len(p.hand) > HAND_LIMIT:
+        # End-turn hand limit. A player being drawn for while AFK keeps up to the
+        # extended AFK_HAND_LIMIT instead of being forced down to HAND_LIMIT.
+        _eff_hand_limit = AFK_HAND_LIMIT if p.flags.get("_afk_no_discard") else HAND_LIMIT
+        if (gs.turn_index in human_idx_set) and web_control_mode and len(p.hand) > _eff_hand_limit:
             # Web human over the limit: set _discard_mode so legal_actions returns only discard
             # actions, then wait for the player to choose which cards to remove.
             p.flags["_discard_mode"] = True
             d_policy = action_policies[gs.turn_index % len(action_policies)]
-            while len(p.hand) > HAND_LIMIT:
+            while len(p.hand) > _eff_hand_limit:
                 chosen_discard = d_policy(gs, ms, p)
                 if chosen_discard is None:
                     # Policy returned None — either game phase ended or an error
@@ -11003,15 +11010,15 @@ def run_match(
         else:
             discard_down_to_ten_ai(gs, ms, p)
 
-        # HARD SAFETY NET — a turn must NEVER end above the hand limit, for any
-        # player, under any circumstance. If the interactive web-human discard
-        # above exited early (an abandoned turn that timed out, an under-sized
-        # batch, or any edge case), force the remaining excess down now. This is
-        # the 100%-guarantee that every player is at or below 10 cards when their
-        # turn ends.
-        if len(p.hand) > HAND_LIMIT:
+        # HARD SAFETY NET — a turn must NEVER end above the effective hand limit,
+        # for any player, under any circumstance. If the interactive web-human
+        # discard above exited early (an abandoned turn that timed out, an under-
+        # sized batch, or any edge case), force the remaining excess down now. This
+        # is the 100%-guarantee that every player is at or below their limit when
+        # their turn ends (10 normally, or 20 for an AFK player being drawn for).
+        if len(p.hand) > _eff_hand_limit:
             p.flags["_discard_mode"] = False
-            discard_down_to_ten_ai(gs, ms, p)
+            discard_down_to_ten_ai(gs, ms, p, limit=_eff_hand_limit)
 
         clear_turn_only_flags(p)
 

@@ -11485,7 +11485,7 @@
       <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
     </div>
     <div style="flex:1;"></div>
-    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table will wait for you to come back.">🏄 Surf's Up!!</button>
+    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves — tap 'I'm Back' to return.">🏄 Surf's Up!!</button>
     <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
     <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
     <button class="pv-btn coral" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
@@ -11619,10 +11619,10 @@
       <p class="pv-afk-sub">Your tablemates think you stepped away and voted to draw for you.</p>
       <div id="pv-afk-ring">
         <div id="pv-afk-ring-inner">
-          <div id="pv-afk-countdown">30</div>
+          <div id="pv-afk-countdown">20</div>
         </div>
       </div>
-      <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">30</span> seconds to respond</div>
+      <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">20</span> seconds to respond</div>
       <div class="pv-afk-warn">If time runs out, 2 cards will be drawn for you automatically — and you will <strong>not</strong> be able to undo.</div>
       <div class="pv-afk-foot"><b>Move your mouse or click anywhere</b> to stay in the game.</div>
     </div>
@@ -14299,6 +14299,12 @@
 
   async function submitAction(action) {
     try { window.__ccNoteAction && window.__ccNoteAction(action); } catch (_) {} // Current Controller bug-log breadcrumb
+    // Surf's Up!! — you cannot play any moves while you are Away. Tap "I'm Back"
+    // (the 🌊 button) first. Mirrors the server-side guard so it's 100% accurate.
+    if (_imAway) {
+      try { showToast("You're on Surf's Up — tap 🌊 I'm Back to make a move.", "warn"); } catch {}
+      return;
+    }
     // If the action costs cards, ensure we have valid payment staged for THIS action.
     // enterPaymentMode() clears any stale selection from a prior action.
     if (Number(action.cost_to_pay || 0) > 0) {
@@ -16081,7 +16087,7 @@
 
     // ── AFK-vote challenge sync ──────────────────────────────────
     // Server flags afk_challenge.seat when >=50% of the other active players
-    // report the current player AFK. If that's ME, show the 10s "Are you
+    // report the current player AFK. If that's ME, show the 20s "Are you
     // still here?" popup; clearing the challenge (resolve/cancel) hides it.
     try {
       const ch = payload.afk_challenge;
@@ -22797,8 +22803,8 @@
     btn.classList.toggle("is-away", _imAway);
     btn.innerHTML = _imAway ? "🌊 I'm Back" : "🏄 Surf's Up!!";
     btn.title = _imAway
-      ? "Tap when you're back — the table will resume your turn."
-      : "Surf's Up!! — mark yourself officially Away. The table will wait for you to come back.";
+      ? "You're Away — you can't play any moves. Tap to come back and resume your turn."
+      : "Surf's Up!! — mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves — tap 'I'm Back' to return.";
   }
   _updateSurfBtnLabel();
 
@@ -22835,7 +22841,7 @@
   let _afkCancelInFlight = false;
   let _afkSuppressUntil = 0;  // bridge the poll gap after a cancel so it can't re-open
   let _afkForced = false;     // true when AFK timer ran out without any player interaction
-  const AFK_TOTAL_SEC = 30;
+  const AFK_TOTAL_SEC = 20;
 
   function _afkRingColor(frac) {
     // frac: 1 = full time left (teal), 0 = out of time (red). Teal→gold→red.
@@ -33838,9 +33844,25 @@
     { target: "#pv-my-score-badge", badge: "Scoring", title: "Track Your Score",
       text: "Your <strong>live score</strong> sits up here in the top-left. <strong>Tap it any time</strong> (or open <strong>Menu → 🏆 Score Breakdown</strong>) to see exactly how your points add up — each creature, every bonus, and the Mangrove's all-8 reward — so you always know where you stand." },
 
-    // ── 12. Chat, Surf's Up & AFK (info) ─────────────────────────────
-    { target: "#pv-surf-btn", badge: "At the Table", title: "Chat, Surf's Up & AFK",
-      text: "Need a break? Hit <strong>🏄 Surf's Up!!</strong> to mark yourself <strong>Away</strong> — the table waits for you and won't time you out. Open <strong>💬 Chat</strong> to talk with the table. And if someone goes quiet on <em>their</em> turn, anyone can type <strong>“&lt;name&gt; is AFK”</strong> in chat: once <strong>half the table</strong> agrees, that player gets a quick 10-second “Are you still here?” check, then auto-draws so the game keeps flowing." },
+    // ── 12. Chat (info) ──────────────────────────────────────────────
+    { target: "#pv-chat-btn", badge: "At the Table", title: "Chat With the Table",
+      text: "Tap <strong>💬 Chat</strong> any time to talk with everyone at the table. It's also how players report someone who's gone quiet — more on that next." },
+
+    // ── 12b. Surf's Up — your safe break ─────────────────────────────
+    { target: "#pv-surf-btn", badge: "Surf's Up!!", title: "Need a Break? Surf's Up!!",
+      text: "Have to step away? Tap <strong>🏄 Surf's Up!!</strong> to mark yourself <strong>Away</strong>. While you're Away:<br>• The table <strong>waits for you</strong> and won't time you out.<br>• <strong>No one can report you AFK</strong> — you're protected.<br><br><strong>Important:</strong> while Surf's Up is on you <strong>can't play any moves at all</strong> — no drawing, no playing cards, nothing. The button turns into <strong>“🌊 I'm Back”</strong>. Tap it the moment you return to take your turn again." },
+
+    // ── 12c. Reporting a quiet player (the phrases) ──────────────────
+    { target: "#pv-chat-btn", badge: "At the Table", title: "Reporting Someone Who's AFK",
+      text: "If a player goes quiet on <em>their own</em> turn and didn't hit Surf's Up, <strong>anyone</strong> can report them in chat. Type their seat or name — <strong>capital letters don't matter</strong> — using any of these:<br><br><span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 is AFK</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 afk</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 is away</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 away</span><br><br>You can use their name instead of the seat too — e.g. <strong>“Billy away”</strong>. Once <strong>half the table</strong> agrees on the same player, the check below begins." },
+
+    // ── 12d. What the reported player sees (mockup) ──────────────────
+    { target: null, badge: "At the Table", title: "The 20-Second Check",
+      text: "The reported player sees this pop up on their screen:<div style=\"margin:10px auto 6px;max-width:240px;background:linear-gradient(180deg,#0c2c4e,#08233f);border:1px solid #1f4f7a;border-radius:14px;padding:12px 12px 14px;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.45)\"><div style=\"font-size:22px;line-height:1\">⚠️</div><div style=\"font-weight:800;color:#eaf4ff;font-size:14px;margin:3px 0\">Are You There?</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.3\">Your tablemates think you stepped away.</div><div style=\"width:48px;height:48px;border-radius:50%;border:3px solid #34c3ff;display:flex;align-items:center;justify-content:center;margin:9px auto 6px;font-weight:900;color:#eaf4ff;font-size:18px\">20</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.35\"><b style=\"color:#34c3ff\">Move your mouse or click anywhere</b> to stay in the game.</div></div>They have <strong>20 seconds</strong>. Just <strong>moving the mouse or clicking</strong> clears it instantly — and once they do, they're <strong>safe until their next turn</strong>. If the timer runs out, <strong>2 cards are drawn for them automatically</strong>, their turn passes, and that draw <strong>can't be undone</strong>." },
+
+    // ── 12e. Coming back to a fuller hand (20-card rule) ─────────────
+    { target: "#pv-draw-deck", badge: "At the Table", title: "Coming Back to a Full Hand",
+      text: "When cards are auto-drawn for an absent player, they are <strong>not</strong> forced to discard back down to 10. Their hand can grow all the way up to <strong>20 cards</strong> — so if they're gone for a while, they come back to a <em>fuller</em> hand instead of losing cards. Once they're back and playing their own turns, the normal <strong>10-card limit</strong> applies again at the end of each turn." },
 
     // ── 13. How the game ends (info) ─────────────────────────────────
     { target: "#pv-draw-deck", badge: "Endgame", title: "How the Game Ends",
