@@ -659,7 +659,7 @@ class GameRoom:
         # Seats go 0,2,1,3 so turns alternate P1h1,P2h1,P1h2,P2h2
         self._comp_game_to_seat: Dict[int, int] = {}
         self._comp_seat_to_game: Dict[int, int] = {}
-        self.seed = (now_unix() ^ secrets.randbits(31)) & 0x7FFFFFFF
+        self.seed = secrets.randbits(64)
         self.created_unix = now_unix()
         self.started_unix: Optional[int] = None
         self.ended_unix: Optional[int] = None
@@ -1249,7 +1249,7 @@ class GameRoom:
         pw_hash = payload.get("password_hash") if isinstance(payload.get("password_hash"), str) else None
         room = cls(room_id, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=pw_hash)
         with room.cond:
-            room.seed = clamp_int(payload.get("seed"), room.seed, 0, 0x7FFFFFFF)
+            room.seed = clamp_int(payload.get("seed"), room.seed, 0, 2**64 - 1)
             room.created_unix = clamp_int(payload.get("created_unix"), room.created_unix, 0, 2**31 - 1)
             room.started_unix = clamp_int_or_none(payload.get("started_unix"), 0, 2**31 - 1)
             room.ended_unix = clamp_int_or_none(payload.get("ended_unix"), 0, 2**31 - 1)
@@ -1837,7 +1837,7 @@ class GameRoom:
 
     def _launch_game_locked(self, card_db: Dict[int, fish.CardDef], status_note: str) -> None:
         # Ensure every game start/restart gets a fresh random shuffle seed.
-        self.seed = (now_unix() ^ secrets.randbits(63)) & 0x7FFFFFFF
+        self.seed = secrets.randbits(64)
         self.phase = "running"
         self.started_unix = now_unix()
         self.ended_unix = None

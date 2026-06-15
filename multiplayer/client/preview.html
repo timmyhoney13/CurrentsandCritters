@@ -29805,7 +29805,7 @@
         const pillEl  = document.getElementById("igcp-pill");
         if (!panel || !cardsEl || !titleEl || !pillEl) return;
         if (!_igcpEnabled || !_igcpVisible) { panel.style.display = "none"; return; }
-        panel.style.display = "";
+        panel.style.display = "block";
         panel.classList.toggle("igcp-minimized", _igcpMin);
         const minBtn = document.getElementById("igcp-minimize-btn");
         if (minBtn) minBtn.textContent = _igcpMin ? "+" : "−";
