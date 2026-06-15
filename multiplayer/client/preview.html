@@ -4438,62 +4438,62 @@
       background: rgba(8,22,58,.97);
       border: 1px solid rgba(58,120,204,.55); border-bottom: none;
       border-radius: 14px 14px 0 0;
-      width: min(96vw, 800px); padding: 14px 16px 22px;
+      width: min(96vw, 960px); padding: 16px 18px 26px;
       box-shadow: 0 -6px 36px rgba(0,0,0,.65);
-      max-height: 46vh; overflow-y: auto;
+      max-height: 62vh; overflow-y: auto;
     }
     #ctp-panel.open { display: block; }
     .ctp-header {
       display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 12px; padding-bottom: 8px;
+      margin-bottom: 14px; padding-bottom: 10px;
       border-bottom: 1px solid rgba(58,120,204,.25);
     }
     #ctp-title {
       font-family: 'Cinzel', serif; color: var(--cyan);
-      font-size: 14px; font-weight: 700;
+      font-size: 16px; font-weight: 700;
     }
     .ctp-cancel-btn {
       background: transparent; border: 1px solid rgba(255,255,255,.2);
-      color: rgba(200,225,255,.7); border-radius: 6px; padding: 4px 12px;
-      font-size: 12px; cursor: pointer;
+      color: rgba(200,225,255,.7); border-radius: 6px; padding: 5px 14px;
+      font-size: 13px; cursor: pointer;
     }
     .ctp-cancel-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
     #ctp-cards {
-      display: flex; flex-wrap: wrap; gap: 10px;
+      display: flex; flex-wrap: wrap; gap: 14px;
     }
     .ctp-card-item {
-      position: relative; width: 74px; flex: 0 0 74px;
+      position: relative; width: 140px; flex: 0 0 140px;
       cursor: pointer;
-      border: 2px solid rgba(58,120,204,.4); border-radius: 9px;
+      border: 2px solid rgba(58,120,204,.4); border-radius: 11px;
       overflow: hidden; background: rgba(10,22,54,.7);
       transition: border-color .12s, transform .12s, box-shadow .12s;
     }
     .ctp-card-item:hover {
       border-color: rgba(34,216,248,.9);
-      transform: translateY(-4px);
-      box-shadow: 0 8px 20px rgba(0,0,0,.55);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 26px rgba(0,0,0,.6);
     }
     .ctp-card-item img {
-      width: 100%; display: block; height: 98px; object-fit: cover;
+      width: 100%; display: block; height: 185px; object-fit: cover;
     }
     .ctp-card-label {
-      padding: 4px 4px 3px; font-size: 9.5px; color: #b8d8f8;
+      padding: 6px 5px 5px; font-size: 12px; color: #b8d8f8;
       text-align: center; line-height: 1.3; word-break: break-word;
     }
     .ctp-card-cost {
-      position: absolute; top: 3px; right: 3px;
+      position: absolute; top: 5px; right: 5px;
       background: rgba(8,24,64,.88); color: var(--gold);
-      font-size: 10px; font-weight: 800;
-      border-radius: 4px; padding: 1px 5px;
+      font-size: 13px; font-weight: 800;
+      border-radius: 5px; padding: 2px 7px;
       border: 1px solid rgba(240,184,64,.45);
     }
     .ctp-card-star {
-      position: absolute; top: 3px; left: 3px;
-      font-size: 10px; color: var(--gold); text-shadow: 0 0 6px rgba(240,184,64,.8);
+      position: absolute; top: 5px; left: 5px;
+      font-size: 14px; color: var(--gold); text-shadow: 0 0 6px rgba(240,184,64,.8);
     }
     .ctp-empty {
-      color: rgba(170,200,240,.6); font-size: 13px;
-      text-align: center; padding: 18px 0;
+      color: rgba(170,200,240,.6); font-size: 14px;
+      text-align: center; padding: 22px 0;
     }
     /* Glow on board slot while CTP picker is open */
     .ctp-slot-active {
@@ -12415,11 +12415,17 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.3.5";
-  const APP_BUILD   = "2026-06-15.1";
+  const APP_VERSION = "1.3.8";
+  const APP_BUILD   = "2026-06-15.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.3.8", title: "Straight into a full-screen game window", items: [
+      "Signing in now drops you straight into the game in its own full-screen window — no extra “Open Game” screen to click through. The sign-in tab stays put behind it.",
+      "When you click an Ocean drop zone or a side of an Ocean to play a card, the card choices now show up much bigger and easier to see.",
+      "Cards that have a ★ ability no longer get a second tiny star stamped in the corner — the star on the card art is enough.",
+      "Every game now shuffles from a fresh, truly random deck.",
+    ]},
     { ver: "V1.3.5", title: "Board size, in-game challenges & game window", items: [
       "New in-game Board Size + / − buttons (or just press +, =, or −) zoom the board in and out — no need for Ctrl/Cmd +/− anymore.",
       "Daily & Weekly Challenges now show right inside the game on the lower-left. Minimize it, or tap the header/calendar to switch Daily ↔ Weekly. Progress updates live as you play.",
@@ -25711,6 +25717,44 @@
       }
     }
 
+    // Build the game-window URL: preserve the CURRENT path + query (so room
+    // invite deep-links like /ABCDE or ?room=ABCDE still auto-join) and add
+    // gw=1 so the new window knows it's the game window.
+    function _gameWinUrl() {
+      const sp = new URLSearchParams(location.search);
+      sp.set("gw", "1");
+      return location.pathname + "?" + sp.toString();
+    }
+
+    // Open the game in its OWN window (not a tab), sized to fill the screen so
+    // it comes up effectively full-screen. Passing width/height features is what
+    // makes the browser spawn a separate window rather than a background tab.
+    // Returns the window handle, or null if the browser blocked the popup.
+    let _gameWin = null;
+    function _openGameWindow() {
+      // Already have a live game window? Just refocus it. Re-running window.open
+      // with the same name + a URL would re-navigate it back to the lobby and
+      // blow away a game in progress, so never do that when one is open.
+      if (_gameWin && !_gameWin.closed) {
+        try { _gameWin.focus(); } catch {}
+        return _gameWin;
+      }
+      const target = _gameWinUrl();
+      const w = (window.screen && screen.availWidth)  ? screen.availWidth  : 1280;
+      const h = (window.screen && screen.availHeight) ? screen.availHeight : 800;
+      const feats = `popup=yes,width=${w},height=${h},left=0,top=0,scrollbars=yes,resizable=yes`;
+      let win = null;
+      try { win = window.open(target, "cc-game-window", feats); } catch (_) { win = null; }
+      if (win) {
+        _gameWin = win;
+        try { win.focus(); } catch {}
+        // Belt-and-suspenders: pull it to the top-left and fill the screen in
+        // case the browser ignored the open features.
+        try { win.moveTo(0, 0); win.resizeTo(w, h); } catch {}
+      }
+      return win;
+    }
+
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
@@ -25723,15 +25767,30 @@
       };
       lockNameInputs(_playerNickname);
 
-      // ── Login/landing page: show launch panel instead of full game lobby ──
+      // ── Login/landing page: auto-open the game in its own full-screen
+      // window. Signing in drops the player straight into the new window — no
+      // extra "Open Game" click. The original tab stays put as a lightweight
+      // launcher used to reopen the window, or as a one-click fallback if the
+      // browser blocks the auto-open popup.
       if (!_isGameWindow) {
         $a("auth-loading-screen").classList.add("hidden");
         const greetEl = $a("auth-launch-greeting");
-        if (greetEl) greetEl.textContent = `Ready to dive in, ${_playerNickname}!`;
-        const subEl = $a("auth-launch-sub");
-        if (subEl) subEl.textContent = _guestSessionActive
-          ? "Click below to open the game in a new window."
-          : "Click below to open the game in a new window.";
+        const subEl   = $a("auth-launch-sub");
+        const playBtn = $a("auth-launch-play-btn");
+        const errEl   = $a("auth-launch-err");
+
+        const gameWin = _openGameWindow();
+        if (gameWin) {
+          if (greetEl) greetEl.textContent = `You're in, ${_playerNickname}!`;
+          if (subEl)   subEl.textContent   = "Your game opened in a new window — you can leave this tab here.";
+          if (playBtn) playBtn.textContent = "↗ Reopen game window";
+          if (errEl)   errEl.innerHTML = "";
+        } else {
+          // Popup blocked — show the one-click fallback to open the window.
+          if (greetEl) greetEl.textContent = `Ready to dive in, ${_playerNickname}!`;
+          if (subEl)   subEl.textContent   = "Pop-ups are blocked — click below to open the game window.";
+          if (playBtn) playBtn.textContent = "🎮 Open Game";
+        }
         // Show avatar in launch step
         const avatarImg  = $a("auth-launch-avatar-img");
         const initSpan   = $a("auth-launch-initials");
@@ -26979,37 +27038,27 @@
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
-    // ── Launch step: "Open Game" button → opens game in a new tab ────
+    // ── Launch step: "Reopen game window" button → reopens the full-screen
+    // game window (fallback / reopen path; sign-in already auto-opens it). ──
     (function() {
       const playBtn = $a("auth-launch-play-btn");
       const soBtn   = $a("auth-launch-signout");
       if (!playBtn || !soBtn) return;
 
-      // Build the game-window URL: preserve the CURRENT path + query (so room
-      // invite deep-links like /ABCDE or ?room=ABCDE still auto-join) and add
-      // gw=1 so the new window knows it's the game window.
-      function gameWinUrl() {
-        const sp = new URLSearchParams(location.search);
-        sp.set("gw", "1");
-        return location.pathname + "?" + sp.toString();
-      }
-
       playBtn.addEventListener("click", () => {
         setAuthMsg("auth-launch-err", "", false);
         playBtn.disabled = true;
         playBtn.textContent = "Opening…";
-        const target = gameWinUrl();
-        const gameWin = window.open(target, "cc-game-window");
+        const gameWin = _openGameWindow();
         playBtn.disabled = false;
-        playBtn.textContent = "🎮 Open Game";
+        playBtn.textContent = gameWin ? "↗ Reopen game window" : "🎮 Open Game";
         if (!gameWin) {
           // Popup blocked — give the user a direct, gesture-driven link instead.
+          const target = _gameWinUrl();
           const errEl = $a("auth-launch-err");
           if (errEl) errEl.innerHTML =
             'Popup blocked — <a href="' + target.replace(/"/g, "&quot;") +
             '" target="cc-game-window" style="color:#f4a574;text-decoration:underline;">click here to open the game →</a>';
-        } else {
-          try { gameWin.focus(); } catch {}
         }
       });
 
