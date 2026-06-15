@@ -859,21 +859,6 @@
     .pv-board-card.strat-hl { outline: 3px solid var(--strat-c, #b388ff); outline-offset: 1px; box-shadow: 0 0 11px 1px var(--strat-c, #b388ff); z-index: 6; }
     .pv-ocean-face.strat-hl { outline: 3px solid var(--strat-c, #b388ff); outline-offset: 1px; box-shadow: 0 0 0 2px #004180, 0 0 16px 2px var(--strat-c, #b388ff); }
 
-    /* ── Star-ability badge ──────────────────────────────────────────
-       A gold ★ chip in the BOTTOM-RIGHT corner of any hand or pool card
-       that has a special ★ ability. It sits opposite the strategy tags
-       (top-left), so a single card can clearly show BOTH at once: which
-       strategy it belongs to AND that it carries a ★ ability you can use. */
-    .pv-hand-card.has-star::after, .pv-pool-card.has-star::after {
-      content: "★"; position: absolute; bottom: 3px; right: 3px; z-index: 9;
-      min-width: 15px; height: 15px; padding: 0 2px; box-sizing: border-box;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 900; line-height: 1; color: #5a3a00;
-      background: linear-gradient(135deg, #ffe071, #f5b32a);
-      border: 1px solid rgba(255,255,255,.65); border-radius: 50%;
-      box-shadow: 0 1px 3px rgba(0,0,0,.6); pointer-events: none;
-    }
-    .pv-pool-card.has-star::after { width: 14px; height: 14px; min-width: 14px; font-size: 9px; }
 
     /* ── Family-colour legend (top of the Strategies panel) ──────────── */
     .hs-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 9px 0 2px; }
