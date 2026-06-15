@@ -10095,27 +10095,33 @@
       margin-bottom: 18px; transition: background .15s;
     }
     .pub-back-btn:hover { background: rgba(38,128,200,.22); }
-    .pub-header {
-      display: flex; align-items: center; gap: 16px;
-      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
-      border-radius: 14px; padding: 16px; margin-bottom: 10px;
+    /* Public profile card — reuses the real .ph-profile-card design, trimmed to
+       3 columns (avatar | info | ranks) since it has no alpha-banner/actions. */
+    .pub-profile-card { grid-template-columns: auto minmax(160px, 1fr) auto; margin-bottom: 14px; }
+    button.pub-avatar-btn.ph-avatar {
+      padding: 0; cursor: pointer; outline: none;
+      transition: box-shadow .15s, transform .15s;
     }
-    .pub-avatar-btn {
-      background: none; border: 2px solid rgba(38,128,200,.4);
-      border-radius: 50%; padding: 3px; cursor: pointer;
-      flex-shrink: 0; transition: border-color .15s;
+    /* Public avatar always has an <img> (defaults to mullet), so show it without
+       needing the .has-image class the real profile toggles via JS. */
+    button.pub-avatar-btn.ph-avatar img { display: block; }
+    button.pub-avatar-btn.ph-avatar:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 0 2px #2680c8, 0 8px 22px rgba(25,92,167,.32);
     }
-    .pub-avatar-btn:hover { border-color: #2680c8; }
-    .pub-avatar-btn img {
-      width: 72px; height: 72px; border-radius: 50%; object-fit: cover; display: block;
+    .pub-avatar-cam {
+      position: absolute; right: 5px; bottom: 5px; z-index: 3;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(8,30,55,.85); border: 1.5px solid rgba(255,255,255,.9);
+      display: flex; align-items: center; justify-content: center; font-size: 14px;
     }
-    .pub-header-info { flex: 1; min-width: 0; }
-    .pub-nick { font-size: 20px; font-weight: 800; color: #e8f4ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .pub-level-line { font-size: 13px; color: #7ecdf5; margin-top: 3px; }
-    .pub-rank-line { font-size: 13px; color: #f0c040; margin-top: 2px; }
+    @media (max-width: 720px) {
+      .pub-profile-card { grid-template-columns: auto 1fr; }
+      .pub-profile-card .ph-pranks { grid-column: 1 / -1; max-width: none; }
+    }
     .pub-critter-hint {
-      font-size: 12px; color: #7ecdf5; text-align: center;
-      margin-bottom: 14px; opacity: .8;
+      font-size: 12px; color: #cfe8fb; text-align: center;
+      margin-bottom: 14px; opacity: .85;
     }
     .pub-stats-title {
       font-size: 13px; font-weight: 700; color: #7ecdf5;
@@ -11323,17 +11329,48 @@
     <div id="pub-loading" class="pub-loading">Loading…</div>
     <div id="pub-error" class="pub-error" style="display:none;"></div>
     <div id="pub-content" style="display:none;">
-      <div class="pub-header">
-        <button class="pub-avatar-btn" id="pub-avatar-btn" title="View critter collection" aria-label="View critter collection">
+      <!-- Profile card — same design/layout as the real Player Home card.
+           Read-only: shows the viewed player's public info; nothing here writes. -->
+      <div class="ph-profile-card pub-profile-card">
+        <button class="ph-avatar pub-avatar-btn" id="pub-avatar-btn" type="button"
+                title="View their critter collection (view-only)" aria-label="View their critter collection">
           <img id="pub-avatar-img" src="/avatars/mullet.png" alt="avatar" loading="lazy">
+          <span class="pub-avatar-cam" aria-hidden="true">🐠</span>
         </button>
-        <div class="pub-header-info">
-          <div class="pub-nick" id="pub-nick"></div>
-          <div class="pub-level-line" id="pub-level-line"></div>
-          <div class="pub-rank-line" id="pub-rank-line" style="display:none;"></div>
+        <div class="ph-pinfo">
+          <div class="ph-pname-row">
+            <div class="ph-pname" id="pub-nick">—</div>
+          </div>
+          <div class="ph-pfc" id="pub-fc"></div>
+          <div class="ph-pmeta2">
+            <span class="ph-meta-chip">
+              <span class="ph-meta-chip-ico">⭐</span>
+              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="pub-total-xp">—</span></span>
+            </span>
+            <span class="ph-meta-chip">
+              <span class="ph-meta-chip-ico">🔥</span>
+              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="pub-streak">—</span></span>
+            </span>
+          </div>
+        </div>
+        <div class="ph-pranks">
+          <div class="ph-rank-badge ph-rank-level">
+            <div class="ph-rank-type"><span id="pub-level-label">Level 1</span></div>
+            <div class="ph-level-xp-wrap">
+              <div class="ph-level-xp-bar"><div class="ph-level-xp-fill" id="pub-level-xp-fill"></div></div>
+              <div class="ph-level-xp-text" id="pub-level-xp-text">0 / 50 XP</div>
+            </div>
+          </div>
+          <div class="ph-rank-badge ph-rank-comp">
+            <div class="ph-rank-type">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1L3 4H1l1 4 4 3 4-3 1-4H9L6 1z" fill="#d4a017" opacity=".7"/></svg>
+              Competitive
+            </div>
+            <div class="ph-rank-val" id="pub-comp-rank">No rank yet.</div>
+          </div>
         </div>
       </div>
-      <div class="pub-critter-hint">🐠 Tap avatar to view critter collection</div>
+      <div class="pub-critter-hint">🐠 Tap their avatar to view their critter collection (view-only)</div>
       <div class="ph-stats-card" style="margin-top:0;">
         <div class="ph-stats-top">
           <div class="ph-stats-title">
@@ -12415,11 +12452,16 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.3.9";
-  const APP_BUILD   = "2026-06-15.3";
+  const APP_VERSION = "1.4.0";
+  const APP_BUILD   = "2026-06-15.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.4.0", title: "Full public profiles", items: [
+      "Tapping another player's profile now opens a full public profile that matches your own Player Home design — their avatar, name, friend code, level with XP bar, Total XP, daily streak, competitive rank, and the same Quick Stats grid.",
+      "Tap their avatar to view their critter collection (view-only — you can see what they've unlocked but can't change anything).",
+      "All of it shows the selected player's real data and never touches your own account, avatars, or unlocks.",
+    ]},
     { ver: "V1.3.9", title: "Profile viewing, payments & layout fixes", items: [
       "Viewing another player's profile is now strictly look-only — it can never add their avatars to your account or pop fake “unlock!” messages. Your own avatars, icons, stats, and unlocks stay exactly as you earned them.",
       "Their Avatar Gallery opens view-only: you can see what they've unlocked, but can't equip, claim, or change anything.",
@@ -29272,22 +29314,52 @@
         avatarImg.src = _avSrc(avatarUrl); avatarImg.alt = (profile.nickname || "Player") + " avatar";
         try { const bgn = normalizeBgUrl(profile.background_url || ""); _applyAvBg(avatarImg.parentElement, (bgn && _BG_BY_IMG[bgn]) ? bgn : ""); } catch {}
       }
+      const nick = profile.nickname || "Unknown";
       const nickEl = $a("pub-nick");
-      if (nickEl) nickEl.textContent = profile.nickname || "Unknown";
-      let level = 1;
-      try { level = getLevelProgressFromTotalXp(getStoredTotalXp(profile.stats || {})).level; } catch {}
-      const levelEl = $a("pub-level-line");
-      if (levelEl) levelEl.textContent = `Level ${level}`;
-      const rankEl = $a("pub-rank-line");
-      const rankLabel = profile.stats?.rank_competitive;
-      if (rankEl) {
-        if (rankLabel && rankLabel !== "Unranked" && rankLabel !== "No rank yet") {
-          rankEl.textContent = `⚔️ ${rankLabel}`;
-          rankEl.style.display = "";
-        } else {
-          rankEl.style.display = "none";
-        }
+      if (nickEl) nickEl.textContent = nick;
+
+      const pStats = (profile && typeof profile.stats === "object") ? profile.stats : {};
+
+      // Friend code — public (you can always accept/decline a request anyway).
+      const fcEl = $a("pub-fc");
+      if (fcEl) fcEl.textContent = profile.friend_code
+        ? formatFriendCodeLabel(nick, String(profile.friend_code).trim()) : "";
+
+      // Level + XP progress bar (mirrors the real profile card).
+      let lp = { level: 1, xpCurrent: 0, xpGoal: 50, totalXp: 0 };
+      try { lp = getLevelProgressFromTotalXp(getStoredTotalXp(pStats)); } catch {}
+      const lvlLabel = $a("pub-level-label");
+      if (lvlLabel) lvlLabel.textContent = `Level ${lp.level || 1}`;
+      const xpFill = $a("pub-level-xp-fill");
+      if (xpFill) {
+        const pct = lp.xpGoal > 0 ? Math.max(0, Math.min(100, Math.round((lp.xpCurrent / lp.xpGoal) * 100))) : 100;
+        xpFill.style.width = pct + "%";
       }
+      const xpText = $a("pub-level-xp-text");
+      if (xpText) xpText.textContent = `${Math.round(lp.xpCurrent)} / ${Math.round(lp.xpGoal)} XP`;
+
+      // Total XP chip.
+      const totalXpEl = $a("pub-total-xp");
+      if (totalXpEl) {
+        let tx = 0; try { tx = getStoredTotalXp(pStats); } catch {}
+        totalXpEl.textContent = Number(tx || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+      }
+
+      // Current daily streak chip.
+      const streakEl = $a("pub-streak");
+      if (streakEl) {
+        let cur = 0;
+        try { cur = _computeStreakInfo(pStats.streak_days).current || 0; } catch {}
+        streakEl.textContent = cur === 1 ? "1 day" : `${cur} days`;
+      }
+
+      // Competitive rank badge.
+      const compRankEl = $a("pub-comp-rank");
+      if (compRankEl) {
+        const rankLabel = pStats.rank_competitive;
+        compRankEl.textContent = (rankLabel && rankLabel !== "Unranked") ? rankLabel : "No rank yet.";
+      }
+
       // Stats grid (mirrors the real Overview Quick Stats)
       _renderPublicStats(profile);
       loading.style.display = "none";
