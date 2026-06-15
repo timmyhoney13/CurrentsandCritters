@@ -92,8 +92,8 @@
       --cr-coral-deep: #e8956b;
       --cr-gold:       #e8b34a;
       --cr-gold-deep:  #c89320;
-      --card-w:    122px;
-      --card-h:    172px;
+      --card-w:    98px;
+      --card-h:    138px;
       --mini-w:    84px;
       --mini-h:    118px;
       --radius:    10px;
@@ -1743,11 +1743,11 @@
     #pv-hand-zone {
       background: linear-gradient(0deg, rgba(6,18,48,.99) 0%, rgba(10,30,68,.55) 100%);
       flex-shrink: 0;
-      padding: 6px 20px 14px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      min-height: 214px;
+      padding: 6px 8px 12px;
+      display: grid;
+      grid-template-columns: max-content 1fr max-content;
+      align-items: end;
+      min-height: 168px;
       position: relative;
       overflow: visible;
     }
@@ -1758,26 +1758,26 @@
       position: relative;
       overflow: visible;
       z-index: 3;
+      min-width: 0;
     }
 
     /* ── PLAYER SEATS (coral-reef reference design) ────────────── */
-    /* Light pastel pill panels anchored at bottom-left / bottom-right */
+    /* Pill panels flanking the hand — left column and right column of the grid */
     .pv-seat-cluster {
-      position: absolute;
-      bottom: 14px;
+      position: relative;
       display: flex;
       flex-direction: row;
       align-items: flex-start;
       gap: 3px;
-      z-index: 1;
+      z-index: 20;
       background: linear-gradient(180deg, rgba(255,255,255,.95) 0%, rgba(232,244,253,.92) 100%);
       border: 1px solid rgba(180,210,235,.65);
       border-radius: 20px;
       padding: 10px 10px;
       box-shadow: 0 8px 22px rgba(8,30,55,.4), inset 0 1px 0 rgba(255,255,255,.7);
     }
-    #pv-seats-left  { left: 16px; }
-    #pv-seats-right { right: 16px; }
+    #pv-seats-left  { margin-right: 6px; }
+    #pv-seats-right { margin-left:  6px; }
     .pv-seat {
       display: flex;
       flex-direction: column;
@@ -12415,11 +12415,18 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.3.8";
-  const APP_BUILD   = "2026-06-15.2";
+  const APP_VERSION = "1.3.9";
+  const APP_BUILD   = "2026-06-15.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.3.9", title: "Profile viewing, payments & layout fixes", items: [
+      "Viewing another player's profile is now strictly look-only — it can never add their avatars to your account or pop fake “unlock!” messages. Your own avatars, icons, stats, and unlocks stay exactly as you earned them.",
+      "Their Avatar Gallery opens view-only: you can see what they've unlocked, but can't equip, claim, or change anything.",
+      "Playing a ★ card without a matching symbol now asks “play without the star ability?” instead of erroring — and a rejected play never auto-draws or wastes your turn.",
+      "Your hand cards no longer overlap the player panels when you're holding a lot of cards.",
+      "Surf's Up: your “🌊 Away” badge now appears and clears the moment you toggle it.",
+    ]},
     { ver: "V1.3.8", title: "Straight into a full-screen game window", items: [
       "Signing in now drops you straight into the game in its own full-screen window — no extra “Open Game” screen to click through. The sign-in tab stays put behind it.",
       "When you click an Ocean drop zone or a side of an Ocean to play a card, the card choices now show up much bigger and easier to see.",
@@ -14653,6 +14660,46 @@
       pl.pool_pick_uids = action.pool_pick_uids;
     const cost = Number(action.cost_to_pay||0);
     if (cost > 0) {
+      // ── Star play without a matching-symbol payment ──────────────
+      // The ★ toggle is on, so this is the STAR variant — which needs at least
+      // one payment card whose symbol matches. If the player's chosen payment
+      // has NO matching symbol, don't hard-error (the old behavior, which felt
+      // like the game "breaking"). Instead pop the friendly "skip the ★?" confirm:
+      //   • Confirm → replay the SAME card WITHOUT the star, using their cards.
+      //   • Go back → return to payment mode with their picks intact so they can
+      //     swap in a matching-symbol card and keep the star.
+      if (action.use_star && action.requires_symbol_match && action.required_symbol
+          && selectedPayment.size === cost) {
+        const sym = action.required_symbol;
+        const hasMatch = Array.from(selectedPayment).some(uid => entryHasSymbolMatch(uid, sym));
+        if (!hasMatch) {
+          const nonStar = (legalActions || []).find(a => !a.use_star &&
+            Number(a.card_uid) === Number(action.card_uid) &&
+            String(a.kind) === String(action.kind) &&
+            Number(a.ocean_uid ?? -1) === Number(action.ocean_uid ?? -1) &&
+            String(a.face_direction || "") === String(action.face_direction || "")
+          );
+          const entry = handEntryMap.get(Number(action.card_uid));
+          const face  = entry?.faces?.[0] || entry;
+          const ability = starText(face?.text || entry?.text || "") || "the star ability";
+          const msg = document.getElementById("star-skip-msg");
+          if (msg) msg.textContent =
+            `You didn't discard a ${sym} card, so you won't get "${ability}". Play it without the star ability?`;
+          _starSkipPendingCb = () => {
+            // Submit the non-star play with the SAME chosen payment.
+            submitAction(nonStar ? { ...nonStar } : { ...action, use_star: false });
+          };
+          _starSkipBackCb = () => {
+            // Return to payment mode, keeping their current selection.
+            pendingPayAction = action;
+            document.getElementById("pv-hand")?.classList.add("payment-active");
+            updatePaymentModeUI();
+            if (latestPayload) { _handRenderKey = ""; renderPayload(latestPayload); }
+          };
+          document.getElementById("star-skip-modal")?.classList.add("open");
+          return;
+        }
+      }
       const pay = choosePayment(action);
       if (pay.error) {
         // Invalid selection — re-enter payment mode so the user can pick valid cards.
@@ -15090,6 +15137,7 @@
   // ability WITHOUT activating it, show a quick confirmation so they don't
   // accidentally skip it. "Let me go back" cancels; "Yes, that's okay" proceeds.
   let _starSkipPendingCb = null;
+  let _starSkipBackCb = null;   // runs when the player declines (Go back / backdrop)
   // Move confirmation dialog state
   let _moveConfirmPendingCb = null;
   // Pending move animation: set when a move is confirmed so renderMyBoard can FLIP-animate the card
@@ -15101,16 +15149,23 @@
     if (!modal || !backBtn || !okBtn) return;
     backBtn.addEventListener("click", () => {
       modal.classList.remove("open");
-      _starSkipPendingCb = null;
+      const bcb = _starSkipBackCb;
+      _starSkipPendingCb = null; _starSkipBackCb = null;
+      if (bcb) bcb();
     });
     okBtn.addEventListener("click", () => {
       modal.classList.remove("open");
       const cb = _starSkipPendingCb;
-      _starSkipPendingCb = null;
+      _starSkipPendingCb = null; _starSkipBackCb = null;
       if (cb) cb();
     });
     modal.addEventListener("click", (e) => {
-      if (e.target === modal) { modal.classList.remove("open"); _starSkipPendingCb = null; }
+      if (e.target === modal) {
+        modal.classList.remove("open");
+        const bcb = _starSkipBackCb;
+        _starSkipPendingCb = null; _starSkipBackCb = null;
+        if (bcb) bcb();
+      }
     });
   })();
 
@@ -15662,6 +15717,7 @@
     if (msg) msg.textContent =
       `If you don't discard a ${sym} card you will not get "${abilityLabel}".`;
     _starSkipPendingCb = () => submitAction(act);
+    _starSkipBackCb = null;  // this entry point just cancels on "go back"
     document.getElementById("star-skip-modal")?.classList.add("open");
   }
 
@@ -17032,7 +17088,7 @@
     let _myBgKey = "";
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>({i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar_url,bg:String(p.background||"")}))
+      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar_url,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away)};})
     ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;
@@ -19541,7 +19597,7 @@
     for (let i = 0; i < n; i++) {
       const pos = i - mid;
       if (hoveredIdx === i) {
-        transforms.push({ angle: 0, translateY: -80, scale: 1.36, zIndex: 500 });
+        transforms.push({ angle: 0, translateY: -64, scale: 1.36, zIndex: 500 });
       } else {
         const angle = pos * (maxAngle * 2 / Math.max(1, n - 1));
         const lift  = pos * pos * 1.9;
@@ -24249,18 +24305,26 @@
       // avatar the player has earned but not yet been granted appears unlocked
       // immediately when they open the collection (don't make them wait for a
       // lobby reload). Refresh the grid if anything new was granted.
-      (async () => {
-        try {
-          if (typeof window.__fishSyncStatUnlocks === "function") {
-            const newly = await window.__fishSyncStatUnlocks();
-            if (Array.isArray(newly) && newly.length) {
-              _galRenderHeader();
-              _galRenderGrid();
-              newly.forEach(id => { try { window.__fishQueueAnimalUnlock?.(id); } catch {} });
+      //
+      // CRITICAL: never run this while viewing ANOTHER player's collection
+      // (read-only). In that mode the globals (_activeProfile / _unlockedIcons)
+      // are swapped to the other player's data, so syncing would evaluate THEIR
+      // stats, grant THEIR avatars to MY account, and pop fake "unlock!" toasts.
+      if (!_galReadOnly) {
+        (async () => {
+          try {
+            if (typeof window.__fishSyncStatUnlocks === "function") {
+              const newly = await window.__fishSyncStatUnlocks();
+              // Bail if we somehow entered read-only mid-flight — don't pop.
+              if (!_galReadOnly && Array.isArray(newly) && newly.length) {
+                _galRenderHeader();
+                _galRenderGrid();
+                newly.forEach(id => { try { window.__fishQueueAnimalUnlock?.(id); } catch {} });
+              }
             }
-          }
-        } catch {}
-      })();
+          } catch {}
+        })();
+      }
     }
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
@@ -24301,12 +24365,19 @@
     // restores everything on close (see closeAvatarGallery). Equip is gated off.
     function openPublicCritterGallery(profile) {
       if (!profile) return;
-      _galSavedState = {
-        activeProfile:  _activeProfile,
-        unlockedIcons:  _unlockedIcons,
-        unlockedBackgrounds: _unlockedBackgrounds,
-        playerNickname: _playerNickname,
-      };
+      // Re-entrancy guard: only snapshot MY real data the FIRST time we enter
+      // read-only. If we're already viewing someone (e.g. switching straight from
+      // one player to another), _activeProfile/_unlockedIcons currently hold the
+      // PREVIOUS player's swapped-in data — saving that as "mine" would leak it
+      // into my account on close. Keep the original snapshot intact.
+      if (!_galReadOnly) {
+        _galSavedState = {
+          activeProfile:  _activeProfile,
+          unlockedIcons:  _unlockedIcons,
+          unlockedBackgrounds: _unlockedBackgrounds,
+          playerNickname: _playerNickname,
+        };
+      }
       _activeProfile  = profile;
       _unlockedIcons  = Array.isArray(profile.unlocked_icons)
         ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
@@ -25620,6 +25691,9 @@
     // Persist + apply an avatar selection (shared by the picker and the
     // post-game unlock screen's "make this my avatar" button).
     async function applyAvatarSelection(selected) {
+      // Never equip/persist while viewing another player's collection — the
+      // globals are swapped to their data and writes target MY account.
+      if (_galReadOnly) return false;
       // Refresh our own nick-avatar cache entry immediately so our chat icon
       // (and anything reading by our nickname) updates instantly on this
       // client; other clients pick it up from Firestore within the TTL.
@@ -31994,6 +32068,10 @@
     window.__fishGetEquippedAvatar = () => normalizeAvatarUrl(_activeProfile?.avatar_url || "") || DEFAULT_AVATAR_IMG;
     // Grant a new animal icon. Returns true if it was newly unlocked.
     window.__fishGrantUnlockedIcon = async (iconPath) => {
+      // Hard guard: while viewing another player's collection the globals are
+      // swapped to their data and persistence targets MY account — granting here
+      // would silently add their avatars to me. Never grant in read-only mode.
+      if (_galReadOnly) return false;
       const path = normalizeAvatarUrl(String(iconPath || ""));
       if (!path || !path.startsWith("/avatars/")) return false;
       if (isAvatarUnlocked(path)) return false; // already owned (starter or unlocked)
@@ -32039,6 +32117,9 @@
     window.__fishGetUnlockedBackgrounds = () => [..._unlockedBackgrounds];
     // Grant a background (donation reward). Returns true if newly unlocked.
     window.__fishGrantUnlockedBackground = async (bgImg) => {
+      // Never grant while viewing another player's collection (read-only) — the
+      // swapped-in globals would persist their backgrounds to MY account.
+      if (_galReadOnly) return false;
       const path = normalizeBgUrl(bgImg);
       if (!path || !_BG_BY_IMG[path]) return false;
       if (_unlockedBackgrounds.includes(path)) return false; // already owned
@@ -32055,6 +32136,8 @@
     };
     // Equip (or, with "", unequip) an unlocked background. Persists background_url.
     async function applyBackgroundSelection(bgImg) {
+      // Never equip/persist while viewing another player's collection.
+      if (_galReadOnly) return false;
       const path = bgImg ? normalizeBgUrl(bgImg) : "";
       if (path && !isBackgroundUnlocked(path)) return false;
       if (_activeProfile) _activeProfile = { ..._activeProfile, background_url: path };
@@ -32146,6 +32229,10 @@
     // Re-evaluate stat/level based unlocks against current stats. Returns the
     // list of newly-unlocked animal ids (caller decides whether to show a screen).
     window.__fishSyncStatUnlocks = async () => {
+      // Never sync/grant while viewing another player's collection (read-only):
+      // the swapped-in globals would make us grant THEIR earned avatars to MY
+      // account. Only the logged-in player's own data may drive unlocks.
+      if (_galReadOnly) return [];
       const { stats, level } = _avatarStatsAndLevel();
       const newly = [];
       // Make sure achievements are loaded so already-earned achievement-based

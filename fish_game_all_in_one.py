@@ -10781,6 +10781,21 @@ def run_match(
                 if live_recorder is not None:
                     reason = fail_messages[-1] if fail_messages else "unknown reason"
                     live_recorder.event(f"{p.name} attempt failed: {reason}")
+                # Web humans: a rejected move must NEVER auto-draw and burn the
+                # turn. The draw-fallback below exists for bots / abandoned seats
+                # to keep an unattended game moving — but for a live player it was
+                # the "it drew for me and ended my turn" bug. Instead, re-offer
+                # legal actions (loop without consuming the action budget) so the
+                # player can simply try again (e.g. pick a different payment).
+                # No busy-loop: the human policy blocks waiting for fresh input.
+                if bool(p.flags.get("_web_human")) and chosen.kind != "draw":
+                    if verbose:
+                        reason = fail_messages[-1] if fail_messages else "unknown reason"
+                        print(f"{p.name} move rejected ({reason}); awaiting a new action (no auto-draw).")
+                    if live_recorder is not None:
+                        reason = fail_messages[-1] if fail_messages else "unknown reason"
+                        live_recorder.event(f"{p.name} move rejected ({reason}); awaiting retry.")
+                    continue
                 # Fallback: force a legal draw action if available.
                 fallback = None
                 legal_now = legal_actions(gs, ms, p, include_draw=True)
