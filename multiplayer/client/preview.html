@@ -1055,13 +1055,26 @@
     }
 
     /* ── TABLE ──────────────────────────────────────────────────── */
+    /* The board lives in #pv-table-inner so the in-game Board Size control
+       can zoom ONLY the board (oceans, pool, deck, opponents) without ever
+       pushing or clipping the hand, action bar, or End/Undo buttons. The
+       outer #pv-table is the scroll container that catches overflow when the
+       board is zoomed in past the available space. */
     #pv-table {
       flex: 1;
+      overflow: hidden;
+      position: relative;
+      min-height: 0;
+    }
+    #pv-table.pv-table-zoomed { overflow: auto; }
+    #pv-table-inner {
       display: grid;
       grid-template-rows: auto auto 1fr;
-      overflow: hidden;
-      padding: 5px 10px;
       gap: 5px;
+      padding: 5px 10px;
+      min-height: 100%;
+      box-sizing: border-box;
+      zoom: var(--board-zoom, 1);
     }
 
     /* ── OPPONENTS ──────────────────────────────────────────────── */
@@ -2414,6 +2427,191 @@
     #pv-help-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(232,179,74,.4); border-color: var(--cr-gold); }
     #pv-help-btn .help-label { font-size: 13px; font-weight: 800; color: var(--cr-navy); }
     #pv-help-btn .help-sub   { font-size: 10px; color: rgba(26,45,90,.65); }
+
+    /* ── IN-GAME CHALLENGE PANEL (lower-left, above action bar) ──── */
+    #ig-challenge-panel {
+      position: fixed;
+      left: 12px;
+      bottom: 302px;
+      z-index: 50;
+      width: 226px;
+      background: linear-gradient(160deg, rgba(10,26,60,.97) 0%, rgba(6,16,42,.98) 100%);
+      border: 1.5px solid rgba(95,179,214,.38);
+      border-radius: 14px;
+      box-shadow: 0 6px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+      overflow: hidden;
+      transition: width .2s ease, border-radius .2s ease;
+      display: none;
+      pointer-events: auto;
+      font-family: "Nunito", sans-serif;
+    }
+    #ig-challenge-panel.igcp-minimized {
+      width: auto;
+      border-radius: 22px;
+    }
+    #igcp-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px 7px;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid rgba(95,179,214,.15);
+      transition: background .15s;
+    }
+    #ig-challenge-panel.igcp-minimized #igcp-header { border-bottom: none; padding: 7px 12px; }
+    #igcp-header:hover { background: rgba(95,179,214,.07); }
+    #igcp-minimize-btn {
+      order: -1;
+      background: none;
+      border: 1px solid rgba(95,179,214,.32);
+      border-radius: 6px;
+      cursor: pointer;
+      color: #7aafcc;
+      font-size: 13px;
+      line-height: 1;
+      padding: 1px 5px 2px;
+      flex-shrink: 0;
+      transition: background .15s, color .15s;
+    }
+    #igcp-minimize-btn:hover { background: rgba(95,179,214,.18); color: #c0e0f0; }
+    #igcp-calendar-icon { flex-shrink: 0; width: 17px; height: 17px; opacity: .82; }
+    #igcp-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: #d4eaf8;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: .1px;
+    }
+    #igcp-pill {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      background: rgba(38,128,200,.26);
+      color: #6db8e0;
+      border: 1px solid rgba(38,128,200,.36);
+      border-radius: 10px;
+      padding: 1px 6px;
+      flex-shrink: 0;
+    }
+    #igcp-pill.weekly { background: rgba(232,179,74,.2); color: #f0c860; border-color: rgba(232,179,74,.36); }
+    #igcp-cards {
+      padding: 7px 7px 3px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 270px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    #igcp-cards::-webkit-scrollbar { width: 4px; }
+    #igcp-cards::-webkit-scrollbar-thumb { background: rgba(95,179,214,.28); border-radius: 4px; }
+    .igcp-row {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(95,179,214,.16);
+      border-radius: 9px;
+      padding: 6px 8px 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: border-color .2s;
+    }
+    .igcp-row.igcp-done { border-color: rgba(94,201,137,.28); background: rgba(94,201,137,.05); opacity: .72; }
+    .igcp-row-top { display: flex; align-items: flex-start; gap: 6px; }
+    .igcp-row-icon { font-size: 15px; line-height: 1; flex-shrink: 0; margin-top: 1px; }
+    .igcp-row-info { flex: 1; min-width: 0; }
+    .igcp-row-name {
+      font-size: 11px; font-weight: 800; color: #e0eff9;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2;
+    }
+    .igcp-row-desc {
+      font-size: 9.5px; color: #7ba5c0; line-height: 1.35; overflow: hidden;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-top: 1px;
+    }
+    .igcp-row-xp { font-size: 9.5px; font-weight: 800; color: #f0c860; flex-shrink: 0; margin-top: 2px; white-space: nowrap; }
+    .igcp-row-bar-wrap { display: flex; align-items: center; gap: 5px; }
+    .igcp-row-bar { flex: 1; height: 4px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; }
+    .igcp-row-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2680c8 0%, #5fb3d6 100%);
+      border-radius: 3px;
+      transition: width .35s ease;
+    }
+    .igcp-row.igcp-done .igcp-row-fill { background: linear-gradient(90deg, #3aaa70 0%, #5ec989 100%); }
+    .igcp-row-prog { font-size: 9px; color: #6a9ab8; font-weight: 700; white-space: nowrap; }
+    .igcp-row.igcp-done .igcp-row-prog { color: #5ec989; }
+    #igcp-footer {
+      padding: 4px 8px 7px;
+      font-size: 9px;
+      color: rgba(106,154,184,.55);
+      text-align: center;
+      cursor: pointer;
+      transition: color .15s;
+    }
+    #igcp-footer:hover { color: rgba(95,179,214,.75); }
+    #ig-challenge-panel.igcp-minimized #igcp-cards,
+    #ig-challenge-panel.igcp-minimized #igcp-footer { display: none; }
+
+    /* ── IN-GAME BOARD SIZE CONTROL (lower-right, above Undo/End Turn) ── */
+    #bs-ctrl {
+      position: fixed;
+      right: 12px;
+      bottom: 302px;
+      z-index: 50;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 7px 7px 8px;
+      background: linear-gradient(160deg, rgba(10,26,60,.97) 0%, rgba(6,16,42,.98) 100%);
+      border: 1.5px solid rgba(95,179,214,.38);
+      border-radius: 14px;
+      box-shadow: 0 6px 28px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04);
+      font-family: "Nunito", sans-serif;
+      user-select: none;
+    }
+    #bs-label {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+      color: #7aafcc;
+      text-align: center;
+      line-height: 1.1;
+      margin-bottom: 1px;
+    }
+    .bs-btn {
+      width: 38px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(95,179,214,.14);
+      border: 1.5px solid rgba(95,179,214,.4);
+      border-radius: 9px;
+      color: #d4eaf8;
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1;
+      cursor: pointer;
+      transition: background .14s, border-color .14s, transform .08s;
+    }
+    .bs-btn:hover { background: rgba(95,179,214,.28); border-color: #5fb3d6; }
+    .bs-btn:active { transform: scale(.92); }
+    .bs-btn:disabled { opacity: .35; cursor: default; }
+    .bs-btn:disabled:hover { background: rgba(95,179,214,.14); border-color: rgba(95,179,214,.4); }
+    #bs-readout {
+      font-size: 11px;
+      font-weight: 800;
+      color: #9fd0ec;
+      min-width: 38px;
+      text-align: center;
+      padding: 1px 0;
+    }
 
     /* ── DRAW NOTIFICATION ──────────────────────────────────────── */
     /* ── DRAW NOTIFICATION PILL ───────────────────────────────────── */
@@ -4375,6 +4573,22 @@
     }
     .auth-link:hover { text-decoration: underline; }
     .auth-row-links { display: flex; justify-content: space-between; align-items: center; }
+    /* ── LAUNCH STEP (game-window redirect) ─────────────────────── */
+    #auth-step-launch { gap: 15px; align-items: center; text-align: center; }
+    #auth-launch-avatar-wrap {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(95,179,214,.15);
+      border: 2px solid rgba(95,179,214,.4);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; flex-shrink: 0;
+    }
+    #auth-launch-avatar-wrap img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    #auth-launch-initials { font-family: "Cinzel", serif; font-size: 26px; font-weight: 700; color: #5fb3d6; }
+    #auth-launch-greeting { font-family: "Cinzel", serif; font-size: 15px; color: var(--cyan); line-height: 1.3; }
+    #auth-launch-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    #auth-launch-play-btn { font-size: 16px; padding: 14px 28px; letter-spacing: .4px; }
+    #auth-launch-play-btn:disabled { opacity: .7; }
+    .auth-launch-links { display: flex; flex-direction: column; gap: 6px; align-items: center; }
     .auth-divider {
       color: var(--muted); font-size: 11px; text-align: center;
       display: flex; align-items: center; gap: 8px;
@@ -8031,16 +8245,48 @@
       from { transform: scale(0.4); opacity: 0; }
       to   { transform: scale(1);   opacity: 1; }
     }
-    /* Friend requests section */
-    .friend-req-entry {
-      display: flex; align-items: center; gap: 8px; padding: 5px 0;
-      border-bottom: 1px solid rgba(58,120,204,.12); font-size: 13px;
+    /* ── Friend request cards ──────────────────────────────────── */
+    .ph-freq-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px; margin-bottom: 8px;
+      background: rgba(46,204,113,.07); border: 1.5px solid rgba(46,204,113,.25);
     }
-    .friend-req-entry:last-child { border-bottom: none; }
-    .friend-req-name { flex: 1; color: var(--text); }
-    .friend-req-btns { display: flex; gap: 4px; }
-    .friend-req-accept { background: rgba(46,204,113,.2); border: 1px solid rgba(46,204,113,.5); color: #2ecc71; border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-family: 'Nunito',sans-serif; }
-    .friend-req-deny  { background: rgba(224,108,117,.15); border: 1px solid rgba(224,108,117,.4); color: #e06c75; border-radius: 5px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-family: 'Nunito',sans-serif; }
+    .ph-freq-card:last-child { margin-bottom: 0; }
+    .ph-freq-av {
+      width: 38px; height: 38px; border-radius: 50%;
+      overflow: hidden; flex-shrink: 0;
+      background: #c8e6fa; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 800; color: #2d6fa8;
+    }
+    .ph-freq-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .ph-freq-info { flex: 1; min-width: 0; }
+    .ph-freq-name { font-weight: 700; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ph-freq-code { font-size: 11px; color: #9ab8d0; margin-top: 1px; }
+    .ph-freq-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+    .ph-freq-accept {
+      background: #2ecc71; color: #fff; border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      min-width: 90px; white-space: nowrap;
+      transition: background .15s, transform .1s;
+    }
+    .ph-freq-accept:hover:not(:disabled) { background: #27ae60; transform: translateY(-1px); }
+    .ph-freq-accept:disabled { opacity: .5; cursor: default; }
+    .ph-freq-decline {
+      background: transparent; color: #c0392b;
+      border: 1.5px solid rgba(192,57,43,.4); border-radius: 8px;
+      padding: 7px 18px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: 'Nunito', sans-serif;
+      min-width: 90px; white-space: nowrap;
+      transition: background .15s, border-color .15s;
+    }
+    .ph-freq-decline:hover:not(:disabled) { background: rgba(192,57,43,.08); border-color: rgba(192,57,43,.7); }
+    .ph-freq-decline:disabled { opacity: .5; cursor: default; }
+    /* Section header inside the requests block */
+    .ph-freq-header {
+      font-size: 11px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: .8px; color: #1a7a5a; margin-bottom: 8px;
+    }
     .stats-nav-grid {
       display: grid; grid-template-columns: repeat(2, 1fr);
       gap: 10px; width: 100%; max-width: 420px;
@@ -9952,6 +10198,21 @@
     <div class="auth-err" id="auth-nick-err"></div>
     <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
   </div>
+
+  <!-- Step 4: launch — shown after auth on the login/landing page so the game opens in a new window -->
+  <div id="auth-step-launch" class="auth-box" style="display:none">
+    <div id="auth-launch-avatar-wrap">
+      <img id="auth-launch-avatar-img" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('auth-launch-initials').style.display='';" />
+      <span id="auth-launch-initials">?</span>
+    </div>
+    <div id="auth-launch-greeting">Ready to Play!</div>
+    <div id="auth-launch-sub">Click below to open the game in a new window.</div>
+    <button id="auth-launch-play-btn" class="pv-btn gold full">🎮 Open Game</button>
+    <div class="auth-err" id="auth-launch-err" style="white-space:pre-wrap;"></div>
+    <div class="auth-launch-links">
+      <span class="auth-link" id="auth-launch-signout">Sign Out</span>
+    </div>
+  </div>
 </div>
 
 <!-- ══ FRIEND MODAL ════════════════════════════════════════════════ -->
@@ -10791,8 +11052,8 @@
         <div style="padding:10px 20px 14px;">
           <div style="font-size:11px;color:#5a8ab0;font-weight:700;margin-bottom:5px;">Your friend code</div>
           <div id="ph-fc-display" style="font-size:22px;font-weight:900;color:#1a2e4a;letter-spacing:3px;margin-bottom:16px;">—</div>
-          <div id="ph-friend-requests" style="display:none;margin-bottom:12px;">
-            <div style="font-size:12px;font-weight:700;color:#1a2e4a;margin-bottom:7px;">⬇ Friend Requests</div>
+          <div id="ph-friend-requests" style="display:none;margin-bottom:14px;">
+            <div class="ph-freq-header">Pending Friend Requests</div>
             <div id="ph-req-list"></div>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:7px;">
@@ -11339,6 +11600,7 @@
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
+        <button class="pv-menu-item" id="pv-menu-igcp-btn">&#128197; Turn off in-game challenges</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
         <!-- Competitive Hands section (shown only in comp mode) -->
         <div id="pv-menu-comp-hands" style="display:none;">
@@ -11375,6 +11637,8 @@
 
   <!-- main table -->
   <div id="pv-table">
+   <!-- inner wrapper: zoomed by the Board Size control (board only) -->
+   <div id="pv-table-inner">
 
     <!-- opponents row -->
     <div id="pv-opponents"></div>
@@ -11400,6 +11664,7 @@
     <!-- my board -->
     <div id="pv-my-board"></div>
 
+   </div><!-- #pv-table-inner -->
   </div><!-- #pv-table -->
 
   <!-- Draw-phase hint banner — sits above the action bar for high visibility -->
@@ -11465,6 +11730,35 @@
     <div id="pv-seats-left" class="pv-seat-cluster"></div>
     <div id="pv-hand"></div>
     <div id="pv-seats-right" class="pv-seat-cluster"></div>
+  </div>
+
+  <!-- ── IN-GAME CHALLENGE PANEL (lower-left, fixed above action bar) -->
+  <div id="ig-challenge-panel">
+    <div id="igcp-header" title="Click to switch Daily ↔ Weekly">
+      <button id="igcp-minimize-btn" title="Minimize">−</button>
+      <svg id="igcp-calendar-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#5fb3d6" stroke-width="1.8"/>
+        <path d="M3 9h18" stroke="#5fb3d6" stroke-width="1.8"/>
+        <path d="M8 3v4M16 3v4" stroke="#5fb3d6" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="8" cy="14" r="1.2" fill="#5fb3d6"/>
+        <circle cx="12" cy="14" r="1.2" fill="#5fb3d6"/>
+        <circle cx="16" cy="14" r="1.2" fill="#5fb3d6"/>
+        <circle cx="8" cy="17.5" r="1.2" fill="#5fb3d6"/>
+        <circle cx="12" cy="17.5" r="1.2" fill="#5fb3d6"/>
+      </svg>
+      <span id="igcp-title">Daily Challenges</span>
+      <span id="igcp-pill">Daily</span>
+    </div>
+    <div id="igcp-cards"></div>
+    <div id="igcp-footer">Tap header to switch Daily ↔ Weekly</div>
+  </div>
+
+  <!-- ── IN-GAME BOARD SIZE CONTROL (lower-right, above Undo/End Turn) ── -->
+  <div id="bs-ctrl" aria-label="Board size controls">
+    <div id="bs-label">Board<br>Size</div>
+    <button id="bs-plus" class="bs-btn" title="Make the board bigger / closer  (press + or =)" aria-label="Increase board size">+</button>
+    <div id="bs-readout" aria-live="polite">100%</div>
+    <button id="bs-minus" class="bs-btn" title="Make the board smaller / farther  (press −)" aria-label="Decrease board size">−</button>
   </div>
 
   <!-- Spectator panel — replaces hand area when spectating -->
@@ -12137,10 +12431,18 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.3.5";
-  const APP_BUILD   = "2026-06-14.3";
+  const APP_BUILD   = "2026-06-15.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.3.5", title: "Board size, in-game challenges & game window", items: [
+      "New in-game Board Size + / − buttons (or just press +, =, or −) zoom the board in and out — no need for Ctrl/Cmd +/− anymore.",
+      "Daily & Weekly Challenges now show right inside the game on the lower-left. Minimize it, or tap the header/calendar to switch Daily ↔ Weekly. Progress updates live as you play.",
+      "The game now opens in its own full window, so the sign-in/menu page stays where it is.",
+      "Undo Turn is now a true back button — it fully clears a staged play, so you're never charged twice or left with an animal half-placed.",
+      "Friend requests now have bigger Accept/Decline buttons and update in real time.",
+      "Fixed a rare bug that could wipe a player's stats, and stopped a normal 4-player (0-AI) game from being mislabeled as Competitive.",
+    ]},
     { ver: "V1.3.5", title: "AFK & Surf's Up overhaul", items: [
       "The AFK “Are you still here?” check is now 20 seconds.",
       "Report a quiet player by typing “P3 is AFK”, “P3 afk”, “P3 is away”, or “P3 away” — capitals don't matter, and names work too.",
@@ -13100,6 +13402,8 @@
     roomId = null;
     _specShowPanel(false);
     _specSetPresence(null);
+    try { window._igcpSetVisible?.(false); } catch {}
+    try { window._bsSetVisible?.(false); } catch {}
     document.getElementById("pv-game").style.display = "none";
     stopThemeSong();
     if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
@@ -13318,9 +13622,13 @@
     }
   }
 
-  function updateWaitingRoom(seats, canStart, startFn, isHost) {
-    // In competitive mode, group seats by player: P1 = seats 0+1, P2 = seats 2+3.
-    const isComp = !!(compMode || (seats && seats.length === 4 && seats.every(s => s.kind === "human")));
+  function updateWaitingRoom(seats, canStart, startFn, isHost, isCompetitive) {
+    // A room is competitive ONLY if it was explicitly created that way. The
+    // authoritative signal is the server's room.competitive flag (passed in as
+    // isCompetitive); compMode is the local mirror of that for this client.
+    // Never infer "competitive" from seat composition — a normal 4-player game
+    // with 0 AI is all-human too, and must stay a normal game.
+    const isComp = !!isCompetitive;
     document.getElementById("wr-title").textContent = isHost
       ? (isComp ? "⚔️ Competitive Room Created!" : "Room Created!")
       : (isComp ? "⚔️ Competitive Lobby"        : "Game Lobby");
@@ -14195,6 +14503,37 @@
       const { me, actions, mustDiscard, discardExcess } = _handRenderData;
       renderHand(me, actions, mustDiscard, discardExcess);
     }
+  }
+
+  // Full "back button" for the current turn: cancel any in-progress (un-submitted)
+  // action and wipe EVERY piece of local staging state so the next play starts
+  // from a clean slate. Without this, leftover state from a canceled action
+  // (e.g. a staged play + selected payment) bleeds into the next action — the
+  // classic "it charged me but never placed the animal" bug. Clears: the staged
+  // play (card / ocean / side / spot held in pendingPayAction), payment-card
+  // selection + confirmation, pool/discard selections, all drag/drop state, the
+  // pending-draw confirmation, and the in-flight / action-used flag. Then it
+  // re-renders from the last known server state so no stale highlight survives.
+  function resetTurnStaging() {
+    pendingPayAction   = null;   // staged play (card_uid + ocean_uid + side/spot)
+    selectedPayment.clear();     // chosen payment cards
+    selectedPool.clear();        // pool picks
+    selectedDiscard.clear();     // discard picks
+    _pendingDrawAction = null;   // draw awaiting the over-10 confirm
+    _pendingMoveAnim   = null;   // move-between-oceans animation staging
+    _handDragSrc       = null;   // in-hand reorder drag
+    _boardMoveDragSrc  = null;   // board animal move drag
+    _drawWarnBypass    = false;  // one-shot draw-warning bypass
+    actionInFlight     = false;  // never leave the turn looking "already used"
+    // Visual cleanup: payment overlay, any drag-over highlights, the draw modal.
+    document.getElementById("pv-hand")?.classList.remove("payment-active");
+    document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
+    document.getElementById("draw-warn-modal")?.classList.remove("open");
+    updatePaymentModeUI();
+    updatePaymentBadge();
+    // Repaint hand + board from the last server snapshot so nothing stale lingers.
+    _handRenderKey = "";
+    if (latestPayload) renderPayload(latestPayload);
   }
 
   function setStatus(msg) { document.getElementById("pv-status-text").textContent = msg; }
@@ -15903,11 +16242,17 @@
       showWaitingRoom(roomId, Boolean(compMode ? compHostToken || getHostToken() : getHostToken()), payload?.room?.visibility);
       // Pass ALL seats so the waiting room shows who has joined.
       const lobbySeats = Array.isArray(payload.seats) ? payload.seats : [];
+      // Authoritative competitive flag from the server (set only when the room
+      // was created competitive); fall back to the local compMode mirror.
+      const isCompetitiveRoom = Boolean(payload?.room?.competitive) || !!compMode;
       updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn,
-        Boolean(compMode ? compHostToken || getHostToken() : getHostToken()));
+        Boolean(compMode ? compHostToken || getHostToken() : getHostToken()),
+        isCompetitiveRoom);
       // NOTE: the game NEVER auto-starts. The host must click Start Game.
     } else {
       hideWaitingRoom();
+      try { window._igcpSetVisible?.(true); } catch {}
+      try { window._bsSetVisible?.(true); } catch {}
     }
 
     // turn banner + "your turn" toast
@@ -19798,6 +20143,11 @@
       ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
       : "Undo your last turn? The game will revert to before you played. (Bot turns are fine — this only locks once another human plays after you.)";
     if (!confirm(msg)) return;
+    // Undo is a true back button: immediately cancel any in-progress action and
+    // wipe ALL local staging state BEFORE the server round-trip. This guarantees
+    // that whatever the server does, the next play starts clean — no leftover
+    // staged play or selected payment can bleed into it.
+    resetTurnStaging();
     // In competitive mode, use the token for the eligible seat
     let token;
     if (compMode && compTokens && undoInfo.eligible_seat != null && compTokens[undoInfo.eligible_seat]) {
@@ -19810,13 +20160,15 @@
       const r = await apiPost(`/api/rooms/${roomId}/undo`, { seat_token: token }, { timeoutMs: 8000 });
       if (r && r.ok) {
         showToast(isMidTurn ? "Draw undone — card shuffled back into the deck." : "Turn undone — your cards are back.", "ok");
-        await refreshState();
       } else {
         showToast((r && r.error) || "Undo no longer available.", "err");
       }
     } catch (e) {
       showToast("Undo request failed — check connection.", "err");
     }
+    // Always resync from the server afterward — on success this loads the reverted
+    // state; on failure it repaints the true current state over our local reset.
+    try { await refreshState(); } catch (_) {}
   });
 
   // ── Log renderer ───────────────────────────────────────────────
@@ -20035,6 +20387,8 @@
     if (_wbT) _wbT.classList.remove("visible");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
+    try { window._igcpSetVisible?.(false); } catch {}
+    try { window._bsSetVisible?.(false); } catch {}
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;
     document.getElementById("pv-game").style.display="none";
     pvLogVisible = false;
@@ -20209,6 +20563,26 @@
     }
     closeMenu();
   });
+  document.getElementById("pv-menu-igcp-btn").addEventListener("click", () => {
+    const nowEnabled = window._igcpToggleEnabled?.() ?? true;
+    const btn = document.getElementById("pv-menu-igcp-btn");
+    if (btn) btn.textContent = nowEnabled
+      ? "\u{1F4C5} Turn off in-game challenges"
+      : "\u{1F4C5} Turn on in-game challenges";
+    closeMenu();
+  });
+  // Sync button label when menu opens
+  (function() {
+    const origToggle = typeof toggleMenu !== "undefined" ? toggleMenu : null;
+    document.getElementById("pv-menu-btn").addEventListener("mousedown", () => {
+      const btn = document.getElementById("pv-menu-igcp-btn");
+      if (!btn) return;
+      const enabled = window._igcpIsEnabled?.() ?? true;
+      btn.textContent = enabled
+        ? "\u{1F4C5} Turn off in-game challenges"
+        : "\u{1F4C5} Turn on in-game challenges";
+    }, { passive: true });
+  })();
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
     closeMenu(); openScoreBreakdown();
   });
@@ -22602,6 +22976,77 @@
   })();
 
   // ═══════════════════════════════════════════════════════════════
+  // IN-GAME BOARD SIZE CONTROL  (+ / − buttons, and + = - keys)
+  // Zooms ONLY the board (#pv-table-inner) — never the hand, action bar,
+  // End Turn / Undo buttons, or the rest of the website. Clamped so the
+  // board can't be zoomed too far in (cut-off) or too far out (broken/tiny).
+  // ═══════════════════════════════════════════════════════════════
+  const _BS_MIN = 0.7, _BS_MAX = 1.5, _BS_STEP = 0.1, _BS_KEY = "cc_board_zoom";
+  let _boardZoom = (function() {
+    try {
+      const v = parseFloat(localStorage.getItem(_BS_KEY));
+      if (Number.isFinite(v) && v >= _BS_MIN && v <= _BS_MAX) return Math.round(v * 10) / 10;
+    } catch {}
+    return 1;
+  })();
+
+  function applyBoardZoom() {
+    _boardZoom = Math.min(_BS_MAX, Math.max(_BS_MIN, Math.round(_boardZoom * 10) / 10));
+    try { document.documentElement.style.setProperty("--board-zoom", String(_boardZoom)); } catch {}
+    const table = document.getElementById("pv-table");
+    if (table) table.classList.toggle("pv-table-zoomed", _boardZoom > 1.001);
+    const readout = document.getElementById("bs-readout");
+    if (readout) readout.textContent = Math.round(_boardZoom * 100) + "%";
+    const plus  = document.getElementById("bs-plus");
+    const minus = document.getElementById("bs-minus");
+    if (plus)  plus.disabled  = _boardZoom >= _BS_MAX - 0.001;
+    if (minus) minus.disabled = _boardZoom <= _BS_MIN + 0.001;
+    try { localStorage.setItem(_BS_KEY, String(_boardZoom)); } catch {}
+  }
+
+  function boardZoomBy(delta) {
+    const before = _boardZoom;
+    _boardZoom = Math.min(_BS_MAX, Math.max(_BS_MIN, Math.round((_boardZoom + delta) * 10) / 10));
+    if (_boardZoom !== before) applyBoardZoom();
+  }
+
+  // Only treat the game as "active" (controls visible / keys live) when the
+  // game screen is actually on-screen.
+  function _bsGameActive() {
+    const g = document.getElementById("pv-game");
+    return Boolean(g) && g.style.display !== "none" && g.style.display !== "";
+  }
+
+  window._bsSetVisible = function(visible) {
+    const ctrl = document.getElementById("bs-ctrl");
+    if (!ctrl) return;
+    ctrl.style.display = visible ? "flex" : "none";
+    if (visible) applyBoardZoom();
+  };
+
+  (function setupBoardSizeControl() {
+    const plus  = document.getElementById("bs-plus");
+    const minus = document.getElementById("bs-minus");
+    if (plus)  plus.addEventListener("click",  () => boardZoomBy(+_BS_STEP));
+    if (minus) minus.addEventListener("click", () => boardZoomBy(-_BS_STEP));
+
+    // Keyboard: + or = zoom in, - or _ zoom out — only inside a game, and
+    // never when typing. Bare keys only — Cmd/Ctrl +/- stay browser zoom.
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;     // leave browser zoom alone
+      if (!_bsGameActive()) return;
+      const t = e.target;
+      if (t && (t.isContentEditable ||
+                /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ""))) return;
+      const k = e.key;
+      if (k === "+" || k === "=") { boardZoomBy(+_BS_STEP); e.preventDefault(); }
+      else if (k === "-" || k === "_") { boardZoomBy(-_BS_STEP); e.preventDefault(); }
+    });
+
+    applyBoardZoom(); // initialise the CSS var from the saved value
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
   // SURF'S UP!! AWAY SYSTEM + INACTIVITY TIMER
   // ═══════════════════════════════════════════════════════════════
   let _imAway = false;
@@ -23563,6 +24008,64 @@
       };
     }
 
+    // ── Stats-loss guards ────────────────────────────────────────────────
+    // Background: ANY full-object write to a user's `stats` is dangerous.
+    // Firestore `set({stats:{…}}, {merge:true})` DEEP-merges, so writing
+    // defaultGuestStats() over a real account silently zeroes total_xp /
+    // completed_games / level (the keys defaults define) while leaving other
+    // keys behind — the exact corruption that wiped real accounts.
+    //
+    // The rule enforced here: a stats write may CREATE stats that don't exist,
+    // or REPLACE existing stats only with ones that are at least as advanced —
+    // never fewer games / less XP / a lower level. Every risky write goes
+    // through safeWriteProfile() / initStatsIfAbsent() so a stale or empty read
+    // can never regress saved progress, even under concurrent writes.
+    function _statsRichness(s) {
+      const o = (s && typeof s === "object") ? s : {};
+      const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+      // Monotonic signals, most significant first — real progress only goes up.
+      return [
+        num(o.total_xp),
+        num(o.completed_games),
+        num(o.level ?? o.player_level),
+        num(o.total_score),
+      ];
+    }
+    // True if `candidate` is NOT a regression from `current` (safe to write).
+    // An absent/empty current is always safe to fill.
+    function _statsNotWorse(candidate, current) {
+      if (!current || typeof current !== "object" || Object.keys(current).length === 0) return true;
+      const c = _statsRichness(candidate), e = _statsRichness(current);
+      for (let i = 0; i < c.length; i++) {
+        if (c[i] > e[i]) return true;   // strictly better on the first differing signal
+        if (c[i] < e[i]) return false;  // strictly worse — block the write
+      }
+      return true;                       // equal on every signal — harmless
+    }
+    // Transaction-safe profile write that can never downgrade stats. If `data`
+    // carries a `stats` object and the live doc already has richer stats, the
+    // richer existing stats are kept; all other fields merge normally. The
+    // transaction re-reads inside Firestore, so a concurrent saveGameStats()
+    // can't be clobbered (Firestore retries on conflict).
+    async function safeWriteProfile(uid, data) {
+      const ref = _db.collection("users").doc(uid);
+      return await _db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const existing = snap.exists ? (snap.data() || {}) : {};
+        const out = { ...data };
+        if ("stats" in out) {
+          out.stats = _statsNotWorse(out.stats, existing.stats) ? out.stats : existing.stats;
+        }
+        tx.set(ref, out, { merge: true });
+        return { uid, ...existing, ...out };
+      });
+    }
+    // Create default stats only when the doc genuinely has none. Race-safe: the
+    // guard inside safeWriteProfile keeps any real stats that already exist.
+    async function initStatsIfAbsent(uid) {
+      return await safeWriteProfile(uid, { stats: defaultGuestStats() });
+    }
+
     function loadGuestStats(nickname) {
       try {
         const key = guestStatsKeyForNickname(nickname);
@@ -24362,9 +24865,11 @@
             const doc = snap.docs[0];
             const profileData = doc.data();
             console.log(`[auth] Found by email → nickname=${profileData.nickname} docId=${doc.id}`);
-            // Re-link: write the found profile to the current UID doc so future UID lookups work
+            // Re-link: write the found profile to the current UID doc so future UID lookups work.
+            // Routed through safeWriteProfile so a re-link can never downgrade stats that the
+            // target UID doc may already have (it keeps whichever stats are more advanced).
             try {
-              await _db.collection("users").doc(user.uid).set(profileData, { merge: true });
+              await safeWriteProfile(user.uid, profileData);
               console.log(`[auth] Re-linked profile to UID ${user.uid}`);
             } catch(linkErr) { console.warn("[auth] Re-link write failed (non-fatal):", linkErr && linkErr.message); }
             return { profile: { uid: user.uid, ...profileData }, reason: "ok" };
@@ -24386,7 +24891,7 @@
             const matching = nickSnap.docs.find(d => d.data().email === email) || nickSnap.docs[0];
             const profileData = matching.data();
             console.log(`[auth] Found by nickname → nickname=${profileData.nickname} docId=${matching.id}`);
-            try { await _db.collection("users").doc(user.uid).set(profileData, { merge: true }); } catch {}
+            try { await safeWriteProfile(user.uid, profileData); } catch {}
             return { profile: { uid: user.uid, ...profileData }, reason: "ok" };
           } else {
             console.log("[auth] Nickname query returned no docs");
@@ -24593,28 +25098,54 @@
       return { ok: true, nickname: targetNick, requested: true };
     }
 
-    // ── Badge listener ───────────────────────────────────────────
+    // ── Badge + real-time list listener ─────────────────────────
     let _reqUnsubscribe = null;
+    let _prevReqCount   = null;  // track changes so we only re-render on actual arrival
     function listenForFriendRequests(uid) {
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
+      _prevReqCount = null;
       if (!_db || !uid) return;
       _reqUnsubscribe = _db.collection("users").doc(uid).collection("friend_requests")
         .onSnapshot(snap => {
           const count = snap.size;
           const label = count > 0 ? String(count) : "";
-          // Update all badge elements: lobby bar button, left nav Friends tab, legacy id
-          ["friend-req-badge", "friend-req-badge-bar", "snav-friend-badge"].forEach(id => {
+          // Update badge elements: lobby bar "Friends" button + left-nav Friends tab
+          ["friend-req-badge-bar", "snav-friend-badge"].forEach(id => {
             const b = $a(id);
             if (!b) return;
             b.textContent = label;
             b.style.display = count > 0 ? "inline-flex" : "none";
           });
+          // If a new request just arrived, re-render the friends panel if it's open
+          // so the card appears immediately without needing to click away.
+          if (_prevReqCount !== null && count !== _prevReqCount) {
+            const friendsPanel = $a("ph-panel-friends");
+            if (friendsPanel && friendsPanel.style.display !== "none") {
+              renderPhFriendsList().catch(() => {});
+            }
+          }
+          _prevReqCount = count;
         }, () => {});
     }
 
+    // ── Game-window detection ────────────────────────────────────
+    // The game opens in a separate tab (/?gw=1). On the login/landing page
+    // (no gw param), revealLobby shows a "launch" panel instead of the full
+    // game lobby so the original page stays as the sign-in page.
+    const _isGameWindow = (function() {
+      try {
+        if (sessionStorage.getItem("cc_game_win") === "1") return true;
+        if (new URLSearchParams(location.search).get("gw") === "1") {
+          sessionStorage.setItem("cc_game_win", "1");
+          return true;
+        }
+      } catch {}
+      return false;
+    })();
+
     // ── Step navigation ──────────────────────────────────────────
     const ALL_STEPS = [
-      "auth-step-choose","auth-step-guest","auth-step-nickname",
+      "auth-step-choose","auth-step-guest","auth-step-nickname","auth-step-launch",
     ];
 
     function showStep(stepId) {
@@ -25206,6 +25737,39 @@
         last_active: new Date(),
       };
       lockNameInputs(_playerNickname);
+
+      // ── Login/landing page: show launch panel instead of full game lobby ──
+      if (!_isGameWindow) {
+        $a("auth-loading-screen").classList.add("hidden");
+        const greetEl = $a("auth-launch-greeting");
+        if (greetEl) greetEl.textContent = `Ready to dive in, ${_playerNickname}!`;
+        const subEl = $a("auth-launch-sub");
+        if (subEl) subEl.textContent = _guestSessionActive
+          ? "Click below to open the game in a new window."
+          : "Click below to open the game in a new window.";
+        // Show avatar in launch step
+        const avatarImg  = $a("auth-launch-avatar-img");
+        const initSpan   = $a("auth-launch-initials");
+        const avatarUrl  = _guestSessionActive
+          ? (_guestAvatarUrl || "")
+          : (_activeProfile?.avatar_url || "");
+        if (avatarImg && initSpan) {
+          if (avatarUrl && avatarUrl.startsWith("/avatars/")) {
+            avatarImg.src = avatarUrl;
+            avatarImg.alt = _playerNickname;
+            avatarImg.style.display = "";
+            initSpan.style.display = "none";
+          } else {
+            avatarImg.style.display = "none";
+            initSpan.style.display = "";
+            initSpan.textContent = (_playerNickname[0] || "?").toUpperCase();
+          }
+        }
+        showStep("auth-step-launch");
+        return;
+      }
+
+      // ── Game window: full lobby experience ───────────────────────
       if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
         if (bar) {
@@ -25346,17 +25910,19 @@
           const { reason } = await loadProfileWithReason(uid);
           if (reason === "notfound") {
             // Doc doesn't exist yet — safe to initialise (brand new sign-in, no stats to lose).
-            await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
+            // initStatsIfAbsent re-checks inside a transaction, so even a wrong "notfound"
+            // or a concurrent create can never overwrite real stats with defaults.
+            await initStatsIfAbsent(uid);
             profile = await loadProfile(uid);
           }
           // reason === "error": leave profile null — don't touch Firestore.
         } catch {}
       } else if (_authUser && _db && profile && (!profile.stats || typeof profile.stats !== "object")) {
-        // Profile exists but stats field is missing/corrupt — patch only the missing field.
-        try {
-          await _db.collection("users").doc(uid).set({ stats: defaultGuestStats() }, { merge: true });
-          profile = await loadProfile(uid);
-        } catch {}
+        // Profile exists but stats field is missing — use defaults in memory only.
+        // Do NOT write to Firestore here: a stale read (transient Firebase error) returning
+        // profile without stats would otherwise wipe all previously saved stats via this path.
+        // The next game completion will write real stats via saveGameStats() instead.
+        profile = { ...profile, stats: defaultGuestStats() };
       }
       if (loadSeq !== _statsLoadSeq || !_authUser || _authUser.uid !== expectedUid) return;
       _activeProfile = profile || null;
@@ -26427,6 +26993,53 @@
       }
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
+
+    // ── Launch step: "Open Game" button → opens game in a new tab ────
+    (function() {
+      const playBtn = $a("auth-launch-play-btn");
+      const soBtn   = $a("auth-launch-signout");
+      if (!playBtn || !soBtn) return;
+
+      // Build the game-window URL: preserve the CURRENT path + query (so room
+      // invite deep-links like /ABCDE or ?room=ABCDE still auto-join) and add
+      // gw=1 so the new window knows it's the game window.
+      function gameWinUrl() {
+        const sp = new URLSearchParams(location.search);
+        sp.set("gw", "1");
+        return location.pathname + "?" + sp.toString();
+      }
+
+      playBtn.addEventListener("click", () => {
+        setAuthMsg("auth-launch-err", "", false);
+        playBtn.disabled = true;
+        playBtn.textContent = "Opening…";
+        const target = gameWinUrl();
+        const gameWin = window.open(target, "cc-game-window");
+        playBtn.disabled = false;
+        playBtn.textContent = "🎮 Open Game";
+        if (!gameWin) {
+          // Popup blocked — give the user a direct, gesture-driven link instead.
+          const errEl = $a("auth-launch-err");
+          if (errEl) errEl.innerHTML =
+            'Popup blocked — <a href="' + target.replace(/"/g, "&quot;") +
+            '" target="cc-game-window" style="color:#f4a574;text-decoration:underline;">click here to open the game →</a>';
+        } else {
+          try { gameWin.focus(); } catch {}
+        }
+      });
+
+      soBtn.addEventListener("click", async () => {
+        if (_authUser && _auth) {
+          try { await _auth.signOut(); } catch {}
+        } else if (_guestSessionActive) {
+          clearGuestSessionStorage();
+          _guestSessionActive = false;
+          _playerNickname = "";
+        }
+        showStep("auth-step-choose");
+        setAuthMsg("auth-choose-err", "", false);
+      });
+    })();
 
     const statsAvatarBtn = $a("stats-avatar");
     if (statsAvatarBtn) {
@@ -28916,6 +29529,7 @@
       if (changed) {
         _saveDailyState(state);
         if (_csView === "daily") renderChallengeStrip();
+        try { window._renderIgChallengePanel?.(); } catch {}
         // Achievement daily_tide_sweep: all 3 active daily slots completed.
         if (state.slots.length === 3 && state.slots.every(s => s.completedAt)) {
           try { window.__fishUnlockAchievementById?.("daily_tide_sweep"); } catch {}
@@ -29140,6 +29754,7 @@
           // the Daily view, so re-render the reward area at minimum.
           renderChallengeStrip();
         }
+        try { window._renderIgChallengePanel?.(); } catch {}
         // Achievement weekly_tide_sweep: all 5 weekly slots completed.
         if (state.slots.length === 5 && state.slots.every(s => s.completedAt)) {
           try { window.__fishUnlockAchievementById?.("weekly_tide_sweep"); } catch {}
@@ -29147,6 +29762,117 @@
       }
     }
     window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
+
+    // ── IN-GAME CHALLENGE PANEL ──────────────────────────────────────
+    (function() {
+      const _IGCP_ENABLED_KEY   = "cc_igcp_enabled";
+      const _IGCP_MINIMIZED_KEY = "cc_igcp_min";
+      const _IGCP_VIEW_KEY      = "cc_igcp_view";
+      let _igcpView    = (function(){ try { return localStorage.getItem(_IGCP_VIEW_KEY) || "daily"; } catch { return "daily"; } })();
+      let _igcpEnabled = (function(){ try { return localStorage.getItem(_IGCP_ENABLED_KEY) !== "0"; } catch { return true; } })();
+      let _igcpMin     = (function(){ try { return localStorage.getItem(_IGCP_MINIMIZED_KEY) === "1"; } catch { return false; } })();
+      let _igcpWired   = false;
+      let _igcpVisible = false;
+
+      function _igcpCardHtml(c, isWeekly) {
+        const target = Math.max(1, Number(c.target) || 1);
+        const cur    = Math.max(0, Math.min(target, Number(c.progress) || 0));
+        const pct    = Math.round((cur / target) * 100);
+        const done   = Boolean(c.completed);
+        const xpFmt  = (Number(c.xp) || 0).toLocaleString();
+        const prog   = done ? "✓ Done" : `${cur}/${target}`;
+        return `
+          <div class="igcp-row${done ? " igcp-done" : ""}">
+            <div class="igcp-row-top">
+              <div class="igcp-row-icon">${escapeHtml(c.icon || "🎯")}</div>
+              <div class="igcp-row-info">
+                <div class="igcp-row-name" title="${escapeHtml(c.name || "")}">${escapeHtml(c.name || "")}</div>
+                <div class="igcp-row-desc" title="${escapeHtml(c.req || "")}">${escapeHtml(c.req || "")}</div>
+              </div>
+              <div class="igcp-row-xp">+${xpFmt} XP</div>
+            </div>
+            <div class="igcp-row-bar-wrap">
+              <div class="igcp-row-bar"><div class="igcp-row-fill" style="width:${pct}%"></div></div>
+              <span class="igcp-row-prog">${prog}</span>
+            </div>
+          </div>`;
+      }
+
+      function renderIgChallengePanel() {
+        const panel   = document.getElementById("ig-challenge-panel");
+        const cardsEl = document.getElementById("igcp-cards");
+        const titleEl = document.getElementById("igcp-title");
+        const pillEl  = document.getElementById("igcp-pill");
+        if (!panel || !cardsEl || !titleEl || !pillEl) return;
+        if (!_igcpEnabled || !_igcpVisible) { panel.style.display = "none"; return; }
+        panel.style.display = "";
+        panel.classList.toggle("igcp-minimized", _igcpMin);
+        const minBtn = document.getElementById("igcp-minimize-btn");
+        if (minBtn) minBtn.textContent = _igcpMin ? "+" : "−";
+        const isWeekly = _igcpView === "weekly";
+        titleEl.textContent = isWeekly ? "Weekly Challenges" : "Daily Challenges";
+        pillEl.textContent  = isWeekly ? "Weekly" : "Daily";
+        pillEl.classList.toggle("weekly", isWeekly);
+        if (!_igcpMin) {
+          try {
+            const data = isWeekly ? _getWeeklyDisplaySlots() : _getCurrentDailySlots();
+            cardsEl.innerHTML = data.map(c => _igcpCardHtml(c, isWeekly)).join("");
+          } catch { cardsEl.innerHTML = ""; }
+        }
+      }
+
+      function _wireIgcp() {
+        if (_igcpWired) return;
+        const panel   = document.getElementById("ig-challenge-panel");
+        const header  = document.getElementById("igcp-header");
+        const minBtn  = document.getElementById("igcp-minimize-btn");
+        const cardsEl = document.getElementById("igcp-cards");
+        if (!panel || !header || !minBtn || !cardsEl) return;
+        _igcpWired = true;
+
+        minBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          _igcpMin = !_igcpMin;
+          try { localStorage.setItem(_IGCP_MINIMIZED_KEY, _igcpMin ? "1" : "0"); } catch {}
+          renderIgChallengePanel();
+        });
+
+        header.addEventListener("click", (e) => {
+          if (e.target === minBtn || minBtn.contains(e.target)) return;
+          if (_igcpMin) {
+            _igcpMin = false;
+            try { localStorage.setItem(_IGCP_MINIMIZED_KEY, "0"); } catch {}
+            renderIgChallengePanel();
+          } else {
+            cardsEl.style.opacity = "0";
+            cardsEl.style.transition = "opacity .16s";
+            setTimeout(() => {
+              _igcpView = _igcpView === "daily" ? "weekly" : "daily";
+              try { localStorage.setItem(_IGCP_VIEW_KEY, _igcpView); } catch {}
+              renderIgChallengePanel();
+              cardsEl.style.transition = "";
+              cardsEl.style.opacity = "";
+            }, 160);
+          }
+        });
+      }
+
+      window._igcpSetVisible = function(visible) {
+        _igcpVisible = Boolean(visible);
+        _wireIgcp();
+        renderIgChallengePanel();
+      };
+
+      window._igcpToggleEnabled = function() {
+        _igcpEnabled = !_igcpEnabled;
+        try { localStorage.setItem(_IGCP_ENABLED_KEY, _igcpEnabled ? "1" : "0"); } catch {}
+        renderIgChallengePanel();
+        return _igcpEnabled;
+      };
+
+      window._igcpIsEnabled = function() { return _igcpEnabled; };
+      window._renderIgChallengePanel = renderIgChallengePanel;
+    })();
 
     // ── Unified hook called from game-end paths. Fires all daily and
     // weekly challenges whose progress we can detect from the game-end
@@ -30475,19 +31201,38 @@
           reqSection.style.display = "";
           reqList.innerHTML = "";
           requests.forEach(req => {
-            const row = document.createElement("div");
-            row.className = "ph-rg";
-            const reqName = escapeHtml(req.from_nickname || "Unknown");
-            const reqCode = req.from_code ? ` <span style="color:#9ab8d0;font-size:11px;">#${escapeHtml(req.from_code)}</span>` : "";
-            row.innerHTML = `<span class="ph-rg-opp">${reqName}${reqCode}</span><span style='display:flex;gap:6px;'><button class='pv-btn sm ph-req-accept'>✓</button><button class='pv-btn sm ph-req-deny' style='background:rgba(220,60,60,.08);border-color:rgba(220,60,60,.3);color:#c0392b;'>✕</button></span>`;
-            row.querySelector(".ph-req-accept").onclick = async function() {
-              const btn = this; btn.disabled = true; row.style.opacity = ".5";
+            const card = document.createElement("div");
+            card.className = "ph-freq-card";
+            const reqName    = escapeHtml(req.from_nickname || "Unknown");
+            const reqCode    = req.from_code ? escapeHtml(String(req.from_code)) : "";
+            const avatarSrc  = escapeHtml(resolveAvatarUrl(
+              { avatar_url: req.from_avatar_url || "" },
+              { seed: req.from_uid || req.from_nickname || "?" }
+            ));
+            const initial    = (req.from_nickname || "?").charAt(0).toUpperCase();
+            card.innerHTML = `
+              <div class="ph-freq-av">
+                <img src="${avatarSrc}" alt="${reqName}" loading="lazy" referrerpolicy="no-referrer"
+                     onerror="this.style.display='none';this.parentNode.textContent='${initial}'">
+              </div>
+              <div class="ph-freq-info">
+                <div class="ph-freq-name">${reqName}</div>
+                ${reqCode ? `<div class="ph-freq-code">#${reqCode}</div>` : ""}
+              </div>
+              <div class="ph-freq-actions">
+                <button class="ph-freq-accept">Accept</button>
+                <button class="ph-freq-decline">Decline</button>
+              </div>`;
+            const acceptBtn  = card.querySelector(".ph-freq-accept");
+            const declineBtn = card.querySelector(".ph-freq-decline");
+            acceptBtn.onclick = async function() {
+              acceptBtn.disabled = true; declineBtn.disabled = true; card.style.opacity = ".5";
               const errEl = $a("ph-friend-err");
               if (errEl) errEl.textContent = "";
               try {
                 await acceptFriendRequest(_authUser.uid, _playerNickname, req);
               } catch(e) {
-                btn.disabled = false; row.style.opacity = "";
+                acceptBtn.disabled = false; declineBtn.disabled = false; card.style.opacity = "";
                 if (errEl) { errEl.textContent = "Could not accept request — please try again."; errEl.style.color = "#c0392b"; }
                 console.error("acceptFriendRequest failed:", e);
                 return;
@@ -30497,13 +31242,13 @@
               loadFriendsMini(_authUser.uid);
               try { window.__fishCheckFriendAchievements?.(_authUser.uid); } catch {}
             };
-            row.querySelector(".ph-req-deny").onclick = async function() {
-              const btn = this; btn.disabled = true; row.style.opacity = ".5";
+            declineBtn.onclick = async function() {
+              acceptBtn.disabled = true; declineBtn.disabled = true; card.style.opacity = ".5";
               const fromUid = req.from_uid || req.id;
               try { await denyFriendRequest(_authUser.uid, fromUid); } catch {}
               await renderPhFriendsList();
             };
-            reqList.appendChild(row);
+            reqList.appendChild(card);
           });
         } else { reqSection.style.display = "none"; }
       }
