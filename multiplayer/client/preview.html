@@ -206,9 +206,24 @@
     .pv-btn:disabled { filter: brightness(.45); cursor: default; }
     .pv-btn.gold { background: linear-gradient(135deg, #c8971a, #a97c14); }
     .pv-btn.gold:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(200,150,26,.6); }
-    /* Coral / End-Turn red — matches reference design */
+    /* Coral is still available but End Turn now uses its own softer class */
     .pv-btn.coral { background: linear-gradient(135deg, #ef5a5a, #d83838); }
     .pv-btn.coral:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(216,56,56,.55); }
+    /* End Turn — calm ocean teal, not scary red */
+    .pv-btn.end-turn { background: linear-gradient(135deg, #5fb3d6, #3a8fb5); }
+    .pv-btn.end-turn:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(95,179,214,.6); }
+    .pv-btn.end-turn.suggest {
+      box-shadow: 0 0 0 3px rgba(95,179,214,.5), 0 4px 16px rgba(95,179,214,.4);
+      animation: end-turn-pulse 2s ease-in-out infinite;
+    }
+    @keyframes end-turn-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(95,179,214,.35), 0 2px 10px rgba(95,179,214,.25); }
+      50%       { box-shadow: 0 0 0 5px rgba(95,179,214,.6),  0 4px 20px rgba(95,179,214,.55); }
+    }
+    #end-turn-hint {
+      display: none; font-size: 10.5px; font-weight: 800;
+      color: #3a8fb5; white-space: nowrap; letter-spacing: .2px;
+    }
     .pv-btn.danger { background: linear-gradient(135deg, #b03040, #8e1828); }
     #pv-undo-btn {
       background: linear-gradient(135deg, #9b89c7, #7d6aae);
@@ -575,6 +590,49 @@
       text-shadow: 0 1px 0 rgba(0,0,0,.2); border: 1.5px solid rgba(61,214,168,.5);
     }
     #move-confirm-ok:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(61,214,168,.5); filter: brightness(1.06); }
+
+    /* ── END TURN CONFIRMATION MODAL ────────────────────────────── */
+    #end-turn-modal {
+      display: none; position: fixed; inset: 0; z-index: 9200;
+      background: rgba(8,22,58,.38);
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      align-items: center; justify-content: center;
+    }
+    #end-turn-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    #end-turn-box {
+      background: linear-gradient(160deg, #e4f5fb 0%, #cae9f7 65%, #b0dbf1 100%);
+      border: 2px solid rgba(95,179,214,.6); border-radius: 20px;
+      box-shadow: 0 14px 50px rgba(8,22,58,.28), inset 0 1px 0 rgba(255,255,255,.75);
+      padding: 24px 28px 22px; width: 92%; max-width: 400px;
+      text-align: center; font-family: "Nunito", sans-serif;
+      animation: dwm-box-in .22s cubic-bezier(.2,.9,.3,1.2);
+    }
+    #end-turn-icon { font-size: 38px; margin-bottom: 4px; line-height: 1; }
+    #end-turn-title {
+      font-family: "Cinzel", serif; color: var(--cr-navy);
+      font-size: 1.3rem; font-weight: 700; letter-spacing: 1.2px; margin: 0 0 8px;
+    }
+    #end-turn-msg {
+      color: var(--cr-navy); font-size: 13.5px; line-height: 1.55;
+      margin: 0 0 18px; opacity: .88;
+    }
+    #end-turn-buttons { display: flex; gap: 10px; justify-content: center; }
+    #end-turn-cancel, #end-turn-confirm {
+      border: none; border-radius: 11px; padding: 11px 18px;
+      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800;
+      cursor: pointer; transition: transform .12s, box-shadow .15s, filter .15s;
+      letter-spacing: .3px; flex: 1;
+    }
+    #end-turn-cancel {
+      background: rgba(255,255,255,.82); border: 1.5px solid rgba(95,179,214,.5);
+      color: var(--cr-navy);
+    }
+    #end-turn-cancel:hover { background: #fff; border-color: var(--cr-teal); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(95,179,214,.35); }
+    #end-turn-confirm {
+      background: linear-gradient(135deg, #5fb3d6, #3a8fb5); color: #fff;
+      text-shadow: 0 1px 0 rgba(0,0,0,.18); border: 1.5px solid rgba(95,179,214,.5);
+    }
+    #end-turn-confirm:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(95,179,214,.55); filter: brightness(1.06); }
 
     /* ── HELP / STRATEGY GUIDE ───────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════════
@@ -11732,7 +11790,8 @@
     <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves — tap 'I'm Back' to return.">🏄 Surf's Up!!</button>
     <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
     <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
-    <button class="pv-btn coral" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
+    <span id="end-turn-hint"></span>
+    <button class="pv-btn end-turn" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
   </div>
 
@@ -11846,6 +11905,19 @@
       <div id="move-confirm-buttons">
         <button id="move-confirm-cancel">Cancel</button>
         <button id="move-confirm-ok">Yes, Move Card</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- End Turn confirmation — friendly, not a system alert -->
+  <div id="end-turn-modal">
+    <div id="end-turn-box">
+      <div id="end-turn-icon">🌊</div>
+      <h2 id="end-turn-title">End your turn?</h2>
+      <p id="end-turn-msg">You're about to pass to the next player. You can still cancel if you want to keep playing.</p>
+      <div id="end-turn-buttons">
+        <button id="end-turn-cancel">Keep Playing</button>
+        <button id="end-turn-confirm">End Turn</button>
       </div>
     </div>
   </div>
@@ -12452,8 +12524,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.1";
-  const APP_BUILD   = "2026-06-15.5";
+  const APP_VERSION = "1.4.2";
+  const APP_BUILD   = "2026-06-15.6";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -15181,7 +15253,8 @@
   let _starSkipPendingCb = null;
   let _starSkipBackCb = null;   // runs when the player declines (Go back / backdrop)
   // Move confirmation dialog state
-  let _moveConfirmPendingCb = null;
+  let _moveConfirmPendingCb  = null;
+  let _endTurnPendingCb      = null;
   // Pending move animation: set when a move is confirmed so renderMyBoard can FLIP-animate the card
   let _pendingMoveAnim = null; // { srcRect, faceUid, tgtUid }
   (function _initStarSkipModal() {
@@ -15226,6 +15299,33 @@
     });
     modal.addEventListener("click", (e) => {
       if (e.target === modal) { modal.classList.remove("open"); _moveConfirmPendingCb = null; }
+    });
+  })();
+
+  // Friendly End Turn confirmation modal (replaces scary browser confirm())
+  function _openEndTurnModal(endAct, isFreeWindow, freePlaySpecies) {
+    const msgEl = document.getElementById("end-turn-msg");
+    if (msgEl) {
+      msgEl.textContent = isFreeWindow
+        ? `You have a free ${(freePlaySpecies||[]).join("/")} play available. Skip it and pass to the next player?`
+        : "You're about to pass to the next player. You can still cancel if you want to keep playing.";
+    }
+    _endTurnPendingCb = () => submitAction(endAct);
+    document.getElementById("end-turn-modal")?.classList.add("open");
+  }
+  (function _initEndTurnModal() {
+    const modal     = document.getElementById("end-turn-modal");
+    const cancelBtn = document.getElementById("end-turn-cancel");
+    const okBtn     = document.getElementById("end-turn-confirm");
+    if (!modal || !cancelBtn || !okBtn) return;
+    cancelBtn.addEventListener("click", () => { modal.classList.remove("open"); _endTurnPendingCb = null; });
+    okBtn.addEventListener("click", () => {
+      modal.classList.remove("open");
+      const cb = _endTurnPendingCb; _endTurnPendingCb = null;
+      if (cb) cb();
+    });
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) { modal.classList.remove("open"); _endTurnPendingCb = null; }
     });
   })();
 
@@ -20045,10 +20145,7 @@
       }
       if (endAct) {
         const isFreeWindow = Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0;
-        const confirmMsg = isFreeWindow
-          ? `Skip free ${freePlaySpecies.join("/")} play and end turn?`
-          : "End your turn?";
-        endBtn.disabled=false; endBtn.onclick=()=>{ if(confirm(confirmMsg)) submitAction(endAct); };
+        endBtn.disabled=false; endBtn.onclick=()=>{ _openEndTurnModal(endAct, isFreeWindow, freePlaySpecies); };
       } else { endBtn.disabled=true; endBtn.onclick=null; }
       return;
     }
@@ -20177,13 +20274,16 @@
       _playOrConfirmStarSkip(chosen, actions);
     };
 
+    const isFreeWindow2 = Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0;
     if (endAct) {
-      const isFreeWindow = Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0;
-      const confirmMsg = isFreeWindow
-        ? `Skip free ${freePlaySpecies.join("/")} play and end turn?`
-        : "End your turn?";
-      endBtn.disabled=false; endBtn.onclick=()=>{ if(confirm(confirmMsg)) submitAction(endAct); };
+      endBtn.disabled=false; endBtn.onclick=()=>{ _openEndTurnModal(endAct, isFreeWindow2, freePlaySpecies); };
     } else { endBtn.disabled=true; endBtn.onclick=null; }
+
+    // Softly suggest ending the turn when no useful play/move actions remain
+    const hintEl = document.getElementById("end-turn-hint");
+    const shouldSuggest = endAct && playActions.length === 0 && moveActions.length === 0 && !isFreeWindow2;
+    if (hintEl) { hintEl.style.display = shouldSuggest ? "" : "none"; hintEl.textContent = "No more plays? End your turn."; }
+    endBtn.classList.toggle("suggest", !!shouldSuggest);
   }
 
   function updateDiscardBtn() {
