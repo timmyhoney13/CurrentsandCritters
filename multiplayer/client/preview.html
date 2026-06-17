@@ -654,7 +654,7 @@
       border-radius: 26px 26px 0 0;
       box-shadow: 0 -16px 70px rgba(0,0,0,.7), 0 0 40px rgba(244,165,116,.12), inset 0 1px 0 rgba(255,220,180,.08);
       width: 100%; max-width: none;
-      max-height: 70vh; height: 70vh;
+      max-height: 88vh; height: 88vh;
       display: flex; flex-direction: column; overflow: hidden;
       font-family: "Nunito", sans-serif; color: #f5ede0;
       animation: dwm-sheet-in .26s cubic-bezier(.2,.9,.3,1.05);
@@ -724,17 +724,15 @@
     @media (max-width: 560px) {
       #pv-help-rand { padding: 2px 14px 6px; justify-content: center; }
     }
-    /* Horizontal rail: every strategy card lines up left-to-right and the row
-       scrolls sideways, so nothing stacks up and down. */
+    /* Vertical dashboard: section 1 (core rail) on top, then a 2-column row
+       with section 2 (selected) and section 3 (suggested combos). */
     #pv-help-list {
       flex: 1 1 auto; min-height: 0;
-      overflow-x: auto; overflow-y: hidden;
-      padding: 16px 22px 18px;
-      display: flex; flex-direction: row; flex-wrap: nowrap;
-      align-items: stretch; gap: 16px;
-      scroll-snap-type: x proximity;
+      overflow-x: hidden; overflow-y: auto;
+      padding: 8px 22px 20px;
+      display: flex; flex-direction: column; gap: 16px;
     }
-    #pv-help-list::-webkit-scrollbar { height: 10px; }
+    #pv-help-list::-webkit-scrollbar { width: 10px; }
     #pv-help-list::-webkit-scrollbar-thumb { background: rgba(244,165,116,.4); border-radius: 8px; }
     #pv-help-list::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
     #pv-help-modal.detail #pv-help-list { display: none; }
@@ -751,9 +749,8 @@
     #pv-help-detail { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: none; padding: 10px 28px 24px; }
     #pv-help-modal.detail #pv-help-detail { display: block; }
     @media (max-width: 560px) {
-      #pv-help-box { height: 76vh; max-height: 76vh; }
-      .help-strat-card { width: 58vw; max-width: 220px; }
-      .hs-section-head { width: 92px; font-size: 16px; }
+      #pv-help-box { height: 92vh; max-height: 92vh; }
+      .hs2-card, .hs2-combo { width: 70vw; max-width: 240px; }
     }
 
     .help-strat-card {
@@ -846,6 +843,139 @@
       font-family: "Cinzel", serif; font-weight: 700; font-size: 20px; letter-spacing: 1px;
       color: var(--cr-coral, #f4a574); background: linear-gradient(160deg, rgba(244,165,116,.16), rgba(12,28,52,.6));
     }
+
+    /* ══ Strategies v2 — numbered-section dashboard ══════════════════ */
+    .hs2-sec { min-width: 0; }
+    .hs2-sec-head {
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 19px;
+      color: var(--cr-gold, #e8b34a); letter-spacing: .6px; margin: 0 0 10px;
+    }
+    .hs2-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 25px; height: 25px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(180deg, #f6c178, #e8a052); color: #1a1208;
+      font-family: "Nunito", sans-serif; font-weight: 900; font-size: 14px;
+      box-shadow: 0 2px 8px rgba(232,160,82,.4);
+    }
+    .hs2-sec-sub { font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 700; color: #9fb6cc; letter-spacing: 0; }
+    .hs2-clear, #hs2-show-more {
+      margin-left: auto; font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 800; cursor: pointer;
+      color: #f5d8bc; background: rgba(244,165,116,.1); border: 1.5px solid rgba(244,165,116,.4);
+      border-radius: 14px; padding: 4px 12px; letter-spacing: 0; transition: background .14s, border-color .14s, transform .12s;
+    }
+    .hs2-clear:hover, #hs2-show-more:hover { background: rgba(244,165,116,.22); border-color: var(--cr-coral, #f4a574); transform: translateY(-1px); }
+    .hs2-clear { color: #f8b0a0; background: rgba(232,110,80,.14); border-color: rgba(232,110,80,.4); }
+    .hs2-clear:hover { background: rgba(232,110,80,.26); border-color: #e86e50; }
+
+    /* Section 1: horizontal rail of full core cards */
+    .hs2-core-rail {
+      display: flex; flex-direction: row; flex-wrap: nowrap; gap: 13px;
+      overflow-x: auto; overflow-y: hidden; padding: 2px 2px 12px;
+      scroll-snap-type: x proximity;
+    }
+    .hs2-core-rail::-webkit-scrollbar { height: 9px; }
+    .hs2-core-rail::-webkit-scrollbar-thumb { background: rgba(244,165,116,.4); border-radius: 8px; }
+    .hs2-core-rail::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 8px; }
+
+    .hs2-card {
+      position: relative; flex: 0 0 auto; width: 190px; box-sizing: border-box;
+      scroll-snap-align: start; cursor: pointer;
+      background: linear-gradient(165deg, rgba(18,34,62,.94), rgba(9,20,40,.97));
+      border: 1.5px solid rgba(95,150,200,.28); border-radius: 15px; overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: transform .14s, border-color .14s, box-shadow .14s;
+    }
+    .hs2-card:hover {
+      transform: translateY(-3px); border-color: var(--strat-c, #f4a574);
+      box-shadow: 0 8px 26px rgba(0,0,0,.45), 0 0 16px color-mix(in srgb, var(--strat-c, #f4a574) 35%, transparent);
+    }
+    .hs2-card.active {
+      border-color: #5ec989;
+      box-shadow: 0 0 0 2px #5ec989, 0 8px 26px rgba(0,0,0,.5);
+    }
+    .hs2-card-art, .hs2-mini-art, .hs2-combo-art { position: relative; width: 100%; overflow: hidden; background: #0a1830; }
+    .hs2-card-art { height: 90px; }
+    .hs2-card-art img, .hs2-mini-art img, .hs2-combo-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hs2-card-art::after, .hs2-combo-art::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 45%, rgba(9,20,40,.9));
+    }
+    .hs2-card-tag { position: absolute; top: 7px; right: 7px; z-index: 2; }
+    .hs2-card-body { padding: 9px 11px 11px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .hs2-card-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 16px; color: #fef0e0; letter-spacing: .4px; line-height: 1.12; }
+    .hs2-card-blurb { font-size: 11.5px; line-height: 1.4; color: #c2d2e2; font-weight: 600; flex: 1; }
+    .hs2-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
+    .hs2-card-view, .hs2-combo-view { font-size: 10.5px; font-weight: 800; color: var(--cr-coral, #f4a574); cursor: pointer; flex-shrink: 0; }
+    .hs2-combo-view { color: #f0c860; }
+    .hs2-card-view:hover, .hs2-combo-view:hover { text-decoration: underline; }
+    .hs2-check {
+      position: absolute; top: 7px; left: 7px; z-index: 3; width: 23px; height: 23px; border-radius: 50%;
+      background: #5ec989; color: #06200f; display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.45);
+    }
+
+    /* Bottom row: section 2 (selected) | section 3 (combos) */
+    .hs2-bottom { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.55fr); gap: 16px; align-items: start; }
+    @media (max-width: 820px) { .hs2-bottom { grid-template-columns: 1fr; } }
+    .hs2-panel { background: rgba(8,18,36,.5); border: 1px solid rgba(95,150,200,.18); border-radius: 16px; padding: 13px 14px; }
+    .hs2-selected-row, .hs2-combos-row { display: flex; flex-wrap: wrap; gap: 11px; }
+
+    /* Section 2: selected mini-cards */
+    .hs2-mini {
+      position: relative; width: 120px; box-sizing: border-box;
+      background: linear-gradient(165deg, rgba(18,34,62,.94), rgba(9,20,40,.97));
+      border: 1.5px solid var(--strat-c, #5ec989); border-radius: 13px; overflow: hidden;
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--strat-c, #5ec989) 28%, transparent);
+    }
+    .hs2-mini-art { height: 62px; }
+    .hs2-mini-body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
+    .hs2-mini-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 12.5px; color: #fef0e0; line-height: 1.12; }
+    .hs2-mini-x {
+      position: absolute; top: 5px; right: 5px; z-index: 3; width: 21px; height: 21px; border-radius: 50%;
+      background: rgba(232,110,80,.94); color: #fff; border: none; cursor: pointer;
+      font-weight: 900; font-size: 11px; line-height: 1; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,.45); transition: transform .12s, background .12s;
+    }
+    .hs2-mini-x:hover { transform: scale(1.14); background: #e86e50; }
+    .hs2-mini.avail { cursor: pointer; border-color: rgba(244,165,116,.32); box-shadow: none; opacity: .9; transition: opacity .14s, transform .12s, border-color .14s; }
+    .hs2-mini.avail:hover { opacity: 1; transform: translateY(-2px); border-color: var(--cr-coral, #f4a574); }
+
+    /* Section 2: add-another + create-your-own slots */
+    .hs2-slot {
+      width: 120px; min-height: 122px; box-sizing: border-box; cursor: pointer;
+      border: 1.5px dashed rgba(244,165,116,.45); border-radius: 13px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center;
+      background: rgba(244,165,116,.05); color: #f5c8a0; padding: 10px 8px;
+      transition: background .14s, border-color .14s, transform .12s;
+    }
+    .hs2-slot:hover { background: rgba(244,165,116,.15); border-color: var(--cr-coral, #f4a574); transform: translateY(-2px); }
+    .hs2-slot.create { border-color: rgba(105,211,230,.5); color: #aee4ef; background: rgba(105,211,230,.06); }
+    .hs2-slot.create:hover { background: rgba(105,211,230,.16); border-color: #69d3e6; }
+    .hs2-slot-ico { font-size: 22px; line-height: 1; }
+    .hs2-slot-title { font-family: "Luckiest Guy", "Nunito", sans-serif; font-weight: 400; font-size: 13px; line-height: 1.18; }
+    .hs2-slot-sub { font-family: "Nunito", sans-serif; font-size: 10px; font-weight: 700; color: #b0986e; line-height: 1.3; }
+    .hs2-empty { font-size: 13px; font-weight: 700; color: #9fb6cc; padding: 18px 8px; line-height: 1.5; flex: 1; min-width: 180px; }
+
+    /* Section 3: combo suggestion cards */
+    .hs2-combo {
+      position: relative; flex: 0 0 auto; width: 190px; box-sizing: border-box; cursor: pointer;
+      background: linear-gradient(165deg, rgba(42,33,16,.82), rgba(13,23,43,.96));
+      border: 1.5px solid rgba(232,179,74,.42); border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column; transition: transform .14s, border-color .14s, box-shadow .14s;
+    }
+    .hs2-combo:hover { transform: translateY(-3px); border-color: #f0c860; box-shadow: 0 8px 24px rgba(0,0,0,.45), 0 0 14px rgba(232,179,74,.3); }
+    .hs2-combo.active { border-color: #5ec989; box-shadow: 0 0 0 2px #5ec989, 0 8px 24px rgba(0,0,0,.5); }
+    .hs2-combo-art { height: 76px; }
+    .hs2-combo-body { padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 5px; flex: 1; }
+    .hs2-combo-pairtag {
+      display: inline-block; align-self: flex-start; font-size: 9px; font-weight: 800; letter-spacing: .2px;
+      color: #d6c4a2; background: rgba(232,179,74,.12); border: 1px solid rgba(232,179,74,.3);
+      border-radius: 10px; padding: 1px 7px;
+    }
+    .hs2-combo-name { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 14px; color: #fef0e0; line-height: 1.12; }
+    .hs2-combo-why { font-size: 11px; line-height: 1.4; color: #d6c4a2; font-weight: 600; flex: 1; }
+    .hs2-combo-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 2px; }
 
     .hs-create-btn {
       flex: 0 0 auto; align-self: stretch; width: 200px; margin: 0;
@@ -12524,11 +12654,18 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.2";
-  const APP_BUILD   = "2026-06-15.6";
+  const APP_VERSION = "1.4.3";
+  const APP_BUILD   = "2026-06-17.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.4.3", title: "Cleaner Strategies screen + fixes", items: [
+      "The Strategies screen is reorganised into three clear steps: 1) Choose Your Core Strategy, 2) Your Selected Strategy(ies), and 3) Suggested Combos.",
+      "Combo strategies no longer clutter the main grid — pick one or more core strategies and we suggest the combos that pair best, prioritising ones that connect what you picked.",
+      "Each core strategy now shows a featured critter so it's easy to scan, plus a clear selected state with a checkmark. Create Your Own Strategy lives right beside your selections.",
+      "Friends fix: when someone accepts your request, the friendship now saves on both sides and sticks after you sign out and back in.",
+      "Fixed discarding to the pool, and the in-game challenge panel now steps aside when you open the 💡 Help screen.",
+    ]},
     { ver: "V1.4.0", title: "Full public profiles", items: [
       "Tapping another player's profile now opens a full public profile that matches your own Player Home design — their avatar, name, friend code, level with XP bar, Total XP, daily streak, competitive rank, and the same Quick Stats grid.",
       "Tap their avatar to view their critter collection (view-only — you can see what they've unlocked but can't change anything).",
@@ -15620,12 +15757,86 @@
     const introEl  = document.getElementById("pv-help-intro");
     if (!btn || !modal) return;
     let _curDetail = -1; // strategy index currently open in detail view (-1 = list)
+    let _hsShowAllCombos = false; // section 3: whether the full combo list is expanded
 
-    function activeSummary() {
-      if (!_activeStrategies.size) return "";
-      const names = [..._activeStrategies].map(i => `<span class="hs-active-pill" style="border-color:${STRAT_COLORS[i]};color:${STRAT_COLORS[i]}">${_hesc(HELP_STRATEGIES[i].label)}</span>`).join("");
-      return `<div id="hs-active-row"><span class="hs-active-label">Active:</span> ${names} <button id="hs-clear-active">Clear all</button></div>`;
+    // ── Strategy classification + combo-suggestion helpers ──────────
+    function _isCore(i)   { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Core"  && !s.custom; }
+    function _isCombo(i)  { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Combo" && !s.custom; }
+    function _isCustom(i) { const s = HELP_STRATEGIES[i]; return !!s && !!s.custom; }
+
+    // Representative card art for each strategy. Core strategies get a hand-picked
+    // featured animal (index → repUid); everything else falls back to its first
+    // card with art. These are display-only — no card data or rules change.
+    const _STRAT_REP_OVERRIDE = {
+      0: 230,  // Ocean All Blue   → Mangrove
+      1: 1,    // Birds            → Emperor Penguin
+      2: 12,   // Crustaceans      → Lobster
+      3: 110,  // Cephalopods      → Common Octopus
+      4: 109,  // Mammals          → Bottlenose Dolphin
+      5: 142,  // Baitfish Barrage → Whale Shark
+      6: 120,  // Yellowfin Tuna   → Big Eye Tuna (bigeye)
+      10: 28,  // Shooting the Moon→ Mandarin Goby
+      11: 141, // King Salmon Fill → King Salmon
+      19: 2,   // Coral            → Staghorn Coral
+      20: 26,  // Invertebrates    → Sea Anemone
+      21: 107, // Game Fish        → Yellowfin Tuna
+      22: 105, // Cross-Current    → Great White Shark
+    };
+    function _stratRepUid(i) {
+      if (_STRAT_REP_OVERRIDE[i] != null) return _STRAT_REP_OVERRIDE[i];
+      const s = HELP_STRATEGIES[i];
+      if (!s) return null;
+      for (const c of (s.cards || [])) if (c.repUid != null) return c.repUid;
+      return null;
     }
+    function _stratArtHtml(i, cls) {
+      const uid = _stratRepUid(i);
+      if (uid == null) return `<div class="${cls}"></div>`;
+      return `<div class="${cls}"><img src="${imagePathForUid(uid)}" style="object-position:${cardHalfPos(uid)};" alt="" loading="lazy"></div>`;
+    }
+
+    // Which CORE strategies each COMBO bridges. Keyed by combo label so it is
+    // robust to index shifts from appended custom strategies. (Data unchanged —
+    // this only powers the "suggested combos" discovery.)
+    const _COMBO_PAIR_LABELS = {
+      "Bird Lobster": ["Birds", "Crustaceans"],
+      "Bird Coral": ["Birds", "Coral"],
+      "Coral Cephalopods": ["Coral", "Cephalopods"],
+      "Birds + Baitfish Barrage": ["Birds", "Baitfish Barrage"],
+      "Baitfish Barrage + Yellowfin Tuna": ["Baitfish Barrage", "Yellowfin Tuna Stack"],
+      "Cephalopods + Shooting the Moon": ["Cephalopods", "Shooting the Moon"],
+      "Shooting the Moon + King Salmon Coral Fill": ["Shooting the Moon", "King Salmon Coral Fill"],
+      "King Salmon Coral Fill + Birds": ["King Salmon Coral Fill", "Birds"],
+      "Mammals + Cephalopods": ["Mammals", "Cephalopods"],
+      "Yellowfin Tuna + Mammals": ["Yellowfin Tuna Stack", "Mammals"],
+    };
+    function _comboPairIdxs(i) {
+      const s = HELP_STRATEGIES[i];
+      if (!s) return [];
+      return (_COMBO_PAIR_LABELS[s.label] || [])
+        .map(lbl => HELP_STRATEGIES.findIndex(x => x.label === lbl))
+        .filter(x => x >= 0);
+    }
+    // Ordered list of combo indices relevant to the currently-selected cores.
+    // Combos that bridge TWO selected cores rank above combos touching just one.
+    function _suggestedCombos() {
+      const sel = new Set([..._activeStrategies].filter(_isCore));
+      if (!sel.size) return [];
+      const scored = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) {
+        if (!_isCombo(i)) continue;
+        const pair = _comboPairIdxs(i);
+        if (!pair.length) continue;
+        const overlap = pair.filter(p => sel.has(p)).length;
+        if (overlap <= 0) continue;
+        const bridgesBoth = (pair.length >= 2 && pair.every(p => sel.has(p))) ? 1 : 0;
+        scored.push({ i, overlap, bridgesBoth });
+      }
+      scored.sort((a, b) => (b.bridgesBoth - a.bridgesBoth) || (b.overlap - a.overlap) || (a.i - b.i));
+      return scored.map(x => x.i);
+    }
+
+    const HS_COMBO_PREVIEW = 3; // combos shown before "Show more combos"
 
     function renderList() {
       _curDetail = -1;
@@ -15633,32 +15844,104 @@
       titleEl.textContent = "Strategies";
       const _fav = _getMostPlayedStrategyLocal();
       const _favBadge = _fav ? `<div style="margin:6px 0 2px;font-size:12px;color:#9fc0e0">Your most-played strategy: <strong style="color:#3dd6a8">${_hesc(_fav)}</strong></div>` : "";
-      if (introEl) introEl.innerHTML = "Pick a strategy to see what to do next, the cards to look for, and quick tips. Turn on any strategies you like, even several at once, and matching cards light up in your hand and the pool — each card glows in its animal-family colour, and a gold ★ marks any card with a special star ability." + _familyLegendHtml() + _favBadge + activeSummary();
-      const cardHtml = (s, i) => {
-        const on = _activeStrategies.has(i);
+      if (introEl) introEl.innerHTML = "Choose a core strategy to build around — then we'll suggest combos that pair well with it. Run several at once if you like; matching cards light up in your hand and the pool in their family colour, and a gold ★ marks a special star ability." + _familyLegendHtml() + _favBadge;
+
+      // ── Section 1: core strategy cards ──
+      const coreIdx = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCore(i)) coreIdx.push(i);
+      const coreCard = (i) => {
+        const s = HELP_STRATEGIES[i]; const on = _activeStrategies.has(i);
         return `
-        <div class="help-strat-card${on ? " active" : ""}" data-strat="${i}" style="${on ? `--strat-c:${STRAT_COLORS[i]}` : ""}">
-          <div class="hsc-top">
-            <span class="hsc-name">${_hesc(s.label)}</span>
-            <span class="help-tier ${_hesc(s.tier)}">${_hesc(s.tier)}</span>
-          </div>
-          <div class="hsc-blurb">${_hesc(s.blurb)}</div>
-          <div class="hsc-foot">
-            <span class="hsc-go">View cards & plan ›</span>
-            <button class="hsc-toggle${on ? " on" : ""}" data-toggle="${i}">${on ? "✓ Playing" : "Play this"}</button>
-          </div>
-        </div>`;
+          <div class="hs2-card${on ? " active" : ""}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
+            ${on ? `<div class="hs2-check">✓</div>` : ""}
+            ${_stratArtHtml(i, "hs2-card-art")}
+            <span class="help-tier Core hs2-card-tag">Core</span>
+            <div class="hs2-card-body">
+              <div class="hs2-card-name">${_hesc(s.label)}</div>
+              <div class="hs2-card-blurb">${_hesc(s.blurb)}</div>
+              <div class="hs2-card-foot">
+                <span class="hs2-card-view" data-detail="${i}">View cards & plan ›</span>
+                <button class="hsc-toggle${on ? " on" : ""}" data-toggle="${i}">${on ? "✓ Playing" : "Play this"}</button>
+              </div>
+            </div>
+          </div>`;
       };
-      const coreIdx   = HELP_STRATEGIES.map((s, i) => i).filter(i => !HELP_STRATEGIES[i].custom && HELP_STRATEGIES[i].tier === "Core");
-      const comboIdx  = HELP_STRATEGIES.map((s, i) => i).filter(i => !HELP_STRATEGIES[i].custom && HELP_STRATEGIES[i].tier === "Combo");
-      const customIdx = HELP_STRATEGIES.map((s, i) => i).filter(i => HELP_STRATEGIES[i].custom);
-      let html = "";
-      if (coreIdx.length)  html += `<div class="hs-section-head">🎯 Core <span>one focus, easy to learn</span></div>` + coreIdx.map(i => cardHtml(HELP_STRATEGIES[i], i)).join("");
-      if (comboIdx.length) html += `<div class="hs-section-head">🔀 Combo <span>mix two engines together</span></div>` + comboIdx.map(i => cardHtml(HELP_STRATEGIES[i], i)).join("");
-      html += `<div class="hs-section-head">✏️ Mine <span>your own, saved on this device</span></div>`;
-      html += customIdx.map(i => cardHtml(HELP_STRATEGIES[i], i)).join("");
-      html += `<button id="hs-create-btn" class="hs-create-btn">➕ Create your own strategy</button>`;
-      listEl.innerHTML = html;
+      const coreRail = coreIdx.map(coreCard).join("");
+
+      // ── Section 2: your selected strategies (cores, combos & customs you've turned on),
+      //    plus any saved-but-inactive custom plans so they stay reachable ──
+      const activeAll = [..._activeStrategies].filter(i => HELP_STRATEGIES[i]).sort((a, b) => a - b);
+      const savedCustoms = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCustom(i) && !_activeStrategies.has(i)) savedCustoms.push(i);
+      const miniCard = (i, removable) => {
+        const s = HELP_STRATEGIES[i];
+        const tierLbl = _isCustom(i) ? "Mine" : (_isCombo(i) ? "Combo" : "Core");
+        const tierCls = _isCustom(i) ? "Custom" : (_isCombo(i) ? "Combo" : "Core");
+        return `
+          <div class="hs2-mini${removable ? "" : " avail"}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
+            ${removable ? `<button class="hs2-mini-x" data-remove="${i}" title="Remove from selection">✕</button>` : ""}
+            ${_stratArtHtml(i, "hs2-mini-art")}
+            <div class="hs2-mini-body">
+              <span class="help-tier ${tierCls}">${tierLbl}</span>
+              <div class="hs2-mini-name">${_hesc(s.label)}</div>
+            </div>
+          </div>`;
+      };
+      const selectedHtml = (activeAll.length || savedCustoms.length)
+        ? activeAll.map(i => miniCard(i, true)).join("") + savedCustoms.map(i => miniCard(i, false)).join("")
+        : `<div class="hs2-empty">No strategy selected yet — pick a core strategy above to get started.</div>`;
+      const addSlot = `<div class="hs2-slot" id="hs2-add"><div class="hs2-slot-ico">＋</div><div class="hs2-slot-title">Add another core strategy</div></div>`;
+      const createSlot = `<div class="hs2-slot create" id="hs2-create"><div class="hs2-slot-ico">✏️</div><div class="hs2-slot-title">Create Your Own Strategy</div><div class="hs2-slot-sub">Build a custom plan with your cards</div></div>`;
+      const clearBtn = activeAll.length ? `<button id="hs2-clear" class="hs2-clear">Clear all</button>` : "";
+
+      // ── Section 3: suggested combos ──
+      const combos = _suggestedCombos();
+      const selCoreCount = [..._activeStrategies].filter(_isCore).length;
+      const shown = _hsShowAllCombos ? combos : combos.slice(0, HS_COMBO_PREVIEW);
+      const comboCard = (i) => {
+        const s = HELP_STRATEGIES[i]; const on = _activeStrategies.has(i);
+        const pairNames = _comboPairIdxs(i).map(p => HELP_STRATEGIES[p]?.label).filter(Boolean);
+        const pairTag = pairNames.length ? `<span class="hs2-combo-pairtag">${_hesc(pairNames.join(" + "))}</span>` : "";
+        return `
+          <div class="hs2-combo${on ? " active" : ""}" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
+            ${on ? `<div class="hs2-check">✓</div>` : ""}
+            ${_stratArtHtml(i, "hs2-combo-art")}
+            <span class="help-tier Combo hs2-card-tag">Combo</span>
+            <div class="hs2-combo-body">
+              ${pairTag}
+              <div class="hs2-combo-name">${_hesc(s.label)}</div>
+              <div class="hs2-combo-why">${_hesc(s.blurb)}</div>
+              <div class="hs2-combo-foot">
+                <span class="hs2-combo-view" data-detail="${i}">View combo details ›</span>
+                <button class="hsc-toggle${on ? " on" : ""}" data-toggle="${i}">${on ? "✓ Playing" : "Play this"}</button>
+              </div>
+            </div>
+          </div>`;
+      };
+      let combosBody;
+      if (!selCoreCount) combosBody = `<div class="hs2-empty">Select a core strategy to see suggested combos.</div>`;
+      else if (!combos.length) combosBody = `<div class="hs2-empty">No combo pairs for this selection yet — try adding another core strategy.</div>`;
+      else combosBody = shown.map(comboCard).join("");
+      const moreCount = combos.length - HS_COMBO_PREVIEW;
+      const showMoreBtn = (combos.length > HS_COMBO_PREVIEW)
+        ? `<button id="hs2-show-more">${_hsShowAllCombos ? "Show fewer" : `Show more combos (${moreCount}) ›`}</button>`
+        : "";
+
+      listEl.innerHTML = `
+        <section class="hs2-sec">
+          <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Core Strategy <span class="hs2-sec-sub">Foundational plans — pick one or more to build around.</span></div>
+          <div class="hs2-core-rail">${coreRail}</div>
+        </section>
+        <div class="hs2-bottom">
+          <section class="hs2-sec hs2-panel">
+            <div class="hs2-sec-head"><span class="hs2-num">2</span> Your Selected Strategy(ies) ${clearBtn}</div>
+            <div class="hs2-selected-row">${selectedHtml}${addSlot}${createSlot}</div>
+          </section>
+          <section class="hs2-sec hs2-panel">
+            <div class="hs2-sec-head"><span class="hs2-num">3</span> Suggested Combos ${showMoreBtn}</div>
+            <div class="hs2-combos-row">${combosBody}</div>
+          </section>
+        </div>`;
     }
 
     function renderDetail(i) {
@@ -15741,9 +16024,12 @@
     // ── Randomize: clear everything, then activate N random strategies ──
     let _randCount = 2;
     function randomizeStrategies(n) {
-      const count = Math.max(1, Math.min(Number(n) || 1, HELP_STRATEGIES.length));
-      // Fisher-Yates shuffle of every available strategy index, then take N.
-      const pool = HELP_STRATEGIES.map((_, i) => i);
+      // Surprise-me picks random CORE strategies (combos then surface as
+      // suggestions for whatever cores were rolled).
+      const pool = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) if (_isCore(i)) pool.push(i);
+      const count = Math.max(1, Math.min(Number(n) || 1, pool.length));
+      // Fisher-Yates shuffle, then take N.
       for (let k = pool.length - 1; k > 0; k--) {
         const r = Math.floor(Math.random() * (k + 1));
         [pool[k], pool[r]] = [pool[r], pool[k]];
@@ -15754,10 +16040,11 @@
       _saveActiveStrategies();
       _applyStrategyHighlights();
       _curDetail = -1;
+      _hsShowAllCombos = false;
       modal.classList.remove("detail");
       renderList();
-      // Scroll the rail back to the start so the freshly-lit cards are in view.
-      if (listEl) listEl.scrollLeft = 0;
+      // Scroll back to the top so the freshly-lit cards are in view.
+      if (listEl) listEl.scrollTop = 0;
     }
     const randBar = document.getElementById("pv-help-rand");
     randBar && randBar.addEventListener("click", (e) => {
@@ -15770,8 +16057,18 @@
       if (e.target.closest("#phr-go")) randomizeStrategies(_randCount);
     });
 
-    function openModal() { (_curDetail >= 0) ? renderDetail(_curDetail) : renderList(); modal.classList.add("open"); }
-    function closeModal() { modal.classList.remove("open"); }
+    function openModal() {
+      _hsShowAllCombos = false;
+      (_curDetail >= 0) ? renderDetail(_curDetail) : renderList();
+      modal.classList.add("open");
+      // Hide the challenge panel so it doesn't overlap the help modal.
+      try { window._igcpSetVisible?.(false); } catch {}
+    }
+    function closeModal() {
+      modal.classList.remove("open");
+      // Restore the challenge panel (it tracks its own enabled/visibility state).
+      try { window._igcpSetVisible?.(true); } catch {}
+    }
 
     btn.addEventListener("click", openModal);
     closeBtn.addEventListener("click", closeModal);
@@ -15779,10 +16076,33 @@
     modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
     listEl.addEventListener("click", (e) => {
-      if (e.target.closest("#hs-create-btn")) { renderCreate(); return; }
+      // Section 2 / 3 controls
+      if (e.target.closest("#hs2-create")) { renderCreate(); return; }
+      if (e.target.closest("#hs2-add")) {
+        const rail = listEl.querySelector(".hs2-core-rail");
+        listEl.scrollTo({ top: 0, behavior: "smooth" });
+        if (rail) rail.scrollTo({ left: 0, behavior: "smooth" });
+        return;
+      }
+      if (e.target.closest("#hs2-show-more")) { _hsShowAllCombos = !_hsShowAllCombos; renderList(); return; }
+      if (e.target.closest("#hs2-clear")) {
+        _activeStrategies.clear(); _hsShowAllCombos = false;
+        _saveActiveStrategies(); _applyStrategyHighlights(); renderList();
+        return;
+      }
+      const rm = e.target.closest("[data-remove]");
+      if (rm) {
+        e.stopPropagation();
+        _activeStrategies.delete(Number(rm.dataset.remove));
+        _saveActiveStrategies(); _applyStrategyHighlights(); renderList();
+        return;
+      }
       const tgl = e.target.closest("[data-toggle]");
       if (tgl) { e.stopPropagation(); toggleStrategy(Number(tgl.dataset.toggle)); return; }
-      const card = e.target.closest(".help-strat-card");
+      const det = e.target.closest("[data-detail]");
+      if (det) { e.stopPropagation(); renderDetail(Number(det.dataset.detail)); return; }
+      // Click anywhere else on a card opens its detail view.
+      const card = e.target.closest("[data-strat]");
       if (card) renderDetail(Number(card.dataset.strat));
     });
     introEl && introEl.addEventListener("click", (e) => {
@@ -25194,7 +25514,11 @@
       if (!_db) return [];
       try {
         const snap = await _db.collection("users").doc(uid).collection("friend_requests").get();
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        // Exclude acceptance notifications (accepted: true) — those are consumed by
+        // consumeAcceptedFriendships, not displayed as incoming friend requests.
+        return snap.docs
+          .filter(d => !d.data()?.accepted)
+          .map(d => ({ id: d.id, ...d.data() }));
       } catch { return []; }
     }
     async function acceptFriendRequest(myUid, myNick, req) {
@@ -25208,8 +25532,6 @@
       // Phase 1: batch only the writes the current user owns — these MUST succeed together.
       //   - Add the requester to MY friends list
       //   - Delete the incoming friend_request doc
-      // Keeping the cross-user write OUT of this batch so a rules rejection on that
-      // path doesn't silently roll back the whole acceptance.
       const batch = _db.batch();
       batch.set(_db.collection("users").doc(myUid).collection("friends").doc(fromUid), {
         uid: fromUid, nickname: req.from_nickname || "Unknown",
@@ -25219,19 +25541,61 @@
       batch.delete(_db.collection("users").doc(myUid).collection("friend_requests").doc(fromUid));
       await batch.commit();  // throws on failure — caller will show error
 
-      // Phase 2: write the requester's side (separate path they own).
-      // If Firestore rules don't allow this client-side write, it fails silently here;
-      // the friendship is already recorded on the acceptor's side above.
+      // Phase 2: notify the requester that their request was accepted.
+      // Firestore rules prevent writing directly to another user's friends subcollection.
+      // Instead, write an acceptance notification to their friend_requests subcollection —
+      // the same path that addFriend already uses, which IS writable by any authenticated
+      // user. The requester's client picks this up on sign-in or when opening the Friends
+      // panel (via consumeAcceptedFriendships) and saves the friendship to their own
+      // friends collection there.
+      // Skip Phase 2 if we are ourselves processing an acceptance notification (i.e. the
+      // other user already accepted first and we are consuming their notification via
+      // addFriend's auto-accept path) — their side is already recorded.
+      if (!req.accepted) {
+        try {
+          await _db.collection("users").doc(fromUid).collection("friend_requests").doc(myUid).set({
+            accepted:        true,
+            from_uid:        myUid,
+            from_nickname:   myNick || "Unknown",
+            from_avatar_url: myAvatar,
+            accepted_at:     firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        } catch(e) {
+          console.warn("acceptFriendRequest: could not write acceptance notification:", e);
+        }
+      }
+    }
+
+    // Convert any pending acceptance notifications in our friend_requests subcollection
+    // into real entries in our friends collection, then delete each notification.
+    // Called at sign-in (via the friend_requests snapshot listener) and when the Friends
+    // panel opens, so the friendship always appears without manual intervention.
+    async function consumeAcceptedFriendships(uid) {
+      if (!_db || !uid) return;
       try {
-        await _db.collection("users").doc(fromUid).collection("friends").doc(myUid).set({
-          uid: myUid, nickname: myNick || "Unknown",
-          avatar_url: myAvatar,
-          added_at: firebase.firestore.FieldValue.serverTimestamp(),
-        });
+        const snap = await _db.collection("users").doc(uid)
+          .collection("friend_requests").where("accepted", "==", true).get();
+        if (snap.empty) return;
+        for (const doc of snap.docs) {
+          const data = doc.data();
+          const friendUid = data.from_uid || doc.id;
+          if (!friendUid || friendUid === uid) continue;
+          try {
+            // Writing to our own friends collection is always permitted.
+            await _db.collection("users").doc(uid).collection("friends").doc(friendUid).set({
+              uid:        friendUid,
+              nickname:   data.from_nickname || "Unknown",
+              avatar_url: normalizeAvatarUrl(data.from_avatar_url || "") || getDefaultAvatar(friendUid),
+              added_at:   firebase.firestore.FieldValue.serverTimestamp(),
+            });
+            // Delete the notification — our own document, always permitted.
+            await doc.ref.delete();
+          } catch(e) {
+            console.warn("consumeAcceptedFriendships: error processing", doc.id, e);
+          }
+        }
       } catch(e) {
-        // Non-fatal: acceptor's side is confirmed. Requester will see the friendship
-        // once server-side logic (or their next login) reconciles the data.
-        console.warn("acceptFriendRequest: could not write requester side:", e);
+        console.warn("consumeAcceptedFriendships error:", e);
       }
     }
     async function denyFriendRequest(myUid, fromUid) {
@@ -25311,7 +25675,13 @@
       if (!_db || !uid) return;
       _reqUnsubscribe = _db.collection("users").doc(uid).collection("friend_requests")
         .onSnapshot(snap => {
-          const count = snap.size;
+          // If any doc is an acceptance notification (accepted: true), consume it now.
+          // This fires on sign-in (first snapshot) and whenever the subcollection changes,
+          // so accepted friendships are persisted to our friends list without any manual step.
+          const hasAccepted = snap.docs.some(d => d.data()?.accepted);
+          if (hasAccepted) consumeAcceptedFriendships(uid).catch(() => {});
+          // Badge only counts pending incoming requests, not acceptance notifications.
+          const count = snap.docs.filter(d => !d.data()?.accepted).length;
           const label = count > 0 ? String(count) : "";
           // Update badge elements: lobby bar "Friends" button + left-nav Friends tab
           ["friend-req-badge-bar", "snav-friend-badge"].forEach(id => {
@@ -31539,6 +31909,9 @@
       const list = $a("ph-friends-list");
       if (!list) return;
       list.innerHTML = '<div class="ph-empty">Loading…</div>';
+      // Consume any pending acceptance notifications before loading the list so that
+      // a recently-accepted friendship shows up the first time this panel opens.
+      await consumeAcceptedFriendships(_authUser.uid).catch(() => {});
       const friends = await loadFriends(_authUser.uid);
       if (!friends.length) { list.innerHTML = '<div class="ph-empty">No friends added yet.</div>'; return; }
       const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));

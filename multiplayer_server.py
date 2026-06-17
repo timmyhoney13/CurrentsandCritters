@@ -2123,8 +2123,18 @@ class GameRoom:
 
         if chosen.kind == "discard_batch_to_pool":
             # Player submitted the cards they chose to discard in pool_pick_uids.
+            # Normalize face UIDs → canonical entry UIDs so two-sided cards resolve
+            # to the hand entry, and de-duplicate (preserving order) so the same
+            # card can never be queued for discard twice.
             picks_raw = cmd.get("pool_pick_uids", [])
-            picks = [int(x) for x in picks_raw if isinstance(x, int)] if isinstance(picks_raw, list) else []
+            picks: List[int] = []
+            if isinstance(picks_raw, list):
+                for x in picks_raw:
+                    if not isinstance(x, int) or isinstance(x, bool):
+                        continue
+                    uid = fish.canonical_entry_uid(ms, x)
+                    if uid not in picks:
+                        picks.append(uid)
             if not picks:
                 # Client submitted batch discard without selecting any cards —
                 # reject it so the human policy loops and waits for a real selection.
@@ -3111,6 +3121,10 @@ class GameRoom:
             if kind == "draw":
                 label = "draw from pool" if int(getattr(action, "draw_from_pool", 0) or 0) else "draw from deck"
                 return {"kind": kind, "label": label, "draw_from_pool": int(getattr(action, "draw_from_pool", 0) or 0)}
+            if kind == "discard_batch_to_pool":
+                picks = list(getattr(action, "pool_pick_uids", []) or [])
+                label = f"discard {len(picks)} card(s) to pool" if picks else "discard selected cards to pool"
+                return {"kind": kind, "label": label, "pool_pick_uids": picks}
             face_uid = action.face_uid if getattr(action, "face_uid", None) is not None else getattr(action, "card_uid", None)
             card = gs.card_db.get(face_uid) if face_uid is not None else None
             name = card.name if card is not None else (f"#{face_uid}" if face_uid is not None else "")

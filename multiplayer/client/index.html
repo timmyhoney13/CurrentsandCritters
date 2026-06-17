@@ -2043,6 +2043,12 @@
         const faceName = face?.name || action.face_name || action.card_uid;
         return `discard to pool | entry ${action.card_uid} | ${faceName}`;
       }
+      if (action.kind === "discard_batch_to_pool") {
+        const picks = Array.isArray(action.pool_pick_uids) ? action.pool_pick_uids : [];
+        return picks.length
+          ? `discard ${picks.length} selected card(s) to pool`
+          : "discard selected cards to pool";
+      }
       if (action.kind === "move_between_oceans") {
         const faceName = action.face_name || action.face_uid || action.card_uid;
         const src = Number.isInteger(Number(action.source_ocean_uid)) ? Number(action.source_ocean_uid) : "?";
@@ -2109,12 +2115,19 @@
 
       const count = selectedDiscard.size;
       const needed = _discardExcessRef;
-      const enough = count >= needed;
-      statusEl.textContent = enough
-        ? `${count} card(s) selected to discard — ${count - needed} extra. Click Confirm when ready.`
-        : `${count} selected — need at least ${needed - count} more to discard.`;
-      confirmBtn.disabled = !enough;
-      confirmBtn.textContent = `Confirm Discard (${count})`;
+      // You must discard down to EXACTLY the hand limit — not fewer, not more.
+      // The server rejects any batch that wouldn't leave exactly the limit, so
+      // the Confirm button is only enabled when the selection count is exact.
+      const exact = count === needed;
+      if (count < needed) {
+        statusEl.textContent = `${count} of ${needed} selected — pick ${needed - count} more (discard down to exactly 10).`;
+      } else if (count > needed) {
+        statusEl.textContent = `${count} selected — that's ${count - needed} too many. Deselect until exactly ${needed} are chosen (you can't go below 10).`;
+      } else {
+        statusEl.textContent = `${count} of ${needed} selected. Click Confirm to discard.`;
+      }
+      confirmBtn.disabled = !exact;
+      confirmBtn.textContent = `Confirm Discard (${count}/${needed})`;
       const labels = Array.from(selectedDiscard).map((uid) => {
         const entry = handEntryByUid.get(uid);
         return entry ? entry.label : String(uid);

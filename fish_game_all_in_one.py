@@ -7970,6 +7970,23 @@ def describe_action(gs: GameState, ms: MatchState, action: Action) -> str:
         dst = action.ocean_uid if action.ocean_uid is not None else "?"
         return f"move {moved_uid}:{moved_name} from ocean {src} to ocean {dst} (end turn)"
 
+    if action.kind == "discard_to_pool":
+        try:
+            return f"discard {entry_short_label(ms, gs, action.card_uid)} to pool"
+        except Exception:
+            return f"discard entry {action.card_uid} to pool"
+
+    if action.kind == "discard_batch_to_pool":
+        uids = [int(u) for u in (action.pool_pick_uids or []) if isinstance(u, int)]
+        if not uids:
+            # Template action before the player has chosen which cards to drop.
+            return "discard selected cards to pool"
+        try:
+            labels = ", ".join(entry_short_label(ms, gs, u) for u in uids)
+        except Exception:
+            labels = ", ".join(str(u) for u in uids)
+        return f"discard {len(uids)} card(s) to pool: {labels}"
+
     face = action.face_uid if action.face_uid is not None else action.card_uid
     card = gs.card_db.get(face)
     if card is None:
@@ -8257,7 +8274,12 @@ def apply_action(
     if action.kind == "discard_batch_to_pool":
         # Human selects multiple cards to discard at once (end-of-turn hand-limit phase).
         # pool_pick_uids holds the card UIDs chosen to move to the pool.
-        chosen_uids = [uid for uid in action.pool_pick_uids if uid in player.hand]
+        # De-duplicate while preserving order and keep only cards still in hand, so a
+        # repeated UID can never remove the same card twice (which would raise).
+        chosen_uids: List[int] = []
+        for uid in action.pool_pick_uids:
+            if uid in player.hand and uid not in chosen_uids:
+                chosen_uids.append(uid)
         if not chosen_uids:
             return fail("discard_batch_to_pool: no valid cards selected")
         remaining = len(player.hand) - len(chosen_uids)
