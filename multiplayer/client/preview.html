@@ -645,6 +645,13 @@
       align-items: stretch; justify-content: center;
     }
     #pv-help-modal.open { display: flex; animation: dwm-fade-in .18s ease; }
+    /* #pv-game > * { position:relative; z-index:1 } (defined later in source)
+       has equal specificity and would otherwise clobber the line above,
+       dropping the modal back into the in-flow column behind the game HUD.
+       This higher-specificity rule (two IDs) keeps it a true fixed overlay
+       so the full-screen panel covers the top bar, menu, turn banner and
+       guide bar instead of stacking under them. */
+    #pv-game > #pv-help-modal { position: fixed; z-index: 9300; }
     /* Full-screen panel: fills the entire viewport so the three Strategy
        sections have the whole page to spread out in. */
     #pv-help-box {
@@ -12660,8 +12667,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.4";
-  const APP_BUILD   = "2026-06-17.2";
+  const APP_VERSION = "1.4.5";
+  const APP_BUILD   = "2026-06-17.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
