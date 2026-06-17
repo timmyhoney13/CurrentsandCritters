@@ -4459,6 +4459,47 @@
       color: rgba(16,53,86,.78); font-size: 14px; font-family: "Baloo 2", "Nunito", sans-serif; letter-spacing: .5px;
     }
     #auth-loading-screen.hidden { display: none; }
+
+    /* ══ Game-window full-screen launch splash (Steam-style) ════════
+       Shown ONLY in the separate game window. The big Play button is the
+       user gesture the browser requires to enter true (chrome-less)
+       full screen, so launching feels like opening a desktop game. */
+    #cc-fs-splash {
+      display: none; position: fixed; inset: 0; z-index: 100000;
+      background: radial-gradient(120% 120% at 50% 18%, #14315a 0%, #0a1c38 55%, #06122a 100%);
+      align-items: center; justify-content: center; text-align: center;
+      font-family: "Nunito", sans-serif; color: #f5ede0;
+    }
+    #cc-fs-splash.show { display: flex; animation: dwm-fade-in .2s ease; }
+    .ccfs-inner { display: flex; flex-direction: column; align-items: center; gap: 13px; padding: 24px; max-width: 90vw; }
+    .ccfs-logo { font-size: 70px; line-height: 1; filter: drop-shadow(0 4px 16px rgba(0,0,0,.55)); animation: ccfs-bob 3s ease-in-out infinite; }
+    @keyframes ccfs-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    .ccfs-title { font-family: "Luckiest Guy", "Cinzel", serif; font-size: 46px; letter-spacing: 1px; color: var(--cr-gold, #e8b34a); text-shadow: 0 3px 16px rgba(232,179,74,.4); line-height: 1.05; }
+    .ccfs-sub { font-size: 15px; font-weight: 700; color: #b9cfe6; margin-bottom: 8px; }
+    .ccfs-play {
+      cursor: pointer; font-family: "Nunito", sans-serif; font-size: 19px; font-weight: 900; letter-spacing: .5px;
+      color: #1a1208; background: linear-gradient(180deg, #f6c178 0%, #e8a052 100%);
+      border: 1.5px solid rgba(244,165,116,.6); border-radius: 16px; padding: 15px 42px;
+      box-shadow: 0 6px 22px rgba(232,160,82,.5); transition: transform .12s, filter .12s, box-shadow .12s;
+    }
+    .ccfs-play:hover { transform: translateY(-2px); filter: brightness(1.06); box-shadow: 0 10px 30px rgba(232,160,82,.6); }
+    .ccfs-play:active { transform: translateY(0); }
+    .ccfs-window { cursor: pointer; background: none; border: none; color: #9fc0e0; font-size: 13px; font-weight: 700; text-decoration: underline; padding: 4px; }
+    .ccfs-window:hover { color: #cfe4f7; }
+
+    /* Slim "return to full screen" pill — nudges the player back to full
+       screen if they drop out (Esc / browser), so the game stays full screen. */
+    #cc-fs-resume {
+      display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+      z-index: 100000; cursor: pointer;
+      font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800; letter-spacing: .3px;
+      color: #1a1208; background: linear-gradient(180deg, #f6c178 0%, #e8a052 100%);
+      border: 1.5px solid rgba(244,165,116,.6); border-radius: 18px; padding: 8px 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.45); animation: dwm-fade-in .2s ease;
+    }
+    #cc-fs-resume.show { display: block; }
+    #cc-fs-resume:hover { filter: brightness(1.06); }
+
     #auth-screen {
       position: fixed; inset: 0; z-index: 9000;
       background: #0a1d3a;
@@ -10343,6 +10384,18 @@
 </head>
 <body>
 
+<!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
+<div id="cc-fs-splash" aria-hidden="true">
+  <div class="ccfs-inner">
+    <div class="ccfs-logo">🐙</div>
+    <div class="ccfs-title">Currents &amp; Critters</div>
+    <div class="ccfs-sub">Your game window is ready — dive in full screen.</div>
+    <button id="ccfs-play" class="ccfs-play" type="button">▶ Play Full Screen</button>
+    <button id="ccfs-window" class="ccfs-window" type="button">Continue in window</button>
+  </div>
+</div>
+<button id="cc-fs-resume" type="button" title="Return to full screen">⛶ Tap to return to full screen</button>
+
 <!-- ══ AUTH LOADING (covers page while Firebase resolves) ═════════ -->
 <div id="auth-loading-screen">Diving in…</div>
 
@@ -12667,11 +12720,16 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.5";
-  const APP_BUILD   = "2026-06-17.3";
+  const APP_VERSION = "1.4.6";
+  const APP_BUILD   = "2026-06-17.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.4.6", title: "Launch into a full-screen game window", items: [
+      "Signing in now opens the game in its own dedicated window — not just another browser tab.",
+      "The game window greets you with a “▶ Play Full Screen” launch screen so it opens chrome-free and full screen, just like starting a game from Steam.",
+      "If you ever drop out of full screen, a quick “return to full screen” tap brings it right back so the game stays full screen.",
+    ]},
     { ver: "V1.4.4", title: "Cleaner Strategies screen + fixes", items: [
       "The Strategies screen now fills the whole page, and each strategy shows its critter portrait from the Avatar Gallery so the plans are easy to tell apart at a glance.",
       "The Strategies screen is reorganised into three clear steps: 1) Choose Your Core Strategy, 2) Your Selected Strategy(ies), and 3) Suggested Combos.",
@@ -23494,6 +23552,68 @@
   })();
 
   // ═══════════════════════════════════════════════════════════════
+  // GAME-WINDOW FULL-SCREEN LAUNCH (Steam-style)
+  // Only runs in the separate game window (opened with ?gw=1). Shows a
+  // launch splash whose Play button is the user gesture browsers require
+  // to enter true full screen, then keeps nudging back to full screen if
+  // the player drops out — so the game stays full screen like a desktop app.
+  // ═══════════════════════════════════════════════════════════════
+  (function setupGameWindowFullscreen() {
+    // Detect the game window independently of the auth module's scope.
+    const isGameWindow = (function () {
+      try {
+        if (sessionStorage.getItem("cc_game_win") === "1") return true;
+        if (new URLSearchParams(location.search).get("gw") === "1") return true;
+      } catch (_) {}
+      return false;
+    })();
+    if (!isGameWindow) return;
+
+    const splash   = document.getElementById("cc-fs-splash");
+    const playBtn  = document.getElementById("ccfs-play");
+    const winBtn   = document.getElementById("ccfs-window");
+    const resume   = document.getElementById("cc-fs-resume");
+    if (!splash || !playBtn || !winBtn || !resume) return;
+
+    let wantsFullscreen = false;   // player chose full screen at least once
+    const isFs = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+    async function enterFs() {
+      const el = document.documentElement;
+      try {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      } catch (_) { /* gesture/permission — browser may block; ignore */ }
+    }
+    function showSplash() { splash.classList.add("show"); }
+    function hideSplash() { splash.classList.remove("show"); }
+
+    playBtn.addEventListener("click", async () => {
+      wantsFullscreen = true;
+      hideSplash();
+      await enterFs();
+    });
+    winBtn.addEventListener("click", () => { wantsFullscreen = false; hideSplash(); });
+    resume.addEventListener("click", async () => { await enterFs(); });
+
+    // Keep it full screen: if we drop out after opting in, surface the slim
+    // "return to full screen" pill (re-entering full screen needs a gesture,
+    // so we can't silently force it back).
+    function onFsChange() {
+      if (wantsFullscreen && !isFs()) resume.classList.add("show");
+      else resume.classList.remove("show");
+    }
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+
+    // Show the launch splash as soon as the game window is interactive.
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", showSplash, { once: true });
+    } else {
+      showSplash();
+    }
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
   // IN-GAME BOARD SIZE CONTROL  (+ / − buttons, and + = - keys)
   // Zooms ONLY the board (#pv-table-inner) — never the hand, action bar,
   // End Turn / Undo buttons, or the rest of the website. Clamped so the
@@ -26337,7 +26457,10 @@
       const target = _gameWinUrl();
       const w = (window.screen && screen.availWidth)  ? screen.availWidth  : 1280;
       const h = (window.screen && screen.availHeight) ? screen.availHeight : 800;
-      const feats = `popup=yes,width=${w},height=${h},left=0,top=0,scrollbars=yes,resizable=yes`;
+      // popup=yes + explicit size/position is what makes browsers spawn a
+      // standalone window instead of a background tab; the no-chrome hints
+      // (menubar/toolbar/location/status) make it feel like an app window.
+      const feats = `popup=yes,menubar=no,toolbar=no,location=no,status=no,width=${w},height=${h},left=0,top=0,scrollbars=yes,resizable=yes`;
       let win = null;
       try { win = window.open(target, "cc-game-window", feats); } catch (_) { win = null; }
       if (win) {
