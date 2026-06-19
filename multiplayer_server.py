@@ -713,6 +713,13 @@ class GameRoom:
         self.latest_public_state: Optional[Dict[str, Any]] = None
         self.latest_private_hands: Dict[int, List[Dict[str, Any]]] = {}
         self.last_turn_number: int = 0
+        # Current Controller: per-room flag — hidden-state capture stays off until
+        # the admin actually opens a mod tool in this room (see admin_activate).
+        # Initialized here (alongside the bot-brain/override maps) so the
+        # admin_mod endpoint is safe even in the lobby, before any game launches.
+        self._admin_active: bool = False
+        self._bot_brain: Dict[int, Dict[str, Any]] = {}
+        self._bot_override: Dict[int, Dict[str, Any]] = {}
 
         self.legal_actions_by_seat: Dict[int, Dict[str, Any]] = {}
         self.pending_actions: Dict[int, List[Dict[str, Any]]] = {}
@@ -1881,6 +1888,10 @@ class GameRoom:
         self._admin_pool_entries = []        # [entry_to_dict,...]
         self._admin_endgame = {}             # end-game card location snapshot
         self._bot_brain = {}                 # seat_idx -> last bot decision {chosen, candidates}
+        # Flips True the first time an authorized admin_mod call hits this room.
+        # While False, the room does NO extra hidden-state capture, so normal
+        # games (where the admin tools are never opened) pay nothing.
+        self._admin_active = False
         self._admin_mod_queue = []           # [{id, op, params, event, result}]
         self._bot_override = {}              # seat_idx -> armed override action spec
         self.last_turn_number = 0
@@ -2596,11 +2607,11 @@ class GameRoom:
             # ── Current Controller: capture hidden state for the admin reveal ──
             # and keep live engine refs so mod mutations can be applied on the
             # match thread (via _wait_for_action) without racing the engine.
-            # Only do the extra (deck/discard) capture when admin tools are
-            # actually enabled on this server, so normal games pay nothing.
+            # Only do the extra (deck/discard) capture once the admin has opened
+            # the mod tools in THIS room, so normal games pay nothing.
             self._live_gs = gs
             self._live_ms = ms
-            if os.environ.get("ADMIN_MOD_KEY", "").strip():
+            if self._admin_active:
                 try:
                     self._admin_pool_entries = list(pool_payload)
                     self._admin_deck_entries = [entry_to_dict(ms, gs, uid) for uid in list(gs.deck) if isinstance(uid, int)]
@@ -3085,9 +3096,9 @@ class GameRoom:
             )
 
             # ── Current Controller: record what this bot is thinking, and let an
-            # admin override its move. Both are no-ops unless the admin has armed
-            # them, so normal bot play is unaffected.
-            if os.environ.get("ADMIN_MOD_KEY", "").strip():
+            # admin override its move. Both are no-ops unless the admin has opened
+            # the mod tools in this room, so normal bot play is unaffected.
+            if self._admin_active:
                 try:
                     self._record_bot_brain(seat_index, gs, ms, player, chosen, _brain_scored, actions)
                     override = self._consume_bot_override(seat_index, gs, ms, player, actions)
@@ -3358,9 +3369,53 @@ class GameRoom:
             }
         return {"ok": True, "armed": True}
 
+    def _admin_capture_now_locked(self) -> None:
+        """One-shot capture of hidden state (deck / pool / discard / end-game)
+        straight from the live engine refs, so the very first reveal right after
+        the admin opens the tools isn't empty. Caller holds self.cond; no-op if
+        there's no live game yet."""
+        gs = getattr(self, "_live_gs", None)
+        ms = getattr(self, "_live_ms", None)
+        if gs is None or ms is None:
+            return
+        try:
+            self._admin_pool_entries = [entry_to_dict(ms, gs, uid) for uid in list(ms.pool) if isinstance(uid, int)]
+            self._admin_deck_entries = [entry_to_dict(ms, gs, uid) for uid in list(gs.deck) if isinstance(uid, int)]
+            discards: Dict[int, List[Dict[str, Any]]] = {}
+            for g_idx, pl in enumerate(gs.players):
+                s_idx = self._comp_game_to_seat.get(g_idx, g_idx)
+                discards[s_idx] = [entry_to_dict(ms, gs, uid) for uid in list(pl.discard) if isinstance(uid, int)]
+            self._admin_discards = discards
+            eg_uid = getattr(ms, "end_game_uid", None)
+            self._admin_endgame = {
+                "end_game_uid": eg_uid,
+                "triggered": bool(getattr(ms, "end_game_triggered", False)),
+                "in_deck": isinstance(eg_uid, int) and eg_uid in gs.deck,
+                "deck_position_from_bottom": (len(gs.deck) - gs.deck.index(eg_uid)) if (isinstance(eg_uid, int) and eg_uid in gs.deck) else None,
+            }
+        except Exception as _exc:
+            self._record_event(f"admin snapshot capture warning: {_exc}")
+
+    def admin_activate(self) -> None:
+        """Turn on this room's hidden-state capture the first time the admin uses
+        a mod tool here. On first activation it also captures immediately so the
+        opening reveal has data without waiting for the next state push."""
+        with self.cond:
+            first = not self._admin_active
+            self._admin_active = True
+            if first:
+                self._admin_capture_now_locked()
+
     def admin_reveal(self) -> Dict[str, Any]:
         with self.cond:
             pub = self.latest_public_state if isinstance(self.latest_public_state, dict) else {}
+            # All of these are only populated once a game has launched; default
+            # them so a reveal in the lobby returns empties instead of erroring.
+            admin_discards = getattr(self, "_admin_discards", {}) or {}
+            admin_pool = getattr(self, "_admin_pool_entries", []) or []
+            admin_deck = getattr(self, "_admin_deck_entries", []) or []
+            admin_endgame = getattr(self, "_admin_endgame", {}) or {}
+            bot_brain = getattr(self, "_bot_brain", {}) or {}
             players = []
             for p in (pub.get("players") or []):
                 s_idx = p.get("index")
@@ -3368,7 +3423,7 @@ class GameRoom:
                     "index": s_idx, "name": p.get("name"), "score": p.get("score"),
                     "hand": copy.deepcopy(self.latest_private_hands.get(s_idx, [])),
                     "hand_count": p.get("hand_count"),
-                    "discard": copy.deepcopy(self._admin_discards.get(s_idx, [])),
+                    "discard": copy.deepcopy(admin_discards.get(s_idx, [])),
                     "strategy": p.get("strategy"),
                     "board": p.get("board"),
                 })
@@ -3378,11 +3433,11 @@ class GameRoom:
                 "current_player": pub.get("current_player"),
                 "round_count": pub.get("round_count"),
                 "players": players,
-                "pool": copy.deepcopy(self._admin_pool_entries),
-                "deck": copy.deepcopy(self._admin_deck_entries),
-                "deck_count": len(self._admin_deck_entries),
-                "end_game": copy.deepcopy(self._admin_endgame),
-                "bot_brain": copy.deepcopy(self._bot_brain),
+                "pool": copy.deepcopy(admin_pool),
+                "deck": copy.deepcopy(admin_deck),
+                "deck_count": len(admin_deck),
+                "end_game": copy.deepcopy(admin_endgame),
+                "bot_brain": copy.deepcopy(bot_brain),
                 "seat_kinds": {s.index: s.kind for s in self.seats},
             }
 
@@ -6278,17 +6333,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         # ── Current Controller: hard-gated admin mod tools ──────────────────
-        # Requires BOTH (1) the server ADMIN_MOD_KEY env secret (constant-time
-        # compared) and (2) a valid seat token for THIS room. Without the key,
-        # every op is rejected — so console/URL tampering by non-admins fails.
+        # Requires BOTH (1) the admin key (constant-time compared) and (2) a
+        # valid seat token for THIS room. The key defaults to "dog" but can be
+        # overridden by the ADMIN_MOD_KEY env secret. Without the key, every op
+        # is rejected — so console/URL tampering by non-admins fails.
         if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "admin_mod":
             room = ROOMS.get(parts[2])
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            env_key = os.environ.get("ADMIN_MOD_KEY", "").strip()
+            effective_key = os.environ.get("ADMIN_MOD_KEY", "").strip() or "dog"
             supplied = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
-            if not env_key or not supplied or not secrets.compare_digest(supplied, env_key):
+            if not supplied or not secrets.compare_digest(supplied, effective_key):
                 self._send_json({"ok": False, "error": "not authorized"}, status=HTTPStatus.FORBIDDEN)
                 return
             seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
@@ -6297,6 +6353,9 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if seat is None:
                 self._send_json({"ok": False, "error": "valid seat token required"}, status=HTTPStatus.FORBIDDEN)
                 return
+            # Authorized: turn on hidden-state capture for this room (and capture
+            # immediately so the first reveal already has data).
+            room.admin_activate()
             op = body.get("op") if isinstance(body.get("op"), str) else ""
             params = body.get("params") if isinstance(body.get("params"), dict) else {}
             try:
@@ -6304,7 +6363,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     out = room.admin_reveal()
                 elif op == "bot_brain":
                     with room.cond:
-                        out = {"ok": True, "brain": copy.deepcopy(room._bot_brain)}
+                        out = {"ok": True, "brain": copy.deepcopy(getattr(room, "_bot_brain", {}) or {})}
                 elif op == "bot_override_arm":
                     out = room.admin_arm_bot_override(params.get("seat"), params.get("action_index"), params.get("action"))
                 elif op in (

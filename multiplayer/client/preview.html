@@ -12720,8 +12720,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.7";
-  const APP_BUILD   = "2026-06-19.1";
+  const APP_VERSION = "1.4.8";
+  const APP_BUILD   = "2026-06-19.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -33226,17 +33226,14 @@
   // phase "live"  = fully working client-side now.
   // phase "server"= UI present; mutations land in the server pass.
   const TOOLS = [
-    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives. Needs admin key." },
-    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally. Needs admin key." },
-    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every player's real hand; add / remove / clear / copy cards. Needs admin key." },
-    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse the real deck (search + remaining copies) and place any card to a hand, pool, deck or discard. Needs admin key." },
-    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool. Needs admin key." },
+    { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives." },
+    { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally." },
+    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every player's real hand; add / remove / clear / copy cards." },
+    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse the real deck (search + remaining copies) and place any card to a hand, pool, deck or discard." },
+    { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool." },
     { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview move estimates, then commit a real legal move with Apply This Move." },
     { id:"bug_log",      icon:"🐞", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
     { id:"state_viewer", icon:"📊", name:"Game State Viewer",         phase:"live",   desc:"Live snapshot of turn, deck, pool, scores, hands, oceans, end-game and sync." },
-    { id:"ach_tester",   icon:"🏆", name:"Achievement Tester",        phase:"live",   desc:"Unlock or lock any achievement on your own account to test flows." },
-    { id:"replay",       icon:"⏪", name:"Replay Last Turn",          phase:"live",   desc:"Scrub recent state snapshots captured this session." },
-    { id:"cinematic",    icon:"🎬", name:"Screenshot / Cinematic Mode", phase:"live", desc:"Hide UI chrome for a clean board capture. Toggle off to restore." },
   ];
   const TOOL_BY_ID = {};
   TOOLS.forEach(t => { TOOL_BY_ID[t.id] = t; });
@@ -33306,25 +33303,6 @@
     return _origErr(...a);
   };
 
-  // ── Replay snapshot ring (captures only while the toggle is ON) ───
-  const snaps = [];
-  let _lastSnapVer = -1;
-  setInterval(() => {
-    if (!isOn("replay")) return;
-    const p = payload(); if (!p) return;
-    const ver = Number(p.version);
-    if (!Number.isFinite(ver) || ver === _lastSnapVer) return;
-    _lastSnapVer = ver;
-    const st = p.state || {};
-    snaps.push({
-      ver, ts: Date.now(),
-      cur: st.current_player || "—",
-      round: st.round_count != null ? st.round_count : "—",
-      pool: Array.isArray(st.pool) ? st.pool.length : 0,
-      scores: (st.players || []).map(pl => `${pl.name}:${pl.score}`).join("  ")
-    });
-    if (snaps.length > 40) snaps.shift();
-  }, 1200);
 
   // ════════════════════════════════════════════════════════════════
   //  STYLES
@@ -33338,6 +33316,8 @@
   #cc-head .cc-tag { font-size:.66rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:#0a2742; background:#5fd0e8; padding:3px 8px; border-radius:6px; }
   #cc-close { background:rgba(255,255,255,.08); border:1px solid rgba(120,205,235,.4); color:#cfeeff; width:32px; height:32px; border-radius:9px; font-size:18px; cursor:pointer; line-height:1; }
   #cc-close:hover { background:rgba(232,64,87,.25); border-color:#e84057; color:#fff; }
+  #cc-key { background:rgba(255,255,255,.08); border:1px solid rgba(120,205,235,.4); color:#cfeeff; width:32px; height:32px; border-radius:9px; font-size:15px; cursor:pointer; line-height:1; }
+  #cc-key:hover { background:rgba(95,208,232,.22); border-color:#5fd0e8; color:#fff; }
   #cc-body { padding:14px 18px 22px; max-height:calc(100vh - 130px); overflow:auto; }
   .cc-tool { border:1px solid rgba(80,170,215,.28); border-radius:14px; margin-bottom:12px; background:rgba(8,40,68,.55); overflow:hidden; }
   .cc-tool.cc-active { border-color:rgba(95,208,232,.7); box-shadow:0 0 0 1px rgba(95,208,232,.25) inset; }
@@ -33386,9 +33366,6 @@
   .cc-achrow .an small { display:block; color:#8fb6d2; font-size:.7rem; }
   .cc-achrow.done { border-color:rgba(31,187,138,.5); }
   #cc-menu-item { color:#5fd0e8 !important; font-weight:800; }
-  #cc-cine-exit { position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:100001; display:none; background:rgba(10,40,68,.9); border:1px solid #5fd0e8; color:#dff1fb; padding:9px 18px; border-radius:999px; font-weight:800; cursor:pointer; font-family:"Nunito",sans-serif; box-shadow:0 6px 20px rgba(0,0,0,.5); }
-  body.cc-cinematic #cc-cine-exit { display:block; }
-  body.cc-cinematic .pv-menu-wrap, body.cc-cinematic #pv-turn-banner, body.cc-cinematic #pv-guide-bar, body.cc-cinematic #pv-log-float { opacity:0 !important; pointer-events:none !important; }
   .cc-keybar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:9px 12px; margin-bottom:10px; border:1px solid rgba(95,208,232,.35); border-radius:11px; background:rgba(8,40,68,.6); }
   .cc-pick { position:fixed; inset:0; z-index:100002; background:rgba(2,18,38,.7); display:flex; align-items:flex-start; justify-content:center; padding:30px 14px; overflow:auto; }
   .cc-pick-inner { width:100%; max-width:720px; background:linear-gradient(160deg,#0a2742,#0d3a5e); border:1px solid rgba(95,208,232,.5); border-radius:16px; padding:14px 16px; color:#dff1fb; box-shadow:0 20px 60px rgba(0,0,0,.6); }
@@ -33418,6 +33395,7 @@
         <div id="cc-head">
           <span class="cc-logo">🌊 Current Controller</span>
           <span class="cc-tag">Admin</span>
+          <button id="cc-key" title="Change admin key">🔑</button>
           <button id="cc-close" title="Close">✕</button>
         </div>
         <div id="cc-body">${TOOLS.map(toolRowHtml).join("")}</div>
@@ -33426,6 +33404,11 @@
 
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
     overlay.querySelector("#cc-close").addEventListener("click", close);
+    overlay.querySelector("#cc-key").addEventListener("click", () => {
+      promptKey();
+      // Re-run any open server-backed tool with the new key.
+      TOOLS.forEach(t => { if (t.phase === "server" && isOn(t.id)) renderBody(t.id); });
+    });
     TOOLS.forEach(t => {
       const sw = overlay.querySelector(`#cc-sw-${t.id}`);
       if (sw) sw.addEventListener("click", () => toggleTool(t.id));
@@ -33460,16 +33443,17 @@
     renderBody(id);
   }
 
-  // Side-effects when a tool flips on/off.
-  function onToolStateChange(id) {
-    if (id === "cinematic") {
-      if (isOn("cinematic")) { document.body.classList.add("cc-cinematic"); close(); }
-      else document.body.classList.remove("cc-cinematic");
-    }
-  }
+  function onToolStateChange(_id) {}
 
   function open() {
     if (!isAdmin()) return;
+    // Ask for the admin key once; it's cached for the rest of the session, so
+    // every server-backed tool unlocks silently after this single prompt.
+    if (!ccAdminKey()) {
+      const v = prompt("Enter the Current Controller admin key:", "");
+      if (v === null) return;            // cancelled — leave the panel closed
+      ccSetAdminKey(v.trim());
+    }
     buildPanel();
     TOOLS.forEach(t => renderBody(t.id));
     overlay.classList.add("open");
@@ -33508,22 +33492,19 @@
   const speciesOf = (e) => { const f = firstFace(e); return (f && f.species) || ""; };
   const pointsOf  = (e) => { const f = firstFace(e); return (f && f.points != null) ? f.points : ""; };
 
-  // Admin-key status bar shown atop every server-backed tool.
-  function adminKeyBar() {
-    const has = !!ccAdminKey();
-    return `<div class="cc-keybar">
-      <span class="cc-badge ${has ? "live" : "server"}">${has ? "🔑 Key set" : "🔒 No key"}</span>
-      <span class="cc-desc" style="flex:1">${has ? "Server mod tools are unlocked on this device." : "Enter the server ADMIN_MOD_KEY to unlock server mod tools."}</span>
-      <button class="cc-btn" data-cc-keyset>${has ? "Change" : "Set key"}</button>
-      ${has ? `<button class="cc-btn cc-danger" data-cc-keyclear>Clear</button>` : ""}
-    </div>`;
+  // One-time key prompt. The panel only opens for the admin account; the key is
+  // asked once (on open, or via the 🔑 header button) and cached for the rest of
+  // the session, so every server-backed tool then runs silently.
+  function promptKey() {
+    const v = prompt("Enter the Current Controller admin key:", ccAdminKey() || "");
+    if (v !== null) ccSetAdminKey(v.trim());
+    return ccAdminKey();
   }
-  function wireKeyBar(el, reRenderId) {
-    el.querySelector("[data-cc-keyset]")?.addEventListener("click", () => {
-      const v = prompt("Enter the server ADMIN_MOD_KEY (set as an env var on the game server):", ccAdminKey() || "");
-      if (v !== null) { ccSetAdminKey(v.trim()); renderBody(reRenderId); }
-    });
-    el.querySelector("[data-cc-keyclear]")?.addEventListener("click", () => { ccSetAdminKey(""); renderBody(reRenderId); });
+  // Render a server-tool error; offer a one-click re-enter on auth failures.
+  function serverErr(el, id, error) {
+    const auth = /authoriz|admin key/i.test(String(error || ""));
+    el.innerHTML = `<div class="cc-note">${esc(error || "request failed")}${auth ? ` <button class="cc-btn" data-cc-rekey style="margin-left:8px">Re-enter key</button>` : ""}</div>`;
+    if (auth) el.querySelector("[data-cc-rekey]")?.addEventListener("click", () => { promptKey(); renderBody(id); });
   }
 
   // Inline searchable card picker (used to choose a card from the deck / a hand).
@@ -33614,15 +33595,12 @@
     // ── Enemy Hand Viewer (Phase 1: view-only) ────────────────────
     // ── Enemy Hand Viewer (full reveal + edit) ────────────────────
     async enemy_hands(el) {
-      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Revealing hands…</div>`;
-      wireKeyBar(el, "enemy_hands");
-      if (!ccAdminKey()) { el.innerHTML = adminKeyBar(); wireKeyBar(el, "enemy_hands"); return; }
+      el.innerHTML = `<div class="cc-desc">Revealing hands…</div>`;
       const r = await ccAdminFetch("reveal", {});
-      let h = adminKeyBar();
-      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "reveal failed")}</div>`; wireKeyBar(el, "enemy_hands"); return; }
+      if (!r.ok) { serverErr(el, "enemy_hands", r.error || "reveal failed"); return; }
       const mi = myIndex(payload());
       const deck = r.deck || [];
-      h += `<div class="cc-note">Full reveal — every player's real hand. Edits relocate real cards and apply on the match thread (works best during a human turn).</div>`;
+      let h = `<div class="cc-note">Full reveal — every player's real hand. Edits relocate real cards and apply on the match thread (works best during a human turn).</div>`;
       (r.players || []).forEach(pl => {
         const mine = pl.index === mi;
         h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${(pl.hand || []).length} cards · ${esc(pl.score)} pts</span></div>`;
@@ -33635,7 +33613,6 @@
         </div></div>`;
       });
       el.innerHTML = h;
-      wireKeyBar(el, "enemy_hands");
       const refresh = () => renderBody("enemy_hands");
       el.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", async () => {
         const seat = Number(b.getAttribute("data-seat"));
@@ -33704,85 +33681,15 @@
       el.querySelector("#cc-bug-clear")?.addEventListener("click", () => { bugLog.length = 0; renderBody("bug_log"); });
     },
 
-    // ── Achievement Tester ────────────────────────────────────────
-    ach_tester(el) {
-      const defs = (window.__ccAchievementDefs && window.__ccAchievementDefs()) || [];
-      const done = (window.__fishGetUserAchievements && window.__fishGetUserAchievements()) || {};
-      el.innerHTML =
-        `<div class="cc-note">Affects <b>your own</b> account only. Unlock awards XP + any tied avatar; Lock removes it and refunds XP.</div>
-         <input class="cc-input" id="cc-ach-search" placeholder="Search achievements…" style="margin-bottom:10px">
-         <div id="cc-ach-list"></div>`;
-      const list = el.querySelector("#cc-ach-list");
-      const search = el.querySelector("#cc-ach-search");
-      function paint(filter) {
-        const f = (filter || "").toLowerCase();
-        const cur = (window.__fishGetUserAchievements && window.__fishGetUserAchievements()) || done;
-        list.innerHTML = defs.filter(d => !f || (d.name + " " + d.id + " " + (d.cat || "")).toLowerCase().includes(f)).map(d => {
-          const isDone = !!(cur[d.id] && cur[d.id].completed);
-          return `<div class="cc-achrow ${isDone ? "done" : ""}">
-            <span class="ai">${d.icon || "🏆"}</span>
-            <span class="an">${esc(d.name)}<small>${esc(d.cat || "")} · ${esc(d.xp || 0)} XP · ${esc(d.id)}</small></span>
-            <button class="cc-btn" data-unlock="${esc(d.id)}" ${isDone ? "disabled" : ""}>Unlock</button>
-            <button class="cc-btn cc-danger" data-lock="${esc(d.id)}" ${isDone ? "" : "disabled"}>Lock</button>
-          </div>`;
-        }).join("") || `<div class="cc-desc">No matches.</div>`;
-        list.querySelectorAll("[data-unlock]").forEach(b => b.addEventListener("click", async () => {
-          b.disabled = true; b.textContent = "…";
-          const ok = window.__fishAdminUnlockAchievement && await window.__fishAdminUnlockAchievement(b.getAttribute("data-unlock"));
-          if (!ok) { b.disabled = false; b.textContent = "Unlock"; alert("Not authorized."); return; }
-          setTimeout(() => paint(search.value), 400);
-        }));
-        list.querySelectorAll("[data-lock]").forEach(b => b.addEventListener("click", async () => {
-          b.disabled = true; b.textContent = "…";
-          const ok = window.__fishAdminLockAchievement && await window.__fishAdminLockAchievement(b.getAttribute("data-lock"));
-          if (!ok) { b.disabled = false; b.textContent = "Lock"; alert("Not authorized."); return; }
-          setTimeout(() => paint(search.value), 400);
-        }));
-      }
-      search.addEventListener("input", () => paint(search.value));
-      paint("");
-    },
-
-    // ── Replay Last Turn (snapshot scrubber) ──────────────────────
-    replay(el) {
-      if (!snaps.length) { el.innerHTML = `<div class="cc-desc">Capturing snapshots… they appear here as the game state changes while this is ON.</div>`; return; }
-      el.innerHTML =
-        `<div class="cc-sub">${snaps.length} snapshot(s) captured</div>
-         <input type="range" id="cc-rp-slider" min="0" max="${snaps.length - 1}" value="${snaps.length - 1}" style="width:100%">
-         <div id="cc-rp-info"></div>`;
-      const slider = el.querySelector("#cc-rp-slider");
-      const info = el.querySelector("#cc-rp-info");
-      function show(i) {
-        const s = snaps[i]; if (!s) return;
-        info.innerHTML = `<div class="cc-grid">
-          <div class="cc-kv"><span>Version</span><b>${esc(s.ver)}</b></div>
-          <div class="cc-kv"><span>Round</span><b>${esc(s.round)}</b></div>
-          <div class="cc-kv"><span>Current</span><b>${esc(s.cur)}</b></div>
-          <div class="cc-kv"><span>Pool size</span><b>${esc(s.pool)}</b></div>
-          <div class="cc-kv"><span>Time</span><b>${esc(new Date(s.ts).toLocaleTimeString())}</b></div>
-          <div class="cc-kv"><span>Scores</span><b>${esc(s.scores || "—")}</b></div>
-        </div>`;
-      }
-      slider.addEventListener("input", () => show(Number(slider.value)));
-      show(snaps.length - 1);
-    },
-
-    // ── Screenshot / Cinematic Mode ───────────────────────────────
-    cinematic(el) {
-      el.innerHTML = `<div class="cc-pending">Turning this ON hides the menu, turn banner and guide bar and closes this panel for a clean board capture. An <b>Exit Cinematic</b> pill appears at the bottom; clicking it (or toggling off) restores everything.</div>`;
-    },
-
     // ── Bot Brain Viewer (reads recorded bot decisions) ───────────
     async bot_brain(el) {
-      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Reading bot brain…</div>`;
-      wireKeyBar(el, "bot_brain");
-      if (!ccAdminKey()) return;
+      el.innerHTML = `<div class="cc-desc">Reading bot brain…</div>`;
       const r = await ccAdminFetch("bot_brain", {});
-      let h = adminKeyBar();
-      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "bot_brain"); return; }
+      if (!r.ok) { serverErr(el, "bot_brain", r.error || "failed"); return; }
       const brain = r.brain || {};
       const seats = Object.keys(brain);
-      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot decisions recorded yet. This fills in as bots take turns.</div>`; wireKeyBar(el, "bot_brain"); return; }
+      let h = "";
+      if (!seats.length) { el.innerHTML = `<div class="cc-desc">No bot decisions recorded yet. This fills in as bots take turns.</div>`; return; }
       seats.forEach(sk => {
         const b = brain[sk];
         h += `<div class="cc-seat"><div class="cc-seat-hd">🧠 P${(Number(sk) + 1)} · ${esc(b.name)} <span class="cc-desc">${esc(b.strategy || "")}</span></div>`;
@@ -33796,20 +33703,17 @@
         h += `</div>`;
       });
       el.innerHTML = h;
-      wireKeyBar(el, "bot_brain");
     },
 
     // ── Bot Move Override (arm a forced move for a bot seat) ───────
     async bot_override(el) {
-      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading bot seats…</div>`;
-      wireKeyBar(el, "bot_override");
-      if (!ccAdminKey()) return;
+      el.innerHTML = `<div class="cc-desc">Loading bot seats…</div>`;
       const r = await ccAdminFetch("bot_brain", {});
-      let h = adminKeyBar() + `<div class="cc-note">Pick a bot's next move from its current legal actions. The bot uses it on its next turn, then play continues normally.</div>`;
-      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "bot_override"); return; }
+      if (!r.ok) { serverErr(el, "bot_override", r.error || "failed"); return; }
+      let h = `<div class="cc-note">Pick a bot's next move from its current legal actions. The bot uses it on its next turn, then play continues normally.</div>`;
       const brain = r.brain || {};
       const seats = Object.keys(brain);
-      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet — let a bot reach its turn, then return here.</div>`; wireKeyBar(el, "bot_override"); return; }
+      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet — let a bot reach its turn, then return here.</div>`; return; }
       seats.forEach(sk => {
         const b = brain[sk];
         h += `<div class="cc-seat" data-seat="${sk}"><div class="cc-seat-hd">🎮 P${(Number(sk) + 1)} · ${esc(b.name)}</div>`;
@@ -33821,7 +33725,6 @@
         h += `</div><div class="cc-btnrow"><button class="cc-btn cc-danger" data-ovr-clear="${sk}">Clear override</button></div></div>`;
       });
       el.innerHTML = h;
-      wireKeyBar(el, "bot_override");
       el.querySelectorAll("[data-ovr-idx]").forEach(btn => btn.addEventListener("click", async () => {
         const seat = Number(btn.getAttribute("data-ovr-seat"));
         const idx = Number(btn.getAttribute("data-ovr-idx"));
@@ -33840,22 +33743,18 @@
 
     // ── Full Deck Picker (browse the real deck + place any card) ───
     async deck_picker(el) {
-      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading deck…</div>`;
-      wireKeyBar(el, "deck_picker");
-      if (!ccAdminKey()) return;
+      el.innerHTML = `<div class="cc-desc">Loading deck…</div>`;
       const r = await ccAdminFetch("reveal", {});
-      let h = adminKeyBar();
-      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "deck_picker"); return; }
+      if (!r.ok) { serverErr(el, "deck_picker", r.error || "failed"); return; }
       const deck = r.deck || [];
       const copies = copiesBySpecies(deck);
       const mi = myIndex(payload());
-      h += `<div class="cc-note">${deck.length} cards in the deck. Click any card, then choose where to place it. Remaining copies shown per species.</div>`;
+      let h = `<div class="cc-note">${deck.length} cards in the deck. Click any card, then choose where to place it. Remaining copies shown per species.</div>`;
       h += `<input class="cc-input" id="cc-dp-search" placeholder="Search by name, species, points…" style="margin-bottom:10px">`;
       h += `<div class="cc-sub">Remaining copies by species</div><div class="cc-grid">` +
         Object.keys(copies).sort().map(s => `<div class="cc-kv"><span>${esc(s)}</span><b>${copies[s]}</b></div>`).join("") + `</div>`;
       h += `<div class="cc-sub">Deck</div><div class="cc-cards" id="cc-dp-grid"></div>`;
       el.innerHTML = h;
-      wireKeyBar(el, "deck_picker");
       const grid = el.querySelector("#cc-dp-grid");
       const search = el.querySelector("#cc-dp-search");
       function paint(f) {
@@ -33880,15 +33779,12 @@
 
     // ── Force Pool Cards (clear / refill / replace / force) ────────
     async force_pool(el) {
-      el.innerHTML = adminKeyBar() + `<div class="cc-desc">Loading pool…</div>`;
-      wireKeyBar(el, "force_pool");
-      if (!ccAdminKey()) return;
+      el.innerHTML = `<div class="cc-desc">Loading pool…</div>`;
       const r = await ccAdminFetch("reveal", {});
-      let h = adminKeyBar();
-      if (!r.ok) { el.innerHTML = h + `<div class="cc-note">${esc(r.error || "failed")}</div>`; wireKeyBar(el, "force_pool"); return; }
+      if (!r.ok) { serverErr(el, "force_pool", r.error || "failed"); return; }
       const pool = r.pool || [];
       const deck = r.deck || [];
-      h += `<div class="cc-note">Shape the pool directly. Removed pool cards go to the discard pile; added cards are pulled from the deck.</div>`;
+      let h = `<div class="cc-note">Shape the pool directly. Removed pool cards go to the discard pile; added cards are pulled from the deck.</div>`;
       h += `<div class="cc-sub">Current pool (${pool.length})</div><div class="cc-cards">`;
       pool.forEach(e => { h += `<div data-poolrm="${e.entry_uid}" title="Click to remove" style="cursor:pointer">${cardTile(firstFace(e), e.label)}</div>`; });
       if (!pool.length) h += `<span class="cc-desc">empty</span>`;
@@ -33899,7 +33795,6 @@
         <button class="cc-btn" data-fp="add">＋ Force a card in…</button>
       </div>`;
       el.innerHTML = h;
-      wireKeyBar(el, "force_pool");
       const refresh = () => renderBody("force_pool");
       el.querySelectorAll("[data-poolrm]").forEach(c => c.addEventListener("click", async () => {
         await ccAdminFetch("pool_remove", { uid: Number(c.getAttribute("data-poolrm")) }); refresh();
@@ -33980,24 +33875,9 @@
     if (div) div.style.display = admin ? "" : "none";
     if (!admin) {
       close();
-      if (document.body.classList.contains("cc-cinematic")) document.body.classList.remove("cc-cinematic");
     }
   }
 
-  // Exit Cinematic pill.
-  const cineExit = document.createElement("button");
-  cineExit.id = "cc-cine-exit";
-  cineExit.textContent = "Exit Cinematic Mode";
-  cineExit.addEventListener("click", () => {
-    toggles.cinematic = false; saveToggles();
-    document.body.classList.remove("cc-cinematic");
-    const sw = overlay && overlay.querySelector("#cc-sw-cinematic");
-    if (sw) sw.classList.remove("on");
-    const tool = overlay && overlay.querySelector("#cc-tool-cinematic");
-    if (tool) tool.classList.remove("cc-active");
-  });
-  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(cineExit));
-  if (document.readyState !== "loading") document.body.appendChild(cineExit);
 
   // Re-evaluate admin visibility continuously (auth can resolve after load,
   // and a sign-out must immediately strip the button + any open panel).
@@ -34010,14 +33890,11 @@
   setInterval(() => {
     if (!panelOpen()) return;
     if (isOn("state_viewer")) renderBody("state_viewer");
-    if (isOn("replay")) renderBody("replay");
   }, 1000);
 
   // ESC closes the panel.
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelOpen()) close(); });
 
-  // If cinematic was left ON from a previous session, restore it (admin only).
-  if (isAdmin() && isOn("cinematic")) document.body.classList.add("cc-cinematic");
 })();
 </script>
 <!-- ══════════════════════════════════════════════════════════════════
