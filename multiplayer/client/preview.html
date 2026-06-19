@@ -10389,7 +10389,7 @@
   <div class="ccfs-inner">
     <div class="ccfs-logo">🐙</div>
     <div class="ccfs-title">Currents &amp; Critters</div>
-    <div class="ccfs-sub">Your game window is ready — dive in full screen.</div>
+    <div class="ccfs-sub">Dive in full screen for the best experience.</div>
     <button id="ccfs-play" class="ccfs-play" type="button">▶ Play Full Screen</button>
     <button id="ccfs-window" class="ccfs-window" type="button">Continue in window</button>
   </div>
@@ -12720,8 +12720,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.6";
-  const APP_BUILD   = "2026-06-17.4";
+  const APP_VERSION = "1.4.7";
+  const APP_BUILD   = "2026-06-19.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -23552,65 +23552,42 @@
   })();
 
   // ═══════════════════════════════════════════════════════════════
-  // GAME-WINDOW FULL-SCREEN LAUNCH (Steam-style)
-  // Only runs in the separate game window (opened with ?gw=1). Shows a
-  // launch splash whose Play button is the user gesture browsers require
-  // to enter true full screen, then keeps nudging back to full screen if
-  // the player drops out — so the game stays full screen like a desktop app.
+  // FULL-SCREEN LAUNCH SPLASH
+  // Shows after sign-in (revealLobby adds .show). The Play button is the
+  // user gesture browsers require to enter true full screen. The slim resume
+  // pill appears if the player drops out of full screen after opting in.
   // ═══════════════════════════════════════════════════════════════
   (function setupGameWindowFullscreen() {
-    // Detect the game window independently of the auth module's scope.
-    const isGameWindow = (function () {
-      try {
-        if (sessionStorage.getItem("cc_game_win") === "1") return true;
-        if (new URLSearchParams(location.search).get("gw") === "1") return true;
-      } catch (_) {}
-      return false;
-    })();
-    if (!isGameWindow) return;
-
     const splash   = document.getElementById("cc-fs-splash");
     const playBtn  = document.getElementById("ccfs-play");
     const winBtn   = document.getElementById("ccfs-window");
     const resume   = document.getElementById("cc-fs-resume");
     if (!splash || !playBtn || !winBtn || !resume) return;
 
-    let wantsFullscreen = false;   // player chose full screen at least once
+    let wantsFullscreen = false;
     const isFs = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
     async function enterFs() {
       const el = document.documentElement;
       try {
         if (el.requestFullscreen) await el.requestFullscreen();
         else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      } catch (_) { /* gesture/permission — browser may block; ignore */ }
+      } catch (_) {}
     }
-    function showSplash() { splash.classList.add("show"); }
-    function hideSplash() { splash.classList.remove("show"); }
 
     playBtn.addEventListener("click", async () => {
       wantsFullscreen = true;
-      hideSplash();
+      splash.classList.remove("show");
       await enterFs();
     });
-    winBtn.addEventListener("click", () => { wantsFullscreen = false; hideSplash(); });
+    winBtn.addEventListener("click", () => { wantsFullscreen = false; splash.classList.remove("show"); });
     resume.addEventListener("click", async () => { await enterFs(); });
 
-    // Keep it full screen: if we drop out after opting in, surface the slim
-    // "return to full screen" pill (re-entering full screen needs a gesture,
-    // so we can't silently force it back).
     function onFsChange() {
       if (wantsFullscreen && !isFs()) resume.classList.add("show");
       else resume.classList.remove("show");
     }
     document.addEventListener("fullscreenchange", onFsChange);
     document.addEventListener("webkitfullscreenchange", onFsChange);
-
-    // Show the launch splash as soon as the game window is interactive.
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", showSplash, { once: true });
-    } else {
-      showSplash();
-    }
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -25831,20 +25808,6 @@
         }, () => {});
     }
 
-    // ── Game-window detection ────────────────────────────────────
-    // The game opens in a separate tab (/?gw=1). On the login/landing page
-    // (no gw param), revealLobby shows a "launch" panel instead of the full
-    // game lobby so the original page stays as the sign-in page.
-    const _isGameWindow = (function() {
-      try {
-        if (sessionStorage.getItem("cc_game_win") === "1") return true;
-        if (new URLSearchParams(location.search).get("gw") === "1") {
-          sessionStorage.setItem("cc_game_win", "1");
-          return true;
-        }
-      } catch {}
-      return false;
-    })();
 
     // ── Step navigation ──────────────────────────────────────────
     const ALL_STEPS = [
@@ -26432,47 +26395,6 @@
       }
     }
 
-    // Build the game-window URL: preserve the CURRENT path + query (so room
-    // invite deep-links like /ABCDE or ?room=ABCDE still auto-join) and add
-    // gw=1 so the new window knows it's the game window.
-    function _gameWinUrl() {
-      const sp = new URLSearchParams(location.search);
-      sp.set("gw", "1");
-      return location.pathname + "?" + sp.toString();
-    }
-
-    // Open the game in its OWN window (not a tab), sized to fill the screen so
-    // it comes up effectively full-screen. Passing width/height features is what
-    // makes the browser spawn a separate window rather than a background tab.
-    // Returns the window handle, or null if the browser blocked the popup.
-    let _gameWin = null;
-    function _openGameWindow() {
-      // Already have a live game window? Just refocus it. Re-running window.open
-      // with the same name + a URL would re-navigate it back to the lobby and
-      // blow away a game in progress, so never do that when one is open.
-      if (_gameWin && !_gameWin.closed) {
-        try { _gameWin.focus(); } catch {}
-        return _gameWin;
-      }
-      const target = _gameWinUrl();
-      const w = (window.screen && screen.availWidth)  ? screen.availWidth  : 1280;
-      const h = (window.screen && screen.availHeight) ? screen.availHeight : 800;
-      // popup=yes + explicit size/position is what makes browsers spawn a
-      // standalone window instead of a background tab; the no-chrome hints
-      // (menubar/toolbar/location/status) make it feel like an app window.
-      const feats = `popup=yes,menubar=no,toolbar=no,location=no,status=no,width=${w},height=${h},left=0,top=0,scrollbars=yes,resizable=yes`;
-      let win = null;
-      try { win = window.open(target, "cc-game-window", feats); } catch (_) { win = null; }
-      if (win) {
-        _gameWin = win;
-        try { win.focus(); } catch {}
-        // Belt-and-suspenders: pull it to the top-left and fill the screen in
-        // case the browser ignored the open features.
-        try { win.moveTo(0, 0); win.resizeTo(w, h); } catch {}
-      }
-      return win;
-    }
-
     function revealLobby(nickname, code) {
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
@@ -26485,53 +26407,7 @@
       };
       lockNameInputs(_playerNickname);
 
-      // ── Login/landing page: auto-open the game in its own full-screen
-      // window. Signing in drops the player straight into the new window — no
-      // extra "Open Game" click. The original tab stays put as a lightweight
-      // launcher used to reopen the window, or as a one-click fallback if the
-      // browser blocks the auto-open popup.
-      if (!_isGameWindow) {
-        $a("auth-loading-screen").classList.add("hidden");
-        const greetEl = $a("auth-launch-greeting");
-        const subEl   = $a("auth-launch-sub");
-        const playBtn = $a("auth-launch-play-btn");
-        const errEl   = $a("auth-launch-err");
-
-        const gameWin = _openGameWindow();
-        if (gameWin) {
-          if (greetEl) greetEl.textContent = `You're in, ${_playerNickname}!`;
-          if (subEl)   subEl.textContent   = "Your game opened in a new window — you can leave this tab here.";
-          if (playBtn) playBtn.textContent = "↗ Reopen game window";
-          if (errEl)   errEl.innerHTML = "";
-        } else {
-          // Popup blocked — show the one-click fallback to open the window.
-          if (greetEl) greetEl.textContent = `Ready to dive in, ${_playerNickname}!`;
-          if (subEl)   subEl.textContent   = "Pop-ups are blocked — click below to open the game window.";
-          if (playBtn) playBtn.textContent = "🎮 Open Game";
-        }
-        // Show avatar in launch step
-        const avatarImg  = $a("auth-launch-avatar-img");
-        const initSpan   = $a("auth-launch-initials");
-        const avatarUrl  = _guestSessionActive
-          ? (_guestAvatarUrl || "")
-          : (_activeProfile?.avatar_url || "");
-        if (avatarImg && initSpan) {
-          if (avatarUrl && avatarUrl.startsWith("/avatars/")) {
-            avatarImg.src = avatarUrl;
-            avatarImg.alt = _playerNickname;
-            avatarImg.style.display = "";
-            initSpan.style.display = "none";
-          } else {
-            avatarImg.style.display = "none";
-            initSpan.style.display = "";
-            initSpan.textContent = (_playerNickname[0] || "?").toUpperCase();
-          }
-        }
-        showStep("auth-step-launch");
-        return;
-      }
-
-      // ── Game window: full lobby experience ───────────────────────
+      // ── Full lobby experience ────────────────────────────────────
       if (_authUser && _playerNickname) {
         const bar = $a("auth-profile-bar");
         if (bar) {
@@ -26554,6 +26430,7 @@
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
       showStatsLobby();
+      document.getElementById("cc-fs-splash")?.classList.add("show");
       // Daily: Login Current — auto-ticks once per slot per 24h window
       try {
         if (typeof window._reportDailyChallengeProgress === "function") {
@@ -27756,28 +27633,18 @@
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
-    // ── Launch step: "Reopen game window" button → reopens the full-screen
-    // game window (fallback / reopen path; sign-in already auto-opens it). ──
+    // ── Launch step: "Play Full Screen" button (unused path — kept for safety) ──
     (function() {
       const playBtn = $a("auth-launch-play-btn");
       const soBtn   = $a("auth-launch-signout");
       if (!playBtn || !soBtn) return;
 
-      playBtn.addEventListener("click", () => {
-        setAuthMsg("auth-launch-err", "", false);
-        playBtn.disabled = true;
-        playBtn.textContent = "Opening…";
-        const gameWin = _openGameWindow();
-        playBtn.disabled = false;
-        playBtn.textContent = gameWin ? "↗ Reopen game window" : "🎮 Open Game";
-        if (!gameWin) {
-          // Popup blocked — give the user a direct, gesture-driven link instead.
-          const target = _gameWinUrl();
-          const errEl = $a("auth-launch-err");
-          if (errEl) errEl.innerHTML =
-            'Popup blocked — <a href="' + target.replace(/"/g, "&quot;") +
-            '" target="cc-game-window" style="color:#f4a574;text-decoration:underline;">click here to open the game →</a>';
-        }
+      playBtn.addEventListener("click", async () => {
+        const el = document.documentElement;
+        try {
+          if (el.requestFullscreen) await el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        } catch (_) {}
       });
 
       soBtn.addEventListener("click", async () => {
