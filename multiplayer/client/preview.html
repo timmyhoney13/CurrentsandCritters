@@ -12720,11 +12720,18 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.8";
-  const APP_BUILD   = "2026-06-19.2";
+  const APP_VERSION = "1.4.9";
+  const APP_BUILD   = "2026-06-19.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.4.9", title: "Challenge XP, achievement fixes & streamlined weeklies", items: [
+      "Daily and Weekly Challenges now pay out their XP the moment you complete them — that XP counts toward your level.",
+      "Weekly Challenges are now a focused set of 3 per week (down from 5). Finish all 3 to earn the Weekly Tide Sweep (1,500 XP).",
+      "Fixed challenges and achievements that you could complete but that never unlocked — including Good Sport (say “good game” after the End Game card appears).",
+      "Strategy-win achievements (Mammal Pod Master, B-Lob, Coral-B and friends) now track every win the game scores as that strategy, so your progress always counts.",
+      "Off-Meta Week and Off-Meta Master now track using Randomize with 2+ strategies in your in-game Strategy Builder.",
+    ]},
     { ver: "V1.4.6", title: "Launch into a full-screen game window", items: [
       "Signing in now opens the game in its own dedicated window — not just another browser tab.",
       "The game window greets you with a “▶ Play Full Screen” launch screen so it opens chrome-free and full screen, just like starting a game from Steam.",
@@ -16105,6 +16112,10 @@
       _activeStrategies.clear();
       pick.forEach(i => { _activeStrategies.add(i); _trackStrategyPlay(i); });
       _saveActiveStrategies();
+      // off_meta_week / off_meta_master: flag that the player used Randomize
+      // with 2+ strategies during this game. The win check at game end reads
+      // this flag; it resets each game via the fresh per-game tracker.
+      if (count >= 2) { try { if (_gameAchTracker) _gameAchTracker.usedRandomize2Plus = true; } catch {} }
       _applyStrategyHighlights();
       _curDetail = -1;
       _hsShowAllCombos = false;
@@ -21551,12 +21562,30 @@
     const firstOcean = board[0];
     const firstOceanType = firstOcean ? String(firstOcean.ocean?.name || "").trim().toLowerCase() : "";
     const myName = me?.name || "";
+    // Strategy for the strategy-master / narwhal achievements. Prefer the
+    // SERVER's classification (me.strategy — the same authoritative value the
+    // weekly combo challenges and the game-detail screen use), mapped to the
+    // achievement's combo names, falling back to the local board classifier
+    // only when the server didn't supply one. Local-only detection made the
+    // master achievements DISAGREE with the weeklies: you could win a game the
+    // server called "Mammals" yet have mammal_pod_master never progress.
+    const _CANON_STRAT_TO_ACH = {
+      "Ocean":                   "Ocean All Blue",
+      "Yellowfin Tuna":          "Yellowfin Tuna",
+      "Mammals":                 "Mammals",
+      "Baitfish Barrage":        "Baitfish Barrage",
+      "B-Lob":                   "Bird/Lobster (B-Lob)",
+      "B-Coral":                 "Bird/Coral (B-Coral)",
+      "Coral/Cephalopods (CC)":  "Coral/Cephalopods (CC)",
+    };
+    const _srvStrat = (me && typeof me.strategy === "string") ? me.strategy.trim() : "";
+    const strategy = _srvStrat ? (_CANON_STRAT_TO_ACH[_srvStrat] || _srvStrat) : _achDetectStrategy(me);
     return {
       hadBots,
       gameMinutes,
       distinctSpecies: species.size,
       firstOceanType,
-      strategy: _achDetectStrategy(me),
+      strategy,
       birdOnly: animalCount >= 3 && birdCount === animalCount,
       iShotTheMoon: !!(_shotTheMoonName && myName && _shotTheMoonName === myName),
     };
@@ -23481,12 +23510,21 @@
     try {
       if (typeof window._reportDailyChallengeProgress === "function") {
         window._reportDailyChallengeProgress("table_talk", 0, { complete: true });
-        const endgameActive = Boolean(latestPayload?.state?.end_game_triggered || latestPayload?.state?.end_game_card_drawn);
+        // End-game is detected via state.end_game.triggered (the SAME flag the
+        // end-game cinematic + endGameSeen tracker use). The previous
+        // end_game_triggered / end_game_card_drawn keys never existed on the
+        // payload, so endgameActive was always false and good_sport /
+        // good_sport_week could never unlock.
+        const endgameActive = Boolean(latestPayload?.state?.end_game?.triggered);
         const lowered = text.toLowerCase();
         const positive = /good\s*game|gg|nice game|well played|wp/.test(lowered);
         if (endgameActive && positive) {
           window._reportDailyChallengeProgress("good_sport", 0, { complete: true });
-          if (typeof window._reportWeeklyChallengeProgress === "function") {
+          // good_sport_week requires a positive endgame reaction in 5 DIFFERENT
+          // games, so credit it at most once per game (not once per message).
+          if (typeof window._reportWeeklyChallengeProgress === "function"
+              && _gameAchTracker && !_gameAchTracker.goodSportWeekFired) {
+            _gameAchTracker.goodSportWeekFired = true;
             window._reportWeeklyChallengeProgress("good_sport_week", 1);
           }
         }
@@ -24027,7 +24065,7 @@
       unlock:{ type:"event", event:"big_eye_tuna_five", label:"Play all 5 Big Eye Tuna in one game and win." } },
     { id:"cleaner-wrasse", name:"Cleaner Wrasse", species:"Crosscurrent", img:"/avatars/cleaner-wrasse.png",
       facts:"Cleaner wrasses are often called the \"doctors of the sea\" because they remove parasites from reef fish, sea turtles, and even sharks. They attract clients by wiggling or \"dancing\" at cleaning stations, while the fish stay still, spread their fins, and open their gills for cleaning.",
-      unlock:{ type:"achievement", achId:"off_meta_master", goal:12, label:"Win 12 games without using a listed strategy (Off-Meta Master)." } },
+      unlock:{ type:"achievement", achId:"off_meta_master", goal:10, label:"Win 10 games after randomizing 2+ strategies in the in-game Strategy Builder (Off-Meta Master)." } },
     { id:"mandarin-goby", name:"Mandarin Goby", species:"Crosscurrent", img:"/avatars/mandarin-goby.png",
       facts:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins).",
       unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Get all 4 Mandarin Gobies on your board in one game with 3+ players (Shoot the Moon)." } },
@@ -24291,14 +24329,14 @@
     { id:"close_current",           name:"Close Current",             icon:"🎯", cat:"Competitive", xp:2000,  desc:"Win a Competitive game by 5 points or less." },
     { id:"reef_regular",            name:"Reef Regular",              icon:"🪸", cat:"Casual",      xp:2000,  desc:"Finish 100 Casual games." },
     { id:"perfect_symbol",          name:"Perfect Symbol",            icon:"🔷", cat:"All Modes",   xp:2000,  desc:"Activate a ★ ability with a matching symbol 100 times." },
-    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:2000,  desc:"Get all and complete all 58 weekly achievements" },
+    { id:"weekly_tide_sweep",       name:"Weekly Tide Sweep",         icon:"🗓️", cat:"Challenges",  xp:1500,  desc:"Complete all 3 of your weekly challenges in one week." },
     { id:"reef_veteran",            name:"Reef Veteran",              icon:"⚓", cat:"Casual",      xp:4000,  desc:"Finish 250 Casual games." },
     { id:"mammal_pod_master",       name:"Mammal Pod Master",         icon:"🐬", cat:"Strategy",    xp:5000,  desc:"Win using Mammals 12 times." },
     { id:"baitfish_barrage_master", name:"Baitfish Barrage Master",   icon:"🎣", cat:"Strategy",    xp:5000,  desc:"Win using Baitfish Barrage 12 times." },
     { id:"b_lob_master",            name:"B-Lob Master",              icon:"🪺", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Lobster 12 times." },
     { id:"coral_b_master",          name:"Coral-B Master",            icon:"🪸", cat:"Strategy",    xp:5000,  desc:"Win using Bird/Coral 12 times." },
     { id:"c_c_master",              name:"C-C Master",                icon:"🎭", cat:"Strategy",    xp:5000,  desc:"Win using Coral/Cephalopods 12 times." },
-    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 12 games without using a listed strategy." },
+    { id:"off_meta_master",         name:"Off-Meta Master",           icon:"🃏", cat:"Strategy",    xp:5000,  desc:"Win 10 games after randomizing 2 or more strategies in the in-game Strategy Builder." },
     { id:"king_of_the_critters",    name:"King of the Critters",      icon:"👑", cat:"Rank",        xp:10000, desc:"Reach King of the Critters rank." },
     { id:"message_in_a_bottle",          name:"Message in a Bottle",          icon:"📬", cat:"Hidden", xp:1500, desc:"Send 25 messages in one game.", hidden:true },
     { id:"ive_swum_there",               name:"I've Swum There",               icon:"🗺️", cat:"Hidden", xp:1500, desc:"Play with every player count (2–8) in Casual.", hidden:true },
@@ -24381,6 +24419,8 @@
       chatMsgs: 0,
       compChatMsgs: 0,
       compCompliments: 0,          // positive/compliment messages this comp game (annoying_messenger)
+      goodSportWeekFired: false,   // good_sport_week credited this game (once per game, not per message)
+      usedRandomize2Plus: false,   // used Randomize with 2+ strategies this game (off_meta_week / off_meta_master)
       endGameSeen: false,
       starsActivated: 0,           // ★ ability uses this game (no_star_needed / star challenges)
       lastNoPoolMode: null,        // "casual"|"comp"|null — for back-to-back tracker
@@ -29925,8 +29965,8 @@
 
     // ── WEEKLY: pool of 56 challenges (Weekly Tide Sweep and Perfect
     // Week are auto-tracked meta achievements — not in the random pool).
-    // Player rolls 5 unique random challenges per week. Strip shows only
-    // 3 of those 5 at a time (uncompleted first). Resets every Monday
+    // Player rolls 3 unique random challenges per week. The strip shows
+    // all 3 (uncompleted first). Resets every Monday
     // 12:00 AM local time.
     const _WEEKLY_CHALLENGES = [
       { id: "weekly_finisher",       name: "Weekly Finisher",          req: "Finish 10 games this week.",                                  target: 10, xp: 1000, icon: "🏁" },
@@ -29970,7 +30010,7 @@
       { id: "b_lob_week",            name: "B-Lob Week",               req: "Win using Bird/Lobster combo 4 times.",                        target: 4,  xp: 1000, icon: "🪺" },
       { id: "coral_b_week",          name: "Coral-B Week",             req: "Win using Bird/Coral combo 4 times.",                          target: 4,  xp: 1000, icon: "🌸" },
       { id: "c_c_week",              name: "C-C Week",                 req: "Win using Coral/Cephalopods combo 4 times.",                   target: 4,  xp: 1250, icon: "🎭" },
-      { id: "off_meta_week",         name: "Off-Meta Week",            req: "Win without using a listed strategy.",                         target: 1,  xp: 1000, icon: "🃏" },
+      { id: "off_meta_week",         name: "Off-Meta Week",            req: "Win a game using Randomize with 2+ strategies in your Strategy Builder.",  target: 1,  xp: 1000, icon: "🃏" },
       { id: "counter_current_week",  name: "Counter Current",          req: "Beat someone using the same strategy.",                        target: 1,  xp: 1000, icon: "🔁" },
       { id: "nothing_but_deck_weekly", name: "Nothing But Deck",       req: "Win without drawing from the Pool.",                           target: 1,  xp: 750,  icon: "🎴" },
       { id: "star_storm",            name: "Star Storm",               req: "Activate 20 ★ abilities this week.",                           target: 20, xp: 2000, icon: "💫" },
@@ -29986,10 +30026,11 @@
       { id: "friend_streak",         name: "Friend Streak",            req: "Play with the same friend 3 times this week.",                 target: 3,  xp: 750,  icon: "🫂" },
       { id: "new_currents",          name: "New Currents",             req: "Play with 3 players you have never played before.",            target: 3,  xp: 100,  icon: "🆕" },
     ];
-    // Meta achievements — auto-fired when the 5 random weeklies are completed.
+    // Meta rewards — auto-fired when the 3 random weeklies are completed.
+    // Tide Sweep's XP is paid by the weekly_tide_sweep achievement (1500), not
+    // here. Perfect Week has no achievement, so it grants its XP via the meta.
     const _WEEKLY_META = {
-      tideSweepXp:    1000,  // all 5 weeklies complete
-      perfectWeekXp:  5000,  // all 5 weeklies complete + played all 7 days
+      perfectWeekXp:  5000,  // all 3 weeklies complete + played all 7 days
     };
 
     const _DAILY_REFRESH_MS  = 24 * 60 * 60 * 1000;
@@ -30132,7 +30173,7 @@
 
       cardsEl.innerHTML = data.map(c => _csCardHtml(c, isWeekly)).join("");
 
-      // Weekly Tide Sweep reward area — live count of 5 weeklies completed.
+      // Weekly Tide Sweep reward area — live count of 3 weeklies completed.
       const meta        = _getWeeklyMeta();
       const sweepDone   = meta.completedCount;
       const sweepTotal  = meta.totalCount;
@@ -30175,6 +30216,8 @@
         slot.progress = next;
         if (next >= target) {
           slot.completedAt = Date.now();
+          // Pay out the challenge's XP the moment it completes (fire-and-forget).
+          try { window.__fishGrantXp?.(def.xp, { reason: def.name }); } catch {}
         }
         changed = true;
       });
@@ -30279,7 +30322,7 @@
     function _freshWeeklyState() {
       return {
         weekStartMs: _getThisMondayMidnight(),
-        slots: _rollWeeklyIndices(5).map(idx => ({ idx, progress: 0, completedAt: null })),
+        slots: _rollWeeklyIndices(3).map(idx => ({ idx, progress: 0, completedAt: null })),
         daysPlayed: { 0: false, 1: false, 2: false, 3: false, 4: false, 5: false, 6: false },
         sweepClaimed: false,
         perfectClaimed: false,
@@ -30291,7 +30334,7 @@
         const raw = localStorage.getItem(_WEEKLY_STATE_KEY);
         if (raw) {
           const obj = JSON.parse(raw);
-          if (obj && Array.isArray(obj.slots) && obj.slots.length === 5
+          if (obj && Array.isArray(obj.slots) && obj.slots.length === 3
               && obj.slots.every(s => Number.isInteger(s.idx) && s.idx >= 0 && s.idx < _WEEKLY_CHALLENGES.length)
               && Number.isFinite(obj.weekStartMs)) {
             return obj;
@@ -30334,8 +30377,8 @@
       });
     }
 
-    // 5 active weeklies, but strip shows only 3. Prefer showing uncompleted
-    // ones first (so the player can see what's still to do), then completed.
+    // 3 active weeklies. Show uncompleted ones first (so the player can see
+    // what's still to do), then completed. (slice(0,3) is a safety clamp.)
     function _getWeeklyDisplaySlots() {
       const all = _getCurrentWeeklySlots();
       const incomplete = all.filter(s => !s.completed);
@@ -30350,10 +30393,10 @@
       const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
       return {
         completedCount,
-        totalCount: 5,
-        sweepDone:      completedCount >= 5,
+        totalCount: 3,
+        sweepDone:      completedCount >= 3,
         sweepClaimed:   Boolean(state.sweepClaimed),
-        perfectDone:    completedCount >= 5 && daysPlayedCount >= 7,
+        perfectDone:    completedCount >= 3 && daysPlayedCount >= 7,
         perfectClaimed: Boolean(state.perfectClaimed),
         daysPlayedCount,
       };
@@ -30393,7 +30436,11 @@
         else                            next = Math.min(target, cur + (Number(amount) || 1));
         if (next !== cur) {
           slot.progress = next;
-          if (next >= target) slot.completedAt = Date.now();
+          if (next >= target) {
+            slot.completedAt = Date.now();
+            // Pay out the challenge's XP the moment it completes (fire-and-forget).
+            try { window.__fishGrantXp?.(def.xp, { reason: def.name }); } catch {}
+          }
           changed = true;
         }
       });
@@ -30407,13 +30454,68 @@
           renderChallengeStrip();
         }
         try { window._renderIgChallengePanel?.(); } catch {}
-        // Achievement weekly_tide_sweep: all 5 weekly slots completed.
-        if (state.slots.length === 5 && state.slots.every(s => s.completedAt)) {
+        // Achievement weekly_tide_sweep: all 3 weekly slots completed.
+        if (state.slots.length === 3 && state.slots.every(s => s.completedAt)) {
           try { window.__fishUnlockAchievementById?.("weekly_tide_sweep"); } catch {}
         }
       }
     }
     window._reportWeeklyChallengeProgress = reportWeeklyChallengeProgress;
+
+    // ── Challenge / meta XP grant ────────────────────────────────────
+    // Persists XP to the player's total and recomputes their level. Used by
+    // every daily/weekly challenge completion (def.xp) and by the Tide Sweep /
+    // Perfect Week meta rewards. This hook was previously REFERENCED (by
+    // _grantWeeklyMetaXp) but never defined, so challenge + meta XP silently
+    // never paid out. amount is the XP to add; opts.reason is for logging.
+    window.__fishGrantXp = async function(amount, opts) {
+      amount = Math.max(0, Math.floor(Number(amount) || 0));
+      if (amount <= 0) return;
+      let lp = null;
+      try {
+        const authUser = (typeof window.__fishAuthUser === "function") ? window.__fishAuthUser() : null;
+        const db       = (typeof window.__fishDb       === "function") ? window.__fishDb()       : null;
+        const isGuest  = (typeof window.__fishIsGuest  === "function") ? !!window.__fishIsGuest() : false;
+        if (authUser && db) {
+          const ref = db.collection("users").doc(authUser.uid);
+          // Atomic increment so concurrent writes (the game-end save, other
+          // challenge completions) can never lose XP. total_xp is the source of
+          // truth; the level fields are derived and written separately below.
+          await ref.update({ "stats.total_xp": firebase.firestore.FieldValue.increment(amount) });
+          const snap  = await ref.get();
+          const stats = (snap.data() || {}).stats || {};
+          lp = getLevelProgressFromTotalXp(getStoredTotalXp(stats));
+          await ref.update({
+            "stats.level":            lp.level,
+            "stats.player_level":     lp.level,
+            "stats.xp_current":       lp.xpCurrent,
+            "stats.level_xp_current": lp.xpCurrent,
+            "stats.xp_goal":          lp.xpGoal,
+            "stats.level_xp_goal":    lp.xpGoal,
+          });
+        } else if (isGuest
+            && typeof window.__fishGuestStatsGet  === "function"
+            && typeof window.__fishGuestStatsSave === "function") {
+          const stats = window.__fishGuestStatsGet() || {};
+          lp = getLevelProgressFromTotalXp(getStoredTotalXp(stats) + amount);
+          window.__fishGuestStatsSave(Object.assign({}, stats, {
+            total_xp: lp.totalXp, level: lp.level, player_level: lp.level,
+            xp_current: lp.xpCurrent, level_xp_current: lp.xpCurrent,
+            xp_goal: lp.xpGoal, level_xp_goal: lp.xpGoal,
+          }));
+        }
+        // Live-refresh the header XP + level chips. The full overview (level
+        // bar, etc.) refreshes from the saved stats on the next lobby render.
+        if (lp) {
+          try {
+            const xpEl = document.getElementById("hdr-total-xp");
+            if (xpEl) xpEl.textContent = lp.totalXp > 0 ? lp.totalXp.toLocaleString() : "0";
+            const lvlEl = document.getElementById("stats-name-level");
+            if (lvlEl) lvlEl.textContent = "Level " + lp.level;
+          } catch {}
+        }
+      } catch (e) { console.warn("[__fishGrantXp] grant failed:", e); }
+    };
 
     // ── IN-GAME CHALLENGE PANEL ──────────────────────────────────────
     (function() {
@@ -30551,6 +30653,13 @@
 
         const rd = (id, amt, optsX) => { try { reportDailyChallengeProgress(id, amt, optsX); } catch {} };
         const rw = (id, amt, optsX) => { try { reportWeeklyChallengeProgress(id, amt, optsX); } catch {} };
+
+        // Mark today as played for Seven Seas / Perfect Week. This runs on
+        // every finished game so the day is counted even if the player never
+        // opens the Overview challenge strip that day (renderChallengeStrip,
+        // the only other caller, fires _markTodayPlayed too). Idempotent —
+        // _markTodayPlayed no-ops if today is already marked.
+        try { _markTodayPlayed(); } catch {}
 
         // ─── DAILY ─────────────────────────────────────────────────
         // Game-finish category (skip "clean / no-quit" challenges if the
@@ -30751,9 +30860,9 @@
             };
             const stratWeekly = STRAT_TO_WEEKLY[myStrategy];
             if (stratWeekly) rw(stratWeekly, 1);
-            // off_meta_week: won using a strategy NOT in the listed combos.
-            const META_LIST = new Set(Object.keys(STRAT_TO_WEEKLY));
-            if (!META_LIST.has(myStrategy)) rw("off_meta_week", 0, { complete: true });
+            // off_meta_week: won AFTER using Randomize with 2+ strategies in the
+            // in-game Strategy Builder this game (flagged in randomizeStrategies).
+            if (_gameAchTracker?.usedRandomize2Plus) rw("off_meta_week", 0, { complete: true });
             // counter_current_week: any opponent used the same strategy I did.
             const opponents = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
               .filter(p => p.index !== myIdx);
@@ -30938,12 +31047,15 @@
       const completedCount  = state.slots.filter(s => s.completedAt).length;
       const daysPlayedCount = Object.values(state.daysPlayed || {}).filter(Boolean).length;
       let changed = false;
-      if (completedCount >= 5 && !state.sweepClaimed) {
+      if (completedCount >= 3 && !state.sweepClaimed) {
+        // Weekly Tide Sweep's 1500 XP is paid by the weekly_tide_sweep
+        // ACHIEVEMENT (unlocked in reportWeeklyChallengeProgress when all 3
+        // weeklies complete). Just mark it claimed here for the reward UI — no
+        // separate meta XP grant, which would double-pay on top of the achievement.
         state.sweepClaimed = true;
         changed = true;
-        _grantWeeklyMetaXp("Weekly Tide Sweep", _WEEKLY_META.tideSweepXp);
       }
-      if (completedCount >= 5 && daysPlayedCount >= 7 && !state.perfectClaimed) {
+      if (completedCount >= 3 && daysPlayedCount >= 7 && !state.perfectClaimed) {
         state.perfectClaimed = true;
         changed = true;
         _grantWeeklyMetaXp("Perfect Week", _WEEKLY_META.perfectWeekXp);
@@ -32524,8 +32636,9 @@
       // First Ocean Master: accumulate first-Ocean types won with (8 total)
       if (isWinner && firstOceanType) await addFirstOceanWin(uid, firstOceanType);
 
-      // Strategy-master cumulative wins (and Off-Meta). All strategy masters
-      // now complete at 12 wins.
+      // Strategy-master cumulative wins (12 each). `strategy` comes from the
+      // SERVER classification (see _computeGameEndAchData) so it agrees with the
+      // weekly combo challenges. Off-Meta Master is separate below (Randomize-based).
       if (isWinner) {
         const STRAT_TO_ACH = {
           "Mammals":                { id: "mammal_pod_master",       goal: 12 },
@@ -32534,13 +32647,12 @@
           "Bird/Coral (B-Coral)":   { id: "coral_b_master",          goal: 12 },
           "Coral/Cephalopods (CC)": { id: "c_c_master",              goal: 12 },
         };
-        const LISTED = new Set(Object.keys(STRAT_TO_ACH));
         const hit = STRAT_TO_ACH[strategy];
         if (hit) await bumpAchievementProgress(uid, hit.id, 1, hit.goal);
         // Narwhal unlock: also bump the separate 10-win mammal counter
         if (strategy === "Mammals") await bumpAchievementProgress(uid, "narwhal_mammal_wins", 1, 10);
-        // Off-Meta Master: win using a strategy NOT in the listed combos
-        if (!LISTED.has(strategy)) await bumpAchievementProgress(uid, "off_meta_master", 1, 12);
+        // Off-Meta Master: win AFTER using Randomize with 2+ strategies this game.
+        if (tracker?.usedRandomize2Plus) await bumpAchievementProgress(uid, "off_meta_master", 1, 10);
       }
 
       // One Ocean Wonder: all oceans same type — check boardSnaps
