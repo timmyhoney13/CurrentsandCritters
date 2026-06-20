@@ -7820,6 +7820,13 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
     multi_cephalopods = bool(player.flags.get("free_cephalopods", False)) or bool(player.flags.get("free_cephalopod_once", False))
     multi_yellowfin = int(player.flags.get("free_yellowfin_tuna", 0)) > 0
     has_manual_end_window = free_only or multi_paid or multi_baitfish or multi_cephalopods or multi_yellowfin
+    # Species-restricted free chains (Hermit Crab baitfish, cephalopod, yellowfin)
+    # only let you keep playing that ONE species for free — never oceans or other
+    # cards. The Loggerhead Sea Turtle's PAID chain (multi_paid) is excluded: it
+    # lets you play anything by paying, oceans included. When a restricted window
+    # has nothing of its species left to play, the only legal action becomes
+    # end_turn, so the bot ends its turn instead of dumping an unrelated card.
+    restricted_free_window = free_only or multi_baitfish or multi_cephalopods or multi_yellowfin
     if has_manual_end_window:
         include_draw = False
 
@@ -7849,9 +7856,10 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
         first_face_card = gs.card_db.get(first_face) if isinstance(first_face, int) else None
         if len(faces) == 1 and first_face_card is not None and is_ocean(first_face_card):
             face_uid = faces[0]
-            if free_only:
-                # Restricted follow-up windows from STAR free-play abilities
-                # cannot be used to play oceans.
+            if restricted_free_window:
+                # Restricted follow-up windows (free STAR abilities, Hermit Crab
+                # baitfish chain, cephalopod / yellowfin chains) only play their
+                # own species for free — they can never be used to play oceans.
                 continue
             if can_afford_play(gs, ms, player, entry_uid, face_uid, use_star=False):
                 actions.append(Action(kind="play_ocean", card_uid=entry_uid, face_uid=face_uid, use_star=False))
