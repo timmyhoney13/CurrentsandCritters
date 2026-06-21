@@ -11553,7 +11553,7 @@
             <div id="ph-req-list"></div>
           </div>
           <div style="display:flex;gap:8px;margin-bottom:7px;">
-            <input id="ph-add-friend-input" class="pv-input" placeholder="4-digit code or Name#Code" style="flex:1;font-size:13px;" />
+            <input id="ph-add-friend-input" class="pv-input" placeholder="Enter 4-digit code" style="flex:1;font-size:13px;" />
             <button id="ph-add-friend-btn" class="pv-btn sm">Add</button>
           </div>
           <div id="ph-friend-err" style="color:#c0392b;font-size:12px;min-height:16px;"></div>
@@ -11581,9 +11581,9 @@
             </div>
           </div>
           <div class="ach-prog-header">
-            <div class="ach-prog-stat"><span id="ach-stat-done">0</span> / 38 Completed</div>
+            <div class="ach-prog-stat"><span id="ach-stat-done">0</span> / <span id="ach-stat-total">59</span> Completed</div>
             <div class="ach-prog-pct-val"><span id="ach-stat-pct">0</span>% Complete</div>
-            <div class="ach-prog-stat"><span id="ach-stat-left">38</span> Left</div>
+            <div class="ach-prog-stat"><span id="ach-stat-left">59</span> Left</div>
           </div>
           <div class="ach-prog-bar-track"><div class="ach-prog-fill" id="ach-prog-fill" style="width:0%"></div></div>
         </div>
@@ -13016,8 +13016,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.5";
-  const APP_BUILD   = "2026-06-21.2";
+  const APP_VERSION = "1.5.6";
+  const APP_BUILD   = "2026-06-21.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -26846,7 +26846,7 @@
       } else {
         // Nickname#Code format
         const m = input.match(/^(.+)#(\d{1,6})$/);
-        if (!m) return { error: "Enter a 4-digit code, or use Name#Code format." };
+        if (!m) return { error: "Enter a 4-digit code." };
         const [, nick, digits] = m;
         const fcKey = nick.trim().toLowerCase() + "_" + digits;
         try {
@@ -26963,8 +26963,8 @@
     // Per-account player-home data mode (no shared demo profile).
     const HOME_REFERENCE_MODE = false;
     const HOME_REFERENCE_PROFILE = {
-      nickname: "TheFishManTim",
-      friendCodeDisplay: "TheFishManTim#4985",
+      nickname: "ReferencePlayer",
+      friendCodeDisplay: "4985",
       avatarUrl: "player-home-avatar.jpg",
     };
     const HOME_REFERENCE_RECENT_GAMES = [
@@ -27202,7 +27202,7 @@
 
     function formatFriendCodeLabel(name, code) {
       if (!code) return "";
-      return `Friend code: ${name}#${code}`;
+      return `Friend code: ${code}`;
     }
 
     function toDateFromFirestoreLike(value) {
@@ -27903,18 +27903,19 @@
       shown.forEach((f, i) => {
         const profile = profiles[i];
         const online = isFriendOnline(profile);
-        const friendName = escapeHtml(f.nickname || "—");
+        const liveNick = (profile && profile.nickname) || f.nickname;
+        const friendName = escapeHtml(liveNick || "—");
         const levelText = getFriendLevelLabel(profile);
         const activeText = formatFriendLastActiveLabel(profile, online);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
           { ...(profile || {}), avatar_url: (profile && profile.avatar_url) || f.avatar_url || "" },
-          { seed: f.uid || f.nickname || `friend-${i}` }
-        ), f.uid || f.nickname || `friend-${i}`);
+          { seed: f.uid || liveNick || `friend-${i}` }
+        ), f.uid || liveNick || `friend-${i}`);
         let _fbgn = ""; try { _fbgn = normalizeBgUrl(profile && profile.background_url || ""); if (!_BG_BY_IMG[_fbgn]) _fbgn = ""; } catch {}
         const _fbgStyle = _fbgn ? ` style="${_bgStyle(_fbgn)}"` : "";
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"${_fbgStyle}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
-          : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
+          : `<div class="ph-fr-av">${safeInitial(liveNick || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
         d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
@@ -29012,11 +29013,27 @@
           friend_code: code,
           nickname_changed_at: new Date(),
         };
-        setAuthMsg("settings-nick-err", `✓ Username updated! Your friend code is ${newNick}#${code}`, true);
+        setAuthMsg("settings-nick-err", `✓ Username updated! Your friend code is ${code}`, true);
         lockNameInputs(newNick);
         // Refresh ALL public-facing name displays
         syncStatsHeader(_activeProfile);
         if (typeof window.__fishSyncNickname === "function") window.__fishSyncNickname();
+        // Update our name in group meta docs we own in our own messages subcollection.
+        // (Firestore rules don't allow writing to other users' docs, so we update only our copy.)
+        try {
+          const myMsgSnap = await _db.collection("users").doc(_authUser.uid)
+            .collection("messages").where("meta", "==", true).get();
+          for (const mdoc of myMsgSnap.docs) {
+            const mdata = mdoc.data() || {};
+            const members = Array.isArray(mdata.members) ? mdata.members : [];
+            const updatedMembers = members.map(p =>
+              (p && p.uid === _authUser.uid) ? { ...p, name: newNick } : p
+            );
+            if (JSON.stringify(members) !== JSON.stringify(updatedMembers)) {
+              mdoc.ref.update({ members: updatedMembers }).catch(() => {});
+            }
+          }
+        } catch { /* best-effort */ }
         const settingsNickEl = $a("settings-current-nick");
         if (settingsNickEl) settingsNickEl.textContent = newNick;
         const form = $a("settings-nick-form");
@@ -29388,9 +29405,16 @@
         }
         if (_db && peerUid) {
           const snap = await _db.collection("users").doc(peerUid).get();
-          const online = !!((snap && snap.data()) || {}).online;
+          const data = (snap && snap.data()) || {};
+          const online = !!data.online;
           const dot = row.querySelector(".ccm-online-dot");
           if (dot) dot.classList.toggle("on", online);
+          // Update the displayed name with the live nickname (the stored message name may be stale)
+          const liveNick = data.nickname || null;
+          if (liveNick) {
+            const nameSpan = row.querySelector(".ccm-conv-name");
+            if (nameSpan) nameSpan.textContent = liveNick;
+          }
         }
       } catch {}
     }
@@ -29403,6 +29427,17 @@
       _msgOpenConvId = _convIdFor(_authUser.uid, peerUid);
       _msgShowConvView(peerName || "Conversation");
       _msgRenderOpenConversation();
+      // Async refresh: replace stale cached name with the live nickname from Firestore
+      if (_db && peerUid) {
+        _db.collection("users").doc(peerUid).get().then(snap => {
+          const liveNick = (snap && snap.data() && snap.data().nickname) || null;
+          if (liveNick && _msgOpenPeer && _msgOpenPeer.uid === peerUid) {
+            _msgOpenPeer = { uid: peerUid, name: liveNick };
+            const titleEl = $a("ccm-title");
+            if (titleEl && !_msgOpenGroup) titleEl.textContent = liveNick;
+          }
+        }).catch(() => {});
+      }
     }
 
     // Open a group conversation in the drawer.
@@ -30838,6 +30873,7 @@
       const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
       const setText = (id, v) => { const e = $a(id); if (e) e.textContent = String(v); };
       setText("ach-stat-done", doneCount);
+      setText("ach-stat-total", total);
       setText("ach-stat-pct", pct);
       setText("ach-stat-left", total - doneCount);
       const fill = $a("ach-prog-fill");
@@ -33542,7 +33578,7 @@
       }
       if (!_authUser) {
         const fcEl = $a("ph-fc-display");
-        if (fcEl) fcEl.textContent = _friendCode ? (_playerNickname || "") + "#" + _friendCode : "—";
+        if (fcEl) fcEl.textContent = _friendCode || "—";
         const reqSection = $a("ph-friend-requests");
         if (reqSection) reqSection.style.display = "none";
         const list = $a("ph-friends-list");
@@ -33551,7 +33587,7 @@
       }
       // Populate friend code
       const fcEl = $a("ph-fc-display");
-      if (fcEl) fcEl.textContent = _friendCode ? (_playerNickname || "") + "#" + _friendCode : "—";
+      if (fcEl) fcEl.textContent = _friendCode || "—";
       // Pending requests
       const reqSection = $a("ph-friend-requests"), reqList = $a("ph-req-list");
       if (reqSection && reqList) {
@@ -33629,18 +33665,19 @@
         const d = document.createElement("div");
         d.className = "ph-fr";
         const avatarProfile = profileByUid.get(f.uid) || null;
-        const friendName = escapeHtml(f.nickname || "—");
+        const liveNick = (avatarProfile && avatarProfile.nickname) || f.nickname;
+        const friendName = escapeHtml(liveNick || "—");
         const levelText = getFriendLevelLabel(avatarProfile);
         const activeText = formatFriendLastActiveLabel(avatarProfile, f.isOnline);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
           { ...(avatarProfile || {}), avatar_url: (avatarProfile && avatarProfile.avatar_url) || f.avatar_url || "" },
-          { seed: f.uid || f.nickname || "friend" }
-        ), f.uid || f.nickname || "friend");
+          { seed: f.uid || liveNick || "friend" }
+        ), f.uid || liveNick || "friend");
         let _fbgn = ""; try { _fbgn = normalizeBgUrl(avatarProfile && avatarProfile.background_url || ""); if (!_BG_BY_IMG[_fbgn]) _fbgn = ""; } catch {}
         const _fbgStyle = _fbgn ? ` style="${_bgStyle(_fbgn)}"` : "";
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"${_fbgStyle}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
-          : `<div class="ph-fr-av">${safeInitial(f.nickname || "?")}</div>`;
+          : `<div class="ph-fr-av">${safeInitial(liveNick || "?")}</div>`;
         const friendRoomId = avatarProfile && avatarProfile.current_room_id
           ? String(avatarProfile.current_room_id).trim() : "";
         const inGame = f.isOnline && !!friendRoomId;
