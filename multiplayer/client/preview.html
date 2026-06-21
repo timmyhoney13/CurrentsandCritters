@@ -10385,7 +10385,7 @@
 <body>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
-<div id="cc-fs-splash" aria-hidden="true">
+<div id="cc-fs-splash">
   <div class="ccfs-inner">
     <div class="ccfs-logo">🐙</div>
     <div class="ccfs-title">Currents &amp; Critters</div>
@@ -12720,11 +12720,15 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.4.9";
-  const APP_BUILD   = "2026-06-19.4";
+  const APP_VERSION = "1.5.1";
+  const APP_BUILD   = "2026-06-20.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.5.1", title: "Live profile icons + smarter engine turns", items: [
+      "Changing your profile/character icon now updates instantly for everyone — your own profile, other players' views, friends, lobbies and in-game seats — with no stale or cached icon left behind.",
+      "The Loggerhead Sea Turtle now ends its turn once there's nothing left to play, instead of paying to dump oceans it doesn't need (matching the Hermit Crab's baitfish chain).",
+    ]},
     { ver: "V1.4.9", title: "Challenge XP, achievement fixes & streamlined weeklies", items: [
       "Daily and Weekly Challenges now pay out their XP the moment you complete them — that XP counts toward your level.",
       "Weekly Challenges are now a focused set of 3 per week (down from 5). Finish all 3 to earn the Weekly Tide Sweep (1,500 XP).",
@@ -17628,7 +17632,7 @@
     let _myBgKey = "";
     try { if (typeof window.__fishEquippedBackground === "function") _myBgKey = String(window.__fishEquippedBackground() || ""); } catch (_) { _myBgKey = ""; }
     const _seatsKey = JSON.stringify(
-      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar_url,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away)};})
+      (players||[]).map(p=>{const _sm=(_latestSeatsForSurf||[]).find(s=>s&&s.index===p.index);return{i:p.index,n:p.name,s:p.score,hc:p.hand_count??(Array.isArray(p.hand)?p.hand.length:0),av:p.avatar,bg:String(p.background||""),aw:Boolean(_sm&&_sm.is_away)};})
     ) + "|" + turnIndex + "|" + myAvatarUrl + "|" + _myBgKey;
     if (_seatsKey === _seatsRenderKey && leftEl.children.length > 0) return;
     _seatsRenderKey = _seatsKey;

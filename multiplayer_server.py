@@ -97,6 +97,7 @@ ROOM_ID_ACCEPT_RE = re.compile(r"[A-Z0-9]{4,12}")
 
 CLIENT_DIR = os.path.join(BASE_DIR, "multiplayer", "client")
 MANIFEST_PATH = os.path.join(CLIENT_DIR, "manifest.webmanifest")
+VERSION_JSON_PATH = os.path.join(CLIENT_DIR, "version.json")
 SERVICE_WORKER_PATH = os.path.join(CLIENT_DIR, "sw.js")
 ICON_PATH = os.path.join(CLIENT_DIR, "icon.svg")
 PLAYER_HOME_REFERENCE_PATH = os.path.join(CLIENT_DIR, "player-home-reference.jpg")
@@ -5583,6 +5584,16 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/manifest.webmanifest":
             self._send_client_asset(MANIFEST_PATH, content_type="application/manifest+json; charset=utf-8")
+            return
+
+        # Build manifest polled by the client to prompt a refresh when a new
+        # deploy is live. Must always be served fresh so the prompt is accurate.
+        if parsed.path == "/version.json":
+            self._send_client_asset(
+                VERSION_JSON_PATH,
+                content_type="application/json; charset=utf-8",
+                cache_control="no-store",
+            )
             return
 
         if parsed.path == "/sw.js":

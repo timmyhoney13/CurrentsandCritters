@@ -6389,6 +6389,16 @@ def candidate_actions_for_ai(gs: GameState, ms: MatchState, player: PlayerState)
     acts = [a for a in legal_actions(gs, ms, player, include_draw=True) if a.kind != "end_turn"]
     if not acts:
         return []
+    # Loggerhead Sea Turtle paid window (multi_play_paid_turn): the bot may keep
+    # paying to play cards, but once it has no actual fish/critter left to play it
+    # should END its turn rather than spend the window paying to dump oceans it
+    # doesn't need. When the only remaining plays are oceans, return [] so the AI
+    # ends its turn. This mirrors the Hermit Crab free-baitfish chain, which ends
+    # once no baitfish remain. Humans are unaffected: they go through legal_actions
+    # and can still choose to play an ocean during the Turtle turn if they want to.
+    if player.flags.get("multi_play_paid_turn", False):
+        if not any(a.kind not in ("play_ocean", "draw") for a in acts):
+            return []
     play_acts = [a for a in acts if a.kind not in {"draw", "end_turn"}]
     # If already at hand limit, avoid drawing (draw → immediate end-of-turn discard
     # is wasteful). Only suppress draws when play actions exist so the AI isn't stuck.
