@@ -3962,7 +3962,11 @@
     .pvc-bubble { max-width: 80%; padding: 6px 10px; border-radius: 13px; font-size: 12px; line-height: 1.4; word-break: break-word; position: relative; }
     .pvc-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
     .pvc-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.1); color: #e6f0fa; border: 1px solid rgba(95,179,214,.28); border-bottom-left-radius: 4px; }
-    .pvc-bubble-sender { display: block; font-size: 10px; font-weight: 800; color: var(--gold); margin-bottom: 1px; }
+    .pvc-bubble-sender { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; color: var(--gold); margin-bottom: 2px; }
+    .pvc-bubble-av { width: 16px; height: 16px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#2f8be3,#1f66bc); display: flex; align-items: center; justify-content: center; }
+    .pvc-bubble-av img { width: 100%; height: 100%; object-fit: cover; }
+    .pvc-bubble-av-lt { color: #fff; font-weight: 900; font-size: 8.5px; }
     .pvc-bubble-time { font-size: 9px; opacity: .65; margin-top: 2px; display: block; text-align: right; }
     .pvc-conv-empty { text-align: center; color: #8fb0d0; font-size: 12px; padding: 24px; }
     #pv-chat-conv-input { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(95,179,214,.18); flex-shrink: 0; }
@@ -3973,6 +3977,58 @@
     #pv-chat-conv-send { background: var(--cyan); color: #0A2448; font-size: 12px; font-weight: 800; border: none; border-radius: 8px; padding: 0 14px; cursor: pointer; flex-shrink: 0; }
     #pv-chat-conv-send:hover { opacity: .85; }
     .pvc-guest-note { padding: 12px; text-align: center; font-size: 11.5px; color: #f0c674; background: rgba(232,179,74,.1); }
+
+    /* ── NEW MESSAGE COMPOSE VIEW (iMessage-style recipient picker) ─ */
+    #pv-chat-view-new { padding: 10px 10px 0; }
+    #pv-chat-compose { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+    .pvc-compose-recip {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+      background: rgba(22,56,110,.8); border: 1px solid var(--border); border-radius: 9px;
+      padding: 6px 8px; min-height: 36px; flex-shrink: 0;
+    }
+    .pvc-chip {
+      display: inline-flex; align-items: center; gap: 5px; padding: 2px 4px 2px 2px;
+      background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-radius: 20px;
+      font-size: 11px; font-weight: 800; max-width: 100%;
+    }
+    .pvc-chip-av { width: 20px; height: 20px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; }
+    .pvc-chip-av img { width: 100%; height: 100%; object-fit: cover; }
+    .pvc-chip-av-lt { font-size: 10px; color: #fff; font-weight: 900; }
+    .pvc-chip-nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+    .pvc-chip-x { background: none; border: none; color: rgba(255,255,255,.85); cursor: pointer;
+      font-size: 14px; line-height: 1; padding: 0 2px; }
+    .pvc-chip-x:hover { color: #fff; }
+    .pvc-compose-input {
+      flex: 1; min-width: 90px; background: none; border: none; outline: none;
+      color: #e6f0fa; font-size: 12px; font-family: inherit; padding: 3px 2px;
+    }
+    .pvc-compose-input::placeholder { color: #7fa6cc; }
+    .pvc-compose-sugg {
+      display: none; flex-direction: column; margin-top: 4px; max-height: 200px; overflow-y: auto;
+      background: rgba(10,30,70,.92); border: 1px solid rgba(95,179,214,.3); border-radius: 9px;
+    }
+    .pvc-compose-sugg.show { display: flex; }
+    .pvc-sugg-row { display: flex; align-items: center; gap: 9px; padding: 7px 9px; cursor: pointer; border-radius: 8px; }
+    .pvc-sugg-row:hover, .pvc-sugg-row.active { background: rgba(95,179,214,.18); }
+    .pvc-sugg-av { width: 30px; height: 30px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#2f8be3,#1f66bc); display: flex; align-items: center; justify-content: center; }
+    .pvc-sugg-av img { width: 100%; height: 100%; object-fit: cover; }
+    .pvc-sugg-av-lt { color: #fff; font-weight: 900; font-size: 13px; font-family: "Cinzel", serif; }
+    .pvc-sugg-nm { font-size: 12.5px; font-weight: 700; color: #dcecfb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pvc-compose-name {
+      margin-top: 8px; width: 100%; box-sizing: border-box; background: rgba(22,56,110,.8);
+      border: 1px solid var(--border); color: #e6f0fa; border-radius: 9px; padding: 8px 10px;
+      font-size: 12px; font-family: inherit;
+    }
+    .pvc-compose-name:focus, .pvc-compose-input:focus { outline: none; }
+    .pvc-compose-go {
+      margin-top: 8px; width: 100%; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff;
+      border: none; border-radius: 9px; padding: 9px; font-size: 12.5px; font-weight: 800; cursor: pointer;
+    }
+    .pvc-compose-go:hover { filter: brightness(1.08); }
+    .pvc-compose-go:disabled { opacity: .45; cursor: default; filter: none; }
+    .pvc-compose-hint { font-size: 10.5px; color: #7fa6cc; text-align: center; padding: 10px 6px; line-height: 1.5; }
 
     /* ── GROUP CREATE / SETTINGS MODAL ───────────────────────────── */
     #pv-grp-modal {
@@ -3998,6 +4054,13 @@
     #pv-grp-roster { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
     .pvg-member { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #cfe2f5; padding: 4px 2px; }
     .pvg-member .pvg-mdot { width: 7px; height: 7px; border-radius: 50%; background: #5fb3d6; flex-shrink: 0; }
+    .pvg-member .pvg-mav {
+      width: 26px; height: 26px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#2f8be3,#1f66bc); display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(95,179,214,.4);
+    }
+    .pvg-member .pvg-mav img { width: 100%; height: 100%; object-fit: cover; }
+    .pvg-member .pvg-mav-lt { color: #fff; font-weight: 900; font-size: 11px; font-family: "Cinzel", serif; }
     .pvg-msg { font-size: 11.5px; line-height: 1.4; margin-top: 10px; min-height: 14px; }
     .pvg-msg.err { color: #ff9aa6; }
     .pvg-msg.ok  { color: #8be0a0; }
@@ -8869,7 +8932,11 @@
     .ccm-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
     .ccm-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.8); color: #16407e; border: 1px solid rgba(120,190,235,.4); border-bottom-left-radius: 4px; }
     .ccm-bubble-time { font-size: .62rem; opacity: .7; margin-top: 3px; display: block; }
-    .ccm-bubble-sender { display: block; font-size: .64rem; font-weight: 800; color: #1a6ad0; margin-bottom: 2px; }
+    .ccm-bubble-sender { display: flex; align-items: center; gap: 5px; font-size: .64rem; font-weight: 800; color: #1a6ad0; margin-bottom: 3px; }
+    .ccm-bubble-av { width: 18px; height: 18px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#3ec0ee,#1f66bc); display: flex; align-items: center; justify-content: center; }
+    .ccm-bubble-av img { width: 100%; height: 100%; object-fit: cover; }
+    .ccm-bubble-av-lt { color: #fff; font-weight: 900; font-size: 9px; }
     .ccm-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid rgba(120,190,235,.4); flex-shrink: 0; }
     .ccm-input-row textarea {
       flex: 1; min-width: 0; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
@@ -8882,6 +8949,58 @@
     }
     .ccm-send:disabled { opacity: .5; cursor: not-allowed; }
     .ccm-guest-note { padding: 14px; text-align: center; font-size: .82rem; color: #b06800; background: rgba(255,238,200,.5); }
+
+    /* ── NEW MESSAGE COMPOSE (shared recipient picker, lobby theme) ── */
+    .ccm-compose { display: none; flex-direction: column; padding: 12px 14px; min-height: 0; flex: 1; }
+    .ccm-compose.show { display: flex; }
+    .ccm-compose-recip {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+      background: rgba(255,255,255,.8); border: 1px solid rgba(120,190,235,.5); border-radius: 11px;
+      padding: 7px 9px; min-height: 40px; flex-shrink: 0;
+    }
+    .ccm-chip {
+      display: inline-flex; align-items: center; gap: 6px; padding: 3px 5px 3px 3px;
+      background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-radius: 20px;
+      font-size: 12px; font-weight: 800; max-width: 100%;
+    }
+    .ccm-chip-av { width: 22px; height: 22px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: rgba(255,255,255,.25); display: flex; align-items: center; justify-content: center; }
+    .ccm-chip-av img { width: 100%; height: 100%; object-fit: cover; }
+    .ccm-chip-av-lt { font-size: 11px; color: #fff; font-weight: 900; }
+    .ccm-chip-nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+    .ccm-chip-x { background: none; border: none; color: rgba(255,255,255,.9); cursor: pointer;
+      font-size: 15px; line-height: 1; padding: 0 2px; }
+    .ccm-chip-x:hover { color: #fff; }
+    .ccm-compose-input {
+      flex: 1; min-width: 110px; background: none; border: none; outline: none;
+      color: #16407e; font-size: 13px; font-family: inherit; padding: 4px 2px;
+    }
+    .ccm-compose-input::placeholder { color: #6a93bd; }
+    .ccm-compose-sugg {
+      display: none; flex-direction: column; margin-top: 6px; max-height: 240px; overflow-y: auto;
+      background: rgba(255,255,255,.92); border: 1px solid rgba(120,190,235,.5); border-radius: 11px;
+    }
+    .ccm-compose-sugg.show { display: flex; }
+    .ccm-sugg-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; cursor: pointer; border-radius: 9px; }
+    .ccm-sugg-row:hover, .ccm-sugg-row.active { background: rgba(46,144,224,.14); }
+    .ccm-sugg-av { width: 34px; height: 34px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#3ec0ee,#1f66bc); display: flex; align-items: center; justify-content: center; }
+    .ccm-sugg-av img { width: 100%; height: 100%; object-fit: cover; }
+    .ccm-sugg-av-lt { color: #fff; font-weight: 900; font-size: 14px; font-family: "Cinzel", serif; }
+    .ccm-sugg-nm { font-size: 13.5px; font-weight: 700; color: #16407e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ccm-compose-name {
+      margin-top: 10px; width: 100%; box-sizing: border-box; background: rgba(255,255,255,.8);
+      border: 1px solid rgba(120,190,235,.5); color: #16407e; border-radius: 11px; padding: 9px 12px;
+      font-size: 13px; font-family: inherit;
+    }
+    .ccm-compose-name:focus, .ccm-compose-input:focus { outline: none; }
+    .ccm-compose-go {
+      margin-top: 10px; width: 100%; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff;
+      border: none; border-radius: 11px; padding: 11px; font-size: 13.5px; font-weight: 800; cursor: pointer;
+    }
+    .ccm-compose-go:hover { filter: brightness(1.06); }
+    .ccm-compose-go:disabled { opacity: .45; cursor: default; filter: none; }
+    .ccm-compose-hint { font-size: .76rem; color: #5a7fa8; text-align: center; padding: 12px 8px; line-height: 1.55; }
 
     /* ══ STREAK CALENDAR MODAL ══════════════════════════════════════ */
     #streak-cal-modal {
@@ -12307,7 +12426,7 @@
     <button id="pv-chat-back" class="pvc-hbtn" title="Back to chats" aria-label="Back to chats" style="display:none;">‹<span class="pvc-back-dot" id="pv-chat-back-dot"></span></button>
     <span id="pv-chat-title">Current Game Chat</span>
     <div class="pvc-hdr-actions">
-      <button id="pv-chat-newgrp" class="pvc-hbtn" title="New group chat" aria-label="New group chat" style="display:none;">＋</button>
+      <button id="pv-chat-newgrp" class="pvc-hbtn" title="New message" aria-label="New message" style="display:none;">＋</button>
       <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">⚙</button>
       <button id="pv-chat-close" class="pvc-hbtn" title="Close chat" aria-label="Close chat">✕</button>
     </div>
@@ -12341,6 +12460,11 @@
       <textarea id="pv-chat-conv-text" rows="1" placeholder="Type a message…" maxlength="500"></textarea>
       <button id="pv-chat-conv-send">Send</button>
     </div>
+  </div>
+
+  <!-- NEW MESSAGE VIEW — recipient picker (1 = DM, 2+ = group). Built by FishCompose. -->
+  <div id="pv-chat-view-new" class="pvc-view">
+    <div id="pv-chat-compose"></div>
   </div>
 </div>
 
@@ -12384,6 +12508,8 @@
     </div>
     <div class="ccm-guest-note" id="ccm-guest-note" style="display:none;">Sign in to send messages.</div>
   </div>
+  <!-- New message composer (recipient picker; 1 = DM, 2+ = group). Built by FishCompose. -->
+  <div class="ccm-compose" id="ccm-compose"></div>
 </div>
 
 <!-- ══ STREAK CALENDAR MODAL (yearly view) ════════════════════════ -->
@@ -23654,6 +23780,7 @@
   let _pvcPos = null;              // { left, top } once the panel is dragged
   let _grpModalMode = null;        // "create" | "settings"
   let _grpModalConv = null;        // conv descriptor when editing a group
+  let _pvcComposer = null;         // shared recipient composer instance (lazy)
 
   let _chatLastCount = -1;
   function renderChatMessages(messages) {
@@ -23791,6 +23918,130 @@
   const _chatDrafts = {};   // per-conversation unsent draft text (keyed by conv id)
   function _pvcMsg() { return window.__fishMsg || null; }
 
+  // ═══════════════════════════════════════════════════════════════
+  // SHARED RECIPIENT COMPOSER (iMessage-style "New Message")
+  //   ONE behaviour for BOTH the in-game panel and the lobby drawer.
+  //   • live player suggestions (name + icon) via __fishMsg.searchPlayers
+  //   • recipient chips: 1 selected → DM, 2+ → group (auto)
+  //   host: container element  ·  p: class prefix ("pvc" | "ccm")
+  //   onStart(recipients[{uid,name,avatar}], groupName) — caller opens the conv
+  // ═══════════════════════════════════════════════════════════════
+  window.FishCompose = function (host, p, onStart) {
+    if (!host) return null;
+    while (host.firstChild) host.removeChild(host.firstChild);
+    const avSrc = (u) => (u && window.__fishAvSrc ? window.__fishAvSrc(u) : u);
+    const mk = (tag, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; return e; };
+
+    const recipRow = mk("div", p + "-compose-recip");
+    const input = mk("input", p + "-compose-input");
+    input.type = "text"; input.placeholder = "To: type a player's name…";
+    input.autocomplete = "off"; input.maxLength = 30; input.spellcheck = false;
+    recipRow.appendChild(input);
+    const sugg   = mk("div", p + "-compose-sugg");
+    const nameIn = mk("input", p + "-compose-name");
+    nameIn.type = "text"; nameIn.placeholder = "Group name (optional)";
+    nameIn.autocomplete = "off"; nameIn.maxLength = 40; nameIn.style.display = "none";
+    const go = mk("button", p + "-compose-go"); go.type = "button"; go.textContent = "Message"; go.disabled = true;
+    const hint = mk("div", p + "-compose-hint");
+    hint.textContent = "Search a player to start a direct message. Add another to make it a group.";
+    host.appendChild(recipRow); host.appendChild(sugg); host.appendChild(nameIn);
+    host.appendChild(go); host.appendChild(hint);
+
+    let recipients = [];   // [{ uid, name, avatar }]
+    let results = [];      // current raw suggestions
+    let active = -1;       // highlighted suggestion index
+    let timer = null, gen = 0;
+
+    const visible = () => results.filter(r => !recipients.some(x => x.uid === r.uid));
+    function makeAv(cls, name, avatar) {
+      const av = mk("span", cls);
+      if (avatar) { const im = mk("img"); im.src = avSrc(avatar); im.alt = ""; av.appendChild(im); }
+      else { const lt = mk("span", cls + "-lt"); lt.textContent = (String(name || "?")[0] || "?").toUpperCase(); av.appendChild(lt); }
+      return av;
+    }
+    function syncUI() {
+      go.disabled = recipients.length === 0;
+      go.textContent = recipients.length >= 2 ? "Create Group" : "Message";
+      nameIn.style.display = recipients.length >= 2 ? "" : "none";
+    }
+    function renderChips() {
+      Array.from(recipRow.querySelectorAll("." + p + "-chip")).forEach(c => c.remove());
+      recipients.forEach(r => {
+        const chip = mk("span", p + "-chip");
+        chip.appendChild(makeAv(p + "-chip-av", r.name, r.avatar));
+        const nm = mk("span", p + "-chip-nm"); nm.textContent = r.name; chip.appendChild(nm);
+        const x = mk("button", p + "-chip-x"); x.type = "button"; x.textContent = "×";
+        x.addEventListener("click", () => { removeRecip(r.uid); input.focus(); });
+        chip.appendChild(x);
+        recipRow.insertBefore(chip, input);
+      });
+      syncUI();
+    }
+    function clearSugg() { results = []; active = -1; sugg.innerHTML = ""; sugg.classList.remove("show"); }
+    function renderSugg() {
+      sugg.innerHTML = "";
+      const list = visible();
+      if (!list.length) { sugg.classList.remove("show"); return; }
+      if (active >= list.length) active = list.length - 1;
+      list.forEach((r, i) => {
+        const row = mk("div", p + "-sugg-row"); if (i === active) row.classList.add("active");
+        row.appendChild(makeAv(p + "-sugg-av", r.name, r.avatar));
+        const nm = mk("span", p + "-sugg-nm"); nm.textContent = r.name; row.appendChild(nm);
+        row.addEventListener("mousedown", (e) => { e.preventDefault(); addRecip(r); });
+        sugg.appendChild(row);
+      });
+      sugg.classList.add("show");
+    }
+    function addRecip(r) {
+      if (!r || !r.uid || recipients.some(x => x.uid === r.uid)) return;  // no duplicate recipients
+      recipients.push({ uid: r.uid, name: r.name, avatar: r.avatar || null });
+      input.value = ""; clearSugg(); renderChips(); input.focus();
+    }
+    function removeRecip(uid) { recipients = recipients.filter(x => x.uid !== uid); renderChips(); renderSugg(); }
+    async function doSearch(q) {
+      const my = ++gen;
+      const M = window.__fishMsg;
+      if (!M || !M.searchPlayers) { clearSugg(); return; }
+      let res = [];
+      try { res = await M.searchPlayers(q, 8); } catch { res = []; }
+      if (my !== gen) return;                         // a newer keystroke already ran
+      results = res || []; active = visible().length ? 0 : -1; renderSugg();
+    }
+    function submit() {
+      if (!recipients.length || typeof onStart !== "function") return;
+      onStart(recipients.slice(), (nameIn.value || "").trim());
+    }
+    input.addEventListener("input", () => {
+      const q = input.value.trim();
+      clearTimeout(timer);
+      if (!q) { clearSugg(); return; }
+      timer = setTimeout(() => doSearch(q), 180);
+    });
+    input.addEventListener("keydown", (e) => {
+      const list = visible();
+      if (e.key === "ArrowDown")      { e.preventDefault(); active = Math.min(list.length - 1, active + 1); renderSugg(); }
+      else if (e.key === "ArrowUp")   { e.preventDefault(); active = Math.max(0, active - 1); renderSugg(); }
+      else if (e.key === "Enter")     { e.preventDefault();
+        if (list.length && active >= 0 && active < list.length) addRecip(list[active]);
+        else if (recipients.length) submit();
+      }
+      else if (e.key === "Backspace" && !input.value && recipients.length) {
+        e.preventDefault(); removeRecip(recipients[recipients.length - 1].uid);
+      }
+      else if (e.key === "Escape")    { clearSugg(); }
+    });
+    input.addEventListener("blur", () => setTimeout(clearSugg, 140));  // let mousedown register first
+    go.addEventListener("click", submit);
+    nameIn.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+
+    renderChips();
+    return {
+      reset() { recipients = []; input.value = ""; nameIn.value = ""; clearSugg(); renderChips(); },
+      focus() { setTimeout(() => input.focus(), 30); },
+      hasRecipients() { return recipients.length > 0; },
+    };
+  };
+
   // Stash the current conversation's unsent draft so switching chats doesn't
   // leak typed text from one conversation into another (iMessage behaviour).
   function _pvcStashDraft() {
@@ -23864,7 +24115,7 @@
   // ── View switching ──────────────────────────────────────────────
   function pvcShowView(view) {
     _chatView = view;
-    ["room", "list", "conv"].forEach(v => {
+    ["room", "list", "conv", "new"].forEach(v => {
       const el = _pg("pv-chat-view-" + v);
       if (el) el.classList.toggle("active", v === view);
     });
@@ -23889,8 +24140,38 @@
       if (back)   back.style.display = "";
       if (newgrp) newgrp.style.display = "none";
       if (gear)   gear.style.display = (_chatConv && _chatConv.group) ? "" : "none";
+    } else if (view === "new") {
+      if (title)  title.textContent = "New Message";
+      if (back)   back.style.display = "";       // back → chat list
+      if (newgrp) newgrp.style.display = "none";
+      if (gear)   gear.style.display = "none";
     }
     pvcUpdateBadges();
+  }
+
+  // ── New Message composer (recipient picker; 1 = DM, 2+ = group) ──
+  function pvcEnsureComposer() {
+    if (_pvcComposer) return _pvcComposer;
+    const host = _pg("pv-chat-compose");
+    if (!host || typeof window.FishCompose !== "function") return null;
+    _pvcComposer = window.FishCompose(host, "pvc", async (recipients, name) => {
+      const M = _pvcMsg();
+      if (!M || !M.startChat) return;
+      if (M.isGuest && M.isGuest()) { if (typeof showToast === "function") showToast("Sign in to message players.", "info"); return; }
+      const res = await M.startChat(recipients, name);
+      if (!res || res.error) { if (typeof showToast === "function") showToast((res && res.error) || "Could not start the chat.", "err"); return; }
+      pvcOpenConv({ id: res.convId, group: !!res.group, name: res.name, peerUid: res.peerUid, peerName: res.peerName });
+      if (_pvcComposer) _pvcComposer.reset();
+    });
+    return _pvcComposer;
+  }
+  function pvcOpenCompose() {
+    const M = _pvcMsg();
+    if (!M || !M.ready || !M.ready()) { if (typeof showToast === "function") showToast("Sign in to start a chat.", "info"); return; }
+    if (M.isGuest && M.isGuest())   { if (typeof showToast === "function") showToast("Sign in to start a chat.", "info"); return; }
+    const c = pvcEnsureComposer();
+    pvcShowView("new");
+    if (c) { c.reset(); c.focus(); }
   }
 
   // ── Chat list (Current Game Chat + DMs + groups) ────────────────
@@ -24016,7 +24297,18 @@
         const b = document.createElement("div"); b.className = "pvc-bubble " + (mine ? "mine" : "theirs");
         if (_chatConv.group && !mine) {
           const s = document.createElement("span"); s.className = "pvc-bubble-sender";
-          s.textContent = m.sender_name || "Player"; b.appendChild(s);
+          // Small sender icon (letter first, swapped to the real avatar async).
+          const av = document.createElement("span"); av.className = "pvc-bubble-av";
+          const lt = document.createElement("span"); lt.className = "pvc-bubble-av-lt";
+          lt.textContent = (String(m.sender_name || "?")[0] || "?").toUpperCase(); av.appendChild(lt);
+          if (M.avatarForNick && m.sender_name) {
+            M.avatarForNick(m.sender_name).then(url => {
+              if (!url) return; cl(av); const im = document.createElement("img");
+              im.src = (window.__fishAvSrc ? window.__fishAvSrc(url) : url); im.alt = ""; av.appendChild(im);
+            }).catch(() => {});
+          }
+          const nm = document.createElement("span"); nm.textContent = m.sender_name || "Player";
+          s.appendChild(av); s.appendChild(nm); b.appendChild(s);
         }
         b.appendChild(document.createTextNode(m.text || ""));
         const t = document.createElement("span"); t.className = "pvc-bubble-time";
@@ -24057,6 +24349,7 @@
     pvcApplyPosition();
     // Restore the last view (defaults to Current Game Chat on first open).
     if (_chatView === "conv" && _chatConv) { pvcShowView("conv"); pvcRenderConv(); if (_chatConv.id && _pvcMsg()) _pvcMsg().markRead(_chatConv.id); }
+    else if (_chatView === "new") { pvcEnsureComposer(); pvcShowView("new"); if (_pvcComposer) _pvcComposer.focus(); }  // keep in-progress recipients
     else if (_chatView === "list") pvcShowView("list");
     else pvcOpenRoom();
     pvcUpdateBadges();
@@ -24078,7 +24371,7 @@
     _pvcStashDraft();
     pvcShowView("list");
   });
-  _pg("pv-chat-newgrp").addEventListener("click", () => pvcOpenGroupModal("create", null));
+  _pg("pv-chat-newgrp").addEventListener("click", pvcOpenCompose);
   _pg("pv-chat-gear").addEventListener("click", () => {
     if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
   });
@@ -24181,10 +24474,21 @@
         const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
         members.forEach(p => {
           const row = document.createElement("div"); row.className = "pvg-member";
-          const dot = document.createElement("span"); dot.className = "pvg-mdot";
+          // Member avatar (icon) — letter first, swapped to the real icon async.
+          const av = document.createElement("span"); av.className = "pvg-mav";
+          const lt = document.createElement("span"); lt.className = "pvg-mav-lt";
+          lt.textContent = (String(p.name || "?")[0] || "?").toUpperCase();
+          av.appendChild(lt);
+          if (M.avatarForNick && p.name) {
+            M.avatarForNick(p.name).then(url => {
+              if (!url) return;
+              cl(av); const im = document.createElement("img");
+              im.src = (window.__fishAvSrc ? window.__fishAvSrc(url) : url); im.alt = ""; av.appendChild(im);
+            }).catch(() => {});
+          }
           const nm = document.createElement("span");
           nm.textContent = (p.uid === M.myUid()) ? (p.name || "You") + " (you)" : (p.name || "Player");
-          row.appendChild(dot); row.appendChild(nm); roster.appendChild(row);
+          row.appendChild(av); row.appendChild(nm); roster.appendChild(row);
         });
       }
     }
@@ -28857,9 +29161,11 @@
       const titleEl   = $a("ccm-title");
       if (!listEl) return;
 
+      const composeEl = $a("ccm-compose");
       listEl.classList.remove("hide");
       if (searchRow) searchRow.classList.remove("hide");
       if (convView)  convView.classList.remove("show");
+      if (composeEl) composeEl.classList.remove("show");
       if (backBtn)   backBtn.classList.remove("show");
       if (titleEl)   titleEl.textContent = "Friend Messages";
       _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
@@ -28893,14 +29199,21 @@
       try { friends = await loadFriends(_authUser.uid); } catch {}
       if (myGen !== _msgListRenderGen) return; // stale — a newer render already claimed the list
 
-      // Search mode → matching friends to start a new chat
+      // Search mode → matching players to start a new chat. Searches ALL
+      // players (not just friends) so you can message anyone by name; friends
+      // are listed first. Clicking a result opens/creates the direct message.
       if (term) {
-        const matches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
-        if (!matches.length) {
-          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔍</div>No friends match.</div>";
-          return;
+        let players = [];
+        try { players = await _msgSearchPlayers(term, 12); } catch {}
+        if (myGen !== _msgListRenderGen) return;
+        const friendMatches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
+        const shown = {};
+        let any = false;
+        friendMatches.forEach(f => { if (f.uid) shown[f.uid] = true; listEl.appendChild(_msgFriendRow(f)); any = true; });
+        players.forEach(pl => { if (shown[pl.uid]) return; shown[pl.uid] = true; listEl.appendChild(_msgPlayerRow(pl)); any = true; });
+        if (!any) {
+          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔍</div>No players match “" + escapeHtml(term) + "”.</div>";
         }
-        matches.forEach(f => listEl.appendChild(_msgFriendRow(f)));
         return;
       }
 
@@ -28954,6 +29267,58 @@
       return row;
     }
 
+    // Search-result row for any player (not necessarily a friend). Uses the
+    // avatar the search already resolved so the correct icon shows immediately.
+    function _msgPlayerRow(pl) {
+      const row = document.createElement("div");
+      row.className = "ccm-conv";
+      const avInner = pl.avatar
+        ? "<img src=\"" + escapeHtml(window.__fishAvSrc ? window.__fishAvSrc(pl.avatar) : pl.avatar) + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover;border-radius:50%;\">"
+        : "<span class=\"ccm-av-letter\">" + escapeHtml((String(pl.name || "?")[0] || "?").toUpperCase()) + "</span>";
+      row.innerHTML = "<div class=\"ccm-av\">" + avInner + "</div>"
+        + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(pl.name || "Player") + "</span></div>"
+        + "<div class=\"ccm-conv-preview\">Start a conversation</div></div>";
+      row.addEventListener("click", () => _msgOpenConversation(pl.uid, pl.name || "Player"));
+      return row;
+    }
+
+    // New-message composer in the drawer (recipient picker; 1 = DM, 2+ = group).
+    // Uses the SAME shared FishCompose + startChat path as the in-game panel.
+    let _ccmComposer = null;
+    function _ccmEnsureComposer() {
+      if (_ccmComposer) return _ccmComposer;
+      const host = $a("ccm-compose");
+      if (!host || typeof window.FishCompose !== "function") return null;
+      _ccmComposer = window.FishCompose(host, "ccm", async (recipients, name) => {
+        const res = await _msgStartChat(recipients, name);
+        if (!res || res.error) {
+          if (typeof showToast !== "undefined") showToast((res && res.error) || "Could not start the chat.", "err");
+          return;
+        }
+        if (_ccmComposer) _ccmComposer.reset();
+        if (res.group) _msgOpenGroupConv(res.convId);
+        else _msgOpenConversation(res.peerUid, res.peerName);
+      });
+      return _ccmComposer;
+    }
+    function _msgShowCompose() {
+      if (!_authUser || _guestSessionActive === true) {
+        if (typeof showToast !== "undefined") showToast("Sign in to start a chat.", "info");
+        return;
+      }
+      const listEl = $a("ccm-list"), convView = $a("ccm-conv-view"), searchRow = $a("ccm-search-row"),
+            backBtn = $a("ccm-back-btn"), titleEl = $a("ccm-title"), compose = $a("ccm-compose");
+      if (listEl)    listEl.classList.add("hide");
+      if (searchRow) searchRow.classList.add("hide");
+      if (convView)  convView.classList.remove("show");
+      if (compose)   compose.classList.add("show");
+      if (backBtn)   backBtn.classList.add("show");
+      if (titleEl)   titleEl.textContent = "New Message";
+      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
+      const c = _ccmEnsureComposer();
+      if (c) { c.reset(); c.focus(); }
+    }
+
     async function _msgDecorateRow(row, peerUid, peerName) {
       try {
         if (typeof window.__fishAvatarForNick === "function" && peerName) {
@@ -29001,8 +29366,10 @@
       const searchRow = $a("ccm-search-row");
       const backBtn   = $a("ccm-back-btn");
       const titleEl   = $a("ccm-title");
+      const compose   = $a("ccm-compose");
       if (listEl)    listEl.classList.add("hide");
       if (searchRow) searchRow.classList.add("hide");
+      if (compose)   compose.classList.remove("show");
       if (convView)  convView.classList.add("show");
       if (backBtn)   backBtn.classList.add("show");
       if (titleEl)   titleEl.textContent = title || "Conversation";
@@ -29030,13 +29397,29 @@
           const mine = m.sender === _authUser.uid;
           const bub  = document.createElement("div");
           bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
-          // Group chats label each non-mine bubble with the sender's name.
+          // Group chats label each non-mine bubble with the sender's icon + name.
+          const nm = m.sender_name || "Player";
           const senderTag = (isGroup && !mine)
-            ? "<span class=\"ccm-bubble-sender\">" + escapeHtml(m.sender_name || "Player") + "</span>"
+            ? "<span class=\"ccm-bubble-sender\" data-nick=\"" + escapeHtml(nm) + "\">"
+              + "<span class=\"ccm-bubble-av\"><span class=\"ccm-bubble-av-lt\">"
+              + escapeHtml((String(nm)[0] || "?").toUpperCase()) + "</span></span>"
+              + "<span>" + escapeHtml(nm) + "</span></span>"
             : "";
           bub.innerHTML = senderTag + escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
           msgsEl.appendChild(bub);
         });
+        // Swap each group sender's letter avatar for their real icon (cached).
+        if (isGroup && typeof window.__fishAvatarForNick === "function") {
+          msgsEl.querySelectorAll(".ccm-bubble-sender[data-nick]").forEach(el => {
+            const nick = el.getAttribute("data-nick");
+            if (!nick) return;
+            window.__fishAvatarForNick(nick).then(url => {
+              if (!url) return;
+              const av = el.querySelector(".ccm-bubble-av");
+              if (av) av.innerHTML = "<img src=\"" + escapeHtml(window.__fishAvSrc ? window.__fishAvSrc(url) : url) + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover;\">";
+            }).catch(() => {});
+          });
+        }
         msgsEl.scrollTop = msgsEl.scrollHeight;
       }
       _msgMarkConvRead(_msgOpenConvId);
@@ -29166,6 +29549,92 @@
         } catch (_) { out.notFound.push(tok); }
       }
       return out;
+    }
+
+    // Live player search by nickname prefix — the data source behind the
+    // iMessage-style recipient suggestions (in-game panel AND lobby drawer).
+    // Returns [{ uid, name, avatar }] (avatar validated against the known set;
+    // null → caller shows the initial). Excludes self and de-dupes.
+    async function _msgSearchPlayers(prefix, limit) {
+      const term = String(prefix || "").trim().toLowerCase();
+      limit = limit || 8;
+      if (!_db || !_authUser || !term) return [];
+      const out = [], seen = {};
+      try {
+        const snap = await _db.collection("users")
+          .where("nickname_lower", ">=", term)
+          .where("nickname_lower", "<", term + "")
+          .orderBy("nickname_lower")
+          .limit(limit + 8).get();
+        snap.forEach(d => {
+          if (d.id === _authUser.uid || seen[d.id]) return;
+          const data = d.data() || {};
+          const name = data.nickname || "";
+          if (!name) return;
+          seen[d.id] = true;
+          const norm = normalizeAvatarUrl(data.avatar_url || "");
+          const avatar = (norm && animalByImg(norm)) ? norm : null;
+          out.push({ uid: d.id, name, avatar });
+        });
+      } catch (e) {
+        // Missing nickname_lower / index → no suggestions (exact-name start still works).
+        console.warn("[msg] searchPlayers failed:", e);
+      }
+      return out.slice(0, limit);
+    }
+
+    // Find an existing group whose member set is EXACTLY {me + recipients}.
+    function _msgFindGroupByMembers(uids) {
+      const want = uids.slice().sort();
+      return _msgConversations.find(c => {
+        if (!c.group || !Array.isArray(c.members)) return false;
+        const have = c.members.map(m => m.uid).sort();
+        return have.length === want.length && have.every((u, i) => u === want[i]);
+      }) || null;
+    }
+
+    // Unified "start a conversation" used by BOTH the in-game composer and the
+    // lobby composer so the two surfaces behave identically.
+    //   recipients: [{ uid, name }] (self/dupes dropped here too)
+    //   1 recipient  → open/create the DM (deterministic id ⇒ never duplicates)
+    //   2+ recipients → open the existing matching group, else create one
+    // Returns { ok, group, convId, peerUid, peerName, name } or { error }.
+    async function _msgStartChat(recipients, optName) {
+      if (!_db || !_authUser) return { error: "Not signed in." };
+      if (_guestSessionActive === true) return { error: "Sign in to start a chat." };
+      const uniq = [], seen = {};
+      (recipients || []).forEach(r => {
+        if (!r || !r.uid || r.uid === _authUser.uid || seen[r.uid]) return;
+        seen[r.uid] = true;
+        uniq.push({ uid: r.uid, name: r.name || "Player" });
+      });
+      if (!uniq.length) return { error: "Add at least one player." };
+      if (uniq.length === 1) {
+        const p = uniq[0];
+        return { ok: true, group: false, convId: _convIdFor(_authUser.uid, p.uid),
+                 peerUid: p.uid, peerName: p.name };
+      }
+      // Group — reuse the existing group with the same members if there is one.
+      const wantUids = [_authUser.uid].concat(uniq.map(p => p.uid));
+      const existing = _msgFindGroupByMembers(wantUids);
+      if (existing) return { ok: true, group: true, convId: existing.id, name: existing.name };
+      const name = String(optName || "").trim().slice(0, 40)
+        || uniq.map(p => p.name).join(", ").slice(0, 40);
+      const convId  = _newGroupConvId();
+      const members = [{ uid: _authUser.uid, name: _playerNickname || "Player" }].concat(uniq);
+      try {
+        await _msgWriteMeta(convId, name, members, members);
+        // Optimistically seed my cache so the group can be opened immediately
+        // (the snapshot listener overwrites _msgAllMessages on its next tick).
+        _msgAllMessages.push({ id: "gm_" + convId, conv_id: convId, group: true, meta: true,
+                               name, members, owner: _authUser.uid, ts: null, read: true });
+        _msgRebuildConversations();
+        return { ok: true, group: true, convId, name };
+      } catch (e) {
+        console.warn("[msg] start group failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
+        return { error: "Could not create the group — " + ((e && e.code) || "error") };
+      }
     }
 
     // Write/overwrite the deterministic meta doc to every listed member.
@@ -29325,6 +29794,8 @@
       renameGroup:  (convId, name) => _msgRenameGroup(convId, name),
       addMembers:   (convId, rawNames) => _msgAddMembers(convId, rawNames),
       leaveGroup:   (convId) => _msgLeaveGroup(convId),
+      searchPlayers:(prefix, limit) => _msgSearchPlayers(prefix, limit),
+      startChat:    (recipients, name) => _msgStartChat(recipients, name),
       avatarForNick:(nick) => (typeof window.__fishAvatarForNick === "function"
                        ? window.__fishAvatarForNick(nick) : Promise.resolve(null)),
       onChange:     (cb) => { if (typeof cb === "function") { _msgChangeCbs.push(cb);
@@ -29354,10 +29825,7 @@
       });
     }
     const _ccmNew = $a("ccm-newchat-btn");
-    if (_ccmNew) _ccmNew.addEventListener("click", () => {
-      const s = $a("ccm-search");
-      if (s) { s.focus(); s.placeholder = "Type a friend's name to start…"; }
-    });
+    if (_ccmNew) _ccmNew.addEventListener("click", _msgShowCompose);
     // Start listening to conversations as soon as we know the user (badge updates)
     if (_authUser) _msgStartListListener();
 
