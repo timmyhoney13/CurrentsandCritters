@@ -3883,6 +3883,14 @@
       flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       font-family: "Cinzel", serif; font-size: 13.5px; font-weight: 900; color: #bfe6fb;
     }
+    #pv-chat-title.editable { cursor: pointer; }
+    #pv-chat-title.editable:hover { text-decoration: underline dotted rgba(191,230,251,.6); }
+    .pvc-title-edit {
+      width: 100%; box-sizing: border-box; background: rgba(22,56,110,.95);
+      border: 1px solid var(--cyan); color: #fff; border-radius: 6px; padding: 3px 7px;
+      font-family: "Cinzel", serif; font-size: 13px; font-weight: 800;
+    }
+    .pvc-title-edit:focus { outline: none; }
     .pvc-hdr-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
     .pvc-hbtn {
       position: relative;
@@ -3969,6 +3977,7 @@
     .pvc-bubble-av-lt { color: #fff; font-weight: 900; font-size: 8.5px; }
     .pvc-bubble-time { font-size: 9px; opacity: .65; margin-top: 2px; display: block; text-align: right; }
     .pvc-conv-empty { text-align: center; color: #8fb0d0; font-size: 12px; padding: 24px; }
+    .pvc-sys { align-self: center; max-width: 88%; text-align: center; font-size: 10.5px; color: #8fb0d0; margin: 4px 0; line-height: 1.4; }
     #pv-chat-conv-input { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(95,179,214,.18); flex-shrink: 0; }
     #pv-chat-conv-text {
       flex: 1; min-width: 0; font-size: 12px; background: rgba(22,56,110,.8); border: 1px solid var(--border);
@@ -3978,9 +3987,9 @@
     #pv-chat-conv-send:hover { opacity: .85; }
     .pvc-guest-note { padding: 12px; text-align: center; font-size: 11.5px; color: #f0c674; background: rgba(232,179,74,.1); }
 
-    /* ── NEW MESSAGE COMPOSE VIEW (iMessage-style recipient picker) ─ */
-    #pv-chat-view-new { padding: 10px 10px 0; }
-    #pv-chat-compose { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
+    /* ── SEARCH-TO-MESSAGE BAR (iMessage-style recipient picker) ──── */
+    /* (#pv-chat-view-list lays out via .pvc-view: flex column, shown only when .active) */
+    #pv-chat-compose { display: flex; flex-direction: column; flex-shrink: 0; padding: 9px 9px 5px; border-bottom: 1px solid rgba(95,179,214,.14); }
     .pvc-compose-recip {
       display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
       background: rgba(22,56,110,.8); border: 1px solid var(--border); border-radius: 9px;
@@ -8887,20 +8896,14 @@
     }
     .ccm-back-btn.show { display: flex; }
     .ccm-title { font-family:"Cinzel",serif; font-size: 1.1rem; font-weight: 900; color: #15407e; flex: 1; min-width: 0; }
+    .ccm-title.editable { cursor: pointer; }
+    .ccm-title.editable:hover { text-decoration: underline dotted rgba(21,64,126,.5); }
+    .ccm-title-edit { width: 100%; box-sizing: border-box; border-radius: 8px; border: 1px solid rgba(34,130,240,.6);
+      background: rgba(255,255,255,.92); padding: 4px 8px; font-family:"Cinzel",serif; font-size: 1rem; font-weight: 800; color: #15407e; }
+    .ccm-title-edit:focus { outline: none; }
     .ccm-close { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(120,190,235,.5); background: rgba(255,255,255,.5); color: #1a5cbf; font-size: 18px; cursor: pointer; flex-shrink: 0; }
     .ccm-close:hover, .ccm-back-btn:hover { background: rgba(255,255,255,.85); }
-    .ccm-search-row { padding: 10px 14px; display: flex; gap: 8px; flex-shrink: 0; }
-    .ccm-search-row input {
-      flex: 1; min-width: 0; border-radius: 10px; border: 1px solid rgba(120,190,235,.5);
-      background: rgba(255,255,255,.7); padding: 9px 12px; font-size: 13px; color: #16407e;
-      font-family: inherit;
-    }
-    .ccm-search-row input::placeholder { color: #6a93bd; }
-    .ccm-newchat-btn {
-      border-radius: 10px; border: 1px solid rgba(34,130,240,.4); background: rgba(34,130,240,.12);
-      color: #1a5cbf; font-size: 18px; font-weight: 900; cursor: pointer; width: 40px; flex-shrink: 0;
-    }
-    .ccm-newchat-btn:hover { background: rgba(34,130,240,.22); }
+    .ccm-search-row { padding: 10px 14px 6px; display: flex; gap: 8px; flex-shrink: 0; }
     .ccm-list { flex: 1; overflow-y: auto; padding: 4px 8px 12px; }
     .ccm-conv {
       display: flex; align-items: center; gap: 11px; padding: 10px 11px;
@@ -8932,6 +8935,7 @@
     .ccm-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
     .ccm-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.8); color: #16407e; border: 1px solid rgba(120,190,235,.4); border-bottom-left-radius: 4px; }
     .ccm-bubble-time { font-size: .62rem; opacity: .7; margin-top: 3px; display: block; }
+    .ccm-sys { align-self: center; max-width: 88%; text-align: center; font-size: .68rem; color: #5a7fa8; margin: 4px 0; line-height: 1.4; }
     .ccm-bubble-sender { display: flex; align-items: center; gap: 5px; font-size: .64rem; font-weight: 800; color: #1a6ad0; margin-bottom: 3px; }
     .ccm-bubble-av { width: 18px; height: 18px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
       background: linear-gradient(145deg,#3ec0ee,#1f66bc); display: flex; align-items: center; justify-content: center; }
@@ -8951,8 +8955,7 @@
     .ccm-guest-note { padding: 14px; text-align: center; font-size: .82rem; color: #b06800; background: rgba(255,238,200,.5); }
 
     /* ── NEW MESSAGE COMPOSE (shared recipient picker, lobby theme) ── */
-    .ccm-compose { display: none; flex-direction: column; padding: 12px 14px; min-height: 0; flex: 1; }
-    .ccm-compose.show { display: flex; }
+    .ccm-compose { display: flex; flex-direction: column; flex: 1; min-width: 0; }
     .ccm-compose-recip {
       display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
       background: rgba(255,255,255,.8); border: 1px solid rgba(120,190,235,.5); border-radius: 11px;
@@ -12426,7 +12429,6 @@
     <button id="pv-chat-back" class="pvc-hbtn" title="Back to chats" aria-label="Back to chats" style="display:none;">‹<span class="pvc-back-dot" id="pv-chat-back-dot"></span></button>
     <span id="pv-chat-title">Current Game Chat</span>
     <div class="pvc-hdr-actions">
-      <button id="pv-chat-newgrp" class="pvc-hbtn" title="New message" aria-label="New message" style="display:none;">＋</button>
       <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">⚙</button>
       <button id="pv-chat-close" class="pvc-hbtn" title="Close chat" aria-label="Close chat">✕</button>
     </div>
@@ -12447,8 +12449,9 @@
     </div>
   </div>
 
-  <!-- LIST VIEW — Current Game Chat + direct messages + group chats -->
+  <!-- LIST VIEW — search-to-message bar + Current Game Chat + DMs + groups -->
   <div id="pv-chat-view-list" class="pvc-view">
+    <div id="pv-chat-compose"></div>
     <div id="pv-chat-list"></div>
   </div>
 
@@ -12462,10 +12465,6 @@
     </div>
   </div>
 
-  <!-- NEW MESSAGE VIEW — recipient picker (1 = DM, 2+ = group). Built by FishCompose. -->
-  <div id="pv-chat-view-new" class="pvc-view">
-    <div id="pv-chat-compose"></div>
-  </div>
 </div>
 
 <!-- ══ GROUP CHAT CREATE / SETTINGS MODAL ═════════════════════════ -->
@@ -12495,8 +12494,7 @@
   </div>
   <!-- Conversation list view -->
   <div class="ccm-search-row" id="ccm-search-row">
-    <input id="ccm-search" type="text" placeholder="Search friends or players…" maxlength="30" autocomplete="off" />
-    <button class="ccm-newchat-btn" id="ccm-newchat-btn" title="Start new chat">+</button>
+    <div class="ccm-compose" id="ccm-compose"></div>
   </div>
   <div class="ccm-list" id="ccm-list"></div>
   <!-- Single conversation view -->
@@ -12508,8 +12506,6 @@
     </div>
     <div class="ccm-guest-note" id="ccm-guest-note" style="display:none;">Sign in to send messages.</div>
   </div>
-  <!-- New message composer (recipient picker; 1 = DM, 2+ = group). Built by FishCompose. -->
-  <div class="ccm-compose" id="ccm-compose"></div>
 </div>
 
 <!-- ══ STREAK CALENDAR MODAL (yearly view) ════════════════════════ -->
@@ -13020,11 +13016,17 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.3";
-  const APP_BUILD   = "2026-06-21.1";
+  const APP_VERSION = "1.5.5";
+  const APP_BUILD   = "2026-06-21.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.5.5", title: "Start chats and groups by just typing names", items: [
+      "The chat list now has a search bar instead of a ＋ button — type a player's name and pick them to open your chat with them.",
+      "Keep adding names to start a group chat. As you add people, any existing chat with exactly those players shows up so you can jump straight back into it.",
+      "Open a group and tap its name at the top to rename it — everyone in the group sees a note saying you changed the name.",
+      "Works the same in the in-game chat and the menu's Friend Messages.",
+    ]},
     { ver: "V1.5.2", title: "Undo now works during bot turns", items: [
       "Fixed the Undo Turn button doing nothing when you pressed it while the bots were taking their turns — it now reliably puts your cards back and replays your turn, exactly as the button promises.",
       "Your hand, the deck and the End Game card all revert to precisely how they were when your turn started, so re-drawing gives you the same cards (no reroll) and the game can't end early.",
@@ -23926,7 +23928,7 @@
   //   host: container element  ·  p: class prefix ("pvc" | "ccm")
   //   onStart(recipients[{uid,name,avatar}], groupName) — caller opens the conv
   // ═══════════════════════════════════════════════════════════════
-  window.FishCompose = function (host, p, onStart) {
+  window.FishCompose = function (host, p, onStart, onChange) {
     if (!host) return null;
     while (host.firstChild) host.removeChild(host.firstChild);
     const avSrc = (u) => (u && window.__fishAvSrc ? window.__fishAvSrc(u) : u);
@@ -23944,6 +23946,7 @@
     const go = mk("button", p + "-compose-go"); go.type = "button"; go.textContent = "Message"; go.disabled = true;
     const hint = mk("div", p + "-compose-hint");
     hint.textContent = "Search a player to start a direct message. Add another to make it a group.";
+    hint.style.display = "none";   // embedded as a search bar — placeholder text is enough
     host.appendChild(recipRow); host.appendChild(sugg); host.appendChild(nameIn);
     host.appendChild(go); host.appendChild(hint);
 
@@ -23960,9 +23963,12 @@
       return av;
     }
     function syncUI() {
-      go.disabled = recipients.length === 0;
+      const has = recipients.length > 0;
+      go.disabled = !has;
+      go.style.display = has ? "" : "none";        // just a search bar until someone is picked
       go.textContent = recipients.length >= 2 ? "Create Group" : "Message";
       nameIn.style.display = recipients.length >= 2 ? "" : "none";
+      if (typeof onChange === "function") { try { onChange(recipients.slice()); } catch (_) {} }
     }
     function renderChips() {
       Array.from(recipRow.querySelectorAll("." + p + "-chip")).forEach(c => c.remove());
@@ -24039,6 +24045,7 @@
       reset() { recipients = []; input.value = ""; nameIn.value = ""; clearSugg(); renderChips(); },
       focus() { setTimeout(() => input.focus(), 30); },
       hasRecipients() { return recipients.length > 0; },
+      getRecipients() { return recipients.slice(); },
     };
   };
 
@@ -24115,36 +24122,31 @@
   // ── View switching ──────────────────────────────────────────────
   function pvcShowView(view) {
     _chatView = view;
-    ["room", "list", "conv", "new"].forEach(v => {
+    ["room", "list", "conv"].forEach(v => {
       const el = _pg("pv-chat-view-" + v);
       if (el) el.classList.toggle("active", v === view);
     });
     const back   = _pg("pv-chat-back");
-    const newgrp = _pg("pv-chat-newgrp");
     const gear   = _pg("pv-chat-gear");
     const title  = _pg("pv-chat-title");
+    if (title) title.classList.remove("editable");   // only group-conv titles are editable
     if (view === "room") {
       if (title)  title.textContent = "Current Game Chat";
       if (back)   back.style.display = "";       // back → chat list
-      if (newgrp) newgrp.style.display = "none";
       if (gear)   gear.style.display = "none";
       _chatSeenCount = _chatRoomTotal;           // entering room clears its unread
     } else if (view === "list") {
       if (title)  title.textContent = "Chats";
       if (back)   back.style.display = "none";   // list is the root
-      if (newgrp) newgrp.style.display = _pvcMsg() && !_pvcMsg().isGuest() ? "" : "none";
       if (gear)   gear.style.display = "none";
+      pvcEnsureComposer();
       pvcRenderList();
     } else if (view === "conv") {
       if (title)  title.textContent = _chatConv ? (_chatConv.name || _chatConv.peerName || "Chat") : "Chat";
       if (back)   back.style.display = "";
-      if (newgrp) newgrp.style.display = "none";
       if (gear)   gear.style.display = (_chatConv && _chatConv.group) ? "" : "none";
-    } else if (view === "new") {
-      if (title)  title.textContent = "New Message";
-      if (back)   back.style.display = "";       // back → chat list
-      if (newgrp) newgrp.style.display = "none";
-      if (gear)   gear.style.display = "none";
+      // A group's title is tappable to rename it.
+      if (title && _chatConv && _chatConv.group) title.classList.add("editable");
     }
     pvcUpdateBadges();
   }
@@ -24160,18 +24162,27 @@
       if (M.isGuest && M.isGuest()) { if (typeof showToast === "function") showToast("Sign in to message players.", "info"); return; }
       const res = await M.startChat(recipients, name);
       if (!res || res.error) { if (typeof showToast === "function") showToast((res && res.error) || "Could not start the chat.", "err"); return; }
-      pvcOpenConv({ id: res.convId, group: !!res.group, name: res.name, peerUid: res.peerUid, peerName: res.peerName });
       if (_pvcComposer) _pvcComposer.reset();
+      pvcOpenConv({ id: res.convId, group: !!res.group, name: res.name, peerUid: res.peerUid, peerName: res.peerName });
+    }, () => {                                   // recipients changed → re-filter the list live
+      if (_chatPanelOpen && _chatView === "list") pvcRenderList();
     });
     return _pvcComposer;
   }
-  function pvcOpenCompose() {
-    const M = _pvcMsg();
-    if (!M || !M.ready || !M.ready()) { if (typeof showToast === "function") showToast("Sign in to start a chat.", "info"); return; }
-    if (M.isGuest && M.isGuest())   { if (typeof showToast === "function") showToast("Sign in to start a chat.", "info"); return; }
-    const c = pvcEnsureComposer();
-    pvcShowView("new");
-    if (c) { c.reset(); c.focus(); }
+  // Current recipient set picked in the search bar (uids), or [] if empty.
+  function pvcComposeRecipients() {
+    return (_pvcComposer && _pvcComposer.getRecipients) ? _pvcComposer.getRecipients() : [];
+  }
+
+  // Does conversation c include EVERY player picked in the search bar?
+  // DM → its one peer must be the (single) pick; group → members ⊇ picks.
+  function _pvcConvMatches(c, pickUids) {
+    if (!pickUids.length) return true;
+    if (c.group) {
+      const have = (Array.isArray(c.members) ? c.members : []).map(m => m.uid);
+      return pickUids.every(u => have.indexOf(u) !== -1);
+    }
+    return pickUids.length === 1 && c.peerUid === pickUids[0];
   }
 
   // ── Chat list (Current Game Chat + DMs + groups) ────────────────
@@ -24181,14 +24192,20 @@
     const M = _pvcMsg();
     cl(listEl);
 
-    // Current Game Chat — always first.
-    const cur = document.createElement("div");
-    cur.className = "pvc-row current";
-    const curUnread = (!(_chatPanelOpen && _chatView === "room"))
-      ? Math.max(0, _chatRoomTotal - _chatSeenCount) : 0;
-    cur.appendChild(_pvcRowInner("🎮", "Current Game Chat", "Everyone in this match", "", curUnread, true));
-    cur.addEventListener("click", () => pvcOpenRoom());
-    listEl.appendChild(cur);
+    const picks = pvcComposeRecipients();
+    const pickUids = picks.map(r => r.uid);
+    const filtering = pickUids.length > 0;
+
+    // Current Game Chat — always first (hidden while searching for people).
+    if (!filtering) {
+      const cur = document.createElement("div");
+      cur.className = "pvc-row current";
+      const curUnread = (!(_chatPanelOpen && _chatView === "room"))
+        ? Math.max(0, _chatRoomTotal - _chatSeenCount) : 0;
+      cur.appendChild(_pvcRowInner("🎮", "Current Game Chat", "Everyone in this match", "", curUnread, true));
+      cur.addEventListener("click", () => pvcOpenRoom());
+      listEl.appendChild(cur);
+    }
 
     if (!M || !M.ready()) {
       const note = document.createElement("div");
@@ -24198,10 +24215,11 @@
       return;
     }
 
-    const convs = M.conversations();
+    const convs = M.conversations().filter(c => _pvcConvMatches(c, pickUids));
     if (convs.length) {
       const sub = document.createElement("div");
-      sub.className = "pvc-list-sub"; sub.textContent = "Direct & Group Chats";
+      sub.className = "pvc-list-sub";
+      sub.textContent = filtering ? "Existing chats" : "Direct & Group Chats";
       listEl.appendChild(sub);
       convs.forEach(c => {
         const row = document.createElement("div");
@@ -24223,7 +24241,11 @@
     } else {
       const note = document.createElement("div");
       note.className = "pvc-list-empty";
-      note.textContent = "No other chats yet. Tap ＋ to start a group, or message a friend from the lobby.";
+      note.textContent = filtering
+        ? (picks.length >= 2
+            ? "No group with these players yet — tap “Create Group” above to start one."
+            : "No chat yet — tap “Message” above to start one.")
+        : "No other chats yet. Search a player above to start a chat or group.";
       listEl.appendChild(note);
     }
   }
@@ -24261,6 +24283,7 @@
     const M = _pvcMsg();
     if (!M || !conv) return;
     _pvcStashDraft();                            // save the chat we're leaving
+    if (_pvcComposer) _pvcComposer.reset();      // opening a chat clears the search bar
     _chatConv = {
       id: conv.id, group: !!conv.group,
       peerUid: conv.peerUid, peerName: conv.peerName, name: conv.group ? conv.name : conv.peerName,
@@ -24293,6 +24316,11 @@
       e.textContent = "No messages yet. Say hi! 🐟"; wrap.appendChild(e);
     } else {
       msgs.forEach(m => {
+        if (m.system) {
+          const sys = document.createElement("div"); sys.className = "pvc-sys";
+          sys.textContent = m.text || ""; wrap.appendChild(sys);
+          return;
+        }
         const mine = m.sender === myUid;
         const b = document.createElement("div"); b.className = "pvc-bubble " + (mine ? "mine" : "theirs");
         if (_chatConv.group && !mine) {
@@ -24340,6 +24368,47 @@
     else await M.sendDM(_chatConv.peerUid, _chatConv.peerName, text);
   }
 
+  // ── Rename a group by tapping its title (inline edit) ───────────
+  function pvcRenameGroupTitle() {
+    const M = _pvcMsg();
+    if (!M || !_chatConv || !_chatConv.group) return;
+    if (M.isGuest && M.isGuest()) { if (typeof showToast === "function") showToast("Sign in to rename groups.", "info"); return; }
+    const title = _pg("pv-chat-title");
+    if (!title || title.dataset.editing === "1") return;
+    const cur = _chatConv.name || "";
+    title.dataset.editing = "1";
+    const input = document.createElement("input");
+    input.type = "text"; input.maxLength = 40; input.value = cur;
+    input.className = "pvc-title-edit";
+    title.textContent = "";
+    title.appendChild(input);
+    setTimeout(() => { input.focus(); input.select(); }, 20);
+    let done = false;
+    const finish = async (commit) => {
+      if (done) return; done = true;
+      const newName = (input.value || "").trim();
+      title.dataset.editing = "";
+      if (commit && newName && newName !== cur) {
+        const r = await M.renameGroup(_chatConv.id, newName);
+        if (r && r.error) {
+          if (typeof showToast === "function") showToast(r.error, "err");
+          title.textContent = cur; return;
+        }
+        _chatConv.name = (r && r.name) || newName;
+        title.textContent = _chatConv.name;
+        pvcRenderConv();                          // surface the "X changed the name" notice
+      } else {
+        title.textContent = cur;
+      }
+    };
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter")  { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+  }
+
   // ── Open / close the whole panel ────────────────────────────────
   function pvcOpenPanel() {
     _chatPanelOpen = true;
@@ -24349,7 +24418,6 @@
     pvcApplyPosition();
     // Restore the last view (defaults to Current Game Chat on first open).
     if (_chatView === "conv" && _chatConv) { pvcShowView("conv"); pvcRenderConv(); if (_chatConv.id && _pvcMsg()) _pvcMsg().markRead(_chatConv.id); }
-    else if (_chatView === "new") { pvcEnsureComposer(); pvcShowView("new"); if (_pvcComposer) _pvcComposer.focus(); }  // keep in-progress recipients
     else if (_chatView === "list") pvcShowView("list");
     else pvcOpenRoom();
     pvcUpdateBadges();
@@ -24371,9 +24439,12 @@
     _pvcStashDraft();
     pvcShowView("list");
   });
-  _pg("pv-chat-newgrp").addEventListener("click", pvcOpenCompose);
   _pg("pv-chat-gear").addEventListener("click", () => {
     if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
+  });
+  // Tap a group conversation's title to rename it (sends an in-chat notice).
+  _pg("pv-chat-title").addEventListener("click", () => {
+    if (_chatView === "conv" && _chatConv && _chatConv.group) pvcRenameGroupTitle();
   });
 
   // Room send (Current Game Chat) — unchanged server path.
@@ -29152,8 +29223,21 @@
       if (msgsEl && _msgOpenConvId) msgsEl.innerHTML = banner;
     }
 
-    async function _msgRenderList(searchTerm) {
-      const myGen = ++_msgListRenderGen;
+    // Players picked in the search bar (or [] when empty).
+    function _ccmComposeRecipients() {
+      return (_ccmComposer && _ccmComposer.getRecipients) ? _ccmComposer.getRecipients() : [];
+    }
+    // Does conversation c include EVERY player picked in the search bar?
+    function _msgConvMatches(c, pickUids) {
+      if (!pickUids.length) return true;
+      if (c.group) {
+        const have = (Array.isArray(c.members) ? c.members : []).map(m => m.uid);
+        return pickUids.every(u => have.indexOf(u) !== -1);
+      }
+      return pickUids.length === 1 && c.peerUid === pickUids[0];
+    }
+
+    function _msgRenderList() {
       const listEl    = $a("ccm-list");
       const convView  = $a("ccm-conv-view");
       const searchRow = $a("ccm-search-row");
@@ -29161,20 +29245,23 @@
       const titleEl   = $a("ccm-title");
       if (!listEl) return;
 
-      const composeEl = $a("ccm-compose");
       listEl.classList.remove("hide");
       if (searchRow) searchRow.classList.remove("hide");
       if (convView)  convView.classList.remove("show");
-      if (composeEl) composeEl.classList.remove("show");
       if (backBtn)   backBtn.classList.remove("show");
-      if (titleEl)   titleEl.textContent = "Friend Messages";
+      if (titleEl)   { titleEl.textContent = "Friend Messages"; titleEl.classList.remove("editable"); }
       _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
 
-      listEl.innerHTML = "";
-      const term = (searchTerm || "").trim().toLowerCase();
+      // Build / show the search-to-message bar (recipient picker).
+      _ccmEnsureComposer();
+      const picks    = _ccmComposeRecipients();
+      const pickUids = picks.map(r => r.uid);
+      const filtering = pickUids.length > 0;
 
-      // In-game room-chat bridge entry
-      if (typeof roomId !== "undefined" && roomId && !term) {
+      listEl.innerHTML = "";
+
+      // In-game room-chat bridge entry (hidden while searching for people).
+      if (!filtering && typeof roomId !== "undefined" && roomId) {
         const room = document.createElement("div");
         room.className = "ccm-conv room-chat";
         room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">🎮</span></div>"
@@ -29195,36 +29282,9 @@
         return;
       }
 
-      let friends = [];
-      try { friends = await loadFriends(_authUser.uid); } catch {}
-      if (myGen !== _msgListRenderGen) return; // stale — a newer render already claimed the list
-
-      // Search mode → matching players to start a new chat. Searches ALL
-      // players (not just friends) so you can message anyone by name; friends
-      // are listed first. Clicking a result opens/creates the direct message.
-      if (term) {
-        let players = [];
-        try { players = await _msgSearchPlayers(term, 12); } catch {}
-        if (myGen !== _msgListRenderGen) return;
-        const friendMatches = friends.filter(f => String(f.nickname || "").toLowerCase().includes(term));
-        const shown = {};
-        let any = false;
-        friendMatches.forEach(f => { if (f.uid) shown[f.uid] = true; listEl.appendChild(_msgFriendRow(f)); any = true; });
-        players.forEach(pl => { if (shown[pl.uid]) return; shown[pl.uid] = true; listEl.appendChild(_msgPlayerRow(pl)); any = true; });
-        if (!any) {
-          listEl.innerHTML = "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">🔍</div>No players match “" + escapeHtml(term) + "”.</div>";
-        }
-        return;
-      }
-
-      if (!_msgConversations.length && !friends.length) {
-        listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Add friends to start messaging.</div>");
-        return;
-      }
-
-      if (_msgConversations.length) {
-        _msgConversations.forEach(c => {
+      const convs = _msgConversations.filter(c => _msgConvMatches(c, pickUids));
+      if (convs.length) {
+        convs.forEach(c => {
           const row = document.createElement("div");
           row.className = "ccm-conv";
           const previewText = escapeHtml(c.last_text || "No messages yet");
@@ -29249,9 +29309,16 @@
           _msgDecorateRow(row, c.peerUid, c.peerName);
           listEl.appendChild(row);
         });
+      } else if (filtering) {
+        listEl.insertAdjacentHTML("beforeend",
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>"
+          + (picks.length >= 2
+              ? "No group with these players yet — tap “Create Group” above to start one."
+              : "No chat yet — tap “Message” above to start one.")
+          + "</div>");
       } else {
         listEl.insertAdjacentHTML("beforeend",
-          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Choose a friend to start messaging.</div>");
+          "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>Search a player above to start a chat or group.</div>");
       }
     }
 
@@ -29285,10 +29352,13 @@
     // New-message composer in the drawer (recipient picker; 1 = DM, 2+ = group).
     // Uses the SAME shared FishCompose + startChat path as the in-game panel.
     let _ccmComposer = null;
+    let _ccmBuilding = false;
     function _ccmEnsureComposer() {
       if (_ccmComposer) return _ccmComposer;
+      if (_ccmBuilding) return null;             // onChange can fire mid-build — don't recurse
       const host = $a("ccm-compose");
       if (!host || typeof window.FishCompose !== "function") return null;
+      _ccmBuilding = true;
       _ccmComposer = window.FishCompose(host, "ccm", async (recipients, name) => {
         const res = await _msgStartChat(recipients, name);
         if (!res || res.error) {
@@ -29298,25 +29368,12 @@
         if (_ccmComposer) _ccmComposer.reset();
         if (res.group) _msgOpenGroupConv(res.convId);
         else _msgOpenConversation(res.peerUid, res.peerName);
+      }, () => {                                   // recipients changed → re-filter the list live
+        const drawer = $a("cc-msg-drawer");
+        if (drawer && drawer.classList.contains("open") && !_msgOpenConvId) _msgRenderList();
       });
+      _ccmBuilding = false;
       return _ccmComposer;
-    }
-    function _msgShowCompose() {
-      if (!_authUser || _guestSessionActive === true) {
-        if (typeof showToast !== "undefined") showToast("Sign in to start a chat.", "info");
-        return;
-      }
-      const listEl = $a("ccm-list"), convView = $a("ccm-conv-view"), searchRow = $a("ccm-search-row"),
-            backBtn = $a("ccm-back-btn"), titleEl = $a("ccm-title"), compose = $a("ccm-compose");
-      if (listEl)    listEl.classList.add("hide");
-      if (searchRow) searchRow.classList.add("hide");
-      if (convView)  convView.classList.remove("show");
-      if (compose)   compose.classList.add("show");
-      if (backBtn)   backBtn.classList.add("show");
-      if (titleEl)   titleEl.textContent = "New Message";
-      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
-      const c = _ccmEnsureComposer();
-      if (c) { c.reset(); c.focus(); }
     }
 
     async function _msgDecorateRow(row, peerUid, peerName) {
@@ -29340,6 +29397,7 @@
 
     function _msgOpenConversation(peerUid, peerName) {
       if (!_authUser || !peerUid) return;
+      if (_ccmComposer) _ccmComposer.reset();      // opening a chat clears the search bar
       _msgOpenPeer   = { uid: peerUid, name: peerName };
       _msgOpenGroup  = null;
       _msgOpenConvId = _convIdFor(_authUser.uid, peerUid);
@@ -29350,6 +29408,7 @@
     // Open a group conversation in the drawer.
     function _msgOpenGroupConv(convId) {
       if (!_authUser || !convId) return;
+      if (_ccmComposer) _ccmComposer.reset();      // opening a chat clears the search bar
       const meta = _msgGroupMeta(convId);
       _msgOpenGroup  = { id: convId, name: (meta && meta.name) || "Group",
                          members: (meta && meta.members) || [] };
@@ -29372,13 +29431,51 @@
       if (compose)   compose.classList.remove("show");
       if (convView)  convView.classList.add("show");
       if (backBtn)   backBtn.classList.add("show");
-      if (titleEl)   titleEl.textContent = title || "Conversation";
+      if (titleEl)   {
+        titleEl.textContent = title || "Conversation";
+        titleEl.classList.toggle("editable", !!_msgOpenGroup);   // tap to rename groups
+      }
 
       const guestNote = $a("ccm-guest-note");
       const inputRow  = $a("ccm-input-row");
       const isGuest   = (_guestSessionActive === true);
       if (guestNote) guestNote.style.display = isGuest ? "" : "none";
       if (inputRow)  inputRow.style.display  = isGuest ? "none" : "flex";
+    }
+
+    // Rename the open group by tapping its title (inline edit + in-chat notice).
+    async function _ccmRenameGroupTitle() {
+      if (!_msgOpenGroup || !_msgOpenConvId) return;
+      if (_guestSessionActive === true) { if (typeof showToast !== "undefined") showToast("Sign in to rename groups.", "info"); return; }
+      const titleEl = $a("ccm-title");
+      if (!titleEl || titleEl.dataset.editing === "1") return;
+      const cur = _msgOpenGroup.name || "";
+      titleEl.dataset.editing = "1";
+      const input = document.createElement("input");
+      input.type = "text"; input.maxLength = 40; input.value = cur; input.className = "ccm-title-edit";
+      titleEl.textContent = ""; titleEl.appendChild(input);
+      setTimeout(() => { input.focus(); input.select(); }, 20);
+      let done = false;
+      const finish = async (commit) => {
+        if (done) return; done = true;
+        const newName = (input.value || "").trim();
+        titleEl.dataset.editing = "";
+        if (commit && newName && newName !== cur) {
+          const r = await _msgRenameGroup(_msgOpenConvId, newName);
+          if (r && r.error) { if (typeof showToast !== "undefined") showToast(r.error, "err"); titleEl.textContent = cur; return; }
+          _msgOpenGroup.name = (r && r.name) || newName;
+          titleEl.textContent = _msgOpenGroup.name;
+          _msgRenderOpenConversation();           // surface the "X changed the name" notice
+        } else {
+          titleEl.textContent = cur;
+        }
+      };
+      input.addEventListener("click", (e) => e.stopPropagation());
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter")  { e.preventDefault(); finish(true); }
+        else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+      });
+      input.addEventListener("blur", () => finish(true));
     }
 
     // Render the currently-open conversation from the cached messages.
@@ -29394,6 +29491,11 @@
         msgsEl.innerHTML = "<div class=\"ccm-empty\" style=\"padding:24px;\">No messages yet. Say hi! 🐟</div>";
       } else {
         msgs.forEach(m => {
+          if (m.system) {
+            const sys = document.createElement("div"); sys.className = "ccm-sys";
+            sys.textContent = m.text || ""; msgsEl.appendChild(sys);
+            return;
+          }
           const mine = m.sender === _authUser.uid;
           const bub  = document.createElement("div");
           bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
@@ -29513,6 +29615,39 @@
         console.warn("[msg] group send failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return false; }
         if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
+        return false;
+      }
+    }
+
+    // Post a system notice (e.g. "X renamed the group") to every current
+    // member. Stored like a group message but flagged system:true so it renders
+    // as a centered grey line, and read:true for everyone so it never nags.
+    async function _msgPostGroupSystem(convId, text) {
+      if (!_db || !_authUser || !convId) return false;
+      text = (text || "").trim();
+      if (!text) return false;
+      const meta = _msgGroupMeta(convId);
+      const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+      if (!members.length) return false;
+      const msgId = _db.collection("users").doc(_authUser.uid).collection("messages").doc().id;
+      const base  = {
+        conv_id:     convId,
+        group:       true,
+        system:      true,
+        sender:      _authUser.uid,
+        sender_name: _playerNickname || "Player",
+        text:        text,
+        ts:          firebase.firestore.FieldValue.serverTimestamp(),
+      };
+      try {
+        for (const pm of members) {
+          if (!pm || !pm.uid) continue;
+          await _db.collection("users").doc(pm.uid).collection("messages").doc(msgId)
+            .set(Object.assign({}, base, { read: true }));
+        }
+        return true;
+      } catch (e) {
+        console.warn("[msg] system notice failed:", e);
         return false;
       }
     }
@@ -29690,9 +29825,13 @@
       const meta = _msgGroupMeta(convId);
       const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
       if (!members.some(p => p && p.uid === _authUser.uid)) return { error: "You're not in this group." };
+      const oldName = (meta && meta.name) || "";
+      if (name === oldName) return { ok: true, name };   // nothing actually changed
       try {
         await _msgWriteMeta(convId, name, members, members);
         if (_msgOpenGroup && _msgOpenGroup.id === convId) _msgOpenGroup.name = name;
+        // Let everyone know who renamed it (iMessage-style centred notice).
+        try { await _msgPostGroupSystem(convId, (_playerNickname || "Someone") + " changed the group name to “" + name + "”"); } catch (_) {}
         return { ok: true, name };
       } catch (e) {
         console.warn("[msg] rename group failed:", e);
@@ -29759,6 +29898,8 @@
       drawer.classList.toggle("in-game", inGame);
       drawer.classList.add("open");
       if (_authUser) _msgStartListListener();
+      _ccmEnsureComposer();
+      if (_ccmComposer) _ccmComposer.reset();      // fresh search bar each time the drawer opens
       _msgRenderList();
     }
     function _msgCloseDrawer() {
@@ -29809,23 +29950,18 @@
     const _ccmClose = $a("ccm-close");
     if (_ccmClose) _ccmClose.addEventListener("click", _msgCloseDrawer);
     const _ccmBack = $a("ccm-back-btn");
-    if (_ccmBack) _ccmBack.addEventListener("click", () => _msgRenderList());
+    if (_ccmBack) _ccmBack.addEventListener("click", () => { if (_ccmComposer) _ccmComposer.reset(); _msgRenderList(); });
     const _ccmSend = $a("ccm-send");
     if (_ccmSend) _ccmSend.addEventListener("click", _msgSend);
     const _ccmInput = $a("ccm-input");
     if (_ccmInput) _ccmInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); _msgSend(); }
     });
-    const _ccmSearch = $a("ccm-search");
-    if (_ccmSearch) {
-      let _searchTimer = null;
-      _ccmSearch.addEventListener("input", () => {
-        clearTimeout(_searchTimer);
-        _searchTimer = setTimeout(() => _msgRenderList(_ccmSearch.value), 200);
-      });
-    }
-    const _ccmNew = $a("ccm-newchat-btn");
-    if (_ccmNew) _ccmNew.addEventListener("click", _msgShowCompose);
+    // The drawer title doubles as a rename control when a group is open.
+    const _ccmTitle = $a("ccm-title");
+    if (_ccmTitle) _ccmTitle.addEventListener("click", () => {
+      if (_msgOpenGroup && _msgOpenConvId) _ccmRenameGroupTitle();
+    });
     // Start listening to conversations as soon as we know the user (badge updates)
     if (_authUser) _msgStartListListener();
 
