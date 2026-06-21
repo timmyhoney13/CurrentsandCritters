@@ -2716,6 +2716,58 @@ class GameRoom:
                 self.status_note = "Game running."
             self._bump_locked()
 
+    def _apply_pending_undo_restore(self, gs: fish.GameState, ms: fish.MatchState) -> Optional["fish.Action"]:
+        """Flag-driven undo for when no active human is consuming the request.
+
+        The queue-based path (undo_confirm / undo_mid_turn) only works when a human
+        policy is blocked in _wait_for_action ready to pick the command up. When the
+        player after you is an AI — or the table is momentarily between turns —
+        active_action_seat is None, so there is nobody to route the undo to and the
+        request was silently dropped (the bug: "undo does nothing, cards not put
+        back"). To fix that, every policy (AI and human) calls this at the top of its
+        turn. If an undo is armed (self.undo_requested) and a snapshot exists, restore
+        the pre-turn state in place and return Action(kind='undo') so the engine
+        rewinds and replays the previous human's turn. Returns None when nothing is
+        pending — the common case, a cheap flag read with no copying."""
+        gs_restore: Any = None
+        ms_restore: Any = None
+        with self.cond:
+            if self.undo_requested and self.undo_valid and self.undo_snapshot_gs is not None:
+                gs_restore = copy.deepcopy(self.undo_snapshot_gs)
+                ms_restore = copy.deepcopy(self.undo_snapshot_ms)
+        if gs_restore is None:
+            return None
+        # TRUE REVERT to the turn-start snapshot — same exact deck/END-GAME layout,
+        # so re-drawing yields the same cards (no reroll) and end game cannot trigger
+        # early. Mirrors the in-policy undo_confirm restore below.
+        try:
+            _eg_probs = fish.validate_end_game_placement(gs_restore, ms_restore, where="post-undo-restore-flag")
+            for _p in _eg_probs:
+                self._record_event(f"⚠ END GAME PLACEMENT: {_p}")
+        except Exception:
+            pass
+        gs.__dict__.clear()
+        gs.__dict__.update(gs_restore.__dict__)
+        ms.__dict__.clear()
+        ms.__dict__.update(ms_restore.__dict__)
+        with self.cond:
+            self.undo_requested = False
+            self.undo_valid = False
+            self.undo_snapshot_gs = None
+            self.undo_snapshot_ms = None
+            self._undo_pending_gs = None
+            self._undo_pending_ms = None
+            self._undo_pending_seat = None
+            self.legal_actions_by_seat.clear()
+            # A rewind invalidates anything queued for the (now-discarded) future.
+            self.pending_actions.clear()
+            self.active_action_seat = None
+            self.status_note = "Undo granted — replaying previous player's turn."
+            self._bump_locked()
+        # The engine re-reads p = gs.current_player() after it sees this action, so
+        # the stale `player` reference held by the caller is harmless.
+        return fish.Action(kind="undo")
+
     def _human_policy(self, seat_index: int):
         # Per-policy state: when a timeout-fallback fires during the draw phase,
         # auto-end the turn on the very next action request instead of waiting
@@ -2724,6 +2776,11 @@ class GameRoom:
 
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             while True:
+                # Honor a flag-armed undo (requested while no human was active, e.g.
+                # during a bot turn that has now ended) before this human acts.
+                undo_action = self._apply_pending_undo_restore(gs, ms)
+                if undo_action is not None:
+                    return undo_action
                 actions = fish.legal_actions(gs, ms, player, include_draw=True)
                 replay_action = self._replay_action_if_available(gs, ms, player, seat_index, actions)
                 if replay_action is not None:
@@ -2917,6 +2974,7 @@ class GameRoom:
                             self._undo_pending_ms = None
                             self._undo_pending_seat = None
                             self.legal_actions_by_seat.clear()
+                            self.pending_actions.clear()
                             self.active_action_seat = None
                             self.status_note = f"{player.name} undid their draw — turn restarted."
                             self._bump_locked()
@@ -2946,6 +3004,8 @@ class GameRoom:
                             self._undo_pending_ms = None
                             self._undo_pending_seat = None
                             self.legal_actions_by_seat.clear()
+                            # A rewind invalidates anything queued for the discarded future.
+                            self.pending_actions.clear()
                             self.active_action_seat = None
                             self.status_note = "Undo granted — replaying previous player's turn."
                             self._bump_locked()
@@ -3075,6 +3135,13 @@ class GameRoom:
         strategy_transition_count_map: Dict[str, int],
     ):
         def policy(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
+            # Honor a human's pending undo before this bot acts. Without this, undo
+            # silently failed for the entire duration of every AI turn (the active
+            # seat is None during bot turns, so there was nobody to route it to).
+            undo_action = self._apply_pending_undo_restore(gs, ms)
+            if undo_action is not None:
+                return undo_action
+
             actions = fish.legal_actions(gs, ms, player, include_draw=True)
             replay_action = self._replay_action_if_available(gs, ms, player, seat_index, actions)
             if replay_action is not None:
@@ -4429,6 +4496,10 @@ class GameRoom:
                 "undo": {
                     "eligible_seat": self.undo_eligible_seat,
                     "valid": bool(self.undo_valid),
+                    # True once an undo has been requested but not yet replayed — the
+                    # client hides the button so it can't be double-clicked while the
+                    # engine (often an AI mid-turn) is still picking the request up.
+                    "requested": bool(self.undo_requested),
                 },
                 # Set only when the match ended because a player left (competitive
                 # forfeit). The remaining player's client uses winner/loser here to
@@ -4862,10 +4933,12 @@ class GameRoom:
                 return {"ok": False, "error": "undo not available"}
             if seat.index != self.undo_eligible_seat:
                 return {"ok": False, "error": "not your undo to use"}
+            if self.undo_snapshot_gs is None:
+                # undo_valid should never be True without a snapshot, but never arm
+                # an undo we cannot actually restore.
+                return {"ok": False, "error": "undo not available — no snapshot"}
             active = self.active_action_seat
-            if active is None:
-                return {"ok": False, "error": "undo not available — no active player"}
-            if active == seat.index:
+            if active is not None and active == seat.index:
                 # Mid-turn undo: player is still in their own turn (e.g. drew first card).
                 # Inject undo_mid_turn directly into their own pending queue so the
                 # engine picks it up on the next policy wait and restores the snapshot.
@@ -4873,9 +4946,24 @@ class GameRoom:
                 self.pending_actions.setdefault(seat.index, []).insert(0, {"kind": "undo_mid_turn"})
                 self._bump_locked()
                 return {"ok": True}
-            # Post-turn undo: route through the next active player as before.
+            active_seat_obj = (
+                next((s for s in self.seats if s.index == active), None) if active is not None else None
+            )
+            if active_seat_obj is not None and active_seat_obj.kind == "human":
+                # Post-turn undo, next player is a human waiting for input: route the
+                # undo through their pending queue so _wait_for_action wakes instantly
+                # and replays the previous player's turn.
+                self.undo_requested = True
+                self.pending_actions.setdefault(active, []).insert(0, {"kind": "undo_confirm"})
+                self._bump_locked()
+                return {"ok": True}
+            # No active HUMAN is waiting — an AI is taking its turn (active_action_seat
+            # is None for the whole duration of every bot turn) or the table is between
+            # turns. Arm the undo flag; the next policy to run on the engine thread (AI
+            # or human) calls _apply_pending_undo_restore, restores the snapshot, and
+            # signals the engine to replay the previous human's turn. This is the path
+            # that fixes "undo does nothing" in games with bots.
             self.undo_requested = True
-            self.pending_actions.setdefault(active, []).insert(0, {"kind": "undo_confirm"})
             self._bump_locked()
         return {"ok": True}
 

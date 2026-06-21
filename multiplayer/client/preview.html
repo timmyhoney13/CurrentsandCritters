@@ -12720,11 +12720,16 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.1";
-  const APP_BUILD   = "2026-06-20.1";
+  const APP_VERSION = "1.5.2";
+  const APP_BUILD   = "2026-06-20.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.5.2", title: "Undo now works during bot turns", items: [
+      "Fixed the Undo Turn button doing nothing when you pressed it while the bots were taking their turns — it now reliably puts your cards back and replays your turn, exactly as the button promises.",
+      "Your hand, the deck and the End Game card all revert to precisely how they were when your turn started, so re-drawing gives you the same cards (no reroll) and the game can't end early.",
+      "The button now dims briefly while an undo is being applied, so a double-tap can't fire it twice.",
+    ]},
     { ver: "V1.5.1", title: "Live profile icons + smarter engine turns", items: [
       "Changing your profile/character icon now updates instantly for everyone — your own profile, other players' views, friends, lobbies and in-game seats — with no stale or cached icon left behind.",
       "The Loggerhead Sea Turtle now ends its turn once there's nothing left to play, instead of paying to dump oceans it doesn't need (matching the Hermit Crab's baitfish chain).",
@@ -17028,7 +17033,9 @@
       if (!isMyTurn) _afkForced = false;
       // eligible_seat is a seat index; compare to mySeatIdx (never game index).
       // Block undo when the action was auto-drawn due to an AFK vote (player did not interact).
-      const canUndo = Boolean(undoInfo.valid) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat && !_afkForced;
+      // Also block while a request is already in flight (undoInfo.requested) — an AI
+      // mid-turn may still be picking it up, so a second click would be a no-op.
+      const canUndo = Boolean(undoInfo.valid) && !Boolean(undoInfo.requested) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat && !_afkForced;
       undoBtn.style.display = "";
       undoBtn.disabled = !canUndo;
       undoBtn.title = _afkForced

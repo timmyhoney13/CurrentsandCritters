@@ -3220,8 +3220,16 @@
         const undoInfo = payload.undo || {};
         const undoEligibleSeat = Number.isInteger(undoInfo.eligible_seat) ? undoInfo.eligible_seat : null;
         const undoValid = Boolean(undoInfo.valid);
-        const myUndoAvailable = undoValid && undoEligibleSeat !== null && undoEligibleSeat === myIdx && !canInteract;
+        const undoRequested = Boolean(undoInfo.requested);
+        // Hide while a request is in flight (undoRequested) so it can't be double-
+        // clicked while the engine — often an AI mid-turn — is still replaying it.
+        const myUndoAvailable = undoValid && !undoRequested && undoEligibleSeat !== null && undoEligibleSeat === myIdx && !canInteract;
         undoBtn.style.display = myUndoAvailable ? "" : "none";
+        if (myUndoAvailable && undoBtn.disabled) {
+          // A previous turn's "Undoing…" left it disabled; this is a fresh window.
+          undoBtn.disabled = false;
+          undoBtn.textContent = "↩ Undo My Last Turn";
+        }
         undoBtn.onclick = async () => {
           undoBtn.disabled = true;
           undoBtn.textContent = "Undoing…";
