@@ -3830,40 +3830,80 @@
     }
 
     /* ── CHAT ───────────────────────────────────────────────────── */
-    #pv-chat-btn {
-      position: fixed; bottom: 18px; right: 18px; z-index: 1800;
-      width: 48px; height: 48px; border-radius: 50%;
-      background: linear-gradient(135deg, #0d6cb0, #0a5490);
-      border: 2px solid #2a80c0; cursor: pointer;
-      font-size: 20px; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 16px rgba(0,0,0,.5);
-      transition: transform .15s, box-shadow .15s;
+    /* Chat button — lives inside #bs-ctrl, directly below the minus button,
+       styled to match the board-size cluster art. */
+    #bs-chat-sep {
+      width: 30px; height: 1px; margin: 3px 0 1px;
+      background: rgba(95,179,214,.32);
     }
-    #pv-chat-btn:hover { transform: scale(1.1); box-shadow: 0 6px 22px rgba(13,108,176,.6); }
+    #pv-chat-btn {
+      position: relative;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 1px; width: 44px; padding: 5px 0 4px;
+      background: rgba(95,179,214,.14);
+      border: 1.5px solid rgba(95,179,214,.4);
+      border-radius: 10px;
+      color: #d4eaf8; cursor: pointer;
+      transition: background .14s, border-color .14s, transform .08s;
+      font-family: "Nunito", sans-serif;
+    }
+    #pv-chat-btn:hover { background: rgba(95,179,214,.28); border-color: #5fb3d6; }
+    #pv-chat-btn:active { transform: scale(.94); }
+    #pv-chat-btn .pvc-btn-ico { font-size: 17px; line-height: 1; }
+    #pv-chat-btn .pvc-btn-lbl {
+      font-size: 8.5px; font-weight: 800; letter-spacing: .3px;
+      text-transform: uppercase; color: #7aafcc; line-height: 1;
+    }
     #pv-chat-btn .chat-badge {
-      position: absolute; top: -4px; right: -4px;
+      position: absolute; top: -6px; right: -6px;
       background: var(--red); color: #fff; font-size: 9px; font-weight: 800;
-      border-radius: 8px; padding: 1px 5px; display: none;
+      min-width: 16px; height: 16px; line-height: 16px; text-align: center;
+      border-radius: 8px; padding: 0 4px; display: none;
+      box-shadow: 0 0 0 2px rgba(6,16,42,.95);
     }
     #pv-chat-panel {
-      position: fixed; bottom: 76px; right: 18px; z-index: 1800;
-      width: 300px; max-height: 420px;
-      background: linear-gradient(160deg, rgba(22,58,118,.97) 0%, rgba(14,40,88,.99) 100%);
-      border: 1px solid rgba(58,120,204,.28); border-radius: 12px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.45);
+      position: fixed; bottom: 70px; right: 16px; z-index: 1850;
+      width: 330px; height: 460px; max-height: calc(100vh - 90px); max-width: calc(100vw - 24px);
+      background: linear-gradient(160deg, rgba(22,58,118,.98) 0%, rgba(12,34,76,.99) 100%);
+      border: 1.5px solid rgba(95,179,214,.42); border-radius: 14px;
+      box-shadow: 0 14px 50px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04);
       display: none; flex-direction: column; overflow: hidden;
     }
     #pv-chat-panel.open { display: flex; }
+    #pv-chat-panel.dragging { transition: none; user-select: none; }
     #pv-chat-hdr {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 10px 14px; border-bottom: 1px solid rgba(48,200,240,.15);
-      font-size: 12px; font-weight: 700; color: var(--cyan);
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px 9px 12px; border-bottom: 1px solid rgba(95,179,214,.18);
+      font-size: 13px; font-weight: 800; color: var(--cyan);
+      cursor: grab; flex-shrink: 0; touch-action: none;
+      background: linear-gradient(180deg, rgba(30,72,140,.55), rgba(20,52,108,.25));
     }
-    #pv-chat-hdr button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
-    #pv-chat-hdr button:hover { color: var(--red); }
+    #pv-chat-hdr:active { cursor: grabbing; }
+    #pv-chat-title {
+      flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: "Cinzel", serif; font-size: 13.5px; font-weight: 900; color: #bfe6fb;
+    }
+    .pvc-hdr-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .pvc-hbtn {
+      position: relative;
+      background: none; border: none; color: #8fb8d8; cursor: pointer;
+      font-size: 16px; line-height: 1; padding: 4px 6px; border-radius: 7px;
+    }
+    .pvc-hbtn:hover { color: #fff; background: rgba(95,179,214,.18); }
+    #pv-chat-close:hover { color: var(--red); }
+    #pv-chat-back { font-size: 20px; font-weight: 800; }
+    .pvc-back-dot {
+      position: absolute; top: 2px; right: 2px; width: 8px; height: 8px;
+      border-radius: 50%; background: var(--red); display: none;
+      box-shadow: 0 0 0 2px rgba(16,42,84,.95);
+    }
+    .pvc-back-dot.show { display: block; }
+    /* View switching — only the active view is shown */
+    .pvc-view { flex: 1; min-height: 0; display: none; flex-direction: column; }
+    .pvc-view.active { display: flex; }
     #pv-chat-messages {
       flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
-      min-height: 60px; max-height: 280px;
+      min-height: 60px;
     }
     .chat-msg { font-size: 11px; line-height: 1.5; display: flex; align-items: flex-start; gap: 7px; }
     .chat-msg .cm-avatar {
@@ -3886,8 +3926,96 @@
     #pv-chat-to { font-size: 11px; background: rgba(22,56,110,.8); border: 1px solid var(--border); color: #dde; border-radius: 5px; padding: 3px 6px; flex: 1; }
     #pv-chat-msg-row { display: flex; gap: 6px; }
     #pv-chat-text { flex: 1; font-size: 11px; background: rgba(22,56,110,.8); border: 1px solid var(--border); color: #dde; border-radius: 5px; padding: 5px 8px; resize: none; }
-    #pv-chat-send { background: var(--cyan); color: #0A2448; font-size: 11px; font-weight: 700; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+    #pv-chat-send { background: var(--cyan); color: #0A2448; font-size: 11px; font-weight: 700; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; align-self: stretch; }
     #pv-chat-send:hover { opacity: .85; }
+
+    /* ── CHAT LIST VIEW (Current Game Chat + DMs + groups) ───────── */
+    #pv-chat-list { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+    .pvc-row {
+      display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+      border-radius: 11px; cursor: pointer; transition: background .14s; position: relative;
+    }
+    .pvc-row:hover { background: rgba(95,179,214,.14); }
+    .pvc-row.current { background: rgba(232,179,74,.12); border: 1px solid rgba(232,179,74,.34); margin-bottom: 4px; }
+    .pvc-row.current:hover { background: rgba(232,179,74,.2); }
+    .pvc-av {
+      width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; overflow: hidden; position: relative;
+      background: linear-gradient(145deg,#2f8be3,#1f66bc); display: flex; align-items: center; justify-content: center;
+      border: 1.5px solid rgba(95,179,214,.4);
+    }
+    .pvc-av img { width: 100%; height: 100%; object-fit: cover; }
+    .pvc-av-letter { color: #fff; font-weight: 900; font-size: 16px; font-family: "Cinzel", serif; }
+    .pvc-row-body { flex: 1; min-width: 0; }
+    .pvc-row-top { display: flex; align-items: baseline; gap: 6px; }
+    .pvc-row-name { font-size: 12.5px; font-weight: 800; color: #dcecfb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+    .pvc-row-time { font-size: 9.5px; color: #7fa6cc; flex-shrink: 0; }
+    .pvc-row-prev { font-size: 11px; color: #93b4d4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .pvc-row-unread {
+      min-width: 17px; height: 17px; padding: 0 5px; border-radius: 9px; background: var(--red);
+      color: #fff; font-size: 10px; font-weight: 800; line-height: 17px; text-align: center; flex-shrink: 0;
+    }
+    .pvc-list-empty { text-align: center; color: #8fb0d0; font-size: 12px; padding: 28px 18px; line-height: 1.6; }
+    .pvc-list-sub { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #6f9bc4; padding: 8px 10px 4px; }
+
+    /* ── CONVERSATION VIEW (DM / group) ──────────────────────────── */
+    #pv-chat-conv-msgs { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 5px; }
+    .pvc-bubble { max-width: 80%; padding: 6px 10px; border-radius: 13px; font-size: 12px; line-height: 1.4; word-break: break-word; position: relative; }
+    .pvc-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
+    .pvc-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.1); color: #e6f0fa; border: 1px solid rgba(95,179,214,.28); border-bottom-left-radius: 4px; }
+    .pvc-bubble-sender { display: block; font-size: 10px; font-weight: 800; color: var(--gold); margin-bottom: 1px; }
+    .pvc-bubble-time { font-size: 9px; opacity: .65; margin-top: 2px; display: block; text-align: right; }
+    .pvc-conv-empty { text-align: center; color: #8fb0d0; font-size: 12px; padding: 24px; }
+    #pv-chat-conv-input { display: flex; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(95,179,214,.18); flex-shrink: 0; }
+    #pv-chat-conv-text {
+      flex: 1; min-width: 0; font-size: 12px; background: rgba(22,56,110,.8); border: 1px solid var(--border);
+      color: #dde; border-radius: 8px; padding: 7px 10px; resize: none; max-height: 80px; font-family: inherit;
+    }
+    #pv-chat-conv-send { background: var(--cyan); color: #0A2448; font-size: 12px; font-weight: 800; border: none; border-radius: 8px; padding: 0 14px; cursor: pointer; flex-shrink: 0; }
+    #pv-chat-conv-send:hover { opacity: .85; }
+    .pvc-guest-note { padding: 12px; text-align: center; font-size: 11.5px; color: #f0c674; background: rgba(232,179,74,.1); }
+
+    /* ── GROUP CREATE / SETTINGS MODAL ───────────────────────────── */
+    #pv-grp-modal {
+      display: none; position: fixed; inset: 0; z-index: 9900;
+      background: rgba(6,16,42,.62); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    #pv-grp-modal.open { display: flex; }
+    #pv-grp-box {
+      width: 100%; max-width: 360px; max-height: 88vh; overflow-y: auto;
+      background: linear-gradient(160deg, rgba(24,60,122,.99) 0%, rgba(14,38,84,.99) 100%);
+      border: 1.5px solid rgba(95,179,214,.45); border-radius: 16px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.6); padding: 18px 18px 16px;
+    }
+    #pv-grp-title { font-family: "Cinzel", serif; font-size: 16px; font-weight: 900; color: #bfe6fb; margin-bottom: 12px; }
+    .pvg-label { display: block; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; color: #7fa6cc; margin: 10px 0 4px; }
+    #pv-grp-name, #pv-grp-members {
+      width: 100%; box-sizing: border-box; font-size: 13px; font-family: inherit;
+      background: rgba(10,30,70,.85); border: 1px solid var(--border); color: #e6f0fa;
+      border-radius: 9px; padding: 9px 11px; resize: none;
+    }
+    #pv-grp-name:focus, #pv-grp-members:focus { outline: none; border-color: var(--cyan); }
+    #pv-grp-roster { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; }
+    .pvg-member { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #cfe2f5; padding: 4px 2px; }
+    .pvg-member .pvg-mdot { width: 7px; height: 7px; border-radius: 50%; background: #5fb3d6; flex-shrink: 0; }
+    .pvg-msg { font-size: 11.5px; line-height: 1.4; margin-top: 10px; min-height: 14px; }
+    .pvg-msg.err { color: #ff9aa6; }
+    .pvg-msg.ok  { color: #8be0a0; }
+    #pv-grp-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .pvg-btn {
+      font-size: 12.5px; font-weight: 800; border-radius: 9px; padding: 8px 14px; cursor: pointer;
+      border: 1px solid rgba(95,179,214,.4); background: rgba(95,179,214,.12); color: #d4eaf8;
+    }
+    .pvg-btn:hover { background: rgba(95,179,214,.24); }
+    .pvg-btn.primary { background: linear-gradient(135deg,#2e90e0,#1a6ad0); border-color: transparent; color: #fff; }
+    .pvg-btn.primary:hover { filter: brightness(1.08); }
+    .pvg-btn.danger { background: rgba(232,64,79,.16); border-color: rgba(232,64,79,.5); color: #ffb3bb; margin-right: auto; }
+    .pvg-btn.danger:hover { background: rgba(232,64,79,.3); }
+    .pvg-btn:disabled { opacity: .5; cursor: default; }
+
+    @media (max-width: 640px) {
+      #pv-chat-panel { width: calc(100vw - 20px); right: 10px; bottom: 64px; height: 70vh; }
+    }
 
     /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
@@ -8741,6 +8869,7 @@
     .ccm-bubble.mine { align-self: flex-end; background: linear-gradient(135deg,#2e90e0,#1a6ad0); color: #fff; border-bottom-right-radius: 4px; }
     .ccm-bubble.theirs { align-self: flex-start; background: rgba(255,255,255,.8); color: #16407e; border: 1px solid rgba(120,190,235,.4); border-bottom-left-radius: 4px; }
     .ccm-bubble-time { font-size: .62rem; opacity: .7; margin-top: 3px; display: block; }
+    .ccm-bubble-sender { display: block; font-size: .64rem; font-weight: 800; color: #1a6ad0; margin-bottom: 2px; }
     .ccm-input-row { display: flex; gap: 8px; padding: 12px; border-top: 1px solid rgba(120,190,235,.4); flex-shrink: 0; }
     .ccm-input-row textarea {
       flex: 1; min-width: 0; border-radius: 11px; border: 1px solid rgba(120,190,235,.5);
@@ -12030,12 +12159,19 @@
     <div id="igcp-footer">Tap header to switch Daily ↔ Weekly</div>
   </div>
 
-  <!-- ── IN-GAME BOARD SIZE CONTROL (lower-right, above Undo/End Turn) ── -->
+  <!-- ── IN-GAME BOARD SIZE CONTROL + CHAT (lower-right, above Undo/End Turn) ── -->
   <div id="bs-ctrl" aria-label="Board size controls">
     <div id="bs-label">Board<br>Size</div>
     <button id="bs-plus" class="bs-btn" title="Make the board bigger / closer  (press + or =)" aria-label="Increase board size">+</button>
     <div id="bs-readout" aria-live="polite">100%</div>
     <button id="bs-minus" class="bs-btn" title="Make the board smaller / farther  (press −)" aria-label="Decrease board size">−</button>
+    <!-- Chat button — sits directly below the minus button, part of the cluster -->
+    <div id="bs-chat-sep" aria-hidden="true"></div>
+    <button id="pv-chat-btn" title="Open chat" aria-label="Open chat" style="display:none;">
+      <span class="pvc-btn-ico">💬</span>
+      <span class="pvc-btn-lbl">Chat</span>
+      <span class="chat-badge" id="pv-chat-badge"></span>
+    </button>
   </div>
 
   <!-- Spectator panel — replaces hand area when spectating -->
@@ -12165,25 +12301,63 @@
 
 </div><!-- #pv-game -->
 
-<!-- ══ CHAT ═══════════════════════════════════════════════════════ -->
-<button id="pv-chat-btn" title="Toggle Chat" style="display:none;">
-  💬
-  <span class="chat-badge" id="pv-chat-badge"></span>
-</button>
-<div id="pv-chat-panel">
+<!-- ══ CHAT (in-game iMessage-style panel; button lives in #bs-ctrl) ═══ -->
+<div id="pv-chat-panel" role="dialog" aria-label="Chat">
   <div id="pv-chat-hdr">
-    <span>Chat</span>
-    <button id="pv-chat-close">✕</button>
-  </div>
-  <div id="pv-chat-messages"></div>
-  <div id="pv-chat-input-row">
-    <div id="pv-chat-target-row">
-      <label>To:</label>
-      <select id="pv-chat-to"><option value="Everyone">Everyone</option></select>
+    <button id="pv-chat-back" class="pvc-hbtn" title="Back to chats" aria-label="Back to chats" style="display:none;">‹<span class="pvc-back-dot" id="pv-chat-back-dot"></span></button>
+    <span id="pv-chat-title">Current Game Chat</span>
+    <div class="pvc-hdr-actions">
+      <button id="pv-chat-newgrp" class="pvc-hbtn" title="New group chat" aria-label="New group chat" style="display:none;">＋</button>
+      <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">⚙</button>
+      <button id="pv-chat-close" class="pvc-hbtn" title="Close chat" aria-label="Close chat">✕</button>
     </div>
-    <div id="pv-chat-msg-row">
-      <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
-      <button id="pv-chat-send">Send</button>
+  </div>
+
+  <!-- ROOM VIEW — Current Game Chat (server room chat; ids preserved) -->
+  <div id="pv-chat-view-room" class="pvc-view active">
+    <div id="pv-chat-messages"></div>
+    <div id="pv-chat-input-row">
+      <div id="pv-chat-target-row">
+        <label>To:</label>
+        <select id="pv-chat-to"><option value="Everyone">Everyone</option></select>
+      </div>
+      <div id="pv-chat-msg-row">
+        <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
+        <button id="pv-chat-send">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIST VIEW — Current Game Chat + direct messages + group chats -->
+  <div id="pv-chat-view-list" class="pvc-view">
+    <div id="pv-chat-list"></div>
+  </div>
+
+  <!-- CONVERSATION VIEW — a DM or group from the shared messaging layer -->
+  <div id="pv-chat-view-conv" class="pvc-view">
+    <div id="pv-chat-conv-msgs"></div>
+    <div id="pv-chat-conv-guest" class="pvc-guest-note" style="display:none;">Sign in to send messages.</div>
+    <div id="pv-chat-conv-input">
+      <textarea id="pv-chat-conv-text" rows="1" placeholder="Type a message…" maxlength="500"></textarea>
+      <button id="pv-chat-conv-send">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ GROUP CHAT CREATE / SETTINGS MODAL ═════════════════════════ -->
+<div id="pv-grp-modal" role="dialog" aria-modal="true" aria-label="Group chat settings">
+  <div id="pv-grp-box">
+    <div id="pv-grp-title">New Group Chat</div>
+    <label class="pvg-label" for="pv-grp-name">Group name</label>
+    <input id="pv-grp-name" type="text" maxlength="40" placeholder="e.g. Reef Crew" autocomplete="off" />
+    <label class="pvg-label" id="pv-grp-members-label" for="pv-grp-members">Add players (separate names with commas)</label>
+    <textarea id="pv-grp-members" rows="2" maxlength="300" placeholder="e.g. Finn, Coral, Marlin"></textarea>
+    <div id="pv-grp-roster" style="display:none;"></div>
+    <div id="pv-grp-msg" class="pvg-msg"></div>
+    <div id="pv-grp-actions">
+      <button id="pv-grp-leave" class="pvg-btn danger" style="display:none;">Leave</button>
+      <button id="pv-grp-cancel" class="pvg-btn">Cancel</button>
+      <button id="pv-grp-save" class="pvg-btn primary">Create</button>
     </div>
   </div>
 </div>
@@ -12720,8 +12894,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.2";
-  const APP_BUILD   = "2026-06-20.2";
+  const APP_VERSION = "1.5.3";
+  const APP_BUILD   = "2026-06-21.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -20187,6 +20361,8 @@
   let _handRenderKey = "";
   let _seatsRenderKey = "";
   let _opponentsRenderKey = "";
+  let _handCardEls  = [];  // live array of .pv-hand-card elements, refreshed by renderHand
+  let _handHoverIdx = -1;  // index of the currently hovered card, -1 = none
   function renderHand(me, actions, mustDiscard, discardExcess) {
     _handRenderData = { me, actions, mustDiscard, discardExcess };
     const zone = document.getElementById("pv-hand");
@@ -20196,6 +20372,9 @@
       handOrder: _handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
+    // Clear hover before wiping the DOM — old card elements are about to be removed.
+    _handHoverIdx = -1;
+    _handCardEls  = [];
     cl(zone);
     if (pendingPayAction) zone.classList.add("payment-active");
     else zone.classList.remove("payment-active");
@@ -20324,17 +20503,6 @@
         }
       });
 
-      // hover: Hearthstone lift
-      card.addEventListener("mouseenter", () => {
-        card.classList.add("hovered");
-        applyHandLayout(i);
-      });
-      card.addEventListener("mouseleave", () => {
-        card.classList.remove("hovered");
-        applyHandLayout(-1);
-      });
-
-
       // "Use as Payment" button — shown in payment mode on every card except the one being played
       const isCardBeingPlayed = pendingPayAction &&
         (Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid);
@@ -20386,6 +20554,8 @@
 
       zone.appendChild(card);
     });
+    // Update the stable card list used by the container-level hover hit-tester.
+    _handCardEls = Array.from(zone.querySelectorAll(".pv-hand-card[data-entry-uid]"));
 
     if (overflow > 0) {
       const ov = document.createElement("div"); ov.className = "pv-hand-overflow";
@@ -20398,6 +20568,64 @@
     _prevHandUIDs = newHandUIDs;
     try { window._applyStrategyHighlights && window._applyStrategyHighlights(); } catch (e) {}
   }
+
+  // ── Stable hand-card hover (container-level hit testing) ────────────────────
+  // Why not mouseenter/mouseleave per card:
+  //   When a card's CSS transform moves it 64 px upward (the hover lift), the
+  //   browser's hit-box moves with it. If the cursor was near the card's bottom
+  //   edge, the card's new top now sits below the cursor → mouseleave fires →
+  //   card animates back down → cursor re-enters → mouseenter fires → loop.
+  //   Neighbors shift ±18 px horizontally, which can trigger the same cascade on
+  //   adjacent cards. These flicker loops only stop when the cursor moves away.
+  //
+  // Fix: listen on the container with pointermove and hit-test against each
+  //   card's LAYOUT (un-transformed) rect: offsetLeft / offsetTop / offsetWidth /
+  //   offsetHeight. These values are set by the flex algorithm and are NEVER
+  //   updated by CSS transform. The hit zone therefore stays perfectly stable
+  //   while cards animate, breaking the feedback loop completely.
+  //
+  //   • Cursor stays still at card bottom → card lifts → hit test says "still
+  //     in card i's layout rect" → hover stays → no flicker.
+  //   • Cursor moves to a neighbour → hit test switches → clean transition.
+  //   • Cursor leaves the hand zone → pointerleave clears hover.
+  //   • Only ONE card can be hovered at a time by construction.
+  (function _setupHandHover() {
+    const zone = document.getElementById("pv-hand");
+    if (!zone) return;
+
+    function _hitTest(cx, cy) {
+      if (!_handCardEls.length) return -1;
+      const zr = zone.getBoundingClientRect();
+      // Iterate in reverse so the visually-front card (highest natural z-index
+      // = last in array) wins when two cards overlap in the fan layout.
+      for (let i = _handCardEls.length - 1; i >= 0; i--) {
+        const el = _handCardEls[i];
+        // offsetLeft/offsetTop are layout coords — unaffected by transforms.
+        const l = zr.left + el.offsetLeft;
+        const t = zr.top  + el.offsetTop;
+        if (cx >= l && cx <= l + el.offsetWidth &&
+            cy >= t && cy <= t + el.offsetHeight) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    function _applyHover(idx) {
+      if (idx === _handHoverIdx) return;
+      if (_handHoverIdx >= 0 && _handCardEls[_handHoverIdx]) {
+        _handCardEls[_handHoverIdx].classList.remove("hovered");
+      }
+      _handHoverIdx = idx;
+      if (idx >= 0 && _handCardEls[idx]) {
+        _handCardEls[idx].classList.add("hovered");
+      }
+      applyHandLayout(idx);
+    }
+
+    zone.addEventListener("pointermove",  ev => _applyHover(_hitTest(ev.clientX, ev.clientY)));
+    zone.addEventListener("pointerleave", ()  => _applyHover(-1));
+  })();
 
   // ── Guide bar ──────────────────────────────────────────────────
   function renderGuideBar(me, actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
@@ -20972,8 +21200,10 @@
     _drawTurnStartPool=null; _drawTurnStartBoards={}; _drawPrevPlayer="";
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
-    _chatSeenCount = 0; _chatLastCount = -1;
+    _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0;
     _chatPanelOpen = false;
+    // Leaving / starting a fresh match resets the panel back to Current Game Chat.
+    _chatView = "room"; _chatConv = null;
     document.getElementById("pv-chat-panel").classList.remove("open");
     // Reset Surf's Up Away local state + clear any pending idle/warning timers
     _imAway = false; _serverInactiveEligibleSent = false; _prevActiveSeatForIdle = null;
@@ -21150,15 +21380,9 @@
     closeMenu();
   });
   document.getElementById("pv-menu-chat-btn").addEventListener("click", () => {
-    _chatPanelOpen = !_chatPanelOpen;
-    document.getElementById("pv-chat-panel").classList.toggle("open", _chatPanelOpen);
+    pvcTogglePanel();
     document.getElementById("pv-menu-chat-btn").textContent =
       _chatPanelOpen ? "\u{1F4AC} Chat: On" : "\u{1F4AC} Chat: Off";
-    if (_chatPanelOpen) {
-      const msgs = Array.isArray(latestPayload?.chat_messages) ? latestPayload.chat_messages : [];
-      _chatSeenCount = msgs.length;
-      document.getElementById("pv-chat-badge").style.display = "none";
-    }
     closeMenu();
   });
   document.getElementById("pv-menu-igcp-btn").addEventListener("click", () => {
@@ -23421,16 +23645,24 @@
   let _chatSeenCount = 0;
   let _chatPanelOpen = false;
 
+  // ── Unified in-game chat panel (iMessage-style) state ──────────
+  let _chatView = "room";          // "room" | "list" | "conv"
+  let _chatConv = null;            // { id, group, peerUid, peerName, name } in conv view
+  let _chatRoomTotal = 0;          // last known room (Current Game Chat) message count
+  let _pvcUnsubMsg = null;         // __fishMsg.onChange unsubscribe handle
+  let _pvcSubscribed = false;      // have we wired the Firestore change subscription yet
+  let _pvcPos = null;              // { left, top } once the panel is dragged
+  let _grpModalMode = null;        // "create" | "settings"
+  let _grpModalConv = null;        // conv descriptor when editing a group
+
   let _chatLastCount = -1;
   function renderChatMessages(messages) {
     const msgs = Array.isArray(messages) ? messages : [];
-    const badge = document.getElementById("pv-chat-badge");
+    _chatRoomTotal = msgs.length;
     if (msgs.length === _chatLastCount) {
-      // no new messages — just update badge visibility, don't re-render
-      if (_chatPanelOpen) _chatSeenCount = msgs.length;
-      const newCount = msgs.length - _chatSeenCount;
-      badge.style.display = (!_chatPanelOpen && newCount > 0) ? "block" : "none";
-      if (!_chatPanelOpen && newCount > 0) badge.textContent = newCount > 9 ? "9+" : newCount;
+      // no new messages — just refresh the combined badges
+      if (_chatPanelOpen && _chatView === "room") _chatSeenCount = msgs.length;
+      pvcUpdateBadges();
       return;
     }
     _chatLastCount = msgs.length;
@@ -23469,14 +23701,9 @@
     });
     el.scrollTop = el.scrollHeight;
 
-    if (_chatPanelOpen) _chatSeenCount = msgs.length;
-    const newCount = msgs.length - _chatSeenCount;
-    if (!_chatPanelOpen && newCount > 0) {
-      badge.textContent = newCount > 9 ? "9+" : newCount;
-      badge.style.display = "block";
-    } else {
-      badge.style.display = "none";
-    }
+    if (_chatPanelOpen && _chatView === "room") _chatSeenCount = msgs.length;
+    pvcUpdateBadges();
+    if (_chatPanelOpen && _chatView === "list") pvcRenderList();
   }
 
   function updateChatTargetOptions(players, myIdx) {
@@ -23552,23 +23779,484 @@
     refreshState();
   }
 
-  document.getElementById("pv-chat-btn").addEventListener("click", () => {
-    _chatPanelOpen = !_chatPanelOpen;
-    document.getElementById("pv-chat-panel").classList.toggle("open", _chatPanelOpen);
-    if (_chatPanelOpen) {
-      const msgs = Array.isArray(latestPayload?.chat_messages) ? latestPayload.chat_messages : [];
-      _chatSeenCount = msgs.length;
-      document.getElementById("pv-chat-badge").style.display = "none";
+  // ═══════════════════════════════════════════════════════════════
+  // UNIFIED IN-GAME CHAT PANEL CONTROLLER (iMessage-style)
+  //   • Current Game Chat (room view)  — server room chat, unchanged
+  //   • Chat list (list view)          — Current Game Chat + DMs + groups
+  //   • Conversation (conv view)       — a DM / group via window.__fishMsg
+  // Bridges to the Firestore messaging layer through window.__fishMsg so the
+  // in-game panel and the outside-game drawer share ONE data source.
+  // ═══════════════════════════════════════════════════════════════
+  const _pg = (id) => document.getElementById(id);
+  const _chatDrafts = {};   // per-conversation unsent draft text (keyed by conv id)
+  function _pvcMsg() { return window.__fishMsg || null; }
+
+  // Stash the current conversation's unsent draft so switching chats doesn't
+  // leak typed text from one conversation into another (iMessage behaviour).
+  function _pvcStashDraft() {
+    if (!_chatConv) return;
+    const input = _pg("pv-chat-conv-text");
+    if (input) _chatDrafts[_chatConv.id] = input.value || "";
+  }
+
+  // Combined unread = room (Current Game Chat) + every other Firestore chat.
+  function pvcRoomUnread() {
+    return (_chatPanelOpen && _chatView === "room") ? 0 : Math.max(0, _chatRoomTotal - _chatSeenCount);
+  }
+  function pvcOtherUnread() {
+    const M = _pvcMsg();
+    return M ? (M.totalUnread() || 0) : 0;
+  }
+  function pvcUpdateBadges() {
+    pvcEnsureSubscribed();        // wire live Firestore updates as soon as possible
+    const badge = _pg("pv-chat-badge");
+    if (badge) {
+      const total = pvcRoomUnread() + pvcOtherUnread();
+      badge.textContent = total > 9 ? "9+" : String(total);
+      badge.style.display = total > 0 ? "block" : "none";
     }
-  });
-  document.getElementById("pv-chat-close").addEventListener("click", () => {
+    // Dot on the Back button when ANY chat you're not currently viewing has
+    // unread (so the player knows other conversations are waiting).
+    const dot = _pg("pv-chat-back-dot");
+    if (dot) dot.classList.toggle("show", pvcBackDotShould());
+  }
+  function pvcBackDotShould() {
+    if (_chatView === "list") return false;
+    const other = pvcOtherUnread();                 // open conv is kept read, so excluded
+    if (_chatView === "conv") {
+      const roomU = Math.max(0, _chatRoomTotal - _chatSeenCount);
+      return other > 0 || roomU > 0;
+    }
+    return other > 0;                               // room view: any DM/group unread
+  }
+
+  // Subscribe once to live Firestore changes (lazy — __fishMsg exists only
+  // after the auth module has initialised, i.e. well after page load).
+  function pvcEnsureSubscribed() {
+    if (_pvcSubscribed) return;
+    const M = _pvcMsg();
+    if (!M) return;
+    _pvcSubscribed = true;
+    try { M.ensureListener(); } catch (_) {}
+    try {
+      _pvcUnsubMsg = M.onChange(() => {
+        if (!_chatPanelOpen) { pvcUpdateBadges(); return; }
+        if (_chatView === "list") pvcRenderList();
+        else if (_chatView === "conv") pvcRenderConv();
+        pvcUpdateBadges();
+      });
+    } catch (_) {}
+  }
+
+  function pvcApplyPosition() {
+    const p = _pg("pv-chat-panel");
+    if (!p) return;
+    if (_pvcPos) {
+      p.style.left = _pvcPos.left + "px";
+      p.style.top  = _pvcPos.top + "px";
+      p.style.right = "auto";
+      p.style.bottom = "auto";
+    } else {
+      p.style.left = ""; p.style.top = ""; p.style.right = ""; p.style.bottom = "";
+    }
+  }
+
+  // ── View switching ──────────────────────────────────────────────
+  function pvcShowView(view) {
+    _chatView = view;
+    ["room", "list", "conv"].forEach(v => {
+      const el = _pg("pv-chat-view-" + v);
+      if (el) el.classList.toggle("active", v === view);
+    });
+    const back   = _pg("pv-chat-back");
+    const newgrp = _pg("pv-chat-newgrp");
+    const gear   = _pg("pv-chat-gear");
+    const title  = _pg("pv-chat-title");
+    if (view === "room") {
+      if (title)  title.textContent = "Current Game Chat";
+      if (back)   back.style.display = "";       // back → chat list
+      if (newgrp) newgrp.style.display = "none";
+      if (gear)   gear.style.display = "none";
+      _chatSeenCount = _chatRoomTotal;           // entering room clears its unread
+    } else if (view === "list") {
+      if (title)  title.textContent = "Chats";
+      if (back)   back.style.display = "none";   // list is the root
+      if (newgrp) newgrp.style.display = _pvcMsg() && !_pvcMsg().isGuest() ? "" : "none";
+      if (gear)   gear.style.display = "none";
+      pvcRenderList();
+    } else if (view === "conv") {
+      if (title)  title.textContent = _chatConv ? (_chatConv.name || _chatConv.peerName || "Chat") : "Chat";
+      if (back)   back.style.display = "";
+      if (newgrp) newgrp.style.display = "none";
+      if (gear)   gear.style.display = (_chatConv && _chatConv.group) ? "" : "none";
+    }
+    pvcUpdateBadges();
+  }
+
+  // ── Chat list (Current Game Chat + DMs + groups) ────────────────
+  function pvcRenderList() {
+    const listEl = _pg("pv-chat-list");
+    if (!listEl) return;
+    const M = _pvcMsg();
+    cl(listEl);
+
+    // Current Game Chat — always first.
+    const cur = document.createElement("div");
+    cur.className = "pvc-row current";
+    const curUnread = (!(_chatPanelOpen && _chatView === "room"))
+      ? Math.max(0, _chatRoomTotal - _chatSeenCount) : 0;
+    cur.appendChild(_pvcRowInner("🎮", "Current Game Chat", "Everyone in this match", "", curUnread, true));
+    cur.addEventListener("click", () => pvcOpenRoom());
+    listEl.appendChild(cur);
+
+    if (!M || !M.ready()) {
+      const note = document.createElement("div");
+      note.className = "pvc-list-empty";
+      note.textContent = M && M.isGuest() ? "Sign in to message friends and groups." : "Sign in to see your other chats.";
+      listEl.appendChild(note);
+      return;
+    }
+
+    const convs = M.conversations();
+    if (convs.length) {
+      const sub = document.createElement("div");
+      sub.className = "pvc-list-sub"; sub.textContent = "Direct & Group Chats";
+      listEl.appendChild(sub);
+      convs.forEach(c => {
+        const row = document.createElement("div");
+        row.className = "pvc-row";
+        const name = c.group ? c.name : c.peerName;
+        const icon = c.group ? "👥" : (String(name || "?")[0] || "?").toUpperCase();
+        row.appendChild(_pvcRowInner(icon, name || "Player", c.last_text || "No messages yet",
+                                     M.timeLabel(c.last_ts), c.unread || 0, false));
+        row.addEventListener("click", () => pvcOpenConv(c));
+        listEl.appendChild(row);
+        if (!c.group && M.avatarForNick) {
+          M.avatarForNick(c.peerName).then(url => {
+            if (!url) return;
+            const av = row.querySelector(".pvc-av");
+            if (av) { cl(av); const im = document.createElement("img"); im.src = url; im.alt = ""; av.appendChild(im); }
+          }).catch(() => {});
+        }
+      });
+    } else {
+      const note = document.createElement("div");
+      note.className = "pvc-list-empty";
+      note.textContent = "No other chats yet. Tap ＋ to start a group, or message a friend from the lobby.";
+      listEl.appendChild(note);
+    }
+  }
+  // Build the inner markup of a list row (returns a fragment).
+  function _pvcRowInner(icon, name, preview, time, unread, isImgName) {
+    const frag = document.createDocumentFragment();
+    const av = document.createElement("div"); av.className = "pvc-av";
+    const letter = document.createElement("span"); letter.className = "pvc-av-letter"; letter.textContent = icon;
+    av.appendChild(letter);
+    const body = document.createElement("div"); body.className = "pvc-row-body";
+    const top = document.createElement("div"); top.className = "pvc-row-top";
+    const nm = document.createElement("span"); nm.className = "pvc-row-name"; nm.textContent = name;
+    top.appendChild(nm);
+    if (time) { const t = document.createElement("span"); t.className = "pvc-row-time"; t.textContent = time; top.appendChild(t); }
+    const prev = document.createElement("div"); prev.className = "pvc-row-prev"; prev.textContent = preview;
+    body.appendChild(top); body.appendChild(prev);
+    frag.appendChild(av); frag.appendChild(body);
+    if (unread > 0) {
+      const u = document.createElement("span"); u.className = "pvc-row-unread";
+      u.textContent = unread > 9 ? "9+" : String(unread);
+      frag.appendChild(u);
+    }
+    return frag;
+  }
+
+  // ── Open the Current Game Chat (room view) ──────────────────────
+  function pvcOpenRoom() {
+    pvcShowView("room");
+    const el = _pg("pv-chat-messages");
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  // ── Open a DM / group conversation ──────────────────────────────
+  function pvcOpenConv(conv) {
+    const M = _pvcMsg();
+    if (!M || !conv) return;
+    _pvcStashDraft();                            // save the chat we're leaving
+    _chatConv = {
+      id: conv.id, group: !!conv.group,
+      peerUid: conv.peerUid, peerName: conv.peerName, name: conv.group ? conv.name : conv.peerName,
+    };
+    pvcShowView("conv");
+    pvcRenderConv();
+    const input = _pg("pv-chat-conv-text");      // restore this chat's draft
+    if (input) input.value = _chatDrafts[conv.id] || "";
+    if (conv.id) M.markRead(conv.id);            // viewing clears this chat's unread
+  }
+
+  function pvcRenderConv() {
+    const M = _pvcMsg();
+    const wrap = _pg("pv-chat-conv-msgs");
+    if (!M || !wrap || !_chatConv) return;
+    const myUid = M.myUid();
+    // Keep the group title live if another member renamed it.
+    if (_chatConv.group) {
+      const meta = M.groupMeta(_chatConv.id);
+      if (meta && meta.name && meta.name !== _chatConv.name) {
+        _chatConv.name = meta.name;
+        const t = _pg("pv-chat-title");
+        if (t && _chatView === "conv") t.textContent = meta.name;
+      }
+    }
+    const msgs = M.messagesFor(_chatConv.id);
+    cl(wrap);
+    if (!msgs.length) {
+      const e = document.createElement("div"); e.className = "pvc-conv-empty";
+      e.textContent = "No messages yet. Say hi! 🐟"; wrap.appendChild(e);
+    } else {
+      msgs.forEach(m => {
+        const mine = m.sender === myUid;
+        const b = document.createElement("div"); b.className = "pvc-bubble " + (mine ? "mine" : "theirs");
+        if (_chatConv.group && !mine) {
+          const s = document.createElement("span"); s.className = "pvc-bubble-sender";
+          s.textContent = m.sender_name || "Player"; b.appendChild(s);
+        }
+        b.appendChild(document.createTextNode(m.text || ""));
+        const t = document.createElement("span"); t.className = "pvc-bubble-time";
+        t.textContent = M.timeLabel(m.ts); b.appendChild(t);
+        wrap.appendChild(b);
+      });
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+    // Guest gate
+    const guest = _pg("pv-chat-conv-guest");
+    const inputRow = _pg("pv-chat-conv-input");
+    const isGuest = M.isGuest();
+    if (guest)    guest.style.display = isGuest ? "" : "none";
+    if (inputRow) inputRow.style.display = isGuest ? "none" : "flex";
+    // Messages that arrive while this conversation is open count as read.
+    if (_chatConv.id) M.markRead(_chatConv.id);
+  }
+
+  async function pvcSendConv() {
+    const M = _pvcMsg();
+    if (!M || !_chatConv) return;
+    const input = _pg("pv-chat-conv-text");
+    if (!input) return;
+    const text = (input.value || "").trim();
+    if (!text) return;
+    input.value = ""; input.style.height = "";
+    _chatDrafts[_chatConv.id] = "";              // sent — drop the saved draft
+    if (_chatConv.group) await M.sendGroup(_chatConv.id, text);
+    else await M.sendDM(_chatConv.peerUid, _chatConv.peerName, text);
+  }
+
+  // ── Open / close the whole panel ────────────────────────────────
+  function pvcOpenPanel() {
+    _chatPanelOpen = true;
+    pvcEnsureSubscribed();
+    const p = _pg("pv-chat-panel");
+    if (p) p.classList.add("open");
+    pvcApplyPosition();
+    // Restore the last view (defaults to Current Game Chat on first open).
+    if (_chatView === "conv" && _chatConv) { pvcShowView("conv"); pvcRenderConv(); if (_chatConv.id && _pvcMsg()) _pvcMsg().markRead(_chatConv.id); }
+    else if (_chatView === "list") pvcShowView("list");
+    else pvcOpenRoom();
+    pvcUpdateBadges();
+  }
+  function pvcClosePanel() {
+    _pvcStashDraft();            // remember the draft for when they reopen
     _chatPanelOpen = false;
-    document.getElementById("pv-chat-panel").classList.remove("open");
+    const p = _pg("pv-chat-panel");
+    if (p) p.classList.remove("open");
+    pvcUpdateBadges();           // closing reveals any pending unread on the button
+  }
+  function pvcTogglePanel() { _chatPanelOpen ? pvcClosePanel() : pvcOpenPanel(); }
+
+  // ── Header buttons ──────────────────────────────────────────────
+  _pg("pv-chat-btn").addEventListener("click", pvcTogglePanel);
+  _pg("pv-chat-close").addEventListener("click", pvcClosePanel);
+  _pg("pv-chat-back").addEventListener("click", () => {
+    // From a leaf (room or conv) → chat list. (List is the root; no back.)
+    _pvcStashDraft();
+    pvcShowView("list");
   });
-  document.getElementById("pv-chat-send").addEventListener("click", sendChatMessage);
-  document.getElementById("pv-chat-text").addEventListener("keydown", (e) => {
+  _pg("pv-chat-newgrp").addEventListener("click", () => pvcOpenGroupModal("create", null));
+  _pg("pv-chat-gear").addEventListener("click", () => {
+    if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
+  });
+
+  // Room send (Current Game Chat) — unchanged server path.
+  _pg("pv-chat-send").addEventListener("click", sendChatMessage);
+  _pg("pv-chat-text").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
   });
+  // Conversation send (DM / group).
+  _pg("pv-chat-conv-send").addEventListener("click", pvcSendConv);
+  _pg("pv-chat-conv-text").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); pvcSendConv(); }
+  });
+
+  // ── Draggable panel (header is the handle) ──────────────────────
+  (function setupChatDrag() {
+    const panel = _pg("pv-chat-panel");
+    const handle = _pg("pv-chat-hdr");
+    if (!panel || !handle) return;
+    let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+    handle.addEventListener("pointerdown", (e) => {
+      // Don't start a drag from a button or while selecting text in the title.
+      if (e.target.closest("button")) return;
+      const r = panel.getBoundingClientRect();
+      dragging = true; sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      panel.classList.add("dragging");
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    handle.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      e.preventDefault();
+      const r = panel.getBoundingClientRect();
+      const maxL = Math.max(0, window.innerWidth  - r.width);
+      const maxT = Math.max(0, window.innerHeight - r.height);
+      const left = Math.min(maxL, Math.max(0, ox + (e.clientX - sx)));
+      const top  = Math.min(maxT, Math.max(0, oy + (e.clientY - sy)));
+      _pvcPos = { left, top };
+      pvcApplyPosition();
+    });
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false; panel.classList.remove("dragging");
+      try { handle.releasePointerCapture(e.pointerId); } catch (_) {}
+    }
+    handle.addEventListener("pointerup", endDrag);
+    handle.addEventListener("pointercancel", endDrag);
+    // Keep the panel on-screen if the window is resized.
+    window.addEventListener("resize", () => {
+      if (!_pvcPos) return;
+      const r = panel.getBoundingClientRect();
+      _pvcPos.left = Math.min(_pvcPos.left, Math.max(0, window.innerWidth  - r.width));
+      _pvcPos.top  = Math.min(_pvcPos.top,  Math.max(0, window.innerHeight - r.height));
+      pvcApplyPosition();
+    });
+  })();
+
+  // ── Group create / settings modal ───────────────────────────────
+  function pvcGrpMsg(text, kind) {
+    const el = _pg("pv-grp-msg");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "pvg-msg" + (kind ? " " + kind : "");
+  }
+  function pvcOpenGroupModal(mode, conv) {
+    const M = _pvcMsg();
+    if (!M || !M.ready()) { if (typeof showToast === "function") showToast("Sign in to use group chats.", "info"); return; }
+    if (M.isGuest()) { if (typeof showToast === "function") showToast("Sign in to use group chats.", "info"); return; }
+    _grpModalMode = mode; _grpModalConv = conv || null;
+    const title    = _pg("pv-grp-title");
+    const nameIn   = _pg("pv-grp-name");
+    const memLabel = _pg("pv-grp-members-label");
+    const memIn    = _pg("pv-grp-members");
+    const roster   = _pg("pv-grp-roster");
+    const leaveBtn = _pg("pv-grp-leave");
+    const saveBtn  = _pg("pv-grp-save");
+    pvcGrpMsg("", "");
+    if (memIn) memIn.value = "";
+    if (mode === "create") {
+      if (title)    title.textContent = "New Group Chat";
+      if (nameIn)   { nameIn.value = ""; nameIn.style.display = ""; }
+      if (memLabel) { memLabel.textContent = "Add players (separate names with commas)"; memLabel.style.display = ""; }
+      if (memIn)    memIn.style.display = "";
+      if (roster)   roster.style.display = "none";
+      if (leaveBtn) leaveBtn.style.display = "none";
+      if (saveBtn)  saveBtn.textContent = "Create";
+    } else {
+      const meta = M.groupMeta(conv.id);
+      if (title)    title.textContent = "Group Settings";
+      if (nameIn)   { nameIn.value = (meta && meta.name) || conv.name || ""; nameIn.style.display = ""; }
+      if (memLabel) { memLabel.textContent = "Add players (separate names with commas)"; memLabel.style.display = ""; }
+      if (memIn)    memIn.style.display = "";
+      if (leaveBtn) leaveBtn.style.display = "";
+      if (saveBtn)  saveBtn.textContent = "Save";
+      // Roster of current members.
+      if (roster) {
+        cl(roster); roster.style.display = "";
+        const lbl = document.createElement("div"); lbl.className = "pvg-label"; lbl.textContent = "Members";
+        roster.appendChild(lbl);
+        const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+        members.forEach(p => {
+          const row = document.createElement("div"); row.className = "pvg-member";
+          const dot = document.createElement("span"); dot.className = "pvg-mdot";
+          const nm = document.createElement("span");
+          nm.textContent = (p.uid === M.myUid()) ? (p.name || "You") + " (you)" : (p.name || "Player");
+          row.appendChild(dot); row.appendChild(nm); roster.appendChild(row);
+        });
+      }
+    }
+    const modal = _pg("pv-grp-modal");
+    if (modal) modal.classList.add("open");
+    if (nameIn) setTimeout(() => nameIn.focus(), 30);
+  }
+  function pvcCloseGroupModal() {
+    const modal = _pg("pv-grp-modal");
+    if (modal) modal.classList.remove("open");
+    _grpModalMode = null; _grpModalConv = null;
+  }
+  async function pvcGroupSave() {
+    const M = _pvcMsg();
+    if (!M) return;
+    const saveBtn = _pg("pv-grp-save");
+    const name = (_pg("pv-grp-name").value || "").trim();
+    const names = (_pg("pv-grp-members").value || "").trim();
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      if (_grpModalMode === "create") {
+        const res = await M.createGroup(names, name);
+        if (res && res.error) { pvcGrpMsg(res.error, "err"); return; }
+        if (res && res.ok) {
+          pvcCloseGroupModal();
+          if (typeof showToast === "function") showToast("Group “" + res.name + "” created.", "ok");
+          // Open the new group.
+          pvcOpenConv({ id: res.convId, group: true, name: res.name });
+        }
+      } else if (_grpModalMode === "settings" && _grpModalConv) {
+        const convId = _grpModalConv.id;
+        let touched = false, errs = [];
+        const meta = M.groupMeta(convId);
+        const curName = (meta && meta.name) || "";
+        if (name && name !== curName) {
+          const r = await M.renameGroup(convId, name);
+          if (r && r.error) errs.push(r.error); else touched = true;
+        }
+        if (names) {
+          const r = await M.addMembers(convId, names);
+          if (r && r.error) errs.push(r.error); else touched = true;
+        }
+        if (errs.length) { pvcGrpMsg(errs.join(" "), "err"); return; }
+        if (touched) {
+          if (_chatConv && _chatConv.id === convId) { _chatConv.name = name || _chatConv.name; }
+          pvcCloseGroupModal();
+          if (typeof showToast === "function") showToast("Group updated.", "ok");
+          pvcShowView("conv"); pvcRenderConv();
+        } else {
+          pvcGrpMsg("Nothing to change.", "");
+        }
+      }
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+  async function pvcGroupLeave() {
+    const M = _pvcMsg();
+    if (!M || !_grpModalConv) return;
+    const convId = _grpModalConv.id;
+    const r = await M.leaveGroup(convId);
+    if (r && r.error) { pvcGrpMsg(r.error, "err"); return; }
+    pvcCloseGroupModal();
+    if (typeof showToast === "function") showToast("You left the group.", "info");
+    if (_chatConv && _chatConv.id === convId) { _chatConv = null; }
+    pvcShowView("list");
+  }
+  _pg("pv-grp-cancel").addEventListener("click", pvcCloseGroupModal);
+  _pg("pv-grp-save").addEventListener("click", pvcGroupSave);
+  _pg("pv-grp-leave").addEventListener("click", pvcGroupLeave);
+  _pg("pv-grp-modal").addEventListener("click", (e) => { if (e.target === _pg("pv-grp-modal")) pvcCloseGroupModal(); });
+  _pg("pv-grp-name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); pvcGroupSave(); } });
 
   // ═══════════════════════════════════════════════════════════════
   // FULL SCREEN BUTTON
@@ -28031,11 +28719,30 @@
     let _msgAllMessages = [];       // cache of all my message docs
     let _msgConversations = [];     // derived: one entry per conversation
     let _msgOpenConvId = null;
-    let _msgOpenPeer = null;        // { uid, name }
+    let _msgOpenPeer = null;        // { uid, name }  (DM only)
+    let _msgOpenGroup = null;       // { id, name, members:[{uid,name}] }  (group only)
     let _msgTotalUnread = 0;
     let _msgListRenderGen = 0;      // generation counter — stale async renders bail out
+    const _msgChangeCbs = [];       // external subscribers (in-game panel) notified on cache update
 
     function _convIdFor(a, b) { return [String(a), String(b)].sort().join("__"); }
+    // Group conversations live in the SAME users/{uid}/messages subcollection as DMs
+    // (so the existing Firestore rule + single listener cover them — no new rules).
+    //   group message: { conv_id, group:true, sender, sender_name, text, ts, read }
+    //   group meta:    { conv_id, group:true, meta:true, name, members:[{uid,name}],
+    //                    owner, ts, read:true }  stored at deterministic id "gm_"+conv_id
+    function _newGroupConvId() {
+      let h = "";
+      for (let i = 0; i < 16; i++) h += Math.floor(Math.random() * 16).toString(16);
+      return "g_" + h;
+    }
+    // Latest metadata doc for a group conv from my cache (null if none).
+    function _msgGroupMeta(convId) {
+      const metas = _msgAllMessages.filter(m => m && m.conv_id === convId && m.meta);
+      if (!metas.length) return null;
+      metas.sort((a, b) => _msgTs(a) - _msgTs(b));
+      return metas[metas.length - 1];
+    }
     function _msgTs(m) { return (m && m.ts && m.ts.toMillis) ? m.ts.toMillis() : Date.now(); }
 
     function _msgUpdateBadge() {
@@ -28065,21 +28772,40 @@
     }
 
     // Group my cached messages into per-conversation summaries (newest first).
+    // Handles both 2-party DMs and multi-party group chats.
     function _msgRebuildConversations() {
       const byConv = {};
       _msgAllMessages.forEach(m => {
-        if (!m.conv_id) return;
+        if (!m || !m.conv_id) return;
         (byConv[m.conv_id] = byConv[m.conv_id] || []).push(m);
       });
       _msgConversations = Object.keys(byConv).map(cid => {
-        const msgs = byConv[cid].slice().sort((a, b) => _msgTs(a) - _msgTs(b));
+        const all  = byConv[cid];
+        const meta = all.filter(m => m.meta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
+        const isGroup = !!meta || all.some(m => m.group);
+        const msgs = all.filter(m => !m.meta).sort((a, b) => _msgTs(a) - _msgTs(b));
         const last = msgs[msgs.length - 1];
-        const iSent = last.sender === _authUser.uid;
+        const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
+
+        if (isGroup) {
+          // Hide groups I've been removed from / left (meta no longer lists me).
+          if (meta && Array.isArray(meta.members)
+              && !meta.members.some(p => p && p.uid === _authUser.uid)) return null;
+          const name    = (meta && meta.name) || "Group";
+          const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+          const preview = last
+            ? ((last.sender === _authUser.uid ? "You: " : ((last.sender_name || "") + ": ")) + (last.text || ""))
+            : "New group";
+          return { id: cid, group: true, name, peerName: name, members,
+                   last_text: preview, last_ts: (last ? last.ts : (meta && meta.ts)), unread };
+        }
+
+        if (!last) return null;            // DM with no surviving messages
+        const iSent    = last.sender === _authUser.uid;
         const peerUid  = iSent ? last.receiver : last.sender;
         const peerName = (iSent ? last.receiver_name : last.sender_name) || "Player";
-        const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
         return { id: cid, peerUid, peerName, last_text: last.text, last_ts: last.ts, unread };
-      }).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
+      }).filter(Boolean).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
     }
 
     // Single listener on my own messages subcollection — drives everything.
@@ -28090,7 +28816,7 @@
         _msgListUnsub = _db.collection("users").doc(_authUser.uid).collection("messages")
           .onSnapshot({ includeMetadataChanges: false }, snap => {
             _msgAllMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            _msgTotalUnread = _msgAllMessages.filter(m => m.sender !== _authUser.uid && !m.read).length;
+            _msgTotalUnread = _msgAllMessages.filter(m => !m.meta && m.sender !== _authUser.uid && !m.read).length;
             _msgUpdateBadge();
             _msgRebuildConversations();
             const drawer = $a("cc-msg-drawer");
@@ -28098,6 +28824,9 @@
               if (_msgOpenConvId) _msgRenderOpenConversation();
               else _msgRenderList();
             }
+            // Notify external subscribers (the in-game iMessage panel) so it
+            // re-renders live and keeps its unread badge in sync.
+            _msgChangeCbs.forEach(cb => { try { cb(); } catch (_) {} });
           }, err => {
             console.warn("[msg] listener error:", err);
             if (err && err.code === "permission-denied") _msgShowRulesNeeded();
@@ -28133,7 +28862,7 @@
       if (convView)  convView.classList.remove("show");
       if (backBtn)   backBtn.classList.remove("show");
       if (titleEl)   titleEl.textContent = "Friend Messages";
-      _msgOpenConvId = null; _msgOpenPeer = null;
+      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
 
       listEl.innerHTML = "";
       const term = (searchTerm || "").trim().toLowerCase();
@@ -28185,15 +28914,24 @@
         _msgConversations.forEach(c => {
           const row = document.createElement("div");
           row.className = "ccm-conv";
-          const letter = (String(c.peerName || "?")[0] || "?").toUpperCase();
           const previewText = escapeHtml(c.last_text || "No messages yet");
           const timeText    = _msgTimeLabel(c.last_ts);
+          const unreadHtml  = (c.unread > 0 ? "<span class=\"ccm-conv-unread\">" + (c.unread > 9 ? "9+" : c.unread) + "</span>" : "");
+          if (c.group) {
+            row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">👥</span></div>"
+              + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(c.name) + "</span>"
+              + "<span class=\"ccm-conv-time\">" + timeText + "</span></div>"
+              + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>" + unreadHtml;
+            row.addEventListener("click", () => _msgOpenGroupConv(c.id));
+            listEl.appendChild(row);
+            return;
+          }
+          const letter = (String(c.peerName || "?")[0] || "?").toUpperCase();
           row.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">" + escapeHtml(letter) + "</span>"
             + "<span class=\"ccm-online-dot\"></span></div>"
             + "<div class=\"ccm-conv-body\"><div class=\"ccm-conv-top\"><span class=\"ccm-conv-name\">" + escapeHtml(c.peerName) + "</span>"
             + "<span class=\"ccm-conv-time\">" + timeText + "</span></div>"
-            + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>"
-            + (c.unread > 0 ? "<span class=\"ccm-conv-unread\">" + (c.unread > 9 ? "9+" : c.unread) + "</span>" : "");
+            + "<div class=\"ccm-conv-preview\">" + previewText + "</div></div>" + unreadHtml;
           row.addEventListener("click", () => _msgOpenConversation(c.peerUid, c.peerName));
           _msgDecorateRow(row, c.peerUid, c.peerName);
           listEl.appendChild(row);
@@ -28238,8 +28976,26 @@
     function _msgOpenConversation(peerUid, peerName) {
       if (!_authUser || !peerUid) return;
       _msgOpenPeer   = { uid: peerUid, name: peerName };
+      _msgOpenGroup  = null;
       _msgOpenConvId = _convIdFor(_authUser.uid, peerUid);
+      _msgShowConvView(peerName || "Conversation");
+      _msgRenderOpenConversation();
+    }
 
+    // Open a group conversation in the drawer.
+    function _msgOpenGroupConv(convId) {
+      if (!_authUser || !convId) return;
+      const meta = _msgGroupMeta(convId);
+      _msgOpenGroup  = { id: convId, name: (meta && meta.name) || "Group",
+                         members: (meta && meta.members) || [] };
+      _msgOpenPeer   = null;
+      _msgOpenConvId = convId;
+      _msgShowConvView(_msgOpenGroup.name);
+      _msgRenderOpenConversation();
+    }
+
+    // Shared drawer view switch into the conversation pane.
+    function _msgShowConvView(title) {
       const listEl    = $a("ccm-list");
       const convView  = $a("ccm-conv-view");
       const searchRow = $a("ccm-search-row");
@@ -28249,23 +29005,22 @@
       if (searchRow) searchRow.classList.add("hide");
       if (convView)  convView.classList.add("show");
       if (backBtn)   backBtn.classList.add("show");
-      if (titleEl)   titleEl.textContent = peerName || "Conversation";
+      if (titleEl)   titleEl.textContent = title || "Conversation";
 
       const guestNote = $a("ccm-guest-note");
       const inputRow  = $a("ccm-input-row");
       const isGuest   = (_guestSessionActive === true);
       if (guestNote) guestNote.style.display = isGuest ? "" : "none";
       if (inputRow)  inputRow.style.display  = isGuest ? "none" : "flex";
-
-      _msgRenderOpenConversation();
     }
 
     // Render the currently-open conversation from the cached messages.
     function _msgRenderOpenConversation() {
       const msgsEl = $a("ccm-messages");
       if (!msgsEl || !_msgOpenConvId) return;
+      const isGroup = !!_msgOpenGroup;
       const msgs = _msgAllMessages
-        .filter(m => m.conv_id === _msgOpenConvId)
+        .filter(m => m.conv_id === _msgOpenConvId && !m.meta)
         .sort((a, b) => _msgTs(a) - _msgTs(b));
       msgsEl.innerHTML = "";
       if (!msgs.length) {
@@ -28275,7 +29030,11 @@
           const mine = m.sender === _authUser.uid;
           const bub  = document.createElement("div");
           bub.className = "ccm-bubble " + (mine ? "mine" : "theirs");
-          bub.innerHTML = escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
+          // Group chats label each non-mine bubble with the sender's name.
+          const senderTag = (isGroup && !mine)
+            ? "<span class=\"ccm-bubble-sender\">" + escapeHtml(m.sender_name || "Player") + "</span>"
+            : "";
+          bub.innerHTML = senderTag + escapeHtml(m.text || "") + "<span class=\"ccm-bubble-time\">" + _msgTimeLabel(m.ts) + "</span>";
           msgsEl.appendChild(bub);
         });
         msgsEl.scrollTop = msgsEl.scrollHeight;
@@ -28287,7 +29046,7 @@
     async function _msgMarkConvRead(convId) {
       if (!_db || !_authUser || !convId) return;
       const unread = _msgAllMessages.filter(m =>
-        m.conv_id === convId && m.sender !== _authUser.uid && !m.read);
+        m.conv_id === convId && !m.meta && m.sender !== _authUser.uid && !m.read);
       for (const m of unread) {
         try {
           await _db.collection("users").doc(_authUser.uid)
@@ -28296,20 +29055,26 @@
       }
     }
 
+    // Drawer send button — dispatches to a DM or group based on the open conv.
     async function _msgSend() {
-      if (!_db || !_authUser || !_msgOpenPeer) return;
       if (_guestSessionActive === true) return;   // guests cannot send
       const input = $a("ccm-input");
       if (!input) return;
       const text = (input.value || "").trim();
       if (!text || text.length > 500) return;       // block empty / oversized
-
-      const peerUid = _msgOpenPeer.uid;
-      const convId  = _convIdFor(_authUser.uid, peerUid);
-      input.value   = "";
+      input.value = "";
       input.style.height = "";
+      if (_msgOpenGroup) await _msgSendGroup(_msgOpenGroup.id, text);
+      else if (_msgOpenPeer) await _msgSendTo(_msgOpenPeer.uid, _msgOpenPeer.name, text);
+    }
 
-      // Shared id so both copies line up (handy for future dedup).
+    // Send a direct message to one peer. Returns true on success.
+    async function _msgSendTo(peerUid, peerName, text) {
+      if (!_db || !_authUser || !peerUid) return false;
+      if (_guestSessionActive === true) return false;
+      text = (text || "").trim();
+      if (!text || text.length > 500) return false;
+      const convId = _convIdFor(_authUser.uid, peerUid);
       const msgId = _db.collection("users").doc(_authUser.uid).collection("messages").doc().id;
       const now   = firebase.firestore.FieldValue.serverTimestamp();
       const base  = {
@@ -28317,22 +29082,204 @@
         sender:        _authUser.uid,
         sender_name:   _playerNickname || "Player",
         receiver:      peerUid,
-        receiver_name: _msgOpenPeer.name || "Player",
+        receiver_name: peerName || "Player",
         text:          text,
         ts:            now,
       };
       try {
-        // My copy (already read, since I sent it)
         await _db.collection("users").doc(_authUser.uid).collection("messages").doc(msgId)
           .set(Object.assign({}, base, { read: true }));
-        // Recipient's copy (unread for them). Writing to another user's
-        // subcollection is allowed by the same rule the friend system uses.
         await _db.collection("users").doc(peerUid).collection("messages").doc(msgId)
           .set(Object.assign({}, base, { read: false }));
+        return true;
       } catch (e) {
         console.warn("[msg] send failed:", e);
-        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return; }
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return false; }
         if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
+        return false;
+      }
+    }
+
+    // Send a message to every current member of a group. Returns true on success.
+    async function _msgSendGroup(convId, text) {
+      if (!_db || !_authUser || !convId) return false;
+      if (_guestSessionActive === true) return false;
+      text = (text || "").trim();
+      if (!text || text.length > 500) return false;
+      const meta = _msgGroupMeta(convId);
+      const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+      if (!members.some(p => p && p.uid === _authUser.uid)) return false;  // not a member
+      const msgId = _db.collection("users").doc(_authUser.uid).collection("messages").doc().id;
+      const now   = firebase.firestore.FieldValue.serverTimestamp();
+      const base  = {
+        conv_id:     convId,
+        group:       true,
+        sender:      _authUser.uid,
+        sender_name: _playerNickname || "Player",
+        text:        text,
+        ts:          now,
+      };
+      try {
+        for (const p of members) {
+          if (!p || !p.uid) continue;
+          await _db.collection("users").doc(p.uid).collection("messages").doc(msgId)
+            .set(Object.assign({}, base, { read: p.uid === _authUser.uid }));
+        }
+        return true;
+      } catch (e) {
+        console.warn("[msg] group send failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return false; }
+        if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
+        return false;
+      }
+    }
+
+    // Resolve a free-text list of player names → uids.
+    //   returns { valid:[{uid,name}], invalid:[name…], notFound:[name…] }
+    // Self and duplicates are de-duped silently; unknown names are reported.
+    async function _msgResolveNames(rawNames) {
+      const out = { valid: [], invalid: [], notFound: [] };
+      if (!_db || !_authUser) return out;
+      const myName = (_playerNickname || "").trim().toLowerCase();
+      const seen = {};
+      const tokens = String(rawNames || "")
+        .split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+      for (const tok of tokens) {
+        const key = tok.toLowerCase();
+        if (key === myName) continue;          // creator is always added separately
+        if (seen[key]) continue;               // duplicate
+        seen[key] = true;
+        if (tok.length > 40) { out.invalid.push(tok); continue; }
+        try {
+          let snap = await _db.collection("users")
+            .where("nickname_lower", "==", key).limit(1).get();
+          // Fallback for legacy profiles that never stored nickname_lower.
+          if (snap.empty) {
+            snap = await _db.collection("users")
+              .where("nickname", "==", tok).limit(1).get();
+          }
+          if (snap.empty) { out.notFound.push(tok); continue; }
+          const d = snap.docs[0];
+          if (d.id === _authUser.uid) continue;   // typed self by a different casing
+          if (out.valid.some(p => p.uid === d.id)) continue;  // same player, two names
+          out.valid.push({ uid: d.id, name: (d.data() || {}).nickname || tok });
+        } catch (_) { out.notFound.push(tok); }
+      }
+      return out;
+    }
+
+    // Write/overwrite the deterministic meta doc to every listed member.
+    async function _msgWriteMeta(convId, name, members, recipients) {
+      const meta = {
+        conv_id: convId, group: true, meta: true,
+        name: name, members: members,
+        owner: _authUser.uid,
+        ts: firebase.firestore.FieldValue.serverTimestamp(),
+        read: true,
+      };
+      for (const p of recipients) {
+        if (!p || !p.uid) continue;
+        await _db.collection("users").doc(p.uid).collection("messages")
+          .doc("gm_" + convId).set(meta);
+      }
+    }
+
+    // Create a new group from a free-text list of names.
+    //   returns { ok, convId, name, added:[name…] } or { error }
+    async function _msgCreateGroup(rawNames, groupName) {
+      if (!_db || !_authUser) return { error: "Not signed in." };
+      if (_guestSessionActive === true) return { error: "Sign in to create group chats." };
+      const name = String(groupName || "").trim();
+      if (!name) return { error: "Give the group a name." };
+      if (name.length > 40) return { error: "Group name is too long (40 max)." };
+      const res = await _msgResolveNames(rawNames);
+      if (res.notFound.length || res.invalid.length) {
+        const bad = res.notFound.concat(res.invalid);
+        return { error: "These players were not found: " + bad.join(", ") };
+      }
+      if (res.valid.length < 2) {
+        return { error: "Add at least 2 other players to start a group." };
+      }
+      const convId  = _newGroupConvId();
+      const members = [{ uid: _authUser.uid, name: _playerNickname || "Player" }].concat(res.valid);
+      try {
+        await _msgWriteMeta(convId, name, members, members);
+        return { ok: true, convId, name, added: res.valid.map(p => p.name) };
+      } catch (e) {
+        console.warn("[msg] create group failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
+        return { error: "Could not create the group — " + ((e && e.code) || "error") };
+      }
+    }
+
+    // Rename a group; persists for every current member.
+    async function _msgRenameGroup(convId, newName) {
+      if (!_db || !_authUser || !convId) return { error: "Not available." };
+      const name = String(newName || "").trim();
+      if (!name) return { error: "Enter a name." };
+      if (name.length > 40) return { error: "Group name is too long (40 max)." };
+      const meta = _msgGroupMeta(convId);
+      const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+      if (!members.some(p => p && p.uid === _authUser.uid)) return { error: "You're not in this group." };
+      try {
+        await _msgWriteMeta(convId, name, members, members);
+        if (_msgOpenGroup && _msgOpenGroup.id === convId) _msgOpenGroup.name = name;
+        return { ok: true, name };
+      } catch (e) {
+        console.warn("[msg] rename group failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
+        return { error: "Could not rename — " + ((e && e.code) || "error") };
+      }
+    }
+
+    // Add one or more members (by name) to an existing group.
+    async function _msgAddMembers(convId, rawNames) {
+      if (!_db || !_authUser || !convId) return { error: "Not available." };
+      const meta = _msgGroupMeta(convId);
+      const current = (meta && Array.isArray(meta.members)) ? meta.members.slice() : [];
+      if (!current.some(p => p && p.uid === _authUser.uid)) return { error: "You're not in this group." };
+      const res = await _msgResolveNames(rawNames);
+      if (res.notFound.length || res.invalid.length) {
+        return { error: "These players were not found: " + res.notFound.concat(res.invalid).join(", ") };
+      }
+      const added = res.valid.filter(p => !current.some(c => c.uid === p.uid));
+      if (!added.length) return { error: "Those players are already in the group." };
+      const members = current.concat(added);
+      try {
+        await _msgWriteMeta(convId, (meta && meta.name) || "Group", members, members);
+        if (_msgOpenGroup && _msgOpenGroup.id === convId) _msgOpenGroup.members = members;
+        return { ok: true, added: added.map(p => p.name) };
+      } catch (e) {
+        console.warn("[msg] add members failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
+        return { error: "Could not add members — " + ((e && e.code) || "error") };
+      }
+    }
+
+    // Leave a group: drop myself from the roster for everyone else, then remove
+    // my own copies so it disappears from my list.
+    async function _msgLeaveGroup(convId) {
+      if (!_db || !_authUser || !convId) return { error: "Not available." };
+      const meta = _msgGroupMeta(convId);
+      const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
+      const remaining = members.filter(p => p && p.uid !== _authUser.uid);
+      try {
+        if (remaining.length) {
+          await _msgWriteMeta(convId, (meta && meta.name) || "Group", remaining, remaining);
+        }
+        // Delete all my own docs for this conv (meta + messages).
+        const mine = _msgAllMessages.filter(m => m.conv_id === convId);
+        for (const m of mine) {
+          try {
+            await _db.collection("users").doc(_authUser.uid)
+              .collection("messages").doc(m.id).delete();
+          } catch (_) {}
+        }
+        if (_msgOpenGroup && _msgOpenGroup.id === convId) { _msgOpenGroup = null; _msgOpenConvId = null; }
+        return { ok: true };
+      } catch (e) {
+        console.warn("[msg] leave group failed:", e);
+        return { error: "Could not leave — " + ((e && e.code) || "error") };
       }
     }
 
@@ -28348,9 +29295,42 @@
     function _msgCloseDrawer() {
       const drawer = $a("cc-msg-drawer");
       if (drawer) drawer.classList.remove("open");
-      _msgOpenConvId = null; _msgOpenPeer = null;
+      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
     }
     window.__fishOpenMessages = _msgOpenDrawer;
+
+    // ── Bridge API for the in-game iMessage panel ────────────────
+    // The in-game chat panel lives in the outer game script; it reaches the
+    // Firestore messaging layer (DMs + groups) through this single object so
+    // both surfaces share ONE data source and stay in sync.
+    window.__fishMsg = {
+      ready:        () => !!(_db && _authUser),
+      isGuest:      () => _guestSessionActive === true,
+      myUid:        () => (_authUser ? _authUser.uid : null),
+      myName:       () => _playerNickname || "Player",
+      ensureListener: () => { if (_authUser) _msgStartListListener(); },
+      conversations: () => _msgConversations.slice(),
+      totalUnread:  () => _msgTotalUnread,
+      unreadFor:    (convId) => _msgAllMessages.filter(m =>
+                       m.conv_id === convId && !m.meta && m.sender !== _authUser.uid && !m.read).length,
+      messagesFor:  (convId) => _msgAllMessages
+                       .filter(m => m.conv_id === convId && !m.meta)
+                       .sort((a, b) => _msgTs(a) - _msgTs(b)),
+      groupMeta:    (convId) => _msgGroupMeta(convId),
+      timeLabel:    (ts) => _msgTimeLabel(ts),
+      markRead:     (convId) => _msgMarkConvRead(convId),
+      sendDM:       (peerUid, peerName, text) => _msgSendTo(peerUid, peerName, text),
+      sendGroup:    (convId, text) => _msgSendGroup(convId, text),
+      createGroup:  (rawNames, name) => _msgCreateGroup(rawNames, name),
+      renameGroup:  (convId, name) => _msgRenameGroup(convId, name),
+      addMembers:   (convId, rawNames) => _msgAddMembers(convId, rawNames),
+      leaveGroup:   (convId) => _msgLeaveGroup(convId),
+      avatarForNick:(nick) => (typeof window.__fishAvatarForNick === "function"
+                       ? window.__fishAvatarForNick(nick) : Promise.resolve(null)),
+      onChange:     (cb) => { if (typeof cb === "function") { _msgChangeCbs.push(cb);
+                       return () => { const i = _msgChangeCbs.indexOf(cb); if (i >= 0) _msgChangeCbs.splice(i, 1); }; }
+                       return () => {}; },
+    };
 
     // Wire drawer controls
     const _msgBtn = $a("stats-message-btn");
