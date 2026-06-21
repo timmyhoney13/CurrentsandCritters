@@ -3057,19 +3057,31 @@ class GameRoom:
                     seat_obj = self.seats[seat_index] if 0 <= seat_index < len(self.seats) else None
                     if seat_obj is not None and getattr(seat_obj, "is_away", False):
                         continue
-                    # Timeout: pick a safe fallback so the game doesn't hang.
-                    fallback = self._safe_fallback_action(gs, ms, player)
-                    # If the fallback was a draw (not end_turn), arm the flag so
-                    # the very next policy call will end the turn instead of
-                    # waiting another full timeout window for another action.
-                    if fallback is not None and fallback.kind == "draw":
-                        force_end_turn_next[0] = True
-                    if fallback is not None and fallback.kind == "end_turn":
-                        action_desc = "ending turn"
-                    elif only_discards:
-                        action_desc = "discarding a card"
-                    else:
-                        action_desc = "auto-drawing"
+                    # Timeout = the player is AFK / disconnected / not responding.
+                    # CRITICAL: never auto-draw cards for them. _safe_timeout_action
+                    # only ends the turn (if it can be passed without drawing) or
+                    # discards an over-limit hand — it NEVER draws. If the only way
+                    # forward would be a draw, it returns None and we PARK the turn
+                    # (keep waiting), exactly like the Surf's Up Away path above.
+                    # The only way an away player receives cards is the AFK vote
+                    # system (a queued draw_for_inactive command), never a timeout.
+                    fallback = self._safe_timeout_action(gs, ms, player)
+                    if fallback is None:
+                        # Can't pass the turn without drawing → do NOT draw. Park
+                        # the turn and wait; other players can vote them AFK
+                        # ("<name> is AFK" in chat) to make them draw 2 and pass.
+                        with self.cond:
+                            self.status_note = (
+                                f"Waiting for {player.name} — they appear to be away. "
+                                f"Other players can vote them AFK to draw 2 and pass the turn."
+                            )
+                            self._bump_locked()
+                        self._record_event(
+                            f"{player.name} (seat {seat_index}) timed out while away — "
+                            f"turn parked (no auto-draw; awaiting return or AFK vote)."
+                        )
+                        continue
+                    action_desc = "ending turn" if fallback.kind == "end_turn" else "discarding a card"
                     with self.cond:
                         self.status_note = (
                             f"{player.name} took too long — {action_desc} to keep game moving."
@@ -3543,7 +3555,47 @@ class GameRoom:
                 return action
         return None
 
-    def _wrap_policy_with_fallback(self, seat_label: str, base_policy):
+    def _safe_timeout_action(
+        self,
+        gs: fish.GameState,
+        ms: fish.MatchState,
+        player: fish.PlayerState,
+    ) -> Optional[fish.Action]:
+        """Fallback action for an inactive / AFK / disconnected / non-responding
+        player whose turn timer expired. UNLIKE _safe_fallback_action, this
+        NEVER draws cards. An away player must never have cards drawn for them
+        automatically — cards are only ever given through the AFK vote system
+        (a `draw_for_inactive` command queued by _afk_resolve_challenge after a
+        valid ≥50% vote, or by another player via the draw_for_inactive action).
+
+        Returns:
+          • end_turn  — if the turn can be passed WITHOUT drawing (e.g. final
+                        round, or any state where ending is already legal);
+          • a single discard — only when the hand is over the limit, which
+                        removes cards and never gives them;
+          • None      — when the only way forward would be to draw a card, so
+                        the caller must PARK the turn and keep waiting instead.
+        """
+        try:
+            actions = fish.legal_actions(gs, ms, player, include_draw=True)
+        except Exception:
+            return None
+        if not actions:
+            return None
+        # Priority 1: end_turn — passes the turn without touching the deck.
+        for action in actions:
+            if action.kind == "end_turn":
+                return action
+        # Priority 2: single discard — only reachable when the hand is already
+        # over the limit. Discarding removes cards; it never adds any.
+        for action in actions:
+            if action.kind == "discard_to_pool":
+                return action
+        # Otherwise the only legal way forward is to DRAW. We must not draw for
+        # an away/inactive player — return None so the turn parks and waits.
+        return None
+
+    def _wrap_policy_with_fallback(self, seat_label: str, base_policy, seat_index: Optional[int] = None):
         def wrapped(gs: fish.GameState, ms: fish.MatchState, player: fish.PlayerState) -> Optional[fish.Action]:
             try:
                 return base_policy(gs, ms, player)
@@ -3558,6 +3610,21 @@ class GameRoom:
                 # auto-discarding.
                 if player.flags.get("_discard_mode"):
                     return None
+                # Never auto-draw for an away player, even on an error fallback —
+                # a "fallback move" is not a valid reason to add cards to an away
+                # player's hand (only a vote is). Use the non-drawing variant so
+                # the recovery can end/discard but never draw for them.
+                seat_obj = (
+                    self.seats[seat_index]
+                    if seat_index is not None and 0 <= seat_index < len(self.seats)
+                    else None
+                )
+                if seat_obj is not None and getattr(seat_obj, "is_away", False):
+                    self._record_event(
+                        f"Blocked auto-draw fallback for away player {player.name} "
+                        f"(seat {seat_index}) — away players only draw via vote."
+                    )
+                    return self._safe_timeout_action(gs, ms, player)
                 return self._safe_fallback_action(gs, ms, player)
 
         return wrapped
@@ -4152,7 +4219,7 @@ class GameRoom:
                     human_indices.add(game_idx)
                     player_names.append(seat.claimed_name or seat.label)
                     human_policy = self._human_policy(seat.index)
-                    policies.append(self._wrap_policy_with_fallback(seat.claimed_name or seat.label, human_policy))
+                    policies.append(self._wrap_policy_with_fallback(seat.claimed_name or seat.label, human_policy, seat_index=seat.index))
                     ai_difficulties_by_game_idx.append("")  # placeholder for humans
                 else:
                     human_indices.discard(game_idx)
@@ -4169,7 +4236,7 @@ class GameRoom:
                         strategy_transition_count_map,
                     )
                     policies.append(
-                        self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy)
+                        self._wrap_policy_with_fallback(seat.claimed_name or seat.label, ai_policy, seat_index=seat.index)
                     )
                     ai_difficulties_by_game_idx.append(str(seat.difficulty or "medium").strip().lower())
 

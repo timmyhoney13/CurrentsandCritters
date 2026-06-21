@@ -13016,11 +13016,16 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.6";
-  const APP_BUILD   = "2026-06-21.3";
+  const APP_VERSION = "1.5.7";
+  const APP_BUILD   = "2026-06-21.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.5.7", title: "Away players never auto-draw cards", items: [
+      "Fixed a bug where the game could automatically draw cards for a player who was away, AFK, disconnected, or just not responding when their turn timer ran out.",
+      "Now an away player's turn simply waits — no cards are ever drawn for them automatically.",
+      "The only way an away player draws is when the other players vote them AFK (type \"<name> is AFK\" in chat); a passed vote makes them draw 2 and pass, exactly as before.",
+    ]},
     { ver: "V1.5.5", title: "Start chats and groups by just typing names", items: [
       "The chat list now has a search bar instead of a ＋ button — type a player's name and pick them to open your chat with them.",
       "Keep adding names to start a group chat. As you add people, any existing chat with exactly those players shows up so you can jump straight back into it.",
