@@ -1766,37 +1766,19 @@ body.motion-none .cloud, body.motion-none .seagull, body.motion-none .snap-scanl
 
 
 /* ============================================================
-   PEOPLE WHO CARE — backers banner (underwater wall)
+   PEOPLE WHO CARE — full-bleed backers banner (underwater wall)
+   Spans the entire viewport width, edge to edge.
    ============================================================ */
 .people-care {
-  padding-top: 60px;
-  padding-bottom: 60px;
-}
-.people-care-banner {
-  max-width: 1100px;
-  margin: 0 auto;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--line);
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
   line-height: 0;
+  font-size: 0;
 }
-.people-care-banner img {
+.people-care-img {
   display: block;
   width: 100%;
   height: auto;
 }
-.people-care-note {
-  text-align: center;
-  margin: 28px 0 0;
-  color: var(--muted-strong);
-  font-size: 13px;
-}
-.people-care-note a {
-  color: var(--brand-cyan-deep);
-  text-decoration: none;
-  border-bottom: 1px dashed var(--brand-cyan);
-  padding-bottom: 1px;
-  font-weight: 600;
-}
-.people-care-note a:hover { color: var(--brand-ink); border-bottom-color: var(--brand-ink); }
