@@ -13016,11 +13016,15 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.5.7";
-  const APP_BUILD   = "2026-06-21.4";
+  const APP_VERSION = "1.5.8";
+  const APP_BUILD   = "2026-06-21.5";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.5.8", title: "New theme song", items: [
+      "Updated the title theme song to the new track.",
+      "Fixed it not refreshing for players who had the old track cached in their browser.",
+    ]},
     { ver: "V1.5.7", title: "Away players never auto-draw cards", items: [
       "Fixed a bug where the game could automatically draw cards for a player who was away, AFK, disconnected, or just not responding when their turn timer ran out.",
       "Now an away player's turn simply waits — no cards are ever drawn for them automatically.",
@@ -13951,7 +13955,7 @@
         _themeAudioCtx = new Ctx();
       }
       const base = (typeof activeApiBaseUrl === "function" ? activeApiBaseUrl() : "") || "";
-      const url = (base ? base : "") + "/theme-song.m4a";
+      const url = (base ? base : "") + "/theme-song.m4a?v=" + encodeURIComponent(APP_BUILD);
       const res = await fetch(url, { cache: "force-cache" });
       if (!res.ok) return null;
       const arr = await res.arrayBuffer();
