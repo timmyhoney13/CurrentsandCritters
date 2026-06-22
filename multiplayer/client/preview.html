@@ -1074,6 +1074,12 @@
       display: flex; flex-wrap: wrap; gap: 2px; max-width: calc(100% - 4px);
       pointer-events: none;
     }
+    /* Hand cards fan out with a -28px overlap and no z-index ordering, so a
+       badge sitting in either the left 28px (overlapped BY this card onto the
+       previous one) or the right 28px (overlapped BY the next card onto this
+       one) reads as belonging to the wrong card. 30px is inside every card's
+       exclusively-visible strip regardless of its position in the fan. */
+    .pv-hand-card .strat-tags { left: 30px; max-width: calc(100% - 32px); }
     .strat-tag {
       font-size: 8px; font-weight: 900; color: #07101f; line-height: 1.25;
       padding: 1px 4px; border-radius: 6px; white-space: nowrap;
@@ -11038,13 +11044,6 @@
           </span>
         </div>
       </div>
-      <!-- Alpha version square: its own column, sitting between the name and the Level badge. -->
-      <div class="ph-alpha-banner" id="ph-alpha-banner">
-        <div class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.3.5</div>
-        <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</div>
-        <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
-        <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
-      </div>
       <div class="ph-pranks">
         <div class="ph-rank-badge ph-rank-level">
           <div class="ph-rank-type">
@@ -11065,6 +11064,13 @@
           </div>
           <div class="ph-rank-val" id="stat-comp-rank">No rank yet.</div>
         </div>
+      </div>
+      <!-- Alpha version square: its own column, now sitting between the Level badge and sign-out actions. -->
+      <div class="ph-alpha-banner" id="ph-alpha-banner">
+        <div class="ph-alpha-tag" id="ph-alpha-tag">ALPHA V1.3.5</div>
+        <div class="ph-alpha-msg" id="ph-alpha-msg">You're on the latest version. 🎉</div>
+        <button type="button" class="ph-alpha-refresh" id="ph-alpha-refresh" style="display:none;">🔄 Refresh now</button>
+        <button type="button" class="ph-alpha-whatsnew" id="ph-alpha-whatsnew">What's New ›</button>
       </div>
       <div id="stats-lobby-signed-actions" style="display:none;gap:8px;align-items:center;">
         <button class="ph-icon-btn" id="stats-message-btn" title="Messages" style="position:relative;">
@@ -13042,11 +13048,17 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.0";
-  const APP_BUILD   = "2026-06-21.7";
+  const APP_VERSION = "1.6.1";
+  const APP_BUILD   = "2026-06-22.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.1", title: "Profile polish, badge fix & Story Unlocks", items: [
+      "Reorganized the profile card: your name now sits at the top, with your Level and Competitive rank above the version / What's New box.",
+      "Fixed a strategy label showing up on the wrong card in your hand — when you pick a strategy, the badge now lands on the exact card it belongs to (placing it on the board was always correct).",
+      "Fixed the title theme song occasionally doubling up and sounding out of sync after a reconnect — it now plays as a single clean track.",
+      "New \"Story Unlocks\" filter in the Avatar Gallery that gathers the story / easter-egg critters in order, while keeping each of them in their usual species sections too.",
+    ]},
     { ver: "V1.5.9", title: "Louder theme song", items: [
       "Turned up the title theme song volume.",
     ]},
@@ -13972,6 +13984,7 @@
   let _themeSource = null;
   let _themeGain = null;
   let _themeBufferLoading = false;
+  let _themeStarting = false;
 
   async function _ensureThemeBuffer() {
     if (_themeBuffer) return _themeBuffer;
@@ -14004,7 +14017,12 @@
       // Respect the player's music toggle (Settings). If music is off, never
       // start — this keeps it off in-game even after toggling it off.
       try { if (localStorage.getItem("fish_music_on") === "0") return; } catch {}
-      if (_themeSource) return; // already playing
+      if (_themeSource || _themeStarting) return; // already playing, or already starting
+      // Claim the "starting" slot synchronously, before the buffer-load await
+      // below, so a second startThemeSong() call fired while this one is
+      // still in flight (e.g. a fast reconnect) can't slip past the
+      // _themeSource guard and spin up a duplicate, out-of-phase source.
+      _themeStarting = true;
       const buffer = await _ensureThemeBuffer();
       if (!buffer || !_themeAudioCtx) return;
       if (_themeAudioCtx.state === "suspended") {
@@ -14018,6 +14036,7 @@
       _themeSource.connect(_themeGain).connect(_themeAudioCtx.destination);
       _themeSource.start(0);
     } catch {}
+    finally { _themeStarting = false; }
   }
 
   function stopThemeSong() {
@@ -26107,6 +26126,20 @@
       return seen;
     }
 
+    // Curated "Story Unlocks" section — a hand-ordered cross-section of avatars
+    // tied to the game's story / easter-egg progression. These avatars KEEP
+    // their normal species sections too; this is an ADDITIONAL filter view,
+    // shown in a fixed narrative order (not the usual unlocked-first sort):
+    // the three hidden Cephalopods, then Spinner Dolphin, then Giant Squid,
+    // then Sea Anemone.
+    const STORY_UNLOCK_IDS = [
+      "bobtail-squid", "common-octopus", "cuttlefish",
+      "spinner-dolphin", "giant-squid", "sea-anemone",
+    ];
+    function _galStoryAvatars() {
+      return STORY_UNLOCK_IDS.map(id => animalById(id)).filter(Boolean);
+    }
+
     function _galSeed() {
       return (!_authUser && _guestSessionActive)
         ? (_playerNickname || "guest")
@@ -26267,12 +26300,15 @@
     function _galRenderTabs() {
       const tabs = $a("gal-tabs");
       if (!tabs) return;
-      const groups = ["all", ..._galSpeciesOrder(), "__backgrounds__"];
+      const groups = ["all", ..._galSpeciesOrder(), "__story__", "__backgrounds__"];
       tabs.innerHTML = "";
       groups.forEach(g => {
         const btn = document.createElement("button");
         btn.className = "gal-tab" + (g === _galSpecies ? " active" : "");
-        btn.textContent = g === "all" ? "All Species" : (g === "__backgrounds__" ? "Backgrounds" : g);
+        btn.textContent = g === "all" ? "All Species"
+          : g === "__story__" ? "Story Unlocks"
+          : g === "__backgrounds__" ? "Backgrounds"
+          : g;
         btn.addEventListener("click", () => {
           _galSpecies = g;
           _galRenderTabs();
@@ -26381,10 +26417,12 @@
       const counts = _iconUnlockCounts || {};
       wrap.innerHTML = "";
 
-      const renderSection = (titleText, avatars) => {
+      const renderSection = (titleText, avatars, opts) => {
         let items = _galItems(avatars, stats, level, equipped, newSet, counts).filter(_galPassesFilter);
         if (!items.length) return;
-        items = _galSortItems(items);
+        // Story Unlocks keeps its curated narrative order; everything else uses
+        // the normal unlocked-first / closest-to-unlock sort.
+        items = (opts && opts.fixedOrder) ? items : _galSortItems(items);
         const section = document.createElement("div");
         section.className = "gal-species-section";
         if (titleText) {
@@ -26407,6 +26445,8 @@
           renderSection(sp, ANIMAL_AVATARS.filter(a => a.species === sp));
         });
         _galRenderBgSection(wrap);
+      } else if (_galSpecies === "__story__") {
+        renderSection("Story Unlocks", _galStoryAvatars(), { fixedOrder: true });
       } else if (_galSpecies === "__backgrounds__") {
         _galRenderBgSection(wrap);
       } else {
