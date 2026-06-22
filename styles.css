@@ -1766,52 +1766,37 @@ body.motion-none .cloud, body.motion-none .seagull, body.motion-none .snap-scanl
 
 
 /* ============================================================
-   COMPANY SPONSORS — logo wall (light surface)
+   PEOPLE WHO CARE — backers banner (underwater wall)
    ============================================================ */
-.sponsors-logos {
+.people-care {
   padding-top: 60px;
   padding-bottom: 60px;
 }
-.sponsors-logos .logo-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
+.people-care-banner {
   max-width: 1100px;
   margin: 0 auto;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--line);
+  line-height: 0;
 }
-.sponsors-logos .logo-grid image-slot {
+.people-care-banner img {
   display: block;
   width: 100%;
-  aspect-ratio: 5 / 3;
-  background: var(--surface-strong);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+  height: auto;
 }
-.sponsors-logos .logo-grid image-slot:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--brand-cyan);
-}
-.sponsors-logos .logo-grid-note {
+.people-care-note {
   text-align: center;
   margin: 28px 0 0;
   color: var(--muted-strong);
   font-size: 13px;
 }
-.sponsors-logos .logo-grid-note a {
+.people-care-note a {
   color: var(--brand-cyan-deep);
   text-decoration: none;
   border-bottom: 1px dashed var(--brand-cyan);
   padding-bottom: 1px;
   font-weight: 600;
 }
-.sponsors-logos .logo-grid-note a:hover { color: var(--brand-ink); border-bottom-color: var(--brand-ink); }
-
-@media (max-width: 1000px) {
-  .sponsors-logos .logo-grid { grid-template-columns: repeat(4, 1fr); }
-}
-@media (max-width: 640px) {
-  .sponsors-logos .logo-grid { grid-template-columns: repeat(3, 1fr); }
-}
+.people-care-note a:hover { color: var(--brand-ink); border-bottom-color: var(--brand-ink); }
