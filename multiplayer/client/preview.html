@@ -10663,6 +10663,47 @@
     /* Make leaderboard player cells clickable */
     .ph-lb-player-cell.pub-clickable { cursor: pointer; }
     .ph-lb-player-cell.pub-clickable:hover { opacity: .82; }
+
+    /* ============================================================
+       Desktop profile-card layout fix (≥1181px)
+       Two tidy rows so nothing clips:
+         row 1:  avatar | name + friend-code + XP/Streak chips | message + Sign Out
+         row 2:  avatar | Level (w/ XP bar) + Competitive        | ALPHA / What's New
+       ============================================================ */
+    @media (min-width: 1181px) {
+      #auth-stats-lobby .ph-profile-card {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-rows: auto auto;
+        grid-template-areas:
+          "avatar info  actions"
+          "avatar ranks alpha";
+        column-gap: 26px;
+        row-gap: 16px;
+        align-items: center;
+      }
+      #auth-stats-lobby .ph-avatar  { grid-area: avatar; align-self: center; }
+      #auth-stats-lobby .ph-pinfo   { grid-area: info;   align-self: center; min-width: 0; }
+      #auth-stats-lobby .ph-pranks  { grid-area: ranks;  align-self: center; justify-self: start; max-width: 540px; }
+      #auth-stats-lobby .ph-alpha-banner { grid-area: alpha; align-self: stretch; justify-self: end; }
+      #auth-stats-lobby #stats-lobby-signed-actions {
+        grid-area: actions;
+        align-self: center;
+        justify-content: flex-end;
+      }
+      /* Show the player's full name — wrap instead of clipping with an ellipsis */
+      #auth-stats-lobby .ph-pname {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        overflow-wrap: anywhere;
+      }
+      /* Total XP + Current Streak chips always sit side by side */
+      #auth-stats-lobby .ph-pmeta2 {
+        flex-wrap: nowrap;
+        margin-top: 10px;
+      }
+    }
   </style>
 </head>
 <body>
