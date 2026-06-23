@@ -1,7 +1,7 @@
 {
-  "name": "Tidal Wave Multiplayer",
-  "short_name": "TidalWave",
-  "description": "Play Tidal Wave online with two or more players.",
+  "name": "Currents & Critters",
+  "short_name": "Currents & Critters",
+  "description": "Play Currents & Critters online with two or more players.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

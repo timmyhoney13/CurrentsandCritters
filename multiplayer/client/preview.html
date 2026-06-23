@@ -1690,7 +1690,15 @@
         ".    up    ."
         "left ocean right"
         ".    down  .";
-      grid-template-columns: calc(var(--mini-w) / 2) auto calc(var(--mini-w) / 2);
+      /* Side (left/right) lanes use minmax(half-card, auto) — NOT a fixed
+         half-card width — so that stacking cards sideways (Yellowfin Tuna,
+         Lobster, …) GROWS the column instead of overflowing it. This keeps the
+         hub border wrapped around the whole stack and makes the hub's layout
+         box grow, so neighbouring oceans reflow out of the way instead of being
+         overlapped by the spilling cards. The minmax floor matches the old
+         fixed width, so empty/single-card oceans are unchanged; up/down already
+         grow via the auto rows below. */
+      grid-template-columns: minmax(calc(var(--mini-w) / 2), auto) auto minmax(calc(var(--mini-w) / 2), auto);
       grid-template-rows: auto auto auto;
       align-items: center;
       gap: 0;
@@ -5047,6 +5055,7 @@
     #auth-launch-sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
     #auth-launch-play-btn { font-size: 16px; padding: 14px 28px; letter-spacing: .4px; }
     #auth-launch-play-btn:disabled { opacity: .7; }
+    #auth-launch-secondary-btn { font-size: 14px; padding: 11px 22px; letter-spacing: .3px; }
     .auth-launch-links { display: flex; flex-direction: column; gap: 6px; align-items: center; }
     .auth-divider {
       color: var(--muted); font-size: 11px; text-align: center;
@@ -10784,17 +10793,21 @@
     <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
   </div>
 
-  <!-- Step 4: launch — shown after auth on the login/landing page so the game opens in a new window -->
+  <!-- Step 4: launch — shown on the launcher/landing page after auth so the
+       game opens in its own dedicated window (Steam-style). Doubles as the
+       "game is running" screen and the pop-up-blocked fallback. -->
   <div id="auth-step-launch" class="auth-box" style="display:none">
     <div id="auth-launch-avatar-wrap">
       <img id="auth-launch-avatar-img" src="" alt="" style="display:none" onerror="this.style.display='none';document.getElementById('auth-launch-initials').style.display='';" />
-      <span id="auth-launch-initials">?</span>
+      <span id="auth-launch-initials">🐙</span>
     </div>
-    <div id="auth-launch-greeting">Ready to Play!</div>
-    <div id="auth-launch-sub">Click below to open the game in a new window.</div>
-    <button id="auth-launch-play-btn" class="pv-btn gold full">🎮 Open Game</button>
+    <div id="auth-launch-greeting">Ready to dive in!</div>
+    <div id="auth-launch-sub">Open Currents &amp; Critters in its own game window.</div>
+    <button id="auth-launch-play-btn" class="pv-btn gold full" data-action="open">🎮 Open Game</button>
+    <button id="auth-launch-secondary-btn" class="pv-btn full" style="display:none">🔁 Relaunch Game</button>
     <div class="auth-err" id="auth-launch-err" style="white-space:pre-wrap;"></div>
     <div class="auth-launch-links">
+      <span class="auth-link" id="auth-launch-continue" style="display:none">Continue in this window</span>
       <span class="auth-link" id="auth-launch-signout">Sign Out</span>
     </div>
   </div>
@@ -13106,7 +13119,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-23.1";
+  const APP_BUILD   = "2026-06-23.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -13391,14 +13404,21 @@
   }
   function makeRequestId() { return `preq_${Date.now()}_${Math.random().toString(36).slice(2,7)}`; }
 
+  // Reserved single-segment page names that must NEVER be treated as a room
+  // ID. normalizeRoomId() uppercases and accepts 4–12 [A-Z0-9], so without this
+  // guard "/game", "/preview", "/about" etc. would be misread as rooms "GAME",
+  // "PREVIEW", "ABOUT" — breaking the launcher and the dedicated game window.
+  const RESERVED_PATH_NAMES = new Set([
+    "play","preview","classic","old","game","website","site","rules","about","leaderboard",
+  ]);
   function roomFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
     // /play/XXXXX or /preview/XXXXX or /classic/XXXXX
     if (parts.length >= 2) {
       const r = normalizeRoomId(parts[1]); if (r) return r;
     }
-    // /XXXXX (bare room ID as path)
-    if (parts.length === 1) {
+    // /XXXXX (bare room ID as path) — but never a reserved page name
+    if (parts.length === 1 && !RESERVED_PATH_NAMES.has(parts[0].toLowerCase())) {
       const r = normalizeRoomId(parts[0]); if (r) return r;
     }
     const qs = new URLSearchParams(location.search);
@@ -24950,13 +24970,13 @@
   // board can't be zoomed too far in (cut-off) or too far out (broken/tiny).
   // ═══════════════════════════════════════════════════════════════
   const _BS_MIN = 0.7, _BS_MAX = 1.5, _BS_STEP = 0.1, _BS_KEY = "cc_board_zoom";
-  let _boardZoom = (function() {
-    try {
-      const v = parseFloat(localStorage.getItem(_BS_KEY));
-      if (Number.isFinite(v) && v >= _BS_MIN && v <= _BS_MAX) return Math.round(v * 10) / 10;
-    } catch {}
-    return 1;
-  })();
+  // Board zoom ALWAYS starts at 100% for every player on every load — a saved
+  // zoom is never restored, so the board can never come up zoomed in/out from a
+  // previous session. Players can still zoom with the +/- control during a match
+  // (that change lives only for the current session). Any stale value saved by
+  // an older build is cleared here so it can never take effect again.
+  let _boardZoom = 1;
+  try { localStorage.removeItem(_BS_KEY); } catch {}
 
   function applyBoardZoom() {
     _boardZoom = Math.min(_BS_MAX, Math.max(_BS_MIN, Math.round(_boardZoom * 10) / 10));
@@ -24969,7 +24989,7 @@
     const minus = document.getElementById("bs-minus");
     if (plus)  plus.disabled  = _boardZoom >= _BS_MAX - 0.001;
     if (minus) minus.disabled = _boardZoom <= _BS_MIN + 0.001;
-    try { localStorage.setItem(_BS_KEY, String(_boardZoom)); } catch {}
+    // Intentionally NOT persisted — board zoom resets to 100% on every load.
   }
 
   function boardZoomBy(delta) {
@@ -25011,7 +25031,7 @@
       else if (k === "-" || k === "_") { boardZoomBy(-_BS_STEP); e.preventDefault(); }
     });
 
-    applyBoardZoom(); // initialise the CSS var from the saved value
+    applyBoardZoom(); // initialise the CSS var + readout at 100%
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -25807,6 +25827,136 @@
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
+
+    // ════════════════════════════════════════════════════════════════
+    // DEDICATED GAME-WINDOW LAUNCHER (Steam-style, no install)
+    // ----------------------------------------------------------------
+    // The plain link ( / or /game ) is the LAUNCHER: it shows the existing
+    // sign-in screen and, once the player authenticates, opens the actual game
+    // in a separate, large, named browser window. game_window=1 marks that real
+    // GAME WINDOW — it runs the game inline and must NEVER open another window.
+    // Room / reconnect links ( /play/ROOM, ?room=… ) also run the game inline.
+    // ════════════════════════════════════════════════════════════════
+    const _ccUrlParams = new URLSearchParams(location.search);
+    function _ccUrlIsRoomLink() {
+      const p = location.pathname.split("/").filter(Boolean);
+      if (p[0] === "play" && p.length >= 2) return true;             // /play/ROOM
+      if (_ccUrlParams.has("room") || _ccUrlParams.has("roomId")) return true;
+      if (p.length === 1 && !RESERVED_PATH_NAMES.has(p[0].toLowerCase())) {
+        return /^[A-Z0-9]{4,12}$/.test(p[0].toUpperCase());          // bare /ROOM
+      }
+      return false;
+    }
+    const IS_GAME_WINDOW = _ccUrlParams.get("game_window") === "1" || _ccUrlIsRoomLink();
+    const _ccWantsGoogleAuth = _ccUrlParams.get("auth") === "google";
+    let _ccGoogleRedirectStarted = false;
+
+    // Strip one-time auth query params after capturing them, so refreshing the
+    // dedicated game window never restarts Google authentication.
+    (function _ccStripOneTimeAuthParams() {
+      if (!_ccUrlParams.has("auth")) return;
+      try {
+        const u = new URL(location.href);
+        u.searchParams.delete("auth");
+        history.replaceState(null, "", u.pathname + u.search + u.hash);
+      } catch (_) {}
+    })();
+
+    const GAME_WINDOW_NAME = "CurrentsAndCrittersGame";
+    let _ccGameWin = null;
+    let _ccLaunchCtx = { type: "guest", nick: "", avatarUrl: "", gameUrl: "/game?game_window=1" };
+
+    function ccGameUrl(opts) {
+      opts = opts || {};
+      let q = "game_window=1";
+      if (opts.auth) q += "&auth=" + encodeURIComponent(opts.auth);
+      return "/game?" + q;
+    }
+
+    // Open (or focus) the ONE dedicated game window. Returns the window handle,
+    // or null if the browser blocked the pop-up.
+    function launchGameWindow(gameUrl) {
+      // Reuse a window we already opened — just focus it, never re-navigate, so
+      // an in-progress game is never disrupted.
+      if (_ccGameWin && !_ccGameWin.closed) {
+        try { _ccGameWin.focus(); } catch (_) {}
+        return _ccGameWin;
+      }
+      const sw = (window.screen && (screen.availWidth || screen.width)) || 1280;
+      const sh = (window.screen && (screen.availHeight || screen.height)) || 800;
+      const width  = Math.max(900, Math.min(sw, Math.round(sw * 0.94)));
+      const height = Math.max(640, Math.min(sh, Math.round(sh * 0.92)));
+      const left = Math.max(0, Math.round((sw - width) / 2));
+      const top  = Math.max(0, Math.round((sh - height) / 2));
+      const features = `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+      let win = null;
+      try { win = window.open(gameUrl, GAME_WINDOW_NAME, features); } catch (_) { win = null; }
+      if (win) { _ccGameWin = win; try { win.focus(); } catch (_) {} }
+      return win;
+    }
+
+    function focusGameWindow() {
+      if (_ccGameWin && !_ccGameWin.closed) { try { _ccGameWin.focus(); } catch (_) {} return true; }
+      return false;
+    }
+
+    // Launch screen state machine (reuses #auth-step-launch).
+    //   "ready"   → returning / just-authenticated: big “Open Game” button.
+    //   "running" → window opened: “Return to Game” + “Relaunch Game”.
+    //   "blocked" → pop-up blocked: retry “Open Game” + “Continue in this window”.
+    function ccSetLaunchScreen(state, opts) {
+      opts = opts || {};
+      const greet   = $a("auth-launch-greeting");
+      const sub     = $a("auth-launch-sub");
+      const primary = $a("auth-launch-play-btn");
+      const second  = $a("auth-launch-secondary-btn");
+      const cont    = $a("auth-launch-continue");
+      const errEl   = $a("auth-launch-err");
+      const img     = $a("auth-launch-avatar-img");
+      const initEl  = $a("auth-launch-initials");
+      if (errEl) errEl.textContent = "";
+      if (img && initEl) {
+        if (opts.avatarUrl) {
+          img.src = opts.avatarUrl; img.style.display = ""; initEl.style.display = "none";
+        } else {
+          img.style.display = "none"; initEl.style.display = "";
+          initEl.textContent = opts.nick ? opts.nick.trim().charAt(0).toUpperCase() : "🐙";
+        }
+      }
+      if (state === "running") {
+        if (greet) greet.textContent = "Currents & Critters is running 🌊";
+        if (sub)   sub.textContent   = "Your game opened in its own window. Keep this tab open — jump back anytime.";
+        if (primary) { primary.textContent = "↩ Return to Game"; primary.dataset.action = "return"; primary.style.display = ""; }
+        if (second)  { second.textContent  = "🔁 Relaunch Game"; second.style.display = ""; }
+        if (cont)    cont.style.display = "none";
+      } else if (state === "blocked") {
+        if (greet) greet.textContent = "Your browser blocked the game window";
+        if (sub)   sub.textContent   = "Allow pop-ups for this site, then tap below to open Currents & Critters.";
+        if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
+        if (second)  second.style.display = "none";
+        if (cont)    cont.style.display = "";
+        if (errEl)   errEl.textContent = opts.message || "";
+      } else { // "ready"
+        if (greet) greet.textContent = opts.nick ? ("Welcome back, " + opts.nick + "!") : "Ready to dive in!";
+        if (sub)   sub.textContent   = "Open Currents & Critters in its own game window.";
+        if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
+        if (second)  second.style.display = "none";
+        if (cont)    cont.style.display = "none";
+      }
+      $a("auth-loading-screen").classList.add("hidden");
+      $a("auth-screen").classList.remove("hidden");
+      showStep("auth-step-launch");
+    }
+
+    // Open the dedicated window from a REAL user gesture, then swap the launcher
+    // to the running screen (or the pop-up-blocked fallback).
+    function ccLaunchFromLauncher(ctx) {
+      _ccLaunchCtx = ctx;
+      const w = launchGameWindow(ctx.gameUrl);
+      if (w) ccSetLaunchScreen("running", { nick: ctx.nick, avatarUrl: ctx.avatarUrl });
+      else   ccSetLaunchScreen("blocked", { nick: ctx.nick, avatarUrl: ctx.avatarUrl,
+                                            message: "Pop-up blocked — click “Open Game” to try again." });
+    }
 
     function firebaseConfigured() {
       const c = window.__FISH_FIREBASE_CONFIG;
@@ -28775,7 +28925,13 @@
         const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
         if (savedGuestNick) {
           _guestAvatarUrl = savedGuestAvatar;
-          revealLobby(savedGuestNick, "");
+          if (IS_GAME_WINDOW) {
+            revealLobby(savedGuestNick, "");
+          } else {
+            // Launcher: returning guest — offer a one-click Open Game (no re-nick).
+            _ccLaunchCtx = { type: "guest", nick: savedGuestNick, avatarUrl: savedGuestAvatar, gameUrl: ccGameUrl() };
+            ccSetLaunchScreen("ready", { nick: savedGuestNick, avatarUrl: savedGuestAvatar });
+          }
           return;
         }
         $a("auth-loading-screen").classList.add("hidden");
@@ -28787,6 +28943,47 @@
       // Firebase ready — wait for persisted auth state
       _auth.onAuthStateChanged(async (user) => {
         const authSeq = ++_authStateSeq;
+
+        // ── LAUNCHER MODE ── Never reveal the lobby in the launcher tab; the
+        // real game runs in the dedicated window. Just show the launch screen
+        // (and route auth/onboarding into the game window).
+        if (!IS_GAME_WINDOW) {
+          $a("auth-loading-screen").classList.add("hidden");
+          if (user) {
+            _authUser = user;
+            _guestSessionActive = false;
+            let nick = String(user.displayName || "").split(" ")[0] || "";
+            let avatarUrl = "";
+            try {
+              const { profile, reason } = await loadProfileWithFallbacks(user);
+              if (authSeq !== _authStateSeq) return;
+              if (reason !== "error" && profile) {
+                _activeProfile = profile;
+                if (profile.nickname) nick = profile.nickname;
+                _playerNickname = profile.nickname || "";
+                _friendCode = profile.friend_code || "";
+                avatarUrl = sanitizeSelectableAvatar(profile.avatar_url, user.uid) || "";
+              }
+            } catch (_) {}
+            // Opening with auth=google lets the dedicated window finish/restore
+            // the Google session; if already signed in there it goes straight in.
+            _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
+            ccSetLaunchScreen("ready", { nick, avatarUrl });
+          } else {
+            _authUser = null;
+            const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
+            if (gNick) {
+              _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", gNick);
+              _ccLaunchCtx = { type: "guest", nick: gNick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() };
+              ccSetLaunchScreen("ready", { nick: gNick, avatarUrl: _guestAvatarUrl });
+            } else {
+              showStep("auth-step-choose");
+            }
+          }
+          return;
+        }
+
+        // ── GAME WINDOW MODE ── full auth / onboarding / lobby logic ──
         if (user) {
           const prevUid = _authUser?.uid || "";
           if (prevUid && prevUid !== user.uid) {
@@ -28886,6 +29083,11 @@
               if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
             } catch { _unlockedIcons = []; }
             revealLobby(savedGuestNick, "");
+          } else if (_ccWantsGoogleAuth && !_ccGoogleRedirectStarted && _auth) {
+            // This dedicated game window was opened from the launcher's Google
+            // button. No session yet → start Google auth here (redirect), so the
+            // player stays in THIS window and lands in the lobby/onboarding.
+            beginGameWindowGoogleSignIn("auth-choose-err");
           } else {
             showStep("auth-step-choose");
           }
@@ -28949,9 +29151,44 @@
       }
     }
 
+    // Google sign-in performed INSIDE the dedicated game window. Uses redirect
+    // (not popup) because a popup launched from within an already-popup window
+    // is unreliable and often blocked. After Google returns, onAuthStateChanged
+    // keeps the player in THIS window and reveals the lobby/onboarding.
+    async function beginGameWindowGoogleSignIn(errId) {
+      if (!_auth) { setAuthMsg(errId, "Sign-in is not configured for this server.", false); return; }
+      setAuthMsg(errId, "", false);
+      clearGuestSessionStorage();
+      _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+      _pendingOnboardingUid = ""; _avatarPromptShownForUid = "";
+      try { syncStatsHeader(null); } catch (_) {}
+      const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
+      const bar = $a("auth-profile-bar"); if (bar) bar.style.display = "none";
+      const loading = $a("auth-loading-screen");
+      if (loading) { loading.textContent = "Signing in with Google…"; loading.classList.remove("hidden"); }
+      try {
+        if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: "select_account consent" });
+        _ccGoogleRedirectStarted = true;
+        await _auth.signInWithRedirect(provider); // navigates THIS window to Google
+      } catch (e) {
+        if (loading) loading.classList.add("hidden");
+        setAuthMsg(errId, friendlyAuthErr(e.code), false);
+        showStep("auth-step-choose");
+      }
+    }
+
     const chooseGoogleBtn = $a("auth-choose-google-btn");
     if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
-      await beginCleanGoogleSignIn("auth-choose-err");
+      if (IS_GAME_WINDOW) {
+        // Already inside the dedicated window — sign in here (redirect).
+        await beginGameWindowGoogleSignIn("auth-choose-err");
+      } else {
+        // Launcher: open the dedicated window from THIS click (a real user
+        // gesture, so the pop-up isn't blocked); that window does Google auth.
+        ccLaunchFromLauncher({ type: "google", nick: "", avatarUrl: "", gameUrl: ccGameUrl({ auth: "google" }) });
+      }
     });
 
     $a("auth-guest-go-btn").addEventListener("click", () => {
@@ -28965,7 +29202,13 @@
       localStorage.setItem(GUEST_NICK_KEY, nick);
       localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
       _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
-      revealLobby(nick, "");
+      if (IS_GAME_WINDOW) {
+        revealLobby(nick, "");
+      } else {
+        // Launcher: the guest session we just saved is read by the dedicated
+        // window — so the player never enters the nickname twice.
+        ccLaunchFromLauncher({ type: "guest", nick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() });
+      }
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
 
@@ -29010,28 +29253,46 @@
     });
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
-    // ── Launch step: "Play Full Screen" button (unused path — kept for safety) ──
-    (function() {
-      const playBtn = $a("auth-launch-play-btn");
+    // ── Launch screen controller (Open / Return / Relaunch / Continue / Sign Out) ──
+    (function setupLaunchScreen() {
+      const primary = $a("auth-launch-play-btn");
+      const second  = $a("auth-launch-secondary-btn");
+      const cont    = $a("auth-launch-continue");
       const soBtn   = $a("auth-launch-signout");
-      if (!playBtn || !soBtn) return;
 
-      playBtn.addEventListener("click", async () => {
-        const el = document.documentElement;
-        try {
-          if (el.requestFullscreen) await el.requestFullscreen();
-          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-        } catch (_) {}
+      if (primary) primary.addEventListener("click", () => {
+        const action = primary.dataset.action || "open";
+        if (action === "return") {
+          // Focus the running window; if it was closed, relaunch it.
+          if (!focusGameWindow()) ccLaunchFromLauncher(_ccLaunchCtx);
+        } else {
+          ccLaunchFromLauncher(_ccLaunchCtx); // open / retry-after-blocked
+        }
       });
 
-      soBtn.addEventListener("click", async () => {
+      if (second) second.addEventListener("click", () => {
+        // Relaunch: drop any stale handle and (re)open the named window.
+        _ccGameWin = null;
+        ccLaunchFromLauncher(_ccLaunchCtx);
+      });
+
+      if (cont) cont.addEventListener("click", () => {
+        // Continue in THIS tab: navigate it to the real game-window URL so the
+        // launcher tab becomes the dedicated game (reads the saved guest session
+        // or finishes Google auth, then lands in the lobby).
+        window.location.href = _ccLaunchCtx.gameUrl;
+      });
+
+      if (soBtn) soBtn.addEventListener("click", async () => {
         if (_authUser && _auth) {
-          try { await _auth.signOut(); } catch {}
-        } else if (_guestSessionActive) {
+          try { await _auth.signOut(); } catch (_) {}
+        } else {
           clearGuestSessionStorage();
           _guestSessionActive = false;
           _playerNickname = "";
         }
+        _ccGameWin = null;
+        _ccLaunchCtx = { type: "guest", nick: "", avatarUrl: "", gameUrl: ccGameUrl() };
         showStep("auth-step-choose");
         setAuthMsg("auth-choose-err", "", false);
       });
