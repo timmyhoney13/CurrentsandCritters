@@ -18,7 +18,7 @@ import subprocess
 import threading
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dataclass_replace
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
@@ -455,6 +455,55 @@ def entry_to_dict(ms: fish.MatchState, gs: fish.GameState, entry_uid: int) -> Di
         "label": label,
         "faces": [_card_payload_safe(gs, int(uid)) for uid in faces if isinstance(uid, int)],
     }
+
+
+# ── Current Controller: admin card minting + full catalog ────────────────────
+# The admin "give any card" / "flood a hand" tools create brand-new physical
+# copies of a card on the fly. Each minted copy gets a globally-unique uid so it
+# can never collide with another game's cards in the process-wide ability
+# registry. The uid encodes the original art face in its low 3 digits
+# (uid = serial * 1000 + face_uid), so the client's imagePathForUid() /
+# cardHalfPos() render the correct sprite for a minted card with no extra
+# bookkeeping — anywhere a normal card is drawn (hand, board, zoom, picker).
+_MINT_SERIAL_LOCK = threading.Lock()
+_MINT_SERIAL_NEXT = 1000  # → minted uids are 1_000_000+ (originals are ≤ 266)
+
+
+def _alloc_mint_serial() -> int:
+    global _MINT_SERIAL_NEXT
+    with _MINT_SERIAL_LOCK:
+        s = _MINT_SERIAL_NEXT
+        _MINT_SERIAL_NEXT += 1
+        return s
+
+
+_ADMIN_CATALOG_CACHE: Optional[List[Dict[str, Any]]] = None
+
+
+def build_admin_card_catalog() -> List[Dict[str, Any]]:
+    """Every card in the game — both faces of each two-sided card (the left+right
+    and up+down orientations) plus single-face oceans — regardless of where the
+    copies currently sit. Powers the Current Controller add/mint pickers so the
+    admin can see and grant EVERY card, not just what is left in the live deck."""
+    global _ADMIN_CATALOG_CACHE
+    if _ADMIN_CATALOG_CACHE is not None:
+        return _ADMIN_CATALOG_CACHE
+    card_db = CARD_DB
+    pair_primary_to_faces, face_to_primary = fish.build_non_ocean_pair_maps(card_db)
+    tmp_ms = fish.MatchState(
+        pair_primary_to_faces=pair_primary_to_faces, face_to_primary=face_to_primary
+    )
+    tmp_gs = fish.GameState(card_db=card_db, players=[], deck=[])
+    seen: set = set()
+    entries: List[Dict[str, Any]] = []
+    for uid in sorted(card_db.keys()):
+        prim = int(face_to_primary.get(uid, uid))
+        if prim in seen:
+            continue
+        seen.add(prim)
+        entries.append(entry_to_dict(tmp_ms, tmp_gs, prim))
+    _ADMIN_CATALOG_CACHE = entries
+    return entries
 
 
 def board_to_dict(player: fish.PlayerState, gs: fish.GameState) -> List[Dict[str, Any]]:
@@ -3305,6 +3354,47 @@ class GameRoom:
                 p.discard.remove(uid); return "discard"
         return None
 
+    def _mint_card_clone(self, gs, ms, src_uid):
+        """Create a brand-new physical copy of the card identified by src_uid
+        (any face), cloned from the canonical card definition. The first time a
+        game mints, it gives that game its OWN card_db (a shallow copy — we only
+        ever add new keys, never mutate existing CardDefs) so minted cards never
+        leak into the process-wide CARD_DB shared by every other game. Registers
+        the clone's abilities + match pair-map and returns the new canonical
+        (primary) uid — or None if the source card is unknown."""
+        try:
+            src_uid = int(src_uid)
+        except (TypeError, ValueError):
+            return None
+        canon = fish.canonical_entry_uid(ms, src_uid)
+        faces = fish.entry_faces(ms, canon)
+        if not faces:
+            return None
+        if gs.card_db is CARD_DB:
+            gs.card_db = dict(gs.card_db)
+        serial = _alloc_mint_serial()
+        new_faces: List[int] = []
+        for fuid in faces:
+            cd = gs.card_db.get(int(fuid)) or CARD_DB.get(int(fuid))
+            if cd is None:
+                return None
+            new_uid = serial * 1000 + int(fuid)  # low 3 digits = original art face
+            new_cd = dataclass_replace(cd, uid=new_uid)
+            gs.card_db[new_uid] = new_cd
+            try:
+                fish._register_card_ability_impl(new_cd)
+            except Exception:
+                pass
+            new_faces.append(new_uid)
+        new_primary = new_faces[0]
+        if len(new_faces) == 2:
+            ms.pair_primary_to_faces[new_primary] = (new_faces[0], new_faces[1])
+            ms.face_to_primary[new_faces[0]] = new_primary
+            ms.face_to_primary[new_faces[1]] = new_primary
+        else:
+            ms.face_to_primary[new_primary] = new_primary
+        return new_primary
+
     def _admin_apply_mod_locked(self, gs, ms, op, params) -> Dict[str, Any]:
         """Apply one mod mutation. Caller holds self.cond and runs on the match thread."""
         op = str(op or "")
@@ -3390,6 +3480,42 @@ class GameRoom:
             else:
                 gs.deck.insert(0, uid); return {"ok": False, "error": "bad dest — returned to deck"}
             return {"ok": True, "moved_from": src}
+        if op == "mint":
+            # Create fresh copies of ANY card and place them. Unlike the move-based
+            # ops above, mint never consumes a real deck copy — so the admin can
+            # grant cards that aren't in the deck and FLOOD a hand with N copies.
+            dest = str(P.get("dest", "hand") or "hand")
+            try:
+                count = int(P.get("count", 1))
+            except (TypeError, ValueError):
+                count = 1
+            count = max(1, min(count, 50))
+            seat_pl = None
+            if dest == "hand":
+                seat_pl = self._seat_player(gs, int(P.get("seat")))
+                if seat_pl is None:
+                    return {"ok": False, "error": "bad seat"}
+            elif dest not in ("pool", "deck_top", "deck_bottom", "discard"):
+                return {"ok": False, "error": f"bad dest {dest}"}
+            minted = 0
+            for _ in range(count):
+                new_uid = self._mint_card_clone(gs, ms, P.get("uid"))
+                if new_uid is None:
+                    break
+                if dest == "hand":
+                    seat_pl.hand.append(new_uid)
+                elif dest == "pool":
+                    fish.add_to_pool(ms, new_uid)
+                elif dest == "deck_top":
+                    gs.deck.insert(0, new_uid)
+                elif dest == "deck_bottom":
+                    gs.deck.append(new_uid)
+                elif dest == "discard":
+                    ms.discard_pile.append(new_uid)
+                minted += 1
+            if minted == 0:
+                return {"ok": False, "error": "could not mint that card"}
+            return {"ok": True, "minted": minted, "dest": dest}
         return {"ok": False, "error": f"unknown op {op}"}
 
     def _drain_admin_mods_locked(self) -> None:
@@ -6527,6 +6653,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             try:
                 if op == "reveal":
                     out = room.admin_reveal()
+                elif op == "catalog":
+                    out = {"ok": True, "catalog": build_admin_card_catalog()}
                 elif op == "bot_brain":
                     with room.cond:
                         out = {"ok": True, "brain": copy.deepcopy(getattr(room, "_bot_brain", {}) or {})}
@@ -6535,6 +6663,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 elif op in (
                     "hand_add", "hand_remove", "hand_clear", "hand_copy_to_me",
                     "pool_clear", "pool_add", "pool_remove", "pool_refill", "deck_place",
+                    "mint",
                 ):
                     out = room.admin_enqueue_mod(op, params)
                 else:

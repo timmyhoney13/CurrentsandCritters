@@ -13106,7 +13106,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.1";
-  const APP_BUILD   = "2026-06-22.1";
+  const APP_BUILD   = "2026-06-22.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -13216,14 +13216,16 @@
   // horizontal_cards (1-96): images are STACKED top/bottom — odd uid = top face (Up), even = bottom face (Down).
   // vertical_cards (101-188): images are SIDE-BY-SIDE left/right — odd uid = left face (Left), even = right face (Right).
   function cardHalfPos(faceUid) {
-    const u = Number(faceUid);
+    let u = Number(faceUid);
+    if (u >= 1000000) u = u % 1000;   // admin-minted copy → original art face (uid = serial*1000 + face)
     if (u >= 1   && u <= 96)  return u % 2 === 1 ? "top"    : "bottom";
     if (u >= 101 && u <= 188) return u % 2 === 1 ? "left"   : "right";
     return "center";
   }
 
   function imagePathForUid(uid) {
-    const u = Number(uid);
+    let u = Number(uid);
+    if (u >= 1000000) u = u % 1000;   // admin-minted copy → original art face (uid = serial*1000 + face)
     if (u >= 1   && u <= 96)  return `/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png?v=${CARD_IMAGE_VERSION}`;
     if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png?v=${CARD_IMAGE_VERSION}`;
     if (u >= 201 && u <= 266) return `/oceans_cards/page_${pad2(u-200)}.png?v=${CARD_IMAGE_VERSION}`;
@@ -35224,8 +35226,8 @@
   const TOOLS = [
     { id:"bot_brain",    icon:"🧠", name:"Bot Brain Viewer",          phase:"server", desc:"See each bot's strategy, intended move, reasoning and top scored alternatives." },
     { id:"bot_override", icon:"🎮", name:"Bot Move Override",         phase:"server", desc:"Force a bot's next move from its legal actions; play continues normally." },
-    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every player's real hand; add / remove / clear / copy cards." },
-    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse the real deck (search + remaining copies) and place any card to a hand, pool, deck or discard." },
+    { id:"enemy_hands",  icon:"🃏", name:"Enemy Hand Viewer",         phase:"server", desc:"Reveal every hand; add / flood ANY card (both faces, many copies) / remove / clear / copy." },
+    { id:"deck_picker",  icon:"🗂️", name:"Full Deck Picker",          phase:"server", desc:"Browse EVERY card (both faces) and drop fresh copies into a hand (flood), pool, deck or discard." },
     { id:"force_pool",   icon:"🌊", name:"Force Pool Cards",          phase:"server", desc:"Clear, refill, remove, or force exact cards into the pool." },
     { id:"what_if",      icon:"🔮", name:"What If Menu",              phase:"live",   desc:"Preview move estimates, then commit a real legal move with Apply This Move." },
     { id:"bug_log",      icon:"🐞", name:"Recent Bug Log",            phase:"live",   desc:"Track errors and odd game-state issues this session with full context." },
@@ -35544,6 +35546,74 @@
     return m;
   }
 
+  // ── Full card catalog — every card, BOTH faces (for the add / mint pickers) ──
+  // Fixes "I only see the lefts not the rights / ups not the downs": the old
+  // pickers drew from the live DECK (one face per card, only remaining copies).
+  // The catalog is the whole game: every card, both orientations.
+  let _ccCatalog = null;
+  async function ccLoadCatalog() {
+    if (_ccCatalog) return _ccCatalog;
+    const r = await ccAdminFetch("catalog", {});
+    _ccCatalog = (r && r.ok && Array.isArray(r.catalog)) ? r.catalog : [];
+    return _ccCatalog;
+  }
+  // Flatten the catalog to one tile per FACE so BOTH orientations (left+right,
+  // up+down) of every card are visible & selectable. Each tile carries the
+  // card's canonical entry_uid — that's what gets minted.
+  function ccCatalogFaceTiles(catalog) {
+    const tiles = [];
+    (catalog || []).forEach(e => {
+      const faces = Array.isArray(e.faces) ? e.faces : [];
+      if (!faces.length) { tiles.push({ entry_uid: e.entry_uid, face: null, label: e.label }); return; }
+      faces.forEach(f => tiles.push({ entry_uid: e.entry_uid, face: f, label: e.label }));
+    });
+    return tiles;
+  }
+  // Searchable picker over the FULL catalog (both faces). Calls onPick(entryUid).
+  async function ccPickCatalog(title, onPick) {
+    const tiles = ccCatalogFaceTiles(await ccLoadCatalog());
+    const modal = document.createElement("div");
+    modal.className = "cc-pick";
+    modal.innerHTML = `<div class="cc-pick-inner">
+      <div class="cc-pick-hd"><b>${esc(title)}</b><button class="cc-btn" data-cc-pickclose>✕</button></div>
+      <div class="cc-desc">Every card — both faces (← → and ↑ ↓). ${tiles.length} faces.</div>
+      <input class="cc-input" data-cc-picksearch placeholder="Search by name, species…" style="margin:8px 0">
+      <div class="cc-pick-grid"></div>
+    </div>`;
+    (overlay || document.body).appendChild(modal);
+    const grid = modal.querySelector(".cc-pick-grid");
+    const search = modal.querySelector("[data-cc-picksearch]");
+    function paint(f) {
+      f = (f || "").toLowerCase();
+      const list = tiles.filter(t => {
+        if (!f) return true;
+        const fc = t.face || {};
+        return ((fc.name || "") + " " + (fc.species || "") + " " + (t.label || "")).toLowerCase().includes(f);
+      });
+      grid.innerHTML = list.length ? list.map((t, i) =>
+        `<div class="cc-pick-cell" data-i="${i}">${cardTile(t.face, t.label)}</div>`).join("")
+        : `<div class="cc-desc">No matches.</div>`;
+      grid.querySelectorAll(".cc-pick-cell").forEach(c => c.addEventListener("click", () => {
+        const t = list[Number(c.getAttribute("data-i"))];
+        document.body.contains(modal) && modal.remove();
+        onPick(t.entry_uid);
+      }));
+    }
+    search.addEventListener("input", () => paint(search.value));
+    modal.querySelector("[data-cc-pickclose]").addEventListener("click", () => modal.remove());
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+    paint("");
+  }
+  // Ask how many copies to mint — the "flood" control. Returns a clamped int in
+  // 1..50, or 0 if the admin cancelled.
+  function ccAskCount(promptText) {
+    const v = prompt(promptText || "How many copies? (1–50)", "1");
+    if (v == null) return 0;
+    let n = parseInt(v, 10);
+    if (!Number.isFinite(n) || n < 1) n = 1;
+    return Math.min(n, 50);
+  }
+
   const BODY = {
     // ── Game State Viewer ─────────────────────────────────────────
     state_viewer(el) {
@@ -35595,14 +35665,13 @@
       const r = await ccAdminFetch("reveal", {});
       if (!r.ok) { serverErr(el, "enemy_hands", r.error || "reveal failed"); return; }
       const mi = myIndex(payload());
-      const deck = r.deck || [];
-      let h = `<div class="cc-note">Full reveal — every player's real hand. Edits relocate real cards and apply on the match thread (works best during a human turn).</div>`;
+      let h = `<div class="cc-note">Full reveal — every player's real hand. <b>Add / flood</b> mints fresh copies of ANY card (both faces — left/right and up/down) and can drop many copies at once. Edits apply on the match thread (works best during a human turn).</div>`;
       (r.players || []).forEach(pl => {
         const mine = pl.index === mi;
         h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${(pl.hand || []).length} cards · ${esc(pl.score)} pts</span></div>`;
         h += `<div class="cc-cards">${entryTiles(pl.hand)}</div>`;
         h += `<div class="cc-btnrow">
-          <button class="cc-btn" data-act="add" data-seat="${pl.index}">＋ Add from deck…</button>
+          <button class="cc-btn" data-act="add" data-seat="${pl.index}">＋ Add / flood card…</button>
           <button class="cc-btn" data-act="remove" data-seat="${pl.index}">－ Remove card…</button>
           <button class="cc-btn cc-danger" data-act="clear" data-seat="${pl.index}">Clear hand</button>
           ${mine ? "" : `<button class="cc-btn" data-act="copy" data-seat="${pl.index}" data-myseat="${mi}">Copy to my hand</button>`}
@@ -35614,7 +35683,14 @@
         const seat = Number(b.getAttribute("data-seat"));
         const act = b.getAttribute("data-act");
         if (act === "add") {
-          ccPick("Add which card to P" + (seat + 1) + "?", deck, async (uid) => { await ccAdminFetch("hand_add", { seat, uid }); refresh(); });
+          ccPickCatalog("Add which card to P" + (seat + 1) + "? (any card · both faces)", async (uid) => {
+            const count = ccAskCount("How many copies to give P" + (seat + 1) + "?  (flood: 1–50)");
+            if (!count) return;
+            const res = await ccAdminFetch("mint", { seat, uid, dest: "hand", count });
+            if (!res || !res.ok) alert("Add failed: " + (res && res.error));
+            else if (count > 1) alert("Added " + (res.minted || count) + " copies to P" + (seat + 1) + "'s hand.");
+            refresh();
+          });
         } else if (act === "remove") {
           const pl = (r.players || []).find(x => x.index === seat);
           ccPick("Remove which card from P" + (seat + 1) + "?", pl ? pl.hand : [], async (uid) => { await ccAdminFetch("hand_remove", { seat, uid }); refresh(); });
@@ -35739,34 +35815,38 @@
 
     // ── Full Deck Picker (browse the real deck + place any card) ───
     async deck_picker(el) {
-      el.innerHTML = `<div class="cc-desc">Loading deck…</div>`;
+      el.innerHTML = `<div class="cc-desc">Loading every card…</div>`;
       const r = await ccAdminFetch("reveal", {});
       if (!r.ok) { serverErr(el, "deck_picker", r.error || "failed"); return; }
-      const deck = r.deck || [];
-      const copies = copiesBySpecies(deck);
+      const liveDeck = r.deck || [];
+      const copies = copiesBySpecies(liveDeck);
+      const tiles = ccCatalogFaceTiles(await ccLoadCatalog());
       const mi = myIndex(payload());
-      let h = `<div class="cc-note">${deck.length} cards in the deck. Click any card, then choose where to place it. Remaining copies shown per species.</div>`;
-      h += `<input class="cc-input" id="cc-dp-search" placeholder="Search by name, species, points…" style="margin-bottom:10px">`;
-      h += `<div class="cc-sub">Remaining copies by species</div><div class="cc-grid">` +
+      let h = `<div class="cc-note">Every card in the game — both faces (← → and ↑ ↓). Click any card, then choose where to drop a <b>fresh copy</b>. Pick <b>hand</b> to flood with many copies. (${liveDeck.length} cards left in the live deck.)</div>`;
+      h += `<input class="cc-input" id="cc-dp-search" placeholder="Search by name, species…" style="margin-bottom:10px">`;
+      h += `<div class="cc-sub">Remaining copies in the live deck</div><div class="cc-grid">` +
         Object.keys(copies).sort().map(s => `<div class="cc-kv"><span>${esc(s)}</span><b>${copies[s]}</b></div>`).join("") + `</div>`;
-      h += `<div class="cc-sub">Deck</div><div class="cc-cards" id="cc-dp-grid"></div>`;
+      h += `<div class="cc-sub">All cards (${tiles.length} faces)</div><div class="cc-cards" id="cc-dp-grid"></div>`;
       el.innerHTML = h;
       const grid = el.querySelector("#cc-dp-grid");
       const search = el.querySelector("#cc-dp-search");
       function paint(f) {
         f = (f || "").toLowerCase();
-        const list = deck.filter(e => { const fc = firstFace(e) || {}; return !f || ((fc.name || "") + " " + (fc.species || "") + " " + (e.label || "") + " " + (fc.points != null ? fc.points : "")).toLowerCase().includes(f); });
-        grid.innerHTML = list.length ? list.map(e => `<div data-uid="${e.entry_uid}" style="cursor:pointer">${cardTile(firstFace(e), e.label)}</div>`).join("") : `<span class="cc-desc">No matches.</span>`;
-        grid.querySelectorAll("[data-uid]").forEach(c => c.addEventListener("click", () => {
-          const uid = Number(c.getAttribute("data-uid"));
-          const dest = prompt("Place this card where? Type one of:\nhand · pool · deck_top · discard", "hand");
+        const list = tiles.filter(t => { const fc = t.face || {}; return !f || ((fc.name || "") + " " + (fc.species || "") + " " + (t.label || "")).toLowerCase().includes(f); });
+        grid.innerHTML = list.length ? list.map((t, i) => `<div data-i="${i}" style="cursor:pointer">${cardTile(t.face, t.label)}</div>`).join("") : `<span class="cc-desc">No matches.</span>`;
+        grid.querySelectorAll("[data-i]").forEach(c => c.addEventListener("click", async () => {
+          const t = list[Number(c.getAttribute("data-i"))];
+          const dest = prompt("Drop a fresh copy where? Type one of:\nhand · pool · deck_top · deck_bottom · discard", "hand");
           if (!dest) return;
-          const params = { uid, dest: dest.trim() };
-          if (params.dest === "hand") params.seat = mi;
-          ccAdminFetch("deck_place", params).then(res => {
-            if (res && res.ok) renderBody("deck_picker");
-            else alert("Place failed: " + (res && res.error));
-          });
+          const params = { uid: t.entry_uid, dest: dest.trim() };
+          if (params.dest === "hand") {
+            params.seat = mi;
+            params.count = ccAskCount("How many copies? (flood: 1–50)");
+            if (!params.count) return;
+          }
+          const res = await ccAdminFetch("mint", params);
+          if (res && res.ok) renderBody("deck_picker");
+          else alert("Place failed: " + (res && res.error));
         }));
       }
       search.addEventListener("input", () => paint(search.value));
@@ -35798,7 +35878,7 @@
       el.querySelector('[data-fp="clear"]')?.addEventListener("click", async () => { if (confirm("Clear the entire pool?")) { await ccAdminFetch("pool_clear", {}); refresh(); } });
       el.querySelector('[data-fp="refill"]')?.addEventListener("click", async () => { await ccAdminFetch("pool_refill", { count: 6 }); refresh(); });
       el.querySelector('[data-fp="add"]')?.addEventListener("click", () => {
-        ccPick("Force which deck card into the pool?", deck, async (uid) => { await ccAdminFetch("pool_add", { uid }); refresh(); });
+        ccPickCatalog("Force which card into the pool? (any card · both faces)", async (uid) => { await ccAdminFetch("mint", { uid, dest: "pool", count: 1 }); refresh(); });
       });
     },
   };
