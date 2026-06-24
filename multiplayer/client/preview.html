@@ -7301,8 +7301,60 @@
     }
     .ph-ss-btn:hover { background: rgba(255,255,255,.8); }
 
-    /* Hide sidebar on mobile */
-    .ph-sidebar { display: none; }
+    /* ── Mobile / tablet (< 1100px): show the REAL side menu ──────────
+       The hamburger + bell top bar is gone. Instead the full sidebar
+       (logo + navigation + Daily Streak) renders as a card stacked on
+       top of the content — the same parts as the desktop simulation,
+       just laid out to fit an iPhone / iPad / Android screen (scroll for
+       more). Desktop (≥1100px) keeps the left-hand sidebar via the
+       min-width:1100px block above; its #auth-stats-lobby-scoped rules
+       out-rank these plain-class rules, so this only affects mobile. */
+    .ph-sidebar {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      max-width: 1170px;
+      margin: 14px auto 2px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      position: static;
+      z-index: 5;
+    }
+    .ph-sidebar-nav-card {
+      background: rgba(248,253,255,.94);
+      -webkit-backdrop-filter: blur(18px);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(140,200,235,.5);
+      border-radius: 22px;
+      box-shadow: 0 8px 32px rgba(0,60,120,.12);
+      padding: 14px 16px 12px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Narrow phones (≤560px): stack the profile card into one column so
+       the avatar, XP/streak chips, level, banner and Sign-Out never run off
+       the right edge on an iPhone / Android. ID-scoped so it beats the
+       desktop-fidelity grid rules regardless of source order. */
+    @media (max-width: 560px) {
+      #auth-stats-lobby .ph-profile-card {
+        grid-template-columns: 1fr;
+        justify-items: center;
+        text-align: center;
+        gap: 12px;
+      }
+      #auth-stats-lobby .ph-avatar { width: 92px; height: 92px; }
+      #auth-stats-lobby .ph-pinfo { width: 100%; min-width: 0; }
+      #auth-stats-lobby .ph-pname-row,
+      #auth-stats-lobby .ph-pmeta2 { justify-content: center; flex-wrap: wrap; }
+      #auth-stats-lobby .ph-pranks,
+      #auth-stats-lobby .ph-alpha-banner,
+      #auth-stats-lobby #stats-lobby-signed-actions {
+        width: 100%;
+        grid-column: 1 / -1;
+      }
+      #auth-stats-lobby #stats-lobby-signed-actions { justify-content: center; }
+    }
 
     @media (max-width: 1180px) {
       .ph-main { grid-template-columns: 1fr; }
@@ -11169,21 +11221,11 @@
     <circle cx="214" cy="700" r="9" fill="#4aaac0"/>
   </svg>
 
-  <!-- Top bar -->
-  <div class="ph-topbar">
-    <button class="ph-icon-btn" aria-label="Menu">
-      <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><rect width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="6" width="18" height="2" rx="1" fill="#1a2e4a"/><rect y="12" width="18" height="2" rx="1" fill="#1a2e4a"/></svg>
-    </button>
-    <div class="ph-topbar-title">Currents <span class="coc-amp">&amp;</span> Critters</div>
-    <div class="ph-bell-wrap">
-      <button class="ph-icon-btn" id="ph-bell-btn" aria-label="Notifications">
-        <svg width="18" height="20" viewBox="0 0 18 20" fill="none"><path d="M9 0C9.552 0 10 .448 10 1v.07A7 7 0 0 1 16 8v5l2 2v1H0v-1l2-2V8A7 7 0 0 1 8 1.07V1C8 .448 8.448 0 9 0zm0 20a2 2 0 0 0 2-2H7a2 2 0 0 0 2 2z" fill="#1a2e4a"/></svg>
-      </button>
-      <div class="ph-notif-dot" id="ph-notif-dot"></div>
-    </div>
-  </div>
+  <!-- Top bar removed: the hamburger menu + notification bell are gone on
+       every device. The real side menu (below) now shows on mobile too,
+       so mobile matches the desktop layout. -->
 
-  <!-- ── Desktop Left Sidebar ──────────────────────────────────── -->
+  <!-- ── Side menu (left on desktop, stacked on top for mobile) ──── -->
   <div class="ph-sidebar" id="ph-sidebar">
    <div class="ph-sidebar-nav-card">
     <div class="ph-sidebar-logo">≈ Currents <span>&amp;</span> Critters ≈</div>
@@ -13289,10 +13331,14 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.4";
+  const APP_BUILD   = "2026-06-24.5";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.2", title: "Mobile home screen now matches the computer", items: [
+      "The phone home screen now shows the full side menu — Overview, Casual, Competitive, History, Friends, Achievements, Leaderboard, Store and Settings — plus the Daily Streak panel, exactly like the computer, just stacked to fit your screen (scroll for more).",
+      "Removed the leftover menu (≡) and notification bell icons from the top corners — on both computer and mobile.",
+    ]},
     { ver: "V1.6.2", title: "Mobile now opens the real home screen", items: [
       "Signing in on a phone used to drop you on a stripped-down lobby page instead of the main home screen. Mobile now opens the exact same home screen as computer — your profile, stats, Create Game, Browse and the rest.",
       "On a phone the game simply plays right here in your browser tab (no separate game window to open), and you still drag and tap with your finger.",
