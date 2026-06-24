@@ -4752,14 +4752,14 @@
       -webkit-touch-callout: none;
       -webkit-user-select: none; user-select: none;
     }
-    /* Drop targets / tappable controls: no tap delay, no long-press menu. */
+    /* Non-draggable drop targets / zones: no long-press menu. (Draggable
+       cards are handled by the [draggable] rule above so they always get
+       touch-action:none — listing them here too would override that at equal
+       specificity and let the page scroll-jitter when a drag begins.) */
     body.cc-device-mobile .pv-lane-slot,
     body.cc-device-mobile .pv-ocean-hub,
     body.cc-device-mobile #pv-pool-area,
-    body.cc-device-mobile #pv-hand-zone,
-    body.cc-device-mobile .pv-board-card,
-    body.cc-device-mobile .tut-hand-card,
-    body.cc-device-mobile .tut-pool-card {
+    body.cc-device-mobile #pv-hand-zone {
       touch-action: manipulation;
       -webkit-touch-callout: none;
     }
