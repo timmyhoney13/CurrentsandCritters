@@ -13119,7 +13119,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-23.2";
+  const APP_BUILD   = "2026-06-24.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -25873,8 +25873,9 @@
       return "/game?" + q;
     }
 
-    // Open (or focus) the ONE dedicated game window. Returns the window handle,
-    // or null if the browser blocked the pop-up.
+    // Open (or focus) the ONE dedicated game window — a separate, large,
+    // Steam-style browser WINDOW (not a tab). Returns the window handle, or
+    // null if the browser blocked the pop-up.
     function launchGameWindow(gameUrl) {
       // Reuse a window we already opened — just focus it, never re-navigate, so
       // an in-progress game is never disrupted.
@@ -25882,16 +25883,35 @@
         try { _ccGameWin.focus(); } catch (_) {}
         return _ccGameWin;
       }
-      const sw = (window.screen && (screen.availWidth || screen.width)) || 1280;
-      const sh = (window.screen && (screen.availHeight || screen.height)) || 800;
-      const width  = Math.max(900, Math.min(sw, Math.round(sw * 0.94)));
-      const height = Math.max(640, Math.min(sh, Math.round(sh * 0.92)));
-      const left = Math.max(0, Math.round((sw - width) / 2));
-      const top  = Math.max(0, Math.round((sh - height) / 2));
-      const features = `popup=yes,width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+      const S  = (typeof window !== "undefined" && window.screen) ? window.screen : {};
+      const sw = S.availWidth  || S.width  || 1280;
+      const sh = S.availHeight || S.height || 800;
+      const sx = (typeof S.availLeft === "number") ? S.availLeft : 0;
+      const sy = (typeof S.availTop  === "number") ? S.availTop  : 0;
+      // Fill the WHOLE available screen so the window comes up maximized and
+      // feels fullscreen (Steam-style), clamped to the usable area. An oversized
+      // request can make some browsers fall back to a tab, so never exceed it.
+      const width  = Math.max(640, sw);
+      const height = Math.max(480, sh);
+      const left = sx;
+      const top  = sy;
+      // The chrome-suppressing "=no" tokens + explicit geometry are the canonical
+      // signal that makes browsers open a real, separate POPUP WINDOW rather than
+      // a tab. (Order/`popup=yes` alone is not enough on some browsers.)
+      const features =
+        "popup=yes,toolbar=no,menubar=no,location=no,status=no,directories=no," +
+        "scrollbars=yes,resizable=yes," +
+        "width=" + width + ",height=" + height + ",left=" + left + ",top=" + top;
       let win = null;
       try { win = window.open(gameUrl, GAME_WINDOW_NAME, features); } catch (_) { win = null; }
-      if (win) { _ccGameWin = win; try { win.focus(); } catch (_) {} }
+      if (win) {
+        _ccGameWin = win;
+        // Force geometry — some browsers ignore size/position in the features
+        // string but honor moveTo/resizeTo on the returned popup.
+        try { win.moveTo(left, top); } catch (_) {}
+        try { win.resizeTo(width, height); } catch (_) {}
+        try { win.focus(); } catch (_) {}
+      }
       return win;
     }
 
