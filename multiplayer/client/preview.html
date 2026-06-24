@@ -4691,6 +4691,85 @@
     }
     .comp-hist-action-btn:hover { background: rgba(255,255,255,.9); }
 
+    /* ── DEVICE SELECTION (first screen: Computer vs Mobile) ──────────
+       Full-screen gate shown before anything else. The artwork is the
+       whole background; two invisible click halves sit on top (left =
+       computer, right = mobile) so the design is never altered. Highest
+       possible z-index so it covers the loading screen, auth, and splash. */
+    #cc-device-screen {
+      position: fixed; inset: 0; z-index: 2147483000;
+      background-color: #0a1d3a;
+      background-image: url("/choose-device.png?v=1");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      display: flex;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-user-select: none; user-select: none;
+    }
+    #cc-device-screen.cc-device-hidden { display: none !important; }
+    /* Two equal, full-height click/tap targets. Transparent by default so
+       the painted COMPUTER / MOBILE buttons show through unchanged. */
+    .cc-device-half {
+      flex: 1 1 50%;
+      width: 50%;
+      height: 100%;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      display: block;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      outline: none;
+      -webkit-appearance: none; appearance: none;
+      font: inherit; color: inherit;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color .12s ease;
+    }
+    /* Gentle press/hover feedback only — keeps taps feeling responsive
+       without covering or restyling the artwork. */
+    @media (hover: hover) {
+      .cc-device-half:hover { background-color: rgba(255,255,255,.06); }
+    }
+    .cc-device-half:active { background-color: rgba(255,255,255,.10); }
+    .cc-device-half:focus-visible { background-color: rgba(255,255,255,.08); }
+
+    /* ── TOUCH-FRIENDLY MOBILE CONTROLS ──────────────────────────────
+       Activated by the Mobile device choice (body.cc-device-mobile). Two
+       things happen: (1) tap-to-place stays delay-free and selection-free,
+       (2) finger DRAGGING works — a touch-drag shim (see setupTouchDrag) turns
+       finger gestures on cards into the same HTML5 drag/drop the game already
+       handles. The layout/visual design is unchanged. Computer mode keeps the
+       native mouse drag-and-drop and is unaffected by all of this. */
+    body.cc-device-mobile { -webkit-text-size-adjust: 100%; }
+    /* Draggable cards: claim the gesture so the page can't scroll mid-drag,
+       letting a finger drag the card cleanly. Tap (click) still fires. */
+    body.cc-device-mobile [draggable="true"] {
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none; user-select: none;
+    }
+    /* Drop targets / tappable controls: no tap delay, no long-press menu. */
+    body.cc-device-mobile .pv-lane-slot,
+    body.cc-device-mobile .pv-ocean-hub,
+    body.cc-device-mobile #pv-pool-area,
+    body.cc-device-mobile #pv-hand-zone,
+    body.cc-device-mobile .pv-board-card,
+    body.cc-device-mobile .tut-hand-card,
+    body.cc-device-mobile .tut-pool-card {
+      touch-action: manipulation;
+      -webkit-touch-callout: none;
+    }
+    /* The floating card that follows the finger while dragging. */
+    .cc-touch-ghost {
+      pointer-events: none !important;
+      border-radius: 8px;
+      will-change: transform;
+    }
+
     /* ── AUTH / LOGIN SYSTEM ───────────────────────────────── */
     #auth-loading-screen {
       position: fixed; inset: 0; z-index: 9200;
@@ -10733,6 +10812,97 @@
 </head>
 <body>
 
+<!-- ══ DEVICE SELECTION — THE VERY FIRST SCREEN ════════════════════════
+     Shown before the loading screen, auth, lobby, or game. The player must
+     choose Computer (left half) or Mobile (right half). The choice is saved
+     per session and selects the active input/control system. The artwork is
+     the background; the two halves are invisible click targets. -->
+<div id="cc-device-screen" role="group" aria-label="Choose your device">
+  <button type="button" class="cc-device-half cc-device-computer"
+          data-cc-device="computer" aria-label="I'm playing on a computer"></button>
+  <button type="button" class="cc-device-half cc-device-mobile"
+          data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
+</div>
+<script>
+(function () {
+  "use strict";
+  // ── Device-type state (computer | mobile), per session ──────────────
+  // sessionStorage = one choice per browser session/tab; a brand-new
+  // session opening the game link is re-prompted. window.CC_* flags +
+  // body classes let the rest of the app pick the right input system.
+  var KEY = "cc_device_type";
+  function read() {
+    try { var v = sessionStorage.getItem(KEY); return (v === "computer" || v === "mobile") ? v : ""; }
+    catch (e) { return ""; }
+  }
+  function apply(device) {
+    var mobile = device === "mobile";
+    window.CC_DEVICE = device;
+    window.CC_IS_MOBILE = mobile;
+    window.CC_IS_COMPUTER = device === "computer";
+    var b = document.body;
+    if (b) {
+      b.classList.toggle("cc-device-mobile", mobile);
+      b.classList.toggle("cc-device-computer", device === "computer");
+    }
+  }
+  window.ccGetDevice = read;
+  window.ccApplyDevice = apply;
+  // Programmatically set the device without showing the screen.
+  window.ccSetDevice = function (device) {
+    if (device !== "computer" && device !== "mobile") return;
+    try { sessionStorage.setItem(KEY, device); } catch (e) {}
+    apply(device);
+  };
+  // Reset/change the selection later (console or a future UI hook).
+  // ccResetDevice()         → clear + reload so the screen shows again.
+  // ccResetDevice({reload:false}) → clear without reloading.
+  window.ccResetDevice = function (opts) {
+    try { sessionStorage.removeItem(KEY); } catch (e) {}
+    window.CC_DEVICE = ""; window.CC_IS_MOBILE = false; window.CC_IS_COMPUTER = false;
+    var b = document.body;
+    if (b) b.classList.remove("cc-device-mobile", "cc-device-computer");
+    if (!opts || opts.reload !== false) { try { location.reload(); } catch (e) {} }
+  };
+
+  // The boot waits on this promise: resolves the moment a device is chosen,
+  // or immediately if one is already saved for this session.
+  var resolveReady;
+  window.ccDeviceReady = new Promise(function (res) { resolveReady = res; });
+
+  var scr = document.getElementById("cc-device-screen");
+  var existing = read();
+  if (existing) {
+    // Already chosen this session — apply silently and never show the screen.
+    apply(existing);
+    if (scr) { scr.classList.add("cc-device-hidden"); scr.setAttribute("aria-hidden", "true"); }
+    resolveReady(existing);
+    return;
+  }
+  if (!scr) { resolveReady(""); return; } // fail-open: never trap the player out
+
+  var done = false;
+  function choose(device) {
+    if (done) return;
+    done = true;
+    window.ccSetDevice(device);
+    scr.classList.add("cc-device-hidden");
+    scr.setAttribute("aria-hidden", "true");
+    resolveReady(device);
+  }
+  var halves = scr.querySelectorAll("[data-cc-device]");
+  for (var i = 0; i < halves.length; i++) {
+    (function (el) {
+      var d = el.getAttribute("data-cc-device");
+      el.addEventListener("click", function () { choose(d); });
+      el.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " " || ev.key === "Spacebar") { ev.preventDefault(); choose(d); }
+      });
+    })(halves[i]);
+  }
+})();
+</script>
+
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
 <div id="cc-fs-splash">
   <div class="ccfs-inner">
@@ -13119,10 +13289,15 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.2";
+  const APP_BUILD   = "2026-06-24.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.2", title: "Choose your device", items: [
+      "Added a \"Choose Your Device\" screen — the very first thing you see when you open the game. Pick Computer or Mobile (left side / right side) before diving in.",
+      "Computer keeps the classic mouse drag-and-drop. Mobile turns on touch controls so you can drag cards with your finger, and tapping to place still works.",
+      "Your choice is remembered for the session, so you only pick once per visit.",
+    ]},
     { ver: "V1.6.2", title: "Hermit Crab avatar unlocks the right way", items: [
       "Fixed the Hermit Crab avatar being awarded when it shouldn't — it used to unlock just for finishing a game with a Hermit Crab and six Bait Fish sitting on your board, even if those baitfish were played across many turns and you never used the Hermit Crab's ability.",
       "It now unlocks only the intended way: playing six Bait Fish in a single turn using the Hermit Crab's free-baitfish ability (in a 4+ player game).",
@@ -24964,6 +25139,140 @@
   })();
 
   // ═══════════════════════════════════════════════════════════════
+  // TOUCH-DRAG SHIM  (the Mobile control system)
+  // The whole game drives card placement with native HTML5 drag-and-drop,
+  // which a finger cannot trigger. When the player chose Mobile
+  // (body.cc-device-mobile) this turns single-finger gestures on any
+  // draggable card into the EXACT drag/drop events the game already listens
+  // for (dragstart → dragenter/dragover/dragleave → drop → dragend), carrying
+  // one shared DataTransfer so every existing setData/getData keeps working.
+  // So in Mobile mode you can drag cards with your finger, and a plain tap
+  // still falls through to the existing tap-to-place handlers. Computer mode
+  // is never touched — it keeps native mouse drag-and-drop.
+  // ═══════════════════════════════════════════════════════════════
+  (function setupTouchDrag() {
+    const MOVE_THRESHOLD = 8; // px before a touch becomes a drag (taps fall through)
+    let src = null, dt = null, started = false, lastTarget = null, ghost = null;
+    let startX = 0, startY = 0, touchId = null;
+
+    const mobileActive = () =>
+      document.body && document.body.classList.contains("cc-device-mobile");
+
+    function closestDraggable(el) {
+      while (el && el !== document.body) {
+        if (el.draggable === true || (el.getAttribute && el.getAttribute("draggable") === "true")) return el;
+        el = el.parentElement;
+      }
+      return null;
+    }
+
+    function makeDT() {
+      try { return new DataTransfer(); } catch (e) {}
+      // Fallback for browsers without a constructable DataTransfer.
+      let store = {};
+      return {
+        dropEffect: "move", effectAllowed: "all", types: [],
+        setData(t, v) { store[t] = String(v); },
+        getData(t) { return store[t] || ""; },
+        clearData(t) { if (t) delete store[t]; else store = {}; },
+        setDragImage() {}
+      };
+    }
+
+    function fire(type, target, x, y) {
+      if (!target) return;
+      let ev;
+      try {
+        ev = new DragEvent(type, { bubbles: true, cancelable: true, composed: true, dataTransfer: dt, clientX: x, clientY: y });
+      } catch (e) {
+        ev = document.createEvent("Event");
+        ev.initEvent(type, true, true);
+        ev.clientX = x; ev.clientY = y;
+      }
+      // Browsers null out dataTransfer on synthetic events — force ours so the
+      // game's setData/getData calls hit the one shared object.
+      if (ev.dataTransfer !== dt) {
+        try { Object.defineProperty(ev, "dataTransfer", { value: dt, configurable: true }); } catch (e) {}
+      }
+      target.dispatchEvent(ev);
+    }
+
+    function makeGhost(el, x, y) {
+      try {
+        const r = el.getBoundingClientRect();
+        ghost = el.cloneNode(true);
+        ghost.classList.add("cc-touch-ghost");
+        ghost.style.cssText =
+          "position:fixed;left:0;top:0;margin:0;pointer-events:none;z-index:2147483600;opacity:.85;" +
+          "width:" + r.width + "px;height:" + r.height + "px;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:none;";
+        ghost._w = r.width; ghost._h = r.height;
+        moveGhost(x, y);
+        document.body.appendChild(ghost);
+      } catch (e) { ghost = null; }
+    }
+    function moveGhost(x, y) {
+      if (ghost) ghost.style.transform = "translate(" + (x - ghost._w / 2) + "px," + (y - ghost._h / 2) + "px)";
+    }
+    function killGhost() { if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost = null; }
+    function reset() { src = null; dt = null; started = false; lastTarget = null; touchId = null; killGhost(); }
+
+    function touchById(list) {
+      for (let i = 0; i < list.length; i++) if (list[i].identifier === touchId) return list[i];
+      return null;
+    }
+
+    document.addEventListener("touchstart", (e) => {
+      if (src || !mobileActive() || e.touches.length !== 1) return;
+      const t = e.touches[0];
+      const d = closestDraggable(t.target);
+      if (!d) return;
+      src = d; startX = t.clientX; startY = t.clientY; started = false; touchId = t.identifier;
+      // Do NOT preventDefault yet — a short press should still tap (place) or scroll.
+    }, { passive: true });
+
+    document.addEventListener("touchmove", (e) => {
+      if (!src) return;
+      const t = touchById(e.changedTouches);
+      if (!t) return;
+      const dx = t.clientX - startX, dy = t.clientY - startY;
+      if (!started) {
+        if (Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) return; // still a tap/scroll
+        started = true;
+        dt = makeDT();
+        fire("dragstart", src, t.clientX, t.clientY);
+        makeGhost(src, t.clientX, t.clientY);
+      }
+      e.preventDefault(); // own the gesture now (no page scroll while dragging)
+      moveGhost(t.clientX, t.clientY);
+      const over = document.elementFromPoint(t.clientX, t.clientY); // ghost is pointer-events:none
+      if (over !== lastTarget) {
+        if (lastTarget) fire("dragleave", lastTarget, t.clientX, t.clientY);
+        if (over) fire("dragenter", over, t.clientX, t.clientY);
+        lastTarget = over;
+      }
+      if (over) fire("dragover", over, t.clientX, t.clientY);
+    }, { passive: false });
+
+    function endHandler(e) {
+      if (!src) return;
+      const t = touchById(e.changedTouches);
+      if (!started) { reset(); return; } // was a tap — let the native click / tap-to-place run
+      if (t) {
+        const over = document.elementFromPoint(t.clientX, t.clientY);
+        if (over) { fire("dragover", over, t.clientX, t.clientY); fire("drop", over, t.clientX, t.clientY); }
+      }
+      fire("dragend", src, t ? t.clientX : startX, t ? t.clientY : startY);
+      e.preventDefault(); // swallow the post-drag synthetic click so it can't re-fire tap-to-place
+      reset();
+    }
+    document.addEventListener("touchend", endHandler, { passive: false });
+    document.addEventListener("touchcancel", () => {
+      if (started && src) fire("dragend", src, startX, startY);
+      reset();
+    }, { passive: false });
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
   // IN-GAME BOARD SIZE CONTROL  (+ / − buttons, and + = - keys)
   // Zooms ONLY the board (#pv-table-inner) — never the hand, action bar,
   // End Turn / Undo buttons, or the rest of the website. Clamped so the
@@ -28940,6 +29249,12 @@
 
     // ── Startup ──────────────────────────────────────────────────
     (async function startAuth() {
+      // FIRST SCREEN GATE: do not boot auth, lobby, or game until the
+      // player has chosen Computer or Mobile. Resolves immediately when a
+      // choice is already saved for this session. The chosen device's body
+      // class / window.CC_* flags are applied before anything else runs.
+      try { if (window.ccDeviceReady) await window.ccDeviceReady; } catch (_) {}
+
       if (!_auth) {
         const savedGuestNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
         const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
