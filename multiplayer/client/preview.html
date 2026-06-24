@@ -13289,10 +13289,14 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.3";
+  const APP_BUILD   = "2026-06-24.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.2", title: "Mobile now opens the real home screen", items: [
+      "Signing in on a phone used to drop you on a stripped-down lobby page instead of the main home screen. Mobile now opens the exact same home screen as computer — your profile, stats, Create Game, Browse and the rest.",
+      "On a phone the game simply plays right here in your browser tab (no separate game window to open), and you still drag and tap with your finger.",
+    ]},
     { ver: "V1.6.2", title: "Choose your device", items: [
       "Added a \"Choose Your Device\" screen — the very first thing you see when you open the game. Pick Computer or Mobile (left side / right side) before diving in.",
       "Computer keeps the classic mouse drag-and-drop. Mobile turns on touch controls so you can drag cards with your finger, and tapping to place still works.",
@@ -26156,7 +26160,16 @@
       }
       return false;
     }
-    const IS_GAME_WINDOW = _ccUrlParams.get("game_window") === "1" || _ccUrlIsRoomLink();
+    // "Game window" mode = run the game INLINE in this tab (reveal the lobby
+    // here) instead of launching the Steam-style separate window. True for the
+    // dedicated window + room/reconnect links, AND always on mobile: mobile
+    // browsers force tabs and block non-gesture pop-ups, so the separate-window
+    // launcher can't work there — mobile plays inline in the same tab and lands
+    // straight on the home screen. A function (not a const) so it reflects the
+    // device choice, which for a first-time visitor resolves AFTER this script
+    // first runs.
+    const _ccUrlIsGameWindow = _ccUrlParams.get("game_window") === "1" || _ccUrlIsRoomLink();
+    const IS_GAME_WINDOW = () => _ccUrlIsGameWindow || window.CC_IS_MOBILE === true;
     const _ccWantsGoogleAuth = _ccUrlParams.get("auth") === "google";
     let _ccGoogleRedirectStarted = false;
 
@@ -28285,7 +28298,10 @@
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
       showStatsLobby();
-      document.getElementById("cc-fs-splash")?.classList.add("show");
+      // The full-screen launch splash is a separate-WINDOW (desktop) concept;
+      // on mobile we play inline in the tab, so skip it and reveal the home
+      // screen directly.
+      if (!window.CC_IS_MOBILE) document.getElementById("cc-fs-splash")?.classList.add("show");
       // Daily: Login Current — auto-ticks once per slot per 24h window
       try {
         if (typeof window._reportDailyChallengeProgress === "function") {
@@ -29260,7 +29276,7 @@
         const savedGuestAvatar = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", savedGuestNick || "guest");
         if (savedGuestNick) {
           _guestAvatarUrl = savedGuestAvatar;
-          if (IS_GAME_WINDOW) {
+          if (IS_GAME_WINDOW()) {
             revealLobby(savedGuestNick, "");
           } else {
             // Launcher: returning guest — offer a one-click Open Game (no re-nick).
@@ -29282,7 +29298,7 @@
         // ── LAUNCHER MODE ── Never reveal the lobby in the launcher tab; the
         // real game runs in the dedicated window. Just show the launch screen
         // (and route auth/onboarding into the game window).
-        if (!IS_GAME_WINDOW) {
+        if (!IS_GAME_WINDOW()) {
           $a("auth-loading-screen").classList.add("hidden");
           if (user) {
             _authUser = user;
@@ -29530,8 +29546,9 @@
 
     const chooseGoogleBtn = $a("auth-choose-google-btn");
     if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
-      if (IS_GAME_WINDOW) {
-        // Already inside the dedicated window — sign in here with a popup.
+      if (IS_GAME_WINDOW()) {
+        // Already inside the dedicated window (or on mobile, where we play
+        // inline) — sign in here with a popup.
         await beginGameWindowGoogleSignIn("auth-choose-err");
       } else {
         // Launcher: sign in with Google HERE using a popup (gesture-driven and
@@ -29553,7 +29570,7 @@
       localStorage.setItem(GUEST_NICK_KEY, nick);
       localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
       _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
-      if (IS_GAME_WINDOW) {
+      if (IS_GAME_WINDOW()) {
         revealLobby(nick, "");
       } else {
         // Launcher: the guest session we just saved is read by the dedicated
