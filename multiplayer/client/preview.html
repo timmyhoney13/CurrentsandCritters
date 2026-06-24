@@ -13119,7 +13119,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.1";
+  const APP_BUILD   = "2026-06-24.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -28985,10 +28985,15 @@
                 avatarUrl = sanitizeSelectableAvatar(profile.avatar_url, user.uid) || "";
               }
             } catch (_) {}
-            // Opening with auth=google lets the dedicated window finish/restore
-            // the Google session; if already signed in there it goes straight in.
+            // Signed in on the launcher. Open the dedicated window (it inherits
+            // this Firebase session via the copied sessionStorage). Try to open
+            // it automatically; if the browser blocks the gesture-less pop-up we
+            // fall back to the "ready" screen whose Open Game button is a gesture.
+            // If the window is already open (e.g. a token-refresh re-fires this
+            // callback), just show "running" — never re-open or steal focus.
             _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
-            ccSetLaunchScreen("ready", { nick, avatarUrl });
+            let _gw = (_ccGameWin && !_ccGameWin.closed) ? _ccGameWin : launchGameWindow(_ccLaunchCtx.gameUrl);
+            ccSetLaunchScreen(_gw ? "running" : "ready", { nick, avatarUrl });
           } else {
             _authUser = null;
             const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
@@ -29103,13 +29108,15 @@
               if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
             } catch { _unlockedIcons = []; }
             revealLobby(savedGuestNick, "");
-          } else if (_ccWantsGoogleAuth && !_ccGoogleRedirectStarted && _auth) {
-            // This dedicated game window was opened from the launcher's Google
-            // button. No session yet → start Google auth here (redirect), so the
-            // player stays in THIS window and lands in the lobby/onboarding.
-            beginGameWindowGoogleSignIn("auth-choose-err");
           } else {
+            // Not signed in in this window. (For Google, the session is normally
+            // inherited from the launcher; if it wasn't, the player finishes with
+            // one tap on the Google button — which uses a reliable popup, never
+            // the cross-domain redirect.)
             showStep("auth-step-choose");
+            if (_ccWantsGoogleAuth) {
+              setAuthMsg("auth-choose-err", "Tap “Continue with Google” to finish signing in.", true);
+            }
           }
         }
       });
@@ -29171,10 +29178,13 @@
       }
     }
 
-    // Google sign-in performed INSIDE the dedicated game window. Uses redirect
-    // (not popup) because a popup launched from within an already-popup window
-    // is unreliable and often blocked. After Google returns, onAuthStateChanged
-    // keeps the player in THIS window and reveals the lobby/onboarding.
+    // Google sign-in performed INSIDE the dedicated game window (the in-window
+    // "Continue with Google" button). Uses signInWithPopup — gesture-driven and
+    // reliable on every browser. signInWithRedirect is only a last-resort
+    // fallback if the popup is blocked, because the app's Firebase authDomain is
+    // a different domain (…firebaseapp.com) and modern browsers partition that
+    // storage, which makes getRedirectResult() come back empty (sign-in silently
+    // fails). After popup sign-in, onAuthStateChanged reveals the lobby here.
     async function beginGameWindowGoogleSignIn(errId) {
       if (!_auth) { setAuthMsg(errId, "Sign-in is not configured for this server.", false); return; }
       setAuthMsg(errId, "", false);
@@ -29184,30 +29194,36 @@
       try { syncStatsHeader(null); } catch (_) {}
       const sl = $a("auth-stats-lobby"); if (sl) sl.classList.remove("visible");
       const bar = $a("auth-profile-bar"); if (bar) bar.style.display = "none";
-      const loading = $a("auth-loading-screen");
-      if (loading) { loading.textContent = "Signing in with Google…"; loading.classList.remove("hidden"); }
       try {
         if (_auth.currentUser) { try { await _auth.signOut(); } catch (_) {} }
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: "select_account consent" });
-        _ccGoogleRedirectStarted = true;
-        await _auth.signInWithRedirect(provider); // navigates THIS window to Google
+        await _auth.signInWithPopup(provider);
       } catch (e) {
-        if (loading) loading.classList.add("hidden");
+        const popupBlocked = ["auth/popup-blocked","auth/cancelled-popup-request"].includes(e.code);
+        if (popupBlocked) {
+          try {
+            const rp = new firebase.auth.GoogleAuthProvider();
+            rp.setCustomParameters({ prompt: "select_account consent" });
+            _ccGoogleRedirectStarted = true;
+            await _auth.signInWithRedirect(rp); return;
+          } catch (_) {}
+        }
         setAuthMsg(errId, friendlyAuthErr(e.code), false);
-        showStep("auth-step-choose");
       }
     }
 
     const chooseGoogleBtn = $a("auth-choose-google-btn");
     if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
       if (IS_GAME_WINDOW) {
-        // Already inside the dedicated window — sign in here (redirect).
+        // Already inside the dedicated window — sign in here with a popup.
         await beginGameWindowGoogleSignIn("auth-choose-err");
       } else {
-        // Launcher: open the dedicated window from THIS click (a real user
-        // gesture, so the pop-up isn't blocked); that window does Google auth.
-        ccLaunchFromLauncher({ type: "google", nick: "", avatarUrl: "", gameUrl: ccGameUrl({ auth: "google" }) });
+        // Launcher: sign in with Google HERE using a popup (gesture-driven and
+        // reliable on all browsers — unlike the cross-domain signInWithRedirect).
+        // When sign-in resolves, onAuthStateChanged opens the dedicated game
+        // window (which inherits this session) — or shows the Open Game button.
+        await beginCleanGoogleSignIn("auth-choose-err");
       }
     });
 
