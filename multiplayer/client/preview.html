@@ -13444,8 +13444,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-25.1";
+  const APP_VERSION = "1.6.3";
+  const APP_BUILD   = "2026-06-25.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -17112,6 +17112,54 @@
 
     // Apply any persisted highlights once the board first renders.
     setTimeout(() => { try { _applyStrategyHighlights(); } catch (_) {} }, 800);
+
+    // ── Tutorial bridge ─────────────────────────────────────────────
+    // Lets the (separate) tutorial system drive the Strategy guide by exact
+    // label without reaching into this IIFE's private state: open/close the
+    // modal, verify which strategies are active, and reset/restore them around
+    // the B-Lob tutorial. All lookups are by label so they survive the index
+    // shifts custom strategies cause — never by a hardcoded array index.
+    function _idxByLabel(label) {
+      const want = String(label || "").trim().toLowerCase();
+      return HELP_STRATEGIES.findIndex(s => s && String(s.label || "").trim().toLowerCase() === want);
+    }
+    function _rerenderHelpOpen() {
+      if (!modal.classList.contains("open")) return;
+      if (modal.classList.contains("detail") && _curDetail >= 0) renderDetail(_curDetail);
+      else renderList();
+    }
+    window.__ccHelpTut = {
+      open: openModal,
+      close: closeModal,
+      isOpen: () => modal.classList.contains("open"),
+      inDetail: () => modal.classList.contains("detail"),
+      detailIndex: () => _curDetail,
+      // Force the list view (so Suggested Combos is visible) even if the player
+      // drilled into a strategy's detail page.
+      showList: () => { if (modal.classList.contains("open")) renderList(); },
+      indexByLabel: _idxByLabel,
+      isActive: (label) => { const i = _idxByLabel(label); return i >= 0 && _activeStrategies.has(i); },
+      activeLabels: () => [..._activeStrategies].map(i => HELP_STRATEGIES[i] && HELP_STRATEGIES[i].label).filter(Boolean),
+      // Replace the whole active set from a list of labels (used to restore the
+      // player's pre-tutorial strategies). Re-applies highlights + re-renders.
+      setActiveLabels: (labels) => {
+        _activeStrategies.clear();
+        (Array.isArray(labels) ? labels : []).forEach(lbl => { const i = _idxByLabel(lbl); if (i >= 0) _activeStrategies.add(i); });
+        _saveActiveStrategies(); _applyStrategyHighlights(); _rerenderHelpOpen();
+      },
+      // Turn OFF specific strategies if active (so the player can turn them ON
+      // themselves during the tutorial). Never toggles an inactive one on, so it
+      // can't accidentally flip an already-active strategy.
+      ensureInactive: (labels) => {
+        let changed = false;
+        (Array.isArray(labels) ? labels : [labels]).forEach(lbl => {
+          const i = _idxByLabel(lbl);
+          if (i >= 0 && _activeStrategies.has(i)) { _activeStrategies.delete(i); changed = true; }
+        });
+        if (changed) { _saveActiveStrategies(); _applyStrategyHighlights(); _rerenderHelpOpen(); }
+        return changed;
+      },
+    };
   })();
 
 
@@ -36807,7 +36855,7 @@
   const OSPREY = "/avatars/osprey.png";
   function getDone() { try { return JSON.parse(localStorage.getItem(LS) || "{}") || {}; } catch (_) { return {}; } }
   function setDone(k) { const d = getDone(); d[k] = true; try { localStorage.setItem(LS, JSON.stringify(d)); } catch (_) {} grantOspreyIfComplete(); }
-  function allDone() { const d = getDone(); return !!(d.menu && d.game && d.practice && d.competitive); }
+  function allDone() { const d = getDone(); return !!(d.menu && d.game && d.practice && d.online && d.competitive); }
   async function grantOspreyIfComplete() {
     if (!allDone()) return;
     try {
@@ -36902,6 +36950,11 @@
   #tut3-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
   #tut3-hole.pulse { animation:tut3pulse 1.25s ease-in-out infinite; }
   @keyframes tut3pulse { 0%,100%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 16px rgba(95,208,232,.5); } 50%{ box-shadow:0 0 0 9999px rgba(5,24,44,.72), 0 0 30px 6px rgba(95,208,232,.95); } }
+  /* Terminal-step action buttons (e.g. Keep Playing / Return to Tutorials). */
+  #tut3-pop .t3-choices { display:flex; flex-direction:column; gap:9px; margin-top:14px; }
+  #tut3-pop .t3-choice { width:100%; border:none; border-radius:12px; padding:12px 16px; font-weight:800; font-size:1rem; cursor:pointer; font-family:inherit; background:#e3eef7; color:#1769b0; transition:filter .12s, transform .12s; }
+  #tut3-pop .t3-choice:hover { filter:brightness(1.05); transform:translateY(-1px); }
+  #tut3-pop .t3-choice.primary { background:linear-gradient(135deg,#2ea8ea,#1a77c9); color:#fff; }
 
   `;
   const styleEl = document.createElement("style");
@@ -37053,11 +37106,22 @@
     // images) the moment it opens, after its before() has run.
     let bodyHtml = (typeof step.text === "function" ? (step.text() || "") : (step.text || ""));
     if (step.cta) bodyHtml += `<div><button class="t3-cta" id="tut3-cta">${esc(step.cta.label)}</button></div>`;
+    const hasChoices = Array.isArray(step.choices) && step.choices.length > 0;
+    if (hasChoices) {
+      bodyHtml += `<div class="t3-choices">` + step.choices.map((c, k) =>
+        `<button class="t3-choice${c.primary ? " primary" : ""}" data-choice="${k}">${esc(c.label)}</button>`).join("") + `</div>`;
+    }
     const textEl = coach.querySelector("#tut3-text");
     textEl.innerHTML = bodyHtml;
     if (step.cta) {
       const ctaBtn = textEl.querySelector("#tut3-cta");
       if (ctaBtn) ctaBtn.addEventListener("click", () => { try { step.cta.onClick(); } catch (_) {} });
+    }
+    if (hasChoices) {
+      textEl.querySelectorAll("[data-choice]").forEach(b => b.addEventListener("click", () => {
+        const c = step.choices[Number(b.dataset.choice)];
+        if (c && typeof c.onClick === "function") { try { c.onClick(); } catch (_) {} }
+      }));
     }
     coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
     // Back: only disabled on step 0 (can't go further back).
@@ -37074,13 +37138,20 @@
     if (catchEl) catchEl.style.pointerEvents = isInteractive ? "none" : "auto";
     if (hole) hole.classList.toggle("pulse", !!isInteractive);
     const nextBtn = coach.querySelector("#tut3-next");
-    if (i >= coachSteps.length - 1) {
-      nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
-    } else if (isInteractive && !step.allowNext) {
-      nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
+    if (hasChoices) {
+      // Terminal step with its own action buttons (Keep Playing / Return to
+      // Tutorials): hide Next; Back and Skip stay available.
+      nextBtn.style.display = "none";
     } else {
-      // Interactive + allowNext, non-interactive, or back-navigated: always enabled.
-      nextBtn.textContent = "Next →"; nextBtn.disabled = false;
+      nextBtn.style.display = "";
+      if (i >= coachSteps.length - 1) {
+        nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
+      } else if (isInteractive && !step.allowNext) {
+        nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
+      } else {
+        // Interactive + allowNext, non-interactive, or back-navigated: always enabled.
+        nextBtn.textContent = "Next →"; nextBtn.disabled = false;
+      }
     }
     // Scroll target into view, then position after a tick so layout settles.
     const el = coachResolveEl(step);
@@ -37253,7 +37324,7 @@
 
     // ── Osprey detail panel ───────────────────────────────────────────
     { target: "#gal-detail", badge: "Avatar Gallery", title: "Fun Fact and Unlock",
-      text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all four tutorials. You are already on your way!" },
+      text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all five tutorials. You are already on your way!" },
 
     // ── Back button — must click to exit gallery ──────────────────────
     { target: "#gal-back-btn", badge: "Avatar Gallery", title: "Back to the Menu",
@@ -37400,7 +37471,7 @@
     // ── All Done ──────────────────────────────────────────────────────
     { target: "#stats-tutorial-btn", badge: "All Done", title: "That is the whole menu",
       before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all four tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
+      text: "You have now seen every part of the Main Menu. You can reopen this <strong>Tutorial</strong> button at any time. Finish all five tutorials to unlock the <strong>Osprey</strong> avatar. Select Finish to mark this tour complete." },
   ];
 
   function runMenuTour() {
@@ -37747,195 +37818,185 @@
     return `<div class="t2-row${single}">${cells.join('<div class="t2-eq">=</div>')}</div>`;
   }
 
-  const GAME_STEPS = [
-    { target: null, badge: "The Game", title: "Let's play a real game",
-      text: "We will create and start an <strong>actual game</strong> together. Follow the glowing highlights and <strong>click for real</strong>. This is the exact path every game takes." },
-    { target: "#stats-create-btn", badge: "Step 1", title: "Create a Game", interactive: true, advanceWhen: gtModalOpen,
-      before: () => { try { navTab("overview"); } catch (_) {} },
-      text: "First, <strong>click Create Game</strong> to open the setup window." },
-    { target: "#nc-total", badge: "Step 2", title: "Human Critters",
-      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2); },
-      text: "This sets how many <strong>human players</strong> join. We set it to <strong>1 (just you)</strong> for this practice game." },
-    { target: "#nc-ai", badge: "Step 2", title: "AI Critters",
-      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2); },
-      text: "And this sets the <strong>computer opponents</strong>. We chose <strong>2 AI Critters</strong>. Together that is a 3 player game. You can pick any mix you like, up to 8 players." },
-    // ── Step 5a: Change visibility to Private (interactive) ─────────
-    { target: "#nc-visibility", badge: "Room Setup", title: "Public or Private?",
-      interactive: true,
-      before: () => {
-        const sel = document.getElementById("nc-visibility");
-        if (sel && sel.value === "private") {
-          sel.value = "public";
-          sel.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-      },
-      advanceWhen: () => { const sel = document.getElementById("nc-visibility"); return !!(sel && sel.value === "private"); },
-      text: "<strong>🌊 Public</strong> games appear in Open Currents so anyone can join. <strong>🔒 Private</strong> games are invite-only — only players who have your room code can get in. Room codes are <em>only</em> used for private matches; public games don't need one. <strong>Change the dropdown to Private</strong> to continue." },
-    // ── Step 5b: Room code — pre-fill FISHY (info) ──────────────────
-    { target: "#nc-password", badge: "Room Setup", title: "Your Room Code",
-      before: () => {
-        const row = document.getElementById("nc-password-row");
-        if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
-      },
-      text: "This is your <strong>room code</strong>. Room codes are <em>only</em> used for <strong>🔒 private matches</strong> — public games don't need one. We've set yours to <strong style=\"font-family:monospace;letter-spacing:2px\">FISHY</strong>. To join a private game, a friend would click <strong>Join Game</strong>, go to the <strong>Private</strong> tab, and type the code there." },
-    // ── Step 5c: Generate the Current (interactive) ──────────────────
-    { target: "#nc-create-btn", badge: "Step 3", title: "Generate the Current", interactive: true, advanceWhen: gtWaitingOpen,
-      before: () => {
-        const sel = document.getElementById("nc-visibility");
-        if (sel && sel.value !== "private") { sel.value = "private"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
-        const row = document.getElementById("nc-password-row");
-        if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw && !pw.value.trim()) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
-      },
-      text: "Your room code is <strong style=\"font-family:monospace;letter-spacing:2px\">FISHY</strong> — friends would enter this in the Private tab to join. Now <strong>click Generate Current</strong> to create the room." },
-    { target: "#wr-players-list", badge: "Step 4", title: "Choose Bot Difficulty",
-      before: gtAllBotsEasy,
-      text: "Each bot has a difficulty: <strong>Easy, Medium, or Hard</strong>. We set them all to <strong>Easy</strong> for now. As the host you can change any of them right here whenever you want." },
-    { target: "#wr-start-btn", badge: "Step 5", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
-      text: "Your crew is aboard. <strong>Click Start Game</strong> to begin. The real board will load in a moment." },
-    // ── Board orientation ────────────────────────────────────────────
-    { target: "#pv-room-id-badge", badge: "In Game", title: "Your Info",
-      text: "Welcome to the real game. The <strong>top left</strong> shows your room code, your name, and your live <strong>score</strong>." },
-    { target: "#pv-menu-btn", badge: "In Game", title: "The Menu",
-      text: "The <strong>Menu</strong> is here on the <strong>top right</strong>. Inside you will find the Game Log, Chat, Score Breakdown, AI Speed, and Leave or Terminate." },
-    { target: "#pv-guide-bar", badge: "In Game", title: "The Guide Bar",
-      text: "It is <strong>your turn</strong>. This <strong>guide bar</strong> always tells you what to do: first <strong>draw</strong>, then <strong>play</strong> cards, and only then end your turn. Let's go through it for real." },
+  // ── New-tutorial helpers (Tutorial 2 free creature, B-Lob board state,
+  //    Strategy-guide targeting). Function declarations so they hoist safely. ──
+  // Tutorial 2: a simple FREE creature (the rigged Lobster) deployed via the
+  // Mangrove's Play Again — free, so the step needs no separate payment.
+  function gtFreeCreatureEntry() {
+    const me = gtMe(); if (!me || !Array.isArray(me.hand)) return null;
+    let fallback = null;
+    for (const e of me.hand) {
+      const f = gtFirstFace(e);
+      const sp = String(f?.species || "").toLowerCase();
+      if (sp.includes("ocean")) continue;
+      const dir = String(f?.direction || "").trim().toLowerCase();
+      if (!dir || dir === "n/a") continue;
+      if (Number(f?.cost || 0) !== 0) continue;             // must be free
+      if (String(f?.name || "").trim().toLowerCase() === "lobster") return e;  // ideal
+      if (!fallback) fallback = e;                          // any free creature
+    }
+    return fallback;
+  }
+  function gtFreeCreatureEl() { const e = gtFreeCreatureEntry(); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
+  // Board-focus close control (Tutorial 2 "close the board view").
+  function gtBoardFocusCloseEl() { const el = document.getElementById("pv-board-focus-close"); return (el && el.offsetParent !== null) ? el : null; }
 
-    // ── 1. Draw (interactive) ────────────────────────────────────────
-    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Your Cards", interactive: true, allowNext: true,
+  // ── B-Lob board-state validation (reads the live payload, not just counts) ──
+  function blMyBoard() { const me = gtMe(); return (me && Array.isArray(me.board)) ? me.board : []; }
+  function blReefOcean() {
+    return blMyBoard().find(o => o && o.ocean && String(o.ocean.name || "").trim().toLowerCase() === "artificial reef") || null;
+  }
+  function blReefOnBoard() { return !!blReefOcean(); }
+  // Lobsters live in Artificial Reef's DOWN lane (Lobster's only direction), and
+  // "any number of lobsters can share the same spot" — so 2 in that one lane is a
+  // valid same-slot stack. Counting only reef.down rejects lobsters placed on a
+  // different ocean or in a different lane.
+  function blLobstersOnReef() {
+    const reef = blReefOcean(); if (!reef) return 0;
+    const down = Array.isArray(reef.down) ? reef.down : [];
+    return down.filter(c => String((c && c.name) || "").trim().toLowerCase() === "lobster").length;
+  }
+  // California Seagull attaches to Artificial Reef's UP lane (its only direction).
+  function blSeagullOnReef() {
+    const reef = blReefOcean(); if (!reef) return false;
+    const up = Array.isArray(reef.up) ? reef.up : [];
+    return up.some(c => String((c && c.name) || "").trim().toLowerCase() === "california seagull");
+  }
+  // The Artificial Reef hub on the player's board (glow target for "drop here").
+  function blReefHubEl() {
+    const reef = blReefOcean();
+    return reef ? document.querySelector(`#pv-my-board .pv-ocean-hub[data-ocean-uid="${reef.ocean_uid}"]`) : null;
+  }
+  // Two SAFE payment cards for California Seagull's 2-card cost — the extra oceans
+  // (Coral Reef + Mangrove) B-Lob doesn't need. Never the Lobsters (already on the
+  // board by this step).
+  function blSeagullPayEls() { return [blHandElByName("coral reef"), blHandElByName("mangrove")].filter(Boolean); }
+
+  // ── Strategy-guide targeting (find cards by EXACT label, never by index) ──
+  function blStratCardByLabel(label) {
+    const list = document.getElementById("pv-help-list");
+    if (!list) return null;
+    const want = String(label || "").trim().toLowerCase();
+    // Match a core/combo card (not the recommendation banner) by its visible name.
+    const cards = list.querySelectorAll(".hs2-card, .hs2-combo");
+    for (const c of cards) {
+      const nm = c.querySelector(".hs2-card-name, .hs2-combo-name");
+      if (nm && String(nm.textContent || "").trim().toLowerCase() === want) return c;
+    }
+    return null;
+  }
+  // Spotlight target for a strategy: the card's "Play this" button in list view,
+  // or — if the player opened the strategy's detail page — the activation button.
+  function blStratPlayEl(label) {
+    const helpTut = window.__ccHelpTut;
+    if (helpTut && helpTut.inDetail && helpTut.inDetail()) {
+      const act = document.getElementById("hd-activate");
+      const idx = helpTut.indexByLabel ? helpTut.indexByLabel(label) : -1;
+      if (act && (idx < 0 || Number(act.dataset.strat) === idx)) return act;
+    }
+    const card = blStratCardByLabel(label);
+    return card ? (card.querySelector(".hsc-toggle") || card) : null;
+  }
+  function blStratActive(label) { try { return !!(window.__ccHelpTut && window.__ccHelpTut.isActive(label)); } catch (_) { return false; } }
+  function blHelpOpen() { try { return !!(window.__ccHelpTut && window.__ccHelpTut.isOpen()); } catch (_) { return !!document.getElementById("pv-help-modal")?.classList.contains("open"); } }
+  // Suggested Combos row (Tutorial 3 "scroll the combos into view").
+  function blCombosSectionEl() { const list = document.getElementById("pv-help-list"); return list ? (list.querySelector(".hs2-combos-row") || null) : null; }
+
+  // Terminal-step handlers, assigned by runGameTour / runBLobTour before runCoach.
+  let _t2Keep = null, _t2Return = null, _t3Keep = null, _t3Return = null;
+
+  // ════════════════════════════════════════════════════════════════
+  //  TUTORIAL 2 — THE GAME (short: real setup + one Star ability)
+  // ════════════════════════════════════════════════════════════════
+  const GAME_STEPS = [
+    { target: null, badge: "The Game", title: "Let's Play a Real Game",
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "We'll set up a real game, then learn a Star ability. Follow the glowing highlights." },
+
+    // ── Setup (real create-game flow) ───────────────────────────────
+    { target: "#stats-create-btn", badge: "Setup", title: "Create a Game", interactive: true, advanceWhen: gtModalOpen,
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "Click <strong>Create Game</strong>." },
+    { target: "#nc-total", badge: "Setup", title: "Human Critters",
+      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2); },
+      text: "This sets how many people are playing." },
+    { target: "#nc-ai", badge: "Setup", title: "AI Critters",
+      before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2); },
+      text: "This sets how many computer opponents join." },
+    { target: "#nc-create-btn", badge: "Setup", title: "Create the Room", interactive: true, advanceWhen: gtWaitingOpen,
+      before: () => {
+        const sel = document.getElementById("nc-visibility");
+        if (sel && sel.value !== "public") { sel.value = "public"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+        gtSetInput("nc-total", 1); gtSetInput("nc-ai", 2);
+      },
+      text: "Click <strong>Generate Current</strong>." },
+    { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
+      before: gtAllBotsEasy,
+      text: "Players and computer opponents appear here." },
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+      text: "Click <strong>Start Game</strong>." },
+
+    // ── Gameplay ────────────────────────────────────────────────────
+    { target: "#pv-guide-bar", badge: "Your Turn", title: "Follow the Guide",
+      text: "This bar tells you what to do next." },
+    { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true,
       before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
       advanceWhen: () => {
-        // Primary: hand started at 8 cards; drawing 2 brings it to 10.
+        // Hand started full; drawing 2 brings it +2. Backups: optimistic draw
+        // counter, and the 2nd draw ending the turn (can_act drops after we saw it).
         if (_gtHandBase >= 0 && gtHandCardCount() >= _gtHandBase + 2) return true;
-        // Backup 1: optimistic draw counter fires the moment the 2nd draw is submitted.
         if (gtDrawCount() >= _gtDrawBase + 2) return true;
-        // Backup 2: drawing the 2nd card ends the turn — losing can_act after
-        // we confirmed it was our turn means both draws completed.
         if (gtMyTurn()) { _gtDrawSawTurn = true; return false; }
         return _gtDrawSawTurn;
       },
-      text: "Start your turn by drawing. <strong>Click the Deck</strong> to draw a card, or take one from the <strong>Pool</strong>. You draw <strong>two cards</strong> each turn — go ahead and draw both now." },
-
-    // ── 1b. Opponents go (info) ──────────────────────────────────────
-    { target: gtOtherSeat, badge: "Their Turn", title: "Opponents Are Going",
+      text: "Draw two cards from the Deck or Pool." },
+    { target: gtOtherSeat, badge: "Their Turn", title: "Opponents' Turns",
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
-      text: "Nice draw! Drawing your second card ends your turn automatically, so the AI players take their turns now. We'll come back the moment it's yours again." },
+      text: "The computer players are taking their turns." },
 
-    // ── 1c. Your turn is back — orient before ocean step ────────────
-    { target: "#pv-my-board", badge: "Your Turn", title: "Your Turn Is Back!",
-      text: "The AI players are done — <strong>it's your turn again</strong>. This time we'll <strong>play your Ocean card before drawing</strong>. In Currents &amp; Critters you can always play cards at the start of your turn, before (or instead of) drawing. Let's get your ocean down!" },
-
-    // ── 2a. How paying & Star abilities work (info, before the 1st play) ──
-    { target: "#pv-star-toggle", badge: "Your Hand", title: "Paying &amp; Star Abilities ★",
-      before: () => { t2ForceStarOn(); },
-      text: "Before you play: <strong>every card costs cards</strong> — you pay by <strong>discarding cards from your hand</strong>. Cards edged in <strong style=\"color:#F0C840\">gold</strong> also carry a <strong>★ Star ability</strong> (a bonus like <em>“Play again”</em> or <em>“Draw one”</em>). The trick: if a card you discard to pay shares the <strong>same symbol</strong> as the card you're playing, that Star <strong>fires for free</strong>. Keep the <strong>★ toggle ON</strong> — we'll chain <strong>two</strong> Stars this turn!" },
-
-    // ── 2b. Play the Mangrove with its Star ON (gated) ───────────────────
-    { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Star Combo 1", title: "Play the Mangrove ★",
+    // ── One Star ability: Mangrove's Play Again ─────────────────────
+    { target: gtMangroveHandEl, glow: [gtOceanDropEl], badge: "Play", title: "Play Mangrove",
       interactive: true, popAnchor: "top",
       before: () => { t2ForceStarOn(); t2CacheOceanPair(); _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
-      text: () => `<strong>Drag the glowing Mangrove</strong> from your hand onto the glowing board zone (leave the <strong>★ toggle ON</strong>). Its symbol is <span class="t2-sym t2-sym-${(_t2.mangrove&&_t2.mangrove.sym)||''}">${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</span> and its Star is <strong>★ Play Again</strong> — to fire it you'll pay with a matching card next.` },
-
-    // ── 2c. Pay with the symbol-matched Arctic Oceans (gated) ────────────
-    { target: gtArcticHandEl,
-      glow: [() => gtGoldenHandEls()[0], () => gtGoldenHandEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
-      badge: "Star Combo 1", title: "Pay — Matching Symbol",
-      interactive: true, popAnchor: "top", advanceWhen: () => gtOceanCount() > _gtOceanBase,
-      text: () => `To fire the Mangrove's Star, pay with a <strong>${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</strong> card. <strong>Click anywhere on a card</strong> to select it as payment. The glowing <strong>Arctic Oceans</strong> (<span class="t2-sym t2-sym-${(_t2.arctic&&_t2.arctic.sym)||''}">${t2Glyph(_t2.arctic&&_t2.arctic.sym)}</span>) is the best choice — its symbol matches. Other gold-edged cards like <strong>Coral</strong> or <strong>Spinner Dolphin</strong> can also pay, but won't fire the Star. Select your payment card, then click <strong>✓ Confirm Payment</strong>.` },
-
-    // ── 2d. Explain Play Again — symbols side by side ────────────────────
-    { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Play Again!",
-      text: () => t2Row([{ rec: _t2.arctic, name: "Arctic — paid" }, { rec: _t2.mangrove, name: "Mangrove — played" }])
-        + `Both show <span class="t2-sym t2-sym-${(_t2.mangrove&&_t2.mangrove.sym)||''}">${t2Glyph(_t2.mangrove&&_t2.mangrove.sym)}</span> — that <strong>matching symbol</strong> fired the Mangrove's <strong>★ Play Again</strong>, so you get <strong>another play!</strong> The Arctic you discarded now sits in your <strong>Pool</strong> (glowing below).` },
-
-    // ── 2e. Use Play Again to deploy the Great Albatross (gated) ─────────
-    { target: gtAlbatrossHandEl, glow: ["#pv-my-board"], badge: "Star Combo 2", title: "Play the Great Albatross ★",
+      text: "Drag Mangrove onto your board." },
+    { target: gtArcticHandEl, glow: [gtArcticHandEl, "#pv-payment-confirm-btn", gtPayBarEl],
+      badge: "Star", title: "Activate the Star", interactive: true, popAnchor: "top",
+      advanceWhen: () => gtOceanCount() > _gtOceanBase,
+      text: "Pay with the glowing matching-symbol card, then confirm." },
+    { target: null, badge: "★ Star", title: "Star Activated!",
+      text: "The symbols matched, so ★ Play Again activated." },
+    { target: gtFreeCreatureEl, glow: ["#pv-my-board"], badge: "Play Again", title: "Play a Creature",
       interactive: true, popAnchor: "top",
-      before: () => { t2ForceStarOn(); t2CacheBirdPair(); _gtCreatureBase = gtCreatureCount(); },
-      advanceWhen: () => gtPayingCreature() || gtCreatureCount() > _gtCreatureBase,
-      text: () => `Spend your <strong>Play Again</strong> on a creature: <strong>drag the glowing Great Albatross</strong> to the <strong>top of your Mangrove</strong> — look for the <strong>+ sign and green dots</strong> that appear there (keep <strong>★ ON</strong>). Its Star is <strong>★ Draw One</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>.` },
+      before: () => { _gtCreatureBase = gtCreatureCount(); },
+      advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
+      text: "Use Play Again to place the glowing creature." },
 
-    // ── 2f. Zoom the Albatross + its Draw One Star (info, payment staged) ─
-    { target: gtPayBarEl, badge: "Star Combo 2", title: "Albatross — Draw One ★", allowNext: true,
-      text: () => t2Row([{ rec: _t2.albatross, name: "Great Albatross" }])
-        + `Meet the <strong>Great Albatross</strong>. Its <strong>★ Star is “Draw One”</strong> and its symbol is <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>. Just like the Mangrove — pay with a matching <strong>${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</strong> card and you'll <strong>draw a card</strong>. Tap <strong>Next</strong> to pick your payment.` },
+    // ── Short explanations ──────────────────────────────────────────
+    { target: gtPoolEl, glow: [gtPoolEl], badge: "The Pool", title: "The Pool",
+      text: "Payments enter the Pool, where players can draw them later." },
+    { target: gtOtherSeat, badge: "Scouting", title: "Inspect a Board",
+      interactive: true, advanceWhen: gtBoardFocusOpen,
+      text: "Click an opponent to inspect their board." },
+    { target: gtBoardFocusCloseEl, badge: "Scouting", title: "Return to Your Board",
+      interactive: true, advanceWhen: gtBoardFocusClosed,
+      before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} },
+      text: "Close the board view." },
+    { target: "#pv-my-score-badge", badge: "Scoring", title: "Your Score",
+      text: "Your current score appears here." },
+    { target: "#pv-end-turn-inline", badge: "Your Turn", title: "End Your Turn",
+      text: "Use End Turn when you are finished making moves." },
+    { target: "#pv-draw-deck", badge: "Endgame", title: "Ending the Game",
+      text: "The END GAME card starts the final round. The highest score wins." },
 
-    // ── 2g. Pay with the symbol-matched Kelp Forest (gated) ──────────────
-    { target: gtKelpHandEl, glow: [gtKelpHandEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Star Combo 2", title: "Pay — Matching Symbol",
-      interactive: true, popAnchor: "top", advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: () => `On the glowing <strong>Kelp Forest</strong> (<span class="t2-sym t2-sym-${(_t2.kelp&&_t2.kelp.sym)||''}">${t2Glyph(_t2.kelp&&_t2.kelp.sym)}</span>, matching the Albatross) <strong>click anywhere on it</strong> to select it as payment, then click the glowing <strong>✓ Confirm Payment</strong> button — its Star <strong>draws you a card!</strong>` },
-
-    // ── 2h. Explain Draw One — symbols side by side ──────────────────────
-    { target: null, glow: [gtPoolEl], badge: "★ Star Fired!", title: "Draw One!",
-      text: () => t2Row([{ rec: _t2.kelp, name: "Kelp — paid" }, { rec: _t2.albatross, name: "Albatross — played" }])
-        + `Both show <span class="t2-sym t2-sym-${(_t2.albatross&&_t2.albatross.sym)||''}">${t2Glyph(_t2.albatross&&_t2.albatross.sym)}</span>, so the <strong>matching symbol</strong> fired the Albatross's <strong>★ Draw One</strong> — you just <strong>drew a card!</strong> The Kelp Forest you discarded is now in your <strong>Pool</strong>. That's the core combo: <strong>match symbols to chain Star abilities.</strong>` },
-
-    // ── 4. End Turn explanation (no action — just teach) ─────────────
-    { target: "#pv-end-turn-inline", badge: "Your Turn", title: "About End Turn",
-      text: "See <strong>End Turn</strong>? You do <strong>not</strong> need it while you still have moves. You only click it when you are <strong>out of plays</strong> — which mostly matters near the end of the game. <strong>Do not click it yet</strong> — we have a little more to do this turn." },
-
-    // ── 5. Peek at other boards (interactive: open) ──────────────────
-    { target: gtOtherSeat,
-      glow: [() => gtMySeat(), gtOtherSeat, () => gtOtherSeats()[1]],
-      badge: "Scouting", title: "Inspect Player Boards", interactive: true, allowNext: true, advanceWhen: gtBoardPeek,
-      text: "You can inspect any board at the table — including your own. <strong>Hover over your own board</strong> for a quick peek, then <strong>hover Bot 1</strong>, then <strong>hover Bot 2</strong>. When you're ready, <strong>click any one of them</strong> to open their full board." },
-
-    // ── 6. Board focus description (interactive: close) ──────────────
-    { target: "#pv-board-focus", badge: "Scouting", title: "Full Board View", interactive: true, allowNext: true, advanceWhen: gtBoardFocusClosed,
-      text: "This shows <strong>everything that player has played</strong> — every ocean and creature, exactly as it scores. Use this to plan your next moves. When you're done, click the <strong>✕</strong> to close it and continue.",
-      before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} } },
-
-    // ── 7. Full screen a card (interactive: open) ────────────────────
-    { target: "#pv-hand", badge: "Your Hand", title: "View a Card Full Screen", interactive: true, allowNext: true, advanceWhen: gtZoomOpen,
-      text: "Want a closer look? <strong>Click any card in your hand</strong> to view it full screen, big and clear. Try it now." },
-
-    // ── 8. Zoom arrows + close (interactive: close) ──────────────────
-    { target: "#pv-zoom-modal", badge: "Your Hand", title: "Flip Through Your Hand", interactive: true, allowNext: true, advanceWhen: gtZoomClosed,
-      text: "Use the <strong>‹ and › arrows</strong> on the sides to flip through every card in your hand without leaving full screen. When you are done, click the <strong>✕</strong> to close." },
-
-    // ── 9. Reorder hand (interactive) ────────────────────────────────
-    { target: "#pv-hand", badge: "Your Hand", title: "Rearrange Your Hand", interactive: true, allowNext: true,
-      before: () => { _tutHandSig = gtHandSig(); },
-      advanceWhen: () => gtHandSig() !== _tutHandSig,
-      text: "You can tidy your hand any time. <strong>Drag a card and drop it onto another card</strong> to move it. Rearrange one now to see how it works." },
-
-
-    // ── 11. Score breakdown (info) ───────────────────────────────────
-    { target: "#pv-my-score-badge", badge: "Scoring", title: "Track Your Score",
-      text: "Your <strong>live score</strong> sits up here in the top-left. <strong>Tap it any time</strong> (or open <strong>Menu → 🏆 Score Breakdown</strong>) to see exactly how your points add up — each creature, every bonus, and the Mangrove's all-8 reward — so you always know where you stand." },
-
-    // ── 12. Chat (info) ──────────────────────────────────────────────
-    { target: "#pv-chat-btn", badge: "At the Table", title: "Chat With the Table",
-      text: "Tap <strong>💬 Chat</strong> any time to talk with everyone at the table. It's also how players report someone who's gone quiet — more on that next." },
-
-    // ── 12b. Surf's Up — your safe break ─────────────────────────────
-    { target: "#pv-surf-btn", badge: "Surf's Up!!", title: "Need a Break? Surf's Up!!",
-      text: "Have to step away? Tap <strong>🏄 Surf's Up!!</strong> to mark yourself <strong>Away</strong>. While you're Away:<br>• The table <strong>waits for you</strong> and won't time you out.<br>• <strong>No one can report you AFK</strong> — you're protected.<br><br><strong>Important:</strong> while Surf's Up is on you <strong>can't play any moves at all</strong> — no drawing, no playing cards, nothing. The button turns into <strong>“🌊 I'm Back”</strong>. Tap it the moment you return to take your turn again." },
-
-    // ── 12c. Reporting a quiet player (the phrases) ──────────────────
-    { target: "#pv-chat-btn", badge: "At the Table", title: "Reporting Someone Who's AFK",
-      text: "If a player goes quiet on <em>their own</em> turn and didn't hit Surf's Up, <strong>anyone</strong> can report them in chat. Type their seat or name — <strong>capital letters don't matter</strong> — using any of these:<br><br><span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 is AFK</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 afk</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 is away</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:2px;color:#cfe6fb\">P1 away</span><br><br>You can use their name instead of the seat too — e.g. <strong>“Billy away”</strong>. Once <strong>half the table</strong> agrees on the same player, the check below begins." },
-
-    // ── 12d. What the reported player sees (mockup) ──────────────────
-    { target: null, badge: "At the Table", title: "The 20-Second Check",
-      text: "The reported player sees this pop up on their screen:<div style=\"margin:10px auto 6px;max-width:240px;background:linear-gradient(180deg,#0c2c4e,#08233f);border:1px solid #1f4f7a;border-radius:14px;padding:12px 12px 14px;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.45)\"><div style=\"font-size:22px;line-height:1\">⚠️</div><div style=\"font-weight:800;color:#eaf4ff;font-size:14px;margin:3px 0\">Are You There?</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.3\">Your tablemates think you stepped away.</div><div style=\"width:48px;height:48px;border-radius:50%;border:3px solid #34c3ff;display:flex;align-items:center;justify-content:center;margin:9px auto 6px;font-weight:900;color:#eaf4ff;font-size:18px\">20</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.35\"><b style=\"color:#34c3ff\">Move your mouse or click anywhere</b> to stay in the game.</div></div>They have <strong>20 seconds</strong>. Just <strong>moving the mouse or clicking</strong> clears it instantly — and once they do, they're <strong>safe until their next turn</strong>. If the timer runs out, <strong>2 cards are drawn for them automatically</strong>, their turn passes, and that draw <strong>can't be undone</strong>." },
-
-    // ── 12e. Coming back to a fuller hand (20-card rule) ─────────────
-    { target: "#pv-draw-deck", badge: "At the Table", title: "Coming Back to a Full Hand",
-      text: "When cards are auto-drawn for an absent player, they are <strong>not</strong> forced to discard back down to 10. Their hand can grow all the way up to <strong>20 cards</strong> — so if they're gone for a while, they come back to a <em>fuller</em> hand instead of losing cards. Once they're back and playing their own turns, the normal <strong>10-card limit</strong> applies again at the end of each turn." },
-
-    // ── 13. How the game ends (info) ─────────────────────────────────
-    { target: "#pv-draw-deck", badge: "Endgame", title: "How the Game Ends",
-      text: "Hidden in the <strong>bottom of the deck</strong> is a single <strong>END GAME</strong> card. The moment <em>anyone</em> draws it, the end is triggered — <strong>everyone, including the player who drew it, gets one final turn</strong>, and then the game is over. When the dust settles, the <strong>highest score wins</strong>. So build your board, chase those bonuses, and watch that deck get thin!" },
-
-    // ── Done ─────────────────────────────────────────────────────────
-    { target: null, badge: "Part 2 Complete", title: "Tutorial Part 2 Complete!",
-      text: "Nicely done — you drew, claimed a Mangrove, played creatures, and learned Star abilities, scouting, full screen, hand sorting, scoring, Surf's Up &amp; chat, and how the game ends. That's everything you need to play for real. Select <strong>Finish</strong> to head back to the tutorial menu." },
+    // ── Complete (no full match required) ───────────────────────────
+    { target: null, badge: "Complete", title: "Tutorial 2 Complete!",
+      text: "You created a game, played Mangrove, and fired a Star ability. What next?",
+      choices: [
+        { label: "Keep Playing", primary: true, onClick: () => { try { _t2Keep && _t2Keep(); } catch (_) {} } },
+        { label: "Return to Tutorials", onClick: () => { try { _t2Return && _t2Return(); } catch (_) {} } },
+      ] },
   ];
 
   function runGameTour() {
@@ -37949,22 +38010,26 @@
     // Flag the next created game as a tutorial so the server rigs a playable
     // opening hand. Consumed (cleared) by the create handler.
     window.__ccTutorialGame = true;
-    // _gtExited guards against double-execution: both the Skip-X path (cleanup)
-    // and the normal-finish path (done) call this, so only the first one runs.
-    let _gtExited = false;
-    const _gtExitAndReturn = async () => {
-      if (_gtExited) return;
-      _gtExited = true;
+    let _exited = false, _keepPlaying = false;
+    const _cleanup = async () => {
+      if (_exited) return;
+      _exited = true;
       window.__ccTutorialGame = false;
+      if (_keepPlaying) return;             // Keep Playing: leave the player in the live match
       try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
       setTimeout(openChooser, 700);
     };
-    runCoach(GAME_STEPS, async () => {
-      setDone("game");
-      showToast("Tutorial Part 2 complete", completionSubtitle());
-      // Leave the practice game, then return to the tutorial chooser.
-      await _gtExitAndReturn();
-    }, _gtExitAndReturn);
+    _t2Keep = () => {
+      setDone("game"); showToast("Tutorial 2 complete", completionSubtitle());
+      _keepPlaying = true; endCoach();      // close coachmarks, stay in the match
+    };
+    _t2Return = () => {
+      setDone("game"); showToast("Tutorial 2 complete", completionSubtitle());
+      _keepPlaying = false; endCoach();     // close coachmarks, leave match, reopen chooser
+    };
+    // No onDone (the final step's own buttons drive completion); Skip → _cleanup
+    // (leaves the match, no setDone).
+    runCoach(GAME_STEPS, null, _cleanup);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -37987,106 +38052,123 @@
   function blNarwhalEl() { return blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
   function blEndTurnEl() { const el = document.getElementById("pv-end-turn-inline"); return (el && el.offsetParent !== null) ? el : null; }
 
-  let _blobGameCompleted = false;
-
+  // ════════════════════════════════════════════════════════════════
+  //  TUTORIAL 3 — PRACTICE GAME (B-Lob): real setup, then the Strategy
+  //  guide + a guided B-Lob turn sequence (one action per turn).
+  // ════════════════════════════════════════════════════════════════
   const BLOB_STEPS = [
-    { target: null, badge: "B-Lob Tutorial", title: "Join a private game",
-      text: "There are two main types of casual games. <strong>Casual public matches</strong> can be joined by anyone. <strong>Private matches</strong> require a room code. This time we are going to set up and play a <strong>private game</strong> — follow the glowing highlights and <strong>click for real</strong>." },
-    { target: "#stats-create-btn", badge: "Step 1", title: "Open Game Setup", interactive: true, advanceWhen: gtModalOpen,
+    { target: null, badge: "Practice Game", title: "Let's Practice B-Lob",
       before: () => { try { navTab("overview"); } catch (_) {} },
-      text: "First, <strong>click Create Game</strong> to open the setup window for our private room." },
-    { target: "#nc-total", badge: "Step 2", title: "Human Critters",
+      text: "We'll set up a practice game, then learn the B-Lob strategy together." },
+
+    // ── Setup (real create-game flow, 1 human + 3 AI) ───────────────
+    { target: "#stats-create-btn", badge: "Setup", title: "Create a Practice Game", interactive: true, advanceWhen: gtModalOpen,
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "Click <strong>Create Game</strong>." },
+    { target: "#nc-total", badge: "Setup", title: "Human Critters",
       before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 3); },
-      text: "This sets how many <strong>human players</strong> join. We set it to <strong>1 (just you)</strong> for this practice game." },
-    { target: "#nc-ai", badge: "Step 2", title: "AI Critters — make it 4 players",
+      text: "This practice game has one human player." },
+    { target: "#nc-ai", badge: "Setup", title: "AI Critters",
       before: () => { gtSetInput("nc-total", 1); gtSetInput("nc-ai", 3); },
-      text: "And this sets the <strong>computer opponents</strong>. We chose <strong>3 AI Critters</strong> — together that is a <strong>4-player game</strong> (you, Bot 1, Bot 2, Bot 3)." },
-    { target: "#nc-visibility", badge: "Room Setup", title: "Public or Private?",
-      interactive: true,
+      text: "Computer opponents complete the table." },
+    { target: "#nc-create-btn", badge: "Setup", title: "Create the Room", interactive: true, advanceWhen: gtWaitingOpen,
       before: () => {
         const sel = document.getElementById("nc-visibility");
-        if (sel && sel.value === "private") { sel.value = "public"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+        if (sel && sel.value !== "public") { sel.value = "public"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+        gtSetInput("nc-total", 1); gtSetInput("nc-ai", 3);
       },
-      advanceWhen: () => { const sel = document.getElementById("nc-visibility"); return !!(sel && sel.value === "private"); },
-      text: "<strong>🌊 Public</strong> games appear in Open Currents so anyone can join. <strong>🔒 Private</strong> games are invite-only — only players with the room code can get in. <strong>Change the dropdown to Private</strong> to continue." },
-    { target: "#nc-password", badge: "Room Setup", title: "Enter the Room Code",
-      before: () => {
-        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw) { pw.value = "FUNKY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
-      },
-      text: "Private matches need a <strong>room code</strong>. To join one, a player clicks <strong>Join Game</strong>, opens the <strong>Private</strong> tab, and types the code. We've entered ours: <strong style=\"font-family:monospace;letter-spacing:2px\">FUNKY</strong>." },
-    { target: "#nc-create-btn", badge: "Step 3", title: "Start the Private Room", interactive: true, advanceWhen: gtWaitingOpen,
-      before: () => {
-        const sel = document.getElementById("nc-visibility");
-        if (sel && sel.value !== "private") { sel.value = "private"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
-        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
-        const pw = document.getElementById("nc-password");
-        if (pw && !pw.value.trim()) { pw.value = "FUNKY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
-      },
-      text: "Our private room code is <strong style=\"font-family:monospace;letter-spacing:2px\">FUNKY</strong>. Now <strong>click Generate Current</strong> to create the room." },
-    { target: "#wr-players-list", badge: "Step 4", title: "Your Opponents",
+      text: "Click <strong>Generate Current</strong>." },
+    { target: "#wr-players-list", badge: "Setup", title: "Waiting Room",
       before: gtAllBotsEasy,
-      text: "Your <strong>3 bots</strong> are aboard, set to <strong>Easy</strong>. As host you can change any bot's difficulty here." },
-    { target: "#wr-start-btn", badge: "Step 5", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
-      text: "<strong>Click Start Game</strong> to begin. The real board — coral-reef backgrounds and all — loads in a moment." },
+      text: "Your computer opponents are ready." },
+    { target: "#wr-start-btn", badge: "Setup", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+      text: "Click <strong>Start Game</strong>." },
 
-    // ── In game: orientation ─────────────────────────────────────────
-    { target: () => (gtOtherSeats()[0] || gtMySeat()), glow: [() => gtMySeat(), () => gtOtherSeats()[0], () => gtOtherSeats()[1], () => gtOtherSeats()[2]],
-      badge: "The Table", title: "Player Icons",
-      text: "Welcome to the real game! Everyone's <strong>score</strong> is shown near their player icon, and the number beside it shows <strong>how many cards</strong> that player holds. The player whose <strong>turn it is</strong> is highlighted — on your turn, that's you." },
-    { target: "#pv-guide-bar", badge: "Your Turn", title: "The Guide Bar",
-      text: "Your hand looks like a great game to play <strong>B-Lob</strong> — Bird/Lobster strategy. The <strong>guide bar</strong> always tells you what to do. You can <strong>play cards at the start of your turn</strong>, before drawing. First, let's look at your cards." },
+    // ── Strategy guide (Help → pick Crustaceans → Bird Lobster) ─────
+    { target: "#pv-guide-bar", badge: "Your Turn", title: "Follow the Guide",
+      text: "This bar tells you what to do next." },
+    { target: "#pv-help-btn", badge: "Strategy", title: "Open Strategy Help", interactive: true,
+      // Reset the two tutorial strategies so the player turns them on themselves.
+      before: () => { try { window.__ccHelpTut && window.__ccHelpTut.ensureInactive(["Crustaceans", "Bird Lobster"]); } catch (_) {} },
+      advanceWhen: blHelpOpen,
+      text: "On the left, click 💡 Help." },
+    { target: () => blStratPlayEl("Crustaceans"), badge: "Strategy", title: "Choose Crustaceans",
+      interactive: true, advanceWhen: () => blStratActive("Crustaceans"),
+      text: "Select Crustaceans, then click Play this." },
+    { target: () => blCombosSectionEl(), badge: "Strategy", title: "Suggested Combos",
+      before: () => { try { window.__ccHelpTut && window.__ccHelpTut.showList(); } catch (_) {} },
+      text: "These combos pair well with Crustaceans." },
+    { target: () => blStratPlayEl("Bird Lobster"), badge: "Strategy", title: "Choose Bird Lobster",
+      interactive: true, advanceWhen: () => blStratActive("Bird Lobster"),
+      text: "Under Suggested Combos, select Bird Lobster and click Play this." },
+    { target: "#pv-help-close", badge: "Strategy", title: "Return to the Game", interactive: true,
+      advanceWhen: () => !blHelpOpen(),
+      text: "Close the Strategy Guide." },
+    { target: null, badge: "Strategy", title: "Your Strategy Is Ready",
+      text: "B-Lob cards now glow in your hand and Pool." },
 
-    // ── Inspect the key cards (spotlight each in hand) ──────────────
-    { target: () => (blHandElByName("lobster") || document.querySelector("#pv-hand .pv-hand-card")),
-      badge: "Turn 1", title: "Lobster", allowNext: true, interactive: true, advanceWhen: gtZoomOpen,
-      text: "This <strong>Lobster</strong> is a key B-Lob card. Lobsters can <strong>stack multiple on the same space</strong>, so you build a stronger ocean by putting them together. <em>Tap it</em> to see it up close (then close it), or tap Next." },
-    { target: () => blHandElByName("artificial reef"), badge: "Turn 1", title: "Artificial Reef",
-      before: () => { const m = document.getElementById("pv-zoom-modal"); if (m && m.classList.contains("open")) { const x = m.querySelector(".pv-zoom-close,[data-close]"); if (x) try { x.click(); } catch (_) {} } },
-      text: "This is an <strong>Ocean card</strong> — the base animals attach to. It's special: <strong>each card attached to it gives +2 points</strong>. For B-Lob you play Lobsters on Artificial Reef and <strong>stack them</strong> so they all get the extra +2." },
-    { target: () => blHandElByName("california seagull"), badge: "Turn 1", title: "California Seagull",
-      text: "California Seagull is a bird, but it buffs crustaceans: <strong>+3 per crustacean</strong>. Essential for B-Lob because <strong>Lobster is a crustacean</strong>." },
-    { target: () => blHandElByName("emperor penguin"), badge: "Turn 1", title: "Emperor Penguin",
-      text: "Emperor Penguin gives <strong>+2 per bird</strong> — it buffs California Seagull and any other birds you play later. <em>Enough talking. Let's play.</em>" },
+    // ── B-Lob card lesson (spotlight each key card) ─────────────────
+    { target: null, badge: "B-Lob", title: "B-Lob",
+      text: "B-Lob combines Birds and Lobsters." },
+    { target: () => blHandElByName("artificial reef"), badge: "B-Lob", title: "Artificial Reef",
+      text: "Artificial Reef scores +2 for every attached card." },
+    { target: () => blHandElByName("lobster"), badge: "B-Lob", title: "Lobster",
+      text: "Lobsters are free and can stack in one slot." },
+    { target: () => blHandElByName("california seagull"), badge: "B-Lob", title: "California Seagull",
+      text: "California Seagull scores +3 per crustacean." },
 
-    // ── Play Artificial Reef (real drag + payment) ──────────────────
+    // ── Guided B-Lob turns (one action per turn) ────────────────────
     { target: () => blHandElByName("artificial reef"), glow: [gtOceanDropEl], badge: "Turn 1", title: "Play Artificial Reef",
       interactive: true, popAnchor: "top",
       before: () => { _gtOceanBase = gtOceanCount(); },
-      advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
-      text: "Play <strong>Artificial Reef</strong>: <strong>drag the glowing Reef</strong> from your hand onto the glowing board zone (or tap it and choose the board)." },
+      advanceWhen: () => gtPayingOcean() || blReefOnBoard(),
+      text: "Drag Artificial Reef onto your board." },
     { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
-      interactive: true, popAnchor: "top", advanceWhen: () => gtOceanCount() > _gtOceanBase,
-      text: "Artificial Reef has a cost, so you pay with a card. The <strong>Narwhal / Big Eye Tuna</strong> card doesn't fit B-Lob, so it's a perfect payment — <strong>select it</strong>, then click <strong>✓ Confirm Payment</strong>." },
-    { target: "#pv-my-board", glow: [gtPoolEl], badge: "The Pool", title: "Reef Played → Pool",
-      text: "Artificial Reef is now on your board, and the card you paid went to the <strong>Pool</strong>. When anyone plays an Ocean, one card also flips into the Pool from the deck. The <strong>Pool</strong> is where you can draw on your turn and where discarded payments go — and when it reaches <strong>10 cards it clears</strong>, so watch for cards you want." },
-
-    // ── End turn so the bots play ────────────────────────────────────
-    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn",
-      interactive: true, allowNext: true,
+      interactive: true, popAnchor: "top", advanceWhen: () => blReefOnBoard(),
+      text: "Use Narwhal or Big Eye Tuna as payment, then confirm." },
+    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
       before: () => { _gtSawOppTurn = false; },
-      advanceWhen: () => !gtMyTurn(),
-      text: "You've made your play. <strong>Click End Turn</strong> to pass to the bots (Bot 1, Bot 2, Bot 3). Watch their scores and card counts change as they take their turns." },
-    { target: () => (gtOtherSeats()[0] || gtMySeat()), badge: "Their Turn", title: "The Bots Play",
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
-      text: "The bots play Oceans, draw cards from the deck or Pool, and discard payments back into the Pool — just like you. We'll come back the moment it's your turn again." },
+      text: "End your turn so the computer players can play." },
 
-    // ── Turn 2: play a Lobster ───────────────────────────────────────
-    { target: () => blHandElByName("lobster"), glow: ["#pv-my-board"], badge: "Turn 2", title: "Play a Lobster",
+    { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 2", title: "Play Lobster",
       interactive: true, popAnchor: "top",
-      before: () => { _gtCreatureBase = gtCreatureCount(); },
-      advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: "It's your turn again. Let's play <strong>Lobster</strong>. Notice it has <strong>no sand-dollar cost</strong> — it's <strong>free</strong>, so you don't discard anything. <strong>Drag the Lobster onto your Artificial Reef.</strong>" },
-    { target: "#pv-my-board", badge: "Turn 2", title: "Stacking Lobsters",
-      text: "Your Lobster scores <strong>+5</strong>, and because it's on <strong>Artificial Reef</strong> it also earns the Reef's <strong>+2 per card</strong>. Stack your <strong>second Lobster</strong> on the same Reef later and both get the bonus — that's the heart of B-Lob." },
+      advanceWhen: () => blLobstersOnReef() >= 1,
+      text: "Drag Lobster onto Artificial Reef." },
+    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
+      before: () => { _gtSawOppTurn = false; },
+      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
+      text: "End your turn." },
 
-    // ── Recap + hint ─────────────────────────────────────────────────
-    { target: null, badge: "B-Lob", title: "You've Got the Basics",
-      text: "Now you understand the basics of <strong>B-Lob</strong>. Look for <strong>Lobsters</strong>, <strong>birds that buff your board</strong> (California Seagull, Emperor Penguin), and Oceans like <strong>Artificial Reef</strong> that make your stacked cards stronger. Check the <strong>Pool</strong> before drawing, and use cards that don't fit B-Lob as <strong>payment</strong>." },
-    { target: null, badge: "B-Lob", title: "Finish the Game",
-      advanceWhen: () => { if (gtEndgameOpen()) { _blobGameCompleted = true; return true; } return false; },
-      text: "Quick B-Lob tips:<br>• Look for <strong>Lobster</strong>.<br>• Stack Lobsters on <strong>Artificial Reef</strong>.<br>• <strong>California Seagull</strong> helps crustaceans; <strong>Emperor Penguin</strong> helps birds.<br>• Check the <strong>Pool</strong> before the deck.<br>• Pay with cards that don't help B-Lob, and keep the ones that do.<br><br><strong>Play the game to the end</strong> — the tutorial completes automatically when the game finishes!" },
+    { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 3", title: "Stack Another",
+      interactive: true, popAnchor: "top",
+      advanceWhen: () => blLobstersOnReef() >= 2,
+      text: "Place the second Lobster in the same slot." },
+    { target: null, badge: "B-Lob", title: "Lobsters Stacked!",
+      text: "Two Lobsters now share one slot." },
+    { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
+      before: () => { _gtSawOppTurn = false; },
+      advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
+      text: "End your turn." },
+
+    { target: () => blHandElByName("california seagull"), glow: [blReefHubEl], badge: "Turn 4", title: "Play California Seagull",
+      interactive: true, popAnchor: "top",
+      advanceWhen: () => gtPayingCreature() || blSeagullOnReef(),
+      text: "Place California Seagull above Artificial Reef." },
+    { target: gtPayBarEl, glow: [() => blSeagullPayEls()[0], () => blSeagullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
+      badge: "Turn 4", title: "Pay Two Cards", interactive: true, popAnchor: "top",
+      advanceWhen: () => blSeagullOnReef(),
+      text: "Select the two glowing payment cards, then confirm." },
+    { target: null, badge: "B-Lob", title: "B-Lob Working!",
+      text: "California Seagull gains +3 per Lobster because Lobsters are crustaceans." },
+
+    // ── Complete (no full match required) ───────────────────────────
+    { target: null, badge: "Complete", title: "Tutorial 3 Complete!",
+      text: "You built the B-Lob combo: stacked Lobsters under Artificial Reef, topped with California Seagull. What next?",
+      choices: [
+        { label: "Keep Playing", primary: true, onClick: () => { try { _t3Keep && _t3Keep(); } catch (_) {} } },
+        { label: "Return to Tutorials", onClick: () => { try { _t3Return && _t3Return(); } catch (_) {} } },
+      ] },
   ];
 
   function runBLobTour() {
@@ -38097,40 +38179,136 @@
         text: "This tutorial sets up a real game from the menu. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial, then Practice Game (B-Lob)</strong>." }], null);
       return;
     }
+    // Save the strategies active BEFORE this tutorial so Return/Skip can restore
+    // them. (Keep Playing leaves the tutorial's Crustaceans + Bird Lobster on.)
+    let _blobPrevStrats = [];
+    try { if (window.__ccHelpTut) _blobPrevStrats = window.__ccHelpTut.activeLabels(); } catch (_) {}
     // Flag the next created game as a B-Lob tutorial so the server rigs the exact
     // Bird+Lobster opening hand. Both flags are consumed by the create handler.
     window.__ccTutorialGame = true;
     window.__ccTutorialVariant = "blob";
-    let _exited = false;
-    let _completionHandled = false;
-    const _exitAndReturn = async () => {
+    let _exited = false, _keepPlaying = false;
+    const _cleanup = async () => {
       if (_exited) return;
-      // If the game ended naturally, hold the exit until the completion
-      // coachmark is dismissed — prevents the lobby from appearing
-      // underneath the "Tutorial Completed!" step.
-      if (_blobGameCompleted && !_completionHandled) return;
       _exited = true;
       window.__ccTutorialGame = false;
       window.__ccTutorialVariant = "";
+      try { if (window.__ccHelpTut) window.__ccHelpTut.close(); } catch (_) {}
+      if (_keepPlaying) return;   // Keep Playing: stay in match, keep B-Lob strategies on
+      // Return to Tutorials OR Skip: restore pre-tutorial strategies, leave match.
+      try { if (window.__ccHelpTut) window.__ccHelpTut.setActiveLabels(_blobPrevStrats); } catch (_) {}
       try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
       setTimeout(openChooser, 700);
     };
-    _blobGameCompleted = false;
-    runCoach(BLOB_STEPS, async () => {
-      if (_blobGameCompleted) {
-        setDone("practice");
-        runCoach([{
-          target: null, badge: "Tutorial Complete!", title: "Tutorial Completed!",
-          text: "You played a full B-Lob game from start to finish! Stack <strong>Lobsters</strong> on <strong>Artificial Reef</strong>, buff with <strong>California Seagull</strong> and <strong>Emperor Penguin</strong>, and watch the Pool. You've got the B-Lob strategy down. 🦞"
-        }], async () => {
-          _completionHandled = true;
-          showToast("Tutorial complete!", completionSubtitle());
-          await _exitAndReturn();
-        }, () => { _completionHandled = true; _exitAndReturn(); });
-      } else {
-        await _exitAndReturn();
-      }
-    }, _exitAndReturn);
+    _t3Keep = () => {
+      setDone("practice"); showToast("Tutorial 3 complete", completionSubtitle());
+      _keepPlaying = true; endCoach();      // close coachmarks, stay in match, strategies stay on
+    };
+    _t3Return = () => {
+      setDone("practice"); showToast("Tutorial 3 complete", completionSubtitle());
+      _keepPlaying = false; endCoach();     // close coachmarks, restore strategies, leave match
+    };
+    // No onDone (final step's buttons drive completion); Skip → _cleanup (restores
+    // strategies, leaves the match, no setDone).
+    runCoach(BLOB_STEPS, null, _cleanup);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  //  TUTORIAL 4 — ONLINE PLAY & CONTROLS
+  //  Creates a real game, then teaches the online/table features moved
+  //  out of Tutorial 2: rooms (public/private + code), bot difficulty,
+  //  chat, Surf's Up, AFK rules, and the card viewer + hand rearrange.
+  // ════════════════════════════════════════════════════════════════
+  const wrDiffBoxEl = () => document.querySelector("#wr-players-list .wr-diff-box");
+  const ONLINE_STEPS = [
+    { target: null, badge: "Online Play", title: "Online Play & Controls",
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "Rooms, bots, chat, breaks, AFK rules, and card controls — let's set up a game and see them." },
+
+    // ── Group 1: setting up rooms ───────────────────────────────────
+    { target: "#stats-create-btn", badge: "Rooms", title: "Create a Game", interactive: true, advanceWhen: gtModalOpen,
+      before: () => { try { navTab("overview"); } catch (_) {} },
+      text: "Click <strong>Create Game</strong>." },
+    { target: "#nc-visibility", badge: "Rooms", title: "Public or Private", interactive: true,
+      before: () => {
+        gtSetInput("nc-total", 1); gtSetInput("nc-ai", 1);
+        const sel = document.getElementById("nc-visibility");
+        if (sel && sel.value !== "public") { sel.value = "public"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      advanceWhen: () => { const sel = document.getElementById("nc-visibility"); return !!(sel && sel.value === "private"); },
+      text: "Public rooms appear in Open Currents. Private rooms need a code. Switch to <strong>Private</strong>." },
+    { target: "#nc-password", badge: "Rooms", title: "Your Room Code",
+      before: () => {
+        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
+        const pw = document.getElementById("nc-password");
+        if (pw && !pw.value.trim()) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      text: "This is your room code. A joiner enters it in <strong>Join Game → Private</strong>." },
+    { target: "#nc-create-btn", badge: "Rooms", title: "Create the Room", interactive: true, advanceWhen: gtWaitingOpen,
+      before: () => {
+        const sel = document.getElementById("nc-visibility");
+        if (sel && sel.value !== "private") { sel.value = "private"; sel.dispatchEvent(new Event("change", { bubbles: true })); }
+        const row = document.getElementById("nc-password-row"); if (row) row.style.display = "";
+        const pw = document.getElementById("nc-password");
+        if (pw && !pw.value.trim()) { pw.value = "FISHY"; pw.dispatchEvent(new Event("input", { bubbles: true })); pw.dispatchEvent(new Event("change", { bubbles: true })); }
+      },
+      text: "Click <strong>Generate Current</strong>." },
+    { target: "#wr-players-list", glow: [wrDiffBoxEl], badge: "Rooms", title: "Bot Difficulty",
+      text: "Each bot can be Easy, Medium, or Hard. As host, change any bot's difficulty here." },
+    { target: "#wr-start-btn", badge: "Rooms", title: "Start the Game", interactive: true, advanceWhen: gtGameOpen,
+      before: gtAllBotsEasy,
+      text: "Click <strong>Start Game</strong>." },
+
+    // ── Group 2: chat ───────────────────────────────────────────────
+    { target: "#pv-chat-btn", badge: "Chat", title: "Table Chat",
+      text: "Tap 💬 Chat to talk with everyone in the current game." },
+
+    // ── Group 3: Surf's Up & AFK rules ──────────────────────────────
+    { target: "#pv-surf-btn", badge: "Breaks", title: "Surf's Up",
+      text: "Tap 🏄 Surf's Up to go Away — you can't move while Away. Tap <strong>I'm Back</strong> to return." },
+    { target: "#pv-chat-btn", badge: "AFK", title: "Reporting AFK",
+      text: "If a player vanishes on their own turn, report them in chat. Capitals don't matter:<br><span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 AFK</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">P1 away</span> <span style=\"display:inline-block;background:#0d2c4e;border:1px solid #1f4f7a;border-radius:6px;padding:3px 8px;margin:3px;color:#cfe6fb\">PlayerName away</span>" },
+    { target: null, badge: "AFK", title: "The 20-Second Check",
+      text: "The reported player sees this:<div style=\"margin:10px auto 6px;max-width:240px;background:linear-gradient(180deg,#0c2c4e,#08233f);border:1px solid #1f4f7a;border-radius:14px;padding:12px 12px 14px;text-align:center;box-shadow:0 8px 26px rgba(0,0,0,.45)\"><div style=\"font-size:22px;line-height:1\">⚠️</div><div style=\"font-weight:800;color:#eaf4ff;font-size:14px;margin:3px 0\">Are You There?</div><div style=\"width:48px;height:48px;border-radius:50%;border:3px solid #34c3ff;display:flex;align-items:center;justify-content:center;margin:9px auto 6px;font-weight:900;color:#eaf4ff;font-size:18px\">20</div><div style=\"font-size:10.5px;color:#9fc3e0;line-height:1.35\"><b style=\"color:#34c3ff\">Move your mouse or click</b> to stay in.</div></div>They have 20 seconds. Moving the mouse cancels it. If time runs out, 2 cards are drawn and their turn passes." },
+    { target: "#pv-draw-deck", badge: "AFK", title: "The 20-Card Rule",
+      text: "Auto-draws can grow a hand to 20 cards. Once back to normal play, the standard 10-card limit returns." },
+
+    // ── Group 4: card controls ──────────────────────────────────────
+    { target: "#pv-hand", badge: "Cards", title: "Enlarge a Card", interactive: true, advanceWhen: gtZoomOpen,
+      text: "Click a card to enlarge it." },
+    { target: "#pv-zoom-modal", badge: "Cards", title: "Flip & Close", interactive: true, advanceWhen: gtZoomClosed,
+      text: "Use ‹ and › to view the previous and next card, then close the viewer." },
+    { target: "#pv-hand", badge: "Cards", title: "Rearrange Your Hand", interactive: true,
+      before: () => { _tutHandSig = gtHandSig(); },
+      advanceWhen: () => gtHandSig() !== _tutHandSig,
+      text: "Drag a card onto another to rearrange your hand." },
+
+    { target: null, badge: "Complete", title: "Online Play & Controls Complete!",
+      text: "That's rooms, bots, chat, breaks, AFK rules, and card controls. Select <strong>Finish</strong> to return to the tutorials." },
+  ];
+
+  function runOnlineTour() {
+    closeChooser();
+    const lobby = document.getElementById("auth-stats-lobby");
+    if (!lobby || !lobby.classList.contains("visible")) {
+      runCoach([{ target: null, badge: "Online Play", title: "Open from the Main Menu",
+        text: "This tutorial creates a real game from the menu. Please open the <strong>Main Menu</strong> first, then choose <strong>Tutorial, then Online Play &amp; Controls</strong>." }], null);
+      return;
+    }
+    window.__ccTutorialGame = true;
+    let _exited = false;
+    const _exit = async () => {
+      if (_exited) return;
+      _exited = true;
+      window.__ccTutorialGame = false;
+      try { if (window.__tutLeaveGame) await window.__tutLeaveGame(); } catch (_) {}
+      setTimeout(openChooser, 700);
+    };
+    runCoach(ONLINE_STEPS, async () => {
+      setDone("online");
+      showToast("Online Play & Controls complete", completionSubtitle());
+      await _exit();
+    }, _exit);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -38255,16 +38433,17 @@
   }
 
   const OPTS = [
-    { key: "menu",        ico: "🗺️",  title: "Main Menu Tour",       desc: "Everything on the menu: profile, streak, tabs, and the store.",                                   run: runMenuTour, ready: true },
-    { key: "game",        ico: "🎴",  title: "The Game",             desc: "Everything in a game: the board, pool, deck, chat, Surf's Up, AFK, and more.",                    run: runGameTour, ready: true },
-    { key: "practice",   ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Set up a private game and learn the Bird + Lobster strategy on the real board.",                  run: runBLobTour, ready: true },
-    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, CP, rank divisions, the hand-switch, and strategy.", run: runCompTour, ready: true },
+    { key: "menu",        ico: "🗺️",  title: "Main Menu Tour",        desc: "Everything on the menu: profile, streak, tabs, and the store.",                       run: runMenuTour,   ready: true },
+    { key: "game",        ico: "🎴",  title: "The Game",              desc: "Set up a real game, then play a card and fire a Star ability.",                       run: runGameTour,   ready: true },
+    { key: "practice",    ico: "🦞",  title: "Practice Game (B-Lob)", desc: "Use the Strategy guide and build the Bird + Lobster combo on the real board.",        run: runBLobTour,   ready: true },
+    { key: "online",      ico: "🛟",  title: "Online Play & Controls", desc: "Rooms, bots, chat, breaks, AFK rules, and card controls.",                            run: runOnlineTour, ready: true },
+    { key: "competitive", ico: "⚔️", title: "Competitive 1v1",       desc: "Ranked 1v1 play: two hands each, CP, rank divisions, the hand-switch, and strategy.", run: runCompTour,   ready: true },
   ];
 
   function renderChooser() {
     const done = getDone();
     const c = buildChooser();
-    const pips = ["menu", "game", "practice", "competitive"].map(k => `<span class="tut3-pip ${done[k] ? "on" : ""}"></span>`).join("");
+    const pips = ["menu", "game", "practice", "online", "competitive"].map(k => `<span class="tut3-pip ${done[k] ? "on" : ""}"></span>`).join("");
     const optHtml = OPTS.map(o => {
       const isDone = !!done[o.key];
       const locked = !o.ready;
@@ -38277,12 +38456,12 @@
         ${status}
       </button>`;
     }).join("");
-    const count = ["menu", "game", "practice", "competitive"].filter(k => done[k]).length;
+    const count = ["menu", "game", "practice", "online", "competitive"].filter(k => done[k]).length;
     c.innerHTML = `<div class="tut3-card">
-      <div class="tut3-hd"><h2>How to Play</h2><p>Four tutorials. Finish all four to earn a reward.</p></div>
+      <div class="tut3-hd"><h2>How to Play</h2><p>Five tutorials. Finish all five to earn a reward.</p></div>
       <div class="tut3-opts">${optHtml}</div>
       <div class="tut3-foot">
-        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all four to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "(unlocked) ✓" : `(${count}/4)`}</div>
+        <div class="tut3-reward"><img src="/avatars/osprey.png" alt="Osprey"> Complete all five to unlock the <span style="color:#0f4d86">Osprey</span> ${allDone() ? "(unlocked) ✓" : `(${count}/5)`}</div>
         <div class="tut3-prog">${pips}</div>
         <button class="tut3-close" id="tut3-chooser-close">Maybe later</button>
       </div>
@@ -38300,8 +38479,8 @@
   // ── Completion toast ──────────────────────────────────────────────
   let toastEl = null;
   function completionSubtitle() {
-    const n = ["menu", "game", "practice", "competitive"].filter(k => getDone()[k]).length;
-    return allDone() ? "All four done. Osprey unlocked! 🦅" : `${n} of 4 complete`;
+    const n = ["menu", "game", "practice", "online", "competitive"].filter(k => getDone()[k]).length;
+    return allDone() ? "All five done. Osprey unlocked! 🦅" : `${n} of 5 complete`;
   }
   function showToast(title, sub) {
     if (!toastEl) { toastEl = document.createElement("div"); toastEl.id = "tut3-toast"; document.body.appendChild(toastEl); }

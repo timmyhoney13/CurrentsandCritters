@@ -7763,24 +7763,23 @@ def rig_tutorial_opening_hand(
         _installed.add(donor)
         return donor
 
-    # Pair 1 — Mangrove + Arctic Oceans share a symbol (prefer Heart).
+    # Pair 1 — Mangrove + Arctic Oceans share a symbol (prefer Heart). Paying for
+    # the Mangrove with the symbol-matched Arctic fires the Mangrove's *Play again*
+    # star — the single Star ability Tutorial 2 now teaches.
     s1 = _shared_symbol("mangrove", False, "arctic oceans", False, ("heart",))
     if s1 is not None:
         _install("mangrove", s1, False)
         _install("arctic oceans", s1, False)
-    # Pair 2 — Great Albatross (its face must be the primary) + Kelp Forest share
-    # a symbol (prefer Diamond).
-    s2 = _shared_symbol("great albatross", True, "kelp forest", False, ("diamond",))
-    if s2 is not None:
-        _install("great albatross", s2, True)
-        _install("kelp forest", s2, False)
+    # One simple FREE creature (Lobster, cost 0) so the guided "use Play Again to
+    # play a creature" step needs no separate payment. (The old Great Albatross +
+    # Kelp Forest second-Star pair was removed — Tutorial 2 teaches one Star only.)
+    _install("lobster", None, False)
 
     # Dedup: the original deal can already contain extra / wrong-symbol copies of a
     # teaching card (e.g. a second Mangrove with a different symbol). Keep exactly
     # ONE copy of each — the coordinated-symbol one — and swap every other copy
     # back to the deck for a non-teaching filler, so the spotlight is unambiguous.
-    _keep = [("mangrove", s1, False), ("arctic oceans", s1, False),
-             ("great albatross", s2, True), ("kelp forest", s2, False)]
+    _keep = [("mangrove", s1, False), ("arctic oceans", s1, False)]
     def _any_teaching_name(u: int) -> bool:
         return any(_is_card(u, n, None, False) for (n, _s, _p) in _keep)
     for name_lc, sym_lc, primary in _keep:
