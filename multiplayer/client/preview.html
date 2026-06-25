@@ -4745,10 +4745,14 @@
        handles. The layout/visual design is unchanged. Computer mode keeps the
        native mouse drag-and-drop and is unaffected by all of this. */
     body.cc-device-mobile { -webkit-text-size-adjust: 100%; }
-    /* Draggable cards: claim the gesture so the page can't scroll mid-drag,
-       letting a finger drag the card cleanly. Tap (click) still fires. */
+    /* Draggable cards: a SINGLE finger drags the card cleanly (no page scroll
+       mid-drag, tap/click still fires), while TWO fingers are reserved for the
+       browser's pinch-zoom of the whole game. `pinch-zoom` (not `none`) is the
+       key: it still blocks single-finger panning — so dragging never scroll-
+       jitters — but it no longer swallows a two-finger pinch that happens to
+       start on a card, so players can always pinch to zoom in/out. */
     body.cc-device-mobile [draggable="true"] {
-      touch-action: none;
+      touch-action: pinch-zoom;
       -webkit-touch-callout: none;
       -webkit-user-select: none; user-select: none;
     }
@@ -10917,6 +10921,72 @@
     if (!opts || opts.reload !== false) { try { location.reload(); } catch (e) {} }
   };
 
+  // ── MOBILE GAME VIEWPORT (default zoom-out + native two-finger pinch) ──────
+  // Desktop / Computer mode is NEVER touched. On Mobile, while the in-game
+  // screen is showing, the game is laid out on a WIDER virtual viewport so a
+  // lot more of the board + UI is visible at once (a gentle default zoom-out),
+  // and the browser's own two-finger pinch then zooms the entire game (board
+  // AND interface together — not just text) in for detail or out for a
+  // strategic overview, with native two-finger panning while zoomed. This
+  // scales the whole game uniformly without a CSS transform, so every existing
+  // overlay/menu/modal/tooltip/fullscreen and the finger drag-and-drop keep
+  // working exactly as before. Single-finger gestures stay with the game.
+  // The Home/Lobby screens keep the normal device-width viewport.
+  (function () {
+    var meta = document.querySelector('meta[name="viewport"]');
+    var NORMAL = "width=device-width, initial-scale=1.0";
+    var ZOOM_OUT_TABLET = 1.9;   // tablets: show ~1.9x more by default
+    var ZOOM_OUT_PHONE  = 1.5;   // phones: a gentler zoom-out so text stays legible
+    var MAX_ZOOM_MULT   = 3;     // how far past the overview a player may pinch in
+    var inGame = false;
+
+    // screen.* is stable logical CSS pixels — it does NOT change with the
+    // viewport meta or with a pinch, so it never feeds back on itself the way
+    // innerWidth would once we widen the viewport. The device's SHORT edge
+    // classifies phone vs tablet (intrinsic, orientation-independent); the
+    // CURRENT-orientation width is what we actually widen.
+    function screenDims() {
+      var sw = screen.width  || window.innerWidth  || 360;
+      var sh = screen.height || window.innerHeight || 640;
+      var portrait = true;
+      try { portrait = window.matchMedia("(orientation: portrait)").matches; } catch (e) {}
+      return {
+        cur:   Math.round(Math.max(320, Math.min(2048, portrait ? Math.min(sw, sh) : Math.max(sw, sh)))),
+        short: Math.min(sw, sh)
+      };
+    }
+    function setNormal() {
+      if (meta && meta.getAttribute("content") !== NORMAL) meta.setAttribute("content", NORMAL);
+    }
+    function setGame() {
+      if (!meta) return;
+      var d   = screenDims();
+      var dw  = d.cur;
+      var zo  = d.short >= 700 ? ZOOM_OUT_TABLET : ZOOM_OUT_PHONE;
+      var W   = Math.round(dw * zo);
+      var fit = dw / W;  // = 1 / zo — the default "fit the whole game" scale
+      var content =
+        "width=" + W +
+        ", initial-scale=" + fit.toFixed(3) +
+        ", minimum-scale=" + fit.toFixed(3) +                  // can't zoom out past the overview
+        ", maximum-scale=" + (fit * MAX_ZOOM_MULT).toFixed(3) + // reasonable zoom-in cap
+        ", user-scalable=yes";
+      // Idempotent: only write when the string actually changes, so re-renders
+      // (which call ccGameViewport(true) every state tick) never re-apply
+      // initial-scale and snap a player's in-progress pinch back to the overview.
+      if (meta.getAttribute("content") !== content) meta.setAttribute("content", content);
+    }
+    function refresh() {
+      if (inGame && window.CC_IS_MOBILE) setGame();
+      else setNormal();
+    }
+    // Called with true when the in-game screen appears, false when it leaves.
+    window.ccGameViewport = function (on) { inGame = !!on; refresh(); };
+    // Re-fit (and reset to the overview) only on a real rotation — never during
+    // a pinch, which doesn't fire orientationchange and must not be disturbed.
+    window.addEventListener("orientationchange", function () { setTimeout(refresh, 250); });
+  })();
+
   // The boot waits on this promise: resolves the moment a device is chosen,
   // or immediately if one is already saved for this session.
   var resolveReady;
@@ -13331,10 +13401,15 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.5";
+  const APP_BUILD   = "2026-06-24.6";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.2", title: "Mobile zooms out so you see the whole board", items: [
+      "On a phone or tablet the game now opens zoomed out so you can see much more of the board and controls at once, instead of being stuck zoomed in on the top.",
+      "Pinch with two fingers to zoom the whole game in for detail or back out for the full overview, and slide two fingers to pan around while you're zoomed in.",
+      "One finger still drags and taps cards exactly as before, and computer play is unchanged.",
+    ]},
     { ver: "V1.6.2", title: "Mobile home screen now matches the computer", items: [
       "The phone home screen now shows the full side menu — Overview, Casual, Competitive, History, Friends, Achievements, Leaderboard, Store and Settings — plus the Daily Streak panel, exactly like the computer, just stacked to fit your screen (scroll for more).",
       "Removed the leftover menu (≡) and notification bell icons from the top corners — on both computer and mobile.",
@@ -25365,6 +25440,9 @@
   }
 
   window._bsSetVisible = function(visible) {
+    // Switch the mobile game viewport on entering / leaving the in-game screen
+    // (no-op on desktop). Done first so it runs even if the bs-ctrl is absent.
+    try { window.ccGameViewport && window.ccGameViewport(visible); } catch {}
     const ctrl = document.getElementById("bs-ctrl");
     if (!ctrl) return;
     ctrl.style.display = visible ? "flex" : "none";
