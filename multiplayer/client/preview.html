@@ -4742,7 +4742,7 @@
       position: fixed; inset: 0; z-index: 2147483000;
       background-color: #0a1d3a;
       background-image: url("/choose-device.png?v=1");
-      background-size: cover;
+      background-size: contain;
       background-position: center;
       background-repeat: no-repeat;
       display: flex;
@@ -13445,7 +13445,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-25.3";
+  const APP_BUILD   = "2026-06-25.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
