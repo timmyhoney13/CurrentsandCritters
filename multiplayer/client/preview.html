@@ -100,6 +100,9 @@
       --glow-c:    rgba(34,216,248,.45);
       --glow-teal: rgba(24,200,168,.5);
       --glow-gold: rgba(240,200,64,.5);
+      /* Shared card-back art (sandpiper + "Currents and Critters") — used for the
+         deck pile, face-down hands, draw-flip backs and any hidden card, everywhere. */
+      --cc-card-back: url("/multiplayer/client/card-back.png?v=1");
     }
 
     html, body {
@@ -1346,19 +1349,14 @@
     .pv-fd-card {
       width: 21px;
       height: 30px;
-      background: linear-gradient(135deg, #2A5AA0, #1A3D78);
+      background: var(--cc-card-back) center/cover no-repeat,
+                  linear-gradient(135deg, #2A5AA0, #1A3D78);
       border: 1px solid #3A72C0;
       border-radius: 4px;
       position: absolute;
+      overflow: hidden;
       box-shadow: 1px 1px 4px rgba(0,0,0,.4);
       transition: transform .15s;
-    }
-    .pv-fd-card::after {
-      content: "";
-      position: absolute;
-      inset: 2px;
-      border: 1px solid rgba(61,214,245,.12);
-      border-radius: 2px;
     }
 
     .pv-opp-mini-board { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -1402,6 +1400,7 @@
       align-items: center;
       gap: 4px;
       cursor: pointer;
+      position: relative;
     }
     .pv-deck-stack {
       position: relative;
@@ -1411,28 +1410,51 @@
     .pv-deck-face {
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
+      /* Card-back art fills the pile; the gradient is only a load fallback.
+         The count is NEVER printed on the card — it lives in the label below
+         and the hover tooltip (#pv-deck-tip). */
+      background: var(--cc-card-back) center/cover no-repeat,
+                  linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
       border: 2px solid var(--cr-gold);
       border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: "Cinzel", serif;
-      font-size: 28px;
-      font-weight: 900;
-      color: rgba(255,255,255,.6);
+      overflow: hidden;
       box-shadow: 3px 3px 0 rgba(26,45,90,.55), 5px 5px 0 rgba(26,45,90,.4);
       transition: border-color .2s, box-shadow .2s;
     }
-    .pv-deck-face::after {
-      content: "";
-      position: absolute;
-      inset: 4px;
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 5px;
-    }
     .pv-deck-pile:hover .pv-deck-face { border-color: var(--cr-coral); box-shadow: 3px 3px 0 rgba(26,45,90,.55), 5px 5px 0 rgba(26,45,90,.4), 0 0 18px rgba(244,165,116,.55); }
     .pv-deck-count { font-size: 11px; color: var(--cr-navy); font-weight: 800; text-shadow: 0 1px 0 rgba(255,255,255,.5); }
+    /* Hover popup over the deck: how many cards are left. Lives above the pile,
+       never on the card art. */
+    .pv-deck-tip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(2px);
+      margin-bottom: 7px;
+      background: var(--cr-navy);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      padding: 5px 11px;
+      border-radius: 9px;
+      border: 1.5px solid var(--cr-gold);
+      box-shadow: 0 5px 16px rgba(0,0,0,.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+      z-index: 60;
+    }
+    .pv-deck-tip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--cr-gold);
+    }
+    .pv-deck-pile:hover .pv-deck-tip { opacity: 1; transform: translateX(-50%) translateY(-2px); }
 
     /* Pool */
     #pv-pool-area { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
@@ -3161,18 +3183,41 @@
     .tut-pool-card img { width: 100%; height: 100%; object-fit: cover; }
     #tut-deck-pile {
       display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer;
+      position: relative;
     }
     .tut-deck-face {
       width: 42px; height: 58px;
-      background: linear-gradient(135deg, #1C3E80, #2A5AA8);
+      background: var(--cc-card-back) center/cover no-repeat,
+                  linear-gradient(135deg, #1C3E80, #2A5AA8);
       border: 2px solid #3A72C0; border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-      font-family: "Cinzel", serif; font-size: 14px; font-weight: 900;
-      color: rgba(255,255,255,.2); box-shadow: 3px 3px 0 #0d1830;
+      overflow: hidden;
+      box-shadow: 3px 3px 0 #0d1830;
       transition: border-color .2s;
     }
     #tut-deck-pile:hover .tut-deck-face { border-color: var(--cyan); }
     .tut-deck-count { font-size: 9px; color: var(--muted); font-weight: 700; }
+    /* Tutorial deck hover popup — cards left, above the pile, never on the art. */
+    .tut-deck-tip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%) translateY(2px);
+      margin-bottom: 6px;
+      background: #0d1830;
+      color: #eaf8ff;
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+      padding: 4px 9px;
+      border-radius: 7px;
+      border: 1px solid var(--cyan);
+      box-shadow: 0 4px 12px rgba(0,0,0,.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+      z-index: 60;
+    }
+    #tut-deck-pile:hover .tut-deck-tip { opacity: 1; transform: translateX(-50%) translateY(-2px); }
     #tut-my-board-area {
       display: flex; flex-direction: column; align-items: center; gap: 4px; flex-shrink: 0;
     }
@@ -3477,12 +3522,9 @@
       width: 100%; height: 100%; object-fit: cover; display: block;
     }
     .pv-anim-card .pv-anim-back {
-      background: linear-gradient(135deg, #2A5AA0, #1A3D78);
-      display: flex; align-items: center; justify-content: center;
+      background: var(--cc-card-back) center/cover no-repeat,
+                  linear-gradient(135deg, #2A5AA0, #1A3D78);
       transform: rotateY(180deg);
-    }
-    .pv-anim-card .pv-anim-back::after {
-      content: "🐟"; font-size: 38px; opacity: .42;
     }
     .pv-anim-card.face-down .pv-anim-face { transform: rotateY(180deg); }
     .pv-anim-card.face-down .pv-anim-back { transform: rotateY(0deg); }
@@ -12564,9 +12606,10 @@
       <div class="pv-action-divider" style="height:56px;"></div>
 
       <div class="pv-deck-pile" id="pv-draw-deck" title="Click to draw from deck">
+        <div class="pv-deck-tip" id="pv-deck-tip">Deck</div>
         <div class="pv-section-label">Deck</div>
         <div class="pv-deck-stack">
-          <div class="pv-deck-face" id="pv-deck-count-face">?</div>
+          <div class="pv-deck-face" id="pv-deck-count-face"></div>
         </div>
         <span class="pv-deck-count" id="pv-deck-num">? cards</span>
       </div>
@@ -13288,8 +13331,9 @@
         <div id="tut-pool-wrap"></div>
       </div>
       <div id="tut-deck-pile">
+        <div class="tut-deck-tip" id="tut-deck-tip">48 cards left in the deck</div>
         <div class="tut-section-lbl">Deck</div>
-        <div class="tut-deck-face">C&amp;C</div>
+        <div class="tut-deck-face"></div>
         <div class="tut-deck-count" id="tut-deck-count">48 left</div>
       </div>
     </div>
@@ -13401,10 +13445,15 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.2";
-  const APP_BUILD   = "2026-06-24.6";
+  const APP_BUILD   = "2026-06-25.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.2", title: "New card back + cleaner deck", items: [
+      "Every face-down card now shows the new \"Currents and Critters\" card-back artwork — the deck pile, opponents' hidden hands, the draw flip animation, the tutorial deck and the classic mode, everywhere.",
+      "The deck pile shows the card-back art with the card count next to it instead of a number printed on the card.",
+      "Hover over the deck and a little popup tells you exactly how many cards are left to draw.",
+    ]},
     { ver: "V1.6.2", title: "Mobile zooms out so you see the whole board", items: [
       "On a phone or tablet the game now opens zoomed out so you can see much more of the board and controls at once, instead of being stuck zoomed in on the top.",
       "Pinch with two fingers to zoom the whole game in for detail or back out for the full overview, and slide two fingers to pan around while you're zoomed in.",
@@ -17728,10 +17777,17 @@
       setStatus(payload.status_note || `Waiting for ${current}…`);
     }
 
-    // deck count
+    // deck count — shown beside the deck + in the hover tooltip, NEVER printed on
+    // the card-back art itself.
     const deckNum = Number(state.deck_remaining ?? state.deck_size ?? state.deck_count ?? (Array.isArray(state.deck)?state.deck.length:0));
-    document.getElementById("pv-deck-count-face").textContent = deckNum > 0 ? deckNum : "·";
-    document.getElementById("pv-deck-num").textContent = `${deckNum} cards`;
+    const _deckLbl = deckNum === 1 ? "1 card" : `${deckNum} cards`;
+    document.getElementById("pv-deck-num").textContent = _deckLbl;
+    const _deckTipEl = document.getElementById("pv-deck-tip");
+    if (_deckTipEl) _deckTipEl.textContent = `${_deckLbl} left in the deck`;
+    const _deckPileEl = document.getElementById("pv-draw-deck");
+    if (_deckPileEl) _deckPileEl.title = `${_deckLbl} left — click to draw`;
+    const _deckFaceEl = document.getElementById("pv-deck-count-face");
+    if (_deckFaceEl) _deckFaceEl.style.opacity = deckNum > 0 ? "" : "0.3";
 
     // hand entry map — pull symbol up to top level for payment matching
     handEntryMap.clear();
@@ -19134,6 +19190,8 @@
       poolWrap.appendChild(div);
     });
     document.getElementById("tut-deck-count").textContent = ts.deckCount + " left";
+    const _tutDeckTip = document.getElementById("tut-deck-tip");
+    if (_tutDeckTip) _tutDeckTip.textContent = `${ts.deckCount} ${ts.deckCount === 1 ? "card" : "cards"} left in the deck`;
     document.getElementById("tut-deck-pile").onclick = tutDrawDeck;
 
     // Drop targets for tutorial pool drags.
@@ -36107,7 +36165,7 @@
   .cc-cards { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; }
   .cc-card { width:64px; }
   .cc-card-img { width:64px; height:64px; border-radius:8px; border:1px solid rgba(95,208,232,.4); background:#0a2742 center/cover no-repeat; overflow:hidden; }
-  .cc-card-back .cc-card-img { background:repeating-linear-gradient(45deg,#0d3a5e,#0d3a5e 6px,#0a2c4a 6px,#0a2c4a 12px); }
+  .cc-card-back .cc-card-img { background:var(--cc-card-back) center/cover no-repeat; }
   .cc-card-name { font-size:.62rem; color:#bfe0f2; text-align:center; margin-top:2px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .cc-seat { border:1px solid rgba(80,170,215,.25); border-radius:11px; padding:10px 12px; margin-bottom:10px; background:rgba(6,32,56,.5); }
   .cc-seat-hd { font-weight:800; color:#eaf8ff; margin-bottom:6px; display:flex; align-items:center; gap:8px; }

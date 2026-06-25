@@ -228,10 +228,44 @@
       font-weight: 800;
       letter-spacing: 0.3px;
     }
+    .deck-pile-btn {
+      position: relative;
+    }
     .deck-pile-btn .small {
       color: #24516c;
       font-weight: 700;
     }
+    /* Card-back art shown on the deck pile (replaces the old draw icon). */
+    .deck-back-img {
+      width: 34px;
+      height: 48px;
+      border-radius: 5px;
+      object-fit: cover;
+      border: 1px solid #78acc8;
+      box-shadow: 1px 1px 3px rgba(0,0,0,.2);
+      display: block;
+    }
+    /* Hover popup over the deck: how many cards are left (never on the card art). */
+    .deck-tip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 6px;
+      background: #153f57;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      padding: 4px 9px;
+      border-radius: 7px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease;
+      z-index: 30;
+    }
+    .deck-pile-btn:hover .deck-tip { opacity: 1; }
 
     .control-row {
       display: flex;
@@ -1123,8 +1157,11 @@
       <div id="tableMiddle">
         <div id="tableLeft"></div>
         <div id="tableCenter">
-          <button id="deckDrawBtn" class="deck-pile-btn" type="button">
-            &#127921; Deck <span class="small" id="deckCount">0 cards</span>
+          <button id="deckDrawBtn" class="deck-pile-btn" type="button" title="Draw from the deck">
+            <span class="deck-tip" id="deckTip">Deck</span>
+            <img class="deck-back-img" src="/multiplayer/client/card-back.png?v=1" alt="Deck">
+            <span>Deck</span>
+            <span class="small" id="deckCount">0 cards</span>
           </button>
           <div class="draw-actions inline" id="drawActions"></div>
           <div class="pool-grid" id="pool"></div>
@@ -3270,7 +3307,12 @@
       }
       const deckAction = maps.drawActions.find((a) => Number(a.draw_from_pool || 0) === 0) || null;
       if (deckCountEl) {
-        deckCountEl.textContent = `${state.deck_remaining ?? 0} cards`;
+        const _deckN = Number(state.deck_remaining ?? 0);
+        const _deckLbl = `${_deckN} ${_deckN === 1 ? "card" : "cards"}`;
+        deckCountEl.textContent = _deckLbl;
+        const _deckTip = document.getElementById("deckTip");
+        if (_deckTip) _deckTip.textContent = `${_deckLbl} left in the deck`;
+        if (deckDrawBtn) deckDrawBtn.title = `${_deckLbl} left — draw from the deck`;
       }
       if (deckDrawBtn) {
         deckDrawBtn.disabled = !canInteract || !deckAction || isDiscardBatch;
@@ -4426,7 +4468,7 @@
     function updateTopBar(state, rId) {
       const el = document.getElementById("topBarMeta");
       if (!el) return;
-      el.innerHTML = `Room <b>${rId || "?"}</b> — Turn ${state.turn_number ?? "?"} — <b>${state.current_player || "?"}</b>'s turn &nbsp;&#127921; ${state.deck_remaining ?? "?"}`;
+      el.innerHTML = `Room <b>${rId || "?"}</b> — Turn ${state.turn_number ?? "?"} — <b>${state.current_player || "?"}</b>'s turn &nbsp;<img src="/multiplayer/client/card-back.png?v=1" alt="Deck" title="${state.deck_remaining ?? "?"} cards left in the deck" style="height:1.25em;vertical-align:-0.3em;border-radius:2px;"> ${state.deck_remaining ?? "?"}`;
     }
 
     (function init() {
