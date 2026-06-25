@@ -13445,7 +13445,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-25.2";
+  const APP_BUILD   = "2026-06-25.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -25858,7 +25858,7 @@
       unlock:{ type:"level", goal:80, label:"Reach Level 80." } },
     { id:"osprey", name:"Osprey", species:"Birds", img:"/avatars/osprey.png",
       facts:"After a deep dive, ospreys will shake the excess water from their dense, oily feathers mid-air like a dog before flying away.",
-      unlock:{ type:"event", event:"tutorial_complete", label:"Complete all 3 tutorials." } },
+      unlock:{ type:"event", event:"tutorial_complete", label:"Complete all 5 tutorials." } },
     { id:"magnificent-frigatebird", name:"Magnificent Frigatebird", species:"Birds", img:"/avatars/magnificent-frigatebird.png",
       facts:"These birds are so adapted to the sky that they can spend months over the ocean, routinely taking short \"micro-naps\" while soaring or even turning off half their brain to sleep while gliding.",
       unlock:{ type:"event", event:"frigatebird_coral_7", label:"Play 7 Corals on Coral Reefs in one game." } },
@@ -37901,6 +37901,12 @@
   function blHelpOpen() { try { return !!(window.__ccHelpTut && window.__ccHelpTut.isOpen()); } catch (_) { return !!document.getElementById("pv-help-modal")?.classList.contains("open"); } }
   // Suggested Combos row (Tutorial 3 "scroll the combos into view").
   function blCombosSectionEl() { const list = document.getElementById("pv-help-list"); return list ? (list.querySelector(".hs2-combos-row") || null) : null; }
+  // Guarantee the Strategy modal is open AND showing the list (not a stale detail
+  // page, and recovered if a stray backdrop click closed it) so the core/combo
+  // cards are always present for the selection steps.
+  function blEnsureHelpList() {
+    try { const h = window.__ccHelpTut; if (h) { if (!h.isOpen()) h.open(); h.showList(); } } catch (_) {}
+  }
 
   // Terminal-step handlers, assigned by runGameTour / runBLobTour before runCoach.
   let _t2Keep = null, _t2Return = null, _t3Keep = null, _t3Return = null;
@@ -38093,13 +38099,13 @@
       advanceWhen: blHelpOpen,
       text: "On the left, click 💡 Help." },
     { target: () => blStratPlayEl("Crustaceans"), badge: "Strategy", title: "Choose Crustaceans",
-      interactive: true, advanceWhen: () => blStratActive("Crustaceans"),
+      interactive: true, before: blEnsureHelpList, advanceWhen: () => blStratActive("Crustaceans"),
       text: "Select Crustaceans, then click Play this." },
     { target: () => blCombosSectionEl(), badge: "Strategy", title: "Suggested Combos",
-      before: () => { try { window.__ccHelpTut && window.__ccHelpTut.showList(); } catch (_) {} },
+      before: blEnsureHelpList,
       text: "These combos pair well with Crustaceans." },
     { target: () => blStratPlayEl("Bird Lobster"), badge: "Strategy", title: "Choose Bird Lobster",
-      interactive: true, advanceWhen: () => blStratActive("Bird Lobster"),
+      interactive: true, before: blEnsureHelpList, advanceWhen: () => blStratActive("Bird Lobster"),
       text: "Under Suggested Combos, select Bird Lobster and click Play this." },
     { target: "#pv-help-close", badge: "Strategy", title: "Return to the Game", interactive: true,
       advanceWhen: () => !blHelpOpen(),

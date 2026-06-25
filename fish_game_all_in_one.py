@@ -7704,14 +7704,14 @@ def rig_tutorial_opening_hand(
             added += 1
 
     # ── Tutorial Part 2 STAR-ABILITY lesson: rig an exact teaching hand ──────
-    # The guided turn demonstrates symbol-matched Star abilities by pairing each
-    # played card with a partner that shares its symbol (discarding the partner
-    # as payment fires the Star):
-    #   • Mangrove + Arctic Oceans  (shared symbol) → Mangrove's *Play again*
-    #   • Great Albatross + Kelp Forest (shared symbol) → Albatross's *Draw one*
-    # Symbols are chosen dynamically (whatever variants the deck can supply); the
-    # client reads the actual symbols back, so the lesson stays correct. Best-
-    # effort — if the deck can't supply a variant, that pair is simply left as-is.
+    # The guided turn teaches ONE symbol-matched Star ability:
+    #   • Mangrove + Arctic Oceans (shared symbol) → Mangrove's *Play again*
+    # Paying for the Mangrove with the symbol-matched Arctic (discarding it as
+    # payment) fires the Star. The symbol is chosen dynamically (whatever variant
+    # the deck can supply) and the client reads the actual symbol back, so the
+    # lesson stays correct. Best-effort — if the deck can't supply a matching
+    # variant, the pair is simply left as-is. (A free Lobster is added below for
+    # the Play-Again creature step.)
     def _is_card(u: int, name_lc: str, sym_lc: Optional[str], primary_only: bool) -> bool:
         faces = entry_faces(ms, u)
         cand = [faces[0]] if (primary_only and faces) else faces
