@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-26.4";
+  const APP_BUILD   = "2026-06-26.5";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -14647,6 +14647,13 @@
       } catch { return []; }
     }
 
+    async function setFriendFavorite(uid, friendUid, isFavorite) {
+      if (!_db || !uid || !friendUid) throw new Error("Friend favorite is missing an account.");
+      await _db.collection("users").doc(uid).collection("friends").doc(friendUid).update({
+        favorite: !!isFavorite,
+      });
+    }
+
     // ── Online presence ──────────────────────────────────────────
     let _presenceInterval = null;
     async function setOnlineStatus(uid, isOnline) {
@@ -14713,7 +14720,7 @@
         uid: fromUid, nickname: req.from_nickname || "Unknown",
         avatar_url: requesterAvatar,
         added_at: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      }, { merge: true });
       batch.delete(_db.collection("users").doc(myUid).collection("friend_requests").doc(fromUid));
       await batch.commit();  // throws on failure — caller will show error
 
@@ -14763,7 +14770,7 @@
               nickname:   data.from_nickname || "Unknown",
               avatar_url: normalizeAvatarUrl(data.from_avatar_url || "") || getDefaultAvatar(friendUid),
               added_at:   firebase.firestore.FieldValue.serverTimestamp(),
-            });
+            }, { merge: true });
             // Delete the notification — our own document, always permitted.
             await doc.ref.delete();
           } catch(e) {
@@ -15209,6 +15216,23 @@
       const days = Math.floor(hours / 24);
       if (days < 7) return `Last active ${days}d ago`;
       return `Last active ${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    }
+
+    function getFriendLastActiveMs(profile) {
+      const date = toDateFromFirestoreLike(profile?.last_active);
+      return date ? date.getTime() : 0;
+    }
+
+    function sortFriendsByFavoriteAndLastActive(entries) {
+      return entries.sort((a, b) => {
+        const favoriteDifference = Number(b?.favorite === true) - Number(a?.favorite === true);
+        if (favoriteDifference) return favoriteDifference;
+        const activityDifference = getFriendLastActiveMs(b?.profile) - getFriendLastActiveMs(a?.profile);
+        if (activityDifference) return activityDifference;
+        const aName = String(a?.profile?.nickname || a?.nickname || "");
+        const bName = String(b?.profile?.nickname || b?.nickname || "");
+        return aName.localeCompare(bName, undefined, { sensitivity: "base" });
+      });
     }
 
     function getFriendLevelLabel(profile) {
@@ -15855,12 +15879,15 @@
         previewEl.innerHTML = '<div class="ph-empty">No friends added yet.</div>';
         return;
       }
-      // Fetch online status for each friend (up to 4 shown)
-      const shown = friends.slice(0, 4);
-      const profiles = await Promise.all(shown.map(f => loadProfile(f.uid).catch(() => null)));
+      // Sort every friend before taking the four-person preview so favorites
+      // stay visible and everyone else appears by most recent activity.
+      const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
+      const shown = sortFriendsByFavoriteAndLastActive(
+        friends.map((f, i) => ({ ...f, profile: profiles[i] }))
+      ).slice(0, 4);
       previewEl.innerHTML = "";
       shown.forEach((f, i) => {
-        const profile = profiles[i];
+        const profile = f.profile;
         const online = isFriendOnline(profile);
         const liveNick = (profile && profile.nickname) || f.nickname;
         const friendName = escapeHtml(liveNick || "—");
@@ -21830,14 +21857,19 @@
       const friends = await loadFriends(_authUser.uid);
       if (!friends.length) { list.innerHTML = '<div class="ph-empty">No friends added yet.</div>'; return; }
       const profiles = await Promise.all(friends.map(f => loadProfile(f.uid).catch(() => null)));
-      const withStatus = friends.map((f, i) => ({ ...f, isOnline: isFriendOnline(profiles[i]) }));
-      const profileByUid = new Map(friends.map((f, i) => [f.uid, profiles[i]]));
-      withStatus.sort((a, b) => (b.isOnline ? 1 : 0) - (a.isOnline ? 1 : 0));
+      const withStatus = sortFriendsByFavoriteAndLastActive(
+        friends.map((f, i) => ({
+          ...f,
+          profile: profiles[i],
+          isOnline: isFriendOnline(profiles[i]),
+        }))
+      );
       list.innerHTML = "";
       withStatus.forEach(f => {
         const d = document.createElement("div");
-        d.className = "ph-fr";
-        const avatarProfile = profileByUid.get(f.uid) || null;
+        const isFavorite = f.favorite === true;
+        d.className = "ph-fr" + (isFavorite ? " ph-fr-is-favorite" : "");
+        const avatarProfile = f.profile || null;
         const liveNick = (avatarProfile && avatarProfile.nickname) || f.nickname;
         const friendName = escapeHtml(liveNick || "—");
         const levelText = getFriendLevelLabel(avatarProfile);
@@ -21851,6 +21883,20 @@
         const avatarHtml = avatarUrl
           ? `<div class="ph-fr-av"${_fbgStyle}><img src="${escapeHtml(_avSrc(avatarUrl))}" alt="${friendName} avatar" loading="lazy" referrerpolicy="no-referrer"></div>`
           : `<div class="ph-fr-av">${safeInitial(liveNick || "?")}</div>`;
+        const favoriteLabel = `${isFavorite ? "Remove" : "Add"} ${liveNick || "friend"} ${isFavorite ? "from" : "to"} favorites`;
+        const favoriteHtml = `
+          <div class="ph-fr-avatar-wrap">
+            ${avatarHtml}
+            <button type="button"
+                    class="ph-fr-favorite${isFavorite ? " active" : ""}"
+                    aria-label="${escapeHtml(favoriteLabel)}"
+                    aria-pressed="${isFavorite ? "true" : "false"}"
+                    title="${isFavorite ? "Remove from favorites" : "Add to favorites"}">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2.8l2.72 5.5 6.07.88-4.4 4.28 1.04 6.05L12 16.66l-5.43 2.85 1.04-6.05-4.4-4.28 6.07-.88L12 2.8z"></path>
+              </svg>
+            </button>
+          </div>`;
         const friendRoomId = avatarProfile && avatarProfile.current_room_id
           ? String(avatarProfile.current_room_id).trim() : "";
         const inGame = f.isOnline && !!friendRoomId;
@@ -21863,12 +21909,29 @@
         } else {
           statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         }
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
+        d.innerHTML = `${favoriteHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
         // Clicking avatar or name opens public profile
         const avEl   = d.querySelector(".ph-fr-av");
         const nameEl = d.querySelector(".ph-fr-name");
         if (avEl)   { avEl.classList.add("ph-fr-clickable");   avEl.addEventListener("click",   () => openPublicProfile(f.uid)); }
         if (nameEl) { nameEl.addEventListener("click", () => openPublicProfile(f.uid)); }
+        // Favorites are stored on the signed-in player's own friend entry.
+        const favoriteBtn = d.querySelector(".ph-fr-favorite");
+        if (favoriteBtn) favoriteBtn.addEventListener("click", async () => {
+          const nextFavorite = favoriteBtn.getAttribute("aria-pressed") !== "true";
+          favoriteBtn.disabled = true;
+          const errEl = $a("ph-friend-err");
+          if (errEl) errEl.textContent = "";
+          try {
+            await setFriendFavorite(_authUser.uid, f.uid, nextFavorite);
+            await renderPhFriendsList();
+            loadFriendsMini(_authUser.uid);
+          } catch (e) {
+            favoriteBtn.disabled = false;
+            if (errEl) errEl.textContent = "Couldn’t update that favorite. Please try again.";
+            console.error("setFriendFavorite failed:", e);
+          }
+        });
         // Wire Spectate button
         const specBtn = d.querySelector(".ph-fr-spectate-btn");
         if (specBtn) specBtn.addEventListener("click", async () => {

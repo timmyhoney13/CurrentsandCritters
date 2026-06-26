@@ -6797,6 +6797,76 @@
       object-fit: cover;
       display: block;
     }
+    .ph-fr-avatar-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 46px;
+      min-width: 46px;
+      height: 42px;
+    }
+    .ph-fr-favorite {
+      position: absolute;
+      top: -4px;
+      right: -3px;
+      width: 26px;
+      height: 26px;
+      padding: 5px;
+      border: 1px solid #b9d5e9;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #ffffff 0%, #e9f6ff 100%);
+      color: #7da8c7;
+      box-shadow: 0 2px 7px rgba(35, 103, 158, .18);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: color .16s ease, border-color .16s ease, background .16s ease,
+        box-shadow .16s ease, transform .16s ease;
+      z-index: 2;
+    }
+    .ph-fr-favorite svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .ph-fr-favorite path {
+      fill: transparent;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linejoin: round;
+    }
+    .ph-fr-favorite:hover {
+      color: #2b83c6;
+      border-color: #78b9e4;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(35, 103, 158, .23);
+    }
+    .ph-fr-favorite:focus-visible {
+      outline: 3px solid rgba(47, 169, 238, .3);
+      outline-offset: 2px;
+    }
+    .ph-fr-favorite.active {
+      color: #f4b72f;
+      border-color: #efc65f;
+      background: linear-gradient(145deg, #fff9dc 0%, #ffed9b 100%);
+      box-shadow: 0 2px 9px rgba(210, 145, 20, .27);
+    }
+    .ph-fr-favorite.active path {
+      fill: currentColor;
+      stroke: #d59216;
+    }
+    .ph-fr-favorite:disabled {
+      cursor: wait;
+      opacity: .62;
+      transform: none;
+    }
+    #ph-panel-friends .ph-fr.ph-fr-is-favorite {
+      border-color: #c9dfec;
+      background: linear-gradient(90deg, #fffdf4 0%, #ffffff 34%);
+      box-shadow: 0 2px 10px rgba(39, 111, 161, .08);
+    }
     .ph-fr-name {
       font-size: .98rem;
       font-weight: 700;
