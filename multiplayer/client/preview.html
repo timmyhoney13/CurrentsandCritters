@@ -9470,11 +9470,34 @@
       color: #0c3472; letter-spacing: 1.5px; margin: 0; position: relative; z-index: 1;
     }
     #new-current-box .nc-fields-row {
-      display: flex; gap: 14px; position: relative; z-index: 1;
+      display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px; position: relative; z-index: 1;
+    }
+    @media (max-width: 380px) {
+      #new-current-box .nc-fields-row { grid-template-columns: 1fr; }
     }
     #new-current-box .nc-field {
-      display: flex; flex-direction: column; gap: 6px; flex: 1;
+      display: flex; flex-direction: column; gap: 6px; min-width: 0;
     }
+    /* Locked fields (Competitive mode): clearly disabled but clean. */
+    #new-current-box .nc-big-input:disabled {
+      opacity: .6; cursor: not-allowed;
+      background: rgba(232,240,250,.6);
+      border-color: rgba(140,200,240,.4);
+      color: #5a7bb0;
+    }
+    #new-current-box .nc-field.nc-locked .nc-field-label { color: #6a86b6; }
+    #new-current-box .nc-field.nc-locked .nc-field-label::after {
+      content: " 🔒"; font-size: 11px;
+    }
+    #new-current-box .nc-field.nc-locked .nc-select-wrap::after { opacity: .4; }
+    /* Mode field accents the active choice so the locked state reads clearly. */
+    #new-current-box.nc-comp #nc-field-mode .nc-big-input {
+      border-color: rgba(120,90,220,.7);
+      box-shadow: 0 0 0 3px rgba(120,90,220,.14);
+      color: #4a2a9a;
+    }
+    #new-current-box.nc-comp #nc-field-mode .nc-field-label { color: #5a32b0; }
     #new-current-box .nc-field-label {
       font-size: 13px; font-weight: 700; color: #2050a0; letter-spacing: .3px;
     }
@@ -11487,8 +11510,12 @@
     <!-- Action row — each card is the exact reference image; the button stays
          clickable and routes to its action exactly as before. -->
     <div class="ph-actions">
+      <button class="ph-action-card ph-action-img-card" id="stats-quickmatch-btn" aria-label="Quick Match — Jump into a game">
+        <img class="ph-action-img" src="/action-card-quickmatch.png?v=2" alt="Quick Match" draggable="false">
+      </button>
+
       <button class="ph-action-card ph-action-img-card" id="stats-create-btn" aria-label="Create Game — Start a new adventure">
-        <img class="ph-action-img" src="/action-card-create.png?v=1" alt="Create Game" draggable="false">
+        <img class="ph-action-img" src="/action-card-create.png?v=2" alt="Create Game" draggable="false">
       </button>
 
       <button class="ph-action-card ph-action-img-card" id="stats-join-toggle-btn" aria-label="Join Game — Play with friends">
@@ -11497,10 +11524,6 @@
 
       <button class="ph-action-card ph-action-img-card" id="stats-tutorial-btn" aria-label="Tutorial — Learn the ropes">
         <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" draggable="false">
-      </button>
-
-      <button class="ph-action-card ph-action-img-card ph-action-gold" id="stats-comp-btn" aria-label="Competitive — Ranked matches">
-        <img class="ph-action-img" src="/action-card-competitive.png?v=1" alt="Competitive" draggable="false">
       </button>
     </div>
 
@@ -13171,20 +13194,29 @@
     <h2 id="nc-modal-title">🌊 New Current</h2>
 
     <div class="nc-fields-row">
-      <div class="nc-field">
+      <div class="nc-field" id="nc-field-humans">
         <span class="nc-field-label">Human Critters</span>
         <input class="nc-big-input" id="nc-total" type="number" min="1" max="10" value="2" />
       </div>
-      <div class="nc-field">
+      <div class="nc-field" id="nc-field-ai">
         <span class="nc-field-label">AI Critters</span>
         <input class="nc-big-input" id="nc-ai" type="number" min="0" max="9" value="0" />
       </div>
-      <div class="nc-field">
+      <div class="nc-field" id="nc-field-privacy">
         <span class="nc-field-label">Privacy</span>
         <div class="nc-select-wrap">
           <select class="nc-big-input" id="nc-visibility">
             <option value="public">🌊 Public</option>
             <option value="private">🔒 Private</option>
+          </select>
+        </div>
+      </div>
+      <div class="nc-field" id="nc-field-mode">
+        <span class="nc-field-label">Mode</span>
+        <div class="nc-select-wrap">
+          <select class="nc-big-input" id="nc-mode">
+            <option value="normal">🐠 Normal</option>
+            <option value="competitive">⚔️ Competitive</option>
           </select>
         </div>
       </div>
@@ -13445,10 +13477,15 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-25.4";
+  const APP_BUILD   = "2026-06-25.5";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "New home menu + Quick Match & Competitive mode", items: [
+      "The main menu now leads with four cards — Quick Match, Create Game, Join Game and Tutorial — each with its own colour and critter.",
+      "Quick Match opens the same setup screen as Create Game so you can jump straight in.",
+      "Competitive is now a Mode toggle on the setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format — just press the button to go.",
+    ]},
     { ver: "V1.6.2", title: "New card back + cleaner deck", items: [
       "Every face-down card now shows the new \"Currents and Critters\" card-back artwork — the deck pile, opponents' hidden hands, the draw flip animation, the tutorial deck and the classic mode, everywhere.",
       "The deck pile shows the card-back art with the card count next to it instead of a number printed on the card.",
@@ -15313,24 +15350,50 @@
 
   // ── New Current Modal ──────────────────────────────────────────
   let _ncIsCompetitive = false; // tracks whether the modal was opened for a competitive game
+  // Apply the chosen Mode to the setup modal.
+  //  • Normal      — a fully customizable game (all settings editable).
+  //  • Competitive — a locked "quick-match" ranked 1v1: 4 humans (2 hands
+  //    each), 0 AI, public match. Those settings are fixed + disabled so the
+  //    host only has to press the main button to continue.
+  function applyNcMode(isComp) {
+    _ncIsCompetitive = !!isComp;
+    const box     = document.getElementById("new-current-box");
+    const totalEl = document.getElementById("nc-total");
+    const aiEl    = document.getElementById("nc-ai");
+    const visEl   = document.getElementById("nc-visibility");
+    const modeEl  = document.getElementById("nc-mode");
+    const titleEl = document.getElementById("nc-modal-title");
+    if (modeEl)  modeEl.value = _ncIsCompetitive ? "competitive" : "normal";
+    if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive);
+    if (titleEl) titleEl.textContent = _ncIsCompetitive
+      ? "⚔️ Competitive 1v1 — 2 hands per player" : "🌊 New Current";
+    const lock = (fieldId, el, on) => {
+      const f = document.getElementById(fieldId);
+      if (f)  f.classList.toggle("nc-locked", on);
+      if (el) el.disabled = on;
+    };
+    if (_ncIsCompetitive) {
+      if (totalEl) totalEl.value = "4";
+      if (aiEl)    aiEl.value    = "0";
+      if (visEl)   visEl.value   = "public";
+      document.getElementById("nc-password-row").style.display = "none";
+      document.getElementById("nc-password").value = "";
+    } else {
+      // Back to a fresh, fully-editable Normal game.
+      if (totalEl) totalEl.value = "2";
+      if (aiEl)    aiEl.value    = "0";
+    }
+    lock("nc-field-humans",  totalEl, _ncIsCompetitive);
+    lock("nc-field-ai",      aiEl,    _ncIsCompetitive);
+    lock("nc-field-privacy", visEl,   _ncIsCompetitive);
+  }
+
   function openNewCurrentModal(opts) {
-    _ncIsCompetitive = !!(opts && opts.competitive);
     document.getElementById("nc-current-err").textContent = "";
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
-    const titleEl = document.getElementById("nc-modal-title");
-    if (titleEl) titleEl.textContent = _ncIsCompetitive ? "⚔️ Competitive 1v1 — 2 hands per player" : "🌊 New Current";
-    const totalEl = document.getElementById("nc-total");
-    const aiEl    = document.getElementById("nc-ai");
-    // Competitive: lock to 4 humans (2 per player), 0 AI.
-    if (_ncIsCompetitive) {
-      if (totalEl) { totalEl.value = "4"; totalEl.disabled = true; }
-      if (aiEl)    { aiEl.value = "0";    aiEl.disabled = true; }
-    } else {
-      if (totalEl) totalEl.disabled = false;
-      if (aiEl)    aiEl.disabled = false;
-    }
+    applyNcMode(!!(opts && opts.competitive));
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -15341,6 +15404,10 @@
   function closeNewCurrentModal() {
     document.getElementById("new-current-modal").classList.remove("open");
   }
+  // Mode selector: toggle the locked Competitive format on the fly.
+  document.getElementById("nc-mode").addEventListener("change", (e) => {
+    applyNcMode(e.target.value === "competitive");
+  });
 
   // ── Giant Squid challenge: a 1v1 vs-AI match. Winning unlocks the Sea
   // Anemone + the "It Is Finally Over" achievement (+1000 XP). ─────────
@@ -29943,6 +30010,12 @@
     });
 
     // ── Stats lobby buttons ───────────────────────────────────────
+    // Quick Match opens the exact same setup screen as Create Game.
+    const _qmBtn = $a("stats-quickmatch-btn");
+    if (_qmBtn) _qmBtn.addEventListener("click", () => {
+      openNewCurrentModal();
+    });
+
     $a("stats-create-btn").addEventListener("click", () => {
       openNewCurrentModal();
     });
@@ -29959,10 +30032,6 @@
 
     $a("stats-join-code").addEventListener("keydown", e => {
       if (e.key === "Enter") $a("stats-join-go-btn").click();
-    });
-
-    $a("stats-comp-btn").addEventListener("click", () => {
-      openNewCurrentModal({ competitive: true });
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
@@ -31651,7 +31720,9 @@
         // "Go to Ranked" link in history tab comp section
         const compTabFromHist = $a("ph-hist-comp-tab-btn");
         if (compTabFromHist) compTabFromHist.addEventListener("click", () => switchTab("competitive"));
-        // stats-comp-btn already has a listener (compOpenOverlay) wired earlier — no duplicate needed.
+        // Competitive is now entered via Quick Match / Create Game → Mode: Competitive
+        // (and the "Play Competitive" button in this panel), so there is no standalone
+        // Competitive action card / listener to wire here.
       }, 0);
     })();
 
@@ -38319,10 +38390,11 @@
 
   // ════════════════════════════════════════════════════════════════
   //  COMPETITIVE 1v1 TOUR
-  //  Walks the REAL competitive entry: the Competitive action card opens
-  //  the New Current setup modal (locked to 4 humans = 2 players × 2
-  //  hands), then the standard waiting room. No live game is created —
-  //  competitive needs two real human players — so we explain the setup
+  //  Walks the REAL competitive entry: Quick Match opens the New Current
+  //  setup modal, where Mode → ⚔️ Competitive locks it to the ranked format
+  //  (4 humans = 2 players × 2 hands), then the standard waiting room. No
+  //  live game is created — competitive needs two real human players — so we
+  //  explain the setup
   //  and joining, then cover ranks, CP, the hand-switch, and strategy.
   // ════════════════════════════════════════════════════════════════
   const gtCompModalOpen   = () => !!document.getElementById("new-current-modal")?.classList.contains("open");
@@ -38338,15 +38410,16 @@
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
       text: "Welcome to <strong>Competitive 1v1</strong> — the ranked way to play Currents &amp; Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best — the higher score <strong>wins the match and earns CP</strong> (Competitive Points) toward your rank." },
 
-    // ── 2. Open Competitive (interactive) → opens the setup modal ───
-    { target: "#stats-comp-btn", badge: "Step 1", title: "Open Competitive",
+    // ── 2. Open Quick Match (interactive) → opens the setup modal ───
+    { target: "#stats-quickmatch-btn", badge: "Step 1", title: "Open Quick Match",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
       interactive: true, advanceWhen: gtCompModalOpen,
-      text: "The <strong>⚔️ Competitive</strong> action card on your menu is the gateway to ranked play. <strong>Click it now</strong> to open the match-setup window." },
+      text: "Competitive now lives inside the setup screen. The <strong>Quick Match</strong> action card opens it — <strong>click it now</strong> to open the match-setup window." },
 
-    // ── 3. The setup modal ──────────────────────────────────────────
-    { target: "#new-current-modal", badge: "Match Setup", title: "Competitive Setup",
-      text: "Competitive reuses the same <strong>game-setup window</strong> you already know — but locked to the ranked format. The title reads <strong>⚔️ Competitive 1v1 — 2 hands per player</strong>. Let's look at why the player counts are fixed." },
+    // ── 3. Switch Mode to Competitive ───────────────────────────────
+    { target: "#nc-field-mode", badge: "Match Setup", title: "Switch to Competitive",
+      before: () => { try { applyNcMode(true); } catch (_) {} },
+      text: "Quick Match reuses the same <strong>game-setup window</strong> as Create Game. Set the <strong>Mode</strong> dropdown to <strong>⚔️ Competitive</strong> to lock it to the ranked format — we've flipped it for you. The title now reads <strong>⚔️ Competitive 1v1 — 2 hands per player</strong>. Let's look at why the settings are fixed." },
 
     // ── 4. Human Critters locked to 4 ───────────────────────────────
     { target: "#nc-total", badge: "Match Setup", title: "Four Hands = Two Players",
@@ -38357,9 +38430,9 @@
     { target: "#nc-ai", badge: "Match Setup", title: "No Bots in Ranked",
       text: "<strong>AI Critters is locked to 0.</strong> Competitive is strictly human-vs-human — there are no bots in a ranked match, because CP and your rank are on the line. Every hand at the table is controlled by a real player." },
 
-    // ── 6. Privacy + code ───────────────────────────────────────────
-    { target: "#nc-visibility", badge: "Match Setup", title: "Public or Private",
-      text: "<strong>🌊 Public</strong> matches appear in <strong>Open Currents</strong> so anyone can find and join yours. <strong>🔒 Private</strong> matches ask you to set a <strong>join code</strong> — only someone with that code can get in, perfect for challenging a specific friend." },
+    // ── 6. Privacy locked to Public ─────────────────────────────────
+    { target: "#nc-field-privacy", badge: "Match Setup", title: "Locked to Public",
+      text: "In Competitive, <strong>Privacy is locked to 🌊 Public</strong> — your match appears in <strong>Open Currents</strong> so an opponent can find and join it. Everything is fixed for ranked play, so all you have to do is press the main button. <em>(Switch Mode back to 🐠 Normal any time for a fully customizable game where you can pick Public or Private.)</em>" },
 
     // ── 7. Generate Current (explain, don't create) ────────────────
     { target: "#nc-create-btn", badge: "Match Setup", title: "Generate the Match",
@@ -38371,9 +38444,9 @@
       text: "Click the <strong>✕</strong> to close the setup window." },
 
     // ── 9. How Player 2 joins ───────────────────────────────────────
-    { target: "#stats-comp-btn", badge: "Joining", title: "How Player 2 Joins",
+    { target: "#stats-quickmatch-btn", badge: "Joining", title: "How Player 2 Joins",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "Your opponent joins from <em>their</em> device. If your match is <strong>Public</strong>, they find it in <strong>Open Currents</strong> (the Join / Browse list) and tap it. If it's <strong>Private</strong>, they enter your <strong>join code</strong>. Either way the app <strong>automatically hands them BOTH of their seats</strong> (Hands 3 &amp; 4) — no seat-picking. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
+      text: "Your opponent joins from <em>their</em> device. Because a competitive match is <strong>Public</strong>, they find it in <strong>Open Currents</strong> (the Join / Browse list) and tap it. The app <strong>automatically hands them BOTH of their seats</strong> (Hands 3 &amp; 4) — no seat-picking. Once all four hands are filled, the host presses <strong>Start</strong> and the match begins." },
 
     // ── 10. Navigate to Competitive stats tab (interactive) ─────────
     { target: "#snav-competitive", badge: "Your Stats", title: "Your Competitive Record",
@@ -38402,9 +38475,9 @@
       text: "During a ranked match the <strong>☰ Menu</strong> in the top bar gains a <strong>⚔️ Hands</strong> section listing the live score of every hand — including your opponent's. Check it any time to see whether you're ahead, behind, or tied without scrolling around the board." },
 
     // ── 16. Done ───────────────────────────────────────────────────
-    { target: "#stats-comp-btn", badge: "All Done!", title: "Ready to Compete!",
+    { target: "#stats-quickmatch-btn", badge: "All Done!", title: "Ready to Compete!",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "That's Competitive 1v1! To play for real: tap <strong>⚔️ Competitive</strong>, set it <strong>Public</strong> or <strong>Private</strong>, and <strong>Generate</strong> the match. Share the code (or have a friend find it in Open Currents), start once they're in, then build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
+      text: "That's Competitive 1v1! To play for real: tap <strong>Quick Match</strong>, switch <strong>Mode</strong> to <strong>⚔️ Competitive</strong>, and <strong>Generate</strong> the match. A friend finds it in Open Currents and joins, you start once they're in, then build two strong hands and watch the scores. Climb from <strong>Bronze Barracuda</strong> all the way to <strong>👑 King of the Critters</strong>. Good luck! 🏆<br><br>Click <strong>Finish ✓</strong> to mark this tutorial complete." },
   ];
 
   function runCompTour() {
