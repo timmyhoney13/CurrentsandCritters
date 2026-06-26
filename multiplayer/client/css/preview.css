@@ -1091,7 +1091,7 @@
       content: "";
       position: absolute;
       inset: -2.5%;
-      background: url(game-bg.png) center/cover no-repeat;
+      background: url("/game-bg.png") center/cover no-repeat;
       animation: pv-water-drift 26s ease-in-out infinite alternate;
       z-index: 0;
       pointer-events: none;
@@ -5318,7 +5318,7 @@
       position: fixed;
       inset: -36px;
       z-index: 0;
-      background: url("player-home-reference.jpg") center top / cover no-repeat;
+      background: url("/player-home-reference.jpg") center top / cover no-repeat;
       filter: blur(26px) saturate(1.05);
       transform: scale(1.04);
       opacity: .22;
@@ -9475,7 +9475,7 @@
     #nc-create-btn {
       position: relative; z-index: 1;
       width: 100%; height: 82px;
-      background: url(nc-btn-full.png) center/cover no-repeat;
+      background: url("/nc-btn-full.png") center/cover no-repeat;
       border: none; border-radius: 18px;
       font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 700;
       color: transparent; letter-spacing: .5px;

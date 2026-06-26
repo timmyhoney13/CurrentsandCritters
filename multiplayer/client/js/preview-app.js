@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-26.3";
+  const APP_BUILD   = "2026-06-26.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -3076,7 +3076,7 @@
       // ── Star ability activation hooks ─────────────────────────────
       if (action.use_star) {
         _gameAchTracker.starsActivated = (_gameAchTracker.starsActivated || 0) + 1;
-        _chObsStarTurnPlayer = state?.current_player || null;
+        _chObsStarTurnPlayer = latestPayload?.state?.current_player || null;
         // Snapshot turn-start score so combo_current can verify the +15 hit.
         try {
           const meNow = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx);
