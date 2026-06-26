@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-26.5";
+  const APP_BUILD   = "2026-06-26.6";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -27,9 +27,10 @@
     { ver: "V1.6.3", title: "Daily & Weekly challenge tracking fixes", items: [
       "Fixed the Pool-based challenges so they credit the right player — challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
     ]},
-    { ver: "V1.6.3", title: "Quick Match matchmaking + new home menu", items: [
+    { ver: "V1.6.3", title: "Dedicated Quick Play lobbies", items: [
       "The main menu now leads with four cards — Quick Match, Create Game, Join Game and Tutorial — each with its own colour and critter.",
-      "Quick Match lets you pick Casual or Competitive, then finds an open public game and drops you straight in — keep browsing the home screen while it searches, watch the seconds tick up, and Cancel any time.",
+      "Quick Play now matches only with other Quick Play players. The first player can keep using the home screen while searching; once a second player joins, both enter the same four-spot lobby.",
+      "The host can choose 2, 3 or 4 human spots, fill every remaining spot with a bot, set each bot to Easy, Medium or Hard, chat with the lobby, and start manually when all selected human spots are filled.",
       "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format — just press the button to go.",
     ]},
     { ver: "V1.6.2", title: "New card back + cleaner deck", items: [
@@ -1309,20 +1310,34 @@
   // Coral state is applied as a CSS class — the full button background
   // (coral + decorations) is loaded via the corresponding image.
 
-  function showWaitingRoom(code, isHost, visibility) {
+  function showWaitingRoom(code, isHost, visibility, isQuickPlay) {
     const vis = visibility || _myRoomVisibility || "public";
     const codeEl = document.getElementById("wr-code-display");
+    const copyEl = document.getElementById("wr-copy-btn");
+    const chatEl = document.getElementById("wr-chat-btn");
     const subEl  = document.getElementById("wr-subtitle");
-    document.getElementById("wr-title").textContent = isHost ? "Room Created!" : "Game Lobby";
-    if (compMode) {
+    if (chatEl) chatEl.style.display = isQuickPlay ? "inline-flex" : "none";
+    document.getElementById("wr-title").textContent = isQuickPlay
+      ? "Quick Play Lobby"
+      : (isHost ? "Room Created!" : "Game Lobby");
+    if (isQuickPlay) {
+      if (codeEl) codeEl.style.display = "none";
+      if (copyEl) copyEl.style.display = "none";
+      if (subEl) subEl.textContent = isHost
+        ? "Choose the player setup, chat with the table, and start when your selected human spots are filled."
+        : "The host is choosing the player setup. Chat while the rest of the table fills.";
+    } else if (compMode) {
       // Competitive: always show the room code so P2 can join by entering it.
       if (codeEl) { codeEl.style.display = ""; codeEl.textContent = code; }
+      if (copyEl) copyEl.style.display = "";
       if (subEl)  subEl.textContent = "Share this code with your opponent to join:";
     } else if (vis === "private") {
       if (codeEl) { codeEl.style.display = ""; codeEl.textContent = code; }
+      if (copyEl) copyEl.style.display = "";
       if (subEl)  subEl.textContent = "Share this code with your crew (it's also the password):";
     } else {
       if (codeEl) codeEl.style.display = "none";
+      if (copyEl) copyEl.style.display = "";
       if (subEl)  subEl.textContent = "Your crew can join from the Public games list.";
     }
     document.getElementById("pv-waiting-room").classList.add("open");
@@ -1385,19 +1400,89 @@
     }
   }
 
-  function updateWaitingRoom(seats, canStart, startFn, isHost, isCompetitive) {
+  let _wrSeatSetupBusy = false;
+  function updateQuickPlaySetup(seats, isHost, isQuickPlay) {
+    const setup = document.getElementById("wr-quick-setup");
+    if (!setup) return;
+    setup.style.display = isQuickPlay ? "" : "none";
+    if (!isQuickPlay) return;
+    const safeSeats = Array.isArray(seats) ? seats : [];
+    const humanCount = safeSeats.filter(seat => seat.kind === "human").length;
+    const filledHumans = safeSeats.filter(
+      seat => seat.kind === "human" && seat.claimed_name
+    ).length;
+    setup.querySelectorAll(".wr-human-option").forEach(button => {
+      const target = Number(button.dataset.humanPlayers || 0);
+      button.classList.toggle("active", target === humanCount);
+      button.disabled = _wrSeatSetupBusy || !isHost || target < filledHumans;
+      if (target < filledHumans) {
+        button.title = `${filledHumans} human players are already in this lobby`;
+      } else if (!isHost) {
+        button.title = "Only the host can change the player setup";
+      } else {
+        button.title = `Set this lobby to ${target} human players`;
+      }
+    });
+    const note = document.getElementById("wr-quick-note");
+    if (note) {
+      note.textContent = isHost
+        ? `${filledHumans} joined • Choose 2–4 human spots. Every remaining spot becomes a bot.`
+        : `${filledHumans} joined • The host selected ${humanCount} human spot${humanCount === 1 ? "" : "s"}.`;
+    }
+  }
+
+  async function setQuickPlayHumanSlots(humanPlayers) {
+    if (!roomId || _wrSeatSetupBusy) return;
+    const currentHumanCount = (latestPayload?.seats || []).filter(
+      seat => seat.kind === "human"
+    ).length;
+    if (currentHumanCount === humanPlayers) return;
+    _wrSeatSetupBusy = true;
+    updateQuickPlaySetup(latestPayload?.seats || [], true, true);
+    try {
+      const res = await apiPost(`/api/rooms/${roomId}/quickplay_seats`, {
+        host_token: getHostToken(),
+        seat_token: getSeatToken(),
+        human_players: humanPlayers,
+      }, { timeoutMs: 7000 });
+      if (!res.ok || !res.data?.ok) {
+        showToast(res.data?.error || "Could not update the player setup.", "err");
+      }
+      await refreshState();
+    } catch (_) {
+      showToast("Network error updating the player setup.", "err");
+    } finally {
+      _wrSeatSetupBusy = false;
+      updateQuickPlaySetup(
+        latestPayload?.seats || [],
+        Boolean(latestPayload?.viewer?.is_host || getHostToken()),
+        Boolean(latestPayload?.room?.quick_play)
+      );
+    }
+  }
+
+  document.querySelectorAll(".wr-human-option").forEach(button => {
+    button.addEventListener("click", () => {
+      setQuickPlayHumanSlots(Number(button.dataset.humanPlayers || 0));
+    });
+  });
+
+  function updateWaitingRoom(seats, canStart, startFn, isHost, isCompetitive, isQuickPlay) {
     // A room is competitive ONLY if it was explicitly created that way. The
     // authoritative signal is the server's room.competitive flag (passed in as
     // isCompetitive); compMode is the local mirror of that for this client.
     // Never infer "competitive" from seat composition — a normal 4-player game
     // with 0 AI is all-human too, and must stay a normal game.
     const isComp = !!isCompetitive;
-    document.getElementById("wr-title").textContent = isHost
-      ? (isComp ? "⚔️ Competitive Room Created!" : "Room Created!")
-      : (isComp ? "⚔️ Competitive Lobby"        : "Game Lobby");
+    document.getElementById("wr-title").textContent = isQuickPlay
+      ? "Quick Play Lobby"
+      : (isHost
+          ? (isComp ? "⚔️ Competitive Room Created!" : "Room Created!")
+          : (isComp ? "⚔️ Competitive Lobby" : "Game Lobby"));
 
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
+    updateQuickPlaySetup(seats, isHost, isQuickPlay);
 
     if (isComp && seats && seats.length === 4) {
       // Show as two grouped players instead of four individual seats.
@@ -1431,6 +1516,7 @@
         const nm = document.createElement("span");
         const isAI = (s.kind === "ai");
         if (isAI) {
+          row.classList.add("wr-ai-row");
           nm.className = "wr-player-name wr-ai-name";
           nm.textContent = s.claimed_name || `Bot ${s.index}`;
         } else if (s.claimed_name) {
@@ -1953,23 +2039,32 @@
     openLobbyBrowser();
   });
 
-  // ── Quick Match: pick a mode, then matchmake into any open public game ──
-  // The player stays on the home screen while a small searching bar (visible
-  // on every tab) counts the seconds and offers Cancel. We poll /api/rooms and
-  // auto-join the first open public game of the chosen mode.
-  let _qmSearch = null; // { mode, startTs, timerId, pollId, busy }
+  // ── Quick Play: dedicated four-seat matchmaking queue ─────────
+  // The first player stays on the home page while their queue room waits. As
+  // soon as a second player joins, both clients enter the same lobby. Players
+  // 3 and 4 may keep joining until those spots become bots.
+  let _qmSearch = null;
 
-  function openQuickMatchChooser() { document.getElementById("quickmatch-modal").classList.add("open"); }
-  function closeQuickMatchChooser() { document.getElementById("quickmatch-modal").classList.remove("open"); }
+  function _qmNewTicket() {
+    try {
+      if (crypto && typeof crypto.randomUUID === "function") {
+        return crypto.randomUUID().replace(/-/g, "_");
+      }
+    } catch (_) {}
+    return `qm_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  }
 
   function _qmUpdateSecs() {
     if (!_qmSearch) return;
     const el = document.getElementById("qm-search-secs");
     if (el) el.textContent = Math.floor((Date.now() - _qmSearch.startTs) / 1000) + "s";
   }
-  function _qmShowBar(mode) {
-    const modeEl = document.getElementById("qm-search-mode");
-    if (modeEl) modeEl.textContent = mode === "competitive" ? "Competitive" : "Casual";
+  function _qmSetStatus(message) {
+    const statusEl = document.getElementById("qm-search-status");
+    if (statusEl) statusEl.textContent = message;
+  }
+  function _qmShowBar() {
+    _qmSetStatus("Finding Quick Play players…");
     const secEl = document.getElementById("qm-search-secs");
     if (secEl) secEl.textContent = "0s";
     const bar = document.getElementById("qm-search-bar");
@@ -1980,105 +2075,154 @@
     if (bar) bar.style.display = "none";
   }
 
-  function startQuickMatch(mode) {
-    closeQuickMatchChooser();
-    cancelQuickMatch(true);                 // clear any prior search silently
-    _qmSearch = { mode, startTs: Date.now(), timerId: null, pollId: null, busy: false };
-    _qmShowBar(mode);
-    _qmSearch.timerId = setInterval(_qmUpdateSecs, 1000);
-    _qmPoll();                              // try immediately…
-    _qmSearch.pollId = setInterval(_qmPoll, 3000);  // …then every 3s
+  function _qmClearTimers(search) {
+    if (!search) return;
+    if (search.timerId) clearInterval(search.timerId);
+    if (search.pollId) clearInterval(search.pollId);
+    if (search.retryId) clearTimeout(search.retryId);
   }
 
-  function cancelQuickMatch(silent) {
-    if (_qmSearch) {
-      if (_qmSearch.timerId) clearInterval(_qmSearch.timerId);
-      if (_qmSearch.pollId)  clearInterval(_qmSearch.pollId);
-    }
+  async function _qmReleaseSeat(queuedRoomId, queuedSeatToken) {
+    if (!queuedRoomId || !queuedSeatToken) return;
+    try {
+      await apiPost(`/api/rooms/${queuedRoomId}/leave`,
+        { seat_token: queuedSeatToken },
+        { timeoutMs: 5000 });
+    } catch (_) {}
+  }
+
+  async function cancelQuickMatch(silent) {
+    const search = _qmSearch;
+    _qmClearTimers(search);
     _qmSearch = null;
     _qmHideBar();
+    if (search?.roomId && search?.seatToken) {
+      await _qmReleaseSeat(search.roomId, search.seatToken);
+    }
     if (!silent) { try { showToast("Stopped searching for a match.", "info"); } catch (_) {} }
   }
 
-  async function _qmPoll() {
-    if (!_qmSearch || _qmSearch.busy) return;
-    _qmSearch.busy = true;
-    const mode = _qmSearch.mode;
+  function _qmEnterLobby(search) {
+    if (!search || _qmSearch !== search || !search.roomId || !search.seatToken) return;
+    _qmClearTimers(search);
+    _qmSearch = null;
+    _qmHideBar();
+    roomId = normalizeRoomId(search.roomId);
+    if (!roomId) return;
+    setSeatToken(search.seatToken);
+    if (search.hostToken) setHostToken(search.hostToken);
+    _myRoomVisibility = "public";
+    _myRoomCode = "";
+    compMode = false;
+    document.getElementById("pv-my-name-badge").textContent =
+      (window.__fishNickname ? window.__fishNickname() : "") || "Player";
+    try { showToast("Players found! Opening the Quick Play lobby…", "ok"); } catch (_) {}
+    enterRoom(roomId);
+  }
+
+  async function _qmPollRoom() {
+    const search = _qmSearch;
+    if (!search || search.busy || !search.roomId || !search.seatToken) return;
+    search.busy = true;
     try {
-      const res = await apiFetch("/api/rooms", { method:"GET", timeoutMs:6000 });
-      if (!_qmSearch) return;               // cancelled during the fetch
-      const rooms = (res.ok && Array.isArray(res.data?.rooms)) ? res.data.rooms : [];
-      const candidates = rooms.filter(r => {
-        if (r.has_password) return false;
-        if (r.visibility !== "public") return false;
-        if (r.room_id && roomId && normalizeRoomId(r.room_id) === normalizeRoomId(roomId)) return false;
-        if (Number(r.filled) >= Number(r.total_players)) return false;
-        if (mode === "competitive") return r.mode === "competitive" && (Number(r.total_players) - Number(r.filled)) >= 2;
-        return r.mode !== "competitive";
-      });
-      for (const room of candidates) {
-        if (!_qmSearch) return;
-        const joined = await _qmTryJoin(room, mode);
-        if (joined) return;                 // _qmTryJoin cancels the search + enters the room
+      const query = new URLSearchParams({ seat_token: search.seatToken });
+      if (search.hostToken) query.set("host_token", search.hostToken);
+      const res = await apiFetch(
+        `/api/rooms/${search.roomId}/state?${query.toString()}`,
+        { method: "GET", timeoutMs: 6000 }
+      );
+      if (_qmSearch !== search) return;
+      if (!res.ok || !res.data?.ok) {
+        if (search.pollId) clearInterval(search.pollId);
+        search.pollId = null;
+        search.roomId = "";
+        search.seatToken = "";
+        search.hostToken = "";
+        _qmSetStatus("Reconnecting to Quick Play…");
+        search.busy = false;
+        await _qmJoinQueue(search);
+        return;
       }
-    } catch (_) {}
-    finally { if (_qmSearch) _qmSearch.busy = false; }
-  }
-
-  // Try to claim a seat (or two, for competitive) in a candidate room. Returns
-  // true once we're in; false means "couldn't join, keep searching".
-  async function _qmTryJoin(room, mode) {
-    const rid  = normalizeRoomId(room.room_id);
-    const name = (window.__fishNickname ? window.__fishNickname() : "") || "Player";
-    const data = await fetchSeats(rid);
-    if (!data || !data.seatObjs.length) return false;
-    const open = data.seatObjs.filter(s => !s.claimed_name);
-    if (!open.length) return false;
-
-    // Competitive: claim the two open seats as this player's two hands
-    // (mirrors lbDoJoinRoom's competitive branch).
-    if (data.mode === "competitive" || mode === "competitive") {
-      if (open.length < 2) return false;
-      roomId = rid;
-      const j2 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name,        seat_index: open[0].index, password: "" }, { timeoutMs:12000 });
-      if (!j2.ok) { roomId = null; return false; }
-      const j3 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name + " 2", seat_index: open[1].index, password: "" }, { timeoutMs:12000 });
-      if (!j3.ok) { roomId = null; return false; }
-      const s2 = open[0].index, s3 = open[1].index;
-      const tokens = { [s2]: j2.data?.seat_token || "", [s3]: j3.data?.seat_token || "" };
-      const p1Seat = data.seatObjs.find(s => s.index === 0);
-      compMode = true; compMySeats = [s2, s3]; compTokens = tokens;
-      compHostToken = ""; compHandNames = {}; _compHsSuppressed = true; _compPrevActiveSeat = null;
-      compP1Name = p1Seat?.claimed_name?.replace(/ 2$/, "") || "Player 1";
-      compP2Name = name;
-      setSeatToken(j2.data?.seat_token || "");
-      document.getElementById("pv-my-name-badge").textContent = name;
-      try { sessionStorage.setItem(`fish_comp_seats_${rid}_${s2}`, JSON.stringify({ seats: [s2, s3], tokens, p1: compP1Name, p2: name })); } catch (_) {}
-      cancelQuickMatch(true);
-      try { showToast("Match found! Joining…", "ok"); } catch (_) {}
-      enterRoom(rid);
-      return true;
+      const filled = Number(res.data?.room?.human_seats_filled || 0);
+      if (res.data?.room?.quick_play && filled >= 2) {
+        _qmEnterLobby(search);
+      } else {
+        _qmSetStatus("Waiting for another Quick Play player…");
+      }
+    } catch (_) {
+      if (_qmSearch === search) _qmSetStatus("Quick Play is reconnecting…");
+    } finally {
+      if (_qmSearch === search) search.busy = false;
     }
-
-    // Casual: auto-take the first open seat.
-    roomId = rid;
-    const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: open[0].index, password: "" }, { timeoutMs:12000 });
-    if (!j.ok) { roomId = null; return false; }
-    if (j.data?.seat_token) setSeatToken(j.data.seat_token);
-    document.getElementById("pv-my-name-badge").textContent = name;
-    cancelQuickMatch(true);
-    try { showToast("Match found! Joining…", "ok"); } catch (_) {}
-    enterRoom(rid);
-    return true;
   }
 
-  // Quick Match chooser wiring
-  document.getElementById("qm-close").addEventListener("click", closeQuickMatchChooser);
-  document.getElementById("quickmatch-modal").addEventListener("click", (e) => {
-    if (e.target === document.getElementById("quickmatch-modal")) closeQuickMatchChooser();
-  });
-  document.getElementById("qm-choice-casual").addEventListener("click", () => startQuickMatch("casual"));
-  document.getElementById("qm-choice-comp").addEventListener("click",   () => startQuickMatch("competitive"));
+  async function _qmJoinQueue(search) {
+    if (!search || _qmSearch !== search || search.busy) return;
+    search.busy = true;
+    const name = (window.__fishNickname ? window.__fishNickname() : "") || "Player";
+    try {
+      const res = await apiPost("/api/quickplay", {
+        player_name: name,
+        ticket: search.ticket,
+      }, { timeoutMs: 10000 });
+      if (_qmSearch !== search) {
+        await _qmReleaseSeat(
+          normalizeRoomId(res.data?.room_id),
+          String(res.data?.seat_token || "")
+        );
+        return;
+      }
+      if (!res.ok || !res.data?.ok) {
+        throw new Error(res.data?.error || "Quick Play is unavailable.");
+      }
+      search.roomId = normalizeRoomId(res.data.room_id);
+      search.seatToken = String(res.data.seat_token || "");
+      search.hostToken = String(res.data.host_token || "");
+      if (!search.roomId || !search.seatToken) {
+        throw new Error("Quick Play returned an incomplete room.");
+      }
+      if (res.data.matched) {
+        _qmEnterLobby(search);
+        return;
+      }
+      _qmSetStatus("Waiting for another Quick Play player…");
+      if (search.pollId) clearInterval(search.pollId);
+      search.pollId = setInterval(_qmPollRoom, 2500);
+    } catch (_) {
+      if (_qmSearch !== search) return;
+      _qmSetStatus("Quick Play is reconnecting…");
+      if (search.retryId) clearTimeout(search.retryId);
+      search.retryId = setTimeout(() => {
+        search.retryId = null;
+        _qmJoinQueue(search);
+      }, 2500);
+    } finally {
+      if (_qmSearch === search) search.busy = false;
+    }
+  }
+
+  async function startQuickMatch() {
+    if (_qmSearch) {
+      try { showToast("Quick Play is already searching.", "info"); } catch (_) {}
+      return;
+    }
+    const search = {
+      ticket: _qmNewTicket(),
+      startTs: Date.now(),
+      timerId: null,
+      pollId: null,
+      retryId: null,
+      busy: false,
+      roomId: "",
+      seatToken: "",
+      hostToken: "",
+    };
+    _qmSearch = search;
+    _qmShowBar();
+    search.timerId = setInterval(_qmUpdateSecs, 1000);
+    await _qmJoinQueue(search);
+  }
+
   document.getElementById("qm-cancel-btn").addEventListener("click", () => cancelQuickMatch(false));
 
   // Modal close
@@ -4697,15 +4841,26 @@
         if (!r.ok) showToast("Could not start: " + (r.data?.error || r.status), "err");
         refreshState();
       };
-      showWaitingRoom(roomId, Boolean(compMode ? compHostToken || getHostToken() : getHostToken()), payload?.room?.visibility);
       // Pass ALL seats so the waiting room shows who has joined.
       const lobbySeats = Array.isArray(payload.seats) ? payload.seats : [];
       // Authoritative competitive flag from the server (set only when the room
       // was created competitive); fall back to the local compMode mirror.
       const isCompetitiveRoom = Boolean(payload?.room?.competitive) || !!compMode;
+      const isQuickPlayRoom = Boolean(payload?.room?.quick_play);
+      const viewerIsHost = Boolean(
+        payload?.viewer?.is_host
+        || (compMode ? compHostToken || getHostToken() : getHostToken())
+      );
+      showWaitingRoom(
+        roomId,
+        viewerIsHost,
+        payload?.room?.visibility,
+        isQuickPlayRoom
+      );
       updateWaitingRoom(lobbySeats, Boolean(payload.can_start), startFn,
-        Boolean(compMode ? compHostToken || getHostToken() : getHostToken()),
-        isCompetitiveRoom);
+        viewerIsHost,
+        isCompetitiveRoom,
+        isQuickPlayRoom);
       // NOTE: the game NEVER auto-starts. The host must click Start Game.
     } else {
       hideWaitingRoom();
@@ -4944,7 +5099,16 @@
     }
     const chatMsgs = Array.isArray(payload.chat_messages) ? payload.chat_messages : [];
     renderChatMessages(chatMsgs);
-    updateChatTargetOptions(players, myIdx);
+    if (_chatPanelOpen && _chatView === "room") {
+      const chatTitle = document.getElementById("pv-chat-title");
+      if (chatTitle) chatTitle.textContent = pvcRoomChatLabels().title;
+    }
+    const chatPlayers = phase === "lobby"
+      ? (Array.isArray(payload.seats) ? payload.seats : [])
+          .filter(seat => seat.kind === "human" && seat.claimed_name)
+          .map(seat => ({ index: seat.index, name: seat.claimed_name }))
+      : players;
+    updateChatTargetOptions(chatPlayers, mySeatIdx ?? myIdx);
 
     // Spectator list (shown to everyone; spectators have isSpectating()===true)
     if (Array.isArray(payload.spectators)) {
@@ -11674,11 +11838,17 @@
   }
   function pvcUpdateBadges() {
     pvcEnsureSubscribed();        // wire live Firestore updates as soon as possible
+    const roomUnread = pvcRoomUnread();
     const badge = _pg("pv-chat-badge");
     if (badge) {
-      const total = pvcRoomUnread() + pvcOtherUnread();
+      const total = roomUnread + pvcOtherUnread();
       badge.textContent = total > 9 ? "9+" : String(total);
       badge.style.display = total > 0 ? "block" : "none";
+    }
+    const lobbyBadge = _pg("wr-chat-badge");
+    if (lobbyBadge) {
+      lobbyBadge.textContent = roomUnread > 9 ? "9+" : String(roomUnread);
+      lobbyBadge.style.display = roomUnread > 0 ? "inline-block" : "none";
     }
     // Dot on the Back button when ANY chat you're not currently viewing has
     // unread (so the player knows other conversations are waiting).
@@ -11726,6 +11896,15 @@
     }
   }
 
+  function pvcRoomChatLabels() {
+    const isLobby = (latestPayload?.room?.phase || latestPayload?.phase) === "lobby";
+    const isQuickPlayLobby = isLobby && Boolean(latestPayload?.room?.quick_play);
+    return {
+      title: isQuickPlayLobby ? "Quick Play Lobby Chat" : (isLobby ? "Lobby Chat" : "Current Game Chat"),
+      subtitle: isLobby ? "Everyone in this lobby" : "Everyone in this match",
+    };
+  }
+
   // ── View switching ──────────────────────────────────────────────
   function pvcShowView(view) {
     _chatView = view;
@@ -11738,7 +11917,7 @@
     const title  = _pg("pv-chat-title");
     if (title) title.classList.remove("editable");   // only group-conv titles are editable
     if (view === "room") {
-      if (title)  title.textContent = "Current Game Chat";
+      if (title)  title.textContent = pvcRoomChatLabels().title;
       if (back)   back.style.display = "";       // back → chat list
       if (gear)   gear.style.display = "none";
       _chatSeenCount = _chatRoomTotal;           // entering room clears its unread
@@ -11809,7 +11988,8 @@
       cur.className = "pvc-row current";
       const curUnread = (!(_chatPanelOpen && _chatView === "room"))
         ? Math.max(0, _chatRoomTotal - _chatSeenCount) : 0;
-      cur.appendChild(_pvcRowInner("🎮", "Current Game Chat", "Everyone in this match", "", curUnread, true));
+      const roomLabels = pvcRoomChatLabels();
+      cur.appendChild(_pvcRowInner("🎮", roomLabels.title, roomLabels.subtitle, "", curUnread, true));
       cur.addEventListener("click", () => pvcOpenRoom());
       listEl.appendChild(cur);
     }
@@ -12040,6 +12220,7 @@
 
   // ── Header buttons ──────────────────────────────────────────────
   _pg("pv-chat-btn").addEventListener("click", pvcTogglePanel);
+  _pg("wr-chat-btn").addEventListener("click", pvcTogglePanel);
   _pg("pv-chat-close").addEventListener("click", pvcClosePanel);
   _pg("pv-chat-back").addEventListener("click", () => {
     // From a leaf (room or conv) → chat list. (List is the root; no back.)
@@ -16935,6 +17116,7 @@
 
     // ── Sign out (game lobby bar) ────────────────────────────────
     $a("auth-signout-btn").addEventListener("click", async () => {
+      await cancelQuickMatch(true);
       try { if (typeof stopThemeSong === "function") stopThemeSong(); } catch {}
       clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
@@ -16952,11 +17134,10 @@
     });
 
     // ── Stats lobby buttons ───────────────────────────────────────
-    // Quick Match opens a tiny mode chooser (Casual / Competitive) and then
-    // matchmakes the player into any open public game of that mode.
+    // Quick Play goes directly into the dedicated four-seat queue.
     const _qmBtn = $a("stats-quickmatch-btn");
     if (_qmBtn) _qmBtn.addEventListener("click", () => {
-      openQuickMatchChooser();
+      startQuickMatch();
     });
 
     $a("stats-create-btn").addEventListener("click", () => {
@@ -17247,6 +17428,7 @@
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
     if (settingsSignoutBtn) settingsSignoutBtn.addEventListener("click", async () => {
+      await cancelQuickMatch(true);
       clearGuestSessionStorage();
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
@@ -17267,6 +17449,7 @@
     const statsSignoutBtn = $a("stats-signout-btn");
     if (statsSignoutBtn) {
       statsSignoutBtn.addEventListener("click", async () => {
+        await cancelQuickMatch(true);
         clearGuestSessionStorage();
         if (_authUser) stopPresencePing(_authUser.uid);
         if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
@@ -17287,6 +17470,16 @@
 
     // Mark user offline when tab is closed
     window.addEventListener("beforeunload", () => {
+      const queued = _qmSearch;
+      if (queued?.roomId && queued?.seatToken && navigator.sendBeacon) {
+        try {
+          const body = new Blob(
+            [JSON.stringify({ seat_token: queued.seatToken })],
+            { type: "application/json" }
+          );
+          navigator.sendBeacon(apiUrl(`/api/rooms/${queued.roomId}/leave`), body);
+        } catch (_) {}
+      }
       if (_authUser) setOnlineStatus(_authUser.uid, false);
     });
 

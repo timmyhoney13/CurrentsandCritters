@@ -54,7 +54,7 @@
     })();
   </script>
 
-  <script src="/js/error-logging.js?v=2026-06-26.5"></script>
+  <script src="/js/error-logging.js?v=2026-06-26.6"></script>
 
   <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-26.5" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-26.6" />
 </head>
 <body>
 
@@ -77,7 +77,7 @@
   <button type="button" class="cc-device-half cc-device-mobile"
           data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
 </div>
-<script src="/js/device-select.js?v=2026-06-26.5"></script>
+<script src="/js/device-select.js?v=2026-06-26.6"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
 <div id="cc-fs-splash">
@@ -519,7 +519,7 @@
          card so it's visible on every tab/page of the home screen. -->
     <div class="qm-search-bar" id="qm-search-bar" role="status" aria-live="polite" style="display:none;">
       <span class="qm-spinner" aria-hidden="true"></span>
-      <span class="qm-search-text">Searching for a <span id="qm-search-mode">Casual</span> match…
+      <span class="qm-search-text"><span id="qm-search-status">Finding Quick Play players…</span>
         <span class="qm-search-secs" id="qm-search-secs">0s</span></span>
       <button type="button" class="qm-cancel-btn" id="qm-cancel-btn">Cancel ✕</button>
     </div>
@@ -1570,9 +1570,32 @@
     <p class="wr-subtitle" id="wr-subtitle">Share this fleet code with your crew:</p>
     <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
     <button id="wr-copy-btn"><span class="wr-copy-icon">📋</span><span>Copy Invite Link</span></button>
+    <div class="wr-quick-setup" id="wr-quick-setup" style="display:none;">
+      <div class="wr-quick-heading">
+        <span>Quick Play Setup</span>
+        <span class="wr-quick-total">4 total spots</span>
+      </div>
+      <div class="wr-human-options" role="group" aria-label="Number of human player spots">
+        <button type="button" class="wr-human-option" data-human-players="2">
+          <strong>2</strong><span>Humans</span><small>+ 2 Bots</small>
+        </button>
+        <button type="button" class="wr-human-option" data-human-players="3">
+          <strong>3</strong><span>Humans</span><small>+ 1 Bot</small>
+        </button>
+        <button type="button" class="wr-human-option" data-human-players="4">
+          <strong>4</strong><span>Humans</span><small>No Bots</small>
+        </button>
+      </div>
+      <div class="wr-quick-note" id="wr-quick-note">The host chooses how many human players can join.</div>
+    </div>
     <div class="wr-players" id="wr-players-list">
       <div class="wr-players-title">Players in Room</div>
     </div>
+    <button type="button" id="wr-chat-btn" style="display:none;">
+      <span class="wr-chat-icon" aria-hidden="true">💬</span>
+      <span>Lobby Chat</span>
+      <span class="wr-chat-badge" id="wr-chat-badge"></span>
+    </button>
     <p class="wr-caption">Once your crew is aboard, cast off below.</p>
     <button id="wr-start-btn" disabled>
       <span class="wr-btn-coral"></span>
@@ -2257,27 +2280,6 @@
   </div>
 </div>
 
-<!-- ══ QUICK MATCH MODE CHOOSER ══════════════════════════════════════ -->
-<div id="quickmatch-modal">
-  <div id="quickmatch-box">
-    <button id="qm-close" aria-label="Close">✕</button>
-    <h2>⚡ Quick Match</h2>
-    <p class="qm-sub">Pick a mode — we'll find an open public game and drop you straight in.</p>
-    <div class="qm-choices">
-      <button type="button" class="qm-choice qm-choice-casual" id="qm-choice-casual">
-        <span class="qm-choice-emoji">🌊</span>
-        <span class="qm-choice-title">Casual</span>
-        <span class="qm-choice-desc">Join a relaxed public game</span>
-      </button>
-      <button type="button" class="qm-choice qm-choice-comp" id="qm-choice-comp">
-        <span class="qm-choice-emoji">⚔️</span>
-        <span class="qm-choice-title">Competitive</span>
-        <span class="qm-choice-desc">Join a ranked 1v1 match</span>
-      </button>
-    </div>
-  </div>
-</div>
-
 <!-- ══ SEAT PICKER MODAL ═════════════════════════════════════════════ -->
 <div id="seat-picker-modal">
   <div id="seat-picker-box">
@@ -2501,11 +2503,11 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-26.5"></script>
+<script src="/js/preview-app.js?v=2026-06-26.6"></script>
 
-<script src="/js/challenge-of-challenges.js?v=2026-06-26.5"></script>
+<script src="/js/challenge-of-challenges.js?v=2026-06-26.6"></script>
 
-<script src="/js/hidden-cephalopods.js?v=2026-06-26.5"></script>
+<script src="/js/hidden-cephalopods.js?v=2026-06-26.6"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -2578,13 +2580,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/current-controller.js?v=2026-06-26.5"></script>
+<script src="/js/current-controller.js?v=2026-06-26.6"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/tutorials.js?v=2026-06-26.5"></script>
+<script src="/js/tutorials.js?v=2026-06-26.6"></script>
 </body>
 </html>

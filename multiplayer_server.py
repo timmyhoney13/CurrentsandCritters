@@ -89,6 +89,10 @@ ROOM_ID_LENGTH = 5
 # A player who leaves a running game keeps their seat RESERVED for this long;
 # only they (they hold the seat token) can rejoin it, into the same seat.
 REJOIN_WINDOW_SEC = 8 * 60
+# A home-screen Quick Play client polls its queued room every few seconds.
+# Ignore abandoned one-player queues after this window so a new player is
+# never matched with a tab that has been closed or disconnected.
+QUICK_PLAY_STALE_SECONDS = 3 * 60
 # Room codes are 4–12 uppercase letters/numbers. Public rooms use a random
 # 5-char code; private rooms use the host's chosen code (which is also the
 # password). Both create and restore accept the full 4–12 range.
@@ -678,6 +682,9 @@ class Seat:
     # Again on the end screen; cleared on every fresh game launch. When all
     # active human seats are ready, the game auto-restarts (bots ready implicitly).
     play_again_ready: bool = False
+    # Client-generated idempotency key for dedicated Quick Play matchmaking.
+    # It prevents a retried request from claiming a second seat.
+    quick_play_ticket: Optional[str] = None
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -686,12 +693,26 @@ class Seat:
 
 
 class GameRoom:
-    def __init__(self, room_id: str, host_name: str, total_players: int, human_players: int, ai_players: int, competitive: bool = False, visibility: str = "public", password_hash: Optional[str] = None, tutorial: bool = False, tutorial_variant: Optional[str] = None) -> None:
+    def __init__(
+        self,
+        room_id: str,
+        host_name: str,
+        total_players: int,
+        human_players: int,
+        ai_players: int,
+        competitive: bool = False,
+        visibility: str = "public",
+        password_hash: Optional[str] = None,
+        tutorial: bool = False,
+        tutorial_variant: Optional[str] = None,
+        quick_play: bool = False,
+    ) -> None:
         self.room_id = room_id
         self.total_players = total_players
         self.human_players = human_players
         self.ai_players = ai_players
         self.competitive = competitive
+        self.quick_play = bool(quick_play)
         # Tutorial games rig the human's opening hand so the guided "play an
         # ocean, then two creatures" walkthrough always works. Never set for
         # normal matches. ``tutorial_variant`` selects which rig: None/"" = the
@@ -1013,6 +1034,7 @@ class GameRoom:
             "human_players": int(self.human_players),
             "ai_players": int(self.ai_players),
             "competitive": bool(self.competitive),
+            "quick_play": bool(self.quick_play),
             "visibility": str(self.visibility),
             "password_hash": self.password_hash,
             "seed": int(self.seed),
@@ -1033,6 +1055,7 @@ class GameRoom:
                     "token": seat.token,
                     "is_host": bool(seat.is_host),
                     "difficulty": str(seat.difficulty or "medium"),
+                    "quick_play_ticket": seat.quick_play_ticket,
                 }
                 for seat in self.seats
             ],
@@ -1180,6 +1203,7 @@ class GameRoom:
                 seat.is_host = False
                 seat.left_at = None
                 seat.play_again_ready = False
+                seat.quick_play_ticket = None
                 if leaving_name and leaving_name not in self.post_game_left:
                     self.post_game_left.append(leaving_name)
 
@@ -1236,6 +1260,7 @@ class GameRoom:
             seat.token = None
             seat.is_host = False
             seat.left_at = None
+            seat.quick_play_ticket = None
 
             remaining = [s for s in self.seats if s.kind == "human" and s.token is not None]
             if not remaining:
@@ -1301,10 +1326,21 @@ class GameRoom:
                     break
 
         competitive = bool(payload.get("competitive", False))
+        quick_play = bool(payload.get("quick_play", False))
         vis_raw = str(payload.get("visibility") or "public").strip().lower()
         visibility = vis_raw if vis_raw in {"public", "private"} else "public"
         pw_hash = payload.get("password_hash") if isinstance(payload.get("password_hash"), str) else None
-        room = cls(room_id, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=pw_hash)
+        room = cls(
+            room_id,
+            host_name,
+            total_players,
+            human_players,
+            ai_players,
+            competitive=competitive,
+            visibility=visibility,
+            password_hash=pw_hash,
+            quick_play=quick_play,
+        )
         with room.cond:
             room.seed = clamp_int(payload.get("seed"), room.seed, 0, 2**64 - 1)
             room.created_unix = clamp_int(payload.get("created_unix"), room.created_unix, 0, 2**31 - 1)
@@ -1362,6 +1398,13 @@ class GameRoom:
                             token=token,
                             is_host=bool(seat_raw.get("is_host")) if seat_kind == "human" else False,
                             difficulty=seat_difficulty,
+                            quick_play_ticket=(
+                                str(seat_raw.get("quick_play_ticket")).strip()[:96]
+                                if seat_kind == "human"
+                                and isinstance(seat_raw.get("quick_play_ticket"), str)
+                                and str(seat_raw.get("quick_play_ticket")).strip()
+                                else None
+                            ),
                         )
                     )
             if parsed_seats:
@@ -1850,6 +1893,115 @@ class GameRoom:
             self.status_note = f"{target.claimed_name or target.label} set to {normalized.title()} difficulty."
             self._bump_locked()
             return {"ok": True, "difficulty": normalized}
+
+    def configure_quick_play_seats(
+        self,
+        host_token: str,
+        seat_token: Optional[str],
+        human_players: int,
+    ) -> Dict[str, Any]:
+        """Change a Quick Play lobby between 2–4 human seats.
+
+        The room always has four total seats. Unselected, unclaimed human seats
+        become bots; adding human capacity converts bots back into open seats.
+        Claimed human seats are never displaced.
+        """
+        with self.cond:
+            if not self._is_host_authorized_locked(host_token, seat_token):
+                return {"ok": False, "error": "host authorization required"}
+            if not self.quick_play:
+                return {"ok": False, "error": "seat setup is only available in Quick Play"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "seat setup can only change in the lobby"}
+            if human_players not in {2, 3, 4}:
+                return {"ok": False, "error": "human player slots must be 2, 3, or 4"}
+
+            claimed_humans = [
+                seat for seat in self.seats
+                if seat.kind == "human" and seat.token is not None
+            ]
+            if len(claimed_humans) > human_players:
+                return {
+                    "ok": False,
+                    "error": (
+                        f"{len(claimed_humans)} human players are already in this lobby. "
+                        f"Choose {len(claimed_humans)} or more human slots."
+                    ),
+                    "human_seats_filled": len(claimed_humans),
+                }
+
+            desired_human_indices = {seat.index for seat in claimed_humans}
+            # Preserve existing open human slots before converting bots back.
+            for seat in self.seats:
+                if len(desired_human_indices) >= human_players:
+                    break
+                if seat.kind == "human":
+                    desired_human_indices.add(seat.index)
+            for seat in self.seats:
+                if len(desired_human_indices) >= human_players:
+                    break
+                desired_human_indices.add(seat.index)
+
+            changed = False
+            for seat in self.seats:
+                should_be_human = seat.index in desired_human_indices
+                if should_be_human and seat.kind != "human":
+                    seat.kind = "human"
+                    seat.claimed_name = None
+                    seat.token = None
+                    seat.is_host = False
+                    seat.avatar = None
+                    seat.background = None
+                    seat.left_at = None
+                    seat.quick_play_ticket = None
+                    changed = True
+                elif not should_be_human and seat.kind != "ai":
+                    # Claimed humans were included above and can never reach
+                    # this branch.
+                    seat.kind = "ai"
+                    seat.claimed_name = None
+                    seat.token = None
+                    seat.is_host = False
+                    seat.avatar = None
+                    seat.background = None
+                    seat.left_at = None
+                    seat.quick_play_ticket = None
+                    changed = True
+
+            bot_number = 1
+            for seat in self.seats:
+                seat.label = f"Player {seat.index + 1}"
+                if seat.kind == "ai":
+                    expected_name = f"Bot {bot_number}"
+                    if seat.claimed_name != expected_name:
+                        seat.claimed_name = expected_name
+                        changed = True
+                    seat.token = None
+                    seat.is_host = False
+                    seat.quick_play_ticket = None
+                    bot_number += 1
+
+            self.human_players = human_players
+            self.ai_players = self.total_players - human_players
+            filled, total = self._human_seat_counts_locked()
+            if changed:
+                setup_text = (
+                    f"{human_players} human player{'s' if human_players != 1 else ''} "
+                    f"and {self.ai_players} bot{'s' if self.ai_players != 1 else ''}"
+                )
+                self.status_note = f"Host set the Quick Play lobby to {setup_text}."
+                self._add_system_chat(self.status_note)
+                self._bump_locked(force_persist=True)
+            return {
+                "ok": True,
+                "human_players": self.human_players,
+                "ai_players": self.ai_players,
+                "human_seats_filled": filled,
+                "human_seats_total": total,
+                "can_start": bool(filled >= total),
+                "seats": self.seat_snapshot_locked(),
+                "unchanged": not changed,
+            }
 
     def terminate_game(self, host_token: str, seat_token: Optional[str]) -> Dict[str, Any]:
         with self.cond:
@@ -4649,6 +4801,7 @@ class GameRoom:
                     "human_players": self.human_players,
                     "ai_players": self.ai_players,
                     "competitive": bool(self.competitive),
+                    "quick_play": bool(self.quick_play),
                     "human_seats_filled": human_filled,
                     "human_seats_total": human_total,
                     "share_url": self.room_link(host_header, proto_hint),
@@ -4719,7 +4872,9 @@ class GameRoom:
             return {"ok": False, "error": "empty message"}
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
-            sender = seat.claimed_name if seat and seat.claimed_name else "?"
+            if seat is None or seat.kind != "human":
+                return {"ok": False, "error": "valid player seat required"}
+            sender = seat.claimed_name if seat.claimed_name else seat.label
             entry: Dict[str, Any] = {
                 "sender": sender,
                 "target": target,
@@ -5231,7 +5386,9 @@ def _ago(seconds: int) -> str:
 
 class RoomManager:
     def __init__(self) -> None:
-        self.lock = threading.Lock()
+        # Quick Play performs an atomic "find-or-create" while reusing the
+        # normal create_room path, so this lock must be safely re-entrant.
+        self.lock = threading.RLock()
         self.rooms: Dict[str, GameRoom] = {}
 
     def _active_room_locked(self) -> Optional[GameRoom]:
@@ -5253,6 +5410,7 @@ class RoomManager:
         password_hash: Optional[str] = None,
         tutorial: bool = False,
         tutorial_variant: Optional[str] = None,
+        quick_play: bool = False,
     ) -> GameRoom:
         with self.lock:
             if replace_active:
@@ -5272,18 +5430,156 @@ class RoomManager:
                         remove_room_state_file(rid)
                     else:
                         raise RuntimeError(f"room id already exists ({rid})")
-                room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial, tutorial_variant=tutorial_variant)
+                room = GameRoom(
+                    rid,
+                    host_name,
+                    total_players,
+                    human_players,
+                    ai_players,
+                    competitive=competitive,
+                    visibility=visibility,
+                    password_hash=password_hash,
+                    tutorial=tutorial,
+                    tutorial_variant=tutorial_variant,
+                    quick_play=quick_play,
+                )
                 self.rooms[rid] = room
                 room.persist_now()
                 return room
             for _ in range(100):
                 rid = room_code(ROOM_ID_LENGTH)
                 if rid not in self.rooms:
-                    room = GameRoom(rid, host_name, total_players, human_players, ai_players, competitive=competitive, visibility=visibility, password_hash=password_hash, tutorial=tutorial, tutorial_variant=tutorial_variant)
+                    room = GameRoom(
+                        rid,
+                        host_name,
+                        total_players,
+                        human_players,
+                        ai_players,
+                        competitive=competitive,
+                        visibility=visibility,
+                        password_hash=password_hash,
+                        tutorial=tutorial,
+                        tutorial_variant=tutorial_variant,
+                        quick_play=quick_play,
+                    )
                     self.rooms[rid] = room
                     room.persist_now()
                     return room
         raise RuntimeError("unable to allocate room code")
+
+    def quick_play_join(self, player_name: str, ticket: str) -> Dict[str, Any]:
+        """Atomically rejoin, join, or create a dedicated four-seat queue."""
+        clean_ticket = str(ticket or "").strip()[:96]
+        if not re.fullmatch(r"[A-Za-z0-9_-]{8,96}", clean_ticket):
+            return {"ok": False, "error": "invalid Quick Play ticket"}
+        clean_name = safe_name(player_name, "Player")
+
+        def response_for(room: GameRoom, seat: Seat) -> Dict[str, Any]:
+            with room.cond:
+                filled, total = room._human_seat_counts_locked()
+                out: Dict[str, Any] = {
+                    "ok": True,
+                    "room_id": room.room_id,
+                    "seat_index": seat.index,
+                    "seat_token": seat.token,
+                    "is_host": bool(seat.is_host),
+                    "matched": filled >= 2,
+                    "human_seats_filled": filled,
+                    "human_seats_total": total,
+                    "total_players": room.total_players,
+                }
+                if seat.is_host:
+                    out["host_token"] = room.host_control_token
+                return out
+
+        with self.lock:
+            # Network retries with the same ticket must return the original
+            # seat instead of consuming another spot.
+            for room in self.rooms.values():
+                if not room.quick_play or room.phase != "lobby":
+                    continue
+                with room.cond:
+                    for seat in room.seats:
+                        if (
+                            seat.kind == "human"
+                            and seat.token
+                            and seat.quick_play_ticket
+                            and secrets.compare_digest(seat.quick_play_ticket, clean_ticket)
+                        ):
+                            seat.last_seen = time.time()
+                            return response_for(room, seat)
+
+            stale_room_ids: List[str] = []
+            candidates = sorted(
+                (
+                    room for room in self.rooms.values()
+                    if room.quick_play and room.phase == "lobby"
+                ),
+                key=lambda room: room.created_unix,
+            )
+            now = time.time()
+            for room in candidates:
+                with room.cond:
+                    claimed = [
+                        seat for seat in room.seats
+                        if seat.kind == "human" and seat.token is not None
+                    ]
+                    latest_seen = max(
+                        [float(seat.last_seen or room.created_unix) for seat in claimed],
+                        default=float(room.created_unix),
+                    )
+                    if not claimed or now - latest_seen > QUICK_PLAY_STALE_SECONDS:
+                        stale_room_ids.append(room.room_id)
+                        continue
+                    open_seat = next(
+                        (
+                            seat for seat in room.seats
+                            if seat.kind == "human" and seat.token is None
+                        ),
+                        None,
+                    )
+                    open_index = open_seat.index if open_seat is not None else None
+                if open_index is None:
+                    continue
+                joined = room.claim_seat(clean_name, open_index, None)
+                if not joined.get("ok"):
+                    continue
+                with room.cond:
+                    seat = room.seats[int(joined["seat_index"])]
+                    seat.quick_play_ticket = clean_ticket
+                    seat.last_seen = now
+                    room._add_system_chat(f"{seat.claimed_name or seat.label} joined the Quick Play lobby.")
+                    room._bump_locked(force_persist=True)
+                    return response_for(room, seat)
+
+            for room_id in stale_room_ids:
+                stale = self.rooms.pop(room_id, None)
+                if stale is not None:
+                    with stale.cond:
+                        stale.phase = "ended"
+                        stale.status_note = "Quick Play search expired."
+                        stale._bump_locked(force_persist=True)
+                    remove_room_state_file(room_id)
+
+            room = self.create_room(
+                clean_name,
+                total_players=4,
+                human_players=4,
+                ai_players=0,
+                competitive=False,
+                visibility="public",
+                quick_play=True,
+            )
+            host_seat = room.host_seat()
+            if host_seat is None:
+                return {"ok": False, "error": "failed to create Quick Play host seat"}
+            with room.cond:
+                host_seat.quick_play_ticket = clean_ticket
+                host_seat.last_seen = now
+                room.status_note = "Quick Play is searching for another player."
+                room._add_system_chat(f"{host_seat.claimed_name or host_seat.label} opened the Quick Play lobby.")
+                room._bump_locked(force_persist=True)
+                return response_for(room, host_seat)
 
     def list_open_rooms(self) -> List[Dict[str, Any]]:
         """Return metadata for all lobby-phase rooms that are not full."""
@@ -5291,7 +5587,7 @@ class RoomManager:
             result = []
             now = now_unix()
             for room in self.rooms.values():
-                if room.phase != "lobby":
+                if room.phase != "lobby" or room.quick_play:
                     continue
                 with room.cond:
                     filled, total = room._human_seat_counts_locked()
@@ -5317,6 +5613,13 @@ class RoomManager:
     def get(self, room_id: str) -> Optional[GameRoom]:
         with self.lock:
             return self.rooms.get(room_id)
+
+    def remove(self, room_id: str) -> Optional[GameRoom]:
+        with self.lock:
+            room = self.rooms.pop(room_id, None)
+        if room is not None:
+            remove_room_state_file(room_id)
+        return room
 
     def active_room(self) -> Optional[GameRoom]:
         with self.lock:
@@ -6465,6 +6768,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             threading.Thread(target=_shutdown_later, daemon=True).start()
             return
 
+        if parsed.path == "/api/quickplay":
+            ticket = body.get("ticket") if isinstance(body.get("ticket"), str) else ""
+            player_name = safe_name(body.get("player_name"), "Player")
+            out = ROOMS.quick_play_join(player_name, ticket)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
         if parsed.path == "/api/rooms":
             pass  # key check removed — open room creation
 
@@ -6545,9 +6856,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
+            existing_tok = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            if room.quick_play:
+                with room.cond:
+                    already_seated = room._seat_from_token_locked(existing_tok) is not None
+                if not already_seated:
+                    self._send_json(
+                        {"ok": False, "error": "Join this room through Quick Play."},
+                        status=HTTPStatus.FORBIDDEN,
+                    )
+                    return
             # Password check for private rooms (skip if the joiner already holds a token for this room)
             if room.password_hash is not None:
-                existing_tok = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
                 with room.cond:
                     already_seated = room._seat_from_token_locked(existing_tok) is not None
                 if not already_seated:
@@ -6785,7 +7105,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = room.leave_room(body, CARD_DB)
             # If the room was discarded and no one remains, remove it from ROOMS
             if out.get("action") == "discarded":
-                ROOMS.pop(parts[2], None)
+                ROOMS.remove(parts[2])
             self._send_json(out, status=HTTPStatus.OK)
             return
 
@@ -6804,6 +7124,35 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             difficulty = body.get("difficulty") if isinstance(body.get("difficulty"), str) else ""
             out = room.set_seat_difficulty(host_token, seat_token, seat_index, difficulty)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "quickplay_seats":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            host_token = body.get("host_token") if isinstance(body.get("host_token"), str) else ""
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            try:
+                human_players = int(body.get("human_players"))
+            except (TypeError, ValueError):
+                self._send_json(
+                    {"ok": False, "error": "human_players must be 2, 3, or 4"},
+                    status=HTTPStatus.BAD_REQUEST,
+                )
+                return
+            out = room.configure_quick_play_seats(
+                host_token,
+                seat_token,
+                human_players,
+            )
+            if out.get("ok"):
+                status = HTTPStatus.OK
+            elif out.get("error") == "host authorization required":
+                status = HTTPStatus.FORBIDDEN
+            else:
+                status = HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
 
