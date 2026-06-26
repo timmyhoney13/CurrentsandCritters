@@ -13587,10 +13587,13 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-25.6";
+  const APP_BUILD   = "2026-06-25.7";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "Daily & Weekly challenge tracking fixes", items: [
+      "Fixed the Pool-based challenges so they credit the right player — challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
+    ]},
     { ver: "V1.6.3", title: "Quick Match matchmaking + new home menu", items: [
       "The main menu now leads with four cards — Quick Match, Create Game, Join Game and Tutorial — each with its own colour and critter.",
       "Quick Match lets you pick Casual or Competitive, then finds an open public game and drops you straight in — keep browsing the home screen while it searches, watch the seconds tick up, and Cancel any time.",
@@ -17554,6 +17557,10 @@
   let _chObsPoolEntryOwner    = new Map(); // entry_uid -> name of player who added it
   let _chObsPoolEntryAddedTurn= new Map(); // entry_uid -> round_count when it was added
   let _chObsPoolJustResetAt   = 0; // payload counter when reset happened (0 = no reset pending)
+  let _chObsPoolPrevCurPlayer = null; // current_player seen on the PREVIOUS payload — owned
+                                      //  by _challObservePool ONLY (must not be shared with
+                                      //  _challObserveStarCombo, which mutates its own tracker
+                                      //  earlier in the same observer pass).
   let _chObsPoolWatcherStreak = 0; // consecutive draws from pool from OTHER players' cards
   let _chObsCompSelfDiscarded = new Set(); // entry_uids put in pool by THIS device's seats
                                             // (for set_it_up — competitive only)
@@ -17656,12 +17663,16 @@
 
     // The player who LAST took an action is whoever was the current player
     // BEFORE this payload's diff. If the current_player just changed, the
-    // previous one acted. If not, the current one acted (still their turn).
-    // Heuristic: use _drawPrevPlayer (turn-boundary tracker) when set,
-    // otherwise current_player.
-    const lastActor = (curPlayer && curPlayer === _chObsPrevTurnPlayer)
+    // previous one acted (they discarded into the pool as their turn ended).
+    // If not, the current one acted (still their turn). We track the previous
+    // payload's current_player in our OWN var (_chObsPoolPrevCurPlayer), updated
+    // at the end of this function — NOT the shared _chObsPrevTurnPlayer, which
+    // _challObserveStarCombo already advanced to the new turn earlier in this
+    // same observer pass (which would make the "turn just changed" branch dead
+    // code and misattribute every end-of-turn discard to the NEXT player).
+    const lastActor = (curPlayer && curPlayer === _chObsPoolPrevCurPlayer)
       ? curPlayer
-      : (_chObsPrevTurnPlayer || curPlayer);
+      : (_chObsPoolPrevCurPlayer || curPlayer);
 
     // Record provenance for any newly-added pool entries.
     if (newEntries.length && lastActor) {
@@ -17696,6 +17707,9 @@
 
     _chObsPrevPoolUids = nowUids;
     _chObsPrevPoolSize = poolNow.length;
+    // Remember this payload's current_player so the NEXT diff can tell whether
+    // the turn flipped (and thus who actually added any new pool entries).
+    _chObsPoolPrevCurPlayer = curPlayer;
   }
 
   // Species map — match the server's species strings to weekly challenge ids.
@@ -17831,6 +17845,7 @@
     _chObsPoolEntryOwner = new Map();
     _chObsPoolEntryAddedTurn = new Map();
     _chObsPoolJustResetAt = 0;
+    _chObsPoolPrevCurPlayer = null;
     _chObsPoolWatcherStreak = 0;
     _chObsCompSelfDiscarded = new Set();
     _chObsPrevMyBoardCards = new Set();
