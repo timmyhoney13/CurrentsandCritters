@@ -10875,6 +10875,18 @@ def run_match(
                     break
             _ = sanitize_runtime_state(gs, ms, action_policies=action_policies, max_notes=0)
 
+            # END GAME mid-turn detection MUST happen HERE — immediately after the
+            # action is committed — NOT later in this loop. A 2nd draw that reveals the
+            # END GAME card sets turn_state.force_end_turn, and the force-end handler
+            # below `break`s out of the action loop BEFORE the old detection point was
+            # reached. That left eg_triggered_this_turn False, so the final-turns
+            # decrement counted the revealer's own turn and the revealer LOST their
+            # guaranteed final turn ("I didn't get to play my last turn when the end
+            # game card got drawn"). Capturing it right after apply_action is
+            # break-proof for every trigger path (1st draw, 2nd draw, ocean-flip, pool).
+            if not _eg_before and ms.end_game_triggered:
+                eg_triggered_this_turn = True
+
             if do_online and executed_feats is not None:
                 try:
                     after_score = final_points(gs, p)
@@ -10977,10 +10989,9 @@ def run_match(
                 turn_state.free_followups = 0
             if has_multi_play_window(p):
                 action_budget += 1
-            # Track if end game triggered mid-turn so we can skip the final-turns
-            # decrement below (giving the trigger player their own proper last turn).
-            if not _eg_before and ms.end_game_triggered:
-                eg_triggered_this_turn = True
+            # (END GAME mid-turn detection now happens right after apply_action above,
+            # so a force_end_turn break — e.g. the 2nd draw revealing the END GAME card —
+            # can no longer skip it and rob the revealer of their final turn.)
             action_budget -= 1
 
         if undo_occurred:

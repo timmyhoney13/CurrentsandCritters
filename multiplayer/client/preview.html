@@ -13587,10 +13587,13 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-25.7";
+  const APP_BUILD   = "2026-06-26.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "End Game: everyone really gets their final turn", items: [
+      "Fixed a bug where the player who drew the END GAME card (on the second of their two draws) could be skipped and never get their own final turn — now every player, including the one who revealed it, always gets one full final turn.",
+    ]},
     { ver: "V1.6.3", title: "Daily & Weekly challenge tracking fixes", items: [
       "Fixed the Pool-based challenges so they credit the right player — challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
     ]},
@@ -13971,7 +13974,7 @@
     const sub = document.getElementById("eg-sub-text");
     img.src = imagePathForUid(cardUid);
     if (isTriggerPlayer) {
-      sub.textContent = "You revealed the END GAME card — play your final card now!";
+      sub.textContent = "You revealed the END GAME card — you still get one final turn!";
     } else {
       sub.textContent = triggerPlayerName
         ? `${triggerPlayerName} revealed the END GAME card — each player gets one final turn!`
