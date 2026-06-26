@@ -5886,6 +5886,20 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        # Split preview client assets.
+        # Keep this route narrow so only files inside multiplayer/client/css and
+        # multiplayer/client/js are exposed.
+        if re.fullmatch(r"/(?:css|js)/[A-Za-z0-9_.-]+\.(?:css|js)", parsed.path):
+            subdir, filename = parsed.path.strip("/").split("/", 1)
+            asset_path = os.path.join(CLIENT_DIR, subdir, filename)
+            content_type = (
+                "text/css; charset=utf-8"
+                if subdir == "css"
+                else "application/javascript; charset=utf-8"
+            )
+            self._send_client_asset(asset_path, content_type=content_type, cache_control="public, max-age=86400")
+            return
+
         if parsed.path == "/icon.svg":
             self._send_client_asset(ICON_PATH, content_type="image/svg+xml")
             return
