@@ -929,7 +929,7 @@ window.addEventListener('scroll', () => {
 // URL is set, the buttons fall back to a pre-addressed email so the signup
 // is never a dead link.
 (function () {
-  const EMAIL_LIST_FORM_URL = ''; // e.g. 'https://docs.google.com/forms/d/e/XXXX/viewform'
+  const EMAIL_LIST_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdDO0cJTt2uEw9qSbXNAsGa4W8gLWEJNs-m8pLFWPruNbo52g/viewform';
   if (!EMAIL_LIST_FORM_URL) return; // keep the mailto fallback already in the HTML
   document.querySelectorAll('[data-email-list]').forEach(function (a) {
     a.href = EMAIL_LIST_FORM_URL;
