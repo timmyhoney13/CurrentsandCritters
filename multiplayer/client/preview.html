@@ -54,7 +54,7 @@
     })();
   </script>
 
-  <script src="/js/error-logging.js?v=2026-06-26.6"></script>
+  <script src="/js/error-logging.js?v=2026-06-28.1"></script>
 
   <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-26.6" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-28.1" />
 </head>
 <body>
 
@@ -77,7 +77,7 @@
   <button type="button" class="cc-device-half cc-device-mobile"
           data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
 </div>
-<script src="/js/device-select.js?v=2026-06-26.6"></script>
+<script src="/js/device-select.js?v=2026-06-28.1"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
 <div id="cc-fs-splash">
@@ -506,6 +506,10 @@
         <button class="ph-icon-btn" id="stats-message-btn" title="Messages" style="position:relative;">
           <svg width="22" height="20" viewBox="0 0 22 20" fill="none"><path d="M2 3a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-5 4v-4H4a2 2 0 0 1-2-2V3z" stroke="#2f6eba" stroke-width="1.7" fill="rgba(120,190,235,.18)" stroke-linejoin="round"/><circle cx="7.5" cy="8" r="1.1" fill="#2f6eba"/><circle cx="11" cy="8" r="1.1" fill="#2f6eba"/><circle cx="14.5" cy="8" r="1.1" fill="#2f6eba"/></svg>
           <span class="msg-badge" id="msg-unread-badge" style="display:none;">0</span>
+        </button>
+        <button class="ph-icon-btn ph-help-btn" id="stats-help-btn" aria-label="Help &amp; Feedback" style="position:relative;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9.2" stroke="#2f6eba" stroke-width="1.7" fill="rgba(120,190,235,.18)"/><circle cx="12" cy="12" r="3.6" stroke="#2f6eba" stroke-width="1.6" fill="#fff"/><path d="M12 2.8v5.6M12 15.6v5.6M2.8 12h5.6M15.6 12h5.6" stroke="#2f6eba" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span class="ph-help-tip" aria-hidden="true">Help &amp; Feedback</span>
         </button>
         <button class="ph-signout-btn" id="stats-signout-btn">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 2H2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M10 10l3-3-3-3M13 7H5" stroke="#5a8ab0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2503,11 +2507,101 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-26.6"></script>
+<!-- ══ HELP & FEEDBACK modal (ocean / tide-pool themed) ══════════════ -->
+<div id="ph-help-modal" role="dialog" aria-modal="true" aria-label="Help and Feedback">
+  <div class="ph-help-box">
+    <button class="ph-help-x" id="ph-help-close" aria-label="Close">✕</button>
+    <div class="ph-help-head">
+      <div class="ph-help-wave" aria-hidden="true">🪸</div>
+      <div>
+        <div class="ph-help-title">How can we help?</div>
+        <div class="ph-help-sub">Send us a message from the tide pool 🌊</div>
+      </div>
+    </div>
 
-<script src="/js/challenge-of-challenges.js?v=2026-06-26.6"></script>
+    <div class="ph-help-tabs" role="tablist">
+      <button class="ph-help-tab active" data-help-tab="question" role="tab">🐚 Ask a Question</button>
+      <button class="ph-help-tab" data-help-tab="bug" role="tab">🐛 Report a Bug</button>
+      <button class="ph-help-tab" data-help-tab="idea" role="tab">💡 Suggest an Idea</button>
+    </div>
 
-<script src="/js/hidden-cephalopods.js?v=2026-06-26.6"></script>
+    <!-- success splash -->
+    <div class="ph-help-success" id="ph-help-success" style="display:none;">
+      <div class="ph-help-success-emoji">🐠</div>
+      <div class="ph-help-success-title">Message sent!</div>
+      <div class="ph-help-success-msg">Thanks for helping make Currents &amp; Critters better.</div>
+      <button class="ph-help-done-btn" id="ph-help-done">Back to the tide pool</button>
+    </div>
+
+    <div class="ph-help-bodies" id="ph-help-bodies">
+      <!-- ASK A QUESTION -->
+      <form class="ph-help-form active" data-help-form="question">
+        <label class="ph-help-l">What is your question?</label>
+        <textarea class="ph-help-in" id="hf-q-text" rows="3" maxlength="2000" required placeholder="Ask us anything…"></textarea>
+        <label class="ph-help-l">Category</label>
+        <select class="ph-help-in" id="hf-q-cat">
+          <option>Rules</option><option>Account</option><option>Store</option>
+          <option>Payment</option><option>Online Game</option><option>Physical Game</option>
+          <option>Cards / Abilities</option><option>Other</option>
+        </select>
+        <label class="ph-help-l">Your email (optional)</label>
+        <input class="ph-help-in" id="hf-q-email" type="email" placeholder="you@example.com">
+        <label class="ph-help-check"><input type="checkbox" id="hf-q-reply"> Can we reply to you?</label>
+        <button type="submit" class="ph-help-send">Send 🌊</button>
+      </form>
+
+      <!-- REPORT A BUG -->
+      <form class="ph-help-form" data-help-form="bug">
+        <label class="ph-help-l">What happened?</label>
+        <textarea class="ph-help-in" id="hf-b-what" rows="2" maxlength="2000" required placeholder="Describe the bug…"></textarea>
+        <label class="ph-help-l">What were you trying to do?</label>
+        <textarea class="ph-help-in" id="hf-b-trying" rows="2" maxlength="2000" placeholder="What you expected…"></textarea>
+        <label class="ph-help-l">What page or screen were you on?</label>
+        <input class="ph-help-in" id="hf-b-page" type="text" placeholder="e.g. Overview, a game, the store…">
+        <label class="ph-help-l">How serious is it?</label>
+        <select class="ph-help-in" id="hf-b-sev">
+          <option>Small issue</option><option>Annoying but playable</option>
+          <option>Game-breaking</option><option>Payment/account issue</option>
+        </select>
+        <label class="ph-help-l">Device type</label>
+        <select class="ph-help-in" id="hf-b-device">
+          <option>Phone</option><option>Tablet</option><option>Computer</option>
+        </select>
+        <label class="ph-help-l">Browser</label>
+        <input class="ph-help-in" id="hf-b-browser" type="text" placeholder="e.g. Safari, Chrome…">
+        <label class="ph-help-l">Screenshot (optional)</label>
+        <input class="ph-help-in" id="hf-b-shot" type="file" accept="image/*">
+        <label class="ph-help-l">Your email (optional)</label>
+        <input class="ph-help-in" id="hf-b-email" type="email" placeholder="you@example.com">
+        <button type="submit" class="ph-help-send">Send 🌊</button>
+      </form>
+
+      <!-- SUGGEST AN IDEA -->
+      <form class="ph-help-form" data-help-form="idea">
+        <label class="ph-help-l">What is your idea?</label>
+        <textarea class="ph-help-in" id="hf-i-text" rows="3" maxlength="2000" required placeholder="Share your idea…"></textarea>
+        <label class="ph-help-l">What part of the game does it affect?</label>
+        <select class="ph-help-in" id="hf-i-area">
+          <option>Cards</option><option>Rules</option><option>Store</option>
+          <option>Profile</option><option>Online Game</option><option>Competitive</option>
+          <option>Achievements</option><option>Cosmetics / Backgrounds</option>
+          <option>Physical Game</option><option>Other</option>
+        </select>
+        <label class="ph-help-l">Why would this make the game better?</label>
+        <textarea class="ph-help-in" id="hf-i-why" rows="2" maxlength="2000" placeholder="Tell us why…"></textarea>
+        <label class="ph-help-l">Your email (optional)</label>
+        <input class="ph-help-in" id="hf-i-email" type="email" placeholder="you@example.com">
+        <button type="submit" class="ph-help-send">Send 🌊</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="/js/preview-app.js?v=2026-06-28.1"></script>
+
+<script src="/js/challenge-of-challenges.js?v=2026-06-28.1"></script>
+
+<script src="/js/hidden-cephalopods.js?v=2026-06-28.1"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -2580,13 +2674,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/current-controller.js?v=2026-06-26.6"></script>
+<script src="/js/current-controller.js?v=2026-06-28.1"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/tutorials.js?v=2026-06-26.6"></script>
+<script src="/js/tutorials.js?v=2026-06-28.1"></script>
 </body>
 </html>
