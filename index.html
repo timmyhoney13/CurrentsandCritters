@@ -123,8 +123,52 @@
   }
   .impact-band.big-impact .label { font-size: 13px; margin-top: 8px; }
 
+  /* Donation goal bar - sits between the live impact stats and the supporter tiers. */
+  .donation-goal { max-width: 720px; margin: 0 auto; text-align: center; }
+  .donation-goal-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .donation-goal-label {
+    font-family: var(--font-body);
+    font-weight: 800;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--glow);
+  }
+  .donation-goal-amount {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 16px;
+    color: #fff;
+  }
+  .donation-goal-track {
+    height: 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(93, 214, 247, 0.25);
+    overflow: hidden;
+  }
+  .donation-goal-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--brand-cyan) 0%, var(--brand-mint) 100%);
+  }
+  .donation-goal-note {
+    margin: 12px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.72);
+  }
+  .donation-goal-note strong { color: #fff; }
+
   /* Supporter tier intro - short header above the three tier cards. */
-  .tier-intro { text-align: center; max-width: 720px; margin: 56px auto 24px; }
+  .tier-intro { text-align: center; max-width: 720px; margin: 40px auto 24px; }
   .tier-intro .eyebrow {
     display: inline-block;
     padding: 6px 14px;
@@ -510,6 +554,17 @@
       </div>
     </div>
 
+    <div class="donation-goal">
+      <div class="donation-goal-head">
+        <span class="donation-goal-label">★ Donation Goal</span>
+        <span class="donation-goal-amount">$20,000</span>
+      </div>
+      <div class="donation-goal-track">
+        <div class="donation-goal-fill"></div>
+      </div>
+      <p class="donation-goal-note">If we hit our <strong>$20,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
+    </div>
+
     <div class="tier-intro">
       <span class="eyebrow">★ Supporter Tiers</span>
       <h3>Every tier makes a ripple.</h3>
@@ -590,10 +645,7 @@
           <li><span class="perk-main">Personal thank-you email</span></li>
           <li><span class="perk-main">Unlock all backgrounds</span></li>
           <li><span class="perk-main">Exclusive Fish Icon</span></li>
-          <li>
-            <span class="perk-main">Free physical copy of Currents &amp; Critters</span>
-            <span class="perk-sub">Ships when production wraps</span>
-          </li>
+          <li><span class="perk-main">Free physical copy of Currents &amp; Critters</span></li>
           <li><span class="perk-main">Thank-you postcard</span></li>
           <li><span class="perk-main">Exclusive Amberjack player icon</span></li>
           <li class="perk-xp-row">
