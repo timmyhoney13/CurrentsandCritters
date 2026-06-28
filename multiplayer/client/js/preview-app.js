@@ -17,13 +17,13 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-28.1";
+  const APP_BUILD   = "2026-06-28.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
     { ver: "V1.6.3", title: "Help & Feedback button", items: [
       "Added a Help & Feedback button in the top-right corner (next to the chat icon) that opens a friendly tide-pool themed panel.",
-      "Ask a Question, Report a Bug or Suggest an Idea — your message goes straight to the Currents & Critters team, with your username and details attached automatically when you're signed in.",
+      "Pick Ask a Question, Report a Bug or Suggest an Idea — each opens a quick form and your answers come straight to the Currents & Critters team.",
     ]},
     { ver: "V1.6.3", title: "End Game: everyone really gets their final turn", items: [
       "Fixed a bug where the player who drew the END GAME card (on the second of their two draws) could be skipped and never get their own final turn — now every player, including the one who revealed it, always gets one full final turn.",
@@ -18397,181 +18397,32 @@
 
     // ── Help & Feedback modal ──────────────────────────────────────
     // Top-right help button → friendly ocean-themed modal with three
-    // tabs (Ask a Question / Report a Bug / Suggest an Idea). On submit
-    // we (1) best-effort save to a Firestore "feedback" collection for the
-    // admin (currentsandcritters@gmail.com) to review, and (2) open the
-    // player's mail client pre-addressed to currentsandcritters@gmail.com.
+    // cards. Each card is a link to its own Google Form (Ask a Question /
+    // Report a Bug / Suggest an Idea) that the player fills out; the form
+    // responses go to the Currents & Critters team. The card <a> tags
+    // handle the navigation themselves (target="_blank"); the JS just
+    // opens/closes the modal and dismisses it once a form is launched.
     (function wireHelpFeedback() {
       const modal   = $a("ph-help-modal");
       const openBtn = $a("stats-help-btn");
       if (!modal || !openBtn) return;
-      const closeBtn  = $a("ph-help-close");
-      const doneBtn   = $a("ph-help-done");
-      const successEl = $a("ph-help-success");
-      const bodiesEl  = $a("ph-help-bodies");
-      const tabs  = Array.from(modal.querySelectorAll(".ph-help-tab"));
-      const forms = Array.from(modal.querySelectorAll(".ph-help-form"));
+      const closeBtn = $a("ph-help-close");
+      const cards    = Array.from(modal.querySelectorAll(".ph-help-card"));
 
-      const SEND_TO = "currentsandcritters@gmail.com";
-      const META = {
-        question: "Currents & Critters Question",
-        bug:      "Currents & Critters Bug Report",
-        idea:     "Currents & Critters Idea",
-      };
-
-      function showTab(name) {
-        tabs.forEach(t => t.classList.toggle("active", t.dataset.helpTab === name));
-        forms.forEach(f => f.classList.toggle("active", f.dataset.helpForm === name));
-      }
-      function prefillEmail() {
-        const em = (_authUser && _authUser.email) || "";
-        if (!em) return;
-        ["hf-q-email", "hf-b-email", "hf-i-email"].forEach(id => {
-          const el = $a(id); if (el && !el.value) el.value = em;
-        });
-      }
-      function openModal() {
-        showTab("question");
-        if (successEl) successEl.style.display = "none";
-        if (bodiesEl)  bodiesEl.style.display  = "";
-        prefillEmail();
-        modal.classList.add("open");
-      }
+      function openModal()  { modal.classList.add("open"); }
       function closeModal() { modal.classList.remove("open"); }
 
       openBtn.addEventListener("click", openModal);
       if (closeBtn) closeBtn.addEventListener("click", closeModal);
-      if (doneBtn)  doneBtn.addEventListener("click", closeModal);
       modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && modal.classList.contains("open")) closeModal();
       });
-      tabs.forEach(t => t.addEventListener("click", () => showTab(t.dataset.helpTab)));
-
-      function currentScreen() {
-        try {
-          const active = document.querySelector("[data-tab].active");
-          const tab = active ? active.dataset.tab : "";
-          return (tab ? tab + " · " : "") + location.pathname + location.search;
-        } catch (_) { return location.href; }
-      }
-      function browserName() {
-        const ua = navigator.userAgent || "";
-        if (/Edg\//.test(ua))      return "Edge";
-        if (/OPR\//.test(ua))      return "Opera";
-        if (/Chrome\//.test(ua))   return "Chrome";
-        if (/Firefox\//.test(ua))  return "Firefox";
-        if (/Safari\//.test(ua))   return "Safari";
-        return "Unknown";
-      }
-      function gather(type) {
-        if (type === "question") return {
-          question: ($a("hf-q-text").value || "").trim(),
-          category: $a("hf-q-cat").value,
-          contactEmail: ($a("hf-q-email").value || "").trim(),
-          canReply: $a("hf-q-reply").checked,
-        };
-        if (type === "bug") return {
-          whatHappened: ($a("hf-b-what").value || "").trim(),
-          whatTrying: ($a("hf-b-trying").value || "").trim(),
-          page: ($a("hf-b-page").value || "").trim(),
-          severity: $a("hf-b-sev").value,
-          deviceType: $a("hf-b-device").value,
-          browser: ($a("hf-b-browser").value || "").trim(),
-          screenshotName: (($a("hf-b-shot").files || [])[0] || {}).name || "",
-          contactEmail: ($a("hf-b-email").value || "").trim(),
-        };
-        return {
-          idea: ($a("hf-i-text").value || "").trim(),
-          area: $a("hf-i-area").value,
-          why: ($a("hf-i-why").value || "").trim(),
-          contactEmail: ($a("hf-i-email").value || "").trim(),
-        };
-      }
-      function buildBody(type, d, ctx) {
-        const L = [];
-        if (type === "question") {
-          L.push("QUESTION:", d.question, "", "Category: " + d.category,
-                 "Can we reply? " + (d.canReply ? "Yes" : "No"));
-        } else if (type === "bug") {
-          L.push("WHAT HAPPENED:", d.whatHappened, "",
-                 "WHAT THEY WERE TRYING TO DO:", d.whatTrying || "(not provided)", "",
-                 "PAGE / SCREEN: " + (d.page || "(not provided)"),
-                 "SEVERITY: " + d.severity,
-                 "DEVICE TYPE: " + d.deviceType,
-                 "BROWSER (reported): " + (d.browser || "(not provided)"));
-          if (d.screenshotName) L.push("SCREENSHOT (attach manually): " + d.screenshotName);
-        } else {
-          L.push("IDEA:", d.idea, "", "AFFECTS: " + d.area, "",
-                 "WHY IT'S BETTER:", d.why || "(not provided)");
-        }
-        L.push("", "──────────────",
-               "Player: " + ctx.username,
-               "User ID: " + ctx.uid,
-               "Account email: " + ctx.accountEmail,
-               "Contact email: " + (d.contactEmail || "(none)"),
-               "Screen: " + ctx.screen,
-               "Device / Browser: " + ctx.deviceBrowser,
-               "Sent: " + ctx.timestamp);
-        return L.join("\n");
-      }
-
-      forms.forEach(form => {
-        form.addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const type = form.dataset.helpForm;
-          const sendBtn = form.querySelector(".ph-help-send");
-          if (sendBtn) sendBtn.disabled = true;
-          const d = gather(type);
-          const subject = META[type] || "Currents & Critters Feedback";
-          const ctx = {
-            username: _playerNickname || (_authUser && _authUser.displayName) || "Guest",
-            uid: (_authUser && _authUser.uid) || "(guest / not signed in)",
-            accountEmail: (_authUser && _authUser.email) || "(none)",
-            screen: currentScreen(),
-            deviceBrowser: browserName() + " · " + (navigator.userAgent || ""),
-            timestamp: new Date().toISOString(),
-          };
-          const body = buildBody(type, d, ctx);
-
-          // (1) Best-effort save for the admin to review. Wrapped so a
-          //     Firestore rules rejection never blocks the email send.
-          try {
-            if (_db && typeof firebase !== "undefined" && firebase.firestore) {
-              await _db.collection("feedback").add({
-                type, subject, data: d,
-                username: ctx.username,
-                uid: (_authUser && _authUser.uid) || null,
-                accountEmail: (_authUser && _authUser.email) || null,
-                contactEmail: d.contactEmail || null,
-                screen: ctx.screen,
-                userAgent: navigator.userAgent || "",
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-              });
-            }
-          } catch (err) {
-            console.warn("[help] feedback save skipped:", err && err.message);
-          }
-
-          // (2) Deliver to the inbox via the player's mail client.
-          try {
-            const url = "mailto:" + SEND_TO
-              + "?subject=" + encodeURIComponent(subject)
-              + "&body=" + encodeURIComponent(body);
-            const a = document.createElement("a");
-            a.href = url; a.style.display = "none";
-            document.body.appendChild(a); a.click(); a.remove();
-          } catch (err) {
-            console.warn("[help] mailto failed:", err && err.message);
-          }
-
-          // Friendly success splash.
-          form.reset();
-          if (bodiesEl)  bodiesEl.style.display  = "none";
-          if (successEl) successEl.style.display = "";
-          if (sendBtn)   sendBtn.disabled = false;
-        });
-      });
+      // Once the player opens a form (in a new tab), close the modal so the
+      // home screen is clean when they switch back.
+      cards.forEach(card => card.addEventListener("click", () => {
+        setTimeout(closeModal, 60);
+      }));
     })();
 
     // Guest notice sign-in link

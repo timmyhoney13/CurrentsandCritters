@@ -54,7 +54,7 @@
     })();
   </script>
 
-  <script src="/js/error-logging.js?v=2026-06-28.1"></script>
+  <script src="/js/error-logging.js?v=2026-06-28.2"></script>
 
   <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-28.1" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-28.2" />
 </head>
 <body>
 
@@ -77,7 +77,7 @@
   <button type="button" class="cc-device-half cc-device-mobile"
           data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
 </div>
-<script src="/js/device-select.js?v=2026-06-28.1"></script>
+<script src="/js/device-select.js?v=2026-06-28.2"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
 <div id="cc-fs-splash">
@@ -2519,89 +2519,50 @@
       </div>
     </div>
 
-    <div class="ph-help-tabs" role="tablist">
-      <button class="ph-help-tab active" data-help-tab="question" role="tab">🐚 Ask a Question</button>
-      <button class="ph-help-tab" data-help-tab="bug" role="tab">🐛 Report a Bug</button>
-      <button class="ph-help-tab" data-help-tab="idea" role="tab">💡 Suggest an Idea</button>
+    <div class="ph-help-cards" id="ph-help-cards">
+      <a class="ph-help-card ph-help-card-q" data-help-link="question"
+         href="https://docs.google.com/forms/d/e/1FAIpQLSdlPe_UO6fwOeE72XqgJHcaWMfDmOZmLCRWdsoNQrumr8Mluw/viewform"
+         target="_blank" rel="noopener noreferrer">
+        <span class="ph-help-card-emoji" aria-hidden="true">🐚</span>
+        <span class="ph-help-card-txt">
+          <span class="ph-help-card-title">Ask a Question</span>
+          <span class="ph-help-card-desc">Rules, account, store, cards &amp; more</span>
+        </span>
+        <span class="ph-help-card-arrow" aria-hidden="true">›</span>
+      </a>
+
+      <a class="ph-help-card ph-help-card-b" data-help-link="bug"
+         href="https://docs.google.com/forms/d/e/1FAIpQLScb0pBrZ1QP11o7171li3hbttRBCTH-Inw5Kq-s03Wl14-ZPQ/viewform"
+         target="_blank" rel="noopener noreferrer">
+        <span class="ph-help-card-emoji" aria-hidden="true">🐛</span>
+        <span class="ph-help-card-txt">
+          <span class="ph-help-card-title">Report a Bug</span>
+          <span class="ph-help-card-desc">Something not working right? Tell us.</span>
+        </span>
+        <span class="ph-help-card-arrow" aria-hidden="true">›</span>
+      </a>
+
+      <a class="ph-help-card ph-help-card-i" data-help-link="idea"
+         href="https://docs.google.com/forms/d/e/1FAIpQLSeSKDrrEbYuJXKLEJKBlWJHwYmseOG746JLBpyNBW3Xowbz6A/viewform"
+         target="_blank" rel="noopener noreferrer">
+        <span class="ph-help-card-emoji" aria-hidden="true">💡</span>
+        <span class="ph-help-card-txt">
+          <span class="ph-help-card-title">Suggest an Idea</span>
+          <span class="ph-help-card-desc">Got a cool idea to make the game better?</span>
+        </span>
+        <span class="ph-help-card-arrow" aria-hidden="true">›</span>
+      </a>
     </div>
 
-    <!-- success splash -->
-    <div class="ph-help-success" id="ph-help-success" style="display:none;">
-      <div class="ph-help-success-emoji">🐠</div>
-      <div class="ph-help-success-title">Message sent!</div>
-      <div class="ph-help-success-msg">Thanks for helping make Currents &amp; Critters better.</div>
-      <button class="ph-help-done-btn" id="ph-help-done">Back to the tide pool</button>
-    </div>
-
-    <div class="ph-help-bodies" id="ph-help-bodies">
-      <!-- ASK A QUESTION -->
-      <form class="ph-help-form active" data-help-form="question">
-        <label class="ph-help-l">What is your question?</label>
-        <textarea class="ph-help-in" id="hf-q-text" rows="3" maxlength="2000" required placeholder="Ask us anything…"></textarea>
-        <label class="ph-help-l">Category</label>
-        <select class="ph-help-in" id="hf-q-cat">
-          <option>Rules</option><option>Account</option><option>Store</option>
-          <option>Payment</option><option>Online Game</option><option>Physical Game</option>
-          <option>Cards / Abilities</option><option>Other</option>
-        </select>
-        <label class="ph-help-l">Your email (optional)</label>
-        <input class="ph-help-in" id="hf-q-email" type="email" placeholder="you@example.com">
-        <label class="ph-help-check"><input type="checkbox" id="hf-q-reply"> Can we reply to you?</label>
-        <button type="submit" class="ph-help-send">Send 🌊</button>
-      </form>
-
-      <!-- REPORT A BUG -->
-      <form class="ph-help-form" data-help-form="bug">
-        <label class="ph-help-l">What happened?</label>
-        <textarea class="ph-help-in" id="hf-b-what" rows="2" maxlength="2000" required placeholder="Describe the bug…"></textarea>
-        <label class="ph-help-l">What were you trying to do?</label>
-        <textarea class="ph-help-in" id="hf-b-trying" rows="2" maxlength="2000" placeholder="What you expected…"></textarea>
-        <label class="ph-help-l">What page or screen were you on?</label>
-        <input class="ph-help-in" id="hf-b-page" type="text" placeholder="e.g. Overview, a game, the store…">
-        <label class="ph-help-l">How serious is it?</label>
-        <select class="ph-help-in" id="hf-b-sev">
-          <option>Small issue</option><option>Annoying but playable</option>
-          <option>Game-breaking</option><option>Payment/account issue</option>
-        </select>
-        <label class="ph-help-l">Device type</label>
-        <select class="ph-help-in" id="hf-b-device">
-          <option>Phone</option><option>Tablet</option><option>Computer</option>
-        </select>
-        <label class="ph-help-l">Browser</label>
-        <input class="ph-help-in" id="hf-b-browser" type="text" placeholder="e.g. Safari, Chrome…">
-        <label class="ph-help-l">Screenshot (optional)</label>
-        <input class="ph-help-in" id="hf-b-shot" type="file" accept="image/*">
-        <label class="ph-help-l">Your email (optional)</label>
-        <input class="ph-help-in" id="hf-b-email" type="email" placeholder="you@example.com">
-        <button type="submit" class="ph-help-send">Send 🌊</button>
-      </form>
-
-      <!-- SUGGEST AN IDEA -->
-      <form class="ph-help-form" data-help-form="idea">
-        <label class="ph-help-l">What is your idea?</label>
-        <textarea class="ph-help-in" id="hf-i-text" rows="3" maxlength="2000" required placeholder="Share your idea…"></textarea>
-        <label class="ph-help-l">What part of the game does it affect?</label>
-        <select class="ph-help-in" id="hf-i-area">
-          <option>Cards</option><option>Rules</option><option>Store</option>
-          <option>Profile</option><option>Online Game</option><option>Competitive</option>
-          <option>Achievements</option><option>Cosmetics / Backgrounds</option>
-          <option>Physical Game</option><option>Other</option>
-        </select>
-        <label class="ph-help-l">Why would this make the game better?</label>
-        <textarea class="ph-help-in" id="hf-i-why" rows="2" maxlength="2000" placeholder="Tell us why…"></textarea>
-        <label class="ph-help-l">Your email (optional)</label>
-        <input class="ph-help-in" id="hf-i-email" type="email" placeholder="you@example.com">
-        <button type="submit" class="ph-help-send">Send 🌊</button>
-      </form>
-    </div>
+    <div class="ph-help-foot">Opens a quick form — your answers come straight to the Currents &amp; Critters team. 🐠</div>
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-28.1"></script>
+<script src="/js/preview-app.js?v=2026-06-28.2"></script>
 
-<script src="/js/challenge-of-challenges.js?v=2026-06-28.1"></script>
+<script src="/js/challenge-of-challenges.js?v=2026-06-28.2"></script>
 
-<script src="/js/hidden-cephalopods.js?v=2026-06-28.1"></script>
+<script src="/js/hidden-cephalopods.js?v=2026-06-28.2"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -2674,13 +2635,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/current-controller.js?v=2026-06-28.1"></script>
+<script src="/js/current-controller.js?v=2026-06-28.2"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/tutorials.js?v=2026-06-28.1"></script>
+<script src="/js/tutorials.js?v=2026-06-28.2"></script>
 </body>
 </html>

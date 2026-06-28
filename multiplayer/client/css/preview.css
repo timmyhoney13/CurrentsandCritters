@@ -10181,59 +10181,43 @@
     }
     .ph-help-title { font-size: 1.32rem; font-weight: 900; color: #0d3a78; line-height: 1.1; }
     .ph-help-sub { font-size: .86rem; font-weight: 700; color: #3f78bb; margin-top: 3px; }
-    .ph-help-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-    .ph-help-tab {
-      flex: 1 1 auto; min-width: 0; padding: 9px 8px; border-radius: 12px;
-      border: 1px solid rgba(34,120,240,.22); background: rgba(255,255,255,.62);
-      color: #2c598c; font-size: .82rem; font-weight: 800; cursor: pointer;
-      transition: transform .12s, background .12s, border-color .12s, box-shadow .12s; white-space: nowrap;
+    /* Three tappable cards — each opens its own Google Form in a new tab */
+    .ph-help-cards { display: flex; flex-direction: column; gap: 11px; }
+    .ph-help-card {
+      display: flex; align-items: center; gap: 13px; text-decoration: none;
+      padding: 14px 15px; border-radius: 16px; cursor: pointer;
+      background: rgba(255,255,255,.74); border: 1px solid rgba(34,120,240,.20);
+      box-shadow: 0 4px 14px rgba(26,90,180,.10);
+      transition: transform .13s, box-shadow .13s, border-color .13s, background .13s;
     }
-    .ph-help-tab:hover { transform: translateY(-1px); background: rgba(255,255,255,.85); }
-    .ph-help-tab.active {
-      background: linear-gradient(135deg,#2d8be0,#1e63b8); color: #fff;
-      border-color: transparent; box-shadow: 0 6px 16px rgba(26,90,180,.28);
+    .ph-help-card:hover {
+      transform: translateY(-2px); background: #fff;
+      border-color: rgba(45,139,224,.5); box-shadow: 0 10px 24px rgba(26,90,180,.20);
     }
-    .ph-help-form { display: none; flex-direction: column; }
-    .ph-help-form.active { display: flex; }
-    .ph-help-l { font-size: .82rem; font-weight: 800; color: #1c4878; margin: 12px 0 5px; }
-    .ph-help-form > .ph-help-l:first-child { margin-top: 0; }
-    .ph-help-in {
-      width: 100%; box-sizing: border-box; font-family: inherit; font-size: .9rem; color: #143a66;
-      background: rgba(255,255,255,.86); border: 1px solid rgba(34,120,240,.26);
-      border-radius: 12px; padding: 10px 12px; transition: border-color .12s, box-shadow .12s;
+    .ph-help-card:focus-visible { outline: 3px solid rgba(45,139,224,.45); outline-offset: 2px; }
+    .ph-help-card-emoji {
+      font-size: 26px; width: 50px; height: 50px; flex-shrink: 0; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg,rgba(120,190,235,.28),rgba(45,139,224,.16));
+      border: 1px solid rgba(34,120,240,.16);
     }
-    textarea.ph-help-in { resize: vertical; line-height: 1.4; }
-    .ph-help-in:focus { outline: none; border-color: #2d8be0; box-shadow: 0 0 0 3px rgba(45,139,224,.18); }
-    .ph-help-check {
-      display: flex; align-items: center; gap: 8px; margin-top: 12px;
-      font-size: .85rem; font-weight: 700; color: #2c598c; cursor: pointer;
-    }
-    .ph-help-check input { width: 17px; height: 17px; accent-color: #2d8be0; }
-    .ph-help-send {
-      margin-top: 18px; padding: 12px 16px; border: none; border-radius: 14px; cursor: pointer;
-      font-size: .98rem; font-weight: 900; color: #fff; letter-spacing: .01em;
-      background: linear-gradient(135deg,#34c0e8,#1e7fc8 55%,#1860b8);
-      box-shadow: 0 8px 22px rgba(20,100,200,.34); transition: transform .12s, box-shadow .12s;
-    }
-    .ph-help-send:hover { transform: translateY(-1px); box-shadow: 0 12px 26px rgba(20,100,200,.40); }
-    .ph-help-send:disabled { opacity: .6; cursor: default; transform: none; }
-    .ph-help-success { text-align: center; padding: 24px 6px 8px; }
-    .ph-help-success-emoji { font-size: 56px; margin-bottom: 6px; animation: phHelpBob 2.4s ease-in-out infinite; }
-    @keyframes phHelpBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-    .ph-help-success-title { font-size: 1.3rem; font-weight: 900; color: #0d3a78; }
-    .ph-help-success-msg { font-size: .92rem; font-weight: 700; color: #3f78bb; margin: 6px 0 18px; }
-    .ph-help-done-btn {
-      padding: 11px 22px; border: none; border-radius: 13px; cursor: pointer;
-      font-size: .92rem; font-weight: 900; color: #fff;
-      background: linear-gradient(135deg,#2d8be0,#1e63b8); box-shadow: 0 8px 20px rgba(26,90,180,.30);
+    .ph-help-card-b .ph-help-card-emoji { background: linear-gradient(135deg,rgba(255,170,120,.30),rgba(240,120,90,.18)); border-color: rgba(230,120,80,.22); }
+    .ph-help-card-i .ph-help-card-emoji { background: linear-gradient(135deg,rgba(120,225,180,.30),rgba(70,200,150,.18)); border-color: rgba(60,190,140,.22); }
+    .ph-help-card-txt { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+    .ph-help-card-title { font-size: 1.04rem; font-weight: 900; color: #0d3a78; line-height: 1.15; }
+    .ph-help-card-desc { font-size: .82rem; font-weight: 600; color: #4d7bb0; margin-top: 2px; }
+    .ph-help-card-arrow { font-size: 1.5rem; font-weight: 900; color: #6aa0d6; flex-shrink: 0; transition: transform .13s; }
+    .ph-help-card:hover .ph-help-card-arrow { transform: translateX(3px); color: #2d8be0; }
+    .ph-help-foot {
+      margin-top: 16px; text-align: center; font-size: .8rem; font-weight: 700;
+      color: #4d7bb0; line-height: 1.4;
     }
     @media (max-width: 560px) {
       #ph-help-modal { padding: 10px; align-items: flex-start; }
       .ph-help-box { max-height: 92vh; padding: 18px 16px 20px; border-radius: 18px; margin-top: 8px; }
       .ph-help-title { font-size: 1.18rem; }
-      .ph-help-tabs { gap: 6px; }
-      .ph-help-tab { flex: 1 1 100%; padding: 10px; font-size: .85rem; }
-      .ph-help-send { padding: 14px; font-size: 1rem; }
+      .ph-help-card { padding: 15px 14px; }
+      .ph-help-card-title { font-size: 1.06rem; }
     }
     .ph-season-modal-box {
       background: linear-gradient(160deg,#f0f8ff 0%,#e8f4fd 100%);
