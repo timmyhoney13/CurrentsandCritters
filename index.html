@@ -35,6 +35,46 @@
     margin-left: 4px;
   }
   .oldsite-bar a:hover { color: #fff; border-bottom-color: #fff; }
+  /* ── BETA ANNOUNCEMENT BAR ───────────────────────────────────────── */
+  .beta-bar {
+    position: relative;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: linear-gradient(90deg, #0a8fb8 0%, #16a36b 100%);
+    color: #f3fffb;
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-align: center;
+    padding: 9px 18px;
+    box-shadow: 0 2px 14px rgba(10, 143, 184, 0.35);
+  }
+  .beta-bar .beta-tag {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .beta-bar a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+    padding-bottom: 1px;
+  }
+  .beta-bar a:hover { border-bottom-color: #fff; opacity: 0.92; }
+  @media (max-width: 520px) { .beta-bar { font-size: 12px; padding: 8px 14px; } }
   /* Crosscurrent thumbs are the printed landscape cards - opt out of the 1:1
      square and give them a darker swell background so they stand apart from
      the live critter portraits. */
@@ -240,6 +280,14 @@
 </head>
 <body>
 
+<!-- ============ BETA ANNOUNCEMENT BAR ============ -->
+<div class="beta-bar">
+  <span class="beta-tag">🌊 Now in Beta</span>
+  <span>Beta testing is now available for the online game —
+    <a href="https://currentsandcritters-1.onrender.com/">Play Free Online →</a>
+  </span>
+</div>
+
 <!-- ============ NAV ============ -->
 <nav class="nav">
   <a class="brand" href="index.html">
@@ -253,7 +301,7 @@
     <a href="score.html">Snap &amp; Score</a>
     <a href="#sponsor">Partner</a>
   </div>
-  <a class="nav-cta" href="shop.html">Buy the Game →</a>
+  <a class="nav-cta" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
 </nav>
 
 <!-- ============ HERO ============ -->
@@ -284,7 +332,7 @@
     <p class="lead">Create vibrant ocean ecosystems, discover powerful card combinations, and outmaneuver your opponents before the END&nbsp;GAME card surfaces. Easy to learn, deep to master, and designed to help support ocean conservation with every game.</p>
     <div class="ctas">
       <a class="btn btn-mint btn-lg" href="https://currentsandcritters-1.onrender.com/">▶ Play Online Free</a>
-      <a class="btn btn-primary btn-lg" href="shop.html">Buy the Game - $24.99</a>
+      <a class="btn btn-primary btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">🐚 Join the Email List</a>
       <a class="btn btn-outline btn-lg" href="#how">Learn the Rules</a>
     </div>
 
@@ -571,7 +619,7 @@
       </div>
       <div class="cta-buttons">
         <a class="btn btn-mint btn-lg" href="mailto:currentsandcritters@gmail.com?subject=Partner with Currents %26 Critters">Partner With Us →</a>
-        <a class="btn btn-outline btn-lg" href="shop.html">Buy the Game - $24.99</a>
+        <a class="btn btn-outline btn-lg" data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List →</a>
       </div>
     </div>
   </div>
@@ -595,7 +643,7 @@
     <div>
       <h5>The Box</h5>
       <ul>
-        <li><a href="shop.html">Buy - $24.99</a></li>
+        <li><a data-email-list href="mailto:currentsandcritters@gmail.com?subject=Add%20me%20to%20the%20email%20list">Join the Email List</a></li>
         <li><a href="#critters">Meet the Critters</a></li>
         <li><a href="#oceans">Eight Oceans</a></li>
       </ul>
@@ -870,6 +918,24 @@ window.addEventListener('scroll', () => {
 
   refreshRenderStats();
   setInterval(refreshRenderStats, 60000);
+})();
+</script>
+
+<!-- ============ EMAIL-LIST SIGNUP TARGET ============ -->
+<script>
+// Single source of truth for the "Join the Email List" links. Paste the
+// public Google Form link for the email list below and every signup button
+// (hero, nav, Our Story band, footer) will point at it. Until a real form
+// URL is set, the buttons fall back to a pre-addressed email so the signup
+// is never a dead link.
+(function () {
+  const EMAIL_LIST_FORM_URL = ''; // e.g. 'https://docs.google.com/forms/d/e/XXXX/viewform'
+  if (!EMAIL_LIST_FORM_URL) return; // keep the mailto fallback already in the HTML
+  document.querySelectorAll('[data-email-list]').forEach(function (a) {
+    a.href = EMAIL_LIST_FORM_URL;
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener noreferrer');
+  });
 })();
 </script>
 
