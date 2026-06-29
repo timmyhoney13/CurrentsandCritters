@@ -89,10 +89,13 @@
   <div class="ccfs-stage">
     <img class="ccfs-bg" src="/fullscreen-splash.png?v=2026-06-29.3" alt="Currents &amp; Critters — your game is ready" />
     <button id="ccfs-play" class="ccfs-play" type="button" aria-label="Play Currents and Critters in full screen"></button>
-    <div class="ccfs-foot">
-      <div id="ccfs-status" class="ccfs-status" aria-live="polite"></div>
-      <button id="ccfs-window" class="ccfs-window" type="button" aria-label="Continue playing without full screen">Continue in this window</button>
-    </div>
+  </div>
+  <!-- Foot sits OUTSIDE .ccfs-stage: the stage now covers the page and clips its
+       overflow, so anchoring the status + fallback link to #cc-fs-splash (the
+       viewport) keeps them on-screen at the bottom no matter the window shape. -->
+  <div class="ccfs-foot">
+    <div id="ccfs-status" class="ccfs-status" aria-live="polite"></div>
+    <button id="ccfs-window" class="ccfs-window" type="button" aria-label="Continue playing without full screen">Continue in this window</button>
   </div>
 </div>
 <button id="cc-fs-resume" type="button" title="Return to full screen" aria-label="Return to full screen">⛶ Return to full screen</button>

@@ -143,11 +143,11 @@
   .donation-goal-amount {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 16px;
+    font-size: 22px;
     color: #fff;
   }
   .donation-goal-track {
-    height: 22px;
+    height: 30px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.10);
     border: 1.5px solid rgba(93, 214, 247, 0.4);
@@ -157,11 +157,20 @@
   .donation-goal-fill {
     height: 100%;
     width: 0%;
-    min-width: 22px;
+    min-width: 30px;
     border-radius: 999px;
     background: linear-gradient(90deg, var(--brand-cyan) 0%, var(--brand-mint) 100%);
     box-shadow: 0 0 10px rgba(93, 214, 247, 0.6);
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
   }
+  .donation-goal-remaining {
+    margin: 12px 0 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--brand-mint);
+  }
+  .donation-goal-remaining strong { color: #fff; }
   .donation-goal-note {
     margin: 12px 0 0;
     font-size: 13.5px;
@@ -560,11 +569,12 @@
     <div class="donation-goal">
       <div class="donation-goal-head">
         <span class="donation-goal-label">★ Donation Goal</span>
-        <span class="donation-goal-amount">$0 / $20,000</span>
+        <span class="donation-goal-amount"><span data-donation="raised">$0</span> / <span data-donation="goal">$20,000</span></span>
       </div>
       <div class="donation-goal-track">
         <div class="donation-goal-fill"></div>
       </div>
+      <p class="donation-goal-remaining"><strong data-donation="remaining">$20,000</strong> left to reach the goal</p>
       <p class="donation-goal-note">If we hit our <strong>$20,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
     </div>
 
@@ -580,7 +590,7 @@
       <div class="tier">
         <div class="head">
           <div class="name">Wave Warrior</div>
-          <div class="price">$10-$24<small>/one-time</small></div>
+          <div class="price">$15<small>/one-time</small></div>
         </div>
         <p class="desc">Support Currents &amp; Critters at the easiest entry level and help launch the first wave.</p>
         <ul class="perks">
@@ -606,7 +616,7 @@
         <div class="ribbon">Most Popular</div>
         <div class="head">
           <div class="name">Ocean Ally</div>
-          <div class="price">$25-$49<small>/one-time</small></div>
+          <div class="price">$35<small>/one-time</small></div>
         </div>
         <p class="desc">Join the first wave of supporters and help bring Currents &amp; Critters to life.</p>
         <ul class="perks">
@@ -944,6 +954,27 @@ updateBetaBarClear();
   setStatEl('games',   FLOOR_GAMES,   false);
   setStatEl('players', FLOOR_PLAYERS, false);
   setStatEl('online',  0,             false);
+
+  // ── Donation goal ──────────────────────────────────────────────
+  // 2% of every game sold supports ocean conservation. No sales yet, so the
+  // honest, accurate raised amount is $0. Update DONATED (or wire it to a
+  // server field) once real donations come in and the bar fills automatically.
+  const DONATION_GOAL = 20000;
+  const DONATED       = 0;
+  setStatEl('donated', DONATED, false);
+  (function renderDonationGoal() {
+    const raised    = document.querySelector('[data-donation="raised"]');
+    const goal      = document.querySelector('[data-donation="goal"]');
+    const remaining = document.querySelector('[data-donation="remaining"]');
+    const fill      = document.querySelector('.donation-goal-fill');
+    const left      = Math.max(0, DONATION_GOAL - DONATED);
+    if (raised)    raised.textContent    = '$' + DONATED.toLocaleString();
+    if (goal)      goal.textContent      = '$' + DONATION_GOAL.toLocaleString();
+    if (remaining) remaining.textContent = '$' + left.toLocaleString();
+    if (fill)      requestAnimationFrame(() => {
+      fill.style.width = Math.min(100, (DONATED / DONATION_GOAL) * 100) + '%';
+    });
+  })();
 
   async function refreshOnlinePlayers() {
     try {

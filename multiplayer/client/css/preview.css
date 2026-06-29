@@ -4803,8 +4803,12 @@
       position: fixed; inset: 0; z-index: 2147483000;
       background-color: #0a1d3a;
       background-image: url("/choose-device.png?v=1");
-      background-size: contain;
-      background-position: center;
+      /* Fill the whole page (no letterbox bars). `cover` keeps the art's
+         aspect ratio and crops the overflow; anchoring to the TOP keeps the
+         "CURRENTS & CRITTERS" title + the device octagon fully visible and
+         only trims the decorative sea-floor at the bottom on wide screens. */
+      background-size: cover;
+      background-position: center top;
       background-repeat: no-repeat;
       display: flex;
       overflow: hidden;
@@ -4812,6 +4816,13 @@
       -webkit-user-select: none; user-select: none;
     }
     #cc-device-screen.cc-device-hidden { display: none !important; }
+    /* The art is 4:3. On wider viewports `cover` (above) fills the page. On
+       viewports narrower/taller than the art (portrait phones) `cover` would
+       crop the title + COMPUTER/MOBILE labels off the sides, so show the whole
+       artwork instead — letterboxed against the deep-ocean background color. */
+    @media (max-aspect-ratio: 4 / 3) {
+      #cc-device-screen { background-size: contain; background-position: center; }
+    }
     /* Two equal, full-height click/tap targets. Transparent by default so
        the painted COMPUTER / MOBILE buttons show through unchanged. */
     .cc-device-half {
@@ -4892,22 +4903,33 @@
        full screen, so launching feels like opening a desktop game. */
     #cc-fs-splash {
       display: none; position: fixed; inset: 0; z-index: 100000;
-      /* Ocean tone matching the artwork's edges (bright up top → deep blue
-         below) so any letterbox bars around the square splash blend in. */
+      overflow: hidden;
+      /* Ocean tone matching the artwork (bright up top → deep blue below). The
+         art now fills the page, so this only shows for the brief fade-in /
+         before the image decodes. */
       background: linear-gradient(180deg, #02a6fb 0%, #0072e8 46%, #0030a3 100%);
       align-items: center; justify-content: center; text-align: center;
       font-family: "Nunito", sans-serif; color: #f5ede0;
     }
     #cc-fs-splash.show { display: flex; animation: dwm-fade-in .2s ease; }
     /* Square stage locked to the baked art's 1:1 ratio (fullscreen-splash.png
-       is 1254×1254) and centered, so the invisible Play overlay always lines
-       up with the painted button no matter the window's shape. */
+       is 1254×1254) and centered. Sized to max(100vw,100vh) so the square
+       COVERS the whole page (the overflow is clipped by #cc-fs-splash) instead
+       of letterboxing — and because the Play overlay below is positioned as a
+       % of this square, it still lines up with the painted button exactly. */
     .ccfs-stage {
       position: relative;
-      width: min(100vw, 100vh);
-      height: min(100vw, 100vh);
+      width: max(100vw, 100vh);
+      height: max(100vw, 100vh);
       aspect-ratio: 1 / 1;
       overflow: hidden;
+    }
+    /* Portrait phones are narrower than the square art, so covering would crop
+       the title's sides. There, fit the square to the width (the gradient
+       behind matches the art edges). The Play overlay is a % of this square, so
+       it stays aligned with the painted button at either size. */
+    @media (max-aspect-ratio: 1 / 1) {
+      .ccfs-stage { width: min(100vw, 100vh); height: min(100vw, 100vh); }
     }
     .ccfs-bg {
       position: absolute; inset: 0; width: 100%; height: 100%;

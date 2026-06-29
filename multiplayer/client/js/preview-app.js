@@ -13170,7 +13170,7 @@
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
   // Cosmetic backgrounds that render behind your avatar everywhere it appears.
-  // One per in-game ocean. $2.50 each — unlocked by entering a donation code.
+  // One per in-game ocean. $0.99 each — unlocked by entering a donation code.
   const EXCLUSIVE_BACKGROUNDS = [
     { id:"bg-kelp",           name:"Kelp Forest",      img:"/backgrounds/bg-kelp.png",            facts:"Golden kelp swaying in sunlit green water." },
     { id:"bg-coral-reef",     name:"Coral Reef",       img:"/backgrounds/bg-coral-reef.png",      facts:"A vivid coral garden bursting with color." },
@@ -14590,7 +14590,7 @@
       if (!unlocked) {
         html += `<div class="gal-detail-reqbox">`;
         html += `<div class="gal-req-label">Unlock Requirement</div>`;
-        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($2.50 per background)</div>`;
+        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($0.99 per background)</div>`;
         html += `</div>`;
       }
 
@@ -18541,14 +18541,14 @@
           if (!box) return;
           if (isBundle) {
             nameEl.textContent = "All Backgrounds Bundle";
-            priceEl.textContent = "$15.00";
+            priceEl.textContent = "$4.99";
             previewEl.style.display = "none";
             infoEl.textContent = "Get all 8 exclusive ocean backgrounds for one low price. After purchasing, enter your unlock code to redeem each background.";
           } else {
             const bg = _BG_BY_ID[bgOrBundle];
             if (!bg) return;
             nameEl.textContent = bg.name;
-            priceEl.textContent = "$2.50";
+            priceEl.textContent = "$0.99";
             previewEl.src = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
             previewEl.alt = bg.name;
             previewEl.style.display = "";
@@ -18656,10 +18656,10 @@
         html += `<div class="phst-hero">
           <div class="phst-hero-text">
             <div class="phst-hero-title">All Backgrounds Bundle</div>
-            <div class="phst-hero-sub">Own all ${all.length} exclusive ocean scenes — Kelp Forest, Coral Reef, Arctic, Deep Ocean &amp; more — for one low price.</div>
+            <div class="phst-hero-sub">Own all ${all.length} exclusive ocean backgrounds for one low price.</div>
           </div>
           <div class="phst-hero-right">
-            <div class="phst-bundle-price">$15.00</div>`;
+            <div class="phst-bundle-price">$4.99</div>`;
         if (allOwned) {
           html += `<div class="phst-hero-owned">✓ All Owned</div>`;
         } else {
@@ -18677,7 +18677,7 @@
               <div class="phst-card-name">${esc(bg.name)}</div>
               <div class="phst-card-fact">${esc(bg.facts || "")}</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price">$2.50</div>`;
+                <div class="phst-card-price">$0.99</div>`;
           if (owned) {
             html += `<div class="phst-card-owned">✓ Owned</div>`;
           } else {
