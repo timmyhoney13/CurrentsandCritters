@@ -147,9 +147,12 @@ def bump_firestore_games_played(n=1):
         return
     try:
         from firebase_admin import firestore
+        Increment = getattr(firestore, "Increment", None)
+        if Increment is None:  # older SDKs expose it only on the v1 module
+            from google.cloud.firestore_v1 import Increment
         coll, doc = FIRESTORE_STATS_DOC
         db.collection(coll).document(doc).set(
-            {"games_played": firestore.Increment(n)}, merge=True
+            {"games_played": Increment(n)}, merge=True
         )
         # Reflect the bump immediately instead of waiting for the cache TTL.
         if isinstance(_LIVE_COUNTS_CACHE.get("games"), int):
