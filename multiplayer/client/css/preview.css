@@ -4816,12 +4816,14 @@
       -webkit-user-select: none; user-select: none;
     }
     #cc-device-screen.cc-device-hidden { display: none !important; }
-    /* The art is ~16:9 (1672×941). On wider viewports `cover` (above) fills
-       the page. On viewports narrower/taller than the art (portrait phones)
-       `cover` would crop the title + COMPUTER/MOBILE labels off the sides, so
-       show the whole artwork instead — letterboxed against the deep-ocean
-       background color. */
-    @media (max-aspect-ratio: 1672 / 941) {
+    /* The art is ~16:9 (1672×941). `cover` (above) fills the page on EVERY
+       landscape screen — including 16:10 / 16:9 laptops and 4:3 — keeping the
+       art's aspect ratio and trimming only the decorative reef edges. The
+       functional content (title, octagon, COMPUTER / MOBILE labels) sits in the
+       centre, so it stays on-screen. Only on genuine portrait (taller than
+       wide) would `cover` crop the labels off the sides, so there we show the
+       whole artwork instead — letterboxed against the deep-ocean background. */
+    @media (max-aspect-ratio: 1 / 1) {
       #cc-device-screen { background-size: contain; background-position: center; }
     }
     /* Two equal, full-height click/tap targets. Transparent by default so
@@ -4920,16 +4922,21 @@
        % of this box, it still lines up with the painted button exactly. */
     .ccfs-stage {
       position: relative;
+      /* #cc-fs-splash is a flex row; without this the flex layout would shrink
+         the stage back to 100vw and the cover math collapses to a letterbox.
+         flex:0 0 auto keeps the over-sized (cover) box so the overflow clips. */
+      flex: 0 0 auto;
       width: max(100vw, calc(100vh * 1672 / 941));
       height: max(100vh, calc(100vw * 941 / 1672));
       aspect-ratio: 1672 / 941;
       overflow: hidden;
     }
-    /* Portrait phones are narrower (relatively) than the wide art, so covering
-       would crop the title's sides. There, fit the box to the width (the
-       gradient behind matches the art edges). The Play overlay is a % of this
-       box, so it stays aligned with the painted button at either size. */
-    @media (max-aspect-ratio: 1672 / 941) {
+    /* The cover sizing above fills EVERY landscape screen (16:10 / 16:9 / 4:3),
+       trimming only the art's edges. Only on genuine portrait (taller than
+       wide) do we fit the box to the width instead (the gradient behind matches
+       the art edges) so the title isn't cropped off the sides. The Play overlay
+       is a % of this box, so it stays aligned with the painted button either way. */
+    @media (max-aspect-ratio: 1 / 1) {
       .ccfs-stage {
         width: min(100vw, calc(100vh * 1672 / 941));
         height: min(100vh, calc(100vw * 941 / 1672));
