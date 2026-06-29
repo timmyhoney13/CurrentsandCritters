@@ -4803,12 +4803,14 @@
       position: fixed; inset: 0; z-index: 2147483000;
       background-color: #0a1d3a;
       background-image: url("/choose-device.png?v=2");
-      /* Fill the whole page (no letterbox bars). `cover` keeps the art's
-         aspect ratio and crops the overflow; anchoring to the TOP keeps the
-         "CURRENTS & CRITTERS" title + the device octagon fully visible and
-         only trims the decorative sea-floor at the bottom on wide screens. */
-      background-size: cover;
-      background-position: center top;
+      /* Stretch the art to fill the page EXACTLY: no letterbox bars and nothing
+         cropped off any edge (the whole title, octagon and COMPUTER / MOBILE
+         labels always show). The art is ~16:9, so on near-16:9 / 16:10 windows
+         the stretch is a couple-percent and imperceptible; it only grows on
+         extreme ratios. `cover` was cropping the bottom on wider-than-16:9
+         windows, which is what we're fixing. */
+      background-size: 100% 100%;
+      background-position: center;
       background-repeat: no-repeat;
       display: flex;
       overflow: hidden;
@@ -4816,13 +4818,11 @@
       -webkit-user-select: none; user-select: none;
     }
     #cc-device-screen.cc-device-hidden { display: none !important; }
-    /* The art is ~16:9 (1672×941). `cover` (above) fills the page on EVERY
-       landscape screen — including 16:10 / 16:9 laptops and 4:3 — keeping the
-       art's aspect ratio and trimming only the decorative reef edges. The
-       functional content (title, octagon, COMPUTER / MOBILE labels) sits in the
-       centre, so it stays on-screen. Only on genuine portrait (taller than
-       wide) would `cover` crop the labels off the sides, so there we show the
-       whole artwork instead — letterboxed against the deep-ocean background. */
+    /* On genuine portrait (taller than wide — e.g. a phone held upright)
+       stretching a wide image to fill would squish it badly, so there we keep
+       the art's aspect ratio and letterbox it against the deep-ocean
+       background instead. Landscape (every computer / sideways phone) uses the
+       100%×100% fill above. */
     @media (max-aspect-ratio: 1 / 1) {
       #cc-device-screen { background-size: contain; background-position: center; }
     }
@@ -4915,27 +4915,23 @@
       font-family: "Nunito", sans-serif; color: #f5ede0;
     }
     #cc-fs-splash.show { display: flex; animation: dwm-fade-in .2s ease; }
-    /* Stage locked to the baked art's ratio (fullscreen-splash.png is
-       1672×941, ~1.78:1) and centered. Sized so the box COVERS the whole
-       page (the overflow is clipped by #cc-fs-splash) instead of
-       letterboxing — and because the Play overlay below is positioned as a
-       % of this box, it still lines up with the painted button exactly. */
+    /* Stage = the whole viewport; the art (.ccfs-bg) stretches to fill it
+       exactly, so the splash NEVER letterboxes and NOTHING is cropped off any
+       edge. Because the Play overlay is positioned as a % of this box (= the
+       viewport = the stretched art), it still lines up with the painted button.
+       flex:0 0 auto stops the flex row from shrinking the box. */
     .ccfs-stage {
       position: relative;
-      /* #cc-fs-splash is a flex row; without this the flex layout would shrink
-         the stage back to 100vw and the cover math collapses to a letterbox.
-         flex:0 0 auto keeps the over-sized (cover) box so the overflow clips. */
       flex: 0 0 auto;
-      width: max(100vw, calc(100vh * 1672 / 941));
-      height: max(100vh, calc(100vw * 941 / 1672));
-      aspect-ratio: 1672 / 941;
+      width: 100vw;
+      height: 100vh;
       overflow: hidden;
     }
-    /* The cover sizing above fills EVERY landscape screen (16:10 / 16:9 / 4:3),
-       trimming only the art's edges. Only on genuine portrait (taller than
-       wide) do we fit the box to the width instead (the gradient behind matches
-       the art edges) so the title isn't cropped off the sides. The Play overlay
-       is a % of this box, so it stays aligned with the painted button either way. */
+    /* On genuine portrait (taller than wide) stretching the wide art would
+       squish it badly, so there we keep the art's ratio and fit it to the width
+       (letterboxed against the gradient). The stage becomes the art's exact box,
+       so object-fit:fill below introduces no distortion and the Play overlay,
+       still a % of this box, stays aligned with the painted button. */
     @media (max-aspect-ratio: 1 / 1) {
       .ccfs-stage {
         width: min(100vw, calc(100vh * 1672 / 941));
@@ -4944,7 +4940,7 @@
     }
     .ccfs-bg {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: contain; display: block;
+      object-fit: fill; display: block;
       user-select: none; -webkit-user-drag: none; pointer-events: none;
     }
     /* Invisible click target sitting exactly over the painted
@@ -7402,6 +7398,49 @@
       box-shadow: none;
     }
     .phst-seasonal .phst-card-buy:hover { filter: none; transform: none; }
+
+    /* Small USD sub-label shown under a coin price */
+    .phst-price-usd { display: block; font-size: .66rem; font-weight: 700; color: #8a93b0; margin-top: 1px; }
+    .phst-card-price { line-height: 1.05; }
+    .phst-bundle-price { line-height: 1.05; text-align: right; }
+    .phst-bundle-price .phst-price-usd { color: rgba(255,255,255,.85); }
+
+    /* Critter Coins packs */
+    .phst-coin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 14px; margin-bottom: 8px;
+    }
+    .phst-coin-pack {
+      position: relative;
+      background: linear-gradient(165deg, rgba(255,250,235,.95) 0%, rgba(255,241,205,.92) 100%);
+      border: 1px solid rgba(230,190,90,.55);
+      border-radius: 14px; padding: 16px 14px 14px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      box-shadow: 0 3px 14px rgba(180,140,30,.14);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .phst-coin-pack:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(180,140,30,.24); }
+    .phst-coin-best { border-color: rgba(240,150,60,.8); box-shadow: 0 4px 18px rgba(230,140,40,.3); }
+    .phst-coin-badge {
+      position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(120deg,#ff9a3c,#ff7a45);
+      color: #fff; font-size: .58rem; font-weight: 900; letter-spacing: .6px;
+      padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(220,110,40,.35);
+    }
+    .phst-coin-ico { font-size: 2rem; line-height: 1; }
+    .phst-coin-amt { font-size: 1.35rem; font-weight: 900; color: #a9690a; }
+    .phst-coin-amt-label { font-size: .68rem; font-weight: 700; color: #b08a3a; margin-top: -3px; }
+    .phst-coin-bonus { font-size: .72rem; font-weight: 800; color: #1d9a6c; margin: 2px 0 8px; }
+    .phst-coin-buy {
+      width: 100%; font-size: .9rem; font-weight: 900; color: #fff;
+      background: linear-gradient(120deg,#f0a93c 0%,#e8862a 100%);
+      border: none; border-radius: 9px; padding: 8px 0; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(220,130,40,.32);
+      transition: filter .12s, transform .1s;
+    }
+    .phst-coin-buy:hover { filter: brightness(1.07); transform: translateY(-1px); }
 
     /* Purchase modal (light frosted ocean) */
     #phst-modal {

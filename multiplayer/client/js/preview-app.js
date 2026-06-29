@@ -17,10 +17,14 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.3";
+  const APP_BUILD   = "2026-06-29.4";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "Critter Coins in the Store", items: [
+      "Introduced Critter Coins — the in-game currency, priced at $1 = 1,000 coins. Buy coin packs with an escalating bonus: $5 → 5,250 (+5%), $10 → 11,500 (+15%), $20 → 25,000 (+25%, best value).",
+      "Every shop item now shows its Critter Coin price: backgrounds are 1,000 coins ($1.00) each, the All Backgrounds bundle is 4,990 coins ($4.99), and seasonal skins will be 2,500 coins ($2.50).",
+    ]},
     { ver: "V1.6.3", title: "Help & Feedback button", items: [
       "Added a Help & Feedback button in the top-right corner (next to the chat icon) that opens a friendly tide-pool themed panel.",
       "Pick Ask a Question, Report a Bug or Suggest an Idea — each opens a quick form and your answers come straight to the Currents & Critters team.",
@@ -13170,7 +13174,7 @@
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
   // Cosmetic backgrounds that render behind your avatar everywhere it appears.
-  // One per in-game ocean. $0.99 each — unlocked by entering a donation code.
+  // One per in-game ocean. $1.00 (1,000 Critter Coins) each — unlocked by entering a donation code.
   const EXCLUSIVE_BACKGROUNDS = [
     { id:"bg-kelp",           name:"Kelp Forest",      img:"/backgrounds/bg-kelp.png",            facts:"Golden kelp swaying in sunlit green water." },
     { id:"bg-coral-reef",     name:"Coral Reef",       img:"/backgrounds/bg-coral-reef.png",      facts:"A vivid coral garden bursting with color." },
@@ -14590,7 +14594,7 @@
       if (!unlocked) {
         html += `<div class="gal-detail-reqbox">`;
         html += `<div class="gal-req-label">Unlock Requirement</div>`;
-        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($0.99 per background)</div>`;
+        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($1.00 / 1,000 Critter Coins per background)</div>`;
         html += `</div>`;
       }
 
@@ -18541,14 +18545,14 @@
           if (!box) return;
           if (isBundle) {
             nameEl.textContent = "All Backgrounds Bundle";
-            priceEl.textContent = "$4.99";
+            priceEl.textContent = `${phstFmtCoins(phstCoins(4.99))} 🪙 · $4.99`;
             previewEl.style.display = "none";
             infoEl.textContent = "Get all 8 exclusive ocean backgrounds for one low price. After purchasing, enter your unlock code to redeem each background.";
           } else {
             const bg = _BG_BY_ID[bgOrBundle];
             if (!bg) return;
             nameEl.textContent = bg.name;
-            priceEl.textContent = "$0.99";
+            priceEl.textContent = `${phstFmtCoins(phstCoins(1))} 🪙 · $1.00`;
             previewEl.src = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
             previewEl.alt = bg.name;
             previewEl.style.display = "";
@@ -18618,12 +18622,26 @@
         window._phstOpenModal = _phstOpenModal;
       })();
 
-      // Seasonal teaser line-up (Coming Soon — no purchasing yet).
+      // Seasonal teaser line-up (Coming Soon — no purchasing yet). Holiday skins are $2.50 → 2,500 coins.
       const PHST_SEASONAL = [
         { name:"Summer Tide",     emoji:"🏖️", grad:"linear-gradient(135deg,#ffd86b,#ff9a6b)" },
         { name:"Spooky Abyss",    emoji:"🎃", grad:"linear-gradient(135deg,#7a3fb0,#2a1840)" },
         { name:"Winter Frost",    emoji:"❄️", grad:"linear-gradient(135deg,#a8e6ff,#5b8fd6)" },
         { name:"Spring Bloom",    emoji:"🌸", grad:"linear-gradient(135deg,#ffc7e0,#8fd6a0)" },
+      ];
+
+      // ── Critter Coins ($CC) economy ───────────────────────────────────
+      // Base rate: $1 = 1,000 coins (1 coin = $0.001). Items are priced at par;
+      // cash packs give an escalating bonus on top (Scheme A — the gentle curve).
+      const PHST_COIN_RATE = 1000; // coins per US dollar
+      const phstCoins = (usd) => Math.round(usd * PHST_COIN_RATE); // item price in coins at base rate
+      const phstFmtCoins = (n) => Number(n).toLocaleString("en-US");
+      // Scheme A coin packs: amount = base coins + escalating bonus %.
+      const PHST_COIN_PACKS = [
+        { usd: 1,  coins: 1000,  bonus: 0  },
+        { usd: 5,  coins: 5250,  bonus: 5  },
+        { usd: 10, coins: 11500, bonus: 15 },
+        { usd: 20, coins: 25000, bonus: 25, best: true },
       ];
 
       function renderPhStore() {
@@ -18651,7 +18669,24 @@
           <div id="phst-code-msg"></div>
         </div>`;
 
-        // 2) Backgrounds section — bundle hero + grid
+        // 2) Critter Coins packs — buy the in-game currency (Scheme A rates)
+        html += `<div class="phst-section-title">🪙 Critter Coins<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-sub">The coins you spend in the shop. Bigger packs include a bonus — $1 = 1,000 coins.</div>`;
+        html += `<div class="phst-coin-grid">`;
+        for (const p of PHST_COIN_PACKS) {
+          html += `<div class="phst-coin-pack${p.best ? " phst-coin-best" : ""}">
+            ${p.best ? `<div class="phst-coin-badge">BEST VALUE</div>` : ""}
+            <div class="phst-coin-ico">🪙</div>
+            <div class="phst-coin-amt">${phstFmtCoins(p.coins)}</div>
+            <div class="phst-coin-amt-label">Critter Coins</div>
+            <div class="phst-coin-bonus">${p.bonus > 0 ? `+${p.bonus}% bonus` : "Base rate"}</div>
+            <button class="phst-coin-buy" onclick="window._phstBuyCoins(${p.usd})">$${p.usd.toFixed(2)}</button>
+          </div>`;
+        }
+        html += `</div>`;
+
+        // 3) Backgrounds section — bundle hero + grid ($1 each → 1,000 coins)
+        const bundleCoins = phstCoins(4.99);
         html += `<div class="phst-section-title">🌊 Exclusive Backgrounds<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-hero">
           <div class="phst-hero-text">
@@ -18659,7 +18694,7 @@
             <div class="phst-hero-sub">Own all ${all.length} exclusive ocean backgrounds for one low price.</div>
           </div>
           <div class="phst-hero-right">
-            <div class="phst-bundle-price">$4.99</div>`;
+            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} 🪙<span class="phst-price-usd">$4.99</span></div>`;
         if (allOwned) {
           html += `<div class="phst-hero-owned">✓ All Owned</div>`;
         } else {
@@ -18677,7 +18712,7 @@
               <div class="phst-card-name">${esc(bg.name)}</div>
               <div class="phst-card-fact">${esc(bg.facts || "")}</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price">$0.99</div>`;
+                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} 🪙<span class="phst-price-usd">$1.00</span></div>`;
           if (owned) {
             html += `<div class="phst-card-owned">✓ Owned</div>`;
           } else {
@@ -18687,7 +18722,7 @@
         }
         html += `</div>`;
 
-        // 3) Seasonal section — Coming Soon teasers
+        // 4) Seasonal section — Coming Soon teasers ($2.50 each → 2,500 coins)
         html += `<div class="phst-section-title">✨ Seasonal Exclusives<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">Limited-time skins that wash in with each season. Check back soon!</div>`;
         html += `<div class="phst-grid">`;
@@ -18702,7 +18737,7 @@
               <div class="phst-card-name">${esc(s.name)}</div>
               <div class="phst-card-fact">A limited seasonal skin — arriving soon.</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price" style="color:#8a93b0;">— —</div>
+                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} 🪙<span class="phst-price-usd">$2.50</span></div>
                 <button class="phst-card-buy" disabled>Coming Soon</button>
               </div>
             </div>
@@ -18740,6 +18775,16 @@
         }
       }
       window.renderPhStore = renderPhStore;
+
+      // Coin-pack purchase — wallet/checkout backend not wired yet, so show a toast.
+      window._phstBuyCoins = function (usd) {
+        const pack = PHST_COIN_PACKS.find(p => p.usd === usd);
+        const coins = pack ? phstFmtCoins(pack.coins) : "";
+        const msg = coins
+          ? `Critter Coins are coming soon — ${coins} coins for $${Number(usd).toFixed(2)}!`
+          : "Critter Coins are coming soon!";
+        if (typeof showToast === "function") showToast(msg, "info");
+      };
 
       // Daily streak XP formula: 75 + (day-1)*0.25, cap at day 730
       (function initStreakCard() {
