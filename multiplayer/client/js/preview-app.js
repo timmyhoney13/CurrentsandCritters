@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-28.3";
+  const APP_BUILD   = "2026-06-29.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -13628,7 +13628,11 @@
 
     // Launch screen state machine (reuses #auth-step-launch).
     //   "ready"   → returning / just-authenticated: big “Open Game” button.
-    //   "running" → window opened: “Return to Game” + “Relaunch Game”.
+    //   "running" → window opened: “Return to Game” + “Relaunch Game”. Also
+    //               auto-focuses the game window so the launcher tab never
+    //               sits on this card by itself — it just jumps you back to
+    //               whatever the game window is showing (e.g. the full-screen
+    //               prompt). The launcher tab itself is never closed.
     //   "blocked" → pop-up blocked: retry “Open Game” + “Continue in this window”.
     function ccSetLaunchScreen(state, opts) {
       opts = opts || {};
@@ -13655,6 +13659,7 @@
         if (primary) { primary.textContent = "↩ Return to Game"; primary.dataset.action = "return"; primary.style.display = ""; }
         if (second)  { second.textContent  = "🔁 Relaunch Game"; second.style.display = ""; }
         if (cont)    cont.style.display = "none";
+        focusGameWindow();
       } else if (state === "blocked") {
         if (greet) greet.textContent = "Your browser blocked the game window";
         if (sub)   sub.textContent   = "Allow pop-ups for this site, then tap below to open Currents & Critters.";
@@ -16735,7 +16740,8 @@
             // it automatically; if the browser blocks the gesture-less pop-up we
             // fall back to the "ready" screen whose Open Game button is a gesture.
             // If the window is already open (e.g. a token-refresh re-fires this
-            // callback), just show "running" — never re-open or steal focus.
+            // callback), don't re-open it — just show "running", which itself
+            // re-focuses the existing game window (see ccSetLaunchScreen).
             _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
             let _gw = (_ccGameWin && !_ccGameWin.closed) ? _ccGameWin : launchGameWindow(_ccLaunchCtx.gameUrl);
             ccSetLaunchScreen(_gw ? "running" : "ready", { nick, avatarUrl });
