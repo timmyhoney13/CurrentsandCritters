@@ -60,10 +60,12 @@ GAMES_LEADERBOARD_PATH = os.path.join(GAMES_HISTORY_DIR, "leaderboard.json")
 STATS_PATH = str(
     os.environ.get("FISH_STATS_PATH", os.path.join(ROOM_STATE_DIR, "site_stats.json"))
 ).strip() or os.path.join(ROOM_STATE_DIR, "site_stats.json")
-# Hardcoded historical baseline — ensures the counter never shows 0 even if env vars
-# are not synced to the Render dashboard.  The env var acts as an override/increase only.
-_STATS_SEED_GAMES_FLOOR   = 80
-_STATS_SEED_PLAYERS_FLOOR = 10
+# Hardcoded historical baseline — the current real totals, so the counter never
+# shows a stale/low number even if the Render env vars aren't synced. Applied as a
+# floor only: real Firestore counts (registered) and the live games counter climb
+# above this and are never lowered by it.
+_STATS_SEED_GAMES_FLOOR   = 101
+_STATS_SEED_PLAYERS_FLOOR = 18
 STATS_SEED_GAMES   = max(_STATS_SEED_GAMES_FLOOR,   max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0")))
 STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0")))
 
@@ -76,11 +78,19 @@ STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("F
 # account JSON (or GOOGLE_APPLICATION_CREDENTIALS to a file path). If neither
 # is set, the server falls back to its stored counters and online stays 0.
 FIREBASE_PRESENCE_FRESH_SEC = 5 * 60      # match the client's 90s ping + margin
+# Firestore doc that holds the cross-deploy "games played" counter. The Render
+# disk has historically failed to accumulate game-history files (a redeploy or
+# disk reset leaves /api/history/games empty), which left games_played frozen at
+# the seed. Firestore is the same store that already serves the exact registered
+# count and is proven to persist, so the games counter lives here too: every
+# finished game atomically increments it and /api/stats reads it back, so the
+# marketing number survives redeploys and always climbs.
+FIRESTORE_STATS_DOC = ("meta", "site_stats")   # collection, document
 _FIRESTORE_DB = None
 _FIRESTORE_INIT_DONE = False
 _FIRESTORE_LOCK = threading.Lock()
 # Cache live counts so a burst of /api/stats hits doesn't hammer Firestore.
-_LIVE_COUNTS_CACHE = {"at": 0.0, "registered": None, "online": None}
+_LIVE_COUNTS_CACHE = {"at": 0.0, "registered": None, "online": None, "games": None}
 _LIVE_COUNTS_TTL_SEC = 30.0
 
 
@@ -114,11 +124,63 @@ def _get_firestore():
         return _FIRESTORE_DB
 
 
-def _fetch_live_user_counts():
-    """(registered, online) straight from Firestore, or (None, None) if unavailable."""
+def _fetch_firestore_games_played(db):
+    """Persisted games_played from the Firestore stats doc, or None if absent."""
+    try:
+        coll, doc = FIRESTORE_STATS_DOC
+        snap = db.collection(coll).document(doc).get()
+        if snap.exists:
+            val = (snap.to_dict() or {}).get("games_played")
+            if isinstance(val, (int, float)):
+                return int(val)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] firestore games_played read failed: {exc}")
+    return None
+
+
+def bump_firestore_games_played(n=1):
+    """Atomically add n to the persisted games_played counter (no-op if Firebase
+    isn't configured). Called once per finished game so the marketing counter
+    keeps climbing even across Render redeploys / disk resets."""
     db = _get_firestore()
     if db is None:
-        return None, None
+        return
+    try:
+        from firebase_admin import firestore
+        coll, doc = FIRESTORE_STATS_DOC
+        db.collection(coll).document(doc).set(
+            {"games_played": firestore.Increment(n)}, merge=True
+        )
+        # Reflect the bump immediately instead of waiting for the cache TTL.
+        if isinstance(_LIVE_COUNTS_CACHE.get("games"), int):
+            _LIVE_COUNTS_CACHE["games"] += n
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] firestore games_played increment failed: {exc}")
+
+
+def seed_firestore_games_played(floor):
+    """Ensure the persisted games_played counter is at least `floor` (apply the
+    historical baseline once, never lowering a real, higher count)."""
+    db = _get_firestore()
+    if db is None or floor <= 0:
+        return
+    try:
+        current = _fetch_firestore_games_played(db) or 0
+        if current < floor:
+            coll, doc = FIRESTORE_STATS_DOC
+            db.collection(coll).document(doc).set({"games_played": floor}, merge=True)
+            print(f"[stats] firestore games_played seeded to {floor}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] firestore games_played seed failed: {exc}")
+
+
+def _fetch_live_user_counts():
+    """(registered, online, games) straight from Firestore, or (None, None, None)
+    if unavailable. `games` is the persisted cross-deploy games_played counter."""
+    db = _get_firestore()
+    if db is None:
+        return None, None, None
+    games = _fetch_firestore_games_played(db)
     try:
         users = db.collection("users")
         # Exact account total via server-side aggregate count (no doc data read).
@@ -146,25 +208,32 @@ def _fetch_live_user_counts():
             la_sec = la.timestamp() if hasattr(la, "timestamp") else 0
             if la_sec >= fresh_after:
                 online += 1
-        return registered, online
+        return registered, online, games
     except Exception as exc:  # noqa: BLE001
         print(f"[stats] live user count query failed: {exc}")
-        return None, None
+        return None, None, games
 
 
 def get_live_user_counts():
-    """Cached (registered, online); refreshes at most every _LIVE_COUNTS_TTL_SEC."""
+    """Cached (registered, online, games); refreshes at most every
+    _LIVE_COUNTS_TTL_SEC. `games` is the persisted Firestore games_played."""
     now = time.time()
     if now - _LIVE_COUNTS_CACHE["at"] < _LIVE_COUNTS_TTL_SEC:
-        return _LIVE_COUNTS_CACHE["registered"], _LIVE_COUNTS_CACHE["online"]
-    registered, online = _fetch_live_user_counts()
+        return (_LIVE_COUNTS_CACHE["registered"],
+                _LIVE_COUNTS_CACHE["online"],
+                _LIVE_COUNTS_CACHE["games"])
+    registered, online, games = _fetch_live_user_counts()
     # Keep the last good values if a refresh fails transiently.
     if registered is not None:
         _LIVE_COUNTS_CACHE["registered"] = registered
     if online is not None:
         _LIVE_COUNTS_CACHE["online"] = online
+    if games is not None:
+        _LIVE_COUNTS_CACHE["games"] = games
     _LIVE_COUNTS_CACHE["at"] = now
-    return _LIVE_COUNTS_CACHE["registered"], _LIVE_COUNTS_CACHE["online"]
+    return (_LIVE_COUNTS_CACHE["registered"],
+            _LIVE_COUNTS_CACHE["online"],
+            _LIVE_COUNTS_CACHE["games"])
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
@@ -4532,6 +4601,13 @@ class GameRoom:
                         atomic_write_json(STATS_PATH, _stats)
                 except Exception as _se:
                     self._record_event(f"Stats games_played update warning: {_se}")
+                # Also bump the persisted Firestore counter so the marketing
+                # number survives Render redeploys / disk resets and keeps
+                # climbing as games finish.
+                try:
+                    bump_firestore_games_played(1)
+                except Exception as _fe:
+                    self._record_event(f"Firestore games_played bump warning: {_fe}")
             # Only count truncated games in leaderboard if they went a reasonable distance.
             if ended_normally or rounds_played >= 3:
                 self._update_history_leaderboard(player_details, winner_name)
@@ -6752,11 +6828,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             # real account list), when a service account is configured. Every
             # account has a Firestore user doc, so the live count is complete
             # and authoritative — use it directly. Falls back to the stored
-            # seen-uid counter / 0 when Firebase isn't configured.
-            live_registered, live_online = get_live_user_counts()
+            # seen-uid counter / 0 when Firebase isn't configured. The persisted
+            # Firestore games counter is folded in too so the games number keeps
+            # climbing even if the Render disk lost its game-history files.
+            live_registered, live_online, live_games = get_live_user_counts()
             if isinstance(live_registered, int) and live_registered >= 0:
                 registered_players = live_registered
             online_players = live_online if isinstance(live_online, int) and live_online >= 0 else 0
+            if isinstance(live_games, int) and live_games > games_played:
+                games_played = live_games
+            # Never report below the historical baseline.
+            if games_played < STATS_SEED_GAMES:
+                games_played = STATS_SEED_GAMES
             self._send_json({
                 "ok": True,
                 "games_played": games_played,
@@ -7585,6 +7668,12 @@ def main() -> None:
             print(f"Stats seeded: games_played={_existing['games_played']} registered_players={_existing['registered_players']}")
         except Exception as _se:
             print(f"Stats seed warning: {_se}")
+        # Mirror the games baseline into Firestore (the persistent source of
+        # truth) so /api/stats never drops below it after a redeploy.
+        try:
+            seed_firestore_games_played(STATS_SEED_GAMES)
+        except Exception as _fe:
+            print(f"Firestore stats seed warning: {_fe}")
 
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
 

@@ -922,10 +922,24 @@ updateBetaBarClear();
 // ── Live stats from Render server ────────────────────────────────
 (async () => {
   const RENDER_BASE = 'https://play.currentsandcritters.com';
-  // Historical baseline - shown immediately so the page never displays 0 or em-dashes.
-  // The server seed matches these values and will always return at least this much.
-  const FLOOR_GAMES   = 80;
-  const FLOOR_PLAYERS = 10;
+  // Current real baseline - shown immediately so the page never displays 0,
+  // em-dashes, or a stale low number while the Render free-tier server is waking
+  // up (a cold start can take ~30s, during which the fetch below hasn't returned
+  // yet). The server seed matches these values and always returns at least this
+  // much; the live fetch only ever revises them upward.
+  const FLOOR_GAMES   = 101;
+  const FLOOR_PLAYERS = 18;
+  // Remember the last real numbers the server gave THIS browser, so a returning
+  // visitor sees the true current counts instantly instead of the static floor
+  // while the server cold-starts. Cleared values are ignored.
+  const STATS_CACHE_KEY = 'cc_live_stats_v1';
+  function readCachedStats() {
+    try { return JSON.parse(localStorage.getItem(STATS_CACHE_KEY) || '{}') || {}; }
+    catch (_) { return {}; }
+  }
+  function writeCachedStats(obj) {
+    try { localStorage.setItem(STATS_CACHE_KEY, JSON.stringify(obj)); } catch (_) {}
+  }
 
   function animateTo(el, target, duration) {
     const start = performance.now();
@@ -947,10 +961,13 @@ updateBetaBarClear();
     animateTo(el, target, fast ? 600 : 1400);
   }
 
-  // Show floor values immediately so the page always has meaningful numbers
-  setStatEl('games',   FLOOR_GAMES,   false);
-  setStatEl('players', FLOOR_PLAYERS, false);
-  setStatEl('online',  0,             false);
+  // Show the last cached real numbers if we have them (returning visitor),
+  // otherwise the current baseline floors, so the page always has meaningful,
+  // non-decreasing numbers even before the live fetch returns.
+  const cached = readCachedStats();
+  setStatEl('games',   Math.max(FLOOR_GAMES,   Number(cached.games)   || 0), false);
+  setStatEl('players', Math.max(FLOOR_PLAYERS, Number(cached.players) || 0), false);
+  setStatEl('online',  Number(cached.online) || 0,                          false);
 
   // ── Donation goal ──────────────────────────────────────────────
   // 2% of every game sold supports ocean conservation. No sales yet, so the
@@ -993,9 +1010,11 @@ updateBetaBarClear();
       const liveGames    = Number(data.games_played);
       const livePlayers  = Number(data.registered_players);
       const liveOnline   = Number(data.online_players);
-      if (Number.isFinite(liveGames))   setStatEl('games',   liveGames,   true);
-      if (Number.isFinite(livePlayers)) setStatEl('players', livePlayers, true);
-      if (Number.isFinite(liveOnline))  setStatEl('online',  liveOnline,  true);
+      const saved = readCachedStats();
+      if (Number.isFinite(liveGames))   { setStatEl('games',   liveGames,   true); saved.games   = liveGames; }
+      if (Number.isFinite(livePlayers)) { setStatEl('players', livePlayers, true); saved.players = livePlayers; }
+      if (Number.isFinite(liveOnline))  { setStatEl('online',  liveOnline,  true); saved.online  = liveOnline; }
+      writeCachedStats(saved);
     } catch (_) { /* server sleeping - keep the latest visible values */ }
   }
 
