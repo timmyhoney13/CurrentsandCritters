@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.2";
+  const APP_BUILD   = "2026-06-29.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -13674,7 +13674,7 @@
         if (errEl)   errEl.textContent = opts.message || "";
       } else { // "ready"
         if (greet) greet.textContent = opts.nick ? ("Welcome back, " + opts.nick + "!") : "Ready to dive in!";
-        if (sub)   sub.textContent   = "Open Currents & Critters in its own game window.";
+        if (sub)   sub.textContent   = "Tap below to dive into Currents & Critters.";
         if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
         if (second)  second.style.display = "none";
         if (cont)    cont.style.display = "none";
@@ -13684,14 +13684,15 @@
       showStep("auth-step-launch");
     }
 
-    // Open the dedicated window from a REAL user gesture, then swap the launcher
-    // to the running screen (or the pop-up-blocked fallback).
+    // Go straight into the game in THIS tab — no separate pop-up window and no
+    // "running" hand-off card. The launcher tab navigates to the game-window URL
+    // (game_window=1), so it reloads as the real game window (reading the saved
+    // guest session or finishing Google auth) and shows the full-screen splash.
+    // Top-level navigation is never pop-up-blocked, so there is no blocked path.
     function ccLaunchFromLauncher(ctx) {
       _ccLaunchCtx = ctx;
-      const w = launchGameWindow(ctx.gameUrl);
-      if (w) ccSetLaunchScreen("running", { nick: ctx.nick, avatarUrl: ctx.avatarUrl });
-      else   ccSetLaunchScreen("blocked", { nick: ctx.nick, avatarUrl: ctx.avatarUrl,
-                                            message: "Pop-up blocked — click “Open Game” to try again." });
+      try { window.location.assign(ctx.gameUrl); }
+      catch (_) { window.location.href = ctx.gameUrl; }
     }
 
     function firebaseConfigured() {
@@ -16740,16 +16741,11 @@
                 avatarUrl = sanitizeSelectableAvatar(profile.avatar_url, user.uid) || "";
               }
             } catch (_) {}
-            // Signed in on the launcher. Open the dedicated window (it inherits
-            // this Firebase session via the copied sessionStorage). Try to open
-            // it automatically; if the browser blocks the gesture-less pop-up we
-            // fall back to the "ready" screen whose Open Game button is a gesture.
-            // If the window is already open (e.g. a token-refresh re-fires this
-            // callback), don't re-open it — just show "running", which itself
-            // re-focuses the existing game window (see ccSetLaunchScreen).
+            // Signed in on the launcher — go straight into the game in THIS tab
+            // (the Firebase session carries over via this tab's sessionStorage).
+            // No separate window, no "running" card.
             _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
-            let _gw = (_ccGameWin && !_ccGameWin.closed) ? _ccGameWin : launchGameWindow(_ccLaunchCtx.gameUrl);
-            ccSetLaunchScreen(_gw ? "running" : "ready", { nick, avatarUrl });
+            ccLaunchFromLauncher(_ccLaunchCtx);
           } else {
             _authUser = null;
             const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
