@@ -4515,20 +4515,46 @@ def opponent_strategy_snapshot(
         if opp is me:
             continue
         label, conf = infer_opponent_strategy(gs, ms, opp)
+        # Per-card board tallies + public pool-grab memory are tracked for EVERY
+        # opponent (even ones whose overall plan we can't read yet), because
+        # second-copy / pair denial keys off concrete copies of a single card,
+        # not the inferred strategy. Without this, "they grabbed one auk, board
+        # still empty" would be invisible to the blocker.
+        board_names_all = [gs.card_db[u].name.strip().lower() for u in player_board_face_uids(opp)]
+        board_name_counts: Dict[str, int] = {}
+        for n in board_names_all:
+            board_name_counts[n] = board_name_counts.get(n, 0) + 1
+        acquired = opp.flags.get("_pool_acquired")
+        acquired_counts = (
+            {str(k).strip().lower(): int(v) for k, v in acquired.items()}
+            if isinstance(acquired, dict) else {}
+        )
         fam = strategy_family_profile_by_label(label) if label != "unknown" else None
         if not isinstance(fam, dict):
             snapshot[opp.name] = {
                 "label": label, "confidence": 0.0,
                 "heavy_hitters": set(), "stack_engines": set(), "support_names": set(),
                 "have_heavy": 0, "have_engine": 0,
+                "board_name_counts": board_name_counts,
+                "acquired_counts": acquired_counts,
             }
             continue
         heavy   = {str(x).strip().lower() for x in fam.get("heavy_hitters", [])}
         engine  = {str(x).strip().lower() for x in fam.get("stack_engines", [])}
         support = {str(x).strip().lower() for x in fam.get("support_names", [])}
-        board_names = [gs.card_db[u].name.strip().lower() for u in player_board_face_uids(opp)]
+        board_names = board_names_all
         have_heavy = sum(1 for n in board_names if n in heavy)
         have_engine = sum(1 for n in board_names if n in engine)
+        # Count visibly-grabbed key pieces that aren't on the board yet toward
+        # "pieces they have" so the threat read accounts for cards in their hand.
+        for n, c in acquired_counts.items():
+            extra = max(0, c - board_name_counts.get(n, 0))
+            if extra <= 0:
+                continue
+            if n in heavy:
+                have_heavy += extra
+            elif n in engine:
+                have_engine += extra
         snapshot[opp.name] = {
             "label": label,
             "confidence": conf,
@@ -4537,6 +4563,8 @@ def opponent_strategy_snapshot(
             "support_names": support,
             "have_heavy": have_heavy,
             "have_engine": have_engine,
+            "board_name_counts": board_name_counts,
+            "acquired_counts": acquired_counts,
         }
     return snapshot
 
@@ -4548,6 +4576,46 @@ def refresh_opponent_snapshot(gs: GameState, ms: MatchState, player: PlayerState
         player.flags["_opp_snapshot"] = snap
     except Exception:
         player.flags["_opp_snapshot"] = {}
+
+
+# Cards whose *second copy* is a threat in its own right — pairs, self-stacks
+# and burst pieces — so the AI denies copy #2 even before an opponent's overall
+# plan is confidently read from the board. Kept deliberately small: the broader
+# strategy-family heavy-hitter/engine sets cover the rest, and over-listing here
+# would make bots hate-draft too aggressively (see the over-defense guard:
+# a draw only beats a real play if no play scores within 0.6 of it).
+_INTRINSIC_PAIR_STACK_CARDS = {
+    "razorbill auk",       # PAIR — a 2nd copy is one of the best two-card totals
+    "reef trigger fish",   # cephalopod burst that compounds per copy
+    "reef triggerfish",
+    "yellowfin tuna",      # stacks under Artificial Reef
+    "big eye tuna",        # scales per Yellowfin / grows the tuna engine
+    "bigeye tuna",
+    "lobster",             # stacks under Artificial Reef
+    "mantis shrimp",       # high-value multi-copy crustacean threat
+    "emperor penguin",     # boosts the whole bird package; duplicates compound
+    "mahi mahi",           # pelagic combo that scales per copy
+}
+
+
+def card_is_pair_or_stack_threat(card: CardDef) -> bool:
+    """True for cards whose *duplicate* is dangerous on its own (pairs, stacks,
+    bursts) — used to deny an opponent copy #2 the moment we see them take or
+    play copy #1, without ever reading their hidden hand."""
+    if card is None:
+        return False
+    nm = card.name.strip().lower()
+    if nm in _INTRINSIC_PAIR_STACK_CARDS:
+        return True
+    if can_share_slot(card):
+        return True
+    t = card.text.lower()
+    if "pair" in t:
+        return True
+    # "+N per <its own name>" style self-scaling (the card counts copies of itself).
+    if nm and ("per " + nm) in t:
+        return True
+    return False
 
 
 def pool_card_blocking_value(
@@ -4579,14 +4647,46 @@ def pool_card_blocking_value(
         nm = gs.card_db[face_uid].name.strip().lower()
         for opp_name, opp in snap.items():
             conf = float(opp.get("confidence", 0.0))
-            if conf < 0.20:
-                continue  # not enough signal — don't waste blocking power
             heavy   = opp.get("heavy_hitters", set())
             engine  = opp.get("stack_engines", set())
             support = opp.get("support_names", set())
             label   = str(opp.get("label", "")).strip().lower()
             have_heavy = int(opp.get("have_heavy", 0))
             have_engine = int(opp.get("have_engine", 0))
+            board_name_counts = opp.get("board_name_counts", {})
+            acquired_counts   = opp.get("acquired_counts", {})
+
+            # ── Second-copy / pair / stack denial ─────────────────────────
+            # How many of THIS exact card the opponent already has committed on
+            # board, OR was publicly seen grabbing from the pool (max of the two
+            # avoids double-counting a grabbed card they've since played). A
+            # matching copy is what makes the pair (Razorbill Auk = +3.2 once
+            # they hold one), extends the burst (a 3rd Reef Triggerfish on a
+            # cephalopod board) or grows a stack — so we deny those copies HARD.
+            copies_owned = max(
+                int(board_name_counts.get(nm, 0)),
+                int(acquired_counts.get(nm, 0)),
+            )
+            try:
+                card_obj = gs.card_db[face_uid]
+            except Exception:
+                card_obj = None
+            # A concrete duplicate threat: we SAW them take/commit copy #1 of a
+            # card whose duplicate is dangerous on its own (pair/stack/burst).
+            # This is the "they picked up an auk → don't let them get the second
+            # one" read — and it's signal enough even before their broader
+            # strategy is confidently inferred from the board.
+            intrinsic_dup = bool(
+                copies_owned >= 1
+                and card_obj is not None
+                and card_is_pair_or_stack_threat(card_obj)
+            )
+
+            # Confidence gate: normally skip opponents we can't read yet so we
+            # don't waste blocking power. A concrete second-copy threat bypasses
+            # the gate — grabbing copy #1 of a pair IS the read.
+            if conf < 0.20 and not intrinsic_dup:
+                continue
 
             base = 0.0
             if nm in heavy:
@@ -4595,11 +4695,22 @@ def pool_card_blocking_value(
                 base = 1.1
             elif nm in support:
                 base = 0.45
-            else:
+
+            if copies_owned >= 1 and (nm in heavy or nm in engine or intrinsic_dup):
+                dup = 1.5 if nm in heavy else (1.1 if nm in engine else 0.9)
+                # Each extra copy they already hold ramps the threat further
+                # (capped so a runaway board can't blow past the block cap).
+                dup *= 1.0 + 0.5 * min(2, copies_owned - 1)
+                base += dup
+
+            if base <= 0.0:
                 continue
 
-            # Scale by confidence (more signal → trust the read more).
-            value = base * (0.55 + 0.45 * conf)
+            # Scale by confidence (more signal → trust the read more). Floor the
+            # effective confidence for concrete duplicate threats so a thin board
+            # read can't zero out an obvious pair-denial.
+            eff_conf = max(conf, 0.45) if intrinsic_dup else conf
+            value = base * (0.55 + 0.45 * eff_conf)
 
             # Pieces-already-have multiplier: 0 pieces → 1.0×, 3+ pieces → 1.45×.
             pieces = have_heavy + have_engine
@@ -7476,6 +7587,31 @@ def draw_from_deck(gs: GameState, ms: MatchState, player: PlayerState, n: int) -
     return drew
 
 
+def _note_pool_acquired(gs: Optional["GameState"], player: PlayerState, uid: int) -> None:
+    """Publicly record that ``player`` just took card ``uid`` from the shared pool.
+
+    The pool is FACE-UP, so who-grabbed-what is information every opponent can
+    legitimately see at the table. The AI reads this (never the hidden hand) so
+    it can react to "they just picked up the first Razorbill Auk — deny them the
+    second copy" even before that card ever reaches their board. Best-effort:
+    silently no-ops if state is unavailable. See [opponent_strategy_snapshot]
+    and [pool_card_blocking_value], which consume this memory."""
+    if gs is None:
+        return
+    try:
+        card = gs.card_db.get(uid)
+        if card is None:
+            return
+        acq = player.flags.get("_pool_acquired")
+        if not isinstance(acq, dict):
+            acq = {}
+            player.flags["_pool_acquired"] = acq
+        nm = card.name.strip().lower()
+        acq[nm] = int(acq.get(nm, 0)) + 1
+    except Exception:
+        pass
+
+
 def draw_from_pool(ms: MatchState, player: PlayerState, n: int, gs: Optional["GameState"] = None) -> List[int]:
     drew: List[int] = []
     while len(drew) < n:
@@ -7488,6 +7624,7 @@ def draw_from_pool(ms: MatchState, player: PlayerState, n: int, gs: Optional["Ga
             continue  # draw a replacement card
         player.hand.append(uid)
         drew.append(uid)
+        _note_pool_acquired(gs, player, uid)
     return drew
 
 
@@ -7508,6 +7645,7 @@ def draw_selected_from_pool(ms: MatchState, player: PlayerState, pick_uids: List
             continue
         player.hand.append(uid)
         drew.append(uid)
+        _note_pool_acquired(gs, player, uid)
     return drew
 
 
