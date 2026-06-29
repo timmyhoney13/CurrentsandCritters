@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.4";
+  const APP_BUILD   = "2026-06-29.5";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -13174,7 +13174,7 @@
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
   // Cosmetic backgrounds that render behind your avatar everywhere it appears.
-  // One per in-game ocean. $1.00 (1,000 Critter Coins) each — unlocked by entering a donation code.
+  // One per in-game ocean. 1,000 Critter Coins each — unlocked by entering a donation code.
   const EXCLUSIVE_BACKGROUNDS = [
     { id:"bg-kelp",           name:"Kelp Forest",      img:"/backgrounds/bg-kelp.png",            facts:"Golden kelp swaying in sunlit green water." },
     { id:"bg-coral-reef",     name:"Coral Reef",       img:"/backgrounds/bg-coral-reef.png",      facts:"A vivid coral garden bursting with color." },
@@ -14594,7 +14594,7 @@
       if (!unlocked) {
         html += `<div class="gal-detail-reqbox">`;
         html += `<div class="gal-req-label">Unlock Requirement</div>`;
-        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. ($1.00 / 1,000 Critter Coins per background)</div>`;
+        html += `<div class="gal-req-text">Enter the code from donating, located at the top next to where it says Avatar Gallery. (1,000 Critter Coins per background)</div>`;
         html += `</div>`;
       }
 
@@ -18545,14 +18545,14 @@
           if (!box) return;
           if (isBundle) {
             nameEl.textContent = "All Backgrounds Bundle";
-            priceEl.textContent = `${phstFmtCoins(phstCoins(4.99))} 🪙 · $4.99`;
+            priceEl.textContent = `${phstFmtCoins(phstCoins(4.99))} 🪙`;
             previewEl.style.display = "none";
             infoEl.textContent = "Get all 8 exclusive ocean backgrounds for one low price. After purchasing, enter your unlock code to redeem each background.";
           } else {
             const bg = _BG_BY_ID[bgOrBundle];
             if (!bg) return;
             nameEl.textContent = bg.name;
-            priceEl.textContent = `${phstFmtCoins(phstCoins(1))} 🪙 · $1.00`;
+            priceEl.textContent = `${phstFmtCoins(phstCoins(1))} 🪙`;
             previewEl.src = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
             previewEl.alt = bg.name;
             previewEl.style.display = "";
@@ -18694,7 +18694,7 @@
             <div class="phst-hero-sub">Own all ${all.length} exclusive ocean backgrounds for one low price.</div>
           </div>
           <div class="phst-hero-right">
-            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} 🪙<span class="phst-price-usd">$4.99</span></div>`;
+            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} 🪙</div>`;
         if (allOwned) {
           html += `<div class="phst-hero-owned">✓ All Owned</div>`;
         } else {
@@ -18712,7 +18712,7 @@
               <div class="phst-card-name">${esc(bg.name)}</div>
               <div class="phst-card-fact">${esc(bg.facts || "")}</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} 🪙<span class="phst-price-usd">$1.00</span></div>`;
+                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} 🪙</div>`;
           if (owned) {
             html += `<div class="phst-card-owned">✓ Owned</div>`;
           } else {
@@ -18737,7 +18737,7 @@
               <div class="phst-card-name">${esc(s.name)}</div>
               <div class="phst-card-fact">A limited seasonal skin — arriving soon.</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} 🪙<span class="phst-price-usd">$2.50</span></div>
+                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} 🪙</div>
                 <button class="phst-card-buy" disabled>Coming Soon</button>
               </div>
             </div>

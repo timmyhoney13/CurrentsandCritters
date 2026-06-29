@@ -7399,11 +7399,8 @@
     }
     .phst-seasonal .phst-card-buy:hover { filter: none; transform: none; }
 
-    /* Small USD sub-label shown under a coin price */
-    .phst-price-usd { display: block; font-size: .66rem; font-weight: 700; color: #8a93b0; margin-top: 1px; }
     .phst-card-price { line-height: 1.05; }
     .phst-bundle-price { line-height: 1.05; text-align: right; }
-    .phst-bundle-price .phst-price-usd { color: rgba(255,255,255,.85); }
 
     /* Critter Coins packs */
     .phst-coin-grid {
