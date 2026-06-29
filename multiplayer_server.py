@@ -2236,6 +2236,22 @@ class GameRoom:
                 q = self.pending_actions.get(seat_index)
                 if q:
                     return q.pop(0)
+                # A human elsewhere armed a flag-driven Undo (submit_undo's path 3)
+                # while THIS seat was parked here waiting for input. That restore
+                # only runs at the TOP of a policy loop — which a blocked human
+                # never reaches on its own — so without waking here the undo would
+                # hang until this seat acted or the 30-min timeout fired (the
+                # "I pressed Undo and nothing happened" bug at a turn handoff).
+                # Return a sentinel so the caller re-loops and its top-of-loop
+                # _apply_pending_undo_restore honors the undo immediately. The
+                # action-queue check above intentionally wins, so an explicit
+                # undo_confirm/undo_mid_turn command still takes precedence.
+                if (
+                    self.undo_requested
+                    and self.undo_valid
+                    and self.undo_snapshot_gs is not None
+                ):
+                    return {"kind": "__undo_armed__"}
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     return None  # Timed out — caller will fall back to safe action
@@ -3124,6 +3140,13 @@ class GameRoom:
                 )
                 wait_sec = 1800.0
                 cmd = self._wait_for_action(seat_index, timeout_sec=wait_sec)
+                if cmd is not None and cmd.get("kind") == "__undo_armed__":
+                    # A flag-driven undo was armed (by the previous player) while we
+                    # were blocked waiting for input — e.g. they pressed Undo during
+                    # the handoff to us. Re-loop so the top-of-loop
+                    # _apply_pending_undo_restore restores the snapshot and returns
+                    # Action(undo), replaying the undoing player's turn at once.
+                    continue
                 if cmd is not None and cmd.get("kind") == "undo_mid_turn":
                     # Player undid during their own turn (e.g. drew first card and changed mind).
                     # Restore the pre-turn snapshot; shuffle deck so the returned card(s)
@@ -3395,7 +3418,32 @@ class GameRoom:
             lo, hi = self._AI_THINK_RANGES.get(speed, self._AI_THINK_RANGES["normal"])
             delay = lo + random.random() * (hi - lo)
             if delay > 0:
-                time.sleep(delay)
+                # Interruptible think pause. A plain time.sleep() here meant a human's
+                # Undo armed mid-"thinking" wasn't honored until AFTER this bot's move
+                # was applied (the board flashed the bot's play, then reverted seconds
+                # later). Bail out of the wait the instant an undo is armed; _bump_locked
+                # in submit_undo notifies us. Runs on the match thread, so parking it
+                # here is exactly equivalent to the old sleep w.r.t. the engine.
+                _deadline = time.monotonic() + delay
+                with self.cond:
+                    while True:
+                        _remaining = _deadline - time.monotonic()
+                        if _remaining <= 0:
+                            break
+                        if (
+                            self.undo_requested
+                            and self.undo_valid
+                            and self.undo_snapshot_gs is not None
+                        ):
+                            break
+                        self.cond.wait(timeout=min(0.1, _remaining))
+
+            # Honor an undo armed during (or just before) the think pause BEFORE the
+            # bot's chosen move is applied, so the play is never even shown on its way
+            # to being reverted.
+            undo_action = self._apply_pending_undo_restore(gs, ms)
+            if undo_action is not None:
+                return undo_action
 
             return chosen
 
