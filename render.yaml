@@ -42,3 +42,9 @@ services:
         sync: false
       - key: VITE_FIREBASE_APP_ID
         sync: false
+      # Service account JSON (the whole file contents, pasted as one value) so
+      # the server can read exact registered + live online player counts from
+      # Firestore for /api/stats. Generate at: Firebase console → Project
+      # settings → Service accounts → Generate new private key.
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false

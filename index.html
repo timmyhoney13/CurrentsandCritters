@@ -7,9 +7,6 @@
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
 <script src="image-slot.js"></script>
-<script src="/firebase-config.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
   .oldsite-bar {
@@ -976,28 +973,6 @@ updateBetaBarClear();
     });
   })();
 
-  async function refreshOnlinePlayers() {
-    try {
-      const cfg = window.__FISH_FIREBASE_CONFIG || {};
-      if (!cfg.apiKey || !cfg.projectId || !window.firebase) return;
-      const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
-      const snap = await app.firestore().collection('users').where('online', '==', true).get();
-      const freshAfter = Date.now() - (5 * 60 * 1000);
-      let onlinePlayers = 0;
-      snap.forEach(doc => {
-        const lastActive = doc.data().last_active;
-        const lastActiveMs = lastActive && typeof lastActive.toMillis === 'function'
-          ? lastActive.toMillis()
-          : new Date(lastActive || 0).getTime();
-        if (lastActiveMs >= freshAfter) onlinePlayers += 1;
-      });
-      setStatEl('online', onlinePlayers, true);
-    } catch (_) { /* leave the visible count at 0 if presence is unavailable */ }
-  }
-
-  refreshOnlinePlayers();
-  setInterval(refreshOnlinePlayers, 60000);
-
   // AbortSignal.timeout not available in Safari < 16.4 - use a manual controller
   function fetchWithTimeout(url, ms) {
     const ctrl = new AbortController();
@@ -1005,16 +980,22 @@ updateBetaBarClear();
     return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(tid));
   }
 
+  // All four live numbers come from the game server's /api/stats. The server
+  // is the only thing with permission to read Firestore (the real account list
+  // + presence), so it computes the exact registered + online counts there and
+  // serves them here. Games-played self-heals from the saved game-history files.
   async function refreshRenderStats() {
     try {
       // Give the Render free-tier server up to 30 s to wake from a cold start
       const resp = await fetchWithTimeout(`${RENDER_BASE}/api/stats`, 30000);
       if (!resp.ok) return;
       const data = await resp.json();
-      const liveGames   = Number(data.games_played);
-      const livePlayers = Number(data.registered_players);
+      const liveGames    = Number(data.games_played);
+      const livePlayers  = Number(data.registered_players);
+      const liveOnline   = Number(data.online_players);
       if (Number.isFinite(liveGames))   setStatEl('games',   liveGames,   true);
       if (Number.isFinite(livePlayers)) setStatEl('players', livePlayers, true);
+      if (Number.isFinite(liveOnline))  setStatEl('online',  liveOnline,  true);
     } catch (_) { /* server sleeping - keep the latest visible values */ }
   }
 

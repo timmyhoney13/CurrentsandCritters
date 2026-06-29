@@ -5,6 +5,10 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# firebase-admin lets the server read the exact registered-player and live
+# online-player counts from Firestore, served to the website via /api/stats.
+RUN pip install --no-cache-dir firebase-admin==6.5.0
+
 # Copy only runtime files needed by the live multiplayer server.
 COPY multiplayer_server.py /app/multiplayer_server.py
 COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py

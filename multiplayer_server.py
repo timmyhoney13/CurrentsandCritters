@@ -67,6 +67,105 @@ _STATS_SEED_PLAYERS_FLOOR = 10
 STATS_SEED_GAMES   = max(_STATS_SEED_GAMES_FLOOR,   max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0")))
 STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0")))
 
+# ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
+# Firestore is the persistent source of truth for accounts and presence, but
+# the marketing site cannot read it directly (security rules block public
+# reads — by design, to keep emails/profiles private). Instead the server reads
+# Firestore with a service account and serves the exact counts through
+# /api/stats. Configure by setting FIREBASE_SERVICE_ACCOUNT to the service
+# account JSON (or GOOGLE_APPLICATION_CREDENTIALS to a file path). If neither
+# is set, the server falls back to its stored counters and online stays 0.
+FIREBASE_PRESENCE_FRESH_SEC = 5 * 60      # match the client's 90s ping + margin
+_FIRESTORE_DB = None
+_FIRESTORE_INIT_DONE = False
+_FIRESTORE_LOCK = threading.Lock()
+# Cache live counts so a burst of /api/stats hits doesn't hammer Firestore.
+_LIVE_COUNTS_CACHE = {"at": 0.0, "registered": None, "online": None}
+_LIVE_COUNTS_TTL_SEC = 30.0
+
+
+def _get_firestore():
+    """Return a cached Firestore client, or None if Firebase isn't configured."""
+    global _FIRESTORE_DB, _FIRESTORE_INIT_DONE
+    if _FIRESTORE_INIT_DONE:
+        return _FIRESTORE_DB
+    with _FIRESTORE_LOCK:
+        if _FIRESTORE_INIT_DONE:
+            return _FIRESTORE_DB
+        _FIRESTORE_INIT_DONE = True
+        try:
+            import firebase_admin
+            from firebase_admin import credentials, firestore
+            raw = os.environ.get("FIREBASE_SERVICE_ACCOUNT", "").strip()
+            if raw:
+                cred = credentials.Certificate(json.loads(raw))
+            elif os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip():
+                cred = credentials.ApplicationDefault()
+            else:
+                print("[stats] Firebase service account not set; live user counts disabled.")
+                return None
+            if not firebase_admin._apps:
+                firebase_admin.initialize_app(cred)
+            _FIRESTORE_DB = firestore.client()
+            print("[stats] Firebase Admin initialised; live user counts enabled.")
+        except Exception as exc:  # noqa: BLE001 - never let stats setup crash the server
+            print(f"[stats] Firebase Admin init failed ({exc}); live user counts disabled.")
+            _FIRESTORE_DB = None
+        return _FIRESTORE_DB
+
+
+def _fetch_live_user_counts():
+    """(registered, online) straight from Firestore, or (None, None) if unavailable."""
+    db = _get_firestore()
+    if db is None:
+        return None, None
+    try:
+        users = db.collection("users")
+        # Exact account total via server-side aggregate count (no doc data read).
+        registered = None
+        try:
+            agg = users.count().get()
+            # Result shape varies by SDK version: list[list[AggregationResult]].
+            registered = int(agg[0][0].value)
+        except Exception:
+            registered = sum(1 for _ in users.select([]).stream())
+        # Online query: prefer the modern FieldFilter API, fall back to the
+        # positional form on older SDKs.
+        try:
+            from google.cloud.firestore_v1 import FieldFilter
+            online_q = users.where(filter=FieldFilter("online", "==", True))
+        except Exception:
+            online_q = users.where("online", "==", True)
+        # Presence flag plus a freshness window so abruptly closed tabs (where
+        # `online` was never cleared) don't linger in the count.
+        fresh_after = time.time() - FIREBASE_PRESENCE_FRESH_SEC
+        online = 0
+        for doc in online_q.stream():
+            data = doc.to_dict() or {}
+            la = data.get("last_active")
+            la_sec = la.timestamp() if hasattr(la, "timestamp") else 0
+            if la_sec >= fresh_after:
+                online += 1
+        return registered, online
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stats] live user count query failed: {exc}")
+        return None, None
+
+
+def get_live_user_counts():
+    """Cached (registered, online); refreshes at most every _LIVE_COUNTS_TTL_SEC."""
+    now = time.time()
+    if now - _LIVE_COUNTS_CACHE["at"] < _LIVE_COUNTS_TTL_SEC:
+        return _LIVE_COUNTS_CACHE["registered"], _LIVE_COUNTS_CACHE["online"]
+    registered, online = _fetch_live_user_counts()
+    # Keep the last good values if a refresh fails transiently.
+    if registered is not None:
+        _LIVE_COUNTS_CACHE["registered"] = registered
+    if online is not None:
+        _LIVE_COUNTS_CACHE["online"] = online
+    _LIVE_COUNTS_CACHE["at"] = now
+    return _LIVE_COUNTS_CACHE["registered"], _LIVE_COUNTS_CACHE["online"]
+
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
 HISTORY_LOCK = threading.Lock()
@@ -6634,10 +6733,35 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                         registered_players = int(_s.get("registered_players", 0))
             except (FileNotFoundError, json.JSONDecodeError):
                 pass
+            # Self-heal games_played from the actual game-history files on disk:
+            # every finished game writes one game_*.json record, so the file
+            # count is the ground truth. The stored counter can lag if the
+            # in-game increment ever missed a game, so report whichever is
+            # larger. This keeps the marketing-site number exact and always
+            # moving as new games complete.
+            try:
+                history_games = sum(
+                    1 for _fn in os.listdir(GAMES_HISTORY_DIR)
+                    if _fn.startswith("game_") and _fn.endswith(".json")
+                )
+                if history_games > games_played:
+                    games_played = history_games
+            except OSError:
+                pass
+            # Exact registered + live online counts straight from Firestore (the
+            # real account list), when a service account is configured. Every
+            # account has a Firestore user doc, so the live count is complete
+            # and authoritative — use it directly. Falls back to the stored
+            # seen-uid counter / 0 when Firebase isn't configured.
+            live_registered, live_online = get_live_user_counts()
+            if isinstance(live_registered, int) and live_registered >= 0:
+                registered_players = live_registered
+            online_players = live_online if isinstance(live_online, int) and live_online >= 0 else 0
             self._send_json({
                 "ok": True,
                 "games_played": games_played,
                 "registered_players": registered_players,
+                "online_players": online_players,
             })
             return
 
