@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.1";
+  const APP_BUILD   = "2026-06-29.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -12499,8 +12499,13 @@
       const ok = await enterFs();
       if (ok) {
         setFsStatus("");
+        splash.classList.remove("ccfs-blocked");
         splash.classList.remove("show");
       } else {
+        // Reveal the "Continue in this window" fallback only now that the
+        // browser actually refused full screen, so the splash otherwise stays
+        // true to the artwork.
+        splash.classList.add("ccfs-blocked");
         setFsStatus("Your browser blocked full screen. Try again, or continue in this window.");
       }
     });

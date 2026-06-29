@@ -54,7 +54,7 @@
     })();
   </script>
 
-  <script src="/js/error-logging.js?v=2026-06-29.1"></script>
+  <script src="/js/error-logging.js?v=2026-06-29.2"></script>
 
   <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-29.1" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-29.2" />
 </head>
 <body>
 
@@ -77,17 +77,22 @@
   <button type="button" class="cc-device-half cc-device-mobile"
           data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
 </div>
-<script src="/js/device-select.js?v=2026-06-29.1"></script>
+<script src="/js/device-select.js?v=2026-06-29.2"></script>
 
-<!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══ -->
+<!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
+     The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
+     is an invisible click target sitting exactly over the painted "▶ Play Full
+     Screen" button — the user gesture the browser needs to enter full screen.
+     The status line + "Continue in this window" link stay hidden until the
+     browser actually blocks full screen, so the splash matches the art. -->
 <div id="cc-fs-splash">
-  <div class="ccfs-inner">
-    <img class="ccfs-logo" src="/icon.svg?v=cc-logo-1" alt="Currents &amp; Critters" />
-    <div class="ccfs-title">Currents &amp; Critters</div>
-    <div class="ccfs-sub">Your game is ready. Full screen gives it the cleanest separate-window feel.</div>
-    <button id="ccfs-play" class="ccfs-play" type="button" aria-label="Play Currents and Critters in full screen">▶ Play Full Screen</button>
-    <button id="ccfs-window" class="ccfs-window" type="button" aria-label="Continue playing without full screen">Continue in this window</button>
-    <div id="ccfs-status" class="ccfs-status" aria-live="polite"></div>
+  <div class="ccfs-stage">
+    <img class="ccfs-bg" src="/fullscreen-splash.png?v=2026-06-29.2" alt="Currents &amp; Critters — your game is ready" />
+    <button id="ccfs-play" class="ccfs-play" type="button" aria-label="Play Currents and Critters in full screen"></button>
+    <div class="ccfs-foot">
+      <div id="ccfs-status" class="ccfs-status" aria-live="polite"></div>
+      <button id="ccfs-window" class="ccfs-window" type="button" aria-label="Continue playing without full screen">Continue in this window</button>
+    </div>
   </div>
 </div>
 <button id="cc-fs-resume" type="button" title="Return to full screen" aria-label="Return to full screen">⛶ Return to full screen</button>
@@ -2559,11 +2564,11 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-29.1"></script>
+<script src="/js/preview-app.js?v=2026-06-29.2"></script>
 
-<script src="/js/challenge-of-challenges.js?v=2026-06-29.1"></script>
+<script src="/js/challenge-of-challenges.js?v=2026-06-29.2"></script>
 
-<script src="/js/hidden-cephalopods.js?v=2026-06-29.1"></script>
+<script src="/js/hidden-cephalopods.js?v=2026-06-29.2"></script>
 
 <!-- ══ CHALLENGE OF CHALLENGES MODALS ════════════════════════════ -->
 
@@ -2636,13 +2641,13 @@
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/current-controller.js?v=2026-06-29.1"></script>
+<script src="/js/current-controller.js?v=2026-06-29.2"></script>
 <!-- ══════════════════════════════════════════════════════════════════
      TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script src="/js/tutorials.js?v=2026-06-29.1"></script>
+<script src="/js/tutorials.js?v=2026-06-29.2"></script>
 </body>
 </html>
