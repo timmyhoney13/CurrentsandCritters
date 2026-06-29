@@ -36,7 +36,7 @@
  *   2. Click "Generate new private key" → save as serviceAccountKey.json
  *      in this directory (or set SERVICE_ACCOUNT_PATH env var)
  *   3. Set environment variables (or edit the CONFIG section below):
- *      RENDER_SERVER_URL=https://currentsandcritters-1.onrender.com
+ *      RENDER_SERVER_URL=https://play.currentsandcritters.com
  *      ADMIN_RECOVERY_KEY=<your ADMIN_RECOVERY_KEY from Render env vars>
  */
 
@@ -52,7 +52,7 @@ const fs     = require("fs");
 const SERVICE_ACCOUNT_PATH = process.env.SERVICE_ACCOUNT_PATH
   || path.join(__dirname, "serviceAccountKey.json");
 const RENDER_URL = (process.env.RENDER_SERVER_URL
-  || "https://currentsandcritters-1.onrender.com").replace(/\/$/, "");
+  || "https://play.currentsandcritters.com").replace(/\/$/, "");
 const ADMIN_KEY  = process.env.ADMIN_RECOVERY_KEY || "";
 // ──────────────────────────────────────────────────────────────────────────
 

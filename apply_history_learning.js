@@ -26,7 +26,7 @@
  *
  * SETUP:
  *   Set environment variables (or edit CONFIG below):
- *     RENDER_SERVER_URL=https://currentsandcritters-1.onrender.com
+ *     RENDER_SERVER_URL=https://play.currentsandcritters.com
  *     ADMIN_RECOVERY_KEY=<your key from Render env vars>
  *
  * NOTE: This call may take 10-30 seconds if there are many game files.
@@ -40,7 +40,7 @@ const http  = require("http");
 
 // ── CONFIG ────────────────────────────────────────────────────────────────
 const RENDER_URL  = (process.env.RENDER_SERVER_URL
-  || "https://currentsandcritters-1.onrender.com").replace(/\/$/, "");
+  || "https://play.currentsandcritters.com").replace(/\/$/, "");
 const ADMIN_KEY   = process.env.ADMIN_RECOVERY_KEY || "";
 // ──────────────────────────────────────────────────────────────────────────
 

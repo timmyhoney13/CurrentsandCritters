@@ -3,7 +3,7 @@
    * Gameplay: fish_game_all_in_one.py + multiplayer_server.py
    * ================================================================ */
 
-  window.__FISH_API_BASE__ = "https://currentsandcritters-1.onrender.com";
+  window.__FISH_API_BASE__ = "https://play.currentsandcritters.com";
   const CARD_IMAGE_VERSION = "20260419-full159";
 
   // ── App version + update detection ──────────────────────────────────────
@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-28.2";
+  const APP_BUILD   = "2026-06-28.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [

@@ -1,6 +1,6 @@
 const fs = require('fs');
 
-const RENDER_URL = 'https://currentsandcritters-1.onrender.com';
+const RENDER_URL = 'https://play.currentsandcritters.com';
 
 // 1. Write firebase-config.js from env vars
 const cfg = {

@@ -26,10 +26,10 @@
     }
   ],
   "redirects": [
-    { "source": "/game",              "destination": "https://currentsandcritters-1.onrender.com/", "permanent": false },
-    { "source": "/play/:room_id",     "destination": "https://currentsandcritters-1.onrender.com/play/:room_id", "permanent": false },
-    { "source": "/preview",           "destination": "https://currentsandcritters-1.onrender.com/", "permanent": false },
-    { "source": "/preview/:room_id",  "destination": "https://currentsandcritters-1.onrender.com/play/:room_id", "permanent": false }
+    { "source": "/game",              "destination": "https://play.currentsandcritters.com/", "permanent": false },
+    { "source": "/play/:room_id",     "destination": "https://play.currentsandcritters.com/play/:room_id", "permanent": false },
+    { "source": "/preview",           "destination": "https://play.currentsandcritters.com/", "permanent": false },
+    { "source": "/preview/:room_id",  "destination": "https://play.currentsandcritters.com/play/:room_id", "permanent": false }
   ],
   "rewrites": [
     { "source": "/classic",              "destination": "/multiplayer/client/index.html" },
