@@ -38,6 +38,9 @@ WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.ht
 RULES_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "rules.html")
 ABOUT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "about.html")
 LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderboard.html")
+SUPPORTER_WALL_HTML_PATH  = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-wall.html")
+SUPPORTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-admin.html")
+CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "claim-rewards.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -320,6 +323,130 @@ SUPPORTER_TIER_GRANTS = {
     "tide-turner":  {"bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
+# ── Supporter Reef Wall: LIFETIME-spend tiers ───────────────────────────────
+# A supporter's wall TIER and name SIZE come from their LIFETIME total (the sum
+# of every payment they've made), NOT a single purchase. Evaluated high→low;
+# under the smallest floor a supporter is still recorded but has no wall tier.
+#   $10–24.99   wave_warrior   small
+#   $25–49.99   ocean_ally     medium
+#   $50–99.99   tide_turner    large
+#   $100–249.99 reef_guardian  extra_large
+#   $250+       ocean_legend   biggest
+SUPPORTER_WALL_TIERS: List[Tuple[int, str, str]] = [
+    (25000, "ocean_legend",  "biggest"),
+    (10000, "reef_guardian", "extra_large"),
+    (5000,  "tide_turner",   "large"),
+    (2500,  "ocean_ally",    "medium"),
+    (1000,  "wave_warrior",  "small"),
+]
+
+# The EXACT labels of the three custom questions added to every Stripe Payment
+# Link. Stripe echoes them back in session.custom_fields[].label.custom — we
+# match on these verbatim (trim + case-insensitive) to read each answer.
+CF_WALL_NAME_LABEL   = "Name for Supporter Reef Wall"
+CF_WALL_PUBLIC_LABEL = "Show my name publicly on the Supporter Wall?"
+CF_USERNAME_LABEL    = "Currents and Critters Online Username"
+
+
+def _supporter_tier_for_total(total_cents: Any) -> Tuple[Optional[str], Optional[str]]:
+    """(tier, wall_size) for a LIFETIME total in cents, or (None, None) below $10."""
+    try:
+        cents = int(total_cents)
+    except (TypeError, ValueError):
+        cents = 0
+    for floor, tier, size in SUPPORTER_WALL_TIERS:
+        if cents >= floor:
+            return tier, size
+    return None, None
+
+
+def _custom_field_value(custom_fields: Any, label: str) -> str:
+    """Read one Stripe custom-field answer by its (case-insensitive) label.
+
+    session.custom_fields is a list of objects shaped like:
+        {"key": "…", "label": {"type": "custom", "custom": "<label>"},
+         "type": "text", "text": {"value": "…"}}
+    The answer lives in the sub-object named by the field's "type"
+    (text / dropdown / numeric). Returns "" when the field is absent/blank."""
+    if not isinstance(custom_fields, list):
+        return ""
+    target = str(label or "").strip().lower()
+    for field in custom_fields:
+        if not isinstance(field, dict):
+            continue
+        lab = field.get("label")
+        name = str(lab.get("custom") or "").strip() if isinstance(lab, dict) else ""
+        if name.lower() != target:
+            continue
+        ftype = str(field.get("type") or "").strip()
+        sub = field.get(ftype) if ftype else None
+        if isinstance(sub, dict) and sub.get("value") is not None:
+            return str(sub.get("value")).strip()
+        # Fallback: whichever known answer sub-object actually carries a value.
+        for key in ("text", "dropdown", "numeric"):
+            sub = field.get(key)
+            if isinstance(sub, dict) and sub.get("value") is not None:
+                return str(sub.get("value")).strip()
+        return ""
+    return ""
+
+
+def _is_affirmative(val: str) -> bool:
+    """True when a yes/no answer means YES (show the name publicly)."""
+    v = str(val or "").strip().lower()
+    if not v:
+        return False
+    if v[0] == "y":  # yes / yep / yeah / y
+        return True
+    return v in ("true", "1", "show", "public", "publicly", "sure", "ok", "okay")
+
+
+def _find_uid_by_username(db, username_lower: str) -> Optional[str]:
+    """Find a game account by its unique username — or, as a fallback, its
+    in-game nickname — matched case-insensitively. Returns the uid or None."""
+    uname = str(username_lower or "").strip().lower()
+    if not uname:
+        return None
+    for field in ("usernameLower", "nickname_lower"):
+        try:
+            snap = db.collection("users").where(field, "==", uname).limit(1).get()
+            for doc in snap:
+                return doc.id
+        except Exception as exc:  # noqa: BLE001
+            print(f"[stripe] username→uid match on {field} failed: {exc}")
+    return None
+
+
+def _session_product_name(session: dict, kind: Optional[str], value: Any) -> str:
+    """Best-effort human name for what was bought (for the payment record)."""
+    meta = session.get("metadata") or {}
+    name = str(meta.get("product_name") or meta.get("cc_product") or "").strip()
+    if name:
+        return name
+    if kind == "coins":
+        return f"{value} Critter Coins"
+    if kind == "tier":
+        return f"Supporter Tier: {value}"
+    return "Donation"
+
+
+def _verify_firebase_id_token(id_token: str) -> Optional[dict]:
+    """Verify a Firebase ID token server-side and return its decoded claims
+    (with 'uid' and, usually, 'email'), or None if missing/invalid. Used to
+    prove account ownership on the claim + username endpoints — we never trust a
+    raw uid from the client for those money/identity actions."""
+    tok = str(id_token or "").strip()
+    if not tok:
+        return None
+    if _get_firestore() is None:      # also initialises the firebase_admin app
+        return None
+    try:
+        from firebase_admin import auth as fb_auth
+        return fb_auth.verify_id_token(tok)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[auth] Firebase ID token verify failed: {exc}")
+        return None
+
 
 def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bool:
     """Verify a Stripe webhook signature WITHOUT the stripe SDK.
@@ -387,38 +514,29 @@ def _stripe_session_email(session: dict) -> str:
     return str(cd.get("email") or session.get("customer_email") or "").strip()
 
 
-def _resolve_stripe_uid(db, session: dict) -> Optional[str]:
-    """The buyer's account uid: client_reference_id (set by the in-app Store on
-    every Stripe redirect) first, else an existing account matched by the email
-    Stripe collected. Returns None if neither resolves (purchase still recorded
-    for manual review)."""
-    uid = session.get("client_reference_id")
-    if isinstance(uid, str) and uid.strip():
-        return uid.strip()[:256]
-    email = _stripe_session_email(session)
-    if email:
-        try:
-            snap = db.collection("users").where("email", "==", email).limit(1).get()
-            for doc in snap:
-                return doc.id
-        except Exception as exc:  # noqa: BLE001
-            print(f"[stripe] email→uid match failed: {exc}")
-    return None
-
-
 def _process_stripe_checkout(event: dict) -> str:
     """Apply a verified checkout.session.completed event EXACTLY ONCE.
 
-    Credits Critter Coins or grants a Supporter Tier to the buyer's account in a
-    single Firestore transaction that also writes a stripe_events/{id} marker —
-    so Stripe's automatic retries (and any duplicate deliveries) never double-
-    credit. Returns a short status string; raises on transient failures so the
-    caller can return 500 and let Stripe retry. ONLY paid sessions are fulfilled."""
+    A single Firestore transaction does everything for one paid checkout:
+      • records the payment under the supporter (deduped by Stripe SESSION id —
+        so a re-counted session never inflates totals),
+      • adds amount_total to the supporter's LIFETIME total and recomputes their
+        wall tier/size from that lifetime total,
+      • credits Critter Coins / grants Supporter-Tier perks to a MATCHED game
+        account,
+      • files an unclaimed reward for a guest who has no account yet,
+      • writes a stripe_events/{id} audit marker (a secondary idempotency key).
+    The buyer is matched by client_reference_id (Firebase uid) → typed username
+    → otherwise saved as a GUEST keyed by Stripe customer id (or session id).
+    Returns a short status; raises on transient failures so the caller returns
+    500 and Stripe retries (every write is idempotent). ONLY paid sessions are
+    fulfilled."""
     session = (event.get("data") or {}).get("object") or {}
 
-    # (6) Only fulfil sessions Stripe actually collected payment for.
-    if session.get("payment_status") != "paid":
-        print(f"[stripe] session not paid (payment_status={session.get('payment_status')!r}); ignoring.")
+    # (6 / security) Only fulfil sessions Stripe actually collected payment for.
+    payment_status = str(session.get("payment_status") or "")
+    if payment_status != "paid":
+        print(f"[stripe] session not paid (payment_status={payment_status!r}); ignoring.")
         return "unpaid"
 
     db = _get_firestore()
@@ -426,14 +544,41 @@ def _process_stripe_checkout(event: dict) -> str:
         # No Firestore configured → raise so Stripe retries once it's back.
         raise RuntimeError("Firebase Admin not configured; cannot fulfil purchase.")
 
-    event_id = str(event.get("id") or session.get("id") or "").strip()
-    if not event_id:
-        print("[stripe] event missing id; ignoring.")
-        return "no_event_id"
+    # ── pull every field the spec names off the session ──────────────────────
+    stripe_session_id = str(session.get("id") or "").strip()           # (1)
+    if not stripe_session_id:
+        print("[stripe] session missing id; ignoring.")
+        return "no_session_id"
+    event_id = str(event.get("id") or stripe_session_id).strip()
+    firebase_uid = session.get("client_reference_id")                  # (2)
+    firebase_uid = firebase_uid.strip()[:256] if isinstance(firebase_uid, str) and firebase_uid.strip() else ""
+    stripe_customer_id = str(session.get("customer") or "").strip()    # (3)
+    checkout_email = _stripe_session_email(session)                    # (4)
+    amount_cents = session.get("amount_total")                         # (5)
+    amount_cents = int(amount_cents) if isinstance(amount_cents, (int, float)) else 0
 
-    kind, value = _reward_for_session(session)        # (3) what was purchased
-    uid = _resolve_stripe_uid(db, session)            # (2) who to credit
-    email = _stripe_session_email(session)
+    # (7) the three custom questions, read by their EXACT Stripe labels.
+    custom_fields = session.get("custom_fields")
+    supporter_wall_name  = _custom_field_value(custom_fields, CF_WALL_NAME_LABEL)
+    public_wall_choice   = _custom_field_value(custom_fields, CF_WALL_PUBLIC_LABEL)
+    username_typed       = _custom_field_value(custom_fields, CF_USERNAME_LABEL).strip()
+    username_typed_lower = username_typed.lower()
+
+    kind, value = _reward_for_session(session)        # what was purchased
+    product_name = _session_product_name(session, kind, value)
+
+    # ── matching: client_reference_id → typed-username → guest ───────────────
+    matched_uid = firebase_uid
+    if not matched_uid and username_typed_lower:
+        matched_uid = _find_uid_by_username(db, username_typed_lower) or ""
+
+    # Public-name choice → displayName + anonymous flag.
+    if _is_affirmative(public_wall_choice):
+        anonymous = False
+        display_name = supporter_wall_name.strip() or username_typed or "Supporter"
+    else:
+        anonymous = True
+        display_name = "Anonymous"
 
     from firebase_admin import firestore
     # firebase-admin re-exports these from google.cloud.firestore; fall back to
@@ -446,85 +591,477 @@ def _process_stripe_checkout(event: dict) -> str:
         from google.cloud.firestore_v1 import ArrayUnion
     SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
 
-    ev_ref = db.collection("stripe_events").document(event_id)
+    # Logged-in supporter vs guest supporter document paths.
+    if matched_uid:
+        supporter_ref = db.collection("supporters").document(matched_uid)
+        guest_id = ""
+    else:
+        guest_id = stripe_customer_id or stripe_session_id            # (4/5) guest id
+        supporter_ref = db.collection("guestSupporters").document(guest_id)
+    payment_ref  = supporter_ref.collection("payments").document(stripe_session_id)
+    ev_ref       = db.collection("stripe_events").document(event_id)
+    user_ref     = db.collection("users").document(matched_uid) if matched_uid else None
+    founders_ref = db.collection("meta").document("founders")
+
     transaction = db.transaction()
 
     @transactional
     def _apply(txn) -> str:
-        # ── reads first (Firestore requires all reads before any writes) ──
-        ev_snap = ev_ref.get(transaction=txn)
-        if ev_snap.exists:
-            return "duplicate"  # already processed — do nothing
+        # ── ALL reads first (Firestore requires reads before any writes) ─────
+        pay_snap  = payment_ref.get(transaction=txn)
+        sup_snap  = supporter_ref.get(transaction=txn)
+        user_snap = user_ref.get(transaction=txn) if user_ref is not None else None
+        existing_user = (user_snap.to_dict() if user_snap is not None else None) or {}
+        need_founder = (kind == "tier" and user_snap is not None and not existing_user.get("founder_number"))
+        f_snap = founders_ref.get(transaction=txn) if need_founder else None
 
-        record = {
-            "event_id": event_id,
-            "session_id": session.get("id"),
-            "uid": uid,
-            "email": email,
-            "amount_total": session.get("amount_total"),
-            "currency": session.get("currency"),
-            "kind": kind,
-            "value": value,
-            "fulfilled": False,
-            "processed_at": SERVER_TIMESTAMP,
+        # (Duplicate-payment prevention) This Stripe session is already counted →
+        # no-op. Idempotent under Stripe's retries / duplicate deliveries.
+        if pay_snap.exists:
+            return "duplicate"
+
+        prev = sup_snap.to_dict() or {}
+        new_total = int(prev.get("totalSpentCents") or 0) + amount_cents   # lifetime
+        new_count = int(prev.get("paymentCount") or 0) + 1
+        tier_name, wall_size = _supporter_tier_for_total(new_total)        # by lifetime
+
+        # (9 / approval gate) Brand-new names — and any CHANGE to an already-
+        # approved name — go back to pending_review + hidden. A repeat purchase
+        # that does NOT change the approved name stays approved/visible, so
+        # supporters aren't pulled off the wall every time they give again.
+        if (sup_snap.exists and prev.get("status") == "approved"
+                and str(prev.get("displayName") or "") == display_name):
+            status, visible = "approved", bool(prev.get("visible"))
+        else:
+            status, visible = "pending_review", False
+
+        # ── writes ───────────────────────────────────────────────────────────
+        # 1) the payment record — its existence is the dedup key.
+        txn.set(payment_ref, {
+            "stripeSessionId":  stripe_session_id,
+            "stripeCustomerId": stripe_customer_id,
+            "amountCents":      amount_cents,
+            "paymentStatus":    payment_status,
+            "productName":      product_name,
+            "customFields": {
+                "nameForSupporterReefWall":          supporter_wall_name,
+                "showNamePublicly":                  public_wall_choice,
+                "currentsAndCrittersOnlineUsername": username_typed,
+            },
+            "createdAt": SERVER_TIMESTAMP,
+        })
+
+        # 2) the supporter / guest doc.
+        sup_doc: Dict[str, Any] = {
+            "stripeCustomerId": stripe_customer_id,
+            "email":            checkout_email,
+            "displayName":      display_name,
+            "anonymous":        anonymous,
+            "totalSpentCents":  new_total,
+            "tier":             tier_name,
+            "wallSize":         wall_size,
+            "paymentCount":     new_count,
+            "status":           status,
+            "visible":          visible,
+            "updatedAt":        SERVER_TIMESTAMP,
         }
+        if not sup_snap.exists:
+            sup_doc["createdAt"] = SERVER_TIMESTAMP
+        if matched_uid:
+            uname = existing_user.get("username") or username_typed
+            sup_doc["firebaseUid"]   = matched_uid
+            sup_doc["hasGameAccount"] = True
+            sup_doc["username"]      = uname
+            sup_doc["usernameLower"] = existing_user.get("usernameLower") or (uname or "").strip().lower()
+        else:
+            sup_doc["hasGameAccount"]    = False
+            sup_doc["claimStatus"]       = prev.get("claimStatus") or "unclaimed"
+            sup_doc["usernameTyped"]     = username_typed
+            sup_doc["usernameTypedLower"] = username_typed_lower
+        txn.set(supporter_ref, sup_doc, merge=True)
 
-        # No account to credit, or product we don't recognise → record only so
-        # it can be fulfilled / investigated by hand. (Never silently drop.)
-        if not uid or kind is None:
-            txn.set(ev_ref, record)
-            return "recorded"
+        # 3) credit the MATCHED game account (coins / tier perks). Cosmetic only.
+        if matched_uid and kind is not None:
+            stats = existing_user.get("stats") or {}
+            updates: Dict[str, Any] = {}
+            if kind == "coins":
+                updates["stats"] = {"critter_coins": int(stats.get("critter_coins") or 0) + int(value)}
+            elif kind == "tier":
+                grant = SUPPORTER_TIER_GRANTS.get(value, {})
+                stats_update: Dict[str, Any] = {"supporter_tier": value}
+                bonus = int(grant.get("bonus_xp") or 0)
+                if bonus:
+                    stats_update["total_xp"] = int(stats.get("total_xp") or 0) + bonus
+                updates["stats"] = stats_update
+                updates["supporter_tier"] = value
+                if need_founder:
+                    fnum = int((f_snap.to_dict() or {}).get("count") or 0) + 1
+                    txn.set(founders_ref, {"count": fnum}, merge=True)
+                    updates["founder_number"] = fnum
+                if grant.get("unlock_all_backgrounds"):
+                    updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
+                icons = list(grant.get("icons") or [])
+                if icons:
+                    updates["unlocked_icons"] = ArrayUnion(icons)
+            if updates:
+                txn.set(user_ref, updates, merge=True)
 
-        user_ref = db.collection("users").document(uid)
-        user_snap = user_ref.get(transaction=txn)
-        existing = user_snap.to_dict() or {}
-        stats = existing.get("stats") or {}
+        # 4) guest with a deliverable reward → file it to be claimed later.
+        if not matched_uid and kind is not None:
+            txn.set(db.collection("unclaimedRewards").document(stripe_session_id), {
+                "stripeSessionId":  stripe_session_id,
+                "stripeCustomerId": stripe_customer_id,
+                "email":            checkout_email,
+                "usernameTyped":    username_typed,
+                "amountCents":      amount_cents,
+                "rewardName":       product_name,
+                "rewardKind":       kind,
+                "rewardValue":      value,
+                "status":           "waiting_for_account",
+                "createdAt":        SERVER_TIMESTAMP,
+            }, merge=True)
 
-        founders_ref = None
-        founder_number = None
-        if kind == "tier" and not existing.get("founder_number"):
-            # Sequential Founder Supporter number (read BEFORE any write below).
-            founders_ref = db.collection("meta").document("founders")
-            f_snap = founders_ref.get(transaction=txn)
-            founder_number = int((f_snap.to_dict() or {}).get("count") or 0) + 1
+        # 5) audit marker (also a secondary idempotency key on the event id).
+        txn.set(ev_ref, {
+            "event_id":     event_id,
+            "session_id":   stripe_session_id,
+            "uid":          matched_uid or None,
+            "guest_id":     guest_id or None,
+            "email":        checkout_email,
+            "amount_total": amount_cents,
+            "currency":     session.get("currency"),
+            "kind":         kind,
+            "value":        value,
+            "matched":      bool(matched_uid),
+            "processed_at": SERVER_TIMESTAMP,
+        }, merge=True)
 
-        # ── now compute + write ──
-        updates: Dict[str, Any] = {}
-
-        if kind == "coins":
-            # (4) add coins. set(merge=True) DEEP-merges the stats map, so only
-            # critter_coins changes. Read-then-set inside the txn is race-safe.
-            new_balance = int(stats.get("critter_coins") or 0) + int(value)
-            updates["stats"] = {"critter_coins": new_balance}
-            record["new_balance"] = new_balance
-
-        elif kind == "tier":
-            # (5) grant tier perks. XP/icons/backgrounds are cosmetic only.
-            grant = SUPPORTER_TIER_GRANTS.get(value, {})
-            stats_update: Dict[str, Any] = {"supporter_tier": value}
-            bonus = int(grant.get("bonus_xp") or 0)
-            if bonus:
-                stats_update["total_xp"] = int(stats.get("total_xp") or 0) + bonus
-            updates["stats"] = stats_update
-            updates["supporter_tier"] = value
-            if founders_ref is not None:
-                txn.set(founders_ref, {"count": founder_number}, merge=True)
-                updates["founder_number"] = founder_number
-                record["founder_number"] = founder_number
-            if grant.get("unlock_all_backgrounds"):
-                updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
-            icons = list(grant.get("icons") or [])
-            if icons:
-                updates["unlocked_icons"] = ArrayUnion(icons)
-
-        record["fulfilled"] = True
-        txn.set(user_ref, updates, merge=True)
-        txn.set(ev_ref, record)
-        return "fulfilled"
+        return "fulfilled" if matched_uid else "recorded_guest"
 
     result = _apply(transaction)
-    print(f"[stripe] checkout {event_id}: {result} (uid={uid}, kind={kind}, value={value})")
+    print(f"[stripe] checkout {stripe_session_id}: {result} "
+          f"(uid={matched_uid or '-'}, guest={guest_id or '-'}, kind={kind}, value={value})")
     return result
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  SUPPORTER REEF WALL — public read, admin review, guest claim, usernames
+# ══════════════════════════════════════════════════════════════════════════
+_WALL_CACHE = {"at": 0.0, "data": None}
+_WALL_TTL_SEC = 45.0
+
+
+def _build_supporter_wall() -> List[Dict[str, Any]]:
+    """Public wall rows: ONLY approved + visible supporters, and ONLY the three
+    public fields (displayName / wallSize / tier). No emails, Stripe ids,
+    Firebase uids, or payment history ever leave this function. Sorted by
+    lifetime spend (used purely for ordering — the cents are NOT returned)."""
+    db = _get_firestore()
+    if db is None:
+        return []
+    out: List[Dict[str, Any]] = []
+    for coll in ("supporters", "guestSupporters"):
+        try:
+            # Single equality filter is auto-indexed; we filter status in Python
+            # so no composite index is required.
+            snap = db.collection(coll).where("visible", "==", True).limit(2000).get()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[wall] query {coll} failed: {exc}")
+            continue
+        for doc in snap:
+            d = doc.to_dict() or {}
+            if d.get("status") != "approved":
+                continue
+            out.append({
+                "displayName": str(d.get("displayName") or "Supporter"),
+                "wallSize":    d.get("wallSize"),
+                "tier":        d.get("tier"),
+                "_sort":       int(d.get("totalSpentCents") or 0),
+            })
+    out.sort(key=lambda r: r["_sort"], reverse=True)
+    for r in out:
+        r.pop("_sort", None)
+    return out
+
+
+def _supporter_wall_cached() -> List[Dict[str, Any]]:
+    now = time.time()
+    if _WALL_CACHE["data"] is not None and (now - _WALL_CACHE["at"]) < _WALL_TTL_SEC:
+        return _WALL_CACHE["data"]
+    data = _build_supporter_wall()
+    _WALL_CACHE["data"] = data
+    _WALL_CACHE["at"] = now
+    return data
+
+
+def _admin_list_supporters(filter_mode: str = "pending") -> Dict[str, Any]:
+    """Admin-only review list. Includes private fields (email/ids) — this is ONLY
+    served behind the admin key. filter_mode 'pending' shows records awaiting
+    review; anything else returns everything."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    items: List[Dict[str, Any]] = []
+    for coll, kind in (("supporters", "supporter"), ("guestSupporters", "guest")):
+        try:
+            snap = db.collection(coll).limit(3000).get()
+        except Exception as exc:  # noqa: BLE001
+            print(f"[admin] list {coll} failed: {exc}")
+            continue
+        for doc in snap:
+            d = doc.to_dict() or {}
+            if filter_mode == "pending" and d.get("status") != "pending_review":
+                continue
+            items.append({
+                "kind":            kind,
+                "id":              doc.id,
+                "displayName":     d.get("displayName"),
+                "anonymous":       d.get("anonymous"),
+                "status":          d.get("status"),
+                "visible":         d.get("visible"),
+                "tier":            d.get("tier"),
+                "wallSize":        d.get("wallSize"),
+                "totalSpentCents": d.get("totalSpentCents"),
+                "paymentCount":    d.get("paymentCount"),
+                "email":           d.get("email"),
+                "username":        d.get("username") or d.get("usernameTyped"),
+                "hasGameAccount":  d.get("hasGameAccount"),
+            })
+    items.sort(key=lambda r: int(r.get("totalSpentCents") or 0), reverse=True)
+    return {"ok": True, "supporters": items}
+
+
+def _admin_update_supporter(kind: str, doc_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Admin edit of one wall record: displayName / status / visible."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    coll = "supporters" if kind == "supporter" else "guestSupporters"
+    doc_id = str(doc_id or "").strip()
+    if not doc_id:
+        return {"ok": False, "error": "missing id"}
+    from firebase_admin import firestore
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+    update: Dict[str, Any] = {}
+    if "displayName" in fields and fields["displayName"] is not None:
+        update["displayName"] = str(fields["displayName"])[:120]
+    if "status" in fields and fields["status"] is not None:
+        st = str(fields["status"]).strip()
+        if st not in ("approved", "rejected", "pending_review"):
+            return {"ok": False, "error": "bad status"}
+        update["status"] = st
+    if "visible" in fields and fields["visible"] is not None:
+        update["visible"] = bool(fields["visible"])
+    if not update:
+        return {"ok": False, "error": "nothing to update"}
+    update["updatedAt"] = SERVER_TIMESTAMP
+    try:
+        db.collection(coll).document(doc_id).set(update, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[admin] update {coll}/{doc_id} failed: {exc}")
+        return {"ok": False, "error": "write failed"}
+    _WALL_CACHE["data"] = None      # force the public wall to rebuild on next read
+    return {"ok": True, "updated": list(update.keys())}
+
+
+def _claim_username(uid: str, username: str) -> Dict[str, Any]:
+    """Reserve a unique Currents & Critters username for a verified account.
+    Validates (3–20 chars, letters/numbers/underscore), then claims
+    usernames/{usernameLower} in a transaction so two people can't take the same
+    name at once. Frees the account's previous reservation when it changes."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    uname = str(username or "").strip()
+    if len(uname) < 3 or len(uname) > 20 or not re.match(r"^[A-Za-z0-9_]+$", uname):
+        return {"ok": False, "error": "invalid",
+                "message": "Use 3–20 letters, numbers, or underscores."}
+    uname_lower = uname.lower()
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    name_ref = db.collection("usernames").document(uname_lower)
+    user_ref = db.collection("users").document(uid)
+    transaction = db.transaction()
+
+    @transactional
+    def _apply(txn) -> str:
+        name_snap = name_ref.get(transaction=txn)
+        user_snap = user_ref.get(transaction=txn)
+        if name_snap.exists and (name_snap.to_dict() or {}).get("uid") != uid:
+            return "taken"
+        old_lower = str((user_snap.to_dict() or {}).get("usernameLower") or "").strip().lower()
+        # Free the account's previous reservation if it's changing names.
+        if old_lower and old_lower != uname_lower:
+            old_ref = db.collection("usernames").document(old_lower)
+            old_snap = old_ref.get(transaction=txn)
+            if old_snap.exists and (old_snap.to_dict() or {}).get("uid") == uid:
+                txn.delete(old_ref)
+        txn.set(name_ref, {
+            "uid": uid, "username": uname, "usernameLower": uname_lower,
+            "createdAt": SERVER_TIMESTAMP,
+        }, merge=True)
+        txn.set(user_ref, {"username": uname, "usernameLower": uname_lower}, merge=True)
+        return "ok"
+
+    res = _apply(transaction)
+    if res == "taken":
+        return {"ok": False, "error": "taken", "message": "That username is already taken."}
+    return {"ok": True, "username": uname}
+
+
+def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
+    """Merge a guest's past Stripe payments + rewards into supporters/{uid}.
+
+    Only guest records whose CHECKOUT email matches the claimer's verified email
+    are pulled in. Each guest payment is copied into supporters/{uid}/payments
+    ONLY if that Stripe session isn't already there — so no payment is ever
+    double-counted, and re-running the claim is a safe no-op. The lifetime total
+    + tier are then recomputed, unclaimed coin rewards are credited, and the
+    guest records are marked claimed."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore unavailable"}
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    user_ref = db.collection("users").document(uid)
+    user_snap = user_ref.get()
+    if not user_snap.exists:
+        return {"ok": False, "error": "no_account"}
+    account = user_snap.to_dict() or {}
+    email = str(verified_email or account.get("email") or "").strip().lower()
+    if not email:
+        return {"ok": False, "error": "no_email"}
+
+    supporter_ref = db.collection("supporters").document(uid)
+
+    # Gather guest supporters whose checkout email matches the verified email.
+    guest_docs: Dict[str, Dict[str, Any]] = {}
+    try:
+        for doc in db.collection("guestSupporters").where("email", "==", email).limit(50).get():
+            guest_docs[doc.id] = doc.to_dict() or {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[claim] guest query failed: {exc}")
+
+    claimed_payments = 0
+    for gid, gdata in guest_docs.items():
+        guest_ref = db.collection("guestSupporters").document(gid)
+        try:
+            pay_docs = list(guest_ref.collection("payments").limit(500).get())
+        except Exception as exc:  # noqa: BLE001
+            print(f"[claim] guest payments read failed: {exc}")
+            pay_docs = []
+        for pdoc in pay_docs:
+            sid = pdoc.id
+            pdata = pdoc.to_dict() or {}
+            dest_ref = supporter_ref.collection("payments").document(sid)
+            txn = db.transaction()
+
+            # Move ONE guest payment and fold its cents into the supporter's
+            # lifetime total + tier in the SAME transaction. The dest-payment
+            # existence check is the dedup key, so a payment can never be counted
+            # twice and re-running the claim (or a crash mid-claim) is safe.
+            @transactional
+            def _move(t, dest_ref=dest_ref, pdata=pdata, gid=gid, gdata=gdata) -> int:
+                if dest_ref.get(transaction=t).exists:
+                    return 0    # already under the supporter → never double-count
+                ssnap = supporter_ref.get(transaction=t)
+                usnap = user_ref.get(transaction=t)
+                prev = ssnap.to_dict() or {}
+                acct = usnap.to_dict() or {}
+                amt = int(pdata.get("amountCents") or 0)
+                new_total = int(prev.get("totalSpentCents") or 0) + amt
+                tier_name, wall_size = _supporter_tier_for_total(new_total)
+                sup: Dict[str, Any] = {
+                    "firebaseUid":     uid,
+                    "hasGameAccount":  True,
+                    "email":           prev.get("email") or email,
+                    "totalSpentCents": new_total,
+                    "tier":            tier_name,
+                    "wallSize":        wall_size,
+                    "paymentCount":    int(prev.get("paymentCount") or 0) + 1,
+                    "updatedAt":       SERVER_TIMESTAMP,
+                }
+                if not ssnap.exists:
+                    # First time this account becomes a supporter (they paid as a
+                    # guest before linking): seed it pending + hidden for review,
+                    # honouring the guest's public-name choice.
+                    sup["createdAt"]     = SERVER_TIMESTAMP
+                    sup["status"]        = "pending_review"
+                    sup["visible"]       = False
+                    sup["displayName"]   = gdata.get("displayName") or "Supporter"
+                    sup["anonymous"]     = bool(gdata.get("anonymous", True))
+                    sup["username"]      = acct.get("username") or ""
+                    sup["usernameLower"] = acct.get("usernameLower") or ""
+                t.set(dest_ref, {**pdata, "claimedFromGuest": gid}, merge=True)
+                t.set(supporter_ref, sup, merge=True)
+                return amt
+
+            try:
+                amt = _move(txn)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[claim] move payment {sid} failed: {exc}")
+                amt = 0
+            if amt:
+                claimed_payments += 1
+        try:
+            guest_ref.set({"claimStatus": "claimed", "claimedByUid": uid,
+                           "updatedAt": SERVER_TIMESTAMP}, merge=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[claim] mark guest {gid} failed: {exc}")
+
+    # Credit unclaimed coin/tier rewards filed against this email.
+    coins_credited = 0
+    try:
+        rewards = list(db.collection("unclaimedRewards").where("email", "==", email).limit(100).get())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[claim] rewards query failed: {exc}")
+        rewards = []
+    for rdoc in rewards:
+        rid = rdoc.id
+        rdata = rdoc.to_dict() or {}
+        if rdata.get("status") == "claimed":
+            continue
+        reward_ref = db.collection("unclaimedRewards").document(rid)
+        txn = db.transaction()
+
+        @transactional
+        def _claim_reward(t, reward_ref=reward_ref, rdata=rdata) -> int:
+            rsnap = reward_ref.get(transaction=t)
+            if not rsnap.exists or (rsnap.to_dict() or {}).get("status") == "claimed":
+                return 0
+            usnap = user_ref.get(transaction=t)
+            stats = (usnap.to_dict() or {}).get("stats") or {}
+            credited = 0
+            if rdata.get("rewardKind") == "coins":
+                credited = int(rdata.get("rewardValue") or 0)
+                t.set(user_ref, {"stats": {"critter_coins": int(stats.get("critter_coins") or 0) + credited}}, merge=True)
+            elif rdata.get("rewardKind") == "tier":
+                t.set(user_ref, {"supporter_tier": rdata.get("rewardValue")}, merge=True)
+            t.set(reward_ref, {"status": "claimed", "claimedByUid": uid,
+                               "claimedAt": SERVER_TIMESTAMP}, merge=True)
+            return credited
+
+        try:
+            coins_credited += _claim_reward(txn)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[claim] reward {rid} failed: {exc}")
+
+    if not guest_docs and not rewards:
+        return {"ok": True, "claimedPayments": 0, "coinsCredited": 0,
+                "message": "No guest payments found for that email."}
+
+    _WALL_CACHE["data"] = None
+    return {"ok": True, "claimedPayments": claimed_payments,
+            "coinsCredited": coins_credited,
+            "message": f"Claimed {claimed_payments} payment(s)."}
 
 
 BRAIN_LOCK = threading.Lock()
@@ -6619,6 +7156,25 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             return
 
+    def _send_html_file(self, path: str, missing_label: str) -> None:
+        """Serve a standalone HTML page from disk with the site's HTML headers."""
+        try:
+            with open(path, "rb") as f:
+                raw = f.read()
+        except OSError:
+            self._send_json({"ok": False, "error": f"{missing_label} page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self._apply_html_security_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(raw)))
+        try:
+            self.end_headers()
+            self.wfile.write(raw)
+        except OSError:
+            return
+
     def _read_json_body(self) -> tuple[Dict[str, Any], Optional[str]]:
         try:
             size = int(self.headers.get("Content-Length", "0"))
@@ -6967,8 +7523,38 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"ok": False, "error": "leaderboard page missing"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        # Supporter Reef Wall pages (public wall, guest claim, admin review).
+        if len(parts) == 1 and parts[0] in {"supporter-wall", "wall", "reef-wall"}:
+            self._send_html_file(SUPPORTER_WALL_HTML_PATH, "supporter wall")
+            return
+        if len(parts) == 1 and parts[0] in {"claim", "claim-rewards"}:
+            self._send_html_file(CLAIM_REWARDS_HTML_PATH, "claim")
+            return
+        if len(parts) == 1 and parts[0] in {"supporter-admin", "admin-supporters"}:
+            self._send_html_file(SUPPORTER_ADMIN_HTML_PATH, "supporter admin")
+            return
+
         if parsed.path == "/":
             self._send_preview_html()
+            return
+
+        # Public Supporter Reef Wall data — approved + visible records only,
+        # exposing just displayName / wallSize / tier (no emails/ids/history).
+        if parsed.path == "/api/supporters/wall":
+            self._send_json({"ok": True, "supporters": _supporter_wall_cached()})
+            return
+
+        # Admin review list (pending by default; ?filter=all for everything).
+        # Protected by ADMIN_RECOVERY_KEY, like the other /api/admin/* endpoints.
+        if parsed.path == "/api/admin/supporters":
+            qs_a = parse_qs(parsed.query)
+            supplied_key = qs_a.get("admin_key", [None])[0] or ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or supplied_key != env_key:
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            filter_mode = (qs_a.get("filter", ["pending"])[0] or "pending").strip()
+            self._send_json(_admin_list_supporters(filter_mode))
             return
 
         if parsed.path == "/api/competitive/forfeit_pending":
@@ -7329,6 +7915,46 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     self._send_json({"ok": True, "registered_players": stats["registered_players"]})
             except Exception as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+
+        # Reserve a unique Currents & Critters username. Requires a verified
+        # Firebase ID token (never trust a raw uid for an identity write).
+        # Body: { "idToken": "<firebase id token>", "username": "<name>" }
+        if parsed.path == "/api/username/claim":
+            claims = _verify_firebase_id_token(body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            if not claims or not claims.get("uid"):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            username = body.get("username") if isinstance(body.get("username"), str) else ""
+            self._send_json(_claim_username(claims["uid"], username))
+            return
+
+        # Claim past guest payments/rewards into the signed-in account. Requires
+        # a verified Firebase ID token; only guest records whose CHECKOUT email
+        # matches the token's verified email are merged in.
+        # Body: { "idToken": "<firebase id token>" }
+        if parsed.path == "/api/supporters/claim":
+            claims = _verify_firebase_id_token(body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            if not claims or not claims.get("uid"):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            self._send_json(_claim_guest_rewards(claims["uid"], str(claims.get("email") or "")))
+            return
+
+        # Admin: edit a wall record (displayName / status / visible).
+        # Body: { "admin_key": "...", "kind": "supporter"|"guest", "id": "...",
+        #         "displayName"?, "status"?, "visible"? }
+        if parsed.path == "/api/admin/supporters/update":
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or admin_key != env_key:
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            kind = str(body.get("kind") or "supporter").strip()
+            if kind not in ("supporter", "guest"):
+                self._send_json({"ok": False, "error": "bad kind"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_json(_admin_update_supporter(kind, str(body.get("id") or ""), body))
             return
 
         if parsed.path == "/api/stats/seed":

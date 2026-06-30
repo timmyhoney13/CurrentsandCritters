@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supporter Reef Wall — Currents &amp; Critters</title>
+<style>
+  :root{
+    --deep:#04263b; --deep2:#073a55; --teal:#0fb6c4; --sand:#f4e3c1;
+    --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    min-height:100vh;
+  }
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 20px 80px}
+  header{text-align:center;margin-bottom:8px}
+  h1{font-size:clamp(1.8rem,5vw,3rem);margin:.2em 0;letter-spacing:.5px}
+  .sub{color:var(--muted);max-width:640px;margin:0 auto 6px;line-height:1.5}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;justify-content:center;margin:18px 0 26px;font-size:.82rem;color:var(--muted)}
+  .legend b{color:var(--gold);font-weight:700}
+  .wall{
+    display:flex;flex-wrap:wrap;gap:14px 26px;justify-content:center;align-items:baseline;
+    background:rgba(3,30,46,.45);border:1px solid rgba(79,193,213,.25);border-radius:18px;
+    padding:30px 26px;min-height:160px;
+  }
+  .name{
+    font-weight:700;line-height:1.15;text-shadow:0 1px 0 rgba(0,0,0,.35);
+    color:var(--sand);transition:transform .15s ease;white-space:nowrap;
+  }
+  .name:hover{transform:translateY(-2px)}
+  .name .tier{display:block;font-size:.5em;font-weight:600;color:var(--teal);letter-spacing:.6px;text-transform:uppercase;opacity:.85}
+  .s-small{font-size:1rem}
+  .s-medium{font-size:1.45rem}
+  .s-large{font-size:1.95rem;color:#ffe9bf}
+  .s-extra_large{font-size:2.6rem;color:var(--gold)}
+  .s-biggest{font-size:3.4rem;color:#fff3cf;text-shadow:0 0 18px rgba(255,212,121,.4)}
+  .state{text-align:center;color:var(--muted);padding:40px 0}
+  .links{text-align:center;margin-top:26px;font-size:.9rem}
+  .links a{color:var(--teal);text-decoration:none;margin:0 10px}
+  .links a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🪸 Supporter Reef Wall</h1>
+      <p class="sub">Every name here belongs to someone who helped Currents &amp; Critters grow. The longer you support, the bigger your name swims on the reef.</p>
+    </header>
+    <div class="legend">
+      <span><b>Wave Warrior</b> $10+</span>
+      <span><b>Ocean Ally</b> $25+</span>
+      <span><b>Tide Turner</b> $50+</span>
+      <span><b>Reef Guardian</b> $100+</span>
+      <span><b>Ocean Legend</b> $250+</span>
+    </div>
+    <div id="wall" class="wall"><div class="state">Loading the reef…</div></div>
+    <div class="links">
+      <a href="/">← Back to the game</a>
+      <a href="/claim">Claim past supporter rewards</a>
+    </div>
+  </div>
+
+<script>
+  // The TIER → display label, and wallSize → CSS size class.
+  var TIER_LABEL = {
+    wave_warrior:"Wave Warrior", ocean_ally:"Ocean Ally", tide_turner:"Tide Turner",
+    reef_guardian:"Reef Guardian", ocean_legend:"Ocean Legend"
+  };
+  var SIZE_CLASS = {
+    small:"s-small", medium:"s-medium", large:"s-large",
+    extra_large:"s-extra_large", biggest:"s-biggest"
+  };
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+  function render(list){
+    var wall = document.getElementById("wall");
+    if(!list || !list.length){
+      wall.innerHTML = '<div class="state">No approved supporters on the wall yet — be the first! 🐠</div>';
+      return;
+    }
+    wall.innerHTML = list.map(function(s){
+      var sizeClass = SIZE_CLASS[s.wallSize] || "s-small";
+      var tier = TIER_LABEL[s.tier] || "";
+      return '<span class="name '+sizeClass+'">'+esc(s.displayName)+
+             (tier ? '<span class="tier">'+esc(tier)+'</span>' : '')+'</span>';
+    }).join("");
+  }
+
+  fetch("/api/supporters/wall", {cache:"no-store"})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ render(d && d.supporters ? d.supporters : []); })
+    .catch(function(){
+      document.getElementById("wall").innerHTML =
+        '<div class="state">Couldn\'t load the wall right now. Please try again soon.</div>';
+    });
+</script>
+</body>
+</html>

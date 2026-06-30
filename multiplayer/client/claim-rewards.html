@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim My Supporter Rewards — Currents &amp; Critters</title>
+<style>
+  :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);min-height:100vh;
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+  }
+  .wrap{max-width:620px;margin:0 auto;padding:36px 20px 80px}
+  h1{font-size:clamp(1.6rem,5vw,2.4rem);text-align:center;margin:.2em 0}
+  .sub{color:var(--muted);text-align:center;line-height:1.55;margin:0 auto 22px;max-width:520px}
+  .card{
+    background:rgba(3,30,46,.55);border:1px solid rgba(79,193,213,.28);border-radius:16px;
+    padding:22px 22px;margin:16px 0;
+  }
+  .card h2{margin:.1em 0 .4em;font-size:1.1rem;color:var(--gold)}
+  .card p{color:var(--muted);line-height:1.5;margin:.3em 0 1em;font-size:.92rem}
+  button{
+    font:inherit;font-weight:700;border:0;border-radius:10px;padding:12px 18px;cursor:pointer;
+    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022; transition:filter .15s;
+  }
+  button:hover{filter:brightness(1.07)}
+  button:disabled{opacity:.55;cursor:default}
+  button.ghost{background:transparent;border:1px solid rgba(79,193,213,.5);color:var(--ink)}
+  input{
+    font:inherit;width:100%;padding:11px 12px;border-radius:10px;border:1px solid rgba(79,193,213,.4);
+    background:rgba(2,20,32,.6);color:var(--ink);margin:6px 0 12px;
+  }
+  .who{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .who img{width:40px;height:40px;border-radius:50%;border:2px solid var(--teal)}
+  .msg{margin-top:10px;font-size:.9rem;min-height:1.2em}
+  .ok{color:#8af3b0}.err{color:#ff9a9a}
+  .hidden{display:none}
+  .links{text-align:center;margin-top:24px;font-size:.9rem}
+  .links a{color:var(--teal);text-decoration:none;margin:0 10px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🐚 Claim My Supporter Rewards</h1>
+    <p class="sub">Donated or bought Critter Coins before making an account — or while signed out? Sign in here and we'll link those Stripe payments (matched by the email you used at checkout) to your game account.</p>
+
+    <div class="card" id="signinCard">
+      <h2>1. Sign in</h2>
+      <p>Use the same Google account you play Currents &amp; Critters with.</p>
+      <button id="signinBtn">Sign in with Google</button>
+      <div class="msg" id="signinMsg"></div>
+    </div>
+
+    <div class="card hidden" id="accountCard">
+      <div class="who">
+        <img id="who-avatar" alt="" src="">
+        <div>
+          <div id="who-name" style="font-weight:700"></div>
+          <div id="who-email" style="color:var(--muted);font-size:.85rem"></div>
+        </div>
+      </div>
+      <button class="ghost" id="signoutBtn" style="padding:7px 12px;font-size:.85rem">Sign out</button>
+    </div>
+
+    <div class="card hidden" id="claimCard">
+      <h2>2. Claim your rewards</h2>
+      <p>We'll find every Stripe payment made with <b id="claim-email"></b>, add them to your lifetime support total, credit any Critter Coins, and place you on the Supporter Reef Wall (pending approval).</p>
+      <button id="claimBtn">Claim my rewards</button>
+      <div class="msg" id="claimMsg"></div>
+    </div>
+
+    <div class="card hidden" id="usernameCard">
+      <h2>3. (Optional) Reserve a unique username</h2>
+      <p>This is the backup name Stripe uses to match future donations to your account. 3–20 letters, numbers, or underscores.</p>
+      <input id="usernameInput" maxlength="20" placeholder="your_username" autocomplete="off">
+      <button id="usernameBtn">Save username</button>
+      <div class="msg" id="usernameMsg"></div>
+    </div>
+
+    <div class="links">
+      <a href="/">← Back to the game</a>
+      <a href="/supporter-wall">View the Supporter Reef Wall</a>
+    </div>
+  </div>
+
+<script src="/firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  var cfg = window.__FISH_FIREBASE_CONFIG || {};
+  if(!cfg.apiKey){
+    document.getElementById("signinMsg").innerHTML =
+      '<span class="err">Sign-in is not configured on this server.</span>';
+    return;
+  }
+  firebase.initializeApp(cfg);
+  var auth = firebase.auth();
+  var currentUser = null;
+
+  function $(id){ return document.getElementById(id); }
+  function show(id){ $(id).classList.remove("hidden"); }
+  function hide(id){ $(id).classList.add("hidden"); }
+
+  $("signinBtn").addEventListener("click", function(){
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(function(e){
+      $("signinMsg").innerHTML = '<span class="err">'+(e && e.message || "Sign-in failed")+'</span>';
+    });
+  });
+  $("signoutBtn").addEventListener("click", function(){ auth.signOut(); });
+
+  auth.onAuthStateChanged(function(user){
+    currentUser = user;
+    if(user){
+      hide("signinCard"); show("accountCard"); show("claimCard"); show("usernameCard");
+      $("who-avatar").src = user.photoURL || "/icon.svg";
+      $("who-name").textContent = user.displayName || "Player";
+      $("who-email").textContent = user.email || "";
+      $("claim-email").textContent = user.email || "(your account email)";
+    } else {
+      show("signinCard"); hide("accountCard"); hide("claimCard"); hide("usernameCard");
+    }
+  });
+
+  function postJSON(url, body){
+    return fetch(url, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    }).then(function(r){ return r.json().catch(function(){ return {ok:false, error:"bad response"}; }); });
+  }
+
+  $("claimBtn").addEventListener("click", function(){
+    if(!currentUser) return;
+    var btn = this, msg = $("claimMsg");
+    btn.disabled = true; msg.textContent = "Claiming…"; msg.className = "msg";
+    currentUser.getIdToken().then(function(token){
+      return postJSON("/api/supporters/claim", {idToken:token});
+    }).then(function(d){
+      if(d && d.ok){
+        msg.className = "msg ok";
+        msg.textContent = (d.message || "Done!") +
+          (d.coinsCredited ? " Credited "+d.coinsCredited.toLocaleString()+" Critter Coins." : "");
+      } else {
+        msg.className = "msg err";
+        msg.textContent = (d && (d.message || d.error)) || "Claim failed.";
+      }
+    }).catch(function(){ msg.className="msg err"; msg.textContent="Claim failed — please try again."; })
+      .finally(function(){ btn.disabled = false; });
+  });
+
+  $("usernameBtn").addEventListener("click", function(){
+    if(!currentUser) return;
+    var btn = this, msg = $("usernameMsg");
+    var uname = ($("usernameInput").value || "").trim();
+    btn.disabled = true; msg.textContent = "Saving…"; msg.className = "msg";
+    currentUser.getIdToken().then(function(token){
+      return postJSON("/api/username/claim", {idToken:token, username:uname});
+    }).then(function(d){
+      if(d && d.ok){ msg.className="msg ok"; msg.textContent="Saved! Your username is "+d.username+"."; }
+      else { msg.className="msg err"; msg.textContent=(d && (d.message || d.error)) || "Couldn't save that username."; }
+    }).catch(function(){ msg.className="msg err"; msg.textContent="Couldn't save — please try again."; })
+      .finally(function(){ btn.disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

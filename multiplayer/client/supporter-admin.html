@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supporter Wall — Admin Review</title>
+<style>
+  :root{ --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);min-height:100vh;
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 18px 80px}
+  h1{font-size:1.7rem;margin:.2em 0}
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0 22px}
+  input,select,button{
+    font:inherit;border-radius:9px;border:1px solid rgba(79,193,213,.4);
+    background:rgba(2,20,32,.6);color:var(--ink);padding:9px 11px;
+  }
+  button{font-weight:700;border:0;background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid rgba(79,193,213,.5);color:var(--ink)}
+  button.danger{background:linear-gradient(180deg,#e06b6b,#b94545);color:#fff}
+  button.go{background:linear-gradient(180deg,#7ed98f,#3fae5c);color:#022}
+  button:disabled{opacity:.5;cursor:default}
+  .row{
+    background:rgba(3,30,46,.55);border:1px solid rgba(79,193,213,.22);border-radius:14px;
+    padding:14px 16px;margin:12px 0;display:grid;gap:10px;
+    grid-template-columns:1fr auto;align-items:center;
+  }
+  .meta{color:var(--muted);font-size:.82rem;line-height:1.5}
+  .meta b{color:var(--ink)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;margin-left:6px}
+  .pending{background:#5a4a12;color:var(--gold)}
+  .approved{background:#13502c;color:#8af3b0}
+  .rejected{background:#5a1f1f;color:#ff9a9a}
+  .name-edit{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+  .name-edit input{min-width:200px}
+  .actions{display:flex;flex-direction:column;gap:8px;min-width:160px}
+  .actions button{padding:9px 10px;font-size:.85rem}
+  .state{color:var(--muted);padding:30px 0;text-align:center}
+  .links a{color:var(--teal);text-decoration:none;margin-right:14px}
+  .rowmsg{font-size:.8rem;min-height:1em;color:var(--muted)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>🛠️ Supporter Wall — Admin Review</h1>
+    <div class="links" style="margin-bottom:6px">
+      <a href="/supporter-wall">Public wall ↗</a>
+      <a href="/">Game ↗</a>
+    </div>
+    <div class="bar">
+      <input id="key" type="password" placeholder="Admin key (ADMIN_RECOVERY_KEY)" style="min-width:260px">
+      <select id="filter">
+        <option value="pending">Pending review</option>
+        <option value="all">All supporters</option>
+      </select>
+      <button id="loadBtn">Load</button>
+      <label style="color:var(--muted);font-size:.85rem"><input type="checkbox" id="remember" style="width:auto"> remember key</label>
+    </div>
+    <div id="list"><div class="state">Enter your admin key and press Load.</div></div>
+  </div>
+
+<script>
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function dollars(c){ return "$"+((Number(c)||0)/100).toFixed(2); }
+
+  var saved = localStorage.getItem("cc_admin_key");
+  if(saved){ $("key").value = saved; $("remember").checked = true; }
+
+  function statusPill(s){
+    var cls = s==="approved"?"approved":(s==="rejected"?"rejected":"pending");
+    return '<span class="pill '+cls+'">'+esc(s||"pending_review")+'</span>';
+  }
+
+  function rowHtml(s){
+    var size = s.wallSize ? (" · "+esc(s.wallSize)) : "";
+    var tier = s.tier ? esc(s.tier) : "—";
+    return ''+
+      '<div class="row" data-kind="'+esc(s.kind)+'" data-id="'+esc(s.id)+'">'+
+        '<div>'+
+          '<div class="name-edit">'+
+            '<input class="dn" value="'+esc(s.displayName||"")+'">'+
+            statusPill(s.status)+
+            (s.visible ? '<span class="pill approved">visible</span>' : '<span class="pill pending">hidden</span>')+
+          '</div>'+
+          '<div class="meta">'+
+            '<b>'+tier+'</b>'+size+' · lifetime <b>'+dollars(s.totalSpentCents)+'</b> · '+
+            (s.paymentCount||0)+' payment(s) · '+(s.hasGameAccount?"account":"guest")+
+            '<br>'+esc(s.email||"(no email)")+(s.username?(" · @"+esc(s.username)):"")+
+            ' · <span style="opacity:.6">'+esc(s.kind)+"/"+esc(s.id)+'</span>'+
+          '</div>'+
+          '<div class="rowmsg"></div>'+
+        '</div>'+
+        '<div class="actions">'+
+          '<button class="go act" data-act="approve">✓ Approve &amp; show</button>'+
+          '<button class="ghost act" data-act="save">Save name</button>'+
+          '<button class="ghost act" data-act="hide">Hide</button>'+
+          '<button class="danger act" data-act="reject">✗ Reject</button>'+
+        '</div>'+
+      '</div>';
+  }
+
+  function adminKey(){ return ($("key").value || "").trim(); }
+
+  function load(){
+    var key = adminKey();
+    if(!key){ $("list").innerHTML = '<div class="state err">Enter your admin key.</div>'; return; }
+    localStorage.setItem("cc_admin_key", $("remember").checked ? key : "");
+    if(!$("remember").checked) localStorage.removeItem("cc_admin_key");
+    $("list").innerHTML = '<div class="state">Loading…</div>';
+    fetch("/api/admin/supporters?filter="+encodeURIComponent($("filter").value)+
+          "&admin_key="+encodeURIComponent(key), {cache:"no-store"})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d || !d.ok){ $("list").innerHTML = '<div class="state">'+esc((d&&d.error)||"Unauthorized")+'</div>'; return; }
+        if(!d.supporters.length){ $("list").innerHTML = '<div class="state">Nothing to review. 🎉</div>'; return; }
+        $("list").innerHTML = d.supporters.map(rowHtml).join("");
+        wireRows();
+      })
+      .catch(function(){ $("list").innerHTML = '<div class="state">Request failed.</div>'; });
+  }
+
+  function update(row, fields, msgEl){
+    var body = {admin_key:adminKey(), kind:row.dataset.kind, id:row.dataset.id};
+    for(var k in fields) body[k] = fields[k];
+    msgEl.textContent = "Saving…";
+    return fetch("/api/admin/supporters/update", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if(d && d.ok){ msgEl.textContent = "Saved. Reloading…"; setTimeout(load, 500); }
+      else { msgEl.textContent = (d && d.error) || "Failed."; }
+    }).catch(function(){ msgEl.textContent = "Request failed."; });
+  }
+
+  function wireRows(){
+    document.querySelectorAll(".row").forEach(function(row){
+      var msgEl = row.querySelector(".rowmsg");
+      row.querySelectorAll(".act").forEach(function(btn){
+        btn.addEventListener("click", function(){
+          var act = btn.dataset.act;
+          var name = (row.querySelector(".dn").value || "").trim();
+          if(act==="approve") update(row, {displayName:name, status:"approved", visible:true}, msgEl);
+          else if(act==="save") update(row, {displayName:name}, msgEl);
+          else if(act==="hide") update(row, {visible:false}, msgEl);
+          else if(act==="reject") update(row, {status:"rejected", visible:false}, msgEl);
+        });
+      });
+    });
+  }
+
+  $("loadBtn").addEventListener("click", load);
+  $("key").addEventListener("keydown", function(e){ if(e.key==="Enter") load(); });
+</script>
+</body>
+</html>
