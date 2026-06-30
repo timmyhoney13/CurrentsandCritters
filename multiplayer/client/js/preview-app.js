@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.5";
+  const APP_BUILD   = "2026-06-29.6";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -12505,6 +12505,7 @@
         setFsStatus("");
         splash.classList.remove("ccfs-blocked");
         splash.classList.remove("show");
+        try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
       } else {
         // Reveal the "Continue in this window" fallback only now that the
         // browser actually refused full screen, so the splash otherwise stays
@@ -12518,6 +12519,7 @@
       document.body.classList.remove("cc-fullscreen-wanted");
       setFsStatus("");
       splash.classList.remove("show");
+      try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
     });
     resume.addEventListener("click", async () => {
       const ok = await enterFs();
@@ -15726,8 +15728,12 @@
       showStatsLobby();
       // The full-screen launch splash is a separate-WINDOW (desktop) concept;
       // on mobile we play inline in the tab, so skip it and reveal the home
-      // screen directly.
-      if (!window.CC_IS_MOBILE) document.getElementById("cc-fs-splash")?.classList.add("show");
+      // screen directly. Once dismissed (Play or "Continue in this window"),
+      // a same-tab reload (e.g. the update-banner "Refresh now" button)
+      // should land back in the lobby instead of re-showing the splash.
+      let _splashAlreadyDismissed = false;
+      try { _splashAlreadyDismissed = sessionStorage.getItem("cc_fs_splash_dismissed") === "1"; } catch (_) {}
+      if (!window.CC_IS_MOBILE && !_splashAlreadyDismissed) document.getElementById("cc-fs-splash")?.classList.add("show");
       // Daily: Login Current — auto-ticks once per slot per 24h window
       try {
         if (typeof window._reportDailyChallengeProgress === "function") {
