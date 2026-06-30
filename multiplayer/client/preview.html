@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-29.10" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-30.1" />
 </head>
 <body>
 
@@ -196,19 +196,14 @@
       <button class="pv-btn gold full" id="settings-nick-save-btn" aria-label="Save username">Save Username →</button>
       <span class="auth-link" id="settings-nick-cancel" role="button" tabindex="0" aria-label="Cancel username change">Cancel</span>
     </div>
-    <!-- Music toggle -->
+    <!-- Music volume slider -->
     <div class="settings-row" style="margin-top:8px;">
       <div class="settings-row-label">🎵 Music</div>
-      <div style="display:flex;align-items:center;gap:10px;flex:1;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;">
-          <div class="settings-toggle-wrap" id="settings-music-wrap">
-            <input type="checkbox" id="settings-music-toggle" style="display:none;" />
-            <div class="settings-toggle-track" id="settings-music-track" role="switch" tabindex="0" aria-label="Music" aria-checked="false">
-              <div class="settings-toggle-thumb"></div>
-            </div>
-          </div>
-          <span id="settings-music-label" style="font-size:12px;font-weight:700;color:rgba(200,230,255,.8);">Off</span>
-        </label>
+      <div class="settings-slider-wrap">
+        <input type="range" id="settings-music-slider" class="settings-slider"
+               min="0" max="100" step="1" value="100"
+               role="slider" aria-label="Music volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" />
+        <span id="settings-music-label" class="settings-slider-val">100%</span>
       </div>
     </div>
     <div class="settings-row">
@@ -1641,6 +1636,7 @@
         <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
         <button class="pv-menu-item" id="pv-menu-igcp-btn">&#128197; Turn off in-game challenges</button>
         <button class="pv-menu-item" id="pv-menu-scores-btn">&#127942; Score Breakdown</button>
+        <button class="pv-menu-item" id="pv-menu-settings-btn">&#9881;&#65039; Settings</button>
         <!-- Competitive Hands section (shown only in comp mode) -->
         <div id="pv-menu-comp-hands" style="display:none;">
           <div class="pv-menu-divider"></div>
@@ -2558,7 +2554,7 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-29.10"></script>
+<script src="/js/preview-app.js?v=2026-06-30.1"></script>
 
 <script src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 

@@ -17,10 +17,15 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.8";
+  const APP_BUILD   = "2026-06-30.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "Settings inside the game + a music volume slider", items: [
+      "You can now open Settings without leaving a game — it's in the in-game Menu (☰) as its own \"⚙️ Settings\" item, so you can tweak things mid-match.",
+      "The Music on/off switch is now a volume slider — drag it anywhere from Off to 100%. Your choice is saved and applies instantly, even to music that's already playing.",
+      "Gave the Settings panel a fresh, on-theme look to match the rest of the game.",
+    ]},
     { ver: "V1.6.3", title: "Critter Coins in the Store", items: [
       "Introduced Critter Coins — the in-game currency, priced at $1 = 1,000 coins. Buy coin packs with an escalating bonus: $5 → 5,250 (+5%), $10 → 11,500 (+15%), $20 → 25,000 (+25%, best value).",
       "Every shop item now shows its Critter Coin price: backgrounds are 1,000 coins ($1.00) each, the All Backgrounds bundle is 4,990 coins ($4.99), and seasonal skins will be 2,500 coins ($2.50).",
@@ -1060,6 +1065,28 @@
   let _themeBufferLoading = false;
   let _themeStarting = false;
 
+  // Music volume — 0..100 stored in localStorage, mapped onto the theme gain.
+  // 100% == the old fixed loudness (gain 2.2); 0% == silent (song never starts).
+  const MUSIC_VOL_KEY = "fish_music_volume";
+  const MUSIC_MAX_GAIN = 2.2;
+  function musicVolumePct() {
+    try {
+      const raw = localStorage.getItem(MUSIC_VOL_KEY);
+      if (raw === null || raw === "") {
+        // Back-compat: honour the old on/off flag if no volume was saved yet.
+        return localStorage.getItem("fish_music_on") === "0" ? 0 : 100;
+      }
+      const v = parseInt(raw, 10);
+      if (!Number.isFinite(v)) return 100;
+      return Math.max(0, Math.min(100, v));
+    } catch { return 100; }
+  }
+  function applyThemeVolume() {
+    if (!_themeGain) return;
+    try { _themeGain.gain.value = MUSIC_MAX_GAIN * (musicVolumePct() / 100); } catch {}
+  }
+  window.__ccApplyThemeVolume = applyThemeVolume;
+
   async function _ensureThemeBuffer() {
     if (_themeBuffer) return _themeBuffer;
     if (_themeBufferLoading) return null;
@@ -1088,9 +1115,9 @@
 
   async function startThemeSong() {
     try {
-      // Respect the player's music toggle (Settings). If music is off, never
-      // start — this keeps it off in-game even after toggling it off.
-      try { if (localStorage.getItem("fish_music_on") === "0") return; } catch {}
+      // Respect the player's music volume (Settings). If it's at 0, never
+      // start — this keeps it silent in-game even after turning it down.
+      try { if (musicVolumePct() <= 0) return; } catch {}
       if (_themeSource || _themeStarting) return; // already playing, or already starting
       // Claim the "starting" slot synchronously, before the buffer-load await
       // below, so a second startThemeSong() call fired while this one is
@@ -1106,7 +1133,7 @@
       _themeSource.buffer = buffer;
       _themeSource.loop = true;
       _themeGain = _themeAudioCtx.createGain();
-      _themeGain.gain.value = 2.2;
+      _themeGain.gain.value = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
       _themeSource.connect(_themeGain).connect(_themeAudioCtx.destination);
       _themeSource.start(0);
     } catch {}
@@ -9311,6 +9338,14 @@
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
     closeMenu(); openScoreBreakdown();
   });
+  {
+    const _pvMenuSettingsBtn = document.getElementById("pv-menu-settings-btn");
+    if (_pvMenuSettingsBtn) _pvMenuSettingsBtn.addEventListener("click", () => {
+      closeMenu();
+      if (typeof window.__openSettingsModal === "function") window.__openSettingsModal();
+      else { const sb = document.getElementById("stats-settings-btn"); if (sb) sb.click(); }
+    });
+  }
   document.getElementById("pv-log-float-hdr").addEventListener("click", () => {
     pvLogVisible = false;
     document.getElementById("pv-log-float").classList.remove("open");
@@ -17208,29 +17243,48 @@
     });
 
     // ── Settings button ───────────────────────────────────────────
-    // ── Music toggle (persisted in localStorage) ───────────────────
-    const MUSIC_PREF_KEY = "fish_music_on";
-    let _musicEnabled = localStorage.getItem(MUSIC_PREF_KEY) !== "0";
+    // ── Music volume slider (persisted in localStorage) ────────────
+    const MUSIC_VOL_PREF_KEY = "fish_music_volume";
+    function _readMusicVol() {
+      const raw = localStorage.getItem(MUSIC_VOL_PREF_KEY);
+      if (raw === null || raw === "") {
+        // Back-compat: map the old on/off flag onto a volume.
+        return localStorage.getItem("fish_music_on") === "0" ? 0 : 100;
+      }
+      const v = parseInt(raw, 10);
+      return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 100;
+    }
+    let _musicVol = _readMusicVol();
 
     // Is the player currently inside the game simulation (not the lobby)?
     function _inGameSimulation() {
       const g = document.getElementById("pv-game");
       return !!(g && g.style.display !== "none" && g.offsetParent !== null);
     }
-    function _applyMusicToggle(on, opts) {
-      _musicEnabled = on;
-      localStorage.setItem(MUSIC_PREF_KEY, on ? "1" : "0");
-      const track = $a("settings-music-track");
+    function _syncMusicSliderUI() {
+      const slider = $a("settings-music-slider");
       const label = $a("settings-music-label");
-      if (track) track.classList.toggle("on", on);
-      if (track) track.setAttribute("aria-checked", on ? "true" : "false");
-      if (label) label.textContent = on ? "On" : "Off";
-      if (on) {
+      if (slider) {
+        if (slider.value !== String(_musicVol)) slider.value = String(_musicVol);
+        slider.setAttribute("aria-valuenow", String(_musicVol));
+        slider.style.setProperty("--fill", _musicVol + "%");
+      }
+      if (label) label.textContent = _musicVol === 0 ? "Off" : _musicVol + "%";
+    }
+    function _applyMusicVolume(v, opts) {
+      _musicVol = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+      localStorage.setItem(MUSIC_VOL_PREF_KEY, String(_musicVol));
+      // Keep the legacy on/off flag in sync so older code paths still behave.
+      localStorage.setItem("fish_music_on", _musicVol > 0 ? "1" : "0");
+      _syncMusicSliderUI();
+      // Live-apply to the currently playing track (if any).
+      if (typeof window.__ccApplyThemeVolume === "function") window.__ccApplyThemeVolume();
+      if (_musicVol > 0) {
         // Audio lives ONLY in the game simulation — only (re)start it if we're
         // actually in a game right now. In the lobby, nothing plays.
         if (!(opts && opts.uiOnly) && _inGameSimulation() && typeof startThemeSong === "function") startThemeSong();
       } else {
-        // Off → stop immediately, works in-game and in the lobby.
+        // 0 → stop immediately, works in-game and in the lobby.
         if (typeof stopThemeSong === "function") stopThemeSong();
       }
     }
@@ -17277,16 +17331,13 @@
       if (label) label.textContent = _colorblindHints ? "On" : "Off";
     }
 
-    const musicTrack = $a("settings-music-track");
-    if (musicTrack) {
-      _applyMusicToggle(_musicEnabled, { uiOnly: true }); // sync UI only — never auto-start in the lobby
-      musicTrack.addEventListener("click", () => _applyMusicToggle(!_musicEnabled));
-      musicTrack.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-          e.preventDefault();
-          _applyMusicToggle(!_musicEnabled);
-        }
-      });
+    const musicSlider = $a("settings-music-slider");
+    if (musicSlider) {
+      _applyMusicVolume(_musicVol, { uiOnly: true }); // sync UI only — never auto-start in the lobby
+      // While dragging: live-adjust volume (and stop if dragged to 0) but never
+      // auto-start in the lobby. On release: full apply, which (re)starts in-game.
+      musicSlider.addEventListener("input", () => _applyMusicVolume(musicSlider.value, { uiOnly: true }));
+      musicSlider.addEventListener("change", () => _applyMusicVolume(musicSlider.value));
     }
     _applyLargeCardText(_largeCardText);
     _applyColorblindHints(_colorblindHints);
@@ -17327,20 +17378,16 @@
         }
       }
 
-      // Sync music toggle UI
-      const track = $a("settings-music-track");
-      if (track) {
-        track.classList.toggle("on", _musicEnabled);
-        track.setAttribute("aria-checked", _musicEnabled ? "true" : "false");
-      }
-      const label = $a("settings-music-label");
-      if (label) label.textContent = _musicEnabled ? "On" : "Off";
+      // Sync music slider UI
+      _syncMusicSliderUI();
       _applyLargeCardText(_largeCardText);
       _applyColorblindHints(_colorblindHints);
 
       $a("settings-modal").classList.add("open");
     }
     if (settingsBtn) settingsBtn.addEventListener("click", _openSettingsModal);
+    // Expose so the in-game menu (a different scope) can open the same modal.
+    window.__openSettingsModal = _openSettingsModal;
 
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
     $a("settings-edit-nick-btn").addEventListener("click", () => {
