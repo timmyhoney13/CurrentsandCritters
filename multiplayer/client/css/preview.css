@@ -7427,6 +7427,17 @@
       box-shadow: 0 2px 8px rgba(220,110,40,.35);
     }
     .phst-coin-ico { font-size: 2rem; line-height: 1; }
+    /* Critter Coin image — replaces the 🪙 emoji everywhere in the store.
+       em-based so it scales with whatever text it sits beside. */
+    .cc-coin {
+      display: inline-block;
+      width: 1.15em; height: 1.15em;
+      vertical-align: -0.2em;
+      object-fit: contain;
+      -webkit-user-select: none; user-select: none;
+      filter: drop-shadow(0 1px 1px rgba(40,60,90,.18));
+    }
+    .cc-coin-lg { width: 50px; height: 50px; vertical-align: middle; }
     .phst-coin-amt { font-size: 1.35rem; font-weight: 900; color: #a9690a; }
     .phst-coin-amt-label { font-size: .68rem; font-weight: 700; color: #b08a3a; margin-top: -3px; }
     .phst-coin-bonus { font-size: .72rem; font-weight: 800; color: #1d9a6c; margin: 2px 0 8px; }

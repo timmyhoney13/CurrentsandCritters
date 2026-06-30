@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.7";
+  const APP_BUILD   = "2026-06-29.8";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -18551,14 +18551,14 @@
           if (!box) return;
           if (isBundle) {
             nameEl.textContent = "All Backgrounds Bundle";
-            priceEl.textContent = `${phstFmtCoins(phstCoins(4.99))} 🪙`;
+            priceEl.innerHTML = `${phstFmtCoins(phstCoins(4.99))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
             previewEl.style.display = "none";
             infoEl.textContent = "Get all 8 exclusive ocean backgrounds for one low price. After purchasing, enter your unlock code to redeem each background.";
           } else {
             const bg = _BG_BY_ID[bgOrBundle];
             if (!bg) return;
             nameEl.textContent = bg.name;
-            priceEl.textContent = `${phstFmtCoins(phstCoins(1))} 🪙`;
+            priceEl.innerHTML = `${phstFmtCoins(phstCoins(1))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
             previewEl.src = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
             previewEl.alt = bg.name;
             previewEl.style.display = "";
@@ -18676,13 +18676,13 @@
         </div>`;
 
         // 2) Critter Coins packs — buy the in-game currency (Scheme A rates)
-        html += `<div class="phst-section-title">🪙 Critter Coins<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">The coins you spend in the shop. Bigger packs include a bonus — $1 = 1,000 coins.</div>`;
         html += `<div class="phst-coin-grid">`;
         for (const p of PHST_COIN_PACKS) {
           html += `<div class="phst-coin-pack${p.best ? " phst-coin-best" : ""}">
             ${p.best ? `<div class="phst-coin-badge">BEST VALUE</div>` : ""}
-            <div class="phst-coin-ico">🪙</div>
+            <div class="phst-coin-ico"><img class="cc-coin cc-coin-lg" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
             <div class="phst-coin-amt">${phstFmtCoins(p.coins)}</div>
             <div class="phst-coin-amt-label">Critter Coins</div>
             <div class="phst-coin-bonus">${p.bonus > 0 ? `+${p.bonus}% bonus` : "Base rate"}</div>
@@ -18700,7 +18700,7 @@
             <div class="phst-hero-sub">Own all ${all.length} exclusive ocean backgrounds for one low price.</div>
           </div>
           <div class="phst-hero-right">
-            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} 🪙</div>`;
+            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>`;
         if (allOwned) {
           html += `<div class="phst-hero-owned">✓ All Owned</div>`;
         } else {
@@ -18718,7 +18718,7 @@
               <div class="phst-card-name">${esc(bg.name)}</div>
               <div class="phst-card-fact">${esc(bg.facts || "")}</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} 🪙</div>`;
+                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>`;
           if (owned) {
             html += `<div class="phst-card-owned">✓ Owned</div>`;
           } else {
@@ -18743,7 +18743,7 @@
               <div class="phst-card-name">${esc(s.name)}</div>
               <div class="phst-card-fact">A limited seasonal skin — arriving soon.</div>
               <div class="phst-card-footer">
-                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} 🪙</div>
+                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
                 <button class="phst-card-buy" disabled>Coming Soon</button>
               </div>
             </div>
