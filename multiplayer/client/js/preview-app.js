@@ -15511,6 +15511,13 @@
       } catch { _streakCount = Number(statsSource.daily_streak || 0); }
       const streakEl = $a("hdr-streak");
       if (streakEl) streakEl.textContent = _streakCount > 0 ? `${_streakCount} day${_streakCount !== 1 ? "s" : ""}` : "0 days";
+      // Critter Coins balance chip — credited server-side on a Stripe purchase
+      // (stats.critter_coins). Shows 0 until the wallet is funded.
+      const coinsEl = $a("hdr-coins");
+      if (coinsEl) {
+        const cc = Math.max(0, Math.floor(Number(statsSource.critter_coins) || 0));
+        coinsEl.textContent = cc.toLocaleString();
+      }
       // Sidebar streak card (big number + XP labels) — one source of truth.
       if (typeof window._updateStreakXp === "function") window._updateStreakXp(_streakCount);
       // Weekly Mon→Sun dots, driven by the same streak data.
