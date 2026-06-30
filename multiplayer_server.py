@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
+import hmac
 import json
 import mimetypes
 import os
@@ -237,6 +238,294 @@ def get_live_user_counts():
     return (_LIVE_COUNTS_CACHE["registered"],
             _LIVE_COUNTS_CACHE["online"],
             _LIVE_COUNTS_CACHE["games"])
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  STRIPE CHECKOUT WEBHOOK — credit Critter Coins / grant Supporter Tiers
+# ══════════════════════════════════════════════════════════════════════════
+# Players buy Critter Coins packs and Supporter Tiers through Stripe-hosted
+# Payment Links (see the in-app Store). Stripe runs the entire card flow — we
+# never see card data, and the client NEVER credits coins to itself. After
+# Stripe confirms a payment it POSTs a `checkout.session.completed` event to
+# /api/stripe/webhook, and ONLY this handler (gated by the webhook signature)
+# grants anything. That signature is the thing that stops a player from POSTing
+# a fake "I paid" event to mint themselves coins.
+#
+# ──────────────────────────────────────────────────────────────────────────
+#  WHERE TO PUT YOUR STRIPE KEYS  (set as Render env vars — never hard-code!)
+# ──────────────────────────────────────────────────────────────────────────
+#   STRIPE_WEBHOOK_SECRET  → the "Signing secret" for THIS endpoint. In the
+#       Stripe Dashboard: Developers → Webhooks → "Add endpoint",
+#         • Endpoint URL:  https://<your-domain>/api/stripe/webhook
+#         • Events to send: checkout.session.completed
+#       Stripe then shows a secret starting with "whsec_". Paste it into the
+#       STRIPE_WEBHOOK_SECRET env var. (Test mode and live mode each have their
+#       OWN signing secret — use the matching one.)
+#   STRIPE_SECRET_KEY      → your secret API key ("sk_test_…" in test mode,
+#       "sk_live_…" in live mode). It is OPTIONAL here: coin/tier fulfilment is
+#       resolved from the checkout amount/metadata without any Stripe API call.
+#       Kept for future use (e.g. expanding line items). Never expose it.
+#   In Render: Dashboard → your service → Environment → add both with
+#   sync:false (they're also listed in render.yaml).
+#
+#   ⚠️ The Payment Links wired into the Store are TEST links right now, so use
+#   the TEST webhook signing secret while testing. Before launch, swap the Store
+#   links to LIVE Payment Links AND set STRIPE_WEBHOOK_SECRET to the LIVE
+#   endpoint's signing secret.
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
+STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "").strip()
+# Reject events whose signed timestamp is more than this far from now (Stripe's
+# recommended replay-attack guard).
+STRIPE_SIG_TOLERANCE_SEC = 5 * 60
+
+# The 8 cosmetic ocean backgrounds — KEEP IN SYNC with EXCLUSIVE_BACKGROUNDS in
+# preview-app.js. Granting a tier with "unlock all backgrounds" adds these.
+ALL_BACKGROUND_PATHS = [
+    "/backgrounds/bg-kelp.png",
+    "/backgrounds/bg-coral-reef.png",
+    "/backgrounds/bg-artificial-reef.png",
+    "/backgrounds/bg-tide-pool.png",
+    "/backgrounds/bg-arctic.png",
+    "/backgrounds/bg-deep.png",
+    "/backgrounds/bg-pier.png",
+    "/backgrounds/bg-mangrove.png",
+]
+
+# Map a completed checkout to what it grants, keyed by the order TOTAL in cents
+# (Stripe `amount_total`). This is unambiguous because every product has a
+# distinct price: coin packs $1/$5/$10/$20 and tiers $15/$35/$50.
+# ⚠️ These cents MUST match the prices on your Stripe Payment Links. If you
+# change a price for launch, update the matching key here. (If you ever add two
+# products that share a price, set metadata.cc_coins / metadata.cc_tier on the
+# Payment Link or Price instead — _reward_for_session reads metadata first.)
+COIN_PACKS_BY_CENTS = {
+    100:  1000,    # $1.00  → 1,000 coins
+    500:  5250,    # $5.00  → 5,250 coins
+    1000: 11500,   # $10.00 → 11,500 coins
+    2000: 25000,   # $20.00 → 25,000 coins
+}
+SUPPORTER_TIERS_BY_CENTS = {
+    1500: "wave-warrior",   # $15.00
+    3500: "ocean-ally",     # $35.00
+    5000: "tide-turner",    # $50.00
+}
+
+# What each Supporter Tier grants automatically in Firestore. The remaining
+# perks (thank-you email, postcard, physical copy, Supporter Reef Wall name) are
+# manual fulfilment — they're saved on the purchase record (stripe_events doc)
+# with the buyer's email so you can fulfil them by hand.
+SUPPORTER_TIER_GRANTS = {
+    "wave-warrior": {"bonus_xp": 10000, "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"bonus_xp": 25000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+}
+
+
+def _verify_stripe_signature(payload: bytes, sig_header: str, secret: str) -> bool:
+    """Verify a Stripe webhook signature WITHOUT the stripe SDK.
+
+    The `Stripe-Signature` header looks like  't=<unix>,v1=<hex>,v1=<hex>,…'.
+    We recompute HMAC-SHA256(secret, b"<t>." + raw_body) and constant-time
+    compare it against each v1 signature, and reject events outside the
+    timestamp tolerance. Returns False on any problem (no secret/header, bad
+    timestamp, no matching signature) — i.e. we fulfil ONLY verified events."""
+    if not secret or not sig_header:
+        return False
+    timestamp = None
+    sigs: List[str] = []
+    for part in sig_header.split(","):
+        if "=" not in part:
+            continue
+        key, _, val = part.partition("=")
+        key = key.strip()
+        val = val.strip()
+        if key == "t":
+            timestamp = val
+        elif key == "v1":
+            sigs.append(val)
+    if not timestamp or not sigs:
+        return False
+    try:
+        ts = int(timestamp)
+    except ValueError:
+        return False
+    if abs(time.time() - ts) > STRIPE_SIG_TOLERANCE_SEC:
+        return False  # too old / too far in the future → possible replay
+    signed = timestamp.encode("utf-8") + b"." + payload
+    expected = hmac.new(secret.encode("utf-8"), signed, hashlib.sha256).hexdigest()
+    return any(hmac.compare_digest(expected, s) for s in sigs)
+
+
+def _reward_for_session(session: dict) -> Tuple[Optional[str], Any]:
+    """Decide what a completed checkout grants. Returns:
+         ("coins", <int amount>) | ("tier", "<tier-id>") | (None, None).
+    Prefers explicit product metadata (set metadata.cc_coins / metadata.cc_tier
+    on the Payment Link or Price if you want to decouple from the price), then
+    falls back to the order amount in cents (USD only)."""
+    meta = session.get("metadata") or {}
+    if meta.get("cc_coins"):
+        try:
+            return ("coins", int(meta["cc_coins"]))
+        except (TypeError, ValueError):
+            pass
+    if meta.get("cc_tier"):
+        return ("tier", str(meta["cc_tier"]).strip().lower())
+    # Amount fallback only trusts USD, because the cents tables are USD prices.
+    if str(session.get("currency") or "").lower() != "usd":
+        return (None, None)
+    for cents in (session.get("amount_total"), session.get("amount_subtotal")):
+        if isinstance(cents, int):
+            if cents in COIN_PACKS_BY_CENTS:
+                return ("coins", COIN_PACKS_BY_CENTS[cents])
+            if cents in SUPPORTER_TIERS_BY_CENTS:
+                return ("tier", SUPPORTER_TIERS_BY_CENTS[cents])
+    return (None, None)
+
+
+def _stripe_session_email(session: dict) -> str:
+    cd = session.get("customer_details") or {}
+    return str(cd.get("email") or session.get("customer_email") or "").strip()
+
+
+def _resolve_stripe_uid(db, session: dict) -> Optional[str]:
+    """The buyer's account uid: client_reference_id (set by the in-app Store on
+    every Stripe redirect) first, else an existing account matched by the email
+    Stripe collected. Returns None if neither resolves (purchase still recorded
+    for manual review)."""
+    uid = session.get("client_reference_id")
+    if isinstance(uid, str) and uid.strip():
+        return uid.strip()[:256]
+    email = _stripe_session_email(session)
+    if email:
+        try:
+            snap = db.collection("users").where("email", "==", email).limit(1).get()
+            for doc in snap:
+                return doc.id
+        except Exception as exc:  # noqa: BLE001
+            print(f"[stripe] email→uid match failed: {exc}")
+    return None
+
+
+def _process_stripe_checkout(event: dict) -> str:
+    """Apply a verified checkout.session.completed event EXACTLY ONCE.
+
+    Credits Critter Coins or grants a Supporter Tier to the buyer's account in a
+    single Firestore transaction that also writes a stripe_events/{id} marker —
+    so Stripe's automatic retries (and any duplicate deliveries) never double-
+    credit. Returns a short status string; raises on transient failures so the
+    caller can return 500 and let Stripe retry. ONLY paid sessions are fulfilled."""
+    session = (event.get("data") or {}).get("object") or {}
+
+    # (6) Only fulfil sessions Stripe actually collected payment for.
+    if session.get("payment_status") != "paid":
+        print(f"[stripe] session not paid (payment_status={session.get('payment_status')!r}); ignoring.")
+        return "unpaid"
+
+    db = _get_firestore()
+    if db is None:
+        # No Firestore configured → raise so Stripe retries once it's back.
+        raise RuntimeError("Firebase Admin not configured; cannot fulfil purchase.")
+
+    event_id = str(event.get("id") or session.get("id") or "").strip()
+    if not event_id:
+        print("[stripe] event missing id; ignoring.")
+        return "no_event_id"
+
+    kind, value = _reward_for_session(session)        # (3) what was purchased
+    uid = _resolve_stripe_uid(db, session)            # (2) who to credit
+    email = _stripe_session_email(session)
+
+    from firebase_admin import firestore
+    # firebase-admin re-exports these from google.cloud.firestore; fall back to
+    # the v1 module on SDK builds that don't (mirrors bump_firestore_games_played).
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    ArrayUnion = getattr(firestore, "ArrayUnion", None)
+    if ArrayUnion is None:
+        from google.cloud.firestore_v1 import ArrayUnion
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    ev_ref = db.collection("stripe_events").document(event_id)
+    transaction = db.transaction()
+
+    @transactional
+    def _apply(txn) -> str:
+        # ── reads first (Firestore requires all reads before any writes) ──
+        ev_snap = ev_ref.get(transaction=txn)
+        if ev_snap.exists:
+            return "duplicate"  # already processed — do nothing
+
+        record = {
+            "event_id": event_id,
+            "session_id": session.get("id"),
+            "uid": uid,
+            "email": email,
+            "amount_total": session.get("amount_total"),
+            "currency": session.get("currency"),
+            "kind": kind,
+            "value": value,
+            "fulfilled": False,
+            "processed_at": SERVER_TIMESTAMP,
+        }
+
+        # No account to credit, or product we don't recognise → record only so
+        # it can be fulfilled / investigated by hand. (Never silently drop.)
+        if not uid or kind is None:
+            txn.set(ev_ref, record)
+            return "recorded"
+
+        user_ref = db.collection("users").document(uid)
+        user_snap = user_ref.get(transaction=txn)
+        existing = user_snap.to_dict() or {}
+        stats = existing.get("stats") or {}
+
+        founders_ref = None
+        founder_number = None
+        if kind == "tier" and not existing.get("founder_number"):
+            # Sequential Founder Supporter number (read BEFORE any write below).
+            founders_ref = db.collection("meta").document("founders")
+            f_snap = founders_ref.get(transaction=txn)
+            founder_number = int((f_snap.to_dict() or {}).get("count") or 0) + 1
+
+        # ── now compute + write ──
+        updates: Dict[str, Any] = {}
+
+        if kind == "coins":
+            # (4) add coins. set(merge=True) DEEP-merges the stats map, so only
+            # critter_coins changes. Read-then-set inside the txn is race-safe.
+            new_balance = int(stats.get("critter_coins") or 0) + int(value)
+            updates["stats"] = {"critter_coins": new_balance}
+            record["new_balance"] = new_balance
+
+        elif kind == "tier":
+            # (5) grant tier perks. XP/icons/backgrounds are cosmetic only.
+            grant = SUPPORTER_TIER_GRANTS.get(value, {})
+            stats_update: Dict[str, Any] = {"supporter_tier": value}
+            bonus = int(grant.get("bonus_xp") or 0)
+            if bonus:
+                stats_update["total_xp"] = int(stats.get("total_xp") or 0) + bonus
+            updates["stats"] = stats_update
+            updates["supporter_tier"] = value
+            if founders_ref is not None:
+                txn.set(founders_ref, {"count": founder_number}, merge=True)
+                updates["founder_number"] = founder_number
+                record["founder_number"] = founder_number
+            if grant.get("unlock_all_backgrounds"):
+                updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
+            icons = list(grant.get("icons") or [])
+            if icons:
+                updates["unlocked_icons"] = ArrayUnion(icons)
+
+        record["fulfilled"] = True
+        txn.set(user_ref, updates, merge=True)
+        txn.set(ev_ref, record)
+        return "fulfilled"
+
+    result = _apply(transaction)
+    print(f"[stripe] checkout {event_id}: {result} (uid={uid}, kind={kind}, value={value})")
+    return result
+
 
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
@@ -6354,6 +6643,59 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return {}, "JSON body must be an object"
         return body, None
 
+    def _handle_stripe_webhook(self) -> None:
+        """POST /api/stripe/webhook — Stripe calls this after a checkout completes.
+
+        Flow: read the raw body → (1) verify the Stripe signature → parse the
+        event → if it's checkout.session.completed, fulfil it server-side. We ACK
+        with 200 once handled (so Stripe stops retrying); a transient processing
+        failure returns 500 so Stripe retries later (fulfilment is idempotent)."""
+        try:
+            size = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            size = 0
+        if size <= 0 or size > MAX_JSON_BODY_BYTES:
+            self._send_json({"received": False, "error": "invalid body"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        try:
+            raw = self.rfile.read(size)
+        except Exception:
+            self._send_json({"received": False, "error": "read failed"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        # (1) Verify the event really came from Stripe. Without a configured
+        # signing secret we refuse everything — fulfilling unverified events
+        # would let anyone POST a fake purchase and mint coins.
+        sig = self.headers.get("Stripe-Signature", "")
+        if not _verify_stripe_signature(raw, sig, STRIPE_WEBHOOK_SECRET):
+            print("[stripe] rejected webhook: invalid or missing signature.")
+            self._send_json({"received": False, "error": "invalid signature"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        try:
+            event = json.loads(raw.decode("utf-8"))
+        except Exception:
+            self._send_json({"received": False, "error": "invalid JSON"}, status=HTTPStatus.BAD_REQUEST)
+            return
+        if not isinstance(event, dict):
+            self._send_json({"received": False, "error": "invalid event"}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        if event.get("type") == "checkout.session.completed":
+            try:
+                _process_stripe_checkout(event)
+            except Exception as exc:  # noqa: BLE001
+                # Transient failure (e.g. Firestore hiccup): 500 → Stripe retries
+                # later. The fulfilment transaction is all-or-nothing + idempotent,
+                # so a retry can't double-credit.
+                print(f"[stripe] checkout fulfilment error: {exc}")
+                traceback.print_exc()
+                self._send_json({"received": False, "error": "processing error"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
+                return
+
+        # Acknowledge handled + unhandled event types so Stripe stops retrying.
+        self._send_json({"received": True})
+
     def _path_parts(self, path: str) -> List[str]:
         return [p for p in path.strip("/").split("/") if p]
 
@@ -6930,6 +7272,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
+
+        # Stripe webhook is handled FIRST, before _read_json_body() consumes the
+        # stream: signature verification needs the EXACT raw request bytes.
+        if parsed.path == "/api/stripe/webhook":
+            self._handle_stripe_webhook()
+            return
+
         parts = self._path_parts(parsed.path)
         body, body_error = self._read_json_body()
         if body_error:

@@ -7277,36 +7277,76 @@
     .phst-section-title .phst-sec-rule { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(80,180,225,.5), transparent); }
     .phst-section-sub { font-size: .8rem; color: #4f7ba6; font-weight: 600; margin: -8px 0 14px; }
 
-    /* Redeem-a-code box (donation codes arrive by email) */
-    .phst-code-box {
-      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-      background: linear-gradient(120deg, rgba(255,231,214,.85) 0%, rgba(255,214,224,.82) 55%, rgba(214,242,255,.85) 100%);
-      border: 1px solid rgba(244,160,150,.5);
-      border-radius: 16px; padding: 16px 20px; margin-bottom: 6px;
-      box-shadow: 0 4px 20px rgba(210,110,120,.14);
+    /* Stripe checkout reassurance note (top of the store) */
+    .phst-account-note {
+      display: flex; align-items: center; gap: 11px;
+      background: linear-gradient(120deg, rgba(214,242,255,.85) 0%, rgba(224,236,255,.85) 100%);
+      border: 1px solid rgba(120,190,225,.45);
+      border-radius: 14px; padding: 12px 16px; margin-bottom: 4px;
+      font-size: .8rem; color: #2f6390; line-height: 1.45; font-weight: 600;
     }
-    .phst-code-ico { font-size: 1.8rem; flex-shrink: 0; }
-    .phst-code-text { flex: 1; min-width: 160px; }
-    .phst-code-title { font-size: .96rem; font-weight: 900; color: #c0506a; margin-bottom: 2px; }
-    .phst-code-desc { font-size: .76rem; color: #7a5a6a; line-height: 1.45; }
-    .phst-code-form { display: flex; gap: 8px; flex-shrink: 0; }
-    .phst-code-form input {
-      width: 130px; font-size: 1rem; font-weight: 800; letter-spacing: 3px; text-align: center;
-      background: rgba(255,255,255,.85); border: 1px solid rgba(200,120,130,.45);
-      color: #5a3a48; border-radius: 9px; padding: 9px 10px;
+    .phst-account-ico { font-size: 1.25rem; flex-shrink: 0; }
+
+    /* Supporter Tier cards */
+    .phst-tier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 16px; margin-bottom: 8px;
     }
-    .phst-code-form input:focus { outline: none; border-color: #f08aa0; box-shadow: 0 0 0 3px rgba(240,138,160,.18); }
-    .phst-code-form button {
-      background: linear-gradient(120deg,#ff8f6b 0%,#f0628a 100%);
-      color: #fff; font-size: .85rem; font-weight: 800;
-      border: none; border-radius: 9px; padding: 9px 18px; cursor: pointer;
-      box-shadow: 0 3px 12px rgba(240,98,138,.35); white-space: nowrap;
-      transition: filter .15s, transform .12s;
+    .phst-tier {
+      position: relative;
+      background: rgba(255,255,255,.82);
+      border: 1px solid rgba(120,200,230,.5);
+      border-radius: 16px; padding: 20px 20px 18px;
+      display: flex; flex-direction: column;
+      box-shadow: 0 3px 14px rgba(30,110,160,.12);
+      transition: transform .15s, box-shadow .15s;
     }
-    .phst-code-form button:hover { filter: brightness(1.08); transform: translateY(-1px); }
-    #phst-code-msg { width: 100%; font-size: .78rem; font-weight: 700; min-height: 0; }
-    #phst-code-msg.ok  { color: #1d9a6c; min-height: 1.2em; }
-    #phst-code-msg.err { color: #d6526a; min-height: 1.2em; }
+    .phst-tier:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(30,110,160,.22); }
+    .phst-tier-best { border-color: rgba(240,150,60,.75); box-shadow: 0 4px 18px rgba(230,140,40,.28); }
+    .phst-tier-badge {
+      position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+      background: linear-gradient(120deg,#ff9a3c,#ff7a45);
+      color: #fff; font-size: .58rem; font-weight: 900; letter-spacing: .6px;
+      padding: 3px 12px; border-radius: 999px; white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(220,110,40,.35);
+    }
+    .phst-tier-name { font-family: "Cinzel", serif; font-size: 1.1rem; font-weight: 900; color: #11588f; }
+    .phst-tier-price {
+      font-size: 1.7rem; font-weight: 900; color: #e8736a; margin: 2px 0 12px;
+      display: flex; align-items: baseline; gap: 6px;
+    }
+    .phst-tier-once { font-size: .7rem; font-weight: 700; color: #8aa6bd; }
+    .phst-tier-perks {
+      list-style: none; margin: 0 0 12px; padding: 0;
+      display: flex; flex-direction: column; gap: 6px; flex: 1;
+    }
+    .phst-tier-perks li { position: relative; padding-left: 20px; font-size: .8rem; color: #3f6a90; line-height: 1.4; }
+    .phst-tier-perks li::before { content: "✓"; position: absolute; left: 0; top: 0; color: #1d9a6c; font-weight: 900; }
+    .phst-tier-fine { font-size: .68rem; color: #8aa6bd; font-weight: 600; margin-bottom: 12px; }
+    .phst-tier-buy {
+      width: 100%; font-size: .9rem; font-weight: 900; color: #fff;
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      border: none; border-radius: 10px; padding: 11px 0; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(31,143,207,.32);
+      transition: filter .12s, transform .1s;
+    }
+    .phst-tier-buy:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .phst-tier-best .phst-tier-buy {
+      background: linear-gradient(120deg,#f0a93c 0%,#e8862a 100%);
+      box-shadow: 0 3px 12px rgba(220,130,40,.32);
+    }
+
+    /* Physical Game — coming soon placeholder */
+    .phst-physical-soon {
+      display: flex; align-items: center; gap: 14px;
+      background: linear-gradient(120deg, rgba(235,247,255,.85) 0%, rgba(224,238,255,.85) 100%);
+      border: 1px dashed rgba(120,180,215,.6);
+      border-radius: 16px; padding: 18px 22px;
+    }
+    .phst-physical-ico { font-size: 2.2rem; flex-shrink: 0; }
+    .phst-physical-title { font-size: 1rem; font-weight: 900; color: #11588f; }
+    .phst-physical-desc { font-size: .8rem; color: #5b82a3; line-height: 1.45; margin-top: 2px; }
 
     /* Bundle hero */
     .phst-hero {
@@ -7450,47 +7490,7 @@
     }
     .phst-coin-buy:hover { filter: brightness(1.07); transform: translateY(-1px); }
 
-    /* Purchase modal (light frosted ocean) */
-    #phst-modal {
-      position: fixed; inset: 0; z-index: 9200;
-      background: rgba(8,40,70,.55); backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
-      display: none; align-items: center; justify-content: center;
-    }
-    #phst-modal.open { display: flex; }
-    #phst-modal-box {
-      background: linear-gradient(165deg, rgba(238,250,255,.97) 0%, rgba(224,244,255,.97) 60%, rgba(244,236,255,.97) 100%);
-      border: 1px solid rgba(120,200,235,.6); border-radius: 20px;
-      padding: 26px 28px; max-width: 420px; width: 92%;
-      box-shadow: 0 24px 70px rgba(10,50,90,.4);
-      animation: phstFadeIn .2s ease;
-    }
-    @keyframes phstFadeIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
-    #phst-modal-close {
-      float: right; background: none; border: none; color: #6a92b5;
-      font-size: 18px; cursor: pointer; line-height: 1; margin: -4px -4px 0 0;
-    }
-    #phst-modal-close:hover { color: #1a5a90; }
-    #phst-modal-preview { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 12px; margin: 14px 0 12px; display: block; box-shadow: 0 4px 16px rgba(30,110,160,.2); }
-    #phst-modal-name { font-size: 1.15rem; font-weight: 900; color: #11588f; margin: 0 0 4px; }
-    #phst-modal-price { font-size: 1.7rem; font-weight: 900; color: #e8736a; margin: 0 0 14px; }
-    #phst-modal-info { font-size: .82rem; color: #5b82a3; line-height: 1.55; margin-bottom: 14px; }
-    .phst-modal-code-row { display: flex; gap: 8px; margin-top: 10px; }
-    .phst-modal-code-row input {
-      flex: 1; font-size: 1rem; font-weight: 800; background: rgba(255,255,255,.85);
-      border: 1px solid rgba(120,180,215,.5); color: #2a4a66; border-radius: 9px;
-      padding: 9px 10px; letter-spacing: 3px; text-align: center;
-    }
-    .phst-modal-code-row input:focus { outline: none; border-color: #2bb8d8; box-shadow: 0 0 0 3px rgba(43,184,216,.18); }
-    .phst-modal-redeem-btn {
-      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
-      color: #fff; font-size: .85rem; font-weight: 800;
-      border: none; border-radius: 9px; padding: 9px 16px; cursor: pointer;
-      white-space: nowrap;
-    }
-    .phst-modal-redeem-btn:hover { filter: brightness(1.08); }
-    #phst-modal-msg { font-size: .8rem; font-weight: 700; margin-top: 8px; min-height: 1.2em; }
-    #phst-modal-msg.ok  { color: #1d9a6c; }
-    #phst-modal-msg.err { color: #d6526a; }
+    /* (Store purchase/code modal removed — checkout is Stripe-hosted now.) */
 
     /* Daily Streak — section at bottom of nav card, no separate card bg */
     .ph-sidebar-streak {

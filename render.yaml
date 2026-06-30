@@ -48,3 +48,16 @@ services:
       # settings → Service accounts → Generate new private key.
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
+      # Stripe checkout webhook (POST /api/stripe/webhook) — credits Critter
+      # Coins / grants Supporter Tiers after a successful payment.
+      #   STRIPE_WEBHOOK_SECRET: the endpoint's "Signing secret" (whsec_…) from
+      #     Stripe Dashboard → Developers → Webhooks → your endpoint. REQUIRED —
+      #     the webhook rejects every event until this is set. Use the TEST
+      #     secret while the Store uses TEST Payment Links; the LIVE secret at
+      #     launch.
+      #   STRIPE_SECRET_KEY: secret API key (sk_test_… / sk_live_…). Optional —
+      #     fulfilment works without it; reserved for future use.
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false

@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-29.9" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-29.10" />
 </head>
 <body>
 
@@ -2234,21 +2234,8 @@
   </div>
 </div>
 
-<!-- ── Purchase / Code Modal ───────────────────────────────────────── -->
-<div id="phst-modal">
-  <div id="phst-modal-box">
-    <button id="phst-modal-close">✕</button>
-    <div id="phst-modal-name"></div>
-    <div id="phst-modal-price"></div>
-    <img id="phst-modal-preview" alt="">
-    <div id="phst-modal-info">After completing your purchase, enter the 6-digit unlock code you receive to instantly unlock this background.</div>
-    <div class="phst-modal-code-row">
-      <input id="phst-modal-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000">
-      <button class="phst-modal-redeem-btn" id="phst-modal-redeem">Redeem</button>
-    </div>
-    <div id="phst-modal-msg"></div>
-  </div>
-</div>
+<!-- Store purchase modal removed: the store now hands off directly to
+     Stripe-hosted Payment Links (no on-site checkout, no code redemption). -->
 
 <!-- ══ NEW CURRENT MODAL ═════════════════════════════════════════════ -->
 <div id="new-current-modal">
@@ -2571,7 +2558,7 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-29.9"></script>
+<script src="/js/preview-app.js?v=2026-06-29.10"></script>
 
 <script src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 

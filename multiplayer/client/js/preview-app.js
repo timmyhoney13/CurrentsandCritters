@@ -18540,151 +18540,137 @@
         else { const sb = document.getElementById("stats-settings-btn"); if (sb) sb.click(); }
       });
 
-      // ── Background Store ────────────────────────────────────────────
+      // ── Store: Stripe-hosted checkout ───────────────────────────────
+      // We NEVER collect card details on our site and never build a fake
+      // checkout. Every "Buy"/"Become" button hands the player off to a
+      // Stripe-hosted Payment Link. After Stripe confirms payment, our Stripe
+      // webhook is what actually credits Critter Coins / grants the tier to the
+      // account named by client_reference_id (set below).
       (function initStore() {
-        // Purchase modal state
-        let _phstTarget = null; // "bundle" or a bg id string
 
-        function _phstOpenModal(bgOrBundle) {
-          _phstTarget = bgOrBundle;
-          const isBundle = bgOrBundle === "bundle";
-          const box = document.getElementById("phst-modal-box");
-          const nameEl = document.getElementById("phst-modal-name");
-          const priceEl = document.getElementById("phst-modal-price");
-          const previewEl = document.getElementById("phst-modal-preview");
-          const infoEl = document.getElementById("phst-modal-info");
-          const codeInput = document.getElementById("phst-modal-code");
-          const msgEl = document.getElementById("phst-modal-msg");
-          if (!box) return;
-          if (isBundle) {
-            nameEl.textContent = "All Backgrounds Bundle";
-            priceEl.innerHTML = `${phstFmtCoins(phstCoins(4.99))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
-            previewEl.style.display = "none";
-            infoEl.textContent = "Get all 8 exclusive ocean backgrounds for one low price. After purchasing, enter your unlock code to redeem each background.";
-          } else {
-            const bg = _BG_BY_ID[bgOrBundle];
-            if (!bg) return;
-            nameEl.textContent = bg.name;
-            priceEl.innerHTML = `${phstFmtCoins(phstCoins(1))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
-            previewEl.src = (typeof _bgSrc === "function") ? _bgSrc(bg.img) : bg.img;
-            previewEl.alt = bg.name;
-            previewEl.style.display = "";
-            infoEl.textContent = "After completing your purchase, enter the 6-digit unlock code you receive to instantly unlock this background.";
-          }
-          if (codeInput) codeInput.value = "";
-          if (msgEl) { msgEl.textContent = ""; msgEl.className = ""; }
-          document.getElementById("phst-modal").classList.add("open");
-        }
-
-        function _phstCloseModal() {
-          document.getElementById("phst-modal").classList.remove("open");
-          _phstTarget = null;
-        }
-
-        async function _phstRedeem() {
-          const codeInput = document.getElementById("phst-modal-code");
-          const msgEl = document.getElementById("phst-modal-msg");
-          const btn = document.getElementById("phst-modal-redeem");
-          const code = String(codeInput ? codeInput.value : "").replace(/\D/g, "").trim();
-          if (code.length !== 6) {
-            msgEl.textContent = "Enter a 6-digit code.";
-            msgEl.className = "err";
-            return;
-          }
-          if (!_authUser) {
-            msgEl.textContent = "Sign in to redeem a code.";
-            msgEl.className = "err";
-            return;
-          }
-          btn.disabled = true;
-          msgEl.textContent = "Checking…";
-          msgEl.className = "";
+        // Attach the signed-in Google account to a Payment Link so Stripe (and
+        // our webhook) knows exactly which player to fulfill:
+        //   • client_reference_id → Firebase uid (the Google sign-in)
+        //   • prefilled_email     → account email (fills in Stripe's email box
+        //                            and is a fallback match key)
+        function _phstStripeUrl(baseUrl) {
           try {
-            const res = await window.__fishRedeemCode?.(code);
-            if (!res) { msgEl.textContent = "Redemption not available — try the Avatar Gallery."; msgEl.className = "err"; btn.disabled = false; return; }
-            msgEl.textContent = res.msg || (res.ok ? "Unlocked!" : "Error.");
-            msgEl.className = res.ok ? "ok" : "err";
-            if (res.ok) { if (codeInput) codeInput.value = ""; renderPhStore(); }
-          } catch(e) {
-            msgEl.textContent = "Error — try again.";
-            msgEl.className = "err";
+            const u = new URL(baseUrl);
+            const uid = _authUser && _authUser.uid;
+            const email = _authUser && _authUser.email;
+            if (uid) u.searchParams.set("client_reference_id", uid);
+            if (email) u.searchParams.set("prefilled_email", email);
+            return u.toString();
+          } catch (e) {
+            return baseUrl; // malformed URL — send them to the raw link rather than break
           }
-          btn.disabled = false;
         }
 
-        // Wire modal close / redeem
-        const _phstModal = document.getElementById("phst-modal");
-        if (_phstModal) _phstModal.addEventListener("click", (e) => { if (e.target === _phstModal) _phstCloseModal(); });
-        const _phstClose = document.getElementById("phst-modal-close");
-        if (_phstClose) _phstClose.addEventListener("click", _phstCloseModal);
-        const _phstRedeemBtn = document.getElementById("phst-modal-redeem");
-        if (_phstRedeemBtn) _phstRedeemBtn.addEventListener("click", _phstRedeem);
-        const _phstCodeInput = document.getElementById("phst-modal-code");
-        if (_phstCodeInput) {
-          _phstCodeInput.addEventListener("input", () => {
-            _phstCodeInput.value = _phstCodeInput.value.replace(/\D/g, "").slice(0, 6);
-            const msgEl = document.getElementById("phst-modal-msg");
-            if (msgEl) { msgEl.textContent = ""; msgEl.className = ""; }
-          });
-          _phstCodeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") _phstRedeem(); });
+        // Open a Stripe Payment Link in the SAME tab. Require sign-in first so
+        // the purchase is tied to a Google account (otherwise the webhook has
+        // no one to credit and the coins/tier can't be delivered).
+        function _phstGoToStripe(baseUrl) {
+          if (!baseUrl) return;
+          if (!_authUser) {
+            if (typeof showToast === "function")
+              showToast("Sign in with Google first so your purchase is added to your account.", "info");
+            return;
+          }
+          window.location.href = _phstStripeUrl(baseUrl);
         }
-        document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape" && document.getElementById("phst-modal")?.classList.contains("open")) _phstCloseModal();
-        });
 
-        window._phstOpenModal = _phstOpenModal;
+        window._phstGoToStripe = _phstGoToStripe;
       })();
 
-      // Seasonal teaser line-up (Coming Soon — no purchasing yet). Holiday skins are $2.50 → 2,500 coins.
-      const PHST_SEASONAL = [
-        { name:"Summer Tide",     emoji:"🏖️", grad:"linear-gradient(135deg,#ffd86b,#ff9a6b)" },
-        { name:"Spooky Abyss",    emoji:"🎃", grad:"linear-gradient(135deg,#7a3fb0,#2a1840)" },
-        { name:"Winter Frost",    emoji:"❄️", grad:"linear-gradient(135deg,#a8e6ff,#5b8fd6)" },
-        { name:"Spring Bloom",    emoji:"🌸", grad:"linear-gradient(135deg,#ffc7e0,#8fd6a0)" },
+      const phstFmtCoins = (n) => Number(n).toLocaleString("en-US");
+
+      // ═══════════════════════════════════════════════════════════════════
+      //  STRIPE PAYMENT LINKS
+      //  ⚠️ TEST MODE — every URL below is a Stripe TEST Payment Link and only
+      //  works with Stripe test cards. BEFORE LAUNCH, replace each `link:` with
+      //  the matching LIVE Payment Link from the Stripe Dashboard
+      //  (Payments → Payment Links). Do NOT swap these for a custom/fake
+      //  checkout — only ever hand off to Stripe-hosted links.
+      // ═══════════════════════════════════════════════════════════════════
+
+      // 1) Critter Coins packs — $1 = 1,000 coins, bigger packs add a bonus.
+      const PHST_COIN_PACKS = [
+        { usd: 1,  coins: 1000,  bonus: 0,             link: "https://buy.stripe.com/test_4gMeVf3JafX86ON4X3bAs03" },
+        { usd: 5,  coins: 5250,  bonus: 5,             link: "https://buy.stripe.com/test_5kQ28t4Ne9yKddb1KRbAs04" },
+        { usd: 10, coins: 11500, bonus: 15,            link: "https://buy.stripe.com/test_dRm9AVdjKeT43CBgFLbAs05" },
+        { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://buy.stripe.com/test_28E8wRbbCdP0a0ZblrbAs06" },
       ];
 
-      // ── Critter Coins ($CC) economy ───────────────────────────────────
-      // Base rate: $1 = 1,000 coins (1 coin = $0.001). Items are priced at par;
-      // cash packs give an escalating bonus on top (Scheme A — the gentle curve).
-      const PHST_COIN_RATE = 1000; // coins per US dollar
-      const phstCoins = (usd) => Math.round(usd * PHST_COIN_RATE); // item price in coins at base rate
-      const phstFmtCoins = (n) => Number(n).toLocaleString("en-US");
-      // Scheme A coin packs: amount = base coins + escalating bonus %.
-      const PHST_COIN_PACKS = [
-        { usd: 1,  coins: 1000,  bonus: 0  },
-        { usd: 5,  coins: 5250,  bonus: 5  },
-        { usd: 10, coins: 11500, bonus: 15 },
-        { usd: 20, coins: 25000, bonus: 25, best: true },
+      // 2) Supporter Tiers — one-time contributions. Perks are cosmetic /
+      //    progression only and are granted server-side after Stripe payment.
+      const PHST_SUPPORTER_TIERS = [
+        {
+          name: "Wave Warrior", usd: 15,
+          link: "https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00",
+          perks: [
+            "Supporter email updates",
+            "Online simulation access (free now — and free for you when it becomes paid)",
+            "Founder Supporter number",
+            "Name on the Supporter Reef Wall",
+            "Personal thank-you email",
+            "+10,000 bonus XP",
+          ],
+          note: "Cosmetic progression only",
+        },
+        {
+          name: "Ocean Ally", usd: 35,
+          link: "https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01",
+          perks: [
+            "Supporter email updates",
+            "Online simulation access",
+            "Founder Supporter number",
+            "Name on the Supporter Reef Wall",
+            "Personal thank-you email",
+            "Unlock all backgrounds",
+            "Exclusive Fish Icon",
+            "+25,000 bonus XP",
+          ],
+          note: "Cosmetic progression only",
+        },
+        {
+          name: "Tide Turner", usd: 50, best: true,
+          link: "https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02",
+          perks: [
+            "Supporter email updates",
+            "Online simulation access",
+            "Founder Supporter number",
+            "Name on the Supporter Reef Wall",
+            "Personal thank-you email",
+            "Unlock all backgrounds",
+            "Exclusive Fish Icon",
+            "Free physical copy of Currents & Critters",
+            "Thank-you postcard",
+            "Exclusive Amberjack player icon",
+            "+50,000 bonus XP",
+          ],
+          note: "Cosmetic progression only",
+        },
       ];
+
+      // 3) Physical Game — no products yet. When the tabletop copy ships, add
+      //    entries here as { name, usd, link: "<LIVE Stripe Payment Link>" }
+      //    and the Physical Game section will render Buy buttons automatically.
+      const PHST_PHYSICAL = [];
 
       function renderPhStore() {
         const el = document.getElementById("ph-store-content");
         if (!el) return;
-        const unlocked = (typeof window.__fishGetUnlockedBackgrounds === "function")
-          ? (window.__fishGetUnlockedBackgrounds() || []) : [];
-        const unlockedSet = new Set(unlocked);
         const esc = (typeof escapeHtml === "function") ? escapeHtml : (s)=>String(s);
-        const bgsrc = (typeof _bgSrc === "function") ? _bgSrc : (u)=>u;
-        const all = (typeof EXCLUSIVE_BACKGROUNDS !== "undefined") ? EXCLUSIVE_BACKGROUNDS : [];
-        const allOwned = all.length > 0 && all.every(b => unlockedSet.has(b.img));
 
-        // 1) Redeem-a-code box (donation codes arrive by email)
-        let html = `<div class="phst-code-box">
-          <div class="phst-code-ico">✉️</div>
-          <div class="phst-code-text">
-            <div class="phst-code-title">Have a code?</div>
-            <div class="phst-code-desc">Donate to unlock a background or avatar — your 6-digit code is emailed to you. Enter it here to redeem instantly.</div>
-          </div>
-          <div class="phst-code-form">
-            <input id="phst-store-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="off">
-            <button id="phst-store-redeem">Redeem</button>
-          </div>
-          <div id="phst-code-msg"></div>
+        // Reassurance line: Stripe-hosted checkout + account linking.
+        let html = `<div class="phst-account-note">
+          <span class="phst-account-ico">🔒</span>
+          <div>Checkout is hosted securely by <strong>Stripe</strong> — we never see your card. Purchases are linked to your signed-in Google account, and rewards arrive automatically once payment clears.</div>
         </div>`;
 
-        // 2) Critter Coins packs — buy the in-game currency (Scheme A rates)
+        // ── 1) Critter Coins ──────────────────────────────────────────
         html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-section-sub">The coins you spend in the shop. Bigger packs include a bonus — $1 = 1,000 coins.</div>`;
+        html += `<div class="phst-section-sub">In-game currency. Bigger packs include a bonus — $1 = 1,000 coins.</div>`;
         html += `<div class="phst-coin-grid">`;
         for (const p of PHST_COIN_PACKS) {
           html += `<div class="phst-coin-pack${p.best ? " phst-coin-best" : ""}">
@@ -18693,110 +18679,125 @@
             <div class="phst-coin-amt">${phstFmtCoins(p.coins)}</div>
             <div class="phst-coin-amt-label">Critter Coins</div>
             <div class="phst-coin-bonus">${p.bonus > 0 ? `+${p.bonus}% bonus` : "Base rate"}</div>
-            <button class="phst-coin-buy" onclick="window._phstBuyCoins(${p.usd})">$${p.usd.toFixed(2)}</button>
+            <button class="phst-coin-buy" data-stripe="${esc(p.link)}">$${p.usd.toFixed(2)}</button>
           </div>`;
         }
         html += `</div>`;
 
-        // 3) Backgrounds section — bundle hero + grid ($1 each → 1,000 coins)
-        const bundleCoins = phstCoins(4.99);
-        html += `<div class="phst-section-title">🌊 Exclusive Backgrounds<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-hero">
-          <div class="phst-hero-text">
-            <div class="phst-hero-title">All Backgrounds Bundle</div>
-            <div class="phst-hero-sub">Own all ${all.length} exclusive ocean backgrounds for one low price.</div>
-          </div>
-          <div class="phst-hero-right">
-            <div class="phst-bundle-price">${phstFmtCoins(bundleCoins)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>`;
-        if (allOwned) {
-          html += `<div class="phst-hero-owned">✓ All Owned</div>`;
-        } else {
-          html += `<button class="phst-buy-all-btn" onclick="window._phstOpenModal('bundle')">Buy Bundle</button>`;
-        }
-        html += `</div></div>`;
-
-        html += `<div class="phst-grid" style="margin-top:16px;">`;
-        for (const bg of all) {
-          const owned = unlockedSet.has(bg.img);
-          const imgSrc = bgsrc(bg.img);
-          html += `<div class="phst-card">
-            <img class="phst-card-img" src="${imgSrc}" alt="${esc(bg.name)}" loading="lazy">
-            <div class="phst-card-body">
-              <div class="phst-card-name">${esc(bg.name)}</div>
-              <div class="phst-card-fact">${esc(bg.facts || "")}</div>
-              <div class="phst-card-footer">
-                <div class="phst-card-price">${phstFmtCoins(phstCoins(1))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>`;
-          if (owned) {
-            html += `<div class="phst-card-owned">✓ Owned</div>`;
-          } else {
-            html += `<button class="phst-card-buy" onclick="window._phstOpenModal('${esc(bg.id)}')">Buy</button>`;
-          }
-          html += `</div></div></div>`;
-        }
-        html += `</div>`;
-
-        // 4) Seasonal section — Coming Soon teasers ($2.50 each → 2,500 coins)
-        html += `<div class="phst-section-title">✨ Seasonal Exclusives<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-section-sub">Limited-time skins that wash in with each season. Check back soon!</div>`;
-        html += `<div class="phst-grid">`;
-        for (const s of PHST_SEASONAL) {
-          html += `<div class="phst-card phst-seasonal">
-            <div class="phst-card-img-wrap">
-              <div class="phst-season-ribbon">SOON</div>
-              <div class="phst-season-lock">🔒</div>
-              <div class="phst-card-img" style="background:${s.grad};display:flex;align-items:center;justify-content:center;font-size:2.2rem;">${s.emoji}</div>
-            </div>
-            <div class="phst-card-body">
-              <div class="phst-card-name">${esc(s.name)}</div>
-              <div class="phst-card-fact">A limited seasonal skin — arriving soon.</div>
-              <div class="phst-card-footer">
-                <div class="phst-card-price" style="color:#8a93b0;">${phstFmtCoins(phstCoins(2.5))} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
-                <button class="phst-card-buy" disabled>Coming Soon</button>
+        // ── 2) Backgrounds — spend Critter Coins (1,000 each) ─────────
+        const _bgs = (typeof EXCLUSIVE_BACKGROUNDS !== "undefined") ? EXCLUSIVE_BACKGROUNDS : [];
+        if (_bgs.length) {
+          const _unlocked = (typeof window.__fishGetUnlockedBackgrounds === "function")
+            ? (window.__fishGetUnlockedBackgrounds() || []) : [];
+          const _ownedSet = new Set(_unlocked);
+          const _bgsrc = (typeof _bgSrc === "function") ? _bgSrc : (u)=>u;
+          html += `<div class="phst-section-title">🌊 Backgrounds<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-sub">Cosmetic ocean scenes behind your avatar. Spend Critter Coins — 1,000 each.</div>`;
+          html += `<div class="phst-grid">`;
+          for (const bg of _bgs) {
+            const owned = _ownedSet.has(bg.img);
+            html += `<div class="phst-card">
+              <img class="phst-card-img" src="${_bgsrc(bg.img)}" alt="${esc(bg.name)}" loading="lazy">
+              <div class="phst-card-body">
+                <div class="phst-card-name">${esc(bg.name)}</div>
+                <div class="phst-card-fact">${esc(bg.facts || "")}</div>
+                <div class="phst-card-footer">
+                  <div class="phst-card-price">${phstFmtCoins(1000)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
+                  ${owned
+                    ? `<div class="phst-card-owned">✓ Owned</div>`
+                    : `<button class="phst-card-buy" data-bg="${esc(bg.id)}">Buy</button>`}
+                </div>
               </div>
-            </div>
+            </div>`;
+          }
+          html += `</div>`;
+        }
+
+        // ── 3) Supporter Tiers ────────────────────────────────────────
+        html += `<div class="phst-section-title">★ Supporter Tiers<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only.</div>`;
+        html += `<div class="phst-tier-grid">`;
+        for (const t of PHST_SUPPORTER_TIERS) {
+          html += `<div class="phst-tier${t.best ? " phst-tier-best" : ""}">
+            ${t.best ? `<div class="phst-tier-badge">BEST VALUE</div>` : ""}
+            <div class="phst-tier-name">${esc(t.name)}</div>
+            <div class="phst-tier-price">$${t.usd.toFixed(2)}<span class="phst-tier-once">one-time</span></div>
+            <ul class="phst-tier-perks">`;
+          for (const perk of t.perks) html += `<li>${esc(perk)}</li>`;
+          html += `</ul>
+            <div class="phst-tier-fine">${esc(t.note)}</div>
+            <button class="phst-tier-buy" data-stripe="${esc(t.link)}">Become a ${esc(t.name)}</button>
           </div>`;
         }
         html += `</div>`;
+
+        // ── 4) Physical Game ──────────────────────────────────────────
+        html += `<div class="phst-section-title">📦 Physical Game<span class="phst-sec-rule"></span></div>`;
+        html += `<div class="phst-section-sub">The tabletop edition of Currents &amp; Critters.</div>`;
+        if (PHST_PHYSICAL.length === 0) {
+          html += `<div class="phst-physical-soon">
+            <div class="phst-physical-ico">🐢</div>
+            <div>
+              <div class="phst-physical-title">Coming soon</div>
+              <div class="phst-physical-desc">A physical copy of Currents &amp; Critters is on the way. Tide Turner supporters get one free!</div>
+            </div>
+          </div>`;
+        } else {
+          html += `<div class="phst-grid">`;
+          for (const item of PHST_PHYSICAL) {
+            html += `<div class="phst-card">
+              <div class="phst-card-body">
+                <div class="phst-card-name">${esc(item.name)}</div>
+                <div class="phst-card-footer">
+                  <div class="phst-card-price">$${Number(item.usd).toFixed(2)}</div>
+                  <button class="phst-card-buy" data-stripe="${esc(item.link)}">Buy</button>
+                </div>
+              </div>
+            </div>`;
+          }
+          html += `</div>`;
+        }
 
         el.innerHTML = html;
 
-        // Wire the redeem-a-code box (rebuilt each render)
-        const codeInput = document.getElementById("phst-store-code");
-        const codeBtn = document.getElementById("phst-store-redeem");
-        const codeMsg = document.getElementById("phst-code-msg");
-        async function _doStoreRedeem() {
-          const code = String(codeInput ? codeInput.value : "").replace(/\D/g, "").trim();
-          if (code.length !== 6) { codeMsg.textContent = "Enter a 6-digit code."; codeMsg.className = "err"; return; }
-          if (!_authUser) { codeMsg.textContent = "Sign in to redeem a code."; codeMsg.className = "err"; return; }
-          codeBtn.disabled = true; codeMsg.textContent = "Checking…"; codeMsg.className = "";
-          try {
-            const res = await window.__fishRedeemCode?.(code);
-            if (!res) { codeMsg.textContent = "Redemption unavailable — try again."; codeMsg.className = "err"; codeBtn.disabled = false; return; }
-            codeMsg.textContent = res.msg || (res.ok ? "Unlocked!" : "Error.");
-            codeMsg.className = res.ok ? "ok" : "err";
-            if (res.ok) { renderPhStore(); }
-          } catch { codeMsg.textContent = "Error — try again."; codeMsg.className = "err"; }
-          codeBtn.disabled = false;
-        }
-        if (codeBtn) codeBtn.addEventListener("click", _doStoreRedeem);
-        if (codeInput) {
-          codeInput.addEventListener("input", () => {
-            codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
-            if (codeMsg) { codeMsg.textContent = ""; codeMsg.className = ""; }
-          });
-          codeInput.addEventListener("keydown", (e) => { if (e.key === "Enter") _doStoreRedeem(); });
-        }
+        // Wire every coin-pack / tier / physical Buy button to its Stripe-hosted
+        // Payment Link. Opens in the SAME tab (window.location.href in _phstGoToStripe).
+        el.querySelectorAll("[data-stripe]").forEach((btn) => {
+          btn.addEventListener("click", () => window._phstGoToStripe(btn.getAttribute("data-stripe")));
+        });
+        // Wire every background Buy button to the Critter-Coins spend flow.
+        el.querySelectorAll("[data-bg]").forEach((btn) => {
+          btn.addEventListener("click", () => window._phstBuyBg(btn.getAttribute("data-bg"), btn));
+        });
       }
       window.renderPhStore = renderPhStore;
 
-      // Coin-pack purchase — wallet/checkout backend not wired yet, so show a toast.
-      window._phstBuyCoins = function (usd) {
-        const pack = PHST_COIN_PACKS.find(p => p.usd === usd);
-        const coins = pack ? phstFmtCoins(pack.coins) : "";
-        const msg = coins
-          ? `Critter Coins are coming soon — ${coins} coins for $${Number(usd).toFixed(2)}!`
-          : "Critter Coins are coming soon!";
-        if (typeof showToast === "function") showToast(msg, "info");
+      // Buy a background with Critter Coins (spends from the wallet, grants the
+      // unlock, refreshes the store + header). Safe: the deduction is a server-
+      // side Firestore transaction (see __fishBuyBackgroundWithCoins).
+      window._phstBuyBg = async function (bgId, btn) {
+        const bg = (typeof _BG_BY_ID !== "undefined") ? _BG_BY_ID[bgId] : null;
+        if (!bg) return;
+        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (typeof window.__fishBuyBackgroundWithCoins !== "function") return;
+        if (btn) btn.disabled = true;
+        try {
+          const res = await window.__fishBuyBackgroundWithCoins(bg.img);
+          if (res && res.ok) {
+            showToast(`Unlocked the ${bg.name} background! 🎉`, "ok");
+            renderPhStore();
+          } else if (res && res.reason === "coins") {
+            showToast(`Not enough Critter Coins — ${bg.name} costs 1,000.`, "err");
+          } else if (res && res.reason === "owned") {
+            showToast(`You already own the ${bg.name} background.`, "info");
+            renderPhStore();
+          } else {
+            showToast("Purchase failed — try again.", "err");
+          }
+        } catch {
+          showToast("Purchase failed — try again.", "err");
+        }
+        if (btn) btn.disabled = false;
       };
 
       // Daily streak XP formula: 75 + (day-1)*0.25, cap at day 730
@@ -22958,6 +22959,51 @@
         }
       } catch { /* best-effort */ }
       return true;
+    };
+    // Spend Critter Coins to unlock a background. The coin deduction + the grant
+    // run in ONE Firestore transaction, and the balance is RE-READ server-side
+    // inside that transaction — so a client can never spend coins it doesn't
+    // have, and the balance/unlock can't desync. Coins here only ever DECREASE.
+    // (Stopping a tampered client from MINTING coins is enforced by the Firestore
+    // rule that forbids raising stats.critter_coins — see the security rules.)
+    // Returns { ok:true, newBalance } or { ok:false, reason }.
+    const PHST_BG_COIN_PRICE = 1000; // 1,000 Critter Coins ($1.00) per background
+    window.__fishBuyBackgroundWithCoins = async (bgImg) => {
+      if (_galReadOnly) return { ok:false, reason:"readonly" };
+      const path = normalizeBgUrl(bgImg);
+      if (!path || !_BG_BY_IMG[path]) return { ok:false, reason:"invalid" };
+      if (!_authUser || !_db)        return { ok:false, reason:"auth" };
+      if (_unlockedBackgrounds.includes(path)) return { ok:false, reason:"owned" };
+      const ref = _db.collection("users").doc(_authUser.uid);
+      let newBalance = 0;
+      try {
+        newBalance = await _db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const data = snap.exists ? (snap.data() || {}) : {};
+          const owned = Array.isArray(data.unlocked_backgrounds) ? data.unlocked_backgrounds : [];
+          if (owned.map(s => normalizeBgUrl(s)).includes(path)) throw new Error("owned");
+          const coins = Math.floor(Number((data.stats || {}).critter_coins) || 0);
+          if (coins < PHST_BG_COIN_PRICE) throw new Error("coins");
+          const after = coins - PHST_BG_COIN_PRICE;
+          tx.update(ref, {
+            "stats.critter_coins": after,
+            unlocked_backgrounds: firebase.firestore.FieldValue.arrayUnion(path),
+          });
+          return after;
+        });
+      } catch (e) {
+        const msg = String(e && e.message);
+        if (msg === "coins" || msg === "owned") return { ok:false, reason:msg };
+        return { ok:false, reason:"error" };
+      }
+      // Reflect locally: unlock list, balance, and the header coin chip.
+      if (!_unlockedBackgrounds.includes(path)) _unlockedBackgrounds = [..._unlockedBackgrounds, path];
+      if (_activeProfile) {
+        const stats = { ...(_activeProfile.stats || {}), critter_coins: newBalance };
+        _activeProfile = { ..._activeProfile, stats, unlocked_backgrounds: _unlockedBackgrounds };
+      }
+      try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch {}
+      return { ok:true, newBalance };
     };
     // Equip (or, with "", unequip) an unlocked background. Persists background_url.
     async function applyBackgroundSelection(bgImg) {
