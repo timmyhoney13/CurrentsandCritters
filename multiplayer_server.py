@@ -6886,6 +6886,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        if parsed.path == "/api/stripe/webhook":
+            # The webhook itself only accepts POST (Stripe POSTs signed events).
+            # A browser visit is a GET, which would otherwise hit the static file
+            # handler and show a scary "404 File not found". Answer GET with a
+            # clear 200 so visiting the URL confirms the endpoint is live — this
+            # is NOT the address bar's job; paste this exact URL into Stripe.
+            self._send_json(
+                {
+                    "ok": True,
+                    "endpoint": "/api/stripe/webhook",
+                    "method": "POST",
+                    "message": "Stripe webhook endpoint is live. It accepts POST "
+                               "events from Stripe only (checkout.session.completed). "
+                               "Seeing this means the route is deployed correctly.",
+                }
+            )
+            return
+
         if parsed.path == "/api/public-links":
             self._send_json(
                 {
