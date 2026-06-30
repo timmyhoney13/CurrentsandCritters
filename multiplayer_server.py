@@ -402,18 +402,22 @@ def _is_affirmative(val: str) -> bool:
 
 
 def _find_uid_by_username(db, username_lower: str) -> Optional[str]:
-    """Find a game account by its unique username — or, as a fallback, its
-    in-game nickname — matched case-insensitively. Returns the uid or None."""
+    """Find a game account by its UNIQUE username (usernames are unique by
+    construction; see _claim_username). Returns the uid or None.
+
+    Deliberately does NOT fall back to the in-game `nickname`, which is NOT
+    unique — matching a typed name against a shared nickname could credit a
+    payment (and its coins) to the wrong account. Unmatched payments are saved
+    as guests and reclaimed later by verified email, which is safe."""
     uname = str(username_lower or "").strip().lower()
     if not uname:
         return None
-    for field in ("usernameLower", "nickname_lower"):
-        try:
-            snap = db.collection("users").where(field, "==", uname).limit(1).get()
-            for doc in snap:
-                return doc.id
-        except Exception as exc:  # noqa: BLE001
-            print(f"[stripe] username→uid match on {field} failed: {exc}")
+    try:
+        snap = db.collection("users").where("usernameLower", "==", uname).limit(1).get()
+        for doc in snap:
+            return doc.id
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stripe] username→uid match failed: {exc}")
     return None
 
 
@@ -655,6 +659,7 @@ def _process_stripe_checkout(event: dict) -> str:
         sup_doc: Dict[str, Any] = {
             "stripeCustomerId": stripe_customer_id,
             "email":            checkout_email,
+            "emailLower":       checkout_email.lower(),   # case-insensitive claim match key
             "displayName":      display_name,
             "anonymous":        anonymous,
             "totalSpentCents":  new_total,
@@ -712,6 +717,7 @@ def _process_stripe_checkout(event: dict) -> str:
                 "stripeSessionId":  stripe_session_id,
                 "stripeCustomerId": stripe_customer_id,
                 "email":            checkout_email,
+                "emailLower":       checkout_email.lower(),   # case-insensitive claim match key
                 "usernameTyped":    username_typed,
                 "amountCents":      amount_cents,
                 "rewardName":       product_name,
@@ -919,9 +925,10 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
     Only guest records whose CHECKOUT email matches the claimer's verified email
     are pulled in. Each guest payment is copied into supporters/{uid}/payments
     ONLY if that Stripe session isn't already there — so no payment is ever
-    double-counted, and re-running the claim is a safe no-op. The lifetime total
-    + tier are then recomputed, unclaimed coin rewards are credited, and the
-    guest records are marked claimed."""
+    double-counted, and re-running the claim is a safe no-op. Each move folds its
+    cents into the supporter's lifetime total + tier in the SAME transaction;
+    unclaimed coin rewards are credited, and the guest records are marked
+    claimed."""
     db = _get_firestore()
     if db is None:
         return {"ok": False, "error": "firestore unavailable"}
@@ -943,9 +950,11 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
     supporter_ref = db.collection("supporters").document(uid)
 
     # Gather guest supporters whose checkout email matches the verified email.
+    # Match on the normalised emailLower so case differences ("John@x"/"john@x")
+    # don't hide a payment. (verified_email is already lowercased into `email`.)
     guest_docs: Dict[str, Dict[str, Any]] = {}
     try:
-        for doc in db.collection("guestSupporters").where("email", "==", email).limit(50).get():
+        for doc in db.collection("guestSupporters").where("emailLower", "==", email).limit(50).get():
             guest_docs[doc.id] = doc.to_dict() or {}
     except Exception as exc:  # noqa: BLE001
         print(f"[claim] guest query failed: {exc}")
@@ -1020,7 +1029,7 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
     # Credit unclaimed coin/tier rewards filed against this email.
     coins_credited = 0
     try:
-        rewards = list(db.collection("unclaimedRewards").where("email", "==", email).limit(100).get())
+        rewards = list(db.collection("unclaimedRewards").where("emailLower", "==", email).limit(100).get())
     except Exception as exc:  # noqa: BLE001
         print(f"[claim] rewards query failed: {exc}")
         rewards = []
