@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-29.6";
+  const APP_BUILD   = "2026-06-29.7";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
@@ -21867,7 +21867,13 @@
       const sub = document.getElementById("ph-whatsnew-sub");
       if (sub)     sub.textContent = "Currents & Critters · Alpha V" + APP_VERSION;
       if (wn)      wn.addEventListener("click", openWhatsNewModal);
-      if (refresh) refresh.addEventListener("click", () => location.reload());
+      if (refresh) refresh.addEventListener("click", () => {
+        // Refreshing for an update should reload in place, not bounce the
+        // player back to the full-screen launch splash, so mark it dismissed
+        // before the reload re-runs the boot/revealLobby sequence.
+        try { sessionStorage.setItem("cc_fs_splash_dismissed", "1"); } catch (_) {}
+        location.reload();
+      });
       if (close)   close.addEventListener("click", () => modal?.classList.remove("open"));
       if (modal)   modal.addEventListener("click", e => { if (!e.target.closest(".ph-whatsnew-box")) modal.classList.remove("open"); });
 
