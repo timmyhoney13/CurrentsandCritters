@@ -5273,6 +5273,16 @@
     .au-name { font-family: 'Cinzel', serif; font-size: 1.5rem; font-weight: 800; color: #fff; }
     .au-species { font-size: .7rem; color: rgba(170,200,235,.7); text-transform: uppercase; letter-spacing: .12em; margin-top: -4px; }
     .au-facts { font-size: .85rem; color: rgba(200,225,255,.85); line-height: 1.5; }
+    .au-howto {
+      width: 100%; box-sizing: border-box; margin-top: 2px;
+      background: rgba(120,80,255,.12); border: 1px solid rgba(120,80,255,.3);
+      border-radius: 12px; padding: 10px 13px;
+      font-size: .82rem; color: #dcd2ff; line-height: 1.45; text-align: center;
+    }
+    .au-howto .au-howto-label {
+      display: block; font-size: .68rem; font-weight: 900; letter-spacing: .06em;
+      text-transform: uppercase; color: #b39aff; margin-bottom: 3px;
+    }
     .au-q { font-size: .95rem; color: #fff; font-weight: 700; margin-top: 6px; }
     .au-btn-row { display: flex; gap: 12px; width: 100%; margin-top: 4px; }
     .au-btn-row .pv-btn { flex: 1; }
@@ -11143,6 +11153,9 @@
     }
     .gal-req-label { font-size: .72rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #b39aff; margin-bottom: 4px; }
     .gal-req-text { font-size: .85rem; color: #dcd2ff; line-height: 1.45; }
+    .gal-earned-box { background: rgba(80,220,150,.1); border-color: rgba(80,220,150,.32); }
+    .gal-earned-box .gal-req-label { color: #7fe0ab; }
+    .gal-earned-box .gal-req-text { color: #d3f3e2; }
     .gal-prog-row { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 5px; }
     .gal-prog-label { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #b39aff; }
     .gal-prog-val { font-size: .82rem; font-weight: 800; color: #eaf4ff; }

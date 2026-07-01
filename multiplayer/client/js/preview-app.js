@@ -17,10 +17,14 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-30.1";
+  const APP_BUILD   = "2026-06-30.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "See how you earned every critter avatar", items: [
+      "The Avatar Gallery now shows how you unlocked each critter you already own — open any unlocked avatar and a \"How You Unlocked It\" note explains exactly what you did to earn it (not just how to get the ones you're still missing).",
+      "When a new critter avatar pops up as you unlock it, the celebration now also tells you \"How you earned it\" right on the popup.",
+    ]},
     { ver: "V1.6.3", title: "Settings inside the game + a music volume slider", items: [
       "You can now open Settings without leaving a game — it's in the in-game Menu (☰) as its own \"⚙️ Settings\" item, so you can tweak things mid-match.",
       "The Music on/off switch is now a volume slider — drag it anywhere from Off to 100%. Your choice is saved and applies instantly, even to music that's already playing.",
@@ -13340,6 +13344,13 @@
     const nm = document.getElementById("au-animal-name");   if (nm) nm.textContent = a.name;
     const sp = document.getElementById("au-animal-species"); if (sp) sp.textContent = a.species || "";
     const fc = document.getElementById("au-animal-facts");   if (fc) fc.textContent = animalFacts(a);
+    const ht = document.getElementById("au-animal-howto");
+    const htTxt = document.getElementById("au-animal-howto-text");
+    if (ht) {
+      const lbl = a.unlock && a.unlock.label;
+      if (htTxt) htTxt.textContent = lbl || "";
+      ht.style.display = lbl ? "" : "none";
+    }
     ov.classList.add("open");
   }
   function _closeAnimalUnlock(){
@@ -14561,6 +14572,16 @@
       }
 
       html += `<div class="gal-detail-facts">${escapeHtml(animalFacts(a))}</div>`;
+
+      // Unlocked avatars show HOW it was earned (the same criteria that were the
+      // requirement while locked). Wording flips for the read-only view of
+      // another player's collection.
+      if (unlocked && a.unlock?.label) {
+        html += `<div class="gal-detail-reqbox gal-earned-box">`;
+        html += `<div class="gal-req-label">${_galReadOnly ? "How It's Unlocked" : "How You Unlocked It"}</div>`;
+        html += `<div class="gal-req-text">${escapeHtml(a.unlock.label)}</div>`;
+        html += `</div>`;
+      }
 
       if (!unlocked) {
         html += `<div class="gal-detail-reqbox">`;
