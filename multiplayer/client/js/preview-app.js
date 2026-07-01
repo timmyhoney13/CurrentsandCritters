@@ -17,10 +17,16 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-30.2";
+  const APP_BUILD   = "2026-06-30.3";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.3", title: "New Team Mode — play in teams", items: [
+      "Create Game → set Mode to 🤝 Team to play a normal game split into teams. It starts as Red vs Blue, and you can open up to four teams (Red, Blue, Green, Yellow).",
+      "In the coral lobby, tap a team to hop onto it, or tap another player to ask them to swap teams — they get a pop-up to accept or decline. Everyone starts split evenly.",
+      "Seats are shuffled so teammates are spread as far apart as possible in turn order — no fixed seating, so there's no planning around it.",
+      "When the game ends, each team's scores are added together and revealed worst-to-best for suspense, then everyone's names appear. You still earn achievements, and score-based ones count only your own points.",
+    ]},
     { ver: "V1.6.3", title: "See how you earned every critter avatar", items: [
       "The Avatar Gallery now shows how you unlocked each critter you already own — open any unlocked avatar and a \"How You Unlocked It\" note explains exactly what you did to earn it (not just how to get the ones you're still missing).",
       "When a new critter avatar pops up as you unlock it, the celebration now also tells you \"How you earned it\" right on the popup.",
@@ -1392,6 +1398,7 @@
   }
   function hideWaitingRoom() {
     document.getElementById("pv-waiting-room").classList.remove("open");
+    try { _closeSwapPopup(); } catch (_) {}
   }
   // Three difficulty pills (Easy/Medium/Hard) shown next to AI bot seats in
   // the lobby. Only the host can click them; non-hosts see them as static.
@@ -1515,6 +1522,144 @@
     });
   });
 
+  // ── Team Mode (lobby) ──────────────────────────────────────────
+  const TEAM_META = [
+    { key: "red",    name: "Red",    hex: "#e0463c" },
+    { key: "blue",   name: "Blue",   hex: "#3d7be0" },
+    { key: "green",  name: "Green",  hex: "#3fb26b" },
+    { key: "yellow", name: "Yellow", hex: "#e6b32e" },
+  ];
+  function teamName(t) { return (TEAM_META[t] && TEAM_META[t].name) || ("Team " + (Number(t) + 1)); }
+  function teamHex(t)  { return (TEAM_META[t] && TEAM_META[t].hex)  || "#888"; }
+
+  async function _teamSwitch(team) {
+    if (!roomId) return;
+    const r = await apiPost(`/api/rooms/${roomId}/team`, { seat_token: getSeatToken(), team }, { timeoutMs: 8000 });
+    if (!r.ok) showToast(r.data?.error || "Could not switch teams", "err");
+    refreshState();
+  }
+  async function _teamSwapRequest(targetSeat, targetName) {
+    if (!roomId) return;
+    const r = await apiPost(`/api/rooms/${roomId}/swap`,
+      { seat_token: getSeatToken(), action: "request", target_seat: targetSeat }, { timeoutMs: 8000 });
+    if (!r.ok) { showToast(r.data?.error || "Could not send swap request", "err"); return; }
+    showToast(`Swap request sent to ${targetName}`, "info");
+    refreshState();
+  }
+
+  // Render the team-columns lobby into the players list. Clicking a team header
+  // or its "＋ Join" button moves MY seat to that team (self-service). Clicking
+  // another human on a DIFFERENT team asks them to swap.
+  function renderTeamLobbyInto(list, seats, teamCount, mySeatIndex) {
+    list.innerHTML = '<div class="wr-players-title">Teams — tap a team to join, tap a player to ask for a swap</div>';
+    seats = Array.isArray(seats) ? seats : [];
+    const mySeat = seats.find(s => s.index === mySeatIndex) || null;
+    const myTeam = mySeat ? mySeat.team : null;
+    const iAmHuman = !!mySeat && mySeat.kind === "human";
+    const wrap = document.createElement("div");
+    wrap.className = "wr-teams cols-" + teamCount;
+    for (let t = 0; t < teamCount; t++) {
+      const col = document.createElement("div");
+      col.className = "wr-team-col team-" + ((TEAM_META[t] && TEAM_META[t].key) || t);
+      col.style.setProperty("--team-hex", teamHex(t));
+      const members = seats.filter(s => s.team === t).sort((a, b) => a.index - b.index);
+      const activeCount = members.filter(s => s.kind === "ai" || s.claimed_name).length;
+
+      const head = document.createElement("button");
+      head.className = "wr-team-head" + (myTeam === t ? " is-mine" : "");
+      head.innerHTML = `<span class="wr-team-name">${teamName(t)}</span><span class="wr-team-count">${activeCount}</span>`;
+      const canJoin = iAmHuman && myTeam !== t;
+      head.disabled = !canJoin;
+      if (canJoin) head.title = `Join the ${teamName(t)} team`;
+      head.addEventListener("click", () => { if (canJoin) _teamSwitch(t); });
+      col.appendChild(head);
+
+      members.forEach(s => {
+        const isAI = s.kind === "ai";
+        const isOpen = !isAI && !s.claimed_name;
+        const isMe = s.index === mySeatIndex;
+        const chip = document.createElement("div");
+        chip.className = "wr-team-chip"
+          + (isMe ? " is-me" : "") + (isAI ? " is-ai" : "") + (isOpen ? " is-open" : "");
+        const label = isAI ? (s.claimed_name || `Bot ${s.index + 1}`)
+                    : isOpen ? "Open"
+                    : (s.claimed_name + (isMe ? " (You)" : ""));
+        chip.innerHTML = `<span class="wr-chip-dot"></span><span class="wr-chip-name">${_hesc(label)}</span>`;
+        const canSwap = iAmHuman && !isMe && !isAI && !isOpen && s.team !== myTeam;
+        if (canSwap) {
+          chip.classList.add("can-swap");
+          chip.title = `Ask ${s.claimed_name} to swap teams`;
+          chip.addEventListener("click", () => _teamSwapRequest(s.index, s.claimed_name));
+        }
+        col.appendChild(chip);
+      });
+
+      if (canJoin) {
+        const join = document.createElement("button");
+        join.className = "wr-team-join";
+        join.textContent = "＋ Join";
+        join.addEventListener("click", () => _teamSwitch(t));
+        col.appendChild(join);
+      }
+      wrap.appendChild(col);
+    }
+    list.appendChild(wrap);
+  }
+
+  // ── Incoming swap-request popup ────────────────────────────────
+  // Shown on the TARGET's screen when another player asks to swap teams.
+  let _swapPopupFromSeat = null; // from_seat currently shown (dedupe across polls)
+  function _closeSwapPopup() {
+    const el = document.getElementById("wr-swap-popup");
+    if (el) el.classList.remove("open");
+    _swapPopupFromSeat = null;
+  }
+  function _buildSwapPopup() {
+    let el = document.getElementById("wr-swap-popup");
+    if (el) return el;
+    el = document.createElement("div");
+    el.id = "wr-swap-popup";
+    el.innerHTML =
+      '<div class="wr-swap-box">' +
+      '<div class="wr-swap-msg" id="wr-swap-msg"></div>' +
+      '<div class="wr-swap-btns">' +
+      '<button class="wr-swap-decline" id="wr-swap-decline">Decline</button>' +
+      '<button class="wr-swap-accept" id="wr-swap-accept">Swap!</button>' +
+      '</div></div>';
+    document.body.appendChild(el);
+    return el;
+  }
+  async function _respondSwap(action) {
+    const fromSeat = _swapPopupFromSeat;
+    // Hide the popup but KEEP _swapPopupFromSeat set: a poll can fire before the
+    // server clears the request, and _syncIncomingSwap would otherwise re-show
+    // this same offer. The tracker is fully reset once the request disappears.
+    const el = document.getElementById("wr-swap-popup");
+    if (el) el.classList.remove("open");
+    if (!roomId || fromSeat == null) return;
+    const r = await apiPost(`/api/rooms/${roomId}/swap`,
+      { seat_token: getSeatToken(), action, from_seat: fromSeat }, { timeoutMs: 8000 });
+    if (!r.ok && action === "accept") showToast(r.data?.error || "Swap failed", "err");
+    refreshState();
+  }
+  // Called each poll while the team lobby is up: show/refresh/close the popup
+  // based on whether a pending request targets MY seat.
+  function _syncIncomingSwap(swapRequests, mySeatIndex) {
+    const reqs = Array.isArray(swapRequests) ? swapRequests : [];
+    const mine = (mySeatIndex == null) ? null : reqs.find(r => r && r.to_seat === mySeatIndex);
+    if (!mine) { if (_swapPopupFromSeat != null) _closeSwapPopup(); return; }
+    if (_swapPopupFromSeat === mine.from_seat) return; // already showing OR just acted on this one
+    _swapPopupFromSeat = mine.from_seat;
+    const el = _buildSwapPopup();
+    const color = teamName(mine.from_team);
+    document.getElementById("wr-swap-msg").innerHTML =
+      `<strong>${_hesc(mine.from_name || "A player")}</strong> wants to swap teams with you.` +
+      `<br>Accept to move to the <span class="wr-swap-team" style="color:${teamHex(mine.from_team)}">${_hesc(color)}</span> team.`;
+    document.getElementById("wr-swap-accept").onclick = () => _respondSwap("accept");
+    document.getElementById("wr-swap-decline").onclick = () => _respondSwap("decline");
+    el.classList.add("open");
+  }
+
   function updateWaitingRoom(seats, canStart, startFn, isHost, isCompetitive, isQuickPlay) {
     // A room is competitive ONLY if it was explicitly created that way. The
     // authoritative signal is the server's room.competitive flag (passed in as
@@ -1522,17 +1667,25 @@
     // Never infer "competitive" from seat composition — a normal 4-player game
     // with 0 AI is all-human too, and must stay a normal game.
     const isComp = !!isCompetitive;
+    const _room = (latestPayload && latestPayload.room) || {};
+    const isTeam = !!_room.team_mode;
+    const teamCount = Math.max(2, Math.min(4, Number(_room.team_count) || 2));
+    const mySeatIndex = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
+      ? latestPayload.viewer.seat_index : null;
     document.getElementById("wr-title").textContent = isQuickPlay
       ? "Quick Play Lobby"
       : (isHost
-          ? (isComp ? "⚔️ Competitive Room Created!" : "Room Created!")
-          : (isComp ? "⚔️ Competitive Lobby" : "Game Lobby"));
+          ? (isComp ? "⚔️ Competitive Room Created!" : (isTeam ? "🤝 Team Room Created!" : "Room Created!"))
+          : (isComp ? "⚔️ Competitive Lobby" : (isTeam ? "🤝 Team Lobby" : "Game Lobby")));
 
     const list = document.getElementById("wr-players-list");
     list.innerHTML = '<div class="wr-players-title">Players in Room</div>';
     updateQuickPlaySetup(seats, isHost, isQuickPlay);
 
-    if (isComp && seats && seats.length === 4) {
+    if (isTeam) {
+      renderTeamLobbyInto(list, seats, teamCount, mySeatIndex);
+      _syncIncomingSwap(_room.swap_requests, mySeatIndex);
+    } else if (isComp && seats && seats.length === 4) {
       // Show as two grouped players instead of four individual seats.
       const groups = [
         { label: "Player 1", seats: seats.filter(s => s.index < 2) },
@@ -2315,23 +2468,39 @@
 
   // ── New Current Modal ──────────────────────────────────────────
   let _ncIsCompetitive = false; // tracks whether the modal was opened for a competitive game
+  let _ncMode = "normal";       // 'normal' | 'competitive' | 'team'
+  let _ncTeamCount = 2;         // 2..4 (team mode only)
   // Apply the chosen Mode to the setup modal.
   //  • Normal      — a fully customizable game (all settings editable).
   //  • Competitive — a locked "quick-match" ranked 1v1: 4 humans (2 hands
   //    each), 0 AI, public match. Those settings are fixed + disabled so the
   //    host only has to press the main button to continue.
-  function applyNcMode(isComp) {
-    _ncIsCompetitive = !!isComp;
+  //  • Team        — a normal, fully-editable game played in 2–4 teams. Adds a
+  //    Teams selector; humans/AI/privacy stay editable like Normal.
+  // Accepts a mode string; legacy callers may still pass a boolean (isComp).
+  function applyNcMode(mode) {
+    if (mode === true) mode = "competitive";
+    else if (mode === false || mode == null) mode = "normal";
+    if (mode !== "competitive" && mode !== "team") mode = "normal";
+    _ncMode = mode;
+    _ncIsCompetitive = (mode === "competitive");
+    const isTeam  = (mode === "team");
     const box     = document.getElementById("new-current-box");
     const totalEl = document.getElementById("nc-total");
     const aiEl    = document.getElementById("nc-ai");
     const visEl   = document.getElementById("nc-visibility");
     const modeEl  = document.getElementById("nc-mode");
+    const teamsField = document.getElementById("nc-field-teams");
+    const teamCountEl = document.getElementById("nc-team-count");
     const titleEl = document.getElementById("nc-modal-title");
-    if (modeEl)  modeEl.value = _ncIsCompetitive ? "competitive" : "normal";
+    if (modeEl)  modeEl.value = mode;
     if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive);
+    if (box)     box.classList.toggle("nc-team", isTeam);
     if (titleEl) titleEl.textContent = _ncIsCompetitive
-      ? "⚔️ Competitive 1v1 — 2 hands per player" : "🌊 New Current";
+      ? "⚔️ Competitive 1v1 — 2 hands per player"
+      : (isTeam ? "🤝 New Team Current" : "🌊 New Current");
+    if (teamsField) teamsField.style.display = isTeam ? "" : "none";
+    if (isTeam && teamCountEl) _ncTeamCount = Math.max(2, Math.min(4, Number(teamCountEl.value) || 2));
     const lock = (fieldId, el, on) => {
       const f = document.getElementById(fieldId);
       if (f)  f.classList.toggle("nc-locked", on);
@@ -2343,11 +2512,15 @@
       if (visEl)   visEl.value   = "public";
       document.getElementById("nc-password-row").style.display = "none";
       document.getElementById("nc-password").value = "";
+    } else if (isTeam) {
+      // A team game defaults to 4 humans so 2 teams start 2-v-2, but stays editable.
+      if (totalEl && (Number(totalEl.value) || 0) < 2) totalEl.value = "4";
     } else {
       // Back to a fresh, fully-editable Normal game.
       if (totalEl) totalEl.value = "2";
       if (aiEl)    aiEl.value    = "0";
     }
+    // Only Competitive locks the base settings; Team leaves them editable.
     lock("nc-field-humans",  totalEl, _ncIsCompetitive);
     lock("nc-field-ai",      aiEl,    _ncIsCompetitive);
     lock("nc-field-privacy", visEl,   _ncIsCompetitive);
@@ -2358,7 +2531,7 @@
     document.getElementById("nc-password-row").style.display = "none";
     document.getElementById("nc-password").value = "";
     document.getElementById("nc-visibility").value = "public";
-    applyNcMode(!!(opts && opts.competitive));
+    applyNcMode((opts && opts.competitive) ? "competitive" : (opts && opts.team) ? "team" : "normal");
     const _ncBtn = document.getElementById("nc-create-btn");
     _ncBtn.disabled = false;
     _ncBtn.classList.remove("generating");
@@ -2369,10 +2542,17 @@
   function closeNewCurrentModal() {
     document.getElementById("new-current-modal").classList.remove("open");
   }
-  // Mode selector: toggle the locked Competitive format on the fly.
+  // Mode selector: switch between Normal / Competitive / Team on the fly.
   document.getElementById("nc-mode").addEventListener("change", (e) => {
-    applyNcMode(e.target.value === "competitive");
+    applyNcMode(e.target.value);
   });
+  // Team count selector (2–4 teams).
+  (function () {
+    const tc = document.getElementById("nc-team-count");
+    if (tc) tc.addEventListener("change", (e) => {
+      _ncTeamCount = Math.max(2, Math.min(4, Number(e.target.value) || 2));
+    });
+  })();
 
   // ── Giant Squid challenge: a 1v1 vs-AI match. Winning unlocks the Sea
   // Anemone + the "It Is Finally Over" achievement (+1000 XP). ─────────
@@ -2429,10 +2609,18 @@
     const btn = document.getElementById("nc-create-btn");
     const errEl = document.getElementById("nc-current-err");
     const name = (window.__fishNickname && window.__fishNickname()) || "Host";
+    const isTeam = (_ncMode === "team");
+    const teamCount = isTeam ? Math.max(2, Math.min(4, _ncTeamCount || 2)) : 2;
     // Competitive games are always 4 humans (2 per player), 0 AI.
     const human = _ncIsCompetitive ? 4 : Math.max(1, Number(document.getElementById("nc-total").value) || 2);
     const ai    = _ncIsCompetitive ? 0 : Math.max(0, Number(document.getElementById("nc-ai").value) || 0);
     const total = human + ai;
+    // Team games need enough seats (players + bots) to fill every team.
+    if (isTeam && total < teamCount) {
+      document.getElementById("nc-current-err").textContent =
+        `${teamCount} teams need at least ${teamCount} players or bots — add more seats.`;
+      return;
+    }
     // Tutorial flag is a one-shot set by "The Game" tour; consume it here so a
     // later manual create is never mis-flagged as a tutorial game.
     const _isTutGame = (window.__ccTutorialGame === true);
@@ -2480,6 +2668,7 @@
         total_players: total, human_players: human, ai_players: ai,
         replace_active: false, visibility, password,
         competitive: _ncIsCompetitive, tutorial: _isTutGame, tutorial_variant: _tutVariant,
+        team: isTeam, team_count: teamCount,
       }, { timeoutMs:10000 });
     } catch (e) {
       btn.disabled = false;
@@ -9136,6 +9325,8 @@
     if (compHandsSection) compHandsSection.style.display = "none";
     document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+    _teamModeEnd = false; _myTeamRank = null; _teamIsWin = false; _teamRevealDone = false;
+    try { _closeTeamReveal(); } catch (_) {}
     _matchStartMs=0; _endRevealMs=0; _prevScoreMap={}; _turnStartScores={};
     _bestTurnPts=0; _bestTurnNames=[];
     _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
@@ -9588,6 +9779,11 @@
   let _lastCompCpDelta = null;     // CP delta from the most recent competitive game (for end-game display)
   let _lastCompNewCp   = null;     // CP total after the most recent competitive game
   let _lastCompRankName = null;    // Rank name after the most recent competitive game
+  // Team Mode end-game state (computed in renderEndGame, read by saveGameStats)
+  let _teamModeEnd = false;        // this game was a team game
+  let _myTeamRank  = null;         // my team's placement (1 = best)
+  let _teamIsWin   = false;        // my team is the top team
+  let _teamRevealDone = false;     // suspense reveal already played this game
   const LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
     4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
@@ -9625,6 +9821,95 @@
     if (rank === 2) return Math.round(75 * mult);
     if (rank === 3) return Math.round(50 * mult);
     return Math.round(25 * mult);
+  }
+
+  // ── Team Mode scoring (end game) ───────────────────────────────
+  // Build a name→team map from the latest seat snapshot (bots included).
+  function _buildNameToTeam() {
+    const seats = (latestPayload && Array.isArray(latestPayload.seats)) ? latestPayload.seats : [];
+    const map = {};
+    seats.forEach(s => {
+      if (s && typeof s.team === "number" && s.claimed_name) map[String(s.claimed_name)] = s.team;
+    });
+    return map;
+  }
+  // Aggregate per-player finalScores into team standings, ranked best→worst.
+  // Returns [{ team, total, members:[{name,score}], rank }] (rank 1 = best).
+  function getTeamStandings(finalScores, nameToTeam) {
+    const fs = Array.isArray(finalScores) ? finalScores : [];
+    const byTeam = {};
+    fs.forEach(p => {
+      const t = nameToTeam[String(p?.name || "")];
+      if (typeof t !== "number") return;
+      if (!byTeam[t]) byTeam[t] = { team: t, total: 0, members: [] };
+      byTeam[t].total += Number(p?.score || 0);
+      byTeam[t].members.push({ name: p?.name || "", score: Number(p?.score || 0) });
+    });
+    const arr = Object.values(byTeam).sort((a, b) => b.total - a.total);
+    // Dense ranking so tied teams share a place.
+    let lastTotal = null, lastRank = 0;
+    arr.forEach((t, i) => {
+      if (lastTotal === null || t.total < lastTotal) { lastRank = i + 1; lastTotal = t.total; }
+      t.rank = lastRank;
+      t.members.sort((a, b) => b.score - a.score);
+    });
+    return arr;
+  }
+  // XP for a team's placement — same table as solo (1st=100…4th=25), halved if
+  // any bot is in the game, per the existing rule.
+  function getTeamXpAward(teamRank, hasAi) {
+    const mult = hasAi ? 0.5 : 1;
+    if (teamRank <= 1) return Math.round(100 * mult);
+    if (teamRank === 2) return Math.round(75 * mult);
+    if (teamRank === 3) return Math.round(50 * mult);
+    return Math.round(25 * mult);
+  }
+
+  // ── Team Mode: suspense reveal (worst → best) ──────────────────
+  let _teamRevealTimers = [];
+  function _closeTeamReveal() {
+    _teamRevealTimers.forEach(t => clearTimeout(t));
+    _teamRevealTimers = [];
+    const el = document.getElementById("pv-team-reveal");
+    if (el) el.classList.remove("open");
+  }
+  function showTeamReveal(teamStandings, myTeam) {
+    const standings = Array.isArray(teamStandings) ? teamStandings.slice() : [];
+    if (!standings.length) return;
+    let el = document.getElementById("pv-team-reveal");
+    if (!el) { el = document.createElement("div"); el.id = "pv-team-reveal"; document.body.appendChild(el); }
+    _teamRevealTimers.forEach(t => clearTimeout(t));
+    _teamRevealTimers = [];
+    const rankSuffix = (r) => r === 1 ? "st" : r === 2 ? "nd" : r === 3 ? "rd" : "th";
+    // Reveal worst first (highest rank number), climaxing on the winner.
+    const revealOrder = standings.slice().sort((a, b) => b.rank - a.rank);
+    const STEP = 0.9; // seconds between card reveals
+    const cardsHtml = revealOrder.map((t, i) => {
+      const isMine = (typeof myTeam === "number" && t.team === myTeam);
+      const isWinner = t.rank === 1;
+      const members = (t.members || []).map(m => `${_hesc(m.name)} <b>${m.score}</b>`).join(" · ");
+      return `<div class="tr-card${isWinner ? " winner" : ""}${isMine ? " mine" : ""}" style="animation-delay:${(i * STEP).toFixed(2)}s">
+        <div class="tr-rank">${isWinner ? "👑" : (t.rank + rankSuffix(t.rank))}</div>
+        <div class="tr-body">
+          <div class="tr-team" style="color:${teamHex(t.team)}">${teamName(t.team)} Team${isMine ? " — You" : ""}</div>
+          <div class="tr-members">${members || "&nbsp;"}</div>
+        </div>
+        <div class="tr-total">${t.total}<span>pts</span></div>
+      </div>`;
+    }).join("");
+    el.innerHTML = `<div class="tr-inner">
+      <div class="tr-heading">🐠 Team Results</div>
+      <div class="tr-cards">${cardsHtml}</div>
+      <button class="tr-continue" id="tr-continue">Continue →</button>
+    </div>`;
+    el.classList.add("open");
+    const contBtn = document.getElementById("tr-continue");
+    if (contBtn) {
+      contBtn.classList.remove("show");
+      contBtn.onclick = () => _closeTeamReveal();
+      const revealMs = revealOrder.length * STEP * 1000 + 800;
+      _teamRevealTimers.push(setTimeout(() => contBtn.classList.add("show"), revealMs));
+    }
   }
 
   function getStoredTotalXp(stats) {
@@ -9965,6 +10250,10 @@
       if      (p1B > p2B || (p1B === p2B && p1X > p2X)) cWinner = "p1";
       else if (p2B > p1B || (p1B === p2B && p2X > p1X)) cWinner = "p2";
       isWinner = !!(cWinner && ((amP1 && cWinner === "p1") || (!amP1 && cWinner === "p2")));
+    } else if (_teamModeEnd && _myTeamRank != null) {
+      // Team Mode: "winning" means my TEAM finished top, so win-count stats and
+      // win-gated achievements unlock for everyone on the winning team.
+      isWinner = _teamIsWin;
     } else {
       isWinner = (winner === myGameName || (winner||"").toLowerCase() === (myGameName||"").toLowerCase());
     }
@@ -10084,7 +10373,7 @@
         t: Date.now(),
         opp: oppNames,
         pc: playerCount,
-        mode: isComp ? "competitive" : "normal",
+        mode: isComp ? "competitive" : (_teamModeEnd ? "team" : "normal"),
         all: allScores,
         bds: boardSnaps,
         win: winner || "",
@@ -10890,6 +11179,8 @@
       overlay.classList.remove("open");
       _lastSavedWinner = null;
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
+      _teamModeEnd = false; _myTeamRank = null; _teamIsWin = false; _teamRevealDone = false;
+      try { _closeTeamReveal(); } catch (_) {}
       const _cdWrap = document.getElementById("gs-challenges-done");
       if (_cdWrap) _cdWrap.style.display = "none";
       // Fresh game (or no game) — clear the post-game ready-up button + notices.
@@ -10925,10 +11216,46 @@
     const myRank = getPlacementRank(finalScores, myScore);
     const rankSuffix = (r) => r===1?"st":r===2?"nd":r===3?"rd":"th";
 
+    // ── Team Mode: aggregate scores into team standings ────────────
+    // These are computed SEPARATELY from myScore / finalScores, which stay
+    // per-player so every score-threshold achievement keeps counting only the
+    // player's own score. Team standings only drive the XP amount, the Victory
+    // title, and the worst→best reveal.
+    _teamModeEnd = !!(latestPayload && latestPayload.room && latestPayload.room.team_mode);
+    let teamStandings = null, myTeam = null;
+    if (_teamModeEnd) {
+      const nameToTeam = _buildNameToTeam();
+      teamStandings = getTeamStandings(finalScores, nameToTeam);
+      // Resolve MY team by seat index first (most reliable — survives nickname
+      // case drift), then fall back to name→team from the scores.
+      const mySeatIdx = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
+        ? latestPayload.viewer.seat_index : null;
+      if (mySeatIdx != null) {
+        const ms = (Array.isArray(latestPayload.seats) ? latestPayload.seats : []).find(s => s.index === mySeatIdx);
+        if (ms && typeof ms.team === "number") myTeam = ms.team;
+      }
+      if (typeof myTeam !== "number") myTeam = nameToTeam[String(myName)];
+      if (typeof myTeam !== "number" && myEntry) myTeam = nameToTeam[String(myEntry.name)];
+      const myTeamRow = (typeof myTeam === "number") ? teamStandings.find(t => t.team === myTeam) : null;
+      _myTeamRank = myTeamRow ? myTeamRow.rank : null;
+      _teamIsWin = _myTeamRank === 1;
+    } else {
+      _myTeamRank = null; _teamIsWin = false;
+    }
+
     // Placement XP (1st=100, 2nd=75, 3rd=50, 4th+=25; halved for AI/comp; 0 if player terminated)
+    const _hasAiInGame = (Array.isArray(finalScores)?finalScores:[]).some(p=>isLikelyAiName(p?.name))
+      || (Array.isArray(_latestPlayers)?_latestPlayers:[]).some(p=>isLikelyAiName(p?.name));
     const xpBase = _gameTerminatedByMe ? 0
+      : (_teamModeEnd && _myTeamRank != null) ? getTeamXpAward(_myTeamRank, _hasAiInGame)
       : (compMode ? Math.floor(getGameXpAward(finalScores, myScore) / 2) : getGameXpAward(finalScores, myScore));
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+
+    // Play the suspense reveal (worst→best) once per team game before the summary.
+    if (_teamModeEnd && teamStandings && teamStandings.length && !_teamRevealDone && !_endgameDismissed) {
+      _teamRevealDone = true;
+      try { showTeamReveal(teamStandings, myTeam); } catch (e) { console.warn("team reveal failed", e); }
+    }
 
     // Flush the last player's turn delta — the current_player never "changes" at game end,
     // so the turn-boundary handler never fires for the final turn.
@@ -11014,11 +11341,12 @@
     // ── Header ───────────────────────────────────────────────────
     const titleEl = document.getElementById("gs-game-title");
     if (titleEl) {
+      const _wonTitle = _teamModeEnd ? _teamIsWin : (myRank === 1);
       if (_gameTerminatedByMe) {
         titleEl.textContent = "GAME TERMINATED";
         titleEl.style.cssText = "color:#b84020;text-shadow:0 2px 12px rgba(255,255,255,.7)";
-      } else if (myRank === 1) {
-        titleEl.textContent = "🏆 VICTORY!";
+      } else if (_wonTitle) {
+        titleEl.textContent = _teamModeEnd ? "🏆 TEAM VICTORY!" : "🏆 VICTORY!";
         titleEl.style.cssText = "color:#8a5200;text-shadow:0 2px 18px rgba(255,255,255,.85),0 1px 0 rgba(255,255,255,.9)";
       } else {
         titleEl.textContent = "GAME SUMMARY";
@@ -11027,7 +11355,7 @@
     }
 
     // ── Header meta ──────────────────────────────────────────────
-    setText("gs-game-type", compMode ? "Competitive" : "Casual");
+    setText("gs-game-type", compMode ? "Competitive" : (_teamModeEnd ? "Team" : "Casual"));
     const gtEl = document.getElementById("gs-game-type");
     if (gtEl) gtEl.className = "gs-meta-val " + (compMode ? "gs-gold" : "gs-cyan");
 
@@ -11035,7 +11363,13 @@
     if (countEl) countEl.textContent = playerCount;
 
     setText("gs-my-score", myScore + " pts");
-    setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
+    // Individual rank always; in team mode ALSO show my team's placement.
+    if (_teamModeEnd && _myTeamRank != null) {
+      const nTeams = teamStandings ? teamStandings.length : 0;
+      setText("gs-my-rank", "Team " + _myTeamRank + rankSuffix(_myTeamRank) + " of " + nTeams);
+    } else {
+      setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
+    }
     setText("gs-xp-gained", "+" + totalXp + " XP");
 
     // ── Rewards Earned (scrollable list) ─────────────────────────
@@ -11050,7 +11384,12 @@
              <div class="gs-rw-xp${status ? " gs-rw-status" : ""}">${status ? "✓" : ("+" + xp + " XP")}</div>
            </div>`);
         // Placement reward (only when XP was actually awarded).
-        if (xpBase > 0) addReward("🏆", "Placement Reward", myRank + rankSuffix(myRank) + " place", xpBase, false);
+        if (xpBase > 0) {
+          const _placeDesc = (_teamModeEnd && _myTeamRank != null)
+            ? ("Team " + _myTeamRank + rankSuffix(_myTeamRank) + " place")
+            : (myRank + rankSuffix(myRank) + " place");
+          addReward("🏆", "Placement Reward", _placeDesc, xpBase, false);
+        }
         // Per-stat +15 bonuses the viewer won.
         const statRewards = [
           [_bestTurnNames.includes(myName),   "Most Points in One Turn"],
@@ -22070,7 +22409,7 @@
       const modal = document.getElementById("ph-game-detail-modal");
       if (!modal) return;
       const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"long", day:"numeric", year:"numeric"}) : "";
-      const modeLabel = g.mode === "competitive" ? "Competitive" : "Normal";
+      const modeLabel = g.mode === "competitive" ? "Competitive" : (g.mode === "team" ? "Team" : "Normal");
       document.getElementById("ph-gdm-title").textContent = date ? `Game on ${date}` : "Game Details";
 
       // Merge scores (g.all) with boards (g.bds) into one player list, keyed by name.

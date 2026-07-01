@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-30.1" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-06-30.3" />
 </head>
 <body>
 
@@ -2242,6 +2242,17 @@
           <select class="nc-big-input" id="nc-mode">
             <option value="normal">🐠 Normal</option>
             <option value="competitive">⚔️ Competitive</option>
+            <option value="team">🤝 Team</option>
+          </select>
+        </div>
+      </div>
+      <div class="nc-field" id="nc-field-teams" style="display:none;">
+        <span class="nc-field-label">Teams</span>
+        <div class="nc-select-wrap">
+          <select class="nc-big-input" id="nc-team-count">
+            <option value="2">🔴🔵 2 Teams</option>
+            <option value="3">🔴🔵🟢 3 Teams</option>
+            <option value="4">🔴🔵🟢🟡 4 Teams</option>
           </select>
         </div>
       </div>
@@ -2533,7 +2544,7 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-06-30.1"></script>
+<script src="/js/preview-app.js?v=2026-06-30.3"></script>
 
 <script src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 

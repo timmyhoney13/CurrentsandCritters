@@ -57,6 +57,14 @@ COMPETITIVE_FORFEITS_PATH    = os.path.join(COMPETITIVE_GAMES_DIR, "forfeits_pen
 # Competitive: a player who leaves a running match and does not return within
 # this many seconds forfeits — the player still present wins.
 COMPETITIVE_FORFEIT_SEC = 30.0
+# Team Mode: the fixed team roster. A team's index (0..3) maps to its color
+# name and swatch. A team game starts with 2 teams (Red vs Blue) and the host
+# can open up to 4 (adding Green, then Yellow).
+TEAM_COLORS = ["Red", "Blue", "Green", "Yellow"]
+TEAM_COLOR_HEX = {0: "#e0463c", 1: "#3d7be0", 2: "#3fb26b", 3: "#e6b32e"}
+# A pending cross-team swap offer auto-expires this many seconds after it is
+# sent if the target never accepts/declines it.
+SWAP_REQUEST_TTL_SEC = 45.0
 GAMES_HISTORY_DIR = str(
     os.environ.get("FISH_GAMES_HISTORY_DIR", os.path.join(BASE_DIR, "multiplayer", "games_history"))
 ).strip() or os.path.join(BASE_DIR, "multiplayer", "games_history")
@@ -1742,6 +1750,10 @@ class Seat:
     # Client-generated idempotency key for dedicated Quick Play matchmaking.
     # It prevents a retried request from claiming a second seat.
     quick_play_ticket: Optional[str] = None
+    # Team Mode only: which team this seat belongs to (0=Red, 1=Blue, 2=Green,
+    # 3=Yellow). None for non-team games. Assigned round-robin at room creation
+    # and freely changed in the lobby via the /team and /swap endpoints.
+    team: Optional[int] = None
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -1763,6 +1775,8 @@ class GameRoom:
         tutorial: bool = False,
         tutorial_variant: Optional[str] = None,
         quick_play: bool = False,
+        team_mode: bool = False,
+        team_count: int = 2,
     ) -> None:
         self.room_id = room_id
         self.total_players = total_players
@@ -1770,6 +1784,13 @@ class GameRoom:
         self.ai_players = ai_players
         self.competitive = competitive
         self.quick_play = bool(quick_play)
+        # Team Mode: a normal game played in teams. team_count teams (2..4) are
+        # opened; seats are assigned round-robin so Red/Blue start evenly split
+        # (bots included). Players re-team freely in the lobby. swap_requests
+        # holds pending cross-team swap offers awaiting the target's consent.
+        self.team_mode = bool(team_mode)
+        self.team_count = max(2, min(4, int(team_count))) if team_mode else 2
+        self.swap_requests: List[Dict[str, Any]] = []
         # Tutorial games rig the human's opening hand so the guided "play an
         # ocean, then two creatures" walkthrough always works. Never set for
         # normal matches. ``tutorial_variant`` selects which rig: None/"" = the
@@ -1826,6 +1847,13 @@ class GameRoom:
                     )
                 )
                 ai_num += 1
+
+        # Team Mode: assign every seat a starting team round-robin so the opening
+        # split is even (seat 0→Red, seat 1→Blue, seat 2→Red …). Bots get a team
+        # too so team totals include them. Players re-team freely in the lobby.
+        if self.team_mode:
+            for seat in self.seats:
+                seat.team = seat.index % self.team_count
 
         host_seat = self.host_seat()
         if host_seat is None:
@@ -1989,6 +2017,7 @@ class GameRoom:
                     "room_id": self.room_id, "phase": self.phase,
                     "total_players": self.total_players, "visibility": str(self.visibility),
                     "share_url": self.room_link(host_header, proto_hint),
+                    "team_mode": bool(self.team_mode), "team_count": int(self.team_count),
                 },
                 "status_note": self.status_note,
                 "seats": self.seat_snapshot_locked(),
@@ -2092,6 +2121,9 @@ class GameRoom:
             "ai_players": int(self.ai_players),
             "competitive": bool(self.competitive),
             "quick_play": bool(self.quick_play),
+            "team_mode": bool(self.team_mode),
+            "team_count": int(self.team_count),
+            "swap_requests": [dict(r) for r in self.swap_requests],
             "visibility": str(self.visibility),
             "password_hash": self.password_hash,
             "seed": int(self.seed),
@@ -2113,6 +2145,7 @@ class GameRoom:
                     "is_host": bool(seat.is_host),
                     "difficulty": str(seat.difficulty or "medium"),
                     "quick_play_ticket": seat.quick_play_ticket,
+                    "team": seat.team,
                 }
                 for seat in self.seats
             ],
@@ -2184,6 +2217,58 @@ class GameRoom:
     def _all_humans_claimed_locked(self) -> bool:
         filled, total = self._human_seat_counts_locked()
         return total > 0 and filled >= total
+
+    # ── Team Mode helpers ──────────────────────────────────────────────
+    def _team_populations_locked(self) -> Dict[int, int]:
+        """Team index → number of ACTIVE (claimed human or bot) seats on it.
+        Open/unclaimed human seats don't count toward a team being 'non-empty'."""
+        pops: Dict[int, int] = {}
+        for seat in self.seats:
+            if seat.team is None:
+                continue
+            active = (seat.kind == "ai") or bool(seat.token)
+            if not active:
+                continue
+            pops[seat.team] = pops.get(seat.team, 0) + 1
+        return pops
+
+    def _team_start_ok_locked(self) -> bool:
+        """Team games need at least 2 non-empty teams to be a real team game."""
+        if not self.team_mode:
+            return True
+        return len([t for t, n in self._team_populations_locked().items() if n > 0]) >= 2
+
+    def _clear_swap_requests_for_seat_locked(self, seat_index: int) -> None:
+        """Drop any pending swap offer that involves this seat (either side)."""
+        self.swap_requests = [
+            r for r in self.swap_requests
+            if r.get("from_seat") != seat_index and r.get("to_seat") != seat_index
+        ]
+
+    def _team_spread_turn_order(self) -> List[int]:
+        """Return seat indices ordered so teammates are spread as far apart as
+        possible, with per-game randomness (no fixed seat→team pattern).
+
+        Groups seats by team, shuffles within each team and the team order, then
+        round-robin interleaves one seat per team. Even teams alternate perfectly
+        (teammates ~team_count apart); uneven teams are spread best-effort."""
+        by_team: Dict[int, List[int]] = {}
+        for seat in self.seats:
+            t = seat.team if seat.team is not None else 0
+            by_team.setdefault(t, []).append(seat.index)
+        buckets = list(by_team.values())
+        for b in buckets:
+            random.shuffle(b)
+        # Place larger teams first each round so their members can't be forced
+        # adjacent at the tail; randomize the order of equal-size teams.
+        random.shuffle(buckets)
+        buckets.sort(key=len, reverse=True)
+        order: List[int] = []
+        while any(buckets):
+            for b in buckets:
+                if b:
+                    order.append(b.pop(0))
+        return order
 
     def host_seat(self) -> Optional[Seat]:
         for seat in self.seats:
@@ -2354,6 +2439,7 @@ class GameRoom:
                     "difficulty": str(seat.difficulty or "medium"),
                     "is_away": bool(getattr(seat, "is_away", False)),
                     "inactive_eligible": bool(getattr(seat, "inactive_eligible", False)),
+                    "team": seat.team,
                 }
             )
         return out
@@ -2384,6 +2470,8 @@ class GameRoom:
 
         competitive = bool(payload.get("competitive", False))
         quick_play = bool(payload.get("quick_play", False))
+        team_mode = bool(payload.get("team_mode", False))
+        team_count = clamp_int(payload.get("team_count"), 2, 2, 4)
         vis_raw = str(payload.get("visibility") or "public").strip().lower()
         visibility = vis_raw if vis_raw in {"public", "private"} else "public"
         pw_hash = payload.get("password_hash") if isinstance(payload.get("password_hash"), str) else None
@@ -2397,6 +2485,8 @@ class GameRoom:
             visibility=visibility,
             password_hash=pw_hash,
             quick_play=quick_play,
+            team_mode=team_mode,
+            team_count=team_count,
         )
         with room.cond:
             room.seed = clamp_int(payload.get("seed"), room.seed, 0, 2**64 - 1)
@@ -2446,6 +2536,13 @@ class GameRoom:
                         if isinstance(raw_difficulty, str) and raw_difficulty.strip().lower() in {"easy", "medium", "hard"}
                         else "medium"
                     )
+                    raw_team = seat_raw.get("team")
+                    if isinstance(raw_team, int) and 0 <= raw_team < team_count:
+                        seat_team: Optional[int] = raw_team
+                    elif team_mode:
+                        seat_team = idx % team_count
+                    else:
+                        seat_team = None
                     parsed_seats.append(
                         Seat(
                             index=idx,
@@ -2462,6 +2559,7 @@ class GameRoom:
                                 and str(seat_raw.get("quick_play_ticket")).strip()
                                 else None
                             ),
+                            team=seat_team,
                         )
                     )
             if parsed_seats:
@@ -2477,6 +2575,10 @@ class GameRoom:
                 if seat.kind != "human":
                     seat.is_host = False
                     seat.token = None
+
+            raw_swaps = payload.get("swap_requests")
+            if isinstance(raw_swaps, list):
+                room.swap_requests = [dict(r) for r in raw_swaps if isinstance(r, dict)]
 
             ai_speed_raw = str(payload.get("ai_speed") or "normal").strip().lower()
             room.ai_speed = ai_speed_raw if ai_speed_raw in {"slow", "normal", "fast"} else "normal"
@@ -2950,6 +3052,122 @@ class GameRoom:
             self.status_note = f"{target.claimed_name or target.label} set to {normalized.title()} difficulty."
             self._bump_locked()
             return {"ok": True, "difficulty": normalized}
+
+    # ── Team Mode: lobby team switching + cross-team swaps ──────────────
+    def _prune_swap_requests_locked(self) -> bool:
+        """Drop swap offers that are expired, or whose seats are no longer a
+        valid claimed-human pair on different teams. Returns True if any changed."""
+        if not self.swap_requests:
+            return False
+        now = time.time()
+        kept: List[Dict[str, Any]] = []
+        for r in self.swap_requests:
+            fi, ti = r.get("from_seat"), r.get("to_seat")
+            if not isinstance(fi, int) or not isinstance(ti, int):
+                continue
+            if now - float(r.get("created", now)) > SWAP_REQUEST_TTL_SEC:
+                continue
+            if not (0 <= fi < len(self.seats) and 0 <= ti < len(self.seats)):
+                continue
+            a, b = self.seats[fi], self.seats[ti]
+            if a.kind != "human" or b.kind != "human" or not a.token or not b.token:
+                continue
+            if a.team is None or b.team is None or a.team == b.team:
+                continue
+            kept.append(r)
+        changed = len(kept) != len(self.swap_requests)
+        self.swap_requests = kept
+        return changed
+
+    def set_seat_team(self, seat_token: Optional[str], team: Any) -> Dict[str, Any]:
+        with self.cond:
+            if not self.team_mode:
+                return {"ok": False, "error": "not a team game"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "teams can only change in the lobby"}
+            seat = self._seat_from_token_locked(seat_token)
+            if seat is None or seat.kind != "human":
+                return {"ok": False, "error": "seat token invalid"}
+            if not isinstance(team, int) or team < 0 or team >= self.team_count:
+                return {"ok": False, "error": "invalid team"}
+            if seat.team == team:
+                return {"ok": True, "team": team, "unchanged": True}
+            seat.team = team
+            # Any swap offer that involved this seat is now stale.
+            self._clear_swap_requests_for_seat_locked(seat.index)
+            color = TEAM_COLORS[team] if 0 <= team < len(TEAM_COLORS) else str(team)
+            self.status_note = f"{seat.claimed_name or seat.label} joined the {color} team."
+            self._bump_locked()
+            return {"ok": True, "team": team}
+
+    def request_team_swap(self, seat_token: Optional[str], target_seat: Any) -> Dict[str, Any]:
+        with self.cond:
+            if not self.team_mode:
+                return {"ok": False, "error": "not a team game"}
+            if self.phase != "lobby":
+                return {"ok": False, "error": "swaps can only happen in the lobby"}
+            a = self._seat_from_token_locked(seat_token)
+            if a is None or a.kind != "human":
+                return {"ok": False, "error": "seat token invalid"}
+            if not isinstance(target_seat, int) or target_seat < 0 or target_seat >= len(self.seats):
+                return {"ok": False, "error": "invalid target seat"}
+            b = self.seats[target_seat]
+            if b.index == a.index:
+                return {"ok": False, "error": "cannot swap with yourself"}
+            if b.kind != "human" or not b.token:
+                return {"ok": False, "error": "can only swap with another player"}
+            if a.team is None or b.team is None or a.team == b.team:
+                return {"ok": False, "error": "that player is already on your team"}
+            self._prune_swap_requests_locked()
+            # One outstanding offer per requester; replace any prior one.
+            self.swap_requests = [r for r in self.swap_requests if r.get("from_seat") != a.index]
+            self.swap_requests.append({
+                "from_seat": a.index,
+                "from_name": a.claimed_name or a.label,
+                "from_team": a.team,      # the team the TARGET would move to
+                "to_seat": b.index,
+                "to_team": b.team,        # the team the REQUESTER would move to
+                "created": time.time(),
+            })
+            self._bump_locked()
+            return {"ok": True}
+
+    def respond_team_swap(self, seat_token: Optional[str], action: str, from_seat: Any = None) -> Dict[str, Any]:
+        with self.cond:
+            if not self.team_mode:
+                return {"ok": False, "error": "not a team game"}
+            b = self._seat_from_token_locked(seat_token)
+            if b is None or b.kind != "human":
+                return {"ok": False, "error": "seat token invalid"}
+            self._prune_swap_requests_locked()
+            # Find the offer addressed to THIS seat (optionally matching sender).
+            match = None
+            for r in self.swap_requests:
+                if r.get("to_seat") == b.index and (from_seat is None or r.get("from_seat") == from_seat):
+                    match = r
+                    break
+            if match is None:
+                return {"ok": False, "error": "no pending swap request"}
+            a_index = match.get("from_seat")
+            if action == "accept":
+                if self.phase != "lobby":
+                    return {"ok": False, "error": "swaps can only happen in the lobby"}
+                a = self.seats[a_index] if isinstance(a_index, int) and 0 <= a_index < len(self.seats) else None
+                if a is None or a.kind != "human" or not a.token or a.team is None or b.team is None:
+                    self.swap_requests = [r for r in self.swap_requests if r is not match]
+                    self._bump_locked()
+                    return {"ok": False, "error": "that player is no longer available"}
+                a.team, b.team = b.team, a.team
+                # Clear every offer touching either seat (both just re-teamed).
+                self._clear_swap_requests_for_seat_locked(a.index)
+                self._clear_swap_requests_for_seat_locked(b.index)
+                self.status_note = f"{a.claimed_name or a.label} and {b.claimed_name or b.label} swapped teams."
+                self._bump_locked()
+                return {"ok": True, "swapped": True}
+            else:  # decline (or anything else) removes just this offer
+                self.swap_requests = [r for r in self.swap_requests if r is not match]
+                self._bump_locked()
+                return {"ok": True, "swapped": False}
 
     def configure_quick_play_seats(
         self,
@@ -5595,6 +5813,11 @@ class GameRoom:
             # (Player 1, Player 3, Player 2, Player 4)
             if self.competitive and len(self.seats) == 4:
                 seat_turn_order = [0, 2, 1, 3]
+            elif self.team_mode:
+                # Team Mode: randomize the play order and spread teammates as far
+                # apart as possible (no fixed seat→team pattern, no adjacency).
+                # Reuses the same game_idx↔seat_idx remap plumbing as competitive.
+                seat_turn_order = self._team_spread_turn_order()
             else:
                 seat_turn_order = [s.index for s in self.seats]
             self._comp_game_to_seat = {gi: si for gi, si in enumerate(seat_turn_order)}
@@ -5830,6 +6053,10 @@ class GameRoom:
         with self.cond:
             # Lazily expire any rejoin reservations whose window has passed.
             self._expire_left_seats_locked()
+            # Team Mode: drop swap offers that timed out or became invalid so the
+            # target's popup clears itself on the next poll.
+            if self.team_mode and self._prune_swap_requests_locked():
+                self._bump_locked()
             viewer_seat = self._seat_from_token_locked(seat_token)
             if viewer_seat is None and host_token:
                 if secrets.compare_digest(self.host_control_token, host_token):
@@ -5914,6 +6141,9 @@ class GameRoom:
                     "ai_players": self.ai_players,
                     "competitive": bool(self.competitive),
                     "quick_play": bool(self.quick_play),
+                    "team_mode": bool(self.team_mode),
+                    "team_count": int(self.team_count),
+                    "swap_requests": [dict(r) for r in self.swap_requests],
                     "human_seats_filled": human_filled,
                     "human_seats_total": human_total,
                     "share_url": self.room_link(host_header, proto_hint),
@@ -5928,7 +6158,12 @@ class GameRoom:
                 "public_links": load_public_links(),
                 "seats": self.seat_snapshot_locked(),
                 "viewer": self._viewer_payload_locked(viewer_seat),
-                "can_start": bool(self.phase == "lobby" and human_total > 0 and human_filled >= human_total),
+                "can_start": bool(
+                    self.phase == "lobby"
+                    and human_total > 0
+                    and human_filled >= human_total
+                    and self._team_start_ok_locked()
+                ),
                 "state": state_obj,
                 "legal_actions": legal_payload,
                 "active_action_seat": self.active_action_seat,
@@ -6523,6 +6758,8 @@ class RoomManager:
         tutorial: bool = False,
         tutorial_variant: Optional[str] = None,
         quick_play: bool = False,
+        team_mode: bool = False,
+        team_count: int = 2,
     ) -> GameRoom:
         with self.lock:
             if replace_active:
@@ -6554,6 +6791,8 @@ class RoomManager:
                     tutorial=tutorial,
                     tutorial_variant=tutorial_variant,
                     quick_play=quick_play,
+                    team_mode=team_mode,
+                    team_count=team_count,
                 )
                 self.rooms[rid] = room
                 room.persist_now()
@@ -6573,6 +6812,8 @@ class RoomManager:
                         tutorial=tutorial,
                         tutorial_variant=tutorial_variant,
                         quick_play=quick_play,
+                        team_mode=team_mode,
+                        team_count=team_count,
                     )
                     self.rooms[rid] = room
                     room.persist_now()
@@ -8104,6 +8345,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             requested_room_id = body.get("room_id") if isinstance(body.get("room_id"), str) else None
             replace_active = bool(body.get("replace_active")) if isinstance(body.get("replace_active"), bool) else False
             competitive = bool(body.get("competitive")) if isinstance(body.get("competitive"), bool) else False
+            team_mode = bool(body.get("team")) if isinstance(body.get("team"), bool) else False
+            team_count = clamp_int(body.get("team_count"), 2, 2, 4) if team_mode else 2
+            # A team game is always a normal (non-competitive) game.
+            if team_mode:
+                competitive = False
             tutorial = bool(body.get("tutorial")) if isinstance(body.get("tutorial"), bool) else False
             tutorial_variant = body.get("tutorial_variant") if isinstance(body.get("tutorial_variant"), str) else None
             vis_raw = str(body.get("visibility") or "public").strip().lower()
@@ -8126,6 +8372,8 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     password_hash=password_hash,
                     tutorial=tutorial,
                     tutorial_variant=tutorial_variant,
+                    team_mode=team_mode,
+                    team_count=team_count,
                 )
             except ValueError as exc:
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.BAD_REQUEST)
@@ -8364,6 +8612,39 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             out = room.afk_cancel(body)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        # Team Mode: move my own seat to another team (self-service, lobby only).
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "team":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            team_val = body.get("team") if isinstance(body.get("team"), int) else None
+            out = room.set_seat_team(seat_token, team_val)
+            status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
+            self._send_json(out, status=status)
+            return
+
+        # Team Mode: request / accept / decline a cross-team player swap.
+        if len(parts) >= 4 and parts[0] == "api" and parts[1] == "rooms" and parts[3] == "swap":
+            room = ROOMS.get(parts[2])
+            if room is None:
+                self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
+                return
+            seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
+            action = str(body.get("action") or "").strip().lower()
+            if action == "request":
+                target = body.get("target_seat") if isinstance(body.get("target_seat"), int) else None
+                out = room.request_team_swap(seat_token, target)
+            elif action in {"accept", "decline"}:
+                from_seat = body.get("from_seat") if isinstance(body.get("from_seat"), int) else None
+                out = room.respond_team_swap(seat_token, action, from_seat)
+            else:
+                out = {"ok": False, "error": "action must be request, accept, or decline"}
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
