@@ -323,6 +323,46 @@ SUPPORTER_TIER_GRANTS = {
     "tide-turner":  {"bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
+# Player level curve: the CUMULATIVE total_xp required to REACH each level
+# (index 0 = level 1). ⚠️ KEEP IN SYNC with LEVEL_XP_TOTALS in preview-app.js —
+# it's what lets a server-granted XP bump (a Supporter-Tier purchase) write the
+# stored level fields to exactly what the client would compute from total_xp, so
+# the leaderboard / header / profile never disagree.
+LEVEL_XP_TOTALS = [
+    0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
+    4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
+    23300, 26150, 29150, 32400, 35800, 39400, 43200, 47200, 51400, 55850,
+    60450, 65300, 70350, 75650, 81150, 86850, 92800, 99000, 105400, 112000,
+    118900, 126000, 133300, 140900, 148700, 156800, 165100, 173650, 182450, 191500,
+    200850, 210400, 220200, 230300, 240650, 251250, 262100, 273250, 284650, 296300,
+    308250, 320450, 332950, 345700, 358750, 372050, 385650, 399500, 413650, 428100,
+    442850, 457850, 473150, 488750, 504600, 520800, 537250, 554000, 571050, 588400,
+    606050, 624000, 642250, 660850, 679700, 698850, 718350, 738100, 758200, 778600,
+    800000, 825000, 852500, 882500, 915000, 950000, 987500, 1027500, 1070000, 1125000,
+]
+
+
+def _level_progress_for_total_xp(total_xp: Any) -> Tuple[int, int, int]:
+    """(level, xp_current, xp_goal) for a total_xp — mirrors the client's
+    getLevelProgressFromTotalXp so stored level fields match exactly."""
+    try:
+        xp = max(0, int(total_xp))
+    except (TypeError, ValueError):
+        xp = 0
+    totals = LEVEL_XP_TOTALS
+    maxlvl = len(totals)
+    level = 1
+    for i in range(maxlvl, 0, -1):
+        if xp >= totals[i - 1]:
+            level = i
+            break
+    if level >= maxlvl:
+        cap = totals[maxlvl - 1]
+        return (maxlvl, cap, cap)
+    start = totals[level - 1]
+    nxt = totals[level]
+    return (level, max(0, xp - start), max(1, nxt - start))
+
 # ── Supporter Reef Wall: LIFETIME-spend tiers ───────────────────────────────
 # A supporter's wall TIER and name SIZE come from their LIFETIME total (the sum
 # of every payment they've made), NOT a single purchase. Evaluated high→low;
@@ -696,7 +736,18 @@ def _process_stripe_checkout(event: dict) -> str:
                 stats_update: Dict[str, Any] = {"supporter_tier": value}
                 bonus = int(grant.get("bonus_xp") or 0)
                 if bonus:
-                    stats_update["total_xp"] = int(stats.get("total_xp") or 0) + bonus
+                    new_xp = int(stats.get("total_xp") or 0) + bonus
+                    stats_update["total_xp"] = new_xp
+                    # Keep the derived level fields in lock-step with total_xp so
+                    # the leaderboard and every other reader see the new level
+                    # immediately (not only after the buyer's next game).
+                    lvl, xp_cur, xp_goal = _level_progress_for_total_xp(new_xp)
+                    stats_update["level"]            = lvl
+                    stats_update["player_level"]     = lvl
+                    stats_update["xp_current"]       = xp_cur
+                    stats_update["level_xp_current"] = xp_cur
+                    stats_update["xp_goal"]          = xp_goal
+                    stats_update["level_xp_goal"]    = xp_goal
                 updates["stats"] = stats_update
                 updates["supporter_tier"] = value
                 if need_founder:
