@@ -9309,23 +9309,6 @@
     }
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
-    /* Music toggle */
-    .settings-toggle-track {
-      width: 42px; height: 24px; border-radius: 12px;
-      background: rgba(80,110,160,.4); border: 1.5px solid rgba(100,160,220,.4);
-      position: relative; transition: background .2s, border-color .2s; cursor: pointer;
-    }
-    .settings-toggle-track.on {
-      background: rgba(34,200,130,.55); border-color: rgba(34,200,130,.8);
-    }
-    .settings-toggle-thumb {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: rgba(200,230,255,.85); position: absolute; top: 2px; left: 2px;
-      transition: left .2s, background .2s; box-shadow: 0 1px 4px rgba(0,0,0,.3);
-    }
-    .settings-toggle-track.on .settings-toggle-thumb {
-      left: 20px; background: #fff;
-    }
 
     /* Music volume slider — themed to match the aquatic UI */
     .settings-slider-wrap {
@@ -11348,50 +11331,4 @@
     #cc-fs-resume {
       min-width: 210px;
       text-align: center;
-    }
-    body.cc-large-card-text .pv-tooltip {
-      font-size: 14px;
-      line-height: 1.5;
-      max-width: 270px;
-    }
-    body.cc-large-card-text .pv-tooltip .tt-name { font-size: 15px; }
-    body.cc-large-card-text .pv-tooltip .tt-species,
-    body.cc-large-card-text .pv-tooltip .tt-text,
-    body.cc-large-card-text .pv-tooltip .tt-star { font-size: 13px; }
-    body.cc-large-card-text #pv-zoom-info .zm-name { font-size: 20px; }
-    body.cc-large-card-text #pv-zoom-info .zm-species,
-    body.cc-large-card-text #pv-zoom-info .zm-text,
-    body.cc-large-card-text #pv-zoom-info .zm-star {
-      font-size: 15px;
-      line-height: 1.75;
-    }
-    body.cc-large-card-text #pv-action-select,
-    body.cc-large-card-text #pv-status-text,
-    body.cc-large-card-text #pv-payment-mode-text,
-    body.cc-large-card-text .ctp-card-label {
-      font-size: 14px;
-    }
-    body.cc-colorblind-hints .pv-hand-card[data-species] .pv-card-inner::after,
-    body.cc-colorblind-hints .pv-board-card[data-species]::after {
-      content: attr(data-species);
-      position: absolute;
-      left: 4px;
-      right: 4px;
-      bottom: 4px;
-      z-index: 5;
-      padding: 2px 4px;
-      border-radius: 5px;
-      background: rgba(4, 18, 34, .86);
-      border: 1px solid rgba(218, 238, 255, .45);
-      color: #fff;
-      font-size: 8px;
-      font-weight: 900;
-      line-height: 1.1;
-      text-align: center;
-      text-shadow: 0 1px 2px rgba(0,0,0,.8);
-      pointer-events: none;
-    }
-    body.cc-colorblind-hints .pv-hand-card.star-sym-match .pv-card-inner,
-    body.cc-colorblind-hints .pv-board-card.strat-hl {
-      outline-style: dashed;
     }

@@ -1083,7 +1083,16 @@
   }
   function applyThemeVolume() {
     if (!_themeGain) return;
-    try { _themeGain.gain.value = MUSIC_MAX_GAIN * (musicVolumePct() / 100); } catch {}
+    try {
+      const target = MUSIC_MAX_GAIN * (musicVolumePct() / 100);
+      // Ramp instead of hard-setting so rapid slider drags don't "zipper"/click.
+      // A tiny time-constant (~15ms) settles fast enough to feel instant.
+      if (_themeAudioCtx && typeof _themeGain.gain.setTargetAtTime === "function") {
+        _themeGain.gain.setTargetAtTime(target, _themeAudioCtx.currentTime, 0.015);
+      } else {
+        _themeGain.gain.value = target;
+      }
+    } catch {}
   }
   window.__ccApplyThemeVolume = applyThemeVolume;
 
@@ -15483,6 +15492,38 @@
       return progress.level;
     }
 
+    // Pop a one-by-one "you unlocked …" popup for any avatar that appeared on the
+    // account WITHOUT going through the in-client grant path — e.g. the Fish /
+    // Amberjack icons granted server-side by a Supporter-Tier purchase (Stripe
+    // webhook). A per-account baseline in localStorage records icons we've already
+    // shown or that the player already owned, so existing icons never re-pop and
+    // each newly granted skin pops individually. Skipped while viewing another
+    // player's collection (read-only) so their icons never pop for us.
+    const SEEN_ICONS_PREFIX = "cc_seen_icons_";
+    function _popNewlyGrantedIcons(uid, icons) {
+      if (!uid || _galReadOnly) return;
+      const key = SEEN_ICONS_PREFIX + uid;
+      const current = (Array.isArray(icons) ? icons : [])
+        .filter(s => typeof s === "string" && s.startsWith("/avatars/"));
+      let raw = null;
+      try { raw = localStorage.getItem(key); } catch {}
+      if (raw == null) {
+        // First time we've tracked this account → seed silently (don't pop icons
+        // the player already owns), then pop only what's granted from here on.
+        try { localStorage.setItem(key, JSON.stringify(current)); } catch {}
+        return;
+      }
+      let seen;
+      try { seen = new Set(JSON.parse(raw) || []); } catch { seen = new Set(); }
+      for (const path of current) {
+        if (seen.has(path)) continue;
+        seen.add(path);
+        const a = _animalByImg[path];
+        if (a) _queueAnimalUnlock(a.id);   // queues + shows each one individually
+      }
+      try { localStorage.setItem(key, JSON.stringify([...seen])); } catch {}
+    }
+
     function syncStatsHeader(profile) {
       const incomingProfile = (profile && typeof profile === "object") ? profile : null;
       const currentAccountProfile = (_authUser && _activeProfile && _activeProfile.uid === _authUser.uid)
@@ -15914,6 +15955,9 @@
       _unlockedIcons = Array.isArray(profile?.unlocked_icons)
         ? profile.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/"))
         : [];
+      // Pop an individual unlock popup for any icon granted out-of-band (e.g. a
+      // Supporter-Tier purchase's Fish / Amberjack skins, credited by the webhook).
+      try { _popNewlyGrantedIcons(uid, _unlockedIcons); } catch {}
       _unlockedBackgrounds = Array.isArray(profile?.unlocked_backgrounds)
         ? profile.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean)
         : [];
@@ -16339,7 +16383,11 @@
           if (!nick || nick.toLowerCase() === "player") return;  // skip blank/guest
           const totalXp = Number(stats.total_xp || 0);
           if (totalXp <= 0) return;
-          const lvl   = Number(stats.level || stats.player_level || 1);
+          // Derive level from total_xp — the single source of truth — so the
+          // leaderboard always matches the header/profile. A stored stats.level
+          // can lag when XP is granted outside a game (e.g. a Supporter-Tier
+          // purchase credited server-side by the Stripe webhook).
+          const lvl   = getLevelProgressFromTotalXp(totalXp).level;
           const games = Number(stats.completed_games || 0);
           shown++;
           const isMe = !!(_authUser && doc.id === _authUser.uid);
@@ -17289,60 +17337,18 @@
       }
     }
 
-    const LARGE_CARD_TEXT_KEY = "cc_large_card_text";
-    const COLORBLIND_HINTS_KEY = "cc_colorblind_hints";
-    let _largeCardText = localStorage.getItem(LARGE_CARD_TEXT_KEY) === "1";
-    let _colorblindHints = localStorage.getItem(COLORBLIND_HINTS_KEY) === "1";
-
-    function _wireSwitch(track, onToggle) {
-      if (!track) return;
-      track.addEventListener("click", onToggle);
-      track.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-          e.preventDefault();
-          onToggle();
-        }
-      });
-    }
-
-    function _applyLargeCardText(on) {
-      _largeCardText = !!on;
-      localStorage.setItem(LARGE_CARD_TEXT_KEY, _largeCardText ? "1" : "0");
-      document.body.classList.toggle("cc-large-card-text", _largeCardText);
-      const track = $a("settings-large-card-text-track");
-      const label = $a("settings-large-card-text-label");
-      if (track) {
-        track.classList.toggle("on", _largeCardText);
-        track.setAttribute("aria-checked", _largeCardText ? "true" : "false");
-      }
-      if (label) label.textContent = _largeCardText ? "Large" : "Normal";
-    }
-
-    function _applyColorblindHints(on) {
-      _colorblindHints = !!on;
-      localStorage.setItem(COLORBLIND_HINTS_KEY, _colorblindHints ? "1" : "0");
-      document.body.classList.toggle("cc-colorblind-hints", _colorblindHints);
-      const track = $a("settings-colorblind-hints-track");
-      const label = $a("settings-colorblind-hints-label");
-      if (track) {
-        track.classList.toggle("on", _colorblindHints);
-        track.setAttribute("aria-checked", _colorblindHints ? "true" : "false");
-      }
-      if (label) label.textContent = _colorblindHints ? "On" : "Off";
-    }
-
     const musicSlider = $a("settings-music-slider");
     if (musicSlider) {
-      _applyMusicVolume(_musicVol, { uiOnly: true }); // sync UI only — never auto-start in the lobby
-      // While dragging: live-adjust volume (and stop if dragged to 0) but never
-      // auto-start in the lobby. On release: full apply, which (re)starts in-game.
-      musicSlider.addEventListener("input", () => _applyMusicVolume(musicSlider.value, { uiOnly: true }));
-      musicSlider.addEventListener("change", () => _applyMusicVolume(musicSlider.value));
+      _applyMusicVolume(_musicVol, { uiOnly: true }); // initial sync only — never auto-start on load
+      // Live while dragging: `input` fires continuously as the mouse/finger
+      // moves, so the volume (and start/stop) responds in real time — you don't
+      // have to release first. `_inGameSimulation()` inside still prevents any
+      // lobby auto-start, so this is safe everywhere. `change` is a harmless
+      // backstop for keyboard/edge cases.
+      const onSlide = () => _applyMusicVolume(musicSlider.value);
+      musicSlider.addEventListener("input", onSlide);
+      musicSlider.addEventListener("change", onSlide);
     }
-    _applyLargeCardText(_largeCardText);
-    _applyColorblindHints(_colorblindHints);
-    _wireSwitch($a("settings-large-card-text-track"), () => _applyLargeCardText(!_largeCardText));
-    _wireSwitch($a("settings-colorblind-hints-track"), () => _applyColorblindHints(!_colorblindHints));
 
     // ── Settings modal open ─────────────────────────────────────────
     const settingsBtn = $a("stats-settings-btn");
@@ -17380,8 +17386,6 @@
 
       // Sync music slider UI
       _syncMusicSliderUI();
-      _applyLargeCardText(_largeCardText);
-      _applyColorblindHints(_colorblindHints);
 
       $a("settings-modal").classList.add("open");
     }
@@ -22949,6 +22953,16 @@
       if (!path || !path.startsWith("/avatars/")) return false;
       if (isAvatarUnlocked(path)) return false; // already owned (starter or unlocked)
       _unlockedIcons = [..._unlockedIcons, path];
+      // Record into the per-account baseline so the on-load diff
+      // (_popNewlyGrantedIcons) never re-pops an icon already shown here.
+      try {
+        const _uid = _authUser && _authUser.uid;
+        if (_uid) {
+          const _k = SEEN_ICONS_PREFIX + _uid;
+          const _arr = JSON.parse(localStorage.getItem(_k) || "[]");
+          if (!_arr.includes(path)) { _arr.push(path); localStorage.setItem(_k, JSON.stringify(_arr)); }
+        }
+      } catch {}
       try {
         if (_authUser && _db) {
           await _db.collection("users").doc(_authUser.uid).update({
