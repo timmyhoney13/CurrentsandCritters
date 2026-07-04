@@ -16,11 +16,15 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.3";
-  const APP_BUILD   = "2026-06-30.3";
+  const APP_VERSION = "1.6.4";
+  const APP_BUILD   = "2026-07-04.1";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.4", title: "Instant join + randomized turn order", items: [
+      "Joining a game no longer asks you to pick a seat — tap Join and you're dropped straight into the current.",
+      "Turn order is now shuffled fresh every casual game, so the host doesn't always go first and no one has a fixed spot in the rotation.",
+    ]},
     { ver: "V1.6.3", title: "New Team Mode — play in teams", items: [
       "Create Game → set Mode to 🤝 Team to play a normal game split into teams. It starts as Red vs Blue, and you can open up to four teams (Red, Blue, Green, Yellow).",
       "In the coral lobby, tap a team to hop onto it, or tap another player to ask them to swap teams — they get a pop-up to accept or decline. Everyone starts split evenly.",
@@ -2008,6 +2012,45 @@
     }
   }
 
+  // Join a room by dropping the player straight into the first OPEN seat — no
+  // seat-picking step. Seat choice no longer matters: the server randomizes the
+  // turn order every game, so which physical seat you land in has no effect on
+  // when you play. For private rooms the room code doubles as the password, so
+  // passing the code (password || rid) works for public and private alike.
+  // Returns true on a successful join.
+  async function autoJoinOpenSeat(rid, seatObjs, password) {
+    const name = (window.__fishNickname && window.__fishNickname()) || "Player";
+    const open = (Array.isArray(seatObjs) ? seatObjs : []).filter(s => !s.claimed_name);
+    if (!open.length) { showToast("All seats are taken.", "err"); return false; }
+    roomId = rid; // must be set before setSeatToken (which keys by roomId)
+    try {
+      const j = await apiPost(`/api/rooms/${rid}/join`,
+        { player_name: name, seat_index: open[0].index, password: password || rid },
+        { timeoutMs: 12000 });
+      if (!j.ok) {
+        const is503 = j.status === 503 || j.status === 502;
+        const msg = is503
+          ? "Server is warming up — please wait ~30 s and try again."
+          : "Join failed: " + (j.data?.error || j.status);
+        lobbyStatus(msg, true);
+        showToast(msg, is503 ? "warn" : "err");
+        roomId = null;
+        return false;
+      }
+      if (j.data?.seat_token) setSeatToken(j.data.seat_token);
+      document.getElementById("pv-my-name-badge").textContent = name;
+      showToast("Joined! Waiting for host to start…", "ok");
+      enterRoom(rid);
+      return true;
+    } catch (e) {
+      const msg = "Connection error — check your internet.";
+      lobbyStatus(msg, true);
+      showToast(msg, "err");
+      roomId = null;
+      return false;
+    }
+  }
+
   // ── INVITED VIEW (arrived via share link) ──────────────────────
   async function loadInvitedSeats(rid) {
     const data = await fetchSeats(rid);
@@ -2015,10 +2058,14 @@
       showToast("Room not found — ask the host to re-share the invite link.", "err");
       return;
     }
+    // Competitive rooms need two hands claimed together — route to the
+    // dedicated competitive join overlay instead of a single-seat auto-join.
+    if (data.mode === "competitive") { _openCompJoinOverlay(rid); return; }
     if (data.seatObjs.every(s => s.claimed_name)) {
       showToast("All seats are taken in this room.", "warn");
+      return;
     }
-    openSeatPickerModal(rid, data.seatObjs);
+    await autoJoinOpenSeat(rid, data.seatObjs, "");
   }
 
   document.getElementById("pv-join-btn").addEventListener("click", async () => {
@@ -2210,22 +2257,10 @@
       return;
     }
 
-    // Password rooms — auto-take first open seat (password already confirmed)
-    if (password) {
-      roomId = rid;
-      const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: open[0].index, password }, { timeoutMs:12000 });
-      if (!j.ok) {
-        showToast("Join failed: " + (j.data?.error || j.status), "err");
-        roomId = null; return;
-      }
-      if (j.data?.seat_token) setSeatToken(j.data.seat_token);
-      document.getElementById("pv-my-name-badge").textContent = name;
-      showToast("Joined! Waiting for host to start…", "ok");
-      enterRoom(rid); return;
-    }
-
-    // Public room — show the seat picker modal (stays on stats lobby)
-    openSeatPickerModal(rid, data.seatObjs);
+    // Casual rooms (public or password-confirmed) — drop straight into the
+    // first open seat. No seat picker: the server randomizes turn order every
+    // game, so the specific seat doesn't matter.
+    await autoJoinOpenSeat(rid, data.seatObjs, password);
   }
 
   // Visibility toggle
@@ -4582,6 +4617,7 @@
     "mangrove":       "mangrove_start",
     "pier":           "pier_start",
     "arctic ocean":   "arctic_start",
+    "arctic oceans":  "arctic_start", // the deck's Arctic card is literally named "Arctic Oceans"
     "kelp forest":    "kelp_start",
     "tide pool":      "tide_pool_start",
     "artificial reef":"artificial_start",
@@ -10687,8 +10723,11 @@
       // modes. Comp-specific hand scores (myCompBest / myCompOther) come
       // from the comp-winner block computed above.
       try {
+        // The public players payload carries no kind/is_ai/bot flags, so flag
+        // checks alone always said "no bots". isBotPlayer adds the AI-name
+        // fallback (same detection the achievement path + XP multiplier use).
         const hadBots = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
-          .some(p => p && (p.kind === "ai" || p.is_ai === true || p.bot === true));
+          .some(p => isBotPlayer(p));
         const wasHost = (typeof getHostToken === "function") ? !!getHostToken() : false;
         const quitByMe = (typeof _gameTerminatedByMe !== "undefined") && _gameTerminatedByMe;
         const moveCount = Number(_gameAchTracker?.animalMoves || 0);
@@ -21236,9 +21275,13 @@
           const myName = (typeof window.__fishNickname === "function")
             ? String(window.__fishNickname() || "").trim().toLowerCase() : "";
           const friendNicks = window.__fishFriendNicksLower || new Set();
+          // Bots must not count as opponents here — new_face / new_currents /
+          // friendly_waters are about REAL players, and finalScores includes
+          // bot seats (named "Bot 1" etc.) with no is_ai flag.
           const realOpponents = finalScores
             .map(p => String(p?.name || "").trim())
-            .filter(n => n && n.toLowerCase() !== myName);
+            .filter(n => n && n.toLowerCase() !== myName)
+            .filter(n => !(typeof isLikelyAiName === "function" && isLikelyAiName(n)));
           // Friend Tide — any opponent is a friend
           if (myName && friendNicks.size > 0) {
             const playedWithFriend = realOpponents.some(n => friendNicks.has(n.toLowerCase()));
@@ -23018,8 +23061,14 @@
       if (!uid) return;
       if (_achLoadedUid !== uid) await loadUserAchievements(uid);
 
+      // Compare tier VALUES (not name-includes) so reaching a higher tier also
+      // backfills any lower tier achievements — same ordering the rank-avatar
+      // unlocks use. Name-matching alone permanently skipped a tier whose exact
+      // rank name was never the post-game rank.
+      const _newTierVal = rankTierValue(newRankName);
       for (const { tier, achId } of RANK_ACH_MAP) {
-        if (!_isDone(achId) && newRankName && newRankName.includes(tier)) {
+        const tierVal = _RANK_TIER_VALUE[String(tier).toLowerCase()] || Infinity;
+        if (!_isDone(achId) && _newTierVal >= tierVal) {
           await unlockAchievement(uid, achId);
         }
       }

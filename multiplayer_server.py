@@ -5819,7 +5819,17 @@ class GameRoom:
                 # Reuses the same game_idx↔seat_idx remap plumbing as competitive.
                 seat_turn_order = self._team_spread_turn_order()
             else:
+                # Casual games: randomize the turn order every game so it never
+                # simply follows seat/join order. No seat has a fixed turn
+                # position and the host (seat 0) no longer always goes first —
+                # a fresh shuffle runs on every start/restart. Tutorials keep
+                # the human first (game_idx 0) so the guided walkthrough still
+                # works. The game_idx<->seat_idx remap built just below carries
+                # the shuffle through rendering, actions, and scoring (the same
+                # plumbing competitive [0,2,1,3] and Team Mode already rely on).
                 seat_turn_order = [s.index for s in self.seats]
+                if not getattr(self, "is_tutorial", False):
+                    random.shuffle(seat_turn_order)
             self._comp_game_to_seat = {gi: si for gi, si in enumerate(seat_turn_order)}
             self._comp_seat_to_game = {si: gi for gi, si in enumerate(seat_turn_order)}
 
