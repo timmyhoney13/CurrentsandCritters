@@ -9358,6 +9358,39 @@
       min-width: 40px; text-align: right; font-variant-numeric: tabular-nums;
     }
 
+    /* ══ TERMS & AGREEMENT MODAL ═══════════════════════════════════ */
+    #terms-modal { z-index: 9800; }         /* above the auth screen + settings */
+    .terms-modal-box { max-width: 520px; max-height: 88vh; }
+    .terms-updated {
+      text-align: center; font-size: 12px; font-weight: 700;
+      color: rgba(160,200,240,.75); margin-top: -4px;
+    }
+    .terms-scroll {
+      flex: 1 1 auto; min-height: 0; max-height: 56vh; overflow-y: auto;
+      background: rgba(6,22,46,.6); border: 1px solid rgba(58,120,204,.3);
+      border-radius: 10px; padding: 14px 16px; scroll-behavior: smooth;
+      color: rgba(212,230,250,.9); font-size: 13.5px; line-height: 1.6;
+      -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    }
+    .terms-scroll:focus-visible { outline: 2px solid rgba(34,216,248,.5); outline-offset: 2px; }
+    .terms-scroll h4 {
+      font-family: 'Cinzel', serif; color: var(--cyan);
+      font-size: 14px; font-weight: 700; margin: 16px 0 5px;
+    }
+    .terms-scroll p { margin: 0 0 9px; }
+    .terms-scroll a { color: var(--cyan); font-weight: 700; text-decoration: underline; word-break: break-word; }
+    .terms-scroll strong { color: #eaf4ff; }
+    .terms-scroll .terms-end {
+      text-align: center; color: rgba(160,200,240,.6);
+      font-size: 12px; font-style: italic; margin-top: 16px;
+      padding-top: 12px; border-top: 1px solid rgba(58,120,204,.25);
+    }
+    .terms-scroll-hint {
+      text-align: center; font-size: 12px; font-weight: 700;
+      color: #e0b040; padding: 2px 0; transition: opacity .2s;
+    }
+    .terms-scroll-hint.done { color: #4ec97a; }
+
     /* ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ */
     #cc-msg-drawer {
       position: fixed; top: 0; right: 0; bottom: 0;

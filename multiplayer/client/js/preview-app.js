@@ -17,10 +17,14 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-04.1";
+  const APP_BUILD   = "2026-07-04.2";
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.4", title: "Terms & Agreement on sign-up", items: [
+      "Creating an account for the first time, or diving in as a guest, now shows our Terms and Agreement — scroll to the bottom to read it all, then tap “I Agree & Consent to the Terms” to continue.",
+      "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
+    ]},
     { ver: "V1.6.4", title: "Instant join + randomized turn order", items: [
       "Joining a game no longer asks you to pick a seat — tap Join and you're dropped straight into the current.",
       "Turn order is now shuffled fresh every casual game, so the host doesn't always go first and no one has a fixed spot in the rotation.",
@@ -13968,6 +13972,22 @@
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
+    // One-shot handoff flag: set when a guest agrees to the Terms in the
+    // launcher tab, consumed once by the dedicated game window so the same
+    // dive isn't re-prompted. Timestamped so a stale flag can't skip Terms on
+    // a later, separate guest session ("always pop up when people do guest").
+    const GUEST_TERMS_OK_KEY = "fish_guest_terms_ok";
+    function markGuestTermsAgreed() {
+      try { localStorage.setItem(GUEST_TERMS_OK_KEY, String(Date.now())); } catch (_) {}
+    }
+    function consumeGuestTermsAgreed() {
+      try {
+        const raw = localStorage.getItem(GUEST_TERMS_OK_KEY);
+        localStorage.removeItem(GUEST_TERMS_OK_KEY);
+        const ts = raw ? parseInt(raw, 10) : 0;
+        return !!ts && (Date.now() - ts) < 120000;   // honor only a fresh handoff
+      } catch (_) { return false; }
+    }
 
     // ════════════════════════════════════════════════════════════════
     // DEDICATED GAME-WINDOW LAUNCHER (Steam-style, no install)
@@ -16224,6 +16244,24 @@
       } catch {}
     }
 
+    // Reveal the lobby for a RETURNING guest (auto-restored from a saved
+    // nickname), gating on the Terms & Agreement first — unless this is the
+    // one-shot handoff from the launcher tab where they just agreed. Declining
+    // drops the guest session back to the sign-in chooser.
+    function revealGuestLobbyGated(nick) {
+      if (consumeGuestTermsAgreed()) { revealLobby(nick, ""); return; }
+      ccShowTerms({ mode: "agree",
+        onAgree: () => revealLobby(nick, ""),
+        onCancel: () => {
+          clearGuestSessionStorage();
+          _guestSessionActive = false;
+          _playerNickname = "";
+          const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
+          showStep("auth-step-choose");
+        }
+      });
+    }
+
     function clearGuestSessionStorage() {
       localStorage.removeItem(GUEST_NICK_KEY);
       localStorage.removeItem(GUEST_AVATAR_KEY);
@@ -17201,7 +17239,7 @@
         if (savedGuestNick) {
           _guestAvatarUrl = savedGuestAvatar;
           if (IS_GAME_WINDOW()) {
-            revealLobby(savedGuestNick, "");
+            revealGuestLobbyGated(savedGuestNick);
           } else {
             // Launcher: returning guest — offer a one-click Open Game (no re-nick).
             _ccLaunchCtx = { type: "guest", nick: savedGuestNick, avatarUrl: savedGuestAvatar, gameUrl: ccGameUrl() };
@@ -17358,7 +17396,7 @@
               const _uiRaw = localStorage.getItem(_uiKey);
               if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
             } catch { _unlockedIcons = []; }
-            revealLobby(savedGuestNick, "");
+            revealGuestLobbyGated(savedGuestNick);
           } else {
             // Not signed in in this window. (For Google, the session is normally
             // inherited from the launcher; if it wasn't, the player finishes with
@@ -17372,6 +17410,80 @@
         }
       });
     })();
+
+    // ── Terms & Agreement modal ──────────────────────────────────
+    // Dual-purpose. mode "agree": gated flow shown on first account creation
+    // and EVERY guest sign-in — the "I Agree & Consent" button stays disabled
+    // until the reader scrolls to the bottom of the terms. mode "view":
+    // read-only, opened from Settings (no gating, backdrop/Close dismiss).
+    function ccShowTerms(opts) {
+      opts = opts || {};
+      const isView   = opts.mode === "view";
+      const modal    = $a("terms-modal");
+      const scroll   = $a("terms-scroll");
+      const hint     = $a("terms-scroll-hint");
+      const agreeBtn = $a("terms-agree-btn");
+      const closeBtn = $a("terms-close-btn");
+      const cancel   = $a("terms-cancel");
+      // Fail-open: if the modal is somehow missing, never block sign-in.
+      if (!modal || !scroll || !agreeBtn) {
+        if (!isView && typeof opts.onAgree === "function") opts.onAgree();
+        return;
+      }
+      setAuthMsg("terms-err", "", false);
+
+      // Buttons per mode.
+      agreeBtn.style.display = isView ? "none" : "";
+      closeBtn.style.display = isView ? "" : "none";
+      cancel.style.display   = isView ? "none" : "";
+      hint.style.display     = isView ? "none" : "";
+
+      let atBottom = isView;            // view mode never gates
+      agreeBtn.disabled = !atBottom;
+      hint.classList.remove("done");
+      hint.textContent = "⬇ Please scroll to the bottom to continue";
+
+      function unlock() {
+        if (atBottom) return;
+        atBottom = true;
+        agreeBtn.disabled = false;
+        hint.classList.add("done");
+        hint.textContent = "✓ You've reached the end — you can now agree";
+      }
+      function checkBottom() {
+        if (atBottom) return;
+        if (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 24) unlock();
+      }
+      function cleanup() {
+        scroll.removeEventListener("scroll", onScroll);
+        agreeBtn.removeEventListener("click", onAgree);
+        closeBtn.removeEventListener("click", onClose);
+        cancel.removeEventListener("click", onCancel);
+        modal.removeEventListener("click", onBackdrop);
+      }
+      function close()  { modal.classList.remove("open"); cleanup(); }
+      function onScroll() { checkBottom(); }
+      function onAgree()  { if (agreeBtn.disabled) return; close(); if (typeof opts.onAgree  === "function") opts.onAgree();  }
+      function onClose()  { close(); if (typeof opts.onClose  === "function") opts.onClose();  }
+      function onCancel() { close(); if (typeof opts.onCancel === "function") opts.onCancel(); }
+      // Backdrop click closes in view mode only — the agree gate must not be dismissible.
+      function onBackdrop(e) { if (e.target === modal && isView) onClose(); }
+
+      scroll.addEventListener("scroll", onScroll, { passive: true });
+      agreeBtn.addEventListener("click", onAgree);
+      closeBtn.addEventListener("click", onClose);
+      cancel.addEventListener("click", onCancel);
+      modal.addEventListener("click", onBackdrop);
+
+      modal.classList.add("open");
+      requestAnimationFrame(() => {
+        scroll.scrollTop = 0;
+        // If the whole text already fits without scrolling, don't trap the user.
+        if (!isView && scroll.scrollHeight - scroll.clientHeight <= 24) unlock();
+        try { scroll.focus({ preventScroll: true }); } catch (_) {}
+      });
+    }
+    window.__ccShowTerms = ccShowTerms;
 
     // ── Guest flow ───────────────────────────────────────────────
     $a("auth-guest-btn").addEventListener("click", () => {
@@ -17485,20 +17597,26 @@
       const nick = ($a("auth-guest-nick").value || "").trim();
       const err = validateNick(nick);
       if (err) { setAuthMsg("auth-guest-err", err, false); return; }
-      _authUser = null;
-      _guestSessionActive = true;
-      _friendCode = "";
-      _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
-      localStorage.setItem(GUEST_NICK_KEY, nick);
-      localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
-      _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
-      if (IS_GAME_WINDOW()) {
-        revealLobby(nick, "");
-      } else {
-        // Launcher: the guest session we just saved is read by the dedicated
-        // window — so the player never enters the nickname twice.
-        ccLaunchFromLauncher({ type: "guest", nick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() });
-      }
+      // Guests must agree to the Terms EVERY time they start a session.
+      ccShowTerms({ mode: "agree", onAgree: () => {
+        _authUser = null;
+        _guestSessionActive = true;
+        _friendCode = "";
+        _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
+        localStorage.setItem(GUEST_NICK_KEY, nick);
+        localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
+        _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
+        if (IS_GAME_WINDOW()) {
+          revealLobby(nick, "");
+        } else {
+          // Launcher: the guest session we just saved is read by the dedicated
+          // window — so the player never enters the nickname twice. Mark that
+          // Terms were just agreed so the game window doesn't re-prompt for
+          // THIS dive (a fresh, separate session will still be gated).
+          markGuestTermsAgreed();
+          ccLaunchFromLauncher({ type: "guest", nick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() });
+        }
+      }});
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
 
@@ -17517,12 +17635,18 @@
       });
     }
 
-    // ── Nickname setup ───────────────────────────────────────────
+    // ── Nickname setup (first-time account creation) ─────────────
+    // Reaching this step means a brand-new account is being created, so the
+    // player must read + agree to the Terms before the profile is saved.
     $a("auth-nick-go-btn").addEventListener("click", async () => {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       const nick = ($a("auth-nick-input").value || "").trim();
       const err  = validateNick(nick);
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
+      ccShowTerms({ mode: "agree", onAgree: () => { void finishNicknameSetup(nick); } });
+    });
+    async function finishNicknameSetup(nick) {
+      if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       setAuthMsg("auth-nick-err", "Saving…", true);
       try {
         const code = await saveNewProfile(_authUser.uid, nick, _authUser.email || "", "");
@@ -17548,7 +17672,7 @@
         ccReport("firebase_profile_save_failed", ccErrDetail(e), "warn");
         setAuthMsg("auth-nick-err", "Could not save nickname. Try again.", false);
       }
-    });
+    }
     $a("auth-nick-input").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-nick-go-btn").click(); });
 
     // ── Launch screen controller (Open / Return / Relaunch / Continue / Sign Out) ──
@@ -17793,6 +17917,16 @@
     window.__openSettingsModal = _openSettingsModal;
 
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
+    // Terms & Agreement — read-only view from Settings.
+    (function wireSettingsTerms() {
+      const tBtn = $a("settings-terms-btn");
+      if (!tBtn) return;
+      const openTerms = () => ccShowTerms({ mode: "view" });
+      tBtn.addEventListener("click", openTerms);
+      tBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); openTerms(); }
+      });
+    })();
     $a("settings-edit-nick-btn").addEventListener("click", () => {
       const form = $a("settings-nick-form");
       if (form) { form.style.display = "flex"; $a("settings-nick-input").focus(); }

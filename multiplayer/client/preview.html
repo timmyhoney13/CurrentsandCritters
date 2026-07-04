@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-06-30.3" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-07-04.2" />
 </head>
 <body>
 
@@ -206,12 +206,100 @@
         <span id="settings-music-label" class="settings-slider-val">100%</span>
       </div>
     </div>
+    <!-- Terms & Agreement (opens the full terms in read-only mode) -->
+    <div class="settings-row" style="margin-top:8px;">
+      <div class="settings-row-label">📜 Legal</div>
+      <button class="auth-link" id="settings-terms-btn" role="button" tabindex="0"
+        aria-label="View Terms and Agreement"
+        style="background:none;border:none;padding:0;font:inherit;cursor:pointer;">Terms &amp; Agreement</button>
+    </div>
     <button class="pv-btn full" id="settings-signout-btn"
       aria-label="Sign out"
       style="background:rgba(180,40,40,.15);border-color:rgba(180,40,40,.4);color:#f08080;margin-top:4px;">
       Sign Out
     </button>
     <button class="pv-btn full" id="settings-close-btn" aria-label="Close settings">Close</button>
+  </div>
+</div>
+
+<!-- ══ TERMS & AGREEMENT MODAL ═════════════════════════════════════════
+     Dual-purpose: a gated "must scroll + agree" flow shown on first account
+     creation and every guest sign-in, and a read-only view from Settings. -->
+<div id="terms-modal" class="overlay-modal">
+  <div class="modal-box terms-modal-box">
+    <div class="modal-title">Terms and Agreement</div>
+    <div class="terms-updated">Last Updated: July 4, 2026</div>
+    <div class="terms-scroll" id="terms-scroll" tabindex="0" aria-label="Terms and Agreement text">
+      <p>Welcome to <strong>Currents and Critters</strong>. By using our website, online game, simulation, forms, checkout links, or any related services, you agree to these Terms and Agreement. If you do not agree, please do not use our website or services.</p>
+
+      <h4>1. About Currents and Critters</h4>
+      <p>Currents and Critters is a card game and online simulation focused on ocean-themed gameplay, strategy, and environmental awareness. Our website may include game information, online play, preorder opportunities, supporter features, forms, updates, and related content.</p>
+
+      <h4>2. Eligibility</h4>
+      <p>You may use our website and online features only if you are legally allowed to do so. If you are under 13 years old, you must have permission from a parent or legal guardian to use the website. Purchases, preorders, and supporter payments must be completed by an adult or with adult permission.</p>
+
+      <h4>3. Accounts, Usernames, and Supporter Information</h4>
+      <p>Some features may ask for information such as your name, email, username, or display preference. You agree to provide accurate information and not pretend to be someone else.</p>
+      <p>If you choose to have your name or username displayed publicly, such as on a supporter wall, you give Currents and Critters permission to display that information on the website.</p>
+      <p>We may remove names, usernames, or content that we believe are inappropriate, offensive, misleading, unsafe, or harmful to the community.</p>
+
+      <h4>4. Purchases, Preorders, and Payments</h4>
+      <p>Currents and Critters may offer products, preorders, supporter options, or other paid features. Payments may be processed through third-party services such as Stripe.</p>
+      <p>By making a purchase or preorder, you agree to pay the listed price, including any applicable taxes, shipping, or fees. Product details, prices, timelines, and availability may change if needed.</p>
+      <p>Preorder delivery dates are goals and may change due to manufacturing, shipping, supplier, or other delays outside our control.</p>
+
+      <h4>5. Refunds and Cancellations</h4>
+      <p>Refunds and cancellations may be handled on a case-by-case basis. If you need help with an order, preorder, or payment issue, contact us at:</p>
+      <p><a href="mailto:currentsandcritters@gmail.com">currentsandcritters@gmail.com</a></p>
+      <p>We reserve the right to deny refunds in cases of abuse, fraud, completed digital access, or circumstances where a refund is not reasonably possible.</p>
+
+      <h4>6. Donations and Environmental Giving</h4>
+      <p>Currents and Critters may state that a percentage of certain sales or profits will be donated to environmental, ocean, wildlife, or conservation-related organizations.</p>
+      <p>Unless otherwise stated, donation amounts are based on the terms shown at the time of purchase. Donation partners, percentages, timing, and eligible products may change. Currents and Critters is not claiming to be a nonprofit organization unless clearly stated.</p>
+
+      <h4>7. Online Game and Simulation</h4>
+      <p>The online game or simulation is provided for entertainment and testing purposes. Features may change, break, be updated, or be removed at any time.</p>
+      <p>We do not guarantee that the online game will always be available, error-free, or uninterrupted. We may reset scores, achievements, accounts, rewards, or game data if needed for updates, bug fixes, fairness, or security.</p>
+
+      <h4>8. Fair Play</h4>
+      <p>You agree not to cheat, hack, exploit bugs, abuse the system, spam, interfere with the website, or use the game in a way that harms other players or Currents and Critters.</p>
+      <p>We may limit, suspend, or remove access if we believe someone is misusing the website, game, forms, checkout, supporter features, or any related services.</p>
+
+      <h4>9. Intellectual Property</h4>
+      <p>All Currents and Critters names, logos, artwork, cards, game rules, game mechanics, website content, written content, graphics, designs, characters, and related materials belong to Currents and Critters or its creators unless otherwise stated.</p>
+      <p>You may not copy, sell, reproduce, redistribute, modify, upload, or use Currents and Critters materials for another product, website, business, or game without written permission.</p>
+
+      <h4>10. Feedback and Suggestions</h4>
+      <p>If you send us ideas, bug reports, suggestions, comments, or feedback, you agree that Currents and Critters may use them to improve the game, website, products, or services without owing payment or credit.</p>
+
+      <h4>11. Third-Party Services and Links</h4>
+      <p>Our website may use or link to third-party services, including payment processors, social media platforms, shipping providers, manufacturers, email services, or other websites.</p>
+      <p>We are not responsible for third-party websites, policies, delays, errors, fees, or actions. You should review the terms and privacy policies of any third-party service you use.</p>
+
+      <h4>12. No Guarantees</h4>
+      <p>Currents and Critters is provided “as is” and “as available.” We do our best to provide accurate information and a good experience, but we do not guarantee that everything will always be perfect, complete, secure, available, or error-free.</p>
+
+      <h4>13. Limitation of Liability</h4>
+      <p>To the fullest extent allowed by law, Currents and Critters and its owners, creators, partners, and team members are not responsible for indirect, accidental, special, or consequential damages connected to your use of the website, game, products, preorders, or services.</p>
+      <p>This includes issues such as lost data, lost access, delays, technical problems, shipping delays, manufacturing delays, or third-party service problems.</p>
+
+      <h4>14. Changes to These Terms</h4>
+      <p>We may update these Terms and Agreement from time to time. When we do, we will update the “Last Updated” date at the top of this page.</p>
+      <p>By continuing to use Currents and Critters after changes are posted, you agree to the updated terms.</p>
+
+      <h4>15. Contact Us</h4>
+      <p>For questions about these terms, orders, preorders, supporter information, or the website, contact us at:</p>
+      <p><a href="mailto:currentsandcritters@gmail.com">currentsandcritters@gmail.com</a></p>
+
+      <div class="terms-end" id="terms-end">— End of Terms and Agreement —</div>
+    </div>
+    <div class="terms-scroll-hint" id="terms-scroll-hint">⬇ Please scroll to the bottom to continue</div>
+    <div class="auth-err" id="terms-err"></div>
+    <button class="pv-btn gold full" id="terms-agree-btn" disabled aria-label="I agree and consent to the terms">
+      I Agree &amp; Consent to the Terms
+    </button>
+    <button class="pv-btn full" id="terms-close-btn" style="display:none;" aria-label="Close terms">Close</button>
+    <span class="auth-link" id="terms-cancel" role="button" tabindex="0" aria-label="Cancel">Cancel</span>
   </div>
 </div>
 
@@ -2544,7 +2632,7 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-07-04.1"></script>
+<script src="/js/preview-app.js?v=2026-07-04.2"></script>
 
 <script src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 
