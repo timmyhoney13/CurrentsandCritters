@@ -17,10 +17,63 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-04.2";
+  const APP_BUILD   = "2026-07-04.3";
+
+  // ── Profanity guard (chat + nicknames) ──────────────────────────────────
+  // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
+  // masked with asterisks; offensive nicknames are rejected outright. Two match
+  // modes (kept in sync with _censor_profanity in multiplayer_server.py, which
+  // re-filters chat server-side so a swear can never reach another player):
+  //   • STRONG roots — matched ANYWHERE, tolerant of leetspeak, repeated
+  //     letters and separator evasion (f u c k, f-u-c-k, f*u*c*k, sh1t, phuck…).
+  //   • WORD roots — short words that also live inside innocent words (ass in
+  //     "class", cock in "peacock"), matched ONLY as a whole word (avoids the
+  //     "Scunthorpe problem").
+  const CC_PROFANITY = (function () {
+    const LEET = {
+      a: "a4@", b: "b8", c: "c(", e: "e3", g: "g9", i: "i1!|",
+      l: "l1|", o: "o0", s: "s5$", t: "t7+", u: "uv", z: "z2",
+    };
+    const cls = (ch) => "[" + (LEET[ch] || ch).replace(/[-\\\]^]/g, "\\$&") + "]";
+    const strongPat = (w) => w.split("").map((c) => cls(c) + "+").join("[\\s._*\\-]{0,2}");
+    const wordCore  = (w) => w.split("").map((c) => cls(c) + "+").join("") + "(?:es|[sz])?";
+    const STRONG = ["fuck","phuck","shit","bitch","biotch","beotch","cunt",
+      "asshole","dickhead","bastard","bollock","wanker","pussy","slut","whore",
+      "faggot","nigger","nigga","retard","cocksucker","motherfucker","bullshit",
+      "dumbass","jackass","dipshit","jerkoff","goddamn","douchebag","blowjob",
+      "handjob","dildo","boner","penis","vagina"];
+    const WORDS = ["ass","arse","damn","hell","crap","piss","cock","dick","tit",
+      "prick","twat","wank","hoe","homo","queer","coon","chink","spic","kike",
+      "gook","dyke","fag","skank","sex","porn","cum","anal","boob","bloody",
+      "bugger","douche","wtf","stfu"];
+    const strongSrc = STRONG.map(strongPat).join("|");
+    const wordSrc   = "(^|[^a-z0-9])(" + WORDS.map(wordCore).join("|") + ")(?=[^a-z0-9]|$)";
+    const strongRe  = () => new RegExp("(" + strongSrc + ")", "gi");
+    const wordRe    = () => new RegExp(wordSrc, "gi");
+    const strongTest = new RegExp(strongSrc, "i");
+    const wordTest   = new RegExp(wordSrc, "i");
+    const deSep = (s) => String(s == null ? "" : s).replace(/[\s._\-]+/g, "");
+    function hasProfanity(text) {
+      const raw = String(text == null ? "" : text);
+      const packed = deSep(raw);
+      return strongTest.test(raw) || strongTest.test(packed)
+          || wordTest.test(raw)  || wordTest.test(packed);
+    }
+    function clean(text) {
+      let out = String(text == null ? "" : text);
+      out = out.replace(strongRe(), (m) => "*".repeat(m.length));
+      out = out.replace(wordRe(), (full, pre, body) => pre + "*".repeat(body.length));
+      return out;
+    }
+    return { hasProfanity, clean };
+  })();
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.4", title: "Keeping chat friendly", items: [
+      "Swear words in chat are now automatically hidden behind asterisks, so no one can send bad language to each other.",
+      "Nicknames are checked too — you can no longer pick an offensive name when you sign up or dive in as a guest.",
+    ]},
     { ver: "V1.6.4", title: "Terms & Agreement on sign-up", items: [
       "Creating an account for the first time, or diving in as a guest, now shows our Terms and Agreement — scroll to the bottom to read it all, then tap “I Agree & Consent to the Terms” to continue.",
       "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
@@ -12061,9 +12114,10 @@
   }
 
   async function sendChatMessage() {
-    const text = document.getElementById("pv-chat-text").value.trim();
+    let text = document.getElementById("pv-chat-text").value.trim();
     const target = document.getElementById("pv-chat-to").value || "Everyone";
     if (!text || !roomId) return;
+    text = CC_PROFANITY.clean(text);   // mask swears (server re-filters too)
     document.getElementById("pv-chat-text").value = "";
     // Spectators use a different chat endpoint with their spectator token
     if (isSpectating() && _spectatorToken) {
@@ -14197,6 +14251,7 @@
       if (t.length < 3)  return "Nickname must be at least 3 characters.";
       if (t.length > 15) return "Nickname must be 15 characters or less.";
       if (!/^[\w\s\-\.]+$/.test(t)) return "Letters, numbers, spaces, dashes, and dots only.";
+      if (CC_PROFANITY.hasProfanity(t)) return "Please choose a friendlier nickname.";
       return "";
     }
 
@@ -18597,6 +18652,7 @@
       if (_guestSessionActive === true) return false;
       text = (text || "").trim();
       if (!text || text.length > 500) return false;
+      text = CC_PROFANITY.clean(text);   // mask swears in direct messages
       const convId = _convIdFor(_authUser.uid, peerUid);
       const msgId = _db.collection("users").doc(_authUser.uid).collection("messages").doc().id;
       const now   = firebase.firestore.FieldValue.serverTimestamp();
@@ -18629,6 +18685,7 @@
       if (_guestSessionActive === true) return false;
       text = (text || "").trim();
       if (!text || text.length > 500) return false;
+      text = CC_PROFANITY.clean(text);   // mask swears in group messages
       const meta = _msgGroupMeta(convId);
       const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
       if (!members.some(p => p && p.uid === _authUser.uid)) return false;  // not a member
@@ -18791,7 +18848,7 @@
       const wantUids = [_authUser.uid].concat(uniq.map(p => p.uid));
       const existing = _msgFindGroupByMembers(wantUids);
       if (existing) return { ok: true, group: true, convId: existing.id, name: existing.name };
-      const name = String(optName || "").trim().slice(0, 40)
+      const name = CC_PROFANITY.clean(String(optName || "").trim().slice(0, 40))
         || uniq.map(p => p.name).join(", ").slice(0, 40);
       const convId  = _newGroupConvId();
       const members = [{ uid: _authUser.uid, name: _playerNickname || "Player" }].concat(uniq);
@@ -18857,9 +18914,10 @@
     // Rename a group; persists for every current member.
     async function _msgRenameGroup(convId, newName) {
       if (!_db || !_authUser || !convId) return { error: "Not available." };
-      const name = String(newName || "").trim();
+      let name = String(newName || "").trim();
       if (!name) return { error: "Enter a name." };
       if (name.length > 40) return { error: "Group name is too long (40 max)." };
+      name = CC_PROFANITY.clean(name);   // mask swears in group names
       const meta = _msgGroupMeta(convId);
       const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
       if (!members.some(p => p && p.uid === _authUser.uid)) return { error: "You're not in this group." };

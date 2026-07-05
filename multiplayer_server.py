@@ -81,6 +81,69 @@ _STATS_SEED_PLAYERS_FLOOR = 18
 STATS_SEED_GAMES   = max(_STATS_SEED_GAMES_FLOOR,   max(0, int(os.environ.get("FISH_STATS_SEED_GAMES",   "0") or "0")))
 STATS_SEED_PLAYERS = max(_STATS_SEED_PLAYERS_FLOOR, max(0, int(os.environ.get("FISH_STATS_SEED_PLAYERS", "0") or "0")))
 
+# ── Chat profanity guard (server-authoritative) ─────────────────────────────
+# Keeps room + spectator chat family-friendly. Swear words are masked with
+# asterisks (the message still sends, minus the swear) so a swear can never
+# reach another player even if a client bypasses the matching browser-side
+# filter in preview-app.js. Two match modes mirror the client exactly:
+#   • STRONG roots — matched ANYWHERE, tolerant of leetspeak, repeated letters
+#     and separator evasion (f u c k, f-u-c-k, f*u*c*k, sh1t, phuck…).
+#   • WORD roots — short words that also live inside innocent words (ass in
+#     "class", cock in "peacock"), matched ONLY as a whole word (avoids the
+#     "Scunthorpe problem").
+# Keep these two lists in sync with CC_PROFANITY in preview-app.js.
+_PROF_LEET = {
+    "a": "a4@", "b": "b8", "c": "c(", "e": "e3", "g": "g9", "i": "i1!|",
+    "l": "l1|", "o": "o0", "s": "s5$", "t": "t7+", "u": "uv", "z": "z2",
+}
+_PROF_STRONG = [
+    "fuck", "phuck", "shit", "bitch", "biotch", "beotch", "cunt", "asshole",
+    "dickhead", "bastard", "bollock", "wanker", "pussy", "slut", "whore",
+    "faggot", "nigger", "nigga", "retard", "cocksucker", "motherfucker",
+    "bullshit", "dumbass", "jackass", "dipshit", "jerkoff", "goddamn",
+    "douchebag", "blowjob", "handjob", "dildo", "boner", "penis", "vagina",
+]
+_PROF_WORDS = [
+    "ass", "arse", "damn", "hell", "crap", "piss", "cock", "dick", "tit",
+    "prick", "twat", "wank", "hoe", "homo", "queer", "coon", "chink", "spic",
+    "kike", "gook", "dyke", "fag", "skank", "sex", "porn", "cum", "anal",
+    "boob", "bloody", "bugger", "douche", "wtf", "stfu",
+]
+
+
+def _prof_cls(ch: str) -> str:
+    alts = _PROF_LEET.get(ch, ch)
+    esc = re.sub(r"([-\\\]^])", r"\\\1", alts)
+    return "[" + esc + "]"
+
+
+def _prof_strong_pat(word: str) -> str:
+    return r"[\s._*\-]{0,2}".join(_prof_cls(c) + "+" for c in word)
+
+
+def _prof_word_core(word: str) -> str:
+    # leet-tolerant, repeat-tolerant core + optional simple plural suffix
+    return "".join(_prof_cls(c) + "+" for c in word) + r"(?:es|[sz])?"
+
+
+# One leading-boundary group (1) + one body group (2) wrapping the whole
+# alternation — so group indices stay fixed no matter which word matches.
+_PROF_STRONG_RE = re.compile("(" + "|".join(_prof_strong_pat(w) for w in _PROF_STRONG) + ")", re.IGNORECASE)
+_PROF_WORD_RE   = re.compile(
+    "(^|[^a-z0-9])(" + "|".join(_prof_word_core(w) for w in _PROF_WORDS) + ")(?=[^a-z0-9]|$)",
+    re.IGNORECASE,
+)
+
+
+def _censor_profanity(text: str) -> str:
+    """Mask swear words in `text` with asterisks, preserving length + spacing."""
+    if not text:
+        return text
+    out = _PROF_STRONG_RE.sub(lambda m: "*" * len(m.group(0)), text)
+    # group(1) = leading boundary char (kept), group(2) = the swear (masked)
+    return _PROF_WORD_RE.sub(lambda m: m.group(1) + "*" * len(m.group(2)), out)
+
+
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
@@ -2036,6 +2099,7 @@ class GameRoom:
         message = str(message or "").strip()[:500]
         if not message:
             return {"ok": False, "error": "empty message"}
+        message = _censor_profanity(message)
         with self.cond:
             spec = self.spectators.get(token)
             if not spec:
@@ -6227,6 +6291,7 @@ class GameRoom:
         target = str(body.get("target", "Everyone")).strip()[:64]
         if not message:
             return {"ok": False, "error": "empty message"}
+        message = _censor_profanity(message)  # mask swears before storing/broadcast
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None or seat.kind != "human":
