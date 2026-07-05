@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-04.3";
+  const APP_BUILD   = "2026-07-04.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,10 @@
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.4", title: "Everyone agrees to the Terms", items: [
+      "Everyone with an account now agrees to our Terms and Agreement. If you made your account before this was added, you'll be asked to read and agree once the next time you sign in — after that you won't be asked again.",
+      "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
+    ]},
     { ver: "V1.6.4", title: "Keeping chat friendly", items: [
       "Swear words in chat are now automatically hidden behind asterisks, so no one can send bad language to each other.",
       "Nicknames are checked too — you can no longer pick an offensive name when you sign up or dive in as a guest.",
@@ -14043,6 +14047,27 @@
       } catch (_) { return false; }
     }
 
+    // ── Registered-account Terms agreement ───────────────────────────
+    // Every account holder must have agreed to the Terms at least once. New
+    // accounts record their agreement at nickname setup; EXISTING accounts made
+    // before the Terms gate existed are prompted once on their next sign-in and
+    // the agreement is stored on their Firestore profile so they're never re-
+    // prompted (unless the Terms are revised and TERMS_VERSION is bumped).
+    const TERMS_VERSION = 1;
+    function hasAgreedToTerms(profile) {
+      return Number(profile?.terms_version || 0) >= TERMS_VERSION;
+    }
+    // Fire-and-forget: never block the lobby on this write succeeding.
+    function persistTermsAgreement(uid) {
+      if (!_db || !uid) return;
+      try {
+        _db.collection("users").doc(uid).set({
+          terms_version: TERMS_VERSION,
+          terms_agreed_at: firebase.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true }).catch(() => {});
+      } catch (_) {}
+    }
+
     // ════════════════════════════════════════════════════════════════
     // DEDICATED GAME-WINDOW LAUNCHER (Steam-style, no install)
     // ----------------------------------------------------------------
@@ -15348,6 +15373,10 @@
           last_active:    firebase.firestore.FieldValue.serverTimestamp(),
           created_at:     firebase.firestore.FieldValue.serverTimestamp(),
           stats:          existingStats || defaultGuestStats(),
+          // The Terms gate is shown right before this save on new-account
+          // creation, so record the agreement so we never re-prompt.
+          terms_version:  TERMS_VERSION,
+          terms_agreed_at: firebase.firestore.FieldValue.serverTimestamp(),
         };
         tx.set(ref, data, { merge: true });
       });
@@ -16312,6 +16341,30 @@
           _guestSessionActive = false;
           _playerNickname = "";
           const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
+          showStep("auth-step-choose");
+        }
+      });
+    }
+
+    // Reveal the lobby for a signed-in REGISTERED account, gating on the Terms
+    // & Agreement first for any account that hasn't agreed to the current
+    // version yet (i.e. every account made before the Terms gate existed). Once
+    // agreed, it's recorded on their profile so they're never re-prompted.
+    // Declining signs them out back to the sign-in chooser.
+    function revealRegisteredLobbyGated(nickname, code, profile, user) {
+      if (hasAgreedToTerms(profile)) { revealLobby(nickname, code); return; }
+      ccShowTerms({ mode: "agree",
+        onAgree: () => {
+          const uid = user?.uid || profile?.uid || _authUser?.uid || "";
+          persistTermsAgreement(uid);
+          if (_activeProfile) _activeProfile.terms_version = TERMS_VERSION;
+          revealLobby(nickname, code);
+        },
+        onCancel: async () => {
+          const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
+          if (_auth) { try { await _auth.signOut(); } catch (_) {} }
+          _authUser = null; _activeProfile = null;
+          _playerNickname = ""; _friendCode = "";
           showStep("auth-step-choose");
         }
       });
@@ -17406,7 +17459,7 @@
           const hasAvatar = hasStoredSelectableAvatar(profile);
           if (hasNickname && hasAvatar) {
             _pendingOnboardingUid = "";
-            revealLobby(profile.nickname, profile.friend_code || "");
+            revealRegisteredLobbyGated(profile.nickname, profile.friend_code || "", profile, user);
           } else {
             const sl = $a("auth-stats-lobby");
             if (sl) sl.classList.remove("visible");
@@ -17427,7 +17480,7 @@
               _activeProfile = { ...(profile || {}), uid: user.uid, avatar_url: DEFAULT_AVATAR_IMG };
               try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
               _pendingOnboardingUid = "";
-              revealLobby(profile.nickname, profile.friend_code || "");
+              revealRegisteredLobbyGated(profile.nickname, profile.friend_code || "", profile, user);
             }
           }
         } else {
@@ -17720,7 +17773,7 @@
         _friendCode = code;
         _pendingOnboardingUid = "";
         _avatarPromptShownForUid = _authUser.uid;
-        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG };
+        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG, terms_version: TERMS_VERSION };
         await applyAvatarSelection(DEFAULT_AVATAR_IMG);
         revealLobby(nick, code);
       } catch (e) {
