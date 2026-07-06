@@ -3383,7 +3383,51 @@ class GameRoom:
             self.game_thread.start()
             return {"ok": True}
 
+    def _randomize_seat_positions_locked(self) -> None:
+        """Randomly reassign which player occupies which seat POSITION.
+
+        After everyone has joined, the host is whoever created the room and by
+        join order always ends up in seat 0 — i.e. always "Player 1". The client
+        labels, positions and orders every player purely by seat index (P{index+1},
+        turn order, AFK id), so to truly randomize the player order we shuffle the
+        seats themselves right as the game launches.
+
+        Every Seat OBJECT (with its token, avatar, background, team, is_host,
+        difficulty, claimed_name …) is moved to a new position and its
+        index/label renumbered to match. Because a client's viewer.seat_index is
+        looked up by its seat token every poll, each player's number updates on
+        its own and all per-seat identity stays intact.
+
+        Runs once per launch (see _launch_game_locked), so the arrangement is
+        fresh each game, stored server-side on self.seats — every client sees the
+        SAME order — and is never re-shuffled mid-game: casual turn order is
+        deterministic seat order, so a resume after a server restart rebuilds the
+        exact same order.
+
+        Skipped for:
+          • competitive — each human owns a fixed PAIR of seats ({0,1}/{2,3})
+            and the [0,2,1,3] interleave depends on those fixed positions;
+          • tutorials — the guided walkthrough needs the human at seat 0 / first.
+        """
+        if self.competitive or getattr(self, "is_tutorial", False):
+            return
+        if len(self.seats) < 2:
+            return
+        order = list(range(len(self.seats)))
+        random.shuffle(order)
+        new_seats = [self.seats[old] for old in order]
+        for new_index, seat in enumerate(new_seats):
+            seat.index = new_index
+            seat.label = f"Player {new_index + 1}"
+        self.seats = new_seats
+
     def _launch_game_locked(self, card_db: Dict[int, fish.CardDef], status_note: str) -> None:
+        # Randomize the player order once, now that everyone has joined: shuffle
+        # which player sits in which seat so the host isn't always Player 1 and
+        # turn order (which follows seat order for casual games) is randomized.
+        # Must run before anything below reads self.seats. No-op for
+        # competitive/tutorial (see _randomize_seat_positions_locked).
+        self._randomize_seat_positions_locked()
         # Ensure every game start/restart gets a fresh random shuffle seed.
         self.seed = secrets.randbits(64)
         self.phase = "running"
@@ -5883,22 +5927,17 @@ class GameRoom:
                 # Reuses the same game_idx↔seat_idx remap plumbing as competitive.
                 seat_turn_order = self._team_spread_turn_order()
             else:
-                # Casual games: start from a RANDOM seat each game, but keep play
-                # going in seat order around the table from there (a rotation, not
-                # a full shuffle). This means the host (seat 0) no longer always
-                # goes first and no seat has a fixed turn position, yet turns still
-                # proceed sequentially around the table — which reads far cleaner
-                # than an arbitrary jumbled order. Tutorials keep the human first
-                # (game_idx 0) so the guided walkthrough still works. The
-                # game_idx<->seat_idx remap built just below carries the rotation
-                # through rendering, actions, and scoring (the same plumbing
-                # competitive [0,2,1,3] and Team Mode already rely on).
-                seat_indices = sorted(s.index for s in self.seats)
-                if len(seat_indices) > 1 and not getattr(self, "is_tutorial", False):
-                    start = random.randrange(len(seat_indices))
-                    seat_turn_order = seat_indices[start:] + seat_indices[:start]
-                else:
-                    seat_turn_order = seat_indices
+                # Casual games: turn order simply follows the seat order — P1
+                # (seat 0) first, then P2, P3 … around the table. The seats
+                # themselves were randomly assigned to players at launch
+                # (_randomize_seat_positions_locked), so who is P1 — and thus who
+                # goes first — is already randomized fresh each game; play then
+                # proceeds cleanly in player-number order. Tutorials are NOT
+                # reseated, so the human stays seat 0 (game_idx 0) and goes first
+                # for the guided walkthrough. This branch is DETERMINISTIC (no
+                # per-thread shuffle) so a resume after a server restart rebuilds
+                # the exact same order and never reshuffles mid-game.
+                seat_turn_order = sorted(s.index for s in self.seats)
             self._comp_game_to_seat = {gi: si for gi, si in enumerate(seat_turn_order)}
             self._comp_seat_to_game = {si: gi for gi, si in enumerate(seat_turn_order)}
 

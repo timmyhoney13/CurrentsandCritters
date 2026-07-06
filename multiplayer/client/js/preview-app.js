@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-05.2";
+  const APP_BUILD   = "2026-07-05.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -10704,8 +10704,10 @@
         if (_gameHours > 0) {
           updates[`stats.playtime_by_mode.${_modeKey}`] = firebase.firestore.FieldValue.increment(_gameHours);
         }
-        // Track hosted casual games for Host With the Most achievement
-        if (!isComp && myIdx === 0) {
+        // Track hosted casual games for Host With the Most achievement.
+        // Seats are now randomly assigned at game start, so the host is no longer
+        // always seat 0 — credit by the authoritative host flag, not myIdx === 0.
+        if (!isComp && Boolean(latestPayload?.viewer?.is_host)) {
           updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
         }
         // ── Balanced (player-count-fair) average score for the Overall leaderboard ──
