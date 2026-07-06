@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-05.1";
+  const APP_BUILD   = "2026-07-05.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -5732,31 +5732,34 @@
     if (!host || !snap || !snap.cells.length) return;
     _tideSweepActive = true;
 
-    const padY    = 22;   // reach a touch above/below the two card rows
-    const leadIn  = 48;   // crest starts just left of the leftmost card
-    const trailOut = 56;  // …and finishes just past the rightmost card
+    const padY    = 34;   // wave reaches well above/below the two card rows
+    const leadIn  = 56;   // crest starts just left of the leftmost card
+    const trailOut = 70;  // …and finishes well past the rightmost card
     const bandTop  = snap.top - padY;
     const bandH    = (snap.bottom - snap.top) + padY * 2;
     const crestStart = snap.left - leadIn;    // crest x at t = 0
     const crestEnd   = snap.right + trailOut; // crest x at t = D
     const span = Math.max(1, crestEnd - crestStart);
     // Constant-velocity sweep so each card's wash-away lines up with the crest.
-    const D = Math.round(Math.min(1050, Math.max(720, span * 1.05)));
-    const waveW = Math.min(340, Math.max(200, span * 0.55));
+    // Weighty and slow — this only fires on a full-board clear, so let the tide
+    // take its time rolling across.
+    const D = Math.round(Math.min(2400, Math.max(1600, span * 2.9)));
+    const waveW = Math.min(440, Math.max(260, span * 0.7));
 
     const nodes = [];
 
-    // 1) Clone each pool card and time its wash to when the crest arrives.
+    // 1) Clone each pool card and time its wash + spray to when the crest arrives.
     snap.cells.forEach(c => {
       const cx = c.left + c.width / 2;
       const arrival = Math.max(0, Math.min(1, (cx - crestStart) / span));
+      const delay = Math.round(arrival * D);
       const el = document.createElement("div");
       el.className = "pv-tide-card";
       el.style.left = c.left + "px";
       el.style.top  = c.top + "px";
       el.style.width  = c.width + "px";
       el.style.height = c.height + "px";
-      el.style.animationDelay = Math.round(arrival * D) + "ms";
+      el.style.animationDelay = delay + "ms";
       if (c.src) {
         const img = document.createElement("img");
         img.src = c.src; img.alt = "";
@@ -5764,9 +5767,27 @@
       }
       host.appendChild(el);
       nodes.push(el);
+
+      // Spray: a handful of foam droplets kicked up from the card as the crest
+      // reaches it — they arc up (mostly forward, in the sweep direction) and
+      // fall back, so each card literally bursts into foam as it's washed away.
+      for (let i = 0; i < 5; i++) {
+        const d = document.createElement("div");
+        d.className = "pv-tide-drop";
+        const sz = (5 + Math.random() * 7).toFixed(1);
+        d.style.width = d.style.height = sz + "px";
+        d.style.left = (c.left + c.width  * (0.2 + Math.random() * 0.6)) + "px";
+        d.style.top  = (c.top  + c.height * (0.15 + Math.random() * 0.4)) + "px";
+        d.style.setProperty("--dx", Math.round((Math.random() * 2 - 0.4) * 26) + "px");
+        d.style.setProperty("--dy", -(34 + Math.round(Math.random() * 40)) + "px");
+        d.style.setProperty("--drop-dur", (560 + Math.round(Math.random() * 260)) + "ms");
+        d.style.animationDelay = (delay + Math.round(Math.random() * 90)) + "ms";
+        host.appendChild(d);
+        nodes.push(d);
+      }
     });
 
-    // 2) The wave — a translucent body with a bright foam crest on its leading
+    // 2) The wave — a translucent body with a churning foam crest on its leading
     //    (right) edge. Its right edge starts at crestStart and sweeps to crestEnd.
     const wave = document.createElement("div");
     wave.className = "pv-tide-wave";
@@ -5783,7 +5804,7 @@
     setTimeout(() => {
       nodes.forEach(n => n.remove());
       _tideSweepActive = false;
-    }, D + 640);
+    }, D + 1100);
   }
 
   // Snapshot pool slot positions BEFORE renderPool wipes the DOM.

@@ -3638,44 +3638,75 @@
       border: 2px solid rgba(95,179,214,.75);
       box-shadow: 0 5px 16px rgba(0,0,0,.42);
       will-change: transform, opacity, filter;
-      animation: pv-tide-wash 560ms cubic-bezier(.45,0,.7,.45) both;
+      animation: pv-tide-wash 940ms cubic-bezier(.42,0,.62,.5) both;
     }
     .pv-tide-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    /* Card rides up the incoming swell, bobs on the crest, then is dragged out
+       to sea — tumbling, shrinking and dissolving into foam. */
     @keyframes pv-tide-wash {
       0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; filter: none; }
-      18%  { transform: translate(3px,-8px) rotate(-3deg) scale(1.05); opacity: 1; filter: brightness(1.12); }
-      100% { transform: translate(48px,56px) rotate(12deg) scale(.78); opacity: 0;
-             filter: blur(3px) brightness(1.5) saturate(.3); }
+      16%  { transform: translate(-3px,-14px) rotate(-5deg) scale(1.07);
+             opacity: 1; filter: brightness(1.18) saturate(1.05); }
+      34%  { transform: translate(7px,-6px) rotate(4deg) scale(1.04);
+             opacity: 1; filter: brightness(1.1); }
+      100% { transform: translate(88px,98px) rotate(27deg) scale(.55);
+             opacity: 0; filter: blur(4px) brightness(1.65) saturate(.22); }
     }
     .pv-tide-wave {
       position: fixed; z-index: 4; pointer-events: none;
       mix-blend-mode: screen;
       border-radius: 0 46% 46% 0 / 0 50% 50% 0;
       filter: blur(.5px);
-      box-shadow: 0 0 30px rgba(130,215,242,.4);
+      box-shadow: 0 0 40px rgba(130,215,242,.5);
       background:
         /* bright foam building at the leading (right) edge */
-        linear-gradient(90deg, transparent 0%, transparent 74%,
-          rgba(224,247,255,.5) 90%, rgba(255,255,255,.92) 99%, rgba(255,255,255,0) 100%),
+        linear-gradient(90deg, transparent 0%, transparent 72%,
+          rgba(224,247,255,.5) 88%, rgba(255,255,255,.95) 98%, rgba(255,255,255,0) 100%),
         /* translucent water body deepening toward the crest */
-        linear-gradient(90deg, rgba(30,120,200,0) 0%, rgba(37,140,205,.12) 42%,
-          rgba(74,180,224,.28) 76%, rgba(150,222,240,.4) 93%, rgba(210,245,255,.28) 100%);
-      animation: pv-tide-sweep var(--tide-dur, 900ms) linear forwards;
+        linear-gradient(90deg, rgba(30,120,200,0) 0%, rgba(37,140,205,.14) 40%,
+          rgba(74,180,224,.32) 74%, rgba(150,222,240,.46) 92%, rgba(210,245,255,.3) 100%);
+      animation: pv-tide-sweep var(--tide-dur, 1700ms) linear forwards;
     }
-    /* crisp foam line riding the very front of the crest */
+    /* churning foam crest riding the very front of the wave */
     .pv-tide-wave::after {
-      content: ""; position: absolute; top: 4%; bottom: 4%; right: -3px; width: 16px;
-      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.95));
+      content: ""; position: absolute; top: -3%; bottom: -3%; right: -10px; width: 34px;
+      background:
+        radial-gradient(60% 22% at 60% 12%, rgba(255,255,255,.95) 0 40%, transparent 62%),
+        radial-gradient(55% 20% at 40% 34%, rgba(255,255,255,.9)  0 42%, transparent 64%),
+        radial-gradient(60% 22% at 66% 56%, rgba(255,255,255,.92) 0 42%, transparent 64%),
+        radial-gradient(55% 20% at 38% 78%, rgba(255,255,255,.88) 0 42%, transparent 64%),
+        linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9));
       border-radius: 50%; filter: blur(2px);
+      animation: pv-foam-churn 380ms ease-in-out infinite alternate;
+    }
+    @keyframes pv-foam-churn {
+      from { transform: translateY(-4px) scaleY(1); }
+      to   { transform: translateY(4px)  scaleY(1.1); }
     }
     @keyframes pv-tide-sweep {
       0%   { transform: translateX(0); opacity: 0; }
-      10%  { opacity: 1; }
-      88%  { opacity: 1; }
+      8%   { opacity: 1; }
+      90%  { opacity: 1; }
       100% { transform: translateX(var(--tide-dist, 400px)); opacity: 0; }
     }
+    /* spray droplets kicked up as the crest hits each card */
+    .pv-tide-drop {
+      position: fixed; z-index: 5; pointer-events: none;
+      border-radius: 50%;
+      background: radial-gradient(circle at 34% 30%, #fff 0 38%,
+        rgba(224,247,255,.85) 60%, rgba(150,222,240,.15) 100%);
+      box-shadow: 0 0 6px rgba(200,240,255,.7);
+      opacity: 0; will-change: transform, opacity;
+      animation: pv-tide-splash var(--drop-dur, 660ms) cubic-bezier(.3,.5,.6,1) both;
+    }
+    @keyframes pv-tide-splash {
+      0%   { transform: translate(0,0) scale(.3); opacity: 0; }
+      22%  { opacity: 1; }
+      55%  { transform: translate(var(--dx,0), var(--dy,-44px)) scale(1); opacity: .95; }
+      100% { transform: translate(calc(var(--dx,0) * 1.7), 30px) scale(.45); opacity: 0; }
+    }
     @media (prefers-reduced-motion: reduce) {
-      .pv-tide-card, .pv-tide-wave { animation: none; display: none; }
+      .pv-tide-card, .pv-tide-wave, .pv-tide-drop { animation: none; display: none; }
     }
 
     /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
