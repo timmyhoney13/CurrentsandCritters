@@ -7506,6 +7506,24 @@
     }
     .phst-card-buy:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
+    /* Exclusive Skins — square player-icon cards + per-group subheaders */
+    .phst-subhead {
+      font-size: .92rem; font-weight: 900; color: #1b6ba3;
+      margin: 4px 0 12px; display: flex; align-items: center; gap: 7px;
+    }
+    .phst-subhead-spaced { margin-top: 26px; }
+    .phst-skin-imgwrap {
+      width: 100%; aspect-ratio: 1 / 1; display: flex;
+      align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 42%, rgba(214,242,255,.95) 0%, rgba(186,224,246,.9) 60%, rgba(158,206,235,.9) 100%);
+      border-bottom: 1px solid rgba(120,200,230,.35);
+    }
+    .phst-skin-img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+      padding: 12px; box-sizing: border-box;
+      filter: drop-shadow(0 3px 6px rgba(20,70,110,.18));
+    }
+
     /* Seasonal — Coming Soon teaser cards */
     .phst-card.phst-seasonal { position: relative; }
     .phst-seasonal .phst-card-img-wrap { position: relative; overflow: hidden; }

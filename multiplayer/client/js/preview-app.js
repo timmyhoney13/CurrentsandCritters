@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-05.3";
+  const APP_VERSION = "1.6.5";
+  const APP_BUILD   = "2026-07-06.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.5", title: "Exclusive Skins in the Store", items: [
+      "New Exclusive Skins section in the Store (right under Critter Coins) — special seasonal player icons you can buy with 2,000 Critter Coins each.",
+      "Three Summer Skins to start — a beach-day Gull, a shady Hermit Crab and a surfing Goby — plus a separate 4th of July skin under its own header.",
+      "Once you buy a skin it lands in your Avatar Gallery. Equip it there and everyone sees it on your seat in-game — but only while it's equipped.",
+    ]},
     { ver: "V1.6.4", title: "The tide rolls in", items: [
       "When the Pool fills up and clears, a wave now sweeps in from the left and washes every card out to sea — a little ocean flourish for a big moment.",
     ]},
@@ -13794,6 +13799,23 @@
     { id:"fish", name:"Fish", species:"Exclusive Avatars", img:"/avatars/fish.png",
       facts:"It's just a fish…",
       unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
+
+    // ── Exclusive Skins (Store — bought with Critter Coins) ──────
+    // Seasonal player icons. Behave exactly like any other avatar: equip one
+    // from the Avatar Gallery and everyone sees it on your seat in-game. The
+    // ONLY way to unlock them is buying in the Store for 2,000 Critter Coins.
+    { id:"summer-skin-gull", name:"Summer Skin Gull", species:"Summer Skins", img:"/avatars/summer-skin-gull.png",
+      facts:"A beach-day gull dive-bombing for a sandcastle bucket — summer's cheekiest snack thief.",
+      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
+    { id:"summer-skin-hermit-crab", name:"Summer Skin Hermit Crab", species:"Summer Skins", img:"/avatars/summer-skin-hermit-crab.png",
+      facts:"Sun hat on, shades down — this hermit crab is fully moved into vacation mode.",
+      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
+    { id:"summer-skin-goby", name:"Goby Summer Skin", species:"Summer Skins", img:"/avatars/summer-skin-goby.png",
+      facts:"A mandarin goby hanging ten — the reef's most colorful surfer catching the summer swell.",
+      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
+    { id:"fourth-of-july", name:"4th of July", species:"Fourth of July Skins", img:"/avatars/fourth-of-july.png",
+      facts:"Stars, stripes, and claws — a firecracker critter decked out for the Fourth of July.",
+      unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
   ];
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
@@ -13811,6 +13833,14 @@
   ];
   const _BG_BY_ID  = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.id, b]));
   const _BG_BY_IMG = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.img, b]));
+
+  // ── Exclusive Skins (Store) ────────────────────────────────────
+  // Derived from the avatar registry above (unlock.type === "shop"). These are
+  // ordinary avatars gated behind a Critter-Coins purchase, so every downstream
+  // avatar path (in-game seat display, gallery, chat, leaderboard) just works.
+  const PHST_SKIN_COIN_PRICE = 2000; // 2,000 Critter Coins per skin
+  const EXCLUSIVE_SKINS   = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type === "shop");
+  const _SKIN_IMG_SET     = new Set(EXCLUSIVE_SKINS.map(s => s.img));
   function backgroundById(id){ return _BG_BY_ID[id] || null; }
   function normalizeBgUrl(u){
     let s = String(u||"").trim();
@@ -19534,7 +19564,63 @@
         }
         html += `</div>`;
 
-        // ── 2) Backgrounds — spend Critter Coins (1,000 each) ─────────
+        // ── 2) Exclusive Skins — spend Critter Coins (2,000 each) ─────
+        // Player icons. Once bought they live in your Avatar Gallery; equip one
+        // and everyone sees it on your seat in-game (only while equipped).
+        const _skins = (typeof EXCLUSIVE_SKINS !== "undefined") ? EXCLUSIVE_SKINS : [];
+        if (_skins.length) {
+          const _ownedIcons = (typeof window.__fishGetUnlockedIcons === "function")
+            ? (window.__fishGetUnlockedIcons() || []) : [];
+          const _iconOwned = new Set(_ownedIcons.map(s => String(s || "").split("?")[0].toLowerCase()));
+          const _avsrc = (typeof _avSrc === "function") ? _avSrc : (u)=>u;
+          const _skinPrice = (typeof PHST_SKIN_COIN_PRICE !== "undefined") ? PHST_SKIN_COIN_PRICE : 2000;
+
+          // Renders one grid of skin cards (owned → ✓, else a coin-spend Buy).
+          const _renderSkinGrid = (list) => {
+            let out = `<div class="phst-grid">`;
+            for (const sk of list) {
+              const owned = _iconOwned.has(String(sk.img || "").toLowerCase());
+              out += `<div class="phst-card phst-skin-card">
+                <div class="phst-skin-imgwrap"><img class="phst-skin-img" src="${_avsrc(sk.img)}" alt="${esc(sk.name)}" loading="lazy"></div>
+                <div class="phst-card-body">
+                  <div class="phst-card-name">${esc(sk.name)}</div>
+                  <div class="phst-card-fact">${esc(sk.facts || "")}</div>
+                  <div class="phst-card-footer">
+                    <div class="phst-card-price">${phstFmtCoins(_skinPrice)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
+                    ${owned
+                      ? `<div class="phst-card-owned">✓ Owned</div>`
+                      : `<button class="phst-card-buy" data-skin="${esc(sk.id)}">Buy</button>`}
+                  </div>
+                </div>
+              </div>`;
+            }
+            out += `</div>`;
+            return out;
+          };
+
+          // Group by species so the Fourth of July skin sits under its own header,
+          // set apart from the summer skins.
+          const _summer = _skins.filter(s => s.species === "Summer Skins");
+          const _july   = _skins.filter(s => s.species === "Fourth of July Skins");
+          const _otherSkins = _skins.filter(s => s.species !== "Summer Skins" && s.species !== "Fourth of July Skins");
+
+          html += `<div class="phst-section-title">🌴 Exclusive Skins<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-sub">Seasonal player icons — ${phstFmtCoins(_skinPrice)} Critter Coins each. Equip one from your Avatar Gallery and everyone sees it on your seat in-game.</div>`;
+          if (_summer.length) {
+            html += `<div class="phst-subhead">☀️ Summer Skins</div>`;
+            html += _renderSkinGrid(_summer);
+          }
+          if (_july.length) {
+            html += `<div class="phst-subhead phst-subhead-spaced">🎆 Fourth of July Skins</div>`;
+            html += _renderSkinGrid(_july);
+          }
+          if (_otherSkins.length) {
+            html += `<div class="phst-subhead phst-subhead-spaced">More Skins</div>`;
+            html += _renderSkinGrid(_otherSkins);
+          }
+        }
+
+        // ── 3) Backgrounds — spend Critter Coins (1,000 each) ─────────
         const _bgs = (typeof EXCLUSIVE_BACKGROUNDS !== "undefined") ? EXCLUSIVE_BACKGROUNDS : [];
         if (_bgs.length) {
           const _unlocked = (typeof window.__fishGetUnlockedBackgrounds === "function")
@@ -19563,7 +19649,7 @@
           html += `</div>`;
         }
 
-        // ── 3) Supporter Tiers ────────────────────────────────────────
+        // ── 4) Supporter Tiers ────────────────────────────────────────
         html += `<div class="phst-section-title">★ Supporter Tiers<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only.</div>`;
         html += `<div class="phst-tier-grid">`;
@@ -19581,7 +19667,7 @@
         }
         html += `</div>`;
 
-        // ── 4) Physical Game ──────────────────────────────────────────
+        // ── 5) Physical Game ──────────────────────────────────────────
         html += `<div class="phst-section-title">📦 Physical Game<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">The tabletop edition of Currents &amp; Critters.</div>`;
         if (PHST_PHYSICAL.length === 0) {
@@ -19619,6 +19705,10 @@
         el.querySelectorAll("[data-bg]").forEach((btn) => {
           btn.addEventListener("click", () => window._phstBuyBg(btn.getAttribute("data-bg"), btn));
         });
+        // Wire every skin Buy button to the Critter-Coins spend flow.
+        el.querySelectorAll("[data-skin]").forEach((btn) => {
+          btn.addEventListener("click", () => window._phstBuyIcon(btn.getAttribute("data-skin"), btn));
+        });
       }
       window.renderPhStore = renderPhStore;
 
@@ -19640,6 +19730,36 @@
             showToast(`Not enough Critter Coins — ${bg.name} costs 1,000.`, "err");
           } else if (res && res.reason === "owned") {
             showToast(`You already own the ${bg.name} background.`, "info");
+            renderPhStore();
+          } else {
+            showToast("Purchase failed — try again.", "err");
+          }
+        } catch {
+          showToast("Purchase failed — try again.", "err");
+        }
+        if (btn) btn.disabled = false;
+      };
+
+      // Buy an exclusive skin (player icon) with Critter Coins. Same atomic
+      // server-side spend as backgrounds (see __fishBuyIconWithCoins): the coin
+      // deduction + the unlock happen in ONE Firestore transaction. Once owned,
+      // the skin appears in the Avatar Gallery to equip.
+      window._phstBuyIcon = async function (skinId, btn) {
+        const sk = (typeof animalById === "function") ? animalById(skinId) : null;
+        if (!sk) return;
+        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (typeof window.__fishBuyIconWithCoins !== "function") return;
+        const price = (typeof PHST_SKIN_COIN_PRICE !== "undefined") ? PHST_SKIN_COIN_PRICE : 2000;
+        if (btn) btn.disabled = true;
+        try {
+          const res = await window.__fishBuyIconWithCoins(sk.img);
+          if (res && res.ok) {
+            showToast(`Unlocked the ${sk.name} skin! 🎉 Equip it in your Avatar Gallery.`, "ok");
+            renderPhStore();
+          } else if (res && res.reason === "coins") {
+            showToast(`Not enough Critter Coins — ${sk.name} costs ${price.toLocaleString("en-US")}.`, "err");
+          } else if (res && res.reason === "owned") {
+            showToast(`You already own the ${sk.name} skin.`, "info");
             renderPhStore();
           } else {
             showToast("Purchase failed — try again.", "err");
@@ -23875,6 +23995,67 @@
       try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch {}
       return { ok:true, newBalance };
     };
+
+    // Spend Critter Coins to unlock an exclusive skin (player icon). Mirrors the
+    // background purchase exactly: the coin deduction + the unlocked_icons grant
+    // run in ONE Firestore transaction with the balance RE-READ server-side, so a
+    // client can never spend coins it doesn't have and the balance/unlock can't
+    // desync. Coins here only ever DECREASE (raising them is blocked by rules).
+    // Once granted, the skin is a normal unlocked avatar — equip it from the
+    // gallery and everyone sees it on your seat in-game.
+    // Returns { ok:true, newBalance } or { ok:false, reason }.
+    window.__fishBuyIconWithCoins = async (iconImg) => {
+      if (_galReadOnly) return { ok:false, reason:"readonly" };
+      const path = normalizeAvatarUrl(iconImg);
+      if (!path || !_SKIN_IMG_SET.has(path)) return { ok:false, reason:"invalid" };
+      if (!_authUser || !_db)                return { ok:false, reason:"auth" };
+      if (isAvatarUnlocked(path))            return { ok:false, reason:"owned" };
+      const ref = _db.collection("users").doc(_authUser.uid);
+      let newBalance = 0;
+      try {
+        newBalance = await _db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const data = snap.exists ? (snap.data() || {}) : {};
+          const owned = Array.isArray(data.unlocked_icons)
+            ? data.unlocked_icons.map(s => normalizeAvatarUrl(String(s || ""))) : [];
+          if (owned.includes(path)) throw new Error("owned");
+          const coins = Math.floor(Number((data.stats || {}).critter_coins) || 0);
+          if (coins < PHST_SKIN_COIN_PRICE) throw new Error("coins");
+          const after = coins - PHST_SKIN_COIN_PRICE;
+          tx.update(ref, {
+            "stats.critter_coins": after,
+            unlocked_icons: firebase.firestore.FieldValue.arrayUnion(path),
+          });
+          return after;
+        });
+      } catch (e) {
+        const msg = String(e && e.message);
+        if (msg === "coins" || msg === "owned") return { ok:false, reason:msg };
+        return { ok:false, reason:"error" };
+      }
+      // Reflect locally: unlock list, coin balance, and the header coin chip.
+      if (!_unlockedIcons.includes(path)) _unlockedIcons = [..._unlockedIcons, path];
+      if (_activeProfile) {
+        const stats = { ...(_activeProfile.stats || {}), critter_coins: newBalance };
+        _activeProfile = { ..._activeProfile, stats, unlocked_icons: _unlockedIcons };
+      }
+      // Record into the per-account "seen" baseline so this fresh unlock isn't
+      // re-popped as "new" on next load, and bump the global popularity counter.
+      try {
+        const _uid = _authUser && _authUser.uid;
+        if (_uid) {
+          const _k = SEEN_ICONS_PREFIX + _uid;
+          const _arr = JSON.parse(localStorage.getItem(_k) || "[]");
+          if (!_arr.includes(path)) { _arr.push(path); localStorage.setItem(_k, JSON.stringify(_arr)); }
+        }
+        await _db.collection("meta").doc("icon_unlock_counts").set({
+          [path.replace(/[.#$/\[\]]/g, "_")]: firebase.firestore.FieldValue.increment(1)
+        }, { merge: true });
+      } catch {}
+      try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch {}
+      return { ok:true, newBalance };
+    };
+
     // Equip (or, with "", unequip) an unlocked background. Persists background_url.
     async function applyBackgroundSelection(bgImg) {
       // Never equip/persist while viewing another player's collection.
