@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.4";
-  const APP_BUILD   = "2026-07-04.4";
+  const APP_BUILD   = "2026-07-05.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,14 @@
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.4", title: "The tide rolls in", items: [
+      "When the Pool fills up and clears, a wave now sweeps in from the left and washes every card out to sea — a little ocean flourish for a big moment.",
+    ]},
+    { ver: "V1.6.4", title: "Sign-in, avatars & turn order fixes", items: [
+      "Signing into your account after agreeing to the Terms no longer drops you into a guest “Player” — you go straight into your account, no second sign-in.",
+      "Every player now shows their own correct avatar and background in-game (a mix-up was putting the wrong icon on the wrong seat).",
+      "Turn order now starts from a random player but then goes in order around the table, instead of jumping around.",
+    ]},
     { ver: "V1.6.4", title: "Everyone agrees to the Terms", items: [
       "Everyone with an account now agrees to our Terms and Agreement. If you made your account before this was added, you'll be asked to read and agree once the next time you sign in — after that you won't be asked again.",
       "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
@@ -5309,6 +5317,12 @@
     // draws, and ripple-reveal newly-added pool cards after render.
     const _animOldPoolRects = _snapshotPoolRectsForAnim();
     const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : []);
+    // Board-clear tide: when the Pool overflows (9+ → 0) every card is washed
+    // out to the discard pile. Capture the doomed cards now — before renderPool
+    // wipes them — and let the tide own that exit, so we don't also fly those
+    // same cards toward a player's avatar.
+    const _tideSnap = _captureTidePoolClear(Array.isArray(state.pool) ? state.pool : []);
+    if (_tideSnap) _animDiff.removedPoolUids = [];
     // Snapshot prev hand UIDs before renderHand mutates _prevHandUIDs.
     const _animPrevHandUIDs = new Set(_prevHandUIDs);
     if (_animDiff.addedPoolUids.length) _pvAnim._suppressFlipIn = true;
@@ -5379,6 +5393,7 @@
           curTurnIdx: Number.isInteger(state.turn_index) ? state.turn_index : null,
         });
         _pvAnim.applyPendingRippleReveals();
+        if (_tideSnap) _playTideSweep(_tideSnap);
       } catch (e) { /* never block render on animation issues */ }
       _prevHandCountsForAnim = _animDiff.newHandCounts;
     });
@@ -5674,6 +5689,102 @@
              get _suppressFlipIn() { return _suppressFlipIn; },
              set _suppressFlipIn(v) { _suppressFlipIn = !!v; } };
   })();
+
+  // ── Tide sweep: board-clear animation ────────────────────────────
+  // The shared Pool caps at 10 cards; the moment it fills, the server washes
+  // every card to the discard pile in a single step (the client sees the pool
+  // jump from 9 → 0). We mark that with an incoming tide: a foam-crested wave
+  // rolls in from the left and drags each card out to sea as the crest reaches
+  // it. Fires only on that overflow clear, so it stays a rare, welcome flourish.
+  let _tideSweepActive = false;
+
+  // Snapshot the doomed pool cards (position + art) right before renderPool
+  // wipes the DOM. Returns null unless this render is a real overflow clear.
+  function _captureTidePoolClear(newPool) {
+    try {
+      if (_tideSweepActive) return null;
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
+      // Only an overflow clear collapses a full-ish board to empty in one step.
+      if (Array.isArray(newPool) && newPool.length !== 0) return null;
+      const wrap = document.getElementById("pv-pool-wrap");
+      if (!wrap) return null;
+      const cards = Array.from(wrap.querySelectorAll(".pv-pool-card"));
+      if (cards.length < 9) return null;   // matches the pool-overflow threshold
+      const cells = cards.map(el => {
+        const r = el.getBoundingClientRect();
+        const img = el.querySelector("img");
+        return { left: r.left, top: r.top, width: r.width, height: r.height,
+                 src: img ? img.src : "" };
+      }).filter(c => c.width > 0 && c.height > 0);
+      if (cells.length < 9) return null;
+      const left   = Math.min(...cells.map(c => c.left));
+      const right   = Math.max(...cells.map(c => c.left + c.width));
+      const top    = Math.min(...cells.map(c => c.top));
+      const bottom = Math.max(...cells.map(c => c.top + c.height));
+      return { cells, left, right, top, bottom };
+    } catch (e) { return null; }
+  }
+
+  // Play the tide: clone the washed cards into the fixed anim layer (the real
+  // pool underneath is already empty), then roll a wave across them left→right.
+  function _playTideSweep(snap) {
+    const host = document.getElementById("pv-anim-layer");
+    if (!host || !snap || !snap.cells.length) return;
+    _tideSweepActive = true;
+
+    const padY    = 22;   // reach a touch above/below the two card rows
+    const leadIn  = 48;   // crest starts just left of the leftmost card
+    const trailOut = 56;  // …and finishes just past the rightmost card
+    const bandTop  = snap.top - padY;
+    const bandH    = (snap.bottom - snap.top) + padY * 2;
+    const crestStart = snap.left - leadIn;    // crest x at t = 0
+    const crestEnd   = snap.right + trailOut; // crest x at t = D
+    const span = Math.max(1, crestEnd - crestStart);
+    // Constant-velocity sweep so each card's wash-away lines up with the crest.
+    const D = Math.round(Math.min(1050, Math.max(720, span * 1.05)));
+    const waveW = Math.min(340, Math.max(200, span * 0.55));
+
+    const nodes = [];
+
+    // 1) Clone each pool card and time its wash to when the crest arrives.
+    snap.cells.forEach(c => {
+      const cx = c.left + c.width / 2;
+      const arrival = Math.max(0, Math.min(1, (cx - crestStart) / span));
+      const el = document.createElement("div");
+      el.className = "pv-tide-card";
+      el.style.left = c.left + "px";
+      el.style.top  = c.top + "px";
+      el.style.width  = c.width + "px";
+      el.style.height = c.height + "px";
+      el.style.animationDelay = Math.round(arrival * D) + "ms";
+      if (c.src) {
+        const img = document.createElement("img");
+        img.src = c.src; img.alt = "";
+        el.appendChild(img);
+      }
+      host.appendChild(el);
+      nodes.push(el);
+    });
+
+    // 2) The wave — a translucent body with a bright foam crest on its leading
+    //    (right) edge. Its right edge starts at crestStart and sweeps to crestEnd.
+    const wave = document.createElement("div");
+    wave.className = "pv-tide-wave";
+    wave.style.top    = bandTop + "px";
+    wave.style.height = bandH + "px";
+    wave.style.width  = waveW + "px";
+    wave.style.left   = (crestStart - waveW) + "px";
+    wave.style.setProperty("--tide-dist", (crestEnd - crestStart) + "px");
+    wave.style.setProperty("--tide-dur", D + "ms");
+    host.appendChild(wave);
+    nodes.push(wave);
+
+    // 3) Clean up once the last card has fully washed away.
+    setTimeout(() => {
+      nodes.forEach(n => n.remove());
+      _tideSweepActive = false;
+    }, D + 640);
+  }
 
   // Snapshot pool slot positions BEFORE renderPool wipes the DOM.
   // Used to fly removed pool cards from their old position.
@@ -16281,6 +16392,13 @@
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
       _guestSessionActive = !_authUser;
+      // A registered player is now in their account — drop any stale guest
+      // session left in localStorage so it can never later hijack a re-auth
+      // (e.g. a token refresh momentarily reading as signed-out) and drop them
+      // into a guest "Player" lobby. Guests keep their saved session.
+      if (_authUser) {
+        try { localStorage.removeItem(GUEST_NICK_KEY); localStorage.removeItem(GUEST_AVATAR_KEY); } catch (_) {}
+      }
       _activeProfile = {
         ...(_activeProfile || {}),
         nickname: _playerNickname,
@@ -16358,6 +16476,11 @@
           const uid = user?.uid || profile?.uid || _authUser?.uid || "";
           persistTermsAgreement(uid);
           if (_activeProfile) _activeProfile.terms_version = TERMS_VERSION;
+          // Defensive: this is a registered account, so never fall through to a
+          // guest lobby. If the auth session somehow dropped while the Terms
+          // were open, send them back to sign-in instead of showing guest
+          // "Player" — revealLobby() would otherwise mark this a guest session.
+          if (!_authUser) { const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden"); showStep("auth-step-choose"); return; }
           revealLobby(nickname, code);
         },
         onCancel: async () => {
@@ -17497,7 +17620,16 @@
           _avatarPromptShownForUid = "";
           setStatsAvatarClickable(false);
           $a("auth-loading-screen").classList.add("hidden");
-          if (savedGuestNick) {
+          // Only auto-restore a returning-guest lobby when we are NOT in the
+          // middle of an account sign-in. When this window was opened to finish
+          // a Google sign-in (auth=google) or a redirect sign-in is in flight,
+          // the account session may momentarily read as "signed out" here — a
+          // stale guest nickname in localStorage must NOT hijack that and drop
+          // the player into a guest "Player" lobby (nor show them the GUEST
+          // Terms instead of finishing their real login). Wait for the account
+          // sign-in to resolve instead.
+          const accountSignInPending = _ccWantsGoogleAuth || _ccGoogleRedirectStarted;
+          if (savedGuestNick && !accountSignInPending) {
             _guestAvatarUrl = savedGuestAvatar;
             try {
               const _uiKey = GUEST_UNLOCKED_ICONS_PREFIX + savedGuestNick.toLowerCase();
@@ -17511,7 +17643,7 @@
             // one tap on the Google button — which uses a reliable popup, never
             // the cross-domain redirect.)
             showStep("auth-step-choose");
-            if (_ccWantsGoogleAuth) {
+            if (accountSignInPending) {
               setAuthMsg("auth-choose-err", "Tap “Continue with Google” to finish signing in.", true);
             }
           }

@@ -5883,17 +5883,22 @@ class GameRoom:
                 # Reuses the same game_idx↔seat_idx remap plumbing as competitive.
                 seat_turn_order = self._team_spread_turn_order()
             else:
-                # Casual games: randomize the turn order every game so it never
-                # simply follows seat/join order. No seat has a fixed turn
-                # position and the host (seat 0) no longer always goes first —
-                # a fresh shuffle runs on every start/restart. Tutorials keep
-                # the human first (game_idx 0) so the guided walkthrough still
-                # works. The game_idx<->seat_idx remap built just below carries
-                # the shuffle through rendering, actions, and scoring (the same
-                # plumbing competitive [0,2,1,3] and Team Mode already rely on).
-                seat_turn_order = [s.index for s in self.seats]
-                if not getattr(self, "is_tutorial", False):
-                    random.shuffle(seat_turn_order)
+                # Casual games: start from a RANDOM seat each game, but keep play
+                # going in seat order around the table from there (a rotation, not
+                # a full shuffle). This means the host (seat 0) no longer always
+                # goes first and no seat has a fixed turn position, yet turns still
+                # proceed sequentially around the table — which reads far cleaner
+                # than an arbitrary jumbled order. Tutorials keep the human first
+                # (game_idx 0) so the guided walkthrough still works. The
+                # game_idx<->seat_idx remap built just below carries the rotation
+                # through rendering, actions, and scoring (the same plumbing
+                # competitive [0,2,1,3] and Team Mode already rely on).
+                seat_indices = sorted(s.index for s in self.seats)
+                if len(seat_indices) > 1 and not getattr(self, "is_tutorial", False):
+                    start = random.randrange(len(seat_indices))
+                    seat_turn_order = seat_indices[start:] + seat_indices[:start]
+                else:
+                    seat_turn_order = seat_indices
             self._comp_game_to_seat = {gi: si for gi, si in enumerate(seat_turn_order)}
             self._comp_seat_to_game = {si: gi for gi, si in enumerate(seat_turn_order)}
 
@@ -6170,8 +6175,13 @@ class GameRoom:
                 for p in players_list:
                     if not isinstance(p, dict):
                         continue
-                    g_idx = p.get("index")
-                    seat_idx = self._comp_game_to_seat.get(g_idx, g_idx)
+                    # p["index"] is ALREADY the seat index (set in
+                    # _record_snapshot as seat_idx). Do NOT run it through
+                    # _comp_game_to_seat again — that double-applies the
+                    # turn-order remap and, whenever the casual order is
+                    # shuffled (i.e. every game now), hands each player the
+                    # WRONG seat's avatar/background. Look the seat up directly.
+                    seat_idx = p.get("index")
                     seat_for_p = _seat_by_index.get(seat_idx)
                     if seat_for_p is not None and seat_for_p.avatar:
                         p["avatar"] = seat_for_p.avatar

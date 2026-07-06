@@ -3627,6 +3627,57 @@
       100% { opacity: 0; }
     }
 
+    /* ── Tide sweep: Pool board-clear ────────────────────────────────
+       When the Pool overflows, an incoming tide rolls left→right and washes
+       every card out to sea. Cloned cards + the wave live in #pv-anim-layer;
+       the wave sweeps at constant speed so its foam crest lines up with each
+       card's wash-away. Only fires on the overflow clear — a rare flourish. */
+    .pv-tide-card {
+      position: fixed; z-index: 2;
+      border-radius: 7px; overflow: hidden;
+      border: 2px solid rgba(95,179,214,.75);
+      box-shadow: 0 5px 16px rgba(0,0,0,.42);
+      will-change: transform, opacity, filter;
+      animation: pv-tide-wash 560ms cubic-bezier(.45,0,.7,.45) both;
+    }
+    .pv-tide-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @keyframes pv-tide-wash {
+      0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; filter: none; }
+      18%  { transform: translate(3px,-8px) rotate(-3deg) scale(1.05); opacity: 1; filter: brightness(1.12); }
+      100% { transform: translate(48px,56px) rotate(12deg) scale(.78); opacity: 0;
+             filter: blur(3px) brightness(1.5) saturate(.3); }
+    }
+    .pv-tide-wave {
+      position: fixed; z-index: 4; pointer-events: none;
+      mix-blend-mode: screen;
+      border-radius: 0 46% 46% 0 / 0 50% 50% 0;
+      filter: blur(.5px);
+      box-shadow: 0 0 30px rgba(130,215,242,.4);
+      background:
+        /* bright foam building at the leading (right) edge */
+        linear-gradient(90deg, transparent 0%, transparent 74%,
+          rgba(224,247,255,.5) 90%, rgba(255,255,255,.92) 99%, rgba(255,255,255,0) 100%),
+        /* translucent water body deepening toward the crest */
+        linear-gradient(90deg, rgba(30,120,200,0) 0%, rgba(37,140,205,.12) 42%,
+          rgba(74,180,224,.28) 76%, rgba(150,222,240,.4) 93%, rgba(210,245,255,.28) 100%);
+      animation: pv-tide-sweep var(--tide-dur, 900ms) linear forwards;
+    }
+    /* crisp foam line riding the very front of the crest */
+    .pv-tide-wave::after {
+      content: ""; position: absolute; top: 4%; bottom: 4%; right: -3px; width: 16px;
+      background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.95));
+      border-radius: 50%; filter: blur(2px);
+    }
+    @keyframes pv-tide-sweep {
+      0%   { transform: translateX(0); opacity: 0; }
+      10%  { opacity: 1; }
+      88%  { opacity: 1; }
+      100% { transform: translateX(var(--tide-dist, 400px)); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .pv-tide-card, .pv-tide-wave { animation: none; display: none; }
+    }
+
     /* ── SCORE BREAKDOWN MODAL ─────────────────────────────────── */
     #pv-score-modal {
       display: none; position: fixed; inset: 0;
