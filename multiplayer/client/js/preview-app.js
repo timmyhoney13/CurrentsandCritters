@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-06.2";
+  const APP_BUILD   = "2026-07-06.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,9 @@
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.5", title: "Sign-in stays your account", items: [
+      "Fixed a bug where agreeing to the Terms could drop you into a guest “Player” instead of your own account — signing in now always keeps you in your account.",
+    ]},
     { ver: "V1.6.5", title: "Exclusive Skins in the Store", items: [
       "New Exclusive Skins section in the Store (right under Critter Coins) — special seasonal player icons you can buy with 2,000 Critter Coins each.",
       "Three Summer Skins to start — a beach-day Gull, a shady Hermit Crab and a surfing Goby — plus a separate 4th of July skin under its own header.",
@@ -13810,7 +13813,7 @@
     { id:"summer-skin-hermit-crab", name:"Summer Skin Hermit Crab", species:"Summer Skins", img:"/avatars/summer-skin-hermit-crab.png",
       facts:"Sun hat on, shades down — this hermit crab is fully moved into vacation mode.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
-    { id:"summer-skin-goby", name:"Goby Summer Skin", species:"Summer Skins", img:"/avatars/summer-skin-goby.png",
+    { id:"summer-skin-goby", name:"Summer Skin Mandarin Goby", species:"Summer Skins", img:"/avatars/summer-skin-goby.png",
       facts:"A mandarin goby hanging ten — the reef's most colorful surfer catching the summer swell.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
     { id:"fourth-of-july", name:"4th of July", species:"Fourth of July Skins", img:"/avatars/fourth-of-july.png",
@@ -14189,6 +14192,18 @@
     let _guestAvatarUrl = "";
     let _avatarSelectionRequired = false;
     let _authStateSeq = 0;
+    // True once a REGISTERED account has been seen signed-in during THIS page
+    // load. Firebase (SESSION persistence + token refreshes) can fire
+    // onAuthStateChanged with a transient `null` even though the account is
+    // still valid; when that happens we must NOT tear the account down or fall
+    // through to a guest "Player" lobby. Paired with _ccExplicitSignOut, which
+    // is set only right before a user-initiated signOut so a REAL sign-out is
+    // still honored. Reset to false when a genuine sign-out is processed.
+    let _ccHadAccountUser = false;
+    let _ccExplicitSignOut = false;
+    // Cleanup fn for the currently-open Terms gate (see ccShowTerms), so a
+    // re-open can drop stale listeners instead of stacking a second handler.
+    let _ccTermsCleanup = null;
     let _statsLoadSeq = 0;
     let _pendingOnboardingUid = "";
     const GUEST_NICK_KEY = "fish_guest_nick";
@@ -16526,18 +16541,24 @@
       if (hasAgreedToTerms(profile)) { revealLobby(nickname, code); return; }
       ccShowTerms({ mode: "agree",
         onAgree: () => {
-          const uid = user?.uid || profile?.uid || _authUser?.uid || "";
+          // This is a REGISTERED account (we captured `user`/`profile` when the
+          // gate opened). If a transient auth blip nulled _authUser while the
+          // Terms were open, re-assert the captured account so we reveal THEIR
+          // lobby — never fall through to a guest "Player" session. revealLobby()
+          // reads _authUser to decide account-vs-guest, so restore it first.
+          const acct = _authUser || user || null;
+          if (!_authUser && acct) { _authUser = acct; _ccHadAccountUser = true; _guestSessionActive = false; }
+          const uid = acct?.uid || profile?.uid || "";
           persistTermsAgreement(uid);
           if (_activeProfile) _activeProfile.terms_version = TERMS_VERSION;
-          // Defensive: this is a registered account, so never fall through to a
-          // guest lobby. If the auth session somehow dropped while the Terms
-          // were open, send them back to sign-in instead of showing guest
-          // "Player" — revealLobby() would otherwise mark this a guest session.
+          // Safety net: only if we truly have no account identity at all (should
+          // not happen for this gate) send them back to sign-in rather than guest.
           if (!_authUser) { const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden"); showStep("auth-step-choose"); return; }
           revealLobby(nickname, code);
         },
         onCancel: async () => {
           const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
+          _ccExplicitSignOut = true;
           if (_auth) { try { await _auth.signOut(); } catch (_) {} }
           _authUser = null; _activeProfile = null;
           _playerNickname = ""; _friendCode = "";
@@ -17548,6 +17569,7 @@
           $a("auth-loading-screen").classList.add("hidden");
           if (user) {
             _authUser = user;
+            _ccHadAccountUser = true;
             _guestSessionActive = false;
             let nick = String(user.displayName || "").split(" ")[0] || "";
             let avatarUrl = "";
@@ -17589,6 +17611,7 @@
             if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
           }
           _authUser = user;
+          _ccHadAccountUser = true;
           _guestSessionActive = false;
           _playerNickname = "";
           _friendCode = "";
@@ -17660,6 +17683,25 @@
             }
           }
         } else {
+          // ── Signed-out reading ──────────────────────────────────────
+          // Distinguish a GENUINE sign-out (user tapped Sign Out / declined the
+          // Terms, or there was never a session) from a TRANSIENT null. Firebase
+          // fires onAuthStateChanged(null) during ordinary token refreshes and
+          // the SESSION-persistence handoff even while the account is still
+          // valid. If a registered account has been active in this page load and
+          // the user did NOT explicitly sign out, this null is transient: tearing
+          // the account down here is what dropped signed-in players into a guest
+          // "Player" lobby (most visibly right after agreeing to the Terms, while
+          // the account terms gate was open). Ignore it and wait for Firebase to
+          // re-fire with the user — the account is never replaced by a guest.
+          const explicitSignOut = _ccExplicitSignOut;
+          _ccExplicitSignOut = false;
+          if (_ccHadAccountUser && !explicitSignOut) {
+            $a("auth-loading-screen").classList.add("hidden");
+            return;
+          }
+          // Genuine sign-out / no session: this page is no longer an account.
+          _ccHadAccountUser = false;
           if (_authUser?.uid) stopPresencePing(_authUser.uid);
           if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
           stopHoursTimer();
@@ -17723,6 +17765,12 @@
         if (!isView && typeof opts.onAgree === "function") opts.onAgree();
         return;
       }
+      // Re-entrancy guard: if the gate is re-opened (e.g. an auth transient runs
+      // the reveal path again while it's already showing), tear down the PRIOR
+      // invocation's listeners first. Otherwise both invocations' handlers stay
+      // bound to the same Agree button and a single click fires both callbacks —
+      // which could let a stale (guest) reveal run alongside the account one.
+      if (typeof _ccTermsCleanup === "function") { try { _ccTermsCleanup(); } catch (_) {} _ccTermsCleanup = null; }
       setAuthMsg("terms-err", "", false);
 
       // Buttons per mode.
@@ -17753,6 +17801,7 @@
         closeBtn.removeEventListener("click", onClose);
         cancel.removeEventListener("click", onCancel);
         modal.removeEventListener("click", onBackdrop);
+        if (_ccTermsCleanup === cleanup) _ccTermsCleanup = null;
       }
       function close()  { modal.classList.remove("open"); cleanup(); }
       function onScroll() { checkBottom(); }
@@ -17767,6 +17816,7 @@
       closeBtn.addEventListener("click", onClose);
       cancel.addEventListener("click", onCancel);
       modal.addEventListener("click", onBackdrop);
+      _ccTermsCleanup = cleanup;
 
       modal.classList.add("open");
       requestAnimationFrame(() => {
@@ -18000,6 +18050,7 @@
 
       if (soBtn) soBtn.addEventListener("click", async () => {
         if (_authUser && _auth) {
+          _ccExplicitSignOut = true;
           try { await _auth.signOut(); } catch (_) {}
         } else {
           clearGuestSessionStorage();
@@ -18049,6 +18100,7 @@
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+      _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
       _avatarPromptShownForUid = "";
@@ -18338,6 +18390,7 @@
       if (_authUser) stopPresencePing(_authUser.uid);
       if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
       _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+      _ccExplicitSignOut = true;
       if (_auth) { try { await _auth.signOut(); } catch {} }
       _authUser = null;
       _avatarPromptShownForUid = "";
@@ -18359,6 +18412,7 @@
         if (_authUser) stopPresencePing(_authUser.uid);
         if (_reqUnsubscribe) { _reqUnsubscribe(); _reqUnsubscribe = null; }
         _playerNickname = ""; _friendCode = ""; _activeProfile = null;
+        _ccExplicitSignOut = true;
         if (_auth) { try { await _auth.signOut(); } catch {} }
         _authUser = null;
         _avatarPromptShownForUid = "";
