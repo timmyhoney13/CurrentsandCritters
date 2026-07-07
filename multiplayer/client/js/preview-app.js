@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-06.3";
+  const APP_BUILD   = "2026-07-06.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -5304,16 +5304,20 @@
       if (!_prevTarponActive && tarponActive) {
         // Phase just began — the pre-Tarpon hand was the previous render's count.
         _tarponStartHand = Math.max(_lastHandCount, myHandNow);
+        selectedDiscard.clear();   // start each Tarpon cycle with a clean selection
       }
       if (tarponActive && _gameAchTracker && myHandNow === 0) {
         _gameAchTracker.tarponHandHitZero = true;
       }
-      if (_prevTarponActive && !tarponActive && _gameAchTracker) {
-        // Count only if the hand was full (9–10) and emptied entirely.
-        if (_gameAchTracker.tarponHandHitZero && _tarponStartHand >= 9) {
-          _gameAchTracker.tarponFullDiscards = (_gameAchTracker.tarponFullDiscards || 0) + 1;
+      if (_prevTarponActive && !tarponActive) {
+        selectedDiscard.clear();   // phase ended — don't leak picks into a later discard
+        if (_gameAchTracker) {
+          // Count only if the hand was full (9–10) and emptied entirely.
+          if (_gameAchTracker.tarponHandHitZero && _tarponStartHand >= 9) {
+            _gameAchTracker.tarponFullDiscards = (_gameAchTracker.tarponFullDiscards || 0) + 1;
+          }
+          _gameAchTracker.tarponHandHitZero = false;
         }
-        _gameAchTracker.tarponHandHitZero = false;
       }
       _prevTarponActive = tarponActive;
       _lastHandCount = myHandNow;
@@ -5325,11 +5329,14 @@
     // draws, and ripple-reveal newly-added pool cards after render.
     const _animOldPoolRects = _snapshotPoolRectsForAnim();
     const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : []);
-    // Board-clear tide: when the Pool overflows (9+ → 0) every card is washed
-    // out to the discard pile. Capture the doomed cards now — before renderPool
+    // Board-clear tide: when the Pool overflows every card is washed out to the
+    // discard pile in one step. Detect that from the discard-pile count jumping
+    // by ≥10 (see _poolOverflowCleared — reliable even when the Pool lands
+    // non-empty afterward), capture the doomed cards now — before renderPool
     // wipes them — and let the tide own that exit, so we don't also fly those
     // same cards toward a player's avatar.
-    const _tideSnap = _captureTidePoolClear(Array.isArray(state.pool) ? state.pool : []);
+    const _overflowCleared = _poolOverflowCleared(Number(state.discard_pile_count ?? state.discard_count ?? 0));
+    const _tideSnap = _captureTidePoolClear(_overflowCleared);
     if (_tideSnap) _animDiff.removedPoolUids = [];
     // Snapshot prev hand UIDs before renderHand mutates _prevHandUIDs.
     const _animPrevHandUIDs = new Set(_prevHandUIDs);
@@ -5705,26 +5712,47 @@
   // rolls in from the left and drags each card out to sea as the crest reaches
   // it. Fires only on that overflow clear, so it stays a rare, welcome flourish.
   let _tideSweepActive = false;
+  // Last-seen discard-pile size, used to detect the overflow clear. Reset to
+  // null on game/room change in _leaveGameCleanup so a stale count from a
+  // previous game can never spuriously fire the tide.
+  let _prevDiscardCount = null;
+
+  // Was there a Pool overflow clear between the last render and this one?
+  // The server washes the whole Pool to the discard pile the instant it hits
+  // 10 cards — and it adds cards one at a time, so after a batch discard the
+  // Pool usually lands NON-empty (e.g. 8 → 9 → 10-clear → 1). Watching for
+  // pool→0 therefore misses the clear most of the time. Instead we watch the
+  // discard-pile count: a wash moves exactly 10 cards into it, and nothing
+  // else grows it by that much mid-game (drafting from the pool moves cards to
+  // a hand, not the discard pile), so a jump of ≥10 is an unambiguous clear.
+  function _poolOverflowCleared(curDiscardCount) {
+    const cur = Number.isFinite(curDiscardCount) ? curDiscardCount : 0;
+    const prev = _prevDiscardCount;
+    _prevDiscardCount = cur;
+    if (prev == null) return false;        // first render — no baseline yet
+    return (cur - prev) >= 10;
+  }
 
   // Snapshot the doomed pool cards (position + art) right before renderPool
   // wipes the DOM. Returns null unless this render is a real overflow clear.
-  function _captureTidePoolClear(newPool) {
+  function _captureTidePoolClear(overflowCleared) {
     try {
+      if (!overflowCleared) return null;   // only fires on the overflow clear
       if (_tideSweepActive) return null;
       if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return null;
-      // Only an overflow clear collapses a full-ish board to empty in one step.
-      if (Array.isArray(newPool) && newPool.length !== 0) return null;
       const wrap = document.getElementById("pv-pool-wrap");
       if (!wrap) return null;
+      // Wash away whatever cards are on screen (the pre-clear Pool). Usually a
+      // full-ish board; if the clear tipped over from a low pool we simply wash
+      // the fewer cards that were showing — still reads as the board sweeping out.
       const cards = Array.from(wrap.querySelectorAll(".pv-pool-card"));
-      if (cards.length < 9) return null;   // matches the pool-overflow threshold
       const cells = cards.map(el => {
         const r = el.getBoundingClientRect();
         const img = el.querySelector("img");
         return { left: r.left, top: r.top, width: r.width, height: r.height,
                  src: img ? img.src : "" };
       }).filter(c => c.width > 0 && c.height > 0);
-      if (cells.length < 9) return null;
+      if (!cells.length) return null;      // nothing on screen to wash
       const left   = Math.min(...cells.map(c => c.left));
       const right   = Math.max(...cells.map(c => c.left + c.width));
       const top    = Math.min(...cells.map(c => c.top));
@@ -8717,9 +8745,13 @@
   let _handHoverIdx = -1;  // index of the currently hovered card, -1 = none
   function renderHand(me, actions, mustDiscard, discardExcess) {
     _handRenderData = { me, actions, mustDiscard, discardExcess };
+    // Tarpon "discard and draw that many" reuses the discard-selection machinery,
+    // but with NO fixed count — tap any number of cards, then Confirm to swap them
+    // for the same number of fresh cards.
+    const tarponActive = Boolean(latestPayload?.legal_actions?.tarpon_discard_active);
     const zone = document.getElementById("pv-hand");
     // Skip re-render when nothing changed — prevents hover/tooltip from being reset every poll
-    const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess,
+    const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess, tarponActive,
       selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
       handOrder: _handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
@@ -8733,8 +8765,9 @@
     if (!me || !Array.isArray(me.hand)) return;
 
     const hand = me.hand;
-    // In discard mode every card must be selectable — show them all.
-    const MAX_VISIBLE = mustDiscard ? hand.length : 12;
+    // In discard mode (hand-limit trim OR Tarpon cycle) every card must be
+    // selectable — show them all.
+    const MAX_VISIBLE = (mustDiscard || tarponActive) ? hand.length : 12;
     const visible  = hand.slice(0, MAX_VISIBLE);
     const overflow = hand.length - MAX_VISIBLE;
 
@@ -8875,6 +8908,16 @@
       // click handler
       card.addEventListener("click", (ev) => {
         ev.stopPropagation();
+        if (tarponActive) {
+          // Tarpon "discard and draw that many" — tap to toggle a card in/out of the
+          // discard set. ANY number is allowed (no cap), then Confirm swaps them.
+          if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
+          else selectedDiscard.add(entryUid);
+          updateDiscardBtn();
+          _handRenderKey = "";
+          renderHand(me, actions, mustDiscard, discardExcess);
+          return;
+        }
         if (mustDiscard) {
           // Over hand limit — clicking selects card for discard
           if (selectedDiscard.has(entryUid)) {
@@ -9003,7 +9046,7 @@
     if (tarponActive) {
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">🐟 Tarpon — pick a card to discard from the dropdown, then click Play to discard. Repeat for each card, then click ✓ End Turn to draw that many cards back.</span>
+        <span class="gs active">🐟 Tarpon — tap as many cards as you want to discard (they turn gold), then click <em>🐟 Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
       </div>`;
       return;
     }
@@ -9093,6 +9136,17 @@
       confirmBtn.textContent = ready
         ? `✓ Confirm Discard (${selectedDiscard.size})`
         : `Select ${discardExcess - selectedDiscard.size} more card(s) to discard`;
+      return;
+    }
+
+    // Tarpon "discard and draw that many": tap any number of cards in hand, then
+    // one adaptive button swaps them for the same number of fresh cards. With
+    // nothing selected it reads "Keep hand" and simply ends the Tarpon phase.
+    if (tarponActive) {
+      sel.style.display="none"; playBtn.style.display="none";
+      starWrap.style.display="none"; endBtn.style.display="none";
+      confirmBtn.style.display="";
+      updateDiscardBtn();
       return;
     }
 
@@ -9190,20 +9244,8 @@
       sel.appendChild(grp);
     }
 
-    // Tarpon discard phase: surface each discard_to_pool action in the dropdown
-    if (tarponActive) {
-      const discardActs = actions.filter(a => a.kind === "discard_to_pool");
-      if (discardActs.length) {
-        const grp = document.createElement("optgroup");
-        grp.label = "🐟 Tarpon — Discard a card";
-        discardActs.forEach(a => {
-          const o = document.createElement("option"); o.value = String(a.index);
-          o.textContent = `Discard ${a.face_name || "?"}`;
-          grp.appendChild(o);
-        });
-        sel.appendChild(grp);
-      }
-    }
+    // (Tarpon discard is handled by the multi-select + Confirm flow above, so it no
+    // longer populates the play dropdown.)
 
     if (prevVal && Array.from(sel.options).some(o=>o.value===prevVal)) {
       sel.value = prevVal;
@@ -9279,7 +9321,16 @@
 
   function updateDiscardBtn() {
     const btn = document.getElementById("pv-confirm-discard-btn"); if (!btn) return;
-    const excess = Number(latestPayload?.legal_actions?.discard_excess||0);
+    const lw = latestPayload?.legal_actions || {};
+    // Tarpon: one adaptive button. ANY count is valid — nothing selected keeps the
+    // hand (draw none); N selected discards N and draws N back.
+    if (lw.tarpon_discard_active) {
+      const n = selectedDiscard.size;
+      btn.disabled = false;
+      btn.textContent = n < 1 ? `🐟 Keep hand — discard none` : `🐟 Discard ${n} & Draw ${n}`;
+      return;
+    }
+    const excess = Number(lw.discard_excess||0);
     const ready = selectedDiscard.size === excess;
     btn.disabled = !ready;
     btn.textContent = ready
@@ -9288,8 +9339,23 @@
   }
 
   document.getElementById("pv-confirm-discard-btn").addEventListener("click", () => {
+    const lw = latestPayload?.legal_actions || {};
+    // Tarpon "discard and draw that many": submit the whole selection at once (any
+    // count) — the server draws back exactly that many. Nothing selected = keep the
+    // hand and end the Tarpon phase (draw none).
+    if (lw.tarpon_discard_active) {
+      if (selectedDiscard.size < 1) {
+        const endAct = legalActions.find(a => a.kind === "end_turn");
+        if (endAct) submitAction(endAct);
+        return;
+      }
+      const batch = legalActions.find(a => a.kind==="discard_batch_to_pool");
+      if (!batch) { showToast("Can't discard right now — try again.", "warn"); return; }
+      submitAction({ ...batch, pool_pick_uids: Array.from(selectedDiscard) });
+      return;
+    }
     const disc = legalActions.find(a => a.kind==="discard_batch_to_pool"); if (!disc) return;
-    const excess = Number(latestPayload?.legal_actions?.discard_excess||0);
+    const excess = Number(lw.discard_excess||0);
     if (selectedDiscard.size !== excess) {
       setStatus(`Select exactly ${excess} card(s). You have ${selectedDiscard.size}.`);
       showToast(`Need exactly ${excess} card(s) to discard.`, "warn"); return;
@@ -9569,6 +9635,7 @@
     _first100Crossings={}; _starCounts={}; _prevFreePlayActive=false;
     _prevCurrentPlayer=""; _shotTheMoonName=null; _prevGobyMap={};
     _drawTurnStartPool=null; _drawTurnStartBoards={}; _drawPrevPlayer="";
+    _prevDiscardCount=null;  // tide-sweep baseline resets per game/room
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
     _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0;

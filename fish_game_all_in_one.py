@@ -7945,7 +7945,11 @@ def rig_tutorial_opening_hand(
 def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_draw: bool = True) -> List[Action]:
     # Tarpon discard phase: player chooses any cards to discard (0 or more), then ends.
     if player.flags.get("_tarpon_discard_active"):
-        actions = [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
+        # The web multi-select UI submits the whole selection in one batch action
+        # (client fills pool_pick_uids). Per-card discard_to_pool actions stay as a
+        # fallback for single-card removal, AI, and timeout handling.
+        actions = [Action(kind="discard_batch_to_pool", pool_pick_uids=[])]
+        actions += [Action(kind="discard_to_pool", card_uid=uid) for uid in list(player.hand)]
         actions.append(Action(kind="end_turn"))  # "Done discarding"
         return actions
 
@@ -8427,25 +8431,31 @@ def apply_action(
         return True
 
     if action.kind == "discard_batch_to_pool":
-        # Human selects multiple cards to discard at once (end-of-turn hand-limit phase).
+        # Human selects multiple cards to discard at once. Two callers:
+        #   • end-of-turn hand-limit phase — must trim down to HAND_LIMIT; and
+        #   • Tarpon "discard and draw that many" — ANY number, may drop below the limit.
         # pool_pick_uids holds the card UIDs chosen to move to the pool.
         # De-duplicate while preserving order and keep only cards still in hand, so a
         # repeated UID can never remove the same card twice (which would raise).
+        tarpon_mode = bool(player.flags.get("_tarpon_discard_active"))
         chosen_uids: List[int] = []
         for uid in action.pool_pick_uids:
             if uid in player.hand and uid not in chosen_uids:
                 chosen_uids.append(uid)
         if not chosen_uids:
             return fail("discard_batch_to_pool: no valid cards selected")
-        remaining = len(player.hand) - len(chosen_uids)
-        if remaining > HAND_LIMIT:
-            return fail(
-                f"discard_batch_to_pool: not enough discarded — {remaining} would remain, limit is {HAND_LIMIT}"
-            )
-        if player.flags.get("_discard_mode") and remaining < HAND_LIMIT:
-            return fail(
-                f"discard_batch_to_pool: cannot discard below {HAND_LIMIT} cards during discard phase"
-            )
+        if not tarpon_mode:
+            # Hand-limit discard phase enforces "trim to exactly the limit". Tarpon
+            # skips these caps entirely — it lets you cycle any number of cards.
+            remaining = len(player.hand) - len(chosen_uids)
+            if remaining > HAND_LIMIT:
+                return fail(
+                    f"discard_batch_to_pool: not enough discarded — {remaining} would remain, limit is {HAND_LIMIT}"
+                )
+            if player.flags.get("_discard_mode") and remaining < HAND_LIMIT:
+                return fail(
+                    f"discard_batch_to_pool: cannot discard below {HAND_LIMIT} cards during discard phase"
+                )
         for uid in chosen_uids:
             player.hand.remove(uid)
             if ms is not None:
@@ -8455,7 +8465,11 @@ def apply_action(
         if verbose:
             labels = ", ".join(entry_short_label(ms, gs, uid) for uid in chosen_uids)
             print(f"{player.name} batch-discards {len(chosen_uids)} card(s) to pool: {labels}")
-        trigger_board_symbol_star_draws(gs, ms, player, chosen_uids)
+        # Board-symbol star draws fire only for the normal hand-limit discard. Tarpon's
+        # own draw-back (discard N, draw N) is handled by the Tarpon loop, and the
+        # single-card Tarpon path never triggered these — so keep the batch identical.
+        if not tarpon_mode:
+            trigger_board_symbol_star_draws(gs, ms, player, chosen_uids)
         return True
 
     if action.kind == "move_between_oceans":
@@ -11149,6 +11163,23 @@ def run_match(
                 if t_action.kind == "end_turn":
                     p.flags["_tarpon_discard_active"] = False
                     break
+                if t_action.kind == "discard_batch_to_pool":
+                    # Web multi-select: the player picked their whole discard set at
+                    # once. Count exactly how many cards left the hand so the draw-back
+                    # matches, then finish the Tarpon phase (discard N → draw N).
+                    before_hand = len(p.hand)
+                    t_ok = apply_action(gs, ms, p, t_action, turn_state, choose_payment_ai, verbose=verbose)
+                    if t_ok:
+                        tarpon_discarded += max(0, before_hand - len(p.hand))
+                        if live_recorder is not None:
+                            try:
+                                live_recorder.snapshot(gs, ms, turn_number=turns + 1, note=f"tarpon_discard:{p.name}")
+                            except Exception:
+                                pass
+                        p.flags["_tarpon_discard_active"] = False
+                        break
+                    # Invalid/empty batch — loop and wait for a valid submission.
+                    continue
                 if t_action.kind == "discard_to_pool":
                     t_ok = apply_action(gs, ms, p, t_action, turn_state, choose_payment_ai, verbose=verbose)
                     if t_ok:
