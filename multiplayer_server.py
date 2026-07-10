@@ -471,6 +471,60 @@ def _supporter_tier_for_total(total_cents: Any) -> Tuple[Optional[str], Optional
     return None, None
 
 
+# ── Wall name safety filter ──────────────────────────────────────────────────
+# A paid, public wall name goes onto the wall IMMEDIATELY (see the gate in
+# _process_stripe_checkout). Names that trip these lists are held as
+# pending_review for a human instead — they never auto-show, but they aren't
+# rejected either: they surface in the /supporter-admin review list. The three
+# lists trade off catching abuse vs. falsely holding innocent names:
+#
+#   _WALL_SUBSTR_BLOCK  matched inside a SINGLE token — high-signal terms that
+#     essentially never appear inside a real word/name, so "ShitLord" and
+#     "bullshit" are caught while a multi-word name never crosses a boundary.
+#   _WALL_WORD_BLOCK    matched only as a WHOLE token — short words that DO live
+#     inside ordinary surnames (Hancock, Dickinson, Cummings, Assange), so we
+#     require the entire token to equal them to avoid false holds.
+#   _WALL_COLLAPSED_BLOCK  matched in the separator-stripped whole name —
+#     catches spaced-out evasion, e.g. "n i g g e r" / "f-a-g-g-o-t" / "F u c k".
+#     Only terms that never appear inside an innocent word (even across word
+#     boundaries) go here; "shit"/"cunt" are NOT, to avoid "fresh item"/
+#     "Scunthorpe" false holds — they're still caught per-token above.
+_WALL_SUBSTR_BLOCK = frozenset({
+    "fuck", "shit", "bitch", "pussy", "whore", "slut", "faggot", "nigger",
+    "nigga", "kike", "chink", "wetback", "tranny", "dildo", "jizz", "asshole",
+    "dickhead", "bollocks", "wanker", "hitler", "retard", "cumshot", "blowjob",
+    "handjob", "molest", "pedophile", "rapist", "porn",
+})
+_WALL_WORD_BLOCK = frozenset({
+    "ass", "cock", "dick", "cum", "coon", "rape", "anus", "nazi", "penis",
+    "prick", "twat", "wank", "cunt", "fag", "semen", "vagina", "bastard",
+    "spic", "dyke", "boob", "tit", "hoe", "sex",
+})
+_WALL_COLLAPSED_BLOCK = frozenset({
+    "nigger", "nigga", "faggot", "kike", "chink", "wetback", "tranny",
+    "fuck", "bitch", "pussy",
+})
+
+
+def _name_needs_review(name: str) -> bool:
+    """True when a public wall name should wait for MANUAL approval instead of
+    auto-showing: blank, unusually long, or containing blocked/offensive words.
+    A clean name returns False and goes straight onto the wall. Held names are
+    not rejected — they surface in the /supporter-admin review list."""
+    raw = str(name or "").strip()
+    if not raw or len(raw) > 40:
+        return True
+    low = raw.lower()
+    tokens = [t for t in re.split(r"[^a-z0-9]+", low) if t]
+    if set(tokens) & _WALL_WORD_BLOCK:
+        return True
+    for tok in tokens:
+        if any(bad in tok for bad in _WALL_SUBSTR_BLOCK):
+            return True
+    collapsed = re.sub(r"[^a-z0-9]+", "", low)
+    return any(bad in collapsed for bad in _WALL_COLLAPSED_BLOCK)
+
+
 def _custom_field_value(custom_fields: Any, label: str) -> str:
     """Read one Stripe custom-field answer by its (case-insensitive) label.
 
@@ -740,15 +794,23 @@ def _process_stripe_checkout(event: dict) -> str:
         new_count = int(prev.get("paymentCount") or 0) + 1
         tier_name, wall_size = _supporter_tier_for_total(new_total)        # by lifetime
 
-        # (9 / approval gate) Brand-new names — and any CHANGE to an already-
-        # approved name — go back to pending_review + hidden. A repeat purchase
-        # that does NOT change the approved name stays approved/visible, so
-        # supporters aren't pulled off the wall every time they give again.
-        if (sup_snap.exists and prev.get("status") == "approved"
+        # (9 / auto-show + safety) A supporter who asked to be public and typed a
+        # CLEAN name goes onto the wall IMMEDIATELY — no manual approval needed.
+        #   • anonymous (chose "no")      → recorded but never shown on the wall.
+        #   • name trips the blocklist    → held as pending_review + hidden until
+        #                                    a human approves it in /supporter-admin.
+        #   • repeat gift, same approved  → keeps its current wall placement so a
+        #     name                          donor isn't pulled off on every gift.
+        #   • clean public name           → approved + visible right now.
+        if anonymous:
+            status, visible = "approved", False
+        elif (sup_snap.exists and prev.get("status") == "approved"
                 and str(prev.get("displayName") or "") == display_name):
             status, visible = "approved", bool(prev.get("visible"))
-        else:
+        elif _name_needs_review(display_name):
             status, visible = "pending_review", False
+        else:
+            status, visible = "approved", True
 
         # ── writes ───────────────────────────────────────────────────────────
         # 1) the payment record — its existence is the dedup key.
