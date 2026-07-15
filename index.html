@@ -329,6 +329,62 @@
     border-top: 1px solid rgba(255,255,255,0.08);
     border-bottom: 1px solid rgba(255,255,255,0.08);
   }
+
+  /* ── SUPPORTER REEF WALL: live names overlaid on the "Backed By People
+        Who Care" illustration. Names are fetched from the game server and
+        sized by the donor's lifetime total (bigger donation = bigger name).
+        Kept inline (not in styles.css) so layout can never break on a stale
+        cached stylesheet. The band is positioned over the open water/sand
+        area of assets/backed-by-people.png (1912×823), clearing the coral
+        on the left/right edges and the baked-in title at the top. ───────── */
+  .people-care { position: relative; }
+  .people-care-names {
+    position: absolute;
+    left: 50%;
+    top: 45%;
+    transform: translateX(-50%);
+    width: 72%;
+    max-width: 1180px;
+    height: 48%;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: center;
+    justify-content: center;
+    /* Fixed/viewport gaps, NOT em — the container inherits font-size:0 from
+       .people-care, so an em gap would collapse to 0 and names would touch. */
+    gap: clamp(3px, 0.55vw, 11px) clamp(14px, 1.8vw, 36px);
+    overflow: hidden;
+    line-height: 1;
+    pointer-events: none;
+    text-align: center;
+  }
+  .scn-name {
+    display: inline-block;
+    font-family: var(--font-display, var(--font-body, sans-serif));
+    font-weight: 800;
+    color: #0c3a66;
+    white-space: nowrap;
+    line-height: 1.04;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.55), 0 0 10px rgba(255,255,255,0.4);
+  }
+  .scn-small   { font-size: clamp(12px, 1.05vw, 22px); }
+  .scn-medium  { font-size: clamp(15px, 1.55vw, 32px); }
+  .scn-large   { font-size: clamp(18px, 2.10vw, 44px); }
+  .scn-xl      { font-size: clamp(22px, 2.80vw, 58px); color: #0a3560; }
+  .scn-biggest {
+    font-size: clamp(27px, 3.80vw, 76px);
+    color: #082f58;
+    text-shadow: 0 2px 0 rgba(255,255,255,0.6), 0 0 18px rgba(255,255,255,0.5);
+  }
+  @media (max-width: 640px) {
+    .people-care-names { width: 90%; top: 42%; height: 54%; gap: 1px 2.0vw; }
+    .scn-small   { font-size: clamp(8px,  2.1vw, 13px); }
+    .scn-medium  { font-size: clamp(10px, 2.6vw, 17px); }
+    .scn-large   { font-size: clamp(12px, 3.1vw, 20px); }
+    .scn-xl      { font-size: clamp(13px, 3.7vw, 24px); }
+    .scn-biggest { font-size: clamp(15px, 4.5vw, 30px); }
+  }
   </style>
 </head>
 <body>
@@ -438,6 +494,9 @@
 <!-- ============ PEOPLE WHO CARE ============ -->
 <section class="people-care" id="people-care">
   <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care — these people help fund the launch of Currents & Critters and support our commitment to ocean cleanup and conservation. The more you support, the bigger your name is." loading="lazy"/>
+  <!-- Live supporter names are injected here from the game server; each name is
+       sized by the donor's lifetime total. Empty until a supporter is approved. -->
+  <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
 </section>
 
 <!-- ============ HOW TO PLAY (Learn in 60 Seconds) ============ -->
@@ -1023,6 +1082,41 @@ updateBetaBarClear();
 
   refreshRenderStats();
   setInterval(refreshRenderStats, 60000);
+
+  // ── Supporter Reef Wall names ("Backed By People Who Care") ──────────
+  // Live from the game server — the only thing allowed to read Firestore.
+  // /api/supporters/wall returns ONLY approved + public supporters, already
+  // sorted by lifetime spend (biggest first), each with a wallSize that maps
+  // to a font-size class here so a bigger donation = a bigger name. Empty
+  // response → the illustration shows alone (no approved supporters yet).
+  const WALL_SIZE_CLASS = {
+    small: 'scn-small', medium: 'scn-medium', large: 'scn-large',
+    extra_large: 'scn-xl', biggest: 'scn-biggest'
+  };
+  function escWallText(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function renderSupporterWall(list) {
+    const box = document.getElementById('supporter-names');
+    if (!box) return;
+    if (!Array.isArray(list) || !list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = list.map(function (s) {
+      const cls = WALL_SIZE_CLASS[s && s.wallSize] || 'scn-small';
+      return '<span class="scn-name ' + cls + '">' + escWallText(s && s.displayName) + '</span>';
+    }).join('');
+  }
+  async function refreshSupporterWall() {
+    try {
+      const resp = await fetchWithTimeout(`${RENDER_BASE}/api/supporters/wall`, 30000);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      renderSupporterWall(data && data.supporters ? data.supporters : []);
+    } catch (_) { /* server sleeping — leave the scene as-is */ }
+  }
+  refreshSupporterWall();
+  setInterval(refreshSupporterWall, 60000);
 })();
 </script>
 
