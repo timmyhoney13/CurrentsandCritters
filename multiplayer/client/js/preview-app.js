@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-06.5";
+  const APP_BUILD   = "2026-07-11.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,10 @@
 
   // Quick changelog shown in the "What's New" modal — newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.5", title: "No more “not your turn” surprises", items: [
+      "You can no longer stage a play while another player is up and then get hit with a “Failed: not your turn” — the game now nudges you to wait for your turn before anything is sent, so setup is never wasted.",
+      "Double-checked the deck: every game is dealt from a fresh, fully-shuffled deck (verified even and unbiased over tens of thousands of test deals).",
+    ]},
     { ver: "V1.6.5", title: "Sign-in stays your account", items: [
       "Fixed a bug where agreeing to the Terms could drop you into a guest “Player” instead of your own account — signing in now always keeps you in your account.",
     ]},
@@ -3041,6 +3045,24 @@
     catch (_) { return false; }
   }
 
+  // True only when the SERVER says it's this client's turn to act. This is the
+  // single source of truth used to gate every action submission, mirroring the
+  // server's own "not your turn" rule so an off-turn play is refused up front
+  // (with a friendly nudge) instead of being sent and bounced as "Failed".
+  function _isMyTurnForAction() {
+    if (_viewerCanActNow()) return true;
+    // Competitive: one human owns several seats. A poll may have used my OTHER
+    // hand's token, so this payload's viewer.can_act is momentarily false even
+    // though the ACTIVE seat is one of mine — treat that as "my turn" too.
+    try {
+      if (compMode && Array.isArray(compMySeats) && latestPayload) {
+        const aas = Number(latestPayload.active_action_seat);
+        if (compMySeats.includes(aas) && compTokens[aas]) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function _dirHuman(dir) {
     const d = String(dir || "").toLowerCase();
     return d === "up" ? "Up" : d === "down" ? "Down" : d === "left" ? "Left" : d === "right" ? "Right" : "that";
@@ -3146,6 +3168,21 @@
     // (the 🌊 button) first. Mirrors the server-side guard so it's 100% accurate.
     if (_imAway) {
       try { showToast("You're on Surf's Up — tap 🌊 I'm Back to make a move.", "warn"); } catch {}
+      return;
+    }
+    // ── Turn guard ────────────────────────────────────────────────────────
+    // Every play / draw / move / end-turn funnels through here, and each is
+    // legal ONLY on your own turn. Without this the client would happily let
+    // you stage a play while another player is acting, send it, and have the
+    // server bounce it with "not your turn" — surfacing as a baffling
+    // "Failed: not your turn" AFTER you'd already set everything up. Mirror the
+    // server's own rule and refuse up front, so an off-turn tap can never waste
+    // your setup or look like the game "broke". Uses the server truth
+    // (viewer.can_act) — NOT the optimistic canInteract — so rapid, legitimate
+    // mid-turn follow-up actions (play, then immediately play again) still work.
+    if (!_isMyTurnForAction()) {
+      try { showToast("Hold on — wait for your turn.", "warn"); } catch (_) {}
+      setStatus("Not your turn yet — waiting for the other players.");
       return;
     }
     // If the action costs cards, ensure we have valid payment staged for THIS action.

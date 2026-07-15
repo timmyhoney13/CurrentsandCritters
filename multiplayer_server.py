@@ -4658,6 +4658,22 @@ class GameRoom:
                             self.active_action_seat = None
                             self.status_note = f"{player.name} undid their draw — turn restarted."
                             self._bump_locked()
+                        # Rebuild the client-visible public state from the reverted
+                        # gs/ms. The queue-based mid-turn undo restores state in place
+                        # and loops back inside THIS policy without ever returning to
+                        # the engine, so — unlike the full-turn undo, which returns
+                        # Action("undo") and gets a fresh turn_start snapshot — no
+                        # snapshot runs to refresh latest_public_state. Without this the
+                        # client keeps showing the pre-undo hand/deck (legal_actions
+                        # update, but hand_count/board do not): the drawn card looks
+                        # like it never went back, and a re-draw appears to "do nothing"
+                        # because the count never changed. Use a neutral note so the
+                        # two-phase undo-arming logic (turn_start:/post_action:) is not
+                        # retriggered.
+                        try:
+                            self._record_snapshot(gs, ms, self.last_turn_number, f"post_undo:{player.name}")
+                        except Exception:
+                            pass
                     continue  # Re-loop: offer fresh legal actions for the same player
 
                 if cmd is not None and cmd.get("kind") == "undo_confirm":
