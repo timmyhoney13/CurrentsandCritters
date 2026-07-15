@@ -765,7 +765,13 @@ def _process_stripe_checkout(event: dict) -> str:
         supporter_ref = db.collection("supporters").document(matched_uid)
         guest_id = ""
     else:
-        guest_id = stripe_customer_id or stripe_session_id            # (4/5) guest id
+        # Key a guest supporter by EMAIL so repeat purchases from the SAME buyer
+        # accumulate onto ONE doc — their lifetime total (and their wall name)
+        # keeps growing even though Stripe issues a fresh customer id for every
+        # Payment-Link checkout. Email is safe as a Firestore doc id (no "/"),
+        # and the claim flow already finds guests by emailLower. Falls back to
+        # customer/session id only when Stripe collected no email.
+        guest_id = (checkout_email.strip().lower() or stripe_customer_id or stripe_session_id)
         supporter_ref = db.collection("guestSupporters").document(guest_id)
     payment_ref  = supporter_ref.collection("payments").document(stripe_session_id)
     ev_ref       = db.collection("stripe_events").document(event_id)
@@ -962,11 +968,16 @@ def _build_supporter_wall() -> List[Dict[str, Any]]:
             d = doc.to_dict() or {}
             if d.get("status") != "approved":
                 continue
+            cents = int(d.get("totalSpentCents") or 0)
             out.append({
                 "displayName": str(d.get("displayName") or "Supporter"),
-                "wallSize":    d.get("wallSize"),
+                "wallSize":    d.get("wallSize"),   # kept for the standalone /wall page
                 "tier":        d.get("tier"),
-                "_sort":       int(d.get("totalSpentCents") or 0),
+                # LIFETIME total in cents — the homepage wall sizes each name
+                # CONTINUOUSLY from this (every dollar = a bit bigger) and shows
+                # it on hover. Exposed intentionally at the site owner's request.
+                "amountCents": cents,
+                "_sort":       cents,
             })
     out.sort(key=lambda r: r["_sort"], reverse=True)
     for r in out:

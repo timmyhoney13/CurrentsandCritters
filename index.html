@@ -358,6 +358,11 @@
     pointer-events: none;
     text-align: center;
   }
+  /* Every name's SIZE is set inline from the donor's lifetime total (see
+     nameFontStyle in the script) so it scales continuously — a bigger donation
+     is always a bigger name, down to a single extra dollar. This rule is just
+     the shared look; pointer-events:auto lets the hover tooltip (how much they
+     donated) work even though the container itself is click-through. */
   .scn-name {
     display: inline-block;
     font-family: var(--font-display, var(--font-body, sans-serif));
@@ -367,23 +372,11 @@
     line-height: 1.04;
     letter-spacing: 0.2px;
     text-shadow: 0 1px 0 rgba(255,255,255,0.55), 0 0 10px rgba(255,255,255,0.4);
-  }
-  .scn-small   { font-size: clamp(12px, 1.05vw, 22px); }
-  .scn-medium  { font-size: clamp(15px, 1.55vw, 32px); }
-  .scn-large   { font-size: clamp(18px, 2.10vw, 44px); }
-  .scn-xl      { font-size: clamp(22px, 2.80vw, 58px); color: #0a3560; }
-  .scn-biggest {
-    font-size: clamp(27px, 3.80vw, 76px);
-    color: #082f58;
-    text-shadow: 0 2px 0 rgba(255,255,255,0.6), 0 0 18px rgba(255,255,255,0.5);
+    pointer-events: auto;
+    cursor: default;
   }
   @media (max-width: 640px) {
     .people-care-names { width: 90%; top: 42%; height: 54%; gap: 1px 2.0vw; }
-    .scn-small   { font-size: clamp(8px,  2.1vw, 13px); }
-    .scn-medium  { font-size: clamp(10px, 2.6vw, 17px); }
-    .scn-large   { font-size: clamp(12px, 3.1vw, 20px); }
-    .scn-xl      { font-size: clamp(13px, 3.7vw, 24px); }
-    .scn-biggest { font-size: clamp(15px, 4.5vw, 30px); }
   }
   </style>
 </head>
@@ -1086,25 +1079,45 @@ updateBetaBarClear();
   // ── Supporter Reef Wall names ("Backed By People Who Care") ──────────
   // Live from the game server — the only thing allowed to read Firestore.
   // /api/supporters/wall returns ONLY approved + public supporters, already
-  // sorted by lifetime spend (biggest first), each with a wallSize that maps
-  // to a font-size class here so a bigger donation = a bigger name. Empty
-  // response → the illustration shows alone (no approved supporters yet).
-  const WALL_SIZE_CLASS = {
-    small: 'scn-small', medium: 'scn-medium', large: 'scn-large',
-    extra_large: 'scn-xl', biggest: 'scn-biggest'
-  };
+  // sorted by lifetime spend (biggest first), each with amountCents (the
+  // donor's LIFETIME total). Every name is sized CONTINUOUSLY from that total
+  // so a bigger donation is always a bigger name — down to a single dollar —
+  // and hovering a name shows exactly how much they've given. Empty response →
+  // the illustration shows alone (no approved supporters yet).
   function escWallText(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+  // Continuous size from the lifetime total. d/(d+K) climbs fast at the low end
+  // (so $1 vs $5 is clearly visible) and saturates high (so $500 vs $1000 differ
+  // only a little) — it NEVER stops rising, so one extra dollar is always a
+  // slightly bigger name. Fractional vw ⇒ each amount is a genuinely different
+  // width. clamp keeps it readable on phones and sane on ultra-wide screens.
+  function nameFontSize(cents) {
+    const d = Math.max(0, (Number(cents) || 0) / 100);   // dollars
+    const MIN_VW = 1.0, MAX_VW = 4.6, K = 45;
+    const vw = MIN_VW + (MAX_VW - MIN_VW) * (d / (d + K));
+    const capPx = (vw * 20).toFixed(1);                  // freeze growth past ~2000px-wide
+    return 'clamp(9px, ' + vw.toFixed(3) + 'vw, ' + capPx + 'px)';
+  }
+  function moneyText(cents) {
+    const n = (Number(cents) || 0) / 100;
+    return '$' + (n % 1 === 0
+      ? n.toLocaleString('en-US')
+      : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   }
   function renderSupporterWall(list) {
     const box = document.getElementById('supporter-names');
     if (!box) return;
     if (!Array.isArray(list) || !list.length) { box.innerHTML = ''; return; }
     box.innerHTML = list.map(function (s) {
-      const cls = WALL_SIZE_CLASS[s && s.wallSize] || 'scn-small';
-      return '<span class="scn-name ' + cls + '">' + escWallText(s && s.displayName) + '</span>';
+      const cents = s && s.amountCents;
+      const name = escWallText(s && s.displayName);
+      const amt = moneyText(cents);
+      return '<span class="scn-name" style="font-size:' + nameFontSize(cents) + '"'
+        + ' title="' + name + ' — donated ' + amt + '"'
+        + ' aria-label="' + name + ', donated ' + amt + '">' + name + '</span>';
     }).join('');
   }
   async function refreshSupporterWall() {
