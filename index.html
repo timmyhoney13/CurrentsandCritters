@@ -6,6 +6,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
+<!-- Luckiest Guy: the chunky display font for the Supporter Reef Wall donor names
+     (see .scn-name in the inline styles below). Loaded here, page-local, so it
+     doesn't weigh down the game app which shares colors_and_type.css. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap"/>
 <script src="image-slot.js"></script>
 <style>
   /* ── OLD-SITE NOTICE BAR ─────────────────────────────────────────── */
@@ -364,8 +370,8 @@
      donated) work even though the container itself is click-through. */
   .scn-name {
     display: inline-block;
-    font-family: var(--font-display, var(--font-body, sans-serif));
-    font-weight: 800;
+    font-family: "Luckiest Guy", var(--font-display, cursive);
+    font-weight: 400;   /* Luckiest Guy ships only at 400; asking for more forces ugly faux-bold */
     color: #0c3a66;
     white-space: nowrap;
     line-height: 1.04;
