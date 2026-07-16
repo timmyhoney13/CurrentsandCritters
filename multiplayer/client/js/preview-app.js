@@ -12229,7 +12229,11 @@
       } else {
         // Reflect the immediate count; the next poll keeps it in sync for everyone.
         updatePlayAgainUI(r.data);
-        if (r.data?.started) { try { _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses||0) + 1; } catch (_) {} }
+        // NOTE: this "Play Again" button starts a REMATCH (a new game) — it is NOT
+        // the in-game "*play again*" extra-turn ability the Horned Puffin avatar
+        // tracks. That ability is counted on its own rising edge (see the
+        // is_replay_turn tracker in the turn-banner render). Counting rematches
+        // here wrongly inflated lifetime_play_again, so it's intentionally gone.
       }
       refreshState();
     } catch (e) {
