@@ -358,7 +358,12 @@
     /* Fixed/viewport gaps, NOT em — the container inherits font-size:0 from
        .people-care, so an em gap would collapse to 0 and names would touch. */
     gap: clamp(3px, 0.55vw, 11px) clamp(14px, 1.8vw, 36px);
-    overflow: hidden;
+    /* overflow-x (not both axes) clips a runaway-long single name from poking
+       past the water art edges, while leaving overflow-y open so the hover
+       tooltip bubble (which pops up ABOVE the name via absolute position) is
+       never clipped by this box. */
+    overflow-x: hidden;
+    overflow-y: visible;
     line-height: 1;
     pointer-events: none;
     text-align: center;
@@ -370,6 +375,7 @@
      donated) work even though the container itself is click-through. */
   .scn-name {
     display: inline-block;
+    position: relative;   /* anchors the ::after/::before tooltip bubble+tail */
     font-family: "Luckiest Guy", var(--font-display, cursive);
     font-weight: 400;   /* Luckiest Guy ships only at 400; asking for more forces ugly faux-bold */
     color: #0c3a66;
@@ -378,7 +384,60 @@
     letter-spacing: 0.2px;
     text-shadow: 0 1px 0 rgba(255,255,255,0.55), 0 0 10px rgba(255,255,255,0.4);
     pointer-events: auto;
-    cursor: default;
+    cursor: pointer;
+  }
+  /* Donation-amount popup. Pure CSS (content: attr()) so it works instantly on
+     desktop hover AND keyboard focus with no JS; .scn-tip-open is toggled by a
+     small delegated tap handler (see script near renderSupporterWall) so it
+     also works on touchscreens, which have no hover state. Anchored to the
+     SPECIFIC name span (not the row), so it lands in the right place even
+     when names wrap onto different lines. */
+  .scn-name::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: 13px;
+    transform: translateX(-50%) translateY(6px) scale(0.85);
+    background: #fff;
+    color: #0a6080;
+    font-family: var(--font-body, sans-serif);
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 2px solid #5dd6f7;
+    box-shadow: 0 8px 20px rgba(8,40,58,0.32);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 150ms ease, transform 150ms ease;
+    z-index: 20;
+  }
+  .scn-name::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    margin-bottom: 6px;
+    transform: translateX(-50%) translateY(6px);
+    border: 7px solid transparent;
+    border-top-color: #fff;
+    filter: drop-shadow(0 2px 2px rgba(8,40,58,0.25));
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 150ms ease, transform 150ms ease;
+    z-index: 21;
+  }
+  .scn-name:hover::after, .scn-name:hover::before,
+  .scn-name:focus::after, .scn-name:focus::before,
+  .scn-name.scn-tip-open::after, .scn-name.scn-tip-open::before {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
   }
   @media (max-width: 640px) {
     .people-care-names { width: 90%; top: 33%; height: 46%; gap: 1px 2.0vw; }
@@ -1120,8 +1179,12 @@ updateBetaBarClear();
       const cents = s && s.amountCents;
       const name = escWallText(s && s.displayName);
       const amt = moneyText(cents);
-      return '<span class="scn-name" style="font-size:' + nameFontSize(cents) + '"'
-        + ' title="' + name + ' — donated ' + amt + '"'
+      // data-tip (not title): a native title tooltip has a ~1s hover delay and
+      // never appears on touch at all — data-tip feeds the instant CSS popup
+      // (see .scn-name::after) instead. tabindex makes it keyboard-focusable
+      // so the popup is also reachable without a mouse.
+      return '<span class="scn-name" tabindex="0" style="font-size:' + nameFontSize(cents) + '"'
+        + ' data-tip="Donated ' + amt + '"'
         + ' aria-label="' + name + ', donated ' + amt + '">' + name + '</span>';
     }).join('');
   }
@@ -1135,6 +1198,23 @@ updateBetaBarClear();
   }
   refreshSupporterWall();
   setInterval(refreshSupporterWall, 60000);
+
+  // Touchscreens have no :hover state, so the CSS popup (.scn-name::after)
+  // would never show on tap alone — this toggles a class that the CSS also
+  // triggers on. Delegated on the container (names are replaced wholesale
+  // every refresh, so per-name listeners would go stale).
+  document.getElementById('supporter-names').addEventListener('click', function (e) {
+    const el = e.target.closest('.scn-name');
+    const wasOpen = el && el.classList.contains('scn-tip-open');
+    this.querySelectorAll('.scn-tip-open').forEach(function (o) { o.classList.remove('scn-tip-open'); });
+    if (el && !wasOpen) el.classList.add('scn-tip-open');
+  });
+  document.addEventListener('click', function (e) {
+    const wrap = document.getElementById('supporter-names');
+    if (wrap && !wrap.contains(e.target)) {
+      wrap.querySelectorAll('.scn-tip-open').forEach(function (o) { o.classList.remove('scn-tip-open'); });
+    }
+  });
 })();
 </script>
 
