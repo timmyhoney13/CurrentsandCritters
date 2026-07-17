@@ -8109,6 +8109,27 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "audio not found"}, status=HTTPStatus.NOT_FOUND)
             return
 
+        # Card-art sprite sheets (horizontal / vertical / oceans page PNGs).
+        # Previously these fell through to SimpleHTTPRequestHandler.do_GET(),
+        # which sends NO Cache-Control — so the browser (and Cloudflare, which
+        # marked them "DYNAMIC") re-fetched every ~300–600 KB page on every card,
+        # every game load. That is why cards took forever to appear. The client
+        # already cache-busts each URL with ?v=CARD_IMAGE_VERSION, so the file at
+        # a given URL is immutable: serve it with a 1-year immutable cache.
+        _card_art = re.fullmatch(r"/(horizontal_cards|vertical_cards|oceans_cards)/(page_\d+\.png)", parsed.path)
+        if _card_art:
+            card_dir, card_file = _card_art.group(1), _card_art.group(2)
+            card_path = os.path.join(BASE_DIR, card_dir, card_file)
+            if os.path.exists(card_path):
+                self._send_client_asset(
+                    card_path,
+                    content_type="image/png",
+                    cache_control="public, max-age=31536000, immutable",
+                )
+            else:
+                self._send_json({"ok": False, "error": "card art not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
         if parsed.path == "/api/health":
             self._send_json(
                 {
