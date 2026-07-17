@@ -11223,6 +11223,17 @@
       filter: none;
     }
     .gal-bg-tile.gal-locked .gal-bg-img { filter: grayscale(.7) brightness(.6); }
+    /* "No Background" tile/preview: a dashed swatch with a slash icon instead
+       of an ocean-scene thumbnail, so it reads as a reset, not a locked slot. */
+    .gal-bg-none-ring, .gal-bg-none-preview {
+      display: flex; align-items: center; justify-content: center;
+      background:
+        repeating-linear-gradient(135deg, rgba(255,255,255,.06) 0 10px, transparent 10px 20px),
+        #14263f;
+      border: 1.5px dashed rgba(180,210,240,.4);
+    }
+    .gal-bg-none-icon { font-size: 26px; opacity: .8; filter: grayscale(1); }
+    .gal-bg-none-icon-lg { font-size: 60px; opacity: .8; filter: grayscale(1); }
     .gal-bg-detail-preview {
       width: 100%; max-width: 260px; aspect-ratio: 4 / 3;
       border-radius: 16px; overflow: hidden; margin: 4px auto 10px;

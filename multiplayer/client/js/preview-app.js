@@ -13943,6 +13943,10 @@
   ];
   const _BG_BY_ID  = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.id, b]));
   const _BG_BY_IMG = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.img, b]));
+  // Synthetic "remove background" tile — always unlocked, always sorts first,
+  // so clearing an equipped background is a normal tile click (like picking
+  // any other background) instead of a hidden button on the equipped tile.
+  const _BG_NONE = { id:"__none__", name:"No Background", img:"", facts:"Just your avatar — no scene behind it." };
 
   // ── Exclusive Skins (Store) ────────────────────────────────────
   // Derived from the avatar registry above (unlock.type === "shop"). These are
@@ -15247,7 +15251,12 @@
       // Honor the unlocked/locked filter (reuse the avatar filter intent).
       if (_galSort === "unlocked") bgs = bgs.filter(b => isBackgroundUnlocked(b.img));
       else if (_galSort === "locked") bgs = bgs.filter(b => !isBackgroundUnlocked(b.img));
-      if (!bgs.length) return;
+      // "No Background" is a free, always-unlocked reset option shown first —
+      // it's never locked, so it has nothing to show under the Locked filter,
+      // and it's excluded from the X/Y unlocked count (that count tracks only
+      // the real donation-unlocked backgrounds).
+      const showNone = _galSort !== "locked";
+      if (!bgs.length && !showNone) return;
       const section = document.createElement("div");
       section.className = "gal-species-section";
       const title = document.createElement("div");
@@ -15257,14 +15266,16 @@
       section.appendChild(title);
       const grid = document.createElement("div");
       grid.className = "gal-grid";
+      if (showNone) grid.appendChild(_galMakeBgTile(_BG_NONE, equippedBg));
       bgs.forEach(bg => grid.appendChild(_galMakeBgTile(bg, equippedBg)));
       section.appendChild(grid);
       wrap.appendChild(section);
     }
 
     function _galMakeBgTile(bg, equippedBg) {
-      const unlocked = isBackgroundUnlocked(bg.img);
-      const equipped = bg.img === equippedBg;
+      const isNone = bg.id === "__none__";
+      const unlocked = isNone ? true : isBackgroundUnlocked(bg.img);
+      const equipped = isNone ? !equippedBg : (bg.img === equippedBg);
       const tile = document.createElement("div");
       tile.className = "gal-tile gal-bg-tile"
         + (unlocked ? "" : " gal-locked")
@@ -15273,11 +15284,15 @@
       tile.setAttribute("data-bg-id", bg.id);
 
       const ring = document.createElement("div");
-      ring.className = "gal-tile-img-ring gal-bg-ring";
-      const im = document.createElement("img");
-      im.className = "gal-tile-img gal-bg-img";
-      im.src = _bgSrc(bg.img); im.alt = bg.name; im.loading = "lazy";
-      ring.appendChild(im);
+      ring.className = "gal-tile-img-ring gal-bg-ring" + (isNone ? " gal-bg-none-ring" : "");
+      if (isNone) {
+        ring.innerHTML = `<span class="gal-bg-none-icon">🚫</span>`;
+      } else {
+        const im = document.createElement("img");
+        im.className = "gal-tile-img gal-bg-img";
+        im.src = _bgSrc(bg.img); im.alt = bg.name; im.loading = "lazy";
+        ring.appendChild(im);
+      }
       tile.appendChild(ring);
 
       const nm = document.createElement("div");
@@ -15404,19 +15419,26 @@
     }
 
     // Detail panel for an exclusive background (preview, unlock req, equip).
+    // Also handles the synthetic "No Background" tile (id "__none__"), which
+    // is how a player clears whatever background they currently have equipped.
     function _galRenderBgDetail(id) {
       const panel = $a("gal-detail");
       if (!panel) return;
-      const bg = _BG_BY_ID[id];
+      const bg = id === "__none__" ? _BG_NONE : _BG_BY_ID[id];
       if (!bg) { panel.className = "gal-detail gal-detail-empty"; panel.innerHTML = "Select an animal to view details."; return; }
-      const unlocked = isBackgroundUnlocked(bg.img);
-      const equipped = bg.img === _galEquippedBg();
+      const isNone = bg.id === "__none__";
+      const unlocked = isNone ? true : isBackgroundUnlocked(bg.img);
+      const equipped = isNone ? !_galEquippedBg() : (bg.img === _galEquippedBg());
 
       panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
       let html = "";
-      html += `<div class="gal-bg-detail-preview"><img src="${_bgSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
+      if (isNone) {
+        html += `<div class="gal-bg-detail-preview gal-bg-none-preview"><span class="gal-bg-none-icon-lg">🚫</span></div>`;
+      } else {
+        html += `<div class="gal-bg-detail-preview"><img src="${_bgSrc(bg.img)}" alt="${escapeHtml(bg.name)}"></div>`;
+      }
       html += `<div class="gal-detail-name">${escapeHtml(bg.name)}</div>`;
-      html += `<div class="gal-detail-species">Exclusive Background</div>`;
+      html += `<div class="gal-detail-species">${isNone ? "Default" : "Exclusive Background"}</div>`;
       if (equipped)       html += `<div class="gal-detail-status gal-status-equipped">★ Currently Equipped</div>`;
       else if (unlocked)  html += `<div class="gal-detail-status gal-status-unlocked">✓ Unlocked</div>`;
       else                html += `<div class="gal-detail-status gal-status-locked">🔒 Locked</div>`;
@@ -15429,13 +15451,9 @@
         html += `</div>`;
       }
 
-      if (unlocked && !_galReadOnly) {
-        if (!equipped) {
-          html += `<div class="gal-equip-q">Equip this background behind your avatar?</div>`;
-          html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-bg-no">No</button><button class="pv-btn gold" id="gal-bg-yes">Equip</button></div>`;
-        } else {
-          html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-bg-remove">Remove background</button></div>`;
-        }
+      if (unlocked && !_galReadOnly && !equipped) {
+        html += `<div class="gal-equip-q">${isNone ? "Remove your equipped background?" : "Equip this background behind your avatar?"}</div>`;
+        html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-bg-no">No</button><button class="pv-btn gold" id="gal-bg-yes">${isNone ? "Remove" : "Equip"}</button></div>`;
       }
       panel.innerHTML = html;
 
@@ -15443,22 +15461,14 @@
       if (yesBtn) yesBtn.addEventListener("click", async () => {
         yesBtn.disabled = true;
         try {
-          await applyBackgroundSelection(bg.img);
+          await applyBackgroundSelection(isNone ? "" : bg.img);
           _galRenderHeader(); _galRenderGrid(); _galRenderBgDetail(bg.id);
           const p = $a("gal-detail");
-          if (p) { const n = document.createElement("div"); n.className = "gal-equip-confirm"; n.textContent = "✓ Background equipped!"; p.appendChild(n); }
+          if (p) { const n = document.createElement("div"); n.className = "gal-equip-confirm"; n.textContent = isNone ? "✓ Background removed!" : "✓ Background equipped!"; p.appendChild(n); }
         } catch { yesBtn.disabled = false; }
       });
       const noBtn = $a("gal-bg-no");
       if (noBtn) noBtn.addEventListener("click", () => { _galSelectedId = null; _galRenderGrid(); _galRenderDetail(null); });
-      const rmBtn = $a("gal-bg-remove");
-      if (rmBtn) rmBtn.addEventListener("click", async () => {
-        rmBtn.disabled = true;
-        try {
-          await applyBackgroundSelection("");
-          _galRenderHeader(); _galRenderGrid(); _galRenderBgDetail(bg.id);
-        } catch { rmBtn.disabled = false; }
-      });
     }
 
     // Wire gallery controls
