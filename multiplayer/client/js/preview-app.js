@@ -4,7 +4,7 @@
    * ================================================================ */
 
   window.__FISH_API_BASE__ = "https://play.currentsandcritters.com";
-  const CARD_IMAGE_VERSION = "20260716-v12";
+  const CARD_IMAGE_VERSION = "20260717-v12b";
 
   // ── App version + update detection ──────────────────────────────────────
   // APP_VERSION → shown in the Alpha badge ("ALPHA V<APP_VERSION>").
