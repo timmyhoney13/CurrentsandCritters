@@ -3826,6 +3826,10 @@ AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
         "strategy_weight": 0.55,            # weak strategy signal → looser play
         "explore_chance":  0.30,            # picks a near-best (not the best) often
         "payment_smart":   False,           # uses naive payment (no strategy keep)
+        # Deep planning (rollout confirmation) — off for easy bots.
+        "plan_candidates": 0,               # how many top moves get full rollouts
+        "plan_samples":    0,               # determinized worlds averaged per move
+        "confirm_weight":  0.0,             # rollout score share in the final blend
     },
     "medium": {
         "difficulty":      "medium",
@@ -3835,6 +3839,9 @@ AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
         "strategy_weight": 1.35,            # strategy signal noticeably stronger
         "explore_chance":  0.05,            # almost always best, very rare slip
         "payment_smart":   True,
+        "plan_candidates": 4,
+        "plan_samples":    1,
+        "confirm_weight":  0.55,
     },
     "hard": {
         "difficulty":      "hard",
@@ -3846,6 +3853,9 @@ AI_DIFFICULTY_CONFIGS: Dict[str, Dict[str, Any]] = {
                                             # so high it overrides actual point value
         "explore_chance":  0.0,             # never random — always picks best
         "payment_smart":   True,            # protects strategy heavy hitters from payment
+        "plan_candidates": 8,
+        "plan_samples":    3,
+        "confirm_weight":  0.68,
     },
 }
 
@@ -9261,6 +9271,40 @@ def relative_advantage(gs: GameState, player_index: int) -> float:
     return float(my - (sum(others) / len(others)))
 
 
+def _determinize_hidden_state(
+    gs: GameState,
+    ms: MatchState,
+    player_index: int,
+    rng: random.Random,
+) -> None:
+    """Make a simulation copy honest about hidden information.
+
+    The acting player may not know opponents' hands or the deck order, so
+    before rolling a line forward we pool every unseen card (deck + all other
+    players' hands), shuffle it, and redeal opponents' hands at their real
+    sizes with the remainder becoming the deck. The END GAME card, if unseen,
+    is re-placed in the bottom 15 like real setup so simulated games don't end
+    absurdly early.
+    """
+    hidden: List[int] = list(gs.deck)
+    for i, p in enumerate(gs.players):
+        if i != player_index:
+            hidden.extend(p.hand)
+    rng.shuffle(hidden)
+    for i, p in enumerate(gs.players):
+        if i != player_index:
+            n = len(p.hand)
+            p.hand = hidden[:n]
+            hidden = hidden[n:]
+    gs.deck = hidden
+    end_uid = ms.end_game_uid
+    if end_uid is not None and not ms.end_game_triggered and end_uid in gs.deck:
+        gs.deck.remove(end_uid)
+        bottom_span = min(14, len(gs.deck))
+        insert_pos = len(gs.deck) - rng.randint(0, bottom_span)
+        gs.deck.insert(insert_pos, end_uid)
+
+
 def double_check_action_score(
     gs: GameState,
     ms: MatchState,
@@ -9275,6 +9319,7 @@ def double_check_action_score(
     strategy_transition_map: Optional[Dict[str, float]] = None,
     strategy_transition_count_map: Optional[Dict[str, int]] = None,
     archetype_profile: Optional[Dict[str, Any]] = None,
+    determinize_rng: Optional[random.Random] = None,
 ) -> float:
     """Second-pass move check: simulate move, likely opponent response, and our next turn."""
     limited_hidden = human_realism_enabled() and bool(HUMAN_REALISM_CONFIG.get("human_limited_inference", False))
@@ -9308,6 +9353,10 @@ def double_check_action_score(
 
     gs2 = copy.deepcopy(gs)
     ms2 = copy.deepcopy(ms)
+    if determinize_rng is not None:
+        # Honest planning: don't peek at opponents' real hands or the true
+        # deck order — roll the line forward against a plausible world instead.
+        _determinize_hidden_state(gs2, ms2, player_index, determinize_rng)
     p2 = gs2.players[player_index]
     before_score = final_points(gs2, p2)
     before_adv = relative_advantage(gs2, player_index)
@@ -10692,6 +10741,9 @@ def run_match(
             p.flags["_ai_strategy_weight"] = float(cfg["strategy_weight"])
             p.flags["_ai_explore_chance"]  = float(cfg["explore_chance"])
             p.flags["_ai_payment_smart"]   = bool(cfg["payment_smart"])
+            p.flags["_ai_plan_candidates"] = int(cfg.get("plan_candidates", 0))
+            p.flags["_ai_plan_samples"]    = int(cfg.get("plan_samples", 0))
+            p.flags["_ai_confirm_weight"]  = float(cfg.get("confirm_weight", 0.0))
 
     # Turtle learning gate, snapshotted per-player so concurrent games (a live
     # server hosting different table sizes at once) never clobber each other.

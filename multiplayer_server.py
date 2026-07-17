@@ -1847,6 +1847,167 @@ def choose_action_weighted_light(
     return best
 
 
+# Kill switch for the deep-planning layer (rollout confirmation). Set
+# FISH_DEEP_BOTS=0 to fall back to the light one-pass chooser everywhere.
+_DEEP_BOTS_ENABLED = str(os.environ.get("FISH_DEEP_BOTS", "1")).strip().lower() not in {
+    "0", "false", "no", "off",
+}
+
+# Per-move wall-clock budget (seconds) for rollout confirmation, by difficulty.
+# Candidates are confirmed best-first, so running out of budget just means the
+# weakest shortlist entries keep their one-pass score.
+_DEEP_PLAN_TIME_BUDGET: Dict[str, float] = {
+    "medium": 1.2,
+    "hard": 2.2,
+}
+
+
+def choose_action_weighted_deep(
+    gs: fish.GameState,
+    ms: fish.MatchState,
+    player: fish.PlayerState,
+    weights: Dict[str, float],
+    synergy_map: Dict[str, float],
+    species_map: Dict[str, float],
+    same_ocean_map: Dict[str, float],
+    strategy_value_map: Dict[str, float],
+    strategy_count_map: Dict[str, int],
+    strategy_transition_map: Dict[str, float],
+    strategy_transition_count_map: Dict[str, int],
+    out_scored: Optional[List["tuple[fish.Action, float]"]] = None,
+) -> Optional[fish.Action]:
+    """
+    Deep AI chooser for live multiplayer: the light one-pass scorer picks a
+    shortlist, then each shortlisted move is CONFIRMED by actually simulating
+    it — the move, its follow-ups, one likely reply turn from every opponent,
+    and two of our own future turns — scored with the real scoring function.
+
+    Rollouts are determinized (opponents' hidden hands and the deck order are
+    reshuffled from the unseen-card pool per sample), so the bot plans like a
+    very strong human: full rules understanding, no peeking. Multiple sampled
+    worlds are averaged so the bot reasons about what's LIKELY, not one lucky
+    layout. Easy bots (plan_candidates=0) skip all of this.
+    """
+    plan_candidates = int(player.flags.get("_ai_plan_candidates", 0) or 0)
+    plan_samples = int(player.flags.get("_ai_plan_samples", 0) or 0)
+    confirm_weight = float(player.flags.get("_ai_confirm_weight", 0.0) or 0.0)
+    deep_enabled = (
+        _DEEP_BOTS_ENABLED
+        and plan_candidates > 0
+        and plan_samples > 0
+        and confirm_weight > 0.0
+    )
+
+    # Roll the per-difficulty "human slip" here (not in the light pass) so a
+    # light-chooser draw-guard pick is never mistaken for a deliberate slip and
+    # deep confirmation only skips when the slip genuinely fired.
+    explore_chance = float(player.flags.get("_ai_explore_chance", 0.0) or 0.0)
+    slip_fired = deep_enabled and explore_chance > 0.0 and random.random() < explore_chance
+    saved_explore = player.flags.get("_ai_explore_chance")
+    if deep_enabled and not slip_fired:
+        player.flags["_ai_explore_chance"] = 0.0
+
+    scored: List["tuple[fish.Action, float]"] = []
+    try:
+        base_best = choose_action_weighted_light(
+            gs,
+            ms,
+            player,
+            weights,
+            synergy_map,
+            species_map,
+            same_ocean_map,
+            strategy_value_map,
+            strategy_count_map,
+            strategy_transition_map,
+            strategy_transition_count_map,
+            out_scored=scored,
+        )
+    finally:
+        if deep_enabled and not slip_fired:
+            player.flags["_ai_explore_chance"] = saved_explore
+    if out_scored is not None:
+        out_scored.clear()
+        out_scored.extend(scored)
+    if base_best is None or not scored:
+        return base_best
+    if not deep_enabled or slip_fired or len(scored) < 2:
+        return base_best
+
+    difficulty = str(player.flags.get("_ai_difficulty", "medium")).strip().lower()
+    budget = _DEEP_PLAN_TIME_BUDGET.get(difficulty, 1.2)
+    deadline = time.monotonic() + budget
+
+    shortlist_n = min(plan_candidates, len(scored))
+    shortlist = list(scored[:shortlist_n])
+    # Diversity guard: the one-pass scorer systematically over-ranks draws, so
+    # a great play can sit below the shortlist cutoff and never be confirmed.
+    # Guarantee real plays a seat at the rollout table.
+    if len(scored) > shortlist_n:
+        in_short = {id(a) for a, _ in shortlist}
+        want_plays = max(2, shortlist_n // 3)
+        n_plays = sum(1 for a, _ in shortlist if a.kind != "draw")
+        if n_plays < want_plays:
+            extra = [
+                (a, s) for a, s in scored[shortlist_n:]
+                if a.kind != "draw" and id(a) not in in_short
+            ]
+            shortlist.extend(extra[: want_plays - n_plays])
+    blended: List["tuple[fish.Action, float]"] = []
+    for action, base_score in shortlist:
+        if time.monotonic() >= deadline and blended:
+            # Out of budget: leave the rest unconfirmed. Their raw one-pass
+            # scores aren't on the blended scale, so ranking them together
+            # would be apples-to-oranges; they were lower-ranked anyway.
+            break
+        confirm_total = 0.0
+        samples_run = 0
+        for _ in range(plan_samples):
+            confirm_total += fish.double_check_action_score(
+                gs,
+                ms,
+                player,
+                action,
+                weights,
+                synergy_map=synergy_map,
+                species_map=species_map,
+                same_ocean_map=same_ocean_map,
+                strategy_value_map=strategy_value_map,
+                strategy_count_map=strategy_count_map,
+                strategy_transition_map=strategy_transition_map,
+                strategy_transition_count_map=strategy_transition_count_map,
+                archetype_profile=None,
+                determinize_rng=random.Random(random.getrandbits(64)),
+            )
+            samples_run += 1
+            if time.monotonic() >= deadline:
+                break
+        confirm = confirm_total / max(1, samples_run)
+        blended.append(
+            (action, base_score * (1.0 - confirm_weight) + confirm * confirm_weight)
+        )
+
+    blended.sort(key=lambda x: x[1], reverse=True)
+    if out_scored is not None:
+        # Show the confirmed ranking in the Bot Brain Viewer: blended totals for
+        # the shortlist, then the unconfirmed remainder in one-pass order.
+        confirmed_ids = {id(a) for a, _ in blended}
+        out_scored.clear()
+        out_scored.extend(blended)
+        out_scored.extend((a, s) for a, s in scored if id(a) not in confirmed_ids)
+
+    best_action, best_total = blended[0]
+    # Board-first guard on confirmed totals: a hoarding draw must clearly beat
+    # the best real play, mirroring the light chooser's anti-over-draft rule.
+    if best_action.kind == "draw":
+        play_opts = [(a, t) for a, t in blended if a.kind != "draw"]
+        if play_opts:
+            best_play, best_play_total = max(play_opts, key=lambda x: x[1])
+            if best_play_total >= best_total - 0.25:
+                return best_play
+    return best_action
+
+
 @dataclass
 class Seat:
     index: int
@@ -4856,7 +5017,8 @@ class GameRoom:
                 return replay_action
 
             _brain_scored: List["tuple[fish.Action, float]"] = []
-            chosen = choose_action_weighted_light(
+            _think_started = time.monotonic()
+            chosen = choose_action_weighted_deep(
                 gs,
                 ms,
                 player,
@@ -4870,6 +5032,9 @@ class GameRoom:
                 strategy_transition_count_map,
                 out_scored=_brain_scored,
             )
+            # Deep planning costs real wall-clock time; count it as "thinking"
+            # so the visible pause below doesn't stack on top of it.
+            _compute_elapsed = time.monotonic() - _think_started
 
             # ── Current Controller: record what this bot is thinking, and let an
             # admin override its move. Both are no-ops unless the admin has opened
@@ -4888,7 +5053,7 @@ class GameRoom:
             # at call time so host changes take effect immediately.
             speed = str(getattr(self, "ai_speed", "normal") or "normal").lower()
             lo, hi = self._AI_THINK_RANGES.get(speed, self._AI_THINK_RANGES["normal"])
-            delay = lo + random.random() * (hi - lo)
+            delay = max(0.0, lo + random.random() * (hi - lo) - _compute_elapsed)
             if delay > 0:
                 # Interruptible think pause. A plain time.sleep() here meant a human's
                 # Undo armed mid-"thinking" wasn't honored until AFTER this bot's move
