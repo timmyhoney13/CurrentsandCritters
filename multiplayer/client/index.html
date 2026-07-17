@@ -2548,7 +2548,7 @@
       }
       const costToPay = Number(action.cost_to_pay || 0);
       if (costToPay > 0) {
-        // For non-star actions on star-ability cards (e.g. Mangrove, Arctic Oceans, Frigatebird),
+        // For non-star actions on star-ability cards (e.g. Mangrove, Arctic Ocean, Frigatebird),
         // allow submission without manual payment so the server can auto-pick a matching symbol
         // card, which fires the star effect (play again, free coral, etc.).
         const hasAutoStarSymbol = Boolean(action.star_symbol) && !Boolean(action.use_star);

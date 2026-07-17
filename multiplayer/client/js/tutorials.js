@@ -664,35 +664,35 @@
     // Real end-game boards (ocean + each attachment slot) from actual games.
     const sBds = [
       { n: "TheFishManTim", bd: [
-          {ou:207,on:"Pier",u:[{u:15,n:"Horned Puffin"}],d:[{u:22,n:"Sea Sponge"}],l:[{u:175,n:"Yellowfin Tuna"}],r:[{u:174,n:"Yellowfin Tuna"}]},
-          {ou:224,on:"Coral Reef",u:[{u:41,n:"Osprey"}],d:[{u:26,n:"Sea Anemone"}],l:[],r:[{u:188,n:"Clownfish"}]},
-          {ou:242,on:"Arctic Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[],r:[]},
-          {ou:252,on:"Kelp Forest",u:[{u:19,n:"California Seagull"}],d:[{u:92,n:"Sea Urchin"}],l:[],r:[{u:156,n:"Big Eye Tuna"}]},
-          {ou:208,on:"Deep Ocean",u:[{u:95,n:"Razorbill Auk"}],d:[],l:[],r:[]},
-          {ou:251,on:"Kelp Forest",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[],r:[]},
+          {ou:207,on:"Pier",u:[{u:15,n:"Horned Puffin"}],d:[{u:22,n:"Orange Tube Sponge"}],l:[{u:175,n:"Yellowfin Tuna"}],r:[{u:174,n:"Cuttlefish"}]},
+          {ou:224,on:"Coral Reef",u:[{u:41,n:"Osprey"}],d:[{u:26,n:"Red Beaded Anemone"}],l:[],r:[{u:188,n:"Clownfish"}]},
+          {ou:245,on:"Arctic Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[],r:[]},
+          {ou:253,on:"Kelp Forest",u:[{u:19,n:"California Gull"}],d:[{u:92,n:"Sea Urchin"}],l:[],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:209,on:"Deep Ocean",u:[{u:95,n:"Razorbill Auk"}],d:[],l:[],r:[]},
+          {ou:254,on:"Kelp Forest",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[],r:[]},
           {ou:234,on:"Mangrove",u:[],d:[],l:[],r:[]}
         ] },
       { n: "CoralCara", bd: [
-          {ou:208,on:"Deep Ocean",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[{u:115,n:"Reef Trigger Fish"}],r:[{u:166,n:"Common Octopus"}]},
-          {ou:244,on:"Arctic Ocean",u:[{u:47,n:"Osprey"}],d:[{u:26,n:"Sea Anemone"}],l:[{u:139,n:"Cuttlefish"}],r:[{u:110,n:"Common Octopus"}]},
+          {ou:209,on:"Deep Ocean",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[{u:115,n:"Reef Trigger Fish"}],r:[{u:166,n:"Whale Shark"}]},
+          {ou:247,on:"Arctic Ocean",u:[{u:47,n:"Osprey"}],d:[{u:26,n:"Red Beaded Anemone"}],l:[{u:139,n:"Cuttlefish"}],r:[{u:110,n:"Common Octopus"}]},
           {ou:246,on:"Arctic Ocean",u:[],d:[],l:[],r:[{u:124,n:"Narwhal"}]},
           {ou:212,on:"Deep Ocean",u:[],d:[{u:78,n:"Loggerhead Sea Turtle"}],l:[],r:[]},
           {ou:211,on:"Deep Ocean",u:[{u:9,n:"Horned Puffin"}],d:[],l:[],r:[]},
-          {ou:255,on:"Kelp Forest",u:[{u:35,n:"Great Albatross"}],d:[],l:[{u:171,n:"Bobtail Squid"}],r:[{u:150,n:"Manta Ray"}]}
+          {ou:255,on:"Kelp Forest",u:[{u:35,n:"Great Albatross"}],d:[],l:[{u:171,n:"Bobtail Squid"}],r:[{u:150,n:"Giant Squid"}]}
         ] },
       { n: "ReefRiley", bd: [
           {ou:230,on:"Mangrove",u:[{u:33,n:"Great Albatross"}],d:[{u:30,n:"Cleaner Wrasse"}],l:[{u:151,n:"Tarpon"}],r:[{u:162,n:"King Salmon"}]},
-          {ou:238,on:"Artificial Reef",u:[{u:37,n:"Great Albatross"}],d:[{u:22,n:"Sea Sponge"}],l:[{u:133,n:"Goliath Grouper"}],r:[]},
-          {ou:212,on:"Deep Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[{u:139,n:"Cuttlefish"}],r:[{u:122,n:"Giant Squid"}]},
+          {ou:239,on:"Artificial Reef",u:[{u:37,n:"Great Albatross"}],d:[{u:22,n:"Orange Tube Sponge"}],l:[{u:133,n:"Goliath Grouper"}],r:[]},
+          {ou:212,on:"Deep Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[{u:139,n:"Cuttlefish"}],r:[{u:122,n:"Manta Ray"}]},
           {ou:248,on:"Arctic Ocean",u:[{u:43,n:"Osprey"}],d:[{u:16,n:"Mantis Shrimp"}],l:[{u:103,n:"Spinner Dolphin"}],r:[]},
-          {ou:242,on:"Arctic Ocean",u:[{u:13,n:"Horned Puffin"}],d:[],l:[{u:187,n:"Manta Ray"}],r:[{u:112,n:"Giant Squid"}]},
+          {ou:245,on:"Arctic Ocean",u:[{u:13,n:"Horned Puffin"}],d:[],l:[{u:187,n:"Yellowfin Tuna"}],r:[{u:112,n:"Roosterfish"}]},
           {ou:211,on:"Deep Ocean",u:[],d:[],l:[],r:[]}
         ] },
       { n: "KelpQuinn", bd: [
-          {ou:243,on:"Arctic Ocean",u:[{u:59,n:"Mullet"}],d:[{u:56,n:"Cleaner Wrasse"}],l:[{u:177,n:"King Salmon"}],r:[{u:128,n:"Sailfish"}]},
-          {ou:253,on:"Kelp Forest",u:[{u:57,n:"Mullet"}],d:[],l:[{u:111,n:"Roosterfish"}],r:[{u:162,n:"King Salmon"}]},
+          {ou:250,on:"Arctic Ocean",u:[{u:59,n:"Mullet"}],d:[{u:56,n:"Lobster"}],l:[{u:177,n:"Cuttlefish"}],r:[{u:128,n:"Sailfish"}]},
+          {ou:253,on:"Kelp Forest",u:[{u:57,n:"Mullet"}],d:[],l:[{u:111,n:"Manta Ray"}],r:[{u:162,n:"King Salmon"}]},
           {ou:258,on:"Kelp Forest",u:[{u:89,n:"Bonito"}],d:[],l:[{u:167,n:"Goliath Grouper"}],r:[]},
-          {ou:251,on:"Kelp Forest",u:[{u:77,n:"Flying Fish"}],d:[{u:32,n:"Lobster"}],l:[{u:135,n:"Mahi Mahi"}],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:254,on:"Kelp Forest",u:[{u:77,n:"Flying Fish"}],d:[{u:32,n:"King Crab"}],l:[{u:135,n:"Mahi Mahi"}],r:[{u:156,n:"Big Eye Tuna"}]},
           {ou:249,on:"Arctic Ocean",u:[{u:65,n:"Bunker"}],d:[],l:[{u:145,n:"Mahi Mahi"}],r:[]},
           {ou:215,on:"Deep Ocean",u:[],d:[],l:[{u:101,n:"Tarpon"}],r:[]}
         ] },
@@ -860,7 +860,7 @@
   let _gtOceanBase = 0, _gtCreatureBase = 0;
 
   // ── Star-ability lesson plumbing (Tutorial Part 2) ───────────────────────
-  // The server rigs an exact hand: Mangrove + Arctic Oceans share a symbol
+  // The server rigs an exact hand: Mangrove + Arctic Ocean share a symbol
   // (fires Mangrove's *Play again*), and Great Albatross + Kelp Forest share a
   // symbol (fires Albatross's *Draw one*). We locate those cards in the live
   // hand, cache their face uids + symbols BEFORE they're played/discarded (so we
@@ -905,7 +905,7 @@
     for (const a of as) for (const b of bs) { if (a.sym && a.sym === b.sym) return [a, b]; }
     return (as.length && bs.length) ? [as[0], bs[0]] : null;
   }
-  function t2CacheOceanPair() { const pr = _t2FindPair("mangrove", "arctic oceans"); if (pr) { _t2.mangrove = pr[0]; _t2.arctic = pr[1]; } }
+  function t2CacheOceanPair() { const pr = _t2FindPair("mangrove", "arctic ocean"); if (pr) { _t2.mangrove = pr[0]; _t2.arctic = pr[1]; } }
   function t2CacheBirdPair()  { const pr = _t2FindPair("great albatross", "kelp forest"); if (pr) { _t2.albatross = pr[0]; _t2.kelp = pr[1]; } }
   // Spotlight targets: the specific teaching card in the hand (cache or live).
   function t2HandEl(slot, nameLc) {
@@ -913,7 +913,7 @@
     return e ? gtHandCardEl(e.entryUid) : null;
   }
   function gtMangroveHandEl()  { return t2HandEl("mangrove", "mangrove"); }
-  function gtArcticHandEl()    { return t2HandEl("arctic", "arctic oceans"); }
+  function gtArcticHandEl()    { return t2HandEl("arctic", "arctic ocean"); }
   function gtAlbatrossHandEl() { return t2HandEl("albatross", "great albatross"); }
   function gtKelpHandEl()      { return t2HandEl("kelp", "kelp forest"); }
   // Golden (star-ability) hand cards excluding the 4 teaching cards — used to spotlight
@@ -1007,21 +1007,21 @@
     const down = Array.isArray(reef.down) ? reef.down : [];
     return down.filter(c => String((c && c.name) || "").trim().toLowerCase() === "lobster").length;
   }
-  // California Seagull attaches to Artificial Reef's UP lane (its only direction).
-  function blSeagullOnReef() {
+  // California Gull attaches to Artificial Reef's UP lane (its only direction).
+  function blGullOnReef() {
     const reef = blReefOcean(); if (!reef) return false;
     const up = Array.isArray(reef.up) ? reef.up : [];
-    return up.some(c => String((c && c.name) || "").trim().toLowerCase() === "california seagull");
+    return up.some(c => String((c && c.name) || "").trim().toLowerCase() === "california gull");
   }
   // The Artificial Reef hub on the player's board (glow target for "drop here").
   function blReefHubEl() {
     const reef = blReefOcean();
     return reef ? document.querySelector(`#pv-my-board .pv-ocean-hub[data-ocean-uid="${reef.ocean_uid}"]`) : null;
   }
-  // Two SAFE payment cards for California Seagull's 2-card cost — the extra oceans
+  // Two SAFE payment cards for California Gull's 2-card cost — the extra oceans
   // (Coral Reef + Mangrove) B-Lob doesn't need. Never the Lobsters (already on the
   // board by this step).
-  function blSeagullPayEls() { return [blHandElByName("coral reef"), blHandElByName("mangrove")].filter(Boolean); }
+  function blGullPayEls() { return [blHandElByName("coral reef"), blHandElByName("mangrove")].filter(Boolean); }
 
   // ── Strategy-guide targeting (find cards by EXACT label, never by index) ──
   function blStratCardByLabel(label) {
@@ -1271,8 +1271,8 @@
       text: "Artificial Reef scores +2 for every attached card." },
     { target: () => blHandElByName("lobster"), badge: "B-Lob", title: "Lobster",
       text: "Lobsters are free and can stack in one slot." },
-    { target: () => blHandElByName("california seagull"), badge: "B-Lob", title: "California Seagull",
-      text: "California Seagull scores +3 per crustacean." },
+    { target: () => blHandElByName("california gull"), badge: "B-Lob", title: "California Gull",
+      text: "California Gull scores +2 per crustacean." },
 
     // ── Guided B-Lob turns (one action per turn) ────────────────────
     { target: () => blHandElByName("artificial reef"), glow: [gtOceanDropEl], badge: "Turn 1", title: "Play Artificial Reef",
@@ -1308,20 +1308,20 @@
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
       text: "End your turn." },
 
-    { target: () => blHandElByName("california seagull"), glow: [blReefHubEl], badge: "Turn 4", title: "Play California Seagull",
+    { target: () => blHandElByName("california gull"), glow: [blReefHubEl], badge: "Turn 4", title: "Play California Gull",
       interactive: true, popAnchor: "top",
-      advanceWhen: () => gtPayingCreature() || blSeagullOnReef(),
-      text: "Place California Seagull above Artificial Reef." },
-    { target: gtPayBarEl, glow: [() => blSeagullPayEls()[0], () => blSeagullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
+      advanceWhen: () => gtPayingCreature() || blGullOnReef(),
+      text: "Place California Gull above Artificial Reef." },
+    { target: gtPayBarEl, glow: [() => blGullPayEls()[0], () => blGullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Turn 4", title: "Pay Two Cards", interactive: true, popAnchor: "top",
-      advanceWhen: () => blSeagullOnReef(),
+      advanceWhen: () => blGullOnReef(),
       text: "Select the two glowing payment cards, then confirm." },
     { target: null, badge: "B-Lob", title: "B-Lob Working!",
-      text: "California Seagull gains +3 per Lobster because Lobsters are crustaceans." },
+      text: "California Gull gains +2 per Lobster because Lobsters are crustaceans." },
 
     // ── Complete (no full match required) ───────────────────────────
     { target: null, badge: "Complete", title: "Tutorial 3 Complete!",
-      text: "You built the B-Lob combo: stacked Lobsters under Artificial Reef, topped with California Seagull. What next?",
+      text: "You built the B-Lob combo: stacked Lobsters under Artificial Reef, topped with California Gull. What next?",
       choices: [
         { label: "Keep Playing", primary: true, onClick: () => { try { _t3Keep && _t3Keep(); } catch (_) {} } },
         { label: "Return to Tutorials", onClick: () => { try { _t3Return && _t3Return(); } catch (_) {} } },

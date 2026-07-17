@@ -1671,7 +1671,7 @@ def entry_to_dict(ms: fish.MatchState, gs: fish.GameState, entry_uid: int) -> Di
 # cardHalfPos() render the correct sprite for a minted card with no extra
 # bookkeeping — anywhere a normal card is drawn (hand, board, zoom, picker).
 _MINT_SERIAL_LOCK = threading.Lock()
-_MINT_SERIAL_NEXT = 1000  # → minted uids are 1_000_000+ (originals are ≤ 266)
+_MINT_SERIAL_NEXT = 1000  # → minted uids are 1_000_000+ (originals are ≤ 269)
 
 
 def _alloc_mint_serial() -> int:

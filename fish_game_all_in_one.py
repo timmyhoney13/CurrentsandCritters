@@ -722,7 +722,7 @@ def _execute_main_pattern(
 
     if "+1 per every two ocean" in t:
         player.score += len(player.board_oceans) // 2
-    if "+2 or +3 if you have the most" in t:
+    if "+2 or +4 if you have the most" in t:
         player.score += 2
 
     # Turn-window engines.
@@ -781,7 +781,15 @@ def _execute_star_pattern(
     t = text.lower()
     ms = (ctx or {}).get("ms")
 
-    if "draw three" in t:
+    # Big Eye Tuna: "draw one for each yellowfin tuna you control" as a STAR ability.
+    # Must precede the generic "draw one" branch so it draws 1 per Yellowfin, not just 1.
+    if "draw one for each yellowfin tuna" in t:
+        board = [gs.card_db[uid] for uid in all_board_cards(player)]
+        yf_count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
+        if yf_count > 0:
+            draw(gs, player, yf_count, ms)
+            gs.log.append(f"{player.name} draws {yf_count} from {card.name} star ability (1 per Yellowfin Tuna).")
+    elif "draw three" in t:
         n = choose_optional_draw_count(gs, player, 3)
         draw(gs, player, n, ms)
         gs.log.append(f"{player.name} draws {n} from {card.name} star ability.")
@@ -2326,7 +2334,7 @@ def has_star_ability(card: CardDef) -> bool:
     if has_star_text(card):
         return True
     t = card.text.lower()
-    # Fallback for cards like Arctic Oceans: "+2 | Play again"
+    # Fallback for cards like Arctic Ocean: "+2 | Play again"
     return ("play again" in t) or ("go again" in t)
 
 
@@ -2484,15 +2492,15 @@ ANIMAL_SYNERGY_GRID_PATH = "animal_synergy_grid.json"
 
 # Main anchor combos from user guidance.
 PRIORITY_CARD_SYNERGY: Dict[str, set[str]] = {
-    "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "sea cucumber", "sea urchin", "roosterfish"},
+    "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "hermit crab", "johnson's sea cucumber", "sea urchin", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
     "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
-    "california seagull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
+    "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
-    "sea cucumber": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
+    "johnson's sea cucumber": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "roosterfish"},
     "common sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
     "sea star": {"mandarin goby", "spiny lobster", "lobster", "mantis shrimp", "king crab", "hermit crab"},
-    "sea urchin": {"emperor penguin", "horned puffin", "california seagull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
+    "sea urchin": {"emperor penguin", "horned puffin", "california gull", "peruvian pelican", "great albatross", "osprey", "mullet", "bunker", "sardine", "flying fish", "bonito"},
     "loggerhead sea turtle": {"mullet", "bunker", "sardine", "flying fish", "bonito", "yellowfin tuna", "mahi mahi", "lobster"},
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark", "hermit crab"},
     "blue marlin": {"mahi mahi"},
@@ -2503,7 +2511,7 @@ PRIORITY_SAME_OCEAN_SYNERGY: Dict[str, set[str]] = {
     "whale shark": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
     "hermit crab": {"mullet", "bunker", "sardine", "flying fish", "bonito", "roosterfish"},
     "reef trigger fish": {"common octopus", "bobtail squid", "cuttlefish", "giant squid"},
-    "california seagull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
+    "california gull": {"lobster", "spiny lobster", "mantis shrimp", "king crab", "hermit crab"},
     "great white shark": {"spinner dolphin", "bottlenose dolphin", "narwhal"},
     "roosterfish": {"mullet", "bunker", "sardine", "flying fish", "bonito", "whale shark"},
     "blue marlin": {"mahi mahi"},
@@ -2528,9 +2536,9 @@ PRIORITY_CARD_TO_STRATEGIES: Dict[str, set[str]] = {
     "whale shark": {"Baitfish Engine"},
     "hermit crab": {"Baitfish Engine", "Crustaceans"},
     "reef trigger fish": {"Cephalopods"},
-    "california seagull": {"Crustaceans", "Birds"},
+    "california gull": {"Crustaceans", "Birds"},
     "great white shark": {"Mammals"},
-    "sea cucumber": {"Baitfish Engine"},
+    "johnson's sea cucumber": {"Baitfish Engine"},
     "common sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea star": {"Goby Spiny Combo", "Bottom Engine"},
     "sea urchin": {"Birds", "Baitfish Engine"},
@@ -2690,7 +2698,7 @@ def action_symbol_bonus(gs: GameState, ms: MatchState, player: PlayerState, acti
     if "matching symbol" in text:
         bonus += min(3.0, 0.8 * same_sym_count)
 
-    # If board already has symbol-matters cards (Osprey/Sea Sponge/Spinner Dolphin style),
+    # If board already has symbol-matters cards (Osprey/Orange Tube Sponge/Spinner Dolphin style),
     # prefer feeding that engine with same-symbol cards.
     if symbol_engine_count > 0:
         bonus += min(2.5, 0.6 * symbol_engine_count + 0.35 * same_sym_count)
@@ -2745,7 +2753,7 @@ def card_strategy_tags(card: CardDef) -> set[str]:
         tags.add("engine:cephalopod")
     if name == "great white shark":
         tags.add("engine:mammal")
-    if name == "sea cucumber":
+    if name == "johnson's sea cucumber":
         tags.add("engine:baitfish")
     if name in {"sea star", "common sea star"}:
         tags.add("engine:goby-spiny")
@@ -3133,10 +3141,10 @@ def action_future_value_bonus(gs: GameState, ms: MatchState, player: PlayerState
         bonus += min(3.4, 0.75 * ceph_support)
     if cname == "spiny lobster":
         bonus += min(3.4, 0.90 * goby_support)
-    if cname == "california seagull":
+    if cname == "california gull":
         crust_support = sum(1 for s in board_species if s == "crustacean") + hand_species_counts.get("crustacean", 0)
         bonus += min(3.0, 0.60 * crust_support)
-    if cname == "sea cucumber":
+    if cname == "johnson's sea cucumber":
         bonus += min(2.2, 0.48 * gamefish_support)
     if cname == "loggerhead sea turtle":
         cheap_hand = 0
@@ -3568,7 +3576,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "heavy_hitters": ["mangrove", "great albatross", "tide pool"],
             "stack_engines": ["artificial reef", "coral reef"],
             "support_names": [
-                "arctic ocean", "arctic oceans", "deep ocean", "kelp forest", "pier",
+                "arctic ocean", "deep ocean", "kelp forest", "pier",
                 "clownfish",
             ],
             "text_keywords": [
@@ -3585,7 +3593,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "heavy_hitters": ["bigeye tuna", "big eye tuna"],
             "stack_engines": ["yellowfin tuna", "artificial reef"],
             "support_names": [
-                "sea cucumber", "clownfish", "cleaner wrasse", "loggerhead sea turtle",
+                "johnson's sea cucumber", "clownfish", "cleaner wrasse", "loggerhead sea turtle",
             ],
             "text_keywords": [
                 "yellowfin tuna", "big eye tuna", "free game fish", "per game fish",
@@ -3611,7 +3619,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "stack_engines": ["hermit crab", "roosterfish"],
             "support_names": [
                 "mullet", "bunker", "sardine", "flying fish", "bonito",
-                "sea cucumber", "sea urchin", "loggerhead sea turtle",
+                "johnson's sea cucumber", "sea urchin", "loggerhead sea turtle",
             ],
             "text_keywords": [
                 "per baitfish", "sharing an ocean with baitfish",
@@ -3629,7 +3637,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "support_names": [
                 "sea urchin", "loggerhead sea turtle",
             ],
-            # NOTE: California Seagull is deliberately NOT listed — it is a
+            # NOTE: California Gull is deliberately NOT listed — it is a
             # Crustacean buff that belongs in B-Lob, and pure Birds penalizes it.
             "text_keywords": [
                 "per bird", "emperor penguin", "razorbill auk", "play again",
@@ -3641,7 +3649,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "difficulty": "advanced",
             "species": ["crustacean"],
             "heavy_hitters": ["lobster", "mantis shrimp"],
-            "stack_engines": ["california seagull", "king crab", "artificial reef"],
+            "stack_engines": ["california gull", "king crab", "artificial reef"],
             "support_names": [
                 "common sea star", "sea star", "clownfish",
             ],
@@ -3649,7 +3657,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             # plans (Baitfish / Goby); they are deliberately not listed and are
             # discouraged in the combo logic below.
             "text_keywords": [
-                "per crustacean", "california seagull", "lobster", "mantis shrimp",
+                "per crustacean", "california gull", "lobster", "mantis shrimp",
             ],
         },
         {
@@ -3657,7 +3665,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "display_name": "Bird / Lobster (B-Lob)",
             "difficulty": "advanced",
             "species": ["bird", "crustacean"],
-            "heavy_hitters": ["emperor penguin", "california seagull"],
+            "heavy_hitters": ["emperor penguin", "california gull"],
             "stack_engines": ["razorbill auk", "horned puffin", "peruvian pelican",
                               "lobster", "mantis shrimp"],
             "support_names": [
@@ -3665,7 +3673,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
                 "clownfish", "sea urchin", "cleaner wrasse",
             ],
             "text_keywords": [
-                "per bird", "per crustacean", "california seagull",
+                "per bird", "per crustacean", "california gull",
             ],
         },
         {
@@ -3705,9 +3713,9 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "display_name": "Invertebrates (flexible support)",
             "difficulty": "advanced",
             "species": ["invertebrate"],
-            "heavy_hitters": ["sea anemone", "barracuda"],
+            "heavy_hitters": ["red beaded anemone", "barracuda"],
             "stack_engines": [
-                "common sea star", "sea urchin", "sea sponge", "sea cucumber",
+                "common sea star", "sea urchin", "orange tube sponge", "johnson's sea cucumber",
             ],
             "support_names": ["king salmon"],
             "text_keywords": [
@@ -3756,7 +3764,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
             "species": ["crosscurrent", "n/a"],
             "heavy_hitters": ["mandarin goby", "spiny lobster"],
             "stack_engines": ["sea star", "common sea star"],
-            "support_names": ["blue tang", "clownfish", "artificial reef", "california seagull"],
+            "support_names": ["blue tang", "clownfish", "artificial reef", "california gull"],
             "text_keywords": [
                 "mandarin goby", "spiny lobster", "crosscurrent animal",
             ],
@@ -4820,12 +4828,12 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "label": "Yellowfin Tuna Stack",
             "species": ["game fish"],
             "names": [
-                "yellowfin tuna", "bigeye tuna", "big eye tuna", "sea cucumber",
+                "yellowfin tuna", "bigeye tuna", "big eye tuna", "johnson's sea cucumber",
                 "artificial reef", "clownfish",
             ],
             "name_contains": ["yellowfin", "bigeye", "big eye"],
             "text_keywords": ["yellowfin tuna", "big eye tuna", "free game fish", "cleaner wrasse"],
-            "support_names": ["sea cucumber", "artificial reef", "clownfish"],
+            "support_names": ["johnson's sea cucumber", "artificial reef", "clownfish"],
         },
         {
             # Mammals — simple stack of dolphins/sharks/narwhals for steady scoring.
@@ -4853,7 +4861,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             ],
             "name_contains": [],
             "text_keywords": ["baitfish", "per baitfish", "sharing an ocean with baitfish", "whale shark"],
-            "support_names": ["sea cucumber", "sea urchin", "hermit crab", "loggerhead sea turtle", "roosterfish"],
+            "support_names": ["johnson's sea cucumber", "sea urchin", "hermit crab", "loggerhead sea turtle", "roosterfish"],
         },
         # ── Advanced ─────────────────────────────────────────────────────────
         {
@@ -4861,12 +4869,12 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "label": "Bird Lobster",
             "species": ["bird", "crustacean"],
             "names": [
-                "emperor penguin", "razorbill auk", "california seagull", "horned puffin",
+                "emperor penguin", "razorbill auk", "california gull", "horned puffin",
                 "peruvian pelican", "lobster", "mantis shrimp", "artificial reef",
                 "sea star", "common sea star", "clownfish",
             ],
-            "name_contains": ["penguin", "puffin", "seagull", "pelican", "auk", "lobster"],
-            "text_keywords": ["per bird", "california seagull", "crustacean"],
+            "name_contains": ["penguin", "puffin", "gull", "pelican", "auk", "lobster"],
+            "text_keywords": ["per bird", "california gull", "crustacean"],
             "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin", "sea star"],
         },
         {
@@ -4906,7 +4914,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             ],
             "name_contains": ["goby", "spiny"],
             "text_keywords": ["mandarin goby", "spiny lobster", "crosscurrent animal"],
-            "support_names": ["california seagull", "artificial reef", "clownfish", "sea star", "blue tang"],
+            "support_names": ["california gull", "artificial reef", "clownfish", "sea star", "blue tang"],
         },
         # ── Support / Hybrid ─────────────────────────────────────────────────
         {
@@ -4914,10 +4922,10 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             "label": "Birds",
             "species": ["bird"],
             "names": [
-                "emperor penguin", "horned puffin", "california seagull", "peruvian pelican",
+                "emperor penguin", "horned puffin", "california gull", "peruvian pelican",
                 "great albatross", "osprey", "magnificent frigatebird", "razorbill auk",
             ],
-            "name_contains": ["penguin", "puffin", "seagull", "pelican", "albatross", "osprey", "frigatebird", "auk"],
+            "name_contains": ["penguin", "puffin", "gull", "pelican", "albatross", "osprey", "frigatebird", "auk"],
             "text_keywords": ["per bird"],
             "support_names": ["mantis shrimp", "lobster", "spiny lobster", "sea urchin"],
         },
@@ -4943,7 +4951,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
             ],
             "name_contains": [],
             "text_keywords": ["fully occupied ocean", "sharing an ocean with a king salmon", "card attached"],
-            "support_names": ["sea star", "common sea star", "sea urchin", "sea anemone", "bottlenose dolphin"],
+            "support_names": ["sea star", "common sea star", "sea urchin", "red beaded anemone", "bottlenose dolphin"],
         },
     ]
 
@@ -5169,7 +5177,7 @@ def action_archetype_bonus(
             return max(-0.5, min(6.0, b))
         # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ─────
         # Artificial Reef is THE key ocean — the Yellowfin stacking host.
-        # Other oceans are only useful as space for Bigeye / Sea Cucumber /
+        # Other oceans are only useful as space for Bigeye / Johnson's Sea Cucumber /
         # Loggerhead, so reward Artificial Reef strongly and other oceans
         # only mildly (and only when there's a real need for board space).
         if family_label == "yellowfin_tuna":
@@ -5178,7 +5186,7 @@ def action_archetype_bonus(
                 board_names.count("yellowfin tuna")
                 + board_names.count("big eye tuna")
                 + board_names.count("cleaner wrasse")
-                + board_names.count("sea cucumber")
+                + board_names.count("johnson's sea cucumber")
             )
             has_artificial_reef = "artificial reef" in board_names
             if cn == "artificial reef":
@@ -5201,7 +5209,7 @@ def action_archetype_bonus(
             cn = card.name.strip().lower()
             engine_count = (
                 sum(1 for s in board_species if s == "crustacean")
-                + board_names.count("california seagull")
+                + board_names.count("california gull")
                 + board_names.count("common sea star")
             )
             has_artificial_reef = "artificial reef" in board_names
@@ -5221,7 +5229,7 @@ def action_archetype_bonus(
             cn = card.name.strip().lower()
             engine_count = (
                 sum(1 for s in board_species if s == "crustacean")
-                + board_names.count("california seagull")
+                + board_names.count("california gull")
             )
             has_artificial_reef = "artificial reef" in board_names
             if cn == "artificial reef":
@@ -5309,7 +5317,7 @@ def action_archetype_bonus(
                 board_names.count("yellowfin tuna")
                 + board_names.count("big eye tuna")
                 + board_names.count("cleaner wrasse")
-                + board_names.count("sea cucumber")
+                + board_names.count("johnson's sea cucumber")
             )
             if not player.board_oceans:
                 return 0.35 + min(1.0, 0.25 * engine_count)
@@ -5423,7 +5431,7 @@ def action_archetype_bonus(
         else:
             bonus += min(1.8, 0.5 * ceph_engine_ready)
 
-    if cname == "sea cucumber":
+    if cname == "johnson's sea cucumber":
         if game_fish_ready <= 0:
             bonus -= 1.8
         else:
@@ -5525,15 +5533,15 @@ def action_archetype_bonus(
     # Profile-specific contextual combo nudges.
     if label == "birds":
         crust_count = sum(1 for s in board_species if s == "crustacean")
-        seagull_count = board_names.count("california seagull")
+        gull_count = board_names.count("california gull")
         bird_count = sum(1 for s in board_species if s == "bird")
         sea_urchin_count = board_names.count("sea urchin")
         razorbill_count = board_names.count("razorbill auk")
 
-        if cname == "california seagull":
+        if cname == "california gull":
             bonus += min(3.0, 0.9 * crust_count)
         if cspecies == "crustacean":
-            bonus += min(3.0, 1.1 * seagull_count)
+            bonus += min(3.0, 1.1 * gull_count)
         if cname == "sea urchin":
             bonus += min(2.5, 0.6 * bird_count)
         if cspecies == "bird":
@@ -5546,7 +5554,7 @@ def action_archetype_bonus(
         bait_count = sum(1 for s in board_species if s == "baitfish")
         game_fish_count = sum(1 for s in board_species if s == "game fish")
         sea_urchin_count = board_names.count("sea urchin")
-        sea_cucumber_count = board_names.count("sea cucumber")
+        sea_cucumber_count = board_names.count("johnson's sea cucumber")
         if cname in {"amberjack", "whale shark"}:
             bonus += min(3.5, 0.8 * bait_count)
         if cname == "whale shark":
@@ -5558,7 +5566,7 @@ def action_archetype_bonus(
             bonus += min(2.0, 0.8 * sea_urchin_count)
         if cname == "sea urchin":
             bonus += min(2.5, 0.6 * bait_count)
-        if cname == "sea cucumber":
+        if cname == "johnson's sea cucumber":
             bonus += min(2.5, 0.65 * bait_count)
             bonus += min(1.4, 0.35 * game_fish_count)
         if cname == "roosterfish":
@@ -5570,7 +5578,7 @@ def action_archetype_bonus(
         yellow_count = board_names.count("yellowfin tuna")
         bigeye_count = board_names.count("big eye tuna")
         cleaner_count = board_names.count("cleaner wrasse")
-        sea_cucumber_count = board_names.count("sea cucumber")
+        sea_cucumber_count = board_names.count("johnson's sea cucumber")
         clownfish_count = board_names.count("clownfish")
         artificial_reef_count = board_names.count("artificial reef")
         hand_game_fish = 0
@@ -5606,10 +5614,10 @@ def action_archetype_bonus(
             # Sailfish helps chain into free game-fish followups in this engine.
             bonus += min(2.8, 0.55 * (yellow_count + bigeye_count))
             bonus += min(1.5, 0.3 * hand_game_fish)
-        if cname == "sea cucumber":
+        if cname == "johnson's sea cucumber":
             bonus += min(2.8, 0.55 * (yellow_count + bigeye_count + cleaner_count))
             bonus += min(1.2, 0.3 * sea_cucumber_count)
-        if cname in {"yellowfin tuna", "big eye tuna", "cleaner wrasse", "sea cucumber", "clownfish"}:
+        if cname in {"yellowfin tuna", "big eye tuna", "cleaner wrasse", "johnson's sea cucumber", "clownfish"}:
             bonus += min(2.2, 0.6 * artificial_reef_count)
             if action.ocean_uid is not None:
                 ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
@@ -5700,10 +5708,10 @@ def action_archetype_bonus(
         if cname == "mandarin goby":
             bonus += min(3.0, 0.9 * spiny_count)
             bonus += min(1.0, 0.35 * sea_star_count)
-        if cname == "california seagull":
+        if cname == "california gull":
             bonus += min(2.8, 0.8 * crust_count)
         if cspecies == "crustacean":
-            bonus += min(2.2, 0.55 * board_names.count("california seagull"))
+            bonus += min(2.2, 0.55 * board_names.count("california gull"))
 
     elif label == "king salmon coral fill":
         king_salmon_count = board_names.count("king salmon")
@@ -5729,7 +5737,7 @@ def action_archetype_bonus(
             bonus += min(2.2, 0.35 * (king_salmon_count + red_tree_count))
         if cspecies == "invertebrate":
             bonus += min(1.5, 0.2 * coral_count)
-        if cname in {"sea star", "sea urchin", "sea anemone"}:
+        if cname in {"sea star", "sea urchin", "red beaded anemone"}:
             bonus += min(2.0, 0.5 * coral_count + 0.25 * invertebrate_count)
         if cname == "clownfish":
             bonus += min(2.4, 0.5 * (king_salmon_count + red_tree_count + coral_count))
@@ -5767,13 +5775,13 @@ def action_archetype_bonus(
 
     # ── Yellowfin Tuna Stack (family-keyed; fires for live bots) ────────
     # Artificial Reef = host, Yellowfin Tuna = stacking engine, Bigeye Tuna =
-    # draw payoff (held until enough Yellowfin are down), Sea Cucumber +
+    # draw payoff (held until enough Yellowfin are down), Johnson's Sea Cucumber +
     # Cleaner Wrasse = support, Clownfish clones the reef.
     if family_label == "yellowfin_tuna":
         yellow_count   = board_names.count("yellowfin tuna")
         bigeye_count   = board_names.count("big eye tuna") + board_names.count("bigeye tuna")
         cleaner_count  = board_names.count("cleaner wrasse")
-        seacuke_count  = board_names.count("sea cucumber")
+        seacuke_count  = board_names.count("johnson's sea cucumber")
         artreef_count  = board_names.count("artificial reef")
         # Which ocean is this card being placed on?
         target_ocean = ""
@@ -5809,7 +5817,7 @@ def action_archetype_bonus(
                 bonus -= 0.8
         elif cname == "cleaner wrasse":
             bonus += min(2.6, 0.6 * (yellow_count + bigeye_count))
-        elif cname == "sea cucumber":
+        elif cname == "johnson's sea cucumber":
             # Strong early enabler: rewards every Yellowfin / game fish play.
             bonus += min(2.6, 0.55 * (yellow_count + bigeye_count + cleaner_count))
             if yellow_count == 0 and bigeye_count == 0:
@@ -5872,7 +5880,7 @@ def action_archetype_bonus(
     # Emperor Penguin boosts the whole bird package; Razorbill Auk's PAIR is
     # one of the best two-card combos; Horned Puffin/Peruvian Pelican/Great
     # Albatross add cheap tempo + draw; Sea Urchin draws on bird plays.
-    # California Seagull is a Crustacean buff and is DISCOURAGED in pure birds.
+    # California Gull is a Crustacean buff and is DISCOURAGED in pure birds.
     if family_label == "birds_of_a_feather":
         bird_count       = sum(1 for s in board_species if s == "bird")
         penguin_count    = board_names.count("emperor penguin")
@@ -5880,7 +5888,7 @@ def action_archetype_bonus(
         sea_urchin_count = board_names.count("sea urchin")
         crust_count      = sum(1 for s in board_species if s == "crustacean")
         hand_birds       = hand_species_counts.get("bird", 0)
-        if cspecies == "bird" and cname != "california seagull":
+        if cspecies == "bird" and cname != "california gull":
             bonus += min(2.4, 0.45 * bird_count)        # bird volume
             bonus += min(2.2, 0.70 * penguin_count)     # Emperor Penguin boosts birds
             bonus += min(1.8, 0.60 * sea_urchin_count)  # Sea Urchin draws on bird plays
@@ -5897,7 +5905,7 @@ def action_archetype_bonus(
             bonus += 0.6 + min(1.2, 0.25 * bird_count)  # cheap Play-Again tempo
         if cname == "great albatross":
             bonus += 0.6 + min(1.6, 0.30 * bird_count)  # cheap bird + draw
-        if cname == "california seagull":
+        if cname == "california gull":
             # Wrong card for PURE birds — only tolerable if crustaceans are on
             # board (hybrid drift toward B-Lob); otherwise strongly discourage.
             if crust_count >= 2:
@@ -5906,13 +5914,13 @@ def action_archetype_bonus(
                 bonus -= 3.5
 
     # ── Crustaceans (family-keyed; fires for live bots) ─────────────────
-    # Lobster heavy hitter stacked below Artificial Reef, California Seagull
+    # Lobster heavy hitter stacked below Artificial Reef, California Gull
     # boosts all crustaceans, Common Sea Star draws on bottom-side plays,
     # King Crab plays+draws, Mantis Shrimp is a high-value (multi-copy) threat,
     # Clownfish clones the reef. Hermit Crab / Spiny Lobster belong elsewhere.
     if family_label == "crustaceans":
         crust_count   = sum(1 for s in board_species if s == "crustacean")
-        seagull_count = board_names.count("california seagull")
+        gull_count = board_names.count("california gull")
         seastar_count = board_names.count("common sea star") + board_names.count("sea star")
         mantis_count  = board_names.count("mantis shrimp")
         hand_crust    = hand_species_counts.get("crustacean", 0)
@@ -5925,7 +5933,7 @@ def action_archetype_bonus(
 
         if cspecies == "crustacean" and cname not in {"hermit crab", "spiny lobster"}:
             bonus += min(2.4, 0.45 * crust_count)        # crustacean volume
-            bonus += min(2.4, 0.75 * seagull_count)      # California Seagull boosts crustaceans
+            bonus += min(2.4, 0.75 * gull_count)      # California Gull boosts crustaceans
             bonus += min(1.8, 0.55 * seastar_count)      # Sea Star draws on bottom-side plays
         if cname == "lobster":
             # Main heavy hitter — best stacked on the Artificial Reef.
@@ -5937,13 +5945,13 @@ def action_archetype_bonus(
         elif cname == "mantis shrimp":
             # High-value threat; multiple copies multiply hard.
             bonus += 1.2 + min(2.8, 1.0 * mantis_count) + min(1.4, 0.3 * crust_count)
-        elif cname == "california seagull":
+        elif cname == "california gull":
             bonus += 1.0 + min(3.0, 0.70 * crust_count)  # boost payoff scales with crustaceans
         elif cname == "common sea star":
             bonus += 0.6 + min(2.2, 0.50 * (crust_count + hand_crust))   # early draw engine
         elif cname == "king crab":
             bonus += min(2.4, 0.55 * (crust_count + hand_crust))
-            bonus += min(1.2, 0.3 * (seastar_count + seagull_count))
+            bonus += min(1.2, 0.3 * (seastar_count + gull_count))
         elif cname == "clownfish" and on_reef:
             bonus += 2.4 + min(1.6, 0.4 * crust_count)   # clone the Artificial Reef
         elif cname in {"hermit crab", "spiny lobster"}:
@@ -5953,14 +5961,14 @@ def action_archetype_bonus(
             bonus -= 0.0 if end_soon else 1.6
 
     # ── B-Lob (family-keyed; fires for live bots) ───────────────────────
-    # The best of Birds + Crustaceans, bridged by California Seagull (a bird
+    # The best of Birds + Crustaceans, bridged by California Gull (a bird
     # that boosts crustaceans). Reward both top-side birds and bottom-side
     # crustaceans; discourage the off-plan crustaceans (Hermit / Spiny).
     if family_label == "birds_crustaceans":
         bird_count       = sum(1 for s in board_species if s == "bird")
         crust_count      = sum(1 for s in board_species if s == "crustacean")
         penguin_count    = board_names.count("emperor penguin")
-        seagull_count    = board_names.count("california seagull")
+        gull_count    = board_names.count("california gull")
         razorbill_count  = board_names.count("razorbill auk")
         mantis_count     = board_names.count("mantis shrimp")
         seastar_count    = board_names.count("common sea star") + board_names.count("sea star")
@@ -5971,35 +5979,35 @@ def action_archetype_bonus(
                    and gs.card_db[action.ocean_uid].name.strip().lower() == "artificial reef")
         artreef_on_board = "artificial reef" in board_names
 
-        # California Seagull — the bridge: scales with crustaceans (boost) and
+        # California Gull — the bridge: scales with crustaceans (boost) and
         # adds bird volume too. Top priority in B-Lob.
-        if cname == "california seagull":
+        if cname == "california gull":
             bonus += 1.2 + min(3.0, 0.70 * crust_count) + min(1.2, 0.25 * bird_count)
         elif cname == "emperor penguin":
             bonus += 1.0 + min(2.8, 0.55 * bird_count)
         elif cname == "razorbill auk":
             bonus += 3.2 if razorbill_count >= 1 else 1.0   # complete the pair if possible
         elif cname == "lobster":
-            bonus += 0.8 + min(2.4, 0.50 * crust_count) + min(1.6, 0.50 * seagull_count)
+            bonus += 0.8 + min(2.4, 0.50 * crust_count) + min(1.6, 0.50 * gull_count)
             if on_reef:
                 bonus += 2.2
             elif artreef_on_board:
                 bonus -= 0.8
         elif cname == "mantis shrimp":
-            bonus += 1.2 + min(2.6, 1.0 * mantis_count) + min(1.2, 0.25 * seagull_count)
+            bonus += 1.2 + min(2.6, 1.0 * mantis_count) + min(1.2, 0.25 * gull_count)
         elif cname == "king crab":
-            bonus += min(2.2, 0.50 * (crust_count + hand_crust)) + min(1.0, 0.3 * (seastar_count + seagull_count))
+            bonus += min(2.2, 0.50 * (crust_count + hand_crust)) + min(1.0, 0.3 * (seastar_count + gull_count))
         elif cname == "clownfish" and on_reef:
             bonus += 2.4 + min(1.6, 0.40 * (crust_count + bird_count))
         elif cname in {"hermit crab", "spiny lobster"}:
             end_soon = bool(getattr(ms, "end_game_triggered", False))
             bonus -= 0.0 if end_soon else 1.6
         # Generic volume for the two halves (boost engines fold in).
-        if cspecies == "bird" and cname != "california seagull":
+        if cspecies == "bird" and cname != "california gull":
             bonus += min(1.8, 0.35 * bird_count) + min(1.6, 0.55 * penguin_count)
             bonus += min(1.4, 0.45 * sea_urchin_count)     # Sea Urchin draws on top-side birds
         elif cspecies == "crustacean" and cname not in {"hermit crab", "spiny lobster"}:
-            bonus += min(1.8, 0.35 * crust_count) + min(1.6, 0.55 * seagull_count)
+            bonus += min(1.8, 0.35 * crust_count) + min(1.6, 0.55 * gull_count)
             bonus += min(1.4, 0.45 * seastar_count)        # Sea Star draws on bottom-side crustaceans
         # Draw engines: Sea Urchin (top/birds) vs Common Sea Star (bottom/crust).
         if cname == "sea urchin":
@@ -6215,28 +6223,28 @@ def action_archetype_bonus(
             bonus += min(1.8, 0.5 * crosscurrent_on_board)  # +2 per Crosscurrent animal
 
     # ── Invertebrates (flexible support; family-keyed; fires for live bots) ──
-    # Sea Anemone "+3 per invertebrate" is the main scorer; Barracuda "+1 per
+    # Red Beaded Anemone "+3 per invertebrate" is the main scorer; Barracuda "+1 per
     # invertebrate | free invertebrate" is the engine; Common Sea Star /
-    # Sea Urchin draw on bottom/top plays; Sea Sponge / Sea Cucumber support.
+    # Sea Urchin draw on bottom/top plays; Orange Tube Sponge / Johnson's Sea Cucumber support.
     # Scaled DOWN in small games (the plan is weak with <6 players) and full
     # strength in 6+ player games where the Pool keeps flowing.
     if family_label == "invertebrates":
         pc_mult  = 1.0 if len(gs.players) >= 6 else 0.65
         inv_board = sum(1 for s in board_species if s == "invertebrate")
         inv_hand  = hand_species_counts.get("invertebrate", 0)
-        if cname == "sea anemone":
+        if cname == "red beaded anemone":
             bonus += pc_mult * (1.0 + min(3.0, 0.7 * inv_board))           # main scorer
         elif cname == "barracuda":
             bonus += pc_mult * (0.8 + min(2.2, 0.5 * inv_board) + min(1.6, 0.5 * inv_hand))
         elif cname in {"common sea star", "sea urchin"}:
             bonus += pc_mult * (0.5 + min(1.8, 0.45 * (inv_board + inv_hand)))  # draw engines
-        elif cname == "sea sponge":
+        elif cname == "orange tube sponge":
             bonus += pc_mult * (0.4 + min(1.4, 0.4 * inv_board))
-        elif cname == "sea cucumber":
+        elif cname == "johnson's sea cucumber":
             bonus += pc_mult * 0.6                                         # mostly a Yellowfin support card
-        # Generic invertebrate volume feeds Sea Anemone / Barracuda (the scorer
+        # Generic invertebrate volume feeds Red Beaded Anemone / Barracuda (the scorer
         # itself is excluded — it scores on the others, it isn't its own fuel).
-        if cspecies == "invertebrate" and cname != "sea anemone":
+        if cspecies == "invertebrate" and cname != "red beaded anemone":
             bonus += pc_mult * min(1.8, 0.4 * inv_board)
 
     if bonus > 6.0:
@@ -6761,8 +6769,8 @@ PAYMENT_HEAVY_HITTER_NAMES = {
     "reef trigger fish",
     "reef triggerfish",
     "staghorn coral",
-    "california seagull",
-    "sea anemone",
+    "california gull",
+    "red beaded anemone",
     "great white shark",
     "great shark",
     "blue tang",
@@ -7290,7 +7298,7 @@ def clownfish_ocean_value(ocean_name: str) -> float:
         return 0.7
     if name == "pier":
         return 0.2
-    if name == "arctic oceans":
+    if name == "arctic ocean":
         return -0.9
     if name == "deep ocean":
         return -1.6
@@ -7668,7 +7676,7 @@ def _rig_blob_tutorial_hand(
     guided lesson always lines up:
         Artificial Reef · Lobster · Lobster · Emperor Penguin ·
         Narwhal/Big Eye Tuna (dual-faced, used as payment) ·
-        California Seagull · Mangrove · Coral Reef
+        California Gull · Mangrove · Coral Reef
     Cards are sourced from the post-deal deck (or already in hand); displaced hand
     cards go back to the deck so card-conservation and hand size (8) are preserved.
     Best-effort per card — if the deck can't supply one, that slot is left as dealt.
@@ -7727,7 +7735,7 @@ def _rig_blob_tutorial_hand(
     # Order matters: the client lesson reads the hand left→right.
     add(find_single("lobster", False, used))            # 1st Lobster (leftmost)
     add(find_single("artificial reef", True, used))      # Artificial Reef
-    add(find_single("california seagull", False, used))  # California Seagull
+    add(find_single("california gull", False, used))  # California Gull
     add(find_single("emperor penguin", False, used))     # Emperor Penguin
     add(find_single("lobster", False, used))             # 2nd Lobster (duplicate)
     add(find_pair("narwhal", "big eye tuna", used))      # dual-faced payment card
@@ -7843,7 +7851,7 @@ def rig_tutorial_opening_hand(
 
     # ── Tutorial Part 2 STAR-ABILITY lesson: rig an exact teaching hand ──────
     # The guided turn teaches ONE symbol-matched Star ability:
-    #   • Mangrove + Arctic Oceans (shared symbol) → Mangrove's *Play again*
+    #   • Mangrove + Arctic Ocean (shared symbol) → Mangrove's *Play again*
     # Paying for the Mangrove with the symbol-matched Arctic (discarding it as
     # payment) fires the Star. The symbol is chosen dynamically (whatever variant
     # the deck can supply) and the client reads the actual symbol back, so the
@@ -7901,13 +7909,13 @@ def rig_tutorial_opening_hand(
         _installed.add(donor)
         return donor
 
-    # Pair 1 — Mangrove + Arctic Oceans share a symbol (prefer Heart). Paying for
+    # Pair 1 — Mangrove + Arctic Ocean share a symbol (prefer Heart). Paying for
     # the Mangrove with the symbol-matched Arctic fires the Mangrove's *Play again*
     # star — the single Star ability Tutorial 2 now teaches.
-    s1 = _shared_symbol("mangrove", False, "arctic oceans", False, ("heart",))
+    s1 = _shared_symbol("mangrove", False, "arctic ocean", False, ("heart",))
     if s1 is not None:
         _install("mangrove", s1, False)
-        _install("arctic oceans", s1, False)
+        _install("arctic ocean", s1, False)
     # One simple FREE creature (Lobster, cost 0) so the guided "use Play Again to
     # play a creature" step needs no separate payment. (The old Great Albatross +
     # Kelp Forest second-Star pair was removed — Tutorial 2 teaches one Star only.)
@@ -7917,7 +7925,7 @@ def rig_tutorial_opening_hand(
     # teaching card (e.g. a second Mangrove with a different symbol). Keep exactly
     # ONE copy of each — the coordinated-symbol one — and swap every other copy
     # back to the deck for a non-teaching filler, so the spotlight is unambiguous.
-    _keep = [("mangrove", s1, False), ("arctic oceans", s1, False)]
+    _keep = [("mangrove", s1, False), ("arctic ocean", s1, False)]
     def _any_teaching_name(u: int) -> bool:
         return any(_is_card(u, n, None, False) for (n, _s, _p) in _keep)
     for name_lc, sym_lc, primary in _keep:
@@ -8842,8 +8850,8 @@ def action_features(
         base_plus += 3 * sum(1 for c in board if c.species.lower() == "bird")
     if "+1 per crustacean" in t:
         base_plus += sum(1 for c in board if c.species.lower() == "crustacean")
-    if "+3 per crustacean" in t:
-        base_plus += 3 * sum(1 for c in board if c.species.lower() == "crustacean")
+    if "+2 per crustacean" in t:
+        base_plus += 2 * sum(1 for c in board if c.species.lower() == "crustacean")
     if "+1 per coral" in t and "attached to a coral reef" not in t:
         base_plus += sum(1 for c in board if c.species.lower() == "coral")
     if "+2 per coral" in t and "attached to a coral reef" not in t:
@@ -8856,16 +8864,14 @@ def action_features(
         base_plus += 2 * sum(1 for c in board if normalize_symbol(c.symbol) == normalize_symbol(card.symbol))
     if "+5 per invertebrate" in t:
         base_plus += 5 * sum(1 for c in board if c.species.lower() == "invertebrate")
-    if "+1 per invertebrate" in t:
-        base_plus += sum(1 for c in board if c.species.lower() == "invertebrate")
+    if "+2 per invertebrate" in t:
+        base_plus += 2 * sum(1 for c in board if c.species.lower() == "invertebrate")
     if "+3 per invertebrate" in t:
         base_plus += 3 * sum(1 for c in board if c.species.lower() == "invertebrate")
-    if "+3 per baitfish" in t:
-        base_plus += 3 * sum(1 for c in board if c.species.lower() == "baitfish")
     if "+4 per baitfish" in t:
         base_plus += 4 * sum(1 for c in board if c.species.lower() == "baitfish")
-    if "+4 per cephalopod" in t:
-        base_plus += 4 * sum(1 for c in board if c.species.lower() == "cephalopod")
+    if "+2 per cephalopod" in t:
+        base_plus += 2 * sum(1 for c in board if c.species.lower() == "cephalopod")
     if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
         base_plus += 2 * sum(
             1
@@ -8993,10 +8999,10 @@ def action_features(
         else:
             base_plus -= 4
 
-    if "+8 if you have all 8 oceans" in t:
+    if "+10 if you have all 8 oceans" in t:
         projected_oceans = ocean_count + (1 if action.kind == "play_ocean" else 0)
         if projected_oceans >= 8:
-            base_plus += 8
+            base_plus += 10
         else:
             base_plus -= 2
 
@@ -9023,15 +9029,12 @@ def action_features(
         if best_v > current_v:
             base_plus -= 2.5 * (best_v - current_v)
 
-    if "kelp forest" in t and ("at least 4" in t or "4 or more" in t):
+    if "kelp forest" in t and ("at least 4" in t or "4 or more" in t or "4+" in t):
         kelp_count = sum(1 for c in board if c.name.lower() == "kelp forest")
         if card.name.lower() == "kelp forest":
             kelp_count += 1
         if kelp_count >= 4:
-            if "per kelp forest" in t:
-                base_plus += 5 * kelp_count
-            else:
-                base_plus += 5
+            base_plus += 5
 
     if action.kind == "play_ocean" and player.board_oceans:
         empty_oceans = count_empty_oceans(player)
@@ -9819,7 +9822,7 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     ocean_count = len(player.board_oceans)
     other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
-    # Distinct ocean types for the Mangrove "+8 if you have all 8 oceans" bonus.
+    # Distinct ocean types for the Mangrove "+10 if you have all 8 oceans" bonus.
     # Must be 8 DIFFERENT ocean types, not just 8 ocean cards.
     distinct_ocean_types = len({
         gs.card_db[uid].name.strip().lower()
@@ -9994,13 +9997,12 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         if "+2 per card attached" in t:
             attached = len(cards_on_same_ocean(ocean_uid))
             pts += 2 * attached
-        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
+        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t or "4+" in t):
             kelp_total = kelp_forest_count_total
             if kelp_total >= 4:
-                if "per kelp forest" in t:
-                    pts += 5 * kelp_total
-                else:
-                    pts += 5
+                # "+5 per kelp forest if you control 4+" = flat +5 per Kelp Forest
+                # (linear): 4 Kelp Forests = 20, 5 = 25. Scored per-card in this loop.
+                pts += 5
 
         # Generic "+N per X" patterns.
         if "+2 per bird" in t:
@@ -10011,8 +10013,6 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += species_count("crustacean")
         if "+2 per crustacean" in t:
             pts += 2 * species_count("crustacean")
-        if "+3 per crustacean" in t:
-            pts += 3 * species_count("crustacean")
         if "+2 per coral that is attached to a coral reef" in t:
             pts += 2 * coral_attached_to_coral_reef_count()
         if "+1 per coral" in t and "attached to a coral reef" not in t:
@@ -10023,16 +10023,14 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += 5 * species_count("coral")
         if "+5 per invertebrate" in t:
             pts += 5 * species_count("invertebrate")
-        if "+1 per invertebrate" in t:
-            pts += species_count("invertebrate")
-        if "+3 per baitfish" in t:
-            pts += 3 * species_count("baitfish")
+        if "+2 per invertebrate" in t:
+            pts += 2 * species_count("invertebrate")
         if "+4 per baitfish" in t:
             pts += 4 * species_count("baitfish")
         if "+1 per game fish" in t:
             pts += species_count("game fish")
-        if "+4 per cephalopod" in t:
-            pts += 4 * species_count("cephalopod")
+        if "+2 per cephalopod" in t:
+            pts += 2 * species_count("cephalopod")
         if "+2 per mammal" in t:
             pts += 2 * species_count("mammal")
         if "+3 per mammal" in t:
@@ -10041,16 +10039,14 @@ def final_points(gs: GameState, player: PlayerState) -> int:
             pts += 3 * species_count("coral")
         if "+6 per mandarin goby" in t:
             pts += 6 * name_count("mandarin goby")
-        if "+1 per uncharted animal" in t or "+1 per crosscurrent animal" in t:
-            pts += species_count("n/a") + species_count("uncharted") + species_count("crosscurrent")
         if "+3 per invertebrate" in t:
             pts += 3 * species_count("invertebrate")
         if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
             pts += 2 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
         if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
             pts += 3 * (species_count("n/a") + species_count("uncharted") + species_count("crosscurrent"))
-        if "+2 per mahi mahi" in t:
-            pts += 2 * name_count("mahi mahi")
+        if "+3 per mahi mahi" in t:
+            pts += 3 * name_count("mahi mahi")
         if "+2 per matching symbol" in t:
             sym = normalize_symbol(card.symbol)
             if sym not in {"", "n/a"}:
@@ -10154,7 +10150,7 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
     ocean_count = len(player.board_oceans)
     other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
-    # Distinct ocean types for Mangrove "+8 if you have all 8 oceans" — needs 8 DIFFERENT types.
+    # Distinct ocean types for Mangrove "+10 if you have all 8 oceans" — needs 8 DIFFERENT types.
     _distinct_ocean_types = len({
         gs.card_db[uid].name.strip().lower()
         for uid in player.board_oceans
@@ -10340,13 +10336,10 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             if same:
                 add(2 * len(same), f"+2 per card on same ocean × {len(same)}")
 
-        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t):
+        if "kelp forest" in t and (">= 4" in t or "\u2265 4" in t or "at least 4" in t or "4 or more" in t or "4+" in t):
             kt = kelp_forest_total
             if kt >= 4:
-                if "per kelp forest" in t:
-                    add(5 * kt, f"+5 per Kelp Forest × {kt}")
-                else:
-                    add(5, f"4+ Kelp Forests bonus")
+                add(5, "+5 (4+ Kelp Forests)")
 
         # ── Per-species / per-name patterns ─────────────────────────────────
         def _per(pattern: str, n_pts: int, label: str) -> None:
@@ -10363,8 +10356,6 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("crustacean"); cnt and add(cnt, f"+1 per Crustacean × {cnt}")
         if "+2 per crustacean" in t:
             cnt = _species_count("crustacean"); cnt and add(2 * cnt, f"+2 per Crustacean × {cnt}")
-        if "+3 per crustacean" in t:
-            cnt = _species_count("crustacean"); cnt and add(3 * cnt, f"+3 per Crustacean × {cnt}")
         if "+2 per coral that is attached to a coral reef" in t:
             cnt = _coral_on_reef_count(); cnt and add(2 * cnt, f"+2 per Coral on Coral Reef × {cnt}")
         if "+1 per coral" in t and "attached to a coral reef" not in t:
@@ -10375,18 +10366,16 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("coral"); cnt and add(5 * cnt, f"+5 per Coral × {cnt}")
         if "+5 per invertebrate" in t:
             cnt = _species_count("invertebrate"); cnt and add(5 * cnt, f"+5 per Invertebrate × {cnt}")
-        if "+1 per invertebrate" in t:
-            cnt = _species_count("invertebrate"); cnt and add(cnt, f"+1 per Invertebrate × {cnt}")
+        if "+2 per invertebrate" in t:
+            cnt = _species_count("invertebrate"); cnt and add(2 * cnt, f"+2 per Invertebrate × {cnt}")
         if "+3 per invertebrate" in t:
             cnt = _species_count("invertebrate"); cnt and add(3 * cnt, f"+3 per Invertebrate × {cnt}")
-        if "+3 per baitfish" in t:
-            cnt = _species_count("baitfish"); cnt and add(3 * cnt, f"+3 per Baitfish × {cnt}")
         if "+4 per baitfish" in t:
             cnt = _species_count("baitfish"); cnt and add(4 * cnt, f"+4 per Baitfish × {cnt}")
         if "+1 per game fish" in t:
             cnt = _species_count("game fish"); cnt and add(cnt, f"+1 per Game Fish × {cnt}")
-        if "+4 per cephalopod" in t:
-            cnt = _species_count("cephalopod"); cnt and add(4 * cnt, f"+4 per Cephalopod × {cnt}")
+        if "+2 per cephalopod" in t:
+            cnt = _species_count("cephalopod"); cnt and add(2 * cnt, f"+2 per Cephalopod × {cnt}")
         if "+2 per mammal" in t:
             cnt = _species_count("mammal"); cnt and add(2 * cnt, f"+2 per Mammal × {cnt}")
         if "+3 per mammal" in t:
@@ -10395,18 +10384,15 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
             cnt = _species_count("coral"); cnt and add(3 * cnt, f"+3 per Coral × {cnt}")
         if "+6 per mandarin goby" in t:
             cnt = _name_count("mandarin goby"); cnt and add(6 * cnt, f"+6 per Mandarin Goby × {cnt}")
-        if "+1 per uncharted animal" in t or "+1 per crosscurrent animal" in t:
-            cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
-            cnt and add(cnt, f"+1 per Crosscurrent Animal × {cnt}")
         if "+2 per n/a animal" in t or "+2 per uncharted animal" in t or "+2 per crosscurrent animal" in t:
             cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
             cnt and add(2 * cnt, f"+2 per Crosscurrent Animal × {cnt}")
         if "+3 per n/a animal" in t or "+3 per uncharted animal" in t or "+3 per crosscurrent animal" in t:
             cnt = _species_count("n/a") + _species_count("uncharted") + _species_count("crosscurrent")
             cnt and add(3 * cnt, f"+3 per Crosscurrent Animal × {cnt}")
-        if "+2 per mahi mahi" in t:
+        if "+3 per mahi mahi" in t:
             cnt = _name_count("mahi mahi")
-            cnt and add(2 * cnt, f"+2 per Mahi Mahi × {cnt}")
+            cnt and add(3 * cnt, f"+3 per Mahi Mahi × {cnt}")
         if "+2 per matching symbol" in t:
             sym = normalize_symbol(card.symbol)
             if sym not in {"", "n/a"}:

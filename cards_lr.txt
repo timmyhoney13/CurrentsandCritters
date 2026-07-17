@@ -1,25 +1,25 @@
-101	Tarpon	+5 | Discard and draw that many cards	Game Fish	1	Left	Triangle
+101	Tarpon	+2 | Discard and draw that many cards	Game Fish	1	Left	Triangle
 102	Spinner Dolphin	+2 per matching symbol | *Draw one*	Mammal	2	Right	Diamond
 103	Spinner Dolphin	+2 per matching symbol | *Draw one*	Mammal	2	Left	Heart
 104	Blue Marlin	+9 if sharing an ocean with a Mahi Mahi	Game Fish	1	Right	Square
-105	Great White Shark	+3 per mammal | *Play again*	Crosscurrent	4	Left	Diamond
+105	Great White Shark	+3 per mammal | *Draw one*	Crosscurrent	4	Left	Diamond
 106	Goliath Grouper	Draw one | *Play again*	Game Fish	1	Right	Square
 107	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Heart
 108	Spinner Dolphin	+2 per matching symbol | *Draw one*	Mammal	2	Right	Circle
-109	Bottlenose Dolphin	+1 per Crosscurrent animal | *play a free mammal*	Mammal	2	Left	Diamond
-110	Common Octopus	+4 if you have at least three cephalopods	Cephalopod	1	Right	Circle
-111	Manta Ray	+3 | Draw one when you play a cephalopod	Crosscurrent	2	Left	Heart
+109	Bottlenose Dolphin	+3 | *play a free mammal*	Mammal	2	Left	Diamond
+110	Common Octopus	+3 if you have at least three cephalopods	Cephalopod	1	Right	Circle
+111	Manta Ray	+2 | Draw one when you play a cephalopod	Crosscurrent	1	Left	Heart
 112	Roosterfish	+4 if sharing an ocean with baitfish | *play a free Baitfish*	Game Fish	1	Right	Square
 113	Clownfish	Copies the Ocean’s ability this card is attached to	Crosscurrent	1	Left	Triangle
-114	Bottlenose Dolphin	+1 per Crosscurrent animal | *play a free mammal*	Mammal	2	Right	Square
-115	Reef Trigger Fish	+4 per Cephalopod | *Play any number of cephalopods for free*	Crosscurrent	3	Left	Diamond
-116	Bottlenose Dolphin	+1 per Crosscurrent animal | *play a free mammal*	Mammal	2	Right	Heart
+114	Bottlenose Dolphin	+3 | *play a free mammal*	Mammal	2	Right	Square
+115	Reef Trigger Fish	+2 per Cephalopod | *Play any number of cephalopods for free*	Crosscurrent	4	Left	Diamond
+116	Bottlenose Dolphin	+3 | *play a free mammal*	Mammal	2	Right	Heart
 117	Narwhal	+2 per Mammal | *Draw one*	Mammal	2	Left	Square
 118	Blue Marlin	+9 if sharing an ocean with a Mahi Mahi	Game Fish	1	Right	Diamond
 119	Narwhal	+2 per Mammal | *Draw one*	Mammal	2	Left	Diamond
-120	Big Eye Tuna	+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board	Crosscurrent	3	Right	Heart
-121	Bottlenose Dolphin	+1 per Crosscurrent animal | *play a free mammal*	Mammal	2	Left	Triangle
-122	Manta Ray	+3 | Draw one when you play a cephalopod	Crosscurrent	0	Right	Square
+120	Big Eye Tuna	+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*	Crosscurrent	3	Right	Heart
+121	Bottlenose Dolphin	+3 | *play a free mammal*	Mammal	2	Left	Triangle
+122	Manta Ray	+2 | Draw one when you play a cephalopod	Crosscurrent	1	Right	Square
 123	Roosterfish	+4 if sharing an ocean with baitfish | *play a free Baitfish*	Game Fish	1	Left	Triangle
 124	Narwhal	+2 per Mammal | *Draw one*	Mammal	2	Right	Circle
 125	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Circle
@@ -28,58 +28,58 @@
 128	Sailfish	+4 | *Play a free game fish*	Game Fish	2	Right	Square
 129	Sailfish	+4 | *Play a free game fish*	Game Fish	2	Left	Diamond
 130	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Circle
-131	Sailfish	+4 | *Play a free game fish*	Game Fish	2	Left	Circle
-132	Reef Trigger Fish	+4 per cephalopod | *play any number of cephalopods for free*	Crosscurrent	3	Right	Heart
+131	Sailfish	+4 | *Play a free game fish*	Game Fish	2	Left	Diamond
+132	Reef Trigger Fish	+2 per cephalopod | *play any number of cephalopods for free*	Crosscurrent	4	Right	Heart
 133	Goliath Grouper	Draw one | *Play again*	Game Fish	1	Left	Square
 134	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Square
 135	Mahi Mahi	+1	Game Fish	0	Left	Circle
-136	Great White Shark	+3 per mammal | *Play Again*	Crosscurrent	4	Right	Heart
+136	Great White Shark	+3 per mammal | *Draw one*	Crosscurrent	4	Right	Heart
 137	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Square
-138	Tarpon	+5 | Discard and draw that many cards	Game Fish	1	Right	Diamond
-139	Cuttlefish	+4 if you have at least three cephalopods	Cephalopod	1	Left	Circle
+138	Tarpon	+2 | Discard and draw that many cards	Game Fish	1	Right	Diamond
+139	Cuttlefish	+3 if you have at least three cephalopods	Cephalopod	1	Left	Circle
 140	Spinner Dolphin	+2 per matching symbol | *Draw one*	Mammal	2	Right	Triangle
 141	King Salmon	+5 per fully occupied ocean | *Draw one*	Game Fish	2	Left	Diamond
-142	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Right	Triangle
-143	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Left	Heart
-144	Cuttlefish	+4 if you have at least three cephalopods	Cephalopod	1	Right	Square
+142	Whale Shark	+4 per baitfish | *Draw one*	Crosscurrent	4	Right	Triangle
+143	Whale Shark	+4 per baitfish | *Draw one*	Crosscurrent	4	Left	Heart
+144	Cuttlefish	+3 if you have at least three cephalopods	Cephalopod	1	Right	Square
 145	Mahi Mahi	+1	Game Fish	0	Left	Circle
-146	Big Eye Tuna	+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board	Crosscurrent	3	Right	Diamond
-147	Reef Trigger Fish	+4 per cephalopod | *Play any number of cephalopods for free*	Crosscurrent	3	Left	Triangle
+146	Big Eye Tuna	+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*	Crosscurrent	3	Right	Diamond
+147	Reef Trigger Fish	+2 per cephalopod | *Play any number of cephalopods for free*	Crosscurrent	4	Left	Triangle
 148	Blue Marlin	+9 if sharing an ocean with a Mahi Mahi	Game Fish	1	Right	Heart
 149	Mahi Mahi	+1	Game Fish	0	Left	Diamond
 150	Giant Squid	+6 if you have at least three cephalopods	Cephalopod	1	Right	Circle
-151	Tarpon	+5 | Discard and draw that many cards	Game Fish	1	Left	Diamond
-152	Common Octopus	+4 if you have at least three cephalopods	Cephalopod	1	Right	Triangle
+151	Tarpon	+2 | Discard and draw that many cards	Game Fish	1	Left	Diamond
+152	Common Octopus	+3 if you have at least three cephalopods	Cephalopod	1	Right	Triangle
 153	Mahi Mahi	+1	Game Fish	0	Left	Heart
-154	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Triangle
-155	Bobtail Squid	+4 if you have at least three cephalopods	Cephalopod	1	Left	Diamond
-156	Big Eye Tuna	+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board	Crosscurrent	3	Right	Heart
-157	Big Eye Tuna	+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board	Crosscurrent	3	Left	Square
+154	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Diamond
+155	Bobtail Squid	+3 if you have at least three cephalopods	Cephalopod	1	Left	Diamond
+156	Big Eye Tuna	+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*	Crosscurrent	3	Right	Heart
+157	Big Eye Tuna	+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*	Crosscurrent	3	Left	Square
 158	Roosterfish	+4 if sharing an ocean with baitfish | *play a free Baitfish*	Game Fish	1	Right	Heart
-159	Big Eye Tuna	+3 per yellowfin tuna | Draw one for each yellowfin tuna on your board	Crosscurrent	3	Left	Triangle
-160	Tarpon	+5 | Discard and draw that many cards	Game Fish	1	Right	Heart
-161	Great White Shark	+3 per mammal | *Play Again*	Crosscurrent	4	Left	Triangle
+159	Big Eye Tuna	+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*	Crosscurrent	3	Left	Triangle
+160	Tarpon	+2 | Discard and draw that many cards	Game Fish	1	Right	Heart
+161	Great White Shark	+3 per mammal | *Draw one*	Crosscurrent	4	Left	Triangle
 162	King Salmon	+5 per fully occupied ocean | *Draw one*	Game Fish	2	Right	Square
 163	Clownfish	Copies the Ocean’s ability this card is attached to	Crosscurrent	1	Left	Triangle
-164	Great White Shark	+3 per mammal | *Play Again*	Crosscurrent	4	Right	Circle
-165	Common Octopus	+4 if you have at least three cephalopods	Cephalopod	1	Left	Square
-166	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Right	Diamond
-167	Goliath Grouper	Draw one | *Play again*	Game Fish	1	Left	Square
-168	Barracuda	+1 per Invertebrate | *Play a free Invertebrate*	Game Fish	1	Right	Diamond
-169	Barracuda	+1 per Invertebrate | *Play a free Invertebrate*	Game Fish	1	Left	Heart
+164	Great White Shark	+3 per mammal | *Draw one*	Crosscurrent	4	Right	Circle
+165	Common Octopus	+3 if you have at least three cephalopods	Cephalopod	1	Left	Square
+166	Whale Shark	+4 per baitfish | *Draw one*	Crosscurrent	4	Right	Diamond
+167	Goliath Grouper	Draw one | *Play again*	Game Fish	1	Left	Circle
+168	Barracuda	+2 per Invertebrate | *Play a free Invertebrate*	Game Fish	2	Right	Diamond
+169	Barracuda	+2 per Invertebrate | *Play a free Invertebrate*	Game Fish	2	Left	Heart
 170	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Diamond
-171	Bobtail Squid	+4 if you have at least three cephalopods	Cephalopod	1	Left	Circle
+171	Bobtail Squid	+3 if you have at least three cephalopods	Cephalopod	1	Left	Circle
 172	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Triangle
 173	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Triangle
-174	Cuttlefish	+4 if you have at least three cephalopods	Cephalopod	1	Right	Square
+174	Cuttlefish	+3 if you have at least three cephalopods	Cephalopod	1	Right	Square
 175	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Heart
-176	Roosterfish	+4 if sharing an ocean with baitfish | *play a free Baitfish*	Game Fish	1	Right	Square
-177	Cuttlefish	+4 if you have at least three cephalopods	Cephalopod	1	Left	Diamond
+176	Roosterfish	+4 if sharing an ocean with baitfish | *play a free Baitfish*	Game Fish	1	Right	Circle
+177	Cuttlefish	+3 if you have at least three cephalopods	Cephalopod	1	Left	Diamond
 178	King Salmon	+5 per fully occupied ocean | *Draw one*	Game Fish	2	Right	Triangle
-179	Whale Shark	+3 per baitfish | *Draw one*	Crosscurrent	4	Left	Circle
+179	Whale Shark	+4 per baitfish | *Draw one*	Crosscurrent	4	Left	Circle
 180	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Right	Square
 181	Yellowfin Tuna	+2 | Any number of yellowfin may share the same spot	Game Fish	1	Left	Diamond
-182	Bobtail Squid	+4 if you have at least three cephalopods	Cephalopod	1	Right	Triangle
+182	Bobtail Squid	+3 if you have at least three cephalopods	Cephalopod	1	Right	Triangle
 183	King Salmon	+5 per fully occupied ocean | *Draw one*	Game Fish	2	Left	Square
 184	Giant Squid	+6 if you have at least three cephalopods	Cephalopod	1	Right	Heart
 185	Giant Squid	+6 if you have at least three cephalopods	Cephalopod	1	Left	Circle
