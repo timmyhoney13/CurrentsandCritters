@@ -15374,6 +15374,32 @@
       panel.className = "gal-detail" + (unlocked ? "" : " gal-locked-detail");
 
       let html = "";
+
+      // "% of people own this" — shown ABOVE the portrait for EVERY avatar
+      // (owned or not, including exclusives & summer skins). The viewer counts
+      // toward the owners if they own it, and the denominator is floored to the
+      // owner count so the figure can never read over 100%. Unowned avatars with
+      // no recorded owners correctly read "0% of people own this".
+      {
+        const owners = Math.max(ownerCount, unlocked ? 1 : 0);
+        const totalRaw = Number(_totalPlayerCount || 0);
+        let rarityText;
+        if (totalRaw > 0) {
+          // Floor the denominator to the owner count so a slightly-stale total
+          // can never make it read over 100%.
+          const total = Math.max(totalRaw, owners);
+          let pct = Math.round((owners / total) * 100);
+          if (pct > 100) pct = 100;
+          if (owners > 0 && pct < 1) pct = 1;  // owned → always ≥ 1%
+          rarityText = `${pct}% of people own this`;
+        } else {
+          // Real total not loaded yet (transient) — re-rendered once it arrives
+          // (see window.__fishLoadIconCounts). Never fabricate a % without it.
+          rarityText = "Ownership loading…";
+        }
+        html += `<div class="gal-rarity gal-rarity-top">🌐 ${rarityText}</div>`;
+      }
+
       html += `<div class="gal-detail-img-wrap"><div class="gal-detail-glow"></div><img class="gal-detail-img" src="${_avSrc(a.img)}" alt="${escapeHtml(a.name)}"></div>`;
       html += `<div class="gal-detail-name">${escapeHtml(a.name)}</div>`;
       html += `<div class="gal-detail-species">${escapeHtml(a.species || "")}</div>`;
@@ -15411,17 +15437,6 @@
           html += `<div class="gal-prog-track"><div class="gal-prog-fill" style="width:${pct}%"></div></div>`;
         }
         html += `</div>`;
-      }
-
-      // "% of people own this" — owners of this avatar over the total player
-      // count. Clamped to [1, 100] so it never reads 0% while genuinely owned,
-      // nor over 100% during the brief window before the total catches up.
-      const totalPlayers = Number(_totalPlayerCount || 0);
-      if (ownerCount > 0 && totalPlayers > 0) {
-        let pct = Math.round((ownerCount / totalPlayers) * 100);
-        if (pct > 100) pct = 100;
-        if (pct < 1) pct = 1;
-        html += `<div class="gal-rarity">🌐 ${pct}% of people own this.</div>`;
       }
 
       // Equip controls (unlocked + not already equipped). Never shown when
@@ -24913,6 +24928,15 @@
           _totalPlayerCount = Number(raw.__total_players || 0);
         }
       } catch { if (!_iconUnlockCounts) _iconUnlockCounts = {}; }
+      // If the gallery is already open with an avatar selected, refresh its
+      // detail now that real counts exist — otherwise a detail opened before
+      // the load finished would be stuck showing "Ownership loading…".
+      try {
+        const galEl = document.getElementById("avatar-gallery");
+        if (galEl && galEl.classList.contains("open") && _galSelectedId) {
+          _galRenderDetail(_galSelectedId);
+        }
+      } catch {}
     };
     window.__fishNickname          = () => _playerNickname;
     window.__fishAuthUser          = () => _authUser;

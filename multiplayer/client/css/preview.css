@@ -11330,6 +11330,12 @@
     .gal-prog-track { height: 9px; background: rgba(120,80,255,.16); border-radius: 6px; overflow: hidden; border: 1px solid rgba(120,80,255,.22); }
     .gal-prog-fill { height: 100%; background: linear-gradient(90deg,#7c3aed,#a855f7 55%,#22d8f8); border-radius: 6px; transition: width .5s ease; }
     .gal-rarity { font-size: .76rem; color: #8fb8da; font-weight: 700; margin-top: 2px; }
+    /* Ownership % pill shown above the portrait in the detail panel. */
+    .gal-rarity-top {
+      margin: 0; padding: 4px 13px; border-radius: 999px;
+      background: rgba(47,126,224,.16); border: 1px solid rgba(95,179,214,.34);
+      color: #bfe0f7; text-align: center; white-space: nowrap;
+    }
     .gal-equip-q { font-size: .92rem; color: #fff; font-weight: 800; text-align: center; margin-top: 6px; }
     .gal-equip-row { display: flex; gap: 12px; width: 100%; margin-top: 2px; }
     .gal-equip-row .pv-btn { flex: 1; }
