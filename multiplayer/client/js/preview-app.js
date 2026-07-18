@@ -11069,10 +11069,9 @@
         if (isWinner && !_gameAchTracker?.usedPool) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/flying-fish.png")) _queueAnimalUnlock("flying-fish");
         }
-        // Sardine — reach Level 100 (exact post-game level).
-        if (Number(levelProgress?.level || 0) >= 100) {
-          if (await window.__fishGrantUnlockedIcon?.("/avatars/sardine.png")) _queueAnimalUnlock("sardine");
-        }
+        // Sardine — now a hidden-click secret: click the Sardine on the "Play
+        // Full Screen" launch splash (wired in setupGameWindowFullscreen). No
+        // post-game grant here anymore.
         // Bunker — 20 lifetime Competitive wins (pre-game total + this game).
         const postCompWins = Number(cStats?.lifetime_comp_wins || 0) + ((isComp && isWinner) ? 1 : 0);
         if (postCompWins >= 20) {
@@ -11120,14 +11119,14 @@
         // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
         if (isWinner && playerCount >= 3 && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Grooved Brain Coral — finish Top 2 in a 4–8 player game having NEVER
-        // manually drawn from the Deck (only the Pool). Card abilities that draw
-        // from the deck don't count against this (deckDraws only counts manual
-        // deck draws). (Emperor Penguin is now an Emerald-rank reward.)
+        // Grooved Brain Coral — finish in the Top 3 having ONLY drawn from the
+        // Pool (never manually drawn from the Deck). "Cards that say draw do not
+        // count": card abilities that draw from the deck don't disqualify this
+        // (deckDraws only counts manual deck draws). No player-count limit.
         {
           const _playersAboveGbc = (Array.isArray(finalScores) ? finalScores : [])
             .filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
-          if (playerCount >= 4 && playerCount <= 8 && _playersAboveGbc <= 1
+          if (_playersAboveGbc <= 2
               && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
               && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         }
@@ -11142,22 +11141,26 @@
         // Deep Sea Coral — win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
-        // Grooved Brain Coral is granted by the only-Pool/Top-2 check above.
+        // Grooved Brain Coral is granted by the only-Pool/Top-3 check above.
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
         // granted via the achievement-unlock hook.
 
         // ── Invertebrates ──────────────────────────────────────────
         // Orange Tube Sponge — reach Level 20.
         if (lvl >= 20 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-sponge.png")) _queueAnimalUnlock("sea-sponge");
-        // Sea Urchin / Sea Star / Johnson's Sea Cucumber / Red Beaded Anemone — 125 lifetime
-        // cards drawn via each animal's ability (pre-game total + this game).
-        const postUrchin = Number(cStats?.lifetime_sea_urchin_draws || 0) + Number(_gameAchTracker?.seaUrchinDraws || 0);
-        if (postUrchin >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-urchin.png")) _queueAnimalUnlock("sea-urchin");
-        const postSeaStar = Number(cStats?.lifetime_sea_star_draws || 0) + Number(_gameAchTracker?.seaStarDraws || 0);
-        if (postSeaStar >= 125 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
-        // Johnson's Sea Cucumber — 25 Johnson's Johnson's Sea Cucumbers PLAYED across all games (pre-game + this game).
-        const postCucumber = Number(cStats?.lifetime_sea_cucumber_played || 0) + Number(_gameAchTracker?.seaCucumberPlayedThisGame || 0);
-        if (postCucumber >= 25 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
+        // Sea Urchin — win by exactly 1 point (top score exactly 1 above the runner-up).
+        {
+          const _scoresDesc = (Array.isArray(finalScores) ? finalScores : [])
+            .map(p => Number(p?.score || 0)).sort((a, b) => b - a);
+          if (isWinner && _scoresDesc.length >= 2 && (_scoresDesc[0] - _scoresDesc[1]) === 1
+              && await window.__fishGrantUnlockedIcon?.("/avatars/sea-urchin.png")) _queueAnimalUnlock("sea-urchin");
+        }
+        // Sea Star — reach Level 100.
+        if (lvl >= 100 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
+        // Johnson's Sea Cucumber — win by ONLY drawing from the deck (never the
+        // Pool) in a 4+ player game.
+        if (isWinner && !_gameAchTracker?.usedPool && playerCount >= 4
+            && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
         // (Red Beaded Anemone now unlocks ONLY by beating the Giant Squid 1v1 — see challenge flow.)
 
         // ── Crosscurrent ───────────────────────────────────────────
@@ -13212,7 +13215,18 @@
     const winBtn   = document.getElementById("ccfs-window");
     const resume   = document.getElementById("cc-fs-resume");
     const statusEl = document.getElementById("ccfs-status");
+    const sardine  = document.getElementById("ccfs-sardine");
     if (!splash || !playBtn || !winBtn || !resume) return;
+
+    // Hidden-click secret: clicking the Sardine on the launch splash unlocks the
+    // Sardine avatar. Reuses the same grant/celebrate path as the hidden
+    // cephalopods. stopPropagation so it never bubbles into the Play overlay.
+    if (sardine) {
+      sardine.addEventListener("click", (e) => {
+        e.stopPropagation();
+        window.__fishGrantHiddenCeph?.("sardine", "/avatars/sardine.png", sardine);
+      });
+    }
 
     let wantsFullscreen = false;
     const isFs = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
@@ -13734,7 +13748,7 @@
       unlock:{ type:"comp_wins", goal:20, label:"Win 20 Competitive games." } },
     { id:"sardine", name:"Sardine", species:"Bait Fish", img:"/avatars/sardine.png",
       facts:"The fish got their name from the Italian island of Sardinia, where they were once incredibly abundant.",
-      unlock:{ type:"level", goal:100, label:"Reach Level 100." } },
+      unlock:{ type:"secret", label:"Click the Sardine in the menu where it shows Play Full Screen." } },
     { id:"flying-fish", name:"Flying Fish", species:"Bait Fish", img:"/avatars/flying-fish.png",
       facts:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight.",
       unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck — win a game without drawing from the Pool." } },
@@ -13806,7 +13820,7 @@
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
     { id:"grooved-brain-coral", name:"Grooved Brain Coral", species:"Coral", img:"/avatars/grooved-brain-coral.png",
       facts:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms.",
-      unlock:{ type:"event", event:"grooved_pool_top2", label:"Win by only drawing from the Pool (card-draws from the deck are fine) and finish Top 2 in a 4–8 player game." } },
+      unlock:{ type:"event", event:"grooved_pool_top2", label:"Only draw from the Pool and finish in the Top 3. Cards that say draw do not count." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
       unlock:{ type:"achievement", achId:"reef_rally", goal:15, label:"Add 15 friends (Reef Rally)." } },
@@ -13828,13 +13842,13 @@
       unlock:{ type:"level", goal:20, label:"Reach Level 20." } },
     { id:"sea-urchin", name:"Sea Urchin", species:"Invertebrates", img:"/avatars/sea-urchin.png",
       facts:"To protect themselves from harsh UV rays and predators, many species will use their tube feet and pincer-like organs to pick up and carry shells, rocks, or even stray marine debris over their bodies.",
-      unlock:{ type:"stat", stat:"lifetime_sea_urchin_draws", goal:125, unit:"cards drawn with Sea Urchin", label:"Draw 125 cards using Sea Urchin's ability." } },
+      unlock:{ type:"event", event:"sea_urchin_win_by_one", label:"Win by exactly 1 point." } },
     { id:"sea-star", name:"Sea Star", species:"Invertebrates", img:"/avatars/sea-star.png",
       facts:"If a predator bites off an arm, the sea star can simply grow a new one. Some species can even regenerate an entirely new body from just a single detached arm.",
-      unlock:{ type:"stat", stat:"lifetime_sea_star_draws", goal:125, unit:"cards drawn with Sea Star", label:"Draw 125 cards using Sea Star ability" } },
+      unlock:{ type:"level", goal:100, label:"Reach Level 100." } },
     { id:"sea-cucumber", name:"Johnson's Sea Cucumber", species:"Invertebrates", img:"/avatars/sea-cucumber.png",
       facts:"The Johnson's sea cucumber is like the ocean's vacuum cleaner, crawling along the seafloor and digesting tiny scraps from the sediment.",
-      unlock:{ type:"stat", stat:"lifetime_sea_cucumber_played", goal:25, unit:"Johnson's Johnson's Sea Cucumbers played", label:"Play 25 Johnson's Johnson's Sea Cucumbers across all games." } },
+      unlock:{ type:"event", event:"sea_cucumber_deck_only_win", label:"Win by only drawing from the deck in a 4+ player game." } },
     { id:"sea-anemone", name:"Red Beaded Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
       facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
       unlock:{ type:"achievement", achId:"it_is_finally_over", label:"Beat the Giant Squid in a 1v1 match." } },
@@ -14581,6 +14595,7 @@
     let _unlockedIcons = []; // animal icons unlocked through gameplay
     let _unlockedBackgrounds = []; // exclusive backgrounds unlocked via donation codes
     let _iconUnlockCounts = null; // global popularity map (best-effort, loaded lazily)
+    let _totalPlayerCount = 0;    // total accounts counted (denominator for "% own this")
     const GUEST_UNLOCKED_ICONS_PREFIX = "cc_unlocked_icons_";
     let _signupAvatarUrl = "";
     let _avatarModalSelection = "";
@@ -15377,8 +15392,15 @@
         html += `</div>`;
       }
 
-      if (ownerCount > 0) {
-        html += `<div class="gal-rarity">🌐 Owned by ${ownerCount.toLocaleString()} player${ownerCount === 1 ? "" : "s"}</div>`;
+      // "% of people own this" — owners of this avatar over the total player
+      // count. Clamped to [1, 100] so it never reads 0% while genuinely owned,
+      // nor over 100% during the brief window before the total catches up.
+      const totalPlayers = Number(_totalPlayerCount || 0);
+      if (ownerCount > 0 && totalPlayers > 0) {
+        let pct = Math.round((ownerCount / totalPlayers) * 100);
+        if (pct > 100) pct = 100;
+        if (pct < 1) pct = 1;
+        html += `<div class="gal-rarity">🌐 ${pct}% of people own this.</div>`;
       }
 
       // Equip controls (unlocked + not already equipped). Never shown when
@@ -24349,16 +24371,36 @@
       }
       return newly;
     };
-    // Lazily load the global popularity map for picker sorting (best-effort).
+    // Lazily load the global popularity map for picker sorting (best-effort),
+    // plus the total-player count that turns owner counts into "% own this".
     window.__fishLoadIconCounts = async () => {
-      if (_iconUnlockCounts || !_db) return;
+      if (!_db) return;
       try {
-        const snap = await _db.collection("meta").doc("icon_unlock_counts").get();
-        const raw = snap.exists ? (snap.data() || {}) : {};
-        const map = {};
-        ANIMAL_AVATARS.forEach(a => { map[a.img] = Number(raw[a.img.replace(/[.#$/\[\]]/g, "_")] || 0); });
-        _iconUnlockCounts = map;
-      } catch { _iconUnlockCounts = {}; }
+        // Count THIS account toward the global player total exactly once (per
+        // device), so ownership can be shown as a % of all players. Guarded by
+        // localStorage so returning/new accounts each count once. Best-effort.
+        if (_authUser && _authUser.uid) {
+          const _pk = "cc_pcounted_" + _authUser.uid;
+          let _already = false;
+          try { _already = localStorage.getItem(_pk) === "1"; } catch {}
+          if (!_already) {
+            try {
+              await _db.collection("meta").doc("icon_unlock_counts").set({
+                __total_players: firebase.firestore.FieldValue.increment(1)
+              }, { merge: true });
+              try { localStorage.setItem(_pk, "1"); } catch {}
+            } catch {}
+          }
+        }
+        if (!_iconUnlockCounts) {
+          const snap = await _db.collection("meta").doc("icon_unlock_counts").get();
+          const raw = snap.exists ? (snap.data() || {}) : {};
+          const map = {};
+          ANIMAL_AVATARS.forEach(a => { map[a.img] = Number(raw[a.img.replace(/[.#$/\[\]]/g, "_")] || 0); });
+          _iconUnlockCounts = map;
+          _totalPlayerCount = Number(raw.__total_players || 0);
+        }
+      } catch { if (!_iconUnlockCounts) _iconUnlockCounts = {}; }
     };
     window.__fishNickname          = () => _playerNickname;
     window.__fishAuthUser          = () => _authUser;

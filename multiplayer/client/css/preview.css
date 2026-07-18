@@ -5037,6 +5037,30 @@
     @media (hover: hover) { .ccfs-play:hover { filter: brightness(1.05); } }
     .ccfs-play:active { transform: translateY(1px); }
     .ccfs-play:focus-visible { outline: 3px solid rgba(255,255,255,.85); outline-offset: -4px; border-radius: 18px; }
+    /* Hidden-click secret: a small Sardine tucked onto the launch splash. It
+       bobs gently so it's discoverable but stays true to the artwork. Clicking
+       it unlocks the Sardine avatar. Positioned as a % of the stage so it
+       tracks the stretched art like the Play overlay does. */
+    .ccfs-sardine {
+      position: absolute; left: 4%; top: 8%; width: 8%; height: auto;
+      background: transparent; border: 0; padding: 0; margin: 0;
+      cursor: pointer; line-height: 0;
+      -webkit-tap-highlight-color: rgba(255,255,255,.18);
+      animation: ccfs-sardine-bob 3.2s ease-in-out infinite;
+    }
+    .ccfs-sardine img {
+      width: 100%; height: auto; display: block;
+      user-select: none; -webkit-user-drag: none;
+      filter: drop-shadow(0 2px 6px rgba(2,20,50,.45));
+      transition: transform .12s ease, filter .12s ease;
+    }
+    @media (hover: hover) { .ccfs-sardine:hover img { transform: scale(1.08); filter: drop-shadow(0 3px 9px rgba(2,20,50,.6)) brightness(1.06); } }
+    .ccfs-sardine:active img { transform: scale(.96); }
+    .ccfs-sardine:focus-visible { outline: 3px solid rgba(255,255,255,.85); outline-offset: 3px; border-radius: 12px; }
+    @keyframes ccfs-sardine-bob {
+      0%, 100% { transform: translateY(0) rotate(-3deg); }
+      50%      { transform: translateY(-6px) rotate(3deg); }
+    }
     /* Status + fallback link — hidden until the browser blocks full screen
        (#cc-fs-splash.ccfs-blocked), keeping the splash true to the artwork. */
     .ccfs-foot {
