@@ -15376,15 +15376,20 @@
       let html = "";
 
       // "% of people own this" — shown ABOVE the portrait for EVERY avatar
-      // (owned or not, including exclusives & summer skins). The viewer counts
+      // (owned or not, including exclusives & summer skins). Owner counts come
+      // from the server (aggregated from real ownership); the viewer counts
       // toward the owners if they own it, and the denominator is floored to the
       // owner count so the figure can never read over 100%. Unowned avatars with
       // no recorded owners correctly read "0% of people own this".
       {
+        const isStarter = a.unlock?.type === "starter";
         const owners = Math.max(ownerCount, unlocked ? 1 : 0);
         const totalRaw = Number(_totalPlayerCount || 0);
         let rarityText;
-        if (totalRaw > 0) {
+        if (isStarter) {
+          // Starter icons are unlocked for everyone — not tracked server-side.
+          rarityText = "100% of people own this";
+        } else if (totalRaw > 0) {
           // Floor the denominator to the owner count so a slightly-stale total
           // can never make it read over 100%.
           const total = Math.max(totalRaw, owners);
@@ -24898,36 +24903,33 @@
       }
       return newly;
     };
-    // Lazily load the global popularity map for picker sorting (best-effort),
-    // plus the total-player count that turns owner counts into "% own this".
+    // Load per-avatar ownership ("% of people own this") + the total player
+    // count from the server. Browsers can't read the aggregate straight from
+    // Firestore (the users collection is private / rules block it), so the
+    // server aggregates the real `unlocked_icons` ownership with a service
+    // account and serves it over HTTP. Best-effort; retried on the next open
+    // if it hasn't populated yet.
     window.__fishLoadIconCounts = async () => {
-      if (!_db) return;
+      if (_iconUnlockCounts && _totalPlayerCount > 0) return; // already loaded
       try {
-        // Count THIS account toward the global player total exactly once (per
-        // device), so ownership can be shown as a % of all players. Guarded by
-        // localStorage so returning/new accounts each count once. Best-effort.
-        if (_authUser && _authUser.uid) {
-          const _pk = "cc_pcounted_" + _authUser.uid;
-          let _already = false;
-          try { _already = localStorage.getItem(_pk) === "1"; } catch {}
-          if (!_already) {
-            try {
-              await _db.collection("meta").doc("icon_unlock_counts").set({
-                __total_players: firebase.firestore.FieldValue.increment(1)
-              }, { merge: true });
-              try { localStorage.setItem(_pk, "1"); } catch {}
-            } catch {}
+        const base = String(window.__FISH_API_BASE__ || "");
+        const resp = await fetch(base + "/api/icon-ownership", { cache: "no-store" });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.ok) {
+            const raw = data.counts || {};
+            const map = {};
+            // Server keys are lowercased "/avatars/x.png"; our a.img already is.
+            ANIMAL_AVATARS.forEach(a => {
+              const key = String(a.img || "").split("?")[0].toLowerCase();
+              map[a.img] = Number(raw[key] || 0);
+            });
+            _iconUnlockCounts = map;
+            _totalPlayerCount = Number(data.total_players || 0);
           }
         }
-        if (!_iconUnlockCounts) {
-          const snap = await _db.collection("meta").doc("icon_unlock_counts").get();
-          const raw = snap.exists ? (snap.data() || {}) : {};
-          const map = {};
-          ANIMAL_AVATARS.forEach(a => { map[a.img] = Number(raw[a.img.replace(/[.#$/\[\]]/g, "_")] || 0); });
-          _iconUnlockCounts = map;
-          _totalPlayerCount = Number(raw.__total_players || 0);
-        }
-      } catch { if (!_iconUnlockCounts) _iconUnlockCounts = {}; }
+      } catch { /* best-effort — leave prior values in place */ }
+      if (!_iconUnlockCounts) _iconUnlockCounts = {};
       // If the gallery is already open with an avatar selected, refresh its
       // detail now that real counts exist — otherwise a detail opened before
       // the load finished would be stuck showing "Ownership loading…".

@@ -314,6 +314,67 @@ def get_live_user_counts():
             _LIVE_COUNTS_CACHE["games"])
 
 
+# ── Avatar ownership ("% of people own this") ──────────────────────────────
+# The avatar gallery shows, for every icon, what share of players own it.
+# Browser clients can't read this straight from Firestore (the users collection
+# is private), so the server aggregates the ground truth here with the service
+# account: it reads every user's `unlocked_icons` array and tallies per-icon
+# owners. Cached so opening the gallery never hammers Firestore. Starter icons
+# (unlocked for everyone) are shown as 100% on the client, not counted here.
+_ICON_OWNERSHIP_CACHE = {"at": 0.0, "counts": None, "total": None}
+_ICON_OWNERSHIP_TTL_SEC = 120.0
+
+
+def _fetch_icon_ownership():
+    """(counts, total_players) from Firestore user docs, or (None, None).
+    counts maps a lowercased "/avatars/x.png" path -> number of owners."""
+    db = _get_firestore()
+    if db is None:
+        return None, None
+    try:
+        users = db.collection("users")
+        # Pull only the unlocked_icons field from each doc to keep it light.
+        try:
+            stream = users.select(["unlocked_icons"]).stream()
+        except Exception:
+            stream = users.stream()
+        counts: Dict[str, int] = {}
+        total = 0
+        for doc in stream:
+            total += 1
+            icons = (doc.to_dict() or {}).get("unlocked_icons")
+            if not isinstance(icons, list):
+                continue
+            seen = set()  # count each icon at most once per player
+            for ic in icons:
+                if not isinstance(ic, str):
+                    continue
+                key = ic.strip().split("?")[0].lower()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                counts[key] = counts.get(key, 0) + 1
+        return counts, total
+    except Exception as exc:  # noqa: BLE001 - never let stats crash the server
+        print(f"[stats] icon ownership query failed: {exc}")
+        return None, None
+
+
+def get_icon_ownership():
+    """Cached (counts, total_players); refreshes at most every
+    _ICON_OWNERSHIP_TTL_SEC and keeps the last good values on a failed refresh."""
+    now = time.time()
+    if (now - _ICON_OWNERSHIP_CACHE["at"] < _ICON_OWNERSHIP_TTL_SEC
+            and _ICON_OWNERSHIP_CACHE["counts"] is not None):
+        return _ICON_OWNERSHIP_CACHE["counts"], _ICON_OWNERSHIP_CACHE["total"]
+    counts, total = _fetch_icon_ownership()
+    if counts is not None:
+        _ICON_OWNERSHIP_CACHE["counts"] = counts
+        _ICON_OWNERSHIP_CACHE["total"] = total
+        _ICON_OWNERSHIP_CACHE["at"] = now
+    return _ICON_OWNERSHIP_CACHE["counts"], _ICON_OWNERSHIP_CACHE["total"]
+
+
 # ══════════════════════════════════════════════════════════════════════════
 #  STRIPE CHECKOUT WEBHOOK — credit Critter Coins / grant Supporter Tiers
 # ══════════════════════════════════════════════════════════════════════════
@@ -9105,6 +9166,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 "games_played": games_played,
                 "registered_players": registered_players,
                 "online_players": online_players,
+            })
+            return
+
+        if parsed.path == "/api/icon-ownership":
+            # Per-avatar ownership for the gallery's "% of people own this".
+            # Aggregated server-side from every player's unlocked_icons (browsers
+            # can't read that themselves). Denominator falls back to the exact
+            # registered-account count when the stream total is unavailable.
+            counts, total = get_icon_ownership()
+            if not isinstance(total, int) or total <= 0:
+                reg, _online, _games = get_live_user_counts()
+                total = reg if isinstance(reg, int) and reg > 0 else 0
+            self._send_json({
+                "ok": True,
+                "total_players": int(total or 0),
+                "counts": counts or {},
             })
             return
 
