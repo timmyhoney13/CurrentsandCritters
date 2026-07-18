@@ -11671,3 +11671,210 @@
     }
     .tr-continue.show { opacity: 1; pointer-events: auto; }
     .tr-continue:hover { filter: brightness(1.08); }
+
+    /* ══ SECURE TRADE — Trade buttons in DM headers ══════════════════ */
+    /* Only shown in a 1-on-1 DM (never group / room chat). */
+    .pvc-trade-btn, .ccm-trade-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 12px; font-weight: 800; line-height: 1;
+      padding: 6px 10px; border-radius: 999px; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+      background: linear-gradient(135deg, #18c8a8, #0e9e78);
+      color: #062018; border: 1px solid rgba(255,255,255,.35);
+      box-shadow: 0 2px 8px rgba(24,200,168,.35);
+    }
+    .pvc-trade-btn:hover, .ccm-trade-btn:hover { filter: brightness(1.08); color: #041713; }
+    .pvc-trade-btn.cctr-live, .ccm-trade-btn.cctr-live {
+      background: linear-gradient(135deg, #f0c840, #d4a820); color: #3a2a00;
+      box-shadow: 0 0 0 0 rgba(240,200,64,.6); animation: cctrPulse 1.8s infinite;
+    }
+    @keyframes cctrPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(240,200,64,.55); }
+      70%  { box-shadow: 0 0 0 7px rgba(240,200,64,0); }
+      100% { box-shadow: 0 0 0 0 rgba(240,200,64,0); }
+    }
+
+    /* ══ SECURE TRADE — full-screen overlay ══════════════════════════ */
+    #cc-trade-overlay {
+      position: fixed; inset: 0; z-index: 9800;
+      display: none; align-items: center; justify-content: center;
+      padding: 16px; box-sizing: border-box;
+      background: rgba(4,14,30,.72);
+      backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    #cc-trade-overlay.open { display: flex; }
+    #cc-trade-box {
+      width: min(720px, 96vw); max-height: 92vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      background: linear-gradient(160deg, rgba(22,58,118,.99) 0%, rgba(11,30,68,.99) 100%);
+      border: 1.5px solid rgba(95,179,214,.45); border-radius: 16px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.6);
+      color: var(--text);
+    }
+    #cc-trade-head {
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      padding: 13px 14px; border-bottom: 1px solid rgba(95,179,214,.2);
+      background: linear-gradient(180deg, rgba(30,72,140,.6), rgba(20,52,108,.28));
+    }
+    #cc-trade-title {
+      flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      font-family: "Cinzel", serif; font-size: 17px; font-weight: 900; color: #cdeeff;
+    }
+    .cctr-x {
+      width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+      border: 1px solid rgba(120,190,235,.4); background: rgba(255,255,255,.06);
+      color: #bfe6fb; font-size: 17px; cursor: pointer;
+    }
+    .cctr-x:hover { color: var(--red); border-color: var(--red); }
+
+    .cctr-banner {
+      flex-shrink: 0; margin: 10px 14px 0; padding: 9px 12px; border-radius: 10px;
+      font-size: 13px; font-weight: 700; text-align: center; line-height: 1.35;
+    }
+    .cctr-banner.info    { background: rgba(34,216,248,.12); border: 1px solid rgba(34,216,248,.32); color: #bfeffb; }
+    .cctr-banner.warn    { background: rgba(240,200,64,.14); border: 1px solid rgba(240,200,64,.4);  color: #ffe9a8; }
+    .cctr-banner.err     { background: rgba(232,64,87,.15);  border: 1px solid rgba(232,64,87,.45);  color: #ffc3cc; }
+    .cctr-banner.ok      { background: rgba(66,200,120,.16); border: 1px solid rgba(66,200,120,.5);   color: #baf3d0; }
+
+    #cc-trade-cols {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      padding: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .cctr-col {
+      display: flex; flex-direction: column; min-width: 0;
+      background: rgba(9,26,58,.5); border: 1px solid rgba(95,179,214,.22);
+      border-radius: 12px; padding: 10px;
+    }
+    .cctr-col-head {
+      font-family: "Cinzel", serif; font-weight: 900; font-size: 14px;
+      text-align: center; padding: 6px 4px 9px; letter-spacing: .3px;
+    }
+    .cctr-col-head.cctr-give { color: #ffd9a8; }
+    .cctr-col-head.cctr-recv { color: #a8e0ff; }
+    .cctr-items { display: flex; flex-direction: column; gap: 8px; min-height: 60px; }
+    .cctr-item {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(16,44,92,.7); border: 1px solid rgba(95,179,214,.25);
+      border-radius: 10px; padding: 7px 9px;
+    }
+    .cctr-item-img {
+      width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+      object-fit: cover; background: rgba(0,0,0,.25) center/cover no-repeat;
+      border: 1px solid rgba(255,255,255,.14);
+    }
+    .cctr-item-coin {
+      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 22px;
+      background: radial-gradient(circle at 35% 30%, #ffe08a, #d4a820);
+      border: 1px solid rgba(255,255,255,.3);
+    }
+    .cctr-item-body { flex: 1; min-width: 0; }
+    .cctr-item-name {
+      font-size: 13px; font-weight: 800; color: #eaf6ff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cctr-item-sub { font-size: 11px; color: var(--muted); }
+    .cctr-item-rm {
+      width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0; cursor: pointer;
+      border: 1px solid rgba(232,64,87,.4); background: rgba(232,64,87,.14);
+      color: #ffb3bf; font-size: 15px; line-height: 1;
+    }
+    .cctr-item-rm:hover { background: rgba(232,64,87,.28); }
+    .cctr-empty {
+      text-align: center; color: var(--muted); font-size: 12px; font-style: italic;
+      padding: 16px 4px;
+    }
+    .cctr-add {
+      margin-top: 10px; padding: 9px; border-radius: 9px; cursor: pointer;
+      border: 1px dashed rgba(95,179,214,.5); background: rgba(34,216,248,.08);
+      color: #bfeffb; font-size: 13px; font-weight: 800;
+    }
+    .cctr-add:hover { background: rgba(34,216,248,.16); }
+    .cctr-add:disabled { opacity: .4; cursor: not-allowed; }
+    .cctr-conf {
+      margin-top: 9px; min-height: 20px; text-align: center;
+      font-size: 12px; font-weight: 800;
+    }
+    .cctr-conf.yes { color: var(--green); }
+    .cctr-conf.no  { color: var(--muted); }
+
+    #cc-trade-foot {
+      display: flex; gap: 10px; flex-shrink: 0;
+      padding: 12px 14px; border-top: 1px solid rgba(95,179,214,.2);
+      background: rgba(9,26,58,.4);
+    }
+    .cctr-btn {
+      flex: 1; padding: 12px; border-radius: 11px; cursor: pointer;
+      font-size: 14px; font-weight: 800; border: 1px solid transparent;
+    }
+    .cctr-btn.primary { background: linear-gradient(135deg, #18c8a8, #0e9e78); color: #052018; }
+    .cctr-btn.primary:hover { filter: brightness(1.08); }
+    .cctr-btn.primary.confirmed { background: linear-gradient(135deg, #f0c840, #d4a820); color: #3a2a00; }
+    .cctr-btn.danger { background: rgba(232,64,87,.16); border-color: rgba(232,64,87,.5); color: #ffc3cc; }
+    .cctr-btn.danger:hover { background: rgba(232,64,87,.28); }
+    .cctr-btn:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+
+    /* ── Item picker sheet ─────────────────────────────────────────── */
+    #cc-trade-picker {
+      position: absolute; inset: 0; z-index: 2;
+      display: none; align-items: flex-end; justify-content: center;
+      background: rgba(4,14,30,.55);
+    }
+    #cc-trade-picker.open { display: flex; }
+    #cc-trade-picker-box {
+      width: min(560px, 100%); max-height: 78vh; margin: 0 8px 8px;
+      display: flex; flex-direction: column; overflow: hidden;
+      background: linear-gradient(160deg, rgba(26,66,128,.99), rgba(13,34,74,.99));
+      border: 1.5px solid rgba(95,179,214,.45); border-radius: 16px 16px 12px 12px;
+      box-shadow: 0 -10px 40px rgba(0,0,0,.5);
+    }
+    .cctr-pk-head {
+      display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+      padding: 10px 12px; border-bottom: 1px solid rgba(95,179,214,.2);
+    }
+    .cctr-pk-tabs { display: flex; gap: 6px; flex: 1; min-width: 0; }
+    .cctr-pk-tab {
+      padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 12.5px; font-weight: 800;
+      border: 1px solid rgba(95,179,214,.35); background: rgba(255,255,255,.05); color: #bfe6fb;
+    }
+    .cctr-pk-tab.active { background: linear-gradient(135deg, #22d8f8, #1594c8); color: #06232e; border-color: transparent; }
+    .cctr-pk-body {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
+      padding: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    }
+    .cctr-pk-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
+      background: rgba(16,44,92,.6); border: 1.5px solid rgba(95,179,214,.28);
+      border-radius: 11px; padding: 9px 6px; text-align: center;
+    }
+    .cctr-pk-tile:hover { border-color: var(--cyan); background: rgba(34,216,248,.12); }
+    .cctr-pk-tile.picked { border-color: var(--green); background: rgba(66,200,120,.16); }
+    .cctr-pk-tile.disabled { opacity: .38; cursor: not-allowed; }
+    .cctr-pk-tile-img {
+      width: 62px; height: 62px; border-radius: 10px; object-fit: cover;
+      background: rgba(0,0,0,.25) center/cover no-repeat; border: 1px solid rgba(255,255,255,.12);
+    }
+    .cctr-pk-tile-name {
+      font-size: 11.5px; font-weight: 700; color: #eaf6ff; line-height: 1.2;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .cctr-pk-tile-badge { font-size: 10px; font-weight: 800; color: var(--green); }
+    .cctr-pk-empty { grid-column: 1/-1; text-align: center; color: var(--muted); font-size: 13px; padding: 26px 8px; font-style: italic; }
+    .cctr-pk-foot {
+      display: flex; gap: 8px; flex-shrink: 0; padding: 12px; border-top: 1px solid rgba(95,179,214,.2);
+    }
+    #cc-trade-coin-input {
+      flex: 1; min-width: 0; padding: 11px 12px; border-radius: 10px; font-size: 15px;
+      background: rgba(9,26,58,.8); border: 1px solid rgba(95,179,214,.45); color: #eaf6ff;
+    }
+    #cc-trade-coin-input:focus { outline: none; border-color: var(--cyan); }
+    .cctr-pk-foot .cctr-btn { flex: 0 0 auto; padding: 11px 16px; }
+    .cctr-coin-note { padding: 0 14px 4px; font-size: 12px; color: var(--muted); text-align: center; }
+
+    /* ── Mobile: stack the two sides + go edge-to-edge ─────────────── */
+    @media (max-width: 560px) {
+      #cc-trade-overlay { padding: 0; align-items: stretch; }
+      #cc-trade-box { width: 100%; max-height: 100%; border-radius: 0; }
+      #cc-trade-cols { grid-template-columns: 1fr; }
+      .cctr-pk-body { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+    }

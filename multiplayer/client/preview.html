@@ -2010,6 +2010,7 @@
     <button id="pv-chat-back" class="pvc-hbtn" title="Back to chats" aria-label="Back to chats" style="display:none;">‹<span class="pvc-back-dot" id="pv-chat-back-dot"></span></button>
     <span id="pv-chat-title">Current Game Chat</span>
     <div class="pvc-hdr-actions">
+      <button id="pv-chat-trade" class="pvc-hbtn pvc-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">🔄 Trade</button>
       <button id="pv-chat-gear" class="pvc-hbtn" title="Group settings" aria-label="Group settings" style="display:none;">⚙</button>
       <button id="pv-chat-close" class="pvc-hbtn" title="Close chat" aria-label="Close chat">✕</button>
     </div>
@@ -2071,6 +2072,7 @@
   <div class="ccm-header">
     <button class="ccm-back-btn" id="ccm-back-btn" title="Back to messages">‹</button>
     <div class="ccm-title" id="ccm-title">Friend Messages</div>
+    <button class="ccm-trade-btn" id="ccm-trade-btn" title="Trade with this player" aria-label="Trade with this player" style="display:none;">🔄 Trade</button>
     <button class="ccm-close" id="ccm-close" title="Close">✕</button>
   </div>
   <!-- Conversation list view -->
@@ -2086,6 +2088,61 @@
       <button class="ccm-send" id="ccm-send">Send</button>
     </div>
     <div class="ccm-guest-note" id="ccm-guest-note" style="display:none;">Sign in to send messages.</div>
+  </div>
+</div>
+
+<!-- ══ SECURE TRADE OVERLAY (1-on-1 DM trades) ════════════════════ -->
+<!-- Two players swap avatars / backgrounds / Critter Coins. All ownership
+     transfers happen server-side (/api/trade/*); this screen only builds the
+     offer, shows both sides live, and takes the two-step confirmation. -->
+<div id="cc-trade-overlay" role="dialog" aria-modal="true" aria-label="Trade" style="display:none;">
+  <div id="cc-trade-box">
+    <div id="cc-trade-head">
+      <div id="cc-trade-title">Trade</div>
+      <button id="cc-trade-close" class="cctr-x" title="Close" aria-label="Close trade">✕</button>
+    </div>
+
+    <div id="cc-trade-banner" class="cctr-banner" style="display:none;"></div>
+
+    <div id="cc-trade-cols">
+      <!-- YOU GIVE (my offer — editable) -->
+      <div class="cctr-col" id="cctr-give-col">
+        <div class="cctr-col-head cctr-give">You Give</div>
+        <div class="cctr-items" id="cctr-give-items"></div>
+        <button class="cctr-add" id="cctr-give-add" type="button">＋ Add item</button>
+        <div class="cctr-conf" id="cctr-give-conf"></div>
+      </div>
+      <!-- YOU RECEIVE (peer's offer — read-only) -->
+      <div class="cctr-col" id="cctr-recv-col">
+        <div class="cctr-col-head cctr-recv" id="cctr-recv-head">You Receive</div>
+        <div class="cctr-items" id="cctr-recv-items"></div>
+        <div class="cctr-conf" id="cctr-recv-conf"></div>
+      </div>
+    </div>
+
+    <div id="cc-trade-foot">
+      <button class="cctr-btn danger" id="cc-trade-cancel" type="button">Cancel Trade</button>
+      <button class="cctr-btn primary" id="cc-trade-confirm" type="button">Confirm</button>
+    </div>
+  </div>
+
+  <!-- Item picker sheet (choose avatars / backgrounds / coins to offer) -->
+  <div id="cc-trade-picker" style="display:none;">
+    <div id="cc-trade-picker-box">
+      <div class="cctr-pk-head">
+        <div class="cctr-pk-tabs">
+          <button class="cctr-pk-tab active" data-tab="avatars" type="button">Avatars</button>
+          <button class="cctr-pk-tab" data-tab="backgrounds" type="button">Backgrounds</button>
+          <button class="cctr-pk-tab" data-tab="coins" type="button">Coins</button>
+        </div>
+        <button id="cc-trade-picker-close" class="cctr-x" title="Close" aria-label="Close picker">✕</button>
+      </div>
+      <div class="cctr-pk-body" id="cc-trade-picker-body"></div>
+      <div class="cctr-pk-foot" id="cc-trade-picker-foot" style="display:none;">
+        <input id="cc-trade-coin-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Critter Coins to offer" />
+        <button id="cc-trade-coin-set" class="cctr-btn primary" type="button">Set Coins</button>
+      </div>
+    </div>
   </div>
 </div>
 

@@ -1268,6 +1268,617 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
             "message": f"Claimed {claimed_payments} payment(s)."}
 
 
+# ══════════════════════════════════════════════════════════════════════════
+# SECURE PLAYER-TO-PLAYER TRADING  (avatars / backgrounds / Critter Coins)
+# ══════════════════════════════════════════════════════════════════════════
+# Two players in a 1-on-1 DM can trade avatars, backgrounds and Critter Coins.
+# The whole exchange is SERVER-AUTHORITATIVE: a client can only write its OWN
+# users/{uid} doc (Firestore rules), so it can never move items between two
+# accounts. Every offer change / confirm / cancel / completion therefore goes
+# through the /api/trade/* endpoints, each proving account ownership with a
+# verified Firebase ID token. The actual swap runs in ONE Firestore transaction
+# that RE-VERIFIES ownership + balances at commit time, so nothing is ever
+# removed from one side unless the whole trade can complete.
+#
+# The authoritative trade lives at trades/{tradeId} where
+#   tradeId = "__".join(sorted([uidA, uidB]))   (one active trade per DM pair)
+# After every change the state is MIRRORED into each player's
+# users/{uid}/messages/trade_<tradeId> doc — the SAME subcollection DMs already
+# live in — so both clients see it update live via the existing snapshot
+# listener, with NO new Firestore rules required. That mirror doc carries
+# meta:true so the existing message filters skip it in chat bubbles / unread.
+
+TRADE_MAX_ITEMS_PER_SIDE = 12          # avatars + backgrounds cap per side
+TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
+
+
+def _trade_id_for(uid_a: str, uid_b: str) -> str:
+    """Deterministic id for the (only) active trade between two accounts."""
+    return "__".join(sorted([str(uid_a or ""), str(uid_b or "")]))
+
+
+def _trade_clean_offer(raw: Any) -> Dict[str, Any]:
+    """Normalise one side's offer from an untrusted client into
+    {coins:int>=0, avatars:[/avatars/…], backgrounds:[/backgrounds/…]} with
+    duplicates removed and both lists capped. Never raises."""
+    raw = raw if isinstance(raw, dict) else {}
+    try:
+        coins = int(raw.get("coins") or 0)
+    except (TypeError, ValueError):
+        coins = 0
+    coins = max(0, min(TRADE_MAX_COINS, coins))
+
+    def _paths(key: str, prefix: str) -> List[str]:
+        arr = raw.get(key)
+        out: List[str] = []
+        seen = set()
+        if isinstance(arr, list):
+            for x in arr:
+                s = str(x or "").split("?")[0].strip()
+                if s.startswith(prefix) and s not in seen and len(s) <= 200:
+                    seen.add(s)
+                    out.append(s)
+        return out[:TRADE_MAX_ITEMS_PER_SIDE]
+
+    return {"coins": coins,
+            "avatars": _paths("avatars", "/avatars/"),
+            "backgrounds": _paths("backgrounds", "/backgrounds/")}
+
+
+def _trade_assets(doc: Any) -> Dict[str, Any]:
+    """Extract what a user currently OWNS from their user doc:
+    {avatars:set, backgrounds:set, coins:int}. Free/default avatars that were
+    never explicitly unlocked are not in unlocked_icons, so they are naturally
+    not tradable."""
+    doc = doc if isinstance(doc, dict) else {}
+
+    def _norm(arr: Any, prefix: str) -> set:
+        out = set()
+        if isinstance(arr, list):
+            for x in arr:
+                s = str(x or "").split("?")[0].strip()
+                if s.startswith(prefix):
+                    out.add(s)
+        return out
+
+    stats = doc.get("stats") if isinstance(doc.get("stats"), dict) else {}
+    try:
+        coins = int(stats.get("critter_coins") or 0)
+    except (TypeError, ValueError):
+        coins = 0
+    return {"avatars": _norm(doc.get("unlocked_icons"), "/avatars/"),
+            "backgrounds": _norm(doc.get("unlocked_backgrounds"), "/backgrounds/"),
+            "coins": max(0, coins)}
+
+
+def _trade_validate_side(offer: Dict[str, Any], giver: Dict[str, Any],
+                         receiver: Dict[str, Any]) -> str:
+    """Return "" if `giver` may hand `offer` to `receiver`, else a reason.
+    Enforces: giver owns every item + has the coins; the receiver does NOT
+    already own an item (nothing can be owned twice); no negative coins."""
+    coins = offer.get("coins", 0)
+    if not isinstance(coins, int) or coins < 0:
+        return "negative_coins"
+    if coins > giver["coins"]:
+        return "not_enough_coins"
+    for a in offer.get("avatars", []):
+        if a not in giver["avatars"]:
+            return "avatar_not_owned"
+        if a in receiver["avatars"]:
+            return "duplicate_avatar"
+    for b in offer.get("backgrounds", []):
+        if b not in giver["backgrounds"]:
+            return "background_not_owned"
+        if b in receiver["backgrounds"]:
+            return "duplicate_background"
+    return ""
+
+
+def _trade_default_offer() -> Dict[str, Any]:
+    return {"coins": 0, "avatars": [], "backgrounds": []}
+
+
+def _trade_public(trade: Dict[str, Any]) -> Dict[str, Any]:
+    """The JSON-safe view of a trade that is mirrored to clients + returned by
+    the endpoints (no Firestore sentinels)."""
+    parts = trade.get("participants") or []
+    offers = trade.get("offers") or {}
+    confirmed = trade.get("confirmed") or {}
+    names = trade.get("names") or {}
+    out = {
+        "tradeId": trade.get("tradeId"),
+        "conv_id": trade.get("conv_id"),
+        "participants": list(parts),
+        "names": {u: names.get(u, "Player") for u in parts},
+        "offers": {u: (offers.get(u) or _trade_default_offer()) for u in parts},
+        "confirmed": {u: bool(confirmed.get(u)) for u in parts},
+        "version": int(trade.get("version") or 1),
+        "status": trade.get("status") or "open",
+        "created_by": trade.get("created_by"),
+    }
+    if trade.get("result"):
+        out["result"] = trade["result"]
+    if trade.get("last_error"):
+        out["last_error"] = trade["last_error"]
+    return out
+
+
+def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
+                         doc_b: Dict[str, Any]) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """Pure, testable core of the swap. Given the trade and BOTH users' current
+    docs, re-validate both offers and compute the new field values for each
+    account, or return an error reason. `changes[uid]` holds the fully-resolved
+    replacement values (never partial), so applying them is a plain set().
+
+    Returns (error, changes) where changes = { uid: {
+        "unlocked_icons": [...], "unlocked_backgrounds": [...],
+        "critter_coins": int, "avatar_url"?: str, "background_url"?: str } }."""
+    parts = trade.get("participants") or []
+    if len(parts) != 2:
+        return ("bad_participants", None)
+    a, b = parts[0], parts[1]
+    offers = trade.get("offers") or {}
+    offer_a = _trade_clean_offer(offers.get(a))
+    offer_b = _trade_clean_offer(offers.get(b))
+    assets_a = _trade_assets(doc_a)
+    assets_b = _trade_assets(doc_b)
+
+    # Re-verify BOTH directions at commit time (defence in depth vs. the
+    # offer-time check — an item may have been spent/traded since).
+    err = _trade_validate_side(offer_a, assets_a, assets_b)
+    if err:
+        return (err, None)
+    err = _trade_validate_side(offer_b, assets_b, assets_a)
+    if err:
+        return (err, None)
+
+    def _resolve(doc, assets, give, recv):
+        removed_av = set(give["avatars"])
+        added_av = set(recv["avatars"])
+        removed_bg = set(give["backgrounds"])
+        added_bg = set(recv["backgrounds"])
+        new_av = (assets["avatars"] - removed_av) | added_av
+        new_bg = (assets["backgrounds"] - removed_bg) | added_bg
+        new_coins = assets["coins"] - int(give["coins"]) + int(recv["coins"])
+        if new_coins < 0:
+            return None
+        change = {
+            "unlocked_icons": sorted(new_av),
+            "unlocked_backgrounds": sorted(new_bg),
+            "critter_coins": int(new_coins),
+        }
+        # If the player traded away the avatar/background they had equipped,
+        # fall back to a safe default so their profile never points at an item
+        # they no longer own.
+        eq_av = str((doc or {}).get("avatar_url") or "").split("?")[0]
+        if eq_av and eq_av in removed_av and eq_av not in new_av:
+            change["avatar_url"] = "/avatars/mullet.png"
+        eq_bg = str((doc or {}).get("background_url") or "").split("?")[0]
+        if eq_bg and eq_bg in removed_bg and eq_bg not in new_bg:
+            change["background_url"] = ""
+        return change
+
+    change_a = _resolve(doc_a, assets_a, offer_a, offer_b)
+    change_b = _resolve(doc_b, assets_b, offer_b, offer_a)
+    if change_a is None or change_b is None:
+        return ("negative_coins", None)
+    return ("", {a: change_a, b: change_b})
+
+
+def _trade_mirror(db, trade: Dict[str, Any]) -> None:
+    """Write the live trade state into BOTH participants' messages subcollection
+    (deterministic id) so their existing snapshot listener re-renders it live.
+    Best-effort — a failed mirror never blocks the authoritative write."""
+    from firebase_admin import firestore as _fs
+    SERVER_TIMESTAMP = getattr(_fs, "SERVER_TIMESTAMP", None)
+    if SERVER_TIMESTAMP is None:
+        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # type: ignore
+    tid = trade.get("tradeId")
+    payload = {
+        "conv_id": trade.get("conv_id"),
+        # NOTE: deliberately NOT meta:true — a meta doc would make the DM be
+        # detected as a group. The client excludes trade:true docs everywhere it
+        # excludes meta docs (chat bubbles, unread counts, last-message preview).
+        "trade": True,           # flags this as the live trade doc
+        "trade_id": tid,
+        "trade_state": _trade_public(trade),
+        "ts": SERVER_TIMESTAMP,
+        "read": True,
+    }
+    for uid in (trade.get("participants") or []):
+        try:
+            db.collection("users").document(uid).collection("messages") \
+              .document("trade_" + str(tid)).set(payload)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[trade] mirror to {uid} failed: {exc}")
+
+
+def _trade_post_message(db, trade: Dict[str, Any], text: str, actor: str,
+                        ping: bool = False) -> None:
+    """Post a centered SYSTEM line into the pair's DM for BOTH players — used
+    for the trade started / completed / canceled summary.
+
+    sender/receiver are the two REAL uids (sender=actor, receiver=the other) so
+    the messaging layer's peer derivation stays correct in both copies; system
+    True makes it render as a centered grey line (never a left/right bubble).
+    When ping is True the non-actor's copy is left unread so they get a badge."""
+    from firebase_admin import firestore as _fs
+    SERVER_TIMESTAMP = getattr(_fs, "SERVER_TIMESTAMP", None)
+    if SERVER_TIMESTAMP is None:
+        from google.cloud.firestore_v1 import SERVER_TIMESTAMP  # type: ignore
+    parts = trade.get("participants") or []
+    if len(parts) != 2:
+        return
+    names = trade.get("names") or {}
+    conv_id = trade.get("conv_id")
+    other = parts[1] if actor == parts[0] else parts[0]
+    import uuid as _uuid
+    msg_id = "tradelog_" + _uuid.uuid4().hex
+    base = {
+        "conv_id": conv_id,
+        "sender": actor,
+        "sender_name": names.get(actor, "Player"),
+        "receiver": other,
+        "receiver_name": names.get(other, "Player"),
+        "text": text,
+        "system": True,          # → centered grey line in both chat surfaces
+        "trade_log": True,
+        "ts": SERVER_TIMESTAMP,
+    }
+    for uid in parts:
+        try:
+            db.collection("users").document(uid).collection("messages") \
+              .document(msg_id).set(dict(base, read=(uid == actor or not ping)))
+        except Exception as exc:  # noqa: BLE001
+            print(f"[trade] log to {uid} failed: {exc}")
+
+
+def _trade_summary_text(trade: Dict[str, Any]) -> str:
+    """Human-readable one-liner describing what each side gave (for the DM log)."""
+    parts = trade.get("participants") or []
+    names = trade.get("names") or {}
+    offers = trade.get("offers") or {}
+
+    def _side(uid):
+        o = _trade_clean_offer(offers.get(uid))
+        bits = []
+        if o["coins"]:
+            bits.append(f"{o['coins']:,} Critter Coins")
+        n = len(o["avatars"]); m = len(o["backgrounds"])
+        if n:
+            bits.append(f"{n} avatar" + ("s" if n != 1 else ""))
+        if m:
+            bits.append(f"{m} background" + ("s" if m != 1 else ""))
+        return ", ".join(bits) if bits else "nothing"
+
+    if len(parts) != 2:
+        return "Trade completed."
+    a, b = parts
+    return (f"✅ Trade completed — {names.get(a, 'Player')} gave {_side(a)}; "
+            f"{names.get(b, 'Player')} gave {_side(b)}.")
+
+
+def _trade_get_state(uid: str, peer_uid: str) -> Dict[str, Any]:
+    """Return the current trade state for the DM pair (or a fresh empty one)."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    tid = _trade_id_for(uid, peer_uid)
+    snap = db.collection("trades").document(tid).get()
+    if not snap.exists:
+        return {"ok": True, "state": None}
+    trade = snap.to_dict() or {}
+    return {"ok": True, "state": _trade_public(trade)}
+
+
+def _trade_open(uid: str, uid_name: str, peer_uid: str, peer_name: str) -> Dict[str, Any]:
+    """Create (or resume) the active trade between the caller and peer.
+
+    A brand-new trade is created only if there is no OPEN trade already; a
+    completed/canceled trade is replaced by a fresh empty one. Uses a
+    transaction on the deterministic doc so two simultaneous opens can't create
+    duplicates."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    peer_uid = str(peer_uid or "").strip()
+    if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    tid = _trade_id_for(uid, peer_uid)
+    parts = sorted([uid, peer_uid])
+    names = {uid: safe_name(uid_name, "Player"), peer_uid: safe_name(peer_name, "Player")}
+    trade_ref = db.collection("trades").document(tid)
+    transaction = db.transaction()
+    created = {"new": False}
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        snap = trade_ref.get(transaction=txn)
+        cur = snap.to_dict() if snap.exists else None
+        if cur and cur.get("status") == "open":
+            # Resume — just refresh display names in case someone renamed.
+            merged_names = dict(cur.get("names") or {})
+            merged_names.update(names)
+            cur["names"] = merged_names
+            txn.set(trade_ref, {"names": merged_names,
+                                "updated_ts": SERVER_TIMESTAMP}, merge=True)
+            return cur
+        fresh = {
+            "tradeId": tid,
+            "conv_id": tid,
+            "participants": parts,
+            "names": names,
+            "offers": {parts[0]: _trade_default_offer(),
+                       parts[1]: _trade_default_offer()},
+            "confirmed": {parts[0]: False, parts[1]: False},
+            "version": 1,
+            "status": "open",
+            "created_by": uid,
+            "result": None,
+            "last_error": None,
+            "created_ts": SERVER_TIMESTAMP,
+            "updated_ts": SERVER_TIMESTAMP,
+        }
+        txn.set(trade_ref, fresh)
+        created["new"] = True
+        return fresh
+
+    try:
+        trade = _apply(transaction)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[trade] open failed: {exc}")
+        return {"ok": False, "error": "open_failed"}
+    _trade_mirror(db, trade)
+    if created["new"]:
+        _trade_post_message(db, trade, f"🔄 {names[uid]} started a trade.",
+                            actor=uid, ping=True)
+    return {"ok": True, "state": _trade_public(trade)}
+
+
+def _trade_set_offer(uid: str, uid_name: str, peer_uid: str, raw_offer: Any) -> Dict[str, Any]:
+    """Replace the caller's side of the offer. Validates against live ownership
+    first (fast feedback), then updates the trade doc in a transaction, bumping
+    the version and RESETTING both confirmations (any change re-arms confirm)."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    peer_uid = str(peer_uid or "").strip()
+    if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    offer = _trade_clean_offer(raw_offer)
+
+    my_doc = (db.collection("users").document(uid).get().to_dict()) or {}
+    peer_doc = (db.collection("users").document(peer_uid).get().to_dict()) or {}
+    reason = _trade_validate_side(offer, _trade_assets(my_doc), _trade_assets(peer_doc))
+    if reason:
+        return {"ok": False, "error": reason}
+
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    tid = _trade_id_for(uid, peer_uid)
+    trade_ref = db.collection("trades").document(tid)
+    transaction = db.transaction()
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        snap = trade_ref.get(transaction=txn)
+        if not snap.exists:
+            return {"__err__": "no_trade"}
+        trade = snap.to_dict() or {}
+        if trade.get("status") != "open":
+            return {"__err__": "not_open"}
+        parts = trade.get("participants") or []
+        if uid not in parts:
+            return {"__err__": "not_participant"}
+        offers = dict(trade.get("offers") or {})
+        offers[uid] = offer
+        names = dict(trade.get("names") or {})
+        names[uid] = safe_name(uid_name, names.get(uid, "Player"))
+        new_version = int(trade.get("version") or 1) + 1
+        confirmed = {p: False for p in parts}
+        txn.set(trade_ref, {"offers": offers, "names": names,
+                            "version": new_version, "confirmed": confirmed,
+                            "last_error": None, "updated_ts": SERVER_TIMESTAMP},
+                merge=True)
+        trade["offers"] = offers
+        trade["names"] = names
+        trade["version"] = new_version
+        trade["confirmed"] = confirmed
+        trade["last_error"] = None
+        return trade
+
+    try:
+        trade = _apply(transaction)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[trade] set_offer failed: {exc}")
+        return {"ok": False, "error": "offer_failed"}
+    if trade.get("__err__"):
+        return {"ok": False, "error": trade["__err__"]}
+    _trade_mirror(db, trade)
+    return {"ok": True, "state": _trade_public(trade)}
+
+
+def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict[str, Any]:
+    """Set (or clear) the caller's confirmation for a specific trade version.
+
+    If confirming would make BOTH sides confirmed at the SAME version, the swap
+    is executed atomically in this same transaction (all reads before writes):
+    both user docs + the trade doc are read, both offers re-validated against
+    live ownership, and — only if everything still holds — the items/coins are
+    moved and the trade is marked completed. Any commit-time failure resets both
+    confirmations (bumping the version) and returns a clear error instead."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    peer_uid = str(peer_uid or "").strip()
+    if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    tid = _trade_id_for(uid, peer_uid)
+    trade_ref = db.collection("trades").document(tid)
+    parts_sorted = sorted([uid, peer_uid])
+    user_refs = {p: db.collection("users").document(p) for p in parts_sorted}
+    transaction = db.transaction()
+    outcome: Dict[str, Any] = {}
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        snap = trade_ref.get(transaction=txn)
+        if not snap.exists:
+            return {"__err__": "no_trade"}
+        trade = snap.to_dict() or {}
+        status = trade.get("status")
+        if status == "completed":
+            return {"__err__": "already_completed", "trade": trade}
+        if status != "open":
+            return {"__err__": "not_open", "trade": trade}
+        parts = trade.get("participants") or []
+        if uid not in parts:
+            return {"__err__": "not_participant"}
+        if confirm and int(version) != int(trade.get("version") or 1):
+            # The offer changed under them — reject; the client re-syncs + re-confirms.
+            return {"__err__": "changed", "trade": trade}
+
+        confirmed = dict(trade.get("confirmed") or {})
+        confirmed[uid] = bool(confirm)
+        both = all(bool(confirmed.get(p)) for p in parts)
+
+        if not both:
+            txn.set(trade_ref, {"confirmed": confirmed,
+                                "updated_ts": SERVER_TIMESTAMP}, merge=True)
+            trade["confirmed"] = confirmed
+            return {"trade": trade}
+
+        # Both confirmed at this version → execute the swap now. All the reads
+        # we need must happen before any write (Firestore txn rule).
+        docs = {}
+        for p in parts:
+            usnap = user_refs[p].get(transaction=txn)
+            docs[p] = (usnap.to_dict() or {}) if usnap.exists else {}
+        err, changes = _trade_compute_apply(trade, docs[parts[0]], docs[parts[1]])
+        if err:
+            # Can't safely complete — reset confirmations, bump version, record error.
+            reset = {p: False for p in parts}
+            new_version = int(trade.get("version") or 1) + 1
+            txn.set(trade_ref, {"confirmed": reset, "version": new_version,
+                                "last_error": err, "updated_ts": SERVER_TIMESTAMP},
+                    merge=True)
+            trade["confirmed"] = reset
+            trade["version"] = new_version
+            trade["last_error"] = err
+            return {"__err__": err, "trade": trade}
+
+        # Apply the resolved values to both accounts + close the trade — all in
+        # this one atomic transaction.
+        for p in parts:
+            ch = changes[p]
+            update = {
+                "unlocked_icons": ch["unlocked_icons"],
+                "unlocked_backgrounds": ch["unlocked_backgrounds"],
+                "stats": {"critter_coins": ch["critter_coins"]},
+            }
+            if "avatar_url" in ch:
+                update["avatar_url"] = ch["avatar_url"]
+            if "background_url" in ch:
+                update["background_url"] = ch["background_url"]
+            txn.set(user_refs[p], update, merge=True)
+        result = {"completed_ts": None, "summary": _trade_summary_text(trade)}
+        txn.set(trade_ref, {"status": "completed", "confirmed": confirmed,
+                            "result": result, "last_error": None,
+                            "completed_ts": SERVER_TIMESTAMP,
+                            "updated_ts": SERVER_TIMESTAMP}, merge=True)
+        trade["status"] = "completed"
+        trade["confirmed"] = confirmed
+        trade["result"] = result
+        return {"trade": trade, "__completed__": True}
+
+    try:
+        outcome = _apply(transaction)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[trade] confirm failed: {exc}")
+        return {"ok": False, "error": "confirm_failed"}
+
+    trade = outcome.get("trade")
+    if trade is not None:
+        _trade_mirror(db, trade)
+    if outcome.get("__completed__") and trade is not None:
+        _trade_post_message(db, trade, _trade_summary_text(trade),
+                            actor=uid, ping=True)
+    if outcome.get("__err__"):
+        return {"ok": False, "error": outcome["__err__"],
+                "state": _trade_public(trade) if trade else None}
+    return {"ok": True,
+            "completed": bool(outcome.get("__completed__")),
+            "state": _trade_public(trade) if trade else None}
+
+
+def _trade_cancel(uid: str, peer_uid: str) -> Dict[str, Any]:
+    """Cancel the active trade (either side may, any time before completion)."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    peer_uid = str(peer_uid or "").strip()
+    if not peer_uid or peer_uid == uid:
+        return {"ok": False, "error": "bad_peer"}
+    from firebase_admin import firestore
+    transactional = getattr(firestore, "transactional", None)
+    if transactional is None:
+        from google.cloud.firestore_v1 import transactional
+    SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
+
+    tid = _trade_id_for(uid, peer_uid)
+    trade_ref = db.collection("trades").document(tid)
+    transaction = db.transaction()
+
+    @transactional
+    def _apply(txn) -> Dict[str, Any]:
+        snap = trade_ref.get(transaction=txn)
+        if not snap.exists:
+            return {"__err__": "no_trade"}
+        trade = snap.to_dict() or {}
+        if trade.get("status") == "completed":
+            return {"__err__": "already_completed", "trade": trade}
+        if uid not in (trade.get("participants") or []):
+            return {"__err__": "not_participant"}
+        txn.set(trade_ref, {"status": "canceled",
+                            "canceled_by": uid,
+                            "confirmed": {p: False for p in (trade.get("participants") or [])},
+                            "updated_ts": SERVER_TIMESTAMP}, merge=True)
+        trade["status"] = "canceled"
+        return {"trade": trade, "__canceled__": True}
+
+    try:
+        outcome = _apply(transaction)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[trade] cancel failed: {exc}")
+        return {"ok": False, "error": "cancel_failed"}
+    trade = outcome.get("trade")
+    if trade is not None:
+        _trade_mirror(db, trade)
+    if outcome.get("__canceled__") and trade is not None:
+        names = trade.get("names") or {}
+        _trade_post_message(db, trade, f"✖ Trade canceled by {names.get(uid, 'a player')}.",
+                            actor=uid, ping=True)
+    if outcome.get("__err__"):
+        return {"ok": False, "error": outcome["__err__"]}
+    return {"ok": True, "state": _trade_public(trade) if trade else None}
+
+
 BRAIN_LOCK = threading.Lock()
 DATASET_LOCK = threading.Lock()
 HISTORY_LOCK = threading.Lock()
@@ -8639,6 +9250,45 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
                 return
             self._send_json(_claim_guest_rewards(claims["uid"], str(claims.get("email") or "")))
+            return
+
+        # ── Secure player-to-player trading (DM trades) ─────────────────────
+        # Every trade action proves account ownership with a verified Firebase
+        # ID token; the caller's uid always comes from the token, never the body,
+        # so a client can only ever act as itself. The peer uid identifies the
+        # OTHER side (the DM partner). See the _trade_* helpers above.
+        if parsed.path.startswith("/api/trade/"):
+            claims = _verify_firebase_id_token(body.get("idToken") if isinstance(body.get("idToken"), str) else "")
+            if not claims or not claims.get("uid"):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.UNAUTHORIZED)
+                return
+            uid = claims["uid"]
+            uid_name = body.get("myName") if isinstance(body.get("myName"), str) else "Player"
+            peer_uid = body.get("peerUid") if isinstance(body.get("peerUid"), str) else ""
+            action = parsed.path[len("/api/trade/"):]
+            if action == "get":
+                self._send_json(_trade_get_state(uid, peer_uid))
+                return
+            if action == "open":
+                peer_name = body.get("peerName") if isinstance(body.get("peerName"), str) else "Player"
+                self._send_json(_trade_open(uid, uid_name, peer_uid, peer_name))
+                return
+            if action == "offer":
+                self._send_json(_trade_set_offer(uid, uid_name, peer_uid, body.get("offer")))
+                return
+            if action == "confirm":
+                try:
+                    ver = int(body.get("version") or 0)
+                except (TypeError, ValueError):
+                    ver = 0
+                confirm = body.get("confirm")
+                confirm = True if confirm is None else bool(confirm)
+                self._send_json(_trade_confirm(uid, peer_uid, ver, confirm))
+                return
+            if action == "cancel":
+                self._send_json(_trade_cancel(uid, peer_uid))
+                return
+            self._send_json({"ok": False, "error": "unknown_action"}, status=HTTPStatus.NOT_FOUND)
             return
 
         # Admin: edit a wall record (displayName / status / visible).

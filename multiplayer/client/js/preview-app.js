@@ -12662,8 +12662,10 @@
     });
     const back   = _pg("pv-chat-back");
     const gear   = _pg("pv-chat-gear");
+    const trade  = _pg("pv-chat-trade");
     const title  = _pg("pv-chat-title");
     if (title) title.classList.remove("editable");   // only group-conv titles are editable
+    if (trade) trade.style.display = "none";          // shown only in a DM conv (below)
     if (view === "room") {
       if (title)  title.textContent = pvcRoomChatLabels().title;
       if (back)   back.style.display = "";       // back → chat list
@@ -12681,6 +12683,16 @@
       if (gear)   gear.style.display = (_chatConv && _chatConv.group) ? "" : "none";
       // A group's title is tappable to rename it.
       if (title && _chatConv && _chatConv.group) title.classList.add("editable");
+      // Trade button: DMs only (not groups / room chat), signed-in players only.
+      const M = _pvcMsg();
+      const isDM = !!(_chatConv && !_chatConv.group && _chatConv.peerUid);
+      const guest = !!(M && M.isGuest && M.isGuest());
+      if (trade) {
+        const showTrade = isDM && !guest;
+        trade.style.display = showTrade ? "" : "none";
+        trade.setAttribute("data-conv", showTrade ? (_chatConv.id || "") : "");
+        if (window.__fishTrade && window.__fishTrade.refreshButtons) window.__fishTrade.refreshButtons();
+      }
     }
     pvcUpdateBadges();
   }
@@ -12978,6 +12990,15 @@
   _pg("pv-chat-gear").addEventListener("click", () => {
     if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
   });
+  // Trade button (DMs only) → open the secure trade overlay with this player.
+  {
+    const _tb = _pg("pv-chat-trade");
+    if (_tb) _tb.addEventListener("click", () => {
+      if (_chatConv && !_chatConv.group && _chatConv.peerUid && window.__fishTrade) {
+        window.__fishTrade.openWith(_chatConv.peerUid, _chatConv.peerName || _chatConv.name);
+      }
+    });
+  }
   // Tap a group conversation's title to rename it (sends an in-chat notice).
   _pg("pv-chat-title").addEventListener("click", () => {
     if (_chatView === "conv" && _chatConv && _chatConv.group) pvcRenameGroupTitle();
@@ -18664,7 +18685,8 @@
         const all  = byConv[cid];
         const meta = all.filter(m => m.meta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
         const isGroup = !!meta || all.some(m => m.group);
-        const msgs = all.filter(m => !m.meta).sort((a, b) => _msgTs(a) - _msgTs(b));
+        // Exclude the live trade mirror doc (trade:true) — it's not a chat message.
+        const msgs = all.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
         const last = msgs[msgs.length - 1];
         const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
 
@@ -18697,7 +18719,7 @@
         _msgListUnsub = _db.collection("users").doc(_authUser.uid).collection("messages")
           .onSnapshot({ includeMetadataChanges: false }, snap => {
             _msgAllMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            _msgTotalUnread = _msgAllMessages.filter(m => !m.meta && m.sender !== _authUser.uid && !m.read).length;
+            _msgTotalUnread = _msgAllMessages.filter(m => !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read).length;
             _msgUpdateBadge();
             _msgRebuildConversations();
             const drawer = $a("cc-msg-drawer");
@@ -18959,6 +18981,15 @@
         titleEl.textContent = title || "Conversation";
         titleEl.classList.toggle("editable", !!_msgOpenGroup);   // tap to rename groups
       }
+      // Trade button: only in a 1-on-1 DM (never group / room chat), and only
+      // for signed-in players (guests can't own items).
+      const tradeBtn = $a("ccm-trade-btn");
+      if (tradeBtn) {
+        const showTrade = !!(_msgOpenPeer && _msgOpenPeer.uid) && !_msgOpenGroup && !(_guestSessionActive === true);
+        tradeBtn.style.display = showTrade ? "" : "none";
+        tradeBtn.setAttribute("data-conv", showTrade ? _convIdFor(_authUser.uid, _msgOpenPeer.uid) : "");
+        if (window.__fishTrade && window.__fishTrade.refreshButtons) window.__fishTrade.refreshButtons();
+      }
 
       const guestNote = $a("ccm-guest-note");
       const inputRow  = $a("ccm-input-row");
@@ -19008,7 +19039,7 @@
       if (!msgsEl || !_msgOpenConvId) return;
       const isGroup = !!_msgOpenGroup;
       const msgs = _msgAllMessages
-        .filter(m => m.conv_id === _msgOpenConvId && !m.meta)
+        .filter(m => m.conv_id === _msgOpenConvId && !m.meta && !m.trade)
         .sort((a, b) => _msgTs(a) - _msgTs(b));
       msgsEl.innerHTML = "";
       if (!msgs.length) {
@@ -19055,7 +19086,7 @@
     async function _msgMarkConvRead(convId) {
       if (!_db || !_authUser || !convId) return;
       const unread = _msgAllMessages.filter(m =>
-        m.conv_id === convId && !m.meta && m.sender !== _authUser.uid && !m.read);
+        m.conv_id === convId && !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read);
       for (const m of unread) {
         try {
           await _db.collection("users").doc(_authUser.uid)
@@ -19449,10 +19480,17 @@
       conversations: () => _msgConversations.slice(),
       totalUnread:  () => _msgTotalUnread,
       unreadFor:    (convId) => _msgAllMessages.filter(m =>
-                       m.conv_id === convId && !m.meta && m.sender !== _authUser.uid && !m.read).length,
+                       m.conv_id === convId && !m.meta && !m.trade && m.sender !== _authUser.uid && !m.read).length,
       messagesFor:  (convId) => _msgAllMessages
-                       .filter(m => m.conv_id === convId && !m.meta)
+                       .filter(m => m.conv_id === convId && !m.meta && !m.trade)
                        .sort((a, b) => _msgTs(a) - _msgTs(b)),
+      // Latest live trade-state doc for a DM conv (from the server mirror), or null.
+      tradeState:   (convId) => {
+                       const d = _msgAllMessages.filter(m => m && m.trade && m.conv_id === convId);
+                       if (!d.length) return null;
+                       d.sort((a, b) => _msgTs(a) - _msgTs(b));
+                       return d[d.length - 1].trade_state || null;
+                     },
       groupMeta:    (convId) => _msgGroupMeta(convId),
       timeLabel:    (ts) => _msgTimeLabel(ts),
       markRead:     (convId) => _msgMarkConvRead(convId),
@@ -19470,6 +19508,480 @@
                        return () => { const i = _msgChangeCbs.indexOf(cb); if (i >= 0) _msgChangeCbs.splice(i, 1); }; }
                        return () => {}; },
     };
+
+    // ══════════════════════════════════════════════════════════════════
+    // SECURE PLAYER-TO-PLAYER TRADING (client)
+    // ══════════════════════════════════════════════════════════════════
+    // The full-screen trade overlay for 1-on-1 DMs. It only BUILDS the offer,
+    // shows both sides live, and takes the two-step confirmation — every actual
+    // ownership/coin change happens server-side (/api/trade/*) in one atomic,
+    // re-verified transaction. Live state arrives through the same Firestore
+    // messages listener (the server mirrors the trade into a trade:true doc), so
+    // both players always see the same thing. Lives inside the auth IIFE so it
+    // can read _authUser / _unlockedIcons / _unlockedBackgrounds / _activeProfile
+    // and the shared avatar+background catalogs directly.
+    let _trPeerUid = null, _trPeerName = "", _trConvId = null;
+    let _trState   = null;      // last known server trade state
+    let _trBusy    = false;     // in-flight guard → no double submits
+    let _trPickerTab = "avatars";
+    let _trWired   = false;
+    let _trLastStatus = null;   // to fire the "completed" profile refresh exactly once
+
+    function _trToast(msg, kind) { if (typeof showToast === "function") showToast(msg, kind || "info"); }
+    function _trMyCoins() { return Math.max(0, Math.floor(Number((_activeProfile && _activeProfile.stats || {}).critter_coins) || 0)); }
+    function _trMyAvatars() { return Array.isArray(_unlockedIcons) ? _unlockedIcons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : []; }
+    function _trMyBackgrounds() { return Array.isArray(_unlockedBackgrounds) ? _unlockedBackgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : []; }
+    function _trAvatarName(p) { const a = animalByImg(p); return (a && a.name) || "Avatar"; }
+    function _trBgName(p) { const b = _BG_BY_IMG[p]; return (b && b.name) || "Background"; }
+    function _trImgSrc(p) { return (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(p) : p; }
+
+    // After a trade completes the server has changed MY coins / unlocked items,
+    // so re-read my user doc and refresh the local caches + header. Guarded by
+    // _galReadOnly so a background completion never clobbers a gallery I'm only
+    // viewing (see the profile-view invariant).
+    async function _trRefreshMyProfile() {
+      try {
+        if (!_authUser || _galReadOnly) return;
+        const p = await loadProfile(_authUser.uid);
+        if (!p) return;
+        _activeProfile = p;
+        _unlockedIcons = Array.isArray(p.unlocked_icons)
+          ? p.unlocked_icons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : [];
+        _unlockedBackgrounds = Array.isArray(p.unlocked_backgrounds)
+          ? p.unlocked_backgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : [];
+        if (typeof syncStatsHeader === "function") { try { syncStatsHeader(_activeProfile); } catch (_) {} }
+      } catch (_) {}
+    }
+
+    function _trErrText(code) {
+      const m = {
+        not_enough_coins: "You don't have enough Critter Coins for that.",
+        avatar_not_owned: "You no longer own one of those avatars.",
+        background_not_owned: "You no longer own one of those backgrounds.",
+        duplicate_avatar: "They already own one of those avatars — it can't be traded to them.",
+        duplicate_background: "They already own one of those backgrounds — it can't be traded to them.",
+        negative_coins: "Coin amount can't be negative.",
+        changed: "The offer changed — review it and confirm again.",
+        not_open: "This trade is no longer open.",
+        already_completed: "This trade was already completed.",
+        no_trade: "This trade is no longer available.",
+        not_participant: "You're not part of this trade.",
+        bad_peer: "Couldn't start a trade with that player.",
+        auth: "Please sign in to trade.",
+        unauthorized: "Please sign in to trade.",
+        firestore_unavailable: "Trading is temporarily unavailable — try again shortly.",
+      };
+      return m[code] || "Something went wrong with the trade.";
+    }
+
+    // POST to a /api/trade/<action> endpoint with a fresh Firebase ID token.
+    async function _trPost(action, extra) {
+      if (!_authUser) return { ok: false, error: "auth" };
+      let token = "";
+      try { token = await _authUser.getIdToken(); } catch (_) { return { ok: false, error: "auth" }; }
+      const base = String(window.__FISH_API_BASE__ || "");
+      const payload = Object.assign({
+        idToken: token,
+        myName: _playerNickname || "Player",
+        peerUid: _trPeerUid,
+        peerName: _trPeerName,
+      }, extra || {});
+      try {
+        const res = await fetch(base + "/api/trade/" + action, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        return await res.json().catch(() => ({ ok: false, error: "bad_response" }));
+      } catch (_) {
+        return { ok: false, error: "network" };
+      }
+    }
+
+    function _trOverlay() { return $a("cc-trade-overlay"); }
+    function _trOverlayOpen() { const o = _trOverlay(); return !!(o && o.style.display !== "none"); }
+    function _trMyOffer() {
+      const o = (_trState && _trState.offers && _authUser) ? _trState.offers[_authUser.uid] : null;
+      return o || { coins: 0, avatars: [], backgrounds: [] };
+    }
+    function _trPeerOffer() {
+      const o = (_trState && _trState.offers) ? _trState.offers[_trPeerUid] : null;
+      return o || { coins: 0, avatars: [], backgrounds: [] };
+    }
+
+    function _trBanner(text, kind) {
+      const b = $a("cc-trade-banner");
+      if (!b) return;
+      if (!text) { b.style.display = "none"; b.textContent = ""; return; }
+      b.style.display = ""; b.className = "cctr-banner " + (kind || "info"); b.textContent = text;
+    }
+
+    // ── Open / close the overlay ─────────────────────────────────────
+    async function _trOpen(peerUid, peerName) {
+      if (!_authUser || _guestSessionActive === true) { _trToast("Sign in to trade.", "info"); return; }
+      if (!peerUid || peerUid === _authUser.uid) return;
+      _trSubscribeOnce(); _trWireOnce();
+      _trPeerUid = String(peerUid); _trPeerName = peerName || "Player";
+      _trConvId = _convIdFor(_authUser.uid, peerUid);
+      _trState = null; _trPickerTab = "avatars"; _trLastStatus = null;
+      _trHidePicker();
+      const o = _trOverlay();
+      if (o) { o.style.display = "flex"; o.classList.add("open"); }
+      const title = $a("cc-trade-title");
+      if (title) title.textContent = "Trade with " + _trPeerName;
+      _trBanner("Opening trade…", "info");
+      _trRender();
+      const res = await _trPost("open", { peerName: _trPeerName });
+      if (!res || res.error) { _trBanner(_trErrText(res && res.error), "err"); return; }
+      _trState = res.state;
+      _trBanner("", "");
+      _trRender();
+    }
+
+    async function _trClose() {
+      const o = _trOverlay();
+      if (o) { o.style.display = "none"; o.classList.remove("open"); }
+      _trHidePicker();
+      // Leaving the trade screen un-arms your confirmation, so a trade can never
+      // complete unless you're present and confirmed (spec requirement 7).
+      const st = _trState;
+      if (st && st.status === "open" && _authUser && st.confirmed && st.confirmed[_authUser.uid]) {
+        try { await _trPost("confirm", { confirm: false }); } catch (_) {}
+      }
+      _trState = null; _trPeerUid = null; _trConvId = null; _trBusy = false;
+      _trRefreshButtons();
+    }
+
+    // ── Render the trade screen from _trState ────────────────────────
+    function _trRender() {
+      const giveWrap = $a("cctr-give-items");
+      const recvWrap = $a("cctr-recv-items");
+      if (!giveWrap || !recvWrap) return;
+      const myUid = _authUser ? _authUser.uid : null;
+      const status = _trState ? _trState.status : "open";
+      // Fire the "trade completed" profile refresh exactly once per completion.
+      if (status === "completed" && _trLastStatus !== "completed") _trRefreshMyProfile();
+      _trLastStatus = status;
+      const myOffer = _trMyOffer();
+      const peerOffer = _trPeerOffer();
+      const myConfirmed = !!(_trState && _trState.confirmed && myUid && _trState.confirmed[myUid]);
+      const peerConfirmed = !!(_trState && _trState.confirmed && _trState.confirmed[_trPeerUid]);
+
+      _trRenderColumn(giveWrap, myOffer, true);
+      _trRenderColumn(recvWrap, peerOffer, false);
+
+      const recvHead = $a("cctr-recv-head");
+      if (recvHead) recvHead.textContent = _trPeerName ? ("You Receive — " + _trPeerName) : "You Receive";
+
+      // Confirm-state lines under each column.
+      const giveConf = $a("cctr-give-conf");
+      if (giveConf) {
+        giveConf.textContent = myConfirmed ? "✓ You confirmed" : "";
+        giveConf.className = "cctr-conf " + (myConfirmed ? "yes" : "no");
+      }
+      const recvConf = $a("cctr-recv-conf");
+      if (recvConf) {
+        recvConf.textContent = peerConfirmed ? ("✓ " + _trPeerName + " confirmed this trade") : ("Waiting for " + _trPeerName + "…");
+        recvConf.className = "cctr-conf " + (peerConfirmed ? "yes" : "no");
+      }
+
+      // Add-item button.
+      const addBtn = $a("cctr-give-add");
+      if (addBtn) addBtn.disabled = (status !== "open") || _trBusy;
+
+      // Footer buttons + banner per status.
+      const cancelBtn = $a("cc-trade-cancel");
+      const confirmBtn = $a("cc-trade-confirm");
+      const bothEmpty = _trOfferEmpty(myOffer) && _trOfferEmpty(peerOffer);
+
+      if (status === "completed") {
+        _trBanner("✅ Trade Completed! Items and coins have been exchanged.", "ok");
+        if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
+        if (confirmBtn) { confirmBtn.style.display = "none"; }
+      } else if (status === "canceled") {
+        _trBanner("✖ This trade was canceled.", "warn");
+        if (cancelBtn) { cancelBtn.textContent = "Close"; cancelBtn.disabled = false; cancelBtn.className = "cctr-btn"; }
+        if (confirmBtn) { confirmBtn.style.display = "none"; }
+      } else {
+        // open
+        if (_trState && _trState.last_error) {
+          _trBanner(_trErrText(_trState.last_error) + " Both confirmations were reset.", "err");
+        } else if (peerConfirmed && !myConfirmed) {
+          _trBanner("🔔 " + _trPeerName + " confirmed. Review the trade and confirm to complete it.", "info");
+        } else if (myConfirmed && !peerConfirmed) {
+          _trBanner("Waiting for " + _trPeerName + " to confirm…", "info");
+        } else if (bothEmpty) {
+          _trBanner("Add avatars, backgrounds, or Critter Coins to trade.", "info");
+        } else {
+          _trBanner("", "");
+        }
+        if (cancelBtn) { cancelBtn.textContent = "Cancel Trade"; cancelBtn.className = "cctr-btn danger"; cancelBtn.disabled = _trBusy; }
+        if (confirmBtn) {
+          confirmBtn.style.display = "";
+          confirmBtn.textContent = myConfirmed ? "✓ Confirmed (tap to undo)" : "Confirm";
+          confirmBtn.className = "cctr-btn primary" + (myConfirmed ? " confirmed" : "");
+          confirmBtn.disabled = _trBusy || (bothEmpty && !myConfirmed);
+        }
+      }
+      _trRefreshButtons();
+    }
+
+    function _trOfferEmpty(o) {
+      return !o || ((Number(o.coins) || 0) <= 0
+        && !(o.avatars && o.avatars.length) && !(o.backgrounds && o.backgrounds.length));
+    }
+
+    // Render one side's items into a container. editable → my give side (✕ to remove).
+    function _trRenderColumn(wrap, offer, editable) {
+      wrap.innerHTML = "";
+      const rows = [];
+      const coins = Number(offer.coins) || 0;
+      if (coins > 0) rows.push({ type: "coins", coins });
+      (offer.avatars || []).forEach(p => rows.push({ type: "avatar", path: p }));
+      (offer.backgrounds || []).forEach(p => rows.push({ type: "background", path: p }));
+      if (!rows.length) {
+        const e = document.createElement("div"); e.className = "cctr-empty";
+        e.textContent = editable ? "Nothing yet — tap “Add item”." : "Nothing yet.";
+        wrap.appendChild(e); return;
+      }
+      rows.forEach(r => {
+        const row = document.createElement("div"); row.className = "cctr-item";
+        if (r.type === "coins") {
+          const ic = document.createElement("div"); ic.className = "cctr-item-coin"; ic.textContent = "🪙";
+          row.appendChild(ic);
+          const body = document.createElement("div"); body.className = "cctr-item-body";
+          const nm = document.createElement("div"); nm.className = "cctr-item-name"; nm.textContent = "Critter Coins";
+          const sub = document.createElement("div"); sub.className = "cctr-item-sub"; sub.textContent = r.coins.toLocaleString();
+          body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
+        } else {
+          const img = document.createElement("img"); img.className = "cctr-item-img";
+          img.src = _trImgSrc(r.path); img.alt = ""; img.loading = "lazy";
+          row.appendChild(img);
+          const body = document.createElement("div"); body.className = "cctr-item-body";
+          const nm = document.createElement("div"); nm.className = "cctr-item-name";
+          nm.textContent = r.type === "avatar" ? _trAvatarName(r.path) : _trBgName(r.path);
+          const sub = document.createElement("div"); sub.className = "cctr-item-sub";
+          sub.textContent = r.type === "avatar" ? "Avatar" : "Background";
+          body.appendChild(nm); body.appendChild(sub); row.appendChild(body);
+        }
+        if (editable && _trState && _trState.status === "open") {
+          const rm = document.createElement("button"); rm.className = "cctr-item-rm"; rm.type = "button";
+          rm.textContent = "✕"; rm.title = "Remove";
+          rm.addEventListener("click", () => {
+            if (r.type === "coins") _trSetCoins(0);
+            else _trToggleItem(r.type, r.path);
+          });
+          row.appendChild(rm);
+        }
+        wrap.appendChild(row);
+      });
+    }
+
+    // ── Mutations (each posts the full new offer / confirmation) ─────
+    async function _trSubmitOffer(offer) {
+      if (_trBusy) return;
+      _trBusy = true; _trRender();
+      const res = await _trPost("offer", { offer });
+      _trBusy = false;
+      if (!res || res.error) { _trBanner(_trErrText(res && res.error), "err"); _trRender(); _trRenderPicker(); return; }
+      _trState = res.state; _trRender(); _trRenderPicker();
+    }
+
+    function _trToggleItem(kind, path) {
+      if (_trBusy || !_trState || _trState.status !== "open") return;
+      const key = kind === "avatar" ? "avatars" : "backgrounds";
+      const cur = _trMyOffer();
+      const list = (cur[key] || []).slice();
+      const i = list.indexOf(path);
+      if (i >= 0) list.splice(i, 1); else list.push(path);
+      const offer = { coins: Number(cur.coins) || 0,
+                      avatars: (cur.avatars || []).slice(),
+                      backgrounds: (cur.backgrounds || []).slice() };
+      offer[key] = list;
+      _trSubmitOffer(offer);
+    }
+
+    function _trSetCoins(n) {
+      if (_trBusy || !_trState || _trState.status !== "open") return;
+      n = Math.max(0, Math.floor(Number(n) || 0));
+      if (n > _trMyCoins()) { _trBanner("You only have " + _trMyCoins().toLocaleString() + " Critter Coins.", "err"); return; }
+      const cur = _trMyOffer();
+      _trSubmitOffer({ coins: n, avatars: (cur.avatars || []).slice(), backgrounds: (cur.backgrounds || []).slice() });
+    }
+
+    async function _trDoConfirm() {
+      if (_trBusy || !_trState || _trState.status !== "open") return;
+      const myUid = _authUser.uid;
+      const mine = !!(_trState.confirmed && _trState.confirmed[myUid]);
+      _trBusy = true; _trRender();
+      const res = await _trPost("confirm", { version: _trState.version, confirm: !mine });
+      _trBusy = false;
+      if (!res || res.error) {
+        if (res && res.state) _trState = res.state;
+        if (res && res.error === "changed") _trBanner("The offer changed — review it and confirm again.", "warn");
+        else _trBanner(_trErrText(res && res.error), "err");
+        _trRender(); return;
+      }
+      _trState = res.state;
+      if (res.completed) _trToast("Trade completed! 🎉", "ok");
+      _trRender();
+    }
+
+    async function _trDoCancelOrClose() {
+      // On a completed/canceled trade the button is a plain Close.
+      if (!_trState || _trState.status !== "open") { _trClose(); return; }
+      if (_trBusy) return;
+      _trBusy = true; _trRender();
+      await _trPost("cancel", {});
+      _trBusy = false;
+      _trClose();
+      _trToast("Trade canceled.", "info");
+    }
+
+    // ── Item picker sheet ────────────────────────────────────────────
+    function _trShowPicker() {
+      if (!_trState || _trState.status !== "open") return;
+      const pk = $a("cc-trade-picker");
+      if (pk) pk.style.display = "flex";
+      _trRenderPicker();
+    }
+    function _trHidePicker() { const pk = $a("cc-trade-picker"); if (pk) pk.style.display = "none"; }
+
+    function _trSetPickerTab(tab) {
+      _trPickerTab = tab;
+      document.querySelectorAll("#cc-trade-picker .cctr-pk-tab").forEach(b => {
+        b.classList.toggle("active", b.getAttribute("data-tab") === tab);
+      });
+      _trRenderPicker();
+    }
+
+    function _trRenderPicker() {
+      const body = $a("cc-trade-picker-body");
+      const foot = $a("cc-trade-picker-foot");
+      if (!body) return;
+      const mine = _trMyOffer();
+      if (_trPickerTab === "coins") {
+        body.innerHTML = "<div class=\"cctr-coin-note\">You have " + _trMyCoins().toLocaleString()
+          + " Critter Coins. Enter how many to include in this trade.</div>";
+        if (foot) foot.style.display = "flex";
+        const input = $a("cc-trade-coin-input");
+        if (input) { input.max = String(_trMyCoins()); input.value = (Number(mine.coins) || 0) ? String(mine.coins) : ""; }
+        return;
+      }
+      if (foot) foot.style.display = "none";
+      body.innerHTML = "";
+      const isAvatar = _trPickerTab === "avatars";
+      const items = isAvatar ? _trMyAvatars() : _trMyBackgrounds();
+      const picked = new Set(isAvatar ? (mine.avatars || []) : (mine.backgrounds || []));
+      if (!items.length) {
+        const e = document.createElement("div"); e.className = "cctr-pk-empty";
+        e.textContent = isAvatar
+          ? "You haven't unlocked any avatars to trade yet."
+          : "You haven't unlocked any backgrounds to trade yet.";
+        body.appendChild(e); return;
+      }
+      items.forEach(p => {
+        const tile = document.createElement("div");
+        tile.className = "cctr-pk-tile" + (picked.has(p) ? " picked" : "");
+        const img = document.createElement("img"); img.className = "cctr-pk-tile-img";
+        img.src = _trImgSrc(p); img.alt = ""; img.loading = "lazy"; tile.appendChild(img);
+        const nm = document.createElement("div"); nm.className = "cctr-pk-tile-name";
+        nm.textContent = isAvatar ? _trAvatarName(p) : _trBgName(p); tile.appendChild(nm);
+        if (picked.has(p)) { const bd = document.createElement("div"); bd.className = "cctr-pk-tile-badge"; bd.textContent = "✓ Added"; tile.appendChild(bd); }
+        tile.addEventListener("click", () => _trToggleItem(isAvatar ? "avatar" : "background", p));
+        body.appendChild(tile);
+      });
+    }
+
+    // ── Live sync + DM Trade-button pulse ────────────────────────────
+    // Toggle the gold "active trade" pulse on whichever DM Trade button is
+    // showing, keyed on the data-conv it was last shown for.
+    function _trRefreshButtons() {
+      ["pv-chat-trade", "ccm-trade-btn"].forEach(id => {
+        const b = $a(id); if (!b) return;
+        const conv = b.getAttribute("data-conv") || "";
+        let live = false;
+        if (conv && window.__fishMsg && window.__fishMsg.tradeState) {
+          const s = window.__fishMsg.tradeState(conv);
+          live = !!(s && s.status === "open");
+        }
+        b.classList.toggle("cctr-live", live);
+      });
+    }
+
+    function _trGlobalOnChange() {
+      _trRefreshButtons();
+      if (!_trOverlayOpen() || !_trConvId) return;
+      const st = window.__fishMsg ? window.__fishMsg.tradeState(_trConvId) : null;
+      if (!st) return;
+      // Advance only to a newer version or a status change (open→completed/canceled).
+      if (_trState) {
+        const newer = (Number(st.version) || 0) > (Number(_trState.version) || 0);
+        const statusChanged = st.status !== _trState.status;
+        if (!newer && !statusChanged) return;
+      }
+      _trState = st;
+      _trRender();
+    }
+
+    // Subscribe to the shared messages listener once (drives the DM button
+    // pulse + live overlay). No DOM needed, so this always registers.
+    let _trSubscribed = false;
+    function _trSubscribeOnce() {
+      if (_trSubscribed) return;
+      if (window.__fishMsg && window.__fishMsg.onChange) {
+        window.__fishMsg.onChange(_trGlobalOnChange);
+        _trSubscribed = true;
+      }
+    }
+
+    // Wire the overlay's DOM controls exactly once (retries until markup exists).
+    function _trWireOnce() {
+      if (_trWired) return;
+      if (!_trOverlay()) return;          // markup not present yet — try again later
+      _trWired = true;
+      const on = (id, fn) => { const el = $a(id); if (el) el.addEventListener("click", fn); };
+      on("cc-trade-close", _trClose);
+      on("cc-trade-cancel", _trDoCancelOrClose);
+      on("cc-trade-confirm", _trDoConfirm);
+      on("cctr-give-add", _trShowPicker);
+      on("cc-trade-picker-close", _trHidePicker);
+      document.querySelectorAll("#cc-trade-picker .cctr-pk-tab").forEach(b => {
+        b.addEventListener("click", () => _trSetPickerTab(b.getAttribute("data-tab")));
+      });
+      on("cc-trade-coin-set", () => {
+        const input = $a("cc-trade-coin-input");
+        _trSetCoins(input ? input.value : 0);
+      });
+      const coinInput = $a("cc-trade-coin-input");
+      if (coinInput) coinInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); _trSetCoins(coinInput.value); }
+      });
+      // Tapping the dim backdrop (outside the box) closes the overlay.
+      const ov = _trOverlay();
+      if (ov) ov.addEventListener("click", (e) => { if (e.target === ov) _trClose(); });
+      const pk = $a("cc-trade-picker");
+      if (pk) pk.addEventListener("click", (e) => { if (e.target === pk) _trHidePicker(); });
+    }
+
+    // Public bridge — the DM Trade buttons (both chat surfaces) call this.
+    window.__fishTrade = {
+      openWith: (peerUid, peerName) => _trOpen(peerUid, peerName),
+      hasOpenTrade: (convId) => {
+        const s = (window.__fishMsg && window.__fishMsg.tradeState) ? window.__fishMsg.tradeState(convId) : null;
+        return !!(s && s.status === "open");
+      },
+      refreshButtons: _trRefreshButtons,
+    };
+    // Keep the pulse in sync even before the overlay is ever opened, and wire
+    // the overlay controls now (markup is static, so it already exists).
+    _trSubscribeOnce();
+    _trWireOnce();
+
+    // The drawer's DM Trade button.
+    const _ccmTradeBtn = $a("ccm-trade-btn");
+    if (_ccmTradeBtn) _ccmTradeBtn.addEventListener("click", () => {
+      if (_msgOpenPeer && _msgOpenPeer.uid) _trOpen(_msgOpenPeer.uid, _msgOpenPeer.name);
+    });
 
     // Wire drawer controls
     const _msgBtn = $a("stats-message-btn");
