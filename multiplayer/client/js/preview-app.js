@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-16.1";
+  const APP_BUILD   = "2026-07-18.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -19549,8 +19549,31 @@
 
     function _trToast(msg, kind) { if (typeof showToast === "function") showToast(msg, kind || "info"); }
     function _trMyCoins() { return Math.max(0, Math.floor(Number((_activeProfile && _activeProfile.stats || {}).critter_coins) || 0)); }
-    function _trMyAvatars() { return Array.isArray(_unlockedIcons) ? _unlockedIcons.filter(s => typeof s === "string" && s.startsWith("/avatars/")) : []; }
-    function _trMyBackgrounds() { return Array.isArray(_unlockedBackgrounds) ? _unlockedBackgrounds.map(s => normalizeBgUrl(s)).filter(Boolean) : []; }
+    // Canonical form the SERVER stores an offered path as: it strips any ?query
+    // and surrounding whitespace (see _trade_clean_offer). The picker MUST show,
+    // compare, and submit paths in this exact form — otherwise a tile's
+    // "✓ Added" badge never lights up and tapping again can't toggle it off,
+    // which reads as "tapping does nothing".
+    function _trCanon(p) { return String(p || "").split("?")[0].trim(); }
+    function _trMyAvatars() {
+      if (!Array.isArray(_unlockedIcons)) return [];
+      const out = [], seen = new Set();
+      for (const s of _unlockedIcons) {
+        if (typeof s !== "string" || !s.startsWith("/avatars/")) continue;
+        const c = _trCanon(s);
+        if (c && !seen.has(c)) { seen.add(c); out.push(c); }
+      }
+      return out;
+    }
+    function _trMyBackgrounds() {
+      if (!Array.isArray(_unlockedBackgrounds)) return [];
+      const out = [], seen = new Set();
+      for (const s of _unlockedBackgrounds) {
+        const c = normalizeBgUrl(s);   // normalizeBgUrl already strips ?query
+        if (c && !seen.has(c)) { seen.add(c); out.push(c); }
+      }
+      return out;
+    }
     function _trAvatarName(p) { const a = animalByImg(p); return (a && a.name) || "Avatar"; }
     function _trBgName(p) { const b = _BG_BY_IMG[p]; return (b && b.name) || "Background"; }
     function _trImgSrc(p) { return (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(p) : p; }
@@ -19590,6 +19613,8 @@
         auth: "Please sign in to trade.",
         unauthorized: "Please sign in to trade.",
         firestore_unavailable: "Trading is temporarily unavailable — try again shortly.",
+        network: "Network hiccup — check your connection and try again.",
+        bad_response: "Unexpected response from the server — try again.",
       };
       return m[code] || "Something went wrong with the trade.";
     }
@@ -19606,14 +19631,20 @@
         peerUid: _trPeerUid,
         peerName: _trPeerName,
       }, extra || {});
+      // Time the request out so a hung/slow request can never leave _trBusy
+      // stuck true (which would silently swallow every later tap).
+      const ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (_) {} }, 15000) : null;
       try {
         const res = await fetch(base + "/api/trade/" + action, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(payload), signal: ctrl ? ctrl.signal : undefined,
         });
         return await res.json().catch(() => ({ ok: false, error: "bad_response" }));
       } catch (_) {
         return { ok: false, error: "network" };
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     }
 
@@ -19635,6 +19666,16 @@
       b.style.display = ""; b.className = "cctr-banner " + (kind || "info"); b.textContent = text;
     }
 
+    // Feedback shown INSIDE the picker sheet. The sheet covers the trade box
+    // (and its #cc-trade-banner), so a tap's result must surface here or the
+    // picker looks unresponsive.
+    function _trPickerNote(text, kind) {
+      const n = $a("cc-trade-picker-note");
+      if (!n) return;
+      if (!text) { n.style.display = "none"; n.textContent = ""; return; }
+      n.style.display = ""; n.className = "cctr-pk-note " + (kind || "info"); n.textContent = text;
+    }
+
     // ── Open / close the overlay ─────────────────────────────────────
     async function _trOpen(peerUid, peerName) {
       if (!_authUser || _guestSessionActive === true) { _trToast("Sign in to trade.", "info"); return; }
@@ -19643,6 +19684,8 @@
       _trPeerUid = String(peerUid); _trPeerName = peerName || "Player";
       _trConvId = _convIdFor(_authUser.uid, peerUid);
       _trState = null; _trPickerTab = "avatars"; _trLastStatus = null;
+      _trBusy = false;                 // never inherit a stuck-busy from a prior trade
+      _trPickerNote("", "");
       _trHidePicker();
       const o = _trOverlay();
       if (o) { o.style.display = "flex"; o.classList.add("open"); }
@@ -19797,35 +19840,57 @@
     }
 
     // ── Mutations (each posts the full new offer / confirmation) ─────
-    async function _trSubmitOffer(offer) {
+    // fb (optional) = { adding:bool, name:str, coins:bool } → drives the
+    // "✓ Added …" / "Removed …" confirmation shown inside the picker.
+    async function _trSubmitOffer(offer, fb) {
       if (_trBusy) return;
-      _trBusy = true; _trRender();
+      _trBusy = true; _trPickerNote("Saving…", "info"); _trRender();
       const res = await _trPost("offer", { offer });
       _trBusy = false;
-      if (!res || res.error) { _trBanner(_trErrText(res && res.error), "err"); _trRender(); _trRenderPicker(); return; }
+      if (!res || res.error) {
+        const msg = _trErrText(res && res.error);
+        _trBanner(msg, "err"); _trPickerNote(msg, "err");
+        _trRender(); _trRenderPicker(); return;
+      }
       _trState = res.state; _trRender(); _trRenderPicker();
+      if (fb && fb.coins) {
+        _trPickerNote(fb.adding ? ("Offering " + fb.name + ".") : "Coins removed from your offer.", "ok");
+      } else if (fb) {
+        _trPickerNote(fb.adding ? ("✓ Added " + fb.name + " — it’s in your offer.")
+                                : ("Removed " + fb.name + " from your offer."), "ok");
+      } else {
+        _trPickerNote("Offer updated.", "ok");
+      }
     }
 
     function _trToggleItem(kind, path) {
-      if (_trBusy || !_trState || _trState.status !== "open") return;
+      if (_trBusy) { _trPickerNote("One moment — saving your last change…", "info"); return; }
+      if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       const key = kind === "avatar" ? "avatars" : "backgrounds";
+      const canonPath = _trCanon(path);
       const cur = _trMyOffer();
-      const list = (cur[key] || []).slice();
-      const i = list.indexOf(path);
-      if (i >= 0) list.splice(i, 1); else list.push(path);
+      const list = (cur[key] || []).map(_trCanon);
+      const i = list.indexOf(canonPath);
+      const adding = i < 0;
+      if (adding) list.push(canonPath); else list.splice(i, 1);
       const offer = { coins: Number(cur.coins) || 0,
-                      avatars: (cur.avatars || []).slice(),
-                      backgrounds: (cur.backgrounds || []).slice() };
+                      avatars: (cur.avatars || []).map(_trCanon),
+                      backgrounds: (cur.backgrounds || []).map(_trCanon) };
       offer[key] = list;
-      _trSubmitOffer(offer);
+      const name = kind === "avatar" ? _trAvatarName(canonPath) : _trBgName(canonPath);
+      _trSubmitOffer(offer, { adding, name });
     }
 
     function _trSetCoins(n) {
-      if (_trBusy || !_trState || _trState.status !== "open") return;
+      if (_trBusy) { _trPickerNote("One moment — saving your last change…", "info"); return; }
+      if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       n = Math.max(0, Math.floor(Number(n) || 0));
-      if (n > _trMyCoins()) { _trBanner("You only have " + _trMyCoins().toLocaleString() + " Critter Coins.", "err"); return; }
+      if (n > _trMyCoins()) { _trPickerNote("You only have " + _trMyCoins().toLocaleString() + " Critter Coins.", "err"); return; }
       const cur = _trMyOffer();
-      _trSubmitOffer({ coins: n, avatars: (cur.avatars || []).slice(), backgrounds: (cur.backgrounds || []).slice() });
+      _trSubmitOffer(
+        { coins: n, avatars: (cur.avatars || []).map(_trCanon), backgrounds: (cur.backgrounds || []).map(_trCanon) },
+        { adding: n > 0, name: n.toLocaleString() + " Critter Coins", coins: true }
+      );
     }
 
     async function _trDoConfirm() {
@@ -19859,15 +19924,17 @@
 
     // ── Item picker sheet ────────────────────────────────────────────
     function _trShowPicker() {
-      if (!_trState || _trState.status !== "open") return;
+      if (!_trState || _trState.status !== "open") { _trToast("Open a trade first.", "info"); return; }
       const pk = $a("cc-trade-picker");
       if (pk) pk.style.display = "flex";
+      _trPickerNote("", "");
       _trRenderPicker();
     }
     function _trHidePicker() { const pk = $a("cc-trade-picker"); if (pk) pk.style.display = "none"; }
 
     function _trSetPickerTab(tab) {
       _trPickerTab = tab;
+      _trPickerNote("", "");
       document.querySelectorAll("#cc-trade-picker .cctr-pk-tab").forEach(b => {
         b.classList.toggle("active", b.getAttribute("data-tab") === tab);
       });
@@ -19891,7 +19958,9 @@
       body.innerHTML = "";
       const isAvatar = _trPickerTab === "avatars";
       const items = isAvatar ? _trMyAvatars() : _trMyBackgrounds();
-      const picked = new Set(isAvatar ? (mine.avatars || []) : (mine.backgrounds || []));
+      // Compare in canonical form so a tile always reflects whether it's already
+      // in my offer (server stores offered paths with any ?query stripped).
+      const picked = new Set((isAvatar ? (mine.avatars || []) : (mine.backgrounds || [])).map(_trCanon));
       if (!items.length) {
         const e = document.createElement("div"); e.className = "cctr-pk-empty";
         e.textContent = isAvatar

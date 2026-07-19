@@ -62,7 +62,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-07-17.5" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-07-18.1" />
 </head>
 <body>
 
@@ -2136,6 +2136,9 @@
         </div>
         <button id="cc-trade-picker-close" class="cctr-x" title="Close" aria-label="Close picker">✕</button>
       </div>
+      <!-- In-picker feedback: the picker sheet covers the trade box (and its
+           banner), so every tap's result MUST be shown here or it looks dead. -->
+      <div id="cc-trade-picker-note" class="cctr-pk-note" style="display:none;"></div>
       <div class="cctr-pk-body" id="cc-trade-picker-body"></div>
       <div class="cctr-pk-foot" id="cc-trade-picker-foot" style="display:none;">
         <input id="cc-trade-coin-input" type="number" min="0" step="1" inputmode="numeric" placeholder="Critter Coins to offer" />
@@ -2693,7 +2696,7 @@
   </div>
 </div>
 
-<script src="/js/preview-app.js?v=2026-07-17.5"></script>
+<script src="/js/preview-app.js?v=2026-07-18.1"></script>
 
 <script src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 

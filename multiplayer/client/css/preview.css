@@ -2328,7 +2328,8 @@
     #pv-toasts {
       position: fixed; top: 18px; right: 18px;
       display: flex; flex-direction: column; gap: 8px;
-      z-index: 3000; pointer-events: none;
+      /* Above the trade overlay (9800) so trade toasts aren't hidden behind it. */
+      z-index: 10001; pointer-events: none;
     }
     .pv-toast {
       background: rgba(16,40,88,.95);
@@ -11831,6 +11832,14 @@
       border: 1px solid rgba(95,179,214,.35); background: rgba(255,255,255,.05); color: #bfe6fb;
     }
     .cctr-pk-tab.active { background: linear-gradient(135deg, #22d8f8, #1594c8); color: #06232e; border-color: transparent; }
+    /* Feedback line inside the picker (the sheet covers the box's own banner). */
+    .cctr-pk-note {
+      flex-shrink: 0; margin: 8px 10px 0; padding: 8px 11px; border-radius: 9px;
+      font-size: 12.5px; font-weight: 700; text-align: center; line-height: 1.3;
+    }
+    .cctr-pk-note.info { background: rgba(34,216,248,.12); border: 1px solid rgba(34,216,248,.32); color: #bfeffb; }
+    .cctr-pk-note.ok   { background: rgba(66,200,120,.16); border: 1px solid rgba(66,200,120,.5);  color: #baf3d0; }
+    .cctr-pk-note.err  { background: rgba(232,64,87,.15);  border: 1px solid rgba(232,64,87,.45);  color: #ffc3cc; }
     .cctr-pk-body {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px;
       padding: 14px; overflow-y: auto; -webkit-overflow-scrolling: touch;
