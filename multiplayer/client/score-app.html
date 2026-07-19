@@ -450,6 +450,18 @@ let ROSTER = null;               // {cards:[{u,n,sp,d,sym,c,t}], oceanNames, ani
 let CARD_BY_UID = {};
 let NAMES_BY_SIDE = {};          // side -> [{name, sp, variants:[{u,sym}], land}]
 let VISION_ENABLED = false;
+let VISION_REASON = "";
+// A clear, shared message for when photo detection is off, plus an owner-facing
+// console hint pointing at the exact fix (the API key must be set on the server).
+function visionOffMessage(){
+  if (VISION_REASON === "no_api_key")
+    console.warn("[Snap&Score] Photo detection is OFF: ANTHROPIC_API_KEY is not set on the " +
+      "server. Fix: Render dashboard → fish-game-multiplayer → Environment → add " +
+      "ANTHROPIC_API_KEY = your Anthropic API key → Save (it redeploys).");
+  else if (VISION_REASON === "sdk_missing")
+    console.warn("[Snap&Score] Photo detection is OFF: the anthropic SDK failed to import on the server.");
+  return "Photo detection is turned off on the server — you can build your board by hand for now.";
+}
 const pad2 = n => String(n).padStart(2,"0");
 // Same art mapping AND cache version as the live game (preview-app.js) so the
 // card images shown here are always the current V12 art, never a stale cache.
@@ -473,8 +485,10 @@ function artStyle(uid){
 }
 async function loadRoster(){
   if (ROSTER) return ROSTER;
-  const [r, cfg] = await Promise.all([apiGet("/api/snap/roster"), apiGet("/api/snap/config").catch(()=>({visionEnabled:false}))]);
+  const [r, cfg] = await Promise.all([apiGet("/api/snap/roster"), apiGet("/api/snap/config").catch(()=>({visionEnabled:false,visionReason:"unreachable"}))]);
   VISION_ENABLED = !!cfg.visionEnabled;
+  VISION_REASON = cfg.visionReason || "";
+  if (!VISION_ENABLED) visionOffMessage();  // log the owner-facing fix hint at boot
   ROSTER = r;
   CARD_BY_UID = {}; NAMES_BY_SIDE = {ocean:[],up:[],down:[],left:[],right:[]};
   const grouped = {};
@@ -773,17 +787,18 @@ async function soloScan(prior){
   $("solo-busy").classList.add("hide");
 }
 $("solo-photo").onclick = async () => {
-  if (!VISION_ENABLED) { toast("Photo detection isn't set up yet — build your board manually instead", true); return; }
+  if (!VISION_ENABLED) { toast(visionOffMessage(), true); soloManualStart(); return; }
   soloScan(false);
 };
 $("solo-retake").onclick = () => { soloBoard = emptyBoard(); soloScan(false); };
 $("solo-addphoto").onclick = () => soloScan(true);
-$("solo-manual").onclick = () => {
+function soloManualStart(){
   soloBoard = emptyBoard();
   $("solo-warnings").innerHTML = "";
   soloRenderEditor();
   $("solo-review").classList.remove("hide");
-};
+}
+$("solo-manual").onclick = soloManualStart;
 function soloRenderEditor(){ renderEditor($("solo-editor"), soloBoard, soloRenderEditor); }
 $("solo-confirm").onclick = async () => {
   if (!soloBoard.oceans.length) { toast("Add at least one ocean first", true); return; }
@@ -1033,7 +1048,7 @@ function renderResults(el, v){
 }
 
 async function seatPhoto(seatNo, addMore){
-  if (!VISION_ENABLED) { openSeatEditor(seatNo); toast("Photo detection isn't set up — build the board manually", true); return; }
+  if (!VISION_ENABLED) { openSeatEditor(seatNo); toast(visionOffMessage(), true); return; }
   const dataUrl = await capturePhoto();
   if (!dataUrl) return;
   toast("Identifying cards…");

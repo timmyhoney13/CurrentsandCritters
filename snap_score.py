@@ -557,8 +557,26 @@ def _safe_check(d, facts, ctx) -> bool:
 # Claude vision detection (identification ONLY — never scoring)
 # ════════════════════════════════════════════════════════════════════════════
 
+def _vision_status() -> Tuple[bool, str]:
+    """(enabled, reason). Photo detection needs BOTH the ANTHROPIC_API_KEY env
+    var set on the server AND the anthropic SDK importable. The reason string is
+    surfaced to the client so a misconfiguration is diagnosable, not silent:
+      - "no_api_key": set ANTHROPIC_API_KEY on the Render service (it's a
+        `sync: false` secret, so it must be entered in the dashboard, not the repo).
+      - "sdk_missing": the anthropic package didn't import (rebuild the image).
+      - "ok": detection is live.
+    """
+    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        return False, "no_api_key"
+    try:
+        import anthropic  # noqa: F401
+    except Exception:
+        return False, "sdk_missing"
+    return True, "ok"
+
+
 def _vision_enabled() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY", "").strip())
+    return _vision_status()[0]
 
 
 def _decode_data_url(data_url: str) -> Tuple[bytes, str]:
@@ -1657,7 +1675,9 @@ def handle_get(handler, parsed) -> bool:
         return False
     try:
         if path == "/api/snap/config":
-            handler._send_json({"ok": True, "visionEnabled": _vision_enabled(),
+            enabled, reason = _vision_status()
+            handler._send_json({"ok": True, "visionEnabled": enabled,
+                                "visionReason": reason,
                                 "rosterVersion": build_roster()["version"]})
             return True
         if path == "/api/snap/roster":
