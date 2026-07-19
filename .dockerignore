@@ -6,6 +6,7 @@
 
 # Allow the Python server and engine.
 !multiplayer_server.py
+!snap_score.py
 !fish_game_all_in_one.py
 
 # Allow the AI brain and card data files.

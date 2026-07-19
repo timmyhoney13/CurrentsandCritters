@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Snap &amp; Score — Currents &amp; Critters</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#06263f"/>
+<link rel="icon" href="/icon.svg"/>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="/firebase-config.js"></script>
+<style>
+  :root{
+    --deep:#06263f; --deep2:#0a3a5c; --teal:#19b8a6; --teal-dark:#0e8f81;
+    --mint:#2ac88f; --sand:#ffd97a; --red:#e0463c; --ink:#0b2438;
+    --card:#ffffff; --line:rgba(11,36,56,.12); --mut:#5b7286;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#06263f 0%,#0a3a5c 45%,#0e4f74 100%);
+    color:#eaf6ff; min-height:100vh; padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:14px 14px 90px}
+  header.top{display:flex;align-items:center;gap:10px;padding:8px 2px 14px}
+  header.top .logo{font-weight:900;font-size:18px;letter-spacing:.2px}
+  header.top .logo span{color:var(--teal)}
+  header.top .who{margin-left:auto;font-size:12px;color:#bcd8ea;display:flex;align-items:center;gap:8px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;cursor:pointer;
+    border-radius:14px;padding:14px 18px;font-size:16px;font-weight:800;color:#fff;
+    background:linear-gradient(180deg,var(--teal),var(--teal-dark)); box-shadow:0 4px 14px rgba(0,0,0,.25);
+    width:100%; touch-action:manipulation}
+  .btn:active{transform:translateY(1px)}
+  .btn.secondary{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25)}
+  .btn.mint{background:linear-gradient(180deg,#2ac88f,#1d9e6f)}
+  .btn.warn{background:linear-gradient(180deg,#e0463c,#b23227)}
+  .btn.small{width:auto;padding:9px 14px;font-size:13px;border-radius:10px}
+  .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,.4);box-shadow:none}
+  .btn[disabled]{opacity:.5;pointer-events:none}
+  .panel{background:var(--card);color:var(--ink);border-radius:18px;padding:16px;margin:12px 0;
+    box-shadow:0 10px 30px rgba(0,10,20,.28)}
+  .panel h2{margin:0 0 6px;font-size:20px}
+  .panel h3{margin:14px 0 6px;font-size:15px}
+  .panel p.sub{margin:0 0 12px;color:var(--mut);font-size:14px;line-height:1.45}
+  .hero{text-align:center;padding:8px 6px 2px}
+  .hero h1{font-size:30px;line-height:1.1;margin:6px 0 8px}
+  .hero p{color:#bcd8ea;font-size:15px;line-height:1.5;margin:0 auto 6px;max-width:34em}
+  .stack{display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;gap:10px;align-items:center}
+  .row .btn{flex:1}
+  .chip{display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:99px;vertical-align:middle}
+  .chip.wait{background:#f1e7c9;color:#7a5d00}.chip.ok{background:#d8f5e7;color:#0c7a4d}
+  .chip.info{background:#dcecfb;color:#175f9e}.chip.bad{background:#fbdcd9;color:#a3271c}
+  .muted{color:var(--mut);font-size:13px}
+  .code-big{font-size:34px;letter-spacing:6px;font-weight:900;text-align:center;color:var(--deep);
+    background:#eef6fb;border-radius:12px;padding:10px 6px;margin:8px 0}
+  input[type=text],input[type=number],input[type=datetime-local],select{
+    width:100%;padding:13px;border-radius:12px;border:1.5px solid var(--line);font-size:16px;color:var(--ink);background:#fbfdff}
+  label.f{display:block;font-size:13px;font-weight:700;color:var(--ink);margin:10px 0 4px}
+  .seat{border:1.5px solid var(--line);border-radius:14px;padding:12px;margin:8px 0;background:#fbfdff}
+  .seat .nm{font-weight:800;font-size:15px}
+  .seat .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+  .warnbox{background:#fff7e0;border:1px solid #eadfb2;border-radius:12px;padding:10px 12px;margin:10px 0;
+    color:#6b5304;font-size:13px;line-height:1.45}
+  .errbox{background:#fdecea;border:1px solid #f2c1bc;border-radius:12px;padding:10px 12px;margin:10px 0;
+    color:#8f2018;font-size:13px}
+  .scorebig{font-size:52px;font-weight:900;text-align:center;color:var(--deep);margin:2px 0}
+  .scorebig small{font-size:16px;color:var(--mut);font-weight:700;display:block}
+  /* board editor */
+  .ocean-block{border:1.5px solid var(--line);border-radius:14px;margin:10px 0;overflow:hidden;background:#f6fbff}
+  .ocean-head{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#e8f3fa}
+  .ocean-head .t{font-weight:800;font-size:14px;color:var(--deep)}
+  .ocean-head button{margin-left:auto}
+  .slotgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px}
+  .slot{border:1.5px dashed #b9cfdd;border-radius:10px;min-height:52px;padding:7px;background:#fff}
+  .slot .sl{font-size:10px;font-weight:800;color:#7d97a9;text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px}
+  .cardtile{display:flex;align-items:center;gap:8px;background:#eef6fb;border-radius:8px;padding:5px 7px;margin:4px 0;cursor:pointer}
+  .cardtile .art{width:34px;height:46px;border-radius:5px;background-color:#cfe4f0;background-repeat:no-repeat;flex:none;border:1px solid #b9cfdd}
+  .cardtile .cn{font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.2}
+  .cardtile .sym{font-size:10.5px;color:var(--mut)}
+  .addbtn{width:100%;border:0;background:transparent;color:var(--teal-dark);font-weight:800;font-size:12.5px;padding:5px;cursor:pointer}
+  /* picker modal */
+  .modal{position:fixed;inset:0;background:rgba(4,20,34,.72);display:none;z-index:50;align-items:flex-end;justify-content:center}
+  .modal.open{display:flex}
+  .sheet{background:#fff;color:var(--ink);width:100%;max-width:640px;max-height:86vh;border-radius:20px 20px 0 0;
+    display:flex;flex-direction:column;overflow:hidden}
+  .sheet .sh-head{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
+  .sheet .sh-head b{font-size:15px}
+  .sheet .sh-body{overflow-y:auto;padding:10px 12px 24px;-webkit-overflow-scrolling:touch}
+  .pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:9px}
+  .pick{border:1.5px solid var(--line);border-radius:10px;padding:6px;text-align:center;cursor:pointer;background:#fbfdff}
+  .pick .art{width:100%;aspect-ratio:5/7;border-radius:6px;background-color:#dcebf4;background-repeat:no-repeat;margin-bottom:5px}
+  .pick .art.land{aspect-ratio:7/5}
+  .pick .pn{font-size:11.5px;font-weight:700;line-height:1.15}
+  .variant-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .variant-row .btn{width:auto;flex:1;min-width:110px;background:#eef6fb;color:var(--ink);box-shadow:none;border:1.5px solid var(--line);font-size:13px;padding:10px}
+  .bd-list{margin:8px 0;padding:0;list-style:none}
+  .bd-list li{display:flex;justify-content:space-between;gap:10px;padding:7px 4px;border-bottom:1px dashed var(--line);font-size:13.5px}
+  .bd-list li .pts{font-weight:800;color:var(--teal-dark);white-space:nowrap}
+  .stand{width:100%;border-collapse:collapse;margin:8px 0}
+  .stand td,.stand th{padding:9px 6px;border-bottom:1px solid var(--line);font-size:14px;text-align:left}
+  .stand tr.win td{background:#fff9e3}
+  .rewardline{display:flex;align-items:center;gap:8px;padding:6px 2px;font-size:13.5px}
+  .rewardline .xp{margin-left:auto;font-weight:800;color:var(--teal-dark)}
+  .spin{display:inline-block;width:18px;height:18px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;
+    border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:middle}
+  .panel .spin{border-color:rgba(11,36,56,.2);border-top-color:var(--teal-dark)}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .foot-note{color:#9fc0d6;font-size:12px;text-align:center;margin-top:16px;line-height:1.5}
+  .hide{display:none!important}
+  a.link{color:var(--teal);font-weight:700;text-decoration:none}
+  .avatar-mini{width:34px;height:34px;border-radius:50%;border:2px solid #dff1ec;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">🐠 Currents &amp; Critters · <span>Snap &amp; Score</span></div>
+    <div class="who" id="whoami"></div>
+  </header>
+
+  <!-- ═══ HOME ═══ -->
+  <section id="v-home">
+    <div class="hero">
+      <h1>Calculate Your Score</h1>
+      <p>Take a clear picture of your completed Currents &amp; Critters board to identify your cards and calculate your final score.</p>
+    </div>
+    <div class="panel">
+      <h2>📸 Score My Board</h2>
+      <p class="sub">Just want your score? Snap your board, check the cards, get your total. No account needed — nothing is saved.</p>
+      <button class="btn" id="go-solo">Score My Board</button>
+    </div>
+    <div class="panel">
+      <h2>🏆 Multiplayer Score Session</h2>
+      <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game — with XP, achievements, and avatar unlocks — to everyone's Currents &amp; Critters account.</p>
+      <button class="btn mint" id="go-create">Create a Multiplayer Score Session</button>
+      <div class="row" style="margin-top:10px">
+        <input type="text" id="join-code" placeholder="Game code (e.g. R7KM2P)" maxlength="6" autocapitalize="characters" style="flex:1">
+        <button class="btn small secondary" id="go-join" style="min-width:84px">Join</button>
+      </div>
+    </div>
+    <div class="foot-note">Photos are analyzed to identify your cards. Solo scans are never stored. In multiplayer sessions a small board snapshot is kept for verification and game history.</div>
+  </section>
+
+  <!-- ═══ SOLO ═══ -->
+  <section id="v-solo" class="hide">
+    <div class="panel">
+      <h2>Score My Board</h2>
+      <p class="sub">Take one clear photo from above your whole board. If it doesn't fit, you can add more photos after the first scan.</p>
+      <div class="stack">
+        <button class="btn" id="solo-photo">📸 Take / Upload a Picture</button>
+        <button class="btn secondary" id="solo-manual">✍️ Build My Board Manually</button>
+        <button class="btn ghost" data-nav="home">← Back</button>
+      </div>
+      <div id="solo-busy" class="hide" style="text-align:center;padding:18px"><span class="spin"></span> &nbsp;Identifying your cards…</div>
+    </div>
+    <div id="solo-review" class="hide">
+      <div class="panel">
+        <h2>Check Your Board</h2>
+        <p class="sub">Fix anything the scan got wrong — tap a card to remove or change it, tap “+ add” to add missing cards.</p>
+        <div id="solo-warnings"></div>
+        <div id="solo-editor"></div>
+        <div class="stack" style="margin-top:12px">
+          <button class="btn mint" id="solo-confirm">✅ Everything Looks Correct</button>
+          <div class="row">
+            <button class="btn secondary" id="solo-retake">🔁 Retake Picture</button>
+            <button class="btn secondary" id="solo-addphoto">➕ Add Photo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="solo-result" class="hide">
+      <div class="panel" style="text-align:center">
+        <h2>Your Final Score</h2>
+        <div class="scorebig" id="solo-score">0<small>points</small></div>
+        <div class="muted" id="solo-strategy"></div>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">How your score was calculated</h3>
+        <p class="sub">Each line shows how many points your total would lose without that card (combos mean cards can be worth more together than alone).</p>
+        <ul class="bd-list" id="solo-breakdown"></ul>
+        <div class="muted" id="solo-compare-note" style="margin-top:6px"></div>
+      </div>
+      <div class="panel">
+        <p class="sub" style="margin-bottom:10px">Want XP, achievements, avatars, and saved game history for physical games? Score with friends in a Multiplayer Score Session — or play free online.</p>
+        <div class="stack">
+          <button class="btn mint" id="solo-to-session">Create a Multiplayer Score Session</button>
+          <button class="btn secondary" data-nav="home">← Start Over</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CREATE SESSION ═══ -->
+  <section id="v-create" class="hide">
+    <div class="panel">
+      <h2>Create a Score Session</h2>
+      <p class="sub">One person creates the session, everyone else joins with the game code. Each player connects their own account to receive rewards.</p>
+      <div id="create-auth"></div>
+      <label class="f">Your name</label>
+      <input type="text" id="create-name" maxlength="24" placeholder="Your name">
+      <label class="f">How many players were in the game?</label>
+      <select id="create-count">
+        <option>2</option><option>3</option><option selected>4</option><option>5</option>
+        <option>6</option><option>7</option><option>8</option>
+      </select>
+      <label class="f">When was it played? <span class="muted">(optional — leave blank for “just now”)</span></label>
+      <input type="datetime-local" id="create-when">
+      <div class="stack" style="margin-top:14px">
+        <button class="btn mint" id="create-go">Create Session</button>
+        <button class="btn ghost" data-nav="home">← Back</button>
+      </div>
+      <div id="create-err"></div>
+    </div>
+  </section>
+
+  <!-- ═══ SESSION ═══ -->
+  <section id="v-session" class="hide">
+    <div class="panel" id="sess-codebox">
+      <h2 style="text-align:center">Game Code</h2>
+      <div class="code-big" id="sess-code">——————</div>
+      <div class="row">
+        <button class="btn small secondary" id="sess-share" style="flex:1">🔗 Share Invite</button>
+        <button class="btn small secondary" id="sess-copy" style="flex:1">📋 Copy Code</button>
+      </div>
+      <p class="sub" style="text-align:center;margin-top:10px">Everyone in the game joins with this code, then each board gets photographed and checked.</p>
+    </div>
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2 style="margin:0">Boards</h2>
+        <span class="chip info" id="sess-status-chip">…</span>
+      </div>
+      <div id="sess-seats"></div>
+      <div id="sess-host-tools"></div>
+      <div id="sess-link-account"></div>
+    </div>
+    <div class="panel hide" id="sess-review-panel">
+      <h2>Final Standings — Everyone Must Approve</h2>
+      <p class="sub">Check your board, your score, and your rewards. The game is only saved when <b>every connected player</b> approves. If anything is wrong, reject and fix it.</p>
+      <div id="sess-standings"></div>
+      <div id="sess-my-rewards"></div>
+      <div id="sess-awaiting" class="muted" style="margin:8px 0"></div>
+      <div class="stack">
+        <button class="btn mint" id="sess-approve">✅ I Approve My Board and Score</button>
+        <button class="btn warn" id="sess-reject">✋ Something's Wrong — Go Back &amp; Fix</button>
+      </div>
+    </div>
+    <div class="panel hide" id="sess-results-panel"></div>
+    <div class="stack" style="margin-top:6px">
+      <button class="btn ghost" id="sess-leave">← Leave This Screen</button>
+    </div>
+  </section>
+
+  <!-- ═══ SEAT BOARD EDITOR (inside session) ═══ -->
+  <section id="v-seatedit" class="hide">
+    <div class="panel">
+      <h2 id="se-title">Review Board</h2>
+      <div id="se-warnings"></div>
+      <div id="se-editor"></div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn mint" id="se-confirm">✅ Everything Looks Correct</button>
+        <div class="row">
+          <button class="btn secondary" id="se-retake">🔁 Retake Picture</button>
+          <button class="btn secondary" id="se-addphoto">➕ Add Photo</button>
+        </div>
+        <button class="btn ghost" id="se-back">← Back to Session</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- card picker -->
+<div class="modal" id="picker">
+  <div class="sheet">
+    <div class="sh-head">
+      <b id="pk-title">Add a card</b>
+      <input type="text" id="pk-search" placeholder="Search…" style="margin-left:auto;max-width:170px;padding:8px 10px;font-size:14px">
+      <button class="btn small secondary" id="pk-close">✕</button>
+    </div>
+    <div class="sh-body">
+      <div id="pk-variants" class="hide">
+        <p class="muted" style="margin:4px 0 2px">Which copy is it? (check the symbol on the card)</p>
+        <div class="variant-row" id="pk-variant-btns"></div>
+        <button class="btn small secondary" id="pk-variant-back">← All cards</button>
+      </div>
+      <div class="pickgrid" id="pk-grid"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" accept="image/*" capture="environment" id="camera" class="hide">
+
+<script>
+"use strict";
+/* Snap & Score client. The server is the only authority: this page just
+   captures photos, lets players correct the detected cards, and displays
+   what /api/snap/* returns. It never computes scores or grants rewards. */
+
+// ── tiny helpers ───────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function show(viewId){
+  for (const v of ["v-home","v-solo","v-create","v-session","v-seatedit"]) $(v).classList.add("hide");
+  $(viewId).classList.remove("hide");
+  window.scrollTo(0,0);
+}
+document.querySelectorAll("[data-nav='home']").forEach(b => b.onclick = () => { stopPolling(); show("v-home"); });
+
+async function api(path, body){
+  const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json"},
+                               body: JSON.stringify(body || {})});
+  const j = await r.json().catch(() => ({ok:false,error:"bad response"}));
+  if (!j.ok) throw new Error(j.error || "request failed");
+  return j;
+}
+async function apiGet(path){
+  const r = await fetch(path);
+  const j = await r.json().catch(() => ({ok:false,error:"bad response"}));
+  if (!j.ok) throw new Error(j.error || "request failed");
+  return j;
+}
+function toast(msg, isErr){
+  const t = document.createElement("div");
+  t.textContent = msg;
+  t.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:99;"+
+    "background:"+(isErr?"#b23227":"#0e8f81")+";color:#fff;padding:11px 18px;border-radius:12px;"+
+    "font-weight:700;font-size:14px;max-width:88vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.4)";
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3800);
+}
+
+// ── Firebase auth (same project/config as the game) ────────────────────────
+let AUTH = null, USER = null;
+try {
+  const cfg = window.__FISH_FIREBASE_CONFIG || {};
+  if (cfg.apiKey) { firebase.initializeApp(cfg); AUTH = firebase.auth(); }
+} catch (e) { console.warn("firebase init failed", e); }
+function renderWho(){
+  const el = $("whoami");
+  if (USER) el.innerHTML = (USER.photoURL?`<img class="avatar-mini" src="${esc(USER.photoURL)}">`:"") +
+    `<span>${esc(USER.displayName || USER.email || "Signed in")}</span>`;
+  else el.innerHTML = `<a class="link" href="#" id="who-signin">Sign in</a>`;
+  const b = $("who-signin"); if (b) b.onclick = (e)=>{e.preventDefault(); signIn();};
+}
+async function signIn(){
+  if (!AUTH) { toast("Sign-in isn't available on this server", true); return false; }
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await AUTH.signInWithPopup(provider);
+    return true;
+  } catch (e) {
+    try { await AUTH.signInWithRedirect(new firebase.auth.GoogleAuthProvider()); } catch {}
+    return false;
+  }
+}
+async function idToken(){
+  try { return USER ? await USER.getIdToken() : ""; } catch { return ""; }
+}
+if (AUTH) AUTH.onAuthStateChanged(u => { USER = u; renderWho(); renderCreateAuth(); });
+renderWho();
+
+// ── card roster + art ──────────────────────────────────────────────────────
+let ROSTER = null;               // {cards:[{u,n,sp,d,sym,c,t}], oceanNames, animalNames}
+let CARD_BY_UID = {};
+let NAMES_BY_SIDE = {};          // side -> [{name, sp, variants:[{u,sym}], land}]
+let VISION_ENABLED = false;
+const pad2 = n => String(n).padStart(2,"0");
+function artFor(uid){
+  let u = Number(uid); if (u >= 1000000) u = u % 1000;
+  if (u >= 1 && u <= 96)    return {url:`/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png`, pos: u%2===1?"top":"bottom", land:true};
+  if (u >= 101 && u <= 188) return {url:`/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png`, pos: u%2===1?"left":"right", land:false};
+  if (u >= 201 && u <= 269) return {url:`/oceans_cards/page_${pad2(u-200)}.png`, pos:"center", land:true};
+  return {url:"", pos:"center", land:false};
+}
+function artStyle(uid){
+  const a = artFor(uid);
+  if (!a.url) return "";
+  if (a.pos === "top")    return `background-image:url('${a.url}');background-size:100% 200%;background-position:center top;`;
+  if (a.pos === "bottom") return `background-image:url('${a.url}');background-size:100% 200%;background-position:center bottom;`;
+  if (a.pos === "left")   return `background-image:url('${a.url}');background-size:200% 100%;background-position:left center;`;
+  if (a.pos === "right")  return `background-image:url('${a.url}');background-size:200% 100%;background-position:right center;`;
+  return `background-image:url('${a.url}');background-size:cover;background-position:center;`;
+}
+async function loadRoster(){
+  if (ROSTER) return ROSTER;
+  const [r, cfg] = await Promise.all([apiGet("/api/snap/roster"), apiGet("/api/snap/config").catch(()=>({visionEnabled:false}))]);
+  VISION_ENABLED = !!cfg.visionEnabled;
+  ROSTER = r;
+  CARD_BY_UID = {}; NAMES_BY_SIDE = {ocean:[],up:[],down:[],left:[],right:[]};
+  const grouped = {};
+  for (const c of r.cards){
+    CARD_BY_UID[c.u] = c;
+    const key = c.n + "||" + c.d;
+    if (!grouped[key]) {
+      grouped[key] = {name:c.n, sp:c.sp, side:c.d, variants:[], land: artFor(c.u).land};
+      (NAMES_BY_SIDE[c.d] = NAMES_BY_SIDE[c.d] || []).push(grouped[key]);
+    }
+    grouped[key].variants.push({u:c.u, sym:c.sym});
+  }
+  for (const k in NAMES_BY_SIDE) NAMES_BY_SIDE[k].sort((a,b)=>a.name.localeCompare(b.name));
+  return r;
+}
+
+// ── camera capture (downscaled JPEG data URL) ──────────────────────────────
+function capturePhoto(){
+  return new Promise((resolve) => {
+    const inp = $("camera");
+    inp.value = "";
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return resolve(null);
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1600;
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+        const cv = document.createElement("canvas");
+        cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+        resolve(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = () => resolve(null);
+      img.src = URL.createObjectURL(f);
+    };
+    inp.click();
+  });
+}
+
+// ── board model + editor ───────────────────────────────────────────────────
+// board = {oceans:[{u, up:[uids], down:[], left:[], right:[]}]} (uid space)
+function emptyBoard(){ return {oceans:[]}; }
+function boardToNameView(board){
+  // name-space copy sent as priorBoard so extra photos MERGE with what we have
+  return {oceans: board.oceans.map(oc => ({
+    ocean: (CARD_BY_UID[oc.u]||{}).n || "Unknown",
+    confidence: 1,
+    up: oc.up.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
+    down: oc.down.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
+    left: oc.left.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
+    right: oc.right.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
+  }))};
+}
+function renderEditor(container, board, onChange){
+  container.innerHTML = "";
+  board.oceans.forEach((oc, oi) => {
+    const cd = CARD_BY_UID[oc.u] || {n:"Ocean "+oc.u, sym:""};
+    const block = document.createElement("div");
+    block.className = "ocean-block";
+    block.innerHTML = `<div class="ocean-head">
+        <div class="cardtile" style="margin:0;padding:0;background:none"><div class="art" style="${artStyle(oc.u)}"></div></div>
+        <div><div class="t">${esc(cd.n)}</div><div class="sym">${esc(cd.sym||"")}</div></div>
+        <button class="btn small warn" data-del-ocean="${oi}">Remove</button>
+      </div>
+      <div class="slotgrid">${["up","down","left","right"].map(side => `
+        <div class="slot"><div class="sl">${side}</div>
+          ${oc[side].map((u,ci)=>{
+            const c = CARD_BY_UID[u]||{n:"?",sym:""};
+            return `<div class="cardtile" data-card="${oi}|${side}|${ci}">
+              <div class="art" style="${artStyle(u)}"></div>
+              <div><div class="cn">${esc(c.n)}</div><div class="sym">${esc(c.sym||"")}</div></div>
+            </div>`;
+          }).join("")}
+          <button class="addbtn" data-add="${oi}|${side}">+ add card</button>
+        </div>`).join("")}
+      </div>`;
+    container.appendChild(block);
+  });
+  const addOcean = document.createElement("button");
+  addOcean.className = "btn secondary";
+  addOcean.textContent = "＋ Add an Ocean";
+  addOcean.style.cssText = "background:#eef6fb;color:#0b2438;box-shadow:none;border:1.5px dashed #b9cfdd";
+  addOcean.onclick = () => pickCard("ocean", (uid) => { board.oceans.push({u:uid,up:[],down:[],left:[],right:[]}); onChange(); });
+  container.appendChild(addOcean);
+
+  container.querySelectorAll("[data-del-ocean]").forEach(b => b.onclick = () => {
+    if (!confirm("Remove this ocean and its cards?")) return;
+    board.oceans.splice(Number(b.dataset.delOcean),1); onChange();
+  });
+  container.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+    const [oi, side] = b.dataset.add.split("|");
+    pickCard(side, (uid) => { board.oceans[Number(oi)][side].push(uid); onChange(); });
+  });
+  container.querySelectorAll("[data-card]").forEach(tile => tile.onclick = () => {
+    const [oi, side, ci] = tile.dataset.card.split("|");
+    const oc = board.oceans[Number(oi)];
+    const uid = oc[side][Number(ci)];
+    const c = CARD_BY_UID[uid] || {n:"card"};
+    const action = prompt(`${c.n} (${c.sym||""})\n\nType:  r = remove   c = change card   s = change symbol/copy`, "r");
+    if (action === null) return;
+    if (action.trim().toLowerCase() === "r") { oc[side].splice(Number(ci),1); onChange(); }
+    else if (action.trim().toLowerCase() === "s") {
+      pickVariantOf(c.n, side, (nu) => { oc[side][Number(ci)] = nu; onChange(); });
+    } else {
+      pickCard(side, (nu) => { oc[side][Number(ci)] = nu; onChange(); });
+    }
+  });
+}
+
+// ── picker modal ───────────────────────────────────────────────────────────
+let pickerCb = null, pickerSide = "ocean";
+function pickCard(side, cb){
+  pickerCb = cb; pickerSide = side;
+  $("pk-title").textContent = side === "ocean" ? "Add an Ocean" : `Add a card (${side} side)`;
+  $("pk-search").value = "";
+  $("pk-variants").classList.add("hide");
+  renderPickGrid("");
+  $("picker").classList.add("open");
+}
+function renderPickGrid(q){
+  const grid = $("pk-grid");
+  grid.classList.remove("hide");
+  const ql = q.trim().toLowerCase();
+  let list = (NAMES_BY_SIDE[pickerSide] || []).slice();
+  // misplaced-card rescue: searching shows every card, not just this side's
+  if (ql) {
+    const all = [];
+    for (const k in NAMES_BY_SIDE) for (const e of NAMES_BY_SIDE[k]) all.push(e);
+    list = all.filter(e => e.name.toLowerCase().includes(ql));
+  }
+  grid.innerHTML = list.map((e,i) => `
+    <div class="pick" data-pick="${esc(e.name)}|${esc(e.side)}">
+      <div class="art ${e.land?"land":""}" style="${artStyle(e.variants[0].u)}"></div>
+      <div class="pn">${esc(e.name)}</div>
+    </div>`).join("") || `<div class="muted">No cards found.</div>`;
+  grid.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => {
+    const [name, side] = el.dataset.pick.split("|");
+    pickVariantOf(name, side, (uid) => { closePicker(); pickerCb && pickerCb(uid); });
+  });
+}
+function pickVariantOf(name, side, cb){
+  const entry = (NAMES_BY_SIDE[side] || []).find(e => e.name === name) ||
+                Object.values(NAMES_BY_SIDE).flat().find(e => e.name === name);
+  if (!entry) return;
+  if (entry.variants.length === 1) { closePicker(); cb(entry.variants[0].u); return; }
+  $("picker").classList.add("open");
+  $("pk-grid").classList.add("hide");
+  $("pk-variants").classList.remove("hide");
+  const box = $("pk-variant-btns");
+  const symIcon = {Triangle:"▲",Square:"■",Heart:"♥",Circle:"●",Diamond:"◆"};
+  box.innerHTML = "";
+  entry.variants.forEach(v => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.innerHTML = `${symIcon[v.sym]||"·"} ${esc(v.sym||"?")}`;
+    b.onclick = () => { closePicker(); cb(v.u); };
+    box.appendChild(b);
+  });
+}
+function closePicker(){ $("picker").classList.remove("open"); }
+$("pk-close").onclick = closePicker;
+$("picker").addEventListener("click", e => { if (e.target === $("picker")) closePicker(); });
+$("pk-search").oninput = () => { $("pk-variants").classList.add("hide"); renderPickGrid($("pk-search").value); };
+$("pk-variant-back").onclick = () => { $("pk-variants").classList.add("hide"); renderPickGrid($("pk-search").value); };
+
+function renderWarnings(container, warnings, lowConfidence){
+  let html = "";
+  if (lowConfidence && lowConfidence.length)
+    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(lowConfidence.join(", "))}</b> — double-check those cards.</div>`;
+  if (warnings && warnings.length)
+    html += `<div class="warnbox">${warnings.slice(0,8).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>`;
+  container.innerHTML = html;
+}
+
+// ═══ SOLO FLOW ═════════════════════════════════════════════════════════════
+let soloBoard = emptyBoard();
+$("go-solo").onclick = async () => { await loadRoster().catch(e=>toast(e.message,true)); soloReset(); show("v-solo"); };
+function soloReset(){
+  soloBoard = emptyBoard();
+  $("solo-review").classList.add("hide");
+  $("solo-result").classList.add("hide");
+  $("solo-busy").classList.add("hide");
+  $("solo-photo").disabled = false;
+}
+async function soloScan(prior){
+  const dataUrl = await capturePhoto();
+  if (!dataUrl) return;
+  $("solo-busy").classList.remove("hide");
+  try {
+    const body = {image: dataUrl};
+    if (prior) body.priorBoard = boardToNameView(soloBoard);
+    const r = await api("/api/snap/detect", body);
+    soloBoard = {oceans: (r.board && r.board.oceans) || []};
+    renderWarnings($("solo-warnings"), r.warnings, r.lowConfidence);
+    soloRenderEditor();
+    $("solo-review").classList.remove("hide");
+  } catch (e) { toast(e.message, true); }
+  $("solo-busy").classList.add("hide");
+}
+$("solo-photo").onclick = async () => {
+  if (!VISION_ENABLED) { toast("Photo detection isn't set up yet — build your board manually instead", true); return; }
+  soloScan(false);
+};
+$("solo-retake").onclick = () => { soloBoard = emptyBoard(); soloScan(false); };
+$("solo-addphoto").onclick = () => soloScan(true);
+$("solo-manual").onclick = () => {
+  soloBoard = emptyBoard();
+  $("solo-warnings").innerHTML = "";
+  soloRenderEditor();
+  $("solo-review").classList.remove("hide");
+};
+function soloRenderEditor(){ renderEditor($("solo-editor"), soloBoard, soloRenderEditor); }
+$("solo-confirm").onclick = async () => {
+  if (!soloBoard.oceans.length) { toast("Add at least one ocean first", true); return; }
+  try {
+    const r = await api("/api/snap/score-board", {board: soloBoard, playerName: "You"});
+    const p = r.players[0];
+    $("solo-score").innerHTML = `${p.score}<small>points</small>`;
+    $("solo-strategy").textContent = p.strategy ? `Detected strategy: ${p.strategy}` : "";
+    $("solo-breakdown").innerHTML = p.breakdown.map(b =>
+      `<li><span>${b.kind==="ocean"?"🌊":"🐟"} ${esc(b.n)}${b.kind==="ocean"?"":" · on "+esc(b.ocean)}</span><span class="pts">${b.pts>=0?"+":""}${b.pts}</span></li>`).join("");
+    $("solo-compare-note").textContent =
+      'Bonuses like "most animals" assume you had the most at the table — score everyone in a Multiplayer Session for exact head-to-head bonuses.';
+    if (r.warnings && r.warnings.length) toast(r.warnings[0], true);
+    $("solo-review").classList.add("hide");
+    $("solo-result").classList.remove("hide");
+    window.scrollTo(0,0);
+  } catch (e) { toast(e.message, true); }
+};
+$("solo-to-session").onclick = () => { show("v-create"); renderCreateAuth(); };
+
+// ═══ SESSION FLOW ═════════════════════════════════════════════════════════
+let SESS = null;                 // {code, token, seat}
+let sessView = null;             // last server view
+let pollTimer = null;
+let seatEditState = null;        // {seat, board}
+
+function saveSess(){ try { localStorage.setItem("cc_snap_sess", JSON.stringify(SESS)); } catch{} }
+function loadSess(){ try { return JSON.parse(localStorage.getItem("cc_snap_sess")||"null"); } catch { return null; } }
+function clearSess(){ SESS = null; try { localStorage.removeItem("cc_snap_sess"); } catch{} }
+
+$("go-create").onclick = async () => { await loadRoster().catch(e=>toast(e.message,true)); show("v-create"); renderCreateAuth(); };
+function renderCreateAuth(){
+  const box = $("create-auth"); if (!box) return;
+  if (USER) {
+    box.innerHTML = `<div class="warnbox" style="background:#e7f7ef;border-color:#bfe6d2;color:#0c6a44">
+      ✅ Signed in as <b>${esc(USER.displayName||USER.email||"you")}</b> — this game will count on your account.</div>`;
+    if (!$("create-name").value) $("create-name").value = (USER.displayName||"").slice(0,24);
+  } else {
+    box.innerHTML = `<div class="warnbox">You're not signed in — you can host as a guest, but only connected accounts receive XP, achievements, and history. <a class="link" href="#" id="create-signin">Sign in</a></div>`;
+    const a = $("create-signin"); if (a) a.onclick = (e)=>{e.preventDefault(); signIn();};
+  }
+}
+$("create-go").onclick = async () => {
+  $("create-err").innerHTML = "";
+  try {
+    const when = $("create-when").value ? new Date($("create-when").value).getTime() : null;
+    const r = await api("/api/snap/session/create", {
+      idToken: await idToken(),
+      name: $("create-name").value || (USER && USER.displayName) || "Host",
+      playerCount: Number($("create-count").value || 4),
+      timePlayed: when,
+    });
+    SESS = {code: r.code, token: r.playerToken, seat: r.seat};
+    saveSess();
+    enterSession(r.session);
+  } catch (e) { $("create-err").innerHTML = `<div class="errbox">${esc(e.message)}</div>`; }
+};
+$("go-join").onclick = async () => joinWithCode($("join-code").value);
+async function joinWithCode(codeRaw){
+  const code = String(codeRaw||"").trim().toUpperCase();
+  if (code.length < 4) { toast("Enter the game code first", true); return; }
+  await loadRoster().catch(()=>{});
+  let name = (USER && USER.displayName) || "";
+  if (!name) name = prompt("Your name for this game:", "") || "Player";
+  try {
+    const r = await api("/api/snap/session/join", {code, idToken: await idToken(), name});
+    SESS = {code: r.code, token: r.playerToken, seat: r.seat};
+    saveSess();
+    enterSession(r.session);
+  } catch (e) { toast(e.message, true); }
+}
+function enterSession(view){
+  sessView = view;
+  show("v-session");
+  renderSession();
+  startPolling();
+}
+function startPolling(){
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    if (!SESS) return;
+    try {
+      const r = await apiGet(`/api/snap/session/state?code=${encodeURIComponent(SESS.code)}&token=${encodeURIComponent(SESS.token)}`);
+      const prev = JSON.stringify(sessView);
+      sessView = r.session;
+      if (JSON.stringify(sessView) !== prev && $("v-session").classList.contains("hide") === false) renderSession();
+    } catch {}
+  }, 2500);
+}
+function stopPolling(){ if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+$("sess-leave").onclick = () => { stopPolling(); show("v-home"); };
+
+$("sess-copy").onclick = async () => {
+  try { await navigator.clipboard.writeText(SESS.code); toast("Code copied!"); } catch { toast(SESS.code); }
+};
+$("sess-share").onclick = async () => {
+  const url = location.origin + location.pathname + "?join=" + SESS.code;
+  const data = {title:"Snap & Score", text:`Join our Currents & Critters score session — code ${SESS.code}`, url};
+  if (navigator.share) { try { await navigator.share(data); } catch {} }
+  else { try { await navigator.clipboard.writeText(url); toast("Invite link copied!"); } catch {} }
+};
+
+function seatChip(s){
+  if (s.approved) return `<span class="chip ok">Approved</span>`;
+  if (s.confirmed) return `<span class="chip ok">Confirmed</span>`;
+  if (s.hasBoard) return `<span class="chip info">Needs review</span>`;
+  if (s.kind === "offline") return `<span class="chip wait">Needs photo</span>`;
+  return `<span class="chip wait">Needs photo</span>`;
+}
+function renderSession(){
+  const v = sessView; if (!v) return;
+  $("sess-code").textContent = v.code;
+  const statusChip = $("sess-status-chip");
+  statusChip.textContent = v.status === "finalized" ? "Saved!" : v.status === "review" ? "Awaiting approvals" : "Scanning boards";
+  statusChip.className = "chip " + (v.status === "finalized" ? "ok" : v.status === "review" ? "info" : "wait");
+
+  const meSeat = SESS ? SESS.seat : null;
+  const isHost = meSeat === v.hostSeat;
+  const box = $("sess-seats");
+  box.innerHTML = v.seats.map(s => {
+    const mine = s.seat === meSeat;
+    const canPhoto = mine || s.kind === "offline" || isHost;
+    const canConfirm = (mine || (s.kind === "offline")) && s.hasBoard && !s.confirmed;
+    const scoreTxt = (s.score !== null && s.score !== undefined) ? ` · <b>${s.score} pts</b>` : "";
+    return `<div class="seat">
+      <div class="row" style="justify-content:space-between">
+        <div class="nm">${s.seat+1}. ${esc(s.name)}${mine?" (you)":""}${scoreTxt}</div>
+        ${seatChip(s)}
+      </div>
+      ${s.kind==="offline" ? `<div class="muted">No device — anyone can scan &amp; confirm this board.</div>` :
+        (s.connectedAccount ? `<div class="muted">Account connected ✓</div>` : `<div class="muted">Guest — no rewards unless an account is connected before approval.</div>`)}
+      ${(s.warnings||[]).length && (mine||isHost) ? `<div class="warnbox" style="margin:8px 0 0">${s.warnings.slice(0,3).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>` : ""}
+      <div class="acts">
+        ${canPhoto && v.status!=="finalized" ? `<button class="btn small" data-photo="${s.seat}">📸 ${s.hasBoard?"Rescan":"Photograph"} board</button>` : ""}
+        ${(mine || (canPhoto && s.kind==="offline")) && s.hasBoard && v.status!=="finalized" ? `<button class="btn small secondary" data-review="${s.seat}">✏️ Review &amp; edit</button>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  box.querySelectorAll("[data-photo]").forEach(b => b.onclick = () => seatPhoto(Number(b.dataset.photo), false));
+  box.querySelectorAll("[data-review]").forEach(b => b.onclick = () => openSeatEditor(Number(b.dataset.review)));
+
+  // host tools
+  const joined = v.seats.length, total = v.playerCount;
+  $("sess-host-tools").innerHTML = (isHost && joined < total && v.status!=="finalized") ?
+    `<div class="row" style="margin-top:8px">
+       <button class="btn small secondary" id="add-offline" style="flex:1">➕ Add a player without a phone (${joined}/${total} added)</button>
+     </div>` :
+    (joined < total ? `<div class="muted" style="margin-top:8px">${joined}/${total} players added — waiting for the rest to join with the code.</div>` : "");
+  const ao = $("add-offline");
+  if (ao) ao.onclick = async () => {
+    const name = prompt("Player's name:"); if (!name) return;
+    try { sessView = (await api("/api/snap/session/add-offline", {...credBody(), name})).session; renderSession(); }
+    catch (e) { toast(e.message, true); }
+  };
+
+  // guest link-account
+  const me = v.seats.find(s => s.seat === meSeat);
+  $("sess-link-account").innerHTML = (me && !me.connectedAccount && me.kind!=="offline" && v.status!=="finalized") ?
+    `<div class="warnbox" style="margin-top:10px">You're a guest — connect your Currents &amp; Critters account <b>before final approval</b> to receive XP, achievements, avatars, and game history. <a class="link" href="#" id="link-acct">Connect account</a></div>` : "";
+  const la = $("link-acct");
+  if (la) la.onclick = async (e) => {
+    e.preventDefault();
+    if (!USER) { const ok = await signIn(); if (!ok && !USER) return; }
+    try {
+      sessView = (await api("/api/snap/session/link-account", {...credBody(), idToken: await idToken()})).session;
+      renderSession(); toast("Account connected!");
+    } catch (err) { toast(err.message, true); }
+  };
+
+  // review / approval panel
+  const rp = $("sess-review-panel");
+  if (v.status === "review" && v.preview) {
+    rp.classList.remove("hide");
+    renderStandings($("sess-standings"), v.preview, meSeat, false);
+    const myRow = (v.preview.standings||[]).find(r => r.seat === meSeat);
+    $("sess-my-rewards").innerHTML = myRow ? myRewardsHtml(myRow) : "";
+    $("sess-awaiting").innerHTML = v.awaitingApproval && v.awaitingApproval.length ?
+      `Still waiting for approval from: <b>${v.awaitingApproval.map(esc).join(", ")}</b>` : "";
+    const approvedAlready = me && me.approved;
+    $("sess-approve").disabled = !!approvedAlready || !me || me.kind === "offline";
+    $("sess-approve").textContent = approvedAlready ? "✅ Approved — waiting for the others" : "✅ I Approve My Board and Score";
+  } else rp.classList.add("hide");
+
+  // results panel
+  const resP = $("sess-results-panel");
+  if (v.status === "finalized" && v.results) {
+    resP.classList.remove("hide");
+    renderResults(resP, v);
+    $("sess-codebox").classList.add("hide");
+  } else { resP.classList.add("hide"); $("sess-codebox").classList.remove("hide"); }
+
+  // rejection note
+  if (v.rejections && v.rejections.length && v.status !== "finalized") {
+    const last = v.rejections[v.rejections.length-1];
+    if (last && Date.now()/1000 - last.at < 60 && last.by !== (me&&me.name)) toast(`${last.by} sent the results back for fixes`, true);
+  }
+}
+function credBody(){ return {code: SESS.code, playerToken: SESS.token}; }
+
+function renderStandings(el, preview, meSeat, final){
+  el.innerHTML = `<table class="stand">
+    <tr><th>#</th><th>Player</th><th>Score</th><th>Strategy</th></tr>
+    ${(preview.standings||[]).map(r => `
+      <tr class="${r.winner?"win":""}">
+        <td>${r.winner?"👑":r.placement}</td>
+        <td>${esc(r.name)}${r.seat===meSeat?" (you)":""}${r.kind!=="account"?' <span class="muted">guest</span>':""}</td>
+        <td><b>${r.score}</b></td>
+        <td class="muted">${esc(r.strategy||"")}</td>
+      </tr>`).join("")}
+  </table>`;
+}
+function myRewardsHtml(r){
+  const isAcct = r.kind === "account";
+  let html = `<h3>Your expected rewards</h3>`;
+  if (!isAcct) return html + `<div class="warnbox">Guests don't receive XP or unlocks — connect your account above before approving to claim these.</div>`;
+  html += `<div class="rewardline">🎖️ Game XP (${r.placement===1?"1st place":r.placement===2?"2nd place":r.placement===3?"3rd place":"participation"})<span class="xp">+${r.xpGame} XP</span></div>`;
+  for (const a of (r.achievements||[]))
+    html += `<div class="rewardline">🏅 ${esc(a.name)}<span class="xp">+${a.xp} XP</span></div>`;
+  for (const a of (r.avatars||[]))
+    html += `<div class="rewardline">🐟 Avatar unlock: <b>${esc(a.name)}</b><span class="xp">NEW</span></div>`;
+  html += `<div class="rewardline"><b>Total</b><span class="xp">+${r.xpTotal} XP</span></div>`;
+  return html;
+}
+function renderResults(el, v){
+  const res = v.results, meSeat = SESS ? SESS.seat : null;
+  const myRow = (res.standings||[]).find(r => r.seat === meSeat);
+  const granted = res.rewardsGranted;
+  el.innerHTML = `
+    <h2 style="text-align:center">🏆 ${esc(res.winner)} wins!</h2>
+    <div id="res-stand"></div>
+    ${myRow ? `<div class="panel" style="box-shadow:none;border:1.5px solid var(--line);margin:10px 0">
+      <h3 style="margin-top:0">Your result — ${myRow.score} points (${myRow.placement===1?"1st":myRow.placement===2?"2nd":myRow.placement===3?"3rd":myRow.placement+"th"})</h3>
+      ${myRow.kind==="account" ?
+        (granted ? myRewardsHtml(myRow) + `<div class="chip ok" style="margin-top:8px">✓ Game added to your history</div>` :
+                   `<div class="warnbox">${esc(res.note||"Rewards are pending review.")}</div>`) :
+        `<p class="sub">Your score has been calculated.</p>
+         <div class="warnbox">Create or connect a Currents &amp; Critters account to save future games and receive XP, achievements, avatars, and other rewards.</div>`}
+      ${myRow.strategy?`<div class="muted">Detected strategy: ${esc(myRow.strategy)}</div>`:""}
+    </div>` : ""}
+    ${res.note && granted ? `<div class="muted">${esc(res.note)}</div>` : ""}
+    ${res.riskLevel && res.riskLevel!=="normal" && res.riskLevel!=="review_recommended" ? `<div class="errbox">${esc(res.note||"")}</div>` : ""}
+    <div class="stack" style="margin-top:10px">
+      <button class="btn mint" id="res-again">Score Another Game</button>
+    </div>`;
+  renderStandings($("res-stand"), res, meSeat, true);
+  $("res-again").onclick = () => { stopPolling(); clearSess(); show("v-home"); };
+}
+
+async function seatPhoto(seatNo, addMore){
+  if (!VISION_ENABLED) { openSeatEditor(seatNo); toast("Photo detection isn't set up — build the board manually", true); return; }
+  const dataUrl = await capturePhoto();
+  if (!dataUrl) return;
+  toast("Identifying cards…");
+  try {
+    const body = {...credBody(), seat: seatNo, image: dataUrl};
+    if (addMore && seatEditState && seatEditState.seat === seatNo)
+      body.priorBoard = boardToNameView(seatEditState.board);
+    const r = await api("/api/snap/detect", body);
+    seatEditState = {seat: seatNo, board: {oceans:(r.board&&r.board.oceans)||[]},
+                     warnings: r.warnings, lowConfidence: r.lowConfidence};
+    openSeatEditor(seatNo, true);
+  } catch (e) { toast(e.message, true); }
+}
+function openSeatEditor(seatNo, fresh){
+  if (!fresh || !seatEditState || seatEditState.seat !== seatNo) {
+    if (!seatEditState || seatEditState.seat !== seatNo)
+      seatEditState = {seat: seatNo, board: emptyBoard(), warnings: [], lowConfidence: []};
+  }
+  const seat = (sessView.seats||[]).find(s => s.seat === seatNo);
+  $("se-title").textContent = `Board — ${seat ? seat.name : "Player " + (seatNo+1)}`;
+  renderWarnings($("se-warnings"), seatEditState.warnings, seatEditState.lowConfidence);
+  const rerender = () => renderEditor($("se-editor"), seatEditState.board, rerender);
+  rerender();
+  show("v-seatedit");
+}
+$("se-back").onclick = () => show("v-session");
+$("se-retake").onclick = () => seatPhoto(seatEditState.seat, false);
+$("se-addphoto").onclick = () => seatPhoto(seatEditState.seat, true);
+$("se-confirm").onclick = async () => {
+  if (!seatEditState.board.oceans.length) { toast("Add at least one ocean first", true); return; }
+  try {
+    const r = await api("/api/snap/session/confirm-board",
+      {...credBody(), seat: seatEditState.seat, board: seatEditState.board});
+    sessView = r.session;
+    show("v-session"); renderSession();
+    toast("Board confirmed!");
+  } catch (e) { toast(e.message, true); }
+};
+$("sess-approve").onclick = async () => {
+  try {
+    const r = await api("/api/snap/session/approve", {...credBody(), idToken: await idToken()});
+    sessView = r.session; renderSession();
+  } catch (e) { toast(e.message, true); }
+};
+$("sess-reject").onclick = async () => {
+  const reason = prompt("What's wrong? (optional)") || "";
+  try {
+    const r = await api("/api/snap/session/reject", {...credBody(), reason});
+    sessView = r.session; renderSession();
+  } catch (e) { toast(e.message, true); }
+};
+
+// ── boot: resume session / handle invite links ─────────────────────────────
+(async function boot(){
+  const params = new URLSearchParams(location.search);
+  const joinCode = (params.get("join")||"").trim().toUpperCase();
+  const saved = loadSess();
+  try { await loadRoster(); } catch (e) { console.warn(e); }
+  if (saved && saved.code) {
+    try {
+      const r = await apiGet(`/api/snap/session/state?code=${encodeURIComponent(saved.code)}&token=${encodeURIComponent(saved.token)}`);
+      if (r.session && r.session.status !== "finalized") { SESS = saved; enterSession(r.session); return; }
+      if (r.session && r.session.status === "finalized" &&
+          Date.now()/1000 - (r.session.createdAt||0) < 6*3600) { SESS = saved; enterSession(r.session); return; }
+    } catch { clearSess(); }
+  }
+  if (joinCode) { $("join-code").value = joinCode; joinWithCode(joinCode); }
+})();
+</script>
+</body>
+</html>

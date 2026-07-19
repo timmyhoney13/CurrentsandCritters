@@ -7,10 +7,14 @@ ENV PYTHONUNBUFFERED=1
 
 # firebase-admin lets the server read the exact registered-player and live
 # online-player counts from Firestore, served to the website via /api/stats.
-RUN pip install --no-cache-dir firebase-admin==6.5.0
+# anthropic powers Snap & Score board-photo card detection (Claude vision);
+# pillow computes the perceptual image hashes + review thumbnails for its
+# anti-cheat duplicate-photo detection.
+RUN pip install --no-cache-dir firebase-admin==6.5.0 anthropic pillow
 
 # Copy only runtime files needed by the live multiplayer server.
 COPY multiplayer_server.py /app/multiplayer_server.py
+COPY snap_score.py /app/snap_score.py
 COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt

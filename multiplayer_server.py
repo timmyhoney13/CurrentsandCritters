@@ -29,6 +29,7 @@ from urllib.parse import parse_qs, urlparse
 os.environ.setdefault("FISH_WEB_CONTROL", "1")
 
 import fish_game_all_in_one as fish
+import snap_score
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +42,10 @@ LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderb
 SUPPORTER_WALL_HTML_PATH  = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-wall.html")
 SUPPORTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-admin.html")
 CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "claim-rewards.html")
+# Snap & Score — physical-board scanning + scoring companion app. Served at
+# /score on the main host AND as the root page for score.currentsandcritters.com
+# (second custom domain on the same Render service, routed by Host header).
+SCORE_APP_HTML_PATH       = os.path.join(BASE_DIR, "multiplayer", "client", "score-app.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -8622,6 +8627,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         parsed = urlparse(self.path)
         parts = self._path_parts(parsed.path)
 
+        # Snap & Score subdomain: score.currentsandcritters.com points at this
+        # same service; its root serves the score app instead of the game.
+        host_only = str(self.headers.get("Host") or "").split(":", 1)[0].strip().lower()
+        if host_only.startswith("score.") and parsed.path == "/":
+            self._send_html_file(SCORE_APP_HTML_PATH, "snap & score")
+            return
+
+        # Snap & Score page on any host (also the pre-DNS way to reach it).
+        if len(parts) == 1 and parts[0] in {"score", "snap", "snap-score"}:
+            self._send_html_file(SCORE_APP_HTML_PATH, "snap & score")
+            return
+
+        # Snap & Score API (config / roster / session polling).
+        if snap_score.handle_get(self, parsed):
+            return
+
         if parsed.path == "/firebase-config.js":
             cfg = {
                 "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
@@ -9269,6 +9290,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # stream: signature verification needs the EXACT raw request bytes.
         if parsed.path == "/api/stripe/webhook":
             self._handle_stripe_webhook()
+            return
+
+        # Snap & Score endpoints read their OWN body (board photos are far
+        # bigger than MAX_JSON_BODY_BYTES), so dispatch before _read_json_body.
+        if snap_score.handle_post(self, parsed):
             return
 
         parts = self._path_parts(parsed.path)
@@ -10111,6 +10137,15 @@ def main() -> None:
 
     os.makedirs(os.path.dirname(DATASET_PATH), exist_ok=True)
     os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
+
+    # Snap & Score companion app: hand it the Firestore/auth/level helpers so
+    # it can verify players and grant rewards server-side (no circular import).
+    snap_score.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_progress=_level_progress_for_total_xp,
+        state_dir=ROOM_STATE_DIR,
+    )
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.
     if STATS_SEED_GAMES > 0 or STATS_SEED_PLAYERS > 0:

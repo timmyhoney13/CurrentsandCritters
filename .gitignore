@@ -12,6 +12,7 @@
 !package.json
 !build.js
 !multiplayer_server.py
+!snap_score.py
 !fish_game_all_in_one.py
 !fish_ai_brain.json
 !multiplayer/
