@@ -129,6 +129,31 @@
   .hide{display:none!important}
   a.link{color:var(--teal);font-weight:700;text-decoration:none}
   .avatar-mini{width:34px;height:34px;border-radius:50%;border:2px solid #dff1ec;vertical-align:middle}
+  /* retake gate — shown on the review screen when a photo wasn't clear enough */
+  .retakebox{background:#fdecea;border:1.5px solid #f2b7b0;border-radius:14px;padding:13px 14px;margin:10px 0;color:#7c1d15}
+  .retakebox .rt-h{font-weight:900;font-size:14.5px;margin-bottom:6px}
+  .retakebox .rt-r{font-size:13px;line-height:1.55;margin:2px 0 8px}
+  .retakebox .rt-a{font-size:13px;font-style:italic;color:#8a4b12;margin:6px 0 10px}
+  .retakebox .btn{margin-top:2px}
+  /* live camera */
+  .cam{position:fixed;inset:0;z-index:80;background:#000;display:none;flex-direction:column}
+  .cam.open{display:flex}
+  .cam video{flex:1;width:100%;height:100%;object-fit:cover;background:#000}
+  .cam-guide{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center}
+  .cam-guide .frame{width:86%;height:60%;border:2.5px dashed rgba(255,255,255,.85);border-radius:16px;
+    box-shadow:0 0 0 100vmax rgba(0,0,0,.28)}
+  .cam-hint{position:absolute;left:0;right:0;top:calc(14px + env(safe-area-inset-top));text-align:center;
+    color:#fff;font-size:13.5px;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.8);padding:0 20px;line-height:1.4}
+  .cam-bar{position:absolute;left:0;right:0;bottom:0;padding:20px 22px calc(24px + env(safe-area-inset-bottom));
+    display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(0deg,rgba(0,0,0,.6),rgba(0,0,0,0))}
+  .cam-bar .txt{background:none;border:0;color:#fff;font-size:15px;font-weight:800;cursor:pointer;padding:10px;min-width:74px;text-align:left}
+  .cam-bar .txt.right{text-align:right}
+  .cam-shutter{width:74px;height:74px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,.55);
+    cursor:pointer;flex:none;box-shadow:0 2px 12px rgba(0,0,0,.5)}
+  .cam-shutter:active{transform:scale(.94)}
+  .cam-torch{opacity:.55}
+  .cam-torch.on{opacity:1}
 </style>
 </head>
 <body>
@@ -309,6 +334,18 @@
 
 <input type="file" accept="image/*" capture="environment" id="camera" class="hide">
 
+<!-- live camera (getUserMedia); falls back to the file input above when unavailable -->
+<div class="cam" id="cam">
+  <video id="cam-video" playsinline autoplay muted></video>
+  <div class="cam-guide"><div class="frame"></div></div>
+  <div class="cam-hint" id="cam-hint">Fit your <b>whole board</b> inside the frame · hold the phone flat, straight above · bright, even light, no glare</div>
+  <div class="cam-bar">
+    <button class="txt" id="cam-cancel">Cancel</button>
+    <button class="cam-shutter" id="cam-shutter" aria-label="Take photo"></button>
+    <button class="txt right cam-torch hide" id="cam-torch">🔦 Light</button>
+  </div>
+</div>
+
 <script>
 "use strict";
 /* Snap & Score client. The server is the only authority: this page just
@@ -451,7 +488,22 @@ async function loadRoster(){
 }
 
 // ── camera capture (downscaled JPEG data URL) ──────────────────────────────
-function capturePhoto(){
+// A bigger longest-edge keeps small card names/symbols legible for the vision
+// model (sharper text = more accurate detection) while staying well under the
+// server's 8MB body cap.
+const CAP_MAX = 2048, CAP_Q = 0.85;
+
+function _downscaleToDataUrl(source, sw, sh){
+  const scale = Math.min(1, CAP_MAX / Math.max(sw, sh));
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(sw * scale));
+  cv.height = Math.max(1, Math.round(sh * scale));
+  cv.getContext("2d").drawImage(source, 0, 0, cv.width, cv.height);
+  return cv.toDataURL("image/jpeg", CAP_Q);
+}
+
+// Fallback path: the OS camera / photo picker via a hidden file input.
+function filePhoto(){
   return new Promise((resolve) => {
     const inp = $("camera");
     inp.value = "";
@@ -459,19 +511,82 @@ function capturePhoto(){
       const f = inp.files && inp.files[0];
       if (!f) return resolve(null);
       const img = new Image();
-      img.onload = () => {
-        const MAX = 1600;
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height));
-        const cv = document.createElement("canvas");
-        cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
-        cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-        resolve(cv.toDataURL("image/jpeg", 0.82));
-      };
+      img.onload = () => resolve(_downscaleToDataUrl(img, img.width, img.height));
       img.onerror = () => resolve(null);
       img.src = URL.createObjectURL(f);
     };
     inp.click();
   });
+}
+
+// Live in-app camera: real preview + framing guide + shutter, so scanning
+// feels like a camera instead of a file dialog. Resolves to a JPEG data URL,
+// or null if the player cancels. Rejects (→ file-input fallback) when the
+// browser can't grant a live stream.
+let _camStream = null, _camResolve = null, _camTrack = null;
+function _camStop(){
+  try { if (_camStream) _camStream.getTracks().forEach(t => t.stop()); } catch {}
+  _camStream = null; _camTrack = null;
+  $("cam").classList.remove("open");
+  $("cam-video").srcObject = null;
+}
+function _camFinish(dataUrl){
+  const r = _camResolve; _camResolve = null;
+  _camStop();
+  if (r) r(dataUrl);
+}
+function openCamera(){
+  return new Promise((resolve, reject) => {
+    navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: "environment" },
+               width: { ideal: 3840 }, height: { ideal: 2160 } },
+    }).then(stream => {
+      _camStream = stream; _camResolve = resolve;
+      _camTrack = stream.getVideoTracks()[0] || null;
+      const v = $("cam-video");
+      v.srcObject = stream;
+      v.play().catch(()=>{});
+      $("cam").classList.add("open");
+      // Right button: torch toggle where supported, otherwise an "Upload"
+      // escape hatch to the OS file picker (desktop / preferring the library).
+      const torchBtn = $("cam-torch");
+      torchBtn.classList.remove("hide", "on");
+      let torchOn = false;
+      const caps = _camTrack && _camTrack.getCapabilities ? _camTrack.getCapabilities() : {};
+      if (caps && caps.torch) {
+        torchBtn.textContent = "🔦 Light";
+        torchBtn.onclick = async () => {
+          torchOn = !torchOn;
+          try { await _camTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+                torchBtn.classList.toggle("on", torchOn); } catch {}
+        };
+      } else {
+        torchBtn.textContent = "🖼 Upload";
+        torchBtn.onclick = async () => {
+          const r = _camResolve; _camResolve = null; _camStop();
+          const url = await filePhoto();
+          if (r) r(url);
+        };
+      }
+    }).catch(err => reject(err));
+  });
+}
+$("cam-cancel").onclick = () => _camFinish(null);
+$("cam-shutter").onclick = () => {
+  const v = $("cam-video");
+  const sw = v.videoWidth, sh = v.videoHeight;
+  if (!sw || !sh) { _camFinish(null); return; }
+  _camFinish(_downscaleToDataUrl(v, sw, sh));
+};
+
+function capturePhoto(){
+  // Prefer the live in-app camera; fall back to the OS picker if the browser
+  // blocks or lacks getUserMedia (older Safari, denied permission, desktop).
+  if (window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    return openCamera().catch(() => filePhoto());
+  }
+  return filePhoto();
 }
 
 // ── board model + editor ───────────────────────────────────────────────────
@@ -600,13 +715,30 @@ $("picker").addEventListener("click", e => { if (e.target === $("picker")) close
 $("pk-search").oninput = () => { $("pk-variants").classList.add("hide"); renderPickGrid($("pk-search").value); };
 $("pk-variant-back").onclick = () => { $("pk-variants").classList.add("hide"); renderPickGrid($("pk-search").value); };
 
-function renderWarnings(container, warnings, lowConfidence){
+// Renders the clarity gate + warnings for a detection result. When the photo
+// wasn't clear, the retake banner is the primary call to action (its button
+// triggers onRetake) — but the player can still fix cards by hand and continue.
+function renderDetectionFeedback(container, res, onRetake){
+  res = res || {};
   let html = "";
-  if (lowConfidence && lowConfidence.length)
-    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(lowConfidence.join(", "))}</b> — double-check those cards.</div>`;
-  if (warnings && warnings.length)
-    html += `<div class="warnbox">${warnings.slice(0,8).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>`;
+  if (res.needsRetake){
+    const reasons = (res.retakeReasons||[]).slice(0,5).map(x=>"• "+esc(x)).join("<br>");
+    const advice = res.quality && res.quality.advice ? esc(res.quality.advice) : "";
+    html += `<div class="retakebox">
+      <div class="rt-h">📷 This photo wasn't clear enough for an accurate score</div>
+      ${reasons?`<div class="rt-r">${reasons}</div>`:""}
+      ${advice?`<div class="rt-a">${advice}</div>`:""}
+      <button class="btn mint" id="rt-btn">🔁 Retake Photo</button>
+      <div class="muted" style="margin-top:8px">…or correct the cards below by hand and continue anyway.</div>
+    </div>`;
+  }
+  if (res.lowConfidence && res.lowConfidence.length)
+    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(res.lowConfidence.join(", "))}</b> — double-check those cards.</div>`;
+  if (res.warnings && res.warnings.length)
+    html += `<div class="warnbox">${res.warnings.slice(0,8).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>`;
   container.innerHTML = html;
+  const rb = container.querySelector("#rt-btn");
+  if (rb && onRetake) rb.onclick = onRetake;
 }
 
 // ═══ SOLO FLOW ═════════════════════════════════════════════════════════════
@@ -623,14 +755,16 @@ async function soloScan(prior){
   const dataUrl = await capturePhoto();
   if (!dataUrl) return;
   $("solo-busy").classList.remove("hide");
+  $("solo-review").classList.add("hide");
   try {
     const body = {image: dataUrl};
     if (prior) body.priorBoard = boardToNameView(soloBoard);
     const r = await api("/api/snap/detect", body);
     soloBoard = {oceans: (r.board && r.board.oceans) || []};
-    renderWarnings($("solo-warnings"), r.warnings, r.lowConfidence);
+    renderDetectionFeedback($("solo-warnings"), r, () => { soloBoard = emptyBoard(); soloScan(false); });
     soloRenderEditor();
     $("solo-review").classList.remove("hide");
+    if (r.needsRetake) toast("Photo wasn't clear — tap Retake for an accurate score", true);
   } catch (e) { toast(e.message, true); }
   $("solo-busy").classList.add("hide");
 }
@@ -905,8 +1039,10 @@ async function seatPhoto(seatNo, addMore){
       body.priorBoard = boardToNameView(seatEditState.board);
     const r = await api("/api/snap/detect", body);
     seatEditState = {seat: seatNo, board: {oceans:(r.board&&r.board.oceans)||[]},
-                     warnings: r.warnings, lowConfidence: r.lowConfidence};
+                     warnings: r.warnings, lowConfidence: r.lowConfidence,
+                     needsRetake: r.needsRetake, retakeReasons: r.retakeReasons, quality: r.quality};
     openSeatEditor(seatNo, true);
+    if (r.needsRetake) toast("Photo wasn't clear — tap Retake for an accurate score", true);
   } catch (e) { toast(e.message, true); }
 }
 function openSeatEditor(seatNo, fresh){
@@ -916,7 +1052,7 @@ function openSeatEditor(seatNo, fresh){
   }
   const seat = (sessView.seats||[]).find(s => s.seat === seatNo);
   $("se-title").textContent = `Board — ${seat ? seat.name : "Player " + (seatNo+1)}`;
-  renderWarnings($("se-warnings"), seatEditState.warnings, seatEditState.lowConfidence);
+  renderDetectionFeedback($("se-warnings"), seatEditState, () => seatPhoto(seatEditState.seat, false));
   const rerender = () => renderEditor($("se-editor"), seatEditState.board, rerender);
   rerender();
   show("v-seatedit");

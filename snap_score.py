@@ -600,6 +600,89 @@ def _hamming(a: str, b: str) -> int:
         return 64
 
 
+# ── deterministic pixel-level photo checks (backstop for the model) ──────────
+# Unambiguous, resolution-independent signals the model can miss: an almost-
+# black frame, a blown-out frame, or a tiny thumbnail. Deliberately does NOT
+# try to judge blur (too many false positives across real photos) — clarity is
+# the model's job. Pillow is optional; without it these all return False.
+
+_MIN_PIXELS = 480 * 480          # under ~0.23MP is too small to read card text
+_DARK_MEAN = 34                  # mean luminance (0-255) below this is too dark
+_BRIGHT_MEAN = 233               # above this is blown out / heavy glare
+
+
+def _photo_pixel_quality(raw: bytes) -> Dict[str, Any]:
+    out = {"tooDark": False, "tooBright": False, "tooSmall": False, "brightness": None}
+    try:
+        from PIL import Image, ImageStat
+        img = Image.open(io.BytesIO(raw))
+        w, h = img.size
+        out["tooSmall"] = (w * h) < _MIN_PIXELS
+        mean = ImageStat.Stat(img.convert("L")).mean[0]
+        out["brightness"] = round(mean, 1)
+        out["tooDark"] = mean < _DARK_MEAN
+        out["tooBright"] = mean > _BRIGHT_MEAN
+    except Exception:
+        pass  # Pillow missing or undecodable — the model's assessment still gates
+    return out
+
+
+_ISSUE_LABELS = {
+    "blurry": "the photo is blurry",
+    "out_of_focus": "the photo is out of focus",
+    "motion_blur": "there's motion blur — hold the phone steady",
+    "too_dark": "the photo is too dark — add more light",
+    "too_bright": "the photo is overexposed — reduce glare",
+    "glare_or_reflection": "there's glare or reflection on the cards",
+    "too_far_away": "the board is too far away — move closer",
+    "cards_cut_off": "some cards are cut off — fit the whole board in frame",
+    "steep_angle": "shoot from straight above, not at an angle",
+    "cards_overlapping": "some cards overlap — spread them apart",
+    "partial_board": "only part of the board is visible",
+    "not_a_board": "no game board was found in the photo",
+}
+
+
+def _retake_decision(detected: Dict[str, Any], pixq: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    """Should the player retake this photo? Combines the model's clarity
+    assessment with unambiguous pixel checks. Returns (needsRetake, reasons).
+
+    A retake is only RECOMMENDED — the review screen still lets the player
+    correct cards by hand and continue, so the final confirmed board is always
+    human-verified. This gate exists so an unclear photo doesn't silently
+    produce a wrong score.
+    """
+    q = detected.get("quality") or {}
+    reasons: List[str] = []
+
+    for issue in q.get("issues") or []:
+        label = _ISSUE_LABELS.get(str(issue))
+        if label and label not in reasons:
+            reasons.append(label)
+    if pixq.get("tooDark") and _ISSUE_LABELS["too_dark"] not in reasons:
+        reasons.append(_ISSUE_LABELS["too_dark"])
+    if pixq.get("tooBright") and _ISSUE_LABELS["too_bright"] not in reasons:
+        reasons.append(_ISSUE_LABELS["too_bright"])
+    if pixq.get("tooSmall"):
+        reasons.append("the photo is low-resolution — move closer or use a sharper camera")
+    if int(detected.get("unreadableCount") or 0) > 0:
+        reasons.append("some cards couldn't be read clearly")
+    if not detected.get("oceans"):
+        reasons.append("no ocean cards were detected — center the whole board in the photo")
+
+    clear = q.get("clear", True)
+    conf = q.get("confidence")
+    low_conf = isinstance(conf, (int, float)) and conf < 0.70
+    needs = bool(reasons) or clear is False or low_conf
+    if needs and not reasons:
+        reasons.append("the board wasn't fully clear — retake for an accurate score")
+
+    # de-dupe, preserve order, cap
+    seen: set = set()
+    ordered = [r for r in reasons if not (r in seen or seen.add(r))]
+    return needs, ordered[:6]
+
+
 def _detection_schema() -> Dict[str, Any]:
     roster = build_roster()
     card_item = {
@@ -617,6 +700,28 @@ def _detection_schema() -> Dict[str, Any]:
     return {
         "type": "object", "additionalProperties": False,
         "properties": {
+            # Assessed FIRST, before identifying anything. Drives the retake gate:
+            # a photo that isn't sharp enough to read every card is sent back so
+            # the score is computed from a board the player can actually verify.
+            "image_quality": {
+                "type": "object", "additionalProperties": False,
+                "properties": {
+                    "clear_enough_to_score": {"type": "boolean",
+                        "description": "true ONLY if every ocean and card name AND its "
+                                       "symbol is sharp and readable with no guessing"},
+                    "overall_confidence": {"type": "number",
+                        "description": "0-1 confidence the WHOLE board was read correctly"},
+                    "issues": {"type": "array", "items": {"type": "string", "enum": [
+                        "blurry", "out_of_focus", "motion_blur", "too_dark", "too_bright",
+                        "glare_or_reflection", "too_far_away", "cards_cut_off", "steep_angle",
+                        "cards_overlapping", "partial_board", "not_a_board"]},
+                        "description": "every quality problem you see; empty if the photo is clean"},
+                    "advice": {"type": "string",
+                        "description": "one short sentence telling the player how to retake a "
+                                       "clearer photo (empty if the photo is already clear)"},
+                },
+                "required": ["clear_enough_to_score", "overall_confidence", "issues", "advice"],
+            },
             "oceans": {"type": "array", "items": {
                 "type": "object", "additionalProperties": False,
                 "properties": {
@@ -630,7 +735,7 @@ def _detection_schema() -> Dict[str, Any]:
                                  "description": "visible cards that could not be identified"},
             "notes": {"type": "string"},
         },
-        "required": ["oceans", "unreadable_cards", "notes"],
+        "required": ["image_quality", "oceans", "unreadable_cards", "notes"],
     }
 
 
@@ -644,19 +749,31 @@ def _vision_system_prompt() -> str:
             seen.add(key)
             by_kind[c["d"]].append(c["n"])
     return (
-        "You identify cards in photos of finished Currents & Critters boards. "
+        "You identify cards in photos of finished Currents & Critters boards. Accuracy "
+        "matters more than completeness: a wrong card gives the player a wrong score, so "
+        "when in doubt say \"Unknown\" rather than guess.\n\n"
         "A board is one or more OCEAN cards laid on the table; each ocean can have "
         "animal cards attached on up to four sides (above=up, below=down, left, right). "
-        "Up/Down cards are landscape-oriented; Left/Right cards are portrait-oriented. "
-        "Each card shows its name and one symbol (Triangle, Square, Heart, Circle, Diamond).\n\n"
+        "Up/Down cards are landscape-oriented; Left/Right cards are portrait-oriented — use "
+        "orientation to decide which side a card belongs to. "
+        "Each card shows its name (printed on the card) and exactly one symbol "
+        "(Triangle, Square, Heart, Circle, Diamond). Read BOTH the name and the symbol "
+        "carefully — the symbol picks which copy of a card it is and changes scoring.\n\n"
         f"Ocean card names: {', '.join(roster['oceanNames'])}.\n"
         f"Cards that attach ABOVE an ocean (up): {', '.join(sorted(set(by_kind['up'])))}.\n"
         f"Cards that attach BELOW an ocean (down): {', '.join(sorted(set(by_kind['down'])))}.\n"
         f"Cards that attach LEFT: {', '.join(sorted(set(by_kind['left'])))}.\n"
         f"Cards that attach RIGHT: {', '.join(sorted(set(by_kind['right'])))}.\n\n"
-        "Report ONLY what is visible. Use \"Unknown\" for any card you cannot read "
-        "confidently instead of guessing, set partially_hidden on covered cards, and "
-        "give honest confidence values. You only identify cards — never compute scores."
+        "STEP 1 — assess image_quality FIRST. Set clear_enough_to_score = true ONLY if you "
+        "can sharply read every card's name and symbol with no guessing. If the photo is "
+        "blurry, dark, glared, too far away, at a steep angle, or any card is cut off or "
+        "unreadable, set clear_enough_to_score = false, list the specific issues, and give "
+        "one short sentence of advice (e.g. \"Hold the phone flat above the whole board in "
+        "good light.\"). Be honest with overall_confidence.\n"
+        "STEP 2 — identify only what is genuinely visible. Use \"Unknown\" for any card or "
+        "ocean you cannot read confidently, set partially_hidden on covered cards, and give "
+        "honest per-card confidence values. Never invent a card that isn't clearly there. "
+        "You only identify cards — never compute scores."
     )
 
 
@@ -716,6 +833,7 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
     used: set = set()
     warnings: List[str] = []
     low_confidence: List[str] = []
+    unreadable = 0  # cards/oceans the model saw but could not read ("Unknown")
 
     def pick(name: str, kind: str, symbol: str) -> Optional[int]:
         pool = by_name.get((str(name).strip().lower(), kind)) or []
@@ -739,6 +857,7 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
     for oc in data.get("oceans") or []:
         oname = oc.get("ocean") or "Unknown"
         if oname == "Unknown":
+            unreadable += 1
             warnings.append("one ocean card could not be identified — add it manually")
             continue
         ou = pick(oname, "ocean", "")
@@ -753,6 +872,7 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
             for c in oc.get(side) or []:
                 cname = c.get("name") or "Unknown"
                 if cname == "Unknown":
+                    unreadable += 1
                     warnings.append(f"a card on {oname} ({side}) could not be read — add it manually")
                     continue
                 u = pick(cname, side, c.get("symbol") or "")
@@ -768,10 +888,21 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
         oceans_out.append(entry)
 
     for s in data.get("unreadable_cards") or []:
+        unreadable += 1
         warnings.append(f"unreadable card reported: {str(s)[:80]}")
     notes = str(data.get("notes") or "").strip()
+
+    q = data.get("image_quality") or {}
+    conf_raw = q.get("overall_confidence")
+    quality = {
+        "clear": bool(q.get("clear_enough_to_score", True)),
+        "confidence": (float(conf_raw) if isinstance(conf_raw, (int, float)) else None),
+        "issues": [str(x) for x in (q.get("issues") or [])][:8],
+        "advice": str(q.get("advice") or "").strip()[:200],
+    }
     return {"oceans": oceans_out, "warnings": warnings,
-            "lowConfidence": sorted(set(low_confidence)), "notes": notes[:500]}
+            "lowConfidence": sorted(set(low_confidence)), "notes": notes[:500],
+            "quality": quality, "unreadableCount": unreadable}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1532,8 +1663,15 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
                              "you can still build your board manually")
         raw, media_type = _decode_data_url(str(body.get("image") or ""))
         hashes = _image_hashes(raw)
+        pixq = _photo_pixel_quality(raw)
         prior = body.get("priorBoard") if isinstance(body.get("priorBoard"), dict) else None
         detected = detect_board(raw, media_type, prior)
+        # Clarity gate: an unclear photo should be retaken, not silently scored.
+        # A rescan that MERGES onto an already-verified board (priorBoard) never
+        # forces a retake — the player is only adding a corner they already have.
+        needs_retake, retake_reasons = _retake_decision(detected, pixq)
+        if prior:
+            needs_retake, retake_reasons = False, []
         # Score preview for the detected board (solo flow shows it instantly).
         preview = None
         try:
@@ -1544,7 +1682,9 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         out = {"ok": True, "board": {"oceans": detected["oceans"]},
                "warnings": detected["warnings"], "lowConfidence": detected["lowConfidence"],
                "notes": detected["notes"], "hash": hashes["sha256"],
-               "scorePreview": preview}
+               "scorePreview": preview,
+               "needsRetake": needs_retake, "retakeReasons": retake_reasons,
+               "quality": detected.get("quality") or {}}
         # Attached to a session seat → store photo evidence + detection there.
         code = str(body.get("code") or "").upper()
         if code:
