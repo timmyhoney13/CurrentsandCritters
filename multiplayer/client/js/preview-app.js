@@ -1075,14 +1075,36 @@
   }
 
   let _rejoinTouchTimer = null;
+
+  // ── Battery saver: visibility-aware poll cadence ───────────────
+  // The in-game state poll otherwise fires a network request every second
+  // forever — even when the page is hidden (a backgrounded tab, or a phone
+  // with its screen locked). That constantly wakes the network radio and
+  // needlessly drains battery. While hidden we drop to a slow trickle; the
+  // instant the player returns we restore the 1 s cadence and refresh right
+  // away so nothing feels stale. SSE still delivers live pushes whenever it
+  // is connected, so slowing the poll never loses an update; competitive mode
+  // (poll-only, no SSE) still trickles while hidden and fully catches up on
+  // return.
+  const POLL_MS_VISIBLE = 1000;
+  const POLL_MS_HIDDEN  = 15000;
+  function _armPollTimer() {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(refreshState, document.hidden ? POLL_MS_HIDDEN : POLL_MS_VISIBLE);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (!pollTimer) return;                 // only manage the poll while in a live game
+    _armPollTimer();                        // re-arm at the cadence for the new visibility
+    if (!document.hidden) refreshState();   // instant catch-up when the player returns
+  });
+
   function startPolling() {
     // Reset version guards: state_version is monotonic per room but a newly
     // joined room restarts low, so a stale high baseline would drop every
     // update. Entering/reconnecting always re-establishes the baseline.
     _lastStateVersion = -1;
     _lastRenderedVersion = -1;
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(refreshState, 1000);
+    _armPollTimer();
     // Keep the rejoin window alive: refresh the localStorage timestamp every 60 s while active
     if (_rejoinTouchTimer) clearInterval(_rejoinTouchTimer);
     _rejoinTouchTimer = setInterval(touchRejoinToken, 60_000);
