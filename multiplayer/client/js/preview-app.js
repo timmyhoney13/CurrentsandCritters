@@ -17748,9 +17748,11 @@
           if (IS_GAME_WINDOW()) {
             revealGuestLobbyGated(savedGuestNick);
           } else {
-            // Launcher: returning guest — offer a one-click Open Game (no re-nick).
+            // Launcher: returning guest — go straight into the game in THIS tab
+            // (no interstitial "Open Game" screen). The tab navigates to the
+            // game-window URL and reloads as the real game window.
             _ccLaunchCtx = { type: "guest", nick: savedGuestNick, avatarUrl: savedGuestAvatar, gameUrl: ccGameUrl() };
-            ccSetLaunchScreen("ready", { nick: savedGuestNick, avatarUrl: savedGuestAvatar });
+            ccLaunchFromLauncher(_ccLaunchCtx);
           }
           return;
         }
@@ -17795,9 +17797,11 @@
             _authUser = null;
             const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
             if (gNick) {
+              // Returning guest on the launcher — go straight into the game in
+              // THIS tab, no interstitial "Open Game" screen.
               _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", gNick);
               _ccLaunchCtx = { type: "guest", nick: gNick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() };
-              ccSetLaunchScreen("ready", { nick: gNick, avatarUrl: _guestAvatarUrl });
+              ccLaunchFromLauncher(_ccLaunchCtx);
             } else {
               showStep("auth-step-choose");
             }
