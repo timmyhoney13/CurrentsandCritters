@@ -739,15 +739,64 @@ def _detection_schema() -> Dict[str, Any]:
     }
 
 
+_CARD_REF: Optional[str] = None
+
+
+def _clean_card_text(txt: Any) -> str:
+    """Ability text as printed, minus the internal *star* / | markup."""
+    t = str(txt or "").replace("*", "").replace("|", "; ")
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _card_reference() -> str:
+    """A compact, exact reference for the vision model, built straight from the
+    real card database — every card's name, species, which side it attaches on,
+    the symbols its printed copies actually use, and its ability text. This lets
+    the model confirm a card by cross-referencing the picture, the printed
+    species and ability text, and validate the symbol it reads against the
+    copies that truly exist (symbols change scoring)."""
+    global _CARD_REF
+    if _CARD_REF is not None:
+        return _CARD_REF
+    db = _card_db()
+    side_word = {"up": "above", "down": "below", "left": "left", "right": "right"}
+    oceans: Dict[str, str] = {}
+    animals: Dict[str, Dict[str, Any]] = {}
+    for uid in sorted(db.keys()):
+        cd = db[uid]
+        if _is_end_game(cd):
+            continue
+        if _is_ocean(cd):
+            oceans.setdefault(str(cd.name).strip(), _clean_card_text(cd.text))
+            continue
+        side = _card_dir(cd)
+        if side not in side_word:
+            continue
+        a = animals.setdefault(str(cd.name).strip(),
+                               {"species": str(cd.species or "").strip(),
+                                "sides": set(), "syms": set(), "text": ""})
+        a["sides"].add(side)
+        sym = str(cd.symbol or "").strip()
+        if sym and sym.lower() != "n/a":
+            a["syms"].add(sym)
+        if not a["text"]:
+            a["text"] = _clean_card_text(cd.text)
+    lines = ["OCEAN CARDS (name — ability text):"]
+    for n in sorted(oceans):
+        lines.append(f"- {n} — {oceans[n]}" if oceans[n] else f"- {n}")
+    lines.append("")
+    lines.append("ANIMAL CARDS (name — species — attaches — symbol(s) its copies use — ability text):")
+    for n in sorted(animals):
+        a = animals[n]
+        sides = "/".join(side_word[s] for s in ("up", "down", "left", "right") if s in a["sides"])
+        syms = "/".join(sorted(a["syms"])) or "no symbol"
+        tail = f" — {a['text']}" if a["text"] else ""
+        lines.append(f"- {n} — {a['species']} — {sides} — {syms}{tail}")
+    _CARD_REF = "\n".join(lines)
+    return _CARD_REF
+
+
 def _vision_system_prompt() -> str:
-    roster = build_roster()
-    by_kind: Dict[str, List[str]] = {"up": [], "down": [], "left": [], "right": []}
-    seen = set()
-    for c in roster["cards"]:
-        key = (c["n"], c["d"])
-        if c["d"] in by_kind and key not in seen:
-            seen.add(key)
-            by_kind[c["d"]].append(c["n"])
     return (
         "You identify cards in photos of finished Currents & Critters boards. Accuracy "
         "matters more than completeness: a wrong card gives the player a wrong score, so "
@@ -755,15 +804,14 @@ def _vision_system_prompt() -> str:
         "A board is one or more OCEAN cards laid on the table; each ocean can have "
         "animal cards attached on up to four sides (above=up, below=down, left, right). "
         "Up/Down cards are landscape-oriented; Left/Right cards are portrait-oriented — use "
-        "orientation to decide which side a card belongs to. "
-        "Each card shows its name (printed on the card) and exactly one symbol "
-        "(Triangle, Square, Heart, Circle, Diamond). Read BOTH the name and the symbol "
-        "carefully — the symbol picks which copy of a card it is and changes scoring.\n\n"
-        f"Ocean card names: {', '.join(roster['oceanNames'])}.\n"
-        f"Cards that attach ABOVE an ocean (up): {', '.join(sorted(set(by_kind['up'])))}.\n"
-        f"Cards that attach BELOW an ocean (down): {', '.join(sorted(set(by_kind['down'])))}.\n"
-        f"Cards that attach LEFT: {', '.join(sorted(set(by_kind['left'])))}.\n"
-        f"Cards that attach RIGHT: {', '.join(sorted(set(by_kind['right'])))}.\n\n"
+        "orientation to decide which side a card belongs to. Every card prints its NAME, its "
+        "SPECIES, one SYMBOL (Triangle, Square, Heart, Circle, Diamond), and its ability "
+        "TEXT. Read the name, then CONFIRM it against the animal in the picture, the printed "
+        "species, and the ability text in the reference below. Read the symbol carefully and "
+        "make sure it is one the reference lists for that card — the symbol picks which copy "
+        "it is and changes scoring.\n\n"
+        "Only the names in this reference exist; never report a name that isn't here.\n\n"
+        + _card_reference() + "\n\n"
         "STEP 1 — assess image_quality FIRST. Set clear_enough_to_score = true ONLY if you "
         "can sharply read every card's name and symbol with no guessing. If the photo is "
         "blurry, dark, glared, too far away, at a steep angle, or any card is cut off or "
@@ -823,12 +871,19 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     db = _card_db()
     by_name: Dict[Tuple[str, str], List[int]] = {}
+    name_all_syms: Dict[str, set] = {}   # every symbol printed on any copy of a name
+    name_disp_syms: Dict[str, set] = {}  # same, original casing for messages
     for uid in sorted(db.keys()):
         cd = db[uid]
         if _is_end_game(cd):
             continue
         kind = "ocean" if _is_ocean(cd) else _card_dir(cd)
-        by_name.setdefault((str(cd.name).strip().lower(), kind), []).append(uid)
+        nl = str(cd.name).strip().lower()
+        by_name.setdefault((nl, kind), []).append(uid)
+        sym_disp = str(cd.symbol).strip()
+        if sym_disp and sym_disp.lower() != "n/a":
+            name_all_syms.setdefault(nl, set()).add(sym_disp.lower())
+            name_disp_syms.setdefault(nl, set()).add(sym_disp)
 
     used: set = set()
     warnings: List[str] = []
@@ -845,6 +900,18 @@ def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
                     warnings.append(f"{name}: attaches on '{k}', not '{kind}' — check placement")
                     break
         sym = str(symbol or "").strip().lower()
+        # The symbol chooses which physical copy this is, and copies score
+        # differently. If the model read a symbol that NO copy of this card
+        # (on any side) carries, it likely misread it — surface that so the
+        # player checks. (Checked name-wide, not per-side, so a left/right side
+        # mix-up doesn't masquerade as a symbol error.)
+        nl = str(name).strip().lower()
+        valid_syms = name_all_syms.get(nl)
+        if sym and valid_syms and sym not in valid_syms:
+            printed = "/".join(sorted(name_disp_syms.get(nl, set()))) or "none"
+            warnings.append(f"{name}: the symbol read ({symbol}) isn't printed on any copy of "
+                            f"this card (its copies use {printed}) — double-check the symbol")
+            low_confidence.append(str(name))
         symbol_matches = [u for u in pool if u not in used
                           and str(db[u].symbol).strip().lower() == sym]
         for bucket in (symbol_matches, [u for u in pool if u not in used], pool):

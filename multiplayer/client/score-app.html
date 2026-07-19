@@ -451,11 +451,15 @@ let CARD_BY_UID = {};
 let NAMES_BY_SIDE = {};          // side -> [{name, sp, variants:[{u,sym}], land}]
 let VISION_ENABLED = false;
 const pad2 = n => String(n).padStart(2,"0");
+// Same art mapping AND cache version as the live game (preview-app.js) so the
+// card images shown here are always the current V12 art, never a stale cache.
+const CARD_IMAGE_VERSION = "20260717-v12b";
 function artFor(uid){
   let u = Number(uid); if (u >= 1000000) u = u % 1000;
-  if (u >= 1 && u <= 96)    return {url:`/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png`, pos: u%2===1?"top":"bottom", land:true};
-  if (u >= 101 && u <= 188) return {url:`/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png`, pos: u%2===1?"left":"right", land:false};
-  if (u >= 201 && u <= 269) return {url:`/oceans_cards/page_${pad2(u-200)}.png`, pos:"center", land:true};
+  const v = `?v=${CARD_IMAGE_VERSION}`;
+  if (u >= 1 && u <= 96)    return {url:`/horizontal_cards/page_${pad2(Math.floor((u+1)/2))}.png${v}`, pos: u%2===1?"top":"bottom", land:true};
+  if (u >= 101 && u <= 188) return {url:`/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png${v}`, pos: u%2===1?"left":"right", land:false};
+  if (u >= 201 && u <= 269) return {url:`/oceans_cards/page_${pad2(u-200)}.png${v}`, pos:"center", land:true};
   return {url:"", pos:"center", land:false};
 }
 function artStyle(uid){
