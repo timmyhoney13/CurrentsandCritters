@@ -39,8 +39,10 @@
 <div class="card">
   <input type="file" id="file" accept="image/*">
   <button id="rerun" class="sec">Re-run with knobs</button>
+  <button id="export-corr" class="sec">⬇ Export corrections (<span id="corr-count">0</span>)</button>
   <span id="libstate" class="sub">library: loading…</span>
   <div class="knobs" id="knobs"></div>
+  <div class="sub" style="margin-top:6px">Corrections are the labeled examples saved locally when a player fixes a card during review (this device only, never uploaded). Export them here to build a real-photo tuning set.</div>
 </div>
 
 <div class="grid">
@@ -95,6 +97,19 @@ $("file").onchange = () => {
   img.src = URL.createObjectURL(f);
 };
 $("rerun").onclick = () => run();
+
+function loadCorrections(){ try { return JSON.parse(localStorage.getItem("cc_snap_corrections")||"[]"); } catch { return []; } }
+function refreshCorrCount(){ $("corr-count").textContent = loadCorrections().length; }
+refreshCorrCount();
+$("export-corr").onclick = () => {
+  const data = loadCorrections();
+  if (!data.length) { alert("No corrections saved on this device yet. Fix a card during a real scan on this device, then come back."); return; }
+  const blob = new Blob([JSON.stringify({exportedAt: new Date().toISOString(), count: data.length, corrections: data}, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "snap_corrections_" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+};
 
 async function run(){
   if (!imageData) return;
@@ -167,18 +182,14 @@ function renderTable(){
       const use = m.flip ? SnapVisionCore.rotateCrop180(norm) : norm;
       const base = SnapVisionCore.boxDownsample(use, SnapVisionCore.CARD_W, SnapVisionCore.CARD_H, 3, SnapVisionCore.BASE_N, SnapVisionCore.BASE_N);
       const d = SnapVisionCore.descriptorsFromBase(base);
+      // use the engine's own scorer so the dev breakdown always matches
       methods = m.candidates.map(c => {
         const ref = lib.cards.find(x => x.id === c.cardId);
         if (!ref) return "";
-        const p = 1 - SnapVisionCore.hamming(d.p, ref.p)/64;
-        const dd = 1 - SnapVisionCore.hamming(d.d, ref.d)/64;
-        const col = 1 - SnapVisionCore.colorDist(d.c, ref.c);
-        const e = 1 - SnapVisionCore.edgeDist(d.e, ref.e);
-        let hc;
-        if (ref.kind === "h") hc = 1 - (SnapVisionCore.colorDist(d.hh[0], ref.hc[0]) + SnapVisionCore.colorDist(d.hh[1], ref.hc[1])) / 2;
-        else if (ref.kind === "v") hc = 1 - (SnapVisionCore.colorDist(d.hv[0], ref.hc[0]) + SnapVisionCore.colorDist(d.hv[1], ref.hc[1])) / 2;
-        else hc = 1 - SnapVisionCore.colorDist(d.c, ref.hc[0]);
-        return `<div><b>${c.cardId}</b> conf ${(c.conf*100)|0}% · p ${p.toFixed(2)} d ${dd.toFixed(2)} c ${col.toFixed(2)} e ${e.toFixed(2)} hc ${hc.toFixed(2)}</div>`;
+        const s = SnapVisionCore.scoreAgainst(d, ref);
+        const P = s.parts;
+        return `<div><b>${c.cardId}</b> conf ${(c.conf*100)|0}% · sim ${s.sim.toFixed(3)} agree ${s.agree}` +
+               `<br><span style="color:#8fb0c9">pic ${P.p.toFixed(2)}/${P.hp.toFixed(2)} · col ${P.c.toFixed(2)}/${P.hc.toFixed(2)} · name ${P.nm.toFixed(2)} · shape ${P.e.toFixed(2)} · dhash ${P.d.toFixed(2)}</span></div>`;
       }).join("");
     }
     const cls = !m ? "conf-lo" : m.conf >= 0.9 ? "conf-hi" : m.conf >= 0.7 ? "conf-mid" : "conf-lo";

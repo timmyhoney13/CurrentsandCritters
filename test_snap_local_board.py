@@ -59,6 +59,12 @@ check("every card carries all descriptors",
 check("every card carries per-half color layouts (hc)",
       all(len(c["hc"]) == (1 if c["kind"] == "o" else 2)
           and all(len(h) == 48 for h in c["hc"]) for c in lib["cards"]))
+check("h/v cards carry per-half pHashes (hp) and name grids (nm)",
+      all(len(c["hp"]) == 2 and all(len(p) == 16 for p in c["hp"])
+          and len(c["nm"]) == 2 and all(len(g) == 48 for g in c["nm"])
+          for c in lib["cards"] if c["kind"] in ("h", "v")))
+check("ocean cards carry no half pHash / name grid (oceans have no name band)",
+      all(c["hp"] == [] and c["nm"] == [] for c in lib["cards"] if c["kind"] == "o"))
 
 print("\nphoto-evidence validation (/api/snap/session/photo)")
 ev = snap_score._validate_photo_evidence({

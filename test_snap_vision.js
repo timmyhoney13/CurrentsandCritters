@@ -160,9 +160,15 @@ FIX.fixtures.forEach((fx) => {
   check(fx.id + " dHash matches Python", got.d === fx.expect.d, got.d + " vs " + fx.expect.d);
   check(fx.id + " color layout matches Python", JSON.stringify(got.c) === JSON.stringify(fx.expect.c));
   check(fx.id + " edge histogram matches Python", JSON.stringify(got.e) === JSON.stringify(fx.expect.e));
-  check(fx.id + " half layouts match Python",
+  check(fx.id + " half color layouts match Python",
         JSON.stringify(got.hh) === JSON.stringify(fx.expect.hh) &&
         JSON.stringify(got.hv) === JSON.stringify(fx.expect.hv));
+  check(fx.id + " half pHashes match Python",
+        JSON.stringify(got.ph) === JSON.stringify(fx.expect.ph) &&
+        JSON.stringify(got.pv) === JSON.stringify(fx.expect.pv));
+  check(fx.id + " name-band grids match Python",
+        JSON.stringify(got.nh) === JSON.stringify(fx.expect.nh) &&
+        JSON.stringify(got.nv) === JSON.stringify(fx.expect.nv));
 });
 
 // ── 2. exact + noisy reference matching ─────────────────────────────────────
@@ -250,9 +256,16 @@ section("synthetic board scan");
   check("ocean identified", matchedIds.includes(matcher.groupOf["o08"]), matchedIds.join(","));
   check("up/down card identified (90° rotated on table)", matchedIds.includes(matcher.groupOf["h01"]), matchedIds.join(","));
   check("left/right card identified", matchedIds.includes(matcher.groupOf["v01"]), matchedIds.join(","));
-  check("false rectangle not confidently matched",
-        !res.quads.some((q) => q.match && q.match.conf >= core.DEFAULTS.acceptConf &&
-          ![matcher.groupOf["o08"], matcher.groupOf["h01"], matcher.groupOf["v01"]].includes(matcher.groupOf[q.match.cardId])));
+  // The false rectangle must never be AUTO-ADDED to the scored board. Per the
+  // "never silently drop a card" rule it may still keep a visible box, but that
+  // box must be flagged (needs-id or size-outlier) rather than attached.
+  const targetGroups = [matcher.groupOf["o08"], matcher.groupOf["h01"], matcher.groupOf["v01"]];
+  const phantomOnBoard = res.quads.some((q) => q.assigned && q.match &&
+    !targetGroups.includes(matcher.groupOf[q.match.cardId]));
+  const phantomOcean = res.board.oceans.length > 1;
+  check("false rectangle never auto-added to the board (kept as a flagged box)",
+        !phantomOnBoard && !phantomOcean,
+        res.quads.map((q) => (q.match ? q.match.cardId + ":" + q.match.conf + (q.needsId ? "!id" : "") + (q.sizeOutlier ? "!sz" : "") : "?")).join(", "));
 
   const ocean = res.board.oceans.find((o) => {
     const card = LIB.cards.find((c) => c.id === "o08" || matcher.groupOf[c.id] === matcher.groupOf["o08"] && c.halves.ocean.u === o.u);
@@ -316,7 +329,9 @@ section("photo quality gate");
 // phone photo. Regenerate with `python3 make_snap_test_photo.py` (files are
 // untracked; this section is skipped when they're absent).
 section("real card-art photos");
-["test_snap_real_photo_light", "test_snap_real_photo_dark"].forEach((name) => {
+["test_snap_real_photo_light", "test_snap_real_photo_dark",
+ "test_snap_real_photo_glare", "test_snap_real_photo_touching",
+ "test_snap_real_photo_dupes"].forEach((name) => {
   const binPath = path.join(__dirname, name + ".bin");
   if (!fs.existsSync(binPath)) {
     console.log("  (skipped: " + name + ".bin missing — run make_snap_test_photo.py)");
@@ -343,12 +358,39 @@ section("real card-art photos");
     }));
   });
   check(name + ": every card attached on its true side", sidesOk, JSON.stringify(res.board));
-  // nothing EXTRA confidently identified (the coaster distractor must not be a card)
-  const extras = res.quads.filter((q2) => q2.match && q2.match.conf >= core.DEFAULTS.acceptConf &&
-    !meta.cards.some((truth) => matcher.groupOf[truth.id] === matcher.groupOf[q2.match.cardId]));
-  check(name + ": no phantom cards", extras.length === 0,
-        extras.map((x) => x.match.cardId + ":" + x.match.conf).join(", "));
+  // nothing EXTRA reaches the scored board (flagged boxes are fine, but the
+  // board must contain only real cards). A distractor may keep a box, but it
+  // must be flagged (needsId / sizeOutlier) rather than assigned.
+  const truthGroups = meta.cards.map((c) => matcher.groupOf[c.id]);
+  const boardCardGroup = (u) => {
+    const card = LIB.cards.find((lc) => Object.keys(lc.halves).some((s) => lc.halves[s].u === u));
+    return card ? matcher.groupOf[card.id] : null;
+  };
+  let phantom = null;
+  res.board.oceans.forEach((oc) => {
+    if (!truthGroups.includes(boardCardGroup(oc.u))) phantom = "ocean u" + oc.u;
+    ["up", "down", "left", "right"].forEach((s) => oc[s].forEach((u) => {
+      if (!truthGroups.includes(boardCardGroup(u))) phantom = "u" + u + " on " + s;
+    }));
+  });
+  check(name + ": no phantom card reached the board", phantom === null, phantom || "");
 });
+
+// duplicate-artwork resolution: two same-art copies must land on DISTINCT UIDs
+{
+  const name = "test_snap_real_photo_dupes";
+  const binPath = path.join(__dirname, name + ".bin");
+  if (fs.existsSync(binPath)) {
+    const meta = JSON.parse(fs.readFileSync(path.join(__dirname, name + ".json"), "utf8"));
+    const img = { data: new Uint8ClampedArray(fs.readFileSync(binPath)),
+                  width: meta.width, height: meta.height };
+    const res = core.scanBoard(img, LIB, null, () => {});
+    const boardUids = res.board.oceans.flatMap((oc) =>
+      ["up", "down", "left", "right"].flatMap((s) => oc[s]));
+    check(name + ": both same-art copies placed on distinct UIDs",
+          boardUids.length === 2 && boardUids[0] !== boardUids[1], JSON.stringify(boardUids));
+  }
+}
 
 // ── 10. manual quads → identify (the box editor path) ───────────────────────
 section("manual quad identification");

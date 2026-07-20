@@ -9,9 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="/firebase-config.js"></script>
-<script>window.SNAP_LIBRARY_V = "20260720a";</script>
-<script src="/js/snap-vision-core.js?v=20260720a"></script>
-<script src="/js/snap-scan.js?v=20260720a"></script>
+<script>window.SNAP_LIBRARY_V = "20260720b";</script>
+<script src="/js/snap-vision-core.js?v=20260720b"></script>
+<script src="/js/snap-scan.js?v=20260720b"></script>
 <style>
   :root{
     --deep:#06263f; --deep2:#0a3a5c; --teal:#19b8a6; --teal-dark:#0e8f81;
@@ -939,12 +939,44 @@ async function sendSeatEvidence(seatNo, dataUrl, result){
 }
 
 // ── box review screen ──────────────────────────────────────────────────────
+// three confidence levels (spec): high = auto-selected, medium = kept + review
+// top-3, low/needs-id = kept but must be picked. A card is NEVER dropped.
 const BX_COLORS = {hi:"#2ac88f", mid:"#ffd97a", lo:"#e0463c", none:"#e0463c"};
+const D = () => SnapVisionCore.DEFAULTS;
 function boxState(q){
-  if (!q.match) return "none";
-  if (q.match.conf >= 0.9 && q.match.symbolConfident) return "hi";
-  if (q.match.conf >= 0.7) return "mid";
+  if (!q.match || q.needsId || q.sizeOutlier) return "lo";
+  if (q.match.conf >= D().highConf && q.match.symbolConfident) return "hi";
+  if (q.match.conf >= D().reviewConf) return "mid";
   return "lo";
+}
+function boxStateLabel(st){
+  return st === "hi" ? "High confidence" : st === "mid" ? "Needs a look" : "Needs identification";
+}
+// the photographed region of this box, rendered as an <img> data URL so the
+// player can compare it side-by-side with the official online-game card
+function cropImgDataUrl(q, maxW){
+  const xs = q.corners.map(p=>p[0]), ys = q.corners.map(p=>p[1]);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs))), y0 = Math.max(0, Math.floor(Math.min(...ys)));
+  const x1 = Math.min(scanCtx.imageData.width, Math.ceil(Math.max(...xs)));
+  const y1 = Math.min(scanCtx.imageData.height, Math.ceil(Math.max(...ys)));
+  const w = Math.max(1, x1-x0), h = Math.max(1, y1-y0);
+  const sc = Math.min(1, (maxW||150)/w);
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(w*sc)); cv.height = Math.max(1, Math.round(h*sc));
+  cv.getContext("2d").drawImage(scanCtx.photoCanvas, x0, y0, w, h, 0, 0, cv.width, cv.height);
+  return cv.toDataURL("image/jpeg", 0.8);
+}
+// rotate a box's corners 90° about its center and re-identify (manual override
+// for the rare case the auto-orientation guessed wrong)
+function rotateBox(i){
+  const q = scanCtx.quads[i]; if (!q) return;
+  let cx=0, cy=0; q.corners.forEach(p=>{cx+=p[0]/4;cy+=p[1]/4;});
+  q.corners = q.corners.map(p => [cx - (p[1]-cy), cy + (p[0]-cx)]);
+  const iw = scanCtx.imageData.width, ih = scanCtx.imageData.height;
+  q.corners = q.corners.map(p => [Math.max(0,Math.min(iw-1,p[0])), Math.max(0,Math.min(ih-1,p[1]))]);
+  const m = mainMatcher();
+  if (m){ const r = SnapVisionCore.matchQuad(scanCtx.imageData, q.corners, m, D(), true); q.corners = r.corners; q.match = r.match; }
+  rebuildFromBoxes();
 }
 
 function openBoxReview(){
@@ -1004,11 +1036,31 @@ function drawBoxes(){
   });
 }
 
+// per-method "why this card" scores, grouped into terms a player understands
+function whyBars(parts){
+  if (!parts) return "";
+  const rows = [
+    ["Picture", Math.max(parts.p||0, parts.hp||0)],
+    ["Color",   Math.max(parts.c||0, parts.hc||0)],
+    ["Name",    parts.nm!==undefined ? parts.nm : (parts.c||0)],
+    ["Shape",   parts.e||0],
+  ];
+  return `<div style="margin-top:8px">` + rows.map(([lbl,v]) => {
+    const pct = Math.round(Math.max(0,Math.min(1,v))*100);
+    const col = pct>=85?"#2ac88f":pct>=70?"#e0a800":"#c9502f";
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:11px;margin:2px 0">
+      <span style="width:52px;color:var(--mut)">${lbl}</span>
+      <span style="flex:1;height:7px;background:#e8f0f6;border-radius:4px;overflow:hidden">
+        <span style="display:block;height:100%;width:${pct}%;background:${col}"></span></span>
+      <span style="width:30px;text-align:right;color:var(--mut)">${pct}%</span></div>`;
+  }).join("") + `</div>`;
+}
+
 function renderBxInfo(){
   const el = $("bx-info");
   const i = scanCtx.selected;
   if (i < 0 || !scanCtx.quads[i]){
-    el.innerHTML = `<div class="muted" style="margin-top:9px">Tap a box to check or change its card. Green boxes are confident matches, yellow need a look, red need your pick.</div>`;
+    el.innerHTML = `<div class="muted" style="margin-top:9px">Tap a box to compare it with the official card and fix it if needed. <b style="color:#2ac88f">Green</b> = confident, <b style="color:#c99a00">yellow</b> = worth a look, <b style="color:#e0463c">red</b> = needs your pick. No card is ever removed for you.</div>`;
     return;
   }
   const q = scanCtx.quads[i];
@@ -1016,46 +1068,59 @@ function renderBxInfo(){
   const st = boxState(q);
   const confTxt = q.match ? Math.round(q.match.conf*100) + "% match" : "not identified";
   const cls = st === "hi" ? "hi" : st === "mid" ? "mid" : "lo";
-  let cands = "";
-  if (q.match && q.match.candidates && q.match.candidates.length){
-    cands = `<div class="bx-cands">` + q.match.candidates.slice(0,3).map(c => {
-      const card = pageCard(c.cardId);
-      if (!card) return "";
-      const label = pageNames(card).split(" / ")[0];
-      const sel = q.match.cardId === c.cardId ? " sel" : "";
-      return `<button class="btn${sel}" data-cand="${esc(c.cardId)}">${esc(label)}<br><span class="muted">${Math.round(c.conf*100)}%</span></button>`;
-    }).join("") + `</div>`;
-  }
-  const sym = q.match && !q.match.symbolConfident ?
-    `<div class="warnbox" style="margin:8px 0 0">The symbol on this card wasn't clear, tap “Which copy?” and check the symbol printed on the physical card.</div>` : "";
-  // card-database facts (symbol / species / ability) so the player can verify
-  // the pick against what's printed on the physical card
   const dbInfo = d.uid && CARD_BY_UID[d.uid];
   const symIcon = {Triangle:"▲",Square:"■",Heart:"♥",Circle:"●",Diamond:"◆"};
   const ability = dbInfo ? String(dbInfo.t || "").replace(/\*/g,"").replace(/\|/g," · ").replace(/\s+/g," ").trim() : "";
-  const factsHtml = dbInfo ? `
-      <div class="muted" style="font-size:11.5px;margin-top:2px">${symIcon[dbInfo.sym]||""} ${esc(dbInfo.sym||"")}${dbInfo.sp?" · "+esc(dbInfo.sp):""}</div>
-      ${ability ? `<div class="muted" style="font-size:11.5px;margin-top:1px">“${esc(ability.slice(0,110))}${ability.length>110?"…":""}”</div>` : ""}` : "";
+  const cropUrl = cropImgDataUrl(q, 200);
+  const val = dbInfo && dbInfo.c !== undefined ? dbInfo.c : null;
+
+  let cands = "";
+  if (q.match && q.match.candidates && q.match.candidates.length > 1){
+    cands = `<div class="muted" style="font-size:11.5px;margin:9px 0 3px">Other likely matches, tap to switch:</div><div class="bx-cands">` +
+      q.match.candidates.slice(0,3).map(c => {
+      const card = pageCard(c.cardId); if (!card) return "";
+      const label = pageNames(card).split(" / ")[0];
+      const sel = q.match.cardId === c.cardId ? " sel" : "";
+      const cu = card.kind==="o" ? card.halves.ocean.u : card.halves[Object.keys(card.halves)[0]].u;
+      return `<button class="btn${sel}" data-cand="${esc(c.cardId)}"><div class="art" style="width:34px;height:48px;margin:0 auto 3px;border-radius:4px;background-color:#dcebf4;background-repeat:no-repeat;${artStyle(cu)}"></div>${esc(label)}<br><span class="muted">${Math.round(c.conf*100)}%</span></button>`;
+    }).join("") + `</div>`;
+  }
+  const sym = q.match && !q.match.symbolConfident ?
+    `<div class="warnbox" style="margin:8px 0 0">The symbol wasn't clear, tap “Which copy?” and check the symbol printed on the physical card.</div>` : "";
+
   el.innerHTML = `<div class="bx-card">
-    <div class="bh">
-      <div class="art" style="${d.uid ? artStyle(d.uid) : ""}"></div>
-      <div style="flex:1">
-        <div class="nm">${esc(d.name)}</div>
-        <div class="cf ${cls}">${confTxt}${q.dup ? " · ⚠ duplicate" : ""}</div>
-        ${factsHtml}
+    <div class="cf ${cls}" style="font-size:12.5px;margin-bottom:6px">${boxStateLabel(st)} · ${confTxt}${q.dup?" · ⚠ duplicate":""}${q.recovered?" · found in recovery":""}</div>
+    <div style="display:flex;gap:10px;align-items:stretch">
+      <div style="flex:1;text-align:center">
+        <div class="muted" style="font-size:10.5px;margin-bottom:3px">YOUR PHOTO</div>
+        <img src="${cropUrl}" style="width:100%;max-height:150px;object-fit:contain;border-radius:8px;border:1px solid var(--line);background:#0a1a28">
       </div>
-      <button class="btn small warn" id="bx-remove">Remove</button>
+      <div style="flex:1;text-align:center">
+        <div class="muted" style="font-size:10.5px;margin-bottom:3px">OFFICIAL CARD</div>
+        <div style="width:100%;height:150px;border-radius:8px;border:1px solid var(--line);background-color:#dcebf4;background-repeat:no-repeat;${d.uid?artStyle(d.uid):""};background-size:contain;background-position:center"></div>
+      </div>
     </div>
+    <div style="margin-top:8px">
+      <div class="nm">${esc(d.name)}</div>
+      ${dbInfo ? `<div class="muted" style="font-size:12px;margin-top:1px">${symIcon[dbInfo.sym]||""} ${esc(dbInfo.sym||"")}${dbInfo.sp?" · "+esc(dbInfo.sp):""}${val!==null&&val!==undefined?" · value "+esc(String(val)):""}</div>`:""}
+      ${ability ? `<div class="muted" style="font-size:11.5px;margin-top:1px">“${esc(ability.slice(0,120))}${ability.length>120?"…":""}”</div>` : ""}
+    </div>
+    ${q.match ? whyBars(q.match.parts) : ""}
     ${sym}
     ${cands}
-    <div class="row" style="margin-top:9px">
+    <div class="row" style="margin-top:10px">
       <button class="btn small secondary" id="bx-change" style="flex:1">🔎 Change Card</button>
       <button class="btn small secondary" id="bx-copy" style="flex:1">♠ Which Copy?</button>
     </div>
-    <div class="muted" style="margin-top:7px">Drag the white corner dots to fit the card tightly, then tap “Re-identify Boxes”.</div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn small secondary" id="bx-rotate" style="flex:1">↻ Rotate</button>
+      <button class="btn small warn" id="bx-remove" style="flex:1">🗑 Remove Box</button>
+    </div>
+    <div class="muted" style="margin-top:7px;font-size:11px">Drag the white corner dots on the photo to fit the card tightly, then “Re-identify Boxes”.</div>
   </div>`;
   $("bx-remove").onclick = () => { scanCtx.quads.splice(i,1); scanCtx.selected = -1; rebuildFromBoxes(); };
-  el.querySelectorAll("[data-cand]").forEach(b => b.onclick = () => overrideBoxPage(i, b.dataset.cand));
+  $("bx-rotate").onclick = () => rotateBox(i);
+  el.querySelectorAll("[data-cand]").forEach(b => b.onclick = () => overrideBoxPage(i, b.dataset.cand, true));
   $("bx-change").onclick = () => {
     const card = q.match && pageCard(q.match.cardId);
     const sideGuess = card ? (card.kind === "o" ? "ocean" : Object.keys(card.halves)[0]) : "ocean";
@@ -1073,18 +1138,39 @@ function renderBxInfo(){
 function overrideBoxUid(i, uid){
   const pageId = uidToPageId(uid);
   if (!pageId || !pageCard(pageId)) { toast("That card isn't in the scan library", true); return; }
-  overrideBoxPage(i, pageId);
+  overrideBoxPage(i, pageId, true);
 }
-function overrideBoxPage(i, pageId){
+function overrideBoxPage(i, pageId, isCorrection){
   const card = pageCard(pageId);
   const q = scanCtx.quads[i];
   if (!card || !q) return;
+  if (isCorrection) logCorrection(q, pageId);   // save labeled example (local only)
   const prev = (q.match && q.match.candidates) || [];
-  q.match = {cardId: pageId, kind: card.kind, flip: false, sim: 1, conf: 0.99,
-             symbolConfident: true, overridden: true,
+  q.match = {cardId: pageId, kind: card.kind, flip: (q.match&&q.match.flip)||false, sim: 1, conf: 0.99,
+             symbolConfident: true, overridden: true, parts: q.match&&q.match.parts,
              candidates: [{cardId: pageId, sim: 1, conf: 0.99}]
                .concat(prev.filter(c => c.cardId !== pageId)).slice(0, 3)};
+  q.needsId = false;
   rebuildFromBoxes();
+}
+
+// When a player corrects a card, keep a labeled example ON THIS DEVICE only
+// (localStorage). It never leaves the device and never changes production
+// behavior, it's a local dataset the /snap-dev harness can export for tuning.
+function logCorrection(q, correctedPageId){
+  try {
+    if (!q.match || q.match.cardId === correctedPageId) return;
+    const key = "cc_snap_corrections";
+    const list = JSON.parse(localStorage.getItem(key) || "[]");
+    list.unshift({
+      at: Date.now(),
+      guess: q.match.cardId, guessConf: q.match.conf,
+      corrected: correctedPageId,
+      parts: q.match.parts || null,
+      crop: cropImgDataUrl(q, 120),
+    });
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 60)));
+  } catch (e) { /* storage full / disabled, corrections are best-effort */ }
 }
 
 function renderBxWarnings(){

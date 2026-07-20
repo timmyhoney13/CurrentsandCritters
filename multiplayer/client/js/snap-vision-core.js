@@ -23,9 +23,16 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  var DESCRIPTOR_VERSION = 2;       // v2: per-channel normalize + per-half color
+  var DESCRIPTOR_VERSION = 3;       // v3: + per-half pHashes and name-band grids
   var CARD_W = 200, CARD_H = 280;   // canonical portrait working crop (5:7)
   var BASE_N = 64, GRAY_N = 32;
+
+  // Name-band regions as fractions of the FULL portrait card (mirror of the
+  // library builder's NAME_REGIONS). Oceans skip this signal (varying layout).
+  var NAME_REGIONS = {
+    h: [[0.05, 0.315, 0.75, 0.400], [0.05, 0.815, 0.75, 0.900]],
+    v: [[0.03, 0.630, 0.46, 0.760], [0.53, 0.630, 0.96, 0.760]],
+  };
 
   var DEFAULTS = {
     workMax: 1100,          // long edge of the detection working image
@@ -39,11 +46,13 @@
     mergeOverlapFrac: 0.55, // shared-axis extent overlap required to merge
     iouDedupe: 0.55,
     poolCap: 80,            // max detection candidates identified per scan
-    borderExpand: 0.048,    // frame fraction to re-grow interior-only boxes by
-    expandTrySim: 0.94,     // below this sim, the expanded reading is also tried
-    acceptConf: 0.70,       // below this a crop stays unassigned (manual pick)
-    reviewConf: 0.90,       // below this the card is flagged for review
+    cropVariants: true,     // try expanded/contracted crop variants per candidate
+    // three-level confidence (a card is NEVER dropped for low confidence):
+    highConf: 0.82,         // auto-selected, still reviewable
+    reviewConf: 0.62,       // kept + flagged, top-3 shown; below this = "needs id"
+    acceptConf: 0.62,       // ≥ this attaches to the board; below still keeps its box
     attachMaxFrac: 2.3,     // max center distance to an ocean, in ocean long-sides
+    recovery: true,         // second pass: probe ocean sides + split double boxes
     blurMin: 70,            // Laplacian variance floor (below = blurry)
     darkMean: 34, brightMean: 233, glareFrac: 0.035,
     minPixels: 480 * 480,
@@ -150,7 +159,7 @@
   }
 
   // Orientation-bin boundaries at k·π/8: exact same literals live in
-  // build_snap_card_library.py — binning via IEEE multiply/compare (no
+  // build_snap_card_library.py, binning via IEEE multiply/compare (no
   // atan2/hypot, whose last-bit platform differences would break
   // cross-language parity).
   var EDGE_SIN = [0.3826834323650898, 0.7071067811865476, 0.9238795325112867, 1.0,
@@ -207,7 +216,7 @@
 
   function regionColorLayout(baseRgb, x0, y0, x1, y1) {
     // 4×4 mean-RGB layout of a sub-region of the 64×64 base (per-half color
-    // fingerprint — the per-half equivalent of reading the card name)
+    // fingerprint, the per-half equivalent of reading the card name)
     var w = x1 - x0, h = y1 - y0;
     var crop = new Float64Array(w * h * 3);
     for (var y = 0; y < h; y++)
@@ -221,12 +230,46 @@
     return out;
   }
 
+  function regionPhash(baseRgb, x0, y0, x1, y1) {
+    // pHash of a sub-region of the base (independent per-half ART structure -
+    // robust to color casts, complements the color layouts)
+    var w = x1 - x0, h = y1 - y0;
+    var g = new Float64Array(w * h);
+    for (var y = 0; y < h; y++)
+      for (var x = 0; x < w; x++) {
+        var si = ((y0 + y) * BASE_N + (x0 + x)) * 3;
+        g[y * w + x] = luma(baseRgb[si], baseRgb[si + 1], baseRgb[si + 2]);
+      }
+    var g32 = boxDownsample(g, w, h, 1, GRAY_N, GRAY_N);
+    return phashBits(g32);
+  }
+
+  function regionLumaGrid(baseRgb, fx0, fy0, fx1, fy1, gw, gh) {
+    // gw×gh luma grid of a fractional region of the base (name-band layout)
+    var x0 = Math.floor(fx0 * BASE_N), y0 = Math.floor(fy0 * BASE_N);
+    var x1 = Math.max(x0 + 1, Math.floor(fx1 * BASE_N));
+    var y1 = Math.max(y0 + 1, Math.floor(fy1 * BASE_N));
+    var w = x1 - x0, h = y1 - y0;
+    var g = new Float64Array(w * h);
+    for (var y = 0; y < h; y++)
+      for (var x = 0; x < w; x++) {
+        var si = ((y0 + y) * BASE_N + (x0 + x)) * 3;
+        g[y * w + x] = luma(baseRgb[si], baseRgb[si + 1], baseRgb[si + 2]);
+      }
+    var g2 = boxDownsample(g, w, h, 1, gw, gh);
+    var out = [];
+    for (var k = 0; k < gw * gh; k++) out.push(Math.max(0, Math.min(255, r05(g2[k]))));
+    return out;
+  }
+
   function descriptorsFromBase(baseRgb) {
-    // includes BOTH half-splits (hh = top/bottom, hv = left/right): a crop
-    // doesn't know its card kind yet; refs keep only their own kind's split
+    // includes BOTH half-splits: a crop doesn't know its card kind yet; refs
+    // keep only their own kind's split. Every field derives from the same
+    // 64×64 base so the cross-language parity fixtures cover all of it.
     var gray64 = grayOf(baseRgb, BASE_N * BASE_N);
     var gray32 = boxDownsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N);
     var half = BASE_N / 2;
+    var NR = NAME_REGIONS;
     return {
       p: phashBits(gray32), d: dhashBits(gray64),
       c: colorLayout(baseRgb), e: edgeHist(gray32),
@@ -234,6 +277,14 @@
            regionColorLayout(baseRgb, 0, half, BASE_N, BASE_N)],
       hv: [regionColorLayout(baseRgb, 0, 0, half, BASE_N),
            regionColorLayout(baseRgb, half, 0, BASE_N, BASE_N)],
+      ph: [regionPhash(baseRgb, 0, 0, BASE_N, half),
+           regionPhash(baseRgb, 0, half, BASE_N, BASE_N)],
+      pv: [regionPhash(baseRgb, 0, 0, half, BASE_N),
+           regionPhash(baseRgb, half, 0, BASE_N, BASE_N)],
+      nh: [regionLumaGrid(baseRgb, NR.h[0][0], NR.h[0][1], NR.h[0][2], NR.h[0][3], 12, 4),
+           regionLumaGrid(baseRgb, NR.h[1][0], NR.h[1][1], NR.h[1][2], NR.h[1][3], 12, 4)],
+      nv: [regionLumaGrid(baseRgb, NR.v[0][0], NR.v[0][1], NR.v[0][2], NR.v[0][3], 12, 4),
+           regionLumaGrid(baseRgb, NR.v[1][0], NR.v[1][1], NR.v[1][2], NR.v[1][3], 12, 4)],
     };
   }
 
@@ -280,6 +331,11 @@
     var s = 0;
     for (var i = 0; i < 64; i++) s += Math.abs(a[i] - b[i]);
     return s / 64 / 255;
+  }
+  function gridDist(a, b) {          // mean absolute diff of two equal-length luma grids
+    var s = 0, n = a.length;
+    for (var i = 0; i < n; i++) s += Math.abs(a[i] - b[i]);
+    return s / n / 255;
   }
 
   // ── geometry: quads, homography, warp ──────────────────────────────────────
@@ -370,7 +426,7 @@
   }
 
   function expandQuad(quad, frac) {
-    // grow a quad outward from its centroid by `frac` of each side length —
+    // grow a quad outward from its centroid by `frac` of each side length -
     // used to re-grow interior-only detections back to the full card
     // (detection barriers exclude the navy frame the references include)
     var cx = 0, cy = 0, i;
@@ -830,64 +886,133 @@
     return { cards: cards, groupOf: groupOf, badgeRegions: library.badgeRegions };
   }
 
+  // Independent evidence signals, all sourced from the official game assets.
+  // No single descriptor dominates, a photo with glare might lose the color
+  // signal but keep the hash + name-band signals, and vice-versa.
+  var SCORE_WEIGHTS = {
+    p: 0.20,   // whole-card perceptual hash (art structure)
+    d: 0.06,   // whole-card gradient hash
+    c: 0.15,   // whole-card dominant color layout
+    e: 0.07,   // edge / shape structure
+    hc: 0.18,  // per-half color layout (each half = a named face)
+    hp: 0.19,  // per-half perceptual hash (per-face art, cast-robust)
+    nm: 0.15,  // name-band luma layout (which name is printed on each face)
+  };
+
   function scoreAgainst(desc, ref) {
     var pSim = 1 - hamming(desc.p, ref.p) / 64;
     var dSim = 1 - hamming(desc.d, ref.d) / 64;
     var cSim = 1 - colorDist(desc.c, ref.c);
     var eSim = 1 - edgeDist(desc.e, ref.e);
-    // per-half color: compare the crop's matching split against the ref's
-    // halves — each half of the art is effectively the card NAME check
-    var hcSim;
-    if (ref.kind === "h")
+    var hcSim, hpSim, nmSim;
+    if (ref.kind === "h") {
       hcSim = 1 - (colorDist(desc.hh[0], ref.hc[0]) + colorDist(desc.hh[1], ref.hc[1])) / 2;
-    else if (ref.kind === "v")
+      hpSim = 1 - (hamming(desc.ph[0], ref.hp[0]) + hamming(desc.ph[1], ref.hp[1])) / 128;
+      nmSim = 1 - (gridDist(desc.nh[0], ref.nm[0]) + gridDist(desc.nh[1], ref.nm[1])) / 2;
+    } else if (ref.kind === "v") {
       hcSim = 1 - (colorDist(desc.hv[0], ref.hc[0]) + colorDist(desc.hv[1], ref.hc[1])) / 2;
-    else
+      hpSim = 1 - (hamming(desc.pv[0], ref.hp[0]) + hamming(desc.pv[1], ref.hp[1])) / 128;
+      nmSim = 1 - (gridDist(desc.nv[0], ref.nm[0]) + gridDist(desc.nv[1], ref.nm[1])) / 2;
+    } else {                       // oceans: no half split, no name band
       hcSim = 1 - colorDist(desc.c, ref.hc[0]);
-    return 0.32 * pSim + 0.10 * dSim + 0.22 * cSim + 0.10 * eSim + 0.26 * hcSim;
+      hpSim = pSim;
+      nmSim = cSim;
+    }
+    var W = SCORE_WEIGHTS;
+    var sim = W.p * pSim + W.d * dSim + W.c * cSim + W.e * eSim
+            + W.hc * hcSim + W.hp * hpSim + W.nm * nmSim;
+    // count of strong independent signals (used to rescue correct-but-low
+    // combined scores where several signals agree but one is wrecked by glare)
+    var agree = (pSim > 0.80) + (cSim > 0.82) + (hcSim > 0.82)
+              + (hpSim > 0.80) + (nmSim > 0.85);
+    return { sim: sim, agree: agree,
+             parts: { p: pSim, d: dSim, c: cSim, e: eSim, hc: hcSim, hp: hpSim, nm: nmSim } };
+  }
+
+  // rotate a square (BASE_N×BASE_N) RGB base 90° clockwise
+  function rotateBase90(base) {
+    var n = BASE_N, out = new Float64Array(n * n * 3);
+    for (var y = 0; y < n; y++)
+      for (var x = 0; x < n; x++) {
+        var si = (y * n + x) * 3, di = (x * n + (n - 1 - y)) * 3;
+        out[di] = base[si]; out[di + 1] = base[si + 1]; out[di + 2] = base[si + 2];
+      }
+    return out;
+  }
+
+  function detailFactor(base) {
+    // real cards carry printed art + text + a symbol → high luma variance;
+    // a flat table / coaster / glare patch is nearly uniform. This gates out
+    // "confident" matches to textureless regions (which can otherwise match a
+    // plain ocean on color alone).
+    var n = BASE_N * BASE_N, mean = 0, i;
+    for (i = 0; i < n; i++) mean += luma(base[i * 3], base[i * 3 + 1], base[i * 3 + 2]);
+    mean /= n;
+    var v = 0;
+    for (i = 0; i < n; i++) { var d = luma(base[i * 3], base[i * 3 + 1], base[i * 3 + 2]) - mean; v += d * d; }
+    var std = Math.sqrt(v / n);
+    return Math.max(0, Math.min(1, (std - 10) / 22));   // ~0 below std 10, full by std 32
   }
 
   function matchCrop(cropRgb, matcher) {
-    // crop is the warped portrait 200×280; try both 180° orientations
+    // A crop is warped to canonical portrait; orderQuad already fixes the long
+    // axis, so 0°/180° is the primary ambiguity ("which way is up"). 90°/270°
+    // are also tested as a safety net for a mis-axised detection, the name /
+    // half signals naturally punish a wrong orientation, so this can only help.
     var norm = normalizeRgb(cropRgb, CARD_W * CARD_H);
+    var base0 = boxDownsample(norm, CARD_W, CARD_H, 3, BASE_N, BASE_N);
+    var detail = detailFactor(base0);
     var flip = rotateCrop180(norm);
-    var b0 = boxDownsample(norm, CARD_W, CARD_H, 3, BASE_N, BASE_N);
-    var b1 = boxDownsample(flip, CARD_W, CARD_H, 3, BASE_N, BASE_N);
-    var d0 = descriptorsFromBase(b0), d1 = descriptorsFromBase(b1);
+    var base180 = boxDownsample(flip, CARD_W, CARD_H, 3, BASE_N, BASE_N);
+    var descs = [descriptorsFromBase(base0), descriptorsFromBase(base180)];       // 0, 180
+    var oriented = [norm, flip];                                                  // full-res crops
+    var haveRot = false;
 
-    var scored = [];
-    matcher.cards.forEach(function (ref) {
-      var s0 = scoreAgainst(d0, ref), s1 = scoreAgainst(d1, ref);
-      var flip180 = s1 > s0;
-      scored.push({ card: ref, sim: flip180 ? s1 : s0, flip: flip180 });
+    var scored = matcher.cards.map(function (ref) {
+      var s0 = scoreAgainst(descs[0], ref), s1 = scoreAgainst(descs[1], ref);
+      var best = s0.sim >= s1.sim ? { s: s0, o: 0 } : { s: s1, o: 1 };
+      return { card: ref, sim: best.s.sim, agree: best.s.agree, orient: best.o, parts: best.s.parts };
     });
     scored.sort(function (a, b) { return b.sim - a.sim; });
 
+    // rotation safety net: only if the best portrait reading is weak
+    if (scored[0].sim < 0.80) {
+      var base90 = rotateBase90(base0), base270 = rotateBase90(rotateBase90(base180));
+      descs.push(descriptorsFromBase(base90), descriptorsFromBase(base270));      // 90, 270
+      haveRot = true;
+      scored = matcher.cards.map(function (ref) {
+        var arr = [scoreAgainst(descs[0], ref), scoreAgainst(descs[1], ref),
+                   scoreAgainst(descs[2], ref), scoreAgainst(descs[3], ref)];
+        var bi = 0;
+        for (var i = 1; i < 4; i++) if (arr[i].sim > arr[bi].sim) bi = i;
+        return { card: ref, sim: arr[bi].sim, agree: arr[bi].agree, orient: bi, parts: arr[bi].parts };
+      });
+      scored.sort(function (a, b) { return b.sim - a.sim; });
+    }
+
     var best = scored[0];
-    // margin vs the best DIFFERENT art group
+    var groupKey = matcher.groupOf[best.card.id];
+    // margin vs the best DIFFERENT art group (family separation)
     var margin = 0.2;
     for (var i = 1; i < scored.length; i++) {
-      if (matcher.groupOf[scored[i].card.id] !== matcher.groupOf[best.card.id]) {
-        margin = best.sim - scored[i].sim;
-        break;
-      }
+      if (matcher.groupOf[scored[i].card.id] !== groupKey) { margin = best.sim - scored[i].sim; break; }
     }
-    var conf = confidenceFrom(best.sim, margin);
+    var conf = confidenceFrom(best.sim, margin, best.agree) * (0.35 + 0.65 * detail);
 
-    // within the winning art group, disambiguate the copy by symbol badges
-    var groupKey = matcher.groupOf[best.card.id];
+    // STAGE 2 order: family (done) → exact copy (symbol badge) → face (later).
+    // Symbol disambiguation ranks ONLY within the winning family, so it can
+    // never turn one species into another (per the spec).
     var members = scored.filter(function (s) { return matcher.groupOf[s.card.id] === groupKey; })
                         .map(function (s) { return s.card; });
     var symbolConfident = true;
     var pick = best.card;
     if (members.length > 1) {
-      var oriented = best.flip ? flip : norm;
+      var crop = (best.orient === 1 || best.orient === 3) ? flip : norm; // best-effort full-res crop
       var ranked = members.map(function (m) {
         var dist = 0, cnt = 0;
         Object.keys(m.halves).forEach(function (side) {
           var region = matcher.badgeRegions[m.kind][side];
-          var grid = badgeGridFromCrop(oriented, CARD_W, CARD_H, region);
-          dist += badgeDist(grid, m.b[side]);
+          dist += badgeDist(badgeGridFromCrop(crop, CARD_W, CARD_H, region), m.b[side]);
           cnt++;
         });
         return { card: m, dist: dist / Math.max(1, cnt) };
@@ -896,6 +1021,7 @@
       symbolConfident = ranked.length < 2 || (ranked[1].dist - ranked[0].dist) >= 0.018;
     }
 
+    // top-3 candidate FAMILIES for the review screen
     var candidates = [];
     var seenGroups = {};
     for (var k = 0; k < scored.length && candidates.length < 3; k++) {
@@ -903,37 +1029,51 @@
       if (seenGroups[g]) continue;
       seenGroups[g] = true;
       var m2 = 0.2;
-      for (var t = 0; t < scored.length; t++) {
+      for (var t = 0; t < scored.length; t++)
         if (matcher.groupOf[scored[t].card.id] !== g) { m2 = scored[k].sim - scored[t].sim; break; }
-      }
       candidates.push({
         cardId: (g === groupKey ? pick.id : scored[k].card.id),
         sim: Math.round(scored[k].sim * 1000) / 1000,
-        conf: Math.round(confidenceFrom(scored[k].sim, Math.max(0, m2)) * 1000) / 1000,
+        conf: Math.round(confidenceFrom(scored[k].sim, Math.max(0, m2), scored[k].agree)
+                         * (0.35 + 0.65 * detail) * 1000) / 1000,
       });
     }
 
     return {
-      cardId: pick.id, kind: pick.kind, flip: best.flip,
+      cardId: pick.id, kind: pick.kind,
+      flip: best.orient === 1,               // 180° flip within portrait mapping
+      orient: best.orient,                   // 0/1/2/3 = 0/180/90/270
+      rotated: haveRot && best.orient >= 2,  // a 90°/270° reading won
       sim: Math.round(best.sim * 1000) / 1000,
       conf: Math.round(conf * 1000) / 1000,
+      agree: best.agree,
+      detail: Math.round(detail * 100) / 100,
       symbolConfident: symbolConfident,
+      parts: roundParts(best.parts),
       candidates: candidates,
     };
   }
 
-  function confidenceFrom(sim, margin) {
-    // Calibrated on real-art photo composites (make_snap_test_photo.py):
-    // real cards land at sim 0.90–0.96, junk ≤0.69, flat surfaces ≤0.56 —
-    // absolute sim is the primary separator. Margin is judged BOTH absolutely
-    // and relative to the residual error (margin/(1-sim)), because sibling
-    // pages legitimately share half their art and keep raw margins small.
+  function roundParts(p) {
+    var out = {};
+    for (var k in p) if (p.hasOwnProperty(k)) out[k] = Math.round(p[k] * 100) / 100;
+    return out;
+  }
+
+  function confidenceFrom(sim, margin, agree) {
+    // Calibrated on real-art photo composites (make_snap_test_photo.py). No
+    // single strict gate, three signals combine: absolute match quality,
+    // family separation (absolute AND relative to residual error, since
+    // sibling pages share half their art), and how many independent signals
+    // agree (a correct card with several agreeing signals is trusted even if
+    // one signal was wrecked by glare, per the "don't drop correct cards" rule).
     function sig(x) { return 1 / (1 + Math.exp(-x)); }
-    var q = sig((sim - 0.775) * 26);                     // absolute match quality
+    var q = sig((sim - 0.760) * 24);                     // absolute match quality
     var rel = margin / Math.max(0.02, 1 - sim);          // margin vs residual error
-    var mm = Math.max(sig((margin - 0.012) * 120), sig((rel - 0.12) * 10));
-    var m = 0.66 + 0.34 * mm;                            // gentle separation term
-    return Math.max(0.01, Math.min(0.99, q * m));
+    var sep = Math.max(sig((margin - 0.010) * 120), sig((rel - 0.10) * 10));
+    var agreeBoost = Math.min(0.12, 0.03 * (agree || 0)); // up to +0.12 for signal agreement
+    var m = 0.62 + 0.30 * sep;
+    return Math.max(0.01, Math.min(0.99, q * m + agreeBoost));
   }
 
   // ── board assembly ─────────────────────────────────────────────────────────
@@ -944,22 +1084,54 @@
     return null;
   }
 
+  function quadArea(corners) {
+    // shoelace area of the quad
+    var a = 0;
+    for (var i = 0; i < 4; i++) {
+      var j = (i + 1) % 4;
+      a += corners[i][0] * corners[j][1] - corners[j][0] * corners[i][1];
+    }
+    return Math.abs(a) / 2;
+  }
+
   function assembleBoard(quads, matcher, opts) {
     var o = Object.assign({}, DEFAULTS, opts || {});
     var warnings = [], lowConfidence = [], unassigned = [];
     // re-assembly after box edits must start clean
-    quads.forEach(function (q) { q.dup = false; q.assigned = null; q.uid = null; });
-
-    var oceans = quads.filter(function (q) { return q.match && q.match.kind === "o" && q.match.conf >= o.acceptConf; });
-    var animals = quads.filter(function (q) { return q.match && q.match.kind !== "o" && q.match.conf >= o.acceptConf; });
-    var unknown = quads.filter(function (q) { return !q.match || q.match.conf < o.acceptConf; });
-
-    unknown.forEach(function (q) {
-      unassigned.push(q.id);
+    quads.forEach(function (q) {
+      q.dup = false; q.assigned = null; q.uid = null; q.sizeOutlier = false; q.needsId = false;
     });
+
+    // Card-size consistency (spec: "expected physical card size relative to
+    // nearby cards"). Physical cards are all one size, so a confidently-matched
+    // box whose area is wildly off the median is almost certainly not a card
+    // (a coaster, glare patch, or a merged/partial detection). It keeps its box
+    // for manual review but does NOT auto-populate the board.
+    var confAreas = quads.filter(function (q) { return q.match && q.match.conf >= o.highConf; })
+                         .map(function (q) { return quadArea(q.corners); })
+                         .sort(function (a, b) { return a - b; });
+    var medArea = confAreas.length ? confAreas[Math.floor(confAreas.length / 2)] : 0;
+    if (medArea > 0) {
+      quads.forEach(function (q) {
+        if (!q.match) return;
+        var ar = quadArea(q.corners);
+        if (ar < 0.32 * medArea || ar > 3.0 * medArea) q.sizeOutlier = true;
+      });
+    }
+
+    function usable(q) { return q.match && q.match.conf >= o.acceptConf && !q.sizeOutlier; }
+    var oceans = quads.filter(function (q) { return usable(q) && q.match.kind === "o"; });
+    var animals = quads.filter(function (q) { return usable(q) && q.match.kind !== "o"; });
+    // A weak reading NEVER deletes the card: its box stays visible, flagged
+    // "needs identification", so the player can label it (spec requirement).
+    var unknown = quads.filter(function (q) {
+      return !q.match || q.match.conf < o.acceptConf || q.sizeOutlier;
+    });
+    unknown.forEach(function (q) { q.needsId = true; unassigned.push(q.id); });
     if (unknown.length)
       warnings.push(unknown.length + " card" + (unknown.length > 1 ? "s" : "") +
-                    " couldn't be identified confidently, set " + (unknown.length > 1 ? "them" : "it") + " by hand");
+                    " need" + (unknown.length > 1 ? "" : "s") +
+                    " identification, tap " + (unknown.length > 1 ? "them" : "it") + " to pick the card");
 
     // duplicate physical cards can't exist in one deck
     var seen = {};
@@ -979,7 +1151,7 @@
       var c = cardById(matcher, q.match.cardId);
       var entry = { u: c.halves.ocean.u, up: [], down: [], left: [], right: [] };
       board.oceans.push(entry);
-      if (q.match.conf < o.reviewConf) lowConfidence.push(c.halves.ocean.n);
+      if (q.match.conf < o.highConf) lowConfidence.push(c.halves.ocean.n);
       if (!q.match.symbolConfident) {
         lowConfidence.push(c.halves.ocean.n);
         warnings.push(c.halves.ocean.n + ": couldn't read the symbol clearly, check which copy it is");
@@ -1017,7 +1189,7 @@
       bestOc.entry[side].push(half.u);
       q.assigned = { oceanU: bestOc.entry.u, side: side };
       q.uid = half.u;
-      if (q.match.conf < o.reviewConf) lowConfidence.push(half.n);
+      if (q.match.conf < o.highConf) lowConfidence.push(half.n);
       if (!q.match.symbolConfident) {
         lowConfidence.push(half.n);
         warnings.push(half.n + ": couldn't read the symbol clearly, check which copy it is");
@@ -1057,6 +1229,63 @@
     return out;
   }
 
+  // ── recovery pass: use board structure to catch cards detection missed ─────
+  // For every confidently-identified ocean, probe the four adjacent slots. A
+  // probed box is only added when it identifies at HIGH confidence against the
+  // official assets AND its card kind matches the side, a slightly-off geometry
+  // just yields a weak match and adds nothing, so this can't invent cards.
+  function recoveryPass(image, quads, matcher, o) {
+    var oceans = quads.filter(function (q) {
+      return q.match && q.match.kind === "o" && q.match.conf >= o.highConf;
+    });
+    if (!oceans.length) return;
+    var iw = image.width, ih = image.height;
+    var occupied = quads.map(function (q) { return q.corners; });
+    var addedCorners = [];
+
+    oceans.forEach(function (oc) {
+      var Q = orderQuad(oc.corners);                 // [TL,TR,BR,BL], long side vertical
+      var down = [(Q[3][0] - Q[0][0]), (Q[3][1] - Q[0][1])];  // long edge (ocean height)
+      var right = [(Q[1][0] - Q[0][0]), (Q[1][1] - Q[0][1])]; // short edge (ocean width)
+      var cx = 0, cy = 0;
+      for (var i = 0; i < 4; i++) { cx += Q[i][0] / 4; cy += Q[i][1] / 4; }
+      // physical cards share the ocean's size; an up/down card is that size
+      // rotated 90° (landscape), a left/right card is portrait like the ocean.
+      var slots = [
+        { side: "up",    kind: "h", dir: [-down[0], -down[1]], longAx: right, shortAx: down },
+        { side: "down",  kind: "h", dir: [down[0], down[1]],   longAx: right, shortAx: down },
+        { side: "left",  kind: "v", dir: [-right[0], -right[1]], longAx: down, shortAx: right },
+        { side: "right", kind: "v", dir: [right[0], right[1]],  longAx: down, shortAx: right },
+      ];
+      slots.forEach(function (sl) {
+        // slot center: one full card-step off the ocean along the side
+        var step = 0.5 * Math.hypot(sl.dir[0], sl.dir[1]) + 0.5 * Math.hypot(sl.shortAx[0], sl.shortAx[1]);
+        var un = [sl.dir[0] / Math.hypot(sl.dir[0], sl.dir[1]) || 0,
+                  sl.dir[1] / Math.hypot(sl.dir[0], sl.dir[1]) || 0];
+        var scx = cx + un[0] * step, scy = cy + un[1] * step;
+        // build the slot quad from half-axes (long horizontal for h, vertical for v)
+        var hl = [sl.longAx[0] / 2, sl.longAx[1] / 2], hs = [sl.shortAx[0] / 2, sl.shortAx[1] / 2];
+        var quad = [
+          [scx - hl[0] - hs[0], scy - hl[1] - hs[1]],
+          [scx + hl[0] - hs[0], scy + hl[1] - hs[1]],
+          [scx + hl[0] + hs[0], scy + hl[1] + hs[1]],
+          [scx - hl[0] + hs[0], scy - hl[1] + hs[1]],
+        ].map(function (p) { return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))]; });
+        // skip if it overlaps something already found (or just-added)
+        for (var e = 0; e < occupied.length; e++)
+          if (quadContainment(quad, occupied[e]) > 0.4 || quadIoU(quad, occupied[e]) > 0.25) return;
+        for (var a = 0; a < addedCorners.length; a++)
+          if (quadIoU(quad, addedCorners[a]) > 0.25) return;
+        var r = matchQuad(image, quad, matcher, o, true);
+        if (r.match && r.match.conf >= o.highConf && r.match.kind === sl.kind) {
+          quads.push({ id: "r" + quads.length, corners: r.corners, touchesBorder: false,
+                       primary: true, variant: r.variant, recovered: true, match: r.match });
+          addedCorners.push(r.corners);
+        }
+      });
+    });
+  }
+
   // ── retake decision (mirrors the phrasing players already know) ────────────
 
   var ISSUE_LABELS = {
@@ -1088,12 +1317,46 @@
 
   // ── top-level orchestration ────────────────────────────────────────────────
 
+  // Identify one detected box, trying several CROP VARIANTS so an imperfect
+  // detection box (traced the inner frame, or overshot onto a neighbour) still
+  // matches. Detection barriers commonly capture the face INSIDE the navy
+  // frame, so "expanded" (frame re-included) is tried first. The variant whose
+  // reading identifies best wins, and the box is snapped to that variant so
+  // the review overlay shows the crop that was actually matched.
+  function matchQuad(image, corners, matcher, o, allowVariants) {
+    var iw = image.width, ih = image.height;
+    function clampQuad(quad) {
+      return quad.map(function (p) {
+        return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))];
+      });
+    }
+    var exactCrop = warpCard(image, corners);
+    var best = { corners: corners, match: exactCrop ? matchCrop(exactCrop, matcher) : null, variant: "exact" };
+    if (!allowVariants || !o.cropVariants || (best.match && best.match.conf >= o.highConf))
+      return best;
+    // expanded (re-include frame) and contracted (shed a neighbour/border)
+    var variants = [
+      { corners: clampQuad(expandQuad(corners, 0.06)), tag: "expanded" },
+      { corners: clampQuad(expandQuad(corners, 0.11)), tag: "expanded+" },
+      { corners: clampQuad(expandQuad(corners, -0.05)), tag: "contracted" },
+    ];
+    variants.forEach(function (vr) {
+      var crop = warpCard(image, vr.corners);
+      var m = crop ? matchCrop(crop, matcher) : null;
+      if (m && (!best.match || m.conf > best.match.conf ||
+                (Math.abs(m.conf - best.match.conf) < 0.02 && m.sim > best.match.sim))) {
+        best = { corners: vr.corners, match: m, variant: vr.tag };
+      }
+    });
+    return best;
+  }
+
   function identifyQuads(image, quadCorners, matcher, opts) {
+    var o = Object.assign({}, DEFAULTS, opts || {});
     return quadCorners.map(function (corners, i) {
-      var q = { id: "q" + i, corners: corners, touchesBorder: false, match: null };
-      var crop = warpCard(image, corners);
-      if (crop) q.match = matchCrop(crop, matcher);
-      return q;
+      var r = matchQuad(image, corners, matcher, o, true);
+      return { id: "q" + i, corners: r.corners, touchesBorder: false,
+               match: r.match, variant: r.variant };
     });
   }
 
@@ -1117,29 +1380,11 @@
     progress(3, "Matching cards");
     var t2 = now();
     var matcher = library.__matcher || (library.__matcher = buildMatcher(library));
-    var iw = image.width, ih = image.height;
     var cands = detected.map(function (d) {
-      var q = { corners: d.corners, touchesBorder: !!d.touchesBorder,
-                primary: !!d.primary, strategy: d.strategy,
-                detScore: d.detScore, match: null };
-      var crop = warpCard(image, d.corners);
-      if (crop) q.match = matchCrop(crop, matcher);
-      // detection barriers often trace the face INSIDE the navy frame; if the
-      // match is not already excellent, also try the frame-included reading
-      // and keep whichever identifies better
-      if (!manual && (!q.match || q.match.sim < o.expandTrySim)) {
-        var grown = expandQuad(d.corners, o.borderExpand).map(function (p) {
-          return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))];
-        });
-        var crop2 = warpCard(image, grown);
-        var m2 = crop2 ? matchCrop(crop2, matcher) : null;
-        if (m2 && (!q.match || m2.sim > q.match.sim)) {
-          q.match = m2;
-          q.corners = grown;
-          q.expanded = true;
-        }
-      }
-      return q;
+      var r = matchQuad(image, d.corners, matcher, o, !manual);
+      return { corners: r.corners, touchesBorder: !!d.touchesBorder,
+               primary: !!d.primary, strategy: d.strategy, variant: r.variant,
+               detScore: d.detScore, match: r.match };
     });
     // every candidate was identified; keep the set of readings that explains
     // the photo best (manual boxes are always kept exactly as drawn)
@@ -1149,6 +1394,8 @@
 
     progress(4, "Building board");
     var t3 = now();
+    // recovery pass: probe ocean sides for missed cards, split double boxes
+    if (!manual && o.recovery) recoveryPass(image, quads, matcher, o);
     var assembled = assembleBoard(quads, matcher, o);
     var retake = retakeDecision(quality, assembled, quads, o);
     timings.assemble = now() - t3;
@@ -1198,8 +1445,10 @@
     quadIoU: quadIoU,
     // stages
     qualityCheck: qualityCheck, detectQuads: detectQuads,
-    buildMatcher: buildMatcher, matchCrop: matchCrop,
-    assembleBoard: assembleBoard, retakeDecision: retakeDecision,
+    buildMatcher: buildMatcher, matchCrop: matchCrop, matchQuad: matchQuad,
+    scoreAgainst: scoreAgainst, regionPhash: regionPhash, regionLumaGrid: regionLumaGrid,
+    rotateBase90: rotateBase90, gridDist: gridDist,
+    assembleBoard: assembleBoard, retakeDecision: retakeDecision, recoveryPass: recoveryPass,
     identifyQuads: identifyQuads, scanBoard: scanBoard, selectByMatch: selectByMatch,
   };
 });

@@ -51,10 +51,20 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_LIBRARY = os.path.join(BASE_DIR, "multiplayer", "client", "snap-card-library.json")
 OUT_FIXTURES = os.path.join(BASE_DIR, "test_snap_vision_fixtures.json")
 
-DESCRIPTOR_VERSION = 2      # v2: per-channel normalize + per-half color layouts
+DESCRIPTOR_VERSION = 3      # v3: + per-half pHashes (hp) and name-region grids (nm)
 CARD_W, CARD_H = 200, 280   # canonical portrait working size (5:7)
 BASE_N = 64                 # square base the descriptors are computed from
 GRAY_N = 32                 # pHash / edge-histogram working size
+
+# Name-band regions as fractions of the FULL portrait card (x0,y0,x1,y1) —
+# where each face prints its card NAME (measured on the 720×1008 sheets).
+# Ocean pages place names at varying heights, so oceans skip this signal.
+NAME_REGIONS = {
+    "h": ((0.05, 0.315, 0.75, 0.400),   # top face name band
+          (0.05, 0.815, 0.75, 0.900)),  # bottom face name band
+    "v": ((0.03, 0.630, 0.46, 0.760),   # left face name band
+          (0.53, 0.630, 0.96, 0.760)),  # right face name band
+}
 
 # Symbol-badge crop regions as fractions of the FULL portrait card (x0,y0,x1,y1).
 # Measured on the 720×1008 sheets: the badge sits at the top-right of each face.
@@ -235,10 +245,45 @@ def region_color_layout(base_rgb, x0, y0, x1, y1):
     return [max(0, min(255, r05(v))) for v in c44]
 
 
+def region_phash(base_rgb, x0, y0, x1, y1):
+    """pHash of a sub-region of the base (independent per-half ART structure
+    evidence — robust to color casts, complements the color layouts)."""
+    w, h = x1 - x0, y1 - y0
+    g = [0.0] * (w * h)
+    for y in range(h):
+        for x in range(w):
+            si = ((y0 + y) * BASE_N + (x0 + x)) * 3
+            g[y * w + x] = luma(base_rgb[si], base_rgb[si + 1], base_rgb[si + 2])
+    g32 = box_downsample(g, w, h, 1, GRAY_N, GRAY_N)
+    return phash_bits(g32)
+
+
+def region_luma_grid(base_rgb, fx0, fy0, fx1, fy1, gw, gh):
+    """gw×gh luma grid of a fractional region of the base (name-band layout —
+    coarse but consistent evidence of WHICH name is printed there)."""
+    x0, y0 = int(fx0 * BASE_N), int(fy0 * BASE_N)
+    x1 = max(x0 + 1, int(fx1 * BASE_N))
+    y1 = max(y0 + 1, int(fy1 * BASE_N))
+    w, h = x1 - x0, y1 - y0
+    g = [0.0] * (w * h)
+    for y in range(h):
+        for x in range(w):
+            si = ((y0 + y) * BASE_N + (x0 + x)) * 3
+            g[y * w + x] = luma(base_rgb[si], base_rgb[si + 1], base_rgb[si + 2])
+    g2 = box_downsample(g, w, h, 1, gw, gh)
+    return [max(0, min(255, r05(v))) for v in g2]
+
+
 def descriptors_from_base(base_rgb):
-    """Full descriptor set incl. BOTH half-splits (hh = top/bottom, hv =
-    left/right) — a photo crop doesn't know which kind of card it is yet, so
-    it always carries both; refs keep only their own kind's split (`hc`)."""
+    """Full descriptor set incl. BOTH half-splits (a photo crop doesn't know
+    which kind of card it is yet, so it carries both; refs keep only their own
+    kind's split). Every signal derives from the SAME 64×64 base so the
+    cross-language parity fixtures cover all of it:
+      p/d/c/e — whole-card hash / gradient hash / color layout / edge structure
+      hh/hv   — per-half 4×4 color layouts (top/bottom and left/right splits)
+      ph/pv   — per-half pHashes (independent half-ART structure)
+      nh/nv   — name-band 12×4 luma grids (which NAME is printed on each face)
+    """
     gray64 = gray_of(base_rgb, BASE_N * BASE_N)
     gray32 = box_downsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N)
     half = BASE_N // 2
@@ -251,6 +296,14 @@ def descriptors_from_base(base_rgb):
                region_color_layout(base_rgb, 0, half, BASE_N, BASE_N)],
         "hv": [region_color_layout(base_rgb, 0, 0, half, BASE_N),
                region_color_layout(base_rgb, half, 0, BASE_N, BASE_N)],
+        "ph": [region_phash(base_rgb, 0, 0, BASE_N, half),
+               region_phash(base_rgb, 0, half, BASE_N, BASE_N)],
+        "pv": [region_phash(base_rgb, 0, 0, half, BASE_N),
+               region_phash(base_rgb, half, 0, BASE_N, BASE_N)],
+        "nh": [region_luma_grid(base_rgb, *NAME_REGIONS["h"][0], 12, 4),
+               region_luma_grid(base_rgb, *NAME_REGIONS["h"][1], 12, 4)],
+        "nv": [region_luma_grid(base_rgb, *NAME_REGIONS["v"][0], 12, 4),
+               region_luma_grid(base_rgb, *NAME_REGIONS["v"][1], 12, 4)],
     }
 
 
@@ -328,8 +381,10 @@ def build():
         norm = normalize_rgb(work, CARD_W * CARD_H)
         base = box_downsample(norm, CARD_W, CARD_H, 3, BASE_N, BASE_N)
         desc = descriptors_from_base(base)
-        # refs keep only the half-split matching their own kind (crops carry both)
+        # refs keep only the splits matching their own kind (crops carry both)
         hc = {"h": desc["hh"], "v": desc["hv"], "o": [desc["c"]]}[kind]
+        hp = {"h": desc["ph"], "v": desc["pv"], "o": []}[kind]
+        nm = {"h": desc["nh"], "v": desc["nv"], "o": []}[kind]
         badges = {side: badge_grid(norm, CARD_W, CARD_H, BADGE_REGIONS[kind][side])
                   for side in halves}
         entry = {
@@ -338,7 +393,7 @@ def build():
             "img": "/" + rel,
             "halves": halves,
             "p": desc["p"], "d": desc["d"], "c": desc["c"], "e": desc["e"],
-            "hc": hc,
+            "hc": hc, "hp": hp, "nm": nm,
             "b": badges,
         }
         cards.append(entry)
