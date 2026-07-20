@@ -1,5 +1,5 @@
 /* ============================================================
-   CURRENTS & CRITTERS — COLOR & TYPE TOKENS
+   CURRENTS & CRITTERS, COLOR & TYPE TOKENS
    Ocean ecosystem card game · two distinct surfaces:
    1. Marketing site (zonal: sky → beach → ocean depths)
    2. Tidal Wave game arena (clean, glassy, app-like)
@@ -125,7 +125,7 @@
   --s-9:  64px;
   --s-10: 88px;
 
-  /* ── TYPE — FAMILIES ────────────────────────────────── */
+  /* ── TYPE, FAMILIES ────────────────────────────────── */
   /* Display: Space Grotesk (geometric, slight quirk; used for h1/h2/brand)  */
   /* UI / body: Manrope (humanist sans, very legible)                         */
   /* Marketing fallback: Gill Sans stack (the original site uses this)       */
@@ -134,7 +134,7 @@
   --font-marketing:  "Gill Sans", "Avenir Next", "Trebuchet MS", sans-serif;
   --font-mono:       ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* ── TYPE — SCALE (semantic) ────────────────────────── */
+  /* ── TYPE, SCALE (semantic) ────────────────────────── */
   --fs-display:      clamp(38px, 6.5vw, 72px);   /* hero h1 marketing */
   --fs-h1:           clamp(34px, 5.3vw, 62px);   /* hero h1 app */
   --fs-h2:           clamp(28px, 4vw, 44px);

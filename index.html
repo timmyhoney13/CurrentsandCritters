@@ -355,7 +355,7 @@
     flex-wrap: wrap;
     align-content: center;
     justify-content: center;
-    /* Fixed/viewport gaps, NOT em — the container inherits font-size:0 from
+    /* Fixed/viewport gaps, NOT em, the container inherits font-size:0 from
        .people-care, so an em gap would collapse to 0 and names would touch. */
     gap: clamp(3px, 0.55vw, 11px) clamp(14px, 1.8vw, 36px);
     /* overflow-x (not both axes) clips a runaway-long single name from poking
@@ -369,7 +369,7 @@
     text-align: center;
   }
   /* Every name's SIZE is set inline from the donor's lifetime total (see
-     nameFontStyle in the script) so it scales continuously — a bigger donation
+     nameFontStyle in the script) so it scales continuously, a bigger donation
      is always a bigger name, down to a single extra dollar. This rule is just
      the shared look; pointer-events:auto lets the hover tooltip (how much they
      donated) work even though the container itself is click-through. */
@@ -449,7 +449,7 @@
 <!-- ============ BETA ANNOUNCEMENT BAR ============ -->
 <div class="beta-bar">
   <span class="beta-tag">🌊 Now in Beta</span>
-  <span>Beta testing is now available for the online game —
+  <span>Beta testing is now available for the online game.
     <a href="https://play.currentsandcritters.com/">Play Free Online →</a>
   </span>
 </div>
@@ -550,7 +550,7 @@
 
 <!-- ============ PEOPLE WHO CARE ============ -->
 <section class="people-care" id="people-care">
-  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care — these people help fund the launch of Currents & Critters and support our commitment to ocean cleanup and conservation. The more you support, the bigger your name is." loading="lazy"/>
+  <img class="people-care-img" src="assets/backed-by-people.png" alt="Backed By People Who Care, these people help fund the launch of Currents & Critters and support our commitment to ocean cleanup and conservation. The more you support, the bigger your name is." loading="lazy"/>
   <!-- Live supporter names are injected here from the game server; each name is
        sized by the donor's lifetime total. Empty until a supporter is approved. -->
   <div class="people-care-names" id="supporter-names" aria-label="Supporter reef wall names" aria-live="polite"></div>
@@ -721,7 +721,7 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link — replace with the LIVE link before launch. -->
+        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
         <a class="btn btn-outline" href="https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00">Become a Wave Warrior →</a>
       </div>
 
@@ -750,7 +750,7 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link — replace with the LIVE link before launch. -->
+        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
         <a class="btn btn-mint" href="https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01">Become an Ocean Ally →</a>
       </div>
 
@@ -781,7 +781,7 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link — replace with the LIVE link before launch. -->
+        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
         <a class="btn btn-outline" href="https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02">Become a Tide Turner →</a>
       </div>
 
@@ -1141,11 +1141,11 @@ updateBetaBarClear();
   setInterval(refreshRenderStats, 60000);
 
   // ── Supporter Reef Wall names ("Backed By People Who Care") ──────────
-  // Live from the game server — the only thing allowed to read Firestore.
+  // Live from the game server, the only thing allowed to read Firestore.
   // /api/supporters/wall returns ONLY approved + public supporters, already
   // sorted by lifetime spend (biggest first), each with amountCents (the
   // donor's LIFETIME total). Every name is sized CONTINUOUSLY from that total
-  // so a bigger donation is always a bigger name — down to a single dollar —
+  // so a bigger donation is always a bigger name, down to a single dollar,
   // and hovering a name shows exactly how much they've given. Empty response →
   // the illustration shows alone (no approved supporters yet).
   function escWallText(s) {
@@ -1155,7 +1155,7 @@ updateBetaBarClear();
   }
   // Continuous size from the lifetime total. d/(d+K) climbs fast at the low end
   // (so $1 vs $5 is clearly visible) and saturates high (so $500 vs $1000 differ
-  // only a little) — it NEVER stops rising, so one extra dollar is always a
+  // only a little), it NEVER stops rising, so one extra dollar is always a
   // slightly bigger name. Fractional vw ⇒ each amount is a genuinely different
   // width. clamp keeps it readable on phones and sane on ultra-wide screens.
   function nameFontSize(cents) {
@@ -1180,7 +1180,7 @@ updateBetaBarClear();
       const name = escWallText(s && s.displayName);
       const amt = moneyText(cents);
       // data-tip (not title): a native title tooltip has a ~1s hover delay and
-      // never appears on touch at all — data-tip feeds the instant CSS popup
+      // never appears on touch at all, data-tip feeds the instant CSS popup
       // (see .scn-name::after) instead. tabindex makes it keyboard-focusable
       // so the popup is also reachable without a mouse.
       return '<span class="scn-name" tabindex="0" style="font-size:' + nameFontSize(cents) + '"'
@@ -1194,13 +1194,13 @@ updateBetaBarClear();
       if (!resp.ok) return;
       const data = await resp.json();
       renderSupporterWall(data && data.supporters ? data.supporters : []);
-    } catch (_) { /* server sleeping — leave the scene as-is */ }
+    } catch (_) { /* server sleeping, leave the scene as-is */ }
   }
   refreshSupporterWall();
   setInterval(refreshSupporterWall, 60000);
 
   // Touchscreens have no :hover state, so the CSS popup (.scn-name::after)
-  // would never show on tap alone — this toggles a class that the CSS also
+  // would never show on tap alone, this toggles a class that the CSS also
   // triggers on. Delegated on the container (names are replaced wholesale
   // every refresh, so per-name listeners would go stale).
   document.getElementById('supporter-names').addEventListener('click', function (e) {

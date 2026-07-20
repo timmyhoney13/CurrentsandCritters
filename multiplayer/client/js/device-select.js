@@ -44,7 +44,7 @@
   // screen is showing, the game is laid out on a WIDER virtual viewport so a
   // lot more of the board + UI is visible at once (a gentle default zoom-out),
   // and the browser's own two-finger pinch then zooms the entire game (board
-  // AND interface together — not just text) in for detail or out for a
+  // AND interface together, not just text) in for detail or out for a
   // strategic overview, with native two-finger panning while zoomed. This
   // scales the whole game uniformly without a CSS transform, so every existing
   // overlay/menu/modal/tooltip/fullscreen and the finger drag-and-drop keep
@@ -58,7 +58,7 @@
     var MAX_ZOOM_MULT   = 3;     // how far past the overview a player may pinch in
     var inGame = false;
 
-    // screen.* is stable logical CSS pixels — it does NOT change with the
+    // screen.* is stable logical CSS pixels, it does NOT change with the
     // viewport meta or with a pinch, so it never feeds back on itself the way
     // innerWidth would once we widen the viewport. The device's SHORT edge
     // classifies phone vs tablet (intrinsic, orientation-independent); the
@@ -82,7 +82,7 @@
       var dw  = d.cur;
       var zo  = d.short >= 700 ? ZOOM_OUT_TABLET : ZOOM_OUT_PHONE;
       var W   = Math.round(dw * zo);
-      var fit = dw / W;  // = 1 / zo — the default "fit the whole game" scale
+      var fit = dw / W;  // = 1 / zo, the default "fit the whole game" scale
       var content =
         "width=" + W +
         ", initial-scale=" + fit.toFixed(3) +
@@ -100,7 +100,7 @@
     }
     // Called with true when the in-game screen appears, false when it leaves.
     window.ccGameViewport = function (on) { inGame = !!on; refresh(); };
-    // Re-fit (and reset to the overview) only on a real rotation — never during
+    // Re-fit (and reset to the overview) only on a real rotation, never during
     // a pinch, which doesn't fire orientationchange and must not be disturbed.
     window.addEventListener("orientationchange", function () { setTimeout(refresh, 250); });
   })();
@@ -113,7 +113,7 @@
   var scr = document.getElementById("cc-device-screen");
   var existing = read();
   if (existing) {
-    // Already chosen this session — apply silently and never show the screen.
+    // Already chosen this session, apply silently and never show the screen.
     apply(existing);
     if (scr) { scr.classList.add("cc-device-hidden"); scr.setAttribute("aria-hidden", "true"); }
     resolveReady(existing);

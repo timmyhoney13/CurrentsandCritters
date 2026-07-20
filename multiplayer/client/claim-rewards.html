@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Claim My Supporter Rewards — Currents &amp; Critters</title>
+<title>Claim My Supporter Rewards, Currents &amp; Critters</title>
 <style>
   :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
   *{box-sizing:border-box}
@@ -44,7 +44,7 @@
 <body>
   <div class="wrap">
     <h1>🐚 Claim My Supporter Rewards</h1>
-    <p class="sub">Donated or bought Critter Coins before making an account — or while signed out? Sign in here and we'll link those Stripe payments (matched by the email you used at checkout) to your game account.</p>
+    <p class="sub">Donated or bought Critter Coins before making an account, or while signed out? Sign in here and we'll link those Stripe payments (matched by the email you used at checkout) to your game account.</p>
 
     <div class="card" id="signinCard">
       <h2>1. Sign in</h2>
@@ -147,7 +147,7 @@
         msg.className = "msg err";
         msg.textContent = (d && (d.message || d.error)) || "Claim failed.";
       }
-    }).catch(function(){ msg.className="msg err"; msg.textContent="Claim failed — please try again."; })
+    }).catch(function(){ msg.className="msg err"; msg.textContent="Claim failed, please try again."; })
       .finally(function(){ btn.disabled = false; });
   });
 
@@ -161,7 +161,7 @@
     }).then(function(d){
       if(d && d.ok){ msg.className="msg ok"; msg.textContent="Saved! Your username is "+d.username+"."; }
       else { msg.className="msg err"; msg.textContent=(d && (d.message || d.error)) || "Couldn't save that username."; }
-    }).catch(function(){ msg.className="msg err"; msg.textContent="Couldn't save — please try again."; })
+    }).catch(function(){ msg.className="msg err"; msg.textContent="Couldn't save, please try again."; })
       .finally(function(){ btn.disabled = false; });
   });
 })();

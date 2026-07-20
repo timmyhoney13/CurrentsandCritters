@@ -73,10 +73,10 @@
     const la = window.__ccLastAction;
     bugLog.unshift({
       message: String(message || "").slice(0, 600),
-      turn: st.round_count != null ? st.round_count : "—",
-      currentPlayer: st.current_player || "—",
-      affectedPlayer: st.current_player || "—",
-      action: la ? (la.kind || (la.action && la.action.kind) || "action") : "—",
+      turn: st.round_count != null ? st.round_count : "-",
+      currentPlayer: st.current_player || "-",
+      affectedPlayer: st.current_player || "-",
+      action: la ? (la.kind || (la.action && la.action.kind) || "action") : "-",
       ts: new Date().toISOString(),
       explanation: explanation || ""
     });
@@ -239,7 +239,7 @@
     // every server-backed tool unlocks silently after this single prompt.
     if (!ccAdminKey()) {
       const v = prompt("Enter the Current Controller admin key:", "");
-      if (v === null) return;            // cancelled — leave the panel closed
+      if (v === null) return;            // cancelled, leave the panel closed
       ccSetAdminKey(v.trim());
     }
     buildPanel();
@@ -267,7 +267,7 @@
     const room = window.__ccRoomId && window.__ccRoomId();
     const token = window.__ccSeatToken && window.__ccSeatToken();
     const key = ccAdminKey();
-    if (!room) return { ok: false, error: "no active game — join a game first" };
+    if (!room) return { ok: false, error: "no active game, join a game first" };
     if (!key) return { ok: false, error: "no admin key set" };
     const url = window.__ccApiUrl ? window.__ccApiUrl("/api/rooms/" + room + "/admin_mod") : ("/api/rooms/" + room + "/admin_mod");
     try {
@@ -346,7 +346,7 @@
     return m;
   }
 
-  // ── Full card catalog — every card, BOTH faces (for the add / mint pickers) ──
+  // ── Full card catalog, every card, BOTH faces (for the add / mint pickers) ──
   // Fixes "I only see the lefts not the rights / ups not the downs": the old
   // pickers drew from the live DECK (one face per card, only remaining copies).
   // The catalog is the whole game: every card, both orientations.
@@ -359,7 +359,7 @@
   }
   // Flatten the catalog to one tile per FACE so BOTH orientations (left+right,
   // up+down) of every card are visible & selectable. Each tile carries the
-  // card's canonical entry_uid — that's what gets minted.
+  // card's canonical entry_uid, that's what gets minted.
   function ccCatalogFaceTiles(catalog) {
     const tiles = [];
     (catalog || []).forEach(e => {
@@ -376,7 +376,7 @@
     modal.className = "cc-pick";
     modal.innerHTML = `<div class="cc-pick-inner">
       <div class="cc-pick-hd"><b>${esc(title)}</b><button class="cc-btn" data-cc-pickclose>✕</button></div>
-      <div class="cc-desc">Every card — both faces (← → and ↑ ↓). ${tiles.length} faces.</div>
+      <div class="cc-desc">Every card, both faces (← → and ↑ ↓). ${tiles.length} faces.</div>
       <input class="cc-input" data-cc-picksearch placeholder="Search by name, species…" style="margin:8px 0">
       <div class="cc-pick-grid"></div>
     </div>`;
@@ -404,7 +404,7 @@
     modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
     paint("");
   }
-  // Ask how many copies to mint — the "flood" control. Returns a clamped int in
+  // Ask how many copies to mint, the "flood" control. Returns a clamped int in
   // 1..50, or 0 if the admin cancelled.
   function ccAskCount(promptText) {
     const v = prompt(promptText || "How many copies? (1–50)", "1");
@@ -423,26 +423,26 @@
       const conn = (window.__ccConnInfo && window.__ccConnInfo()) || {};
       const players = Array.isArray(st.players) ? st.players : [];
       const mi = myIndex(p);
-      const deck = st.deck_remaining ?? st.deck_size ?? st.deck_count ?? (Array.isArray(st.deck) ? st.deck.length : "—");
+      const deck = st.deck_remaining ?? st.deck_size ?? st.deck_count ?? (Array.isArray(st.deck) ? st.deck.length : "-");
       const eg = st.end_game || {};
       const pool = Array.isArray(st.pool) ? st.pool : [];
       let h = "";
       h += `<div class="cc-sub">Turn & Sync</div><div class="cc-grid">
-        <div class="cc-kv"><span>Current player</span><b>${esc(st.current_player || "—")}</b></div>
-        <div class="cc-kv"><span>Round</span><b>${esc(st.round_count ?? "—")}</b></div>
+        <div class="cc-kv"><span>Current player</span><b>${esc(st.current_player || "-")}</b></div>
+        <div class="cc-kv"><span>Round</span><b>${esc(st.round_count ?? "-")}</b></div>
         <div class="cc-kv"><span>Deck remaining</span><b>${esc(deck)}</b></div>
         <div class="cc-kv"><span>Pool size</span><b>${pool.length}</b></div>
-        <div class="cc-kv"><span>State version</span><b>${esc(conn.version ?? "—")}</b></div>
-        <div class="cc-kv"><span>Connection</span><b>${conn.sse ? "SSE" : (conn.polling ? "Polling" : "—")}</b></div>
+        <div class="cc-kv"><span>State version</span><b>${esc(conn.version ?? "-")}</b></div>
+        <div class="cc-kv"><span>Connection</span><b>${conn.sse ? "SSE" : (conn.polling ? "Polling" : "-")}</b></div>
         <div class="cc-kv"><span>End Game card</span><b>${esc(eg.end_game_uid ?? eg.location ?? (eg.triggered ? "triggered" : "in deck"))}</b></div>
-        <div class="cc-kv"><span>Room</span><b>${esc(conn.room || p.room?.room_id || "—")}</b></div>
+        <div class="cc-kv"><span>Room</span><b>${esc(conn.room || p.room?.room_id || "-")}</b></div>
       </div>`;
       h += `<div class="cc-sub">Pool (${pool.length})</div><div class="cc-cards">${pool.length ? pool.map(e => cardTile(firstFace(e), e.label)).join("") : '<span class="cc-desc">empty</span>'}</div>`;
       h += `<div class="cc-sub">Players</div>`;
       players.forEach(pl => {
         const mine = pl.index === mi;
         const hc = pl.hand_count ?? (Array.isArray(pl.hand) ? pl.hand.length : 0);
-        const oceans = Array.isArray(pl.board) ? pl.board.length : (pl.board_ocean_count ?? "—");
+        const oceans = Array.isArray(pl.board) ? pl.board.length : (pl.board_ocean_count ?? "-");
         h += `<div class="cc-kv"><span>P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""}</span><b>${esc(pl.score ?? 0)} pts · ${esc(hc)} cards · ${esc(oceans)} oceans${pl.strategy ? " · " + esc(pl.strategy) : ""}</b></div>`;
       });
       const me = players.find(pl => pl.index === mi);
@@ -465,7 +465,7 @@
       const r = await ccAdminFetch("reveal", {});
       if (!r.ok) { serverErr(el, "enemy_hands", r.error || "reveal failed"); return; }
       const mi = myIndex(payload());
-      let h = `<div class="cc-note">Full reveal — every player's real hand. <b>Add / flood</b> mints fresh copies of ANY card (both faces — left/right and up/down) and can drop many copies at once. Edits apply on the match thread (works best during a human turn).</div>`;
+      let h = `<div class="cc-note">Full reveal, every player's real hand. <b>Add / flood</b> mints fresh copies of ANY card (both faces, left/right and up/down) and can drop many copies at once. Edits apply on the match thread (works best during a human turn).</div>`;
       (r.players || []).forEach(pl => {
         const mine = pl.index === mi;
         h += `<div class="cc-seat"><div class="cc-seat-hd">P${(pl.index ?? 0) + 1} · ${esc(pl.name)}${mine ? " (you)" : ""} <span class="cc-desc">${(pl.hand || []).length} cards · ${esc(pl.score)} pts</span></div>`;
@@ -532,7 +532,7 @@
         h += `<div id="cc-wi-legal">` + legal.map((a, i) =>
           `<div class="cc-kv"><span>${esc(ccActionLabel(a))}</span><button class="cc-btn" data-apply="${i}">✓ Apply This Move</button></div>`).join("") + `</div>`;
       } else {
-        h += `<div class="cc-desc">No legal moves right now — it's not your turn, or you're mid-resolution.</div>`;
+        h += `<div class="cc-desc">No legal moves right now, it's not your turn, or you're mid-resolution.</div>`;
       }
       el.innerHTML = h;
       el.querySelectorAll("[data-apply]").forEach(b => b.addEventListener("click", () => {
@@ -565,7 +565,7 @@
       seats.forEach(sk => {
         const b = brain[sk];
         h += `<div class="cc-seat"><div class="cc-seat-hd">🧠 P${(Number(sk) + 1)} · ${esc(b.name)} <span class="cc-desc">${esc(b.strategy || "")}</span></div>`;
-        h += `<div class="cc-kv"><span>Wants to play</span><b>${esc(b.chosen ? b.chosen.label : "—")}</b></div>`;
+        h += `<div class="cc-kv"><span>Wants to play</span><b>${esc(b.chosen ? b.chosen.label : "-")}</b></div>`;
         if (b.reason) h += `<div class="cc-desc" style="margin:4px 0">${esc(b.reason)}</div>`;
         h += `<div class="cc-sub">Top scored alternatives</div>`;
         (b.candidates || []).forEach((c, i) => {
@@ -585,11 +585,11 @@
       let h = `<div class="cc-note">Pick a bot's next move from its current legal actions. The bot uses it on its next turn, then play continues normally.</div>`;
       const brain = r.brain || {};
       const seats = Object.keys(brain);
-      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet — let a bot reach its turn, then return here.</div>`; return; }
+      if (!seats.length) { el.innerHTML = h + `<div class="cc-desc">No bot turns observed yet, let a bot reach its turn, then return here.</div>`; return; }
       seats.forEach(sk => {
         const b = brain[sk];
         h += `<div class="cc-seat" data-seat="${sk}"><div class="cc-seat-hd">🎮 P${(Number(sk) + 1)} · ${esc(b.name)}</div>`;
-        h += `<div class="cc-desc">Currently wants: ${esc(b.chosen ? b.chosen.label : "—")}</div>`;
+        h += `<div class="cc-desc">Currently wants: ${esc(b.chosen ? b.chosen.label : "-")}</div>`;
         h += `<div class="cc-sub">Force this seat to:</div><div id="cc-ovr-${sk}">`;
         (b.legal_actions || []).forEach((a, i) => {
           h += `<div class="cc-kv"><span>${esc(a.label)}</span><button class="cc-btn" data-ovr-seat="${sk}" data-ovr-idx="${i}">Force</button></div>`;
@@ -622,7 +622,7 @@
       const copies = copiesBySpecies(liveDeck);
       const tiles = ccCatalogFaceTiles(await ccLoadCatalog());
       const mi = myIndex(payload());
-      let h = `<div class="cc-note">Every card in the game — both faces (← → and ↑ ↓). Click any card, then choose where to drop a <b>fresh copy</b>. Pick <b>hand</b> to flood with many copies. (${liveDeck.length} cards left in the live deck.)</div>`;
+      let h = `<div class="cc-note">Every card in the game, both faces (← → and ↑ ↓). Click any card, then choose where to drop a <b>fresh copy</b>. Pick <b>hand</b> to flood with many copies. (${liveDeck.length} cards left in the live deck.)</div>`;
       h += `<input class="cc-input" id="cc-dp-search" placeholder="Search by name, species…" style="margin-bottom:10px">`;
       h += `<div class="cc-sub">Remaining copies in the live deck</div><div class="cc-grid">` +
         Object.keys(copies).sort().map(s => `<div class="cc-kv"><span>${esc(s)}</span><b>${copies[s]}</b></div>`).join("") + `</div>`;
@@ -696,13 +696,13 @@
   function buildDebugReport(p, conn) {
     const st = p.state || {};
     const lines = [];
-    lines.push("=== Currents & Critters — Debug Report ===");
+    lines.push("=== Currents & Critters, Debug Report ===");
     lines.push("time: " + new Date().toISOString());
-    lines.push("room: " + (conn.room || p.room?.room_id || "—") + "  version: " + (conn.version ?? "—") + "  conn: " + (conn.sse ? "SSE" : conn.polling ? "Polling" : "—"));
-    lines.push("current_player: " + (st.current_player || "—") + "  round: " + (st.round_count ?? "—"));
-    lines.push("deck_remaining: " + (st.deck_remaining ?? st.deck_size ?? st.deck_count ?? "—"));
+    lines.push("room: " + (conn.room || p.room?.room_id || "-") + "  version: " + (conn.version ?? "-") + "  conn: " + (conn.sse ? "SSE" : conn.polling ? "Polling" : "-"));
+    lines.push("current_player: " + (st.current_player || "-") + "  round: " + (st.round_count ?? "-"));
+    lines.push("deck_remaining: " + (st.deck_remaining ?? st.deck_size ?? st.deck_count ?? "-"));
     lines.push("end_game: " + JSON.stringify(st.end_game || {}));
-    lines.push("pool: " + (Array.isArray(st.pool) ? st.pool.map(e => e.label).join(" | ") : "—"));
+    lines.push("pool: " + (Array.isArray(st.pool) ? st.pool.map(e => e.label).join(" | ") : "-"));
     (st.players || []).forEach(pl => {
       lines.push(`P${(pl.index ?? 0) + 1} ${pl.name}: ${pl.score ?? 0} pts, ${pl.hand_count ?? (pl.hand ? pl.hand.length : 0)} cards${pl.strategy ? ", " + pl.strategy : ""}`);
     });
@@ -762,7 +762,7 @@
 
   // Live-refresh the cheap client-side tools while the panel is visible.
   // Server-backed tools (enemy_hands, deck_picker, force_pool, bot_*) refresh
-  // on demand / after each action — not on a timer — to avoid network spam.
+  // on demand / after each action, not on a timer, to avoid network spam.
   setInterval(() => {
     if (!panelOpen()) return;
     if (isOn("state_viewer")) renderBody("state_viewer");

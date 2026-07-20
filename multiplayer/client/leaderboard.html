@@ -471,7 +471,7 @@
     <section class="hero">
       <div class="hero-eyebrow">🏆 Top Scores</div>
       <h1>Leaderboard</h1>
-      <p>See who's mastering the currents. Rankings update after every completed game — find your name, study the top strategies, and chase a better score.</p>
+      <p>See who's mastering the currents. Rankings update after every completed game, find your name, study the top strategies, and chase a better score.</p>
     </section>
 
     <!-- ── MODE TABS ────────────────────────────────────────────────── -->
@@ -529,7 +529,7 @@
               </tr>
             </thead>
             <tbody id="casual-tbody">
-              <tr class="empty-row"><td colspan="6">🌊 No games recorded yet — be the first to set a score!</td></tr>
+              <tr class="empty-row"><td colspan="6">🌊 No games recorded yet, be the first to set a score!</td></tr>
             </tbody>
           </table>
         </div>
@@ -576,14 +576,14 @@
                 </tr>
               </thead>
               <tbody id="cp-tbody">
-                <tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet — play ranked to earn CP!</td></tr>
+                <tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn CP!</td></tr>
               </tbody>
             </table>
           </div>
 
           <div class="info-bar">
             <span class="info-icon">ℹ️</span>
-            <span>Competitive Points (CP) are earned in 2-player ranked games. Win to gain CP, lose to drop. Your season ranking is based on total CP earned — not win rate.</span>
+            <span>Competitive Points (CP) are earned in 2-player ranked games. Win to gain CP, lose to drop. Your season ranking is based on total CP earned, not win rate.</span>
           </div>
         </div>
       </div>
@@ -651,7 +651,7 @@
 
           <div class="info-bar">
             <span class="info-icon">ℹ️</span>
-            <span>Highest Combined Hands is the sum of <strong>both players' scores</strong> across all hands in a single competitive game. High scores here mean both players built strong ecosystems — a true test of the game's depth.</span>
+            <span>Highest Combined Hands is the sum of <strong>both players' scores</strong> across all hands in a single competitive game. High scores here mean both players built strong ecosystems, a true test of the game's depth.</span>
           </div>
         </div>
       </div>
@@ -704,7 +704,7 @@
       return '<span class="size-pill">' + n + 'P</span>';
     }
 
-    /* ── Render helpers — wired to real API when ready ────────────── */
+    /* ── Render helpers, wired to real API when ready ────────────── */
     /* These functions accept a rows array and render into the table.  */
     /* Shape for casual rows:                                           */
     /*   { rank, name, isYou, score, size, strategy, date }            */
@@ -732,8 +732,8 @@
           </div></td>
           <td class="score-cell${r.rank===1?" top":""}">${r.score.toLocaleString()}</td>
           <td class="size-cell">${sizePill(r.size)}</td>
-          <td class="strategy-cell">${escHtml(r.strategy || "—")}</td>
-          <td class="date-cell">${escHtml(r.date || "—")}</td>
+          <td class="strategy-cell">${escHtml(r.strategy || "-")}</td>
+          <td class="date-cell">${escHtml(r.date || "-")}</td>
         </tr>`).join("");
     }
 
@@ -741,11 +741,11 @@
       const tbody = document.getElementById("cp-tbody");
       rows = rows || window.__lbCpRows || [];
       if (!rows.length) {
-        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet — play ranked to earn CP!</td></tr>';
+        tbody.innerHTML = '<tr class="empty-row"><td colspan="6">⚔️ No competitive games recorded yet, play ranked to earn CP!</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map((r, i) => {
-        const wr = r.wins + r.losses > 0 ? Math.round(100 * r.wins / (r.wins + r.losses)) + "%" : "—";
+        const wr = r.wins + r.losses > 0 ? Math.round(100 * r.wins / (r.wins + r.losses)) + "%" : "-";
         return `<tr>
           <td class="rank-cell">${rankMedal(r.rank || i+1)}</td>
           <td><div class="player-cell">
@@ -777,8 +777,8 @@
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>
           <td class="score-cell${r.rank===1?" top":""}">${r.score.toLocaleString()}</td>
-          <td class="strategy-cell">${escHtml(r.strategy || "—")}</td>
-          <td class="date-cell">${escHtml(r.date || "—")}</td>
+          <td class="strategy-cell">${escHtml(r.strategy || "-")}</td>
+          <td class="date-cell">${escHtml(r.date || "-")}</td>
         </tr>`).join("");
     }
 
@@ -798,8 +798,8 @@
             ${r.isYou ? '<span class="player-you">You</span>' : ""}
           </div></td>
           <td class="score-cell${r.rank===1?" top":""}">${r.score.toLocaleString()}</td>
-          <td class="strategy-cell">${escHtml(r.strategy || "—")}</td>
-          <td class="date-cell">${escHtml(r.date || "—")}</td>
+          <td class="strategy-cell">${escHtml(r.strategy || "-")}</td>
+          <td class="date-cell">${escHtml(r.date || "-")}</td>
         </tr>`).join("");
     }
 

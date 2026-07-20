@@ -15,14 +15,14 @@
       window.__fishQueueAnimalUnlock?.(id);
       window.__fishShowAnimalUnlocks?.();
     } else if (el) {
-      // Already discovered — quick acknowledging pulse.
+      // Already discovered, quick acknowledging pulse.
       el.style.transition = "transform .2s";
       el.style.transform = "scale(1.2)";
       setTimeout(() => { el.style.transform = ""; }, 240);
     }
   };
 
-  // Common Octopus — disguised as the "Most Played Strategy" stat icon.
+  // Common Octopus, disguised as the "Most Played Strategy" stat icon.
   function _wireOcto() {
     const host = document.getElementById("ceph-octo-stat");
     if (!host || host._cephWired) return;

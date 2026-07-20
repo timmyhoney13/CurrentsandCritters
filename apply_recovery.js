@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * apply_recovery.js — Currents & Critters stat recovery tool
+ * apply_recovery.js, Currents & Critters stat recovery tool
  *
  * WHAT IT DOES:
  *   1. Reads per-player stats rebuilt from server game-history files
  *      (fetched from /api/admin/recovery_export on your Render server)
  *   2. Scans your Firestore "users" collection for accounts where the
  *      "stats" sub-document looks zeroed (completed_games == 0 or missing)
- *      but the account has a nickname — a sign the loadAndRenderStats bug hit
+ *      but the account has a nickname, a sign the loadAndRenderStats bug hit
  *   3. For every affected account, writes back the stats we can rebuild
  *      from server game history ONLY IF those stats are better than what's
  *      currently in Firestore (never downgrades real data)
@@ -16,7 +16,7 @@
  *   - XP / level / xp_current / xp_goal (calculated per-game, not logged)
  *   - Casual game recent_games detail beyond what the server saved
  *   - Achievements, unlocked_icons (separate Firestore fields, likely intact)
- *   - Friends lists, avatar, nickname (not in stats — already intact)
+ *   - Friends lists, avatar, nickname (not in stats, already intact)
  *
  * REQUIREMENTS:
  *   npm install firebase-admin node-fetch
@@ -60,7 +60,7 @@ const args      = process.argv.slice(2);
 const DRY_RUN   = args.includes("--dry-run") || !args.includes("--apply");
 const NICK_ONLY = (() => { const i = args.indexOf("--nick"); return i >= 0 ? args[i+1] : null; })();
 
-if (DRY_RUN) console.log("🔍  DRY RUN — no writes will happen. Pass --apply to write.\n");
+if (DRY_RUN) console.log("🔍  DRY RUN, no writes will happen. Pass --apply to write.\n");
 if (NICK_ONLY) console.log(`🎯  Targeting single account: "${NICK_ONLY}"\n`);
 
 // ── Firebase init ──────────────────────────────────────────────────────────
@@ -146,7 +146,7 @@ function fetch(url) {
     );
 
     if (!serverEntry || serverEntry.completed_games === 0) {
-      console.log(`  ⚠️  ${nick} — no game history found on server (may be truly new or name mismatch)`);
+      console.log(`  ⚠️  ${nick}, no game history found on server (may be truly new or name mismatch)`);
       notFound++;
       continue;
     }
@@ -207,7 +207,7 @@ function fetch(url) {
   console.log(`  Already had correct data:  ${skipped}`);
   console.log(`  No server history found:   ${notFound}`);
   if (DRY_RUN) {
-    console.log("\n  ⚠️  DRY RUN — nothing was written. Run with --apply to apply.");
+    console.log("\n  ⚠️  DRY RUN, nothing was written. Run with --apply to apply.");
   } else {
     console.log("\n  ✅  Recovery complete.");
   }

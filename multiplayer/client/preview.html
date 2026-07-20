@@ -56,7 +56,7 @@
 
   <script src="/js/error-logging.js?v=2026-06-29.3"></script>
 
-  <!-- Firebase config — generated at build time from VITE_FIREBASE_* env vars -->
+  <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script src="/firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -66,7 +66,7 @@
 </head>
 <body>
 
-<!-- ══ DEVICE SELECTION — THE VERY FIRST SCREEN ════════════════════════
+<!-- ══ DEVICE SELECTION, THE VERY FIRST SCREEN ════════════════════════
      Shown before the loading screen, auth, lobby, or game. The player must
      choose Computer (left half) or Mobile (right half). The choice is saved
      per session and selects the active input/control system. The artwork is
@@ -82,17 +82,17 @@
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
      is an invisible click target sitting exactly over the painted "▶ Play Full
-     Screen" button — the user gesture the browser needs to enter full screen.
+     Screen" button, the user gesture the browser needs to enter full screen.
      The status line + "Continue in this window" link stay hidden until the
      browser actually blocks full screen, so the splash matches the art. -->
 <div id="cc-fs-splash">
   <div class="ccfs-stage">
-    <img class="ccfs-bg" src="/fullscreen-splash.png?v=2026-06-29.4" alt="Currents &amp; Critters — your game is ready" />
+    <img class="ccfs-bg" src="/fullscreen-splash.png?v=2026-06-29.4" alt="Currents &amp; Critters, your game is ready" />
     <button id="ccfs-play" class="ccfs-play" type="button" aria-label="Play Currents and Critters in full screen"></button>
     <!-- Hidden-click secret: the little sardine already painted into the
          California Gull's beak in the artwork. Invisible click target sits
          exactly over it; clicking it unlocks the Sardine avatar. -->
-    <button id="ccfs-sardine" class="ccfs-sardine" type="button" aria-label="A curious sardine — click it"></button>
+    <button id="ccfs-sardine" class="ccfs-sardine" type="button" aria-label="A curious sardine, click it"></button>
   </div>
   <!-- Foot sits OUTSIDE .ccfs-stage: the stage now covers the page and clips its
        overflow, so anchoring the status + fallback link to #cc-fs-splash (the
@@ -123,13 +123,13 @@
       <img src="/moving-background-right.png" alt="">
     </div>
   </div>
-  <!-- Step 1: choose mode — the entire panel is the login-bg.png image with invisible click overlays on top of the painted buttons -->
+  <!-- Step 1: choose mode, the entire panel is the login-bg.png image with invisible click overlays on top of the painted buttons -->
   <div id="auth-step-choose" class="auth-box">
     <img src="/login-bg.png?v=43" alt="Currents &amp; Critters" class="auth-step-choose-img" />
     <button id="auth-guest-btn" class="pv-btn gold full" aria-label="Play as Guest"></button>
     <button id="auth-choose-google-btn" class="auth-btn-google" aria-label="Continue with Google"></button>
     <div class="auth-err" id="auth-choose-err"></div>
-    <!-- Guest form overlay — shown inside the octagon when guest is chosen -->
+    <!-- Guest form overlay, shown inside the octagon when guest is chosen -->
     <div id="auth-guest-overlay">
       <div class="ago-title">Guest Nickname</div>
       <div class="ago-sub">Choose a nickname for this session.<br>No account needed.</div>
@@ -152,7 +152,7 @@
     <button id="auth-nick-go-btn" class="pv-btn gold full">Save Nickname →</button>
   </div>
 
-  <!-- Step 4: launch — shown on the launcher/landing page after auth so the
+  <!-- Step 4: launch, shown on the launcher/landing page after auth so the
        game opens in its own dedicated window (Steam-style). Doubles as the
        "game is running" screen and the pop-up-blocked fallback. -->
   <div id="auth-step-launch" class="auth-box" style="display:none">
@@ -186,7 +186,7 @@
     <div class="settings-row" id="settings-nick-row">
       <div class="settings-row-label">Username</div>
       <div style="display:flex;align-items:center;gap:8px;flex:1;">
-        <span id="settings-current-nick" style="color:var(--cyan);font-weight:700;">—</span>
+        <span id="settings-current-nick" style="color:var(--cyan);font-weight:700;">-</span>
         <button class="auth-pbtn" id="settings-edit-nick-btn" aria-label="Change username">Change</button>
       </div>
     </div>
@@ -295,7 +295,7 @@
       <p>For questions about these terms, orders, preorders, supporter information, or the website, contact us at:</p>
       <p><a href="mailto:currentsandcritters@gmail.com">currentsandcritters@gmail.com</a></p>
 
-      <div class="terms-end" id="terms-end">— End of Terms and Agreement —</div>
+      <div class="terms-end" id="terms-end">End of Terms and Agreement</div>
     </div>
     <div class="terms-scroll-hint" id="terms-scroll-hint">⬇ Please scroll to the bottom to continue</div>
     <div class="auth-err" id="terms-err"></div>
@@ -325,7 +325,7 @@
     <div class="gal-hero-avatar"><img id="gal-hero-img" src="" alt=""></div>
     <div class="gal-hero-info">
       <div class="gal-title">Avatar Gallery</div>
-      <div class="gal-hero-sub"><span class="gal-hero-name" id="gal-hero-name">—</span> · <span id="gal-hero-level">Level 1</span></div>
+      <div class="gal-hero-sub"><span class="gal-hero-name" id="gal-hero-name">-</span> · <span id="gal-hero-level">Level 1</span></div>
     </div>
     <div class="gal-code-box">
       <input id="gal-code-input" class="gal-code-input" type="text" inputmode="numeric" maxlength="6"
@@ -534,22 +534,22 @@
       </div>
       <div class="ph-pinfo">
         <div class="ph-pname-row">
-          <div class="ph-pname" id="stats-lobby-nick">—</div>
+          <div class="ph-pname" id="stats-lobby-nick">-</div>
           <!-- Verified badge removed; Level/Active chips live in the XP card + meta chips -->
         </div>
         <div class="ph-pfc" id="stats-lobby-fc"></div>
         <div class="ph-pmeta2">
           <span class="ph-meta-chip" id="hdr-total-xp-chip">
             <span class="ph-meta-chip-ico">⭐</span>
-            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="hdr-total-xp">—</span></span>
+            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="hdr-total-xp">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-streak-chip">
             <span class="ph-meta-chip-ico">🔥</span>
-            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">—</span></span>
+            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="hdr-streak">-</span></span>
           </span>
           <span class="ph-meta-chip" id="hdr-coins-chip">
             <span class="ph-meta-chip-ico"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></span>
-            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Critter Coins</span><span class="ph-meta-chip-val" id="hdr-coins">—</span></span>
+            <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Critter Coins</span><span class="ph-meta-chip-val" id="hdr-coins">-</span></span>
           </span>
         </div>
       </div>
@@ -597,7 +597,7 @@
       </div>
     </div>
 
-    <!-- Quick Match searching bar — a horizontal banner (like "What's New")
+    <!-- Quick Match searching bar, a horizontal banner (like "What's New")
          that only appears while matchmaking. Lives just under the profile
          card so it's visible on every tab/page of the home screen. -->
     <div class="qm-search-bar" id="qm-search-bar" role="status" aria-live="polite" style="display:none;">
@@ -609,26 +609,26 @@
 
     <!-- Guest notice -->
     <div id="stats-guest-notice" class="ph-guest-notice" style="display:none;">
-      Playing as guest — progress is saved on this device for this guest nickname.
+      Playing as guest, progress is saved on this device for this guest nickname.
       <span id="stats-guest-signin-link" style="color:#a08010;cursor:pointer;font-weight:700;margin-left:4px;">Create a free account →</span>
     </div>
 
-    <!-- Action row — each card is the exact reference image; the button stays
+    <!-- Action row, each card is the exact reference image; the button stays
          clickable and routes to its action exactly as before. -->
     <div class="ph-actions">
-      <button class="ph-action-card ph-action-img-card" id="stats-quickmatch-btn" aria-label="Quick Match — Jump into a game">
+      <button class="ph-action-card ph-action-img-card" id="stats-quickmatch-btn" aria-label="Quick Match, Jump into a game">
         <img class="ph-action-img" src="/action-card-quickmatch.png?v=2" alt="Quick Match" draggable="false">
       </button>
 
-      <button class="ph-action-card ph-action-img-card" id="stats-create-btn" aria-label="Create Game — Start a new adventure">
+      <button class="ph-action-card ph-action-img-card" id="stats-create-btn" aria-label="Create Game, Start a new adventure">
         <img class="ph-action-img" src="/action-card-create.png?v=2" alt="Create Game" draggable="false">
       </button>
 
-      <button class="ph-action-card ph-action-img-card" id="stats-join-toggle-btn" aria-label="Join Game — Play with friends">
+      <button class="ph-action-card ph-action-img-card" id="stats-join-toggle-btn" aria-label="Join Game, Play with friends">
         <img class="ph-action-img" src="/action-card-join.png?v=1" alt="Join Game" draggable="false">
       </button>
 
-      <button class="ph-action-card ph-action-img-card" id="stats-tutorial-btn" aria-label="Tutorial — Learn the ropes">
+      <button class="ph-action-card ph-action-img-card" id="stats-tutorial-btn" aria-label="Tutorial, Learn the ropes">
         <img class="ph-action-img" src="/action-card-tutorial.png?v=1" alt="Tutorial" draggable="false">
       </button>
     </div>
@@ -675,7 +675,7 @@
 
     <!-- ── Overview tab ───────────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-overview">
-      <!-- Daily / Weekly Challenge Strip — calendar icon toggles between the two -->
+      <!-- Daily / Weekly Challenge Strip, calendar icon toggles between the two -->
       <div class="ph-cs-strip" id="ph-cs-strip" aria-label="Daily and Weekly Challenges">
         <div class="ph-cs-header">
           <button class="ph-cs-icon-btn" id="ph-cs-toggle-btn" type="button"
@@ -731,43 +731,43 @@
             <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-blue" id="ceph-octo-stat"><img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;"></div>
               <div class="ph-scl">Most Played Strategy</div>
-              <div class="ph-scv" id="ph-ov-most-strategy">—</div>
+              <div class="ph-scv" id="ph-ov-most-strategy">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-purple">🧮</div>
               <div class="ph-scl">Total Games</div>
-              <div class="ph-scv" id="ph-ov-total-games">—</div>
+              <div class="ph-scv" id="ph-ov-total-games">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">🥇</div>
               <div class="ph-scl">Total Wins</div>
-              <div class="ph-scv" id="ph-ov-total-wins">—</div>
+              <div class="ph-scv" id="ph-ov-total-wins">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-teal">📈</div>
               <div class="ph-scl">Win Rate</div>
-              <div class="ph-scv" id="ph-ov-win-rate">—</div>
+              <div class="ph-scv" id="ph-ov-win-rate">-</div>
             </div>
             <!-- Row 2: 5 cards -->
             <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-blue">👥</div>
               <div class="ph-scl">Most Played Player Count</div>
-              <div class="ph-scv" id="ph-ov-most-pcount">—</div>
+              <div class="ph-scv" id="ph-ov-most-pcount">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">🏆</div>
               <div class="ph-scl">Achievements</div>
-              <div class="ph-scv" id="ph-ov-achievements">—</div>
+              <div class="ph-scv" id="ph-ov-achievements">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-teal">🌊</div>
               <div class="ph-scl">Casual Wins</div>
-              <div class="ph-scv" id="ph-ov-casual-wins">—</div>
+              <div class="ph-scv" id="ph-ov-casual-wins">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold">📊</div>
               <div class="ph-scl">Average Casual Score</div>
-              <div class="ph-scv" id="ph-ov-avg-casual">—</div>
+              <div class="ph-scv" id="ph-ov-avg-casual">-</div>
             </div>
             <div class="ph-sc ph-sc-string">
               <div class="ph-sci ph-sci-gold">⚔️</div>
@@ -778,27 +778,27 @@
             <div class="ph-sc">
               <div class="ph-sci ph-sci-purple">🏆</div>
               <div class="ph-scl">Best Competitive Score</div>
-              <div class="ph-scv" id="ph-ov-comp-top">—</div>
+              <div class="ph-scv" id="ph-ov-comp-top">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-blue">🎮</div>
               <div class="ph-scl">Competitive Games</div>
-              <div class="ph-scv" id="ph-ov-comp-games">—</div>
+              <div class="ph-scv" id="ph-ov-comp-games">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-teal">🐠</div>
               <div class="ph-scl">Animals Unlocked</div>
-              <div class="ph-scv" id="ph-ov-animals">—</div>
+              <div class="ph-scv" id="ph-ov-animals">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-blue">🏅</div>
               <div class="ph-scl">Casual Top Score</div>
-              <div class="ph-scv" id="ph-ov-casual-top">—</div>
+              <div class="ph-scv" id="ph-ov-casual-top">-</div>
             </div>
             <div class="ph-sc">
               <div class="ph-sci ph-sci-gold"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#d9a12b" stroke-width="1.8"/><path d="M12 7v2M12 11h.01M8 14h8M9 17h6" stroke="#d9a12b" stroke-width="1.8" stroke-linecap="round"/></svg></div>
               <div class="ph-scl">Total XP Earned</div>
-              <div class="ph-scv" id="ph-ov-total-xp">—</div>
+              <div class="ph-scv" id="ph-ov-total-xp">-</div>
             </div>
           </div>
         </div>
@@ -921,7 +921,7 @@
             <!-- Rank / Division / CP progress -->
             <div class="ph-comp-rank-section">
               <div>
-                <div class="ph-comp-rank-name" id="ph-comp-rank-name">—</div>
+                <div class="ph-comp-rank-name" id="ph-comp-rank-name">-</div>
                 <div id="ph-comp-rank-badge" style="margin-top:4px;"></div>
               </div>
               <div class="ph-comp-cp-wrap">
@@ -944,47 +944,47 @@
               <div class="ph-sc ph-sc-feat">
                 <div class="ph-sci ph-sci-gold">🥇</div>
                 <div class="ph-scl">Wins</div>
-                <div class="ph-scv" id="ph-comp-wins">—</div>
+                <div class="ph-scv" id="ph-comp-wins">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci" style="background:rgba(220,60,60,.1);">💀</div>
                 <div class="ph-scl">Losses</div>
-                <div class="ph-scv" id="ph-comp-losses">—</div>
+                <div class="ph-scv" id="ph-comp-losses">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci" style="background:rgba(224,184,90,.12);">🤝</div>
                 <div class="ph-scl">Draws</div>
-                <div class="ph-scv" id="ph-comp-draws">—</div>
+                <div class="ph-scv" id="ph-comp-draws">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-teal">📈</div>
                 <div class="ph-scl">Win %</div>
-                <div class="ph-scv" id="ph-comp-winpct">—</div>
+                <div class="ph-scv" id="ph-comp-winpct">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-gold">🏆</div>
                 <div class="ph-scl">Best Score</div>
-                <div class="ph-scv" id="ph-comp-best">—</div>
+                <div class="ph-scv" id="ph-comp-best">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-blue">📊</div>
                 <div class="ph-scl">Avg Best Score</div>
-                <div class="ph-scv" id="ph-comp-avg">—</div>
+                <div class="ph-scv" id="ph-comp-avg">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-teal">🔥</div>
                 <div class="ph-scl">Win Streak</div>
-                <div class="ph-scv" id="ph-comp-streak">—</div>
+                <div class="ph-scv" id="ph-comp-streak">-</div>
               </div>
               <div class="ph-sc">
                 <div class="ph-sci ph-sci-purple">⭐</div>
                 <div class="ph-scl">Best Streak</div>
-                <div class="ph-scv" id="ph-comp-best-streak">—</div>
+                <div class="ph-scv" id="ph-comp-best-streak">-</div>
               </div>
               <div class="ph-sc ph-sc-string">
                 <div class="ph-sci ph-sci-blue">🎯</div>
                 <div class="ph-scl">Top Strategy</div>
-                <div class="ph-scv" id="ph-comp-strategy">—</div>
+                <div class="ph-scv" id="ph-comp-strategy">-</div>
               </div>
             </div>
           </div>
@@ -1000,22 +1000,22 @@
                 <div class="ph-ss-rank-badge-img" id="ph-ss-badge-img">🐠</div>
                 <div class="ph-ss-rank-info">
                   <div class="ph-ss-rank-label">Current Rank</div>
-                  <div class="ph-ss-rank-name" id="ph-ss-rank-name">—</div>
-                  <div class="ph-ss-rank-cp" id="ph-ss-rank-cp">— CP</div>
+                  <div class="ph-ss-rank-name" id="ph-ss-rank-name">-</div>
+                  <div class="ph-ss-rank-cp" id="ph-ss-rank-cp">- CP</div>
                 </div>
               </div>
               <div class="ph-ss-mini-stats">
                 <div class="ph-ss-mini-stat">
                   <div class="ph-ss-mini-label">Win Rate</div>
-                  <div class="ph-ss-mini-val" id="ph-ss-winrate">—</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-winrate">-</div>
                 </div>
                 <div class="ph-ss-mini-stat">
                   <div class="ph-ss-mini-label">Matches</div>
-                  <div class="ph-ss-mini-val" id="ph-ss-matches">—</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-matches">-</div>
                 </div>
                 <div class="ph-ss-mini-stat">
                   <div class="ph-ss-mini-label">Best Streak</div>
-                  <div class="ph-ss-mini-val" id="ph-ss-bstreak">—</div>
+                  <div class="ph-ss-mini-val" id="ph-ss-bstreak">-</div>
                 </div>
               </div>
               <button class="ph-ss-breakdown-btn" id="ph-season-history-btn-2">
@@ -1033,8 +1033,8 @@
               <div id="ph-comp-king-card" style="display:none;">
                 <div class="ph-king-art">👑</div>
                 <div class="ph-king-current">
-                  <div class="ph-king-current-name" id="ph-comp-king-name">—</div>
-                  <div class="ph-king-current-meta" id="ph-comp-king-meta">—</div>
+                  <div class="ph-king-current-name" id="ph-comp-king-name">-</div>
+                  <div class="ph-king-current-meta" id="ph-comp-king-meta">-</div>
                   <div style="margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;">
                     <span id="ph-comp-king-cp" style="font-size:11px;font-weight:800;color:#c47a00;"></span>
                     <span id="ph-comp-king-pct" style="font-size:11px;color:#7a5a10;"></span>
@@ -1102,7 +1102,7 @@
         </div>
         <div style="padding:10px 20px 14px;">
           <div style="font-size:11px;color:#5a8ab0;font-weight:700;margin-bottom:5px;">Your friend code</div>
-          <div id="ph-fc-display" style="font-size:22px;font-weight:900;color:#1a2e4a;letter-spacing:3px;margin-bottom:16px;">—</div>
+          <div id="ph-fc-display" style="font-size:22px;font-weight:900;color:#1a2e4a;letter-spacing:3px;margin-bottom:16px;">-</div>
           <div id="ph-friend-requests" style="display:none;margin-bottom:14px;">
             <div class="ph-freq-header">Pending Friend Requests</div>
             <div id="ph-req-list"></div>
@@ -1184,7 +1184,7 @@
           </div>
           <!-- Your Best Casual Game summary card -->
           <div class="ph-lb-summary" id="ph-lb-casual-summary" style="display:none;">
-            <div class="ph-lb-sum-rank" id="ph-lb-casual-rank">—</div>
+            <div class="ph-lb-sum-rank" id="ph-lb-casual-rank">-</div>
             <div class="ph-lb-sum-body">
               <div class="ph-lb-sum-title">Your Best Casual Game</div>
               <div class="ph-lb-sum-vals" id="ph-lb-casual-sum-vals"></div>
@@ -1214,7 +1214,7 @@
         <!-- ── XP LEADERBOARD SECTION ───────────────────────── -->
         <div id="ph-lb-xp-section">
           <div class="ph-lb-summary" id="ph-lb-xp-summary" style="display:none;">
-            <div class="ph-lb-sum-rank" id="ph-lb-xp-rank">—</div>
+            <div class="ph-lb-sum-rank" id="ph-lb-xp-rank">-</div>
             <div class="ph-lb-sum-body">
               <div class="ph-lb-sum-title">Your XP Rank</div>
               <div class="ph-lb-sum-vals" id="ph-lb-xp-sum-vals"></div>
@@ -1241,7 +1241,7 @@
         <!-- ── MOST WINS SECTION ──────────────────────────── -->
         <div id="ph-lb-wins-section" style="display:none;">
           <div class="ph-lb-summary" id="ph-lb-wins-summary" style="display:none;">
-            <div class="ph-lb-sum-rank" id="ph-lb-wins-rank">—</div>
+            <div class="ph-lb-sum-rank" id="ph-lb-wins-rank">-</div>
             <div class="ph-lb-sum-body">
               <div class="ph-lb-sum-title">Your Wins Rank</div>
               <div class="ph-lb-sum-vals" id="ph-lb-wins-sum-vals"></div>
@@ -1278,7 +1278,7 @@
           <!-- CP Leaderboard sub-section -->
           <div id="ph-lb-cp-section">
             <div class="ph-lb-summary" id="ph-lb-cp-summary" style="display:none;">
-              <div class="ph-lb-sum-rank" id="ph-lb-cp-rank">—</div>
+              <div class="ph-lb-sum-rank" id="ph-lb-cp-rank">-</div>
               <div class="ph-lb-sum-body">
                 <div class="ph-lb-sum-title">Your Competitive Rank</div>
                 <div class="ph-lb-sum-vals" id="ph-lb-cp-sum-vals"></div>
@@ -1305,7 +1305,7 @@
           <!-- Highest Single Hand sub-section -->
           <div id="ph-lb-single-section" style="display:none;">
             <div class="ph-lb-summary" id="ph-lb-single-summary" style="display:none;">
-              <div class="ph-lb-sum-rank" id="ph-lb-single-rank">—</div>
+              <div class="ph-lb-sum-rank" id="ph-lb-single-rank">-</div>
               <div class="ph-lb-sum-body">
                 <div class="ph-lb-sum-title">Your Best Single Hand</div>
                 <div class="ph-lb-sum-vals" id="ph-lb-single-sum-vals"></div>
@@ -1332,7 +1332,7 @@
           <!-- Highest Combined Hands sub-section -->
           <div id="ph-lb-combined-section" style="display:none;">
             <div class="ph-lb-summary" id="ph-lb-combined-summary" style="display:none;">
-              <div class="ph-lb-sum-rank" id="ph-lb-combined-rank">—</div>
+              <div class="ph-lb-sum-rank" id="ph-lb-combined-rank">-</div>
               <div class="ph-lb-sum-body">
                 <div class="ph-lb-sum-title">Your Best Combined Score</div>
                 <div class="ph-lb-sum-vals" id="ph-lb-combined-sum-vals"></div>
@@ -1389,7 +1389,7 @@
     <div id="pub-loading" class="pub-loading">Loading…</div>
     <div id="pub-error" class="pub-error" style="display:none;"></div>
     <div id="pub-content" style="display:none;">
-      <!-- Profile card — same design/layout as the real Player Home card.
+      <!-- Profile card, same design/layout as the real Player Home card.
            Read-only: shows the viewed player's public info; nothing here writes. -->
       <div class="ph-profile-card pub-profile-card">
         <button class="ph-avatar pub-avatar-btn" id="pub-avatar-btn" type="button"
@@ -1399,17 +1399,17 @@
         </button>
         <div class="ph-pinfo">
           <div class="ph-pname-row">
-            <div class="ph-pname" id="pub-nick">—</div>
+            <div class="ph-pname" id="pub-nick">-</div>
           </div>
           <div class="ph-pfc" id="pub-fc"></div>
           <div class="ph-pmeta2">
             <span class="ph-meta-chip">
               <span class="ph-meta-chip-ico">⭐</span>
-              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="pub-total-xp">—</span></span>
+              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Total XP</span><span class="ph-meta-chip-val" id="pub-total-xp">-</span></span>
             </span>
             <span class="ph-meta-chip">
               <span class="ph-meta-chip-ico">🔥</span>
-              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="pub-streak">—</span></span>
+              <span class="ph-meta-chip-txt"><span class="ph-meta-chip-lbl">Current Streak</span><span class="ph-meta-chip-val" id="pub-streak">-</span></span>
             </span>
           </div>
         </div>
@@ -1448,16 +1448,16 @@
 <div id="pv-lobby">
   <h1>Currents <span class="coc-amp">&amp;</span> Critters</h1>
 
-  <!-- Signed-in profile strip — hidden until auth completes for a logged-in user -->
+  <!-- Signed-in profile strip, hidden until auth completes for a logged-in user -->
   <div id="auth-profile-bar">
     <span>Signed in as</span>
-    <span class="auth-pnick" id="auth-profile-name-text">—</span>
+    <span class="auth-pnick" id="auth-profile-name-text">-</span>
     <span class="auth-pfc" id="auth-profile-fc-text"></span>
     <button class="auth-pbtn" id="auth-friend-btn">👥 Friends<span class="friend-badge" id="friend-req-badge-bar"></span></button>
     <button class="auth-pbtn" id="auth-signout-btn">Sign Out</button>
   </div>
 
-  <!-- VIEW A: invited via link — join only, no create option shown -->
+  <!-- VIEW A: invited via link, join only, no create option shown -->
   <div id="pv-invited-view" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
     <p class="subtitle" id="pv-invited-subtitle">You've been invited to a game!</p>
     <div class="pv-lobby-box" style="width:100%;">
@@ -1478,9 +1478,9 @@
     <a href="/game" style="font-size:12px;color:var(--muted);text-decoration:none;border-bottom:1px dashed var(--border);">← Start a new game instead</a>
   </div>
 
-  <!-- VIEW B: arrived directly — show both host and join options -->
+  <!-- VIEW B: arrived directly, show both host and join options -->
   <div id="pv-home-view" style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
-    <p class="subtitle">Shape the Current — start a new Current or join an existing one.</p>
+    <p class="subtitle">Shape the Current, start a new Current or join an existing one.</p>
 
     <!-- CREATE -->
     <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
@@ -1520,7 +1520,7 @@
       </div>
     </div>
 
-    <!-- JOIN (from home — browse lobby or enter code) -->
+    <!-- JOIN (from home, browse lobby or enter code) -->
     <div class="pv-lobby-box" style="width:100%;">
       <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
       <input class="pv-input" id="pv-join-name-home" type="hidden" value="Player" />
@@ -1557,12 +1557,12 @@
       <div class="comp-label">You are Player 1 (Hands 1 &amp; 2)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge">1</div>
-        <div id="comp-p1-name-display" class="comp-name-display">—</div>
+        <div id="comp-p1-name-display" class="comp-name-display">-</div>
       </div>
       <div class="comp-helper">Player 2's name is set automatically when they join on their device.</div>
       <div class="comp-label">Room code (optional)</div>
       <input class="nc-big-input" id="comp-create-code"
-        placeholder="E.G. SWORD — LEAVE BLANK TO AUTO-GENERATE" maxlength="5"
+        placeholder="E.G. SWORD, LEAVE BLANK TO AUTO-GENERATE" maxlength="5"
         style="width:100%;text-transform:uppercase;font-size:.88rem;letter-spacing:.5px;text-align:center;"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
       <div class="comp-hands-grid">
@@ -1584,7 +1584,7 @@
         </div>
       </div>
       <button class="comp-action-btn" id="comp-create-btn">⚔️ Create Match →</button>
-      <div class="comp-helper" style="text-align:center;">Creates the room — share the code so Player 2 can join</div>
+      <div class="comp-helper" style="text-align:center;">Creates the room, share the code so Player 2 can join</div>
     </div>
 
     <!-- JOIN PANEL -->
@@ -1598,7 +1598,7 @@
       <div class="comp-label" style="margin-top:4px;">You are Player 2 (Hands 3 &amp; 4)</div>
       <div class="comp-player-row">
         <div class="comp-player-badge">2</div>
-        <div id="comp-join-p2-display" class="comp-name-display">—</div>
+        <div id="comp-join-p2-display" class="comp-name-display">-</div>
       </div>
       <div class="comp-hands-grid">
         <div class="comp-hand-slot">
@@ -1624,7 +1624,7 @@
     <!-- WAITING FOR P2 (shown after Create, hidden otherwise) -->
     <div id="comp-waiting-p2" style="display:none;width:100%;flex-direction:column;align-items:center;gap:12px;text-align:center;position:relative;z-index:1;">
       <div class="comp-helper" style="text-align:center;">Share this code with Player 2:</div>
-      <div id="comp-room-code-display" class="comp-room-code" title="Click to copy">—</div>
+      <div id="comp-room-code-display" class="comp-room-code" title="Click to copy">-</div>
       <button class="comp-hist-action-btn" id="comp-copy-code-btn" style="width:160px;">📋 Copy Code</button>
       <div id="comp-p2-status" class="comp-helper" style="text-align:center;">Waiting for Player 2 to join…</div>
       <button class="comp-action-btn" id="comp-start-btn" style="display:none;">▶ Start Game</button>
@@ -1651,7 +1651,7 @@
   <div class="wr-box">
     <h2 id="wr-title">Room Created!</h2>
     <p class="wr-subtitle" id="wr-subtitle">Share this fleet code with your crew:</p>
-    <div class="wr-code" id="wr-code-display" title="Click to copy">—</div>
+    <div class="wr-code" id="wr-code-display" title="Click to copy">-</div>
     <button id="wr-copy-btn"><span class="wr-copy-icon">📋</span><span>Copy Invite Link</span></button>
     <div class="wr-quick-setup" id="wr-quick-setup" style="display:none;">
       <div class="wr-quick-heading">
@@ -1693,7 +1693,7 @@
 
   <!-- notice bar -->
   <div id="pv-notice">
-    <span class="room-badge" id="pv-room-id-badge">—</span>
+    <span class="room-badge" id="pv-room-id-badge">-</span>
     <span id="pv-my-name-badge"></span>
     <span id="pv-my-score-badge" title="Tap for Score Breakdown">📊 0 pts</span>
     <span id="pv-status-text">Connecting…</span>
@@ -1701,7 +1701,7 @@
       <button id="pv-menu-btn">&#9776; Menu</button>
       <div id="pv-menu-drop">
         <div class="pv-menu-label">Scores</div>
-        <div id="pv-menu-scores-list">—</div>
+        <div id="pv-menu-scores-list">-</div>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-menu-log-btn">&#128203; Game Log: Off</button>
         <button class="pv-menu-item" id="pv-menu-chat-btn">&#128172; Chat: On</button>
@@ -1714,7 +1714,7 @@
           <div class="pv-menu-label">⚔️ Hands</div>
           <div id="pv-menu-hands-list"></div>
         </div>
-        <!-- AI Speed — shown to host only when there are AI players -->
+        <!-- AI Speed, shown to host only when there are AI players -->
         <div id="pv-menu-ai-speed-section" style="display:none;">
           <div class="pv-menu-divider"></div>
           <div class="ai-speed-label">🤖 AI Speed</div>
@@ -1726,7 +1726,7 @@
         </div>
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
-        <div class="pv-menu-room" id="pv-menu-room-code">—</div>
+        <div class="pv-menu-room" id="pv-menu-room-code">-</div>
         <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
@@ -1774,7 +1774,7 @@
    </div><!-- #pv-table-inner -->
   </div><!-- #pv-table -->
 
-  <!-- Draw-phase hint banner — sits above the action bar for high visibility -->
+  <!-- Draw-phase hint banner, sits above the action bar for high visibility -->
   <div id="pv-pool-pick-hint"></div>
 
   <!-- discard banner -->
@@ -1814,9 +1814,9 @@
       <span class="clear-pay" id="pv-clear-pay">✕ Clear</span>
     </div>
     <div style="flex:1;"></div>
-    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!! — mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves — tap 'I'm Back' to return.">🏄 Surf's Up!!</button>
+    <button class="pv-btn pv-btn-surf" id="pv-surf-btn" title="Surf's Up!!, mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves, tap 'I'm Back' to return.">🏄 Surf's Up!!</button>
     <button class="pv-btn pv-btn-fullscreen" id="pv-fullscreen-btn" title="Toggle full-screen mode">⛶ Full Screen</button>
-    <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn — stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
+    <button class="pv-btn" id="pv-undo-btn" title="Undo your last turn, stays available through bot turns; only locks once another human plays after you">↩ Undo Turn</button>
     <span id="end-turn-hint"></span>
     <button class="pv-btn end-turn" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
@@ -1867,7 +1867,7 @@
     <button id="bs-plus" class="bs-btn" title="Make the board bigger / closer  (press + or =)" aria-label="Increase board size">+</button>
     <div id="bs-readout" aria-live="polite">100%</div>
     <button id="bs-minus" class="bs-btn" title="Make the board smaller / farther  (press −)" aria-label="Decrease board size">−</button>
-    <!-- Chat button — sits directly below the minus button, part of the cluster -->
+    <!-- Chat button, sits directly below the minus button, part of the cluster -->
     <div id="bs-chat-sep" aria-hidden="true"></div>
     <button id="pv-chat-btn" title="Open chat" aria-label="Open chat" style="display:none;">
       <span class="pvc-btn-ico">💬</span>
@@ -1876,13 +1876,13 @@
     </button>
   </div>
 
-  <!-- Spectator panel — replaces hand area when spectating -->
+  <!-- Spectator panel, replaces hand area when spectating -->
   <div id="pv-spectator-panel">
     <div class="spec-title">👁 Spectator Mode</div>
     <div class="spec-hint">Click a player's avatar to view their board.</div>
     <div class="spec-viewing" id="spec-viewing-label" style="display:none;"></div>
   </div>
-  <!-- Spectator list — shown to both players and spectators in-game -->
+  <!-- Spectator list, shown to both players and spectators in-game -->
   <div id="pv-spectator-list">
     <div class="spec-list-title">👁 Spectators</div>
     <div id="spec-list-rows"></div>
@@ -1943,7 +1943,7 @@
     </div>
   </div>
 
-  <!-- End Turn confirmation — friendly, not a system alert -->
+  <!-- End Turn confirmation, friendly, not a system alert -->
   <div id="end-turn-modal">
     <div id="end-turn-box">
       <div id="end-turn-icon">🌊</div>
@@ -1966,7 +1966,7 @@
       </div>
       <p id="pv-help-intro">Pick a strategy to see what to do next, the cards to look for, and quick tips. You can mix any strategies you like.</p>
       <div id="pv-help-rand">
-        <span class="phr-label">🎲 Surprise me — play</span>
+        <span class="phr-label">🎲 Surprise me, play</span>
         <div class="phr-count" role="group" aria-label="How many random strategies">
           <button class="phr-n" data-n="1" type="button">1</button>
           <button class="phr-n active" data-n="2" type="button">2</button>
@@ -1993,7 +1993,7 @@
         </div>
       </div>
       <div class="pv-afk-seconds"><span id="pv-afk-seconds-num">20</span> seconds to respond</div>
-      <div class="pv-afk-warn">If time runs out, 2 cards will be drawn for you automatically — and you will <strong>not</strong> be able to undo.</div>
+      <div class="pv-afk-warn">If time runs out, 2 cards will be drawn for you automatically, and you will <strong>not</strong> be able to undo.</div>
       <div class="pv-afk-foot"><b>Move your mouse or click anywhere</b> to stay in the game.</div>
     </div>
   </div>
@@ -2015,7 +2015,7 @@
     </div>
   </div>
 
-  <!-- ROOM VIEW — Current Game Chat (server room chat; ids preserved) -->
+  <!-- ROOM VIEW, Current Game Chat (server room chat; ids preserved) -->
   <div id="pv-chat-view-room" class="pvc-view active">
     <div id="pv-chat-messages"></div>
     <div id="pv-chat-input-row">
@@ -2030,13 +2030,13 @@
     </div>
   </div>
 
-  <!-- LIST VIEW — search-to-message bar + Current Game Chat + DMs + groups -->
+  <!-- LIST VIEW, search-to-message bar + Current Game Chat + DMs + groups -->
   <div id="pv-chat-view-list" class="pvc-view">
     <div id="pv-chat-compose"></div>
     <div id="pv-chat-list"></div>
   </div>
 
-  <!-- CONVERSATION VIEW — a DM or group from the shared messaging layer -->
+  <!-- CONVERSATION VIEW, a DM or group from the shared messaging layer -->
   <div id="pv-chat-view-conv" class="pvc-view">
     <div id="pv-chat-conv-msgs"></div>
     <div id="pv-chat-conv-guest" class="pvc-guest-note" style="display:none;">Sign in to send messages.</div>
@@ -2104,14 +2104,14 @@
     <div id="cc-trade-banner" class="cctr-banner" style="display:none;"></div>
 
     <div id="cc-trade-cols">
-      <!-- YOU GIVE (my offer — editable) -->
+      <!-- YOU GIVE (my offer, editable) -->
       <div class="cctr-col" id="cctr-give-col">
         <div class="cctr-col-head cctr-give">You Give</div>
         <div class="cctr-items" id="cctr-give-items"></div>
         <button class="cctr-add" id="cctr-give-add" type="button">＋ Add item</button>
         <div class="cctr-conf" id="cctr-give-conf"></div>
       </div>
-      <!-- YOU RECEIVE (peer's offer — read-only) -->
+      <!-- YOU RECEIVE (peer's offer, read-only) -->
       <div class="cctr-col" id="cctr-recv-col">
         <div class="cctr-col-head cctr-recv" id="cctr-recv-head">You Receive</div>
         <div class="cctr-items" id="cctr-recv-items"></div>
@@ -2182,9 +2182,9 @@
       <div id="gs-game-title">GAME SUMMARY</div>
       <div id="gs-meta-bar">
         <div class="gs-meta-item"><div class="gs-meta-label">Game Type</div><div class="gs-meta-val" id="gs-game-type">Casual</div></div>
-        <div class="gs-meta-item"><div class="gs-meta-label">Players</div><div class="gs-meta-val gs-big" id="gs-player-count">—</div></div>
-        <div class="gs-meta-item"><div class="gs-meta-label">Final Score</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-score">—</div></div>
-        <div class="gs-meta-item"><div class="gs-meta-label">Final Rank</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-rank">—</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Players</div><div class="gs-meta-val gs-big" id="gs-player-count">-</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Final Score</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-score">-</div></div>
+        <div class="gs-meta-item"><div class="gs-meta-label">Final Rank</div><div class="gs-meta-val gs-big gs-cyan" id="gs-my-rank">-</div></div>
         <div class="gs-meta-item"><div class="gs-meta-label">XP Gained</div><div class="gs-meta-val gs-gold" id="gs-xp-gained">+0 XP</div></div>
         <div class="gs-meta-item" id="gs-cp-item" style="display:none;"><div class="gs-meta-label">CP Gained</div><div class="gs-meta-val gs-gold" id="gs-cp-gained">+0 CP</div></div>
       </div>
@@ -2200,7 +2200,7 @@
         <div id="gs-feats">
           <div id="gs-feats-title">SPECIAL FEATS 🐚</div>
           <div id="gs-feats-row">
-            <div class="gs-feat-card"><div class="gs-feat-label">Two of Aukind</div><div class="gs-feat-val" id="gs-feat-aukind">—</div></div>
+            <div class="gs-feat-card"><div class="gs-feat-label">Two of Aukind</div><div class="gs-feat-val" id="gs-feat-aukind">-</div></div>
             <div class="gs-feat-card"><div class="gs-feat-label">Shot the Moon?</div><div class="gs-feat-val" id="gs-feat-moon">No one</div></div>
           </div>
         </div>
@@ -2211,13 +2211,13 @@
         <!-- Strategy confirmation: shown after every game so data feeds AI learning -->
         <div id="gs-strat-confirm">
           <div id="gs-strat-title">🧠 WHAT STRATEGY DID YOU PLAY?</div>
-          <div id="gs-strat-hint">Confirm or update — this helps the AI learn what works.</div>
+          <div id="gs-strat-hint">Confirm or update, this helps the AI learn what works.</div>
           <input type="text" id="gs-strat-search" placeholder="🔍 Search strategies…" autocomplete="off" spellcheck="false">
           <div id="gs-strat-list"><!-- populated by JS --></div>
           <div id="gs-strat-no-match">No strategies match your search.</div>
           <div id="gs-strat-none-row">
             <label class="gs-strat-none-label">
-              <input type="checkbox" id="gs-strat-none-chk"> Other / Custom — none of these (just improvised)
+              <input type="checkbox" id="gs-strat-none-chk"> Other / Custom, none of these (just improvised)
             </label>
           </div>
         </div>
@@ -2228,7 +2228,7 @@
           <div id="gs-xp-section">
             <div id="gs-xp-header">XP PROGRESS</div>
             <div id="gs-xp-bar-row">
-              <div id="gs-level-badge"><div class="gs-lbl">LEVEL</div><div class="gs-num" id="gs-level-num">—</div></div>
+              <div id="gs-level-badge"><div class="gs-lbl">LEVEL</div><div class="gs-num" id="gs-level-num">-</div></div>
               <div id="gs-xp-bar-wrap">
                 <div id="gs-xp-bar-track"><div id="gs-xp-bar-fill"></div></div>
                 <div id="gs-xp-bar-markers">
@@ -2259,42 +2259,42 @@
           <div id="gs-stats-title">⭐ MATCH STATS</div>
           <div id="gs-stats-grid">
             <div class="gs-stat-card" id="gs-sc-length">
-              <div class="gs-sc-num" id="gs-sc-length-val">—</div>
+              <div class="gs-sc-num" id="gs-sc-length-val">-</div>
               <div class="gs-sc-unit">min</div>
               <div class="gs-sc-label">Game Length</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-turn">
-              <div class="gs-sc-num" id="gs-sc-turn-val">—</div>
+              <div class="gs-sc-num" id="gs-sc-turn-val">-</div>
               <div class="gs-sc-unit">pts</div>
               <div class="gs-sc-label">Most Points in One Turn</div>
-              <div class="gs-sc-player" id="gs-sc-turn-who">—</div>
+              <div class="gs-sc-player" id="gs-sc-turn-who">-</div>
               <div class="gs-sc-xp">⭐ +15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-diverse">
-              <div class="gs-sc-num" id="gs-sc-diverse-val">—</div>
+              <div class="gs-sc-num" id="gs-sc-diverse-val">-</div>
               <div class="gs-sc-unit">species</div>
               <div class="gs-sc-label">Most Diverse Ecosystem</div>
-              <div class="gs-sc-player" id="gs-sc-diverse-who">—</div>
+              <div class="gs-sc-player" id="gs-sc-diverse-who">-</div>
               <div class="gs-sc-xp">⭐ +15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-star">
-              <div class="gs-sc-num" id="gs-sc-star-val">—</div>
+              <div class="gs-sc-num" id="gs-sc-star-val">-</div>
               <div class="gs-sc-label">Most Star Abilities Activated</div>
-              <div class="gs-sc-player" id="gs-sc-star-who">—</div>
+              <div class="gs-sc-player" id="gs-sc-star-who">-</div>
               <div class="gs-sc-xp">⭐ +15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-100">
               <div class="gs-sc-num">100</div>
               <div class="gs-sc-unit">pts</div>
               <div class="gs-sc-label">First to 100 Points</div>
-              <div class="gs-sc-player" id="gs-sc-100-who">—</div>
+              <div class="gs-sc-player" id="gs-sc-100-who">-</div>
               <div class="gs-sc-xp">⭐ +15 XP</div>
             </div>
             <div class="gs-stat-card" id="gs-sc-card">
-              <div class="gs-sc-name" id="gs-sc-card-name">—</div>
-              <div class="gs-sc-pts" id="gs-sc-card-pts">— pts</div>
+              <div class="gs-sc-name" id="gs-sc-card-name">-</div>
+              <div class="gs-sc-pts" id="gs-sc-card-pts">- pts</div>
               <div class="gs-sc-label">Highest Scoring Card</div>
-              <div class="gs-sc-player" id="gs-sc-card-who">—</div>
+              <div class="gs-sc-player" id="gs-sc-card-who">-</div>
               <div class="gs-sc-xp">⭐ +15 XP</div>
             </div>
           </div>
@@ -2512,7 +2512,7 @@
       <button id="ph-gdm-close">✕</button>
     </div>
     <div id="ph-gdm-body">
-      <div class="ph-gdm-section-label">Players — tap to view their board</div>
+      <div class="ph-gdm-section-label">Players, tap to view their board</div>
       <div id="ph-gdm-players"></div>
       <div id="ph-gdm-board-view"></div>
     </div>
@@ -2524,7 +2524,7 @@
   <!-- top bar -->
   <div id="tut-topbar">
     <span id="tut-step-badge">Step 1 / 17</span>
-    <span id="tut-topbar-title">🎮 Tutorial — Currents &amp; Critters</span>
+    <span id="tut-topbar-title">🎮 Tutorial, Currents &amp; Critters</span>
     <button id="tut-x-btn" title="Exit tutorial">✕</button>
   </div>
 
@@ -2692,7 +2692,7 @@
       </a>
     </div>
 
-    <div class="ph-help-foot">Opens a quick form — your answers come straight to the Currents &amp; Critters team. 🐠</div>
+    <div class="ph-help-foot">Opens a quick form, your answers come straight to the Currents &amp; Critters team. 🐠</div>
   </div>
 </div>
 
@@ -2769,13 +2769,13 @@
   </div>
 </div>
 <!-- ══════════════════════════════════════════════════════════════════
-     CURRENT CONTROLLER — admin-only mod / dev control panel (Phase 1)
+     CURRENT CONTROLLER, admin-only mod / dev control panel (Phase 1)
      Visible ONLY for currentsandcritters@gmail.com. Every tool is gated
      behind its own ON/OFF toggle; OFF fully disables the tool.
      ══════════════════════════════════════════════════════════════════ -->
 <script src="/js/current-controller.js?v=2026-06-29.3"></script>
 <!-- ══════════════════════════════════════════════════════════════════
-     TUTORIAL v2 — three modes (Main Menu Tour · The Game · Practice B-Lob).
+     TUTORIAL v2, three modes (Main Menu Tour · The Game · Practice B-Lob).
      Completing ALL THREE unlocks the Osprey avatar. Stage 1: launcher +
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.

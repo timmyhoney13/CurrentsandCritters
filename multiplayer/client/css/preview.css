@@ -2,16 +2,16 @@
 
     :root {
       /* ── Ocean-extracted palette (from card art PDFs) ─────────── */
-      --bg:        #0D2A52;   /* deep ocean blue — mid-water zone      */
+      --bg:        #0D2A52;   /* deep ocean blue, mid-water zone      */
       --table:     #0B2448;   /* darker for depth behind cards          */
       --felt:      #173C72;   /* ocean hub surface                      */
-      --panel:     #1A4280;   /* panels — bright ocean mid-tone         */
+      --panel:     #1A4280;   /* panels, bright ocean mid-tone         */
       --border:    #3A78CC;   /* cornflower / Arctic Ocean card border  */
       --text:      #DAEEFF;   /* near-white with a sky-blue tint        */
       --muted:     #76B0D8;   /* muted ocean blue for secondary text    */
       --gold:      #F0C840;   /* card star gold                         */
       --gold2:     #D4A820;   /* deeper gold                            */
-      --cyan:      #22D8F8;   /* electric cyan — card title color       */
+      --cyan:      #22D8F8;   /* electric cyan, card title color       */
       --teal:      #18C8A8;   /* seafoam teal                           */
       --green:     #42C878;   /* kelp / ocean green                     */
       --red:       #e84057;
@@ -37,7 +37,7 @@
       --glow-c:    rgba(34,216,248,.45);
       --glow-teal: rgba(24,200,168,.5);
       --glow-gold: rgba(240,200,64,.5);
-      /* Shared card-back art (sandpiper + "Currents and Critters") — used for the
+      /* Shared card-back art (sandpiper + "Currents and Critters"), used for the
          deck pile, face-down hands, draw-flip backs and any hidden card, everywhere. */
       --cc-card-back: url("/multiplayer/client/card-back.png?v=1");
     }
@@ -149,7 +149,7 @@
     /* Coral is still available but End Turn now uses its own softer class */
     .pv-btn.coral { background: linear-gradient(135deg, #ef5a5a, #d83838); }
     .pv-btn.coral:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(216,56,56,.55); }
-    /* End Turn — calm ocean teal, not scary red */
+    /* End Turn, calm ocean teal, not scary red */
     .pv-btn.end-turn { background: linear-gradient(135deg, #5fb3d6, #3a8fb5); }
     .pv-btn.end-turn:hover:not(:disabled) { box-shadow: 0 4px 18px rgba(95,179,214,.6); }
     .pv-btn.end-turn.suggest {
@@ -184,7 +184,7 @@
       transform: translateY(-1px);
       box-shadow: 0 4px 14px rgba(125,106,174,.5);
     }
-    /* Surf's Up!! and Full Screen — match Undo Turn's compact action-row sizing */
+    /* Surf's Up!! and Full Screen, match Undo Turn's compact action-row sizing */
     .pv-btn-surf, .pv-btn-fullscreen {
       font-size: 13px;
       padding: 7px 14px;
@@ -274,7 +274,7 @@
     }
     .pv-seat { position: relative; }
 
-    /* AFK-vote "Are you still here?" challenge — deep-ocean panel, on-theme */
+    /* AFK-vote "Are you still here?" challenge, deep-ocean panel, on-theme */
     #pv-afk-modal {
       display: none;
       position: fixed;
@@ -315,7 +315,7 @@
       margin: 0 0 18px 0;
       line-height: 1.45;
     }
-    /* Draining countdown ring — conic gradient depletes as time runs out. */
+    /* Draining countdown ring, conic gradient depletes as time runs out. */
     #pv-afk-ring {
       --pct: 100%;
       --ring: var(--teal);
@@ -576,7 +576,7 @@
 
     /* ── HELP / STRATEGY GUIDE ───────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════════
-       Strategy Guide modal — warm coral-reef palette
+       Strategy Guide modal, warm coral-reef palette
        ══════════════════════════════════════════════════════════════ */
     #pv-help-modal {
       display: none; position: fixed; inset: 0; z-index: 9300;
@@ -640,7 +640,7 @@
     .hs-active-pill { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 20px; border: 1.5px solid; background: rgba(255,255,255,.05); }
     #hs-clear-active { font-size: 11px; font-weight: 800; color: #f8b0a0; background: rgba(232,110,80,.14); border: 1px solid rgba(232,110,80,.4); border-radius: 16px; padding: 3px 10px; cursor: pointer; }
     #hs-clear-active:hover { background: rgba(232,110,80,.26); }
-    /* Randomize bar — sits on the right above the strategy rail. Pick how many
+    /* Randomize bar, sits on the right above the strategy rail. Pick how many
        strategies (1-4) and it activates that many at random for you. */
     #pv-help-rand {
       flex: 0 0 auto;
@@ -790,7 +790,7 @@
       color: var(--cr-coral, #f4a574); background: linear-gradient(160deg, rgba(244,165,116,.16), rgba(12,28,52,.6));
     }
 
-    /* ══ Strategies v2 — numbered-section dashboard ══════════════════ */
+    /* ══ Strategies v2, numbered-section dashboard ══════════════════ */
     .hs2-sec { min-width: 0; }
     .hs2-sec-head {
       display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
@@ -845,7 +845,7 @@
       background: radial-gradient(120% 100% at 50% 18%, rgba(36,60,96,.7), rgba(9,20,40,.96));
     }
     .hs2-card-art { height: 96px; }
-    /* Avatar-gallery portraits sit on a transparent canvas — contain + center
+    /* Avatar-gallery portraits sit on a transparent canvas, contain + center
        so the whole critter shows, framed by the dark tank backdrop. */
     .hs2-card-art img, .hs2-mini-art img, .hs2-combo-art img, .hs2-reco-art img { width: 100%; height: 100%; object-fit: contain; object-position: center; display: block; padding: 4px; box-sizing: border-box; filter: drop-shadow(0 2px 5px rgba(0,0,0,.45)); }
     .hs2-card-art::after, .hs2-combo-art::after {
@@ -1081,12 +1081,12 @@
       display: none;
       flex-direction: column;
       height: 100vh;
-      /* overflow: hidden removed — it was clipping the absolutely-positioned
+      /* overflow: hidden removed, it was clipping the absolutely-positioned
          menu dropdown. html/body already has overflow:hidden to block scroll. */
       background: #050d1a;
       position: relative;
     }
-    /* Moving water background — gently drifts the game-bg.png for a "moving water" feel */
+    /* Moving water background, gently drifts the game-bg.png for a "moving water" feel */
     #pv-game::before {
       content: "";
       position: absolute;
@@ -1097,7 +1097,7 @@
       pointer-events: none;
       will-change: transform;
     }
-    /* Subtle shimmer overlay — extra "water" cue layered on top of the bg */
+    /* Subtle shimmer overlay, extra "water" cue layered on top of the bg */
     #pv-game::after {
       content: "";
       position: absolute;
@@ -1237,11 +1237,11 @@
 
     /* ── OPPONENTS ──────────────────────────────────────────────── */
     #pv-opponents { display: none !important; }
-    /* 1 opponent — centred */
+    /* 1 opponent, centred */
     #pv-opponents.opp-1 { grid-template-columns: 1fr; justify-items: center; }
-    /* 2 opponents — left + across */
+    /* 2 opponents, left + across */
     #pv-opponents.opp-2 { grid-template-areas: "left across"; grid-template-columns: 1fr 2fr; }
-    /* 3 opponents — left + across + right */
+    /* 3 opponents, left + across + right */
     #pv-opponents.opp-3 { grid-template-areas: "left across right"; grid-template-columns: 1fr 2fr 1fr; }
     .opp-pos-across { grid-area: across; }
     .opp-pos-left   { grid-area: left; }
@@ -1348,7 +1348,7 @@
       position: absolute;
       inset: 0;
       /* Card-back art fills the pile; the gradient is only a load fallback.
-         The count is NEVER printed on the card — it lives in the label below
+         The count is NEVER printed on the card, it lives in the label below
          and the hover tooltip (#pv-deck-tip). */
       background: var(--cc-card-back) center/cover no-repeat,
                   linear-gradient(135deg, var(--cr-teal), var(--cr-teal-deep));
@@ -1649,8 +1649,8 @@
         ".    up    ."
         "left ocean right"
         ".    down  .";
-      /* Side (left/right) lanes use minmax(half-card, auto) — NOT a fixed
-         half-card width — so that stacking cards sideways (Yellowfin Tuna,
+      /* Side (left/right) lanes use minmax(half-card, auto), NOT a fixed
+         half-card width, so that stacking cards sideways (Yellowfin Tuna,
          Lobster, …) GROWS the column instead of overflowing it. This keeps the
          hub border wrapped around the whole stack and makes the hub's layout
          box grow, so neighbouring oceans reflow out of the way instead of being
@@ -1729,7 +1729,7 @@
     .pv-lane-right .pv-board-card:hover { transform: translateX(4px)  scale(1.05); transform-origin: left center; }
 
     /* Stacked cards (Yellowfin Tuna, Lobster, etc.) sit FLUSH against each
-       other — every card's visible half connects seamlessly to the next so the
+       other, every card's visible half connects seamlessly to the next so the
        whole stack reads as one smooth, even column with every animal fully
        shown, instead of clumping into thin overlapping slivers. The inner edge
        still tucks under the ocean via the half-card clip above. */
@@ -1759,7 +1759,7 @@
 
     /* Ocean face sits on top of adjacent lane cards (z-index) */
     .pv-ocean-center { position: relative; z-index: 2; }
-    /* species glow on board hover — applied via JS data-species.
+    /* species glow on board hover, applied via JS data-species.
        Colours match the canonical FAMILY_COLORS map (one colour per family). */
     .pv-board-card[data-species="Mammal"]:hover      { border-color: #f25fa6; box-shadow: 0 4px 14px rgba(242,95,166,.4); }
     .pv-board-card[data-species="Game Fish"]:hover   { border-color: #9aa6b2; box-shadow: 0 4px 14px rgba(154,166,178,.45); }
@@ -1962,7 +1962,7 @@
     }
 
     /* ── PLAYER SEATS (coral-reef reference design) ────────────── */
-    /* Pill panels flanking the hand — left column and right column of the grid */
+    /* Pill panels flanking the hand, left column and right column of the grid */
     .pv-seat-cluster {
       position: relative;
       display: flex;
@@ -2012,7 +2012,7 @@
       background-size: cover; background-position: center;
       border-radius: inherit; pointer-events: none;
       /* Hard-clip to a circle so the background never bleeds outside the
-         avatar wrap — belt-and-suspenders on top of overflow:hidden so
+         avatar wrap, belt-and-suspenders on top of overflow:hidden so
          GPU compositing transitions can't cause escape. */
       clip-path: circle(50% at 50% 50%);
     }
@@ -2042,7 +2042,7 @@
       letter-spacing: .2px;
     }
     .pv-seat.active-turn .pv-seat-name { color: #c93030; }
-    /* P# seat label chip (P1, P2, …) — used for AFK reporting */
+    /* P# seat label chip (P1, P2, …), used for AFK reporting */
     .pv-seat-plabel {
       display: inline-block;
       font-size: 9px; font-weight: 900;
@@ -2130,7 +2130,7 @@
       position: relative;
     }
     .pv-card-inner img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    /* directional info chip — shown on hover based on mouse quadrant */
+    /* directional info chip, shown on hover based on mouse quadrant */
     .pv-card-chip {
       display: none;
       position: absolute;
@@ -2170,12 +2170,12 @@
     .pv-hand-card.hovered .pv-card-inner { border-color: var(--cyan); box-shadow: 0 0 22px var(--glow-c), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 22px var(--glow-gold), 0 10px 28px rgba(0,0,0,.7); }
     .pv-hand-card.pay-selected .pv-card-inner { border-color: var(--green); box-shadow: 0 0 16px rgba(31,187,138,.55); }
-    /* Star ability — matching-symbol cards glow gold during payment */
+    /* Star ability, matching-symbol cards glow gold during payment */
     .pv-hand-card.star-sym-match .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 14px rgba(240,200,64,.55), 0 0 28px rgba(240,200,64,.25); }
     .pv-hand-card.star-sym-match.pay-selected .pv-card-inner { border-color: var(--gold); box-shadow: 0 0 20px rgba(240,200,64,.75), 0 0 36px rgba(240,200,64,.35); }
     .pv-hand-card.discard-selected .pv-card-inner { border-color: var(--red); box-shadow: 0 0 16px rgba(232,64,87,.55); }
 
-/* symbol pip — top-right */
+/* symbol pip, top-right */
     .pv-sym-pip {
       position: absolute; top: 4px; right: 4px;
       font-size: 11px;
@@ -2186,7 +2186,7 @@
       font-weight: 700;
     }
 
-    /* Hearthstone-style tooltip — appears above hovered card */
+    /* Hearthstone-style tooltip, appears above hovered card */
     .pv-tooltip {
       display: none;
       position: absolute;
@@ -2542,7 +2542,7 @@
     }
     .wr-player-name { font-weight: 700; color: #1a3a72; }
     .wr-player-empty { color: #6a87b0; font-weight: 600; }
-    /* AI difficulty picker — three small pills (Easy/Medium/Hard) next to each bot */
+    /* AI difficulty picker, three small pills (Easy/Medium/Hard) next to each bot */
     .wr-ai-name { flex: 1; min-width: 0; }
     .wr-diff-box {
       display: inline-flex; align-items: center; gap: 4px;
@@ -3258,7 +3258,7 @@
     }
     #tut-deck-pile:hover .tut-deck-face { border-color: var(--cyan); }
     .tut-deck-count { font-size: 9px; color: var(--muted); font-weight: 700; }
-    /* Tutorial deck hover popup — cards left, above the pile, never on the art. */
+    /* Tutorial deck hover popup, cards left, above the pile, never on the art. */
     .tut-deck-tip {
       position: absolute;
       bottom: 100%;
@@ -3289,7 +3289,7 @@
     }
     .tut-ocean-hub { display: flex; flex-direction: column; align-items: center; position: relative; }
     .tut-ocean-hub.tut-board-clickable { border-radius: 10px; outline: 2px solid var(--gold); outline-offset: 4px; box-shadow: 0 0 18px rgba(240,184,64,.5); animation: tut-card-pulse-gold 1.3s ease-in-out infinite; }
-    /* Animals are behind the ocean — ocean row sits on top (z-index 3), animals behind (z-index 1) */
+    /* Animals are behind the ocean, ocean row sits on top (z-index 3), animals behind (z-index 1) */
     .tut-slot-up   { margin-bottom: -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
     .tut-slot-down { margin-top:    -28px; z-index: 1; position: relative; display: flex; gap: 2px; justify-content: center; }
     .tut-slot-row  { display: flex; align-items: center; position: relative; z-index: 3; }
@@ -3384,7 +3384,7 @@
       font-size: 6px; font-weight: 700; color: #fff; background: rgba(0,0,0,.75); padding: 2px;
     }
     /* ── Board drop zone (shown when drag_ocean step) ── */
-    /* Large, easy-to-hit target for the first ocean — matches the roomy drop
+    /* Large, easy-to-hit target for the first ocean, matches the roomy drop
        zone used in real games so dragging the first ocean is never fiddly. */
     .tut-board-droptarget {
       min-width: 150px; min-height: 150px; border-radius: 12px;
@@ -3615,7 +3615,7 @@
       60%  { transform: scale(.96); }
       100% { transform: scale(1); }
     }
-    /* Hook arc visual aid — subtle trailing glow */
+    /* Hook arc visual aid, subtle trailing glow */
     .pv-anim-card.hook-trail::before {
       content: ""; position: absolute; inset: -4px;
       border-radius: 14px;
@@ -3632,7 +3632,7 @@
        When the Pool overflows, an incoming tide rolls left→right and washes
        every card out to sea. Cloned cards + the wave live in #pv-anim-layer;
        the wave sweeps at constant speed so its foam crest lines up with each
-       card's wash-away. Only fires on the overflow clear — a rare flourish. */
+       card's wash-away. Only fires on the overflow clear, a rare flourish. */
     .pv-tide-card {
       position: fixed; z-index: 2;
       border-radius: 7px; overflow: hidden;
@@ -3643,7 +3643,7 @@
     }
     .pv-tide-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
     /* Card rides up the incoming swell, bobs on the crest, then is dragged out
-       to sea — tumbling, shrinking and dissolving into foam. */
+       to sea, tumbling, shrinking and dissolving into foam. */
     @keyframes pv-tide-wash {
       0%   { transform: translate(0,0) rotate(0deg) scale(1); opacity: 1; filter: none; }
       16%  { transform: translate(-3px,-14px) rotate(-5deg) scale(1.07);
@@ -3956,7 +3956,7 @@
     #pv-opponents.full-mode.opp-3 { grid-template-columns: 1fr 1fr 1fr; }
     #pv-opponents.full-mode { overflow-y: auto; max-height: 42vh; }
 
-    /* Read-only board in the focus overlay — adaptive sizing based on how
+    /* Read-only board in the focus overlay, adaptive sizing based on how
        many oceans are on the board. Bigger when there are few, smaller as
        more oceans need to fit on screen. Set --focus-scale from JS. */
     #pv-board-focus-content {
@@ -4009,7 +4009,7 @@
       margin-top: 4px;
       letter-spacing: .3px;
     }
-    /* Hover preview uses smaller cards regardless of board size — it's a tooltip. */
+    /* Hover preview uses smaller cards regardless of board size, it's a tooltip. */
     #pv-board-hover {
       --mini-w: 50px;
       --mini-h: 70px;
@@ -4056,7 +4056,7 @@
     }
 
     /* ── CHAT ───────────────────────────────────────────────────── */
-    /* Chat button — lives inside #bs-ctrl, directly below the minus button,
+    /* Chat button, lives inside #bs-ctrl, directly below the minus button,
        styled to match the board-size cluster art. */
     #bs-chat-sep {
       width: 30px; height: 1px; margin: 3px 0 1px;
@@ -4132,7 +4132,7 @@
       box-shadow: 0 0 0 2px rgba(16,42,84,.95);
     }
     .pvc-back-dot.show { display: block; }
-    /* View switching — only the active view is shown */
+    /* View switching, only the active view is shown */
     .pvc-view { flex: 1; min-height: 0; display: none; flex-direction: column; }
     .pvc-view.active { display: flex; }
     #pv-chat-messages {
@@ -4318,7 +4318,7 @@
     /* ── GAME SUMMARY FULL SCREEN ──────────────────────────────── */
     #pv-endgame-overlay {
       display: none; position: fixed; inset: 0; z-index: 9850;
-      /* Clean flat/gradient light background — no underwater scene art. */
+      /* Clean flat/gradient light background, no underwater scene art. */
       background: linear-gradient(170deg, #dff0fb 0%, #cfe6f8 45%, #bfdcf3 100%);
       overflow-y: auto;
     }
@@ -4901,7 +4901,7 @@
       -webkit-user-select: none; user-select: none;
     }
     #cc-device-screen.cc-device-hidden { display: none !important; }
-    /* On genuine portrait (taller than wide — e.g. a phone held upright)
+    /* On genuine portrait (taller than wide, e.g. a phone held upright)
        stretching a wide image to fill would squish it badly, so there we keep
        the art's aspect ratio and letterbox it against the deep-ocean
        background instead. Landscape (every computer / sideways phone) uses the
@@ -4929,7 +4929,7 @@
       -webkit-tap-highlight-color: transparent;
       transition: background-color .12s ease;
     }
-    /* Gentle press/hover feedback only — keeps taps feeling responsive
+    /* Gentle press/hover feedback only, keeps taps feeling responsive
        without covering or restyling the artwork. */
     @media (hover: hover) {
       .cc-device-half:hover { background-color: rgba(255,255,255,.06); }
@@ -4940,7 +4940,7 @@
     /* ── TOUCH-FRIENDLY MOBILE CONTROLS ──────────────────────────────
        Activated by the Mobile device choice (body.cc-device-mobile). Two
        things happen: (1) tap-to-place stays delay-free and selection-free,
-       (2) finger DRAGGING works — a touch-drag shim (see setupTouchDrag) turns
+       (2) finger DRAGGING works, a touch-drag shim (see setupTouchDrag) turns
        finger gestures on cards into the same HTML5 drag/drop the game already
        handles. The layout/visual design is unchanged. Computer mode keeps the
        native mouse drag-and-drop and is unaffected by all of this. */
@@ -4948,8 +4948,8 @@
     /* Draggable cards: a SINGLE finger drags the card cleanly (no page scroll
        mid-drag, tap/click still fires), while TWO fingers are reserved for the
        browser's pinch-zoom of the whole game. `pinch-zoom` (not `none`) is the
-       key: it still blocks single-finger panning — so dragging never scroll-
-       jitters — but it no longer swallows a two-finger pinch that happens to
+       key: it still blocks single-finger panning, so dragging never scroll-
+       jitters, but it no longer swallows a two-finger pinch that happens to
        start on a card, so players can always pinch to zoom in/out. */
     body.cc-device-mobile [draggable="true"] {
       touch-action: pinch-zoom;
@@ -4958,7 +4958,7 @@
     }
     /* Non-draggable drop targets / zones: no long-press menu. (Draggable
        cards are handled by the [draggable] rule above so they always get
-       touch-action:none — listing them here too would override that at equal
+       touch-action:none, listing them here too would override that at equal
        specificity and let the page scroll-jitter when a drag begins.) */
     body.cc-device-mobile .pv-lane-slot,
     body.cc-device-mobile .pv-ocean-hub,
@@ -5049,7 +5049,7 @@
       -webkit-tap-highlight-color: rgba(255,255,255,.18);
     }
     .ccfs-sardine:focus-visible { outline: 3px solid rgba(255,255,255,.85); outline-offset: 3px; border-radius: 12px; }
-    /* Status + fallback link — hidden until the browser blocks full screen
+    /* Status + fallback link, hidden until the browser blocks full screen
        (#cc-fs-splash.ccfs-blocked), keeping the splash true to the artwork. */
     .ccfs-foot {
       position: absolute; left: 0; right: 0; bottom: 4%;
@@ -5065,7 +5065,7 @@
     #cc-fs-splash.ccfs-blocked .ccfs-window { display: inline-block; }
     .ccfs-window:hover { color: #ffffff; border-color: rgba(216,232,251,.7); }
 
-    /* Slim "return to full screen" pill — nudges the player back to full
+    /* Slim "return to full screen" pill, nudges the player back to full
        screen if they drop out (Esc / browser), so the game stays full screen. */
     #cc-fs-resume {
       display: none; position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
@@ -5498,7 +5498,7 @@
       z-index: 3;
       text-shadow: 0 1px 2px rgba(255,255,255,.6);
     }
-    /* ── Guest overlay — rendered inside the octagon on the login image ── */
+    /* ── Guest overlay, rendered inside the octagon on the login image ── */
     #auth-guest-overlay {
       display: none;
       position: absolute;
@@ -6224,7 +6224,7 @@
       overflow: hidden;
       position: relative;
     }
-    /* Bottom-left readability scrim (a gradient, not a blur) — guarantees the
+    /* Bottom-left readability scrim (a gradient, not a blur), guarantees the
        title/subtitle stay legible on the lighter top of each gradient. Anchored
        to the bottom-left and faded to transparent before the coral art on the
        right, so it never darkens the illustration. */
@@ -6256,7 +6256,7 @@
       border: none !important;
       background: transparent !important;
     }
-    .ph-action-img-card::before { display: none !important; }  /* no scrim — text is in the image */
+    .ph-action-img-card::before { display: none !important; }  /* no scrim, text is in the image */
     .ph-action-img {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
@@ -6267,12 +6267,12 @@
       -webkit-user-drag: none; user-select: none;
       pointer-events: none;   /* clicks pass through to the button */
     }
-    /* Individual card gradient themes — cleaner, evenly-weighted stops */
-    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create — ocean blue */
-    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join — clean red */
-    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial — reef green */
-    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive — clean purple */
-    /* Circular icon holder — no backdrop-filter (causes GPU blur on entire card) */
+    /* Individual card gradient themes, cleaner, evenly-weighted stops */
+    .ph-action-card:nth-child(1) { background: linear-gradient(145deg, #6fd6f2 0%, #2cb4e6 38%, #1583c9 72%, #0f63a4 100%); } /* Create, ocean blue */
+    .ph-action-card:nth-child(2) { background: linear-gradient(145deg, #ff8b78 0%, #f24f49 38%, #d62f2e 72%, #ad2024 100%); } /* Join, clean red */
+    .ph-action-card:nth-child(3) { background: linear-gradient(145deg, #b2d965 0%, #82b837 38%, #5d9627 72%, #437a16 100%); } /* Tutorial, reef green */
+    .ph-action-card:nth-child(4) { background: linear-gradient(145deg, #cb9af2 0%, #9d5fdd 38%, #7c3fc4 72%, #592a9c 100%); } /* Competitive, clean purple */
+    /* Circular icon holder, no backdrop-filter (causes GPU blur on entire card) */
     .ph-action-icon {
       width: 50px;
       height: 50px;
@@ -6303,7 +6303,7 @@
       align-items: center;
       justify-content: center;
     }
-    /* Exact coral creature image — full art visible, no distortion */
+    /* Exact coral creature image, full art visible, no distortion */
     .ph-ac-art img {
       width: 100%;
       height: 100%;
@@ -6523,7 +6523,7 @@
       color: #a77000;
       white-space: nowrap;
     }
-    /* Completed state — green tint + checkmark + countdown to next refresh */
+    /* Completed state, green tint + checkmark + countdown to next refresh */
     .ph-cs-card.is-completed {
       background: linear-gradient(135deg, rgba(232,250,239,.95) 0%, rgba(214,247,229,.92) 100%);
       border-color: rgba(80,180,120,.55);
@@ -6598,7 +6598,7 @@
       border-radius: 999px;
       transition: width .35s ease;
     }
-    /* Responsive — stack the layout vertically on narrower screens */
+    /* Responsive, stack the layout vertically on narrower screens */
     @media (max-width: 1100px) {
       .ph-cs-strip { flex-wrap: wrap; }
       .ph-cs-header { border-right: 0; padding-right: 0; max-width: none; flex: 1 1 100%; min-width: 0; padding-bottom: 6px; border-bottom: 1px solid rgba(165,204,233,.45); }
@@ -7290,7 +7290,7 @@
         border: none;
         box-shadow: none;
       }
-      /* Nav card — holds logo + navigation + daily streak section */
+      /* Nav card, holds logo + navigation + daily streak section */
       #auth-stats-lobby .ph-sidebar-nav-card {
         background: rgba(248,253,255,.94);
         backdrop-filter: blur(18px);
@@ -7304,7 +7304,7 @@
         flex: 1;
         min-height: 0;
       }
-      /* Fill the rest of the screen — no max-width cap on desktop. */
+      /* Fill the rest of the screen, no max-width cap on desktop. */
       #auth-stats-lobby .ph-wrap {
         flex: 1 1 auto;
         min-width: 0;
@@ -7441,7 +7441,7 @@
       box-shadow: 0 3px 12px rgba(220,130,40,.32);
     }
 
-    /* Physical Game — coming soon placeholder */
+    /* Physical Game, coming soon placeholder */
     .phst-physical-soon {
       display: flex; align-items: center; gap: 14px;
       background: linear-gradient(120deg, rgba(235,247,255,.85) 0%, rgba(224,238,255,.85) 100%);
@@ -7518,7 +7518,7 @@
     }
     .phst-card-buy:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
-    /* Exclusive Skins — square player-icon cards + per-group subheaders */
+    /* Exclusive Skins, square player-icon cards + per-group subheaders */
     .phst-subhead {
       font-size: .92rem; font-weight: 900; color: #1b6ba3;
       margin: 4px 0 12px; display: flex; align-items: center; gap: 7px;
@@ -7536,7 +7536,7 @@
       filter: drop-shadow(0 3px 6px rgba(20,70,110,.18));
     }
 
-    /* Seasonal — Coming Soon teaser cards */
+    /* Seasonal, Coming Soon teaser cards */
     .phst-card.phst-seasonal { position: relative; }
     .phst-seasonal .phst-card-img-wrap { position: relative; overflow: hidden; }
     .phst-seasonal .phst-card-img { filter: saturate(.7) brightness(.82); }
@@ -7589,7 +7589,7 @@
       box-shadow: 0 2px 8px rgba(220,110,40,.35);
     }
     .phst-coin-ico { font-size: 2rem; line-height: 1; }
-    /* Critter Coin image — replaces the 🪙 emoji everywhere in the store.
+    /* Critter Coin image, replaces the 🪙 emoji everywhere in the store.
        em-based so it scales with whatever text it sits beside. */
     .cc-coin {
       display: inline-block;
@@ -7612,9 +7612,9 @@
     }
     .phst-coin-buy:hover { filter: brightness(1.07); transform: translateY(-1px); }
 
-    /* (Store purchase/code modal removed — checkout is Stripe-hosted now.) */
+    /* (Store purchase/code modal removed, checkout is Stripe-hosted now.) */
 
-    /* Daily Streak — section at bottom of nav card, no separate card bg */
+    /* Daily Streak, section at bottom of nav card, no separate card bg */
     .ph-sidebar-streak {
       margin-top: 8px;
       padding-top: 10px;
@@ -7713,7 +7713,7 @@
     /* ── Mobile / tablet (< 1100px): show the REAL side menu ──────────
        The hamburger + bell top bar is gone. Instead the full sidebar
        (logo + navigation + Daily Streak) renders as a card stacked on
-       top of the content — the same parts as the desktop simulation,
+       top of the content, the same parts as the desktop simulation,
        just laid out to fit an iPhone / iPad / Android screen (scroll for
        more). Desktop (≥1100px) keeps the left-hand sidebar via the
        min-width:1100px block above; its #auth-stats-lobby-scoped rules
@@ -7856,7 +7856,7 @@
     #auth-stats-lobby[data-bg-tab="overview"]::after {
       content: none !important;
     }
-    /* Cards — frosted sea glass over the ocean art */
+    /* Cards, frosted sea glass over the ocean art */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="overview"] .ph-scard {
@@ -7877,11 +7877,11 @@
     #auth-stats-lobby[data-bg-tab="overview"] .ph-tab.active {
       background: rgba(240,252,255,0.90) !important;
     }
-    /* Action cards keep their vibrant gradient — no glassmorphism override */
+    /* Action cards keep their vibrant gradient, no glassmorphism override */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
       box-shadow: 0 8px 30px rgba(0,30,80,.22) !important;
     }
-    /* Stat grid container — nearly invisible so art shows between cells */
+    /* Stat grid container, nearly invisible so art shows between cells */
     #auth-stats-lobby[data-bg-tab="overview"] .ph-sg {
       background: rgba(160,225,255,0.08) !important;
     }
@@ -7909,7 +7909,7 @@
     #auth-stats-lobby[data-bg-tab="normal"]::after {
       content: none !important;
     }
-    /* Cards — warm sandy-cream frosted glass matching the pier's peach tones */
+    /* Cards, warm sandy-cream frosted glass matching the pier's peach tones */
     #auth-stats-lobby[data-bg-tab="normal"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="normal"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="normal"] .ph-scard {
@@ -7963,7 +7963,7 @@
     #auth-stats-lobby[data-bg-tab="competitive"]::after {
       content: none !important;
     }
-    /* Cards — icy blue frosted glass; enough opacity for dark text on mid-blue bg */
+    /* Cards, icy blue frosted glass; enough opacity for dark text on mid-blue bg */
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="competitive"] .ph-scard {
@@ -8017,7 +8017,7 @@
     #auth-stats-lobby[data-bg-tab="history"]::after {
       content: none !important;
     }
-    /* Cards — light lavender frosted glass so text stays readable on the dark bg */
+    /* Cards, light lavender frosted glass so text stays readable on the dark bg */
     #auth-stats-lobby[data-bg-tab="history"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="history"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="history"] .ph-scard {
@@ -8071,7 +8071,7 @@
     #auth-stats-lobby[data-bg-tab="friends"]::after {
       content: none !important;
     }
-    /* Cards — frosted glass tinted to the green/teal underwater palette */
+    /* Cards, frosted glass tinted to the green/teal underwater palette */
     #auth-stats-lobby[data-bg-tab="friends"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="friends"] .ph-scard {
@@ -8122,7 +8122,7 @@
     #auth-stats-lobby[data-bg-tab="achievements"]::after {
       content: none !important;
     }
-    /* Cards — crisp white-cyan frosted glass over the vivid coral scene */
+    /* Cards, crisp white-cyan frosted glass over the vivid coral scene */
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="achievements"] .ph-scard {
@@ -8229,7 +8229,7 @@
     #auth-stats-lobby[data-bg-tab="store"]::after {
       content: none !important;
     }
-    /* Cards — frosted glass tinted to the turquoise/coral/lavender palette */
+    /* Cards, frosted glass tinted to the turquoise/coral/lavender palette */
     #auth-stats-lobby[data-bg-tab="store"] .ph-profile-card,
     #auth-stats-lobby[data-bg-tab="store"] .ph-stats-card,
     #auth-stats-lobby[data-bg-tab="store"] .ph-scard {
@@ -8716,7 +8716,7 @@
     #ph-panel-overview .ph-stats-card {
       min-height: 0;
     }
-    /* Quick Stats: 5 wide × 3 tall — matches reference image layout */
+    /* Quick Stats: 5 wide × 3 tall, matches reference image layout */
     #ph-panel-overview .ph-sg {
       grid-template-columns: repeat(5, minmax(0, 1fr));
       grid-auto-rows: 1fr;
@@ -8803,13 +8803,13 @@
       #auth-stats-lobby #ph-panel-overview .ph-sc-string .ph-scv {
         font-size: clamp(1.1rem, 1.25vw, 1.4rem);
       }
-      /* Action cards — full-height colorful cards on desktop */
+      /* Action cards, full-height colorful cards on desktop */
       #auth-stats-lobby .ph-actions { gap: 16px; }
       #auth-stats-lobby[data-bg-tab="overview"] .ph-action-card {
         height: 195px;
         padding: 18px 20px 20px;
       }
-      /* Profile header — roomier */
+      /* Profile header, roomier */
       #auth-stats-lobby[data-bg-tab="overview"] .ph-profile-card {
         padding: 22px 28px;
       }
@@ -8819,7 +8819,7 @@
       }
       /* Quick Stats section title bigger */
       #auth-stats-lobby .ph-stats-title { font-size: 1.4rem; }
-      /* Daily challenge strip cards — larger */
+      /* Daily challenge strip cards, larger */
       #auth-stats-lobby .ph-cs-cards { gap: 14px; }
     }
 
@@ -9432,7 +9432,7 @@
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
 
-    /* Music volume slider — themed to match the aquatic UI */
+    /* Music volume slider, themed to match the aquatic UI */
     .settings-slider-wrap {
       display: flex; align-items: center; gap: 10px; flex: 1;
     }
@@ -9722,7 +9722,7 @@
       margin-bottom: 4px;
     }
     .sc-dow span { font-size: .56rem; font-weight: 800; color: #8aa8c8; width: 100%; text-align: center; }
-    /* Days grid — no gap so trail bridges connect flush between cells */
+    /* Days grid, no gap so trail bridges connect flush between cells */
     .sc-days {
       display: grid; grid-template-columns: repeat(7, 1fr);
       gap: 0; justify-items: center; align-items: center;
@@ -10467,7 +10467,7 @@
     }
     .ph-help-title { font-size: 1.32rem; font-weight: 900; color: #0d3a78; line-height: 1.1; }
     .ph-help-sub { font-size: .86rem; font-weight: 700; color: #3f78bb; margin-top: 3px; }
-    /* Three tappable cards — each opens its own Google Form in a new tab */
+    /* Three tappable cards, each opens its own Google Form in a new tab */
     .ph-help-cards { display: flex; flex-direction: column; gap: 11px; }
     .ph-help-card {
       display: flex; align-items: center; gap: 13px; text-decoration: none;
@@ -11382,7 +11382,7 @@
       margin-bottom: 18px; transition: background .15s;
     }
     .pub-back-btn:hover { background: rgba(38,128,200,.22); }
-    /* Public profile card — reuses the real .ph-profile-card design, trimmed to
+    /* Public profile card, reuses the real .ph-profile-card design, trimmed to
        3 columns (avatar | info | ranks) since it has no alpha-banner/actions. */
     .pub-profile-card { grid-template-columns: auto minmax(160px, 1fr) auto; margin-bottom: 14px; }
     button.pub-avatar-btn.ph-avatar {
@@ -11441,21 +11441,21 @@
       }
       #auth-stats-lobby .ph-avatar { flex: 0 0 auto; align-self: center; }
       #auth-stats-lobby .ph-pinfo  { flex: 1 1 260px; min-width: 0; align-self: center; }
-      /* Level + Competitive — sits in the top row, right of the name */
+      /* Level + Competitive, sits in the top row, right of the name */
       #auth-stats-lobby .ph-pranks {
         flex: 0 1 auto;
         width: auto;
         max-width: 400px;
         align-self: center;
       }
-      /* Message + Sign Out — pinned to the far right of the top row */
+      /* Message + Sign Out, pinned to the far right of the top row */
       #auth-stats-lobby #stats-lobby-signed-actions {
         order: 1;
         flex: 0 0 auto;
         align-self: center;
         justify-content: flex-end;
       }
-      /* ALPHA · "latest version" · What's New — full-width bar along the bottom,
+      /* ALPHA · "latest version" · What's New, full-width bar along the bottom,
          laid out wide-ways underneath the XP / Streak chips */
       #auth-stats-lobby .ph-alpha-banner {
         order: 2;
@@ -11469,7 +11469,7 @@
         padding: 11px 18px;
       }
       #auth-stats-lobby .ph-alpha-banner .ph-alpha-msg { line-height: 1.2; }
-      /* Show the player's full name — wrap instead of clipping with an ellipsis */
+      /* Show the player's full name, wrap instead of clipping with an ellipsis */
       #auth-stats-lobby .ph-pname {
         white-space: normal;
         overflow: visible;
@@ -11509,7 +11509,7 @@
     }
 
     /* ══════════════════════════════════════════════════════════════════
-       TEAM MODE — lobby columns, swap popup, end-game reveal
+       TEAM MODE, lobby columns, swap popup, end-game reveal
        ══════════════════════════════════════════════════════════════════ */
     .wr-teams {
       display: grid; gap: 10px; width: 100%; margin-top: 6px;
@@ -11666,7 +11666,7 @@
     .tr-continue.show { opacity: 1; pointer-events: auto; }
     .tr-continue:hover { filter: brightness(1.08); }
 
-    /* ══ SECURE TRADE — Trade buttons in DM headers ══════════════════ */
+    /* ══ SECURE TRADE, Trade buttons in DM headers ══════════════════ */
     /* Only shown in a 1-on-1 DM (never group / room chat). */
     .pvc-trade-btn, .ccm-trade-btn {
       display: inline-flex; align-items: center; gap: 4px;
@@ -11688,7 +11688,7 @@
       100% { box-shadow: 0 0 0 0 rgba(240,200,64,0); }
     }
 
-    /* ══ SECURE TRADE — full-screen overlay ══════════════════════════ */
+    /* ══ SECURE TRADE, full-screen overlay ══════════════════════════ */
     #cc-trade-overlay {
       position: fixed; inset: 0; z-index: 9800;
       display: none; align-items: center; justify-content: center;

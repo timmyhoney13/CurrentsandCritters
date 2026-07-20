@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * apply_history_learning.js — Force the AI to learn from all saved games.
+ * apply_history_learning.js, Force the AI to learn from all saved games.
  *
  * WHAT IT DOES:
  *   Calls /api/admin/learn_from_history on the Render server, which:
  *   1. Reads every game-history JSON on the server's persistent disk
  *   2. Reconstructs each game's board layout into a synthetic GameState
  *   3. Runs the full AI learning pipeline:
- *        update_brain_from_match    — card synergies, winner vs loser patterns
- *        update_strategy_memory     — strategy-move sequences
- *        reinforce_human_demo_from_board — board-card synergy reinforcement
+ *        update_brain_from_match   : card synergies, winner vs loser patterns
+ *        update_strategy_memory    : strategy-move sequences
+ *        reinforce_human_demo_from_board: board-card synergy reinforcement
  *   4. Games from TheFishManTim (and any priority player) get 5× boost
  *   5. High-scoring leaderboard-quality games (optional min_score filter)
  *   6. Saves the updated brain (fish_ai_brain.json) on the server

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Supporter Wall — Admin Review</title>
+<title>Supporter Wall, Admin Review</title>
 <style>
   :root{ --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
   *{box-sizing:border-box}
@@ -46,7 +46,7 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>🛠️ Supporter Wall — Admin Review</h1>
+    <h1>🛠️ Supporter Wall, Admin Review</h1>
     <div class="links" style="margin-bottom:6px">
       <a href="/supporter-wall">Public wall ↗</a>
       <a href="/">Game ↗</a>
@@ -79,7 +79,7 @@
 
   function rowHtml(s){
     var size = s.wallSize ? (" · "+esc(s.wallSize)) : "";
-    var tier = s.tier ? esc(s.tier) : "—";
+    var tier = s.tier ? esc(s.tier) : "-";
     return ''+
       '<div class="row" data-kind="'+esc(s.kind)+'" data-id="'+esc(s.id)+'">'+
         '<div>'+

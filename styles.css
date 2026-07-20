@@ -1,5 +1,5 @@
 /* ============================================================
-   CURRENTS & CRITTERS — Landing Page Styles
+   CURRENTS & CRITTERS, Landing Page Styles
    Polished, tighter version of the marketing site.
    ============================================================ */
 
@@ -34,7 +34,7 @@ body.motion-subtle .cloud { animation-duration: 120s !important; opacity: 0.85 !
 body.motion-subtle .seagull { animation-duration: 90s !important; }
 
 /* ============================================================
-   TOP NAV — floating pill (lighter than reference dark bar)
+   TOP NAV, floating pill (lighter than reference dark bar)
    ============================================================ */
 .nav {
   position: fixed;
@@ -167,7 +167,7 @@ body.motion-subtle .seagull { animation-duration: 90s !important; }
 .btn-lg { padding: 16px 28px; font-size: 16px; }
 
 /* ============================================================
-   HERO — Sky → Beach
+   HERO, Sky → Beach
    ============================================================ */
 .hero {
   position: relative;
@@ -335,7 +335,7 @@ body.motion-subtle .seagull { animation-duration: 90s !important; }
 .hero-hand .card:nth-child(5) { transform: rotate(9deg) translateY(14px); }
 .hero-hand .card:hover { transform: translateY(-18px) rotate(0) scale(1.08); z-index: 10; }
 
-/* horizon — beach band */
+/* horizon, beach band */
 .horizon {
   position: relative;
   height: 90px;
@@ -546,7 +546,7 @@ body.motion-subtle .seagull { animation-duration: 90s !important; }
 }
 
 /* ============================================================
-   HOW TO PLAY — detailed rules layout
+   HOW TO PLAY, detailed rules layout
    ============================================================ */
 .rules-subhead {
   text-align: center;
@@ -1499,7 +1499,7 @@ body.motion-none .cloud, body.motion-none .seagull, body.motion-none .snap-scanl
 
 
 /* ============================================================
-   PEOPLE WHO CARE — full-bleed backers banner (underwater wall)
+   PEOPLE WHO CARE, full-bleed backers banner (underwater wall)
    Spans the entire viewport width, edge to edge.
    ============================================================ */
 .people-care {

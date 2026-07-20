@@ -1,5 +1,5 @@
 /* ================================================================
-   * Currents & Critters — multiplayer client
+   * Currents & Critters, multiplayer client
    * Gameplay: fish_game_all_in_one.py + multiplayer_server.py
    * ================================================================ */
 
@@ -24,9 +24,9 @@
   // masked with asterisks; offensive nicknames are rejected outright. Two match
   // modes (kept in sync with _censor_profanity in multiplayer_server.py, which
   // re-filters chat server-side so a swear can never reach another player):
-  //   • STRONG roots — matched ANYWHERE, tolerant of leetspeak, repeated
+  //   • STRONG roots, matched ANYWHERE, tolerant of leetspeak, repeated
   //     letters and separator evasion (f u c k, f-u-c-k, f*u*c*k, sh1t, phuck…).
-  //   • WORD roots — short words that also live inside innocent words (ass in
+  //   • WORD roots, short words that also live inside innocent words (ass in
   //     "class", cock in "peacock"), matched ONLY as a whole word (avoids the
   //     "Scunthorpe problem").
   const CC_PROFANITY = (function () {
@@ -68,81 +68,81 @@
     return { hasProfanity, clean };
   })();
 
-  // Quick changelog shown in the "What's New" modal — newest first.
+  // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
     { ver: "V1.6.5", title: "No more “not your turn” surprises", items: [
-      "You can no longer stage a play while another player is up and then get hit with a “Failed: not your turn” — the game now nudges you to wait for your turn before anything is sent, so setup is never wasted.",
+      "You can no longer stage a play while another player is up and then get hit with a “Failed: not your turn”, the game now nudges you to wait for your turn before anything is sent, so setup is never wasted.",
       "Double-checked the deck: every game is dealt from a fresh, fully-shuffled deck (verified even and unbiased over tens of thousands of test deals).",
     ]},
     { ver: "V1.6.5", title: "Sign-in stays your account", items: [
-      "Fixed a bug where agreeing to the Terms could drop you into a guest “Player” instead of your own account — signing in now always keeps you in your account.",
+      "Fixed a bug where agreeing to the Terms could drop you into a guest “Player” instead of your own account, signing in now always keeps you in your account.",
     ]},
     { ver: "V1.6.5", title: "Exclusive Skins in the Store", items: [
-      "New Exclusive Skins section in the Store (right under Critter Coins) — special seasonal player icons you can buy with 2,000 Critter Coins each.",
-      "Three Summer Skins to start — a beach-day Gull, a shady Hermit Crab and a surfing Goby — plus a separate 4th of July skin under its own header.",
-      "Once you buy a skin it lands in your Avatar Gallery. Equip it there and everyone sees it on your seat in-game — but only while it's equipped.",
+      "New Exclusive Skins section in the Store (right under Critter Coins), special seasonal player icons you can buy with 2,000 Critter Coins each.",
+      "Three Summer Skins to start, a beach-day Gull, a shady Hermit Crab and a surfing Goby, plus a separate 4th of July skin under its own header.",
+      "Once you buy a skin it lands in your Avatar Gallery. Equip it there and everyone sees it on your seat in-game, but only while it's equipped.",
     ]},
     { ver: "V1.6.4", title: "The tide rolls in", items: [
-      "When the Pool fills up and clears, a wave now sweeps in from the left and washes every card out to sea — a little ocean flourish for a big moment.",
+      "When the Pool fills up and clears, a wave now sweeps in from the left and washes every card out to sea, a little ocean flourish for a big moment.",
     ]},
     { ver: "V1.6.4", title: "Sign-in, avatars & turn order fixes", items: [
-      "Signing into your account after agreeing to the Terms no longer drops you into a guest “Player” — you go straight into your account, no second sign-in.",
+      "Signing into your account after agreeing to the Terms no longer drops you into a guest “Player”, you go straight into your account, no second sign-in.",
       "Every player now shows their own correct avatar and background in-game (a mix-up was putting the wrong icon on the wrong seat).",
       "Turn order now starts from a random player but then goes in order around the table, instead of jumping around.",
     ]},
     { ver: "V1.6.4", title: "Everyone agrees to the Terms", items: [
-      "Everyone with an account now agrees to our Terms and Agreement. If you made your account before this was added, you'll be asked to read and agree once the next time you sign in — after that you won't be asked again.",
+      "Everyone with an account now agrees to our Terms and Agreement. If you made your account before this was added, you'll be asked to read and agree once the next time you sign in, after that you won't be asked again.",
       "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
     ]},
     { ver: "V1.6.4", title: "Keeping chat friendly", items: [
       "Swear words in chat are now automatically hidden behind asterisks, so no one can send bad language to each other.",
-      "Nicknames are checked too — you can no longer pick an offensive name when you sign up or dive in as a guest.",
+      "Nicknames are checked too, you can no longer pick an offensive name when you sign up or dive in as a guest.",
     ]},
     { ver: "V1.6.4", title: "Terms & Agreement on sign-up", items: [
-      "Creating an account for the first time, or diving in as a guest, now shows our Terms and Agreement — scroll to the bottom to read it all, then tap “I Agree & Consent to the Terms” to continue.",
+      "Creating an account for the first time, or diving in as a guest, now shows our Terms and Agreement, scroll to the bottom to read it all, then tap “I Agree & Consent to the Terms” to continue.",
       "You can re-read the full Terms and Agreement any time from Settings → Terms & Agreement.",
     ]},
     { ver: "V1.6.4", title: "Instant join + randomized turn order", items: [
-      "Joining a game no longer asks you to pick a seat — tap Join and you're dropped straight into the current.",
+      "Joining a game no longer asks you to pick a seat, tap Join and you're dropped straight into the current.",
       "Turn order is now shuffled fresh every casual game, so the host doesn't always go first and no one has a fixed spot in the rotation.",
     ]},
-    { ver: "V1.6.3", title: "New Team Mode — play in teams", items: [
+    { ver: "V1.6.3", title: "New Team Mode, play in teams", items: [
       "Create Game → set Mode to 🤝 Team to play a normal game split into teams. It starts as Red vs Blue, and you can open up to four teams (Red, Blue, Green, Yellow).",
-      "In the coral lobby, tap a team to hop onto it, or tap another player to ask them to swap teams — they get a pop-up to accept or decline. Everyone starts split evenly.",
-      "Seats are shuffled so teammates are spread as far apart as possible in turn order — no fixed seating, so there's no planning around it.",
+      "In the coral lobby, tap a team to hop onto it, or tap another player to ask them to swap teams, they get a pop-up to accept or decline. Everyone starts split evenly.",
+      "Seats are shuffled so teammates are spread as far apart as possible in turn order, no fixed seating, so there's no planning around it.",
       "When the game ends, each team's scores are added together and revealed worst-to-best for suspense, then everyone's names appear. You still earn achievements, and score-based ones count only your own points.",
     ]},
     { ver: "V1.6.3", title: "See how you earned every critter avatar", items: [
-      "The Avatar Gallery now shows how you unlocked each critter you already own — open any unlocked avatar and a \"How You Unlocked It\" note explains exactly what you did to earn it (not just how to get the ones you're still missing).",
+      "The Avatar Gallery now shows how you unlocked each critter you already own, open any unlocked avatar and a \"How You Unlocked It\" note explains exactly what you did to earn it (not just how to get the ones you're still missing).",
       "When a new critter avatar pops up as you unlock it, the celebration now also tells you \"How you earned it\" right on the popup.",
     ]},
     { ver: "V1.6.3", title: "Settings inside the game + a music volume slider", items: [
-      "You can now open Settings without leaving a game — it's in the in-game Menu (☰) as its own \"⚙️ Settings\" item, so you can tweak things mid-match.",
-      "The Music on/off switch is now a volume slider — drag it anywhere from Off to 100%. Your choice is saved and applies instantly, even to music that's already playing.",
+      "You can now open Settings without leaving a game, it's in the in-game Menu (☰) as its own \"⚙️ Settings\" item, so you can tweak things mid-match.",
+      "The Music on/off switch is now a volume slider, drag it anywhere from Off to 100%. Your choice is saved and applies instantly, even to music that's already playing.",
       "Gave the Settings panel a fresh, on-theme look to match the rest of the game.",
     ]},
     { ver: "V1.6.3", title: "Critter Coins in the Store", items: [
-      "Introduced Critter Coins — the in-game currency, priced at $1 = 1,000 coins. Buy coin packs with an escalating bonus: $5 → 5,250 (+5%), $10 → 11,500 (+15%), $20 → 25,000 (+25%, best value).",
+      "Introduced Critter Coins, the in-game currency, priced at $1 = 1,000 coins. Buy coin packs with an escalating bonus: $5 → 5,250 (+5%), $10 → 11,500 (+15%), $20 → 25,000 (+25%, best value).",
       "Every shop item now shows its Critter Coin price: backgrounds are 1,000 coins ($1.00) each, the All Backgrounds bundle is 4,990 coins ($4.99), and seasonal skins will be 2,500 coins ($2.50).",
     ]},
     { ver: "V1.6.3", title: "Help & Feedback button", items: [
       "Added a Help & Feedback button in the top-right corner (next to the chat icon) that opens a friendly tide-pool themed panel.",
-      "Pick Ask a Question, Report a Bug or Suggest an Idea — each opens a quick form and your answers come straight to the Currents & Critters team.",
+      "Pick Ask a Question, Report a Bug or Suggest an Idea, each opens a quick form and your answers come straight to the Currents & Critters team.",
     ]},
     { ver: "V1.6.3", title: "End Game: everyone really gets their final turn", items: [
-      "Fixed a bug where the player who drew the END GAME card (on the second of their two draws) could be skipped and never get their own final turn — now every player, including the one who revealed it, always gets one full final turn.",
+      "Fixed a bug where the player who drew the END GAME card (on the second of their two draws) could be skipped and never get their own final turn, now every player, including the one who revealed it, always gets one full final turn.",
     ]},
     { ver: "V1.6.3", title: "Daily & Weekly challenge tracking fixes", items: [
-      "Fixed the Pool-based challenges so they credit the right player — challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
+      "Fixed the Pool-based challenges so they credit the right player, challenges like Deny the Setup, Stolen Setup, Set It Up and Pool Cleaner now track correctly when a card is taken right after an opponent discards it.",
     ]},
     { ver: "V1.6.3", title: "Dedicated Quick Play lobbies", items: [
-      "The main menu now leads with four cards — Quick Match, Create Game, Join Game and Tutorial — each with its own colour and critter.",
+      "The main menu now leads with four cards, Quick Match, Create Game, Join Game and Tutorial, each with its own colour and critter.",
       "Quick Play now matches only with other Quick Play players. The first player can keep using the home screen while searching; once a second player joins, both enter the same four-spot lobby.",
       "The host can choose 2, 3 or 4 human spots, fill every remaining spot with a bot, set each bot to Easy, Medium or Hard, chat with the lobby, and start manually when all selected human spots are filled.",
-      "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format — just press the button to go.",
+      "Competitive is now a Mode toggle on the Create Game setup screen (next to Privacy): switch it to ⚔️ Competitive and the match settings lock to the ranked 1v1 format, just press the button to go.",
     ]},
     { ver: "V1.6.2", title: "New card back + cleaner deck", items: [
-      "Every face-down card now shows the new \"Currents and Critters\" card-back artwork — the deck pile, opponents' hidden hands, the draw flip animation, the tutorial deck and the classic mode, everywhere.",
+      "Every face-down card now shows the new \"Currents and Critters\" card-back artwork, the deck pile, opponents' hidden hands, the draw flip animation, the tutorial deck and the classic mode, everywhere.",
       "The deck pile shows the card-back art with the card count next to it instead of a number printed on the card.",
       "Hover over the deck and a little popup tells you exactly how many cards are left to draw.",
     ]},
@@ -152,26 +152,26 @@
       "One finger still drags and taps cards exactly as before, and computer play is unchanged.",
     ]},
     { ver: "V1.6.2", title: "Mobile home screen now matches the computer", items: [
-      "The phone home screen now shows the full side menu — Overview, Casual, Competitive, History, Friends, Achievements, Leaderboard, Store and Settings — plus the Daily Streak panel, exactly like the computer, just stacked to fit your screen (scroll for more).",
-      "Removed the leftover menu (≡) and notification bell icons from the top corners — on both computer and mobile.",
+      "The phone home screen now shows the full side menu, Overview, Casual, Competitive, History, Friends, Achievements, Leaderboard, Store and Settings, plus the Daily Streak panel, exactly like the computer, just stacked to fit your screen (scroll for more).",
+      "Removed the leftover menu (≡) and notification bell icons from the top corners, on both computer and mobile.",
     ]},
     { ver: "V1.6.2", title: "Mobile now opens the real home screen", items: [
-      "Signing in on a phone used to drop you on a stripped-down lobby page instead of the main home screen. Mobile now opens the exact same home screen as computer — your profile, stats, Create Game, Browse and the rest.",
+      "Signing in on a phone used to drop you on a stripped-down lobby page instead of the main home screen. Mobile now opens the exact same home screen as computer, your profile, stats, Create Game, Browse and the rest.",
       "On a phone the game simply plays right here in your browser tab (no separate game window to open), and you still drag and tap with your finger.",
     ]},
     { ver: "V1.6.2", title: "Choose your device", items: [
-      "Added a \"Choose Your Device\" screen — the very first thing you see when you open the game. Pick Computer or Mobile (left side / right side) before diving in.",
+      "Added a \"Choose Your Device\" screen, the very first thing you see when you open the game. Pick Computer or Mobile (left side / right side) before diving in.",
       "Computer keeps the classic mouse drag-and-drop. Mobile turns on touch controls so you can drag cards with your finger, and tapping to place still works.",
       "Your choice is remembered for the session, so you only pick once per visit.",
     ]},
     { ver: "V1.6.2", title: "Hermit Crab avatar unlocks the right way", items: [
-      "Fixed the Hermit Crab avatar being awarded when it shouldn't — it used to unlock just for finishing a game with a Hermit Crab and six Bait Fish sitting on your board, even if those baitfish were played across many turns and you never used the Hermit Crab's ability.",
+      "Fixed the Hermit Crab avatar being awarded when it shouldn't, it used to unlock just for finishing a game with a Hermit Crab and six Bait Fish sitting on your board, even if those baitfish were played across many turns and you never used the Hermit Crab's ability.",
       "It now unlocks only the intended way: playing six Bait Fish in a single turn using the Hermit Crab's free-baitfish ability (in a 4+ player game).",
     ]},
     { ver: "V1.6.1", title: "Profile polish, badge fix & Story Unlocks", items: [
       "Reorganized the profile card: your name now sits at the top, with your Level and Competitive rank above the version / What's New box.",
-      "Fixed a strategy label showing up on the wrong card in your hand — when you pick a strategy, the badge now lands on the exact card it belongs to (placing it on the board was always correct).",
-      "Fixed the title theme song occasionally doubling up and sounding out of sync after a reconnect — it now plays as a single clean track.",
+      "Fixed a strategy label showing up on the wrong card in your hand, when you pick a strategy, the badge now lands on the exact card it belongs to (placing it on the board was always correct).",
+      "Fixed the title theme song occasionally doubling up and sounding out of sync after a reconnect, it now plays as a single clean track.",
       "New \"Story Unlocks\" filter in the Avatar Gallery that gathers the story / easter-egg critters in order, while keeping each of them in their usual species sections too.",
     ]},
     { ver: "V1.5.9", title: "Louder theme song", items: [
@@ -183,75 +183,75 @@
     ]},
     { ver: "V1.5.7", title: "Away players never auto-draw cards", items: [
       "Fixed a bug where the game could automatically draw cards for a player who was away, AFK, disconnected, or just not responding when their turn timer ran out.",
-      "Now an away player's turn simply waits — no cards are ever drawn for them automatically.",
+      "Now an away player's turn simply waits, no cards are ever drawn for them automatically.",
       "The only way an away player draws is when the other players vote them AFK (type \"<name> is AFK\" in chat); a passed vote makes them draw 2 and pass, exactly as before.",
     ]},
     { ver: "V1.5.5", title: "Start chats and groups by just typing names", items: [
-      "The chat list now has a search bar instead of a ＋ button — type a player's name and pick them to open your chat with them.",
+      "The chat list now has a search bar instead of a ＋ button, type a player's name and pick them to open your chat with them.",
       "Keep adding names to start a group chat. As you add people, any existing chat with exactly those players shows up so you can jump straight back into it.",
-      "Open a group and tap its name at the top to rename it — everyone in the group sees a note saying you changed the name.",
+      "Open a group and tap its name at the top to rename it, everyone in the group sees a note saying you changed the name.",
       "Works the same in the in-game chat and the menu's Friend Messages.",
     ]},
     { ver: "V1.5.2", title: "Undo now works during bot turns", items: [
-      "Fixed the Undo Turn button doing nothing when you pressed it while the bots were taking their turns — it now reliably puts your cards back and replays your turn, exactly as the button promises.",
+      "Fixed the Undo Turn button doing nothing when you pressed it while the bots were taking their turns, it now reliably puts your cards back and replays your turn, exactly as the button promises.",
       "Your hand, the deck and the End Game card all revert to precisely how they were when your turn started, so re-drawing gives you the same cards (no reroll) and the game can't end early.",
       "The button now dims briefly while an undo is being applied, so a double-tap can't fire it twice.",
     ]},
     { ver: "V1.5.1", title: "Live profile icons + smarter engine turns", items: [
-      "Changing your profile/character icon now updates instantly for everyone — your own profile, other players' views, friends, lobbies and in-game seats — with no stale or cached icon left behind.",
+      "Changing your profile/character icon now updates instantly for everyone, your own profile, other players' views, friends, lobbies and in-game seats, with no stale or cached icon left behind.",
       "The Loggerhead Sea Turtle now ends its turn once there's nothing left to play, instead of paying to dump oceans it doesn't need (matching the Hermit Crab's baitfish chain).",
     ]},
     { ver: "V1.4.9", title: "Challenge XP, achievement fixes & streamlined weeklies", items: [
-      "Daily and Weekly Challenges now pay out their XP the moment you complete them — that XP counts toward your level.",
+      "Daily and Weekly Challenges now pay out their XP the moment you complete them, that XP counts toward your level.",
       "Weekly Challenges are now a focused set of 3 per week (down from 5). Finish all 3 to earn the Weekly Tide Sweep (1,500 XP).",
-      "Fixed challenges and achievements that you could complete but that never unlocked — including Good Sport (say “good game” after the End Game card appears).",
+      "Fixed challenges and achievements that you could complete but that never unlocked, including Good Sport (say “good game” after the End Game card appears).",
       "Strategy-win achievements (Mammal Pod Master, B-Lob, Coral-B and friends) now track every win the game scores as that strategy, so your progress always counts.",
       "Off-Meta Week and Off-Meta Master now track using Randomize with 2+ strategies in your in-game Strategy Builder.",
     ]},
     { ver: "V1.4.6", title: "Launch into a full-screen game window", items: [
-      "Signing in now opens the game in its own dedicated window — not just another browser tab.",
+      "Signing in now opens the game in its own dedicated window, not just another browser tab.",
       "The game window greets you with a “▶ Play Full Screen” launch screen so it opens chrome-free and full screen, just like starting a game from Steam.",
       "If you ever drop out of full screen, a quick “return to full screen” tap brings it right back so the game stays full screen.",
     ]},
     { ver: "V1.4.4", title: "Cleaner Strategies screen + fixes", items: [
       "The Strategies screen now fills the whole page, and each strategy shows its critter portrait from the Avatar Gallery so the plans are easy to tell apart at a glance.",
       "The Strategies screen is reorganised into three clear steps: 1) Choose Your Core Strategy, 2) Your Selected Strategy(ies), and 3) Suggested Combos.",
-      "Combo strategies no longer clutter the main grid — pick one or more core strategies and we suggest the combos that pair best, prioritising ones that connect what you picked.",
+      "Combo strategies no longer clutter the main grid, pick one or more core strategies and we suggest the combos that pair best, prioritising ones that connect what you picked.",
       "Each core strategy now shows a featured critter so it's easy to scan, plus a clear selected state with a checkmark. Create Your Own Strategy lives right beside your selections.",
       "Friends fix: when someone accepts your request, the friendship now saves on both sides and sticks after you sign out and back in.",
       "Fixed discarding to the pool, and the in-game challenge panel now steps aside when you open the 💡 Help screen.",
     ]},
     { ver: "V1.4.0", title: "Full public profiles", items: [
-      "Tapping another player's profile now opens a full public profile that matches your own Player Home design — their avatar, name, friend code, level with XP bar, Total XP, daily streak, competitive rank, and the same Quick Stats grid.",
-      "Tap their avatar to view their critter collection (view-only — you can see what they've unlocked but can't change anything).",
+      "Tapping another player's profile now opens a full public profile that matches your own Player Home design, their avatar, name, friend code, level with XP bar, Total XP, daily streak, competitive rank, and the same Quick Stats grid.",
+      "Tap their avatar to view their critter collection (view-only, you can see what they've unlocked but can't change anything).",
       "All of it shows the selected player's real data and never touches your own account, avatars, or unlocks.",
     ]},
     { ver: "V1.3.9", title: "Profile viewing, payments & layout fixes", items: [
-      "Viewing another player's profile is now strictly look-only — it can never add their avatars to your account or pop fake “unlock!” messages. Your own avatars, icons, stats, and unlocks stay exactly as you earned them.",
+      "Viewing another player's profile is now strictly look-only, it can never add their avatars to your account or pop fake “unlock!” messages. Your own avatars, icons, stats, and unlocks stay exactly as you earned them.",
       "Their Avatar Gallery opens view-only: you can see what they've unlocked, but can't equip, claim, or change anything.",
-      "Playing a ★ card without a matching symbol now asks “play without the star ability?” instead of erroring — and a rejected play never auto-draws or wastes your turn.",
+      "Playing a ★ card without a matching symbol now asks “play without the star ability?” instead of erroring, and a rejected play never auto-draws or wastes your turn.",
       "Your hand cards no longer overlap the player panels when you're holding a lot of cards.",
       "Surf's Up: your “🌊 Away” badge now appears and clears the moment you toggle it.",
     ]},
     { ver: "V1.3.8", title: "Straight into a full-screen game window", items: [
-      "Signing in now drops you straight into the game in its own full-screen window — no extra “Open Game” screen to click through. The sign-in tab stays put behind it.",
+      "Signing in now drops you straight into the game in its own full-screen window, no extra “Open Game” screen to click through. The sign-in tab stays put behind it.",
       "When you click an Ocean drop zone or a side of an Ocean to play a card, the card choices now show up much bigger and easier to see.",
-      "Cards that have a ★ ability no longer get a second tiny star stamped in the corner — the star on the card art is enough.",
+      "Cards that have a ★ ability no longer get a second tiny star stamped in the corner, the star on the card art is enough.",
       "Every game now shuffles from a fresh, truly random deck.",
     ]},
     { ver: "V1.3.5", title: "Board size, in-game challenges & game window", items: [
-      "New in-game Board Size + / − buttons (or just press +, =, or −) zoom the board in and out — no need for Ctrl/Cmd +/− anymore.",
+      "New in-game Board Size + / − buttons (or just press +, =, or −) zoom the board in and out, no need for Ctrl/Cmd +/− anymore.",
       "Daily & Weekly Challenges now show right inside the game on the lower-left. Minimize it, or tap the header/calendar to switch Daily ↔ Weekly. Progress updates live as you play.",
       "The game now opens in its own full window, so the sign-in/menu page stays where it is.",
-      "Undo Turn is now a true back button — it fully clears a staged play, so you're never charged twice or left with an animal half-placed.",
+      "Undo Turn is now a true back button, it fully clears a staged play, so you're never charged twice or left with an animal half-placed.",
       "Friend requests now have bigger Accept/Decline buttons and update in real time.",
       "Fixed a rare bug that could wipe a player's stats, and stopped a normal 4-player (0-AI) game from being mislabeled as Competitive.",
     ]},
     { ver: "V1.3.5", title: "AFK & Surf's Up overhaul", items: [
       "The AFK “Are you still here?” check is now 20 seconds.",
-      "Report a quiet player by typing “P3 is AFK”, “P3 afk”, “P3 is away”, or “P3 away” — capitals don't matter, and names work too.",
+      "Report a quiet player by typing “P3 is AFK”, “P3 afk”, “P3 is away”, or “P3 away”, capitals don't matter, and names work too.",
       "Players drawn for while away keep their cards up to 20 instead of being forced down to 10, so they come back to a fuller hand.",
-      "Surf's Up now fully pauses you — you can't make a move until you tap “I'm Back”.",
+      "Surf's Up now fully pauses you, you can't make a move until you tap “I'm Back”.",
       "Removed the automatic 5-minute idle timer; only chat AFK votes flag a player now.",
       "Expanded the in-game tutorial to walk through all of it.",
     ]},
@@ -271,8 +271,8 @@
   // Returns the object-position value so the board card naturally shows
   // only the played face.  The full image contains both animals; cover+position
   // crops to the correct half without any distortion.
-  // horizontal_cards (1-96): images are STACKED top/bottom — odd uid = top face (Up), even = bottom face (Down).
-  // vertical_cards (101-188): images are SIDE-BY-SIDE left/right — odd uid = left face (Left), even = right face (Right).
+  // horizontal_cards (1-96): images are STACKED top/bottom, odd uid = top face (Up), even = bottom face (Down).
+  // vertical_cards (101-188): images are SIDE-BY-SIDE left/right, odd uid = left face (Left), even = right face (Right).
   function cardHalfPos(faceUid) {
     let u = Number(faceUid);
     if (u >= 1000000) u = u % 1000;   // admin-minted copy → original art face (uid = serial*1000 + face)
@@ -290,14 +290,14 @@
     return "";
   }
 
-  // Current Controller (admin) — visual card tiles in the mod viewers.
+  // Current Controller (admin), visual card tiles in the mod viewers.
   // Returns the sprite-sheet URL plus which half of the sheet holds this face,
   // so a tile can crop to the correct single card face.
   window.__ccCardImg = (faceUid) => ({ url: imagePathForUid(faceUid), pos: cardHalfPos(faceUid) });
 
   // Display-only cache-bust for LOCAL avatar PNGs: appends ?v=VERSION so a
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
-  // Only touches /avatars/ paths — external (Google) avatar URLs are left as-is.
+  // Only touches /avatars/ paths, external (Google) avatar URLs are left as-is.
   // Stored/compared paths stay clean; the server ignores the query (basename match).
   const _AVATAR_ART_VERSION = "ws15";
   function _avSrc(url) {
@@ -379,7 +379,7 @@
 
   // ── Room / token helpers (same localStorage keys as index.html) ─
   // Room codes are 4–12 uppercase letters/numbers. Public rooms get a random
-  // 5-char code (used internally only — never shown). Private rooms use the
+  // 5-char code (used internally only, never shown). Private rooms use the
   // host's chosen code as both the join code AND the password.
   const ROOM_ID_RE = /^[A-Z0-9]{4,12}$/;
   function normalizeRoomId(raw) { const r = String(raw||"").trim().toUpperCase(); return ROOM_ID_RE.test(r)?r:""; }
@@ -400,7 +400,7 @@
   // the code (which is also the password). Cleared when not the creator.
   let _myRoomVisibility = "";
   let _myRoomCode = "";
-  // sessionStorage is tab-isolated — each browser tab gets its own token so
+  // sessionStorage is tab-isolated, each browser tab gets its own token so
   // multiple players on the same device don't overwrite each other's seat.
   function getSeatToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(seatTokenKey(roomId))||""; } catch { return ""; } }
   function getHostToken()  { if (!roomId) return ""; try { return sessionStorage.getItem(hostTokenKey(roomId))||""; } catch { return ""; } }
@@ -448,7 +448,7 @@
   // Reserved single-segment page names that must NEVER be treated as a room
   // ID. normalizeRoomId() uppercases and accepts 4–12 [A-Z0-9], so without this
   // guard "/game", "/preview", "/about" etc. would be misread as rooms "GAME",
-  // "PREVIEW", "ABOUT" — breaking the launcher and the dedicated game window.
+  // "PREVIEW", "ABOUT", breaking the launcher and the dedicated game window.
   const RESERVED_PATH_NAMES = new Set([
     "play","preview","classic","old","game","website","site","rules","about","leaderboard",
   ]);
@@ -458,7 +458,7 @@
     if (parts.length >= 2) {
       const r = normalizeRoomId(parts[1]); if (r) return r;
     }
-    // /XXXXX (bare room ID as path) — but never a reserved page name
+    // /XXXXX (bare room ID as path), but never a reserved page name
     if (parts.length === 1 && !RESERVED_PATH_NAMES.has(parts[0].toLowerCase())) {
       const r = normalizeRoomId(parts[0]); if (r) return r;
     }
@@ -546,11 +546,11 @@
     const sub = document.getElementById("eg-sub-text");
     img.src = imagePathForUid(cardUid);
     if (isTriggerPlayer) {
-      sub.textContent = "You revealed the END GAME card — you still get one final turn!";
+      sub.textContent = "You revealed the END GAME card, you still get one final turn!";
     } else {
       sub.textContent = triggerPlayerName
-        ? `${triggerPlayerName} revealed the END GAME card — each player gets one final turn!`
-        : "The END GAME card has been revealed — each player gets one final turn!";
+        ? `${triggerPlayerName} revealed the END GAME card, each player gets one final turn!`
+        : "The END GAME card has been revealed, each player gets one final turn!";
     }
     // re-trigger animations by cloning key elements
     el.classList.remove("active");
@@ -707,11 +707,11 @@
   // Wire the two STATIC-location critters: the daily-streak Sea Star and the
   // Sea Urchin next to the Pool's "Inspect" button. Safe to call repeatedly.
   function _initStaticSecrets() {
-    // Sea Star — already present in the Daily Streak sidebar.
+    // Sea Star, already present in the Daily Streak sidebar.
     const starImg = document.querySelector('.ph-ss-icon .ph-ss-star-img')
                  || document.querySelector('.ph-ss-icon img[src*="sea-star"]');
     if (starImg) _wrapExistingSecretCritter(starImg, "star");
-    // Sea Urchin — lives INSIDE the Pool Overview Modal, next to the
+    // Sea Urchin, lives INSIDE the Pool Overview Modal, next to the
     // "Pool · N cards" title. Only visible when the player opens Inspect.
     const slot = document.getElementById("pv-pm-urchin-slot");
     if (slot && !slot.querySelector("img")) {
@@ -836,7 +836,7 @@
     titleEl.textContent = `Pool · ${pool.length} card${pool.length !== 1 ? "s" : ""}`;
     const isSecondDrawModal = drawActions.length > 0 && !_latestPoolActions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
     if (isSecondDrawModal && canInteract && canDrawPool) {
-      hintEl.textContent = "Choose your 2nd card — click any pool card to draw it";
+      hintEl.textContent = "Choose your 2nd card, click any pool card to draw it";
       hintEl.style.display = "";
     } else {
       hintEl.style.display = "none";
@@ -919,14 +919,14 @@
   // ── Current Controller (admin mod tools) bridges ──────────────────
   // Read-only accessors so the Current Controller module (a separate <script>
   // at the end of the file) can reach the authoritative client state without
-  // sharing lexical scope. Exposes nothing privileged — just what the client
+  // sharing lexical scope. Exposes nothing privileged, just what the client
   // already holds.
   window.__ccGetPayload = () => latestPayload;
   window.__ccConnInfo   = () => ({ version: _lastStateVersion, sse: !!sseSource, polling: !!pollTimer, room: (typeof roomId !== "undefined" ? roomId : null) || null });
   window.__ccLastAction = null;
   window.__ccNoteAction = (a) => { try { window.__ccLastAction = { kind: a && a.kind, action: a, at: Date.now() }; } catch (_) {} };
   // Monotonic count of successfully-submitted draw actions (deck OR pool). The
-  // guided tutorial uses this to detect "the player drew their 2 cards" — needed
+  // guided tutorial uses this to detect "the player drew their 2 cards", needed
   // because the 2nd draw ends the turn, so a turn-state check (can_act) can't be
   // relied on to confirm the draw completed.
   let _ccDrawCount = 0;
@@ -935,7 +935,7 @@
   // currently staged waiting for the player to pick discard cards (or null when
   // not paying). Lets the tour detect "the player started paying for the Ocean /
   // creature" and walk them through Confirm Payment. (pendingPayAction is a let
-  // in this same scope, assigned far below — only read at runtime mid-game.)
+  // in this same scope, assigned far below, only read at runtime mid-game.)
   window.__ccPendingPay = () => { try { return pendingPayAction || null; } catch (_) { return null; } };
   // Server-mod bridges: room id, this client's seat token, the live legal-action
   // list, and an apply hook (used by What If → Apply This Move).
@@ -964,7 +964,7 @@
   let _prevReplayTurn = false;
   // Timestamp (ms) of the last successfully-submitted action. Any payload
   // that arrives within 600 ms of an action AND still says can_act=true is
-  // almost certainly a stale poll that raced the action — suppress the banner
+  // almost certainly a stale poll that raced the action, suppress the banner
   // update so "YOUR TURN" / "PLAY AGAIN" can't reappear until the fresh state
   // from the 160 ms post-action refresh arrives.
   let _lastActionMs = 0;
@@ -1023,7 +1023,7 @@
     return true;
   }
 
-  // Force a state refresh after an action — ignores refreshInFlight so a
+  // Force a state refresh after an action, ignores refreshInFlight so a
   // background poll can't block the corrective fetch that clears "YOUR TURN".
   async function refreshStateAfterAction() {
     if (!roomId) return;
@@ -1045,14 +1045,14 @@
         : buildStateUrl();
       const { ok, status, data } = await apiFetch(url.replace(apiUrl(""),""), { method:"GET", timeoutMs:6000 });
       if (status === 503 || status === 502) {
-        // Render free-tier server is starting up — show a one-time toast and
+        // Render free-tier server is starting up, show a one-time toast and
         // keep polling; it will come back on its own in ~30 seconds.
         if (!_serverWaking) {
           _serverWaking = true;
           try { setStatus("⏳ Server waking up…"); } catch {}
           if (!_serverWakeToastShown) {
             _serverWakeToastShown = true;
-            try { showToast("Server is warming up — connecting automatically in ~30 s", "warn"); } catch {}
+            try { showToast("Server is warming up, connecting automatically in ~30 s", "warn"); } catch {}
           }
         }
         return;
@@ -1078,7 +1078,7 @@
 
   // ── Battery saver: visibility-aware poll cadence ───────────────
   // The in-game state poll otherwise fires a network request every second
-  // forever — even when the page is hidden (a backgrounded tab, or a phone
+  // forever, even when the page is hidden (a backgrounded tab, or a phone
   // with its screen locked). That constantly wakes the network radio and
   // needlessly drains battery. While hidden we drop to a slow trickle; the
   // instant the player returns we restore the 1 s cadence and refresh right
@@ -1120,7 +1120,7 @@
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
     if (sseSource) { sseSource.close(); sseSource = null; }
     clearRejoinToken(roomId);
-    showToast("Session ended — the server restarted. Please re-join.", "err");
+    showToast("Session ended, the server restarted. Please re-join.", "err");
     setTimeout(() => {
       _roomLostShown = false;
       roomId = null;
@@ -1130,7 +1130,7 @@
       } else {
         document.getElementById("pv-lobby").style.display = "none";
       }
-      lobbyStatus("Session ended — server restarted. Create or join a new room.", true);
+      lobbyStatus("Session ended, server restarted. Create or join a new room.", true);
     }, 2500);
   }
 
@@ -1160,7 +1160,7 @@
           _lastSseErrorLogMs = now;
           ccReport("reconnect_stream_error", { room: roomId }, "warn");
         }
-        // SSE dropped — polling will keep trying; room not found is handled there
+        // SSE dropped, polling will keep trying; room not found is handled there
       };
     } catch (e) {
       ccReport("reconnect_stream_start_failed", {
@@ -1182,7 +1182,7 @@
   let _themeBufferLoading = false;
   let _themeStarting = false;
 
-  // Music volume — 0..100 stored in localStorage, mapped onto the theme gain.
+  // Music volume, 0..100 stored in localStorage, mapped onto the theme gain.
   // 100% == the old fixed loudness (gain 2.2); 0% == silent (song never starts).
   const MUSIC_VOL_KEY = "fish_music_volume";
   const MUSIC_MAX_GAIN = 2.2;
@@ -1242,7 +1242,7 @@
   async function startThemeSong() {
     try {
       // Respect the player's music volume (Settings). If it's at 0, never
-      // start — this keeps it silent in-game even after turning it down.
+      // start, this keeps it silent in-game even after turning it down.
       try { if (musicVolumePct() <= 0) return; } catch {}
       if (_themeSource || _themeStarting) return; // already playing, or already starting
       // Claim the "starting" slot synchronously, before the buffer-load await
@@ -1400,7 +1400,7 @@
           const seatTok = getSeatToken();
           if (!seatTok || !roomId) return;
           // We store token_tail on each entry; client needs the full token from the server payload
-          // Use name to find via payload — we'll store the full token in data attribute
+          // Use name to find via payload, we'll store the full token in data attribute
           const specTok = kickBtn.dataset.specToken;
           if (!specTok) return;
           const r = await apiPost(`/api/rooms/${roomId}/kick_spectator`, { seat_token: seatTok, spectator_token: specTok }, { timeoutMs: 8000 });
@@ -1468,7 +1468,7 @@
   // ── Lobby create / join ────────────────────────────────────────
 
   // ── Waiting room overlay helpers ──────────────────────────────
-  // Coral state is applied as a CSS class — the full button background
+  // Coral state is applied as a CSS class, the full button background
   // (coral + decorations) is loaded via the corresponding image.
 
   function showWaitingRoom(code, isHost, visibility, isQuickPlay) {
@@ -1658,7 +1658,7 @@
   // or its "＋ Join" button moves MY seat to that team (self-service). Clicking
   // another human on a DIFFERENT team asks them to swap.
   function renderTeamLobbyInto(list, seats, teamCount, mySeatIndex) {
-    list.innerHTML = '<div class="wr-players-title">Teams — tap a team to join, tap a player to ask for a swap</div>';
+    list.innerHTML = '<div class="wr-players-title">Teams, tap a team to join, tap a player to ask for a swap</div>';
     seats = Array.isArray(seats) ? seats : [];
     const mySeat = seats.find(s => s.index === mySeatIndex) || null;
     const myTeam = mySeat ? mySeat.team : null;
@@ -1771,7 +1771,7 @@
     // A room is competitive ONLY if it was explicitly created that way. The
     // authoritative signal is the server's room.competitive flag (passed in as
     // isCompetitive); compMode is the local mirror of that for this client.
-    // Never infer "competitive" from seat composition — a normal 4-player game
+    // Never infer "competitive" from seat composition, a normal 4-player game
     // with 0 AI is all-human too, and must stay a normal game.
     const isComp = !!isCompetitive;
     const _room = (latestPayload && latestPayload.room) || {};
@@ -1840,7 +1840,7 @@
       });
     }
 
-    // Only humans count toward "(X of Y joined)" — bots auto-fill instantly.
+    // Only humans count toward "(X of Y joined)", bots auto-fill instantly.
     const humanSeats = (seats||[]).filter(s => s.kind === "human");
     const filled = humanSeats.filter(s => s.claimed_name).length;
     const total  = humanSeats.length;
@@ -1937,8 +1937,8 @@
         ai,
         error: e && (e.name || e.message || e)
       }, "error");
-      lobbyStatus("Create failed — check your connection and try again.", true);
-      showToast("Create failed — check your connection.", "err");
+      lobbyStatus("Create failed, check your connection and try again.", true);
+      showToast("Create failed, check your connection.", "err");
       return;
     }
     createBtn.disabled = false;
@@ -1952,14 +1952,14 @@
         error: r.data?.error || ""
       }, "warn");
       if (r.status === 503 || r.status === 502) {
-        lobbyStatus("Server is warming up — please wait ~30 s and try again.", true);
-        showToast("Server is warming up — try again in ~30 s", "warn");
+        lobbyStatus("Server is warming up, please wait ~30 s and try again.", true);
+        showToast("Server is warming up, try again in ~30 s", "warn");
         return;
       }
       const activeId = normalizeRoomId(r.data?.active_room_id || "");
       if (activeId) {
-        // A room is already active — guide user to join it; do NOT auto-replace
-        lobbyStatus(`A room (${activeId}) is already open — force-replace it or close it from another device first.`, false);
+        // A room is already active, guide user to join it; do NOT auto-replace
+        lobbyStatus(`A room (${activeId}) is already open, force-replace it or close it from another device first.`, false);
         // Show a one-time "Force replace" link next to the status
         const statusEl = document.getElementById("pv-home-status");
         if (statusEl && !statusEl.querySelector(".force-replace-btn")) {
@@ -1985,8 +1985,8 @@
                 ai,
                 error: e && (e.name || e.message || e)
               }, "error");
-              lobbyStatus("Create failed — check your connection and try again.", true);
-              showToast("Create failed — check your connection.", "err");
+              lobbyStatus("Create failed, check your connection and try again.", true);
+              showToast("Create failed, check your connection.", "err");
               return;
             }
             if (!r2.ok) {
@@ -2020,7 +2020,7 @@
     roomId = rId;
     const hToken = r.data?.host_token || "";
     if (hToken) setHostToken(hToken);
-    // Server auto-claims seat 0 for host and returns seat_token — use it directly
+    // Server auto-claims seat 0 for host and returns seat_token, use it directly
     const sToken = r.data?.seat_token || "";
     if (sToken) setSeatToken(sToken);
     document.getElementById("pv-my-name-badge").textContent = name;
@@ -2088,13 +2088,13 @@
     roomId = rid;
     try {
       // For private rooms the code IS the password, so pass the room code as the
-      // password — harmless for public rooms (no password gate), and lets people
+      // password, harmless for public rooms (no password gate), and lets people
       // join a private room just by typing its code.
       const j = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: seat, password: rid }, { timeoutMs:12000 });
       if (!j.ok) {
         const is503 = j.status === 503 || j.status === 502;
         const msg = is503
-          ? "Server is warming up — please wait ~30 s and try again."
+          ? "Server is warming up, please wait ~30 s and try again."
           : "Join failed: " + (j.data?.error || j.status);
         lobbyStatus(msg, true);
         showToast(msg, is503 ? "warn" : "err");
@@ -2107,7 +2107,7 @@
       showToast("Joined! Waiting for host to start…", "ok");
       enterRoom(rid);
     } catch (e) {
-      const msg = "Connection error — check your internet.";
+      const msg = "Connection error, check your internet.";
       lobbyStatus(msg, true);
       showToast(msg, "err");
       roomId = null;
@@ -2115,7 +2115,7 @@
     }
   }
 
-  // Join a room by dropping the player straight into the first OPEN seat — no
+  // Join a room by dropping the player straight into the first OPEN seat, no
   // seat-picking step. Seat choice no longer matters: the server randomizes the
   // turn order every game, so which physical seat you land in has no effect on
   // when you play. For private rooms the room code doubles as the password, so
@@ -2133,7 +2133,7 @@
       if (!j.ok) {
         const is503 = j.status === 503 || j.status === 502;
         const msg = is503
-          ? "Server is warming up — please wait ~30 s and try again."
+          ? "Server is warming up, please wait ~30 s and try again."
           : "Join failed: " + (j.data?.error || j.status);
         lobbyStatus(msg, true);
         showToast(msg, is503 ? "warn" : "err");
@@ -2146,7 +2146,7 @@
       enterRoom(rid);
       return true;
     } catch (e) {
-      const msg = "Connection error — check your internet.";
+      const msg = "Connection error, check your internet.";
       lobbyStatus(msg, true);
       showToast(msg, "err");
       roomId = null;
@@ -2158,10 +2158,10 @@
   async function loadInvitedSeats(rid) {
     const data = await fetchSeats(rid);
     if (!data) {
-      showToast("Room not found — ask the host to re-share the invite link.", "err");
+      showToast("Room not found, ask the host to re-share the invite link.", "err");
       return;
     }
-    // Competitive rooms need two hands claimed together — route to the
+    // Competitive rooms need two hands claimed together, route to the
     // dedicated competitive join overlay instead of a single-seat auto-join.
     if (data.mode === "competitive") { _openCompJoinOverlay(rid); return; }
     if (data.seatObjs.every(s => s.claimed_name)) {
@@ -2360,7 +2360,7 @@
       return;
     }
 
-    // Casual rooms (public or password-confirmed) — drop straight into the
+    // Casual rooms (public or password-confirmed), drop straight into the
     // first open seat. No seat picker: the server randomizes turn order every
     // game, so the specific seat doesn't matter.
     await autoJoinOpenSeat(rid, data.seatObjs, password);
@@ -2609,11 +2609,11 @@
   let _ncMode = "normal";       // 'normal' | 'competitive' | 'team'
   let _ncTeamCount = 2;         // 2..4 (team mode only)
   // Apply the chosen Mode to the setup modal.
-  //  • Normal      — a fully customizable game (all settings editable).
-  //  • Competitive — a locked "quick-match" ranked 1v1: 4 humans (2 hands
+  //  • Normal     : a fully customizable game (all settings editable).
+  //  • Competitive: a locked "quick-match" ranked 1v1: 4 humans (2 hands
   //    each), 0 AI, public match. Those settings are fixed + disabled so the
   //    host only has to press the main button to continue.
-  //  • Team        — a normal, fully-editable game played in 2–4 teams. Adds a
+  //  • Team       : a normal, fully-editable game played in 2–4 teams. Adds a
   //    Teams selector; humans/AI/privacy stay editable like Normal.
   // Accepts a mode string; legacy callers may still pass a boolean (isComp).
   function applyNcMode(mode) {
@@ -2635,7 +2635,7 @@
     if (box)     box.classList.toggle("nc-comp", _ncIsCompetitive);
     if (box)     box.classList.toggle("nc-team", isTeam);
     if (titleEl) titleEl.textContent = _ncIsCompetitive
-      ? "⚔️ Competitive 1v1 — 2 hands per player"
+      ? "⚔️ Competitive 1v1, 2 hands per player"
       : (isTeam ? "🤝 New Team Current" : "🌊 New Current");
     if (teamsField) teamsField.style.display = isTeam ? "" : "none";
     if (isTeam && teamCountEl) _ncTeamCount = Math.max(2, Math.min(4, Number(teamCountEl.value) || 2));
@@ -2707,7 +2707,7 @@
       replace_active: false, visibility: "private", password: rid,
       competitive: false,
     }, { timeoutMs: 10000 });
-    if (!r.ok) { try { showToast("The Giant Squid slipped away — try again.", "err"); } catch (_) {} return; }
+    if (!r.ok) { try { showToast("The Giant Squid slipped away, try again.", "err"); } catch (_) {} return; }
     const rId = normalizeRoomId(r.data?.room_id || rid);
     roomId = rId;
     _giantSquidChallengeActive = true;
@@ -2756,7 +2756,7 @@
     // Team games need enough seats (players + bots) to fill every team.
     if (isTeam && total < teamCount) {
       document.getElementById("nc-current-err").textContent =
-        `${teamCount} teams need at least ${teamCount} players or bots — add more seats.`;
+        `${teamCount} teams need at least ${teamCount} players or bots, add more seats.`;
       return;
     }
     // Tutorial flag is a one-shot set by "The Game" tour; consume it here so a
@@ -2821,8 +2821,8 @@
         tutorial: _isTutGame ? "1" : "0",
         error: e && (e.name || e.message || e)
       }, "error");
-      errEl.textContent = "Failed — check your connection and try again.";
-      try { showToast("Create failed — check your connection.", "err"); } catch (_) {}
+      errEl.textContent = "Failed, check your connection and try again.";
+      try { showToast("Create failed, check your connection.", "err"); } catch (_) {}
       return;
     }
     btn.disabled = false;
@@ -2903,7 +2903,7 @@
     _pendingDrawAction = null;
     selectedPool.clear();
     if (latestPayload) renderPayload(latestPayload);
-    setStatus("Draw cancelled — your turn continues.");
+    setStatus("Draw cancelled, your turn continues.");
   });
   document.getElementById("draw-warn-confirm").addEventListener("click", () => {
     closeDrawWarn();
@@ -2965,13 +2965,13 @@
     const cost    = Number(pendingPayAction.cost_to_pay || 0);
     const name    = pendingPayAction.face_name || "card";
     const sym     = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
-    const symHint = sym ? ` — needs a ${sym} card` : "";
+    const symHint = sym ? `, needs a ${sym} card` : "";
     const sel     = selectedPayment.size;
     const need    = cost - sel;
     if (txt) {
       txt.textContent = sel >= cost
-        ? `✓ Ready — ${cost} card${cost!==1?"s":""} selected to pay for ${name}`
-        : `Playing ${name} — click or hover a card and tap "Use as Payment" (${need} more needed${symHint})`;
+        ? `✓ Ready, ${cost} card${cost!==1?"s":""} selected to pay for ${name}`
+        : `Playing ${name}, click or hover a card and tap "Use as Payment" (${need} more needed${symHint})`;
     }
     if (confirmBtn) {
       confirmBtn.disabled    = sel !== cost;
@@ -2999,7 +2999,7 @@
 
   // Toggle a card in/out of the payment selection, capping the total at the
   // card's required cost. Returns true if the selection changed. A player can
-  // always UNSELECT, but can never select MORE than the cost — so overpaying
+  // always UNSELECT, but can never select MORE than the cost, so overpaying
   // is impossible at the source (the UI), and the server re-validates anyway.
   function _togglePaymentCard(entryUid) {
     const id = Number(entryUid);
@@ -3009,7 +3009,7 @@
       return true;
     }
     if (selectedPayment.size >= cost) {
-      // Already at the required count — block the extra selection.
+      // Already at the required count, block the extra selection.
       showToast(`You selected too many cards. This card only costs ${cost}.`, "warn");
       return false;
     }
@@ -3032,7 +3032,7 @@
   // Full "back button" for the current turn: cancel any in-progress (un-submitted)
   // action and wipe EVERY piece of local staging state so the next play starts
   // from a clean slate. Without this, leftover state from a canceled action
-  // (e.g. a staged play + selected payment) bleeds into the next action — the
+  // (e.g. a staged play + selected payment) bleeds into the next action, the
   // classic "it charged me but never placed the animal" bug. Clears: the staged
   // play (card / ocean / side / spot held in pendingPayAction), payment-card
   // selection + confirmation, pool/discard selections, all drag/drop state, the
@@ -3075,7 +3075,7 @@
     if (_viewerCanActNow()) return true;
     // Competitive: one human owns several seats. A poll may have used my OTHER
     // hand's token, so this payload's viewer.can_act is momentarily false even
-    // though the ACTIVE seat is one of mine — treat that as "my turn" too.
+    // though the ACTIVE seat is one of mine, treat that as "my turn" too.
     try {
       if (compMode && Array.isArray(compMySeats) && latestPayload) {
         const aas = Number(latestPayload.active_action_seat);
@@ -3096,7 +3096,7 @@
 
   function _blockedPlayMessage(entryUid, faceUid, targetDir) {
     if (!_viewerCanActNow()) return "It is not your turn.";
-    if (_imAway) return "You're on Surf's Up — tap 🌊 I'm Back before making a move.";
+    if (_imAway) return "You're on Surf's Up, tap 🌊 I'm Back before making a move.";
 
     const entry = handEntryMap.get(Number(entryUid)) || null;
     const face = _entryFirstFace(entry) || {};
@@ -3175,36 +3175,36 @@
       return { picks:[], error:`Select ${cost} payment card(s) from your hand first${symHint}.` };
     }
     if (manual.length !== cost) {
-      return { picks:[], error:`Select exactly ${cost} payment card(s) — you have ${manual.length} selected.` };
+      return { picks:[], error:`Select exactly ${cost} payment card(s), you have ${manual.length} selected.` };
     }
     const mp = buildPaymentSet(action, manual);
     if (mp) return { picks: mp, error:"" };
     const sym = action.required_symbol;
-    if (sym) return { picks:[], error:`Payment invalid — at least one selected card must have the ${sym} symbol.` };
+    if (sym) return { picks:[], error:`Payment invalid, at least one selected card must have the ${sym} symbol.` };
     return { picks:[], error:`Selected cards cannot be used as payment for this action.` };
   }
 
   async function submitAction(action) {
     try { window.__ccNoteAction && window.__ccNoteAction(action); } catch (_) {} // Current Controller bug-log breadcrumb
-    // Surf's Up!! — you cannot play any moves while you are Away. Tap "I'm Back"
+    // Surf's Up!!, you cannot play any moves while you are Away. Tap "I'm Back"
     // (the 🌊 button) first. Mirrors the server-side guard so it's 100% accurate.
     if (_imAway) {
-      try { showToast("You're on Surf's Up — tap 🌊 I'm Back to make a move.", "warn"); } catch {}
+      try { showToast("You're on Surf's Up, tap 🌊 I'm Back to make a move.", "warn"); } catch {}
       return;
     }
     // ── Turn guard ────────────────────────────────────────────────────────
     // Every play / draw / move / end-turn funnels through here, and each is
     // legal ONLY on your own turn. Without this the client would happily let
     // you stage a play while another player is acting, send it, and have the
-    // server bounce it with "not your turn" — surfacing as a baffling
+    // server bounce it with "not your turn", surfacing as a baffling
     // "Failed: not your turn" AFTER you'd already set everything up. Mirror the
     // server's own rule and refuse up front, so an off-turn tap can never waste
     // your setup or look like the game "broke". Uses the server truth
-    // (viewer.can_act) — NOT the optimistic canInteract — so rapid, legitimate
+    // (viewer.can_act), NOT the optimistic canInteract, so rapid, legitimate
     // mid-turn follow-up actions (play, then immediately play again) still work.
     if (!_isMyTurnForAction()) {
-      try { showToast("Hold on — wait for your turn.", "warn"); } catch (_) {}
-      setStatus("Not your turn yet — waiting for the other players.");
+      try { showToast("Hold on, wait for your turn.", "warn"); } catch (_) {}
+      setStatus("Not your turn yet, waiting for the other players.");
       return;
     }
     // If the action costs cards, ensure we have valid payment staged for THIS action.
@@ -3213,7 +3213,7 @@
       // Payment is considered "confirmed" (pendingPayAction=null) only when the user
       // explicitly clicked Confirm Payment, clearing pendingPayAction before calling here.
       // In every other path (drag, slot-click, picker) pendingPayAction is still set or null
-      // from a prior action — if it doesn't match the current action, re-enter payment mode.
+      // from a prior action, if it doesn't match the current action, re-enter payment mode.
       const confirmedPath = pendingPayAction === null && selectedPayment.size > 0;
       const sameStagedAction = pendingPayAction !== null &&
         Number(pendingPayAction.card_uid) === Number(action.card_uid) &&
@@ -3225,7 +3225,7 @@
     }
 
     // Hand-over-10 warning: ONLY for manual draw actions (pool / deck / mix).
-    // Card-triggered draws don't come through here — they happen server-side
+    // Card-triggered draws don't come through here, they happen server-side
     // as part of resolving a play. So this naturally only catches user draws.
     // Draws are now 1 card at a time, so warn only when THIS draw would push
     // the hand past 10 (not when a hypothetical second draw might).
@@ -3248,7 +3248,7 @@
     } else {
       token = getSeatToken();
     }
-    if (!token) { setStatus("No seat token — re-join."); showToast("No seat token — re-join.", "err"); return; }
+    if (!token) { setStatus("No seat token, re-join."); showToast("No seat token, re-join.", "err"); return; }
     if (actionInFlight) { setStatus("Wait for previous action…"); return; }
 
     const pl = { seat_token: token, use_star: Boolean(action.use_star), request_id: makeRequestId() };
@@ -3271,7 +3271,7 @@
     const cost = Number(action.cost_to_pay||0);
     if (cost > 0) {
       // ── Star play without a matching-symbol payment ──────────────
-      // The ★ toggle is on, so this is the STAR variant — which needs at least
+      // The ★ toggle is on, so this is the STAR variant, which needs at least
       // one payment card whose symbol matches. If the player's chosen payment
       // has NO matching symbol, don't hard-error (the old behavior, which felt
       // like the game "breaking"). Instead pop the friendly "skip the ★?" confirm:
@@ -3312,7 +3312,7 @@
       }
       const pay = choosePayment(action);
       if (pay.error) {
-        // Invalid selection — re-enter payment mode so the user can pick valid cards.
+        // Invalid selection, re-enter payment mode so the user can pick valid cards.
         enterPaymentMode(action);
         setStatus(pay.error); showToast(pay.error, "err"); return;
       }
@@ -3344,7 +3344,7 @@
       setStatus("→ " + desc);
       showToast(desc, "ok");
       // Only optimistically clear the banner and block canInteract when the
-      // submitted action is end_turn — that's the only action that actually
+      // submitted action is end_turn, that's the only action that actually
       // advances active_action_seat. For mid-turn actions (draw, play card,
       // move animal, etc.) can_act correctly stays true and the banner should
       // remain "YOUR TURN" without any confusing flicker.
@@ -3364,7 +3364,7 @@
         // Peruvian Pelican avatar: cumulative deck draws (1 card per deck draw).
         _gameAchTracker.deckDraws = (_gameAchTracker.deckDraws || 0) + 1;
       }
-      // Hard Choices (cumulative): discard cards to pay card costs — bump by the
+      // Hard Choices (cumulative): discard cards to pay card costs, bump by the
       // number of payment cards spent this action.
       try {
         const payCount = Array.isArray(pl.payment_uids) ? pl.payment_uids.length : 0;
@@ -3377,7 +3377,7 @@
           const myName = (Array.isArray(_latestPlayers) ? _latestPlayers : []).find(p => p.index === myIdx)?.name;
           const pickUids = Array.isArray(action.pool_pick_uids) ? action.pool_pick_uids.map(Number) : [];
 
-          // fresh_current — drawing from a freshly-reset pool (within 60s of reset)
+          // fresh_current, drawing from a freshly-reset pool (within 60s of reset)
           if (_chObsPoolJustResetAt && (Date.now() - _chObsPoolJustResetAt) < 60000 && pickUids.length > 0) {
             window._reportDailyChallengeProgress?.("fresh_current", 0, { complete: true });
             _chObsPoolJustResetAt = 0;
@@ -3394,12 +3394,12 @@
             if (!owner) continue;
             if (owner !== myName) {
               drawnFromOther = true;
-              // deny_the_setup / stolen_setup — opponent put it in last turn
+              // deny_the_setup / stolen_setup, opponent put it in last turn
               if (addedTurn != null && (round - Number(addedTurn)) <= 1) {
                 drawnFromOpponentLastTurn = true;
               }
             }
-            // set_it_up — comp only, this device's seats put it in
+            // set_it_up, comp only, this device's seats put it in
             if (_chObsCompSelfDiscarded.has(uid)) {
               const ownerSeatIdx = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
                 .find(p => p.name === owner)?.index;
@@ -3410,7 +3410,7 @@
             }
           }
 
-          // pool_watcher — streak of pool draws from OTHER players' cards.
+          // pool_watcher, streak of pool draws from OTHER players' cards.
           // Any pool draw from MY OWN discarded card resets the streak.
           if (pickUids.length > 0) {
             if (drawnFromOther && pickUids.every(u => {
@@ -3426,20 +3426,20 @@
             }
           }
 
-          // deny_the_setup (daily) / stolen_setup (weekly) — drew an opponent's
+          // deny_the_setup (daily) / stolen_setup (weekly), drew an opponent's
           // very-recently-played pool card.
           if (drawnFromOpponentLastTurn) {
             window._reportDailyChallengeProgress?.("deny_the_setup", 0, { complete: true });
             window._reportWeeklyChallengeProgress?.("stolen_setup", 0, { complete: true });
           }
 
-          // set_it_up (daily, comp only) — pulled out a card that THIS device
+          // set_it_up (daily, comp only), pulled out a card that THIS device
           // had earlier set up via the opposite hand.
           if (drawnFromMyCompPartner) {
             window._reportDailyChallengeProgress?.("set_it_up", 0, { complete: true });
           }
 
-          // pool_patience — a card that has been in the pool for >= one full
+          // pool_patience, a card that has been in the pool for >= one full
           // rotation (N players * 1 turn each) gets taken by me.
           const playerCount = (Array.isArray(_latestPlayers) ? _latestPlayers.length : 0) || 4;
           for (const uid of pickUids) {
@@ -3460,11 +3460,11 @@
       }
       if (action.kind === "move_between_oceans") {
         _gameAchTracker.animalMoves = (_gameAchTracker.animalMoves || 0) + 1;
-        // Daily: current_lite — Move 3 animals today (target 3, accumulates).
+        // Daily: current_lite, Move 3 animals today (target 3, accumulates).
         try { window._reportDailyChallengeProgress?.("current_lite", 1); } catch {}
-        // Daily: last_turn_move — Move an animal after End Game appears.
+        // Daily: last_turn_move, Move an animal after End Game appears.
         // Achievement board_fixer: moved an animal on the final turn (end-game
-        // window) — combined with a win at game end.
+        // window), combined with a win at game end.
         if (_gameAchTracker.endGameSeen) {
           _gameAchTracker.movedDuringEndgame = true;
           try { window._reportDailyChallengeProgress?.("last_turn_move", 0, { complete: true }); } catch {}
@@ -3542,22 +3542,22 @@
             }
             return n;
           };
-          // Sea Urchin — draw one (per Urchin) when you play an animal on the surface.
+          // Sea Urchin, draw one (per Urchin) when you play an animal on the surface.
           if (invDir === "up")
             _gameAchTracker.seaUrchinDraws = (_gameAchTracker.seaUrchinDraws || 0) + countOnBoard("sea urchin");
-          // Sea Star — draw one (per Star) when you play a card on the ocean floor.
+          // Sea Star, draw one (per Star) when you play a card on the ocean floor.
           if (invDir === "down")
             _gameAchTracker.seaStarDraws = (_gameAchTracker.seaStarDraws || 0) + countOnBoard("common sea star");
-          // Johnson's Sea Cucumber — draw one (per Cucumber) when you play a Game Fish.
+          // Johnson's Sea Cucumber, draw one (per Cucumber) when you play a Game Fish.
           if (invSpecies === "game fish")
             _gameAchTracker.seaCucumberDraws = (_gameAchTracker.seaCucumberDraws || 0) + countOnBoard("johnson's johnson's sea cucumber");
-          // Red Beaded Anemone — its ★ ability draws one card when activated (legacy draw count).
+          // Red Beaded Anemone, its ★ ability draws one card when activated (legacy draw count).
           if (invName === "red beaded anemone" && action.use_star)
             _gameAchTracker.seaAnemoneDraws = (_gameAchTracker.seaAnemoneDraws || 0) + 1;
-          // Red Beaded Anemone — count every one played this game (avatar: 25 lifetime plays).
+          // Red Beaded Anemone, count every one played this game (avatar: 25 lifetime plays).
           if (invName === "red beaded anemone")
             _gameAchTracker.seaAnemonePlayedThisGame = (_gameAchTracker.seaAnemonePlayedThisGame || 0) + 1;
-          // Johnson's Sea Cucumber — count every one played this game (avatar: 25 lifetime plays).
+          // Johnson's Sea Cucumber, count every one played this game (avatar: 25 lifetime plays).
           if (invName === "johnson's johnson's sea cucumber")
             _gameAchTracker.seaCucumberPlayedThisGame = (_gameAchTracker.seaCucumberPlayedThisGame || 0) + 1;
           // Frigatebird avatar: 7 Coral cards played onto a Coral Reef ocean in one game.
@@ -3573,16 +3573,16 @@
           // All Bait Fish played this game (Roosterfish avatar: 250 lifetime total).
           if (invSpecies === "baitfish")
             _gameAchTracker.baitfishPlayedThisGame = (_gameAchTracker.baitfishPlayedThisGame || 0) + 1;
-          // Loggerhead Sea Turtle — count cards played in the current turn and
+          // Loggerhead Sea Turtle, count cards played in the current turn and
           // flag when a Turtle was played (its ability chains extra card plays).
           _gameAchTracker.cardsPlayedThisTurn = (_gameAchTracker.cardsPlayedThisTurn || 0) + 1;
           if (invName === "loggerhead sea turtle") _gameAchTracker.turtlePlayedThisTurn = true;
-          // Hermit Crab — its ability lets you play baitfish for free this turn.
+          // Hermit Crab, its ability lets you play baitfish for free this turn.
           // Flag the Hermit Crab play and count Bait Fish played this turn.
           if (invName === "hermit crab") _gameAchTracker.hermitUsedThisTurn = true;
           if (invSpecies === "baitfish") _gameAchTracker.baitFishThisTurn = (_gameAchTracker.baitFishThisTurn || 0) + 1;
-          // Grant the Hermit Crab avatar the moment the requirement is met — a
-          // Hermit Crab turn with 6+ Bait Fish in a 4+ player game — rather than
+          // Grant the Hermit Crab avatar the moment the requirement is met, a
+          // Hermit Crab turn with 6+ Bait Fish in a 4+ player game, rather than
           // waiting for game end (which could be missed if the game ends first).
           if (_gameAchTracker.hermitUsedThisTurn && Number(_gameAchTracker.baitFishThisTurn || 0) >= 6) {
             _gameAchTracker.hermitSixBaitDone = true;
@@ -3612,7 +3612,7 @@
           _chObsFloorStreak = 0;
         }
 
-        // Free animal play — submitted a play during an active free-play window.
+        // Free animal play, submitted a play during an active free-play window.
         const fpsBefore = Array.isArray(latestPayload?.legal_actions?.free_play_species)
           ? latestPayload.legal_actions.free_play_species
           : [];
@@ -3638,29 +3638,29 @@
           }
         } catch {}
         try {
-          // Daily: star_spark — Activate 2 ★ abilities (target 2, accumulates)
+          // Daily: star_spark, Activate 2 ★ abilities (target 2, accumulates)
           window._reportDailyChallengeProgress?.("star_spark", 1);
-          // Daily: star_surfer — Activate 5 ★ in ONE game. Per-game counter
+          // Daily: star_surfer, Activate 5 ★ in ONE game. Per-game counter
           // resets in _resetGameAchTracker, so once the in-game count reaches
           // 5 we mark it complete (idempotent if already done).
           if (_gameAchTracker.starsActivated >= 5) {
             window._reportDailyChallengeProgress?.("star_surfer", 0, { complete: true });
           }
-          // Daily: symbol_match — Discard matching symbol to activate ★
+          // Daily: symbol_match, Discard matching symbol to activate ★
           // (any successful ★ activation requires a matching symbol).
           window._reportDailyChallengeProgress?.("symbol_match", 0, { complete: true });
           // Achievement perfect_symbol (cumulative): matching-symbol ★ activation 100×.
           window.__fishBumpAchievement?.("perfect_symbol", 1, 100);
-          // Daily: star_finish — ★ activation after End Game appears
+          // Daily: star_finish, ★ activation after End Game appears
           if (_gameAchTracker.endGameSeen) {
             window._reportDailyChallengeProgress?.("star_finish", 0, { complete: true });
           }
-          // Weekly: star_storm — 20 ★ activations this week
+          // Weekly: star_storm, 20 ★ activations this week
           window._reportWeeklyChallengeProgress?.("star_storm", 1);
         } catch {}
       }
       // Competitive: hand-switch is handled by checkCompHandSwitch in renderPayload
-      // once the server confirms the active seat changed — no immediate call needed here.
+      // once the server confirms the active seat changed, no immediate call needed here.
       await sleep(160);
       refreshStateAfterAction();
     } catch(e) { setStatus("Error: " + e.message); showToast("Error: " + e.message, "err"); }
@@ -3680,7 +3680,7 @@
     return sym || "?";
   }
 
-  // ── Canonical animal-family colours — ONE colour per species, used
+  // ── Canonical animal-family colours, ONE colour per species, used
   //    everywhere (strategy highlights, card glows, corner tags, tooltips and
   //    the strategy panel). A single source of truth is what keeps the colours
   //    100% consistent for players: e.g. a pink glow ALWAYS means "Mammal". ──
@@ -3829,7 +3829,7 @@
   // Strategy data generated from the real archetype profiles and full card
   // database (default_archetype_profiles + cards_*.txt). Card lists include
   // EVERY deck copy of each card (counts shown as ×N). Do not hand-edit.
-  const BUILTIN_STRATEGIES = [{"label": "Ocean All Blue", "tier": "Core", "tag": "Blue", "blurb": "Maximize ocean cards for easy board presence — the more oceans you control, the more your ocean bonuses stack.", "cards": [{"name": "Mangrove", "species": "Ocean", "text": "+10 if you have all 8 oceans | *play again*", "count": 9, "repUid": 230, "uids": [230, 231, 232, 233, 234, 235, 236, 237, 238]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Tide Pool", "species": "Ocean", "text": "+1 per every two oceans you control", "count": 6, "repUid": 263, "uids": [263, 264, 265, 266, 267, 268]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Arctic Ocean", "species": "Ocean", "text": "+4 | *Play again*", "count": 8, "repUid": 245, "uids": [245, 246, 247, 248, 249, 250, 251, 252]}, {"name": "Deep Ocean", "species": "Ocean", "text": "+1 | Draw one", "count": 8, "repUid": 209, "uids": [209, 210, 211, 212, 213, 214, 215, 216]}, {"name": "Kelp Forest", "species": "Ocean", "text": "+5 per kelp forest if you control 4+ | Draw one", "count": 10, "repUid": 253, "uids": [253, 254, 255, 256, 257, 258, 259, 260, 261, 262]}, {"name": "Pier", "species": "Ocean", "text": "+2 or +4 if you have the most piers", "count": 8, "repUid": 201, "uids": [201, 202, 203, 204, 205, 206, 207, 208]}], "uids": [33, 35, 37, 39, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268], "steps": ["Play an ocean card almost every turn to build a wide board.", "Use Deep Ocean and Kelp Forest — they draw a card when played, so they keep your hand full.", "Add Great Albatross: +6 if you have the most oceans, and it draws a card.", "Tide Pool scores +1 per every two oceans, and Mangrove gives +10 if you collect all 8 ocean types."], "tips": ["Deep Ocean costs 0 — it's a free ocean that also draws you a card.", "Arctic Ocean and Mangrove say *play again*, so they don't end your turn.", "Aim for all 8 different ocean types to cash in Mangrove's +8."]}, {"label": "Birds", "tier": "Core", "tag": "Birds", "blurb": "A bird-focused build — Emperor Penguin scores +2 per bird, so a big flock snowballs fast.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}], "uids": [1, 3, 5, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 38, 39, 40, 41, 43, 44, 45, 47, 49, 51, 56, 60, 66, 68, 70, 82, 92, 93, 94, 95], "steps": ["Play birds every turn — Emperor Penguin scores +2 per bird, so they snowball.", "Horned Puffin (*play again*) and Peruvian Pelican (draw) keep your turn and hand going.", "Great Albatross gives +6 if you have the most oceans, plus a draw.", "Splash crustaceans (Lobster, Mantis Shrimp) to feed California Gull's +2 per crustacean."], "tips": ["Emperor Penguin counts ALL your birds — play it after you've built a flock.", "Osprey scores +2 per matching-symbol card, rewarding symbol consistency.", "Razorbill Auk pairs: 1 = 5 but 2 = 25 points."]}, {"label": "Crustaceans", "tier": "Core", "tag": "Crustaceans", "blurb": "Pile on crustaceans — Lobsters stack in one spot for free, and California Gull pays +3 for every crustacean you own.", "cards": [{"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "King Crab", "species": "Crustacean", "text": "+3 | *Draw two*", "count": 2, "repUid": 32, "uids": [32, 72]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}], "uids": [4, 6, 8, 10, 12, 16, 17, 19, 21, 23, 32, 38, 40, 44, 50, 56, 60, 66, 68, 72, 82, 84, 94, 239, 240, 241, 242, 243, 244], "steps": ["Stack Lobsters in a single slot — any number can share the same spot.", "Play California Gull: +2 per crustacean on your board.", "Mantis Shrimp rewards depth: 1=5, 2=15, 3=30 points.", "King Crab gives +3 and draws two; Hermit Crab lets you play baitfish for free."], "tips": ["Lobster is free (cost 0) and stacks without limit — the cheapest way to grow a crustacean count.", "Spiny Lobster scores +6 per Mandarin Goby, so it crosses over into the Goby plan.", "California Gull is the payoff — play it once several crustaceans are down."]}, {"label": "Cephalopods", "tier": "Core", "tag": "Cephs", "blurb": "Squids and octopus that all spike once you have at least three cephalopods on board. Reef Trigger Fish plays them for free.", "cards": [{"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [14, 36, 58, 110, 111, 115, 122, 132, 139, 144, 147, 150, 152, 155, 165, 171, 174, 177, 182, 184, 185], "steps": ["Get three or more cephalopods on the board fast — that's when they activate.", "Common Octopus, Cuttlefish and Bobtail Squid each give +4 at 3+ cephalopods; Giant Squid +6.", "Play Reef Trigger Fish: +2 per cephalopod AND play any number of cephalopods for free.", "Manta Ray draws a card each time you play a cephalopod."], "tips": ["Below three cephalopods, most of these score nothing — rush the threshold.", "Reef Trigger Fish can dump your whole hand of cephalopods in one turn for free.", "Blue Tang adds +2 per Crosscurrent animal (Manta Ray and Reef Trigger Fish count)."]}, {"label": "Mammals", "tier": "Core", "tag": "Mammals", "blurb": "A simple stack of dolphins, sharks and narwhals for steady per-mammal scoring.", "cards": [{"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [14, 36, 58, 102, 103, 105, 108, 109, 114, 116, 117, 119, 121, 124, 136, 140, 161, 164], "steps": ["Play mammals each turn — Spinner Dolphin and Narwhal both draw a card when you pay their matching symbol.", "Narwhal scores +2 per mammal, so it grows as your stack grows.", "Bottlenose Dolphin lets you play a free mammal — chain them.", "Finish with Great White Shark: +3 per mammal and *play again*."], "tips": ["Great White Shark counts every mammal you own, so play it after you've built up.", "Spinner Dolphin's star draws a card when you pay a matching diamond symbol.", "Blue Tang adds +2 per Crosscurrent animal if you splash some in."]}, {"label": "Baitfish Barrage", "tier": "Core", "tag": "Baitfish", "blurb": "Flood the board with baitfish, then scale up with predators like Whale Shark that score per baitfish.", "cards": [{"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}], "uids": [4, 18, 50, 52, 53, 54, 55, 57, 59, 61, 63, 65, 67, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 83, 85, 87, 89, 91, 92, 112, 123, 127, 142, 143, 158, 166, 176, 179], "steps": ["Play Hermit Crab — it lets you play any number of baitfish this turn for free.", "Flood the board with different baitfish (Mullet, Bunker, Sardine, Flying Fish, Bonito).", "Each baitfish scores by number of DIFFERENT species: 1=1, 2=3, 3=11, 4=18, 5=30 — variety matters most.", "Cap it with Whale Shark: +4 per baitfish and draw one."], "tips": ["You want 5 DIFFERENT baitfish species for the 30-point tier — not 5 of the same.", "Sea Urchin draws a card each time you play an animal on the ocean surface.", "Loggerhead Sea Turtle lets you play any number of cards by paying their costs."]}, {"label": "Yellowfin Tuna Stack", "tier": "Core", "tag": "Yellowfin", "blurb": "Stack Yellowfin Tuna in one ocean — any number can share the same spot — then cash in with Big Eye Tuna.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [18, 54, 107, 113, 120, 125, 130, 134, 137, 146, 154, 156, 157, 159, 163, 170, 172, 173, 175, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Drop Yellowfin Tuna into one ocean slot — any number can share the same spot.", "Keep stacking; each Yellowfin is +2 on its own.", "Play Big Eye Tuna: +3 per Yellowfin AND draw one card for each Yellowfin on your board.", "Artificial Reef scores +2 per card attached, so a packed reef pays off too."], "tips": ["Johnson's Sea Cucumber draws a card every time you play a game fish — great engine here.", "Big Eye Tuna is the payoff: build Yellowfin first, then play it for a big swing.", "Clownfish copies the ability of the ocean it's attached to."]}, {"label": "Bird Lobster", "tier": "Combo", "tag": "B-Lob", "blurb": "The classic B-Lob: birds plus crustaceans. California Gull scores +2 per crustacean, and Lobsters stack freely.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}], "uids": [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 21, 23, 25, 27, 29, 31, 38, 40, 44, 56, 60, 66, 68, 70, 82, 84, 92, 93, 94, 95, 113, 163, 188, 239, 240, 241, 242, 243, 244], "steps": ["Play California Gull: +2 per crustacean on your board.", "Stack Lobsters in one spot — any number can share it — to pump the Gull.", "Add birds like Emperor Penguin (+2 per bird) and Horned Puffin (+3, *play again*).", "Mantis Shrimp rewards a deep crustacean set: 1=5, 2=15, 3=30 points."], "tips": ["Lobsters share a single slot, so they're a cheap way to grow your crustacean count fast.", "Horned Puffin and Peruvian Pelican keep your turn going / your hand full.", "Common Sea Star draws a card whenever you play on the ocean floor."]}, {"label": "Bird Coral", "tier": "Combo", "tag": "B-Coral", "blurb": "High-scoring birds plus coral passive generation. Magnificent Frigatebird plays free coral to feed your coral count.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}], "uids": [1, 2, 3, 5, 7, 9, 11, 13, 15, 20, 24, 25, 27, 29, 31, 34, 42, 49, 51, 64, 74, 86, 88, 93, 95, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229], "steps": ["Build a coral base — Staghorn Coral scores +3 per coral, and most corals cost 0–1.", "Play Magnificent Frigatebird: +2 per coral AND play a free coral.", "Add birds (Emperor Penguin +2 per bird, Peruvian Pelican +5 & draw).", "Elk Horn Coral gives +2 per coral attached to a Coral Reef."], "tips": ["Magnificent Frigatebird both scores on coral and gives you a free coral — double value.", "Deep Sea Coral gives +10 if it's the only creature on its ocean.", "Razorbill Auk pairs up: 1 = 5, but 2 = 25 points."]}, {"label": "Coral Cephalopods", "tier": "Combo", "tag": "Coral-Ceph", "blurb": "A coral base plus cephalopod explosive turns — most cephalopods spike once you have at least three on board.", "cards": [{"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [2, 14, 20, 24, 34, 36, 42, 58, 64, 74, 86, 88, 110, 111, 115, 122, 132, 139, 144, 147, 150, 152, 155, 165, 171, 174, 177, 182, 184, 185], "steps": ["Lay down coral early (Staghorn +3 per coral) for steady points.", "Play Grooved Brain Coral — it lets you play a free cephalopod.", "Get at least THREE cephalopods out: Octopus/Cuttlefish/Bobtail each become +4, Giant Squid +6.", "Manta Ray draws a card every time you play a cephalopod."], "tips": ["Cephalopod bonuses only trigger at 3+ cephalopods — rush to that threshold.", "Reef Trigger Fish is the payoff: +2 per cephalopod AND play any number of them for free.", "Manta Ray turns each cephalopod into a card draw."]}, {"label": "Shooting the Moon", "tier": "Core", "tag": "Moon", "blurb": "High-risk Mandarin Goby plus Spiny Lobster. Goby's threshold pays off huge at 3-4, and Spiny Lobster scores +6 per Goby.", "cards": [{"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66], "core": true}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [8, 10, 14, 28, 36, 38, 48, 58, 66, 80, 84, 90, 113, 163, 188], "steps": ["Collect Mandarin Gobies — their threshold is 1=0, 2=14, 3=30, 4=80 points.", "Play Spiny Lobster: +6 per Mandarin Goby on your board.", "Blue Tang adds +2 per Crosscurrent animal (Goby is Crosscurrent).", "Common Sea Star draws a card when you play on the ocean floor — where Gobies go."], "tips": ["One Goby is worth 0 — you MUST reach 2+ (and ideally 4 = 80) for it to pay.", "Spiny Lobster multiplies your Gobies, so play it once you have several.", "This is high-risk: commit early and dig for Gobies, or it falls flat."]}, {"label": "King Salmon", "tier": "Core", "tag": "Salmon", "blurb": "Fill oceans completely for bonus scoring — King Salmon scores +5 per fully occupied ocean.", "cards": [{"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}], "uids": [2, 10, 20, 24, 26, 34, 42, 62, 70, 74, 84, 86, 92, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Spread out oceans, then fill every slot (Up/Down/Left/Right) on each one.", "Cheap corals (Staghorn, Elk Horn) and invertebrates fill slots without costing much.", "Play King Salmon: +5 per FULLY occupied ocean — so completed oceans pay big.", "Artificial Reef scores +2 per card attached, rewarding a packed board."], "tips": ["A 'fully occupied' ocean has all its slots filled — plan to complete oceans, not spread thin.", "Red Beaded Anemone (+3 per invertebrate, draw) and Sea Urchin keep cards flowing as you fill.", "Clownfish copies the ability of the ocean it's attached to."]}, {"label": "Birds + Baitfish Barrage", "tier": "Combo", "tag": "Birds+Bait", "blurb": "Run a bird core alongside a baitfish flood — two cheap, fast engines that fill the board and snowball together.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}], "uids": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 38, 39, 40, 41, 43, 44, 45, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 63, 65, 66, 67, 68, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 82, 83, 85, 87, 89, 91, 92, 93, 94, 95, 112, 123, 127, 142, 143, 158, 166, 176, 179], "steps": ["Open with cheap baitfish and Hermit Crab to play more baitfish for free.", "Build birds in parallel — Emperor Penguin scores +2 per bird.", "Whale Shark caps the baitfish half: +4 per baitfish, and draws.", "Sea Urchin draws when you play on the surface — both birds and baitfish trigger it."], "tips": ["Both halves are cheap, so you can develop them at the same time without paying much.", "Keep baitfish species DIFFERENT for the big threshold; keep birds numerous for Penguin.", "Great Albatross and Peruvian Pelican keep your hand full to feed both lines."]}, {"label": "Baitfish Barrage + Yellowfin Tuna", "tier": "Combo", "tag": "Bait+Yellow", "blurb": "Baitfish flood plus a Yellowfin stack — Johnson's Sea Cucumber draws on every game fish while baitfish fill the board.", "cards": [{"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}, {"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [4, 18, 50, 52, 53, 54, 55, 57, 59, 61, 63, 65, 67, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 83, 85, 87, 89, 91, 92, 107, 112, 113, 120, 123, 125, 127, 130, 134, 137, 142, 143, 146, 154, 156, 157, 158, 159, 163, 166, 170, 172, 173, 175, 176, 179, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Flood baitfish early (Hermit Crab plays them for free).", "Stack Yellowfin Tuna in one slot — any number share a spot.", "Johnson's Sea Cucumber draws a card each time you play a game fish (Yellowfin).", "Cash in with Big Eye Tuna (+3 per Yellowfin) and Whale Shark (+4 per baitfish)."], "tips": ["Both engines want a packed board — Artificial Reef scores +2 per card attached.", "Variety matters for baitfish; raw count matters for Yellowfin.", "Johnson's Sea Cucumber + Sea Urchin keep you drawing as you flood the board."]}, {"label": "Cephalopods + Shooting the Moon", "tier": "Combo", "tag": "Ceph+Moon", "blurb": "Pair the cephalopod threshold engine with the Goby moon-shot — both are Crosscurrent-heavy and share Blue Tang.", "cards": [{"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [8, 10, 14, 17, 19, 21, 23, 28, 36, 38, 48, 58, 66, 80, 84, 90, 110, 111, 113, 115, 122, 132, 139, 144, 147, 150, 152, 155, 163, 165, 171, 174, 177, 182, 184, 185, 188, 239, 240, 241, 242, 243, 244], "steps": ["Rush three cephalopods so Octopus/Squid/Cuttlefish all switch on.", "Collect Mandarin Gobies on the side (threshold 2=14, 3=30, 4=80).", "Spiny Lobster scores +6 per Goby; Reef Trigger Fish scores +2 per cephalopod.", "Blue Tang scores +2 per Crosscurrent animal — and most of these are Crosscurrent."], "tips": ["Blue Tang and the Crosscurrent count tie both halves together.", "Manta Ray draws on every cephalopod, helping you dig for Gobies too.", "High variance — commit to hitting both thresholds or fall back to one."]}, {"label": "Shooting the Moon + King Salmon", "tier": "Combo", "tag": "Moon+Salmon", "blurb": "Back the high-risk Goby plan with King Salmon's fill engine, sharing cheap floor cards and Sea Stars.", "cards": [{"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}], "uids": [2, 8, 10, 14, 17, 19, 20, 21, 23, 24, 26, 28, 34, 36, 38, 42, 48, 58, 62, 66, 70, 74, 80, 84, 86, 90, 92, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Fill ocean floors with Mandarin Gobies and cheap corals.", "Common Sea Star draws when you play on the floor — where Gobies and fillers go.", "King Salmon scores +5 per fully occupied ocean as you complete them.", "Spiny Lobster pays +6 per Goby once several are down."], "tips": ["Both halves love a packed floor, so cheap fillers do double duty.", "Gobies start at 0 — you need 2+ for them to count; aim for 3–4.", "Clownfish copies the ocean it's on, squeezing extra value from filled oceans."]}, {"label": "King Salmon + Birds", "tier": "Combo", "tag": "Salmon+Birds", "blurb": "Fill oceans for King Salmon while a bird flock scores on the side — coral fillers double as Bird-Coral fuel.", "cards": [{"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}], "uids": [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 20, 21, 23, 24, 25, 26, 27, 29, 31, 33, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 49, 51, 56, 60, 62, 66, 68, 70, 74, 82, 84, 86, 92, 93, 94, 95, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Build oceans and fill their slots with cheap corals and invertebrates.", "Grow a bird flock — Emperor Penguin is +2 per bird.", "King Salmon scores +5 per fully occupied ocean.", "Magnificent Frigatebird plays a free coral, helping you fill faster."], "tips": ["Coral and invertebrate fillers complete oceans AND feed coral-scoring birds.", "Peruvian Pelican and Great Albatross keep your hand full to keep filling.", "Finish oceans before End Game so King Salmon counts them all."]}, {"label": "Mammals + Cephalopods", "tier": "Combo", "tag": "Mam+Ceph", "blurb": "Two threshold-style engines side by side — mammals scale per-mammal while cephalopods spike at three.", "cards": [{"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}], "uids": [2, 14, 20, 24, 34, 36, 42, 58, 74, 86, 102, 103, 105, 108, 109, 110, 111, 114, 115, 116, 117, 119, 121, 122, 124, 132, 136, 139, 140, 144, 147, 150, 152, 155, 161, 164, 165, 171, 174, 177, 182, 184, 185], "steps": ["Build mammals (Narwhal +2 per mammal) and cephalopods (need 3+) in parallel.", "Bottlenose Dolphin plays a free mammal; Reef Trigger Fish plays cephalopods for free.", "Manta Ray and Spinner Dolphin/Narwhal all draw cards to keep the engines fed.", "Great White Shark (+3 per mammal) and Reef Trigger Fish (+2 per cephalopod) are the payoffs."], "tips": ["Blue Tang scores +2 per Crosscurrent animal — sharks, Manta Ray and Reef Trigger Fish all count.", "Get cephalopods to three before spending payoff cards.", "Lots of draw between the two halves keeps your options open."]}, {"label": "Yellowfin Tuna + Mammals", "tier": "Combo", "tag": "Yellow+Mam", "blurb": "A Yellowfin stack beside a mammal line — Johnson's Sea Cucumber draws on game fish while mammals scale up.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}], "uids": [2, 14, 18, 20, 24, 34, 36, 42, 54, 58, 74, 86, 102, 103, 105, 107, 108, 109, 113, 114, 116, 117, 119, 120, 121, 124, 125, 130, 134, 136, 137, 140, 146, 154, 156, 157, 159, 161, 163, 164, 170, 172, 173, 175, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Stack Yellowfin Tuna in one spot and build mammals elsewhere.", "Johnson's Sea Cucumber draws a card on every game fish you play.", "Big Eye Tuna pays +3 per Yellowfin; Great White Shark pays +3 per mammal.", "Narwhal (+2 per mammal) and Spinner Dolphin draw to keep both lines going."], "tips": ["Two independent scaling engines make you hard to shut down.", "Great White Shark and Big Eye Tuna are both big finishers — set them up first.", "Blue Tang adds +2 per Crosscurrent animal (sharks and Big Eye Tuna count)."]}, {"label": "Coral", "tier": "Core", "tag": "Coral", "blurb": "Stack coral on your board so each new coral lifts the rest. Staghorn Coral scores +3 for every coral you control.", "cards": [{"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}], "uids": [2, 20, 24, 34, 42, 64, 74, 86, 88], "steps": ["Build coral fast: Staghorn Coral scores +3 per coral, so every coral you add lifts them all.", "Play coral onto a Coral Reef ocean: Elk Horn Coral gives +2 per coral attached to a coral reef.", "Give Deep Sea Coral an ocean to itself: it scores +10 when it is the only creature there.", "Grooved Brain Coral scores +3 and lets you play a free cephalopod."], "tips": ["More coral means more points: Staghorn and Elk Horn both scale with your coral count.", "Keep Deep Sea Coral alone on its own ocean to bank the full +10.", "A Coral Reef ocean turbocharges Elk Horn Coral."]}, {"label": "Invertebrates", "tier": "Core", "tag": "Inverts", "blurb": "Flexible support critters that keep your hand full and pay off with Red Beaded Anemone: the more invertebrates you control, the bigger it scores.", "cards": [{"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Orange Tube Sponge", "species": "Invertebrate", "text": "+2 per matching symbol", "count": 2, "repUid": 22, "uids": [22, 96]}], "uids": [10, 18, 22, 26, 54, 62, 70, 84, 92, 96], "steps": ["Spread invertebrates across the board: Red Beaded Anemone scores +3 for every invertebrate you control.", "Lean on the draw engines: Common Sea Star, Sea Urchin and Johnson's Sea Cucumber each draw you a card as you play.", "Orange Tube Sponge scores +2 per matching symbol: pair it with cards that share its symbol.", "Keep your hand stocked, then cash in with Red Beaded Anemone."], "tips": ["Invertebrates rarely score big alone: the payoff is Red Beaded Anemone scaling with their count.", "The draw triggers keep you ahead on cards: play them early.", "Orange Tube Sponge rewards stacking the same symbol."]}, {"label": "Game Fish", "tier": "Core", "tag": "Game Fish", "blurb": "Stack big game fish — Yellowfin pile into one spot with no limit, King Salmon cashes in full oceans, and Roosterfish ride in on your baitfish.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}], "uids": [107, 112, 123, 125, 127, 130, 134, 137, 141, 154, 158, 162, 170, 172, 173, 175, 176, 178, 180, 181, 183, 186, 187], "steps": ["Dump Yellowfin Tuna into a single ocean — any number can share one spot, so they snowball at +2 each.", "Fill oceans completely, then play King Salmon for +5 per fully occupied ocean (and a draw).", "Drop a Roosterfish wherever you have baitfish for +4, and play a free Baitfish off its star."], "tips": ["Yellowfin have no stacking limit — one packed ocean of them is huge points.", "King Salmon rewards finishing oceans, so pair it with cheap fillers to complete spots.", "Roosterfish only nets +4 when it shares an ocean with baitfish — set up the baitfish first."]}];
+  const BUILTIN_STRATEGIES = [{"label": "Ocean All Blue", "tier": "Core", "tag": "Blue", "blurb": "Maximize ocean cards for easy board presence, the more oceans you control, the more your ocean bonuses stack.", "cards": [{"name": "Mangrove", "species": "Ocean", "text": "+10 if you have all 8 oceans | *play again*", "count": 9, "repUid": 230, "uids": [230, 231, 232, 233, 234, 235, 236, 237, 238]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Tide Pool", "species": "Ocean", "text": "+1 per every two oceans you control", "count": 6, "repUid": 263, "uids": [263, 264, 265, 266, 267, 268]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Arctic Ocean", "species": "Ocean", "text": "+4 | *Play again*", "count": 8, "repUid": 245, "uids": [245, 246, 247, 248, 249, 250, 251, 252]}, {"name": "Deep Ocean", "species": "Ocean", "text": "+1 | Draw one", "count": 8, "repUid": 209, "uids": [209, 210, 211, 212, 213, 214, 215, 216]}, {"name": "Kelp Forest", "species": "Ocean", "text": "+5 per kelp forest if you control 4+ | Draw one", "count": 10, "repUid": 253, "uids": [253, 254, 255, 256, 257, 258, 259, 260, 261, 262]}, {"name": "Pier", "species": "Ocean", "text": "+2 or +4 if you have the most piers", "count": 8, "repUid": 201, "uids": [201, 202, 203, 204, 205, 206, 207, 208]}], "uids": [33, 35, 37, 39, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268], "steps": ["Play an ocean card almost every turn to build a wide board.", "Use Deep Ocean and Kelp Forest, they draw a card when played, so they keep your hand full.", "Add Great Albatross: +6 if you have the most oceans, and it draws a card.", "Tide Pool scores +1 per every two oceans, and Mangrove gives +10 if you collect all 8 ocean types."], "tips": ["Deep Ocean costs 0, it's a free ocean that also draws you a card.", "Arctic Ocean and Mangrove say *play again*, so they don't end your turn.", "Aim for all 8 different ocean types to cash in Mangrove's +8."]}, {"label": "Birds", "tier": "Core", "tag": "Birds", "blurb": "A bird-focused build, Emperor Penguin scores +2 per bird, so a big flock snowballs fast.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}], "uids": [1, 3, 5, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 38, 39, 40, 41, 43, 44, 45, 47, 49, 51, 56, 60, 66, 68, 70, 82, 92, 93, 94, 95], "steps": ["Play birds every turn, Emperor Penguin scores +2 per bird, so they snowball.", "Horned Puffin (*play again*) and Peruvian Pelican (draw) keep your turn and hand going.", "Great Albatross gives +6 if you have the most oceans, plus a draw.", "Splash crustaceans (Lobster, Mantis Shrimp) to feed California Gull's +2 per crustacean."], "tips": ["Emperor Penguin counts ALL your birds, play it after you've built a flock.", "Osprey scores +2 per matching-symbol card, rewarding symbol consistency.", "Razorbill Auk pairs: 1 = 5 but 2 = 25 points."]}, {"label": "Crustaceans", "tier": "Core", "tag": "Crustaceans", "blurb": "Pile on crustaceans, Lobsters stack in one spot for free, and California Gull pays +3 for every crustacean you own.", "cards": [{"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "King Crab", "species": "Crustacean", "text": "+3 | *Draw two*", "count": 2, "repUid": 32, "uids": [32, 72]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}], "uids": [4, 6, 8, 10, 12, 16, 17, 19, 21, 23, 32, 38, 40, 44, 50, 56, 60, 66, 68, 72, 82, 84, 94, 239, 240, 241, 242, 243, 244], "steps": ["Stack Lobsters in a single slot, any number can share the same spot.", "Play California Gull: +2 per crustacean on your board.", "Mantis Shrimp rewards depth: 1=5, 2=15, 3=30 points.", "King Crab gives +3 and draws two; Hermit Crab lets you play baitfish for free."], "tips": ["Lobster is free (cost 0) and stacks without limit, the cheapest way to grow a crustacean count.", "Spiny Lobster scores +6 per Mandarin Goby, so it crosses over into the Goby plan.", "California Gull is the payoff, play it once several crustaceans are down."]}, {"label": "Cephalopods", "tier": "Core", "tag": "Cephs", "blurb": "Squids and octopus that all spike once you have at least three cephalopods on board. Reef Trigger Fish plays them for free.", "cards": [{"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [14, 36, 58, 110, 111, 115, 122, 132, 139, 144, 147, 150, 152, 155, 165, 171, 174, 177, 182, 184, 185], "steps": ["Get three or more cephalopods on the board fast, that's when they activate.", "Common Octopus, Cuttlefish and Bobtail Squid each give +4 at 3+ cephalopods; Giant Squid +6.", "Play Reef Trigger Fish: +2 per cephalopod AND play any number of cephalopods for free.", "Manta Ray draws a card each time you play a cephalopod."], "tips": ["Below three cephalopods, most of these score nothing, rush the threshold.", "Reef Trigger Fish can dump your whole hand of cephalopods in one turn for free.", "Blue Tang adds +2 per Crosscurrent animal (Manta Ray and Reef Trigger Fish count)."]}, {"label": "Mammals", "tier": "Core", "tag": "Mammals", "blurb": "A simple stack of dolphins, sharks and narwhals for steady per-mammal scoring.", "cards": [{"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [14, 36, 58, 102, 103, 105, 108, 109, 114, 116, 117, 119, 121, 124, 136, 140, 161, 164], "steps": ["Play mammals each turn, Spinner Dolphin and Narwhal both draw a card when you pay their matching symbol.", "Narwhal scores +2 per mammal, so it grows as your stack grows.", "Bottlenose Dolphin lets you play a free mammal, chain them.", "Finish with Great White Shark: +3 per mammal and *play again*."], "tips": ["Great White Shark counts every mammal you own, so play it after you've built up.", "Spinner Dolphin's star draws a card when you pay a matching diamond symbol.", "Blue Tang adds +2 per Crosscurrent animal if you splash some in."]}, {"label": "Baitfish Barrage", "tier": "Core", "tag": "Baitfish", "blurb": "Flood the board with baitfish, then scale up with predators like Whale Shark that score per baitfish.", "cards": [{"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}], "uids": [4, 18, 50, 52, 53, 54, 55, 57, 59, 61, 63, 65, 67, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 83, 85, 87, 89, 91, 92, 112, 123, 127, 142, 143, 158, 166, 176, 179], "steps": ["Play Hermit Crab, it lets you play any number of baitfish this turn for free.", "Flood the board with different baitfish (Mullet, Bunker, Sardine, Flying Fish, Bonito).", "Each baitfish scores by number of DIFFERENT species: 1=1, 2=3, 3=11, 4=18, 5=30, variety matters most.", "Cap it with Whale Shark: +4 per baitfish and draw one."], "tips": ["You want 5 DIFFERENT baitfish species for the 30-point tier, not 5 of the same.", "Sea Urchin draws a card each time you play an animal on the ocean surface.", "Loggerhead Sea Turtle lets you play any number of cards by paying their costs."]}, {"label": "Yellowfin Tuna Stack", "tier": "Core", "tag": "Yellowfin", "blurb": "Stack Yellowfin Tuna in one ocean, any number can share the same spot, then cash in with Big Eye Tuna.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [18, 54, 107, 113, 120, 125, 130, 134, 137, 146, 154, 156, 157, 159, 163, 170, 172, 173, 175, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Drop Yellowfin Tuna into one ocean slot, any number can share the same spot.", "Keep stacking; each Yellowfin is +2 on its own.", "Play Big Eye Tuna: +3 per Yellowfin AND draw one card for each Yellowfin on your board.", "Artificial Reef scores +2 per card attached, so a packed reef pays off too."], "tips": ["Johnson's Sea Cucumber draws a card every time you play a game fish, great engine here.", "Big Eye Tuna is the payoff: build Yellowfin first, then play it for a big swing.", "Clownfish copies the ability of the ocean it's attached to."]}, {"label": "Bird Lobster", "tier": "Combo", "tag": "B-Lob", "blurb": "The classic B-Lob: birds plus crustaceans. California Gull scores +2 per crustacean, and Lobsters stack freely.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}], "uids": [1, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 21, 23, 25, 27, 29, 31, 38, 40, 44, 56, 60, 66, 68, 70, 82, 84, 92, 93, 94, 95, 113, 163, 188, 239, 240, 241, 242, 243, 244], "steps": ["Play California Gull: +2 per crustacean on your board.", "Stack Lobsters in one spot, any number can share it, to pump the Gull.", "Add birds like Emperor Penguin (+2 per bird) and Horned Puffin (+3, *play again*).", "Mantis Shrimp rewards a deep crustacean set: 1=5, 2=15, 3=30 points."], "tips": ["Lobsters share a single slot, so they're a cheap way to grow your crustacean count fast.", "Horned Puffin and Peruvian Pelican keep your turn going / your hand full.", "Common Sea Star draws a card whenever you play on the ocean floor."]}, {"label": "Bird Coral", "tier": "Combo", "tag": "B-Coral", "blurb": "High-scoring birds plus coral passive generation. Magnificent Frigatebird plays free coral to feed your coral count.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}], "uids": [1, 2, 3, 5, 7, 9, 11, 13, 15, 20, 24, 25, 27, 29, 31, 34, 42, 49, 51, 64, 74, 86, 88, 93, 95, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229], "steps": ["Build a coral base, Staghorn Coral scores +3 per coral, and most corals cost 0–1.", "Play Magnificent Frigatebird: +2 per coral AND play a free coral.", "Add birds (Emperor Penguin +2 per bird, Peruvian Pelican +5 & draw).", "Elk Horn Coral gives +2 per coral attached to a Coral Reef."], "tips": ["Magnificent Frigatebird both scores on coral and gives you a free coral, double value.", "Deep Sea Coral gives +10 if it's the only creature on its ocean.", "Razorbill Auk pairs up: 1 = 5, but 2 = 25 points."]}, {"label": "Coral Cephalopods", "tier": "Combo", "tag": "Coral-Ceph", "blurb": "A coral base plus cephalopod explosive turns, most cephalopods spike once you have at least three on board.", "cards": [{"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}], "uids": [2, 14, 20, 24, 34, 36, 42, 58, 64, 74, 86, 88, 110, 111, 115, 122, 132, 139, 144, 147, 150, 152, 155, 165, 171, 174, 177, 182, 184, 185], "steps": ["Lay down coral early (Staghorn +3 per coral) for steady points.", "Play Grooved Brain Coral, it lets you play a free cephalopod.", "Get at least THREE cephalopods out: Octopus/Cuttlefish/Bobtail each become +4, Giant Squid +6.", "Manta Ray draws a card every time you play a cephalopod."], "tips": ["Cephalopod bonuses only trigger at 3+ cephalopods, rush to that threshold.", "Reef Trigger Fish is the payoff: +2 per cephalopod AND play any number of them for free.", "Manta Ray turns each cephalopod into a card draw."]}, {"label": "Shooting the Moon", "tier": "Core", "tag": "Moon", "blurb": "High-risk Mandarin Goby plus Spiny Lobster. Goby's threshold pays off huge at 3-4, and Spiny Lobster scores +6 per Goby.", "cards": [{"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66], "core": true}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [8, 10, 14, 28, 36, 38, 48, 58, 66, 80, 84, 90, 113, 163, 188], "steps": ["Collect Mandarin Gobies, their threshold is 1=0, 2=14, 3=30, 4=80 points.", "Play Spiny Lobster: +6 per Mandarin Goby on your board.", "Blue Tang adds +2 per Crosscurrent animal (Goby is Crosscurrent).", "Common Sea Star draws a card when you play on the ocean floor, where Gobies go."], "tips": ["One Goby is worth 0, you MUST reach 2+ (and ideally 4 = 80) for it to pay.", "Spiny Lobster multiplies your Gobies, so play it once you have several.", "This is high-risk: commit early and dig for Gobies, or it falls flat."]}, {"label": "King Salmon", "tier": "Core", "tag": "Salmon", "blurb": "Fill oceans completely for bonus scoring, King Salmon scores +5 per fully occupied ocean.", "cards": [{"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}], "uids": [2, 10, 20, 24, 26, 34, 42, 62, 70, 74, 84, 86, 92, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Spread out oceans, then fill every slot (Up/Down/Left/Right) on each one.", "Cheap corals (Staghorn, Elk Horn) and invertebrates fill slots without costing much.", "Play King Salmon: +5 per FULLY occupied ocean, so completed oceans pay big.", "Artificial Reef scores +2 per card attached, rewarding a packed board."], "tips": ["A 'fully occupied' ocean has all its slots filled, plan to complete oceans, not spread thin.", "Red Beaded Anemone (+3 per invertebrate, draw) and Sea Urchin keep cards flowing as you fill.", "Clownfish copies the ability of the ocean it's attached to."]}, {"label": "Birds + Baitfish Barrage", "tier": "Combo", "tag": "Birds+Bait", "blurb": "Run a bird core alongside a baitfish flood, two cheap, fast engines that fill the board and snowball together.", "cards": [{"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}], "uids": [1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 21, 23, 25, 27, 29, 31, 33, 35, 37, 38, 39, 40, 41, 43, 44, 45, 47, 49, 50, 51, 52, 53, 54, 55, 56, 57, 59, 60, 61, 63, 65, 66, 67, 68, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 82, 83, 85, 87, 89, 91, 92, 93, 94, 95, 112, 123, 127, 142, 143, 158, 166, 176, 179], "steps": ["Open with cheap baitfish and Hermit Crab to play more baitfish for free.", "Build birds in parallel, Emperor Penguin scores +2 per bird.", "Whale Shark caps the baitfish half: +4 per baitfish, and draws.", "Sea Urchin draws when you play on the surface, both birds and baitfish trigger it."], "tips": ["Both halves are cheap, so you can develop them at the same time without paying much.", "Keep baitfish species DIFFERENT for the big threshold; keep birds numerous for Penguin.", "Great Albatross and Peruvian Pelican keep your hand full to feed both lines."]}, {"label": "Baitfish Barrage + Yellowfin Tuna", "tier": "Combo", "tag": "Bait+Yellow", "blurb": "Baitfish flood plus a Yellowfin stack, Johnson's Sea Cucumber draws on every game fish while baitfish fill the board.", "cards": [{"name": "Whale Shark", "species": "Crosscurrent", "text": "+4 per baitfish | *Draw one*", "count": 4, "repUid": 142, "uids": [142, 143, 166, 179]}, {"name": "Hermit Crab", "species": "Crustacean", "text": "Play any number of baitfish this turn for free", "count": 2, "repUid": 4, "uids": [4, 50]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}, {"name": "Mullet", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 53, "uids": [53, 55, 57, 59]}, {"name": "Bunker", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 61, "uids": [61, 63, 65, 67]}, {"name": "Sardine", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 69, "uids": [69, 71, 73, 75]}, {"name": "Flying Fish", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 77, "uids": [77, 79, 81, 83]}, {"name": "Bonito", "species": "Baitfish", "text": "# of different species of baitfish | 1 = 1 | 2 = 3 | 3 = 11 | 4 = 18 | 5 = 30", "count": 4, "repUid": 85, "uids": [85, 87, 89, 91]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Loggerhead Sea Turtle", "species": "Crosscurrent", "text": "Play any number of cards by paying the costs", "count": 3, "repUid": 52, "uids": [52, 76, 78]}, {"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [4, 18, 50, 52, 53, 54, 55, 57, 59, 61, 63, 65, 67, 69, 70, 71, 73, 75, 76, 77, 78, 79, 81, 83, 85, 87, 89, 91, 92, 107, 112, 113, 120, 123, 125, 127, 130, 134, 137, 142, 143, 146, 154, 156, 157, 158, 159, 163, 166, 170, 172, 173, 175, 176, 179, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Flood baitfish early (Hermit Crab plays them for free).", "Stack Yellowfin Tuna in one slot, any number share a spot.", "Johnson's Sea Cucumber draws a card each time you play a game fish (Yellowfin).", "Cash in with Big Eye Tuna (+3 per Yellowfin) and Whale Shark (+4 per baitfish)."], "tips": ["Both engines want a packed board, Artificial Reef scores +2 per card attached.", "Variety matters for baitfish; raw count matters for Yellowfin.", "Johnson's Sea Cucumber + Sea Urchin keep you drawing as you flood the board."]}, {"label": "Cephalopods + Shooting the Moon", "tier": "Combo", "tag": "Ceph+Moon", "blurb": "Pair the cephalopod threshold engine with the Goby moon-shot, both are Crosscurrent-heavy and share Blue Tang.", "cards": [{"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}], "uids": [8, 10, 14, 17, 19, 21, 23, 28, 36, 38, 48, 58, 66, 80, 84, 90, 110, 111, 113, 115, 122, 132, 139, 144, 147, 150, 152, 155, 163, 165, 171, 174, 177, 182, 184, 185, 188, 239, 240, 241, 242, 243, 244], "steps": ["Rush three cephalopods so Octopus/Squid/Cuttlefish all switch on.", "Collect Mandarin Gobies on the side (threshold 2=14, 3=30, 4=80).", "Spiny Lobster scores +6 per Goby; Reef Trigger Fish scores +2 per cephalopod.", "Blue Tang scores +2 per Crosscurrent animal, and most of these are Crosscurrent."], "tips": ["Blue Tang and the Crosscurrent count tie both halves together.", "Manta Ray draws on every cephalopod, helping you dig for Gobies too.", "High variance, commit to hitting both thresholds or fall back to one."]}, {"label": "Shooting the Moon + King Salmon", "tier": "Combo", "tag": "Moon+Salmon", "blurb": "Back the high-risk Goby plan with King Salmon's fill engine, sharing cheap floor cards and Sea Stars.", "cards": [{"name": "Mandarin Goby", "species": "Crosscurrent", "text": "1 = 0 | 2 = 14 | 3 = 30 | 4 = 80", "count": 4, "repUid": 28, "uids": [28, 48, 80, 90]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}], "uids": [2, 8, 10, 14, 17, 19, 20, 21, 23, 24, 26, 28, 34, 36, 38, 42, 48, 58, 62, 66, 70, 74, 80, 84, 86, 90, 92, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Fill ocean floors with Mandarin Gobies and cheap corals.", "Common Sea Star draws when you play on the floor, where Gobies and fillers go.", "King Salmon scores +5 per fully occupied ocean as you complete them.", "Spiny Lobster pays +6 per Goby once several are down."], "tips": ["Both halves love a packed floor, so cheap fillers do double duty.", "Gobies start at 0, you need 2+ for them to count; aim for 3–4.", "Clownfish copies the ocean it's on, squeezing extra value from filled oceans."]}, {"label": "King Salmon + Birds", "tier": "Combo", "tag": "Salmon+Birds", "blurb": "Fill oceans for King Salmon while a bird flock scores on the side, coral fillers double as Bird-Coral fuel.", "cards": [{"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Coral Reef", "species": "Ocean", "text": "1 = 1 | 2 = 4 | 3 = 9 | 4 = 16 | 5 = 0 | 6+ = 35 |", "count": 13, "repUid": 217, "uids": [217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Emperor Penguin", "species": "Bird", "text": "+2 per Bird", "count": 4, "repUid": 1, "uids": [1, 3, 5, 7]}, {"name": "Horned Puffin", "species": "Bird", "text": "+3 | *play again*", "count": 4, "repUid": 9, "uids": [9, 11, 13, 15]}, {"name": "California Gull", "species": "Bird", "text": "+2 per crustacean", "count": 4, "repUid": 17, "uids": [17, 19, 21, 23]}, {"name": "Peruvian Pelican", "species": "Bird", "text": "+4 | *Draw three*", "count": 4, "repUid": 25, "uids": [25, 27, 29, 31]}, {"name": "Great Albatross", "species": "Bird", "text": "+6 if you have the most oceans | *Draw one*", "count": 4, "repUid": 33, "uids": [33, 35, 37, 39]}, {"name": "Osprey", "species": "Bird", "text": "+2 per matching symbol", "count": 4, "repUid": 41, "uids": [41, 43, 45, 47]}, {"name": "Magnificent Frigatebird", "species": "Bird", "text": "+2 per coral | *Play a free coral*", "count": 2, "repUid": 49, "uids": [49, 51]}, {"name": "Razorbill Auk", "species": "Bird", "text": "# of razorbill auks 1 = 5 | 2 = 25", "count": 2, "repUid": 93, "uids": [93, 95]}, {"name": "Mantis Shrimp", "species": "Crustacean", "text": "| 1 = 5 points | 2 = 15 points | 3 = 30 points |", "count": 3, "repUid": 6, "uids": [6, 16, 60]}, {"name": "Lobster", "species": "Crustacean", "text": "+4 | Any number of lobsters can share the same spot", "count": 7, "repUid": 12, "uids": [12, 40, 44, 56, 68, 82, 94]}, {"name": "Spiny Lobster", "species": "Crustacean", "text": "+6 per mandarin goby", "count": 3, "repUid": 8, "uids": [8, 38, 66]}], "uids": [1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 20, 21, 23, 24, 25, 26, 27, 29, 31, 33, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 47, 49, 51, 56, 60, 62, 66, 68, 70, 74, 82, 84, 86, 92, 93, 94, 95, 109, 113, 114, 116, 121, 141, 162, 163, 178, 183, 188, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 239, 240, 241, 242, 243, 244], "steps": ["Build oceans and fill their slots with cheap corals and invertebrates.", "Grow a bird flock, Emperor Penguin is +2 per bird.", "King Salmon scores +5 per fully occupied ocean.", "Magnificent Frigatebird plays a free coral, helping you fill faster."], "tips": ["Coral and invertebrate fillers complete oceans AND feed coral-scoring birds.", "Peruvian Pelican and Great Albatross keep your hand full to keep filling.", "Finish oceans before End Game so King Salmon counts them all."]}, {"label": "Mammals + Cephalopods", "tier": "Combo", "tag": "Mam+Ceph", "blurb": "Two threshold-style engines side by side, mammals scale per-mammal while cephalopods spike at three.", "cards": [{"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Reef Trigger Fish", "species": "Crosscurrent", "text": "+2 per Cephalopod | *Play any number of cephalopods for free*", "count": 3, "repUid": 115, "uids": [115, 132, 147]}, {"name": "Bobtail Squid", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 155, "uids": [155, 171, 182]}, {"name": "Cuttlefish", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 4, "repUid": 139, "uids": [139, 144, 174, 177]}, {"name": "Common Octopus", "species": "Cephalopod", "text": "+3 if you have at least three cephalopods", "count": 3, "repUid": 110, "uids": [110, 152, 165]}, {"name": "Giant Squid", "species": "Cephalopod", "text": "+6 if you have at least three cephalopods", "count": 3, "repUid": 150, "uids": [150, 184, 185]}, {"name": "Manta Ray", "species": "Crosscurrent", "text": "+2 | Draw one when you play a cephalopod", "count": 2, "repUid": 111, "uids": [111, 122]}], "uids": [2, 14, 20, 24, 34, 36, 42, 58, 74, 86, 102, 103, 105, 108, 109, 110, 111, 114, 115, 116, 117, 119, 121, 122, 124, 132, 136, 139, 140, 144, 147, 150, 152, 155, 161, 164, 165, 171, 174, 177, 182, 184, 185], "steps": ["Build mammals (Narwhal +2 per mammal) and cephalopods (need 3+) in parallel.", "Bottlenose Dolphin plays a free mammal; Reef Trigger Fish plays cephalopods for free.", "Manta Ray and Spinner Dolphin/Narwhal all draw cards to keep the engines fed.", "Great White Shark (+3 per mammal) and Reef Trigger Fish (+2 per cephalopod) are the payoffs."], "tips": ["Blue Tang scores +2 per Crosscurrent animal, sharks, Manta Ray and Reef Trigger Fish all count.", "Get cephalopods to three before spending payoff cards.", "Lots of draw between the two halves keeps your options open."]}, {"label": "Yellowfin Tuna + Mammals", "tier": "Combo", "tag": "Yellow+Mam", "blurb": "A Yellowfin stack beside a mammal line, Johnson's Sea Cucumber draws on game fish while mammals scale up.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "Big Eye Tuna", "species": "Crosscurrent", "text": "+3 per yellowfin tuna | *Draw one for each yellowfin tuna you control*", "count": 5, "repUid": 120, "uids": [120, 146, 156, 157, 159]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Artificial Reef", "species": "Ocean", "text": "+2 per card attached", "count": 6, "repUid": 239, "uids": [239, 240, 241, 242, 243, 244]}, {"name": "Clownfish", "species": "Crosscurrent", "text": "Copies the Ocean’s ability this card is attached to", "count": 3, "repUid": 113, "uids": [113, 163, 188]}, {"name": "Great White Shark", "species": "Crosscurrent", "text": "+3 per mammal | *Draw one*", "count": 4, "repUid": 105, "uids": [105, 136, 161, 164]}, {"name": "Spinner Dolphin", "species": "Mammal", "text": "+2 per matching symbol | *Draw one*", "count": 4, "repUid": 102, "uids": [102, 103, 108, 140]}, {"name": "Bottlenose Dolphin", "species": "Mammal", "text": "+3 | *play a free mammal*", "count": 4, "repUid": 109, "uids": [109, 114, 116, 121]}, {"name": "Narwhal", "species": "Mammal", "text": "+2 per Mammal | *Draw one*", "count": 3, "repUid": 117, "uids": [117, 119, 124]}, {"name": "Blue Tang", "species": "Crosscurrent", "text": "+2 per Crosscurrent animal", "count": 3, "repUid": 14, "uids": [14, 36, 58]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}], "uids": [2, 14, 18, 20, 24, 34, 36, 42, 54, 58, 74, 86, 102, 103, 105, 107, 108, 109, 113, 114, 116, 117, 119, 120, 121, 124, 125, 130, 134, 136, 137, 140, 146, 154, 156, 157, 159, 161, 163, 164, 170, 172, 173, 175, 180, 181, 186, 187, 188, 239, 240, 241, 242, 243, 244], "steps": ["Stack Yellowfin Tuna in one spot and build mammals elsewhere.", "Johnson's Sea Cucumber draws a card on every game fish you play.", "Big Eye Tuna pays +3 per Yellowfin; Great White Shark pays +3 per mammal.", "Narwhal (+2 per mammal) and Spinner Dolphin draw to keep both lines going."], "tips": ["Two independent scaling engines make you hard to shut down.", "Great White Shark and Big Eye Tuna are both big finishers, set them up first.", "Blue Tang adds +2 per Crosscurrent animal (sharks and Big Eye Tuna count)."]}, {"label": "Coral", "tier": "Core", "tag": "Coral", "blurb": "Stack coral on your board so each new coral lifts the rest. Staghorn Coral scores +3 for every coral you control.", "cards": [{"name": "Staghorn Coral", "species": "Coral", "text": "+3 per coral", "count": 2, "repUid": 2, "uids": [2, 34]}, {"name": "Elk Horn Coral", "species": "Coral", "text": "+2 per coral that is attached to a coral reef", "count": 3, "repUid": 24, "uids": [24, 74, 86]}, {"name": "Deep Sea Coral", "species": "Coral", "text": "+10 if this is the only creature on this ocean", "count": 2, "repUid": 20, "uids": [20, 42]}, {"name": "Grooved Brain Coral", "species": "Coral", "text": "+3 | *Play a free cephalopod*", "count": 2, "repUid": 64, "uids": [64, 88]}], "uids": [2, 20, 24, 34, 42, 64, 74, 86, 88], "steps": ["Build coral fast: Staghorn Coral scores +3 per coral, so every coral you add lifts them all.", "Play coral onto a Coral Reef ocean: Elk Horn Coral gives +2 per coral attached to a coral reef.", "Give Deep Sea Coral an ocean to itself: it scores +10 when it is the only creature there.", "Grooved Brain Coral scores +3 and lets you play a free cephalopod."], "tips": ["More coral means more points: Staghorn and Elk Horn both scale with your coral count.", "Keep Deep Sea Coral alone on its own ocean to bank the full +10.", "A Coral Reef ocean turbocharges Elk Horn Coral."]}, {"label": "Invertebrates", "tier": "Core", "tag": "Inverts", "blurb": "Flexible support critters that keep your hand full and pay off with Red Beaded Anemone: the more invertebrates you control, the bigger it scores.", "cards": [{"name": "Red Beaded Anemone", "species": "Invertebrate", "text": "+3 per invertebrate | *Draw one*", "count": 2, "repUid": 26, "uids": [26, 62]}, {"name": "Common Sea Star", "species": "Invertebrate", "text": "Draw one when you play a card on the ocean floor", "count": 2, "repUid": 10, "uids": [10, 84]}, {"name": "Sea Urchin", "species": "Invertebrate", "text": "Draw one when you play an animal on the ocean surface", "count": 2, "repUid": 70, "uids": [70, 92]}, {"name": "Johnson's Sea Cucumber", "species": "Invertebrate", "text": "Draw one when you play a game fish", "count": 2, "repUid": 18, "uids": [18, 54]}, {"name": "Orange Tube Sponge", "species": "Invertebrate", "text": "+2 per matching symbol", "count": 2, "repUid": 22, "uids": [22, 96]}], "uids": [10, 18, 22, 26, 54, 62, 70, 84, 92, 96], "steps": ["Spread invertebrates across the board: Red Beaded Anemone scores +3 for every invertebrate you control.", "Lean on the draw engines: Common Sea Star, Sea Urchin and Johnson's Sea Cucumber each draw you a card as you play.", "Orange Tube Sponge scores +2 per matching symbol: pair it with cards that share its symbol.", "Keep your hand stocked, then cash in with Red Beaded Anemone."], "tips": ["Invertebrates rarely score big alone: the payoff is Red Beaded Anemone scaling with their count.", "The draw triggers keep you ahead on cards: play them early.", "Orange Tube Sponge rewards stacking the same symbol."]}, {"label": "Game Fish", "tier": "Core", "tag": "Game Fish", "blurb": "Stack big game fish, Yellowfin pile into one spot with no limit, King Salmon cashes in full oceans, and Roosterfish ride in on your baitfish.", "cards": [{"name": "Yellowfin Tuna", "species": "Game Fish", "text": "+2 | Any number of yellowfin may share the same spot", "count": 14, "repUid": 107, "uids": [107, 125, 130, 134, 137, 154, 170, 172, 173, 175, 180, 181, 186, 187]}, {"name": "King Salmon", "species": "Game Fish", "text": "+5 per fully occupied ocean | *Draw one*", "count": 4, "repUid": 141, "uids": [141, 162, 178, 183]}, {"name": "Roosterfish", "species": "Game Fish", "text": "+4 if sharing an ocean with baitfish | *play a free Baitfish*", "count": 5, "repUid": 112, "uids": [112, 123, 127, 158, 176]}], "uids": [107, 112, 123, 125, 127, 130, 134, 137, 141, 154, 158, 162, 170, 172, 173, 175, 176, 178, 180, 181, 183, 186, 187], "steps": ["Dump Yellowfin Tuna into a single ocean, any number can share one spot, so they snowball at +2 each.", "Fill oceans completely, then play King Salmon for +5 per fully occupied ocean (and a draw).", "Drop a Roosterfish wherever you have baitfish for +4, and play a free Baitfish off its star."], "tips": ["Yellowfin have no stacking limit, one packed ocean of them is huge points.", "King Salmon rewards finishing oceans, so pair it with cheap fillers to complete spots.", "Roosterfish only nets +4 when it shares an ocean with baitfish, set up the baitfish first."]}];
   // Each built-in strategy is tinted by its PRIMARY animal family, so the
   // strategy panel cards, the active-strategy pills and the corner tags all
   // line up with the family colours above. (Combos take their first-named
@@ -3901,7 +3901,7 @@
   function _saveCustomStrats() {
     try { localStorage.setItem(CUSTOM_STRATS_KEY, JSON.stringify(HELP_STRATEGIES.slice(BUILTIN_STRATEGIES.length))); } catch (_) {}
   }
-  // Parse the typed card list — one card per line, optional "×3" / "x3" copies.
+  // Parse the typed card list, one card per line, optional "×3" / "x3" copies.
   function _parseCustomCards(text) {
     const out = [];
     for (let line of String(text || "").split("\n")) {
@@ -3987,13 +3987,13 @@
     } catch (_) { return ""; }
   }
 
-  // Strip em/en dashes (— –) → plain hyphen for readability, then HTML-escape.
-  const _hesc = (s) => String(s == null ? "" : s).replace(/[—–]/g, "-").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  // Strip em and en dashes to a plain hyphen for readability, then HTML-escape.
+  const _hesc = (s) => String(s == null ? "" : s).replace(/[\u2014\u2013]/g, "-").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
 
   // Canonical "physical card" key. Dual-faced cards (uid 1-188) are stored as
   // consecutive pairs: odd = front (top / left) face, even = back (bottom /
   // right) face. Collapsing to the odd uid lets a strategy match a card by
-  // EITHER face — so a card whose strategy animal lives on its back face still
+  // EITHER face, so a card whose strategy animal lives on its back face still
   // lights up in your hand/pool. Oceans (201-269) are single-faced.
   function _stratPairKey(uid) {
     const u = Number(uid) || 0;
@@ -4027,7 +4027,7 @@
   // Apply strategy highlighting to every relevant card. Non-invasive: adds an
   // outline/glow and small corner tags, never alters card logic.
   //  • Hand + pool cards can be played as either face. We match the physical
-  //    card (pair key) ONLY for the strategy's CORE families — this is what
+  //    card (pair key) ONLY for the strategy's CORE families, this is what
   //    lets a strategy whose animal sits on the back face still light up
   //    (Crustaceans, Mammals, Cephalopods…). Cross-family SUPPORT cards match
   //    by exact face only, so e.g. a Baitfish card whose back happens to be a
@@ -4052,7 +4052,7 @@
         for (const c of cards) {
           // A card opts into back-face (pair-key) matching if its species is one
           // of the strategy's core families, OR it's explicitly flagged a key card
-          // (c.core) — e.g. Spiny Lobster in Shooting the Moon, a Crustacean that
+          // (c.core), e.g. Spiny Lobster in Shooting the Moon, a Crustacean that
           // is central to the plan even though the strategy's core family is the
           // Crosscurrent Goby. Without this it would only light up on one face.
           const isCore = c.core === true || core.has(_normFamily(c.species));
@@ -4070,7 +4070,7 @@
       if (!strs || !strs.length) return;
       el.classList.add("strat-hl");
       // Glow colour = the card's OWN animal family, so a pink glow always means
-      // "Mammal", a blue glow always means "Bird", etc. — 100% consistent no
+      // "Mammal", a blue glow always means "Bird", etc., 100% consistent no
       // matter which (or how many) strategies lit the card up.
       const fu  = Number(el.dataset.faceUid);
       const fam = el.dataset.species || _UID_SPECIES.get(fu) || _UID_SPECIES.get(_stratPairKey(fu));
@@ -4098,7 +4098,7 @@
     });
     // Every board surface: match the committed face. Covers my board, the
     // always-visible opponent boards, the click-to-open focus view, and the
-    // hover peek — including the ocean base cards (Coral Reef, Kelp Forest…).
+    // hover peek, including the ocean base cards (Coral Reef, Kelp Forest…).
     document.querySelectorAll(
       "#pv-my-board .pv-board-card, #pv-my-board .pv-ocean-face, " +
       "#pv-opponents .pv-board-card, #pv-opponents .pv-ocean-face, " +
@@ -4128,9 +4128,9 @@
     function _isCombo(i)  { const s = HELP_STRATEGIES[i]; return !!s && s.tier === "Combo" && !s.custom; }
     function _isCustom(i) { const s = HELP_STRATEGIES[i]; return !!s && !!s.custom; }
 
-    // Featured critter portrait for each strategy — uses the AVATAR GALLERY art
+    // Featured critter portrait for each strategy, uses the AVATAR GALLERY art
     // (/avatars/*.png), not the card sprites. Default per primary animal family,
-    // with a few per-strategy overrides. Display only — no card data/rules change.
+    // with a few per-strategy overrides. Display only, no card data/rules change.
     const _FAMILY_AVATAR = {
       bird: "emperor-penguin", crustacean: "lobster", cephalopod: "common-octopus",
       mammal: "bottlenose-dolphin", baitfish: "whale-shark", "game fish": "yellowfin-tuna",
@@ -4155,7 +4155,7 @@
     }
 
     // Which CORE strategies each COMBO bridges. Keyed by combo label so it is
-    // robust to index shifts from appended custom strategies. (Data unchanged —
+    // robust to index shifts from appended custom strategies. (Data unchanged,
     // this only powers the "suggested combos" discovery.)
     const _COMBO_PAIR_LABELS = {
       "Bird Lobster": ["Birds", "Crustaceans"],
@@ -4199,7 +4199,7 @@
 
     // ── Best strategy for YOUR starting hand ────────────────────────
     // Analyse the player's actual hand and pick the CORE strategy whose key
-    // cards they hold the most of. Deterministic (highest overlap wins — never
+    // cards they hold the most of. Deterministic (highest overlap wins, never
     // random). Returns null when there's no hand yet (e.g. opened from lobby)
     // or nothing in hand matches any core strategy.
     function _recommendStrategyForHand() {
@@ -4242,13 +4242,13 @@
     }
 
     // Build the prominent "best strategy for your hand" banner shown at the very
-    // top of the strategy list — the first and most noticeable hint option.
+    // top of the strategy list, the first and most noticeable hint option.
     function _recoBannerHtml() {
       const rec = _recommendStrategyForHand();
       const head = `<div class="hs2-reco-kicker">💡 Best strategy to play for your starting hand</div>`;
       if (!rec || rec.idx < 0) {
         const msg = (rec && rec.reason === "nomatch")
-          ? "Your hand doesn't strongly fit one core plan yet — draw a couple of cards, then check back."
+          ? "Your hand doesn't strongly fit one core plan yet, draw a couple of cards, then check back."
           : "Open this once you've been dealt your hand and we'll recommend the strategy that fits your cards best.";
         return `<section class="hs2-sec hs2-reco"><div class="hs2-reco-card empty">${head}<div class="hs2-reco-why">${msg}</div></div></section>`;
       }
@@ -4256,7 +4256,7 @@
       const shownNames = rec.names.slice(0, 3).map(_hesc).join(", ");
       const extra = rec.names.length > 3 ? ` +${rec.names.length - 3} more` : "";
       const why = `You're holding <strong>${rec.matchedCards}</strong> of its key card${rec.matchedCards === 1 ? "" : "s"}` +
-        (shownNames ? ` — ${shownNames}${extra}.` : ".");
+        (shownNames ? `, ${shownNames}${extra}.` : ".");
       return `
         <section class="hs2-sec hs2-reco">
           <div class="hs2-reco-card" data-strat="${i}" style="--strat-c:${STRAT_COLORS[i]}">
@@ -4280,7 +4280,7 @@
       titleEl.textContent = "Strategies";
       const _fav = _getMostPlayedStrategyLocal();
       const _favBadge = _fav ? `<div style="margin:6px 0 2px;font-size:12px;color:#9fc0e0">Your most-played strategy: <strong style="color:#3dd6a8">${_hesc(_fav)}</strong></div>` : "";
-      if (introEl) introEl.innerHTML = "Choose a core strategy to build around — then we'll suggest combos that pair well with it. Run several at once if you like; matching cards light up in your hand and the pool in their family colour, and a gold ★ marks a special star ability." + _familyLegendHtml() + _favBadge;
+      if (introEl) introEl.innerHTML = "Choose a core strategy to build around, then we'll suggest combos that pair well with it. Run several at once if you like; matching cards light up in your hand and the pool in their family colour, and a gold ★ marks a special star ability." + _familyLegendHtml() + _favBadge;
 
       // ── Section 1: core strategy cards ──
       const coreIdx = [];
@@ -4325,7 +4325,7 @@
       };
       const selectedHtml = (activeAll.length || savedCustoms.length)
         ? activeAll.map(i => miniCard(i, true)).join("") + savedCustoms.map(i => miniCard(i, false)).join("")
-        : `<div class="hs2-empty">No strategy selected yet — pick a core strategy above to get started.</div>`;
+        : `<div class="hs2-empty">No strategy selected yet, pick a core strategy above to get started.</div>`;
       const addSlot = `<div class="hs2-slot" id="hs2-add"><div class="hs2-slot-ico">＋</div><div class="hs2-slot-title">Add another core strategy</div></div>`;
       const createSlot = `<div class="hs2-slot create" id="hs2-create"><div class="hs2-slot-ico">✏️</div><div class="hs2-slot-title">Create Your Own Strategy</div><div class="hs2-slot-sub">Build a custom plan with your cards</div></div>`;
       const clearBtn = activeAll.length ? `<button id="hs2-clear" class="hs2-clear">Clear all</button>` : "";
@@ -4356,7 +4356,7 @@
       };
       let combosBody;
       if (!selCoreCount) combosBody = `<div class="hs2-empty">Select a core strategy to see suggested combos.</div>`;
-      else if (!combos.length) combosBody = `<div class="hs2-empty">No combo pairs for this selection yet — try adding another core strategy.</div>`;
+      else if (!combos.length) combosBody = `<div class="hs2-empty">No combo pairs for this selection yet, try adding another core strategy.</div>`;
       else combosBody = shown.map(comboCard).join("");
       const moreCount = combos.length - HS_COMBO_PREVIEW;
       const showMoreBtn = (combos.length > HS_COMBO_PREVIEW)
@@ -4366,7 +4366,7 @@
       listEl.innerHTML = `
         ${_recoBannerHtml()}
         <section class="hs2-sec">
-          <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Core Strategy <span class="hs2-sec-sub">Foundational plans — pick one or more to build around.</span></div>
+          <div class="hs2-sec-head"><span class="hs2-num">1</span> Choose Your Core Strategy <span class="hs2-sec-sub">Foundational plans, pick one or more to build around.</span></div>
           <div class="hs2-core-rail">${coreRail}</div>
         </section>
         <div class="hs2-bottom">
@@ -4598,7 +4598,7 @@
     // label without reaching into this IIFE's private state: open/close the
     // modal, verify which strategies are active, and reset/restore them around
     // the B-Lob tutorial. All lookups are by label so they survive the index
-    // shifts custom strategies cause — never by a hardcoded array index.
+    // shifts custom strategies cause, never by a hardcoded array index.
     function _idxByLabel(label) {
       const want = String(label || "").trim().toLowerCase();
       return HELP_STRATEGIES.findIndex(s => s && String(s.label || "").trim().toLowerCase() === want);
@@ -4701,8 +4701,8 @@
 
   // ── Main payload renderer ──────────────────────────────────────
   let legalActions = [];
-  let myIdx = null;     // game index (position in gs.players) — used for players array lookups
-  let mySeatIdx = null; // seat index — used for tokens, can_act, undo, hosting checks
+  let myIdx = null;     // game index (position in gs.players), used for players array lookups
+  let mySeatIdx = null; // seat index, used for tokens, can_act, undo, hosting checks
   let canInteract = false;
   let _latestPlayers = [];
   let _latestRoundCount = 0;
@@ -4715,25 +4715,25 @@
   // ocean → fire the matching *_start daily challenge).
   let _chObsPrevMyBoardLen = 0;     // last seen number of oceans on my board
   let _chObsPreMoveScore   = null;  // my score snapshot taken right before a move
-                                    //  is submitted — compared to the next payload's
+                                    //  is submitted, compared to the next payload's
                                     //  score to detect 'better_spot'
   let _chObsStarTurnPlayer    = null; // the current_player at the moment a ★ was activated
   let _chObsStarTurnStartScore= null; // turn-start score recorded when the ★ was activated
   let _chObsPrevTurnPlayer    = null; // last-seen current_player for turn-end detection
   let _chObsPlaysThisGame     = 0;    // free animal plays this game (for free_animal_week)
-  // Pool tracking — diffed every payload to detect resets, provenance, etc.
+  // Pool tracking, diffed every payload to detect resets, provenance, etc.
   let _chObsPrevPoolUids      = new Set(); // entry_uid set last payload
   let _chObsPrevPoolSize      = 0;
   let _chObsPoolEntryOwner    = new Map(); // entry_uid -> name of player who added it
   let _chObsPoolEntryAddedTurn= new Map(); // entry_uid -> round_count when it was added
   let _chObsPoolJustResetAt   = 0; // payload counter when reset happened (0 = no reset pending)
-  let _chObsPoolPrevCurPlayer = null; // current_player seen on the PREVIOUS payload — owned
+  let _chObsPoolPrevCurPlayer = null; // current_player seen on the PREVIOUS payload, owned
                                       //  by _challObservePool ONLY (must not be shared with
                                       //  _challObserveStarCombo, which mutates its own tracker
                                       //  earlier in the same observer pass).
   let _chObsPoolWatcherStreak = 0; // consecutive draws from pool from OTHER players' cards
   let _chObsCompSelfDiscarded = new Set(); // entry_uids put in pool by THIS device's seats
-                                            // (for set_it_up — competitive only)
+                                            // (for set_it_up, competitive only)
   let _chObsPrevMyBoardCards    = new Set(); // face_uids on my board last payload
   let _chObsSpeciesPlayedGame   = new Set(); // species placed this game
   let _chObsOceanTypesPlayedGame= new Set(); // distinct ocean names this game
@@ -4745,7 +4745,7 @@
                                             //   for breaker_turn at turn-end)
 
   // Fires the matching *_start daily challenge for the player's first
-  // ocean of the game. Idempotent — the report function only ticks ACTIVE
+  // ocean of the game. Idempotent, the report function only ticks ACTIVE
   // slots that match the id, so this is safe to call on rejoin/refresh.
   const _CH_FIRST_OCEAN_MAP = {
     "coral reef":     "coral_start",
@@ -4772,7 +4772,7 @@
     _chObsPrevMyBoardLen = curLen;
   }
 
-  // 'better_spot' detection — when a move was just submitted, we took a
+  // 'better_spot' detection, when a move was just submitted, we took a
   // pre-move score snapshot. If the next observed score is higher than
   // that snapshot, the move landed the animal in a higher-scoring ocean.
   function _challObserveMoveScore(me) {
@@ -4787,7 +4787,7 @@
     _chObsPreMoveScore = null;
   }
 
-  // 'combo_current' detection — when a star ability was activated this
+  // 'combo_current' detection, when a star ability was activated this
   // turn, on the turn boundary check whether the player gained 15+ pts
   // during the turn. If so, fire the daily challenge.
   function _challObserveStarCombo(state, players) {
@@ -4821,7 +4821,7 @@
     _chObsStarTurnStartScore = null;
   }
 
-  // Pool observer — tracks provenance, resets, and the streak for
+  // Pool observer, tracks provenance, resets, and the streak for
   // pool_watcher. Hooks into the per-payload diff to update the maps.
   function _challObservePool(state, players) {
     const poolNow = Array.isArray(state.pool) ? state.pool : [];
@@ -4836,7 +4836,7 @@
     // previous one acted (they discarded into the pool as their turn ended).
     // If not, the current one acted (still their turn). We track the previous
     // payload's current_player in our OWN var (_chObsPoolPrevCurPlayer), updated
-    // at the end of this function — NOT the shared _chObsPrevTurnPlayer, which
+    // at the end of this function, NOT the shared _chObsPrevTurnPlayer, which
     // _challObserveStarCombo already advanced to the new turn earlier in this
     // same observer pass (which would make the "turn just changed" branch dead
     // code and misattribute every end-of-turn discard to the NEXT player).
@@ -4882,7 +4882,7 @@
     _chObsPoolPrevCurPlayer = curPlayer;
   }
 
-  // Species map — match the server's species strings to weekly challenge ids.
+  // Species map, match the server's species strings to weekly challenge ids.
   const _CH_SPECIES_TO_WEEKLY = {
     "bird":         "bird_week",
     "crustacean":   "crustacean_week",
@@ -4896,7 +4896,7 @@
     "crosscurrent": "crosscurrent_week",
   };
 
-  // Species / ocean / hand observer — fires per-card-placed events for the
+  // Species / ocean / hand observer, fires per-card-placed events for the
   // species weekly counters, plus the per-game distinct-species and
   // distinct-ocean challenges, plus the discard_duty hand-trim detector.
   function _challObserveSpeciesAndOcean(me) {
@@ -4940,7 +4940,7 @@
       if (cid) {
         try { window._reportWeeklyChallengeProgress?.(cid, 1); } catch {}
       }
-      // Weekly: critter_collector — total animal cards this week (target 50).
+      // Weekly: critter_collector, total animal cards this week (target 50).
       try { window._reportWeeklyChallengeProgress?.("critter_collector", 1); } catch {}
 
       // Achievement humuhumunukuapuaa: cephalopods placed in one turn (target 5).
@@ -4949,7 +4949,7 @@
         if (_gameAchTracker.cephThisTurn > (_gameAchTracker.maxCephInTurn || 0)) {
           _gameAchTracker.maxCephInTurn = _gameAchTracker.cephThisTurn;
         }
-        // Grant the moment 5 cephalopods are on the board this turn — don't wait
+        // Grant the moment 5 cephalopods are on the board this turn, don't wait
         // for game end. unlockAchievement is idempotent and also grants the
         // linked Reef Triggerfish avatar.
         if (_gameAchTracker.cephThisTurn >= 5) {
@@ -4972,14 +4972,14 @@
       }
     }
 
-    // the_all_blue_weekly — 8 distinct Oceans on my board in one game.
+    // the_all_blue_weekly, 8 distinct Oceans on my board in one game.
     if (_chObsOceanTypesPlayedGame.size >= 8) {
       try { window._reportWeeklyChallengeProgress?.("the_all_blue_weekly", 0, { complete: true }); } catch {}
     }
 
     _chObsPrevMyBoardCards = curCardUids;
 
-    // discard_duty — at end of turn, was forced to discard down to 10.
+    // discard_duty, at end of turn, was forced to discard down to 10.
     // Detect via hand size dropping from >10 to <=10 between payloads.
     const curHand = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 0));
     if (_chObsPrevMyHandCount > 10 && curHand === 10) {
@@ -4989,7 +4989,7 @@
   }
 
   // Main per-payload observer entry point. Add new observers here over
-  // time — keeping them all in one place makes the diff state easy to
+  // time, keeping them all in one place makes the diff state easy to
   // reason about and easy to reset on game-end / leave.
   function _runChallengeObservers(me, state, phase, players) {
     if (phase !== "running") return;
@@ -5034,7 +5034,7 @@
     const viewer  = payload.viewer || {};
     // viewer.seat_index is used as both the player-lookup key (players[i].index
     // is seat_idx in the server payload) and the token/action key. They're the
-    // same value — seat_index is canonical for competitive and normal games.
+    // same value, seat_index is canonical for competitive and normal games.
     myIdx    = Number.isInteger(viewer.seat_index) ? viewer.seat_index : null;
     mySeatIdx = myIdx;
     _myIdxGlobal  = myIdx;
@@ -5050,7 +5050,7 @@
     // ── Match stats tracking ─────────────────────────────
     if (phase === "running" && !_matchStartMs) {
       _matchStartMs = Date.now();
-      _endRevealMs = 0; // fresh game — playtime clock restarts at the next end screen
+      _endRevealMs = 0; // fresh game, playtime clock restarts at the next end screen
       // Capture the player's LOCAL date at game start. Streak credit is given
       // for the day a game STARTED (so a game begun at 11:55pm that ends after
       // midnight still counts for the start day). Read at game-end in saveGameStats.
@@ -5084,7 +5084,7 @@
       const round = _latestRoundCount;
 
       // Turn-boundary detection: when current_player changes, the PREVIOUS
-      // player just finished their turn — compute their turn's score delta.
+      // player just finished their turn, compute their turn's score delta.
       if (curP !== _prevCurrentPlayer) {
         if (_prevCurrentPlayer && _turnStartScores[_prevCurrentPlayer] != null) {
           const prevP = players.find(p => p.name === _prevCurrentPlayer);
@@ -5094,7 +5094,7 @@
             else if (turnDelta > 0 && turnDelta === _bestTurnPts && !_bestTurnNames.includes(_prevCurrentPlayer)) {
               _bestTurnNames.push(_prevCurrentPlayer);
             }
-            // Daily/Weekly: breaker_turn — Score 50+ in one turn (weekly only)
+            // Daily/Weekly: breaker_turn, Score 50+ in one turn (weekly only)
             //                              Actually weekly says target 50 → completes
             const meName = (players.find(p => p.index === myIdx) || {}).name;
             if (turnDelta >= 50 && _prevCurrentPlayer === meName) {
@@ -5109,7 +5109,7 @@
         }
         // Reset per-turn cephalopod counter on each turn boundary (humuhumunukuapuaa).
         _gameAchTracker.cephThisTurn = 0;
-        // Loggerhead Sea Turtle: finalize the turn that just ended — a qualifying
+        // Loggerhead Sea Turtle: finalize the turn that just ended, a qualifying
         // chain is a Turtle turn where I played 10+ cards. Then reset per-turn.
         if (_gameAchTracker.turtlePlayedThisTurn && Number(_gameAchTracker.cardsPlayedThisTurn || 0) >= 10)
           _gameAchTracker.turtleBigChains = (_gameAchTracker.turtleBigChains || 0) + 1;
@@ -5185,7 +5185,7 @@
         if (myGobyCount >= 4) _gameAchTracker.gotAllGobies = true;
       }
 
-      // Star ability tracking — limited to the current viewer's free play windows
+      // Star ability tracking, limited to the current viewer's free play windows
       // because the server only sends legal_actions to the viewer.
       const fpa = Array.isArray(lw.free_play_species) && lw.free_play_species.length > 0;
       if (fpa && !_prevFreePlayActive && curP) _starCounts[curP] = (_starCounts[curP] || 0) + 1;
@@ -5194,7 +5194,7 @@
     const current = state.current_player || "";
     const isMyTurn = Boolean(viewer.can_act);
     // Suppress canInteract for any payload arriving within 600ms of our last
-    // action submission — the payload is almost certainly a stale poll that
+    // action submission, the payload is almost certainly a stale poll that
     // raced the action.  The post-action refreshStateAfterAction() will supply
     // the authoritative state once the in-flight poll has cleared.
     const _staleWindow = _lastActionMs > 0 && (Date.now() - _lastActionMs) < 600;
@@ -5235,7 +5235,7 @@
 
     // waiting room overlay: show during lobby phase, hide once game starts
     // Show the waiting room whenever the room is still in lobby phase.
-    // This applies to both normal and competitive games — compMode must NOT
+    // This applies to both normal and competitive games, compMode must NOT
     // skip it, because competitive rooms also need all 4 seats filled before
     // the host can start. (compMode=true was previously blocking the waiting
     // room for competitive lobbies, causing an instant empty-game jump.)
@@ -5280,14 +5280,14 @@
     const banner = document.getElementById("pv-turn-banner");
     const endBtn = document.getElementById("pv-end-turn-inline");
     if (endTriggered && isMyTurn) {
-      // Trigger player still has their turn — make it obvious they need to act
+      // Trigger player still has their turn, make it obvious they need to act
       banner.className = "my-turn";
-      banner.textContent = "★ YOUR FINAL TURN — draw or play a card! ★";
+      banner.textContent = "★ YOUR FINAL TURN, draw or play a card! ★";
       endBtn.classList.add("pulse-glow");
     } else if (endTriggered) {
       banner.className = "endgame";
       const left = endGame.final_turns_remaining;
-      banner.textContent = `⚠ END GAME — ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
+      banner.textContent = `⚠ END GAME, ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
       endBtn.classList.remove("pulse-glow");
     } else if (isMyTurn) {
       const isReplayTurn = Boolean(lw.is_replay_turn);
@@ -5297,9 +5297,9 @@
           const activeSeat = Number(payload.active_action_seat);
           const handNum = compMySeats.indexOf(activeSeat) + 1;
           const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
-          banner.textContent = `✦  ${myName.toUpperCase()} — HAND ${handNum}  ✦`;
+          banner.textContent = `✦  ${myName.toUpperCase()}, HAND ${handNum}  ✦`;
         } else if (isReplayTurn) {
-          banner.textContent = "★ PLAY AGAIN — take another turn! ★";
+          banner.textContent = "★ PLAY AGAIN, take another turn! ★";
         } else {
           banner.textContent = "✦  YOUR TURN  ✦";
         }
@@ -5312,7 +5312,7 @@
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
       endBtn.classList.remove("pulse-glow");
-      _lastActionMs = 0; // confirmed not our turn — reset grace window
+      _lastActionMs = 0; // confirmed not our turn, reset grace window
     }
     _prevTurnIdx = state.turn_index;
     // Razorbill Auk avatar: the "same turn" window ends when it's no longer my turn.
@@ -5321,14 +5321,14 @@
 
     // status bar
     if (mustDiscard) {
-      setStatus(`Discard exactly ${discardExcess} card(s) — cannot go below 10`);
+      setStatus(`Discard exactly ${discardExcess} card(s), cannot go below 10`);
     } else if (isMyTurn) {
       setStatus("Cast your line");
     } else {
       setStatus(payload.status_note || `Waiting for ${current}…`);
     }
 
-    // deck count — shown beside the deck + in the hover tooltip, NEVER printed on
+    // deck count, shown beside the deck + in the hover tooltip, NEVER printed on
     // the card-back art itself.
     const deckNum = Number(state.deck_remaining ?? state.deck_size ?? state.deck_count ?? (Array.isArray(state.deck)?state.deck.length:0));
     const _deckLbl = deckNum === 1 ? "1 card" : `${deckNum} cards`;
@@ -5336,11 +5336,11 @@
     const _deckTipEl = document.getElementById("pv-deck-tip");
     if (_deckTipEl) _deckTipEl.textContent = `${_deckLbl} left in the deck`;
     const _deckPileEl = document.getElementById("pv-draw-deck");
-    if (_deckPileEl) _deckPileEl.title = `${_deckLbl} left — click to draw`;
+    if (_deckPileEl) _deckPileEl.title = `${_deckLbl} left, click to draw`;
     const _deckFaceEl = document.getElementById("pv-deck-count-face");
     if (_deckFaceEl) _deckFaceEl.style.opacity = deckNum > 0 ? "" : "0.3";
 
-    // hand entry map — pull symbol up to top level for payment matching
+    // hand entry map, pull symbol up to top level for payment matching
     handEntryMap.clear();
     if (me && Array.isArray(me.hand)) {
       for (const entry of me.hand) {
@@ -5360,7 +5360,7 @@
     try {
       const myHandNow = Number(me?.hand_count ?? (Array.isArray(me?.hand) ? me.hand.length : 0));
       if (!_prevTarponActive && tarponActive) {
-        // Phase just began — the pre-Tarpon hand was the previous render's count.
+        // Phase just began, the pre-Tarpon hand was the previous render's count.
         _tarponStartHand = Math.max(_lastHandCount, myHandNow);
         selectedDiscard.clear();   // start each Tarpon cycle with a clean selection
       }
@@ -5368,7 +5368,7 @@
         _gameAchTracker.tarponHandHitZero = true;
       }
       if (_prevTarponActive && !tarponActive) {
-        selectedDiscard.clear();   // phase ended — don't leak picks into a later discard
+        selectedDiscard.clear();   // phase ended, don't leak picks into a later discard
         if (_gameAchTracker) {
           // Count only if the hand was full (9–10) and emptied entirely.
           if (_gameAchTracker.tarponHandHitZero && _tarponStartHand >= 9) {
@@ -5389,9 +5389,9 @@
     const _animDiff = _computeDrawAnimDiff(players, Array.isArray(state.pool) ? state.pool : []);
     // Board-clear tide: when the Pool overflows every card is washed out to the
     // discard pile in one step. Detect that from the discard-pile count jumping
-    // by ≥10 (see _poolOverflowCleared — reliable even when the Pool lands
-    // non-empty afterward), capture the doomed cards now — before renderPool
-    // wipes them — and let the tide own that exit, so we don't also fly those
+    // by ≥10 (see _poolOverflowCleared, reliable even when the Pool lands
+    // non-empty afterward), capture the doomed cards now, before renderPool
+    // wipes them, and let the tide own that exit, so we don't also fly those
     // same cards toward a player's avatar.
     const _overflowCleared = _poolOverflowCleared(Number(state.discard_pile_count ?? state.discard_count ?? 0));
     const _tideSnap = _captureTidePoolClear(_overflowCleared);
@@ -5418,7 +5418,7 @@
           _showWelcomeBackToast("Welcome back!");
         }
       }
-      // Turn boundary — reset idle timer when active player changes
+      // Turn boundary, reset idle timer when active player changes
       const aas = payload.active_action_seat;
       if (aas !== _prevActiveSeatForIdle) {
         _prevActiveSeatForIdle = aas;
@@ -5474,33 +5474,33 @@
     const undoInfo = payload.undo || {};
     const undoBtn = document.getElementById("pv-undo-btn");
     if (undoBtn) {
-      // Clear the AFK-forced flag once it's no longer this player's turn —
+      // Clear the AFK-forced flag once it's no longer this player's turn,
       // the forced draw has resolved and future turns start fresh.
       if (!isMyTurn) _afkForced = false;
       // eligible_seat is a seat index; compare to mySeatIdx (never game index).
       // Block undo when the action was auto-drawn due to an AFK vote (player did not interact).
-      // Also block while a request is already in flight (undoInfo.requested) — an AI
+      // Also block while a request is already in flight (undoInfo.requested), an AI
       // mid-turn may still be picking it up, so a second click would be a no-op.
       const canUndo = Boolean(undoInfo.valid) && !Boolean(undoInfo.requested) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat && !_afkForced;
       undoBtn.style.display = "";
       undoBtn.disabled = !canUndo;
       undoBtn.title = _afkForced
-        ? "Undo is not available — your cards were drawn automatically because you did not respond to the AFK vote."
-        : "Undo your last turn — stays available through bot turns; only locks once another human plays after you";
+        ? "Undo is not available, your cards were drawn automatically because you did not respond to the AFK vote."
+        : "Undo your last turn, stays available through bot turns; only locks once another human plays after you";
     }
 
     renderLog(payload.log_tail);
     updateMenuScores(players, myIdx);
     updateCompMenuHands(players, payload.active_action_seat);
     const _mrc = document.getElementById("pv-menu-room-code");
-    if (_mrc) _mrc.textContent = roomId || "—";
+    if (_mrc) _mrc.textContent = roomId || "-";
     const _termBtn = document.getElementById("pv-menu-terminate-btn");
     if (_termBtn) _termBtn.style.display = (payload.viewer?.is_host || Boolean(getHostToken())) ? "" : "none";
     try { if (typeof window._syncAiSpeedBar === "function") window._syncAiSpeedBar(payload); } catch (e) {}
 
     const discBanner = document.getElementById("pv-discard-banner");
     if (mustDiscard) {
-      discBanner.textContent = `Discard exactly ${discardExcess} card(s) to return to 10 — click cards then Confirm`;
+      discBanner.textContent = `Discard exactly ${discardExcess} card(s) to return to 10, click cards then Confirm`;
       discBanner.classList.add("visible");
     } else {
       discBanner.classList.remove("visible");
@@ -5511,7 +5511,7 @@
     _forfeitResult = (payload.forfeit && typeof payload.forfeit === "object") ? payload.forfeit : null;
     renderEndGame(payload.winner || null, Array.isArray(payload.final_scores) ? payload.final_scores : []);
 
-    // chat — once shown for this game, never re-hide it from a later poll tick
+    // chat, once shown for this game, never re-hide it from a later poll tick
     // (a single stale/transient "lobby" phase read must not strand the button
     // hidden with nothing left to click; open/close stays purely local per player).
     const chatBtn = document.getElementById("pv-chat-btn");
@@ -5540,7 +5540,7 @@
     // If we are spectating, handle board-view on seat click and check for kick
     if (isSpectating()) {
       _specShowPanel(true);
-      // Detect if we've been kicked (our token gone — server won't return ok)
+      // Detect if we've been kicked (our token gone, server won't return ok)
       // The poll error path handles room not found; kicked spectators get a 403
       // which is caught by the applyServerPayload guard. If state has spectator:true
       // but our token is no longer in the spectators list, we've been kicked.
@@ -5549,7 +5549,7 @@
         return s._token === _spectatorToken || s.token_tail === _spectatorToken.slice(-6);
       });
       if (payload.spectator === true && !stillInList && (payload.spectators || []).length >= 0) {
-        // Token was valid (got spectator state) but we're not in the list — kicked.
+        // Token was valid (got spectator state) but we're not in the list, kicked.
         // Guard: only trigger if spectators array is present and populated by server.
         if (payload.spectators !== undefined) {
           leaveSpectator();
@@ -5777,7 +5777,7 @@
 
   // Was there a Pool overflow clear between the last render and this one?
   // The server washes the whole Pool to the discard pile the instant it hits
-  // 10 cards — and it adds cards one at a time, so after a batch discard the
+  // 10 cards, and it adds cards one at a time, so after a batch discard the
   // Pool usually lands NON-empty (e.g. 8 → 9 → 10-clear → 1). Watching for
   // pool→0 therefore misses the clear most of the time. Instead we watch the
   // discard-pile count: a wash moves exactly 10 cards into it, and nothing
@@ -5787,7 +5787,7 @@
     const cur = Number.isFinite(curDiscardCount) ? curDiscardCount : 0;
     const prev = _prevDiscardCount;
     _prevDiscardCount = cur;
-    if (prev == null) return false;        // first render — no baseline yet
+    if (prev == null) return false;        // first render, no baseline yet
     return (cur - prev) >= 10;
   }
 
@@ -5802,7 +5802,7 @@
       if (!wrap) return null;
       // Wash away whatever cards are on screen (the pre-clear Pool). Usually a
       // full-ish board; if the clear tipped over from a low pool we simply wash
-      // the fewer cards that were showing — still reads as the board sweeping out.
+      // the fewer cards that were showing, still reads as the board sweeping out.
       const cards = Array.from(wrap.querySelectorAll(".pv-pool-card"));
       const cells = cards.map(el => {
         const r = el.getBoundingClientRect();
@@ -5835,7 +5835,7 @@
     const crestEnd   = snap.right + trailOut; // crest x at t = D
     const span = Math.max(1, crestEnd - crestStart);
     // Constant-velocity sweep so each card's wash-away lines up with the crest.
-    // Weighty and slow — this only fires on a full-board clear, so let the tide
+    // Weighty and slow, this only fires on a full-board clear, so let the tide
     // take its time rolling across.
     const D = Math.round(Math.min(2400, Math.max(1600, span * 2.9)));
     const waveW = Math.min(440, Math.max(260, span * 0.7));
@@ -5863,7 +5863,7 @@
       nodes.push(el);
 
       // Spray: a handful of foam droplets kicked up from the card as the crest
-      // reaches it — they arc up (mostly forward, in the sweep direction) and
+      // reaches it, they arc up (mostly forward, in the sweep direction) and
       // fall back, so each card literally bursts into foam as it's washed away.
       for (let i = 0; i < 5; i++) {
         const d = document.createElement("div");
@@ -5881,7 +5881,7 @@
       }
     });
 
-    // 2) The wave — a translucent body with a churning foam crest on its leading
+    // 2) The wave, a translucent body with a churning foam crest on its leading
     //    (right) edge. Its right edge starts at crestStart and sweeps to crestEnd.
     const wave = document.createElement("div");
     wave.className = "pv-tide-wave";
@@ -5958,7 +5958,7 @@
     const recipientIsLocal = (recipientIdx != null && recipientIdx === myIdx);
 
     // 1) Pool draws.
-    //    Local recipient: skip the fly — the new hand cards will ripple in (handled by renderHand's .deal-in)
+    //    Local recipient: skip the fly, the new hand cards will ripple in (handled by renderHand's .deal-in)
     //    plus we add a ripple ring at each landing spot. The leaving pool slot
     //    already disappears via the next render; a quick lift-off would feel jittery.
     //    Other recipients: fly the actual pool card image toward their avatar.
@@ -5971,7 +5971,7 @@
     });
 
     // 2) Deck draws.
-    //    Local recipient: skip the fly — ripple effect happens in the hand.
+    //    Local recipient: skip the fly, ripple effect happens in the hand.
     //    Other recipients: hook-reveal cards flying from the deck to their avatar.
     if (deckDrawCount > 0 && recipientIdx != null && !recipientIsLocal) {
       const fromR = _pvAnim.deckRect();
@@ -6038,7 +6038,7 @@
     const hint = document.getElementById("pv-pool-pick-hint");
     if (hint) {
       if (isSecondDraw && canInteract) {
-        hint.textContent = "Choose your second card — click the Deck or draw one from the pool";
+        hint.textContent = "Choose your second card, click the Deck or draw one from the pool";
         hint.classList.add("visible");
       } else {
         hint.classList.remove("visible");
@@ -6058,7 +6058,7 @@
       const faceUid = Number(face.uid ?? entry.entry_uid ?? entry.uid);
       const isNew = !prevSet.has(faceUid);
       const div = document.createElement("div");
-      // Skip the legacy flip-in for new cards — Ripple Reveal will play instead.
+      // Skip the legacy flip-in for new cards, Ripple Reveal will play instead.
       div.className = "pv-pool-card" + (isNew && !_pvAnim._suppressFlipIn ? " flip-in" : "");
       div.dataset.faceUid = String(faceUid);
       div.dataset.species = face.species || "";
@@ -6067,7 +6067,7 @@
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
       div.appendChild(img);
       div.title = (canDrawPool && canInteract)
-        ? `${face.name || faceUid} — click to draw this card from the pool`
+        ? `${face.name || faceUid}, click to draw this card from the pool`
         : (face.name || String(faceUid));
 
       if (canDrawPool && canInteract) {
@@ -6093,7 +6093,7 @@
       wrap.appendChild(div);
     });
 
-    // Hand zone drop target — drag a pool card here to draw it immediately
+    // Hand zone drop target, drag a pool card here to draw it immediately
     const handZone = document.getElementById("pv-hand-zone");
     if (canDrawPool && canInteract) {
       handZone.ondragover = (ev) => {
@@ -6121,7 +6121,7 @@
       handZone.classList.remove("pool-drag-over");
     }
 
-    // Pool drop zone — drag a hand card here to discard it to the pool (payment)
+    // Pool drop zone, drag a hand card here to discard it to the pool (payment)
     const poolArea = document.getElementById("pv-pool-area");
     const discardActions = actions.filter(a => a.kind === "discard_to_pool");
     if (discardActions.length) {
@@ -6155,7 +6155,7 @@
 
   // ── Player seat row (6 fixed slots, 3-left / 3-right of hand) ─
   // Self-contained: does NOT reference the IIFE-scoped avatar helpers
-  // (AVATAR_OPTIONS / resolveAvatarUrl / _activeProfile) — those are
+  // (AVATAR_OPTIONS / resolveAvatarUrl / _activeProfile), those are
   // private to the auth IIFE and unreachable from this scope, which
   // previously threw a ReferenceError and prevented any seat from
   // rendering. The local player's chosen avatar is read via
@@ -6230,7 +6230,7 @@
     } catch (e) { myAvatarUrl = ""; }
 
     // Include per-seat background AND my own equipped background in the render
-    // key — otherwise equipping/removing a background doesn't change name/score/
+    // key, otherwise equipping/removing a background doesn't change name/score/
     // avatar/turn, the key stays identical, and the seat never re-renders (so a
     // removed background stays stuck on screen).
     let _myBgKey = "";
@@ -6259,7 +6259,7 @@
         // Score placeholder keeps empty seats the same height as filled ones
         const sc = document.createElement("div");
         sc.className = "pv-seat-score pv-seat-score-empty";
-        sc.textContent = "—";
+        sc.textContent = "-";
         seat.appendChild(aw);
         seat.appendChild(nm);
         seat.appendChild(sc);
@@ -6299,7 +6299,7 @@
       aw.appendChild(img);
       // Exclusive background behind this player's avatar. Mine comes from my
       // equipped selection; others' from the per-seat value the server relays.
-      // For my own seat my local equipped value is authoritative — including ""
+      // For my own seat my local equipped value is authoritative, including ""
       // (just removed) which must override any stale server-relayed background,
       // otherwise removal appears to do nothing until the server catches up.
       let seatBg = String(p.background || "");
@@ -6321,7 +6321,7 @@
       nmText.textContent = p.name || `P${p.index + 1}`;
       nm.appendChild(plabel);
       nm.appendChild(nmText);
-      nm.title = `${p.name || `Player ${p.index + 1}`} — report by typing "P${p.index + 1} is AFK"`;
+      nm.title = `${p.name || `Player ${p.index + 1}`}, report by typing "P${p.index + 1} is AFK"`;
 
       const sc = document.createElement("div");
       sc.className = "pv-seat-score";
@@ -6417,7 +6417,7 @@
         const lbl = document.createElement("div"); lbl.className = "pv-opp-full-label";
         lbl.innerHTML = `${p.index===turnIndex?"▶ ":""}${p.name||`Player ${p.index}`}<span class="opp-score">${p.score??0} pts</span><span style="font-size:10px;color:var(--muted);margin-left:6px;">🃏${hc}</span>`;
         wrap.appendChild(lbl);
-        // Board content — scale + rotate across opponent
+        // Board content, scale + rotate across opponent
         const boardEl = renderReadOnlyBoard(p);
         boardEl.style.zoom = String(zoom);
         if (idx === acrossIdx) boardEl.style.transform = "rotate(180deg)";
@@ -6486,7 +6486,7 @@
       sc.textContent = `${p.score??0} pts · 🃏${hcCard}`;
       hdr.appendChild(nm); hdr.appendChild(sc); card.appendChild(hdr);
 
-      // face-down hand cards strip — use hand_count for opponents (server sends hand:[])
+      // face-down hand cards strip, use hand_count for opponents (server sends hand:[])
       const handSize = (Array.isArray(p.hand) && p.hand.length > 0)
         ? p.hand.length
         : (p.hand_count ?? p.hand_size ?? 0);
@@ -6554,7 +6554,7 @@
     if (!players.length) {
       const msg = document.createElement("p");
       msg.style.cssText = "color:var(--muted);font-size:13px;";
-      msg.textContent = "No score data yet — scores appear once cards are played.";
+      msg.textContent = "No score data yet, scores appear once cards are played.";
       content.appendChild(msg); return;
     }
 
@@ -6588,7 +6588,7 @@
       const badge = document.createElement("div"); badge.className = `sb-rank-badge ${rankClass}`;
       badge.textContent = i+1;
       pill.appendChild(badge);
-      pill.appendChild(document.createTextNode(`${p.name}${isMe?" (you)":""} — ${Number(p.score||0)} pts`));
+      pill.appendChild(document.createTextNode(`${p.name}${isMe?" (you)":""}, ${Number(p.score||0)} pts`));
       if (isMe) {
         const you = document.createElement("span"); you.className = "sb-you"; you.textContent = "YOU";
         pill.appendChild(you);
@@ -6703,11 +6703,11 @@
     105: { name:"Great White Shark", symbol:"diamond",  species:"crosscurrent",text:"+3 pts per Mammal on your board.",                      starText:"Draw one card." },
   };
 
-  // hand uids player starts with — all match real card images, no overlap with pool
+  // hand uids player starts with, all match real card images, no overlap with pool
   const TUT_INIT_HAND = [217, 11, 3, 26, 102, 6, 34, 9];
-  // pool uids — chosen to not overlap with hand or each other
+  // pool uids, chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
-  // bot boards — start empty; populated during interleaved bot-turn animations
+  // bot boards, start empty; populated during interleaved bot-turn animations
   const TUT_BOT_BOARDS = [
     { ocean: null, up: [], down: [], left: [], right: [] },  // Billy
     { ocean: null, up: [], down: [], left: [], right: [] },  // Diana
@@ -6741,82 +6741,82 @@
   const TUTORIAL_STEPS = [
     // 0
     { title:"Welcome!", nextLabel:"Start →", waitFor:null, highlight:null, actionHint:null,
-      text:`<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing against <em>Billy</em> and <em>Diana</em>. Everyone starts with empty boards — just like a real game.</p><p>This tutorial walks you through a full turn-by-turn sequence. Let's go!</p>` },
+      text:`<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing against <em>Billy</em> and <em>Diana</em>. Everyone starts with empty boards, just like a real game.</p><p>This tutorial walks you through a full turn-by-turn sequence. Let's go!</p>` },
     // 1
     { title:"The Table", waitFor:null, highlight:"tut-opp-row", actionHint:null,
-      text:`<p>The panels at the top are your opponents — <em>Billy</em> and <em>Diana</em>. Their boards are empty for now. The center holds the <strong>Pool</strong> and <strong>Deck</strong>. Your hand is at the bottom.</p>` },
+      text:`<p>The panels at the top are your opponents, <em>Billy</em> and <em>Diana</em>. Their boards are empty for now. The center holds the <strong>Pool</strong> and <strong>Deck</strong>. Your hand is at the bottom.</p>` },
     // 2
-    { title:"Draw Phase — Pool", waitFor:"draw_pool", highlight:"tut-pool-area",
+    { title:"Draw Phase, Pool", waitFor:"draw_pool", highlight:"tut-pool-area",
       actionHint:"Click any pool card to draw it.",
-      text:`<p>Each turn you draw <strong>2 cards</strong> total — any mix: 2 from pool, 1 from each, or 2 from deck. You can also play cards or move cards to other oceans. Let's draw 1 from the pool first: <strong>click any pool card above</strong>.</p>` },
+      text:`<p>Each turn you draw <strong>2 cards</strong> total, any mix: 2 from pool, 1 from each, or 2 from deck. You can also play cards or move cards to other oceans. Let's draw 1 from the pool first: <strong>click any pool card above</strong>.</p>` },
     // 3
-    { title:"Draw Phase — Deck", waitFor:"draw_deck", highlight:"tut-deck-pile",
+    { title:"Draw Phase, Deck", waitFor:"draw_deck", highlight:"tut-deck-pile",
       actionHint:"Click the Deck to draw your second card.",
-      text:`<p>Good — now draw your <strong>second card from the Deck</strong>.</p>` },
+      text:`<p>Good, now draw your <strong>second card from the Deck</strong>.</p>` },
     // 4
     { title:"Your Hand", waitFor:null, highlight:"tut-hand-zone",
       actionHint:"Hover a card to read its ability.",
       text:`<p>Your hand now has two new cards. Each shows its <strong>symbol</strong> and species. <strong>Hover</strong> to read abilities. <strong>Double-click</strong> to zoom. Symbols are how you pay costs.</p>` },
-    // 5 — drag ocean to board
+    // 5, drag ocean to board
     { title:"Play an Ocean Card", waitFor:"drag_ocean",
       highlight:null, highlightHandUid:217,
       actionHint:"Drag the glowing Coral Reef from your hand onto the board area.",
-      text:`<p>The <strong>Coral Reef</strong> is your first ocean! To play it you'll: <strong>① Drag it to the board</strong>, then <strong>② Pay 1 card</strong>. Let's start — <strong>drag the glowing Coral Reef</strong> to the highlighted board area.</p>` },
-    // 6 — pay for ocean
+      text:`<p>The <strong>Coral Reef</strong> is your first ocean! To play it you'll: <strong>① Drag it to the board</strong>, then <strong>② Pay 1 card</strong>. Let's start, <strong>drag the glowing Coral Reef</strong> to the highlighted board area.</p>` },
+    // 6, pay for ocean
     { title:"Pay the Ocean's Cost", waitFor:"pay_ocean", highlight:null,
-      actionHint:"Click any teal card to pay — any symbol works, then Coral Reef is placed!",
-      text:`<p>The Coral Reef is queued (gold). <strong>Any card</strong> in your hand can pay the cost — <em>no symbol matching needed for the base play</em>. Click any <strong>teal card</strong> to discard it and place your ocean!</p>` },
-    // 7 — bot round 1: bots play their oceans
+      actionHint:"Click any teal card to pay, any symbol works, then Coral Reef is placed!",
+      text:`<p>The Coral Reef is queued (gold). <strong>Any card</strong> in your hand can pay the cost, <em>no symbol matching needed for the base play</em>. Click any <strong>teal card</strong> to discard it and place your ocean!</p>` },
+    // 7, bot round 1: bots play their oceans
     { title:"Billy &amp; Diana Play Oceans", waitFor:null, highlight:"tut-opp-row",
       nextLabel:"Watch →", triggerBots:1,
       actionHint:null,
-      text:`<p>You placed your ocean! Now watch <strong>Billy</strong> and <strong>Diana</strong> each play their oceans — just like you did.</p>` },
-    // 8 — ocean board explanation
+      text:`<p>You placed your ocean! Now watch <strong>Billy</strong> and <strong>Diana</strong> each play their oceans, just like you did.</p>` },
+    // 8, ocean board explanation
     { title:"Ocean on Your Board", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
       text:`<p>Your <strong>Coral Reef</strong> is on your board with four attachment slots: <em>↑ Up, ↓ Down, ← Left, → Right</em>. The dashed boxes show where animals can attach. Billy and Diana also have their oceans now.</p>` },
-    // 9 — drag animal to slot
+    // 9, drag animal to slot
     { title:"Select an Animal", waitFor:"drag_animal", highlight:null, highlightHandUid:11,
       actionHint:"Drag the gold Horned Puffin to any glowing arrow slot on your Coral Reef.",
-      text:`<p>Time to attach an animal! The <em>Horned Puffin</em> gives <strong>+3 pts</strong>. It has a <strong>★ Star ability</strong> — "play again." You only need to match its ♥ symbol if you <em>want</em> the star. Any card pays the base cost. <strong>Drag the gold Puffin</strong> to any arrow slot on your Coral Reef!</p>` },
-    // 10 — pay for animal (auto-attaches after payment)
+      text:`<p>Time to attach an animal! The <em>Horned Puffin</em> gives <strong>+3 pts</strong>. It has a <strong>★ Star ability</strong>, "play again." You only need to match its ♥ symbol if you <em>want</em> the star. Any card pays the base cost. <strong>Drag the gold Puffin</strong> to any arrow slot on your Coral Reef!</p>` },
+    // 10, pay for animal (auto-attaches after payment)
     { title:"Pay the Puffin's Cost", waitFor:"pay_animal", highlight:null,
-      actionHint:"Click a red ♥ card to pay — activates the ★ 'play again' bonus!",
-      text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em> — any card is fine for base effect. Click a <strong>red ♥ card</strong>!</p>` },
-    // 11 — puffin attached — click the board to continue
+      actionHint:"Click a red ♥ card to pay, activates the ★ 'play again' bonus!",
+      text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em>, any card is fine for base effect. Click a <strong>red ♥ card</strong>!</p>` },
+    // 11, puffin attached, click the board to continue
     { title:"Puffin Attached!", waitFor:"click_board", highlight:"tut-my-board-area",
       actionHint:"Click your board to continue.",
       text:`<p>Your <strong>Horned Puffin</strong> is now attached to your Coral Reef! It scores <strong>+3 pts</strong> and lets you play again. Three slots are still free. <strong>Click your board</strong> to continue.</p>` },
-    // 12 — bot round 2: bots play their animals
+    // 12, bot round 2: bots play their animals
     { title:"Billy &amp; Diana Attach Animals", waitFor:null, highlight:"tut-opp-row",
       nextLabel:"Watch →", triggerBots:2,
       actionHint:null,
-      text:`<p>Great attachment! Now watch <strong>Billy</strong> and <strong>Diana</strong> each attach animals to their oceans — just like you did.</p>` },
-    // 13 — card attached confirmation
+      text:`<p>Great attachment! Now watch <strong>Billy</strong> and <strong>Diana</strong> each attach animals to their oceans, just like you did.</p>` },
+    // 13, card attached confirmation
     { title:"Card Attached!", waitFor:null, highlight:"tut-my-board-area", actionHint:null,
-      text:`<p>The <strong>Horned Puffin</strong> is attached to your Coral Reef. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong> — and its ★ star can grant a "play again" bonus!</p>` },
-    // 14 — star abilities (Red Beaded Anemone demo)
+      text:`<p>The <strong>Horned Puffin</strong> is attached to your Coral Reef. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong>, and its ★ star can grant a "play again" bonus!</p>` },
+    // 14, star abilities (Red Beaded Anemone demo)
     { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:26,
       actionHint:"Click the gold Red Beaded Anemone to play it with its ★ star activated.",
       text:`<p>★ <strong>Star abilities are optional bonuses.</strong> The <em>Red Beaded Anemone</em> (●) gives <strong>+3 pts per Invertebrate</strong> as its base. Pay with a matching <strong>● card</strong> when you play it → also <strong>draw 1 card</strong> (the ★ bonus). Without the ●, you still get the +3 pts but no draw. <strong>Click the gold Anemone!</strong></p>` },
-    // 15 — star played
+    // 15, star played
     { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
-      text:`<p>The Red Beaded Anemone ★ fired! It scored <strong>+3 pts per Invertebrate</strong> on your board, and the ★ drew <strong>1 card</strong>. Without a matching ● card, you'd still get +3 per invertebrate — but no draw. <em>Match symbol = star activates.</em></p>` },
-    // 16 — draw abilities / zoom
+      text:`<p>The Red Beaded Anemone ★ fired! It scored <strong>+3 pts per Invertebrate</strong> on your board, and the ★ drew <strong>1 card</strong>. Without a matching ● card, you'd still get +3 per invertebrate, but no draw. <em>Match symbol = star activates.</em></p>` },
+    // 16, draw abilities / zoom
     { title:"Draw Abilities", waitFor:"zoom_whale", highlight:null, highlightHandUid:102,
       actionHint:"Double-click the gold Spinner Dolphin to inspect it.",
-      text:`<p>The <strong>Spinner Dolphin</strong> gives <em>+2 pts per matching-symbol card</em>. Its ★ draws 1 card when you pay with a matching ◆. Cards like this snowball — the more you collect, the more you score <em>and</em> draw. <strong>Double-click it</strong> to zoom.</p>` },
-    // 17 — scoring
+      text:`<p>The <strong>Spinner Dolphin</strong> gives <em>+2 pts per matching-symbol card</em>. Its ★ draws 1 card when you pay with a matching ◆. Cards like this snowball, the more you collect, the more you score <em>and</em> draw. <strong>Double-click it</strong> to zoom.</p>` },
+    // 17, scoring
     { title:"Scoring", waitFor:null, highlight:null, actionHint:null,
-      text:`<p>Points come from:<br>◆ <strong>Flat</strong>: "+3 pts"<br>◆ <strong>Per-type</strong>: "+3 per shark" counts all your sharks<br>◆ <strong>Threshold</strong>: "1=5, 2=15, 3=30" — total scales with how many matching cards you collect</p>` },
-    // 18 — end game
+      text:`<p>Points come from:<br>◆ <strong>Flat</strong>: "+3 pts"<br>◆ <strong>Per-type</strong>: "+3 per shark" counts all your sharks<br>◆ <strong>Threshold</strong>: "1=5, 2=15, 3=30", total scales with how many matching cards you collect</p>` },
+    // 18, end game
     { title:"End Game", waitFor:null, highlight:null, actionHint:null,
-      text:`<p>The game ends when a player draws the <strong>END GAME</strong> card — it's shuffled randomly into the <strong>bottom 15 cards</strong> of the deck, so no one knows exactly when it arrives. Every other player gets one more turn, then scores are tallied. Trigger the end when you're ahead!</p>` },
-    // 19 — finish
+      text:`<p>The game ends when a player draws the <strong>END GAME</strong> card, it's shuffled randomly into the <strong>bottom 15 cards</strong> of the deck, so no one knows exactly when it arrives. Every other player gets one more turn, then scores are tallied. Trigger the end when you're ahead!</p>` },
+    // 19, finish
     { title:"You're Ready!", waitFor:null, highlight:null, actionHint:null, isFinish:true, text:null,
       tips:[
-        "Draw 2 cards every turn — pool cards are free information!",
+        "Draw 2 cards every turn, pool cards are free information!",
         "Match symbols to chain abilities and draw extra cards.",
-        "Threshold cards like Mantis Shrimp reward deep sets — commit early.",
+        "Threshold cards like Mantis Shrimp reward deep sets, commit early.",
         "The Red Beaded Anemone's ★ star draws 1 card when you pay with a matching ● symbol.",
         "Watch opponents: end the game when you're ahead, not when they are.",
       ]},
@@ -6908,7 +6908,7 @@
 
     // Drop targets for tutorial pool drags.
     // #tut-panel is position:fixed and sits visually on top of #tut-hand-zone,
-    // so drag events hit the panel instead of the zone — wire both elements.
+    // so drag events hit the panel instead of the zone, wire both elements.
     const tutHandZone = document.getElementById("tut-hand-zone");
     const tutPanelEl  = document.getElementById("tut-panel");
     const _tutPoolOver = (ev) => {
@@ -6952,7 +6952,7 @@
       if (step.waitFor === "pay_ocean" && ts.selectedCardUid) {
         const pend = document.createElement("div");
         pend.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;";
-        pend.innerHTML = `<div style="font-size:8px;color:var(--gold);font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Queued — pay to place</div>
+        pend.innerHTML = `<div style="font-size:8px;color:var(--gold);font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Queued, pay to place</div>
           <div style="width:56px;height:78px;border-radius:7px;overflow:hidden;border:2px dashed var(--gold);box-shadow:0 0 14px rgba(240,184,64,.5);">${tutCardImg(ts.selectedCardUid)}</div>`;
         wrap.appendChild(pend);
       } else if (step.waitFor === "drag_ocean") {
@@ -6976,7 +6976,7 @@
         });
         wrap.appendChild(target);
       } else {
-        wrap.innerHTML = `<div class="tut-empty-board-msg">No oceans yet — play an Ocean card!</div>`;
+        wrap.innerHTML = `<div class="tut-empty-board-msg">No oceans yet, play an Ocean card!</div>`;
       }
       return;
     }
@@ -7215,13 +7215,13 @@
     } else if (step.waitFor === "pay_animal" && uid !== ts.selectedHandUid) {
       const c = tutCard(uid);
       if (c.symbol === "heart") tutPayAnimal(uid);
-      else tutShowFlash("Pay with a ♥ card to activate the ★ star — they glow red!");
+      else tutShowFlash("Pay with a ♥ card to activate the ★ star, they glow red!");
     } else if (step.waitFor === "star_play" && uid === 26) {
       tutStarPlay();
     } else if (step.waitFor === "zoom_whale" && uid === 102) {
       tutOpenZoom(uid);
     } else if (step.waitFor === "pay_ocean" && uid === ts.selectedCardUid) {
-      tutShowFlash("That's the Coral Reef — click a teal card instead to pay!");
+      tutShowFlash("That's the Coral Reef, click a teal card instead to pay!");
     } else {
       _tutFlashCard(uid);
     }
@@ -7295,7 +7295,7 @@
 
   function tutStarPlay() {
     const ts = tutState;
-    // Red Beaded Anemone (uid 26, ● circle) — pay with a circle card to activate ★
+    // Red Beaded Anemone (uid 26, ● circle), pay with a circle card to activate ★
     const payUid = ts.hand.find(u => u !== 26 && ![11, 33].includes(u) && tutCard(u).symbol === "circle")
                 || ts.hand.find(u => u !== 26 && ![11, 33].includes(u));
     ts.hand = ts.hand.filter(u => u !== 26 && u !== payUid);
@@ -7305,7 +7305,7 @@
     const drawUid = 104;
     if (!ts.hand.includes(drawUid)) ts.hand.push(drawUid);
     ts.deckCount = Math.max(0, ts.deckCount - 1);
-    tutShowFlash("Red Beaded Anemone placed! ★ star activated — drew 1 card!");
+    tutShowFlash("Red Beaded Anemone placed! ★ star activated, drew 1 card!");
     tutRenderAll();
     tutGoStep(ts.step + 1);
   }
@@ -7362,8 +7362,8 @@
       } else if (round === 2) {
         // Round 2: each bot attaches animals
         const fills = [
-          { up:[5],  down:[], left:[], right:[] },  // Billy  — 1 animal
-          { up:[19], down:[], left:[], right:[] },  // Diana  — 1 animal
+          { up:[5],  down:[], left:[], right:[] },  // Billy , 1 animal
+          { up:[19], down:[], left:[], right:[] },  // Diana , 1 animal
         ];
         const f = fills[botIdx];
         board.up = [...f.up]; board.down = [...f.down];
@@ -7514,21 +7514,21 @@
     // Hand label
     const handLbl = document.getElementById("tut-hand-lbl");
     if (handLbl) {
-      if      (step.waitFor === "draw_pool")    handLbl.textContent = "Your Hand — click a pool card above to draw";
-      else if (step.waitFor === "drag_ocean")   handLbl.textContent = "Your Hand — drag the glowing Coral Reef to the board";
-      else if (step.waitFor === "pay_ocean")    handLbl.textContent = "Your Hand — click any teal card to pay (1 card cost)";
-      else if (step.waitFor === "pay_animal")   handLbl.textContent = "Your Hand — click a red ♥ card to pay";
-      else if (step.waitFor === "drag_animal")  handLbl.textContent = "Your Hand — drag the glowing Puffin to a slot on your ocean";
+      if      (step.waitFor === "draw_pool")    handLbl.textContent = "Your Hand, click a pool card above to draw";
+      else if (step.waitFor === "drag_ocean")   handLbl.textContent = "Your Hand, drag the glowing Coral Reef to the board";
+      else if (step.waitFor === "pay_ocean")    handLbl.textContent = "Your Hand, click any teal card to pay (1 card cost)";
+      else if (step.waitFor === "pay_animal")   handLbl.textContent = "Your Hand, click a red ♥ card to pay";
+      else if (step.waitFor === "drag_animal")  handLbl.textContent = "Your Hand, drag the glowing Puffin to a slot on your ocean";
       else if (step.waitFor === "star_play" || step.waitFor === "zoom_whale")
-        handLbl.textContent = "Your Hand — click a card · double-click to inspect";
-      else handLbl.textContent = "Your Hand — double-click any card to inspect it";
+        handLbl.textContent = "Your Hand, click a card · double-click to inspect";
+      else handLbl.textContent = "Your Hand, double-click any card to inspect it";
     }
 
     // Re-render everything
     tutRenderAll();
 
     // Save snapshot of this step NOW (on arrival), so back-nav restores the state
-    // the user sees when they first reach this step — before any interactions happen.
+    // the user sees when they first reach this step, before any interactions happen.
     // triggerBots steps manage their own snapshot after the animation completes.
     if (n >= prevN && !step.triggerBots) {
       tutSaveSnapshot(n);
@@ -7716,7 +7716,7 @@
     if (bar) { bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = ""; }
     void el.offsetWidth; // force reflow so animation restarts
     el.classList.add("open");
-    // Auto-dismiss after 2.2 s — tap anywhere to skip immediately.
+    // Auto-dismiss after 2.2 s, tap anywhere to skip immediately.
     if (_compHsAutoTimer) clearTimeout(_compHsAutoTimer);
     _compHsAutoTimer = setTimeout(_dismissCompHandSwitch, 2200);
   }
@@ -7755,7 +7755,7 @@
       if (el) el.style.display = "";
     });
     // Populate nickname displays
-    const nick = (window.__fishNickname && window.__fishNickname()) || "—";
+    const nick = (window.__fishNickname && window.__fishNickname()) || "-";
     const p1D = document.getElementById("comp-p1-name-display");
     if (p1D) p1D.textContent = nick;
     const p2D = document.getElementById("comp-join-p2-display");
@@ -7834,7 +7834,7 @@
     const hToken = r.data?.host_token || "";
     const seat0Token = r.data?.seat_token || "";
 
-    // Claim seat 1 (P1's second hand) using host authority — unique name avoids score-map collisions
+    // Claim seat 1 (P1's second hand) using host authority, unique name avoids score-map collisions
     const jSeat1 = await apiPost(`/api/rooms/${code}/join`, {
       player_name: p1 + " 2", seat_index: 1, host_token: hToken,
     }, { timeoutMs: 8000 });
@@ -8026,7 +8026,7 @@
 
       const esc = s => String(s || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
       const rankFn = typeof _compGetRankFromCp === "function" ? _compGetRankFromCp : null;
-      const getRankName = cp => rankFn ? rankFn(Number(cp) || 0).division : "—";
+      const getRankName = cp => rankFn ? rankFn(Number(cp) || 0).division : "-";
 
       const [yearStr, qStr] = seasonId.split("-Q");
       const seasonLabel = seasonId ? `Season Q${qStr} ${yearStr}` : "Current Season";
@@ -8065,7 +8065,7 @@
               <span class="comp-lb-name">${esc(r.name)}</span>
               <span class="comp-lb-cell-rank">${esc(r.rank || getRankName(r.cp))}</span>
               <span class="comp-lb-cell-cp">${r.cp || 0} CP</span>
-              <span class="comp-lb-cell-pct">${(w+l)>0?pct+"%":"—"}</span>
+              <span class="comp-lb-cell-pct">${(w+l)>0?pct+"%":"-"}</span>
             </div>`;
           }).join("");
         }
@@ -8159,11 +8159,11 @@
   document.getElementById("comp-join-btn").addEventListener("click", joinCompMatch);
   document.getElementById("comp-room-code-display").addEventListener("click", () => {
     const code = document.getElementById("comp-room-code-display").textContent;
-    if (code && code !== "—") { try { navigator.clipboard.writeText(code); } catch {} }
+    if (code && code !== "-") { try { navigator.clipboard.writeText(code); } catch {} }
   });
   document.getElementById("comp-copy-code-btn").addEventListener("click", () => {
     const code = document.getElementById("comp-room-code-display").textContent;
-    if (code && code !== "—") { try { navigator.clipboard.writeText(code); compSetStatus("Code copied!", false); } catch {} }
+    if (code && code !== "-") { try { navigator.clipboard.writeText(code); compSetStatus("Code copied!", false); } catch {} }
   });
   document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
 
@@ -8220,7 +8220,7 @@
 
   // ── Action preview helpers ─────────────────────────────────────
   // True only while the current preview was armed by an explicit dropdown
-  // selection — direct board clicks (slot/stack/card-picker) never arm it,
+  // selection, direct board clicks (slot/stack/card-picker) never arm it,
   // so the ghost/shadow never shows for those paths.
   let _dropdownArmedPreview = false;
   // Clear all highlights/ghosts from the board produced by the dropdown preview.
@@ -8255,7 +8255,7 @@
       ghost.className = "action-preview-ghost-img";
       ghost.src = imagePathForUid(ghostUid);
       // Crop to exactly the half being played (same as a real board card),
-      // so the silhouette shows only the played face — not the other half.
+      // so the silhouette shows only the played face, not the other half.
       ghost.style.objectPosition = cardHalfPos(ghostUid);
       ghost.alt = act.face_name || "";
       slot.appendChild(ghost);
@@ -8296,7 +8296,7 @@
       const isFirstOcean = !board.length;
       if (isFirstOcean) {
         oceanDrop.classList.add("first-ocean-drop");
-        oceanDrop.innerHTML = `<span style="font-size:26px;line-height:1;">⊕</span><span>Drag an Ocean card here<br><span style="opacity:.8;font-weight:600;">— or click here to choose one</span></span>`;
+        oceanDrop.innerHTML = `<span style="font-size:26px;line-height:1;">⊕</span><span>Drag an Ocean card here<br><span style="opacity:.8;font-weight:600;">Or click here to choose one</span></span>`;
         oceanDrop.style.cssText = "border:2.5px dashed var(--teal);border-radius:14px;padding:34px 24px;min-height:170px;width:100%;max-width:300px;color:var(--teal);font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;margin:6px auto 12px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;";
       } else {
         oceanDrop.textContent = "⊕ Click or drag an Ocean card here";
@@ -8339,7 +8339,7 @@
     if (!board.length) {
       const hint = document.createElement("div");
       hint.style.cssText = "color:var(--muted);font-size:13px;padding:12px;text-align:center;width:100%;";
-      hint.textContent = "No oceans yet — drag an Ocean card to the zone above, or click the zone to choose one.";
+      hint.textContent = "No oceans yet, drag an Ocean card to the zone above, or click the zone to choose one.";
       el.appendChild(hint); return;
     }
 
@@ -8365,7 +8365,7 @@
           if (isMyTurn && laneHasAction(dir)) {
             slot.title = `Click to pick a card, or drag one here`;
             slot.addEventListener("click", () => {
-              // Direct board click — never show the dropdown ghost/shadow for this.
+              // Direct board click, never show the dropdown ghost/shadow for this.
               _dropdownArmedPreview = false;
               _clearActionPreview();
               const useStarClick = document.getElementById("pv-star-toggle")?.checked;
@@ -8454,7 +8454,7 @@
             img.alt = c.name||""; img.loading="lazy";
             img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
             cardEl.appendChild(img);
-            cardEl.title = `${c.name||"?"} — click to zoom`;
+            cardEl.title = `${c.name||"?"}, click to zoom`;
             cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
 
             // Drag-to-move: make movable if a move_between_oceans action exists for this card
@@ -8467,7 +8467,7 @@
               if (moveActs.length) {
                 cardEl.draggable = true;
                 cardEl.classList.add("movable");
-                cardEl.title = `${c.name||"?"} — drag to move to another ocean, or click to zoom`;
+                cardEl.title = `${c.name||"?"}, drag to move to another ocean, or click to zoom`;
                 cardEl.addEventListener("dragstart", (ev) => {
                   ev.dataTransfer.effectAllowed = "move";
                   ev.dataTransfer.setData("application/x-fish-board-move", JSON.stringify({ faceUid: Number(fUid), sourceOceanUid: Number(ocean.ocean_uid) }));
@@ -8504,7 +8504,7 @@
             slot.textContent = "+";
             slot.title = "Click to pick a card to stack, or drag one here";
             slot.addEventListener("click", () => {
-              // Direct board click — never show the dropdown ghost/shadow for this.
+              // Direct board click, never show the dropdown ghost/shadow for this.
               _dropdownArmedPreview = false;
               _clearActionPreview();
               // Fast-path: action-bar dropdown already targets this slot
@@ -8568,7 +8568,7 @@
       oImg.src = imagePathForUid(ocean.ocean?.uid ?? ocean.ocean_uid);
       oImg.alt = ocean.ocean?.name||""; oImg.loading="lazy";
       oFace.appendChild(oImg);
-      oFace.title = `${ocean.ocean?.name||"Ocean"} — click to zoom`;
+      oFace.title = `${ocean.ocean?.name||"Ocean"}, click to zoom`;
       oFace.addEventListener("click", () => openZoom(ocean.ocean?.uid??ocean.ocean_uid, ocean.ocean?.name, ocean.ocean?.text, "Ocean"));
       center.appendChild(oFace);
       hub.appendChild(center);
@@ -8718,7 +8718,7 @@
       }
 
       item.addEventListener("click", () => {
-        // Direct card-picker selection — never show the dropdown ghost/shadow for this.
+        // Direct card-picker selection, never show the dropdown ghost/shadow for this.
         _dropdownArmedPreview = false;
         _clearActionPreview();
         closeCTP();
@@ -8804,17 +8804,17 @@
   function renderHand(me, actions, mustDiscard, discardExcess) {
     _handRenderData = { me, actions, mustDiscard, discardExcess };
     // Tarpon "discard and draw that many" reuses the discard-selection machinery,
-    // but with NO fixed count — tap any number of cards, then Confirm to swap them
+    // but with NO fixed count, tap any number of cards, then Confirm to swap them
     // for the same number of fresh cards.
     const tarponActive = Boolean(latestPayload?.legal_actions?.tarpon_discard_active);
     const zone = document.getElementById("pv-hand");
-    // Skip re-render when nothing changed — prevents hover/tooltip from being reset every poll
+    // Skip re-render when nothing changed, prevents hover/tooltip from being reset every poll
     const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess, tarponActive,
       selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
       handOrder: _handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
-    // Clear hover before wiping the DOM — old card elements are about to be removed.
+    // Clear hover before wiping the DOM, old card elements are about to be removed.
     _handHoverIdx = -1;
     _handCardEls  = [];
     cl(zone);
@@ -8824,7 +8824,7 @@
 
     const hand = me.hand;
     // In discard mode (hand-limit trim OR Tarpon cycle) every card must be
-    // selectable — show them all.
+    // selectable, show them all.
     const MAX_VISIBLE = (mustDiscard || tarponActive) ? hand.length : 12;
     const visible  = hand.slice(0, MAX_VISIBLE);
     const overflow = hand.length - MAX_VISIBLE;
@@ -8883,7 +8883,7 @@
       card.appendChild(inner);
 
 
-      // tooltip — shows all faces (dual-face horizontal/vertical cards show both animals)
+      // tooltip, shows all faces (dual-face horizontal/vertical cards show both animals)
       const tip = document.createElement("div"); tip.className = "pv-tooltip";
       const allFaces = Array.isArray(entry.faces) && entry.faces.length > 1 ? entry.faces : [face];
       tip.innerHTML = allFaces.map((f, fi) => {
@@ -8893,7 +8893,7 @@
         const fSt   = starText(f.text||"");
         return `${fi > 0 ? '<hr style="border-color:rgba(255,255,255,.1);margin:6px 0">' : ""}
           <div class="tt-name">${f.name||"?"}</div>
-          <div class="tt-species" style="color:${speciesColor(f.species)}">${f.species||""} · ${fSym||"—"} · cost ${fCost===0?"free":fCost}</div>
+          <div class="tt-species" style="color:${speciesColor(f.species)}">${f.species||""} · ${fSym||"-"} · cost ${fCost===0?"free":fCost}</div>
           ${fMt ? `<div class="tt-text">${fMt}</div>` : ""}
           ${fSt ? `<div class="tt-star">★ ${fSt}</div>` : ""}`;
       }).join("") + `<div class="tt-arrow"></div>`;
@@ -8946,7 +8946,7 @@
         }
       });
 
-      // "Use as Payment" button — shown in payment mode on every card except the one being played
+      // "Use as Payment" button, shown in payment mode on every card except the one being played
       const isCardBeingPlayed = pendingPayAction &&
         (Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid);
       if (pendingPayAction && !isCardBeingPlayed) {
@@ -8967,7 +8967,7 @@
       card.addEventListener("click", (ev) => {
         ev.stopPropagation();
         if (tarponActive) {
-          // Tarpon "discard and draw that many" — tap to toggle a card in/out of the
+          // Tarpon "discard and draw that many", tap to toggle a card in/out of the
           // discard set. ANY number is allowed (no cap), then Confirm swaps them.
           if (selectedDiscard.has(entryUid)) selectedDiscard.delete(entryUid);
           else selectedDiscard.add(entryUid);
@@ -8977,13 +8977,13 @@
           return;
         }
         if (mustDiscard) {
-          // Over hand limit — clicking selects card for discard
+          // Over hand limit, clicking selects card for discard
           if (selectedDiscard.has(entryUid)) {
             selectedDiscard.delete(entryUid);
           } else if (selectedDiscard.size < discardExcess) {
             selectedDiscard.add(entryUid);
           } else {
-            // Already have enough selected — tell the user to deselect one first
+            // Already have enough selected, tell the user to deselect one first
             showToast(`Tap a selected card to swap it out.`, "warn");
             return;
           }
@@ -8992,7 +8992,7 @@
           return;
         }
         if (pendingPayAction && !isCardBeingPlayed) {
-          // In payment mode — clicking card body selects it as payment (same as
+          // In payment mode, clicking card body selects it as payment (same as
           // the button), capped at the required cost so you can't overpay.
           if (!_togglePaymentCard(entryUid)) return;
           updatePaymentModeUI();
@@ -9053,7 +9053,7 @@
       // = last in array) wins when two cards overlap in the fan layout.
       for (let i = _handCardEls.length - 1; i >= 0; i--) {
         const el = _handCardEls[i];
-        // offsetLeft/offsetTop are layout coords — unaffected by transforms.
+        // offsetLeft/offsetTop are layout coords, unaffected by transforms.
         const l = zr.left + el.offsetLeft;
         const t = zr.top  + el.offsetTop;
         if (cx >= l && cx <= l + el.offsetWidth &&
@@ -9093,10 +9093,10 @@
       const cost = Number(pendingPayAction.cost_to_pay || 0);
       const name = pendingPayAction.face_name || "card";
       const sym  = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
-      const symHint = sym ? ` — pick a <strong>${sym}</strong> card` : "";
+      const symHint = sym ? `, pick a <strong>${sym}</strong> card` : "";
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">💳 Paying for <strong>${name}</strong> — click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
+        <span class="gs active">💳 Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
       </div>`;
       return;
     }
@@ -9104,7 +9104,7 @@
     if (tarponActive) {
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">🐟 Tarpon — tap as many cards as you want to discard (they turn gold), then click <em>🐟 Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
+        <span class="gs active">🐟 Tarpon, tap as many cards as you want to discard (they turn gold), then click <em>🐟 Discard &amp; Draw</em> to swap them for the same number of fresh cards. Tap a card again to deselect, or click <em>Keep hand</em> to discard none.</span>
       </div>`;
       return;
     }
@@ -9112,23 +9112,23 @@
     if (mustDiscard) {
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">✂ You have too many cards — select exactly ${discardExcess} to discard, then click Confirm Discard</span>
+        <span class="gs active">✂ You have too many cards, select exactly ${discardExcess} to discard, then click Confirm Discard</span>
       </div>`;
       return;
     }
 
-    // Free-play window (star ability fired — play a free creature or end turn).
+    // Free-play window (star ability fired, play a free creature or end turn).
     if (Array.isArray(freePlaySpecies) && freePlaySpecies.length > 0) {
       const speciesStr = freePlaySpecies.join(" or ");
       const playActions = actions.filter(a => a.kind !== "draw" && a.kind !== "end_turn" && a.kind !== "discard_to_pool" && a.kind !== "discard_batch_to_pool");
       bar.classList.add("visible");
       if (playActions.length > 0) {
         bar.innerHTML = `<div class="guide-step">
-          <span class="gs active" style="color:#ffd700">★ FREE PLAY — pick a <strong>${speciesStr}</strong> from the dropdown below and play it for free, or click ✓ End Turn to skip.</span>
+          <span class="gs active" style="color:#ffd700">★ FREE PLAY, pick a <strong>${speciesStr}</strong> from the dropdown below and play it for free, or click ✓ End Turn to skip.</span>
         </div>`;
       } else {
         bar.innerHTML = `<div class="guide-step">
-          <span class="gs" style="color:#ffd700">★ FREE PLAY (${speciesStr}) — no eligible card in hand. Click ✓ End Turn to continue.</span>
+          <span class="gs" style="color:#ffd700">★ FREE PLAY (${speciesStr}), no eligible card in hand. Click ✓ End Turn to continue.</span>
         </div>`;
       }
       return;
@@ -9145,24 +9145,24 @@
 
     const isSecondDrawBar = drawAction && !actions.some(a => a.kind !== "draw" && a.kind !== "end_turn");
     if (isSecondDrawBar) {
-      steps.push(`<span class="gs active">① Choose your 2nd card — click the deck or pick a card from the pool</span>`);
+      steps.push(`<span class="gs active">① Choose your 2nd card, click the deck or pick a card from the pool</span>`);
     } else if (drawAction) {
-      steps.push(`<span class="gs active">① Haul Your Catch — click the deck to draw 1 card, or pick one from the pool</span>`);
+      steps.push(`<span class="gs active">① Haul Your Catch, click the deck to draw 1 card, or pick one from the pool</span>`);
     } else {
       steps.push(`<span class="gs done">① Catch hauled ✓</span>`);
     }
 
     if (!hasOcean && hasOceanInHand) {
-      steps.push(`<span class="gs active">② Chart Your Waters — drag an Ocean card to the board, or click the drop zone to place it</span>`);
+      steps.push(`<span class="gs active">② Chart Your Waters, drag an Ocean card to the board, or click the drop zone to place it</span>`);
     } else if (!hasOcean) {
-      steps.push(`<span class="gs">② Chart Your Waters — drag an Ocean card to the board, or click the drop zone to place it</span>`);
+      steps.push(`<span class="gs">② Chart Your Waters, drag an Ocean card to the board, or click the drop zone to place it</span>`);
     } else if (playActions.length > 0) {
-      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a creature to an ocean slot, or click the slot where you want to place it — or use the dropdown below</span>`);
+      steps.push(`<span class="gs${drawAction?"":" active"}">② Drag a creature to an ocean slot, or click the slot where you want to place it, or use the dropdown below</span>`);
     } else {
       steps.push(`<span class="gs done">② All creatures deployed ✓</span>`);
     }
 
-    steps.push(`<span class="gs">③ Ride the Current — click ✓ End Turn to pass</span>`);
+    steps.push(`<span class="gs">③ Ride the Current, click ✓ End Turn to pass</span>`);
 
     bar.classList.add("visible");
     bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
@@ -9232,14 +9232,14 @@
       return d === "up" ? "Surface" : d === "down" ? "Floor" : d === "left" ? "Port" : "Starboard";
     }
 
-    // Rebuild select only when available actions change — prevents the native
+    // Rebuild select only when available actions change, prevents the native
     // picker from closing on every 1-second poll tick.
     const actionFingerprint = actions.map(a => `${a.index}:${a.kind}:${a.face_uid}:${a.ocean_uid}:${a.face_direction}:${a.source_ocean_uid}`).join("|");
     const prevVal = sel.value;
     if (sel.dataset.fingerprint === actionFingerprint) {
       sel.disabled = false; playBtn.disabled = false;
       // Re-apply preview for currently selected option (board re-renders clear hub classes)
-      // — only if the dropdown itself armed this preview, not a direct board click.
+      //, only if the dropdown itself armed this preview, not a direct board click.
       if (sel.value && _dropdownArmedPreview) {
         const idx = Number(sel.value);
         const act = actions.find(a => Number(a.index) === idx);
@@ -9307,7 +9307,7 @@
 
     if (prevVal && Array.from(sel.options).some(o=>o.value===prevVal)) {
       sel.value = prevVal;
-      // Re-apply preview for restored selection — only if it was dropdown-armed.
+      // Re-apply preview for restored selection, only if it was dropdown-armed.
       const prevAct = actions.find(a => Number(a.index) === Number(prevVal));
       if (prevAct && _dropdownArmedPreview) _showActionPreview(prevAct);
     }
@@ -9343,7 +9343,7 @@
         if (sv) {
           chosen = sv;
         } else if (act.star_symbol) {
-          showToast(`★ not available — need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
+          showToast(`★ not available, need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
         }
       }
       // Move confirmation: warn before moving a card between oceans
@@ -9380,12 +9380,12 @@
   function updateDiscardBtn() {
     const btn = document.getElementById("pv-confirm-discard-btn"); if (!btn) return;
     const lw = latestPayload?.legal_actions || {};
-    // Tarpon: one adaptive button. ANY count is valid — nothing selected keeps the
+    // Tarpon: one adaptive button. ANY count is valid, nothing selected keeps the
     // hand (draw none); N selected discards N and draws N back.
     if (lw.tarpon_discard_active) {
       const n = selectedDiscard.size;
       btn.disabled = false;
-      btn.textContent = n < 1 ? `🐟 Keep hand — discard none` : `🐟 Discard ${n} & Draw ${n}`;
+      btn.textContent = n < 1 ? `🐟 Keep hand, discard none` : `🐟 Discard ${n} & Draw ${n}`;
       return;
     }
     const excess = Number(lw.discard_excess||0);
@@ -9399,7 +9399,7 @@
   document.getElementById("pv-confirm-discard-btn").addEventListener("click", () => {
     const lw = latestPayload?.legal_actions || {};
     // Tarpon "discard and draw that many": submit the whole selection at once (any
-    // count) — the server draws back exactly that many. Nothing selected = keep the
+    // count), the server draws back exactly that many. Nothing selected = keep the
     // hand and end the Tarpon phase (draw none).
     if (lw.tarpon_discard_active) {
       if (selectedDiscard.size < 1) {
@@ -9408,7 +9408,7 @@
         return;
       }
       const batch = legalActions.find(a => a.kind==="discard_batch_to_pool");
-      if (!batch) { showToast("Can't discard right now — try again.", "warn"); return; }
+      if (!batch) { showToast("Can't discard right now, try again.", "warn"); return; }
       submitAction({ ...batch, pool_pick_uids: Array.from(selectedDiscard) });
       return;
     }
@@ -9445,11 +9445,11 @@
     const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === mySeatIdx && latestPayload?.active_action_seat === mySeatIdx;
     const msg = isMidTurn
       ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
-      : "Undo your last turn? The game will revert to before you played. (Bot turns are fine — this only locks once another human plays after you.)";
+      : "Undo your last turn? The game will revert to before you played. (Bot turns are fine, this only locks once another human plays after you.)";
     if (!confirm(msg)) return;
     // Undo is a true back button: immediately cancel any in-progress action and
     // wipe ALL local staging state BEFORE the server round-trip. This guarantees
-    // that whatever the server does, the next play starts clean — no leftover
+    // that whatever the server does, the next play starts clean, no leftover
     // staged play or selected payment can bleed into it.
     resetTurnStaging();
     // In competitive mode, use the token for the eligible seat
@@ -9459,20 +9459,20 @@
     } else {
       token = getSeatToken();
     }
-    if (!token) { showToast("No seat token — re-join to use undo.", "err"); return; }
+    if (!token) { showToast("No seat token, re-join to use undo.", "err"); return; }
     let undoOk = false;
     try {
       const r = await apiPost(`/api/rooms/${roomId}/undo`, { seat_token: token }, { timeoutMs: 8000 });
       if (r && r.ok) {
         undoOk = true;
         // True revert: each undone card goes back exactly where it came from
-        // (the face-up pool or the deck) — never duplicated, never left in hand.
-        showToast(isMidTurn ? "Draw undone — your card went back where it came from." : "Turn undone — your cards are back.", "ok");
+        // (the face-up pool or the deck), never duplicated, never left in hand.
+        showToast(isMidTurn ? "Draw undone, your card went back where it came from." : "Turn undone, your cards are back.", "ok");
       } else {
         showToast((r && r.error) || "Undo no longer available.", "err");
       }
     } catch (e) {
-      showToast("Undo request failed — check connection.", "err");
+      showToast("Undo request failed, check connection.", "err");
     }
     // Resync from the server afterward. The restore runs asynchronously on the
     // engine thread AFTER this POST returns, so a single immediate fetch can race
@@ -9525,7 +9525,7 @@
     const actionEl = document.getElementById("dn-action");
     if (actionEl) actionEl.innerHTML = actionHTML;
 
-    // Populate avatar — look up the player's chosen avatar (async) with a
+    // Populate avatar, look up the player's chosen avatar (async) with a
     // deterministic per-name fallback so the notif renders immediately.
     const avatarWrap = document.getElementById("dn-avatar-wrap");
     const avatarImg  = document.getElementById("dn-avatar-img");
@@ -9752,7 +9752,7 @@
     const phase = latestPayload?.room?.phase || latestPayload?.phase;
     const isRunning = phase === "running";
     const msg = isRunning
-      ? "Leave the game? Your seat is held for 8 minutes — open 'Join a Current' to rejoin."
+      ? "Leave the game? Your seat is held for 8 minutes, open 'Join a Current' to rejoin."
       : "Leave and return to the menu?";
     if (!confirm(msg)) return;
     const token = getSeatToken();
@@ -9767,7 +9767,7 @@
     // Running game → keep the rejoin token so they can return to their seat.
     returnToMenu(isRunning);
     if (isRunning) {
-      try { showToast("Seat held for 8 min — open 'Join a Current' to return.", "ok"); } catch {}
+      try { showToast("Seat held for 8 min, open 'Join a Current' to return.", "ok"); } catch {}
       try { _refreshRejoinButton(); } catch {}
     }
   });
@@ -9822,7 +9822,7 @@
     }
   });
 
-  // AI Speed bar — host-only, shown when there are AI seats in the room
+  // AI Speed bar, host-only, shown when there are AI seats in the room
   (function setupAiSpeedBar() {
     const section = document.getElementById("pv-menu-ai-speed-section");
     const btns    = section ? Array.from(section.querySelectorAll(".ai-speed-btn")) : [];
@@ -9927,7 +9927,7 @@
     sorted.forEach(p => {
       const isMe = p.index === viewerIdx;
       if (isMe) {
-        // Hidden Cuttlefish easter egg — tucked right above your own score row.
+        // Hidden Cuttlefish easter egg, tucked right above your own score row.
         const cf = document.createElement("img");
         cf.src = "/avatars/cuttlefish.png";
         cf.alt = ""; cf.draggable = false;
@@ -9981,7 +9981,7 @@
             img.loading = "lazy";
             img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
             cardEl.appendChild(img);
-            cardEl.title = `${c.name || "?"} — click to zoom`;
+            cardEl.title = `${c.name || "?"}, click to zoom`;
             cardEl.addEventListener("click", (e) => {
               e.stopPropagation();
               openZoom(fUid, c.name, c.text, c.species);
@@ -10000,7 +10000,7 @@
       oImg.alt = ocean.ocean?.name || "";
       oImg.loading = "lazy";
       oFace.appendChild(oImg);
-      oFace.title = `${ocean.ocean?.name || "Ocean"} — click to zoom`;
+      oFace.title = `${ocean.ocean?.name || "Ocean"}, click to zoom`;
       oFace.addEventListener("click", (e) => {
         e.stopPropagation();
         openZoom(oUid, ocean.ocean?.name, ocean.ocean?.text, "Ocean");
@@ -10217,7 +10217,7 @@
     });
     return arr;
   }
-  // XP for a team's placement — same table as solo (1st=100…4th=25), halved if
+  // XP for a team's placement, same table as solo (1st=100…4th=25), halved if
   // any bot is in the game, per the existing rule.
   function getTeamXpAward(teamRank, hasAi) {
     const mult = hasAi ? 0.5 : 1;
@@ -10253,7 +10253,7 @@
       return `<div class="tr-card${isWinner ? " winner" : ""}${isMine ? " mine" : ""}" style="animation-delay:${(i * STEP).toFixed(2)}s">
         <div class="tr-rank">${isWinner ? "👑" : (t.rank + rankSuffix(t.rank))}</div>
         <div class="tr-body">
-          <div class="tr-team" style="color:${teamHex(t.team)}">${teamName(t.team)} Team${isMine ? " — You" : ""}</div>
+          <div class="tr-team" style="color:${teamHex(t.team)}">${teamName(t.team)} Team${isMine ? ", You" : ""}</div>
           <div class="tr-members">${members || "&nbsp;"}</div>
         </div>
         <div class="tr-total">${t.total}<span>pts</span></div>
@@ -10313,7 +10313,7 @@
   }
 
   // Player-count-fair "balanced" average used by saveGameStats + the leaderboard.
-  // MUST live at module scope so saveGameStats (also module scope) can call it —
+  // MUST live at module scope so saveGameStats (also module scope) can call it,
   // a copy existed only inside the auth IIFE, so this call threw ReferenceError
   // and silently killed the ENTIRE game save (XP shown, nothing persisted).
   const BALANCED_ANCHOR = 4;
@@ -10396,7 +10396,7 @@
     const firstOceanType = firstOcean ? String(firstOcean.ocean?.name || "").trim().toLowerCase() : "";
     const myName = me?.name || "";
     // Strategy for the strategy-master / narwhal achievements. Prefer the
-    // SERVER's classification (me.strategy — the same authoritative value the
+    // SERVER's classification (me.strategy, the same authoritative value the
     // weekly combo challenges and the game-detail screen use), mapped to the
     // achievement's combo names, falling back to the local board classifier
     // only when the server didn't supply one. Local-only detection made the
@@ -10477,7 +10477,7 @@
   // Called right after a game's stats are saved. Patches the in-memory profile
   // stats (creating the object if needed) and drives EVERY streak UI surface so
   // the sidebar day counter, the Mon→Sun week dots, and the calendar all reflect
-  // the game immediately — no page reload, no navigation required.
+  // the game immediately, no page reload, no navigation required.
   function _refreshStreakUiAfterSave(streakDays, current, longest) {
     try {
       // Signed-in: keep _activeProfile.stats in sync (it's the calendar/sidebar
@@ -10507,12 +10507,12 @@
   // stat save. If the full array would push the user doc over Firestore's 1MB
   // limit, progressively strip the heavy per-card board snapshots until a
   // version fits. The leaderboard/XP/wins are already saved by the caller, so
-  // the worst case here is a lighter history — never a total save failure.
+  // the worst case here is a lighter history, never a total save failure.
   async function _saveRecentGamesResilient(docRef, recent) {
     if (!Array.isArray(recent) || !recent.length) return;
     // Tier 1: as built (rich boards on the most recent games).
     // Tier 2: keep only light text board summaries (drop card-image data).
-    // Tier 3: minimal — no board data at all, fewer games.
+    // Tier 3: minimal, no board data at all, fewer games.
     const lightSummaries = (arr) => arr.map(g =>
       (g && Array.isArray(g.bds)) ? { ...g, bds: g.bds.map(pp => ({ n: pp.n, b: pp.b })) } : g
     );
@@ -10526,10 +10526,10 @@
         if (i > 0) console.warn(`[saveGameStats] history saved at trim tier ${i} (doc was near the 1MB limit)`);
         return;
       } catch (e) {
-        console.warn(`[saveGameStats] history write tier ${i} failed (${(e && e.code) || "?"}) — trying a lighter version`);
+        console.warn(`[saveGameStats] history write tier ${i} failed (${(e && e.code) || "?"}), trying a lighter version`);
       }
     }
-    console.error("[saveGameStats] could not persist game history even minimal — core stats are still saved");
+    console.error("[saveGameStats] could not persist game history even minimal, core stats are still saved");
   }
 
   async function saveGameStats(winner, finalScores, xpOverride) {
@@ -10541,15 +10541,15 @@
     if ((!authUser || !db) && !isGuestSession) return;
     // Dedup is keyed on a SUCCESSFUL save: _lastSavedWinner is only set after
     // the write fully completes (see end of the try). So a transient write
-    // failure no longer permanently blocks the save — the next poll retries.
+    // failure no longer permanently blocks the save, the next poll retries.
     if (winner === _lastSavedWinner) return; // already saved this game result
     // In-flight guard with auto-recovery: if a previous claim somehow never
-    // released (e.g. an unexpected throw), don't block saves forever — release
+    // released (e.g. an unexpected throw), don't block saves forever, release
     // it after 30s so the next poll can retry. This alone can cause "nothing
     // ever saves" if it sticks.
     if (_saveInFlight && (Date.now() - _saveInFlightAt) < 30000) return;
     // Find MY entry in the final scores. The logged-in user is always a real
-    // player and is one of the finalScores entries — bots in the lobby never
+    // player and is one of the finalScores entries, bots in the lobby never
     // affect this. Try several strategies, most specific first.
     const nickLower = (myNick || "").trim().toLowerCase();
     const _fs = Array.isArray(finalScores) ? finalScores : [];
@@ -10584,7 +10584,7 @@
       })();
     if (!myEntry) {
       console.warn("[saveGameStats] could not locate my entry in final scores (will retry next poll). myNick=", myNick, "myIdx=", myIdx, "names=", _fs.map(p=>p.name));
-      return; // player entry not resolvable yet — DON'T set dedup, retry next poll
+      return; // player entry not resolvable yet, DON'T set dedup, retry next poll
     }
     _saveInFlight = true; _saveInFlightAt = Date.now();   // claim this save; _lastSavedWinner is set only on success
     const myScore    = Number(myEntry.score || 0);
@@ -10777,7 +10777,7 @@
         // Aggregate strategy stats (play counts, most-played, most-played-by-size)
         // are now written from the end-game STRATEGY CONFIRMATION the player makes
         // before leaving the summary (_saveConfirmedStrategyStats). That self-
-        // reported answer is authoritative — writing the auto-detected strategy
+        // reported answer is authoritative, writing the auto-detected strategy
         // here too would double-count. The detected strategy is still saved on
         // each recent_games entry above (recentEntry.strat) as a per-game snapshot.
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
@@ -10839,7 +10839,7 @@
         }
         // Track hosted casual games for Host With the Most achievement.
         // Seats are now randomly assigned at game start, so the host is no longer
-        // always seat 0 — credit by the authoritative host flag, not myIdx === 0.
+        // always seat 0, credit by the authoritative host flag, not myIdx === 0.
         if (!isComp && Boolean(latestPayload?.viewer?.is_host)) {
           updates["stats.hosted_normal_games"] = firebase.firestore.FieldValue.increment(1);
         }
@@ -10856,8 +10856,8 @@
         // CRITICAL FIX: split the heavy game-history array out of the core write.
         // Firestore rejects the ENTIRE update if the resulting doc would exceed
         // 1MB. For a heavy player, the rich board snapshots in recent_games can
-        // push the doc over the limit, which previously blocked EVERYTHING —
-        // XP, wins, scores, history — from saving. Now we write the small core
+        // push the doc over the limit, which previously blocked EVERYTHING,
+        // XP, wins, scores, history, from saving. Now we write the small core
         // stats first (so the leaderboard/level/wins ALWAYS persist), then save
         // the history separately, trimming it down on size failure.
         const _recentGamesValue = updates["stats.recent_games"];
@@ -10874,16 +10874,16 @@
         // SHRINK HISTORY FIRST. If an old bloated recent_games already fills the
         // doc near Firestore's 1MB limit, even the small core write below has no
         // room and fails. _saveRecentGamesResilient REPLACES recent_games with a
-        // trimmed (and, if needed, board-stripped) array — only ever removing
-        // bytes — which frees space so the core write fits. It never throws.
+        // trimmed (and, if needed, board-stripped) array, only ever removing
+        // bytes, which frees space so the core write fits. It never throws.
         await _saveRecentGamesResilient(docRef, _recentGamesValue);
         try {
-          await docRef.update(updates);               // core stats — now has room
+          await docRef.update(updates);               // core stats, now has room
         } catch (eCore) {
           // A single bad/oversized dynamic field (strategy maps, lifetime
           // increments) must NEVER block the leaderboard/level/wins from saving.
           // Retry with only the essential leaderboard fields so those persist.
-          console.warn("[saveGameStats] core update failed (" + ((eCore && eCore.code) || "?") + ") — retrying essentials only");
+          console.warn("[saveGameStats] core update failed (" + ((eCore && eCore.code) || "?") + "), retrying essentials only");
           const ESSENTIAL = new Set([
             "stats.completed_games","stats.total_score","stats.total_xp","stats.level",
             "stats.player_level","stats.level_title","stats.xp_current","stats.level_xp_current",
@@ -10953,14 +10953,14 @@
         nextStats.level_xp_goal = levelProgress.xpGoal;
         nextStats.last_game_xp = xpAward;
         nextStats.recent_games = nextRecent;
-        // Daily streak (guests) — use the shared computation from above so the
+        // Daily streak (guests), use the shared computation from above so the
         // streak, login bonus and calendar all agree with the signed-in path.
         nextStats.streak_days    = _newStreakDays;
         nextStats.daily_streak   = _streakInfo.current;
         nextStats.streak_longest = Math.max(_streakInfo.longest, Number(nextStats.streak_longest || 0));
         // Strategy tracking (guests): aggregate stats come from the end-game
         // strategy confirmation (_saveConfirmedStrategyStats), not the auto-
-        // detected strategy here — see the signed-in note above. recent_games
+        // detected strategy here, see the signed-in note above. recent_games
         // still carries the detected per-game snapshot via recentEntry.strat.
         // Lifetime counters for animal avatar unlocks (Pelican / Puffin / Roosterfish / Yellowfin).
         nextStats.lifetime_deck_draws = Number(nextStats.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
@@ -10983,7 +10983,7 @@
         }
         nextStats.highest_score = Math.max(Number(nextStats.highest_score || 0), myScore);
 
-        // Balanced (player-count-fair) average — computed BEFORE the per-size
+        // Balanced (player-count-fair) average, computed BEFORE the per-size
         // maps below are mutated, so first-time seeding from history is correct.
         if (!isComp && playerCount >= 2 && playerCount <= 10) {
           const bal = computeBalancedUpdate(nextStats, myScore, playerCount);
@@ -11025,7 +11025,7 @@
         }
 
         if (saveGuest) saveGuest(nextStats);
-        // Guest history persisted to localStorage — mark saved (only on success).
+        // Guest history persisted to localStorage, mark saved (only on success).
         _lastSavedWinner = winner;
         // Update in-memory stats so History tab shows the new game immediately
         if (typeof updatePhStats === "function") updatePhStats(nextStats);
@@ -11038,7 +11038,7 @@
       // Runs for both signed-in and guest after the save succeeds.
       if (_streakBonusXp > 0) {
         try {
-          showToast(`🔥 Daily streak bonus! +${_streakBonusXp} XP — Day ${_streakDayNum}`, "info");
+          showToast(`🔥 Daily streak bonus! +${_streakBonusXp} XP, Day ${_streakDayNum}`, "info");
         } catch (_) {}
       }
 
@@ -11087,24 +11087,24 @@
 
       // ── Animal avatar unlocks (queued; shown on return to home menu) ──
       try {
-        // Flying Fish — win without drawing from the Pool (Nothing But Deck).
+        // Flying Fish, win without drawing from the Pool (Nothing But Deck).
         if (isWinner && !_gameAchTracker?.usedPool) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/flying-fish.png")) _queueAnimalUnlock("flying-fish");
         }
-        // Sardine — now a hidden-click secret: click the Sardine on the "Play
+        // Sardine, now a hidden-click secret: click the Sardine on the "Play
         // Full Screen" launch splash (wired in setupGameWindowFullscreen). No
         // post-game grant here anymore.
-        // Bunker — 20 lifetime Competitive wins (pre-game total + this game).
+        // Bunker, 20 lifetime Competitive wins (pre-game total + this game).
         const postCompWins = Number(cStats?.lifetime_comp_wins || 0) + ((isComp && isWinner) ? 1 : 0);
         if (postCompWins >= 20) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/bunker.png")) _queueAnimalUnlock("bunker");
         }
-        // Peruvian Pelican — 300 lifetime deck draws (pre-game total + this game).
+        // Peruvian Pelican, 300 lifetime deck draws (pre-game total + this game).
         const postDeckDraws = Number(cStats?.lifetime_deck_draws || 0) + Number(_gameAchTracker?.deckDraws || 0);
         if (postDeckDraws >= 300) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/peruvian-pelican.png")) _queueAnimalUnlock("peruvian-pelican");
         }
-        // Horned Puffin — 75 lifetime Play Again uses (pre-game total + this game).
+        // Horned Puffin, 75 lifetime Play Again uses (pre-game total + this game).
         const postPlayAgain = Number(cStats?.lifetime_play_again || 0) + Number(_gameAchTracker?.playAgainUses || 0);
         if (postPlayAgain >= 75) {
           if (await window.__fishGrantUnlockedIcon?.("/avatars/horned-puffin.png")) _queueAnimalUnlock("horned-puffin");
@@ -11112,10 +11112,10 @@
 
         // ── Game Fish ──────────────────────────────────────────────
         const lvl = Number(levelProgress?.level || 0);
-        // Mahi Mahi — Level 30 · Blue Marlin — Level 70.
+        // Mahi Mahi, Level 30 · Blue Marlin, Level 70.
         if (lvl >= 30 && await window.__fishGrantUnlockedIcon?.("/avatars/mahi-mahi.png")) _queueAnimalUnlock("mahi-mahi");
         if (lvl >= 70 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-marlin.png")) _queueAnimalUnlock("blue-marlin");
-        // Great Albatross — reach Level 80.
+        // Great Albatross, reach Level 80.
         if (lvl >= 80 && await window.__fishGrantUnlockedIcon?.("/avatars/great-albatross.png")) _queueAnimalUnlock("great-albatross");
         // Rank-based avatars (Barracuda/Bronze, Goliath Grouper/Gold, Bottlenose
         // Dolphin/Diamond, …). Uses pre-game rank here; the retroactive sync on
@@ -11126,22 +11126,22 @@
             if (await window.__fishGrantUnlockedIcon?.(ra.img)) _queueAnimalUnlock(ra.id);
           }
         }
-        // Frigatebird — 7 Coral cards played onto Coral Reef oceans in one game.
+        // Frigatebird, 7 Coral cards played onto Coral Reef oceans in one game.
         if (Number(_gameAchTracker?.coralCardsPlayed || 0) >= 7
             && await window.__fishGrantUnlockedIcon?.("/avatars/magnificent-frigatebird.png")) _queueAnimalUnlock("magnificent-frigatebird");
-        // Roosterfish — 250 total Bait Fish played across all games.
+        // Roosterfish, 250 total Bait Fish played across all games.
         const postBaitfish = Number(cStats?.lifetime_baitfish_played || 0) + Number(_gameAchTracker?.baitfishPlayedThisGame || 0);
         if (postBaitfish >= 250 && await window.__fishGrantUnlockedIcon?.("/avatars/roosterfish.png")) _queueAnimalUnlock("roosterfish");
-        // Yellowfin Tuna — 8 Yellowfin Tuna on board in a 3+ player game.
+        // Yellowfin Tuna, 8 Yellowfin Tuna on board in a 3+ player game.
         if (playerCount >= 3 && Number(nameCount["yellowfin tuna"] || 0) >= 8
             && await window.__fishGrantUnlockedIcon?.("/avatars/yellowfin-tuna.png")) _queueAnimalUnlock("yellowfin-tuna");
-        // Big Eye Tuna — play all 5 Big Eye Tuna in one game and win.
+        // Big Eye Tuna, play all 5 Big Eye Tuna in one game and win.
         if (isWinner && Number(_gameAchTracker?.bigEyeTunaPlayed || 0) >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/big-eye-tuna.png")) _queueAnimalUnlock("big-eye-tuna");
-        // King Salmon — 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
+        // King Salmon, 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
         if (isWinner && playerCount >= 3 && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Grooved Brain Coral — finish in the Top 3 having ONLY drawn from the
+        // Grooved Brain Coral, finish in the Top 3 having ONLY drawn from the
         // Pool (never manually drawn from the Deck). "Cards that say draw do not
         // count": card abilities that draw from the deck don't disqualify this
         // (deckDraws only counts manual deck draws). No player-count limit.
@@ -11152,15 +11152,15 @@
               && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
               && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         }
-        // Sailfish — every Game Fish species on your board in a 5-player game (win not required).
+        // Sailfish, every Game Fish species on your board in a 5-player game (win not required).
         if (playerCount >= 5 && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
             && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
-        // Tarpon — empty a full 9–10 card hand via Tarpon 2 times, finish 100+ pts, 4+ players.
+        // Tarpon, empty a full 9–10 card hand via Tarpon 2 times, finish 100+ pts, 4+ players.
         if (Number(_gameAchTracker?.tarponFullDiscards || 0) >= 2 && Number(myScore) >= 100 && playerCount >= 4
             && await window.__fishGrantUnlockedIcon?.("/avatars/tarpon.png")) _queueAnimalUnlock("tarpon");
 
         // ── Coral ──────────────────────────────────────────────────
-        // Deep Sea Coral — win with exactly 1 animal on each Ocean.
+        // Deep Sea Coral, win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
         // Grooved Brain Coral is granted by the only-Pool/Top-3 check above.
@@ -11168,59 +11168,59 @@
         // granted via the achievement-unlock hook.
 
         // ── Invertebrates ──────────────────────────────────────────
-        // Orange Tube Sponge — reach Level 20.
+        // Orange Tube Sponge, reach Level 20.
         if (lvl >= 20 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-sponge.png")) _queueAnimalUnlock("sea-sponge");
-        // Sea Urchin — win by exactly 1 point (top score exactly 1 above the runner-up).
+        // Sea Urchin, win by exactly 1 point (top score exactly 1 above the runner-up).
         {
           const _scoresDesc = (Array.isArray(finalScores) ? finalScores : [])
             .map(p => Number(p?.score || 0)).sort((a, b) => b - a);
           if (isWinner && _scoresDesc.length >= 2 && (_scoresDesc[0] - _scoresDesc[1]) === 1
               && await window.__fishGrantUnlockedIcon?.("/avatars/sea-urchin.png")) _queueAnimalUnlock("sea-urchin");
         }
-        // Sea Star — reach Level 100.
+        // Sea Star, reach Level 100.
         if (lvl >= 100 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
-        // Johnson's Sea Cucumber — win by ONLY drawing from the deck (never the
+        // Johnson's Sea Cucumber, win by ONLY drawing from the deck (never the
         // Pool) in a 4+ player game.
         if (isWinner && !_gameAchTracker?.usedPool && playerCount >= 4
             && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
-        // (Red Beaded Anemone now unlocks ONLY by beating the Giant Squid 1v1 — see challenge flow.)
+        // (Red Beaded Anemone now unlocks ONLY by beating the Giant Squid 1v1, see challenge flow.)
 
         // ── Crosscurrent ───────────────────────────────────────────
         // Blue Tang (Lv 10) · Manta Ray (Lv 50) · Great White Shark (Lv 90).
         if (lvl >= 10 && await window.__fishGrantUnlockedIcon?.("/avatars/blue-tang.png")) _queueAnimalUnlock("blue-tang");
         if (lvl >= 50 && await window.__fishGrantUnlockedIcon?.("/avatars/manta-ray.png")) _queueAnimalUnlock("manta-ray");
         if (lvl >= 90 && await window.__fishGrantUnlockedIcon?.("/avatars/great-white-shark.png")) _queueAnimalUnlock("great-white-shark");
-        // Mandarin Goby — all 4 Mandarin Gobies on board (Shoot the Moon) in a 3+ player game.
+        // Mandarin Goby, all 4 Mandarin Gobies on board (Shoot the Moon) in a 3+ player game.
         if (_gameAchTracker?.gotAllGobies && playerCount >= 3
             && await window.__fishGrantUnlockedIcon?.("/avatars/mandarin-goby.png")) _queueAnimalUnlock("mandarin-goby");
-        // Clownfish — Clownfish + Blue Tang on the same Ocean (Reef Reunion) and win.
+        // Clownfish, Clownfish + Blue Tang on the same Ocean (Reef Reunion) and win.
         if (_gameAchTracker?.reefReunion && isWinner
             && await window.__fishGrantUnlockedIcon?.("/avatars/clownfish.png")) _queueAnimalUnlock("clownfish");
-        // Loggerhead Sea Turtle — 2 qualifying Turtle chains (Turtle turn + 10 cards)
+        // Loggerhead Sea Turtle, 2 qualifying Turtle chains (Turtle turn + 10 cards)
         // and finish top 3. Flush the final turn (no turn-boundary fires after it).
         const _turtleFinal = Number(_gameAchTracker?.turtleBigChains || 0)
           + ((_gameAchTracker?.turtlePlayedThisTurn && Number(_gameAchTracker?.cardsPlayedThisTurn || 0) >= 10) ? 1 : 0);
         const _playersAbove = (Array.isArray(finalScores) ? finalScores : []).filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
         if (_turtleFinal >= 2 && _playersAbove < 3
             && await window.__fishGrantUnlockedIcon?.("/avatars/loggerhead-sea-turtle.png")) _queueAnimalUnlock("loggerhead-sea-turtle");
-        // Whale Shark — all four Whale Sharks on my board in one game.
+        // Whale Shark, all four Whale Sharks on my board in one game.
         if (Number(nameCount["whale shark"] || 0) >= 4
             && await window.__fishGrantUnlockedIcon?.("/avatars/whale-shark.png")) _queueAnimalUnlock("whale-shark");
 
         // ── Crustaceans ────────────────────────────────────────────
-        // King Crab — reach Level 60. (Mantis Shrimp = quick_swim achievement,
+        // King Crab, reach Level 60. (Mantis Shrimp = quick_swim achievement,
         // Spiny Lobster = Silver rank: both auto-granted via their hooks.)
         if (lvl >= 60 && await window.__fishGrantUnlockedIcon?.("/avatars/king-crab.png")) _queueAnimalUnlock("king-crab");
-        // Lobster — 6 Lobsters stacked on the same Ocean in one game.
+        // Lobster, 6 Lobsters stacked on the same Ocean in one game.
         if (maxLobstersOneOcean >= 6
             && await window.__fishGrantUnlockedIcon?.("/avatars/lobster.png")) _queueAnimalUnlock("lobster");
-        // Hermit Crab — 4+ player game, Hermit Crab + 6 Bait Fish played in ONE
+        // Hermit Crab, 4+ player game, Hermit Crab + 6 Bait Fish played in ONE
         // turn (using the Hermit Crab's free-baitfish ability). This requires the
         // same-turn combo only: hermitSixBaitDone is set during play / at each
         // turn boundary when a Hermit Crab turn reached 6 Bait Fish, and the
         // second clause flushes the final (unboundaried) turn. A board-state
         // proxy (a Hermit Crab + 6 Bait Fish merely sitting on the final board)
-        // is deliberately NOT accepted — those baitfish could have been played
+        // is deliberately NOT accepted, those baitfish could have been played
         // across many turns without ever using the Hermit Crab's ability.
         const _hermitDone = _gameAchTracker?.hermitSixBaitDone
           || (_gameAchTracker?.hermitUsedThisTurn && Number(_gameAchTracker?.baitFishThisTurn || 0) >= 6);
@@ -11232,7 +11232,7 @@
         // Cuttlefish are hidden-click secrets, granted on discovery.
       } catch (e) { /* non-fatal */ }
     } catch(e) {
-      // The write failed — because _lastSavedWinner was NOT set (it's only set
+      // The write failed, because _lastSavedWinner was NOT set (it's only set
       // right after a successful write), the next end-game poll will retry this
       // save automatically. Capture FULL detail so we can pinpoint the cause.
       const _code = (e && e.code) || (e && e.name) || "error";
@@ -11309,7 +11309,7 @@
 
       // Forfeit LOSER: their CP penalty is applied exclusively by the
       // pending-forfeit mechanism (checkPendingForfeitLosses) on their next
-      // lobby load — the single source of truth. This avoids double-counting if
+      // lobby load, the single source of truth. This avoids double-counting if
       // the loser happens to still be connected when the forfeit fires. (The
       // forfeit WINNER continues through the normal win path below.)
       if (_isForfeit && iLost) { _lastRankedProcessed = roomId; return; }
@@ -11366,7 +11366,7 @@
       const curAvgBest      = Object.keys(seasonUpdates).length > 0 ? 0 : Number(cStats.average_competitive_score || 0);
       const curBestComp     = Number(cStats.highest_score_competitive || 0);
 
-      // ── CP delta — based on the player's CURRENT rank ──────────
+      // ── CP delta, based on the player's CURRENT rank ──────────
       // The deltas come from _COMP_RANK_DIVS via _compGetCpDelta. CP can never
       // drop below 0. After the first competitive game, the player leaves
       // Unranked and is placed in Bronze Barracuda I (CP 0-44).
@@ -11422,7 +11422,7 @@
       };
       await docRef.update(updates);
       // Competitive stats + leaderboard fields (comp_cp, comp_best_single_hand,
-      // comp_best_combined) persisted — mark processed ONLY now, so a failed
+      // comp_best_combined) persisted, mark processed ONLY now, so a failed
       // write above retries on the next poll instead of being permanently skipped.
       _lastRankedProcessed = roomId;
       console.info("[processRankedGameEnd] saved ranked result for", myPhys, "CP→", newCp);
@@ -11507,7 +11507,7 @@
   async function _applyForfeitLoss(item, authUser, db, myName) {
     if (!item || !item.id) return;
     const curSeasonId = (typeof _compGetSeasonId === "function") ? _compGetSeasonId() : "";
-    // Stale forfeit from a previous season — ack without touching this season's CP.
+    // Stale forfeit from a previous season, ack without touching this season's CP.
     if (item.season_id && curSeasonId && String(item.season_id) !== String(curSeasonId)) {
       try { await apiPost("/api/competitive/forfeit_ack", { id: item.id, name: myName, cp_delta: 0 }); } catch (_) {}
       return;
@@ -11553,16 +11553,16 @@
       try { _closeTeamReveal(); } catch (_) {}
       const _cdWrap = document.getElementById("gs-challenges-done");
       if (_cdWrap) _cdWrap.style.display = "none";
-      // Fresh game (or no game) — clear the post-game ready-up button + notices.
+      // Fresh game (or no game), clear the post-game ready-up button + notices.
       try { _resetPlayAgainUI(); } catch (_) {}
       // Tracking vars (_matchStartMs, _bestTurnPts, etc.) are reset in _leaveGameCleanup(),
-      // not here — resetting here would wipe them on every poll during the running phase.
+      // not here, resetting here would wipe them on every poll during the running phase.
       return;
     }
     // Keep the Play Again tally + "<name> left" notices in sync every poll.
     try { updatePlayAgainUI(latestPayload && latestPayload.play_again); } catch (_) {}
     if (compMode) processRankedGameEnd(finalScores);
-    // NOTE: we no longer early-return here when the overlay was dismissed —
+    // NOTE: we no longer early-return here when the overlay was dismissed,
     // saveGameStats (streak/XP/history) MUST still run on every end-game poll
     // until it succeeds. We only skip the *visual* overlay rendering below.
     // Stop the per-game playtime clock the instant the end screen is revealed.
@@ -11596,7 +11596,7 @@
     if (_teamModeEnd) {
       const nameToTeam = _buildNameToTeam();
       teamStandings = getTeamStandings(finalScores, nameToTeam);
-      // Resolve MY team by seat index first (most reliable — survives nickname
+      // Resolve MY team by seat index first (most reliable, survives nickname
       // case drift), then fall back to name→team from the scores.
       const mySeatIdx = (latestPayload && latestPayload.viewer && typeof latestPayload.viewer.seat_index === "number")
         ? latestPayload.viewer.seat_index : null;
@@ -11627,7 +11627,7 @@
       try { showTeamReveal(teamStandings, myTeam); } catch (e) { console.warn("team reveal failed", e); }
     }
 
-    // Flush the last player's turn delta — the current_player never "changes" at game end,
+    // Flush the last player's turn delta, the current_player never "changes" at game end,
     // so the turn-boundary handler never fires for the final turn.
     if (_prevCurrentPlayer && _turnStartScores[_prevCurrentPlayer] != null) {
       const lastEntry = (finalScores || []).find(p => p.name === _prevCurrentPlayer);
@@ -11663,7 +11663,7 @@
       else if (cnt === mostStarCount && cnt > 0 && !mostStarNames.includes(name)) mostStarNames.push(name);
     });
 
-    // First to 100 — all players who crossed 100 in the same (earliest) round
+    // First to 100, all players who crossed 100 in the same (earliest) round
     let first100Names = [];
     const crossings = Object.entries(_first100Crossings);
     if (crossings.length) {
@@ -11672,13 +11672,13 @@
     }
 
     // Highest Scoring Card
-    let highCardName = "—", highCardPts = 0, highCardWho = "—", highCardWhoList = [];
+    let highCardName = "-", highCardPts = 0, highCardWho = "-", highCardWhoList = [];
     (_latestPlayers || []).forEach(p => {
       const rows = p?.score_breakdown?.full?.card_rows || [];
       rows.forEach(row => {
         const pts = Number(row.total || 0);
         if (pts > highCardPts) {
-          highCardPts = pts; highCardName = row.card_name || "—";
+          highCardPts = pts; highCardName = row.card_name || "-";
           highCardWho = p.name; highCardWhoList = [p.name];
         } else if (pts === highCardPts && pts > 0 && !highCardWhoList.includes(p.name)) {
           highCardWhoList.push(p.name);
@@ -11701,8 +11701,8 @@
     const totalXp = (_gameTerminatedByMe || _amForfeitLoser) ? 0 : (xpBase + myStatWins * 15);
 
     // Save stats with the total XP including stat bonuses (kept in sync with display).
-    // This runs on every end-game poll until it succeeds — even if the overlay was
-    // dismissed — so the streak/XP/history always persist.
+    // This runs on every end-game poll until it succeeds, even if the overlay was
+    // dismissed, so the streak/XP/history always persist.
     saveGameStats(winner, finalScores, totalXp);
 
     // Overlay was dismissed: the save above still ran; skip only the visual render.
@@ -11825,7 +11825,7 @@
         const playerObj = (_latestPlayers || []).find(lp => lp.name === p.name);
         const firstOcean = Array.isArray(playerObj?.board) && playerObj.board[0];
         const oceanUid = firstOcean ? (firstOcean.ocean_uid || firstOcean.ocean?.uid) : null;
-        const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "—";
+        const oceanName = firstOcean ? (firstOcean.ocean?.name || "Ocean") : "-";
         // Show each player's detected strategy in the recap (fall back to ocean).
         const _ds = (playerObj && typeof playerObj.strategy === "string") ? playerObj.strategy.trim() : "";
         const envLabel = (_ds && _ds !== "Best Guess") ? _ds : oceanName;
@@ -11908,27 +11908,27 @@
 
     // ── Match Stats display ──────────────────────────────────────
     const gameMins = _matchStartMs ? Math.max(1, Math.round((Date.now() - _matchStartMs) / 60000)) : 0;
-    setText("gs-sc-length-val", gameMins || "—");
+    setText("gs-sc-length-val", gameMins || "-");
 
-    setText("gs-sc-turn-val", _bestTurnPts || "—");
-    setText("gs-sc-turn-who", _bestTurnNames.join(", ") || "—");
+    setText("gs-sc-turn-val", _bestTurnPts || "-");
+    setText("gs-sc-turn-who", _bestTurnNames.join(", ") || "-");
 
-    setText("gs-sc-diverse-val", mostDiverseCount || "—");
-    setText("gs-sc-diverse-who", mostDiverseNames.join(", ") || "—");
+    setText("gs-sc-diverse-val", mostDiverseCount || "-");
+    setText("gs-sc-diverse-who", mostDiverseNames.join(", ") || "-");
 
-    setText("gs-sc-star-val", mostStarCount || "—");
-    setText("gs-sc-star-who", mostStarNames.join(", ") || "—");
+    setText("gs-sc-star-val", mostStarCount || "-");
+    setText("gs-sc-star-who", mostStarNames.join(", ") || "-");
 
     setText("gs-sc-100-who", first100Names.join(", ") || "No one");
 
     setText("gs-sc-card-name", highCardName);
-    setText("gs-sc-card-pts", highCardPts ? highCardPts + " pts" : "—");
-    setText("gs-sc-card-who", highCardWhoList.join(", ") || "—");
+    setText("gs-sc-card-pts", highCardPts ? highCardPts + " pts" : "-");
+    setText("gs-sc-card-who", highCardWhoList.join(", ") || "-");
 
     // ── Special Feats ─────────────────────────────────────────────
     // Two of Aukind: player who played the most Razorbill Auks this game (≥2 = feat).
     // Counts Razorbill Auks found on each player's final board.
-    let aukindName = "—", aukindMax = 0;
+    let aukindName = "-", aukindMax = 0;
     (_latestPlayers || []).forEach(p => {
       let cnt = 0;
       (Array.isArray(p?.board) ? p.board : []).forEach(ocean => {
@@ -12008,7 +12008,7 @@
       }
     } catch (_) {}
     // If the player never used the in-game strategy panel, fall back to the
-    // strategy the server detected from their final board — so simply clicking
+    // strategy the server detected from their final board, so simply clicking
     // through still records a sensible answer (they can correct it).
     if (!preSelected.size) {
       try {
@@ -12026,7 +12026,7 @@
     try {
       const strats = (typeof HELP_STRATEGIES !== "undefined") ? HELP_STRATEGIES : [];
       const colors = (typeof STRAT_COLORS !== "undefined") ? STRAT_COLORS : [];
-      // Only the core strategies (section 1 on the Strategies page) — combos
+      // Only the core strategies (section 1 on the Strategies page), combos
       // and custom strategies are excluded so this stays a short, simple list.
       strats.forEach((s, i) => {
         if (s.tier !== "Core" || s.custom) return;
@@ -12067,7 +12067,7 @@
     return picked;
   }
 
-  // Save confirmed strategy into stats — the player's self-reported answer,
+  // Save confirmed strategy into stats, the player's self-reported answer,
   // written once when they leave the end-game summary. Guarded so leaving via
   // both buttons (View Board → Home) can't double-count.
   let _strategyConfirmSaved = false;
@@ -12253,7 +12253,7 @@
       } else {
         // Reflect the immediate count; the next poll keeps it in sync for everyone.
         updatePlayAgainUI(r.data);
-        // NOTE: this "Play Again" button starts a REMATCH (a new game) — it is NOT
+        // NOTE: this "Play Again" button starts a REMATCH (a new game), it is NOT
         // the in-game "*play again*" extra-turn ability the Horned Puffin avatar
         // tracks. That ability is counted on its own rising edge (see the
         // is_replay_turn tracker in the turn-banner render). Counting rematches
@@ -12261,7 +12261,7 @@
       }
       refreshState();
     } catch (e) {
-      showToast("Could not ready up — check your connection.", "err");
+      showToast("Could not ready up, check your connection.", "err");
       _resetPlayAgainUI();
     }
   });
@@ -12329,7 +12329,7 @@
     const msgs = Array.isArray(messages) ? messages : [];
     _chatRoomTotal = msgs.length;
     if (msgs.length === _chatLastCount) {
-      // no new messages — just refresh the combined badges
+      // no new messages, just refresh the combined badges
       if (_chatPanelOpen && _chatView === "room") _chatSeenCount = msgs.length;
       pvcUpdateBadges();
       return;
@@ -12341,7 +12341,7 @@
       const div = document.createElement("div"); div.className = "chat-msg";
       const senderName = m.sender || "?";
 
-      // Sender avatar — prefer the per-sender avatar the server attached to the
+      // Sender avatar, prefer the per-sender avatar the server attached to the
       // message (each player's own icon); fall back to a deterministic default.
       const av = document.createElement("div"); av.className = "cm-avatar";
       const avImg = document.createElement("img");
@@ -12451,9 +12451,9 @@
 
   // ═══════════════════════════════════════════════════════════════
   // UNIFIED IN-GAME CHAT PANEL CONTROLLER (iMessage-style)
-  //   • Current Game Chat (room view)  — server room chat, unchanged
-  //   • Chat list (list view)          — Current Game Chat + DMs + groups
-  //   • Conversation (conv view)       — a DM / group via window.__fishMsg
+  //   • Current Game Chat (room view) : server room chat, unchanged
+  //   • Chat list (list view)         : Current Game Chat + DMs + groups
+  //   • Conversation (conv view)      : a DM / group via window.__fishMsg
   // Bridges to the Firestore messaging layer through window.__fishMsg so the
   // in-game panel and the outside-game drawer share ONE data source.
   // ═══════════════════════════════════════════════════════════════
@@ -12467,7 +12467,7 @@
   //   • live player suggestions (name + icon) via __fishMsg.searchPlayers
   //   • recipient chips: 1 selected → DM, 2+ → group (auto)
   //   host: container element  ·  p: class prefix ("pvc" | "ccm")
-  //   onStart(recipients[{uid,name,avatar}], groupName) — caller opens the conv
+  //   onStart(recipients[{uid,name,avatar}], groupName), caller opens the conv
   // ═══════════════════════════════════════════════════════════════
   window.FishCompose = function (host, p, onStart, onChange) {
     if (!host) return null;
@@ -12487,7 +12487,7 @@
     const go = mk("button", p + "-compose-go"); go.type = "button"; go.textContent = "Message"; go.disabled = true;
     const hint = mk("div", p + "-compose-hint");
     hint.textContent = "Search a player to start a direct message. Add another to make it a group.";
-    hint.style.display = "none";   // embedded as a search bar — placeholder text is enough
+    hint.style.display = "none";   // embedded as a search bar, placeholder text is enough
     host.appendChild(recipRow); host.appendChild(sugg); host.appendChild(nameIn);
     host.appendChild(go); host.appendChild(hint);
 
@@ -12635,7 +12635,7 @@
     return other > 0;                               // room view: any DM/group unread
   }
 
-  // Subscribe once to live Firestore changes (lazy — __fishMsg exists only
+  // Subscribe once to live Firestore changes (lazy, __fishMsg exists only
   // after the auth module has initialised, i.e. well after page load).
   function pvcEnsureSubscribed() {
     if (_pvcSubscribed) return;
@@ -12764,7 +12764,7 @@
     const pickUids = picks.map(r => r.uid);
     const filtering = pickUids.length > 0;
 
-    // Current Game Chat — always first (hidden while searching for people).
+    // Current Game Chat, always first (hidden while searching for people).
     if (!filtering) {
       const cur = document.createElement("div");
       cur.className = "pvc-row current";
@@ -12812,8 +12812,8 @@
       note.className = "pvc-list-empty";
       note.textContent = filtering
         ? (picks.length >= 2
-            ? "No group with these players yet — tap “Create Group” above to start one."
-            : "No chat yet — tap “Message” above to start one.")
+            ? "No group with these players yet, tap “Create Group” above to start one."
+            : "No chat yet, tap “Message” above to start one.")
         : "No other chats yet. Search a player above to start a chat or group.";
       listEl.appendChild(note);
     }
@@ -12932,7 +12932,7 @@
     const text = (input.value || "").trim();
     if (!text) return;
     input.value = ""; input.style.height = "";
-    _chatDrafts[_chatConv.id] = "";              // sent — drop the saved draft
+    _chatDrafts[_chatConv.id] = "";              // sent, drop the saved draft
     if (_chatConv.group) await M.sendGroup(_chatConv.id, text);
     else await M.sendDM(_chatConv.peerUid, _chatConv.peerName, text);
   }
@@ -13026,7 +13026,7 @@
     if (_chatView === "conv" && _chatConv && _chatConv.group) pvcRenameGroupTitle();
   });
 
-  // Room send (Current Game Chat) — unchanged server path.
+  // Room send (Current Game Chat), unchanged server path.
   _pg("pv-chat-send").addEventListener("click", sendChatMessage);
   _pg("pv-chat-text").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
@@ -13124,7 +13124,7 @@
         const members = (meta && Array.isArray(meta.members)) ? meta.members : [];
         members.forEach(p => {
           const row = document.createElement("div"); row.className = "pvg-member";
-          // Member avatar (icon) — letter first, swapped to the real icon async.
+          // Member avatar (icon), letter first, swapped to the real icon async.
           const av = document.createElement("span"); av.className = "pvg-mav";
           const lt = document.createElement("span"); lt.className = "pvg-mav-lt";
           lt.textContent = (String(p.name || "?")[0] || "?").toUpperCase();
@@ -13235,7 +13235,7 @@
           if (document.exitFullscreen) await document.exitFullscreen();
           else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
         }
-      } catch (e) { /* swallow — browsers may block depending on gesture */ }
+      } catch (e) { /* swallow, browsers may block depending on gesture */ }
       if (entering && !isFs()) {
         try { showToast("Full screen was blocked by the browser. Try the button again.", "warn"); } catch (_) {}
       }
@@ -13317,7 +13317,7 @@
     });
     resume.addEventListener("click", async () => {
       const ok = await enterFs();
-      if (!ok) try { showToast("Full screen was blocked — tap the button again.", "warn"); } catch (_) {}
+      if (!ok) try { showToast("Full screen was blocked, tap the button again.", "warn"); } catch (_) {}
     });
 
     function onFsChange() {
@@ -13338,7 +13338,7 @@
   // one shared DataTransfer so every existing setData/getData keeps working.
   // So in Mobile mode you can drag cards with your finger, and a plain tap
   // still falls through to the existing tap-to-place handlers. Computer mode
-  // is never touched — it keeps native mouse drag-and-drop.
+  // is never touched, it keeps native mouse drag-and-drop.
   // ═══════════════════════════════════════════════════════════════
   (function setupTouchDrag() {
     const MOVE_THRESHOLD = 8; // px before a touch becomes a drag (taps fall through)
@@ -13379,7 +13379,7 @@
         ev.initEvent(type, true, true);
         ev.clientX = x; ev.clientY = y;
       }
-      // Browsers null out dataTransfer on synthetic events — force ours so the
+      // Browsers null out dataTransfer on synthetic events, force ours so the
       // game's setData/getData calls hit the one shared object.
       if (ev.dataTransfer !== dt) {
         try { Object.defineProperty(ev, "dataTransfer", { value: dt, configurable: true }); } catch (e) {}
@@ -13417,7 +13417,7 @@
       const d = closestDraggable(t.target);
       if (!d) return;
       src = d; startX = t.clientX; startY = t.clientY; started = false; touchId = t.identifier;
-      // Do NOT preventDefault yet — a short press should still tap (place) or scroll.
+      // Do NOT preventDefault yet, a short press should still tap (place) or scroll.
     }, { passive: true });
 
     document.addEventListener("touchmove", (e) => {
@@ -13446,7 +13446,7 @@
     function endHandler(e) {
       if (!src) return;
       const t = touchById(e.changedTouches);
-      if (!started) { reset(); return; } // was a tap — let the native click / tap-to-place run
+      if (!started) { reset(); return; } // was a tap, let the native click / tap-to-place run
       if (t) {
         const over = document.elementFromPoint(t.clientX, t.clientY);
         if (over) { fire("dragover", over, t.clientX, t.clientY); fire("drop", over, t.clientX, t.clientY); }
@@ -13464,12 +13464,12 @@
 
   // ═══════════════════════════════════════════════════════════════
   // IN-GAME BOARD SIZE CONTROL  (+ / − buttons, and + = - keys)
-  // Zooms ONLY the board (#pv-table-inner) — never the hand, action bar,
+  // Zooms ONLY the board (#pv-table-inner), never the hand, action bar,
   // End Turn / Undo buttons, or the rest of the website. Clamped so the
   // board can't be zoomed too far in (cut-off) or too far out (broken/tiny).
   // ═══════════════════════════════════════════════════════════════
   const _BS_MIN = 0.7, _BS_MAX = 1.5, _BS_STEP = 0.1, _BS_KEY = "cc_board_zoom";
-  // Board zoom ALWAYS starts at 100% for every player on every load — a saved
+  // Board zoom ALWAYS starts at 100% for every player on every load, a saved
   // zoom is never restored, so the board can never come up zoomed in/out from a
   // previous session. Players can still zoom with the +/- control during a match
   // (that change lives only for the current session). Any stale value saved by
@@ -13488,7 +13488,7 @@
     const minus = document.getElementById("bs-minus");
     if (plus)  plus.disabled  = _boardZoom >= _BS_MAX - 0.001;
     if (minus) minus.disabled = _boardZoom <= _BS_MIN + 0.001;
-    // Intentionally NOT persisted — board zoom resets to 100% on every load.
+    // Intentionally NOT persisted, board zoom resets to 100% on every load.
   }
 
   function boardZoomBy(delta) {
@@ -13520,8 +13520,8 @@
     if (plus)  plus.addEventListener("click",  () => boardZoomBy(+_BS_STEP));
     if (minus) minus.addEventListener("click", () => boardZoomBy(-_BS_STEP));
 
-    // Keyboard: + or = zoom in, - or _ zoom out — only inside a game, and
-    // never when typing. Bare keys only — Cmd/Ctrl +/- stay browser zoom.
+    // Keyboard: + or = zoom in, - or _ zoom out, only inside a game, and
+    // never when typing. Bare keys only, Cmd/Ctrl +/- stay browser zoom.
     document.addEventListener("keydown", (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;     // leave browser zoom alone
       if (!_bsGameActive()) return;
@@ -13556,9 +13556,9 @@
     } catch { return false; }
   }
 
-  function _hideIdleWarn() { /* idle warning removed — no-op */ }
-  async function _clearServerInactive() { /* idle auto-flagging removed — no-op */ }
-  function resetIdleTimer() { /* idle timer removed — no-op */ }
+  function _hideIdleWarn() { /* idle warning removed, no-op */ }
+  async function _clearServerInactive() { /* idle auto-flagging removed, no-op */ }
+  function resetIdleTimer() { /* idle timer removed, no-op */ }
 
   // Surf's Up!! button
   let _surfBtnInFlight = false;
@@ -13566,7 +13566,7 @@
     if (!roomId) return;
     if (_surfBtnInFlight) return;
 
-    // Resolve the correct seat token — competitive mode may have a token per seat
+    // Resolve the correct seat token, competitive mode may have a token per seat
     let token;
     if (typeof compMode !== "undefined" && compMode) {
       // Use whichever of my seats is currently active, fall back to first
@@ -13579,7 +13579,7 @@
     }
 
     if (!token) {
-      try { showToast("No seat token — re-join the game first.", "err"); } catch {}
+      try { showToast("No seat token, re-join the game first.", "err"); } catch {}
       return;
     }
 
@@ -13600,10 +13600,10 @@
         }
         refreshState();
       } else {
-        try { showToast(r?.data?.error || "Surf's Up!! request failed — try again.", "warn"); } catch {}
+        try { showToast(r?.data?.error || "Surf's Up!! request failed, try again.", "warn"); } catch {}
       }
     } catch (e) {
-      try { showToast("Could not reach server — check your connection.", "err"); } catch {}
+      try { showToast("Could not reach server, check your connection.", "err"); } catch {}
     } finally {
       _surfBtnInFlight = false;
       if (btn) { btn.disabled = false; btn.style.opacity = ""; }
@@ -13616,8 +13616,8 @@
     btn.classList.toggle("is-away", _imAway);
     btn.innerHTML = _imAway ? "🌊 I'm Back" : "🏄 Surf's Up!!";
     btn.title = _imAway
-      ? "You're Away — you can't play any moves. Tap to come back and resume your turn."
-      : "Surf's Up!! — mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves — tap 'I'm Back' to return.";
+      ? "You're Away, you can't play any moves. Tap to come back and resume your turn."
+      : "Surf's Up!!, mark yourself officially Away. The table waits for you and no one can report you AFK. While Away you can't play any moves, tap 'I'm Back' to return.";
   }
   _updateSurfBtnLabel();
 
@@ -13646,7 +13646,7 @@
   window._fishDrawForInactive = drawForInactive;
 
   // ═══════════════════════════════════════════════════════════════
-  // AFK-VOTE CHALLENGE — "Are you still here?" popup for the active player
+  // AFK-VOTE CHALLENGE, "Are you still here?" popup for the active player
   // ═══════════════════════════════════════════════════════════════
   let _afkOpen = false;
   let _afkTicker = null;
@@ -13677,7 +13677,7 @@
     ring.style.setProperty("--ring", _afkRingColor(frac));
     ring.classList.toggle("urgent", frac <= 0.3);
     if (leftMs <= 0) {
-      // Time's up on the client — the server resolves authoritatively and the
+      // Time's up on the client, the server resolves authoritatively and the
       // next poll will clear the challenge. Stop the local ticker.
       if (_afkTicker) { clearInterval(_afkTicker); _afkTicker = null; }
       // Player did not interact before timer expired: mark as forced so undo is blocked.
@@ -13713,9 +13713,9 @@
   async function _cancelAfkChallenge() {
     if (!_afkOpen || _afkCancelInFlight) return;
     _afkCancelInFlight = true;
-    _afkForced = false;   // player was active — undo stays available
+    _afkForced = false;   // player was active, undo stays available
     _afkSuppressUntil = Date.now() + 4000;  // don't let a stale poll re-open it
-    _hideAfkChallenge();  // optimistic close — feels instant on interaction
+    _hideAfkChallenge();  // optimistic close, feels instant on interaction
     try {
       let token;
       if (typeof compMode !== "undefined" && compMode) {
@@ -13752,7 +13752,7 @@
     if (urlSeat) setSeatToken(urlSeat);
     if (urlHost) setHostToken(urlHost);
     if (getSeatToken() || getHostToken()) {
-      // already have a token — go straight in
+      // already have a token, go straight in
       enterRoom(urlRoom);
     } else {
       // Check localStorage for a fresh rejoin token (saved within the last 5 minutes)
@@ -13762,7 +13762,7 @@
         showToast("Rejoining your game…", "ok");
         enterRoom(urlRoom);
       } else {
-        // no token — show seat picker modal so they can pick + join
+        // no token, show seat picker modal so they can pick + join
         loadInvitedSeats(urlRoom);
       }
     }
@@ -13774,18 +13774,18 @@
   setInterval(pingServer, 4*60*1000); // ping every 4 min to prevent Render free-tier sleep
 
   // ═══════════════════════════════════════════════════════════════
-  // ANIMAL AVATAR SYSTEM (outer scope — shared with auth IIFE)
+  // ANIMAL AVATAR SYSTEM (outer scope, shared with auth IIFE)
   // Unlockable animal icons. Order within each species matches its PDF.
   // unlock.type: starter | level | comp_wins | event
   //   (future species may add: rank, achievement, secret, combo, progress)
   // Default avatar for everyone (incl. guests) = Mullet.
-  // Fun facts are taken verbatim from the species PDFs — never invented.
+  // Fun facts are taken verbatim from the species PDFs, never invented.
   // ═══════════════════════════════════════════════════════════════
   const ANIMAL_AVATARS = [
     // ── Bait Fish ────────────────────────────────────────────────
     { id:"mullet", name:"Mullet", species:"Bait Fish", img:"/avatars/mullet.png",
       facts:"Mullets can thrive in everything from salty marine environments to fresh water, and young mullet often swim all the way up into tidal creeks and inland springs.",
-      unlock:{ type:"starter", label:"Starter icon — unlocked for everyone." } },
+      unlock:{ type:"starter", label:"Starter icon, unlocked for everyone." } },
     { id:"bunker", name:"Bunker", species:"Bait Fish", img:"/avatars/bunker.png",
       facts:"They are one of the most important baitfish in the ocean, feeding striped bass, bluefish, tuna, whales, dolphins, ospreys, and seabirds.",
       unlock:{ type:"comp_wins", goal:20, label:"Win 20 Competitive games." } },
@@ -13794,7 +13794,7 @@
       unlock:{ type:"secret", label:"Click the Sardine in the menu where it shows Play Full Screen." } },
     { id:"flying-fish", name:"Flying Fish", species:"Bait Fish", img:"/avatars/flying-fish.png",
       facts:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight.",
-      unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck — win a game without drawing from the Pool." } },
+      unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck, win a game without drawing from the Pool." } },
     { id:"bonito", name:"Bonito", species:"Bait Fish", img:"/avatars/bonito.png",
       facts:"The word bonito comes from Spanish, where the adjective translates to \"pretty,\" though its exact linguistic origin as a fish name is tied to medieval Latin (boniton).",
       unlock:{ type:"event", event:"good_game_final_turn", label:"Type “good game” in the chat when all players are on their final turn." } },
@@ -13845,7 +13845,7 @@
       facts:"Tarpon have been roaming the oceans for roughly 120 million years, making them older than the T-Rex!",
       unlock:{ type:"event", event:"tarpon_triple_discard", label:"With 9–10 cards in hand, use Tarpon to discard your whole hand into the Pool 2 times in one game, then finish with 100+ points in a game with 4 or more players." } },
     { id:"barracuda", name:"Barracuda", species:"Game Fish", img:"/avatars/barracuda.png",
-      facts:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey—sometimes cutting a fish cleanly in half.",
+      facts:"They have 140 to 220 teeth across two distinct rows. The outer row is needle-like for piercing, while the inner row has large fangs used to grip and slice prey, sometimes cutting a fish cleanly in half.",
       unlock:{ type:"rank", tier:"bronze", label:"Reach Bronze rank in Competitive." } },
     { id:"sailfish", name:"Sailfish", species:"Game Fish", img:"/avatars/sailfish.png",
       facts:"Sailfish are the undisputed sprinters of the sea, capable of reaching incredible speeds up to 68 mph (110 km/h).",
@@ -13871,7 +13871,7 @@
     // ── Mammals ──────────────────────────────────────────────────
     { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
       facts:"Spinner dolphins can leap up to 10 feet and spin several times in the air, though scientists still do not fully know why they do it.",
-      unlock:{ type:"achievement", achId:"saving_the_invertebrates", label:"Saving the Invertebrates — Find the hidden invertebrates, learn their numbers, and enter the code in the order they appear in the Avatar Gallery." } },
+      unlock:{ type:"achievement", achId:"saving_the_invertebrates", label:"Saving the Invertebrates, Find the hidden invertebrates, learn their numbers, and enter the code in the order they appear in the Avatar Gallery." } },
     { id:"bottlenose-dolphin", name:"Bottlenose Dolphin", species:"Mammals", img:"/avatars/bottlenose-dolphin.png",
       facts:"Bottlenose dolphins develop a signature whistle (their version of a name) that they use to introduce themselves and identify other pod members.",
       unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
@@ -13907,7 +13907,7 @@
       facts:"They aren't true gobies: their official name is the Mandarin dragonet (Synchiropus splendidus). They get their nickname from their bright, ornate coloration, which resembles the traditional, elaborate robes worn by ancient Chinese imperial officers (mandarins).",
       unlock:{ type:"event", event:"shoot_the_moon_3p", label:"Get all 4 Mandarin Gobies on your board in one game with 3+ players (Shoot the Moon)." } },
     { id:"loggerhead-sea-turtle", name:"Loggerhead Sea Turtle", species:"Crosscurrent", img:"/avatars/loggerhead-sea-turtle.png",
-      facts:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles—sometimes up to 7,500 miles in the Pacific—to lay eggs on the exact same beach where they hatched decades earlier.",
+      facts:"Loggerheads possess a built-in magnetic GPS. Adult females migrate thousands of miles, sometimes up to 7,500 miles in the Pacific, to lay eggs on the exact same beach where they hatched decades earlier.",
       unlock:{ type:"event", event:"turtle_big_chains", label:"Play Loggerhead Sea Turtle twice in one game, play 10 cards during each Turtle turn/chain (including cards discarded to pay for it), and finish top 3." } },
     { id:"blue-tang", name:"Blue Tang", species:"Crosscurrent", img:"/avatars/blue-tang.png",
       facts:"Adults can voluntarily alter their hue. They may flush deep purples and violets as a sign of stress or change colors during courting and breeding seasons.",
@@ -13967,27 +13967,27 @@
       facts:"It's just a fish…",
       unlock:{ type:"code", label:"Enter the code from donating, located at the top next to where it says Avatar Gallery." } },
 
-    // ── Exclusive Skins (Store — bought with Critter Coins) ──────
+    // ── Exclusive Skins (Store, bought with Critter Coins) ──────
     // Seasonal player icons. Behave exactly like any other avatar: equip one
     // from the Avatar Gallery and everyone sees it on your seat in-game. The
     // ONLY way to unlock them is buying in the Store for 2,000 Critter Coins.
     { id:"summer-skin-gull", name:"Summer Skin Gull", species:"Summer Skins", img:"/avatars/summer-skin-gull.png",
-      facts:"A beach-day gull dive-bombing for a sandcastle bucket — summer's cheekiest snack thief.",
+      facts:"A beach-day gull dive-bombing for a sandcastle bucket, summer's cheekiest snack thief.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
     { id:"summer-skin-hermit-crab", name:"Summer Skin Hermit Crab", species:"Summer Skins", img:"/avatars/summer-skin-hermit-crab.png",
-      facts:"Sun hat on, shades down — this hermit crab is fully moved into vacation mode.",
+      facts:"Sun hat on, shades down, this hermit crab is fully moved into vacation mode.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
     { id:"summer-skin-goby", name:"Summer Skin Mandarin Goby", species:"Summer Skins", img:"/avatars/summer-skin-goby.png",
-      facts:"A mandarin goby hanging ten — the reef's most colorful surfer catching the summer swell.",
+      facts:"A mandarin goby hanging ten, the reef's most colorful surfer catching the summer swell.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
     { id:"fourth-of-july", name:"4th of July", species:"Fourth of July Skins", img:"/avatars/fourth-of-july.png",
-      facts:"Stars, stripes, and claws — a firecracker critter decked out for the Fourth of July.",
+      facts:"Stars, stripes, and claws, a firecracker critter decked out for the Fourth of July.",
       unlock:{ type:"shop", coins:2000, label:"Buy in the Store for 2,000 Critter Coins." } },
   ];
 
   // ── Exclusive Backgrounds (donation / code-unlocked) ───────────
   // Cosmetic backgrounds that render behind your avatar everywhere it appears.
-  // One per in-game ocean. 1,000 Critter Coins each — unlocked by entering a donation code.
+  // One per in-game ocean. 1,000 Critter Coins each, unlocked by entering a donation code.
   const EXCLUSIVE_BACKGROUNDS = [
     { id:"bg-kelp",           name:"Kelp Forest",      img:"/backgrounds/bg-kelp.png",            facts:"Golden kelp swaying in sunlit green water." },
     { id:"bg-coral-reef",     name:"Coral Reef",       img:"/backgrounds/bg-coral-reef.png",      facts:"A vivid coral garden bursting with color." },
@@ -14000,10 +14000,10 @@
   ];
   const _BG_BY_ID  = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.id, b]));
   const _BG_BY_IMG = Object.fromEntries(EXCLUSIVE_BACKGROUNDS.map(b => [b.img, b]));
-  // Synthetic "remove background" tile — always unlocked, always sorts first,
+  // Synthetic "remove background" tile, always unlocked, always sorts first,
   // so clearing an equipped background is a normal tile click (like picking
   // any other background) instead of a hidden button on the equipped tile.
-  const _BG_NONE = { id:"__none__", name:"No Background", img:"", facts:"Just your avatar — no scene behind it." };
+  const _BG_NONE = { id:"__none__", name:"No Background", img:"", facts:"Just your avatar, no scene behind it." };
 
   // ── Exclusive Skins (Store) ────────────────────────────────────
   // Derived from the avatar registry above (unlock.type === "shop"). These are
@@ -14057,7 +14057,7 @@
       const cur = Number(rec.progress || 0);
       return Math.min(1, cur / u.goal);
     }
-    // Events and secrets: return null (no numeric progress bar — shown as "Complete the challenge")
+    // Events and secrets: return null (no numeric progress bar, shown as "Complete the challenge")
     return null;
   }
   function animalProgressText(a, stats, level){
@@ -14072,7 +14072,7 @@
       if (rec.completed) return "✓ Achievement completed!";
       const cur = Number(rec.progress || 0);
       const goal = u.goal;
-      if (goal === 1) return cur > 0 ? "In progress — finish the challenge to unlock" : "Not yet achieved";
+      if (goal === 1) return cur > 0 ? "In progress, finish the challenge to unlock" : "Not yet achieved";
       return `${cur} / ${goal} qualifying wins`;
     }
     return "";
@@ -14151,7 +14151,7 @@
   window.__fishShowAnimalUnlocks = () => { if (_pendingAnimalUnlocks.length) _showNextAnimalUnlock(); };
 
   // ═══════════════════════════════════════════════════════════════
-  // ACHIEVEMENT DEFINITIONS (outer scope — shared with auth IIFE)
+  // ACHIEVEMENT DEFINITIONS (outer scope, shared with auth IIFE)
   // ═══════════════════════════════════════════════════════════════
   // ── Achievement system v2 (full reset 2026-05) ──────────────────
   // Exactly 58 achievements. Order matches the canonical design list.
@@ -14220,7 +14220,7 @@
     { id:"it_is_finally_over",           name:"It Is Finally Over",            icon:"🦑", cat:"Hidden", xp:1000, desc:"Beat the Giant Squid in a 1v1 match.", hidden:true,
       avatarReward:"/avatars/sea-anemone.png" },
   ];
-  // Current Controller (admin) — Achievement Tester reads the full def list.
+  // Current Controller (admin), Achievement Tester reads the full def list.
   window.__ccAchievementDefs = () => ACHIEVEMENT_DEFS;
 
   // ── Avatar / Achievement integrity validation ──────────────────────
@@ -14261,7 +14261,7 @@
   window.__fishValidateAvatars = function () {
     const probs = validateAvatarAchievementSystem();
     if (probs.length) { console.warn("[avatar-validation] " + probs.length + " problem(s):", probs); }
-    else console.info("[avatar-validation] OK — " + (ANIMAL_AVATARS || []).length + " avatars, " + (ACHIEVEMENT_DEFS || []).length + " achievements, all mappings resolve.");
+    else console.info("[avatar-validation] OK, " + (ANIMAL_AVATARS || []).length + " avatars, " + (ACHIEVEMENT_DEFS || []).length + " achievements, all mappings resolve.");
     return probs;
   };
   // Run once on load (non-fatal).
@@ -14287,7 +14287,7 @@
     return {
       roomId: newRoomId || null,
       usedPool: false,             // drew from the Pool (manual)
-      manualDeckDraw: false,       // drew from the Deck (manual) — for I Don't Need Help
+      manualDeckDraw: false,       // drew from the Deck (manual), for I Don't Need Help
       animalMoves: 0,
       chatMsgs: 0,
       compChatMsgs: 0,
@@ -14296,7 +14296,7 @@
       usedRandomize2Plus: false,   // used Randomize with 2+ strategies this game (off_meta_week / off_meta_master)
       endGameSeen: false,
       starsActivated: 0,           // ★ ability uses this game (no_star_needed / star challenges)
-      lastNoPoolMode: null,        // "casual"|"comp"|null — for back-to-back tracker
+      lastNoPoolMode: null,        // "casual"|"comp"|null, for back-to-back tracker
       noPoolCasualDone: false,
       noPoolCompDone: false,
       gotAllGobies: false,         // had all 4 Mandarin Gobies on board this game (shoot_the_moon)
@@ -14310,10 +14310,10 @@
       razorbillThisTurn: 0,        // Razorbill Auks played in the current turn (Razorbill Auk avatar)
       bigEyeTunaPlayed: 0,         // Big Eye Tuna cards played this game (Big Eye Tuna avatar)
       freeBaitfishUses: 0,         // Roosterfish "play a free Baitfish" star uses (legacy stat)
-      baitfishPlayedThisGame: 0,   // ALL Bait Fish played this game (Roosterfish avatar — 250 lifetime)
+      baitfishPlayedThisGame: 0,   // ALL Bait Fish played this game (Roosterfish avatar, 250 lifetime)
       tarponFullDiscards: 0,       // times the entire hand was discarded via Tarpon (Tarpon avatar)
       tarponHandHitZero: false,    // hand reached 0 during the current Tarpon discard phase
-      coralCardsPlayed: 0,         // Coral cards played onto a Coral Reef ocean this game (Frigatebird avatar — 7 in one game)
+      coralCardsPlayed: 0,         // Coral cards played onto a Coral Reef ocean this game (Frigatebird avatar, 7 in one game)
       grooveBrainStars: 0,         // Grooved Brain Coral ★ activations this game (Grooved Brain Coral avatar)
       giantSquidViaGBC: false,     // a Giant Squid played via a free-cephalopod window (only Grooved Brain Coral opens these)
       bobtailSquidViaGBC: false,   // a Bobtail Squid played via a free-cephalopod window
@@ -14321,8 +14321,8 @@
       seaStarDraws: 0,             // cards drawn via Sea Star "draw on floor play" (Sea Star avatar)
       seaCucumberDraws: 0,         // cards drawn via Johnson's Sea Cucumber "draw on game-fish play" (Johnson's Sea Cucumber avatar)
       seaAnemoneDraws: 0,          // cards drawn via Red Beaded Anemone ★ "draw one" (legacy)
-      seaAnemonePlayedThisGame: 0, // Red Beaded Anemone cards placed on board this game (Red Beaded Anemone avatar — 25 lifetime)
-      seaCucumberPlayedThisGame: 0,// Johnson's Sea Cucumber cards placed on board this game (Johnson's Sea Cucumber avatar — 25 lifetime)
+      seaAnemonePlayedThisGame: 0, // Red Beaded Anemone cards placed on board this game (Red Beaded Anemone avatar, 25 lifetime)
+      seaCucumberPlayedThisGame: 0,// Johnson's Sea Cucumber cards placed on board this game (Johnson's Sea Cucumber avatar, 25 lifetime)
       turtlePlayedThisTurn: false, // a Loggerhead Sea Turtle was played in the current turn
       cardsPlayedThisTurn: 0,      // animal cards I played in the current turn (Loggerhead chain length)
       turtleBigChains: 0,          // finished turns with a Turtle + 10+ cards played (Loggerhead avatar)
@@ -14421,7 +14421,7 @@
     // The plain link ( / or /game ) is the LAUNCHER: it shows the existing
     // sign-in screen and, once the player authenticates, opens the actual game
     // in a separate, large, named browser window. game_window=1 marks that real
-    // GAME WINDOW — it runs the game inline and must NEVER open another window.
+    // GAME WINDOW, it runs the game inline and must NEVER open another window.
     // Room / reconnect links ( /play/ROOM, ?room=… ) also run the game inline.
     // ════════════════════════════════════════════════════════════════
     const _ccUrlParams = new URLSearchParams(location.search);
@@ -14438,7 +14438,7 @@
     // here) instead of launching the Steam-style separate window. True for the
     // dedicated window + room/reconnect links, AND always on mobile: mobile
     // browsers force tabs and block non-gesture pop-ups, so the separate-window
-    // launcher can't work there — mobile plays inline in the same tab and lands
+    // launcher can't work there, mobile plays inline in the same tab and lands
     // straight on the home screen. A function (not a const) so it reflects the
     // device choice, which for a first-time visitor resolves AFTER this script
     // first runs.
@@ -14469,11 +14469,11 @@
       return "/game?" + q;
     }
 
-    // Open (or focus) the ONE dedicated game window — a separate, large,
+    // Open (or focus) the ONE dedicated game window, a separate, large,
     // Steam-style browser WINDOW (not a tab). Returns the window handle, or
     // null if the browser blocked the pop-up.
     function launchGameWindow(gameUrl) {
-      // Reuse a window we already opened — just focus it, never re-navigate, so
+      // Reuse a window we already opened, just focus it, never re-navigate, so
       // an in-progress game is never disrupted.
       if (_ccGameWin && !_ccGameWin.closed) {
         try { _ccGameWin.focus(); } catch (_) {}
@@ -14502,7 +14502,7 @@
       try { win = window.open(gameUrl, GAME_WINDOW_NAME, features); } catch (_) { win = null; }
       if (win) {
         _ccGameWin = win;
-        // Force geometry — some browsers ignore size/position in the features
+        // Force geometry, some browsers ignore size/position in the features
         // string but honor moveTo/resizeTo on the returned popup.
         try { win.moveTo(left, top); } catch (_) {}
         try { win.resizeTo(width, height); } catch (_) {}
@@ -14520,7 +14520,7 @@
     //   "ready"   → returning / just-authenticated: big “Open Game” button.
     //   "running" → window opened: “Return to Game” + “Relaunch Game”. Also
     //               auto-focuses the game window so the launcher tab never
-    //               sits on this card by itself — it just jumps you back to
+    //               sits on this card by itself, it just jumps you back to
     //               whatever the game window is showing (e.g. the full-screen
     //               prompt). The launcher tab itself is never closed.
     //   "blocked" → pop-up blocked: retry “Open Game” + “Continue in this window”.
@@ -14545,7 +14545,7 @@
       }
       if (state === "running") {
         if (greet) greet.textContent = "Currents & Critters is running 🌊";
-        if (sub)   sub.textContent   = "Your game opened in its own window. Keep this tab open — jump back anytime.";
+        if (sub)   sub.textContent   = "Your game opened in its own window. Keep this tab open, jump back anytime.";
         if (primary) { primary.textContent = "↩ Return to Game"; primary.dataset.action = "return"; primary.style.display = ""; }
         if (second)  { second.textContent  = "🔁 Relaunch Game"; second.style.display = ""; }
         if (cont)    cont.style.display = "none";
@@ -14569,7 +14569,7 @@
       showStep("auth-step-launch");
     }
 
-    // Go straight into the game in THIS tab — no separate pop-up window and no
+    // Go straight into the game in THIS tab, no separate pop-up window and no
     // "running" hand-off card. The launcher tab navigates to the game-window URL
     // (game_window=1), so it reloads as the real game window (reading the saved
     // guest session or finishing Google auth) and shows the full-screen splash.
@@ -14760,17 +14760,17 @@
     // Firestore `set({stats:{…}}, {merge:true})` DEEP-merges, so writing
     // defaultGuestStats() over a real account silently zeroes total_xp /
     // completed_games / level (the keys defaults define) while leaving other
-    // keys behind — the exact corruption that wiped real accounts.
+    // keys behind, the exact corruption that wiped real accounts.
     //
     // The rule enforced here: a stats write may CREATE stats that don't exist,
-    // or REPLACE existing stats only with ones that are at least as advanced —
+    // or REPLACE existing stats only with ones that are at least as advanced,
     // never fewer games / less XP / a lower level. Every risky write goes
     // through safeWriteProfile() / initStatsIfAbsent() so a stale or empty read
     // can never regress saved progress, even under concurrent writes.
     function _statsRichness(s) {
       const o = (s && typeof s === "object") ? s : {};
       const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-      // Monotonic signals, most significant first — real progress only goes up.
+      // Monotonic signals, most significant first, real progress only goes up.
       return [
         num(o.total_xp),
         num(o.completed_games),
@@ -14785,9 +14785,9 @@
       const c = _statsRichness(candidate), e = _statsRichness(current);
       for (let i = 0; i < c.length; i++) {
         if (c[i] > e[i]) return true;   // strictly better on the first differing signal
-        if (c[i] < e[i]) return false;  // strictly worse — block the write
+        if (c[i] < e[i]) return false;  // strictly worse, block the write
       }
-      return true;                       // equal on every signal — harmless
+      return true;                       // equal on every signal, harmless
     }
     // Transaction-safe profile write that can never downgrade stats. If `data`
     // carries a `stats` object and the live doc already has richer stats, the
@@ -14939,7 +14939,7 @@
     }
 
     // ══════════════════════════════════════════════════════════════
-    // AVATAR GALLERY — full-screen hero-select page
+    // AVATAR GALLERY, full-screen hero-select page
     // ══════════════════════════════════════════════════════════════
     const GAL_NEW_KEY = "cc_new_avatars";
     let _galSpecies = "all";   // active species tab
@@ -14970,7 +14970,7 @@
       return seen;
     }
 
-    // Curated "Story Unlocks" section — a hand-ordered cross-section of avatars
+    // Curated "Story Unlocks" section, a hand-ordered cross-section of avatars
     // tied to the game's story / easter-egg progression. These avatars KEEP
     // their normal species sections too; this is an ADDITIONAL filter view,
     // shown in a fixed narrative order (not the usual unlocked-first sort):
@@ -14999,7 +14999,7 @@
     function openAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (!gal) return;
-      // Guests can't open the avatar collection — locked to the Mullet.
+      // Guests can't open the avatar collection, locked to the Mullet.
       if (!_authUser) {
         if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
         return;
@@ -15029,7 +15029,7 @@
           try {
             if (typeof window.__fishSyncStatUnlocks === "function") {
               const newly = await window.__fishSyncStatUnlocks();
-              // Bail if we somehow entered read-only mid-flight — don't pop.
+              // Bail if we somehow entered read-only mid-flight, don't pop.
               if (!_galReadOnly && Array.isArray(newly) && newly.length) {
                 _galRenderHeader();
                 _galRenderGrid();
@@ -15043,7 +15043,7 @@
     function closeAvatarGallery() {
       const gal = $a("avatar-gallery");
       if (gal) {
-        // Move focus OUT before hiding from assistive tech — setting
+        // Move focus OUT before hiding from assistive tech, setting
         // aria-hidden="true" on an element that contains the focused element
         // (e.g. the back button) triggers a browser accessibility warning.
         try {
@@ -15082,7 +15082,7 @@
       // Re-entrancy guard: only snapshot MY real data the FIRST time we enter
       // read-only. If we're already viewing someone (e.g. switching straight from
       // one player to another), _activeProfile/_unlockedIcons currently hold the
-      // PREVIOUS player's swapped-in data — saving that as "mine" would leak it
+      // PREVIOUS player's swapped-in data, saving that as "mine" would leak it
       // into my account on close. Keep the original snapshot intact.
       if (!_galReadOnly) {
         _galSavedState = {
@@ -15256,7 +15256,7 @@
       if (!wrap) return;
       const { stats, level } = _avatarStatsAndLevel();
       const equipped = _galEquippedImg();
-      // "New" badges are personal — never show them on another player's collection.
+      // "New" badges are personal, never show them on another player's collection.
       const newSet = _galReadOnly ? new Set() : _galGetNewSet();
       const counts = _iconUnlockCounts || {};
       wrap.innerHTML = "";
@@ -15309,7 +15309,7 @@
       // Honor the unlocked/locked filter (reuse the avatar filter intent).
       if (_galSort === "unlocked") bgs = bgs.filter(b => isBackgroundUnlocked(b.img));
       else if (_galSort === "locked") bgs = bgs.filter(b => !isBackgroundUnlocked(b.img));
-      // "No Background" is a free, always-unlocked reset option shown first —
+      // "No Background" is a free, always-unlocked reset option shown first,
       // it's never locked, so it has nothing to show under the Locked filter,
       // and it's excluded from the X/Y unlocked count (that count tracks only
       // the real donation-unlocked backgrounds).
@@ -15397,7 +15397,7 @@
 
       let html = "";
 
-      // "% of people own this" — shown ABOVE the portrait for EVERY avatar
+      // "% of people own this", shown ABOVE the portrait for EVERY avatar
       // (owned or not, including exclusives & summer skins). Owner counts come
       // from the server (aggregated from real ownership); the viewer counts
       // toward the owners if they own it, and the denominator is floored to the
@@ -15409,7 +15409,7 @@
         const totalRaw = Number(_totalPlayerCount || 0);
         let rarityText;
         if (isStarter) {
-          // Starter icons are unlocked for everyone — not tracked server-side.
+          // Starter icons are unlocked for everyone, not tracked server-side.
           rarityText = "100% of people own this";
         } else if (totalRaw > 0) {
           // Floor the denominator to the owner count so a slightly-stale total
@@ -15420,7 +15420,7 @@
           if (owners > 0 && pct < 1) pct = 1;  // owned → always ≥ 1%
           rarityText = `${pct}% of people own this`;
         } else {
-          // Real total not loaded yet (transient) — re-rendered once it arrives
+          // Real total not loaded yet (transient), re-rendered once it arrives
           // (see window.__fishLoadIconCounts). Never fabricate a % without it.
           rarityText = "Ownership loading…";
         }
@@ -15467,7 +15467,7 @@
       }
 
       // Equip controls (unlocked + not already equipped). Never shown when
-      // viewing another player's collection — that view is strictly read-only.
+      // viewing another player's collection, that view is strictly read-only.
       if (unlocked && !equipped && !_galReadOnly) {
         html += `<div class="gal-equip-q">Do you want to equip this avatar?</div>`;
         html += `<div class="gal-equip-row"><button class="pv-btn" id="gal-equip-no">No</button><button class="pv-btn gold" id="gal-equip-yes">Yes</button></div>`;
@@ -15581,7 +15581,7 @@
       };
       if (codeInput) {
         codeInput.addEventListener("input", () => {
-          // Numeric only, max 6 — clear any stale message as they type.
+          // Numeric only, max 6, clear any stale message as they type.
           codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
           showCodeMsg("", false);
         });
@@ -15602,7 +15602,7 @@
             if (res.refresh) setTimeout(() => showCodeMsg("", false), 4000);
           }
         } catch {
-          showCodeMsg("Could not redeem — try again.", false);
+          showCodeMsg("Could not redeem, try again.", false);
         } finally {
           codeBtn.disabled = false;
         }
@@ -15652,7 +15652,7 @@
     }
     // Like loadProfile but tells callers WHY it returned null: "notfound" vs "error".
     async function loadProfileWithReason(uid) {
-      if (!_db) { console.warn("[auth] _db is null — Firebase not initialized"); return { profile: null, reason: "error" }; }
+      if (!_db) { console.warn("[auth] _db is null, Firebase not initialized"); return { profile: null, reason: "error" }; }
       try {
         const snap = await _db.collection("users").doc(uid).get();
         const found = snap.exists;
@@ -15679,12 +15679,12 @@
       // 1. UID-based lookup (fast path)
       let result = await loadProfileWithReason(user.uid);
       if (result.reason === "ok")    { console.log("[auth] Found by UID →", result.profile.nickname); return result; }
-      if (result.reason === "error") { console.warn("[auth] UID lookup error — will retry"); return result; }
+      if (result.reason === "error") { console.warn("[auth] UID lookup error, will retry"); return result; }
 
       // 2. Email-based lookup (catches UID mismatches / account migrations)
       const email = (user.email || "").trim();
       if (email) {
-        console.log(`[auth] UID not found — trying email query: ${email}`);
+        console.log(`[auth] UID not found, trying email query: ${email}`);
         try {
           const snap = await _db.collection("users").where("email", "==", email).limit(1).get();
           if (!snap.empty) {
@@ -15725,7 +15725,7 @@
         } catch(e) { console.warn("[auth] Nickname query threw:", e && e.message); }
       }
 
-      console.log("[auth] All lookups exhausted — treating as new account (notfound)");
+      console.log("[auth] All lookups exhausted, treating as new account (notfound)");
       return { profile: null, reason: "notfound" };
     }
 
@@ -15737,7 +15737,7 @@
       const rawAvatar = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
       const cleanAvatar = rawAvatar ? sanitizeSelectableAvatar(rawAvatar, uid || email || nick) : "";
       const ref = _db.collection("users").doc(uid);
-      // Use a transaction so we NEVER overwrite existing stats — if the signup
+      // Use a transaction so we NEVER overwrite existing stats, if the signup
       // screen is ever shown to an account that already has stats (e.g. due to
       // a transient load error), those stats are preserved unconditionally.
       await _db.runTransaction(async (tx) => {
@@ -15827,7 +15827,7 @@
       if (!_db) return [];
       try {
         const snap = await _db.collection("users").doc(uid).collection("friend_requests").get();
-        // Exclude acceptance notifications (accepted: true) — those are consumed by
+        // Exclude acceptance notifications (accepted: true), those are consumed by
         // consumeAcceptedFriendships, not displayed as incoming friend requests.
         return snap.docs
           .filter(d => !d.data()?.accepted)
@@ -15842,7 +15842,7 @@
       const requesterAvatar = normalizeAvatarUrl(req.from_avatar_url || "") || getDefaultAvatar(fromUid);
       const myAvatar = resolveAvatarUrl(_activeProfile, { includeAuthFallback: false, seed: myUid || myNick || "me" });
 
-      // Phase 1: batch only the writes the current user owns — these MUST succeed together.
+      // Phase 1: batch only the writes the current user owns, these MUST succeed together.
       //   - Add the requester to MY friends list
       //   - Delete the incoming friend_request doc
       const batch = _db.batch();
@@ -15852,18 +15852,18 @@
         added_at: firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
       batch.delete(_db.collection("users").doc(myUid).collection("friend_requests").doc(fromUid));
-      await batch.commit();  // throws on failure — caller will show error
+      await batch.commit();  // throws on failure, caller will show error
 
       // Phase 2: notify the requester that their request was accepted.
       // Firestore rules prevent writing directly to another user's friends subcollection.
-      // Instead, write an acceptance notification to their friend_requests subcollection —
+      // Instead, write an acceptance notification to their friend_requests subcollection,
       // the same path that addFriend already uses, which IS writable by any authenticated
       // user. The requester's client picks this up on sign-in or when opening the Friends
       // panel (via consumeAcceptedFriendships) and saves the friendship to their own
       // friends collection there.
       // Skip Phase 2 if we are ourselves processing an acceptance notification (i.e. the
       // other user already accepted first and we are consuming their notification via
-      // addFriend's auto-accept path) — their side is already recorded.
+      // addFriend's auto-accept path), their side is already recorded.
       if (!req.accepted) {
         try {
           await _db.collection("users").doc(fromUid).collection("friend_requests").doc(myUid).set({
@@ -15901,7 +15901,7 @@
               avatar_url: normalizeAvatarUrl(data.from_avatar_url || "") || getDefaultAvatar(friendUid),
               added_at:   firebase.firestore.FieldValue.serverTimestamp(),
             }, { merge: true });
-            // Delete the notification — our own document, always permitted.
+            // Delete the notification, our own document, always permitted.
             await doc.ref.delete();
           } catch(e) {
             console.warn("consumeAcceptedFriendships: error processing", doc.id, e);
@@ -15958,9 +15958,9 @@
 
       // Check if request already sent (pending incoming request from them = already handled)
       const existingReq = await _db.collection("users").doc(targetUid).collection("friend_requests").doc(myUid).get();
-      if (existingReq.exists) return { error: "Friend request already sent — waiting for them to accept." };
+      if (existingReq.exists) return { error: "Friend request already sent, waiting for them to accept." };
 
-      // Check if THEY already sent US a request — if so, auto-accept
+      // Check if THEY already sent US a request, if so, auto-accept
       const theirReq = await _db.collection("users").doc(myUid).collection("friend_requests").doc(targetUid).get();
       if (theirReq.exists) {
         await acceptFriendRequest(myUid, myNick || _playerNickname, theirReq.data());
@@ -16045,9 +16045,9 @@
       });
       // Populate competitive nickname displays
       const p1Disp = $a("comp-p1-name-display");
-      if (p1Disp) p1Disp.textContent = nick || "—";
+      if (p1Disp) p1Disp.textContent = nick || "-";
       const p2Disp = $a("comp-join-p2-display");
-      if (p2Disp) p2Disp.textContent = nick || "—";
+      if (p2Disp) p2Disp.textContent = nick || "-";
     }
 
     let _activeProfile = null;
@@ -16132,7 +16132,7 @@
         const row = document.createElement("div");
         row.className = "ph-fr";
         const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
-        const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
+        const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
         row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(row);
       });
@@ -16182,7 +16182,7 @@
     // Bridge for code outside this IIFE (e.g. in-game player seat row)
     window.__fishMyAvatarUrl = function () {
       try {
-        // Guests are always the Mullet — they cannot choose an avatar.
+        // Guests are always the Mullet, they cannot choose an avatar.
         if (!_authUser) return "/avatars/mullet.png";
         const seed = _authUser?.uid || _playerNickname || "guest";
         const fromProfile = _activeProfile && (
@@ -16221,11 +16221,11 @@
     window.__fishAvatarForNick = async function(nick) {
       if (!nick) return null;
       const e = _nickAvatarCache[nick];
-      if (e && (Date.now() - e.ts) < _NICK_AVATAR_TTL) return e.url;  // fresh — reuse
+      if (e && (Date.now() - e.ts) < _NICK_AVATAR_TTL) return e.url;  // fresh, reuse
       try {
         if (!_db) { _nickAvatarCache[nick] = { url: null, bg: null, ts: Date.now() }; return null; }
         const snap = await _db.collection("users").where("nickname", "==", nick).limit(1).get();
-        // Validate against the known avatar set — a stale/invalid stored value
+        // Validate against the known avatar set, a stale/invalid stored value
         // (e.g. a deleted "/avatars/avatar-04.png") must NOT be used as an
         // <img> src or it 404s. Return null so callers fall back to the default.
         const data = snap.empty ? {} : (snap.docs[0].data() || {});
@@ -16260,7 +16260,7 @@
       if (letter) letter.textContent = safeInitial(nickname || _playerNickname || "Guest");
       if (!wrap || !img) return;
       const avatarSeed = _authUser?.uid || _playerNickname || nickname || "guest";
-      // Guests are locked to the Mullet — never show a chosen/saved avatar.
+      // Guests are locked to the Mullet, never show a chosen/saved avatar.
       const avatarUrl = !_authUser
         ? "/avatars/mullet.png"
         : resolveAvatarUrl(profile, { includeAuthFallback: true, seed: avatarSeed });
@@ -16321,7 +16321,7 @@
     function formatLastActiveLabel(profile) {
       if (!_authUser && _guestSessionActive) return "Active now";
       const date = toDateFromFirestoreLike(profile?.last_active);
-      if (!date) return "Last active: —";
+      if (!date) return "Last active: unknown";
       const diff = Math.max(0, Date.now() - date.getTime());
       const mins = Math.floor(diff / 60000);
       if (mins <= 1) return "Active now";
@@ -16336,7 +16336,7 @@
     function formatFriendLastActiveLabel(profile, isOnline) {
       if (isOnline) return "Active now";
       const date = toDateFromFirestoreLike(profile?.last_active);
-      if (!date) return "Last active: —";
+      if (!date) return "Last active: unknown";
       const diff = Math.max(0, Date.now() - date.getTime());
       const mins = Math.floor(diff / 60000);
       if (mins <= 1) return "Last active just now";
@@ -16377,7 +16377,7 @@
     }
 
     // Pop a one-by-one "you unlocked …" popup for any avatar that appeared on the
-    // account WITHOUT going through the in-client grant path — e.g. the Fish /
+    // account WITHOUT going through the in-client grant path, e.g. the Fish /
     // Amberjack icons granted server-side by a Supporter-Tier purchase (Stripe
     // webhook). A per-account baseline in localStorage records icons we've already
     // shown or that the player already owned, so existing icons never re-pop and
@@ -16438,7 +16438,7 @@
       const fcDisplay = $a("auth-my-fc-display");
       if (profileBarName) profileBarName.textContent = nick;
       if (profileBarFc) profileBarFc.textContent = _friendCode ? "#" + _friendCode : "";
-      if (fcDisplay) fcDisplay.textContent = _friendCode || "—";
+      if (fcDisplay) fcDisplay.textContent = _friendCode || "-";
 
       const statsSource =
         (headerProfile && typeof headerProfile.stats === "object" ? headerProfile.stats : null)
@@ -16459,7 +16459,7 @@
         const tx = getStoredTotalXp(statsSource);
         totalXpEl.textContent = tx > 0 ? tx.toLocaleString() : "0";
       }
-      // Daily streak — computed from streak_days (the single source of truth),
+      // Daily streak, computed from streak_days (the single source of truth),
       // so the header chip, sidebar card, and yearly calendar always agree.
       let _streakCount = 0;
       try {
@@ -16471,14 +16471,14 @@
       } catch { _streakCount = Number(statsSource.daily_streak || 0); }
       const streakEl = $a("hdr-streak");
       if (streakEl) streakEl.textContent = _streakCount > 0 ? `${_streakCount} day${_streakCount !== 1 ? "s" : ""}` : "0 days";
-      // Critter Coins balance chip — credited server-side on a Stripe purchase
+      // Critter Coins balance chip, credited server-side on a Stripe purchase
       // (stats.critter_coins). Shows 0 until the wallet is funded.
       const coinsEl = $a("hdr-coins");
       if (coinsEl) {
         const cc = Math.max(0, Math.floor(Number(statsSource.critter_coins) || 0));
         coinsEl.textContent = cc.toLocaleString();
       }
-      // Sidebar streak card (big number + XP labels) — one source of truth.
+      // Sidebar streak card (big number + XP labels), one source of truth.
       if (typeof window._updateStreakXp === "function") window._updateStreakXp(_streakCount);
       // Weekly Mon→Sun dots, driven by the same streak data.
       if (typeof window._renderStreakWeek === "function") window._renderStreakWeek();
@@ -16520,7 +16520,7 @@
       const options = opts || {};
       const modal = $a("avatar-picker-modal");
       if (!modal) return;
-      // Guests cannot change their avatar — they're locked to the Mullet.
+      // Guests cannot change their avatar, they're locked to the Mullet.
       if (!_authUser) {
         if (typeof showToast === "function") showToast("Sign in to choose your avatar.", "warn");
         return;
@@ -16558,7 +16558,7 @@
     // Persist + apply an avatar selection (shared by the picker and the
     // post-game unlock screen's "make this my avatar" button).
     async function applyAvatarSelection(selected) {
-      // Never equip/persist while viewing another player's collection — the
+      // Never equip/persist while viewing another player's collection, the
       // globals are swapped to their data and writes target MY account.
       if (_galReadOnly) return false;
       // Refresh our own nick-avatar cache entry immediately so our chat icon
@@ -16662,7 +16662,7 @@
       _playerNickname = (nickname || "").trim();
       _friendCode     = code || "";
       _guestSessionActive = !_authUser;
-      // A registered player is now in their account — drop any stale guest
+      // A registered player is now in their account, drop any stale guest
       // session left in localStorage so it can never later hijack a re-auth
       // (e.g. a token refresh momentarily reading as signed-out) and drop them
       // into a guest "Player" lobby. Guests keep their saved session.
@@ -16687,7 +16687,7 @@
           if (nameEl) nameEl.textContent = _playerNickname;
           if (fcEl)   fcEl.textContent   = _friendCode ? "#" + _friendCode : "";
           const fcDisplay = $a("auth-my-fc-display");
-          if (fcDisplay) fcDisplay.textContent = _friendCode || "—";
+          if (fcDisplay) fcDisplay.textContent = _friendCode || "-";
         }
         // Start presence ping and listen for incoming friend requests
         startPresencePing(_authUser.uid);
@@ -16708,7 +16708,7 @@
       let _splashAlreadyDismissed = false;
       try { _splashAlreadyDismissed = sessionStorage.getItem("cc_fs_splash_dismissed") === "1"; } catch (_) {}
       if (!window.CC_IS_MOBILE && !_splashAlreadyDismissed) document.getElementById("cc-fs-splash")?.classList.add("show");
-      // Daily: Login Current — auto-ticks once per slot per 24h window
+      // Daily: Login Current, auto-ticks once per slot per 24h window
       try {
         if (typeof window._reportDailyChallengeProgress === "function") {
           window._reportDailyChallengeProgress("login_current", 0, { complete: true });
@@ -16717,7 +16717,7 @@
     }
 
     // Reveal the lobby for a RETURNING guest (auto-restored from a saved
-    // nickname), gating on the Terms & Agreement first — unless this is the
+    // nickname), gating on the Terms & Agreement first, unless this is the
     // one-shot handoff from the launcher tab where they just agreed. Declining
     // drops the guest session back to the sign-in chooser.
     function revealGuestLobbyGated(nick) {
@@ -16746,7 +16746,7 @@
           // This is a REGISTERED account (we captured `user`/`profile` when the
           // gate opened). If a transient auth blip nulled _authUser while the
           // Terms were open, re-assert the captured account so we reveal THEIR
-          // lobby — never fall through to a guest "Player" session. revealLobby()
+          // lobby, never fall through to a guest "Player" session. revealLobby()
           // reads _authUser to decide account-vs-guest, so restore it first.
           const acct = _authUser || user || null;
           if (!_authUser && acct) { _authUser = acct; _ccHadAccountUser = true; _guestSessionActive = false; }
@@ -16836,7 +16836,7 @@
       if (signedEl) signedEl.style.display = "grid";
       const friendBtn = $a("stats-friend-btn");
       if (friendBtn) friendBtn.style.display = (_authUser && _friendCode) ? "" : "none";
-      // Guests are locked to the Mullet — only signed-in players can change avatar.
+      // Guests are locked to the Mullet, only signed-in players can change avatar.
       setStatsAvatarClickable(!!_authUser);
       // Guest notice
       const guestNotice = $a("stats-guest-notice");
@@ -16873,21 +16873,21 @@
       const loadSeq = ++_statsLoadSeq;
       let profile = await loadProfile(uid);
       // SAFETY: Only write defaultGuestStats if the Firestore doc truly does not exist.
-      // Never overwrite stats on a transient load error — that was the primary data-loss bug.
+      // Never overwrite stats on a transient load error, that was the primary data-loss bug.
       if (_authUser && _db && !profile) {
         try {
           const { reason } = await loadProfileWithReason(uid);
           if (reason === "notfound") {
-            // Doc doesn't exist yet — safe to initialise (brand new sign-in, no stats to lose).
+            // Doc doesn't exist yet, safe to initialise (brand new sign-in, no stats to lose).
             // initStatsIfAbsent re-checks inside a transaction, so even a wrong "notfound"
             // or a concurrent create can never overwrite real stats with defaults.
             await initStatsIfAbsent(uid);
             profile = await loadProfile(uid);
           }
-          // reason === "error": leave profile null — don't touch Firestore.
+          // reason === "error": leave profile null, don't touch Firestore.
         } catch {}
       } else if (_authUser && _db && profile && (!profile.stats || typeof profile.stats !== "object")) {
-        // Profile exists but stats field is missing — use defaults in memory only.
+        // Profile exists but stats field is missing, use defaults in memory only.
         // Do NOT write to Firestore here: a stale read (transient Firebase error) returning
         // profile without stats would otherwise wipe all previously saved stats via this path.
         // The next game completion will write real stats via saveGameStats() instead.
@@ -16913,7 +16913,7 @@
       renderStats(profile && profile.stats ? profile.stats : null);
       if (typeof window.__fishLoadUserAchievements === "function") window.__fishLoadUserAchievements(uid);
       // Avatar-set migration: anyone without a valid (Mullet/unlocked) avatar
-      // is silently defaulted to Mullet — no forced picker.
+      // is silently defaulted to Mullet, no forced picker.
       if (_authUser && _authUser.uid === uid && !hasSelectableAvatar) {
         try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
       }
@@ -16975,7 +16975,7 @@
         path.setAttribute("stroke-width", "1.5");
         const pct = Math.round((e.count / total) * 100);
         path.addEventListener("mouseenter", () => {
-          tip.textContent = `${e.n} Players — ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
+          tip.textContent = `${e.n} Players, ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
           tip.style.display = "block";
         });
         path.addEventListener("mousemove", ev => {
@@ -17018,7 +17018,7 @@
           <span class="stats-pie-legend-label">${e.n}P</span>
           <span class="stats-pie-legend-count">${e.count} game${e.count !== 1 ? "s" : ""} · ${pct}%</span>`;
         item.addEventListener("mouseenter", () => {
-          tip.textContent = `${e.n} Players — ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
+          tip.textContent = `${e.n} Players, ${e.count} game${e.count !== 1 ? "s" : ""} (${pct}%)`;
           tip.style.display = "block";
         });
         item.addEventListener("mousemove", ev => {
@@ -17069,7 +17069,7 @@
 
       const s = (id, val, opts) => {
         const options = opts || {};
-        const fallback = options.fallback ?? "—";
+        const fallback = options.fallback ?? "-";
         const allowZero = !!options.allowZero;
         const el = $a(id);
         if (!el) return;
@@ -17126,7 +17126,7 @@
         const profile = f.profile;
         const online = isFriendOnline(profile);
         const liveNick = (profile && profile.nickname) || f.nickname;
-        const friendName = escapeHtml(liveNick || "—");
+        const friendName = escapeHtml(liveNick || "-");
         const levelText = getFriendLevelLabel(profile);
         const activeText = formatFriendLastActiveLabel(profile, online);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
@@ -17208,13 +17208,13 @@
     }
     function phLbAvatarImg(avatarUrl, seed, bgUrl) {
       const raw   = typeof normalizeAvatarUrl === "function" ? normalizeAvatarUrl(avatarUrl || "") : (avatarUrl || "");
-      // Only use a stored avatar if it's a real, known avatar — otherwise an
+      // Only use a stored avatar if it's a real, known avatar, otherwise an
       // invalid value (e.g. an old "/avatars/avatar-04.png") 404s. Fall back
       // to the default mullet. The onerror is a last-resort safety net.
       const valid = (raw && typeof animalByImg === "function" && animalByImg(raw)) ? raw : "";
       const final = valid || (typeof getDefaultAvatar === "function" ? getDefaultAvatar(seed) : "/avatars/mullet.png");
       // Equipped background paints behind the transparent avatar art (no wrapper
-      // needed — the <img>'s own background-image shows through transparent pixels).
+      // needed, the <img>'s own background-image shows through transparent pixels).
       let bgn = ""; try { bgn = normalizeBgUrl(bgUrl || ""); if (!_BG_BY_IMG[bgn]) bgn = ""; } catch {}
       const bgStyle = bgn ? ` style="${_bgStyle(bgn)}"` : "";
       return `<img class="ph-lb-avatar" src="${escHtmlPH(_avSrc(final))}" alt="" loading="lazy"${bgStyle} onerror="this.src='/avatars/mullet.png'">`;
@@ -17232,7 +17232,7 @@
     }
     function phLbRankTitle(cp) {
       const fn = typeof window._compGetRankFromCp === "function" ? window._compGetRankFromCp : null;
-      return fn ? fn(Number(cp)||0).division : "—";
+      return fn ? fn(Number(cp)||0).division : "-";
     }
     function phLbMedal(n) {
       return n===1?"🥇":n===2?"🥈":n===3?"🥉":`<span style="color:#8aaccc;font-weight:700;">#${n}</span>`;
@@ -17255,7 +17255,7 @@
       if (!show) return;
       const rankEl = $a(rankId);
       if (rankEl) {
-        rankEl.textContent = rankNum ? `#${rankNum}` : "—";
+        rankEl.textContent = rankNum ? `#${rankNum}` : "-";
         rankEl.className = "ph-lb-sum-rank" + phLbRankClass(rankNum);
       }
       const valsEl = $a(valsId);
@@ -17327,7 +17327,7 @@
           if (!nick || nick.toLowerCase() === "player") return;  // skip blank/guest
           const totalXp = Number(stats.total_xp || 0);
           if (totalXp <= 0) return;
-          // Derive level from total_xp — the single source of truth — so the
+          // Derive level from total_xp, the single source of truth, so the
           // leaderboard always matches the header/profile. A stored stats.level
           // can lag when XP is granted outside a game (e.g. a Supporter-Tier
           // purchase credited server-side by the Stripe webhook).
@@ -17345,7 +17345,7 @@
         }
         // Sort: highest level first, then highest XP as tiebreaker.
         rows.sort((a,b) => b.lvl !== a.lvl ? b.lvl - a.lvl : b.totalXp - a.totalXp);
-        // Re-assign ranks and find my rank after sort (handles ties correctly — same rank for same level+XP).
+        // Re-assign ranks and find my rank after sort (handles ties correctly, same rank for same level+XP).
         let rank = 0, prevLvl = -1, prevXp = -1;
         rows.forEach(r => {
           if (r.lvl !== prevLvl || r.totalXp !== prevXp) { rank = r.shown; prevLvl = r.lvl; prevXp = r.totalXp; }
@@ -17398,7 +17398,7 @@
           if (totalWins <= 0) return;
           const games    = Number(stats.completed_games || 0);
           const winPct   = games > 0 ? Math.round((totalWins / games) * 100) : 0;
-          const strat    = escHtmlPH(stats.most_played_strategy || stats.favorite_strategy || "—");
+          const strat    = escHtmlPH(stats.most_played_strategy || stats.favorite_strategy || "-");
           shown++;
           const isMe = !!(_authUser && doc.id === _authUser.uid);
           rows.push({ shown, isMe, totalWins, casualWins, compWins, games, winPct, strat, d, doc });
@@ -17479,7 +17479,7 @@
           const isMe  = !!(_authUser && doc.id === _authUser.uid);
           // On a specific size tab, show that player's strategy FOR that size;
           // on the Overall tab, show their most-played strategy.
-          let stratRaw = stats.most_played_strategy || stats.favorite_strategy || "—";
+          let stratRaw = stats.most_played_strategy || stats.favorite_strategy || "-";
           if (_phLbSize !== "all") {
             const bs = stats.most_played_strategy_by_size;
             const perSize = bs && typeof bs === "object" ? (bs[String(_phLbSize)] ?? bs[_phLbSize]) : "";
@@ -17550,7 +17550,7 @@
           shown++;
           const isMe  = !!(_authUser && doc.id === _authUser.uid);
           const title = phLbRankTitle(cp);
-          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "—");
+          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "-");
           rows.push({ shown, isMe, cp, title, strat, d, doc });
           if (isMe) { myRank = shown; myRow = { shown, cp, title, strat }; }
         });
@@ -17601,7 +17601,7 @@
           shown++;
           const isMe  = !!(_authUser && doc.id === _authUser.uid);
           const hand  = escHtmlPH(d.stats?.comp_best_single_hand_label || "Hand 1");
-          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "—");
+          const strat = escHtmlPH(d.stats?.most_played_strategy || d.stats?.favorite_strategy || "-");
           rows.push({ shown, isMe, score, hand, strat, d, doc });
           if (isMe) { myRank = shown; myRow = { shown, score, hand, strat }; }
         });
@@ -17650,7 +17650,7 @@
           shown++;
           const isMe    = !!(_authUser && doc.id === _authUser.uid);
           const pair    = escHtmlPH(d.stats?.comp_best_combined_hands || "Hand 1 + Hand 2");
-          const stratPair = escHtmlPH(d.stats?.comp_best_combined_strategies || (d.stats?.most_played_strategy || "—"));
+          const stratPair = escHtmlPH(d.stats?.comp_best_combined_strategies || (d.stats?.most_played_strategy || "-"));
           rows.push({ shown, isMe, score, pair, stratPair, d, doc });
           if (isMe) { myRank = shown; myRow = { shown, score, pair, stratPair }; }
         });
@@ -17748,7 +17748,7 @@
           if (IS_GAME_WINDOW()) {
             revealGuestLobbyGated(savedGuestNick);
           } else {
-            // Launcher: returning guest — go straight into the game in THIS tab
+            // Launcher: returning guest, go straight into the game in THIS tab
             // (no interstitial "Open Game" screen). The tab navigates to the
             // game-window URL and reloads as the real game window.
             _ccLaunchCtx = { type: "guest", nick: savedGuestNick, avatarUrl: savedGuestAvatar, gameUrl: ccGameUrl() };
@@ -17762,7 +17762,7 @@
         return;
       }
 
-      // Firebase ready — wait for persisted auth state
+      // Firebase ready, wait for persisted auth state
       _auth.onAuthStateChanged(async (user) => {
         const authSeq = ++_authStateSeq;
 
@@ -17788,7 +17788,7 @@
                 avatarUrl = sanitizeSelectableAvatar(profile.avatar_url, user.uid) || "";
               }
             } catch (_) {}
-            // Signed in on the launcher — go straight into the game in THIS tab
+            // Signed in on the launcher, go straight into the game in THIS tab
             // (the Firebase session carries over via this tab's sessionStorage).
             // No separate window, no "running" card.
             _ccLaunchCtx = { type: "google", nick, avatarUrl, gameUrl: ccGameUrl({ auth: "google" }) };
@@ -17797,7 +17797,7 @@
             _authUser = null;
             const gNick = (localStorage.getItem(GUEST_NICK_KEY) || "").trim();
             if (gNick) {
-              // Returning guest on the launcher — go straight into the game in
+              // Returning guest on the launcher, go straight into the game in
               // THIS tab, no interstitial "Open Game" screen.
               _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", gNick);
               _ccLaunchCtx = { type: "guest", nick: gNick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() };
@@ -17837,10 +17837,10 @@
           }
           if (authSeq !== _authStateSeq || !_authUser || _authUser.uid !== user.uid) return;
 
-          // Firestore still unreachable after 3 retries — show a recoverable error.
+          // Firestore still unreachable after 3 retries, show a recoverable error.
           // Do NOT create a "Player" profile. Do NOT overwrite anything.
           if (reason === "error") {
-            console.error("[auth] Firestore unavailable after 3 retries — showing retry screen");
+            console.error("[auth] Firestore unavailable after 3 retries, showing retry screen");
             $a("auth-loading-screen").classList.add("hidden");
             showStep("auth-step-choose");
             setAuthMsg("auth-choose-err",
@@ -17899,7 +17899,7 @@
           // the account down here is what dropped signed-in players into a guest
           // "Player" lobby (most visibly right after agreeing to the Terms, while
           // the account terms gate was open). Ignore it and wait for Firebase to
-          // re-fire with the user — the account is never replaced by a guest.
+          // re-fire with the user, the account is never replaced by a guest.
           const explicitSignOut = _ccExplicitSignOut;
           _ccExplicitSignOut = false;
           if (_ccHadAccountUser && !explicitSignOut) {
@@ -17924,7 +17924,7 @@
           // Only auto-restore a returning-guest lobby when we are NOT in the
           // middle of an account sign-in. When this window was opened to finish
           // a Google sign-in (auth=google) or a redirect sign-in is in flight,
-          // the account session may momentarily read as "signed out" here — a
+          // the account session may momentarily read as "signed out" here, a
           // stale guest nickname in localStorage must NOT hijack that and drop
           // the player into a guest "Player" lobby (nor show them the GUEST
           // Terms instead of finishing their real login). Wait for the account
@@ -17941,7 +17941,7 @@
           } else {
             // Not signed in in this window. (For Google, the session is normally
             // inherited from the launcher; if it wasn't, the player finishes with
-            // one tap on the Google button — which uses a reliable popup, never
+            // one tap on the Google button, which uses a reliable popup, never
             // the cross-domain redirect.)
             showStep("auth-step-choose");
             if (accountSignInPending) {
@@ -17954,7 +17954,7 @@
 
     // ── Terms & Agreement modal ──────────────────────────────────
     // Dual-purpose. mode "agree": gated flow shown on first account creation
-    // and EVERY guest sign-in — the "I Agree & Consent" button stays disabled
+    // and EVERY guest sign-in, the "I Agree & Consent" button stays disabled
     // until the reader scrolls to the bottom of the terms. mode "view":
     // read-only, opened from Settings (no gating, backdrop/Close dismiss).
     function ccShowTerms(opts) {
@@ -17974,7 +17974,7 @@
       // Re-entrancy guard: if the gate is re-opened (e.g. an auth transient runs
       // the reveal path again while it's already showing), tear down the PRIOR
       // invocation's listeners first. Otherwise both invocations' handlers stay
-      // bound to the same Agree button and a single click fires both callbacks —
+      // bound to the same Agree button and a single click fires both callbacks,
       // which could let a stale (guest) reveal run alongside the account one.
       if (typeof _ccTermsCleanup === "function") { try { _ccTermsCleanup(); } catch (_) {} _ccTermsCleanup = null; }
       setAuthMsg("terms-err", "", false);
@@ -17995,7 +17995,7 @@
         atBottom = true;
         agreeBtn.disabled = false;
         hint.classList.add("done");
-        hint.textContent = "✓ You've reached the end — you can now agree";
+        hint.textContent = "✓ You've reached the end, you can now agree";
       }
       function checkBottom() {
         if (atBottom) return;
@@ -18014,7 +18014,7 @@
       function onAgree()  { if (agreeBtn.disabled) return; close(); if (typeof opts.onAgree  === "function") opts.onAgree();  }
       function onClose()  { close(); if (typeof opts.onClose  === "function") opts.onClose();  }
       function onCancel() { close(); if (typeof opts.onCancel === "function") opts.onCancel(); }
-      // Backdrop click closes in view mode only — the agree gate must not be dismissible.
+      // Backdrop click closes in view mode only, the agree gate must not be dismissible.
       function onBackdrop(e) { if (e.target === modal && isView) onClose(); }
 
       scroll.addEventListener("scroll", onScroll, { passive: true });
@@ -18092,7 +18092,7 @@
     }
 
     // Google sign-in performed INSIDE the dedicated game window (the in-window
-    // "Continue with Google" button). Uses signInWithPopup — gesture-driven and
+    // "Continue with Google" button). Uses signInWithPopup, gesture-driven and
     // reliable on every browser. signInWithRedirect is only a last-resort
     // fallback if the popup is blocked, because the app's Firebase authDomain is
     // a different domain (…firebaseapp.com) and modern browsers partition that
@@ -18131,13 +18131,13 @@
     if (chooseGoogleBtn) chooseGoogleBtn.addEventListener("click", async () => {
       if (IS_GAME_WINDOW()) {
         // Already inside the dedicated window (or on mobile, where we play
-        // inline) — sign in here with a popup.
+        // inline), sign in here with a popup.
         await beginGameWindowGoogleSignIn("auth-choose-err");
       } else {
         // Launcher: sign in with Google HERE using a popup (gesture-driven and
-        // reliable on all browsers — unlike the cross-domain signInWithRedirect).
+        // reliable on all browsers, unlike the cross-domain signInWithRedirect).
         // When sign-in resolves, onAuthStateChanged opens the dedicated game
-        // window (which inherits this session) — or shows the Open Game button.
+        // window (which inherits this session), or shows the Open Game button.
         await beginCleanGoogleSignIn("auth-choose-err");
       }
     });
@@ -18159,7 +18159,7 @@
           revealLobby(nick, "");
         } else {
           // Launcher: the guest session we just saved is read by the dedicated
-          // window — so the player never enters the nickname twice. Mark that
+          // window, so the player never enters the nickname twice. Mark that
           // Terms were just agreed so the game window doesn't re-prompt for
           // THIS dive (a fresh, separate session will still be gated).
           markGuestTermsAgreed();
@@ -18273,7 +18273,7 @@
     const statsAvatarBtn = $a("stats-avatar");
     if (statsAvatarBtn) {
       statsAvatarBtn.addEventListener("click", () => {
-        // Guests are locked to the Mullet — only signed-in players open the gallery.
+        // Guests are locked to the Mullet, only signed-in players open the gallery.
         if (_authUser) {
           openAvatarGallery();
         } else if (_guestSessionActive && typeof showToast === "function") {
@@ -18344,12 +18344,12 @@
     });
 
     $a("stats-tutorial-btn").addEventListener("click", () => {
-      // New 3-mode tutorial chooser — opens OVER the lobby (kept visible) so the
+      // New 3-mode tutorial chooser, opens OVER the lobby (kept visible) so the
       // Main Menu Tour can spotlight the real menu. Defined in the tutorial module.
       if (window.__openTutorialChooser) window.__openTutorialChooser();
     });
 
-    // ── Leaderboard button — switches to the in-game leaderboard tab ─
+    // ── Leaderboard button, switches to the in-game leaderboard tab ─
     const lbBtn = $a("stats-leaderboard-btn");
     if (lbBtn) lbBtn.addEventListener("click", () => {
       if (typeof window._switchPhTab === "function") window._switchPhTab("leaderboard");
@@ -18402,7 +18402,7 @@
       // Live-apply to the currently playing track (if any).
       if (typeof window.__ccApplyThemeVolume === "function") window.__ccApplyThemeVolume();
       if (_musicVol > 0) {
-        // Audio lives ONLY in the game simulation — only (re)start it if we're
+        // Audio lives ONLY in the game simulation, only (re)start it if we're
         // actually in a game right now. In the lobby, nothing plays.
         if (!(opts && opts.uiOnly) && _inGameSimulation() && typeof startThemeSong === "function") startThemeSong();
       } else {
@@ -18413,9 +18413,9 @@
 
     const musicSlider = $a("settings-music-slider");
     if (musicSlider) {
-      _applyMusicVolume(_musicVol, { uiOnly: true }); // initial sync only — never auto-start on load
+      _applyMusicVolume(_musicVol, { uiOnly: true }); // initial sync only, never auto-start on load
       // Live while dragging: `input` fires continuously as the mouse/finger
-      // moves, so the volume (and start/stop) responds in real time — you don't
+      // moves, so the volume (and start/stop) responds in real time, you don't
       // have to release first. `_inGameSimulation()` inside still prevents any
       // lobby auto-start, so this is safe everywhere. `change` is a harmless
       // backstop for keyboard/edge cases.
@@ -18427,7 +18427,7 @@
     // ── Settings modal open ─────────────────────────────────────────
     const settingsBtn = $a("stats-settings-btn");
     function _openSettingsModal() {
-      const nick = _playerNickname || "—";
+      const nick = _playerNickname || "-";
       const nickEl = $a("settings-current-nick");
       if (nickEl) nickEl.textContent = nick;
       const statusEl = $a("settings-account-status");
@@ -18468,7 +18468,7 @@
     window.__openSettingsModal = _openSettingsModal;
 
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
-    // Terms & Agreement — read-only view from Settings.
+    // Terms & Agreement, read-only view from Settings.
     (function wireSettingsTerms() {
       const tBtn = $a("settings-terms-btn");
       if (!tBtn) return;
@@ -18532,7 +18532,7 @@
           const oldKey = _playerNickname.toLowerCase() + "_" + _friendCode;
           await _db.collection("friend_lookup").doc(oldKey).delete().catch(() => {});
         }
-        // Keep the same 4-digit code — only the name changes
+        // Keep the same 4-digit code, only the name changes
         const code = _friendCode || genFriendCode();
         const newKey = newNick.toLowerCase() + "_" + code;
         const now = firebase.firestore.FieldValue.serverTimestamp();
@@ -18655,7 +18655,7 @@
       });
     }
 
-    // Messaging system — stored under users/{uid}/messages (works under existing rules).
+    // Messaging system, stored under users/{uid}/messages (works under existing rules).
     //  Each message is dual-written: a copy in the sender's subcollection AND
     //  a copy in the recipient's subcollection. We only ever READ our own
     //  subcollection, and writing to another user's subcollection is already
@@ -18670,12 +18670,12 @@
     let _msgOpenPeer = null;        // { uid, name }  (DM only)
     let _msgOpenGroup = null;       // { id, name, members:[{uid,name}] }  (group only)
     let _msgTotalUnread = 0;
-    let _msgListRenderGen = 0;      // generation counter — stale async renders bail out
+    let _msgListRenderGen = 0;      // generation counter, stale async renders bail out
     const _msgChangeCbs = [];       // external subscribers (in-game panel) notified on cache update
 
     function _convIdFor(a, b) { return [String(a), String(b)].sort().join("__"); }
     // Group conversations live in the SAME users/{uid}/messages subcollection as DMs
-    // (so the existing Firestore rule + single listener cover them — no new rules).
+    // (so the existing Firestore rule + single listener cover them, no new rules).
     //   group message: { conv_id, group:true, sender, sender_name, text, ts, read }
     //   group meta:    { conv_id, group:true, meta:true, name, members:[{uid,name}],
     //                    owner, ts, read:true }  stored at deterministic id "gm_"+conv_id
@@ -18731,7 +18731,7 @@
         const all  = byConv[cid];
         const meta = all.filter(m => m.meta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
         const isGroup = !!meta || all.some(m => m.group);
-        // Exclude the live trade mirror doc (trade:true) — it's not a chat message.
+        // Exclude the live trade mirror doc (trade:true), it's not a chat message.
         const msgs = all.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
         const last = msgs[msgs.length - 1];
         const unread = msgs.filter(m => m.sender !== _authUser.uid && !m.read).length;
@@ -18757,7 +18757,7 @@
       }).filter(Boolean).sort((a, b) => _msgTs({ ts: b.last_ts }) - _msgTs({ ts: a.last_ts }));
     }
 
-    // Single listener on my own messages subcollection — drives everything.
+    // Single listener on my own messages subcollection, drives everything.
     function _msgStartListListener() {
       if (!_db || !_authUser) return;
       if (_msgListUnsub) { try { _msgListUnsub(); } catch {} _msgListUnsub = null; }
@@ -18887,8 +18887,8 @@
         listEl.insertAdjacentHTML("beforeend",
           "<div class=\"ccm-empty\"><div class=\"ccm-empty-ico\">💬</div>"
           + (picks.length >= 2
-              ? "No group with these players yet — tap “Create Group” above to start one."
-              : "No chat yet — tap “Message” above to start one.")
+              ? "No group with these players yet, tap “Create Group” above to start one."
+              : "No chat yet, tap “Message” above to start one.")
           + "</div>");
       } else {
         listEl.insertAdjacentHTML("beforeend",
@@ -18929,7 +18929,7 @@
     let _ccmBuilding = false;
     function _ccmEnsureComposer() {
       if (_ccmComposer) return _ccmComposer;
-      if (_ccmBuilding) return null;             // onChange can fire mid-build — don't recurse
+      if (_ccmBuilding) return null;             // onChange can fire mid-build, don't recurse
       const host = $a("ccm-compose");
       if (!host || typeof window.FishCompose !== "function") return null;
       _ccmBuilding = true;
@@ -19141,7 +19141,7 @@
       }
     }
 
-    // Drawer send button — dispatches to a DM or group based on the open conv.
+    // Drawer send button, dispatches to a DM or group based on the open conv.
     async function _msgSend() {
       if (_guestSessionActive === true) return;   // guests cannot send
       const input = $a("ccm-input");
@@ -19182,7 +19182,7 @@
       } catch (e) {
         console.warn("[msg] send failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return false; }
-        if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
+        if (typeof showToast !== "undefined") showToast("Could not send, " + ((e && e.code) || "error"), "err");
         return false;
       }
     }
@@ -19217,7 +19217,7 @@
       } catch (e) {
         console.warn("[msg] group send failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); return false; }
-        if (typeof showToast !== "undefined") showToast("Could not send — " + ((e && e.code) || "error"), "err");
+        if (typeof showToast !== "undefined") showToast("Could not send, " + ((e && e.code) || "error"), "err");
         return false;
       }
     }
@@ -19289,7 +19289,7 @@
       return out;
     }
 
-    // Live player search by nickname prefix — the data source behind the
+    // Live player search by nickname prefix, the data source behind the
     // iMessage-style recipient suggestions (in-game panel AND lobby drawer).
     // Returns [{ uid, name, avatar }] (avatar validated against the known set;
     // null → caller shows the initial). Excludes self and de-dupes.
@@ -19352,7 +19352,7 @@
         return { ok: true, group: false, convId: _convIdFor(_authUser.uid, p.uid),
                  peerUid: p.uid, peerName: p.name };
       }
-      // Group — reuse the existing group with the same members if there is one.
+      // Group, reuse the existing group with the same members if there is one.
       const wantUids = [_authUser.uid].concat(uniq.map(p => p.uid));
       const existing = _msgFindGroupByMembers(wantUids);
       if (existing) return { ok: true, group: true, convId: existing.id, name: existing.name };
@@ -19371,7 +19371,7 @@
       } catch (e) {
         console.warn("[msg] start group failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
-        return { error: "Could not create the group — " + ((e && e.code) || "error") };
+        return { error: "Could not create the group, " + ((e && e.code) || "error") };
       }
     }
 
@@ -19415,7 +19415,7 @@
       } catch (e) {
         console.warn("[msg] create group failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
-        return { error: "Could not create the group — " + ((e && e.code) || "error") };
+        return { error: "Could not create the group, " + ((e && e.code) || "error") };
       }
     }
 
@@ -19440,7 +19440,7 @@
       } catch (e) {
         console.warn("[msg] rename group failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
-        return { error: "Could not rename — " + ((e && e.code) || "error") };
+        return { error: "Could not rename, " + ((e && e.code) || "error") };
       }
     }
 
@@ -19464,7 +19464,7 @@
       } catch (e) {
         console.warn("[msg] add members failed:", e);
         if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
-        return { error: "Could not add members — " + ((e && e.code) || "error") };
+        return { error: "Could not add members, " + ((e && e.code) || "error") };
       }
     }
 
@@ -19491,7 +19491,7 @@
         return { ok: true };
       } catch (e) {
         console.warn("[msg] leave group failed:", e);
-        return { error: "Could not leave — " + ((e && e.code) || "error") };
+        return { error: "Could not leave, " + ((e && e.code) || "error") };
       }
     }
 
@@ -19559,7 +19559,7 @@
     // SECURE PLAYER-TO-PLAYER TRADING (client)
     // ══════════════════════════════════════════════════════════════════
     // The full-screen trade overlay for 1-on-1 DMs. It only BUILDS the offer,
-    // shows both sides live, and takes the two-step confirmation — every actual
+    // shows both sides live, and takes the two-step confirmation, every actual
     // ownership/coin change happens server-side (/api/trade/*) in one atomic,
     // re-verified transaction. Live state arrives through the same Firestore
     // messages listener (the server mirrors the trade into a trade:true doc), so
@@ -19577,7 +19577,7 @@
     function _trMyCoins() { return Math.max(0, Math.floor(Number((_activeProfile && _activeProfile.stats || {}).critter_coins) || 0)); }
     // Canonical form the SERVER stores an offered path as: it strips any ?query
     // and surrounding whitespace (see _trade_clean_offer). The picker MUST show,
-    // compare, and submit paths in this exact form — otherwise a tile's
+    // compare, and submit paths in this exact form, otherwise a tile's
     // "✓ Added" badge never lights up and tapping again can't toggle it off,
     // which reads as "tapping does nothing".
     function _trCanon(p) { return String(p || "").split("?")[0].trim(); }
@@ -19627,10 +19627,10 @@
         not_enough_coins: "You don't have enough Critter Coins for that.",
         avatar_not_owned: "You no longer own one of those avatars.",
         background_not_owned: "You no longer own one of those backgrounds.",
-        duplicate_avatar: "They already own one of those avatars — it can't be traded to them.",
-        duplicate_background: "They already own one of those backgrounds — it can't be traded to them.",
+        duplicate_avatar: "They already own one of those avatars, it can't be traded to them.",
+        duplicate_background: "They already own one of those backgrounds, it can't be traded to them.",
         negative_coins: "Coin amount can't be negative.",
-        changed: "The offer changed — review it and confirm again.",
+        changed: "The offer changed, review it and confirm again.",
         not_open: "This trade is no longer open.",
         already_completed: "This trade was already completed.",
         no_trade: "This trade is no longer available.",
@@ -19638,9 +19638,9 @@
         bad_peer: "Couldn't start a trade with that player.",
         auth: "Please sign in to trade.",
         unauthorized: "Please sign in to trade.",
-        firestore_unavailable: "Trading is temporarily unavailable — try again shortly.",
-        network: "Network hiccup — check your connection and try again.",
-        bad_response: "Unexpected response from the server — try again.",
+        firestore_unavailable: "Trading is temporarily unavailable, try again shortly.",
+        network: "Network hiccup, check your connection and try again.",
+        bad_response: "Unexpected response from the server, try again.",
       };
       return m[code] || "Something went wrong with the trade.";
     }
@@ -19759,7 +19759,7 @@
       _trRenderColumn(recvWrap, peerOffer, false);
 
       const recvHead = $a("cctr-recv-head");
-      if (recvHead) recvHead.textContent = _trPeerName ? ("You Receive — " + _trPeerName) : "You Receive";
+      if (recvHead) recvHead.textContent = _trPeerName ? ("You Receive, " + _trPeerName) : "You Receive";
 
       // Confirm-state lines under each column.
       const giveConf = $a("cctr-give-conf");
@@ -19829,7 +19829,7 @@
       (offer.backgrounds || []).forEach(p => rows.push({ type: "background", path: p }));
       if (!rows.length) {
         const e = document.createElement("div"); e.className = "cctr-empty";
-        e.textContent = editable ? "Nothing yet — tap “Add item”." : "Nothing yet.";
+        e.textContent = editable ? "Nothing yet, tap “Add item”." : "Nothing yet.";
         wrap.appendChild(e); return;
       }
       rows.forEach(r => {
@@ -19882,7 +19882,7 @@
       if (fb && fb.coins) {
         _trPickerNote(fb.adding ? ("Offering " + fb.name + ".") : "Coins removed from your offer.", "ok");
       } else if (fb) {
-        _trPickerNote(fb.adding ? ("✓ Added " + fb.name + " — it’s in your offer.")
+        _trPickerNote(fb.adding ? ("✓ Added " + fb.name + ", it’s in your offer.")
                                 : ("Removed " + fb.name + " from your offer."), "ok");
       } else {
         _trPickerNote("Offer updated.", "ok");
@@ -19890,7 +19890,7 @@
     }
 
     function _trToggleItem(kind, path) {
-      if (_trBusy) { _trPickerNote("One moment — saving your last change…", "info"); return; }
+      if (_trBusy) { _trPickerNote("One moment, saving your last change…", "info"); return; }
       if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       const key = kind === "avatar" ? "avatars" : "backgrounds";
       const canonPath = _trCanon(path);
@@ -19908,7 +19908,7 @@
     }
 
     function _trSetCoins(n) {
-      if (_trBusy) { _trPickerNote("One moment — saving your last change…", "info"); return; }
+      if (_trBusy) { _trPickerNote("One moment, saving your last change…", "info"); return; }
       if (!_trState || _trState.status !== "open") { _trPickerNote("This trade is no longer open.", "err"); return; }
       n = Math.max(0, Math.floor(Number(n) || 0));
       if (n > _trMyCoins()) { _trPickerNote("You only have " + _trMyCoins().toLocaleString() + " Critter Coins.", "err"); return; }
@@ -19928,7 +19928,7 @@
       _trBusy = false;
       if (!res || res.error) {
         if (res && res.state) _trState = res.state;
-        if (res && res.error === "changed") _trBanner("The offer changed — review it and confirm again.", "warn");
+        if (res && res.error === "changed") _trBanner("The offer changed, review it and confirm again.", "warn");
         else _trBanner(_trErrText(res && res.error), "err");
         _trRender(); return;
       }
@@ -20052,7 +20052,7 @@
     // Wire the overlay's DOM controls exactly once (retries until markup exists).
     function _trWireOnce() {
       if (_trWired) return;
-      if (!_trOverlay()) return;          // markup not present yet — try again later
+      if (!_trOverlay()) return;          // markup not present yet, try again later
       _trWired = true;
       const on = (id, fn) => { const el = $a(id); if (el) el.addEventListener("click", fn); };
       on("cc-trade-close", _trClose);
@@ -20078,7 +20078,7 @@
       if (pk) pk.addEventListener("click", (e) => { if (e.target === pk) _trHidePicker(); });
     }
 
-    // Public bridge — the DM Trade buttons (both chat surfaces) call this.
+    // Public bridge, the DM Trade buttons (both chat surfaces) call this.
     window.__fishTrade = {
       openWith: (peerUid, peerName) => _trOpen(peerUid, peerName),
       hasOpenTrade: (convId) => {
@@ -20155,7 +20155,7 @@
       if (window.__fishGoToSignIn) window.__fishGoToSignIn();
     });
 
-    // ── Friends button (legacy lobby) — navigate to friends tab ──
+    // ── Friends button (legacy lobby), navigate to friends tab ──
     const _authFriendBtn = $a("auth-friend-btn");
     if (_authFriendBtn) _authFriendBtn.addEventListener("click", () => {
       if (typeof window._switchPhTab === "function") window._switchPhTab("friends");
@@ -20223,7 +20223,7 @@
       window._switchPhTab = switchTab;
       tabs.forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
 
-      // Sidebar nav — mirror horizontal tab switching + keep active state in sync
+      // Sidebar nav, mirror horizontal tab switching + keep active state in sync
       const snavItems = document.querySelectorAll(".ph-snav-item[data-tab]");
       snavItems.forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
       // Extend switchTab to also update sidebar active state
@@ -20262,7 +20262,7 @@
             if (email) u.searchParams.set("prefilled_email", email);
             return u.toString();
           } catch (e) {
-            return baseUrl; // malformed URL — send them to the raw link rather than break
+            return baseUrl; // malformed URL, send them to the raw link rather than break
           }
         }
 
@@ -20286,14 +20286,14 @@
 
       // ═══════════════════════════════════════════════════════════════════
       //  STRIPE PAYMENT LINKS
-      //  ⚠️ TEST MODE — every URL below is a Stripe TEST Payment Link and only
+      //  ⚠️ TEST MODE, every URL below is a Stripe TEST Payment Link and only
       //  works with Stripe test cards. BEFORE LAUNCH, replace each `link:` with
       //  the matching LIVE Payment Link from the Stripe Dashboard
       //  (Payments → Payment Links). Do NOT swap these for a custom/fake
-      //  checkout — only ever hand off to Stripe-hosted links.
+      //  checkout, only ever hand off to Stripe-hosted links.
       // ═══════════════════════════════════════════════════════════════════
 
-      // 1) Critter Coins packs — $1 = 1,000 coins, bigger packs add a bonus.
+      // 1) Critter Coins packs, $1 = 1,000 coins, bigger packs add a bonus.
       const PHST_COIN_PACKS = [
         { usd: 1,  coins: 1000,  bonus: 0,             link: "https://buy.stripe.com/test_4gMeVf3JafX86ON4X3bAs03" },
         { usd: 5,  coins: 5250,  bonus: 5,             link: "https://buy.stripe.com/test_5kQ28t4Ne9yKddb1KRbAs04" },
@@ -20301,7 +20301,7 @@
         { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://buy.stripe.com/test_28E8wRbbCdP0a0ZblrbAs06" },
       ];
 
-      // 2) Supporter Tiers — one-time contributions. Perks are cosmetic /
+      // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
       //    progression only and are granted server-side after Stripe payment.
       const PHST_SUPPORTER_TIERS = [
         {
@@ -20309,7 +20309,7 @@
           link: "https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00",
           perks: [
             "Supporter email updates",
-            "Online simulation access (free now — and free for you when it becomes paid)",
+            "Online simulation access (free now, and free for you when it becomes paid)",
             "Founder Supporter number",
             "Name on the Supporter Reef Wall",
             "Personal thank-you email",
@@ -20352,7 +20352,7 @@
         },
       ];
 
-      // 3) Physical Game — no products yet. When the tabletop copy ships, add
+      // 3) Physical Game, no products yet. When the tabletop copy ships, add
       //    entries here as { name, usd, link: "<LIVE Stripe Payment Link>" }
       //    and the Physical Game section will render Buy buttons automatically.
       const PHST_PHYSICAL = [];
@@ -20365,12 +20365,12 @@
         // Reassurance line: Stripe-hosted checkout + account linking.
         let html = `<div class="phst-account-note">
           <span class="phst-account-ico">🔒</span>
-          <div>Checkout is hosted securely by <strong>Stripe</strong> — we never see your card. Purchases are linked to your signed-in Google account, and rewards arrive automatically once payment clears.</div>
+          <div>Checkout is hosted securely by <strong>Stripe</strong>, we never see your card. Purchases are linked to your signed-in Google account, and rewards arrive automatically once payment clears.</div>
         </div>`;
 
         // ── 1) Critter Coins ──────────────────────────────────────────
         html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-section-sub">In-game currency. Bigger packs include a bonus — $1 = 1,000 coins.</div>`;
+        html += `<div class="phst-section-sub">In-game currency. Bigger packs include a bonus, $1 = 1,000 coins.</div>`;
         html += `<div class="phst-coin-grid">`;
         for (const p of PHST_COIN_PACKS) {
           html += `<div class="phst-coin-pack${p.best ? " phst-coin-best" : ""}">
@@ -20384,7 +20384,7 @@
         }
         html += `</div>`;
 
-        // ── 2) Exclusive Skins — spend Critter Coins (2,000 each) ─────
+        // ── 2) Exclusive Skins, spend Critter Coins (2,000 each) ─────
         // Player icons. Once bought they live in your Avatar Gallery; equip one
         // and everyone sees it on your seat in-game (only while equipped).
         const _skins = (typeof EXCLUSIVE_SKINS !== "undefined") ? EXCLUSIVE_SKINS : [];
@@ -20425,7 +20425,7 @@
           const _otherSkins = _skins.filter(s => s.species !== "Summer Skins" && s.species !== "Fourth of July Skins");
 
           html += `<div class="phst-section-title">🌴 Exclusive Skins<span class="phst-sec-rule"></span></div>`;
-          html += `<div class="phst-section-sub">Seasonal player icons — ${phstFmtCoins(_skinPrice)} Critter Coins each. Equip one from your Avatar Gallery and everyone sees it on your seat in-game.</div>`;
+          html += `<div class="phst-section-sub">Seasonal player icons, ${phstFmtCoins(_skinPrice)} Critter Coins each. Equip one from your Avatar Gallery and everyone sees it on your seat in-game.</div>`;
           if (_summer.length) {
             html += `<div class="phst-subhead">☀️ Summer Skins</div>`;
             html += _renderSkinGrid(_summer);
@@ -20440,7 +20440,7 @@
           }
         }
 
-        // ── 3) Backgrounds — spend Critter Coins (1,000 each) ─────────
+        // ── 3) Backgrounds, spend Critter Coins (1,000 each) ─────────
         const _bgs = (typeof EXCLUSIVE_BACKGROUNDS !== "undefined") ? EXCLUSIVE_BACKGROUNDS : [];
         if (_bgs.length) {
           const _unlocked = (typeof window.__fishGetUnlockedBackgrounds === "function")
@@ -20448,7 +20448,7 @@
           const _ownedSet = new Set(_unlocked);
           const _bgsrc = (typeof _bgSrc === "function") ? _bgSrc : (u)=>u;
           html += `<div class="phst-section-title">🌊 Backgrounds<span class="phst-sec-rule"></span></div>`;
-          html += `<div class="phst-section-sub">Cosmetic ocean scenes behind your avatar. Spend Critter Coins — 1,000 each.</div>`;
+          html += `<div class="phst-section-sub">Cosmetic ocean scenes behind your avatar. Spend Critter Coins, 1,000 each.</div>`;
           html += `<div class="phst-grid">`;
           for (const bg of _bgs) {
             const owned = _ownedSet.has(bg.img);
@@ -20547,15 +20547,15 @@
             showToast(`Unlocked the ${bg.name} background! 🎉`, "ok");
             renderPhStore();
           } else if (res && res.reason === "coins") {
-            showToast(`Not enough Critter Coins — ${bg.name} costs 1,000.`, "err");
+            showToast(`Not enough Critter Coins, ${bg.name} costs 1,000.`, "err");
           } else if (res && res.reason === "owned") {
             showToast(`You already own the ${bg.name} background.`, "info");
             renderPhStore();
           } else {
-            showToast("Purchase failed — try again.", "err");
+            showToast("Purchase failed, try again.", "err");
           }
         } catch {
-          showToast("Purchase failed — try again.", "err");
+          showToast("Purchase failed, try again.", "err");
         }
         if (btn) btn.disabled = false;
       };
@@ -20577,15 +20577,15 @@
             showToast(`Unlocked the ${sk.name} skin! 🎉 Equip it in your Avatar Gallery.`, "ok");
             renderPhStore();
           } else if (res && res.reason === "coins") {
-            showToast(`Not enough Critter Coins — ${sk.name} costs ${price.toLocaleString("en-US")}.`, "err");
+            showToast(`Not enough Critter Coins, ${sk.name} costs ${price.toLocaleString("en-US")}.`, "err");
           } else if (res && res.reason === "owned") {
             showToast(`You already own the ${sk.name} skin.`, "info");
             renderPhStore();
           } else {
-            showToast("Purchase failed — try again.", "err");
+            showToast("Purchase failed, try again.", "err");
           }
         } catch {
-          showToast("Purchase failed — try again.", "err");
+          showToast("Purchase failed, try again.", "err");
         }
         if (btn) btn.disabled = false;
       };
@@ -20620,9 +20620,9 @@
       function _streakStatsSource() {
         // Signed-in: the active profile's stats. Guest: stats live in
         // localStorage (active profile has no .stats), so fall back to the
-        // guest getter — otherwise the calendar + week dots show empty.
+        // guest getter, otherwise the calendar + week dots show empty.
         // __fishGetMyStats returns the signed-in profile's stats object (or null
-        // when there's no signed-in profile — i.e. a guest). Only fall back to
+        // when there's no signed-in profile, i.e. a guest). Only fall back to
         // guest stats when there's genuinely no signed-in stats, so a fresh
         // signed-in user with no streak_days yet doesn't read guest data.
         const s = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null;
@@ -21227,7 +21227,7 @@
         list.appendChild(card);
       });
 
-      // Hidden Bobtail Squid easter egg — always pinned to the very end.
+      // Hidden Bobtail Squid easter egg, always pinned to the very end.
       const bob = document.createElement("div");
       bob.className = "ach-steam-card";
       bob.innerHTML = `<div class="ach-icon-wrap"><img src="/avatars/bobtail-squid.png" alt="" draggable="false" style="width:100%;height:100%;object-fit:contain;"></div><div class="ach-info"><div class="ach-name">What's bob doing here</div><div class="ach-desc">Hmm… that's not supposed to be on the list.</div></div><div class="ach-right"></div>`;
@@ -21277,7 +21277,7 @@
       filtered.sort((a, b) => {
         const aU = isAvatarUnlocked(a.img), bU = isAvatarUnlocked(b.img);
         if (aU !== bU) return aU ? -1 : 1;
-        // Both locked — sort by progress fraction descending
+        // Both locked, sort by progress fraction descending
         const ap = animalUnlockProgress(a, stats, level) || 0;
         const bp = animalUnlockProgress(b, stats, level) || 0;
         return bp - ap;
@@ -21373,7 +21373,7 @@
       const statsSource = _phStatsRaw || {};
       const sKey = String(size);
 
-      // Aggregated stats from atomic Firebase increments — most accurate source
+      // Aggregated stats from atomic Firebase increments, most accurate source
       const normalGamesBySize = statsSource.normal_games_by_size || {};
       const normalWinsBySize  = statsSource.normal_wins_by_size  || {};
       const totalScoreBySize  = statsSource.total_score_by_size  || {};
@@ -21383,7 +21383,7 @@
       const winsAgg       = rawWinsAgg !== undefined && rawWinsAgg !== null ? Number(rawWinsAgg) : null;
       const totalScoreAgg = Number(totalScoreBySize[sKey] ?? totalScoreBySize[size] ?? 0);
 
-      // Recent games filtered by size — used for the games list and as fallback
+      // Recent games filtered by size, used for the games list and as fallback
       const filteredGames = getExactNormalGamesByPlayerCount(statsSource, size);
 
       // Prefer aggregated totals; fall back to counting recent_games entries
@@ -21393,7 +21393,7 @@
         : filteredGames.reduce((acc, g) => acc + (Number(g?.r) === 1 ? 1 : 0), 0);
 
       // Average score: prefer aggregated total score; fall back to recent_games average
-      let avgPts = "—";
+      let avgPts = "-";
       if (totalGames > 0) {
         if (totalScoreAgg > 0) {
           avgPts = Math.round(totalScoreAgg / totalGames);
@@ -21411,10 +21411,10 @@
         totalGames = Number(statsSource.completed_games || 0);
         wins       = Number(statsSource.normal_wins || 0);
         const overallScore = Number(statsSource.total_score || 0);
-        avgPts = (totalGames > 0 && overallScore > 0) ? Math.round(overallScore / totalGames) : "—";
+        avgPts = (totalGames > 0 && overallScore > 0) ? Math.round(overallScore / totalGames) : "-";
       }
 
-      const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "—";
+      const winPct = totalGames > 0 ? `${Math.round((wins / totalGames) * 100)}%` : "-";
       const winSub = totalGames > 0 && wins / totalGames >= 0.6 ? "Great job!" : "";
 
       // If we have data, make sure the stats block is visible regardless of how it was hidden
@@ -21436,7 +21436,7 @@
 
       const strategyEl = $a("stat-strategy");
       const strategy = getPerSizeStrategy(statsSource, size);
-      if (strategyEl) strategyEl.textContent = strategy || (totalGames > 0 ? "—" : "No games completed yet.");
+      if (strategyEl) strategyEl.textContent = strategy || (totalGames > 0 ? "-" : "No games completed yet.");
 
       // On the 7P tab, replace the strategy icon with the hidden orange tube sponge.
       // Any other tab restores the original SVG. The sponge is wired as a
@@ -21491,7 +21491,7 @@
         if (_phStats) {
           const key = `highest_score_${size}p`;
           const val = _phStats[key] ?? (_phStats.highest_score || null);
-          if (el) el.textContent = val != null && val > 0 ? String(val) : "—";
+          if (el) el.textContent = val != null && val > 0 ? String(val) : "-";
           if (lbl) lbl.textContent = val != null && val > 0 ? `${size}P game` : "";
         }
         applyPhNormalStatsForPlayerCount(size);
@@ -21533,11 +21533,11 @@
 
       const hoursOv = Number(safeStats.hours_played || 0);
       set("stat-hours-played", hoursOv === 1 ? "1 hr" : `${hoursOv} hrs`);
-      set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "—"));
+      set("ph-ov-most-strategy", mostPlayedStrategy || (noGames ? "No games completed yet." : "-"));
       set("ph-ov-total-games",   String(Math.max(0, totalGames)));
       set("ph-ov-total-wins",    String(Math.max(0, totalWins)));
-      set("ph-ov-win-rate",      totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "—");
-      set("ph-ov-most-pcount",   mostPlayedPlayerCount || (noGames ? "No games completed yet." : "—"));
+      set("ph-ov-win-rate",      totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-");
+      set("ph-ov-most-pcount",   mostPlayedPlayerCount || (noGames ? "No games completed yet." : "-"));
 
       // Per-mode overview stats
       const casualTop = safeStats.highest_score_normal || safeStats.highest_score || 0;
@@ -21569,17 +21569,17 @@
         ? Math.round((compScoreTotal > 0 ? compScoreTotal : recentCompScore) / Math.max(1, compGames))
         : null;
       set("ph-ov-casual-wins", String(normalWins));
-      set("ph-ov-casual-top",  casualTop > 0 ? String(casualTop) : "—");
-      set("ph-ov-avg-casual", avgCasual != null && Number.isFinite(avgCasual) ? String(avgCasual) : "—");
+      set("ph-ov-casual-top",  casualTop > 0 ? String(casualTop) : "-");
+      set("ph-ov-avg-casual", avgCasual != null && Number.isFinite(avgCasual) ? String(avgCasual) : "-");
       // Overview competitive summary (rank, top score, total comp games)
       const compRankLabel = safeStats.rank_competitive || "No rank yet";
       set("ph-ov-comp-rank", compRankLabel);
-      set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "—");
-      set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "—");
+      set("ph-ov-comp-top",  compTop > 0 ? String(compTop) : "-");
+      set("ph-ov-comp-games", compGames > 0 ? String(compGames) : "-");
 
       // Total XP Earned
       const totalXpVal = Number(safeStats.total_xp || 0);
-      set("ph-ov-total-xp", totalXpVal > 0 ? totalXpVal.toLocaleString() : "—");
+      set("ph-ov-total-xp", totalXpVal > 0 ? totalXpVal.toLocaleString() : "-");
 
       // Achievements unlocked
       const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
@@ -21634,7 +21634,7 @@
     }
 
     // Mirrors the real Overview "Quick Stats" grid exactly (same cards, order,
-    // icons, and .ph-sc-string classes) — populated with the target player's
+    // icons, and .ph-sc-string classes), populated with the target player's
     // data. Read-only; touches no global state.
     function _renderPublicStats(profile) {
       const grid = $a("pub-stats-grid");
@@ -21648,7 +21648,7 @@
       const compWins   = Number(s.competitive_wins || 0);
       const expTotal   = Number(s.total_wins);
       const totalWins  = Number.isFinite(expTotal) ? expTotal : normalWins + compWins;
-      const winRate    = totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "—";
+      const winRate    = totalGames > 0 ? `${Math.round((totalWins / totalGames) * 100)}%` : "-";
 
       const casualTop  = s.highest_score_normal || s.highest_score || 0;
       const compTop    = s.highest_score_competitive || 0;
@@ -21659,12 +21659,12 @@
         ? Math.round(scoreBySize / Math.max(1, casualGames)) : null;
 
       const hours = Number(s.hours_played || 0);
-      let strat = "—";
-      try { strat = getOverallMostPlayedStrategy(s) || "—"; }
-      catch { strat = s.most_played_strategy || s.favorite_strategy || "—"; }
-      let mostPCount = "—";
-      try { mostPCount = getMostPlayedPlayerCountLabel(s) || "—"; }
-      catch { mostPCount = s.most_played_player_count ? `${s.most_played_player_count}P` : "—"; }
+      let strat = "-";
+      try { strat = getOverallMostPlayedStrategy(s) || "-"; }
+      catch { strat = s.most_played_strategy || s.favorite_strategy || "-"; }
+      let mostPCount = "-";
+      try { mostPCount = getMostPlayedPlayerCountLabel(s) || "-"; }
+      catch { mostPCount = s.most_played_player_count ? `${s.most_played_player_count}P` : "-"; }
       const compRank   = s.rank_competitive || "No rank yet";
 
       // Achievements unlocked (from the target's own achievements map).
@@ -21684,19 +21684,19 @@
         _pubSc(`<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#25a57c" stroke-width="1.8"/><path d="M12 7v5l3 3" stroke="#25a57c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
           "Hours Played", hours === 1 ? "1 hr" : `${hours} hrs`, "ph-sci-teal"),
         _pubSc(`<img src="/avatars/common-octopus.png?v=ws12" alt="" draggable="false" style="width:34px;height:34px;object-fit:contain;pointer-events:none;">`,
-          "Most Played Strategy", strat !== "—" ? strat : (noGames ? "No games completed yet." : "—"), "ph-sci-blue", true),
-        _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "—", "ph-sci-purple"),
-        _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "—", "ph-sci-gold"),
+          "Most Played Strategy", strat !== "-" ? strat : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
+        _pubSc("🧮", "Total Games",   totalGames > 0 ? totalGames : "-", "ph-sci-purple"),
+        _pubSc("🥇", "Total Wins",    totalWins  > 0 ? totalWins  : "-", "ph-sci-gold"),
         _pubSc("📈", "Win Rate",      winRate,                           "ph-sci-teal"),
-        _pubSc("👥", "Most Played Player Count", mostPCount !== "—" ? mostPCount : (noGames ? "No games completed yet." : "—"), "ph-sci-blue", true),
+        _pubSc("👥", "Most Played Player Count", mostPCount !== "-" ? mostPCount : (noGames ? "No games completed yet." : "-"), "ph-sci-blue", true),
         _pubSc("🏆", "Achievements", `${achDone} / ${ACHIEVEMENT_DEFS.length}`, "ph-sci-gold"),
-        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "—", "ph-sci-teal"),
-        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "—", "ph-sci-blue"),
+        _pubSc("🌊", "Casual Wins",   normalWins > 0 ? normalWins : "-", "ph-sci-teal"),
+        _pubSc("🏅", "Casual Top Score", casualTop > 0 ? casualTop : "-", "ph-sci-blue"),
         _pubSc("📊", "Average Casual Score",
-          avgCasual != null && Number.isFinite(avgCasual) ? avgCasual : "—", "ph-sci-gold"),
+          avgCasual != null && Number.isFinite(avgCasual) ? avgCasual : "-", "ph-sci-gold"),
         _pubSc("⚔️", "Competitive Rank", compRank, "ph-sci-gold", true),
-        _pubSc("🏆", "Best Competitive Score", compTop > 0 ? compTop : "—", "ph-sci-purple"),
-        _pubSc("🎮", "Competitive Games", compGames > 0 ? compGames : "—", "ph-sci-blue"),
+        _pubSc("🏆", "Best Competitive Score", compTop > 0 ? compTop : "-", "ph-sci-purple"),
+        _pubSc("🎮", "Competitive Games", compGames > 0 ? compGames : "-", "ph-sci-blue"),
         _pubSc("🐠", "Animals Unlocked", `${animalsDone} / ${animals.length}`, "ph-sci-teal"),
       ].join("");
     }
@@ -21746,7 +21746,7 @@
 
       const pStats = (profile && typeof profile.stats === "object") ? profile.stats : {};
 
-      // Friend code — public (you can always accept/decline a request anyway).
+      // Friend code, public (you can always accept/decline a request anyway).
       const fcEl = $a("pub-fc");
       if (fcEl) fcEl.textContent = profile.friend_code
         ? formatFriendCodeLabel(nick, String(profile.friend_code).trim()) : "";
@@ -21819,7 +21819,7 @@
 
     // ── Daily / Weekly Challenge Strip ─────────────────────────────
     // DAILY: pool of 50 challenges. Player has 3 active slots. Each slot
-    // rolls a random challenge from the pool (truly random — duplicates
+    // rolls a random challenge from the pool (truly random, duplicates
     // possible). When the player completes the challenge in a slot, that
     // slot waits 24 hours and then re-rolls a new random challenge. Each
     // slot has its own independent timer (finish one at 8 AM → that slot
@@ -21878,7 +21878,7 @@
     ];
 
     // ── WEEKLY: pool of 56 challenges (Weekly Tide Sweep and Perfect
-    // Week are auto-tracked meta achievements — not in the random pool).
+    // Week are auto-tracked meta achievements, not in the random pool).
     // Player rolls 3 unique random challenges per week. The strip shows
     // all 3 (uncompleted first). Resets every Monday
     // 12:00 AM local time.
@@ -21940,7 +21940,7 @@
       { id: "friend_streak",         name: "Friend Streak",            req: "Play with the same friend 3 times this week.",                 target: 3,  xp: 750,  icon: "🫂" },
       { id: "new_currents",          name: "New Currents",             req: "Play with 3 players you have never played before.",            target: 3,  xp: 100,  icon: "🆕" },
     ];
-    // Meta rewards — auto-fired when the 3 random weeklies are completed.
+    // Meta rewards, auto-fired when the 3 random weeklies are completed.
     // Tide Sweep's XP is paid by the weekly_tide_sweep achievement (1500), not
     // here. Perfect Week has no achievement, so it grants its XP via the meta.
     const _WEEKLY_META = {
@@ -21954,7 +21954,7 @@
     let _csTickTimer = null;
 
     function _rollDailyIndex() {
-      // True random — duplicates across the 3 slots are allowed by spec.
+      // True random, duplicates across the 3 slots are allowed by spec.
       return Math.floor(Math.random() * _DAILY_CHALLENGES.length);
     }
 
@@ -22087,7 +22087,7 @@
 
       cardsEl.innerHTML = data.map(c => _csCardHtml(c, isWeekly)).join("");
 
-      // Weekly Tide Sweep reward area — live count of 3 weeklies completed.
+      // Weekly Tide Sweep reward area, live count of 3 weeklies completed.
       const meta        = _getWeeklyMeta();
       const sweepDone   = meta.completedCount;
       const sweepTotal  = meta.totalCount;
@@ -22114,7 +22114,7 @@
       }, 30000);
     }
 
-    // Public hook — game code can call this when a daily challenge progresses.
+    // Public hook, game code can call this when a daily challenge progresses.
     // amount can be positive (progress) or you can pass {complete:true} to
     // finish it outright. Only updates slots whose current rolled id matches.
     function reportDailyChallengeProgress(challengeId, amount = 1, opts = {}) {
@@ -22123,7 +22123,7 @@
       state.slots.forEach((slot, i) => {
         const def = _DAILY_CHALLENGES[slot.idx];
         if (!def || def.id !== challengeId) return;
-        if (slot.completedAt) return; // already done — waiting for refresh
+        if (slot.completedAt) return; // already done, waiting for refresh
         const target = Math.max(1, Number(def.target) || 1);
         const cur    = Math.max(0, Number(slot.progress) || 0);
         const next   = opts.complete ? target : Math.min(target, cur + (Number(amount) || 1));
@@ -22212,7 +22212,7 @@
       return mon.getTime();
     }
     function _weekdayKey() {
-      // Mon=0 ... Sun=6 — matches our daysPlayed object keys.
+      // Mon=0 ... Sun=6, matches our daysPlayed object keys.
       const day = new Date().getDay();
       return (day === 0) ? 6 : (day - 1);
     }
@@ -22264,7 +22264,7 @@
     }
 
     // If the stored weekStartMs is older than this Monday's midnight, the
-    // week has rolled — roll a fresh batch of 5 challenges and reset.
+    // week has rolled, roll a fresh batch of 5 challenges and reset.
     function _refreshWeeklyIfNeeded(state) {
       const monMs = _getThisMondayMidnight();
       if ((Number(state.weekStartMs) || 0) < monMs) {
@@ -22571,7 +22571,7 @@
         // Mark today as played for Seven Seas / Perfect Week. This runs on
         // every finished game so the day is counted even if the player never
         // opens the Overview challenge strip that day (renderChallengeStrip,
-        // the only other caller, fires _markTodayPlayed too). Idempotent —
+        // the only other caller, fires _markTodayPlayed too). Idempotent,
         // _markTodayPlayed no-ops if today is already marked.
         try { _markTodayPlayed(); } catch {}
 
@@ -22609,25 +22609,25 @@
         // No bots in game
         if (!hadBots) rd("no_bots_today", 1);
 
-        // Friend / opponent detection — runs only if we have a viewer name
+        // Friend / opponent detection, runs only if we have a viewer name
         // and the game had at least one other real player.
         try {
           const myName = (typeof window.__fishNickname === "function")
             ? String(window.__fishNickname() || "").trim().toLowerCase() : "";
           const friendNicks = window.__fishFriendNicksLower || new Set();
-          // Bots must not count as opponents here — new_face / new_currents /
+          // Bots must not count as opponents here, new_face / new_currents /
           // friendly_waters are about REAL players, and finalScores includes
           // bot seats (named "Bot 1" etc.) with no is_ai flag.
           const realOpponents = finalScores
             .map(p => String(p?.name || "").trim())
             .filter(n => n && n.toLowerCase() !== myName)
             .filter(n => !(typeof isLikelyAiName === "function" && isLikelyAiName(n)));
-          // Friend Tide — any opponent is a friend
+          // Friend Tide, any opponent is a friend
           if (myName && friendNicks.size > 0) {
             const playedWithFriend = realOpponents.some(n => friendNicks.has(n.toLowerCase()));
             if (playedWithFriend) rd("friend_tide", 0, { complete: true });
           }
-          // New Face / new_currents / friendly_waters — use localStorage
+          // New Face / new_currents / friendly_waters, use localStorage
           //  ledger of opponent names we've played with.
           const SEEN_KEY = "cc_seen_opponents_v1";
           let seenSet = new Set();
@@ -22638,7 +22638,7 @@
           const newOpponents = realOpponents.filter(n => !seenSet.has(n.toLowerCase()));
           if (newOpponents.length > 0) {
             rd("new_face", 0, { complete: true });
-            // Weekly: new_currents — accumulate distinct never-played opponents.
+            // Weekly: new_currents, accumulate distinct never-played opponents.
             for (const _ of newOpponents) rw("new_currents", 1);
           }
           // Update ledger.
@@ -22646,7 +22646,7 @@
             for (const n of realOpponents) seenSet.add(n.toLowerCase());
             try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seenSet])); } catch {}
           }
-          // Weekly: friendly_waters — 5 different real opponents this week.
+          // Weekly: friendly_waters, 5 different real opponents this week.
           // Uses a separate per-week ledger keyed by the current Monday.
           if (realOpponents.length > 0 && typeof _getThisMondayMidnight === "function") {
             const monKey = "cc_week_opp_" + _getThisMondayMidnight();
@@ -22661,7 +22661,7 @@
             const added = weekSet.size - before;
             if (added > 0) rw("friendly_waters", added);
           }
-          // Weekly: friend_streak — play 3 times with the same friend this
+          // Weekly: friend_streak, play 3 times with the same friend this
           // week. Track per-friend game counts in localStorage.
           if (friendNicks.size > 0) {
             const friendOpps = realOpponents.filter(n => friendNicks.has(n.toLowerCase()));
@@ -22687,7 +22687,7 @@
         if (isWinner && moveCount === 0) rd("no_moving_needed", 0, { complete: true });
         // board_fixer: made at least one move (assumed to affect final score
         // since the server scores all moved animals into their current oceans).
-        // Skip if the player quit — that move likely didn't matter.
+        // Skip if the player quit, that move likely didn't matter.
         if (!quitByMe && moveCount > 0) rd("board_fixer", 0, { complete: true });
 
         // Star-ability challenges
@@ -22748,7 +22748,7 @@
               if (pct("game fish") >= 0.40) return "Game Fish";
               return "Best Guess";
             };
-            // Find my player object — use myIdx via _latestPlayers.
+            // Find my player object, use myIdx via _latestPlayers.
             const myPlayer = (Array.isArray(_latestPlayers) ? _latestPlayers : [])
               .find(p => p.index === myIdx);
             // Prefer the canonical server-detected strategy (guide-based); map
@@ -22792,7 +22792,7 @@
         // ── strategy_switch (daily) ───────────────────────────────
         // Play 2 games today using different strategies. Track per-day
         // (local-date) set of strategies played. We classify all FINISHED
-        // games regardless of win/loss for this challenge — strategy is
+        // games regardless of win/loss for this challenge, strategy is
         // about what the player BUILT, not whether they won.
         try {
           const detectStrategyAny = (player) => {
@@ -22871,7 +22871,7 @@
             if (!isComp) {
               s.casualWin = (s.casualWin || 0) + 1;
               s.compWin = 0;
-              // big_winner — 2 casual wins in a row each by 50+ points
+              // big_winner, 2 casual wins in a row each by 50+ points
               if (margin >= 50) {
                 s.casualBigWinStreak = (s.casualBigWinStreak || 0) + 1;
                 if (s.casualBigWinStreak >= 2) rw("big_winner", 0, { complete: true });
@@ -22893,7 +22893,7 @@
           }
           try { localStorage.setItem(STREAK_KEY, JSON.stringify(s)); } catch {}
 
-          // mixed_waters — 1 casual win + 1 comp win this week (target 2).
+          // mixed_waters, 1 casual win + 1 comp win this week (target 2).
           // Per-week ledger keyed by current Monday midnight.
           if (isWinner && typeof _getThisMondayMidnight === "function") {
             const mwKey = "cc_week_mixed_" + _getThisMondayMidnight();
@@ -22968,7 +22968,7 @@
       if (completedCount >= 3 && !state.sweepClaimed) {
         // Weekly Tide Sweep's 1500 XP is paid by the weekly_tide_sweep
         // ACHIEVEMENT (unlocked in reportWeeklyChallengeProgress when all 3
-        // weeklies complete). Just mark it claimed here for the reward UI — no
+        // weeklies complete). Just mark it claimed here for the reward UI, no
         // separate meta XP grant, which would double-pay on top of the achievement.
         state.sweepClaimed = true;
         changed = true;
@@ -23349,17 +23349,17 @@
 
       const winPct = (effWins + effLosses) > 0 ? Math.round((effWins / (effWins + effLosses)) * 100) : 0;
 
-      // Average best score — prefer Firebase, fallback to history
+      // Average best score, prefer Firebase, fallback to history
       const avgBest = Number(stats.average_competitive_score || 0) ||
         (myGames.length > 0 && myName
           ? Math.round(myGames.map(g => Number(g.p1_name === myName ? g.p1_best_score : g.p2_best_score) || 0).reduce((a, b) => a + b, 0) / myGames.length)
           : 0);
 
-      // Streak — prefer Firebase
+      // Streak, prefer Firebase
       const curStreak  = Number(stats.competitive_streak || 0);
       const bestStreak = Number(stats.competitive_best_streak || 0);
 
-      // Top strategy — prefer Firebase, fallback to history
+      // Top strategy, prefer Firebase, fallback to history
       let topStrat = stats.most_played_strategy || null;
       if (!topStrat && myGames.length > 0) {
         const sc = {};
@@ -23367,7 +23367,7 @@
         topStrat = Object.entries(sc).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
       }
 
-      // Rank / CP — after at least one game, a 0-CP player is Bronze III (not Unranked).
+      // Rank / CP, after at least one game, a 0-CP player is Bronze III (not Unranked).
       const hasPlayedCompBefore = total > 0;
       const rankInfo = storedCp > 0
         ? _compGetRankFromCp(storedCp, true)
@@ -23379,7 +23379,7 @@
       const kingIsKing = king && ((king.cp || 0) >= 1200 || king.tier === "king");
 
       // ── Populate elements ──────────────────────────────────────
-      const set = (id, val) => { const el = $a(id); if (el) el.textContent = String(val ?? "—"); };
+      const set = (id, val) => { const el = $a(id); if (el) el.textContent = String(val ?? "-"); };
       const setHtml = (id, html) => { const el = $a(id); if (el) el.innerHTML = html; };
 
       set("ph-comp-rank-name",  rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
@@ -23393,9 +23393,9 @@
       }
       set("ph-ss-rank-name", rankInfo.division === "Unranked" ? "No rank yet" : rankInfo.division);
       set("ph-ss-rank-cp",   rankInfo.division === "Unranked" ? "0 CP" : `${rankInfo.cp} CP`);
-      set("ph-ss-winrate",   (effWins + effLosses) > 0 ? `${winPct}%` : "—");
-      set("ph-ss-matches",   total > 0 ? String(total) : "—");
-      set("ph-ss-bstreak",   bestStreak > 0 ? String(bestStreak) : "—");
+      set("ph-ss-winrate",   (effWins + effLosses) > 0 ? `${winPct}%` : "-");
+      set("ph-ss-matches",   total > 0 ? String(total) : "-");
+      set("ph-ss-bstreak",   bestStreak > 0 ? String(bestStreak) : "-");
 
       // Wire the second Season History button
       const btn2 = $a("ph-season-history-btn-2");
@@ -23468,15 +23468,15 @@
       set("ph-comp-season-row",   _compSeasonLabel());
       set("ph-comp-season-label", _compSeasonDisplayLabel());
 
-      set("ph-comp-wins",        effWins > 0 ? effWins : "—");
-      set("ph-comp-losses",      effLosses > 0 ? effLosses : "—");
-      set("ph-comp-draws",       effDraws > 0 ? effDraws : "—");
-      set("ph-comp-winpct",      (effWins + effLosses) > 0 ? `${winPct}%` : "—");
-      set("ph-comp-best",        bestScore > 0 ? bestScore : "—");
-      set("ph-comp-avg",         avgBest  > 0 ? avgBest  : "—");
-      set("ph-comp-streak",      curStreak  > 0 ? `${curStreak} 🔥` : "—");
-      set("ph-comp-best-streak", bestStreak > 0 ? bestStreak : "—");
-      set("ph-comp-strategy",    topStrat || "—");
+      set("ph-comp-wins",        effWins > 0 ? effWins : "-");
+      set("ph-comp-losses",      effLosses > 0 ? effLosses : "-");
+      set("ph-comp-draws",       effDraws > 0 ? effDraws : "-");
+      set("ph-comp-winpct",      (effWins + effLosses) > 0 ? `${winPct}%` : "-");
+      set("ph-comp-best",        bestScore > 0 ? bestScore : "-");
+      set("ph-comp-avg",         avgBest  > 0 ? avgBest  : "-");
+      set("ph-comp-streak",      curStreak  > 0 ? `${curStreak} 🔥` : "-");
+      set("ph-comp-best-streak", bestStreak > 0 ? bestStreak : "-");
+      set("ph-comp-strategy",    topStrat || "-");
 
       // King of the Critters card
       const kingCard   = $a("ph-comp-king-card");
@@ -23597,7 +23597,7 @@
             + (p.wins != null ? `<div style="font-size:.78rem;color:rgba(22,70,160,.6);">${p.wins}W / ${p.losses || 0}L · ${
                 (p.wins + (p.losses || 0)) > 0
                   ? Math.round((p.wins / (p.wins + (p.losses || 0))) * 100) + "% win rate"
-                  : "—"
+                  : "-"
               }</div>` : "")
             + `</div>`;
           body.appendChild(row);
@@ -23641,8 +23641,8 @@
       if (!banner) return;
       banner.classList.add("update-available");
       if (msg)     msg.textContent = newVersion
-        ? `New features are out (${newVersion}) — refresh to update!`
-        : "New features are out — refresh to update!";
+        ? `New features are out (${newVersion}), refresh to update!`
+        : "New features are out, refresh to update!";
       if (refresh) refresh.style.display = "";
     }
 
@@ -23656,7 +23656,7 @@
         if (j && j.build && String(j.build) !== APP_BUILD) {
           markUpdateAvailable(j.version || "");
         }
-      } catch (_) { /* offline / not deployed yet — leave banner as-is */ }
+      } catch (_) { /* offline / not deployed yet, leave banner as-is */ }
     }
 
     ;(function() {
@@ -23826,7 +23826,7 @@
           <div class="ph-gdm-pchip-av" data-av="1"></div>
           <div class="ph-gdm-pchip-info">
             <span class="ph-gdm-pchip-name">${escapeHtml(p.n || "Player")}${isWinner ? " 🏆" : ""}</span>
-            <span class="ph-gdm-pchip-score">${p.s != null ? p.s + " pts" : "—"}</span>
+            <span class="ph-gdm-pchip-score">${p.s != null ? p.s + " pts" : "-"}</span>
           </div>`;
         _gdmFillAvatar(chip.querySelector('[data-av="1"]'), p.n);
         chip.addEventListener("click", () => _gdmRenderBoardView(g, players, p.n));
@@ -23860,10 +23860,10 @@
         HOME_REFERENCE_FRIENDS.forEach(f => {
           const d = document.createElement("div");
           d.className = "ph-fr";
-          const friendName = escapeHtml(f.nickname || "—");
+          const friendName = escapeHtml(f.nickname || "-");
           const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${friendName} avatar" loading="lazy"></div>`;
           const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
-          const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: —");
+          const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
           d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
           list.appendChild(d);
         });
@@ -23871,7 +23871,7 @@
       }
       if (!_authUser) {
         const fcEl = $a("ph-fc-display");
-        if (fcEl) fcEl.textContent = _friendCode || "—";
+        if (fcEl) fcEl.textContent = _friendCode || "-";
         const reqSection = $a("ph-friend-requests");
         if (reqSection) reqSection.style.display = "none";
         const list = $a("ph-friends-list");
@@ -23880,7 +23880,7 @@
       }
       // Populate friend code
       const fcEl = $a("ph-fc-display");
-      if (fcEl) fcEl.textContent = _friendCode || "—";
+      if (fcEl) fcEl.textContent = _friendCode || "-";
       // Pending requests
       const reqSection = $a("ph-friend-requests"), reqList = $a("ph-req-list");
       if (reqSection && reqList) {
@@ -23921,11 +23921,11 @@
                 await acceptFriendRequest(_authUser.uid, _playerNickname, req);
               } catch(e) {
                 acceptBtn.disabled = false; declineBtn.disabled = false; card.style.opacity = "";
-                if (errEl) { errEl.textContent = "Could not accept request — please try again."; errEl.style.color = "#c0392b"; }
+                if (errEl) { errEl.textContent = "Could not accept request, please try again."; errEl.style.color = "#c0392b"; }
                 console.error("acceptFriendRequest failed:", e);
                 return;
               }
-              // Re-render after Firestore write is confirmed — not before.
+              // Re-render after Firestore write is confirmed, not before.
               await renderPhFriendsList();
               loadFriendsMini(_authUser.uid);
               try { window.__fishCheckFriendAchievements?.(_authUser.uid); } catch {}
@@ -23964,7 +23964,7 @@
         d.className = "ph-fr" + (isFavorite ? " ph-fr-is-favorite" : "");
         const avatarProfile = f.profile || null;
         const liveNick = (avatarProfile && avatarProfile.nickname) || f.nickname;
-        const friendName = escapeHtml(liveNick || "—");
+        const friendName = escapeHtml(liveNick || "-");
         const levelText = getFriendLevelLabel(avatarProfile);
         const activeText = formatFriendLastActiveLabel(avatarProfile, f.isOnline);
         const avatarUrl = resolveFriendAvatarUrl(resolveAvatarUrl(
@@ -24068,7 +24068,7 @@
               }
             }
           } catch (_) {}
-          // Clean confirmation — no explanation of how the secret was solved.
+          // Clean confirmation, no explanation of how the secret was solved.
           setAuthMsg("ph-friend-err", "🐬 You saved the invertebrates.", true);
           return;
         }
@@ -24089,7 +24089,7 @@
     const _origRenderStats = renderStats;
     renderStats = function(stats) {
       // If incoming stats are null/empty but we already have good cached stats,
-      // skip _origRenderStats — it would hide stats-normal-block, erasing the UI.
+      // skip _origRenderStats, it would hide stats-normal-block, erasing the UI.
       const incomingEmpty = !stats || typeof stats !== "object"
         || (!(stats.completed_games > 0)
             && !Object.values(stats.normal_games_by_size || {}).some(n => Number(n) > 0));
@@ -24139,7 +24139,7 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // ACHIEVEMENT SYSTEM (inside auth IIFE — has access to _authUser, _db)
+    // ACHIEVEMENT SYSTEM (inside auth IIFE, has access to _authUser, _db)
     // ═══════════════════════════════════════════════════════════════
 
     // In-memory cache of this user's achievement records
@@ -24198,7 +24198,7 @@
     async function runAchievementResetIfNeeded(uid, profile) {
       if (!_db || !uid) return;
       // Brand-new accounts (no Firestore doc yet) have no old achievement data
-      // to clear — skip so we never wipe freshly-earned v2 unlocks before the
+      // to clear, skip so we never wipe freshly-earned v2 unlocks before the
       // reset marker can be written.
       if (!profile) return;
       try {
@@ -24259,7 +24259,7 @@
       const rec = { completed: true, unlockedAt: now };
       _userAchievements[achId] = rec;
 
-      // Award XP — atomically add to total_xp
+      // Award XP, atomically add to total_xp
       try {
         const docRef = _db.collection("users").doc(uid);
         const updates = {};
@@ -24402,7 +24402,7 @@
       if (_achLoadedUid !== uid) await loadUserAchievements(uid);
 
       // Compare tier VALUES (not name-includes) so reaching a higher tier also
-      // backfills any lower tier achievements — same ordering the rank-avatar
+      // backfills any lower tier achievements, same ordering the rank-avatar
       // unlocks use. Name-matching alone permanently skipped a tier whose exact
       // rank name was never the post-game rank.
       const _newTierVal = rankTierValue(newRankName);
@@ -24622,7 +24622,7 @@
         if (tracker?.usedRandomize2Plus) await bumpAchievementProgress(uid, "off_meta_master", 1, 10);
       }
 
-      // One Ocean Wonder: all oceans same type — check boardSnaps
+      // One Ocean Wonder: all oceans same type, check boardSnaps
       if (!_isDone("one_ocean_wonder") && isWinner && Array.isArray(boardSnaps)) {
         try {
           const mySnap = boardSnaps.find(b => {
@@ -24637,7 +24637,7 @@
         } catch(_) {}
       }
 
-      // The All Blue: all 8 oceans played in one game — check from boardSnaps
+      // The All Blue: all 8 oceans played in one game, check from boardSnaps
       if (!_isDone("the_all_blue") && Array.isArray(boardSnaps)) {
         try {
           const allOceanNamesSet = new Set();
@@ -24695,7 +24695,7 @@
     // Grant a new animal icon. Returns true if it was newly unlocked.
     window.__fishGrantUnlockedIcon = async (iconPath) => {
       // Hard guard: while viewing another player's collection the globals are
-      // swapped to their data and persistence targets MY account — granting here
+      // swapped to their data and persistence targets MY account, granting here
       // would silently add their avatars to me. Never grant in read-only mode.
       if (_galReadOnly) return false;
       const path = normalizeAvatarUrl(String(iconPath || ""));
@@ -24753,7 +24753,7 @@
     window.__fishGetUnlockedBackgrounds = () => [..._unlockedBackgrounds];
     // Grant a background (donation reward). Returns true if newly unlocked.
     window.__fishGrantUnlockedBackground = async (bgImg) => {
-      // Never grant while viewing another player's collection (read-only) — the
+      // Never grant while viewing another player's collection (read-only), the
       // swapped-in globals would persist their backgrounds to MY account.
       if (_galReadOnly) return false;
       const path = normalizeBgUrl(bgImg);
@@ -24772,10 +24772,10 @@
     };
     // Spend Critter Coins to unlock a background. The coin deduction + the grant
     // run in ONE Firestore transaction, and the balance is RE-READ server-side
-    // inside that transaction — so a client can never spend coins it doesn't
+    // inside that transaction, so a client can never spend coins it doesn't
     // have, and the balance/unlock can't desync. Coins here only ever DECREASE.
     // (Stopping a tampered client from MINTING coins is enforced by the Firestore
-    // rule that forbids raising stats.critter_coins — see the security rules.)
+    // rule that forbids raising stats.critter_coins, see the security rules.)
     // Returns { ok:true, newBalance } or { ok:false, reason }.
     const PHST_BG_COIN_PRICE = 1000; // 1,000 Critter Coins ($1.00) per background
     window.__fishBuyBackgroundWithCoins = async (bgImg) => {
@@ -24821,7 +24821,7 @@
     // run in ONE Firestore transaction with the balance RE-READ server-side, so a
     // client can never spend coins it doesn't have and the balance/unlock can't
     // desync. Coins here only ever DECREASE (raising them is blocked by rules).
-    // Once granted, the skin is a normal unlocked avatar — equip it from the
+    // Once granted, the skin is a normal unlocked avatar, equip it from the
     // gallery and everyone sees it on your seat in-game.
     // Returns { ok:true, newBalance } or { ok:false, reason }.
     window.__fishBuyIconWithCoins = async (iconImg) => {
@@ -24911,7 +24911,7 @@
         if (!snap.exists) return { ok:false, msg:"Invalid code." };
         data = snap.data() || {};
       } catch (e) {
-        return { ok:false, msg:"Could not check code — try again." };
+        return { ok:false, msg:"Could not check code, try again." };
       }
       const type = String(data.reward_type || "").toLowerCase();
       // max_uses: 1 = single-use (default); 0 / absent-with-unlimited:true = unlimited.
@@ -24952,7 +24952,7 @@
         });
       } catch (e) {
         if (String(e && e.message) === "spent") return { ok:false, msg:"This code has already been used." };
-        return { ok:false, msg:"Could not redeem — try again." };
+        return { ok:false, msg:"Could not redeem, try again." };
       }
 
       // 3) Grant the reward (the use is already reserved).
@@ -24981,7 +24981,7 @@
       // unlocks (e.g. Birds of a Feather) are granted retroactively.
       if (_authUser && _achLoadedUid !== _authUser.uid) { try { await loadUserAchievements(_authUser.uid); } catch {} }
       for (const a of ANIMAL_AVATARS) {
-        // Each avatar is checked independently — a single bad definition can
+        // Each avatar is checked independently, a single bad definition can
         // never throw out of the loop and block every other unlock.
         try {
           const u = a.unlock; if (!u) continue;
@@ -25023,10 +25023,10 @@
             _totalPlayerCount = Number(data.total_players || 0);
           }
         }
-      } catch { /* best-effort — leave prior values in place */ }
+      } catch { /* best-effort, leave prior values in place */ }
       if (!_iconUnlockCounts) _iconUnlockCounts = {};
       // If the gallery is already open with an avatar selected, refresh its
-      // detail now that real counts exist — otherwise a detail opened before
+      // detail now that real counts exist, otherwise a detail opened before
       // the load finished would be stuck showing "Ownership loading…".
       try {
         const galEl = document.getElementById("avatar-gallery");

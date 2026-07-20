@@ -1036,7 +1036,7 @@
               <input id="hostName" class="lp-input" value="Host" maxlength="24" />
             </div>
             <div class="lp-field">
-              <span class="lp-label">Room Code <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional — leave blank for random)</span></span>
+              <span class="lp-label">Room Code <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional, leave blank for random)</span></span>
               <input id="hostRoomCode" class="lp-input lp-code-input" placeholder="e.g. OCEAN" maxlength="5"
                 oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" />
             </div>
@@ -1075,7 +1075,7 @@
       </div>
     </div>
 
-    <!-- SETUP PANEL (legacy — hidden, kept for JS compatibility) -->
+    <!-- SETUP PANEL (legacy, hidden, kept for JS compatibility) -->
     <section class="panel" id="setupPanel" style="display:none;">
       <h2 class="section-title">Create Game Room</h2>
     </section>
@@ -1084,7 +1084,7 @@
       <h2 class="section-title">Room Created!</h2>
       <div style="text-align:center; margin:12px 0 16px;">
         <div style="font-size:13px; color:#555; margin-bottom:6px;">Share this code with your friends to join:</div>
-        <div id="roomCodeDisplay" title="Click to copy" style="font-size:48px; font-weight:900; letter-spacing:10px; color:#0e7c51; font-family:monospace; background:#f0fdf4; border:3px solid #16a36b; border-radius:12px; padding:16px 24px; display:inline-block; cursor:pointer; user-select:all;">—</div>
+        <div id="roomCodeDisplay" title="Click to copy" style="font-size:48px; font-weight:900; letter-spacing:10px; color:#0e7c51; font-family:monospace; background:#f0fdf4; border:3px solid #16a36b; border-radius:12px; padding:16px 24px; display:inline-block; cursor:pointer; user-select:all;">-</div>
         <div style="margin-top:8px; font-size:11px; color:#888;">Click the code to copy · or use the button below</div>
         <div style="margin-top:6px;">
           <button id="copyCodeBtn" style="background:linear-gradient(180deg,#1da4ce,#0d84af); color:#fff; border:none; padding:6px 18px; border-radius:6px; cursor:pointer;">Copy Code</button>
@@ -1137,12 +1137,12 @@
         <button id="topMenuBtn">&#9776; Menu</button>
         <div id="topMenuDrop">
           <div class="menu-drop-section">Scores</div>
-          <div id="menuScoresList">—</div>
+          <div id="menuScoresList">-</div>
           <div class="menu-drop-divider"></div>
           <button class="menu-drop-btn" id="menuSummaryToggleBtn">&#128203; Game Log: Off</button>
           <div class="menu-drop-divider"></div>
           <div class="menu-drop-section">Room</div>
-          <div class="menu-room-code" id="menuRoomCode">—</div>
+          <div class="menu-room-code" id="menuRoomCode">-</div>
           <a class="menu-drop-btn" href="/rules.html" target="_blank" style="text-decoration:none;">&#128218; Click me for rules</a>
           <div class="menu-drop-divider"></div>
           <button class="menu-drop-btn" id="menuLeaveBtn">&#11013; Leave Game</button>
@@ -1211,10 +1211,10 @@
   </div>
 
   <script>
-    // Render backend URL — Vercel frontend calls this for all API requests.
+    // Render backend URL, Vercel frontend calls this for all API requests.
     window.__FISH_API_BASE__ = "https://play.currentsandcritters.com";
 
-    // JS-driven progress bar — moves smoothly over ~20s then pulses so it never looks frozen.
+    // JS-driven progress bar, moves smoothly over ~20s then pulses so it never looks frozen.
     let _connBarTimer = null;
     function startConnBar() {
       stopConnBar();
@@ -1382,7 +1382,7 @@
         ingestKnownBaseUrl(location.origin);
       }
       ingestKnownBaseUrl(window.__FISH_API_BASE__);
-      // When a fixed API base is configured, skip stored URLs — they may be
+      // When a fixed API base is configured, skip stored URLs, they may be
       // stale tunnel addresses from old sessions that would be tried as backups.
       if (normalizeBaseUrl(window.__FISH_API_BASE__)) {
         try { localStorage.removeItem(knownBaseUrlsStorageKey()); } catch {}
@@ -1590,7 +1590,7 @@
     function syncSeatTokenInUrl() {
       if (!roomId) return;
       const params = new URLSearchParams(location.search || "");
-      // Never put seat_token in the URL — it's a private credential stored only in
+      // Never put seat_token in the URL, it's a private credential stored only in
       // localStorage. If the host copies and shares their URL, other players must not
       // receive the host's seat_token or they can accidentally displace the host.
       params.delete("seat_token");
@@ -1686,7 +1686,7 @@
       if (!rid) return "/";
       const params = new URLSearchParams();
       // Only include seat_token in navigation URLs.
-      // host_token and create_key are never put here — the host's localStorage already
+      // host_token and create_key are never put here, the host's localStorage already
       // has host_token, so it doesn't need to travel in the URL. Putting it in the URL
       // means any player who opens the link gets the host_control_token saved to their
       // localStorage, which causes maybeAutoClaimHostSeat to kick the real host.
@@ -2152,14 +2152,14 @@
 
       const count = selectedDiscard.size;
       const needed = _discardExcessRef;
-      // You must discard down to EXACTLY the hand limit — not fewer, not more.
+      // You must discard down to EXACTLY the hand limit, not fewer, not more.
       // The server rejects any batch that wouldn't leave exactly the limit, so
       // the Confirm button is only enabled when the selection count is exact.
       const exact = count === needed;
       if (count < needed) {
-        statusEl.textContent = `${count} of ${needed} selected — pick ${needed - count} more (discard down to exactly 10).`;
+        statusEl.textContent = `${count} of ${needed} selected, pick ${needed - count} more (discard down to exactly 10).`;
       } else if (count > needed) {
-        statusEl.textContent = `${count} selected — that's ${count - needed} too many. Deselect until exactly ${needed} are chosen (you can't go below 10).`;
+        statusEl.textContent = `${count} selected, that's ${count - needed} too many. Deselect until exactly ${needed} are chosen (you can't go below 10).`;
       } else {
         statusEl.textContent = `${count} of ${needed} selected. Click Confirm to discard.`;
       }
@@ -2436,7 +2436,7 @@
             // keep checking other candidates
           }
         }
-        // No backup worked — clear the error so polling status is shown instead.
+        // No backup worked, clear the error so polling status is shown instead.
         setConnStatus("Reconnecting... (live stream down, polling active)");
         setConnErr("");
         return false;
@@ -2564,7 +2564,7 @@
           }
           payload.payment_uids = paymentChoice.picks;
         }
-        // If selectedPayment.size === 0 and hasAutoStarSymbol, send no payment_uids —
+        // If selectedPayment.size === 0 and hasAutoStarSymbol, send no payment_uids,
         // the server's auto_payment_set() will pick a matching symbol card automatically.
       }
 
@@ -3095,7 +3095,7 @@
 
       updateTopBar(state, roomId);
       const menuRoomCodeEl = document.getElementById("menuRoomCode");
-      if (menuRoomCodeEl) menuRoomCodeEl.textContent = roomId || "—";
+      if (menuRoomCodeEl) menuRoomCodeEl.textContent = roomId || "-";
 
       // Keep legacy gameMeta updated for any code that still reads it
       const _legacyMeta = document.getElementById("gameMeta");
@@ -3126,7 +3126,7 @@
       _discardExcessRef = isDiscardBatch ? discardExcess : 0;
       if (!isDiscardBatch) selectedDiscard.clear();
 
-      // Wire Confirm button (idempotent — overwrites each render)
+      // Wire Confirm button (idempotent, overwrites each render)
       const _confirmDiscardBtn = document.getElementById("discardBatchConfirmBtn");
       if (_confirmDiscardBtn) {
         _confirmDiscardBtn.onclick = async () => {
@@ -3259,7 +3259,7 @@
         const undoValid = Boolean(undoInfo.valid);
         const undoRequested = Boolean(undoInfo.requested);
         // Hide while a request is in flight (undoRequested) so it can't be double-
-        // clicked while the engine — often an AI mid-turn — is still replaying it.
+        // clicked while the engine, often an AI mid-turn, is still replaying it.
         const myUndoAvailable = undoValid && !undoRequested && undoEligibleSeat !== null && undoEligibleSeat === myIdx && !canInteract;
         undoBtn.style.display = myUndoAvailable ? "" : "none";
         if (myUndoAvailable && undoBtn.disabled) {
@@ -3279,7 +3279,7 @@
             const out = await res.json();
             if (out.ok) {
               undoBtn.style.display = "none";
-              setGameStatus("Undo sent — your turn is being replayed.");
+              setGameStatus("Undo sent, your turn is being replayed.");
             } else {
               setGameStatus(`Undo failed: ${out.error || "unknown error"}`);
               undoBtn.disabled = false;
@@ -3312,7 +3312,7 @@
         deckCountEl.textContent = _deckLbl;
         const _deckTip = document.getElementById("deckTip");
         if (_deckTip) _deckTip.textContent = `${_deckLbl} left in the deck`;
-        if (deckDrawBtn) deckDrawBtn.title = `${_deckLbl} left — draw from the deck`;
+        if (deckDrawBtn) deckDrawBtn.title = `${_deckLbl} left, draw from the deck`;
       }
       if (deckDrawBtn) {
         deckDrawBtn.disabled = !canInteract || !deckAction || isDiscardBatch;
@@ -3753,7 +3753,7 @@
 
       const hasHostToken = Boolean(getHostToken());
       // Only auto-reclaim the host seat when this device has the actual per-room
-      // host_token. Having just a create_key is NOT sufficient — that would let any
+      // host_token. Having just a create_key is NOT sufficient, that would let any
       // player who received the key (e.g. from a shared URL) silently kick the real host.
       // Explicit reclaim via the "Reclaim Host Seat" button still works because it
       // prompts the user and sends create_key only on intentional click.
@@ -3806,7 +3806,7 @@
 
       const seats = Array.isArray(payload.seats) ? payload.seats : [];
       // If this device has the host token, prioritize host-seat reclaim over auto-joining.
-      // Do NOT check activeCreateKey() here — that would block non-host players who
+      // Do NOT check activeCreateKey() here, that would block non-host players who
       // happen to have the create_key from ever joining a seat automatically.
       const hostSeat = seats.find((s) => s && s.kind === "human" && s.is_host);
       if (getHostToken() && hostSeat) return;
@@ -3978,7 +3978,7 @@
       if (out.host_token) setHostToken(out.host_token);
       if (out.seat_token) setSeatToken(out.seat_token);
       document.getElementById("joinName").value = hostName;
-      // Show the room code immediately — don't wait for the first state poll.
+      // Show the room code immediately, don't wait for the first state poll.
       const codeEl = document.getElementById("roomCodeDisplay");
       if (codeEl && roomId) codeEl.textContent = roomId;
       syncSeatTokenInUrl();
@@ -4006,7 +4006,7 @@
       // Use typed room code, or generate a random one if left blank.
       const typedRaw = String(document.getElementById("hostRoomCode")?.value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       if (typedRaw.length > 0 && typedRaw.length < 5) {
-        setConnErr(`Room code must be exactly 5 characters — you typed ${typedRaw.length}. Add more letters or leave it blank for a random code.`);
+        setConnErr(`Room code must be exactly 5 characters, you typed ${typedRaw.length}. Add more letters or leave it blank for a random code.`);
         return;
       }
       const chosenRoomId = typedRaw.length === 5 ? typedRaw : generateRoomCode();
@@ -4298,7 +4298,7 @@
     document.getElementById("copyLinkBtn").addEventListener("click", copyShareUrl);
     function copyRoomCode() {
       const code = document.getElementById("roomCodeDisplay").textContent.trim();
-      if (!code || code === "—") return;
+      if (!code || code === "-") return;
       navigator.clipboard.writeText(code).then(() => {
         const btn = document.getElementById("copyCodeBtn");
         if (btn) { btn.textContent = "Copied!"; setTimeout(() => { btn.textContent = "Copy Code"; }, 1500); }
@@ -4340,7 +4340,7 @@
     document.getElementById("joinQuickBtn").addEventListener("click", () => {
       const raw = String(document.getElementById("joinQuickCode").value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
       if (!raw) { setConnErr("Enter a room code first."); return; }
-      if (raw.length !== 5) { setConnErr(`Room codes are 5 characters — you entered ${raw.length}. Check the code and try again.`); return; }
+      if (raw.length !== 5) { setConnErr(`Room codes are 5 characters, you entered ${raw.length}. Check the code and try again.`); return; }
       openRoomById(raw);
     });
     document.getElementById("joinQuickCode").addEventListener("keydown", (ev) => {
@@ -4468,7 +4468,7 @@
     function updateTopBar(state, rId) {
       const el = document.getElementById("topBarMeta");
       if (!el) return;
-      el.innerHTML = `Room <b>${rId || "?"}</b> — Turn ${state.turn_number ?? "?"} — <b>${state.current_player || "?"}</b>'s turn &nbsp;<img src="/multiplayer/client/card-back.png?v=1" alt="Deck" title="${state.deck_remaining ?? "?"} cards left in the deck" style="height:1.25em;vertical-align:-0.3em;border-radius:2px;"> ${state.deck_remaining ?? "?"}`;
+      el.innerHTML = `Room <b>${rId || "?"}</b>, Turn ${state.turn_number ?? "?"}, <b>${state.current_player || "?"}</b>'s turn &nbsp;<img src="/multiplayer/client/card-back.png?v=1" alt="Deck" title="${state.deck_remaining ?? "?"} cards left in the deck" style="height:1.25em;vertical-align:-0.3em;border-radius:2px;"> ${state.deck_remaining ?? "?"}`;
     }
 
     (function init() {
@@ -4502,7 +4502,7 @@
       roomId = null;
       if (lobbyKeyInput) lobbyKeyInput.value = "";
       history.replaceState({}, "", "/");
-      showStartMenu("New setup ready — choose player counts and create a room.");
+      showStartMenu("New setup ready, choose player counts and create a room.");
       return;
     }
     const savedCreateKey = getCreateKey();
@@ -4530,7 +4530,7 @@
       setTimeout(() => {
         const el = document.getElementById("connMeta");
         if (el && el.classList.contains("connecting")) {
-          setConnMeta("Server is taking longer than usual. It may still be waking up — keep waiting, or press ↩ Start Menu to reset.");
+          setConnMeta("Server is taking longer than usual. It may still be waking up, keep waiting, or press ↩ Start Menu to reset.");
         }
       }, 75000);
     } else {
