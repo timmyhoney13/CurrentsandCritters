@@ -7,10 +7,10 @@ ENV PYTHONUNBUFFERED=1
 
 # firebase-admin lets the server read the exact registered-player and live
 # online-player counts from Firestore, served to the website via /api/stats.
-# anthropic powers Snap & Score board-photo card detection (Claude vision);
-# pillow computes the perceptual image hashes + review thumbnails for its
-# anti-cheat duplicate-photo detection.
-RUN pip install --no-cache-dir firebase-admin==6.5.0 anthropic pillow
+# (Snap & Score card recognition runs in the player's browser against the
+# prebuilt multiplayer/client/snap-card-library.json — no vision API, no
+# anthropic SDK, no server-side image processing.)
+RUN pip install --no-cache-dir firebase-admin==6.5.0
 
 # Copy only runtime files needed by the live multiplayer server.
 COPY multiplayer_server.py /app/multiplayer_server.py

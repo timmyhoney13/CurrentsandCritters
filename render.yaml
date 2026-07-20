@@ -62,10 +62,7 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       # Snap & Score (score.currentsandcritters.com — add it as a second custom
-      # domain on this same service). ANTHROPIC_API_KEY enables board-photo card
-      # detection via Claude vision; without it players build boards manually.
-      # SNAP_VISION_MODEL optionally overrides the detection model.
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: SNAP_VISION_MODEL
-        value: "claude-opus-4-8"
+      # domain on this same service). Board-photo card recognition runs locally
+      # in the player's browser against the prebuilt snap-card-library.json —
+      # no API key and no per-photo cost. Regenerate the library with
+      # `python3 build_snap_card_library.py` whenever the card art changes.

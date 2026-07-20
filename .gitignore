@@ -30,6 +30,13 @@
 !apply_history_learning.js
 serviceAccountKey.json
 
+# Snap & Score local card recognition: build-time library generator + tests
+# (the generated snap-card-library.json ships inside multiplayer/client/).
+!build_snap_card_library.py
+!test_snap_vision.js
+!test_snap_vision_fixtures.json
+!test_snap_local_board.py
+
 # New marketing site files (Claude Design build)
 !styles.css
 !image-slot.js

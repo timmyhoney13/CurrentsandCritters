@@ -45,7 +45,12 @@ CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "cla
 # Snap & Score — physical-board scanning + scoring companion app. Served at
 # /score on the main host AND as the root page for score.currentsandcritters.com
 # (second custom domain on the same Render service, routed by Host header).
+# Card recognition runs in the player's browser against the prebuilt
+# snap-card-library.json (regenerate with build_snap_card_library.py whenever
+# the card art changes); snap-dev.html is the developer tuning harness.
 SCORE_APP_HTML_PATH       = os.path.join(BASE_DIR, "multiplayer", "client", "score-app.html")
+SNAP_LIBRARY_JSON_PATH    = os.path.join(BASE_DIR, "multiplayer", "client", "snap-card-library.json")
+SNAP_DEV_HTML_PATH        = os.path.join(BASE_DIR, "multiplayer", "client", "snap-dev.html")
 DATASET_PATH = os.path.join(BASE_DIR, "multiplayer", "human_game_dataset.jsonl")
 ROOM_STATE_DIR = str(
     os.environ.get("FISH_ROOM_STATE_DIR", os.path.join(BASE_DIR, "multiplayer", "state"))
@@ -8637,6 +8642,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Snap & Score page on any host (also the pre-DNS way to reach it).
         if len(parts) == 1 and parts[0] in {"score", "snap", "snap-score"}:
             self._send_html_file(SCORE_APP_HTML_PATH, "snap & score")
+            return
+
+        # Snap & Score on-device recognition library (the client cache-busts
+        # with ?v=, so a day of caching is safe).
+        if parsed.path == "/snap-card-library.json":
+            self._send_client_asset(
+                SNAP_LIBRARY_JSON_PATH,
+                content_type="application/json; charset=utf-8",
+                cache_control="public, max-age=86400",
+            )
+            return
+
+        # Snap & Score developer test harness (detection boxes, crops, match
+        # candidates, timings — used to tune the scanner on real photos).
+        if parsed.path in {"/snap-dev", "/snap-dev.html"}:
+            self._send_html_file(SNAP_DEV_HTML_PATH, "snap & score dev")
             return
 
         # Snap & Score API (config / roster / session polling).

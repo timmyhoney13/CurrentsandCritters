@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Snap &amp; Score, Scanner Dev Harness</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#0b1c2b;color:#dfeefb;margin:0;padding:18px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:#8fb0c9;font-size:13px;margin:0 0 14px}
+  .grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px}
+  @media(max-width:980px){.grid{grid-template-columns:1fr}}
+  .card{background:#12293c;border:1px solid #1f3f58;border-radius:12px;padding:14px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 10px;color:#8fd8cc;text-transform:uppercase;letter-spacing:.6px}
+  canvas{max-width:100%;border-radius:8px;display:block}
+  button,input[type=file]{font-size:14px}
+  button{background:#19b8a6;color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;margin-right:8px}
+  button.sec{background:#1f3f58}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  td,th{padding:5px 7px;border-bottom:1px solid #1f3f58;text-align:left;vertical-align:top}
+  th{color:#8fb0c9;font-weight:700}
+  .crop{width:60px;height:84px;image-rendering:auto;border-radius:4px;border:1px solid #33566f}
+  .conf-hi{color:#4be0a5;font-weight:700}.conf-mid{color:#ffd97a;font-weight:700}.conf-lo{color:#ff7a6e;font-weight:700}
+  .knobs{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .knobs label{font-size:11.5px;color:#8fb0c9;display:flex;flex-direction:column;gap:3px}
+  .knobs input{width:86px;background:#0b1c2b;color:#dfeefb;border:1px solid #33566f;border-radius:6px;padding:5px}
+  pre{background:#0b1c2b;border:1px solid #1f3f58;border-radius:8px;padding:10px;font-size:11.5px;overflow:auto;max-height:280px;white-space:pre-wrap}
+  .stat{display:inline-block;background:#0b1c2b;border:1px solid #1f3f58;border-radius:8px;padding:6px 10px;margin:0 8px 8px 0;font-size:12.5px}
+  .stat b{color:#8fd8cc}
+</style>
+<script>window.SNAP_LIBRARY_V = "dev";</script>
+<script src="/js/snap-vision-core.js"></script>
+<script src="/js/snap-scan.js"></script>
+</head>
+<body>
+<h1>🔬 Snap &amp; Score, Scanner Dev Harness</h1>
+<p class="sub">Upload a real board photo, inspect detection candidates, warped crops, per-method match scores, and timings. Recognition runs 100% in this tab. Tune the knobs, re-run, and copy winning values into <code>DEFAULTS</code> in <code>snap-vision-core.js</code>.</p>
+
+<div class="card">
+  <input type="file" id="file" accept="image/*">
+  <button id="rerun" class="sec">Re-run with knobs</button>
+  <span id="libstate" class="sub">library: loading…</span>
+  <div class="knobs" id="knobs"></div>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="card"><h2>Photo + detection</h2>
+      <canvas id="cv"></canvas>
+      <div class="sub" style="margin-top:8px">solid = selected reading (green ≥90%, yellow ≥70%, red below) · thin gray = rejected pool candidates</div>
+      <div id="stats" style="margin-top:8px"></div>
+    </div>
+    <div class="card"><h2>Assembled board + warnings</h2><pre id="board"></pre></div>
+  </div>
+  <div>
+    <div class="card"><h2>Per-card results</h2>
+      <table id="tbl"><tr><th>crop</th><th>match</th><th>method scores (top-3)</th></tr></table>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KNOBS = ["workMax","minAreaFrac","maxAreaFrac","aspectMin","aspectMax","fillMin",
+               "edgeFloor","mergeGapFrac","mergeOverlapFrac","iouDedupe","acceptConf",
+               "reviewConf","attachMaxFrac","blurMin"];
+let imageData = null, lastResult = null, pool = null;
+
+$("knobs").innerHTML = KNOBS.map(k =>
+  `<label>${k}<input id="k-${k}" value="${SnapVisionCore.DEFAULTS[k]}"></label>`).join("");
+function knobOpts(){
+  const o = {};
+  KNOBS.forEach(k => { const v = parseFloat($("k-"+k).value); if (isFinite(v)) o[k] = v; });
+  return o;
+}
+
+SnapScan.loadLibrary().then(lib => {
+  $("libstate").textContent = `library: ${lib.libraryVersion} · ${lib.cards.length} physical cards`;
+}).catch(e => { $("libstate").textContent = "library FAILED: " + e.message; });
+
+$("file").onchange = () => {
+  const f = $("file").files && $("file").files[0];
+  if (!f) return;
+  const img = new Image();
+  img.onload = async () => {
+    const MAX = 2048;
+    const sc = Math.min(1, MAX / Math.max(img.width, img.height));
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+    cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    imageData = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height);
+    run();
+  };
+  img.src = URL.createObjectURL(f);
+};
+$("rerun").onclick = () => run();
+
+async function run(){
+  if (!imageData) return;
+  await SnapScan.loadLibrary();
+  const opts = knobOpts();
+  const t0 = performance.now();
+  pool = SnapVisionCore.detectQuads(imageData, opts);          // full candidate pool
+  lastResult = SnapVisionCore.scanBoard(imageData, SnapScan.getLibrary(), opts, ()=>{});
+  const total = performance.now() - t0;
+  draw();
+  renderStats(total);
+  renderTable();
+  renderBoard();
+}
+
+function draw(){
+  const cv = $("cv");
+  const k = Math.min(1, 1000 / imageData.width);
+  cv.width = Math.round(imageData.width * k); cv.height = Math.round(imageData.height * k);
+  const off = document.createElement("canvas");
+  off.width = imageData.width; off.height = imageData.height;
+  off.getContext("2d").putImageData(imageData, 0, 0);
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(off, 0, 0, cv.width, cv.height);
+  (pool || []).forEach(c => {
+    ctx.strokeStyle = "rgba(200,210,220,.45)"; ctx.lineWidth = 1;
+    path(ctx, c.corners, k); ctx.stroke();
+  });
+  (lastResult.quads || []).forEach((q, i) => {
+    const conf = q.match ? q.match.conf : 0;
+    ctx.strokeStyle = conf >= 0.9 ? "#4be0a5" : conf >= 0.7 ? "#ffd97a" : "#ff7a6e";
+    ctx.lineWidth = 3;
+    path(ctx, q.corners, k); ctx.stroke();
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.font = "700 13px sans-serif";
+    const x = Math.min(...q.corners.map(p=>p[0]))*k, y = Math.min(...q.corners.map(p=>p[1]))*k;
+    ctx.fillText(`${i+1} ${(q.match&&q.match.cardId)||"?"} ${(conf*100)|0}%`, x+3, Math.max(12,y-4));
+  });
+}
+function path(ctx, corners, k){
+  ctx.beginPath();
+  corners.forEach((p,j)=>{ j ? ctx.lineTo(p[0]*k,p[1]*k) : ctx.moveTo(p[0]*k,p[1]*k); });
+  ctx.closePath();
+}
+
+function renderStats(total){
+  const t = lastResult.timings || {};
+  const q = lastResult.quality || {};
+  $("stats").innerHTML =
+    `<span class="stat">total <b>${total|0}ms</b></span>` +
+    `<span class="stat">detect <b>${(t.detect||0)|0}ms</b></span>` +
+    `<span class="stat">match <b>${(t.match||0)|0}ms</b></span>` +
+    `<span class="stat">pool <b>${(pool||[]).length}</b> → kept <b>${lastResult.quads.length}</b></span>` +
+    `<span class="stat">blurVar <b>${q.blurVar}</b></span>` +
+    `<span class="stat">brightness <b>${q.brightness}</b></span>` +
+    `<span class="stat">glare <b>${q.glareFrac}</b></span>` +
+    `<span class="stat">retake <b>${lastResult.needsRetake}</b></span>`;
+}
+
+function renderTable(){
+  const lib = SnapScan.getLibrary();
+  const rows = (lastResult.quads || []).map((q, i) => {
+    const cropCv = cropCanvas(q);
+    const m = q.match;
+    let methods = "";
+    if (m){
+      // per-method breakdown vs each top candidate
+      const crop = SnapVisionCore.warpCard(imageData, q.corners);
+      const norm = SnapVisionCore.normalizeRgb(crop, SnapVisionCore.CARD_W * SnapVisionCore.CARD_H);
+      const use = m.flip ? SnapVisionCore.rotateCrop180(norm) : norm;
+      const base = SnapVisionCore.boxDownsample(use, SnapVisionCore.CARD_W, SnapVisionCore.CARD_H, 3, SnapVisionCore.BASE_N, SnapVisionCore.BASE_N);
+      const d = SnapVisionCore.descriptorsFromBase(base);
+      methods = m.candidates.map(c => {
+        const ref = lib.cards.find(x => x.id === c.cardId);
+        if (!ref) return "";
+        const p = 1 - SnapVisionCore.hamming(d.p, ref.p)/64;
+        const dd = 1 - SnapVisionCore.hamming(d.d, ref.d)/64;
+        const col = 1 - SnapVisionCore.colorDist(d.c, ref.c);
+        const e = 1 - SnapVisionCore.edgeDist(d.e, ref.e);
+        return `<div><b>${c.cardId}</b> conf ${(c.conf*100)|0}% · p ${p.toFixed(2)} d ${dd.toFixed(2)} c ${col.toFixed(2)} e ${e.toFixed(2)}</div>`;
+      }).join("");
+    }
+    const cls = !m ? "conf-lo" : m.conf >= 0.9 ? "conf-hi" : m.conf >= 0.7 ? "conf-mid" : "conf-lo";
+    const names = m ? cardNames(m.cardId) : "-";
+    return `<tr>
+      <td>${cropCv}</td>
+      <td><span class="${cls}">${m ? (m.conf*100|0)+"%" : "n/a"}</span><br>${names}
+          ${m && !m.symbolConfident ? "<br>⚠ symbol unsure" : ""}${q.dup ? "<br>⚠ duplicate" : ""}
+          ${q.assigned ? "<br>→ ocean u"+q.assigned.oceanU+" / "+q.assigned.side : ""}</td>
+      <td>${methods}</td>
+    </tr>`;
+  }).join("");
+  $("tbl").innerHTML = `<tr><th>crop</th><th>match</th><th>method scores (top-3)</th></tr>` + rows;
+}
+function cardNames(id){
+  const lib = SnapScan.getLibrary();
+  const c = lib.cards.find(x => x.id === id);
+  if (!c) return id;
+  return id + "<br>" + Object.keys(c.halves).map(s => `${s}: ${c.halves[s].n} (${c.halves[s].sym})`).join("<br>");
+}
+function cropCanvas(q){
+  const crop = SnapVisionCore.warpCard(imageData, q.corners);
+  if (!crop) return "";
+  const W = SnapVisionCore.CARD_W, H = SnapVisionCore.CARD_H;
+  const id2 = new ImageData(W, H);
+  for (let i = 0; i < W*H; i++){
+    id2.data[i*4] = crop[i*3]; id2.data[i*4+1] = crop[i*3+1]; id2.data[i*4+2] = crop[i*3+2]; id2.data[i*4+3] = 255;
+  }
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  cv.getContext("2d").putImageData(id2, 0, 0);
+  return `<img class="crop" src="${cv.toDataURL()}">`;
+}
+
+function renderBoard(){
+  $("board").textContent = JSON.stringify({
+    board: lastResult.board,
+    unassigned: lastResult.unassigned,
+    lowConfidence: lastResult.lowConfidence,
+    warnings: lastResult.warnings,
+    retakeReasons: lastResult.retakeReasons,
+  }, null, 2);
+}
+</script>
+</body>
+</html>

@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Snap &amp; Score — Currents &amp; Critters</title>
+<title>Snap &amp; Score, Currents &amp; Critters</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="theme-color" content="#06263f"/>
 <link rel="icon" href="/icon.svg"/>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="/firebase-config.js"></script>
+<script>window.SNAP_LIBRARY_V = "20260719a";</script>
+<script src="/js/snap-vision-core.js?v=20260719a"></script>
+<script src="/js/snap-scan.js?v=20260719a"></script>
 <style>
   :root{
     --deep:#06263f; --deep2:#0a3a5c; --teal:#19b8a6; --teal-dark:#0e8f81;
@@ -22,7 +25,7 @@
     background:#06263f;
     color:#eaf6ff; min-height:100vh; padding-bottom:env(safe-area-inset-bottom);
   }
-  /* Coral reef backdrop behind every screen — same vibe as the game. A fixed
+  /* Coral reef backdrop behind every screen, same vibe as the game. A fixed
      layer (not background-attachment:fixed, which is janky on iOS) keeps the
      reef in place while content scrolls; the deep-ocean gradient over it keeps
      text and the white panels readable. */
@@ -129,7 +132,7 @@
   .hide{display:none!important}
   a.link{color:var(--teal);font-weight:700;text-decoration:none}
   .avatar-mini{width:34px;height:34px;border-radius:50%;border:2px solid #dff1ec;vertical-align:middle}
-  /* retake gate — shown on the review screen when a photo wasn't clear enough */
+  /* retake gate, shown on the review screen when a photo wasn't clear enough */
   .retakebox{background:#fdecea;border:1.5px solid #f2b7b0;border-radius:14px;padding:13px 14px;margin:10px 0;color:#7c1d15}
   .retakebox .rt-h{font-weight:900;font-size:14.5px;margin-bottom:6px}
   .retakebox .rt-r{font-size:13px;line-height:1.55;margin:2px 0 8px}
@@ -154,6 +157,36 @@
   .cam-shutter:active{transform:scale(.94)}
   .cam-torch{opacity:.55}
   .cam-torch.on{opacity:1}
+  /* on-device scan progress overlay */
+  .scanprog{position:fixed;inset:0;z-index:70;background:rgba(4,20,34,.86);display:none;
+    align-items:center;justify-content:center;padding:22px}
+  .scanprog.open{display:flex}
+  .scanprog .card{background:#fff;color:var(--ink);border-radius:18px;padding:20px 22px;max-width:380px;width:100%;
+    box-shadow:0 16px 44px rgba(0,0,0,.5)}
+  .scanprog h3{margin:0 0 4px;font-size:17px}
+  .scanprog .lock{font-size:12px;color:var(--mut);margin-bottom:12px}
+  .scanprog .step{display:flex;align-items:center;gap:10px;padding:7px 0;font-size:14.5px;color:#8aa0b2}
+  .scanprog .step .ic{width:22px;height:22px;border-radius:50%;background:#e8f0f6;display:inline-flex;
+    align-items:center;justify-content:center;font-size:12px;flex:none}
+  .scanprog .step.on{color:var(--ink);font-weight:700}
+  .scanprog .step.on .ic{background:#dff3ef}
+  .scanprog .step.done{color:var(--teal-dark)}
+  .scanprog .step.done .ic{background:#d8f5e7}
+  /* box review (photo + detected card boxes) */
+  .bx-wrap{position:relative;border-radius:12px;overflow:hidden;background:#0a1a28;touch-action:none}
+  .bx-wrap canvas{display:block;width:100%;height:auto}
+  .bx-legend{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 0;font-size:11.5px;color:var(--mut)}
+  .bx-legend b{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+  .bx-card{border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;background:#fbfdff}
+  .bx-card .bh{display:flex;align-items:center;gap:10px}
+  .bx-card .art{width:40px;height:56px;border-radius:6px;background-color:#cfe4f0;background-repeat:no-repeat;flex:none;border:1px solid #b9cfdd}
+  .bx-card .nm{font-weight:800;font-size:14px;line-height:1.25}
+  .bx-card .cf{font-size:12px;font-weight:800}
+  .cf.hi{color:#0c7a4d}.cf.mid{color:#8a6d00}.cf.lo{color:#a3271c}
+  .bx-cands{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+  .bx-cands .btn{width:auto;flex:1;min-width:96px;font-size:12px;padding:8px;background:#eef6fb;color:var(--ink);
+    box-shadow:none;border:1.5px solid var(--line)}
+  .bx-cands .btn.sel{border-color:var(--teal-dark);background:#dff3ef}
 </style>
 </head>
 <body>
@@ -171,19 +204,19 @@
     </div>
     <div class="panel">
       <h2>📸 Score My Board</h2>
-      <p class="sub">Just want your score? Snap your board, check the cards, get your total. No account needed — nothing is saved.</p>
+      <p class="sub">Just want your score? Snap your board, check the cards, get your total. No account needed, nothing is saved.</p>
       <button class="btn" id="go-solo">Score My Board</button>
     </div>
     <div class="panel">
       <h2>🏆 Multiplayer Score Session</h2>
-      <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game — with XP, achievements, and avatar unlocks — to everyone's Currents &amp; Critters account.</p>
+      <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game, with XP, achievements, and avatar unlocks, to everyone's Currents &amp; Critters account.</p>
       <button class="btn mint" id="go-create">Create a Multiplayer Score Session</button>
       <div class="row" style="margin-top:10px">
         <input type="text" id="join-code" placeholder="Game code (e.g. R7KM2P)" maxlength="6" autocapitalize="characters" style="flex:1">
         <button class="btn small secondary" id="go-join" style="min-width:84px">Join</button>
       </div>
     </div>
-    <div class="foot-note">Photos are analyzed to identify your cards. Solo scans are never stored. In multiplayer sessions a small board snapshot is kept for verification and game history.</div>
+    <div class="foot-note">🔒 Card recognition runs locally on your device, board photos are never uploaded to identify cards. Solo scans are never stored. In multiplayer sessions only a small board snapshot is kept for verification and game history.</div>
   </section>
 
   <!-- ═══ SOLO ═══ -->
@@ -201,7 +234,7 @@
     <div id="solo-review" class="hide">
       <div class="panel">
         <h2>Check Your Board</h2>
-        <p class="sub">Fix anything the scan got wrong — tap a card to remove or change it, tap “+ add” to add missing cards.</p>
+        <p class="sub">Fix anything the scan got wrong, tap a card to remove or change it, tap “+ add” to add missing cards.</p>
         <div id="solo-warnings"></div>
         <div id="solo-editor"></div>
         <div class="stack" style="margin-top:12px">
@@ -226,7 +259,7 @@
         <div class="muted" id="solo-compare-note" style="margin-top:6px"></div>
       </div>
       <div class="panel">
-        <p class="sub" style="margin-bottom:10px">Want XP, achievements, avatars, and saved game history for physical games? Score with friends in a Multiplayer Score Session — or play free online.</p>
+        <p class="sub" style="margin-bottom:10px">Want XP, achievements, avatars, and saved game history for physical games? Score with friends in a Multiplayer Score Session, or play free online.</p>
         <div class="stack">
           <button class="btn mint" id="solo-to-session">Create a Multiplayer Score Session</button>
           <button class="btn secondary" data-nav="home">← Start Over</button>
@@ -248,7 +281,7 @@
         <option>2</option><option>3</option><option selected>4</option><option>5</option>
         <option>6</option><option>7</option><option>8</option>
       </select>
-      <label class="f">When was it played? <span class="muted">(optional — leave blank for “just now”)</span></label>
+      <label class="f">When was it played? <span class="muted">(optional, leave blank for “just now”)</span></label>
       <input type="datetime-local" id="create-when">
       <div class="stack" style="margin-top:14px">
         <button class="btn mint" id="create-go">Create Session</button>
@@ -262,7 +295,7 @@
   <section id="v-session" class="hide">
     <div class="panel" id="sess-codebox">
       <h2 style="text-align:center">Game Code</h2>
-      <div class="code-big" id="sess-code">——————</div>
+      <div class="code-big" id="sess-code">------</div>
       <div class="row">
         <button class="btn small secondary" id="sess-share" style="flex:1">🔗 Share Invite</button>
         <button class="btn small secondary" id="sess-copy" style="flex:1">📋 Copy Code</button>
@@ -279,14 +312,14 @@
       <div id="sess-link-account"></div>
     </div>
     <div class="panel hide" id="sess-review-panel">
-      <h2>Final Standings — Everyone Must Approve</h2>
+      <h2>Final Standings, Everyone Must Approve</h2>
       <p class="sub">Check your board, your score, and your rewards. The game is only saved when <b>every connected player</b> approves. If anything is wrong, reject and fix it.</p>
       <div id="sess-standings"></div>
       <div id="sess-my-rewards"></div>
       <div id="sess-awaiting" class="muted" style="margin:8px 0"></div>
       <div class="stack">
         <button class="btn mint" id="sess-approve">✅ I Approve My Board and Score</button>
-        <button class="btn warn" id="sess-reject">✋ Something's Wrong — Go Back &amp; Fix</button>
+        <button class="btn warn" id="sess-reject">✋ Something's Wrong, Go Back &amp; Fix</button>
       </div>
     </div>
     <div class="panel hide" id="sess-results-panel"></div>
@@ -311,6 +344,46 @@
       </div>
     </div>
   </section>
+
+  <!-- ═══ DETECTED-BOX REVIEW (photo + card boxes, shared by both flows) ═══ -->
+  <section id="v-boxes" class="hide">
+    <div class="panel">
+      <h2>Check the Detected Cards</h2>
+      <p class="sub">Each box should tightly frame one card. Tap a box to fix its card, drag its corners to adjust it, or add a box for any card the scan missed. <b>🔒 Everything runs on this device</b>, your photo is not uploaded to identify cards.</p>
+      <div class="bx-wrap"><canvas id="bx-canvas"></canvas></div>
+      <div class="bx-legend">
+        <span><b style="background:#2ac88f"></b>confident</span>
+        <span><b style="background:#ffd97a"></b>check me</span>
+        <span><b style="background:#e0463c"></b>needs your pick</span>
+      </div>
+      <div id="bx-info"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn small secondary" id="bx-add" style="flex:1">➕ Add a Box</button>
+        <button class="btn small secondary" id="bx-reid" style="flex:1">🔁 Re-identify Boxes</button>
+      </div>
+      <div id="bx-warnings" style="margin-top:8px"></div>
+      <div class="stack" style="margin-top:12px">
+        <button class="btn mint" id="bx-continue">Build My Board →</button>
+        <div class="row">
+          <button class="btn secondary" id="bx-retake">📷 Retake Photo</button>
+          <button class="btn secondary" id="bx-cancel">← Cancel</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- on-device scanning progress -->
+<div class="scanprog" id="scanprog">
+  <div class="card">
+    <h3>Scanning your board…</h3>
+    <div class="lock">🔒 Recognition runs locally on this device, the photo isn't uploaded to identify cards.</div>
+    <div class="step" data-stage="1"><span class="ic">1</span> Checking photo</div>
+    <div class="step" data-stage="2"><span class="ic">2</span> Finding cards</div>
+    <div class="step" data-stage="3"><span class="ic">3</span> Matching cards</div>
+    <div class="step" data-stage="4"><span class="ic">4</span> Building board</div>
+    <div class="step" data-stage="5"><span class="ic">5</span> Ready to review</div>
+  </div>
 </div>
 
 <!-- card picker -->
@@ -356,7 +429,7 @@
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function show(viewId){
-  for (const v of ["v-home","v-solo","v-create","v-session","v-seatedit"]) $(v).classList.add("hide");
+  for (const v of ["v-home","v-solo","v-create","v-session","v-seatedit","v-boxes"]) $(v).classList.add("hide");
   $(viewId).classList.remove("hide");
   window.scrollTo(0,0);
 }
@@ -401,7 +474,7 @@ try {
       else if (e && e.code) toast("Sign-in didn't complete: " + e.message, true);
     });
   } else {
-    console.warn("firebase config missing — sign-in disabled");
+    console.warn("firebase config missing, sign-in disabled");
   }
 } catch (e) { console.warn("firebase init failed", e); }
 function renderWho(){
@@ -449,19 +522,13 @@ renderWho();
 let ROSTER = null;               // {cards:[{u,n,sp,d,sym,c,t}], oceanNames, animalNames}
 let CARD_BY_UID = {};
 let NAMES_BY_SIDE = {};          // side -> [{name, sp, variants:[{u,sym}], land}]
-let VISION_ENABLED = false;
-let VISION_REASON = "";
-// A clear, shared message for when photo detection is off, plus an owner-facing
-// console hint pointing at the exact fix (the API key must be set on the server).
-function visionOffMessage(){
-  if (VISION_REASON === "no_api_key")
-    console.warn("[Snap&Score] Photo detection is OFF: ANTHROPIC_API_KEY is not set on the " +
-      "server. Fix: Render dashboard → fish-game-multiplayer → Environment → add " +
-      "ANTHROPIC_API_KEY = your Anthropic API key → Save (it redeploys).");
-  else if (VISION_REASON === "sdk_missing")
-    console.warn("[Snap&Score] Photo detection is OFF: the anthropic SDK failed to import on the server.");
-  return "Photo detection is turned off on the server — you can build your board by hand for now.";
-}
+// Card recognition runs locally on this device (snap-vision-core.js + the
+// prebuilt snap-card-library.json). LIBRARY_STATE tracks whether the library
+// loaded so the photo button can fall back to manual building with a clear
+// message instead of failing silently.
+let LIBRARY_STATE = "loading";   // loading | ready | failed
+SnapScan.loadLibrary().then(() => { LIBRARY_STATE = "ready"; })
+  .catch(e => { LIBRARY_STATE = "failed"; console.warn("[Snap&Score] card library failed to load:", e); });
 const pad2 = n => String(n).padStart(2,"0");
 // Same art mapping AND cache version as the live game (preview-app.js) so the
 // card images shown here are always the current V12 art, never a stale cache.
@@ -485,10 +552,7 @@ function artStyle(uid){
 }
 async function loadRoster(){
   if (ROSTER) return ROSTER;
-  const [r, cfg] = await Promise.all([apiGet("/api/snap/roster"), apiGet("/api/snap/config").catch(()=>({visionEnabled:false,visionReason:"unreachable"}))]);
-  VISION_ENABLED = !!cfg.visionEnabled;
-  VISION_REASON = cfg.visionReason || "";
-  if (!VISION_ENABLED) visionOffMessage();  // log the owner-facing fix hint at boot
+  const r = await apiGet("/api/snap/roster");
   ROSTER = r;
   CARD_BY_UID = {}; NAMES_BY_SIDE = {ocean:[],up:[],down:[],left:[],right:[]};
   const grouped = {};
@@ -506,9 +570,9 @@ async function loadRoster(){
 }
 
 // ── camera capture (downscaled JPEG data URL) ──────────────────────────────
-// A bigger longest-edge keeps small card names/symbols legible for the vision
-// model (sharper text = more accurate detection) while staying well under the
-// server's 8MB body cap.
+// A bigger longest-edge keeps card art and symbols sharp for the on-device
+// scanner (more pixels per card = better matches) while keeping decode and
+// processing fast on phones.
 const CAP_MAX = 2048, CAP_Q = 0.85;
 
 function _downscaleToDataUrl(source, sw, sh){
@@ -610,16 +674,18 @@ function capturePhoto(){
 // ── board model + editor ───────────────────────────────────────────────────
 // board = {oceans:[{u, up:[uids], down:[], left:[], right:[]}]} (uid space)
 function emptyBoard(){ return {oceans:[]}; }
-function boardToNameView(board){
-  // name-space copy sent as priorBoard so extra photos MERGE with what we have
-  return {oceans: board.oceans.map(oc => ({
-    ocean: (CARD_BY_UID[oc.u]||{}).n || "Unknown",
-    confidence: 1,
-    up: oc.up.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
-    down: oc.down.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
-    left: oc.left.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
-    right: oc.right.map(u=>({name:(CARD_BY_UID[u]||{}).n||"Unknown",symbol:(CARD_BY_UID[u]||{}).sym||"Unknown",confidence:1,partially_hidden:false})),
-  }))};
+function mergeBoards(base, add){
+  // "Add Photo": union the newly scanned board into what we already have
+  // (same ocean copy → union its sides; new oceans appended)
+  const out = JSON.parse(JSON.stringify(base || emptyBoard()));
+  for (const oc of (add && add.oceans) || []){
+    const ex = out.oceans.find(o => o.u === oc.u);
+    if (!ex) { out.oceans.push(JSON.parse(JSON.stringify(oc))); continue; }
+    for (const side of ["up","down","left","right"])
+      for (const u of oc[side] || [])
+        if (!ex[side].includes(u)) ex[side].push(u);
+  }
+  return out;
 }
 function renderEditor(container, board, onChange){
   container.innerHTML = "";
@@ -735,7 +801,7 @@ $("pk-variant-back").onclick = () => { $("pk-variants").classList.add("hide"); r
 
 // Renders the clarity gate + warnings for a detection result. When the photo
 // wasn't clear, the retake banner is the primary call to action (its button
-// triggers onRetake) — but the player can still fix cards by hand and continue.
+// triggers onRetake), but the player can still fix cards by hand and continue.
 function renderDetectionFeedback(container, res, onRetake){
   res = res || {};
   let html = "";
@@ -751,13 +817,397 @@ function renderDetectionFeedback(container, res, onRetake){
     </div>`;
   }
   if (res.lowConfidence && res.lowConfidence.length)
-    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(res.lowConfidence.join(", "))}</b> — double-check those cards.</div>`;
+    html += `<div class="warnbox">🔍 Low confidence on: <b>${esc(res.lowConfidence.join(", "))}</b>, double-check those cards.</div>`;
   if (res.warnings && res.warnings.length)
     html += `<div class="warnbox">${res.warnings.slice(0,8).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>`;
   container.innerHTML = html;
   const rb = container.querySelector("#rt-btn");
   if (rb && onRetake) rb.onclick = onRetake;
 }
+
+// ═══ LOCAL SCANNING (on-device detection + box review) ═════════════════════
+// The photo is decoded and recognized entirely in the browser (Web Worker via
+// SnapScan; snap-vision-core.js also runs on this thread for interactive
+// re-identification). Nothing is uploaded to identify cards. Multiplayer
+// sessions submit only hash/thumbnail evidence + the detected board.
+let scanCtx = null; // {flow:"solo"|"seat", seat, dataUrl, imageData, photoCanvas,
+                    //  quads, result, assembled, baseBoard, selected}
+
+function showScanProgress(open){
+  const el = $("scanprog");
+  el.classList.toggle("open", !!open);
+  if (open) el.querySelectorAll(".step").forEach(s => s.classList.remove("on","done"));
+}
+function setScanStage(stage){
+  $("scanprog").querySelectorAll(".step").forEach(s => {
+    const n = Number(s.dataset.stage);
+    s.classList.toggle("done", n < stage);
+    s.classList.toggle("on", n === stage);
+    if (n < stage) s.querySelector(".ic").textContent = "✓";
+  });
+}
+
+function mainMatcher(){
+  const lib = SnapScan.getLibrary();
+  if (!lib) return null;
+  if (!lib.__mainMatcher) lib.__mainMatcher = SnapVisionCore.buildMatcher(lib);
+  return lib.__mainMatcher;
+}
+function uidToPageId(u){
+  u = Number(u); if (u >= 1000000) u = u % 1000;
+  if (u >= 1 && u <= 96)    return "h" + pad2(Math.floor((u + 1) / 2));
+  if (u >= 101 && u <= 188) return "v" + pad2(Math.floor((u - 101) / 2) + 1);
+  if (u >= 201 && u <= 268) return "o" + pad2(u - 200);
+  return null;
+}
+function pageCard(id){
+  const lib = SnapScan.getLibrary();
+  return (lib && lib.cards.find(c => c.id === id)) || null;
+}
+function pageNames(card){
+  return Object.keys(card.halves).map(s => card.halves[s].n)
+    .filter((n, i, a) => a.indexOf(n) === i).join(" / ");
+}
+function quadDisplay(q){
+  // {name, uid} to show for a box: the played half when assigned, else the page
+  if (!q.match) return {name:"Unknown card", uid:null};
+  const card = pageCard(q.match.cardId);
+  if (!card) return {name:"Unknown card", uid:null};
+  if (q.uid && q.assigned){
+    const side = q.assigned.side;
+    return {name: card.halves[side] ? card.halves[side].n + " (" + side + ")" : pageNames(card), uid: q.uid};
+  }
+  if (card.kind === "o") return {name: card.halves.ocean.n, uid: card.halves.ocean.u};
+  const firstSide = Object.keys(card.halves)[0];
+  return {name: pageNames(card), uid: card.halves[firstSide].u};
+}
+
+function startManual(flow, seatNo){
+  if (flow === "solo") { soloManualStart(); show("v-solo"); }
+  else openSeatEditor(seatNo);
+}
+function currentFlowBoard(flow, seatNo){
+  if (flow === "solo") return soloBoard || emptyBoard();
+  if (seatEditState && seatEditState.seat === seatNo && seatEditState.board) return seatEditState.board;
+  return emptyBoard();
+}
+
+async function runScan(flow, seatNo, addMore){
+  if (LIBRARY_STATE === "failed"){
+    toast("Card recognition couldn't load, build your board by hand instead.", true);
+    startManual(flow, seatNo);
+    return;
+  }
+  const dataUrl = await capturePhoto();
+  if (!dataUrl) return;
+  showScanProgress(true);
+  try {
+    await SnapScan.loadLibrary();
+    const imageData = await SnapScan.decodePhoto(dataUrl);
+    const result = await SnapScan.scanImageData(imageData, null, setScanStage);
+    const base = addMore ? currentFlowBoard(flow, seatNo) : emptyBoard();
+    // offscreen canvas with the photo, reused by every box-review redraw
+    const pc = document.createElement("canvas");
+    pc.width = imageData.width; pc.height = imageData.height;
+    pc.getContext("2d").putImageData(imageData, 0, 0);
+    scanCtx = {flow, seat: seatNo, dataUrl, imageData, photoCanvas: pc,
+               quads: result.quads, result, assembled: null,
+               baseBoard: JSON.parse(JSON.stringify(base)), selected: -1};
+    if (flow === "seat") sendSeatEvidence(seatNo, dataUrl, result);
+    showScanProgress(false);
+    openBoxReview();
+    if (result.needsRetake) toast("Photo wasn't clear, a retake will score more accurately", true);
+  } catch (e) {
+    showScanProgress(false);
+    toast("Scan failed: " + (e && e.message || e), true);
+  }
+}
+
+async function sendSeatEvidence(seatNo, dataUrl, result){
+  // photo evidence for the session's anti-cheat + review thumbnail; the
+  // full-resolution photo itself never leaves the device
+  try {
+    const ev = await SnapScan.evidenceFor(dataUrl);
+    const r = await api("/api/snap/session/photo", {...credBody(), seat: seatNo,
+      hash: ev.hash, dhash: ev.dhash, thumb: ev.thumb,
+      board: result.board, warnings: (result.warnings || []).slice(0, 10)});
+    sessView = r.session;
+  } catch (e) {
+    console.warn("evidence submit failed", e);
+    toast("Couldn't register this photo with the session, check your connection.", true);
+  }
+}
+
+// ── box review screen ──────────────────────────────────────────────────────
+const BX_COLORS = {hi:"#2ac88f", mid:"#ffd97a", lo:"#e0463c", none:"#e0463c"};
+function boxState(q){
+  if (!q.match) return "none";
+  if (q.match.conf >= 0.9 && q.match.symbolConfident) return "hi";
+  if (q.match.conf >= 0.7) return "mid";
+  return "lo";
+}
+
+function openBoxReview(){
+  show("v-boxes");
+  requestAnimationFrame(() => rebuildFromBoxes());
+}
+
+function rebuildFromBoxes(){
+  const m = mainMatcher();
+  if (m) scanCtx.assembled = SnapVisionCore.assembleBoard(scanCtx.quads, m, null);
+  drawBoxes();
+  renderBxInfo();
+  renderBxWarnings();
+}
+
+function bxMetrics(){
+  const cv = $("bx-canvas");
+  const iw = scanCtx.imageData.width, ih = scanCtx.imageData.height;
+  const drawW = Math.min(iw, 1000);
+  return {cv, iw, ih, drawW, drawH: Math.round(ih * drawW / iw), k: drawW / iw};
+}
+
+function drawBoxes(){
+  if (!scanCtx) return;
+  const {cv, drawW, drawH, k} = bxMetrics();
+  cv.width = drawW; cv.height = drawH;
+  const ctx = cv.getContext("2d");
+  ctx.drawImage(scanCtx.photoCanvas, 0, 0, drawW, drawH);
+  scanCtx.quads.forEach((q, i) => {
+    const col = BX_COLORS[boxState(q)];
+    const sel = i === scanCtx.selected;
+    ctx.lineWidth = sel ? 5 : 3;
+    ctx.strokeStyle = col;
+    ctx.setLineDash(sel ? [10, 6] : []);
+    ctx.beginPath();
+    q.corners.forEach((p, j) => { const x = p[0]*k, y = p[1]*k; j ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (sel) q.corners.forEach(p => {
+      ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(p[0]*k, p[1]*k, 9, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(p[0]*k, p[1]*k, 6, 0, Math.PI*2); ctx.fill();
+    });
+    // label chip
+    const d = quadDisplay(q);
+    const label = (i+1) + ". " + d.name + (q.match ? " " + Math.round(q.match.conf*100) + "%" : "");
+    const cx = Math.min.apply(null, q.corners.map(p=>p[0]))*k;
+    const cy = Math.max(14, Math.min.apply(null, q.corners.map(p=>p[1]))*k - 6);
+    ctx.font = "700 13px -apple-system,Segoe UI,Roboto,sans-serif";
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = "rgba(4,20,34,.82)";
+    ctx.fillRect(cx, cy-14, tw+12, 19);
+    ctx.fillStyle = col;
+    ctx.fillText(label, cx+6, cy);
+  });
+}
+
+function renderBxInfo(){
+  const el = $("bx-info");
+  const i = scanCtx.selected;
+  if (i < 0 || !scanCtx.quads[i]){
+    el.innerHTML = `<div class="muted" style="margin-top:9px">Tap a box to check or change its card. Green boxes are confident matches, yellow need a look, red need your pick.</div>`;
+    return;
+  }
+  const q = scanCtx.quads[i];
+  const d = quadDisplay(q);
+  const st = boxState(q);
+  const confTxt = q.match ? Math.round(q.match.conf*100) + "% match" : "not identified";
+  const cls = st === "hi" ? "hi" : st === "mid" ? "mid" : "lo";
+  let cands = "";
+  if (q.match && q.match.candidates && q.match.candidates.length){
+    cands = `<div class="bx-cands">` + q.match.candidates.slice(0,3).map(c => {
+      const card = pageCard(c.cardId);
+      if (!card) return "";
+      const label = pageNames(card).split(" / ")[0];
+      const sel = q.match.cardId === c.cardId ? " sel" : "";
+      return `<button class="btn${sel}" data-cand="${esc(c.cardId)}">${esc(label)}<br><span class="muted">${Math.round(c.conf*100)}%</span></button>`;
+    }).join("") + `</div>`;
+  }
+  const sym = q.match && !q.match.symbolConfident ?
+    `<div class="warnbox" style="margin:8px 0 0">The symbol on this card wasn't clear, tap “Which copy?” and check the symbol printed on the physical card.</div>` : "";
+  el.innerHTML = `<div class="bx-card">
+    <div class="bh">
+      <div class="art" style="${d.uid ? artStyle(d.uid) : ""}"></div>
+      <div style="flex:1">
+        <div class="nm">${esc(d.name)}</div>
+        <div class="cf ${cls}">${confTxt}${q.dup ? " · ⚠ duplicate" : ""}</div>
+      </div>
+      <button class="btn small warn" id="bx-remove">Remove</button>
+    </div>
+    ${sym}
+    ${cands}
+    <div class="row" style="margin-top:9px">
+      <button class="btn small secondary" id="bx-change" style="flex:1">🔎 Change Card</button>
+      <button class="btn small secondary" id="bx-copy" style="flex:1">♠ Which Copy?</button>
+    </div>
+    <div class="muted" style="margin-top:7px">Drag the white corner dots to fit the card tightly, then tap “Re-identify Boxes”.</div>
+  </div>`;
+  $("bx-remove").onclick = () => { scanCtx.quads.splice(i,1); scanCtx.selected = -1; rebuildFromBoxes(); };
+  el.querySelectorAll("[data-cand]").forEach(b => b.onclick = () => overrideBoxPage(i, b.dataset.cand));
+  $("bx-change").onclick = () => {
+    const card = q.match && pageCard(q.match.cardId);
+    const sideGuess = card ? (card.kind === "o" ? "ocean" : Object.keys(card.halves)[0]) : "ocean";
+    pickCard(sideGuess, (uid) => overrideBoxUid(i, uid));
+  };
+  $("bx-copy").onclick = () => {
+    const card = q.match && pageCard(q.match.cardId);
+    if (!card) { toast("Pick the card first with “Change Card”", true); return; }
+    const side = (q.assigned && q.assigned.side) || Object.keys(card.halves)[0];
+    const half = card.halves[side] || card.halves[Object.keys(card.halves)[0]];
+    pickVariantOf(half.n, side === "ocean" ? "ocean" : side, (uid) => overrideBoxUid(i, uid));
+  };
+}
+
+function overrideBoxUid(i, uid){
+  const pageId = uidToPageId(uid);
+  if (!pageId || !pageCard(pageId)) { toast("That card isn't in the scan library", true); return; }
+  overrideBoxPage(i, pageId);
+}
+function overrideBoxPage(i, pageId){
+  const card = pageCard(pageId);
+  const q = scanCtx.quads[i];
+  if (!card || !q) return;
+  const prev = (q.match && q.match.candidates) || [];
+  q.match = {cardId: pageId, kind: card.kind, flip: false, sim: 1, conf: 0.99,
+             symbolConfident: true, overridden: true,
+             candidates: [{cardId: pageId, sim: 1, conf: 0.99}]
+               .concat(prev.filter(c => c.cardId !== pageId)).slice(0, 3)};
+  rebuildFromBoxes();
+}
+
+function renderBxWarnings(){
+  const box = $("bx-warnings");
+  const a = scanCtx.assembled;
+  const res = scanCtx.result;
+  const meta = {
+    needsRetake: res.needsRetake, retakeReasons: res.retakeReasons, quality: res.quality,
+    lowConfidence: a ? a.lowConfidence : [], warnings: a ? a.warnings : [],
+  };
+  renderDetectionFeedback(box, meta, () => runScan(scanCtx.flow, scanCtx.seat, false));
+}
+
+// canvas interaction: select boxes, drag corners, drag whole boxes
+(function bxPointer(){
+  const cv = $("bx-canvas");
+  let drag = null; // {qi, corner|-1 for whole box, lastX, lastY}
+  function evPos(e){
+    const r = cv.getBoundingClientRect();
+    const k = bxMetrics().k;
+    return [ (e.clientX - r.left) * (cv.width / r.width) / k,
+             (e.clientY - r.top) * (cv.height / r.height) / k ];
+  }
+  cv.addEventListener("pointerdown", e => {
+    if (!scanCtx) return;
+    cv.setPointerCapture(e.pointerId);
+    const [x, y] = evPos(e);
+    const rr = 30 / bxMetrics().k; // grab radius in image px (~30 canvas px)
+    // 1) corner of the selected box
+    if (scanCtx.selected >= 0){
+      const q = scanCtx.quads[scanCtx.selected];
+      if (q) for (let j = 0; j < 4; j++){
+        if (Math.hypot(q.corners[j][0]-x, q.corners[j][1]-y) < rr){
+          drag = {qi: scanCtx.selected, corner: j}; return;
+        }
+      }
+    }
+    // 2) tap inside a box → select it (topmost = smallest area wins)
+    let hit = -1, hitArea = Infinity;
+    scanCtx.quads.forEach((q, i) => {
+      const xs = q.corners.map(p=>p[0]), ys = q.corners.map(p=>p[1]);
+      const inX = x >= Math.min(...xs) && x <= Math.max(...xs);
+      const inY = y >= Math.min(...ys) && y <= Math.max(...ys);
+      if (inX && inY){
+        const area = (Math.max(...xs)-Math.min(...xs)) * (Math.max(...ys)-Math.min(...ys));
+        if (area < hitArea){ hitArea = area; hit = i; }
+      }
+    });
+    if (hit >= 0){
+      if (hit === scanCtx.selected) drag = {qi: hit, corner: -1, lastX: x, lastY: y};
+      scanCtx.selected = hit;
+      drawBoxes(); renderBxInfo();
+      return;
+    }
+    scanCtx.selected = -1;
+    drawBoxes(); renderBxInfo();
+  });
+  cv.addEventListener("pointermove", e => {
+    if (!drag || !scanCtx) return;
+    const [x, y] = evPos(e);
+    const q = scanCtx.quads[drag.qi];
+    if (!q) { drag = null; return; }
+    const iw = scanCtx.imageData.width, ih = scanCtx.imageData.height;
+    if (drag.corner >= 0){
+      q.corners[drag.corner] = [Math.max(0, Math.min(iw-1, x)), Math.max(0, Math.min(ih-1, y))];
+    } else {
+      const dx = x - drag.lastX, dy = y - drag.lastY;
+      drag.lastX = x; drag.lastY = y;
+      q.corners = q.corners.map(p => [Math.max(0, Math.min(iw-1, p[0]+dx)),
+                                      Math.max(0, Math.min(ih-1, p[1]+dy))]);
+    }
+    q._moved = true;
+    drawBoxes();
+  });
+  const end = e => {
+    if (drag && scanCtx){ rebuildFromBoxes(); }
+    drag = null;
+  };
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+})();
+
+$("bx-add").onclick = () => {
+  if (!scanCtx) return;
+  const iw = scanCtx.imageData.width, ih = scanCtx.imageData.height;
+  const h = Math.round(ih * 0.30), w = Math.round(h * 5 / 7);
+  const cx = iw / 2, cy = ih / 2;
+  scanCtx.quads.push({id: "m" + Date.now(), corners: [
+    [cx-w/2, cy-h/2], [cx+w/2, cy-h/2], [cx+w/2, cy+h/2], [cx-w/2, cy+h/2]],
+    touchesBorder: false, match: null});
+  scanCtx.selected = scanCtx.quads.length - 1;
+  rebuildFromBoxes();
+  toast("Drag the corners onto the missed card, then tap Re-identify");
+};
+$("bx-reid").onclick = () => {
+  if (!scanCtx) return;
+  toast("Re-identifying…");
+  setTimeout(() => {
+    const m = mainMatcher();
+    if (!m) return;
+    const fresh = SnapVisionCore.identifyQuads(scanCtx.imageData, scanCtx.quads.map(q => q.corners), m);
+    scanCtx.quads = fresh;
+    rebuildFromBoxes();
+  }, 30);
+};
+$("bx-retake").onclick = () => runScan(scanCtx.flow, scanCtx.seat, false);
+$("bx-cancel").onclick = () => {
+  if (!scanCtx) { show("v-home"); return; }
+  show(scanCtx.flow === "solo" ? "v-solo" : "v-session");
+};
+$("bx-continue").onclick = () => {
+  if (!scanCtx) return;
+  const merged = mergeBoards(scanCtx.baseBoard, scanCtx.assembled ? scanCtx.assembled.board : emptyBoard());
+  const meta = {
+    warnings: scanCtx.assembled ? scanCtx.assembled.warnings : [],
+    lowConfidence: scanCtx.assembled ? scanCtx.assembled.lowConfidence : [],
+    needsRetake: scanCtx.result.needsRetake, retakeReasons: scanCtx.result.retakeReasons,
+    quality: scanCtx.result.quality,
+  };
+  if (scanCtx.flow === "solo"){
+    soloBoard = merged;
+    renderDetectionFeedback($("solo-warnings"), meta, () => runScan("solo", null, false));
+    soloRenderEditor();
+    show("v-solo");
+    $("solo-review").classList.remove("hide");
+  } else {
+    seatEditState = {seat: scanCtx.seat, board: merged, warnings: meta.warnings,
+                     lowConfidence: meta.lowConfidence, needsRetake: meta.needsRetake,
+                     retakeReasons: meta.retakeReasons, quality: meta.quality};
+    openSeatEditor(scanCtx.seat, true);
+  }
+};
 
 // ═══ SOLO FLOW ═════════════════════════════════════════════════════════════
 let soloBoard = emptyBoard();
@@ -769,29 +1219,9 @@ function soloReset(){
   $("solo-busy").classList.add("hide");
   $("solo-photo").disabled = false;
 }
-async function soloScan(prior){
-  const dataUrl = await capturePhoto();
-  if (!dataUrl) return;
-  $("solo-busy").classList.remove("hide");
-  $("solo-review").classList.add("hide");
-  try {
-    const body = {image: dataUrl};
-    if (prior) body.priorBoard = boardToNameView(soloBoard);
-    const r = await api("/api/snap/detect", body);
-    soloBoard = {oceans: (r.board && r.board.oceans) || []};
-    renderDetectionFeedback($("solo-warnings"), r, () => { soloBoard = emptyBoard(); soloScan(false); });
-    soloRenderEditor();
-    $("solo-review").classList.remove("hide");
-    if (r.needsRetake) toast("Photo wasn't clear — tap Retake for an accurate score", true);
-  } catch (e) { toast(e.message, true); }
-  $("solo-busy").classList.add("hide");
-}
-$("solo-photo").onclick = async () => {
-  if (!VISION_ENABLED) { toast(visionOffMessage(), true); soloManualStart(); return; }
-  soloScan(false);
-};
-$("solo-retake").onclick = () => { soloBoard = emptyBoard(); soloScan(false); };
-$("solo-addphoto").onclick = () => soloScan(true);
+$("solo-photo").onclick = () => runScan("solo", null, false);
+$("solo-retake").onclick = () => { soloBoard = emptyBoard(); runScan("solo", null, false); };
+$("solo-addphoto").onclick = () => runScan("solo", null, true);
 function soloManualStart(){
   soloBoard = emptyBoard();
   $("solo-warnings").innerHTML = "";
@@ -810,7 +1240,7 @@ $("solo-confirm").onclick = async () => {
     $("solo-breakdown").innerHTML = p.breakdown.map(b =>
       `<li><span>${b.kind==="ocean"?"🌊":"🐟"} ${esc(b.n)}${b.kind==="ocean"?"":" · on "+esc(b.ocean)}</span><span class="pts">${b.pts>=0?"+":""}${b.pts}</span></li>`).join("");
     $("solo-compare-note").textContent =
-      'Bonuses like "most animals" assume you had the most at the table — score everyone in a Multiplayer Session for exact head-to-head bonuses.';
+      'Bonuses like "most animals" assume you had the most at the table, score everyone in a Multiplayer Session for exact head-to-head bonuses.';
     if (r.warnings && r.warnings.length) toast(r.warnings[0], true);
     $("solo-review").classList.add("hide");
     $("solo-result").classList.remove("hide");
@@ -834,10 +1264,10 @@ function renderCreateAuth(){
   const box = $("create-auth"); if (!box) return;
   if (USER) {
     box.innerHTML = `<div class="warnbox" style="background:#e7f7ef;border-color:#bfe6d2;color:#0c6a44">
-      ✅ Signed in as <b>${esc(USER.displayName||USER.email||"you")}</b> — this game will count on your account.</div>`;
+      ✅ Signed in as <b>${esc(USER.displayName||USER.email||"you")}</b>, this game will count on your account.</div>`;
     if (!$("create-name").value) $("create-name").value = (USER.displayName||"").slice(0,24);
   } else {
-    box.innerHTML = `<div class="warnbox">You're not signed in — you can host as a guest, but only connected accounts receive XP, achievements, and history. <a class="link" href="#" id="create-signin">Sign in</a></div>`;
+    box.innerHTML = `<div class="warnbox">You're not signed in, you can host as a guest, but only connected accounts receive XP, achievements, and history. <a class="link" href="#" id="create-signin">Sign in</a></div>`;
     const a = $("create-signin"); if (a) a.onclick = (e)=>{e.preventDefault(); signIn();};
   }
 }
@@ -896,7 +1326,7 @@ $("sess-copy").onclick = async () => {
 };
 $("sess-share").onclick = async () => {
   const url = location.origin + location.pathname + "?join=" + SESS.code;
-  const data = {title:"Snap & Score", text:`Join our Currents & Critters score session — code ${SESS.code}`, url};
+  const data = {title:"Snap & Score", text:`Join our Currents & Critters score session, code ${SESS.code}`, url};
   if (navigator.share) { try { await navigator.share(data); } catch {} }
   else { try { await navigator.clipboard.writeText(url); toast("Invite link copied!"); } catch {} }
 };
@@ -928,8 +1358,8 @@ function renderSession(){
         <div class="nm">${s.seat+1}. ${esc(s.name)}${mine?" (you)":""}${scoreTxt}</div>
         ${seatChip(s)}
       </div>
-      ${s.kind==="offline" ? `<div class="muted">No device — anyone can scan &amp; confirm this board.</div>` :
-        (s.connectedAccount ? `<div class="muted">Account connected ✓</div>` : `<div class="muted">Guest — no rewards unless an account is connected before approval.</div>`)}
+      ${s.kind==="offline" ? `<div class="muted">No device, anyone can scan &amp; confirm this board.</div>` :
+        (s.connectedAccount ? `<div class="muted">Account connected ✓</div>` : `<div class="muted">Guest, no rewards unless an account is connected before approval.</div>`)}
       ${(s.warnings||[]).length && (mine||isHost) ? `<div class="warnbox" style="margin:8px 0 0">${s.warnings.slice(0,3).map(w=>"⚠️ "+esc(w)).join("<br>")}</div>` : ""}
       <div class="acts">
         ${canPhoto && v.status!=="finalized" ? `<button class="btn small" data-photo="${s.seat}">📸 ${s.hasBoard?"Rescan":"Photograph"} board</button>` : ""}
@@ -946,7 +1376,7 @@ function renderSession(){
     `<div class="row" style="margin-top:8px">
        <button class="btn small secondary" id="add-offline" style="flex:1">➕ Add a player without a phone (${joined}/${total} added)</button>
      </div>` :
-    (joined < total ? `<div class="muted" style="margin-top:8px">${joined}/${total} players added — waiting for the rest to join with the code.</div>` : "");
+    (joined < total ? `<div class="muted" style="margin-top:8px">${joined}/${total} players added, waiting for the rest to join with the code.</div>` : "");
   const ao = $("add-offline");
   if (ao) ao.onclick = async () => {
     const name = prompt("Player's name:"); if (!name) return;
@@ -957,7 +1387,7 @@ function renderSession(){
   // guest link-account
   const me = v.seats.find(s => s.seat === meSeat);
   $("sess-link-account").innerHTML = (me && !me.connectedAccount && me.kind!=="offline" && v.status!=="finalized") ?
-    `<div class="warnbox" style="margin-top:10px">You're a guest — connect your Currents &amp; Critters account <b>before final approval</b> to receive XP, achievements, avatars, and game history. <a class="link" href="#" id="link-acct">Connect account</a></div>` : "";
+    `<div class="warnbox" style="margin-top:10px">You're a guest, connect your Currents &amp; Critters account <b>before final approval</b> to receive XP, achievements, avatars, and game history. <a class="link" href="#" id="link-acct">Connect account</a></div>` : "";
   const la = $("link-acct");
   if (la) la.onclick = async (e) => {
     e.preventDefault();
@@ -979,7 +1409,7 @@ function renderSession(){
       `Still waiting for approval from: <b>${v.awaitingApproval.map(esc).join(", ")}</b>` : "";
     const approvedAlready = me && me.approved;
     $("sess-approve").disabled = !!approvedAlready || !me || me.kind === "offline";
-    $("sess-approve").textContent = approvedAlready ? "✅ Approved — waiting for the others" : "✅ I Approve My Board and Score";
+    $("sess-approve").textContent = approvedAlready ? "✅ Approved, waiting for the others" : "✅ I Approve My Board and Score";
   } else rp.classList.add("hide");
 
   // results panel
@@ -1013,7 +1443,7 @@ function renderStandings(el, preview, meSeat, final){
 function myRewardsHtml(r){
   const isAcct = r.kind === "account";
   let html = `<h3>Your expected rewards</h3>`;
-  if (!isAcct) return html + `<div class="warnbox">Guests don't receive XP or unlocks — connect your account above before approving to claim these.</div>`;
+  if (!isAcct) return html + `<div class="warnbox">Guests don't receive XP or unlocks, connect your account above before approving to claim these.</div>`;
   html += `<div class="rewardline">🎖️ Game XP (${r.placement===1?"1st place":r.placement===2?"2nd place":r.placement===3?"3rd place":"participation"})<span class="xp">+${r.xpGame} XP</span></div>`;
   for (const a of (r.achievements||[]))
     html += `<div class="rewardline">🏅 ${esc(a.name)}<span class="xp">+${a.xp} XP</span></div>`;
@@ -1030,7 +1460,7 @@ function renderResults(el, v){
     <h2 style="text-align:center">🏆 ${esc(res.winner)} wins!</h2>
     <div id="res-stand"></div>
     ${myRow ? `<div class="panel" style="box-shadow:none;border:1.5px solid var(--line);margin:10px 0">
-      <h3 style="margin-top:0">Your result — ${myRow.score} points (${myRow.placement===1?"1st":myRow.placement===2?"2nd":myRow.placement===3?"3rd":myRow.placement+"th"})</h3>
+      <h3 style="margin-top:0">Your result, ${myRow.score} points (${myRow.placement===1?"1st":myRow.placement===2?"2nd":myRow.placement===3?"3rd":myRow.placement+"th"})</h3>
       ${myRow.kind==="account" ?
         (granted ? myRewardsHtml(myRow) + `<div class="chip ok" style="margin-top:8px">✓ Game added to your history</div>` :
                    `<div class="warnbox">${esc(res.note||"Rewards are pending review.")}</div>`) :
@@ -1047,22 +1477,8 @@ function renderResults(el, v){
   $("res-again").onclick = () => { stopPolling(); clearSess(); show("v-home"); };
 }
 
-async function seatPhoto(seatNo, addMore){
-  if (!VISION_ENABLED) { openSeatEditor(seatNo); toast(visionOffMessage(), true); return; }
-  const dataUrl = await capturePhoto();
-  if (!dataUrl) return;
-  toast("Identifying cards…");
-  try {
-    const body = {...credBody(), seat: seatNo, image: dataUrl};
-    if (addMore && seatEditState && seatEditState.seat === seatNo)
-      body.priorBoard = boardToNameView(seatEditState.board);
-    const r = await api("/api/snap/detect", body);
-    seatEditState = {seat: seatNo, board: {oceans:(r.board&&r.board.oceans)||[]},
-                     warnings: r.warnings, lowConfidence: r.lowConfidence,
-                     needsRetake: r.needsRetake, retakeReasons: r.retakeReasons, quality: r.quality};
-    openSeatEditor(seatNo, true);
-    if (r.needsRetake) toast("Photo wasn't clear — tap Retake for an accurate score", true);
-  } catch (e) { toast(e.message, true); }
+function seatPhoto(seatNo, addMore){
+  runScan("seat", seatNo, !!addMore);
 }
 function openSeatEditor(seatNo, fresh){
   if (!fresh || !seatEditState || seatEditState.seat !== seatNo) {
@@ -1070,7 +1486,7 @@ function openSeatEditor(seatNo, fresh){
       seatEditState = {seat: seatNo, board: emptyBoard(), warnings: [], lowConfidence: []};
   }
   const seat = (sessView.seats||[]).find(s => s.seat === seatNo);
-  $("se-title").textContent = `Board — ${seat ? seat.name : "Player " + (seatNo+1)}`;
+  $("se-title").textContent = `Board, ${seat ? seat.name : "Player " + (seatNo+1)}`;
   renderDetectionFeedback($("se-warnings"), seatEditState, () => seatPhoto(seatEditState.seat, false));
   const rerender = () => renderEditor($("se-editor"), seatEditState.board, rerender);
   rerender();

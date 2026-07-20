@@ -4,29 +4,33 @@
 Serves score.currentsandcritters.com (same Render service as the game; the
 subdomain is routed by Host header in multiplayer_server.py). Two flows:
 
-  • Score My Board (guest): photo → Claude vision detects the cards → the
-    OFFICIAL scoring engine (fish.final_points) computes the score → shown to
-    the player. No account, no rewards, nothing stored.
+  • Score My Board (guest): the photo is recognized ENTIRELY IN THE BROWSER
+    (snap-vision-core.js against the prebuilt snap-card-library.json — no
+    vision API, no photo upload), then the OFFICIAL scoring engine
+    (fish.final_points) computes the score. No account, no rewards, nothing
+    stored.
 
   • Multiplayer Score Session: one player creates a session (unique code),
-    everyone joins (account or guest), each board is photographed + confirmed,
-    every joined player approves the standings, then a server-side Firestore
-    transaction awards XP / achievements / avatars / history EXACTLY ONCE via
-    a rewardLedger with deterministic doc ids. The browser never writes
-    rewards — every grant happens here with firebase-admin.
+    everyone joins (account or guest), each board is photographed (recognized
+    on-device) + confirmed, every joined player approves the standings, then a
+    server-side Firestore transaction awards XP / achievements / avatars /
+    history EXACTLY ONCE via a rewardLedger with deterministic doc ids. The
+    browser never writes rewards — every grant happens here with
+    firebase-admin. Instead of the photo, the client submits anti-cheat
+    EVIDENCE (sha256 + dHash + a small review thumbnail) via
+    /api/snap/session/photo.
 
-The AI only ever IDENTIFIES cards. Scores, placements, XP, achievements and
-unlocks are always computed by the engine + the whitelists below, both for the
-preview shown before approval and (recomputed from scratch) at finalization.
+Recognition only ever IDENTIFIES cards, and the player must confirm the board
+by hand. Scores, placements, XP, achievements and unlocks are always computed
+by the engine + the whitelists below, both for the preview shown before
+approval and (recomputed from scratch) at finalization.
 
 Wired into multiplayer_server.py via init() + handle_get()/handle_post().
 """
 
 from __future__ import annotations
 
-import base64
 import hashlib
-import io
 import json
 import os
 import re
@@ -46,9 +50,11 @@ _verify_token: Callable[[str], Optional[dict]] = lambda tok: None
 _level_progress: Callable[[Any], Tuple[int, int, int]] = lambda xp: (1, 0, 50)
 _STATE_DIR = "."
 
-# Photos arrive as base64 data URLs inside JSON; the game server's normal JSON
-# cap (128KB) is far too small, so snap endpoints read their own body.
+# Recognition happens in the browser now; sessions submit only hash + dHash +
+# a small review thumbnail. The old 8MB photo cap survives ONLY so pre-update
+# clients posting to the retired /api/snap/detect get a clear message back.
 MAX_PHOTO_BODY_BYTES = 8 * 1024 * 1024
+MAX_EVIDENCE_BODY_BYTES = 512 * 1024
 MAX_JSON_BODY_BYTES = 256 * 1024
 
 SESSION_CODE_LEN = 6
@@ -554,61 +560,31 @@ def _safe_check(d, facts, ctx) -> bool:
 
 
 # ════════════════════════════════════════════════════════════════════════════
-# Claude vision detection (identification ONLY — never scoring)
+# Photo evidence (recognition itself happens in the player's browser)
 # ════════════════════════════════════════════════════════════════════════════
+# The client computes the same anti-cheat signals this module used to derive
+# from the uploaded photo — sha256 of the captured JPEG, a 64-bit dHash, and a
+# small review thumbnail — and submits ONLY those with the detected board.
+# Formats are validated strictly so garbage can't enter the hash registries.
 
-def _vision_status() -> Tuple[bool, str]:
-    """(enabled, reason). Photo detection needs BOTH the ANTHROPIC_API_KEY env
-    var set on the server AND the anthropic SDK importable. The reason string is
-    surfaced to the client so a misconfiguration is diagnosable, not silent:
-      - "no_api_key": set ANTHROPIC_API_KEY on the Render service (it's a
-        `sync: false` secret, so it must be entered in the dashboard, not the repo).
-      - "sdk_missing": the anthropic package didn't import (rebuild the image).
-      - "ok": detection is live.
-    """
-    if not os.environ.get("ANTHROPIC_API_KEY", "").strip():
-        return False, "no_api_key"
-    try:
-        import anthropic  # noqa: F401
-    except Exception:
-        return False, "sdk_missing"
-    return True, "ok"
+_EVIDENCE_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_EVIDENCE_DHASH = re.compile(r"^[0-9a-f]{16}$")
+_EVIDENCE_THUMB = re.compile(r"^data:image/jpeg;base64,[A-Za-z0-9+/=]+$")
+MAX_THUMB_CHARS = 120_000
 
 
-def _vision_enabled() -> bool:
-    return _vision_status()[0]
-
-
-def _decode_data_url(data_url: str) -> Tuple[bytes, str]:
-    m = re.match(r"^data:(image/(?:jpeg|png|webp));base64,(.+)$", data_url or "", re.DOTALL)
-    if not m:
-        raise BoardError("image must be a jpeg/png/webp data URL")
-    raw = base64.b64decode(m.group(2), validate=False)
-    if len(raw) > 6 * 1024 * 1024:
-        raise BoardError("image too large after decoding (max 6MB)")
-    return raw, m.group(1)
-
-
-def _image_hashes(raw: bytes) -> Dict[str, Any]:
-    """sha256 always; dHash + small review thumbnail when Pillow is present."""
-    out: Dict[str, Any] = {"sha256": hashlib.sha256(raw).hexdigest(), "dhash": None, "thumb": None}
-    try:
-        from PIL import Image
-        img = Image.open(io.BytesIO(raw)).convert("L").resize((9, 8))
-        px = list(img.getdata())
-        bits = 0
-        for row in range(8):
-            for col in range(8):
-                bits = (bits << 1) | (1 if px[row * 9 + col] > px[row * 9 + col + 1] else 0)
-        out["dhash"] = f"{bits:016x}"
-        rgb = Image.open(io.BytesIO(raw)).convert("RGB")
-        rgb.thumbnail((320, 320))
-        buf = io.BytesIO()
-        rgb.save(buf, format="JPEG", quality=60)
-        out["thumb"] = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:
-        pass  # Pillow optional — sha256 alone still blocks exact reuse
-    return out
+def _validate_photo_evidence(body: Dict[str, Any]) -> Dict[str, Any]:
+    h = str(body.get("hash") or "").strip().lower()
+    d = str(body.get("dhash") or "").strip().lower()
+    t = body.get("thumb")
+    thumb = None
+    if isinstance(t, str) and len(t) <= MAX_THUMB_CHARS and _EVIDENCE_THUMB.match(t):
+        thumb = t
+    return {
+        "hash": h if _EVIDENCE_SHA256.match(h) else "",
+        "dhash": d if _EVIDENCE_DHASH.match(d) else "",
+        "thumb": thumb,
+    }
 
 
 def _hamming(a: str, b: str) -> int:
@@ -616,378 +592,6 @@ def _hamming(a: str, b: str) -> int:
         return bin(int(a, 16) ^ int(b, 16)).count("1")
     except (TypeError, ValueError):
         return 64
-
-
-# ── deterministic pixel-level photo checks (backstop for the model) ──────────
-# Unambiguous, resolution-independent signals the model can miss: an almost-
-# black frame, a blown-out frame, or a tiny thumbnail. Deliberately does NOT
-# try to judge blur (too many false positives across real photos) — clarity is
-# the model's job. Pillow is optional; without it these all return False.
-
-_MIN_PIXELS = 480 * 480          # under ~0.23MP is too small to read card text
-_DARK_MEAN = 34                  # mean luminance (0-255) below this is too dark
-_BRIGHT_MEAN = 233               # above this is blown out / heavy glare
-
-
-def _photo_pixel_quality(raw: bytes) -> Dict[str, Any]:
-    out = {"tooDark": False, "tooBright": False, "tooSmall": False, "brightness": None}
-    try:
-        from PIL import Image, ImageStat
-        img = Image.open(io.BytesIO(raw))
-        w, h = img.size
-        out["tooSmall"] = (w * h) < _MIN_PIXELS
-        mean = ImageStat.Stat(img.convert("L")).mean[0]
-        out["brightness"] = round(mean, 1)
-        out["tooDark"] = mean < _DARK_MEAN
-        out["tooBright"] = mean > _BRIGHT_MEAN
-    except Exception:
-        pass  # Pillow missing or undecodable — the model's assessment still gates
-    return out
-
-
-_ISSUE_LABELS = {
-    "blurry": "the photo is blurry",
-    "out_of_focus": "the photo is out of focus",
-    "motion_blur": "there's motion blur — hold the phone steady",
-    "too_dark": "the photo is too dark — add more light",
-    "too_bright": "the photo is overexposed — reduce glare",
-    "glare_or_reflection": "there's glare or reflection on the cards",
-    "too_far_away": "the board is too far away — move closer",
-    "cards_cut_off": "some cards are cut off — fit the whole board in frame",
-    "steep_angle": "shoot from straight above, not at an angle",
-    "cards_overlapping": "some cards overlap — spread them apart",
-    "partial_board": "only part of the board is visible",
-    "not_a_board": "no game board was found in the photo",
-}
-
-
-def _retake_decision(detected: Dict[str, Any], pixq: Dict[str, Any]) -> Tuple[bool, List[str]]:
-    """Should the player retake this photo? Combines the model's clarity
-    assessment with unambiguous pixel checks. Returns (needsRetake, reasons).
-
-    A retake is only RECOMMENDED — the review screen still lets the player
-    correct cards by hand and continue, so the final confirmed board is always
-    human-verified. This gate exists so an unclear photo doesn't silently
-    produce a wrong score.
-    """
-    q = detected.get("quality") or {}
-    reasons: List[str] = []
-
-    for issue in q.get("issues") or []:
-        label = _ISSUE_LABELS.get(str(issue))
-        if label and label not in reasons:
-            reasons.append(label)
-    if pixq.get("tooDark") and _ISSUE_LABELS["too_dark"] not in reasons:
-        reasons.append(_ISSUE_LABELS["too_dark"])
-    if pixq.get("tooBright") and _ISSUE_LABELS["too_bright"] not in reasons:
-        reasons.append(_ISSUE_LABELS["too_bright"])
-    if pixq.get("tooSmall"):
-        reasons.append("the photo is low-resolution — move closer or use a sharper camera")
-    if int(detected.get("unreadableCount") or 0) > 0:
-        reasons.append("some cards couldn't be read clearly")
-    if not detected.get("oceans"):
-        reasons.append("no ocean cards were detected — center the whole board in the photo")
-
-    clear = q.get("clear", True)
-    conf = q.get("confidence")
-    low_conf = isinstance(conf, (int, float)) and conf < 0.70
-    needs = bool(reasons) or clear is False or low_conf
-    if needs and not reasons:
-        reasons.append("the board wasn't fully clear — retake for an accurate score")
-
-    # de-dupe, preserve order, cap
-    seen: set = set()
-    ordered = [r for r in reasons if not (r in seen or seen.add(r))]
-    return needs, ordered[:6]
-
-
-def _detection_schema() -> Dict[str, Any]:
-    roster = build_roster()
-    card_item = {
-        "type": "object", "additionalProperties": False,
-        "properties": {
-            "name": {"type": "string", "enum": roster["animalNames"] + ["Unknown"]},
-            "symbol": {"type": "string", "enum": SYMBOLS + ["Unknown"]},
-            "confidence": {"type": "number",
-                           "description": "0-1 confidence this card is identified correctly"},
-            "partially_hidden": {"type": "boolean"},
-        },
-        "required": ["name", "symbol", "confidence", "partially_hidden"],
-    }
-    cards_arr = {"type": "array", "items": card_item}
-    return {
-        "type": "object", "additionalProperties": False,
-        "properties": {
-            # Assessed FIRST, before identifying anything. Drives the retake gate:
-            # a photo that isn't sharp enough to read every card is sent back so
-            # the score is computed from a board the player can actually verify.
-            "image_quality": {
-                "type": "object", "additionalProperties": False,
-                "properties": {
-                    "clear_enough_to_score": {"type": "boolean",
-                        "description": "true ONLY if every ocean and card name AND its "
-                                       "symbol is sharp and readable with no guessing"},
-                    "overall_confidence": {"type": "number",
-                        "description": "0-1 confidence the WHOLE board was read correctly"},
-                    "issues": {"type": "array", "items": {"type": "string", "enum": [
-                        "blurry", "out_of_focus", "motion_blur", "too_dark", "too_bright",
-                        "glare_or_reflection", "too_far_away", "cards_cut_off", "steep_angle",
-                        "cards_overlapping", "partial_board", "not_a_board"]},
-                        "description": "every quality problem you see; empty if the photo is clean"},
-                    "advice": {"type": "string",
-                        "description": "one short sentence telling the player how to retake a "
-                                       "clearer photo (empty if the photo is already clear)"},
-                },
-                "required": ["clear_enough_to_score", "overall_confidence", "issues", "advice"],
-            },
-            "oceans": {"type": "array", "items": {
-                "type": "object", "additionalProperties": False,
-                "properties": {
-                    "ocean": {"type": "string", "enum": roster["oceanNames"] + ["Unknown"]},
-                    "confidence": {"type": "number"},
-                    "up": cards_arr, "down": cards_arr, "left": cards_arr, "right": cards_arr,
-                },
-                "required": ["ocean", "confidence", "up", "down", "left", "right"],
-            }},
-            "unreadable_cards": {"type": "array", "items": {"type": "string"},
-                                 "description": "visible cards that could not be identified"},
-            "notes": {"type": "string"},
-        },
-        "required": ["image_quality", "oceans", "unreadable_cards", "notes"],
-    }
-
-
-_CARD_REF: Optional[str] = None
-
-
-def _clean_card_text(txt: Any) -> str:
-    """Ability text as printed, minus the internal *star* / | markup."""
-    t = str(txt or "").replace("*", "").replace("|", "; ")
-    return re.sub(r"\s+", " ", t).strip()
-
-
-def _card_reference() -> str:
-    """A compact, exact reference for the vision model, built straight from the
-    real card database — every card's name, species, which side it attaches on,
-    the symbols its printed copies actually use, and its ability text. This lets
-    the model confirm a card by cross-referencing the picture, the printed
-    species and ability text, and validate the symbol it reads against the
-    copies that truly exist (symbols change scoring)."""
-    global _CARD_REF
-    if _CARD_REF is not None:
-        return _CARD_REF
-    db = _card_db()
-    side_word = {"up": "above", "down": "below", "left": "left", "right": "right"}
-    oceans: Dict[str, str] = {}
-    animals: Dict[str, Dict[str, Any]] = {}
-    for uid in sorted(db.keys()):
-        cd = db[uid]
-        if _is_end_game(cd):
-            continue
-        if _is_ocean(cd):
-            oceans.setdefault(str(cd.name).strip(), _clean_card_text(cd.text))
-            continue
-        side = _card_dir(cd)
-        if side not in side_word:
-            continue
-        a = animals.setdefault(str(cd.name).strip(),
-                               {"species": str(cd.species or "").strip(),
-                                "sides": set(), "syms": set(), "text": ""})
-        a["sides"].add(side)
-        sym = str(cd.symbol or "").strip()
-        if sym and sym.lower() != "n/a":
-            a["syms"].add(sym)
-        if not a["text"]:
-            a["text"] = _clean_card_text(cd.text)
-    lines = ["OCEAN CARDS (name — ability text):"]
-    for n in sorted(oceans):
-        lines.append(f"- {n} — {oceans[n]}" if oceans[n] else f"- {n}")
-    lines.append("")
-    lines.append("ANIMAL CARDS (name — species — attaches — symbol(s) its copies use — ability text):")
-    for n in sorted(animals):
-        a = animals[n]
-        sides = "/".join(side_word[s] for s in ("up", "down", "left", "right") if s in a["sides"])
-        syms = "/".join(sorted(a["syms"])) or "no symbol"
-        tail = f" — {a['text']}" if a["text"] else ""
-        lines.append(f"- {n} — {a['species']} — {sides} — {syms}{tail}")
-    _CARD_REF = "\n".join(lines)
-    return _CARD_REF
-
-
-def _vision_system_prompt() -> str:
-    return (
-        "You identify cards in photos of finished Currents & Critters boards. Accuracy "
-        "matters more than completeness: a wrong card gives the player a wrong score, so "
-        "when in doubt say \"Unknown\" rather than guess.\n\n"
-        "A board is one or more OCEAN cards laid on the table; each ocean can have "
-        "animal cards attached on up to four sides (above=up, below=down, left, right). "
-        "Up/Down cards are landscape-oriented; Left/Right cards are portrait-oriented — use "
-        "orientation to decide which side a card belongs to. Every card prints its NAME, its "
-        "SPECIES, one SYMBOL (Triangle, Square, Heart, Circle, Diamond), and its ability "
-        "TEXT. Read the name, then CONFIRM it against the animal in the picture, the printed "
-        "species, and the ability text in the reference below. Read the symbol carefully and "
-        "make sure it is one the reference lists for that card — the symbol picks which copy "
-        "it is and changes scoring.\n\n"
-        "Only the names in this reference exist; never report a name that isn't here.\n\n"
-        + _card_reference() + "\n\n"
-        "STEP 1 — assess image_quality FIRST. Set clear_enough_to_score = true ONLY if you "
-        "can sharply read every card's name and symbol with no guessing. If the photo is "
-        "blurry, dark, glared, too far away, at a steep angle, or any card is cut off or "
-        "unreadable, set clear_enough_to_score = false, list the specific issues, and give "
-        "one short sentence of advice (e.g. \"Hold the phone flat above the whole board in "
-        "good light.\"). Be honest with overall_confidence.\n"
-        "STEP 2 — identify only what is genuinely visible. Use \"Unknown\" for any card or "
-        "ocean you cannot read confidently, set partially_hidden on covered cards, and give "
-        "honest per-card confidence values. Never invent a card that isn't clearly there. "
-        "You only identify cards — never compute scores."
-    )
-
-
-def detect_board(image_bytes: bytes, media_type: str,
-                 prior_board: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    """One Claude vision call → detected board in name-space, then mapped to uids."""
-    import anthropic
-    client = anthropic.Anthropic()
-    model = os.environ.get("SNAP_VISION_MODEL", "claude-opus-4-8").strip() or "claude-opus-4-8"
-    instructions = (
-        "Identify every ocean on this player's board and the animal cards attached to "
-        "each side. List oceans left-to-right as laid on the table."
-    )
-    if prior_board:
-        instructions += (
-            "\n\nThis photo may show only PART of the board. Cards already identified from "
-            "earlier photos of the SAME board are below — return the COMBINED board (keep "
-            "prior cards unless this photo clearly contradicts them, and add new ones):\n"
-            + json.dumps(prior_board)[:6000]
-        )
-    resp = client.messages.create(
-        model=model,
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        system=_vision_system_prompt(),
-        messages=[{"role": "user", "content": [
-            {"type": "image",
-             "source": {"type": "base64", "media_type": media_type,
-                        "data": base64.b64encode(image_bytes).decode("ascii")}},
-            {"type": "text", "text": instructions},
-        ]}],
-        output_config={"format": {"type": "json_schema", "schema": _detection_schema()}},
-    )
-    if resp.stop_reason == "refusal":
-        raise BoardError("the image could not be analyzed — try a clearer photo of just the board")
-    text = next((b.text for b in resp.content if b.type == "text"), "")
-    data = json.loads(text)
-    return _detected_names_to_board(data)
-
-
-def _detected_names_to_board(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Map the model's name-space detection onto real card uids.
-
-    Prefers the copy whose printed symbol matches what the model saw (symbols
-    matter for '+N per matching symbol' scoring), falling back to any copy of
-    that name on the right side.
-    """
-    db = _card_db()
-    by_name: Dict[Tuple[str, str], List[int]] = {}
-    name_all_syms: Dict[str, set] = {}   # every symbol printed on any copy of a name
-    name_disp_syms: Dict[str, set] = {}  # same, original casing for messages
-    for uid in sorted(db.keys()):
-        cd = db[uid]
-        if _is_end_game(cd):
-            continue
-        kind = "ocean" if _is_ocean(cd) else _card_dir(cd)
-        nl = str(cd.name).strip().lower()
-        by_name.setdefault((nl, kind), []).append(uid)
-        sym_disp = str(cd.symbol).strip()
-        if sym_disp and sym_disp.lower() != "n/a":
-            name_all_syms.setdefault(nl, set()).add(sym_disp.lower())
-            name_disp_syms.setdefault(nl, set()).add(sym_disp)
-
-    used: set = set()
-    warnings: List[str] = []
-    low_confidence: List[str] = []
-    unreadable = 0  # cards/oceans the model saw but could not read ("Unknown")
-
-    def pick(name: str, kind: str, symbol: str) -> Optional[int]:
-        pool = by_name.get((str(name).strip().lower(), kind)) or []
-        if not pool:
-            # side mismatch (model put a card on the wrong side) — try all sides
-            for (n, k), uids in by_name.items():
-                if n == str(name).strip().lower():
-                    pool = uids
-                    warnings.append(f"{name}: attaches on '{k}', not '{kind}' — check placement")
-                    break
-        sym = str(symbol or "").strip().lower()
-        # The symbol chooses which physical copy this is, and copies score
-        # differently. If the model read a symbol that NO copy of this card
-        # (on any side) carries, it likely misread it — surface that so the
-        # player checks. (Checked name-wide, not per-side, so a left/right side
-        # mix-up doesn't masquerade as a symbol error.)
-        nl = str(name).strip().lower()
-        valid_syms = name_all_syms.get(nl)
-        if sym and valid_syms and sym not in valid_syms:
-            printed = "/".join(sorted(name_disp_syms.get(nl, set()))) or "none"
-            warnings.append(f"{name}: the symbol read ({symbol}) isn't printed on any copy of "
-                            f"this card (its copies use {printed}) — double-check the symbol")
-            low_confidence.append(str(name))
-        symbol_matches = [u for u in pool if u not in used
-                          and str(db[u].symbol).strip().lower() == sym]
-        for bucket in (symbol_matches, [u for u in pool if u not in used], pool):
-            if bucket:
-                used.add(bucket[0])
-                return bucket[0]
-        return None
-
-    oceans_out = []
-    for oc in data.get("oceans") or []:
-        oname = oc.get("ocean") or "Unknown"
-        if oname == "Unknown":
-            unreadable += 1
-            warnings.append("one ocean card could not be identified — add it manually")
-            continue
-        ou = pick(oname, "ocean", "")
-        if ou is None:
-            warnings.append(f"{oname}: not found in the card list")
-            continue
-        if float(oc.get("confidence") or 0) < 0.6:
-            low_confidence.append(oname)
-        entry: Dict[str, Any] = {"u": ou}
-        for side in ("up", "down", "left", "right"):
-            uids = []
-            for c in oc.get(side) or []:
-                cname = c.get("name") or "Unknown"
-                if cname == "Unknown":
-                    unreadable += 1
-                    warnings.append(f"a card on {oname} ({side}) could not be read — add it manually")
-                    continue
-                u = pick(cname, side, c.get("symbol") or "")
-                if u is None:
-                    warnings.append(f"{cname}: not found in the card list")
-                    continue
-                if float(c.get("confidence") or 0) < 0.6:
-                    low_confidence.append(cname)
-                if c.get("partially_hidden"):
-                    warnings.append(f"{cname} on {oname} looks partially covered — double-check it")
-                uids.append(u)
-            entry[side] = uids
-        oceans_out.append(entry)
-
-    for s in data.get("unreadable_cards") or []:
-        unreadable += 1
-        warnings.append(f"unreadable card reported: {str(s)[:80]}")
-    notes = str(data.get("notes") or "").strip()
-
-    q = data.get("image_quality") or {}
-    conf_raw = q.get("overall_confidence")
-    quality = {
-        "clear": bool(q.get("clear_enough_to_score", True)),
-        "confidence": (float(conf_raw) if isinstance(conf_raw, (int, float)) else None),
-        "issues": [str(x) for x in (q.get("issues") or [])][:8],
-        "advice": str(q.get("advice") or "").strip()[:200],
-    }
-    return {"oceans": oceans_out, "warnings": warnings,
-            "lowConfidence": sorted(set(low_confidence)), "notes": notes[:500],
-            "quality": quality, "unreadableCount": unreadable}
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1675,9 +1279,9 @@ def handle_get(handler, parsed) -> bool:
         return False
     try:
         if path == "/api/snap/config":
-            enabled, reason = _vision_status()
-            handler._send_json({"ok": True, "visionEnabled": enabled,
-                                "visionReason": reason,
+            # recognition now runs locally in the browser — always available
+            handler._send_json({"ok": True, "visionEnabled": True,
+                                "visionReason": "local", "localVision": True,
                                 "rosterVersion": build_roster()["version"]})
             return True
         if path == "/api/snap/roster":
@@ -1712,8 +1316,16 @@ def handle_post(handler, parsed) -> bool:  # noqa: C901 — one dispatcher, kept
     path = parsed.path
     if not path.startswith("/api/snap/"):
         return False
-    is_photo = path in ("/api/snap/detect", "/api/snap/score-photo")
-    body, err = _read_json(handler, MAX_PHOTO_BODY_BYTES if is_photo else MAX_JSON_BODY_BYTES)
+    # /session/photo carries a small review thumbnail; the legacy /detect path
+    # still reads a full photo body so pre-update clients get the friendly
+    # "refresh the page" message instead of a size error.
+    if path == "/api/snap/detect":
+        max_body = MAX_PHOTO_BODY_BYTES
+    elif path == "/api/snap/session/photo":
+        max_body = MAX_EVIDENCE_BODY_BYTES
+    else:
+        max_body = MAX_JSON_BODY_BYTES
+    body, err = _read_json(handler, max_body)
     if err:
         handler._send_json({"ok": False, "error": err}, status=HTTPStatus.BAD_REQUEST)
         return True
@@ -1743,65 +1355,63 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         handler._send_json({"ok": True, **score_boards(boards)})
         return
 
-    # ── photo → detection (guest solo AND session seats use this) ───────────
+    # ── legacy photo-upload detection (removed — recognition is on-device) ──
     if path == "/api/snap/detect":
-        if not _vision_enabled():
-            raise BoardError("photo detection isn't configured on this server yet — "
-                             "you can still build your board manually")
-        raw, media_type = _decode_data_url(str(body.get("image") or ""))
-        hashes = _image_hashes(raw)
-        pixq = _photo_pixel_quality(raw)
-        prior = body.get("priorBoard") if isinstance(body.get("priorBoard"), dict) else None
-        detected = detect_board(raw, media_type, prior)
-        # Clarity gate: an unclear photo should be retaken, not silently scored.
-        # A rescan that MERGES onto an already-verified board (priorBoard) never
-        # forces a retake — the player is only adding a corner they already have.
-        needs_retake, retake_reasons = _retake_decision(detected, pixq)
-        if prior:
-            needs_retake, retake_reasons = False, []
-        # Score preview for the detected board (solo flow shows it instantly).
-        preview = None
-        try:
-            preview = score_boards([{"name": "You", "oceans": detected["oceans"]}],
-                                   with_breakdown=False)["players"][0]
-        except BoardError:
-            pass
-        out = {"ok": True, "board": {"oceans": detected["oceans"]},
-               "warnings": detected["warnings"], "lowConfidence": detected["lowConfidence"],
-               "notes": detected["notes"], "hash": hashes["sha256"],
-               "scorePreview": preview,
-               "needsRetake": needs_retake, "retakeReasons": retake_reasons,
-               "quality": detected.get("quality") or {}}
-        # Attached to a session seat → store photo evidence + detection there.
+        raise BoardError("card scanning now runs right on your device — refresh "
+                         "this page to get the update, then take the photo again")
+
+    # ── session photo evidence (detection already happened in the browser) ──
+    # Stores the anti-cheat signals + the locally detected board on a seat,
+    # exactly like the old photo-upload path did — minus the photo itself.
+    if path == "/api/snap/session/photo":
         code = str(body.get("code") or "").upper()
-        if code:
-            token = str(body.get("playerToken") or "")
-            with _SESSIONS_LOCK:
-                session = _SESSIONS.get(code)
-                if not session:
-                    raise BoardError("no session with that code")
-                if session["status"] == "finalized":
-                    raise BoardError("that game is already finalized")
-                seat_req = _seat_for_token(session, token)
-                if not seat_req:
-                    raise BoardError("you are not part of that session")
-                target_no = body.get("seat")
-                target = next((s for s in session["seats"]
-                               if s["seat"] == int(target_no if target_no is not None else seat_req["seat"])), None)
-                if not target:
-                    raise BoardError("no such seat")
-                target["photoHashes"] = (target.get("photoHashes") or [])[-7:] + [hashes["sha256"]]
-                target["photoDhashes"] = (target.get("photoDhashes") or [])[-7:] + \
-                    ([hashes["dhash"]] if hashes["dhash"] else [])
-                target["thumb"] = hashes["thumb"] or target.get("thumb")
-                target["detectedBoard"] = {"oceans": detected["oceans"]}
-                target["detectedView"] = _detected_view(detected["oceans"])
-                target["warnings"] = detected["warnings"]
-                target["status"] = "photographed"
-                target["confirmedBoard"] = None
-                _reset_approvals_locked(session, reason="board rescanned")
-                _persist_sessions_locked()
-        handler._send_json(out)
+        token = str(body.get("playerToken") or "")
+        with _SESSIONS_LOCK:
+            session = _SESSIONS.get(code)
+            if not session:
+                raise BoardError("no session with that code")
+            if session["status"] == "finalized":
+                raise BoardError("that game is already finalized")
+            seat_req = _seat_for_token(session, token)
+            if not seat_req:
+                raise BoardError("you are not part of that session")
+            target_no = body.get("seat")
+            target = next((s for s in session["seats"]
+                           if s["seat"] == int(target_no if target_no is not None else seat_req["seat"])), None)
+            if not target:
+                raise BoardError("no such seat")
+            evidence = _validate_photo_evidence(body)
+            board = body.get("board")
+            oceans = board.get("oceans") if isinstance(board, dict) else None
+            if not isinstance(oceans, list):
+                oceans = []
+            warnings = [str(w)[:160] for w in (body.get("warnings") or [])
+                        if isinstance(w, str)][:12]
+            # a detected board that doesn't survive normalization is stored as
+            # empty (the player builds by hand) — evidence is never lost to a
+            # malformed detection
+            if oceans:
+                try:
+                    score_boards([{"name": target["name"], "oceans": oceans}],
+                                 with_breakdown=False)
+                except BoardError as exc:
+                    warnings = ([f"detected board couldn't be used ({exc}) — "
+                                 "build it by hand"] + warnings)[:12]
+                    oceans = []
+            if evidence["hash"]:
+                target["photoHashes"] = (target.get("photoHashes") or [])[-7:] + [evidence["hash"]]
+            if evidence["dhash"]:
+                target["photoDhashes"] = (target.get("photoDhashes") or [])[-7:] + [evidence["dhash"]]
+            target["thumb"] = evidence["thumb"] or target.get("thumb")
+            target["detectedBoard"] = {"oceans": oceans}
+            target["detectedView"] = _detected_view(oceans)
+            target["warnings"] = warnings
+            target["status"] = "photographed"
+            target["confirmedBoard"] = None
+            _reset_approvals_locked(session, reason="board rescanned")
+            _persist_sessions_locked()
+            handler._send_json({"ok": True,
+                                "session": session_view(session, seat_req["seat"])})
         return
 
     # ── session lifecycle ──────────────────────────────────────────────────
