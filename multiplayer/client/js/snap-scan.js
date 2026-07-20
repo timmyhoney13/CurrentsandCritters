@@ -37,7 +37,9 @@
     if (workerBroken) return null;
     if (worker) return worker;
     try {
-      worker = new Worker("/js/snap-vision-worker.js");
+      // version in the URL: the worker forwards it to its importScripts so a
+      // cached old core can never pair with a newer library
+      worker = new Worker("/js/snap-vision-worker.js?v=" + (window.SNAP_LIBRARY_V || "1"));
     } catch (e) {
       workerBroken = true;
       return null;

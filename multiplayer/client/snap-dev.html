@@ -174,7 +174,11 @@ function renderTable(){
         const dd = 1 - SnapVisionCore.hamming(d.d, ref.d)/64;
         const col = 1 - SnapVisionCore.colorDist(d.c, ref.c);
         const e = 1 - SnapVisionCore.edgeDist(d.e, ref.e);
-        return `<div><b>${c.cardId}</b> conf ${(c.conf*100)|0}% · p ${p.toFixed(2)} d ${dd.toFixed(2)} c ${col.toFixed(2)} e ${e.toFixed(2)}</div>`;
+        let hc;
+        if (ref.kind === "h") hc = 1 - (SnapVisionCore.colorDist(d.hh[0], ref.hc[0]) + SnapVisionCore.colorDist(d.hh[1], ref.hc[1])) / 2;
+        else if (ref.kind === "v") hc = 1 - (SnapVisionCore.colorDist(d.hv[0], ref.hc[0]) + SnapVisionCore.colorDist(d.hv[1], ref.hc[1])) / 2;
+        else hc = 1 - SnapVisionCore.colorDist(d.c, ref.hc[0]);
+        return `<div><b>${c.cardId}</b> conf ${(c.conf*100)|0}% · p ${p.toFixed(2)} d ${dd.toFixed(2)} c ${col.toFixed(2)} e ${e.toFixed(2)} hc ${hc.toFixed(2)}</div>`;
       }).join("");
     }
     const cls = !m ? "conf-lo" : m.conf >= 0.9 ? "conf-hi" : m.conf >= 0.7 ? "conf-mid" : "conf-lo";

@@ -13,7 +13,9 @@
  */
 "use strict";
 
-importScripts("/js/snap-vision-core.js");
+// carry the ?v= cache-bust from our own URL into the core import so the
+// worker's core version always matches the page's library version
+importScripts("/js/snap-vision-core.js" + (self.location && self.location.search ? self.location.search : ""));
 
 var LIBRARY = null;
 

@@ -51,7 +51,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUT_LIBRARY = os.path.join(BASE_DIR, "multiplayer", "client", "snap-card-library.json")
 OUT_FIXTURES = os.path.join(BASE_DIR, "test_snap_vision_fixtures.json")
 
-DESCRIPTOR_VERSION = 1
+DESCRIPTOR_VERSION = 2      # v2: per-channel normalize + per-half color layouts
 CARD_W, CARD_H = 200, 280   # canonical portrait working size (5:7)
 BASE_N = 64                 # square base the descriptors are computed from
 GRAY_N = 32                 # pHash / edge-histogram working size
@@ -169,6 +169,15 @@ def color_layout(base_rgb):
     return [max(0, min(255, r05(v))) for v in c44]
 
 
+# Orientation-bin boundaries at k·π/8: exact same literals live in
+# snap-vision-core.js — binning via IEEE multiply/compare (no atan2/hypot,
+# whose last-bit platform differences would break cross-language parity).
+_EDGE_SIN = (0.3826834323650898, 0.7071067811865476, 0.9238795325112867, 1.0,
+             0.9238795325112867, 0.7071067811865476, 0.3826834323650898)
+_EDGE_COS = (0.9238795325112867, 0.7071067811865476, 0.3826834323650898, 0.0,
+             -0.3826834323650898, -0.7071067811865476, -0.9238795325112867)
+
+
 def edge_hist(gray32):
     n = GRAY_N
     hist = [0.0] * 8
@@ -179,38 +188,69 @@ def edge_hist(gray32):
                   - gray32[i - n - 1] - 2 * gray32[i - 1] - gray32[i + n - 1])
             gy = (gray32[i + n - 1] + 2 * gray32[i + n] + gray32[i + n + 1]
                   - gray32[i - n - 1] - 2 * gray32[i - n] - gray32[i - n + 1])
-            mag = math.hypot(gx, gy)
+            mag = math.sqrt(gx * gx + gy * gy)
             if mag < 1e-9:
                 continue
-            ang = math.atan2(gy, gx)
-            if ang < 0:
-                ang += math.pi
-            b = int(ang / math.pi * 8)
-            hist[min(7, b)] += mag
+            if gy < 0 or (gy == 0 and gx < 0):   # canonicalize direction to [0, π)
+                gx, gy = -gx, -gy
+            b = 0
+            for k in range(7):
+                if gy * _EDGE_COS[k] - gx * _EDGE_SIN[k] >= 0:
+                    b += 1
+            hist[b] += mag
     total = sum(hist) or 1.0
     return [math.floor(h / total * 100000 + 0.5) / 100000 for h in hist]
 
 
 def normalize_rgb(rgb, count):
-    """2–98 percentile luma stretch applied to all channels (shared by refs and
-    photo crops so lighting differences mostly cancel)."""
-    lum = sorted(gray_of(rgb, count))
-    lo = lum[int(0.02 * (count - 1))]
-    hi = lum[int(0.98 * (count - 1))]
-    if hi - lo < 8:
-        return list(rgb)
-    scale = 255.0 / (hi - lo)
-    return [max(0.0, min(255.0, (v - lo) * scale)) for v in rgb]
+    """Per-channel 2–98 percentile stretch. Normalizing each channel on its own
+    cancels phone white-balance / warm-light color casts, not just exposure
+    (shared by refs and photo crops so both see the same normalization)."""
+    out = list(rgb)
+    lo_i = int(0.02 * (count - 1))
+    hi_i = int(0.98 * (count - 1))
+    for ch in range(3):
+        vals = sorted(rgb[i * 3 + ch] for i in range(count))
+        lo, hi = vals[lo_i], vals[hi_i]
+        if hi - lo < 8:
+            continue
+        scale = 255.0 / (hi - lo)
+        for i in range(count):
+            v = (rgb[i * 3 + ch] - lo) * scale
+            out[i * 3 + ch] = 0.0 if v < 0 else 255.0 if v > 255 else v
+    return out
+
+
+def region_color_layout(base_rgb, x0, y0, x1, y1):
+    """4×4 mean-RGB layout of a sub-region of the 64×64 base (half-face color
+    fingerprint — the per-half equivalent of a card-name check)."""
+    w, h = x1 - x0, y1 - y0
+    crop = [0.0] * (w * h * 3)
+    for y in range(h):
+        for x in range(w):
+            si = ((y0 + y) * BASE_N + (x0 + x)) * 3
+            di = (y * w + x) * 3
+            crop[di:di + 3] = base_rgb[si:si + 3]
+    c44 = box_downsample(crop, w, h, 3, 4, 4)
+    return [max(0, min(255, r05(v))) for v in c44]
 
 
 def descriptors_from_base(base_rgb):
+    """Full descriptor set incl. BOTH half-splits (hh = top/bottom, hv =
+    left/right) — a photo crop doesn't know which kind of card it is yet, so
+    it always carries both; refs keep only their own kind's split (`hc`)."""
     gray64 = gray_of(base_rgb, BASE_N * BASE_N)
     gray32 = box_downsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N)
+    half = BASE_N // 2
     return {
         "p": phash_bits(gray32),
         "d": dhash_bits(gray64),
         "c": color_layout(base_rgb),
         "e": edge_hist(gray32),
+        "hh": [region_color_layout(base_rgb, 0, 0, BASE_N, half),
+               region_color_layout(base_rgb, 0, half, BASE_N, BASE_N)],
+        "hv": [region_color_layout(base_rgb, 0, 0, half, BASE_N),
+               region_color_layout(base_rgb, half, 0, BASE_N, BASE_N)],
     }
 
 
@@ -288,6 +328,8 @@ def build():
         norm = normalize_rgb(work, CARD_W * CARD_H)
         base = box_downsample(norm, CARD_W, CARD_H, 3, BASE_N, BASE_N)
         desc = descriptors_from_base(base)
+        # refs keep only the half-split matching their own kind (crops carry both)
+        hc = {"h": desc["hh"], "v": desc["hv"], "o": [desc["c"]]}[kind]
         badges = {side: badge_grid(norm, CARD_W, CARD_H, BADGE_REGIONS[kind][side])
                   for side in halves}
         entry = {
@@ -295,7 +337,8 @@ def build():
             "kind": kind,
             "img": "/" + rel,
             "halves": halves,
-            **desc,
+            "p": desc["p"], "d": desc["d"], "c": desc["c"], "e": desc["e"],
+            "hc": hc,
             "b": badges,
         }
         cards.append(entry)

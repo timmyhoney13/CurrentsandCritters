@@ -56,6 +56,9 @@ check("library uids match the roster", lib_uids == roster_uids)
 check("every card carries all descriptors",
       all(len(c["p"]) == 16 and len(c["d"]) == 16 and len(c["c"]) == 48 and len(c["e"]) == 8
           and all(len(b) == 64 for b in c["b"].values()) for c in lib["cards"]))
+check("every card carries per-half color layouts (hc)",
+      all(len(c["hc"]) == (1 if c["kind"] == "o" else 2)
+          and all(len(h) == 48 for h in c["hc"]) for c in lib["cards"]))
 
 print("\nphoto-evidence validation (/api/snap/session/photo)")
 ev = snap_score._validate_photo_evidence({
@@ -101,6 +104,88 @@ board_dup = [{"name": "Tester", "oceans": [
 resd = snap_score.score_boards(board_dup)
 check("duplicate uid remaps to another real copy (with a warning or clean remap)",
       isinstance(resd["players"][0]["score"], int))
+
+print("\ncombo abilities score EXACTLY like the online game (same engine)")
+db = fish.load_card_db()
+
+
+def uid_named(name, direction=None, symbol=None, exclude=()):
+    for u in sorted(db):
+        cd = db[u]
+        if str(cd.name).strip().lower() != name.lower() or u in exclude:
+            continue
+        if direction and str(cd.direction or "").strip().lower() != direction:
+            continue
+        if symbol and str(cd.symbol or "").strip().lower() != symbol.lower():
+            continue
+        return u
+    return None
+
+
+def total(oceans):
+    return snap_score.score_boards(
+        [{"name": "T", "oceans": oceans}], with_breakdown=False)["players"][0]["score"]
+
+
+ocean_u = 208
+# "+2 per matching symbol" (Orange Tube Sponge): the SYMBOL COPY the scanner
+# picks must change the score, which is why page/badge identity matters.
+# Located by ability text so card renames can't break the test.
+def uid_by_text(frag, direction, exclude=()):
+    for u in sorted(db):
+        cd = db[u]
+        if u in exclude:
+            continue
+        if direction and str(cd.direction or "").strip().lower() != direction:
+            continue
+        if frag in str(cd.text or "").lower():
+            return u
+    return None
+
+sponge = uid_by_text("matching symbol", "down")
+sp_sym = str(db[sponge].symbol).strip().lower()
+mate_same = next((u for u in sorted(db) if u != sponge
+                  and str(db[u].direction or "").strip().lower() == "up"
+                  and str(db[u].symbol or "").strip().lower() == sp_sym
+                  and "matching symbol" not in str(db[u].text or "").lower()), None)
+mate_diff = next((u for u in sorted(db) if u != sponge and u != mate_same
+                  and str(db[u].name).lower() == str(db[mate_same].name).lower()
+                  and str(db[u].direction or "").strip().lower() == "up"
+                  and str(db[u].symbol or "").strip().lower() != sp_sym), None)
+check("found matching-symbol card + same-name mates with matching/different symbols",
+      all(x is not None for x in (sponge, mate_same, mate_diff)))
+same = total([{"u": ocean_u, "up": [mate_same], "down": [sponge], "left": [], "right": []}])
+diff = total([{"u": ocean_u, "up": [mate_diff], "down": [sponge], "left": [], "right": []}])
+check("matching-symbol combo scores MORE with a matching-symbol partner",
+      same > diff, f"same-sym {same} vs diff-sym {diff}")
+
+# Blue Tang: "+2 per Crosscurrent animal" — cross-card combo counting
+tang = uid_by_text("per crosscurrent", "down")
+goby = next((u for u in sorted(db)
+             if str(db[u].species or "").strip().lower() == "crosscurrent"
+             and str(db[u].direction or "").strip().lower() == "down" and u != tang), None)
+clown = next((u for u in sorted(db)
+              if str(db[u].species or "").strip().lower() == "crosscurrent"
+              and str(db[u].direction or "").strip().lower() == "right"), None)
+check("found blue tang + crosscurrent partners", all(x is not None for x in (tang, goby, clown)))
+ocean_alone = total([{"u": ocean_u, "up": [], "down": [], "left": [], "right": []}])
+solo_t = total([{"u": ocean_u, "up": [], "down": [tang], "left": [], "right": []}])
+with_cc = total([{"u": ocean_u, "up": [], "down": [tang, goby], "left": [], "right": [clown]}])
+base_cc = total([{"u": ocean_u, "up": [], "down": [goby], "left": [], "right": [clown]}])
+marg_with_partners = with_cc - base_cc
+marg_alone = solo_t - ocean_alone
+check("Blue Tang is worth MORE per extra crosscurrent on the board (combo works)",
+      marg_with_partners > marg_alone,
+      f"marginal with partners {marg_with_partners} vs alone {marg_alone}")
+
+# The scorer here IS the simulation's engine: same function, same GameState
+gs_boards, gs_db, _ = snap_score.normalize_boards(
+    [{"name": "T", "oceans": [{"u": ocean_u, "up": [1], "down": [2], "left": [101], "right": [102]}]}])
+gs = snap_score._build_gs(gs_boards, gs_db)
+direct = int(fish.final_points(gs, gs.players[0]))
+via_api = total([{"u": ocean_u, "up": [1], "down": [2], "left": [101], "right": [102]}])
+check("score_boards == fish.final_points exactly (same engine as the game)",
+      direct == via_api, f"{direct} vs {via_api}")
 
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

@@ -9,9 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="/firebase-config.js"></script>
-<script>window.SNAP_LIBRARY_V = "20260719a";</script>
-<script src="/js/snap-vision-core.js?v=20260719a"></script>
-<script src="/js/snap-scan.js?v=20260719a"></script>
+<script>window.SNAP_LIBRARY_V = "20260720a";</script>
+<script src="/js/snap-vision-core.js?v=20260720a"></script>
+<script src="/js/snap-scan.js?v=20260720a"></script>
 <style>
   :root{
     --deep:#06263f; --deep2:#0a3a5c; --teal:#19b8a6; --teal-dark:#0e8f81;
@@ -1028,12 +1028,21 @@ function renderBxInfo(){
   }
   const sym = q.match && !q.match.symbolConfident ?
     `<div class="warnbox" style="margin:8px 0 0">The symbol on this card wasn't clear, tap “Which copy?” and check the symbol printed on the physical card.</div>` : "";
+  // card-database facts (symbol / species / ability) so the player can verify
+  // the pick against what's printed on the physical card
+  const dbInfo = d.uid && CARD_BY_UID[d.uid];
+  const symIcon = {Triangle:"▲",Square:"■",Heart:"♥",Circle:"●",Diamond:"◆"};
+  const ability = dbInfo ? String(dbInfo.t || "").replace(/\*/g,"").replace(/\|/g," · ").replace(/\s+/g," ").trim() : "";
+  const factsHtml = dbInfo ? `
+      <div class="muted" style="font-size:11.5px;margin-top:2px">${symIcon[dbInfo.sym]||""} ${esc(dbInfo.sym||"")}${dbInfo.sp?" · "+esc(dbInfo.sp):""}</div>
+      ${ability ? `<div class="muted" style="font-size:11.5px;margin-top:1px">“${esc(ability.slice(0,110))}${ability.length>110?"…":""}”</div>` : ""}` : "";
   el.innerHTML = `<div class="bx-card">
     <div class="bh">
       <div class="art" style="${d.uid ? artStyle(d.uid) : ""}"></div>
       <div style="flex:1">
         <div class="nm">${esc(d.name)}</div>
         <div class="cf ${cls}">${confTxt}${q.dup ? " · ⚠ duplicate" : ""}</div>
+        ${factsHtml}
       </div>
       <button class="btn small warn" id="bx-remove">Remove</button>
     </div>

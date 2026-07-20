@@ -36,6 +36,7 @@ serviceAccountKey.json
 !test_snap_vision.js
 !test_snap_vision_fixtures.json
 !test_snap_local_board.py
+!make_snap_test_photo.py
 
 # New marketing site files (Claude Design build)
 !styles.css

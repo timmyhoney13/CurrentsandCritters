@@ -23,7 +23,7 @@
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
 
-  var DESCRIPTOR_VERSION = 1;
+  var DESCRIPTOR_VERSION = 2;       // v2: per-channel normalize + per-half color
   var CARD_W = 200, CARD_H = 280;   // canonical portrait working crop (5:7)
   var BASE_N = 64, GRAY_N = 32;
 
@@ -38,10 +38,13 @@
     mergeGapFrac: 0.035,    // bbox gap (vs photo long edge) that may still be one card
     mergeOverlapFrac: 0.55, // shared-axis extent overlap required to merge
     iouDedupe: 0.55,
+    poolCap: 80,            // max detection candidates identified per scan
+    borderExpand: 0.048,    // frame fraction to re-grow interior-only boxes by
+    expandTrySim: 0.94,     // below this sim, the expanded reading is also tried
     acceptConf: 0.70,       // below this a crop stays unassigned (manual pick)
     reviewConf: 0.90,       // below this the card is flagged for review
     attachMaxFrac: 2.3,     // max center distance to an ocean, in ocean long-sides
-    blurMin: 90,            // Laplacian variance floor (below = blurry)
+    blurMin: 70,            // Laplacian variance floor (below = blurry)
     darkMean: 34, brightMean: 233, glareFrac: 0.035,
     minPixels: 480 * 480,
   };
@@ -146,6 +149,15 @@
     return out;
   }
 
+  // Orientation-bin boundaries at k·π/8: exact same literals live in
+  // build_snap_card_library.py — binning via IEEE multiply/compare (no
+  // atan2/hypot, whose last-bit platform differences would break
+  // cross-language parity).
+  var EDGE_SIN = [0.3826834323650898, 0.7071067811865476, 0.9238795325112867, 1.0,
+                  0.9238795325112867, 0.7071067811865476, 0.3826834323650898];
+  var EDGE_COS = [0.9238795325112867, 0.7071067811865476, 0.3826834323650898, 0.0,
+                  -0.3826834323650898, -0.7071067811865476, -0.9238795325112867];
+
   function edgeHist(gray32) {
     var n = GRAY_N, hist = new Float64Array(8);
     for (var y = 1; y < n - 1; y++) {
@@ -155,12 +167,13 @@
                 - gray32[i - n - 1] - 2 * gray32[i - 1] - gray32[i + n - 1]);
         var gy = (gray32[i + n - 1] + 2 * gray32[i + n] + gray32[i + n + 1]
                 - gray32[i - n - 1] - 2 * gray32[i - n] - gray32[i - n + 1]);
-        var mag = Math.hypot(gx, gy);
+        var mag = Math.sqrt(gx * gx + gy * gy);
         if (mag < 1e-9) continue;
-        var ang = Math.atan2(gy, gx);
-        if (ang < 0) ang += Math.PI;
-        var b = Math.floor(ang / Math.PI * 8);
-        hist[Math.min(7, b)] += mag;
+        if (gy < 0 || (gy === 0 && gx < 0)) { gx = -gx; gy = -gy; }  // direction → [0, π)
+        var b = 0;
+        for (var kb = 0; kb < 7; kb++)
+          if (gy * EDGE_COS[kb] - gx * EDGE_SIN[kb] >= 0) b++;
+        hist[b] += mag;
       }
     }
     var total = 0;
@@ -172,24 +185,56 @@
   }
 
   function normalizeRgb(rgb, count) {
-    var lum = grayOf(rgb, count);
-    var sorted = Array.prototype.slice.call(lum).sort(function (a, b) { return a - b; });
-    var lo = sorted[Math.floor(0.02 * (count - 1))];
-    var hi = sorted[Math.floor(0.98 * (count - 1))];
-    if (hi - lo < 8) return Float64Array.from(rgb);
-    var scale = 255 / (hi - lo);
+    // per-channel 2–98 percentile stretch: cancels white-balance / warm-light
+    // color casts, not just exposure (mirrored in the library builder)
     var out = new Float64Array(count * 3);
-    for (var i = 0; i < count * 3; i++) {
-      var v = (rgb[i] - lo) * scale;
-      out[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+    for (var i0 = 0; i0 < count * 3; i0++) out[i0] = rgb[i0];
+    var loI = Math.floor(0.02 * (count - 1)), hiI = Math.floor(0.98 * (count - 1));
+    for (var ch = 0; ch < 3; ch++) {
+      var vals = new Float64Array(count);
+      for (var i = 0; i < count; i++) vals[i] = rgb[i * 3 + ch];
+      var sorted = Array.prototype.slice.call(vals).sort(function (a, b) { return a - b; });
+      var lo = sorted[loI], hi = sorted[hiI];
+      if (hi - lo < 8) continue;
+      var scale = 255 / (hi - lo);
+      for (var j = 0; j < count; j++) {
+        var v = (rgb[j * 3 + ch] - lo) * scale;
+        out[j * 3 + ch] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
     }
     return out;
   }
 
+  function regionColorLayout(baseRgb, x0, y0, x1, y1) {
+    // 4×4 mean-RGB layout of a sub-region of the 64×64 base (per-half color
+    // fingerprint — the per-half equivalent of reading the card name)
+    var w = x1 - x0, h = y1 - y0;
+    var crop = new Float64Array(w * h * 3);
+    for (var y = 0; y < h; y++)
+      for (var x = 0; x < w; x++) {
+        var si = ((y0 + y) * BASE_N + (x0 + x)) * 3, di = (y * w + x) * 3;
+        crop[di] = baseRgb[si]; crop[di + 1] = baseRgb[si + 1]; crop[di + 2] = baseRgb[si + 2];
+      }
+    var c44 = boxDownsample(crop, w, h, 3, 4, 4);
+    var out = [];
+    for (var k = 0; k < 48; k++) out.push(Math.max(0, Math.min(255, r05(c44[k]))));
+    return out;
+  }
+
   function descriptorsFromBase(baseRgb) {
+    // includes BOTH half-splits (hh = top/bottom, hv = left/right): a crop
+    // doesn't know its card kind yet; refs keep only their own kind's split
     var gray64 = grayOf(baseRgb, BASE_N * BASE_N);
     var gray32 = boxDownsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N);
-    return { p: phashBits(gray32), d: dhashBits(gray64), c: colorLayout(baseRgb), e: edgeHist(gray32) };
+    var half = BASE_N / 2;
+    return {
+      p: phashBits(gray32), d: dhashBits(gray64),
+      c: colorLayout(baseRgb), e: edgeHist(gray32),
+      hh: [regionColorLayout(baseRgb, 0, 0, BASE_N, half),
+           regionColorLayout(baseRgb, 0, half, BASE_N, BASE_N)],
+      hv: [regionColorLayout(baseRgb, 0, 0, half, BASE_N),
+           regionColorLayout(baseRgb, half, 0, BASE_N, BASE_N)],
+    };
   }
 
   function badgeGridFromCrop(cropRgb, w, h, region) {
@@ -324,6 +369,18 @@
     return out;
   }
 
+  function expandQuad(quad, frac) {
+    // grow a quad outward from its centroid by `frac` of each side length —
+    // used to re-grow interior-only detections back to the full card
+    // (detection barriers exclude the navy frame the references include)
+    var cx = 0, cy = 0, i;
+    for (i = 0; i < 4; i++) { cx += quad[i][0] / 4; cy += quad[i][1] / 4; }
+    var f = 1 + 2 * frac;
+    return quad.map(function (p) {
+      return [cx + (p[0] - cx) * f, cy + (p[1] - cy) * f];
+    });
+  }
+
   function rotateCrop180(crop) {
     var n = CARD_W * CARD_H, out = new Float64Array(n * 3);
     for (var i = 0; i < n; i++) {
@@ -413,15 +470,25 @@
 
   // ── card detection (edges → components → merged card-like rects) ───────────
 
+  // Detection runs THREE barrier strategies and pools every candidate; the
+  // matcher then keeps whichever readings identify best (selectByMatch):
+  //   grad  - Sobel-edge barriers (contrast tables)
+  //   dark  - luma-threshold barriers: the navy card frame is among the darkest
+  //           structure in frame, so card faces become bright "holes" whether
+  //           the table is light (frame = barrier) or dark (table joins the
+  //           barrier). This is what makes dark / low-contrast tables work.
   function detectQuads(image, opts) {
     var o = Object.assign({}, DEFAULTS, opts || {});
     var w = image.width, h = image.height;
     var scale = Math.min(1, o.workMax / Math.max(w, h));
     var gw = Math.max(8, Math.round(w * scale)), gh = Math.max(8, Math.round(h * scale));
     var gray = rgbaToGrayScaled(image, gw, gh);
+    var n = gw * gh;
 
-    // Sobel magnitude
-    var mag = new Float64Array(gw * gh);
+    var barriers = [];
+
+    // strategy 1: gradient barrier
+    var mag = new Float64Array(n);
     var maxMag = 0;
     for (var y = 1; y < gh - 1; y++) {
       for (var x = 1; x < gw - 1; x++) {
@@ -435,21 +502,68 @@
         if (m > maxMag) maxMag = m;
       }
     }
-    // Otsu threshold on the magnitude histogram (floored)
-    var thr = Math.max(o.edgeFloor, otsu(mag, gw * gh, maxMag));
+    var thr = Math.max(o.edgeFloor, otsu(mag, n, maxMag));
+    var edge = new Uint8Array(n);
+    for (var j = 0; j < n; j++) edge[j] = mag[j] >= thr ? 1 : 0;
+    barriers.push({ map: dilate(edge, gw, gh), tag: "grad" });
 
-    // edge map + 1px dilate
-    var edge = new Uint8Array(gw * gh);
-    for (var j = 0; j < gw * gh; j++) edge[j] = mag[j] >= thr ? 1 : 0;
-    var edgeD = dilate(edge, gw, gh);
+    // strategies 2+3: dark-luma barriers at two thresholds (Otsu can land
+    // above or below the frame/face split depending on the table)
+    var lumaThr = otsu(gray, n, 255);
+    [1.0, 0.72].forEach(function (f) {
+      var t = Math.max(30, Math.min(170, lumaThr * f));
+      var m2 = new Uint8Array(n);
+      for (var k = 0; k < n; k++) m2[k] = gray[k] < t ? 1 : 0;
+      barriers.push({ map: dilate(m2, gw, gh), tag: "dark" + (f === 1 ? "" : "Lo") });
+    });
 
-    // connected components of NON-edge pixels (card faces / table)
+    var pool = [];
+    barriers.forEach(function (b) {
+      candidatesFromBarrier(b.map, b.tag, gw, gh, o, pool);
+    });
+
+    // cross-strategy dedupe: near-identical quads keep the LARGER reading
+    // (closer to the full card incl. frame); order by geometric score first
+    pool.sort(function (a, b) {
+      var d = (b.score - a.score);
+      return d !== 0 ? d : (b.area - a.area);
+    });
+    var deduped = [];
+    pool.forEach(function (cand) {
+      for (var d2 = 0; d2 < deduped.length; d2++) {
+        if (quadIoU(cand.quad, deduped[d2].quad) > 0.85) {
+          if (cand.area > deduped[d2].area * 1.04) deduped[d2] = cand; // grow to fuller reading
+          return;
+        }
+      }
+      deduped.push(cand);
+    });
+    deduped = deduped.slice(0, o.poolCap);
+
+    // scale back to full-resolution coordinates
+    var inv = 1 / scale;
+    return deduped.map(function (cand) {
+      return {
+        corners: cand.quad.map(function (p) {
+          return [Math.max(0, Math.min(w - 1, p[0] * inv)), Math.max(0, Math.min(h - 1, p[1] * inv))];
+        }),
+        touchesBorder: cand.touchesBorder,
+        primary: !!cand.primary,
+        strategy: cand.strategy,
+        detScore: Math.round(cand.score * 1000) / 1000,
+      };
+    });
+  }
+
+  // one barrier map -> card-shaped candidates (components of non-barrier
+  // pixels, clustered because card faces fragment into art + text bands)
+  function candidatesFromBarrier(barrier, tag, gw, gh, o, outPool) {
     var labels = new Int32Array(gw * gh);
     var comps = [];
     var stack = new Int32Array(gw * gh);
     var next = 1;
     for (var p = 0; p < gw * gh; p++) {
-      if (edgeD[p] || labels[p]) continue;
+      if (barrier[p] || labels[p]) continue;
       var top = 0;
       stack[top++] = p;
       labels[p] = next;
@@ -470,7 +584,7 @@
           if (nn === 1 && qx === gw - 1) { isBoundary = true; continue; }
           if (nn === 2 && qy === 0) { isBoundary = true; continue; }
           if (nn === 3 && qy === gh - 1) { isBoundary = true; continue; }
-          if (edgeD[r]) { isBoundary = true; continue; }
+          if (barrier[r]) { isBoundary = true; continue; }
           if (!labels[r]) { labels[r] = next; stack[top++] = r; }
         }
         if (isBoundary && boundary.length < 20000) boundary.push([qx, qy]);
@@ -482,14 +596,10 @@
 
     var totalArea = gw * gh;
     var minArea = o.minAreaFrac * totalArea, maxArea = o.maxAreaFrac * totalArea;
-    // seeds: not the table/background (huge or border-hugging + huge)
     var seeds = comps.filter(function (c) {
       return c.area >= minArea * 0.25 && c.area <= maxArea && !(c.touches && c.area > 0.35 * totalArea);
     });
 
-    // cluster nearby components (card faces fragment into art + text bands),
-    // but keep the INDIVIDUAL components as rival candidates too, a wrong
-    // merge (two separate cards bridged) must never erase the right reading
     var gap = o.mergeGapFrac * Math.max(gw, gh);
     var groups = clusterComponents(seeds, gap, o.mergeOverlapFrac);
 
@@ -510,39 +620,22 @@
       return {
         quad: rect.corners, area: rect.w * rect.h, fill: fill,
         score: fill - 1.2 * Math.abs(aspect - 1.4) / 1.4,
+        strategy: tag,
         touchesBorder: grp.some(function (c) { return c.touches; }),
       };
     }
 
-    var candidates = [];
     groups.forEach(function (grp) {
       var merged = candidateFrom(grp);
-      // group-level readings are "primary"; individual fragments of a multi-
-      // component group are rival "secondary" readings that must EARN their
-      // spot by out-matching the merged reading in the identification stage
-      if (merged) { merged.primary = true; candidates.push(merged); }
+      // group-level readings are "primary"; fragments of a multi-component
+      // group are rival "secondary" readings that must out-match them
+      if (merged) { merged.primary = true; outPool.push(merged); }
       if (grp.length > 1) {
         grp.forEach(function (one) {
           var solo = candidateFrom([one]);
-          if (solo) { solo.primary = !merged; candidates.push(solo); }
+          if (solo) { solo.primary = !merged; outPool.push(solo); }
         });
       }
-    });
-
-    candidates.sort(function (a, b) { return b.score - a.score; });
-    candidates = candidates.slice(0, 48);   // cap the identification workload
-
-    // scale back to full-resolution coordinates
-    var inv = 1 / scale;
-    return candidates.map(function (cand) {
-      return {
-        corners: cand.quad.map(function (p) {
-          return [Math.max(0, Math.min(w - 1, p[0] * inv)), Math.max(0, Math.min(h - 1, p[1] * inv))];
-        }),
-        touchesBorder: cand.touchesBorder,
-        primary: !!cand.primary,
-        detScore: Math.round(cand.score * 1000) / 1000,
-      };
     });
   }
 
@@ -742,7 +835,16 @@
     var dSim = 1 - hamming(desc.d, ref.d) / 64;
     var cSim = 1 - colorDist(desc.c, ref.c);
     var eSim = 1 - edgeDist(desc.e, ref.e);
-    return 0.40 * pSim + 0.15 * dSim + 0.30 * cSim + 0.15 * eSim;
+    // per-half color: compare the crop's matching split against the ref's
+    // halves — each half of the art is effectively the card NAME check
+    var hcSim;
+    if (ref.kind === "h")
+      hcSim = 1 - (colorDist(desc.hh[0], ref.hc[0]) + colorDist(desc.hh[1], ref.hc[1])) / 2;
+    else if (ref.kind === "v")
+      hcSim = 1 - (colorDist(desc.hv[0], ref.hc[0]) + colorDist(desc.hv[1], ref.hc[1])) / 2;
+    else
+      hcSim = 1 - colorDist(desc.c, ref.hc[0]);
+    return 0.32 * pSim + 0.10 * dSim + 0.22 * cSim + 0.10 * eSim + 0.26 * hcSim;
   }
 
   function matchCrop(cropRgb, matcher) {
@@ -821,12 +923,16 @@
   }
 
   function confidenceFrom(sim, margin) {
-    // calibrated on library data: clean crops score sim 0.96–0.99 with ≥0.05
-    // margin, pipeline crops (warp losses) 0.90–0.94, junk ≈0.59. Copies that
-    // share half their art keep smaller margins, so the margin term is gentle.
+    // Calibrated on real-art photo composites (make_snap_test_photo.py):
+    // real cards land at sim 0.90–0.96, junk ≤0.69, flat surfaces ≤0.56 —
+    // absolute sim is the primary separator. Margin is judged BOTH absolutely
+    // and relative to the residual error (margin/(1-sim)), because sibling
+    // pages legitimately share half their art and keep raw margins small.
     function sig(x) { return 1 / (1 + Math.exp(-x)); }
-    var q = sig((sim - 0.775) * 24);                   // absolute match quality
-    var m = 0.58 + 0.42 * sig((margin - 0.015) * 110); // separation from next art group
+    var q = sig((sim - 0.775) * 26);                     // absolute match quality
+    var rel = margin / Math.max(0.02, 1 - sim);          // margin vs residual error
+    var mm = Math.max(sig((margin - 0.012) * 120), sig((rel - 0.12) * 10));
+    var m = 0.66 + 0.34 * mm;                            // gentle separation term
     return Math.max(0.01, Math.min(0.99, q * m));
   }
 
@@ -1011,11 +1117,28 @@
     progress(3, "Matching cards");
     var t2 = now();
     var matcher = library.__matcher || (library.__matcher = buildMatcher(library));
+    var iw = image.width, ih = image.height;
     var cands = detected.map(function (d) {
       var q = { corners: d.corners, touchesBorder: !!d.touchesBorder,
-                primary: !!d.primary, detScore: d.detScore, match: null };
+                primary: !!d.primary, strategy: d.strategy,
+                detScore: d.detScore, match: null };
       var crop = warpCard(image, d.corners);
       if (crop) q.match = matchCrop(crop, matcher);
+      // detection barriers often trace the face INSIDE the navy frame; if the
+      // match is not already excellent, also try the frame-included reading
+      // and keep whichever identifies better
+      if (!manual && (!q.match || q.match.sim < o.expandTrySim)) {
+        var grown = expandQuad(d.corners, o.borderExpand).map(function (p) {
+          return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))];
+        });
+        var crop2 = warpCard(image, grown);
+        var m2 = crop2 ? matchCrop(crop2, matcher) : null;
+        if (m2 && (!q.match || m2.sim > q.match.sim)) {
+          q.match = m2;
+          q.corners = grown;
+          q.expanded = true;
+        }
+      }
       return q;
     });
     // every candidate was identified; keep the set of readings that explains
@@ -1069,6 +1192,7 @@
     hamming: hamming, colorDist: colorDist, edgeDist: edgeDist, badgeDist: badgeDist,
     // geometry
     orderQuad: orderQuad, homography: homography, warpCard: warpCard,
+    expandQuad: expandQuad, regionColorLayout: regionColorLayout,
     rotateCrop180: rotateCrop180, quadCenter: quadCenter, quadSides: quadSides,
     quadIsLandscape: quadIsLandscape, convexHull: convexHull, minAreaRect: minAreaRect,
     quadIoU: quadIoU,
