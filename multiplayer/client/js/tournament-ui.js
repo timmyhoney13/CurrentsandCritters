@@ -218,10 +218,12 @@
             <select class="ccT-select" id="ccT-xp"><option value="standard">Standard</option><option value="high">High stakes</option></select></div>
           <div id="ccT-create-err" style="color:#ff8ea3;min-height:18px;font-size:.85rem"></div>
           <button class="ccT-btn wide gold" id="ccT-create-go">Create Tournament →</button>
+          <button class="ccT-btn ghost wide" id="ccT-create-join">Join a tournament by code</button>
           <button class="ccT-btn ghost wide" id="ccT-create-cancel">Cancel</button>
         </div>
       </div>`;
     modal.classList.add("open");
+    $("#ccT-create-join", modal).addEventListener("click", () => { modal.classList.remove("open"); promptJoin(); });
     const capEl = $("#ccT-cap", modal), capVal = $("#ccT-cap-val", modal);
     capEl.addEventListener("input", () => { createState.capacity = +capEl.value; capVal.textContent = capEl.value; refreshFormats(); });
     $("#ccT-vis", modal).addEventListener("change", (e) => { $("#ccT-pw-field", modal).style.display = e.target.value === "private" ? "" : "none"; });
@@ -291,12 +293,20 @@
     } catch (e) { errEl.textContent = "Network error."; go.disabled = false; go.textContent = "Create Tournament →"; }
   }
 
-  // Join by code
-  async function promptJoin(preCode) {
+  // Join by code (handles private tournaments' join-code prompt)
+  async function promptJoin(preCode, pw) {
     injectStyles();
     const code = (preCode || window.prompt("Enter tournament code:") || "").trim().toUpperCase();
     if (!code) return;
-    const r = await post("/api/tournament/join", { id: code, player_name: bridge().nickname(), avatar: bridge().myAvatar() });
+    const body = { id: code, player_name: bridge().nickname(), avatar: bridge().myAvatar() };
+    if (pw) body.password = pw;
+    let r;
+    try { r = await post("/api/tournament/join", body); } catch (_) { toast("Network error joining.", "err"); return; }
+    if (r.data && r.data.error === "wrong password") {
+      const p = window.prompt("This tournament is private — enter its join code:");
+      if (p) return promptJoin(code, p);
+      return;
+    }
     if (!r.data || !r.data.ok) { toast((r.data && r.data.error) || "Could not join.", "err"); return; }
     T.tid = code; T.myToken = r.data.token || ""; T.pid = r.data.pid || null; T.hostToken = "";
     persistActive();
@@ -339,6 +349,7 @@
   }
 
   function openScreen() {
+    hideReturnPill();
     const scr = ensureScreen();
     scr.classList.add("open");
     T.screenOpen = true;
@@ -463,6 +474,15 @@
       e.preventDefault(); row.classList.remove("dragover");
       if (T.dragFrom && T.dragFrom !== p.pid) requestSwitch(p.pid, p.name);
     });
+    // Mobile parity: native drag doesn't fire from touch, so tap another player's
+    // row to request a switch (confirm guards against accidents).
+    const touch = ("ontouchstart" in window) || window.CC_IS_MOBILE === true;
+    if (touch && T.state.phase === "lobby" && !p.me && me && me.in_tournament) {
+      row.style.cursor = "pointer";
+      row.addEventListener("click", () => {
+        if (window.confirm(`Request a position switch with ${p.name}?`)) requestSwitch(p.pid, p.name);
+      });
+    }
     return row;
   }
   function statusLabel(p) {
@@ -636,6 +656,16 @@
     card.innerHTML = `<span class="ccT-mnum">${m.is_third_place ? "3rd" : "M" + m.match_number}</span>
       ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "var(--ccT-teal)" : m.status === "complete" ? "rgba(255,207,92,.3)" : "rgba(255,255,255,.1)"}">${statusTxt}</span>` : ""}
       ${slots}`;
+    // §10 View Match: click a live match to enter (if it's yours) or spectate it.
+    if (m.room_id && (m.status === "active" || m.status === "ready")) {
+      card.style.cursor = "pointer";
+      card.title = mine ? "Enter your match" : "Watch this match";
+      card.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (mine && st.viewer && st.viewer.my_match) enterMatch(st.viewer.my_match);
+        else if (!mine && st.spectators_allowed !== false) spectateMatch(m.room_id);
+      });
+    }
     return card;
   }
 
@@ -705,7 +735,9 @@
   }
   function centerOnMine(root) {
     const st = T.state; if (!st || !st.viewer) return;
-    const mine = $("#ccT-content .ccT-match.mine", root) || document.querySelector("#ccT-content .ccT-match.active");
+    // root IS #ccT-content, so scope to it directly (the old "#ccT-content …"
+    // descendant selector never matched). Prefer my own match, any state.
+    const mine = root.querySelector(".ccT-match.mine") || root.querySelector(".ccT-match.active");
     if (!mine) return;
     const wrap = $("#ccT-bwrap", root);
     T.zoom = clamp(T.zoom < 0.7 ? 0.9 : T.zoom, 0.5, 1.4);
@@ -779,14 +811,24 @@
       <button class="ccT-btn wide gold" id="ccT-enter">▶ Enter Your Match</button>
       <button class="ccT-btn wide ghost" id="ccT-enter-later">View bracket instead</button></div></div>`;
     m.classList.add("open");
-    $("#ccT-enter", m).addEventListener("click", () => { m.classList.remove("open"); enterMatch(mm.room_id); });
+    $("#ccT-enter", m).addEventListener("click", () => { m.classList.remove("open"); enterMatch(mm); });
     $("#ccT-enter-later", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
   }
-  function enterMatch(roomId) {
-    // The match runs as a normal game room. Route the player into it via the app.
+  function enterMatch(mm) {
+    // The match runs as a normal private GameRoom. Each player has a pre-claimed
+    // seat; the server gave us its seat_token so we reconnect straight into it.
+    const roomId = (mm && mm.room_id) || mm;
+    const seatTok = mm && mm.seat_token;
     persistActive();
-    if (typeof window.__fishJoinRoomByCode === "function") { window.__fishJoinRoomByCode(roomId); closeScreen(); return; }
-    // fallback: deep-link into the room; the SPA loads the game table.
+    // Tell the server we've arrived (may trigger immediate auto-start once all in).
+    post("/api/tournament/entered", { id: T.tid }).catch(() => {});
+    try {
+      // Store the seat token the way the app expects, so /play/<room> reconnects
+      // us into our assigned seat instead of showing a seat-picker.
+      if (seatTok) localStorage.setItem("fish_room_" + String(roomId).toUpperCase() + "_seat_token", seatTok);
+    } catch (_) {}
+    // Deep-link into the room (the SPA loads the game table inline). ?t=<tid>
+    // lets us restore the tournament screen when the match ends.
     try { window.location.href = "/play/" + encodeURIComponent(roomId) + "?t=" + encodeURIComponent(T.tid); }
     catch (_) { toast("Open match room " + roomId, "info"); }
   }
@@ -798,6 +840,21 @@
       if (me.status === "champion") { _lastEndShownFor = "complete-" + st.version; showChampion(st); }
       else if (me.in_tournament && _lastEndShownFor !== "final-" + st.tournament_id) { _lastEndShownFor = "final-" + st.tournament_id; showFinalPlacement(st); }
     }
+    // cancelled by host — don't strand clients on a dead screen
+    if (st.phase === "cancelled" && _lastEndShownFor !== "cancelled-" + st.tournament_id) {
+      _lastEndShownFor = "cancelled-" + st.tournament_id;
+      showCancelled(st);
+    }
+  }
+
+  function showCancelled(st) {
+    let m = $("#ccT-cancelled"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-cancelled"; document.body.appendChild(m); }
+    m.innerHTML = `<div class="ccT-card ccT-champ"><div class="ccT-body">
+      <div style="font-size:2.4rem">🌊</div><h2>Tournament Cancelled</h2>
+      <p><b>${esc(st.name || "The tournament")}</b> was cancelled by the host.</p>
+      <button class="ccT-btn wide ghost" id="ccT-cancelled-home">Back to Home</button></div></div>`;
+    m.classList.add("open");
+    $("#ccT-cancelled-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); if (window.__fishShowStatsLobby) window.__fishShowStatsLobby(); });
   }
 
   function showChampion(st) {
@@ -866,17 +923,52 @@
   window.__ccTourneyJoin = promptJoin;
   window.__ccTourneyOpenById = function (tid, hostToken, pid) { T.tid = tid; T.hostToken = hostToken || ""; T.pid = pid || null; openScreen(); };
 
+  function showReturnPill(name) {
+    if (T.screenOpen) return;
+    let pill = $("#ccT-return-pill");
+    if (!pill) { pill = el("button"); pill.id = "ccT-return-pill"; pill.className = "ccT-btn gold"; document.body.appendChild(pill); }
+    pill.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:8000;box-shadow:0 10px 34px rgba(0,0,0,.45)";
+    pill.textContent = "🏆 Return to " + (name || "tournament");
+    pill.onclick = () => { hideReturnPill(); openScreen(); };
+  }
+  function hideReturnPill() { const p = $("#ccT-return-pill"); if (p) p.remove(); }
+
+  async function resumeActiveIfAny() {
+    let a; try { a = JSON.parse(localStorage.getItem("cc_active_tournament") || "null"); } catch (_) {}
+    if (!a || !a.tid) return;
+    try {
+      const r = await get(`/api/tournament/state?id=${encodeURIComponent(a.tid)}&pid=${encodeURIComponent(a.pid || "")}&host_token=${encodeURIComponent(a.hostToken || "")}`);
+      const st = r.data && r.data.state;
+      if (!st || st.phase === "cancelled" || !(st.viewer && (st.viewer.in_tournament || st.viewer.status === "spectating"))) {
+        clearActive(); return;
+      }
+      T.tid = a.tid; T.hostToken = a.hostToken || ""; T.pid = a.pid || null;
+      // Just came back from playing a match (/play/ROOM?t=<tid>)? Re-open the bracket.
+      const qp = new URLSearchParams(location.search);
+      if (qp.get("t") === a.tid && !T.screenOpen) { openScreen(); }
+      else { showReturnPill(st.name); }
+    } catch (_) { /* leave the blob; try again next load */ }
+  }
+
+  function handleUrlAutoJoin() {
+    const qp = new URLSearchParams(location.search);
+    const code = (qp.get("tournament") || qp.get("join_tournament") || "").trim().toUpperCase();
+    if (code && /^[A-Z0-9]{4,12}$/.test(code)) promptJoin(code);
+  }
+
+  function spectateMatch(roomId) {
+    persistActive();
+    // Tournament match rooms are full (all seats pre-claimed), so landing here
+    // with no seat token yields the read-only spectator view (hands stripped).
+    try { window.location.href = "/play/" + encodeURIComponent(roomId) + "?t=" + encodeURIComponent(T.tid) + "&spectate=1"; }
+    catch (_) { toast("Watch room " + roomId, "info"); }
+  }
+
   function boot() {
     injectStyles();
     injectMenuOption();
-    // Offer to resume an active tournament (e.g., after entering a match room + returning).
-    try {
-      const raw = localStorage.getItem("cc_active_tournament");
-      if (raw) {
-        const a = JSON.parse(raw);
-        if (a && a.tid) window.__ccTourneyActive = a;   // available for a "Return to tournament" affordance
-      }
-    } catch (_) {}
+    handleUrlAutoJoin();     // ?tournament=CODE deep-link
+    resumeActiveIfAny();     // Return-to-tournament pill / auto-reopen after a match
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
