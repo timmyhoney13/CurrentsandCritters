@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-21.3";
+  const APP_BUILD   = "2026-07-21.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -539,11 +539,12 @@
   async function apiPost(path, body, opts={}) { return apiFetch(path, { ...opts, method:"POST", body }); }
 
   // ── Tournament Mode bridge ─────────────────────────────────────────────
-  // Tournament Mode lives in its own module (js/tournament-ui.js). It's HIDDEN
-  // from players until enabled: flip TOURNAMENTS_PUBLIC to true to show it to
-  // everyone, or test it now via ?tournaments=1 / localStorage cc_tournaments=1.
-  // Existing modes are completely unaffected when disabled.
-  const TOURNAMENTS_PUBLIC = false;
+  // Tournament Mode lives in its own module (js/tournament-ui.js). LIVE for
+  // everyone: TOURNAMENTS_PUBLIC=true shows the "🏆 Tournament" Mode option in the
+  // Create Game modal + the Tournaments leaderboard tab. The server API defaults
+  // on (FISH_TOURNAMENTS!=0). Set back to false to hide again (or force-on locally
+  // via ?tournaments=1 / localStorage cc_tournaments=1). Other modes are unaffected.
+  const TOURNAMENTS_PUBLIC = true;
   const TOURNAMENTS_ENABLED = TOURNAMENTS_PUBLIC
     || /[?&]tournaments=1/.test(location.search)
     || (() => { try { return localStorage.getItem("cc_tournaments") === "1"; } catch (_) { return false; } })();
