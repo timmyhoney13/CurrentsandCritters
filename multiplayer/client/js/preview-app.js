@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-20.3";
+  const APP_BUILD   = "2026-07-21.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -537,6 +537,39 @@
     }
   }
   async function apiPost(path, body, opts={}) { return apiFetch(path, { ...opts, method:"POST", body }); }
+
+  // ── Tournament Mode bridge ─────────────────────────────────────────────
+  // Tournament Mode lives in its own module (js/tournament-ui.js). It's HIDDEN
+  // from players until enabled: flip TOURNAMENTS_PUBLIC to true to show it to
+  // everyone, or test it now via ?tournaments=1 / localStorage cc_tournaments=1.
+  // Existing modes are completely unaffected when disabled.
+  const TOURNAMENTS_PUBLIC = false;
+  const TOURNAMENTS_ENABLED = TOURNAMENTS_PUBLIC
+    || /[?&]tournaments=1/.test(location.search)
+    || (() => { try { return localStorage.getItem("cc_tournaments") === "1"; } catch (_) { return false; } })();
+  window.__ccTourney = {
+    ENABLED: TOURNAMENTS_ENABLED,
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    nickname: () => (window.__fishNickname && window.__fishNickname()) || "Player",
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    myAvatar: () => { try { return window.__fishMyAvatarUrl ? String(window.__fishMyAvatarUrl() || "") : ""; } catch (_) { return ""; } },
+    avatarForNick: (n) => (window.__fishAvatarForNick ? window.__fishAvatarForNick(n) : Promise.resolve("")),
+    avSrc: (u) => (window.__fishAvSrc ? window.__fishAvSrc(u) : u),
+    guestId() {
+      try {
+        let g = localStorage.getItem("cc_guest_id");
+        if (!g) { g = "g" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("cc_guest_id", g); }
+        return g;
+      } catch (_) { return "g" + Date.now(); }
+    },
+  };
 
   // ── End-game cinematic ─────────────────────────────────────────
   let _egDismissTimer = null;
@@ -2682,6 +2715,15 @@
   }
   // Mode selector: switch between Normal / Competitive / Team on the fly.
   document.getElementById("nc-mode").addEventListener("change", (e) => {
+    // Tournament Mode takes over its own create flow (its own overlay). Reset the
+    // base modal's mode to Normal so cancelling returns cleanly.
+    if (e.target.value === "tournament" && window.__ccTourney && window.__ccTourney.ENABLED) {
+      e.target.value = "normal";
+      applyNcMode("normal");
+      document.getElementById("new-current-modal")?.classList.remove("open");
+      if (typeof window.__ccTourneyOpenCreate === "function") window.__ccTourneyOpenCreate();
+      return;
+    }
     applyNcMode(e.target.value);
   });
   // Team count selector (2–4 teams).
