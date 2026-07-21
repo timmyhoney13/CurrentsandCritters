@@ -13791,7 +13791,7 @@
       unlock:{ type:"comp_wins", goal:20, label:"Win 20 Competitive games." } },
     { id:"sardine", name:"Sardine", species:"Bait Fish", img:"/avatars/sardine.png",
       facts:"The fish got their name from the Italian island of Sardinia, where they were once incredibly abundant.",
-      unlock:{ type:"secret", label:"Click the Sardine in the menu where it shows Play Full Screen." } },
+      unlock:{ type:"secret", label:"Find and click the hidden Sardine.", unlockedLabel:"You found and clicked the hidden Sardine." } },
     { id:"flying-fish", name:"Flying Fish", species:"Bait Fish", img:"/avatars/flying-fish.png",
       facts:"If they start to lose altitude, flying fish can briefly touch their tails back to the water's surface to kick themselves forward and extend their flight.",
       unlock:{ type:"event", event:"nothing_but_deck", label:"Nothing But Deck, win a game without drawing from the Pool." } },
@@ -15447,7 +15447,7 @@
       if (unlocked && a.unlock?.label) {
         html += `<div class="gal-detail-reqbox gal-earned-box">`;
         html += `<div class="gal-req-label">${_galReadOnly ? "How It's Unlocked" : "How You Unlocked It"}</div>`;
-        html += `<div class="gal-req-text">${escapeHtml(a.unlock.label)}</div>`;
+        html += `<div class="gal-req-text">${escapeHtml(a.unlock.unlockedLabel || a.unlock.label)}</div>`;
         html += `</div>`;
       }
 
