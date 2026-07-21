@@ -9,9 +9,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="/firebase-config.js"></script>
-<script>window.SNAP_LIBRARY_V = "20260720b";</script>
-<script src="/js/snap-vision-core.js?v=20260720b"></script>
-<script src="/js/snap-scan.js?v=20260720b"></script>
+<script>window.SNAP_LIBRARY_V = "20260720c";</script>
+<script src="/js/snap-vision-core.js?v=20260720c"></script>
+<script src="/js/snap-scan.js?v=20260720c"></script>
 <style>
   :root{
     --deep:#06263f; --deep2:#0a3a5c; --teal:#19b8a6; --teal-dark:#0e8f81;
@@ -200,7 +200,7 @@
   <section id="v-home">
     <div class="hero">
       <h1>Calculate Your Score</h1>
-      <p>Take a clear picture of your completed Currents &amp; Critters board to identify your cards and calculate your final score.</p>
+      <p>Take a clear photo of <b>one ocean and the cards around it</b> at a time. Add each ocean, one photo per ocean, and we'll build your whole board and calculate your score.</p>
     </div>
     <div class="panel">
       <h2>📸 Score My Board</h2>
@@ -223,7 +223,7 @@
   <section id="v-solo" class="hide">
     <div class="panel">
       <h2>Score My Board</h2>
-      <p class="sub">Take one clear photo from above your whole board. If it doesn't fit, you can add more photos after the first scan.</p>
+      <p class="sub">Photograph <b>one ocean and its attached cards</b> per shot, straight above, filling most of the frame. After each ocean you can add the next one, so multiple photos build one board.</p>
       <div class="stack">
         <button class="btn" id="solo-photo">📸 Take / Upload a Picture</button>
         <button class="btn secondary" id="solo-manual">✍️ Build My Board Manually</button>
@@ -241,7 +241,7 @@
           <button class="btn mint" id="solo-confirm">✅ Everything Looks Correct</button>
           <div class="row">
             <button class="btn secondary" id="solo-retake">🔁 Retake Picture</button>
-            <button class="btn secondary" id="solo-addphoto">➕ Add Photo</button>
+            <button class="btn mint" id="solo-addphoto">➕ Add Another Ocean</button>
           </div>
         </div>
       </div>
@@ -338,7 +338,7 @@
         <button class="btn mint" id="se-confirm">✅ Everything Looks Correct</button>
         <div class="row">
           <button class="btn secondary" id="se-retake">🔁 Retake Picture</button>
-          <button class="btn secondary" id="se-addphoto">➕ Add Photo</button>
+          <button class="btn mint" id="se-addphoto">➕ Add Another Ocean</button>
         </div>
         <button class="btn ghost" id="se-back">← Back to Session</button>
       </div>
@@ -348,8 +348,8 @@
   <!-- ═══ DETECTED-BOX REVIEW (photo + card boxes, shared by both flows) ═══ -->
   <section id="v-boxes" class="hide">
     <div class="panel">
-      <h2>Check the Detected Cards</h2>
-      <p class="sub">Each box should tightly frame one card. Tap a box to fix its card, drag its corners to adjust it, or add a box for any card the scan missed. <b>🔒 Everything runs on this device</b>, your photo is not uploaded to identify cards.</p>
+      <h2>Check This Ocean</h2>
+      <p class="sub">This is one ocean and its cards. Each box should tightly frame one card, tap a box to compare it with the official card and fix it, drag its corners to adjust, or add a box for anything missed. <b>🔒 Everything runs on this device</b>, your photo is never uploaded to identify cards.</p>
       <div class="bx-wrap"><canvas id="bx-canvas"></canvas></div>
       <div class="bx-legend">
         <span><b style="background:#2ac88f"></b>confident</span>
@@ -363,7 +363,7 @@
       </div>
       <div id="bx-warnings" style="margin-top:8px"></div>
       <div class="stack" style="margin-top:12px">
-        <button class="btn mint" id="bx-continue">Build My Board →</button>
+        <button class="btn mint" id="bx-continue">✅ Looks Right, Add to Board →</button>
         <div class="row">
           <button class="btn secondary" id="bx-retake">📷 Retake Photo</button>
           <button class="btn secondary" id="bx-cancel">← Cancel</button>
@@ -411,7 +411,7 @@
 <div class="cam" id="cam">
   <video id="cam-video" playsinline autoplay muted></video>
   <div class="cam-guide"><div class="frame"></div></div>
-  <div class="cam-hint" id="cam-hint">Fit your <b>whole board</b> inside the frame · hold the phone flat, straight above · bright, even light, no glare</div>
+  <div class="cam-hint" id="cam-hint">Frame <b>one ocean and its cards</b> · hold the phone flat, straight above · fill the frame · bright, even light, no glare</div>
   <div class="cam-bar">
     <button class="txt" id="cam-cancel">Cancel</button>
     <button class="cam-shutter" id="cam-shutter" aria-label="Take photo"></button>

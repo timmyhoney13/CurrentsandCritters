@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate realistic Snap & Score test photos from the REAL card sheets.
 
-Composites actual page PNGs (real art, real text, real borders — everything a
+Composites actual page PNGs (real art, real text, real borders - everything a
 phone camera sees) onto synthetic tabletops with rotation, soft blur, a warm
 color cast, and a JPEG round-trip, then dumps raw RGBA + a truth manifest for
 test_snap_vision.js. This is the closest thing to a phone photo the automated
@@ -10,7 +10,7 @@ detection failure (real card interiors are full of edges).
 
     python3 make_snap_test_photo.py        # writes test_snap_real_photo_*.bin/json
 
-Outputs are large and machine-generated — they stay untracked (the default
+Outputs are large and machine-generated - they stay untracked (the default
 `*` gitignore already excludes them); tests skip gracefully when absent.
 """
 
@@ -81,7 +81,7 @@ def dump(img, cards, name):
 
 def scene_light():
     """Bright wood table: ocean center, h-card above (landscape), v-card right,
-    h-card below, v-card left — every attachment side exercised."""
+    h-card below, v-card left - every attachment side exercised."""
     w, h = 1600, 1200
     img = table(w, h, (196, 172, 140), 9, seed=11)
     H = 300  # card height on the table
@@ -137,7 +137,7 @@ def glare_overlay(img, cx, cy, radius, strength):
 
 def scene_glare_rot():
     """Warm wood, whole board rotated ~7°, a glare hotspot over one card,
-    heavier blur — the hardest single-board case."""
+    heavier blur - the hardest single-board case."""
     w, h = 1500, 1150
     img = table(w, h, (188, 165, 133), 9, seed=41)
     H = 270
@@ -181,7 +181,7 @@ def scene_touching():
 
 def scene_duplicates():
     """Two copies of the SAME artwork (same card family, different symbol
-    copies) on one board — must resolve to distinct symbol UIDs."""
+    copies) on one board - must resolve to distinct symbol UIDs."""
     w, h = 1400, 1000
     img = table(w, h, (200, 178, 150), 8, seed=63)
     H = 260
@@ -192,8 +192,8 @@ def scene_duplicates():
         cards.append({"id": cid, "cx": cx, "cy": cy, "side": side})
 
     # Ocean with two Pier-family oceans is illegal, so instead: one ocean with
-    # two same-family animal copies on opposite sides (e.g. two Osprey copies —
-    # same art, different symbols — on up positions of two oceans). Use two
+    # two same-family animal copies on opposite sides (e.g. two Osprey copies -
+    # same art, different symbols - on up positions of two oceans). Use two
     # oceans each with a copy so both are legal single placements.
     put("oceans_cards/page_08.png", "o08", 450, 520, 0, "ocean")
     put("oceans_cards/page_15.png", "o15", 980, 520, 0, "ocean")
@@ -202,7 +202,55 @@ def scene_duplicates():
     return finish(img, warm=True, blur=0.6, jpeg_q=80), cards
 
 
+def scene_one_ocean_closeup():
+    """The PRIMARY real usage: a close-up of ONE ocean with its attached cards,
+    filling most of the frame with a little table margin and small gaps between
+    cards (as physically placed). Cards are large - the common phone shot."""
+    w, h = 1400, 1050
+    img = table(w, h, (176, 160, 140), 9, seed=71)
+    H = 300                      # large cards (close-up)
+    cw = round(H * 5 / 7)
+    cards = []
+
+    def put(page_rel, cid, cx, cy, rot, side):
+        place(img, load_card(page_rel, H), cx, cy, rot)
+        cards.append({"id": cid, "cx": cx, "cy": cy, "side": side})
+
+    ox, oy = 700, 540
+    gap = 14
+    put("oceans_cards/page_08.png", "o08", ox, oy, 1, "ocean")
+    put("horizontal_cards/page_01.png", "h01", ox, oy - H - gap, 90, "up")     # above (landscape)
+    put("horizontal_cards/page_05.png", "h05", ox, oy + H + gap, -90, "down")  # below
+    put("vertical_cards/page_01.png", "v01", ox + cw + gap, oy, 0, "right")     # right
+    put("vertical_cards/page_07.png", "v07", ox - cw - gap, oy, 0, "left")      # left
+    return finish(img, warm=True, blur=0.6, jpeg_q=82), cards
+
+
+def scene_one_ocean_min():
+    """A minimal single-ocean shot: ocean + two cards, moderate distance, cool
+    light - the simplest and most common capture."""
+    w, h = 1300, 1000
+    img = table(w, h, (110, 118, 116), 9, seed=83)
+    H = 250
+    cw = round(H * 5 / 7)
+    cards = []
+
+    def put(page_rel, cid, cx, cy, rot, side):
+        place(img, load_card(page_rel, H), cx, cy, rot)
+        cards.append({"id": cid, "cx": cx, "cy": cy, "side": side})
+
+    ox, oy = 640, 500
+    put("oceans_cards/page_25.png", "o25", ox, oy, -1, "ocean")
+    put("horizontal_cards/page_09.png", "h09", ox, oy - H - 16, 90, "up")
+    put("vertical_cards/page_20.png", "v20", ox + cw + 16, oy, 1, "right")
+    return finish(img, warm=False, blur=0.6, jpeg_q=80), cards
+
+
 def main():
+    # Primary "one ocean per photo" scenes (the real capture flow):
+    dump(*scene_one_ocean_closeup(), "test_snap_real_photo_closeup")
+    dump(*scene_one_ocean_min(), "test_snap_real_photo_minimal")
+    # General robustness scenes:
     dump(*scene_light(), "test_snap_real_photo_light")
     dump(*scene_dark(), "test_snap_real_photo_dark")
     dump(*scene_glare_rot(), "test_snap_real_photo_glare")

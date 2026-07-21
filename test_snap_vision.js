@@ -329,7 +329,8 @@ section("photo quality gate");
 // phone photo. Regenerate with `python3 make_snap_test_photo.py` (files are
 // untracked; this section is skipped when they're absent).
 section("real card-art photos");
-["test_snap_real_photo_light", "test_snap_real_photo_dark",
+["test_snap_real_photo_closeup", "test_snap_real_photo_minimal",
+ "test_snap_real_photo_light", "test_snap_real_photo_dark",
  "test_snap_real_photo_glare", "test_snap_real_photo_touching",
  "test_snap_real_photo_dupes"].forEach((name) => {
   const binPath = path.join(__dirname, name + ".bin");

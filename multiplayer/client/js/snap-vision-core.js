@@ -35,9 +35,12 @@
   };
 
   var DEFAULTS = {
+    // Players photograph ONE ocean + its attached cards per shot (multiple
+    // photos per board, merged by ocean). So cards are large in frame and few
+    // per photo, the size bounds are generous on the high end accordingly.
     workMax: 1100,          // long edge of the detection working image
-    minAreaFrac: 0.0012,    // candidate must cover ≥ this fraction of the photo
-    maxAreaFrac: 0.30,
+    minAreaFrac: 0.0018,    // candidate must cover ≥ this fraction of the photo
+    maxAreaFrac: 0.60,      // a close-up card can fill much of the frame
     aspectMin: 1.10,        // long/short side of a card-like rect
     aspectMax: 1.90,
     fillMin: 0.55,          // component area / min-rect area
@@ -524,6 +527,42 @@
     return out;
   }
 
+  function rgbaToRgbScaled(image, gw, gh) {
+    var w = image.width, h = image.height, data = image.data;
+    var sums = new Float64Array(gw * gh * 3);
+    var counts = new Int32Array(gw * gh);
+    for (var sy = 0; sy < h; sy++) {
+      var dy = Math.floor(sy * gh / h), row = sy * w;
+      for (var sx = 0; sx < w; sx++) {
+        var dx = Math.floor(sx * gw / w), si = (row + sx) * 4, di = (dy * gw + dx) * 3;
+        sums[di] += data[si]; sums[di + 1] += data[si + 1]; sums[di + 2] += data[si + 2];
+        counts[dy * gw + dx]++;
+      }
+    }
+    var out = new Float64Array(gw * gh * 3);
+    for (var i = 0; i < gw * gh; i++) {
+      var c = counts[i] || 1;
+      out[i * 3] = sums[i * 3] / c; out[i * 3 + 1] = sums[i * 3 + 1] / c; out[i * 3 + 2] = sums[i * 3 + 2] / c;
+    }
+    return out;
+  }
+
+  // The navy card frame (~RGB 0,65,128 on every card) is the most reliable
+  // structural cue: it outlines every card, and TWO touching cards share a
+  // navy line that separates their faces. A dark + blue-dominant test isolates
+  // the frame from bright ocean-water art and from warm/neutral tables, so this
+  // strategy is what makes touching cards and full-frame boards detectable.
+  function navyMask(rgb, n) {
+    var mask = new Uint8Array(n);
+    for (var i = 0; i < n; i++) {
+      var r = rgb[i * 3], g = rgb[i * 3 + 1], b = rgb[i * 3 + 2];
+      var lum = luma(r, g, b);
+      // dark, blue is the dominant channel, and clearly bluer than red
+      if (lum < 105 && b >= g - 8 && b - r > 18) mask[i] = 1;
+    }
+    return mask;
+  }
+
   // ── card detection (edges → components → merged card-like rects) ───────────
 
   // Detection runs THREE barrier strategies and pools every candidate; the
@@ -563,8 +602,19 @@
     for (var j = 0; j < n; j++) edge[j] = mag[j] >= thr ? 1 : 0;
     barriers.push({ map: dilate(edge, gw, gh), tag: "grad" });
 
-    // strategies 2+3: dark-luma barriers at two thresholds (Otsu can land
-    // above or below the frame/face split depending on the table)
+    // strategy: navy card-frame barrier (color-specific; separates touching
+    // cards and works on full-frame boards with no table background)
+    var rgb = rgbaToRgbScaled(image, gw, gh);
+    var navy = navyMask(rgb, n);
+    var navyFrac = 0;
+    for (var nq = 0; nq < n; nq++) navyFrac += navy[nq];
+    navyFrac /= n;
+    if (navyFrac > 0.008) {   // only when a real amount of navy frame is present
+      barriers.push({ map: dilate(navy, gw, gh), tag: "navy" });
+    }
+
+    // strategies: dark-luma barriers at two thresholds (Otsu can land above or
+    // below the frame/face split depending on the table)
     var lumaThr = otsu(gray, n, 255);
     [1.0, 0.72].forEach(function (f) {
       var t = Math.max(30, Math.min(170, lumaThr * f));
@@ -883,7 +933,37 @@
         groupOf[c.id] = twins.length > 1 ? key : c.id;
       });
     });
-    return { cards: cards, groupOf: groupOf, badgeRegions: library.badgeRegions };
+    var byKind = { h: [], v: [], o: [] };
+    cards.forEach(function (c) { (byKind[c.kind] || (byKind[c.kind] = [])).push(c); });
+    return { cards: cards, groupOf: groupOf, byKind: byKind, badgeRegions: library.badgeRegions };
+  }
+
+  // whole-card-only light descriptor (pHash + color), no per-half hashes,
+  // name grids or edge histogram, so it's cheap enough to compute at every
+  // trial position during the recovery search
+  function lightDesc(base) {
+    var gray64 = grayOf(base, BASE_N * BASE_N);
+    var gray32 = boxDownsample(gray64, BASE_N, BASE_N, 1, GRAY_N, GRAY_N);
+    return { p: phashBits(gray32), c: colorLayout(base) };
+  }
+
+  // Cheap position probe: score ONE crop (0°/180°) against just the refs of the
+  // expected kind, using the light descriptor + whole-card similarity. Locates
+  // a card during the recovery local search without full identification.
+  function quickProbeScore(cropRgb, matcher, kind) {
+    var refs = matcher.byKind[kind] || matcher.cards;
+    var norm = normalizeRgb(cropRgb, CARD_W * CARD_H);
+    var base0 = boxDownsample(norm, CARD_W, CARD_H, 3, BASE_N, BASE_N);
+    var det = detailFactor(base0);
+    if (det < 0.25) return { sim: 0 };                 // flat crop → not a card
+    var base180 = boxDownsample(rotateCrop180(norm), CARD_W, CARD_H, 3, BASE_N, BASE_N);
+    var d0 = lightDesc(base0), d1 = lightDesc(base180);
+    var best = 0;
+    for (var i = 0; i < refs.length; i++) {
+      var s = Math.max(cheapSim(d0, refs[i]), cheapSim(d1, refs[i]));
+      if (s > best) best = s;
+    }
+    return { sim: best * (0.55 + 0.45 * det) };
   }
 
   // Independent evidence signals, all sourced from the official game assets.
@@ -954,6 +1034,22 @@
     return Math.max(0, Math.min(1, (std - 10) / 22));   // ~0 below std 10, full by std 32
   }
 
+  // cheap whole-card prefilter (pHash + color only), the correct card is
+  // always near the top by these, so full 7-signal scoring can be restricted
+  // to the shortlist, a large speedup with no accuracy loss.
+  function cheapSim(desc, ref) {
+    return 0.62 * (1 - hamming(desc.p, ref.p) / 64) + 0.38 * (1 - colorDist(desc.c, ref.c));
+  }
+  function shortlist(descArr, cards, k) {
+    var ranked = cards.map(function (ref) {
+      var best = 0;
+      for (var i = 0; i < descArr.length; i++) { var s = cheapSim(descArr[i], ref); if (s > best) best = s; }
+      return { ref: ref, cheap: best };
+    });
+    ranked.sort(function (a, b) { return b.cheap - a.cheap; });
+    return ranked.slice(0, k).map(function (r) { return r.ref; });
+  }
+
   function matchCrop(cropRgb, matcher) {
     // A crop is warped to canonical portrait; orderQuad already fixes the long
     // axis, so 0°/180° is the primary ambiguity ("which way is up"). 90°/270°
@@ -965,29 +1061,27 @@
     var flip = rotateCrop180(norm);
     var base180 = boxDownsample(flip, CARD_W, CARD_H, 3, BASE_N, BASE_N);
     var descs = [descriptorsFromBase(base0), descriptorsFromBase(base180)];       // 0, 180
-    var oriented = [norm, flip];                                                  // full-res crops
     var haveRot = false;
 
-    var scored = matcher.cards.map(function (ref) {
-      var s0 = scoreAgainst(descs[0], ref), s1 = scoreAgainst(descs[1], ref);
-      var best = s0.sim >= s1.sim ? { s: s0, o: 0 } : { s: s1, o: 1 };
-      return { card: ref, sim: best.s.sim, agree: best.s.agree, orient: best.o, parts: best.s.parts };
-    });
-    scored.sort(function (a, b) { return b.sim - a.sim; });
+    function fullScore(cards) {
+      return cards.map(function (ref) {
+        var arr = [];
+        for (var i = 0; i < descs.length; i++) arr.push(scoreAgainst(descs[i], ref));
+        var bi = 0;
+        for (var j = 1; j < arr.length; j++) if (arr[j].sim > arr[bi].sim) bi = j;
+        return { card: ref, sim: arr[bi].sim, agree: arr[bi].agree, orient: bi, parts: arr[bi].parts };
+      }).sort(function (a, b) { return b.sim - a.sim; });
+    }
+
+    // stage 1: prefilter to a shortlist, then full-score just those
+    var scored = fullScore(shortlist(descs, matcher.cards, 24));
 
     // rotation safety net: only if the best portrait reading is weak
     if (scored[0].sim < 0.80) {
       var base90 = rotateBase90(base0), base270 = rotateBase90(rotateBase90(base180));
       descs.push(descriptorsFromBase(base90), descriptorsFromBase(base270));      // 90, 270
       haveRot = true;
-      scored = matcher.cards.map(function (ref) {
-        var arr = [scoreAgainst(descs[0], ref), scoreAgainst(descs[1], ref),
-                   scoreAgainst(descs[2], ref), scoreAgainst(descs[3], ref)];
-        var bi = 0;
-        for (var i = 1; i < 4; i++) if (arr[i].sim > arr[bi].sim) bi = i;
-        return { card: ref, sim: arr[bi].sim, agree: arr[bi].agree, orient: bi, parts: arr[bi].parts };
-      });
-      scored.sort(function (a, b) { return b.sim - a.sim; });
+      scored = fullScore(shortlist(descs, matcher.cards, 40));
     }
 
     var best = scored[0];
@@ -1230,57 +1324,131 @@
   }
 
   // ── recovery pass: use board structure to catch cards detection missed ─────
-  // For every confidently-identified ocean, probe the four adjacent slots. A
-  // probed box is only added when it identifies at HIGH confidence against the
-  // official assets AND its card kind matches the side, a slightly-off geometry
-  // just yields a weak match and adds nothing, so this can't invent cards.
+  // Players shoot ONE ocean + its attached cards per photo, so once the ocean
+  // is found (oceans are large and match strongly), every attached card is at a
+  // geometrically-known slot. We probe each of the four sides, several slots
+  // deep for stacked cards, and identify the exact official crop there. A probe
+  // is accepted only at good confidence with a side-consistent kind, so a
+  // slightly-off geometry adds nothing (it can't invent cards). A strong probe
+  // may REPLACE a weak/garbage box that was blocking its slot.
   function recoveryPass(image, quads, matcher, o) {
+    // Only fire for genuinely confident oceans, a weak/garbage "ocean"
+    // fragment must not launch (expensive) side searches, and only the largest
+    // confident ocean per photo anchors recovery (players shoot one ocean each).
     var oceans = quads.filter(function (q) {
-      return q.match && q.match.kind === "o" && q.match.conf >= o.highConf;
+      return q.match && q.match.kind === "o" && q.match.conf >= o.highConf && !q.needsId;
     });
     if (!oceans.length) return;
+    // keep the biggest few (guards against a rare duplicate ocean detection)
+    oceans.sort(function (a, b) { return quadArea(b.corners) - quadArea(a.corners); });
+    oceans = oceans.slice(0, 2);
     var iw = image.width, ih = image.height;
-    var occupied = quads.map(function (q) { return q.corners; });
-    var addedCorners = [];
+
+    function clampQuad(quad) {
+      return quad.map(function (p) {
+        return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))];
+      });
+    }
+    // a quad already "strongly held" by a real card blocks a probe; a weak or
+    // needs-id box does not (a strong probe replaces it)
+    function strongAt(quad, excludeOcean) {
+      return quads.some(function (q) {
+        if (q === excludeOcean || !q.match) return false;
+        if (q.match.conf < o.highConf) return false;
+        return quadContainment(quad, q.corners) > 0.45 || quadIoU(quad, q.corners) > 0.35;
+      });
+    }
+    function removeWeakOverlaps(quad, keepOcean) {
+      for (var i = quads.length - 1; i >= 0; i--) {
+        var q = quads[i];
+        if (q === keepOcean) continue;
+        if (q.match && q.match.conf >= o.highConf) continue;   // never drop a strong card
+        if (quadContainment(quad, q.corners) > 0.5 || quadIoU(quad, q.corners) > 0.4) quads.splice(i, 1);
+      }
+    }
 
     oceans.forEach(function (oc) {
       var Q = orderQuad(oc.corners);                 // [TL,TR,BR,BL], long side vertical
-      var down = [(Q[3][0] - Q[0][0]), (Q[3][1] - Q[0][1])];  // long edge (ocean height)
-      var right = [(Q[1][0] - Q[0][0]), (Q[1][1] - Q[0][1])]; // short edge (ocean width)
+      var downV = [Q[3][0] - Q[0][0], Q[3][1] - Q[0][1]];   // long edge vector (ocean height)
+      var rightV = [Q[1][0] - Q[0][0], Q[1][1] - Q[0][1]];  // short edge vector (ocean width)
+      var oLong = Math.hypot(downV[0], downV[1]);           // ocean height
+      var oShort = Math.hypot(rightV[0], rightV[1]);        // ocean width
+      if (oLong < 1 || oShort < 1) return;
+      var downU = [downV[0] / oLong, downV[1] / oLong];
+      var rightU = [rightV[0] / oShort, rightV[1] / oShort];
       var cx = 0, cy = 0;
       for (var i = 0; i < 4; i++) { cx += Q[i][0] / 4; cy += Q[i][1] / 4; }
-      // physical cards share the ocean's size; an up/down card is that size
-      // rotated 90° (landscape), a left/right card is portrait like the ocean.
-      var slots = [
-        { side: "up",    kind: "h", dir: [-down[0], -down[1]], longAx: right, shortAx: down },
-        { side: "down",  kind: "h", dir: [down[0], down[1]],   longAx: right, shortAx: down },
-        { side: "left",  kind: "v", dir: [-right[0], -right[1]], longAx: down, shortAx: right },
-        { side: "right", kind: "v", dir: [right[0], right[1]],  longAx: down, shortAx: right },
+
+      // Physical cards share the ocean's size. An up/down card is landscape
+      // (long = oceanLong horizontal, short = oceanShort vertical); a left/right
+      // card is portrait like the ocean (long = oceanLong, short = oceanShort).
+      var sides = [
+        { side: "up",    kind: "h", dirU: [-downU[0], -downU[1]],  base: oLong / 2 + oShort / 2, step: oShort,
+          hlx: rightU[0] * oLong / 2, hly: rightU[1] * oLong / 2, hsx: downU[0] * oShort / 2, hsy: downU[1] * oShort / 2 },
+        { side: "down",  kind: "h", dirU: [downU[0], downU[1]],    base: oLong / 2 + oShort / 2, step: oShort,
+          hlx: rightU[0] * oLong / 2, hly: rightU[1] * oLong / 2, hsx: downU[0] * oShort / 2, hsy: downU[1] * oShort / 2 },
+        { side: "left",  kind: "v", dirU: [-rightU[0], -rightU[1]], base: oShort, step: oShort,
+          hlx: downU[0] * oLong / 2, hly: downU[1] * oLong / 2, hsx: rightU[0] * oShort / 2, hsy: rightU[1] * oShort / 2 },
+        { side: "right", kind: "v", dirU: [rightU[0], rightU[1]],   base: oShort, step: oShort,
+          hlx: downU[0] * oLong / 2, hly: downU[1] * oLong / 2, hsx: rightU[0] * oShort / 2, hsy: rightU[1] * oShort / 2 },
       ];
-      slots.forEach(function (sl) {
-        // slot center: one full card-step off the ocean along the side
-        var step = 0.5 * Math.hypot(sl.dir[0], sl.dir[1]) + 0.5 * Math.hypot(sl.shortAx[0], sl.shortAx[1]);
-        var un = [sl.dir[0] / Math.hypot(sl.dir[0], sl.dir[1]) || 0,
-                  sl.dir[1] / Math.hypot(sl.dir[0], sl.dir[1]) || 0];
-        var scx = cx + un[0] * step, scy = cy + un[1] * step;
-        // build the slot quad from half-axes (long horizontal for h, vertical for v)
-        var hl = [sl.longAx[0] / 2, sl.longAx[1] / 2], hs = [sl.shortAx[0] / 2, sl.shortAx[1] / 2];
-        var quad = [
-          [scx - hl[0] - hs[0], scy - hl[1] - hs[1]],
-          [scx + hl[0] - hs[0], scy + hl[1] - hs[1]],
-          [scx + hl[0] + hs[0], scy + hl[1] + hs[1]],
-          [scx - hl[0] + hs[0], scy - hl[1] + hs[1]],
-        ].map(function (p) { return [Math.max(0, Math.min(iw - 1, p[0])), Math.max(0, Math.min(ih - 1, p[1]))]; });
-        // skip if it overlaps something already found (or just-added)
-        for (var e = 0; e < occupied.length; e++)
-          if (quadContainment(quad, occupied[e]) > 0.4 || quadIoU(quad, occupied[e]) > 0.25) return;
-        for (var a = 0; a < addedCorners.length; a++)
-          if (quadIoU(quad, addedCorners[a]) > 0.25) return;
-        var r = matchQuad(image, quad, matcher, o, true);
-        if (r.match && r.match.conf >= o.highConf && r.match.kind === sl.kind) {
-          quads.push({ id: "r" + quads.length, corners: r.corners, touchesBorder: false,
-                       primary: true, variant: r.variant, recovered: true, match: r.match });
-          addedCorners.push(r.corners);
+      // perpendicular unit (for a small lateral search, cards aren't placed
+      // pixel-perfectly centered on the ocean edge)
+      function quadAt(scx, scy, sl) {
+        return clampQuad([
+          [scx - sl.hlx - sl.hsx, scy - sl.hly - sl.hsy],
+          [scx + sl.hlx - sl.hsx, scy + sl.hly - sl.hsy],
+          [scx + sl.hlx + sl.hsx, scy + sl.hly + sl.hsy],
+          [scx - sl.hlx + sl.hsx, scy - sl.hly + sl.hsy],
+        ]);
+      }
+      // Cheap probe at one (distance, lateral) offset → quick-sim.
+      function probeAt(sl, d, perpU, p, perpLen) {
+        var scx = cx + sl.dirU[0] * d + perpU[0] * p * perpLen;
+        var scy = cy + sl.dirU[1] * d + perpU[1] * p * perpLen;
+        var quad = quadAt(scx, scy, sl);
+        if (strongAt(quad, oc)) return { sim: -1, quad: quad, d: d, p: p };
+        var crop = warpCard(image, quad);
+        var sim = crop ? quickProbeScore(crop, matcher, sl.kind).sim : 0;
+        return { sim: sim, quad: quad, d: d, p: p };
+      }
+      // Coarse→fine localization: a wide cheap grid finds the card's rough
+      // position, then a fine grid pins it to within a few pixels (a crop
+      // offset of even ~6% drops the match badly). One full identification runs
+      // at the pinned position. Cheap probes make this fast; the fine pin is
+      // what lets recovery find cards that sit off the ideal slot.
+      function searchSlot(sl, dist, perpU, perpLen) {
+        var dOffs = [-0.06, 0.06, 0.16, 0.26], pOffs = [0, 0.12, -0.12];
+        var best = { sim: 0, quad: null, d: dist, p: 0 };
+        for (var di = 0; di < dOffs.length; di++)
+          for (var pi = 0; pi < pOffs.length; pi++) {
+            var r = probeAt(sl, dist + dOffs[di] * sl.step, perpU, pOffs[pi], perpLen);
+            if (r.sim > best.sim) best = r;
+          }
+        if (best.sim < 0.66) return null;               // nothing card-like here
+        // fine refinement around the coarse best (half-step neighbourhood)
+        for (var fd = -1; fd <= 1; fd++)
+          for (var fp = -1; fp <= 1; fp++) {
+            if (fd === 0 && fp === 0) continue;
+            var r2 = probeAt(sl, best.d + fd * 0.05 * sl.step, perpU, best.p + fp * 0.05, perpLen);
+            if (r2.sim > best.sim) best = r2;
+          }
+        return matchQuad(image, best.quad, matcher, o, true);
+      }
+
+      sides.forEach(function (sl) {
+        var perpU = [-sl.dirU[1], sl.dirU[0]];               // 90° to the probe direction
+        var perpLen = oLong;                                 // lateral span ≈ card long edge
+        for (var k = 0; k < 3; k++) {                        // up to 3 stacked cards per side
+          var dist = sl.base + k * sl.step;
+          var best = searchSlot(sl, dist, perpU, perpLen);
+          if (best && best.match && best.match.conf >= o.reviewConf && best.match.kind === sl.kind) {
+            removeWeakOverlaps(best.corners, oc);
+            quads.push({ id: "r" + quads.length, corners: best.corners, touchesBorder: false,
+                         primary: true, variant: best.variant, recovered: true, match: best.match });
+          } else {
+            break;   // nothing at this slot → no stacked cards beyond it
+          }
         }
       });
     });
@@ -1334,6 +1502,10 @@
     var best = { corners: corners, match: exactCrop ? matchCrop(exactCrop, matcher) : null, variant: "exact" };
     if (!allowVariants || !o.cropVariants || (best.match && best.match.conf >= o.highConf))
       return best;
+    // Variants only rescue a plausible-but-imperfect box. A hopeless reading
+    // (very low sim, or a flat/near-empty crop) won't be saved by them, so
+    // skip the extra warps+matches to keep detection fast.
+    if (!best.match || best.match.sim < 0.62 || best.match.detail < 0.30) return best;
     // expanded (re-include frame) and contracted (shed a neighbour/border)
     var variants = [
       { corners: clampQuad(expandQuad(corners, 0.06)), tag: "expanded" },
