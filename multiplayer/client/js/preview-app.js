@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-21.2";
+  const APP_BUILD   = "2026-07-21.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -17307,8 +17307,8 @@
     /* ── mode / tab switches ── */
     window.phLbSwitchMode = function(mode) {
       _phLbMode = mode;
-      const sectionMap = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins" };
-      const btnMap     = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins" };
+      const sectionMap = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", tourney:"tourney" };
+      const btnMap     = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", tourney:"tourney" };
       Object.entries(sectionMap).forEach(([m, sec]) => {
         const btn = $a(`ph-lb-${btnMap[m]}-btn`);
         const el  = $a(`ph-lb-${sec}-section`);
@@ -17346,6 +17346,7 @@
       if      (_phLbMode === "xp")           await _phLbRenderXp();
       else if (_phLbMode === "casual")       await _phLbRenderCasual();
       else if (_phLbMode === "wins")         await _phLbRenderWins();
+      else if (_phLbMode === "tourney")      await _phLbRenderTourney();
       else {
         if      (_phLbCompTab === "cp")       await _phLbRenderCp();
         else if (_phLbCompTab === "single")   await _phLbRenderSingle();
@@ -17488,6 +17489,71 @@
       } catch(e) {
         console.error("[LB] Wins leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Could not load wins leaderboard.</td></tr>`;
+      }
+    }
+
+    // Tournament champions: ranked by tournament_wins (championships), tie-broken
+    // by win rate. Reads the same materialized stats the tournament server writes
+    // on finalize (stats.tournament_wins / stats.tournaments_played).
+    async function _phLbRenderTourney() {
+      const tbody = $a("ph-lb-tourney-tbody");
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const snap = await _db.collection("users").orderBy("stats.tournament_wins","desc").limit(75).get({ source: "server" });
+        let rows = [], myRank = 0, myRow = null, shown = 0;
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const stats = d.stats || {};
+          const nick  = String(d.nickname || "").trim();
+          if (!nick || nick.toLowerCase() === "player") return;
+          const champs = Number(stats.tournament_wins || 0);
+          if (champs <= 0) return;
+          const played = Number(stats.tournaments_played || 0);
+          const winPct = played > 0 ? Math.round((champs / played) * 100) : 0;
+          shown++;
+          const isMe = !!(_authUser && doc.id === _authUser.uid);
+          rows.push({ shown, isMe, champs, played, winPct, d, doc });
+          if (isMe) { myRank = shown; myRow = { shown, champs, played, winPct }; }
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">No tournament champions yet, be the first!</td></tr>`;
+          phLbSetSumCard("ph-lb-tourney-summary","ph-lb-tourney-rank","ph-lb-tourney-sum-vals",false);
+          return;
+        }
+        rows.sort((a,b) => b.champs !== a.champs ? b.champs - a.champs : b.winPct - a.winPct);
+        // Assign tied ranks (same championships + win rate share a rank).
+        let rank = 0, prevC = -1, prevP = -1;
+        rows.forEach((r,i) => {
+          if (r.champs !== prevC || r.winPct !== prevP) { rank = i + 1; prevC = r.champs; prevP = r.winPct; }
+          r.rank = rank;
+          if (r.isMe) { myRank = rank; myRow = { rank, champs: r.champs, played: r.played, winPct: r.winPct }; }
+        });
+        rows = rows.slice(0, 25);
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="${sc.trim()}">🏆 ${r.champs.toLocaleString()}</td>
+            <td class="ph-lb-meta-cell">${r.played.toLocaleString()}</td>
+            <td class="ph-lb-meta-cell">${r.winPct}%</td>
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
+        }).join("");
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Championships</span> ${myRow.champs.toLocaleString()}</div>
+            <div class="ph-lb-sum-val"><span>Played</span> ${myRow.played.toLocaleString()}</div>
+            <div class="ph-lb-sum-val"><span>Win Rate</span> ${myRow.winPct}%</div>`;
+          phLbSetSumCard("ph-lb-tourney-summary","ph-lb-tourney-rank","ph-lb-tourney-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-tourney-summary","ph-lb-tourney-rank","ph-lb-tourney-sum-vals",false);
+        }
+      } catch(e) {
+        console.error("[LB] Tournament leaderboard error:", e);
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load tournament leaderboard.</td></tr>`;
       }
     }
 
@@ -17729,7 +17795,14 @@
 
     // ── Leaderboard: delegated clicks → public profile + add friend ──
     (function() {
-      const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
+      // Tournament leaderboard tab shares the Tournament-Mode flag: hidden until
+      // tournaments go public (flip TOURNAMENTS_PUBLIC) or previewed via ?tournaments=1.
+      try {
+        if (window.__ccTourney && window.__ccTourney.ENABLED) {
+          const _tb = $a("ph-lb-tourney-btn"); if (_tb) _tb.style.display = "";
+        }
+      } catch (_) {}
+      const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-tourney-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
       ALL_LB_TBODIES.forEach(id => {
         const tb = $a(id);
         if (!tb) return;

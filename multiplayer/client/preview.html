@@ -1170,6 +1170,8 @@
           <button class="ph-lb-mode-btn" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
           <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
           <button class="ph-lb-mode-btn" id="ph-lb-wins-btn" onclick="phLbSwitchMode('wins')">🏆 Most Wins</button>
+          <!-- Tournament leaderboard: revealed only when Tournament Mode is enabled (same flag). -->
+          <button class="ph-lb-mode-btn" id="ph-lb-tourney-btn" style="display:none;" onclick="phLbSwitchMode('tourney')">🏅 Tournaments</button>
         </div>
 
         <!-- ── CASUAL SECTION ──────────────────────────────── -->
@@ -1265,6 +1267,33 @@
               </thead>
               <tbody id="ph-lb-wins-tbody">
                 <tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── TOURNAMENT WINS SECTION ─────────────────────── -->
+        <div id="ph-lb-tourney-section" style="display:none;">
+          <div class="ph-lb-summary" id="ph-lb-tourney-summary" style="display:none;">
+            <div class="ph-lb-sum-rank" id="ph-lb-tourney-rank">-</div>
+            <div class="ph-lb-sum-body">
+              <div class="ph-lb-sum-title">Your Tournament Rank</div>
+              <div class="ph-lb-sum-vals" id="ph-lb-tourney-sum-vals"></div>
+            </div>
+          </div>
+          <div class="ph-lb-table-wrap ph-lb-scroll" style="margin:10px 0 0;">
+            <table class="ph-lb-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Championships</th>
+                  <th>Played</th>
+                  <th>Win %</th>
+                </tr>
+              </thead>
+              <tbody id="ph-lb-tourney-tbody">
+                <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -2700,10 +2729,10 @@
   </div>
 </div>
 
-<script defer src="/js/preview-app.js?v=2026-07-21.2"></script>
+<script defer src="/js/preview-app.js?v=2026-07-21.3"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-07-21.2"></script>
+<script defer src="/js/tournament-ui.js?v=2026-07-21.3"></script>
 
 <script defer src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 
