@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import gzip
 import hashlib
 import hmac
 import json
@@ -8144,6 +8145,53 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         self.send_header("Cross-Origin-Opener-Policy", "unsafe-none")
         self._apply_cors_headers()
 
+    def _maybe_gzip(self, raw: bytes, ctype: str) -> Tuple[bytes, Optional[str]]:
+        """Gzip large text-like bodies when the client advertises support.
+
+        Images, audio, fonts, and tiny payloads are returned untouched (gzip
+        would only burn CPU on already-compressed or trivially small data).
+        Any failure falls back to the original uncompressed bytes so serving
+        can never be broken by compression. Returns (body, encoding-or-None)."""
+        try:
+            if not raw or len(raw) < 1400:
+                return raw, None
+            ae = self.headers.get("Accept-Encoding", "") if self.headers else ""
+            if "gzip" not in ae.lower():
+                return raw, None
+            ct = (ctype or "").lower()
+            if not (
+                ct.startswith("text/")
+                or "javascript" in ct
+                or "json" in ct
+                or "svg" in ct
+                or "xml" in ct
+                or "manifest" in ct
+                or "css" in ct
+            ):
+                return raw, None
+            return gzip.compress(raw, 6), "gzip"
+        except Exception:
+            return raw, None
+
+    def _emit_html(self, raw: bytes) -> None:
+        """Send an HTML document with the site's security headers, no-store
+        caching, and transparent gzip. Shared by every _send_*_html sender."""
+        body, enc = self._maybe_gzip(raw, "text/html; charset=utf-8")
+        try:
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self._apply_html_security_headers()
+            # Keep clients in sync so all players render the same UI version.
+            self.send_header("Cache-Control", "no-store")
+            if enc:
+                self.send_header("Content-Encoding", enc)
+                self.send_header("Vary", "Accept-Encoding")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except OSError:
+            return
+
     def _send_client_asset(
         self,
         file_path: str,
@@ -8163,16 +8211,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         guessed_type, _ = mimetypes.guess_type(file_path)
         ctype = content_type or guessed_type or "application/octet-stream"
+        # Transparent gzip for text-like assets (JS/CSS/SVG/JSON); images,
+        # audio, and fonts are left untouched by _maybe_gzip.
+        body, enc = self._maybe_gzip(raw, ctype)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", ctype)
         self.send_header("Cache-Control", cache_control)
-        self.send_header("Content-Length", str(len(raw)))
+        if enc:
+            self.send_header("Content-Encoding", enc)
+            self.send_header("Vary", "Accept-Encoding")
+        self.send_header("Content-Length", str(len(body)))
         if extra_headers:
             for key, value in extra_headers.items():
                 self.send_header(str(key), str(value))
         try:
             self.end_headers()
-            self.wfile.write(raw)
+            self.wfile.write(body)
         except OSError:
             return
 
@@ -8407,14 +8461,18 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
     def _send_json(self, payload: Dict[str, Any], status: int = HTTPStatus.OK) -> None:
         raw = json_dumps(payload)
+        body, enc = self._maybe_gzip(raw, "application/json")
         try:
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self._apply_cors_headers()
             self.send_header("Cache-Control", "no-store")
-            self.send_header("Content-Length", str(len(raw)))
+            if enc:
+                self.send_header("Content-Encoding", enc)
+                self.send_header("Vary", "Accept-Encoding")
+            self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(raw)
+            self.wfile.write(body)
         except OSError:
             return
 
@@ -8425,17 +8483,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "client index missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        # Keep clients in sync so all players render the same UI version.
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_preview_html(self) -> None:
         path = CLIENT_PREVIEW_PATH if os.path.exists(CLIENT_PREVIEW_PATH) else CLIENT_INDEX_PATH
@@ -8445,16 +8493,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "client page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_website_html(self) -> None:
         try:
@@ -8463,16 +8502,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "website page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_rules_html(self) -> None:
         try:
@@ -8481,16 +8511,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "rules page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_about_html(self) -> None:
         try:
@@ -8499,16 +8520,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "about page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_leaderboard_html(self) -> None:
         try:
@@ -8517,16 +8529,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": "leaderboard page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _send_html_file(self, path: str, missing_label: str) -> None:
         """Serve a standalone HTML page from disk with the site's HTML headers."""
@@ -8536,16 +8539,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         except OSError:
             self._send_json({"ok": False, "error": f"{missing_label} page missing"}, status=HTTPStatus.NOT_FOUND)
             return
-        self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self._apply_html_security_headers()
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(raw)))
-        try:
-            self.end_headers()
-            self.wfile.write(raw)
-        except OSError:
-            return
+        self._emit_html(raw)
 
     def _read_json_body(self) -> tuple[Dict[str, Any], Optional[str]]:
         try:
