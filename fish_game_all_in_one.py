@@ -10692,8 +10692,15 @@ def run_match(
     tutorial_human_index: Optional[int] = None,
     tutorial_variant: Optional[str] = None,
     turtle_gated: Optional[bool] = None,
+    training_out: Optional[dict] = None,
 ) -> Tuple[GameState, MatchState]:
     rng = random.Random(seed)
+    # Training telemetry collector (offline trainer only). When provided, this
+    # records a compact per-decision log + per-game aggregates WITHOUT mutating
+    # any persistent state. Guarded so live/normal callers (training_out is None)
+    # are completely unaffected. See the MULTI-COUNT TRAINING section.
+    training_decisions: List[Dict[str, Any]] = []
+    training_rules_errors = 0
     web_control_mode = str(os.environ.get("FISH_WEB_CONTROL", "")).strip().lower() in {
         "1",
         "true",
@@ -11000,10 +11007,16 @@ def run_match(
                 chosen_feats = None
             executed_action = chosen
             executed_feats = chosen_feats
+            reward = 0.0  # per-iteration init so trainer telemetry never reads a stale reward
             fail_messages: List[str] = []
             _eg_before = bool(ms.end_game_triggered)
             ok = apply_action(gs, ms, p, chosen, turn_state, picker, verbose=verbose, fail_reason=fail_messages)
             if not ok:
+                # Rules-integrity signal for the offline trainer: a bot policy that
+                # proposed an action the engine rejected. Any game with a bot rules
+                # error is quality-zeroed so the AI never learns from illegal play.
+                if training_out is not None and not is_human_turn and chosen.kind != "draw":
+                    training_rules_errors += 1
                 if verbose:
                     reason = fail_messages[-1] if fail_messages else "unknown reason"
                     print(f"{p.name} attempt failed: {reason}")
@@ -11134,6 +11147,43 @@ def run_match(
                     pass
 
             made_action_this_turn = True
+            # ── Offline-trainer per-decision telemetry (no persistent mutation) ──
+            if training_out is not None:
+                try:
+                    _tf = executed_feats if isinstance(executed_feats, dict) else {}
+                    _est = (
+                        weighted_score(_tf, online_weights)
+                        if (_tf and isinstance(online_weights, dict))
+                        else 0.0
+                    )
+                    _rw = float(reward)
+                    _pf = executed_action.face_uid if executed_action.face_uid is not None else executed_action.card_uid
+                    _pc = gs.card_db.get(_pf)
+                    training_decisions.append({
+                        "pi": int(gs.turn_index),
+                        "seat": int(gs.turn_index),
+                        "turn": int(turns + 1),
+                        "kind": str(executed_action.kind),
+                        "card": (_pc.name if _pc is not None and executed_action.kind != "draw" else ""),
+                        "use_star": bool(getattr(executed_action, "use_star", False)) or float(_tf.get("uses_star", 0.0)) > 0.0,
+                        "draw_from_pool": int(getattr(executed_action, "draw_from_pool", 0) or 0),
+                        "pool_pick": len(getattr(executed_action, "pool_pick_uids", []) or []),
+                        "est_value": round(float(_est), 4),
+                        "reward": round(float(_rw), 4),
+                        "deny": round(float(_tf.get("deny_bonus", 0.0)), 4),
+                        "future_value": round(float(_tf.get("future_value", 0.0)), 4),
+                        "synergy": round(
+                            float(_tf.get("synergy_bonus", 0.0))
+                            + float(_tf.get("species_bonus", 0.0))
+                            + float(_tf.get("same_ocean_bonus", 0.0))
+                            + float(_tf.get("stack_bonus", 0.0)), 4),
+                        "had_play_option": bool(had_play_option),
+                        "was_free": bool(was_free_only),
+                        "deck": int(len(gs.deck)),
+                        "pool": int(len(ms.pool)),
+                    })
+                except Exception:
+                    pass
             update_tempo_after_action(p, executed_action, turn_state)
             if live_recorder is not None:
                 live_recorder.event(f"{p.name} executed: {describe_action(gs, ms, executed_action)}")
@@ -11489,6 +11539,80 @@ def run_match(
             boost=human_learning_boost,
         )
         save_brain(online_state, online_state_path)
+
+    # ── Offline-trainer game record (no persistent mutation) ────────────────
+    # Populate the caller-supplied dict with everything the generate→rank→learn
+    # pipeline needs, extracted into plain, picklable data so worker processes
+    # never have to return a GameState. Fully guarded: None for every live caller.
+    if training_out is not None:
+        try:
+            finals_out = [float(_safe_fp(pl)) for pl in gs.players]
+        except Exception:
+            finals_out = [0.0 for _ in gs.players]
+        top_out = max(finals_out) if finals_out else 0.0
+        winners_out = [idx for idx, s in enumerate(finals_out) if s >= top_out - 1e-9]
+        players_out: List[Dict[str, Any]] = []
+        for idx, pl in enumerate(gs.players):
+            try:
+                face_uids = player_board_face_uids(pl)
+            except Exception:
+                face_uids = []
+            names = []
+            species = []
+            for uid in face_uids:
+                cd = gs.card_db.get(uid)
+                if cd is None:
+                    continue
+                names.append(cd.name)
+                sp = (cd.species or "").strip()
+                if sp and sp.lower() != "n/a":
+                    species.append(sp)
+            ocean_groups: List[List[str]] = []
+            try:
+                for ocean_uid in pl.board_oceans:
+                    slot = pl.ocean_slots.get(ocean_uid)
+                    if slot is None:
+                        continue
+                    grp = [gs.card_db[u].name for u in slot.all_cards() if u in gs.card_db]
+                    if grp:
+                        ocean_groups.append(grp)
+            except Exception:
+                pass
+            try:
+                strat = detect_player_strategy(gs, pl)
+            except Exception:
+                strat = "Unknown"
+            players_out.append({
+                "name": pl.name,
+                "seat": idx,
+                "score": finals_out[idx] if idx < len(finals_out) else 0.0,
+                "won": idx in winners_out,
+                "board_names": names,
+                "species": species,
+                "ocean_groups": ocean_groups,
+                "oceans_built": len(getattr(pl, "board_oceans", []) or []),
+                "turtle": any(n.strip().lower() == "loggerhead sea turtle" for n in names),
+                "strategy": strat,
+            })
+        training_out["num_players"] = len(gs.players)
+        training_out["seed"] = int(seed)
+        training_out["final_scores"] = finals_out
+        training_out["winners"] = winners_out
+        training_out["players"] = players_out
+        training_out["decisions"] = training_decisions
+        training_out["rules_errors"] = int(training_rules_errors)
+        training_out["turns"] = int(turns)
+        training_out["end_game_triggered"] = bool(getattr(ms, "end_game_triggered", False))
+        training_out["end_game_deck_remaining"] = int(len(gs.deck))
+        training_out["stalled"] = bool(stalled_turns >= len(gs.players) * 6)
+        training_out["deck_remaining"] = int(len(gs.deck))
+        training_out["pool_count"] = int(len(ms.pool))
+        training_out["discard_count"] = int(len(ms.discard_pile))
+        # Per-move features/rewards/signatures (keyed by player index) for the
+        # learn phase's n-step credit assignment. Keys are stringified for JSON.
+        training_out["move_feats"] = {str(k): v for k, v in move_histories.items()}
+        training_out["move_rewards"] = {str(k): v for k, v in move_rewards.items()}
+        training_out["move_signatures"] = {str(k): v for k, v in move_signatures.items()}
 
     return gs, ms
 
@@ -12199,6 +12323,1032 @@ def unlearn_inert_games(
     return dict(brain["last_inert_unlearn"])
 
 
+# ==========================================================================
+#  MULTI-COUNT SELF-PLAY TRAINING  (offline; never runs in the live server)
+#
+#  A serious, resumable, parallel training pipeline that builds the strongest
+#  per-player-count strategies (2..8) plus shared global knowledge. Pipeline:
+#
+#     generate ─▶ rank ─▶ learn ─▶ benchmark ─▶ report ─▶ (auto-)promote
+#
+#  Games are PLAYED with the current candidate maps but NOT learned inline;
+#  they are ranked by training quality first, then learning is quality-weighted
+#  (strong games count more; buggy / undeveloped games are zeroed out). The live
+#  brain file is never touched until a count's new-vs-old benchmark passes.
+# ==========================================================================
+
+import csv as _csv
+import math as _math
+import multiprocessing as _mp
+
+TRAIN_DEFAULT_DIR = "fish_training"
+CANDIDATE_BRAIN_PATH = "fish_ai_brain.candidate.json"
+
+# "Excellent" top score per count — normalizes the game-quality score component.
+TRAIN_TARGET_TOP: Dict[int, float] = {2: 240.0, 3: 175.0, 4: 135.0, 5: 118.0, 6: 104.0, 7: 94.0, 8: 86.0}
+# Developed-board floor per count — below this a game is too weak to learn from.
+TRAIN_MIN_TOP: Dict[int, float] = {2: 55.0, 3: 80.0, 4: 100.0, 5: 100.0, 6: 95.0, 7: 90.0, 8: 85.0}
+# The learnable maps the LIVE server reads per count (multiplayer_server.py:6838+).
+TRAIN_POLICY_MAP_KEYS = (
+    "synergy", "species_synergy", "same_ocean_synergy",
+    "strategy_value", "strategy_count", "strategy_transition", "strategy_transition_count",
+)
+
+# Worker-process globals (set once per process by _train_worker_init under spawn).
+_TRAIN_WORKER_CARD_DB: Optional[Dict[int, CardDef]] = None
+_TRAIN_WORKER_POLICY: Optional[Dict[int, Dict[str, Any]]] = None
+
+
+def _clamp01(x: float) -> float:
+    return 0.0 if x < 0.0 else (1.0 if x > 1.0 else float(x))
+
+
+def _train_game_seed(base_seed: int, a: int, b: int) -> int:
+    """Deterministic per-game seed from a base seed + two ints (count, idx)."""
+    return int((int(base_seed) ^ (int(a) * 2654435761) ^ (int(b) * 40503) ^ 0x9E3779B9) & 0xFFFFFFFF)
+
+
+def _train_policy_maps_from_cbrain(cbrain: Dict[str, Any]) -> Dict[str, Any]:
+    """Snapshot the policy-relevant maps a bot reads for one count (plain dicts,
+    fully picklable for worker processes)."""
+    out: Dict[str, Any] = {
+        "weights": stabilize_weights(dict(cbrain.get("weights", default_weights()))),
+    }
+    for k in TRAIN_POLICY_MAP_KEYS:
+        src = cbrain.get(k)
+        out[k] = dict(src) if isinstance(src, dict) else {}
+    return out
+
+
+def _train_make_policy(maps: Dict[str, Any], weights: Optional[Dict[str, float]] = None, epsilon: float = 0.0):
+    """Build a weighted-policy closure that reads a snapshot's maps (built inside
+    the worker, so it never has to be pickled)."""
+    w = weights if weights is not None else maps["weights"]
+
+    def _pol(gs, ms, p, _w=w, _m=maps, _e=epsilon):
+        return choose_action_weighted(
+            gs, ms, p, _w,
+            synergy_map=_m.get("synergy", {}),
+            species_map=_m.get("species_synergy", {}),
+            same_ocean_map=_m.get("same_ocean_synergy", {}),
+            strategy_value_map=_m.get("strategy_value", {}),
+            strategy_count_map=_m.get("strategy_count", {}),
+            strategy_transition_map=_m.get("strategy_transition", {}),
+            strategy_transition_count_map=_m.get("strategy_transition_count", {}),
+            epsilon=_e,
+        )
+
+    return _pol
+
+
+def _train_worker_init(policy_snapshot: Dict[int, Dict[str, Any]]) -> None:
+    global _TRAIN_WORKER_CARD_DB, _TRAIN_WORKER_POLICY
+    _TRAIN_WORKER_CARD_DB = load_card_db()
+    _TRAIN_WORKER_POLICY = policy_snapshot
+
+
+def _train_gen_worker(task: Tuple[int, int, int]) -> Dict[str, Any]:
+    """Play ONE self-play game for generation; return its picklable GameRecord.
+    No persistent mutation (online_lr=0.0, online_state=None)."""
+    count, idx, seed = task
+    random.seed(seed)  # make epsilon-exploration reproducible for a fixed base seed
+    card_db = _TRAIN_WORKER_CARD_DB
+    maps = _TRAIN_WORKER_POLICY[count]
+    base_w = maps["weights"]
+    rng = random.Random(seed ^ 0x5DEECE66D)
+    policies = []
+    for i in range(count):
+        seat_w = dict(base_w) if i == 0 else mutate_weights_rng(dict(base_w), rng, scale=0.18)
+        eps = 0.03 if i == 0 else max(0.02, min(0.12, 0.05 + rng.uniform(-0.02, 0.04)))
+        policies.append(_train_make_policy(maps, weights=seat_w, epsilon=eps))
+    out: Dict[str, Any] = {}
+    try:
+        run_match(
+            card_db=card_db,
+            player_names=[f"AI_{i + 1}" for i in range(count)],
+            action_policies=policies,
+            seed=seed,
+            max_turns=500,
+            human_index=None,
+            verbose=False,
+            verbose_state=False,
+            online_weights=dict(base_w),  # throwaway; online_lr=0.0 => no-op updates
+            online_learning_indices=set(range(count)),
+            online_lr=0.0,
+            online_state=None,
+            online_state_path=None,
+            training_out=out,
+        )
+    except Exception as e:  # a crashed game becomes a zeroed record, never learned from
+        out = {"error": f"{type(e).__name__}: {e}", "num_players": count, "final_scores": []}
+    out["count"] = int(count)
+    out["idx"] = int(idx)
+    out["seed"] = int(seed)
+    return out
+
+
+def _train_aggregate(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Roll up a GameRecord's decision log + board data into flat telemetry."""
+    decs = record.get("decisions", []) or []
+    finals = record.get("final_scores", []) or []
+    n = int(record.get("num_players", len(finals)) or 0)
+    played = sum(1 for d in decs if d.get("kind") in ("play_to_ocean", "play_ocean"))
+    draws = sum(1 for d in decs if d.get("kind") == "draw")
+    pool_use = sum(1 for d in decs if int(d.get("draw_from_pool", 0)) > 0 or int(d.get("pool_pick", 0)) > 0)
+    stars = sum(1 for d in decs if d.get("use_star"))
+    moves = sum(1 for d in decs if d.get("kind") == "move_between_oceans")
+    oceans = sum(1 for d in decs if d.get("kind") == "play_ocean")
+    weak = sum(1 for d in decs if d.get("kind") == "draw" and d.get("had_play_option"))
+    denial = sum(1 for d in decs if float(d.get("deny", 0.0)) >= 0.5)
+    hate = sum(1 for d in decs if float(d.get("deny", 0.0)) >= 0.5 and (int(d.get("draw_from_pool", 0)) > 0 or int(d.get("pool_pick", 0)) > 0))
+    groups: Dict[Tuple[int, int], int] = {}
+    for d in decs:
+        key = (int(d.get("pi", -1)), int(d.get("turn", -1)))
+        groups[key] = groups.get(key, 0) + 1
+    chains = sum(1 for v in groups.values() if v > 1)
+    syn_sum = 0.0
+    syn_cnt = 0
+    for pl in record.get("players", []) or []:
+        for grp in pl.get("ocean_groups", []) or []:
+            if len(grp) >= 2:
+                syn_sum += len(grp)
+                syn_cnt += 1
+    synergy_density = (syn_sum / syn_cnt) if syn_cnt else 0.0
+    top = max(finals) if finals else 0.0
+    low = min(finals) if finals else 0.0
+    mean = (sum(finals) / len(finals)) if finals else 0.0
+    winner_seat = -1
+    if finals:
+        winner_seat = max(range(len(finals)), key=lambda i: finals[i])
+    return {
+        "num_players": n,
+        "top": float(top), "low": float(low), "mean": float(mean), "spread": float(top - low),
+        "winner_seat": int(winner_seat),
+        "cards_played": played, "draws": draws, "pool_use": pool_use, "stars": stars,
+        "moves": moves, "oceans": oceans, "weak_turns": weak, "denial": denial,
+        "hate_drafts": hate, "chains": chains, "synergy_density": round(synergy_density, 3),
+    }
+
+
+def train_score_game_quality(record: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
+    """Return (quality 0..1, agg). Buggy / stalled / undeveloped / no-natural-end
+    games are hard-zeroed so the AI never learns from them (req 3 & 5 & 15)."""
+    agg = _train_aggregate(record)
+    c = int(record.get("num_players", 4) or 4)
+    if record.get("error"):
+        agg.update({"pruned": "error", "quality": 0.0, "subscores": {}})
+        return 0.0, agg
+    hard = None
+    if int(record.get("rules_errors", 0)) > 0:
+        hard = "rules_error"
+    elif record.get("stalled"):
+        hard = "stalled"
+    elif not record.get("end_game_triggered"):
+        hard = "no_natural_end"
+    floor = TRAIN_MIN_TOP.get(c, 100.0)
+    if agg["top"] < floor * 0.6:
+        hard = hard or "undeveloped"
+    if hard:
+        agg.update({"pruned": hard, "quality": 0.0, "subscores": {}})
+        return 0.0, agg
+
+    target = TRAIN_TARGET_TOP.get(c, 120.0)
+    s_score = _clamp01(agg["top"] / target)
+    ratio = agg["spread"] / max(1.0, agg["top"])
+    if ratio < 0.05:
+        s_compete = ratio / 0.05
+    elif ratio <= 0.45:
+        s_compete = 1.0
+    else:
+        s_compete = max(0.0, 1.0 - (ratio - 0.45) / 0.55)
+    avg_cards = agg["cards_played"] / max(1, c)
+    s_eff = _clamp01((agg["top"] / max(1.0, avg_cards)) / 16.0)
+    s_res = _clamp01(1.0 - int(record.get("end_game_deck_remaining", 15)) / 15.0)
+    s_syn = _clamp01(agg["synergy_density"] / 3.0)
+    s_den = _clamp01(agg["denial"] / max(1, c))
+    s_chain = _clamp01(agg["chains"] / (2.0 * c))
+    p_weak = _clamp01(agg["weak_turns"] / max(1, agg["draws"]))
+    q = (0.30 * s_score + 0.15 * s_compete + 0.15 * s_eff + 0.15 * s_res
+         + 0.12 * s_syn + 0.08 * s_den + 0.05 * s_chain - 0.25 * p_weak)
+    q = _clamp01(q)
+    agg.update({
+        "pruned": None,
+        "quality": round(q, 4),
+        "subscores": {
+            "score": round(s_score, 3), "compete": round(s_compete, 3), "efficiency": round(s_eff, 3),
+            "resource": round(s_res, 3), "synergy": round(s_syn, 3), "denial": round(s_den, 3),
+            "chains": round(s_chain, 3), "weak_penalty": round(p_weak, 3),
+        },
+    })
+    return q, agg
+
+
+def _train_bound_map(m: Dict[str, float], cap: float, maxlen: int) -> None:
+    for k in list(m.keys()):
+        v = float(m[k])
+        if abs(v) < 1e-6:
+            del m[k]
+            continue
+        if v > cap:
+            m[k] = cap
+        elif v < -cap:
+            m[k] = -cap
+    if len(m) > maxlen:
+        top = sorted(m.items(), key=lambda kv: abs(kv[1]), reverse=True)[:maxlen]
+        m.clear()
+        m.update(top)
+
+
+def _train_learn_synergies(cbrain: Dict[str, Any], shared: Dict[str, Any], record: Dict[str, Any], quality: float) -> None:
+    """Reinforce winner card/species/same-ocean combos and dampen loser combos,
+    quality-scaled, into BOTH the per-count brain and the shared brain. Mirrors
+    update_brain_from_match's rates + bounds, driven by extracted board data."""
+    players = record.get("players", []) or []
+    if not players:
+        return
+    winners = [pl for pl in players if pl.get("won")]
+    losers = [pl for pl in players if not pl.get("won")]
+    f = 0.6 + 0.8 * _clamp01(quality)  # 0.6..1.4
+    for target in (cbrain, shared):
+        syn = target.setdefault("synergy", {})
+        spc = target.setdefault("species_synergy", {})
+        soc = target.setdefault("same_ocean_synergy", {})
+        for pl in winners:
+            names = pl.get("board_names", []) or []
+            for i in range(len(names)):
+                for j in range(i + 1, len(names)):
+                    k = synergy_key(names[i], names[j])
+                    syn[k] = float(syn.get(k, 0.0) + 0.14 * f)
+            sp = pl.get("species", []) or []
+            for i in range(len(sp)):
+                for j in range(i + 1, len(sp)):
+                    k = species_synergy_key(sp[i], sp[j])
+                    spc[k] = float(spc.get(k, 0.0) + 0.10 * f)
+            for grp in pl.get("ocean_groups", []) or []:
+                for i in range(len(grp)):
+                    for j in range(i + 1, len(grp)):
+                        k = synergy_key(grp[i], grp[j])
+                        soc[k] = float(soc.get(k, 0.0) + 0.20 * f)
+        for pl in losers:
+            names = pl.get("board_names", []) or []
+            for i in range(len(names)):
+                for j in range(i + 1, len(names)):
+                    k = synergy_key(names[i], names[j])
+                    syn[k] = float(syn.get(k, 0.0) - 0.04)
+            sp = pl.get("species", []) or []
+            for i in range(len(sp)):
+                for j in range(i + 1, len(sp)):
+                    k = species_synergy_key(sp[i], sp[j])
+                    spc[k] = float(spc.get(k, 0.0) - 0.03)
+            for grp in pl.get("ocean_groups", []) or []:
+                for i in range(len(grp)):
+                    for j in range(i + 1, len(grp)):
+                        k = synergy_key(grp[i], grp[j])
+                        soc[k] = float(soc.get(k, 0.0) - 0.05)
+        _train_bound_map(syn, 3.0, 6000)
+        _train_bound_map(spc, 3.0, 800)
+        _train_bound_map(soc, 4.0, 1600)
+
+
+def _train_learn_one(candidate_brain: Dict[str, Any], record: Dict[str, Any], quality: float,
+                     lr_w: float, top_decisions: List[Dict[str, Any]]) -> None:
+    """Apply ALL learning from one game into the per-count + shared brains,
+    scaled by the game's training quality."""
+    count = int(record.get("num_players", 4) or 4)
+    cbrain = get_count_brain(candidate_brain, count)
+    finals = record.get("final_scores", []) or []
+    for b in (cbrain, candidate_brain):
+        if not isinstance(b.get("weights"), dict):
+            b["weights"] = default_weights()
+        for mk in TRAIN_POLICY_MAP_KEYS:
+            if not isinstance(b.get(mk), dict):
+                b[mk] = {}
+
+    # 1) Weight learning via n-step credit assignment (winners AND strong 2nds get
+    #    positive credit because each player is scored on their OWN margin) — req 4.
+    move_feats = record.get("move_feats", {}) or {}
+    move_rewards = record.get("move_rewards", {}) or {}
+    for i_str, feats_list in move_feats.items():
+        i = int(i_str)
+        if i < 0 or i >= len(finals) or not feats_list:
+            continue
+        my = finals[i]
+        others = [s for j, s in enumerate(finals) if j != i]
+        avg_other = (sum(others) / len(others)) if others else 0.0
+        terminal = max(-4.0, min(4.0, (my - avg_other) / 10.0))
+        rewards_i = move_rewards.get(i_str, []) or []
+        if len(rewards_i) != len(feats_list):
+            rewards_i = [0.0] * len(feats_list)
+        returns_i = compute_n_step_returns([float(x) for x in rewards_i], terminal)
+        for step, feats in enumerate(feats_list):
+            if not isinstance(feats, dict):
+                continue
+            g = returns_i[step] if step < len(returns_i) else terminal
+            g = max(-6.0, min(6.0, g))
+            fv = max(0.0, float(feats.get("future_value", 0.0)))
+            sv = max(0.0, float(feats.get("plan_fit_bonus", 0.0)) + float(feats.get("synergy_bonus", 0.0))
+                     + float(feats.get("species_bonus", 0.0)) + float(feats.get("same_ocean_bonus", 0.0))
+                     + float(feats.get("stack_bonus", 0.0)))
+            boost = 1.0 + min(0.35, 0.045 * fv + 0.015 * sv)
+            eff_lr = lr_w * max(0.0, quality) * boost
+            online_update_weights(cbrain["weights"], feats, g * boost, lr=eff_lr)
+            online_update_weights(candidate_brain["weights"], feats, g * boost, lr=eff_lr * 0.6)
+        cbrain["move_updates"] = int(cbrain.get("move_updates", 0)) + len(feats_list)
+
+    # 2) Synergy / species / same-ocean (req 3 synergy signal), per-count + shared.
+    _train_learn_synergies(cbrain, candidate_brain, record, quality)
+
+    # 3) Strategy-pattern memory (which board patterns win), per-count + shared.
+    sigs = {int(k): v for k, v in (record.get("move_signatures", {}) or {}).items()}
+    if finals and sigs:
+        update_strategy_memory_from_match(
+            finals, sigs, cbrain["strategy_value"], cbrain["strategy_count"],
+            cbrain["strategy_transition"], cbrain["strategy_transition_count"],
+        )
+        update_strategy_memory_from_match(
+            finals, sigs, candidate_brain["strategy_value"], candidate_brain["strategy_count"],
+            candidate_brain["strategy_transition"], candidate_brain["strategy_transition_count"],
+        )
+
+    # 4) Turtle-learning signal (per count) so the live gate can unlock the turtle.
+    ts = cbrain.setdefault("turtle_stats", {"attempts": 0.0, "wins": 0.0})
+    for pl in record.get("players", []) or []:
+        if pl.get("turtle"):
+            ts["attempts"] = float(ts.get("attempts", 0.0)) + 1.0
+            if pl.get("won"):
+                ts["wins"] = float(ts.get("wins", 0.0)) + 1.0
+
+    cbrain["games_played"] = int(cbrain.get("games_played", 0)) + 1
+    candidate_brain["games_played"] = int(candidate_brain.get("games_played", 0)) + 1
+    candidate_brain["move_updates"] = int(candidate_brain.get("move_updates", 0)) + 1
+
+    # 5) Harvest the most valuable individual decisions for the report.
+    for d in record.get("decisions", []) or []:
+        if d.get("kind") == "draw":
+            continue
+        val = float(d.get("reward", 0.0)) + 0.25 * float(d.get("future_value", 0.0)) + 0.15 * float(d.get("synergy", 0.0))
+        if val > 0.8:
+            top_decisions.append({
+                "value": round(val * max(0.3, quality), 4),
+                "count": count, "seed": int(record.get("seed", 0)),
+                "turn": int(d.get("turn", 0)), "player": int(d.get("pi", 0)),
+                "kind": d.get("kind"), "card": d.get("card", ""),
+                "reward": float(d.get("reward", 0.0)), "future_value": float(d.get("future_value", 0.0)),
+                "synergy": float(d.get("synergy", 0.0)), "deny": float(d.get("deny", 0.0)),
+                "game_quality": round(quality, 3),
+            })
+
+
+def train_learn(candidate_brain: Dict[str, Any], records: List[Dict[str, Any]], log) -> Tuple[List[Tuple[float, Dict[str, Any], Dict[str, Any]]], List[Dict[str, Any]]]:
+    """Rank all games by quality, then learn from them best-first (quality-weighted).
+    Returns (scored games desc, top decisions)."""
+    scored: List[Tuple[float, Dict[str, Any], Dict[str, Any]]] = []
+    for r in records:
+        q, agg = train_score_game_quality(r)
+        scored.append((q, agg, r))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top_decisions: List[Dict[str, Any]] = []
+    learned = 0
+    pruned = 0
+    prune_reasons: Dict[str, int] = {}
+    for q, agg, r in scored:
+        if q <= 0.0:
+            pruned += 1
+            reason = str(agg.get("pruned") or "low_quality")
+            prune_reasons[reason] = prune_reasons.get(reason, 0) + 1
+            continue
+        _train_learn_one(candidate_brain, r, q, lr_w=0.02, top_decisions=top_decisions)
+        learned += 1
+    candidate_brain["weights"] = stabilize_weights(dict(candidate_brain.get("weights", {})))
+    by_count = candidate_brain.get("by_count", {})
+    if isinstance(by_count, dict):
+        for slot in by_count.values():
+            if isinstance(slot, dict) and isinstance(slot.get("weights"), dict):
+                slot["weights"] = stabilize_weights(dict(slot["weights"]))
+    ensure_priority_anchor_brain_rules(candidate_brain)
+    top_decisions.sort(key=lambda d: d["value"], reverse=True)
+    log(f"Learn: {learned} games learned, {pruned} pruned/zeroed. Prune reasons: {prune_reasons or '{}'}")
+    return scored, top_decisions
+
+
+def _bench_worker(task: Tuple[int, int, str, int]) -> Dict[str, Any]:
+    """Play one benchmark game: seat exactly one NEW bot vs opponents; return the
+    NEW bot's result. matchup in {'old','random','mixed'}."""
+    count, seed, matchup, new_seat = task
+    random.seed(seed)
+    card_db = _TRAIN_WORKER_CARD_DB
+    slot = _TRAIN_WORKER_POLICY[count]
+    new_maps = slot["new"]
+    old_maps = slot["old"]
+    rng = random.Random(seed ^ 0x1234ABCD)
+    policies = []
+    diffs: List[str] = []
+    for i in range(count):
+        if i == new_seat:
+            policies.append(_train_make_policy(new_maps, epsilon=0.0))
+            diffs.append("medium")
+        elif matchup == "random":
+            policies.append(choose_action_random)
+            diffs.append("medium")
+        elif matchup == "mixed":
+            policies.append(_train_make_policy(old_maps, epsilon=0.0))
+            diffs.append(rng.choice(["easy", "medium", "hard"]))
+        else:  # 'old'
+            policies.append(_train_make_policy(old_maps, epsilon=0.0))
+            diffs.append("medium")
+    try:
+        gs, ms = run_match(
+            card_db=card_db,
+            player_names=[f"P{i}" for i in range(count)],
+            action_policies=policies,
+            seed=seed, max_turns=500, human_index=None,
+            verbose=False, verbose_state=False,
+            ai_difficulties=diffs,
+            online_weights=None, online_state=None, online_state_path=None,
+        )
+        finals = [float(final_points(gs, p)) for p in gs.players]
+    except Exception as e:
+        return {"count": count, "matchup": matchup, "error": f"{type(e).__name__}: {e}"}
+    new_score = finals[new_seat]
+    others = [s for j, s in enumerate(finals) if j != new_seat]
+    best_other = max(others) if others else 0.0
+    top = max(finals) if finals else 0.0
+    if new_score >= top - 1e-9 and finals.count(top) == 1:
+        win = 1.0
+    elif abs(new_score - top) < 1e-9:
+        win = 0.5
+    else:
+        win = 0.0
+    return {
+        "count": int(count), "matchup": matchup, "new_seat": int(new_seat),
+        "new_score": round(new_score, 2), "best_other": round(best_other, 2),
+        "margin": round(new_score - best_other, 2), "win": win, "top": round(top, 2),
+    }
+
+
+def _wilson(wins: float, n: int, z: float = 1.96) -> Tuple[float, float, float]:
+    if n <= 0:
+        return (0.0, 0.0, 0.0)
+    p = wins / n
+    denom = 1.0 + z * z / n
+    center = (p + z * z / (2 * n)) / denom
+    half = (z * _math.sqrt(max(0.0, p * (1 - p) / n + z * z / (4 * n * n)))) / denom
+    return (p, max(0.0, center - half), min(1.0, center + half))
+
+
+def _bench_aggregate(results: List[Dict[str, Any]], counts: List[int], matchups: List[str]) -> Dict[str, Any]:
+    by_count: Dict[str, Dict[str, Any]] = {}
+    seat_adv: Dict[str, Dict[str, Any]] = {}
+    for c in counts:
+        by_count[str(c)] = {}
+        seat_tally: Dict[int, List[float]] = {}
+        for m in matchups:
+            cell = [r for r in results if r.get("count") == c and r.get("matchup") == m and "error" not in r]
+            n = len(cell)
+            wins = sum(float(r["win"]) for r in cell)
+            avg_score = (sum(float(r["new_score"]) for r in cell) / n) if n else 0.0
+            avg_margin = (sum(float(r["margin"]) for r in cell) / n) if n else 0.0
+            p, lo, hi = _wilson(wins, n)
+            entry = {
+                "games": n, "win_rate": round(p, 4), "win_ci_low": round(lo, 4), "win_ci_high": round(hi, 4),
+                "avg_score": round(avg_score, 2), "avg_margin": round(avg_margin, 2),
+            }
+            if m == "old":
+                entry["is_better"] = bool(lo > 0.5)
+            by_count[str(c)][m] = entry
+            if m == "old":
+                for r in cell:
+                    seat_tally.setdefault(int(r["new_seat"]), []).append(float(r["win"]))
+        seat_adv[str(c)] = {
+            str(s): round(sum(v) / len(v), 4) for s, v in sorted(seat_tally.items()) if v
+        }
+    # Aggregate new-vs-old across all counts.
+    old_cells = [r for r in results if r.get("matchup") == "old" and "error" not in r]
+    n_all = len(old_cells)
+    wins_all = sum(float(r["win"]) for r in old_cells)
+    p_all, lo_all, hi_all = _wilson(wins_all, n_all)
+    aggregate = {
+        "old_win_rate": round(p_all, 4), "old_ci_low": round(lo_all, 4), "old_ci_high": round(hi_all, 4),
+        "old_is_better": bool(lo_all > 0.5), "games": n_all,
+    }
+    return {"by_count": by_count, "seat_advantage": seat_adv, "aggregate": aggregate, "matchups": matchups}
+
+
+def _train_strategy_and_card_stats(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Data-driven best/worst strategies + best cards/combos, from the raw games."""
+    strat: Dict[str, Dict[str, float]] = {}
+    card_win: Dict[str, List[float]] = {}
+    combo: Dict[str, int] = {}
+    for r in records:
+        if r.get("error"):
+            continue
+        for pl in r.get("players", []) or []:
+            label = str(pl.get("strategy", "Unknown"))
+            rec = strat.setdefault(label, {"games": 0.0, "wins": 0.0, "score_sum": 0.0})
+            rec["games"] += 1.0
+            rec["score_sum"] += float(pl.get("score", 0.0))
+            if pl.get("won"):
+                rec["wins"] += 1.0
+                names = pl.get("board_names", []) or []
+                seen = set()
+                for nm in names:
+                    if nm not in seen:
+                        card_win.setdefault(nm, []).append(float(pl.get("score", 0.0)))
+                        seen.add(nm)
+                for a in range(len(names)):
+                    for b in range(a + 1, len(names)):
+                        combo[synergy_key(names[a], names[b])] = combo.get(synergy_key(names[a], names[b]), 0) + 1
+    strat_rows = []
+    for label, rec in strat.items():
+        g = max(1.0, rec["games"])
+        strat_rows.append({
+            "strategy": label, "games": int(rec["games"]),
+            "win_rate": round(rec["wins"] / g, 3), "avg_score": round(rec["score_sum"] / g, 1),
+        })
+    strat_rows.sort(key=lambda x: (x["win_rate"], x["avg_score"]), reverse=True)
+    best_cards = sorted(
+        ({"card": k, "winner_appearances": len(v), "avg_winner_score": round(sum(v) / len(v), 1)}
+         for k, v in card_win.items() if len(v) >= 2),
+        key=lambda x: (x["winner_appearances"], x["avg_winner_score"]), reverse=True,
+    )[:20]
+    best_combos = sorted(
+        ({"combo": k, "winner_count": v} for k, v in combo.items() if v >= 2),
+        key=lambda x: x["winner_count"], reverse=True,
+    )[:20]
+    return {"strategies": strat_rows, "best_cards": best_cards, "best_combos": best_combos}
+
+
+def train_validate_rules(card_db: Dict[int, CardDef], counts: List[int], log) -> Tuple[bool, str]:
+    """Pre-flight: play one game at a representative set of counts and confirm the
+    engine rejects nothing illegal (req 15). Aborts training on SYSTEMIC errors."""
+    probe_counts = sorted(set([counts[0], counts[len(counts) // 2], counts[-1]]))
+    weights = stabilize_weights(dict(default_weights()))
+    bad = 0
+    for c in probe_counts:
+        pol = _train_make_policy({"weights": weights}, epsilon=0.02)
+        out: Dict[str, Any] = {}
+        try:
+            gs, ms = run_match(
+                card_db=card_db, player_names=[f"AI_{i+1}" for i in range(c)],
+                action_policies=[pol] * c, seed=777 + c, max_turns=500,
+                human_index=None, verbose=False, verbose_state=False,
+                online_weights=dict(weights), online_learning_indices=set(range(c)),
+                online_lr=0.0, online_state=None, online_state_path=None, training_out=out,
+            )
+            eg_problems = validate_end_game_placement(gs, ms, where=f"preflight-{c}p")
+        except Exception as e:
+            log(f"  preflight {c}P: EXCEPTION {type(e).__name__}: {e}")
+            bad += 1
+            continue
+        rules_err = int(out.get("rules_errors", 0))
+        _fs = out.get("final_scores") or []
+        _top = max(_fs) if _fs else 0.0
+        log(f"  preflight {c}P: rules_errors={rules_err}, end_game_placement_issues={len(eg_problems)}, top={_top:.0f}")
+        if rules_err > 0:
+            bad += 1
+    if bad >= max(2, (len(probe_counts) + 1) // 2):
+        return False, f"Systemic rules errors in {bad}/{len(probe_counts)} preflight games — aborting."
+    return True, f"Rules preflight OK ({len(probe_counts)} counts probed, {bad} with issues)."
+
+
+def train_generate(candidate_brain: Dict[str, Any], counts: List[int], games_per_count: int,
+                   base_seed: int, jobs: int, run_dir: str, log) -> List[Dict[str, Any]]:
+    """Play all training games in parallel; append each to games.jsonl for resume."""
+    games_path = os.path.join(run_dir, "games.jsonl")
+    done: set = set()
+    records: List[Dict[str, Any]] = []
+    if os.path.exists(games_path):
+        with open(games_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                    done.add((int(r["count"]), int(r["idx"])))
+                    records.append(r)
+                except Exception:
+                    continue
+    tasks: List[Tuple[int, int, int]] = []
+    for c in counts:
+        for i in range(games_per_count):
+            if (c, i) in done:
+                continue
+            tasks.append((c, i, _train_game_seed(base_seed, c, i)))
+    if not tasks:
+        log(f"Generation: all {len(records)} games already present (resumed) — skipping.")
+        return records
+    snapshot = {c: _train_policy_maps_from_cbrain(get_count_brain(candidate_brain, c)) for c in counts}
+    log(f"Generation: {len(tasks)} games to play ({len(records)} resumed), jobs={jobs}.")
+    completed = 0
+    with open(games_path, "a", encoding="utf-8") as fh:
+        with _mp.Pool(processes=jobs, initializer=_train_worker_init, initargs=(snapshot,)) as pool:
+            for rec in pool.imap_unordered(_train_gen_worker, tasks):
+                records.append(rec)
+                fh.write(json.dumps(rec) + "\n")
+                fh.flush()
+                completed += 1
+                if completed % 10 == 0 or completed == len(tasks):
+                    errs = sum(1 for r in records if r.get("error"))
+                    log(f"  generated {completed}/{len(tasks)} (last: {rec.get('count')}P, errors so far={errs})")
+    return records
+
+
+def train_benchmark(candidate_brain: Dict[str, Any], old_brain: Dict[str, Any], counts: List[int],
+                    games: int, base_seed: int, jobs: int, run_dir: str, log) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Benchmark new vs {old, random, mixed} at every count, in parallel + resumable."""
+    matchups = ["old", "random", "mixed"]
+    bench_path = os.path.join(run_dir, "bench.jsonl")
+    results: List[Dict[str, Any]] = []
+    have: Dict[Tuple[int, str], int] = {}
+    if os.path.exists(bench_path):
+        with open(bench_path, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                    results.append(r)
+                    have[(int(r["count"]), str(r["matchup"]))] = have.get((int(r["count"]), str(r["matchup"])), 0) + 1
+                except Exception:
+                    continue
+    snapshot = {}
+    for c in counts:
+        snapshot[c] = {
+            "new": _train_policy_maps_from_cbrain(get_count_brain(candidate_brain, c)),
+            "old": _train_policy_maps_from_cbrain(get_count_brain(old_brain, c)),
+        }
+    tasks: List[Tuple[int, int, str, int]] = []
+    for c in counts:
+        for m in matchups:
+            existing = have.get((c, m), 0)
+            for g in range(existing, games):
+                seed = _train_game_seed(base_seed ^ 0x9E3779B9, c * 10 + matchups.index(m), g)
+                tasks.append((c, seed, m, g % c))
+    if tasks:
+        log(f"Benchmark: {len(tasks)} games to play ({len(results)} resumed), jobs={jobs}.")
+        completed = 0
+        with open(bench_path, "a", encoding="utf-8") as fh:
+            with _mp.Pool(processes=jobs, initializer=_train_worker_init, initargs=(snapshot,)) as pool:
+                for rec in pool.imap_unordered(_bench_worker, tasks):
+                    results.append(rec)
+                    fh.write(json.dumps(rec) + "\n")
+                    fh.flush()
+                    completed += 1
+                    if completed % 25 == 0 or completed == len(tasks):
+                        log(f"  benchmarked {completed}/{len(tasks)}")
+    else:
+        log(f"Benchmark: all cells already present (resumed) — skipping.")
+    return _bench_aggregate(results, counts, matchups), results
+
+
+def _train_write_csv(path: str, scored: List[Tuple[float, Dict[str, Any], Dict[str, Any]]]) -> None:
+    cols = ["count", "idx", "seed", "quality", "pruned", "top", "low", "mean", "spread", "winner_seat",
+            "num_players", "cards_played", "draws", "pool_use", "stars", "moves", "oceans",
+            "weak_turns", "denial", "hate_drafts", "chains", "synergy_density",
+            "end_game_triggered", "end_game_deck_remaining", "stalled", "rules_errors", "turns"]
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        w = _csv.writer(fh)
+        w.writerow(cols)
+        for q, agg, r in scored:
+            w.writerow([
+                r.get("count"), r.get("idx"), r.get("seed"), agg.get("quality", 0.0), agg.get("pruned") or "",
+                agg.get("top"), agg.get("low"), round(agg.get("mean", 0.0), 1), agg.get("spread"),
+                agg.get("winner_seat"), agg.get("num_players"), agg.get("cards_played"), agg.get("draws"),
+                agg.get("pool_use"), agg.get("stars"), agg.get("moves"), agg.get("oceans"),
+                agg.get("weak_turns"), agg.get("denial"), agg.get("hate_drafts"), agg.get("chains"),
+                agg.get("synergy_density"), r.get("end_game_triggered"), r.get("end_game_deck_remaining"),
+                r.get("stalled"), r.get("rules_errors"), r.get("turns"),
+            ])
+
+
+def _train_write_html(path: str, summary: Dict[str, Any]) -> None:
+    bench = summary["benchmark"]
+    counts = summary["counts"]
+    bc = bench["by_count"]
+
+    def esc(x: Any) -> str:
+        return str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    rows = []
+    for c in counts:
+        cell = bc.get(str(c), {})
+        old = cell.get("old", {})
+        rnd = cell.get("random", {})
+        mix = cell.get("mixed", {})
+        verdict = "✅ BETTER" if old.get("is_better") else ("≈ tie/worse" if old.get("games") else "—")
+        vcolor = "#1a7f37" if old.get("is_better") else "#9a6700"
+        rows.append(
+            f"<tr><td><b>{c}P</b></td>"
+            f"<td>{old.get('win_rate','—')} <span class=ci>[{old.get('win_ci_low','')}–{old.get('win_ci_high','')}]</span></td>"
+            f"<td style='color:{vcolor};font-weight:600'>{verdict}</td>"
+            f"<td>{rnd.get('win_rate','—')}</td>"
+            f"<td>{mix.get('win_rate','—')}</td>"
+            f"<td>{old.get('avg_score','—')}</td>"
+            f"<td>{old.get('avg_margin','—')}</td>"
+            f"<td>{esc(summary.get('promotion',{}).get('promoted_map',{}).get(str(c),'held'))}</td></tr>"
+        )
+    agg = bench["aggregate"]
+    agg_verdict = "✅ The new AI is better than the old AI overall" if agg.get("old_is_better") else "⚠ New AI not conclusively better than old overall"
+
+    def rows_from(items, cells):
+        out = []
+        for it in items:
+            out.append("<tr>" + "".join(f"<td>{esc(it.get(k,''))}</td>" for k in cells) + "</tr>")
+        return "\n".join(out)
+
+    seat_rows = []
+    for c in counts:
+        sa = bench["seat_advantage"].get(str(c), {})
+        seat_rows.append(f"<tr><td>{c}P</td><td>{esc(sa)}</td></tr>")
+
+    scs = summary["strategy_card_stats"]
+    top_games = summary["top25_games"]
+    bot_games = summary["bottom25_games"]
+    top_decs = summary["top25_decisions"]
+
+    html = f"""<!doctype html><html><head><meta charset=utf-8>
+<title>Currents &amp; Critters — Multi-Count AI Training Report</title>
+<style>
+body{{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;background:#f6f8fa;color:#1f2328}}
+.wrap{{max-width:1100px;margin:0 auto;padding:28px}}
+h1{{font-size:24px;margin:0 0 4px}} h2{{font-size:18px;margin:28px 0 10px;border-bottom:2px solid #d0d7de;padding-bottom:6px}}
+.sub{{color:#57606a;margin:0 0 18px}}
+.banner{{padding:14px 18px;border-radius:10px;font-size:16px;font-weight:600;margin:14px 0}}
+.good{{background:#dafbe1;color:#1a7f37;border:1px solid #2da44e}}
+.warn{{background:#fff8c5;color:#7d4e00;border:1px solid #d4a72c}}
+table{{border-collapse:collapse;width:100%;background:#fff;border:1px solid #d0d7de;border-radius:8px;overflow:hidden;font-size:13px;margin-bottom:8px}}
+th,td{{padding:7px 10px;text-align:left;border-bottom:1px solid #eaeef2}} th{{background:#f6f8fa;font-weight:600}}
+.ci{{color:#8c959f;font-size:11px}}
+.cards{{display:flex;gap:16px;flex-wrap:wrap}} .card{{flex:1;min-width:220px;background:#fff;border:1px solid #d0d7de;border-radius:8px;padding:12px 14px}}
+.k{{color:#57606a;font-size:12px}} .v{{font-size:22px;font-weight:700}}
+small{{color:#8c959f}}
+</style></head><body><div class=wrap>
+<h1>Currents &amp; Critters — Multi-Count AI Training Report</h1>
+<p class=sub>Generated {esc(summary['generated_at'])} · base seed {esc(summary['base_seed'])} · {esc(summary['games_per_count'])} training games/count · {esc(summary['benchmark_games'])} benchmark games/count · counts {esc(counts)}</p>
+<div class="banner {'good' if agg.get('old_is_better') else 'warn'}">{agg_verdict} &nbsp;—&nbsp; new-vs-old win rate {agg.get('old_win_rate')} (95% CI {agg.get('old_ci_low')}–{agg.get('old_ci_high')}, n={agg.get('games')})</div>
+<div class=cards>
+  <div class=card><div class=k>Training games</div><div class=v>{esc(summary['n_games'])}</div><small>{esc(summary['n_learned'])} learned · {esc(summary['n_pruned'])} pruned</small></div>
+  <div class=card><div class=k>Counts promoted to live</div><div class=v>{esc(summary.get('promotion',{}).get('promoted',[]))}</div><small>held: {esc(summary.get('promotion',{}).get('held',[]))}</small></div>
+  <div class=card><div class=k>Live-brain backup</div><div class=v style='font-size:13px'>{esc(summary.get('promotion',{}).get('backup',''))}</div></div>
+</div>
+
+<h2>Per-count verdict — is the new AI better than the old AI?</h2>
+<table><tr><th>Count</th><th>New vs Old win rate</th><th>Verdict</th><th>vs Random</th><th>vs Mixed</th><th>Avg score</th><th>Avg margin</th><th>Promotion</th></tr>
+{''.join(rows)}</table>
+<small>Verdict = the 95% Wilson lower bound of the new-vs-old win rate exceeds 0.50.</small>
+
+<h2>Seat-position advantage (new-vs-old win rate by seat)</h2>
+<table><tr><th>Count</th><th>Win rate by seat index</th></tr>{''.join(seat_rows)}</table>
+
+<h2>Best-performing strategies</h2>
+<table><tr><th>Strategy</th><th>Games</th><th>Win rate</th><th>Avg score</th></tr>
+{rows_from(scs['strategies'][:12], ['strategy','games','win_rate','avg_score'])}</table>
+
+<h2>Best cards &amp; combinations (from winning boards)</h2>
+<div class=cards>
+<div class=card style='min-width:320px'><div class=k>Top cards</div>
+<table><tr><th>Card</th><th>Winner appearances</th><th>Avg winner score</th></tr>
+{rows_from(scs['best_cards'][:12], ['card','winner_appearances','avg_winner_score'])}</table></div>
+<div class=card style='min-width:320px'><div class=k>Top combinations</div>
+<table><tr><th>Combo</th><th>Winner count</th></tr>
+{rows_from(scs['best_combos'][:12], ['combo','winner_count'])}</table></div>
+</div>
+
+<h2>Top 25 training games</h2>
+<table><tr><th>#</th><th>Count</th><th>Seed</th><th>Quality</th><th>Top</th><th>Spread</th><th>Cards</th><th>Weak turns</th><th>Denial</th></tr>
+{''.join(f"<tr><td>{i+1}</td><td>{g['count']}P</td><td>{g['seed']}</td><td>{g['quality']}</td><td>{g['top']}</td><td>{g['spread']}</td><td>{g['cards_played']}</td><td>{g['weak_turns']}</td><td>{g['denial']}</td></tr>" for i,g in enumerate(top_games))}</table>
+
+<h2>Top 25 individual decisions</h2>
+<table><tr><th>#</th><th>Value</th><th>Count</th><th>Turn</th><th>Card</th><th>Reward</th><th>Future value</th><th>Synergy</th><th>Deny</th></tr>
+{''.join(f"<tr><td>{i+1}</td><td>{d['value']}</td><td>{d['count']}P</td><td>{d['turn']}</td><td>{esc(d['card'])}</td><td>{round(d['reward'],2)}</td><td>{round(d['future_value'],2)}</td><td>{round(d['synergy'],2)}</td><td>{round(d['deny'],2)}</td></tr>" for i,d in enumerate(top_decs))}</table>
+
+<h2>Bottom 25 games (pruned / ignored — never learned from)</h2>
+<table><tr><th>#</th><th>Count</th><th>Seed</th><th>Reason</th><th>Top</th><th>Rules errors</th><th>Stalled</th><th>Natural end</th></tr>
+{''.join(f"<tr><td>{i+1}</td><td>{g['count']}P</td><td>{g['seed']}</td><td>{esc(g['pruned'])}</td><td>{g['top']}</td><td>{g['rules_errors']}</td><td>{g['stalled']}</td><td>{g['end_game_triggered']}</td></tr>" for i,g in enumerate(bot_games))}</table>
+
+<p><small>Full machine-readable metrics in <code>train_summary.json</code>; every game in <code>games.csv</code>; candidate brain in <code>{esc(CANDIDATE_BRAIN_PATH)}</code>.</small></p>
+</div></body></html>"""
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(html)
+
+
+def train_promote(candidate_brain: Dict[str, Any], live_path: str, bench_summary: Dict[str, Any],
+                  counts: List[int], do_promote: bool, log) -> Dict[str, Any]:
+    """Back up the live brain, then (if enabled) copy each count's candidate slot
+    into the live brain ONLY where new beat old with confidence. Shared maps are
+    promoted only if the aggregate new-vs-old comparison is favorable."""
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    backup = f"fish_ai_brain.backup_{ts}.json"
+    # Re-load the CURRENT live brain (the server may have updated it mid-run) so we
+    # merge into fresh state and only overwrite the counts we promote.
+    try:
+        live = load_brain(live_path)
+    except Exception as e:
+        log(f"Promotion: could not load live brain ({e}); skipping promotion.")
+        return {"promoted": [], "held": list(counts), "backup": "", "note": f"live load failed: {e}", "promoted_map": {}}
+    try:
+        save_brain(live, backup)
+        log(f"Promotion: backed up live brain → {backup}")
+    except Exception as e:
+        log(f"Promotion: backup FAILED ({e}); aborting promotion for safety.")
+        return {"promoted": [], "held": list(counts), "backup": "", "note": f"backup failed: {e}", "promoted_map": {}}
+
+    promoted: List[int] = []
+    held: List[int] = []
+    promoted_map: Dict[str, str] = {}
+    if not do_promote:
+        for c in counts:
+            promoted_map[str(c)] = "held (promotion disabled)"
+        log("Promotion: disabled (--no-promote). Candidate saved; live brain untouched.")
+        return {"promoted": [], "held": list(counts), "backup": backup, "note": "promotion disabled", "promoted_map": promoted_map}
+
+    live.setdefault("by_count", {})
+    for c in counts:
+        cell = bench_summary["by_count"].get(str(c), {}).get("old", {})
+        if cell.get("is_better"):
+            live["by_count"][str(c)] = copy.deepcopy(get_count_brain(candidate_brain, c))
+            promoted.append(c)
+            promoted_map[str(c)] = "PROMOTED"
+        else:
+            held.append(c)
+            promoted_map[str(c)] = "held (not better)"
+
+    agg_better = bool(bench_summary.get("aggregate", {}).get("old_is_better"))
+    shared_note = ""
+    if agg_better:
+        for mk in ("weights",) + TRAIN_POLICY_MAP_KEYS:
+            if isinstance(candidate_brain.get(mk), dict):
+                live[mk] = copy.deepcopy(candidate_brain[mk])
+        shared_note = "shared maps promoted"
+
+    if promoted or agg_better:
+        save_brain(live, live_path)
+        log(f"Promotion: promoted counts {promoted} to live{' + ' + shared_note if shared_note else ''}. Held {held}.")
+    else:
+        log(f"Promotion: no count beat the old AI with confidence; live brain UNCHANGED. Held {held}.")
+    return {"promoted": promoted, "held": held, "backup": backup,
+            "note": shared_note or "per-count", "promoted_map": promoted_map}
+
+
+def train_all_player_counts(counts: List[int], games_per_count: int, benchmark_games: int,
+                            base_seed: int, jobs: int, run_dir: str, fresh: bool, do_promote: bool) -> None:
+    """Top-level driver: generate → rank → learn → benchmark → report → promote."""
+    os.makedirs(run_dir, exist_ok=True)
+    log_path = os.path.join(run_dir, "run.log")
+    _log_fh = open(log_path, "a", encoding="utf-8")
+
+    def log(msg: str) -> None:
+        line = f"[{time.strftime('%H:%M:%S')}] {msg}"
+        print(line, flush=True)
+        try:
+            _log_fh.write(line + "\n")
+            _log_fh.flush()
+        except Exception:
+            pass
+
+    if fresh:
+        for fn in ("games.jsonl", "bench.jsonl", "checkpoint.json"):
+            fp = os.path.join(run_dir, fn)
+            if os.path.exists(fp):
+                os.remove(fp)
+        log("Fresh run: cleared existing checkpoints in run dir.")
+
+    # Resume-consistent run params: a prior checkpoint pins base_seed/counts so a
+    # resumed run reproduces the same games.
+    ckpt_path = os.path.join(run_dir, "checkpoint.json")
+    if os.path.exists(ckpt_path) and not fresh:
+        try:
+            with open(ckpt_path, "r", encoding="utf-8") as fh:
+                ck = json.load(fh)
+            base_seed = int(ck.get("base_seed", base_seed))
+            counts = [int(x) for x in ck.get("counts", counts)]
+            games_per_count = int(ck.get("games_per_count", games_per_count))
+            benchmark_games = int(ck.get("benchmark_games", benchmark_games))
+            log(f"Resuming existing run in {run_dir} (base_seed={base_seed}, counts={counts}).")
+        except Exception:
+            pass
+    with open(ckpt_path, "w", encoding="utf-8") as fh:
+        json.dump({"base_seed": base_seed, "counts": counts, "games_per_count": games_per_count,
+                   "benchmark_games": benchmark_games, "started": time.strftime("%Y-%m-%d %H:%M:%S")}, fh, indent=2)
+
+    t_start = time.time()
+    log("=" * 70)
+    log(f"MULTI-COUNT TRAINING — counts {counts} · {games_per_count} games/count · "
+        f"{benchmark_games} bench/count · jobs={jobs} · seed={base_seed}")
+    log(f"Total: {len(counts) * games_per_count} training + {len(counts) * benchmark_games * 3} benchmark games.")
+    log("=" * 70)
+
+    card_db = load_card_db()
+    log(f"Loaded {len(card_db)} cards.")
+
+    # 0) Rules pre-flight (req 15).
+    ok, msg = train_validate_rules(card_db, counts, log)
+    log(f"Rules validation: {msg}")
+    if not ok:
+        log("ABORTING: systemic rules errors. Fix the engine before training.")
+        _log_fh.close()
+        return
+
+    # 1) Snapshot the live brain (this is the 'old' AI we must beat) + candidate.
+    live_before = load_brain(BRAIN_PATH)
+    live_hash_before = json.dumps(live_before, sort_keys=True)
+    old_brain = copy.deepcopy(live_before)
+    candidate_brain = copy.deepcopy(live_before)
+
+    # 2) Generate (parallel, resumable).
+    t0 = time.time()
+    records = train_generate(candidate_brain, counts, games_per_count, base_seed, jobs, run_dir, log)
+    log(f"Generation complete: {len(records)} games in {time.time()-t0:.0f}s "
+        f"({sum(1 for r in records if r.get('error'))} crashed).")
+
+    # Confirm generation mutated nothing on disk (req 11 safety).
+    live_now = json.dumps(load_brain(BRAIN_PATH), sort_keys=True)
+    log(f"Live brain untouched by generation: {live_now == live_hash_before}")
+
+    # 3) Rank + learn into the candidate (per-count + shared, quality-weighted).
+    t0 = time.time()
+    scored, top_decisions = train_learn(candidate_brain, records, log)
+    log(f"Learn complete in {time.time()-t0:.0f}s.")
+
+    # Save candidate brain (both in run dir and at the canonical candidate path).
+    cand_run = os.path.join(run_dir, CANDIDATE_BRAIN_PATH)
+    save_brain(candidate_brain, cand_run)
+    save_brain(candidate_brain, CANDIDATE_BRAIN_PATH)
+    log(f"Candidate brain saved → {cand_run} and {CANDIDATE_BRAIN_PATH}")
+
+    # 4) Benchmark (parallel, resumable): new vs old / random / mixed.
+    t0 = time.time()
+    bench_summary, bench_results = train_benchmark(candidate_brain, old_brain, counts, benchmark_games, base_seed, jobs, run_dir, log)
+    log(f"Benchmark complete in {time.time()-t0:.0f}s.")
+
+    # 5) Promote per-count where new beat old (with backup) — req 8/11 + user choice.
+    promo = train_promote(candidate_brain, BRAIN_PATH, bench_summary, counts, do_promote, log)
+
+    # 6) Reports + artifacts.
+    strategy_card_stats = _train_strategy_and_card_stats(records)
+    learned_games = [(q, agg, r) for (q, agg, r) in scored if q > 0.0]
+    pruned_games = [(q, agg, r) for (q, agg, r) in scored if q <= 0.0]
+    top25_games = [{
+        "count": r.get("count"), "seed": r.get("seed"), "quality": agg.get("quality"),
+        "top": agg.get("top"), "spread": agg.get("spread"), "cards_played": agg.get("cards_played"),
+        "weak_turns": agg.get("weak_turns"), "denial": agg.get("denial"), "subscores": agg.get("subscores"),
+    } for (q, agg, r) in learned_games[:25]]
+    bottom25_games = [{
+        "count": r.get("count"), "seed": r.get("seed"), "pruned": agg.get("pruned"),
+        "top": agg.get("top"), "rules_errors": r.get("rules_errors"), "stalled": r.get("stalled"),
+        "end_game_triggered": r.get("end_game_triggered"),
+    } for (q, agg, r) in pruned_games[:25]]
+    top25_decisions = top_decisions[:25]
+
+    weak_total = sum(agg.get("weak_turns", 0) for (q, agg, r) in learned_games)
+    summary = {
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "base_seed": base_seed, "counts": counts, "games_per_count": games_per_count,
+        "benchmark_games": benchmark_games, "jobs": jobs,
+        "n_games": len(records), "n_learned": len(learned_games), "n_pruned": len(pruned_games),
+        "runtime_seconds": round(time.time() - t_start, 1),
+        "benchmark": bench_summary,
+        "promotion": promo,
+        "strategy_card_stats": strategy_card_stats,
+        "common_mistakes_removed": {
+            "pruned_games": len(pruned_games),
+            "weak_turns_in_learned_games": weak_total,
+            "avg_weak_turns_per_learned_game": round(weak_total / max(1, len(learned_games)), 2),
+        },
+        "top25_games": top25_games, "bottom25_games": bottom25_games, "top25_decisions": top25_decisions,
+        "candidate_brain_path": CANDIDATE_BRAIN_PATH,
+    }
+    with open(os.path.join(run_dir, "train_summary.json"), "w", encoding="utf-8") as fh:
+        json.dump(summary, fh, indent=2)
+    for nm, obj in (("top25_games.json", top25_games), ("bottom25_games.json", bottom25_games), ("top25_decisions.json", top25_decisions)):
+        with open(os.path.join(run_dir, nm), "w", encoding="utf-8") as fh:
+            json.dump(obj, fh, indent=2)
+    _train_write_csv(os.path.join(run_dir, "games.csv"), scored)
+    _train_write_html(os.path.join(run_dir, "report.html"), summary)
+
+    # 7) Final console verdict (prove improvement — req 9).
+    log("=" * 70)
+    log("RESULTS BY PLAYER COUNT (new AI vs old AI):")
+    for c in counts:
+        old = bench_summary["by_count"].get(str(c), {}).get("old", {})
+        rnd = bench_summary["by_count"].get(str(c), {}).get("random", {})
+        mix = bench_summary["by_count"].get(str(c), {}).get("mixed", {})
+        verdict = "BETTER ✅" if old.get("is_better") else "not conclusively better"
+        log(f"  {c}P: vs old {old.get('win_rate')} (CI {old.get('win_ci_low')}–{old.get('win_ci_high')}) → {verdict}"
+            f" | vs random {rnd.get('win_rate')} | vs mixed {mix.get('win_rate')}"
+            f" | avg score {old.get('avg_score')} | margin {old.get('avg_margin')} | {promo['promoted_map'].get(str(c))}")
+    agg = bench_summary["aggregate"]
+    log(f"OVERALL new-vs-old: win rate {agg.get('old_win_rate')} (95% CI {agg.get('old_ci_low')}–{agg.get('old_ci_high')}, n={agg.get('games')}) → "
+        f"{'NEW AI IS BETTER' if agg.get('old_is_better') else 'not conclusively better'}")
+    log(f"Promoted counts: {promo['promoted']} | Held: {promo['held']} | Live backup: {promo['backup']}")
+    log(f"Artifacts in {run_dir}/: report.html, train_summary.json, games.csv, top25_*.json, bottom25_games.json")
+    log(f"Done in {time.time()-t_start:.0f}s.")
+    log("=" * 70)
+    _log_fh.close()
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Fish Game simulation + strategy learning")
     parser.add_argument("--generations", type=int, default=10)
@@ -12248,8 +13398,44 @@ def main() -> None:
         default=3.5,
         help="Learning multiplier for human-controlled teaching turns.",
     )
+    # ── Multi-count self-play training (offline; never runs in the live server) ──
+    parser.add_argument(
+        "--train-all-player-counts",
+        action="store_true",
+        help="Run the full multi-count self-play training pipeline (generate → rank → "
+             "learn → benchmark → report → auto-promote-if-better).",
+    )
+    parser.add_argument("--games-per-player-count", type=int, default=50,
+                        help="Training self-play games per player count (default 50).")
+    parser.add_argument("--min-players", type=int, default=COUNT_BRAIN_MIN, help="Lowest player count to train (default 2).")
+    parser.add_argument("--max-players", type=int, default=COUNT_BRAIN_MAX, help="Highest player count to train (default 8).")
+    parser.add_argument("--jobs", type=int, default=0, help="Parallel worker processes (0 = all CPU cores).")
+    parser.add_argument("--train-output-dir", type=str, default="", help="Run/artifact dir (default fish_training/run).")
+    parser.add_argument("--fresh", action="store_true", help="Ignore any existing checkpoint and start the training run over.")
+    parser.add_argument("--no-promote", action="store_true",
+                        help="Train + benchmark + report but NEVER touch the live brain (candidate only).")
     args = parser.parse_args()
     seed = args.seed if args.seed is not None else secrets.randbits(32)
+
+    if args.train_all_player_counts:
+        counts = [c for c in range(max(COUNT_BRAIN_MIN, args.min_players),
+                                   min(COUNT_BRAIN_MAX, args.max_players) + 1)]
+        if not counts:
+            print("No valid player counts in range; nothing to train.")
+            return
+        jobs = args.jobs if args.jobs and args.jobs > 0 else (os.cpu_count() or 4)
+        run_dir = args.train_output_dir or os.path.join(TRAIN_DEFAULT_DIR, "run")
+        train_all_player_counts(
+            counts=counts,
+            games_per_count=max(1, args.games_per_player_count),
+            benchmark_games=max(1, args.benchmark_games),
+            base_seed=int(seed),
+            jobs=int(jobs),
+            run_dir=run_dir,
+            fresh=bool(args.fresh),
+            do_promote=(not args.no_promote),
+        )
+        return
 
     card_db = load_card_db()
     print(f"Loaded {len(card_db)} cards")
