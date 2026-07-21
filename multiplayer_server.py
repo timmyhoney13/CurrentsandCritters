@@ -331,6 +331,8 @@ def get_live_user_counts():
 # account: it reads every user's `unlocked_icons` array and tallies per-icon
 # owners. Cached so opening the gallery never hammers Firestore. Starter icons
 # (unlocked for everyone) are shown as 100% on the client, not counted here.
+# The dev/admin account (which owns every icon) is excluded from both the
+# per-icon owner counts and the player total, so it never inflates the shares.
 _ICON_OWNERSHIP_CACHE = {"at": 0.0, "counts": None, "total": None}
 _ICON_OWNERSHIP_TTL_SEC = 120.0
 
@@ -343,16 +345,25 @@ def _fetch_icon_ownership():
         return None, None
     try:
         users = db.collection("users")
-        # Pull only the unlocked_icons field from each doc to keep it light.
+        # Pull only the fields we need from each doc to keep it light. We also
+        # read is_admin/email so the developer/admin account (which owns every
+        # icon) can be excluded — otherwise it skews every icon toward a higher
+        # "% of people own this" than players actually have.
         try:
-            stream = users.select(["unlocked_icons"]).stream()
+            stream = users.select(["unlocked_icons", "is_admin", "email"]).stream()
         except Exception:
             stream = users.stream()
         counts: Dict[str, int] = {}
         total = 0
         for doc in stream:
+            data = doc.to_dict() or {}
+            # Skip the dev/admin account entirely: not counted as an owner of
+            # any icon, and not counted in the player total (the denominator).
+            if data.get("is_admin") is True or str(
+                data.get("email") or "").strip().lower() == "currentsandcritters@gmail.com":
+                continue
             total += 1
-            icons = (doc.to_dict() or {}).get("unlocked_icons")
+            icons = data.get("unlocked_icons")
             if not isinstance(icons, list):
                 continue
             seen = set()  # count each icon at most once per player
