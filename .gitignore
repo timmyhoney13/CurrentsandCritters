@@ -14,6 +14,10 @@
 !multiplayer_server.py
 !snap_score.py
 !fish_game_all_in_one.py
+!tournament_engine.py
+!tournament_server.py
+!test_tournament_engine.py
+!test_tournament_server.py
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/

@@ -31,6 +31,7 @@ os.environ.setdefault("FISH_WEB_CONTROL", "1")
 
 import fish_game_all_in_one as fish
 import snap_score
+import tournament_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -7054,6 +7055,14 @@ class GameRoom:
                 self.legal_actions_by_seat.clear()
                 self._bump_locked(force_persist=True)
 
+            # Tournament Mode: if this match belongs to a tournament, feed its
+            # result into the bracket. Defensive — a tournament error must never
+            # break a normal game's completion.
+            try:
+                _notify_tournament_if_match(self)
+            except Exception:
+                traceback.print_exc()
+
         except Exception as exc:
             trace = traceback.format_exc(limit=20)
             # If run_match completed (gs/ms exist) but post-processing threw, still try to save.
@@ -8119,6 +8128,66 @@ class RoomManager:
 ROOMS = RoomManager()
 
 
+# ── Tournament Mode ↔ GameRoom bridge ────────────────────────────────────────
+# A tournament bracket match runs as an ordinary GameRoom. These two helpers are
+# the only coupling between the tournament subsystem and the room engine:
+#   • _tournament_create_match_room: the tournament asks us to spawn a room that
+#     holds exactly the players assigned to one bracket match.
+#   • _notify_tournament_if_match:   when any room ends, if it was a tournament
+#     match, report the standings back so the bracket advances.
+def _tournament_create_match_room(*, tournament_id, round_index, match_index,
+                                  match_number, players):
+    """Spawn a normal GameRoom for one tournament bracket match and link it back
+    to the tournament. Returns the room_id. Bypasses the single-active-room 409
+    (that check only lives in the /api/rooms route, not create_room itself)."""
+    n = len(players)
+    host = players[0]
+    room = ROOMS.create_room(
+        host_name=host["name"],
+        total_players=n, human_players=n, ai_players=0,
+    )
+    # Defensive linkage (read via getattr so a checkpoint-restored room without
+    # these attrs never crashes the end-of-game path).
+    room.tournament_id = tournament_id
+    room.tournament_match = (tournament_id, int(round_index), int(match_index),
+                             int(match_number))
+    room.tournament_pids = {p["name"]: p["pid"] for p in players}
+    room.tournament_host_token = room.host_control_token
+    try:
+        room.persist_now()
+    except Exception:  # noqa: BLE001
+        pass
+    return room.room_id
+
+
+def _notify_tournament_if_match(room) -> None:
+    """If ``room`` ran a tournament match, map its final standings to participant
+    ids and report the result to the tournament (which advances the bracket)."""
+    tid = getattr(room, "tournament_id", None)
+    if not tid:
+        return
+    pid_by_name = getattr(room, "tournament_pids", {}) or {}
+    standings = getattr(room, "final_scores", None) or []
+    ranking: List[str] = []
+    scores: Dict[str, int] = {}
+    for row in standings:
+        if not isinstance(row, dict):
+            continue
+        nm = row.get("name")
+        pid = pid_by_name.get(nm)
+        if pid and pid not in scores:
+            ranking.append(pid)
+            scores[pid] = int(row.get("score") or 0)
+    # any assigned players missing from standings (never claimed / disconnected)
+    # rank last so the bracket still resolves.
+    for nm, pid in pid_by_name.items():
+        if pid not in scores:
+            ranking.append(pid)
+            scores[pid] = 0
+    if ranking:
+        tournament_server.on_room_ended(room.room_id, ranking, scores)
+
+
 class StableThreadingHTTPServer(ThreadingHTTPServer):
     # Avoid hanging shutdown on slow clients and allow quick restarts on the same port.
     daemon_threads = True
@@ -8713,6 +8782,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         # Snap & Score API (config / roster / session polling).
         if snap_score.handle_get(self, parsed):
+            return
+
+        # Tournament Mode API (config / formats / preview / list / state / SSE stream).
+        if tournament_server.handle_get(self, parsed):
             return
 
         if parsed.path == "/firebase-config.js":
@@ -9374,6 +9447,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         body, body_error = self._read_json_body()
         if body_error:
             self._send_json({"ok": False, "error": body_error}, status=HTTPStatus.BAD_REQUEST)
+            return
+
+        # Tournament Mode API (create / join / ready / randomize / switch / start / host / report).
+        if tournament_server.handle_post(self, parsed, body):
             return
 
         if parsed.path == "/api/user/register":
@@ -10218,6 +10295,17 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         level_progress=_level_progress_for_total_xp,
         state_dir=ROOM_STATE_DIR,
+    )
+
+    # Tournament Mode: same server-authoritative helpers + the room bridge so it
+    # can spawn each bracket match as an ordinary GameRoom.
+    tournament_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_progress=_level_progress_for_total_xp,
+        state_dir=ROOM_STATE_DIR,
+        create_match_room=_tournament_create_match_room,
+        get_room=ROOMS.get,
     )
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.

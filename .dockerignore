@@ -8,6 +8,8 @@
 !multiplayer_server.py
 !snap_score.py
 !fish_game_all_in_one.py
+!tournament_engine.py
+!tournament_server.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json
