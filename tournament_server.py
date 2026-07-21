@@ -91,13 +91,32 @@ S_SPECTATING = "spectating"
 S_DISCONNECTED = "disconnected"
 S_CHAMPION = "champion"
 
+# Ocean-critter roster used to fill empty tournament seats with AI. Each bot gets
+# a distinct name + real avatar; past the roster length the seq number is appended
+# so names stay unique in a big (up to 32) bracket.
+_BOT_CRITTERS = [
+    ("Barracuda", "/avatars/barracuda.png"), ("Clownfish", "/avatars/clownfish.png"),
+    ("Hermit Crab", "/avatars/hermit-crab.png"), ("Manta Ray", "/avatars/manta-ray.png"),
+    ("Narwhal", "/avatars/narwhal.png"), ("Lobster", "/avatars/lobster.png"),
+    ("Cuttlefish", "/avatars/cuttlefish.png"), ("Blue Tang", "/avatars/blue-tang.png"),
+    ("Mahi Mahi", "/avatars/mahi-mahi.png"), ("Octopus", "/avatars/common-octopus.png"),
+    ("King Crab", "/avatars/king-crab.png"), ("Mantis Shrimp", "/avatars/mantis-shrimp.png"),
+    ("Dolphin", "/avatars/bottlenose-dolphin.png"), ("Whale Shark", "/avatars/whale-shark.png"),
+    ("Sailfish", "/avatars/sailfish.png"), ("Sea Turtle", "/avatars/loggerhead-sea-turtle.png"),
+    ("Grouper", "/avatars/goliath-grouper.png"), ("Amberjack", "/avatars/amberjack.png"),
+    ("Tarpon", "/avatars/tarpon.png"), ("Roosterfish", "/avatars/roosterfish.png"),
+    ("Cleaner Wrasse", "/avatars/cleaner-wrasse.png"), ("Mandarin Goby", "/avatars/mandarin-goby.png"),
+    ("Bobtail Squid", "/avatars/bobtail-squid.png"), ("Yellowfin", "/avatars/yellowfin-tuna.png"),
+]
+
 
 @dataclass
 class Participant:
-    pid: str                      # stable id: account uid, or guest:<token>
+    pid: str                      # stable id: account uid, or guest:<token>, or bot:<token>
     name: str
     avatar: str = ""
     is_guest: bool = True
+    is_bot: bool = False          # AI seat-filler: auto-ready, never reaped, no XP
     join_order: int = 0
     ready: bool = False           # lobby ready
     status: str = S_NOT_READY
@@ -115,7 +134,7 @@ class Participant:
     def public(self, *, is_host: bool = False, me: bool = False) -> Dict[str, Any]:
         return {
             "pid": self.pid, "name": self.name, "avatar": self.avatar,
-            "is_guest": self.is_guest, "join_order": self.join_order,
+            "is_guest": self.is_guest, "is_bot": self.is_bot, "join_order": self.join_order,
             "ready": self.ready, "status": self.status,
             "connected": self.connected, "is_host": is_host, "me": me,
             "matches_won": self.matches_won, "final_place": self.final_place,
@@ -147,7 +166,8 @@ class Tournament:
 
     def __init__(self, tid: str, cfg: TournamentConfig, host_pid: str, host_name: str, *,
                  visibility: str = "public", password_hash: Optional[str] = None,
-                 spectators_allowed: bool = True, xp_reward_level: str = "standard"):
+                 spectators_allowed: bool = True, xp_reward_level: str = "standard",
+                 fill_bots: bool = False):
         self.tid = tid
         self.cfg = cfg
         self.host_pid = host_pid
@@ -155,6 +175,11 @@ class Tournament:
         self.password_hash = password_hash
         self.spectators_allowed = bool(spectators_allowed)
         self.xp_reward_level = xp_reward_level
+        # Bot fill: top empty seats up with AI so a short-handed lobby can still run
+        # a full bracket. Set at create time (auto-fill on start) and/or triggered
+        # by the host in the lobby. Bots are auto-ready, never reaped, earn no XP.
+        self.fill_bots = bool(fill_bots)
+        self._bot_seq = 0
 
         self.cond = threading.Condition()
         self.version = 0
@@ -240,6 +265,8 @@ class Tournament:
                     me.status = S_READY if me.ready else S_NOT_READY
                 changed = True
         for p in self.participants:
+            if p.is_bot:
+                continue  # bots have no client heartbeat — never reap them
             if p.connected and p.last_seen and (now - p.last_seen) > DISCONNECT_GRACE_SEC:
                 p.connected = False
                 if self.phase == self.PHASE_LOBBY and p.status in (S_NOT_READY, S_READY):
@@ -341,6 +368,68 @@ class Tournament:
             p.status = S_READY if ready else S_NOT_READY
             self._bump_locked()
             return {"ok": True}
+
+    # ---- bots (fill empty seats with AI) ------------------------------------
+    def _make_bot(self) -> Participant:
+        name, avatar = _BOT_CRITTERS[self._bot_seq % len(_BOT_CRITTERS)]
+        tier = self._bot_seq // len(_BOT_CRITTERS)
+        if tier:
+            name = f"{name} {tier + 1}"
+        self._bot_seq += 1
+        return Participant(
+            pid=f"bot:{secrets.token_hex(6)}", name=f"{name} 🤖", avatar=avatar,
+            is_guest=True, is_bot=True, join_order=len(self.participants),
+            token=_gen_token(), last_seen=_now(), connected=True,
+            ready=True, status=S_READY,
+        )
+
+    def fill_with_bots(self, target: Optional[int] = None) -> Dict[str, Any]:
+        """Top the lobby up to `target` (default: total_capacity) with AI players.
+        Lobby-only; returns how many were added."""
+        with self.cond:
+            if self.phase != self.PHASE_LOBBY:
+                return {"ok": False, "error": "can only add bots before start"}
+            cap = self.cfg.total_capacity
+            want = cap if target is None else max(0, min(cap, int(target)))
+            added = 0
+            while len(self.participants) < want:
+                self.participants.append(self._make_bot())
+                added += 1
+            if added:
+                self._log("fill_bots", f"added {added} bot(s)")
+                self._bump_locked()
+            return {"ok": True, "added": added, "joined": len(self.participants)}
+
+    def _match_is_all_bots(self, m) -> bool:
+        pids = [pid for pid in m.player_ids if pid]
+        if not pids:
+            return False
+        return all((self._by_pid(pid) or Participant(pid=pid, name="")).is_bot for pid in pids)
+
+    def _resolve_bot_match(self, m) -> bool:
+        """Instantly decide an all-bot match server-side (no GameRoom needed).
+        Records the result under the lock WITHOUT re-entering _spawn_ready_matches
+        (the caller loops). Returns True if it resolved something."""
+        import random
+        with self.cond:
+            if m.status in (M_READY, M_ACTIVE, M_COMPLETE, M_BYE) or m.room_id:
+                return False
+            if m.is_bye or m.filled_count() != m.capacity:
+                return False
+            parts = [self._by_pid(pid) for pid in m.player_ids if pid]
+            parts = [p for p in parts if p is not None]
+            # Random order, but anyone who quit ranks last.
+            random.shuffle(parts)
+            parts.sort(key=lambda p: 1 if p.quit else 0)
+            ranking = [p.pid for p in parts]
+            scores = {pid: (len(ranking) - i) * 100 for i, pid in enumerate(ranking)}
+            try:
+                self._record_and_advance(m, ranking, scores)
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
+                return False
+            self._bump_locked()
+            return True
 
     # ---- randomize / switch (§3, §4) ----------------------------------------
     def randomize(self, rng_seed: Optional[int] = None) -> Dict[str, Any]:
@@ -480,6 +569,11 @@ class Tournament:
         return True, ""
 
     def start(self) -> Dict[str, Any]:
+        # If bot-fill is on, top the bracket up to capacity before the start gate so
+        # a short-handed lobby (even a solo host) can launch a full tournament.
+        if self.fill_bots and self.phase == self.PHASE_LOBBY \
+                and len(self.participants) < self.cfg.total_capacity:
+            self.fill_with_bots()
         with self.cond:
             ok, why = self.can_start()
             if not ok:
@@ -522,8 +616,25 @@ class Tournament:
         return out
 
     def _spawn_ready_matches(self) -> None:
-        for m in self._playable_matches():
-            self._spawn_match(m)
+        # Resolve all-bot matches instantly (each can unlock the next → loop), and
+        # spawn real GameRooms for any match that includes at least one human.
+        for _ in range(1000):  # guard against a pathological loop
+            playable = self._playable_matches()
+            if not playable:
+                break
+            bot_only = [m for m in playable if self._match_is_all_bots(m)]
+            if bot_only:
+                progressed = False
+                for m in bot_only:
+                    progressed = self._resolve_bot_match(m) or progressed
+                if progressed:
+                    continue          # re-scan: a resolution may have unlocked more
+            for m in [m for m in playable if not self._match_is_all_bots(m)]:
+                self._spawn_match(m)
+            break
+        # An all-bot bracket can complete here with no room ever ending, so finalize
+        # opportunistically (idempotent; report_match_result also calls it).
+        self._maybe_finalize()
 
     def _spawn_match(self, m) -> None:
         # Atomic claim under the lock so two threads (two matches finishing at the
@@ -550,7 +661,7 @@ class Tournament:
                 round_index=m.round_index, match_index=m.match_index,
                 match_number=m.match_number,
                 players=[{"pid": p.pid, "name": p.name, "token": p.token,
-                          "is_guest": p.is_guest} for p in parts],
+                          "is_guest": p.is_guest, "is_bot": p.is_bot} for p in parts],
             )
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
@@ -565,7 +676,10 @@ class Tournament:
             if room_id:
                 self.match_rooms[room_id] = (m.round_index, m.match_index)
             self.match_seat_tokens[m.match_number] = dict(seat_tokens or {})
-            self.match_entered_pids.setdefault(m.match_number, set())
+            entered = self.match_entered_pids.setdefault(m.match_number, set())
+            # Bots have no client to "enter", so pre-mark them present — the match
+            # then auto-starts as soon as the human(s) enter, no grace-timeout wait.
+            entered.update(p.pid for p in parts if p.is_bot)
             # stays M_READY (players are entering) until the game actually launches
             self._bump_locked()
         # Auto-start once everyone enters, or after the grace window.
@@ -758,6 +872,8 @@ class Tournament:
 
     def _finalize_all_xp(self) -> None:
         for p in list(self.participants):
+            if p.is_bot:
+                continue  # AI seat-fillers never earn XP (no account to credit)
             if p.xp_awarded or not p.completed_first_match:
                 continue
             breakdown = self.compute_xp_for(p)
@@ -819,6 +935,7 @@ class Tournament:
                 "locked": self.locked,
                 "visibility": self.visibility,
                 "spectators_allowed": self.spectators_allowed,
+                "fill_bots": self.fill_bots,
                 "config": self.cfg.to_dict(),
                 "summary": summary,
                 "capacity": self.cfg.total_capacity,
@@ -1201,7 +1318,8 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         pw_hash = hashlib.sha256(pw.strip().encode()).hexdigest() if (vis == "private" and pw) else None
         t = MANAGER.create(cfg, pid, name, visibility=vis, password_hash=pw_hash,
                            spectators_allowed=bool(body.get("spectators_allowed", True)),
-                           xp_reward_level=str(body.get("xp_reward_level") or "standard"))
+                           xp_reward_level=str(body.get("xp_reward_level") or "standard"),
+                           fill_bots=bool(body.get("fill_bots")))
         host = t._by_pid(pid)
         if host:
             host.avatar = avatar
@@ -1285,6 +1403,8 @@ def _host_action(t: Tournament, body: Dict[str, Any]) -> Dict[str, Any]:
         return t.host_move(str(body.get("pid") or ""), int(body.get("index") or 0))
     if cmd == "remove":
         return t.host_remove(str(body.get("pid") or ""))
+    if cmd == "fill_bots":
+        return t.fill_with_bots(target=body.get("target"))
     if cmd == "announce":
         return t.announce(str(body.get("text") or ""))
     if cmd == "pause":

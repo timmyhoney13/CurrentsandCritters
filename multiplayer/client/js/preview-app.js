@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-21.4";
+  const APP_BUILD   = "2026-07-21.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -17802,6 +17802,15 @@
         if (window.__ccTourney && window.__ccTourney.ENABLED) {
           const _tb = $a("ph-lb-tourney-btn"); if (_tb) _tb.style.display = "";
         }
+      } catch (_) {}
+      // "Browse / Join a Tournament" button inside the Tournaments tab → opens the
+      // tournament browse-and-join modal (tournament-ui.js).
+      try {
+        const _tj = $a("ph-lb-tourney-join");
+        if (_tj) _tj.addEventListener("click", () => {
+          if (window.__ccTourneyBrowse) window.__ccTourneyBrowse();
+          else if (window.__ccTourneyOpenCreate) window.__ccTourneyOpenCreate();
+        });
       } catch (_) {}
       const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-tourney-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
       ALL_LB_TBODIES.forEach(id => {

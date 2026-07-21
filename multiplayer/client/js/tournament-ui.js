@@ -50,85 +50,107 @@
     if ($("#cc-tourney-style")) return;
     const s = el("style"); s.id = "cc-tourney-style";
     s.textContent = `
-    :root{ --ccT-deep:#062a3d; --ccT-mid:#0b4c66; --ccT-teal:#12a3b8; --ccT-aqua:#38d0e0;
-      --ccT-foam:#eafcff; --ccT-gold:#ffcf5c; --ccT-coral:#ff7a59; --ccT-ok:#39d98a; --ccT-warn:#ffb020; }
+    /* Ocean-surface light theme — matches the "New Current" (Create Game) modal:
+       light blue gradient cards, Cinzel titles, white inputs, #2050a0 labels,
+       warm-gold primary button. Cohesive with the rest of the game. */
+    :root{ --ccT-ink:#0d3070; --ccT-ink2:#2050a0; --ccT-line-c:rgba(120,185,235,.55);
+      --ccT-tealtxt:#0c6ab8; --ccT-gold:#f3a712; --ccT-goldsoft:#fbbf58; --ccT-coral:#ff7a59;
+      --ccT-ok:#0a9d63; --ccT-warn:#c8720a; --ccT-glass:rgba(255,255,255,.88);
+      --ccT-panel:rgba(255,255,255,.62); --ccT-cardgrad:linear-gradient(180deg,#cce6f8 0%,#b4d4ee 55%,#9ec4e4 100%); }
     .ccT-overlay{ position:fixed; inset:0; z-index:9000; display:none; }
     .ccT-overlay.open{ display:block; }
     .ccT-modal{ position:fixed; inset:0; z-index:9100; display:none; align-items:center; justify-content:center;
-      background:rgba(3,18,28,.72); backdrop-filter:blur(4px); padding:16px; }
+      background:rgba(10,40,100,.72); backdrop-filter:blur(8px); padding:16px; }
     .ccT-modal.open{ display:flex; }
-    .ccT-card{ width:min(560px,96vw); max-height:92vh; overflow:auto; border-radius:20px;
-      background:linear-gradient(160deg,#0a3a52 0%, var(--ccT-deep) 60%, #072a3d 100%);
-      color:var(--ccT-foam); box-shadow:0 24px 80px rgba(0,0,0,.5); border:1px solid rgba(56,208,224,.25); }
-    .ccT-card h2{ margin:0; padding:18px 22px 6px; font-size:1.4rem; letter-spacing:.3px; }
-    .ccT-card .ccT-sub{ padding:0 22px 12px; opacity:.75; font-size:.9rem; }
-    .ccT-body{ padding:6px 22px 18px; }
-    .ccT-field{ margin:12px 0; }
-    .ccT-field label{ display:block; font-size:.82rem; text-transform:uppercase; letter-spacing:.6px; opacity:.8; margin-bottom:6px; }
-    .ccT-input, .ccT-select{ width:100%; padding:11px 13px; border-radius:12px; border:1px solid rgba(56,208,224,.3);
-      background:rgba(3,26,38,.7); color:var(--ccT-foam); font-size:1rem; box-sizing:border-box; }
-    .ccT-row{ display:flex; gap:10px; flex-wrap:wrap; }
+    .ccT-card{ position:relative; width:min(540px,96vw); max-height:92vh; overflow:auto; border-radius:26px;
+      background:var(--ccT-cardgrad); border:1.5px solid rgba(130,195,240,.55);
+      color:var(--ccT-ink); box-shadow:0 10px 48px rgba(8,50,130,.22), 0 2px 8px rgba(8,50,130,.10);
+      font-family:"Nunito",sans-serif; }
+    .ccT-card::before{ content:""; position:absolute; inset:0; pointer-events:none; border-radius:26px;
+      background:radial-gradient(ellipse at 25% 82%, rgba(255,255,255,.22) 0%, transparent 55%),
+                 radial-gradient(ellipse at 85% 12%, rgba(180,230,255,.20) 0%, transparent 50%); }
+    .ccT-card > *{ position:relative; z-index:1; }
+    .ccT-card h2{ margin:0; padding:22px 24px 4px; font-family:"Cinzel",serif; font-size:1.5rem; font-weight:700;
+      color:#0c3472; letter-spacing:1.2px; }
+    .ccT-card .ccT-sub{ padding:0 24px 10px; color:#2b5a97; font-size:.9rem; }
+    .ccT-body{ padding:4px 24px 22px; }
+    .ccT-field{ margin:14px 0; }
+    .ccT-field label{ display:block; font-size:13px; font-weight:700; letter-spacing:.3px; color:var(--ccT-ink2); margin-bottom:6px; }
+    .ccT-input, .ccT-select{ width:100%; padding:13px 15px; border-radius:16px; border:1.5px solid rgba(140,200,240,.55);
+      background:var(--ccT-glass); color:var(--ccT-ink); font-size:1rem; font-weight:700; font-family:"Nunito",sans-serif;
+      box-sizing:border-box; transition:border-color .15s, box-shadow .15s; }
+    .ccT-input:focus, .ccT-select:focus{ outline:none; border-color:rgba(50,140,240,.65); box-shadow:0 0 0 3px rgba(50,140,240,.15); }
+    input[type=range].ccT-input{ padding:8px 2px; accent-color:var(--ccT-gold); font-weight:400; }
+    .ccT-row{ display:flex; gap:12px; flex-wrap:wrap; }
     .ccT-row > *{ flex:1 1 46%; }
-    .ccT-fmt-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; }
-    .ccT-fmt{ cursor:pointer; border:1.5px solid rgba(56,208,224,.25); border-radius:12px; padding:10px; text-align:center;
-      background:rgba(3,26,38,.5); transition:transform .12s, border-color .12s; }
-    .ccT-fmt:hover{ transform:translateY(-2px); }
-    .ccT-fmt.sel{ border-color:var(--ccT-gold); box-shadow:0 0 0 2px rgba(255,207,92,.3) inset; }
-    .ccT-fmt .ccT-fmt-title{ font-weight:700; font-size:.95rem; }
+    .ccT-fmt-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:9px; }
+    .ccT-fmt{ cursor:pointer; border:1.5px solid rgba(140,200,240,.55); border-radius:16px; padding:11px 8px; text-align:center;
+      background:var(--ccT-glass); color:var(--ccT-ink); transition:transform .12s, border-color .12s, box-shadow .12s; }
+    .ccT-fmt:hover{ transform:translateY(-2px); border-color:rgba(50,140,240,.6); }
+    .ccT-fmt.sel{ border-color:var(--ccT-gold); box-shadow:0 0 0 3px rgba(243,167,18,.22); background:#fff; }
+    .ccT-fmt .ccT-fmt-title{ font-weight:800; font-size:.98rem; color:#0c3472; }
     .ccT-fmt .ccT-fmt-mini{ display:flex; gap:3px; justify-content:center; margin:7px 0 5px; }
-    .ccT-fmt .ccT-dot{ width:8px; height:8px; border-radius:50%; background:var(--ccT-aqua); opacity:.85; }
-    .ccT-fmt .ccT-fmt-meta{ font-size:.72rem; opacity:.7; }
-    .ccT-summary{ margin-top:8px; padding:12px 14px; border-radius:12px; background:rgba(18,163,184,.14);
-      border:1px solid rgba(56,208,224,.25); font-size:.86rem; line-height:1.5; }
-    .ccT-summary b{ color:var(--ccT-gold); }
-    .ccT-toggle{ display:flex; align-items:center; gap:10px; cursor:pointer; }
-    .ccT-toggle input{ width:auto; }
+    .ccT-fmt .ccT-dot{ width:8px; height:8px; border-radius:50%; background:#2f8ce0; opacity:.9; }
+    .ccT-fmt .ccT-fmt-meta{ font-size:.72rem; color:#3a6aa5; }
+    .ccT-summary{ margin-top:8px; padding:13px 15px; border-radius:16px; background:rgba(255,255,255,.55);
+      border:1.5px solid rgba(140,200,240,.5); font-size:.88rem; line-height:1.55; color:#123a70; }
+    .ccT-summary b{ color:var(--ccT-tealtxt); }
+    .ccT-toggle{ display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:700; color:var(--ccT-ink2); font-size:.95rem; }
+    .ccT-toggle input{ width:auto; accent-color:var(--ccT-gold); transform:scale(1.15); }
+    .ccT-toggle .ccT-hint{ display:block; font-weight:500; font-size:.78rem; color:#4a72a8; margin-top:2px; }
     .ccT-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
-      border:none; border-radius:12px; padding:12px 18px; font-size:1rem; font-weight:700; color:#04222f;
-      background:linear-gradient(120deg,var(--ccT-aqua),var(--ccT-teal)); box-shadow:0 8px 24px rgba(18,163,184,.35); }
-    .ccT-btn:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; }
+      border:none; border-radius:16px; padding:13px 18px; font-size:1rem; font-weight:800; color:#0c2858;
+      font-family:"Nunito",sans-serif; letter-spacing:.2px;
+      background:linear-gradient(100deg,#fbbf58 0%,#fdc964 50%,#fcc55c 100%); box-shadow:0 6px 20px rgba(200,130,10,.28);
+      transition:filter .15s, transform .12s, box-shadow .15s; }
+    .ccT-btn:hover:not(:disabled){ filter:brightness(1.05); transform:translateY(-1px); }
+    .ccT-btn:disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; }
     .ccT-btn.wide{ width:100%; margin-top:12px; }
-    .ccT-btn.ghost{ background:transparent; color:var(--ccT-foam); border:1px solid rgba(56,208,224,.4); box-shadow:none; }
-    .ccT-btn.gold{ background:linear-gradient(120deg,var(--ccT-gold),#ffab3d); }
-    .ccT-btn.coral{ background:linear-gradient(120deg,var(--ccT-coral),#ff5a7a); color:#fff; }
-    .ccT-btn.sm{ padding:7px 12px; font-size:.85rem; border-radius:9px; }
+    .ccT-btn.ghost{ background:rgba(255,255,255,.7); color:#1c4f92; border:1.5px solid rgba(120,185,235,.7); box-shadow:none; }
+    .ccT-btn.ghost:hover:not(:disabled){ background:#fff; }
+    .ccT-btn.gold{ background:linear-gradient(100deg,#f7b733 0%,#fdc964 100%); }
+    .ccT-btn.coral{ background:linear-gradient(120deg,#ff8a6a,#ff6a86); color:#fff; box-shadow:0 6px 20px rgba(255,90,110,.3); }
+    .ccT-btn.sm{ padding:8px 13px; font-size:.85rem; border-radius:12px; }
 
-    /* full-screen tournament */
+    /* full-screen tournament — light ocean surface */
     #ccT-screen{ position:fixed; inset:0; z-index:9000; display:none; flex-direction:column;
-      background:radial-gradient(120% 90% at 50% -10%, #0c4a63 0%, #062536 55%, #041824 100%); color:var(--ccT-foam); }
+      background:radial-gradient(120% 90% at 50% -10%, #e2f2fc 0%, #bfdcf2 55%, #a3cbe7 100%);
+      color:var(--ccT-ink); font-family:"Nunito",sans-serif; }
     #ccT-screen.open{ display:flex; }
-    .ccT-head{ display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid rgba(56,208,224,.2);
-      background:rgba(4,24,36,.6); flex-wrap:wrap; }
-    .ccT-head .ccT-title{ font-size:1.15rem; font-weight:800; }
-    .ccT-head .ccT-code{ font-family:ui-monospace,monospace; background:rgba(56,208,224,.16); padding:3px 9px; border-radius:8px; letter-spacing:2px; }
-    .ccT-head .ccT-phase{ font-size:.78rem; text-transform:uppercase; letter-spacing:1px; padding:3px 9px; border-radius:20px; background:rgba(255,255,255,.1); }
+    .ccT-head{ display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1.5px solid rgba(120,185,235,.45);
+      background:rgba(255,255,255,.55); backdrop-filter:blur(6px); flex-wrap:wrap; }
+    .ccT-head .ccT-title{ font-family:"Cinzel",serif; font-size:1.15rem; font-weight:700; color:#0c3472; letter-spacing:.5px; }
+    .ccT-head .ccT-code{ font-family:ui-monospace,monospace; background:rgba(47,140,224,.16); color:#12508f; padding:3px 9px; border-radius:8px; letter-spacing:2px; font-weight:700; }
+    .ccT-head .ccT-phase{ font-size:.72rem; text-transform:uppercase; letter-spacing:1px; padding:3px 10px; border-radius:20px; background:rgba(47,140,224,.14); color:#1c4f92; font-weight:700; }
     .ccT-spacer{ flex:1; }
-    .ccT-tabs{ display:flex; gap:6px; padding:8px 16px; background:rgba(4,24,36,.35); }
-    .ccT-tab{ cursor:pointer; padding:7px 15px; border-radius:10px 10px 0 0; font-weight:700; font-size:.9rem; opacity:.6; }
-    .ccT-tab.on{ opacity:1; background:rgba(56,208,224,.15); }
+    .ccT-tabs{ display:flex; gap:6px; padding:8px 16px 0; background:transparent; }
+    .ccT-tab{ cursor:pointer; padding:8px 16px; border-radius:12px 12px 0 0; font-weight:800; font-size:.9rem; color:#3a6aa5; opacity:.7; }
+    .ccT-tab.on{ opacity:1; color:#0c3472; background:rgba(255,255,255,.6); }
     .ccT-content{ flex:1; overflow:hidden; position:relative; }
 
     /* lobby */
     .ccT-lobby{ position:absolute; inset:0; overflow:auto; padding:16px; display:grid; grid-template-columns:1.2fr .8fr; gap:16px; }
     @media(max-width:820px){ .ccT-lobby{ grid-template-columns:1fr; } }
-    .ccT-panel{ background:rgba(4,26,38,.55); border:1px solid rgba(56,208,224,.2); border-radius:16px; padding:14px; }
-    .ccT-panel h3{ margin:0 0 10px; font-size:1rem; letter-spacing:.4px; }
+    .ccT-panel{ background:var(--ccT-panel); border:1.5px solid rgba(120,185,235,.5); border-radius:20px; padding:16px; box-shadow:0 4px 18px rgba(8,50,130,.08); }
+    .ccT-panel h3{ margin:0 0 10px; font-family:"Cinzel",serif; font-size:1rem; color:#0c3472; letter-spacing:.4px; }
     .ccT-players{ display:flex; flex-direction:column; gap:8px; }
-    .ccT-pl{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:12px; background:rgba(3,20,30,.6);
-      border:1px solid transparent; transition:border-color .12s; }
-    .ccT-pl.me{ border-color:var(--ccT-gold); }
+    .ccT-pl{ display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:14px; background:rgba(255,255,255,.78);
+      border:1.5px solid rgba(140,200,240,.5); transition:border-color .12s, box-shadow .12s; }
+    .ccT-pl.me{ border-color:var(--ccT-gold); box-shadow:0 0 0 2px rgba(243,167,18,.18); }
+    .ccT-pl.bot{ background:rgba(232,242,252,.85); }
     .ccT-pl[draggable=true]{ cursor:grab; }
-    .ccT-pl.dragover{ border-color:var(--ccT-aqua); background:rgba(56,208,224,.12); }
-    .ccT-av{ width:34px; height:34px; border-radius:50%; object-fit:cover; background:#083047; flex:none; }
-    .ccT-pl .ccT-nm{ flex:1; font-weight:600; }
-    .ccT-badge{ font-size:.68rem; padding:2px 7px; border-radius:20px; font-weight:700; letter-spacing:.4px; }
-    .ccT-badge.ready{ background:rgba(57,217,138,.2); color:var(--ccT-ok); }
-    .ccT-badge.not_ready{ background:rgba(255,176,32,.2); color:var(--ccT-warn); }
-    .ccT-badge.playing{ background:rgba(56,208,224,.22); color:var(--ccT-aqua); }
-    .ccT-badge.waiting{ background:rgba(255,255,255,.14); }
-    .ccT-badge.eliminated{ background:rgba(255,90,122,.2); color:#ff8ea3; }
-    .ccT-badge.champion{ background:rgba(255,207,92,.25); color:var(--ccT-gold); }
-    .ccT-badge.spectating,.ccT-badge.disconnected{ background:rgba(255,255,255,.1); opacity:.8; }
+    .ccT-pl.dragover{ border-color:#2f8ce0; background:rgba(47,140,224,.12); }
+    .ccT-av{ width:34px; height:34px; border-radius:50%; object-fit:cover; background:#cfe6f7; flex:none; }
+    .ccT-pl .ccT-nm{ flex:1; font-weight:700; color:var(--ccT-ink); }
+    .ccT-badge{ font-size:.68rem; padding:2px 8px; border-radius:20px; font-weight:800; letter-spacing:.3px; }
+    .ccT-badge.ready{ background:rgba(10,157,99,.16); color:var(--ccT-ok); }
+    .ccT-badge.not_ready{ background:rgba(200,114,10,.15); color:var(--ccT-warn); }
+    .ccT-badge.playing{ background:rgba(47,140,224,.18); color:#1c6fc0; }
+    .ccT-badge.waiting{ background:rgba(120,150,190,.16); color:#3a6aa5; }
+    .ccT-badge.eliminated{ background:rgba(220,60,90,.14); color:#c62a4e; }
+    .ccT-badge.champion{ background:rgba(243,167,18,.2); color:#b9760a; }
+    .ccT-badge.bot{ background:rgba(90,120,170,.16); color:#42618f; }
+    .ccT-badge.spectating,.ccT-badge.disconnected{ background:rgba(120,150,190,.14); color:#5a7bb0; }
     .ccT-host-dot{ color:var(--ccT-gold); }
 
     /* bracket */
@@ -136,49 +158,58 @@
     .ccT-bracket-wrap.grabbing{ cursor:grabbing; }
     .ccT-bracket{ position:absolute; top:0; left:0; transform-origin:0 0; display:flex; gap:64px; padding:40px; align-items:center; }
     .ccT-round{ display:flex; flex-direction:column; justify-content:center; gap:18px; min-width:190px; }
-    .ccT-round-label{ text-align:center; font-size:.8rem; letter-spacing:1.5px; text-transform:uppercase; opacity:.7; margin-bottom:4px; }
-    .ccT-match{ position:relative; background:rgba(5,30,44,.9); border:1.5px solid rgba(56,208,224,.25); border-radius:12px;
-      padding:6px; min-width:180px; }
-    .ccT-match.mine{ border-color:var(--ccT-gold); box-shadow:0 0 0 2px rgba(255,207,92,.25); }
-    .ccT-match.active{ border-color:var(--ccT-aqua); box-shadow:0 0 18px rgba(56,208,224,.35); }
-    .ccT-match.complete{ opacity:.96; }
-    .ccT-match .ccT-mnum{ position:absolute; top:-9px; left:8px; font-size:.62rem; background:var(--ccT-mid); padding:1px 7px; border-radius:8px; opacity:.9; }
-    .ccT-match .ccT-mstatus{ position:absolute; top:-9px; right:8px; font-size:.6rem; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.5px; }
-    .ccT-slot{ display:flex; align-items:center; gap:7px; padding:5px 7px; border-radius:8px; margin:3px 0; background:rgba(3,20,30,.7); }
-    .ccT-slot.win{ background:linear-gradient(90deg,rgba(255,207,92,.22),rgba(255,207,92,.05)); }
-    .ccT-slot.win .ccT-snm{ color:var(--ccT-gold); font-weight:800; }
-    .ccT-slot .ccT-sav{ width:22px; height:22px; border-radius:50%; object-fit:cover; background:#08405a; flex:none; }
-    .ccT-slot .ccT-snm{ flex:1; font-size:.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .ccT-slot .ccT-ssc{ font-size:.72rem; opacity:.7; }
-    .ccT-slot.empty .ccT-snm{ opacity:.4; font-style:italic; }
+    .ccT-round-label{ text-align:center; font-size:.8rem; letter-spacing:1.5px; text-transform:uppercase; color:#3a6aa5; font-weight:700; margin-bottom:4px; }
+    .ccT-match{ position:relative; background:rgba(255,255,255,.85); border:1.5px solid rgba(140,200,240,.6); border-radius:14px;
+      padding:6px; min-width:180px; box-shadow:0 3px 12px rgba(8,50,130,.08); }
+    .ccT-match.mine{ border-color:var(--ccT-gold); box-shadow:0 0 0 2px rgba(243,167,18,.22); }
+    .ccT-match.active{ border-color:#2f8ce0; box-shadow:0 0 16px rgba(47,140,224,.3); }
+    .ccT-match.complete{ opacity:.97; }
+    .ccT-match .ccT-mnum{ position:absolute; top:-9px; left:8px; font-size:.62rem; background:#2f8ce0; color:#fff; padding:1px 7px; border-radius:8px; }
+    .ccT-match .ccT-mstatus{ position:absolute; top:-9px; right:8px; font-size:.6rem; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.5px; background:rgba(47,140,224,.16); color:#1c6fc0; }
+    .ccT-slot{ display:flex; align-items:center; gap:7px; padding:5px 7px; border-radius:9px; margin:3px 0; background:rgba(230,242,252,.85); }
+    .ccT-slot.win{ background:linear-gradient(90deg,rgba(243,167,18,.24),rgba(243,167,18,.06)); }
+    .ccT-slot.win .ccT-snm{ color:#b9760a; font-weight:800; }
+    .ccT-slot .ccT-sav{ width:22px; height:22px; border-radius:50%; object-fit:cover; background:#cfe6f7; flex:none; }
+    .ccT-slot .ccT-snm{ flex:1; font-size:.82rem; font-weight:600; color:var(--ccT-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ccT-slot .ccT-ssc{ font-size:.72rem; color:#3a6aa5; }
+    .ccT-slot.empty .ccT-snm{ opacity:.45; font-style:italic; font-weight:500; }
     svg.ccT-lines{ position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
-    .ccT-line{ stroke:rgba(56,208,224,.35); stroke-width:2; fill:none; }
+    .ccT-line{ stroke:rgba(90,150,215,.5); stroke-width:2; fill:none; }
     .ccT-line.lit{ stroke:var(--ccT-gold); stroke-width:3; }
 
     /* advancement flyer */
     .ccT-flyer{ position:fixed; z-index:9500; display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:20px;
-      background:linear-gradient(120deg,var(--ccT-gold),#ffab3d); color:#04222f; font-weight:800; box-shadow:0 10px 30px rgba(255,207,92,.5); pointer-events:none; }
+      background:linear-gradient(120deg,var(--ccT-goldsoft),#f7b733); color:#5a3800; font-weight:800; box-shadow:0 10px 30px rgba(243,167,18,.45); pointer-events:none; }
     .ccT-flyer img{ width:22px; height:22px; border-radius:50%; }
 
     /* zoom controls */
     .ccT-zoom{ position:absolute; right:14px; bottom:14px; display:flex; flex-direction:column; gap:6px; z-index:20; }
-    .ccT-zoom button{ width:40px; height:40px; border-radius:10px; border:1px solid rgba(56,208,224,.35);
-      background:rgba(4,26,38,.85); color:var(--ccT-foam); font-size:1.1rem; cursor:pointer; }
+    .ccT-zoom button{ width:40px; height:40px; border-radius:12px; border:1.5px solid rgba(120,185,235,.7);
+      background:rgba(255,255,255,.85); color:#1c4f92; font-size:1.1rem; font-weight:800; cursor:pointer; }
+
+    /* browse open tournaments */
+    .ccT-list{ display:flex; flex-direction:column; gap:9px; margin:4px 0 6px; }
+    .ccT-literow{ display:flex; align-items:center; gap:10px; padding:11px 13px; border-radius:16px; background:var(--ccT-glass);
+      border:1.5px solid rgba(140,200,240,.55); }
+    .ccT-literow .ccT-linm{ flex:1; min-width:0; }
+    .ccT-literow .ccT-lit-title{ font-weight:800; color:#0c3472; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ccT-literow .ccT-lit-meta{ font-size:.78rem; color:#3a6aa5; }
+    .ccT-empty{ text-align:center; color:#3a6aa5; padding:18px 8px; font-weight:600; }
 
     /* end / champion overlays reuse .ccT-modal */
     .ccT-champ{ text-align:center; }
     .ccT-champ .ccT-crown{ font-size:3rem; }
     .ccT-xp-list{ text-align:left; margin:12px auto; max-width:340px; }
-    .ccT-xp-row{ display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(255,255,255,.12); }
-    .ccT-xp-row b{ color:var(--ccT-gold); }
+    .ccT-xp-row{ display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed rgba(120,160,210,.35); }
+    .ccT-xp-row b{ color:var(--ccT-tealtxt); }
     .ccT-podium{ display:flex; justify-content:center; align-items:flex-end; gap:10px; margin:14px 0; }
-    .ccT-pod{ background:rgba(56,208,224,.15); border-radius:12px 12px 0 0; padding:10px 12px 8px; text-align:center; min-width:80px; }
-    .ccT-pod.first{ height:120px; background:linear-gradient(180deg,rgba(255,207,92,.35),rgba(255,207,92,.05)); }
+    .ccT-pod{ background:rgba(255,255,255,.6); border:1.5px solid rgba(140,200,240,.5); border-radius:14px 14px 0 0; padding:10px 12px 8px; text-align:center; min-width:80px; color:var(--ccT-ink); }
+    .ccT-pod.first{ height:120px; background:linear-gradient(180deg,rgba(243,167,18,.32),rgba(255,255,255,.2)); }
     .ccT-pod.second{ height:96px; } .ccT-pod.third{ height:76px; }
 
-    .ccT-anncbar{ background:linear-gradient(90deg,rgba(255,207,92,.2),transparent); border-left:3px solid var(--ccT-gold);
-      padding:8px 14px; margin:8px 16px; border-radius:8px; font-size:.9rem; }
-    @media (prefers-reduced-motion: reduce){ .ccT-fmt,.ccT-flyer{ transition:none!important; } }
+    .ccT-anncbar{ background:linear-gradient(90deg,rgba(243,167,18,.2),rgba(255,255,255,.15)); border-left:3px solid var(--ccT-gold);
+      padding:8px 14px; margin:8px 16px; border-radius:10px; font-size:.9rem; color:#12508f; font-weight:600; }
+    @media (prefers-reduced-motion: reduce){ .ccT-fmt,.ccT-flyer,.ccT-btn{ transition:none!important; } }
     `;
     document.head.appendChild(s);
   }
@@ -212,18 +243,18 @@
             <div class="ccT-field" id="ccT-pw-field" style="display:none"><label>Join code</label>
               <input class="ccT-input" id="ccT-pw" maxlength="12" placeholder="code"></div>
           </div>
+          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-fill-bots">
+            <span>🤖 Fill empty seats with bots<span class="ccT-hint">Start any time — bots take every open spot so a full bracket runs even solo.</span></span></label></div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-spec" checked> Allow spectators</label></div>
-          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match (1v1 finals)</label></div>
-          <div class="ccT-field"><label>XP reward level</label>
-            <select class="ccT-select" id="ccT-xp"><option value="standard">Standard</option><option value="high">High stakes</option></select></div>
-          <div id="ccT-create-err" style="color:#ff8ea3;min-height:18px;font-size:.85rem"></div>
+          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match for the bronze</label></div>
+          <div id="ccT-create-err" style="color:#c62a4e;min-height:18px;font-size:.85rem"></div>
           <button class="ccT-btn wide gold" id="ccT-create-go">Create Tournament →</button>
-          <button class="ccT-btn ghost wide" id="ccT-create-join">Join a tournament by code</button>
+          <button class="ccT-btn ghost wide" id="ccT-create-browse">🔍 Browse open tournaments</button>
           <button class="ccT-btn ghost wide" id="ccT-create-cancel">Cancel</button>
         </div>
       </div>`;
     modal.classList.add("open");
-    $("#ccT-create-join", modal).addEventListener("click", () => { modal.classList.remove("open"); promptJoin(); });
+    $("#ccT-create-browse", modal).addEventListener("click", () => { modal.classList.remove("open"); openBrowse(); });
     const capEl = $("#ccT-cap", modal), capVal = $("#ccT-cap-val", modal);
     capEl.addEventListener("input", () => { createState.capacity = +capEl.value; capVal.textContent = capEl.value; refreshFormats(); });
     $("#ccT-vis", modal).addEventListener("change", (e) => { $("#ccT-pw-field", modal).style.display = e.target.value === "private" ? "" : "none"; });
@@ -244,7 +275,7 @@
     formats.forEach(f => {
       const c = el("div", "ccT-fmt" + (f.players_per_match === createState.ppm ? " sel" : ""));
       const dots = Array.from({ length: f.players_per_match }, () => `<span class="ccT-dot"></span>`).join("");
-      c.innerHTML = `<div class="ccT-fmt-title">${f.players_per_match <= 3 ? Array(f.players_per_match).fill("1").join(" v ") : f.players_per_match + "-player"}</div>
+      c.innerHTML = `<div class="ccT-fmt-title">${f.players_per_match} Player</div>
         <div class="ccT-fmt-mini">${dots}</div>
         <div class="ccT-fmt-meta">${f.num_rounds} rounds · ${f.num_opening_matches} opening${f.num_byes ? " · " + f.num_byes + " bye" + (f.num_byes > 1 ? "s" : "") : ""}</div>`;
       c.addEventListener("click", () => { createState.ppm = f.players_per_match; refreshFormats(); });
@@ -278,7 +309,7 @@
       visibility: $("#ccT-vis", modal).value,
       password: $("#ccT-pw", modal).value || undefined,
       spectators_allowed: $("#ccT-spec", modal).checked,
-      xp_reward_level: $("#ccT-xp", modal).value,
+      fill_bots: $("#ccT-fill-bots", modal).checked,
       host_name: bridge().nickname(),
       avatar: bridge().myAvatar(),
     };
@@ -315,6 +346,66 @@
 
   function persistActive() { try { localStorage.setItem("cc_active_tournament", JSON.stringify({ tid: T.tid, hostToken: T.hostToken, pid: T.pid })); } catch (_) {} }
   function clearActive() { try { localStorage.removeItem("cc_active_tournament"); } catch (_) {} }
+
+  // =========================================================================
+  // BROWSE & JOIN — pick an open tournament from a list, or enter a code.
+  // Reachable from the create modal and the Leaderboard "🏅 Tournaments" tab.
+  // =========================================================================
+  async function openBrowse() {
+    injectStyles();
+    let modal = $("#ccT-browse");
+    if (!modal) { modal = el("div", "ccT-modal"); modal.id = "ccT-browse"; document.body.appendChild(modal); }
+    modal.innerHTML = `
+      <div class="ccT-card">
+        <h2>🏆 Tournaments</h2>
+        <div class="ccT-sub">Jump into an open bracket, or enter a code to join.</div>
+        <div class="ccT-body">
+          <div class="ccT-field"><label>Open tournaments</label>
+            <div class="ccT-list" id="ccT-browse-list"><div class="ccT-empty">Loading…</div></div></div>
+          <div class="ccT-field"><label>Join by code</label>
+            <div class="ccT-row" style="gap:8px">
+              <input class="ccT-input" id="ccT-browse-code" maxlength="12" placeholder="ABC123" style="flex:2 1 60%;text-transform:uppercase;letter-spacing:2px">
+              <button class="ccT-btn" id="ccT-browse-go" style="flex:1 1 30%">Join →</button>
+            </div></div>
+          <button class="ccT-btn gold wide" id="ccT-browse-new">＋ Create a Tournament</button>
+          <button class="ccT-btn ghost wide" id="ccT-browse-close">Close</button>
+        </div>
+      </div>`;
+    modal.classList.add("open");
+    modal.addEventListener("click", (e) => { if (e.target === modal) modal.classList.remove("open"); });
+    $("#ccT-browse-close", modal).addEventListener("click", () => modal.classList.remove("open"));
+    $("#ccT-browse-new", modal).addEventListener("click", () => { modal.classList.remove("open"); openCreate(); });
+    const goJoin = () => {
+      const code = ($("#ccT-browse-code", modal).value || "").trim().toUpperCase();
+      if (code) { modal.classList.remove("open"); promptJoin(code); }
+    };
+    $("#ccT-browse-go", modal).addEventListener("click", goJoin);
+    $("#ccT-browse-code", modal).addEventListener("keydown", (e) => { if (e.key === "Enter") goJoin(); });
+    await refreshBrowseList(modal);
+  }
+
+  async function refreshBrowseList(modal) {
+    const list = $("#ccT-browse-list", modal); if (!list) return;
+    let rows = [];
+    try { const r = await get("/api/tournament/list"); rows = (r.data && r.data.tournaments) || []; } catch (_) {}
+    const open = rows.filter(t => t.phase === "lobby" && t.joined < t.capacity);
+    if (!open.length) {
+      list.innerHTML = `<div class="ccT-empty">No open tournaments right now — create one below!</div>`;
+      return;
+    }
+    list.innerHTML = "";
+    open.forEach(t => {
+      const row = el("div", "ccT-literow");
+      const lock = t.has_password ? "🔒 " : "";
+      row.innerHTML = `<div class="ccT-linm">
+          <div class="ccT-lit-title">${lock}${esc(t.name || "Tournament")}</div>
+          <div class="ccT-lit-meta">${t.joined}/${t.capacity} players · ${t.players_per_match} per match · <b>${esc(t.tournament_id)}</b></div>
+        </div>
+        <button class="ccT-btn sm">Join →</button>`;
+      row.querySelector("button").addEventListener("click", () => { modal.classList.remove("open"); promptJoin(t.tournament_id); });
+      list.appendChild(row);
+    });
+  }
 
   // =========================================================================
   // FULL-SCREEN tournament
@@ -453,16 +544,16 @@
   }
 
   function playerRow(p, me) {
-    const row = el("div", "ccT-pl" + (p.me ? " me" : ""));
+    const row = el("div", "ccT-pl" + (p.me ? " me" : "") + (p.is_bot ? " bot" : ""));
     row.dataset.pid = p.pid;
     const canDrag = (T.state.phase === "lobby") && p.me;
     if (canDrag) row.draggable = true;
-    const badge = p.ready && p.status === "not_ready" ? "ready" : p.status;
+    const botBadge = p.is_bot ? `<span class="ccT-badge bot">🤖 Bot</span>` : "";
     row.innerHTML = `<img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
       <span class="ccT-nm">${esc(p.name)} ${p.is_host ? '<span class="ccT-host-dot" title="Host">★</span>' : ""}</span>
-      <span class="ccT-badge ${esc(p.status)}">${statusLabel(p)}</span>`;
-    // avatar async upgrade
-    bridge().avatarForNick(p.name).then(u => { if (u) { const img = row.querySelector(".ccT-av"); if (img) img.src = bridge().avSrc(u); } }).catch(() => {});
+      ${botBadge}<span class="ccT-badge ${esc(p.status)}">${statusLabel(p)}</span>`;
+    // avatar async upgrade (skip bots — their avatar is already assigned)
+    if (!p.is_bot) bridge().avatarForNick(p.name).then(u => { if (u) { const img = row.querySelector(".ccT-av"); if (img) img.src = bridge().avSrc(u); } }).catch(() => {});
     if (canDrag) {
       row.addEventListener("dragstart", () => { T.dragFrom = p.pid; });
       row.addEventListener("dragend", () => { T.dragFrom = null; });
@@ -498,17 +589,20 @@
     html += `<button class="ccT-btn wide ${amReady ? "ghost" : ""}" id="ccT-ready">${amReady ? "✓ Ready — tap to unready" : "I'm Ready"}</button>`;
     if (isHost) {
       html += `<button class="ccT-btn wide" id="ccT-randomize">🎲 Randomize Seeding</button>`;
+      const full = st.joined >= st.capacity;
+      if (!full) html += `<button class="ccT-btn wide" id="ccT-fillbots">🤖 Fill ${st.capacity - st.joined} empty seat${st.capacity - st.joined === 1 ? "" : "s"} with bots</button>`;
       html += `<button class="ccT-btn wide gold" id="ccT-start" ${st.can_start ? "" : "disabled"}>Start Tournament →</button>`;
-      if (!st.can_start) html += `<div style="font-size:.8rem;opacity:.7;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
+      if (!st.can_start) html += `<div style="font-size:.8rem;color:#3a6aa5;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
       html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
     }
-    html += `<div style="margin-top:14px;font-size:.85rem;opacity:.8;line-height:1.6">
+    html += `<div style="margin-top:14px;font-size:.85rem;color:#2b5a97;line-height:1.6">
       <b>Tip:</b> drag your card onto another player to request a seat switch.
-      ${st.summary ? `<br>Format: <b>${st.config.players_per_match <= 3 ? Array(st.config.players_per_match).fill("1").join("v") : st.config.players_per_match + "-player"}</b> matches, ${st.summary.num_rounds} rounds.` : ""}
+      ${st.summary ? `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.` : ""}
       <br>Share code: <b>${esc(st.tournament_id)}</b>${st.visibility === "private" ? " (private)" : ""}.</div>`;
     root.innerHTML = html;
     const readyBtn = $("#ccT-ready", root); if (readyBtn) readyBtn.addEventListener("click", () => post("/api/tournament/ready", { id: T.tid, ready: !amReady }));
     const rnd = $("#ccT-randomize", root); if (rnd) rnd.addEventListener("click", onRandomize);
+    const fb = $("#ccT-fillbots", root); if (fb) fb.addEventListener("click", onFillBots);
     const start = $("#ccT-start", root); if (start) start.addEventListener("click", onStart);
     const oh = $("#ccT-open-host", root); if (oh) oh.addEventListener("click", openHostPanel);
   }
@@ -523,6 +617,14 @@
     document.querySelectorAll("#ccT-players .ccT-pl").forEach((row, i) => {
       row.animate([{ transform: "translateX(0)" }, { transform: `translateX(${i % 2 ? 12 : -12}px)` }, { transform: "translateX(0)" }], { duration: 420, delay: i * 25 });
     });
+  }
+  async function onFillBots() {
+    const st = T.state;
+    const open = st.capacity - st.joined;
+    if (open <= 0) return;
+    const r = await post("/api/tournament/host", { id: T.tid, host_token: T.hostToken, cmd: "fill_bots" });
+    if (r.data && r.data.ok) toast(`Added ${r.data.added || open} bot${(r.data.added || open) === 1 ? "" : "s"} 🤖`, "info");
+    else toast((r.data && r.data.error) || "Could not add bots", "err");
   }
   async function onStart() {
     const st = T.state;
@@ -654,7 +756,7 @@
         ${sc != null ? `<span class="ccT-ssc">${sc}</span>` : ""}</div>`;
     });
     card.innerHTML = `<span class="ccT-mnum">${m.is_third_place ? "3rd" : "M" + m.match_number}</span>
-      ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "var(--ccT-teal)" : m.status === "complete" ? "rgba(255,207,92,.3)" : "rgba(255,255,255,.1)"}">${statusTxt}</span>` : ""}
+      ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "rgba(47,140,224,.22)" : m.status === "complete" ? "rgba(243,167,18,.28)" : "rgba(120,150,190,.16)"}">${statusTxt}</span>` : ""}
       ${slots}`;
     // §10 View Match: click a live match to enter (if it's yours) or spectate it.
     if (m.room_id && (m.status === "active" || m.status === "ready")) {
@@ -786,7 +888,7 @@
   function bubbleBurst(x, y) {
     if (REDUCED) return;
     for (let i = 0; i < 8; i++) {
-      const bub = el("div"); bub.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:6px;height:6px;border-radius:50%;background:var(--ccT-aqua);z-index:9500;pointer-events:none;opacity:.8`;
+      const bub = el("div"); bub.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:6px;height:6px;border-radius:50%;background:#2f8ce0;z-index:9500;pointer-events:none;opacity:.8`;
       document.body.appendChild(bub);
       const ang = Math.random() * 6.28, dist = 20 + Math.random() * 30;
       bub.animate([{ transform: "translate(0,0)", opacity: .9 }, { transform: `translate(${Math.cos(ang) * dist}px,${Math.sin(ang) * dist - 20}px)`, opacity: 0 }], { duration: 700 + Math.random() * 400 }).onfinish = () => bub.remove();
@@ -920,6 +1022,7 @@
   }
   // exposed for preview-app.js's mode-select interceptor + return-to-tournament
   window.__ccTourneyOpenCreate = openCreate;
+  window.__ccTourneyBrowse = openBrowse;
   window.__ccTourneyJoin = promptJoin;
   window.__ccTourneyOpenById = function (tid, hostToken, pid) { T.tid = tid; T.hostToken = hostToken || ""; T.pid = pid || null; openScreen(); };
 

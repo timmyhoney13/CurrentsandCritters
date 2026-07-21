@@ -8145,36 +8145,47 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
     seat_token so their client reconnects straight into the right seat, and the
     server auto-starts the game via the room's host_control_token."""
     n = len(players)
+    # Bot participants (seat-fillers) become AI seats the game engine auto-plays;
+    # humans get pre-claimed human seats with a delivered token. (All-bot matches
+    # are resolved server-side in tournament_server and never reach here, so there
+    # is always ≥1 human → seat 0 is human, satisfying create_room's host-seat rule.)
+    humans = [p for p in players if not p.get("is_bot")]
+    bots = [p for p in players if p.get("is_bot")]
     # Private + unguessable password: membership is the pre-claimed seat set, not
     # the code, so the room never appears joinable to anyone else.
     room = ROOMS.create_room(
-        host_name=players[0]["name"],
-        total_players=n, human_players=n, ai_players=0,
+        host_name=(humans[0] if humans else players[0])["name"],
+        total_players=n, human_players=len(humans), ai_players=len(bots),
         visibility="private",
         password_hash=hashlib.sha256(secrets.token_hex(24).encode()).hexdigest(),
     )
     human_seats = [s for s in room.seats if s.kind == "human"]
+    ai_seats = [s for s in room.seats if s.kind == "ai"]
     seat_tokens: Dict[str, str] = {}
-    seat_pids: Dict[int, str] = {}
-    name_by_seat: Dict[int, str] = {}
+    tournament_pids: Dict[str, str] = {}   # unique claimed-name -> participant pid
     seen: Dict[str, int] = {}
+
+    def _uniq(nm: str) -> str:
+        seen[nm] = seen.get(nm, 0) + 1
+        return nm if seen[nm] == 1 else f"{nm} ({seen[nm]})"  # disambiguate dups
+
     with room.cond:
-        for seat, p in zip(human_seats, players):
-            nm = safe_name(p["name"], "Player")
-            seen[nm] = seen.get(nm, 0) + 1
-            uniq = nm if seen[nm] == 1 else f"{nm} ({seen[nm]})"  # disambiguate dups
+        for seat, p in zip(human_seats, humans):
+            uniq = _uniq(safe_name(p["name"], "Player"))
             tok = secrets.token_urlsafe(18)
             seat.claimed_name = uniq
             seat.token = tok
             seat_tokens[p["pid"]] = tok
-            seat_pids[seat.index] = p["pid"]
-            name_by_seat[seat.index] = uniq
+            tournament_pids[uniq] = p["pid"]
+        for seat, p in zip(ai_seats, bots):
+            uniq = _uniq(safe_name(p["name"], "Bot"))
+            seat.claimed_name = uniq         # AI seat plays under the bot's name
+            tournament_pids[uniq] = p["pid"]
         room.tournament_id = tournament_id
         room.tournament_match = (tournament_id, int(round_index), int(match_index),
                                  int(match_number))
         # unique claimed-name -> pid, so name-keyed standings map 1:1 (dups suffixed)
-        room.tournament_pids = {uniq: pid for pid, uniq in
-                                zip((p["pid"] for p in players), name_by_seat.values())}
+        room.tournament_pids = tournament_pids
         room.tournament_seat_by_pid = dict(seat_tokens)
         room._bump_locked()
     try:
@@ -8207,7 +8218,9 @@ def _notify_tournament_if_match(room) -> None:
     if not tid:
         return
     pid_by_name = getattr(room, "tournament_pids", {}) or {}
-    all_pids = list((getattr(room, "tournament_seat_by_pid", {}) or {}).keys())
+    # Every assigned participant (humans AND bots) so a player missing from the
+    # standings still gets ranked last and the match always resolves.
+    all_pids = list(pid_by_name.values())
     standings = getattr(room, "final_scores", None) or []
     ranking: List[str] = []
     scores: Dict[str, int] = {}
