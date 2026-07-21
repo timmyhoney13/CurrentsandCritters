@@ -8198,10 +8198,51 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         content_type: Optional[str] = None,
         cache_control: str = "public, max-age=300",
         extra_headers: Optional[Dict[str, str]] = None,
+        allow_webp: bool = False,
     ) -> None:
+        vary_parts: List[str] = []
+        ctype_override: Optional[str] = None
+        # ── WebP content negotiation ────────────────────────────────────
+        # Big photographic PNG/JPG art (backgrounds, card sheets) ships with a
+        # pre-generated .webp sibling that is ~10-25x smaller. When the browser
+        # advertises WebP support we serve that instead — same URL, no client
+        # change, automatic PNG fallback for anything that doesn't. This is the
+        # single biggest win for image load time. Vary: Accept keeps caches
+        # from handing a WebP body to a client that can't read it.
+        if allow_webp and file_path.lower().endswith((".png", ".jpg", ".jpeg")):
+            vary_parts.append("Accept")
+            accept = self.headers.get("Accept", "") if self.headers else ""
+            if "image/webp" in accept.lower():
+                webp_path = os.path.splitext(file_path)[0] + ".webp"
+                if os.path.exists(webp_path):
+                    file_path = webp_path
+                    ctype_override = "image/webp"
+
         if not os.path.exists(file_path):
             self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
+
+        # Weak ETag from mtime+size lets browsers (and Cloudflare) revalidate
+        # with a cheap 304 instead of re-downloading multi-MB art every time.
+        try:
+            _st = os.stat(file_path)
+            etag = 'W/"%x-%x"' % (int(_st.st_mtime), _st.st_size)
+        except OSError:
+            etag = None
+        if etag:
+            inm = self.headers.get("If-None-Match", "") if self.headers else ""
+            if inm and etag in inm:
+                self.send_response(HTTPStatus.NOT_MODIFIED)
+                self.send_header("ETag", etag)
+                self.send_header("Cache-Control", cache_control)
+                if vary_parts:
+                    self.send_header("Vary", ", ".join(vary_parts))
+                try:
+                    self.end_headers()
+                except OSError:
+                    pass
+                return
+
         try:
             with open(file_path, "rb") as f:
                 raw = f.read()
@@ -8210,16 +8251,21 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         guessed_type, _ = mimetypes.guess_type(file_path)
-        ctype = content_type or guessed_type or "application/octet-stream"
+        ctype = ctype_override or content_type or guessed_type or "application/octet-stream"
         # Transparent gzip for text-like assets (JS/CSS/SVG/JSON); images,
         # audio, and fonts are left untouched by _maybe_gzip.
         body, enc = self._maybe_gzip(raw, ctype)
+        if enc:
+            vary_parts.append("Accept-Encoding")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", ctype)
         self.send_header("Cache-Control", cache_control)
+        if etag:
+            self.send_header("ETag", etag)
         if enc:
             self.send_header("Content-Encoding", enc)
-            self.send_header("Vary", "Accept-Encoding")
+        if vary_parts:
+            self.send_header("Vary", ", ".join(vary_parts))
         self.send_header("Content-Length", str(len(body)))
         if extra_headers:
             for key, value in extra_headers.items():
@@ -8754,7 +8800,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 return
             avatar_path = os.path.join(AVATAR_DIR, avatar_name)
             # Short cache so avatar art swaps propagate quickly (was 1 day).
-            self._send_client_asset(avatar_path, cache_control="public, max-age=600")
+            self._send_client_asset(avatar_path, cache_control="public, max-age=600", allow_webp=True)
             return
 
         # Exclusive backgrounds (cosmetic, rendered behind avatars).
@@ -8764,14 +8810,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "invalid background path"}, status=HTTPStatus.BAD_REQUEST)
                 return
             bg_path = os.path.join(CLIENT_DIR, "backgrounds", bg_name)
-            self._send_client_asset(bg_path, cache_control="public, max-age=600")
+            self._send_client_asset(bg_path, cache_control="public, max-age=600", allow_webp=True)
             return
 
         # Serve general client PNG assets (game bg, button art, action cards, etc.)
         if re.fullmatch(r"/(game-bg|nc-coral|nc-sil|nc-btn-full|hermit-crab|choose-device|fullscreen-splash|critter-coin|coral-background|moving-background|moving-background-left|moving-background-right|lobby-coral-(?:red|orange|yellow)|action-card-(?:create|join|tutorial|competitive|quickmatch))\.png", parsed.path):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
-                self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400")
+                self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)
             else:
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -8780,7 +8826,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/login-bg.png":
             asset_path = os.path.join(CLIENT_DIR, "login-bg.png")
             if os.path.exists(asset_path):
-                self._send_client_asset(asset_path, content_type="image/png", cache_control="no-cache")
+                self._send_client_asset(asset_path, content_type="image/png", cache_control="no-cache", allow_webp=True)
             else:
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -8790,7 +8836,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             bg_name = os.path.basename(parsed.path)
             bg_path = os.path.join(CLIENT_DIR, bg_name)
             if os.path.exists(bg_path):
-                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400")
+                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)
             else:
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -8800,7 +8846,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             bg_name = os.path.basename(parsed.path)
             bg_path = os.path.join(CLIENT_DIR, bg_name)
             if os.path.exists(bg_path):
-                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400")
+                self._send_client_asset(bg_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)
             else:
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -8812,7 +8858,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             bg_path = os.path.join(CLIENT_DIR, bg_name)
             _ct = "image/png" if parsed.path.endswith(".png") else "image/jpeg"
             if os.path.exists(bg_path):
-                self._send_client_asset(bg_path, content_type=_ct, cache_control="public, max-age=86400")
+                self._send_client_asset(bg_path, content_type=_ct, cache_control="public, max-age=86400", allow_webp=True)
             else:
                 self._send_json({"ok": False, "error": "bg asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -8844,6 +8890,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     card_path,
                     content_type="image/png",
                     cache_control="public, max-age=31536000, immutable",
+                    allow_webp=True,
                 )
             else:
                 self._send_json({"ok": False, "error": "card art not found"}, status=HTTPStatus.NOT_FOUND)
