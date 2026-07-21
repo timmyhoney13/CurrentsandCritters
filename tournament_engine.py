@@ -566,12 +566,19 @@ XP_BASE = {
 }
 
 
+# Below this many distinct real (non-guest) accounts, the big placement/champion/
+# progress rewards are withheld — a tournament padded with guests or a single main
+# vs. throwaways cannot be farmed for meaningful XP. (Guests never get XP at all.)
+MIN_REAL_ACCOUNTS_FOR_PLACEMENT_XP = 3
+
+
 def _size_scale(n_players: int) -> float:
     """Scale placement/bonus rewards down for smaller tournaments so a tiny
-    tournament cannot be farmed for full XP. Linear in size, floored at 0.35 so a
-    4-player tournament is still worthwhile but far from a 32-player payout."""
+    tournament cannot be farmed for full XP. STEEP (quadratic-ish) with a low
+    floor so a 4-player bracket pays only a small fraction of a full 32-player run."""
     n = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int(n_players)))
-    return round(0.35 + 0.65 * (n - MIN_TOURNAMENT_PLAYERS) / (MAX_TOURNAMENT_PLAYERS - MIN_TOURNAMENT_PLAYERS), 4)
+    frac = (n - MIN_TOURNAMENT_PLAYERS) / (MAX_TOURNAMENT_PLAYERS - MIN_TOURNAMENT_PLAYERS)
+    return round(0.12 + 0.88 * (frac ** 1.35), 4)
 
 
 def compute_player_xp(
@@ -585,14 +592,19 @@ def compute_player_xp(
     deepest_round: int,     # 0-based deepest round the player appeared in
     completed_first_match: bool,
     completed_without_quitting: bool,
+    real_accounts: Optional[int] = None,   # distinct non-guest accounts that competed
 ) -> Dict[str, Any]:
     """Return an itemised XP breakdown with stable component ids.
 
     Each component id is deterministic: ``xp:{tournament_id}:{player_id}:{kind}``.
     The caller records these ids in a ledger and pays each at most once, so a
-    duplicate result submission never double-awards (§12/§15)."""
+    duplicate result submission never double-awards (§12/§15). ``real_accounts``
+    gates the big rewards: below MIN_REAL_ACCOUNTS_FOR_PLACEMENT_XP distinct real
+    accounts, placement/champion/progress XP is withheld (anti-farm)."""
     scale = _size_scale(n_players)
-    is_1v1_final = False  # not needed here; match-count already reflects structure
+    # Field-integrity gate: a real field earns placement XP; a padded one doesn't.
+    ra = n_players if real_accounts is None else int(real_accounts)
+    placement_ok = ra >= MIN_REAL_ACCOUNTS_FOR_PLACEMENT_XP
     items: List[Dict[str, Any]] = []
 
     def item(kind: str, amount: int) -> None:
@@ -604,30 +616,31 @@ def compute_player_xp(
             "amount": int(round(amount)),
         })
 
-    # Placement rewards (scaled).
-    if place == 1:
-        item("champion", XP_BASE["champion"] * scale)
-    elif place == 2:
-        item("second", XP_BASE["second"] * scale)
-    elif place == 3:
-        item("third", XP_BASE["third"] * scale)
-    elif place == 4:
-        item("fourth", XP_BASE["fourth"] * scale)
+    # Placement rewards (scaled). Withheld unless the field has enough real accounts.
+    if placement_ok:
+        if place == 1:
+            item("champion", XP_BASE["champion"] * scale)
+        elif place == 2:
+            item("second", XP_BASE["second"] * scale)
+        elif place == 3:
+            item("third", XP_BASE["third"] * scale)
+        elif place == 4:
+            item("fourth", XP_BASE["fourth"] * scale)
 
-    # Progress bonuses (scaled). "reached final" = appeared in the last round;
-    # "reached semifinal" = appeared in the second-to-last round or deeper.
-    final_round = rounds_total - 1
-    if rounds_total >= 1 and deepest_round >= final_round:
-        item("reached_final", XP_BASE["reached_final"] * scale)
-    if rounds_total >= 2 and deepest_round >= final_round - 1:
-        item("reached_semifinal", XP_BASE["reached_semifinal"] * scale)
+        # Progress bonuses. "reached final" = appeared in the last round;
+        # "reached semifinal" = appeared in the second-to-last round or deeper.
+        final_round = rounds_total - 1
+        if rounds_total >= 1 and deepest_round >= final_round:
+            item("reached_final", XP_BASE["reached_final"] * scale)
+        if rounds_total >= 2 and deepest_round >= final_round - 1:
+            item("reached_semifinal", XP_BASE["reached_semifinal"] * scale)
 
-    # Match wins (scaled, one component summing all wins so the id is stable).
-    if matches_won > 0:
+    # Match wins (scaled). Also gated so self-play loops can't accrue win XP.
+    if matches_won > 0 and placement_ok:
         item("match_win", XP_BASE["match_win"] * matches_won * scale)
 
     # Flat-ish participation + no-quit (lightly scaled so small tournaments still
-    # grant them, but not at full value).
+    # grant them, but not at full value). These are always allowed (tiny).
     if completed_first_match:
         item("participation", XP_BASE["participation"] * (0.5 + 0.5 * scale))
     if completed_without_quitting:

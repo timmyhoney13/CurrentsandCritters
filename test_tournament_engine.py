@@ -419,7 +419,7 @@ class TestXP(unittest.TestCase):
         self.assertLess(small["total_xp"], big["total_xp"],
                         "small tournament must award less (anti-farm)")
         self.assertLess(small["scale"], 1.0)
-        self.assertGreaterEqual(small["scale"], 0.35)
+        self.assertGreaterEqual(small["scale"], 0.10)  # steep curve, low floor (~0.12)
 
     def test_scale_monotonic_in_size(self):
         prev = -1

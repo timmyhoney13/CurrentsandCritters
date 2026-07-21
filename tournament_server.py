@@ -43,6 +43,18 @@ from tournament_engine import (
 # CLIENT hides all tournament UI until it's flipped public. Set FISH_TOURNAMENTS=0
 # to hard-disable the server side entirely.
 TOURNAMENTS_ENABLED = str(os.environ.get("FISH_TOURNAMENTS", "1")).strip().lower() not in ("0", "false", "no", "")
+# When set, the /api/tournament/report HTTP endpoint is live so the automated
+# test harness can drive bracket advancement. NEVER set in production — real
+# results must only arrive via the trusted on_room_ended game-end hook.
+TEST_HOOKS_ENABLED = str(os.environ.get("FISH_TOURNAMENT_TEST_HOOKS", "")).strip().lower() in ("1", "true", "yes")
+# Grace window after a match room spawns: it auto-starts once all assigned players
+# have entered, or after this many seconds regardless (so one slow/absent player
+# can't stall the whole match — the game's own AFK/reconnect rules then apply).
+MATCH_START_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_MATCH_GRACE", "15"))
+# A participant whose client hasn't polled state within this window is marked
+# disconnected (survives on the server; reconnect restores them). Chosen well
+# above the 5s SSE heartbeat so a brief blip doesn't flap.
+DISCONNECT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_DISCONNECT_GRACE", "25"))
 
 # ── Injected from multiplayer_server.init ────────────────────────────────────
 _get_firestore: Callable[[], Any] = lambda: None
@@ -154,6 +166,12 @@ class Tournament:
         self.status_note = "Tournament lobby open."
 
         self.host_control_token = _gen_token()
+        # Globally-unique ledger/XP scope: the human-facing tid (a 6-char code) is
+        # recycled after prune, but this nonce-suffixed id never collides with a
+        # historical Firestore rewardLedger key, so a recycled code can't cause a
+        # returning player to be silently paid nothing.
+        self.xp_scope_id = f"{tid}-{secrets.token_hex(6)}"
+        self._last_xp_retry = 0.0
         self.participants: List[Participant] = []
         self.spectator_pids: Dict[str, float] = {}   # pid -> last_seen
         self.bracket: Optional[Bracket] = None
@@ -164,6 +182,10 @@ class Tournament:
         self.final_placements: List[Dict[str, Any]] = []
         # room_id -> (round_index, match_index)
         self.match_rooms: Dict[str, Tuple[int, int]] = {}
+        self.match_seat_tokens: Dict[int, Dict[str, str]] = {}   # match_number -> {pid: seat_token}
+        self.match_entered_pids: Dict[int, set] = {}                  # match_number -> set(pids present)
+        self.match_timers: Dict[int, Any] = {}                   # match_number -> threading.Timer
+        self.host_pid_order: List[str] = []                      # join order for host reassignment
         self._xp_grants: Dict[str, Dict[str, Any]] = {}   # pid -> computed breakdown
 
         # add the host as the first participant
@@ -204,6 +226,42 @@ class Tournament:
         if host_token and host_token == self.host_control_token:
             return True
         return bool(pid) and pid == self.host_pid
+
+    def _touch_and_reap_locked(self, me: Optional[Participant]) -> None:
+        """MUST hold self.cond. Refresh the viewer's presence, mark stale
+        participants disconnected, and reassign the host if it vanished."""
+        now = _now()
+        changed = False
+        if me is not None:
+            me.last_seen = now
+            if not me.connected:
+                me.connected = True
+                if me.status == S_DISCONNECTED:
+                    me.status = S_READY if me.ready else S_NOT_READY
+                changed = True
+        for p in self.participants:
+            if p.connected and p.last_seen and (now - p.last_seen) > DISCONNECT_GRACE_SEC:
+                p.connected = False
+                if self.phase == self.PHASE_LOBBY and p.status in (S_NOT_READY, S_READY):
+                    p.status = S_DISCONNECTED
+                changed = True
+        host = self._by_pid(self.host_pid)
+        if host is None or not host.connected:
+            if self._reassign_host_locked():
+                changed = True
+        if changed:
+            self._bump_locked()
+
+    def _reassign_host_locked(self) -> bool:
+        """Give host authority to the earliest-joined connected participant when
+        the current host has left/disconnected. Returns True if reassigned."""
+        candidates = sorted([p for p in self.participants if p.connected],
+                            key=lambda x: x.join_order)
+        if candidates and candidates[0].pid != self.host_pid:
+            self.host_pid = candidates[0].pid
+            self._log("host_reassigned", f"-> {candidates[0].name}")
+            return True
+        return False
 
     @property
     def active_participants(self) -> List[Participant]:
@@ -251,9 +309,12 @@ class Tournament:
                 return {"ok": True}
             if self.phase == self.PHASE_LOBBY:
                 # simply remove from the lobby
+                was_host = (pid == self.host_pid)
                 self.participants = [x for x in self.participants if x.pid != pid]
                 for i, x in enumerate(self.participants):
                     x.join_order = i
+                if was_host:
+                    self._reassign_host_locked()   # keep the lobby operable
                 self._bump_locked()
                 return {"ok": True, "removed": True}
             # mid-tournament leave == forfeit (no no-quit bonus)
@@ -263,7 +324,11 @@ class Tournament:
             self._log("player_forfeit", f"{p.name} left the tournament", by=p.pid)
             self._forfeit_active_matches_for(p)
             self._bump_locked()
-            return {"ok": True, "forfeit": True, "was_active": was_active}
+        # A forfeit can fill the next match or complete the final — progress the
+        # bracket + finalize OUTSIDE the lock (both take their own locks).
+        self._spawn_ready_matches()
+        self._maybe_finalize()
+        return {"ok": True, "forfeit": True, "was_active": was_active}
 
     def set_ready(self, pid: str, ready: bool) -> Dict[str, Any]:
         with self.cond:
@@ -461,19 +526,26 @@ class Tournament:
             self._spawn_match(m)
 
     def _spawn_match(self, m) -> None:
-        pids = [p for p in m.player_ids if p]
-        parts = [self._by_pid(pid) for pid in pids]
-        parts = [p for p in parts if p is not None]
+        # Atomic claim under the lock so two threads (two matches finishing at the
+        # same time, each triggering _spawn_ready_matches) can never double-spawn
+        # the same next-round match into two GameRooms.
         with self.cond:
-            m.status = M_READY
+            if m.status in (M_READY, M_ACTIVE, M_COMPLETE, M_BYE) or m.room_id:
+                return
+            if m.is_bye or m.filled_count() != m.capacity:
+                return
+            parts = [self._by_pid(pid) for pid in m.player_ids if pid]
+            parts = [p for p in parts if p is not None]
+            m.status = M_READY          # claim it before releasing the lock
             for p in parts:
-                p.status = S_PLAYING
+                if not p.quit:          # never resurrect a player who forfeited
+                    p.status = S_PLAYING
             self._bump_locked()
         if _create_match_room is None:
             # test / headless mode: no real room, results are fed directly.
             return
         try:
-            room_id = _create_match_room(
+            res = _create_match_room(
                 tournament_id=self.tid,
                 round_index=m.round_index, match_index=m.match_index,
                 match_number=m.match_number,
@@ -486,12 +558,81 @@ class Tournament:
                 self.status_note = f"match spawn error: {exc}"
                 self._bump_locked()
             return
+        room_id = res.get("room_id") if isinstance(res, dict) else res
+        seat_tokens = res.get("seat_tokens", {}) if isinstance(res, dict) else {}
         with self.cond:
             m.room_id = room_id
             if room_id:
                 self.match_rooms[room_id] = (m.round_index, m.match_index)
-            m.status = M_ACTIVE
+            self.match_seat_tokens[m.match_number] = dict(seat_tokens or {})
+            self.match_entered_pids.setdefault(m.match_number, set())
+            # stays M_READY (players are entering) until the game actually launches
             self._bump_locked()
+        # Auto-start once everyone enters, or after the grace window.
+        self._schedule_match_start(m.round_index, m.match_index, m.match_number)
+
+    def _schedule_match_start(self, r: int, mi: int, match_number: int) -> None:
+        if _start_match_room is None:
+            return
+        tmr = threading.Timer(MATCH_START_GRACE_SEC, self._launch_match, args=(r, mi))
+        tmr.daemon = True
+        with self.cond:
+            old = self.match_timers.pop(match_number, None)
+            if old:
+                old.cancel()
+            self.match_timers[match_number] = tmr
+        tmr.start()
+
+    def _launch_match(self, r: int, mi: int) -> None:
+        with self.cond:
+            try:
+                m = self.bracket.get_match(r, mi)
+            except Exception:
+                return
+            if m.status != M_READY or not m.room_id:
+                return
+            room_id = m.room_id
+            tmr = self.match_timers.pop(m.match_number, None)
+        if tmr:
+            tmr.cancel()
+        ok = _start_match_room(room_id) if _start_match_room else False
+        with self.cond:
+            if ok and m.status == M_READY:
+                m.status = M_ACTIVE
+                self._bump_locked()
+
+    def match_entered(self, pid: str) -> Dict[str, Any]:
+        """A player opened their assigned match room. Once all assigned players
+        have entered, launch the game immediately (before the grace timeout)."""
+        if not self.bracket:
+            return {"ok": False, "error": "not started"}
+        target = None
+        with self.cond:
+            for row in self.bracket.rounds:
+                for m in row:
+                    if m.status == M_READY and m.room_id and pid in [x for x in m.player_ids if x]:
+                        target = m
+                        break
+                if target:
+                    break
+            if target is None:
+                return {"ok": True}
+            s = self.match_entered_pids.setdefault(target.match_number, set())
+            s.add(pid)
+            assigned = {x for x in target.player_ids if x}
+            all_in = assigned.issubset(s)
+            r, mi = target.round_index, target.match_index
+        if all_in:
+            self._launch_match(r, mi)
+        return {"ok": True}
+
+    def _cancel_match_timer(self, match_number: int) -> None:
+        tmr = self.match_timers.pop(match_number, None)
+        if tmr:
+            try:
+                tmr.cancel()
+            except Exception:  # noqa: BLE001
+                pass
 
     def _forfeit_active_matches_for(self, p: Participant) -> None:
         """If a player forfeits mid-match, their opponents advance. If the match
@@ -570,6 +711,7 @@ class Tournament:
             wp.status = S_WAITING
         if m.room_id:
             self.match_rooms.pop(m.room_id, None)
+        self._cancel_match_timer(m.match_number)   # no auto-start once resolved
 
     def _maybe_finalize(self) -> None:
         with self.cond:
@@ -601,13 +743,17 @@ class Tournament:
                                   next((e["place"] for e in self.bracket.final_placements()
                                         if e["player_id"] == p.pid), 0)) or 0
         completed_no_quit = (not p.quit) and self.phase == self.PHASE_COMPLETE
+        # distinct real (non-guest) accounts that actually played — anti-farm gate
+        real_accounts = len({q.pid for q in self.participants
+                             if not q.is_guest and q.completed_first_match})
         return compute_player_xp(
-            self.tid, p.pid,
+            self.xp_scope_id, p.pid,
             n_players=n, place=int(place or 0),
             matches_won=p.matches_won, rounds_total=rounds_total,
             deepest_round=p.deepest_round,
             completed_first_match=p.completed_first_match,
             completed_without_quitting=completed_no_quit,
+            real_accounts=real_accounts,
         )
 
     def _finalize_all_xp(self) -> None:
@@ -616,11 +762,31 @@ class Tournament:
                 continue
             breakdown = self.compute_xp_for(p)
             self._xp_grants[p.pid] = breakdown
-            ok = _grant_xp_firestore(self.tid, p, breakdown)
+            ok = _grant_xp_firestore(self.xp_scope_id, p, breakdown)
             with self.cond:
                 if ok:
                     p.xp_awarded = True
                 self._bump_locked()
+
+    def retry_unfinalized_xp(self) -> None:
+        """Re-attempt XP grants that a transient Firestore error dropped. Idempotent
+        (the reward ledger skips already-granted players), so safe to call repeatedly."""
+        if self.phase != self.PHASE_COMPLETE:
+            return
+        if any(p.completed_first_match and not p.xp_awarded for p in self.participants):
+            self._finalize_all_xp()
+
+    def _maybe_retry_xp_async(self) -> None:
+        """Throttled background reconciliation, triggered from state reads."""
+        if self.phase != self.PHASE_COMPLETE:
+            return
+        now = _now()
+        if now - self._last_xp_retry < 30:
+            return
+        if not any(p.completed_first_match and not p.xp_awarded for p in self.participants):
+            return
+        self._last_xp_retry = now
+        threading.Thread(target=self.retry_unfinalized_xp, daemon=True).start()
 
     # ---- external hook: a GameRoom running our match ended ------------------
     def on_room_ended(self, room_id: str, ranking: List[str], scores: Dict[str, int]) -> Dict[str, Any]:
@@ -632,9 +798,11 @@ class Tournament:
 
     # ---- per-viewer state (SSE payload) ------------------------------------
     def state_view(self, *, viewer_pid: Optional[str] = None, host_token: str = "") -> Dict[str, Any]:
+        self._maybe_retry_xp_async()   # opportunistic XP reconciliation (throttled)
         with self.cond:
-            is_host = self.is_host(pid=viewer_pid, host_token=host_token)
             me = self._by_pid(viewer_pid) if viewer_pid else None
+            self._touch_and_reap_locked(me)
+            is_host = self.is_host(pid=viewer_pid, host_token=host_token)
             ordered = sorted(self.participants, key=lambda x: x.join_order)
             parts = [p.public(is_host=(p.pid == self.host_pid), me=(me is not None and p.pid == me.pid))
                      for p in ordered]
@@ -711,9 +879,11 @@ class Tournament:
         for row in self.bracket.rounds:
             for m in row:
                 if m.status in (M_READY, M_ACTIVE) and me.pid in [x for x in m.player_ids if x]:
+                    seat_token = (self.match_seat_tokens.get(m.match_number) or {}).get(me.pid)
                     return {"round_index": m.round_index, "match_index": m.match_index,
                             "match_number": m.match_number, "room_id": m.room_id,
-                            "status": m.status}
+                            "status": m.status, "seat_token": seat_token,
+                            "opponents": [x for x in m.player_ids if x and x != me.pid]}
         return None
 
 
@@ -729,6 +899,7 @@ class TournamentManager:
         errs = validate_config(cfg)
         if errs:
             raise ValueError("; ".join(errs))
+        self.prune()   # opportunistic cleanup of ended/abandoned tournaments
         with self.lock:
             for _ in range(200):
                 tid = _code(6)
@@ -764,11 +935,20 @@ class TournamentManager:
                 })
             return out
 
-    def prune(self, older_than_sec: float = 6 * 3600) -> None:
+    def prune(self, older_than_sec: float = 6 * 3600,
+              lobby_idle_sec: float = 2 * 3600) -> None:
         with self.lock:
-            cutoff = _now() - older_than_sec
-            dead = [tid for tid, t in self.tournaments.items()
-                    if t.ended_unix and t.ended_unix < cutoff]
+            now = _now()
+            dead = []
+            for tid, t in self.tournaments.items():
+                # 1) ended long ago
+                if t.ended_unix and (now - t.ended_unix) > older_than_sec:
+                    dead.append(tid); continue
+                # 2) abandoned lobby: never started, created long ago, nobody live
+                if (t.phase == Tournament.PHASE_LOBBY
+                        and (now - t.created_unix) > lobby_idle_sec
+                        and not any(p.connected for p in t.participants)):
+                    dead.append(tid)
             for tid in dead:
                 self.tournaments.pop(tid, None)
 
@@ -1064,6 +1244,8 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         handler._send_json(t.set_ready(pid, bool(body.get("ready", True))))
     elif action == "leave":
         handler._send_json(t.leave(pid))
+    elif action == "entered":
+        handler._send_json(t.match_entered(pid))
     elif action == "randomize":
         if host_only():
             handler._send_json(t.randomize(rng_seed=body.get("seed")))
@@ -1079,9 +1261,14 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         if host_only():
             handler._send_json(_host_action(t, body))
     elif action == "report":
-        # server-authoritative result intake (used by the game-end hook path,
-        # and guarded so clients cannot forge results for matches they aren't in)
-        handler._send_json(_client_report(t, pid, body))
+        # SECURITY: real match results ONLY enter via the internal game-end hook
+        # (tournament_server.on_room_ended, called server-side). This HTTP path
+        # would let any client forge a winner / farm XP, so it is DISABLED unless
+        # the test-hook flag is set (used only by the automated test harness).
+        if not TEST_HOOKS_ENABLED:
+            handler._send_json({"ok": False, "error": "not found"}, status=HTTPStatus.NOT_FOUND)
+        else:
+            handler._send_json(_client_report(t, pid, body))
     else:
         handler._send_json({"ok": False, "error": f"unknown action {action}"}, status=HTTPStatus.NOT_FOUND)
 

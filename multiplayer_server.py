@@ -8137,50 +8137,90 @@ ROOMS = RoomManager()
 #     match, report the standings back so the bracket advances.
 def _tournament_create_match_room(*, tournament_id, round_index, match_index,
                                   match_number, players):
-    """Spawn a normal GameRoom for one tournament bracket match and link it back
-    to the tournament. Returns the room_id. Bypasses the single-active-room 409
-    (that check only lives in the /api/rooms route, not create_room itself)."""
+    """Spawn a PRIVATE GameRoom for one tournament bracket match. Every seat is
+    pre-claimed for its assigned participant with a server-controlled seat token
+    (so there are NO open seats — outsiders can't join, no ghost host seat, and
+    each player controls exactly their seat). Returns
+    {room_id, seat_tokens:{pid:token}}. The tournament delivers each player their
+    seat_token so their client reconnects straight into the right seat, and the
+    server auto-starts the game via the room's host_control_token."""
     n = len(players)
-    host = players[0]
+    # Private + unguessable password: membership is the pre-claimed seat set, not
+    # the code, so the room never appears joinable to anyone else.
     room = ROOMS.create_room(
-        host_name=host["name"],
+        host_name=players[0]["name"],
         total_players=n, human_players=n, ai_players=0,
+        visibility="private",
+        password_hash=hashlib.sha256(secrets.token_hex(24).encode()).hexdigest(),
     )
-    # Defensive linkage (read via getattr so a checkpoint-restored room without
-    # these attrs never crashes the end-of-game path).
-    room.tournament_id = tournament_id
-    room.tournament_match = (tournament_id, int(round_index), int(match_index),
-                             int(match_number))
-    room.tournament_pids = {p["name"]: p["pid"] for p in players}
-    room.tournament_host_token = room.host_control_token
+    human_seats = [s for s in room.seats if s.kind == "human"]
+    seat_tokens: Dict[str, str] = {}
+    seat_pids: Dict[int, str] = {}
+    name_by_seat: Dict[int, str] = {}
+    seen: Dict[str, int] = {}
+    with room.cond:
+        for seat, p in zip(human_seats, players):
+            nm = safe_name(p["name"], "Player")
+            seen[nm] = seen.get(nm, 0) + 1
+            uniq = nm if seen[nm] == 1 else f"{nm} ({seen[nm]})"  # disambiguate dups
+            tok = secrets.token_urlsafe(18)
+            seat.claimed_name = uniq
+            seat.token = tok
+            seat_tokens[p["pid"]] = tok
+            seat_pids[seat.index] = p["pid"]
+            name_by_seat[seat.index] = uniq
+        room.tournament_id = tournament_id
+        room.tournament_match = (tournament_id, int(round_index), int(match_index),
+                                 int(match_number))
+        # unique claimed-name -> pid, so name-keyed standings map 1:1 (dups suffixed)
+        room.tournament_pids = {uniq: pid for pid, uniq in
+                                zip((p["pid"] for p in players), name_by_seat.values())}
+        room.tournament_seat_by_pid = dict(seat_tokens)
+        room._bump_locked()
     try:
         room.persist_now()
     except Exception:  # noqa: BLE001
         pass
-    return room.room_id
+    return {"room_id": room.room_id, "seat_tokens": seat_tokens}
+
+
+def _tournament_start_match_room(room_id) -> bool:
+    """Server-authoritative auto-start of a tournament match room (all seats are
+    already claimed, so this just launches the game via the room's host token)."""
+    room = ROOMS.get(room_id)
+    if room is None:
+        return False
+    if getattr(room, "phase", None) != "lobby":
+        return True  # already running/ended — treat as started
+    try:
+        res = room.start_game(getattr(room, "host_control_token", ""), None, CARD_DB)
+        return bool(res.get("ok"))
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        return False
 
 
 def _notify_tournament_if_match(room) -> None:
     """If ``room`` ran a tournament match, map its final standings to participant
-    ids and report the result to the tournament (which advances the bracket)."""
+    ids (by unique seat name) and report the result to the tournament."""
     tid = getattr(room, "tournament_id", None)
     if not tid:
         return
     pid_by_name = getattr(room, "tournament_pids", {}) or {}
+    all_pids = list((getattr(room, "tournament_seat_by_pid", {}) or {}).keys())
     standings = getattr(room, "final_scores", None) or []
     ranking: List[str] = []
     scores: Dict[str, int] = {}
     for row in standings:
         if not isinstance(row, dict):
             continue
-        nm = row.get("name")
-        pid = pid_by_name.get(nm)
+        pid = pid_by_name.get(row.get("name"))
         if pid and pid not in scores:
             ranking.append(pid)
             scores[pid] = int(row.get("score") or 0)
     # any assigned players missing from standings (never claimed / disconnected)
     # rank last so the bracket still resolves.
-    for nm, pid in pid_by_name.items():
+    for pid in all_pids:
         if pid not in scores:
             ranking.append(pid)
             scores[pid] = 0
@@ -10305,6 +10345,7 @@ def main() -> None:
         level_progress=_level_progress_for_total_xp,
         state_dir=ROOM_STATE_DIR,
         create_match_room=_tournament_create_match_room,
+        start_match_room=_tournament_start_match_room,
         get_room=ROOMS.get,
     )
 

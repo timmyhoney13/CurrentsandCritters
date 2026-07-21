@@ -10,19 +10,22 @@ import unittest
 import tournament_server as ts
 from tournament_server import (
     TournamentManager, Tournament, TournamentConfig,
-    S_READY, S_NOT_READY, S_WAITING, S_ELIMINATED, S_CHAMPION, S_PLAYING,
+    S_READY, S_NOT_READY, S_WAITING, S_ELIMINATED, S_CHAMPION, S_PLAYING, S_DISCONNECTED,
+    _now,
 )
 from tournament_engine import M_READY, M_COMPLETE, M_BYE
 
 
-def make(cap, ppm, n, *, third_place=False):
-    """Create a tournament, fill it with n ready players, return (mgr, t)."""
+def make(cap, ppm, n, *, third_place=False, guest=True):
+    """Create a tournament, fill it with n ready players, return (mgr, t).
+    guest=False creates real (non-guest) accounts so placement XP applies."""
+    prefix = "guest:" if guest else "acct:"
     mgr = TournamentManager()
     cfg = TournamentConfig(cap, ppm, third_place_match=third_place, name="Test Cup")
-    t = mgr.create(cfg, "guest:host", "Host")
+    t = mgr.create(cfg, prefix + "host", "Host")
     # host is participant 0; add n-1 more
     for i in range(1, n):
-        r = t.join(f"guest:p{i:02d}", f"P{i:02d}")
+        r = t.join(f"{prefix}p{i:02d}", f"P{i:02d}", is_guest=guest)
         assert r["ok"], r
     # everyone ready
     for p in t.participants:
@@ -267,7 +270,7 @@ class TestThirdPlace(unittest.TestCase):
 
 class TestXP(unittest.TestCase):
     def test_champion_gets_scaled_champion_xp(self):
-        mgr, t = make(32, 2, 32)
+        mgr, t = make(32, 2, 32, guest=False)  # real accounts -> placement XP applies
         t.start()
         play_out(t)
         champ = t._by_pid(t.champion_pid)
@@ -275,6 +278,25 @@ class TestXP(unittest.TestCase):
         kinds = {it["kind"]: it["amount"] for it in bd["items"]}
         self.assertEqual(kinds.get("champion"), 3000)  # full 32-player scale
         self.assertEqual(bd["total_xp"], sum(it["amount"] for it in bd["items"]))
+
+    def test_guest_padded_field_earns_no_placement_xp(self):
+        # A single main + guests (or an all-guest field) must NOT pay champion XP.
+        mgr, t = make(4, 2, 4, guest=True)
+        t.start(); play_out(t)
+        champ = t.compute_xp_for(t._by_pid(t.champion_pid))
+        kinds = {it["kind"] for it in champ["items"]}
+        self.assertNotIn("champion", kinds, "guest-padded field must not pay champion XP")
+        self.assertNotIn("match_win", kinds)
+
+    def test_small_real_tournament_scaled_far_below_big(self):
+        mgr4, t4 = make(4, 2, 4, guest=False)
+        t4.start(); play_out(t4)
+        c4 = t4.compute_xp_for(t4._by_pid(t4.champion_pid))
+        mgr32, t32 = make(32, 2, 32, guest=False)
+        t32.start(); play_out(t32)
+        c32 = t32.compute_xp_for(t32._by_pid(t32.champion_pid))
+        # steep curve: a 4-player champion earns well under a third of a 32-player one
+        self.assertLess(c4["total_xp"], 0.33 * c32["total_xp"])
 
     def test_small_tournament_scaled_down(self):
         mgr4, t4 = make(4, 2, 4)
@@ -314,6 +336,115 @@ class TestStateView(unittest.TestCase):
         t.join("guest:spec", "Spec")  # after start -> spectator
         sv = t.state_view(viewer_pid="guest:spec")
         self.assertEqual(sv["viewer"]["status"], "spectating")
+
+
+class TestConcurrency(unittest.TestCase):
+    def test_no_double_spawn_on_concurrent_finish(self):
+        import threading
+        spawns = {}; lk = threading.Lock()
+        def fake_create(**kw):
+            key = (kw["round_index"], kw["match_index"])
+            with lk:
+                spawns[key] = spawns.get(key, 0) + 1
+                n = spawns[key]
+            return f"ROOM_{key[0]}_{key[1]}_{n}"
+        old = ts._create_match_room
+        ts._create_match_room = fake_create
+        try:
+            mgr, t = make(8, 2, 8)
+            self.assertTrue(t.start()["ok"])
+            # report all 4 round-1 matches CONCURRENTLY -> round-2 spawn race
+            def rep(m):
+                present = [p for p in m.player_ids if p]
+                t.report_match_result(m.round_index, m.match_index, sorted(present))
+            threads = [threading.Thread(target=rep, args=(m,)) for m in list(t.bracket.rounds[0])]
+            for th in threads: th.start()
+            for th in threads: th.join()
+            # every match must have been spawned AT MOST once (no double room)
+            for key, n in spawns.items():
+                self.assertLessEqual(n, 1, f"match at {key} spawned {n} times (double-spawn race)")
+            # each active round-2 match has exactly one room mapping
+            room_ids = [m.room_id for row in t.bracket.rounds for m in row if m.room_id]
+            self.assertEqual(len(room_ids), len(set(room_ids)), "duplicate room_id on a match")
+        finally:
+            ts._create_match_room = old
+
+    def test_forfeit_completing_final_finalizes_tournament(self):
+        mgr, t = make(4, 2, 4)
+        t.start()
+        # play both round-1 matches so the final is filled with 2 players
+        for m in list(t.bracket.rounds[0]):
+            present = [p for p in m.player_ids if p]
+            t.report_match_result(m.round_index, m.match_index, sorted(present))
+        finalists = [p for p in t.bracket.rounds[1][0].player_ids if p]
+        self.assertEqual(len(finalists), 2)
+        # one finalist forfeits -> the other must win the tournament + XP finalize
+        r = t.leave(finalists[0])
+        self.assertTrue(r.get("forfeit"))
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE, "forfeit on final must finalize tournament")
+        self.assertEqual(t.champion_pid, finalists[1])
+        self.assertIn(finalists[1], t._xp_grants, "champion XP must be granted after forfeit-final")
+
+
+class TestLifecycle(unittest.TestCase):
+    def test_disconnect_reaper_marks_stale_participant(self):
+        mgr, t = make(8, 2, 4)
+        victim = t.participants[1]
+        victim.last_seen = _now() - 9999
+        # a poll from someone else triggers the reaper
+        t.state_view(viewer_pid=t.participants[0].pid, host_token=t.host_control_token)
+        self.assertFalse(victim.connected)
+        self.assertEqual(victim.status, S_DISCONNECTED)
+
+    def test_disconnected_unready_player_does_not_block_start(self):
+        mgr = TournamentManager()
+        t = mgr.create(TournamentConfig(8, 2), "guest:h", "H")
+        for i in range(3):
+            t.join(f"guest:{i}", f"P{i}")
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        ghost = t.participants[3]
+        t.set_ready(ghost.pid, False)                 # not ready -> blocks
+        self.assertFalse(t.can_start()[0])
+        ghost.last_seen = _now() - 9999               # ...then disconnects
+        t.state_view(viewer_pid=t.participants[0].pid)
+        self.assertTrue(t.can_start()[0], "disconnected not-ready player must not block start")
+
+    def test_host_reassigned_when_host_leaves_lobby(self):
+        mgr, t = make(8, 2, 4)
+        old = t.host_pid
+        t.leave(old)
+        self.assertNotEqual(t.host_pid, old)
+        self.assertIsNotNone(t._by_pid(t.host_pid))
+
+    def test_host_reassigned_on_disconnect(self):
+        mgr, t = make(8, 2, 4)
+        old = t.host_pid
+        t._by_pid(old).last_seen = _now() - 9999
+        t.state_view(viewer_pid=t.participants[1].pid)
+        self.assertNotEqual(t.host_pid, old)
+        self.assertTrue(t._by_pid(t.host_pid).connected)
+
+    def test_cancelled_state_view_ok(self):
+        mgr, t = make(8, 2, 4)
+        t.cancel()
+        sv = t.state_view(viewer_pid=t.participants[0].pid)
+        self.assertEqual(sv["phase"], "cancelled")
+
+    def test_forfeited_player_not_resurrected_on_spawn(self):
+        # A winner waiting in a future slot who forfeits must not be flipped back
+        # to 'playing' when that match later spawns.
+        mgr, t = make(8, 2, 8)
+        t.start()
+        # resolve round 1 so winners are seeded into round 2
+        for m in list(t.bracket.rounds[0]):
+            present = [p for p in m.player_ids if p]
+            t.report_match_result(m.round_index, m.match_index, sorted(present))
+        r2 = t.bracket.rounds[1][0]
+        waiting = next(p for p in r2.player_ids if p)
+        t.leave(waiting)                              # forfeit while waiting
+        self.assertEqual(t._by_pid(waiting).status, S_ELIMINATED)
+        self.assertTrue(t._by_pid(waiting).quit)
 
 
 class _FakeParsed:
