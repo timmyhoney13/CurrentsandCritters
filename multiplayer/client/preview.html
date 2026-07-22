@@ -1491,86 +1491,12 @@
     <button class="auth-pbtn" id="auth-signout-btn">Sign Out</button>
   </div>
 
-  <!-- VIEW A: invited via link, join only, no create option shown -->
-  <div id="pv-invited-view" style="display:none; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
-    <p class="subtitle" id="pv-invited-subtitle">You've been invited to a game!</p>
-    <div class="pv-lobby-box" style="width:100%;">
-      <h2>🎮 Join the Game</h2>
-      <div style="font-size:12px;color:var(--muted);line-height:1.7;">
-        Enter your name, then click a seat to claim it.
-      </div>
-      <input class="pv-input" id="pv-join-name" type="hidden" value="Player" />
-      <!-- hidden code field still used by JS -->
-      <input id="pv-join-code" type="hidden" />
-      <div id="pv-seat-picker" style="margin-top:4px;">
-        <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:700;">Loading seats…</div>
-        <div class="seat-grid" id="pv-seat-grid"></div>
-        <button class="pv-btn full gold" id="pv-join-btn" disabled>Choose a seat above</button>
-      </div>
-    </div>
-    <div id="pv-lobby-status"></div>
-    <a href="/game" style="font-size:12px;color:var(--muted);text-decoration:none;border-bottom:1px dashed var(--border);">← Start a new game instead</a>
-  </div>
-
-  <!-- VIEW B: arrived directly, show both host and join options -->
-  <div id="pv-home-view" style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%; max-width:420px;">
-    <p class="subtitle">Shape the Current, start a new Current or join an existing one.</p>
-
-    <!-- CREATE -->
-    <div class="pv-lobby-box" style="width:100%;" id="pv-create-box">
-      <h2>🌊 Create a Current</h2>
-      <div style="font-size:12px;color:var(--muted);margin-top:-4px;line-height:1.6;">
-        <b style="color:var(--cyan);">1.</b> Pick Public or Private &nbsp;
-        <b style="color:var(--cyan);">2.</b> Generate the ecosystem &nbsp;
-        <b style="color:var(--cyan);">3.</b> Public: crew joins from the Open Currents list · Private: share your code
-      </div>
-      <div style="font-size:11px;color:var(--red);margin-top:2px;">⚠ Already have a private code? Use the <b>Join a Current</b> section below.</div>
-      <div class="pv-row" style="margin-top:6px;">
-        <input class="pv-input" id="pv-host-name" type="hidden" value="Host" />
-        <input class="pv-input" id="pv-room-code-new" type="hidden" />
-      </div>
-      <div class="pv-row">
-        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">Current Size</span>
-          <input class="pv-input" id="pv-total-players" type="number" min="1" max="8" value="2" />
-        </div>
-        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">AI Critters</span>
-          <input class="pv-input" id="pv-ai-players" type="number" min="0" max="7" value="0" />
-        </div>
-        <div style="display:flex;flex-direction:column;gap:3px;flex:1;">
-          <span style="font-size:11px;color:var(--muted);font-weight:700;">Privacy</span>
-          <select class="pv-input" id="pv-visibility" style="cursor:pointer;">
-            <option value="public">🌊 Public</option>
-            <option value="private">🔒 Private</option>
-          </select>
-        </div>
-      </div>
-      <div id="pv-password-row" style="display:none;margin-top:4px;">
-        <input class="pv-input" id="pv-room-password" type="text" maxlength="12" autocapitalize="characters" autocomplete="off" placeholder="Set a join code (4–12 letters/numbers)" style="width:100%;text-transform:uppercase;" />
-      </div>
-      <div style="margin-top:8px;">
-        <button class="pv-btn gold full" id="pv-create-btn">Generate Current →</button>
-      </div>
-    </div>
-
-    <!-- JOIN (from home, browse lobby or enter code) -->
-    <div class="pv-lobby-box" style="width:100%;">
-      <h2 style="color:var(--cyan);text-shadow:0 0 10px rgba(34,216,248,.35);">🌊 Join a Current</h2>
-      <input class="pv-input" id="pv-join-name-home" type="hidden" value="Player" />
-      <button class="pv-btn full" id="pv-browse-btn" style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.45);color:var(--cyan);">🔍 Browse Open Currents</button>
-    </div>
-
-    <div id="pv-home-status"></div>
-    <button class="pv-btn full" id="pv-tutorial-open-btn"
-      style="background:linear-gradient(135deg,#0e3060,#091e42);border:1px solid rgba(34,216,248,.3);color:var(--cyan);font-family:'Cinzel',serif;letter-spacing:.8px;">
-      🐠 Learn the Tutorial
-    </button>
-    <button class="pv-btn full" id="pv-comp-open-btn"
-      style="background:linear-gradient(135deg,#3a1a08,#1e0e04);border:1px solid rgba(240,200,64,.35);color:var(--gold);font-family:'Cinzel',serif;letter-spacing:.8px;">
-      ⚔️ Competitive 1v1
-    </button>
-  </div>
+  <!-- The legacy create/join "old lobby" (VIEW A invited seat-picker + VIEW B
+       create/join home) was REMOVED. Everything now routes through the Player
+       Home (#auth-stats-lobby) with its New Current modal, Browse Open Currents,
+       tutorial chooser and leaderboards. This #pv-lobby wrapper is kept only as
+       an inert backdrop that a few JS calls still hide by id; it is never shown
+       to players. -->
 </div>
 
 <!-- ══ COMPETITIVE SETUP OVERLAY ═══════════════════════════════════ -->
@@ -2730,10 +2656,10 @@
   </div>
 </div>
 
-<script defer src="/js/preview-app.js?v=2026-07-21.5"></script>
+<script defer src="/js/preview-app.js?v=2026-07-21.6"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-07-21.5"></script>
+<script defer src="/js/tournament-ui.js?v=2026-07-21.6"></script>
 
 <script defer src="/js/challenge-of-challenges.js?v=2026-06-29.3"></script>
 

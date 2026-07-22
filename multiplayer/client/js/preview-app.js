@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-21.5";
+  const APP_BUILD   = "2026-07-21.6";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -1922,145 +1922,8 @@
     document.getElementById("wr-copy-btn").click();
   });
 
-  document.getElementById("pv-create-btn").addEventListener("click", async () => {
-    if (window.__fishSyncNickname) window.__fishSyncNickname();
-    const name = (window.__fishNickname && window.__fishNickname()) ||
-                 document.getElementById("pv-host-name").value.trim() || "Host";
-    let rid = normalizeRoomId(document.getElementById("pv-room-code-new").value.trim() ||
-      Math.random().toString(36).slice(2,7).toUpperCase());
-    if (!rid) rid = Math.random().toString(36).slice(2,7).toUpperCase().slice(0,5);
-    const total = Number(document.getElementById("pv-total-players").value)||2;
-    const ai    = Number(document.getElementById("pv-ai-players").value)||0;
-    const createKey = `ck_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-    try { localStorage.setItem(createKeyKey(), createKey); } catch {}
-    const createBtn = document.getElementById("pv-create-btn");
-    createBtn.disabled = true;
-    lobbyStatus("Generating Current…", false);
-    const visibility = document.getElementById("pv-visibility").value;
-    let password = "";
-    if (visibility === "private") {
-      const rawPw = document.getElementById("pv-room-password").value.trim();
-      if (!rawPw) {
-        lobbyStatus("Enter a code for the private Current.", true);
-        createBtn.disabled = false; return;
-      }
-      // The private code IS both the join code and the password.
-      const code = normalizeRoomCode(rawPw);
-      if (!code) {
-        lobbyStatus("Code must be 4–12 letters or numbers (no spaces or symbols).", true);
-        createBtn.disabled = false; return;
-      }
-      rid = code;
-      password = code;
-    }
-    _myRoomVisibility = visibility;
-    _myRoomCode = password; // empty for public
-    let r;
-    try {
-      r = await apiPost("/api/rooms", {
-        create_key: createKey, host_name: name, room_id: rid,
-        total_players: total, human_players: total - ai, ai_players: ai,
-        replace_active: false, visibility, password,
-      }, { timeoutMs:10000 });
-    } catch (e) {
-      createBtn.disabled = false;
-      ccReport("room_create_failed", {
-        source: "lobby",
-        visibility,
-        total,
-        ai,
-        error: e && (e.name || e.message || e)
-      }, "error");
-      lobbyStatus("Create failed, check your connection and try again.", true);
-      showToast("Create failed, check your connection.", "err");
-      return;
-    }
-    createBtn.disabled = false;
-    if (!r.ok) {
-      ccReport("room_create_failed", {
-        source: "lobby",
-        visibility,
-        total,
-        ai,
-        status: r.status,
-        error: r.data?.error || ""
-      }, "warn");
-      if (r.status === 503 || r.status === 502) {
-        lobbyStatus("Server is warming up, please wait ~30 s and try again.", true);
-        showToast("Server is warming up, try again in ~30 s", "warn");
-        return;
-      }
-      const activeId = normalizeRoomId(r.data?.active_room_id || "");
-      if (activeId) {
-        // A room is already active, guide user to join it; do NOT auto-replace
-        lobbyStatus(`A room (${activeId}) is already open, force-replace it or close it from another device first.`, false);
-        // Show a one-time "Force replace" link next to the status
-        const statusEl = document.getElementById("pv-home-status");
-        if (statusEl && !statusEl.querySelector(".force-replace-btn")) {
-          const forceBtn = document.createElement("button");
-          forceBtn.className = "pv-btn sm force-replace-btn";
-          forceBtn.style.cssText = "margin-top:6px;background:var(--red);border-color:var(--red);font-size:11px;padding:4px 10px;";
-          forceBtn.textContent = "⚠ Force replace that room (lose all progress)";
-          forceBtn.addEventListener("click", async () => {
-            forceBtn.remove();
-            lobbyStatus("Replacing room…", false);
-            let r2;
-            try {
-              r2 = await apiPost("/api/rooms", {
-                create_key: createKey, host_name: name, room_id: rid,
-                total_players: total, human_players: total - ai, ai_players: ai,
-                replace_active: true,
-              }, { timeoutMs:10000 });
-            } catch (e) {
-              ccReport("room_create_failed", {
-                source: "lobby_force_replace",
-                visibility,
-                total,
-                ai,
-                error: e && (e.name || e.message || e)
-              }, "error");
-              lobbyStatus("Create failed, check your connection and try again.", true);
-              showToast("Create failed, check your connection.", "err");
-              return;
-            }
-            if (!r2.ok) {
-              ccReport("room_create_failed", {
-                source: "lobby_force_replace",
-                visibility,
-                total,
-                ai,
-                status: r2.status,
-                error: r2.data?.error || ""
-              }, "warn");
-              lobbyStatus("Create failed: " + (r2.data?.error||r2.status), true); return;
-            }
-            const rId2 = normalizeRoomId(r2.data?.room_id || rid);
-            roomId = rId2;
-            if (r2.data?.host_token) setHostToken(r2.data.host_token);
-            if (r2.data?.seat_token) setSeatToken(r2.data.seat_token);
-            document.getElementById("pv-my-name-badge").textContent = name;
-            enterRoom(rId2);
-            showWaitingRoom(rId2, true);
-          });
-          statusEl.appendChild(forceBtn);
-        }
-      } else {
-        lobbyStatus("Create failed: " + (r.data?.error||r.status), true);
-      }
-      return;
-    }
-    // room_id is at top level of response; host seat is auto-claimed on creation
-    const rId = normalizeRoomId(r.data?.room_id || rid);
-    roomId = rId;
-    const hToken = r.data?.host_token || "";
-    if (hToken) setHostToken(hToken);
-    // Server auto-claims seat 0 for host and returns seat_token, use it directly
-    const sToken = r.data?.seat_token || "";
-    if (sToken) setSeatToken(sToken);
-    document.getElementById("pv-my-name-badge").textContent = name;
-    enterRoom(rId);
-    showWaitingRoom(rId, true);
-  });
+  // Legacy #pv-create-btn handler removed with the old create/join lobby.
+  // Room creation now lives in the New Current modal (#nc-create-btn).
 
   // ── Seat picker logic ──────────────────────────────────────────
   // Two independent seat grids: "invited" view (link arrival) and "home" view (manual join)
@@ -2205,16 +2068,8 @@
     await autoJoinOpenSeat(rid, data.seatObjs, "");
   }
 
-  document.getElementById("pv-join-btn").addEventListener("click", async () => {
-    const btn  = document.getElementById("pv-join-btn");
-    const rid  = normalizeRoomId(document.getElementById("pv-join-code").value.trim());
-    const name = (window.__fishNickname && window.__fishNickname()) ||
-                 document.getElementById("pv-join-name").value.trim() || "Player";
-    if (!rid)  { lobbyStatus("Room code missing.", true); return; }
-    if (_selectedSeat === null) { lobbyStatus("Pick a seat first.", true); return; }
-    lobbyStatus("Joining…", false);
-    await doJoin(rid, name, _selectedSeat, btn);
-  });
+  // Legacy #pv-join-btn (old invited seat-picker) removed with the old lobby.
+  // Invite-link joins now flow through loadInvitedSeats()/autoJoinOpenSeat().
 
 
   // ── Lobby Browser ──────────────────────────────────────────────
@@ -2400,17 +2255,9 @@
     await autoJoinOpenSeat(rid, data.seatObjs, password);
   }
 
-  // Visibility toggle
-  document.getElementById("pv-visibility").addEventListener("change", (e) => {
-    document.getElementById("pv-password-row").style.display = e.target.value === "private" ? "" : "none";
-    if (e.target.value !== "private") document.getElementById("pv-room-password").value = "";
-  });
-
-  // Browse button
-  document.getElementById("pv-browse-btn").addEventListener("click", () => {
-    refreshFriendNicks();
-    openLobbyBrowser();
-  });
+  // Legacy #pv-visibility / #pv-browse-btn handlers removed with the old lobby.
+  // The New Current modal owns visibility, and Browse Open Currents is wired
+  // from the Player Home (#stats-join-toggle-btn / #stats-join-go-btn).
 
   // ── Quick Play: dedicated four-seat matchmaking queue ─────────
   // The first player stays on the home page while their queue room waits. As
@@ -8186,7 +8033,8 @@
   }
 
   // Event listeners
-  document.getElementById("pv-comp-open-btn").addEventListener("click", () => openNewCurrentModal({ competitive: true }));
+  // (Legacy #pv-comp-open-btn removed with the old lobby — Competitive is now a
+  //  mode inside the New Current modal, opened from the Player Home.)
   document.getElementById("comp-close-btn").addEventListener("click", () => {
     clearInterval(_compWaitPollTimer); _compWaitPollTimer = null;
     compCloseOverlay();
@@ -8211,7 +8059,8 @@
   document.getElementById("comp-hist-btn").addEventListener("click", loadCompHistory);
 
   // ── Event listeners ──────────────────────────────────────────────
-  document.getElementById("pv-tutorial-open-btn").addEventListener("click", () => { if (window.__openTutorialChooser) window.__openTutorialChooser(); });
+  // (Legacy #pv-tutorial-open-btn removed with the old lobby — the tutorial
+  //  chooser is opened from the Player Home's #stats-tutorial-btn.)
 
   document.getElementById("tut-x-btn").addEventListener("click", () => {
     document.getElementById("tut-exit-confirm").classList.add("open");
@@ -16821,9 +16670,14 @@
 
     // ── Stats lobby helpers ───────────────────────────────────────
     function showStatsLobby() {
-      if (typeof roomFromUrl === "function" && roomFromUrl()) {
-        enterGameLobby(); return;
-      }
+      // Only stay out of the Player Home if a real game board is actually on
+      // screen (deep-linked straight into a room). This used to bounce to a
+      // long-dead create/join "old lobby" page whenever a stale room id merely
+      // lingered in the URL — e.g. right after leaving a tournament — instead of
+      // landing on the nice Player Home. Keying off the visible game board means
+      // returning home ALWAYS shows the real home (daily/weekly, leaderboards…).
+      const _pvGameEl = $a("pv-game");
+      if (_pvGameEl && _pvGameEl.style.display && _pvGameEl.style.display !== "none") { return; }
       if (!_authUser && !_guestSessionActive) {
         const sl = $a("auth-stats-lobby");
         if (sl) sl.classList.remove("visible");
@@ -17188,14 +17042,10 @@
       });
     }
 
-    function enterGameLobby() {
-      const el = $a("auth-stats-lobby");
-      if (el) el.classList.remove("visible");
-      // Going into a game returns hidden critters to their original spots.
-      try { if (typeof window.__fishResetSecrets === "function") window.__fishResetSecrets(); } catch (_) {}
-      // Wire the in-game Sea Urchin once the game DOM is on screen.
-      try { if (typeof window.__fishInitStaticSecrets === "function") setTimeout(window.__fishInitStaticSecrets, 300); } catch (_) {}
-    }
+    // enterGameLobby() removed: it existed only to reveal the legacy create/join
+    // "old lobby" page. Deep-link room entry is handled by enterRoom()/the
+    // auto-join boot flow, and showStatsLobby() now stays put when a game board
+    // is already on screen — so this dead bounce is gone.
 
     let _lbSize = 2; // current player-count tab
     async function loadLeaderboard(size) {

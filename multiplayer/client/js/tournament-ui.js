@@ -43,6 +43,21 @@
   function get(path) { return bridge().get(path); }
   function toast(m, t) { bridge().toast(m, t); }
 
+  // Return to the Player Home after a tournament. Drop any stale room id from the
+  // URL first (mirrors the in-game leave cleanup) so the home screen lands on the
+  // real Player Home — never the removed legacy create/join lobby — and a refresh
+  // can't auto-join a finished match room.
+  function goHome() {
+    try {
+      const u = new URL(location.href);
+      u.pathname = u.pathname.replace(/\/[A-Z0-9]{5,8}\/?$/, "/") || "/";
+      u.searchParams.delete("room");
+      u.searchParams.delete("roomId");
+      history.replaceState({}, "", u.pathname + (u.search || "") + (u.hash || ""));
+    } catch (_) {}
+    if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
+  }
+
   // =========================================================================
   // Styles (ocean theme, light/dark aware, reduced-motion aware)
   // =========================================================================
@@ -463,7 +478,7 @@
     }
     try { await post("/api/tournament/leave", { id: T.tid }); } catch (_) {}
     clearActive(); closeScreen();
-    if (typeof window.__fishShowStatsLobby === "function") window.__fishShowStatsLobby();
+    goHome();
   }
 
   // ── live sync (SSE + poll fallback) ──────────────────────────────────────
@@ -956,7 +971,7 @@
       <p><b>${esc(st.name || "The tournament")}</b> was cancelled by the host.</p>
       <button class="ccT-btn wide ghost" id="ccT-cancelled-home">Back to Home</button></div></div>`;
     m.classList.add("open");
-    $("#ccT-cancelled-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); if (window.__fishShowStatsLobby) window.__fishShowStatsLobby(); });
+    $("#ccT-cancelled-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
   }
 
   function showChampion(st) {
@@ -972,7 +987,7 @@
     m.classList.add("open");
     if (!REDUCED) championConfetti();
     $("#ccT-champ-bracket", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
-    $("#ccT-champ-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); if (window.__fishShowStatsLobby) window.__fishShowStatsLobby(); });
+    $("#ccT-champ-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
   }
   function showFinalPlacement(st) {
     let m = $("#ccT-final"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-final"; document.body.appendChild(m); }
@@ -985,7 +1000,7 @@
       <button class="ccT-btn wide ghost" id="ccT-final-home">Back to Home</button></div></div>`;
     m.classList.add("open");
     $("#ccT-final-bracket", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
-    $("#ccT-final-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); if (window.__fishShowStatsLobby) window.__fishShowStatsLobby(); });
+    $("#ccT-final-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
   }
   function me_xp(st) { return st.viewer && st.viewer.xp; }
   function xpHtml(xp) {
