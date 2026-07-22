@@ -33,6 +33,21 @@ def make(cap, ppm, n, *, third_place=False, guest=True):
     return mgr, t
 
 
+def make_custom(sizes, n, *, guest=True, fill_bots=False):
+    """Create a CUSTOM-bracket tournament (opening layout == sizes) with n ready
+    players (n <= sum(sizes)). Returns (mgr, t)."""
+    prefix = "guest:" if guest else "acct:"
+    mgr = TournamentManager()
+    cfg = TournamentConfig(sum(sizes), max(sizes), opening_sizes=list(sizes), name="Custom Cup")
+    t = mgr.create(cfg, prefix + "host", "Host", fill_bots=fill_bots)
+    for i in range(1, n):
+        r = t.join(f"{prefix}p{i:02d}", f"P{i:02d}", is_guest=guest)
+        assert r["ok"], r
+    for p in t.participants:
+        t.set_ready(p.pid, True)
+    return mgr, t
+
+
 def play_out(t, winner_pick="first", seed=0):
     """Report results for every ready match until the tournament completes.
     winner_pick 'first' -> lowest pid wins; 'seed' -> deterministic shuffle."""
@@ -519,6 +534,134 @@ class TestHttpDispatch(unittest.TestCase):
                        {"id": tid, "guest_id": "rh", "host_token": htok})
         t = ts.MANAGER.get(tid)
         self.assertEqual(t.phase, Tournament.PHASE_RUNNING)
+
+
+class TestCustomBracketServer(unittest.TestCase):
+    def test_custom_requires_all_seats_before_start(self):
+        mgr, t = make_custom([3, 4, 2], 4)      # capacity 9, only 4 filled
+        ok, why = t.can_start()
+        self.assertFalse(ok)
+        self.assertIn("seats filled", why)
+        # top up with bots -> now full -> can start
+        t.fill_with_bots()
+        self.assertEqual(len(t.participants), 9)
+        ok, why = t.can_start()
+        self.assertTrue(ok, why)
+        self.assertTrue(t.start()["ok"])
+        self.assertEqual(t.phase, Tournament.PHASE_RUNNING)
+        self.assertEqual([m.capacity for m in t.bracket.rounds[0]], [3, 4, 2])
+
+    def test_custom_full_human_run_reaches_champion(self):
+        mgr, t = make_custom([3, 4, 2], 9)      # all 9 humans, ready
+        self.assertTrue(t.can_start()[0], t.can_start()[1])
+        self.assertTrue(t.start()["ok"])
+        play_out(t, winner_pick="seed", seed=3)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        self.assertIsNotNone(t.champion_pid)
+
+    def test_custom_fill_bots_on_start_completes(self):
+        mgr, t = make_custom([2, 3, 4], 3, fill_bots=True)   # capacity 9
+        self.assertTrue(t.start()["ok"])
+        # human matches still need results reported; bot-only matches auto-resolved
+        if t.phase == Tournament.PHASE_RUNNING:
+            play_out(t, winner_pick="seed", seed=5)
+        self.assertIn(t.phase, (Tournament.PHASE_COMPLETE,))
+        self.assertIsNotNone(t.champion_pid)
+
+    def test_lobby_state_has_preview_bracket(self):
+        mgr, t = make_custom([3, 4, 2], 4)
+        st = t.state_view(viewer_pid="guest:host", host_token=t.host_control_token)
+        br = st["bracket"]
+        self.assertIsNotNone(br)
+        self.assertTrue(br.get("preview"))
+        self.assertEqual([[m["capacity"] for m in row] for row in br["rounds"]], [[3, 4, 2], [3]])
+        # summary reflects custom shape
+        self.assertTrue(st["summary"]["is_custom"])
+        self.assertEqual(st["summary"]["opening_sizes"], [3, 4, 2])
+
+    def test_uniform_lobby_preview_present(self):
+        mgr, t = make(8, 2, 5)     # 5 of 8, no bots
+        st = t.state_view(viewer_pid=t.participants[0].pid, host_token=t.host_control_token)
+        br = st["bracket"]
+        self.assertIsNotNone(br)
+        self.assertTrue(br.get("preview"))
+
+    def test_host_swap_swaps_positions(self):
+        mgr, t = make(8, 2, 4)
+        a, b = t.participants[0].pid, t.participants[3].pid
+        oa, ob = t.participants[0].join_order, t.participants[3].join_order
+        res = t.host_swap(a, b)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(t._by_pid(a).join_order, ob)
+        self.assertEqual(t._by_pid(b).join_order, oa)
+
+    def test_host_swap_rejected_after_start(self):
+        mgr, t = make(8, 2, 8)
+        t.start()
+        res = t.host_swap(t.participants[0].pid, t.participants[1].pid)
+        self.assertFalse(res["ok"])
+
+    def test_host_swap_rejects_same_or_missing(self):
+        mgr, t = make(8, 2, 4)
+        self.assertFalse(t.host_swap("guest:host", "guest:host")["ok"])
+        self.assertFalse(t.host_swap("guest:host", "guest:nope")["ok"])
+
+
+class TestCustomHttpDispatch(unittest.TestCase):
+    def test_create_custom_via_dispatch(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "opening_sizes": [3, 4, 2], "name": "Bespoke", "host_name": "H", "guest_id": "ch"})
+        self.assertTrue(h.last["ok"], h.last)
+        t = ts.MANAGER.get(h.last["tournament_id"])
+        self.assertTrue(t.cfg.is_custom)
+        self.assertEqual(t.cfg.total_capacity, 9)
+        self.assertEqual(t.cfg.players_per_match, 4)
+        self.assertEqual(t.cfg.opening_sizes, [3, 4, 2])
+
+    def test_create_custom_string_sizes(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "opening_sizes": "2,2,2,2", "host_name": "H", "guest_id": "cs"})
+        self.assertTrue(h.last["ok"], h.last)
+        t = ts.MANAGER.get(h.last["tournament_id"])
+        self.assertEqual(t.cfg.opening_sizes, [2, 2, 2, 2])
+
+    def test_create_custom_bad_sizes_rejected(self):
+        from http import HTTPStatus
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "opening_sizes": [9, 9], "host_name": "H", "guest_id": "cb"})  # 9 > max match size
+        self.assertFalse(h.last["ok"])
+        self.assertEqual(h.status, int(HTTPStatus.BAD_REQUEST))
+
+    def test_preview_get_custom(self):
+        h = _FakeHandler()
+        handled = ts.handle_get(h, _FakeParsed("/api/tournament/preview", "opening_sizes=3,4,2"))
+        self.assertTrue(handled)
+        self.assertTrue(h.last["ok"], h.last)
+        self.assertTrue(h.last["summary"]["is_custom"])
+        self.assertEqual(h.last["summary"]["opening_sizes"], [3, 4, 2])
+        self.assertEqual(h.last["summary"]["tournament_size"], 9)
+
+    def test_host_swap_via_dispatch(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "total_capacity": 8, "players_per_match": 2, "host_name": "H", "guest_id": "sh"})
+        tid = h.last["tournament_id"]
+        htok = ts.MANAGER.get(tid).host_control_token
+        ts.handle_post(_FakeHandler(), _FakeParsed("/api/tournament/join"),
+                       {"id": tid, "name": "P1", "guest_id": "sp1"})
+        t = ts.MANAGER.get(tid)
+        a, b = t.participants[0].pid, t.participants[1].pid
+        oa, ob = t.participants[0].join_order, t.participants[1].join_order
+        h2 = _FakeHandler()
+        ts.handle_post(h2, _FakeParsed("/api/tournament/host"),
+                       {"id": tid, "guest_id": "sh", "host_token": htok,
+                        "cmd": "swap", "pid": a, "pid_b": b})
+        self.assertTrue(h2.last["ok"], h2.last)
+        self.assertEqual(t._by_pid(a).join_order, ob)
+        self.assertEqual(t._by_pid(b).join_order, oa)
 
 
 if __name__ == "__main__":

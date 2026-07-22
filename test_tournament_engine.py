@@ -17,11 +17,17 @@ import unittest
 
 import tournament_engine as te
 from tournament_engine import (
-    TournamentConfig, Bracket, validate_config, plan_round_sizes,
+    TournamentConfig, Bracket, validate_config, validate_opening_sizes, plan_round_sizes,
     bracket_summary, available_formats, compute_player_xp,
     MIN_TOURNAMENT_PLAYERS, MAX_TOURNAMENT_PLAYERS,
     M_COMPLETE, M_BYE,
 )
+
+
+def custom_cfg(sizes, **kw):
+    """Build a valid custom-bracket TournamentConfig from opening match sizes."""
+    return TournamentConfig(total_capacity=sum(sizes), players_per_match=max(sizes),
+                            opening_sizes=list(sizes), **kw)
 
 
 def players(n):
@@ -480,6 +486,85 @@ class TestSerialization(unittest.TestCase):
         d = m.to_dict()
         m2 = te.BracketMatch.from_dict(d)
         self.assertEqual(m2.to_dict(), d)
+
+
+# =============================================================================
+class TestCustomBracket(unittest.TestCase):
+    def test_plan_prepends_custom_opening_round(self):
+        # [3,4,2] -> winners 3 -> one 3-player round -> [[3,4,2],[3]]
+        self.assertEqual(plan_round_sizes(0, 4, 1, opening_sizes=[3, 4, 2]), [[3, 4, 2], [3]])
+        # [2,2,2,2] custom equals the uniform 8@2 shape
+        self.assertEqual(plan_round_sizes(0, 2, 1, opening_sizes=[2, 2, 2, 2]),
+                         plan_round_sizes(8, 2))
+        # single opening match = a one-match tournament
+        self.assertEqual(plan_round_sizes(0, 5, 1, opening_sizes=[5]), [[5]])
+
+    def test_build_uses_custom_shape_regardless_of_n(self):
+        cfg = custom_cfg([3, 4, 2])
+        b = Bracket.build(cfg, cfg.total_capacity)
+        self.assertEqual([m.capacity for m in b.rounds[0]], [3, 4, 2])
+        self.assertEqual(b.n_rounds, 2)
+        # match numbers stay unique + sequential
+        nums = [m.match_number for row in b.rounds for m in row]
+        self.assertEqual(nums, list(range(1, len(nums) + 1)))
+
+    def test_seed_exact_then_full_run_reaches_one_champion(self):
+        for sizes in ([3, 4, 2], [2, 2, 2, 2], [4, 4], [8, 8, 8, 8], [2, 3, 4, 5], [5, 5, 5], [6]):
+            with self.subTest(sizes=sizes):
+                cfg = custom_cfg(sizes)
+                self.assertEqual(validate_config(cfg), [])
+                b, order = simulate(cfg, cfg.total_capacity, seed=7, winner_pick="seed")
+                self.assertTrue(b.is_complete())
+                self.assertIsNotNone(b.champion)
+                # champion appeared in the final
+                self.assertIn(b.champion, [p for p in b.final_match.player_ids if p])
+
+    def test_partial_seed_leaves_empty_slots(self):
+        cfg = custom_cfg([3, 4, 2])   # capacity 9
+        b = Bracket.build(cfg, 4)
+        b.seed_players(["a", "b", "c", "d"], allow_partial=True)
+        self.assertEqual(b.rounds[0][0].player_ids, ["a", "b", "c"])
+        self.assertEqual(b.rounds[0][1].player_ids, ["d", None, None, None])
+        self.assertEqual(b.rounds[0][2].player_ids, [None, None])
+
+    def test_partial_seed_rejects_more_than_slots(self):
+        cfg = custom_cfg([2, 2])   # 4 slots
+        b = Bracket.build(cfg, cfg.total_capacity)
+        with self.assertRaises(ValueError):
+            b.seed_players(["a", "b", "c", "d", "e"], allow_partial=True)
+
+    def test_validation_rejects_bad_custom(self):
+        # sum != total_capacity
+        self.assertTrue(validate_config(TournamentConfig(10, 4, opening_sizes=[3, 4, 2])))
+        # a match too big
+        self.assertTrue(validate_opening_sizes([3, 9, 2]))
+        # a match too small (byes not allowed in custom design)
+        self.assertTrue(validate_opening_sizes([1, 4, 2]))
+        # total out of range
+        self.assertTrue(validate_opening_sizes([2]))          # 2 < MIN 4
+        self.assertTrue(validate_opening_sizes([8] * 5))      # 40 > MAX 32
+        # players_per_match must equal the largest match
+        self.assertTrue(validate_config(TournamentConfig(9, 3, opening_sizes=[3, 4, 2])))
+        # a well-formed one is accepted
+        self.assertEqual(validate_config(custom_cfg([3, 4, 2])), [])
+
+    def test_summary_flags_custom(self):
+        s = bracket_summary(custom_cfg([3, 4, 2]), 0)
+        self.assertTrue(s["is_custom"])
+        self.assertEqual(s["opening_sizes"], [3, 4, 2])
+        self.assertEqual(s["tournament_size"], 9)
+        self.assertEqual(s["num_rounds"], 2)
+        self.assertEqual(s["num_opening_matches"], 3)
+
+    def test_config_roundtrip_preserves_custom(self):
+        cfg = custom_cfg([3, 4, 2], third_place_match=False, name="Cup")
+        d = cfg.to_dict()
+        self.assertTrue(d["is_custom"])
+        self.assertEqual(d["opening_sizes"], [3, 4, 2])
+        cfg2 = TournamentConfig.from_dict(d)
+        self.assertEqual(cfg2.opening_sizes, [3, 4, 2])
+        self.assertEqual(cfg2.total_capacity, 9)
+        self.assertEqual(cfg2.players_per_match, 4)
 
 
 if __name__ == "__main__":

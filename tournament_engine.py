@@ -63,6 +63,18 @@ class TournamentConfig:
     bracket_type: str = BRACKET_SINGLE_ELIM
     third_place_match: bool = False
     name: str = "Tournament"
+    # CUSTOM BRACKET (optional): an explicit list of opening-round match sizes,
+    # e.g. [3, 4, 2] = a 3-player match, a 4-player match, then a 2-player match.
+    # When set, the opening round uses exactly these sizes (instead of the greedy
+    # even split from ``players_per_match``); later rounds are still packed greedily
+    # with ``players_per_match`` (which is kept == max(opening_sizes)). The whole
+    # bracket then has a FIXED shape sized for ``total_capacity`` == sum(opening_sizes),
+    # so a custom tournament must fill every seat (players or bots) before it starts.
+    opening_sizes: Optional[List[int]] = None
+
+    @property
+    def is_custom(self) -> bool:
+        return bool(self.opening_sizes)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -72,10 +84,14 @@ class TournamentConfig:
             "bracket_type": self.bracket_type,
             "third_place_match": self.third_place_match,
             "name": self.name,
+            "opening_sizes": list(self.opening_sizes) if self.opening_sizes else None,
+            "is_custom": self.is_custom,
         }
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "TournamentConfig":
+        raw_sizes = d.get("opening_sizes")
+        sizes = [int(s) for s in raw_sizes] if raw_sizes else None
         return TournamentConfig(
             total_capacity=int(d.get("total_capacity", 0)),
             players_per_match=int(d.get("players_per_match", 0)),
@@ -83,6 +99,7 @@ class TournamentConfig:
             bracket_type=str(d.get("bracket_type", BRACKET_SINGLE_ELIM)),
             third_place_match=bool(d.get("third_place_match", False)),
             name=str(d.get("name", "Tournament")),
+            opening_sizes=sizes,
         )
 
 
@@ -109,6 +126,51 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
     # round, otherwise the bracket never converges to a single champion.
     if not errs and cfg.advance_per_match >= cfg.players_per_match:
         errs.append("advance_per_match must be less than players_per_match.")
+    # Custom opening-round layout, if provided, must itself be well-formed and be
+    # consistent with total_capacity / players_per_match.
+    if cfg.opening_sizes is not None:
+        errs.extend(validate_opening_sizes(cfg.opening_sizes))
+        if not errs:
+            if sum(cfg.opening_sizes) != cfg.total_capacity:
+                errs.append(
+                    "Custom bracket: total players must equal the sum of the match "
+                    f"sizes ({sum(cfg.opening_sizes)})."
+                )
+            if cfg.players_per_match != max(cfg.opening_sizes):
+                errs.append(
+                    "Custom bracket: players_per_match must equal the largest match "
+                    f"size ({max(cfg.opening_sizes)})."
+                )
+    return errs
+
+
+def validate_opening_sizes(sizes: List[int]) -> List[str]:
+    """Validate a host-authored custom opening-round layout (list of match sizes).
+    Each match must hold MIN_PLAYERS_PER_MATCH..MAX_PLAYERS_PER_MATCH players (no
+    manual byes), there must be at least one match, and the field must total a legal
+    tournament size."""
+    errs: List[str] = []
+    if not isinstance(sizes, (list, tuple)) or len(sizes) < 1:
+        errs.append("Custom bracket needs at least one match.")
+        return errs
+    try:
+        ints = [int(s) for s in sizes]
+    except (TypeError, ValueError):
+        errs.append("Custom bracket match sizes must be whole numbers.")
+        return errs
+    for s in ints:
+        if not (MIN_PLAYERS_PER_MATCH <= s <= MAX_PLAYERS_PER_MATCH):
+            errs.append(
+                f"Each match must have {MIN_PLAYERS_PER_MATCH}–{MAX_PLAYERS_PER_MATCH} "
+                f"players (got {s})."
+            )
+            break
+    total = sum(ints)
+    if not (MIN_TOURNAMENT_PLAYERS <= total <= MAX_TOURNAMENT_PLAYERS):
+        errs.append(
+            f"Custom bracket total players must be {MIN_TOURNAMENT_PLAYERS}–"
+            f"{MAX_TOURNAMENT_PLAYERS} (got {total})."
+        )
     return errs
 
 
@@ -129,14 +191,23 @@ def _round_match_sizes(field: int, per_match: int, advance: int) -> List[int]:
     return [base + (1 if i < extra else 0) for i in range(n_matches)]
 
 
-def plan_round_sizes(n_players: int, per_match: int, advance: int = 1) -> List[List[int]]:
+def plan_round_sizes(n_players: int, per_match: int, advance: int = 1,
+                     opening_sizes: Optional[List[int]] = None) -> List[List[int]]:
     """Deterministically compute every round's match capacities.
 
     Returns a list of rounds; each round is a list of match capacities.
     e.g. 6 players, 1v1 -> [[2,2,1,1],[2,2],[2]]  (round 1 has two byes)
+
+    If ``opening_sizes`` is given it becomes round 1 verbatim (a CUSTOM bracket,
+    e.g. [3,4,2] -> [[3,4,2], ...]); ``n_players`` is then ignored and every later
+    round is packed greedily from the number of advancing winners.
     """
     rounds: List[List[int]] = []
-    field = n_players
+    if opening_sizes:
+        rounds.append([int(s) for s in opening_sizes])
+        field = sum(min(advance, s) for s in opening_sizes)
+    else:
+        field = n_players
     guard = 0
     while field > 1:
         guard += 1
@@ -234,12 +305,26 @@ class Bracket:
         errs = validate_config(cfg)
         if errs:
             raise ValueError("; ".join(errs))
-        if not (MIN_TOURNAMENT_PLAYERS <= n_players <= cfg.total_capacity):
-            raise ValueError(
-                f"n_players ({n_players}) must be between {MIN_TOURNAMENT_PLAYERS} "
-                f"and total_capacity ({cfg.total_capacity})."
-            )
-        size_grid = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match)
+        if cfg.opening_sizes:
+            # Custom bracket: the shape is FIXED by opening_sizes (sized for
+            # total_capacity). n_players is only how many real players will be
+            # seeded now — the rest of the slots wait for joiners/bots — so it may
+            # be anything from 0 (empty preview) up to capacity.
+            if not (0 <= n_players <= cfg.total_capacity):
+                raise ValueError(
+                    f"n_players ({n_players}) must be between 0 and total_capacity "
+                    f"({cfg.total_capacity})."
+                )
+            size_grid = plan_round_sizes(
+                n_players, cfg.players_per_match, cfg.advance_per_match,
+                opening_sizes=cfg.opening_sizes)
+        else:
+            if not (MIN_TOURNAMENT_PLAYERS <= n_players <= cfg.total_capacity):
+                raise ValueError(
+                    f"n_players ({n_players}) must be between {MIN_TOURNAMENT_PLAYERS} "
+                    f"and total_capacity ({cfg.total_capacity})."
+                )
+            size_grid = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match)
         rounds: List[List[BracketMatch]] = []
         match_no = 1
         for r, sizes in enumerate(size_grid):
@@ -323,11 +408,21 @@ class Bracket:
                 slots.append((m.match_index, s))
         return slots
 
-    def seed_players(self, ordered_player_ids: List[str]) -> None:
+    def seed_players(self, ordered_player_ids: List[str], allow_partial: bool = False) -> None:
         """Place players into round-1 slots in the given order (host order or a
-        pre-shuffled order). Auto-advances byes. Raises on count mismatch."""
+        pre-shuffled order). Auto-advances byes.
+
+        By default the count must match the number of opening slots exactly (the
+        real seeding at tournament start). Pass ``allow_partial=True`` to seed FEWER
+        players than slots — used to render a live lobby PREVIEW where remaining
+        seats are still empty (they fill as players join or bots are added)."""
         slots = self.opening_slots()
-        if len(ordered_player_ids) != len(slots):
+        if len(ordered_player_ids) > len(slots):
+            raise ValueError(
+                f"seed_players got {len(ordered_player_ids)} players but only "
+                f"{len(slots)} slots"
+            )
+        if not allow_partial and len(ordered_player_ids) != len(slots):
             raise ValueError(
                 f"seed_players expected {len(slots)} players, got {len(ordered_player_ids)}"
             )
@@ -495,7 +590,14 @@ def _third_place_is_a_match(rounds: List[List[BracketMatch]]) -> bool:
 
 def bracket_summary(cfg: TournamentConfig, n_players: int) -> Dict[str, Any]:
     """The explanation shown to the host BEFORE they confirm a bracket."""
-    sizes = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match)
+    if cfg.opening_sizes:
+        # Custom bracket: the shape is fixed by the host's opening layout and always
+        # describes the full field (== total_capacity), independent of n_players.
+        sizes = plan_round_sizes(0, cfg.players_per_match, cfg.advance_per_match,
+                                 opening_sizes=cfg.opening_sizes)
+        n_players = sum(cfg.opening_sizes)
+    else:
+        sizes = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match)
     opening = sizes[0] if sizes else []
     byes = sum(1 for r in sizes for c in r if c <= 1)     # total byes across the bracket
     opening_byes = sum(1 for c in opening if c <= 1)
@@ -507,6 +609,8 @@ def bracket_summary(cfg: TournamentConfig, n_players: int) -> Dict[str, Any]:
         "total_capacity": cfg.total_capacity,
         "players_per_match": cfg.players_per_match,
         "advance_per_match": cfg.advance_per_match,
+        "is_custom": cfg.is_custom,
+        "opening_sizes": list(cfg.opening_sizes) if cfg.opening_sizes else None,
         "num_rounds": len(sizes),
         "num_opening_matches": real_opening,
         "num_byes": byes,
@@ -520,7 +624,8 @@ def bracket_summary(cfg: TournamentConfig, n_players: int) -> Dict[str, Any]:
 
 
 def _makes_third_place_match(cfg: TournamentConfig, n_players: int) -> bool:
-    sizes = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match)
+    sizes = plan_round_sizes(n_players, cfg.players_per_match, cfg.advance_per_match,
+                             opening_sizes=cfg.opening_sizes)
     if len(sizes) < 2:
         return False
     return sizes[-1][0] == 2 and len(sizes[-2]) == 2

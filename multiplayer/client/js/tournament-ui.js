@@ -30,6 +30,7 @@
     prevMatchWinners: {},                 // match_number -> winner pid (advancement detection)
     lastPendingSwitchFrom: null,
     dragFrom: null,
+    hostSwapSel: null,                    // host tap-to-swap: first-selected pid
   };
 
   // ── auth helpers ─────────────────────────────────────────────────────────
@@ -113,6 +114,32 @@
     .ccT-toggle{ display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:700; color:var(--ccT-ink2); font-size:.95rem; }
     .ccT-toggle input{ width:auto; accent-color:var(--ccT-gold); transform:scale(1.15); }
     .ccT-toggle .ccT-hint{ display:block; font-weight:500; font-size:.78rem; color:#4a72a8; margin-top:2px; }
+    /* custom bracket builder */
+    .ccT-custom-list{ display:flex; flex-direction:column; gap:7px; }
+    .ccT-cm-row{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:14px;
+      background:rgba(255,255,255,.6); border:1.5px solid rgba(140,200,240,.5); flex-wrap:wrap; }
+    .ccT-cm-label{ font-weight:800; color:#0c3472; font-size:.86rem; min-width:60px; }
+    .ccT-cm-step{ width:30px; height:30px; border-radius:9px; border:1.5px solid rgba(50,140,240,.5);
+      background:#fff; color:#0c3472; font-size:1.15rem; font-weight:800; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; }
+    .ccT-cm-step:hover{ background:#eaf4ff; }
+    .ccT-cm-size{ min-width:66px; text-align:center; font-size:.84rem; color:#123a70; }
+    .ccT-cm-size b{ color:var(--ccT-tealtxt); }
+    .ccT-cm-dots{ display:flex; gap:3px; flex:1; flex-wrap:wrap; }
+    .ccT-cm-dots .ccT-dot{ width:8px; height:8px; border-radius:50%; background:#2f8ce0; opacity:.9; }
+    .ccT-cm-x{ width:28px; height:28px; border-radius:8px; border:1.5px solid rgba(198,42,78,.35);
+      background:#fff; color:#c62a4e; cursor:pointer; font-weight:800; }
+    .ccT-cm-x:disabled{ opacity:.3; cursor:not-allowed; }
+    .ccT-cm-total{ margin-top:8px; font-size:.85rem; color:#123a70; font-weight:600; }
+    /* lobby preview banner + host-draggable slots */
+    .ccT-preview-banner{ margin:0 0 10px; padding:8px 13px; border-radius:12px; text-align:center;
+      background:rgba(243,167,18,.16); border:1.5px solid rgba(243,167,18,.5); color:#8a5a00; font-weight:700; font-size:.85rem; }
+    .ccT-slot.host-draggable{ cursor:grab; }
+    .ccT-slot.host-draggable:active{ cursor:grabbing; }
+    .ccT-slot.swap-over{ outline:2.5px dashed var(--ccT-gold); outline-offset:1px; border-radius:8px; }
+    .ccT-slot.swap-sel{ outline:2.5px solid var(--ccT-gold); outline-offset:1px; border-radius:8px; background:rgba(243,167,18,.14); }
+    .ccT-pl.host-draggable{ cursor:grab; }
+    .ccT-pl.swap-over{ outline:2.5px dashed var(--ccT-gold); outline-offset:1px; }
+    .ccT-pl.swap-sel{ outline:2.5px solid var(--ccT-gold); outline-offset:1px; background:rgba(243,167,18,.14); }
     .ccT-btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
       border:none; border-radius:16px; padding:13px 18px; font-size:1rem; font-weight:800; color:#0c2858;
       font-family:"Nunito",sans-serif; letter-spacing:.2px;
@@ -232,7 +259,8 @@
   // =========================================================================
   // CREATE overlay
   // =========================================================================
-  let createState = { capacity: 8, ppm: 2, formats: [], summary: null, thirdPlace: false };
+  let createState = { capacity: 8, ppm: 2, formats: [], summary: null, thirdPlace: false,
+                      custom: false, customSizes: [2, 2, 2, 2] };
 
   function openCreate() {
     injectStyles();
@@ -245,12 +273,22 @@
         <div class="ccT-body">
           <div class="ccT-field"><label>Tournament name</label>
             <input class="ccT-input" id="ccT-name" maxlength="40" placeholder="Currents Cup" value="Currents Cup"></div>
-          <div class="ccT-row">
-            <div class="ccT-field"><label>Total players: <b id="ccT-cap-val">8</b></label>
-              <input class="ccT-input" id="ccT-cap" type="range" min="4" max="32" value="8"></div>
+          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-custom-toggle">
+            <span>🧩 Custom bracket<span class="ccT-hint">Design each opening match yourself — e.g. a 3-player, then a 4-player, then a 2-player match.</span></span></label></div>
+          <div id="ccT-uniform">
+            <div class="ccT-row">
+              <div class="ccT-field"><label>Total players: <b id="ccT-cap-val">8</b></label>
+                <input class="ccT-input" id="ccT-cap" type="range" min="4" max="32" value="8"></div>
+            </div>
+            <div class="ccT-field"><label>Match format (players per match)</label>
+              <div class="ccT-fmt-grid" id="ccT-fmts"></div></div>
           </div>
-          <div class="ccT-field"><label>Match format (players per match)</label>
-            <div class="ccT-fmt-grid" id="ccT-fmts"></div></div>
+          <div id="ccT-custom" style="display:none">
+            <div class="ccT-field"><label>Opening matches — set each match's size (2–8 players)</label>
+              <div id="ccT-custom-list" class="ccT-custom-list"></div>
+              <button class="ccT-btn sm ghost" id="ccT-custom-add" type="button" style="margin-top:6px">＋ Add match</button>
+            </div>
+          </div>
           <div class="ccT-summary" id="ccT-preview">…</div>
           <div class="ccT-row" style="margin-top:12px">
             <div class="ccT-field"><label>Visibility</label>
@@ -274,9 +312,67 @@
     capEl.addEventListener("input", () => { createState.capacity = +capEl.value; capVal.textContent = capEl.value; refreshFormats(); });
     $("#ccT-vis", modal).addEventListener("change", (e) => { $("#ccT-pw-field", modal).style.display = e.target.value === "private" ? "" : "none"; });
     $("#ccT-third", modal).addEventListener("change", (e) => { createState.thirdPlace = e.target.checked; refreshPreview(); });
+    $("#ccT-custom-toggle", modal).addEventListener("change", (e) => { createState.custom = e.target.checked; toggleCustomMode(modal); });
+    $("#ccT-custom-add", modal).addEventListener("click", addCustomMatch);
     $("#ccT-create-cancel", modal).addEventListener("click", () => modal.classList.remove("open"));
     $("#ccT-create-go", modal).addEventListener("click", submitCreate);
+    // Sync the fresh DOM to any persisted createState (the modal is rebuilt each
+    // open, but createState survives), then populate the uniform format tiles.
+    $("#ccT-custom-toggle", modal).checked = createState.custom;
+    toggleCustomMode(modal);
     refreshFormats();
+  }
+
+  // ── Custom bracket builder ────────────────────────────────────────────────
+  function toggleCustomMode(modal) {
+    const uni = $("#ccT-uniform", modal), cus = $("#ccT-custom", modal);
+    if (uni) uni.style.display = createState.custom ? "none" : "";
+    if (cus) cus.style.display = createState.custom ? "" : "none";
+    if (createState.custom) renderCustomBuilder();
+    refreshPreview();
+  }
+  function customTotal() { return createState.customSizes.reduce((a, b) => a + b, 0); }
+  function addCustomMatch() {
+    if (createState.customSizes.length >= 16) return;      // 16 opening matches is plenty
+    if (customTotal() + 2 > 32) { toast("A tournament holds at most 32 players.", "warn"); return; }
+    createState.customSizes.push(2);
+    renderCustomBuilder(); refreshPreview();
+  }
+  function removeCustomMatch(i) {
+    if (createState.customSizes.length <= 1) return;
+    createState.customSizes.splice(i, 1);
+    renderCustomBuilder(); refreshPreview();
+  }
+  function changeCustomSize(i, delta) {
+    const cur = createState.customSizes[i] || 2;
+    const next = clamp(cur + delta, 2, 8);
+    if (next === cur) return;
+    if (delta > 0 && customTotal() + delta > 32) { toast("A tournament holds at most 32 players.", "warn"); return; }
+    createState.customSizes[i] = next;
+    renderCustomBuilder(); refreshPreview();
+  }
+  function renderCustomBuilder() {
+    const list = $("#ccT-custom-list"); if (!list) return;
+    list.innerHTML = "";
+    createState.customSizes.forEach((sz, i) => {
+      const row = el("div", "ccT-cm-row");
+      const dots = Array.from({ length: sz }, () => `<span class="ccT-dot"></span>`).join("");
+      row.innerHTML = `<span class="ccT-cm-label">Match ${i + 1}</span>
+        <button class="ccT-cm-step" data-act="dec" type="button" aria-label="fewer">－</button>
+        <span class="ccT-cm-size"><b>${sz}</b> player${sz === 1 ? "" : "s"}</span>
+        <button class="ccT-cm-step" data-act="inc" type="button" aria-label="more">＋</button>
+        <span class="ccT-cm-dots">${dots}</span>
+        <button class="ccT-cm-x" data-act="rm" type="button" aria-label="remove match"${createState.customSizes.length <= 1 ? " disabled" : ""}>✕</button>`;
+      row.querySelector('[data-act="dec"]').addEventListener("click", () => changeCustomSize(i, -1));
+      row.querySelector('[data-act="inc"]').addEventListener("click", () => changeCustomSize(i, +1));
+      row.querySelector('[data-act="rm"]').addEventListener("click", () => removeCustomMatch(i));
+      list.appendChild(row);
+    });
+    const total = customTotal();
+    const foot = el("div", "ccT-cm-total");
+    const bad = total < 4 || total > 32;
+    foot.innerHTML = `Total players: <b style="color:${bad ? "#c62a4e" : "#1c6b2e"}">${total}</b>${bad ? " (need 4–32)" : ""} · ${createState.customSizes.length} opening match${createState.customSizes.length === 1 ? "" : "es"}`;
+    list.appendChild(foot);
   }
 
   async function refreshFormats() {
@@ -301,11 +397,20 @@
 
   async function refreshPreview() {
     const box = $("#ccT-preview"); if (!box) return;
+    let url;
+    if (createState.custom) {
+      const total = customTotal();
+      if (total < 4 || total > 32) { box.innerHTML = `Add matches until the total is <b>4–32</b> players (currently <b>${total}</b>).`; return; }
+      url = `/api/tournament/preview?opening_sizes=${createState.customSizes.join(",")}&third_place=${createState.thirdPlace ? 1 : 0}`;
+    } else {
+      url = `/api/tournament/preview?capacity=${createState.capacity}&players_per_match=${createState.ppm}&third_place=${createState.thirdPlace ? 1 : 0}`;
+    }
     try {
-      const r = await get(`/api/tournament/preview?capacity=${createState.capacity}&players_per_match=${createState.ppm}&third_place=${createState.thirdPlace ? 1 : 0}`);
+      const r = await get(url);
       const s = r.data && r.data.summary;
-      if (!s) { box.textContent = "…"; return; }
-      box.innerHTML = `<b>${s.tournament_size}</b>-player bracket · <b>${s.num_rounds}</b> rounds ·
+      if (!s) { box.textContent = (r.data && r.data.error) || "…"; return; }
+      const shape = (s.is_custom && s.opening_sizes) ? `Opening matches: <b>${s.opening_sizes.join(" · ")}</b> players. ` : "";
+      box.innerHTML = `${shape}<b>${s.tournament_size}</b>-player bracket · <b>${s.num_rounds}</b> rounds ·
         <b>${s.num_opening_matches}</b> opening matches · <b>${s.playable_matches}</b> games total
         ${s.num_byes ? "· <b>" + s.num_byes + "</b> bye" + (s.num_byes > 1 ? "s" : "") : "· no byes"}.
         Winner of each match advances until <b>1 champion</b> remains.
@@ -316,10 +421,13 @@
   async function submitCreate() {
     const modal = $("#ccT-create"); const errEl = $("#ccT-create-err", modal);
     errEl.textContent = "";
+    if (createState.custom) {
+      const total = customTotal();
+      if (total < 4 || total > 32) { errEl.textContent = `Custom bracket needs 4–32 players total (currently ${total}).`; return; }
+      if (createState.customSizes.some(s => s < 2 || s > 8)) { errEl.textContent = "Each match must have 2–8 players."; return; }
+    }
     const body = {
       name: ($("#ccT-name", modal).value || "Currents Cup").trim(),
-      total_capacity: createState.capacity,
-      players_per_match: createState.ppm,
       third_place_match: $("#ccT-third", modal).checked,
       visibility: $("#ccT-vis", modal).value,
       password: $("#ccT-pw", modal).value || undefined,
@@ -328,6 +436,12 @@
       host_name: bridge().nickname(),
       avatar: bridge().myAvatar(),
     };
+    if (createState.custom) {
+      body.opening_sizes = createState.customSizes.slice();
+    } else {
+      body.total_capacity = createState.capacity;
+      body.players_per_match = createState.ppm;
+    }
     const go = $("#ccT-create-go", modal); go.disabled = true; go.textContent = "Creating…";
     try {
       const r = await post("/api/tournament/create", body);
@@ -535,6 +649,8 @@
     if (st.phase !== "lobby" && T.view === "lobby" && !st._userChoseLobby) T.view = "bracket";
     document.querySelectorAll("#ccT-screen .ccT-tab").forEach(t => t.classList.toggle("on", t.dataset.view === T.view));
     $("#ccT-tab-lobby", scr).style.display = st.phase === "lobby" ? "" : "none";
+    const brTab = $("#ccT-tab-bracket", scr);
+    if (brTab) brTab.textContent = st.phase === "lobby" ? "Bracket Preview" : "Bracket";
     const content = $("#ccT-content", scr);
     if (T.view === "lobby" && st.phase === "lobby") renderLobby(content);
     else renderBracket(content);
@@ -558,36 +674,92 @@
     renderLobbySide($("#ccT-lobby-side", root));
   }
 
+  // ── Host seat arranging (direct swap, no consent) ─────────────────────────
+  function hostCanArrange() {
+    const st = T.state;
+    return !!(st && st.phase === "lobby" && st.viewer && st.viewer.is_host);
+  }
+  async function doHostSwap(a, b) {
+    if (!a || !b || a === b) return;
+    const r = await post("/api/tournament/host", { id: T.tid, host_token: T.hostToken, cmd: "swap", pid: a, pid_b: b });
+    if (!(r.data && r.data.ok)) toast((r.data && r.data.error) || "Swap failed", "err");
+  }
+  function clearSwapSelUI() { document.querySelectorAll(".swap-sel").forEach(n => n.classList.remove("swap-sel")); }
+  // Tap-to-swap (works on desktop + mobile): tap one player, then tap another.
+  function hostSwapSelect(pid, name) {
+    if (!pid) return;
+    if (T.hostSwapSel && T.hostSwapSel !== pid) {
+      const a = T.hostSwapSel; T.hostSwapSel = null; clearSwapSelUI();
+      doHostSwap(a, pid);
+      return;
+    }
+    if (T.hostSwapSel === pid) { T.hostSwapSel = null; clearSwapSelUI(); return; }
+    T.hostSwapSel = pid; clearSwapSelUI();
+    document.querySelectorAll(`[data-swap-pid="${cssAttr(pid)}"]`).forEach(n => n.classList.add("swap-sel"));
+    toast(`Now tap another player to swap them with ${name || "this player"}.`, "info");
+  }
+  function cssAttr(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  // Wire a lobby row or bracket slot so the HOST can drag it onto — or tap-select
+  // then tap — another to directly swap the two players' bracket positions.
+  function wireHostSwapTarget(node, pid, name) {
+    if (!pid) return;
+    node.dataset.swapPid = pid;
+    node.classList.add("host-draggable");
+    if (T.hostSwapSel === pid) node.classList.add("swap-sel");
+    node.draggable = true;
+    // Grabbing a swap target must not also start the bracket's mouse-pan.
+    node.addEventListener("mousedown", (e) => e.stopPropagation());
+    node.addEventListener("dragstart", (e) => { T.dragFrom = pid; try { e.dataTransfer.setData("text/plain", pid); } catch (_) {} });
+    node.addEventListener("dragend", () => { T.dragFrom = null; });
+    node.addEventListener("dragover", (e) => { if (T.dragFrom && T.dragFrom !== pid) { e.preventDefault(); node.classList.add("swap-over"); } });
+    node.addEventListener("dragleave", () => node.classList.remove("swap-over"));
+    node.addEventListener("drop", (e) => {
+      e.preventDefault(); e.stopPropagation(); node.classList.remove("swap-over");
+      const from = T.dragFrom; T.dragFrom = null;
+      if (from && from !== pid) doHostSwap(from, pid);
+    });
+    node.style.cursor = "pointer";
+    node.addEventListener("click", (e) => { e.stopPropagation(); hostSwapSelect(pid, name); });
+  }
+
   function playerRow(p, me) {
+    const isHost = !!(me && me.is_host);
+    const lobby = T.state.phase === "lobby";
     const row = el("div", "ccT-pl" + (p.me ? " me" : "") + (p.is_bot ? " bot" : ""));
     row.dataset.pid = p.pid;
-    const canDrag = (T.state.phase === "lobby") && p.me;
-    if (canDrag) row.draggable = true;
     const botBadge = p.is_bot ? `<span class="ccT-badge bot">🤖 Bot</span>` : "";
     row.innerHTML = `<img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
       <span class="ccT-nm">${esc(p.name)} ${p.is_host ? '<span class="ccT-host-dot" title="Host">★</span>' : ""}</span>
       ${botBadge}<span class="ccT-badge ${esc(p.status)}">${statusLabel(p)}</span>`;
     // avatar async upgrade (skip bots — their avatar is already assigned)
     if (!p.is_bot) bridge().avatarForNick(p.name).then(u => { if (u) { const img = row.querySelector(".ccT-av"); if (img) img.src = bridge().avSrc(u); } }).catch(() => {});
-    if (canDrag) {
-      row.addEventListener("dragstart", () => { T.dragFrom = p.pid; });
-      row.addEventListener("dragend", () => { T.dragFrom = null; });
-    }
-    // any row is a drop target for a switch request
-    row.addEventListener("dragover", (e) => { if (T.dragFrom && T.dragFrom !== p.pid) { e.preventDefault(); row.classList.add("dragover"); } });
-    row.addEventListener("dragleave", () => row.classList.remove("dragover"));
-    row.addEventListener("drop", (e) => {
-      e.preventDefault(); row.classList.remove("dragover");
-      if (T.dragFrom && T.dragFrom !== p.pid) requestSwitch(p.pid, p.name);
-    });
-    // Mobile parity: native drag doesn't fire from touch, so tap another player's
-    // row to request a switch (confirm guards against accidents).
-    const touch = ("ontouchstart" in window) || window.CC_IS_MOBILE === true;
-    if (touch && T.state.phase === "lobby" && !p.me && me && me.in_tournament) {
-      row.style.cursor = "pointer";
-      row.addEventListener("click", () => {
-        if (window.confirm(`Request a position switch with ${p.name}?`)) requestSwitch(p.pid, p.name);
+    if (lobby && isHost) {
+      // Host arranges everyone directly: drag one card onto another, or tap two.
+      wireHostSwapTarget(row, p.pid, p.name);
+      row.title = "Drag onto another player — or tap two players — to swap their spots";
+    } else if (lobby) {
+      // Non-host player: drag your OWN card onto another to REQUEST a switch.
+      if (p.me) {
+        row.draggable = true;
+        row.addEventListener("dragstart", () => { T.dragFrom = p.pid; });
+        row.addEventListener("dragend", () => { T.dragFrom = null; });
+      }
+      row.addEventListener("dragover", (e) => { if (T.dragFrom && T.dragFrom !== p.pid) { e.preventDefault(); row.classList.add("dragover"); } });
+      row.addEventListener("dragleave", () => row.classList.remove("dragover"));
+      row.addEventListener("drop", (e) => {
+        e.preventDefault(); row.classList.remove("dragover");
+        const from = T.dragFrom; T.dragFrom = null;
+        if (from && from !== p.pid) requestSwitch(p.pid, p.name);
       });
+      // Mobile parity: native drag doesn't fire from touch, so tap another player's
+      // row to request a switch (confirm guards against accidents).
+      const touch = ("ontouchstart" in window) || window.CC_IS_MOBILE === true;
+      if (touch && !p.me && me && me.in_tournament) {
+        row.style.cursor = "pointer";
+        row.addEventListener("click", () => {
+          if (window.confirm(`Request a position switch with ${p.name}?`)) requestSwitch(p.pid, p.name);
+        });
+      }
     }
     return row;
   }
@@ -602,6 +774,7 @@
     const amReady = me.ready;
     let html = "";
     html += `<button class="ccT-btn wide ${amReady ? "ghost" : ""}" id="ccT-ready">${amReady ? "✓ Ready — tap to unready" : "I'm Ready"}</button>`;
+    html += `<button class="ccT-btn wide ghost" id="ccT-view-bracket">👁 View bracket preview</button>`;
     if (isHost) {
       html += `<button class="ccT-btn wide" id="ccT-randomize">🎲 Randomize Seeding</button>`;
       const full = st.joined >= st.capacity;
@@ -610,12 +783,20 @@
       if (!st.can_start) html += `<div style="font-size:.8rem;color:#3a6aa5;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
       html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
     }
+    const shapeLine = st.summary
+      ? (st.summary.is_custom && st.summary.opening_sizes
+          ? `<br>Custom bracket: opening matches <b>${st.summary.opening_sizes.join(" · ")}</b> players, ${st.summary.num_rounds} rounds.`
+          : `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.`)
+      : "";
     html += `<div style="margin-top:14px;font-size:.85rem;color:#2b5a97;line-height:1.6">
-      <b>Tip:</b> drag your card onto another player to request a seat switch.
-      ${st.summary ? `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.` : ""}
+      <b>Tip:</b> ${isHost
+        ? "drag a player onto another — or tap two players — to swap their bracket spots."
+        : "drag your card onto another player to request a seat switch."}
+      ${shapeLine}
       <br>Share code: <b>${esc(st.tournament_id)}</b>${st.visibility === "private" ? " (private)" : ""}.</div>`;
     root.innerHTML = html;
     const readyBtn = $("#ccT-ready", root); if (readyBtn) readyBtn.addEventListener("click", () => post("/api/tournament/ready", { id: T.tid, ready: !amReady }));
+    const vb = $("#ccT-view-bracket", root); if (vb) vb.addEventListener("click", () => setView("bracket"));
     const rnd = $("#ccT-randomize", root); if (rnd) rnd.addEventListener("click", onRandomize);
     const fb = $("#ccT-fillbots", root); if (fb) fb.addEventListener("click", onFillBots);
     const start = $("#ccT-start", root); if (start) start.addEventListener("click", onStart);
@@ -727,8 +908,12 @@
 
   function renderBracket(root) {
     const st = T.state; const br = st.bracket;
-    if (!br) { root.innerHTML = `<div style="padding:40px;text-align:center;opacity:.7">The bracket appears when the tournament starts.<br>${st.phase === "lobby" ? "Waiting for the host to start…" : ""}</div>`; return; }
-    root.innerHTML = `<div class="ccT-bracket-wrap" id="ccT-bwrap">
+    if (!br) { root.innerHTML = `<div style="padding:40px;text-align:center;opacity:.7">The bracket appears when the tournament starts.<br>${st.phase === "lobby" ? "Add a few players to preview the bracket…" : ""}</div>`; return; }
+    const hostArrange = !!(br.preview && hostCanArrange());
+    const banner = br.preview
+      ? `<div class="ccT-preview-banner">👁 Preview — this is how the bracket looks right now. Empty spots fill as players join${st.fill_bots ? " (or bots fill them at start)" : ""}.${hostArrange ? " Drag a player onto another — or tap two — to swap their spots." : ""}</div>`
+      : "";
+    root.innerHTML = `${banner}<div class="ccT-bracket-wrap" id="ccT-bwrap">
         <svg class="ccT-lines" id="ccT-lines"></svg>
         <div class="ccT-bracket" id="ccT-bgrid"></div>
       </div>
@@ -741,13 +926,13 @@
     br.rounds.forEach((round, ri) => {
       const col = el("div", "ccT-round");
       col.appendChild(el("div", "ccT-round-label", ROUND_NAMES(br.n_rounds, ri)));
-      round.forEach(m => col.appendChild(matchCard(m, st, myPath)));
+      round.forEach(m => col.appendChild(matchCard(m, st, myPath, hostArrange)));
       grid.appendChild(col);
     });
     if (br.third_place) {
       const col = el("div", "ccT-round");
       col.appendChild(el("div", "ccT-round-label", "3rd Place"));
-      col.appendChild(matchCard(br.third_place, st, myPath));
+      col.appendChild(matchCard(br.third_place, st, myPath, hostArrange));
       grid.appendChild(col);
     }
     wireBracketPanZoom(root);
@@ -755,17 +940,17 @@
     requestAnimationFrame(() => { drawLines(root, br); fitBracket(root, true); });
   }
 
-  function matchCard(m, st, myPath) {
+  function matchCard(m, st, myPath, hostArrange) {
     const mine = (m.players || []).some(p => p && st.viewer && p.pid === st.viewer.pid);
     const card = el("div", "ccT-match " + (m.status === "active" || m.status === "ready" ? "active " : "") + (m.status === "complete" ? "complete " : "") + (mine ? "mine " : ""));
     card.dataset.mnum = m.match_number;
     card.id = "ccT-m-" + m.match_number;
     const statusTxt = { pending: "", ready: "ready", active: "live", complete: "done", bye: "bye" }[m.status] || "";
     let slots = "";
-    (m.players || []).forEach(p => {
+    (m.players || []).forEach((p, si) => {
       const isWin = m.winner && p && p.pid === m.winner.pid;
       const sc = m.scores && p ? m.scores[p.pid] : null;
-      slots += `<div class="ccT-slot ${p ? "" : "empty"} ${isWin ? "win" : ""}">
+      slots += `<div class="ccT-slot ${p ? "" : "empty"} ${isWin ? "win" : ""}" data-slot="${si}">
         ${p ? `<img class="ccT-sav" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">` : `<span class="ccT-sav"></span>`}
         <span class="ccT-snm">${p ? esc(p.name) : "—"}</span>
         ${sc != null ? `<span class="ccT-ssc">${sc}</span>` : ""}</div>`;
@@ -773,6 +958,14 @@
     card.innerHTML = `<span class="ccT-mnum">${m.is_third_place ? "3rd" : "M" + m.match_number}</span>
       ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "rgba(47,140,224,.22)" : m.status === "complete" ? "rgba(243,167,18,.28)" : "rgba(120,150,190,.16)"}">${statusTxt}</span>` : ""}
       ${slots}`;
+    // Host arranging: in the lobby PREVIEW, opening-round slots that hold a player
+    // can be dragged/tapped to swap two players' bracket positions.
+    if (hostArrange && m.round_index === 0) {
+      card.querySelectorAll(".ccT-slot[data-slot]").forEach(slotEl => {
+        const p = (m.players || [])[+slotEl.dataset.slot];
+        if (p && p.pid) wireHostSwapTarget(slotEl, p.pid, p.name);
+      });
+    }
     // §10 View Match: click a live match to enter (if it's yours) or spectate it.
     if (m.room_id && (m.status === "active" || m.status === "ready")) {
       card.style.cursor = "pointer";
@@ -939,14 +1132,17 @@
     persistActive();
     // Tell the server we've arrived (may trigger immediate auto-start once all in).
     post("/api/tournament/entered", { id: T.tid }).catch(() => {});
-    try {
-      // Store the seat token the way the app expects, so /play/<room> reconnects
-      // us into our assigned seat instead of showing a seat-picker.
-      if (seatTok) localStorage.setItem("fish_room_" + String(roomId).toUpperCase() + "_seat_token", seatTok);
-    } catch (_) {}
-    // Deep-link into the room (the SPA loads the game table inline). ?t=<tid>
-    // lets us restore the tournament screen when the match ends.
-    try { window.location.href = "/play/" + encodeURIComponent(roomId) + "?t=" + encodeURIComponent(T.tid); }
+    // Deep-link into the room (the SPA loads the game table inline). We hand the
+    // seat_token to the game via the URL (?seat_token=…) because that is the ONLY
+    // place the game app's boot looks for it: it reads params.get("seat_token")
+    // and calls setSeatToken(), which stores it into the tab-scoped sessionStorage
+    // the app actually reads. Writing it to localStorage["fish_room_<ROOM>_seat_token"]
+    // here landed in a key nothing ever reads, so the app fell through to the
+    // seat-picker and reported the (fully pre-claimed) match room as "full".
+    // ?t=<tid> lets us restore the tournament screen when the match ends.
+    let url = "/play/" + encodeURIComponent(roomId) + "?t=" + encodeURIComponent(T.tid);
+    if (seatTok) url += "&seat_token=" + encodeURIComponent(seatTok);
+    try { window.location.href = url; }
     catch (_) { toast("Open match room " + roomId, "info"); }
   }
 

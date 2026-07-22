@@ -32,11 +32,29 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import tournament_engine as te
 from tournament_engine import (
-    TournamentConfig, Bracket, validate_config, bracket_summary,
+    TournamentConfig, Bracket, validate_config, validate_opening_sizes, bracket_summary,
     available_formats, compute_player_xp,
     M_COMPLETE, M_BYE, M_PENDING, M_ACTIVE, M_READY,
     MIN_TOURNAMENT_PLAYERS, MAX_TOURNAMENT_PLAYERS,
+    MIN_PLAYERS_PER_MATCH, MAX_PLAYERS_PER_MATCH,
 )
+
+
+def _parse_opening_sizes(raw: Any) -> Optional[List[int]]:
+    """Coerce a custom-bracket opening layout from a request into a list of ints.
+    Accepts a JSON list ([3,4,2]) or a comma/space string ("3,4,2"); returns None
+    when absent/empty so callers fall back to the uniform format."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        raw = [x for x in raw.replace(",", " ").split() if x]
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return None
+    try:
+        sizes = [int(x) for x in raw]
+    except (TypeError, ValueError):
+        return None
+    return sizes or None
 
 # ── Feature flag ─────────────────────────────────────────────────────────────
 # Server routes stay live so the host can test via a hidden client URL, but the
@@ -496,6 +514,25 @@ class Tournament:
             self._bump_locked()
             return {"ok": True, "host_controlled": True}
 
+    def host_swap(self, pid_a: str, pid_b: str) -> Dict[str, Any]:
+        """Host directly swaps two players' bracket positions — no consent needed
+        (unlike request_switch). Drives the host drag-swap in the lobby + preview
+        bracket. Swapping join_order swaps which opening slot each player seeds into."""
+        with self.cond:
+            if self.phase != self.PHASE_LOBBY:
+                return {"ok": False, "error": "cannot swap after start"}
+            if not pid_a or not pid_b or pid_a == pid_b:
+                return {"ok": False, "error": "pick two different players"}
+            a, b = self._by_pid(pid_a), self._by_pid(pid_b)
+            if a is None or b is None:
+                return {"ok": False, "error": "player not found"}
+            a.join_order, b.join_order = b.join_order, a.join_order
+            self.participants = sorted(self.participants, key=lambda x: x.join_order)
+            self.pending_switch.clear()
+            self._log("host_swap", f"{a.name} <-> {b.name}")
+            self._bump_locked()
+            return {"ok": True, "host_controlled": True}
+
     def host_remove(self, pid: str) -> Dict[str, Any]:
         with self.cond:
             if self.phase != self.PHASE_LOBBY:
@@ -560,6 +597,15 @@ class Tournament:
             return False, f"need at least {MIN_TOURNAMENT_PLAYERS} players (have {n})"
         if n < self.cfg.players_per_match:
             return False, "not enough players for one match"
+        # A CUSTOM bracket has a fixed shape sized for total_capacity, so every seat
+        # must be filled (invite more players or let bots fill them) before it starts,
+        # otherwise a designed match would be short a player and never spawn.
+        if self.cfg.is_custom and n != self.cfg.total_capacity:
+            need = self.cfg.total_capacity - n
+            if need > 0:
+                return False, (f"custom bracket needs all {self.cfg.total_capacity} seats "
+                               f"filled ({need} empty — add players or fill with bots)")
+            return False, f"custom bracket holds {self.cfg.total_capacity} players (have {n})"
         not_ready = [p for p in self.participants if not p.ready and p.connected]
         if not_ready:
             return False, f"{len(not_ready)} player(s) not ready"
@@ -924,9 +970,17 @@ class Tournament:
                      for p in ordered]
             summary = None
             try:
-                summary = bracket_summary(self.cfg, max(len(self.participants), self.cfg.players_per_match))
+                summary_n = (self.cfg.total_capacity
+                             if (self.fill_bots or self.cfg.is_custom)
+                             else max(len(self.participants), self.cfg.players_per_match))
+                summary = bracket_summary(self.cfg, summary_n)
             except Exception:
                 summary = None
+            # In the lobby, show a live PREVIEW bracket (real bracket once running).
+            if self.phase == self.PHASE_LOBBY and not self.bracket:
+                bracket_payload = self._preview_bracket()
+            else:
+                bracket_payload = self._bracket_view()
             payload: Dict[str, Any] = {
                 "version": self.version,
                 "tournament_id": self.tid,
@@ -949,7 +1003,7 @@ class Tournament:
                 "status_note": self.status_note,
                 "can_start": self.can_start()[0],
                 "can_start_reason": self.can_start()[1],
-                "bracket": self._bracket_view(),
+                "bracket": bracket_payload,
                 "viewer": {
                     "pid": viewer_pid,
                     "is_host": is_host,
@@ -970,6 +1024,9 @@ class Tournament:
     def _bracket_view(self) -> Optional[Dict[str, Any]]:
         if not self.bracket:
             return None
+        return self._bracket_view_from(self.bracket)
+
+    def _bracket_view_from(self, br: Bracket) -> Dict[str, Any]:
         name_by = {p.pid: p.name for p in self.participants}
         avatar_by = {p.pid: p.avatar for p in self.participants}
 
@@ -985,10 +1042,38 @@ class Tournament:
             return d
 
         return {
-            "n_rounds": self.bracket.n_rounds,
-            "rounds": [[m_view(m) for m in row] for row in self.bracket.rounds],
-            "third_place": m_view(self.bracket.third_place) if self.bracket.third_place else None,
+            "n_rounds": br.n_rounds,
+            "rounds": [[m_view(m) for m in row] for row in br.rounds],
+            "third_place": m_view(br.third_place) if br.third_place else None,
         }
+
+    def _preview_bracket(self) -> Optional[Dict[str, Any]]:
+        """A provisional, NON-authoritative bracket for the LOBBY so the host and
+        players can view the shape (and current seeding) before the tournament
+        starts. Recomputed from the live roster + config every state view; never
+        stored. Empty seats show as blank slots that fill as players join / bots
+        are added. Returns None when there aren't enough players to shape it yet."""
+        try:
+            parts = sorted(self.participants, key=lambda x: x.join_order)
+            order = [p.pid for p in parts]
+            cfg = self.cfg
+            if cfg.is_custom:
+                # Fixed shape (sized for capacity); partial-seed whoever is here now.
+                br = Bracket.build(cfg, len(order))
+                br.seed_players(order, allow_partial=True)
+            else:
+                # Uniform: mirror what start() will build. With bot-fill the field
+                # grows to capacity; otherwise it's sized for the current roster.
+                n = cfg.total_capacity if self.fill_bots else len(order)
+                if n < MIN_TOURNAMENT_PLAYERS:
+                    return None
+                br = Bracket.build(cfg, n)
+                br.seed_players(order, allow_partial=(n != len(order)))
+            view = self._bracket_view_from(br)
+            view["preview"] = True
+            return view
+        except Exception:
+            return None
 
     def _my_active_match(self, me: Participant) -> Optional[Dict[str, Any]]:
         if not self.bracket:
@@ -1047,6 +1132,8 @@ class TournamentManager:
                     "tournament_id": t.tid, "name": t.cfg.name, "phase": t.phase,
                     "joined": len(t.participants), "capacity": t.cfg.total_capacity,
                     "players_per_match": t.cfg.players_per_match,
+                    "is_custom": t.cfg.is_custom,
+                    "opening_sizes": list(t.cfg.opening_sizes) if t.cfg.opening_sizes else None,
                     "has_password": bool(t.password_hash),
                     "spectators_allowed": t.spectators_allowed,
                 })
@@ -1209,10 +1296,20 @@ def handle_get(handler, parsed) -> bool:
             handler._send_json({"ok": True, "capacity": cap, "formats": available_formats(cap)})
             return True
         if path == "/api/tournament/preview":
-            cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int((q.get("capacity") or ["8"])[0] or 8)))
-            ppm = max(2, min(8, int((q.get("players_per_match") or ["2"])[0] or 2)))
             tp = str((q.get("third_place") or ["0"])[0]) in ("1", "true")
-            cfg = TournamentConfig(cap, ppm, third_place_match=tp)
+            custom = _parse_opening_sizes((q.get("opening_sizes") or [None])[0])
+            if custom:
+                pre_errs = validate_opening_sizes(custom)
+                if pre_errs:
+                    handler._send_json({"ok": False, "error": "; ".join(pre_errs)}, status=HTTPStatus.BAD_REQUEST)
+                    return True
+                cfg = TournamentConfig(sum(custom), max(custom), third_place_match=tp,
+                                       opening_sizes=custom)
+                cap = sum(custom)
+            else:
+                cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int((q.get("capacity") or ["8"])[0] or 8)))
+                ppm = max(2, min(8, int((q.get("players_per_match") or ["2"])[0] or 2)))
+                cfg = TournamentConfig(cap, ppm, third_place_match=tp)
             errs = validate_config(cfg)
             if errs:
                 handler._send_json({"ok": False, "error": "; ".join(errs)}, status=HTTPStatus.BAD_REQUEST)
@@ -1300,14 +1397,32 @@ def _require(handler, t: Optional[Tournament]) -> bool:
 
 def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
     if path == "/api/tournament/create":
-        cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int(body.get("total_capacity") or 8)))
-        ppm = max(2, min(8, int(body.get("players_per_match") or 2)))
-        cfg = TournamentConfig(
-            total_capacity=cap, players_per_match=ppm,
-            advance_per_match=1,
-            third_place_match=bool(body.get("third_place_match")),
-            name=str(body.get("name") or "Currents Cup")[:60],
-        )
+        custom = _parse_opening_sizes(body.get("opening_sizes"))
+        if custom:
+            # Custom bracket: the host's explicit opening-round layout fixes both the
+            # total capacity (sum) and the max match size (players_per_match).
+            pre_errs = validate_opening_sizes(custom)
+            if pre_errs:
+                handler._send_json({"ok": False, "error": "; ".join(pre_errs)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            cap = sum(custom)
+            ppm = max(custom)
+            cfg = TournamentConfig(
+                total_capacity=cap, players_per_match=ppm,
+                advance_per_match=1,
+                third_place_match=bool(body.get("third_place_match")),
+                name=str(body.get("name") or "Currents Cup")[:60],
+                opening_sizes=custom,
+            )
+        else:
+            cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int(body.get("total_capacity") or 8)))
+            ppm = max(2, min(8, int(body.get("players_per_match") or 2)))
+            cfg = TournamentConfig(
+                total_capacity=cap, players_per_match=ppm,
+                advance_per_match=1,
+                third_place_match=bool(body.get("third_place_match")),
+                name=str(body.get("name") or "Currents Cup")[:60],
+            )
         errs = validate_config(cfg)
         if errs:
             handler._send_json({"ok": False, "error": "; ".join(errs)}, status=HTTPStatus.BAD_REQUEST)
@@ -1401,6 +1516,8 @@ def _host_action(t: Tournament, body: Dict[str, Any]) -> Dict[str, Any]:
         return t.host_set(spectators_allowed=bool(body.get("spectators_allowed", True)))
     if cmd == "move":
         return t.host_move(str(body.get("pid") or ""), int(body.get("index") or 0))
+    if cmd == "swap":
+        return t.host_swap(str(body.get("pid") or ""), str(body.get("pid_b") or body.get("target_pid") or ""))
     if cmd == "remove":
         return t.host_remove(str(body.get("pid") or ""))
     if cmd == "fill_bots":
