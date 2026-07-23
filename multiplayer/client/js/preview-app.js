@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-21.7";
+  const APP_BUILD   = "2026-07-22.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -11033,17 +11033,13 @@
         // King Salmon, 2 King Salmon on board, 5 oceans with all 4 slots filled, win, 3+ players.
         if (isWinner && playerCount >= 3 && Number(nameCount["king salmon"] || 0) >= 2 && fullOceans >= 5
             && await window.__fishGrantUnlockedIcon?.("/avatars/king-salmon.png")) _queueAnimalUnlock("king-salmon");
-        // Grooved Brain Coral, finish in the Top 3 having ONLY drawn from the
-        // Pool (never manually drawn from the Deck). "Cards that say draw do not
-        // count": card abilities that draw from the deck don't disqualify this
-        // (deckDraws only counts manual deck draws). No player-count limit.
-        {
-          const _playersAboveGbc = (Array.isArray(finalScores) ? finalScores : [])
-            .filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
-          if (_playersAboveGbc <= 2
-              && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
-              && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
-        }
+        // Grooved Brain Coral, WIN a 3+ player game having ONLY drawn from the
+        // Deck (never manually drawn from the Pool). Requires an actual manual
+        // deck draw (manualDeckDraw) so a game where you never drew at all does
+        // NOT grant it by accident.
+        if (isWinner && playerCount >= 3
+            && !_gameAchTracker?.usedPool && _gameAchTracker?.manualDeckDraw
+            && await window.__fishGrantUnlockedIcon?.("/avatars/grooved-brain-coral.png")) _queueAnimalUnlock("grooved-brain-coral");
         // Sailfish, every Game Fish species on your board in a 5-player game (win not required).
         if (playerCount >= 5 && GAME_FISH_NAMES.every(nm => Number(nameCount[nm] || 0) >= 1)
             && await window.__fishGrantUnlockedIcon?.("/avatars/sailfish.png")) _queueAnimalUnlock("sailfish");
@@ -11055,7 +11051,7 @@
         // Deep Sea Coral, win with exactly 1 animal on each Ocean.
         if (isWinner && allOceansExactlyOne
             && await window.__fishGrantUnlockedIcon?.("/avatars/deep-sea-coral.png")) _queueAnimalUnlock("deep-sea-coral");
-        // Grooved Brain Coral is granted by the only-Pool/Top-3 check above.
+        // Grooved Brain Coral is granted by the only-Deck/win check above.
         // Staghorn Coral (coral_b_master) and Elk Horn Coral (reef_rally) are
         // granted via the achievement-unlock hook.
 
@@ -11071,10 +11067,18 @@
         }
         // Sea Star, reach Level 100.
         if (lvl >= 100 && await window.__fishGrantUnlockedIcon?.("/avatars/sea-star.png")) _queueAnimalUnlock("sea-star");
-        // Johnson's Sea Cucumber, win by ONLY drawing from the deck (never the
-        // Pool) in a 4+ player game.
-        if (isWinner && !_gameAchTracker?.usedPool && playerCount >= 4
-            && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
+        // Johnson's Sea Cucumber, finish TOP 3 in a 3+ player game having NEVER
+        // manually drawn from the Deck (deckDraws === 0). Requires usedPool so a
+        // game where you never drew at all does NOT grant it by accident. Card
+        // abilities that draw from the deck don't count (deckDraws only counts
+        // manual deck draws).
+        {
+          const _playersAboveSc = (Array.isArray(finalScores) ? finalScores : [])
+            .filter(p => Number(p?.score || 0) > Number(myScore || 0)).length;
+          if (playerCount >= 3 && _playersAboveSc <= 2
+              && Number(_gameAchTracker?.deckDraws || 0) === 0 && _gameAchTracker?.usedPool
+              && await window.__fishGrantUnlockedIcon?.("/avatars/sea-cucumber.png")) _queueAnimalUnlock("sea-cucumber");
+        }
         // (Red Beaded Anemone now unlocks ONLY by beating the Giant Squid 1v1, see challenge flow.)
 
         // ── Crosscurrent ───────────────────────────────────────────
@@ -13755,7 +13759,7 @@
       unlock:{ type:"event", event:"one_per_ocean", label:"Win a game with exactly 1 animal on each Ocean." } },
     { id:"grooved-brain-coral", name:"Grooved Brain Coral", species:"Coral", img:"/avatars/grooved-brain-coral.png",
       facts:"Grooved Brain Coral is named for its intricate maze-like surface. It can live for up to 900 years and grow up to 6 feet in diameter. Despite its ancient size, only the outer few millimeters are living tissue, built incredibly tough to weather rough ocean storms.",
-      unlock:{ type:"event", event:"grooved_pool_top2", label:"Only draw from the Pool and finish in the Top 3. Cards that say draw do not count." } },
+      unlock:{ type:"event", event:"grooved_deck_only_win", label:"Win a 3+ player game while only drawing from the Deck (never the Pool)." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
       unlock:{ type:"achievement", achId:"reef_rally", goal:15, label:"Add 15 friends (Reef Rally)." } },
@@ -13783,7 +13787,7 @@
       unlock:{ type:"level", goal:100, label:"Reach Level 100." } },
     { id:"sea-cucumber", name:"Johnson's Sea Cucumber", species:"Invertebrates", img:"/avatars/sea-cucumber.png",
       facts:"The Johnson's sea cucumber is like the ocean's vacuum cleaner, crawling along the seafloor and digesting tiny scraps from the sediment.",
-      unlock:{ type:"event", event:"sea_cucumber_deck_only_win", label:"Win by only drawing from the deck in a 4+ player game." } },
+      unlock:{ type:"event", event:"sea_cucumber_pool_only_top3", label:"Finish Top 3 in a 3+ player game while never drawing from the Deck. Cards that say draw do not count." } },
     { id:"sea-anemone", name:"Red Beaded Anemone", species:"Invertebrates", img:"/avatars/sea-anemone.png",
       facts:"Because of consistently different, individualized behaviors, marine biologists have noted that individual beadlet anemones can actually possess distinct \"personalities\" despite having very simple nervous systems.",
       unlock:{ type:"achievement", achId:"it_is_finally_over", label:"Beat the Giant Squid in a 1v1 match." } },
