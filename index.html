@@ -682,13 +682,13 @@
     <div class="donation-goal">
       <div class="donation-goal-head">
         <span class="donation-goal-label">★ Donation Goal</span>
-        <span class="donation-goal-amount"><span data-donation="raised">$0</span> / <span data-donation="goal">$20,000</span></span>
+        <span class="donation-goal-amount"><span data-donation="raised">$0</span> / <span data-donation="goal">$25,000</span></span>
       </div>
       <div class="donation-goal-track">
         <div class="donation-goal-fill"></div>
       </div>
-      <p class="donation-goal-remaining"><strong data-donation="remaining">$20,000</strong> left to reach the goal</p>
-      <p class="donation-goal-note">If we hit our <strong>$20,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
+      <p class="donation-goal-remaining"><strong data-donation="remaining">$25,000</strong> left to reach the goal</p>
+      <p class="donation-goal-note">If we hit our <strong>$25,000</strong> goal, every player signed up before we reach it gets <strong>5 free levels</strong>!</p>
     </div>
 
     <div class="tier-intro">
@@ -1089,25 +1089,28 @@ updateBetaBarClear();
   setStatEl('online',  Number(cached.online) || 0,                          false);
 
   // ── Donation goal ──────────────────────────────────────────────
-  // 2% of every game sold supports ocean conservation. No sales yet, so the
-  // honest, accurate raised amount is $0. Update DONATED (or wire it to a
-  // server field) once real donations come in and the bar fills automatically.
-  const DONATION_GOAL = 20000;
-  const DONATED       = 0;
-  setStatEl('donated', DONATED, false);
-  (function renderDonationGoal() {
+  // The raised amount is the LIVE total of every name on the Supporter Reef
+  // Wall (server sums exactly the wall rows, so the bar can never disagree with
+  // the wall and no donor/payment is ever double-counted). refreshSupporterWall
+  // below feeds the real total in; until it returns we show the last cached
+  // value (or $0) so the bar never flashes a wrong number.
+  const DONATION_GOAL = 25000;
+  function renderDonationGoal(donatedDollars) {
+    const donated   = Math.max(0, Number(donatedDollars) || 0);
     const raised    = document.querySelector('[data-donation="raised"]');
     const goal      = document.querySelector('[data-donation="goal"]');
     const remaining = document.querySelector('[data-donation="remaining"]');
     const fill      = document.querySelector('.donation-goal-fill');
-    const left      = Math.max(0, DONATION_GOAL - DONATED);
-    if (raised)    raised.textContent    = '$' + DONATED.toLocaleString();
+    const left      = Math.max(0, DONATION_GOAL - donated);
+    setStatEl('donated', donated, false);
+    if (raised)    raised.textContent    = '$' + donated.toLocaleString();
     if (goal)      goal.textContent      = '$' + DONATION_GOAL.toLocaleString();
     if (remaining) remaining.textContent = '$' + left.toLocaleString();
     if (fill)      requestAnimationFrame(() => {
-      fill.style.width = Math.min(100, (DONATED / DONATION_GOAL) * 100) + '%';
+      fill.style.width = Math.min(100, (donated / DONATION_GOAL) * 100) + '%';
     });
-  })();
+  }
+  renderDonationGoal(Number(cached.donated) || 0);
 
   // AbortSignal.timeout not available in Safari < 16.4 - use a manual controller
   function fetchWithTimeout(url, ms) {
@@ -1193,7 +1196,21 @@ updateBetaBarClear();
       const resp = await fetchWithTimeout(`${RENDER_BASE}/api/supporters/wall`, 30000);
       if (!resp.ok) return;
       const data = await resp.json();
-      renderSupporterWall(data && data.supporters ? data.supporters : []);
+      const list = data && data.supporters ? data.supporters : [];
+      renderSupporterWall(list);
+      // Live donation total = the server's sum of exactly these wall rows
+      // (falls back to summing them here if an older server omits the field).
+      // Drives the donation bar + the "$ Donated" impact stat, and is cached so
+      // a returning visitor sees the real amount before the next fetch returns.
+      let cents = Number(data && data.totalRaisedCents);
+      if (!Number.isFinite(cents)) {
+        cents = list.reduce((sum, s) => sum + (Number(s && s.amountCents) || 0), 0);
+      }
+      const dollars = Math.max(0, cents / 100);
+      renderDonationGoal(dollars);
+      const saved = readCachedStats();
+      saved.donated = dollars;
+      writeCachedStats(saved);
     } catch (_) { /* server sleeping, leave the scene as-is */ }
   }
   refreshSupporterWall();

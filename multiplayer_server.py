@@ -9133,7 +9133,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Public Supporter Reef Wall data — approved + visible records only,
         # exposing just displayName / wallSize / tier (no emails/ids/history).
         if parsed.path == "/api/supporters/wall":
-            self._send_json({"ok": True, "supporters": _supporter_wall_cached()})
+            wall = _supporter_wall_cached()
+            # Total raised = the sum of EXACTLY the names shown on the wall, so
+            # the homepage donation bar can never disagree with the wall it sits
+            # under. Each supporter is a single row carrying their LIFETIME total,
+            # so summing the rows never double-counts a donor or a payment.
+            total_cents = sum(int(r.get("amountCents") or 0) for r in wall)
+            self._send_json({
+                "ok": True,
+                "supporters": wall,
+                "totalRaisedCents": total_cents,
+            })
             return
 
         # Admin review list (pending by default; ?filter=all for everything).
