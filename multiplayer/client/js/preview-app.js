@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-25.1";
+  const APP_BUILD   = "2026-07-25.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -73,7 +73,7 @@
     { ver: "V1.6.9", title: "Find & join tournaments from Join Game", items: [
       "Join Game now has a 🏆 Tournament tab right next to Public, Private and Competitive, open it to see every tournament people have created that's still taking players.",
       "Each one shows its name, how full it is and its match size; tap Join → to hop straight into the bracket, no code needed for public tournaments.",
-      "The list refreshes on its own, so brackets appear as soon as they're created.",
+      "Opening the tab (or switching to it) now pulls a fresh list instantly, so a tournament someone just created shows up right away instead of after a delay.",
     ]},
     { ver: "V1.6.8", title: "Tournaments: “Enter Your Match” actually enters", items: [
       "Fixed clicking “Enter Your Match” (or your match in the bracket) leaving you stuck on the bracket with your game running behind it, it now drops the bracket and puts your live game in front, every time.",
@@ -2114,6 +2114,7 @@
   let _lbActiveTab = "public";
   let _lbAllRooms  = [];
   let _lbTournaments = [];    // open brackets for the 🏆 Tournament tab
+  let _lbTournamentsLoaded = false; // has /api/tournament/list resolved at least once this session?
   let _lbPendingRoom = null; // room object awaiting password entry
 
   function openLobbyBrowser() {
@@ -2140,7 +2141,7 @@
     if (tourneyOn) jobs.push(apiFetch("/api/tournament/list", { method:"GET", timeoutMs:6000 }).catch(() => null));
     const [roomsRes, tourneysRes] = await Promise.all(jobs);
     if (roomsRes && roomsRes.ok && Array.isArray(roomsRes.data?.rooms)) _lbAllRooms = roomsRes.data.rooms;
-    if (tourneysRes && tourneysRes.ok && Array.isArray(tourneysRes.data?.tournaments)) _lbTournaments = tourneysRes.data.tournaments;
+    if (tourneysRes && tourneysRes.ok && Array.isArray(tourneysRes.data?.tournaments)) { _lbTournaments = tourneysRes.data.tournaments; _lbTournamentsLoaded = true; }
     renderLobbyList();
   }
 
@@ -2230,7 +2231,9 @@
     list.innerHTML = "";
     const open = (_lbTournaments || []).filter(t => t && t.phase === "lobby" && Number(t.joined) < Number(t.capacity));
     if (!open.length) {
-      list.innerHTML = `<div class="lb-browser-empty">No open tournaments right now.<br><small style="opacity:.8">Create one with “New Current” → Mode → 🏆 Tournament.</small></div>`;
+      list.innerHTML = _lbTournamentsLoaded
+        ? `<div class="lb-browser-empty">No open tournaments right now.<br><small style="opacity:.8">Create one with “New Current” → Mode → 🏆 Tournament.</small></div>`
+        : `<div class="lb-browser-empty">Loading…</div>`;
       return;
     }
     for (const t of open) {
@@ -2536,7 +2539,10 @@
       document.querySelectorAll(".lb-browser-tab").forEach(t => t.classList.remove("active"));
       tab.classList.add("active");
       _lbActiveTab = tab.dataset.tab;
-      renderLobbyList();
+      renderLobbyList();          // instant switch with what we already have…
+      fetchAndRenderRooms();      // …then pull fresh data so a room/tournament
+                                  // created since the last 8s poll shows up NOW
+                                  // instead of only after the next tick.
     });
   });
   // The 🏆 Tournament tab only makes sense when Tournament Mode is live.
