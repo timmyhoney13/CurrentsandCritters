@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-24.1";
+  const APP_BUILD   = "2026-07-24.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.6", title: "Replay how the top scores were built", items: [
+      "On the Leaderboard, the highest scores are now clickable, tap any score with a “▸ replay” tag to open that exact game and see the board that earned it.",
+      "The game opens straight to the record-holder's board, laid out with the real cards in their exact spots, so you can study how they pulled off such a high score.",
+      "Your best game is saved automatically whenever you set a new personal best (overall and for each table size). Beat your record and the new game takes its place.",
+    ]},
     { ver: "V1.6.5", title: "No more “not your turn” surprises", items: [
       "You can no longer stage a play while another player is up and then get hit with a “Failed: not your turn”, the game now nudges you to wait for your turn before anything is sent, so setup is never wasted.",
       "Double-checked the deck: every game is dealt from a fresh, fully-shuffled deck (verified even and unbiased over tens of thousands of test deals).",
@@ -10642,6 +10647,40 @@
         if (i < 12 || !gEntry || !Array.isArray(gEntry.bds)) return gEntry;
         return { ...gEntry, bds: gEntry.bds.map(pp => ({ n: pp.n, b: pp.b })) };
       });
+      // ── Best-game snapshot for the public leaderboard ──────────────
+      // When THIS game sets a new personal best (overall or per player-count),
+      // we stash the game object so anyone can click that score on the
+      // leaderboard and replay exactly how the high score was built. The
+      // snapshot is the same object the game-detail modal already consumes,
+      // trimmed so ONLY the record-holder keeps the heavy visual board (rich
+      // card layout); everyone else keeps just the lightweight text board, so
+      // one snapshot stays a few KB and never bloats the user doc. Saved
+      // versions always OVERWRITE the previous (lower) best for that key.
+      const _bestGameSnap = (() => {
+        try {
+          const ownerLc = String(myGameName || "").trim().toLowerCase();
+          const bds = (Array.isArray(recentEntry.bds) ? recentEntry.bds : []).map(pp => {
+            const keepRich = String(pp.n || "").trim().toLowerCase() === ownerLc && Array.isArray(pp.bd);
+            return keepRich ? { n: pp.n, b: pp.b, bd: pp.bd } : { n: pp.n, b: pp.b };
+          });
+          const snap = {
+            s:    recentEntry.s,
+            t:    recentEntry.t,
+            pc:   recentEntry.pc,
+            mode: recentEntry.mode,
+            win:  recentEntry.win  || "",
+            strat: recentEntry.strat || "",
+            opp:  recentEntry.opp  || [],
+            r:    recentEntry.r,
+            all:  recentEntry.all  || [],
+            bds,
+            me:   String(myGameName || ""),  // record-holder → modal opens on their board
+          };
+          // Firestore rejects `undefined` anywhere (even nested); a JSON
+          // round-trip strips it cleanly and guarantees a plain, safe object.
+          return JSON.parse(JSON.stringify(snap));
+        } catch { return null; }
+      })();
       const levelTitle = String(cStats.level_title || cStats.level_name || "Ocean Explorer");
 
       if (authUser && db) {
@@ -10704,10 +10743,20 @@
             updates["stats.highest_score_normal"] = myScore;
           }
         }
-        if (myScore > (cStats.highest_score || 0)) updates["stats.highest_score"] = myScore;
+        if (myScore > (cStats.highest_score || 0)) {
+          updates["stats.highest_score"] = myScore;
+          // New all-time best → save its replay for the Overall leaderboard.
+          if (_bestGameSnap) updates["stats.best_game"] = _bestGameSnap;
+        }
         if (playerCount >= 2 && playerCount <= 10) {
           const pKey = `highest_score_${playerCount}p`;
-          if (myScore > (cStats[pKey] || 0)) updates[`stats.${pKey}`] = myScore;
+          if (myScore > (cStats[pKey] || 0)) {
+            updates[`stats.${pKey}`] = myScore;
+            // New best for THIS table size → save its replay for the size tab.
+            // Dot-path write updates just this size's slot without clobbering
+            // the other sizes' saved games.
+            if (_bestGameSnap) updates[`stats.best_game_by_size.${playerCount}`] = _bestGameSnap;
+          }
           const sizeField = isComp
             ? `stats.comp_games_by_size.${playerCount}`
             : `stats.normal_games_by_size.${playerCount}`;
@@ -10873,6 +10922,9 @@
         if (!isComp) {
           nextStats.highest_score_normal = Math.max(Number(nextStats.highest_score_normal || 0), myScore);
         }
+        if (myScore > (Number(nextStats.highest_score || 0)) && _bestGameSnap) {
+          nextStats.best_game = _bestGameSnap;  // new all-time best → save its replay
+        }
         nextStats.highest_score = Math.max(Number(nextStats.highest_score || 0), myScore);
 
         // Balanced (player-count-fair) average, computed BEFORE the per-size
@@ -10886,6 +10938,12 @@
 
         if (playerCount >= 2 && playerCount <= 10) {
           const pKey = `highest_score_${playerCount}p`;
+          if (myScore > (Number(nextStats[pKey] || 0)) && _bestGameSnap) {
+            // New best for THIS table size → save its replay for the size tab.
+            const bgMap = { ...(nextStats.best_game_by_size && typeof nextStats.best_game_by_size === "object" ? nextStats.best_game_by_size : {}) };
+            bgMap[String(playerCount)] = _bestGameSnap;
+            nextStats.best_game_by_size = bgMap;
+          }
           nextStats[pKey] = Math.max(Number(nextStats[pKey] || 0), myScore);
           const mapKey = isComp ? "comp_games_by_size" : "normal_games_by_size";
           const sizeMap = { ...(nextStats[mapKey] && typeof nextStats[mapKey] === "object" ? nextStats[mapKey] : {}) };
@@ -13644,12 +13702,16 @@
     const params = new URLSearchParams(location.search);
     const urlSeat = params.get("seat_token");
     const urlHost = params.get("host_token");
+    const wantSpectate = params.get("spectate") === "1";
     roomId = urlRoom;
     if (urlSeat) setSeatToken(urlSeat);
     if (urlHost) setHostToken(urlHost);
     if (getSeatToken() || getHostToken()) {
       // already have a token, go straight in
       enterRoom(urlRoom);
+    } else if (wantSpectate) {
+      // ?spectate=1 (e.g. a tournament viewer watching a match) → read-only view.
+      joinAsSpectator(urlRoom);
     } else {
       // Check localStorage for a fresh rejoin token (saved within the last 5 minutes)
       const rejoinToken = loadRejoinToken(urlRoom);
@@ -17096,6 +17158,27 @@
     let _phLbMode     = "xp";    // XP leaderboard is shown first
     let _phLbSize     = "all";
     let _phLbCompTab  = "cp";
+    // uid → saved best-game snapshot for the currently-rendered Casual board.
+    // Repopulated on every Casual render; the delegated score-click reads it to
+    // open that player's high-scoring game in the game-detail modal.
+    let _phLbBestGames = {};
+    // Pick the saved game behind a leaderboard row's score: the Overall tab shows
+    // the player's all-time best game; a size tab shows their best game AT that
+    // table size. Returns null when nothing worth opening was saved.
+    function _phLbBestGameFor(d, size) {
+      const st = (d && d.stats) || {};
+      let bg = null;
+      if (size === "all") {
+        bg = st.best_game || null;
+      } else {
+        const m = st.best_game_by_size;
+        if (m && typeof m === "object") bg = m[String(size)] || null;
+      }
+      if (!bg || typeof bg !== "object") return null;
+      const hasBoards = Array.isArray(bg.bds) && bg.bds.length > 0;
+      const hasScores = Array.isArray(bg.all) && bg.all.length > 0;
+      return (hasBoards || hasScores) ? bg : null;
+    }
     // Cache of friend UIDs so add-friend cells render instantly (refreshed each open).
     let _lbFriendUids = new Set();
 
@@ -17415,6 +17498,7 @@
     async function _phLbRenderCasual() {
       const tbody = $a("ph-lb-casual-tbody");
       if (!tbody) return;
+      _phLbBestGames = {};   // reset the row→saved-game lookup for this render
       tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
       try {
         // Overall tab: fetch a broad set (proxy: total_score) and rank by the
@@ -17466,10 +17550,20 @@
           const meC = r.isMe ? " ph-lb-me" : "";
           const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
           const sc  = r.shown===1 ? ' ph-lb-score-cell lb-top' : '';
+          // If this player has a saved game behind this score, remember it and
+          // make the score cell a "replay" button that opens the game-detail
+          // modal so anyone can see how they built that high score.
+          const bg  = _phLbBestGameFor(r.d, _phLbSize);
+          let viewCls = "", viewHint = "";
+          if (bg) {
+            _phLbBestGames[r.doc.id] = bg;
+            viewCls  = " ph-lb-score-view";
+            viewHint = `<span class="ph-lb-score-replay" aria-hidden="true">▸ replay</span>`;
+          }
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
             <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
-            <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} ${scoreUnit}</td>
+            <td class="ph-lb-score-cell${sc}${viewCls}"${bg ? ' title="See how this score was built"' : ''}>${r.score.toLocaleString()} ${scoreUnit}${viewHint}</td>
             <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
           ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
@@ -17671,6 +17765,16 @@
         const tb = $a(id);
         if (!tb) return;
         tb.addEventListener("click", async e => {
+          // Replay a high score: clicking a score cell that has a saved game
+          // opens that game in the detail modal (how the score was built).
+          const scoreCell = e.target.closest(".ph-lb-score-view");
+          if (scoreCell) {
+            e.stopPropagation();
+            const row = scoreCell.closest("tr[data-uid]");
+            const g = row && _phLbBestGames[row.dataset.uid];
+            if (g && typeof openGameDetailModal === "function") openGameDetailModal(g, g.me);
+            return;
+          }
           // Add-friend button
           const addBtn = e.target.closest(".ph-lb-add-btn[data-add-uid]");
           if (addBtn) {
@@ -23767,7 +23871,7 @@
       }).join("");
     }
 
-    function openGameDetailModal(g) {
+    function openGameDetailModal(g, focusName) {
       const modal = document.getElementById("ph-game-detail-modal");
       if (!modal) return;
       const date = g.t ? new Date(g.t).toLocaleDateString("en-US", {month:"long", day:"numeric", year:"numeric"}) : "";
@@ -23812,10 +23916,14 @@
         playersEl.appendChild(chip);
       });
 
-      // Default selection: the viewer's own board if present, else the winner.
+      // Default selection: an explicit focus (e.g. the leaderboard record-holder
+      // whose score was clicked) wins; otherwise the viewer's own board if
+      // present, else the winner.
+      const focusLc = String(focusName || "").toLowerCase();
+      const focused = focusLc ? players.find(p => p.n && p.n.toLowerCase() === focusLc) : null;
       const myNm = String(_playerNickname || "").toLowerCase();
       const mine = players.find(p => p.n && p.n.toLowerCase() === myNm);
-      const defaultName = (mine && mine.n) || winnerName || (players[0] && players[0].n) || "";
+      const defaultName = (focused && focused.n) || (mine && mine.n) || winnerName || (players[0] && players[0].n) || "";
       if (defaultName) {
         _gdmRenderBoardView(g, players, defaultName);
       } else {

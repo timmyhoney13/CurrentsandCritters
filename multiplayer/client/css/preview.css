@@ -6170,6 +6170,12 @@
     .ph-lb-you-tag { font-size: 9px; font-weight: 900; color: #b07000; background: #fff4cc; border: 1px solid #e8c840; border-radius: 999px; padding: 1px 5px; margin-left: 4px; white-space: nowrap; }
     .ph-lb-score-cell { font-family: "Nunito",sans-serif; font-size: 14px; font-weight: 900; color: #1a5aca; white-space: nowrap; }
     .ph-lb-score-cell.lb-top { color: #b07000; }
+    /* A score with a saved game behind it is clickable → opens the replay. */
+    .ph-lb-score-cell.ph-lb-score-view { cursor: pointer; }
+    .ph-lb-score-cell.ph-lb-score-view:hover { text-decoration: underline; }
+    .ph-lb-score-replay { display: inline-block; margin-left: 5px; font-size: 9px; font-weight: 900; letter-spacing: .02em; color: #1a7fd6; background: #e8f2ff; border: 1px solid #bcdcff; border-radius: 999px; padding: 1px 5px; vertical-align: middle; }
+    .ph-lb-score-cell.lb-top .ph-lb-score-replay { color: #b07000; background: #fff4cc; border-color: #e8c840; }
+    .ph-lb-score-cell.ph-lb-score-view:hover .ph-lb-score-replay { filter: brightness(0.96); }
     .ph-lb-meta-cell { color: #5a7ea8; font-size: 12px; white-space: nowrap; }
     .ph-lb-pill {
       display: inline-block; background: rgba(44,128,240,.10); border: 1px solid rgba(44,128,240,.2);
