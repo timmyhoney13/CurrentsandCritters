@@ -13,7 +13,7 @@ from tournament_server import (
     S_READY, S_NOT_READY, S_WAITING, S_ELIMINATED, S_CHAMPION, S_PLAYING, S_DISCONNECTED,
     _now,
 )
-from tournament_engine import M_READY, M_COMPLETE, M_BYE
+from tournament_engine import M_READY, M_ACTIVE, M_COMPLETE, M_BYE
 
 
 def make(cap, ppm, n, *, third_place=False, guest=True):
@@ -662,6 +662,105 @@ class TestCustomHttpDispatch(unittest.TestCase):
         self.assertTrue(h2.last["ok"], h2.last)
         self.assertEqual(t._by_pid(a).join_order, ob)
         self.assertEqual(t._by_pid(b).join_order, oa)
+
+
+class TestReadyCheck(unittest.TestCase):
+    """Per-match READY CHECK: a match's game only launches once every assigned
+    human has readied up (bots auto-ready; a disconnected human doesn't block)."""
+
+    def setUp(self):
+        self._old_create = ts._create_match_room
+        self._old_start = ts._start_match_room
+        self.started = []
+        def fake_create(**kw):
+            rid = f"R{kw['match_number']}"
+            seat_tokens = {p["pid"]: f"seat-{p['pid']}"
+                           for p in kw["players"] if not p.get("is_bot")}
+            return {"room_id": rid, "seat_tokens": seat_tokens}
+        def fake_start(room_id):
+            self.started.append(room_id)
+            return True
+        ts._create_match_room = fake_create
+        ts._start_match_room = fake_start
+
+    def tearDown(self):
+        ts._create_match_room = self._old_create
+        ts._start_match_room = self._old_start
+
+    def test_no_auto_start_before_ready(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        self.assertTrue(t.start()["ok"])
+        for m in t.bracket.rounds[0]:
+            self.assertEqual(m.status, M_READY, "match spawns into the ready check")
+            self.assertTrue(m.room_id, "match room is created at spawn")
+        self.assertEqual(self.started, [], "no match launches until players ready up")
+
+    def test_match_launches_only_when_all_ready(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a, b = [p for p in m0.player_ids if p]
+        t.match_ready(a, True)
+        self.assertEqual(m0.status, M_READY, "one player ready is not enough")
+        self.assertNotIn(m0.room_id, self.started)
+        t.match_ready(b, True)
+        self.assertEqual(m0.status, M_ACTIVE, "both ready -> the game launches")
+        self.assertIn(m0.room_id, self.started)
+
+    def test_unready_toggles_back(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a, b = [p for p in m0.player_ids if p]
+        t.match_ready(a, True)
+        r = t.match_ready(a, False)
+        self.assertTrue(r["ok"])
+        t.match_ready(b, True)
+        self.assertEqual(m0.status, M_READY, "a player who un-readied still blocks the start")
+        self.assertEqual(self.started, [])
+
+    def test_ready_roster_exposed_in_state(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a = next(p for p in m0.player_ids if p)
+        mm = t.state_view(viewer_pid=a)["viewer"]["my_match"]
+        self.assertIsNotNone(mm)
+        self.assertEqual(mm["status"], M_READY)
+        self.assertEqual(mm["total_count"], 2)
+        self.assertFalse(mm["i_am_ready"])
+        self.assertTrue(mm["seat_token"], "seat token delivered so the client can enter")
+        t.match_ready(a, True)
+        mm2 = t.state_view(viewer_pid=a)["viewer"]["my_match"]
+        self.assertTrue(mm2["i_am_ready"])
+        self.assertEqual(mm2["ready_count"], 1)
+
+    def test_disconnected_human_does_not_block_launch(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a, b = [p for p in m0.player_ids if p]
+        t.match_ready(a, True)
+        self.assertEqual(m0.status, M_READY)
+        t._by_pid(b).last_seen = _now() - 9999          # b drops offline
+        t.state_view(viewer_pid=a)                       # reaper marks b disconnected
+        t.match_ready(a, True)                           # re-evaluate the gate
+        self.assertEqual(m0.status, M_ACTIVE, "a disconnected opponent must not stall the match")
+
+    def test_solo_human_with_bots_launches_on_ready(self):
+        mgr = TournamentManager()
+        cfg = TournamentConfig(4, 2, name="Solo Cup")
+        t = mgr.create(cfg, "acct:host", "Host", fill_bots=True)
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        self.assertTrue(t.start()["ok"])
+        human_match = next(m for m in t.bracket.rounds[0]
+                           if "acct:host" in [x for x in m.player_ids if x])
+        self.assertEqual(human_match.status, M_READY)
+        self.assertTrue(human_match.room_id)
+        self.assertNotIn(human_match.room_id, self.started)
+        t.match_ready("acct:host", True)
+        self.assertEqual(human_match.status, M_ACTIVE, "human ready + bots auto-ready -> launch")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,9 @@
     lastPendingSwitchFrom: null,
     dragFrom: null,
     hostSwapSel: null,                    // host tap-to-swap: first-selected pid
+    readyLobbyMatch: null,                // match_number whose ready-check modal is open
+    readyLobbyDismissed: {},              // match_number -> true (player closed the ready check)
+    panHandlers: null,                    // window pan listeners, so they can be torn down
   };
 
   // ── auth helpers ─────────────────────────────────────────────────────────
@@ -251,6 +254,21 @@
 
     .ccT-anncbar{ background:linear-gradient(90deg,rgba(243,167,18,.2),rgba(255,255,255,.15)); border-left:3px solid var(--ccT-gold);
       padding:8px 14px; margin:8px 16px; border-radius:10px; font-size:.9rem; color:#12508f; font-weight:600; }
+
+    /* per-match READY CHECK lobby */
+    .ccT-mr-count{ font-size:.95rem; font-weight:800; color:var(--ccT-tealtxt); margin:2px 0 10px; }
+    .ccT-mr-list{ display:flex; flex-direction:column; gap:7px; margin:0 0 12px; text-align:left; }
+    .ccT-mr-row{ display:flex; align-items:center; gap:10px; padding:8px 11px; border-radius:14px;
+      background:rgba(255,255,255,.72); border:1.5px solid rgba(140,200,240,.5); }
+    .ccT-mr-row.me{ border-color:var(--ccT-gold); box-shadow:0 0 0 2px rgba(243,167,18,.16); }
+    .ccT-mr-row.ready{ background:linear-gradient(90deg,rgba(10,157,99,.14),rgba(255,255,255,.5)); }
+    .ccT-mr-row .ccT-av{ width:30px; height:30px; }
+    .ccT-mr-nm{ flex:1; font-weight:700; color:var(--ccT-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ccT-mr-badge{ font-size:.72rem; font-weight:800; padding:3px 9px; border-radius:20px; letter-spacing:.2px; }
+    .ccT-mr-badge.on{ background:rgba(10,157,99,.16); color:var(--ccT-ok); }
+    .ccT-mr-badge.off{ background:rgba(200,114,10,.15); color:var(--ccT-warn); }
+    .ccT-mr-badge.gone{ background:rgba(120,150,190,.16); color:#5a7bb0; }
+    .ccT-mr-go{ margin-top:10px; font-weight:800; color:var(--ccT-tealtxt); letter-spacing:.5px; }
     @media (prefers-reduced-motion: reduce){ .ccT-fmt,.ccT-flyer,.ccT-btn{ transition:none!important; } }
     `;
     document.head.appendChild(s);
@@ -578,6 +596,11 @@
   function closeScreen() {
     const scr = $("#ccT-screen"); if (scr) scr.classList.remove("open");
     T.screenOpen = false; stopSync();
+    if (T.panHandlers) {
+      window.removeEventListener("mousemove", T.panHandlers.move);
+      window.removeEventListener("mouseup", T.panHandlers.up);
+      T.panHandlers = null;
+    }
   }
   function setView(v) {
     T.view = v;
@@ -945,7 +968,10 @@
     const card = el("div", "ccT-match " + (m.status === "active" || m.status === "ready" ? "active " : "") + (m.status === "complete" ? "complete " : "") + (mine ? "mine " : ""));
     card.dataset.mnum = m.match_number;
     card.id = "ccT-m-" + m.match_number;
-    const statusTxt = { pending: "", ready: "ready", active: "live", complete: "done", bye: "bye" }[m.status] || "";
+    let statusTxt = { pending: "", ready: "ready", active: "live", complete: "done", bye: "bye" }[m.status] || "";
+    // Your own playable match reads as a call to action, not a passive label.
+    if (mine && m.status === "ready") statusTxt = "start ▶";
+    else if (mine && m.status === "active") statusTxt = "enter ▶";
     let slots = "";
     (m.players || []).forEach((p, si) => {
       const isWin = m.winner && p && p.pid === m.winner.pid;
@@ -966,15 +992,23 @@
         if (p && p.pid) wireHostSwapTarget(slotEl, p.pid, p.name);
       });
     }
-    // §10 View Match: click a live match to enter (if it's yours) or spectate it.
-    if (m.room_id && (m.status === "active" || m.status === "ready")) {
+    // Your match: click to open its ready check (M_READY) or jump in (M_ACTIVE).
+    // Others' live matches: click to spectate.
+    if (mine && (m.status === "ready" || m.status === "active")) {
       card.style.cursor = "pointer";
-      card.title = mine ? "Enter your match" : "Watch this match";
+      card.title = m.status === "active" ? "Enter your match" : "Ready up to start your match";
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (mine && st.viewer && st.viewer.my_match) enterMatch(st.viewer.my_match);
-        else if (!mine && st.spectators_allowed !== false) spectateMatch(m.room_id);
+        const mm = st.viewer && st.viewer.my_match;
+        if (!mm) return;
+        T.readyLobbyDismissed[mm.match_number] = false;
+        if (mm.status === "active" && mm.room_id) enterMatch(mm);
+        else openReadyLobby(mm);
       });
+    } else if (!mine && m.status === "active" && m.room_id && st.spectators_allowed !== false) {
+      card.style.cursor = "pointer";
+      card.title = "Watch this match";
+      card.addEventListener("click", (e) => { e.stopPropagation(); spectateMatch(m.room_id); });
     }
     return card;
   }
@@ -1013,9 +1047,19 @@
     const wrap = $("#ccT-bwrap", root), grid = $("#ccT-bgrid", root);
     const apply = () => { grid.style.transform = `translate(${T.panX}px,${T.panY}px) scale(${T.zoom})`; const svg = $("#ccT-lines", root); if (svg) svg.style.transform = grid.style.transform; };
     let dragging = false, sx = 0, sy = 0, px = 0, py = 0;
+    // The bracket is re-rendered on every SSE tick, which recreates `wrap`. Its own
+    // listeners die with the old node, but window listeners would pile up — tear the
+    // previous pair down before wiring a fresh one so they can't accumulate.
+    if (T.panHandlers) {
+      window.removeEventListener("mousemove", T.panHandlers.move);
+      window.removeEventListener("mouseup", T.panHandlers.up);
+    }
+    const onMove = (e) => { if (!dragging) return; T.panX = px + (e.clientX - sx); T.panY = py + (e.clientY - sy); apply(); };
+    const onUp = () => { dragging = false; wrap.classList.remove("grabbing"); };
+    T.panHandlers = { move: onMove, up: onUp };
     wrap.addEventListener("mousedown", (e) => { dragging = true; wrap.classList.add("grabbing"); sx = e.clientX; sy = e.clientY; px = T.panX; py = T.panY; });
-    window.addEventListener("mousemove", (e) => { if (!dragging) return; T.panX = px + (e.clientX - sx); T.panY = py + (e.clientY - sy); apply(); });
-    window.addEventListener("mouseup", () => { dragging = false; wrap.classList.remove("grabbing"); });
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
     wrap.addEventListener("wheel", (e) => { e.preventDefault(); T.zoom = clamp(T.zoom * (e.deltaY < 0 ? 1.1 : 0.9), 0.3, 2.2); apply(); }, { passive: false });
     // touch pinch + pan
     let pinchDist = 0, touchStart = null;
@@ -1103,26 +1147,77 @@
     }
   }
 
-  // ── match entry + end screens ──────────────────────────────────────────────
+  // ── match ready check + entry + end screens ────────────────────────────────
   let _lastMatchRoom = null, _lastEndShownFor = null;
   function maybeMatchPrompt(st) {
     const mm = st.viewer && st.viewer.my_match;
-    if (mm && mm.room_id && (mm.status === "active" || mm.status === "ready") && mm.room_id !== _lastMatchRoom) {
-      _lastMatchRoom = mm.room_id;
-      showMatchReady(mm);
+    if (!mm) { _lastMatchRoom = null; closeReadyLobby(); return; }
+    if (mm.status === "ready") {
+      // A match is waiting on its ready check. Auto-open it the first time; after
+      // that keep it live-updated (unless the player closed it to view the bracket).
+      if (T.readyLobbyMatch === mm.match_number) renderReadyLobby(mm);
+      else if (!T.readyLobbyDismissed[mm.match_number]) openReadyLobby(mm);
+    } else if (mm.status === "active" && mm.room_id) {
+      // Everyone readied → the game launched → all players jump in together (once).
+      if (mm.room_id !== _lastMatchRoom) {
+        _lastMatchRoom = mm.room_id;
+        closeReadyLobby();
+        enterMatch(mm);
+      }
     }
-    if (!mm) _lastMatchRoom = null;
   }
-  function showMatchReady(mm) {
-    let m = $("#ccT-matchready"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-matchready"; document.body.appendChild(m); }
-    m.innerHTML = `<div class="ccT-card" style="width:min(420px,94vw)"><div class="ccT-body" style="text-align:center">
-      <div style="font-size:2.4rem">🌊</div><h2>Your match is ready!</h2>
-      <p>Match ${mm.match_number} · Round ${mm.round_index + 1}. Only your assigned opponents are in this game.</p>
-      <button class="ccT-btn wide gold" id="ccT-enter">▶ Enter Your Match</button>
-      <button class="ccT-btn wide ghost" id="ccT-enter-later">View bracket instead</button></div></div>`;
-    m.classList.add("open");
-    $("#ccT-enter", m).addEventListener("click", () => { m.classList.remove("open"); enterMatch(mm); });
-    $("#ccT-enter-later", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
+
+  function readyLobbyEl() {
+    let m = $("#ccT-matchready");
+    if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-matchready"; document.body.appendChild(m); }
+    return m;
+  }
+  function openReadyLobby(mm) {
+    T.readyLobbyMatch = mm.match_number;
+    renderReadyLobby(mm);
+    readyLobbyEl().classList.add("open");
+  }
+  function closeReadyLobby() {
+    const m = $("#ccT-matchready"); if (m) m.classList.remove("open");
+    T.readyLobbyMatch = null;
+  }
+  function renderReadyLobby(mm) {
+    const m = readyLobbyEl();
+    const roster = mm.ready_roster || [];
+    const iAmReady = !!mm.i_am_ready;
+    const rc = mm.ready_count != null ? mm.ready_count : roster.filter(p => p.ready).length;
+    const tc = mm.total_count != null ? mm.total_count : roster.length;
+    const rows = roster.map(p => `
+      <div class="ccT-mr-row ${p.ready ? "ready" : ""} ${p.me ? "me" : ""}">
+        <img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
+        <span class="ccT-mr-nm">${esc(p.name)}${p.me ? " (you)" : ""}${p.is_bot ? " 🤖" : ""}</span>
+        <span class="ccT-mr-badge ${p.ready ? "on" : (p.connected ? "off" : "gone")}">${p.ready ? "✓ Ready" : (p.connected ? "Waiting…" : "Offline")}</span>
+      </div>`).join("");
+    const allReady = tc > 0 && rc >= tc;
+    m.innerHTML = `<div class="ccT-card" style="width:min(440px,94vw)"><div class="ccT-body" style="text-align:center">
+      <div style="font-size:2.2rem">🌊</div>
+      <h2>Match ${mm.match_number} — Ready Check</h2>
+      <p style="margin:2px 0 8px">Round ${mm.round_index + 1}. The game starts the instant <b>every player</b> is ready.</p>
+      <div class="ccT-mr-count"><b>${rc}</b> / ${tc} ready</div>
+      <div class="ccT-mr-list">${rows}</div>
+      ${allReady
+        ? `<div class="ccT-mr-go">🌊 Everyone's ready — starting your match…</div>`
+        : `<button class="ccT-btn wide ${iAmReady ? "ghost" : "gold"}" id="ccT-mr-ready">${iAmReady ? "✓ You're Ready — tap to cancel" : "I'm Ready — Start Match"}</button>`}
+      <button class="ccT-btn wide ghost" id="ccT-mr-later">View bracket</button>
+    </div></div>`;
+    const rb = $("#ccT-mr-ready", m);
+    if (rb) rb.addEventListener("click", () => onMatchReadyToggle(!iAmReady));
+    $("#ccT-mr-later", m).addEventListener("click", () => {
+      m.classList.remove("open");
+      T.readyLobbyDismissed[mm.match_number] = true;
+      T.readyLobbyMatch = null;
+      setView("bracket");
+    });
+  }
+  async function onMatchReadyToggle(want) {
+    const r = await post("/api/tournament/match_ready", { id: T.tid, ready: !!want });
+    if (!(r.data && r.data.ok)) toast((r.data && r.data.error) || "Could not update ready", "err");
+    // The SSE state refresh re-renders the lobby (and launches once all are ready).
   }
   function enterMatch(mm) {
     // The match runs as a normal private GameRoom. Each player has a pre-claimed
@@ -1247,6 +1342,22 @@
   }
   function hideReturnPill() { const p = $("#ccT-return-pill"); if (p) p.remove(); }
 
+  // Are we currently sitting inside a game room page (e.g. /play/ROOM)? A
+  // tournament match runs as a normal game room, so while the player is IN their
+  // match we must NOT slap the full-screen bracket overlay on top of the game
+  // (that was the "click your match → can't join" bug — the overlay covered the
+  // game and every click just re-opened the bracket). We show the return pill
+  // instead so the game stays visible and the player can hop back when ready.
+  function onGameRoomPage() {
+    try {
+      const parts = location.pathname.split("/").filter(Boolean);
+      if (parts[0] === "play" && parts[1]) return true;             // /play/ROOM
+      const qp = new URLSearchParams(location.search);
+      if (qp.get("room") || qp.get("roomId")) return true;          // ?room=ROOM
+    } catch (_) {}
+    return false;
+  }
+
   async function resumeActiveIfAny() {
     let a; try { a = JSON.parse(localStorage.getItem("cc_active_tournament") || "null"); } catch (_) {}
     if (!a || !a.tid) return;
@@ -1257,10 +1368,18 @@
         clearActive(); return;
       }
       T.tid = a.tid; T.hostToken = a.hostToken || ""; T.pid = a.pid || null;
-      // Just came back from playing a match (/play/ROOM?t=<tid>)? Re-open the bracket.
       const qp = new URLSearchParams(location.search);
-      if (qp.get("t") === a.tid && !T.screenOpen) { openScreen(); }
-      else { showReturnPill(st.name); }
+      const forThisTourney = qp.get("t") === a.tid;
+      // While inside the match room itself, never cover the game with the overlay —
+      // just offer the return pill so the player can come back afterwards.
+      if (onGameRoomPage()) {
+        showReturnPill(st.name);
+      } else if (forThisTourney && !T.screenOpen) {
+        // Came back to the app shell from a match (e.g. left the room) → re-open.
+        openScreen();
+      } else {
+        showReturnPill(st.name);
+      }
     } catch (_) { /* leave the blob; try again next load */ }
   }
 

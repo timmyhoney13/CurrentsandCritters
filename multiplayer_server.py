@@ -8136,7 +8136,7 @@ ROOMS = RoomManager()
 #   • _notify_tournament_if_match:   when any room ends, if it was a tournament
 #     match, report the standings back so the bracket advances.
 def _tournament_create_match_room(*, tournament_id, round_index, match_index,
-                                  match_number, players):
+                                  match_number, players, spectators_allowed=True):
     """Spawn a PRIVATE GameRoom for one tournament bracket match. Every seat is
     pre-claimed for its assigned participant with a server-controlled seat token
     (so there are NO open seats — outsiders can't join, no ghost host seat, and
@@ -8181,6 +8181,9 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
             uniq = _uniq(safe_name(p["name"], "Bot"))
             seat.claimed_name = uniq         # AI seat plays under the bot's name
             tournament_pids[uniq] = p["pid"]
+        # Private match rooms default to no spectators; re-enable when the
+        # tournament allows watching so viewers can open a live match (§10).
+        room.allow_spectators = bool(spectators_allowed)
         room.tournament_id = tournament_id
         room.tournament_match = (tournament_id, int(round_index), int(match_index),
                                  int(match_number))

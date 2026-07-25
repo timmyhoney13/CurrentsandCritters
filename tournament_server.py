@@ -65,10 +65,11 @@ TOURNAMENTS_ENABLED = str(os.environ.get("FISH_TOURNAMENTS", "1")).strip().lower
 # test harness can drive bracket advancement. NEVER set in production — real
 # results must only arrive via the trusted on_room_ended game-end hook.
 TEST_HOOKS_ENABLED = str(os.environ.get("FISH_TOURNAMENT_TEST_HOOKS", "")).strip().lower() in ("1", "true", "yes")
-# Grace window after a match room spawns: it auto-starts once all assigned players
-# have entered, or after this many seconds regardless (so one slow/absent player
-# can't stall the whole match — the game's own AFK/reconnect rules then apply).
-MATCH_START_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_MATCH_GRACE", "15"))
+# Match launch is gated by a per-match READY CHECK: once a match's slots are all
+# filled, every assigned human must ready up (bots are auto-ready) before its game
+# starts. There is no timed auto-start — a match waits on its players. A human who
+# DISCONNECTS during the ready check no longer blocks the launch (so a dropped
+# player can't stall the bracket); the host can also forfeit a stuck player.
 # A participant whose client hasn't polled state within this window is marked
 # disconnected (survives on the server; reconnect restores them). Chosen well
 # above the 5s SSE heartbeat so a brief blip doesn't flap.
@@ -227,6 +228,9 @@ class Tournament:
         self.match_rooms: Dict[str, Tuple[int, int]] = {}
         self.match_seat_tokens: Dict[int, Dict[str, str]] = {}   # match_number -> {pid: seat_token}
         self.match_entered_pids: Dict[int, set] = {}                  # match_number -> set(pids present)
+        # Per-match READY CHECK: every human assigned to a match must ready up before
+        # its game launches (bots are always auto-ready). match_number -> set(pids ready).
+        self.match_ready_pids: Dict[int, set] = {}
         self.match_timers: Dict[int, Any] = {}                   # match_number -> threading.Timer
         self.host_pid_order: List[str] = []                      # join order for host reassignment
         self._xp_grants: Dict[str, Dict[str, Any]] = {}   # pid -> computed breakdown
@@ -708,6 +712,7 @@ class Tournament:
                 match_number=m.match_number,
                 players=[{"pid": p.pid, "name": p.name, "token": p.token,
                           "is_guest": p.is_guest, "is_bot": p.is_bot} for p in parts],
+                spectators_allowed=self.spectators_allowed,
             )
         except Exception as exc:  # noqa: BLE001
             traceback.print_exc()
@@ -717,31 +722,80 @@ class Tournament:
             return
         room_id = res.get("room_id") if isinstance(res, dict) else res
         seat_tokens = res.get("seat_tokens", {}) if isinstance(res, dict) else {}
+        launch_now = False
         with self.cond:
             m.room_id = room_id
             if room_id:
                 self.match_rooms[room_id] = (m.round_index, m.match_index)
             self.match_seat_tokens[m.match_number] = dict(seat_tokens or {})
             entered = self.match_entered_pids.setdefault(m.match_number, set())
-            # Bots have no client to "enter", so pre-mark them present — the match
-            # then auto-starts as soon as the human(s) enter, no grace-timeout wait.
+            ready = self.match_ready_pids.setdefault(m.match_number, set())
+            # Bots have no client to "enter" or "ready up", so pre-mark them present
+            # AND ready — the match then launches the instant every human is ready.
             entered.update(p.pid for p in parts if p.is_bot)
-            # stays M_READY (players are entering) until the game actually launches
+            ready.update(p.pid for p in parts if p.is_bot)
+            # Stays M_READY (waiting on the human ready-check) until everyone readies.
             self._bump_locked()
-        # Auto-start once everyone enters, or after the grace window.
-        self._schedule_match_start(m.round_index, m.match_index, m.match_number)
+            # If every human was already ready (e.g. seats readied during the brief
+            # window before the room existed), launch straight away.
+            launch_now = self._match_all_ready_locked(m)
+        if launch_now:
+            self._launch_match(m.round_index, m.match_index)
 
-    def _schedule_match_start(self, r: int, mi: int, match_number: int) -> None:
-        if _start_match_room is None:
-            return
-        tmr = threading.Timer(MATCH_START_GRACE_SEC, self._launch_match, args=(r, mi))
-        tmr.daemon = True
+    def _match_all_ready_locked(self, m) -> bool:
+        """MUST hold self.cond. True when the match can launch: it has a room, and
+        every CONNECTED human assigned to it has readied up (bots are auto-ready;
+        a disconnected human doesn't block so a dropped player can't stall the
+        bracket). At least one human must be ready so an all-absent match never
+        launches into an empty game."""
+        if m.status != M_READY or not m.room_id:
+            return False
+        assigned = [self._by_pid(pid) for pid in m.player_ids if pid]
+        assigned = [p for p in assigned if p is not None]
+        if not assigned:
+            return False
+        ready = self.match_ready_pids.get(m.match_number, set())
+        humans = [p for p in assigned if not p.is_bot]
+        for p in humans:
+            if p.connected and p.pid not in ready:
+                return False
+        return any(p.pid in ready for p in humans)
+
+    def match_ready(self, pid: str, ready: bool = True) -> Dict[str, Any]:
+        """A player marks themselves ready (or not) for their current M_READY match.
+        The match's game launches the moment every assigned human is ready."""
+        if not self.bracket:
+            return {"ok": False, "error": "tournament not started"}
+        launch = None
         with self.cond:
-            old = self.match_timers.pop(match_number, None)
-            if old:
-                old.cancel()
-            self.match_timers[match_number] = tmr
-        tmr.start()
+            me = self._by_pid(pid)
+            if me is None:
+                return {"ok": False, "error": "not in tournament"}
+            target = None
+            for row in self.bracket.rounds:
+                for m in row:
+                    if m.status == M_READY and pid in [x for x in m.player_ids if x]:
+                        target = m
+                        break
+                if target:
+                    break
+            tp = self.bracket.third_place
+            if target is None and tp is not None and tp.status == M_READY \
+                    and pid in [x for x in tp.player_ids if x]:
+                target = tp
+            if target is None:
+                return {"ok": False, "error": "no match is waiting for you to ready up"}
+            s = self.match_ready_pids.setdefault(target.match_number, set())
+            if ready:
+                s.add(pid)
+            else:
+                s.discard(pid)
+            self._bump_locked()
+            if self._match_all_ready_locked(target):
+                launch = (target.round_index, target.match_index)
+        if launch is not None:
+            self._launch_match(*launch)
+        return {"ok": True, "ready": bool(ready)}
 
     def _launch_match(self, r: int, mi: int) -> None:
         with self.cond:
@@ -762,28 +816,35 @@ class Tournament:
                 self._bump_locked()
 
     def match_entered(self, pid: str) -> Dict[str, Any]:
-        """A player opened their assigned match room. Once all assigned players
-        have entered, launch the game immediately (before the grace timeout)."""
+        """A player opened their assigned match room. Entering counts as readying up
+        (so a player who deep-links straight into their room still satisfies the
+        ready check), but the game only launches once EVERY assigned human is ready —
+        entering never bypasses another player's ready-up."""
         if not self.bracket:
             return {"ok": False, "error": "not started"}
-        target = None
+        launch = None
         with self.cond:
+            target = None
             for row in self.bracket.rounds:
                 for m in row:
-                    if m.status == M_READY and m.room_id and pid in [x for x in m.player_ids if x]:
+                    if m.status == M_READY and pid in [x for x in m.player_ids if x]:
                         target = m
                         break
                 if target:
                     break
+            tp = self.bracket.third_place
+            if target is None and tp is not None and tp.status == M_READY \
+                    and pid in [x for x in tp.player_ids if x]:
+                target = tp
             if target is None:
                 return {"ok": True}
-            s = self.match_entered_pids.setdefault(target.match_number, set())
-            s.add(pid)
-            assigned = {x for x in target.player_ids if x}
-            all_in = assigned.issubset(s)
-            r, mi = target.round_index, target.match_index
-        if all_in:
-            self._launch_match(r, mi)
+            self.match_entered_pids.setdefault(target.match_number, set()).add(pid)
+            self.match_ready_pids.setdefault(target.match_number, set()).add(pid)
+            self._bump_locked()
+            if self._match_all_ready_locked(target):
+                launch = (target.round_index, target.match_index)
+        if launch is not None:
+            self._launch_match(*launch)
         return {"ok": True}
 
     def _cancel_match_timer(self, match_number: int) -> None:
@@ -1078,15 +1139,43 @@ class Tournament:
     def _my_active_match(self, me: Participant) -> Optional[Dict[str, Any]]:
         if not self.bracket:
             return None
-        for row in self.bracket.rounds:
-            for m in row:
-                if m.status in (M_READY, M_ACTIVE) and me.pid in [x for x in m.player_ids if x]:
-                    seat_token = (self.match_seat_tokens.get(m.match_number) or {}).get(me.pid)
-                    return {"round_index": m.round_index, "match_index": m.match_index,
-                            "match_number": m.match_number, "room_id": m.room_id,
-                            "status": m.status, "seat_token": seat_token,
-                            "opponents": [x for x in m.player_ids if x and x != me.pid]}
+        candidates = list(self.bracket.all_matches(include_third=True))
+        for m in candidates:
+            if m.status in (M_READY, M_ACTIVE) and me.pid in [x for x in m.player_ids if x]:
+                return self._match_ready_payload(m, me)
         return None
+
+    def _match_ready_payload(self, m, me: Participant) -> Dict[str, Any]:
+        """The viewer-facing snapshot of a match awaiting/running for ``me`` —
+        includes the live ready-check roster so the client can render who still
+        needs to ready up before the game launches."""
+        seat_token = (self.match_seat_tokens.get(m.match_number) or {}).get(me.pid)
+        ready = self.match_ready_pids.get(m.match_number, set())
+        roster: List[Dict[str, Any]] = []
+        for pid in m.player_ids:
+            if not pid:
+                continue
+            p = self._by_pid(pid)
+            is_bot = bool(p and p.is_bot)
+            roster.append({
+                "pid": pid,
+                "name": p.name if p else "?",
+                "avatar": p.avatar if p else "",
+                "is_bot": is_bot,
+                "connected": bool(p and p.connected),
+                "ready": is_bot or (pid in ready),
+                "me": (pid == me.pid),
+            })
+        return {
+            "round_index": m.round_index, "match_index": m.match_index,
+            "match_number": m.match_number, "room_id": m.room_id,
+            "status": m.status, "seat_token": seat_token,
+            "opponents": [x for x in m.player_ids if x and x != me.pid],
+            "i_am_ready": (me.pid in ready),
+            "ready_roster": roster,
+            "ready_count": sum(1 for r in roster if r["ready"]),
+            "total_count": len(roster),
+        }
 
 
 # =============================================================================
@@ -1479,6 +1568,8 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
         handler._send_json(t.leave(pid))
     elif action == "entered":
         handler._send_json(t.match_entered(pid))
+    elif action == "match_ready":
+        handler._send_json(t.match_ready(pid, bool(body.get("ready", True))))
     elif action == "randomize":
         if host_only():
             handler._send_json(t.randomize(rng_seed=body.get("seed")))
