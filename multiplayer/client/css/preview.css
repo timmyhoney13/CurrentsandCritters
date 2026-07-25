@@ -4886,13 +4886,16 @@
       position: fixed; inset: 0; z-index: 2147483000;
       background-color: #0a1d3a;
       background-image: url("/choose-device.png?v=2");
-      /* Stretch the art to fill the page EXACTLY: no letterbox bars and nothing
-         cropped off any edge (the whole title, octagon and COMPUTER / MOBILE
-         labels always show). The art is ~16:9, so on near-16:9 / 16:10 windows
-         the stretch is a couple-percent and imperceptible; it only grows on
-         extreme ratios. `cover` was cropping the bottom on wider-than-16:9
-         windows, which is what we're fixing. */
-      background-size: 100% 100%;
+      /* ALWAYS preserve the artwork's real proportions (it's exactly 16:9) and
+         just scale it to fit the current screen — never stretched or squished.
+         `contain` fits the whole image inside any window and re-fits live as the
+         screen / window size changes, so the full title, octagon and COMPUTER /
+         MOBILE labels always show undistorted at every size. Any leftover strip
+         on off-16:9 screens is filled by the matching deep-ocean background, so
+         there's no ugly letterbox. (`100% 100%` used to stretch it to fill the
+         page, which looked squished on ultrawide / 16:10 / 4:3 screens; `cover`
+         cropped the bottom labels. `contain` avoids both.) */
+      background-size: contain;
       background-position: center;
       background-repeat: no-repeat;
       display: flex;
@@ -4901,14 +4904,6 @@
       -webkit-user-select: none; user-select: none;
     }
     #cc-device-screen.cc-device-hidden { display: none !important; }
-    /* On genuine portrait (taller than wide, e.g. a phone held upright)
-       stretching a wide image to fill would squish it badly, so there we keep
-       the art's aspect ratio and letterbox it against the deep-ocean
-       background instead. Landscape (every computer / sideways phone) uses the
-       100%×100% fill above. */
-    @media (max-aspect-ratio: 1 / 1) {
-      #cc-device-screen { background-size: contain; background-position: center; }
-    }
     /* Two equal, full-height click/tap targets. Transparent by default so
        the painted COMPUTER / MOBILE buttons show through unchanged. */
     .cc-device-half {
