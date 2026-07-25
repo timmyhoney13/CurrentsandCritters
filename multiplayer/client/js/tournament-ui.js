@@ -34,6 +34,7 @@
     readyLobbyMatch: null,                // match_number whose ready-check modal is open
     readyLobbyDismissed: {},              // match_number -> true (player closed the ready check)
     panHandlers: null,                    // window pan listeners, so they can be torn down
+    matchHeartbeat: null,                 // in-match poll timer (keeps us connected + pulls us into the next round)
   };
 
   // ── auth helpers ─────────────────────────────────────────────────────────
@@ -588,14 +589,19 @@
 
   function openScreen() {
     hideReturnPill();
+    stopMatchHeartbeat();      // full SSE/poll sync owns state while the overlay is up
     const scr = ensureScreen();
     scr.classList.add("open");
     T.screenOpen = true;
+    // Force the next state to re-render even if its version matches the last one
+    // synced before the overlay was closed — otherwise applyState() early-returns
+    // and the just-opened overlay stays blank.
+    T.lastVersion = -1;
     startSync();
   }
   function closeScreen() {
     const scr = $("#ccT-screen"); if (scr) scr.classList.remove("open");
-    T.screenOpen = false; stopSync();
+    T.screenOpen = false; stopSync(); stopMatchHeartbeat();
     if (T.panHandlers) {
       window.removeEventListener("mousemove", T.panHandlers.move);
       window.removeEventListener("mouseup", T.panHandlers.up);
@@ -999,7 +1005,11 @@
       card.title = m.status === "active" ? "Enter your match" : "Ready up to start your match";
       card.addEventListener("click", (e) => {
         e.stopPropagation();
-        const mm = st.viewer && st.viewer.my_match;
+        // Act on the LIVE viewer state, not the snapshot captured when this card
+        // was drawn — the match may have flipped ready→active since then, and a
+        // stale "ready" read would pop the ready-check instead of taking you in.
+        const mm = (T.state && T.state.viewer && T.state.viewer.my_match)
+                || (st.viewer && st.viewer.my_match);
         if (!mm) return;
         T.readyLobbyDismissed[mm.match_number] = false;
         if (mm.status === "active" && mm.room_id) enterMatch(mm);
@@ -1162,7 +1172,10 @@
       if (mm.room_id !== _lastMatchRoom) {
         _lastMatchRoom = mm.room_id;
         closeReadyLobby();
-        enterMatch(mm);
+        // If we're already sitting on this match's room page (viewing the bracket
+        // over our own live game), don't auto-yank the bracket away — the player
+        // opened it on purpose. Only auto-jump when the game is on another page.
+        if (!sameRoomAsCurrent(mm.room_id)) enterMatch(mm);
       }
     }
   }
@@ -1223,10 +1236,22 @@
     // The match runs as a normal private GameRoom. Each player has a pre-claimed
     // seat; the server gave us its seat_token so we reconnect straight into it.
     const roomId = (mm && mm.room_id) || mm;
+    if (!roomId) return;
     const seatTok = mm && mm.seat_token;
     persistActive();
     // Tell the server we've arrived (may trigger immediate auto-start once all in).
     post("/api/tournament/entered", { id: T.tid }).catch(() => {});
+    // Are we already sitting on THIS match's room page? That happens when the
+    // bracket overlay was opened on top of our own live game (via the return pill):
+    // re-navigating to the same URL is a no-op, so the overlay just stays put with
+    // the game behind it — the "click my game and it keeps me on the bracket with
+    // the game in the background" bug. Instead, close the overlay to reveal the
+    // live game underneath, and keep the in-match heartbeat watching for our next round.
+    if (sameRoomAsCurrent(roomId)) {
+      closeScreen();
+      startMatchHeartbeat();
+      return;
+    }
     // Deep-link into the room (the SPA loads the game table inline). We hand the
     // seat_token to the game via the URL (?seat_token=…) because that is the ONLY
     // place the game app's boot looks for it: it reads params.get("seat_token")
@@ -1357,6 +1382,85 @@
     } catch (_) {}
     return false;
   }
+  // The room id in the address bar (a match runs as a normal /play/ROOM page),
+  // upper-cased to match the tournament's room ids. "" when not on a room page.
+  function currentRoomId() {
+    try {
+      const parts = location.pathname.split("/").filter(Boolean);
+      if (parts[0] === "play" && parts[1]) return String(parts[1]).toUpperCase();
+      const qp = new URLSearchParams(location.search);
+      const r = qp.get("room") || qp.get("roomId");
+      if (r) return String(r).toUpperCase();
+    } catch (_) {}
+    return "";
+  }
+  function sameRoomAsCurrent(roomId) {
+    const cur = currentRoomId();
+    return !!cur && String(roomId || "").toUpperCase() === cur;
+  }
+  function allBracketMatches(br) {
+    if (!br || !br.rounds) return [];
+    const out = [];
+    br.rounds.forEach(round => round.forEach(m => out.push(m)));
+    if (br.third_place) out.push(br.third_place);
+    return out;
+  }
+
+  // While the player is INSIDE a tournament match room (/play/ROOM?t=…), run a
+  // lightweight tournament heartbeat. It does two things the return pill can't:
+  //   1) Keeps us marked CONNECTED on the server (each state read refreshes our
+  //      presence) so our NEXT round's match WAITS for us to ready up instead of
+  //      launching without us while we're still on the previous game's end screen.
+  //   2) The moment our current match is over and our next match is up, it brings
+  //      us back — straight into the game if it already launched, or to its ready
+  //      check if it's still gathering ready-ups — so we ready up every round and
+  //      rejoin cleanly, never stranded on a finished game.
+  function startMatchHeartbeat() {
+    stopMatchHeartbeat();
+    const curRoom = currentRoomId();
+    if (!curRoom || !T.tid) return;
+    const tick = async () => {
+      if (!T.tid || T.screenOpen) return;        // overlay open → full sync owns state
+      let st;
+      try {
+        const r = await get(`/api/tournament/state?id=${encodeURIComponent(T.tid)}&pid=${encodeURIComponent(T.pid || "")}&host_token=${encodeURIComponent(T.hostToken || "")}`);
+        st = r.data && r.data.ok && r.data.state;
+      } catch (_) { return; }
+      if (!st || !st.viewer) return;
+      // NB: don't touch T.state / T.lastVersion here — the overlay is closed so
+      // nothing renders from them, and leaving lastVersion alone means opening the
+      // screen (below) still triggers a fresh applyState→render instead of an
+      // early-return on a matching version (which would paint a blank overlay).
+      // Out of the tournament (left / removed) → stop watching, drop the pill.
+      if (!st.viewer.in_tournament && st.viewer.status !== "spectating") {
+        stopMatchHeartbeat(); clearActive(); hideReturnPill(); return;
+      }
+      // Nothing more to play (done / cancelled / knocked out) → leave the pill so
+      // results stay reachable, but stop pulling.
+      if (st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated") {
+        stopMatchHeartbeat(); if (st.name) showReturnPill(st.name); return;
+      }
+      // Don't interrupt the game we're physically in — only move on once the match
+      // running in THIS room has finished.
+      let curDone = true;
+      allBracketMatches(st.bracket).forEach(m => {
+        if (m.room_id && String(m.room_id).toUpperCase() === curRoom && m.status !== "complete") curDone = false;
+      });
+      const mm = st.viewer.my_match;             // our next ready/active match, if any
+      if (curDone && mm && mm.room_id && String(mm.room_id).toUpperCase() !== curRoom) {
+        stopMatchHeartbeat();
+        if (mm.status === "active") enterMatch(mm);   // already launched → jump straight in
+        else openScreen();                            // still gathering ready-ups → show its ready check
+        return;
+      }
+      if (st.name) showReturnPill(st.name);
+    };
+    T.matchHeartbeat = setInterval(tick, 4000);
+    tick();
+  }
+  function stopMatchHeartbeat() {
+    if (T.matchHeartbeat) { clearInterval(T.matchHeartbeat); T.matchHeartbeat = null; }
+  }
 
   async function resumeActiveIfAny() {
     let a; try { a = JSON.parse(localStorage.getItem("cc_active_tournament") || "null"); } catch (_) {}
@@ -1371,9 +1475,12 @@
       const qp = new URLSearchParams(location.search);
       const forThisTourney = qp.get("t") === a.tid;
       // While inside the match room itself, never cover the game with the overlay —
-      // just offer the return pill so the player can come back afterwards.
+      // just offer the return pill so the player can come back afterwards, and run
+      // the in-match heartbeat so we stay connected (the next round waits for us)
+      // and get pulled into our next match's ready check when it's up.
       if (onGameRoomPage()) {
         showReturnPill(st.name);
+        startMatchHeartbeat();
       } else if (forThisTourney && !T.screenOpen) {
         // Came back to the app shell from a match (e.g. left the room) → re-open.
         openScreen();

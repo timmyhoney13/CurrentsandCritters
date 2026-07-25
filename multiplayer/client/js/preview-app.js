@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-24.2";
+  const APP_BUILD   = "2026-07-24.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.7", title: "Tournaments: jump straight into your match", items: [
+      "Clicking your match in the bracket now takes you right into the game, even if you were viewing the bracket first, no more getting left on the bracket with your game running behind it.",
+      "Every match now waits for everyone to ready up before it starts, in every round, not just the first.",
+      "Finishing one match while your next one is getting ready? We keep your spot and bring you back to ready up, so you're never left behind, and you can rejoin your match anytime just like a normal game.",
+    ]},
     { ver: "V1.6.6", title: "Replay how the top scores were built", items: [
       "On the Leaderboard, the highest scores are now clickable, tap any score with a “▸ replay” tag to open that exact game and see the board that earned it.",
       "The game opens straight to the record-holder's board, laid out with the real cards in their exact spots, so you can study how they pulled off such a high score.",
