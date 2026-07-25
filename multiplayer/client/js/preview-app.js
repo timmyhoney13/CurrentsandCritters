@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-24.3";
+  const APP_BUILD   = "2026-07-25.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,16 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.6.9", title: "Find & join tournaments from Join Game", items: [
+      "Join Game now has a 🏆 Tournament tab right next to Public, Private and Competitive, open it to see every tournament people have created that's still taking players.",
+      "Each one shows its name, how full it is and its match size; tap Join → to hop straight into the bracket, no code needed for public tournaments.",
+      "The list refreshes on its own, so brackets appear as soon as they're created.",
+    ]},
+    { ver: "V1.6.8", title: "Tournaments: “Enter Your Match” actually enters", items: [
+      "Fixed clicking “Enter Your Match” (or your match in the bracket) leaving you stuck on the bracket with your game running behind it, it now drops the bracket and puts your live game in front, every time.",
+      "Before, the game only appeared when you left the tournament, that was the same close-the-bracket step firing by accident; entering your match now does it on purpose.",
+      "Your match room is recognised even when it opened inside the game window, so returning to the bracket and back to your game is instant.",
+    ]},
     { ver: "V1.6.7", title: "Tournaments: jump straight into your match", items: [
       "Clicking your match in the bracket now takes you right into the game, even if you were viewing the bracket first, no more getting left on the bracket with your game running behind it.",
       "Every match now waits for everyone to ready up before it starts, in every round, not just the first.",
@@ -579,6 +589,23 @@
         if (!g) { g = "g" + Math.random().toString(36).slice(2) + Date.now().toString(36); localStorage.setItem("cc_guest_id", g); }
         return g;
       } catch (_) { return "g" + Date.now(); }
+    },
+    // ── Tournament ↔ game-window bridge (foreground control) ─────────────────
+    // The tournament bracket overlay must never stay covering a live match. The
+    // URL is NOT a reliable "am I in this room?" signal — a match can be running
+    // inline while the address bar still reads /game (e.g. the dedicated game
+    // window, or a room entered without a navigation). These expose the game
+    // app's OWN authoritative current-room state so the tournament module can
+    // recognise it's already in the match room and drop the overlay to reveal the
+    // game, instead of leaving it running in the background.
+    currentRoom: () => { try { return roomId ? String(roomId).toUpperCase() : ""; } catch (_) { return ""; } },
+    inGameRoom: () => {
+      try { const g = document.getElementById("pv-game"); return !!(roomId && g && g.style.display !== "none"); }
+      catch (_) { return false; }
+    },
+    revealGame: () => {
+      try { const g = document.getElementById("pv-game"); if (roomId && g) { g.style.display = "flex"; return true; } }
+      catch (_) {} return false;
     },
   };
 
@@ -2086,6 +2113,7 @@
   let _lbRefreshTimer = null;
   let _lbActiveTab = "public";
   let _lbAllRooms  = [];
+  let _lbTournaments = [];    // open brackets for the 🏆 Tournament tab
   let _lbPendingRoom = null; // room object awaiting password entry
 
   function openLobbyBrowser() {
@@ -2104,18 +2132,24 @@
   }
 
   async function fetchAndRenderRooms() {
-    try {
-      const res = await apiFetch("/api/rooms", { method:"GET", timeoutMs:6000 });
-      if (res.ok && Array.isArray(res.data?.rooms)) {
-        _lbAllRooms = res.data.rooms;
-      }
-    } catch {}
+    // Fetch open rooms and (when Tournament Mode is live) open tournament
+    // brackets in parallel, so the 🏆 Tournament tab shows brackets people have
+    // created and switching tabs is instant.
+    const tourneyOn = !!(window.__ccTourney && window.__ccTourney.ENABLED);
+    const jobs = [apiFetch("/api/rooms", { method:"GET", timeoutMs:6000 }).catch(() => null)];
+    if (tourneyOn) jobs.push(apiFetch("/api/tournament/list", { method:"GET", timeoutMs:6000 }).catch(() => null));
+    const [roomsRes, tourneysRes] = await Promise.all(jobs);
+    if (roomsRes && roomsRes.ok && Array.isArray(roomsRes.data?.rooms)) _lbAllRooms = roomsRes.data.rooms;
+    if (tourneysRes && tourneysRes.ok && Array.isArray(tourneysRes.data?.tournaments)) _lbTournaments = tourneysRes.data.tournaments;
     renderLobbyList();
   }
 
   function renderLobbyList() {
     const list = document.getElementById("lb-browser-list");
     if (!list) return;
+
+    // 🏆 Tournament tab shows open brackets (its own data source), not game rooms.
+    if (_lbActiveTab === "tournament") { renderTournamentBrowseList(list); return; }
 
     let rooms = _lbAllRooms;
 
@@ -2184,6 +2218,41 @@
         <button class="room-card-join pv-btn gold" data-rid="${escHtml(room.room_id)}">Join →</button>`;
 
       card.querySelector(".room-card-join").addEventListener("click", () => lbJoinRoom(room));
+      list.appendChild(card);
+    }
+  }
+
+  // 🏆 Tournament tab: list open brackets people have created, each joinable in
+  // one tap. Data comes from /api/tournament/list (public tournaments only);
+  // private ones are joined by code from the tournament screen. Joining hands off
+  // to the tournament module, which owns the join + password flow + bracket UI.
+  function renderTournamentBrowseList(list) {
+    list.innerHTML = "";
+    const open = (_lbTournaments || []).filter(t => t && t.phase === "lobby" && Number(t.joined) < Number(t.capacity));
+    if (!open.length) {
+      list.innerHTML = `<div class="lb-browser-empty">No open tournaments right now.<br><small style="opacity:.8">Create one with “New Current” → Mode → 🏆 Tournament.</small></div>`;
+      return;
+    }
+    for (const t of open) {
+      const card = document.createElement("div");
+      card.className = "room-card";
+      const lockIcon = t.has_password ? "🔒 " : "";
+      const shape = (t.is_custom && Array.isArray(t.opening_sizes) && t.opening_sizes.length)
+        ? `${t.opening_sizes.join("·")} opening`
+        : `${t.players_per_match} per match`;
+      const meta = `${t.joined}/${t.capacity} players · ${shape} · ${escHtml(t.tournament_id)}`;
+      card.innerHTML = `
+        <div class="room-card-info">
+          <div class="room-card-host">${lockIcon}${escHtml(t.name || "Tournament")}</div>
+          <div class="room-card-meta">${meta}</div>
+          <span class="room-badge" style="background:rgba(243,167,18,.18);color:#b9760a;border-color:rgba(243,167,18,.4);">🏆 Tournament</span>
+        </div>
+        <button class="room-card-join pv-btn gold" data-tid="${escHtml(t.tournament_id)}">Join →</button>`;
+      card.querySelector(".room-card-join").addEventListener("click", () => {
+        closeLobbyBrowser();
+        if (typeof window.__ccTourneyJoin === "function") window.__ccTourneyJoin(t.tournament_id);
+        else if (typeof window.__ccTourneyBrowse === "function") window.__ccTourneyBrowse();
+      });
       list.appendChild(card);
     }
   }
@@ -2470,6 +2539,11 @@
       renderLobbyList();
     });
   });
+  // The 🏆 Tournament tab only makes sense when Tournament Mode is live.
+  if (!(window.__ccTourney && window.__ccTourney.ENABLED)) {
+    const _tt = document.getElementById("lb-tab-tournament");
+    if (_tt) _tt.style.display = "none";
+  }
 
   // Password confirm
   document.getElementById("lb-pw-confirm").addEventListener("click", async () => {

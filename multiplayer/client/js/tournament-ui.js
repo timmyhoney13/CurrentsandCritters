@@ -1248,6 +1248,13 @@
     // the game in the background" bug. Instead, close the overlay to reveal the
     // live game underneath, and keep the in-match heartbeat watching for our next round.
     if (sameRoomAsCurrent(roomId)) {
+      // Force the live game back to the front (it may be sitting behind the
+      // overlay), THEN drop the bracket overlay so the game is actually visible —
+      // instead of leaving it running in the background. This is the fix for
+      // "click Enter Your Match → stuck on the bracket, game only appears when I
+      // leave the tournament": leaving worked only because it, too, closed the
+      // overlay; entering now does the same, reliably.
+      try { const b = bridge(); if (b && typeof b.revealGame === "function") b.revealGame(); } catch (_) {}
       closeScreen();
       startMatchHeartbeat();
       return;
@@ -1374,6 +1381,13 @@
   // game and every click just re-opened the bracket). We show the return pill
   // instead so the game stays visible and the player can hop back when ready.
   function onGameRoomPage() {
+    // The game app's OWN state is authoritative: a match can be live inline while
+    // the address bar still reads /game (dedicated game window, or a room entered
+    // without a navigation). Ask it first, then fall back to the URL.
+    try {
+      const b = bridge();
+      if (b && typeof b.inGameRoom === "function" && b.inGameRoom()) return true;
+    } catch (_) {}
     try {
       const parts = location.pathname.split("/").filter(Boolean);
       if (parts[0] === "play" && parts[1]) return true;             // /play/ROOM
@@ -1382,9 +1396,20 @@
     } catch (_) {}
     return false;
   }
-  // The room id in the address bar (a match runs as a normal /play/ROOM page),
-  // upper-cased to match the tournament's room ids. "" when not on a room page.
+  // Which match room the player is ACTUALLY in, upper-cased to match the
+  // tournament's room ids. Prefer the game app's live room over the address bar:
+  // if a match is running inline the URL may not be /play/ROOM, and a URL-only
+  // check would wrongly decide we're NOT in the room — so "Enter your match"
+  // would fail to drop the overlay and the game stayed stuck in the background.
+  // "" when not in any room.
   function currentRoomId() {
+    try {
+      const b = bridge();
+      if (b && typeof b.currentRoom === "function") {
+        const r = b.currentRoom();
+        if (r) return String(r).toUpperCase();
+      }
+    } catch (_) {}
     try {
       const parts = location.pathname.split("/").filter(Boolean);
       if (parts[0] === "play" && parts[1]) return String(parts[1]).toUpperCase();
