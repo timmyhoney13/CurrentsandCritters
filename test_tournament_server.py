@@ -763,5 +763,351 @@ class TestReadyCheck(unittest.TestCase):
         self.assertEqual(human_match.status, M_ACTIVE, "human ready + bots auto-ready -> launch")
 
 
+# =============================================================================
+# DESIGNED (canvas-built) BRACKETS — typed player spots + host-drawn connections
+# =============================================================================
+from tournament_engine import (  # noqa: E402
+    CustomBracket, CustomMatch, CustomSlot, make_uniform_graph,
+    SLOT_OPEN, SLOT_HUMAN, SLOT_AI, SLOT_INVITE, SLOT_WINNER_FROM, SLOT_TOP_FROM,
+)
+
+
+def dmatch(mid, slots, advance=1, label=""):
+    out = []
+    for s in slots:
+        if isinstance(s, tuple):
+            src, rank = s
+            out.append(CustomSlot(kind=SLOT_WINNER_FROM if rank == 1 else SLOT_TOP_FROM,
+                                  source=src, rank=rank))
+        elif isinstance(s, str) and s.startswith("invite:"):
+            out.append(CustomSlot(kind=SLOT_INVITE, invite=s.split(":", 1)[1]))
+        else:
+            out.append(CustomSlot(kind=s))
+    return CustomMatch(id=mid, slots=out, advance=advance, label=label)
+
+
+def make_designed(spec, n_humans, *, guest=True, fill_bots=False, names=None):
+    """Create a tournament from a designed bracket with n_humans ready players."""
+    prefix = "guest:" if guest else "acct:"
+    mgr = TournamentManager()
+    cfg = TournamentConfig(spec.entry_count(), spec.max_capacity(),
+                           custom_graph=spec.to_dict(), name="Designed Cup")
+    t = mgr.create(cfg, prefix + "host", (names or {}).get(0, "Host"), fill_bots=fill_bots)
+    for i in range(1, n_humans):
+        nm = (names or {}).get(i, f"P{i:02d}")
+        r = t.join(f"{prefix}p{i:02d}", nm, is_guest=guest)
+        assert r["ok"], r
+    for p in t.participants:
+        t.set_ready(p.pid, True)
+    return mgr, t
+
+
+class TestDesignedBracketServer(unittest.TestCase):
+    def test_create_and_seat_plan(self):
+        mgr, t = make_designed(make_uniform_graph([2, 2, 2, 2]), 8)
+        self.assertTrue(t.cfg.is_graph)
+        self.assertEqual(t.cfg.total_capacity, 8)
+        self.assertEqual(t.human_capacity, 8)
+        seats = t.seat_view()
+        self.assertEqual(len(seats), 8)
+        self.assertTrue(all(s["pid"] for s in seats))
+
+    def test_ai_only_spots_are_not_joinable_by_people(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_AI]),
+            dmatch("b", [SLOT_OPEN, SLOT_AI]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 2)
+        self.assertEqual(t.cfg.total_capacity, 4)
+        self.assertEqual(t.human_capacity, 2)      # the two AI spots are off-limits
+        r = t.join("guest:extra", "Extra")
+        self.assertTrue(r.get("spectator"), "a 3rd person must not take an AI spot")
+
+    def test_ai_only_spots_do_not_block_the_start_button(self):
+        # An AI-only spot is the host saying "a bot plays here" — start() fills it,
+        # so an empty one must never gate the Start button.
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_AI]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 3, fill_bots=False)
+        ok, why = t.can_start()
+        self.assertTrue(ok, why)
+        self.assertTrue(t.start()["ok"])
+
+    def test_ai_spots_are_filled_at_start_without_bot_fill(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_AI]),
+            dmatch("b", [SLOT_OPEN, SLOT_AI]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 2, fill_bots=False)
+        self.assertTrue(t.start()["ok"], t.can_start())
+        seated = [pid for row in t.bracket.rounds for m in row for pid in m.player_ids if pid]
+        self.assertEqual(len(seated), 4)
+        self.assertEqual(sum(1 for p in t.participants if p.is_bot), 2)
+
+    def test_human_only_spot_blocks_start_until_a_person_takes_it(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_HUMAN, SLOT_HUMAN]),
+            dmatch("b", [SLOT_HUMAN, SLOT_HUMAN]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 3, fill_bots=True)
+        t.fill_with_bots()
+        ok, why = t.can_start()
+        self.assertFalse(ok)
+        self.assertIn("player-only", why)
+        r = t.join("guest:p03", "P03")
+        self.assertTrue(r["ok"])
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        self.assertTrue(t.can_start()[0], t.can_start()[1])
+
+    def test_bot_fill_takes_open_spots_but_never_human_only(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_HUMAN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 1)          # just the host
+        t.fill_with_bots()
+        empty = t._empty_seats()
+        self.assertEqual(len(empty), 0, "host takes the human-only spot, bots take the rest")
+        self.assertEqual(sum(1 for p in t.participants if p.is_bot), 3)
+
+    def test_invite_spot_goes_to_the_named_player(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, "invite:Kelp"]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 4, names={1: "Coral", 2: "Kelp", 3: "Reef"})
+        seats = {s["seat"]: s for s in t.seat_view()}
+        invite_seat = next(s for s in seats.values() if s["kind"] == SLOT_INVITE)
+        self.assertEqual(invite_seat["name"], "Kelp")
+
+    def test_invited_player_missing_blocks_start(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, "invite:Kelp"]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 3, names={1: "Coral", 2: "Reef"})
+        ok, why = t.can_start()
+        self.assertFalse(ok)
+        self.assertIn("Kelp", why)
+        # the host can hand that spot to a bot instead
+        t.fill_with_bots()
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        self.assertTrue(t.can_start()[0], t.can_start()[1])
+
+    def test_lobby_preview_uses_the_designed_shape(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN], label="Play-in"),
+            dmatch("b", [("a", 1), SLOT_OPEN], label="Semifinal"),
+            dmatch("c", [SLOT_OPEN, SLOT_OPEN], label="Semifinal"),
+            dmatch("f", [("b", 1), ("c", 1)], label="Grand Final"),
+        ])
+        mgr, t = make_designed(spec, 3)
+        st = t.state_view(viewer_pid="guest:host")
+        br = st["bracket"]
+        self.assertTrue(br["preview"])
+        self.assertEqual(br["n_rounds"], 3)
+        self.assertEqual(br["rounds"][-1][0]["label"], "Grand Final")
+        self.assertEqual(st["summary"]["num_rounds"], 3)
+        self.assertEqual(len(st["seats"]), 5)
+
+    def test_state_view_exposes_spot_types(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_AI]),
+            dmatch("b", [SLOT_OPEN, "invite:Kelp"]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 2)
+        st = t.state_view(viewer_pid="guest:host")
+        kinds = st["bracket"]["rounds"][0][0]["slot_kinds"]
+        self.assertEqual(kinds[1]["kind"], SLOT_AI)
+        self.assertEqual(st["human_capacity"], 3)
+
+    def test_full_designed_run_reaches_a_champion(self):
+        mgr, t = make_designed(make_uniform_graph([2, 2, 2, 2]), 8)
+        self.assertTrue(t.start()["ok"], t.can_start())
+        play_out(t)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        self.assertTrue(t.champion_pid)
+        self.assertEqual(len(t.final_placements), 8)
+
+    def test_group_stage_top_two_advance(self):
+        spec = CustomBracket(matches=[
+            dmatch("g1", [SLOT_OPEN] * 4, advance=2, label="Group A"),
+            dmatch("g2", [SLOT_OPEN] * 4, advance=2, label="Group B"),
+            dmatch("f", [("g1", 1), ("g1", 2), ("g2", 1), ("g2", 2)], label="Final"),
+        ])
+        mgr, t = make_designed(spec, 8)
+        self.assertTrue(t.start()["ok"], t.can_start())
+        self.assertEqual(t.bracket.n_rounds, 2)
+        play_out(t)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        self.assertTrue(t.champion_pid)
+        # exactly four players reached the Final
+        self.assertEqual(sum(1 for p in t.bracket.final_match.player_ids if p), 4)
+
+    def test_designed_bracket_with_a_late_ai_seat_runs(self):
+        # The Final holds the two winners plus a bot that skipped straight to it.
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1), SLOT_AI], label="Final"),
+        ])
+        mgr, t = make_designed(spec, 4)
+        self.assertTrue(t.start()["ok"], t.can_start())
+        bot_pid = next(p.pid for p in t.participants if p.is_bot)
+        self.assertIn(bot_pid, t.bracket.final_match.player_ids)
+        play_out(t)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+
+    def test_a_bot_filled_lobby_still_lets_real_players_in(self):
+        # The host tops the lobby up with AI, then a friend arrives — a bot must
+        # step aside rather than turn a real player into a spectator.
+        mgr, t = make_designed(make_uniform_graph([2, 2]), 1)
+        t.fill_with_bots()
+        self.assertEqual(len(t.participants), 4)
+        r = t.join("guest:friend", "Friend")
+        self.assertTrue(r["ok"])
+        self.assertFalse(r.get("spectator"), "a bot should have made way")
+        self.assertIn("Friend", [p.name for p in t.participants])
+        self.assertEqual(len(t.participants), 4)
+        self.assertEqual(sum(1 for p in t.participants if p.is_bot), 2)
+
+    def test_bots_holding_ai_only_spots_are_never_evicted(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_AI]),
+            dmatch("b", [SLOT_OPEN, SLOT_AI]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 1)
+        t.fill_with_bots()
+        self.assertEqual(sum(1 for p in t.participants if p.is_bot), 3)
+        r = t.join("guest:friend", "Friend")     # takes the second open spot
+        self.assertTrue(r["ok"])
+        self.assertFalse(r.get("spectator"))
+        r2 = t.join("guest:third", "Third")      # only AI-only spots remain
+        self.assertTrue(r2.get("spectator"), "AI-only spots are the host's design, not filler")
+        self.assertEqual(sum(1 for p in t.participants if p.is_bot), 2)
+
+    def test_uniform_bot_filled_lobby_also_lets_players_in(self):
+        mgr = TournamentManager()
+        t = mgr.create(TournamentConfig(4, 2, name="Cup"), "guest:host", "Host", fill_bots=True)
+        t.fill_with_bots()
+        self.assertEqual(len(t.participants), 4)
+        r = t.join("guest:friend", "Friend")
+        self.assertTrue(r["ok"])
+        self.assertFalse(r.get("spectator"))
+
+    def test_seat_types_are_respected_after_arranging(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_HUMAN, SLOT_AI]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        mgr, t = make_designed(spec, 3)
+        t.fill_with_bots()
+        t.randomize(rng_seed=5)
+        for s, pid in zip(t.seat_slots(), t.assign_seats()):
+            p = t._by_pid(pid)
+            self.assertIsNotNone(p)
+            if s["kind"] == SLOT_AI:
+                self.assertTrue(p.is_bot, "a person must never be seated in an AI-only spot")
+            if s["kind"] == SLOT_HUMAN:
+                self.assertFalse(p.is_bot, "a bot must never be seated in a player-only spot")
+
+    def test_host_swap_moves_players_between_designed_spots(self):
+        mgr, t = make_designed(make_uniform_graph([2, 2]), 4)
+        seats = t.seat_view()
+        a, b = seats[0]["pid"], seats[3]["pid"]
+        self.assertTrue(t.host_swap(a, b)["ok"])
+        seats2 = t.seat_view()
+        self.assertEqual(seats2[0]["pid"], b)
+        self.assertEqual(seats2[3]["pid"], a)
+
+
+class TestDesignedHttpDispatch(unittest.TestCase):
+    def _graph_body(self, spec, **kw):
+        body = {"custom_graph": spec.to_dict(), "name": "Designed Cup",
+                "host_name": "Hosty", "guest_id": "dh"}
+        body.update(kw)
+        return body
+
+    def test_validate_endpoint_accepts_a_good_design(self):
+        h = _FakeHandler()
+        handled = ts.handle_post(h, _FakeParsed("/api/tournament/validate"),
+                                 {"custom_graph": make_uniform_graph([2, 2, 2, 2]).to_dict()})
+        self.assertTrue(handled)
+        self.assertTrue(h.last["valid"], h.last)
+        self.assertEqual(h.last["errors"], [])
+        self.assertEqual(h.last["summary"]["tournament_size"], 8)
+
+    def test_validate_endpoint_explains_a_broken_design(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+        ])
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/validate"), {"custom_graph": spec.to_dict()})
+        self.assertFalse(h.last["valid"])
+        self.assertTrue(h.last["errors"])
+
+    def test_validate_endpoint_handles_an_empty_canvas(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/validate"), {"custom_graph": {"matches": []}})
+        self.assertFalse(h.last["valid"])
+        self.assertTrue(h.last["errors"])
+
+    def test_create_designed_via_dispatch(self):
+        spec = make_uniform_graph([3, 4, 2])
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), self._graph_body(spec))
+        self.assertTrue(h.last["ok"], h.last)
+        self.assertTrue(h.last["designed"])
+        t = ts.MANAGER.get(h.last["tournament_id"])
+        self.assertTrue(t.cfg.is_graph)
+        self.assertEqual(t.cfg.total_capacity, 9)
+        self.assertEqual(t.cfg.players_per_match, 4)
+        self.assertEqual(t.cfg.name, "Designed Cup")
+        self.assertEqual(t.participants[0].name, "Hosty")
+
+    def test_create_rejects_a_broken_design(self):
+        from http import HTTPStatus
+        spec = CustomBracket(matches=[dmatch("a", [SLOT_OPEN, SLOT_OPEN])])
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), self._graph_body(spec, guest_id="dh2"))
+        self.assertFalse(h.last["ok"])
+        self.assertEqual(h.status, int(HTTPStatus.BAD_REQUEST))
+        self.assertTrue(h.last["errors"])
+
+    def test_create_accepts_a_bare_match_list(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"),
+                       self._graph_body(make_uniform_graph([2, 2]), guest_id="dh3",
+                                        custom_graph=make_uniform_graph([2, 2]).to_dict()["matches"]))
+        self.assertTrue(h.last["ok"], h.last)
+        t = ts.MANAGER.get(h.last["tournament_id"])
+        self.assertEqual(t.cfg.total_capacity, 4)
+
+    def test_designed_tournament_listed_publicly(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"),
+                       self._graph_body(make_uniform_graph([2, 2]), guest_id="dh4"))
+        tid = h.last["tournament_id"]
+        row = next(r for r in ts.MANAGER.list_public() if r["tournament_id"] == tid)
+        self.assertTrue(row["is_graph"])
+        self.assertEqual(row["capacity"], 4)
+        self.assertEqual(row["human_capacity"], 4)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

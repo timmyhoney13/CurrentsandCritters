@@ -34,6 +34,8 @@ import tournament_engine as te
 from tournament_engine import (
     TournamentConfig, Bracket, validate_config, validate_opening_sizes, bracket_summary,
     available_formats, compute_player_xp,
+    CustomBracket, validate_custom_bracket, custom_bracket_summary,
+    SLOT_OPEN, SLOT_HUMAN, SLOT_AI, SLOT_INVITE,
     M_COMPLETE, M_BYE, M_PENDING, M_ACTIVE, M_READY,
     MIN_TOURNAMENT_PLAYERS, MAX_TOURNAMENT_PLAYERS,
     MIN_PLAYERS_PER_MATCH, MAX_PLAYERS_PER_MATCH,
@@ -55,6 +57,41 @@ def _parse_opening_sizes(raw: Any) -> Optional[List[int]]:
     except (TypeError, ValueError):
         return None
     return sizes or None
+
+
+def _parse_custom_graph(raw: Any) -> Optional[CustomBracket]:
+    """Coerce a canvas-designed bracket from a request body into a CustomBracket.
+    Accepts the {"matches":[…]} object or a bare list of matches; returns None when
+    absent so callers fall back to the generated bracket."""
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+    if isinstance(raw, (list, tuple)):
+        raw = {"matches": list(raw)}
+    if not isinstance(raw, dict) or not raw.get("matches"):
+        return None
+    try:
+        spec = CustomBracket.from_dict(raw)
+    except Exception:  # noqa: BLE001
+        return None
+    return spec if spec.matches else None
+
+
+def _graph_config(spec: CustomBracket, body: Dict[str, Any]) -> TournamentConfig:
+    """A TournamentConfig sized by the host's design: capacity == the number of
+    player spots, players_per_match == the biggest match."""
+    return TournamentConfig(
+        total_capacity=spec.entry_count(),
+        players_per_match=spec.max_capacity(),
+        advance_per_match=1,
+        third_place_match=False,   # a design decides 3rd place itself, by its shape
+        name=str(body.get("name") or "Currents Cup")[:60],
+        custom_graph=spec.to_dict(),
+    )
 
 # ── Feature flag ─────────────────────────────────────────────────────────────
 # Server routes stay live so the host can test via a hidden client URL, but the
@@ -234,6 +271,9 @@ class Tournament:
         self.match_timers: Dict[int, Any] = {}                   # match_number -> threading.Timer
         self.host_pid_order: List[str] = []                      # join order for host reassignment
         self._xp_grants: Dict[str, Dict[str, Any]] = {}   # pid -> computed breakdown
+        # Designed (canvas-built) brackets: the fixed list of typed player spots, in
+        # seat order. Cached because the shape never changes once created.
+        self._seat_slots_cache: Optional[List[Dict[str, Any]]] = None
 
         # add the host as the first participant
         host = Participant(pid=host_pid, name=host_name, is_guest=host_pid.startswith("guest:"),
@@ -317,6 +357,103 @@ class Tournament:
         return [p for p in self.participants
                 if p.status not in (S_ELIMINATED, S_SPECTATING) and not p.quit]
 
+    # ---- designed-bracket seats (typed player spots) ------------------------
+    def seat_slots(self) -> List[Dict[str, Any]]:
+        """The designed bracket's player spots in seat order (empty for generated
+        brackets, which simply seed round 1 in join order)."""
+        if not self.cfg.is_graph:
+            return []
+        if self._seat_slots_cache is None:
+            try:
+                self._seat_slots_cache = Bracket.build_custom(self.cfg).entry_slots()
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
+                self._seat_slots_cache = []
+        return self._seat_slots_cache
+
+    @property
+    def human_capacity(self) -> int:
+        """How many real players can join. A designed bracket's AI-only spots are
+        never joinable, so its human capacity is below its total capacity."""
+        if not self.cfg.is_graph:
+            return self.cfg.total_capacity
+        return sum(1 for s in self.seat_slots() if s.get("kind") != SLOT_AI)
+
+    def assign_seats(self) -> List[Optional[str]]:
+        """Map the current roster onto the designed bracket's typed spots, aligned
+        with ``seat_slots()``. Deterministic from the lobby order, so the host's
+        drag-to-arrange still decides who sits where:
+
+          1. an invite-only spot goes to the player it names (by name or id)
+          2. human-only spots, then unnamed invite spots, then open spots take real
+             players in lobby order
+          3. AI-only spots take bots, then any open spot still empty takes a bot
+
+        A NAMED invite spot stays empty until its player arrives — that is what
+        "reserved" means. can_start says who it is waiting on, and the host can
+        release it by filling the lobby with bots.
+        """
+        slots = self.seat_slots()
+        if not slots:
+            return []
+        ordered = sorted(self.participants, key=lambda x: x.join_order)
+        humans = [p for p in ordered if not p.is_bot]
+        bots = [p for p in ordered if p.is_bot]
+        out: List[Optional[str]] = [None] * len(slots)
+
+        claimed: set = set()
+        for i, s in enumerate(slots):
+            if s.get("kind") != SLOT_INVITE or not s.get("invite"):
+                continue
+            want = str(s["invite"]).strip().lower()
+            who = next((p for p in humans if p.pid not in claimed
+                        and (p.name.strip().lower() == want or p.pid == s["invite"])), None)
+            if who is not None:
+                out[i] = who.pid
+                claimed.add(who.pid)
+        free_humans = [p for p in humans if p.pid not in claimed]
+        free_bots = list(bots)
+
+        def fill(kinds: Tuple[str, ...], pool: List[Participant], named_ok: bool = True) -> None:
+            for i, s in enumerate(slots):
+                if out[i] or s.get("kind") not in kinds or not pool:
+                    continue
+                if not named_ok and s.get("invite"):
+                    continue    # reserved for someone specific — hold it open
+                out[i] = pool.pop(0).pid
+        fill((SLOT_HUMAN,), free_humans)
+        fill((SLOT_INVITE,), free_humans, named_ok=False)
+        fill((SLOT_OPEN,), free_humans)
+        fill((SLOT_AI,), free_bots)
+        fill((SLOT_OPEN, SLOT_INVITE), free_bots)
+        return out
+
+    def seat_view(self) -> List[Dict[str, Any]]:
+        """Seat plan for the lobby: who (if anyone) holds each designed spot."""
+        slots = self.seat_slots()
+        if not slots:
+            return []
+        assign = self.assign_seats()
+        by_pid = {p.pid: p for p in self.participants}
+        out = []
+        for s, pid in zip(slots, assign):
+            p = by_pid.get(pid) if pid else None
+            out.append({
+                "seat": s["seat"], "kind": s["kind"], "invite": s.get("invite", ""),
+                "match_number": s["match_number"], "label": s.get("label", ""),
+                "slot": s["slot"],
+                "pid": pid, "name": p.name if p else "", "avatar": p.avatar if p else "",
+                "is_bot": bool(p and p.is_bot),
+            })
+        return out
+
+    def _empty_seats(self) -> List[Dict[str, Any]]:
+        """Designed spots nobody holds yet, with their slot metadata."""
+        slots = self.seat_slots()
+        if not slots:
+            return []
+        return [s for s, pid in zip(slots, self.assign_seats()) if not pid]
+
     # ---- join / leave -------------------------------------------------------
     def join(self, pid: str, name: str, avatar: str = "", is_guest: bool = True) -> Dict[str, Any]:
         with self.cond:
@@ -337,7 +474,15 @@ class Tournament:
                 return {"ok": False, "error": "tournament already started"}
             if self.locked:
                 return {"ok": False, "error": "tournament is locked by the host"}
-            if len(self.participants) >= self.cfg.total_capacity:
+            # A designed bracket's AI-only spots are not joinable, so real players
+            # are capped by its human capacity rather than its total capacity.
+            human_cap = self.human_capacity
+            joined_humans = sum(1 for p in self.participants if not p.is_bot)
+            # A lobby topped up with bots must never lock real players out: if a
+            # spot a person could take is being held by a bot, the bot steps aside.
+            if joined_humans < human_cap and len(self.participants) >= self.cfg.total_capacity:
+                self._evict_bot_for_human_locked()
+            if joined_humans >= human_cap or len(self.participants) >= self.cfg.total_capacity:
                 if self.spectators_allowed:
                     self.spectator_pids[pid] = _now()
                     self._bump_locked()
@@ -405,12 +550,32 @@ class Tournament:
             ready=True, status=S_READY,
         )
 
+    def _fill_designed_seats_locked(self) -> int:
+        """MUST hold self.cond. Add exactly enough bots to take every designed spot
+        a bot is allowed to hold (AI-only spots first, then any open spot no real
+        player claimed). Human-only spots are left empty — only a person can take
+        one, and can_start says so."""
+        added = 0
+        for _ in range(len(self.seat_slots()) + 1):
+            need = [s for s in self._empty_seats() if s.get("kind") != SLOT_HUMAN]
+            if not need:
+                break
+            self.participants.append(self._make_bot())
+            added += 1
+        return added
+
     def fill_with_bots(self, target: Optional[int] = None) -> Dict[str, Any]:
         """Top the lobby up to `target` (default: total_capacity) with AI players.
         Lobby-only; returns how many were added."""
         with self.cond:
             if self.phase != self.PHASE_LOBBY:
                 return {"ok": False, "error": "can only add bots before start"}
+            if self.cfg.is_graph and target is None:
+                added = self._fill_designed_seats_locked()
+                if added:
+                    self._log("fill_bots", f"added {added} bot(s)")
+                    self._bump_locked()
+                return {"ok": True, "added": added, "joined": len(self.participants)}
             cap = self.cfg.total_capacity
             want = cap if target is None else max(0, min(cap, int(target)))
             added = 0
@@ -421,6 +586,29 @@ class Tournament:
                 self._log("fill_bots", f"added {added} bot(s)")
                 self._bump_locked()
             return {"ok": True, "added": added, "joined": len(self.participants)}
+
+    def _evict_bot_for_human_locked(self) -> bool:
+        """MUST hold self.cond. Drop one bot so an arriving player has a spot.
+
+        Bots are seat-fillers, never seat-holders — a host who pre-filled the lobby
+        should not have shut the door on their friends. A designed bracket keeps
+        exactly as many bots as its AI-only spots require; those are the host's
+        deliberate "put a bot here", not filler."""
+        if self.phase != self.PHASE_LOBBY:
+            return False
+        bots = [p for p in self.participants if p.is_bot]
+        if not bots:
+            return False
+        if self.cfg.is_graph:
+            needed = sum(1 for s in self.seat_slots() if s.get("kind") == SLOT_AI)
+            if len(bots) <= needed:
+                return False
+        victim = bots[-1]
+        self.participants = [p for p in self.participants if p.pid != victim.pid]
+        for i, x in enumerate(self.participants):
+            x.join_order = i
+        self._log("bot_evicted", f"{victim.name} made way for a player")
+        return True
 
     def _match_is_all_bots(self, m) -> bool:
         pids = [pid for pid in m.player_ids if pid]
@@ -597,6 +785,31 @@ class Tournament:
         if self.phase != self.PHASE_LOBBY:
             return False, "already started"
         n = len(self.participants)
+        # A DESIGNED bracket is checked against its typed spots: every spot must have
+        # someone in it, and only a real player can take a human-only spot.
+        if self.cfg.is_graph:
+            # AI-only spots are never a blocker — start() always puts a bot in them,
+            # because that spot type IS the host saying "a bot plays here".
+            empty = [s for s in self._empty_seats() if s.get("kind") != SLOT_AI]
+            if empty:
+                humans_only = [s for s in empty if s.get("kind") == SLOT_HUMAN]
+                invites = [s for s in empty if s.get("kind") == SLOT_INVITE and s.get("invite")]
+                if humans_only:
+                    where = ", ".join(f"Match {s['match_number']} spot {s['slot'] + 1}"
+                                      for s in humans_only[:3])
+                    return False, (f"{len(humans_only)} player-only spot(s) still empty "
+                                   f"({where}) — they need real players")
+                if invites:
+                    who = ", ".join(str(s["invite"]) for s in invites[:3])
+                    return False, (f"waiting on invited player(s): {who} "
+                                   "(or fill their spot with a bot)")
+                return False, (f"{len(empty)} spot(s) still empty — add players "
+                               "or fill them with bots")
+            not_ready = [p for p in self.participants if not p.ready and p.connected]
+            if not_ready:
+                return False, f"{len(not_ready)} player(s) not ready"
+            errs = validate_config(self.cfg)
+            return (False, "; ".join(errs)) if errs else (True, "")
         if n < MIN_TOURNAMENT_PLAYERS:
             return False, f"need at least {MIN_TOURNAMENT_PLAYERS} players (have {n})"
         if n < self.cfg.players_per_match:
@@ -624,14 +837,28 @@ class Tournament:
         if self.fill_bots and self.phase == self.PHASE_LOBBY \
                 and len(self.participants) < self.cfg.total_capacity:
             self.fill_with_bots()
+        # A designed bracket's AI-only spots ALWAYS need a bot, whether or not the
+        # host asked for bot-fill — that spot type is the host saying "put a bot here".
+        if self.cfg.is_graph and self.phase == self.PHASE_LOBBY:
+            with self.cond:
+                if any(s.get("kind") == SLOT_AI for s in self._empty_seats()):
+                    for _ in range(len(self.seat_slots()) + 1):
+                        if not any(s.get("kind") == SLOT_AI for s in self._empty_seats()):
+                            break
+                        self.participants.append(self._make_bot())
+                    self._bump_locked()
         with self.cond:
             ok, why = self.can_start()
             if not ok:
                 return {"ok": False, "error": why}
             n = len(self.participants)
-            self.bracket = Bracket.build(self.cfg, n)
-            order = [p.pid for p in sorted(self.participants, key=lambda x: x.join_order)]
-            self.bracket.seed_players(order)
+            if self.cfg.is_graph:
+                self.bracket = Bracket.build_custom(self.cfg)
+                self.bracket.seed_entries(self.assign_seats())
+            else:
+                self.bracket = Bracket.build(self.cfg, n)
+                order = [p.pid for p in sorted(self.participants, key=lambda x: x.join_order)]
+                self.bracket.seed_players(order)
             self.phase = self.PHASE_RUNNING
             self.started_unix = _now()
             self.status_note = "Tournament in progress."
@@ -1054,6 +1281,8 @@ class Tournament:
                 "config": self.cfg.to_dict(),
                 "summary": summary,
                 "capacity": self.cfg.total_capacity,
+                "human_capacity": self.human_capacity,
+                "seats": self.seat_view() if self.phase == self.PHASE_LOBBY else [],
                 "joined": len(self.participants),
                 "participants": parts,
                 "spectator_count": len(self.spectator_pids),
@@ -1118,7 +1347,12 @@ class Tournament:
             parts = sorted(self.participants, key=lambda x: x.join_order)
             order = [p.pid for p in parts]
             cfg = self.cfg
-            if cfg.is_custom:
+            if cfg.is_graph:
+                # Designed bracket: the host's exact shape, with whoever is here now
+                # sitting in the spot they'd actually start in.
+                br = Bracket.build_custom(cfg)
+                br.seed_entries(self.assign_seats())
+            elif cfg.is_custom:
                 # Fixed shape (sized for capacity); partial-seed whoever is here now.
                 br = Bracket.build(cfg, len(order))
                 br.seed_players(order, allow_partial=True)
@@ -1220,8 +1454,10 @@ class TournamentManager:
                 out.append({
                     "tournament_id": t.tid, "name": t.cfg.name, "phase": t.phase,
                     "joined": len(t.participants), "capacity": t.cfg.total_capacity,
+                    "human_capacity": t.human_capacity,
                     "players_per_match": t.cfg.players_per_match,
                     "is_custom": t.cfg.is_custom,
+                    "is_graph": t.cfg.is_graph,
                     "opening_sizes": list(t.cfg.opening_sizes) if t.cfg.opening_sizes else None,
                     "has_password": bool(t.password_hash),
                     "spectators_allowed": t.spectators_allowed,
@@ -1485,7 +1721,53 @@ def _require(handler, t: Optional[Tournament]) -> bool:
 
 
 def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
+    # Live check for the bracket BUILDER — takes a work-in-progress design and
+    # returns every problem with it plus a preview summary. No tournament exists
+    # yet, so this runs before the id lookup below.
+    if path == "/api/tournament/validate":
+        spec = _parse_custom_graph(body.get("custom_graph") or body.get("bracket"))
+        if spec is None:
+            handler._send_json({"ok": False, "valid": False,
+                                "errors": ["Add at least one match to the bracket."]})
+            return
+        errs = validate_custom_bracket(spec)
+        payload: Dict[str, Any] = {"ok": True, "valid": not errs, "errors": errs}
+        if not errs:
+            payload["summary"] = custom_bracket_summary(spec)
+        handler._send_json(payload)
+        return
+
     if path == "/api/tournament/create":
+        graph = _parse_custom_graph(body.get("custom_graph"))
+        if graph is not None:
+            # Canvas-designed bracket: the host's own shape, spot types and
+            # connections. Re-validated here — the client's check is only a preview.
+            gerrs = validate_custom_bracket(graph)
+            if gerrs:
+                handler._send_json({"ok": False, "error": "; ".join(gerrs), "errors": gerrs},
+                                   status=HTTPStatus.BAD_REQUEST)
+                return
+            cfg = _graph_config(graph, body)
+            errs = validate_config(cfg)
+            if errs:
+                handler._send_json({"ok": False, "error": "; ".join(errs)}, status=HTTPStatus.BAD_REQUEST)
+                return
+            pid, name, is_guest, avatar = _pid_and_name(handler, body)
+            vis = str(body.get("visibility") or "public").lower()
+            pw = body.get("password") if isinstance(body.get("password"), str) else None
+            pw_hash = hashlib.sha256(pw.strip().encode()).hexdigest() if (vis == "private" and pw) else None
+            t = MANAGER.create(cfg, pid, name, visibility=vis, password_hash=pw_hash,
+                               spectators_allowed=bool(body.get("spectators_allowed", True)),
+                               xp_reward_level=str(body.get("xp_reward_level") or "standard"),
+                               fill_bots=bool(body.get("fill_bots")))
+            host = t._by_pid(pid)
+            if host:
+                host.avatar = avatar
+            handler._send_json({"ok": True, "tournament_id": t.tid,
+                                "host_token": t.host_control_token,
+                                "token": host.token if host else "",
+                                "pid": pid, "designed": True})
+            return
         custom = _parse_opening_sizes(body.get("opening_sizes"))
         if custom:
             # Custom bracket: the host's explicit opening-round layout fixes both the
