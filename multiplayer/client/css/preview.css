@@ -5884,6 +5884,43 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* Friend code + Discord invite share one row; the chip wraps under the code
+       when the profile card gets narrow instead of squeezing it. */
+    .ph-pfc-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      min-width: 0;
+      margin-top: 6px;
+    }
+    .ph-pfc-row .ph-pfc { margin-top: 0; }
+    .ph-discord-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #5865f2 0%, #4650c8 100%);
+      color: #fff;
+      font-size: .8rem;
+      font-weight: 800;
+      line-height: 1.25;
+      text-decoration: none;
+      box-shadow: 0 2px 7px rgba(88,101,242,.34);
+      transition: transform .12s ease, box-shadow .12s ease, filter .15s ease;
+    }
+    .ph-discord-link:hover,
+    .ph-discord-link:focus-visible {
+      color: #fff;
+      text-decoration: none;
+      transform: translateY(-1px);
+      filter: brightness(1.07);
+      box-shadow: 0 4px 13px rgba(88,101,242,.5);
+    }
+    .ph-discord-ico { flex: 0 0 auto; }
+    .ph-discord-txt { min-width: 0; }
     .ph-pranks {
       display: grid;
       grid-template-columns: minmax(170px, 1fr) minmax(210px, 1.25fr);
@@ -7756,6 +7793,7 @@
       #auth-stats-lobby .ph-avatar { width: 92px; height: 92px; }
       #auth-stats-lobby .ph-pinfo { width: 100%; min-width: 0; }
       #auth-stats-lobby .ph-pname-row,
+      #auth-stats-lobby .ph-pfc-row,
       #auth-stats-lobby .ph-pmeta2 { justify-content: center; flex-wrap: wrap; }
       #auth-stats-lobby .ph-pranks,
       #auth-stats-lobby .ph-alpha-banner,
@@ -7809,6 +7847,7 @@
       #stats-avatar-letter { font-size: 28px; }
       .ph-pname { font-size: 1.38rem; }
       .ph-pfc { font-size: .92rem; }
+      .ph-discord-link { font-size: .74rem; padding: 5px 10px; gap: 6px; }
       .ph-pranks { grid-template-columns: 1fr; }
       .ph-rank-badge { border-right: none; border-top: 1px solid #d8e7f4; }
       .ph-rank-badge:first-child { border-top: none; }
