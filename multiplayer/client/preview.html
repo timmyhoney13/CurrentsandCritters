@@ -461,6 +461,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7.2l6-4.6 6 4.6V14H9.8V10H6.2v4H2V7.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
         Overview
       </button>
+      <button class="ph-snav-item" id="snav-howto" data-tab="howto">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4C6.7 3 5 2.6 2.6 2.6v9.2C5 11.8 6.7 12.2 8 13.2M8 4c1.3-1 3-1.4 5.4-1.4v9.2c-2.4 0-4.1.4-5.4 1.4M8 4v9.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        How to play
+      </button>
       <button class="ph-snav-item" id="snav-casual" data-tab="normal">
         <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Casual
@@ -663,6 +667,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 7.2l6-4.6 6 4.6V14H9.8V10H6.2v4H2V7.2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
         Overview
       </button>
+      <button class="ph-tab" data-tab="howto">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 4C6.7 3 5 2.6 2.6 2.6v9.2C5 11.8 6.7 12.2 8 13.2M8 4c1.3-1 3-1.4 5.4-1.4v9.2c-2.4 0-4.1.4-5.4 1.4M8 4v9.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        How to play
+      </button>
       <button class="ph-tab" data-tab="normal">
         <svg width="18" height="14" viewBox="0 0 18 14" fill="none"><path d="M3.2 7.7c1.6-2.7 3.9-4.4 6.8-4.7 1.9-.2 3.6.2 4.9 1.2M2.2 10.4c1.7-1.3 3.8-2.1 6.1-2.3 2.3-.2 4.5.2 6.2 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M0 6.7l2.2.2-.9 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Casual
@@ -817,6 +825,33 @@
               <div class="ph-scv" id="ph-ov-total-xp">-</div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── How to play tab ────────────────────────────────────────
+         Three views over one card: Quick Start (how the online game plays),
+         Full Rulebook (the printed book, word for word, from js/rulebook.js)
+         and Strategies (the same plans the in-game 💡 Help button offers).
+         Every pane is filled by renderPhHowTo() in preview-app.js. -->
+    <div class="ph-panel" id="ph-panel-howto" style="display:none;">
+      <div class="ph-scard ph-full htp-card">
+        <div class="ph-sh">
+          <div class="ph-st">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 4C6.7 3 5 2.6 2.6 2.6v9.2C5 11.8 6.7 12.2 8 13.2M8 4c1.3-1 3-1.4 5.4-1.4v9.2c-2.4 0-4.1.4-5.4 1.4M8 4v9.2" stroke="#2680c8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            How to Play
+          </div>
+          <button class="ph-sl" id="htp-tutorial-link">Play the tutorial →</button>
+        </div>
+        <div class="htp-tabs" role="tablist" aria-label="How to play sections">
+          <button class="htp-tab active" id="htp-tab-quick" data-htp="quick" role="tab" aria-selected="true" aria-controls="htp-pane-quick">🚀 Quick Start</button>
+          <button class="htp-tab" id="htp-tab-rules" data-htp="rules" role="tab" aria-selected="false" aria-controls="htp-pane-rules">📖 Full Rulebook</button>
+          <button class="htp-tab" id="htp-tab-strats" data-htp="strats" role="tab" aria-selected="false" aria-controls="htp-pane-strats">🧭 Strategies</button>
+        </div>
+        <div class="htp-body">
+          <div class="htp-pane active" id="htp-pane-quick" role="tabpanel" aria-labelledby="htp-tab-quick"></div>
+          <div class="htp-pane" id="htp-pane-rules" role="tabpanel" aria-labelledby="htp-tab-rules"></div>
+          <div class="htp-pane" id="htp-pane-strats" role="tabpanel" aria-labelledby="htp-tab-strats"></div>
         </div>
       </div>
     </div>
@@ -1699,7 +1734,7 @@
         <div class="pv-menu-divider"></div>
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">-</div>
-        <a class="pv-menu-item" href="/rules" target="_blank" style="text-decoration:none;">&#128218; Rules</a>
+        <button class="pv-menu-item" id="pv-menu-rules-btn">&#128218; Rule Book</button>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
         <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
@@ -1950,6 +1985,20 @@
       </div>
       <div id="pv-help-list"><!-- strategy cards injected here --></div>
       <div id="pv-help-detail"><!-- selected strategy detail injected here --></div>
+    </div>
+  </div>
+
+  <!-- Rule Book, opened from the in-game Menu. Floats over the table so you
+       never leave the game to look a rule up; ✕ or Esc drops you straight
+       back onto your turn. Body is filled from js/rulebook.js. -->
+  <div id="pv-rulebook-modal">
+    <div id="pv-rulebook-box">
+      <div id="pv-rulebook-header">
+        <span class="pv-rb-ico">&#128218;</span>
+        <h2 id="pv-rulebook-title">Rule Book</h2>
+        <button id="pv-rulebook-close" title="Back to the game">&#10005; Close</button>
+      </div>
+      <div id="pv-rulebook-body" class="rb rb-dark"></div>
     </div>
   </div>
 
@@ -2669,7 +2718,11 @@
   </div>
 </div>
 
-<script defer src="/js/preview-app.js?v=2026-07-21.7"></script>
+<!-- The printed rulebook, one shared source for the How to play tab and the
+     in-game Rule Book modal. Must load before preview-app.js reads it. -->
+<script defer src="/js/rulebook.js?v=2026-07-28.1"></script>
+
+<script defer src="/js/preview-app.js?v=2026-07-28.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-21.7"></script>

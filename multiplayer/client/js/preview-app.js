@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.5";
-  const APP_BUILD   = "2026-07-27.1";
+  const APP_VERSION = "1.6.26";
+  const APP_BUILD   = "2026-07-28.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -4598,6 +4598,10 @@
       // drilled into a strategy's detail page.
       showList: () => { if (modal.classList.contains("open")) renderList(); },
       indexByLabel: _idxByLabel,
+      // Featured-critter portrait for a strategy. Shared with the Player Home
+      // "How to play → Strategies" page so a plan wears the same face there as
+      // it does on the in-game 💡 Help screen.
+      stratArtHtml: _stratArtHtml,
       isActive: (label) => { const i = _idxByLabel(label); return i >= 0 && _activeStrategies.has(i); },
       activeLabels: () => [..._activeStrategies].map(i => HELP_STRATEGIES[i] && HELP_STRATEGIES[i].label).filter(Boolean),
       // Replace the whole active set from a list of labels (used to restore the
@@ -9886,6 +9890,38 @@
   document.getElementById("pv-menu-scores-btn").addEventListener("click", () => {
     closeMenu(); openScoreBreakdown();
   });
+
+  // ── Rule Book, over the table ───────────────────────────────────
+  // Menu → Rule Book floats the whole printed rulebook above the game instead
+  // of navigating away, so nobody loses their seat looking a rule up. The
+  // markup is built once, on first open, from the shared js/rulebook.js.
+  (function _initInGameRulebook() {
+    const modal   = document.getElementById("pv-rulebook-modal");
+    const body    = document.getElementById("pv-rulebook-body");
+    const openBtn = document.getElementById("pv-menu-rules-btn");
+    const closeBtn= document.getElementById("pv-rulebook-close");
+    if (!modal || !body || !openBtn) return;
+
+    function open() {
+      if (!body.dataset.built) {
+        body.innerHTML = window.CC_RULEBOOK_HTML
+          || '<div class="rb-missing">The rulebook did not load. Refresh the page to try again.</div>';
+        body.dataset.built = "1";
+        if (window.CC_RULEBOOK_HTML && typeof window.ccRulebookInit === "function") window.ccRulebookInit(body);
+      }
+      body.scrollTop = 0;
+      modal.classList.add("open");
+    }
+    function close() { modal.classList.remove("open"); }
+
+    openBtn.addEventListener("click", () => { closeMenu(); open(); });
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open")) close();
+    });
+    window.__ccOpenRulebook = open;
+  })();
   {
     const _pvMenuSettingsBtn = document.getElementById("pv-menu-settings-btn");
     if (_pvMenuSettingsBtn) _pvMenuSettingsBtn.addEventListener("click", () => {
@@ -20335,7 +20371,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
@@ -20380,6 +20416,7 @@
         // Skip data renders for gated panels (content is hidden anyway).
         const gatedNow = isGuest && !!GUEST_GATE_MSGS[name];
         if (gatedNow) return;
+        if (name === "howto")        renderPhHowTo();
         if (name === "friends")      { renderPhFriendsList(); if (_authUser && typeof window.__fishCheckFriendAchievements === "function") window.__fishCheckFriendAchievements(_authUser.uid); }
         if (name === "history")      renderPhHistory();
         if (name === "overview")     renderPhOverview();
@@ -21769,6 +21806,338 @@
       if (window._phSetPs) window._phSetPs(requestedPs);
 
       // Legacy comp block elements are kept hidden; ranked dashboard is managed by renderPhCompetitive().
+    }
+
+    // ── Player Home: How to play tab ───────────────────────────────
+    // Three views over one card:
+    //   Quick Start   — how a turn actually plays in THIS app. Every claim here
+    //                   is taken from the live rules engine / the tutorial, not
+    //                   from the printed book, because the two differ in places
+    //                   (END GAME sits in the bottom 15 online, the mulligan is
+    //                   automatic, and so on).
+    //   Full Rulebook — the printed book, word for word, from js/rulebook.js.
+    //   Strategies    — the same plans the in-game 💡 Help button offers, read
+    //                   straight out of HELP_STRATEGIES so the two can't drift.
+    let _htpBuilt = false;
+    let _htpView  = "quick";
+
+    function _htpE(s) {
+      return String(s == null ? "" : s)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Colour key: one swatch per animal family, the same colours the game uses
+    // to light up matching cards in your hand and in the pool.
+    function _htpLegendHtml() {
+      return '<div class="htp-legend"><span class="htp-legend-cap">Card colours</span>'
+        + _FAMILY_LEGEND.map(([lbl, sp]) =>
+            `<span class="htp-legend-chip" style="--lc:${FAMILY_COLORS[_normFamily(sp)] || "#b388ff"}">${_htpE(lbl)}</span>`
+          ).join("")
+        + '</div>';
+    }
+
+    function _htpStep(n, title, body) {
+      return `<div class="htp-step"><div class="htp-step-n">${n}</div>`
+        + `<div class="htp-step-body"><h3 class="htp-h3">${title}</h3>${body}</div></div>`;
+    }
+
+    function _htpQuickHtml() {
+      return ''
+        + '<div class="htp-hero">'
+        +   '<div class="htp-hero-badge">🚀 Quick Start</div>'
+        +   '<h2 class="htp-hero-title">Build the best ocean before the END GAME card turns up</h2>'
+        +   '<p class="htp-hero-sub">Every player grows their own reef out of Ocean cards and the animals '
+        +     'attached to them. When the END GAME card appears, everyone takes one last turn and the biggest '
+        +     'ecosystem wins. Here is a whole turn, start to finish.</p>'
+        +   '<div class="htp-hero-btns">'
+        +     '<button type="button" class="htp-btn htp-btn-gold" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        +     '<button type="button" class="htp-btn" data-htp-go="rules">📖 Full Rulebook</button>'
+        +     '<button type="button" class="htp-btn" data-htp-go="strats">🧭 Strategies</button>'
+        +   '</div>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🪸</span>Getting to a table</div>'
+        + '<div class="htp-steps">'
+        + _htpStep(1, "Pick your device", '<p class="htp-p">The very first screen asks whether you are on a '
+            + '<b>Computer</b> or on <b>Mobile</b>. That choice switches the controls: on a phone or tablet you drag '
+            + 'cards with your finger and the board starts zoomed out so a whole reef fits on screen.</p>')
+        + _htpStep(2, "Sign in, or play as a guest", '<p class="htp-p">A free account saves your stats, avatars, '
+            + 'friends and achievements across devices. Guests can play straight away, but progress stays on that one '
+            + 'device under that one nickname.</p>')
+        + _htpStep(3, "Start a game", '<p class="htp-p">Four cards sit at the top of your home page:</p>'
+            + '<ul class="htp-list">'
+            + '<li><b>Quick Match</b> puts you in the Quick Play queue and seats you as soon as enough '
+              + 'players turn up.</li>'
+            + '<li><b>Create Game</b> lets you set the table size, add bots, and choose the mode '
+              + '(Normal, Competitive, Team, and Tournament when it is running).</li>'
+            + '<li><b>Join Game</b> opens <i>Open Currents</i>, the list of tables you can join right now: '
+              + 'public, private (they ask for the room code), competitive and tournament.</li>'
+            + '<li><b>Tutorial</b> walks you through a real, guided hand.</li>'
+            + '</ul>')
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🎴</span>Your turn: pick one thing</div>'
+        + '<p class="htp-p htp-p-lead">A turn is <b>one</b> of these three. The banner at the top tells you when it '
+        +   'is your go, and the guide bar underneath spells out the next tap.</p>'
+        + '<div class="htp-choices">'
+        +   '<div class="htp-choice"><div class="htp-choice-ico">🎣</div><h3 class="htp-h3">Draw 2 cards</h3>'
+        +     '<p class="htp-p">Click the <b>Deck</b> to take an unknown card, or click any face-up card in the '
+        +     '<b>Pool</b> to take exactly the one you want. You take two in total and you can mix them however you '
+        +     'like: two from the pool, one of each, or two off the deck. After your first card the game asks for '
+        +     'your second, then the turn is over.</p></div>'
+        +   '<div class="htp-choice"><div class="htp-choice-ico">🐠</div><h3 class="htp-h3">Play 1 card</h3>'
+        +     '<p class="htp-p">Drag a card from your hand onto the board, or click an empty slot and pick from the '
+        +     'list that opens. Oceans go down as new sections of your reef; animals attach to an ocean you already '
+        +     'own. Then you pay its cost.</p></div>'
+        +   '<div class="htp-choice"><div class="htp-choice-ico">⇄</div><h3 class="htp-h3">Move 1 animal</h3>'
+        +     '<p class="htp-p">Drag an animal already on your board to a free slot on a different ocean. It has to '
+        +     'keep the same side it was on, and moving it uses your whole turn. Oceans themselves never move.</p></div>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🏖️</span>Paying for a card</div>'
+        + '<div class="htp-steps">'
+        + _htpStep(1, "Read the cost", '<p class="htp-p">The sand dollars in a card\'s top-left corner are its price: '
+            + 'one sand dollar means discard one card from your hand, two means two, and plenty of cards are free.</p>')
+        + _htpStep(2, "Choose the payment", '<p class="htp-p">Once a card is staged, the guide bar asks you to pick '
+            + 'payment. Hover or click a card in your hand and press <b>Use as Payment</b>, then <b>Confirm Payment</b>. '
+            + '<b>Any</b> card can pay a base cost, the symbols only matter for stars.</p>')
+        + _htpStep(3, "Everything you pay goes to the Pool", '<p class="htp-p">Discards land face-up in the Pool in '
+            + 'the middle of the table, where anyone (including you, next turn) can draw them. When the Pool reaches '
+            + '10 cards it is swept into a face-down pile and starts fresh.</p>')
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">★</span>Star abilities</div>'
+        + '<div class="htp-star-card">'
+        +   '<p class="htp-p">A gold ★ on a card marks an <b>optional</b> bonus, and it is where the big turns come '
+        +     'from: a free extra play, a fistful of cards, a free animal.</p>'
+        +   '<ul class="htp-list">'
+        +   '<li>To fire it, pay with a card whose <b>symbol matches</b> the card you are playing (♥ ◆ ● ▲ ■).</li>'
+        +   '<li>Pay with anything else and the card still lands and still scores, you just skip the ★.</li>'
+        +   '<li>Stars happen immediately. You can never bank one for a later turn.</li>'
+        +   '<li>"Play a free animal" always means from <b>your hand</b>, never from the deck or the Pool.</li>'
+        +   '</ul>'
+        +   '<p class="htp-p htp-p-tip">The <b>★ Star ability</b> tick-box sits in the action bar. Leave it on and the '
+        +     'game reaches for the star whenever it can; if you are about to play a card and waste an available star, '
+        +     'it stops and checks with you first.</p>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🗺️</span>Your board</div>'
+        + '<div class="htp-cols">'
+        +   '<div class="htp-col"><h3 class="htp-h3">Oceans are the foundation</h3>'
+        +     '<p class="htp-p">Every animal has to hang off an ocean, so your first play is almost always an ocean. '
+        +     'New oceans line up left to right and never move again.</p></div>'
+        +   '<div class="htp-col"><h3 class="htp-h3">Four slots per ocean</h3>'
+        +     '<p class="htp-p">Each ocean has an <b>Up</b>, <b>Down</b>, <b>Left</b> and <b>Right</b> slot, and each '
+        +     'card can only go on its own side. One card per slot, except Lobsters and Yellowfin Tuna, which stack '
+        +     'with their own kind without limit.</p></div>'
+        +   '<div class="htp-col"><h3 class="htp-h3">Reading a card</h3>'
+        +     '<p class="htp-p"><b>Hover</b> a card to read its ability, <b>double-click</b> to zoom it full size. '
+        +     'Cost sits top-left, symbol top-right, name and species along the bottom, points and ability in the '
+        +     'bottom box.</p></div>'
+        +   '<div class="htp-col"><h3 class="htp-h3">Ten cards, no more</h3>'
+        +     '<p class="htp-p">If you finish a turn holding more than 10 cards, the game asks you to discard down to '
+        +     '10. Those go to the Pool too.</p></div>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🧮</span>How points work</div>'
+        + '<div class="htp-score-row">'
+        +   '<div class="htp-score-kind"><div class="htp-score-tag">Flat</div>'
+        +     '<div class="htp-score-eg">+3</div><p class="htp-p">Worth the same every time. Easy, reliable points.</p></div>'
+        +   '<div class="htp-score-kind"><div class="htp-score-tag">Per type</div>'
+        +     '<div class="htp-score-eg">+2 per Bird</div><p class="htp-p">Counts everything of that kind on your '
+        +     'board, so it grows as your reef grows.</p></div>'
+        +   '<div class="htp-score-kind"><div class="htp-score-tag">Threshold</div>'
+        +     '<div class="htp-score-eg">1 = 5 · 2 = 15 · 3 = 30</div><p class="htp-p">Pays off only once you collect '
+        +     'a set. Commit early or leave it alone.</p></div>'
+        + '</div>'
+        + '<p class="htp-p">Your running total sits in the top bar. Tap the <b>📊 pts</b> badge at any time for a '
+        +   'full Score Breakdown, card by card.</p>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🏁</span>How the game ends</div>'
+        + '<div class="htp-endgame">'
+        +   '<p class="htp-p">One <b>END GAME</b> card is shuffled at random into the <b>bottom 15 cards</b> of the '
+        +     'deck, so nobody knows exactly when it lands. The moment somebody draws it, every other player gets one '
+        +     'final turn, then the game tallies everyone\'s reef and shows the winner. Extra plays still work during '
+        +     'those last turns.</p>'
+        +   '<p class="htp-p htp-p-tip">Because you cannot see it coming, a lead you already have is worth more than a '
+        +     'plan you have not finished.</p>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🎛️</span>Buttons worth knowing</div>'
+        + '<div class="htp-keys">'
+        +   '<div class="htp-key"><span class="htp-key-btn">💡 Help</span><span>Opens the Strategies screen mid-game. '
+        +     'Pick a plan and every card that fits lights up in your hand and in the pool.</span></div>'
+        +   '<div class="htp-key"><span class="htp-key-btn">↩ Undo Turn</span><span>Takes your last turn back. It '
+        +     'survives bot turns and only locks once another human has played after you.</span></div>'
+        +   '<div class="htp-key"><span class="htp-key-btn">🏄 Surf\'s Up!!</span><span>Marks you Away. The table waits, '
+        +     'nobody can report you for going quiet, and you tap "I\'m Back" to return.</span></div>'
+        +   '<div class="htp-key"><span class="htp-key-btn">Inspect</span><span>Browses every card sitting in the Pool '
+        +     'at full size.</span></div>'
+        +   '<div class="htp-key"><span class="htp-key-btn">⛶ Full Screen</span><span>Gives the table the whole '
+        +     'display.</span></div>'
+        +   '<div class="htp-key"><span class="htp-key-btn">☰ Menu</span><span>Scores, Score Breakdown, Game Log, Chat, '
+        +     'Settings, the full <b>Rule Book</b>, and the way out.</span></div>'
+        + '</div>'
+
+        + '<div class="htp-cta">'
+        +   '<div class="htp-cta-txt"><b>That is the whole game.</b> The tutorial deals you a real hand and walks you '
+        +     'through it, which is the fastest way to make it stick.</div>'
+        +   '<button type="button" class="htp-btn htp-btn-gold" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        + '</div>';
+    }
+
+    // Strategies: rendered from the very same HELP_STRATEGIES the in-game 💡 Help
+    // button uses, so a plan reads identically in both places.
+    function _htpStratCardHtml(i) {
+      const s = HELP_STRATEGIES[i];
+      if (!s) return "";
+      const colour = (typeof STRAT_COLORS !== "undefined" && STRAT_COLORS[i]) || "#b388ff";
+      const art = (window.__ccHelpTut && typeof window.__ccHelpTut.stratArtHtml === "function")
+        ? window.__ccHelpTut.stratArtHtml(i, "htp-strat-art") : "";
+      const tier = s.custom ? "Mine" : (s.tier === "Combo" ? "Combo" : "Core");
+      const steps = (s.steps || []).map(t => `<li>${_htpE(t)}</li>`).join("");
+      const tips  = (s.tips  || []).map(t => `<li>${_htpE(t)}</li>`).join("");
+      const cards = (s.cards || []).map(c => {
+        const star = starText(c.text);
+        const main = mainText(c.text);
+        return `<div class="htp-card-row" style="--fc:${familyColor(c.species)}">`
+          + `<span class="htp-card-name">${_htpE(c.name)}</span>`
+          + `<span class="htp-card-count">×${Number(c.count) || 1}</span>`
+          + `<span class="htp-card-fam">${_htpE(c.species)}</span>`
+          + `<span class="htp-card-text">${_htpE(main)}`
+          + (star ? `<span class="htp-card-star">★ ${_htpE(star)}</span>` : "")
+          + `</span></div>`;
+      }).join("");
+      return `<details class="htp-strat" style="--strat-c:${colour}">`
+        + `<summary class="htp-strat-head">${art}`
+        +   `<span class="htp-strat-txt">`
+        +     `<span class="htp-strat-name">${_htpE(s.label)}<span class="htp-tier htp-tier-${tier}">${tier}</span></span>`
+        +     `<span class="htp-strat-blurb">${_htpE(s.blurb)}</span>`
+        +   `</span>`
+        +   `<span class="htp-strat-more" aria-hidden="true"></span>`
+        + `</summary>`
+        + `<div class="htp-strat-body">`
+        +   (steps ? `<div class="htp-strat-block"><h4 class="htp-h4">How to play it</h4><ol class="htp-oli">${steps}</ol></div>` : "")
+        +   (tips  ? `<div class="htp-strat-block"><h4 class="htp-h4">Quick tips</h4><ul class="htp-list">${tips}</ul></div>` : "")
+        +   (cards ? `<div class="htp-strat-block"><h4 class="htp-h4">Cards to look for</h4><div class="htp-cardlist">${cards}</div></div>` : "")
+        + `</div></details>`;
+    }
+
+    function _htpStratsHtml() {
+      const core = [], combo = [], custom = [];
+      for (let i = 0; i < HELP_STRATEGIES.length; i++) {
+        const s = HELP_STRATEGIES[i];
+        if (!s) continue;
+        if (s.custom) custom.push(i);
+        else if (s.tier === "Combo") combo.push(i);
+        else core.push(i);
+      }
+      const sec = (title, sub, idxs) => idxs.length
+        ? `<div class="htp-sec-head"><span class="htp-sec-ico">🧭</span>${title}</div>`
+          + `<p class="htp-p htp-p-lead">${sub}</p>`
+          + `<div class="htp-strats">${idxs.map(_htpStratCardHtml).join("")}</div>`
+        : "";
+      return ''
+        + '<div class="htp-hero">'
+        +   '<div class="htp-hero-badge">🧭 Strategies</div>'
+        +   '<h2 class="htp-hero-title">Every plan the 💡 Help button knows</h2>'
+        +   '<p class="htp-hero-sub">These are the exact strategies the game offers you mid-match. Read them here at '
+        +     'your leisure, then switch one on at the table and the game will point out the cards for you.</p>'
+        + '</div>'
+
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">💡</span>How to get there in a game</div>'
+        + '<div class="htp-steps">'
+        + _htpStep(1, "Press 💡 Help", '<p class="htp-p">The Help button lives on the left of the action bar at the '
+            + 'bottom of the table, right next to the card you are about to play. It is available on every turn, '
+            + 'including when it is not your go.</p>')
+        + _htpStep(2, "Choose a core strategy", '<p class="htp-p">The top row holds the core plans. Press '
+            + '<b>Play this</b> to switch one on, or <b>View cards &amp; plan</b> to read its steps first. You can run '
+            + 'several at once, and <b>🎲 Randomize</b> will pick 1 to 4 for you if you would rather be surprised.</p>')
+        + _htpStep(3, "Watch your cards light up", '<p class="htp-p">With a strategy switched on, every card that '
+            + 'belongs to it glows in its family colour, in your hand <i>and</i> in the pool, and a gold ★ marks the '
+            + 'ones with a star ability. That glow is the hint: it is telling you which card to reach for.</p>'
+            + _htpLegendHtml())
+        + _htpStep(4, "Follow the guide bar", '<p class="htp-p">Just under the turn banner, the guide bar spells out '
+            + 'the next thing to do in plain words: draw two, pick payment, use a free play, discard down to ten. It '
+            + 'changes as your turn changes, so if you are ever unsure, read that line.</p>')
+        + _htpStep(5, "Build your own", '<p class="htp-p">At the bottom of the Help screen, <b>Create Your Own '
+            + 'Strategy</b> saves a plan with your own name, notes and card list. It then behaves exactly like a '
+            + 'built-in one, glow and all, and it stays on this device.</p>')
+        + '</div>'
+
+        + sec("Core strategies", "Start here. Each one is a complete plan on its own.", core)
+        + sec("Combos", "Two cores that feed each other. Suggested to you once a core is switched on.", combo)
+        + sec("Your own strategies", "Plans you saved on this device.", custom);
+    }
+
+    function _htpShow(view) {
+      _htpView = view || "quick";
+      const card = $a("ph-panel-howto");
+      if (!card) return;
+      card.querySelectorAll(".htp-tab").forEach(b => {
+        const on = b.dataset.htp === _htpView;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      card.querySelectorAll(".htp-pane").forEach(p => {
+        p.classList.toggle("active", p.id === "htp-pane-" + _htpView);
+      });
+      const body = card.querySelector(".htp-body");
+      if (body) body.scrollTop = 0;
+    }
+
+    function renderPhHowTo() {
+      const card = $a("ph-panel-howto");
+      if (!card) return;
+
+      if (!_htpBuilt) {
+        _htpBuilt = true;
+
+        const quick = $a("htp-pane-quick");
+        if (quick) quick.innerHTML = _htpQuickHtml();
+
+        const rules = $a("htp-pane-rules");
+        if (rules) {
+          if (window.CC_RULEBOOK_HTML) {
+            rules.innerHTML = '<div class="rb rb-light">' + window.CC_RULEBOOK_HTML + '</div>';
+            const rbRoot = rules.querySelector(".rb");
+            if (rbRoot && typeof window.ccRulebookInit === "function") window.ccRulebookInit(rbRoot);
+          } else {
+            rules.innerHTML = '<div class="htp-missing">The rulebook did not load. Refresh the page to try again.</div>';
+          }
+        }
+
+        card.querySelectorAll(".htp-tab").forEach(btn => {
+          btn.addEventListener("click", () => _htpShow(btn.dataset.htp));
+        });
+
+        // One delegated handler for every in-page shortcut button.
+        card.addEventListener("click", (ev) => {
+          const go = ev.target.closest("[data-htp-go]");
+          if (!go || !card.contains(go)) return;
+          const dest = go.getAttribute("data-htp-go");
+          if (dest === "tutorial") {
+            const b = $a("stats-tutorial-btn");
+            if (b) b.click();
+            return;
+          }
+          _htpShow(dest);
+        });
+
+        const tutLink = $a("htp-tutorial-link");
+        if (tutLink) tutLink.addEventListener("click", () => {
+          const b = $a("stats-tutorial-btn");
+          if (b) b.click();
+        });
+      }
+
+      // Rebuilt on every visit: the list includes strategies the player saved
+      // themselves, which can change between visits.
+      const strats = $a("htp-pane-strats");
+      if (strats) strats.innerHTML = _htpStratsHtml();
+
+      _htpShow(_htpView);
     }
 
     // ── Player Home: overview tab ──────────────────────────────────
