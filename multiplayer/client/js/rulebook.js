@@ -45,6 +45,17 @@
       + '<img src="/oceans_cards/page_' + pad2(uid - 200) + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
+  // One named card in a Pool slot. Every slot is the same square, and the card
+  // is fitted whole inside it, so an Up/Down card (landscape), a Left/Right card
+  // (tall) and an Ocean (portrait) line up in one even grid and each still shows
+  // the single face a player would actually be looking at.
+  function poolCard(uid, name) {
+    var face = uid >= 201 ? oFace(uid) : (uid >= 101 ? vFace(uid) : hFace(uid));
+    return '<figure class="rb-pool-card">'
+      + '<span class="rb-pool-card-slot">' + face + '</span>'
+      + '<figcaption>' + name + '</figcaption></figure>';
+  }
+
   // A labelled card in a figure: the art plus a caption underneath.
   function figCard(faceHtml, name, note) {
     return '<figure class="rb-figcard">' + faceHtml
@@ -97,16 +108,23 @@
       + '</div>';
   }
 
-  // The Pool board filling to its ten-card limit, then resetting.
+  // The Pool board filling to its ten-card limit, then resetting. Laid out the
+  // way the real board is — two rows of five — and filled with ten actual cards
+  // (one of every family) rather than anonymous card backs, because in play the
+  // Pool is always face up.
+  var POOL_EXAMPLE = [
+    [11,  "Horned Puffin"],   [12,  "Lobster"],        [34,  "Staghorn Coral"],
+    [26,  "Red Beaded Anemone"], [28, "Mandarin Goby"],
+    [53,  "Mullet"],          [107, "Yellowfin Tuna"], [102, "Spinner Dolphin"],
+    [110, "Common Octopus"],  [217, "Coral Reef"],
+  ];
   function poolFigure() {
-    var slots = "";
-    for (var i = 0; i < 10; i++) {
-      slots += '<span class="rb-pool-slot"><span class="rb-pool-n">' + (i + 1) + '</span></span>';
-    }
+    var slots = POOL_EXAMPLE.map(function (c) { return poolCard(c[0], c[1]); }).join("");
     return ''
       + '<div class="rb-fig">'
       +   '<div class="rb-fig-head">Pool Layout Example</div>'
       +   '<div class="rb-pool-board">' + slots + '</div>'
+      +   '<div class="rb-fig-note">Ten face-up cards, two rows of five. Anyone may draw from here on their turn.</div>'
       +   '<div class="rb-pool-flow">'
       +     '<span class="rb-pool-step">Pool reaches 10 cards</span>'
       +     '<span class="rb-arrow">&rarr;</span>'
@@ -131,7 +149,7 @@
   // ── The book ────────────────────────────────────────────────────
   var COMPONENTS = [
     "24 vertical cards", "22 horizontal cards", "67 oceans", "1 end game card",
-    "1 score pad", "1 game board (the pool)", "8 strategy cards",
+    "1 score pad", "1 game board (the pool)", "12 strategy cards",
   ];
 
   var SECTIONS = [
@@ -258,7 +276,7 @@
     +     '</div></div>'
     +     '<div class="rb-step"><div class="rb-step-n">3</div><div class="rb-step-body">'
     +       '<h3 class="rb-h3">Prepare the End Game</h3>'
-    +       '<ul class="rb-list"><li>Take the bottom 10 cards from the deck</li>'
+    +       '<ul class="rb-list"><li>Take the bottom 15 cards from the deck</li>'
     +       '<li>Shuffle the END GAME card into them</li>'
     +       '<li>Place this stack at the bottom of the deck</li></ul>'
     +     '</div></div>'
@@ -500,26 +518,6 @@
     +   '<h2 class="rb-h2"><span class="rb-h2-ico">📖</span>Encyclopedia</h2>'
     +   '<div class="rb-enc">' + encyclopediaHtml() + '</div>'
     + '</section>'
-
-    // ── Designer's notes ──────────────────────────────────────────
-    // The printed draft carries a few notes-to-self alongside the rules. They
-    // are not rules, so they stay out of the players' way — but nothing the
-    // author wrote is dropped, so they live here, verbatim, one click away.
-    + '<details class="rb-notes">'
-    +   '<summary class="rb-notes-sum">Designer’s notes from the draft</summary>'
-    +   '<div class="rb-notes-body">'
-    +     '<p class="rb-p"><span class="rb-notes-where">Attachment Rules ·</span> Example of stacking on page 5????</p>'
-    +     '<p class="rb-p"><span class="rb-notes-where">Card Anatomy ·</span> For a polished rulebook, I would do this:</p>'
-    +     '<ul class="rb-list"><li>Star Abilities → one example picture</li>'
-    +     '<li>Play Again → one example picture</li>'
-    +     '<li>Free Animal rule → usually no full picture needed, unless players keep getting it wrong in playtesting</li></ul>'
-    +     '<p class="rb-p">Best professional approach:</p>'
-    +     '<ul class="rb-list"><li>Keep the main rule text clean</li>'
-    +     '<li>Then add a small shaded Example box under it.</li>'
-    +     '<li>Like this:</li></ul>'
-    +     '<p class="rb-p"><span class="rb-notes-where">Animal Movement ·</span> 👉 (Optional: clarify if this is once per turn or anytime — I recommend “once per turn” for balance)</p>'
-    +   '</div>'
-    + '</details>'
 
     + '<div class="rb-end">≈ Currents <span>&amp;</span> Critters ≈</div>';
 

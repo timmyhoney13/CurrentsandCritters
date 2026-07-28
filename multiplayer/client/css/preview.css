@@ -1039,7 +1039,11 @@
     .hs-legend-chip {
       font-size: 11px; font-weight: 800; color: #e8eef6;
       padding: 2px 8px 2px 6px; border-radius: 999px;
-      background: rgba(255,255,255,.05); border: 1px solid var(--lc, #b388ff);
+      background: rgba(255,255,255,.05);
+      /* the hairline is lifted towards white so Bait Fish (dark brown) and Game
+         Fish (dark blue) still draw a visible ring on the near-black panel; the
+         dot below keeps the true family colour */
+      border: 1px solid color-mix(in srgb, var(--lc, #b388ff) 72%, #dce8f6);
     }
     .hs-legend-chip::before {
       content: ""; display: inline-block; width: 8px; height: 8px;
@@ -1761,15 +1765,15 @@
     .pv-ocean-center { position: relative; z-index: 2; }
     /* species glow on board hover, applied via JS data-species.
        Colours match the canonical FAMILY_COLORS map (one colour per family). */
-    .pv-board-card[data-species="Mammal"]:hover      { border-color: #f25fa6; box-shadow: 0 4px 14px rgba(242,95,166,.4); }
-    .pv-board-card[data-species="Game Fish"]:hover   { border-color: #9aa6b2; box-shadow: 0 4px 14px rgba(154,166,178,.45); }
-    .pv-board-card[data-species="Crustacean"]:hover  { border-color: #ef4444; box-shadow: 0 4px 14px rgba(239,68,68,.4); }
-    .pv-board-card[data-species="Invertebrate"]:hover{ border-color: #a855f7; box-shadow: 0 4px 14px rgba(168,85,247,.4); }
-    .pv-board-card[data-species="Crosscurrent"]:hover{ border-color: #22c55e; box-shadow: 0 4px 14px rgba(34,197,94,.4); }
-    .pv-board-card[data-species="Coral"]:hover       { border-color: #facc15; box-shadow: 0 4px 14px rgba(250,204,21,.4); }
-    .pv-board-card[data-species="Baitfish"]:hover    { border-color: #a86a34; box-shadow: 0 4px 14px rgba(168,106,52,.45); }
-    .pv-board-card[data-species="Cephalopod"]:hover  { border-color: #fb8c2a; box-shadow: 0 4px 14px rgba(251,140,42,.4); }
-    .pv-board-card[data-species="Bird"]:hover        { border-color: #3b82f6; box-shadow: 0 4px 14px rgba(59,130,246,.4); }
+    .pv-board-card[data-species="Coral"]:hover       { border-color: #facc15; box-shadow: 0 4px 14px rgba(250,204,21,.42); }
+    .pv-board-card[data-species="Mammal"]:hover      { border-color: #f25fa6; box-shadow: 0 4px 14px rgba(242,95,166,.42); }
+    .pv-board-card[data-species="Crosscurrent"]:hover{ border-color: #7fd8ff; box-shadow: 0 4px 14px rgba(127,216,255,.45); }
+    .pv-board-card[data-species="Invertebrate"]:hover{ border-color: #a855f7; box-shadow: 0 4px 14px rgba(168,85,247,.42); }
+    .pv-board-card[data-species="Game Fish"]:hover   { border-color: #2b5fd9; box-shadow: 0 4px 14px rgba(43,95,217,.55); }
+    .pv-board-card[data-species="Crustacean"]:hover  { border-color: #ef4444; box-shadow: 0 4px 14px rgba(239,68,68,.42); }
+    .pv-board-card[data-species="Cephalopod"]:hover  { border-color: #d9a066; box-shadow: 0 4px 14px rgba(217,160,102,.45); }
+    .pv-board-card[data-species="Bird"]:hover        { border-color: #ffffff; box-shadow: 0 4px 14px rgba(255,255,255,.45); }
+    .pv-board-card[data-species="Baitfish"]:hover    { border-color: #8a5a2b; box-shadow: 0 4px 14px rgba(138,90,43,.6); }
     .pv-board-card[data-species="Ocean"]:hover       { border-color: #14c7d4; box-shadow: 0 4px 14px rgba(20,199,212,.4); }
 
     .pv-ocean-face {
@@ -12138,14 +12142,93 @@
     .htp-cta-txt { font-size: .96rem; line-height: 1.55; color: #4f7ba6; max-width: 60ch; }
     .htp-cta-txt b { color: #0f5390; }
 
+    /* ── List of species ───────────────────────────────────────────── */
+    .htp-species { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); }
+    .htp-spec {
+      display: flex; gap: 13px; align-items: flex-start;
+      padding: 14px 15px 14px 13px; border-radius: 16px;
+      background: rgba(252,255,255,.93);
+      border: 1px solid rgba(169,203,230,.6);
+      /* the family colour, always readable: a solid bar down the left, with the
+         card's own hairline border keeping a white (Birds) bar visible */
+      border-left: 6px solid var(--sc, #b388ff);
+      /* hairlines on BOTH edges of the colour bar, so the white one (Birds)
+         still reads as a bar instead of dissolving into the card and the page */
+      box-shadow: inset 1px 0 0 rgba(16,58,116,.26), -1px 0 0 rgba(16,58,116,.22),
+                  0 3px 14px rgba(20,85,150,.08);
+    }
+    .htp-spec-art {
+      flex: 0 0 auto; display: block; width: 68px; height: 68px;
+      border-radius: 18px; overflow: hidden;
+      /* the portraits are cut-outs on transparent, so the family colour becomes
+         the plate behind them — which is also what keeps a white Puffin visible */
+      background: color-mix(in srgb, var(--sc, #b388ff) 18%, #e6f2fd);
+      border: 2px solid var(--sc, #b388ff);
+      box-shadow: 0 0 0 1px rgba(16,58,116,.18), 0 3px 10px rgba(20,85,150,.16);
+    }
+    .htp-spec-art img { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .htp-spec-body { flex: 1; min-width: 0; }
+    .htp-spec-name {
+      margin: 0 0 5px; font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 1.06rem; font-weight: 800; line-height: 1.15;
+      color: var(--si, #0f5390);
+    }
+    .htp-spec-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
+    .htp-spec-n, .htp-spec-slot {
+      font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase;
+      padding: 2px 8px; border-radius: 999px;
+    }
+    .htp-spec-n {
+      color: var(--si, #11588f);
+      background: color-mix(in srgb, var(--sc, #b388ff) 18%, rgba(255,255,255,.9));
+      border: 1px solid color-mix(in srgb, var(--si, #11588f) 42%, transparent);
+    }
+    .htp-spec-slot { color: #5b82a3; background: rgba(226,240,251,.9); border: 1px solid rgba(169,203,230,.7); }
+    .htp-spec-txt { margin: 0; font-size: .87rem; line-height: 1.55; color: #4f7ba6; }
+    .htp-spec-note {
+      font-family: "Nunito", sans-serif; font-size: 11px; font-weight: 800;
+      letter-spacing: .3px; text-transform: uppercase; color: #7a9db8;
+    }
+
+    /* Oceans: everything above hangs off these, so they get their own strip */
+    .htp-spec-ocean {
+      display: flex; gap: 16px; align-items: center; margin-top: 12px;
+      padding: 16px 18px 16px 14px; border-radius: 18px;
+      background: linear-gradient(135deg, rgba(20,199,212,.12), rgba(46,143,224,.10));
+      border: 1px solid rgba(140,200,235,.7);
+      border-left: 6px solid var(--sc, #14c7d4);
+    }
+    .htp-spec-ocean-art {
+      flex: 0 0 auto; display: block; width: 86px; aspect-ratio: 720 / 1008;
+      border-radius: 10px; overflow: hidden;
+      border: 2px solid var(--sc, #14c7d4);
+      box-shadow: 0 3px 12px rgba(20,85,150,.2);
+    }
+    .htp-spec-ocean-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    @media (max-width: 420px) {
+      .htp-spec { padding: 12px 12px 12px 10px; gap: 10px; }
+      .htp-spec-art { width: 58px; height: 58px; border-radius: 15px; }
+      .htp-spec-ocean { gap: 12px; padding: 13px 13px 13px 10px; }
+      .htp-spec-ocean-art { width: 68px; }
+    }
+
     /* Family colour key */
     .htp-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
     .htp-legend-cap { font-size: 11px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; color: #7a9db8; }
+    /* Solid swatch + neutral pill rather than a tinted pill: the family colours
+       now include white (Birds) and yellow (Coral), which disappear entirely
+       when used as a tint or a hairline on this pale skin. A filled dot inside a
+       thin dark ring shows every hue truthfully, white included. */
     .htp-legend-chip {
-      font-size: 11px; font-weight: 800; color: #11588f;
-      padding: 3px 10px; border-radius: 999px;
-      background: color-mix(in srgb, var(--lc) 16%, transparent);
-      border: 1.5px solid color-mix(in srgb, var(--lc) 62%, transparent);
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 800; color: var(--li, #11588f);
+      padding: 3px 10px 3px 7px; border-radius: 999px;
+      background: rgba(255,255,255,.85);
+      border: 1.5px solid rgba(140,180,215,.75);
+    }
+    .htp-legend-chip::before {
+      content: ""; flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%;
+      background: var(--lc, #b388ff); box-shadow: 0 0 0 1px rgba(16,58,116,.32);
     }
 
     /* ── How to play: strategy cards ───────────────────────────────── */
@@ -12198,12 +12281,12 @@
       display: grid; grid-template-columns: minmax(120px, 1.1fr) auto minmax(80px, .6fr) minmax(160px, 2fr);
       gap: 10px; align-items: baseline;
       padding: 7px 11px; border-radius: 10px;
-      background: color-mix(in srgb, var(--fc, #b388ff) 8%, rgba(246,251,255,.9));
-      border-left: 3px solid var(--fc, #b388ff);
+      background: color-mix(in srgb, var(--fc, #b388ff) 10%, rgba(246,251,255,.9));
+      border-left: 3px solid var(--fi, #6f4bb0);
     }
     .htp-card-name  { font-size: .88rem; font-weight: 800; color: #11588f; }
     .htp-card-count { font-size: .8rem; font-weight: 800; color: #7a9db8; }
-    .htp-card-fam   { font-size: .74rem; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: color-mix(in srgb, var(--fc, #b388ff) 78%, #153d6d); }
+    .htp-card-fam   { font-size: .74rem; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: var(--fi, #6f4bb0); }
     .htp-card-text  { font-size: .82rem; line-height: 1.45; color: #5b82a3; }
     .htp-card-star  { display: block; font-size: .78rem; font-weight: 800; color: #7a6800; }
     @media (max-width: 760px) {
@@ -12481,21 +12564,37 @@
       background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
     }
 
-    /* Pool figure */
+    /* Pool figure — two rows of five, the shape of the real board */
     .rb-pool-board {
-      display: flex; flex-wrap: wrap; gap: 7px; justify-content: center;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+      width: min(760px, 100%); margin: 0 auto;
       padding: 12px; border-radius: 14px;
       background: var(--rb-surface); border: 1.5px dashed var(--rb-line-2);
     }
-    .rb-pool-slot {
-      width: 46px; height: 64px; border-radius: 7px;
+    .rb-pool-card { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    /* One square slot per card, with the whole face fitted inside it: the three
+       card shapes (landscape Up/Down, tall Left/Right, portrait Ocean) then sit
+       in an even grid without any of them being cropped. */
+    .rb-pool-card-slot {
       display: flex; align-items: center; justify-content: center;
-      background: var(--cc-card-back, var(--rb-surface2)) center / cover no-repeat;
-      border: 1px solid var(--rb-line-2); position: relative; overflow: hidden;
+      aspect-ratio: 1 / 1; border-radius: 9px;
+      background: var(--rb-accent-s); border: 1px solid var(--rb-line-2);
     }
-    .rb-pool-n {
-      font-size: 11px; font-weight: 900; color: #fff;
-      background: rgba(8,26,52,.6); border-radius: 999px; padding: 1px 6px;
+    /* Every face is sized off the slot's WIDTH — the one dimension the grid
+       makes definite. Sizing off its height would be circular (the slot's own
+       height comes from aspect-ratio) and the taller cards would push the slot
+       out of square. The percentages are each shape's width at ~94% height. */
+    .rb-pool-card-slot .rb-face { box-shadow: 0 3px 10px rgba(6,30,60,.22); }
+    .rb-pool-card-slot .rb-face-h { width: 94%; }
+    .rb-pool-card-slot .rb-face-v { width: 33%; }
+    .rb-pool-card-slot .rb-face-o { width: 67%; }
+    .rb-pool-card figcaption {
+      font-size: 10.5px; font-weight: 800; line-height: 1.25; text-align: center;
+      color: var(--rb-muted); overflow-wrap: anywhere;
+    }
+    @media (max-width: 560px) {
+      .rb-pool-board { gap: 5px; padding: 8px; }
+      .rb-pool-card figcaption { font-size: 8.5px; }
     }
     .rb-pool-flow {
       display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
@@ -12576,17 +12675,23 @@
       padding: 14px 16px; border-radius: 16px;
       background: var(--rb-surface2); border: 1px solid var(--rb-line);
       border-top: 4px solid var(--fam-c, var(--rb-accent));
+      /* hairline under the colour bar, so a white (Birds) bar still reads as a
+         bar on the pale skin instead of dissolving into the card */
+      box-shadow: inset 0 1px 0 var(--rb-line);
     }
-    .rb-enc-group[data-fam="bird"]         { --fam-c: #3b82f6; }
-    .rb-enc-group[data-fam="crustacean"]   { --fam-c: #ef4444; }
-    .rb-enc-group[data-fam="coral"]        { --fam-c: #facc15; }
-    .rb-enc-group[data-fam="gamefish"]     { --fam-c: #9aa6b2; }
-    .rb-enc-group[data-fam="cephalopod"]   { --fam-c: #fb8c2a; }
-    .rb-enc-group[data-fam="baitfish"]     { --fam-c: #a86a34; }
-    .rb-enc-group[data-fam="invertebrate"] { --fam-c: #a855f7; }
-    .rb-enc-group[data-fam="mammal"]       { --fam-c: #f25fa6; }
-    .rb-enc-group[data-fam="crosscurrent"] { --fam-c: #22c55e; }
-    .rb-enc-group[data-fam="ocean"]        { --fam-c: #14c7d4; }
+    /* --fam-c is the canonical family colour (right on the dark table skin);
+       --fam-ink is the same hue pushed dark enough to read as TEXT on the pale
+       Player Home skin, where white birds and yellow coral would vanish. */
+    .rb-enc-group[data-fam="coral"]        { --fam-c: #facc15; --fam-ink: #9a7400; }
+    .rb-enc-group[data-fam="mammal"]       { --fam-c: #f25fa6; --fam-ink: #c02a6f; }
+    .rb-enc-group[data-fam="crosscurrent"] { --fam-c: #7fd8ff; --fam-ink: #1f86b8; }
+    .rb-enc-group[data-fam="invertebrate"] { --fam-c: #a855f7; --fam-ink: #7c3aed; }
+    .rb-enc-group[data-fam="gamefish"]     { --fam-c: #2b5fd9; --fam-ink: #2249b8; }
+    .rb-enc-group[data-fam="crustacean"]   { --fam-c: #ef4444; --fam-ink: #c02626; }
+    .rb-enc-group[data-fam="cephalopod"]   { --fam-c: #d9a066; --fam-ink: #9a6a2f; }
+    .rb-enc-group[data-fam="bird"]         { --fam-c: #ffffff; --fam-ink: #6b7f96; }
+    .rb-enc-group[data-fam="baitfish"]     { --fam-c: #8a5a2b; --fam-ink: #6b4420; }
+    .rb-enc-group[data-fam="ocean"]        { --fam-c: #14c7d4; --fam-ink: #0b7f88; }
     .rb-enc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
     .rb-enc-ico { font-size: 17px; }
     .rb-enc-title {
@@ -12602,23 +12707,11 @@
     }
     .rb-enc-list li:last-child { border-bottom: none; }
     .rb-enc-x { font-weight: 900; color: var(--fam-c, var(--rb-accent)); white-space: nowrap; }
-
-    /* Designer's notes, tucked away but never dropped */
-    .rb-notes {
-      margin-top: 16px; border-radius: 16px;
-      background: var(--rb-surface); border: 1px dashed var(--rb-line-2);
-    }
-    .rb-notes-sum {
-      padding: 13px 18px; cursor: pointer; list-style: none;
-      font-size: 11.5px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase;
-      color: var(--rb-muted);
-    }
-    .rb-notes-sum::-webkit-details-marker { display: none; }
-    .rb-notes-sum::after { content: " ▾"; }
-    .rb-notes[open] .rb-notes-sum::after { content: " ▴"; }
-    .rb-notes-sum:hover { color: var(--rb-ink); }
-    .rb-notes-body { padding: 0 18px 16px; border-top: 1px dashed var(--rb-line); padding-top: 12px; }
-    .rb-notes-where { font-weight: 900; color: var(--rb-coral); }
+    .rb.rb-light .rb-enc-x { color: var(--fam-ink, var(--rb-accent)); }
+    /* On the deep-ocean skin the colour bar keeps the true hue, but the small
+       count text is lifted towards white so the darkest families (Bait Fish,
+       Game Fish) stay readable over navy. */
+    .rb.rb-dark .rb-enc-x { color: color-mix(in srgb, var(--fam-c, #e8b34a) 74%, #eaf2ff); }
 
     .rb-end {
       margin: 22px 0 6px; text-align: center;

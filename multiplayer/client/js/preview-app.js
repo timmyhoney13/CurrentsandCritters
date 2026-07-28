@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.27";
-  const APP_BUILD   = "2026-07-28.2";
+  const APP_VERSION = "1.6.28";
+  const APP_BUILD   = "2026-07-28.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -3665,16 +3665,32 @@
   //    the strategy panel). A single source of truth is what keeps the colours
   //    100% consistent for players: e.g. a pink glow ALWAYS means "Mammal". ──
   const FAMILY_COLORS = {
-    mammal:       "#f25fa6", // pink
-    "game fish":  "#9aa6b2", // grey
-    crustacean:   "#ef4444", // red    (lobsters)
-    invertebrate: "#a855f7", // purple
-    crosscurrent: "#22c55e", // green  (border / cross-current)
     coral:        "#facc15", // yellow
-    baitfish:     "#a86a34", // brown
-    cephalopod:   "#fb8c2a", // orange
-    bird:         "#3b82f6", // blue
+    mammal:       "#f25fa6", // pink
+    crosscurrent: "#7fd8ff", // light blue
+    invertebrate: "#a855f7", // purple
+    "game fish":  "#2b5fd9", // dark blue
+    crustacean:   "#ef4444", // red
+    cephalopod:   "#d9a066", // light brown
+    bird:         "#ffffff", // white
+    baitfish:     "#8a5a2b", // dark brown
     ocean:        "#14c7d4", // teal   (the only family the player didn't name)
+  };
+  // The same ten hues pushed dark enough to stay legible as INK on the pale
+  // Player Home surfaces (How to Play, the light rulebook skin). White birds and
+  // yellow coral are unreadable as text on white, so anything drawn as a word
+  // rather than as a glow reads from here instead.
+  const FAMILY_INK = {
+    coral:        "#9a7400",
+    mammal:       "#c02a6f",
+    crosscurrent: "#1f86b8",
+    invertebrate: "#7c3aed",
+    "game fish":  "#2249b8",
+    crustacean:   "#c02626",
+    cephalopod:   "#9a6a2f",
+    bird:         "#6b7f96",
+    baitfish:     "#6b4420",
+    ocean:        "#0b7f88",
   };
   // Normalise the many spellings the data uses ("Gamefish", "Crustaceans",
   // "Lobster", plurals…) down to a FAMILY_COLORS key.
@@ -3688,6 +3704,9 @@
     return s;
   }
   function familyColor(species) { return FAMILY_COLORS[_normFamily(species)] || "#b388ff"; }
+  // Light-surface counterpart of familyColor(). Use this anywhere the colour
+  // becomes text or a hairline on a pale background.
+  function familyInk(species) { return FAMILY_INK[_normFamily(species)] || "#6f4bb0"; }
   // Black or white text, whichever stays legible on a given family colour.
   function _idealText(hex) {
     const h = String(hex || "").replace("#", "");
@@ -3705,15 +3724,17 @@
   }
   // Small colour key shown at the top of the Strategies panel so new players
   // instantly learn which colour means which animal family.
+  //    Named and ordered like the printed List of Species poster, with Oceans
+  //    appended because the game colours those too.
   const _FAMILY_LEGEND = [
-    ["Mammals", "mammal"], ["Birds", "bird"], ["Lobsters", "crustacean"],
-    ["Cephalopods", "cephalopod"], ["Baitfish", "baitfish"], ["Game Fish", "game fish"],
-    ["Coral", "coral"], ["Invertebrates", "invertebrate"], ["Cross-Current", "crosscurrent"],
+    ["Bait Fish", "baitfish"], ["Birds", "bird"], ["Cephalopods", "cephalopod"],
+    ["Coral", "coral"], ["Crustaceans", "crustacean"], ["Game Fish", "game fish"],
+    ["Invertebrates", "invertebrate"], ["Mammals", "mammal"], ["Crosscurrent", "crosscurrent"],
     ["Oceans", "ocean"],
   ];
   function _familyLegendHtml() {
     return `<div class="hs-legend"><span class="hs-legend-cap">Card colours:</span>` +
-      _FAMILY_LEGEND.map(([lbl, sp]) => `<span class="hs-legend-chip" style="--lc:${FAMILY_COLORS[sp]}">${lbl}</span>`).join("") +
+      _FAMILY_LEGEND.map(([lbl, sp]) => `<span class="hs-legend-chip" style="--lc:${familyColor(sp)}">${lbl}</span>`).join("") +
       `</div>`;
   }
 
@@ -21813,8 +21834,10 @@
     //   Quick Start   — how a turn actually plays in THIS app. Every claim here
     //                   is taken from the live rules engine / the tutorial, not
     //                   from the printed book, because the two differ in places
-    //                   (END GAME sits in the bottom 15 online, the mulligan is
-    //                   automatic, and so on).
+    //                   (the mulligan is automatic online, the pool sweep is
+    //                   automatic, and so on). The species counts likewise come
+    //                   from the real deck lists, not from the printed
+    //                   Encyclopedia, which is a page or two behind.
     //   Full Rulebook — the printed book, word for word, from js/rulebook.js.
     //   Strategies    — the same plans the in-game 💡 Help button offers, read
     //                   straight out of HELP_STRATEGIES so the two can't drift.
@@ -21832,7 +21855,7 @@
     function _htpLegendHtml() {
       return '<div class="htp-legend"><span class="htp-legend-cap">Card colours</span>'
         + _FAMILY_LEGEND.map(([lbl, sp]) =>
-            `<span class="htp-legend-chip" style="--lc:${FAMILY_COLORS[_normFamily(sp)] || "#b388ff"}">${_htpE(lbl)}</span>`
+            `<span class="htp-legend-chip" style="--lc:${familyColor(sp)};--li:${familyInk(sp)}">${_htpE(lbl)}</span>`
           ).join("")
         + '</div>';
     }
@@ -21840,6 +21863,67 @@
     function _htpStep(n, title, body) {
       return `<div class="htp-step"><div class="htp-step-n">${n}</div>`
         + `<div class="htp-step-body"><h3 class="htp-h3">${title}</h3>${body}</div></div>`;
+    }
+
+    // ── List of Species ─────────────────────────────────────────────
+    // The printed "List of Species" poster, rebuilt as live cards. The portrait
+    // is the gallery art (/avatars/*.png) so each family is recognisable at a
+    // glance the way the poster's icons are; `n` is counted off the real deck
+    // lists, and the colour is the one the game glows that family in.
+    const HTP_SPECIES = [
+      { key: "baitfish",     name: "Bait Fish",     art: "mullet",         n: 20, slot: "Surface (top)",
+        txt: "Free to play, every single one. Alone they are worth almost nothing — five <i>different</i> baitfish on your board is worth 30." },
+      { key: "bird",         name: "Birds",         art: "horned-puffin",  n: 28, slot: "Surface (top)",
+        txt: "The surface family. Most of them count something — other birds, crustaceans, matching symbols — and the Horned Puffin simply hands you another play." },
+      { key: "cephalopod",   name: "Cephalopods",   art: "common-octopus", n: 13, slot: "Left &amp; right",
+        txt: "Squid, octopus and cuttlefish. All cheap, and every one of them is worth more the moment you have three out." },
+      { key: "coral",        name: "Coral",         art: "staghorn-coral", n: 9,  slot: "Ocean floor (bottom)",
+        txt: "The cheapest cards in the deck and the quickest to snowball: Staghorn Coral pays +3 for every coral you own." },
+      { key: "crustacean",   name: "Crustaceans",   art: "lobster",        n: 17, slot: "Ocean floor (bottom)",
+        txt: "Lobsters stack any number deep in a single spot, and Mantis Shrimp pays 5, then 15, then 30 as you collect them." },
+      { key: "game fish",    name: "Game Fish",     art: "blue-marlin",    n: 43, slot: "Left &amp; right",
+        txt: "The biggest family in the deck and the biggest single scores. Yellowfin Tuna share a spot the way lobsters do, so one slot can hold a pile of them." },
+      { key: "invertebrate", name: "Invertebrates", art: "sea-urchin",     n: 10, slot: "Ocean floor (bottom)",
+        txt: "Quiet engines. Nearly all of them draw you a card when you play something, which is how you keep a hand going." },
+      { key: "mammal",       name: "Mammals",       art: "spinner-dolphin",n: 11, slot: "Left &amp; right",
+        txt: "Dolphins and narwhals. They score per matching symbol and hand out free plays and free draws." },
+      { key: "crosscurrent", name: "Crosscurrent",  art: "mandarin-goby",  n: 33, slot: "Floor, left &amp; right",
+        txt: "The wildcards, welcome on any side but the surface. Turtles let you play as much as you can pay for, and all four Mandarin Gobies together is the largest single payoff in the game." },
+    ];
+
+    function _htpSpeciesHtml() {
+      const cards = HTP_SPECIES.map(s => {
+        return `<article class="htp-spec" style="--sc:${familyColor(s.key)};--si:${familyInk(s.key)}">`
+          + `<span class="htp-spec-art">`
+          +   `<img src="/avatars/${s.art}.png" alt="${_htpE(s.name)}" loading="lazy">`
+          + `</span>`
+          + `<div class="htp-spec-body">`
+          +   `<h3 class="htp-spec-name">${s.name}</h3>`
+          +   `<div class="htp-spec-meta"><span class="htp-spec-n">${s.n} cards</span>`
+          +     `<span class="htp-spec-slot">${s.slot}</span></div>`
+          +   `<p class="htp-spec-txt">${s.txt}</p>`
+          + `</div></article>`;
+      }).join("");
+      // Oceans get their own strip rather than a tenth tile: they are not a
+      // species, they are the thing the other nine hang off.
+      const oceanStrip = `<div class="htp-spec-ocean" style="--sc:${familyColor("ocean")};--si:${familyInk("ocean")}">`
+        + `<span class="htp-spec-ocean-art">`
+        +   `<img src="${imagePathForUid(217)}" alt="Coral Reef ocean card" loading="lazy">`
+        + `</span>`
+        + `<div class="htp-spec-body">`
+        +   `<h3 class="htp-spec-name">Oceans <span class="htp-spec-note">not a species — the foundation</span></h3>`
+        +   `<div class="htp-spec-meta"><span class="htp-spec-n">68 cards</span>`
+        +     `<span class="htp-spec-slot">8 kinds of ocean</span></div>`
+        +   `<p class="htp-spec-txt">Every animal above has to attach to one of these. Oceans go down left to right, `
+        +     `never move again, and each kind scores by its own rule — a Coral Reef pays more the more reefs you `
+        +     `own, an Artificial Reef pays for every card hanging off it, a Tide Pool just counts your oceans.</p>`
+        + `</div></div>`;
+      return '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>List of species</div>'
+        + '<p class="htp-p htp-p-lead">Every animal in the game belongs to one of these nine families. Each family '
+        +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy — '
+        +   'in your hand and in the pool alike.</p>'
+        + `<div class="htp-species">${cards}</div>`
+        + oceanStrip;
     }
 
     function _htpQuickHtml() {
@@ -21940,6 +22024,8 @@
         +     '10. Those go to the Pool too.</p></div>'
         + '</div>'
 
+        + _htpSpeciesHtml()
+
         + '<div class="htp-sec-head"><span class="htp-sec-ico">🧮</span>How points work</div>'
         + '<div class="htp-score-row">'
         +   '<div class="htp-score-kind"><div class="htp-score-tag">Flat</div>'
@@ -22001,7 +22087,7 @@
       const cards = (s.cards || []).map(c => {
         const star = starText(c.text);
         const main = mainText(c.text);
-        return `<div class="htp-card-row" style="--fc:${familyColor(c.species)}">`
+        return `<div class="htp-card-row" style="--fc:${familyColor(c.species)};--fi:${familyInk(c.species)}">`
           + `<span class="htp-card-name">${_htpE(c.name)}</span>`
           + `<span class="htp-card-count">×${Number(c.count) || 1}</span>`
           + `<span class="htp-card-fam">${_htpE(c.species)}</span>`
