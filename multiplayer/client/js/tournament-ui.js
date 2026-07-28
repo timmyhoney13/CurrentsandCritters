@@ -104,6 +104,10 @@
     .ccT-row{ display:flex; gap:12px; flex-wrap:wrap; }
     .ccT-row > *{ flex:1 1 46%; }
     .ccT-fmt-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:9px; }
+    .ccT-mode-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    @media(max-width:420px){ .ccT-mode-grid{ grid-template-columns:1fr; } }
+    .ccT-mode-grid .ccT-fmt{ padding:10px 8px; }
+    .ccT-mode-grid .ccT-fmt-meta{ margin-top:4px; line-height:1.35; }
     .ccT-fmt{ cursor:pointer; border:1.5px solid rgba(140,200,240,.55); border-radius:16px; padding:11px 8px; text-align:center;
       background:var(--ccT-glass); color:var(--ccT-ink); transition:transform .12s, border-color .12s, box-shadow .12s; }
     .ccT-fmt:hover{ transform:translateY(-2px); border-color:rgba(50,140,240,.6); }
@@ -212,6 +216,8 @@
     .ccT-match.complete{ opacity:.97; }
     .ccT-match .ccT-mnum{ position:absolute; top:-9px; left:8px; font-size:.62rem; background:#2f8ce0; color:#fff; padding:1px 7px; border-radius:8px; }
     .ccT-match .ccT-mstatus{ position:absolute; top:-9px; right:8px; font-size:.6rem; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.5px; background:rgba(47,140,224,.16); color:#1c6fc0; }
+    .ccT-match .ccT-mlabel{ font-size:.66rem; font-weight:800; letter-spacing:.4px; text-transform:uppercase;
+      color:#3a6aa5; text-align:center; padding:3px 2px 1px; }
     .ccT-slot{ display:flex; align-items:center; gap:7px; padding:5px 7px; border-radius:9px; margin:3px 0; background:rgba(230,242,252,.85); }
     .ccT-slot.win{ background:linear-gradient(90deg,rgba(243,167,18,.24),rgba(243,167,18,.06)); }
     .ccT-slot.win .ccT-snm{ color:#b9760a; font-weight:800; }
@@ -278,8 +284,11 @@
   // =========================================================================
   // CREATE overlay
   // =========================================================================
+  // mode: 'uniform' (pick a size + format) | 'sizes' (list each opening match's
+  // size) | 'design' (the full canvas builder — window.__ccTourneyBuilder).
   let createState = { capacity: 8, ppm: 2, formats: [], summary: null, thirdPlace: false,
-                      custom: false, customSizes: [2, 2, 2, 2] };
+                      mode: "uniform", customSizes: [2, 2, 2, 2],
+                      design: null, designSummary: null };
 
   function openCreate() {
     injectStyles();
@@ -292,8 +301,22 @@
         <div class="ccT-body">
           <div class="ccT-field"><label>Tournament name</label>
             <input class="ccT-input" id="ccT-name" maxlength="40" placeholder="Currents Cup" value="Currents Cup"></div>
-          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-custom-toggle">
-            <span>🧩 Custom bracket<span class="ccT-hint">Design each opening match yourself — e.g. a 3-player, then a 4-player, then a 2-player match.</span></span></label></div>
+          <div class="ccT-field"><label>Bracket</label>
+            <div class="ccT-mode-grid" id="ccT-modes">
+              <div class="ccT-fmt" data-mode="uniform"><div class="ccT-fmt-title">⚡ Quick</div>
+                <div class="ccT-fmt-meta">Pick a size — we build the bracket.</div></div>
+              <div class="ccT-fmt" data-mode="sizes"><div class="ccT-fmt-title">🧩 Match sizes</div>
+                <div class="ccT-fmt-meta">Set each opening match's size yourself.</div></div>
+              <div class="ccT-fmt" data-mode="design"><div class="ccT-fmt-title">🎨 Design it</div>
+                <div class="ccT-fmt-meta">Build the whole bracket on a canvas.</div></div>
+            </div></div>
+          <div id="ccT-design" style="display:none">
+            <div class="ccT-field">
+              <div id="ccT-design-state" class="ccT-summary">Open the builder to design your bracket.</div>
+              <button class="ccT-btn sm gold" id="ccT-design-open" type="button" style="margin-top:8px">🎨 Open the bracket builder</button>
+              <button class="ccT-btn sm ghost" id="ccT-design-clear" type="button" style="margin-top:8px;display:none">Discard design</button>
+            </div>
+          </div>
           <div id="ccT-uniform">
             <div class="ccT-row">
               <div class="ccT-field"><label>Total players: <b id="ccT-cap-val">8</b></label>
@@ -318,7 +341,7 @@
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-fill-bots">
             <span>🤖 Fill empty seats with bots<span class="ccT-hint">Start any time — bots take every open spot so a full bracket runs even solo.</span></span></label></div>
           <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-spec" checked> Allow spectators</label></div>
-          <div class="ccT-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match for the bronze</label></div>
+          <div class="ccT-field" id="ccT-third-field"><label class="ccT-toggle"><input type="checkbox" id="ccT-third"> Play a 3rd-place match for the bronze</label></div>
           <div id="ccT-create-err" style="color:#c62a4e;min-height:18px;font-size:.85rem"></div>
           <button class="ccT-btn wide gold" id="ccT-create-go">Create Tournament →</button>
           <button class="ccT-btn ghost wide" id="ccT-create-browse">🔍 Browse open tournaments</button>
@@ -331,24 +354,75 @@
     capEl.addEventListener("input", () => { createState.capacity = +capEl.value; capVal.textContent = capEl.value; refreshFormats(); });
     $("#ccT-vis", modal).addEventListener("change", (e) => { $("#ccT-pw-field", modal).style.display = e.target.value === "private" ? "" : "none"; });
     $("#ccT-third", modal).addEventListener("change", (e) => { createState.thirdPlace = e.target.checked; refreshPreview(); });
-    $("#ccT-custom-toggle", modal).addEventListener("change", (e) => { createState.custom = e.target.checked; toggleCustomMode(modal); });
+    modal.querySelectorAll("#ccT-modes .ccT-fmt").forEach(tile => {
+      tile.addEventListener("click", () => { createState.mode = tile.dataset.mode; toggleCustomMode(modal); });
+    });
+    $("#ccT-design-open", modal).addEventListener("click", openDesigner);
+    $("#ccT-design-clear", modal).addEventListener("click", () => {
+      createState.design = null; createState.designSummary = null; toggleCustomMode(modal);
+    });
     $("#ccT-custom-add", modal).addEventListener("click", addCustomMatch);
     $("#ccT-create-cancel", modal).addEventListener("click", () => modal.classList.remove("open"));
     $("#ccT-create-go", modal).addEventListener("click", submitCreate);
     // Sync the fresh DOM to any persisted createState (the modal is rebuilt each
     // open, but createState survives), then populate the uniform format tiles.
-    $("#ccT-custom-toggle", modal).checked = createState.custom;
     toggleCustomMode(modal);
     refreshFormats();
   }
 
-  // ── Custom bracket builder ────────────────────────────────────────────────
+  // ── bracket mode: quick / match sizes / full design ───────────────────────
   function toggleCustomMode(modal) {
-    const uni = $("#ccT-uniform", modal), cus = $("#ccT-custom", modal);
-    if (uni) uni.style.display = createState.custom ? "none" : "";
-    if (cus) cus.style.display = createState.custom ? "" : "none";
-    if (createState.custom) renderCustomBuilder();
+    modal = modal || $("#ccT-create");
+    if (!modal) return;
+    const mode = createState.mode;
+    const show = (sel, on) => { const n = $(sel, modal); if (n) n.style.display = on ? "" : "none"; };
+    show("#ccT-uniform", mode === "uniform");
+    show("#ccT-custom", mode === "sizes");
+    show("#ccT-design", mode === "design");
+    modal.querySelectorAll("#ccT-modes .ccT-fmt").forEach(t =>
+      t.classList.toggle("sel", t.dataset.mode === mode));
+    // A designed bracket decides 3rd place by its own shape, and its size comes
+    // from the canvas — those controls would be lying, so hide them.
+    show("#ccT-third-field", mode !== "design");
+    if (mode === "sizes") renderCustomBuilder();
+    if (mode === "design") renderDesignState();
     refreshPreview();
+  }
+
+  function renderDesignState() {
+    const box = $("#ccT-design-state"), clear = $("#ccT-design-clear"), open = $("#ccT-design-open");
+    if (!box) return;
+    const s = createState.designSummary, d = createState.design;
+    if (!d || !d.matches || !d.matches.length) {
+      box.innerHTML = "Open the builder to place match boxes, connect the winners, and set what kind of player each spot takes.";
+      if (clear) clear.style.display = "none";
+      if (open) open.textContent = "🎨 Open the bracket builder";
+      return;
+    }
+    const kinds = s && s.slot_kinds ? s.slot_kinds : null;
+    const extra = kinds
+      ? ` <span style="opacity:.85">(${["open", "human", "ai", "invite"]
+          .filter(k => kinds[k]).map(k => `${kinds[k]} ${{ open: "open", human: "player-only", ai: "AI", invite: "invited" }[k]}`)
+          .join(" · ")})</span>` : "";
+    box.innerHTML = s
+      ? `✓ <b>${s.tournament_size}</b>-player designed bracket · <b>${s.num_rounds}</b> rounds ·
+         <b>${d.matches.length}</b> matches${extra}. The winner of the Final is the champion.`
+      : `✓ Designed bracket with <b>${d.matches.length}</b> matches.`;
+    if (clear) clear.style.display = "";
+    if (open) open.textContent = "🎨 Edit the design";
+  }
+
+  function openDesigner() {
+    const b = window.__ccTourneyBuilder;
+    if (!b) { toast("The bracket builder didn't load — refresh the page.", "err"); return; }
+    // The builder sits above the create modal, so cancelling it simply reveals the
+    // modal again exactly as the host left it.
+    b.open(createState.design, (design, summary) => {
+      createState.design = design;
+      createState.designSummary = summary || null;
+      createState.mode = "design";
+      openCreate();                 // rebuild the create modal with the design in hand
+    });
   }
   function customTotal() { return createState.customSizes.reduce((a, b) => a + b, 0); }
   function addCustomMatch() {
@@ -417,7 +491,20 @@
   async function refreshPreview() {
     const box = $("#ccT-preview"); if (!box) return;
     let url;
-    if (createState.custom) {
+    if (createState.mode === "design") {
+      const d = createState.design, s = createState.designSummary;
+      if (!d || !d.matches || !d.matches.length) {
+        box.innerHTML = "Design a bracket in the builder, then create the tournament.";
+      } else if (s) {
+        box.innerHTML = `Your design: <b>${s.tournament_size}</b> players ·
+          <b>${s.num_rounds}</b> rounds · <b>${s.playable_matches}</b> games.
+          Every spot fills exactly as you set it, and the Final decides the champion.`;
+      } else {
+        box.innerHTML = `Your design: <b>${d.matches.length}</b> matches.`;
+      }
+      return;
+    }
+    if (createState.mode === "sizes") {
       const total = customTotal();
       if (total < 4 || total > 32) { box.innerHTML = `Add matches until the total is <b>4–32</b> players (currently <b>${total}</b>).`; return; }
       url = `/api/tournament/preview?opening_sizes=${createState.customSizes.join(",")}&third_place=${createState.thirdPlace ? 1 : 0}`;
@@ -440,7 +527,13 @@
   async function submitCreate() {
     const modal = $("#ccT-create"); const errEl = $("#ccT-create-err", modal);
     errEl.textContent = "";
-    if (createState.custom) {
+    if (createState.mode === "design") {
+      const d = createState.design;
+      if (!d || !d.matches || !d.matches.length) {
+        errEl.textContent = "Design a bracket first — open the bracket builder.";
+        return;
+      }
+    } else if (createState.mode === "sizes") {
       const total = customTotal();
       if (total < 4 || total > 32) { errEl.textContent = `Custom bracket needs 4–32 players total (currently ${total}).`; return; }
       if (createState.customSizes.some(s => s < 2 || s > 8)) { errEl.textContent = "Each match must have 2–8 players."; return; }
@@ -455,7 +548,10 @@
       host_name: bridge().nickname(),
       avatar: bridge().myAvatar(),
     };
-    if (createState.custom) {
+    if (createState.mode === "design") {
+      body.custom_graph = createState.design;
+      body.third_place_match = false;   // a design decides 3rd place by its shape
+    } else if (createState.mode === "sizes") {
       body.opening_sizes = createState.customSizes.slice();
     } else {
       body.total_capacity = createState.capacity;
@@ -691,7 +787,9 @@
     const st = T.state; const me = st.viewer || {};
     root.innerHTML = `<div class="ccT-lobby">
       <div class="ccT-panel">
-        <h3>Players — ${st.joined}/${st.capacity}</h3>
+        <h3>Players — ${st.joined}/${st.capacity}${
+          st.human_capacity != null && st.human_capacity < st.capacity
+            ? ` <span style="font-weight:500;font-size:.8rem;opacity:.8">(${st.human_capacity} people, ${st.capacity - st.human_capacity} AI)</span>` : ""}</h3>
         <div class="ccT-players" id="ccT-players"></div>
       </div>
       <div class="ccT-panel">
@@ -813,7 +911,9 @@
       html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
     }
     const shapeLine = st.summary
-      ? (st.summary.is_custom && st.summary.opening_sizes
+      ? (st.summary.is_graph
+          ? `<br>Designed bracket: <b>${st.summary.total_matches}</b> matches over <b>${st.summary.num_rounds}</b> rounds, <b>${st.summary.tournament_size}</b> spots.`
+        : st.summary.is_custom && st.summary.opening_sizes
           ? `<br>Custom bracket: opening matches <b>${st.summary.opening_sizes.join(" · ")}</b> players, ${st.summary.num_rounds} rounds.`
           : `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.`)
       : "";
@@ -935,6 +1035,41 @@
     return "Round " + (i + 1);
   };
 
+  // A designed bracket carries the host's own match labels ("Losers Bracket",
+  // "Play-in", …). Use them for the column header when a round agrees on one,
+  // otherwise fall back to the generated name.
+  function roundLabel(br, ri) {
+    const row = br.rounds[ri] || [];
+    const labels = Array.from(new Set(row.map(m => (m.label || "").trim()).filter(Boolean)));
+    if (labels.length === 1) return labels[0];
+    if (labels.length > 1) return labels.join(" · ");
+    return ROUND_NAMES(br.n_rounds, ri);
+  }
+
+  // What an empty spot is waiting for, from the host's design. Feed spots name the
+  // match they come from ("🏅 winner of M2"), which is the whole point of a design.
+  let CUSTOM_MNUM = {};   // designed match id -> match number, rebuilt per render
+  function indexCustomIds(br) {
+    CUSTOM_MNUM = {};
+    (br.rounds || []).forEach(row => row.forEach(m => {
+      if (m.custom_id) CUSTOM_MNUM[m.custom_id] = m.match_number;
+    }));
+  }
+  const ordinalShort = (n) => n === 1 ? "winner" : n === 2 ? "runner-up" : "#" + n;
+  function emptySpotText(m, si) {
+    const k = (m.slot_kinds || [])[si];
+    if (!k) return "—";
+    if (k.kind === "ai") return "🤖 AI";
+    if (k.kind === "human") return "🧑 player";
+    if (k.kind === "invite") return k.invite ? "✉️ " + k.invite : "✉️ invited";
+    if (k.kind === "winner_from" || k.kind === "top_from") {
+      const from = CUSTOM_MNUM[k.source];
+      const who = ordinalShort(+k.rank || 1);
+      return from ? `${k.rank > 1 ? "🎖" : "🏅"} ${who} of M${from}` : `🏅 ${who}`;
+    }
+    return "—";
+  }
+
   function renderBracket(root) {
     const st = T.state; const br = st.bracket;
     if (!br) { root.innerHTML = `<div style="padding:40px;text-align:center;opacity:.7">The bracket appears when the tournament starts.<br>${st.phase === "lobby" ? "Add a few players to preview the bracket…" : ""}</div>`; return; }
@@ -951,11 +1086,16 @@
         <button id="ccT-zfit" title="Fit">⤢</button><button id="ccT-zmine" title="My match">◎</button>
       </div>`;
     const grid = $("#ccT-bgrid", root);
+    indexCustomIds(br);
     const myPath = computeMyPath(br, st.viewer && st.viewer.pid);
     br.rounds.forEach((round, ri) => {
       const col = el("div", "ccT-round");
-      col.appendChild(el("div", "ccT-round-label", ROUND_NAMES(br.n_rounds, ri)));
-      round.forEach(m => col.appendChild(matchCard(m, st, myPath, hostArrange)));
+      const header = roundLabel(br, ri);
+      col.appendChild(el("div", "ccT-round-label", header));
+      // When one round mixes labels (e.g. a Semifinal beside a Losers Bracket
+      // match), each card names itself — the shared header can't.
+      const mixed = round.some(m => (m.label || "").trim() && (m.label || "").trim() !== header);
+      round.forEach(m => col.appendChild(matchCard(m, st, myPath, hostArrange, mixed)));
       grid.appendChild(col);
     });
     if (br.third_place) {
@@ -969,7 +1109,7 @@
     requestAnimationFrame(() => { drawLines(root, br); fitBracket(root, true); });
   }
 
-  function matchCard(m, st, myPath, hostArrange) {
+  function matchCard(m, st, myPath, hostArrange, showLabel) {
     const mine = (m.players || []).some(p => p && st.viewer && p.pid === st.viewer.pid);
     const card = el("div", "ccT-match " + (m.status === "active" || m.status === "ready" ? "active " : "") + (m.status === "complete" ? "complete " : "") + (mine ? "mine " : ""));
     card.dataset.mnum = m.match_number;
@@ -984,17 +1124,24 @@
       const sc = m.scores && p ? m.scores[p.pid] : null;
       slots += `<div class="ccT-slot ${p ? "" : "empty"} ${isWin ? "win" : ""}" data-slot="${si}">
         ${p ? `<img class="ccT-sav" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">` : `<span class="ccT-sav"></span>`}
-        <span class="ccT-snm">${p ? esc(p.name) : "—"}</span>
+        <span class="ccT-snm">${p ? esc(p.name) : esc(emptySpotText(m, si))}</span>
         ${sc != null ? `<span class="ccT-ssc">${sc}</span>` : ""}</div>`;
     });
     card.innerHTML = `<span class="ccT-mnum">${m.is_third_place ? "3rd" : "M" + m.match_number}</span>
       ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "rgba(47,140,224,.22)" : m.status === "complete" ? "rgba(243,167,18,.28)" : "rgba(120,150,190,.16)"}">${statusTxt}</span>` : ""}
+      ${showLabel && (m.label || "").trim() ? `<div class="ccT-mlabel">${esc(m.label)}</div>` : ""}
       ${slots}`;
-    // Host arranging: in the lobby PREVIEW, opening-round slots that hold a player
-    // can be dragged/tapped to swap two players' bracket positions.
-    if (hostArrange && m.round_index === 0) {
+    // Host arranging: in the lobby PREVIEW, any spot a player was SEEDED into can
+    // be dragged/tapped to swap two players' bracket positions. On a generated
+    // bracket that's round 1; a designed bracket can seat players in any round, so
+    // go by the spot's own type instead.
+    if (hostArrange) {
       card.querySelectorAll(".ccT-slot[data-slot]").forEach(slotEl => {
-        const p = (m.players || [])[+slotEl.dataset.slot];
+        const si = +slotEl.dataset.slot;
+        const k = (m.slot_kinds || [])[si];
+        const seedable = k ? ["open", "human", "ai", "invite"].indexOf(k.kind) >= 0 : m.round_index === 0;
+        if (!seedable) return;
+        const p = (m.players || [])[si];
         if (p && p.pid) wireHostSwapTarget(slotEl, p.pid, p.name);
       });
     }
