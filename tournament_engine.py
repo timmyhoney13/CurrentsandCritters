@@ -71,10 +71,29 @@ class TournamentConfig:
     # bracket then has a FIXED shape sized for ``total_capacity`` == sum(opening_sizes),
     # so a custom tournament must fill every seat (players or bots) before it starts.
     opening_sizes: Optional[List[int]] = None
+    # DESIGNED BRACKET (optional): the host's hand-built bracket from the canvas
+    # builder — an arbitrary DAG of matches with typed player spots and explicit
+    # winner-advances-here connections. Serialized form of a ``CustomBracket`` (see
+    # below). When set it fully replaces the generated shape: total_capacity is the
+    # number of player-entry spots and players_per_match is the largest match.
+    custom_graph: Optional[Dict[str, Any]] = None
 
     @property
     def is_custom(self) -> bool:
-        return bool(self.opening_sizes)
+        """True for either host-authored shape (opening-size list or full graph) —
+        both have a FIXED bracket that must be completely filled before start."""
+        return bool(self.opening_sizes) or bool(self.custom_graph)
+
+    @property
+    def is_graph(self) -> bool:
+        """True only for a canvas-designed bracket (``custom_graph``)."""
+        return bool(self.custom_graph)
+
+    def graph(self) -> Optional["CustomBracket"]:
+        """Parse ``custom_graph`` into a CustomBracket (None when not a graph)."""
+        if not self.custom_graph:
+            return None
+        return CustomBracket.from_dict(self.custom_graph)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -85,13 +104,16 @@ class TournamentConfig:
             "third_place_match": self.third_place_match,
             "name": self.name,
             "opening_sizes": list(self.opening_sizes) if self.opening_sizes else None,
+            "custom_graph": dict(self.custom_graph) if self.custom_graph else None,
             "is_custom": self.is_custom,
+            "is_graph": self.is_graph,
         }
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> "TournamentConfig":
         raw_sizes = d.get("opening_sizes")
         sizes = [int(s) for s in raw_sizes] if raw_sizes else None
+        graph = d.get("custom_graph")
         return TournamentConfig(
             total_capacity=int(d.get("total_capacity", 0)),
             players_per_match=int(d.get("players_per_match", 0)),
@@ -100,6 +122,7 @@ class TournamentConfig:
             third_place_match=bool(d.get("third_place_match", False)),
             name=str(d.get("name", "Tournament")),
             opening_sizes=sizes,
+            custom_graph=dict(graph) if isinstance(graph, dict) else None,
         )
 
 
@@ -108,6 +131,29 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
     errs: List[str] = []
     if cfg.bracket_type not in SUPPORTED_BRACKETS:
         errs.append(f"Unsupported bracket type: {cfg.bracket_type!r}")
+    # A canvas-designed bracket carries its own complete shape, so it is checked by
+    # the graph validator instead of the generated-bracket rules below.
+    if cfg.custom_graph is not None:
+        if cfg.opening_sizes:
+            errs.append("A designed bracket cannot also set opening match sizes.")
+        try:
+            spec = CustomBracket.from_dict(cfg.custom_graph)
+        except Exception as exc:  # noqa: BLE001
+            errs.append(f"Designed bracket is unreadable: {exc}")
+            return errs
+        errs.extend(validate_custom_bracket(spec))
+        if not errs:
+            if cfg.total_capacity != spec.entry_count():
+                errs.append(
+                    "Designed bracket: total players must equal the number of player "
+                    f"spots ({spec.entry_count()})."
+                )
+            if cfg.players_per_match != spec.max_capacity():
+                errs.append(
+                    "Designed bracket: players_per_match must equal the largest match "
+                    f"({spec.max_capacity()})."
+                )
+        return errs
     if not (MIN_TOURNAMENT_PLAYERS <= cfg.total_capacity <= MAX_TOURNAMENT_PLAYERS):
         errs.append(
             f"Total players must be {MIN_TOURNAMENT_PLAYERS}–{MAX_TOURNAMENT_PLAYERS} "
@@ -175,6 +221,490 @@ def validate_opening_sizes(sizes: List[int]) -> List[str]:
 
 
 # =============================================================================
+# DESIGNED BRACKETS — the canvas builder's data model
+# =============================================================================
+# A designed bracket is an arbitrary DAG of matches instead of a generated grid.
+# The host places match boxes on a canvas, sets how many player spots each holds
+# (2–8) and how many players advance, then draws a connection from each advancing
+# finisher to the exact spot it fills in a later match. Every player spot is typed:
+#
+#   open        — a human or an AI may take it
+#   human       — a real player only
+#   ai          — always filled by a bot
+#   invite      — reserved for one named player
+#   winner_from — filled by the winner of another match      (rank 1)
+#   top_from    — filled by the Nth advancing player of another match (rank N)
+#
+# The two feed kinds are the same edge with a different rank, so they share one
+# representation: (source match, rank). "Winner from" is simply rank 1.
+SLOT_OPEN = "open"
+SLOT_HUMAN = "human"
+SLOT_AI = "ai"
+SLOT_INVITE = "invite"
+SLOT_WINNER_FROM = "winner_from"
+SLOT_TOP_FROM = "top_from"
+
+ENTRY_SLOT_KINDS = (SLOT_OPEN, SLOT_HUMAN, SLOT_AI, SLOT_INVITE)
+FEED_SLOT_KINDS = (SLOT_WINNER_FROM, SLOT_TOP_FROM)
+ALL_SLOT_KINDS = ENTRY_SLOT_KINDS + FEED_SLOT_KINDS
+
+# Canvas limits. 32 matches is far past any 32-player bracket's needs and keeps
+# both the validator and the rendered canvas bounded.
+MAX_CUSTOM_MATCHES = 32
+MAX_LABEL_LEN = 28
+
+
+@dataclass
+class CustomSlot:
+    """One player spot inside a designed match."""
+    kind: str = SLOT_OPEN
+    source: str = ""      # feed kinds: the match id this spot is fed from
+    rank: int = 1         # feed kinds: 1 = winner, 2 = runner-up, …
+    invite: str = ""      # invite kind: the reserved player's name / friend code
+
+    @property
+    def is_entry(self) -> bool:
+        return self.kind in ENTRY_SLOT_KINDS
+
+    @property
+    def is_feed(self) -> bool:
+        return self.kind in FEED_SLOT_KINDS
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"kind": self.kind}
+        if self.is_feed:
+            d["source"] = self.source
+            d["rank"] = int(self.rank)
+        if self.kind == SLOT_INVITE and self.invite:
+            d["invite"] = self.invite
+        return d
+
+    @staticmethod
+    def from_dict(d: Any) -> "CustomSlot":
+        if isinstance(d, str):          # tolerate a bare kind string
+            d = {"kind": d}
+        if not isinstance(d, dict):
+            d = {}
+        kind = str(d.get("kind") or SLOT_OPEN).strip().lower()
+        # "winner"/"top" shorthands from the client map onto the canonical kinds.
+        kind = {"winner": SLOT_WINNER_FROM, "top": SLOT_TOP_FROM,
+                "bot": SLOT_AI, "player": SLOT_HUMAN}.get(kind, kind)
+        try:
+            rank = int(d.get("rank") or 1)
+        except (TypeError, ValueError):
+            rank = 1
+        return CustomSlot(
+            kind=kind,
+            source=str(d.get("source") or "")[:64],
+            rank=rank,
+            invite=str(d.get("invite") or "")[:40],
+        )
+
+
+@dataclass
+class CustomMatch:
+    """One match box on the canvas."""
+    id: str
+    slots: List[CustomSlot] = field(default_factory=list)
+    advance: int = 1
+    label: str = ""
+    x: float = 0.0
+    y: float = 0.0
+
+    @property
+    def capacity(self) -> int:
+        return len(self.slots)
+
+    def display(self, index: int) -> str:
+        return self.label.strip() or f"Match {index + 1}"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id, "label": self.label, "advance": int(self.advance),
+            "x": round(float(self.x), 1), "y": round(float(self.y), 1),
+            "slots": [s.to_dict() for s in self.slots],
+        }
+
+    @staticmethod
+    def from_dict(d: Dict[str, Any], fallback_id: str = "") -> "CustomMatch":
+        if not isinstance(d, dict):
+            d = {}
+        raw_slots = d.get("slots")
+        slots = [CustomSlot.from_dict(s) for s in raw_slots] if isinstance(raw_slots, (list, tuple)) else []
+        def _num(v: Any) -> float:
+            try:
+                return float(v or 0)
+            except (TypeError, ValueError):
+                return 0.0
+        try:
+            advance = int(d.get("advance") or 1)
+        except (TypeError, ValueError):
+            advance = 1
+        return CustomMatch(
+            id=str(d.get("id") or fallback_id)[:64],
+            slots=slots,
+            advance=advance,
+            label=str(d.get("label") or "")[:MAX_LABEL_LEN],
+            x=_num(d.get("x")), y=_num(d.get("y")),
+        )
+
+
+@dataclass
+class CustomBracket:
+    """A whole host-designed bracket: match boxes + the connections between them."""
+    matches: List[CustomMatch] = field(default_factory=list)
+
+    # ---- (de)serialization --------------------------------------------------
+    def to_dict(self) -> Dict[str, Any]:
+        return {"matches": [m.to_dict() for m in self.matches]}
+
+    @staticmethod
+    def from_dict(d: Any) -> "CustomBracket":
+        if isinstance(d, (list, tuple)):
+            d = {"matches": list(d)}
+        if not isinstance(d, dict):
+            d = {}
+        raw = d.get("matches")
+        raw = list(raw) if isinstance(raw, (list, tuple)) else []
+        return CustomBracket(matches=[CustomMatch.from_dict(m, fallback_id=f"m{i + 1}")
+                                      for i, m in enumerate(raw)])
+
+    # ---- lookups ------------------------------------------------------------
+    def by_id(self, mid: str) -> Optional[CustomMatch]:
+        return next((m for m in self.matches if m.id == mid), None)
+
+    def index_of(self, mid: str) -> int:
+        return next((i for i, m in enumerate(self.matches) if m.id == mid), -1)
+
+    def display(self, mid: str) -> str:
+        i = self.index_of(mid)
+        return self.matches[i].display(i) if i >= 0 else str(mid)
+
+    def entry_count(self) -> int:
+        return sum(1 for m in self.matches for s in m.slots if s.is_entry)
+
+    def human_capacity(self) -> int:
+        """Spots a real player can occupy (everything but AI-only)."""
+        return sum(1 for m in self.matches for s in m.slots
+                   if s.is_entry and s.kind != SLOT_AI)
+
+    def max_capacity(self) -> int:
+        return max((m.capacity for m in self.matches), default=0)
+
+    def consumers(self) -> Dict[Tuple[str, int], List[Tuple[str, int]]]:
+        """(source match id, rank) -> [(target match id, slot index), …].
+
+        A well-formed bracket has exactly one target per advancing finisher; the
+        validator uses the multi-value shape to report duplicates."""
+        out: Dict[Tuple[str, int], List[Tuple[str, int]]] = {}
+        for m in self.matches:
+            for si, s in enumerate(m.slots):
+                if s.is_feed:
+                    out.setdefault((s.source, int(s.rank)), []).append((m.id, si))
+        return out
+
+    def terminal_matches(self) -> List[CustomMatch]:
+        """Matches nothing advances out of — a well-formed bracket has exactly one
+        (the Final, whose winner is the champion)."""
+        fed_from = {s.source for m in self.matches for s in m.slots if s.is_feed}
+        return [m for m in self.matches if m.id not in fed_from]
+
+
+def validate_custom_bracket(spec: CustomBracket) -> List[str]:
+    """Every rule a designed bracket must satisfy before a tournament can open.
+
+    Returns human-readable errors (empty == the bracket is playable):
+      • every player spot is a real, valid kind, and starting spots total 4–32
+      • every match that needs a next round is connected onward
+      • no connection points at a missing match, itself, or a spot already taken
+      • the number of players advancing from a match matches the spots waiting
+      • exactly one Final, reachable from every match, producing one champion
+    """
+    errs: List[str] = []
+    ms = spec.matches
+    if not ms:
+        return ["Add at least one match to the bracket."]
+    if len(ms) > MAX_CUSTOM_MATCHES:
+        return [f"A bracket can hold at most {MAX_CUSTOM_MATCHES} matches (got {len(ms)})."]
+
+    name = lambda mid: spec.display(mid)  # noqa: E731
+
+    # ── per-match shape ──────────────────────────────────────────────────────
+    seen_ids: set = set()
+    for i, m in enumerate(ms):
+        who = m.display(i)
+        if not m.id:
+            errs.append(f"{who} is missing an id.")
+        elif m.id in seen_ids:
+            errs.append(f"Two matches share the id {m.id!r} — each match needs its own.")
+        seen_ids.add(m.id)
+        if not (MIN_PLAYERS_PER_MATCH <= m.capacity <= MAX_PLAYERS_PER_MATCH):
+            errs.append(
+                f"{who} has {m.capacity} player spot(s) — each match holds "
+                f"{MIN_PLAYERS_PER_MATCH}–{MAX_PLAYERS_PER_MATCH}."
+            )
+            continue
+        if m.advance < 1:
+            errs.append(f"{who} must advance at least 1 player.")
+        elif m.advance >= m.capacity:
+            errs.append(
+                f"{who} advances {m.advance} of {m.capacity} players — a match must "
+                "knock at least one player out."
+            )
+        for si, s in enumerate(m.slots):
+            if s.kind not in ALL_SLOT_KINDS:
+                errs.append(f"{who}, spot {si + 1}: {s.kind!r} is not a valid spot type.")
+                continue
+            if s.is_feed:
+                if not s.source:
+                    errs.append(f"{who}, spot {si + 1} waits on a match result but no match is connected.")
+                elif s.source == m.id:
+                    errs.append(f"{who}, spot {si + 1} is fed by {who} itself.")
+                elif spec.by_id(s.source) is None:
+                    errs.append(f"{who}, spot {si + 1} is fed by a match that no longer exists.")
+                elif s.rank < 1:
+                    errs.append(f"{who}, spot {si + 1} has an invalid finishing place.")
+    if errs:
+        return errs   # later checks assume well-formed matches
+
+    # ── connections point somewhere real ─────────────────────────────────────
+    for i, m in enumerate(ms):
+        for si, s in enumerate(m.slots):
+            if not s.is_feed:
+                continue
+            src = spec.by_id(s.source)
+            if src and s.rank > src.advance:
+                errs.append(
+                    f"{m.display(i)}, spot {si + 1} takes finisher #{s.rank} of "
+                    f"{name(s.source)}, but only {src.advance} advance"
+                    f"{'' if src.advance != 1 else 's'} from there."
+                )
+    # A finisher can only go one place.
+    for (sid, rank), targets in sorted(spec.consumers().items()):
+        if len(targets) > 1:
+            spots = ", ".join(f"{name(t[0])} spot {t[1] + 1}" for t in targets)
+            errs.append(
+                f"{_place_word(rank)} of {name(sid)} is sent to {len(targets)} spots "
+                f"({spots}) — a player can only advance to one."
+            )
+    if errs:
+        return errs
+
+    # ── no loops ─────────────────────────────────────────────────────────────
+    cycle = _find_cycle(spec)
+    if cycle:
+        errs.append("These matches feed each other in a loop: "
+                    + " → ".join(name(c) for c in cycle) + ".")
+        return errs
+
+    # ── exactly one Final, and everything reaches it ─────────────────────────
+    terminals = spec.terminal_matches()
+    if not terminals:
+        errs.append("No Final: every match advances into another one, so no champion is decided.")
+        return errs
+    if len(terminals) > 1:
+        errs.append(
+            "The bracket has "
+            + str(len(terminals))
+            + " matches that lead nowhere ("
+            + ", ".join(name(m.id) for m in terminals)
+            + ") — connect them so exactly one Final decides the champion."
+        )
+        return errs
+    final = terminals[0]
+    if final.advance != 1:
+        errs.append(f"{name(final.id)} is the Final — exactly 1 player can win it "
+                    f"(it advances {final.advance}).")
+
+    # ── every advancing player has a seat waiting ────────────────────────────
+    consumed = spec.consumers()
+    for i, m in enumerate(ms):
+        if m.id == final.id:
+            continue
+        for rank in range(1, m.advance + 1):
+            if (m.id, rank) not in consumed:
+                errs.append(
+                    f"{_place_word(rank)} of {m.display(i)} has nowhere to go — "
+                    "connect it to a spot in a later match."
+                )
+
+    # ── reachability (belt-and-braces; implied by the checks above) ──────────
+    unreachable = [m for m in ms if m.id != final.id and not _reaches(spec, m.id, final.id)]
+    if unreachable:
+        errs.append("These matches never lead to the Final: "
+                    + ", ".join(name(m.id) for m in unreachable) + ".")
+
+    # ── field size ───────────────────────────────────────────────────────────
+    entries = spec.entry_count()
+    if not (MIN_TOURNAMENT_PLAYERS <= entries <= MAX_TOURNAMENT_PLAYERS):
+        errs.append(
+            f"A tournament needs {MIN_TOURNAMENT_PLAYERS}–{MAX_TOURNAMENT_PLAYERS} "
+            f"starting player spots (this bracket has {entries})."
+        )
+    if spec.human_capacity() < 1:
+        errs.append("Every spot is AI-only — leave at least one spot a person can take.")
+    return errs
+
+
+def _place_word(rank: int) -> str:
+    if rank == 1:
+        return "The winner"
+    if rank == 2:
+        return "The runner-up"
+    return f"Finisher #{rank}"
+
+
+def _find_cycle(spec: CustomBracket) -> Optional[List[str]]:
+    """Return one cycle of match ids (feeds-into direction), or None."""
+    edges: Dict[str, List[str]] = {m.id: [] for m in spec.matches}
+    for m in spec.matches:
+        for s in m.slots:
+            if s.is_feed and s.source in edges:
+                edges[s.source].append(m.id)     # source feeds INTO m
+    WHITE, GREY, BLACK = 0, 1, 2
+    color = {mid: WHITE for mid in edges}
+    stack: List[str] = []
+
+    def visit(node: str) -> Optional[List[str]]:
+        color[node] = GREY
+        stack.append(node)
+        for nxt in edges.get(node, ()):
+            if color.get(nxt) == GREY:
+                return stack[stack.index(nxt):] + [nxt]
+            if color.get(nxt) == WHITE:
+                found = visit(nxt)
+                if found:
+                    return found
+        stack.pop()
+        color[node] = BLACK
+        return None
+
+    for mid in list(edges):
+        if color[mid] == WHITE:
+            found = visit(mid)
+            if found:
+                return found
+    return None
+
+
+def _reaches(spec: CustomBracket, start: str, target: str) -> bool:
+    edges: Dict[str, List[str]] = {m.id: [] for m in spec.matches}
+    for m in spec.matches:
+        for s in m.slots:
+            if s.is_feed and s.source in edges:
+                edges[s.source].append(m.id)
+    seen: set = set()
+    stack = [start]
+    while stack:
+        cur = stack.pop()
+        if cur == target:
+            return True
+        if cur in seen:
+            continue
+        seen.add(cur)
+        stack.extend(edges.get(cur, ()))
+    return False
+
+
+def layer_custom_bracket(spec: CustomBracket) -> List[List[CustomMatch]]:
+    """Group the designed matches into rounds by longest path from a starting match.
+
+    A match sits one layer past the deepest match feeding it, so the Final (which
+    every path ends at) is always alone in the last layer — exactly the invariant
+    the runtime Bracket relies on. Within a layer the host's own ordering is kept.
+    """
+    depth: Dict[str, int] = {}
+
+    def resolve(mid: str, guard: int = 0) -> int:
+        if mid in depth:
+            return depth[mid]
+        if guard > MAX_CUSTOM_MATCHES + 1:
+            raise ValueError("designed bracket has a loop")
+        m = spec.by_id(mid)
+        if m is None:
+            return 0
+        sources = [s.source for s in m.slots if s.is_feed and spec.by_id(s.source)]
+        d = 0 if not sources else 1 + max(resolve(s, guard + 1) for s in sources)
+        depth[mid] = d
+        return d
+
+    for m in spec.matches:
+        resolve(m.id)
+    n_layers = max(depth.values(), default=0) + 1
+    layers: List[List[CustomMatch]] = [[] for _ in range(n_layers)]
+    for m in spec.matches:
+        layers[depth.get(m.id, 0)].append(m)
+    return [row for row in layers if row]
+
+
+def custom_bracket_summary(spec: CustomBracket) -> Dict[str, Any]:
+    """The host-facing description of a designed bracket (mirrors bracket_summary)."""
+    layers = layer_custom_bracket(spec)
+    entries = spec.entry_count()
+    kinds: Dict[str, int] = {k: 0 for k in ENTRY_SLOT_KINDS}
+    for m in spec.matches:
+        for s in m.slots:
+            if s.is_entry:
+                kinds[s.kind] = kinds.get(s.kind, 0) + 1
+    opening = [m.capacity for m in layers[0]] if layers else []
+    return {
+        "tournament_size": entries,
+        "total_capacity": entries,
+        "human_capacity": spec.human_capacity(),
+        "players_per_match": spec.max_capacity(),
+        "advance_per_match": 1,
+        "is_custom": True,
+        "is_graph": True,
+        "opening_sizes": list(opening),
+        "num_rounds": len(layers),
+        "num_opening_matches": len(opening),
+        "num_byes": 0,
+        "num_opening_byes": 0,
+        "opening_match_sizes": list(opening),
+        "total_matches": len(spec.matches),
+        "playable_matches": len(spec.matches),
+        "advancing_per_match": 1,
+        "third_place_match": False,
+        "slot_kinds": kinds,
+        "round_labels": [", ".join(sorted({m.label.strip() for m in row if m.label.strip()}))
+                         for row in layers],
+    }
+
+
+def make_uniform_graph(sizes: List[int]) -> CustomBracket:
+    """Build a designed bracket from a list of opening match sizes — the same shape
+    the simple custom builder produces. Handy as the canvas builder's starting
+    point and as a test fixture: winners feed forward in order, round by round."""
+    spec = CustomBracket()
+    per_match = max(sizes) if sizes else 2
+    grid = plan_round_sizes(0, per_match, 1, opening_sizes=[int(s) for s in sizes])
+    counter = 0
+    prev_ids: List[str] = []
+    for r, row in enumerate(grid):
+        ids: List[str] = []
+        # Winners of the previous round fill this round's spots in order.
+        feed_queue = list(prev_ids)
+        for i, cap in enumerate(row):
+            counter += 1
+            mid = f"m{counter}"
+            slots: List[CustomSlot] = []
+            for _ in range(cap):
+                if r == 0:
+                    slots.append(CustomSlot(kind=SLOT_OPEN))
+                else:
+                    src = feed_queue.pop(0) if feed_queue else ""
+                    slots.append(CustomSlot(kind=SLOT_WINNER_FROM, source=src, rank=1))
+            spec.matches.append(CustomMatch(
+                id=mid, slots=slots, advance=1,
+                label=("Final" if (r == len(grid) - 1) else f"Round {r + 1}"),
+                x=r * 260, y=i * 160,
+            ))
+            ids.append(mid)
+        prev_ids = ids
+    return spec
+
+
+# =============================================================================
 # Bracket planning (pure structure, no players yet)
 # =============================================================================
 
@@ -236,6 +766,14 @@ class BracketMatch:
     feeds: List[Optional[Tuple[int, int, int]]] = field(default_factory=list)  # (r, m, slot)
     is_third_place: bool = False
     room_id: Optional[str] = None  # the GameRoom running this match (set by server)
+    # Designed-bracket extras (empty for generated brackets): the host's own label
+    # ("Semifinal", "Losers Bracket", …), the canvas match id + position, and the
+    # per-spot types so the client can show "AI", "reserved for …" on empty seats.
+    label: str = ""
+    custom_id: str = ""
+    slot_kinds: List[Dict[str, Any]] = field(default_factory=list)
+    x: float = 0.0
+    y: float = 0.0
 
     @property
     def is_bye(self) -> bool:
@@ -263,6 +801,9 @@ class BracketMatch:
             "is_third_place": self.is_third_place,
             "is_bye": self.is_bye,
             "room_id": self.room_id,
+            "label": self.label,
+            "custom_id": self.custom_id,
+            "slot_kinds": [dict(s) for s in self.slot_kinds],
         }
 
     @staticmethod
@@ -281,6 +822,9 @@ class BracketMatch:
             feeds=[tuple(f) if f else None for f in d.get("feeds", [])],
             is_third_place=bool(d.get("is_third_place", False)),
             room_id=d.get("room_id"),
+            label=str(d.get("label") or ""),
+            custom_id=str(d.get("custom_id") or ""),
+            slot_kinds=[dict(s) for s in (d.get("slot_kinds") or [])],
         )
         return m
 
@@ -294,10 +838,14 @@ class Bracket:
     """
 
     def __init__(self, cfg: TournamentConfig, rounds: List[List[BracketMatch]],
-                 third_place: Optional[BracketMatch] = None):
+                 third_place: Optional[BracketMatch] = None,
+                 spec: Optional[CustomBracket] = None):
         self.cfg = cfg
         self.rounds = rounds
         self.third_place = third_place  # optional separate match
+        # Designed brackets keep their source graph so the server can map player
+        # spots back to the host's typed seats (AI-only, invite-only, …).
+        self.spec = spec
 
     # ---- construction -------------------------------------------------------
     @classmethod
@@ -305,6 +853,9 @@ class Bracket:
         errs = validate_config(cfg)
         if errs:
             raise ValueError("; ".join(errs))
+        if cfg.is_graph:
+            # A canvas-designed bracket carries its own complete shape.
+            return cls.build_custom(cfg)
         if cfg.opening_sizes:
             # Custom bracket: the shape is FIXED by opening_sizes (sized for
             # total_capacity). n_players is only how many real players will be
@@ -371,6 +922,60 @@ class Bracket:
             # third-place match is a leaf (no feeds); its winner = 3rd place.
         return cls(cfg, rounds, third)
 
+    @classmethod
+    def build_custom(cls, cfg: TournamentConfig, spec: Optional[CustomBracket] = None) -> "Bracket":
+        """Compile a host-designed bracket (canvas graph) into the runtime bracket.
+
+        The graph is laid out into rounds by longest path, which puts the Final
+        alone in the last round, then every "winner advances here" connection is
+        translated into the same ``feeds`` links a generated bracket uses. From
+        that point on the designed bracket runs through the identical machinery —
+        record_result / _push_winners / placements all work unchanged.
+        """
+        if spec is None:
+            spec = cfg.graph()
+        if spec is None:
+            raise ValueError("build_custom needs a designed bracket")
+        errs = validate_custom_bracket(spec)
+        if errs:
+            raise ValueError("; ".join(errs))
+        layers = layer_custom_bracket(spec)
+        rounds: List[List[BracketMatch]] = []
+        pos: Dict[str, Tuple[int, int]] = {}   # custom id -> (round, index)
+        match_no = 1
+        for r, layer in enumerate(layers):
+            row: List[BracketMatch] = []
+            for i, cm in enumerate(layer):
+                pos[cm.id] = (r, i)
+                row.append(BracketMatch(
+                    round_index=r, match_index=i, match_number=match_no,
+                    capacity=cm.capacity, advance=min(cm.advance, cm.capacity),
+                    player_ids=[None] * cm.capacity,
+                    label=cm.display(spec.index_of(cm.id)),
+                    custom_id=cm.id,
+                    slot_kinds=[s.to_dict() for s in cm.slots],
+                    x=cm.x, y=cm.y,
+                ))
+                match_no += 1
+            rounds.append(row)
+
+        # Wire feeds straight from the host's connections: advancing finisher #k of
+        # a match goes to the exact spot the host connected it to.
+        consumed = spec.consumers()
+        for cm in spec.matches:
+            r, i = pos[cm.id]
+            bm = rounds[r][i]
+            bm.feeds = []
+            for rank in range(1, bm.advance + 1):
+                targets = consumed.get((cm.id, rank)) or []
+                if not targets:
+                    bm.feeds.append(None)     # the Final's champion goes nowhere
+                    continue
+                tid, tslot = targets[0]
+                tr, ti = pos[tid]
+                bm.feeds.append((tr, ti, tslot))
+        return cls(cfg, rounds, None, spec=spec)
+
     # ---- introspection ------------------------------------------------------
     def all_matches(self, include_third: bool = True) -> List[BracketMatch]:
         out: List[BracketMatch] = [m for row in self.rounds for m in row]
@@ -408,6 +1013,51 @@ class Bracket:
                 slots.append((m.match_index, s))
         return slots
 
+    def entry_slots(self) -> List[Dict[str, Any]]:
+        """Every spot a player is SEEDED into, in seat order.
+
+        For a generated bracket that is exactly round 1. A designed bracket may put
+        starting spots in any round (e.g. a Final with two winner spots and one
+        AI-only spot), so this walks the whole bracket in (round, match, spot) order
+        and returns the typed entry spots only — feed spots fill themselves as
+        matches finish. Each entry: {round_index, match_index, slot, kind, invite,
+        match_number, label, seat}."""
+        out: List[Dict[str, Any]] = []
+        if self.spec is None:
+            for m in self.rounds[0]:
+                for s in range(m.capacity):
+                    out.append({"round_index": 0, "match_index": m.match_index, "slot": s,
+                                "kind": SLOT_OPEN, "invite": "",
+                                "match_number": m.match_number, "label": m.label,
+                                "seat": len(out)})
+            return out
+        for row in self.rounds:
+            for m in row:
+                for s, kind_d in enumerate(m.slot_kinds):
+                    if str(kind_d.get("kind")) not in ENTRY_SLOT_KINDS:
+                        continue
+                    out.append({
+                        "round_index": m.round_index, "match_index": m.match_index,
+                        "slot": s, "kind": str(kind_d.get("kind")),
+                        "invite": str(kind_d.get("invite") or ""),
+                        "match_number": m.match_number, "label": m.label,
+                        "seat": len(out),
+                    })
+        return out
+
+    def seed_entries(self, pid_by_seat: List[Optional[str]]) -> None:
+        """Seed a designed bracket from a seat->player assignment aligned with
+        ``entry_slots()``. Empty (None) seats are simply left open, so the same call
+        renders a partially-filled lobby preview."""
+        slots = self.entry_slots()
+        if len(pid_by_seat) > len(slots):
+            raise ValueError(f"seed_entries got {len(pid_by_seat)} seats but the "
+                             f"bracket has {len(slots)}")
+        for pid, es in zip(pid_by_seat, slots):
+            if pid:
+                self.rounds[es["round_index"]][es["match_index"]].player_ids[es["slot"]] = pid
+        self._resolve_byes()
+
     def seed_players(self, ordered_player_ids: List[str], allow_partial: bool = False) -> None:
         """Place players into round-1 slots in the given order (host order or a
         pre-shuffled order). Auto-advances byes.
@@ -416,6 +1066,18 @@ class Bracket:
         real seeding at tournament start). Pass ``allow_partial=True`` to seed FEWER
         players than slots — used to render a live lobby PREVIEW where remaining
         seats are still empty (they fill as players join or bots are added)."""
+        if self.spec is not None:
+            # Designed bracket: seats are typed and may sit in any round, so fill
+            # them in entry-slot order rather than assuming round 1.
+            slots = self.entry_slots()
+            if len(ordered_player_ids) > len(slots):
+                raise ValueError(f"seed_players got {len(ordered_player_ids)} players "
+                                 f"but only {len(slots)} spots")
+            if not allow_partial and len(ordered_player_ids) != len(slots):
+                raise ValueError(f"seed_players expected {len(slots)} players, "
+                                 f"got {len(ordered_player_ids)}")
+            self.seed_entries(list(ordered_player_ids))
+            return
         slots = self.opening_slots()
         if len(ordered_player_ids) > len(slots):
             raise ValueError(
@@ -590,6 +1252,10 @@ def _third_place_is_a_match(rounds: List[List[BracketMatch]]) -> bool:
 
 def bracket_summary(cfg: TournamentConfig, n_players: int) -> Dict[str, Any]:
     """The explanation shown to the host BEFORE they confirm a bracket."""
+    if cfg.is_graph:
+        spec = cfg.graph()
+        if spec is not None:
+            return custom_bracket_summary(spec)
     if cfg.opening_sizes:
         # Custom bracket: the shape is fixed by the host's opening layout and always
         # describes the full field (== total_capacity), independent of n_players.

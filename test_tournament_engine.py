@@ -567,5 +567,336 @@ class TestCustomBracket(unittest.TestCase):
         self.assertEqual(cfg2.players_per_match, 4)
 
 
+# =============================================================================
+# DESIGNED (canvas-built) BRACKETS
+# =============================================================================
+from tournament_engine import (  # noqa: E402
+    CustomBracket, CustomMatch, CustomSlot, validate_custom_bracket,
+    layer_custom_bracket, custom_bracket_summary, make_uniform_graph,
+    SLOT_OPEN, SLOT_HUMAN, SLOT_AI, SLOT_INVITE, SLOT_WINNER_FROM, SLOT_TOP_FROM,
+)
+
+
+def dmatch(mid, slots, advance=1, label="", x=0, y=0):
+    """Designed match from a compact slot spec: "open", "ai", ("m1", 1), …"""
+    out = []
+    for s in slots:
+        if isinstance(s, tuple):
+            src, rank = s
+            out.append(CustomSlot(kind=SLOT_WINNER_FROM if rank == 1 else SLOT_TOP_FROM,
+                                  source=src, rank=rank))
+        elif isinstance(s, str) and s.startswith("invite:"):
+            out.append(CustomSlot(kind=SLOT_INVITE, invite=s.split(":", 1)[1]))
+        else:
+            out.append(CustomSlot(kind=s))
+    return CustomMatch(id=mid, slots=out, advance=advance, label=label, x=x, y=y)
+
+
+def graph_cfg(spec, **kw):
+    return TournamentConfig(total_capacity=spec.entry_count(),
+                            players_per_match=spec.max_capacity(),
+                            custom_graph=spec.to_dict(), **kw)
+
+
+def simple_designed():
+    """Two 2-player matches feeding a Final — the smallest legal design."""
+    return CustomBracket(matches=[
+        dmatch("a", [SLOT_OPEN, SLOT_OPEN], label="Round 1"),
+        dmatch("b", [SLOT_OPEN, SLOT_OPEN], label="Round 1"),
+        dmatch("f", [("a", 1), ("b", 1)], label="Final"),
+    ])
+
+
+class TestDesignedBracketValidation(unittest.TestCase):
+    def test_minimal_design_is_valid(self):
+        self.assertEqual(validate_custom_bracket(simple_designed()), [])
+
+    def test_uniform_helper_matches_generated_shape(self):
+        for sizes in ([2, 2, 2, 2], [3, 4, 2], [2] * 8, [8, 8, 8, 8]):
+            spec = make_uniform_graph(sizes)
+            self.assertEqual(validate_custom_bracket(spec), [], f"sizes={sizes}")
+            gen = bracket_summary(custom_cfg(sizes), sum(sizes))
+            des = custom_bracket_summary(spec)
+            self.assertEqual(des["tournament_size"], gen["tournament_size"], sizes)
+            self.assertEqual(des["num_rounds"], gen["num_rounds"], sizes)
+
+    def test_no_matches(self):
+        self.assertTrue(validate_custom_bracket(CustomBracket()))
+
+    def test_too_many_matches(self):
+        spec = CustomBracket(matches=[dmatch(f"m{i}", [SLOT_OPEN, SLOT_OPEN])
+                                      for i in range(33)])
+        self.assertIn("at most", " ".join(validate_custom_bracket(spec)))
+
+    def test_match_size_bounds(self):
+        one = CustomBracket(matches=[dmatch("a", [SLOT_OPEN])])
+        self.assertIn("player spot", " ".join(validate_custom_bracket(one)))
+        nine = CustomBracket(matches=[dmatch("a", [SLOT_OPEN] * 9)])
+        self.assertIn("player spot", " ".join(validate_custom_bracket(nine)))
+
+    def test_advance_must_shrink_the_field(self):
+        spec = simple_designed()
+        spec.by_id("a").advance = 2      # both players advance out of a 2-player match
+        self.assertIn("knock at least one player out", " ".join(validate_custom_bracket(spec)))
+
+    def test_final_produces_one_champion(self):
+        spec = simple_designed()
+        spec.by_id("f").slots.append(CustomSlot(kind=SLOT_OPEN))
+        spec.by_id("f").advance = 2
+        self.assertIn("exactly 1 player can win", " ".join(validate_custom_bracket(spec)))
+
+    def test_connection_to_missing_match(self):
+        spec = simple_designed()
+        spec.by_id("f").slots[0].source = "ghost"
+        self.assertIn("no longer exists", " ".join(validate_custom_bracket(spec)))
+
+    def test_connection_with_no_source(self):
+        spec = simple_designed()
+        spec.by_id("f").slots[0].source = ""
+        self.assertIn("no match is connected", " ".join(validate_custom_bracket(spec)))
+
+    def test_self_feeding_match(self):
+        spec = simple_designed()
+        spec.by_id("f").slots[0].source = "f"
+        self.assertIn("itself", " ".join(validate_custom_bracket(spec)))
+
+    def test_rank_beyond_what_advances(self):
+        # The Final asks for the runner-up of a match where only the winner advances.
+        spec = simple_designed()
+        spec.by_id("f").slots[1] = CustomSlot(kind=SLOT_TOP_FROM, source="a", rank=2)
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("only 1 advance", errs)
+
+    def test_same_finisher_sent_to_two_spots(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("a", 1)]),      # both spots take a's winner
+        ])
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("can only advance to one", errs)
+
+    def test_unconnected_match_is_reported(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("c", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1)]),      # c is never connected onward
+        ])
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("lead nowhere", errs)
+        self.assertIn("exactly one Final", errs)
+
+    def test_second_advancing_player_with_nowhere_to_go(self):
+        # 'g' advances two, but only its winner has a spot waiting.
+        spec = CustomBracket(matches=[
+            dmatch("g", [SLOT_OPEN] * 4, advance=2),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("g", 1), ("b", 1)]),
+        ])
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("nowhere to go", errs)
+        self.assertIn("runner-up", errs)
+
+    def test_two_finals(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f1", [("a", 1), SLOT_OPEN]),
+            dmatch("f2", [("b", 1), SLOT_OPEN]),
+        ])
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("exactly one Final", errs)
+
+    def test_loop_is_rejected(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [("b", 1), SLOT_OPEN]),
+            dmatch("b", [("a", 1), SLOT_OPEN]),
+        ])
+        errs = " ".join(validate_custom_bracket(spec))
+        self.assertIn("loop", errs)
+
+    def test_field_size_bounds(self):
+        tiny = CustomBracket(matches=[dmatch("a", [SLOT_OPEN, SLOT_OPEN])])
+        self.assertIn("starting player spots", " ".join(validate_custom_bracket(tiny)))
+        big = make_uniform_graph([8] * 5)            # 40 starting spots
+        self.assertIn("starting player spots", " ".join(validate_custom_bracket(big)))
+
+    def test_all_ai_bracket_rejected(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_AI, SLOT_AI]),
+            dmatch("b", [SLOT_AI, SLOT_AI]),
+            dmatch("f", [("a", 1), ("b", 1)]),
+        ])
+        self.assertIn("AI-only", " ".join(validate_custom_bracket(spec)))
+
+    def test_mixed_seat_kinds_are_valid(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_HUMAN, SLOT_AI, "invite:Reef"], advance=2),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("a", 2), ("b", 1), SLOT_AI]),
+        ])
+        self.assertEqual(validate_custom_bracket(spec), [])
+        self.assertEqual(spec.entry_count(), 7)
+        self.assertEqual(spec.human_capacity(), 5)   # 7 entry spots minus 2 AI-only
+
+
+class TestDesignedBracketRuntime(unittest.TestCase):
+    def test_layering_puts_the_final_last_and_alone(self):
+        for spec in (simple_designed(), make_uniform_graph([3, 4, 2]), make_uniform_graph([2] * 8)):
+            layers = layer_custom_bracket(spec)
+            self.assertEqual(len(layers[-1]), 1, "the Final must be alone in the last round")
+            self.assertEqual(layers[-1][0].id, spec.terminal_matches()[0].id)
+
+    def test_uneven_depth_still_ends_at_the_final(self):
+        # 'a' plays an extra preliminary round; 'c' waits. The Final must still be last.
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN], label="Play-in"),
+            dmatch("b", [("a", 1), SLOT_OPEN], label="Semifinal"),
+            dmatch("c", [SLOT_OPEN, SLOT_OPEN], label="Semifinal"),
+            dmatch("f", [("b", 1), ("c", 1)], label="Final"),
+        ])
+        self.assertEqual(validate_custom_bracket(spec), [])
+        layers = layer_custom_bracket(spec)
+        self.assertEqual([[m.id for m in row] for row in layers], [["a", "c"], ["b"], ["f"]])
+
+    def test_build_wires_feeds_to_the_exact_designed_spot(self):
+        spec = simple_designed()
+        br = Bracket.build_custom(graph_cfg(spec), spec)
+        a = br.rounds[0][0]
+        self.assertEqual(a.feeds, [(1, 0, 0)])        # a's winner -> Final spot 1
+        b = br.rounds[0][1]
+        self.assertEqual(b.feeds, [(1, 0, 1)])        # b's winner -> Final spot 2
+        self.assertEqual(br.final_match.feeds, [None])  # the champion goes nowhere
+
+    def test_labels_and_slot_kinds_survive_the_build(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_AI], label="Losers Bracket", x=10, y=20),
+            dmatch("b", [SLOT_OPEN, "invite:Kelp"], label="Losers Bracket"),
+            dmatch("f", [("a", 1), ("b", 1)], label="Grand Final"),
+        ])
+        br = Bracket.build_custom(graph_cfg(spec), spec)
+        self.assertEqual(br.rounds[0][0].label, "Losers Bracket")
+        self.assertEqual(br.final_match.label, "Grand Final")
+        self.assertEqual(br.rounds[0][0].slot_kinds[1]["kind"], SLOT_AI)
+        self.assertEqual(br.rounds[0][1].slot_kinds[1]["invite"], "Kelp")
+        self.assertEqual((br.rounds[0][0].x, br.rounds[0][0].y), (10, 20))
+        # the view payload carries them to the client
+        d = br.rounds[0][0].to_dict()
+        self.assertEqual(d["label"], "Losers Bracket")
+        self.assertEqual(d["custom_id"], "a")
+        self.assertEqual(len(d["slot_kinds"]), 2)
+
+    def test_entry_slots_include_later_round_seats(self):
+        # The Final has its own AI seat alongside two winner spots.
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1), SLOT_AI]),
+        ])
+        self.assertEqual(validate_custom_bracket(spec), [])
+        br = Bracket.build_custom(graph_cfg(spec), spec)
+        es = br.entry_slots()
+        self.assertEqual(len(es), 5)
+        self.assertEqual(es[-1]["kind"], SLOT_AI)
+        self.assertEqual(es[-1]["round_index"], 1)     # a seat in the Final's round
+        self.assertEqual([e["seat"] for e in es], [0, 1, 2, 3, 4])
+
+    def test_seed_entries_fills_only_designed_seats(self):
+        spec = CustomBracket(matches=[
+            dmatch("a", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("b", [SLOT_OPEN, SLOT_OPEN]),
+            dmatch("f", [("a", 1), ("b", 1), SLOT_AI]),
+        ])
+        br = Bracket.build_custom(graph_cfg(spec), spec)
+        br.seed_entries(["p0", "p1", "p2", "p3", "bot"])
+        self.assertEqual(br.rounds[0][0].player_ids, ["p0", "p1"])
+        self.assertEqual(br.rounds[0][1].player_ids, ["p2", "p3"])
+        self.assertEqual(br.final_match.player_ids, [None, None, "bot"])
+
+    def test_partial_seeding_for_the_lobby_preview(self):
+        spec = simple_designed()
+        br = Bracket.build_custom(graph_cfg(spec), spec)
+        br.seed_players(["p0", "p1"], allow_partial=True)
+        self.assertEqual(br.rounds[0][0].player_ids, ["p0", "p1"])
+        self.assertEqual(br.rounds[0][1].player_ids, [None, None])
+        with self.assertRaises(ValueError):
+            br.seed_players(["p0", "p1"])          # short of a full field
+
+    def test_full_designed_tournament_runs_to_a_champion(self):
+        spec = make_uniform_graph([2, 2, 2, 2])
+        cfg = graph_cfg(spec, name="Designed Cup")
+        b, order = simulate(cfg, 8)
+        self.assertTrue(b.is_complete())
+        self.assertIsNotNone(b.champion)
+        placements = b.final_placements()
+        self.assertEqual(len(placements), 8)
+        self.assertEqual(placements[0]["place"], 1)
+        self.assertEqual(placements[0]["player_id"], b.champion)
+
+    def test_top_two_advance_into_one_match(self):
+        # A 4-player group where the top TWO advance into a 4-player Final.
+        spec = CustomBracket(matches=[
+            dmatch("g1", [SLOT_OPEN] * 4, advance=2, label="Group A"),
+            dmatch("g2", [SLOT_OPEN] * 4, advance=2, label="Group B"),
+            dmatch("f", [("g1", 1), ("g1", 2), ("g2", 1), ("g2", 2)], label="Final"),
+        ])
+        self.assertEqual(validate_custom_bracket(spec), [])
+        cfg = graph_cfg(spec)
+        self.assertEqual(validate_config(cfg), [])
+        br = Bracket.build(cfg, 8)
+        br.seed_players(players(8))
+        g1 = br.rounds[0][0]
+        br.record_result(0, 0, ["p00", "p01", "p02", "p03"], {})
+        # both of g1's advancing finishers land in the Final, in designed order
+        self.assertEqual(br.final_match.player_ids[:2], ["p00", "p01"])
+        br.record_result(0, 1, ["p04", "p05", "p06", "p07"], {})
+        self.assertEqual(br.final_match.player_ids, ["p00", "p01", "p04", "p05"])
+        br.record_result(1, 0, ["p05", "p00", "p01", "p04"], {})
+        self.assertEqual(br.champion, "p05")
+
+    def test_designed_bracket_survives_a_config_roundtrip(self):
+        spec = make_uniform_graph([3, 4, 2])
+        cfg = graph_cfg(spec, name="Cup")
+        d = cfg.to_dict()
+        self.assertTrue(d["is_custom"])
+        self.assertTrue(d["is_graph"])
+        cfg2 = TournamentConfig.from_dict(d)
+        self.assertEqual(validate_config(cfg2), [])
+        self.assertEqual(cfg2.graph().to_dict(), spec.to_dict())
+        b2 = Bracket.build(cfg2, cfg2.total_capacity)
+        self.assertEqual(b2.n_rounds, len(layer_custom_bracket(spec)))
+
+    def test_config_rejects_wrong_capacity(self):
+        spec = simple_designed()
+        cfg = TournamentConfig(total_capacity=9, players_per_match=2,
+                               custom_graph=spec.to_dict())
+        self.assertIn("must equal the number of player spots", " ".join(validate_config(cfg)))
+
+    def test_config_rejects_graph_plus_opening_sizes(self):
+        spec = simple_designed()
+        cfg = TournamentConfig(total_capacity=4, players_per_match=2,
+                               custom_graph=spec.to_dict(), opening_sizes=[2, 2])
+        self.assertTrue(validate_config(cfg))
+
+    def test_build_refuses_an_invalid_design(self):
+        spec = CustomBracket(matches=[dmatch("a", [SLOT_OPEN, SLOT_OPEN])])
+        with self.assertRaises(ValueError):
+            Bracket.build_custom(graph_cfg(spec), spec)
+
+    def test_slot_parsing_is_tolerant(self):
+        raw = {"matches": [
+            {"id": "a", "slots": ["open", {"kind": "bot"}], "advance": 1, "label": "R1"},
+            {"id": "b", "slots": [{"kind": "player"}, {"kind": "invite", "invite": "Coral"}]},
+            {"id": "f", "slots": [{"kind": "winner", "source": "a"},
+                                  {"kind": "top", "source": "b", "rank": 1}]},
+        ]}
+        spec = CustomBracket.from_dict(raw)
+        self.assertEqual(validate_custom_bracket(spec), [])
+        self.assertEqual(spec.by_id("a").slots[1].kind, SLOT_AI)
+        self.assertEqual(spec.by_id("b").slots[0].kind, SLOT_HUMAN)
+        self.assertEqual(spec.by_id("f").slots[0].kind, SLOT_WINNER_FROM)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
