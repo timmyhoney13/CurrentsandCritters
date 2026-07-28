@@ -11981,27 +11981,27 @@
     .htp-pane { display: none; }
     .htp-pane.active { display: block; animation: htp-fade .22s ease; }
     @keyframes htp-fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-    .htp-missing { padding: 40px 12px; text-align: center; color: #5a86b0; font-weight: 700; }
+    .htp-missing { padding: 40px 12px; text-align: center; color: #6f8ea9; font-weight: 700; }
 
     /* ── How to play: shared page furniture ───────────────────────── */
     .htp-hero {
       border: 1px solid rgba(140,200,235,.6); border-radius: 20px;
       background: linear-gradient(160deg, rgba(255,255,255,.96) 0%, rgba(226,246,255,.94) 62%, rgba(224,252,244,.94) 100%);
       box-shadow: 0 8px 26px rgba(20,85,150,.12);
-      padding: 20px 22px; margin-bottom: 20px;
+      padding: 22px; margin-bottom: 20px; text-align: center;
     }
     .htp-hero-badge {
       display: inline-block; font-size: 11.5px; font-weight: 900; letter-spacing: .8px;
-      text-transform: uppercase; color: #1b6cb8;
-      background: rgba(46,143,224,.13); border: 1px solid rgba(46,143,224,.28);
+      text-transform: uppercase; color: #1a6fc4;
+      background: rgba(38,128,200,.10); border: 1px solid rgba(38,128,200,.30);
       border-radius: 999px; padding: 4px 12px; margin-bottom: 10px;
     }
     .htp-hero-title {
       margin: 0 0 8px; font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: clamp(1.35rem, 2.4vw, 2rem); font-weight: 800; line-height: 1.15; color: #10457f;
+      font-size: clamp(1.35rem, 2.4vw, 2rem); font-weight: 800; line-height: 1.15; color: #103a74;
     }
-    .htp-hero-sub { margin: 0; font-size: .98rem; line-height: 1.6; color: #3f6d97; max-width: 74ch; }
-    .htp-hero-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .htp-hero-sub { margin: 0 auto; font-size: .98rem; line-height: 1.6; color: #4f7ba6; max-width: 70ch; }
+    .htp-hero-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; justify-content: center; }
     .htp-btn {
       font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 800; cursor: pointer;
       padding: 9px 16px; border-radius: 12px;
@@ -12009,43 +12009,46 @@
       transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
     }
     .htp-btn:hover { transform: translateY(-1px); box-shadow: 0 5px 16px rgba(20,85,150,.16); background: #f2f9ff; }
-    .htp-btn-gold {
-      background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
-      border-color: #d99a2b; color: #3a2405;
-      box-shadow: 0 3px 12px rgba(216,150,50,.34);
+    .htp-btn-primary {
+      background: linear-gradient(135deg, #2e90e0, #1a6ad0);
+      border-color: #1a6ad0; color: #fff;
+      box-shadow: 0 3px 12px rgba(26,106,208,.32);
     }
-    .htp-btn-gold:hover { background: linear-gradient(180deg,#ffd08a 0%,#f0aa5c 100%); }
+    .htp-btn-primary:hover { background: linear-gradient(135deg, #2e90e0, #1a6ad0); transform: translateY(-2px); }
 
     .htp-sec-head {
-      display: flex; align-items: center; gap: 10px;
-      margin: 26px 0 12px; padding-bottom: 8px;
-      border-bottom: 2px solid rgba(140,200,235,.4);
-      font-family: "Baloo 2", "Nunito", sans-serif;
-      font-size: 1.18rem; font-weight: 800; color: #10457f;
+      display: flex; align-items: center; gap: 9px;
+      margin: 26px 0 14px;
+      font-family: "Cinzel", serif;
+      font-size: 1.1rem; font-weight: 900; color: #0f5390;
+    }
+    .htp-sec-head::after {
+      content: ""; flex: 1; height: 1px;
+      background: linear-gradient(90deg, rgba(80,180,225,.5), transparent);
     }
     .htp-sec-ico {
       display: inline-flex; align-items: center; justify-content: center;
-      width: 30px; height: 30px; border-radius: 10px; font-size: 15px;
-      background: rgba(46,143,224,.12); border: 1px solid rgba(46,143,224,.24);
+      width: 34px; height: 34px; border-radius: 50%; font-size: 17px;
+      background: rgba(28,130,214,.12);
     }
-    .htp-h3 { margin: 0 0 6px; font-size: 1rem; font-weight: 800; color: #14508c; }
+    .htp-h3 { margin: 0 0 6px; font-size: 1rem; font-weight: 800; color: #11588f; }
     .htp-h4 {
       margin: 0 0 7px; font-size: .8rem; font-weight: 900; letter-spacing: .7px;
-      text-transform: uppercase; color: #5f89b0;
+      text-transform: uppercase; color: #7a9db8;
     }
-    .htp-p { margin: 0 0 8px; font-size: .93rem; line-height: 1.62; color: #3f6d97; }
+    .htp-p { margin: 0 0 8px; font-size: .93rem; line-height: 1.62; color: #4f7ba6; }
     .htp-p:last-child { margin-bottom: 0; }
-    .htp-p b { color: #175691; }
-    .htp-p-lead { font-size: .98rem; color: #34618c; margin-bottom: 14px; }
+    .htp-p b { color: #0f5390; }
+    .htp-p-lead { font-size: .98rem; color: #4f7ba6; margin-bottom: 14px; }
     .htp-p-tip {
       margin-top: 10px; padding: 9px 12px; border-radius: 10px;
-      background: rgba(240,200,64,.13); border-left: 3px solid #e8b34a; color: #6b551f;
+      background: rgba(240,200,64,.13); border-left: 3px solid #e8b34a; color: #7a6800;
     }
     .htp-list { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 5px; }
-    .htp-list li { font-size: .93rem; line-height: 1.58; color: #3f6d97; }
-    .htp-list li b { color: #175691; }
+    .htp-list li { font-size: .93rem; line-height: 1.58; color: #4f7ba6; }
+    .htp-list li b { color: #0f5390; }
     .htp-oli { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 5px; }
-    .htp-oli li { font-size: .93rem; line-height: 1.58; color: #3f6d97; }
+    .htp-oli li { font-size: .93rem; line-height: 1.58; color: #4f7ba6; }
 
     /* Numbered steps */
     .htp-steps { display: grid; gap: 10px; }
@@ -12059,7 +12062,7 @@
       flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-family: "Baloo 2", "Nunito", sans-serif; font-size: 15px; font-weight: 800; color: #fff;
-      background: linear-gradient(180deg,#48a8ea 0%,#1c70cc 100%);
+      background: linear-gradient(180deg,#2e8fe0 0%,#1c70cc 100%);
       box-shadow: 0 2px 8px rgba(28,112,204,.3);
     }
     .htp-step-body { min-width: 0; flex: 1; }
@@ -12098,11 +12101,12 @@
     }
     .htp-score-tag {
       display: inline-block; font-size: 10.5px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase;
-      color: #1b6cb8; background: rgba(46,143,224,.13); border-radius: 999px; padding: 3px 11px; margin-bottom: 8px;
+      color: #1a6fc4; background: rgba(38,128,200,.10); border: 1px solid rgba(38,128,200,.30);
+      border-radius: 999px; padding: 3px 11px; margin-bottom: 8px;
     }
     .htp-score-eg {
       font-family: "Baloo 2", "Nunito", sans-serif; font-size: 1.05rem; font-weight: 800;
-      color: #0f4f8f; margin-bottom: 6px;
+      color: #103a74; margin-bottom: 6px;
     }
     .htp-score-kind .htp-p { text-align: center; }
 
@@ -12117,11 +12121,11 @@
       display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
       padding: 11px 14px; border-radius: 12px;
       background: rgba(252,255,255,.9); border: 1px solid rgba(169,203,230,.55);
-      font-size: .92rem; line-height: 1.55; color: #3f6d97;
+      font-size: .92rem; line-height: 1.55; color: #4f7ba6;
     }
     .htp-key-btn {
-      flex: 0 0 auto; font-weight: 800; font-size: .84rem; color: #14508c;
-      background: rgba(46,143,224,.12); border: 1px solid rgba(46,143,224,.26);
+      flex: 0 0 auto; font-weight: 800; font-size: .84rem; color: #1a6fc4;
+      background: rgba(38,128,200,.10); border: 1px solid rgba(38,128,200,.30);
       border-radius: 9px; padding: 4px 10px; white-space: nowrap;
     }
 
@@ -12131,14 +12135,14 @@
       background: linear-gradient(135deg, rgba(46,143,224,.14), rgba(66,200,120,.14));
       border: 1px solid rgba(140,200,235,.6);
     }
-    .htp-cta-txt { font-size: .96rem; line-height: 1.55; color: #24567f; max-width: 60ch; }
-    .htp-cta-txt b { color: #10457f; }
+    .htp-cta-txt { font-size: .96rem; line-height: 1.55; color: #4f7ba6; max-width: 60ch; }
+    .htp-cta-txt b { color: #0f5390; }
 
     /* Family colour key */
     .htp-legend { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
-    .htp-legend-cap { font-size: 11px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; color: #6b93b6; }
+    .htp-legend-cap { font-size: 11px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; color: #7a9db8; }
     .htp-legend-chip {
-      font-size: 11px; font-weight: 800; color: #2b587f;
+      font-size: 11px; font-weight: 800; color: #11588f;
       padding: 3px 10px; border-radius: 999px;
       background: color-mix(in srgb, var(--lc) 16%, transparent);
       border: 1.5px solid color-mix(in srgb, var(--lc) 62%, transparent);
@@ -12170,20 +12174,20 @@
     .htp-strat-txt { flex: 1; min-width: 0; }
     .htp-strat-name {
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      font-family: "Baloo 2", "Nunito", sans-serif; font-size: 1.04rem; font-weight: 800; color: #10457f;
+      font-family: "Baloo 2", "Nunito", sans-serif; font-size: 1.04rem; font-weight: 800; color: #0f5390;
     }
-    .htp-strat-blurb { display: block; margin-top: 3px; font-size: .88rem; line-height: 1.5; color: #4f7ba6; }
+    .htp-strat-blurb { display: block; margin-top: 3px; font-size: .88rem; line-height: 1.5; color: #5b82a3; }
     .htp-strat-more { flex: 0 0 auto; font-size: 11.5px; font-weight: 800; color: #2474cd; white-space: nowrap; }
     .htp-strat-more::after { content: "Open \25BE"; }
-    .htp-strat[open] .htp-strat-more { color: #6b93b6; }
+    .htp-strat[open] .htp-strat-more { color: #7a9db8; }
     .htp-strat[open] .htp-strat-more::after { content: "Close \25B4"; }
     .htp-tier {
       font-size: 10px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase;
       padding: 2px 8px; border-radius: 999px;
     }
-    .htp-tier-Core   { color: #12608f; background: rgba(46,143,224,.16); border: 1px solid rgba(46,143,224,.34); }
-    .htp-tier-Combo  { color: #8a5a12; background: rgba(232,179,74,.2);  border: 1px solid rgba(232,179,74,.44); }
-    .htp-tier-Mine   { color: #1c7a53; background: rgba(66,200,120,.18); border: 1px solid rgba(66,200,120,.4); }
+    .htp-tier-Core   { color: #1a6fc4; background: rgba(38,128,200,.12); border: 1px solid rgba(38,128,200,.32); }
+    .htp-tier-Combo  { color: #7a6800; background: rgba(232,179,74,.2);  border: 1px solid rgba(232,179,74,.44); }
+    .htp-tier-Mine   { color: #1d9a6c; background: rgba(66,200,120,.18); border: 1px solid rgba(66,200,120,.4); }
     .htp-strat-body {
       padding: 4px 16px 16px; display: grid; gap: 16px;
       border-top: 1px solid rgba(169,203,230,.42);
@@ -12197,11 +12201,11 @@
       background: color-mix(in srgb, var(--fc, #b388ff) 8%, rgba(246,251,255,.9));
       border-left: 3px solid var(--fc, #b388ff);
     }
-    .htp-card-name  { font-size: .88rem; font-weight: 800; color: #14508c; }
-    .htp-card-count { font-size: .8rem; font-weight: 800; color: #6b93b6; }
-    .htp-card-fam   { font-size: .74rem; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: color-mix(in srgb, var(--fc, #b388ff) 78%, #2a3f55); }
-    .htp-card-text  { font-size: .82rem; line-height: 1.45; color: #4f7ba6; }
-    .htp-card-star  { display: block; font-size: .78rem; font-weight: 800; color: #a1741a; }
+    .htp-card-name  { font-size: .88rem; font-weight: 800; color: #11588f; }
+    .htp-card-count { font-size: .8rem; font-weight: 800; color: #7a9db8; }
+    .htp-card-fam   { font-size: .74rem; font-weight: 800; letter-spacing: .3px; text-transform: uppercase; color: color-mix(in srgb, var(--fc, #b388ff) 78%, #153d6d); }
+    .htp-card-text  { font-size: .82rem; line-height: 1.45; color: #5b82a3; }
+    .htp-card-star  { display: block; font-size: .78rem; font-weight: 800; color: #7a6800; }
     @media (max-width: 760px) {
       .htp-card-row { grid-template-columns: 1fr auto; }
       .htp-card-fam, .htp-card-text { grid-column: 1 / -1; }
@@ -12210,13 +12214,13 @@
     /* ══ THE RULE BOOK ════════════════════════════════════════════ */
     /* Light skin: the frosted Player Home page. */
     .rb.rb-light {
-      --rb-ink:      #10457f;
-      --rb-body:     #3f6d97;
-      --rb-muted:    #6b93b6;
-      --rb-accent:   #c9861f;
-      --rb-accent-s: rgba(232,179,74,.16);
-      --rb-coral:    #e0724a;
-      --rb-coral-s:  rgba(232,110,80,.12);
+      --rb-ink:      #0f5390;
+      --rb-body:     #4f7ba6;
+      --rb-muted:    #7a9db8;
+      --rb-accent:   #c89320;
+      --rb-accent-s: rgba(224,173,52,.16);
+      --rb-coral:    #e8736a;
+      --rb-coral-s:  rgba(232,115,106,.12);
       --rb-surface:  rgba(252,255,255,.93);
       --rb-surface2: rgba(238,249,255,.9);
       --rb-line:     rgba(169,203,230,.62);
@@ -12228,7 +12232,7 @@
     .rb.rb-dark {
       --rb-ink:      #e8b34a;
       --rb-body:     #d8c8aa;
-      --rb-muted:    #a8926e;
+      --rb-muted:    #b0986e;
       --rb-accent:   #e8b34a;
       --rb-accent-s: rgba(232,179,74,.13);
       --rb-coral:    #f4a574;
@@ -12377,7 +12381,7 @@
       flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-family: "Baloo 2", "Nunito", sans-serif; font-size: 15px; font-weight: 800;
-      color: #2a1a02; background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
+      color: #1a1208; background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
       box-shadow: 0 2px 8px rgba(216,150,50,.32);
     }
     .rb-step-body { flex: 1; min-width: 0; }
@@ -12453,9 +12457,9 @@
     .rb-an-pin {
       position: absolute; width: 24px; height: 24px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 900; color: #2a1a02;
+      font-size: 12px; font-weight: 900; color: #1a1208;
       background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
-      border: 2px solid #fff9ec; box-shadow: 0 2px 9px rgba(0,0,0,.35);
+      border: 2px solid #fef5e6; box-shadow: 0 2px 9px rgba(0,0,0,.35);
       transform: translate(-50%, -50%);
     }
     .rb-an-pin-cost { left: 27%; top: 14%; }
@@ -12473,7 +12477,7 @@
     .rb-an-num {
       flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 900; color: #2a1a02;
+      font-size: 11px; font-weight: 900; color: #1a1208;
       background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
     }
 
@@ -12559,14 +12563,15 @@
     .rb-order li { font-size: .96rem; font-weight: 700; color: var(--rb-body); }
     .rb-order li::marker { color: var(--rb-accent); }
     .rb-order-p { font-weight: 900; padding: 2px 9px; border-radius: 999px; }
-    .rb-order-p1 { color: #12608f; background: rgba(46,143,224,.18); }
-    .rb-order-p2 { color: #8a5a12; background: rgba(232,179,74,.22); }
-    .rb.rb-dark .rb-order-p1 { color: #7fc4ff; }
-    .rb.rb-dark .rb-order-p2 { color: #f3c877; }
+    .rb-order-p1 { color: #1a6fc4; background: rgba(38,128,200,.12); }
+    .rb-order-p2 { color: #7a6800; background: rgba(224,173,52,.20); }
+    .rb.rb-dark .rb-order-p1 { color: #5fb3d6; }
+    .rb.rb-dark .rb-order-p2 { color: #e8b34a; }
     .rb-order-dash { color: var(--rb-muted); }
 
     /* Encyclopedia */
-    .rb-enc { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+    .rb-enc { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      align-items: start; }  /* families have very different lengths — don't stretch the short ones */
     .rb-enc-group {
       padding: 14px 16px; border-radius: 16px;
       background: var(--rb-surface2); border: 1px solid var(--rb-line);

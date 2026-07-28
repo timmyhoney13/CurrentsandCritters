@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.26";
-  const APP_BUILD   = "2026-07-28.1";
+  const APP_VERSION = "1.6.27";
+  const APP_BUILD   = "2026-07-28.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -21851,7 +21851,7 @@
         +     'attached to them. When the END GAME card appears, everyone takes one last turn and the biggest '
         +     'ecosystem wins. Here is a whole turn, start to finish.</p>'
         +   '<div class="htp-hero-btns">'
-        +     '<button type="button" class="htp-btn htp-btn-gold" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        +     '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Play the tutorial</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="rules">📖 Full Rulebook</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="strats">🧭 Strategies</button>'
         +   '</div>'
@@ -21877,7 +21877,7 @@
             + '</ul>')
         + '</div>'
 
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🎴</span>Your turn: pick one thing</div>'
+        + '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>Your turn: pick one thing</div>'
         + '<p class="htp-p htp-p-lead">A turn is <b>one</b> of these three. The banner at the top tells you when it '
         +   'is your go, and the guide bar underneath spells out the next tap.</p>'
         + '<div class="htp-choices">'
@@ -21983,7 +21983,7 @@
         + '<div class="htp-cta">'
         +   '<div class="htp-cta-txt"><b>That is the whole game.</b> The tutorial deals you a real hand and walks you '
         +     'through it, which is the fastest way to make it stick.</div>'
-        +   '<button type="button" class="htp-btn htp-btn-gold" data-htp-go="tutorial">▶ Play the tutorial</button>'
+        +   '<button type="button" class="htp-btn htp-btn-primary" data-htp-go="tutorial">▶ Play the tutorial</button>'
         + '</div>';
     }
 
