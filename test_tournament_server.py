@@ -898,6 +898,21 @@ class TestReadyCheck(unittest.TestCase):
         t.match_ready(a, True)
         self.assertEqual(m0.status, M_ACTIVE, "a player who really left can't stall the bracket")
 
+    def test_going_offline_arms_a_recheck_so_the_match_cant_stall(self):
+        """Nothing else re-reads the ready gate once a player stops polling, so the
+        reaper must schedule the re-check itself."""
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a, b = [p for p in m0.player_ids if p]
+        t.match_ready(a, True)
+        t._cancel_match_timer(m0.match_number)           # start from no pending timer
+        t._by_pid(b).last_seen = _now() - 9999
+        t.state_view(viewer_pid=a)                        # reaper runs
+        self.assertIn(m0.match_number, t.match_timers,
+                      "a re-check must be scheduled for when the grace expires")
+        t._cancel_match_timer(m0.match_number)
+
     def test_solo_human_with_bots_launches_on_ready(self):
         mgr = TournamentManager()
         cfg = TournamentConfig(4, 2, name="Solo Cup")
