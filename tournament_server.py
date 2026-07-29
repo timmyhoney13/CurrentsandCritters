@@ -129,6 +129,10 @@ DISCONNECT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_DISCONNECT_GRACE", 
 # previous game's end screen means they never got to play it. Comfortably longer
 # than DISCONNECT_GRACE_SEC so a blip costs nobody their match.
 MATCH_ABSENT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_ABSENT_GRACE", "90"))
+# A spectator whose client hasn't read state within this window has closed the tab.
+# Generous (spectating is passive and a watcher sitting on a slow game still polls
+# every few seconds), but bounded, so "N watching" stays true.
+SPECTATOR_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_SPECTATOR_GRACE", "60"))
 # Every bracket match is decided by a REAL game of Currents & Critters, including
 # matches where the whole field is AI seat-fillers: those spawn an all-bot game
 # room and the engine plays it out. Set to 0 to fall back to resolving them
@@ -293,6 +297,10 @@ class Tournament:
         self.match_rooms: Dict[str, Tuple[int, int]] = {}
         self.match_seat_tokens: Dict[int, Dict[str, str]] = {}   # match_number -> {pid: seat_token}
         self.match_entered_pids: Dict[int, set] = {}                  # match_number -> set(pids present)
+        # Players who forfeited before their match spawned: they are left OUT of the
+        # game room (an abandoned seat parks the game forever) and appended to the
+        # result last when the room reports back.
+        self.match_forfeit_pids: Dict[int, List[str]] = {}       # match_number -> [pid]
         # Per-match READY CHECK: every human assigned to a match must ready up before
         # its game launches (bots are always auto-ready). match_number -> set(pids ready).
         self.match_ready_pids: Dict[int, set] = {}
@@ -346,11 +354,30 @@ class Tournament:
             return True
         return bool(pid) and pid == self.host_pid
 
-    def _touch_and_reap_locked(self, me: Optional[Participant]) -> None:
+    def _touch_and_reap_locked(self, me: Optional[Participant],
+                               viewer_pid: Optional[str] = None) -> None:
         """MUST hold self.cond. Refresh the viewer's presence, mark stale
         participants disconnected, and reassign the host if it vanished."""
         now = _now()
         changed = False
+        # Spectators are tracked by last-seen too, or "watching" would be a one-way
+        # door: the count only ever grew, so a tournament nobody was watching still
+        # advertised a crowd, and a spectator who came back as a player was still
+        # counted twice.
+        # Reading state IS watching, so a viewer who is not a competitor keeps (or
+        # re-takes) their spectator seat — a backgrounded tab that missed the grace
+        # window must not be told it is no longer in the tournament at all. Same
+        # rule join() applies, so this can never grant more than joining would.
+        if viewer_pid and me is None:
+            if self.phase != self.PHASE_LOBBY and self.spectators_allowed:
+                self.spectator_pids[viewer_pid] = now
+        elif viewer_pid and me is not None:
+            self.spectator_pids.pop(viewer_pid, None)
+        stale = [pid for pid, seen in self.spectator_pids.items()
+                 if (now - seen) > SPECTATOR_GRACE_SEC]
+        for pid in stale:
+            self.spectator_pids.pop(pid, None)
+            changed = True
         if me is not None:
             me.last_seen = now
             if not me.connected:
@@ -547,9 +574,18 @@ class Tournament:
                     self._reassign_host_locked()   # keep the lobby operable
                 self._bump_locked()
                 return {"ok": True, "removed": True}
+            was_active = p.status not in (S_ELIMINATED, S_CHAMPION)
+            # Leaving once your run is ALREADY over is not a forfeit. A knocked-out
+            # player (or anyone closing the results screen) has completed the
+            # tournament — marking them ``quit`` here stripped the no-quit XP off a
+            # run they actually finished, and re-eliminated the champion.
+            if not was_active or self.phase in (self.PHASE_COMPLETE, self.PHASE_CANCELLED):
+                p.connected = False
+                self._log("player_left", f"{p.name} closed the tournament", by=p.pid)
+                self._bump_locked()
+                return {"ok": True, "left": True, "was_active": False}
             # mid-tournament leave == forfeit (no no-quit bonus)
             p.quit = True
-            was_active = p.status not in (S_ELIMINATED, S_CHAMPION)
             p.status = S_ELIMINATED
             self._log("player_forfeit", f"{p.name} left the tournament", by=p.pid)
             self._forfeit_active_matches_for(p)
@@ -990,6 +1026,7 @@ class Tournament:
         # Atomic claim under the lock so two threads (two matches finishing at the
         # same time, each triggering _spawn_ready_matches) can never double-spawn
         # the same next-round match into two GameRooms.
+        walkover = None
         with self.cond:
             if m.status in (M_READY, M_ACTIVE, M_COMPLETE, M_BYE) or m.room_id:
                 return
@@ -997,12 +1034,33 @@ class Tournament:
                 return
             parts = [self._by_pid(pid) for pid in m.player_ids if pid]
             parts = [p for p in parts if p is not None]
+            # A player who forfeited between winning their last match and this one
+            # being ready is NOT coming. Seating them anyway left an abandoned seat
+            # in the game: the engine never draws for an away player, so their turn
+            # parks and the match — and the whole bracket behind it — hangs waiting
+            # on somebody who already left. Leave them out of the game and rank them
+            # last when the result comes back (see match_forfeit_pids).
+            gone = [p for p in parts if p.quit]
+            playing = [p for p in parts if not p.quit]
+            if gone and len(playing) < 2:
+                # Nobody left to play a real game against — the survivor (if any)
+                # walks over. Resolved after the lock so it can advance the bracket.
+                walkover = [p.pid for p in playing] + [p.pid for p in gone]
             m.status = M_READY          # claim it before releasing the lock
             self.match_ready_since[m.match_number] = _now()
-            for p in parts:
-                if not p.quit:          # never resurrect a player who forfeited
-                    p.status = S_PLAYING
+            for p in playing:
+                p.status = S_PLAYING
+            self.match_forfeit_pids[m.match_number] = [p.pid for p in gone]
             self._bump_locked()
+        if walkover is not None:
+            with self.cond:
+                try:
+                    self._record_and_advance(m, walkover, {})
+                except Exception:  # noqa: BLE001
+                    traceback.print_exc()
+                self._bump_locked()
+            return
+        parts = playing
         if _create_match_room is None:
             # test / headless mode: no real room, results are fed directly.
             return
@@ -1104,9 +1162,14 @@ class Tournament:
         if not assigned:
             return False
         ready = self.match_ready_pids.get(m.match_number, set())
-        humans = [p for p in assigned if not p.is_bot]
+        # A player who FORFEITED is never coming, so they must not hold the gate:
+        # waiting out the full absent-grace on someone who explicitly left made
+        # everyone else in their match sit for a minute and a half for nothing.
+        humans = [p for p in assigned if not p.is_bot and not p.quit]
         if not humans:
-            return True                       # all-bot match: nothing to wait on
+            # Nobody left to wait on (all bots, or every human forfeited) — the
+            # engine plays it out and the forfeiters rank last.
+            return True
         waited = _now() - (self.match_ready_since.get(m.match_number) or _now())
         for p in humans:
             if p.pid in ready:
@@ -1209,24 +1272,66 @@ class Tournament:
             except Exception:  # noqa: BLE001
                 pass
 
+    def _live_scores_for(self, m) -> Dict[str, int]:
+        """Best-effort CURRENT scores of a running match, keyed by participant id.
+
+        Empty when there is no room, the game hasn't published a state yet, or the
+        room can't be read — every caller treats that as "no information"."""
+        if not m.room_id or _get_room is None:
+            return {}
+        try:
+            room = _get_room(m.room_id)
+            if room is None:
+                return {}
+            pid_by_seat: Dict[int, str] = {}
+            for seat in (getattr(room, "seats", None) or []):
+                pid = getattr(seat, "tournament_pid", None)
+                if pid:
+                    pid_by_seat[int(seat.index)] = str(pid)
+            state = getattr(room, "latest_public_state", None)
+            if not isinstance(state, dict):
+                return {}
+            out: Dict[str, int] = {}
+            for row in (state.get("players") or []):
+                if not isinstance(row, dict):
+                    continue
+                # players[].index IS the seat index (see _record_snapshot).
+                pid = pid_by_seat.get(row.get("index"))
+                if pid:
+                    out[pid] = int(row.get("score") or 0)
+            return out
+        except Exception:  # noqa: BLE001
+            return {}
+
     def _forfeit_active_matches_for(self, p: Participant) -> None:
-        """If a player forfeits mid-match, their opponents advance. If the match
-        hasn't finished, the highest-remaining player is credited the win."""
+        """A player forfeited mid-match: end that match now so the bracket keeps
+        moving (their abandoned seat would otherwise park the game forever) and
+        rank everyone else by the score they had actually reached.
+
+        Ordering matters: the old code ranked the survivors by SLOT, so one player
+        quitting a 4-player match handed the win — and the round — to whoever
+        happened to be seeded first, no matter who was ahead."""
         if not self.bracket:
             return
-        for row in self.bracket.rounds:
-            for m in row:
-                if m.status in (M_COMPLETE, M_BYE):
-                    continue
-                if p.pid in [x for x in m.player_ids if x]:
-                    others = [x for x in m.player_ids if x and x != p.pid]
-                    if others and m.filled_count() == m.capacity:
-                        # decide by forfeit: remaining players ranked, forfeiter last
-                        ranking = others + [p.pid]
-                        try:
-                            self._record_and_advance(m, ranking, {}, forfeit_pid=p.pid)
-                        except Exception:  # noqa: BLE001
-                            traceback.print_exc()
+        for m in self.bracket.all_matches():     # includes the third-place match
+            if m.status in (M_COMPLETE, M_BYE):
+                continue
+            if p.pid not in [x for x in m.player_ids if x]:
+                continue
+            others = [x for x in m.player_ids if x and x != p.pid]
+            if not others or m.filled_count() != m.capacity:
+                continue
+            live = self._live_scores_for(m)
+            # Anyone else who already forfeited joins this one at the bottom.
+            stayed = [x for x in others if not getattr(self._by_pid(x), "quit", False)]
+            left = [x for x in others if x not in stayed]
+            # Stable sort: equal scores (or none known) keep their slot order.
+            stayed.sort(key=lambda pid: -live.get(pid, 0))
+            ranking = stayed + left + [p.pid]
+            try:
+                self._record_and_advance(m, ranking, live, forfeit_pid=p.pid)
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
 
     def report_match_result(self, round_index: int, match_index: int,
                             ranking: List[str], scores: Optional[Dict[str, int]] = None,
@@ -1244,6 +1349,12 @@ class Tournament:
             if room_id and m.room_id and room_id != m.room_id:
                 return {"ok": False, "error": "result does not belong to this match"}
             present = sorted([p for p in m.player_ids if p])
+            # Players who forfeited before the game started never got a seat, so the
+            # room's standings cannot mention them. They finish last.
+            ranking = list(ranking) + [
+                pid for pid in (self.match_forfeit_pids.get(m.match_number) or [])
+                if pid in present and pid not in ranking
+            ]
             if sorted(ranking) != present:
                 return {"ok": False, "error": "ranking players do not match this match"}
             try:
@@ -1279,7 +1390,9 @@ class Tournament:
             p = self._by_pid(pid)
             if not p:
                 continue
-            if pid in advancing:
+            if pid in advancing and not p.quit:
+                # A forfeiter is never advanced back into the bracket, even if a
+                # walkover put them at the top of a ranking nobody else was in.
                 if not m.is_third_place:
                     p.deepest_round = max(p.deepest_round, m.round_index + 1)
                 p.status = S_WAITING     # champion is decided at finalize
@@ -1314,7 +1427,10 @@ class Tournament:
 
     # ---- XP (§12) -----------------------------------------------------------
     def compute_xp_for(self, p: Participant) -> Dict[str, Any]:
-        n = len(self.participants)
+        # Field size for XP scaling counts PEOPLE, not seat-fillers. Counting bots
+        # meant a host could sit 3 friends in a 32-seat bracket, fill the other 29
+        # with AI and collect full 32-player champion XP for beating robots.
+        n = sum(1 for q in self.participants if not q.is_bot) or len(self.participants)
         rounds_total = self.bracket.n_rounds if self.bracket else 1
         place = p.final_place or (self.bracket.final_placements() and
                                   next((e["place"] for e in self.bracket.final_placements()
@@ -1380,7 +1496,7 @@ class Tournament:
         self._maybe_retry_xp_async()   # opportunistic XP reconciliation (throttled)
         with self.cond:
             me = self._by_pid(viewer_pid) if viewer_pid else None
-            self._touch_and_reap_locked(me)
+            self._touch_and_reap_locked(me, viewer_pid)
             is_host = self.is_host(pid=viewer_pid, host_token=host_token)
             ordered = sorted(self.participants, key=lambda x: x.join_order)
             parts = [p.public(is_host=(p.pid == self.host_pid), me=(me is not None and p.pid == me.pid))
@@ -1525,13 +1641,18 @@ class Tournament:
                 continue
             p = self._by_pid(pid)
             is_bot = bool(p and p.is_bot)
+            quit_ = bool(p and p.quit)
             roster.append({
                 "pid": pid,
                 "name": p.name if p else "?",
                 "avatar": p.avatar if p else "",
                 "is_bot": is_bot,
                 "connected": bool(p and p.connected),
-                "ready": is_bot or (pid in ready),
+                # A forfeiter never has to ready up (and never blocks the launch),
+                # so showing them as "Waiting…" told everyone else to keep waiting
+                # on somebody who had already left.
+                "quit": quit_,
+                "ready": is_bot or quit_ or (pid in ready),
                 "me": (pid == me.pid),
             })
         return {

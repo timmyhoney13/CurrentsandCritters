@@ -1391,5 +1391,291 @@ class TestBotMatchesArePlayed(unittest.TestCase):
             ts.PLAY_BOT_MATCHES = old
 
 
+class _FakeRooms(unittest.TestCase):
+    """Base for tests that need real match rooms (room ids + seat tokens)."""
+
+    def setUp(self):
+        self._old_create = ts._create_match_room
+        self._old_start = ts._start_match_room
+        self.created = []          # every kwargs dict handed to the room factory
+        self.started = []
+        def fake_create(**kw):
+            self.created.append(kw)
+            rid = f"R{kw['match_number']}"
+            return {"room_id": rid,
+                    "seat_tokens": {p["pid"]: f"seat-{p['pid']}"
+                                    for p in kw["players"] if not p.get("is_bot")}}
+        def fake_start(room_id):
+            self.started.append(room_id)
+            return True
+        ts._create_match_room = fake_create
+        ts._start_match_room = fake_start
+
+    def tearDown(self):
+        ts._create_match_room = self._old_create
+        ts._start_match_room = self._old_start
+
+    @staticmethod
+    def launch(t, m):
+        """Ready everyone up so a spawned match actually starts."""
+        for pid in [x for x in m.player_ids if x]:
+            t.match_ready(pid, True)
+
+
+class TestSpectateAfterKnockout(_FakeRooms):
+    """Losing your match must not cut you off from the tournament: every other
+    live game has to stay visible (and watchable) to a knocked-out player."""
+
+    def _two_matches(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0, m1 = t.bracket.rounds[0]
+        self.launch(t, m0)
+        self.launch(t, m1)
+        return t, m0, m1
+
+    def test_eliminated_player_still_sees_the_other_live_match(self):
+        t, m0, m1 = self._two_matches()
+        a, b = [p for p in m0.player_ids if p]
+        t.report_match_result(m0.round_index, m0.match_index, [a, b], {a: 200, b: 100})
+        self.assertEqual(t._by_pid(b).status, S_ELIMINATED)
+        st = t.state_view(viewer_pid=b)
+        self.assertTrue(st["viewer"]["in_tournament"],
+                        "a knocked-out player stays in the tournament they entered")
+        live = [mm for row in st["bracket"]["rounds"] for mm in row
+                if mm["status"] == M_ACTIVE and mm["room_id"]]
+        self.assertEqual([mm["room_id"] for mm in live], [m1.room_id],
+                         "the other match is still live and addressable, so it can be watched")
+        self.assertTrue(st["spectators_allowed"])
+
+    def test_eliminated_player_keeps_being_marked_connected(self):
+        """The client keeps polling after a knockout (it used to stop), so the
+        server must keep counting them as present rather than reaping them."""
+        t, m0, m1 = self._two_matches()
+        a, b = [p for p in m0.player_ids if p]
+        t.report_match_result(m0.round_index, m0.match_index, [a, b], {a: 200, b: 100})
+        t._by_pid(b).last_seen = _now() - 9999
+        t.state_view(viewer_pid=b)         # their own poll refreshes presence
+        self.assertTrue(t._by_pid(b).connected)
+
+    def test_spectator_presence_is_refreshed_and_reaped(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        t.join("acct:watcher", "Watcher", is_guest=False)   # started -> spectator
+        self.assertIn("acct:watcher", t.spectator_pids)
+        st = t.state_view(viewer_pid="acct:watcher")
+        self.assertEqual(st["spectator_count"], 1)
+        self.assertEqual(st["viewer"]["status"], ts.S_SPECTATING)
+        # Stop watching (close the tab) -> the count must come back down.
+        t.spectator_pids["acct:watcher"] = _now() - (ts.SPECTATOR_GRACE_SEC + 30)
+        st2 = t.state_view(viewer_pid=t.host_pid)
+        self.assertEqual(st2["spectator_count"], 0,
+                         "a spectator who stopped watching must stop being counted")
+
+
+class TestLeaveAfterYourRunIsOver(unittest.TestCase):
+    """Headless (no room factory) so play_out can drive the whole bracket."""
+
+    def test_eliminated_player_leaving_is_not_a_forfeit(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0, m1 = t.bracket.rounds[0]
+        a, b = [p for p in m0.player_ids if p]
+        t.report_match_result(m0.round_index, m0.match_index, [a, b], {a: 200, b: 100})
+        loser = t._by_pid(b)
+        r = t.leave(b)
+        self.assertTrue(r["ok"])
+        self.assertFalse(r.get("forfeit"), "there is nothing left to forfeit")
+        self.assertFalse(loser.quit,
+                         "closing the tournament after being knocked out must not "
+                         "cost the no-quit bonus of a run you finished")
+        self.assertEqual(loser.status, S_ELIMINATED)
+
+    def test_champion_leaving_after_the_final_stays_champion(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        play_out(t)
+        champ = t._by_pid(t.champion_pid)
+        t.leave(champ.pid)
+        self.assertEqual(t.champion_pid, champ.pid)
+        self.assertEqual(champ.status, S_CHAMPION, "leaving the results screen is not a forfeit")
+        self.assertFalse(champ.quit)
+
+    def test_mid_run_leave_is_still_a_forfeit(self):
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        a = next(p for p in m0.player_ids if p)
+        r = t.leave(a)
+        self.assertTrue(r.get("forfeit"))
+        self.assertTrue(t._by_pid(a).quit)
+
+
+class TestForfeitDoesNotStallOrMisrank(_FakeRooms):
+    def _report(self, t, m):
+        present = [p for p in m.player_ids if p]
+        r = t.report_match_result(m.round_index, m.match_index, present,
+                                  {p: 400 - i * 10 for i, p in enumerate(present)})
+        assert r["ok"], r
+        return present[0]
+
+    def test_forfeiter_who_quit_before_their_next_match_filled_is_a_walkover(self):
+        """A player who wins, then leaves before their next match has both players
+        in it, used to be seated anyway: the survivor waited out the full absent
+        grace and then played a game against an empty chair."""
+        mgr, t = make(8, 2, 8, guest=False)
+        t.start()
+        r1 = t.bracket.rounds[0]
+        for m in r1:
+            self.launch(t, m)
+        w0 = self._report(t, r1[0])          # w0 advances into semi 0
+        semi = t.bracket.rounds[1][0]
+        self.assertEqual(semi.filled_count(), 1, "semi is still waiting on the other half")
+        t.leave(w0)                          # ...and then walks out
+        self.assertNotEqual(semi.status, M_COMPLETE, "nothing to resolve yet")
+        self.created.clear()
+        w1 = self._report(t, r1[1])          # the other half arrives -> semi fills
+        self.assertEqual(semi.status, M_COMPLETE,
+                         "one player left vs a forfeiter is a walkover, not a 90s wait")
+        self.assertEqual(semi.winners, [w1])
+        self.assertEqual([kw for kw in self.created
+                          if kw["match_number"] == semi.match_number], [],
+                         "no game room is spawned for a walkover")
+
+    def test_forfeiter_is_left_out_of_the_game_room(self):
+        """Seating an absent player parks the game forever (the engine never draws
+        for someone who is away), so they must not be given a seat at all."""
+        mgr, t = make(12, 4, 12, guest=False)   # three 4-player matches -> a 3-seat final
+        t.start()
+        r1 = t.bracket.rounds[0]
+        final = t.bracket.rounds[1][0]
+        self.assertEqual(final.capacity, 3)
+        for m in r1:
+            self.launch(t, m)
+        quitter = self._report(t, r1[0])        # wins, then leaves
+        t.leave(quitter)
+        self.assertTrue(t._by_pid(quitter).quit)
+        self.created.clear()
+        self._report(t, r1[1])
+        self._report(t, r1[2])                  # final now full -> spawns
+        spawn = next(kw for kw in self.created if kw["match_number"] == final.match_number)
+        seated = [p["pid"] for p in spawn["players"]]
+        self.assertNotIn(quitter, seated, "a forfeiter must never be given a seat")
+        self.assertEqual(len(seated), 2, "the game is played by whoever actually turned up")
+        self.assertIn(quitter, t.match_forfeit_pids[final.match_number])
+        # ...and the room's 2-player result still resolves the 3-seat match.
+        res = t.report_match_result(final.round_index, final.match_index,
+                                    seated, {seated[0]: 90, seated[1]: 40},
+                                    room_id=final.room_id)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(final.ranking, seated + [quitter])
+        self.assertEqual(t.champion_pid, seated[0])
+
+    def test_result_from_a_short_room_still_ranks_the_forfeiter_last(self):
+        mgr, t = make(6, 3, 6, guest=False)   # two 3-player opening matches
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        seats = [p for p in m0.player_ids if p]
+        self.assertEqual(len(seats), 3)
+        # Force the "forfeited before the game started" bookkeeping directly: the
+        # room reports only the players who actually played.
+        t.match_forfeit_pids[m0.match_number] = [seats[2]]
+        t._by_pid(seats[2]).quit = True
+        res = t.report_match_result(m0.round_index, m0.match_index,
+                                    [seats[0], seats[1]], {seats[0]: 90, seats[1]: 40},
+                                    room_id=m0.room_id)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(m0.ranking, [seats[0], seats[1], seats[2]],
+                         "the forfeiter finishes last, and the match still resolves")
+
+    def test_forfeit_ranks_survivors_by_score_not_by_slot(self):
+        """One player quitting a 3+ player match used to hand the win to whoever
+        happened to be seeded first, whatever the board said."""
+        mgr, t = make(6, 3, 6, guest=False)
+        t.start()
+        m0 = t.bracket.rounds[0][0]
+        s0, s1, s2 = [p for p in m0.player_ids if p]
+        self.launch(t, m0)
+        # s1 is well ahead of s0 when s2 walks out.
+        t._live_scores_for = lambda m: {s0: 20, s1: 310, s2: 5}
+        t.leave(s2)
+        self.assertEqual(m0.status, M_COMPLETE)
+        self.assertEqual(m0.ranking, [s1, s0, s2],
+                         "the player who was actually winning takes the match")
+
+    def test_forfeit_resolves_a_third_place_match(self):
+        mgr, t = make(4, 2, 4, third_place=True, guest=False)
+        t.start()
+        for m in t.bracket.rounds[0]:
+            present = [p for p in m.player_ids if p]
+            t.report_match_result(m.round_index, m.match_index, present,
+                                  {p: 200 - i for i, p in enumerate(present)})
+        tp = t.bracket.third_place
+        self.assertIsNotNone(tp)
+        self.assertEqual(tp.filled_count(), 2, "both semifinal losers seed the 3rd-place match")
+        a, b = [p for p in tp.player_ids if p]
+        t.leave(a)
+        self.assertEqual(tp.status, M_COMPLETE,
+                         "the third-place match is a match too — a forfeit must resolve it")
+        self.assertEqual(tp.winners, [b])
+
+    def test_a_forfeiter_is_never_advanced_by_a_walkover(self):
+        """Winning by walkover and then quitting must not carry the quitter into
+        the next round as a 'waiting' player, nor crown them."""
+        mgr, t = make(4, 2, 4, guest=False)
+        t.start()
+        m0, m1 = t.bracket.rounds[0]
+        a, b = [p for p in m0.player_ids if p]
+        t.leave(a)                       # b wins m0 by forfeit
+        self.assertEqual(m0.winners, [b])
+        t.leave(b)                       # ...then b walks out too
+        self.assertTrue(t._by_pid(a).quit and t._by_pid(b).quit)
+        self.assertEqual(t._by_pid(b).status, S_ELIMINATED,
+                         "a forfeiter is never put back into the waiting state")
+        c = self._report(t, m1)          # the other half finishes -> final fills
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        self.assertEqual(t.champion_pid, c, "the player still there wins by walkover")
+
+
+class TestXPFieldSize(unittest.TestCase):
+    def test_bots_do_not_inflate_the_field_size(self):
+        """3 friends + 29 AI seat-fillers must not pay like a 32-person bracket."""
+        mgr = TournamentManager()
+        cfg = TournamentConfig(32, 2, name="Padded Cup")
+        t = mgr.create(cfg, "acct:host", "Host", fill_bots=True)
+        for i in range(3):
+            t.join(f"acct:p{i}", f"P{i}", is_guest=False)
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        t.start()
+        play_out(t)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        humans = [p for p in t.participants if not p.is_bot]
+        self.assertEqual(len(humans), 4)
+        padded = t.compute_xp_for(humans[0])
+
+        mgr2 = TournamentManager()
+        _, t2 = make(4, 2, 4, guest=False)
+        t2.start()
+        play_out(t2)
+        real = t2.compute_xp_for(t2._by_pid(t2.champion_pid))
+        self.assertEqual(padded["scale"], real["scale"],
+                         "a bot-padded 32-seat bracket scales like the 4-person field it is")
+
+    def test_bots_never_receive_xp(self):
+        mgr = TournamentManager()
+        t = mgr.create(TournamentConfig(8, 2, name="Bot Cup"), "acct:host", "Host",
+                       fill_bots=True)
+        for i in range(2):
+            t.join(f"acct:p{i}", f"P{i}", is_guest=False)
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        t.start()
+        play_out(t)
+        for p in t.participants:
+            if p.is_bot:
+                self.assertNotIn(p.pid, t._xp_grants)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
