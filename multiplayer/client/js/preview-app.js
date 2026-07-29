@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.33";
-  const APP_BUILD   = "2026-07-29.2";
+  const APP_VERSION = "1.6.34";
+  const APP_BUILD   = "2026-07-29.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "Messages gets its own page", items: [
+      "Messages is now a tab in the left sidebar, right under Friends, instead of a narrow drawer squeezed onto the right-hand side.",
+      "Open a chat and it fills the whole page; the back arrow at the top left takes you back to your other conversations.",
+      "Chats can wear an ocean background, iMessage style. Tap 🎨 in a chat to pick one; Kelp Forest and Arctic Ocean are free for everyone, and every background you have unlocked shows up there too.",
+      "The background belongs to the conversation, not to you, so only ONE of you needs to own it for both of you to see it.",
+    ]},
+    { ver: "V1.7.0", title: "Trade is its own button now", items: [
+      "The top-right chat icon is now a Trade button: tap it, pick a friend (or search any player), and you go straight into the trade screen. No more opening Messages first.",
+      "Messages and Trading stay completely separate, Messages is for talking, Trade is for swapping avatars, backgrounds and Critter Coins. Trading from inside a DM still works exactly as before.",
+    ]},
+    { ver: "V1.7.0", title: "Settings moved to the top right", items: [
+      "Settings is now the gear button in the top-right corner instead of the last item in the sidebar.",
+      "Help & Feedback moved inside Settings, so asking a question, reporting a bug or suggesting an idea all live in one place.",
+    ]},
     { ver: "V1.7.0", title: "Tournaments: spectate or wait between matches", items: [
       "Finishing a tournament match no longer offers “Play Again” and “Back to Lobby”, you now get “Spectate a Match” and “Wait for Next Match in Lobby”, the two things that actually make sense inside a bracket.",
       "Spectate only opens if another tournament game is genuinely still being played; if they've all finished you get a note saying so and that the next round is starting. More than one live? Pick which to watch.",
@@ -19147,9 +19161,15 @@
       for (let i = 0; i < 16; i++) h += Math.floor(Math.random() * 16).toString(16);
       return "g_" + h;
     }
+    // Chat-background docs are ALSO meta docs (so they never render as a
+    // message), but they are not group rosters. Every "is this a group?" test
+    // must skip them or a plain DM with a wallpaper would look like a group.
+    // Test for the FIELD, not its value: clearing a wallpaper writes chatbg:""
+    // and a falsy check would let that doc pose as a group roster.
+    function _msgIsGroupMeta(m) { return !!(m && m.meta && typeof m.chatbg !== "string"); }
     // Latest metadata doc for a group conv from my cache (null if none).
     function _msgGroupMeta(convId) {
-      const metas = _msgAllMessages.filter(m => m && m.conv_id === convId && m.meta);
+      const metas = _msgAllMessages.filter(m => m && m.conv_id === convId && _msgIsGroupMeta(m));
       if (!metas.length) return null;
       metas.sort((a, b) => _msgTs(a) - _msgTs(b));
       return metas[metas.length - 1];
@@ -19192,7 +19212,7 @@
       });
       _msgConversations = Object.keys(byConv).map(cid => {
         const all  = byConv[cid];
-        const meta = all.filter(m => m.meta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
+        const meta = all.filter(_msgIsGroupMeta).sort((a, b) => _msgTs(a) - _msgTs(b)).pop() || null;
         const isGroup = !!meta || all.some(m => m.group);
         // Exclude the live trade mirror doc (trade:true), it's not a chat message.
         const msgs = all.filter(m => !m.meta && !m.trade).sort((a, b) => _msgTs(a) - _msgTs(b));
@@ -19233,7 +19253,7 @@
             _msgRebuildConversations();
             const drawer = $a("cc-msg-drawer");
             if (drawer && drawer.classList.contains("open")) {
-              if (_msgOpenConvId) _msgRenderOpenConversation();
+              if (_msgOpenConvId) { _msgRenderOpenConversation(); _msgApplyChatBg(); }
               else _msgRenderList();
             }
             // Notify external subscribers (the in-game iMessage panel) so it
@@ -19287,6 +19307,9 @@
       if (convView)  convView.classList.remove("show");
       if (backBtn)   backBtn.classList.remove("show");
       if (titleEl)   { titleEl.textContent = "Friend Messages"; titleEl.classList.remove("editable"); }
+      const bgBtn = $a("ccm-bg-btn");
+      if (bgBtn) bgBtn.style.display = "none";     // wallpaper is per-conversation
+      _msgCloseBgSheet();
       _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
 
       // Build / show the search-to-message bar (recipient picker).
@@ -19297,8 +19320,10 @@
 
       listEl.innerHTML = "";
 
-      // In-game room-chat bridge entry (hidden while searching for people).
-      if (!filtering && typeof roomId !== "undefined" && roomId) {
+      // In-game room-chat bridge entry (hidden while searching for people, and
+      // never on the Messages page — that row closes the messaging UI to reveal
+      // the in-game chat panel, which would just blank the page you're on).
+      if (!filtering && !_msgPageMounted && typeof roomId !== "undefined" && roomId) {
         const room = document.createElement("div");
         room.className = "ccm-conv room-chat";
         room.innerHTML = "<div class=\"ccm-av\"><span class=\"ccm-av-letter\">🎮</span></div>"
@@ -19500,11 +19525,17 @@
         if (window.__fishTrade && window.__fishTrade.refreshButtons) window.__fishTrade.refreshButtons();
       }
 
+      // Background picker: any open conversation (DM or group) can wear a
+      // wallpaper, but guests own nothing so they never get the button.
+      const bgBtn = $a("ccm-bg-btn");
+      if (bgBtn) bgBtn.style.display = (_guestSessionActive === true) ? "none" : "";
+
       const guestNote = $a("ccm-guest-note");
       const inputRow  = $a("ccm-input-row");
       const isGuest   = (_guestSessionActive === true);
       if (guestNote) guestNote.style.display = isGuest ? "" : "none";
       if (inputRow)  inputRow.style.display  = isGuest ? "none" : "flex";
+      _msgApplyChatBg();
     }
 
     // Rename the open group by tapping its title (inline edit + in-chat notice).
@@ -19958,10 +19989,176 @@
       }
     }
 
+    // ── Per-conversation chat backgrounds (iMessage-style wallpaper) ──
+    // The pick is a SHARED property of the conversation, not a personal
+    // setting: it's written into every member's messages subcollection at the
+    // deterministic id "cbg_<convId>", so only ONE player has to own a
+    // background for the whole chat to wear it. The doc carries meta:true so
+    // the existing message filters never render it as a bubble, plus
+    // chatbg:"…" so the group-roster lookups skip it (see _msgIsGroupMeta).
+    //
+    // Kelp Forest and Arctic Ocean are free chat wallpapers for everyone (they
+    // are the two the design calls for); every other ocean is available once
+    // you unlock that background. Add a path here to make another one free.
+    const CHAT_BG_FREE = ["/backgrounds/bg-kelp.png", "/backgrounds/bg-arctic.png"];
+
+    function _msgChatBgOwned(img) {
+      if (!img) return true;                                  // "no background" is always allowed
+      if (CHAT_BG_FREE.indexOf(img) !== -1) return true;
+      return Array.isArray(_unlockedBackgrounds) && _unlockedBackgrounds.indexOf(img) !== -1;
+    }
+    // The conversation's current wallpaper ("" = none).
+    function _msgChatBgFor(convId) {
+      if (!convId) return "";
+      const docs = _msgAllMessages.filter(m => m && m.conv_id === convId && typeof m.chatbg === "string");
+      if (!docs.length) return "";
+      docs.sort((a, b) => _msgTs(a) - _msgTs(b));
+      const img = docs[docs.length - 1].chatbg || "";
+      return _BG_BY_IMG[img] ? img : "";                      // ignore anything not in our catalog
+    }
+    // Paint the open conversation with its wallpaper (or clear it).
+    function _msgApplyChatBg() {
+      const view = $a("ccm-conv-view");
+      if (!view) return;
+      const img = _msgChatBgFor(_msgOpenConvId);
+      if (img) {
+        const src = (typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(img) : img;
+        view.style.setProperty("--ccm-chat-bg", 'url("' + src + '")');
+        view.classList.add("has-bg");
+      } else {
+        view.style.removeProperty("--ccm-chat-bg");
+        view.classList.remove("has-bg");
+      }
+    }
+    // Write the pick to every member of the conversation.
+    async function _msgSetChatBg(convId, img) {
+      if (!_db || !_authUser || !convId) return { error: "Not available." };
+      if (_guestSessionActive === true) return { error: "Sign in to change chat backgrounds." };
+      img = img || "";
+      if (img && !_BG_BY_IMG[img]) return { error: "That background doesn't exist." };
+      if (!_msgChatBgOwned(img)) return { error: "You haven't unlocked that background yet." };
+      const meta = _msgGroupMeta(convId);
+      const uids = (meta && Array.isArray(meta.members))
+        ? meta.members.map(p => p && p.uid).filter(Boolean)
+        : String(convId).split("__").filter(Boolean);
+      if (uids.indexOf(_authUser.uid) === -1) return { error: "You're not in this chat." };
+      const doc = {
+        conv_id:     convId,
+        meta:        true,          // never rendered as a message
+        chatbg:      img,           // "" clears the wallpaper
+        set_by:      _authUser.uid,
+        set_by_name: _playerNickname || "Player",
+        ts:          firebase.firestore.FieldValue.serverTimestamp(),
+        read:        true,          // never counts toward anyone's unread badge
+      };
+      try {
+        for (const u of uids) {
+          await _db.collection("users").doc(u).collection("messages").doc("cbg_" + convId).set(doc);
+        }
+        return { ok: true };
+      } catch (e) {
+        console.warn("[msg] chat background failed:", e);
+        if (e && e.code === "permission-denied") { _msgShowRulesNeeded(); }
+        return { error: "Could not change the background, " + ((e && e.code) || "error") };
+      }
+    }
+
+    // ── Background picker sheet ───────────────────────────────────
+    function _msgOpenBgSheet() {
+      if (!_msgOpenConvId) return;
+      const sheet = $a("ccm-bgsheet");
+      if (!sheet) return;
+      _msgRenderBgSheet();
+      sheet.style.display = "flex";
+    }
+    function _msgCloseBgSheet() {
+      const sheet = $a("ccm-bgsheet");
+      if (sheet) sheet.style.display = "none";
+    }
+    function _msgRenderBgSheet() {
+      const grid = $a("ccm-bgsheet-grid");
+      const sub  = $a("ccm-bgsheet-sub");
+      if (!grid) return;
+      const cur = _msgChatBgFor(_msgOpenConvId);
+      if (sub) {
+        sub.textContent = "Pick a scene for this conversation, everyone in the chat sees it. "
+          + "Only one of you needs to own a background to use it here.";
+      }
+      grid.innerHTML = "";
+      const tiles = [{ id: "__none__", name: "No Background", img: "" }].concat(EXCLUSIVE_BACKGROUNDS);
+      tiles.forEach(bg => {
+        const owned = _msgChatBgOwned(bg.img);
+        const tile  = document.createElement("button");
+        tile.type = "button";
+        tile.className = "ccm-bgtile" + (bg.img === cur ? " on" : "") + (owned ? "" : " locked");
+        const art = bg.img
+          ? "<img class=\"ccm-bgtile-img\" src=\"" + escapeHtml((typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(bg.img) : bg.img)
+            + "\" alt=\"" + escapeHtml(bg.name) + "\" loading=\"lazy\">"
+          : "<div class=\"ccm-bgtile-img ccm-bgtile-none\">🚫</div>";
+        tile.innerHTML = art
+          + (owned ? "" : "<span class=\"ccm-bgtile-lock\" aria-hidden=\"true\">🔒</span>")
+          + "<div class=\"ccm-bgtile-nm\">" + escapeHtml(bg.name) + "</div>";
+        tile.addEventListener("click", async () => {
+          if (!owned) {
+            if (typeof showToast !== "undefined") showToast("Unlock “" + bg.name + "” to use it, or ask someone in this chat who owns it.", "info");
+            return;
+          }
+          const r = await _msgSetChatBg(_msgOpenConvId, bg.img);
+          if (r && r.error) { if (typeof showToast !== "undefined") showToast(r.error, "err"); return; }
+          _msgApplyChatBg();
+          _msgRenderBgSheet();
+          _msgCloseBgSheet();
+        });
+        grid.appendChild(tile);
+      });
+    }
+
+    // ── Messages PAGE mode (the Messages sidebar tab) ─────────────
+    // There is only ever ONE messaging UI. Opening the Messages tab moves the
+    // #cc-msg-drawer element into the tab panel and flips it into .ccm-page
+    // (full-width page instead of a right-hand drawer); leaving the tab moves
+    // it back to <body> as the in-game drawer. One element, one data layer,
+    // one set of controls, no duplicated chat code.
+    let _msgPageMounted = false;
+    function _msgMountPage() {
+      const drawer = $a("cc-msg-drawer");
+      const host   = $a("ph-messages-host");
+      if (!drawer || !host) return;
+      if (drawer.parentElement !== host) host.appendChild(drawer);
+      drawer.classList.remove("in-game");
+      drawer.classList.add("ccm-page", "open");
+      _msgPageMounted = true;
+      _msgCloseBgSheet();
+      if (_authUser) _msgStartListListener();
+      _ccmEnsureComposer();
+      if (_ccmComposer) _ccmComposer.reset();
+      _msgRenderList();
+    }
+    function _msgUnmountPage() {
+      const drawer = $a("cc-msg-drawer");
+      if (!drawer || !_msgPageMounted) return;
+      _msgPageMounted = false;
+      _msgCloseBgSheet();
+      drawer.classList.remove("ccm-page", "open");
+      if (drawer.parentElement !== document.body) document.body.appendChild(drawer);
+      _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
+    }
+
     function _msgOpenDrawer() {
+      // On the home screen Messages is a full page (its own sidebar tab), so
+      // route there instead of sliding the narrow drawer over the top of it.
+      const home = $a("auth-stats-lobby");
+      const inGame = (typeof roomId !== "undefined" && !!roomId);
+      if (!inGame && home && getComputedStyle(home).display !== "none"
+          && typeof window._switchPhTab === "function") {
+        window._switchPhTab("messages");
+        return;
+      }
+      // Sliding the drawer out means we are NOT on the Messages page, so hand
+      // the element back to <body> first (it is the same element).
+      _msgUnmountPage();
       const drawer = $a("cc-msg-drawer");
       if (!drawer) return;
-      const inGame = (typeof roomId !== "undefined" && !!roomId);
       drawer.classList.toggle("in-game", inGame);
       drawer.classList.add("open");
       if (_authUser) _msgStartListListener();
@@ -19972,6 +20169,7 @@
     function _msgCloseDrawer() {
       const drawer = $a("cc-msg-drawer");
       if (drawer) drawer.classList.remove("open");
+      _msgCloseBgSheet();
       _msgOpenConvId = null; _msgOpenPeer = null; _msgOpenGroup = null;
     }
     window.__fishOpenMessages = _msgOpenDrawer;
@@ -20561,9 +20759,14 @@
       if (_msgOpenPeer && _msgOpenPeer.uid) _trOpen(_msgOpenPeer.uid, _msgOpenPeer.name);
     });
 
-    // Wire drawer controls
-    const _msgBtn = $a("stats-message-btn");
-    if (_msgBtn) _msgBtn.addEventListener("click", _msgOpenDrawer);
+    // Wire drawer controls. (There is no longer a top-right message icon:
+    // Messages is a sidebar tab, and the top-right button is Trade.)
+    const _ccmBgBtn = $a("ccm-bg-btn");
+    if (_ccmBgBtn) _ccmBgBtn.addEventListener("click", _msgOpenBgSheet);
+    const _ccmBgClose = $a("ccm-bgsheet-close");
+    if (_ccmBgClose) _ccmBgClose.addEventListener("click", _msgCloseBgSheet);
+    const _ccmBgSheet = $a("ccm-bgsheet");
+    if (_ccmBgSheet) _ccmBgSheet.addEventListener("click", (e) => { if (e.target === _ccmBgSheet) _msgCloseBgSheet(); });
     const _ccmClose = $a("ccm-close");
     if (_ccmClose) _ccmClose.addEventListener("click", _msgCloseDrawer);
     const _ccmBack = $a("ccm-back-btn");
@@ -20582,34 +20785,114 @@
     // Start listening to conversations as soon as we know the user (badge updates)
     if (_authUser) _msgStartListListener();
 
-    // ── Help & Feedback modal ──────────────────────────────────────
-    // Top-right help button → friendly ocean-themed modal with three
-    // cards. Each card is a link to its own Google Form (Ask a Question /
-    // Report a Bug / Suggest an Idea) that the player fills out; the form
-    // responses go to the Currents & Critters team. The card <a> tags
-    // handle the navigation themselves (target="_blank"); the JS just
-    // opens/closes the modal and dismisses it once a form is launched.
-    (function wireHelpFeedback() {
-      const modal   = $a("ph-help-modal");
-      const openBtn = $a("stats-help-btn");
+    // ── Settings (top-right gear) ─────────────────────────────────
+    // Settings used to sit at the bottom of the sidebar and Help & Feedback
+    // had its own top-right button + modal. Now the gear IS the top-right
+    // button, and Help & Feedback is a section inside the Settings modal.
+    const _settingsTopBtn = $a("stats-settings-top-btn");
+    if (_settingsTopBtn) _settingsTopBtn.addEventListener("click", () => {
+      if (typeof _openSettingsModal === "function") _openSettingsModal();
+      else { const sb = $a("stats-settings-btn"); if (sb) sb.click(); }
+    });
+
+    // Help & Feedback cards inside Settings. Each card is a plain <a> to its
+    // own Google Form (target="_blank"), so the JS only has to close Settings
+    // once a form is launched, leaving a clean screen to come back to.
+    document.querySelectorAll(".settings-help-card").forEach(card => {
+      card.addEventListener("click", () => setTimeout(() => {
+        const m = $a("settings-modal");
+        if (m) m.classList.remove("open");
+      }, 80));
+    });
+
+    // ── Trade player picker (top-right Trade button) ───────────────
+    // Trading is its own feature, NOT a corner of Messages: this picker lets
+    // you jump straight from the home screen into a trade with any friend (or
+    // any player you can find by name).
+    (function wireTradePicker() {
+      const modal  = $a("cc-trade-pick");
+      const openBtn = $a("stats-trade-btn");
       if (!modal || !openBtn) return;
-      const closeBtn = $a("ph-help-close");
-      const cards    = Array.from(modal.querySelectorAll(".ph-help-card"));
+      const listEl   = $a("cc-trade-pick-list");
+      const searchEl = $a("cc-trade-pick-search");
+      const closeBtn = $a("cc-trade-pick-close");
+      let searchTimer = null, renderGen = 0;
 
-      function openModal()  { modal.classList.add("open"); }
-      function closeModal() { modal.classList.remove("open"); }
+      function close() { modal.style.display = "none"; if (searchEl) searchEl.value = ""; }
+      function open() {
+        if (!_authUser || _guestSessionActive === true) {
+          if (typeof showToast !== "undefined") showToast("Sign in to trade with other players.", "info");
+          return;
+        }
+        modal.style.display = "flex";
+        if (searchEl) { searchEl.value = ""; setTimeout(() => searchEl.focus(), 40); }
+        render("");
+      }
+      function row(uid, name, avatar) {
+        const r = document.createElement("div");
+        r.className = "cctp-row";
+        const av = avatar
+          ? "<img src=\"" + escapeHtml((typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(avatar) : avatar) + "\" alt=\"\">"
+          : "<span class=\"cctp-av-lt\">" + escapeHtml((String(name || "?")[0] || "?").toUpperCase()) + "</span>";
+        r.innerHTML = "<div class=\"cctp-av\">" + av + "</div>"
+          + "<div class=\"cctp-nm\">" + escapeHtml(name || "Player") + "</div>"
+          + "<div class=\"cctp-go\">Trade ›</div>";
+        r.addEventListener("click", () => { close(); _trOpen(uid, name || "Player"); });
+        return r;
+      }
+      async function render(query) {
+        if (!listEl) return;
+        const gen = ++renderGen;
+        query = String(query || "").trim();
+        listEl.innerHTML = "<div class=\"cctp-empty\">Loading…</div>";
+        if (query) {
+          let players = [];
+          try { players = await _msgSearchPlayers(query, 12) || []; } catch (_) { players = []; }
+          if (gen !== renderGen) return;
+          players = players.filter(p => p && p.uid && p.uid !== _authUser.uid);
+          listEl.innerHTML = "";
+          if (!players.length) {
+            listEl.innerHTML = "<div class=\"cctp-empty\">No players found for “" + escapeHtml(query) + "”.</div>";
+            return;
+          }
+          listEl.insertAdjacentHTML("beforeend", "<div class=\"cctp-sec\">Search results</div>");
+          players.forEach(p => listEl.appendChild(row(p.uid, p.name, p.avatar)));
+          return;
+        }
+        let friends = [];
+        try { friends = await loadFriends(_authUser.uid) || []; } catch (_) { friends = []; }
+        if (gen !== renderGen) return;
+        listEl.innerHTML = "";
+        if (!friends.length) {
+          listEl.innerHTML = "<div class=\"cctp-empty\">No friends yet, search for any player by name above "
+            + "(or add friends from the Friends tab).</div>";
+          return;
+        }
+        listEl.insertAdjacentHTML("beforeend", "<div class=\"cctp-sec\">Your friends</div>");
+        friends.forEach(f => {
+          const r = row(f.uid, f.nickname || "Player", null);
+          listEl.appendChild(r);
+          // Fill in the real icon once it resolves (same cache the chat list uses).
+          if (typeof window.__fishAvatarForNick === "function" && f.nickname) {
+            window.__fishAvatarForNick(f.nickname).then(url => {
+              if (!url) return;
+              const av = r.querySelector(".cctp-av");
+              if (av) av.innerHTML = "<img src=\"" + escapeHtml((typeof window.__fishAvSrc === "function") ? window.__fishAvSrc(url) : url) + "\" alt=\"\">";
+            }).catch(() => {});
+          }
+        });
+      }
 
-      openBtn.addEventListener("click", openModal);
-      if (closeBtn) closeBtn.addEventListener("click", closeModal);
-      modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+      openBtn.addEventListener("click", open);
+      if (closeBtn) closeBtn.addEventListener("click", close);
+      modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && modal.classList.contains("open")) closeModal();
+        if (e.key === "Escape" && modal.style.display !== "none") close();
       });
-      // Once the player opens a form (in a new tab), close the modal so the
-      // home screen is clean when they switch back.
-      cards.forEach(card => card.addEventListener("click", () => {
-        setTimeout(closeModal, 60);
-      }));
+      if (searchEl) searchEl.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(() => render(searchEl.value), 220);
+      });
     })();
 
     // Guest notice sign-in link
@@ -20630,7 +20913,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
@@ -20638,6 +20921,7 @@
         competitive:  "Sign in to track your competitive stats",
         history:      "Sign in to view your game history",
         friends:      "Sign in to add friends",
+        messages:     "Sign in to message your friends",
         leaderboard:  "Sign in to view the leaderboards",
         achievements: "Sign in to see Achievements",
       };
@@ -20672,6 +20956,10 @@
           el.classList.toggle("is-guest-gated", gated);
           if (gated) _ensureGuestGate(el, GUEST_GATE_MSGS[k]);
         });
+        // The Messages page hosts the one #cc-msg-drawer element, so it must be
+        // handed over on entry and handed back on exit — including when the
+        // panel is guest-gated, or the drawer would sit under the gate.
+        if (name === "messages" && !isGuest) _msgMountPage(); else _msgUnmountPage();
         // Skip data renders for gated panels (content is hidden anyway).
         const gatedNow = isGuest && !!GUEST_GATE_MSGS[name];
         if (gatedNow) return;
@@ -20697,12 +20985,8 @@
         snavItems.forEach(b => b.classList.toggle("active", b.dataset.tab === name));
       };
       window._switchPhTab = switchTab;
-      // Settings sidebar button → open settings modal
-      const snavSettings = document.getElementById("snav-settings");
-      if (snavSettings) snavSettings.addEventListener("click", () => {
-        if (typeof _openSettingsModal === "function") _openSettingsModal();
-        else { const sb = document.getElementById("stats-settings-btn"); if (sb) sb.click(); }
-      });
+      // Settings is no longer a sidebar item; it's the gear in the top-right
+      // (wired next to the Trade button above).
 
       // ── Store: Stripe-hosted checkout ───────────────────────────────
       // We NEVER collect card details on our site and never build a fake

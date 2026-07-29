@@ -9476,6 +9476,29 @@
     .settings-row-label { font-size: 11px; color: var(--muted); width: 80px; flex-shrink: 0; }
     .settings-row-val { color: var(--text); font-size: 13px; }
 
+    /* ── Help & Feedback section (lives inside Settings) ─────────── */
+    .settings-help {
+      display: flex; flex-direction: column; gap: 7px; margin-top: 10px;
+      padding: 12px 12px 13px; border-radius: 12px;
+      background: rgba(10,30,60,.55); border: 1px solid rgba(58,120,204,.28);
+    }
+    .settings-help-head { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
+    .settings-help-ico { font-size: 1.35rem; line-height: 1; }
+    .settings-help-title { display: block; font-family: 'Cinzel', serif; font-size: 13.5px; font-weight: 800; color: var(--cyan); }
+    .settings-help-sub { display: block; font-size: 10.5px; color: rgba(180,215,250,.72); margin-top: 1px; }
+    .settings-help-card {
+      display: flex; align-items: center; gap: 10px; text-decoration: none;
+      padding: 9px 11px; border-radius: 10px; cursor: pointer;
+      background: rgba(20,55,105,.6); border: 1px solid rgba(58,120,204,.3);
+      transition: background .15s, border-color .15s;
+    }
+    .settings-help-card:hover { background: rgba(30,80,150,.72); border-color: rgba(90,170,255,.6); }
+    .settings-help-emoji { font-size: 1.15rem; line-height: 1; flex-shrink: 0; }
+    .settings-help-txt { flex: 1; min-width: 0; }
+    .settings-help-ct { display: block; font-size: 12.5px; font-weight: 800; color: #cfe7ff; }
+    .settings-help-cd { display: block; font-size: 10.5px; color: rgba(170,205,245,.72); margin-top: 1px; line-height: 1.35; }
+    .settings-help-arrow { color: rgba(150,200,245,.7); font-size: 17px; line-height: 1; flex-shrink: 0; }
+
     /* Music volume slider, themed to match the aquatic UI */
     .settings-slider-wrap {
       display: flex; align-items: center; gap: 10px; flex: 1;
@@ -9683,6 +9706,162 @@
     .ccm-compose-go:hover { filter: brightness(1.06); }
     .ccm-compose-go:disabled { opacity: .45; cursor: default; filter: none; }
     .ccm-compose-hint { font-size: .76rem; color: #5a7fa8; text-align: center; padding: 12px 8px; line-height: 1.55; }
+
+    /* ══ MESSAGES PAGE MODE (the Messages sidebar tab) ══════════════
+       Same #cc-msg-drawer element, moved into #ph-messages-host and given
+       .ccm-page: it stops being a fixed right-hand drawer and becomes a
+       full-width page panel. Everything inside also scales up, because the
+       page has far more room than the 380px drawer ever did. */
+    #cc-msg-drawer.ccm-page {
+      /* relative, not static: the background sheet is absolute-positioned
+         against the drawer and must stay inside it in page mode too. */
+      position: relative; inset: auto; transform: none; width: 100%; max-width: none;
+      height: clamp(520px, 74vh, 900px); z-index: auto;
+      border: 1px solid rgba(120,190,235,.55); border-radius: 20px; overflow: hidden;
+      box-shadow: 0 14px 44px rgba(0,50,120,.16);
+      background: linear-gradient(180deg, rgba(232,247,255,.97) 0%, rgba(203,233,252,.97) 100%);
+    }
+    /* The page is its own screen: no close button, and the back arrow is the
+       only way out of an open conversation. */
+    #cc-msg-drawer.ccm-page .ccm-close { display: none; }
+    #cc-msg-drawer.ccm-page .ccm-header { padding: 18px 22px 14px; }
+    #cc-msg-drawer.ccm-page .ccm-title { font-size: 1.42rem; }
+    #cc-msg-drawer.ccm-page .ccm-back-btn { width: 40px; height: 40px; font-size: 26px; }
+    #cc-msg-drawer.ccm-page .ccm-search-row { padding: 12px 22px 8px; }
+    #cc-msg-drawer.ccm-page .ccm-list { padding: 6px 16px 16px; }
+    #cc-msg-drawer.ccm-page .ccm-conv { padding: 12px 14px; gap: 14px; }
+    #cc-msg-drawer.ccm-page .ccm-av { width: 52px; height: 52px; }
+    #cc-msg-drawer.ccm-page .ccm-av-letter { font-size: 22px; }
+    #cc-msg-drawer.ccm-page .ccm-conv-name { font-size: 1.04rem; }
+    #cc-msg-drawer.ccm-page .ccm-conv-preview { font-size: .87rem; }
+    #cc-msg-drawer.ccm-page .ccm-messages { padding: 20px clamp(16px, 6vw, 90px); gap: 10px; }
+    #cc-msg-drawer.ccm-page .ccm-bubble { max-width: 62%; font-size: .96rem; padding: 10px 15px; border-radius: 17px; }
+    #cc-msg-drawer.ccm-page .ccm-input-row { padding: 14px clamp(16px, 6vw, 90px); }
+    #cc-msg-drawer.ccm-page .ccm-input-row textarea { font-size: .95rem; }
+
+    /* ── Per-conversation ocean wallpaper ─────────────────────────
+       --ccm-chat-bg is set inline by the JS from the conversation's shared
+       background pick; the ::before layer is the scrim that keeps bubbles
+       readable over a full-colour photo. */
+    .ccm-conv-view { position: relative; }
+    .ccm-conv-view.has-bg {
+      background-image: var(--ccm-chat-bg);
+      background-size: cover; background-position: center; background-repeat: no-repeat;
+    }
+    .ccm-conv-view.has-bg::before {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(180deg, rgba(238,248,255,.62) 0%, rgba(226,243,255,.5) 60%, rgba(232,246,255,.72) 100%);
+    }
+    .ccm-conv-view.has-bg > * { position: relative; z-index: 1; }
+    .ccm-conv-view.has-bg .ccm-bubble.theirs {
+      background: rgba(255,255,255,.93); border-color: rgba(120,190,235,.6);
+      box-shadow: 0 2px 8px rgba(0,50,120,.12);
+    }
+    .ccm-conv-view.has-bg .ccm-bubble.mine { box-shadow: 0 2px 10px rgba(0,50,120,.22); }
+    .ccm-conv-view.has-bg .ccm-sys { color: #2d5c8e; font-weight: 700; }
+    .ccm-conv-view.has-bg .ccm-input-row {
+      background: rgba(240,249,255,.9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+
+    /* Header paint-roller that opens the background picker */
+    .ccm-bg-btn {
+      width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0; cursor: pointer;
+      border: 1px solid rgba(120,190,235,.5); background: rgba(255,255,255,.5); font-size: 15px; line-height: 1;
+    }
+    .ccm-bg-btn:hover { background: rgba(255,255,255,.85); }
+    #cc-msg-drawer.ccm-page .ccm-bg-btn { width: 40px; height: 40px; font-size: 19px; }
+
+    /* Background picker sheet */
+    .ccm-bgsheet {
+      position: absolute; inset: 0; z-index: 20; display: flex;
+      align-items: center; justify-content: center; padding: 18px;
+      background: rgba(8,40,90,.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    }
+    .ccm-bgsheet-box {
+      width: 100%; max-width: 640px; max-height: 100%; overflow-y: auto;
+      background: linear-gradient(180deg,#f2fbff,#dcefff);
+      border: 1px solid rgba(120,190,235,.7); border-radius: 18px; padding: 16px 18px 18px;
+      box-shadow: 0 18px 50px rgba(0,40,110,.32);
+    }
+    .ccm-bgsheet-head { display: flex; align-items: center; gap: 10px; }
+    .ccm-bgsheet-title { flex: 1; font-family: "Cinzel", serif; font-size: 1.12rem; font-weight: 900; color: #15407e; }
+    .ccm-bgsheet-x {
+      width: 30px; height: 30px; border-radius: 9px; cursor: pointer;
+      border: 1px solid rgba(120,190,235,.55); background: rgba(255,255,255,.65); color: #1a5cbf; font-size: 16px;
+    }
+    .ccm-bgsheet-sub { font-size: .8rem; color: #5a7fa8; margin: 4px 0 12px; line-height: 1.5; }
+    .ccm-bgsheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; }
+    .ccm-bgtile {
+      position: relative; border-radius: 13px; overflow: hidden; cursor: pointer;
+      border: 2px solid rgba(120,190,235,.5); background: rgba(255,255,255,.6); padding: 0;
+      display: flex; flex-direction: column; text-align: left;
+    }
+    .ccm-bgtile:hover { border-color: rgba(46,144,224,.9); transform: translateY(-2px); }
+    .ccm-bgtile.on { border-color: #2ec866; box-shadow: 0 0 0 3px rgba(46,200,102,.28); }
+    .ccm-bgtile.locked { opacity: .5; cursor: not-allowed; }
+    .ccm-bgtile.locked:hover { transform: none; border-color: rgba(120,190,235,.5); }
+    .ccm-bgtile-img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; display: block; background: linear-gradient(160deg,#cfe9fb,#9cc9ea); }
+    .ccm-bgtile-none { display: flex; align-items: center; justify-content: center; font-size: 1.7rem; color: #6a93bd; }
+    .ccm-bgtile-nm { padding: 7px 9px; font-size: .76rem; font-weight: 800; color: #16407e; }
+    .ccm-bgtile-lock { position: absolute; top: 6px; right: 6px; font-size: 13px; }
+
+    /* ══ TRADE PLAYER PICKER (top-right Trade button) ═══════════════ */
+    #cc-trade-pick {
+      position: fixed; inset: 0; z-index: 9760; display: flex;
+      align-items: center; justify-content: center; padding: 22px;
+      background: rgba(8,40,90,.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    #cc-trade-pick-box {
+      width: 100%; max-width: 460px; max-height: 82vh; display: flex; flex-direction: column;
+      background: linear-gradient(180deg,#f2fbff,#d9edff);
+      border: 1px solid rgba(120,190,235,.7); border-radius: 20px; padding: 18px 20px 20px;
+      box-shadow: 0 22px 60px rgba(0,40,110,.4);
+    }
+    .cctp-head { display: flex; align-items: center; gap: 10px; }
+    .cctp-title { flex: 1; font-family: "Cinzel", serif; font-size: 1.2rem; font-weight: 900; color: #15407e; }
+    .cctp-x {
+      width: 32px; height: 32px; border-radius: 9px; cursor: pointer;
+      border: 1px solid rgba(120,190,235,.55); background: rgba(255,255,255,.65); color: #1a5cbf; font-size: 17px;
+    }
+    .cctp-sub { font-size: .82rem; color: #5a7fa8; margin: 5px 0 12px; line-height: 1.5; }
+    .cctp-search { width: 100%; box-sizing: border-box; margin-bottom: 10px; }
+    .cctp-list { flex: 1; overflow-y: auto; min-height: 120px; }
+    .cctp-sec { font-size: .68rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase;
+      color: #6a93bd; padding: 8px 4px 4px; }
+    .cctp-row { display: flex; align-items: center; gap: 11px; padding: 9px 10px; border-radius: 12px; cursor: pointer; }
+    .cctp-row:hover { background: rgba(46,144,224,.14); }
+    .cctp-av { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex-shrink: 0;
+      background: linear-gradient(145deg,#3ec0ee,#1f66bc); display: flex; align-items: center; justify-content: center; }
+    .cctp-av img { width: 100%; height: 100%; object-fit: cover; }
+    .cctp-av-lt { color: #fff; font-weight: 900; font-size: 17px; font-family: "Cinzel", serif; }
+    .cctp-nm { flex: 1; min-width: 0; font-size: .95rem; font-weight: 800; color: #16407e;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cctp-go { font-size: .74rem; font-weight: 800; color: #1a6ad0; flex-shrink: 0; }
+    .cctp-empty { text-align: center; color: #5a7fa8; font-size: .84rem; padding: 26px 16px; line-height: 1.6; }
+
+    /* Top-right Trade button (replaces the old message icon) */
+    .ph-trade-top-btn {
+      display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+      padding: 8px 14px; border-radius: 12px; font-family: inherit;
+      border: 1px solid rgba(120,190,235,.6); background: rgba(255,255,255,.55);
+      color: #2f6eba; font-size: .86rem; font-weight: 800;
+    }
+    .ph-trade-top-btn:hover { background: rgba(255,255,255,.9); border-color: rgba(46,144,224,.85); }
+
+    @media (max-width: 560px) {
+      /* Phones: the Messages page still fills the screen, just with tighter
+         gutters and roomier bubbles than the desktop column allows. */
+      #cc-msg-drawer.ccm-page { height: clamp(440px, 68vh, 720px); border-radius: 16px; }
+      #cc-msg-drawer.ccm-page .ccm-header { padding: 14px 14px 11px; }
+      #cc-msg-drawer.ccm-page .ccm-title { font-size: 1.15rem; }
+      #cc-msg-drawer.ccm-page .ccm-search-row { padding: 10px 14px 6px; }
+      #cc-msg-drawer.ccm-page .ccm-messages { padding: 14px; }
+      #cc-msg-drawer.ccm-page .ccm-input-row { padding: 12px 14px; }
+      #cc-msg-drawer.ccm-page .ccm-bubble { max-width: 82%; }
+      #cc-msg-drawer.ccm-page .ccm-av { width: 44px; height: 44px; }
+      .ccm-bgsheet-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 9px; }
+      .ph-trade-top-btn { padding: 8px 11px; }
+    }
 
     /* ══ STREAK CALENDAR MODAL ══════════════════════════════════════ */
     #streak-cal-modal {

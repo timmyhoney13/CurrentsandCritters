@@ -25,6 +25,9 @@
 !test_trade_logic.py
 !test_trade_integration.py
 !test_avatar_reearn.js
+# Messages: chat-background docs share the messages subcollection with group
+# rosters, so this pins down that they never get mistaken for one another.
+!test_chat_backgrounds.js
 # Bracket builder: the design logic (checked against the Python validator) and
 # the headless-Chrome geometry check for the connection lines.
 !test_tournament_builder.js

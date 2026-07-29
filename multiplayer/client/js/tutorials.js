@@ -428,8 +428,13 @@
     // Tutorial sample match (the real History game-detail modal).
     const gdm = document.getElementById("ph-game-detail-modal");
     if (gdm) gdm.classList.remove("open");
+    // Trade picker (top-right Trade button) and the chat background sheet.
+    const tp = document.getElementById("cc-trade-pick");
+    if (tp) tp.style.display = "none";
+    const bs = document.getElementById("ccm-bgsheet");
+    if (bs) bs.style.display = "none";
   }
-  function openSettings() { const b = document.getElementById("snav-settings"); if (b) try { b.click(); } catch (_) {} }
+  function openSettings() { const b = document.getElementById("stats-settings-top-btn"); if (b) try { b.click(); } catch (_) {} }
 
   // advanceWhen helpers for interactive tab/modal steps
   const gtTabActive    = id => () => !!document.getElementById(id)?.classList.contains("active");
@@ -451,9 +456,9 @@
       before: () => { closeMenuOverlays(); navTab("overview"); },
       text: "Your <strong>avatar, name, level, and rank</strong> all live here. The XP bar fills as you play, and every game you finish earns XP toward your next level." },
 
-    // ── Chat (top-right, same area as profile card) ──────────────────
-    { target: "#stats-message-btn", badge: "Messages", title: "Chat and Messages",
-      text: "The <strong>message icon</strong> sits at the top right. Once you have added friends, you can open it to <strong>send and read direct messages</strong> with them at any time." },
+    // ── Trade (top-right, same area as profile card) ─────────────────
+    { target: "#stats-trade-btn", badge: "Trade", title: "Trading",
+      text: "The <strong>Trade</strong> button sits at the top right. Pick any friend (or search a player) and you can swap <strong>avatars, backgrounds and Critter Coins</strong> with them, no need to open Messages first." },
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
@@ -558,6 +563,17 @@
     { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
       text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their name and code</strong> into the box just below and select Add." },
 
+    // ── Messages tab (click to navigate) ─────────────────────────────
+    { target: "#snav-messages", badge: "Messages Tab", title: "Messages",
+      before: closeMenuOverlays,
+      interactive: true,
+      advanceWhen: gtTabActive("snav-messages"),
+      text: "Click <strong>Messages</strong> to go there." },
+
+    // ── Messages panel description ────────────────────────────────────
+    { target: "#ph-panel-messages", badge: "Messages Tab", title: "Messages",
+      text: "<strong>Messages</strong> is your full-page chat. Search a player to start a conversation or a group, and tap a chat to open it across the whole page (the <strong>back arrow</strong> takes you to your other chats). The <strong>🎨</strong> button gives that chat an ocean background, and only one of you needs to own it." },
+
     // ── Achievements tab (click to navigate) ─────────────────────────
     { target: "#snav-achievements", badge: "Achievements Tab", title: "Achievements",
       before: closeMenuOverlays,
@@ -591,12 +607,12 @@
     { target: "#ph-panel-store", badge: "Store Tab", title: "The Store",
       text: "The <strong>Store</strong> is where you buy <strong>backgrounds</strong> that frame your avatar, preview <strong>seasonal</strong> cosmetics, and redeem a donation code if you have one." },
 
-    // ── Settings (click to open) ──────────────────────────────────────
-    { target: "#snav-settings", badge: "Settings", title: "Settings",
+    // ── Settings (click to open; the gear now lives in the top right) ─
+    { target: "#stats-settings-top-btn", badge: "Settings", title: "Settings",
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtSettingsOpen,
-      text: "Click <strong>Settings</strong> to open it. Here you can turn music and sound effects on or off, mute the in game chat, and sign out." },
+      text: "Click the <strong>gear</strong> in the top right to open <strong>Settings</strong>. Here you can change your music volume, read the Terms, send us <strong>Help &amp; Feedback</strong>, and sign out." },
 
     // ── Daily Streak (after settings closes) ─────────────────────────
     { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",
