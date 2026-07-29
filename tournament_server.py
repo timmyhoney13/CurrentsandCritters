@@ -122,6 +122,23 @@ TEST_HOOKS_ENABLED = str(os.environ.get("FISH_TOURNAMENT_TEST_HOOKS", "")).strip
 # disconnected (survives on the server; reconnect restores them). Chosen well
 # above the 5s SSE heartbeat so a brief blip doesn't flap.
 DISCONNECT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_DISCONNECT_GRACE", "25"))
+# How long a match that is otherwise ready waits for an assigned player who has
+# gone quiet before it launches without them. Being marked "disconnected" is a
+# low bar — a client that misses a couple of polls between rounds trips it — and
+# starting someone's bracket match while they are still walking back from the
+# previous game's end screen means they never got to play it. Comfortably longer
+# than DISCONNECT_GRACE_SEC so a blip costs nobody their match.
+MATCH_ABSENT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_ABSENT_GRACE", "90"))
+# Every bracket match is decided by a REAL game of Currents & Critters, including
+# matches where the whole field is AI seat-fillers: those spawn an all-bot game
+# room and the engine plays it out. Set to 0 to fall back to resolving them
+# instantly server-side (the old behaviour — fast, but it decides rounds by coin
+# flip and can crown a champion seconds after the last human is knocked out).
+PLAY_BOT_MATCHES = str(os.environ.get("FISH_TOURNAMENT_PLAY_BOT_MATCHES", "1")).strip().lower() \
+    not in ("0", "false", "no")
+# Cap on all-bot games running at once, so a 32-seat bracket full of AI can't
+# start a dozen simultaneous game threads. The rest queue and start as these end.
+MAX_CONCURRENT_BOT_MATCHES = max(1, int(os.environ.get("FISH_TOURNAMENT_MAX_BOT_GAMES", "2") or 2))
 
 # ── Injected from multiplayer_server.init ────────────────────────────────────
 _get_firestore: Callable[[], Any] = lambda: None
@@ -280,6 +297,10 @@ class Tournament:
         # its game launches (bots are always auto-ready). match_number -> set(pids ready).
         self.match_ready_pids: Dict[int, set] = {}
         self.match_timers: Dict[int, Any] = {}                   # match_number -> threading.Timer
+        # When each match entered its ready check, so an assigned player who is
+        # briefly offline gets a real grace period before the game starts without
+        # them (see _match_all_ready_locked).
+        self.match_ready_since: Dict[int, float] = {}            # match_number -> unix
         self.host_pid_order: List[str] = []                      # join order for host reassignment
         self._xp_grants: Dict[str, Dict[str, Any]] = {}   # pid -> computed breakdown
         # Designed (canvas-built) brackets: the fixed list of typed player spots, in
@@ -345,6 +366,10 @@ class Tournament:
                 if self.phase == self.PHASE_LOBBY and p.status in (S_NOT_READY, S_READY):
                     p.status = S_DISCONNECTED
                 changed = True
+                # They may have been the only thing a ready match was waiting on.
+                # Nothing else re-checks that gate once they stop polling, so give
+                # it a wake-up for when their absent-grace runs out.
+                self._recheck_ready_gates_for_locked(p)
         host = self._by_pid(self.host_pid)
         if host is None or not host.connected:
             if self._reassign_host_locked():
@@ -627,8 +652,25 @@ class Tournament:
             return False
         return all((self._by_pid(pid) or Participant(pid=pid, name="")).is_bot for pid in pids)
 
+    def _bot_games_in_flight(self) -> int:
+        """MUST hold self.cond. All-bot matches whose real game is being played."""
+        if not self.bracket:
+            return 0
+        n = 0
+        for m in self.bracket.all_matches():
+            if m.status in (M_READY, M_ACTIVE) and self._match_is_all_bots(m):
+                n += 1
+        return n
+
     def _resolve_bot_match(self, m) -> bool:
-        """Instantly decide an all-bot match server-side (no GameRoom needed).
+        """FALLBACK ONLY: decide an all-bot match server-side with no game played.
+
+        Used when real bot games are switched off (FISH_TOURNAMENT_PLAY_BOT_MATCHES=0)
+        or when a match room could not be created. Deciding a match by coin flip is
+        what made a bracket "just pick the winner" of its remaining rounds the
+        instant the last human was knocked out, so the default path is a real game
+        (see _spawn_ready_matches).
+
         Records the result under the lock WITHOUT re-entering _spawn_ready_matches
         (the caller loops). Returns True if it resolved something."""
         import random
@@ -904,22 +946,42 @@ class Tournament:
         return out
 
     def _spawn_ready_matches(self) -> None:
-        # Resolve all-bot matches instantly (each can unlock the next → loop), and
-        # spawn real GameRooms for any match that includes at least one human.
+        """Give every match that is ready to be played a real game.
+
+        EVERY match in the bracket is decided by a real game — including matches
+        whose whole field is AI, which get an all-bot game room the engine plays
+        out. Nothing is ever skipped or fast-forwarded, so a tournament always
+        works through all of its rounds instead of jumping to a champion the
+        moment no human is left in a half of the bracket.
+
+        All-bot games are capped at MAX_CONCURRENT_BOT_MATCHES at a time; the rest
+        queue and are picked up here again as each one reports its result.
+        """
         for _ in range(1000):  # guard against a pathological loop
             playable = self._playable_matches()
             if not playable:
                 break
             bot_only = [m for m in playable if self._match_is_all_bots(m)]
-            if bot_only:
-                progressed = False
-                for m in bot_only:
-                    progressed = self._resolve_bot_match(m) or progressed
-                if progressed:
-                    continue          # re-scan: a resolution may have unlocked more
-            for m in [m for m in playable if not self._match_is_all_bots(m)]:
+            _bot_ids = {id(m) for m in bot_only}   # identity: BracketMatch is a dataclass
+            # Matches with humans in them go first, always — a player should never
+            # sit waiting on a bot game before their own match can start.
+            for m in [m for m in playable if id(m) not in _bot_ids]:
                 self._spawn_match(m)
-            break
+            if not bot_only:
+                break
+            if PLAY_BOT_MATCHES and _create_match_room is not None:
+                with self.cond:
+                    room_for = max(0, MAX_CONCURRENT_BOT_MATCHES - self._bot_games_in_flight())
+                for m in bot_only[:room_for]:
+                    self._spawn_match(m)      # launches itself: nobody to ready up
+                break                         # results arrive via on_room_ended
+            # Fallback (real bot games disabled / no room factory): resolve them
+            # server-side. Each resolution can unlock the next, so re-scan.
+            progressed = False
+            for m in bot_only:
+                progressed = self._resolve_bot_match(m) or progressed
+            if not progressed:
+                break
         # An all-bot bracket can complete here with no room ever ending, so finalize
         # opportunistically (idempotent; report_match_result also calls it).
         self._maybe_finalize()
@@ -936,6 +998,7 @@ class Tournament:
             parts = [self._by_pid(pid) for pid in m.player_ids if pid]
             parts = [p for p in parts if p is not None]
             m.status = M_READY          # claim it before releasing the lock
+            self.match_ready_since[m.match_number] = _now()
             for p in parts:
                 if not p.quit:          # never resurrect a player who forfeited
                     p.status = S_PLAYING
@@ -979,13 +1042,61 @@ class Tournament:
             launch_now = self._match_all_ready_locked(m)
         if launch_now:
             self._launch_match(m.round_index, m.match_index)
+        else:
+            # Nothing else re-checks the ready gate once the absent-player grace
+            # expires, so give it one wake-up call — otherwise a match blocked only
+            # by someone who never came back would wait forever.
+            self._arm_match_timer(m, MATCH_ABSENT_GRACE_SEC + 1.0)
+
+    def _recheck_ready_gates_for_locked(self, p: Participant) -> None:
+        """MUST hold self.cond. Re-arm the launch check for every match still in its
+        ready check that ``p`` is assigned to."""
+        if not self.bracket:
+            return
+        for m in self.bracket.all_matches():
+            if m.status == M_READY and p.pid in [x for x in m.player_ids if x]:
+                waited = _now() - (self.match_ready_since.get(m.match_number) or _now())
+                self._arm_match_timer(m, max(1.0, MATCH_ABSENT_GRACE_SEC - waited + 1.0))
+
+    def _arm_match_timer(self, m, delay: float) -> None:
+        """Re-run the ready gate for ``m`` once ``delay`` seconds have passed."""
+        r, mi, num = m.round_index, m.match_index, m.match_number
+
+        def _fire() -> None:
+            launch = None
+            with self.cond:
+                self.match_timers.pop(num, None)
+                try:
+                    mm = self.bracket.get_match(r, mi) if self.bracket else None
+                except Exception:  # noqa: BLE001
+                    mm = None
+                if mm is not None and self._match_all_ready_locked(mm):
+                    launch = (r, mi)
+            if launch is not None:
+                self._launch_match(*launch)
+
+        with self.cond:
+            self._cancel_match_timer(num)
+            tmr = threading.Timer(max(1.0, float(delay)), _fire)
+            tmr.daemon = True
+            self.match_timers[num] = tmr
+            tmr.start()
 
     def _match_all_ready_locked(self, m) -> bool:
-        """MUST hold self.cond. True when the match can launch: it has a room, and
-        every CONNECTED human assigned to it has readied up (bots are auto-ready;
-        a disconnected human doesn't block so a dropped player can't stall the
-        bracket). At least one human must be ready so an all-absent match never
-        launches into an empty game."""
+        """MUST hold self.cond. True when the match can launch.
+
+        Needs a room, and every human assigned to it readied up (bots are
+        auto-ready — an all-bot match therefore launches the moment its room
+        exists, since there is nobody to wait for).
+
+        A human who has gone quiet only stops blocking the launch after
+        MATCH_ABSENT_GRACE_SEC. "Disconnected" is a 25-second bar that a client
+        walking back from the previous game's end screen trips easily, and
+        launching on that basis played someone's bracket match without them — the
+        "it never let me play my match" bug. Past the grace the bracket still moves
+        on (a player who really left can't stall everyone), and at least one human
+        must be ready so a match is never launched into an empty room.
+        """
         if m.status != M_READY or not m.room_id:
             return False
         assigned = [self._by_pid(pid) for pid in m.player_ids if pid]
@@ -994,8 +1105,13 @@ class Tournament:
             return False
         ready = self.match_ready_pids.get(m.match_number, set())
         humans = [p for p in assigned if not p.is_bot]
+        if not humans:
+            return True                       # all-bot match: nothing to wait on
+        waited = _now() - (self.match_ready_since.get(m.match_number) or _now())
         for p in humans:
-            if p.connected and p.pid not in ready:
+            if p.pid in ready:
+                continue
+            if p.connected or waited < MATCH_ABSENT_GRACE_SEC:
                 return False
         return any(p.pid in ready for p in humans)
 

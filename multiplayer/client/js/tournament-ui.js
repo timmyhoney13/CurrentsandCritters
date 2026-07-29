@@ -1613,9 +1613,25 @@
   function showFinalPlacement(st) {
     let m = $("#ccT-final"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-final"; document.body.appendChild(m); }
     const place = st.viewer.final_place; const xp = me_xp(st);
+    // A bare "25th Place" is meaningless on its own — say what it's 25th OF, and
+    // how far the run actually got, so a big (often AI-padded) bracket reads right.
+    const field = (st.participants || []).length;
+    const bots = (st.participants || []).filter(p => p && p.is_bot).length;
+    const mine = (st.final_placements || []).find(e => e && e.player_id === st.viewer.pid);
+    const rounds = (st.bracket && st.bracket.rounds ? st.bracket.rounds.length : 0)
+      || (st.summary && st.summary.num_rounds) || 0;
+    const reached = mine && typeof mine.round_reached === "number" ? mine.round_reached + 1 : 0;
+    const sub = [
+      field ? `out of ${field} player${field === 1 ? "" : "s"}` : "",
+      bots ? `(${bots} AI)` : "",
+    ].filter(Boolean).join(" ");
+    const run = (reached && rounds)
+      ? `You made it to round ${Math.min(reached, rounds)} of ${rounds}.` : "";
     m.innerHTML = `<div class="ccT-card ccT-champ"><div class="ccT-body">
       <div style="font-size:2.4rem">${place === 2 ? "🥈" : place === 3 ? "🥉" : "🌊"}</div>
-      <h2>${ordinal(place)} Place</h2><p>${esc(st.name)} is complete.</p>
+      <h2>${ordinal(place)} Place</h2>
+      ${sub ? `<p class="ccT-sub" style="margin:0">${esc(sub)}</p>` : ""}
+      <p>${esc(st.name)} is complete. ${esc(run)}</p>
       ${podiumHtml(st)} ${xpHtml(xp)}
       <button class="ccT-btn wide gold" id="ccT-final-bracket">View Final Bracket</button>
       <button class="ccT-btn wide ghost" id="ccT-final-home">Back to Home</button></div></div>`;

@@ -1051,5 +1051,79 @@ class TestDesignedBracketRuntime(unittest.TestCase):
         self.assertEqual(spec.by_id("f").slots[0].kind, SLOT_WINNER_FROM)
 
 
+# =============================================================================
+class TestNoRoundIsEverSkipped(unittest.TestCase):
+    """A tournament must work through ALL of its rounds. No champion while a
+    match still owes a game — the report was "it didn't let me play the last two
+    games, it just decided the winner"."""
+
+    def test_final_alone_is_not_enough_to_be_complete(self):
+        cfg = TournamentConfig(total_capacity=8, players_per_match=2)
+        br = Bracket.build(cfg, 8)
+        br.seed_players(players(8))
+        # Play everything except one semifinal, then force a result into the Final.
+        br.record_result(0, 0, ["p00", "p01"])
+        br.record_result(0, 1, ["p02", "p03"])
+        br.record_result(0, 2, ["p04", "p05"])
+        br.record_result(0, 3, ["p06", "p07"])
+        br.record_result(1, 0, ["p00", "p02"])          # semifinal 1 played
+        semi2 = br.rounds[1][1]                          # semifinal 2 NEVER played
+        self.assertNotIn(semi2.status, (M_COMPLETE, M_BYE))
+        # Hand the Final a result anyway (what an odd bracket shape could do).
+        final = br.final_match
+        final.player_ids = ["p00", "p04"]
+        br.record_result(final.round_index, final.match_index, ["p00", "p04"])
+        self.assertEqual([m.match_number for m in br.unresolved_matches()],
+                         [semi2.match_number])
+        self.assertFalse(br.is_complete(),
+                         "a champion must not be crowned with a match still unplayed")
+        br.record_result(1, 1, ["p04", "p06"])
+        self.assertTrue(br.is_complete())
+
+    def test_every_generated_bracket_plays_every_match(self):
+        for n, m, a in [(8, 2, 1), (16, 4, 1), (16, 4, 2), (32, 4, 1), (32, 4, 2),
+                        (24, 3, 2), (32, 8, 3), (25, 4, 1), (6, 2, 1)]:
+            cfg = TournamentConfig(total_capacity=n, players_per_match=m, advance_per_match=a)
+            br, _order = simulate(cfg, n, seed=n + m + a)
+            with self.subTest(n=n, m=m, a=a):
+                self.assertTrue(br.is_complete())
+                self.assertEqual(br.unresolved_matches(), [])
+                for mm in br.all_matches():
+                    if mm.filled_count() >= 2:
+                        self.assertIn(mm.status, (M_COMPLETE, M_BYE),
+                                      f"match {mm.match_number} never got a game")
+
+
+class TestPlacementOrdering(unittest.TestCase):
+    def test_deeper_run_always_places_higher(self):
+        for n, m, a in [(16, 4, 2), (32, 4, 2), (32, 2, 1), (24, 3, 2)]:
+            cfg = TournamentConfig(total_capacity=n, players_per_match=m, advance_per_match=a)
+            br, _order = simulate(cfg, n, seed=7)
+            pl = br.final_placements()
+            with self.subTest(n=n, m=m, a=a):
+                self.assertEqual([e["place"] for e in pl], list(range(1, len(pl) + 1)))
+                self.assertEqual(len({e["player_id"] for e in pl}), len(pl))
+                depths = [e["round_reached"] for e in pl]
+                self.assertEqual(depths, sorted(depths, reverse=True),
+                                 "nobody may place above a player who went further")
+
+    def test_same_round_exit_ranked_by_how_they_finished(self):
+        """Two players knocked out in the same round: the one who finished higher
+        in their own match places above the one who came last."""
+        cfg = TournamentConfig(total_capacity=8, players_per_match=4, advance_per_match=1)
+        br = Bracket.build(cfg, 8)
+        br.seed_players(players(8))
+        # p01 finishes 2nd of four; p05 finishes 4th of four. Same round, and p05
+        # carries the bigger raw score, which used to be all that was compared.
+        br.record_result(0, 0, ["p00", "p01", "p02", "p03"],
+                         {"p00": 100, "p01": 10, "p02": 9, "p03": 8})
+        br.record_result(0, 1, ["p04", "p06", "p07", "p05"],
+                         {"p04": 100, "p06": 60, "p07": 50, "p05": 40})
+        br.record_result(1, 0, ["p00", "p04"], {"p00": 120, "p04": 90})
+        by_pid = {e["player_id"]: e["place"] for e in br.final_placements()}
+        self.assertLess(by_pid["p01"], by_pid["p05"],
+                        "2nd of four must place above 4th of four from the same round")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

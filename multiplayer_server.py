@@ -2893,6 +2893,13 @@ class Seat:
     # 3=Yellow). None for non-team games. Assigned round-robin at room creation
     # and freely changed in the lobby via the /team and /swap endpoints.
     team: Optional[int] = None
+    # Tournament match rooms only: the bracket participant this seat belongs to.
+    # Stamped on the Seat OBJECT at room creation, so it survives BOTH the
+    # launch-time seat shuffle (which moves seat objects and renumbers indices)
+    # and any display-name change. Match standings are mapped back to the bracket
+    # through this — never through the player's name, which the client can rename.
+    # Server-only: deliberately absent from the seat payload sent to clients.
+    tournament_pid: Optional[str] = None
 
     def status(self) -> str:
         if self.kind == "ai":
@@ -3356,7 +3363,11 @@ class GameRoom:
 
     def _all_humans_claimed_locked(self) -> bool:
         filled, total = self._human_seat_counts_locked()
-        return total > 0 and filled >= total
+        if total == 0:
+            # A room with no human seats at all is only ever built deliberately:
+            # an all-AI tournament bracket match. There is nobody to wait for.
+            return bool(getattr(self, "tournament_id", None))
+        return filled >= total
 
     # ── Team Mode helpers ──────────────────────────────────────────────
     def _team_populations_locked(self) -> Dict[int, int]:
@@ -3947,6 +3958,20 @@ class GameRoom:
                 self._bump_locked(force_persist=False)
         return chosen
 
+    def _name_is_locked_locked(self, seat: Seat) -> bool:
+        """MUST hold self.cond. True when this seat's display name belongs to the
+        server, not the client.
+
+        A tournament bracket match pre-claims every seat under the participant's
+        tournament name. The reconnect path would otherwise rename the seat to
+        whatever the client currently calls itself — which drifts (a nickname
+        changed mid-tournament, a duplicate name that was suffixed at pre-claim,
+        or a deep-link page load where the profile nickname hasn't resolved yet
+        and the app falls back to "Player"). Keeping the tournament's name means
+        the bracket, the scoreboard and the standings always agree.
+        """
+        return bool(getattr(self, "tournament_id", None) and getattr(seat, "tournament_pid", None))
+
     def claim_seat(
         self,
         player_name: str,
@@ -3964,7 +3989,8 @@ class GameRoom:
                     new_name = safe_name(player_name, existing_seat.label)
                     rejoined = existing_seat.left_at is not None
                     existing_seat.left_at = None  # they're back — lift any reservation
-                    if new_name and existing_seat.claimed_name != new_name:
+                    if new_name and existing_seat.claimed_name != new_name \
+                            and not self._name_is_locked_locked(existing_seat):
                         existing_seat.claimed_name = new_name
                     if rejoined and not any(s.is_host for s in self.seats if s.kind == "human" and s.token is not None and s.left_at is None):
                         existing_seat.is_host = True
@@ -3996,7 +4022,8 @@ class GameRoom:
             if existing_seat is not None and target.index == existing_seat.index:
                 # Explicit request for the same seat token holder: treat as reconnect/rename.
                 new_name = safe_name(player_name, target.label)
-                if new_name and target.claimed_name != new_name:
+                if new_name and target.claimed_name != new_name \
+                        and not self._name_is_locked_locked(target):
                     target.claimed_name = new_name
                     self.status_note = f"{target.claimed_name} updated name on {target.label}."
                     self._bump_locked()
@@ -5833,6 +5860,15 @@ class GameRoom:
         "fast":   (0.3, 0.9),
     }
 
+    def _is_unwatched_all_ai_locked_free(self) -> bool:
+        """True for a game with no human seat and nobody spectating — i.e. an
+        all-AI tournament bracket match that no one is looking at. Cheap and
+        lock-free on purpose: it is read from the bot think-pause on the match
+        thread, and a stale answer only costs one move's worth of pacing."""
+        if any(s.kind == "human" for s in self.seats):
+            return False
+        return not self.spectators
+
     def _build_ai_policy(
         self,
         seat_index: int,
@@ -5896,6 +5932,12 @@ class GameRoom:
             speed = str(getattr(self, "ai_speed", "normal") or "normal").lower()
             lo, hi = self._AI_THINK_RANGES.get(speed, self._AI_THINK_RANGES["normal"])
             delay = max(0.0, lo + random.random() * (hi - lo) - _compute_elapsed)
+            # An all-AI tournament bracket match with nobody watching has no reason
+            # to pace itself: the pause is purely for human eyes, and at ~2s a move
+            # it turns one bot-vs-bot match into five minutes of a bracket standing
+            # still. It paces itself normally again the moment a spectator arrives.
+            if delay > 0 and self._is_unwatched_all_ai_locked_free():
+                delay = 0.0
             if delay > 0:
                 # Interruptible think pause. A plain time.sleep() here meant a human's
                 # Undo armed mid-"thinking" wasn't honored until AFTER this bot's move
@@ -6639,7 +6681,10 @@ class GameRoom:
             if isinstance(self.latest_public_state, dict):
                 for p in self.latest_public_state.get("players", []) or []:
                     if isinstance(p, dict) and p.get("name"):
-                        fs.append({"name": str(p["name"]), "score": int(p.get("score", 0) or 0)})
+                        # players[].index IS the seat index (see _record_snapshot),
+                        # so results stay mappable without trusting the name.
+                        fs.append({"name": str(p["name"]), "score": int(p.get("score", 0) or 0),
+                                   "seat_index": p.get("index")})
             if fs:
                 fs.sort(key=lambda e: e["score"], reverse=True)
                 self.final_scores = fs
@@ -7101,9 +7146,16 @@ class GameRoom:
                 except Exception:
                     return int(getattr(player, "score", 0))
 
+            # Best-first standings. Each row also carries the SEAT it came from
+            # (game index -> seat index), which is the only rename-proof way to
+            # tie a result row back to the player who earned it — tournament
+            # result reporting depends on it.
+            _by_score = sorted(range(len(gs.players)),
+                               key=lambda i: _safe_score(gs.players[i]), reverse=True)
             standings = [
-                {"name": p.name, "score": _safe_score(p)}
-                for p in sorted(gs.players, key=lambda x: _safe_score(x), reverse=True)
+                {"name": gs.players[i].name, "score": _safe_score(gs.players[i]),
+                 "seat_index": self._comp_game_to_seat.get(i, i)}
+                for i in _by_score
             ]
             winner_name = standings[0]["name"] if standings else None
             training_record: Dict[str, Any]
@@ -7216,10 +7268,16 @@ class GameRoom:
             if not _game_saved and gs is not None and ms is not None:
                 try:
                     if not standings and hasattr(gs, "players"):
+                        _sc = lambda i: int(getattr(gs.players[i], "score", 0))  # noqa: E731
                         standings = [
-                            {"name": p.name, "score": int(getattr(p, "score", 0))}
-                            for p in sorted(gs.players, key=lambda x: int(getattr(x, "score", 0)), reverse=True)
+                            {"name": gs.players[i].name, "score": _sc(i),
+                             "seat_index": self._comp_game_to_seat.get(i, i)}
+                            for i in sorted(range(len(gs.players)), key=_sc, reverse=True)
                         ]
+                    # So a tournament match that errored still resolves on real
+                    # scores instead of an arbitrary order (see the notify below).
+                    if standings and not self.final_scores:
+                        self.final_scores = standings
                     try:
                         tr = self._build_training_record(gs, ms, standings, human_indices)
                         self._append_training_record(tr)
@@ -7242,6 +7300,14 @@ class GameRoom:
                 self.active_action_seat = None
                 self.legal_actions_by_seat.clear()
                 self._bump_locked(force_persist=True)
+            # A tournament match MUST always report back, or its bracket stalls
+            # forever on a match that can never be replayed. The happy path above
+            # already reported (report_match_result de-dupes), so this only rescues
+            # a game whose post-processing blew up between the tally and the hook.
+            try:
+                _notify_tournament_if_match(self)
+            except Exception:
+                traceback.print_exc()
 
     def _viewer_payload_locked(self, seat: Optional[Seat]) -> Dict[str, Any]:
         if seat is None:
@@ -8293,19 +8359,31 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
     server auto-starts the game via the room's host_control_token."""
     n = len(players)
     # Bot participants (seat-fillers) become AI seats the game engine auto-plays;
-    # humans get pre-claimed human seats with a delivered token. (All-bot matches
-    # are resolved server-side in tournament_server and never reach here, so there
-    # is always ≥1 human → seat 0 is human, satisfying create_room's host-seat rule.)
+    # humans get pre-claimed human seats with a delivered token.
     humans = [p for p in players if not p.get("is_bot")]
     bots = [p for p in players if p.get("is_bot")]
+    # An ALL-BOT bracket match is a real game too, so it gets a real room. A room
+    # always needs a host seat to be constructed (create_room's rule), so build one
+    # human seat and hand it straight over to the AI below — no human is coming.
+    all_bots = not humans
     # Private + unguessable password: membership is the pre-claimed seat set, not
     # the code, so the room never appears joinable to anyone else.
     room = ROOMS.create_room(
         host_name=(humans[0] if humans else players[0])["name"],
-        total_players=n, human_players=len(humans), ai_players=len(bots),
+        total_players=n, human_players=max(1, len(humans)),
+        ai_players=n - max(1, len(humans)),
         visibility="private",
         password_hash=hashlib.sha256(secrets.token_hex(24).encode()).hexdigest(),
     )
+    if all_bots:
+        with room.cond:
+            for seat in room.seats:
+                if seat.kind == "human":
+                    seat.kind = "ai"          # keeps is_host, so host_seat() still resolves
+                    seat.token = None
+                    seat.claimed_name = None
+            room.human_players = 0
+            room.ai_players = n
     human_seats = [s for s in room.seats if s.kind == "human"]
     ai_seats = [s for s in room.seats if s.kind == "ai"]
     seat_tokens: Dict[str, str] = {}
@@ -8322,11 +8400,13 @@ def _tournament_create_match_room(*, tournament_id, round_index, match_index,
             tok = secrets.token_urlsafe(18)
             seat.claimed_name = uniq
             seat.token = tok
+            seat.tournament_pid = p["pid"]   # rename-proof identity (see Seat)
             seat_tokens[p["pid"]] = tok
             tournament_pids[uniq] = p["pid"]
         for seat, p in zip(ai_seats, bots):
             uniq = _uniq(safe_name(p["name"], "Bot"))
             seat.claimed_name = uniq         # AI seat plays under the bot's name
+            seat.tournament_pid = p["pid"]
             tournament_pids[uniq] = p["pid"]
         # Private match rooms default to no spectators; re-enable when the
         # tournament allows watching so viewers can open a live match (§10).
@@ -8363,30 +8443,51 @@ def _tournament_start_match_room(room_id) -> bool:
 
 def _notify_tournament_if_match(room) -> None:
     """If ``room`` ran a tournament match, map its final standings to participant
-    ids (by unique seat name) and report the result to the tournament."""
+    ids and report the result to the tournament.
+
+    Standings rows are mapped back by SEAT, not by display name. A seat carries
+    its participant id on the seat object itself, so the mapping survives a
+    display-name change (the game lets a reconnecting client rename its seat, and
+    duplicate names get a " (2)" suffix at pre-claim that the client's own name
+    then overwrites) as well as the launch-time seat shuffle. Mapping by name was
+    silently dropping the renamed player out of the standings and re-adding them
+    LAST — recording the match winner as the loser, knocking them out of a
+    tournament they had actually won.
+    """
     tid = getattr(room, "tournament_id", None)
     if not tid:
         return
     pid_by_name = getattr(room, "tournament_pids", {}) or {}
+    pid_by_seat: Dict[int, str] = {}
+    for seat in getattr(room, "seats", []) or []:
+        pid = getattr(seat, "tournament_pid", None)
+        if pid:
+            pid_by_seat[int(seat.index)] = str(pid)
     # Every assigned participant (humans AND bots) so a player missing from the
     # standings still gets ranked last and the match always resolves.
-    all_pids = list(pid_by_name.values())
+    all_pids = list(pid_by_seat.values()) or list(pid_by_name.values())
     standings = getattr(room, "final_scores", None) or []
     ranking: List[str] = []
     scores: Dict[str, int] = {}
     for row in standings:
         if not isinstance(row, dict):
             continue
-        pid = pid_by_name.get(row.get("name"))
+        si = row.get("seat_index")
+        pid = pid_by_seat.get(int(si)) if isinstance(si, int) else None
+        if pid is None:
+            pid = pid_by_name.get(row.get("name"))   # pre-seat_index rooms
         if pid and pid not in scores:
             ranking.append(pid)
             scores[pid] = int(row.get("score") or 0)
     # any assigned players missing from standings (never claimed / disconnected)
     # rank last so the bracket still resolves.
-    for pid in all_pids:
-        if pid not in scores:
-            ranking.append(pid)
-            scores[pid] = 0
+    missing = [pid for pid in all_pids if pid not in scores]
+    if missing:
+        print(f"[tournament] room {room.room_id}: {len(missing)} of {len(all_pids)} "
+              f"players had no standings row and were ranked last: {missing}")
+    for pid in missing:
+        ranking.append(pid)
+        scores[pid] = 0
     if ranking:
         tournament_server.on_room_ended(room.room_id, ranking, scores)
 

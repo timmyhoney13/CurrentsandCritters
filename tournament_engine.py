@@ -1216,12 +1216,23 @@ class Bracket:
             tp.player_ids = list(losers)
 
     # ---- completion / placements --------------------------------------------
+    def unresolved_matches(self) -> List[BracketMatch]:
+        """Every match that still has a game owing: its seats are full (so it is
+        playable) but no result has been recorded. A bracket with any of these is
+        NOT finished, whatever the Final says."""
+        return [m for m in self.all_matches()
+                if m.status not in (M_COMPLETE, M_BYE) and m.filled_count() >= 2]
+
     def is_complete(self) -> bool:
         if self.final_match.status not in (M_COMPLETE, M_BYE):
             return False
         if self.third_place is not None and self.third_place.filled_count() >= 1:
-            return self.third_place.status in (M_COMPLETE, M_BYE)
-        return True
+            if self.third_place.status not in (M_COMPLETE, M_BYE):
+                return False
+        # A champion is never crowned while a match is still owed a game. The Final
+        # alone used to decide this, which let an odd bracket shape declare a winner
+        # with rounds left unplayed.
+        return not self.unresolved_matches()
 
     @property
     def champion(self) -> Optional[str]:
@@ -1229,27 +1240,38 @@ class Bracket:
         return f.winners[0] if f.winners else None
 
     def final_placements(self) -> List[Dict[str, Any]]:
-        """Ordered placement list: [{place, player_id, round_reached, best_score}].
+        """Ordered placement list:
+        [{place, player_id, round_reached, best_score, last_match_finish}].
 
         1st/2nd come from the final. 3rd from the third-place match if present,
         else from a progress-based tiebreak. Remaining players are ranked by the
-        round they reached (later = better), then by best match score."""
+        round they reached (later = better), then by where they finished in the
+        match that knocked them out (2nd of four beats 4th of four), then by best
+        match score. Ranking the tail by raw score alone compared scores across
+        different games and could seat a player who lost their match above one who
+        went further in the same round."""
         if not self.final_match.ranking:
             return []
         placements: List[Dict[str, Any]] = []
         used: set = set()
         final = self.final_match
 
-        # Track, for every player, the deepest round they appeared in and their
-        # best score anywhere. This drives the tail ranking + tiebreaks.
+        # Track, for every player, the deepest round they appeared in, how they
+        # finished in the last match they played, and their best score anywhere.
+        # Together these drive the tail ranking + tiebreaks.
         reached: Dict[str, int] = {}
         best_score: Dict[str, int] = {}
+        last_finish: Dict[str, int] = {}      # 1-based place in their deepest match
         for m in self.all_matches(include_third=False):
             for pid in m.player_ids:
                 if pid:
                     reached[pid] = max(reached.get(pid, -1), m.round_index)
             for pid, sc in m.scores.items():
                 best_score[pid] = max(best_score.get(pid, 0), int(sc))
+        for m in self.all_matches(include_third=False):
+            for i, pid in enumerate(m.ranking):
+                if pid and reached.get(pid) == m.round_index:
+                    last_finish[pid] = i + 1
 
         def add(pid: str, place: int) -> None:
             if pid in used:
@@ -1260,6 +1282,7 @@ class Bracket:
                 "player_id": pid,
                 "round_reached": reached.get(pid, 0),
                 "best_score": best_score.get(pid, 0),
+                "last_match_finish": last_finish.get(pid, 0),
             })
 
         # 1st + 2nd from the final's own ranking.
@@ -1281,9 +1304,11 @@ class Bracket:
                 add(self.third_place.ranking[1], next_place)
                 next_place += 1
 
-        # Everyone else: by round reached desc, then best score desc, then id.
+        # Everyone else: deepest round first, then how they finished in the match
+        # that ended their run, then best score, then id for a stable order.
         remaining = [pid for pid in reached if pid not in used]
-        remaining.sort(key=lambda p: (-reached.get(p, 0), -best_score.get(p, 0), str(p)))
+        remaining.sort(key=lambda p: (-reached.get(p, 0), last_finish.get(p, 99),
+                                      -best_score.get(p, 0), str(p)))
         for pid in remaining:
             add(pid, next_place)
             next_place += 1

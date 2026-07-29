@@ -877,7 +877,11 @@ class TestReadyCheck(unittest.TestCase):
         self.assertTrue(mm2["i_am_ready"])
         self.assertEqual(mm2["ready_count"], 1)
 
-    def test_disconnected_human_does_not_block_launch(self):
+    def test_offline_opponent_gets_a_grace_period_then_stops_blocking(self):
+        """A player who has merely gone quiet keeps their match — the game must not
+        be played without them because their client missed a couple of polls. Past
+        the absent grace the bracket moves on so a player who really left can't
+        stall everyone."""
         mgr, t = make(4, 2, 4, guest=False)
         t.start()
         m0 = t.bracket.rounds[0][0]
@@ -887,7 +891,12 @@ class TestReadyCheck(unittest.TestCase):
         t._by_pid(b).last_seen = _now() - 9999          # b drops offline
         t.state_view(viewer_pid=a)                       # reaper marks b disconnected
         t.match_ready(a, True)                           # re-evaluate the gate
-        self.assertEqual(m0.status, M_ACTIVE, "a disconnected opponent must not stall the match")
+        self.assertEqual(m0.status, M_READY,
+                         "a blip must not start someone's match without them")
+        # Wind the ready check back past the grace: now it launches.
+        t.match_ready_since[m0.match_number] = _now() - (ts.MATCH_ABSENT_GRACE_SEC + 5)
+        t.match_ready(a, True)
+        self.assertEqual(m0.status, M_ACTIVE, "a player who really left can't stall the bracket")
 
     def test_solo_human_with_bots_launches_on_ready(self):
         mgr = TournamentManager()
@@ -1249,6 +1258,122 @@ class TestDesignedHttpDispatch(unittest.TestCase):
         self.assertTrue(row["is_graph"])
         self.assertEqual(row["capacity"], 4)
         self.assertEqual(row["human_capacity"], 4)
+
+
+class TestBotMatchesArePlayed(unittest.TestCase):
+    """Every bracket match is decided by a real game — including all-AI matches.
+
+    They used to be resolved instantly by a coin flip, so the moment the last human
+    was knocked out of a bot-filled bracket the server sprinted through the
+    remaining rounds and crowned a champion: "it didn't let me play the last two
+    games, it just decided the winner".
+    """
+
+    def setUp(self):
+        self._old_create = ts._create_match_room
+        self._old_start = ts._start_match_room
+        self.rooms = []       # (match_number, [pids])
+        self.started = []
+
+        def fake_create(**kw):
+            self.rooms.append((kw["match_number"], [p["pid"] for p in kw["players"]]))
+            return {"room_id": f"R{kw['match_number']}",
+                    "seat_tokens": {p["pid"]: f"seat-{p['pid']}"
+                                    for p in kw["players"] if not p.get("is_bot")}}
+
+        def fake_start(room_id):
+            self.started.append(room_id)
+            return True
+
+        ts._create_match_room = fake_create
+        ts._start_match_room = fake_start
+
+    def tearDown(self):
+        ts._create_match_room = self._old_create
+        ts._start_match_room = self._old_start
+
+    def _solo_bracket(self, cap=8, ppm=2):
+        mgr = TournamentManager()
+        cfg = TournamentConfig(cap, ppm, name="Solo Cup")
+        t = mgr.create(cfg, "acct:host", "Host", fill_bots=True)
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        self.assertTrue(t.start()["ok"])
+        return t
+
+    def test_all_bot_matches_get_real_rooms_and_launch_themselves(self):
+        t = self._solo_bracket()
+        bot_matches = [m for m in t.bracket.rounds[0] if t._match_is_all_bots(m)]
+        self.assertTrue(bot_matches, "a solo bot-filled bracket has all-bot matches")
+        spawned = [num for num, _ in self.rooms]
+        for m in bot_matches[:ts.MAX_CONCURRENT_BOT_MATCHES]:
+            self.assertIn(m.match_number, spawned, "an all-bot match must get a real game")
+            self.assertEqual(m.status, M_ACTIVE, "nobody to ready up: it launches at once")
+        self.assertNotIn(M_COMPLETE, [m.status for m in bot_matches],
+                         "no all-bot match is decided without its game being played")
+
+    def test_bot_games_are_capped_and_queue_behind_each_other(self):
+        t = self._solo_bracket(cap=32, ppm=2)
+        in_flight = [m for m in t.bracket.all_matches()
+                     if m.status in (M_READY, M_ACTIVE) and t._match_is_all_bots(m)]
+        self.assertLessEqual(len(in_flight), ts.MAX_CONCURRENT_BOT_MATCHES,
+                             "a 32-seat AI bracket must not start a dozen games at once")
+        self.assertTrue(in_flight, "but it does start some")
+        # As one reports, the next in the queue starts.
+        m = in_flight[0]
+        pids = [p for p in m.player_ids if p]
+        before = len(self.rooms)
+        t.report_match_result(m.round_index, m.match_index, pids,
+                              {p: 10 * (len(pids) - i) for i, p in enumerate(pids)})
+        self.assertGreater(len(self.rooms), before, "the next queued bot game starts")
+
+    def test_the_human_never_waits_behind_a_bot_game(self):
+        t = self._solo_bracket(cap=32, ppm=2)
+        human_match = next(m for m in t.bracket.rounds[0]
+                           if "acct:host" in [x for x in m.player_ids if x])
+        self.assertIn(human_match.match_number, [n for n, _ in self.rooms],
+                      "the human's own match is spawned immediately, cap or no cap")
+
+    def test_champion_is_not_crowned_while_a_match_is_unplayed(self):
+        t = self._solo_bracket()
+        self.assertNotEqual(t.phase, ts.Tournament.PHASE_COMPLETE)
+        # Play the whole bracket out; only then may it complete.
+        guard = 0
+        while t.phase == ts.Tournament.PHASE_RUNNING and guard < 200:
+            guard += 1
+            acted = False
+            for m in list(t.bracket.all_matches()):
+                if m.status == M_READY:
+                    for pid in [x for x in m.player_ids if x]:
+                        p = t._by_pid(pid)
+                        if p and not p.is_bot:
+                            t.match_ready(pid, True)
+                            acted = True
+                if m.status == M_ACTIVE:
+                    pids = [x for x in m.player_ids if x]
+                    self.assertFalse(t.bracket.is_complete(),
+                                     "not complete while a game is still running")
+                    t.report_match_result(m.round_index, m.match_index, pids,
+                                          {p: 10 * (len(pids) - i) for i, p in enumerate(pids)})
+                    acted = True
+            if not acted:
+                break
+        self.assertEqual(t.phase, ts.Tournament.PHASE_COMPLETE, "and it does finish")
+        self.assertEqual(t.bracket.unresolved_matches(), [])
+        places = sorted(e["place"] for e in t.final_placements)
+        self.assertEqual(places, list(range(1, len(t.participants) + 1)),
+                         "every participant gets exactly one distinct place")
+
+    def test_fallback_resolves_instantly_when_real_bot_games_are_off(self):
+        old = ts.PLAY_BOT_MATCHES
+        ts.PLAY_BOT_MATCHES = False
+        try:
+            t = self._solo_bracket()
+            bot_matches = [m for m in t.bracket.rounds[0] if t._match_is_all_bots(m)]
+            self.assertTrue(all(m.status == M_COMPLETE for m in bot_matches),
+                            "kill switch restores the old instant resolution")
+        finally:
+            ts.PLAY_BOT_MATCHES = old
 
 
 if __name__ == "__main__":
