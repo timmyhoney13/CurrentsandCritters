@@ -66,7 +66,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-07-29.3" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-07-29.4" />
 </head>
 <body>
 
@@ -1837,6 +1837,13 @@
     <div id="pv-my-board"></div>
 
    </div><!-- #pv-table-inner -->
+
+   <!-- "more oceans below" pill: sticks to the bottom of the board while
+        scrolling and only appears when the oceans overflow the table. The dock
+        is zero-height so the pill itself never changes the board's scroll size -->
+   <div id="pv-board-scroll-dock">
+     <button type="button" id="pv-board-scroll-btn">&#9660; More oceans below</button>
+   </div>
   </div><!-- #pv-table -->
 
   <!-- Draw-phase hint banner, sits above the action bar for high visibility -->
@@ -2770,10 +2777,10 @@
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
 <script defer src="/js/rulebook.js?v=2026-07-28.3"></script>
 
-<script defer src="/js/preview-app.js?v=2026-07-29.3"></script>
+<script defer src="/js/preview-app.js?v=2026-07-29.4"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-07-29.2"></script>
+<script defer src="/js/tournament-ui.js?v=2026-07-29.4"></script>
 <!-- Custom bracket BUILDER — the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
 <script defer src="/js/tournament-builder.js?v=2026-07-29.2"></script>

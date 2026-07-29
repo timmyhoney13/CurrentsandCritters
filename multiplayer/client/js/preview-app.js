@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.34";
-  const APP_BUILD   = "2026-07-29.3";
+  const APP_VERSION = "1.6.35";
+  const APP_BUILD   = "2026-07-29.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -8715,6 +8715,10 @@
         });
       });
     }
+
+    // Oceans just changed, so whether the board overflows may have too: refresh
+    // the "more oceans below" pill once the new rows have been laid out.
+    requestAnimationFrame(updateBoardScrollAffordance);
   }
 
   // ── Click-to-place card picker ────────────────────────────────
@@ -13571,11 +13575,26 @@
   // So in Mobile mode you can drag cards with your finger, and a plain tap
   // still falls through to the existing tap-to-place handlers. Computer mode
   // is never touched, it keeps native mouse drag-and-drop.
+  //
+  // It also owns SCROLLING THE OCEANS with one finger. Draggable cards carry
+  // touch-action:pinch-zoom (so a drag never scroll-jitters), which also means
+  // the browser will not pan the board when a swipe starts on one — and with a
+  // big board most of the board IS cards, so there was nowhere left to swipe
+  // from and the bottom oceans were unreachable. Now, ONLY when the oceans
+  // actually overflow, a vertical swipe that starts on an ocean card pans the
+  // board (with a fling), and press-and-hold arms the drag instead. A board
+  // that fits behaves exactly as it always did: instant drag, no hold. Pool
+  // cards and hand cards are never intercepted, so playing and drawing keep
+  // their instant drag in every direction.
   // ═══════════════════════════════════════════════════════════════
   (function setupTouchDrag() {
     const MOVE_THRESHOLD = 8; // px before a touch becomes a drag (taps fall through)
+    const HOLD_MS        = 300; // hold this long on a scrollable board to drag instead of scroll
     let src = null, dt = null, started = false, lastTarget = null, ghost = null;
     let startX = 0, startY = 0, touchId = null;
+    // Board-panning state (mobile, overflowing board only)
+    let panBox = null, panning = false, panLastY = 0, panLastT = 0, panVel = 0, panRaf = 0;
+    let holdTimer = 0, holdArmed = false;
 
     const mobileActive = () =>
       document.body && document.body.classList.contains("cc-device-mobile");
@@ -13586,6 +13605,39 @@
         el = el.parentElement;
       }
       return null;
+    }
+
+    // The board scroller under this element, but ONLY when it has somewhere to
+    // scroll and only for cards sitting among the oceans (#pv-my-board). Pool
+    // cards live in the same scroller and must keep their instant drag.
+    function panTarget(el) {
+      if (!el || !el.closest) return null;
+      if (!el.closest("#pv-my-board")) return null;
+      const box = el.closest("#pv-table");
+      if (!box) return null;
+      return box.scrollHeight > box.clientHeight + 2 ? box : null;
+    }
+
+    function stopFling() { if (panRaf) { cancelAnimationFrame(panRaf); panRaf = 0; } }
+    function clearHold() { if (holdTimer) { clearTimeout(holdTimer); holdTimer = 0; } }
+    function disarmHold() {
+      clearHold();
+      if (holdArmed && src) src.classList.remove("cc-drag-armed");
+      holdArmed = false;
+    }
+    function fling() {
+      // Carry the swipe on with a decaying glide, so the board feels like a
+      // normal scrollable surface rather than a stiff drag.
+      const box = panBox;
+      if (!box || Math.abs(panVel) < 0.05) return;
+      let v = Math.max(-3.5, Math.min(3.5, panVel));  // px/ms, capped
+      const step = () => {
+        v *= 0.93;
+        box.scrollTop -= v * 16;
+        if (Math.abs(v) < 0.02) { panRaf = 0; return; }
+        panRaf = requestAnimationFrame(step);
+      };
+      panRaf = requestAnimationFrame(step);
     }
 
     function makeDT() {
@@ -13636,7 +13688,12 @@
       if (ghost) ghost.style.transform = "translate(" + (x - ghost._w / 2) + "px," + (y - ghost._h / 2) + "px)";
     }
     function killGhost() { if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost); ghost = null; }
-    function reset() { src = null; dt = null; started = false; lastTarget = null; touchId = null; killGhost(); }
+    function reset() {
+      disarmHold();
+      src = null; dt = null; started = false; lastTarget = null; touchId = null;
+      panBox = null; panning = false; panVel = 0;
+      killGhost();
+    }
 
     function touchById(list) {
       for (let i = 0; i < list.length; i++) if (list[i].identifier === touchId) return list[i];
@@ -13644,11 +13701,29 @@
     }
 
     document.addEventListener("touchstart", (e) => {
+      // ANY new touch stops a running fling, even one the shim then ignores
+      // (a finger on empty water scrolls natively and must not fight the glide).
+      stopFling();
+      // A second finger landing mid-pan means the player wants to pinch-zoom the
+      // game: let go of the gesture entirely instead of holding it for a scroll.
+      if (panning && e.touches.length > 1) { reset(); return; }
       if (src || !mobileActive() || e.touches.length !== 1) return;
       const t = e.touches[0];
       const d = closestDraggable(t.target);
       if (!d) return;
       src = d; startX = t.clientX; startY = t.clientY; started = false; touchId = t.identifier;
+      // Card among the oceans on a board with more to show? Then this gesture is
+      // still undecided: a vertical swipe scrolls, a hold arms the drag.
+      panBox = panTarget(d);
+      panning = false; panVel = 0; panLastY = t.clientY; panLastT = Date.now();
+      holdArmed = false;
+      clearHold();
+      if (panBox) {
+        holdTimer = setTimeout(() => {
+          holdTimer = 0; holdArmed = true;
+          if (src) src.classList.add("cc-drag-armed");
+        }, HOLD_MS);
+      }
       // Do NOT preventDefault yet, a short press should still tap (place) or scroll.
     }, { passive: true });
 
@@ -13657,8 +13732,31 @@
       const t = touchById(e.changedTouches);
       if (!t) return;
       const dx = t.clientX - startX, dy = t.clientY - startY;
+
+      // ── panning the oceans ──
+      if (panning) {
+        const now = Date.now(), step = t.clientY - panLastY;
+        panBox.scrollTop -= step;
+        const ms = now - panLastT;
+        if (ms > 0) panVel = (0.7 * (step / ms)) + (0.3 * panVel);  // px/ms, smoothed
+        panLastY = t.clientY; panLastT = now;
+        e.preventDefault();
+        return;
+      }
+      if (!started && panBox && !holdArmed) {
+        // A clearly vertical swipe scrolls the board instead of dragging.
+        if (Math.abs(dy) >= MOVE_THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+          disarmHold();
+          panning = true; panLastY = t.clientY; panLastT = Date.now(); panVel = 0;
+          panBox.scrollTop -= dy;   // pick up the movement already made
+          e.preventDefault();
+          return;
+        }
+      }
+
       if (!started) {
         if (Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) return; // still a tap/scroll
+        disarmHold();
         started = true;
         dt = makeDT();
         fire("dragstart", src, t.clientX, t.clientY);
@@ -13678,6 +13776,14 @@
     function endHandler(e) {
       if (!src) return;
       const t = touchById(e.changedTouches);
+      if (panning) {
+        // Board scroll, not a drag: glide on, and swallow the click so lifting
+        // the finger can never zoom the card you happened to start the swipe on.
+        fling();
+        e.preventDefault();
+        reset();
+        return;
+      }
       if (!started) { reset(); return; } // was a tap, let the native click / tap-to-place run
       if (t) {
         const over = document.elementFromPoint(t.clientX, t.clientY);
@@ -13692,6 +13798,53 @@
       if (started && src) fire("dragend", src, startX, startY);
       reset();
     }, { passive: false });
+  })();
+
+  // ═══════════════════════════════════════════════════════════════
+  // BOARD SCROLL AFFORDANCE
+  // #pv-table scrolls the oceans up and down (see the CSS). Nothing tells a
+  // player that, though, and a phone has no permanent scrollbar — so once the
+  // board has more oceans than fit, a sticky pill appears at the bottom of the
+  // board: tap it to page down, tap it at the bottom to jump back to the top.
+  // That is the guaranteed, gesture-free way to reach the last ocean.
+  // ═══════════════════════════════════════════════════════════════
+  let _boardScrollTipShown = false;
+  function updateBoardScrollAffordance() {
+    const table = document.getElementById("pv-table");
+    if (!table) return;
+    const room = table.scrollHeight - table.clientHeight;
+    const can  = room > 8;
+    table.classList.toggle("pv-can-scroll", can);
+    // Mobile players lose one thing when the board gets tall: a vertical swipe
+    // that starts on a movable animal now scrolls instead of dragging it. Say so
+    // once, the first time a board actually gets too tall to fit.
+    if (can && !_boardScrollTipShown && window.CC_IS_MOBILE) {
+      _boardScrollTipShown = true;
+      showToast("Swipe the board to see your other oceans. Hold a card to drag it.", "info", 5000);
+    }
+    const btn = document.getElementById("pv-board-scroll-btn");
+    if (!btn) return;
+    const atBottom = table.scrollTop >= room - 8;
+    btn.textContent = atBottom ? "▲ Back to the top" : "▼ More oceans below";
+    btn.title = atBottom
+      ? "Scroll back up to your first oceans"
+      : "Scroll down to see the rest of your oceans";
+  }
+
+  (function setupBoardScroll() {
+    const table = document.getElementById("pv-table");
+    if (!table) return;
+    table.addEventListener("scroll", updateBoardScrollAffordance, { passive: true });
+    window.addEventListener("resize", updateBoardScrollAffordance);
+    const btn = document.getElementById("pv-board-scroll-btn");
+    if (btn) btn.addEventListener("click", (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      const room = table.scrollHeight - table.clientHeight;
+      const atBottom = table.scrollTop >= room - 8;
+      const top = atBottom ? 0 : Math.min(room, table.scrollTop + table.clientHeight * 0.75);
+      try { table.scrollTo({ top, behavior: "smooth" }); }
+      catch (e) { table.scrollTop = top; }   // older WebKit
+    });
   })();
 
   // ═══════════════════════════════════════════════════════════════
@@ -13720,6 +13873,8 @@
     const minus = document.getElementById("bs-minus");
     if (plus)  plus.disabled  = _boardZoom >= _BS_MAX - 0.001;
     if (minus) minus.disabled = _boardZoom <= _BS_MIN + 0.001;
+    // Zooming changes how much board fits, so re-check the scroll affordance.
+    requestAnimationFrame(updateBoardScrollAffordance);
     // Intentionally NOT persisted, board zoom resets to 100% on every load.
   }
 
