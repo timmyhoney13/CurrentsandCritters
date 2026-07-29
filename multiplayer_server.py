@@ -1375,6 +1375,146 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
 TRADE_MAX_ITEMS_PER_SIDE = 12          # avatars + backgrounds cap per side
 TRADE_MAX_COINS = 100_000_000          # sanity ceiling on a single offer
 
+# ── Re-earn after trading an item AWAY ──────────────────────────────────────
+# Handing an item over does NOT undo the progress that unlocked it: lifetime
+# counters (75 Play Agains, 300 deck draws…), levels, ranks and achievements all
+# stay where they are, so the client's retroactive unlock sweep used to hand the
+# item straight back for free on the very next stats load. Fix: snapshot the
+# GIVER's progress at the moment the item leaves, and make the requirement be
+# met AGAIN from that snapshot before any automatic grant can return it.
+# The unlock catalogue (which stat, which goal) lives in preview-app.js, so this
+# side stays generic and only records raw numbers — see tradedAwayEntry() /
+# reEarnState() there for the comparison.
+TRADE_AWAY_MAX_ENTRIES = 200           # de-duped per item; far above the item count
+TRADE_AWAY_MAX_STAT_KEYS = 120         # bound on one entry's stats snapshot
+
+
+def _trade_progress_snapshot(doc: Any) -> Dict[str, Any]:
+    """Every numeric stat on the account, the derived level and rank, and each
+    achievement's lifetime meter — the raw material any unlock rule could be
+    measured against."""
+    doc = doc if isinstance(doc, dict) else {}
+    stats = doc.get("stats") if isinstance(doc.get("stats"), dict) else {}
+    nums: Dict[str, Any] = {}
+    # lifetime_* counters sort first: they're what stat-based unlocks read, so
+    # they must survive the key cap even on an unusually fat stats doc.
+    for key in sorted(stats.keys(),
+                      key=lambda k: (not str(k).startswith("lifetime_"), str(k))):
+        val = stats.get(key)
+        if isinstance(val, bool) or not isinstance(val, (int, float)):
+            continue
+        nums[str(key)] = val
+        if len(nums) >= TRADE_AWAY_MAX_STAT_KEYS:
+            break
+    try:
+        total_xp = int(stats.get("total_xp") or 0)
+    except (TypeError, ValueError):
+        total_xp = 0
+    level, _cur, _goal = _level_progress_for_total_xp(total_xp)
+    # achievements.{id}.progress is a LIFETIME performance meter on the client
+    # (it keeps counting past completion), so recording it here is what lets an
+    # achievement-gated avatar be earned back by doing the work a second time.
+    achs: Dict[str, Any] = {}
+    raw_achs = doc.get("achievements")
+    if isinstance(raw_achs, dict):
+        for ach_id, rec in raw_achs.items():
+            if not isinstance(rec, dict):
+                continue
+            val = rec.get("progress")
+            if isinstance(val, bool) or not isinstance(val, (int, float)):
+                continue
+            achs[str(ach_id)] = val
+            if len(achs) >= TRADE_AWAY_MAX_STAT_KEYS:
+                break
+    return {"stats": nums,
+            "achievements": achs,
+            "total_xp": total_xp,
+            "level": int(level),
+            "rank": str(stats.get("rank_competitive") or ""),
+            "ts": int(time.time() * 1000)}
+
+
+def _trade_away_after(doc: Any, given: Any, received: Any) -> List[Dict[str, Any]]:
+    """The account's new `traded_away` list after this swap: a fresh progress
+    snapshot for every item handed over, previous entries preserved, and entries
+    for items RECEIVED dropped (getting one back in a trade settles its debt)."""
+    doc = doc if isinstance(doc, dict) else {}
+    given = {str(i) for i in (given or set())}
+    settled = given | {str(i) for i in (received or set())}
+    out: List[Dict[str, Any]] = []
+    prev = doc.get("traded_away")
+    if isinstance(prev, list):
+        for entry in prev:
+            if not isinstance(entry, dict):
+                continue
+            item = str(entry.get("item") or "")
+            # Re-given items get a FRESH snapshot below, so drop the old one.
+            if not item or item in settled:
+                continue
+            out.append(entry)
+    if given:
+        snap = _trade_progress_snapshot(doc)
+        for item in sorted(given):
+            out.append({**snap, "stats": dict(snap["stats"]),
+                        "achievements": dict(snap["achievements"]), "item": item})
+    return out[-TRADE_AWAY_MAX_ENTRIES:]
+
+
+def _admin_revoke_item(who: str, item: str, dry_run: bool = False) -> Dict[str, Any]:
+    """Take one avatar/background off an account and require its unlock
+    requirement to be met AGAIN, exactly as a trade would (same
+    `traded_away` snapshot, so the client's re-earn gate applies).
+
+    `who` is a uid or a nickname. Cosmetics only — never touches stats, XP or
+    achievements. Returns what changed so it can be run dry first."""
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    item = str(item or "").split("?")[0].strip().lower()
+    if not (item.startswith("/avatars/") or item.startswith("/backgrounds/")):
+        return {"ok": False, "error": "item must be /avatars/x.png or /backgrounds/x.png"}
+    who = str(who or "").strip()
+    if not who:
+        return {"ok": False, "error": "username or uid required"}
+
+    users = db.collection("users")
+    snap = users.document(who).get()
+    if not snap.exists:
+        matches = list(users.where("nickname_lower", "==", who.lower()).limit(2).stream())
+        if not matches:
+            matches = list(users.where("nickname", "==", who).limit(2).stream())
+        if not matches:
+            return {"ok": False, "error": f"no account found for {who!r}"}
+        if len(matches) > 1:
+            return {"ok": False, "error": f"{who!r} matches more than one account — pass the uid"}
+        snap = matches[0]
+    uid = snap.id
+    doc = snap.to_dict() or {}
+
+    field = "unlocked_icons" if item.startswith("/avatars/") else "unlocked_backgrounds"
+    owned = [str(x or "").split("?")[0] for x in (doc.get(field) or []) if isinstance(x, str)]
+    if item not in owned:
+        return {"ok": False, "error": f"{doc.get('nickname') or uid} does not own {item}",
+                "uid": uid}
+
+    update: Dict[str, Any] = {
+        field: sorted(set(owned) - {item}),
+        "traded_away": _trade_away_after(doc, {item}, set()),
+    }
+    # Never leave the profile pointing at something it no longer owns.
+    equipped_field = "avatar_url" if field == "unlocked_icons" else "background_url"
+    if str(doc.get(equipped_field) or "").split("?")[0].lower() == item:
+        update[equipped_field] = "/avatars/mullet.png" if field == "unlocked_icons" else ""
+    if not dry_run:
+        users.document(uid).set(update, merge=True)
+    entry = update["traded_away"][-1]
+    return {"ok": True, "dry_run": dry_run, "uid": uid,
+            "nickname": doc.get("nickname"), "item": item,
+            "unequipped": equipped_field in update,
+            "re_earn_from": {"level": entry.get("level"), "rank": entry.get("rank"),
+                             "stats": entry.get("stats", {}),
+                             "achievements": entry.get("achievements", {})}}
+
 
 def _trade_id_for(uid_a: str, uid_b: str) -> str:
     """Deterministic id for the (only) active trade between two accounts."""
@@ -1496,7 +1636,8 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
 
     Returns (error, changes) where changes = { uid: {
         "unlocked_icons": [...], "unlocked_backgrounds": [...],
-        "critter_coins": int, "avatar_url"?: str, "background_url"?: str } }."""
+        "critter_coins": int, "traded_away": [...],
+        "avatar_url"?: str, "background_url"?: str } }."""
     parts = trade.get("participants") or []
     if len(parts) != 2:
         return ("bad_participants", None)
@@ -1530,6 +1671,10 @@ def _trade_compute_apply(trade: Dict[str, Any], doc_a: Dict[str, Any],
             "unlocked_icons": sorted(new_av),
             "unlocked_backgrounds": sorted(new_bg),
             "critter_coins": int(new_coins),
+            # Progress snapshot per item handed over, so the unlock requirement
+            # has to be met all over again before an automatic grant returns it.
+            "traded_away": _trade_away_after(doc, removed_av | removed_bg,
+                                             added_av | added_bg),
         }
         # If the player traded away the avatar/background they had equipped,
         # fall back to a safe default so their profile never points at an item
@@ -1875,6 +2020,7 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
                 "unlocked_icons": ch["unlocked_icons"],
                 "unlocked_backgrounds": ch["unlocked_backgrounds"],
                 "stats": {"critter_coins": ch["critter_coins"]},
+                "traded_away": ch["traded_away"],
             }
             if "avatar_url" in ch:
                 update["avatar_url"] = ch["avatar_url"]
@@ -9640,6 +9786,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "bad kind"}, status=HTTPStatus.BAD_REQUEST)
                 return
             self._send_json(_admin_update_supporter(kind, str(body.get("id") or ""), body))
+            return
+
+        # Take a cosmetic back off an account and make its unlock requirement be
+        # earned again (same snapshot a trade writes — see _admin_revoke_item).
+        # Body: { "admin_key": "...", "user": "<nickname or uid>",
+        #         "item": "/avatars/x.png", "dry_run"?: true }
+        if parsed.path == "/api/admin/revoke_item":
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or not secrets.compare_digest(admin_key, env_key):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            out = _admin_revoke_item(str(body.get("user") or ""),
+                                     str(body.get("item") or ""),
+                                     dry_run=bool(body.get("dry_run")))
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
             return
 
         if parsed.path == "/api/stats/seed":

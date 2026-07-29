@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.31";
-  const APP_BUILD   = "2026-07-28.6";
+  const APP_VERSION = "1.6.33";
+  const APP_BUILD   = "2026-07-29.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -14088,7 +14088,7 @@
       unlock:{ type:"event", event:"grooved_deck_only_win", label:"Win a 3+ player game while only drawing from the Deck (never the Pool)." } },
     { id:"elkhorn-coral", name:"Elk Horn Coral", species:"Coral", img:"/avatars/elkhorn-coral.png",
       facts:"Strong wave action or hurricanes can break their branches, but this isn't always bad. The broken fragments can reattach to the seafloor and grow into a completely new, genetically identical colony.",
-      unlock:{ type:"achievement", achId:"reef_rally", goal:15, label:"Add 15 friends (Reef Rally)." } },
+      unlock:{ type:"achievement", achId:"reef_rally", goal:15, unit:"friends", label:"Add 15 friends (Reef Rally)." } },
 
     // ── Mammals ──────────────────────────────────────────────────
     { id:"spinner-dolphin", name:"Spinner Dolphin", species:"Mammals", img:"/avatars/spinner-dolphin.png",
@@ -14099,7 +14099,7 @@
       unlock:{ type:"rank", tier:"diamond", label:"Reach Diamond rank in Competitive." } },
     { id:"narwhal", name:"Narwhal", species:"Mammals", img:"/avatars/narwhal.png",
       facts:"The narwhal's signature spiral tusk is actually an enlarged canine tooth that grows directly through its lip. Found mostly on males, it can reach up to 10 feet in length.",
-      unlock:{ type:"achievement", achId:"narwhal_mammal_wins", label:"Win 10 games using the Mammals strategy." } },
+      unlock:{ type:"achievement", achId:"narwhal_mammal_wins", goal:10, label:"Win 10 games using the Mammals strategy." } },
 
     // ── Invertebrates ────────────────────────────────────────────
     { id:"sea-sponge", name:"Orange Tube Sponge", species:"Invertebrates", img:"/avatars/sea-sponge.png",
@@ -14298,6 +14298,99 @@
       return `${cur} / ${goal} qualifying wins`;
     }
     return "";
+  }
+
+  // ── Re-earning an avatar you traded away ─────────────────────────────
+  // Trading an item away does NOT undo the progress that unlocked it, so the
+  // retroactive unlock sweep used to hand it straight back for free (trade the
+  // Horned Puffin, and your 75 banked Play Agains re-unlocked it on the next
+  // stats load). When an item leaves an account the server snapshots that
+  // account's progress (users/{uid}.traded_away, see _trade_away_after in
+  // multiplayer_server.py); everything measured against BANKED progress must be
+  // earned AGAIN from that snapshot before an automatic grant returns it.
+  // Requirements that are repeatable by nature — one-game feats, hidden clicks,
+  // donation codes, Store purchases — are re-done by definition and pass
+  // straight through (reaching the grant means the player just did it again).
+  const REEARN_GATED_TYPES = new Set(["stat", "comp_wins", "level", "rank", "achievement"]);
+
+  // The most recent trade-away snapshot for `img`, or null if it was never
+  // traded away by this account.
+  function tradedAwayEntry(profile, img) {
+    const want = String(img || "").split("?")[0].toLowerCase();
+    const arr = (profile && Array.isArray(profile.traded_away)) ? profile.traded_away : null;
+    if (!want || !arr) return null;
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const e = arr[i];
+      if (e && typeof e === "object"
+          && String(e.item || "").split("?")[0].toLowerCase() === want) return e;
+    }
+    return null;
+  }
+
+  // What it now takes to get `a` back: { met, prog (0..1 or null), text,
+  // repeatable }. `base` is the trade-away snapshot; stats/level are CURRENT.
+  function reEarnState(a, base, stats, level) {
+    const u = (a && a.unlock) || {};
+    const bStats = (base && typeof base.stats === "object" && base.stats) || {};
+    const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+    const fmt = n => Math.round(n).toLocaleString();
+    const counted = (cur, need, unit) => ({
+      met: cur >= need,
+      prog: need > 0 ? Math.max(0, Math.min(1, cur / need)) : 1,
+      text: `${fmt(Math.min(cur, need))} / ${fmt(need)}${unit ? " " + unit : ""}`,
+      repeatable: true,
+    });
+    if (u.type === "stat") {
+      return counted(num(stats?.[u.stat]), num(bStats[u.stat]) + num(u.goal), u.unit || "");
+    }
+    if (u.type === "comp_wins") {
+      return counted(num(stats?.lifetime_comp_wins),
+                     num(bStats.lifetime_comp_wins) + num(u.goal), "Competitive wins");
+    }
+    if (u.type === "level") {
+      // "Reach Level N" can't literally happen twice, so the second time is
+      // worth what that milestone cost from scratch: earn that XP all over
+      // again. Never dead-ends, unlike demanding N more levels past the cap.
+      const goalLvl = Math.max(1, Math.min(LEVEL_XP_TOTALS.length, num(u.goal)));
+      const cost = LEVEL_XP_TOTALS[goalLvl - 1] || 0;
+      const baseXp = num(base && base.total_xp) || num(bStats.total_xp);
+      return counted(getStoredTotalXp(stats), baseXp + cost, "XP");
+    }
+    if (u.type === "rank") {
+      // A rank is a standing position, so "again" means CLIMB TO IT again: fall
+      // below the tier (a loss streak, or the season reset that puts everyone
+      // back to Unranked) and get back up. `dipped` is set the moment we see the
+      // player below the tier after the trade — see _noteReEarnRankDip.
+      const curName = stats?.rank_competitive || "Unranked";
+      const cur  = rankTierValue(curName);
+      const need = _RANK_TIER_VALUE[u.tier] || Infinity;
+      const below = !!(base && base.dipped) || rankTierValue(base && base.rank) < need;
+      return { met: below && cur >= need, prog: null, repeatable: true,
+               text: below
+                 ? `Climb back to ${u.tier} — you're ${curName}.`
+                 : `Drop below ${u.tier} and earn it again (you're ${curName}; the season reset counts).` };
+    }
+    if (u.type === "achievement") {
+      // The badge is one-shot, but achievements.{id}.progress is a lifetime
+      // meter that keeps counting every qualifying performance, so doing the
+      // achievement's work a second time is measurable.
+      const achs = (typeof window.__fishGetUserAchievements === "function")
+        ? (window.__fishGetUserAchievements() || {}) : {};
+      const cur  = num((achs[u.achId] || {}).progress);
+      const wasA = (base && typeof base.achievements === "object" && base.achievements) || {};
+      const goal = Math.max(1, num(u.goal) || 1);
+      const need = num(wasA[u.achId]) + goal;
+      if (goal <= 1) {
+        // A one-off feat (beat the Giant Squid, 5 Cephalopods in a turn…):
+        // no meaningful bar, just do it once more.
+        return { met: cur >= need, prog: null, repeatable: true,
+                 text: "Do it once more to earn it back." };
+      }
+      return counted(cur, need, u.unit || "qualifying wins");
+    }
+    // Unknown/one-off type: nothing measurable to repeat, so don't auto-grant.
+    return { met: false, prog: null, repeatable: false,
+             text: "Trade for it to get it back." };
   }
 
   // ── Animal unlock screen queue (shown on return to the home menu) ──
@@ -15096,7 +15189,7 @@
 
       const items = ANIMAL_AVATARS.map(a => {
         const unlocked = isAvatarUnlocked(a.img);
-        const p = animalUnlockProgress(a, stats, level);
+        const p = unlocked ? 1 : _effectiveUnlockProgress(a, stats, level);
         return { a, unlocked, prog: (p == null ? -1 : p), pop: Number(counts[a.img] || 0) };
       });
       items.sort((x, y) => {
@@ -15384,11 +15477,21 @@
       });
     }
 
+    // Progress toward OWNING this avatar right now: the normal requirement, or
+    // the re-earn requirement when it was traded away (otherwise a traded-away
+    // avatar sorts as "100% done" forever, since the original goal is still met).
+    function _effectiveUnlockProgress(a, stats, level) {
+      if (!REEARN_GATED_TYPES.has(a?.unlock?.type)) return animalUnlockProgress(a, stats, level);
+      const base = tradedAwayEntry(_activeProfile, a.img);
+      if (!base) return animalUnlockProgress(a, stats, level);
+      return reEarnState(a, base, stats, level).prog;
+    }
+
     // Build the {item} list for a set of avatars with computed unlock state.
     function _galItems(list, stats, level, equipped, newSet, counts) {
       return list.map(a => {
         const unlocked = isAvatarUnlocked(a.img);
-        const p = animalUnlockProgress(a, stats, level);
+        const p = unlocked ? 1 : _effectiveUnlockProgress(a, stats, level);
         return {
           a, unlocked,
           equipped: a.img === equipped,
@@ -15674,11 +15777,24 @@
       }
 
       if (!unlocked) {
+        // Traded away → the requirement has to be done AGAIN, measured from the
+        // progress snapshot taken when it left the account, so show THAT
+        // progress instead of the (already-satisfied) original one.
+        const tradedBase = REEARN_GATED_TYPES.has(a.unlock?.type)
+          ? tradedAwayEntry(_activeProfile, a.img) : null;
+        const re = tradedBase ? reEarnState(a, tradedBase, stats, level) : null;
         html += `<div class="gal-detail-reqbox">`;
-        html += `<div class="gal-req-label">Unlock Requirement</div>`;
+        html += `<div class="gal-req-label">${re ? "Traded Away, Earn It Again" : "Unlock Requirement"}</div>`;
         html += `<div class="gal-req-text">${escapeHtml(a.unlock?.label || "Locked.")}</div>`;
-        const prog = animalUnlockProgress(a, stats, level);  // 0..1 or null
-        const ptext = animalProgressText(a, stats, level);
+        if (re) {
+          const lead = _galReadOnly ? "They traded this away." : "You traded this away.";
+          const tail = (re.repeatable && re.prog !== null)
+            ? "It has to be earned again from where the count stood that day."
+            : re.text;   // rank / one-shot requirements explain themselves
+          html += `<div class="gal-req-text gal-req-reearn">${escapeHtml(lead + " " + tail)}</div>`;
+        }
+        const prog  = re ? re.prog : animalUnlockProgress(a, stats, level);  // 0..1 or null
+        const ptext = re ? re.text : animalProgressText(a, stats, level);
         // Giant Squid: hide the rank-progress line (just show the requirement).
         if (prog !== null && ptext && a.id !== "giant-squid") {
           const pct = Math.round(prog * 100);
@@ -21626,8 +21742,8 @@
         const aU = isAvatarUnlocked(a.img), bU = isAvatarUnlocked(b.img);
         if (aU !== bU) return aU ? -1 : 1;
         // Both locked, sort by progress fraction descending
-        const ap = animalUnlockProgress(a, stats, level) || 0;
-        const bp = animalUnlockProgress(b, stats, level) || 0;
+        const ap = _effectiveUnlockProgress(a, stats, level) || 0;
+        const bp = _effectiveUnlockProgress(b, stats, level) || 0;
         return bp - ap;
       });
 
@@ -21640,8 +21756,13 @@
       filtered.forEach(a => {
         const unlocked = isAvatarUnlocked(a.img);
         const u        = a.unlock;
-        const prog     = animalUnlockProgress(a, stats, level);  // 0..1 or null
-        const progText = animalProgressText(a, stats, level);     // "X / Y ..." or ""
+        // Traded away → measure against the re-earn requirement, not the
+        // original one it already satisfies (see reEarnState).
+        const reBase   = (!unlocked && REEARN_GATED_TYPES.has(u?.type))
+          ? tradedAwayEntry(_activeProfile, a.img) : null;
+        const re       = reBase ? reEarnState(a, reBase, stats, level) : null;
+        const prog     = re ? re.prog : animalUnlockProgress(a, stats, level);  // 0..1 or null
+        const progText = re ? re.text : animalProgressText(a, stats, level);    // "X / Y ..." or ""
 
         const card = document.createElement("div");
         card.className = "av-ach-card" + (unlocked ? " av-done" : "");
@@ -21673,6 +21794,13 @@
         info.appendChild(nameEl);
         info.appendChild(speciesEl);
         info.appendChild(reqEl);
+        if (re) {
+          const tradedEl = document.createElement("div");
+          tradedEl.className = "av-req av-req-reearn";
+          tradedEl.textContent = "You traded this away, earn it again."
+            + (re.prog === null ? " " + re.text : "");
+          info.appendChild(tradedEl);
+        }
 
         // Progress bar (for numeric unlock types). Giant Squid hides progress.
         if (!unlocked && prog !== null && prog >= 0 && a.id !== "giant-squid") {
@@ -21688,6 +21816,8 @@
         right.className = "av-right";
         if (unlocked) {
           right.innerHTML = `<div class="av-badge av-badge-done">✓ Unlocked</div>`;
+        } else if (re && re.prog === null) {
+          right.innerHTML = `<div class="av-badge av-badge-locked">Traded</div>`;
         } else if (u.type === "secret" || a.id === "giant-squid") {
           right.innerHTML = `<div class="av-badge av-badge-secret">🔮 Hidden</div>`;
         } else if (u.type === "event" || u.type === "achievement") {
@@ -25003,31 +25133,56 @@
     }
     window.__fishRunAchievementReset = runAchievementResetIfNeeded;
 
-    async function unlockAchievement(uid, achId) {
+    // Called every time a qualifying feat happens — not only the first. The
+    // completion (badge, XP, popup) is still one-shot, but `progress` is a
+    // LIFETIME meter that keeps counting afterwards: doing the thing again is
+    // how you earn back an avatar you traded away (see reEarnState). Callers
+    // that already recorded the performance in the meter pass {counted:true}
+    // so it isn't double-counted.
+    async function unlockAchievement(uid, achId, opts) {
       if (!_db || !uid || !achId) return;
-      if (_userAchievements[achId] && _userAchievements[achId].completed) return; // already done
       const def = ACHIEVEMENT_DEFS.find(d => d.id === achId);
       if (!def) return;
+      const already = !!(_userAchievements[achId] && _userAchievements[achId].completed);
+      const counted = !!(opts && opts.counted);
 
-      const now = Date.now();
-      const rec = { completed: true, unlockedAt: now };
-      _userAchievements[achId] = rec;
+      if (already) {
+        // Repeat performance: count it, keep the badge exactly as it was.
+        if (!counted) {
+          const prev = _userAchievements[achId] || {};
+          const rep = { ...prev, progress: Number(prev.progress || 0) + 1 };
+          _userAchievements[achId] = rep;
+          try {
+            await _db.collection("users").doc(uid).update({ [`achievements.${achId}`]: rep });
+          } catch (e) {
+            console.warn("[achievements] repeat-performance write error:", e);
+          }
+        }
+      } else {
+        const now = Date.now();
+        const prev = _userAchievements[achId] || {};
+        const rec = { ...prev, completed: true, unlockedAt: now };
+        _userAchievements[achId] = rec;
 
-      // Award XP, atomically add to total_xp
-      try {
-        const docRef = _db.collection("users").doc(uid);
-        const updates = {};
-        updates[`achievements.${achId}`] = rec;
-        updates["stats.total_xp"] = firebase.firestore.FieldValue.increment(def.xp);
-        await docRef.update(updates);
-      } catch(e) {
-        console.warn("[achievements] unlockAchievement write error:", e);
+        // Award XP, atomically add to total_xp
+        try {
+          const docRef = _db.collection("users").doc(uid);
+          const updates = {};
+          updates[`achievements.${achId}`] = rec;
+          updates["stats.total_xp"] = firebase.firestore.FieldValue.increment(def.xp);
+          await docRef.update(updates);
+        } catch(e) {
+          console.warn("[achievements] unlockAchievement write error:", e);
+        }
+
+        _queueAchPopup(def);
+        window.__fishNotifPushAchievement?.(achId, def.name);
       }
 
-      _queueAchPopup(def);
-      window.__fishNotifPushAchievement?.(achId, def.name);
       // Grant any animal avatar tied to this achievement, then immediately
-      // surface the unlock overlay (delayed so the achievement popup animates first).
+      // surface the unlock overlay (delayed so the achievement popup animates
+      // first). Runs on repeats too — that's the path that hands back an avatar
+      // whose requirement has now been met a second time.
       try {
         let _achAvatarGranted = false;
         for (const an of ANIMAL_AVATARS) {
@@ -25081,18 +25236,25 @@
       } catch (e) { console.warn("[cc] lock error", e); return false; }
     };
 
+    // NOTE: the meter deliberately keeps running after completion. The
+    // achievements page only draws the bar while !done, so nothing renders
+    // "18 / 12" — but the running count is what proves the requirement was met
+    // a SECOND time, which is how a traded-away avatar is earned back.
     async function updateAchievementProgress(uid, achId, progress, goal) {
       if (!_db || !uid || !achId) return;
-      if (_userAchievements[achId] && _userAchievements[achId].completed) return;
       const rec = _userAchievements[achId] || {};
-      const newRec = { ...rec, progress, goal };
-      _userAchievements[achId] = newRec;
-      try {
-        await _db.collection("users").doc(uid).update({ [`achievements.${achId}`]: newRec });
-      } catch(e) {
-        console.warn("[achievements] updateAchievementProgress error:", e);
+      // Skip the write when nothing moved — callers that feed a standing count
+      // (e.g. the friend total on every load) must not write every time.
+      if (Number(rec.progress) !== Number(progress) || Number(rec.goal) !== Number(goal)) {
+        const newRec = { ...rec, progress, goal };
+        _userAchievements[achId] = newRec;
+        try {
+          await _db.collection("users").doc(uid).update({ [`achievements.${achId}`]: newRec });
+        } catch(e) {
+          console.warn("[achievements] updateAchievementProgress error:", e);
+        }
       }
-      if (progress >= goal) await unlockAchievement(uid, achId);
+      if (progress >= goal) await unlockAchievement(uid, achId, { counted: true });
     }
 
     function _isDone(achId) {
@@ -25101,11 +25263,11 @@
 
     // Cumulative progress bump: add `inc` to an achievement's stored progress
     // and unlock when it reaches `goal`. Progress persists in the achievement
-    // record itself (achievements.{id}.progress).
+    // record itself (achievements.{id}.progress) and keeps counting past the
+    // goal, so a second full run of the requirement is provable.
     async function bumpAchievementProgress(uid, achId, inc, goal) {
       if (!_db || !uid || !achId) return;
       if (_achLoadedUid !== uid) await loadUserAchievements(uid);
-      if (_isDone(achId)) return;
       const rec = _userAchievements[achId] || {};
       const cur = Number(rec.progress || 0) + (Number(inc) || 1);
       await updateAchievementProgress(uid, achId, cur, goal);
@@ -25214,9 +25376,13 @@
       try {
         const snap = await _db.collection("users").doc(uid).collection("friends").get();
         const count = snap.size;
-        if (!_isDone("first_fin") && count >= 1) await unlockAchievement(uid, "first_fin");
-        if (!_isDone("shoal_formed") && count >= 5) await unlockAchievement(uid, "shoal_formed");
-        if (!_isDone("reef_rally") && count >= 15) await unlockAchievement(uid, "reef_rally");
+        // Feed the live friend count straight into the meters (each unlocks at
+        // its goal on its own). Storing the real number, rather than only a
+        // completion flag, is what lets Reef Rally's Elk Horn Coral be earned
+        // back after a trade: 15 MORE friends than you had that day.
+        await updateAchievementProgress(uid, "first_fin", count, 1);
+        await updateAchievementProgress(uid, "shoal_formed", count, 5);
+        await updateAchievementProgress(uid, "reef_rally", count, 15);
       } catch(e) {
         console.warn("[achievements] checkFriendAchievements error:", e);
       }
@@ -25316,13 +25482,17 @@
         }
       }
 
-      // Humuhumunukuapua'a: 5 cephalopods placed in one turn
-      if (!_isDone("humuhumunukuapuaa") && Number(tracker.maxCephInTurn || 0) >= 5) {
+      // Humuhumunukuapua'a: 5 cephalopods placed in one turn. Reported on every
+      // qualifying game, not just the first — a repeat performance is what earns
+      // back the Reef Triggerfish if it was traded away (unlockAchievement keeps
+      // the badge one-shot and only counts the performance).
+      if (Number(tracker.maxCephInTurn || 0) >= 5) {
         await unlockAchievement(uid, "humuhumunukuapuaa");
       }
 
-      // Quick Swim: 4-player game finished in under 30 min and won
-      if (!_isDone("quick_swim") && isWinner && playerCount === 4
+      // Quick Swim: 4-player game finished in under 30 min and won (reported
+      // every time, same reason as above — it earns back the Mantis Shrimp).
+      if (isWinner && playerCount === 4
           && Number(gameMinutes) > 0 && Number(gameMinutes) < 30) {
         await unlockAchievement(uid, "quick_swim");
       }
@@ -25446,6 +25616,28 @@
     window.__fishGetUnlockedIcons  = () => [..._unlockedIcons];
     window.__fishIsIconUnlocked    = (iconPath) => isAvatarUnlocked(iconPath);
     window.__fishGetEquippedAvatar = () => normalizeAvatarUrl(_activeProfile?.avatar_url || "") || DEFAULT_AVATAR_IMG;
+    // True unless `path` was traded away and its requirement hasn't been met
+    // again since. Only requirements backed by BANKED progress are gated here
+    // (see REEARN_GATED_TYPES): a one-game feat, a hidden click, a code or a
+    // Store purchase reaching this point means the player just did it again.
+    // Counters are read from the LOADED profile, so a re-earn finished by the
+    // game just played lands on the next profile load — returning to Player
+    // Home runs one, and that's where unlock screens are shown anyway.
+    function _reEarnAllowsGrant(path) {
+      try {
+        const a = animalByImg(path);
+        if (!a || !a.unlock || !REEARN_GATED_TYPES.has(a.unlock.type)) return true;
+        const base = tradedAwayEntry(_activeProfile, path);
+        if (!base) return true;
+        const { stats, level } = _avatarStatsAndLevel();
+        return !!reEarnState(a, base, stats, level).met;
+      } catch (e) {
+        console.warn("[unlock] re-earn check failed for", path, e);
+        return true;   // never let a bad snapshot block a legitimate unlock
+      }
+    }
+    window.__fishReEarnAllowsGrant = _reEarnAllowsGrant;
+
     // Grant a new animal icon. Returns true if it was newly unlocked.
     window.__fishGrantUnlockedIcon = async (iconPath) => {
       // Hard guard: while viewing another player's collection the globals are
@@ -25455,6 +25647,8 @@
       const path = normalizeAvatarUrl(String(iconPath || ""));
       if (!path || !path.startsWith("/avatars/")) return false;
       if (isAvatarUnlocked(path)) return false; // already owned (starter or unlocked)
+      // Traded away? Banked progress must not hand it back — earn it again.
+      if (!_reEarnAllowsGrant(path)) return false;
       _unlockedIcons = [..._unlockedIcons, path];
       // Record into the per-account baseline so the on-load diff
       // (_popNewlyGrantedIcons) never re-pops an icon already shown here.
@@ -25722,6 +25916,29 @@
     }
     // Expose code redemption for the store modal
     window.__fishRedeemCode = redeemDonationCode;
+
+    // Rank avatars are re-earned by CLIMBING to the tier again, so we have to
+    // notice the fall. Whenever the player is seen below the required tier with
+    // a trade-away on record, stamp `dipped` on that entry — after that,
+    // reaching the tier again re-grants it (a season reset to Unranked counts).
+    // One write, only on the load where the dip is first seen.
+    async function _noteReEarnRankDip(stats) {
+      if (_galReadOnly || !_authUser || !_db) return;
+      const away = Array.isArray(_activeProfile?.traded_away) ? _activeProfile.traded_away : null;
+      if (!away || !away.length) return;
+      const tier = rankTierValue(stats?.rank_competitive);
+      let changed = false;
+      for (const entry of away) {
+        if (!entry || typeof entry !== "object" || entry.dipped) continue;
+        const a = animalByImg(String(entry.item || ""));
+        if (!a || a.unlock?.type !== "rank") continue;
+        if (tier < (_RANK_TIER_VALUE[a.unlock.tier] || Infinity)) { entry.dipped = true; changed = true; }
+      }
+      if (!changed) return;
+      try {
+        await _db.collection("users").doc(_authUser.uid).update({ traded_away: away });
+      } catch (e) { console.warn("[unlock] could not record rank dip:", e); }
+    }
     // Re-evaluate stat/level based unlocks against current stats. Returns the
     // list of newly-unlocked animal ids (caller decides whether to show a screen).
     window.__fishSyncStatUnlocks = async () => {
@@ -25734,6 +25951,7 @@
       // Make sure achievements are loaded so already-earned achievement-based
       // unlocks (e.g. Birds of a Feather) are granted retroactively.
       if (_authUser && _achLoadedUid !== _authUser.uid) { try { await loadUserAchievements(_authUser.uid); } catch {} }
+      try { await _noteReEarnRankDip(stats); } catch (e) { console.warn("[unlock] rank dip check failed", e); }
       for (const a of ANIMAL_AVATARS) {
         // Each avatar is checked independently, a single bad definition can
         // never throw out of the loop and block every other unlock.

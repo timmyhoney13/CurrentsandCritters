@@ -10993,6 +10993,8 @@
       line-height: 1.35;
     }
     .av-ach-card.av-done .av-req { color: #3a7060; }
+    /* "You traded this away" line under the requirement in the avatar list. */
+    .av-req-reearn { color: #c08a3e; font-weight: 700; margin-top: 3px; }
     .av-prog-wrap { margin-top: 5px; }
     .av-prog-bar {
       height: 5px;
@@ -11356,6 +11358,9 @@
     .gal-earned-box { background: rgba(80,220,150,.1); border-color: rgba(80,220,150,.32); }
     .gal-earned-box .gal-req-label { color: #7fe0ab; }
     .gal-earned-box .gal-req-text { color: #d3f3e2; }
+    /* "You traded this away" note under the requirement, amber so it reads as a
+       state change rather than a plain requirement. */
+    .gal-req-reearn { margin-top: 7px; color: #ffd28a; font-weight: 700; }
     .gal-prog-row { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 5px; }
     .gal-prog-label { font-size: .72rem; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: #b39aff; }
     .gal-prog-val { font-size: .82rem; font-weight: 800; color: #eaf4ff; }
