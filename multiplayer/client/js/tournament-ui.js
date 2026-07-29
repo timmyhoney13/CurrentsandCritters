@@ -37,6 +37,7 @@
     watchTimer: null,                     // background poll (keeps us connected + pulls us into the next round)
     bg: null,                             // last background state snapshot (read while the overlay is closed)
     status: null,                         // what the status chip / waiting bar is currently showing
+    outAnnounced: null,                   // tournament id we've already told "you're knocked out"
   };
 
   // ── auth helpers ─────────────────────────────────────────────────────────
@@ -805,7 +806,10 @@
     document.body.appendChild(scr);
     scr.querySelectorAll(".ccT-tab").forEach(t => t.addEventListener("click", () => setView(t.dataset.view)));
     $("#ccT-h-leave", scr).addEventListener("click", onLeave);
-    $("#ccT-h-spectate", scr).addEventListener("click", () => setView("bracket"));
+    // "Spectate" must actually spectate. It used to just switch to the bracket
+    // tab, which is what the tab beside it already does — so a knocked-out player
+    // pressing the one button labelled "watch a game" got a bracket and no game.
+    $("#ccT-h-spectate", scr).addEventListener("click", () => spectatePick());
     $("#ccT-h-host", scr).addEventListener("click", openHostPanel);
     return scr;
   }
@@ -837,9 +841,29 @@
     render();
   }
 
+  // Is my run over (knocked out, champion, or the whole bracket is done)? Then the
+  // header's exit is a plain "go back", not a forfeit — see onLeave.
+  function myRunIsOver(st) {
+    if (!st || !st.viewer) return false;
+    if (st.phase === "complete" || st.phase === "cancelled") return true;
+    return st.viewer.status === "eliminated" || st.viewer.status === "champion"
+        || !st.viewer.in_tournament;
+  }
+
   async function onLeave() {
-    if (T.state && T.state.viewer && T.state.viewer.in_tournament &&
-        (T.state.phase === "running") && T.state.viewer.status !== "eliminated" && T.state.viewer.status !== "champion") {
+    const st = T.state;
+    // Knocked out / finished: this button is just "back to Home". Leaving for real
+    // would tell the server we FORFEITED — costing the no-quit XP of a run we
+    // already completed — and drop us out of the results we're waiting on. Close
+    // the overlay instead and keep following the tournament from the home screen.
+    if (myRunIsOver(st)) {
+      closeScreen();
+      goHome();
+      if (st && st.phase !== "cancelled") { persistActive(); startWatch(); }
+      else clearActive();
+      return;
+    }
+    if (st && st.viewer && st.viewer.in_tournament && st.phase === "running") {
       if (!window.confirm("Leaving now forfeits your spot in the tournament. Continue?")) return;
     }
     try { await post("/api/tournament/leave", { id: T.tid }); } catch (_) {}
@@ -895,6 +919,27 @@
     $("#ccT-h-code", scr).textContent = st.tournament_id || T.tid;
     $("#ccT-h-phase", scr).textContent = st.phase;
     $("#ccT-h-host", scr).style.display = st.viewer && st.viewer.is_host ? "" : "none";
+    // Only offer Spectate when there is genuinely a game to watch: the tournament
+    // is under way, the host allows watching, and at least one match we're not
+    // playing in is live right now.
+    const specBtn = $("#ccT-h-spectate", scr);
+    if (specBtn) {
+      const nLive = st.phase === "running" && st.spectators_allowed !== false
+        ? liveOtherMatches(st, currentRoomId()).length : 0;
+      specBtn.style.display = nLive > 0 ? "" : "none";
+      specBtn.textContent = nLive > 1 ? `👁 Spectate (${nLive})` : "👁 Spectate";
+    }
+    // "Leave" forfeits — so it must not be the word on the button once there is
+    // nothing left to forfeit (see onLeave).
+    const leaveBtn = $("#ccT-h-leave", scr);
+    if (leaveBtn) {
+      const done = myRunIsOver(st);
+      leaveBtn.textContent = done ? "← Home" : "Leave";
+      leaveBtn.classList.toggle("coral", !done);
+      leaveBtn.classList.toggle("ghost", done);
+      leaveBtn.title = done ? "Back to the home screen (you stay in the tournament)"
+                            : "Leave the tournament (forfeits your spot)";
+    }
     const annc = $("#ccT-annc", scr);
     if (st.announcement) { annc.style.display = ""; annc.textContent = "📣 " + st.announcement; } else annc.style.display = "none";
     // auto-switch to bracket once running
@@ -1499,7 +1544,8 @@
       <div class="ccT-mr-row ${p.ready ? "ready" : ""} ${p.me ? "me" : ""}">
         <img class="ccT-av" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">
         <span class="ccT-mr-nm">${esc(p.name)}${p.me ? " (you)" : ""}${p.is_bot ? " 🤖" : ""}</span>
-        <span class="ccT-mr-badge ${p.ready ? "on" : (p.connected ? "off" : "gone")}">${p.ready ? "✓ Ready" : (p.connected ? "Waiting…" : "Offline")}</span>
+        <span class="ccT-mr-badge ${p.quit ? "gone" : p.ready ? "on" : (p.connected ? "off" : "gone")}">${
+          p.quit ? "Forfeited" : p.ready ? "✓ Ready" : (p.connected ? "Waiting…" : "Offline")}</span>
       </div>`).join("");
     const allReady = tc > 0 && rc >= tc;
     m.innerHTML = `<div class="ccT-card" style="width:min(440px,94vw)"><div class="ccT-body" style="text-align:center">
@@ -1688,15 +1734,26 @@
       const st = T.bg || T.state;
       if (!T.tid || !st || !st.viewer) return null;
       if (!st.viewer.in_tournament) return null;
-      const m = matchInRoom(st, currentRoomId());
+      const cur = currentRoomId();
+      const m = matchInRoom(st, cur);
       if (!m) return null;
-      if (!(m.players || []).some(p => p && p.pid === st.viewer.pid)) return null;   // watching, not playing
+      // Are we a PLAYER in this match, or watching it? Either way it's a bracket
+      // match and "Play Again / Back to Lobby" is wrong — a watcher has no seat to
+      // play again with, so that button could only ever fail.
+      const playing = (m.players || []).some(p => p && p.pid === st.viewer.pid);
+      const finished = st.phase === "complete" || st.phase === "cancelled";
+      const live = liveOtherMatches(st, cur).length;
       return {
         tid: T.tid,
         name: st.name || "",
+        watching: !playing,
         // Knocked out / tournament over → there is no "next match" to wait for.
-        over: st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated",
-        canSpectate: st.spectators_allowed !== false,
+        over: finished || st.viewer.status === "eliminated",
+        // …but "no next match" is NOT "nothing to do": knocked out with games
+        // still running, Spectate is the button that matters.
+        finished: finished,
+        live: live,
+        canSpectate: st.spectators_allowed !== false && live > 0,
       };
     } catch (_) { return null; }
   };
@@ -1722,10 +1779,16 @@
   //   • anywhere else → a waiting BAR on the Player Home, styled like the Quick
   //     Match "Finding players…" banner (spinner + status + Spectate / Bracket),
   //     so you can wait there and still browse your stats, friends or the menu.
-  // s = { mode:"lobby"|"playing"|"waiting"|"done", name, live, canSpectate }
+  // s = { mode:"lobby"|"playing"|"waiting"|"out"|"done", name, live, canSpectate }
   //   live: how many OTHER matches are being played right now (-1 = not known yet).
+  //   "out" = knocked out while the tournament is STILL RUNNING — you have no next
+  //   match, but the rest of the bracket is live and you can watch any of it.
   function chipText(s) {
     if (s.mode === "done") return "🏆 " + (s.name || "Tournament") + " — results";
+    if (s.mode === "out") {
+      if (s.live > 0) return `👁 Knocked out — ${s.live} game${s.live === 1 ? "" : "s"} still live`;
+      return "🏆 Knocked out — follow the bracket";
+    }
     if (s.mode === "waiting") {
       if (s.live > 0) return `⏳ Waiting for ${s.live} other game${s.live === 1 ? "" : "s"} to finish`;
       if (s.live === 0) return "⏳ Waiting for the next round";
@@ -1737,6 +1800,10 @@
     if (s.mode === "done") return "This tournament is finished.";
     if (s.mode === "lobby") return "Your tournament hasn't started yet.";
     if (s.mode === "playing") return "Your tournament match is in progress.";
+    if (s.mode === "out") {
+      if (s.live > 0) return `You're out — ${s.live} tournament game${s.live === 1 ? "" : "s"} still being played.`;
+      return "You're out — the next round is starting.";
+    }
     if (s.live > 0) return `Waiting for ${s.live} other tournament game${s.live === 1 ? "" : "s"} to finish…`;
     if (s.live === 0) return "Waiting for the next tournament round…";
     return "Waiting for the other tournament games to finish…";
@@ -1745,6 +1812,11 @@
     const nm = s.name ? s.name + " · " : "";
     if (s.mode === "done") return nm + "open the bracket for the final standings.";
     if (s.mode === "lobby") return nm + "open it to ready up when the host starts.";
+    if (s.mode === "out") {
+      return nm + (s.canSpectate === false
+        ? "follow the rest of the bracket to the final."
+        : "watch a live match, or follow the bracket to the final.");
+    }
     return nm + "we'll bring you into your next match automatically.";
   }
 
@@ -1809,8 +1881,12 @@
     const main = $("#ccT-wb-main", bar), sub = $("#ccT-wb-sub", bar);
     if (main) main.textContent = barMain(s);
     if (sub) sub.textContent = barSub(s);
+    // Offer Spectate whenever there is (or might be) another game to watch —
+    // between your own matches AND after you've been knocked out. The "out" case
+    // is the one players actually ask for: your run is over, the final isn't.
     const spec = $("#ccT-wb-spectate", bar);
-    if (spec) spec.style.display = (s.mode === "waiting" && s.canSpectate !== false) ? "" : "none";
+    const canWatch = (s.mode === "waiting" || s.mode === "out") && s.canSpectate !== false && s.live !== 0;
+    if (spec) spec.style.display = canWatch ? "" : "none";
     const br = $("#ccT-wb-bracket", bar);
     if (br) br.textContent = s.mode === "done" ? "🏆 View results"
                            : s.mode === "lobby" ? "🏆 Open tournament" : "🏆 Bracket";
@@ -1932,11 +2008,28 @@
     const base = { name: st.name, live: liveOtherMatches(st, curRoom).length,
                    canSpectate: st.spectators_allowed !== false };
 
-    // Nothing more to play (done / cancelled / knocked out) → stop pulling, but
-    // leave the status up so the bracket + final standings stay one tap away.
-    if (st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated") {
+    // The whole tournament is over → stop pulling, but leave the status up so the
+    // bracket + final standings stay one tap away.
+    if (st.phase === "complete" || st.phase === "cancelled") {
+      const wasOut = T.status && T.status.mode === "out";
       stopWatch();
       renderStatus(Object.assign({ mode: "done" }, base));
+      // A player knocked out earlier followed the rest of the bracket from here,
+      // so this is the moment their run actually ends: show the result (placement
+      // + XP) instead of leaving them to notice that a bar changed wording. Only
+      // from the home screen — never on top of a game table or its end screen.
+      if (wasOut && !myGameLive && !T.screenOpen && !onGameRoomPage()) openScreen();
+      return;
+    }
+    // KNOCKED OUT, but the tournament is still being played. This is NOT "done":
+    // the rest of the bracket is live and watching it is the whole point of
+    // sticking around. Lumping it in with "complete" stopped the watch (so the
+    // live count froze and the final standings never arrived) and painted the
+    // "done" bar, which hides the Spectate button — the "I lost and now I can't
+    // watch anything" bug. Keep watching, and keep offering the other games.
+    if (st.viewer.status === "eliminated") {
+      renderStatus(Object.assign({ mode: "out" }, base));
+      announceKnockedOut(st, base);
       return;
     }
     const mm = st.viewer.my_match;              // our next ready/active match, if any
@@ -1953,6 +2046,17 @@
     const mode = st.phase === "lobby" ? "lobby" : (myGameLive ? "playing" : "waiting");
     renderStatus(Object.assign({ mode: mode }, base));
   }
+  // Knocked out, first time only: point the player at the games still running so
+  // "my run is over" doesn't read as "the tournament is over for me". The status
+  // bar/chip and the bracket's own live-match cards do the rest.
+  function announceKnockedOut(st, base) {
+    const key = st.tournament_id || T.tid;
+    if (!key || T.outAnnounced === key) return;
+    T.outAnnounced = key;
+    if (base.canSpectate === false || !(base.live > 0)) return;
+    toast(`You're out of ${st.name || "the tournament"} — ${base.live} game${base.live === 1 ? " is" : "s are"} still live. Tap Spectate to watch.`, "info");
+  }
+
   // The end-of-game screen sits at z-index 9850 and would bury the ready check.
   function closeEndScreen() {
     try { const b = bridge(); if (b && typeof b.closeEndScreen === "function") b.closeEndScreen(); } catch (_) {}
@@ -1974,10 +2078,28 @@
       showNotice("🚫", "Spectating is off", "The host turned spectating off for <b>" + esc(st.name || "this tournament") + "</b>, so matches can't be watched.");
       return;
     }
-    const live = liveOtherMatches(st, currentRoomId());
+    const cur = currentRoomId();
+    const live = liveOtherMatches(st, cur);
     if (!live.length) {
-      showNotice("🌊", "All other games have finished",
-        "Every other match in <b>" + esc(st.name || "this tournament") + "</b> is done, so there's nothing to watch — the next round is starting. Hang tight, we'll bring you into your match the moment it's ready.");
+      const out = st.viewer && st.viewer.status === "eliminated";
+      // "All finished" is only true once the bracket is actually over. Between
+      // rounds the next matches exist but haven't launched yet, and telling a
+      // player everything is done when the semifinal is about to start is wrong.
+      const pending = allBracketMatches(st.bracket).filter(m =>
+        (m.status === "ready" || m.status === "pending") &&
+        String(m.room_id || "").toUpperCase() !== cur).length;
+      if (st.phase === "complete") {
+        showNotice("🏆", "The tournament is over",
+          "Every match in <b>" + esc(st.name || "this tournament") + "</b> has been played. Open the bracket for the final standings.");
+      } else if (pending) {
+        showNotice("🌊", "The next round hasn't started yet",
+          "The other games in <b>" + esc(st.name || "this tournament") + "</b> are still gathering their players. Try again in a moment — "
+          + (out ? "we'll keep the bracket updated as they play." : "we'll bring you into your match the moment it's ready."));
+      } else {
+        showNotice("🌊", "Nothing is being played right now",
+          "No match in <b>" + esc(st.name || "this tournament") + "</b> is live at the moment. "
+          + (out ? "Follow the bracket — the next round starts shortly." : "Hang tight, we'll bring you into your match the moment it's ready."));
+      }
       return;
     }
     if (live.length === 1) { startSpectating(live[0].room_id); return; }

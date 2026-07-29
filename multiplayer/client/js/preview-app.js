@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.35";
-  const APP_BUILD   = "2026-07-29.4";
+  const APP_VERSION = "1.6.36";
+  const APP_BUILD   = "2026-07-29.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -12386,11 +12386,22 @@
     normal.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
     const status = document.getElementById("gs-again-status");
     if (status) status.classList.remove("show");      // "x/N ready to play again" doesn't apply
+    // Spectate is offered whenever another bracket game is actually running —
+    // including after you've been knocked out, which is exactly when a player
+    // wants to watch the rest of the tournament play out. ctx.canSpectate is
+    // already false when the host disallowed watching or nothing is live.
     spec.style.display = ctx.canSpectate === false ? "none" : "";
+    // A game we only WATCHED ends the same way — the natural next step is the next
+    // live match, not a rematch we have no seat for.
+    spec.textContent = ctx.watching
+      ? (ctx.live > 1 ? `👁 Watch Another Match (${ctx.live} live)` : "👁 Watch Another Match")
+      : (ctx.live > 1 ? `👁 Spectate a Match (${ctx.live} live)` : "👁 Spectate a Match");
     wait.style.display = "";
     // Knocked out (or the whole bracket is done) → there is no next match to wait
     // for, so that button goes back to the tournament instead.
-    wait.textContent = ctx.over ? "🏆 Back to the Tournament" : "⏳ Wait for Next Match in Lobby";
+    wait.textContent = ctx.finished ? "🏆 See Final Standings"
+                     : ctx.over ? "🏆 Follow the Tournament"
+                     : "⏳ Wait for Next Match in Lobby";
   }
   // Reflect the server-reported ready count + leaver notices on every poll while
   // the end screen is up. Called from renderEndGame with payload.play_again.
@@ -12502,9 +12513,15 @@
   document.getElementById("pv-endgame-t-wait")?.addEventListener("click", async () => {
     _saveConfirmedStrategyStats();
     const ctx = _tourneyMatchCtx();
-    const token = getSeatToken();
-    if (token && roomId) {
-      try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+    // Watching, not playing: hand the spectator seat back rather than trying to
+    // release a seat we never held (returnToMenu only clears it client-side).
+    if (isSpectating()) {
+      try { window.__ccTourney.stopSpectating(); } catch (_) {}
+    } else {
+      const token = getSeatToken();
+      if (token && roomId) {
+        try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+      }
     }
     returnToMenu();
     try {

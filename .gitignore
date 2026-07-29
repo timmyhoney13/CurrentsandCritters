@@ -33,6 +33,9 @@
 !test_tournament_builder.js
 !test_tournament_builder_check.py
 !test_tournament_builder_lines.js
+# Tournament: being knocked out must not cut you off from watching the rest of
+# the bracket — pins the "out" vs "done" split and the Spectate-button rules.
+!test_tournament_spectate.js
 # Board: headless-Chrome check that a tall board of oceans can actually be
 # scrolled to its bottom, on a phone-sized viewport as well as a laptop.
 !test_board_scroll.js
