@@ -126,6 +126,7 @@
     .ccT-toggle{ display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:700; color:var(--ccT-ink2); font-size:.95rem; }
     .ccT-toggle input{ width:auto; accent-color:var(--ccT-gold); transform:scale(1.15); }
     .ccT-toggle .ccT-hint{ display:block; font-weight:500; font-size:.78rem; color:#4a72a8; margin-top:2px; }
+    .ccT-field > .ccT-hint{ display:block; font-weight:500; font-size:.78rem; color:#4a72a8; margin-top:4px; line-height:1.4; }
     /* custom bracket builder */
     .ccT-custom-list{ display:flex; flex-direction:column; gap:7px; }
     .ccT-cm-row{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:14px;
@@ -230,7 +231,15 @@
     .ccT-slot .ccT-snm{ flex:1; font-size:.82rem; font-weight:600; color:var(--ccT-ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .ccT-slot .ccT-ssc{ font-size:.72rem; color:#3a6aa5; }
     .ccT-slot.empty .ccT-snm{ opacity:.45; font-style:italic; font-weight:500; }
-    svg.ccT-lines{ position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
+    /* top-N advancement: which place each surviving player finished in */
+    .ccT-match .ccT-madv{ font-size:.6rem; font-weight:800; letter-spacing:.4px; text-transform:uppercase;
+      color:#b9760a; text-align:center; padding:1px 2px 2px; }
+    .ccT-slot .ccT-splace{ font-size:.62rem; font-weight:900; color:#fff; background:#f3a712;
+      padding:0 5px; border-radius:7px; flex:none; }
+    /* transform-origin MUST match .ccT-bracket. The lines SVG is given the same
+       transform as the grid, so a different origin slid every connector away from
+       the matches it joins by half the grid size at any zoom but 1. */
+    svg.ccT-lines{ position:absolute; top:0; left:0; transform-origin:0 0; pointer-events:none; overflow:visible; }
     .ccT-line{ stroke:rgba(90,150,215,.5); stroke-width:2; fill:none; }
     .ccT-line.lit{ stroke:var(--ccT-gold); stroke-width:3; }
 
@@ -328,9 +337,50 @@
   // =========================================================================
   // mode: 'uniform' (pick a size + format) | 'sizes' (list each opening match's
   // size) | 'design' (the full canvas builder — window.__ccTourneyBuilder).
-  let createState = { capacity: 8, ppm: 2, formats: [], summary: null, thirdPlace: false,
+  // advance = how many finishers get out of every match. 1 is classic single
+  // elimination; 2+ makes each match a group whose top N go through.
+  let createState = { capacity: 8, ppm: 2, advance: 1, formats: [], summary: null, thirdPlace: false,
                       mode: "uniform", customSizes: [2, 2, 2, 2],
                       design: null, designSummary: null };
+
+  /** The biggest match size that must still knock somebody out — the advancement
+   *  ceiling is one less than the SMALLEST match in the bracket. */
+  function advanceCeiling() {
+    if (createState.mode === "sizes") {
+      const sizes = createState.customSizes;
+      return Math.max(1, (sizes.length ? Math.min.apply(null, sizes) : 2) - 1);
+    }
+    return Math.max(1, createState.ppm - 1);
+  }
+
+  function refreshAdvance() {
+    const field = $("#ccT-adv-field"), sel = $("#ccT-adv"), hint = $("#ccT-adv-hint");
+    if (!field || !sel) return;
+    // A designed bracket sets advancement per match on the canvas, so a single
+    // tournament-wide rule here would be a lie.
+    field.style.display = createState.mode === "design" ? "none" : "";
+    if (createState.mode === "design") return;
+    const max = advanceCeiling();
+    createState.advance = clamp(createState.advance, 1, max);
+    sel.innerHTML = "";
+    for (let a = 1; a <= max; a++) {
+      const o = document.createElement("option");
+      o.value = String(a);
+      o.textContent = a === 1 ? "🥇 Winner only — single elimination"
+                              : `🏅 Top ${a} advance to the next round`;
+      if (a === createState.advance) o.selected = true;
+      sel.appendChild(o);
+    }
+    sel.value = String(createState.advance);
+    sel.disabled = max <= 1;
+    if (hint) {
+      hint.textContent = max <= 1
+        ? "1 v 1 matches can only send the winner through — pick a bigger match size to advance more."
+        : createState.advance === 1
+          ? "Lose once and you're out."
+          : `Each match plays as a group: its best ${createState.advance} carry on, the rest are knocked out.`;
+    }
+  }
 
   function openCreate() {
     injectStyles();
@@ -373,6 +423,11 @@
               <button class="ccT-btn sm ghost" id="ccT-custom-add" type="button" style="margin-top:6px">＋ Add match</button>
             </div>
           </div>
+          <div class="ccT-field" id="ccT-adv-field">
+            <label>Who advances out of each match</label>
+            <select class="ccT-select" id="ccT-adv"></select>
+            <div class="ccT-hint" id="ccT-adv-hint"></div>
+          </div>
           <div class="ccT-summary" id="ccT-preview">…</div>
           <div class="ccT-row" style="margin-top:12px">
             <div class="ccT-field"><label>Visibility</label>
@@ -396,6 +451,12 @@
     capEl.addEventListener("input", () => { createState.capacity = +capEl.value; capVal.textContent = capEl.value; refreshFormats(); });
     $("#ccT-vis", modal).addEventListener("change", (e) => { $("#ccT-pw-field", modal).style.display = e.target.value === "private" ? "" : "none"; });
     $("#ccT-third", modal).addEventListener("change", (e) => { createState.thirdPlace = e.target.checked; refreshPreview(); });
+    $("#ccT-adv", modal).addEventListener("change", (e) => {
+      createState.advance = clamp(+e.target.value || 1, 1, advanceCeiling());
+      refreshAdvance();
+      // Match sizes that can't manage this rule are re-labelled in the picker.
+      if (createState.mode === "uniform") refreshFormats(); else refreshPreview();
+    });
     modal.querySelectorAll("#ccT-modes .ccT-fmt").forEach(tile => {
       tile.addEventListener("click", () => { createState.mode = tile.dataset.mode; toggleCustomMode(modal); });
     });
@@ -428,6 +489,7 @@
     show("#ccT-third-field", mode !== "design");
     if (mode === "sizes") renderCustomBuilder();
     if (mode === "design") renderDesignState();
+    refreshAdvance();
     refreshPreview();
   }
 
@@ -471,12 +533,12 @@
     if (createState.customSizes.length >= 16) return;      // 16 opening matches is plenty
     if (customTotal() + 2 > 32) { toast("A tournament holds at most 32 players.", "warn"); return; }
     createState.customSizes.push(2);
-    renderCustomBuilder(); refreshPreview();
+    renderCustomBuilder(); refreshAdvance(); refreshPreview();
   }
   function removeCustomMatch(i) {
     if (createState.customSizes.length <= 1) return;
     createState.customSizes.splice(i, 1);
-    renderCustomBuilder(); refreshPreview();
+    renderCustomBuilder(); refreshAdvance(); refreshPreview();
   }
   function changeCustomSize(i, delta) {
     const cur = createState.customSizes[i] || 2;
@@ -484,7 +546,7 @@
     if (next === cur) return;
     if (delta > 0 && customTotal() + delta > 32) { toast("A tournament holds at most 32 players.", "warn"); return; }
     createState.customSizes[i] = next;
-    renderCustomBuilder(); refreshPreview();
+    renderCustomBuilder(); refreshAdvance(); refreshPreview();
   }
   function renderCustomBuilder() {
     const list = $("#ccT-custom-list"); if (!list) return;
@@ -512,8 +574,12 @@
 
   async function refreshFormats() {
     const cap = createState.capacity;
+    const want = createState.advance;
     let formats = [];
-    try { const r = await get(`/api/tournament/formats?capacity=${cap}`); formats = (r.data && r.data.formats) || []; } catch (_) {}
+    try {
+      const r = await get(`/api/tournament/formats?capacity=${cap}&advance=${want}`);
+      formats = (r.data && r.data.formats) || [];
+    } catch (_) {}
     createState.formats = formats;
     if (!formats.some(f => f.players_per_match === createState.ppm)) createState.ppm = formats.length ? formats[0].players_per_match : 2;
     const grid = $("#ccT-fmts"); if (!grid) return;
@@ -521,12 +587,23 @@
     formats.forEach(f => {
       const c = el("div", "ccT-fmt" + (f.players_per_match === createState.ppm ? " sel" : ""));
       const dots = Array.from({ length: f.players_per_match }, () => `<span class="ccT-dot"></span>`).join("");
+      // A match too small for the chosen "top N" says so rather than silently
+      // running a different rule than the picker above it promises.
+      const rule = f.advance_ok
+        ? (f.advance_per_match > 1 ? `top ${f.advance_per_match} advance` : "winner advances")
+        : `only top ${f.max_advance} can advance`;
       c.innerHTML = `<div class="ccT-fmt-title">${f.players_per_match} Player</div>
         <div class="ccT-fmt-mini">${dots}</div>
-        <div class="ccT-fmt-meta">${f.num_rounds} rounds · ${f.num_opening_matches} opening${f.num_byes ? " · " + f.num_byes + " bye" + (f.num_byes > 1 ? "s" : "") : ""}</div>`;
-      c.addEventListener("click", () => { createState.ppm = f.players_per_match; refreshFormats(); });
+        <div class="ccT-fmt-meta">${f.num_rounds} rounds · ${f.num_opening_matches} opening${f.num_byes ? " · " + f.num_byes + " bye" + (f.num_byes > 1 ? "s" : "") : ""}<br>${rule}</div>`;
+      c.addEventListener("click", () => {
+        createState.ppm = f.players_per_match;
+        createState.advance = clamp(createState.advance, 1, Math.max(1, f.players_per_match - 1));
+        refreshAdvance();
+        refreshFormats();
+      });
       grid.appendChild(c);
     });
+    refreshAdvance();
     refreshPreview();
   }
 
@@ -546,22 +623,27 @@
       }
       return;
     }
+    const adv = `&advance=${clamp(createState.advance, 1, advanceCeiling())}`;
     if (createState.mode === "sizes") {
       const total = customTotal();
       if (total < 4 || total > 32) { box.innerHTML = `Add matches until the total is <b>4–32</b> players (currently <b>${total}</b>).`; return; }
-      url = `/api/tournament/preview?opening_sizes=${createState.customSizes.join(",")}&third_place=${createState.thirdPlace ? 1 : 0}`;
+      url = `/api/tournament/preview?opening_sizes=${createState.customSizes.join(",")}&third_place=${createState.thirdPlace ? 1 : 0}${adv}`;
     } else {
-      url = `/api/tournament/preview?capacity=${createState.capacity}&players_per_match=${createState.ppm}&third_place=${createState.thirdPlace ? 1 : 0}`;
+      url = `/api/tournament/preview?capacity=${createState.capacity}&players_per_match=${createState.ppm}&third_place=${createState.thirdPlace ? 1 : 0}${adv}`;
     }
     try {
       const r = await get(url);
       const s = r.data && r.data.summary;
       if (!s) { box.textContent = (r.data && r.data.error) || "…"; return; }
       const shape = (s.is_custom && s.opening_sizes) ? `Opening matches: <b>${s.opening_sizes.join(" · ")}</b> players. ` : "";
+      const rule = (s.advancing_per_match || 1) > 1
+        ? `The <b>top ${s.advancing_per_match}</b> of every match advance`
+        : "The <b>winner</b> of each match advances";
+      const rounds = (s.round_sizes || []).map(r => r.length).join(" → ");
       box.innerHTML = `${shape}<b>${s.tournament_size}</b>-player bracket · <b>${s.num_rounds}</b> rounds ·
         <b>${s.num_opening_matches}</b> opening matches · <b>${s.playable_matches}</b> games total
         ${s.num_byes ? "· <b>" + s.num_byes + "</b> bye" + (s.num_byes > 1 ? "s" : "") : "· no byes"}.
-        Winner of each match advances until <b>1 champion</b> remains.
+        ${rule} until <b>1 champion</b> remains${rounds ? ` (${rounds} matches per round)` : ""}.
         ${s.third_place_match ? " A 3rd-place match decides the bronze." : ""}`;
     } catch (_) { box.textContent = "Preview unavailable."; }
   }
@@ -595,9 +677,11 @@
       body.third_place_match = false;   // a design decides 3rd place by its shape
     } else if (createState.mode === "sizes") {
       body.opening_sizes = createState.customSizes.slice();
+      body.advance_per_match = clamp(createState.advance, 1, advanceCeiling());
     } else {
       body.total_capacity = createState.capacity;
       body.players_per_match = createState.ppm;
+      body.advance_per_match = clamp(createState.advance, 1, advanceCeiling());
     }
     const go = $("#ccT-create-go", modal); go.disabled = true; go.textContent = "Creating…";
     try {
@@ -685,7 +769,8 @@
       const lock = t.has_password ? "🔒 " : "";
       row.innerHTML = `<div class="ccT-linm">
           <div class="ccT-lit-title">${lock}${esc(t.name || "Tournament")}</div>
-          <div class="ccT-lit-meta">${t.joined}/${t.capacity} players · ${t.players_per_match} per match · <b>${esc(t.tournament_id)}</b></div>
+          <div class="ccT-lit-meta">${t.joined}/${t.capacity} players · ${t.players_per_match} per match ·
+            ${esc(t.advance_label || "Winner advances")} · <b>${esc(t.tournament_id)}</b></div>
         </div>
         <button class="ccT-btn sm">Join →</button>`;
       row.querySelector("button").addEventListener("click", () => { modal.classList.remove("open"); promptJoin(t.tournament_id); });
@@ -952,12 +1037,20 @@
       if (!st.can_start) html += `<div style="font-size:.8rem;color:#3a6aa5;margin-top:6px">${esc(st.can_start_reason || "")}</div>`;
       html += `<button class="ccT-btn wide ghost" id="ccT-open-host">⚙ Host Controls</button>`;
     }
+    // How players get out of a match — the difference between single elimination and
+    // a top-N format is the first thing a competitor needs to know.
+    const advN = st.summary ? (st.summary.advancing_per_match || 1) : 1;
+    const advTxt = st.summary && st.summary.mixed_advance
+      ? " Each match advances the number of players its designer set."
+      : advN > 1
+        ? ` The <b>top ${advN}</b> of every match advance; everyone else is knocked out.`
+        : " Win your match or you're out.";
     const shapeLine = st.summary
       ? (st.summary.is_graph
-          ? `<br>Designed bracket: <b>${st.summary.total_matches}</b> matches over <b>${st.summary.num_rounds}</b> rounds, <b>${st.summary.tournament_size}</b> spots.`
+          ? `<br>Designed bracket: <b>${st.summary.total_matches}</b> matches over <b>${st.summary.num_rounds}</b> rounds, <b>${st.summary.tournament_size}</b> spots.${advTxt}`
         : st.summary.is_custom && st.summary.opening_sizes
-          ? `<br>Custom bracket: opening matches <b>${st.summary.opening_sizes.join(" · ")}</b> players, ${st.summary.num_rounds} rounds.`
-          : `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.`)
+          ? `<br>Custom bracket: opening matches <b>${st.summary.opening_sizes.join(" · ")}</b> players, ${st.summary.num_rounds} rounds.${advTxt}`
+          : `<br>Format: <b>${st.config.players_per_match} Player</b> matches, ${st.summary.num_rounds} rounds.${advTxt}`)
       : "";
     html += `<div style="margin-top:14px;font-size:.85rem;color:#2b5a97;line-height:1.6">
       <b>Tip:</b> ${isHost
@@ -1160,18 +1253,27 @@
     // Your own playable match reads as a call to action, not a passive label.
     if (mine && m.status === "ready") statusTxt = "start ▶";
     else if (mine && m.status === "active") statusTxt = "enter ▶";
+    // With "top N advance" more than one finisher goes through, so every advancing
+    // player is marked — and their finishing place shown, since 2nd advancing is
+    // meaningfully different from winning the match.
+    const advancing = m.advancing || (m.winner ? [{ pid: m.winner.pid, place: 1 }] : []);
+    const placeOf = {};
+    advancing.forEach(a => { if (a && a.pid) placeOf[a.pid] = a.place || 1; });
+    const multiAdvance = (m.advance || 1) > 1;
     let slots = "";
     (m.players || []).forEach((p, si) => {
-      const isWin = m.winner && p && p.pid === m.winner.pid;
+      const place = p ? placeOf[p.pid] : null;
       const sc = m.scores && p ? m.scores[p.pid] : null;
-      slots += `<div class="ccT-slot ${p ? "" : "empty"} ${isWin ? "win" : ""}" data-slot="${si}">
+      slots += `<div class="ccT-slot ${p ? "" : "empty"} ${place ? "win" : ""}" data-slot="${si}">
         ${p ? `<img class="ccT-sav" src="${esc(bridge().avSrc(p.avatar) || "/avatars/mullet.png")}" onerror="this.src='/avatars/mullet.png'">` : `<span class="ccT-sav"></span>`}
         <span class="ccT-snm">${p ? esc(p.name) : esc(emptySpotText(m, si))}</span>
+        ${place && multiAdvance ? `<span class="ccT-splace">#${place}</span>` : ""}
         ${sc != null ? `<span class="ccT-ssc">${sc}</span>` : ""}</div>`;
     });
     card.innerHTML = `<span class="ccT-mnum">${m.is_third_place ? "3rd" : "M" + m.match_number}</span>
       ${statusTxt ? `<span class="ccT-mstatus" style="background:${m.status === "active" || m.status === "ready" ? "rgba(47,140,224,.22)" : m.status === "complete" ? "rgba(243,167,18,.28)" : "rgba(120,150,190,.16)"}">${statusTxt}</span>` : ""}
       ${showLabel && (m.label || "").trim() ? `<div class="ccT-mlabel">${esc(m.label)}</div>` : ""}
+      ${multiAdvance ? `<div class="ccT-madv">top ${m.advance} advance</div>` : ""}
       ${slots}`;
     // Host arranging: in the lobby PREVIEW, any spot a player was SEEDED into can
     // be dragged/tapped to swap two players' bracket positions. On a generated
@@ -1226,13 +1328,17 @@
     br.rounds.forEach((round, ri) => {
       if (ri >= br.rounds.length - 1) return;
       round.forEach(m => {
-        (m.feeds || []).forEach(f => {
+        // feeds[i] carries finisher #(i+1), so a line only lights once THAT place
+        // has actually been decided — with top-N advancement the 1st-place line
+        // lighting says nothing about the 2nd-place one.
+        const advanced = (m.advancing || (m.winner ? [m.winner] : [])).length;
+        (m.feeds || []).forEach((f, wi) => {
           if (!f) return; const nextNum = matchNumberAt(br, f[0], f[1]); if (nextNum == null) return;
           const a = rectOf(m.match_number), b = rectOf(nextNum); if (!a || !b) return;
           const x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = b.x, y2 = b.y + b.h / 2, mx = (x1 + x2) / 2;
           const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
           p.setAttribute("d", `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
-          p.setAttribute("class", "ccT-line" + (m.winner ? " lit" : ""));
+          p.setAttribute("class", "ccT-line" + (wi < advanced ? " lit" : ""));
           p.dataset.from = m.match_number;
           svg.appendChild(p);
         });

@@ -58,7 +58,17 @@
   function toast(m, t) { try { bridge().toast(m, t); } catch (_) {} }
   const byId = (id) => B.matches.find(m => m.id === id);
   const indexOf = (id) => B.matches.findIndex(m => m.id === id);
-  const display = (id) => { const i = indexOf(id); return i < 0 ? id : (B.matches[i].label.trim() || ("Match " + (i + 1))); };
+  // Several matches legitimately share a label ("Round 1" ×4), so a bare label makes
+  // "Round 1, spot 2 isn't connected" impossible to act on. Disambiguate with the
+  // M-number badge shown on the box itself whenever the label isn't unique.
+  function display(id) {
+    const i = indexOf(id);
+    if (i < 0) return String(id);
+    const label = B.matches[i].label.trim();
+    if (!label) return "Match " + (i + 1);
+    const shared = B.matches.filter(m => m.label.trim() === label).length > 1;
+    return shared ? `${label} (M${i + 1})` : label;
+  }
 
   // =========================================================================
   // Design mutations
@@ -198,13 +208,174 @@
     B.seq = B.matches.length;
   }
 
+  // =========================================================================
+  // Rounds — the fast way to grow a bracket.
+  //
+  // "Add Round" takes every finisher who is still advancing to nowhere, packs them
+  // into a new column of matches and connects all of them in one go, so a whole
+  // round costs one click instead of one drag per player.
+  // =========================================================================
+
+  /** Advancing finishers that no spot is waiting for yet, in bracket order. */
+  function pendingFeeds() {
+    const taken = new Set();
+    B.matches.forEach(m => m.slots.forEach(s => { if (s.source) taken.add(s.source + "|" + s.rank); }));
+    const out = [];
+    layers().forEach(row => row.forEach(m => {
+      for (let r = 1; r <= m.advance; r++) {
+        if (!taken.has(m.id + "|" + r)) out.push({ mid: m.id, rank: r });
+      }
+    }));
+    return out;
+  }
+
+  /** Split ``n`` players into matches of at most ``per`` (0 = auto), as evenly as
+   *  possible and never below MIN_SPOTS — a designed bracket has no byes, so a
+   *  leftover single player is folded into a bigger match instead. Mirrors
+   *  _round_match_sizes() in tournament_engine.py. */
+  function packRound(n, per) {
+    if (n < MIN_SPOTS) return null;
+    per = clamp(per || 0, 0, MAX_SPOTS);
+    if (!per) per = (n <= MAX_SPOTS) ? n : MIN_SPOTS;   // auto: one Final if they all fit
+    let k = Math.ceil(n / per);
+    while (k > 1 && Math.floor(n / k) < MIN_SPOTS) k -= 1;
+    const base = Math.floor(n / k), extra = n % k;
+    if (base < MIN_SPOTS) return null;
+    const sizes = Array.from({ length: k }, (_, i) => base + (i < extra ? 1 : 0));
+    return sizes.some(s => s > MAX_SPOTS) ? null : sizes;
+  }
+
+  // Labels the builder assigns itself. A host's own name ("Losers Bracket") is
+  // never overwritten, but these get re-derived as the bracket grows — otherwise
+  // yesterday's "Final" keeps that name after a round is added behind it.
+  const AUTO_LABEL = /^(round \d+|final|grand final)$/i;
+  function relabelAuto() {
+    const rows = layers();
+    rows.forEach((row, r) => row.forEach(m => {
+      const cur = m.label.trim();
+      if (cur && !AUTO_LABEL.test(cur)) return;
+      m.label = (r === rows.length - 1 && row.length === 1 && rows.length > 1)
+        ? "Final" : "Round " + (r + 1);
+    }));
+  }
+
+  function addRound(per) {
+    const pending = pendingFeeds();
+    if (!pending.length) {
+      toast("Add some matches first — a round connects the players advancing out of them.", "warn");
+      return;
+    }
+    if (pending.length < MIN_SPOTS) {
+      toast("Only one player is still advancing, so that match is already the Final.", "warn");
+      return;
+    }
+    const sizes = packRound(pending.length, per);
+    if (!sizes) {
+      toast(`${pending.length} players can't be split into ${MIN_SPOTS}–${MAX_SPOTS}-player matches that way — try another size.`, "warn");
+      return;
+    }
+    if (B.matches.length + sizes.length > MAX_MATCHES) {
+      toast(`That round would take the bracket past ${MAX_MATCHES} matches.`, "warn");
+      return;
+    }
+    const srcX = pending.map(p => (byId(p.mid) || {}).x || 0);
+    const colX = Math.max(...srcX) + BOX_W + 110;
+    let q = 0;
+    sizes.forEach((cap, i) => {
+      const m = {
+        id: newId(), label: "", x: colX, y: 40 + i * 230,
+        advance: 1,
+        slots: Array.from({ length: cap }, () => {
+          const p = pending[q++];
+          return { kind: p.rank === 1 ? K_WINNER : K_TOP, source: p.mid, rank: p.rank, invite: "" };
+        }),
+      };
+      B.matches.push(m);
+    });
+    relabelAuto();
+    B.sel = null;
+    autoArrange();      // renders + refits, so the new column reads cleanly
+    const n = sizes.length;
+    toast(n === 1 ? "Added the Final — every advancing player now has a seat."
+                  : `Added a round of ${n} matches and connected ${pending.length} players.`, "ok");
+  }
+
+  /** Connect whatever is still dangling into the existing bracket, without adding
+   *  matches: leftover finishers drop into empty entry spots of later matches. */
+  function autoConnect() {
+    const pending = pendingFeeds();
+    if (!pending.length) { toast("Every advancing player already has a seat.", "ok"); return; }
+    const depth = new Map();
+    layers().forEach((row, r) => row.forEach(m => depth.set(m.id, r)));
+    let placed = 0;
+    for (const p of pending) {
+      const from = depth.get(p.mid) || 0;
+      // Only ever feed FORWARD (a strictly later round) so we can't build a loop.
+      const target = B.matches.find(m => (depth.get(m.id) || 0) > from
+        && m.slots.some(s => ENTRY_KINDS.indexOf(s.kind) >= 0));
+      if (!target) continue;
+      const si = target.slots.findIndex(s => ENTRY_KINDS.indexOf(s.kind) >= 0);
+      target.slots[si] = { kind: p.rank === 1 ? K_WINNER : K_TOP, source: p.mid, rank: p.rank, invite: "" };
+      placed += 1;
+    }
+    render();
+    toast(placed ? `Connected ${placed} advancing player${placed === 1 ? "" : "s"}.`
+                 : "No empty spots in a later match — add a round instead.", placed ? "ok" : "warn");
+  }
+
+  /** Build a WHOLE bracket from a format: N players, matches of ``per``, top
+   *  ``adv`` of each advance. adv = 1 is classic single elimination; 2+ makes it a
+   *  group-stage/top-N tournament. Mirrors plan_round_sizes() server-side, except
+   *  a designed bracket has no byes so rounds are packed to a 2-player minimum. */
+  function buildTemplate(players, per, adv) {
+    players = clamp(players || 8, MIN_FIELD, MAX_FIELD);
+    per = clamp(per || 2, MIN_SPOTS, MAX_SPOTS);
+    adv = clamp(adv || 1, 1, per - 1);
+    const eff = (cap) => Math.max(1, Math.min(adv, cap - 1));
+    const grid = [];
+    let field = players, guard = 0;
+    while (field > 1 && guard++ < 64) {
+      const sizes = packRound(field, per);
+      if (!sizes) break;
+      grid.push(sizes);
+      // A round holding one match IS the Final — it crowns a champion, not a top N.
+      field = sizes.length <= 1 ? 1 : sizes.reduce((a, s) => a + eff(s), 0);
+    }
+    if (!grid.length) return null;
+    const total = grid.reduce((a, row) => a + row.length, 0);
+    if (total > MAX_MATCHES) return null;
+
+    B.matches = []; B.seq = 0; B.sel = null;
+    let prev = [];                       // [{mid, rank}] advancing out of the last round
+    grid.forEach((sizes, r) => {
+      const isFinalRound = (sizes.length === 1 && r === grid.length - 1);
+      const queue = prev.slice();
+      const ids = [];
+      sizes.forEach((cap, i) => {
+        const slots = Array.from({ length: cap }, () => {
+          if (r === 0) return { kind: K_OPEN, source: "", rank: 1, invite: "" };
+          const p = queue.shift();
+          return p ? { kind: p.rank === 1 ? K_WINNER : K_TOP, source: p.mid, rank: p.rank, invite: "" }
+                   : { kind: K_OPEN, source: "", rank: 1, invite: "" };
+        });
+        const m = {
+          id: newId(), label: isFinalRound ? "Final" : "Round " + (r + 1),
+          x: 40 + r * (BOX_W + 110), y: 40 + i * 230,
+          advance: isFinalRound ? 1 : eff(cap), slots,
+        };
+        B.matches.push(m);
+        ids.push(m);
+      });
+      prev = [];
+      ids.forEach(m => { for (let k = 1; k <= m.advance; k++) prev.push({ mid: m.id, rank: k }); });
+    });
+    return { rounds: grid.length, matches: total };
+  }
+
   // A sensible starting point so the canvas is never intimidatingly blank.
   function starterDesign() {
     B.matches = []; B.seq = 0;
-    const a = addMatch(2, "Round 1"), b = addMatch(2, "Round 1"), f = addMatch(2, "Final");
-    a.x = 40; a.y = 40; b.x = 40; b.y = 260; f.x = 340; f.y = 150;
-    connect(a.id, 1, f.id, 0);
-    connect(b.id, 1, f.id, 1);
+    buildTemplate(8, 2, 1);
     B.sel = null;
   }
 
@@ -362,16 +533,27 @@
     .ccTB-menu-pop{ position:absolute; top:calc(100% + 6px); left:0; z-index:30; display:none; flex-direction:column; gap:4px;
       padding:7px; border-radius:14px; background:#fff; border:1.5px solid rgba(140,200,240,.6); box-shadow:0 10px 30px rgba(8,50,130,.18); min-width:190px; }
     .ccTB-menu.open .ccTB-menu-pop{ display:flex; }
+    .ccTB-menu-pop.wide{ min-width:260px; }
     .ccTB-menu-pop button{ text-align:left; background:none; border:none; padding:8px 10px; border-radius:9px; cursor:pointer;
       font-family:"Nunito",sans-serif; font-weight:700; color:#123a70; font-size:.88rem; }
-    .ccTB-menu-pop button:hover{ background:#eaf4ff; }
+    .ccTB-menu-pop button:hover:not(:disabled){ background:#eaf4ff; }
+    .ccTB-menu-pop button:disabled{ opacity:.4; cursor:not-allowed; }
+    .ccTB-menu-note{ padding:4px 10px 6px; font-size:.76rem; line-height:1.4; color:#3a6aa5; font-weight:600; }
+    .ccTB-fld{ display:flex; align-items:center; gap:7px; padding:5px 10px; font-size:.8rem; font-weight:800; color:#123a70; }
+    .ccTB-fld input[type=range]{ flex:1; min-width:0; accent-color:#2f8ce0; }
+    .ccTB-fld select{ flex:1; min-width:0; font-family:"Nunito",sans-serif; font-weight:700; font-size:.8rem;
+      color:#123a70; background:#fff; border:1px solid rgba(140,200,240,.7); border-radius:8px; padding:4px 5px; cursor:pointer; }
 
     .ccTB-body{ flex:1; display:flex; min-height:0; }
     .ccTB-canvas-wrap{ flex:1; position:relative; overflow:hidden; cursor:grab; touch-action:none; }
     .ccTB-canvas-wrap.grabbing{ cursor:grabbing; }
     .ccTB-canvas{ position:absolute; top:0; left:0; width:4000px; height:3000px; transform-origin:0 0;
       background-image:radial-gradient(rgba(90,150,215,.28) 1px, transparent 1px); background-size:24px 24px; }
-    svg.ccTB-links{ position:absolute; top:0; left:0; width:4000px; height:3000px; pointer-events:none; overflow:visible; }
+    /* transform-origin MUST match the canvas. Without it the SVG defaults to
+       50% 50% of its 4000x3000 box, so every zoom slid the connection lines
+       ~(2000,1500)*(1-zoom) away from the boxes they connect. */
+    svg.ccTB-links{ position:absolute; top:0; left:0; width:4000px; height:3000px; transform-origin:0 0;
+      pointer-events:none; overflow:visible; }
     .ccTB-link{ stroke:rgba(60,130,205,.65); stroke-width:2.5; fill:none; }
     .ccTB-link.ghost{ stroke:var(--ccT-gold,#f3a712); stroke-dasharray:6 5; stroke-width:3; }
 
@@ -442,14 +624,42 @@
     s.innerHTML = `
       <div class="ccTB-head">
         <h2>🎨 Bracket Builder</h2>
-        <button class="ccTB-b sm" id="ccTB-add">＋ Add Match</button>
-        <div class="ccTB-menu" id="ccTB-group">
-          <button class="ccTB-b sm ghost" id="ccTB-group-btn">＋ Add Player Group ▾</button>
+        <div class="ccTB-menu" id="ccTB-addm">
+          <button class="ccTB-b sm" id="ccTB-add">＋ Add Match ▾</button>
           <div class="ccTB-menu-pop">
             <button data-n="2">2 players in this match</button>
+            <button data-n="3">3 players in this match</button>
             <button data-n="4">4 players in this match</button>
             <button data-n="6">6 players in this match</button>
             <button data-n="8">8 players in this match</button>
+          </div>
+        </div>
+        <div class="ccTB-menu" id="ccTB-roundm">
+          <button class="ccTB-b sm" id="ccTB-round">＋ Add Round ▾</button>
+          <div class="ccTB-menu-pop">
+            <div class="ccTB-menu-note" id="ccTB-round-note"></div>
+            <button data-per="0">Auto — fit everyone advancing</button>
+            <button data-per="2">1 v 1 matches</button>
+            <button data-per="3">3-player matches</button>
+            <button data-per="4">4-player matches</button>
+            <button data-per="6">6-player matches</button>
+            <button data-per="8">8-player matches</button>
+            <button data-act="connect">🔗 Connect leftovers to existing spots</button>
+          </div>
+        </div>
+        <div class="ccTB-menu" id="ccTB-tplm">
+          <button class="ccTB-b sm ghost" id="ccTB-tpl">📐 Quick start ▾</button>
+          <div class="ccTB-menu-pop wide">
+            <div class="ccTB-menu-note">Build a whole bracket, then edit anything.</div>
+            <label class="ccTB-fld">Players
+              <input type="range" id="ccTB-tpl-n" min="${MIN_FIELD}" max="${MAX_FIELD}" value="8">
+              <b id="ccTB-tpl-n-v">8</b></label>
+            <label class="ccTB-fld">Players per match
+              <select id="ccTB-tpl-per"></select></label>
+            <label class="ccTB-fld">Who advances
+              <select id="ccTB-tpl-adv"></select></label>
+            <div class="ccTB-menu-note" id="ccTB-tpl-note"></div>
+            <button class="ccTB-b sm" id="ccTB-tpl-go" style="width:100%">Build this bracket</button>
           </div>
         </div>
         <button class="ccTB-b sm ghost" id="ccTB-tidy">⇄ Auto-arrange</button>
@@ -473,13 +683,37 @@
       </div>`;
     document.body.appendChild(s);
 
-    $("#ccTB-add", s).addEventListener("click", () => addMatch(2, ""));
-    const gm = $("#ccTB-group", s);
-    $("#ccTB-group-btn", s).addEventListener("click", (e) => { e.stopPropagation(); gm.classList.toggle("open"); });
-    $$(".ccTB-menu-pop button", gm).forEach(b => b.addEventListener("click", () => {
-      gm.classList.remove("open"); addMatch(+b.dataset.n, "");
+    // One click-away handler closes every dropdown; each button toggles its own.
+    const menus = $$(".ccTB-menu", s);
+    const closeMenus = (except) => menus.forEach(m => { if (m !== except) m.classList.remove("open"); });
+    menus.forEach(menu => {
+      const btn = menu.querySelector(".ccTB-b");
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const open = !menu.classList.contains("open");
+        closeMenus();
+        menu.classList.toggle("open", open);
+        if (open && menu.id === "ccTB-roundm") refreshRoundMenu();
+        if (open && menu.id === "ccTB-tplm") refreshTemplateForm();
+      });
+      // Clicks INSIDE the popup must not bubble to the close-everything handler,
+      // or the quick-start form would slam shut on its own sliders.
+      const pop = menu.querySelector(".ccTB-menu-pop");
+      if (pop) pop.addEventListener("click", (e) => e.stopPropagation());
+    });
+    document.addEventListener("click", () => closeMenus());
+
+    const am = $("#ccTB-addm", s);
+    $$(".ccTB-menu-pop button", am).forEach(b => b.addEventListener("click", () => {
+      closeMenus(); addMatch(+b.dataset.n, "");
     }));
-    document.addEventListener("click", () => gm.classList.remove("open"));
+    const rm = $("#ccTB-roundm", s);
+    $$(".ccTB-menu-pop button", rm).forEach(b => b.addEventListener("click", () => {
+      closeMenus();
+      if (b.dataset.act === "connect") autoConnect();
+      else addRound(+b.dataset.per);
+    }));
+    wireTemplateForm(s, closeMenus);
     $("#ccTB-tidy", s).addEventListener("click", autoArrange);
     $("#ccTB-clear", s).addEventListener("click", () => {
       if (!B.matches.length || window.confirm("Clear the whole bracket and start over?")) { starterDesign(); render(); }
@@ -494,6 +728,80 @@
     return s;
   }
 
+  // ── Add-Round menu: say exactly what the round will do before it's clicked ──
+  function refreshRoundMenu() {
+    const note = $("#ccTB-round-note"); if (!note) return;
+    const pending = pendingFeeds();
+    const n = pending.length;
+    note.textContent = !n
+      ? "Nothing is advancing yet — add some matches first."
+      : n < MIN_SPOTS
+        ? "One player is still advancing, so that match is already the Final."
+        : `${n} players are advancing with nowhere to go. Pick a match size and they'll all be seated and connected.`;
+    $$("#ccTB-roundm .ccTB-menu-pop button[data-per]").forEach(b => {
+      const per = +b.dataset.per;
+      const sizes = packRound(n, per);
+      b.disabled = !sizes;
+      const tail = sizes
+        ? ` → ${sizes.length === 1 ? "the Final" : sizes.length + " matches"} (${sizes.join("·")})`
+        : " — doesn't divide";
+      b.textContent = (b.dataset.baseLabel || (b.dataset.baseLabel = b.textContent)) + tail;
+    });
+  }
+
+  // ── Quick start: a whole bracket from players / match size / who advances ──
+  const TPL = { n: 8, per: 2, adv: 1 };
+  function wireTemplateForm(s, closeMenus) {
+    const nEl = $("#ccTB-tpl-n", s), perEl = $("#ccTB-tpl-per", s), advEl = $("#ccTB-tpl-adv", s);
+    nEl.addEventListener("input", () => { TPL.n = +nEl.value; refreshTemplateForm(); });
+    perEl.addEventListener("change", () => { TPL.per = +perEl.value; TPL.adv = Math.min(TPL.adv, TPL.per - 1); refreshTemplateForm(); });
+    advEl.addEventListener("change", () => { TPL.adv = +advEl.value; refreshTemplateForm(); });
+    $("#ccTB-tpl-go", s).addEventListener("click", () => {
+      if (B.matches.length && !window.confirm("Replace the bracket on the canvas with this one?")) return;
+      const built = buildTemplate(TPL.n, TPL.per, TPL.adv);
+      closeMenus();
+      if (!built) { toast("That combination doesn't make a bracket — try a different match size.", "warn"); return; }
+      autoArrange();
+      toast(`Built a ${TPL.n}-player bracket: ${built.rounds} rounds, ${built.matches} matches.`, "ok");
+    });
+  }
+
+  function refreshTemplateForm() {
+    const nEl = $("#ccTB-tpl-n"), perEl = $("#ccTB-tpl-per"), advEl = $("#ccTB-tpl-adv");
+    if (!nEl) return;
+    nEl.value = TPL.n;
+    $("#ccTB-tpl-n-v").textContent = TPL.n;
+    perEl.innerHTML = "";
+    for (let p = MIN_SPOTS; p <= Math.min(MAX_SPOTS, TPL.n); p++) {
+      const o = el("option"); o.value = p; o.textContent = p === 2 ? "1 v 1" : p + " players";
+      if (p === TPL.per) o.selected = true;
+      perEl.appendChild(o);
+    }
+    TPL.per = clamp(TPL.per, MIN_SPOTS, Math.min(MAX_SPOTS, TPL.n));
+    perEl.value = String(TPL.per);
+    // "Top N advance" — 1 is single elimination, more makes each match a group.
+    advEl.innerHTML = "";
+    TPL.adv = clamp(TPL.adv, 1, Math.max(1, TPL.per - 1));
+    for (let a = 1; a <= TPL.per - 1; a++) {
+      const o = el("option"); o.value = a;
+      o.textContent = a === 1 ? "Winner only (single elimination)" : `Top ${a} advance`;
+      if (a === TPL.adv) o.selected = true;
+      advEl.appendChild(o);
+    }
+    advEl.value = String(TPL.adv);
+    // Dry-run the shape without touching the canvas.
+    const saved = B.matches, savedSeq = B.seq;
+    const built = buildTemplate(TPL.n, TPL.per, TPL.adv);
+    B.matches = saved; B.seq = savedSeq;
+    const note = $("#ccTB-tpl-note");
+    if (note) {
+      note.textContent = built
+        ? `${TPL.n} players · ${built.rounds} rounds · ${built.matches} matches` +
+          (TPL.adv > 1 ? ` · top ${TPL.adv} out of every match` : " · winner takes each match")
+        : "That combination doesn't make a bracket.";
+    }
+  }
+
   function render() {
     const s = $("#ccTB"); if (!s) return;
     const canvas = $("#ccTB-canvas", s);
@@ -503,8 +811,10 @@
     B.errors.forEach(e => B.matches.forEach(m => { if (e.indexOf(display(m.id)) >= 0) badIds.add(m.id); }));
 
     B.matches.forEach((m, i) => canvas.appendChild(matchBox(m, i, badIds.has(m.id))));
-    drawLinks();
+    // Transform FIRST: drawLinks measures the live DOM and divides by B.zoom, so the
+    // canvas must already be showing that zoom or every line is scaled wrong.
     applyTransform();
+    drawLinks();
     renderSide();
     $("#ccTB-save", s).disabled = B.errors.length > 0;
   }
@@ -619,10 +929,16 @@
     const entries = entryCount();
     const kinds = {};
     B.matches.forEach(m => m.slots.forEach(s => { if (ENTRY_KINDS.indexOf(s.kind) >= 0) kinds[s.kind] = (kinds[s.kind] || 0) + 1; }));
+    const advs = Array.from(new Set(B.matches.map(m => m.advance))).sort((a, b) => a - b);
+    const advTxt = !advs.length ? "—"
+      : advs.length > 1 ? `Top ${advs[0]}–${advs[advs.length - 1]}`
+      : advs[0] === 1 ? "Winner only" : `Top ${advs[0]}`;
     let html = `<h3>Your bracket</h3>
       <div class="ccTB-stat"><span>Matches</span><b>${B.matches.length}</b></div>
       <div class="ccTB-stat"><span>Starting player spots</span><b>${entries}</b></div>
-      <div class="ccTB-stat"><span>Rounds</span><b>${rows.length}</b></div>`;
+      <div class="ccTB-stat"><span>Rounds</span><b>${rows.length}</b></div>
+      <div class="ccTB-stat"><span>Advancing per match</span><b>${advTxt}</b></div>
+      <div class="ccTB-stat"><span>Round shape</span><b>${rows.map(r => r.length).join(" → ") || "—"}</b></div>`;
     ENTRY_KINDS.forEach(k => {
       if (kinds[k]) html += `<div class="ccTB-stat"><span>${KIND_META[k].icon} ${KIND_META[k].name}</span><b>${kinds[k]}</b></div>`;
     });
@@ -637,11 +953,18 @@
           ${B.summary.playable_matches} games. The winner of the Final is the champion.</div>`;
       }
     }
+    const pending = pendingFeeds().length;
+    if (pending >= MIN_SPOTS) {
+      html += `<div class="ccTB-tip" style="color:#8a5a00"><b>${pending}</b> advancing player${pending === 1 ? "" : "s"}
+        still need a seat — <b>＋ Add Round</b> seats and connects them all at once.</div>`;
+    }
     html += `<div class="ccTB-tip"><b>How to build:</b><br>
-      • <b>Add Match</b> drops a box — set <i>Players</i> (2–8) inside it.<br>
+      • <b>📐 Quick start</b> builds a whole bracket — players, match size, and who advances.<br>
+      • <b>＋ Add Round</b> takes everyone still advancing and connects them into a new round in one click.<br>
+      • <b>＋ Add Match</b> drops a single box — set <i>Players</i> (2–8) inside it.<br>
       • Drag a box anywhere (or by its ⠿ grip) to move it.<br>
       • Drag the gold 🏅 handle on a match's right edge onto a spot in another match to send its winner there.<br>
-      • <b>Advance</b> sets how many players get out of a match; each one gets its own handle.<br>
+      • <b>Advance</b> sets how many players get out of a match (top 1, top 2, top 3…); each one gets its own handle.<br>
       • Every spot can be Open, Player only, AI only, or Invite only.</div>`;
     side.innerHTML = html;
   }
@@ -676,23 +999,38 @@
     }
   }
 
-  // Geometry is computed from the DESIGN (not the DOM) so lines are correct even
-  // mid-render, and unaffected by canvas zoom/pan.
-  function boxHeight(m) { const n = $("#ccTB-box-" + m.id); return n ? n.offsetHeight : 40 + m.slots.length * 28 + 34; }
+  // Geometry is MEASURED off the live DOM and converted back into canvas space, so
+  // a line always lands on the exact pixel of the handle/spot it belongs to — at
+  // any zoom, and whatever the CSS box metrics happen to be. (Hand-computing this
+  // from the design is what put the lines in the wrong places: it assumed a port
+  // pitch and a row height that the stylesheet doesn't actually produce.)
+  function boxNode(m) { return $("#ccTB-box-" + m.id); }
+  // A node's rect in CANVAS coordinates. The canvas has transform-origin 0 0, so
+  // its own rect's top-left is canvas (0,0) and dividing by the zoom undoes scale.
+  function rectIn(node) {
+    const canvas = $("#ccTB-canvas");
+    if (!canvas || !node || !node.isConnected) return null;
+    const cr = canvas.getBoundingClientRect(), nr = node.getBoundingClientRect();
+    const z = B.zoom || 1;
+    return { left: (nr.left - cr.left) / z, top: (nr.top - cr.top) / z,
+             width: nr.width / z, height: nr.height / z };
+  }
+  function boxHeight(m) { const n = boxNode(m); return n ? n.offsetHeight : 44 + m.slots.length * 30 + 36; }
   function portPoint(m, rank) {
-    const h = boxHeight(m);
-    const n = Math.max(1, m.advance);
-    const step = 28;
-    const top = m.y + h / 2 - ((n - 1) * step) / 2;
-    return { x: m.x + BOX_W + 1, y: top + (rank - 1) * step };
+    const node = boxNode(m);
+    const p = node && node.querySelector(`.ccTB-port[data-rank="${rank}"]`);
+    const r = rectIn(p);
+    if (r) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    // Pre-render fallback: centred stack of ports on the right edge.
+    const h = boxHeight(m), n = Math.max(1, m.advance), step = 32;
+    return { x: m.x + BOX_W, y: m.y + h / 2 - ((n - 1) * step) / 2 + (rank - 1) * step };
   }
   function spotPoint(m, si) {
-    const node = $("#ccTB-box-" + m.id);
-    if (node) {
-      const row = node.querySelector(`.ccTB-row[data-si="${si}"]`);
-      if (row) return { x: m.x, y: m.y + row.offsetTop + row.offsetHeight / 2 };
-    }
-    return { x: m.x, y: m.y + 40 + si * 28 };
+    const node = boxNode(m);
+    const row = node && node.querySelector(`.ccTB-row[data-si="${si}"]`);
+    const r = rectIn(row);
+    if (r) return { x: r.left, y: r.top + r.height / 2 };
+    return { x: m.x, y: m.y + 44 + si * 30 };
   }
 
   // ── canvas interaction ────────────────────────────────────────────────────
@@ -902,5 +1240,8 @@
     design: toDesign,
     validate: () => validate(),          // exposed for tests
     _state: B,
+    // Pure design logic, exported so the node test can check it against the Python
+    // validator (test_tournament_builder.js) without a browser.
+    _test: { buildTemplate, packRound, pendingFeeds, loadDesign, toDesign, layers, relabelAuto },
   };
 })();

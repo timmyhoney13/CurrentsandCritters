@@ -22,10 +22,14 @@ Design choices worth knowing:
   • Bracket shaping uses GREEDY PER-ROUND PACKING: each round splits the field into
     ceil(field / M) matches whose sizes differ by at most one. This minimises byes
     (a "bye" is a size-1 match) and prefers "smaller opening matches" over byes,
-    exactly as the product spec asks. It is fully deterministic from (N, M).
-  • Only the winner of a match advances by default (advance_per_match == 1). The API
-    is written so >1 could be added later, but configs that would not strictly
-    shrink the field are rejected by validation.
+    exactly as the product spec asks. It is fully deterministic from (N, M, A).
+  • ADVANCEMENT IS CONFIGURABLE: ``advance_per_match`` is how many finishers get out
+    of every match — 1 is classic single elimination, 2+ is a "top N advance" /
+    group-stage format. Two invariants keep any (N, M, A) converging on one champion:
+      – a match can never advance everyone: effective advance == min(A, capacity - 1)
+        (a bye, capacity 1, still advances its lone player);
+      – the round that holds a single match IS the Final, so it advances exactly 1.
+    See ``_effective_advance`` / ``plan_round_sizes``.
 """
 
 from __future__ import annotations
@@ -39,6 +43,9 @@ MIN_TOURNAMENT_PLAYERS = 4
 MAX_TOURNAMENT_PLAYERS = 32
 MIN_PLAYERS_PER_MATCH = 2
 MAX_PLAYERS_PER_MATCH = 8
+# A match must always knock at least one player out, so the most that can ever
+# advance is one fewer than the biggest match.
+MAX_ADVANCE_PER_MATCH = MAX_PLAYERS_PER_MATCH - 1
 
 BRACKET_SINGLE_ELIM = "single_elimination"
 SUPPORTED_BRACKETS = (BRACKET_SINGLE_ELIM,)
@@ -168,14 +175,24 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
         errs.append("Players per match cannot exceed total players.")
     if cfg.advance_per_match < 1:
         errs.append("advance_per_match must be >= 1.")
-    # Guard the extensible >1 advance path: the field must strictly shrink each
-    # round, otherwise the bracket never converges to a single champion.
+    # A match must knock at least one player out, or the field never shrinks and the
+    # bracket cannot converge on a single champion.
     if not errs and cfg.advance_per_match >= cfg.players_per_match:
-        errs.append("advance_per_match must be less than players_per_match.")
+        errs.append(
+            f"Top {cfg.advance_per_match} cannot advance out of a "
+            f"{cfg.players_per_match}-player match — at least one player must be "
+            "knocked out."
+        )
     # Custom opening-round layout, if provided, must itself be well-formed and be
     # consistent with total_capacity / players_per_match.
     if cfg.opening_sizes is not None:
         errs.extend(validate_opening_sizes(cfg.opening_sizes))
+        if not errs and cfg.advance_per_match >= min(cfg.opening_sizes):
+            errs.append(
+                f"Top {cfg.advance_per_match} cannot advance out of a "
+                f"{min(cfg.opening_sizes)}-player match — make every opening match "
+                f"at least {cfg.advance_per_match + 1} players, or advance fewer."
+            )
         if not errs:
             if sum(cfg.opening_sizes) != cfg.total_capacity:
                 errs.append(
@@ -187,6 +204,15 @@ def validate_config(cfg: TournamentConfig) -> List[str]:
                     "Custom bracket: players_per_match must equal the largest match "
                     f"size ({max(cfg.opening_sizes)})."
                 )
+    # Belt-and-braces: actually plan the bracket. The rules above should make every
+    # surviving config converge, so a failure here is a bug, not a user mistake —
+    # but it must never reach a live tournament.
+    if not errs:
+        try:
+            plan_round_sizes(cfg.total_capacity, cfg.players_per_match,
+                             cfg.advance_per_match, opening_sizes=cfg.opening_sizes)
+        except ValueError as exc:
+            errs.append(f"That bracket never reaches a single champion ({exc}).")
     return errs
 
 
@@ -647,12 +673,17 @@ def custom_bracket_summary(spec: CustomBracket) -> Dict[str, Any]:
             if s.is_entry:
                 kinds[s.kind] = kinds.get(s.kind, 0) + 1
     opening = [m.capacity for m in layers[0]] if layers else []
+    # A designed bracket sets advancement per match, so report the range the host
+    # actually drew rather than pretending it is uniform single elimination.
+    advances = sorted({int(m.advance) for m in spec.matches}) or [1]
     return {
         "tournament_size": entries,
         "total_capacity": entries,
         "human_capacity": spec.human_capacity(),
         "players_per_match": spec.max_capacity(),
-        "advance_per_match": 1,
+        "advance_per_match": max(advances),
+        "advance_range": [min(advances), max(advances)],
+        "mixed_advance": len(advances) > 1,
         "is_custom": True,
         "is_graph": True,
         "opening_sizes": list(opening),
@@ -663,7 +694,7 @@ def custom_bracket_summary(spec: CustomBracket) -> Dict[str, Any]:
         "opening_match_sizes": list(opening),
         "total_matches": len(spec.matches),
         "playable_matches": len(spec.matches),
-        "advancing_per_match": 1,
+        "advancing_per_match": max(advances),
         "third_place_match": False,
         "slot_kinds": kinds,
         "round_labels": [", ".join(sorted({m.label.strip() for m in row if m.label.strip()}))
@@ -708,6 +739,18 @@ def make_uniform_graph(sizes: List[int]) -> CustomBracket:
 # Bracket planning (pure structure, no players yet)
 # =============================================================================
 
+def _effective_advance(capacity: int, advance: int) -> int:
+    """How many players really get out of a match of ``capacity`` seats.
+
+    A match can never advance its whole field — somebody has to be knocked out —
+    so this clamps to ``capacity - 1``. A bye (capacity 1) is the one exception:
+    its lone player advances, having played nobody. This clamp is what guarantees
+    every (players, per-match, advance) combination converges on one champion."""
+    if capacity <= 1:
+        return 1
+    return max(1, min(int(advance or 1), capacity - 1))
+
+
 def _round_match_sizes(field: int, per_match: int, advance: int) -> List[int]:
     """Split ``field`` players into matches of size <= per_match, as evenly as
     possible so byes (size-1 matches) are minimised. Returns match capacities."""
@@ -726,16 +769,25 @@ def plan_round_sizes(n_players: int, per_match: int, advance: int = 1,
     """Deterministically compute every round's match capacities.
 
     Returns a list of rounds; each round is a list of match capacities.
-    e.g. 6 players, 1v1 -> [[2,2,1,1],[2,2],[2]]  (round 1 has two byes)
+    e.g. 6 players, 1v1 -> [[2,2,2],[2,1],[2]]  (round 2 has a bye)
+
+    With ``advance`` > 1 ("top N advance") each match sends its N best finishers on,
+    e.g. 16 players in 4-player matches with the top 2 advancing ->
+    [[4,4,4,4],[4,4],[4]].
 
     If ``opening_sizes`` is given it becomes round 1 verbatim (a CUSTOM bracket,
     e.g. [3,4,2] -> [[3,4,2], ...]); ``n_players`` is then ignored and every later
     round is packed greedily from the number of advancing winners.
     """
     rounds: List[List[int]] = []
+    # A round holding exactly one match IS the Final — it crowns the champion
+    # rather than advancing anyone, whatever ``advance`` says.
+    survivors = lambda sizes: (1 if len(sizes) <= 1 else  # noqa: E731
+                               sum(_effective_advance(s, advance) for s in sizes))
     if opening_sizes:
-        rounds.append([int(s) for s in opening_sizes])
-        field = sum(min(advance, s) for s in opening_sizes)
+        opening = [int(s) for s in opening_sizes]
+        rounds.append(opening)
+        field = survivors(opening)
     else:
         field = n_players
     guard = 0
@@ -745,8 +797,7 @@ def plan_round_sizes(n_players: int, per_match: int, advance: int = 1,
             raise ValueError("bracket failed to converge (bad advance config?)")
         sizes = _round_match_sizes(field, per_match, advance)
         rounds.append(sizes)
-        # winners produced this round = sum over matches of min(advance, size)
-        field = sum(min(advance, s) for s in sizes)
+        field = survivors(sizes)
     return rounds
 
 
@@ -880,10 +931,14 @@ class Bracket:
         match_no = 1
         for r, sizes in enumerate(size_grid):
             row: List[BracketMatch] = []
+            # The lone match of the last round is the Final: it crowns one champion
+            # instead of advancing the configured top N. Must mirror plan_round_sizes.
+            is_final_round = (len(sizes) <= 1)
             for i, cap in enumerate(sizes):
                 row.append(BracketMatch(
                     round_index=r, match_index=i, match_number=match_no,
-                    capacity=cap, advance=min(cfg.advance_per_match, cap),
+                    capacity=cap,
+                    advance=1 if is_final_round else _effective_advance(cap, cfg.advance_per_match),
                     player_ids=[None] * cap,
                 ))
                 match_no += 1
@@ -1285,6 +1340,8 @@ def bracket_summary(cfg: TournamentConfig, n_players: int) -> Dict[str, Any]:
         "total_matches": total_matches,   # counts byes as (trivial) matches
         "playable_matches": real_matches, # matches an actual game is spawned for
         "advancing_per_match": cfg.advance_per_match,
+        "advance_label": advance_label(cfg.advance_per_match),
+        "round_sizes": [list(r) for r in sizes],
         "third_place_match": bool(cfg.third_place_match and _makes_third_place_match(cfg, n_players)),
     }
 
@@ -1297,14 +1354,54 @@ def _makes_third_place_match(cfg: TournamentConfig, n_players: int) -> bool:
     return sizes[-1][0] == 2 and len(sizes[-2]) == 2
 
 
-def available_formats(total_capacity: int) -> List[Dict[str, Any]]:
+def advance_label(advance: int) -> str:
+    """How a given advancement rule reads to a human."""
+    if advance <= 1:
+        return "Winner advances"
+    if advance == 2:
+        return "Top 2 advance"
+    return f"Top {advance} advance"
+
+
+def advance_options(players_per_match: int, total_capacity: int = MAX_TOURNAMENT_PLAYERS,
+                    opening_sizes: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+    """Every legal "top N advance" rule for a match size, each with the bracket it
+    produces. Drives the host's advancement picker; ``advance = 1`` is classic
+    single elimination and is always first."""
+    biggest = max(opening_sizes) if opening_sizes else int(players_per_match)
+    smallest = min(opening_sizes) if opening_sizes else int(players_per_match)
+    cap = sum(opening_sizes) if opening_sizes else int(total_capacity)
+    out: List[Dict[str, Any]] = []
+    for a in range(1, min(smallest - 1, MAX_ADVANCE_PER_MATCH) + 1):
+        cfg = TournamentConfig(total_capacity=cap, players_per_match=biggest,
+                               advance_per_match=a,
+                               opening_sizes=list(opening_sizes) if opening_sizes else None)
+        if validate_config(cfg):
+            continue
+        summ = bracket_summary(cfg, cap)
+        out.append({
+            "advance_per_match": a,
+            "label": advance_label(a),
+            "num_rounds": summ["num_rounds"],
+            "playable_matches": summ["playable_matches"],
+            "num_byes": summ["num_byes"],
+            "single_elimination": a == 1,
+        })
+    return out
+
+
+def available_formats(total_capacity: int, advance: int = 1) -> List[Dict[str, Any]]:
     """Which players-per-match options are valid for a given capacity, each with a
-    preview summary. Used to render the §2 bracket-format picker."""
+    preview summary. Used to render the §2 bracket-format picker. Formats too small
+    for the requested "top N advance" are still listed, flagged ``advance_ok: False``
+    with the best rule they can manage, so the picker can explain itself."""
     out: List[Dict[str, Any]] = []
     for m in range(MIN_PLAYERS_PER_MATCH, MAX_PLAYERS_PER_MATCH + 1):
         if m > total_capacity:
             break
-        cfg = TournamentConfig(total_capacity=total_capacity, players_per_match=m)
+        eff = max(1, min(int(advance or 1), m - 1))
+        cfg = TournamentConfig(total_capacity=total_capacity, players_per_match=m,
+                               advance_per_match=eff)
         if validate_config(cfg):
             continue
         summ = bracket_summary(cfg, total_capacity)
@@ -1315,6 +1412,9 @@ def available_formats(total_capacity: int) -> List[Dict[str, Any]]:
             "num_opening_matches": summ["num_opening_matches"],
             "num_byes": summ["num_byes"],
             "playable_matches": summ["playable_matches"],
+            "advance_per_match": eff,
+            "advance_ok": eff == max(1, int(advance or 1)),
+            "max_advance": m - 1,
         })
     return out
 

@@ -342,6 +342,159 @@ class TestFullSimulations(unittest.TestCase):
 
 
 # =============================================================================
+class TestTopNAdvancement(unittest.TestCase):
+    """"Top N advance" — the non-single-elimination formats.
+
+    advance_per_match = 1 is classic single elimination; 2+ turns every match into
+    a group whose best N carry on. The guarantee under test is that ANY legal
+    (players, per-match, advance) still converges on exactly one champion.
+    """
+
+    ALL = [(n, m, a)
+           for n in (4, 6, 8, 9, 12, 16, 20, 24, 31, 32)
+           for m in range(2, 9) if m <= n
+           for a in range(1, m)]
+
+    def test_every_combination_is_valid_and_planned(self):
+        for n, m, a in self.ALL:
+            cfg = TournamentConfig(n, m, advance_per_match=a)
+            self.assertEqual(validate_config(cfg), [], f"N={n} M={m} top{a}")
+            grid = plan_round_sizes(n, m, a)
+            self.assertEqual(sum(grid[0]), n, f"opening round must hold everyone N={n} M={m} top{a}")
+            self.assertEqual(len(grid[-1]), 1, f"last round must be one Final N={n} M={m} top{a}")
+
+    def test_a_match_never_advances_everyone(self):
+        """The invariant that makes the field shrink: somebody always goes out."""
+        for n, m, a in self.ALL:
+            b = Bracket.build(TournamentConfig(n, m, advance_per_match=a), n)
+            for match in b.all_matches():
+                if match.capacity <= 1:
+                    continue    # a bye advances its lone player, having played nobody
+                self.assertLess(match.advance, match.capacity,
+                                f"N={n} M={m} top{a}: match {match.match_number} "
+                                f"advances {match.advance} of {match.capacity}")
+
+    def test_the_final_crowns_exactly_one(self):
+        for n, m, a in self.ALL:
+            b = Bracket.build(TournamentConfig(n, m, advance_per_match=a), n)
+            self.assertEqual(len(b.rounds[-1]), 1, f"N={n} M={m} top{a}")
+            self.assertEqual(b.final_match.advance, 1, f"N={n} M={m} top{a}")
+
+    def test_every_advancing_player_has_a_seat(self):
+        """Advancing finishers of a round must exactly fill the next round's spots —
+        no player is dropped, and no seat is left that nobody can reach."""
+        for n, m, a in self.ALL:
+            b = Bracket.build(TournamentConfig(n, m, advance_per_match=a), n)
+            for r in range(b.n_rounds - 1):
+                out = sum(x.advance for x in b.rounds[r])
+                seats = sum(x.capacity for x in b.rounds[r + 1])
+                self.assertEqual(out, seats, f"N={n} M={m} top{a} round {r}")
+                targets = [f for x in b.rounds[r] for f in x.feeds]
+                self.assertNotIn(None, targets, f"unconnected winner N={n} M={m} top{a} r{r}")
+                self.assertEqual(len(set(targets)), len(targets),
+                                 f"two winners sent to one seat N={n} M={m} top{a} r{r}")
+
+    def test_full_tournaments_finish_with_one_champion(self):
+        for n, m, a in self.ALL:
+            cfg = TournamentConfig(n, m, advance_per_match=a)
+            b, order = simulate(cfg, n, seed=5, winner_pick="seed")
+            self.assertTrue(b.is_complete(), f"incomplete N={n} M={m} top{a}")
+            self.assertIsNotNone(b.champion)
+            placements = b.final_placements()
+            self.assertEqual(sorted(p["player_id"] for p in placements), sorted(order),
+                             f"placements N={n} M={m} top{a}")
+            self.assertEqual([p["place"] for p in placements], list(range(1, n + 1)),
+                             f"places must be 1..N with no gaps (N={n} M={m} top{a})")
+
+    def test_top_two_of_four_is_the_expected_shape(self):
+        """A concrete, readable case: 16 players, 4 per match, top 2 advance."""
+        self.assertEqual(plan_round_sizes(16, 4, 2), [[4, 4, 4, 4], [4, 4], [4]])
+        b = Bracket.build(TournamentConfig(16, 4, advance_per_match=2), 16)
+        self.assertEqual([len(r) for r in b.rounds], [4, 2, 1])
+        self.assertTrue(all(x.advance == 2 for x in b.rounds[0]))
+        self.assertTrue(all(x.advance == 2 for x in b.rounds[1]))
+        self.assertEqual(b.rounds[2][0].advance, 1)
+
+    def test_advancing_players_land_in_the_next_match(self):
+        b = Bracket.build(TournamentConfig(8, 4, advance_per_match=2), 8)
+        b.seed_players(players(8))
+        first = b.rounds[0][0]
+        ranking = [p for p in first.player_ids if p]
+        b.record_result(0, 0, ranking, {})
+        self.assertEqual(first.winners, ranking[:2], "the top 2 advance, in order")
+        # both of them are now sitting in the Final
+        final_seats = [p for p in b.final_match.player_ids if p]
+        self.assertIn(ranking[0], final_seats)
+        self.assertIn(ranking[1], final_seats)
+        self.assertNotIn(ranking[2], final_seats, "3rd place is knocked out")
+
+    def test_advance_beyond_the_match_size_is_rejected(self):
+        errs = validate_config(TournamentConfig(8, 2, advance_per_match=2))
+        self.assertTrue(errs)
+        self.assertIn("knocked out", errs[0])
+        self.assertTrue(validate_config(TournamentConfig(8, 4, advance_per_match=4)))
+        self.assertTrue(validate_config(TournamentConfig(8, 4, advance_per_match=0)))
+
+    def test_custom_opening_sizes_respect_the_smallest_match(self):
+        """Top 3 can't come out of a 2-player opening match."""
+        cfg = custom_cfg([4, 4, 2], advance_per_match=2)
+        errs = validate_config(cfg)
+        self.assertTrue(errs)
+        self.assertIn("2-player match", errs[0])
+        # ...but it is fine once every opening match is big enough
+        cfg_ok = custom_cfg([4, 4, 4], advance_per_match=2)
+        self.assertEqual(validate_config(cfg_ok), [])
+        self.assertEqual(plan_round_sizes(0, 4, 2, opening_sizes=[4, 4, 4]),
+                         [[4, 4, 4], [3, 3], [4]])
+
+    def test_summary_reports_the_rule(self):
+        s = bracket_summary(TournamentConfig(16, 4, advance_per_match=2), 16)
+        self.assertEqual(s["advancing_per_match"], 2)
+        self.assertEqual(s["advance_label"], "Top 2 advance")
+        self.assertEqual([len(r) for r in s["round_sizes"]], [4, 2, 1])
+        self.assertEqual(te.advance_label(1), "Winner advances")
+        self.assertEqual(te.advance_label(5), "Top 5 advance")
+
+    def test_advance_options_lists_only_legal_rules(self):
+        opts = te.advance_options(4, 16)
+        self.assertEqual([o["advance_per_match"] for o in opts], [1, 2, 3])
+        self.assertTrue(opts[0]["single_elimination"])
+        self.assertFalse(opts[1]["single_elimination"])
+        # a 1v1 bracket can only ever send the winner through
+        self.assertEqual([o["advance_per_match"] for o in te.advance_options(2, 8)], [1])
+        # custom opening sizes are capped by the SMALLEST match
+        opts = te.advance_options(4, 0, opening_sizes=[4, 4, 3])
+        self.assertEqual([o["advance_per_match"] for o in opts], [1, 2])
+
+    def test_formats_flag_sizes_that_cannot_manage_the_rule(self):
+        fmts = {f["players_per_match"]: f for f in available_formats(16, advance=2)}
+        self.assertFalse(fmts[2]["advance_ok"], "1v1 can't advance 2")
+        self.assertEqual(fmts[2]["advance_per_match"], 1)
+        self.assertTrue(fmts[4]["advance_ok"])
+        self.assertEqual(fmts[4]["advance_per_match"], 2)
+        self.assertEqual(fmts[4]["max_advance"], 3)
+
+    def test_single_elimination_is_unchanged(self):
+        """Regression guard: adding top-N advancement must not move advance=1 at all.
+
+        These literals were captured from the engine as it shipped in 1.6.31 and
+        verified identical across every (players, per-match) pair."""
+        self.assertEqual(plan_round_sizes(6, 2, 1), [[2, 2, 2], [2, 1], [2]])
+        self.assertEqual(plan_round_sizes(8, 2, 1), [[2, 2, 2, 2], [2, 2], [2]])
+        # 3 matches of 8 -> their 3 winners meet in a 3-player Final
+        self.assertEqual(plan_round_sizes(24, 8, 1), [[8, 8, 8], [3]])
+        self.assertEqual(plan_round_sizes(16, 4, 1), [[4, 4, 4, 4], [4]])
+        self.assertEqual(plan_round_sizes(0, 4, 1, opening_sizes=[3, 4, 2]), [[3, 4, 2], [3]])
+        # advance defaults to 1, so an explicit 1 must be a no-op everywhere
+        for n in (4, 5, 6, 7, 8, 12, 16, 24, 32):
+            for m in range(2, 9):
+                if m > n:
+                    continue
+                self.assertEqual(plan_round_sizes(n, m, 1), plan_round_sizes(n, m),
+                                 f"default advance changed for N={n} M={m}")
+
+
+# =============================================================================
 class TestThirdPlace(unittest.TestCase):
     def test_third_place_match_created_for_1v1(self):
         cfg = TournamentConfig(8, 2, third_place_match=True)

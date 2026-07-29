@@ -536,6 +536,148 @@ class TestHttpDispatch(unittest.TestCase):
         self.assertEqual(t.phase, Tournament.PHASE_RUNNING)
 
 
+class TestTopNAdvanceServer(unittest.TestCase):
+    """"Top N advance" end to end through the live Tournament object + HTTP layer."""
+
+    @staticmethod
+    def _make(cap, ppm, adv, n):
+        mgr = TournamentManager()
+        cfg = TournamentConfig(cap, ppm, advance_per_match=adv, name="Group Cup")
+        t = mgr.create(cfg, "guest:host", "Host")
+        for i in range(1, n):
+            assert t.join(f"guest:p{i:02d}", f"P{i:02d}")["ok"]
+        for p in t.participants:
+            t.set_ready(p.pid, True)
+        return mgr, t
+
+    def test_full_top_two_tournament_runs_to_a_champion(self):
+        mgr, t = self._make(16, 4, 2, 16)
+        self.assertTrue(t.start()["ok"], t.can_start())
+        self.assertEqual([len(r) for r in t.bracket.rounds], [4, 2, 1])
+        play_out(t, winner_pick="seed", seed=4)
+        self.assertEqual(t.phase, Tournament.PHASE_COMPLETE)
+        self.assertIsNotNone(t.champion_pid)
+        champs = [p for p in t.participants if p.status == S_CHAMPION]
+        self.assertEqual(len(champs), 1)
+        self.assertEqual(len(t.final_placements), 16)
+
+    def test_both_advancing_players_survive_the_round(self):
+        """The bug top-N advancement invites: only the match WINNER being moved to
+        'waiting' leaves the 2nd-place qualifier looking eliminated."""
+        mgr, t = self._make(8, 4, 2, 8)
+        self.assertTrue(t.start()["ok"])
+        m = t.bracket.rounds[0][0]
+        present = [p for p in m.player_ids if p]
+        t.report_match_result(0, 0, present, {})
+        by_pid = {p.pid: p for p in t.participants}
+        self.assertEqual(by_pid[present[0]].status, S_WAITING, "winner advances")
+        self.assertEqual(by_pid[present[1]].status, S_WAITING, "runner-up ALSO advances")
+        self.assertEqual(by_pid[present[2]].status, S_ELIMINATED)
+        self.assertEqual(by_pid[present[3]].status, S_ELIMINATED)
+        # both advancing players are credited with reaching the next round...
+        self.assertEqual(by_pid[present[0]].deepest_round, 1)
+        self.assertEqual(by_pid[present[1]].deepest_round, 1)
+        # ...but only 1st place WON the match
+        self.assertEqual(by_pid[present[0]].matches_won, 1)
+        self.assertEqual(by_pid[present[1]].matches_won, 0)
+
+    def test_bracket_view_exposes_every_advancing_player(self):
+        mgr, t = self._make(8, 4, 2, 8)
+        t.start()
+        m = t.bracket.rounds[0][0]
+        present = [p for p in m.player_ids if p]
+        t.report_match_result(0, 0, present, {})
+        view = t.state_view()["bracket"]["rounds"][0][0]
+        self.assertEqual([a["pid"] for a in view["advancing"]], present[:2])
+        self.assertEqual([a["place"] for a in view["advancing"]], [1, 2])
+        self.assertEqual(view["winner"]["pid"], present[0])
+
+    def test_create_endpoint_accepts_advance_per_match(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "total_capacity": 16, "players_per_match": 4, "advance_per_match": 2,
+            "name": "Groups", "host_name": "H", "guest_id": "adv1"})
+        self.assertTrue(h.last["ok"], h.last)
+        t = ts.MANAGER.get(h.last["tournament_id"])
+        self.assertEqual(t.cfg.advance_per_match, 2)
+
+    def test_create_rejects_an_impossible_advance(self):
+        from http import HTTPStatus
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "total_capacity": 8, "players_per_match": 2, "advance_per_match": 2,
+            "name": "Nope", "host_name": "H", "guest_id": "adv2"})
+        self.assertFalse(h.last["ok"])
+        self.assertEqual(h.status, int(HTTPStatus.BAD_REQUEST))
+        self.assertIn("knocked out", h.last["error"])
+
+    def test_create_defaults_to_single_elimination(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "total_capacity": 8, "players_per_match": 4,
+            "name": "Classic", "host_name": "H", "guest_id": "adv3"})
+        self.assertTrue(h.last["ok"], h.last)
+        self.assertEqual(ts.MANAGER.get(h.last["tournament_id"]).cfg.advance_per_match, 1)
+
+    def test_opening_sizes_take_an_advance_rule(self):
+        h = _FakeHandler()
+        ts.handle_post(h, _FakeParsed("/api/tournament/create"), {
+            "opening_sizes": [4, 4, 4], "advance_per_match": 2,
+            "name": "Pods", "host_name": "H", "guest_id": "adv4"})
+        self.assertTrue(h.last["ok"], h.last)
+        self.assertEqual(ts.MANAGER.get(h.last["tournament_id"]).cfg.advance_per_match, 2)
+        # ...but not one a 2-player opening match can't honour
+        h2 = _FakeHandler()
+        ts.handle_post(h2, _FakeParsed("/api/tournament/create"), {
+            "opening_sizes": [4, 4, 2], "advance_per_match": 2,
+            "name": "Pods", "host_name": "H", "guest_id": "adv5"})
+        self.assertFalse(h2.last["ok"])
+
+    def test_preview_and_options_endpoints(self):
+        h = _FakeHandler()
+        ts.handle_get(h, _FakeParsed("/api/tournament/preview",
+                                     "capacity=16&players_per_match=4&advance=2"))
+        s = h.last["summary"]
+        self.assertEqual(s["advancing_per_match"], 2)
+        self.assertEqual(s["num_rounds"], 3)
+
+        h2 = _FakeHandler()
+        ts.handle_get(h2, _FakeParsed("/api/tournament/advance_options",
+                                      "capacity=16&players_per_match=4"))
+        self.assertEqual([o["advance_per_match"] for o in h2.last["options"]], [1, 2, 3])
+
+        # a rule the match size can't manage is clamped, never an error
+        h3 = _FakeHandler()
+        ts.handle_get(h3, _FakeParsed("/api/tournament/preview",
+                                      "capacity=8&players_per_match=2&advance=5"))
+        self.assertTrue(h3.last["ok"], h3.last)
+        self.assertEqual(h3.last["summary"]["advancing_per_match"], 1)
+
+    def test_formats_endpoint_reports_advance_fit(self):
+        h = _FakeHandler()
+        ts.handle_get(h, _FakeParsed("/api/tournament/formats", "capacity=16&advance=2"))
+        by = {f["players_per_match"]: f for f in h.last["formats"]}
+        self.assertFalse(by[2]["advance_ok"])
+        self.assertTrue(by[4]["advance_ok"])
+        self.assertEqual(by[4]["advance_per_match"], 2)
+
+    def test_public_listing_describes_the_rule(self):
+        mgr, t = self._make(16, 4, 2, 4)
+        row = next(r for r in mgr.list_public() if r["tournament_id"] == t.tid)
+        self.assertEqual(row["advance_per_match"], 2)
+        self.assertEqual(row["advance_label"], "Top 2 advance")
+
+    def test_forfeit_still_advances_the_right_number(self):
+        mgr, t = self._make(8, 4, 2, 8)
+        t.start()
+        m = t.bracket.rounds[0][0]
+        present = [p for p in m.player_ids if p]
+        t.leave(present[0])
+        self.assertEqual(m.status, M_COMPLETE)
+        self.assertEqual(len(m.winners), 2, "top 2 still advance when someone forfeits")
+        self.assertNotIn(present[0], m.winners, "the quitter does not advance")
+
+
 class TestCustomBracketServer(unittest.TestCase):
     def test_custom_requires_all_seats_before_start(self):
         mgr, t = make_custom([3, 4, 2], 4)      # capacity 9, only 4 filled

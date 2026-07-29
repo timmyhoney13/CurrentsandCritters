@@ -33,7 +33,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import tournament_engine as te
 from tournament_engine import (
     TournamentConfig, Bracket, validate_config, validate_opening_sizes, bracket_summary,
-    available_formats, compute_player_xp,
+    available_formats, advance_options, advance_label, compute_player_xp,
     CustomBracket, validate_custom_bracket, custom_bracket_summary,
     SLOT_OPEN, SLOT_HUMAN, SLOT_AI, SLOT_INVITE,
     M_COMPLETE, M_BYE, M_PENDING, M_ACTIVE, M_READY,
@@ -57,6 +57,17 @@ def _parse_opening_sizes(raw: Any) -> Optional[List[int]]:
     except (TypeError, ValueError):
         return None
     return sizes or None
+
+
+def _parse_advance(raw: Any) -> int:
+    """How many finishers advance out of each match ("top N"). Defaults to 1 —
+    classic single elimination — for anything missing or unreadable. The real
+    ceiling is per match size and is enforced by validate_config."""
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return 1
+    return max(1, min(n, te.MAX_ADVANCE_PER_MATCH))
 
 
 def _parse_custom_graph(raw: Any) -> Optional[CustomBracket]:
@@ -1141,22 +1152,24 @@ class Tournament:
                 continue
             p.completed_first_match = True
             p.deepest_round = max(p.deepest_round, m.round_index)
+        # Only 1st place "wins" the match, but with top-N advancement EVERY advancing
+        # finisher moves on — they all get credit for reaching the next round and all
+        # sit in the waiting state until it spawns.
         wp = self._by_pid(winner) if winner else None
         if wp and not m.is_third_place:
             wp.matches_won += 1
-            wp.deepest_round = max(wp.deepest_round, m.round_index + 1)
-        # losers of this match are eliminated (unless they advanced)
         advancing = set(m.winners)
         for pid in ranking:
-            if pid in advancing:
+            p = self._by_pid(pid)
+            if not p:
                 continue
-            lp = self._by_pid(pid)
-            if lp and lp.status not in (S_ELIMINATED, S_CHAMPION):
-                lp.status = S_ELIMINATED
-                lp.final_place = None
-        # winner: waiting for next round (or champion decided at finalize)
-        if wp:
-            wp.status = S_WAITING
+            if pid in advancing:
+                if not m.is_third_place:
+                    p.deepest_round = max(p.deepest_round, m.round_index + 1)
+                p.status = S_WAITING     # champion is decided at finalize
+            elif p.status not in (S_ELIMINATED, S_CHAMPION):
+                p.status = S_ELIMINATED
+                p.final_place = None
         if m.room_id:
             self.match_rooms.pop(m.room_id, None)
         self._cancel_match_timer(m.match_number)   # no auto-start once resolved
@@ -1329,6 +1342,11 @@ class Tournament:
             ]
             d["winner"] = ({"pid": m.winners[0], "name": name_by.get(m.winners[0], "?")}
                            if m.winners else None)
+            # With top-N advancement more than one finisher goes through, so the
+            # client needs the whole advancing set, not just the winner.
+            d["advancing"] = [{"pid": pid, "name": name_by.get(pid, "?"),
+                               "avatar": avatar_by.get(pid, ""), "place": i + 1}
+                              for i, pid in enumerate(m.winners)]
             return d
 
         return {
@@ -1456,6 +1474,8 @@ class TournamentManager:
                     "joined": len(t.participants), "capacity": t.cfg.total_capacity,
                     "human_capacity": t.human_capacity,
                     "players_per_match": t.cfg.players_per_match,
+                    "advance_per_match": t.cfg.advance_per_match,
+                    "advance_label": advance_label(t.cfg.advance_per_match),
                     "is_custom": t.cfg.is_custom,
                     "is_graph": t.cfg.is_graph,
                     "opening_sizes": list(t.cfg.opening_sizes) if t.cfg.opening_sizes else None,
@@ -1618,10 +1638,28 @@ def handle_get(handler, parsed) -> bool:
         if path == "/api/tournament/formats":
             cap = int((q.get("capacity") or ["8"])[0] or 8)
             cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, cap))
-            handler._send_json({"ok": True, "capacity": cap, "formats": available_formats(cap)})
+            adv = _parse_advance((q.get("advance") or q.get("advance_per_match") or [None])[0])
+            handler._send_json({"ok": True, "capacity": cap, "advance_per_match": adv,
+                                "formats": available_formats(cap, adv)})
+            return True
+        if path == "/api/tournament/advance_options":
+            # Every legal "top N advance" rule for a match shape, with the bracket
+            # each one produces — drives the host's advancement picker.
+            custom = _parse_opening_sizes((q.get("opening_sizes") or [None])[0])
+            if custom and validate_opening_sizes(custom):
+                handler._send_json({"ok": False, "error": "; ".join(validate_opening_sizes(custom))},
+                                   status=HTTPStatus.BAD_REQUEST)
+                return True
+            cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS,
+                                                  int((q.get("capacity") or ["8"])[0] or 8)))
+            ppm = max(MIN_PLAYERS_PER_MATCH, min(MAX_PLAYERS_PER_MATCH,
+                                                 int((q.get("players_per_match") or ["2"])[0] or 2)))
+            handler._send_json({"ok": True,
+                                "options": advance_options(ppm, cap, opening_sizes=custom)})
             return True
         if path == "/api/tournament/preview":
             tp = str((q.get("third_place") or ["0"])[0]) in ("1", "true")
+            adv = _parse_advance((q.get("advance") or q.get("advance_per_match") or [None])[0])
             custom = _parse_opening_sizes((q.get("opening_sizes") or [None])[0])
             if custom:
                 pre_errs = validate_opening_sizes(custom)
@@ -1629,12 +1667,14 @@ def handle_get(handler, parsed) -> bool:
                     handler._send_json({"ok": False, "error": "; ".join(pre_errs)}, status=HTTPStatus.BAD_REQUEST)
                     return True
                 cfg = TournamentConfig(sum(custom), max(custom), third_place_match=tp,
+                                       advance_per_match=min(adv, max(1, min(custom) - 1)),
                                        opening_sizes=custom)
                 cap = sum(custom)
             else:
                 cap = max(MIN_TOURNAMENT_PLAYERS, min(MAX_TOURNAMENT_PLAYERS, int((q.get("capacity") or ["8"])[0] or 8)))
                 ppm = max(2, min(8, int((q.get("players_per_match") or ["2"])[0] or 2)))
-                cfg = TournamentConfig(cap, ppm, third_place_match=tp)
+                cfg = TournamentConfig(cap, ppm, third_place_match=tp,
+                                       advance_per_match=min(adv, ppm - 1))
             errs = validate_config(cfg)
             if errs:
                 handler._send_json({"ok": False, "error": "; ".join(errs)}, status=HTTPStatus.BAD_REQUEST)
@@ -1768,6 +1808,9 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
                                 "token": host.token if host else "",
                                 "pid": pid, "designed": True})
             return
+        # "Top N advance" applies to every generated bracket — 1 is classic single
+        # elimination, 2+ turns each match into a group whose best N go through.
+        adv = _parse_advance(body.get("advance_per_match"))
         custom = _parse_opening_sizes(body.get("opening_sizes"))
         if custom:
             # Custom bracket: the host's explicit opening-round layout fixes both the
@@ -1780,7 +1823,7 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
             ppm = max(custom)
             cfg = TournamentConfig(
                 total_capacity=cap, players_per_match=ppm,
-                advance_per_match=1,
+                advance_per_match=adv,
                 third_place_match=bool(body.get("third_place_match")),
                 name=str(body.get("name") or "Currents Cup")[:60],
                 opening_sizes=custom,
@@ -1790,7 +1833,7 @@ def _dispatch_post(handler, path: str, body: Dict[str, Any]) -> None:
             ppm = max(2, min(8, int(body.get("players_per_match") or 2)))
             cfg = TournamentConfig(
                 total_capacity=cap, players_per_match=ppm,
-                advance_per_match=1,
+                advance_per_match=adv,
                 third_place_match=bool(body.get("third_place_match")),
                 name=str(body.get("name") or "Currents Cup")[:60],
             )

@@ -25,6 +25,11 @@
 !test_trade_logic.py
 !test_trade_integration.py
 !test_avatar_reearn.js
+# Bracket builder: the design logic (checked against the Python validator) and
+# the headless-Chrome geometry check for the connection lines.
+!test_tournament_builder.js
+!test_tournament_builder_check.py
+!test_tournament_builder_lines.js
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/
