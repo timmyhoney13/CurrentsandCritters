@@ -2005,6 +2005,7 @@ PLAYER_HOME_AVATAR_PATH = os.path.join(CLIENT_DIR, "player-home-avatar.jpg")
 PLAYER_HOME_FRIEND_TWIN_PATH = os.path.join(CLIENT_DIR, "player-home-friend-twin.jpg")
 PLAYER_HOME_FRIEND_MOM_PATH = os.path.join(CLIENT_DIR, "player-home-friend-mom.jpg")
 AVATAR_DIR = os.path.join(CLIENT_DIR, "avatars")
+SPECIES_DIR = os.path.join(CLIENT_DIR, "species")
 
 
 def _shuffle_deck_keep_end_bottom15(gs, ms) -> None:
@@ -8930,6 +8931,21 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             avatar_path = os.path.join(AVATAR_DIR, avatar_name)
             # Short cache so avatar art swaps propagate quickly (was 1 day).
             self._send_client_asset(avatar_path, cache_control="public, max-age=600", allow_webp=True)
+            return
+
+        # Species silhouettes, cut from the printed "List of Species" card. These
+        # are the symbols actually stamped on each card's bottom-right corner, so
+        # the How to Play species key can show players what to look for.
+        if parsed.path.startswith("/species/"):
+            species_name = os.path.basename(parsed.path)
+            if not re.fullmatch(r"[a-z0-9_-]+\.png", species_name):
+                self._send_json({"ok": False, "error": "invalid species path"}, status=HTTPStatus.BAD_REQUEST)
+                return
+            self._send_client_asset(
+                os.path.join(SPECIES_DIR, species_name),
+                cache_control="public, max-age=86400",
+                allow_webp=True,
+            )
             return
 
         # Exclusive backgrounds (cosmetic, rendered behind avatars).

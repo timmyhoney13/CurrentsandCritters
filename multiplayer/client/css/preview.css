@@ -12172,6 +12172,16 @@
       margin: 0 0 5px; font-family: "Baloo 2", "Nunito", sans-serif;
       font-size: 1.06rem; font-weight: 800; line-height: 1.15;
       color: var(--si, #0f5390);
+      display: flex; align-items: center; gap: 7px;
+    }
+    /* The symbol printed in each card's bottom-right corner, cut from the
+       "List of Species" card. Sits on a tinted plate for the same reason the
+       portrait does: the Birds symbol is a white puffin. */
+    .htp-spec-sym {
+      flex: 0 0 auto; width: 26px; height: 26px; object-fit: contain;
+      border-radius: 7px; padding: 2px;
+      background: color-mix(in srgb, var(--sc, #b388ff) 15%, #eef6fd);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc, #b388ff) 55%, transparent);
     }
     .htp-spec-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 7px; }
     .htp-spec-n, .htp-spec-slot {

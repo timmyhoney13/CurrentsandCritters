@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.28";
-  const APP_BUILD   = "2026-07-28.4";
+  const APP_VERSION = "1.6.31";
+  const APP_BUILD   = "2026-07-28.6";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,13 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "Tournaments: spectate or wait between matches", items: [
+      "Finishing a tournament match no longer offers “Play Again” and “Back to Lobby”, you now get “Spectate a Match” and “Wait for Next Match in Lobby”, the two things that actually make sense inside a bracket.",
+      "Spectate only opens if another tournament game is genuinely still being played; if they've all finished you get a note saying so and that the next round is starting. More than one live? Pick which to watch.",
+      "Waiting puts a banner on your home screen, spinner and all, that says how many games are still running, with a Spectate button right there, so you can check your stats or your friends while you wait and still be pulled into your match the moment it's ready.",
+      "The tournament badge moved out of the way: it used to sit on top of your hand at the bottom of the table, now it's a small chip in the game's top bar, and once your game's done it tells you you're waiting on the other games.",
+      "Fixed your next round's ready check opening behind the end-of-game screen where you couldn't see it, and fixed getting stuck watching someone else's match while your own was waiting to start.",
+    ]},
     { ver: "V1.6.9", title: "Find & join tournaments from Join Game", items: [
       "Join Game now has a 🏆 Tournament tab right next to Public, Private and Competitive, open it to see every tournament people have created that's still taking players.",
       "Each one shows its name, how full it is and its match size; tap Join → to hop straight into the bracket, no code needed for public tournaments.",
@@ -606,6 +613,54 @@
     revealGame: () => {
       try { const g = document.getElementById("pv-game"); if (roomId && g) { g.style.display = "flex"; return true; } }
       catch (_) {} return false;
+    },
+    // ── End-of-a-tournament-match plumbing ───────────────────────────────────
+    // A bracket match ends like any other game, but "Play Again / Back to Lobby"
+    // are meaningless inside a tournament: the room is finished for good and the
+    // player's real choices are to watch another live match or wait for their
+    // next one. tournament-ui.js drives that through these.
+    // The end screen sits at z-index 9850 and would bury a ready check opening
+    // behind it, so the tournament closes it before pulling the player onward.
+    closeEndScreen: () => {
+      try {
+        _endgameDismissed = true;
+        document.getElementById("pv-endgame-overlay").classList.remove("open");
+      } catch (_) {}
+    },
+    isSpectating: () => { try { return isSpectating(); } catch (_) { return false; } },
+    // Hand a spectator seat back without the UI churn of leaveSpectator() — used
+    // right before we navigate away into our own match.
+    stopSpectating: () => {
+      try {
+        if (!_spectatorToken || !_spectatorRoomId) return;
+        apiPost(`/api/rooms/${_spectatorRoomId}/spectate_leave`,
+          { spectator_token: _spectatorToken }, { timeoutMs: 4000 }).catch(() => {});
+        _spectatorToken = ""; _spectatorRoomId = ""; _spectatorViewingIdx = null;
+        _specSetPresence(null);
+      } catch (_) {}
+    },
+    // Watch another live match IN PLACE (no page reload), so the tournament
+    // module keeps running and can pull us straight out when our match is up.
+    spectateRoom: async (rid) => {
+      try {
+        const target = String(rid || "").toUpperCase();
+        if (!target) return false;
+        if (isSpectating() && String(_spectatorRoomId).toUpperCase() === target) return true;
+        // Give up our seat ONLY when the game we're in is over. Watching another
+        // match from the bracket mid-game must still hold our seat for the usual
+        // 8 minutes (keepRejoin) — exactly like navigating away used to.
+        const stillPlaying = ((latestPayload && latestPayload.room && latestPayload.room.phase) || "") === "running";
+        const tok = getSeatToken();
+        if (!stillPlaying && tok && roomId) {
+          try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: tok }, { timeoutMs: 5000 }); } catch (_) {}
+        }
+        _leaveGameCleanup(stillPlaying);
+        await joinAsSpectator(target);
+        // joinAsSpectator already toasted the reason; don't strand them on a
+        // blank screen if the room refused us.
+        if (!isSpectating()) { returnToMenu(); return false; }
+        return true;
+      } catch (_) { return false; }
     },
   };
 
@@ -11673,6 +11728,9 @@
         try { _populateStratConfirm(); } catch (_) {}
       }
     }
+    // Tournament match → "Spectate / Wait for next match" instead of the normal
+    // "Play Again / Back to Lobby" pair.
+    try { _syncEndgameTournamentButtons(); } catch (_) {}
 
     const myName = (typeof window.__fishNickname === "function") ? window.__fishNickname() : "";
     const sorted = [...(finalScores || [])].sort((a,b) => (b.score||0) - (a.score||0));
@@ -12280,6 +12338,41 @@
     if (status) { status.classList.remove("show"); status.textContent = ""; }
     const notices = document.getElementById("gs-left-notices");
     if (notices) notices.innerHTML = "";
+    try { _syncEndgameTournamentButtons(); } catch (_) {}
+  }
+
+  // ── Tournament matches end differently ────────────────────────────────────
+  // A bracket match room is finished for good the moment it ends: there's no
+  // rematch to ready up for, and "Back to Lobby" drops you out of the flow. So
+  // when the game we just played is one of OUR tournament matches, the button
+  // row becomes the only two things that make sense — watch another live match,
+  // or wait for your next one in the lobby. tournament-ui.js owns the decision
+  // (__ccTourneyMatchCtx); a null answer means "not a tournament match" and the
+  // normal buttons stay exactly as they were. Runs on every end-game poll, so it
+  // settles as the tournament server records the result.
+  function _tourneyMatchCtx() {
+    try { return (typeof window.__ccTourneyMatchCtx === "function") ? window.__ccTourneyMatchCtx() : null; }
+    catch (_) { return null; }
+  }
+  function _syncEndgameTournamentButtons() {
+    const spec = document.getElementById("pv-endgame-t-spectate");
+    const wait = document.getElementById("pv-endgame-t-wait");
+    if (!spec || !wait) return;                       // older markup, nothing to swap
+    const ctx = _tourneyMatchCtx();
+    const normal = ["pv-endgame-again", "pv-endgame-menu", "pv-endgame-leaderboard"];
+    if (!ctx) {
+      normal.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = ""; });
+      spec.style.display = "none"; wait.style.display = "none";
+      return;
+    }
+    normal.forEach(id => { const b = document.getElementById(id); if (b) b.style.display = "none"; });
+    const status = document.getElementById("gs-again-status");
+    if (status) status.classList.remove("show");      // "x/N ready to play again" doesn't apply
+    spec.style.display = ctx.canSpectate === false ? "none" : "";
+    wait.style.display = "";
+    // Knocked out (or the whole bracket is done) → there is no next match to wait
+    // for, so that button goes back to the tournament instead.
+    wait.textContent = ctx.over ? "🏆 Back to the Tournament" : "⏳ Wait for Next Match in Lobby";
   }
   // Reflect the server-reported ready count + leaver notices on every poll while
   // the end screen is up. Called from renderEndGame with payload.play_again.
@@ -12371,6 +12464,35 @@
       try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
     }
     returnToMenu();
+  });
+
+  // ── Tournament match end: Spectate / Wait for next match ──────────────────
+  // Spectate hands off to the tournament module, which checks whether any OTHER
+  // match is actually being played and either opens it or explains that they've
+  // all finished and the next round is starting.
+  // (Guarded: a stale cached preview.html without these buttons must not throw
+  // here and take every listener wired after it down with it.)
+  document.getElementById("pv-endgame-t-spectate")?.addEventListener("click", () => {
+    _saveConfirmedStrategyStats();
+    try { if (typeof window.__ccTourneySpectate === "function") window.__ccTourneySpectate(); } catch (_) {}
+  });
+
+  // Wait for the next match: give up the seat in the finished room (as "Back to
+  // Lobby" does) and land on the Player Home, where the tournament module raises
+  // its waiting bar — spinner, live status and a Spectate button — so the player
+  // can sit in their stats, friends or the menu until their match is called.
+  document.getElementById("pv-endgame-t-wait")?.addEventListener("click", async () => {
+    _saveConfirmedStrategyStats();
+    const ctx = _tourneyMatchCtx();
+    const token = getSeatToken();
+    if (token && roomId) {
+      try { await apiPost(`/api/rooms/${roomId}/leave`, { seat_token: token }, { timeoutMs: 5000 }); } catch (_) {}
+    }
+    returnToMenu();
+    try {
+      if (ctx && ctx.over) { if (typeof window.__ccTourneyOpenScreen === "function") window.__ccTourneyOpenScreen(); }
+      else if (typeof window.__ccTourneyWaitInLobby === "function") window.__ccTourneyWaitInLobby();
+    } catch (_) {}
   });
 
   // View Leaderboard / View Achievements → leave the table, open the stats hub
@@ -21898,7 +22020,10 @@
           +   `<img src="/avatars/${s.art}.png" alt="${_htpE(s.name)}" loading="lazy">`
           + `</span>`
           + `<div class="htp-spec-body">`
-          +   `<h3 class="htp-spec-name">${s.name}</h3>`
+          +   `<h3 class="htp-spec-name">${s.name}`
+          +     `<img class="htp-spec-sym" src="/species/${s.key.replace(/ /g, "-")}.png" alt=""`
+          +       ` title="The ${_htpE(s.name)} symbol, printed in the bottom-right corner of every card in this family">`
+          +   `</h3>`
           +   `<div class="htp-spec-meta"><span class="htp-spec-n">${s.n} cards</span>`
           +     `<span class="htp-spec-slot">${s.slot}</span></div>`
           +   `<p class="htp-spec-txt">${s.txt}</p>`
@@ -21921,7 +22046,9 @@
       return '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>List of species</div>'
         + '<p class="htp-p htp-p-lead">Every animal in the game belongs to one of these nine families. Each family '
         +   'has its own colour, and that is the colour the game lights a card up in once you switch on a strategy — '
-        +   'in your hand and in the pool alike.</p>'
+        +   'in your hand and in the pool alike. The small mark beside each name is the family’s symbol, the one '
+        +   'stamped in the bottom-right corner of every card it owns, so you can tell a card’s family at a glance '
+        +   'without reading a word.</p>'
         + `<div class="htp-species">${cards}</div>`
         + oceanStrip;
     }

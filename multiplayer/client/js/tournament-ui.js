@@ -34,7 +34,9 @@
     readyLobbyMatch: null,                // match_number whose ready-check modal is open
     readyLobbyDismissed: {},              // match_number -> true (player closed the ready check)
     panHandlers: null,                    // window pan listeners, so they can be torn down
-    matchHeartbeat: null,                 // in-match poll timer (keeps us connected + pulls us into the next round)
+    watchTimer: null,                     // background poll (keeps us connected + pulls us into the next round)
+    bg: null,                             // last background state snapshot (read while the overlay is closed)
+    status: null,                         // what the status chip / waiting bar is currently showing
   };
 
   // ── auth helpers ─────────────────────────────────────────────────────────
@@ -79,7 +81,9 @@
       --ccT-panel:rgba(255,255,255,.62); --ccT-cardgrad:linear-gradient(180deg,#cce6f8 0%,#b4d4ee 55%,#9ec4e4 100%); }
     .ccT-overlay{ position:fixed; inset:0; z-index:9000; display:none; }
     .ccT-overlay.open{ display:block; }
-    .ccT-modal{ position:fixed; inset:0; z-index:9100; display:none; align-items:center; justify-content:center;
+    /* Above #pv-endgame-overlay (9850): a ready check or champion card that opens
+       while the end-of-game screen is still up must be VISIBLE, not stacked under it. */
+    .ccT-modal{ position:fixed; inset:0; z-index:9880; display:none; align-items:center; justify-content:center;
       background:rgba(10,40,100,.72); backdrop-filter:blur(8px); padding:16px; }
     .ccT-modal.open{ display:flex; }
     .ccT-card{ position:relative; width:min(540px,96vw); max-height:92vh; overflow:auto; border-radius:26px;
@@ -162,8 +166,9 @@
     .ccT-btn.coral{ background:linear-gradient(120deg,#ff8a6a,#ff6a86); color:#fff; box-shadow:0 6px 20px rgba(255,90,110,.3); }
     .ccT-btn.sm{ padding:8px 13px; font-size:.85rem; border-radius:12px; }
 
-    /* full-screen tournament — light ocean surface */
-    #ccT-screen{ position:fixed; inset:0; z-index:9000; display:none; flex-direction:column;
+    /* full-screen tournament — light ocean surface. Sits above the end-of-game
+       screen (9850) so opening the bracket from a finished match actually shows it. */
+    #ccT-screen{ position:fixed; inset:0; z-index:9860; display:none; flex-direction:column;
       background:radial-gradient(120% 90% at 50% -10%, #e2f2fc 0%, #bfdcf2 55%, #a3cbe7 100%);
       color:var(--ccT-ink); font-family:"Nunito",sans-serif; }
     #ccT-screen.open{ display:flex; }
@@ -276,7 +281,44 @@
     .ccT-mr-badge.off{ background:rgba(200,114,10,.15); color:var(--ccT-warn); }
     .ccT-mr-badge.gone{ background:rgba(120,150,190,.16); color:#5a7bb0; }
     .ccT-mr-go{ margin-top:10px; font-weight:800; color:var(--ccT-tealtxt); letter-spacing:.5px; }
-    @media (prefers-reduced-motion: reduce){ .ccT-fmt,.ccT-flyer,.ccT-btn{ transition:none!important; } }
+
+    /* ── status surface: in-game chip + Player-Home waiting bar ──────────────
+       The old "Return to <tournament>" pill floated at bottom-CENTRE, right on
+       top of the hand and the action bar — permanently in the way. In a game the
+       status now DOCKS into the game's own notice bar; everywhere else it's a
+       waiting banner on the Player Home, so it can never cover anything. */
+    .ccT-chip{ display:inline-flex; align-items:center; gap:6px; flex:none; max-width:min(46vw,300px);
+      padding:3px 11px; border-radius:20px; border:1.5px solid rgba(232,179,74,.75);
+      background:linear-gradient(100deg,#fbbf58,#fcc55c); color:#0c2858; font-family:"Nunito",sans-serif;
+      font-weight:800; font-size:11.5px; letter-spacing:.2px; line-height:1.5; cursor:pointer;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ccT-chip:hover{ filter:brightness(1.06); }
+    .ccT-chip.waiting{ background:linear-gradient(100deg,#cfe8fb,#b3d9f6); border-color:rgba(70,150,230,.65); color:#0d3070; }
+    .ccT-chip.done{ background:linear-gradient(100deg,#d8ecdc,#bfe0c8); border-color:rgba(10,157,99,.55); color:#08503a; }
+    #ccT-waitbar{ display:flex; align-items:center; gap:12px; margin:2px 0 16px; padding:12px 16px;
+      background:linear-gradient(90deg, rgba(46,140,240,.16), rgba(120,90,220,.14));
+      border:1.5px solid rgba(60,150,240,.40); border-radius:16px; box-shadow:0 4px 16px rgba(30,99,184,.14);
+      position:relative; z-index:5; flex-wrap:wrap; font-family:"Nunito",sans-serif; }
+    #ccT-waitbar .ccT-wb-spin{ width:18px; height:18px; flex:none; border-radius:50%;
+      border:3px solid rgba(46,140,240,.25); border-top-color:#2a7fe0; animation:ccT-spin .8s linear infinite; }
+    @keyframes ccT-spin{ to{ transform:rotate(360deg); } }
+    #ccT-waitbar.nospin .ccT-wb-spin{ display:none; }
+    #ccT-waitbar .ccT-wb-txt{ flex:1; min-width:170px; font-weight:800; font-size:.98rem; color:#15539e; letter-spacing:.2px; }
+    #ccT-waitbar .ccT-wb-sub{ display:block; font-weight:600; font-size:.8rem; color:#3a6aa5; margin-top:2px; }
+    .ccT-wb-btn{ flex:none; border:1.5px solid rgba(60,150,240,.45); background:rgba(255,255,255,.9); color:#15539e;
+      font-family:"Nunito",sans-serif; font-weight:800; font-size:.9rem; padding:8px 14px; border-radius:12px;
+      cursor:pointer; transition:background .15s, transform .12s, box-shadow .15s; }
+    .ccT-wb-btn:hover{ background:#fff; transform:translateY(-1px); box-shadow:0 4px 12px rgba(30,99,184,.2); }
+    .ccT-wb-btn:active{ transform:translateY(0); }
+    /* live-match picker (Spectate with more than one game running) */
+    .ccT-watchrow{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:16px; margin:7px 0;
+      background:var(--ccT-glass); border:1.5px solid rgba(140,200,240,.55); text-align:left; }
+    .ccT-watchrow .ccT-wr-nm{ flex:1; min-width:0; }
+    .ccT-watchrow .ccT-wr-title{ font-weight:800; color:#0c3472; }
+    .ccT-watchrow .ccT-wr-meta{ font-size:.8rem; color:#3a6aa5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    @media (prefers-reduced-motion: reduce){ .ccT-fmt,.ccT-flyer,.ccT-btn{ transition:none!important; }
+      #ccT-waitbar .ccT-wb-spin{ animation:none; } }
     `;
     document.head.appendChild(s);
   }
@@ -684,8 +726,8 @@
   }
 
   function openScreen() {
-    hideReturnPill();
-    stopMatchHeartbeat();      // full SSE/poll sync owns state while the overlay is up
+    clearStatus();
+    stopWatch();               // full SSE/poll sync owns state while the overlay is up
     const scr = ensureScreen();
     scr.classList.add("open");
     T.screenOpen = true;
@@ -697,7 +739,7 @@
   }
   function closeScreen() {
     const scr = $("#ccT-screen"); if (scr) scr.classList.remove("open");
-    T.screenOpen = false; stopSync(); stopMatchHeartbeat();
+    T.screenOpen = false; stopSync(); stopWatch();
     if (T.panHandlers) {
       window.removeEventListener("mousemove", T.panHandlers.move);
       window.removeEventListener("mouseup", T.panHandlers.up);
@@ -716,7 +758,7 @@
       if (!window.confirm("Leaving now forfeits your spot in the tournament. Continue?")) return;
     }
     try { await post("/api/tournament/leave", { id: T.tid }); } catch (_) {}
-    clearActive(); closeScreen();
+    clearActive(); clearStatus(); closeScreen();
     goHome();
   }
 
@@ -1389,11 +1431,11 @@
     // Tell the server we've arrived (may trigger immediate auto-start once all in).
     post("/api/tournament/entered", { id: T.tid }).catch(() => {});
     // Are we already sitting on THIS match's room page? That happens when the
-    // bracket overlay was opened on top of our own live game (via the return pill):
+    // bracket overlay was opened on top of our own live game (via the status chip):
     // re-navigating to the same URL is a no-op, so the overlay just stays put with
     // the game behind it — the "click my game and it keeps me on the bracket with
     // the game in the background" bug. Instead, close the overlay to reveal the
-    // live game underneath, and keep the in-match heartbeat watching for our next round.
+    // live game underneath, and keep the watch running for our next round.
     if (sameRoomAsCurrent(roomId)) {
       // Force the live game back to the front (it may be sitting behind the
       // overlay), THEN drop the bracket overlay so the game is actually visible —
@@ -1403,9 +1445,12 @@
       // overlay; entering now does the same, reliably.
       try { const b = bridge(); if (b && typeof b.revealGame === "function") b.revealGame(); } catch (_) {}
       closeScreen();
-      startMatchHeartbeat();
+      startWatch();
       return;
     }
+    // Leaving a match we were only WATCHING → hand the spectator seat back before
+    // the page unloads, so we don't linger in that room's spectator list.
+    try { const b = bridge(); if (b && typeof b.stopSpectating === "function") b.stopSpectating(); } catch (_) {}
     // Deep-link into the room (the SPA loads the game table inline). We hand the
     // seat_token to the game via the URL (?seat_token=…) because that is the ONLY
     // place the game app's boot looks for it: it reads params.get("seat_token")
@@ -1441,7 +1486,7 @@
       <p><b>${esc(st.name || "The tournament")}</b> was cancelled by the host.</p>
       <button class="ccT-btn wide ghost" id="ccT-cancelled-home">Back to Home</button></div></div>`;
     m.classList.add("open");
-    $("#ccT-cancelled-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
+    $("#ccT-cancelled-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); clearStatus(); closeScreen(); goHome(); });
   }
 
   function showChampion(st) {
@@ -1457,7 +1502,7 @@
     m.classList.add("open");
     if (!REDUCED) championConfetti();
     $("#ccT-champ-bracket", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
-    $("#ccT-champ-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
+    $("#ccT-champ-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); clearStatus(); closeScreen(); goHome(); });
   }
   function showFinalPlacement(st) {
     let m = $("#ccT-final"); if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-final"; document.body.appendChild(m); }
@@ -1470,7 +1515,7 @@
       <button class="ccT-btn wide ghost" id="ccT-final-home">Back to Home</button></div></div>`;
     m.classList.add("open");
     $("#ccT-final-bracket", m).addEventListener("click", () => { m.classList.remove("open"); setView("bracket"); });
-    $("#ccT-final-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); closeScreen(); goHome(); });
+    $("#ccT-final-home", m).addEventListener("click", () => { m.classList.remove("open"); clearActive(); clearStatus(); closeScreen(); goHome(); });
   }
   function me_xp(st) { return st.viewer && st.viewer.xp; }
   function xpHtml(xp) {
@@ -1511,15 +1556,144 @@
   window.__ccTourneyJoin = promptJoin;
   window.__ccTourneyOpenById = function (tid, hostToken, pid) { T.tid = tid; T.hostToken = hostToken || ""; T.pid = pid || null; openScreen(); };
 
-  function showReturnPill(name) {
-    if (T.screenOpen) return;
-    let pill = $("#ccT-return-pill");
-    if (!pill) { pill = el("button"); pill.id = "ccT-return-pill"; pill.className = "ccT-btn gold"; document.body.appendChild(pill); }
-    pill.style.cssText = "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:8000;box-shadow:0 10px 34px rgba(0,0,0,.45)";
-    pill.textContent = "🏆 Return to " + (name || "tournament");
-    pill.onclick = () => { hideReturnPill(); openScreen(); };
+  // ── End-of-a-tournament-match hooks (called by preview-app.js) ────────────
+  // Is the room the game app currently has open one of MY matches in a live
+  // tournament? The end-of-game screen asks this so a bracket match finishes
+  // with "Spectate / Wait for next match", not "Play Again / Back to Lobby".
+  // Returns null (→ the normal buttons) whenever we can't prove it is.
+  window.__ccTourneyMatchCtx = function () {
+    try {
+      const st = T.bg || T.state;
+      if (!T.tid || !st || !st.viewer) return null;
+      if (!st.viewer.in_tournament) return null;
+      const m = matchInRoom(st, currentRoomId());
+      if (!m) return null;
+      if (!(m.players || []).some(p => p && p.pid === st.viewer.pid)) return null;   // watching, not playing
+      return {
+        tid: T.tid,
+        name: st.name || "",
+        // Knocked out / tournament over → there is no "next match" to wait for.
+        over: st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated",
+        canSpectate: st.spectators_allowed !== false,
+      };
+    } catch (_) { return null; }
+  };
+  window.__ccTourneySpectate = function () { if (T.tid) spectatePick(); };
+  window.__ccTourneyOpenScreen = function () { if (T.tid) openScreen(); };
+  // "Wait for next match in the lobby": the player is back on the Player Home,
+  // so paint the waiting bar straight away (live:-1 = count not known yet) and
+  // let the watch keep it honest + pull them into their next match.
+  window.__ccTourneyWaitInLobby = function () {
+    if (!T.tid) return;
+    persistActive();
+    renderStatus({ mode: "waiting", name: (T.bg && T.bg.name) || "", live: -1, canSpectate: true });
+    startWatch();
+  };
+
+  // =========================================================================
+  // STATUS SURFACE — "where do I stand in this tournament right now?"
+  // =========================================================================
+  // One status element, two homes, so it is never in the player's way:
+  //   • inside a game → a compact chip DOCKED INTO the game's own notice bar.
+  //     (It used to be a fat "🏆 Return to <name>" pill pinned to bottom-centre,
+  //     sitting straight on top of the hand and the action bar.)
+  //   • anywhere else → a waiting BAR on the Player Home, styled like the Quick
+  //     Match "Finding players…" banner (spinner + status + Spectate / Bracket),
+  //     so you can wait there and still browse your stats, friends or the menu.
+  // s = { mode:"lobby"|"playing"|"waiting"|"done", name, live, canSpectate }
+  //   live: how many OTHER matches are being played right now (-1 = not known yet).
+  function chipText(s) {
+    if (s.mode === "done") return "🏆 " + (s.name || "Tournament") + " — results";
+    if (s.mode === "waiting") {
+      if (s.live > 0) return `⏳ Waiting for ${s.live} other game${s.live === 1 ? "" : "s"} to finish`;
+      if (s.live === 0) return "⏳ Waiting for the next round";
+      return "⏳ Waiting for the other games to finish";
+    }
+    return "🏆 Return to " + (s.name || "tournament");
   }
-  function hideReturnPill() { const p = $("#ccT-return-pill"); if (p) p.remove(); }
+  function barMain(s) {
+    if (s.mode === "done") return "This tournament is finished.";
+    if (s.mode === "lobby") return "Your tournament hasn't started yet.";
+    if (s.mode === "playing") return "Your tournament match is in progress.";
+    if (s.live > 0) return `Waiting for ${s.live} other tournament game${s.live === 1 ? "" : "s"} to finish…`;
+    if (s.live === 0) return "Waiting for the next tournament round…";
+    return "Waiting for the other tournament games to finish…";
+  }
+  function barSub(s) {
+    const nm = s.name ? s.name + " · " : "";
+    if (s.mode === "done") return nm + "open the bracket for the final standings.";
+    if (s.mode === "lobby") return nm + "open it to ready up when the host starts.";
+    return nm + "we'll bring you into your next match automatically.";
+  }
+
+  function renderStatus(s) {
+    if (T.screenOpen) { clearStatus(); return; }   // the bracket itself is on screen
+    T.status = s;
+    const notice = document.getElementById("pv-notice");
+    // offsetParent is null whenever #pv-game (its ancestor) is display:none, so
+    // this is a live "is the game table actually on screen?" test.
+    if (notice && notice.offsetParent !== null) { hideWaitBar(); showChip(notice, s); }
+    else { hideChip(); showWaitBar(s); }
+  }
+  function clearStatus() { hideChip(); hideWaitBar(); }
+
+  function showChip(notice, s) {
+    let chip = document.getElementById("ccT-chip");
+    if (!chip || chip.parentNode !== notice) {
+      if (chip) chip.remove();
+      chip = el("button", "ccT-chip"); chip.id = "ccT-chip"; chip.type = "button";
+      const anchor = notice.querySelector(".pv-menu-wrap");
+      if (anchor) notice.insertBefore(chip, anchor); else notice.appendChild(chip);
+    }
+    const txt = chipText(s);
+    if (chip.textContent !== txt) chip.textContent = txt;
+    chip.title = s.mode === "waiting"
+      ? "Your match is done — the other tournament games are still running. Tap for the bracket."
+      : "Open the tournament bracket";
+    chip.classList.toggle("waiting", s.mode === "waiting");
+    chip.classList.toggle("done", s.mode === "done");
+    chip.onclick = () => openScreen();
+  }
+  function hideChip() { const c = document.getElementById("ccT-chip"); if (c) c.remove(); }
+
+  // The waiting bar lives inside the Player Home, immediately after the Quick
+  // Match search bar, so it shows on every tab of the home screen (overview,
+  // stats, friends…) exactly like matchmaking does — and disappears with the
+  // home screen, because it's a child of it.
+  function waitBarEl() {
+    let bar = document.getElementById("ccT-waitbar");
+    if (bar) return bar;
+    const qm = document.getElementById("qm-search-bar");
+    const home = document.getElementById("auth-stats-lobby");
+    if (!qm && !home) return null;
+    bar = el("div"); bar.id = "ccT-waitbar";
+    bar.setAttribute("role", "status"); bar.setAttribute("aria-live", "polite");
+    bar.innerHTML = `<span class="ccT-wb-spin" aria-hidden="true"></span>
+      <span class="ccT-wb-txt"><span id="ccT-wb-main"></span><span class="ccT-wb-sub" id="ccT-wb-sub"></span></span>
+      <button type="button" class="ccT-wb-btn" id="ccT-wb-spectate">👁 Spectate Game</button>
+      <button type="button" class="ccT-wb-btn" id="ccT-wb-bracket">🏆 Bracket</button>`;
+    if (qm && qm.parentNode) qm.parentNode.insertBefore(bar, qm.nextSibling);
+    else home.appendChild(bar);
+    $("#ccT-wb-spectate", bar).addEventListener("click", () => spectatePick());
+    $("#ccT-wb-bracket", bar).addEventListener("click", () => openScreen());
+    return bar;
+  }
+  function showWaitBar(s) {
+    const bar = waitBarEl(); if (!bar) return;
+    bar.style.display = "";
+    // The spinner means "something is being waited on" — nothing is, in the
+    // pre-start lobby or once the bracket is over.
+    bar.classList.toggle("nospin", s.mode === "done" || s.mode === "lobby");
+    const main = $("#ccT-wb-main", bar), sub = $("#ccT-wb-sub", bar);
+    if (main) main.textContent = barMain(s);
+    if (sub) sub.textContent = barSub(s);
+    const spec = $("#ccT-wb-spectate", bar);
+    if (spec) spec.style.display = (s.mode === "waiting" && s.canSpectate !== false) ? "" : "none";
+    const br = $("#ccT-wb-bracket", bar);
+    if (br) br.textContent = s.mode === "done" ? "🏆 View results"
+                           : s.mode === "lobby" ? "🏆 Open tournament" : "🏆 Bracket";
+  }
+  function hideWaitBar() { const b = document.getElementById("ccT-waitbar"); if (b) b.style.display = "none"; }
 
   // Are we currently sitting inside a game room page (e.g. /play/ROOM)? A
   // tournament match runs as a normal game room, so while the player is IN their
@@ -1578,60 +1752,168 @@
     return out;
   }
 
-  // While the player is INSIDE a tournament match room (/play/ROOM?t=…), run a
-  // lightweight tournament heartbeat. It does two things the return pill can't:
+  // Which match is running in the room the game app currently has open (if any)?
+  function matchInRoom(st, roomUpper) {
+    if (!roomUpper) return null;
+    return allBracketMatches(st && st.bracket)
+      .find(m => m.room_id && String(m.room_id).toUpperCase() === roomUpper) || null;
+  }
+  // Other matches being played right now (never counts the room we're sitting in).
+  function liveOtherMatches(st, roomUpper) {
+    return allBracketMatches(st && st.bracket).filter(m =>
+      m.status === "active" && m.room_id && String(m.room_id).toUpperCase() !== roomUpper);
+  }
+
+  // Background tournament watch. Runs whenever the bracket overlay is CLOSED but
+  // we're still in a live tournament — in our match, spectating someone else's,
+  // or waiting it out on the Player Home. It does three things:
   //   1) Keeps us marked CONNECTED on the server (each state read refreshes our
   //      presence) so our NEXT round's match WAITS for us to ready up instead of
   //      launching without us while we're still on the previous game's end screen.
-  //   2) The moment our current match is over and our next match is up, it brings
-  //      us back — straight into the game if it already launched, or to its ready
-  //      check if it's still gathering ready-ups — so we ready up every round and
-  //      rejoin cleanly, never stranded on a finished game.
-  function startMatchHeartbeat() {
-    stopMatchHeartbeat();
-    const curRoom = currentRoomId();
-    if (!curRoom || !T.tid) return;
-    const tick = async () => {
-      if (!T.tid || T.screenOpen) return;        // overlay open → full sync owns state
-      let st;
+  //   2) Paints the status surface (in-game chip / home waiting bar) so the player
+  //      always knows whether they're playing or waiting on the other games.
+  //   3) The moment our next match is up it brings us there — straight into the
+  //      game if it already launched, or to its ready check if it's still
+  //      gathering ready-ups — so we never get stranded on a finished game.
+  function startWatch() {
+    stopWatch();
+    if (!T.tid) return;
+    T.watchTimer = setInterval(watchTick, 4000);
+    watchTick();
+  }
+  function stopWatch() {
+    if (T.watchTimer) { clearInterval(T.watchTimer); T.watchTimer = null; }
+  }
+  async function watchTick() {
+    if (!T.tid || T.screenOpen) return;        // overlay open → full sync owns state
+    let st;
+    try {
+      const r = await get(`/api/tournament/state?id=${encodeURIComponent(T.tid)}&pid=${encodeURIComponent(T.pid || "")}&host_token=${encodeURIComponent(T.hostToken || "")}`);
+      st = r.data && r.data.ok && r.data.state;
+    } catch (_) { return; }
+    if (!st || !st.viewer) return;
+    // NB: don't touch T.state / T.lastVersion here — the overlay is closed so
+    // nothing renders from them, and leaving lastVersion alone means opening the
+    // screen (below) still triggers a fresh applyState→render instead of an
+    // early-return on a matching version (which would paint a blank overlay).
+    // T.bg is the read-only snapshot the end-of-game screen + Spectate use.
+    T.bg = st;
+    // Out of the tournament (left / removed) → stop watching, drop the status.
+    if (!st.viewer.in_tournament && st.viewer.status !== "spectating") {
+      stopWatch(); clearActive(); clearStatus(); return;
+    }
+    const curRoom = currentRoomId();            // re-read every tick: it changes when we spectate
+    const cur = matchInRoom(st, curRoom);
+    // Am I a PLAYER in the match running in this room, or just watching it?
+    const iPlayHere = !!(cur && (cur.players || []).some(p => p && p.pid === st.viewer.pid));
+    const myGameLive = !!(cur && iPlayHere && cur.status !== "complete");
+    const base = { name: st.name, live: liveOtherMatches(st, curRoom).length,
+                   canSpectate: st.spectators_allowed !== false };
+
+    // Nothing more to play (done / cancelled / knocked out) → stop pulling, but
+    // leave the status up so the bracket + final standings stay one tap away.
+    if (st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated") {
+      stopWatch();
+      renderStatus(Object.assign({ mode: "done" }, base));
+      return;
+    }
+    const mm = st.viewer.my_match;              // our next ready/active match, if any
+    // Never interrupt a game we're actually PLAYING; being a spectator in this
+    // room (or sitting on a finished game's end screen) must not hold us back.
+    if (!myGameLive && mm && mm.room_id && String(mm.room_id).toUpperCase() !== curRoom) {
+      stopWatch();
+      clearStatus();
+      closeEndScreen();                         // it stacks over the ready check otherwise
+      if (mm.status === "active") enterMatch(mm);    // already launched → jump straight in
+      else openScreen();                            // still gathering ready-ups → show its ready check
+      return;
+    }
+    const mode = st.phase === "lobby" ? "lobby" : (myGameLive ? "playing" : "waiting");
+    renderStatus(Object.assign({ mode: mode }, base));
+  }
+  // The end-of-game screen sits at z-index 9850 and would bury the ready check.
+  function closeEndScreen() {
+    try { const b = bridge(); if (b && typeof b.closeEndScreen === "function") b.closeEndScreen(); } catch (_) {}
+  }
+
+  // =========================================================================
+  // SPECTATE — only ever offered when another match is genuinely being played
+  // =========================================================================
+  async function spectatePick() {
+    let st = T.bg || T.state;
+    if (T.tid) {
       try {
         const r = await get(`/api/tournament/state?id=${encodeURIComponent(T.tid)}&pid=${encodeURIComponent(T.pid || "")}&host_token=${encodeURIComponent(T.hostToken || "")}`);
-        st = r.data && r.data.ok && r.data.state;
-      } catch (_) { return; }
-      if (!st || !st.viewer) return;
-      // NB: don't touch T.state / T.lastVersion here — the overlay is closed so
-      // nothing renders from them, and leaving lastVersion alone means opening the
-      // screen (below) still triggers a fresh applyState→render instead of an
-      // early-return on a matching version (which would paint a blank overlay).
-      // Out of the tournament (left / removed) → stop watching, drop the pill.
-      if (!st.viewer.in_tournament && st.viewer.status !== "spectating") {
-        stopMatchHeartbeat(); clearActive(); hideReturnPill(); return;
-      }
-      // Nothing more to play (done / cancelled / knocked out) → leave the pill so
-      // results stay reachable, but stop pulling.
-      if (st.phase === "complete" || st.phase === "cancelled" || st.viewer.status === "eliminated") {
-        stopMatchHeartbeat(); if (st.name) showReturnPill(st.name); return;
-      }
-      // Don't interrupt the game we're physically in — only move on once the match
-      // running in THIS room has finished.
-      let curDone = true;
-      allBracketMatches(st.bracket).forEach(m => {
-        if (m.room_id && String(m.room_id).toUpperCase() === curRoom && m.status !== "complete") curDone = false;
-      });
-      const mm = st.viewer.my_match;             // our next ready/active match, if any
-      if (curDone && mm && mm.room_id && String(mm.room_id).toUpperCase() !== curRoom) {
-        stopMatchHeartbeat();
-        if (mm.status === "active") enterMatch(mm);   // already launched → jump straight in
-        else openScreen();                            // still gathering ready-ups → show its ready check
-        return;
-      }
-      if (st.name) showReturnPill(st.name);
-    };
-    T.matchHeartbeat = setInterval(tick, 4000);
-    tick();
+        if (r.data && r.data.ok && r.data.state) { st = r.data.state; T.bg = st; }
+      } catch (_) { /* fall back to the last snapshot */ }
+    }
+    if (!st) { toast("Could not reach the tournament, try again in a moment.", "err"); return; }
+    if (st.spectators_allowed === false) {
+      showNotice("🚫", "Spectating is off", "The host turned spectating off for <b>" + esc(st.name || "this tournament") + "</b>, so matches can't be watched.");
+      return;
+    }
+    const live = liveOtherMatches(st, currentRoomId());
+    if (!live.length) {
+      showNotice("🌊", "All other games have finished",
+        "Every other match in <b>" + esc(st.name || "this tournament") + "</b> is done, so there's nothing to watch — the next round is starting. Hang tight, we'll bring you into your match the moment it's ready.");
+      return;
+    }
+    if (live.length === 1) { startSpectating(live[0].room_id); return; }
+    showWatchPicker(live);
   }
-  function stopMatchHeartbeat() {
-    if (T.matchHeartbeat) { clearInterval(T.matchHeartbeat); T.matchHeartbeat = null; }
+
+  // Small "nothing to see here" card — reuses the tournament modal styling.
+  function showNotice(icon, title, htmlBody) {
+    let m = $("#ccT-notice");
+    if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-notice"; document.body.appendChild(m); }
+    m.innerHTML = `<div class="ccT-card" style="width:min(430px,94vw)"><div class="ccT-body" style="text-align:center">
+      <div style="font-size:2.2rem">${icon}</div><h2>${esc(title)}</h2>
+      <p style="margin:6px 0 2px">${htmlBody}</p>
+      <button class="ccT-btn wide gold" id="ccT-notice-ok">Got it</button></div></div>`;
+    m.classList.add("open");
+    $("#ccT-notice-ok", m).addEventListener("click", () => m.classList.remove("open"));
+  }
+
+  function showWatchPicker(live) {
+    let m = $("#ccT-watchpick");
+    if (!m) { m = el("div", "ccT-modal"); m.id = "ccT-watchpick"; document.body.appendChild(m); }
+    const rows = live.map(mt => {
+      const names = (mt.players || []).filter(Boolean).map(p => esc(p.name)).join(" vs ");
+      return `<div class="ccT-watchrow">
+        <div class="ccT-wr-nm"><div class="ccT-wr-title">${mt.is_third_place ? "3rd place match" : "Match " + mt.match_number}</div>
+          <div class="ccT-wr-meta">${names || "In progress"}</div></div>
+        <button class="ccT-btn sm gold" data-room="${esc(mt.room_id)}">Watch ▶</button></div>`;
+    }).join("");
+    m.innerHTML = `<div class="ccT-card" style="width:min(460px,94vw)"><div class="ccT-body">
+      <h2 style="padding:6px 0 2px">Watch a live match</h2>
+      <p class="ccT-sub" style="padding:0 0 6px">${live.length} games are still being played.</p>
+      ${rows}
+      <button class="ccT-btn wide ghost" id="ccT-watch-cancel">Cancel</button></div></div>`;
+    m.classList.add("open");
+    m.querySelectorAll("[data-room]").forEach(btn => btn.addEventListener("click", () => {
+      m.classList.remove("open"); startSpectating(btn.dataset.room);
+    }));
+    $("#ccT-watch-cancel", m).addEventListener("click", () => m.classList.remove("open"));
+  }
+
+  // Watch a match IN PLACE (no page reload) so the watch keeps running and can
+  // pull us straight out the moment our own next match is ready.
+  async function startSpectating(rid) {
+    if (!rid) return;
+    persistActive();
+    const b = bridge();
+    if (b && typeof b.spectateRoom === "function") {
+      let ok = false;
+      try { ok = await b.spectateRoom(rid); } catch (_) { ok = false; }
+      closeScreen();          // reveal the game behind the bracket (no-op if closed)
+      clearStatus();
+      if (!ok) { startWatch(); return; }   // joinAsSpectator already explained why
+      startWatch();
+      return;
+    }
+    // No bridge (older app shell) → fall back to the deep link.
+    try { window.location.href = "/play/" + encodeURIComponent(rid) + "?t=" + encodeURIComponent(T.tid) + "&spectate=1"; }
+    catch (_) { toast("Watch room " + rid, "info"); }
   }
 
   async function resumeActiveIfAny() {
@@ -1644,20 +1926,18 @@
         clearActive(); return;
       }
       T.tid = a.tid; T.hostToken = a.hostToken || ""; T.pid = a.pid || null;
+      T.bg = st;
       const qp = new URLSearchParams(location.search);
       const forThisTourney = qp.get("t") === a.tid;
       // While inside the match room itself, never cover the game with the overlay —
-      // just offer the return pill so the player can come back afterwards, and run
-      // the in-match heartbeat so we stay connected (the next round waits for us)
-      // and get pulled into our next match's ready check when it's up.
-      if (onGameRoomPage()) {
-        showReturnPill(st.name);
-        startMatchHeartbeat();
-      } else if (forThisTourney && !T.screenOpen) {
+      // the watch shows the status chip in the game's own notice bar instead, keeps
+      // us connected (so the next round waits for us) and pulls us into our next
+      // match's ready check when it's up.
+      if (!onGameRoomPage() && forThisTourney && !T.screenOpen) {
         // Came back to the app shell from a match (e.g. left the room) → re-open.
         openScreen();
       } else {
-        showReturnPill(st.name);
+        startWatch();
       }
     } catch (_) { /* leave the blob; try again next load */ }
   }
@@ -1668,19 +1948,15 @@
     if (code && /^[A-Z0-9]{4,12}$/.test(code)) promptJoin(code);
   }
 
-  function spectateMatch(roomId) {
-    persistActive();
-    // Tournament match rooms are full (all seats pre-claimed), so landing here
-    // with no seat token yields the read-only spectator view (hands stripped).
-    try { window.location.href = "/play/" + encodeURIComponent(roomId) + "?t=" + encodeURIComponent(T.tid) + "&spectate=1"; }
-    catch (_) { toast("Watch room " + roomId, "info"); }
-  }
+  // Tournament match rooms are full (all seats pre-claimed), so joining one
+  // without a seat token yields the read-only spectator view (hands stripped).
+  function spectateMatch(roomId) { startSpectating(roomId); }
 
   function boot() {
     injectStyles();
     injectMenuOption();
     handleUrlAutoJoin();     // ?tournament=CODE deep-link
-    resumeActiveIfAny();     // Return-to-tournament pill / auto-reopen after a match
+    resumeActiveIfAny();     // status chip / waiting bar / auto-reopen after a match
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();

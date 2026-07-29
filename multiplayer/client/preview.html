@@ -66,7 +66,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-07-28.3" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-07-28.6" />
 </head>
 <body>
 
@@ -2326,6 +2326,12 @@
           <button id="pv-endgame-again" class="gs-btn gs-btn-again">🔄 Play Again</button>
           <button id="pv-endgame-menu" class="gs-btn gs-btn-home">🏠 Back to Lobby</button>
           <button id="pv-endgame-leaderboard" class="gs-btn gs-btn-secondary">🏆 Leaderboard</button>
+          <!-- Tournament matches swap the three buttons above for these two:
+               a finished bracket match has no rematch, so the only real choices
+               are watching another live match or waiting for your next one.
+               Shown/hidden by _syncEndgameTournamentButtons() in preview-app.js. -->
+          <button id="pv-endgame-t-spectate" class="gs-btn gs-btn-view" style="display:none;">👁 Spectate a Match</button>
+          <button id="pv-endgame-t-wait" class="gs-btn gs-btn-again" style="display:none;">⏳ Wait for Next Match in Lobby</button>
         </div>
         <div id="gs-btn-row" style="margin-top:2px;">
           <button id="pv-endgame-close" class="gs-btn gs-btn-view">▶ View Board Again</button>
@@ -2722,10 +2728,10 @@
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
 <script defer src="/js/rulebook.js?v=2026-07-28.3"></script>
 
-<script defer src="/js/preview-app.js?v=2026-07-28.4"></script>
+<script defer src="/js/preview-app.js?v=2026-07-28.5"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
-<script defer src="/js/tournament-ui.js?v=2026-07-28.4"></script>
+<script defer src="/js/tournament-ui.js?v=2026-07-28.5"></script>
 <!-- Custom bracket BUILDER — the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
 <script defer src="/js/tournament-builder.js?v=2026-07-28.4"></script>

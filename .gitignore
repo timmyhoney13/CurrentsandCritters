@@ -19,6 +19,7 @@
 !test_tournament_engine.py
 !test_tournament_server.py
 !test_tournament_integration.py
+!test_deck_shuffle_fairness.py
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/
