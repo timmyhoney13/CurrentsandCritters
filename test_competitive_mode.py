@@ -168,34 +168,50 @@ class CompetitiveTurnOrder(unittest.TestCase):
                          {gi: si for gi, si in enumerate(TURN_ORDER)})
 
     def test_second_hand_gets_a_real_turn_of_its_own(self):
-        """The premise the client depends on: at ONE state version, each of my
-        two tokens returns a genuinely different view. Hand 2's token — and only
-        hand 2's token — can act, holds the legal actions and holds the cards."""
+        """The turn is on P1's hand 2 (seat 1). EITHER of P1's tokens must return
+        that hand's view — its YOUR TURN, its legal actions, its cards.
+
+        The client used to have to notice the turn had moved and re-poll with the
+        other hand's token. That is a race, and losing it froze the match on hand
+        1 while the banner said hand 2 was up. The switch happens here now, so a
+        client that polls with hand 1's token — or has only that token left after
+        a refresh — still gets hand 2 the moment it is hand 2's turn."""
         self.assertTrue(self.views, "never reached P1's second hand")
         versions = {v["version"] for v in self.views.values()}
         self.assertEqual(len(versions), 1,
                          "all four tokens must be reading the same state version")
 
         can_act = {t: self.views[t]["viewer"]["can_act"] for t in (0, 1, 2, 3)}
-        self.assertEqual(can_act, {0: False, 1: True, 2: False, 3: False},
-                         "only the active hand may act")
+        self.assertEqual(can_act, {0: True, 1: True, 2: False, 3: False},
+                         "both of the active player's tokens act for the active hand; "
+                         "neither of the opponent's does")
 
-        # legal_actions is None for a seat the engine has never asked to move.
-        legal = self.views[1]["legal_actions"]
-        self.assertIsNotNone(legal, "hand 2 must be offered its legal actions")
-        self.assertGreater(len(legal["actions"]), 0)
+        for t in (0, 1):
+            legal = self.views[t]["legal_actions"]
+            self.assertIsNotNone(legal, "hand 2 must be offered its legal actions")
+            self.assertGreater(len(legal["actions"]), 0)
 
-        # Each token sees ITS OWN cards and nobody else's.
-        for t in (0, 1, 2, 3):
+        # Whichever hand a payload is a view OF, it carries that hand's cards and
+        # nobody else's — an opponent's token can never pull a rival hand.
+        for t, shown in ((0, 1), (1, 1), (2, 2), (3, 3)):
             players = self.views[t]["state"]["players"]
-            mine = next(p for p in players if p["index"] == t)
-            self.assertGreater(len(mine["hand"]), 0, f"seat {t} must see its own hand")
+            mine = next(p for p in players if p["index"] == shown)
+            self.assertGreater(len(mine["hand"]), 0,
+                               f"seat {t}'s poll must carry seat {shown}'s hand")
             for p in players:
-                if p["index"] != t:
-                    self.assertEqual(p["hand"], [], "no seat may see another's hand")
+                if p["index"] != shown:
+                    self.assertEqual(p["hand"], [], "no payload may carry a second hand")
 
-    def test_viewer_seat_index_is_the_seat_that_polled(self):
-        for t in (0, 1, 2, 3):
+    def test_viewer_seat_index_is_the_hand_being_viewed(self):
+        """My own seat, except while the turn is on my OTHER hand — then it is
+        that hand, because that is the hand I have to be looking at."""
+        for t, shown in ((0, 1), (1, 1), (2, 2), (3, 3)):
+            self.assertEqual(self.views[t]["viewer"]["seat_index"], shown)
+
+    def test_the_opponents_view_never_follows_my_turn(self):
+        """The switch is strictly within one person's own pair."""
+        for t in (2, 3):
+            self.assertFalse(self.views[t]["viewer"]["can_act"])
             self.assertEqual(self.views[t]["viewer"]["seat_index"], t)
 
 
@@ -268,6 +284,61 @@ class CompetitiveSeatOwnership(unittest.TestCase):
         self.room.set_away({"seat_token": self.tokens[1], "away": True})
         self.assertIn("Otter is on Surf's Up", self.room.status_note)
         self.assertNotIn("Otter 2", self.room.status_note)
+
+    def test_one_token_is_enough_to_see_the_active_hand(self):
+        """What a client has after a refresh: one seat token and no idea the
+        room is competitive. It must still be shown the hand whose turn it is —
+        here hand 2's token polling on hand 1's turn."""
+        view = self.room.state_view(self.tokens[1], "localhost")
+        self.assertEqual(view["viewer"]["seat_index"], 0)
+        self.assertTrue(view["viewer"]["can_act"])
+        self.assertIsNotNone(view["legal_actions"])
+        players = view["state"]["players"]
+        self.assertGreater(len(next(p for p in players if p["index"] == 0)["hand"]), 0)
+
+    def test_polling_either_hand_keeps_the_whole_player_present(self):
+        """One poll means the PERSON is here — a competitive forfeit must never
+        fire because only one of their two hands did the polling."""
+        for seat in self.room.seats:
+            seat.last_seen = 0.0
+        self.room.state_view(self.tokens[0], "localhost")
+        self.assertGreater(self.room.seats[1].last_seen, 0.0,
+                           "hand 2 must count as present when hand 1 polls")
+        self.assertEqual(self.room.seats[2].last_seen, 0.0,
+                         "the opponent's presence is their own to prove")
+
+    def test_afk_votes_are_counted_per_player_not_per_hand(self):
+        """Four seats, two people. Counting seats gave the opponent two of the
+        three ballots against you — a majority they hold alone, every turn — and
+        listed your own other hand as a voter against you."""
+        voters = self.room._afk_eligible_voter_indices_locked(0)
+        self.assertEqual(voters, [2],
+                         "one ballot per person: the opponent, once, and never my own hand")
+
+    def test_your_own_other_hand_cannot_report_you_afk(self):
+        self.room.submit_chat({"seat_token": self.tokens[1], "message": "Otter is afk"})
+        self.assertIsNone(self.room.afk_challenge_seat,
+                          "a player must not be able to AFK-vote themselves through hand 2")
+
+    def test_either_of_the_opponents_hands_casts_the_one_vote(self):
+        """P2 voting with hand 2 (seat 3) still counts — the eligible list holds
+        only seat 2, so the vote has to be matched by OWNER, not seat index."""
+        self.room.submit_chat({"seat_token": self.tokens[3], "message": "Otter is afk"})
+        self.assertEqual(self.room.afk_challenge_seat, 0,
+                         "the opponent's second hand casts their side's ballot")
+        # …and their first hand cannot then vote a second time.
+        self.room.afk_challenge_seat = None
+        self.room.afk_challenge_deadline = None
+        self.room.submit_chat({"seat_token": self.tokens[2], "message": "Otter is afk"})
+        self.assertIsNone(self.room.afk_challenge_seat,
+                          "one ballot per person, not one per hand")
+
+    def test_cannot_draw_two_cards_for_your_own_other_hand(self):
+        self.room.seats[0].inactive_eligible = True
+        res = self.room.draw_for_inactive({"seat_token": self.tokens[1],
+                                           "target_seat_index": 0})
+        self.assertFalse(res.get("ok"))
+        self.assertEqual(res.get("error"), "cannot draw for yourself")
 
 
 class CompetitivePostGame(unittest.TestCase):

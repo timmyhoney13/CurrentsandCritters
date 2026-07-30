@@ -7433,10 +7433,14 @@ class GameRoom:
             if viewer_seat is None and host_token:
                 if secrets.compare_digest(self.host_control_token, host_token):
                     viewer_seat = self.host_seat()
-            # Record this seat's last activity so the competitive forfeit check
-            # can tell when a player's client has stopped polling (left/closed).
+            # Record this player's last activity so the competitive forfeit check
+            # can tell when a client has stopped polling (left/closed). One poll
+            # means the PERSON is here, so it refreshes every seat they own — in
+            # competitive a player's two hands are never at the table separately.
             if viewer_seat is not None:
-                viewer_seat.last_seen = time.time()
+                _seen_now = time.time()
+                for _owned in self._owned_seats_locked(viewer_seat):
+                    _owned.last_seen = _seen_now
             # A player polling with their seat token has returned — clear the
             # rejoin reservation so the seat counts as active again.
             if viewer_seat is not None and viewer_seat.left_at is not None:
@@ -7449,11 +7453,32 @@ class GameRoom:
             # came back within the window. Runs AFTER the viewer's own rejoin is
             # cleared above, so a returning player is never forfeited by mistake.
             self._check_competitive_forfeit_locked()
-            # viewer_index is the SEAT index (from the seat token).
+            # ── Which hand this payload is a view OF ────────────────────────
+            # Normally the token's own seat. In competitive one human owns TWO
+            # seats, and the hand the turn is on is the ONLY hand they can be
+            # looking at — so a poll with either of their tokens returns the
+            # ACTIVE hand's view: its board, its cards, its legal actions, its
+            # "YOUR TURN". The client used to do this itself by re-polling with
+            # the other hand's token the moment it noticed the turn had moved,
+            # which is a race it can lose (a poll in flight, a dropped corrective
+            # fetch, a client holding only one of the two tokens after a refresh)
+            # — and losing it froze the match on hand 1 while the banner said
+            # hand 2 was up. The switch belongs here, where it cannot be raced.
+            # This is not a leak: both hands belong to the one person holding the
+            # token, and submit_action already accepts either token for whichever
+            # of their hands is active (see _competitive_same_owner).
+            view_seat = viewer_seat
+            if (viewer_seat is not None
+                    and self.active_action_seat is not None
+                    and self.active_action_seat != viewer_seat.index
+                    and self._competitive_same_owner(viewer_seat.index, self.active_action_seat)
+                    and 0 <= self.active_action_seat < len(self.seats)):
+                view_seat = self.seats[self.active_action_seat]
+            # viewer_index is the SEAT index (of the hand being viewed).
             # The players array uses seat_idx as p["index"] (see _record_snapshot),
             # so viewer_index is used both to find "me" in the players list AND
             # to look up private_hands (also keyed by seat_idx).
-            viewer_index = viewer_seat.index if viewer_seat is not None else None
+            viewer_index = view_seat.index if view_seat is not None else None
 
             state_obj = copy.deepcopy(self.latest_public_state) if isinstance(self.latest_public_state, dict) else None
             if isinstance(state_obj, dict):
@@ -7534,7 +7559,16 @@ class GameRoom:
                 "ai_speed": str(self.ai_speed or "normal"),
                 "public_links": load_public_links(),
                 "seats": self.seat_snapshot_locked(),
-                "viewer": self._viewer_payload_locked(viewer_seat),
+                # is_host belongs to the PERSON, not to whichever of their hands
+                # the view is on — otherwise the host's own controls blink out
+                # every time the turn reaches their second hand.
+                "viewer": dict(
+                    self._viewer_payload_locked(view_seat),
+                    is_host=bool(
+                        (viewer_seat is not None and viewer_seat.is_host)
+                        or (view_seat is not None and view_seat.is_host)
+                    ),
+                ),
                 "can_start": bool(
                     self.phase == "lobby"
                     and human_total > 0
@@ -7640,8 +7674,16 @@ class GameRoom:
 
     def _afk_eligible_voter_indices_locked(self, target_idx: int) -> List[int]:
         """Seat indices of the OTHER active players who count toward the vote:
-        seated humans, not the target, not on Surf's Up (Away), still present."""
+        seated humans, not the target, not on Surf's Up (Away), still present.
+
+        One vote per PERSON, not per seat. Competitive is four seats but two
+        people, so counting seats let the opponent's two hands cast two of the
+        three "votes" against you — a majority they hold on their own, every
+        turn — and listed your OWN other hand as a voter against you. Seats
+        owned by the same human collapse to a single ballot (the lowest seat
+        index), and the target's own pair never votes at all."""
         out: List[int] = []
+        seen_owners: set = set()
         for s in self.seats:
             if s.index == target_idx:
                 continue                     # target never counts toward the %
@@ -7653,8 +7695,21 @@ class GameRoom:
                 continue                     # reserved-but-gone seat
             if getattr(s, "is_away", False):
                 continue                     # Away players aren't "active"
+            if self._competitive_same_owner(s.index, target_idx):
+                continue                     # your own other hand is not a voter
+            owner = self._vote_owner_key_locked(s)
+            if owner in seen_owners:
+                continue                     # one ballot per person, not per hand
+            seen_owners.add(owner)
             out.append(s.index)
         return out
+
+    def _vote_owner_key_locked(self, seat: "Seat") -> int:
+        """Identity of the PERSON sitting in `seat`, for one-vote-per-person
+        counting: the lowest seat index they own (themselves in a normal room,
+        the first of their pair in competitive)."""
+        owned = self._owned_seats_locked(seat)
+        return min((s.index for s in owned), default=seat.index)
 
     def _afk_resolve_target_locked(self, raw: str) -> Optional["Seat"]:
         """Resolve a vote target string to a seat. Accepts 'P3'/'p3' (seat
@@ -7702,6 +7757,10 @@ class GameRoom:
             return
         if voter.index == target_seat.index:
             return  # can't vote yourself
+        if self._competitive_same_owner(voter.index, target_seat.index):
+            self._add_system_chat("That's your own hand — you can't report yourself as AFK.")
+            self.cond.notify_all()
+            return
         target_name = target_seat.claimed_name or self._afk_label_for_seat(target_seat)
         # Surf's Up immunity — can't be voted on for 10 minutes after pressing it.
         if time.time() < float(self.afk_immune_until.get(target_seat.index, 0.0)):
@@ -7712,15 +7771,23 @@ class GameRoom:
         if target_seat.index in self.afk_nominated_this_turn:
             return
         voters = self._afk_eligible_voter_indices_locked(target_seat.index)
-        if voter.index not in voters:
+        # One ballot per PERSON: a competitive player voting with either of their
+        # hands casts the one vote their side gets (the eligible list holds only
+        # the first seat of each person's pair, so match on ownership, not index).
+        ballot_seat = next(
+            (v for v in voters
+             if v == voter.index or self._competitive_same_owner(v, voter.index)),
+            None,
+        )
+        if ballot_seat is None:
             return
         denom = len(voters)
         if denom <= 0:
             return
         ballots = self.afk_votes.setdefault(target_seat.index, set())
-        if voter.index in ballots:
+        if ballot_seat in ballots:
             return  # one vote per player per target per turn
-        ballots.add(voter.index)
+        ballots.add(ballot_seat)
         pct = int(round(100.0 * len(ballots) / denom))
         self._add_system_chat(f"{pct}% of players want {target_name} to draw 2 cards.")
         # >=50% of the other active players → start the 10-second challenge.
@@ -7828,9 +7895,14 @@ class GameRoom:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
                 return {"ok": False, "error": "invalid seat token"}
-            if seat.avatar == (avatar or None):
+            # One person, one face: in competitive a player owns two hands and
+            # only ever pushes with one token, so the other hand sat there under
+            # a stranger's default icon for the whole match.
+            owned = self._owned_seats_locked(seat)
+            if all(s.avatar == (avatar or None) for s in owned):
                 return {"ok": True, "avatar": seat.avatar or ""}
-            seat.avatar = avatar or None
+            for s in owned:
+                s.avatar = avatar or None
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "avatar": seat.avatar or ""}
@@ -7848,9 +7920,13 @@ class GameRoom:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
                 return {"ok": False, "error": "invalid seat token"}
-            if seat.background == (background or None):
+            # Both of a competitive player's hands wear their background — see
+            # set_avatar; only one token ever does the pushing.
+            owned = self._owned_seats_locked(seat)
+            if all(s.background == (background or None) for s in owned):
                 return {"ok": True, "background": seat.background or ""}
-            seat.background = background or None
+            for s in owned:
+                s.background = background or None
             self._persist_dirty = True
             self._bump_locked()
         return {"ok": True, "background": seat.background or ""}
@@ -7973,7 +8049,8 @@ class GameRoom:
                 return {"ok": False, "error": "target is not flagged inactive"}
             if self.active_action_seat != target.index:
                 return {"ok": False, "error": "not target's turn"}
-            if caller.index == target.index:
+            if caller.index == target.index or self._competitive_same_owner(caller.index, target.index):
+                # Same person — in competitive that includes your own other hand.
                 return {"ok": False, "error": "cannot draw for yourself"}
             queue = self.pending_actions.setdefault(target.index, [])
             # If a draw-for-inactive cmd is already queued, do nothing (idempotent).

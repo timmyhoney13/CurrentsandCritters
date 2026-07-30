@@ -4,23 +4,25 @@
  * Run:  node test_competitive_hand_switch.js
  *
  * Competitive is a 4-seat game where each human owns TWO seats (P1 = {0,1},
- * P2 = {2,3}) and the engine interleaves them 0 → 2 → 1 → 3. One client
- * therefore holds two seat tokens and has to re-fetch the room state with the
- * token of whichever of its hands is currently active.
+ * P2 = {2,3}) and the engine interleaves them 0 → 2 → 1 → 3. One person is
+ * therefore playing two hands, and the client has to show whichever of them the
+ * turn is on.
  *
- * The trap this file guards: the SAME server state_version can legitimately
- * arrive as two DIFFERENT views. `state_view` is per-token — viewer.can_act,
- * legal_actions and the private hand all come from the polling seat — so
- * version 59 fetched with hand 1's token says "waiting…" while version 59
- * fetched with hand 2's token says "YOUR TURN" with hand 2's cards. A render
- * gate keyed on the version ALONE silently dropped the second one, which froze
- * the client on hand 1's board and made competitive look like it never passed
- * the turn to your other hand.
+ * The server decides that now (state_view returns the ACTIVE hand's view for
+ * either of a player's tokens — see _competitive_same_owner), because the
+ * client-side version of it was a race: a poll in flight, a corrective fetch
+ * that never went out, or a client that came back from a refresh holding only
+ * one of its two tokens, and the match froze on hand 1 while the banner said
+ * hand 2 was up. What is left for the client is to not throw the switched view
+ * away, and these checks pin that down against the REAL buildStateUrl() /
+ * applyServerPayload() / compAdoptFromPayload() lifted out of preview-app.js:
  *
- * These checks run the REAL buildStateUrl() + applyServerPayload() lifted out of
- * preview-app.js against a fake server that reproduces the live server's
- * behaviour (verified against multiplayer_server.py: one version per turn
- * boundary, per-token viewer/legal_actions/hand).
+ *   • one state_version can arrive as two different views (they differ by
+ *     viewer seat), so the render gate must be keyed on version + viewer seat;
+ *   • re-entering a competitive room by any generic path (?room= URL, the
+ *     "Rejoin →" card, a plain refresh) must rebuild competitive mode from the
+ *     payload instead of playing on as a one-seat player;
+ *   • a click must never act for a hand that is not on screen.
  */
 "use strict";
 
@@ -57,10 +59,12 @@ function grabFn(name) {
 // ── Fake server ──────────────────────────────────────────────────────────────
 // Mirrors multiplayer_server.GameRoom for a competitive room: 4 human seats,
 // turn order [0,2,1,3], state_version bumped once per turn boundary, and a
-// per-token state_view (each token sees ITS OWN viewer/legal_actions/hand).
+// state_view that returns the ACTIVE hand's view to either token of the player
+// who owns it (verified against multiplayer_server.py's state_view).
 const TURN_ORDER = [0, 2, 1, 3];
 const TOKENS = { 0: "tok0", 1: "tok1", 2: "tok2", 3: "tok3" };
 const SEAT_BY_TOKEN = { tok0: 0, tok1: 1, tok2: 2, tok3: 3 };
+const sameOwner = (a, b) => Math.floor(a / 2) === Math.floor(b / 2);
 
 function makeServer() {
   return {
@@ -69,16 +73,22 @@ function makeServer() {
     get activeSeat() { return TURN_ORDER[this.turn % 4]; },
     endTurn() { this.turn++; this.version += 20; },
     stateFor(token) {
-      const viewerSeat = SEAT_BY_TOKEN[token];
-      if (viewerSeat === undefined) return { ok: false, error: "seat token invalid" };
+      const tokenSeat = SEAT_BY_TOKEN[token];
+      if (tokenSeat === undefined) return { ok: false, error: "seat token invalid" };
       const active = this.activeSeat;
+      // The one rule this whole file is about: my poll shows me the hand the
+      // turn is on, whichever of my two tokens I polled with.
+      const viewerSeat = sameOwner(tokenSeat, active) ? active : tokenSeat;
       return {
         ok: true,
         version: this.version,
         active_action_seat: active,
+        room: { competitive: true, phase: "running" },
+        seats: [
+          { index: 0, claimed_name: "Otter" },   { index: 1, claimed_name: "Otter 2" },
+          { index: 2, claimed_name: "Heron" },   { index: 3, claimed_name: "Heron 2" },
+        ],
         viewer: { seat_index: viewerSeat, can_act: viewerSeat === active },
-        // Only the ACTIVE seat gets a playable action list — this is what makes
-        // two same-version payloads genuinely different documents.
         legal_actions: { actions: viewerSeat === active ? [{ kind: "end_turn" }] : [] },
         state: {
           players: [0, 1, 2, 3].map(i => ({
@@ -92,26 +102,36 @@ function makeServer() {
 }
 
 // ── Client harness ───────────────────────────────────────────────────────────
-// Drives the real buildStateUrl/applyServerPayload the way the 1 s poll timer
-// does, with a deterministic setTimeout queue so the re-fetch is observable.
-function makeClient(server, mySeats) {
+// Drives the real buildStateUrl/applyServerPayload/compAdoptFromPayload the way
+// the 1 s poll timer does, with a deterministic setTimeout queue.
+function makeClient(server, mySeats, opts) {
+  const options = opts || {};
   const rendered = [];   // every payload that reached renderPayload()
   const timers = [];
+  const tokens = {};
+  for (const s of mySeats) tokens[s] = TOKENS[s];
 
   const sandbox = {
     console,
     URLSearchParams,
     roomId: "COMPTS",
-    compMode: true,
+    compMode: options.compMode !== false,
     compMySeats: mySeats.slice(),
-    compTokens: { [mySeats[0]]: TOKENS[mySeats[0]], [mySeats[1]]: TOKENS[mySeats[1]] },
+    compTokens: tokens,
     compHostToken: "",
+    compHandNames: {},
+    compP1Name: "Player 1",
+    compP2Name: "Player 2",
+    _compHsSuppressed: false,
+    _compPrevActiveSeat: 7,
+    sseSource: options.sseSource || null,
     latestPayload: null,
     _lastStateVersion: -1,
-    _lastRenderedVersion: -1,
     _lastRenderedKey: "",
     _compRefetchKey: "",
-    getSeatToken: () => TOKENS[mySeats[0]],
+    isSpectating: () => false,
+    compLoadHandNames: () => {},
+    getSeatToken: () => options.heldToken || TOKENS[mySeats[0]] || "",
     getHostToken: () => "",
     apiUrl: (p) => p,
     renderPayload: (d) => { rendered.push(d); },
@@ -124,13 +144,19 @@ function makeClient(server, mySeats) {
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext([grabFn("buildStateUrl"), grabFn("applyServerPayload")].join("\n"), sandbox);
+  vm.runInContext([
+    grabFn("buildStateUrl"),
+    grabFn("applyServerPayload"),
+    grabFn("compAdoptFromPayload"),
+    grabFn("_compHandoffPending"),
+    grabFn("_viewerCanActNow"),
+    grabFn("_isMyTurnForAction"),
+  ].join("\n"), sandbox);
 
   return {
     sandbox,
     rendered,
-    // One tick of the 1 s poll timer, then drain whatever the payload scheduled
-    // (the competitive re-fetch fires from a setTimeout).
+    // One tick of the 1 s poll timer, then drain whatever the payload scheduled.
     poll() {
       sandbox.refreshState();
       let guard = 0;
@@ -151,6 +177,10 @@ function shownCanAct(client) {
   const last = client.rendered[client.rendered.length - 1];
   return last ? last.viewer.can_act : null;
 }
+function shownHandOf(client, seat) {
+  const last = client.rendered[client.rendered.length - 1];
+  return last.state.players.find(p => p.index === seat).hand.length;
+}
 
 // ── 1. P1 (seats 0+1) plays a full round ─────────────────────────────────────
 console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active");
@@ -167,6 +197,7 @@ console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active"
   server.endTurn();
   p1.poll();
   check(shownCanAct(p1) === false, "opponent's turn: client shows waiting");
+  check(shownSeat(p1) === 0, "opponent's turn: I am back on my own hand 1's board");
 
   // Opponent ends → seat 1 = MY OTHER HAND. This is the switch that broke.
   server.endTurn();
@@ -177,9 +208,10 @@ console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active"
         "hand 2's turn: the rendered view says YOUR TURN");
   check((p1.rendered[p1.rendered.length - 1].legal_actions.actions || []).length > 0,
         "hand 2's turn: the rendered view carries hand 2's legal actions");
-  check(p1.rendered[p1.rendered.length - 1].state.players
-          .find(p => p.index === 1).hand.length > 0,
+  check(shownHandOf(p1, 1) > 0,
         "hand 2's turn: the rendered view carries hand 2's cards");
+  check(shownHandOf(p1, 0) === 0,
+        "hand 2's turn: hand 1's cards are gone from the view (one hand at a time)");
 
   // Nothing changes server-side → no repeated re-fetch storm.
   const before = p1.rendered.length;
@@ -214,30 +246,74 @@ console.log("2. P2 owns seats 2+3 — same switch, opposite side of the table");
         "P2 hand 2 gets its turn (the second-hand switch, mirrored)");
 }
 
-// ── 3. A dead token must not spin the re-fetch forever ───────────────────────
-console.log("3. a seat whose token no longer resolves cannot loop the client");
+// ── 3. Back from a refresh: ONE token, no competitive state ──────────────────
+console.log("3. re-entering the match (refresh / Rejoin / ?room= URL) restores both hands");
+{
+  const server = makeServer();
+  // What the generic room-entry paths leave behind: one seat token, compMode
+  // off, no seat pair — and an SSE stream competitive must not run on.
+  const fakeSse = { closed: false, close() { this.closed = true; } };
+  const back = makeClient(server, [0], {
+    compMode: false, heldToken: TOKENS[0], sseSource: fakeSse,
+  });
+  back.sandbox.compMySeats = [];
+  back.sandbox.compTokens = {};
+
+  back.poll();
+  check(back.sandbox.compMode === true,
+        "the payload says the room is competitive → competitive mode is rebuilt");
+  check(JSON.stringify(back.sandbox.compMySeats) === "[0,1]",
+        "the viewer's seat names the pair it belongs to");
+  check(back.sandbox.compTokens[0] && back.sandbox.compTokens[1],
+        "both hands are addressable with the one token that survived");
+  check(back.sandbox.compP1Name === "Otter" && back.sandbox.compP2Name === "Heron",
+        "both sides are named from the seats, not left as 'Player 1'");
+  check(fakeSse.closed === true,
+        "the SSE stream is closed (competitive is poll-only; it would fight the poll)");
+
+  // …and the restored client plays both hands.
+  server.endTurn(); back.poll();                 // opponent
+  server.endTurn(); back.poll();                 // my hand 2
+  check(shownSeat(back) === 1 && shownCanAct(back) === true,
+        "the rejoined client is handed its second hand's turn");
+
+  // A casual room must never be adopted as competitive.
+  const casual = makeClient(server, [0], { compMode: false, heldToken: TOKENS[0] });
+  casual.sandbox.compMySeats = [];
+  casual.sandbox.compTokens = {};
+  casual.sandbox.compAdoptFromPayload({
+    room: { competitive: false }, viewer: { seat_index: 0 }, seats: [],
+  });
+  check(casual.sandbox.compMode === false, "a non-competitive room is left alone");
+}
+
+// ── 4. A click can never act for a hand that is not on screen ────────────────
+console.log("4. the handoff window: it is my turn, but not the hand I am looking at");
 {
   const server = makeServer();
   const p1 = makeClient(server, [0, 1]);
-  // Hand 2's token is present but the server hands back the wrong viewer for it
-  // (expired/rotated token). The client must give up, not re-fetch endlessly.
-  server.stateFor = function (token) {
-    const active = this.activeSeat;
-    return {
-      ok: true, version: this.version, active_action_seat: active,
-      viewer: { seat_index: 0, can_act: active === 0 },
-      legal_actions: { actions: [] },
-      state: { players: [] },
-    };
+  // Hand 2 is active while the payload on screen is still hand 1's.
+  p1.sandbox.latestPayload = {
+    active_action_seat: 1,
+    viewer: { seat_index: 0, can_act: false },
   };
-  server.turn = 2; // seat 1 active — one of mine, but unreachable
-  let threw = false;
-  try { p1.poll(); } catch (e) { threw = true; }
-  check(!threw, "a token that never resolves to the active seat settles instead of looping");
+  check(p1.sandbox._compHandoffPending() === true, "the handoff is detected");
+  check(p1.sandbox._isMyTurnForAction() === false,
+        "no action is accepted for the hand whose cards are not on screen");
+  check(p1.sandbox._compRefetchKey === "",
+        "the corrective fetch is re-armed instead of being skipped for this version");
+
+  // Once the switched view has landed, the same hand plays normally.
+  p1.sandbox.latestPayload = {
+    active_action_seat: 1,
+    viewer: { seat_index: 1, can_act: true },
+  };
+  check(p1.sandbox._compHandoffPending() === false && p1.sandbox._isMyTurnForAction() === true,
+        "with hand 2 on screen, hand 2 can play");
 }
 
-// ── 4. Source invariants (so the gate cannot be quietly re-broken) ───────────
-console.log("4. preview-app.js keeps the per-seat render gate");
+// ── 5. Source invariants (so the gate cannot be quietly re-broken) ───────────
+console.log("5. preview-app.js keeps the per-seat render gate");
 {
   check(!/_lastRenderedVersion/.test(APP),
         "the version-only render gate (_lastRenderedVersion) is gone");
@@ -246,6 +322,8 @@ console.log("4. preview-app.js keeps the per-seat render gate");
   const applySrc = grabFn("applyServerPayload");
   check(/viewer[\s\S]{0,40}seat_index/.test(applySrc),
         "applyServerPayload's render gate reads viewer.seat_index");
+  check(/compAdoptFromPayload/.test(applySrc),
+        "every payload gets the chance to restore competitive mode");
   // submitAction must send the token of the seat the server will act as.
   const submitSrc = APP.slice(APP.indexOf("\n  async function submitAction("),
                               APP.indexOf("\n  async function submitAction(") + 4000);

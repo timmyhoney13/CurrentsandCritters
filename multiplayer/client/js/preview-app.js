@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.38";
-  const APP_BUILD   = "2026-07-30.4";
+  const APP_BUILD   = "2026-07-30.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,15 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "Competitive: the hand whose turn it is, is the hand you see", items: [
+      "The hand-off between your two hands is now done by the server, not guessed at by your screen. Whichever of your hands the turn is on is the one you're looking at — its cards, its board, its YOUR TURN — every time, with nothing left to go wrong in between.",
+      "Refreshing, rejoining, or reopening the game window no longer costs you your second hand. Coming back into a Competitive match now brings both hands with you instead of leaving one of them unplayable for the rest of the game.",
+      "A tap can no longer be spent on a hand that isn't on screen — if the turn has just moved to your other hand, the game says it's switching and brings that hand up rather than quietly ending its turn for you.",
+      "Both of your hands wear your icon and background now, instead of your second hand sitting there under a stranger's default picture.",
+      "AFK reports count one vote per PERSON. Your opponent's two hands used to be a majority on their own — they could put your hand on the 10-second clock every single turn — and your own second hand was listed as a voter against you.",
+      "Your own other hand can no longer draw 2 cards \"for\" you.",
+      "Results are scored by seat, so two players with the same nickname can't scramble whose hand scored what.",
+    ]},
     { ver: "V1.7.0", title: "Competitive: your second hand actually gets its turn", items: [
       "Fixed the big one: in Competitive the turn goes you → your opponent → your OTHER hand → their other hand, but the game would stop following it to your second hand. It sat on your first hand saying “waiting…” while it was really your move, and the match went nowhere.",
       "Both of your hands now come up on their own turn, with their own cards, their own board and their own YOUR TURN, and the banner names the hand that's playing (including one you've renamed).",
@@ -1170,6 +1179,10 @@
     if (Number.isFinite(v) && v < _lastStateVersion) return false; // stale, drop
     if (Number.isFinite(v)) _lastStateVersion = v;
     latestPayload = d;
+    // A competitive room re-entered by any generic path (URL, Rejoin, refresh)
+    // arrives here with compMode still off. Rebuild it from the payload BEFORE
+    // anything below reads compMySeats/compTokens.
+    try { compAdoptFromPayload(d); } catch (_) {}
     // Competitive: a player controls two hands (two seats). When the turn
     // switches to my OTHER hand, the just-completed poll may have used my first
     // hand's token, so this payload's viewer is the wrong hand (can_act=false →
@@ -2959,6 +2972,12 @@
         compHostToken = hToken; compHandNames = {}; _compHsSuppressed = true;
         _compPrevActiveSeat = null; compP1Name = name; compP2Name = "Player 2";
         try { sessionStorage.setItem(`fish_comp_seats_${rId}_0`, JSON.stringify({ seats: [0,1], tokens, p1: name, p2: "Player 2" })); } catch {}
+      } else {
+        // Seat 1 is this player's SECOND hand. If claiming it failed the room is
+        // a hand short — it can never reach 4 players to start, and a stranger
+        // could sit in the hand that was meant to be theirs. Say so rather than
+        // dropping them into a lobby that quietly never starts.
+        try { showToast("Could not claim your second hand — close this Current and create a new one.", "err", 7000); } catch (_) {}
       }
     }
     enterRoom(rId);
@@ -3185,16 +3204,28 @@
   // (with a friendly nudge) instead of being sent and bounced as "Failed".
   function _isMyTurnForAction() {
     if (_viewerCanActNow()) return true;
-    // Competitive: one human owns several seats. A poll may have used my OTHER
-    // hand's token, so this payload's viewer.can_act is momentarily false even
-    // though the ACTIVE seat is one of mine, treat that as "my turn" too.
-    try {
-      if (compMode && Array.isArray(compMySeats) && latestPayload) {
-        const aas = Number(latestPayload.active_action_seat);
-        if (compMySeats.includes(aas) && compTokens[aas]) return true;
-      }
-    } catch (_) {}
+    // Competitive: the turn can already be on my OTHER hand while the payload on
+    // screen is still the hand I was just playing. It is my turn — but that
+    // hand's cards, board and legal actions are NOT what is displayed, so an
+    // action sent now would be aimed at cards the player cannot see (End Turn
+    // would end the unseen hand's turn for them). Refuse, and pull the active
+    // hand's view in so they can play it for real a moment later.
+    if (_compHandoffPending()) {
+      _compRefetchKey = "";  // let the corrective fetch retry for this version
+      setTimeout(() => { try { refreshStateAfterAction(); } catch (_) {} }, 0);
+    }
     return false;
+  }
+
+  // True while the turn belongs to one of my competitive hands but the view on
+  // screen is my other hand's (the handoff is still in flight).
+  function _compHandoffPending() {
+    try {
+      if (!compMode || !Array.isArray(compMySeats) || !latestPayload) return false;
+      const aas = Number(latestPayload.active_action_seat);
+      if (!compMySeats.includes(aas)) return false;
+      return Number(latestPayload.viewer && latestPayload.viewer.seat_index) !== aas;
+    } catch (_) { return false; }
   }
 
   function _dirHuman(dir) {
@@ -3352,8 +3383,15 @@
     // (viewer.can_act), NOT the optimistic canInteract, so rapid, legitimate
     // mid-turn follow-up actions (play, then immediately play again) still work.
     if (!_isMyTurnForAction()) {
-      try { showToast("Hold on, wait for your turn.", "warn"); } catch (_) {}
-      setStatus("Not your turn yet, waiting for the other players.");
+      if (_compHandoffPending()) {
+        // It IS my turn, just my other hand's — say so instead of "not your turn".
+        const _hand = compGetHandName(Number(latestPayload?.active_action_seat));
+        try { showToast(`Switching to ${_hand}…`, "warn"); } catch (_) {}
+        setStatus(`Bringing up ${_hand}, its cards are on the way.`);
+      } else {
+        try { showToast("Hold on, wait for your turn.", "warn"); } catch (_) {}
+        setStatus("Not your turn yet, waiting for the other players.");
+      }
       return;
     }
     // If the action costs cards, ensure we have valid payment staged for THIS action.
@@ -7864,6 +7902,59 @@
     }
   }
 
+  // ── Coming back into a competitive match ────────────────────────────────
+  // compMode + the seat pair live only in memory, set by whichever flow created
+  // or joined the match. EVERY other way back into a room — the ?room= URL, the
+  // "Rejoin →" card, reopening the game window, a plain refresh — restores one
+  // seat token and knows nothing about competitive, so the client came back as
+  // an ordinary single-seat player: hand 1 played fine and hand 2 could never be
+  // seen or played for the rest of the match. The room itself says what it is,
+  // so rebuild the competitive state from the payload.
+  //
+  // The one token we still hold is enough for both hands: the server treats a
+  // player's two seats as one person, answering either token with whichever of
+  // their hands is active and accepting either for that hand's move (see
+  // _competitive_same_owner). Ownership is fixed by seat — {0,1} and {2,3} — so
+  // the viewer's seat index names the pair with no extra round trip.
+  function compAdoptFromPayload(payload) {
+    if (!payload || !payload.room || !payload.room.competitive) return;
+    if (isSpectating()) return;
+    const vs = Number(payload.viewer && payload.viewer.seat_index);
+    if (!Number.isInteger(vs) || vs < 0 || vs > 3) return;
+    const pair = vs < 2 ? [0, 1] : [2, 3];
+    const held = compTokens[vs] || getSeatToken() || compTokens[pair[0]] || compTokens[pair[1]] || "";
+    if (!held) return;  // host-only / tokenless view: nothing to adopt
+
+    // Name the two SIDES from the seats themselves, so a rejoining client shows
+    // the same names as one that was here from the start. Hand 2's seat carries
+    // the " 2" suffix the join flow adds; the person is the name without it.
+    const seats = Array.isArray(payload.seats) ? payload.seats : [];
+    const sideName = (i, fallback) => {
+      const s = seats.find(x => x && x.index === i);
+      return (s && s.claimed_name ? String(s.claimed_name).replace(/ 2$/, "") : "") || fallback;
+    };
+    compP1Name = sideName(0, compP1Name || "Player 1");
+    compP2Name = sideName(2, compP2Name || "Player 2");
+
+    const ready = compMode && compMySeats.length === 2 && compMySeats.includes(vs)
+                  && compTokens[pair[0]] && compTokens[pair[1]];
+    if (ready) return;
+
+    compMode = true;
+    compMySeats = pair;
+    compTokens = {
+      [pair[0]]: compTokens[pair[0]] || held,
+      [pair[1]]: compTokens[pair[1]] || held,
+    };
+    compHostToken = compHostToken || getHostToken() || "";
+    _compHsSuppressed = true;   // don't flash the hand-switch card on arrival
+    _compPrevActiveSeat = null;
+    compLoadHandNames();
+    // Competitive is poll-only: an SSE stream opened by the generic room-entry
+    // path is bound to ONE seat token and would fight the poll for the screen.
+    if (sseSource) { try { sseSource.close(); } catch (_) {} sseSource = null; }
+  }
+
   function updateCompMenuHands(players, activeSeat) {
     const section = document.getElementById("pv-menu-comp-hands");
     const listEl = document.getElementById("pv-menu-hands-list");
@@ -11021,14 +11112,21 @@
     let myCompBest  = 0;
     let myCompOther = 0;
     if (isComp && Array.isArray(_latestPlayers) && _latestPlayers.length) {
-      const sbN = {};
-      (finalScores || []).forEach(p => { sbN[String(p.name || "")] = Number(p.score || 0); });
-      const p1Ns = _latestPlayers.filter(p => p.index === 0 || p.index === 1).map(p => p.name);
-      const p2Ns = _latestPlayers.filter(p => p.index === 2 || p.index === 3).map(p => p.name);
-      const p1B  = p1Ns.length ? Math.max(...p1Ns.map(n => sbN[n] || 0)) : 0;
-      const p2B  = p2Ns.length ? Math.max(...p2Ns.map(n => sbN[n] || 0)) : 0;
-      const p1X  = p1Ns.length >= 2 ? Math.min(...p1Ns.map(n => sbN[n] || 0)) : p1B;
-      const p2X  = p2Ns.length >= 2 ? Math.min(...p2Ns.map(n => sbN[n] || 0)) : p2B;
+      // By SEAT first (see processRankedGameEnd): a name join collides whenever
+      // both players share a nickname, and would score the wrong side.
+      const sbS = new Map(), sbN = {};
+      (finalScores || []).forEach(p => {
+        const si = Number(p && p.seat_index);
+        if (Number.isInteger(si)) sbS.set(si, Number(p.score || 0));
+        sbN[String(p.name || "")] = Number(p.score || 0);
+      });
+      const hs = (p) => sbS.has(Number(p.index)) ? sbS.get(Number(p.index)) : (sbN[String(p.name || "")] || 0);
+      const p1Sc = _latestPlayers.filter(p => p.index === 0 || p.index === 1).map(hs);
+      const p2Sc = _latestPlayers.filter(p => p.index === 2 || p.index === 3).map(hs);
+      const p1B  = p1Sc.length ? Math.max(...p1Sc) : 0;
+      const p2B  = p2Sc.length ? Math.max(...p2Sc) : 0;
+      const p1X  = p1Sc.length >= 2 ? Math.min(...p1Sc) : p1B;
+      const p2X  = p2Sc.length >= 2 ? Math.min(...p2Sc) : p2B;
       const amP1 = typeof compMySeats !== "undefined" && compMySeats.length > 0 && compMySeats[0] < 2;
       myCompBest  = amP1 ? p1B : p2B;
       myCompOther = amP1 ? p1X : p2X;
@@ -11754,17 +11852,29 @@
     if (!compP1Name || !compP2Name || compP1Name === compP2Name) return;
 
     try {
-      const p1Names = [], p2Names = [];
+      const p1Hands = [], p2Hands = [];
       (_latestPlayers || []).forEach(p => {
-        if (p.index === 0 || p.index === 1) p1Names.push(p.name);
-        if (p.index === 2 || p.index === 3) p2Names.push(p.name);
+        if (p.index === 0 || p.index === 1) p1Hands.push(p);
+        if (p.index === 2 || p.index === 3) p2Hands.push(p);
       });
-      if (!p1Names.length || !p2Names.length) return;
+      if (!p1Hands.length || !p2Hands.length) return;
 
+      // Score every hand by its SEAT, falling back to its name. Two players with
+      // the same nickname put four rows under two names, and a name join then
+      // hands both sides the same scores — which can record the winner as the
+      // loser. Every final_scores row already carries the seat that earned it.
+      const scoreBySeat = new Map();
       const scoreByName = {};
-      (finalScores || []).forEach(p => { scoreByName[String(p.name || "")] = Number(p.score || 0); });
-      const p1Scores = p1Names.map(n => scoreByName[n] || 0);
-      const p2Scores = p2Names.map(n => scoreByName[n] || 0);
+      (finalScores || []).forEach(p => {
+        const si = Number(p && p.seat_index);
+        if (Number.isInteger(si)) scoreBySeat.set(si, Number(p.score || 0));
+        scoreByName[String(p.name || "")] = Number(p.score || 0);
+      });
+      const handScore = (p) => scoreBySeat.has(Number(p.index))
+        ? scoreBySeat.get(Number(p.index))
+        : (scoreByName[String(p.name || "")] || 0);
+      const p1Scores = p1Hands.map(handScore);
+      const p2Scores = p2Hands.map(handScore);
       const p1Best   = Math.max(...p1Scores);
       const p2Best   = Math.max(...p2Scores);
       const p1Second = p1Scores.length >= 2 ? Math.min(...p1Scores) : p1Best;
