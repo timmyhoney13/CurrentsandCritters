@@ -44,6 +44,18 @@
 !test_star_abilities.py
 # Stars: the gold border rule itself, incl. computed colours in headless Chrome.
 !test_star_gold_border.js
+# Discarding down to the hand limit: the trim removes exactly the cards you
+# picked and draws NOTHING back (a board ★ used to refill the hand as fast as
+# you emptied it), and clicking a fanned hand card always selects the card the
+# player is pointing at, measured in real pixels in headless Chrome.
+!test_hand_limit_discard.py
+!test_hand_discard_click.js
+# Competitive: one human owns TWO seats, so the turn must reach both of their
+# hands. The .js half proves the client follows the turn to its other hand (the
+# per-seat render gate); the .py half runs a real 4-seat match and covers the
+# player-vs-seat rules — Play Again, leaving, Surf's Up.
+!test_competitive_hand_switch.js
+!test_competitive_mode.py
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/
