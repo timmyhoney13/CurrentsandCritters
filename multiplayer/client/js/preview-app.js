@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.36";
-  const APP_BUILD   = "2026-07-29.5";
+  const APP_VERSION = "1.6.37";
+  const APP_BUILD   = "2026-07-30.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,15 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "★ Star abilities: gold always means gold", items: [
+      "A gold border on a card in your hand now means one thing everywhere in the game: discard this card and the ★ ability will fire. Before, cards could glow gold (and the guide could ask you for a ◆ card) on a play that was never going to activate the star at all.",
+      "The “★ if ◆” note on a card, and the gold cards it lights up, only appear when the star is genuinely available for that play. If it isn't, the game says what's missing instead of promising a bonus it can't deliver.",
+      "Playing a ★ card with the star switched off now says so plainly, and “Use the ★ instead” switches it back on and replays the card for you, instead of just cancelling.",
+      "Two-sided cards: the star ability named in every prompt is now the one on the side you're actually playing. On 40 of the game's cards only one side has a ★, so the wrong side's text (or none at all) used to show up.",
+      "The payment bar now confirms, before you hit Confirm, whether your chosen cards will fire the ★ or not.",
+      "Tutorial: the cards that pay for a ★ glow the same gold as they do in a real game (they used to be teal and red), and the star lesson is always payable, it could previously fire the star off a card whose symbol didn't match, teaching the opposite of the rule.",
+      "Grooved Brain Coral's “play a free cephalopod” ★ is now recognised as a free-play star everywhere, so the game (and the bots) treat it like every other one.",
+    ]},
     { ver: "V1.7.0", title: "Messages gets its own page", items: [
       "Messages is now a tab in the left sidebar, right under Friends, instead of a narrow drawer squeezed onto the right-hand side.",
       "Open a chat and it fills the whole page; the back arrow at the top left takes you back to your other conversations.",
@@ -3013,14 +3022,25 @@
     if (playCtrl) playCtrl.style.display = "none";
     const cost    = Number(pendingPayAction.cost_to_pay || 0);
     const name    = pendingPayAction.face_name || "card";
-    const sym     = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
-    const symHint = sym ? `, needs a ${sym} card` : "";
+    const star    = starPayInfo(pendingPayAction);
+    // Only the ★ variant needs a matching symbol. On a plain play the symbol is
+    // irrelevant (the engine will not fire the star), so never ask for one.
+    const symHint = star.fires ? `, include a ${star.sym} card for the ★` : "";
     const sel     = selectedPayment.size;
     const need    = cost - sel;
     if (txt) {
-      txt.textContent = sel >= cost
+      let msg = sel >= cost
         ? `✓ Ready, ${cost} card${cost!==1?"s":""} selected to pay for ${name}`
         : `Playing ${name}, click or hover a card and tap "Use as Payment" (${need} more needed${symHint})`;
+      if (star.fires && sel >= cost) {
+        const ok = Array.from(selectedPayment).some(uid => entryHasSymbolMatch(uid, star.sym));
+        msg += ok
+          ? ` — ★ ${star.ability || "star ability"} will fire`
+          : ` — no ${star.sym} card selected, the ★ will NOT fire`;
+      } else if (star.offered) {
+        msg += ` — ★ is off, playing without ${star.ability ? `"${star.ability}"` : "the star ability"}`;
+      }
+      txt.textContent = msg;
     }
     if (confirmBtn) {
       confirmBtn.disabled    = sel !== cost;
@@ -3193,6 +3213,42 @@
     return normalizeSymbol(entry.symbol) === target;
   }
 
+  // ── Star-ability helpers ───────────────────────────────────────────────
+  // The FACE an action actually plays. Two-sided cards share one hand entry, and
+  // in 40 of the game's pairs only ONE of the two faces carries a ★, so reading
+  // the star off faces[0] names the wrong ability (or none) half the time.
+  function _actionFace(action) {
+    const entry = handEntryMap.get(Number(action?.card_uid));
+    if (!entry) return null;
+    const faces = Array.isArray(entry.faces) && entry.faces.length ? entry.faces : [entry];
+    const want = Number(action?.face_uid);
+    return faces.find(f => Number(f && f.uid) === want) || faces[0] || entry;
+  }
+
+  // Human-readable ★ text of the face this action plays ("Draw one", …).
+  function _actionStarText(action) {
+    const face = _actionFace(action);
+    return starText(face?.text || "") || "";
+  }
+
+  // The one question every ★ affordance in the UI must be answered by: will
+  // submitting THIS action fire the star? The engine only fires a ★ for an
+  // action sent with use_star=true — paying with a matching symbol on the plain
+  // variant does nothing. So:
+  //   • fires   → the gold "this pays for the ★" highlight is honest.
+  //   • offered → a ★ twin exists but the player turned ★ off; no gold, just a note.
+  function starPayInfo(action) {
+    if (!action) return { fires: false, offered: false, sym: "", ability: "" };
+    const fires = Boolean(action.use_star && action.requires_symbol_match && action.required_symbol);
+    const sym   = normalizeSymbol(fires ? action.required_symbol : (action.star_symbol || ""));
+    return {
+      fires,
+      offered: !fires && Boolean(action.star_symbol),
+      sym,
+      ability: _actionStarText(action),
+    };
+  }
+
   function uniqueIntList(arr) {
     const out = []; const seen = new Set();
     for (const r of (arr||[])) { const n=Number(r); if(Number.isInteger(n)&&!seen.has(n)){seen.add(n);out.push(n);} }
@@ -3219,8 +3275,9 @@
     if (cost <= 0) return { picks:[], error:"" };
     const manual = uniqueIntList(Array.from(selectedPayment));
     if (manual.length === 0) {
-      const sym = action.required_symbol || action.star_symbol || "";
-      const symHint = sym ? ` (needs a ${sym} card)` : "";
+      // A symbol is only REQUIRED on the ★ variant; a plain play takes any cards.
+      const star = starPayInfo(action);
+      const symHint = star.fires ? ` (one must be a ${star.sym} card for the ★)` : "";
       return { picks:[], error:`Select ${cost} payment card(s) from your hand first${symHint}.` };
     }
     if (manual.length !== cost) {
@@ -3338,12 +3395,13 @@
             Number(a.ocean_uid ?? -1) === Number(action.ocean_uid ?? -1) &&
             String(a.face_direction || "") === String(action.face_direction || "")
           );
-          const entry = handEntryMap.get(Number(action.card_uid));
-          const face  = entry?.faces?.[0] || entry;
-          const ability = starText(face?.text || entry?.text || "") || "the star ability";
+          // Read the ★ off the FACE being played — on a two-sided card the
+          // other face normally carries no star at all.
+          const ability = _actionStarText(action) || "the star ability";
           const msg = document.getElementById("star-skip-msg");
           if (msg) msg.textContent =
             `You didn't discard a ${sym} card, so you won't get "${ability}". Play it without the star ability?`;
+          _starSkipLabels("Let me go back", "Play without the ★");
           _starSkipPendingCb = () => {
             // Submit the non-star play with the SAME chosen payment.
             submitAction(nonStar ? { ...nonStar } : { ...action, use_star: false });
@@ -3818,6 +3876,15 @@
   // accidentally skip it. "Let me go back" cancels; "Yes, that's okay" proceeds.
   let _starSkipPendingCb = null;
   let _starSkipBackCb = null;   // runs when the player declines (Go back / backdrop)
+  // Both entry points share this one modal but mean different things by "go
+  // back" (swap a payment card vs. switch the ★ on), so each sets its own
+  // button wording instead of leaving a label that is right only half the time.
+  function _starSkipLabels(backText, okText) {
+    const b = document.getElementById("star-skip-back");
+    const o = document.getElementById("star-skip-confirm");
+    if (b) b.textContent = backText;
+    if (o) o.textContent = okText;
+  }
   // Move confirmation dialog state
   let _moveConfirmPendingCb  = null;
   let _endTurnPendingCb      = null;
@@ -4725,24 +4792,40 @@
     if (!isPlay || act.use_star) { submitAction(act); return; }
     const sym = act.star_symbol;
     if (!sym) { submitAction(act); return; }
-    // Only warn when the star IS currently available (a use_star:true variant exists).
+    // Only warn when the star IS currently available (a use_star:true variant
+    // exists). Matched on face_uid too: a two-sided card shares one card_uid but
+    // only one of its faces normally has the ★, so a card_uid-only match could
+    // pull in the star twin of the OTHER face.
     const starVariant = (currentActions || []).find(a =>
       a.use_star &&
       Number(a.card_uid) === Number(act.card_uid) &&
+      Number(a.face_uid ?? a.card_uid) === Number(act.face_uid ?? act.card_uid) &&
       String(a.kind) === String(act.kind) &&
       Number(a.ocean_uid ?? -1) === Number(act.ocean_uid ?? -1)
     );
     if (!starVariant) { submitAction(act); return; }
-    // Get the star ability label from hand card text.
-    const entry = handEntryMap.get(Number(act.card_uid));
-    const face  = entry?.faces?.[0] || entry;
-    const sText = starText(face?.text || entry?.text || "");
-    const abilityLabel = sText || "the star ability";
+    // Star ability label read from the FACE this action plays, not faces[0] —
+    // on a two-sided card the other face usually has no ★ at all.
+    const abilityLabel = _actionStarText(act) || "its star ability";
     const msg = document.getElementById("star-skip-msg");
+    // The engine only fires a ★ for a use_star play, so the honest framing is
+    // "★ is switched off", not "discard a matching symbol" (which would do
+    // nothing on this variant).
     if (msg) msg.textContent =
-      `If you don't discard a ${sym} card you will not get "${abilityLabel}".`;
+      `★ Star ability is switched off, so ${act.face_name || "this card"} will be played WITHOUT "${abilityLabel}". `
+      + `Go back and tick ★ Star ability to use it (you'll pay with a ${sym} card).`;
     _starSkipPendingCb = () => submitAction(act);
-    _starSkipBackCb = null;  // this entry point just cancels on "go back"
+    // "Let me go back" turns the ★ on for them and re-plays the star variant,
+    // so the fix is one click instead of "cancel, hunt for the tickbox, retry".
+    _starSkipBackCb = () => {
+      const toggle = document.getElementById("pv-star-toggle");
+      if (toggle && !toggle.checked) {
+        toggle.checked = true;
+        try { toggle.dispatchEvent(new Event("change", { bubbles: true })); } catch (_) {}
+      }
+      _playOrConfirmStarSkip(starVariant, currentActions);
+    };
+    _starSkipLabels("Use the ★ instead", "Play without the ★");
     document.getElementById("star-skip-modal")?.classList.add("open");
   }
 
@@ -6768,6 +6851,9 @@
     41:  { name:"Osprey",            symbol:"triangle", species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
     43:  { name:"Osprey",            symbol:"heart",    species:"bird",        text:"+2 pts per matching-symbol card on your board.",        starText:"" },
     // ── Down-slot UIDs (even, 1-96) used by bot boards ─────────────
+    // Staghorn Coral ● — the guaranteed circle card that pays for the Red Beaded
+    // Anemone's ★ in the star lesson (see TUT_INIT_HAND). Kept out of every
+    // earlier payment step so it is always still in hand when the ★ step opens.
     2:   { name:"Staghorn Coral",    symbol:"circle",   species:"coral",       text:"+3 pts per Coral on your board.",                       starText:"" },
     8:   { name:"Spiny Lobster",     symbol:"triangle", species:"crustacean",  text:"+6 pts per Mandarin Goby on your board.",               starText:"" },
     // ── Left/Right UIDs (101-188) used by bot boards ────────────────
@@ -6778,7 +6864,16 @@
   };
 
   // hand uids player starts with, all match real card images, no overlap with pool
-  const TUT_INIT_HAND = [217, 11, 3, 26, 102, 6, 34, 9];
+  // Card 2 (Staghorn Coral ●) replaces the ■ copy so the hand ALWAYS holds a
+  // circle card for the Red Beaded Anemone's ★ step. Before this the only ●
+  // cards were in the pool, so a player who drew the other two pool cards
+  // reached the star lesson with nothing to match, and the step fired the ★ off
+  // a non-matching discard — teaching the opposite of the rule.
+  const TUT_INIT_HAND = [217, 11, 3, 26, 102, 6, 2, 9];
+  // Cards a later step depends on, so no earlier payment step may spend them:
+  // 11 Horned Puffin (played), 26 Red Beaded Anemone (the ★ lesson), 102 Spinner
+  // Dolphin (the zoom lesson), 2 Staghorn Coral ● (pays for the anemone's ★).
+  const TUT_PROTECTED_UIDS = [2, 11, 26, 102];
   // pool uids, chosen to not overlap with hand or each other
   const TUT_INIT_POOL = [1, 7, 40, 27];
   // bot boards, start empty; populated during interleaved bot-turn animations
@@ -6854,8 +6949,8 @@
       text:`<p>Time to attach an animal! The <em>Horned Puffin</em> gives <strong>+3 pts</strong>. It has a <strong>★ Star ability</strong>, "play again." You only need to match its ♥ symbol if you <em>want</em> the star. Any card pays the base cost. <strong>Drag the gold Puffin</strong> to any arrow slot on your Coral Reef!</p>` },
     // 10, pay for animal (auto-attaches after payment)
     { title:"Pay the Puffin's Cost", waitFor:"pay_animal", highlight:null,
-      actionHint:"Click a red ♥ card to pay, activates the ★ 'play again' bonus!",
-      text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em>, any card is fine for base effect. Click a <strong>red ♥ card</strong>!</p>` },
+      actionHint:"Click a gold ♥ card to pay, activates the ★ 'play again' bonus!",
+      text:`<p>The Puffin costs <strong>1 card</strong> to play. We're paying with a <strong>♥ card</strong> (matching its symbol) to activate the ★ <em>"play again"</em> bonus. <em>Only pay matching if you want the star</em>, any card is fine for base effect. Click a <strong>gold ♥ card</strong>!</p>` },
     // 11, puffin attached, click the board to continue
     { title:"Puffin Attached!", waitFor:"click_board", highlight:"tut-my-board-area",
       actionHint:"Click your board to continue.",
@@ -6870,8 +6965,8 @@
       text:`<p>The <strong>Horned Puffin</strong> is attached to your Coral Reef. Billy and Diana have animals too now. Your Puffin gives <strong>+3 pts</strong>, and its ★ star can grant a "play again" bonus!</p>` },
     // 14, star abilities (Red Beaded Anemone demo)
     { title:"Star Abilities ★", waitFor:"star_play", highlight:null, highlightHandUid:26,
-      actionHint:"Click the gold Red Beaded Anemone to play it with its ★ star activated.",
-      text:`<p>★ <strong>Star abilities are optional bonuses.</strong> The <em>Red Beaded Anemone</em> (●) gives <strong>+3 pts per Invertebrate</strong> as its base. Pay with a matching <strong>● card</strong> when you play it → also <strong>draw 1 card</strong> (the ★ bonus). Without the ●, you still get the +3 pts but no draw. <strong>Click the gold Anemone!</strong></p>` },
+      actionHint:"Click the Red Beaded Anemone, or the gold ● card that pays for its ★.",
+      text:`<p>★ <strong>Star abilities are optional bonuses.</strong> The <em>Red Beaded Anemone</em> (●) gives <strong>+3 pts per Invertebrate</strong> as its base. Pay with a matching <strong>● card</strong> when you play it → also <strong>draw 1 card</strong> (the ★ bonus). Without the ●, you still get the +3 pts but no draw. <strong>Cards that can fire a ★ always glow gold</strong>, in every game mode. <strong>Click the gold ● card!</strong></p>` },
     // 15, star played
     { title:"Star Played!", waitFor:null, highlight:"tut-hand-zone", actionHint:null,
       text:`<p>The Red Beaded Anemone ★ fired! It scored <strong>+3 pts per Invertebrate</strong> on your board, and the ★ drew <strong>1 card</strong>. Without a matching ● card, you'd still get +3 per invertebrate, but no draw. <em>Match symbol = star activates.</em></p>` },
@@ -7187,32 +7282,38 @@
           div.style.opacity = "";
         });
       }
-      // star_play: Red Beaded Anemone glows gold; circle cards glow teal (can pay for ★)
+      // star_play: Red Beaded Anemone glows gold, and so do the ● cards that can
+      // pay for its ★ — the same gold the real game paints on symbol-matching
+      // payment cards (.pv-hand-card.star-sym-match).
       if (step.waitFor === "star_play") {
         if (uid === 26) div.classList.add("tut-drag-ready");
-        else if (tutCard(uid).symbol === "circle") div.classList.add("tut-pay-selectable");
+        else if (tutCard(uid).symbol === "circle") div.classList.add("tut-star-pay");
       }
       // zoom_whale: Spinner Dolphin glows gold to double-click
       if (step.waitFor === "zoom_whale" && uid === 102) {
         div.classList.add("tut-drag-ready");
       }
 
-      // pay_ocean: Coral Reef locked (selected/queued); protect puffin/anemone/dolphin for later steps
+      // pay_ocean: Coral Reef locked (selected/queued); protect the cards later
+      // steps need — puffin (11), anemone (26), dolphin (102) and the ● Staghorn
+      // Coral (2) that pays for the anemone's ★.
       if (step.waitFor === "pay_ocean") {
         if (uid === ts.selectedCardUid) {
           div.classList.add("tut-selected-locked");
-        } else if (![11, 26, 102].includes(uid)) {
+        } else if (!TUT_PROTECTED_UIDS.includes(uid)) {
           div.classList.add("tut-pay-selectable");
         }
       }
 
-      // pay_animal: Puffin locked gold (pulsing), ♥ cards glow red
+      // pay_animal: Puffin locked gold (pulsing), and the ♥ cards that fire its
+      // ★ glow gold too — paying for a star ability always reads gold, in the
+      // tutorial and in a real game alike.
       if (step.waitFor === "pay_animal") {
         if (uid === ts.selectedHandUid) {
           div.classList.add("tut-selected-locked");
         } else {
           const c = tutCard(uid);
-          if (c.symbol === "heart") div.classList.add("tut-discard-selectable");
+          if (c.symbol === "heart") div.classList.add("tut-star-pay");
         }
       }
 
@@ -7241,7 +7342,7 @@
     if (uid >= 201 && uid <= 269) return 1;
     const c = tutCard(uid);
     // zero-cost cards
-    if ([6, 34, 40].includes(uid)) return "free";
+    if ([2, 6, 34, 40].includes(uid)) return "free";
     if ([9, 11, 13, 15, 33, 41, 43].includes(uid)) return 1;
     if ([1, 3, 5, 7, 17, 25, 27].includes(uid)) return 2;
     return "?";
@@ -7285,13 +7386,20 @@
     } else if (step.waitFor === "drag_animal") {
       tutShowFlash("Drag the glowing Puffin to a slot on your ocean!");
     } else if (step.waitFor === "pay_ocean" && uid !== ts.selectedCardUid) {
-      tutPayOcean(uid);
+      // Never let the ocean's cost eat a card a later lesson needs (they aren't
+      // highlighted as payable, so clicking one is a misclick, not a choice).
+      if (TUT_PROTECTED_UIDS.includes(uid)) tutShowFlash("Save that one, click a teal card to pay!");
+      else tutPayOcean(uid);
     } else if (step.waitFor === "pay_animal" && uid !== ts.selectedHandUid) {
       const c = tutCard(uid);
       if (c.symbol === "heart") tutPayAnimal(uid);
-      else tutShowFlash("Pay with a ♥ card to activate the ★ star, they glow red!");
+      else tutShowFlash("Pay with a ♥ card to activate the ★ star, they glow gold!");
     } else if (step.waitFor === "star_play" && uid === 26) {
       tutStarPlay();
+    } else if (step.waitFor === "star_play" && tutCard(uid).symbol === "circle") {
+      // The gold ● cards are the ones that fire the ★, so paying with one is
+      // just as valid a way to complete the step as clicking the anemone.
+      tutStarPlay(uid);
     } else if (step.waitFor === "zoom_whale" && uid === 102) {
       tutOpenZoom(uid);
     } else if (step.waitFor === "pay_ocean" && uid === ts.selectedCardUid) {
@@ -7342,7 +7450,7 @@
     ts.selectedHandUid = 11;
     const slotName = _tutTargetSlot || "up";
     const slotLabel = { up:"↑ Up", down:"↓ Down", left:"← Left", right:"→ Right" }[slotName] || slotName;
-    tutShowFlash(`Horned Puffin → ${slotLabel} slot! Now click a red ♥ card to pay.`);
+    tutShowFlash(`Horned Puffin → ${slotLabel} slot! Now click a gold ♥ card to pay.`);
     tutRenderHand();
     tutGoStep(ts.step + 1);  // → pay_animal
   }
@@ -7367,11 +7475,20 @@
     tutPayAnimal(uid);  // legacy alias
   }
 
-  function tutStarPlay() {
+  function tutStarPlay(preferredPayUid) {
     const ts = tutState;
-    // Red Beaded Anemone (uid 26, ● circle), pay with a circle card to activate ★
-    const payUid = ts.hand.find(u => u !== 26 && ![11, 33].includes(u) && tutCard(u).symbol === "circle")
-                || ts.hand.find(u => u !== 26 && ![11, 33].includes(u));
+    // Red Beaded Anemone (uid 26, ● circle): the ★ ONLY fires when the discard
+    // matches its symbol, so this step pays with a ● card or not at all. The
+    // hand is seeded (and card 2 protected) so one is always there; if somehow
+    // not, flash the rule instead of firing a star off a mismatched discard.
+    const isCirclePay = u => u !== 26 && ![11, 33].includes(u) && tutCard(u).symbol === "circle";
+    const payUid = (preferredPayUid != null && isCirclePay(preferredPayUid))
+      ? preferredPayUid
+      : ts.hand.find(isCirclePay);
+    if (payUid == null) {
+      tutShowFlash("You need a ● card to activate this ★ ability.");
+      return;
+    }
     ts.hand = ts.hand.filter(u => u !== 26 && u !== payUid);
     if (ts.myBoard.length > 0) ts.myBoard[0].down.push(26);
     if (payUid != null && !ts.pool.includes(payUid)) ts.pool.push(payUid);
@@ -7591,9 +7708,11 @@
       if      (step.waitFor === "draw_pool")    handLbl.textContent = "Your Hand, click a pool card above to draw";
       else if (step.waitFor === "drag_ocean")   handLbl.textContent = "Your Hand, drag the glowing Coral Reef to the board";
       else if (step.waitFor === "pay_ocean")    handLbl.textContent = "Your Hand, click any teal card to pay (1 card cost)";
-      else if (step.waitFor === "pay_animal")   handLbl.textContent = "Your Hand, click a red ♥ card to pay";
+      else if (step.waitFor === "pay_animal")   handLbl.textContent = "Your Hand, click a gold ♥ card to pay";
       else if (step.waitFor === "drag_animal")  handLbl.textContent = "Your Hand, drag the glowing Puffin to a slot on your ocean";
-      else if (step.waitFor === "star_play" || step.waitFor === "zoom_whale")
+      else if (step.waitFor === "star_play")
+        handLbl.textContent = "Your Hand, the gold ● cards pay for the ★";
+      else if (step.waitFor === "zoom_whale")
         handLbl.textContent = "Your Hand, click a card · double-click to inspect";
       else handLbl.textContent = "Your Hand, double-click any card to inspect it";
     }
@@ -8765,7 +8884,10 @@
     const useStarToggle = document.getElementById("pv-star-toggle")?.checked;
     deduped.forEach(baseAct => {
       const act = useStarToggle
-        ? (acts.find(a => Number(a.card_uid) === Number(baseAct.card_uid) && a.use_star) || baseAct)
+        ? (acts.find(a =>
+             Number(a.card_uid) === Number(baseAct.card_uid) &&
+             Number(a.face_uid ?? a.card_uid) === Number(baseAct.face_uid ?? baseAct.card_uid) &&
+             a.use_star) || baseAct)
         : baseAct;
 
       const item = document.createElement("div");
@@ -8941,9 +9063,14 @@
     // for the same number of fresh cards.
     const tarponActive = Boolean(latestPayload?.legal_actions?.tarpon_discard_active);
     const zone = document.getElementById("pv-hand");
+    // Which gold ★-payment highlight (if any) this render should paint. Part of
+    // the cache key so swapping the staged play repaints the borders even when
+    // the hand and the selection are byte-identical.
+    const _starPay = starPayInfo(pendingPayAction);
     // Skip re-render when nothing changed, prevents hover/tooltip from being reset every poll
     const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess, tarponActive,
       selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
+      starPay: _starPay.fires ? `${pendingPayAction?.card_uid}:${_starPay.sym}` : "",
       handOrder: _handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
@@ -8991,16 +9118,18 @@
       card.dataset.idx      = i;
 
       card.dataset.species = face.species || "";
-      const st = starText(face.text||"");
-      if (st) card.classList.add("has-star");
+      // A two-sided card counts as a ★ card if EITHER face carries the star.
+      const allFacesForStar = (Array.isArray(entry.faces) && entry.faces.length) ? entry.faces : [face];
+      if (allFacesForStar.some(f => starText(f && f.text || ""))) card.classList.add("has-star");
       if (selectedPayment.has(entryUid)) card.classList.add("pay-selected");
       if (selectedDiscard.has(entryUid)) card.classList.add("discard-selected");
-      // Gold highlight for symbol-matching cards when a star-ability card is being paid for.
-      // Works for both the non-star (star_symbol) and star (required_symbol) action paths.
-      const _starPaySym = pendingPayAction?.required_symbol || pendingPayAction?.star_symbol || "";
-      if (_starPaySym) {
+      // Gold border = "discard this to fire the ★". Driven by whether the staged
+      // play will ACTUALLY activate the star (the use_star variant). On a plain
+      // play the engine ignores the payment's symbol, so promising gold there
+      // would be a lie. Symbol matching honours BOTH faces of a two-sided card.
+      if (_starPay.fires) {
         const beingPlayed = Number(pendingPayAction.card_uid) === entryUid || Number(pendingPayAction.face_uid) === faceUid;
-        if (!beingPlayed && entryHasSymbolMatch(entryUid, _starPaySym)) {
+        if (!beingPlayed && entryHasSymbolMatch(entryUid, _starPay.sym)) {
           card.classList.add("star-sym-match");
         }
       }
@@ -9244,11 +9373,17 @@
     if (pendingPayAction) {
       const cost = Number(pendingPayAction.cost_to_pay || 0);
       const name = pendingPayAction.face_name || "card";
-      const sym  = pendingPayAction.required_symbol || pendingPayAction.star_symbol || "";
-      const symHint = sym ? `, pick a <strong>${sym}</strong> card` : "";
+      // Only the ★ variant cares about the payment's symbol — say so exactly.
+      const star = starPayInfo(pendingPayAction);
+      const symHint = star.fires
+        ? `, one of them a <strong>${star.sym}</strong> card (the cards glowing <strong style="color:var(--gold)">gold</strong>) to fire ★ ${star.ability || "the star ability"}`
+        : "";
+      const offHint = star.offered
+        ? ` <span style="opacity:.85">★ is off, so this plays without ${star.ability ? `"${star.ability}"` : "its star ability"}.</span>`
+        : "";
       bar.classList.add("visible");
       bar.innerHTML = `<div class="guide-step">
-        <span class="gs active">💳 Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em></span>
+        <span class="gs active">💳 Paying for <strong>${name}</strong>, click or hover ${cost} card${cost!==1?"s":""} below and tap <em>Use as Payment</em>${symHint}, then hit <em>Confirm Payment</em>${offHint}</span>
       </div>`;
       return;
     }
@@ -9494,8 +9629,14 @@
         );
         if (sv) {
           chosen = sv;
-        } else if (act.star_symbol) {
-          showToast(`★ not available, need a ${act.star_symbol} card in hand as payment AND the right follow-up card to play for free.`, "warn");
+        } else if (act.has_star_ability && Number(act.cost_to_pay || 0) > 0) {
+          // star_symbol is only sent when the ★ is genuinely attainable, so fall
+          // back to the played face's own symbol to say WHAT is missing.
+          const need = normalizeSymbol(_actionFace(act)?.symbol || "");
+          showToast(
+            `★ not available for this play${need ? `, you need a ${need} card in hand to discard` : ""}`
+            + ` (and, for a "play a free …" star, a card of that type to follow up with).`,
+            "warn");
         }
       }
       // Move confirmation: warn before moving a card between oceans

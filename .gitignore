@@ -39,6 +39,11 @@
 # Board: headless-Chrome check that a tall board of oceans can actually be
 # scrolled to its bottom, on a phone-sized viewport as well as a laptop.
 !test_board_scroll.js
+# Stars: every ★ ability fired for real through the engine, plus the payload
+# contract behind the gold "discard this to fire the ★" payment border.
+!test_star_abilities.py
+# Stars: the gold border rule itself, incl. computed colours in headless Chrome.
+!test_star_gold_border.js
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/

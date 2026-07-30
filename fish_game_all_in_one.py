@@ -7330,7 +7330,10 @@ def star_has_immediate_value(
         return has_playable_followup_species(gs, ms, player, "mammal", exclude_entry_uid=played_entry_uid)
     if "play a free game fish" in t:
         return has_playable_followup_species(gs, ms, player, "game fish", exclude_entry_uid=played_entry_uid)
-    if "play any number of cephalopods for free" in t:
+    # Both cephalopod STARs ("play ANY NUMBER of cephalopods for free" on Reef
+    # Trigger Fish, and the single-use "play a free cephalopod" on Grooved Brain
+    # Coral) are only worth activating with a playable cephalopod in hand.
+    if "cephalopod" in t:
         return has_playable_followup_species(gs, ms, player, "cephalopod", exclude_entry_uid=played_entry_uid)
     if "free crustacean" in t:
         return has_playable_followup_species(gs, ms, player, "crustacean", exclude_entry_uid=played_entry_uid)
@@ -7355,7 +7358,10 @@ def star_followup_species_targets(card: CardDef) -> List[str]:
         targets.append("mammal")
     if "play a free game fish" in t:
         targets.append("game fish")
-    if "play any number of cephalopods for free" in t:
+    # Covers both "play any number of cephalopods for free" and the single-use
+    # "play a free cephalopod" (Grooved Brain Coral), which the old exact-phrase
+    # test missed, so its STAR never registered a follow-up species to prep for.
+    if "cephalopod" in t:
         targets.append("cephalopod")
     if "free crustacean" in t:
         targets.append("crustacean")

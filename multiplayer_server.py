@@ -4751,6 +4751,23 @@ class GameRoom:
         player: fish.PlayerState,
         actions: List[fish.Action],
     ) -> Dict[str, Any]:
+        # Which plays have a real use_star twin in THIS action list. The engine
+        # never auto-fires a STAR from a symbol match in the payment (see
+        # apply_action) — it fires only for an action submitted with
+        # use_star=True. So a "★ if <symbol>" hint (and the gold payment
+        # highlight the client draws from it) is only honest when the star
+        # variant of that exact play is actually on offer right now.
+        star_twin_keys = {
+            (
+                int(a.card_uid),
+                int(a.face_uid) if a.face_uid is not None else int(a.card_uid),
+                str(a.kind),
+                int(a.ocean_uid) if a.ocean_uid is not None else -1,
+            )
+            for a in actions
+            if bool(a.use_star)
+        }
+
         payload_actions: List[Dict[str, Any]] = []
         for idx, action in enumerate(actions):
             face_uid = action.face_uid if action.face_uid is not None else action.card_uid
@@ -4758,17 +4775,29 @@ class GameRoom:
             direction = fish.normalize_direction(card.direction) if card is not None else "n/a"
             cost_to_pay, requires_symbol, required_symbol = self._action_payment_requirements(gs, ms, player, action)
             payment_candidates = [int(uid) for uid in player.hand if uid != action.card_uid] if cost_to_pay > 0 else []
-            # star_symbol: the symbol on a star-ability card when played without use_star.
-            # If a payment card matches this symbol, the engine auto-triggers the star ability.
-            star_symbol = ""
-            if card is not None and not bool(action.use_star) and cost_to_pay > 0:
+            # Intrinsic: does this card FACE carry a ★ ability at all (used for the
+            # ★ badge on card art / pickers, independent of affordability)?
+            has_star = False
+            if card is not None:
                 try:
-                    if hasattr(fish, "has_star_ability") and fish.has_star_ability(card):
-                        raw_sym = fish.normalize_symbol(getattr(card, "symbol", ""))
-                        if raw_sym not in {"", "n/a"}:
-                            star_symbol = raw_sym
+                    has_star = bool(hasattr(fish, "has_star_ability") and fish.has_star_ability(card))
                 except Exception:
-                    pass
+                    has_star = False
+            # star_symbol: the symbol you must include in the payment to fire the ★.
+            # Only sent when the star can genuinely be activated for this play, so
+            # the client never promises a star that the engine will not fire.
+            star_symbol = ""
+            if has_star and card is not None and not bool(action.use_star) and cost_to_pay > 0:
+                key = (
+                    int(action.card_uid),
+                    int(face_uid),
+                    str(action.kind),
+                    int(action.ocean_uid) if action.ocean_uid is not None else -1,
+                )
+                if key in star_twin_keys:
+                    raw_sym = fish.normalize_symbol(getattr(card, "symbol", ""))
+                    if raw_sym not in {"", "n/a"}:
+                        star_symbol = raw_sym
             payload_actions.append(
                 {
                     "index": idx,
@@ -4784,8 +4813,11 @@ class GameRoom:
                     "cost_to_pay": int(cost_to_pay),
                     "requires_symbol_match": bool(requires_symbol),
                     "required_symbol": required_symbol,
-                    "has_star_ability": bool(star_symbol or (requires_symbol and required_symbol)),
+                    "has_star_ability": bool(has_star),
                     "star_symbol": star_symbol,
+                    # True when playing THIS action fires the ★ (the use_star
+                    # variant), or when its ★ twin is available to switch to.
+                    "star_available": bool((bool(action.use_star) and requires_symbol and required_symbol) or star_symbol),
                     "payment_candidates": payment_candidates,
                     "description": fish.describe_action(gs, ms, action),
                 }
