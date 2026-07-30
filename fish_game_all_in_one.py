@@ -938,46 +938,14 @@ def sync_reactive_trigger_flags(gs: GameState, player: PlayerState) -> None:
         player.flags.pop("trigger_draw_on_cephalopod", None)
 
 
-def trigger_board_symbol_star_draws(
-    gs: GameState,
-    ms: Optional[Any],
-    player: PlayerState,
-    discarded_entry_uids: List[int],
-) -> None:
-    """
-    After any cards are discarded to the pool (payment or end-of-turn batch),
-    fire the 'draw' star ability of each board card whose symbol matches a
-    discarded card's symbol.  Each matching board card fires at most once per call.
-    """
-    discarded_syms: set = set()
-    for uid in discarded_entry_uids:
-        for face_uid in entry_faces(ms, uid):
-            cd = gs.card_db.get(face_uid)
-            if cd is not None:
-                sym = normalize_symbol(cd.symbol)
-                if sym not in {"", "n/a"}:
-                    discarded_syms.add(sym)
-    if not discarded_syms:
-        return
-
-    triggered: set = set()
-    for face_uid in all_board_cards(player):
-        if face_uid in triggered:
-            continue
-        cd = gs.card_db.get(face_uid)
-        if cd is None:
-            continue
-        sym = normalize_symbol(cd.symbol)
-        if sym in {"", "n/a"} or sym not in discarded_syms:
-            continue
-        _, star_text = split_main_and_star(cd.text)
-        if not star_text or "draw" not in star_text.lower():
-            continue
-        triggered.add(face_uid)
-        draw(gs, player, 1, ms)
-        gs.log.append(
-            f"{player.name}: {cd.name} ({sym}) drew 1 — matching symbol discarded."
-        )
+# NOTE: there was once a trigger_board_symbol_star_draws() here, firing the
+# "draw" ★ of every board card whose symbol matched a card you discarded. It is
+# gone on purpose, from both of its call sites (play-cost payment, then the
+# end-of-turn hand-limit batch). A ★ is opt-in and one-shot: you fire it by
+# playing that card and paying with a matching symbol (apply_action, use_star).
+# Standing re-triggers off any discard handed out free cards and, on the trim to
+# the hand limit, refilled the hand as fast as the player emptied it. Don't
+# reinstate it without a rule in the rulebook to point at.
 
 
 # -----------------------------
@@ -8483,11 +8451,14 @@ def apply_action(
         if verbose:
             labels = ", ".join(entry_short_label(ms, gs, uid) for uid in chosen_uids)
             print(f"{player.name} batch-discards {len(chosen_uids)} card(s) to pool: {labels}")
-        # Board-symbol star draws fire only for the normal hand-limit discard. Tarpon's
-        # own draw-back (discard N, draw N) is handled by the Tarpon loop, and the
-        # single-card Tarpon path never triggered these — so keep the batch identical.
-        if not tarpon_mode:
-            trigger_board_symbol_star_draws(gs, ms, player, chosen_uids)
+        # NOTHING is drawn here. A ★ fires when its own card is PLAYED with a
+        # matching symbol discarded to pay for it (apply_action, use_star=True) —
+        # it is not a standing board trigger. Re-firing board ★ draws off the
+        # end-of-turn trim refilled the hand as fast as it was emptied: discard 3
+        # to reach 10, three board cards draw 3 back, still over the limit, discard
+        # again — "it takes forever to discard and it drew me three cards for some
+        # reason". The identical call on the play-cost payment path was already
+        # removed for the same reason (excess Osprey/Bottlenose Dolphin draws).
         return True
 
     if action.kind == "move_between_oceans":

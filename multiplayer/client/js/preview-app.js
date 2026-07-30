@@ -8852,6 +8852,59 @@
     return transforms;
   }
 
+  // ── The ONE hand hit-test (hover AND click both go through this) ───────────
+  // A hand card is drawn by a CSS transform: rotate(angle) + translateY(lift)
+  // along its own rotated axis. At the edges of a big fan that moves the card up
+  // to ~25 px sideways and ~65 px down from its LAYOUT box, so "which card is the
+  // pointer over" has two possible answers:
+  //   • the layout box (offsetLeft/offsetTop) — stable, but not where the card is
+  //     actually painted, and
+  //   • the live rendered box — where the card is painted, but it moves whenever a
+  //     card lifts on hover, which feeds back into hover and flickers.
+  // Hover used the first, the browser's own click dispatch used the second, so
+  // from ~11 cards up the card that LIFTED was not the card that got the click:
+  // "it does not discard the one you want".
+  //
+  // Fix: hit-test the card's BASE transformed quad — the shape it has when
+  // nothing is hovered. That is exactly what the player is aiming at, and it
+  // never moves (hover changes only draw, never the hit shape), so there is no
+  // feedback loop. Every consumer (hover, click, drag) uses it, so what lifts is
+  // always what you get.
+  function _handHitTestIdx(cx, cy) {
+    const zone = document.getElementById("pv-hand");
+    if (!zone || !_handCardEls.length) return -1;
+    const zr = zone.getBoundingClientRect();
+    const base = computeHandTransforms(_handCardEls.length, -1);
+    // Reverse order: the front-most card (highest natural z-index = last) wins
+    // wherever two cards overlap, matching what the player sees on top.
+    for (let i = _handCardEls.length - 1; i >= 0; i--) {
+      const el = _handCardEls[i];
+      const t  = base[i]; if (!t) continue;
+      const w  = el.offsetWidth, h = el.offsetHeight;
+      if (!w || !h) continue;
+      // Centre of the card's layout box = the transform-origin (CSS default 50% 50%).
+      const ox = zr.left + el.offsetLeft + w / 2;
+      const oy = zr.top  + el.offsetTop  + h / 2;
+      // Forward transform is  world = origin + R(angle) · (local + (0, lift)).
+      // Invert it to put the pointer in the card's own space, then it is a plain
+      // rectangle test.
+      const a  = (t.angle || 0) * Math.PI / 180;
+      const ca = Math.cos(-a), sa = Math.sin(-a);
+      const dx = cx - ox - (t.translateX || 0);
+      const dy = cy - oy;
+      const lx = dx * ca - dy * sa;
+      const ly = dx * sa + dy * ca - (t.translateY || 0);
+      if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2) return i;
+    }
+    return -1;
+  }
+
+  // The card element the pointer is really aiming at, or null.
+  function _handCardAt(cx, cy) {
+    const idx = _handHitTestIdx(cx, cy);
+    return idx >= 0 ? (_handCardEls[idx] || null) : null;
+  }
+
   function applyHandLayout(hoveredIdx = -1) {
     const cards = Array.from(document.querySelectorAll(".pv-hand-card[data-entry-uid]"));
     const n = cards.length;
@@ -8982,14 +9035,26 @@
       // drag: play card by dragging to ocean slot or pool; also reorder within hand
       card.draggable = true;
       card.addEventListener("dragstart", (ev) => {
+        // Same re-aim as clicks: the browser starts the drag on whichever
+        // transformed box is under the pointer, which in a wide fan is not always
+        // the card the player grabbed. Carry the AIMED card's uids and drag its
+        // image, so you never play a card you didn't pick up.
+        const aimed   = ((ev.clientX || ev.clientY) ? _handCardAt(ev.clientX, ev.clientY) : null) || card;
+        const dragEl  = aimed;
+        const dEntry  = Number(dragEl.dataset.entryUid);
+        const dFace   = Number(dragEl.dataset.faceUid);
         ev.dataTransfer.effectAllowed = "move";
-        ev.dataTransfer.setData("application/x-fish-card", JSON.stringify({ entryUid, faceUid }));
-        ev.dataTransfer.setData("application/x-fish-hand-reorder", String(entryUid));
-        _handDragSrc = entryUid;
-        setTimeout(() => card.classList.add("dragging"), 0);
+        ev.dataTransfer.setData("application/x-fish-card", JSON.stringify({ entryUid: dEntry, faceUid: dFace }));
+        ev.dataTransfer.setData("application/x-fish-hand-reorder", String(dEntry));
+        if (dragEl !== card && ev.dataTransfer.setDragImage) {
+          try { ev.dataTransfer.setDragImage(dragEl, dragEl.offsetWidth / 2, dragEl.offsetHeight / 2); } catch {}
+        }
+        _handDragSrc = dEntry;
+        setTimeout(() => dragEl.classList.add("dragging"), 0);
       });
       card.addEventListener("dragend", () => {
-        card.classList.remove("dragging");
+        // The re-aimed card may be the one wearing .dragging, not this one.
+        document.querySelectorAll(".pv-hand-card.dragging").forEach(el => el.classList.remove("dragging"));
         _handDragSrc = null;
         document.querySelectorAll(".drag-over").forEach(el => el.classList.remove("drag-over"));
         document.querySelectorAll(".hand-drag-over").forEach(el => el.classList.remove("hand-drag-over"));
@@ -9043,9 +9108,11 @@
         card.appendChild(payBtn);
       }
 
-      // click handler
-      card.addEventListener("click", (ev) => {
-        ev.stopPropagation();
+      // Click handler. Stored on the element as well as bound, so a click that
+      // the browser dispatched to the WRONG card (its transformed box happened to
+      // sit under the pointer) can be re-routed to the card the player was
+      // actually aiming at — see _handHitTestIdx.
+      const onCardClick = (ev) => {
         if (tarponActive) {
           // Tarpon "discard and draw that many", tap to toggle a card in/out of the
           // discard set. ANY number is allowed (no cap), then Confirm swaps them.
@@ -9083,6 +9150,15 @@
         // Default: zoom the card (with hand nav + dropdown pre-select)
         openZoom(faceUid, face.name, face.text, face.species, visible, i);
         _zoomPreselectDropdown(entryUid, faceUid);
+      };
+      card.__ccHandClick = onCardClick;
+      card.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        // Route by the shared hit test, never by which element the browser
+        // happened to land on. Falls back to this card when the pointer is
+        // outside every base quad (keyboard/synthetic clicks carry no coords).
+        const aimed = (ev.clientX || ev.clientY) ? _handCardAt(ev.clientX, ev.clientY) : null;
+        ((aimed && aimed.__ccHandClick) || onCardClick)(ev);
       });
 
       zone.appendChild(card);
@@ -9111,38 +9187,34 @@
   //   Neighbors shift ±18 px horizontally, which can trigger the same cascade on
   //   adjacent cards. These flicker loops only stop when the cursor moves away.
   //
-  // Fix: listen on the container with pointermove and hit-test against each
-  //   card's LAYOUT (un-transformed) rect: offsetLeft / offsetTop / offsetWidth /
-  //   offsetHeight. These values are set by the flex algorithm and are NEVER
-  //   updated by CSS transform. The hit zone therefore stays perfectly stable
-  //   while cards animate, breaking the feedback loop completely.
+  // Fix: listen on the container with pointermove and hit-test through the one
+  //   shared _handHitTestIdx, which uses each card's BASE transformed quad — the
+  //   shape it has when nothing is hovered. Hover changes only how a card is
+  //   PAINTED, never its hit shape, so the hit zone stays perfectly stable while
+  //   cards animate and the feedback loop is broken completely.
   //
-  //   • Cursor stays still at card bottom → card lifts → hit test says "still
-  //     in card i's layout rect" → hover stays → no flicker.
+  //   • Cursor stays still at card bottom → card lifts → hit test still says
+  //     "card i" (its base quad never moved) → hover stays → no flicker.
   //   • Cursor moves to a neighbour → hit test switches → clean transition.
   //   • Cursor leaves the hand zone → pointerleave clears hover.
   //   • Only ONE card can be hovered at a time by construction.
+  //   • Clicks route through the SAME test, so the card that lifts is always the
+  //     card that gets clicked (an earlier layout-rect version disagreed with the
+  //     browser's own dispatch and picked the wrong card to discard).
   (function _setupHandHover() {
     const zone = document.getElementById("pv-hand");
     if (!zone) return;
 
-    function _hitTest(cx, cy) {
-      if (!_handCardEls.length) return -1;
-      const zr = zone.getBoundingClientRect();
-      // Iterate in reverse so the visually-front card (highest natural z-index
-      // = last in array) wins when two cards overlap in the fan layout.
-      for (let i = _handCardEls.length - 1; i >= 0; i--) {
-        const el = _handCardEls[i];
-        // offsetLeft/offsetTop are layout coords, unaffected by transforms.
-        const l = zr.left + el.offsetLeft;
-        const t = zr.top  + el.offsetTop;
-        if (cx >= l && cx <= l + el.offsetWidth &&
-            cy >= t && cy <= t + el.offsetHeight) {
-          return i;
-        }
-      }
-      return -1;
-    }
+    const _hitTest = (cx, cy) => _handHitTestIdx(cx, cy);
+
+    // A click that lands on the hand's background (the aimed-at card lifted out
+    // from under the pointer, or the pointer sits in a gap between the drawn
+    // cards) still belongs to whichever card the player was aiming at.
+    zone.addEventListener("click", (ev) => {
+      if (ev.target && ev.target.closest && ev.target.closest(".pv-hand-card")) return;
+      const aimed = _handCardAt(ev.clientX, ev.clientY);
+      if (aimed && aimed.__ccHandClick) { ev.stopPropagation(); aimed.__ccHandClick(ev); }
+    });
 
     function _applyHover(idx) {
       if (idx === _handHoverIdx) return;
