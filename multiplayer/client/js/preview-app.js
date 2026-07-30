@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.37";
-  const APP_BUILD   = "2026-07-30.1";
+  const APP_BUILD   = "2026-07-30.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,14 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "Competitive: your second hand actually gets its turn", items: [
+      "Fixed the big one: in Competitive the turn goes you → your opponent → your OTHER hand → their other hand, but the game would stop following it to your second hand. It sat on your first hand saying “waiting…” while it was really your move, and the match went nowhere.",
+      "Both of your hands now come up on their own turn, with their own cards, their own board and their own YOUR TURN, and the banner names the hand that's playing (including one you've renamed).",
+      "Playing a card is now always sent as the hand whose turn it is, so a move can't land on the wrong hand of yours.",
+      "Play Again works again: two players, two presses, and the rematch starts. It used to need all four hands to ready up, so it hung on “2/4 ready…” forever.",
+      "Leaving a Competitive match now takes both of your hands with you, no more empty hand left sitting at the table blocking the rematch, and if you leave mid-game both are held for you to rejoin.",
+      "Surf's Up now steps away with both your hands at once, instead of parking one and still asking you to play the other.",
+    ]},
     { ver: "V1.7.0", title: "★ Star abilities: gold always means gold", items: [
       "A gold border on a card in your hand now means one thing everywhere in the game: discard this card and the ★ ability will fire. Before, cards could glow gold (and the guide could ask you for a ◆ card) on a play that was never going to activate the star at all.",
       "The “★ if ◆” note on a card, and the gold cards it lights up, only appear when the star is genuinely available for that play. If it isn't, the game says what's missing instead of promising a bonus it can't deliver.",
@@ -1063,7 +1071,17 @@
   // it's my turn when it isn't" / "my turn but won't let me play"). We drop any
   // payload whose version is strictly older than what we've already rendered.
   let _lastStateVersion = -1;
-  let _lastRenderedVersion = -1; // skip full re-render when server version hasn't changed
+  // Skip the full re-render when the payload is the SAME document we last drew.
+  // "Same" is version + which seat fetched it, never the version alone: the
+  // server's state_view is per-token (viewer.can_act, legal_actions and the
+  // private hand all come from the polling seat), so in competitive — where one
+  // player owns two seats — one version legitimately has two different views.
+  // Keying on version alone dropped the second hand's view as "unchanged" and
+  // froze the client on hand 1's board for the whole game.
+  let _lastRenderedKey = ""; // `${version}:${viewer seat}` of the last render
+  // Guards the competitive re-fetch below against a token that never resolves to
+  // the active seat (expired/rotated), which would otherwise re-fetch forever.
+  let _compRefetchKey = "";
 
   // ── Current Controller (admin mod tools) bridges ──────────────────
   // Read-only accessors so the Current Controller module (a separate <script>
@@ -1157,17 +1175,28 @@
     // hand's token, so this payload's viewer is the wrong hand (can_act=false →
     // "waiting…"). Detect that and immediately re-fetch with the now-active
     // hand's token so its board + YOUR TURN go live without a poll-cycle lag.
+    const viewerSeat = Number(d.viewer && d.viewer.seat_index);
     if (compMode && Array.isArray(compMySeats)) {
       const aas = Number(d.active_action_seat);
-      const viewerSeat = Number(d.viewer && d.viewer.seat_index);
       if (compMySeats.includes(aas) && compTokens[aas] && viewerSeat !== aas) {
-        setTimeout(() => { try { refreshState(); } catch (_) {} }, 0);
+        // Only try once per (version, seat). Without this a token that no longer
+        // resolves to its seat would re-fetch the same mismatch forever.
+        const key = v + ":" + aas;
+        if (_compRefetchKey !== key) {
+          _compRefetchKey = key;
+          // refreshStateAfterAction (not refreshState) so the corrective fetch
+          // isn't swallowed by the poll that is still in flight around us.
+          setTimeout(() => { try { refreshStateAfterAction(); } catch (_) {} }, 0);
+        }
       }
     }
-    // Skip the full DOM rebuild when the server state hasn't changed since last render.
+    // Skip the full DOM rebuild when this is the same document we already drew.
+    // The key includes the VIEWER SEAT, not just the version — see _lastRenderedKey.
     // Manual calls to renderPayload() bypass this and always re-render (local state changes).
-    if (Number.isFinite(v) && v === _lastRenderedVersion) return true;
-    _lastRenderedVersion = v;
+    const renderKey = (Number.isFinite(v) ? v : "x") + ":" +
+                      (Number.isFinite(viewerSeat) ? viewerSeat : "-");
+    if (renderKey === _lastRenderedKey) return true;
+    _lastRenderedKey = renderKey;
     renderPayload(d);
     return true;
   }
@@ -1252,7 +1281,8 @@
     // joined room restarts low, so a stale high baseline would drop every
     // update. Entering/reconnecting always re-establishes the baseline.
     _lastStateVersion = -1;
-    _lastRenderedVersion = -1;
+    _lastRenderedKey = "";
+    _compRefetchKey = "";
     _armPollTimer();
     // Keep the rejoin window alive: refresh the localStorage timestamp every 60 s while active
     if (_rejoinTouchTimer) clearInterval(_rejoinTouchTimer);
@@ -1287,7 +1317,7 @@
   function startSSE() {
     if (!roomId) return;
     if (compMode) return;  // competitive mode uses polling only
-    _lastStateVersion = -1; _lastRenderedVersion = -1; // re-establish baseline for this connection
+    _lastStateVersion = -1; _lastRenderedKey = ""; // re-establish baseline for this connection
     if (sseSource) { sseSource.close(); sseSource = null; }
     const p = new URLSearchParams();
     const seat = getSeatToken(); const host = getHostToken();
@@ -2384,23 +2414,36 @@
       showToast("All seats are taken.", "err"); return;
     }
 
-    // Competitive: auto-claim the first two open seats as P2's two hands.
+    // Competitive: claim a whole PAIR of hands. Ownership is fixed by seat —
+    // P1 is {0,1}, P2 is {2,3} — and the turn interleave, the same-owner action
+    // rule and every "both my hands" rule read it straight off the seat index.
+    // Taking the first two OPEN seats could hand out {1,2}, one hand from each
+    // player, which no rule can express. Take a free pair or don't join.
     if (data.mode === "competitive") {
-      if (open.length < 2) { showToast("This competitive room is already full.", "err"); return; }
+      const openIdx = new Set(open.map(s => s.index));
+      const pair = [[0, 1], [2, 3]].find(p => p.every(i => openIdx.has(i)));
+      if (!pair) { showToast("This competitive room is already full.", "err"); return; }
       roomId = rid;
       const pw = password || "";
-      const j2 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: open[0].index, password: pw }, { timeoutMs:12000 });
+      const j2 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name, seat_index: pair[0], password: pw }, { timeoutMs:12000 });
       if (!j2.ok) { showToast("Join failed: " + (j2.data?.error || j2.status), "err"); roomId = null; return; }
-      const j3 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name + " 2", seat_index: open[1].index, password: pw }, { timeoutMs:12000 });
+      const j3 = await apiPost(`/api/rooms/${rid}/join`, { player_name: name + " 2", seat_index: pair[1], password: pw }, { timeoutMs:12000 });
       if (!j3.ok) { showToast("Join failed (Hand 4): " + (j3.data?.error || j3.status), "err"); return; }
-      const s2 = open[0].index, s3 = open[1].index;
+      const s2 = pair[0], s3 = pair[1];
       const tokens = { [s2]: j2.data?.seat_token || "", [s3]: j3.data?.seat_token || "" };
-      const p1Seat = data.seatObjs.find(s => s.index === 0);
       compMode = true; compMySeats = [s2, s3]; compTokens = tokens;
       compHostToken = ""; compHandNames = {}; _compHsSuppressed = true;
       _compPrevActiveSeat = null;
-      compP1Name = p1Seat?.claimed_name?.replace(/ 2$/, "") || "Player 1";
-      compP2Name = name;
+      // Name the two SIDES by the pair each one holds — seats {0,1} are P1 and
+      // {2,3} are P2, and "am I P1" is decided by compMySeats[0] < 2 everywhere
+      // (result reporting included). Assuming the joiner is always P2 mislabels
+      // both sides on the rare join that lands on the {0,1} pair.
+      const _sideName = (i) => {
+        const s = data.seatObjs.find(x => x.index === i);
+        return (s?.claimed_name || "").replace(/ 2$/, "") || `Player ${i < 2 ? 1 : 2}`;
+      };
+      compP1Name = (s2 < 2) ? name : _sideName(0);
+      compP2Name = (s2 < 2) ? _sideName(2) : name;
       setSeatToken(j2.data?.seat_token || "");
       document.getElementById("pv-my-name-badge").textContent = name;
       try { sessionStorage.setItem(`fish_comp_seats_${rid}_${s2}`, JSON.stringify({ seats: [s2, s3], tokens, p1: compP1Name, p2: name })); } catch {}
@@ -3346,11 +3389,17 @@
     }
     _drawWarnBypass = false;
 
-    // In competitive mode, use the token for whichever of our seats is currently active.
-    // mySeatIdx is the seat index (token key); myIdx is the game/player index.
+    // In competitive mode, use the token for whichever of our seats is currently
+    // active — the server acts as the ACTIVE seat (see _competitive_same_owner),
+    // so sending the other hand's token would submit this hand's move against the
+    // wrong seat's legal-action list. mySeatIdx (the seat the last render drew) is
+    // only the fallback, for the poll-cycle where the two briefly disagree.
     let token;
-    if (compMode && mySeatIdx !== null && compTokens[mySeatIdx]) {
-      token = compTokens[mySeatIdx];
+    if (compMode) {
+      const _aas = Number(latestPayload?.active_action_seat);
+      token = (compMySeats.includes(_aas) && compTokens[_aas])
+        ? compTokens[_aas]
+        : (mySeatIdx !== null && compTokens[mySeatIdx]) ? compTokens[mySeatIdx] : getSeatToken();
     } else {
       token = getSeatToken();
     }
@@ -5451,10 +5500,13 @@
       if (!_staleWindow) {
         banner.className = "my-turn";
         if (compMode) {
+          // compGetHandName is the ONE source of hand names (seat-numbered
+          // Hand 1–4, and whatever the player renamed them to). The banner used
+          // to number my hands 1/2 on its own, so P2's "Hand 3" showed up here
+          // as "HAND 1" and a renamed hand never appeared at all.
           const activeSeat = Number(payload.active_action_seat);
-          const handNum = compMySeats.indexOf(activeSeat) + 1;
           const myName = compMySeats[0] < 2 ? compP1Name : compP2Name;
-          banner.textContent = `✦  ${myName.toUpperCase()}, HAND ${handNum}  ✦`;
+          banner.textContent = `✦  ${myName.toUpperCase()}, ${compGetHandName(activeSeat).toUpperCase()}  ✦`;
         } else if (isReplayTurn) {
           banner.textContent = "★ PLAY AGAIN, take another turn! ★";
         } else {
@@ -5465,6 +5517,14 @@
       // Track Play Again for the Horned Puffin avatar regardless of the window.
       if (!_prevReplayTurn && isReplayTurn && _gameAchTracker) _gameAchTracker.playAgainUses = (_gameAchTracker.playAgainUses || 0) + 1;
       _prevReplayTurn = isReplayTurn;
+    } else if (compMode && compMySeats.includes(Number(payload.active_action_seat))) {
+      // Competitive handoff: the turn HAS come to one of my hands, but this
+      // payload was fetched with the other hand's token so viewer.can_act is
+      // still false. The corrective re-fetch (see applyServerPayload) is already
+      // in flight — say what's happening instead of flashing "their turn…".
+      banner.className = "their-turn";
+      banner.textContent = `✦  Switching to ${compGetHandName(Number(payload.active_action_seat))}…  ✦`;
+      endBtn.classList.remove("pulse-glow");
     } else {
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
@@ -8974,6 +9034,17 @@
     return transforms;
   }
 
+  // Corner radius of a hand card, read from CSS once (it is a design token, not
+  // something that varies per card).
+  let _handRadiusPx = null;
+  function _handCornerRadius(el) {
+    if (_handRadiusPx === null) {
+      const v = parseFloat(getComputedStyle(el).borderTopLeftRadius);
+      _handRadiusPx = Number.isFinite(v) ? v : 0;
+    }
+    return _handRadiusPx;
+  }
+
   // ── The ONE hand hit-test (hover AND click both go through this) ───────────
   // A hand card is drawn by a CSS transform: rotate(angle) + translateY(lift)
   // along its own rotated axis. At the edges of a big fan that moves the card up
@@ -9016,7 +9087,24 @@
       const dy = cy - oy;
       const lx = dx * ca - dy * sa;
       const ly = dx * sa + dy * ca - (t.translateY || 0);
-      if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2) return i;
+      // One pixel of slack on the edges. A composited, transformed layer is
+      // snapped to whole device pixels, so the browser's own hit region wobbles
+      // about a pixel either side of the exact quad; without the slack those
+      // border points fall through to the card BEHIND the one being pointed at.
+      // Nobody aims at a 1 px sliver, and front-most-wins still resolves the
+      // overlap the same way the browser paints it.
+      const hw = w / 2 + 1, hh = h / 2 + 1;
+      const ax = Math.abs(lx), ay = Math.abs(ly);
+      if (ax > hw || ay > hh) continue;
+      // Cards are rounded rectangles, and the browser lets the card BEHIND show
+      // through the corner arc — so must this test, or a click on the corner of
+      // an overlapped card would be stolen by the one in front.
+      const r = _handCornerRadius(el);
+      if (r > 0) {
+        const kx = ax - (hw - r), ky = ay - (hh - r);
+        if (kx > 0 && ky > 0 && kx * kx + ky * ky > r * r) continue;
+      }
+      return i;
     }
     return -1;
   }
@@ -9336,14 +9424,25 @@
 
     const _hitTest = (cx, cy) => _handHitTestIdx(cx, cy);
 
-    // A click that lands on the hand's background (the aimed-at card lifted out
-    // from under the pointer, or the pointer sits in a gap between the drawn
-    // cards) still belongs to whichever card the player was aiming at.
-    zone.addEventListener("click", (ev) => {
-      if (ev.target && ev.target.closest && ev.target.closest(".pv-hand-card")) return;
+    // A click that reaches no card element at all still belongs to the card the
+    // player aimed at. The fan is drawn well outside #pv-hand's own box (the
+    // outer cards hang up to ~65 px below it) and the aimed card lifts 64 px on
+    // hover, so the pointer can easily end up over bare background — the click
+    // then did nothing at all.
+    //
+    // Only genuine BACKGROUND elements may hand a click over. Anything with its
+    // own UI — a button, a modal, the action bar, a seat pill — keeps its click,
+    // so this can never steal from something drawn on top of the hand.
+    const _HAND_FALLTHROUGH_IDS = new Set(["pv-hand", "pv-hand-zone", "pv-game"]);
+    document.addEventListener("click", (ev) => {
+      const t = ev.target;
+      if (!t || (t.closest && t.closest(".pv-hand-card"))) return;
+      const isBackground = t === document.body || t === document.documentElement ||
+                           (t.id && _HAND_FALLTHROUGH_IDS.has(t.id));
+      if (!isBackground) return;
       const aimed = _handCardAt(ev.clientX, ev.clientY);
       if (aimed && aimed.__ccHandClick) { ev.stopPropagation(); aimed.__ccHandClick(ev); }
-    });
+    }, true);
 
     function _applyHover(idx) {
       if (idx === _handHoverIdx) return;
@@ -9973,7 +10072,7 @@
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
     dismissEndGameCinematic();
-    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1;
+    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1; _compRefetchKey="";
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
     const compHandsSection = document.getElementById("pv-menu-comp-hands");
     if (compHandsSection) compHandsSection.style.display = "none";

@@ -3489,14 +3489,21 @@ class GameRoom:
             if self.phase == "ended":
                 if seat is None:
                     return {"ok": True, "action": "left"}
-                leaving_name = seat.claimed_name or seat.label
-                was_host = seat.is_host
-                seat.token = None
-                seat.claimed_name = None
-                seat.is_host = False
-                seat.left_at = None
-                seat.play_again_ready = False
-                seat.quick_play_ticket = None
+                # Competitive: free BOTH of the leaver's hands. Freeing only the
+                # seat whose token was sent left the other hand claimed by a
+                # player who is gone — a ghost that could never ready up, so the
+                # rematch counter hung and the room never closed.
+                leaving_seats = self._owned_seats_locked(seat)
+                leaving_name = (leaving_seats[0].claimed_name
+                                or leaving_seats[0].label)
+                was_host = any(s.is_host for s in leaving_seats)
+                for s in leaving_seats:
+                    s.token = None
+                    s.claimed_name = None
+                    s.is_host = False
+                    s.left_at = None
+                    s.play_again_ready = False
+                    s.quick_play_ticket = None
                 if leaving_name and leaving_name not in self.post_game_left:
                     self.post_game_left.append(leaving_name)
 
@@ -3520,8 +3527,10 @@ class GameRoom:
             if seat is None:
                 return {"ok": False, "error": "invalid seat token"}
 
-            was_host = seat.is_host
-            leaving_name = seat.claimed_name or seat.label
+            # In competitive the leaver owns two hands; both go with them.
+            leaving_seats = self._owned_seats_locked(seat)
+            was_host = any(s.is_host for s in leaving_seats)
+            leaving_name = leaving_seats[0].claimed_name or leaving_seats[0].label
 
             # ── Running game: RESERVE the seat so this player can rejoin it ──
             # Keep the token + name (the token is their private key to this exact
@@ -3529,11 +3538,13 @@ class GameRoom:
             # token); others see the seat as occupied. Cleanup frees it after
             # REJOIN_WINDOW_SEC if they don't return.
             if self.phase == "running":
-                seat.left_at = time.time()
+                for s in leaving_seats:
+                    s.left_at = time.time()
                 active = self._active_human_seats_locked()
                 if was_host:
                     if active:
-                        seat.is_host = False
+                        for s in leaving_seats:
+                            s.is_host = False
                         active[0].is_host = True
                         self.status_note = (
                             f"{leaving_name} left (can rejoin for {REJOIN_WINDOW_SEC // 60} min). "
@@ -3549,11 +3560,12 @@ class GameRoom:
                 return {"ok": True, "action": "left", "reserved": True}
 
             # ── Lobby (or other): free the seat normally (freely re-claimable) ──
-            seat.claimed_name = None
-            seat.token = None
-            seat.is_host = False
-            seat.left_at = None
-            seat.quick_play_ticket = None
+            for s in leaving_seats:
+                s.claimed_name = None
+                s.token = None
+                s.is_host = False
+                s.left_at = None
+                s.quick_play_ticket = None
 
             remaining = [s for s in self.seats if s.kind == "human" and s.token is not None]
             if not remaining:
@@ -4177,8 +4189,13 @@ class GameRoom:
             if seat is None or seat.kind != "human" or seat.left_at is not None:
                 return {"ok": False, "error": "invalid seat token"}
 
-            seat.play_again_ready = True
-            seat.last_seen = time.time()  # readying counts as activity
+            # Competitive: one human owns TWO seats (their two hands) but presses
+            # Play Again ONCE, from one of them. Ready every seat they own, or the
+            # ready set can never complete — 2 presses against 4 human seats left
+            # the rematch stuck on "2/4 ready…" forever.
+            for s in self._owned_seats_locked(seat):
+                s.play_again_ready = True
+                s.last_seen = time.time()  # readying counts as activity
 
             started = self._maybe_start_play_again_locked(card_db)
             ready, active, bots = self._play_again_counts_locked()
@@ -4618,6 +4635,18 @@ class GameRoom:
         if not (0 <= seat_a < 4 and 0 <= seat_b < 4):
             return False
         return (seat_a // 2) == (seat_b // 2)
+
+    def _owned_seats_locked(self, seat: Seat) -> List[Seat]:
+        """Every seat the same PHYSICAL player controls, `seat` included.
+
+        Normal rooms: just the seat itself. Competitive: both of that player's
+        hands ({0,1} or {2,3}). Anything a player does once for themselves —
+        readying up, leaving — has to apply to all of them, otherwise the second
+        hand lingers as a seat nobody is sitting in."""
+        if not self._competitive_same_owner(seat.index, seat.index):
+            return [seat]
+        return [s for s in self.seats
+                if s.kind == "human" and self._competitive_same_owner(s.index, seat.index)]
 
     def submit_action(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         token = payload.get("seat_token")
@@ -6750,26 +6779,39 @@ class GameRoom:
         os.makedirs(COMPETITIVE_GAMES_DIR, exist_ok=True)
         ts = now_unix()
         # Best-effort current scores for the record (forfeits have no final tally).
-        score_map: Dict[str, int] = {}
+        # Keyed by SEAT: players[].index in the public state IS the seat index, and
+        # a seat's score must never be looked up through a name the player can
+        # change mid-match (see _save_competitive_game).
+        score_by_seat: Dict[int, int] = {}
         try:
             if isinstance(self.latest_public_state, dict):
                 for p in self.latest_public_state.get("players", []) or []:
-                    if isinstance(p, dict) and p.get("name"):
-                        score_map[str(p["name"])] = int(p.get("score", 0) or 0)
+                    idx = p.get("index") if isinstance(p, dict) else None
+                    if isinstance(idx, int) and not isinstance(idx, bool):
+                        score_by_seat[idx] = int(p.get("score", 0) or 0)
         except Exception:
-            score_map = {}
+            score_by_seat = {}
+        # A player's score is their BEST hand — the same rule the finished-game
+        # record and the client's winner check use.
+        def _side_score(seat_a: int, seat_b: int) -> int:
+            vals = [score_by_seat[i] for i in (seat_a, seat_b) if i in score_by_seat]
+            return max(vals) if vals else 0
+        p1_score = _side_score(0, 1)
+        p2_score = _side_score(2, 3)
         p1_name = (self.seats[0].claimed_name or "Player 1") if len(self.seats) > 0 else "Player 1"
         p2_name = (self.seats[2].claimed_name or "Player 2") if len(self.seats) > 2 else "Player 2"
+        win_score  = p1_score if winner_name == p1_name else p2_score
+        lose_score = p2_score if winner_name == p1_name else p1_score
         record = {
             "room_id": self.room_id,
             "recorded_unix": ts,
             "season_id": get_season_id(ts),
             "p1_name": p1_name,
             "p2_name": p2_name,
-            "p1_best_score": int(score_map.get(p1_name, 0)),
-            "p2_best_score": int(score_map.get(p2_name, 0)),
-            "p1_second_score": int(score_map.get(p1_name, 0)),
-            "p2_second_score": int(score_map.get(p2_name, 0)),
+            "p1_best_score": p1_score,
+            "p2_best_score": p2_score,
+            "p1_second_score": p1_score,
+            "p2_second_score": p2_score,
             "winner": winner_name,
             "loser": loser_name,
             "is_draw": False,
@@ -6778,8 +6820,8 @@ class GameRoom:
             "turn_count": 0,
             "strategy": "Forfeit",
             "standings": [
-                {"name": winner_name, "score": int(score_map.get(winner_name, 0))},
-                {"name": loser_name,  "score": int(score_map.get(loser_name, 0))},
+                {"name": winner_name, "score": win_score},
+                {"name": loser_name,  "score": lose_score},
             ],
             "board_snapshot": {},
         }
@@ -6831,9 +6873,19 @@ class GameRoom:
             # P1 owns seats 0 & 1; P2 owns seats 2 & 3
             p1_name = seats[0].claimed_name or "Player 1" if len(seats) > 0 else "Player 1"
             p2_name = seats[2].claimed_name or "Player 2" if len(seats) > 2 else "Player 2"
-            score_map = {s.get("name"): s.get("score", 0) for s in standings}
-            p1_scores = [score_map.get(seats[i].claimed_name, 0) for i in (0, 1) if i < len(seats) and seats[i].claimed_name]
-            p2_scores = [score_map.get(seats[i].claimed_name, 0) for i in (2, 3) if i < len(seats) and seats[i].claimed_name]
+            # Score every hand by its SEAT, never by display name. Standings names
+            # are the names the engine started with; seats[i].claimed_name is the
+            # name NOW. One rename mid-match made the lookup miss, scored that hand
+            # 0 and could hand the match to the player who actually lost. Every
+            # standings row already carries the seat it came from (see the tally in
+            # _run_game_thread), which is the one rename-proof key.
+            score_by_seat: Dict[int, int] = {}
+            for row in standings:
+                si = row.get("seat_index")
+                if isinstance(si, int) and not isinstance(si, bool):
+                    score_by_seat[si] = int(row.get("score", 0) or 0)
+            p1_scores = [score_by_seat[i] for i in (0, 1) if i in score_by_seat]
+            p2_scores = [score_by_seat[i] for i in (2, 3) if i in score_by_seat]
             p1_best   = max(p1_scores) if p1_scores else 0
             p2_best   = max(p2_scores) if p2_scores else 0
             p1_second = min(p1_scores) if len(p1_scores) >= 2 else p1_best
@@ -7819,32 +7871,41 @@ class GameRoom:
                 return {"ok": False, "error": "only human seats can use Surf's Up"}
             want = body.get("away")
             new_val = (not seat.is_away) if not isinstance(want, bool) else bool(want)
-            seat.is_away = bool(new_val)
+            # A person is at the table or they aren't. In competitive one human
+            # owns two seats, so Surf's Up has to move BOTH hands — flagging only
+            # the hand that happened to be active left the other hand "present"
+            # for a player who had walked away.
+            owned = self._owned_seats_locked(seat)
+            for s in owned:
+                s.is_away = bool(new_val)
             # Pressing Surf's Up grants 10 minutes of AFK-vote immunity — this
             # holds even if they toggle Surf's Up back off before it expires.
             # Also cancel any live AFK challenge currently aimed at this seat.
-            self.afk_immune_until[seat.index] = time.time() + self.AFK_SURF_IMMUNE_SECONDS
-            if self.afk_challenge_seat == seat.index:
-                self.afk_challenge_seat = None
-                self.afk_challenge_deadline = None
-                self.afk_challenge_id += 1
-            self.afk_votes.pop(seat.index, None)
+            for s in owned:
+                self.afk_immune_until[s.index] = time.time() + self.AFK_SURF_IMMUNE_SECONDS
+                if self.afk_challenge_seat == s.index:
+                    self.afk_challenge_seat = None
+                    self.afk_challenge_deadline = None
+                    self.afk_challenge_id += 1
+                self.afk_votes.pop(s.index, None)
             # Going Away (or coming back) always clears the inactive-eligible flag:
             # Surf's Up overrides the idle/inactive system entirely, so other
             # seats must never see a "Draw 2 for inactive" affordance on an Away
             # player. Also purge any draw-for-inactive command another seat may
             # have queued just before this player went Away.
-            if seat.is_away:
-                seat.inactive_eligible = False
-                queue = self.pending_actions.get(seat.index)
+            for s in owned:
+                s.inactive_eligible = False
+                if not s.is_away:
+                    continue
+                queue = self.pending_actions.get(s.index)
                 if queue:
-                    self.pending_actions[seat.index] = [
+                    self.pending_actions[s.index] = [
                         q for q in queue
                         if not (isinstance(q, dict) and q.get("kind") == "draw_for_inactive")
                     ]
-            else:
-                seat.inactive_eligible = False
-            display = seat.claimed_name or seat.label
+            # Name the PERSON, not the hand, so competitive doesn't announce
+            # "Otter 2 is on Surf's Up" when Otter stepped away.
+            display = owned[0].claimed_name or owned[0].label
             note = f"{display} is on Surf's Up — Away" if seat.is_away else f"{display} is back."
             self.chat_messages.append({
                 "sender": "System",
