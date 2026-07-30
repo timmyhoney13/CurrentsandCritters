@@ -532,7 +532,7 @@ SnapScan.loadLibrary().then(() => { LIBRARY_STATE = "ready"; })
 const pad2 = n => String(n).padStart(2,"0");
 // Same art mapping AND cache version as the live game (preview-app.js) so the
 // card images shown here are always the current V12 art, never a stale cache.
-const CARD_IMAGE_VERSION = "20260717-v12b";
+const CARD_IMAGE_VERSION = "20260730-v12c";
 function artFor(uid){
   let u = Number(uid); if (u >= 1000000) u = u % 1000;
   const v = `?v=${CARD_IMAGE_VERSION}`;

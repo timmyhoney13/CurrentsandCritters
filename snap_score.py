@@ -479,8 +479,8 @@ def _avatar_defs() -> List[Dict[str, Any]]:
         {"id": "sailfish", "name": "Sailfish", "img": "/avatars/sailfish.png",
          "check": lambda f, ctx: ctx["pc"] >= 5 and gf
                   and all(f["name_counts"].get(n, 0) >= 1 for n in gf)},
-        {"id": "big-eye-tuna", "name": "Big Eye Tuna", "img": "/avatars/big-eye-tuna.png",
-         "check": lambda f, ctx: ctx["winner"] and f["name_counts"].get("big eye tuna", 0) >= 5},
+        {"id": "big-eye-tuna", "name": "Bigeye Tuna", "img": "/avatars/big-eye-tuna.png",
+         "check": lambda f, ctx: ctx["winner"] and (f["name_counts"].get("bigeye tuna", 0) + f["name_counts"].get("big eye tuna", 0)) >= 5},
         {"id": "magnificent-frigatebird", "name": "Magnificent Frigatebird",
          "img": "/avatars/magnificent-frigatebird.png",
          "check": lambda f, ctx: f["corals_on_coral_reef"] >= 7},

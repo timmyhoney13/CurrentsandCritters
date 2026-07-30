@@ -182,7 +182,7 @@
     ["🐠", "Game Fish", "gamefish", [
       ["Sailfish", 3], ["Goliath Grouper", 3], ["Tarpon", 4], ["Mahi Mahi", 4], ["Blue Marlin", 4],
       ["Bigeye Tuna", 5], ["Yellowfin Tuna", 14], ["Roosterfish", 5], ["King Salmon", 4],
-      ["Whale Shark", 4], ["Barracuda", 2],
+      ["Whale Shark", 4], ["Barracuda", 3],
     ]],
     ["🐙", "Cephalopods", "cephalopod", [
       ["Bobtail Squid", 3], ["Common Octopus", 3], ["Cuttlefish", 3], ["Giant Squid", 3],

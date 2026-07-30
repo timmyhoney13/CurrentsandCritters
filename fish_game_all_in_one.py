@@ -533,7 +533,7 @@ def _execute_main_pattern(
         player.flags["trigger_draw_on_floor_play"] = int(player.flags.get("trigger_draw_on_floor_play", 0)) + 1
         gs.log.append(f"{player.name} enables: draw 1 when they play on ocean floor ({card.name}).")
 
-    # Big Eye Tuna: "draw one for each yellowfin tuna on your board"
+    # Bigeye Tuna: "draw one for each yellowfin tuna on your board"
     if "draw one for each yellowfin tuna" in t:
         yf_count = sum(1 for c in board if c.name.lower() == "yellowfin tuna")
         if yf_count > 0:
@@ -781,7 +781,7 @@ def _execute_star_pattern(
     t = text.lower()
     ms = (ctx or {}).get("ms")
 
-    # Big Eye Tuna: "draw one for each yellowfin tuna you control" as a STAR ability.
+    # Bigeye Tuna: "draw one for each yellowfin tuna you control" as a STAR ability.
     # Must precede the generic "draw one" branch so it draws 1 per Yellowfin, not just 1.
     if "draw one for each yellowfin tuna" in t:
         board = [gs.card_db[uid] for uid in all_board_cards(player)]
@@ -2711,7 +2711,7 @@ def card_strategy_tags(card: CardDef) -> set[str]:
     if species == "ocean":
         tags.add("engine:ocean")
 
-    if "yellowfin tuna" in name or "big eye tuna" in name:
+    if "yellowfin tuna" in name or "bigeye tuna" in name or "big eye tuna" in name:
         tags.add("engine:yellowfin")
     if "mahi mahi" in name or "blue marlin" in name or "tarpon" in name:
         tags.add("engine:pelagic")
@@ -2900,7 +2900,7 @@ def action_plan_fit_bonus(gs: GameState, player: PlayerState, action: Action) ->
 
     if "yellowfin tuna" in card.name.lower():
         bonus += 0.32 * board_names.count("big eye tuna")
-    if "big eye tuna" in card.name.lower():
+    if "bigeye tuna" in card.name.lower() or "big eye tuna" in card.name.lower():
         bonus += 0.28 * board_names.count("yellowfin tuna")
     if "blue marlin" in card.name.lower():
         bonus += 0.50 * board_names.count("mahi mahi")
@@ -3564,7 +3564,7 @@ def strategy_family_profiles() -> List[Dict[str, Any]]:
                 "johnson's sea cucumber", "clownfish", "cleaner wrasse", "loggerhead sea turtle",
             ],
             "text_keywords": [
-                "yellowfin tuna", "big eye tuna", "free game fish", "per game fish",
+                "yellowfin tuna", "bigeye tuna", "big eye tuna", "free game fish", "per game fish",
             ],
         },
         {
@@ -4810,7 +4810,7 @@ def default_archetype_profiles() -> List[Dict[str, Any]]:
                 "artificial reef", "clownfish",
             ],
             "name_contains": ["yellowfin", "bigeye", "big eye"],
-            "text_keywords": ["yellowfin tuna", "big eye tuna", "free game fish", "cleaner wrasse"],
+            "text_keywords": ["yellowfin tuna", "bigeye tuna", "big eye tuna", "free game fish", "cleaner wrasse"],
             "support_names": ["johnson's sea cucumber", "artificial reef", "clownfish"],
         },
         {
@@ -5162,7 +5162,7 @@ def action_archetype_bonus(
             cn = card.name.strip().lower()
             engine_count = (
                 board_names.count("yellowfin tuna")
-                + board_names.count("big eye tuna")
+                + board_names.count("bigeye tuna") + board_names.count("big eye tuna")
                 + board_names.count("cleaner wrasse")
                 + board_names.count("johnson's sea cucumber")
             )
@@ -5293,7 +5293,7 @@ def action_archetype_bonus(
         if label == "yellowfin bigeye cleaner" and card.name.strip().lower() == "artificial reef":
             engine_count = (
                 board_names.count("yellowfin tuna")
-                + board_names.count("big eye tuna")
+                + board_names.count("bigeye tuna") + board_names.count("big eye tuna")
                 + board_names.count("cleaner wrasse")
                 + board_names.count("johnson's sea cucumber")
             )
@@ -5554,7 +5554,7 @@ def action_archetype_bonus(
 
     elif label == "yellowfin bigeye cleaner":
         yellow_count = board_names.count("yellowfin tuna")
-        bigeye_count = board_names.count("big eye tuna")
+        bigeye_count = board_names.count("bigeye tuna") + board_names.count("big eye tuna")
         cleaner_count = board_names.count("cleaner wrasse")
         sea_cucumber_count = board_names.count("johnson's sea cucumber")
         clownfish_count = board_names.count("clownfish")
@@ -5570,7 +5570,7 @@ def action_archetype_bonus(
         if cname == "yellowfin tuna":
             bonus += min(4.0, 1.0 * bigeye_count)
             bonus += min(1.4, 0.35 * cleaner_count)
-        if cname == "big eye tuna":
+        if cname in {"bigeye tuna", "big eye tuna"}:
             bonus += min(4.0, 1.0 * yellow_count)
             bonus += min(1.0, 0.25 * cleaner_count)
         if cname == "cleaner wrasse":
@@ -5595,13 +5595,13 @@ def action_archetype_bonus(
         if cname == "johnson's sea cucumber":
             bonus += min(2.8, 0.55 * (yellow_count + bigeye_count + cleaner_count))
             bonus += min(1.2, 0.3 * sea_cucumber_count)
-        if cname in {"yellowfin tuna", "big eye tuna", "cleaner wrasse", "johnson's sea cucumber", "clownfish"}:
+        if cname in {"yellowfin tuna", "bigeye tuna", "big eye tuna", "cleaner wrasse", "johnson's sea cucumber", "clownfish"}:
             bonus += min(2.2, 0.6 * artificial_reef_count)
             if action.ocean_uid is not None:
                 ocean_name = gs.card_db[action.ocean_uid].name.strip().lower()
                 if ocean_name == "artificial reef":
                     bonus += 1.8
-        if cname in {"yellowfin tuna", "big eye tuna"} and clownfish_count > 0:
+        if cname in {"yellowfin tuna", "bigeye tuna", "big eye tuna"} and clownfish_count > 0:
             bonus += min(2.4, 0.8 * clownfish_count)
             if action.ocean_uid is not None:
                 local_names = [
@@ -6267,7 +6267,7 @@ def pool_entry_value_for_player(ms: MatchState, gs: GameState, entry_uid: int, p
 
     # ── Build a picture of the plan I'm already committed to ────────────────
     # A pool card is worth far more when it COMPLETES an archetype I'm already
-    # building (a second Big Eye Tuna for my Yellowfin engine) than when it is a
+    # building (a second Bigeye Tuna for my Yellowfin engine) than when it is a
     # random off-plan card. Count the species / strategy tags I already own
     # across board AND hand so "how much does this card complete my plan" is a
     # real, measured signal instead of near-random pool drafting.
@@ -6754,6 +6754,7 @@ PAYMENT_HEAVY_HITTER_NAMES = {
     "blue tang",
     "king salmon",
     "yellowfin tuna",
+    "bigeye tuna",
     "big eye tuna",
     "great albatross",
     "roosterfish",
@@ -7659,7 +7660,7 @@ def _rig_blob_tutorial_hand(
     """B-Lob Strategy tutorial: rig the human's opening hand to an EXACT set so the
     guided lesson always lines up:
         Artificial Reef · Lobster · Lobster · Emperor Penguin ·
-        Narwhal/Big Eye Tuna (dual-faced, used as payment) ·
+        Narwhal/Bigeye Tuna (dual-faced, used as payment) ·
         California Gull · Mangrove · Coral Reef
     Cards are sourced from the post-deal deck (or already in hand); displaced hand
     cards go back to the deck so card-conservation and hand size (8) are preserved.
@@ -7678,7 +7679,7 @@ def _rig_blob_tutorial_hand(
 
     # Pool of every entry we may pull from: the human's hand + the deck + every
     # OTHER player's hand (minus END GAME). Including bot hands matters — a needed
-    # card (e.g. the Narwhal/Big Eye Tuna dual) is sometimes dealt to a bot, and
+    # card (e.g. the Narwhal/Bigeye Tuna dual) is sometimes dealt to a bot, and
     # would otherwise be unreachable.
     def all_sources():
         srcs = list(p.hand) + list(gs.deck) + list(getattr(ms, "discard_pile", []))
@@ -7722,7 +7723,7 @@ def _rig_blob_tutorial_hand(
     add(find_single("california gull", False, used))  # California Gull
     add(find_single("emperor penguin", False, used))     # Emperor Penguin
     add(find_single("lobster", False, used))             # 2nd Lobster (duplicate)
-    add(find_pair("narwhal", "big eye tuna", used))      # dual-faced payment card
+    add(find_pair("narwhal", "bigeye tuna", used))      # dual-faced payment card
     add(find_single("mangrove", True, used))             # Mangrove
     add(find_single("coral reef", True, used))           # Coral Reef
 

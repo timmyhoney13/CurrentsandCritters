@@ -683,14 +683,14 @@
           {ou:207,on:"Pier",u:[{u:15,n:"Horned Puffin"}],d:[{u:22,n:"Orange Tube Sponge"}],l:[{u:175,n:"Yellowfin Tuna"}],r:[{u:174,n:"Cuttlefish"}]},
           {ou:224,on:"Coral Reef",u:[{u:41,n:"Osprey"}],d:[{u:26,n:"Red Beaded Anemone"}],l:[],r:[{u:188,n:"Clownfish"}]},
           {ou:245,on:"Arctic Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[],r:[]},
-          {ou:253,on:"Kelp Forest",u:[{u:19,n:"California Gull"}],d:[{u:92,n:"Sea Urchin"}],l:[],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:253,on:"Kelp Forest",u:[{u:19,n:"California Gull"}],d:[{u:92,n:"Sea Urchin"}],l:[],r:[{u:156,n:"Bigeye Tuna"}]},
           {ou:209,on:"Deep Ocean",u:[{u:95,n:"Razorbill Auk"}],d:[],l:[],r:[]},
           {ou:254,on:"Kelp Forest",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[],r:[]},
           {ou:234,on:"Mangrove",u:[],d:[],l:[],r:[]}
         ] },
       { n: "CoralCara", bd: [
           {ou:209,on:"Deep Ocean",u:[{u:31,n:"Peruvian Pelican"}],d:[],l:[{u:115,n:"Reef Trigger Fish"}],r:[{u:166,n:"Whale Shark"}]},
-          {ou:247,on:"Arctic Ocean",u:[{u:47,n:"Osprey"}],d:[{u:26,n:"Red Beaded Anemone"}],l:[{u:139,n:"Cuttlefish"}],r:[{u:110,n:"Common Octopus"}]},
+          {ou:247,on:"Arctic Ocean",u:[{u:47,n:"Osprey"}],d:[{u:26,n:"Red Beaded Anemone"}],l:[{u:139,n:"Barracuda"}],r:[{u:110,n:"Common Octopus"}]},
           {ou:246,on:"Arctic Ocean",u:[],d:[],l:[],r:[{u:124,n:"Narwhal"}]},
           {ou:212,on:"Deep Ocean",u:[],d:[{u:78,n:"Loggerhead Sea Turtle"}],l:[],r:[]},
           {ou:211,on:"Deep Ocean",u:[{u:9,n:"Horned Puffin"}],d:[],l:[],r:[]},
@@ -699,7 +699,7 @@
       { n: "ReefRiley", bd: [
           {ou:230,on:"Mangrove",u:[{u:33,n:"Great Albatross"}],d:[{u:30,n:"Cleaner Wrasse"}],l:[{u:151,n:"Tarpon"}],r:[{u:162,n:"King Salmon"}]},
           {ou:239,on:"Artificial Reef",u:[{u:37,n:"Great Albatross"}],d:[{u:22,n:"Orange Tube Sponge"}],l:[{u:133,n:"Goliath Grouper"}],r:[]},
-          {ou:212,on:"Deep Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[{u:139,n:"Cuttlefish"}],r:[{u:122,n:"Manta Ray"}]},
+          {ou:212,on:"Deep Ocean",u:[{u:11,n:"Horned Puffin"}],d:[],l:[{u:139,n:"Barracuda"}],r:[{u:122,n:"Manta Ray"}]},
           {ou:248,on:"Arctic Ocean",u:[{u:43,n:"Osprey"}],d:[{u:16,n:"Mantis Shrimp"}],l:[{u:103,n:"Spinner Dolphin"}],r:[]},
           {ou:245,on:"Arctic Ocean",u:[{u:13,n:"Horned Puffin"}],d:[],l:[{u:187,n:"Yellowfin Tuna"}],r:[{u:112,n:"Roosterfish"}]},
           {ou:211,on:"Deep Ocean",u:[],d:[],l:[],r:[]}
@@ -708,7 +708,7 @@
           {ou:250,on:"Arctic Ocean",u:[{u:59,n:"Mullet"}],d:[{u:56,n:"Lobster"}],l:[{u:177,n:"Cuttlefish"}],r:[{u:128,n:"Sailfish"}]},
           {ou:253,on:"Kelp Forest",u:[{u:57,n:"Mullet"}],d:[],l:[{u:111,n:"Manta Ray"}],r:[{u:162,n:"King Salmon"}]},
           {ou:258,on:"Kelp Forest",u:[{u:89,n:"Bonito"}],d:[],l:[{u:167,n:"Goliath Grouper"}],r:[]},
-          {ou:254,on:"Kelp Forest",u:[{u:77,n:"Flying Fish"}],d:[{u:32,n:"King Crab"}],l:[{u:135,n:"Mahi Mahi"}],r:[{u:156,n:"Big Eye Tuna"}]},
+          {ou:254,on:"Kelp Forest",u:[{u:77,n:"Flying Fish"}],d:[{u:32,n:"King Crab"}],l:[{u:135,n:"Mahi Mahi"}],r:[{u:156,n:"Bigeye Tuna"}]},
           {ou:249,on:"Arctic Ocean",u:[{u:65,n:"Bunker"}],d:[],l:[{u:145,n:"Mahi Mahi"}],r:[]},
           {ou:215,on:"Deep Ocean",u:[],d:[],l:[{u:101,n:"Tarpon"}],r:[]}
         ] },
@@ -1222,7 +1222,7 @@
     return null;
   }
   function blHandElByName(nameLc) { const e = blHandEntryByName(nameLc); return e ? gtHandCardEl(gtEntryUid(e)) : null; }
-  function blNarwhalEl() { return blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
+  function blNarwhalEl() { return blHandElByName("bigeye tuna") || blHandElByName("big eye tuna") || blHandElByName("narwhal"); }
   function blEndTurnEl() { const el = document.getElementById("pv-end-turn-inline"); return (el && el.offsetParent !== null) ? el : null; }
 
   // ════════════════════════════════════════════════════════════════
@@ -1298,7 +1298,7 @@
       text: "Drag Artificial Reef onto your board." },
     { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
       interactive: true, popAnchor: "top", advanceWhen: () => blReefOnBoard(),
-      text: "Use Narwhal or Big Eye Tuna as payment, then confirm." },
+      text: "Use Narwhal or Bigeye Tuna as payment, then confirm." },
     { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
