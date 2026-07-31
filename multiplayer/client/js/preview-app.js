@@ -70,6 +70,16 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🛡️ Clans are here", items: [
+      "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 20 of you play for the same score.",
+      "Clan seasons run three months, the same length as a competitive season. Each one has its own name and number, a countdown to the end date, and a leaderboard of every clan.",
+      "You earn Clan Points just by playing: a competitive win is +3, and in casual, 1st is +2, 2nd is +1 and 3rd is +1 in games of four or more. You can also earn one point a day by trading with a clanmate.",
+      "Finish top three and every member who earned at least 10 points that season gets Critter Coins — 400, 300 or 200 each — plus a gold, silver or bronze badge stamped with the season number. Top ten clans get a seasonal border.",
+      "Whoever contributed most becomes the Clan MVP: a permanent badge, a “Season 1 Clan MVP” title, 150 coins and an icon beside their name for the first two weeks of the next season.",
+      "Clans have private chat with pinned announcements, an activity log of everything that's happened, scheduled events like game nights, a shared daily goal that levels the clan up, and a season vote for a favourite critter.",
+      "Owners can run it how they like: Public, Request to Join or Invite Only, with Captains and Recruiters, or custom roles where you tick exactly which powers they get.",
+      "Clan names are checked automatically, including the sneaky spellings, and you can report any that slip through.",
+    ]},
     { ver: "V1.7.0", title: "Competitive: the hand whose turn it is, is the hand you see", items: [
       "The hand-off between your two hands is now done by the server, not guessed at by your screen. Whichever of your hands the turn is on is the one you're looking at — its cards, its board, its YOUR TURN — every time, with nothing left to go wrong in between.",
       "Refreshing, rejoining, or reopening the game window no longer costs you your second hand. Coming back into a Competitive match now brings both hands with you instead of leaving one of them unplayable for the rest of the game.",
