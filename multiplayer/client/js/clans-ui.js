@@ -279,14 +279,20 @@
       const rid = String(roomId || "").toUpperCase();
       if (!rid || C.claimedRooms[rid]) return;
       if (!bridge().authUser()) return;
-      C.claimedRooms[rid] = true;
+      C.claimedRooms[rid] = true;   // claim the slot first: never double-post
       const res = await post("claim-game", { room_id: rid });
-      if (!res || !res.ok) {
-        if (res && res.error === "cooldown") toast("Clan Points: 24h clan-switch cooldown is active.", "info");
+      if (!res) {
+        // No response at all (network blip) — the server never saw it, so let
+        // a later attempt through instead of losing the points for good.
+        delete C.claimedRooms[rid];
+        return;
+      }
+      if (!res.ok) {
+        if (res.error === "cooldown") toast("Clan Points: 24h clan-switch cooldown is active.", "info");
         return;   // silently skip no_clan / already_claimed / not_in_game etc.
       }
       const pts = Number(res.points || 0);
-      if (pts > 0) toast(`🛡️ +${pts} Clan Point${pts === 1 ? "" : "s"} for ${esc(res.clan_name || "your clan")}!`, "success");
+      if (pts > 0) toast(`🛡️ +${pts} Clan Point${pts === 1 ? "" : "s"} for ${res.clan_name || "your clan"}!`, "success");
       else if (res.opp_capped) toast("🛡️ Clan Points: daily limit vs the same opponent reached.", "info");
       if (res.goal_done) toast("🌞 Your clan finished today's Daily Goal! +25 Clan XP", "success");
       C.home = null;    // stale — refetch next time the tab opens
@@ -303,7 +309,7 @@
   // "Invite to Clan" from player profiles / messages
   window.__ccClanInvite = async function (toUid, toName) {
     const res = await post("invite", { to_uid: String(toUid || ""), to_name: String(toName || "") });
-    if (res && res.ok) toast(`🛡️ Clan invite sent to ${esc(toName || "player")}!`, "success");
+    if (res && res.ok) toast(`🛡️ Clan invite sent to ${toName || "player"}!`, "success");
     else toast(errMsg(res && res.error), "error");
     return !!(res && res.ok);
   };
@@ -341,6 +347,9 @@
     const cd = el("div", "ccC-count");
     wrap.appendChild(left); wrap.appendChild(cd);
     const tick = () => {
+      // Self-cancelling: leaving the Clans tab detaches this node without
+      // calling render(), so the timer has to stop itself or it ticks forever.
+      if (!document.body.contains(wrap)) { stopCountdown(); return; }
       const p = countdownParts(season.ends_ts);
       cd.innerHTML = `<b>${p.d}<span>days</span></b><b>${p.h}<span>hrs</span></b><b>${p.m}<span>min</span></b><b>${p.s}<span>sec</span></b>`;
     };
@@ -446,7 +455,7 @@
         const dec = el("button", "ccC-btn tiny", "Decline");
         acc.addEventListener("click", async () => {
           const res = await post("join", { clan_id: inv.clan_id });
-          if (res && res.ok) { toast("Welcome to " + esc(inv.name) + "! 🛡️", "success"); C.home = null; await refreshHome(true); openClan(inv.clan_id); }
+          if (res && res.ok) { toast("Welcome to " + inv.name + "! 🛡️", "success"); C.home = null; await refreshHome(true); openClan(inv.clan_id); }
           else toast(errMsg(res && res.error), "error");
         });
         dec.addEventListener("click", async () => {
@@ -569,11 +578,11 @@
           e.stopPropagation();
           if (cl.privacy === "public") {
             const res2 = await post("join", { clan_id: cl.id });
-            if (res2 && res2.ok) { toast("Welcome to " + esc(cl.name) + "! 🛡️", "success"); C.home = null; await refreshHome(true); openClan(cl.id); }
+            if (res2 && res2.ok) { toast("Welcome to " + cl.name + "! 🛡️", "success"); C.home = null; await refreshHome(true); openClan(cl.id); }
             else toast(errMsg(res2 && res2.error), "error");
           } else if (cl.privacy === "request") {
             const res2 = await post("request", { clan_id: cl.id });
-            if (res2 && res2.ok) { toast("Join request sent to " + esc(cl.name) + " ✉️", "success"); bt.textContent = "Requested"; bt.disabled = true; }
+            if (res2 && res2.ok) { toast("Join request sent to " + cl.name + " ✉️", "success"); bt.textContent = "Requested"; bt.disabled = true; }
             else toast(errMsg(res2 && res2.error), "error");
           }
         });
@@ -1006,7 +1015,7 @@
         ic.innerHTML = `<img loading="lazy" src="${esc(avSrc(a.img))}" alt="${esc(a.name)}"><div>${esc(a.name)}</div>`;
         ic.addEventListener("click", async () => {
           const res = await post("vote-critter", { icon: a.img });
-          if (res && res.ok) { toast(`Voted for ${esc(a.name)} 💙`, "success"); C.clan = null; render(); }
+          if (res && res.ok) { toast(`Voted for ${a.name} 💙`, "success"); C.clan = null; render(); }
           else toast(errMsg(res && res.error), "error");
         });
         pick.appendChild(ic);
@@ -1136,7 +1145,7 @@
         const rej = el("button", "ccC-btn tiny", "Reject");
         acc.addEventListener("click", async () => {
           const res = await post("request-act", { uid: rq.uid, accept: true });
-          if (res && res.ok) { toast(esc(rq.name) + " joined! 🌊", "success"); C.clan = null; render(); }
+          if (res && res.ok) { toast(rq.name + " joined! 🌊", "success"); C.clan = null; render(); }
           else toast(errMsg(res && res.error), "error");
         });
         rej.addEventListener("click", async () => {
@@ -1284,7 +1293,7 @@
       add("❌ Remove from clan", "danger", async () => {
         if (!confirm(`Remove ${m.name} from the clan? They keep no seat and must wait 24h before earning points elsewhere. Their earned points stay with the clan.`)) return;
         const res = await post("kick", { uid: m.uid });
-        if (res && res.ok) { toast(esc(m.name) + " was removed.", "info"); C.clan = null; render(); }
+        if (res && res.ok) { toast(m.name + " was removed.", "info"); C.clan = null; render(); }
         else toast(errMsg(res && res.error), "error");
       });
     }

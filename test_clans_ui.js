@@ -83,6 +83,23 @@ function makeEnv({ enabled = true, postResp } = {}) {
   await W.__ccClanClaimGame("ABCD");
   check("same room never claimed twice", env.calls.filter(c => c.p === "/api/clan/claim-game").length === 1);
 
+  console.log("claim retry on a dead network:");
+  let flaky = 0;
+  const env2 = makeEnv({
+    postResp: (p) => {
+      if (!p.endsWith("claim-game")) return { ok: true };
+      flaky++;
+      return flaky === 1 ? null : { ok: true, points: 3, clan_name: "Reef Riders" };
+    },
+  });
+  await env2.windowStub.__ccClanClaimGame("ROOM");
+  check("no toast when the request never landed", !env2.toasts.some(t => t.m.includes("Clan Point")));
+  await env2.windowStub.__ccClanClaimGame("ROOM");
+  check("a dropped request can be retried", flaky === 2);
+  check("retry awards the points", env2.toasts.some(t => t.m.includes("+3 Clan Point")));
+  await env2.windowStub.__ccClanClaimGame("ROOM");
+  check("but a landed claim is still one-and-done", flaky === 2);
+
   console.log("trade point hook:");
   W.__ccClanTradePoint(1);
   check("trade toast shown", env.toasts.some(t => t.m.includes("daily clan trade")));
