@@ -154,6 +154,7 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 <pre id="RESULT"></pre>
 <script>
 const RESPONSES = ${JSON.stringify(RESPONSES)};
+const HOME_JSON = JSON.parse(JSON.stringify(RESPONSES["/api/clan/home"]));
 window.__ccToasts = [];
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
@@ -206,7 +207,13 @@ function snapshot(name) {
     await window.__ccClansRender();
     await wait(120);
     snapshot("home");
+    // Countdown liveness, measured while we're still ON the home screen (the
+    // only screens with a season block are home and the leaderboard).
     const cd1 = (document.querySelector(".ccC-count") || {}).innerText || "";
+    await wait(1200);
+    const cd1b = (document.querySelector(".ccC-count") || {}).innerText || "";
+    out.countdown = { first: cd1, later: cd1b,
+                      ticked: !!cd1 && !!cd1b && cd1 !== cd1b };
 
     // Home → my clan profile (Overview)
     const myRow = document.querySelector(".ccC-myclan");
@@ -236,10 +243,44 @@ function snapshot(name) {
     await wait(250);
     snapshot("leaderboard");
 
-    // countdown must actually be ticking
-    await wait(1200);
-    const cd2 = (document.querySelector(".ccC-count") || {}).innerText || "";
-    out.countdown = { first: cd1, later: cd2, ticked: !!cd1 && !!cd2 };
+    // Clan chat (server room chat + clan messages share this pane)
+    await window.__ccClansRender();
+    await wait(150);
+    const myRow2 = document.querySelector(".ccC-myclan");
+    if (myRow2) myRow2.click();
+    await wait(200);
+    const chatTab = [...document.querySelectorAll(".ph-lb-mode-btn")].find(b => /Chat/i.test(b.textContent));
+    if (chatTab) chatTab.click();
+    await wait(350);
+    snapshot("chat");
+    out.chat = {
+      msgs: q(".ccC-msg"), mine: q(".ccC-msg.me"),
+      system: q(".ccC-msg.sys"), announce: q(".ccC-msg.ann"),
+      input: !!document.querySelector(".ccC-chat-in input"),
+      // the log must scroll inside its own box, never grow the page
+      logScrolls: (() => { const l = document.querySelector(".ccC-chat-log");
+        return !!l && l.scrollHeight >= l.clientHeight; })(),
+    };
+
+    // A player with NO clan sees the join/create call to action instead, and
+    // that is the only path to the create form (you can't create while in a
+    // clan) — re-render with a clanless payload and walk it.
+    RESPONSES["/api/clan/home"] = Object.assign({}, HOME_JSON,
+      { my_clan: null, my_clan_full: null, invites: [] });
+    await window.__ccClansRender();
+    await wait(200);
+    snapshot("noclan");
+    const mk = [...document.querySelectorAll(".ccC-btn")].find(b => /Create a Clan/i.test(b.textContent));
+    out.foundCreateBtn = !!mk;
+    if (mk) mk.click();
+    await wait(300);
+    snapshot("create");
+    out.create = {
+      icons: q(".ccC-iconpick .ic"),
+      privacy: [...document.querySelectorAll(".ccC-btn")].filter(b => /Public|Request|Invite Only/.test(b.textContent)).length,
+      hasName: !!document.querySelector("input.ccC-inp"),
+      hasDesc: !!document.querySelector("textarea"),
+    };
   } catch (e) {
     out.errors.push("THREW: " + (e && e.message ? e.message : String(e)));
   }
@@ -309,6 +350,23 @@ const lb = D.screens.leaderboard || { counts: {}, bad: [] };
 check("leaderboard: a row per clan", lb.counts.rows === 3, "rows=" + lb.counts.rows);
 check("leaderboard: featured top three", lb.counts.podium === 3);
 check("leaderboard: no placeholder junk in text", lb.bad.length === 0, lb.bad.join(","));
+
+const nc = D.screens.noclan || { text: "" };
+check("no clan: shows the join/create call to action",
+      (nc.text || "").includes("not in a clan"));
+check("no clan: offers the create button", D.foundCreateBtn === true);
+
+const cr = D.create || {};
+check("create: every critter offered as an icon", cr.icons >= 3, "icons=" + cr.icons);
+check("create: all three membership settings offered", cr.privacy >= 3, "privacy=" + cr.privacy);
+check("create: name + description fields present", cr.hasName && cr.hasDesc);
+
+const ch = D.chat || {};
+check("chat: messages rendered", ch.msgs >= 3, "msgs=" + ch.msgs);
+check("chat: own messages styled apart", ch.mine >= 1);
+check("chat: system + announcement lines styled apart", ch.system >= 1 && ch.announce >= 1);
+check("chat: composer present", !!ch.input);
+check("chat: log scrolls inside its own box", !!ch.logScrolls);
 
 check("season countdown is live", D.countdown && D.countdown.ticked, JSON.stringify(D.countdown));
 
