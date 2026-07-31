@@ -240,6 +240,20 @@
   // ── Root / navigation ──────────────────────────────────────────────────────
   function root() { return $("#cc-clans-root"); }
 
+  // Every render clears the root FIRST and only attaches the finished card at
+  // the very end, so anything that throws in between leaves the tab looking
+  // empty — and because the render functions are async, the throw surfaces as
+  // an unhandled rejection that the caller's try/catch never sees. So: say what
+  // broke, in the panel, and name the reason so a screenshot is a bug report.
+  function showRenderError(r, why, err) {
+    try {
+      const detail = err && (err.message || String(err)) ? " (" + esc(err.message || String(err)).slice(0, 120) + ")" : "";
+      r.innerHTML = '<div class="ccC-empty">Clans couldn\'t be drawn — ' + esc(why) + "."
+        + detail + '<br>Please refresh the page.</div>';
+    } catch (_) {}
+    try { console.error("[clans] " + why, err); } catch (_) {}
+  }
+
   function nav(view) {
     C.view = view;
     stopChatPoll();
@@ -256,22 +270,34 @@
   window.__ccClansRender = async function () {
     const r = root();
     if (!r) return;
-    injectCss();
+    try {
+      injectCss();
+    } catch (err) { showRenderError(r, "the clan styles could not be applied", err); return; }
     // Whatever is wrong, SAY so — this tab is rendered entirely from here, so
     // any silent bail-out reads to the player as "the Clans page is empty".
+    // Each message names its own cause, so a screenshot identifies the branch.
     const b = bridge();
-    if (!b || !b.ENABLED) {
-      r.innerHTML = '<div class="ccC-empty">Clans didn\'t finish loading — please refresh the page.</div>';
+    if (!b) {
+      showRenderError(r, "this page's clan bridge never loaded");
       return;
     }
-    if (!b.authUser()) {
+    if (!b.ENABLED) {
+      showRenderError(r, "clans are switched off for this page");
+      return;
+    }
+    let signedIn = false;
+    try { signedIn = !!b.authUser(); }
+    catch (err) { showRenderError(r, "your sign-in could not be read", err); return; }
+    if (!signedIn) {
       // The tab's own guest gate normally covers this; say it here too so the
       // page is never simply blank when the gate hasn't been applied.
       r.innerHTML = '<div class="ccC-empty">Sign in to join a clan.</div>';
       return;
     }
     if (!C.home) r.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
-    await refreshHome(false);
+    try {
+      await refreshHome(false);
+    } catch (err) { showRenderError(r, "the clan server could not be reached", err); return; }
     // A season that ended since the player was last here opens straight onto
     // the Season Results screen — once. After that it's the 📜 button.
     C.view = (justEndedSid() ? "results" : "home");
@@ -351,12 +377,24 @@
     const r = root();
     if (!r) return;
     stopCountdown();
-    if (C.view === "home") return renderHome(r);
-    if (C.view === "browse") return renderBrowse(r);
-    if (C.view === "create") return renderCreate(r);
-    if (C.view === "leaderboard") return renderLeaderboard(r);
-    if (C.view === "results") return renderResults(r);
-    if (C.view === "clan") return renderClan(r);
+    let p;
+    try {
+      if (C.view === "home") p = renderHome(r);
+      else if (C.view === "browse") p = renderBrowse(r);
+      else if (C.view === "create") p = renderCreate(r);
+      else if (C.view === "leaderboard") p = renderLeaderboard(r);
+      else if (C.view === "results") p = renderResults(r);
+      else if (C.view === "clan") p = renderClan(r);
+    } catch (err) {
+      showRenderError(r, "the " + C.view + " screen hit an error", err);
+      return;
+    }
+    // The render functions are async, so a throw inside one lands here as a
+    // rejected promise, not in the catch above.
+    if (p && typeof p.catch === "function") {
+      p.catch(err => showRenderError(r, "the " + C.view + " screen hit an error", err));
+    }
+    return p;
   }
 
   function seasonBlock(season) {

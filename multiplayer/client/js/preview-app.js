@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.39";
-  const APP_BUILD   = "2026-07-30.8";
+  const APP_BUILD   = "2026-07-30.9";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -21583,6 +21583,36 @@
         clans:        "Sign in to join a clan",
         achievements: "Sign in to see Achievements",
       };
+      // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
+      // module hasn't registered, doing nothing here is indistinguishable from
+      // "the Clans page is blank". js/clans-ui.js is a separate deferred script,
+      // so give it a few moments to turn up before giving up — and if it never
+      // does, put the reason on screen rather than leaving an empty ocean.
+      function _renderClansTab(attempt) {
+        const n = attempt || 0;
+        const cr = document.getElementById("cc-clans-root");
+        try {
+          if (window.__ccClansRender) { window.__ccClansRender(); return; }
+          if (n < 20) { setTimeout(() => _renderClansTab(n + 1), 150); return; }
+          if (cr && !cr.children.length) {
+            cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+              + 'color:#7a9db8;font-weight:700;font-size:13px;">'
+              + 'Clans couldn\'t be drawn — the clan module (js/clans-ui.js) never loaded.'
+              + '<br>Please refresh the page.</div>';
+          }
+          try { console.error("[clans] clans-ui.js never registered __ccClansRender"); } catch (_) {}
+        } catch (err) {
+          try {
+            if (cr) {
+              cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+                + 'color:#7a9db8;font-weight:700;font-size:13px;">'
+                + 'Clans couldn\'t be drawn — the tab hit an error.<br>Please refresh the page.</div>';
+            }
+            console.error("[clans] tab render threw", err);
+          } catch (_) {}
+        }
+      }
+
       function _ensureGuestGate(panelEl, msg) {
         let gate = panelEl.querySelector(":scope > .ph-guest-gate");
         if (!gate) {
@@ -21628,22 +21658,7 @@
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
-        if (name === "clans")        {
-          // The Clans panel is empty markup that js/clans-ui.js fills in. If that
-          // module never registered, a silent no-op here is indistinguishable
-          // from "the Clans page is blank" — so put the reason on screen.
-          try {
-            if (window.__ccClansRender) window.__ccClansRender();
-            else {
-              const cr = document.getElementById("cc-clans-root");
-              if (cr && !cr.children.length) {
-                cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
-                  + 'color:#7a9db8;font-weight:700;font-size:13px;">'
-                  + 'Clans didn\'t finish loading — please refresh the page.</div>';
-              }
-            }
-          } catch (_) {}
-        }
+        if (name === "clans")        _renderClansTab();
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;

@@ -59,7 +59,7 @@ function makeEnv({ enabled = true, postResp } = {}) {
 
 // A variant with a real-enough #cc-clans-root so we can read back what the
 // module actually paints into the tab (makeEnv's document has no elements).
-function makeEnvDom({ enabled = true, hasBridge = true, authed = true } = {}) {
+function makeEnvDom({ enabled = true, hasBridge = true, authed = true, homeResp } = {}) {
   const rootEl = { innerHTML: "", children: [], className: "", style: {},
                    appendChild() {}, addEventListener() {},
                    classList: { add() {}, remove() {}, toggle() {} } };
@@ -77,6 +77,7 @@ function makeEnvDom({ enabled = true, hasBridge = true, authed = true } = {}) {
     ENABLED: enabled, APP_BUILD: "test",
     get: async () => ({ ok: true }),
     post: async (p) => { posts.push(p);
+      if (homeResp && p === "/api/clan/home") return homeResp;
       return { ok: true, season: { number: 1, name: "Riptide", ends_ts: 0 }, top3: [] }; },
     toast: () => {},
     nickname: () => "Tester",
@@ -181,6 +182,19 @@ function makeEnvDom({ enabled = true, hasBridge = true, authed = true } = {}) {
         signedIn.posts.some(p => p === "/api/clan/home"));
   check("signed in shows no bail-out message",
         !/refresh the page|Sign in to join/i.test(signedIn.rootEl.innerHTML));
+
+  // The one failure that actually produces a BLANK tab: every render clears the
+  // root first and attaches the finished card last, and the render functions are
+  // async — so a throw halfway through lands as an unhandled rejection and the
+  // panel just stays empty. A home payload with no season makes renderHome throw.
+  const crash = makeEnvDom({ authed: true, homeResp: { ok: true } });
+  await crash.windowStub.__ccClansRender();
+  await new Promise(r => setImmediate(r));
+  await new Promise(r => setImmediate(r));
+  check("a crash mid-render is reported, not left blank",
+        /couldn.{0,3}t be drawn/i.test(crash.rootEl.innerHTML));
+  check("the crash message names the screen",
+        /home screen/i.test(crash.rootEl.innerHTML));
 
   console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
