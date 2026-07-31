@@ -30,7 +30,15 @@ function makeEnv({ enabled = true, postResp } = {}) {
     ENABLED: enabled,
     APP_BUILD: "test",
     get: async () => ({ ok: true }),
-    post: async (p, b) => { calls.push({ p, b }); return typeof postResp === "function" ? postResp(p, b) : (postResp || { ok: true }); },
+    // The REAL bridge (preview-app's apiPost) resolves to an envelope —
+    // { ok, status, data } — and THROWS when the request never lands. The
+    // stubs must do the same or they test a contract that doesn't exist.
+    post: async (p, b) => {
+      calls.push({ p, b });
+      const r = typeof postResp === "function" ? postResp(p, b) : (postResp || { ok: true });
+      if (r === null) throw new Error("network down");
+      return { ok: true, status: 200, data: r };
+    },
     toast: (m, t) => toasts.push({ m: String(m), t }),
     nickname: () => "Tester",
     authUser: () => ({ uid: "u1", getIdToken: async () => "tok" }),
@@ -77,8 +85,11 @@ function makeEnvDom({ enabled = true, hasBridge = true, authed = true, homeResp 
     ENABLED: enabled, APP_BUILD: "test",
     get: async () => ({ ok: true }),
     post: async (p) => { posts.push(p);
-      if (homeResp && p === "/api/clan/home") return homeResp;
-      return { ok: true, season: { number: 1, name: "Riptide", ends_ts: 0 }, top3: [] }; },
+      const payload = (homeResp && p === "/api/clan/home")
+        ? homeResp
+        : { ok: true, season: { number: 1, name: "Riptide", ends_ts: 0 }, top3: [] };
+      return { ok: true, status: 200, data: payload };   // the real bridge envelope
+    },
     toast: () => {},
     nickname: () => "Tester",
     authUser: () => (authed ? { uid: "u1", getIdToken: async () => "tok" } : null),

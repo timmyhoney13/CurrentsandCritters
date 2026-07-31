@@ -158,8 +158,11 @@ const HOME_JSON = JSON.parse(JSON.stringify(RESPONSES["/api/clan/home"]));
 window.__ccToasts = [];
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
-  get:  async (p) => RESPONSES[p] || { ok: true },
-  post: async (p, b) => RESPONSES[p] || { ok: true },
+  // The REAL bridge (preview-app's apiPost) resolves to an ENVELOPE —
+  // { ok, status, data } — not the server payload. Stubbing the payload
+  // directly is what let the blank-tab bug through every suite.
+  get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
+  post: async (p, b) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   toast: (m, t) => window.__ccToasts.push(String(m)),
   nickname: () => "Alice",
   authUser: () => ({ uid: "u1", getIdToken: async () => "tok" }),

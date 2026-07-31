@@ -39,13 +39,35 @@
   };
 
   // ── API ────────────────────────────────────────────────────────────────────
+  // The host bridge's post() resolves to an ENVELOPE — { ok, status, data } —
+  // where `data` is the server's JSON body and `ok` is only the HTTP status.
+  // Everything below reads the SERVER payload directly (res.ok, res.season,
+  // res.rows, res.clan …), so the envelope is unwrapped here, in one place.
+  //
+  // Getting this wrong is what made the whole tab render blank: `res.ok` was
+  // the HTTP ok, so a 200 looked like success, but `res.season` was undefined
+  // and renderHome threw on it — clearing the root and never refilling it.
+  // (A bare payload is passed straight through, so a bridge that already
+  // unwraps — like the test harnesses — keeps working.)
+  function unwrap(res) {
+    if (res && typeof res === "object" && "data" in res && "status" in res) {
+      return res.data || { ok: false, error: "server_error" };
+    }
+    return res;
+  }
+
   async function post(action, extra) {
     const b = bridge();
     if (!b) return { ok: false, error: "unavailable" };
     const body = Object.assign({}, extra || {});
     body.idToken = await b.idToken();
     if (!body.idToken) return { ok: false, error: "unauthorized" };
-    return b.post("/api/clan/" + action, body);
+    // apiFetch THROWS when the request never lands. Return null for that, the
+    // way the claim hook already reads "no response at all" — it must stay
+    // retryable rather than look like a request the server refused.
+    try {
+      return unwrap(await b.post("/api/clan/" + action, body));
+    } catch (_) { return null; }
   }
 
   const ERR = {

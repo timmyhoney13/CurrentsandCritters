@@ -285,8 +285,11 @@ const RESPONSES = __PAYLOADS__;
 const HOME_CLANLESS = __CLANLESS__;
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
-  get:  async (p) => RESPONSES[p] || { ok: true },
-  post: async (p, b) => RESPONSES[p] || { ok: true },
+  // The REAL bridge (preview-app's apiPost) hands back an ENVELOPE —
+  // { ok, status, data } — where data is the server JSON below. Feeding the
+  // payload in bare is what let the blank-tab bug through every suite.
+  get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
+  post: async (p, b) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   toast: () => {},
   nickname: () => "Mia",
   authUser: () => ({ uid: "mia", getIdToken: async () => "mia" }),
