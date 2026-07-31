@@ -195,11 +195,11 @@ def check(name, cond):
         print(f"  ✗ FAIL: {name}")
 
 
-def set_user(uid, nick=None, coins=0, clan_id="", cooldown=0):
+def set_user(uid, nick=None, coins=0, clan_id="", cooldown=0, username=None):
     DB.store["users/" + uid] = {
         "nickname": nick or uid.title(),
-        "username": nick or uid.title(),
-        "usernameLower": (nick or uid.title()).lower(),
+        "username": username or nick or uid.title(),
+        "usernameLower": (username or nick or uid.title()).lower(),
         "stats": {"critter_coins": coins, "total_xp": 100},
         "avatar_url": "/avatars/clownfish.png",
         "online": True, "last_active": 4102444800,   # far future = online
@@ -362,6 +362,10 @@ r = route("dan", "chat-send", {"text": "can I talk?"})
 check("muted member cannot chat", not r.get("ok") and r.get("error") == "muted")
 r = route("eve", "chat-mod", {"op": "unmute", "uid": "dan"})
 check("unmute works", r.get("ok"))
+r = route("dan", "chat-send", {"text": "back again"})
+check("unmuted member can chat again", r.get("ok"))
+r = route("eve", "chat-mod", {"op": "mute", "uid": "eve"})
+check("owner cannot be muted", not r.get("ok") and r.get("error") == "cannot_mute_owner")
 
 # reporting a clan name works for OUTSIDERS (filter miss must be reportable)
 set_user("solo")
@@ -435,6 +439,19 @@ r = CS.claim_game_points("alice", "GSTS")
 check("only guests as opponents → no points", not r.get("ok") and r.get("error") == "need_real_players")
 r = CS.claim_game_points("guest1", "AAAA")
 check("player with no clan gets nothing", not r.get("ok") and r.get("error") == "no_clan")
+
+# an account whose in-game NICKNAME differs from its username still counts as
+# a real player (matching on username alone silently killed normal games)
+set_user("nickdiff", nick="ReefBoss", username="somethingelse")
+DB.store["users/nickdiff"]["clan_id"] = CID
+_c = clan_doc(CID); _c["members"]["nickdiff"] = {"name": "ReefBoss", "role": "member", "joined_ts": 1}
+DB.store["clans/" + CID] = _c
+CS._REG_CACHE.clear()
+write_hist("NICK", players=[hp("Alice"), hp("ReefBoss")],
+           standings=[{"name": "Alice", "score": 50}, {"name": "ReefBoss", "score": 10}])
+r = CS.claim_game_points("alice", "NICK")
+check("opponent known by nickname counts as a real player",
+      r.get("ok") and r.get("points") == 2)
 
 # casual same-opponent-set daily cap (5)
 for i in range(7):
@@ -553,8 +570,30 @@ check("contributor XP granted", user("gina")["stats"]["total_xp"] == xp_before +
 check("inactive member got no XP", user("hank")["stats"]["total_xp"] == 100)
 lvl = CS._clan_level(150)
 check("clan level curve", lvl["level"] == 2 and lvl["into"] == 50)
+prof = CS._route_post(DB, "gina", "get", {"clan_id": GID}, FAKE_SID["cur"])["clan"]
+ch0 = prof["challenges"][0]
+check("challenge shows a deadline", ch0.get("ends_ts", 0) > CS._now())
+check("challenge lists who contributed",
+      any(c["uid"] == "gina" and c["qualifies"] for c in ch0.get("contributors") or []))
 CS.DAILY_GOALS = saved_goals
 CS.CLAN_WEEKLY_CHALLENGES = saved_ch
+
+# ══ 8b. Friendly rivalry (bragging rights only) ═══════════════════════════════
+print("rivalry:")
+r = CS._route_post(DB, "hank", "rival", {"op": "set", "clan_id": CID}, FAKE_SID["cur"])
+check("outsider can't set a rival", not r.get("ok"))
+set_user("hank2")
+r = CS._route_post(DB, "gina", "rival", {"op": "set", "clan_id": GID}, FAKE_SID["cur"])
+check("cannot rival yourself", not r.get("ok") and r.get("error") == "bad_clan")
+r = CS._route_post(DB, "gina", "rival", {"op": "set", "clan_id": CID}, FAKE_SID["cur"])
+check("owner declares a rival", r.get("ok"))
+prof = CS._route_post(DB, "gina", "get", {"clan_id": GID}, FAKE_SID["cur"])["clan"]
+check("rival card served with the profile", (prof.get("rival") or {}).get("id") == CID)
+pts_before = clan_doc(GID)["seasons"][FAKE_SID["cur"]]["points"]
+r = CS._route_post(DB, "gina", "rival", {"op": "clear"}, FAKE_SID["cur"])
+check("rival cleared", r.get("ok") and not (CS._route_post(DB, "gina", "get",
+      {"clan_id": GID}, FAKE_SID["cur"])["clan"].get("rival")))
+check("rivalry awards nothing", clan_doc(GID)["seasons"][FAKE_SID["cur"]]["points"] == pts_before)
 
 # ══ 9. Leaderboard tiebreakers ════════════════════════════════════════════════
 print("leaderboard:")
@@ -572,6 +611,7 @@ def mk_clan(cid, name, pts, comp=0, chal=0, casual=0, contributors=1, last_gain=
 
 for k in [k for k in DB.store if k.startswith("clans/")]:
     del DB.store[k]
+CS._lb_invalidate()      # these clans are written straight to the store, not via the API
 mk_clan("t1", "Tie One", 100, comp=5, last_gain=2000)
 mk_clan("t2", "Tie Two", 100, comp=9, last_gain=3000)
 mk_clan("t3", "Tie Three", 100, comp=5, chal=2, last_gain=4000)
@@ -585,6 +625,15 @@ check("tiebreak 2: challenges beat casual", order.index("t3") > order.index("t4"
 check("full column set present", all(k in rows[0] for k in
       ("rank", "icon", "name", "member_count", "points", "comp_wins", "casual_wins",
        "challenge_points", "trade_points", "games", "record")))
+# a clan created through the API must appear on the very next read (cache must
+# not hide it) — this is the bug the 20s standings cache would otherwise cause
+set_user("zed")
+CS._route_post(DB, "zed", "leaderboard", {}, FAKE_SID["cur"])          # warms the cache
+zr = CS._route_post(DB, "zed", "create",
+                    {"name": "Fresh Fins", "icon": "/avatars/bonito.png"}, FAKE_SID["cur"])
+rows2 = CS._route_post(DB, "zed", "leaderboard", {}, FAKE_SID["cur"])["rows"]
+check("new clan is visible immediately after creation",
+      any(r["id"] == zr.get("clan_id") for r in rows2))
 
 # ══ 10. Season finalize: coins, badges, MVP ═══════════════════════════════════
 print("season finalize:")
@@ -665,6 +714,15 @@ coins_now = user("mia")["stats"]["critter_coins"]
 CS._FINALIZED_SIDS.clear()
 CS.ensure_season_finalized(DB)
 check("finalize is idempotent (no double pay)", user("mia")["stats"]["critter_coins"] == coins_now)
+
+# season-results endpoint: my own payout + cosmetics for that season
+res = CS._route_post(DB, "mia", "season-results", {"sid": PREV}, FAKE_SID["cur"])
+check("results: my coins reported", res.get("my_coins") == 400 + 150)
+check("results: my badges reported", len(res.get("my_badges") or []) == 2)
+check("results: resolves the clan I was in that season", res.get("my_clan_id") == "w1")
+res_o = CS._route_post(DB, "olly", "season-results", {"sid": PREV}, FAKE_SID["cur"])
+check("results: ineligible member shows no payout",
+      res_o.get("my_coins") == 0 and not res_o.get("my_badges"))
 
 # ══ 11. Leave / kick / points stay ════════════════════════════════════════════
 print("leave/kick:")

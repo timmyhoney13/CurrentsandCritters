@@ -731,6 +731,8 @@
       try { return ANIMAL_AVATARS.map(a => ({ id: a.id, name: a.name, img: a.img })); }
       catch (_) { return []; }
     },
+    // The room I'm in right now, so clan chat can offer "invite to my game".
+    currentRoom: () => { try { return roomId ? String(roomId).toUpperCase() : ""; } catch (_) { return ""; } },
   };
 
   // ── End-game cinematic ─────────────────────────────────────────
@@ -20150,6 +20152,19 @@
         tradeBtn.style.display = showTrade ? "" : "none";
         tradeBtn.setAttribute("data-conv", showTrade ? _convIdFor(_authUser.uid, _msgOpenPeer.uid) : "");
         if (window.__fishTrade && window.__fishTrade.refreshButtons) window.__fishTrade.refreshButtons();
+      }
+
+      // Clan System: "Invite to Clan" sits beside Trade in a DM — same rule as
+      // the profile button (only for members who actually hold invite rights).
+      const clanBtn = $a("ccm-clan-btn");
+      if (clanBtn) {
+        const peer = (_msgOpenPeer && _msgOpenPeer.uid) ? _msgOpenPeer : null;
+        const canInvite = !!peer && !_msgOpenGroup && !(_guestSessionActive === true)
+          && !!(window.__ccClanCanInvite && window.__ccClanCanInvite());
+        clanBtn.style.display = canInvite ? "" : "none";
+        clanBtn.onclick = () => {
+          if (peer && window.__ccClanInvite) window.__ccClanInvite(peer.uid, peer.name);
+        };
       }
 
       // Background picker: any open conversation (DM or group) can wear a

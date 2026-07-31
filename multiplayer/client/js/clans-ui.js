@@ -252,9 +252,26 @@
     if (!bridge().authUser()) { r.innerHTML = ""; return; }   // guest gate handles the message
     if (!C.home) r.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
     await refreshHome(false);
-    C.view = "home";
+    // A season that ended since the player was last here opens straight onto
+    // the Season Results screen — once. After that it's the 📜 button.
+    C.view = (justEndedSid() ? "results" : "home");
     render();
   };
+
+  // Returns the previous season's id when it has finalized standings the
+  // player hasn't been shown yet (per-account localStorage marker).
+  function justEndedSid() {
+    try {
+      const prev = C.home && C.home.prev_season;
+      if (!prev || !prev.sid) return null;
+      if (!((prev.standings || []).length)) return null;   // nothing was played
+      const u = bridge().authUser();
+      const key = "cc_clan_season_seen_" + ((u && u.uid) || "anon");
+      if (localStorage.getItem(key) === String(prev.sid)) return null;
+      localStorage.setItem(key, String(prev.sid));
+      return prev.sid;
+    } catch (_) { return null; }
+  }
 
   // ── End-game claim hook (called from preview-app after stats save) ────────
   window.__ccClanClaimGame = async function (roomId) {
@@ -776,8 +793,9 @@
       });
       holder.appendChild(pod);
 
-      // My clan's final placement + my breakdown
-      const myId = C.home && C.home.my_clan ? C.home.my_clan.id : null;
+      // My clan's final placement + my breakdown. Uses the clan I was in for
+      // THAT season (server-resolved), not whatever clan I'm in today.
+      const myId = res.my_clan_id || (C.home && C.home.my_clan ? C.home.my_clan.id : null);
       const mine = standings.find(s => s.clan_id === myId);
       if (mine) {
         const sec = el("div", "ccC-sec");
@@ -798,7 +816,13 @@
             <div>🌊 <b>Most active member:</b> ${mine.most_active ? esc(mine.most_active.name) + " (" + mine.most_active.days + " days)" : "—"}</div>
             ${my ? `<div style="margin-top:7px;">📊 <b>Your contribution:</b> ${my.points || 0} pts
               (games ${my.game_points || 0} · trades ${my.trade_points || 0} · challenges ${my.challenge_points || 0})</div>` : ""}
-            ${mine.coins_per_member ? `<div>🪙 <b>Reward:</b> ${mine.coins_per_member} Critter Coins per eligible member (10+ pts)</div>` : ""}
+            ${mine.coins_per_member ? `<div>🪙 <b>Clan reward:</b> ${mine.coins_per_member} Critter Coins per eligible member (10+ pts)</div>` : ""}
+            <div>🪙 <b>You earned:</b> ${Number(res.my_coins || 0).toLocaleString()} Critter Coins</div>
+            <div>🎖 <b>You unlocked:</b> ${(res.my_badges || []).length
+              ? (res.my_badges || []).map(b => `<span class="ccC-chip gold">${b.type === "mvp"
+                  ? "Season " + b.season + " Clan MVP"
+                  : (b.place === 1 ? "🥇" : b.place === 2 ? "🥈" : "🥉") + " Season " + b.season + " badge"}</span>`).join(" ")
+              : "—"}</div>
           </div>`;
         sec.appendChild(b);
         holder.appendChild(sec);
@@ -946,14 +970,22 @@
     } else {
       chs.forEach(ch => {
         const row = el("div", "");
-        row.style.marginBottom = "10px";
+        row.style.marginBottom = "12px";
         const pct = Math.min(100, Math.round(100 * Number(ch.progress || 0) / Math.max(1, ch.target)));
+        const left = countdownParts(ch.ends_ts || cl.week_ends_ts || 0);
+        const contribs = (ch.contributors || []).filter(x => x.points > 0);
         row.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px;">
             <b>${ch.done ? "✅ " : ""}${esc(ch.name)}</b>
             <span class="ccC-chip">+${ch.clan_points} pts · +${ch.member_xp} XP</span></div>
-          <div class="ccC-hint">${esc(ch.desc || "")} · need ${ch.min_contribution}+ pts this week to earn the XP</div>
+          <div class="ccC-hint">${esc(ch.desc || "")}</div>
           <div class="ccC-goalbar"><i style="width:${pct}%"></i></div>
-          <div class="ccC-hint">${Math.min(ch.progress, ch.target)}/${ch.target}</div>`;
+          <div class="ccC-hint">${Math.min(ch.progress, ch.target)}/${ch.target}
+            · ⏳ ${left.d}d ${left.h}h left
+            · needs ${ch.min_contribution}+ of your own points for the XP</div>
+          <div class="ccC-hint" style="margin-top:3px;">${contribs.length
+            ? "👥 Contributed: " + contribs.map(x =>
+                `<span class="ccC-chip${x.qualifies ? " gold" : ""}">${esc(x.name)} ${x.points}</span>`).join(" ")
+            : "👥 No one has contributed yet this week."}</div>`;
         bc.appendChild(row);
       });
     }
@@ -984,6 +1016,50 @@
       pane.appendChild(secV);
     }
 
+    // Friendly rival (no rewards ride on it — bragging rights only)
+    const canRival = !!(my && (my.is_owner || my.perms.post_announcements));
+    if (cl.rival || canRival) {
+      const secR = el("div", "ccC-sec");
+      const hR = el("div", "ccC-sec-h");
+      hR.innerHTML = "⚔️ Friendly rivalry";
+      if (canRival) {
+        const bR = el("button", "ccC-btn tiny", cl.rival ? "Change" : "Pick a rival");
+        bR.addEventListener("click", () => rivalModal(cl));
+        hR.appendChild(bR);
+        if (cl.rival) {
+          const bC = el("button", "ccC-btn tiny", "Clear");
+          bC.addEventListener("click", async () => {
+            const res = await post("rival", { op: "clear" });
+            if (res && res.ok) { C.clan = null; render(); }
+          });
+          hR.appendChild(bC);
+        }
+      }
+      secR.appendChild(hR);
+      const bb = el("div", "ccC-sec-b");
+      if (cl.rival) {
+        const rows = [["Clan Points", cl.points, cl.rival.points],
+                      ["Competitive wins", cl.comp_wins, cl.rival.comp_wins],
+                      ["Casual wins", cl.casual_wins, cl.rival.casual_wins],
+                      ["Challenges", cl.challenges_completed, cl.rival.challenges_completed]];
+        bb.innerHTML = `<div style="display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:8px;">
+            <b>${esc(cl.name)}</b>
+            <img src="${esc(avSrc(cl.icon))}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
+            <span class="ccC-hint" style="margin:0;">vs</span>
+            <img src="${esc(avSrc(cl.rival.icon))}" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
+            <b>${esc(cl.rival.name)}</b></div>`
+          + rows.map(([lab, a, b2]) => `<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0;border-bottom:1px solid #eef4fa;">
+              <b style="color:${a >= b2 ? "#1c5f9e" : "#8aa4bb"};min-width:40px;">${a}</b>
+              <span class="ccC-hint" style="margin:0;">${lab}</span>
+              <b style="color:${b2 >= a ? "#1c5f9e" : "#8aa4bb"};min-width:40px;text-align:right;">${b2}</b></div>`).join("")
+          + '<div class="ccC-hint" style="margin-top:7px;">Rivalries are for bragging rights only — no extra points or rewards.</div>';
+      } else {
+        bb.innerHTML = '<div class="ccC-hint">Pick one friendly rival clan for the season and compare stats head-to-head. No rewards attached.</div>';
+      }
+      secR.appendChild(bb);
+      pane.appendChild(secR);
+    }
+
     // Previous season placements
     const prevs = Object.entries(cl.prev_results || {}).sort((a, b) => (a[0] < b[0] ? 1 : -1));
     if (prevs.length) {
@@ -1008,6 +1084,36 @@
       pane.appendChild(row);
     }
   }
+  async function rivalModal(cl) {
+    const bg = el("div", "ccC-modal-bg");
+    const md = el("div", "ccC-modal");
+    md.innerHTML = "<h3>⚔️ Pick a friendly rival</h3>"
+      + '<div class="ccC-hint" style="margin-bottom:8px;">One rival per season. Purely for bragging rights — no points or rewards change hands.</div>';
+    const list = el("div", "");
+    list.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
+    md.appendChild(list);
+    const cancel = el("button", "ccC-btn", "Cancel");
+    cancel.style.marginTop = "10px";
+    cancel.addEventListener("click", () => document.body.removeChild(bg));
+    md.appendChild(cancel);
+    bg.appendChild(md);
+    document.body.appendChild(bg);
+    const res = await post("leaderboard", {});
+    list.innerHTML = "";
+    ((res && res.rows) || []).filter(r => r.id !== cl.id).slice(0, 40).forEach(r => {
+      const row = el("button", "ccC-btn", `<img src="${esc(avSrc(r.icon))}" style="width:20px;height:20px;border-radius:50%;vertical-align:-5px;object-fit:cover;"> ${esc(r.name)} · #${r.rank} · ${r.points} pts`);
+      row.style.cssText = "display:block;width:100%;text-align:left;margin-bottom:6px;";
+      row.addEventListener("click", async () => {
+        const r2 = await post("rival", { op: "set", clan_id: r.id });
+        document.body.removeChild(bg);
+        if (r2 && r2.ok) { toast("⚔️ Rivalry declared!", "success"); C.clan = null; render(); }
+        else toast(errMsg(r2 && r2.error), "error");
+      });
+      list.appendChild(row);
+    });
+    if (!list.children.length) list.appendChild(el("div", "ccC-empty", "No other clans yet."));
+  }
+
   function seasonNumFromSid(sid) {
     const m = /^(\d{4})-Q([1-4])$/.exec(String(sid || ""));
     if (!m) return "?";
@@ -1264,6 +1370,20 @@
       const annBtn = el("button", "ccC-btn tiny", "📣 Announce");
       annBtn.addEventListener("click", () => announceModal(my));
       headEl.appendChild(annBtn);
+    }
+    // Share the game/tournament I'm in right now, so clanmates can jump in.
+    const liveRoom = (() => { try { return bridge().currentRoom ? String(bridge().currentRoom() || "") : ""; } catch (_) { return ""; } })();
+    if (liveRoom) {
+      const invBtn = el("button", "ccC-btn tiny pri", "🎮 Invite to my game");
+      invBtn.addEventListener("click", async () => {
+        const res = await post("chat-send", {
+          kind: "game_invite", room_id: liveRoom,
+          text: `🎮 Come play! Room ${liveRoom}`,
+        });
+        if (res && res.ok) { toast("Game invite sent to the clan 🎮", "success"); poll(true); }
+        else toast(errMsg(res && res.error), "error");
+      });
+      headEl.appendChild(invBtn);
     }
     sec.appendChild(headEl);
     const chat = el("div", "ccC-chat");

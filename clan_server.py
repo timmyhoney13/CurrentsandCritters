@@ -33,6 +33,7 @@ completion hook — the client can ask, but never self-report a score.
 """
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -74,6 +75,7 @@ SEASON_BORDER_TOP_N       = 10         # top-10 clans get the seasonal border
 MVP_MIN_POINTS            = 25
 MVP_BONUS_COINS           = 150
 MVP_ICON_DAYS             = 14         # MVP chip shown for first 2 weeks of next season
+SEASON_KEEP               = 8          # quarters of per-member history kept on a clan doc
 
 DAILY_GOAL_XP             = 25         # clan XP for finishing the shared daily goal
 CLAN_XP_PER_LEVEL_STEP    = 100        # level n→n+1 costs 100*n XP
@@ -142,6 +144,10 @@ _PROF_WORDS: List[str] = []
 
 _FINALIZE_LOCK = threading.Lock()
 _FINALIZED_SIDS: set = set()          # in-process cache so we don't re-check every call
+# name.lower() → (is_a_real_account, checked_at). Every finished game asks about
+# each opponent; without this that's a Firestore query per opponent per game.
+_REG_CACHE: Dict[str, Tuple[bool, float]] = {}
+_REG_TTL_SEC = 600.0
 
 
 def init(*, get_firestore, verify_token, find_uid_by_username, level_progress,
@@ -325,6 +331,22 @@ def _txn_helpers():
 
 def _new_clan_id() -> str:
     return "c" + secrets.token_hex(5)
+
+
+def _field_delete() -> Any:
+    """Firestore's DELETE_FIELD sentinel, or "" when unavailable.
+
+    set(merge=True) MERGES nested maps — dropping a key from the dict you write
+    does NOT remove it from the stored doc. Anything that must actually go away
+    has to be written as this sentinel. Readers treat "" as absent."""
+    try:
+        from firebase_admin import firestore as _fs
+        sentinel = getattr(_fs, "DELETE_FIELD", None)
+        if sentinel is not None:
+            return sentinel
+    except Exception:
+        pass
+    return ""
 
 
 def _clan_level(xp: int) -> Dict[str, int]:
@@ -581,6 +603,7 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
         print(f"[clan] award txn failed ({kind} {dedup_id}): {exc}")
         return {"ok": False, "error": "award_failed"}
     if out.get("ok"):
+        _lb_invalidate()
         if out.get("goal_done"):
             _chat_system(db, clan_id, "🌞 Today's clan goal is complete! +25 Clan XP")
         for ch in out.get("challenges_done") or []:
@@ -693,7 +716,26 @@ def _lb_sort_key(card: Dict[str, Any]) -> Tuple:
             -card["casual_wins"], -card.get("_contributors", 0), card.get("_last_gain_ts", 1 << 60))
 
 
-def _leaderboard_rows(db, sid: str, cap: int = 500) -> List[Dict[str, Any]]:
+_LB_CACHE: Dict[str, Any] = {"sid": "", "at": 0.0, "rows": []}
+_LB_TTL_SEC = 20.0
+
+
+def _lb_invalidate() -> None:
+    """Drop the standings cache. Called after every write that can change what
+    the leaderboard shows, so a brand-new clan (or a just-earned point) is
+    never missing from the board the player looks at one second later."""
+    _LB_CACHE["at"] = 0.0
+
+
+def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List[Dict[str, Any]]:
+    """Season standings for every clan. This is a whole-collection read, and
+    the Clans page, the leaderboard and each profile all want it — so results
+    are cached briefly. Anything that must observe its own write passes
+    fresh=True (nothing does today; points land well inside the TTL)."""
+    now = time.time()
+    if (not fresh and _LB_CACHE["sid"] == sid
+            and now - float(_LB_CACHE["at"] or 0) < _LB_TTL_SEC):
+        return copy.deepcopy(_LB_CACHE["rows"])
     rows: List[Dict[str, Any]] = []
     try:
         for doc in _clans(db).limit(cap).stream():
@@ -713,6 +755,7 @@ def _leaderboard_rows(db, sid: str, cap: int = 500) -> List[Dict[str, Any]]:
         c["record"] = wl_record(c)
         c.pop("_contributors", None)
         c.pop("_last_gain_ts", None)
+    _LB_CACHE.update({"sid": sid, "at": now, "rows": copy.deepcopy(rows)})
     return rows
 
 
@@ -737,7 +780,7 @@ def ensure_season_finalized(db) -> None:
         except Exception:
             return
         # Anything to finalize at all? (Fresh install: prev quarter has no data.)
-        rows = _leaderboard_rows(db, prev)
+        rows = _leaderboard_rows(db, prev, fresh=True)   # paying out — never off a cache
         rows = [r for r in rows if r["points"] > 0 or r["games"] > 0]
         try:
             meta_ref.create({"finalizing": True, "ts": _now()})
@@ -872,6 +915,21 @@ def ensure_season_finalized(db) -> None:
                                f"🏆 Season {_season_number(prev)} final: #{place}"
                                + (f" — rewards paid to {len(rewarded)} member(s)" if rewarded else ""))
                 stamp["activity"] = clan.get("activity")
+                # Keep the doc from growing forever: only the last SEASON_KEEP
+                # quarters of per-member breakdowns and placements stay on the
+                # clan. Older finals live on in clan_meta/season_<sid>.
+                # merge=True MERGES nested maps (it never drops keys), so the
+                # retired quarters have to be explicit field deletes.
+                delete_sentinel = _field_delete()
+                for field, data in (("seasons", clan.get("seasons") or {}),
+                                    ("prev_results", prev_results)):
+                    if len(data) <= SEASON_KEEP:
+                        continue
+                    drop = sorted(data.keys(), reverse=True)[SEASON_KEEP:]
+                    merged = dict(stamp.get(field) or {})
+                    for old_sid in drop:
+                        merged[old_sid] = delete_sentinel
+                    stamp[field] = merged
                 clan_ref.set(stamp, merge=True)
                 _chat_system(db, r["id"],
                              f"🏆 Season {_season_number(prev)} ({_season_name(prev)}) finished — "
@@ -925,7 +983,39 @@ def _names_match(a: str, b: str) -> bool:
 
 
 def _is_registered(db, name: str) -> bool:
-    return _find_uid_by_username(db, str(name or "").strip().lower()) is not None
+    """Is this in-game name a real (non-guest) account?
+
+    Players are shown by NICKNAME in a game, and plenty of accounts have a
+    nickname that differs from their unique username — matching on username
+    alone would quietly refuse Clan Points for perfectly normal games. So we
+    accept either. A nickname isn't unique, but this is only ever used as
+    "a real account played here", never to decide WHO gets credited, so the
+    worst case is a guest who copied a real player's nickname."""
+    nm = str(name or "").strip()
+    if not nm:
+        return False
+    if _find_uid_by_username(db, nm.lower()) is not None:
+        return True
+    key = nm.lower()
+    if key in _REG_CACHE and time.time() - _REG_CACHE[key][1] < _REG_TTL_SEC:
+        return _REG_CACHE[key][0]
+    found = False
+    try:
+        for field in ("nickname", "usernameLower", "username"):
+            value = key if field == "usernameLower" else nm
+            try:
+                from google.cloud.firestore_v1 import FieldFilter
+                q = _users(db).where(filter=FieldFilter(field, "==", value)).limit(1)
+            except Exception:
+                q = _users(db).where(field, "==", value).limit(1)
+            if any(True for _ in q.stream()):
+                found = True
+                break
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] registered-name lookup failed: {exc}")
+        return False
+    _REG_CACHE[key] = (found, time.time())
+    return found
 
 
 def _cooldown_active(udoc: Dict[str, Any]) -> int:
@@ -1442,6 +1532,16 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
     for icon in votes.values():
         tally[icon] = tally.get(icon, 0) + 1
     fav = max(tally.items(), key=lambda kv: kv[1])[0] if tally else None
+    # Friendly rival: the head-to-head stat card (no rewards ride on this).
+    rival = None
+    rival_id = (clan.get("rivals") or {}).get(sid)
+    if rival_id:
+        try:
+            rsnap = _clans(db).document(str(rival_id)).get()
+            if rsnap.exists:
+                rival = _clan_card(str(rival_id), rsnap.to_dict() or {}, sid)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] rival read failed: {exc}")
     out = {
         **card,
         "owner_uid": clan.get("owner_uid"),
@@ -1463,9 +1563,12 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
                    "points": weekly.get("points"), "trades": weekly.get("trades"),
                    "comp_wins": weekly.get("comp_wins"),
                    "challenges_done": weekly.get("challenges_done") or []},
-        "challenges": _challenges_view(weekly, slot),
+        "challenges": _challenges_view(weekly, slot, clan),
+        "week_ends_ts": _week_end_ts(),
         "favorite_critter": fav,
+        "favorite_votes": tally,
         "my_vote": votes.get(viewer_uid) if viewer_uid else None,
+        "rival": rival,
         "season": _season_public(sid),
     }
     if viewer_uid and _member_of(clan, viewer_uid):
@@ -1481,18 +1584,37 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
     return out
 
 
-def _challenges_view(weekly: Dict[str, Any], slot: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _week_end_ts() -> int:
+    """Unix time when the current ISO week rolls over (next Monday 00:00 UTC) —
+    the weekly challenge + weekly-cap reset moment."""
+    now = datetime.now(tz=timezone.utc)
+    midnight = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+    return int(midnight.timestamp()) + (7 - now.isoweekday() + 1) * 86400
+
+
+def _challenges_view(weekly: Dict[str, Any], slot: Dict[str, Any],
+                     clan: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     done = set(weekly.get("challenges_done") or [])
+    contribs = weekly.get("contributors") or {}
+    members = (clan or {}).get("members") or {}
+    ends = _week_end_ts()
     out = []
     for ch in CLAN_WEEKLY_CHALLENGES:
+        need = int(ch.get("min_contribution") or 1)
+        # Who actually pulled their weight toward this week's rewards.
+        who = [{"uid": u, "name": (members.get(u) or {}).get("name") or "Player",
+                "points": int(p or 0), "qualifies": int(p or 0) >= need}
+               for u, p in sorted(contribs.items(), key=lambda kv: -int(kv[1] or 0))]
         out.append({
             "id": ch.get("id"), "name": ch.get("name"), "desc": ch.get("desc"),
             "metric": ch.get("metric"), "target": int(ch.get("target") or 0),
             "progress": _challenge_metric(weekly, str(ch.get("metric") or "")),
             "clan_points": int(ch.get("clan_points") or 0),
             "member_xp": int(ch.get("member_xp") or 0),
-            "min_contribution": int(ch.get("min_contribution") or 1),
+            "min_contribution": need,
             "done": ch.get("id") in done,
+            "ends_ts": ends,
+            "contributors": who[:20],
         })
     return out
 
@@ -1588,8 +1710,24 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
     return True
 
 
-def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noqa: C901
-                ) -> Dict[str, Any]:
+# Actions that only read. Everything else can move the standings, so the one
+# route funnel below drops the leaderboard cache after it succeeds — a clan
+# created this second must be on the board the next second.
+_READ_ONLY_ACTIONS = frozenset({
+    "home", "leaderboard", "browse", "get", "season-results", "check-name",
+    "challenges", "chat-get",
+})
+
+
+def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str) -> Dict[str, Any]:
+    result = _route_action(db, uid, action, body, sid)
+    if action not in _READ_ONLY_ACTIONS and isinstance(result, dict) and result.get("ok"):
+        _lb_invalidate()
+    return result
+
+
+def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noqa: C901
+                  ) -> Dict[str, Any]:
     # ---- reads -------------------------------------------------------------
     if action == "home":
         _, clan_id, clan, udoc = _with_clan(uid)
@@ -1633,10 +1771,12 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
         q = str(body.get("query") or "").strip().lower()
         rows = _leaderboard_rows(db, sid)
         if q:
+            # Searching by name finds any clan, including invite-only ones (you
+            # can look at it and ask around, you just can't press Join).
             rows = [r for r in rows if q in str(r.get("name") or "").lower()]
         else:
-            rows = [r for r in rows if r.get("privacy") in ("public", "request")
-                    or r.get("member_count", 0) < CLAN_MAX_MEMBERS]
+            # The plain browse list is the clans you can actually act on.
+            rows = [r for r in rows if r.get("privacy") in ("public", "request")]
         open_first = sorted(rows, key=lambda r: (r["member_count"] >= CLAN_MAX_MEMBERS, r["rank"]))
         recommended = [r for r in rows
                        if r.get("privacy") == "public" and r["member_count"] < CLAN_MAX_MEMBERS][:5]
@@ -1661,13 +1801,24 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
         snap = db.collection("clan_meta").document(f"season_{want}").get()
         meta = snap.to_dict() or {} if snap.exists else {}
         # the caller's own breakdown for that season, if they were in a clan
-        _, clan_id, clan, _udoc = _with_clan(uid)
+        _, clan_id, clan, udoc = _with_clan(uid)
         my = None
         if clan is not None and clan_id:
             slot = (clan.get("seasons") or {}).get(want) or {}
             my = (slot.get("contrib") or {}).get(uid)
+        # What I personally walked away with: coins from the standings ledger
+        # plus every badge/cosmetic stamped for that season.
+        my_coins = 0
+        for row in meta.get("standings") or []:
+            if row.get("clan_id") == clan_id:
+                my_coins = int((row.get("rewarded") or {}).get(uid) or 0)
+                break
+        my_badges = [b for b in (udoc.get("clan_badges") or [])
+                     if isinstance(b, dict) and b.get("sid") == want]
         return {"ok": True, "sid": want, "number": _season_number(want),
                 "name": _season_name(want), "meta": meta, "my_contribution": my,
+                "my_coins": my_coins, "my_badges": my_badges,
+                "my_clan_id": clan_id,
                 "next_season": _season_public(sid)}
 
     if action == "check-name":
@@ -1688,7 +1839,8 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
         weekly = _weekly_slot(dict(clan))
         slot = (clan.get("seasons") or {}).get(sid) or {}
         return {"ok": True, "week": weekly.get("week"),
-                "challenges": _challenges_view(weekly, slot)}
+                "week_ends_ts": _week_end_ts(),
+                "challenges": _challenges_view(weekly, slot, clan)}
 
     # ---- lifecycle ----------------------------------------------------------
     if action == "create":
@@ -1798,14 +1950,16 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
                         "icon": clan.get("icon"), "by": inviter, "ts": _now()})
         _users(db).document(to_uid).set({"clan_invites": invites}, merge=True)
         # Drop a DM-style note in their Messages inbox (same subcollection the
-        # trade system mirrors into — shows up with their existing rules).
+        # trade system mirrors into — shows up with their existing rules). The
+        # clan critter rides along so the invite shows its icon everywhere.
         try:
             _users(db).document(to_uid).collection("messages").document(
                 f"claninvite_{clan_id}_{_now()}").set({
                     "from": uid, "fromName": inviter, "kind": "clan_invite",
                     "text": f"🛡️ {inviter} invited you to join the clan "
                             f"“{clan.get('name')}” — open the Clans tab to accept!",
-                    "clan_id": clan_id, "ts": _now(), "read": False,
+                    "clan_id": clan_id, "clan_name": clan.get("name"),
+                    "clan_icon": clan.get("icon"), "ts": _now(), "read": False,
                 })
         except Exception as exc:  # noqa: BLE001
             print(f"[clan] invite message failed: {exc}")
@@ -2041,8 +2195,16 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
     if action == "chat-get":
         since = int(body.get("since") or 0)
         rows = []
+        col = _clans(db).document(clan_id).collection("chat")
         try:
-            for doc in _clans(db).document(clan_id).collection("chat").limit(2000).stream():
+            # Newest-first server-side so a long-lived clan chat never streams
+            # the whole history on every 3.5s poll. Falls back to a plain
+            # capped scan where order_by isn't available (tests / old SDKs).
+            try:
+                cursor = col.order_by("ts", direction="DESCENDING").limit(CLAN_CHAT_FETCH)
+            except Exception:
+                cursor = col.limit(600)
+            for doc in cursor.stream():
                 d = doc.to_dict() or {}
                 if int(d.get("ts") or 0) <= since or d.get("deleted"):
                     continue
@@ -2073,9 +2235,10 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
             _clans(db).document(clan_id).set({"muted": muted}, merge=True)
             return {"ok": True, "until": muted[target]}
         if op == "unmute" and body.get("uid"):
-            muted = clan.get("muted") or {}
-            muted.pop(str(body["uid"]), None)
-            _clans(db).document(clan_id).set({"muted": muted}, merge=True)
+            # merge=True merges nested maps, so popping the key locally would
+            # leave the stored mute in place — delete the field explicitly.
+            _clans(db).document(clan_id).set(
+                {"muted": {str(body["uid"]): _field_delete()}}, merge=True)
             return {"ok": True}
         return {"ok": False, "error": "bad_op"}
 
@@ -2123,6 +2286,33 @@ def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str  # noq
             return {"ok": False, "error": "bad_op"}
         _clans(db).document(clan_id).set({"events": events}, merge=True)
         return {"ok": True, "events": events}
+
+    if action == "rival":
+        # Friendly season rivalry: ONE rival clan per season, profile stat
+        # comparison only. Deliberately awards nothing — a rivalry that paid
+        # out would just be two clans farming each other (see spec).
+        if not (clan.get("owner_uid") == uid or _has_perm(clan, uid, "post_announcements")):
+            return {"ok": False, "error": "no_permission"}
+        op = str(body.get("op") or "set")
+        rivals = dict(clan.get("rivals") or {})
+        if op == "clear":
+            # merge=True never drops a nested key — clear it explicitly.
+            _clans(db).document(clan_id).set({"rivals": {sid: _field_delete()}}, merge=True)
+            return {"ok": True, "rival": None}
+        target = str(body.get("clan_id") or "").strip()
+        if not target or target == clan_id:
+            return {"ok": False, "error": "bad_clan"}
+        tsnap = _clans(db).document(target).get()
+        if not tsnap.exists:
+            return {"ok": False, "error": "no_clan"}
+        rivals[sid] = target
+        _activity_push(clan, "rival",
+                       f"⚔️ Friendly rivalry declared with {(tsnap.to_dict() or {}).get('name')}")
+        _clans(db).document(clan_id).set({"rivals": rivals,
+                                          "activity": clan.get("activity")}, merge=True)
+        _chat_system(db, clan_id,
+                     f"⚔️ {(tsnap.to_dict() or {}).get('name')} is our friendly rival this season!")
+        return {"ok": True, "rival": target}
 
     if action == "vote-critter":
         icon = str(body.get("icon") or "").strip()
