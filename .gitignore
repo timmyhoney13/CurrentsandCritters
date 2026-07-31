@@ -25,6 +25,9 @@
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js
+# Clans: the server↔client seam — payloads from the REAL clan_server rendered by
+# the REAL clans-ui.js, so the two halves can't drift apart while both are green.
+!test_clans_payloads.py
 !test_tournament_engine.py
 !test_tournament_server.py
 !test_tournament_integration.py
