@@ -11,12 +11,18 @@
   "use strict";
 
   function bridge() { return window.__ccClans; }
-  if (!bridge() || !bridge().ENABLED) return;
+  // The hard off-switch (the bridge IS there and says ENABLED:false) still
+  // registers nothing at all. A MISSING bridge is a different thing: it means
+  // preview-app.js never reached the line that defines one, and returning here
+  // would leave the Clans tab permanently dead — clicking it would paint an
+  // empty page with nothing on screen, and nothing in the console, to say why.
+  // So register the entry points anyway and let them re-check at click time.
+  if (bridge() && !bridge().ENABLED) return;
 
   const $  = (sel, root) => (root || document).querySelector(sel);
   const el = (tag, cls, html) => { const n = document.createElement(tag); if (cls) n.className = cls; if (html != null) n.innerHTML = html; return n; };
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const toast = (m, t) => bridge().toast(m, t);
+  const toast = (m, t) => { try { bridge().toast(m, t); } catch (_) {} };
   const avSrc = (u) => { try { return bridge().avSrc(u); } catch (_) { return u; } };
 
   const C = {
@@ -35,6 +41,7 @@
   // ── API ────────────────────────────────────────────────────────────────────
   async function post(action, extra) {
     const b = bridge();
+    if (!b) return { ok: false, error: "unavailable" };
     const body = Object.assign({}, extra || {});
     body.idToken = await b.idToken();
     if (!body.idToken) return { ok: false, error: "unauthorized" };
@@ -42,6 +49,7 @@
   }
 
   const ERR = {
+    unavailable: "Clans didn't finish loading — please refresh the page.",
     unauthorized: "Sign in to use Clans.",
     firestore_unavailable: "Clans are temporarily unavailable — try again shortly.",
     bad_name: "That clan name can't be used.",
@@ -246,10 +254,22 @@
   }
 
   window.__ccClansRender = async function () {
-    injectCss();
     const r = root();
     if (!r) return;
-    if (!bridge().authUser()) { r.innerHTML = ""; return; }   // guest gate handles the message
+    injectCss();
+    // Whatever is wrong, SAY so — this tab is rendered entirely from here, so
+    // any silent bail-out reads to the player as "the Clans page is empty".
+    const b = bridge();
+    if (!b || !b.ENABLED) {
+      r.innerHTML = '<div class="ccC-empty">Clans didn\'t finish loading — please refresh the page.</div>';
+      return;
+    }
+    if (!b.authUser()) {
+      // The tab's own guest gate normally covers this; say it here too so the
+      // page is never simply blank when the gate hasn't been applied.
+      r.innerHTML = '<div class="ccC-empty">Sign in to join a clan.</div>';
+      return;
+    }
     if (!C.home) r.innerHTML = '<div class="ccC-empty">Loading clans…</div>';
     await refreshHome(false);
     // A season that ended since the player was last here opens straight onto

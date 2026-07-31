@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.39";
-  const APP_BUILD   = "2026-07-30.7";
+  const APP_BUILD   = "2026-07-30.8";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -21628,7 +21628,22 @@
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
-        if (name === "clans")        { try { if (window.__ccClansRender) window.__ccClansRender(); } catch (_) {} }
+        if (name === "clans")        {
+          // The Clans panel is empty markup that js/clans-ui.js fills in. If that
+          // module never registered, a silent no-op here is indistinguishable
+          // from "the Clans page is blank" — so put the reason on screen.
+          try {
+            if (window.__ccClansRender) window.__ccClansRender();
+            else {
+              const cr = document.getElementById("cc-clans-root");
+              if (cr && !cr.children.length) {
+                cr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+                  + 'color:#7a9db8;font-weight:700;font-size:13px;">'
+                  + 'Clans didn\'t finish loading — please refresh the page.</div>';
+              }
+            }
+          } catch (_) {}
+        }
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;

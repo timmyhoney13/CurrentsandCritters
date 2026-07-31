@@ -57,6 +57,47 @@ function makeEnv({ enabled = true, postResp } = {}) {
   return { sandbox, windowStub, calls, toasts };
 }
 
+// A variant with a real-enough #cc-clans-root so we can read back what the
+// module actually paints into the tab (makeEnv's document has no elements).
+function makeEnvDom({ enabled = true, hasBridge = true, authed = true } = {}) {
+  const rootEl = { innerHTML: "", children: [], className: "", style: {},
+                   appendChild() {}, addEventListener() {},
+                   classList: { add() {}, remove() {}, toggle() {} } };
+  const documentStub = {
+    querySelector: (s) => (s === "#cc-clans-root" ? rootEl : null),
+    getElementById: (i) => (i === "cc-clans-root" ? rootEl : null),
+    createElement: () => ({ style: {}, classList: { add() {}, remove() {}, toggle() {} },
+                            appendChild() {}, addEventListener() {}, setAttribute() {} }),
+    createTextNode: () => ({}),
+    head: { appendChild() {} },
+    body: { appendChild() {}, removeChild() {}, contains: () => false },
+  };
+  const posts = [];
+  const bridge = {
+    ENABLED: enabled, APP_BUILD: "test",
+    get: async () => ({ ok: true }),
+    post: async (p) => { posts.push(p);
+      return { ok: true, season: { number: 1, name: "Riptide", ends_ts: 0 }, top3: [] }; },
+    toast: () => {},
+    nickname: () => "Tester",
+    authUser: () => (authed ? { uid: "u1", getIdToken: async () => "tok" } : null),
+    idToken: async () => "tok",
+    avSrc: (u) => u,
+    animalAvatars: () => [],
+  };
+  const windowStub = {};
+  if (hasBridge) windowStub.__ccClans = bridge;
+  const sandbox = { window: windowStub, document: documentStub, console,
+                    setInterval: () => 0, clearInterval: () => {},
+                    setTimeout: () => 0, clearTimeout: () => {},
+                    location: { search: "" }, confirm: () => true,
+                    Date, Math, JSON, Number, String };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(SRC, sandbox, { filename: "clans-ui.js" });
+  return { windowStub, rootEl, posts };
+}
+
 (async () => {
   console.log("module registration:");
   const env = makeEnv({
@@ -115,6 +156,31 @@ function makeEnv({ enabled = true, postResp } = {}) {
   console.log("hard off-switch:");
   const off = makeEnv({ enabled: false });
   check("disabled bridge registers nothing", typeof off.windowStub.__ccClansRender !== "function");
+
+  // The Clans panel is empty markup that this module fills in, so every way it
+  // can decline to render has to SAY something. A silent bail-out is what the
+  // player experiences as "I click Clans and there is nothing there".
+  console.log("never a blank Clans tab:");
+  const noBridge = makeEnvDom({ hasBridge: false });
+  check("a missing bridge still registers the renderer",
+        typeof noBridge.windowStub.__ccClansRender === "function");
+  await noBridge.windowStub.__ccClansRender();
+  check("a missing bridge explains itself instead of painting nothing",
+        /refresh/i.test(noBridge.rootEl.innerHTML));
+
+  const signedOut = makeEnvDom({ authed: false });
+  await signedOut.windowStub.__ccClansRender();
+  check("signed out says to sign in instead of painting nothing",
+        /sign in/i.test(signedOut.rootEl.innerHTML));
+
+  // Signed in, the guards must fall through to the real thing. (What that then
+  // paints is covered against real markup by test_clans_render.js.)
+  const signedIn = makeEnvDom({ authed: true });
+  await signedIn.windowStub.__ccClansRender();
+  check("signed in goes and fetches the clan home",
+        signedIn.posts.some(p => p === "/api/clan/home"));
+  check("signed in shows no bail-out message",
+        !/refresh the page|Sign in to join/i.test(signedIn.rootEl.innerHTML));
 
   console.log(`\n${"=".repeat(40)}\nRESULT: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
