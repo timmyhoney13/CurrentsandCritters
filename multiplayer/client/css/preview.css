@@ -8405,6 +8405,51 @@
       -webkit-backdrop-filter: none;
     }
 
+    /* ── Clans tab: the leaderboard's deep-ocean scene, tinted a shade
+       cooler so the two neighbouring tabs read as siblings, not clones. ── */
+    #auth-stats-lobby[data-bg-tab="clans"] {
+      background:
+        linear-gradient(180deg, rgba(18,86,140,.30) 0%, rgba(12,60,110,.42) 100%),
+        url("/multiplayer/client/leaderboard-bg.jpg") center center / cover no-repeat !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"]::before,
+    #auth-stats-lobby[data-bg-tab="clans"]::after {
+      content: none !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-profile-card,
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-stats-card,
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-scard {
+      background: rgba(228,247,255,0.86) !important;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(120,195,225,0.55) !important;
+      box-shadow: 0 6px 28px rgba(0,70,115,0.18) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-tabs {
+      background: rgba(218,244,255,0.80) !important;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(120,195,225,0.45) !important;
+      box-shadow: 0 4px 18px rgba(0,70,115,0.12) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-tab.active {
+      background: rgba(240,252,255,0.94) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-sh {
+      background: rgba(212,244,255,0.82) !important;
+    }
+    #auth-stats-lobby[data-bg-tab="clans"] .ph-topbar {
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    /* The module's own sections sit INSIDE .ph-scard, so lift them off the
+       frosted card instead of letting two translucent layers stack up. */
+    #auth-stats-lobby[data-bg-tab="clans"] .ccC-sec,
+    #auth-stats-lobby[data-bg-tab="clans"] .ccC-myclan {
+      background: rgba(255,255,255,0.72) !important;
+    }
+
     /* ── Action cards stay COLORFUL on every tab (consistent everywhere) ──
        Placed after all per-tab overrides so these win the !important ties.
        Each tab used to repaint these cards as frosted glass; we force the
