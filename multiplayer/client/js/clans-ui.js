@@ -346,10 +346,14 @@
     left.appendChild(el("div", "ccC-season-sub", `Ends ${fmtDate(season.ends_ts)} · new season starts right after`));
     const cd = el("div", "ccC-count");
     wrap.appendChild(left); wrap.appendChild(cd);
+    // Self-cancelling: leaving the Clans tab detaches this node without calling
+    // render(), so the timer stops itself. It must only do that AFTER the block
+    // has been on screen — callers build the whole card first and attach it
+    // last, so the first tick legitimately runs detached.
+    let everAttached = false;
     const tick = () => {
-      // Self-cancelling: leaving the Clans tab detaches this node without
-      // calling render(), so the timer has to stop itself or it ticks forever.
-      if (!document.body.contains(wrap)) { stopCountdown(); return; }
+      if (document.body.contains(wrap)) everAttached = true;
+      else if (everAttached) { stopCountdown(); return; }
       const p = countdownParts(season.ends_ts);
       cd.innerHTML = `<b>${p.d}<span>days</span></b><b>${p.h}<span>hrs</span></b><b>${p.m}<span>min</span></b><b>${p.s}<span>sec</span></b>`;
     };
