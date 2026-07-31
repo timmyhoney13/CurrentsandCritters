@@ -16,6 +16,12 @@
 !fish_game_all_in_one.py
 !tournament_engine.py
 !tournament_server.py
+# Clan System: server-authoritative clans core (seasons, points, roles, chat)
+# and its unit + integration tests (in-memory Firestore fake), plus the client
+# module smoke test (end-game claim dedup, bridge off-switch).
+!clan_server.py
+!test_clan_server.py
+!test_clans_ui.js
 !test_tournament_engine.py
 !test_tournament_server.py
 !test_tournament_integration.py

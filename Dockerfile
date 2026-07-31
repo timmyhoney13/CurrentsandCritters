@@ -18,6 +18,7 @@ COPY snap_score.py /app/snap_score.py
 COPY fish_game_all_in_one.py /app/fish_game_all_in_one.py
 COPY tournament_engine.py /app/tournament_engine.py
 COPY tournament_server.py /app/tournament_server.py
+COPY clan_server.py /app/clan_server.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt

@@ -535,6 +535,10 @@
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
         Leaderboard
       </button>
+      <button class="ph-snav-item" id="snav-clans" data-tab="clans">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Clans
+      </button>
       <button class="ph-snav-item" id="snav-store" data-tab="store">
         <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M2 3h13l-1.5 7H3.5L2 3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="5.5" cy="14.5" r="1.2" stroke="currentColor" stroke-width="1.3"/><circle cx="12.5" cy="14.5" r="1.2" stroke="currentColor" stroke-width="1.3"/><path d="M1 1h1.5l.5 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Store
@@ -742,6 +746,10 @@
       <button class="ph-tab" data-tab="leaderboard">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="9" width="4" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="6" y="5" width="4" height="10" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="11" y="1" width="4" height="14" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
         Leaderboard
+      </button>
+      <button class="ph-tab" data-tab="clans">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Clans
       </button>
     </div>
 
@@ -1499,6 +1507,13 @@
       </div>
     </div>
 
+    <!-- ── Clans tab ────────────────────────────────────────────
+         Rendered entirely by js/clans-ui.js (server-authoritative
+         /api/clan/* — seasons, points, roles, chat, leaderboard). -->
+    <div class="ph-panel" id="ph-panel-clans" style="display:none;">
+      <div id="cc-clans-root"></div>
+    </div>
+
     <div class="ph-panel" id="ph-panel-store" style="display:none;">
       <div class="ph-scard ph-full">
         <div class="ph-sh">
@@ -1570,6 +1585,11 @@
         </div>
       </div>
       <div class="pub-critter-hint">🐠 Tap their avatar to view their critter collection (view-only)</div>
+      <!-- Clan System: shown only when the viewer has clan invite permission
+           (owner / captain / recruiter / authorized custom role). -->
+      <div id="pub-clan-invite-row" style="display:none; margin:2px 0 12px; text-align:center;">
+        <button id="pub-clan-invite-btn" class="ph-footer-btn">🛡️ Invite to Clan</button>
+      </div>
       <div class="ph-stats-card" style="margin-top:0;">
         <div class="ph-stats-top">
           <div class="ph-stats-title">
@@ -2777,10 +2797,13 @@
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
 <script defer src="/js/rulebook.js?v=2026-07-30.6"></script>
 
-<script defer src="/js/preview-app.js?v=2026-07-30.6"></script>
+<script defer src="/js/preview-app.js?v=2026-07-30.7"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-29.5"></script>
+
+<!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
+<script defer src="/js/clans-ui.js?v=2026-07-30.7"></script>
 <!-- Custom bracket BUILDER — the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
 <script defer src="/js/tournament-builder.js?v=2026-07-29.2"></script>

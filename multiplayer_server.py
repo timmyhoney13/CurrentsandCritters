@@ -32,6 +32,7 @@ os.environ.setdefault("FISH_WEB_CONTROL", "1")
 import fish_game_all_in_one as fish
 import snap_score
 import tournament_server
+import clan_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -2046,14 +2047,23 @@ def _trade_confirm(uid: str, peer_uid: str, version: int, confirm: bool) -> Dict
     trade = outcome.get("trade")
     if trade is not None:
         _trade_mirror(db, trade)
+    clan_award: Dict[str, Any] = {}
     if outcome.get("__completed__") and trade is not None:
         _trade_post_message(db, trade, _trade_summary_text(trade),
                             actor=uid, ping=True)
+        # Clan System: a completed same-clan trade can earn each side their
+        # daily +1 Clan Point (all rules live in clan_server.on_trade_completed;
+        # it never raises, so trading can't break on clan bookkeeping).
+        try:
+            clan_award = clan_server.on_trade_completed(db, trade) or {}
+        except Exception as exc:  # noqa: BLE001
+            print(f"[trade] clan trade hook failed: {exc}")
     if outcome.get("__err__"):
         return {"ok": False, "error": outcome["__err__"],
                 "state": _trade_public(trade) if trade else None}
     return {"ok": True,
             "completed": bool(outcome.get("__completed__")),
+            "clan_points": (clan_award.get("awarded") or {}).get(uid, 0),
             "state": _trade_public(trade) if trade else None}
 
 
@@ -9262,6 +9272,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if tournament_server.handle_get(self, parsed):
             return
 
+        # Clan System API (public clan leaderboard).
+        if clan_server.handle_get(self, parsed):
+            return
+
         if parsed.path == "/firebase-config.js":
             cfg = {
                 "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
@@ -9950,6 +9964,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         # Tournament Mode API (create / join / ready / randomize / switch / start / host / report).
         if tournament_server.handle_post(self, parsed, body):
+            return
+
+        # Clan System API (create / join / roles / chat / points / seasons / admin review).
+        if clan_server.handle_post(self, parsed, body):
             return
 
         if parsed.path == "/api/user/register":
@@ -10822,6 +10840,23 @@ def main() -> None:
         create_match_room=_tournament_create_match_room,
         start_match_room=_tournament_start_match_room,
         get_room=ROOMS.get,
+    )
+
+    # Clan System: same server-authoritative helpers; verifies point claims
+    # against the game records this server itself wrote (see clan_server.py).
+    clan_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        find_uid_by_username=_find_uid_by_username,
+        level_progress=_level_progress_for_total_xp,
+        get_season_id=get_season_id,
+        games_history_dir=GAMES_HISTORY_DIR,
+        competitive_games_dir=COMPETITIVE_GAMES_DIR,
+        prof_strong_re=_PROF_STRONG_RE,
+        prof_word_re=_PROF_WORD_RE,
+        prof_leet=_PROF_LEET,
+        prof_strong=_PROF_STRONG,
+        prof_words=_PROF_WORDS,
     )
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.

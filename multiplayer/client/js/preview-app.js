@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.38";
-  const APP_BUILD   = "2026-07-30.6";
+  const APP_VERSION = "1.6.39";
+  const APP_BUILD   = "2026-07-30.7";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -701,6 +701,35 @@
         if (!isSpectating()) { returnToMenu(); return false; }
         return true;
       } catch (_) { return false; }
+    },
+  };
+
+  // ── Clan System bridge ─────────────────────────────────────────────────
+  // The Clans tab lives in its own module (js/clans-ui.js) and renders into
+  // #ph-panel-clans. Everything rule-shaped is server-authoritative
+  // (/api/clan/*); this bridge only hands the module network, auth and
+  // critter-catalog plumbing. ENABLED=false hides the whole system again.
+  const CLANS_PUBLIC = true;
+  window.__ccClans = {
+    ENABLED: CLANS_PUBLIC
+      || /[?&]clans=1/.test(location.search)
+      || (() => { try { return localStorage.getItem("cc_clans") === "1"; } catch (_) { return false; } })(),
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    nickname: () => (window.__fishNickname && window.__fishNickname()) || "Player",
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    avSrc: (u) => (window.__fishAvSrc ? window.__fishAvSrc(u) : u),
+    // Full critter roster for the clan-icon picker + season favorite vote
+    // (ANIMAL_AVATARS is declared later in this same scope; read lazily).
+    animalAvatars: () => {
+      try { return ANIMAL_AVATARS.map(a => ({ id: a.id, name: a.name, img: a.img })); }
+      catch (_) { return []; }
     },
   };
 
@@ -11473,6 +11502,10 @@
         _lastSavedWinner = winner;
         console.info("[saveGameStats] core stats saved for", myGameName, "score", myScore, "players", playerCount, "comp", isComp);
         try { showToast("✓ Game saved to your stats & leaderboard", "info"); } catch (_) {}
+        // Clan System: ask the server to score this finished game for my clan.
+        // Server-verified against its own game record (placement points, real-
+        // player minimums, daily/weekly caps, one claim per game per player).
+        try { if (window.__ccClanClaimGame) window.__ccClanClaimGame(roomId); } catch (_) {}
         // (History already written above, before the core write, so a bloated
         // doc can't block the leaderboard save.)
         // Immediately update in-memory stats so History tab + streak UI show the
@@ -21189,6 +21222,11 @@
       }
       _trState = res.state;
       if (res.completed) _trToast("Trade completed! 🎉", "ok");
+      // Clan System: the server awards the daily clan trade point during
+      // completion (same-clan trades only) and reports my share back here.
+      if (res.completed && Number(res.clan_points || 0) > 0) {
+        try { if (window.__ccClanTradePoint) window.__ccClanTradePoint(res.clan_points); } catch (_) {}
+      }
       _trRender();
     }
 
@@ -21507,7 +21545,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
@@ -21517,6 +21555,7 @@
         friends:      "Sign in to add friends",
         messages:     "Sign in to message your friends",
         leaderboard:  "Sign in to view the leaderboards",
+        clans:        "Sign in to join a clan",
         achievements: "Sign in to see Achievements",
       };
       function _ensureGuestGate(panelEl, msg) {
@@ -21564,6 +21603,7 @@
         if (name === "achievements") renderPhAchievements();
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
+        if (name === "clans")        { try { if (window.__ccClansRender) window.__ccClansRender(); } catch (_) {} }
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;
@@ -23546,6 +23586,20 @@
 
       // Stats grid (mirrors the real Overview Quick Stats)
       _renderPublicStats(profile);
+
+      // Clan System: authorized clan members can invite straight from a
+      // player's profile (owner / captain / recruiter / custom role w/ invite).
+      try {
+        const inviteRow = $a("pub-clan-invite-row");
+        const inviteBtn = $a("pub-clan-invite-btn");
+        if (inviteRow && inviteBtn) {
+          const meUid = _authUser ? _authUser.uid : "";
+          const canInvite = !!(window.__ccClanCanInvite && window.__ccClanCanInvite())
+            && meUid && uid && uid !== meUid;
+          inviteRow.style.display = canInvite ? "" : "none";
+          inviteBtn.onclick = () => { if (window.__ccClanInvite) window.__ccClanInvite(uid, nick); };
+        }
+      } catch (_) {}
       loading.style.display = "none";
       content.style.display = "";
     }
