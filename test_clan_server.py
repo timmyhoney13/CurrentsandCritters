@@ -85,11 +85,27 @@ class FakeQuery:
         return list(self.stream())
 
 
+# Round-trip counters. Reading the roster one document at a time is what made
+# the Clans tab slow, so the suite can count what a call actually costs.
+READS = {"doc": 0, "batch": 0, "user_doc": 0, "user_batched": 0}
+
+
+def reads_reset():
+    for k in READS:
+        READS[k] = 0
+
+
 class FakeDoc:
     def __init__(self, store, path):
         self._store = store
         self._path = path
-    def get(self, transaction=None):
+    def get(self, transaction=None, _batched=False):
+        if not _batched:
+            READS["doc"] += 1
+            if self._path.startswith("users/"):
+                READS["user_doc"] += 1
+        elif self._path.startswith("users/"):
+            READS["user_batched"] += 1
         return FakeSnap(self._store.get(self._path), self._path.rsplit("/", 1)[-1])
     def set(self, data, merge=False):
         if merge and self._path in self._store and isinstance(self._store[self._path], dict):
@@ -134,6 +150,15 @@ class FakeDB:
         self.store = {}
     def collection(self, name):
         return FakeCollection(self.store, name)
+    def get_all(self, refs):
+        """Batched multi-document read — the real client has this, and the whole
+        clan roster is fetched through it now, so the fake must too or the tests
+        only ever cover the one-at-a-time fallback. Real Firestore returns the
+        docs in arbitrary order; shuffling here keeps callers honest about that."""
+        READS["batch"] += 1
+        out = [r.get(_batched=True) for r in refs]
+        out.reverse()
+        return iter(out)
     def transaction(self):
         return FakeTxn(self.store)
 
@@ -217,6 +242,9 @@ def set_user(uid, nick=None, coins=0, clan_id="", cooldown=0, username=None, ico
         DB.store["users/" + uid]["clan_id"] = clan_id
     if cooldown:
         DB.store["users/" + uid]["clan_cooldown_until"] = cooldown
+    # The server batches + briefly caches member reads. This helper writes user
+    # docs behind its back, so drop the cache the way any real write would.
+    CS._members_invalidate()
 
 
 def user(uid):
@@ -500,16 +528,34 @@ write_hist("TRNC", mode="truncated", players=[hp("Alice"), hp("Bob")],
 r = CS.claim_game_points("alice", "TRNC")
 check("unfinished game never scores", not r.get("ok") and r.get("error") == "not_finished")
 
-# all-AI opposition and guest-only opposition
+# ── No real opponent: first place is worth HALF a point, nothing else is ─────
+# "Requires a real opponent — both players must be registered (non-guest)
+# accounts, or it scores 0. Make it .5 if you get number 1 against bots in any
+# player count."
 write_hist("ALLB", players=[hp("Alice"), ai("Bot A"), ai("Bot B")],
            standings=[{"name": "Alice", "score": 50}, {"name": "Bot A", "score": 1},
                       {"name": "Bot B", "score": 0}])
 r = CS.claim_game_points("alice", "ALLB")
-check("vs AI only → no points", not r.get("ok") and r.get("error") == "need_real_players")
+check("1st vs AI only → half a point", r.get("ok") and r.get("points") == 0.5)
+check("...and it is flagged as a bots-only game", r.get("bots_only") is True)
+write_hist("ALLB2", players=[hp("Alice"), ai("Bot A"), ai("Bot B")],
+           standings=[{"name": "Bot A", "score": 90}, {"name": "Alice", "score": 50},
+                      {"name": "Bot B", "score": 0}])
+r = CS.claim_game_points("alice", "ALLB2")
+check("2nd vs AI only → nothing", r.get("ok") and r.get("points") == 0)
+write_hist("SOLO1", players=[hp("Alice"), ai("Bot A")],
+           standings=[{"name": "Alice", "score": 50}, {"name": "Bot A", "score": 10}])
+r = CS.claim_game_points("alice", "SOLO1")
+check("half a point applies at ANY player count", r.get("ok") and r.get("points") == 0.5)
 write_hist("GSTS", players=[hp("Alice"), hp("RandomGuest")],
            standings=[{"name": "Alice", "score": 50}, {"name": "RandomGuest", "score": 10}])
 r = CS.claim_game_points("alice", "GSTS")
-check("only guests as opponents → no points", not r.get("ok") and r.get("error") == "need_real_players")
+check("guest-only opposition scores like bots (1st = .5)",
+      r.get("ok") and r.get("points") == 0.5)
+write_hist("GSTS2", players=[hp("Alice"), hp("RandomGuest")],
+           standings=[{"name": "RandomGuest", "score": 80}, {"name": "Alice", "score": 10}])
+r = CS.claim_game_points("alice", "GSTS2")
+check("losing to a guest still scores nothing", r.get("ok") and r.get("points") == 0)
 r = CS.claim_game_points("guest1", "AAAA")
 check("player with no clan gets nothing", not r.get("ok") and r.get("error") == "no_clan")
 
@@ -886,6 +932,130 @@ check("a critter whose owner left drops out of the pool",
       "/avatars/clownfish.png" not in (prof.get("icon_pool") or []))
 check("...and out of the vote, so the tab icon stays wearable",
       prof.get("favorite_critter") == "/avatars/narwhal.png")
+
+# ══ 12b. What a Clans screen COSTS ═══════════════════════════════════════════
+# The tab was slow for one reason: every screen read the roster one document at
+# a time, so a full clan paid a Firestore round trip per member, per call — and
+# opening the tab, opening the clan and voting each did it again. The roster is
+# one batched read now, and casting a vote writes one map key instead of the
+# whole clan document back.
+print("clans screen cost:")
+set_user("costOwner", icons=["/avatars/clownfish.png"])
+for i in range(9):
+    set_user(f"costM{i}", icons=["/avatars/narwhal.png"])
+r = route("costOwner", "create", {"name": "Cost Crew", "icon": "/avatars/clownfish.png"})
+COSTID = r.get("clan_id")
+for i in range(9):
+    route(f"costM{i}", "join", {"clan_id": COSTID})
+
+CS._members_invalidate()
+reads_reset()
+prof = (route("costOwner", "get", {"clan_id": COSTID}) or {}).get("clan") or {}
+check("the whole 10-member roster is ONE batched read",
+      READS["batch"] == 1 and READS["user_batched"] == 10)
+check("...and not one solo read per member",
+      READS["user_doc"] <= 1)
+check("the profile is still complete", len(prof.get("members") or []) == 10)
+check("...with the pool built from those same reads",
+      set(prof.get("icon_pool") or []) >= {"/avatars/clownfish.png", "/avatars/narwhal.png"})
+
+# The screens that follow reuse those reads instead of paying for them again.
+reads_reset()
+route("costOwner", "get", {"clan_id": COSTID})
+check("the very next screen reuses the roster it just read",
+      READS["batch"] == 0 and READS["user_batched"] == 0)
+
+# ── What opening the Clans tab actually costs ────────────────────────────────
+# /home is the single call the whole tab is drawn from, so its cost IS the
+# tab's speed. It must not read a document per member, must not re-read a
+# finished season on every open, and must not pay for a rival clan when the
+# standings it already loaded carry that clan's card.
+CS._members_invalidate()
+CS._PREV_META_CACHE.clear()
+CS._lb_invalidate()
+reads_reset()
+home1 = route("costOwner", "home")
+check("opening Clans is ONE batched roster read, not one per member",
+      READS["batch"] <= 1 and READS["user_doc"] <= 1)
+check("...and it returns the full clan profile, so opening the clan needs no 2nd call",
+      bool((home1 or {}).get("my_clan_full")))
+
+# A finished season is immutable, so its standings are read once per process —
+# not once per tab open, per player, forever.
+DB.store["clan_meta/season_" + CS._prev_sid(FAKE_SID["cur"])] = {
+    "sid": CS._prev_sid(FAKE_SID["cur"]), "finalized": True, "standings": []}
+CS._PREV_META_CACHE.clear()
+route("costOwner", "home")                       # first open pays for it
+reads_reset()
+route("costOwner", "home")
+check("a finished season's standings are never re-read",
+      CS._prev_sid(FAKE_SID["cur"]) in CS._PREV_META_CACHE)
+after_warm = READS["doc"]
+CS._PREV_META_CACHE.clear()
+reads_reset()
+route("costOwner", "home")
+check("...and dropping that cache is what makes it cost a read again",
+      READS["doc"] > after_warm)
+
+# A rival must be read off the standings the page already loaded.
+set_user("rivalOwner")
+RIVALID = (route("rivalOwner", "create",
+                 {"name": "Cost Rivals", "icon": "/avatars/clownfish.png"}) or {}).get("clan_id")
+r = route("costOwner", "rival", {"clan_id": RIVALID})
+check("a rival clan can be declared", bool(r.get("ok")))
+CS._members_invalidate()
+CS._lb_invalidate()
+route("costOwner", "home")                       # warm standings + roster
+reads_reset()
+prof = (route("costOwner", "get", {"clan_id": COSTID}) or {}).get("clan") or {}
+check("the rival card costs no extra document read at all", READS["doc"] <= 1)
+check("...and it is still the right clan, carrying its rank",
+      (prof.get("rival") or {}).get("id") == RIVALID
+      and bool((prof.get("rival") or {}).get("rank")))
+route("costOwner", "rival", {"op": "clear"})
+
+# A vote must not need the clan document read back and written whole: two
+# clanmates voting at once would then fight over every field in the clan.
+before = copy.deepcopy(clan_doc(COSTID))
+reads_reset()
+r = route("costM0", "vote-critter", {"icon": "/avatars/narwhal.png"})
+check("voting works", r.get("ok"))
+check("the vote answers with the recounted tally, so the client needn't re-ask",
+      r.get("favorite_critter") == "/avatars/narwhal.png"
+      and (r.get("favorite_votes") or {}) == {"/avatars/narwhal.png": 1}
+      and r.get("my_vote") == "/avatars/narwhal.png")
+after = clan_doc(COSTID)
+check("the ballot landed in the season slot",
+      (after["seasons"][FAKE_SID["cur"]]["critter_votes"] or {}) == {"costM0": "/avatars/narwhal.png"})
+check("and NOTHING else in the clan was rewritten",
+      {k: v for k, v in after.items() if k != "seasons"}
+      == {k: v for k, v in before.items() if k != "seasons"})
+check("the rest of the season slot is untouched too",
+      {k: v for k, v in after["seasons"][FAKE_SID["cur"]].items() if k != "critter_votes"}
+      == {k: v for k, v in (before.get("seasons") or {}).get(FAKE_SID["cur"], {}).items()
+          if k != "critter_votes"})
+
+# A vote can't move the standings, so it must not throw the leaderboard scan
+# away — that whole-collection scan is the most expensive read on the page, and
+# chat lines and votes were dropping it dozens of times an evening for nothing.
+CS._leaderboard_rows(DB, FAKE_SID["cur"])          # warm it
+warm_at = CS._LB_CACHE["at"]
+CS._route_post(DB, "costM0", "vote-critter", {"icon": "/avatars/clownfish.png"}, FAKE_SID["cur"])
+check("voting leaves the leaderboard cache warm", CS._LB_CACHE["at"] == warm_at)
+CS._route_post(DB, "costOwner", "chat-send", {"text": "nice one"}, FAKE_SID["cur"])
+check("chatting leaves it warm too", CS._LB_CACHE["at"] == warm_at)
+# ...but anything that DOES move the standings still drops it.
+CS._route_post(DB, "costOwner", "settings", {"description": "new blurb"}, FAKE_SID["cur"])
+check("a change the board can show still drops the cache", CS._LB_CACHE["at"] == 0.0)
+
+# A critter unlocked seconds ago must not be refused because the roster read
+# was cached: the gate re-checks against a fresh read before it says no.
+set_user("costM1", icons=["/avatars/narwhal.png"])
+route("costOwner", "get", {"clan_id": COSTID})      # warms the member cache
+DB.store["users/costM1"]["unlocked_icons"] = ["/avatars/narwhal.png", "/avatars/lobster.png"]
+r = route("costOwner", "vote-critter", {"icon": "/avatars/lobster.png"})
+check("a just-unlocked critter is votable immediately, not in 3 seconds",
+      r.get("ok"))
 
 # ══ 13. One-shot roster moves (PENDING_MEMBER_MOVES) ═════════════════════════
 # Placing a player straight into a clan by name + friend code, no invite round

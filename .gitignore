@@ -28,6 +28,10 @@
 # Clans: the server↔client seam — payloads from the REAL clan_server rendered by
 # the REAL clans-ui.js, so the two halves can't drift apart while both are green.
 !test_clans_payloads.py
+# Clans: every one of the 51 clan challenges, driven to completion one step at a
+# time — and proved not to fire a step early, or to fire anything else by
+# accident. Also covers the telemetry multiplayer_server derives to feed them.
+!test_clan_challenges.py
 !test_tournament_engine.py
 !test_tournament_server.py
 !test_tournament_integration.py

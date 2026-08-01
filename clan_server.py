@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 # ── Tunables (spec'd values — see the Clan System design doc) ────────────────
-CLAN_MAX_MEMBERS          = 20
+CLAN_MAX_MEMBERS          = 25
 CLAN_NAME_MIN             = 3
 CLAN_NAME_MAX             = 30
 CLAN_DESC_MAX             = 240
@@ -62,6 +62,11 @@ POINTS_CASUAL_FIRST       = 2
 POINTS_CASUAL_SECOND      = 1          # 0 in a 2-player game
 POINTS_CASUAL_THIRD       = 1          # only in games with 4+ players
 POINTS_TRADE_DAILY        = 1
+# A game with no real opponent (everyone else is a bot or a guest) can never
+# pay full placement points — that is the whole anti-farm rule. But winning one
+# isn't worth nothing either: first place against bots pays a HALF point, at
+# any player count. Second and third against bots pay nothing.
+POINTS_CASUAL_FIRST_BOTS  = 0.5
 WEEKLY_POINT_CAP          = 150
 COMP_SAME_OPP_DAILY_CAP   = 3          # comp matches vs same opponent that can score / day
 CASUAL_SAME_OPPS_DAILY_CAP = 5         # casual games vs same opponent set / day
@@ -88,23 +93,224 @@ CLAN_SEASON_NAMES = [
     "Kelp Forest", "Open Water",
 ]
 
-# Weekly clan challenges: the FRAMEWORK is live (progress, rewards, activity,
-# leaderboard columns) but the launch list ships EMPTY — Tim approves the
-# exact challenges before they go in (see spec: "created later and presented
-# for approval"). Add entries here (or via FISH_CLAN_CHALLENGES env JSON):
-#   {"id": "w_games15", "name": "Reef Regulars", "desc": "Complete 15 clan games",
-#    "metric": "games", "target": 15, "clan_points": 10, "member_xp": 40,
-#    "min_contribution": 1}
-# metric ∈ games | points | trades | comp_wins | members_active
-CLAN_WEEKLY_CHALLENGES: List[Dict[str, Any]] = []
-try:
-    _raw = os.environ.get("FISH_CLAN_CHALLENGES", "").strip()
-    if _raw:
-        _parsed = json.loads(_raw)
-        if isinstance(_parsed, list):
-            CLAN_WEEKLY_CHALLENGES = [c for c in _parsed if isinstance(c, dict) and c.get("id")]
-except Exception as _exc:  # noqa: BLE001
-    print(f"[clan] FISH_CLAN_CHALLENGES parse failed: {_exc}")
+# ── Clan challenges ──────────────────────────────────────────────────────────
+# Two ladders, both server-verified from the counters below:
+#   • WEEKLY  — reset every Monday 00:00 UTC with the weekly point cap.
+#   • SEASON  — run the whole quarter, alongside the weekly ones.
+# Each entry is {id, name, desc, metric, target, clan_points, member_xp}.
+# `metric` names a counter in _challenge_metric / _season_metric; nothing here
+# is ever reported by a client — every counter is fed by claim_game_points from
+# a game record THIS server wrote, or by the real trade / event / join hooks.
+#
+# `target` is an int, or the string "members" for "everybody in the clan".
+# `min_contribution` is the weekly point contribution a member must have made
+# to share in the member XP when a weekly challenge completes.
+CLAN_WEEKLY_CHALLENGES: List[Dict[str, Any]] = [
+    {"id": "w_full_crew", "name": "Full Crew",
+     "desc": "Have at least 5 different clan members play and complete a game.",
+     "metric": "members_played", "target": 5, "clan_points": 10, "member_xp": 50},
+    {"id": "w_all_hands", "name": "All Hands on Deck",
+     "desc": "Have at least 10 different clan members complete a game.",
+     "metric": "members_played", "target": 10, "clan_points": 20, "member_xp": 100},
+    {"id": "w_daily_divers", "name": "Daily Divers",
+     "desc": "Complete at least one clan game on 5 different days this week.",
+     "metric": "days_played", "target": 5, "clan_points": 15, "member_xp": 75},
+    {"id": "w_six_seven", "name": "Six/Seven",
+     "desc": "Complete at least one game on 6 of the week's 7 days (they do not have to be in a row).",
+     "metric": "days_played", "target": 6, "clan_points": 30, "member_xp": 150},
+    {"id": "w_double_handed", "name": "Double Handed",
+     "desc": "Complete 10 competitive 1v1 games.",
+     "metric": "comp_games", "target": 10, "clan_points": 15, "member_xp": 75},
+    {"id": "w_artificial_start", "name": "Artificial Start",
+     "desc": "Play Artificial Reef as the first Ocean in 4 games.",
+     "metric": "artificial_first", "target": 4, "clan_points": 6, "member_xp": 30},
+    {"id": "w_casual_current", "name": "Casual Current",
+     "desc": "Finish first in 4 casual games.",
+     "metric": "casual_wins", "target": 4, "clan_points": 8, "member_xp": 40},
+    {"id": "w_crowded_waters", "name": "Crowded Waters",
+     "desc": "Complete 6 casual games with four or more players.",
+     "metric": "casual_4p", "target": 6, "clan_points": 15, "member_xp": 75},
+    {"id": "w_eight_at_sea", "name": "Eight at Sea",
+     "desc": "Complete two 8-player games with all real people.",
+     "metric": "eight_all_human", "target": 2, "clan_points": 15, "member_xp": 75},
+    {"id": "w_friendly_competition", "name": "Friendly Competition",
+     "desc": "Have 3 different clan members finish first in a casual game against another clan.",
+     "metric": "vs_clan_winners", "target": 3, "clan_points": 15, "member_xp": 75},
+    {"id": "w_comeback_current", "name": "Comeback Current",
+     "desc": "Win two casual games you were NOT leading when the End Game card was revealed.",
+     "metric": "comebacks", "target": 2, "clan_points": 20, "member_xp": 100},
+    {"id": "w_competitive_current", "name": "Competitive Current",
+     "desc": "Win 10 competitive matches.",
+     "metric": "comp_wins", "target": 10, "clan_points": 25, "member_xp": 125},
+    {"id": "w_winning_waters", "name": "Winning Waters",
+     "desc": "Have 5 different clan members win a competitive match.",
+     "metric": "comp_win_members", "target": 5, "clan_points": 25, "member_xp": 125},
+    {"id": "w_winning_streak", "name": "Winning Streak",
+     "desc": "Earn two three-game competitive winning streaks as a clan.",
+     "metric": "comp_streak3", "target": 2, "clan_points": 15, "member_xp": 75},
+    {"id": "w_humu_duo", "name": "Two of a Kind",
+     "desc": "Have two members complete Humuhumunukuapua'a (play 5 Cephalopods in one turn).",
+     "metric": "humu_members", "target": 2, "clan_points": 10, "member_xp": 50},
+    {"id": "w_double_trouble", "name": "Double Trouble",
+     "desc": "In a competitive game, have BOTH of your hands score double the opponent's highest hand.",
+     "metric": "double_hands", "target": 1, "clan_points": 20, "member_xp": 100},
+    {"id": "w_dominant_depths", "name": "Dominant Depths",
+     "desc": "Win 5 competitive matches with both of your hands beating the opponent's highest hand.",
+     "metric": "dominant_wins", "target": 5, "clan_points": 25, "member_xp": 125},
+    {"id": "w_ocean_architects", "name": "Ocean Architects",
+     "desc": "Play 75 Ocean cards.",
+     "metric": "oceans_played", "target": 75, "clan_points": 15, "member_xp": 75},
+    {"id": "w_critter_collection", "name": "Critter Collection",
+     "desc": "Play 125 animal cards.",
+     "metric": "animals_played", "target": 125, "clan_points": 15, "member_xp": 75},
+    {"id": "w_moving_tide", "name": "Moving Tide",
+     "desc": "Move animals between Oceans 20 times.",
+     "metric": "moves", "target": 20, "clan_points": 15, "member_xp": 75},
+    {"id": "w_star_power", "name": "Star Power",
+     "desc": "Activate 75 ★ abilities.",
+     "metric": "stars", "target": 75, "clan_points": 15, "member_xp": 75},
+    {"id": "w_chain_reaction", "name": "Chain Reaction",
+     "desc": "Complete 25 turns with two or more chained ★ abilities.",
+     "metric": "star_chains", "target": 25, "clan_points": 20, "member_xp": 100},
+    {"id": "w_pool_party", "name": "Pool Party",
+     "desc": "Draw 150 cards from the Pool.",
+     "metric": "pool_draws", "target": 150, "clan_points": 15, "member_xp": 75},
+    {"id": "w_deep_draw", "name": "Deep Draw",
+     "desc": "Draw 150 cards directly from the Deck.",
+     "metric": "deck_draws", "target": 150, "clan_points": 15, "member_xp": 75},
+    {"id": "w_clan_traders", "name": "Clan Traders",
+     "desc": "Complete 15 eligible clan trades.",
+     "metric": "trades", "target": 15, "clan_points": 20, "member_xp": 100},
+]
+
+CLAN_SEASON_CHALLENGES: List[Dict[str, Any]] = [
+    {"id": "s_clan_kickoff", "name": "Clan Kickoff",
+     "desc": "Complete 20 games with one or more clan members in the game.",
+     "metric": "games_with_clanmate", "target": 20, "clan_points": 30, "member_xp": 150},
+    {"id": "s_ocean_expedition", "name": "Ocean Expedition",
+     "desc": "Complete 50 games with one or more clan members in the game.",
+     "metric": "games_with_clanmate", "target": 50, "clan_points": 60, "member_xp": 300},
+    {"id": "s_ranked_predators", "name": "Ranked Predators",
+     "desc": "Win 30 competitive matches.",
+     "metric": "comp_wins", "target": 30, "clan_points": 40, "member_xp": 200},
+    {"id": "s_packed_ocean", "name": "Packed Ocean",
+     "desc": "Complete 5 casual games with six or more players.",
+     "metric": "casual_6p", "target": 5, "clan_points": 20, "member_xp": 100},
+    {"id": "s_clan_voyage", "name": "Clan Voyage",
+     "desc": "Complete 25 games during the season.",
+     "metric": "games", "target": 25, "clan_points": 30, "member_xp": 150},
+    {"id": "s_ocean_marathon", "name": "Ocean Marathon",
+     "desc": "Complete 50 games during the season.",
+     "metric": "games", "target": 50, "clan_points": 55, "member_xp": 275},
+    {"id": "s_all_together", "name": "All Together",
+     "desc": "Have at least 8 different clan members play and complete one game with each other.",
+     "metric": "max_clanmates_in_game", "target": 8, "clan_points": 15, "member_xp": 75},
+    {"id": "s_regular_tides", "name": "Regular Tides",
+     "desc": "Complete at least 3 eligible games in 10 different weeks of the season.",
+     "metric": "weeks_3plus", "target": 10, "clan_points": 50, "member_xp": 250},
+    {"id": "s_rising_tide", "name": "Rising Tide",
+     "desc": "Earn 75 Clan Points through gameplay.",
+     "metric": "gameplay_points", "target": 75, "clan_points": 25, "member_xp": 125},
+    {"id": "s_powerful_current", "name": "Powerful Current",
+     "desc": "Earn 150 Clan Points through gameplay.",
+     "metric": "gameplay_points", "target": 150, "clan_points": 50, "member_xp": 250},
+    {"id": "s_balanced_waters", "name": "Balanced Waters",
+     "desc": "Earn at least 25 Clan Points from competitive wins AND 25 from casual placements.",
+     "metric": "balanced_points", "target": 25, "clan_points": 25, "member_xp": 125},
+    {"id": "s_podium_masters", "name": "Podium Masters",
+     "desc": "Earn 100 total podium finishes in casual games.",
+     "metric": "podiums", "target": 100, "clan_points": 20, "member_xp": 100},
+    {"id": "s_shoot_the_moon", "name": "Shoot the Moon",
+     "desc": "Complete the Shoot the Moon bonus — all 4 Mandarin Gobies on one board.",
+     "metric": "moon_games", "target": 1, "clan_points": 10, "member_xp": 50},
+    {"id": "s_shooting_the_moon", "name": "Shooting the Moon",
+     "desc": "Complete the Shoot the Moon bonus in five different games.",
+     "metric": "moon_games", "target": 5, "clan_points": 25, "member_xp": 125},
+    {"id": "s_new_members", "name": "Fresh Recruits",
+     "desc": "Have your clan gain two new members this season.",
+     "metric": "new_members", "target": 2, "clan_points": 10, "member_xp": 50},
+    {"id": "s_competitive_fleet", "name": "Competitive Fleet",
+     "desc": "Have at least 10 different clan members win a competitive match.",
+     "metric": "comp_win_members", "target": 10, "clan_points": 15, "member_xp": 75},
+    {"id": "s_rank_climbers", "name": "Rank Climbers",
+     "desc": "Increase clan members' competitive rank divisions 15 times.",
+     "metric": "rank_ups", "target": 15, "clan_points": 20, "member_xp": 100},
+    {"id": "s_ecosystem_engineers", "name": "Ecosystem Engineers",
+     "desc": "Play 555 animal cards and 555 Ocean cards.",
+     "metric": "ecosystem", "target": 555, "clan_points": 55, "member_xp": 275},
+    {"id": "s_invertebrates", "name": "Saving the Invertebrates",
+     "desc": "Have every member of the clan complete the Saving the Invertebrates achievement.",
+     "metric": "invert_members", "target": "members", "clan_points": 30, "member_xp": 150},
+    {"id": "s_good_game", "name": "Good Sports",
+     "desc": "Say “good game” in 25 different games.",
+     "metric": "gg_games", "target": 25, "clan_points": 10, "member_xp": 50},
+    {"id": "s_events", "name": "Event Organizers",
+     "desc": "Organize three events with your clan.",
+     "metric": "events_held", "target": 3, "clan_points": 5, "member_xp": 25},
+    {"id": "s_team_mode", "name": "Team Tide",
+     "desc": "Play 10 games in Team Mode.",
+     "metric": "team_games", "target": 10, "clan_points": 15, "member_xp": 75},
+    {"id": "s_rival", "name": "Choose Your Rival",
+     "desc": "Create a rival clan for the season.",
+     "metric": "rival_set", "target": 1, "clan_points": 10, "member_xp": 50},
+    {"id": "s_beat_rival", "name": "Rival Reckoning",
+     "desc": "Finish the season with more Clan Points than your rival clan "
+             "(scored when the season ends).",
+     "metric": "beat_rival", "target": 1, "clan_points": 10, "member_xp": 50},
+    {"id": "s_clan_trades", "name": "Reef Merchants",
+     "desc": "Trade 5 times with other clan members.",
+     "metric": "clan_trades", "target": 5, "clan_points": 5, "member_xp": 25},
+    {"id": "s_team_rival", "name": "Cross-Current",
+     "desc": "Play a Team Mode game with 3 members from your clan and 3 from your rival clan "
+             "— both clans score it.",
+     "metric": "team_rival_games", "target": 1, "clan_points": 15, "member_xp": 75},
+]
+
+# Both lists may be replaced wholesale from the environment (same JSON shape) so
+# a live event can be run without a deploy. A bad blob is ignored, never fatal.
+def _challenges_from_env(var: str, fallback: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    try:
+        raw = os.environ.get(var, "").strip()
+        if not raw:
+            return fallback
+        parsed = json.loads(raw)
+        if isinstance(parsed, list):
+            picked = [c for c in parsed if isinstance(c, dict) and c.get("id")]
+            if picked:
+                return picked
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] {var} parse failed: {exc}")
+    return fallback
+
+
+CLAN_WEEKLY_CHALLENGES = _challenges_from_env("FISH_CLAN_CHALLENGES", CLAN_WEEKLY_CHALLENGES)
+CLAN_SEASON_CHALLENGES = _challenges_from_env("FISH_CLAN_SEASON_CHALLENGES", CLAN_SEASON_CHALLENGES)
+
+# ── End-of-season competitive rank payout ────────────────────────────────────
+# "The higher your competitive rank, the more you bring your squad." At season
+# finalize every CURRENT member's competitive division is read from their
+# profile (stats.rank_competitive, the same string the Competitive tab shows)
+# and converted to a tier here. The Clan Points land on the season being
+# finalized BEFORE the final standings are computed, so they can still change
+# the placing; the Critter Coins go straight to the member.
+# Coins climb by 50 a tier from Silver up; Diamond sits between Gold and
+# Emerald in the live ladder and its Clan Points are interpolated to match.
+COMP_RANK_TIER_ORDER = ("unranked", "bronze", "silver", "gold", "diamond", "emerald", "king")
+COMP_RANK_SEASON_REWARDS: Dict[str, Dict[str, int]] = {
+    "unranked": {"coins": 0,   "clan_points": 0},
+    "bronze":   {"coins": 0,   "clan_points": 0},
+    "silver":   {"coins": 50,  "clan_points": 5},
+    "gold":     {"coins": 100, "clan_points": 15},
+    "diamond":  {"coins": 150, "clan_points": 20},
+    "emerald":  {"coins": 200, "clan_points": 25},
+    "king":     {"coins": 250, "clan_points": 50},
+}
+# Division name → tier. Matched on the distinctive word so "Golden Grouper II",
+# "Emerald Emperor Penguin III" and "King of the Critters" all resolve.
+_RANK_TIER_WORDS = (
+    ("king", "king"), ("emerald", "emerald"), ("diamond", "diamond"),
+    ("golden", "gold"), ("gold", "gold"), ("silver", "silver"), ("bronze", "bronze"),
+)
 
 # The shared daily goal roster; one is picked per clan per UTC day.
 DAILY_GOALS = [
@@ -157,7 +363,7 @@ _FINALIZE_LOCK = threading.Lock()
 _FINALIZED_SIDS: set = set()          # in-process cache so we don't re-check every call
 # name.lower() → (is_a_real_account, checked_at). Every finished game asks about
 # each opponent; without this that's a Firestore query per opponent per game.
-_REG_CACHE: Dict[str, Tuple[bool, float]] = {}
+_REG_CACHE: Dict[str, Tuple[Dict[str, Any], float]] = {}
 _REG_TTL_SEC = 600.0
 
 
@@ -194,6 +400,49 @@ def _date_key(ts: Optional[int] = None) -> str:
 def _week_key(ts: Optional[int] = None) -> str:
     iso = datetime.fromtimestamp(ts if ts is not None else _now(), tz=timezone.utc).isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"
+
+
+# ── Clan Points are fractional ───────────────────────────────────────────────
+# First place against bots pays half a point, so every point counter has to
+# survive a .5. _num is the one normaliser: it keeps one decimal place, returns
+# a plain int when the value is whole (so nothing renders "12.0"), and turns
+# junk into 0 instead of raising inside a transaction.
+def _num(value: Any) -> Any:
+    try:
+        f = round(float(value or 0), 1)
+    except (TypeError, ValueError):
+        return 0
+    return int(f) if f == int(f) else f
+
+
+def _rank_tier(division: Any) -> str:
+    """Competitive division name → reward tier ('Golden Grouper II' → 'gold')."""
+    text = str(division or "").strip().lower()
+    if not text or text.startswith("unranked"):
+        return "unranked"
+    for word, tier in _RANK_TIER_WORDS:
+        if word in text:
+            return tier
+    return "unranked"
+
+
+def _rank_tier_index(division: Any) -> int:
+    """Where a division sits in the ladder — the basis for 'ranked up'.
+
+    Divisions climb I → II → III inside a tier, so the roman numeral is part of
+    the ordering: Silver II really is above Silver I. Anything unrecognised
+    sorts to 0, which can only ever read as "no climb"."""
+    tier = _rank_tier(division)
+    base = COMP_RANK_TIER_ORDER.index(tier) if tier in COMP_RANK_TIER_ORDER else 0
+    if base <= 0:
+        return 0
+    text = str(division or "").strip().lower()
+    step = 1
+    for numeral, value in (("iii", 3), ("ii", 2), ("i", 1)):
+        if re.search(r"\b" + numeral + r"\b", text):
+            step = value
+            break
+    return base * 10 + step
 
 
 def _sid_parse(sid: str) -> Tuple[int, int]:
@@ -351,20 +600,125 @@ def _user_icons(udoc: Dict[str, Any]) -> set:
     return out
 
 
-def _clan_icon_pool(db, clan: Dict[str, Any]) -> set:
+# Member docs are wanted by three different things on one screen (the roster's
+# presence dots, the clan's critter pool, the vote gate), and reading them one
+# document at a time was what made the Clans tab feel slow: a 25-member clan
+# paid 25 sequential Firestore round-trips per call, and opening the tab then
+# opening the clan then voting made that bill three times over.
+#
+# So: ONE batched get_all() for the whole roster, plus a few seconds of cache so
+# the calls that follow each other inside a single interaction reuse it. The TTL
+# is far shorter than PRESENCE_FRESH_SEC, so an online dot can't go stale from
+# this — and any write that changes what a member doc says (joining, leaving,
+# unlocking) goes through a path that drops the cache.
+_MEMBERS_CACHE: Dict[str, Any] = {}          # uid -> (fetched_at, doc dict)
+_MEMBERS_TTL_SEC = 3.0
+
+
+def _members_invalidate(uids: Optional[Any] = None) -> None:
+    """Forget cached member docs — all of them, or just the ones named.
+
+    The name→account cache goes too: it carries the player's CLAN, and that is
+    what decides whether a game was "against another clan". A player who just
+    joined must not still read as clanless for the next ten minutes."""
+    _REG_CACHE.clear()
+    if uids is None:
+        _MEMBERS_CACHE.clear()
+        return
+    for u in uids:
+        _MEMBERS_CACHE.pop(str(u), None)
+
+
+def _member_docs(db, uids: Any, fresh: bool = False) -> Dict[str, Dict[str, Any]]:
+    """{uid: user doc} for a whole roster in ONE round-trip.
+
+    Falls back to per-document gets only if the client has no get_all (older
+    google-cloud-firestore), so behaviour is identical either way — just slower.
+    A uid that doesn't resolve maps to {}, never to a missing key, so callers
+    never have to test for absence. `fresh=True` ignores the cache, for the one
+    caller that must not refuse something on stale evidence."""
+    want = [str(u) for u in (uids or []) if u]
+    now = time.time()
+    out: Dict[str, Dict[str, Any]] = {}
+    misses: List[str] = []
+    for u in want:
+        hit = None if fresh else _MEMBERS_CACHE.get(u)
+        if hit and now - hit[0] < _MEMBERS_TTL_SEC:
+            out[u] = hit[1]
+        else:
+            misses.append(u)
+    if misses:
+        refs = [_users(db).document(u) for u in misses]
+        docs = []
+        try:
+            get_all = getattr(db, "get_all", None)
+            docs = list(get_all(refs)) if get_all else [r.get() for r in refs]
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] member batch read failed: {exc}")
+            docs = []
+        seen = set()
+        for snap in docs:
+            try:
+                u = str(getattr(snap, "id", "") or (snap.reference.id if snap.reference else ""))
+                d = (snap.to_dict() or {}) if getattr(snap, "exists", False) else {}
+            except Exception:  # noqa: BLE001
+                continue
+            if not u:
+                continue
+            seen.add(u)
+            out[u] = d
+            _MEMBERS_CACHE[u] = (now, d)
+        for u in misses:
+            if u not in seen:
+                out[u] = {}                  # read failed or no such user
+    return out
+
+
+def _clan_icon_pool(db, clan: Dict[str, Any],
+                    member_docs: Optional[Dict[str, Dict[str, Any]]] = None,
+                    fresh: bool = False) -> set:
     """Every critter THIS clan may wear: the union of its current members'
     unlocked icons. One member having it unlocked is enough for the clan, and a
     member who leaves takes their exclusive critters with them (the pool is
-    recomputed from the live membership every time)."""
+    recomputed from the live membership every time).
+
+    `member_docs` lets a caller that has already read the roster hand it over
+    instead of paying for the same read twice."""
     pool = set(STARTER_ICONS)
-    for m_uid in list((clan.get("members") or {}).keys()):
-        try:
-            snap = _users(db).document(m_uid).get()
-            if snap.exists:
-                pool |= _user_icons(snap.to_dict() or {})
-        except Exception as exc:  # noqa: BLE001
-            print(f"[clan] icon pool read failed for {m_uid}: {exc}")
+    uids = list((clan.get("members") or {}).keys())
+    docs = member_docs if member_docs is not None else _member_docs(db, uids, fresh=fresh)
+    for m_uid in uids:
+        pool |= _user_icons(docs.get(m_uid) or {})
     return pool
+
+
+def _icon_pool_allowing(db, clan: Dict[str, Any], icon: str) -> Tuple[bool, set]:
+    """(is the clan allowed to wear `icon`, the pool that says so).
+
+    The pool is built from cached member docs, so a critter unlocked seconds ago
+    could be missing from it — and refusing someone's brand-new critter is worse
+    than one extra read. So a miss is re-checked against fresh reads before it
+    becomes a "no"; a hit costs nothing extra."""
+    pool = _clan_icon_pool(db, clan)
+    if icon in pool:
+        return True, pool
+    pool = _clan_icon_pool(db, clan, fresh=True)
+    return icon in pool, pool
+
+
+def _favorite_from_votes(votes: Dict[str, Any], pool: set) -> Tuple[Optional[str], Dict[str, int]]:
+    """Season favourite critter → (winner, tally). Most votes wins, and the
+    winner is what the clan's members see on their Clans tab button. Votes for a
+    critter nobody in the clan owns any more (its only owner left, or traded it
+    away) drop out of the tally, so the badge can never show a critter the clan
+    can't wear. Ties break alphabetically so every member sees the same winner."""
+    tally: Dict[str, int] = {}
+    for raw in (votes or {}).values():
+        icon = _norm_icon(raw)
+        if icon and icon in pool:
+            tally[icon] = tally.get(icon, 0) + 1
+    fav = min(tally.items(), key=lambda kv: (-kv[1], kv[0]))[0] if tally else None
+    return fav, tally
 
 
 def _txn_helpers():
@@ -406,21 +760,35 @@ def _clan_level(xp: int) -> Dict[str, int]:
             "next": CLAN_XP_PER_LEVEL_STEP * level}
 
 
+# Season counters that are plain running totals — every one of them is fed by
+# _apply_game_counters from a game record this server wrote. Kept in one table
+# so the slot initialiser, the metric reader and the tests can't drift apart.
+_SEASON_COUNTERS = (
+    "points", "comp_wins", "comp_losses", "casual_wins", "games",
+    "trade_points", "challenge_points", "challenges_completed",
+    "win_streak", "last_gain_ts",
+    # Season-challenge counters (see CLAN_SEASON_CHALLENGES).
+    "games_with_clanmate", "max_clanmates_in_game", "casual_6p",
+    "gameplay_points", "comp_points", "casual_points", "podiums",
+    "moon_games", "new_members", "rank_ups", "oceans_played", "animals_played",
+    "gg_games", "events_held", "team_games", "rival_set", "beat_rival",
+    "clan_trades", "team_rival_games", "rank_bonus_points",
+)
+# Season counters whose value is "how many distinct things" — stored as maps so
+# the same member/week can never be counted twice.
+_SEASON_SETS = ("comp_win_members", "invert_members", "week_games", "member_ranks")
+
+
 def _season_slot(clan: Dict[str, Any], sid: str) -> Dict[str, Any]:
     seasons = clan.setdefault("seasons", {})
     slot = seasons.setdefault(sid, {})
-    slot.setdefault("points", 0)
-    slot.setdefault("comp_wins", 0)
-    slot.setdefault("comp_losses", 0)
-    slot.setdefault("casual_wins", 0)
-    slot.setdefault("games", 0)
-    slot.setdefault("trade_points", 0)
-    slot.setdefault("challenge_points", 0)
-    slot.setdefault("challenges_completed", 0)
+    for key in _SEASON_COUNTERS:
+        slot.setdefault(key, 0)
+    for key in _SEASON_SETS:
+        slot.setdefault(key, {})
     slot.setdefault("contrib", {})
     slot.setdefault("critter_votes", {})
-    slot.setdefault("win_streak", 0)
-    slot.setdefault("last_gain_ts", 0)
+    slot.setdefault("challenges_done", [])
     return slot
 
 
@@ -442,6 +810,8 @@ def _contrib_slot(slot: Dict[str, Any], uid: str, name: str) -> Dict[str, Any]:
     c.setdefault("last_trade_date", "")
     c.setdefault("opp_date", "")
     c.setdefault("opp_counts", {})
+    c.setdefault("games", 0)
+    c.setdefault("gg_games", 0)
     return c
 
 
@@ -478,33 +848,91 @@ def _daily_slot(clan: Dict[str, Any], clan_id: str) -> Dict[str, Any]:
     return d
 
 
+# Weekly counters, same split as the season ones.
+_WEEKLY_COUNTERS = (
+    "games", "points", "trades", "comp_wins", "comp_games", "casual_wins",
+    "artificial_first", "casual_4p", "eight_all_human", "comebacks",
+    "comp_streak", "comp_streak3", "double_hands", "dominant_wins",
+    "oceans_played", "animals_played", "moves", "stars", "star_chains",
+    "pool_draws", "deck_draws",
+)
+_WEEKLY_SETS = ("contributors", "players", "days", "vs_clan_winners",
+                "comp_win_members", "humu_members")
+
+
 def _weekly_slot(clan: Dict[str, Any]) -> Dict[str, Any]:
     wk = _week_key()
     w = clan.get("weekly") or {}
     if w.get("week") != wk:
-        w = {"week": wk, "games": 0, "points": 0, "trades": 0, "comp_wins": 0,
-             "contributors": {}, "challenges_done": []}
+        w = {"week": wk}
+    for key in _WEEKLY_COUNTERS:
+        w.setdefault(key, 0)
+    for key in _WEEKLY_SETS:
+        w.setdefault(key, {})
+    w.setdefault("challenges_done", [])
     clan["weekly"] = w
     return w
 
 
-def _daily_goal_progress(daily: Dict[str, Any]) -> int:
+def _daily_goal_progress(daily: Dict[str, Any]) -> Any:
     gid = (daily.get("goal") or {}).get("id")
     if gid == "games":
-        return int(daily.get("games") or 0)
+        return _num(daily.get("games"))
     if gid == "points":
-        return int(daily.get("points") or 0)
+        return _num(daily.get("points"))
     if gid == "members":
         return len(daily.get("contributors") or {})
     if gid == "trade":
-        return int(daily.get("trades") or 0)
+        return _num(daily.get("trades"))
     return 0
 
 
-def _challenge_metric(weekly: Dict[str, Any], metric: str) -> int:
+def _challenge_metric(weekly: Dict[str, Any], metric: str) -> Any:
+    """Progress of one WEEKLY challenge metric.
+
+    Set-valued metrics ("how many DIFFERENT members…") are stored as maps and
+    read as their size; everything else is a running total."""
     if metric == "members_active":
         return len(weekly.get("contributors") or {})
-    return int(weekly.get(metric) or 0)
+    if metric in _WEEKLY_SETS:
+        return len(weekly.get(metric) or {})
+    if metric == "days_played":
+        return len(weekly.get("days") or {})
+    if metric == "members_played":
+        return len(weekly.get("players") or {})
+    return _num(weekly.get(metric))
+
+
+def _season_metric(slot: Dict[str, Any], metric: str) -> Any:
+    """Progress of one SEASON challenge metric.
+
+    Three of them are compound — they are only satisfied when TWO totals are
+    both there — so each reports the smaller of its two halves. That makes the
+    progress bar honest (it can never sit at 100% while half the work is
+    missing) and lets one `progress >= target` test drive every challenge."""
+    if metric == "balanced_points":
+        return min(_num(slot.get("comp_points")), _num(slot.get("casual_points")))
+    if metric == "ecosystem":
+        return min(_num(slot.get("animals_played")), _num(slot.get("oceans_played")))
+    if metric == "weeks_3plus":
+        # "A regular week" is a week the clan actually turned up for. Weeks are
+        # counted, never dates — nothing in this system is monthly.
+        return sum(1 for n in (slot.get("week_games") or {}).values() if _num(n) >= 3)
+    if metric in _SEASON_SETS:
+        return len(slot.get(metric) or {})
+    return _num(slot.get(metric))
+
+
+def _challenge_target(ch: Dict[str, Any], clan: Optional[Dict[str, Any]] = None) -> int:
+    """A challenge's target. "members" means the whole clan has to do it, so it
+    scales with the roster — and a clan of one can't claim it by being alone."""
+    target = ch.get("target")
+    if target == "members":
+        return max(2, len((clan or {}).get("members") or {}))
+    try:
+        return int(target or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 # ── The one award engine ─────────────────────────────────────────────────────
@@ -512,10 +940,12 @@ def _challenge_metric(weekly: Dict[str, Any], metric: str) -> int:
 # transaction: dedup ledger create + clan season/contrib counters + weekly cap
 # + daily goal + weekly challenge sweep + activity, all-or-nothing.
 def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
-                 points: int, dedup_id: str, activity_text: str,
+                 points: Any, dedup_id: str, activity_text: str,
                  counts_game: bool = False, is_comp_win: bool = False,
                  is_comp_loss: bool = False, is_casual_win: bool = False,
-                 is_trade: bool = False, meta: Optional[Dict[str, Any]] = None
+                 is_trade: bool = False, count_trade: bool = True,
+                 meta: Optional[Dict[str, Any]] = None,
+                 game: Optional[Dict[str, Any]] = None,
                  ) -> Dict[str, Any]:
     transactional = _txn_helpers()
     clan_ref = _clans(db).document(clan_id)
@@ -540,94 +970,111 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
 
         slot = _season_slot(clan, sid)
         contrib = _contrib_slot(slot, uid, name)
-        weekly_used = int(contrib["weekly"].get(wk) or 0)
-        granted = max(0, min(int(points), WEEKLY_POINT_CAP - weekly_used))
-        capped = granted < int(points)
+        weekly_used = _num(contrib["weekly"].get(wk))
+        want = _num(points)
+        granted = _num(max(0, min(want, WEEKLY_POINT_CAP - weekly_used)))
+        capped = granted < want
 
         # Season + contributor counters (wins/losses/games record even when the
         # points themselves were capped or zero — "Clan wins and losses are
         # still recorded in clan statistics").
         if counts_game:
-            slot["games"] = int(slot.get("games") or 0) + 1
+            slot["games"] = _num(slot.get("games")) + 1
+            contrib["games"] = _num(contrib.get("games")) + 1
         if is_comp_win:
-            slot["comp_wins"] = int(slot.get("comp_wins") or 0) + 1
-            contrib["comp_wins"] = int(contrib.get("comp_wins") or 0) + 1
+            slot["comp_wins"] = _num(slot.get("comp_wins")) + 1
+            contrib["comp_wins"] = _num(contrib.get("comp_wins")) + 1
         if is_comp_loss:
-            slot["comp_losses"] = int(slot.get("comp_losses") or 0) + 1
+            slot["comp_losses"] = _num(slot.get("comp_losses")) + 1
         if is_casual_win:
-            slot["casual_wins"] = int(slot.get("casual_wins") or 0) + 1
-            contrib["casual_wins"] = int(contrib.get("casual_wins") or 0) + 1
+            slot["casual_wins"] = _num(slot.get("casual_wins")) + 1
+            contrib["casual_wins"] = _num(contrib.get("casual_wins")) + 1
         if is_comp_win or is_casual_win:
-            slot["win_streak"] = int(slot.get("win_streak") or 0) + 1
+            slot["win_streak"] = _num(slot.get("win_streak")) + 1
         elif counts_game:
             slot["win_streak"] = 0
 
         if granted > 0:
-            slot["points"] = int(slot.get("points") or 0) + granted
+            slot["points"] = _num(_num(slot.get("points")) + granted)
             slot["last_gain_ts"] = _now()
-            contrib["points"] = int(contrib.get("points") or 0) + granted
-            contrib["weekly"][wk] = weekly_used + granted
+            contrib["points"] = _num(_num(contrib.get("points")) + granted)
+            contrib["weekly"][wk] = _num(weekly_used + granted)
             if is_trade:
-                slot["trade_points"] = int(slot.get("trade_points") or 0) + granted
-                contrib["trade_points"] = int(contrib.get("trade_points") or 0) + granted
+                slot["trade_points"] = _num(_num(slot.get("trade_points")) + granted)
+                contrib["trade_points"] = _num(_num(contrib.get("trade_points")) + granted)
             else:
-                contrib["game_points"] = int(contrib.get("game_points") or 0) + granted
+                contrib["game_points"] = _num(_num(contrib.get("game_points")) + granted)
+                # "Through gameplay" — Rising Tide / Powerful Current / Balanced
+                # Waters all mean points earned by PLAYING, so trade points and
+                # challenge bonuses are deliberately not in here.
+                slot["gameplay_points"] = _num(_num(slot.get("gameplay_points")) + granted)
+                if kind == "comp":
+                    slot["comp_points"] = _num(_num(slot.get("comp_points")) + granted)
+                elif kind == "casual":
+                    slot["casual_points"] = _num(_num(slot.get("casual_points")) + granted)
             life = clan.setdefault("lifetime", {})
-            life["points"] = int(life.get("points") or 0) + granted
+            life["points"] = _num(_num(life.get("points")) + granted)
         if is_trade:
             contrib["last_trade_date"] = today
 
         # Days-active streak for the contributor (drives "most active member").
         if contrib.get("last_active_date") != today:
             contrib["last_active_date"] = today
-            contrib["days_active"] = int(contrib.get("days_active") or 0) + 1
+            contrib["days_active"] = _num(contrib.get("days_active")) + 1
 
         # Shared daily goal progress.
         daily = _daily_slot(clan, clan_id)
         if counts_game:
-            daily["games"] = int(daily.get("games") or 0) + 1
-        if is_trade:
-            daily["trades"] = int(daily.get("trades") or 0) + 1
+            daily["games"] = _num(daily.get("games")) + 1
+        if is_trade and count_trade:
+            daily["trades"] = _num(daily.get("trades")) + 1
         if granted > 0:
-            daily["points"] = int(daily.get("points") or 0) + granted
+            daily["points"] = _num(_num(daily.get("points")) + granted)
             daily.setdefault("contributors", {})[uid] = True
         goal_done_now = False
-        if not daily.get("done") and _daily_goal_progress(daily) >= int((daily.get("goal") or {}).get("target") or 9999):
+        if not daily.get("done") and _daily_goal_progress(daily) >= _num((daily.get("goal") or {}).get("target") or 9999):
             daily["done"] = True
             goal_done_now = True
             clan["xp"] = int(clan.get("xp") or 0) + DAILY_GOAL_XP
             _activity_push(clan, "daily_goal",
                            f"🌞 Daily goal complete: {(daily.get('goal') or {}).get('label')} (+{DAILY_GOAL_XP} Clan XP)")
 
-        # Weekly counters + challenge sweep.
+        # Weekly counters.
         weekly = _weekly_slot(clan)
         if counts_game:
-            weekly["games"] = int(weekly.get("games") or 0) + 1
-        if is_trade:
-            weekly["trades"] = int(weekly.get("trades") or 0) + 1
+            weekly["games"] = _num(weekly.get("games")) + 1
+        # A trade has TWO sides and pays both of them, but it is still ONE
+        # trade — the clan-wide counters move for the first side only, or the
+        # clan would read 8 real trades as 16.
+        if is_trade and count_trade:
+            weekly["trades"] = _num(weekly.get("trades")) + 1
+            slot["clan_trades"] = _num(slot.get("clan_trades")) + 1
         if is_comp_win:
-            weekly["comp_wins"] = int(weekly.get("comp_wins") or 0) + 1
+            weekly["comp_wins"] = _num(weekly.get("comp_wins")) + 1
+            weekly.setdefault("comp_win_members", {})[uid] = 1
+            slot.setdefault("comp_win_members", {})[uid] = 1
+        if is_casual_win:
+            weekly["casual_wins"] = _num(weekly.get("casual_wins")) + 1
         if granted > 0:
-            weekly["points"] = int(weekly.get("points") or 0) + granted
+            weekly["points"] = _num(_num(weekly.get("points")) + granted)
             wc = weekly.setdefault("contributors", {})
-            wc[uid] = int(wc.get(uid) or 0) + granted
+            wc[uid] = _num(_num(wc.get(uid)) + granted)
+
+        # Everything a finished GAME proves — see _apply_game_counters.
+        if game:
+            _apply_game_counters(clan, slot, contrib, weekly, uid, game)
+
+        # Challenge sweeps. Weekly first, then season, so a game that finishes
+        # both is recorded in the order a player would read it.
         challenges_done_now: List[Dict[str, Any]] = []
-        done_list = weekly.setdefault("challenges_done", [])
-        for ch in CLAN_WEEKLY_CHALLENGES:
-            cid = str(ch.get("id"))
-            if cid in done_list:
-                continue
-            if _challenge_metric(weekly, str(ch.get("metric") or "")) >= int(ch.get("target") or 9999):
-                done_list.append(cid)
-                cp = int(ch.get("clan_points") or 0)
-                slot["challenge_points"] = int(slot.get("challenge_points") or 0) + cp
-                slot["challenges_completed"] = int(slot.get("challenges_completed") or 0) + 1
-                if cp:
-                    slot["points"] = int(slot.get("points") or 0) + cp
-                    slot["last_gain_ts"] = _now()
-                _activity_push(clan, "challenge",
-                               f"🏁 Weekly challenge complete: {ch.get('name')} (+{cp} Clan Points)")
-                challenges_done_now.append(dict(ch))
+        _sweep_challenges(clan, slot, weekly, CLAN_WEEKLY_CHALLENGES,
+                          weekly.setdefault("challenges_done", []),
+                          lambda ch: _challenge_metric(weekly, str(ch.get("metric") or "")),
+                          "Weekly", challenges_done_now)
+        _sweep_challenges(clan, slot, weekly, CLAN_SEASON_CHALLENGES,
+                          slot.setdefault("challenges_done", []),
+                          lambda ch: _season_metric(slot, str(ch.get("metric") or "")),
+                          "Season", challenges_done_now)
 
         if activity_text:
             suffix = " (weekly cap reached)" if (capped and granted == 0) else ""
@@ -635,7 +1082,7 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
 
         t.set(ledger_ref, {
             "ts": _now(), "uid": uid, "name": name, "kind": kind,
-            "points": granted, "requested": int(points), "week": wk,
+            "points": granted, "requested": want, "week": wk,
             "date": today, "season": sid, "meta": meta or {},
         })
         t.set(clan_ref, clan)
@@ -653,9 +1100,135 @@ def _apply_award(db, clan_id: str, uid: str, name: str, *, kind: str,
         if out.get("goal_done"):
             _chat_system(db, clan_id, "🌞 Today's clan goal is complete! +25 Clan XP")
         for ch in out.get("challenges_done") or []:
-            _chat_system(db, clan_id, f"🏁 Weekly challenge complete: {ch.get('name')}!")
+            _chat_system(db, clan_id, f"🏁 {ch.get('scope', 'Weekly')} challenge complete: {ch.get('name')}!")
             _grant_challenge_xp(db, clan_id, ch)
     return out
+
+
+def _sweep_challenges(clan: Dict[str, Any], slot: Dict[str, Any],
+                      weekly: Dict[str, Any], table: List[Dict[str, Any]],
+                      done_list: List[str], progress_of: Callable[[Dict[str, Any]], Any],
+                      scope: str, out: List[Dict[str, Any]]) -> None:
+    """Complete every challenge in one table whose counter has reached target.
+
+    Runs INSIDE the award transaction against the very counters the same
+    transaction just moved, so a challenge can never be paid twice (the id in
+    done_list is written in the same commit as its points) and can never be
+    missed (nothing else can move a counter between the bump and this check).
+
+    A challenge with no target, or an unknown metric, can never complete —
+    _challenge_target returning 0 would otherwise fire everything at once."""
+    for ch in table:
+        cid = str(ch.get("id") or "")
+        if not cid or cid in done_list:
+            continue
+        target = _challenge_target(ch, clan)
+        if target <= 0:
+            continue
+        if _num(progress_of(ch)) < target:
+            continue
+        done_list.append(cid)
+        cp = _num(ch.get("clan_points"))
+        slot["challenge_points"] = _num(_num(slot.get("challenge_points")) + cp)
+        slot["challenges_completed"] = _num(slot.get("challenges_completed")) + 1
+        if cp:
+            slot["points"] = _num(_num(slot.get("points")) + cp)
+            slot["last_gain_ts"] = _now()
+        _activity_push(clan, "challenge",
+                       f"🏁 {scope} challenge complete: {ch.get('name')} (+{cp} Clan Points)")
+        entry = dict(ch)
+        entry["scope"] = scope
+        out.append(entry)
+
+
+# ── What a finished game proves ──────────────────────────────────────────────
+# `game` is the normalised, server-verified summary claim_game_points builds
+# from THIS server's own game record (see _game_facts). Every clan-challenge
+# counter that a game can move is moved here and nowhere else, so there is one
+# place to read when asking "what does this challenge actually count?".
+def _apply_game_counters(clan: Dict[str, Any], slot: Dict[str, Any],
+                         contrib: Dict[str, Any], weekly: Dict[str, Any],
+                         uid: str, game: Dict[str, Any]) -> None:
+    today = _date_key()
+    wk = _week_key()
+    is_comp = bool(game.get("competitive"))
+
+    # Participation: who played, and on which days.
+    weekly.setdefault("players", {})[uid] = 1
+    weekly.setdefault("days", {})[today] = 1
+    slot.setdefault("week_games", {})[wk] = _num(slot["week_games"].get(wk)) + 1
+
+    if is_comp:
+        weekly["comp_games"] = _num(weekly.get("comp_games")) + 1
+        if game.get("double_hands"):
+            weekly["double_hands"] = _num(weekly.get("double_hands")) + 1
+        if game.get("dominant_win"):
+            weekly["dominant_wins"] = _num(weekly.get("dominant_wins")) + 1
+        # Clan-wide competitive win streak. Every third win in a row is one
+        # "three-game streak" and the count restarts, so 6 straight wins is
+        # two streaks — not four overlapping ones.
+        if game.get("won"):
+            streak = _num(weekly.get("comp_streak")) + 1
+            if streak >= 3:
+                weekly["comp_streak3"] = _num(weekly.get("comp_streak3")) + 1
+                streak = 0
+            weekly["comp_streak"] = streak
+        else:
+            weekly["comp_streak"] = 0
+    else:
+        players = int(game.get("player_count") or 0)
+        if players >= 4:
+            weekly["casual_4p"] = _num(weekly.get("casual_4p")) + 1
+        if players >= 6:
+            slot["casual_6p"] = _num(slot.get("casual_6p")) + 1
+        if players >= 8 and game.get("all_real_people"):
+            weekly["eight_all_human"] = _num(weekly.get("eight_all_human")) + 1
+        # A podium is a placement that actually PLACES — the same bar the
+        # placement points use, so second in a two-player game (which is last)
+        # is not a podium finish and third in a three-player game isn't either.
+        place = int(game.get("place") or 0)
+        if place == 1 or (place == 2 and players > 2) or (place == 3 and players >= 4):
+            slot["podiums"] = _num(slot.get("podiums")) + 1
+        if place == 1:
+            if game.get("comeback"):
+                weekly["comebacks"] = _num(weekly.get("comebacks")) + 1
+            if game.get("vs_other_clan"):
+                weekly.setdefault("vs_clan_winners", {})[uid] = 1
+
+    # Clanmates in the game (both are "how many of US were in there", which is
+    # why a solo game with bots can never move them).
+    mates = int(game.get("clanmates") or 0)
+    if mates >= 2:
+        slot["games_with_clanmate"] = _num(slot.get("games_with_clanmate")) + 1
+    slot["max_clanmates_in_game"] = max(_num(slot.get("max_clanmates_in_game")), mates)
+
+    if game.get("team_mode"):
+        slot["team_games"] = _num(slot.get("team_games")) + 1
+        if game.get("team_rival"):
+            slot["team_rival_games"] = _num(slot.get("team_rival_games")) + 1
+
+    # Per-play telemetry, summed over every seat this player owned.
+    for key in ("oceans_played", "animals_played", "moves", "stars",
+                "star_chains", "pool_draws", "deck_draws"):
+        add = _num(game.get(key))
+        if add:
+            weekly[key] = _num(weekly.get(key)) + add
+    for key in ("oceans_played", "animals_played"):
+        add = _num(game.get(key))
+        if add:
+            slot[key] = _num(slot.get(key)) + add
+
+    if game.get("artificial_first"):
+        weekly["artificial_first"] = _num(weekly.get("artificial_first")) + 1
+    if game.get("humu"):
+        weekly.setdefault("humu_members", {})[uid] = 1
+    if game.get("moon"):
+        slot["moon_games"] = _num(slot.get("moon_games")) + 1
+    if game.get("said_gg"):
+        slot["gg_games"] = _num(slot.get("gg_games")) + 1
+        contrib["gg_games"] = _num(contrib.get("gg_games")) + 1
+    if game.get("has_invertebrates"):
+        slot.setdefault("invert_members", {})[uid] = 1
 
 
 def _grant_challenge_xp(db, clan_id: str, ch: Dict[str, Any]) -> None:
@@ -671,7 +1244,7 @@ def _grant_challenge_xp(db, clan_id: str, ch: Dict[str, Any]) -> None:
         clan = snap.to_dict() or {}
         weekly = clan.get("weekly") or {}
         for uid, pts in (weekly.get("contributors") or {}).items():
-            if int(pts or 0) < need:
+            if _num(pts) < need:
                 continue
             uref = _users(db).document(uid)
             usnap = uref.get()
@@ -742,14 +1315,14 @@ def _clan_card(clan_id: str, clan: Dict[str, Any], sid: str) -> Dict[str, Any]:
         "privacy": clan.get("privacy"),
         "member_count": len(clan.get("members") or {}),
         "max_members": CLAN_MAX_MEMBERS,
-        "points": int(slot.get("points") or 0),
-        "comp_wins": int(slot.get("comp_wins") or 0),
-        "casual_wins": int(slot.get("casual_wins") or 0),
-        "challenge_points": int(slot.get("challenge_points") or 0),
-        "challenges_completed": int(slot.get("challenges_completed") or 0),
-        "trade_points": int(slot.get("trade_points") or 0),
-        "games": int(slot.get("games") or 0),
-        "comp_losses": int(slot.get("comp_losses") or 0),
+        "points": _num(slot.get("points")),
+        "comp_wins": _num(slot.get("comp_wins")),
+        "casual_wins": _num(slot.get("casual_wins")),
+        "challenge_points": _num(slot.get("challenge_points")),
+        "challenges_completed": _num(slot.get("challenges_completed")),
+        "trade_points": _num(slot.get("trade_points")),
+        "games": _num(slot.get("games")),
+        "comp_losses": _num(slot.get("comp_losses")),
         "level": _clan_level(int(clan.get("xp") or 0))["level"],
         "season_border": clan.get("season_border"),
     }
@@ -789,7 +1362,7 @@ def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List
             card = _clan_card(doc.id, clan, sid)
             slot = (clan.get("seasons") or {}).get(sid) or {}
             contrib = slot.get("contrib") or {}
-            card["_contributors"] = sum(1 for c in contrib.values() if int(c.get("points") or 0) > 0)
+            card["_contributors"] = sum(1 for c in contrib.values() if _num(c.get("points")) > 0)
             card["_last_gain_ts"] = int(slot.get("last_gain_ts") or 0) or (1 << 60)
             rows.append(card)
     except Exception as exc:  # noqa: BLE001
@@ -806,6 +1379,68 @@ def _leaderboard_rows(db, sid: str, cap: int = 500, fresh: bool = False) -> List
 
 
 # ── Season finalize (lazy, idempotent) ───────────────────────────────────────
+def _finalize_season_bonuses(db, sid: str) -> None:
+    """The two Clan Point bonuses that can only be settled once a season ends.
+
+      • Rival Reckoning — did we finish ahead of the clan we called out? Judged
+        on the points BOTH clans had earned during the season, snapshotted
+        before any of these bonuses land, so two rivals can't leapfrog each
+        other off each other's bonuses.
+      • Competitive rank — every current member's division is worth Critter
+        Coins to them and Clan Points to the squad (COMP_RANK_SEASON_REWARDS).
+
+    Both write into the season being finalized, before it is ranked. The whole
+    pass runs exactly once: the caller holds the clan_meta create() lock."""
+    docs: Dict[str, Dict[str, Any]] = {}
+    try:
+        for doc in _clans(db).limit(500).stream():
+            docs[doc.id] = doc.to_dict() or {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] bonus pass scan failed: {exc}")
+        return
+    earned = {cid: _num(((c.get("seasons") or {}).get(sid) or {}).get("points"))
+              for cid, c in docs.items()}
+
+    for clan_id, clan in docs.items():
+        slot = (clan.get("seasons") or {}).get(sid) or {}
+        members = list((clan.get("members") or {}).keys())
+        add: Dict[str, Any] = {}
+        set_to: Dict[str, Any] = {}
+        rival_id = str((clan.get("rivals") or {}).get(sid) or "")
+        if rival_id and rival_id in earned and earned.get(clan_id, 0) > earned[rival_id]:
+            set_to["beat_rival"] = 1
+
+        # Competitive rank payout, member by member.
+        rank_points = 0
+        member_docs = _member_docs(db, members, fresh=True)
+        for m_uid in members:
+            udoc = member_docs.get(m_uid) or {}
+            stats = udoc.get("stats") or {}
+            tier = _rank_tier(stats.get("rank_competitive"))
+            reward = COMP_RANK_SEASON_REWARDS.get(tier) or {}
+            coins = int(reward.get("coins") or 0)
+            rank_points += int(reward.get("clan_points") or 0)
+            if coins <= 0:
+                continue
+            try:
+                uref = _users(db).document(m_uid)
+                uref.set({"stats": {"critter_coins": int(stats.get("critter_coins") or 0) + coins}},
+                         merge=True)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[clan] rank coin payout for {m_uid} failed: {exc}")
+        if rank_points:
+            add["points"] = rank_points
+            add["rank_bonus_points"] = rank_points
+        if not add and not set_to:
+            continue
+        note = ""
+        if rank_points:
+            note = f"🏅 Competitive rank bonus: +{rank_points} Clan Points from the squad's ranks"
+        _bump_season(db, clan_id, sid=sid, add=add, set_to=set_to, activity=note)
+        if set_to.get("beat_rival"):
+            _chat_system(db, clan_id, "⚔️ We finished the season ahead of our rival!")
+
+
 def ensure_season_finalized(db) -> None:
     """First clan call inside a new quarter finalizes the previous one:
     snapshot standings, pay coin rewards to eligible members of the top 3,
@@ -825,14 +1460,23 @@ def ensure_season_finalized(db) -> None:
                 return
         except Exception:
             return
-        # Anything to finalize at all? (Fresh install: prev quarter has no data.)
-        rows = _leaderboard_rows(db, prev, fresh=True)   # paying out — never off a cache
-        rows = [r for r in rows if r["points"] > 0 or r["games"] > 0]
         try:
             meta_ref.create({"finalizing": True, "ts": _now()})
         except Exception:
             _FINALIZED_SIDS.add(prev)   # someone else won the race
             return
+        # End-of-season Clan Point bonuses (rival result + every member's
+        # competitive rank) are added to the season BEFORE it is ranked, so
+        # they can still change the placings — that is the point of "the higher
+        # your rank, the more you bring your squad". Only the process that won
+        # the meta_ref.create() race above ever runs this.
+        try:
+            _finalize_season_bonuses(db, prev)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] season bonus pass failed: {exc}")
+        # Anything to finalize at all? (Fresh install: prev quarter has no data.)
+        rows = _leaderboard_rows(db, prev, fresh=True)   # paying out — never off a cache
+        rows = [r for r in rows if r["points"] > 0 or r["games"] > 0]
         results: List[Dict[str, Any]] = []
         try:
             start, end = _season_bounds(prev)
@@ -853,7 +1497,7 @@ def ensure_season_finalized(db) -> None:
                 for uid, c in contrib.items():
                     if uid not in members:
                         continue      # left the clan → no seasonal rewards
-                    if int(c.get("points") or 0) < SEASON_REWARD_MIN_POINTS:
+                    if _num(c.get("points")) < SEASON_REWARD_MIN_POINTS:
                         continue
                     updates: Dict[str, Any] = {}
                     if coins_per:
@@ -885,24 +1529,24 @@ def ensure_season_finalized(db) -> None:
                 for uid, c in contrib.items():
                     if uid not in members:
                         continue
-                    pts = int(c.get("points") or 0)
+                    pts = _num(c.get("points"))
                     if pts < MVP_MIN_POINTS:
                         continue
-                    if int(c.get("trade_points") or 0) * 2 > pts:
+                    if _num(c.get("trade_points")) * 2 > pts:
                         continue      # majority-trades can't take MVP
                     if c.get("violations_confirmed"):
                         continue
                     cands.append((uid, c))
                 cands.sort(key=lambda uc: (
-                    -int(uc[1].get("points") or 0),
-                    -int(uc[1].get("game_points") or 0),
-                    -int(uc[1].get("comp_wins") or 0),
-                    -int(uc[1].get("challenges_done") or 0),
-                    -int(uc[1].get("days_active") or 0)))
+                    -_num(uc[1].get("points")),
+                    -_num(uc[1].get("game_points")),
+                    -_num(uc[1].get("comp_wins")),
+                    -_num(uc[1].get("challenges_done")),
+                    -_num(uc[1].get("days_active"))))
                 if cands:
                     uid, c = cands[0]
                     mvp = {"uid": uid, "name": c.get("name") or "Player",
-                           "points": int(c.get("points") or 0)}
+                           "points": _num(c.get("points"))}
                     try:
                         uref = _users(db).document(uid)
                         usnap = uref.get()
@@ -1099,45 +1743,118 @@ def _names_match(a: str, b: str) -> bool:
     return str(a or "").strip().lower() == str(b or "").strip().lower()
 
 
-def _is_registered(db, name: str) -> bool:
-    """Is this in-game name a real (non-guest) account?
+def _lookup_player(db, name: str) -> Dict[str, Any]:
+    """An in-game name → {"found", "uid", "clan_id"} for the account behind it.
 
     Players are shown by NICKNAME in a game, and plenty of accounts have a
     nickname that differs from their unique username — matching on username
     alone would quietly refuse Clan Points for perfectly normal games. So we
-    accept either. A nickname isn't unique, but this is only ever used as
-    "a real account played here", never to decide WHO gets credited, so the
-    worst case is a guest who copied a real player's nickname."""
+    accept either. A nickname isn't unique, so this is only ever used as
+    "a real account played here" and "which clan were they in", never to decide
+    WHO gets credited: the worst case is a guest who copied a real player's
+    nickname. Cached for _REG_TTL_SEC — a whole 8-player lobby is otherwise
+    re-queried on every single claim."""
     nm = str(name or "").strip()
     if not nm:
-        return False
-    if _find_uid_by_username(db, nm.lower()) is not None:
-        return True
+        return {"found": False, "uid": "", "clan_id": ""}
     key = nm.lower()
-    if key in _REG_CACHE and time.time() - _REG_CACHE[key][1] < _REG_TTL_SEC:
-        return _REG_CACHE[key][0]
-    found = False
+    hit = _REG_CACHE.get(key)
+    if hit and time.time() - hit[1] < _REG_TTL_SEC:
+        return dict(hit[0])
+    out: Dict[str, Any] = {"found": False, "uid": "", "clan_id": ""}
     try:
-        for field in ("nickname", "usernameLower", "username"):
-            value = key if field == "usernameLower" else nm
-            try:
-                from google.cloud.firestore_v1 import FieldFilter
-                q = _users(db).where(filter=FieldFilter(field, "==", value)).limit(1)
-            except Exception:
-                q = _users(db).where(field, "==", value).limit(1)
-            if any(True for _ in q.stream()):
-                found = True
-                break
+        uid = _find_uid_by_username(db, key)
+        if uid:
+            out.update({"found": True, "uid": str(uid)})
+        else:
+            for field in ("nickname", "usernameLower", "username"):
+                value = key if field == "usernameLower" else nm
+                try:
+                    from google.cloud.firestore_v1 import FieldFilter
+                    q = _users(db).where(filter=FieldFilter(field, "==", value)).limit(1)
+                except Exception:
+                    q = _users(db).where(field, "==", value).limit(1)
+                for snap in q.stream():
+                    out.update({"found": True, "uid": str(getattr(snap, "id", "") or "")})
+                    doc = snap.to_dict() or {}
+                    out["clan_id"] = str(doc.get("clan_id") or "")
+                    break
+                if out["found"]:
+                    break
+        if out["found"] and out["uid"] and not out["clan_id"]:
+            doc = (_member_docs(db, [out["uid"]]) or {}).get(out["uid"]) or {}
+            out["clan_id"] = str(doc.get("clan_id") or "")
     except Exception as exc:  # noqa: BLE001
-        print(f"[clan] registered-name lookup failed: {exc}")
-        return False
-    _REG_CACHE[key] = (found, time.time())
-    return found
+        print(f"[clan] player lookup failed: {exc}")
+        return {"found": False, "uid": "", "clan_id": ""}
+    _REG_CACHE[key] = (dict(out), time.time())
+    return out
+
+
+def _is_registered(db, name: str) -> bool:
+    """Is this in-game name a real (non-guest) account?"""
+    return bool(_lookup_player(db, name).get("found"))
 
 
 def _cooldown_active(udoc: Dict[str, Any]) -> int:
     until = int(udoc.get("clan_cooldown_until") or 0)
     return until if until > _now() else 0
+
+
+_TELEMETRY_KEYS = ("oceans_played", "animals_played", "moves", "stars",
+                   "star_chains", "pool_draws", "deck_draws")
+
+
+def _my_clan_stats(rec: Dict[str, Any], my_names: set,
+                   seats: Optional[set] = None) -> Dict[str, Any]:
+    """Sum the per-seat clan telemetry the game server stamped on the record.
+
+    Casual: one seat, matched by name. Competitive: a player owns TWO seats
+    ({0,1} or {2,3}), and both of their hands are theirs — so the telemetry is
+    summed over the pair, matched by SEAT not by name (a rename mid-match must
+    never move someone's cards onto their opponent's ledger).
+
+    A record written before this telemetry existed simply has no clan_stats,
+    and every counter reads 0 — old games stop short of the new challenges
+    instead of blocking the claim."""
+    out: Dict[str, Any] = {k: 0 for k in _TELEMETRY_KEYS}
+    out.update({"artificial_first": False, "humu": False, "moon": False,
+                "said_gg": False, "behind_at_endgame": False})
+    gobies = 0
+    for p in (rec.get("players") or []):
+        cs = p.get("clan_stats") or {}
+        if seats is not None:
+            try:
+                if int(p.get("seat_index", cs.get("seat_index", -1))) not in seats:
+                    continue
+            except (TypeError, ValueError):
+                continue
+        elif str(p.get("name") or "").strip().lower() not in my_names:
+            continue
+        for k in _TELEMETRY_KEYS:
+            out[k] = _num(out[k]) + _num(cs.get(k))
+        if str(cs.get("first_ocean") or "").strip().lower() == "artificial reef":
+            out["artificial_first"] = True
+        if int(cs.get("max_ceph_turn") or 0) >= 5:
+            out["humu"] = True          # Humuhumunukuapua'a: 5 Cephalopods in a turn
+        gobies += int(cs.get("gobies") or 0)
+        if cs.get("said_gg"):
+            out["said_gg"] = True
+        if cs.get("behind_at_endgame"):
+            out["behind_at_endgame"] = True
+    out["moon"] = gobies >= 4           # Shoot the Moon: all 4 Mandarin Gobies
+    return out
+
+
+def _clan_names_in(clan: Dict[str, Any]) -> set:
+    """Lowercased display names of a clan's current roster — the cheap way to
+    ask "how many of us were in that game" without a lookup per player."""
+    out = set()
+    for mem in (clan.get("members") or {}).values():
+        nm = str((mem or {}).get("name") or "").strip().lower()
+        if nm:
+            out.add(nm)
+    return out
 
 
 def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
@@ -1182,6 +1899,20 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
     except Exception:
         pass
 
+    # The clan doc is needed for the "who else in the game is one of ours"
+    # questions. A failed read is not fatal — those counters just stay 0.
+    clan_doc: Dict[str, Any] = {}
+    try:
+        csnap = _clans(db).document(clan_id).get()
+        clan_doc = csnap.to_dict() or {} if csnap.exists else {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] clan read for claim failed: {exc}")
+    my_clan_names = _clan_names_in(clan_doc)
+    # Achievements this player already holds, read from the profile document
+    # this claim opened anyway (no extra round-trip).
+    achievements = udoc.get("achievements") or {}
+    has_invert = bool((achievements.get("saving_the_invertebrates") or {}).get("completed"))
+
     if mode == "competitive":
         comp = _latest_record(_COMPETITIVE_GAMES_DIR, room_id)
         if comp is None:
@@ -1189,12 +1920,23 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
         _, crec = comp
         p1, p2 = str(crec.get("p1_name") or ""), str(crec.get("p2_name") or "")
         if p1.strip().lower() in my_names:
-            me, opp = p1, p2
+            me, opp, my_seats = p1, p2, {0, 1}
+            my_best = int(crec.get("p1_best_score") or 0)
+            my_second = int(crec.get("p1_second_score") or 0)
+            opp_best = int(crec.get("p2_best_score") or 0)
         elif p2.strip().lower() in my_names:
-            me, opp = p2, p1
+            me, opp, my_seats = p2, p1, {2, 3}
+            my_best = int(crec.get("p2_best_score") or 0)
+            my_second = int(crec.get("p2_second_score") or 0)
+            opp_best = int(crec.get("p1_best_score") or 0)
         else:
             return {"ok": False, "error": "not_in_game"}
-        # Both players must be real, registered (non-guest) accounts.
+        # Both players must be real, registered (non-guest) accounts. Unlike
+        # casual — where bots fill a table real people are sitting at, so the
+        # game still counts for challenge progress and only the points are
+        # withheld — a 1v1 against a bot or a guest is not a competitive match
+        # for the clan at all. Every competitive challenge is about beating
+        # real people, and counting these would make all of them farmable.
         if not _is_registered(db, opp):
             return {"ok": False, "error": "opponent_not_registered"}
         won = bool(crec.get("winner")) and _names_match(crec.get("winner"), me)
@@ -1204,6 +1946,21 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
                                                key="comp:" + opp.strip().lower(),
                                                cap=COMP_SAME_OPP_DAILY_CAP)
         pts = POINTS_COMP_WIN if (won and allowed) else 0
+        facts = _my_clan_stats(rec, my_names, seats=my_seats)
+        facts.update({
+            "competitive": True,
+            "won": won,
+            "player_count": 2,
+            # Both hands beat their best hand / doubled it. p*_second is the
+            # LOWER of the two hands, so testing it covers both of them.
+            "dominant_win": bool(won and my_best > opp_best and my_second > opp_best),
+            "double_hands": bool(opp_best > 0 and my_second >= 2 * opp_best
+                                 and my_best >= 2 * opp_best),
+            # One opponent, so "with a clan member" is simply: are they one of ours.
+            "clanmates": 1 + (1 if opp.strip().lower() in my_clan_names else 0),
+            "team_mode": False,
+            "has_invertebrates": has_invert,
+        })
         res = _apply_award(
             db, clan_id, uid, display_name, kind="comp",
             points=pts, dedup_id=dedup,
@@ -1211,10 +1968,12 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
                            else f"⚔️ {display_name} finished a competitive match"),
             counts_game=True, is_comp_win=won, is_comp_loss=(not won and not crec.get("is_draw")),
             meta={"room": room_id, "opp": opp, "won": won,
-                  "opp_capped": bool(won and not allowed)})
+                  "opp_capped": bool(won and not allowed)},
+            game=facts)
         if res.get("ok"):
             res.update({"points": res.get("granted", 0), "mode": "competitive", "won": won,
                         "opp_capped": bool(won and not allowed)})
+            _sweep_member_derived(db, clan_id, uid, udoc)
         return res
 
     # Casual (standard / team): placement points from the server standings.
@@ -1228,22 +1987,26 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
     if me_row is None:
         return {"ok": False, "error": "not_in_game"}
     humans = [p for p in players if p.get("is_human")]
-    if len(humans) < 2:
-        return {"ok": False, "error": "need_real_players"}   # incl. all-AI games
     other_names = [str(p.get("name") or "") for p in humans
                    if str(p.get("name") or "").strip().lower() not in my_names]
-    if not any(_is_registered(db, n) for n in other_names):
-        return {"ok": False, "error": "need_real_players"}   # everyone else is a guest
+    # A game with no registered opponent is a game against bots and/or guests.
+    # It cannot pay placement points — that is the anti-farm rule — but first
+    # place in one is still worth a HALF point at any player count.
+    real_opponents = [n for n in other_names if _is_registered(db, n)]
+    has_real_opponent = bool(real_opponents)
     my_score = int(me_row.get("score") or 0)
     place = 1 + sum(1 for row in standings if int(row.get("score") or 0) > my_score)
     n_players = int(rec.get("player_count") or len(standings))
-    pts = 0
-    if place == 1:
-        pts = POINTS_CASUAL_FIRST
-    elif place == 2 and n_players > 2:
-        pts = POINTS_CASUAL_SECOND
-    elif place == 3 and n_players >= 4:
-        pts = POINTS_CASUAL_THIRD
+    if has_real_opponent:
+        pts: Any = 0
+        if place == 1:
+            pts = POINTS_CASUAL_FIRST
+        elif place == 2 and n_players > 2:
+            pts = POINTS_CASUAL_SECOND
+        elif place == 3 and n_players >= 4:
+            pts = POINTS_CASUAL_THIRD
+    else:
+        pts = POINTS_CASUAL_FIRST_BOTS if place == 1 else 0
     # Repeat-lobby limiter: same exact opponent set only scores a few times/day.
     opp_key = "cas:" + "|".join(sorted(n.strip().lower() for n in other_names))
     allowed, over = _bump_opponent_counter(db, clan_id, uid, display_name,
@@ -1251,17 +2014,192 @@ def claim_game_points(uid: str, room_id: str) -> Dict[str, Any]:
     if not allowed:
         pts = 0
     ordinal = {1: "1st", 2: "2nd", 3: "3rd"}.get(place, f"{place}th")
+    facts = _my_clan_stats(rec, my_names)
+    # "All real people" means every seat was a human AND every one of them a
+    # registered account — the same bar the Full Boat achievement uses.
+    all_real = (len(humans) == n_players and n_players > 0
+                and all(_is_registered(db, n) for n in other_names))
+    clanmates = 1 + sum(1 for n in other_names if n.strip().lower() in my_clan_names)
+    facts.update({
+        "competitive": False,
+        "place": place,
+        "player_count": n_players,
+        "all_real_people": all_real,
+        "clanmates": clanmates,
+        "team_mode": bool(rec.get("team_mode")),
+        "has_invertebrates": has_invert,
+        # A comeback is a win you were NOT leading at the moment the End Game
+        # card was revealed.
+        "comeback": bool(place == 1 and facts.get("behind_at_endgame")),
+        # "Against another clan": at least one registered opponent who is in a
+        # clan, and not this one.
+        "vs_other_clan": _played_another_clan(db, clan_id, real_opponents),
+    })
+    if facts["team_mode"]:
+        facts["team_rival"] = _team_rival_match(db, clan_doc, clanmates, other_names)
     res = _apply_award(
         db, clan_id, uid, display_name, kind="casual",
         points=pts, dedup_id=dedup,
         activity_text=f"🌊 {display_name} finished {ordinal} in a {n_players}-player game (+{{pts}} pts)",
         counts_game=True, is_casual_win=(place == 1),
         meta={"room": room_id, "place": place, "players": n_players,
-              "opp_capped": not allowed})
+              "bots_only": not has_real_opponent, "opp_capped": not allowed},
+        game=facts)
     if res.get("ok"):
         res.update({"points": res.get("granted", 0), "mode": "casual",
-                    "place": place, "opp_capped": not allowed})
+                    "place": place, "opp_capped": not allowed,
+                    "bots_only": not has_real_opponent})
+        _sweep_member_derived(db, clan_id, uid, udoc)
     return res
+
+
+def _bump_season(db, clan_id: str, *, add: Optional[Dict[str, Any]] = None,
+                 set_to: Optional[Dict[str, Any]] = None,
+                 activity: str = "", sid: str = "") -> Dict[str, Any]:
+    """Move season counters that are NOT driven by a game record — declaring a
+    rival, scheduling an event, a new member joining, the end-of-season rank
+    bonus — and re-sweep the season challenges in the same transaction so the
+    reward lands with the counter.
+
+    `sid` defaults to the live season; the finalize pass passes the season it
+    is closing. Returns {"ok", "challenges_done"}; never raises (the caller's
+    own action has already succeeded and must not be undone by bookkeeping)."""
+    transactional = _txn_helpers()
+    clan_ref = _clans(db).document(clan_id)
+    sid = sid or _get_season_id()
+    out: Dict[str, Any] = {"ok": False, "challenges_done": []}
+
+    @transactional
+    def _run(t) -> Dict[str, Any]:
+        snap = clan_ref.get(transaction=t)
+        if not snap.exists:
+            return {"ok": False, "challenges_done": []}
+        clan = snap.to_dict() or {}
+        slot = _season_slot(clan, sid)
+        for key, delta in (add or {}).items():
+            slot[key] = _num(_num(slot.get(key)) + _num(delta))
+        for key, value in (set_to or {}).items():
+            slot[key] = value
+        if activity:
+            _activity_push(clan, "challenge", activity)
+        weekly = _weekly_slot(clan)
+        done: List[Dict[str, Any]] = []
+        _sweep_challenges(clan, slot, weekly, CLAN_SEASON_CHALLENGES,
+                          slot.setdefault("challenges_done", []),
+                          lambda ch: _season_metric(slot, str(ch.get("metric") or "")),
+                          "Season", done)
+        t.set(clan_ref, clan)
+        return {"ok": True, "challenges_done": done}
+
+    try:
+        out = _run(db.transaction())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] season counter bump failed ({clan_id}): {exc}")
+        return {"ok": False, "challenges_done": []}
+    if out.get("ok"):
+        _lb_invalidate()
+        for ch in out.get("challenges_done") or []:
+            _chat_system(db, clan_id, f"🏁 Season challenge complete: {ch.get('name')}!")
+            _grant_challenge_xp(db, clan_id, ch)
+    return out
+
+
+def _played_another_clan(db, my_clan_id: str, opponent_names: List[str]) -> bool:
+    """Was there a player from a DIFFERENT clan in this game?"""
+    for nm in opponent_names:
+        info = _lookup_player(db, nm)
+        other = str(info.get("clan_id") or "")
+        if other and other != my_clan_id:
+            return True
+    return False
+
+
+def _team_rival_match(db, clan: Dict[str, Any], my_count: int,
+                      other_names: List[str]) -> bool:
+    """Cross-Current: a Team Mode game with 3+ of us and 3+ of our rival.
+
+    The rival is whoever THIS clan declared for the season. If they declared us
+    back, their own members' claims score it for them the same way — which is
+    what "you both get 15 points" means."""
+    if my_count < 3:
+        return False
+    rival_id = str((clan.get("rivals") or {}).get(_get_season_id()) or "")
+    if not rival_id:
+        return False
+    try:
+        rsnap = _clans(db).document(rival_id).get()
+        if not rsnap.exists:
+            return False
+        rival_names = _clan_names_in(rsnap.to_dict() or {})
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] rival roster read failed: {exc}")
+        return False
+    return sum(1 for n in other_names if n.strip().lower() in rival_names) >= 3
+
+
+def _sweep_member_derived(db, clan_id: str, uid: str, udoc: Dict[str, Any]) -> None:
+    """Counters that live on the PLAYER's profile, not in a game record.
+
+    Two of them:
+      • Rank Climbers — every time a member's competitive DIVISION goes up.
+        The rank the client writes after a match may land either side of this
+        claim, so a climb is credited on the first claim that observes it; the
+        count is exact, it can just be one game late.
+      • Saving the Invertebrates — a hidden achievement earned outside a game,
+        so it is picked up whenever its owner next plays.
+    Never raises: a failure here must not undo an award that already committed.
+    """
+    stats = (udoc.get("stats") or {})
+    rank_idx = _rank_tier_index(stats.get("rank_competitive"))
+    achievements = udoc.get("achievements") or {}
+    has_invert = bool((achievements.get("saving_the_invertebrates") or {}).get("completed"))
+    if rank_idx <= 0 and not has_invert:
+        return
+    transactional = _txn_helpers()
+    clan_ref = _clans(db).document(clan_id)
+    sid = _get_season_id()
+
+    @transactional
+    def _run(t) -> None:
+        snap = clan_ref.get(transaction=t)
+        if not snap.exists:
+            return
+        clan = snap.to_dict() or {}
+        if uid not in (clan.get("members") or {}):
+            return
+        slot = _season_slot(clan, sid)
+        changed = False
+        if rank_idx > 0:
+            seen = slot.setdefault("member_ranks", {})
+            prev = int(seen.get(uid) or 0)
+            if prev and rank_idx > prev:
+                # One point of progress per DIVISION climbed, so a jump of two
+                # divisions counts twice — and a demotion never counts at all.
+                slot["rank_ups"] = _num(slot.get("rank_ups")) + (rank_idx % 10 - prev % 10
+                                                                 if rank_idx // 10 == prev // 10
+                                                                 else 1)
+                changed = True
+            if prev != rank_idx:
+                seen[uid] = rank_idx
+                changed = True
+        if has_invert and uid not in (slot.get("invert_members") or {}):
+            slot.setdefault("invert_members", {})[uid] = 1
+            changed = True
+        if not changed:
+            return
+        weekly = _weekly_slot(clan)
+        done: List[Dict[str, Any]] = []
+        _sweep_challenges(clan, slot, weekly, CLAN_SEASON_CHALLENGES,
+                          slot.setdefault("challenges_done", []),
+                          lambda ch: _season_metric(slot, str(ch.get("metric") or "")),
+                          "Season", done)
+        t.set(clan_ref, clan)
+
+    try:
+        _run(db.transaction())
+        _lb_invalidate()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] member sweep failed: {exc}")
 
 
 def _bump_opponent_counter(db, clan_id: str, uid: str, name: str, *, key: str,
@@ -1379,6 +2317,11 @@ def on_trade_completed(db, trade: Dict[str, Any]) -> Dict[str, Any]:
                   detail="same items traded back within 7 days")
             out["bounced"] = True
             return out
+        # Both sides are paid, but the TRADE is counted once. Whichever side's
+        # award commits first carries the count; if the first side had already
+        # taken their daily point, the second side carries it instead, so a
+        # real trade is never lost from the clan's tally.
+        counted = False
         for p in parts:
             cd = _cooldown_active(udocs[p])
             if cd:
@@ -1389,9 +2332,11 @@ def on_trade_completed(db, trade: Dict[str, Any]) -> Dict[str, Any]:
                 points=POINTS_TRADE_DAILY,
                 dedup_id=f"t_{today}_{p}",   # ONE trade point per player per day
                 activity_text=f"🤝 {nm} completed a clan trade (+{{pts}} pt)",
-                is_trade=True,
+                is_trade=True, count_trade=not counted,
                 meta={"pair": pair_key})
-            if res.get("ok") and int(res.get("granted") or 0) > 0:
+            if res.get("ok"):
+                counted = True
+            if res.get("ok") and _num(res.get("granted")) > 0:
                 out["awarded"][p] = res.get("granted")
     except Exception as exc:  # noqa: BLE001
         print(f"[clan] trade hook failed: {exc}")
@@ -1510,6 +2455,9 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         clan["members"] = members
         clan["join_requests"] = [r for r in (clan.get("join_requests") or [])
                                  if str(r.get("uid")) != uid]
+        # Fresh Recruits — see _join_clan_direct.
+        slot = _season_slot(clan, _get_season_id())
+        slot["new_members"] = _num(slot.get("new_members")) + 1
         _activity_push(clan, "join", f"🌊 {nick} joined the clan")
         t.set(clan_ref, clan)
         t.set(user_ref, {"clan_id": clan_id, "clan_joined_ts": _now(),
@@ -1523,7 +2471,9 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         print(f"[clan] join failed: {exc}")
         return {"ok": False, "error": "join_failed"}
     if res.get("ok"):
+        _members_invalidate([uid])
         _chat_system(db, clan_id, f"🌊 {res.pop('nick', 'A new member')} joined the clan — say hi!")
+        _bump_season(db, clan_id)      # re-sweep: the new arrival may finish one
     return res
 
 
@@ -1578,6 +2528,8 @@ def _leave_clan(uid: str, *, kicked_by: Optional[str] = None,
     except Exception as exc:  # noqa: BLE001
         print(f"[clan] leave failed: {exc}")
         return {"ok": False, "error": "leave_failed"}
+    if res.get("ok"):
+        _members_invalidate([uid])     # they are clanless again from this moment
     if res.get("ok") and not res.get("gone") and not res.get("dissolved"):
         _chat_system(db, clan_id,
                      f"👋 {res.pop('nick', 'A member')} "
@@ -1713,6 +2665,31 @@ def _auth_uid(body: Dict[str, Any]) -> Optional[str]:
     return claims.get("uid") if claims and claims.get("uid") else None
 
 
+# The previous season's finalized standings never change again once they are
+# written, but /home wanted them on every single call — a Firestore read per
+# tab open, per account, forever. Read once per season per process.
+_PREV_META_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _prev_season_meta(db, sid: str) -> Dict[str, Any]:
+    prev = _prev_sid(sid)
+    hit = _PREV_META_CACHE.get(prev)
+    if hit is not None:
+        return hit
+    meta: Dict[str, Any] = {}
+    try:
+        snap = db.collection("clan_meta").document(f"season_{prev}").get()
+        meta = snap.to_dict() or {} if snap.exists else {}
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] previous-season meta read failed: {exc}")
+        return {}            # not cached: a failed read must be retried
+    # Only a FINALIZED season is immutable enough to keep; an unfinished one is
+    # still being written and has to be re-read.
+    if meta.get("finalized"):
+        _PREV_META_CACHE[prev] = meta
+    return meta
+
+
 def _with_clan(uid: str) -> Tuple[Optional[Any], Optional[str], Optional[Dict[str, Any]], Dict[str, Any]]:
     """(db, clan_id, clan, udoc) for the caller — clan fields None if clanless."""
     db = _get_firestore()
@@ -1740,14 +2717,16 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
     wk = _week_key()
     today = _date_key()
     # The clan's critter pool, built from the very same member reads the
-    # presence dots need — every icon at least one member has unlocked.
+    # presence dots need — every icon at least one member has unlocked. The
+    # whole roster is fetched in ONE batched read; doing it a document at a
+    # time is what made this page slow for a full clan.
     pool = set(STARTER_ICONS)
+    member_docs = _member_docs(db, list((clan.get("members") or {}).keys()))
     for m_uid, mem in (clan.get("members") or {}).items():
         c = contrib.get(m_uid) or {}
         online, last_seen = False, 0
         try:
-            usnap = _users(db).document(m_uid).get()
-            u = usnap.to_dict() or {} if usnap.exists else {}
+            u = member_docs.get(m_uid) or {}
             la = u.get("last_active")
             la_sec = int(la.timestamp()) if hasattr(la, "timestamp") else int(la or 0)
             online = bool(u.get("online")) and la_sec >= _now() - PRESENCE_FRESH_SEC
@@ -1760,16 +2739,17 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
             "role": mem.get("role"), "custom_role_id": mem.get("custom_role_id"),
             "joined_ts": int(mem.get("joined_ts") or 0),
             "online": online, "last_seen": last_seen,
-            "points": int(c.get("points") or 0),
-            "weekly_points": int((c.get("weekly") or {}).get(wk) or 0),
-            "comp_wins": int(c.get("comp_wins") or 0),
-            "casual_wins": int(c.get("casual_wins") or 0),
-            "challenges_done": int(c.get("challenges_done") or 0),
+            "points": _num(c.get("points")),
+            "weekly_points": _num((c.get("weekly") or {}).get(wk)),
+            "comp_wins": _num(c.get("comp_wins")),
+            "casual_wins": _num(c.get("casual_wins")),
+            "games": _num(c.get("games")),
+            "challenges_done": _num(c.get("challenges_done")),
             "trade_point_today": c.get("last_trade_date") == today,
             "is_mvp_chip": m_uid == mvp_uid,
         })
     # Season-history contributors who already left still show in contrib.
-    former = [{"uid": u, "name": (c or {}).get("name"), "points": int((c or {}).get("points") or 0)}
+    former = [{"uid": u, "name": (c or {}).get("name"), "points": _num((c or {}).get("points"))}
               for u, c in contrib.items() if u not in (clan.get("members") or {})]
     daily = _daily_slot(dict(clan), clan_id)   # copy → never mutates the stored doc here
     weekly = _weekly_slot(dict(clan))
@@ -1779,22 +2759,17 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
     # out of the tally, so the badge can never show a critter the clan can't
     # wear. Ties break alphabetically so every member sees the same winner.
     votes = slot.get("critter_votes") or {}
-    tally: Dict[str, int] = {}
-    for icon in votes.values():
-        icon = _norm_icon(icon)
-        if icon and icon in pool:
-            tally[icon] = tally.get(icon, 0) + 1
-    fav = min(tally.items(), key=lambda kv: (-kv[1], kv[0]))[0] if tally else None
-    # Friendly rival: the head-to-head stat card (no rewards ride on this).
+    fav, tally = _favorite_from_votes(votes, pool)
+    # Friendly rival: the head-to-head stat card. Taken from the standings the
+    # caller has already paid for rather than a fresh document read — a rival's
+    # leaderboard row IS its clan card, plus the rank, and it costs nothing.
     rival = None
-    rival_id = (clan.get("rivals") or {}).get(sid)
+    rival_id = str((clan.get("rivals") or {}).get(sid) or "")
     if rival_id:
         try:
-            rsnap = _clans(db).document(str(rival_id)).get()
-            if rsnap.exists:
-                rival = _clan_card(str(rival_id), rsnap.to_dict() or {}, sid)
+            rival = next((r for r in _leaderboard_rows(db, sid) if r["id"] == rival_id), None)
         except Exception as exc:  # noqa: BLE001
-            print(f"[clan] rival read failed: {exc}")
+            print(f"[clan] rival lookup failed: {exc}")
     out = {
         **card,
         "owner_uid": clan.get("owner_uid"),
@@ -1806,7 +2781,7 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
         "former_contributors": former,
         "activity": (clan.get("activity") or [])[:60],
         "events": [e for e in (clan.get("events") or []) if int(e.get("ts") or 0) > _now() - 3600],
-        "win_streak": int(slot.get("win_streak") or 0),
+        "win_streak": _num(slot.get("win_streak")),
         "prev_results": clan.get("prev_results") or {},
         "mvp_chip": clan.get("mvp_chip"),
         "level_info": _clan_level(int(clan.get("xp") or 0)),
@@ -1817,11 +2792,14 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
                    "comp_wins": weekly.get("comp_wins"),
                    "challenges_done": weekly.get("challenges_done") or []},
         "challenges": _challenges_view(weekly, slot, clan),
+        "season_challenges": _season_challenges_view(slot, clan, sid),
         "week_ends_ts": _week_end_ts(),
         "favorite_critter": fav,
         "favorite_votes": tally,
         "my_vote": votes.get(viewer_uid) if viewer_uid else None,
         "rival": rival,
+        "rival_ahead": (None if not rival else
+                        _num(slot.get("points")) > _num(rival.get("points"))),
         "season": _season_public(sid),
     }
     if viewer_uid and _member_of(clan, viewer_uid):
@@ -1850,34 +2828,158 @@ def _week_end_ts() -> int:
 
 def _challenges_view(weekly: Dict[str, Any], slot: Dict[str, Any],
                      clan: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    done = set(weekly.get("challenges_done") or [])
+    """This week's challenge board, with who has pulled their weight."""
     contribs = weekly.get("contributors") or {}
     members = (clan or {}).get("members") or {}
-    ends = _week_end_ts()
+    who = [{"uid": u, "name": (members.get(u) or {}).get("name") or "Player",
+            "points": _num(p)}
+           for u, p in sorted(contribs.items(), key=lambda kv: -_num(kv[1]))]
+    out = _challenge_rows(CLAN_WEEKLY_CHALLENGES, set(weekly.get("challenges_done") or []),
+                          lambda ch: _challenge_metric(weekly, str(ch.get("metric") or "")),
+                          clan, "weekly", _week_end_ts())
+    for row in out:
+        need = row["min_contribution"]
+        row["contributors"] = [dict(w, qualifies=w["points"] >= need) for w in who[:20]]
+    return out
+
+
+def _season_challenges_view(slot: Dict[str, Any],
+                            clan: Optional[Dict[str, Any]] = None,
+                            sid: str = "") -> List[Dict[str, Any]]:
+    """The season-long challenge board — same shape as the weekly one, so one
+    renderer draws both (in the Clans tab AND inside a live game)."""
+    ends = _season_bounds(sid or _get_season_id())[1]
+    return _challenge_rows(CLAN_SEASON_CHALLENGES, set(slot.get("challenges_done") or []),
+                           lambda ch: _season_metric(slot, str(ch.get("metric") or "")),
+                           clan, "season", ends)
+
+
+def _challenge_rows(table: List[Dict[str, Any]], done: set,
+                    progress_of: Callable[[Dict[str, Any]], Any],
+                    clan: Optional[Dict[str, Any]], scope: str,
+                    ends_ts: int) -> List[Dict[str, Any]]:
     out = []
-    for ch in CLAN_WEEKLY_CHALLENGES:
-        need = int(ch.get("min_contribution") or 1)
-        # Who actually pulled their weight toward this week's rewards.
-        who = [{"uid": u, "name": (members.get(u) or {}).get("name") or "Player",
-                "points": int(p or 0), "qualifies": int(p or 0) >= need}
-               for u, p in sorted(contribs.items(), key=lambda kv: -int(kv[1] or 0))]
+    for ch in table:
+        target = _challenge_target(ch, clan)
+        progress = _num(progress_of(ch))
         out.append({
             "id": ch.get("id"), "name": ch.get("name"), "desc": ch.get("desc"),
-            "metric": ch.get("metric"), "target": int(ch.get("target") or 0),
-            "progress": _challenge_metric(weekly, str(ch.get("metric") or "")),
-            "clan_points": int(ch.get("clan_points") or 0),
+            "metric": ch.get("metric"), "target": target,
+            # A finished challenge always reads as full, even if the counter it
+            # rode on has since been reset (a new week) or its target grew (a
+            # new member joined an "everybody" challenge).
+            "progress": target if ch.get("id") in done else min(progress, target),
+            "raw_progress": progress,
+            "clan_points": _num(ch.get("clan_points")),
             "member_xp": int(ch.get("member_xp") or 0),
-            "min_contribution": need,
+            "min_contribution": int(ch.get("min_contribution") or 1),
             "done": ch.get("id") in done,
-            "ends_ts": ends,
-            "contributors": who[:20],
+            "scope": scope,
+            "ends_ts": int(ends_ts or 0),
+            "contributors": [],
         })
     return out
 
 
 # ── HTTP surface ─────────────────────────────────────────────────────────────
+def clan_rules() -> Dict[str, Any]:
+    """The whole rulebook, generated FROM the constants that enforce it.
+
+    The Clans tab and the in-game challenge sheet both render this, so the
+    published rules can never drift away from what the server actually does:
+    change POINTS_CASUAL_FIRST or a challenge target and the rules change with
+    it. Nothing in here is per-clan, so it is a public, cacheable read."""
+    return {
+        "max_members": CLAN_MAX_MEMBERS,
+        "season": {
+            "length": "Clan seasons are quarterly — the same three-month season "
+                      "the Competitive ladder uses.",
+            "weekly_reset": "Weekly challenges and the weekly point cap reset "
+                            "every Monday at 00:00 UTC.",
+        },
+        "scoring": [
+            {"what": "Win a competitive match", "points": POINTS_COMP_WIN},
+            {"what": "1st place in a casual game", "points": POINTS_CASUAL_FIRST},
+            {"what": "2nd place in a casual game (3+ players)", "points": POINTS_CASUAL_SECOND},
+            {"what": "3rd place in a casual game (4+ players)", "points": POINTS_CASUAL_THIRD},
+            {"what": "1st place against bots only, any player count",
+             "points": POINTS_CASUAL_FIRST_BOTS},
+            {"what": "Complete a clan trade (once per day)", "points": POINTS_TRADE_DAILY},
+        ],
+        "core_rules": [
+            "Clan Points need a REAL opponent: everyone involved must be a "
+            "registered (non-guest) account. A game against bots or guests "
+            f"scores 0 — except first place, which is worth {POINTS_CASUAL_FIRST_BOTS} "
+            "of a Clan Point at any player count.",
+            "Only games this server recorded from start to finish can be "
+            "claimed. Quitting early scores nothing.",
+            "Each game pays a player once, ever. Re-opening the end screen "
+            "cannot claim it twice.",
+            f"A member can earn at most {WEEKLY_POINT_CAP} Clan Points per week. "
+            "Wins, losses and games are still recorded in the clan's stats "
+            "after the cap is reached.",
+            f"Beating the SAME competitive opponent only scores the first "
+            f"{COMP_SAME_OPP_DAILY_CAP} times a day; the same casual lobby only "
+            f"scores the first {CASUAL_SAME_OPPS_DAILY_CAP} times a day.",
+            "Challenge progress counts every finished CASUAL game, bots "
+            "included — only the Clan POINTS there need a real opponent. "
+            "Competitive is different: a match against a bot or a guest is not "
+            "a competitive match for your clan at all, and counts for nothing.",
+            "Leaving or being removed from a clan starts a 24-hour cooldown "
+            "before you can join another. Points you earned stay with the clan.",
+            f"A clan holds up to {CLAN_MAX_MEMBERS} members.",
+        ],
+        "weekly_challenges": [
+            {"id": c.get("id"), "name": c.get("name"), "desc": c.get("desc"),
+             "target": c.get("target"), "clan_points": _num(c.get("clan_points")),
+             "member_xp": int(c.get("member_xp") or 0)}
+            for c in CLAN_WEEKLY_CHALLENGES
+        ],
+        "season_challenges": [
+            {"id": c.get("id"), "name": c.get("name"), "desc": c.get("desc"),
+             "target": c.get("target"), "clan_points": _num(c.get("clan_points")),
+             "member_xp": int(c.get("member_xp") or 0)}
+            for c in CLAN_SEASON_CHALLENGES
+        ],
+        "rank_rewards": {
+            "note": "When the season ends, every member's Competitive rank pays "
+                    "out: Critter Coins to them, Clan Points to the squad. The "
+                    "Clan Points land before the final standings are worked out, "
+                    "so a highly ranked roster can still move the clan up the "
+                    "leaderboard on the last day.",
+            "tiers": [
+                {"tier": "Bronze Barracuda", "coins": COMP_RANK_SEASON_REWARDS["bronze"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["bronze"]["clan_points"]},
+                {"tier": "Silver Spiny Lobster", "coins": COMP_RANK_SEASON_REWARDS["silver"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["silver"]["clan_points"]},
+                {"tier": "Golden Grouper", "coins": COMP_RANK_SEASON_REWARDS["gold"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["gold"]["clan_points"]},
+                {"tier": "Diamond Dolphin", "coins": COMP_RANK_SEASON_REWARDS["diamond"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["diamond"]["clan_points"]},
+                {"tier": "Emerald Emperor Penguin", "coins": COMP_RANK_SEASON_REWARDS["emerald"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["emerald"]["clan_points"]},
+                {"tier": "King of the Critters", "coins": COMP_RANK_SEASON_REWARDS["king"]["coins"],
+                 "clan_points": COMP_RANK_SEASON_REWARDS["king"]["clan_points"]},
+            ],
+        },
+        "season_rewards": [
+            f"1st place clan: {SEASON_REWARD_COINS[0]} Critter Coins each",
+            f"2nd place clan: {SEASON_REWARD_COINS[1]} Critter Coins each",
+            f"3rd place clan: {SEASON_REWARD_COINS[2]} Critter Coins each",
+            f"Rewards need {SEASON_REWARD_MIN_POINTS}+ Clan Points contributed, "
+            "and you must still be in the clan when the season ends.",
+            f"Each clan's MVP ({MVP_MIN_POINTS}+ points, not mostly from trades) "
+            f"gets {MVP_BONUS_COINS} Critter Coins and an MVP chip.",
+            f"The top {SEASON_BORDER_TOP_N} clans wear a seasonal border.",
+        ],
+    }
+
+
 def handle_get(handler, parsed) -> bool:
-    """GET /api/clan/leaderboard — public read (everything else is POST)."""
+    """GET /api/clan/leaderboard and /api/clan/rules — public reads."""
+    if parsed.path == "/api/clan/rules":
+        handler._send_json({"ok": True, "rules": clan_rules()})
+        return True
     if parsed.path != "/api/clan/leaderboard":
         return False
     db = _get_firestore()
@@ -1968,18 +3070,21 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
     return True
 
 
-# Actions that only read. Everything else can move the standings, so the one
-# route funnel below drops the leaderboard cache after it succeeds — a clan
-# created this second must be on the board the next second.
-_READ_ONLY_ACTIONS = frozenset({
+# Actions that cannot move the standings. Everything else can, so the one route
+# funnel below drops the leaderboard cache after it succeeds — a clan created
+# this second must be on the board the next second. Pure reads are here for the
+# obvious reason; chatting and voting for a critter are here because they write,
+# but write nothing the leaderboard shows, and throwing the whole-collection
+# scan away on every chat line or vote click is a big cost for no change.
+_NO_STANDINGS_CHANGE = frozenset({
     "home", "leaderboard", "browse", "get", "season-results", "check-name",
-    "challenges", "chat-get",
+    "challenges", "chat-get", "chat-send", "vote-critter",
 })
 
 
 def _route_post(db, uid: str, action: str, body: Dict[str, Any], sid: str) -> Dict[str, Any]:
     result = _route_action(db, uid, action, body, sid)
-    if action not in _READ_ONLY_ACTIONS and isinstance(result, dict) and result.get("ok"):
+    if action not in _NO_STANDINGS_CHANGE and isinstance(result, dict) and result.get("ok"):
         _lb_invalidate()
     return result
 
@@ -1997,22 +3102,17 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         if clan is not None and clan_id:
             slot = (clan.get("seasons") or {}).get(sid) or {}
             contrib = (slot.get("contrib") or {}).get(uid) or {}
-        prev_meta = {}
-        try:
-            snap = db.collection("clan_meta").document(f"season_{_prev_sid(sid)}").get()
-            prev_meta = snap.to_dict() or {} if snap.exists else {}
-        except Exception:
-            pass
+        prev_meta = _prev_season_meta(db, sid)
         invites = [i for i in (udoc.get("clan_invites") or [])
                    if isinstance(i, dict) and int(i.get("ts") or 0) > _now() - CLAN_INVITE_TTL_SEC]
         return {"ok": True, "season": _season_public(sid),
                 "top3": rows[:3], "total_clans": len(rows),
                 "my_clan": mine,
                 "my_clan_full": (_clan_profile(db, clan_id, clan, sid, uid) if clan is not None and clan_id else None),
-                "my_contribution": {"points": int(contrib.get("points") or 0),
-                                    "game_points": int(contrib.get("game_points") or 0),
-                                    "trade_points": int(contrib.get("trade_points") or 0),
-                                    "weekly": int((contrib.get("weekly") or {}).get(_week_key()) or 0),
+                "my_contribution": {"points": _num(contrib.get("points")),
+                                    "game_points": _num(contrib.get("game_points")),
+                                    "trade_points": _num(contrib.get("trade_points")),
+                                    "weekly": _num((contrib.get("weekly") or {}).get(_week_key())),
                                     "weekly_cap": WEEKLY_POINT_CAP},
                 "cooldown_until": _cooldown_active(udoc),
                 # The critters I personally own — the icon choices offered when
@@ -2045,7 +3145,15 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                 "rows": open_first[:100], "recommended": recommended}
 
     if action == "get":
+        # No clan_id means "mine" — the in-game Clan Challenges sheet asks that
+        # way, because inside a game the only clan a player cares about is
+        # their own and it shouldn't have to know its id to ask.
         clan_id = str(body.get("clan_id") or "")
+        if not clan_id:
+            usnap = _users(db).document(uid).get()
+            clan_id = str(((usnap.to_dict() or {}) if usnap.exists else {}).get("clan_id") or "")
+        if not clan_id:
+            return {"ok": False, "error": "no_clan"}
         csnap = _clans(db).document(clan_id).get()
         if not csnap.exists:
             return {"ok": False, "error": "no_clan"}
@@ -2345,7 +3453,7 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                 return {"ok": False, "error": "bad_icon"}
             # The clan's critter (its icon everywhere, and the banner image on
             # its own page) must be unlocked by at least one current member.
-            if icon not in _clan_icon_pool(db, clan):
+            if not _icon_pool_allowing(db, clan, icon)[0]:
                 return {"ok": False, "error": "icon_not_unlocked"}
             updates["icon"] = icon
             updates["icon_name"] = str(body.get("icon_name") or "").strip()[:40]
@@ -2538,6 +3646,10 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             _activity_push(clan, "event", f"📅 Event scheduled: {name}")
             _clans(db).document(clan_id).set({"events": events, "activity": clan.get("activity")}, merge=True)
             _chat_system(db, clan_id, f"📅 New clan event: {name} — check the Events tab!")
+            # "Organize three events with your clan" counts events SCHEDULED,
+            # so deleting one afterwards can't un-count it (and re-creating it
+            # can't double-count, because each create is one new event).
+            _bump_season(db, clan_id, add={"events_held": 1})
             return {"ok": True, "events": events}
         eid = str(body.get("id") or "")
         ev = next((e for e in events if e.get("id") == eid), None)
@@ -2562,9 +3674,10 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         return {"ok": True, "events": events}
 
     if action == "rival":
-        # Friendly season rivalry: ONE rival clan per season, profile stat
-        # comparison only. Deliberately awards nothing — a rivalry that paid
-        # out would just be two clans farming each other (see spec).
+        # Friendly season rivalry: ONE rival clan per season. Declaring one is
+        # itself a season challenge, and finishing ahead of them is another —
+        # but the rivalry never pays per GAME, because two clans farming each
+        # other for points is exactly what that would become (see spec).
         if not (clan.get("owner_uid") == uid or _has_perm(clan, uid, "post_announcements")):
             return {"ok": False, "error": "no_permission"}
         op = str(body.get("op") or "set")
@@ -2586,6 +3699,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                                           "activity": clan.get("activity")}, merge=True)
         _chat_system(db, clan_id,
                      f"⚔️ {(tsnap.to_dict() or {}).get('name')} is our friendly rival this season!")
+        # Choose Your Rival is a one-shot flag, not a counter — swapping rivals
+        # a dozen times can't score it a dozen times.
+        _bump_season(db, clan_id, set_to={"rival_set": 1})
         return {"ok": True, "rival": target}
 
     if action == "vote-critter":
@@ -2595,24 +3711,25 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         icon = _norm_icon(body.get("icon"))
         if not icon:
             return {"ok": False, "error": "bad_icon"}
-        if icon not in _clan_icon_pool(db, clan):
+        allowed, pool = _icon_pool_allowing(db, clan, icon)
+        if not allowed:
             return {"ok": False, "error": "icon_not_unlocked"}
-        transactional = _txn_helpers()
-        clan_ref = _clans(db).document(clan_id)
-        txn = db.transaction()
-
-        @transactional
-        def _run(t):
-            snap = clan_ref.get(transaction=t)
-            if not snap.exists:
-                return {"ok": False, "error": "no_clan"}
-            c = snap.to_dict() or {}
-            slot = _season_slot(c, sid)
-            slot["critter_votes"][uid] = icon
-            t.set(clan_ref, c)
-            return {"ok": True}
-
-        return _run(txn)
+        # One ballot is one key in one map, so this needs no transaction and no
+        # read: a nested merge writes seasons.<sid>.critter_votes.<uid> and
+        # touches nothing else. It used to re-read the clan and write the WHOLE
+        # document back, which meant two clanmates voting at the same moment
+        # fought over every field in the clan — and a full-doc round trip per
+        # click is most of why voting felt like it hung.
+        _clans(db).document(clan_id).set(
+            {"seasons": {sid: {"critter_votes": {uid: icon}}}}, merge=True)
+        # Hand back the new standings so the client can repaint the vote list
+        # and the tab critter from this response alone. Without it the client
+        # had to fetch /home AND /get again before the tally moved.
+        votes = dict(((clan.get("seasons") or {}).get(sid) or {}).get("critter_votes") or {})
+        votes[uid] = icon
+        fav, tally = _favorite_from_votes(votes, pool)
+        return {"ok": True, "my_vote": icon,
+                "favorite_critter": fav, "favorite_votes": tally}
 
     if action == "claim-game":
         return claim_game_points(uid, str(body.get("room_id") or ""))
@@ -2649,6 +3766,10 @@ def _join_clan_direct(db, uid: str, clan_id: str) -> Dict[str, Any]:
         clan["members"] = members
         clan["join_requests"] = [r for r in (clan.get("join_requests") or [])
                                  if str(r.get("uid")) != uid]
+        # Fresh Recruits counts arrivals this season, inside the same
+        # transaction as the arrival itself.
+        slot = _season_slot(clan, _get_season_id())
+        slot["new_members"] = _num(slot.get("new_members")) + 1
         _activity_push(clan, "join", f"🌊 {nick} joined the clan")
         t.set(clan_ref, clan)
         t.set(user_ref, {"clan_id": clan_id, "clan_joined_ts": _now()}, merge=True)
@@ -2660,5 +3781,7 @@ def _join_clan_direct(db, uid: str, clan_id: str) -> Dict[str, Any]:
         print(f"[clan] request-accept join failed: {exc}")
         return {"ok": False, "error": "join_failed"}
     if res.get("ok"):
+        _members_invalidate([uid])
         _chat_system(db, clan_id, f"🌊 {res.pop('nick', 'A new member')} joined the clan — say hi!")
+        _bump_season(db, clan_id)      # re-sweep: the new arrival may finish one
     return res
