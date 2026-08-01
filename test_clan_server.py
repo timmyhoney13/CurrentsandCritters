@@ -8,7 +8,9 @@ join/leave/kick/transfer, role permissions + custom roles, every point rule
 cases, one-claim-per-game, same-opponent daily caps, weekly 150 cap, 24h clan-
 switch cooldown, guest/AI exclusions), the daily trade point (same clan, both
 sides, bounce refusal), daily goal + weekly challenge plumbing, the season
-leaderboard tiebreakers, and season finalize (coins, badges, MVP rules).
+leaderboard tiebreakers, season finalize (coins, badges, MVP rules), and the
+clan-critter ownership rule (a clan can only wear a critter one of its members
+has unlocked, including the season vote whose winner becomes the tab icon).
 
 Run:  python3 test_clan_server.py
 """
@@ -195,13 +197,20 @@ def check(name, cond):
         print(f"  ✗ FAIL: {name}")
 
 
-def set_user(uid, nick=None, coins=0, clan_id="", cooldown=0, username=None):
+_DEFAULT_ICONS = ["/avatars/clownfish.png", "/avatars/lobster.png",
+                   "/avatars/narwhal.png", "/avatars/bonito.png"]
+
+
+def set_user(uid, nick=None, coins=0, clan_id="", cooldown=0, username=None, icons=None):
     DB.store["users/" + uid] = {
         "nickname": nick or uid.title(),
         "username": username or nick or uid.title(),
         "usernameLower": (username or nick or uid.title()).lower(),
         "stats": {"critter_coins": coins, "total_xp": 100},
         "avatar_url": "/avatars/clownfish.png",
+        # A clan can only wear a critter one of its members has unlocked, so
+        # every test player owns the icons the suite founds clans with.
+        "unlocked_icons": list(_DEFAULT_ICONS if icons is None else icons),
         "online": True, "last_active": 4102444800,   # far future = online
     }
     if clan_id:
@@ -319,6 +328,70 @@ r = route("cara", "role", {"uid": "dan", "role": "recruiter"})
 check("owner promotes recruiter", r.get("ok"))
 r = route("dan", "request-act", {"uid": "eve", "accept": True})
 check("recruiter accepts request", r.get("ok") and "eve" in clan_doc(CID2)["members"])
+
+# ══ 3b. Invite by FRIEND CODE ════════════════════════════════════════════════
+# The Members-tab invite box only ever knows a 4-digit friend code. Codes are
+# random, so two players CAN share one — the resolver has to say so instead of
+# inviting whichever stranger it found first.
+print("invite by friend code:")
+
+
+def set_friend_code(uid, code, nick=None):
+    """Mirror what the Friends tab writes at signup: the code on the user doc
+    AND the friend_lookup/{nickLower}_{code} pointer."""
+    nick = nick or user(uid).get("nickname") or uid.title()
+    DB.store["users/" + uid]["friend_code"] = code
+    DB.store["users/" + uid]["nickname"] = nick
+    DB.store["friend_lookup/" + nick.strip().lower() + "_" + code] = {"uid": uid, "nickname": nick}
+
+
+for _u in ("finn", "gale", "hana", "iris"):
+    set_user(_u)
+set_friend_code("finn", "2809", "LemmeSeeThemToes")
+set_friend_code("gale", "9113", "Twin Midi")
+set_friend_code("hana", "4242", "Hana")
+set_friend_code("iris", "4242", "Iris")          # deliberate code collision
+set_friend_code("cara", "1001", "Cara")
+
+r = route("cara", "invite", {"to_code": "2809"})
+check("bare friend code invites", r.get("ok"))
+check("invite echoes the resolved name", r.get("name") == "LemmeSeeThemToes")
+check("code invite lands on the right user",
+      any(i.get("clan_id") == CID2 for i in user("finn").get("clan_invites") or []))
+check("code invite did NOT touch the collision users",
+      not user("hana").get("clan_invites") and not user("iris").get("clan_invites"))
+
+r = route("cara", "invite", {"to_code": "#9113"})
+check("'#2809' form invites", r.get("ok") and r.get("name") == "Twin Midi")
+
+r = route("cara", "invite", {"to_code": "Twin Midi 9113"})
+check("'Name 9113' form invites", r.get("ok") and r.get("name") == "Twin Midi")
+r = route("cara", "invite", {"to_code": "Twin Midi#9113"})
+check("'Name#9113' form invites", r.get("ok") and r.get("name") == "Twin Midi")
+
+r = route("cara", "invite", {"to_code": "4242"})
+check("shared code is refused, not guessed",
+      not r.get("ok") and r.get("error") == "ambiguous_code")
+r = route("cara", "invite", {"to_code": "Hana 4242"})
+check("name disambiguates a shared code", r.get("ok") and r.get("name") == "Hana")
+
+r = route("cara", "invite", {"to_code": "7777"})
+check("unknown code rejected", not r.get("ok") and r.get("error") == "no_user")
+r = route("cara", "invite", {"to_code": "1001"})
+check("your own code rejected", not r.get("ok") and r.get("error") == "self_invite")
+
+# A nickname can itself end in digits — "Player123" must not be split into
+# "Player" + "123" and silently invite somebody else.
+set_user("jonas", nick="Player123", username="Player123")
+r = route("cara", "invite", {"to_code": "Player123"})
+check("digit-tailed username is not split into name+code",
+      r.get("ok") and r.get("name") == "Player123")
+
+# The profile / Messages buttons still pass a uid or a plain username.
+r = route("cara", "invite", {"to_uid": "bob"})
+check("uid invite still works", r.get("ok"))
+r = route("cara", "invite", {"to_name": "Finn"})
+check("username invite still works (profile button)", r.get("ok"))
 
 # ══ 4. Roles & permissions ═══════════════════════════════════════════════════
 print("roles:")
@@ -740,6 +813,195 @@ check("member removed from roster", "noah" not in clan_doc("w1")["members"])
 r = CS._route_post(DB, "mia", "kick", {"uid": "pia"}, FAKE_SID["cur"])
 check("owner kicks member", r.get("ok"))
 check("kicked member gets cooldown too", user("pia").get("clan_cooldown_until", 0) > CS._now())
+
+# ══ 12. Clan critter ownership (icon, banner, season vote) ═══════════════════
+# A clan may only wear a critter SOMEBODY in it has unlocked. One member owning
+# it is enough for the whole clan, and the vote winner (which becomes the clan's
+# icon on everyone's Clans tab) is held to the same rule.
+print("clan critter ownership:")
+set_user("ownerA", icons=["/avatars/clownfish.png"])   # only clownfish
+set_user("mateB", icons=["/avatars/narwhal.png"])      # only narwhal
+set_user("mateC", icons=["/avatars/narwhal.png"])      # only narwhal
+set_user("nobodyU", icons=[])                          # nothing unlocked at all
+
+r = route("nobodyU", "create", {"name": "Locked Out", "icon": "/avatars/narwhal.png"})
+check("can't found a clan wearing a critter you haven't unlocked",
+      not r.get("ok") and r.get("error") == "icon_not_unlocked")
+r = route("nobodyU", "create", {"name": "Starter Crew", "icon": "/avatars/mullet.png"})
+check("the starter critter is always allowed", r.get("ok"))
+
+r = route("ownerA", "create", {"name": "Pool Party", "icon": "/avatars/clownfish.png",
+                               "icon_name": "Clownfish"})
+check("founding with your own critter works", r.get("ok"))
+PCID = r.get("clan_id")
+route("mateB", "join", {"clan_id": PCID})
+
+prof = (route("ownerA", "get", {"clan_id": PCID}) or {}).get("clan") or {}
+check("the pool is the union of the members' unlocks",
+      set(prof.get("icon_pool") or []) == {"/avatars/mullet.png",
+                                           "/avatars/clownfish.png",
+                                           "/avatars/narwhal.png"})
+outside = (route("nobodyU", "get", {"clan_id": PCID}) or {}).get("clan") or {}
+check("the pool is members-only", "icon_pool" not in outside)
+home = route("mateB", "home")
+check("home reports my own unlocks (the founding screen's choices)",
+      set(home.get("my_unlocked") or []) == {"/avatars/mullet.png", "/avatars/narwhal.png"})
+
+r = route("ownerA", "settings", {"icon": "/avatars/narwhal.png", "icon_name": "Narwhal"})
+check("a critter only ANOTHER member unlocked can be the clan icon", r.get("ok"))
+check("clan icon actually changed", clan_doc(PCID).get("icon") == "/avatars/narwhal.png")
+r = route("ownerA", "settings", {"icon": "/avatars/lobster.png"})
+check("a critter nobody in the clan owns is refused",
+      not r.get("ok") and r.get("error") == "icon_not_unlocked")
+check("and the icon is left alone", clan_doc(PCID).get("icon") == "/avatars/narwhal.png")
+r = route("ownerA", "settings", {"icon": "http://evil/x.png"})
+check("a junk icon path is still rejected outright",
+      not r.get("ok") and r.get("error") == "bad_icon")
+
+r = route("mateB", "vote-critter", {"icon": "/avatars/lobster.png"})
+check("can't vote for a critter nobody in the clan owns",
+      not r.get("ok") and r.get("error") == "icon_not_unlocked")
+r = route("mateB", "vote-critter", {"icon": "/avatars/clownfish.png"})
+check("voting for a clanmate's critter works", r.get("ok"))
+route("ownerA", "vote-critter", {"icon": "/avatars/narwhal.png"})
+prof = (route("mateB", "get", {"clan_id": PCID}) or {}).get("clan") or {}
+check("my own vote comes back", prof.get("my_vote") == "/avatars/clownfish.png")
+check("the tally comes back", (prof.get("favorite_votes") or {}) ==
+      {"/avatars/clownfish.png": 1, "/avatars/narwhal.png": 1})
+check("a tie resolves the same way for every member (alphabetical)",
+      prof.get("favorite_critter") == "/avatars/clownfish.png")
+
+route("mateC", "join", {"clan_id": PCID})
+route("mateC", "vote-critter", {"icon": "/avatars/clownfish.png"})
+prof = (route("mateC", "get", {"clan_id": PCID}) or {}).get("clan") or {}
+check("the critter with the most votes wins",
+      prof.get("favorite_critter") == "/avatars/clownfish.png")
+
+# The only clownfish owner leaves: the clan can't wear clownfish any more, so
+# those votes drop out and the tab icon falls back to one it can wear.
+route("ownerA", "transfer", {"uid": "mateB"})
+CS._leave_clan("ownerA")
+prof = (route("mateB", "get", {"clan_id": PCID}) or {}).get("clan") or {}
+check("a critter whose owner left drops out of the pool",
+      "/avatars/clownfish.png" not in (prof.get("icon_pool") or []))
+check("...and out of the vote, so the tab icon stays wearable",
+      prof.get("favorite_critter") == "/avatars/narwhal.png")
+
+# ══ 13. One-shot roster moves (PENDING_MEMBER_MOVES) ═════════════════════════
+# Placing a player straight into a clan by name + friend code, no invite round
+# trip. The whole point is that it happens exactly once, so the marker doc is
+# as much of the feature as the move itself.
+print("roster moves:")
+set_user("mover1")
+set_user("mover2")
+set_user("host1")
+set_user("host2")
+set_friend_code("mover1", "2809", "LemmeSeeThemToes")
+set_friend_code("mover2", "9113", "Twin Midi")
+r = route("host1", "create", {"name": "Belmont Board Game Club",
+                              "icon": "/avatars/clownfish.png", "privacy": "invite"})
+BELMONT = r.get("clan_id")
+check("target clan founded (invite-only, the hardest case)", r.get("ok"))
+
+# mover2 starts out in a DIFFERENT clan, and mid-cooldown from an earlier move.
+OLD = route("host2", "create", {"name": "Old Reef Crew",
+                                "icon": "/avatars/lobster.png"}).get("clan_id")
+route("mover2", "join", {"clan_id": OLD})
+DB.store["users/mover2"]["clan_cooldown_until"] = CS._now() + 3600
+
+MOVES = ({"key": "t-move-1", "name": "LemmeSeeThemToes", "code": "2809",
+          "clan": "Belmont Board Game Club"},
+         {"key": "t-move-2", "name": "Twin Midi", "code": "9113",
+          "clan": "Belmont Board Game Club"},
+         {"key": "t-move-missing", "name": "Nobody At All", "code": "5555",
+          "clan": "Belmont Board Game Club"})
+_real_moves, CS.PENDING_MEMBER_MOVES = CS.PENDING_MEMBER_MOVES, MOVES
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+
+check("player with no clan is moved in", "mover1" in clan_doc(BELMONT)["members"])
+check("...and their user doc points at it", user("mover1").get("clan_id") == BELMONT)
+check("player already in another clan is moved across",
+      "mover2" in clan_doc(BELMONT)["members"] and "mover2" not in clan_doc(OLD)["members"])
+check("an operator move is not a quit — no 24h point cooldown",
+      not user("mover2").get("clan_cooldown_until"))
+check("invite-only clan doesn't block the move", clan_doc(BELMONT).get("privacy") == "invite")
+check("the injected invite is consumed, not left lying around",
+      not any(i.get("clan_id") == BELMONT for i in user("mover1").get("clan_invites") or []))
+check("marker written for each applied move",
+      DB.store.get("clan_moves/t-move-1", {}).get("result") == "moved"
+      and DB.store.get("clan_moves/t-move-2", {}).get("result") == "moved")
+check("unresolvable move leaves NO marker (so it retries, never silently lost)",
+      "clan_moves/t-move-missing" not in DB.store)
+
+# Second pass: markers must make it a no-op even after the player leaves again.
+CS._leave_clan("mover1")
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+check("an applied move never runs twice", "mover1" not in clan_doc(BELMONT)["members"])
+
+# The retry that finally lands: the missing player signs up.
+set_user("mover3")
+set_friend_code("mover3", "5555", "Nobody At All")
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+check("a deferred move applies on a later pass", "mover3" in clan_doc(BELMONT)["members"])
+check("...and marks itself done", DB.store.get("clan_moves/t-move-missing", {}).get("result") == "moved")
+
+# Somebody already in the target clan is left exactly as they were.
+DB.store.pop("clan_moves/t-move-2", None)
+before = copy.deepcopy(clan_doc(BELMONT)["members"]["mover2"])
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+check("re-running against an existing member is a no-op",
+      clan_doc(BELMONT)["members"]["mover2"] == before
+      and DB.store["clan_moves/t-move-2"]["result"] == "already_member")
+check("all moves applied → the check switches itself off",
+      CS._MOVES_NEXT_CHECK == float("inf"))
+
+# Nothing that could clear up later is treated as final: a full clan and a
+# player who still owns another clan both have to stay pending.
+set_user("mover4")
+set_friend_code("mover4", "6161", "Deferred Dave")
+DB.store["clans/" + BELMONT]["members"].update(
+    {"filler%d" % i: {"name": "F%d" % i, "role": "member", "joined_ts": CS._now()}
+     for i in range(CS.CLAN_MAX_MEMBERS)})
+CS.PENDING_MEMBER_MOVES = ({"key": "t-move-full", "name": "Deferred Dave", "code": "6161",
+                            "clan": "Belmont Board Game Club"},)
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+check("a full clan defers the move instead of burning it",
+      "clan_moves/t-move-full" not in DB.store and "mover4" not in clan_doc(BELMONT)["members"])
+check("...and the check stays armed for the retry", CS._MOVES_NEXT_CHECK != float("inf"))
+for i in range(CS.CLAN_MAX_MEMBERS):
+    DB.store["clans/" + BELMONT]["members"].pop("filler%d" % i, None)
+
+set_user("mover5")
+set_friend_code("mover5", "7171", "Owner Olivia")
+route("mover5", "create", {"name": "Olivias Own", "icon": "/avatars/clownfish.png"})
+CS.PENDING_MEMBER_MOVES = ({"key": "t-move-owner", "name": "Owner Olivia", "code": "7171",
+                            "clan": "Belmont Board Game Club"},)
+CS._MOVES_NEXT_CHECK = 0.0
+CS.ensure_pending_moves(DB)
+check("a solo clan owner is left alone — the move never dissolves their clan",
+      "clan_moves/t-move-owner" not in DB.store
+      and user("mover5").get("clan_id")
+      and DB.store.get("clan_names/olivias own"))
+
+# A legacy account whose friend_code was stored as a NUMBER must still resolve.
+set_user("legacy1")
+DB.store["users/legacy1"]["friend_code"] = 3131          # int, not "3131"
+DB.store["users/legacy1"]["nickname"] = "Legacy Larry"
+r = route("host1", "invite", {"to_code": "3131"})
+check("a numeric friend_code still resolves", r.get("ok") and r.get("name") == "Legacy Larry")
+
+CS.PENDING_MEMBER_MOVES = _real_moves
+check("the shipped move list names the two players Tim asked for",
+      {(m["name"], m["code"], m["clan"]) for m in CS.PENDING_MEMBER_MOVES}
+      == {("LemmeSeeThemToes", "2809", "Belmont Board Game Club"),
+          ("Twin Midi", "9113", "Belmont Board Game Club")})
+check("...with unique, non-reusable keys",
+      len({m["key"] for m in CS.PENDING_MEMBER_MOVES}) == len(CS.PENDING_MEMBER_MOVES))
 
 shutil.rmtree(TMP, ignore_errors=True)
 print(f"\n{'='*46}\nRESULT: {_PASS} passed, {_FAIL} failed")

@@ -89,7 +89,12 @@
     weekly_cap: "Weekly Clan Point cap reached (150).",
     already_claimed: "Already counted for this game.",
     muted: "You're muted in clan chat right now.",
+    bad_icon: "That critter can't be used as a clan icon.",
+    icon_not_unlocked: "Nobody in your clan has unlocked that critter yet.",
     no_clan: "Clan not found.",
+    no_user: "No player found with that friend code.",
+    ambiguous_code: "More than one player uses that code — add their name too (e.g. Twin Midi 9113).",
+    self_invite: "That's your own friend code!",
     server_error: "Something went wrong — try again.",
   };
   const errMsg = (e) => ERR[e] || "Something went wrong (" + esc(e || "unknown") + ").";
@@ -123,6 +128,30 @@
   const roleLabel = (r) => ({ owner: "👑 Owner", captain: "⚓ Captain", recruiter: "📯 Recruiter", member: "🐟 Member" }[r] || "🐟 Member");
   const privacyLabel = (p) => ({ public: "🌊 Public — anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only" }[p] || p);
   const privacyShort = (p) => ({ public: "🌊 Public", request: "✉️ Request", invite: "🔒 Invite" }[p] || p);
+
+  // ── Critter pickers ────────────────────────────────────────────────────────
+  // A clan can only wear a critter SOMEBODY in it has unlocked (founding a clan:
+  // somebody = you, the only member). The server enforces it on every write;
+  // these pickers only offer what it would accept, so nobody picks an animal
+  // and gets refused. `allowed` is the server's list (home.my_unlocked when
+  // founding, clan.icon_pool once the clan exists).
+  function pickableAvatars(allowed) {
+    let all = [];
+    try { all = bridge().animalAvatars() || []; } catch (_) { all = []; }
+    if (!Array.isArray(allowed)) return all;      // server said nothing: offer all
+    const own = {};
+    allowed.forEach(p => { own[String(p || "").toLowerCase()] = true; });
+    return all.filter(a => own[String(a.img || "").toLowerCase()]);
+  }
+
+  // One icon tile. `votes` (optional) shows how many clanmates picked it.
+  function iconTile(a, selected, votes) {
+    const ic = el("div", "ic" + (selected ? " sel" : ""));
+    ic.innerHTML = `<img loading="lazy" src="${esc(avSrc(a.img))}" alt="${esc(a.name)}"><div>${esc(a.name)}</div>`
+      + (votes ? `<div class="ccC-votes">${votes} vote${votes === 1 ? "" : "s"}</div>` : "");
+    ic.title = a.name;
+    return ic;
+  }
 
   // ── Styles (injected once; ccC- prefix, matches the ph-* light ocean look) ─
   const CSS = `
@@ -217,6 +246,7 @@
   .ccC-iconpick .ic.sel { border-color:#2e8fe0; background:#e4f2ff; }
   .ccC-iconpick .ic img { width: 42px; height: 42px; border-radius: 50%; object-fit:cover; }
   .ccC-iconpick .ic div { font-size: 9px; font-weight:800; color:#5b7fa3; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ccC-iconpick .ic .ccC-votes { color:#1c5f9e; font-size: 9px; font-weight: 900; margin-top: 0; }
   .ccC-field { margin-bottom: 13px; }
   .ccC-field > label { display:block; font-size: 11px; font-weight: 900; letter-spacing:.4px; text-transform:uppercase; color:#4d6587; margin-bottom: 5px; }
   .ccC-hint { font-size: 11px; color:#7a9db8; font-weight: 700; margin-top: 4px; }
@@ -248,6 +278,18 @@
   .ccC-table td { padding: 8px 10px; border-bottom: 1px solid #eef4fa; white-space:nowrap; }
   .ccC-table tr.me td { background: rgba(208,168,40,.08); }
   .ccC-table td img.mini { width: 26px; height: 26px; border-radius: 50%; object-fit:cover; vertical-align: middle; margin-right: 7px; border:1.5px solid #e3eef7; }
+  /* The clan's critter riding on the Clans nav button, in place of the shield.
+     It has to sit in exactly the space the shield glyph occupied, so every
+     animal is drawn to the same circle: the sidebar's 20px (.ph-snav-item svg
+     is 20x20) and the top tab strip's 16px (its svg's own attributes). These
+     rules live outside #cc-clans-root on purpose — the buttons are the Player
+     Home's, and the critter must show on every tab, not just this one. */
+  .ph-snav-item .ccC-navcritter, .ph-tab .ccC-navcritter {
+    flex-shrink: 0; border-radius: 50%; object-fit: cover; display: block;
+    background: rgba(255,255,255,.9); box-shadow: 0 0 0 1.5px rgba(120,175,220,.55);
+  }
+  .ph-snav-item .ccC-navcritter { width: 20px; height: 20px; }
+  .ph-tab .ccC-navcritter { width: 16px; height: 16px; }
   @media (max-width: 640px) {
     .ccC-pod { max-width: none; }
     .ccC-chat { height: 320px; }
@@ -286,8 +328,118 @@
     const res = await post("home", {});
     if (res && res.ok) { C.home = res; }
     else if (force) toast(errMsg(res && res.error), "error");
+    // One funnel: every path that reloads the home payload also re-decides
+    // which critter belongs on the Clans nav button.
+    updateTabIcon();
     return res;
   }
+
+  // ── The clan's critter on the Clans nav button ─────────────────────────────
+  // Your clan's season favourite (the critter that won the vote) replaces the
+  // shield glyph on the Clans buttons, for your clan's members only. Until
+  // anyone votes it falls back to the clan's own icon, and with no clan the
+  // shield comes back.
+  //
+  // It has to be visible from EVERY tab, not just the Clans one, so it is
+  // applied at page load without waiting for the tab to be opened: the last
+  // known critter is cached per account and painted the moment sign-in
+  // resolves, then corrected by the /home payload.
+  const TAB_ICON_KEY = "cc_clan_tabicon";
+  let _tabIconUid = null;      // account the button currently reflects
+
+  function navButtons() {
+    try {
+      return Array.prototype.slice.call(document.querySelectorAll(
+        '.ph-snav-item[data-tab="clans"], .ph-tab[data-tab="clans"]'));
+    } catch (_) { return []; }
+  }
+
+  // Swaps in the critter (or puts the shield back for an empty url). The shield
+  // <svg> is only hidden, never removed, so restoring it can't fail.
+  function applyTabIcon(url) {
+    let src = "";
+    try { src = url ? String(avSrc(url) || url) : ""; } catch (_) { src = url || ""; }
+    navButtons().forEach(btn => {
+      try {
+        const svg = btn.querySelector("svg");
+        let img = btn.querySelector("img.ccC-navcritter");
+        if (!src) {
+          if (img && img.parentNode) img.parentNode.removeChild(img);
+          if (svg) svg.style.display = "";
+          return;
+        }
+        if (!img) {
+          img = document.createElement("img");
+          img.className = "ccC-navcritter";
+          img.alt = "";
+          img.draggable = false;
+          btn.insertBefore(img, btn.firstChild);
+        }
+        if (img.getAttribute("src") !== src) img.setAttribute("src", src);
+        if (svg) svg.style.display = "none";
+      } catch (_) {}
+    });
+  }
+
+  function myUid() {
+    try { const u = bridge().authUser(); return (u && u.uid) ? String(u.uid) : ""; }
+    catch (_) { return ""; }
+  }
+  function cachedTabIcon(uid) {
+    try {
+      const raw = JSON.parse(localStorage.getItem(TAB_ICON_KEY) || "null");
+      return (raw && raw.uid === uid && typeof raw.icon === "string") ? raw.icon : "";
+    } catch (_) { return ""; }
+  }
+  function cacheTabIcon(uid, icon) {
+    try { localStorage.setItem(TAB_ICON_KEY, JSON.stringify({ uid, icon: icon || "" })); }
+    catch (_) {}
+  }
+
+  // The critter this account's Clans button should be wearing, per the last
+  // home payload: the season vote winner, else the clan's own icon.
+  function tabIconFromHome() {
+    const H = C.home;
+    if (!H || !H.ok) return "";
+    const full = H.my_clan_full;
+    if (!full) return "";                      // not in a clan → shield
+    return full.favorite_critter || full.icon || "";
+  }
+
+  function updateTabIcon() {
+    const uid = myUid();
+    if (!uid) return;
+    const icon = tabIconFromHome();
+    cacheTabIcon(uid, icon);
+    applyTabIcon(icon);
+  }
+
+  // Runs on a slow timer as well as at boot: signing in, signing out and
+  // switching accounts all have to move the button, and none of them route
+  // through this module.
+  async function primeTabIcon() {
+    const b = bridge();
+    if (!b || !b.ENABLED) return;
+    const uid = myUid();
+    if (!uid) {
+      if (_tabIconUid !== null) { _tabIconUid = null; applyTabIcon(""); }
+      return;
+    }
+    if (_tabIconUid === uid) {
+      // Already primed. Re-assert only if the button isn't wearing it — the nav
+      // can be rebuilt (or arrive late) long after the payload was fetched.
+      const want = tabIconFromHome() || cachedTabIcon(uid);
+      const btns = navButtons();
+      if (want && btns.length && btns.some(b => !b.querySelector("img.ccC-navcritter"))) {
+        applyTabIcon(want);
+      }
+      return;
+    }
+    _tabIconUid = uid;
+    applyTabIcon(cachedTabIcon(uid));          // instant, from the last session
+    try { await refreshHome(false); } catch (_) {}   // authoritative, re-applies
+  }
+  window.__ccClansPrimeTabIcon = primeTabIcon;
 
   window.__ccClansRender = async function () {
     const r = root();
@@ -374,10 +526,16 @@
     C.home = null;
   };
 
-  // "Invite to Clan" from player profiles / messages
-  window.__ccClanInvite = async function (toUid, toName) {
-    const res = await post("invite", { to_uid: String(toUid || ""), to_name: String(toName || "") });
-    if (res && res.ok) toast(`🛡️ Clan invite sent to ${toName || "player"}!`, "success");
+  // "Invite to Clan" from player profiles / messages (uid + name), and from the
+  // Members-tab box (friend code only — the server resolves it to a uid and
+  // sends the name back so the toast can say who it reached).
+  window.__ccClanInvite = async function (toUid, toName, toCode) {
+    const res = await post("invite", {
+      to_uid:  String(toUid  || ""),
+      to_name: String(toName || ""),
+      to_code: String(toCode || ""),
+    });
+    if (res && res.ok) toast(`🛡️ Clan invite sent to ${res.name || toName || "player"}!`, "success");
     else toast(errMsg(res && res.error), "error");
     return !!(res && res.ok);
   };
@@ -718,16 +876,15 @@
       }, 350);
     });
 
-    // Icon picker — every critter in the game, previewable
+    // Icon picker — the critters YOU have unlocked (you're the only member of a
+    // clan you're founding, so your unlocks are the whole clan's choice).
     const fIcon = el("div", "ccC-field");
     fIcon.innerHTML = '<label>Clan critter icon</label>';
     const pick = el("div", "ccC-iconpick");
     let selIcon = null, selIconName = "";
-    const avatars = (bridge().animalAvatars() || []);
+    const avatars = pickableAvatars(C.home && C.home.my_unlocked);
     avatars.forEach(a => {
-      const ic = el("div", "ic");
-      ic.innerHTML = `<img loading="lazy" src="${esc(avSrc(a.img))}" alt="${esc(a.name)}"><div>${esc(a.name)}</div>`;
-      ic.title = a.name;
+      const ic = iconTile(a, false, 0);
       ic.addEventListener("click", () => {
         pick.querySelectorAll(".ic.sel").forEach(x => x.classList.remove("sel"));
         ic.classList.add("sel");
@@ -735,8 +892,9 @@
       });
       pick.appendChild(ic);
     });
+    if (!avatars.length) pick.appendChild(el("div", "ccC-empty", "Unlock a critter icon first and it can be your clan's."));
     fIcon.appendChild(pick);
-    fIcon.appendChild(el("div", "ccC-hint", "Your critter appears beside the clan name, on the leaderboard, in invites, chat and next to members' names."));
+    fIcon.appendChild(el("div", "ccC-hint", "Only critters you've unlocked can be your clan's icon. It appears beside the clan name, on the leaderboard, in invites, chat and next to members' names."));
     body.appendChild(fIcon);
 
     // Description
@@ -1085,26 +1243,37 @@
     secC.appendChild(bc);
     pane.appendChild(secC);
 
-    // Favorite critter vote (members only)
+    // Favorite critter vote (members only). The winner is the clan's icon on
+    // the Clans tab, so the vote list is gated the same way the icon is.
     if (my) {
+      const votes = cl.favorite_votes || {};
+      const favName = (cl.favorite_critter
+        ? (pickableAvatars(null).find(a => a.img === cl.favorite_critter) || {}).name
+        : "") || "";
       const secV = el("div", "ccC-sec");
-      secV.appendChild(el("div", "ccC-sec-h", "💙 Favorite clan critter — season vote"));
+      secV.appendChild(el("div", "ccC-sec-h", "💙 Favorite clan critter · season vote"));
       const bv = el("div", "ccC-sec-b");
-      bv.innerHTML = `<div class="ccC-hint" style="margin:0 0 8px;">Vote for this season's featured critter — the winner decorates the clan page.
-        ${cl.favorite_critter ? `Current favorite: <img src="${esc(avSrc(cl.favorite_critter))}" style="width:18px;height:18px;border-radius:50%;vertical-align:-4px;object-fit:cover;">` : ""}</div>`;
+      bv.innerHTML = `<div class="ccC-hint" style="margin:0 0 8px;">The critter with the most votes becomes your clan's icon on the Clans tab, in place of the shield. Only your clan sees it.
+        ${cl.favorite_critter ? `<br>Winning now: <img src="${esc(avSrc(cl.favorite_critter))}" style="width:18px;height:18px;border-radius:50%;vertical-align:-4px;object-fit:cover;"> <b>${esc(favName)}</b> with ${Number(votes[cl.favorite_critter] || 0)} vote${Number(votes[cl.favorite_critter] || 0) === 1 ? "" : "s"}.` : "<br>No votes yet, so your clan icon is on the tab for now."}</div>`;
       const pick = el("div", "ccC-iconpick");
       pick.style.maxHeight = "140px";
-      (bridge().animalAvatars() || []).forEach(a => {
-        const ic = el("div", "ic" + (cl.my_vote === a.img ? " sel" : ""));
-        ic.innerHTML = `<img loading="lazy" src="${esc(avSrc(a.img))}" alt="${esc(a.name)}"><div>${esc(a.name)}</div>`;
+      const votable = pickableAvatars(cl.icon_pool);
+      votable.forEach(a => {
+        const ic = iconTile(a, cl.my_vote === a.img, Number(votes[a.img] || 0));
         ic.addEventListener("click", async () => {
           const res = await post("vote-critter", { icon: a.img });
-          if (res && res.ok) { toast(`Voted for ${a.name} 💙`, "success"); C.clan = null; render(); }
-          else toast(errMsg(res && res.error), "error");
+          if (res && res.ok) {
+            toast(`Voted for ${a.name} 💙`, "success");
+            C.clan = null;
+            await refreshHome(false);    // the vote may have moved the tab icon
+            render();
+          } else toast(errMsg(res && res.error), "error");
         });
         pick.appendChild(ic);
       });
+      if (!votable.length) pick.appendChild(el("div", "ccC-empty", "No critters to vote for yet. Unlock one and your clan can wear it."));
       bv.appendChild(pick);
+      bv.appendChild(el("div", "ccC-hint", "You can vote for any critter someone in the clan has unlocked. One person having it is enough for all of you."));
       secV.appendChild(bv);
       pane.appendChild(secV);
     }
@@ -1246,21 +1415,26 @@
     // Invite box
     if (my && my.perms.invite) {
       const sec = el("div", "ccC-sec");
-      sec.appendChild(el("div", "ccC-sec-h", "📯 Invite a player"));
+      sec.appendChild(el("div", "ccC-sec-h", "📯 Enter a friend code to invite a player"));
       const b = el("div", "ccC-sec-b");
       b.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;align-items:center;";
       const inp = el("input", "ccC-inp");
-      inp.placeholder = "Exact username…";
+      inp.placeholder = "Friend code — e.g. 2809";
       inp.style.flex = "1 1 160px";
       const bt = el("button", "ccC-btn pri tiny", "Send invite");
-      bt.addEventListener("click", async () => {
+      const send = async () => {
         const n = inp.value.trim();
         if (!n) return;
-        const ok = await window.__ccClanInvite("", n);
+        const ok = await window.__ccClanInvite("", "", n);
         if (ok) inp.value = "";
-      });
+      };
+      bt.addEventListener("click", send);
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") send(); });
       b.appendChild(inp); b.appendChild(bt);
-      b.appendChild(el("div", "ccC-hint", "You can also invite from a player's profile or from Messages."));
+      b.appendChild(el("div", "ccC-hint",
+        "A friend code is the 4-digit number under a player's name on their Player Home. "
+        + "If two players share a code, add their name too (Twin Midi 9113). "
+        + "You can also invite from a player's profile or from Messages."));
       sec.appendChild(b);
       pane.appendChild(sec);
     }
@@ -1744,15 +1918,16 @@
       lb.appendChild(document.createTextNode("Allow Captains to create & edit custom roles"));
       b.appendChild(lb);
 
-      // Icon change
+      // Icon change — the clan banner critter. Same rule as founding: it has to
+      // be unlocked by somebody in the clan, not necessarily by the owner.
       const fi = el("div", "ccC-field");
       fi.innerHTML = "<label>Clan critter icon</label>";
       const pick = el("div", "ccC-iconpick");
       pick.style.maxHeight = "150px";
       let selIcon = cl.icon, selIconName = cl.icon_name || "";
-      (bridge().animalAvatars() || []).forEach(a => {
-        const ic = el("div", "ic" + (a.img === cl.icon ? " sel" : ""));
-        ic.innerHTML = `<img loading="lazy" src="${esc(avSrc(a.img))}" alt="${esc(a.name)}"><div>${esc(a.name)}</div>`;
+      const choices = pickableAvatars(cl.icon_pool);
+      choices.forEach(a => {
+        const ic = iconTile(a, a.img === cl.icon, 0);
         ic.addEventListener("click", () => {
           pick.querySelectorAll(".ic.sel").forEach(x => x.classList.remove("sel"));
           ic.classList.add("sel");
@@ -1760,7 +1935,9 @@
         });
         pick.appendChild(ic);
       });
+      if (!choices.length) pick.appendChild(el("div", "ccC-empty", "No unlocked critters in the clan yet."));
       fi.appendChild(pick);
+      fi.appendChild(el("div", "ccC-hint", "Only critters someone in the clan has unlocked. One member having it is enough for the whole clan."));
       b.appendChild(fi);
 
       const save = el("button", "ccC-btn pri", "💾 Save settings");
@@ -1770,8 +1947,12 @@
           captains_can_edit_roles: cb.checked,
           icon: selIcon, icon_name: selIconName,
         });
-        if (res && res.ok) { toast("Settings saved ⚙️", "success"); C.clan = null; C.home = null; render(); }
-        else toast(errMsg(res && res.error), "error");
+        if (res && res.ok) {
+          toast("Settings saved ⚙️", "success");
+          C.clan = null;
+          await refreshHome(false);      // the icon may be the tab icon too
+          render();
+        } else toast(errMsg(res && res.error), "error");
       });
       b.appendChild(save);
       sec.appendChild(b);
@@ -1878,4 +2059,19 @@
     bg.appendChild(md);
     document.body.appendChild(bg);
   }
+
+  // ── Boot ───────────────────────────────────────────────────────────────────
+  // Nothing here touches the Clans tab itself: it exists so the clan critter is
+  // on the nav button from the moment the player home appears, whatever tab
+  // they are looking at. The timer is DOM-only (no network) and the fetch it
+  // guards happens once per signed-in account.
+  function boot() {
+    try { injectCss(); } catch (_) {}
+    try { primeTabIcon(); } catch (_) {}
+    try { setInterval(primeTabIcon, 5000); } catch (_) {}
+  }
+  try {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+    else boot();
+  } catch (_) { try { boot(); } catch (__) {} }
 })();

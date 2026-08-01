@@ -117,6 +117,17 @@ DAILY_GOALS = [
 PRIVACY_MODES = ("public", "request", "invite")
 CORE_ROLES    = ("owner", "captain", "recruiter", "member")
 
+# ── Critter icons a clan is allowed to wear ──────────────────────────────────
+# A clan's critter (its icon, the banner image on its profile/leaderboard/invite
+# rows, and the season-vote favourite that becomes the Clans tab icon) may only
+# be a critter SOMEBODY IN THE CLAN has unlocked. One member owning it is enough
+# for the whole clan — the others don't have to have unlocked it themselves.
+# Ownership lives in users/{uid}.unlocked_icons; STARTER_ICONS are the ones every
+# account has without unlocking anything (mirrors the client's ANIMAL_AVATARS
+# entries with unlock.type === "starter" — Mullet is the universal default).
+STARTER_ICONS = ("/avatars/mullet.png",)
+_ICON_RE      = re.compile(r"^/avatars/[a-z0-9\-]+\.(png|webp)$")
+
 # Permissions grantable to custom roles. Owner-only powers (delete clan,
 # transfer ownership, change the owner's role, promote to owner, membership/
 # security settings) are NOT in this list and can never be granted.
@@ -319,6 +330,41 @@ def _clans(db):
 
 def _users(db):
     return db.collection("users")
+
+
+def _norm_icon(raw: Any) -> str:
+    """"/avatars/x.png" if `raw` is a real critter icon path, else "". Strips the
+    cache-buster query and lowercases, the way the client stores them."""
+    s = str(raw or "").split("?")[0].strip().lower()
+    return s if _ICON_RE.match(s) else ""
+
+
+def _user_icons(udoc: Dict[str, Any]) -> set:
+    """Every critter ONE player may use: the starter set plus their unlocks."""
+    out = set(STARTER_ICONS)
+    arr = (udoc or {}).get("unlocked_icons")
+    if isinstance(arr, list):
+        for x in arr:
+            n = _norm_icon(x)
+            if n:
+                out.add(n)
+    return out
+
+
+def _clan_icon_pool(db, clan: Dict[str, Any]) -> set:
+    """Every critter THIS clan may wear: the union of its current members'
+    unlocked icons. One member having it unlocked is enough for the clan, and a
+    member who leaves takes their exclusive critters with them (the pool is
+    recomputed from the live membership every time)."""
+    pool = set(STARTER_ICONS)
+    for m_uid in list((clan.get("members") or {}).keys()):
+        try:
+            snap = _users(db).document(m_uid).get()
+            if snap.exists:
+                pool |= _user_icons(snap.to_dict() or {})
+        except Exception as exc:  # noqa: BLE001
+            print(f"[clan] icon pool read failed for {m_uid}: {exc}")
+    return pool
 
 
 def _txn_helpers():
@@ -950,6 +996,77 @@ def ensure_season_finalized(db) -> None:
                 pass
 
 
+# ── Finding a player to invite ───────────────────────────────────────────────
+# Clan invites are addressed by FRIEND CODE (the 4-digit number on Player Home),
+# not by username — a username is easy to mistype and easy to impersonate, and
+# most people already trade friend codes to add each other.
+_FC_ONLY_RE  = re.compile(r"^#?(\d{3,6})$")            # "2809" / "#2809"
+_FC_NAMED_RE = re.compile(r"^(.+?)\s*[#\s]\s*(\d{3,6})$")  # "Twin Midi 9113"
+
+
+def _uid_by_friend_code(db, code: str) -> Tuple[str, str]:
+    """Bare friend code → (uid, error). Codes are random 4-digit numbers and are
+    NOT unique on their own, so a collision asks for the name as well rather
+    than guessing and inviting a stranger."""
+    # Signup writes the code as a string. Query the number too: an == filter
+    # for "2809" does not match a doc holding 2809, and one legacy account
+    # stored that way would look like "no such player" forever.
+    try:
+        rows = list(_users(db).where("friend_code", "==", str(code)).limit(5).get())
+        if not rows and str(code).isdigit():
+            rows = list(_users(db).where("friend_code", "==", int(code)).limit(5).get())
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] friend-code lookup failed: {exc}")
+        return "", "no_user"
+    if not rows:
+        return "", "no_user"
+    if len(rows) > 1:
+        return "", "ambiguous_code"
+    return rows[0].id, ""
+
+
+def _uid_by_name_and_code(db, name: str, code: str) -> str:
+    """friend_lookup/{nicknameLower}_{code} — the exact doc the Friends tab
+    writes at signup and rewrites on every nickname change."""
+    key = f"{str(name or '').strip().lower()}_{code}"
+    try:
+        snap = db.collection("friend_lookup").document(key).get()
+        if snap.exists:
+            return str((snap.to_dict() or {}).get("uid") or "")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] friend_lookup failed: {exc}")
+    return ""
+
+
+def _resolve_invitee(db, raw: str) -> Tuple[str, str]:
+    """Whatever was typed into the invite box → (uid, error).
+
+    Accepts "2809", "#2809", "Twin Midi 9113" and "Twin Midi#9113". A plain
+    username still resolves too, because the profile and Messages invite
+    buttons pass a name — and because a nickname can itself contain digits
+    ("Player123"), the name+code split is only trusted when friend_lookup
+    actually has that pair."""
+    txt = str(raw or "").strip()
+    if not txt:
+        return "", "no_user"
+    m = _FC_ONLY_RE.match(txt)
+    if m:
+        return _uid_by_friend_code(db, m.group(1))
+    code = ""
+    m = _FC_NAMED_RE.match(txt)
+    if m:
+        uid = _uid_by_name_and_code(db, m.group(1), m.group(2))
+        if uid:
+            return uid, ""
+        code = m.group(2)      # the name may be stale; the code usually isn't
+    uid = _find_uid_by_username(db, txt.lower()) or ""
+    if uid:
+        return uid, ""
+    if code:
+        return _uid_by_friend_code(db, code)
+    return "", "no_user"
+
+
 # ── Game claims ──────────────────────────────────────────────────────────────
 def _latest_record(dir_path: str, room_id: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     """Newest game_<room>_<ts>.json record for a room → (record_id, record)."""
@@ -1291,8 +1408,8 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
     ok, why = clan_name_check(name)
     if not ok:
         return {"ok": False, "error": "bad_name", "reason": why}
-    icon = str(body.get("icon") or "").strip()
-    if not re.match(r"^/avatars/[a-z0-9\-]+\.(png|webp)$", icon):
+    icon = _norm_icon(body.get("icon"))
+    if not icon:
         return {"ok": False, "error": "bad_icon"}
     icon_name = str(body.get("icon_name") or "").strip()[:40]
     desc = str(body.get("description") or "").strip()[:CLAN_DESC_MAX]
@@ -1319,6 +1436,10 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         udoc = usnap.to_dict() or {} if usnap.exists else {}
         if udoc.get("clan_id"):
             return {"ok": False, "error": "already_in_clan"}
+        # The founder is the whole clan at this point, so the clan's critter has
+        # to be one THEY have unlocked.
+        if icon not in _user_icons(udoc):
+            return {"ok": False, "error": "icon_not_unlocked"}
         nick = udoc.get("nickname") or udoc.get("username") or "Player"
         clan = {
             "name": name, "nameLower": name_lower,
@@ -1464,6 +1585,127 @@ def _leave_clan(uid: str, *, kicked_by: Optional[str] = None,
     return res
 
 
+# ── One-shot roster moves ────────────────────────────────────────────────────
+# Players who were placed straight into a clan by hand, with no invite round
+# trip. Each entry runs at most ONCE ever: the marker doc written to
+# clan_moves/{key} is what stops a restart (or the second Render instance) from
+# repeating it, so the key must never be reused. Safe to delete an entry after
+# its marker exists — it just stops being checked.
+PENDING_MEMBER_MOVES: Tuple[Dict[str, str], ...] = (
+    {"key": "2026-08-01-belmont-lemmeseethemtoes",
+     "name": "LemmeSeeThemToes", "code": "2809", "clan": "Belmont Board Game Club"},
+    {"key": "2026-08-01-belmont-twinmidi",
+     "name": "Twin Midi", "code": "9113", "clan": "Belmont Board Game Club"},
+)
+MOVE_RETRY_SEC = 900          # re-check unresolved moves every 15 min
+_MOVES_NEXT_CHECK = 0.0
+
+
+def _clan_id_by_name(db, name: str) -> str:
+    """Clan name → id via the clan_names/{nameLower} uniqueness reservation."""
+    nl = str(name or "").strip().lower()
+    if not nl:
+        return ""
+    try:
+        snap = db.collection("clan_names").document(nl).get()
+        if snap.exists:
+            return str((snap.to_dict() or {}).get("clan_id") or "")
+    except Exception as exc:  # noqa: BLE001
+        print(f"[clan] clan-name lookup failed: {exc}")
+    return ""
+
+
+def _force_move_member(db, mv: Dict[str, str]) -> str:
+    """Put one player into one clan, no invite needed.
+
+    Returns "moved"/"already_member" when it's done, or "" for "not yet" —
+    and "not yet" is deliberately what EVERY failure returns, including ones
+    that look permanent. The clan may not be founded yet, the player may not
+    have signed up yet, the clan may be full this minute: none of those mean
+    the move should be quietly abandoned, so no marker is written and the next
+    pass tries again. The reason is logged each time."""
+    who = f"{mv.get('name', '')}#{mv.get('code', '')}"
+    uid, _why = _resolve_invitee(db, who)
+    if not uid:
+        print(f"[clan] move {mv.get('key')}: no player matches {who}")
+        return ""
+    clan_id = _clan_id_by_name(db, str(mv.get("clan") or ""))
+    csnap = _clans(db).document(clan_id).get() if clan_id else None
+    if not clan_id or csnap is None or not csnap.exists:
+        print(f"[clan] move {mv.get('key')}: no clan named {mv.get('clan')!r} yet")
+        return ""
+    clan = csnap.to_dict() or {}
+    usnap = _users(db).document(uid).get()
+    udoc = usnap.to_dict() or {} if usnap.exists else {}
+    if str(udoc.get("clan_id") or "") == clan_id or uid in (clan.get("members") or {}):
+        return "already_member"
+    if len(clan.get("members") or {}) >= CLAN_MAX_MEMBERS:
+        print(f"[clan] move {mv.get('key')}: {mv.get('clan')!r} is full right now")
+        return ""
+    if udoc.get("clan_id"):
+        old_id = str(udoc["clan_id"])
+        old = (_clans(db).document(old_id).get().to_dict() or {})
+        if (old.get("members") or {}).get(uid, {}).get("role") == "owner":
+            # Never move a clan's owner out from under it. With clanmates that
+            # needs a transfer; alone it would DISSOLVE their clan. Either way
+            # that's a person's decision, not a roster edit's.
+            print(f"[clan] move {mv.get('key')}: player owns {old.get('name')!r} — "
+                  f"transfer or leave it first")
+            return ""
+        res = _leave_clan(uid, clan_id_hint=old_id)
+        if not res.get("ok"):
+            print(f"[clan] move {mv.get('key')}: can't leave current clan "
+                  f"({res.get('error')})")
+            return ""
+        udoc = (_users(db).document(uid).get().to_dict() or {})
+    # _join_clan is the one code path that builds a correct member record, so
+    # reuse it — an invite is appended (not replaced) purely to satisfy its
+    # privacy gate for a request-only or invite-only clan.
+    invites = [i for i in (udoc.get("clan_invites") or []) if isinstance(i, dict)]
+    if not any(str(i.get("clan_id")) == clan_id for i in invites):
+        invites.append({"clan_id": clan_id, "name": clan.get("name"),
+                        "icon": clan.get("icon"), "by": "Currents & Critters",
+                        "ts": _now()})
+        _users(db).document(uid).set({"clan_invites": invites}, merge=True)
+    res = _join_clan(uid, {"clan_id": clan_id})
+    if not res.get("ok"):
+        print(f"[clan] move {mv.get('key')}: join refused ({res.get('error')})")
+        return ""
+    # Leaving stamps the 24h Clan-Point cooldown. That's a penalty for quitting
+    # a clan, and this player didn't quit anything — clear it.
+    _users(db).document(uid).set({"clan_cooldown_until": 0}, merge=True)
+    return "moved"
+
+
+def ensure_pending_moves(db) -> None:
+    """Apply PENDING_MEMBER_MOVES. Costs one marker read per unapplied entry,
+    at most every MOVE_RETRY_SEC, and nothing at all once they're all done.
+    Never raises: a bad entry must not take the Clans tab down with it."""
+    global _MOVES_NEXT_CHECK
+    if not PENDING_MEMBER_MOVES or time.time() < _MOVES_NEXT_CHECK:
+        return
+    _MOVES_NEXT_CHECK = time.time() + MOVE_RETRY_SEC
+    pending = 0
+    for mv in PENDING_MEMBER_MOVES:
+        try:
+            ref = db.collection("clan_moves").document(str(mv["key"]))
+            if ref.get().exists:
+                continue
+            outcome = _force_move_member(db, mv)
+            if not outcome:
+                # Not applied (it logged why) — leave the marker unwritten so
+                # the next pass retries instead of losing the move for good.
+                pending += 1
+                continue
+            ref.set({**mv, "ts": _now(), "result": outcome})
+            print(f"[clan] roster move {mv['key']}: {outcome}")
+        except Exception as exc:  # noqa: BLE001
+            pending += 1
+            print(f"[clan] roster move {mv.get('key')} failed: {exc}")
+    if not pending:
+        _MOVES_NEXT_CHECK = float("inf")   # all applied; never look again
+
+
 # ── Route helpers ────────────────────────────────────────────────────────────
 def _auth_uid(body: Dict[str, Any]) -> Optional[str]:
     tok = body.get("idToken") if isinstance(body.get("idToken"), str) else ""
@@ -1497,6 +1739,9 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
     mvp_uid = mvp_chip.get("uid") if int(mvp_chip.get("until") or 0) > _now() else None
     wk = _week_key()
     today = _date_key()
+    # The clan's critter pool, built from the very same member reads the
+    # presence dots need — every icon at least one member has unlocked.
+    pool = set(STARTER_ICONS)
     for m_uid, mem in (clan.get("members") or {}).items():
         c = contrib.get(m_uid) or {}
         online, last_seen = False, 0
@@ -1507,6 +1752,7 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
             la_sec = int(la.timestamp()) if hasattr(la, "timestamp") else int(la or 0)
             online = bool(u.get("online")) and la_sec >= _now() - PRESENCE_FRESH_SEC
             last_seen = la_sec
+            pool |= _user_icons(u)
         except Exception:
             pass
         members_out.append({
@@ -1527,11 +1773,18 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
               for u, c in contrib.items() if u not in (clan.get("members") or {})]
     daily = _daily_slot(dict(clan), clan_id)   # copy → never mutates the stored doc here
     weekly = _weekly_slot(dict(clan))
+    # Season favourite critter: most votes wins, and the winner is what the
+    # clan's members see on their Clans tab button. Votes for a critter nobody
+    # in the clan owns any more (its only owner left, or traded it away) drop
+    # out of the tally, so the badge can never show a critter the clan can't
+    # wear. Ties break alphabetically so every member sees the same winner.
     votes = slot.get("critter_votes") or {}
     tally: Dict[str, int] = {}
     for icon in votes.values():
-        tally[icon] = tally.get(icon, 0) + 1
-    fav = max(tally.items(), key=lambda kv: kv[1])[0] if tally else None
+        icon = _norm_icon(icon)
+        if icon and icon in pool:
+            tally[icon] = tally.get(icon, 0) + 1
+    fav = min(tally.items(), key=lambda kv: (-kv[1], kv[0]))[0] if tally else None
     # Friendly rival: the head-to-head stat card (no rewards ride on this).
     rival = None
     rival_id = (clan.get("rivals") or {}).get(sid)
@@ -1572,6 +1825,9 @@ def _clan_profile(db, clan_id: str, clan: Dict[str, Any], sid: str,
         "season": _season_public(sid),
     }
     if viewer_uid and _member_of(clan, viewer_uid):
+        # Which critters this clan may wear (icon + season vote). Members only:
+        # it is the clan's own business what its people have unlocked.
+        out["icon_pool"] = sorted(pool)
         out["my"] = {
             "role": (_member_of(clan, viewer_uid) or {}).get("role"),
             "custom_role_id": (_member_of(clan, viewer_uid) or {}).get("custom_role_id"),
@@ -1629,6 +1885,7 @@ def handle_get(handler, parsed) -> bool:
         handler._send_json({"ok": False, "error": "firestore_unavailable"})
         return True
     ensure_season_finalized(db)
+    ensure_pending_moves(db)
     sid = _get_season_id()
     handler._send_json({"ok": True, "season": _season_public(sid),
                         "rows": _leaderboard_rows(db, sid)})
@@ -1699,6 +1956,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:  # noqa: C901
         handler._send_json({"ok": False, "error": "firestore_unavailable"})
         return True
     ensure_season_finalized(db)
+    ensure_pending_moves(db)
     sid = _get_season_id()
 
     try:
@@ -1757,6 +2015,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                                     "weekly": int((contrib.get("weekly") or {}).get(_week_key()) or 0),
                                     "weekly_cap": WEEKLY_POINT_CAP},
                 "cooldown_until": _cooldown_active(udoc),
+                # The critters I personally own — the icon choices offered when
+                # I found a clan, where I am the only member there is.
+                "my_unlocked": sorted(_user_icons(udoc)),
                 "invites": invites,
                 "badges": udoc.get("clan_badges") or [],
                 "prev_season": {"sid": _prev_sid(sid),
@@ -1932,9 +2193,16 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         if len(clan.get("members") or {}) >= CLAN_MAX_MEMBERS:
             return {"ok": False, "error": "clan_full"}
         to_uid = str(body.get("to_uid") or "").strip()
-        if not to_uid and body.get("to_name"):
-            to_uid = _find_uid_by_username(db, str(body.get("to_name")).strip().lower()) or ""
-        if not to_uid or to_uid == uid:
+        if not to_uid:
+            # to_code is what the Clans invite box sends; to_name is what the
+            # profile / Messages buttons send. Both go through one resolver.
+            raw = body.get("to_code") or body.get("to_name") or ""
+            to_uid, why = _resolve_invitee(db, str(raw))
+            if why:
+                return {"ok": False, "error": why}
+        if to_uid == uid:
+            return {"ok": False, "error": "self_invite"}
+        if not to_uid:
             return {"ok": False, "error": "no_user"}
         tsnap = _users(db).document(to_uid).get()
         if not tsnap.exists:
@@ -1963,7 +2231,9 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
                 })
         except Exception as exc:  # noqa: BLE001
             print(f"[clan] invite message failed: {exc}")
-        return {"ok": True}
+        # Echo the name back: the invite box only ever knew a friend code, so
+        # this is the only way its toast can say WHO got invited.
+        return {"ok": True, "name": tdoc.get("nickname") or tdoc.get("username") or "player"}
 
     if action == "report":
         # Deliberately ABOVE the members-only gate: anyone signed in can report
@@ -2070,9 +2340,13 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             return {"ok": False, "error": "owner_only"}   # icon/privacy/desc = owner (major settings)
         updates: Dict[str, Any] = {}
         if isinstance(body.get("icon"), str) and body.get("icon"):
-            icon = str(body["icon"]).strip()
-            if not re.match(r"^/avatars/[a-z0-9\-]+\.(png|webp)$", icon):
+            icon = _norm_icon(body["icon"])
+            if not icon:
                 return {"ok": False, "error": "bad_icon"}
+            # The clan's critter (its icon everywhere, and the banner image on
+            # its own page) must be unlocked by at least one current member.
+            if icon not in _clan_icon_pool(db, clan):
+                return {"ok": False, "error": "icon_not_unlocked"}
             updates["icon"] = icon
             updates["icon_name"] = str(body.get("icon_name") or "").strip()[:40]
         if isinstance(body.get("description"), str):
@@ -2315,9 +2589,14 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
         return {"ok": True, "rival": target}
 
     if action == "vote-critter":
-        icon = str(body.get("icon") or "").strip()
-        if not re.match(r"^/avatars/[a-z0-9\-]+\.(png|webp)$", icon):
+        # The winner of this vote becomes the clan's icon on the Clans tab, so
+        # it is gated exactly like the clan icon itself: somebody in the clan
+        # has to have unlocked it.
+        icon = _norm_icon(body.get("icon"))
+        if not icon:
             return {"ok": False, "error": "bad_icon"}
+        if icon not in _clan_icon_pool(db, clan):
+            return {"ok": False, "error": "icon_not_unlocked"}
         transactional = _txn_helpers()
         clan_ref = _clans(db).document(clan_id)
         txn = db.transaction()

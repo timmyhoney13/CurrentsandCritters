@@ -11,6 +11,11 @@ returns, and feeds those exact bytes to the real js/clans-ui.js in headless
 Chrome. Every screen must paint real content — and the empty world (no clans
 exist yet, which is what every player sees on launch day) must NOT be blank.
 
+The real Player-Home Clans nav buttons are in the page too (shield glyph and
+all), so the other half of the clan critter is proved here as well: the season
+vote's winner replaces that glyph, at the glyph's own size, and the shield comes
+back when the payload says you're not in a clan.
+
 Run:  python3 test_clans_payloads.py     (needs Google Chrome installed)
 """
 import copy
@@ -193,11 +198,13 @@ NICK = {"mia": "Mia", "noah": "Noah", "pia": "Pia", "rex": "Rex",
         "solo": "Solo", "newbie": "Newbie"}
 
 
-def set_user(uid):
+def set_user(uid, icons=("/avatars/clownfish.png", "/avatars/narwhal.png")):
     DB.store["users/" + uid] = {
         "nickname": NICK[uid], "username": NICK[uid].lower(),
         "usernameLower": NICK[uid].lower(), "coins": 0,
         "avatar_url": "/avatars/clownfish.png", "stats": {"total_xp": 500},
+        # A clan may only wear a critter one of its members has unlocked.
+        "unlocked_icons": list(icons),
     }
 
 
@@ -226,6 +233,11 @@ R("mia", "announce", {"text": "Practice tonight at 8.", "pin": True})
 R("mia", "chat-send", {"text": "Welcome to the reef!"})
 R("noah", "chat-send", {"text": "Ready when you are."})
 R("mia", "events", {"op": "create", "name": "Game Night", "ts": CS._now() + 86400})
+# Season vote: the winner becomes the clan's icon on the Clans tab. Deliberately
+# NOT the clan's own icon (clownfish), so the nav swap can't pass by accident.
+for u in ["mia", "noah", "pia"]:
+    R(u, "vote-critter", {"icon": "/avatars/narwhal.png"})
+R("rex", "vote-critter", {"icon": "/avatars/clownfish.png"})
 for uid, pts in [("mia", 40), ("noah", 25), ("pia", 12), ("rex", 4)]:
     award(CID, uid, pts)
 
@@ -266,6 +278,13 @@ check("/api/clan/home carries a season", bool(PAYLOADS["/api/clan/home"].get("se
 check("/api/clan/home carries my clan", bool(PAYLOADS["/api/clan/home"].get("my_clan")))
 check("clanless home still carries a season", bool(HOME_CLANLESS.get("season")))
 check("clanless home has no clan", HOME_CLANLESS.get("my_clan") is None)
+check("/api/clan/home carries my unlocked critters (the founding choices)",
+      "/avatars/narwhal.png" in (PAYLOADS["/api/clan/home"].get("my_unlocked") or []))
+_prof = PAYLOADS["/api/clan/get"].get("clan") or {}
+check("/api/clan/get carries the clan's critter pool",
+      "/avatars/clownfish.png" in (_prof.get("icon_pool") or []))
+check("/api/clan/get carries the vote winner",
+      _prof.get("favorite_critter") == "/avatars/narwhal.png")
 
 if not CHROME:
     print("\nSKIP: no Chrome/Chromium — server payloads checked, render check skipped.")
@@ -275,8 +294,25 @@ if not CHROME:
 CSS = open(os.path.join(ROOT, "multiplayer/client/css/preview.css"), encoding="utf8").read()
 MOD = open(os.path.join(ROOT, "multiplayer/client/js/clans-ui.js"), encoding="utf8").read()
 
+# The two Clans nav buttons below are copied verbatim from preview.html (shield-
+# and-check glyph and all): the clan's critter has to replace that glyph, at the
+# glyph's own size, on every tab — not just while the Clans tab is open.
 PAGE = """<!doctype html><html><head><meta charset="utf-8"><style>__CSS__</style></head><body>
-<div id="auth-stats-lobby" data-bg-tab="clans">
+<div id="auth-stats-lobby" class="visible" data-bg-tab="clans">
+  <div class="ph-sidebar"><div class="ph-sidebar-nav-card">
+  <nav class="ph-snav">
+    <button class="ph-snav-item" id="snav-clans" data-tab="clans">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Clans
+    </button>
+  </nav>
+  </div></div>
+  <div class="ph-tabs">
+    <button class="ph-tab" data-tab="clans">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.2-2.3 5.8-5.5 7-3.2-1.2-5.5-3.8-5.5-7v-4L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M5.6 8l1.7 1.7L10.6 6.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Clans
+    </button>
+  </div>
   <div class="ph-panel" id="ph-panel-clans"><div id="cc-clans-root"></div></div>
 </div>
 <pre id="RESULT"></pre>
@@ -323,11 +359,35 @@ function snap(name) {
 }
 const tab = (re) => [...document.querySelectorAll(".ph-lb-mode-btn")].find(b => re.test(b.textContent));
 const btn = (re) => [...document.querySelectorAll(".ccC-btn")].find(b => re.test(b.textContent));
+// What the Clans nav buttons are wearing right now: the shield glyph, or the
+// clan's critter at exactly the glyph's size.
+function navState() {
+  return [...document.querySelectorAll('.ph-snav-item[data-tab="clans"], .ph-tab[data-tab="clans"]')]
+    .map(b => {
+      const img = b.querySelector("img.ccC-navcritter");
+      const svg = b.querySelector("svg");
+      const r = img ? img.getBoundingClientRect() : null;
+      return { where: b.className, src: img ? img.getAttribute("src") : "",
+               w: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0,
+               round: img ? getComputedStyle(img).borderRadius : "",
+               fit: img ? getComputedStyle(img).objectFit : "",
+               svgShown: !!svg && getComputedStyle(svg).display !== "none" };
+    });
+}
 (async () => {
   try {
     await window.__ccClansRender(); await wait(200); snap("home");
+    out.nav = navState();
     const my = document.querySelector(".ccC-myclan"); if (my) my.click();
     await wait(300); snap("profile");
+    out.vote = (() => {
+      const sec = [...document.querySelectorAll(".ccC-sec")]
+        .find(s => /Favorite clan critter/i.test(s.innerText || ""));
+      return { found: !!sec, text: sec ? sec.innerText : "",
+               tiles: sec ? sec.querySelectorAll(".ccC-iconpick .ic").length : 0,
+               names: sec ? [...sec.querySelectorAll(".ccC-iconpick .ic")]
+                              .map(t => (t.innerText || "").trim()) : [] };
+    })();
     let t;
     t = tab(/Members/i);  if (t) t.click(); await wait(250); snap("members");
     t = tab(/Chat/i);     if (t) t.click(); await wait(400); snap("chat");
@@ -339,7 +399,11 @@ const btn = (re) => [...document.querySelectorAll(".ccC-btn")].find(b => re.test
     const br = btn(/Find a Clan|Browse/i); if (br) br.click(); await wait(300); snap("browse");
     RESPONSES["/api/clan/home"] = HOME_CLANLESS;
     await window.__ccClansRender(); await wait(300); snap("noclan");
+    out.navNoClan = navState();     // no clan → the shield has to come back
     const mk = btn(/Create a Clan/i); if (mk) mk.click(); await wait(350); snap("create");
+    out.create = { tiles: document.querySelectorAll(".ccC-iconpick .ic").length,
+                   text: (document.querySelector(".ccC-iconpick") || {}).parentNode
+                         ? document.querySelector(".ccC-iconpick").parentNode.innerText : "" };
     // Launch day: the season is real but nobody has founded a clan yet.
     RESPONSES["/api/clan/home"] = Object.assign({}, HOME_CLANLESS, { top3: [], total_clans: 0 });
     await window.__ccClansRender(); await wait(300); snap("emptyworld");
@@ -405,7 +469,39 @@ check("leaderboard: both clans named", "Reef Riders" in S["leaderboard"]["text"]
 check("browse: clans listed", S["browse"]["counts"]["member"] >= 1
       or "Reef Riders" in S["browse"]["text"])
 check("noclan: the join/create call to action", "not in a clan" in S["noclan"]["text"])
-check("create: the form", "Clan name" in S["create"]["text"])
+# (the lobby is really laid out here, so CSS text-transform reaches innerText)
+check("create: the form", "clan name" in S["create"]["text"].lower())
+
+# The clan's critter on the Clans nav button, in place of the shield-and-check
+# glyph — the thing a player sees from every OTHER tab.
+NAV = OUT.get("nav") or []
+check("nav: both Clans buttons found", len(NAV) == 2, str(NAV))
+check("nav: both wear the critter that won the vote",
+      bool(NAV) and all(b["src"] == "/avatars/narwhal.png" for b in NAV), str(NAV))
+check("nav: the shield glyph is hidden underneath",
+      bool(NAV) and not any(b["svgShown"] for b in NAV), str(NAV))
+check("nav: sidebar critter is the sidebar glyph's 20px",
+      any(b["w"] == 20 and b["h"] == 20 for b in NAV), str(NAV))
+check("nav: tab-strip critter is that glyph's 16px",
+      any(b["w"] == 16 and b["h"] == 16 for b in NAV), str(NAV))
+check("nav: every animal is drawn to the same circle (no squashing)",
+      bool(NAV) and all(b["fit"] == "cover" and "50%" in (b["round"] or "") for b in NAV), str(NAV))
+NAV0 = OUT.get("navNoClan") or []
+check("nav: leaving the clan puts the shield back",
+      bool(NAV0) and all(not b["src"] and b["svgShown"] for b in NAV0), str(NAV0))
+
+V = OUT.get("vote") or {}
+check("vote: the season vote section rendered", V.get("found") is True)
+check("vote: it says the winner becomes the tab icon",
+      "Clans tab" in (V.get("text") or ""), (V.get("text") or "")[:120])
+check("vote: no em dashes in the section", "—" not in (V.get("text") or ""))
+check("vote: only critters the clan has unlocked are offered",
+      V.get("tiles") == 2, str(V.get("names")))
+check("vote: the tally is shown on the tiles",
+      any("vote" in (n or "").lower() for n in (V.get("names") or [])), str(V.get("names")))
+
+CR = OUT.get("create") or {}
+check("create: offers only the critters I have unlocked", CR.get("tiles") == 2, str(CR))
 
 # Launch day is the state every real player sees first: a season, no clans.
 check("empty world: never blank", S["emptyworld"]["len"] > 40, str(S["emptyworld"]["len"]))

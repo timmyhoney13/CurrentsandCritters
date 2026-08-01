@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.39";
-  const APP_BUILD   = "2026-07-30.10";
+  const APP_VERSION = "1.6.40";
+  const APP_BUILD   = "2026-08-01.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🐠 Your clan's critter takes over the Clans tab", items: [
+      "The season vote now decides something real. Whichever critter your clan votes for the most replaces the shield on the Clans button, so your clan's animal is sitting there in the sidebar instead of a badge everyone shares.",
+      "Only your clan sees it, and you see it from every tab, not just when you're on Clans.",
+      "Until anyone votes, your clan's own icon goes there instead of the shield.",
+      "A clan can only wear a critter somebody in the clan has actually unlocked. One person having it is enough for all of you, so a clanmate's rare animal can be the whole clan's icon.",
+      "That covers all of it: the clan icon you pick when you found the clan, the icon on your clan's page, and the critter the season vote puts on the tab.",
+      "The vote list now shows how many votes each critter has, and who is winning right now.",
+    ]},
+    { ver: "V1.7.0", title: "Clans: invite people by friend code", items: [
+      "The invite box on your clan's Members tab now asks for a friend code — the 4-digit number under a player's name on their Player Home — instead of making you spell their username exactly right.",
+      "Just the code is enough (2809). If two players happen to share a code, the game says so and you add their name in front of it (Twin Midi 9113) rather than inviting the wrong person.",
+      "The confirmation names who the code belongs to, so you can tell straight away that the invite went to the player you meant.",
+      "Inviting from a player's profile or from Messages works exactly as before.",
+    ]},
     { ver: "V1.7.0", title: "🛡️ Clans are here", items: [
       "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 20 of you play for the same score.",
       "Clan seasons run three months, the same length as a competitive season. Each one has its own name and number, a countdown to the end date, and a leaderboard of every clan.",
@@ -17687,6 +17701,10 @@
         if (typeof _msgStartListListener === "function") _msgStartListListener();
         // Apply any competitive forfeit losses incurred while we were offline.
         try { setTimeout(() => { checkPendingForfeitLosses().catch(() => {}); }, 1500); } catch (_) {}
+        // Put this account's clan critter on the Clans nav button right away.
+        // It shows from every tab, so it must not wait for the Clans tab to be
+        // opened (clans-ui.js also picks this up on its own, just slower).
+        try { window.__ccClansPrimeTabIcon && window.__ccClansPrimeTabIcon(); } catch (_) {}
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");

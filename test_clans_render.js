@@ -100,8 +100,11 @@ const PROFILE = Object.assign({}, CARD("c1", "Reef Riders", "/avatars/clownfish.
                  contributors: [{ uid: "u1", name: "Alice", points: 20, qualifies: true },
                                 { uid: "u2", name: "Bob", points: 9, qualifies: true }] }],
   favorite_critter: "/avatars/clownfish.png",
-  favorite_votes: { "/avatars/clownfish.png": 2 },
+  favorite_votes: { "/avatars/clownfish.png": 2, "/avatars/narwhal.png": 1 },
   my_vote: "/avatars/clownfish.png",
+  // Critters somebody in the clan has unlocked: the only ones the clan may
+  // wear, so the only ones the icon picker and the season vote may offer.
+  icon_pool: ["/avatars/clownfish.png", "/avatars/mullet.png", "/avatars/narwhal.png"],
   rival: CARD("c2", "Kelp Krew", "/avatars/narwhal.png", 120, 2),
   season: SEASON,
   week_ends_ts: NOW + 86400 * 2,
@@ -122,6 +125,10 @@ const HOME = {
   my_clan: TOP3[0], my_clan_full: PROFILE,
   my_contribution: { points: 62, game_points: 55, trade_points: 7, weekly: 20, weekly_cap: 150 },
   cooldown_until: 0,
+  // My own unlocks — the critters offered when I found a clan (I'd be its only
+  // member, so my unlocks are the whole clan's choice).
+  my_unlocked: ["/avatars/clownfish.png", "/avatars/lobster.png", "/avatars/mullet.png",
+                "/avatars/narwhal.png"],
   invites: [{ clan_id: "c3", name: "Tide Turners", icon: "/avatars/lobster.png",
               by: "Zoe", ts: NOW - 1200 }],
   badges: [{ type: "mvp", season: 1, sid: "2026-Q2", clan: "Reef Riders",
@@ -134,6 +141,8 @@ const RESPONSES = {
   "/api/clan/get": { ok: true, clan: PROFILE },
   "/api/clan/leaderboard": { ok: true, season: SEASON, rows: TOP3 },
   "/api/clan/browse": { ok: true, season: SEASON, rows: TOP3, recommended: [TOP3[1]] },
+  // The server resolves the friend code and hands the name back for the toast.
+  "/api/clan/invite": { ok: true, name: "LemmeSeeThemToes" },
   "/api/clan/chat-get": { ok: true, muted_until: 0, pinned: PROFILE.pinned_announcement,
     messages: [
       { id: "m1", ts: NOW - 600, uid: "u2", name: "Bob", kind: "msg", text: "Good game everyone" },
@@ -156,13 +165,17 @@ const page = `<!doctype html><html><head><meta charset="utf-8">
 const RESPONSES = ${JSON.stringify(RESPONSES)};
 const HOME_JSON = JSON.parse(JSON.stringify(RESPONSES["/api/clan/home"]));
 window.__ccToasts = [];
+window.__ccPosts = [];
 window.__ccClans = {
   ENABLED: true, APP_BUILD: "test",
   // The REAL bridge (preview-app's apiPost) resolves to an ENVELOPE —
   // { ok, status, data } — not the server payload. Stubbing the payload
   // directly is what let the blank-tab bug through every suite.
   get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
-  post: async (p, b) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
+  post: async (p, b) => {
+    window.__ccPosts.push({ p, b });
+    return { ok: true, status: 200, data: RESPONSES[p] || { ok: true } };
+  },
   toast: (m, t) => window.__ccToasts.push(String(m)),
   nickname: () => "Alice",
   authUser: () => ({ uid: "u1", getIdToken: async () => "tok" }),
@@ -195,6 +208,7 @@ function snapshot(name) {
       tabs: q(".ph-lb-mode-btn"), goalbars: q(".ccC-goalbar"),
       countdown: (document.querySelector(".ccC-count") || {}).innerText || "",
       activity: q(".ccC-activity .row"), chips: q(".ccC-chip"),
+      iconTiles: q(".ccC-iconpick .ic"),
     },
     // widest painted element vs the viewport → horizontal overflow check
     overflow: Math.max(0, Math.round(
@@ -223,6 +237,8 @@ function snapshot(name) {
     if (myRow) myRow.click();
     await wait(200);
     snapshot("profile");
+    out.voteText = (([...document.querySelectorAll(".ccC-sec")]
+      .find(s => /Favorite clan critter/i.test(s.innerText || "")) || {}).innerText) || "";
 
     // Profile → Members tab (2nd sub-tab)
     const tabs = [...document.querySelectorAll(".ph-lb-mode-btn")];
@@ -230,6 +246,26 @@ function snapshot(name) {
     if (memTab) memTab.click();
     await wait(200);
     snapshot("members");
+    // The invite box asks for a friend code, so the placeholder carries as much
+    // of that instruction as the heading does — and innerText can't see it.
+    out.invitePlaceholder = [...document.querySelectorAll("#cc-clans-root input")]
+      .map(i => i.placeholder || "").join(" | ");
+    // Actually use it: type a code, press the button, see what goes to the
+    // server and what the player is told.
+    const codeInput = [...document.querySelectorAll("#cc-clans-root input")]
+      .find(i => /friend code/i.test(i.placeholder || ""));
+    const sendBtn = [...document.querySelectorAll("#cc-clans-root button")]
+      .find(b => /send invite/i.test(b.textContent || ""));
+    if (codeInput && sendBtn) {
+      codeInput.value = "2809";
+      sendBtn.click();
+      await wait(200);
+      out.invite = {
+        sent: (window.__ccPosts.filter(c => c.p === "/api/clan/invite").pop() || {}).b || null,
+        toast: window.__ccToasts.filter(t => /invite sent/i.test(t)).pop() || "",
+        cleared: codeInput.value,
+      };
+    }
 
     // Activity log tab
     const logTab = [...document.querySelectorAll(".ph-lb-mode-btn")].find(b => /Activity/i.test(b.textContent));
@@ -333,6 +369,17 @@ check("profile: weekly challenge shown", (prof.text || "").includes("Reef Regula
 check("profile: challenge contributors listed", (prof.text || "").includes("Alice 20"));
 check("profile: rival comparison shown", (prof.text || "").includes("Kelp Krew"));
 check("profile: clan level shown", (prof.text || "").includes("Lv 3"));
+// The season vote decides the clan's icon on the Clans tab, so it may only
+// offer critters the clan has unlocked (pool: clownfish + narwhal of the three
+// the game offers) and it has to say what winning means.
+check("profile: the vote offers only the clan's unlocked critters",
+      prof.counts.iconTiles === 2, "tiles=" + prof.counts.iconTiles);
+check("profile: the vote says the winner becomes the tab icon",
+      (prof.text || "").includes("Clans tab"));
+check("profile: the vote shows the running tally",
+      /2 votes/.test(prof.text || ""));
+check("profile: no em dashes in the vote section", D.voteText && !/—/.test(D.voteText),
+      D.voteText);
 check("profile: no placeholder junk in text", prof.bad.length === 0, prof.bad.join(","));
 
 const mem = D.screens.members || { counts: {}, bad: [] };
@@ -343,6 +390,22 @@ check("members: MVP chip shown", (mem.text || "").includes("MVP"));
 check("members: join request shown", (mem.text || "").includes("Dana"));
 check("members: former contributor shown", (mem.text || "").includes("Quinn"));
 check("members: no placeholder junk in text", mem.bad.length === 0, mem.bad.join(","));
+check("members: invite box asks for a friend code", /friend code/i.test(mem.text || ""));
+check("members: invite box no longer asks for a username",
+      !/username/i.test(mem.text || ""));
+check("members: the input itself says friend code",
+      /friend code/i.test(D.invitePlaceholder || ""), "placeholders=" + (D.invitePlaceholder || ""));
+
+// Typing a code and pressing the button, in a real browser, end to end.
+const inv = D.invite || {};
+check("invite: the box was found and used", !!inv.sent, JSON.stringify(inv));
+check("invite: the typed code is sent as to_code", (inv.sent || {}).to_code === "2809",
+      JSON.stringify(inv.sent));
+check("invite: no made-up username tags along",
+      !(inv.sent || {}).to_name && !(inv.sent || {}).to_uid, JSON.stringify(inv.sent));
+check("invite: the toast names who the code resolved to",
+      /LemmeSeeThemToes/.test(inv.toast || ""), "toast=" + (inv.toast || ""));
+check("invite: the box clears, ready for the next code", inv.cleared === "");
 
 const log = D.screens.log || { counts: {}, bad: [] };
 check("activity log: rows rendered", log.counts.activity >= 3, "rows=" + log.counts.activity);
