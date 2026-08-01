@@ -157,6 +157,19 @@ def _censor_profanity(text: str) -> str:
     return _PROF_WORD_RE.sub(lambda m: m.group(1) + "*" * len(m.group(2)), out)
 
 
+# "Say good game" — the clan season challenge, and the same phrase the Bonito
+# avatar already listens for. Matched here on the SERVER so the credit comes
+# from a message the server actually stored, not from the client's word.
+# "gg" only counts on its own (or as "gg wp"/"ggs") so it can't be picked out
+# of an unrelated word, and the whole match is case/space insensitive.
+_GOOD_GAME_RE = re.compile(r"(?:^|[^a-z0-9])(?:good\s*game|gg+s?(?:\s*wp)?)(?:[^a-z0-9]|$)", re.IGNORECASE)
+
+
+def _is_good_game_message(text: str) -> bool:
+    """Is this chat line a 'good game'? (clan challenge + Bonito unlock)."""
+    return bool(text) and bool(_GOOD_GAME_RE.search(str(text)))
+
+
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
@@ -3070,6 +3083,16 @@ class GameRoom:
 
         self.game_thread: Optional[threading.Thread] = None
         self.action_history: List[Dict[str, Any]] = []
+        # ── Clan-challenge telemetry (see _clan_game_stats) ──────────────
+        # Clan Points and clan challenges are server-verified: the clan server
+        # only ever reads what THIS server saw happen. Most of it is derived
+        # from action_history at save time, but two things can only be
+        # observed live and are captured here:
+        #   • the score standing at the moment the END GAME card is revealed
+        #     (Comeback Current asks whether you were behind right then), and
+        #   • who said "good game" in the room chat.
+        self.clan_endgame_scores: Optional[Dict[str, int]] = None
+        self.clan_gg_names: set = set()
         self.recovery_active = False
         self.recovery_target_count = 0
         self.recovery_cursor = 0
@@ -3793,6 +3816,16 @@ class GameRoom:
             room.final_scores = [x for x in list(payload.get("final_scores", [])) if isinstance(x, dict)]
             room.winner = str(payload.get("winner")).strip() if isinstance(payload.get("winner"), str) else None
             room.chat_messages = [x for x in list(payload.get("chat_messages", [])) if isinstance(x, dict)][-200:]
+            # A restored room has to remember who said "good game" (the clan
+            # season challenge). The chat it was saying it in is right here, so
+            # rebuild it rather than persist a second copy — and skip system
+            # and spectator lines, which are not players talking.
+            room.clan_gg_names = {
+                str(m.get("sender") or "").strip().lower()
+                for m in room.chat_messages
+                if not m.get("system") and not m.get("spectator")
+                and _is_good_game_message(m.get("message"))
+            } - {""}
 
             action_history_raw = payload.get("action_history")
             parsed_actions: List[Dict[str, Any]] = []
@@ -6964,6 +6997,130 @@ class GameRoom:
         except Exception as exc:
             self._record_event(f"Leaderboard update warning: {exc}")
 
+    # ── Clan-challenge telemetry ─────────────────────────────────────────
+    # Clan Points and clan challenges are server-verified: the clan server may
+    # only ever count things THIS server watched happen. Everything below is
+    # derived from the room's own executed-action history (the same list the
+    # recovery replay trusts) plus the final board — never from anything the
+    # client reported. The result is stamped onto each player row of the game
+    # history record as "clan_stats", and clan_server.claim_game_points reads
+    # it back at claim time.
+    #
+    # The keys are the game index (index into gs.players), which is exactly
+    # what action_history's seat_index carries (it is gs.turn_index). For
+    # competitive, a player owns TWO of these, so each row also reports the
+    # seat it maps to and the clan server sums the pair.
+    def _clan_game_stats(self, gs: Any, ms: Any) -> Dict[int, Dict[str, Any]]:
+        n = len(getattr(gs, "players", []) or [])
+        stats: Dict[int, Dict[str, Any]] = {
+            i: {
+                "oceans_played": 0,      # play_ocean actions
+                "animals_played": 0,     # play_to_ocean actions
+                "moves": 0,              # move_between_oceans actions
+                "stars": 0,              # ★ abilities actually activated
+                "star_chain_turns": 0,   # turns with 2+ ★ activations
+                "pool_draws": 0,         # cards drawn from the Pool
+                "deck_draws": 0,         # cards drawn from the Deck
+                "first_ocean": "",       # name of the first Ocean played
+                "gobies": 0,             # Mandarin Gobies on the final board
+                "max_ceph_turn": 0,      # most Cephalopods played in one turn
+            }
+            for i in range(n)
+        }
+        card_db = getattr(gs, "card_db", None) or {}
+
+        def _card(rec: Dict[str, Any]):
+            uid = rec.get("face_uid")
+            if not isinstance(uid, int) or uid < 0:
+                uid = rec.get("card_uid")
+            if not isinstance(uid, int) or uid < 0:
+                return None
+            return card_db.get(int(uid))
+
+        # Per-(player, turn) tallies, so "chained ★s" and "5 cephalopods in one
+        # turn" are counted per turn rather than per game.
+        stars_in_turn: Dict[Tuple[int, int], int] = {}
+        ceph_in_turn: Dict[Tuple[int, int], int] = {}
+        for rec in (self.action_history or []):
+            try:
+                idx = int(rec.get("seat_index", -1))
+            except (TypeError, ValueError):
+                continue
+            row = stats.get(idx)
+            if row is None:
+                continue
+            kind = str(rec.get("kind") or "")
+            turn = int(rec.get("turn_number") or 0)
+            if kind == "draw":
+                # One draw action takes exactly ONE card: from the Pool when
+                # draw_from_pool is set, otherwise off the top of the Deck.
+                if int(rec.get("draw_from_pool") or 0) > 0:
+                    row["pool_draws"] += 1
+                else:
+                    row["deck_draws"] += 1
+                continue
+            if kind == "move_between_oceans":
+                row["moves"] += 1
+                continue
+            if kind == "play_ocean":
+                row["oceans_played"] += 1
+                if not row["first_ocean"]:
+                    c = _card(rec)
+                    if c is not None:
+                        row["first_ocean"] = str(c.name)
+            elif kind == "play_to_ocean":
+                row["animals_played"] += 1
+                c = _card(rec)
+                if c is not None and str(c.species).strip().lower() == "cephalopod":
+                    key = (idx, turn)
+                    ceph_in_turn[key] = ceph_in_turn.get(key, 0) + 1
+                    row["max_ceph_turn"] = max(row["max_ceph_turn"], ceph_in_turn[key])
+            else:
+                continue
+            # ★s only ever fire on a play sent with use_star — never as a
+            # standing board trigger — so a play action is the only place one
+            # can be counted.
+            if bool(rec.get("use_star")):
+                row["stars"] += 1
+                key = (idx, turn)
+                stars_in_turn[key] = stars_in_turn.get(key, 0) + 1
+                if stars_in_turn[key] == 2:
+                    row["star_chain_turns"] += 1
+
+        # Final-board facts (Shoot the Moon = all 4 Mandarin Gobies).
+        for i in range(n):
+            try:
+                p = gs.players[i]
+                gobies = 0
+                slots_map = getattr(p, "ocean_slots", {}) or {}
+                for ocean_uid in getattr(p, "board_oceans", []) or []:
+                    slots = slots_map.get(int(ocean_uid))
+                    if slots is None:
+                        continue
+                    for direction in ("up", "down", "left", "right"):
+                        for uid in getattr(slots, direction, []) or []:
+                            c = card_db.get(int(uid))
+                            if c is not None and str(c.name).strip().lower() == "mandarin goby":
+                                gobies += 1
+                stats[i]["gobies"] = gobies
+            except Exception:
+                continue
+
+        # Live-observed extras: said "good game" in this room's chat, and
+        # whether this player was behind when the END GAME card was revealed.
+        eg = self.clan_endgame_scores
+        eg_best = max(eg.values()) if eg else 0
+        gg = {str(x).strip().lower() for x in (self.clan_gg_names or set())}
+        for i in range(n):
+            name = str(getattr(gs.players[i], "name", "") or "")
+            stats[i]["name"] = name
+            stats[i]["seat_index"] = int(self._comp_game_to_seat.get(i, i))
+            stats[i]["said_gg"] = name.strip().lower() in gg
+            # No snapshot means the END GAME card was never revealed while the
+            # recorder was watching — then nobody can claim a comeback.
+            stats[i]["behind_at_endgame"] = bool(eg) and int(eg.get(name, 0)) < eg_best
+        return stats
+
     def _save_game_history(self, gs: Any, ms: Any, standings: List[Dict[str, Any]], human_indices: set) -> None:
         """Save a completed human game to the history directory with full score breakdowns."""
         try:
@@ -6977,6 +7134,11 @@ class GameRoom:
                 return
             ended_normally = getattr(ms, "end_game_triggered", False)
             os.makedirs(GAMES_HISTORY_DIR, exist_ok=True)
+            try:
+                clan_stats = self._clan_game_stats(gs, ms)
+            except Exception as exc:
+                clan_stats = {}
+                self._record_event(f"Clan stats warning: {exc}")
             player_details = []
             for p in gs.players:
                 try:
@@ -7015,13 +7177,19 @@ class GameRoom:
                     else:
                         strategy = "Mixed"
                 score = next((s["score"] for s in standings if s["name"] == p.name), 0)
+                game_idx = gs.players.index(p)
                 player_details.append({
                     "name": p.name,
                     "score": score,
                     "strategy": strategy,
-                    "is_human": gs.players.index(p) in human_indices,
+                    "is_human": game_idx in human_indices,
                     "board": board_cards,
                     "score_breakdown": breakdown,
+                    # Seat, not list position — competitive pairs two of these
+                    # rows onto one person, and the clan server needs to know
+                    # which two. In casual they are the same number.
+                    "seat_index": int(self._comp_game_to_seat.get(game_idx, game_idx)),
+                    "clan_stats": clan_stats.get(game_idx) or {},
                 })
             winner_name = standings[0]["name"] if standings else None
             record = {
@@ -7033,6 +7201,11 @@ class GameRoom:
                 "winner": winner_name,
                 "standings": standings,
                 "players": player_details,
+                # Team Mode games are saved with mode "standard" (they are a
+                # casual variant), so the clan server needs this to tell them
+                # apart for the "play 10 games in team mode" challenges.
+                "team_mode": bool(self.team_mode),
+                "team_count": int(self.team_count) if self.team_mode else 0,
             }
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
@@ -7655,6 +7828,8 @@ class GameRoom:
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:
                 self.chat_messages = self.chat_messages[-200:]
+            if _is_good_game_message(message):
+                self.clan_gg_names.add(str(sender).strip().lower())
             # Recognize "<P3 / username> is afk" votes against the active player.
             try:
                 if seat is not None:
@@ -8169,6 +8344,18 @@ class RoomLiveRecorder:
             action=action,
             turn_number=int(turn_number),
         )
+        # Clan telemetry: the score standing the instant the END GAME card is
+        # revealed. "Comeback Current" asks whether you were behind at that
+        # moment, and no later record can answer it — the final standings are
+        # exactly what a comeback changed. Captured once, on the first executed
+        # action after the reveal.
+        try:
+            if getattr(ms, "end_game_triggered", False) and self.room.clan_endgame_scores is None:
+                self.room.clan_endgame_scores = {
+                    str(p.name): int(fish.final_points(gs, p)) for p in gs.players
+                }
+        except Exception:
+            pass
         try:
             desc = GameRoom._describe_action(gs, ms, action)
             self.room._append_turn_desc(player_name, desc)
@@ -9272,7 +9459,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if tournament_server.handle_get(self, parsed):
             return
 
-        # Clan System API (public clan leaderboard).
+        # Clan System API (public clan leaderboard + the generated rulebook).
         if clan_server.handle_get(self, parsed):
             return
 
