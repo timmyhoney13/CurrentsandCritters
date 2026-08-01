@@ -253,12 +253,16 @@ function makeEnvNav({ authed = true, homeResp, stored } = {}) {
   check("profile invite still sends the uid", invP && invP.b.to_uid === "u7");
   check("profile invite falls back to the name it knows",
         envP.toasts.some(t => t.m.includes("Reefy")));
-  // An unknown code has to say so — not fail silently.
+  // An unknown code has to say so — not fail silently. Friend codes are one per
+  // player, so nothing may tell the inviter to disambiguate with a name; the
+  // slug still has to come back as a readable sentence, never as a raw slug.
   const envBad = makeEnv({ postResp: () => ({ ok: false, error: "ambiguous_code" }) });
   const okBad = await envBad.windowStub.__ccClanInvite("", "", "4242");
   check("a refused invite returns false", okBad === false);
-  check("and explains a shared code in plain words",
-        envBad.toasts.some(t => /add their name/i.test(t.m)));
+  check("a refused code is explained in plain words, not as a slug",
+        envBad.toasts.some(t => /friend code/i.test(t.m) && !/ambiguous_code/.test(t.m)));
+  check("nobody is ever told to add a name to a friend code",
+        !envBad.toasts.some(t => /add their name/i.test(t.m)));
 
   console.log("invite permission probe:");
   const before = env.calls.length;

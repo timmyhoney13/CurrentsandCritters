@@ -66,7 +66,7 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-07-30.7" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-01.4" />
 </head>
 <body>
 
@@ -1016,6 +1016,20 @@
           </div>
         </div>
 
+        <!-- What your rank pays out when the season ends. Rendered from the
+             clan server's own reward table (/api/clan/rules), so this can
+             never promise something the season finalize won't actually pay. -->
+        <div class="ph-rank-prog-strip" id="ph-rank-rewards-strip" style="display:none;">
+          <div class="ph-rank-prog-title">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#3a6090" stroke-width="1.4"/><path d="M8 4v8M5 7l3-3 3 3" stroke="#3a6090" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            End-of-Season Rank Rewards
+          </div>
+          <div class="ph-rank-rewards" id="ph-rank-rewards-rows">
+            <!-- Populated by JS -->
+          </div>
+          <div class="ph-rank-rewards-note" id="ph-rank-rewards-note"></div>
+        </div>
+
         <div class="ph-main">
           <!-- Main: rank card + stats grid -->
           <div class="ph-stats-card ph-comp-card">
@@ -1813,6 +1827,7 @@
         <div class="pv-menu-label">Room</div>
         <div class="pv-menu-room" id="pv-menu-room-code">-</div>
         <button class="pv-menu-item" id="pv-menu-rules-btn">&#128218; Rule Book</button>
+        <button class="pv-menu-item" id="pv-menu-clanch-btn" style="display:none;">&#127937; Clan Challenges</button>
         <div class="pv-menu-divider"></div>
         <button class="pv-menu-item" id="pv-back-btn" style="color:#e84057;">&#11013; Leave Game</button>
         <button class="pv-menu-item" id="pv-menu-terminate-btn" style="display:none;color:#e84057;">&#9888; Terminate Game</button>
@@ -2084,6 +2099,20 @@
         <button id="pv-rulebook-close" title="Back to the game">&#10005; Close</button>
       </div>
       <div id="pv-rulebook-body" class="rb rb-dark"></div>
+    </div>
+  </div>
+
+  <!-- Clan Challenges, opened from the in-game Menu. Same overlay as the Rule
+       Book: every weekly and season clan challenge with your clan's live
+       progress, so you can check what's left without leaving your seat. -->
+  <div id="pv-clanch-modal">
+    <div id="pv-clanch-box">
+      <div id="pv-clanch-header">
+        <span class="pv-rb-ico">&#127937;</span>
+        <h2 id="pv-clanch-title">Clan Challenges</h2>
+        <button id="pv-clanch-close" title="Back to the game">&#10005; Close</button>
+      </div>
+      <div id="pv-clanch-body"></div>
     </div>
   </div>
 
@@ -2800,13 +2829,13 @@
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
 <script defer src="/js/rulebook.js?v=2026-07-30.6"></script>
 
-<script defer src="/js/preview-app.js?v=2026-08-01.1"></script>
+<script defer src="/js/preview-app.js?v=2026-08-01.4"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-29.5"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-01.1"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-01.4"></script>
 <!-- Custom bracket BUILDER — the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
 <script defer src="/js/tournament-builder.js?v=2026-07-29.2"></script>

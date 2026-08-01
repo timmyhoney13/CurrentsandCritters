@@ -164,6 +164,15 @@ class FakeDB:
     def collection(self, name):
         return FakeCollection(self.store, name)
 
+    def get_all(self, refs):
+        """Batched multi-document read — the real client has this, and the whole
+        clan roster is fetched through it now, so the fake must too or the tests
+        only ever cover the one-at-a-time fallback. Real Firestore returns the
+        docs in arbitrary order; shuffling here keeps callers honest about that."""
+        out = [r.get() for r in refs]
+        out.reverse()
+        return iter(out)
+
     def transaction(self):
         return FakeTxn(self.store)
 
@@ -255,6 +264,9 @@ PAYLOADS = {
     "/api/clan/events": R("mia", "events", {"op": "list"}),
     "/api/clan/chat-get": R("mia", "chat-get", {"clan_id": CID, "since": 0}),
     "/api/clan/season-results": R("mia", "season-results", {}),
+    # The Clan Rules screen is drawn entirely from this, and the server
+    # GENERATES it from the same constants that enforce every rule.
+    "/api/clan/rules": {"ok": True, "rules": CS.clan_rules()},
 }
 HOME_CLANLESS = R("newbie", "home")
 
@@ -285,6 +297,16 @@ check("/api/clan/get carries the clan's critter pool",
       "/avatars/clownfish.png" in (_prof.get("icon_pool") or []))
 check("/api/clan/get carries the vote winner",
       _prof.get("favorite_critter") == "/avatars/narwhal.png")
+check("/api/clan/get carries the weekly challenge board",
+      len(_prof.get("challenges") or []) == len(CS.CLAN_WEEKLY_CHALLENGES))
+check("/api/clan/get carries the season challenge board",
+      len(_prof.get("season_challenges") or []) == len(CS.CLAN_SEASON_CHALLENGES))
+check("every challenge row carries a target the bar can divide by",
+      all(int(c.get("target") or 0) > 0
+          for c in (_prof.get("challenges") or []) + (_prof.get("season_challenges") or [])))
+_rules = PAYLOADS["/api/clan/rules"]["rules"]
+check("/api/clan/rules lists all 51 challenges",
+      len(_rules["weekly_challenges"]) + len(_rules["season_challenges"]) == 51)
 
 if not CHROME:
     print("\nSKIP: no Chrome/Chromium — server payloads checked, render check skipped.")
@@ -389,6 +411,7 @@ function navState() {
                               .map(t => (t.innerText || "").trim()) : [] };
     })();
     let t;
+    t = tab(/Challenges/i); if (t) t.click(); await wait(250); snap("challenges");
     t = tab(/Members/i);  if (t) t.click(); await wait(250); snap("members");
     t = tab(/Chat/i);     if (t) t.click(); await wait(400); snap("chat");
     t = tab(/Event/i);    if (t) t.click(); await wait(300); snap("events");
@@ -397,6 +420,9 @@ function navState() {
     const lb = btn(/Leaderboard/i); if (lb) lb.click(); await wait(300); snap("leaderboard");
     await window.__ccClansRender(); await wait(250);
     const br = btn(/Find a Clan|Browse/i); if (br) br.click(); await wait(300); snap("browse");
+    // Clan Rules is the first tab of the Clans page, from any screen.
+    await window.__ccClansRender(); await wait(250);
+    const rt = tab(/Clan Rules/i); if (rt) rt.click(); await wait(300); snap("rules");
     RESPONSES["/api/clan/home"] = HOME_CLANLESS;
     await window.__ccClansRender(); await wait(300); snap("noclan");
     out.navNoClan = navState();     // no clan → the shield has to come back
@@ -434,8 +460,8 @@ S = OUT["screens"]
 
 print("\nreal payloads → real Clans tab:")
 check("no script errors", not OUT["errors"], "; ".join(OUT["errors"])[:300])
-for name in ["home", "profile", "members", "chat", "events", "log",
-             "leaderboard", "browse", "noclan", "create", "emptyworld"]:
+for name in ["home", "profile", "challenges", "members", "chat", "events", "log",
+             "leaderboard", "browse", "rules", "noclan", "create", "emptyworld"]:
     s = S.get(name)
     if not s:
         check(f"{name}: rendered", False, "screen never captured")
@@ -468,6 +494,42 @@ check("leaderboard: both clans named", "Reef Riders" in S["leaderboard"]["text"]
       and "Kelp Krew" in S["leaderboard"]["text"])
 check("browse: clans listed", S["browse"]["counts"]["member"] >= 1
       or "Reef Riders" in S["browse"]["text"])
+
+# ── Clan Rules: the first tab, and it must show the whole rulebook ──────────
+_rt = S["rules"]["text"]
+check("rules: it is the FIRST tab of the Clans page",
+      "Clan Rules" in (S["home"]["text"] or ""))
+check("rules: the half-point-vs-bots rule is stated", "0.5" in _rt or ".5 of a Clan Point" in _rt)
+check("rules: the real-opponent rule is stated", "registered" in _rt and "non-guest" in _rt)
+check("rules: 25 members", "25" in _rt)
+check("rules: it says Critter Coins, never bare 'coins'",
+      "Critter Coins" in _rt and not re.search(r"(?<!Critter )\bcoins\b", _rt))
+check("rules: every weekly challenge is listed",
+      all(c["name"] in _rt for c in CS.CLAN_WEEKLY_CHALLENGES),
+      str([c["name"] for c in CS.CLAN_WEEKLY_CHALLENGES if c["name"] not in _rt]))
+check("rules: every season challenge is listed",
+      all(c["name"] in _rt for c in CS.CLAN_SEASON_CHALLENGES),
+      str([c["name"] for c in CS.CLAN_SEASON_CHALLENGES if c["name"] not in _rt]))
+check("rules: every competitive rank tier and its payout is listed",
+      all(t in _rt for t in ["Bronze Barracuda", "Silver Spiny Lobster", "Golden Grouper",
+                             "Diamond Dolphin", "Emerald Emperor Penguin",
+                             "King of the Critters"])
+      and "200 Critter Coins" in _rt and "+50 Clan Points" in _rt)
+
+# ── Challenges tab inside a clan: both ladders, with progress ───────────────
+_ct = S["challenges"]["text"]
+check("challenges: the weekly board is there", "weekly clan challenges" in _ct.lower())
+check("challenges: the season board is there", "season clan challenges" in _ct.lower())
+check("challenges: every weekly challenge has a row",
+      all(c["name"] in _ct for c in CS.CLAN_WEEKLY_CHALLENGES),
+      str([c["name"] for c in CS.CLAN_WEEKLY_CHALLENGES if c["name"] not in _ct]))
+check("challenges: every season challenge has a row",
+      all(c["name"] in _ct for c in CS.CLAN_SEASON_CHALLENGES),
+      str([c["name"] for c in CS.CLAN_SEASON_CHALLENGES if c["name"] not in _ct]))
+check("challenges: progress is shown as done/target, never as a bare number",
+      re.search(r"\d+/\d+", _ct) is not None)
+check("challenges: it says challenge progress counts every finished game",
+      "Clan POINTS" in _ct or "real opponent" in _ct)
 check("noclan: the join/create call to action", "not in a clan" in S["noclan"]["text"])
 # (the lobby is really laid out here, so CSS text-transform reaches innerText)
 check("create: the form", "clan name" in S["create"]["text"].lower())

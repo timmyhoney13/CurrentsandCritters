@@ -143,6 +143,11 @@ const RESPONSES = {
   "/api/clan/browse": { ok: true, season: SEASON, rows: TOP3, recommended: [TOP3[1]] },
   // The server resolves the friend code and hands the name back for the toast.
   "/api/clan/invite": { ok: true, name: "LemmeSeeThemToes" },
+  // A vote comes back with the RECOUNTED tally, so the client repaints from
+  // this alone — no follow-up /home or /get. Narwhal overtakes clownfish here.
+  "/api/clan/vote-critter": { ok: true, my_vote: "/avatars/narwhal.png",
+    favorite_critter: "/avatars/narwhal.png",
+    favorite_votes: { "/avatars/narwhal.png": 2, "/avatars/clownfish.png": 1 } },
   "/api/clan/chat-get": { ok: true, muted_until: 0, pinned: PROFILE.pinned_announcement,
     messages: [
       { id: "m1", ts: NOW - 600, uid: "u2", name: "Bob", kind: "msg", text: "Good game everyone" },
@@ -174,6 +179,11 @@ window.__ccClans = {
   get:  async (p) => ({ ok: true, status: 200, data: RESPONSES[p] || { ok: true } }),
   post: async (p, b) => {
     window.__ccPosts.push({ p, b });
+    // A deliberately slow endpoint, so the suite can watch what is on screen
+    // WHILE the server is still thinking — which is the whole point of
+    // painting from cache first.
+    const d = (window.__ccDelay || {})[p] || 0;
+    if (d) await new Promise(r => setTimeout(r, d));
     return { ok: true, status: 200, data: RESPONSES[p] || { ok: true } };
   },
   toast: (m, t) => window.__ccToasts.push(String(m)),
@@ -232,13 +242,38 @@ function snapshot(name) {
     out.countdown = { first: cd1, later: cd1b,
                       ticked: !!cd1 && !!cd1b && cd1 !== cd1b };
 
-    // Home → my clan profile (Overview)
+    // Home → my clan profile (Overview). /home already returned this exact
+    // profile as my_clan_full, so opening MY OWN clan must not go to the server
+    // again — that second round trip is what made the tab feel slow.
+    const postsBeforeOpen = window.__ccPosts.length;
     const myRow = document.querySelector(".ccC-myclan");
     if (myRow) myRow.click();
     await wait(200);
+    out.openMyClan = {
+      calls: window.__ccPosts.slice(postsBeforeOpen).map(c => c.p),
+      loadingShown: /Loading clan/i.test(txt()),
+    };
     snapshot("profile");
-    out.voteText = (([...document.querySelectorAll(".ccC-sec")]
-      .find(s => /Favorite clan critter/i.test(s.innerText || "")) || {}).innerText) || "";
+    const voteSec = () => [...document.querySelectorAll(".ccC-sec")]
+      .find(s => /Favorite clan critter/i.test(s.innerText || "")) || null;
+    out.voteText = ((voteSec() || {}).innerText) || "";
+
+    // Cast a vote. One request, repainted in place from its response: the
+    // section must not blank out, the screen must not be rebuilt, and the two
+    // follow-up fetches it used to make (/home then /get) must be gone.
+    const postsBeforeVote = window.__ccPosts.length;
+    const tiles = [...(voteSec() || document).querySelectorAll(".ccC-iconpick .ic")];
+    const narwhal = tiles.find(t => /narwhal/i.test(t.innerHTML));
+    if (narwhal) { narwhal.click(); narwhal.click(); }   // double click = one ballot
+    await wait(250);
+    out.vote = {
+      calls: window.__ccPosts.slice(postsBeforeVote).map(c => c.p),
+      sent: (window.__ccPosts.filter(c => c.p === "/api/clan/vote-critter").pop() || {}).b || null,
+      text: ((voteSec() || {}).innerText) || "",
+      tiles: [...(voteSec() || document).querySelectorAll(".ccC-iconpick .ic")].length,
+      selected: [...(voteSec() || document).querySelectorAll(".ccC-iconpick .ic.sel")]
+        .map(t => t.innerHTML).join(" "),
+    };
 
     // Profile → Members tab (2nd sub-tab)
     const tabs = [...document.querySelectorAll(".ph-lb-mode-btn")];
@@ -301,6 +336,47 @@ function snapshot(name) {
         return !!l && l.scrollHeight >= l.clientHeight; })(),
     };
 
+    // ── Opening the tab must not wait on the network ───────────────────
+    // The first open cached this account's home payload, so a SECOND open has
+    // to paint from it immediately and let the fetch land behind it. With a
+    // 900ms server, the screen must already be real at 120ms — not sitting on
+    // "Loading clans…", which is what "the clan tab takes forever" was.
+    out.instant = {};
+    window.__ccDelay = { "/api/clan/home": 900 };
+    window.__ccClansRender();                      // deliberately NOT awaited
+    await wait(120);
+    out.instant.early = txt().trim();
+    out.instant.earlyLen = out.instant.early.length;
+    out.instant.earlyLoading = /Loading clans/i.test(out.instant.early);
+    await wait(1100);
+    out.instant.late = txt().trim().length;
+    window.__ccDelay = {};
+
+    // Saving clan settings must cost ONE request and must never blank the
+    // panel: it used to null the profile, fetch /home, then let renderClan
+    // fetch /get as well — two sequential round trips with "Loading clan…"
+    // in between.
+    await window.__ccClansRender(); await wait(200);
+    const settingsRow = document.querySelector(".ccC-myclan");
+    if (settingsRow) settingsRow.click();
+    await wait(250);
+    const setTab = [...document.querySelectorAll(".ph-lb-mode-btn")]
+      .find(b => /Settings/i.test(b.textContent));
+    out.settings = { found: !!setTab };
+    if (setTab) {
+      setTab.click(); await wait(200);
+      const saveBtn = [...document.querySelectorAll(".ccC-btn")]
+        .find(b => /Save settings/i.test(b.textContent));
+      out.settings.foundSave = !!saveBtn;
+      if (saveBtn) {
+        const before = window.__ccPosts.length;
+        saveBtn.click();
+        await wait(300);
+        out.settings.calls = window.__ccPosts.slice(before).map(c => c.p);
+        out.settings.blanked = /Loading clan/i.test(txt());
+      }
+    }
+
     // A player with NO clan sees the join/create call to action instead, and
     // that is the only path to the create form (you can't create while in a
     // clan) — re-render with a clanless payload and walk it.
@@ -334,7 +410,7 @@ fs.writeFileSync(file, page);
 function run(width, height) {
   const dom = execFileSync(CHROME, [
     "--headless", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
-    `--window-size=${width},${height}`, "--virtual-time-budget=9000",
+    `--window-size=${width},${height}`, "--virtual-time-budget=20000",
     "--dump-dom", "file://" + file,
   ], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   const m = dom.match(/@@([\s\S]*?)@@/);
@@ -381,6 +457,29 @@ check("profile: the vote shows the running tally",
 check("profile: no em dashes in the vote section", D.voteText && !/—/.test(D.voteText),
       D.voteText);
 check("profile: no placeholder junk in text", prof.bad.length === 0, prof.bad.join(","));
+
+// Speed, as behaviour. Opening your own clan is served from the /home payload
+// that drew the screen you clicked, and casting a vote is ONE request repainted
+// in place — not a vote plus a /home plus a /get with the panel blanked out in
+// between. Both of these were the "clans take forever / voting bugs out" bug.
+const openCalls = (D.openMyClan || {}).calls || [];
+check("open my own clan: no second round trip to the server",
+      openCalls.length === 0, openCalls.join(","));
+check("open my own clan: never shows a loading placeholder",
+      (D.openMyClan || {}).loadingShown === false);
+const V = D.vote || {};
+check("vote: exactly one request goes out for one ballot",
+      (V.calls || []).join(",") === "/api/clan/vote-critter", (V.calls || []).join(","));
+check("vote: a double click still casts one ballot",
+      (V.calls || []).length === 1, (V.calls || []).join(","));
+check("vote: the icon voted for is what was sent",
+      V.sent && V.sent.icon === "/avatars/narwhal.png", JSON.stringify(V.sent));
+check("vote: the new winner is painted from the vote's own response",
+      /Narwhal/.test(V.text || "") && /2 votes/.test(V.text || ""), V.text);
+check("vote: the section is still there afterwards (never blanks)",
+      V.tiles === 2, "tiles=" + V.tiles);
+check("vote: my pick is the one shown as selected",
+      /narwhal/i.test(V.selected || ""), V.selected);
 
 const mem = D.screens.members || { counts: {}, bad: [] };
 check("members: every member row rendered", mem.counts.members >= 3, "members=" + mem.counts.members);
@@ -435,6 +534,24 @@ check("chat: composer present", !!ch.input);
 check("chat: log scrolls inside its own box", !!ch.logScrolls);
 
 check("season countdown is live", D.countdown && D.countdown.ticked, JSON.stringify(D.countdown));
+
+// ── Speed: the tab must not sit on a spinner waiting for the server ────────
+const I = D.instant || {};
+check("re-opening Clans paints instantly, without waiting for the server",
+      I.earlyLen > 200 && !I.earlyLoading,
+      `len=${I.earlyLen} loading=${I.earlyLoading}`);
+check("...and the real payload still repaints it when it lands",
+      I.late > 200, `late=${I.late}`);
+
+// ── Speed: a save is ONE request, and never blanks the panel ───────────────
+const SET = D.settings || {};
+check("the clan Settings tab is reachable", !!SET.found && !!SET.foundSave);
+check("saving settings costs ONE round trip, not two",
+      Array.isArray(SET.calls)
+      && SET.calls.filter(p => /\/api\/clan\/(home|get)$/.test(p)).length === 1,
+      JSON.stringify(SET.calls));
+check("...and the panel never blanks to \"Loading clan…\" while it saves",
+      SET.blanked === false, String(SET.blanked));
 
 console.log("phone (390×844):");
 const P = run(390, 844);

@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.40";
-  const APP_BUILD   = "2026-08-01.1";
+  const APP_BUILD   = "2026-08-01.4";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,14 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🏁 Clan challenges, and a Clan Rules page", items: [
+      "Clans now have 25 weekly challenges and 26 season challenges, and everything your whole clan does counts toward them. There is a Challenges tab inside your clan showing both boards with live progress, and you can open the same boards mid-game from the in-game Menu.",
+      "Clan Rules is now the first tab on the Clans page. Every scoring rule, both challenge lists and all the season payouts are on one page, written by the server itself so it always matches what actually happens.",
+      "Clan Points now need a real opponent: everyone in the game has to be a registered account. A game against bots or guests scores nothing, except first place, which is worth half a Clan Point at any player count.",
+      "When the season ends your Competitive rank pays out: Critter Coins to you, Clan Points to your clan. Silver 50, Golden 100, Diamond 150, Emerald 200, King of the Critters 250 — and the Clan Points land before the final standings, so a highly ranked roster can still move the clan up the board on the last day.",
+      "Clans now hold 25 members instead of 20.",
+      "The Clans tab opens instantly instead of waiting on the server, and saving your clan settings, voting for your critter or joining an event no longer blanks the page while it thinks.",
+    ]},
     { ver: "V1.7.0", title: "🐠 Your clan's critter takes over the Clans tab", items: [
       "The season vote now decides something real. Whichever critter your clan votes for the most replaces the shield on the Clans button, so your clan's animal is sitting there in the sidebar instead of a badge everyone shares.",
       "Only your clan sees it, and you see it from every tab, not just when you're on Clans.",
@@ -85,11 +93,11 @@
       "Inviting from a player's profile or from Messages works exactly as before.",
     ]},
     { ver: "V1.7.0", title: "🛡️ Clans are here", items: [
-      "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 20 of you play for the same score.",
+      "There's a new Clans tab in the sidebar, right under Leaderboard. Start a clan or join one, pick a critter as its icon, and up to 25 of you play for the same score.",
       "Clan seasons run three months, the same length as a competitive season. Each one has its own name and number, a countdown to the end date, and a leaderboard of every clan.",
       "You earn Clan Points just by playing: a competitive win is +3, and in casual, 1st is +2, 2nd is +1 and 3rd is +1 in games of four or more. You can also earn one point a day by trading with a clanmate.",
       "Finish top three and every member who earned at least 10 points that season gets Critter Coins — 400, 300 or 200 each — plus a gold, silver or bronze badge stamped with the season number. Top ten clans get a seasonal border.",
-      "Whoever contributed most becomes the Clan MVP: a permanent badge, a “Season 1 Clan MVP” title, 150 coins and an icon beside their name for the first two weeks of the next season.",
+      "Whoever contributed most becomes the Clan MVP: a permanent badge, a “Season 1 Clan MVP” title, 150 Critter Coins and an icon beside their name for the first two weeks of the next season.",
       "Clans have private chat with pinned announcements, an activity log of everything that's happened, scheduled events like game nights, a shared daily goal that levels the clan up, and a season vote for a favourite critter.",
       "Owners can run it how they like: Public, Request to Join or Invite Only, with Captains and Recruiters, or custom roles where you tick exactly which powers they get.",
       "Clan names are checked automatically, including the sneaky spellings, and you can report any that slip through.",
@@ -10473,6 +10481,94 @@
       if (e.key === "Escape" && modal.classList.contains("open")) close();
     });
     window.__ccOpenRulebook = open;
+  })();
+
+  // ── Clan Challenges, over the table ─────────────────────────────
+  // Menu → Clan Challenges shows every weekly and season clan challenge with
+  // the clan's live progress, so a player can check what's still open mid-game
+  // without leaving their seat. The button only appears for a player who is
+  // actually in a clan; the whole payload comes from the server (/api/clan/get
+  // builds both boards), so nothing here can disagree with what the Clans tab
+  // shows or with what the server will actually award.
+  (function _initInGameClanChallenges() {
+    const modal   = document.getElementById("pv-clanch-modal");
+    const body    = document.getElementById("pv-clanch-body");
+    const openBtn = document.getElementById("pv-menu-clanch-btn");
+    const closeBtn= document.getElementById("pv-clanch-close");
+    if (!modal || !body || !openBtn) return;
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g,
+      c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    function rowHtml(ch) {
+      const target = Math.max(1, Number(ch.target || 1));
+      const progress = Math.min(Number(ch.progress || 0), target);
+      const pct = Math.min(100, Math.round(100 * progress / target));
+      return `<div class="pv-cch-row${ch.done ? " done" : ""}">
+        <div class="pv-cch-top"><b>${ch.done ? "✅ " : ""}${esc(ch.name)}</b>
+          <span class="pv-cch-rw">+${esc(String(ch.clan_points))} pts</span></div>
+        <div class="pv-cch-desc">${esc(ch.desc || "")}</div>
+        <div class="pv-cch-bar"><i style="width:${pct}%"></i></div>
+        <div class="pv-cch-num">${progress}/${target}</div>
+      </div>`;
+    }
+    function groupHtml(title, rows, empty) {
+      const list = rows || [];
+      const done = list.filter(x => x.done).length;
+      return `<div class="pv-cch-group"><h3>${esc(title)} · ${done}/${list.length} done</h3>`
+        + (list.length ? list.map(rowHtml).join("")
+                       : `<div class="pv-cch-note">${esc(empty)}</div>`) + "</div>";
+    }
+
+    async function open() {
+      modal.classList.add("open");
+      body.scrollTop = 0;
+      body.innerHTML = '<div class="pv-cch-note">Loading your clan\'s challenges…</div>';
+      let clan = null;
+      try {
+        const b = window.__ccClans;
+        const token = b && (await b.idToken());
+        if (token) {
+          const res = await b.post("/api/clan/get", { idToken: token });
+          const data = (res && typeof res === "object" && "data" in res) ? res.data : res;
+          if (data && data.ok) clan = data.clan;
+        }
+      } catch (_) { clan = null; }
+      if (!clan) {
+        body.innerHTML = '<div class="pv-cch-note">Your clan challenges could not be loaded right now. '
+          + 'Check the Clans tab on Player Home once you finish this game.</div>';
+        return;
+      }
+      body.innerHTML =
+        `<div class="pv-cch-note">🛡️ <b>${esc(clan.name || "Your clan")}</b> · `
+        + `${esc(String(clan.points || 0))} Clan Points this season. `
+        + "Everything your whole clan does counts toward these.</div>"
+        + groupHtml("🏁 Weekly challenges", clan.challenges,
+                    "New weekly challenges are being finalized.")
+        + groupHtml("🗓️ Season challenges", clan.season_challenges,
+                    "Season challenges are being finalized.");
+    }
+    function close() { modal.classList.remove("open"); }
+
+    openBtn.addEventListener("click", () => { closeMenu(); open(); });
+    if (closeBtn) closeBtn.addEventListener("click", close);
+    modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && modal.classList.contains("open")) close();
+    });
+    // Shown only to players who are in a clan. Asked once per page load, in the
+    // background, so the Menu never waits on the network to open.
+    (async function showIfInClan() {
+      try {
+        const b = window.__ccClans;
+        if (!b || !b.ENABLED) return;
+        const token = await b.idToken();
+        if (!token) return;
+        const res = await b.post("/api/clan/home", { idToken: token });
+        const data = (res && typeof res === "object" && "data" in res) ? res.data : res;
+        if (data && data.ok && data.my_clan) openBtn.style.display = "";
+      } catch (_) {}
+    })();
+    window.__ccOpenClanChallenges = open;
   })();
   {
     const _pvMenuSettingsBtn = document.getElementById("pv-menu-settings-btn");
@@ -25179,6 +25275,50 @@
       }
     }
 
+    // Cached across renders — the reward table is the same for everyone and
+    // changes only on deploy.
+    let _rankRewardsCache = null;
+    async function renderRankRewards(myTier) {
+      const strip = $a("ph-rank-rewards-strip");
+      const rowsEl = $a("ph-rank-rewards-rows");
+      if (!strip || !rowsEl) return;
+      if (!_rankRewardsCache) {
+        try {
+          const res = await apiFetch("/api/clan/rules", { method: "GET", timeoutMs: 6000 });
+          if (res.ok && res.data?.ok && res.data.rules?.rank_rewards) {
+            _rankRewardsCache = res.data.rules.rank_rewards;
+          }
+        } catch (_) {}
+      }
+      const data = _rankRewardsCache;
+      if (!data || !(data.tiers || []).length) { strip.style.display = "none"; return; }
+      // The reward rows come back in ladder order; the tier key is derived from
+      // the tier NAME the same way the server derives it, so the highlight
+      // can't drift if a division is ever renamed.
+      const keyOf = (name) => {
+        const t = String(name || "").toLowerCase();
+        if (t.includes("king")) return "king";
+        if (t.includes("emerald")) return "emerald";
+        if (t.includes("diamond")) return "diamond";
+        if (t.includes("gold")) return "gold";
+        if (t.includes("silver")) return "silver";
+        return "bronze";
+      };
+      rowsEl.innerHTML = (data.tiers || []).map(t => {
+        const key = keyOf(t.tier);
+        const mine = key === (myTier || "");
+        const reward = (t.coins || t.clan_points)
+          ? `<b>${t.coins}</b> Critter Coins · <b>+${t.clan_points}</b> Clan Points`
+          : "No season reward";
+        return `<div class="ph-rank-reward-row${mine ? " mine" : ""}">
+          <span class="ph-rrr-tier">${_compRankIcon(key, "🐟", 20)} ${escapeHtml(t.tier)}${mine ? " <em>(you)</em>" : ""}</span>
+          <span class="ph-rrr-pay">${reward}</span></div>`;
+      }).join("");
+      const note = $a("ph-rank-rewards-note");
+      if (note) note.textContent = data.note || "";
+      strip.style.display = "";
+    }
+
     async function renderPhCompetitive() {
       const loadEl  = $a("ph-comp-loading");
       const emptyEl = $a("ph-comp-ranked-empty");
@@ -25339,6 +25479,14 @@
           </div>${connector}`;
         }).join("");
       }
+
+      // ── End-of-season rank rewards ──────────────────────────────
+      // "The higher your competitive rank, the more you bring your squad."
+      // The table is the clan server's own COMP_RANK_SEASON_REWARDS, fetched
+      // from /api/clan/rules, so what's promised here is literally what the
+      // season finalize pays. Shown to everyone (the Critter Coins are yours
+      // whether or not you're in a clan); the row for YOUR tier is highlighted.
+      renderRankRewards(rankInfo.tier);
 
       // CP bar tier coloring
       const fillEl = $a("ph-comp-cp-fill");
