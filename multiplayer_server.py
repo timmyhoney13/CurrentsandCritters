@@ -2149,6 +2149,22 @@ PUBLIC_LINKS_PATH = (
 MAX_JSON_BODY_BYTES = 128 * 1024
 ROOM_CHECKPOINT_SCHEMA_VERSION = 1
 ROOM_PERSIST_MIN_INTERVAL_SEC = 0.75
+# ── Room retention (see RoomManager.sweep_finished_rooms) ───────────────────
+# How long a finished room stays in memory + on disk after its game ends. Long
+# enough that the endgame screen, "Play Again" and tournament result reporting
+# are never pulled out from under a player; short enough that a busy day
+# doesn't accumulate thousands of dead rooms.
+ROOM_KEEP_ENDED_SEC = 30 * 60
+# An abandoned lobby (created, then everyone closed the tab) is dropped once
+# every seated player has been silent this long.
+ROOM_KEEP_IDLE_LOBBY_SEC = 2 * 60 * 60
+# How often the janitor runs.
+ROOM_SWEEP_INTERVAL_SEC = 120.0
+# Hard ceiling on simultaneous rooms. Reaching this means something is very
+# wrong (or the site is far bigger than this single process can serve); new
+# rooms are refused with a clear message instead of the process running itself
+# out of memory. 0 disables the cap.
+MAX_ACTIVE_ROOMS = max(0, int(os.environ.get("FISH_MAX_ROOMS", "500") or "500"))
 MAX_ACTION_HISTORY = 16000
 ROOM_ID_LENGTH = 5
 # A player who leaves a running game keeps their seat RESERVED for this long;
@@ -2452,7 +2468,29 @@ def normalize_public_url(raw: Any) -> str:
     return f"{scheme}://{host}"
 
 
+# load_public_links() is called on every /api/health (the platform health check
+# hits it constantly) and on every room create, and it opens + JSON-parses a
+# file each time. The contents change only when a host publishes a link, so a
+# few seconds of staleness costs nothing and takes the disk read off the hot
+# path entirely.
+_PUBLIC_LINKS_CACHE: Dict[str, Any] = {"at": 0.0, "value": None}
+_PUBLIC_LINKS_TTL_SEC = 10.0
+_PUBLIC_LINKS_LOCK = threading.Lock()
+
+
 def load_public_links() -> List[str]:
+    now_mono = time.monotonic()
+    cached = _PUBLIC_LINKS_CACHE.get("value")
+    if cached is not None and (now_mono - float(_PUBLIC_LINKS_CACHE["at"])) < _PUBLIC_LINKS_TTL_SEC:
+        return list(cached)
+    fresh = _load_public_links_uncached()
+    with _PUBLIC_LINKS_LOCK:
+        _PUBLIC_LINKS_CACHE["value"] = list(fresh)
+        _PUBLIC_LINKS_CACHE["at"] = now_mono
+    return fresh
+
+
+def _load_public_links_uncached() -> List[str]:
     out: List[str] = []
 
     def _add(raw: Any) -> None:
@@ -2726,6 +2764,81 @@ _DEEP_PLAN_TIME_BUDGET: Dict[str, float] = {
     "hard": 2.2,
 }
 
+# ── Deep-planning admission control (site-wide) ─────────────────────────────
+# Rollout confirmation is the single most expensive thing this server does: a
+# hard bot simulates up to 8 candidate moves × 3 determinized worlds, all in
+# pure Python. Python runs one thread of bytecode at a time (the GIL), so N
+# simultaneous games do NOT plan in parallel — they take turns on the one core
+# and, past a handful of games, starve the HTTP threads with them. Measured on
+# a 12-core box: 32 concurrent bot games drove GET /api/health (which touches
+# nothing at all) from 2.5 ms to 5.3 seconds, with the process pinned at one
+# full core.
+#
+# The per-move time budget above does NOT bound this: it is wall-clock, so
+# under contention every planner still spins until its own deadline and the
+# aggregate CPU demand is N × budget.
+#
+# So deep planning is a privilege, not a right: only a few moves anywhere on
+# the server may be in rollout confirmation at once. A bot that cannot get a
+# slot keeps its one-pass score from choose_action_weighted_light — still a
+# fully weighted, synergy- and strategy-aware bot (exactly what
+# FISH_DEEP_BOTS=0 runs), just without the confirmation pass. Quiet server =
+# every bot plans deeply and nothing changes; busy server = bots get slightly
+# less sharp instead of the whole site going unresponsive.
+#
+# Slots are acquired NON-BLOCKING on purpose. Waiting for a slot would convert
+# a CPU stall into a queue stall and park the game thread just the same.
+_DEEP_PLAN_SLOTS = max(1, int(os.environ.get("FISH_DEEP_PLAN_SLOTS", "0") or 0) or 2)
+_DEEP_PLAN_SEM = threading.BoundedSemaphore(_DEEP_PLAN_SLOTS)
+# Observability: how often bots had to fall back because the server was busy.
+_DEEP_PLAN_STATS = {"granted": 0, "skipped": 0}
+_DEEP_PLAN_STATS_LOCK = threading.Lock()
+
+# How many games are being played RIGHT NOW across the whole server. Maintained
+# by the match threads themselves (see _run_game_thread) because it has to be
+# readable from the bot planner on every single move, where taking the room
+# manager's lock would be both slow and a lock-ordering hazard.
+_ACTIVE_GAMES = 0
+_ACTIVE_GAMES_LOCK = threading.Lock()
+
+
+def _note_game_running(delta: int) -> None:
+    global _ACTIVE_GAMES
+    with _ACTIVE_GAMES_LOCK:
+        _ACTIVE_GAMES = max(0, _ACTIVE_GAMES + int(delta))
+
+
+def active_game_count() -> int:
+    with _ACTIVE_GAMES_LOCK:
+        return _ACTIVE_GAMES
+
+
+# Concurrency alone does not bound planning cost: ONE hard bot may burn up to
+# 2.2 s of pure CPU on a single move, which on a GIL-bound process is the whole
+# core. So the planning budget also tapers with how busy the site is.
+#   • up to _DEEP_PLAN_FULL_GAMES concurrent games → full-strength bots;
+#   • between there and _DEEP_PLAN_OFF_GAMES      → budget/candidates taper off;
+#   • at or above _DEEP_PLAN_OFF_GAMES            → no rollouts at all, every
+#     bot uses the (still fully weighted) one-pass chooser.
+# The result is a server that spends its CPU on bot polish only while it has
+# CPU to spare, and on answering players the rest of the time.
+_DEEP_PLAN_FULL_GAMES = max(1, int(os.environ.get("FISH_DEEP_PLAN_FULL_GAMES", "2") or "2"))
+_DEEP_PLAN_OFF_GAMES = max(
+    _DEEP_PLAN_FULL_GAMES + 1,
+    int(os.environ.get("FISH_DEEP_PLAN_OFF_GAMES", "8") or "8"),
+)
+
+
+def _deep_plan_scale() -> float:
+    """1.0 = full-strength planning, 0.0 = skip rollouts entirely."""
+    games = active_game_count()
+    if games <= _DEEP_PLAN_FULL_GAMES:
+        return 1.0
+    if games >= _DEEP_PLAN_OFF_GAMES:
+        return 0.0
+    span = float(_DEEP_PLAN_OFF_GAMES - _DEEP_PLAN_FULL_GAMES)
+    return max(0.0, 1.0 - (games - _DEEP_PLAN_FULL_GAMES) / span)
+
 
 def choose_action_weighted_deep(
     gs: fish.GameState,
@@ -2799,8 +2912,61 @@ def choose_action_weighted_deep(
     if not deep_enabled or slip_fired or len(scored) < 2:
         return base_best
 
+    # Admission control, two layers (see _DEEP_PLAN_SEM / _deep_plan_scale):
+    # how busy the whole site is decides how much planning a move may buy, and
+    # the semaphore caps how many moves may be buying it at once. Either one
+    # saying no just keeps the one-pass pick, which is still a real bot move.
+    scale = _deep_plan_scale()
+    if scale <= 0.0 or not _DEEP_PLAN_SEM.acquire(blocking=False):
+        with _DEEP_PLAN_STATS_LOCK:
+            _DEEP_PLAN_STATS["skipped"] += 1
+        return base_best
+    with _DEEP_PLAN_STATS_LOCK:
+        _DEEP_PLAN_STATS["granted"] += 1
+    try:
+        # Taper the shortlist and sample count with load too, not just the
+        # clock: fewer rollouts is a smaller CPU bill, whereas a shorter
+        # deadline alone still pays for whatever rollout is already in flight.
+        return _confirm_with_rollouts(
+            gs, ms, player, weights, synergy_map, species_map, same_ocean_map,
+            strategy_value_map, strategy_count_map, strategy_transition_map,
+            strategy_transition_count_map, scored, base_best,
+            max(2, int(round(plan_candidates * scale))),
+            max(1, int(round(plan_samples * scale))),
+            confirm_weight, out_scored, budget_scale=scale,
+        )
+    finally:
+        _DEEP_PLAN_SEM.release()
+
+
+def _confirm_with_rollouts(
+    gs: fish.GameState,
+    ms: fish.MatchState,
+    player: fish.PlayerState,
+    weights: Dict[str, float],
+    synergy_map: Dict[str, float],
+    species_map: Dict[str, float],
+    same_ocean_map: Dict[str, float],
+    strategy_value_map: Dict[str, float],
+    strategy_count_map: Dict[str, int],
+    strategy_transition_map: Dict[str, float],
+    strategy_transition_count_map: Dict[str, int],
+    scored: List["tuple[fish.Action, float]"],
+    base_best: "fish.Action",
+    plan_candidates: int,
+    plan_samples: int,
+    confirm_weight: float,
+    out_scored: Optional[List["tuple[fish.Action, float]"]] = None,
+    budget_scale: float = 1.0,
+) -> Optional["fish.Action"]:
+    """The rollout-confirmation pass, split out so the deep-planning slot it
+    needs (_DEEP_PLAN_SEM) is held for exactly this work and nothing else."""
     difficulty = str(player.flags.get("_ai_difficulty", "medium")).strip().lower()
     budget = _DEEP_PLAN_TIME_BUDGET.get(difficulty, 1.2)
+    # Never below 150 ms: a token budget that confirms one or two moves is
+    # still better than none, and the shortlist/sample taper has already cut
+    # the real cost.
+    budget = max(0.15, budget * max(0.0, min(1.0, float(budget_scale))))
     deadline = time.monotonic() + budget
 
     shortlist_n = min(plan_candidates, len(scored))
@@ -2851,6 +3017,11 @@ def choose_action_weighted_deep(
         blended.append(
             (action, base_score * (1.0 - confirm_weight) + confirm * confirm_weight)
         )
+
+    if not blended:
+        # Nothing got confirmed (empty shortlist / budget gone on the first
+        # entry). The one-pass pick is still a valid move.
+        return base_best
 
     blended.sort(key=lambda x: x[1], reverse=True)
     if out_scored is not None:
@@ -7265,6 +7436,17 @@ class GameRoom:
             self._record_event(f"History leaderboard update warning: {exc}")
 
     def _run_game_thread(self, card_db: Dict[int, fish.CardDef]) -> None:
+        # Keep the site-wide live-game count honest for the whole life of the
+        # match, however it ends. The bot planner reads it on every move to
+        # decide how much CPU planning may spend (see _deep_plan_scale), so a
+        # count that drifts upward would permanently dumb the bots down.
+        _note_game_running(+1)
+        try:
+            self._run_game_thread_body(card_db)
+        finally:
+            _note_game_running(-1)
+
+    def _run_game_thread_body(self, card_db: Dict[int, fish.CardDef]) -> None:
         recorder = RoomLiveRecorder(self)
         gs: Any = None
         ms: Any = None
@@ -8624,6 +8806,65 @@ class RoomManager:
             result.sort(key=lambda r: r["created_unix"], reverse=True)
             return result
 
+    def sweep_finished_rooms(self) -> Dict[str, int]:
+        """Drop rooms nobody can still be using, from memory AND from disk.
+
+        Without this, every room ever created stays in self.rooms for the life
+        of the process (a finished room was only ever evicted if someone
+        happened to create a new room with the same id). That leaks memory on a
+        busy day, leaves the mounted disk filling with per-room state files, and
+        makes every restart slower — load_persisted_rooms reads all of them back
+        at boot.
+
+        Deliberately conservative, because deleting a room a player still wants
+        is much worse than keeping one too long:
+          • ended/error rooms are kept for ROOM_KEEP_ENDED_SEC so the endgame
+            screen, "Play Again" and a tournament's result reporting all still
+            work long after the last move;
+          • lobby rooms are only dropped once every seat has been silent for
+            ROOM_KEEP_IDLE_LOBBY_SEC (an abandoned lobby nobody ever joined);
+          • a room whose game thread is still alive is NEVER touched, whatever
+            its phase says.
+        """
+        now = now_unix()
+        doomed: List[str] = []
+        with self.lock:
+            for room in list(self.rooms.values()):
+                thread = getattr(room, "game_thread", None)
+                if thread is not None and thread.is_alive():
+                    continue  # still playing — never reap a live game
+                phase = room.phase
+                if phase in {"ended", "error"}:
+                    done_at = int(room.ended_unix or room.created_unix or now)
+                    if now - done_at >= ROOM_KEEP_ENDED_SEC:
+                        doomed.append(room.room_id)
+                elif phase == "lobby":
+                    with room.cond:
+                        seen = [
+                            float(s.last_seen or 0.0)
+                            for s in room.seats
+                            if s.kind == "human" and s.token is not None
+                        ]
+                    # time.time() for seats, now_unix() for the room — both are
+                    # wall-clock seconds, so they compare directly.
+                    last = max(seen) if seen else float(room.created_unix or now)
+                    if now - last >= ROOM_KEEP_IDLE_LOBBY_SEC:
+                        doomed.append(room.room_id)
+            for rid in doomed:
+                self.rooms.pop(rid, None)
+        for rid in doomed:
+            try:
+                remove_room_state_file(rid)
+            except Exception:
+                pass
+        with self.lock:
+            remaining = len(self.rooms)
+        return {"reaped": len(doomed), "remaining": remaining}
+
+    def room_count(self) -> int:
+        with self.lock:
+            return len(self.rooms)
+
     def get(self, room_id: str) -> Optional[GameRoom]:
         with self.lock:
             return self.rooms.get(room_id)
@@ -9660,6 +9901,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             return
 
         if parsed.path == "/api/health":
+            # Load telemetry, so a struggling server can be SEEN struggling
+            # instead of only being reported as "the game feels slow".
+            # deep_plan_skipped climbing fast = bots are shedding their rollout
+            # pass to keep the site responsive, i.e. this box is near its limit.
+            with _DEEP_PLAN_STATS_LOCK:
+                planned = dict(_DEEP_PLAN_STATS)
             self._send_json(
                 {
                     "ok": True,
@@ -9667,6 +9914,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                     "create_key_required": False,
                     "server_version": "2",
                     "public_urls": load_public_links(),
+                    "load": {
+                        "rooms": ROOMS.room_count(),
+                        "threads": threading.active_count(),
+                        "deep_plan_slots": _DEEP_PLAN_SLOTS,
+                        "deep_plan_granted": planned.get("granted", 0),
+                        "deep_plan_skipped": planned.get("skipped", 0),
+                    },
                 }
             )
             return
@@ -10352,6 +10606,24 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         if parsed.path == "/api/rooms":
             pass  # key check removed — open room creation
+
+            # Capacity guard. One finished-room sweep first, so a server that is
+            # merely holding dead rooms opens back up instead of turning players
+            # away. Only a genuine flood of LIVE rooms gets refused, and it is
+            # refused politely — an out-of-memory process would take every game
+            # in progress down with it.
+            if MAX_ACTIVE_ROOMS and ROOMS.room_count() >= MAX_ACTIVE_ROOMS:
+                try:
+                    ROOMS.sweep_finished_rooms()
+                except Exception:
+                    pass
+                if ROOMS.room_count() >= MAX_ACTIVE_ROOMS:
+                    self._send_json(
+                        {"ok": False, "error": "The server is at capacity right now — "
+                                               "please try again in a minute."},
+                        status=HTTPStatus.SERVICE_UNAVAILABLE,
+                    )
+                    return
 
             total_players = clamp_int(body.get("total_players"), 4, 2, 8)
             human_players = clamp_int(body.get("human_players"), 2, 1, 8)
@@ -11073,6 +11345,22 @@ def main() -> None:
             print(f"Firestore stats seed warning: {_fe}")
 
     restore_stats = ROOMS.load_persisted_rooms(CARD_DB)
+
+    # Room janitor: without it every room ever created stays in memory and on
+    # the mounted disk for the life of the process. Daemon thread, and every
+    # cycle is wrapped — a sweep that throws must never take the server with it.
+    def _room_janitor() -> None:
+        while True:
+            time.sleep(ROOM_SWEEP_INTERVAL_SEC)
+            try:
+                out = ROOMS.sweep_finished_rooms()
+                if out.get("reaped"):
+                    print(f"[janitor] reaped {out['reaped']} finished room(s); "
+                          f"{out['remaining']} still active")
+            except Exception as exc:  # noqa: BLE001
+                print(f"[janitor] sweep warning: {exc}")
+
+    threading.Thread(target=_room_janitor, daemon=True, name="room-janitor").start()
 
     ACTIVE_SERVER = StableThreadingHTTPServer((args.host, args.port), MultiplayerHandler)
     bound_host = str(args.host or "").strip() or "0.0.0.0"

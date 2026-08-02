@@ -66,6 +66,11 @@
 # player is pointing at, measured in real pixels in headless Chrome.
 !test_hand_limit_discard.py
 !test_hand_discard_click.js
+# Staying up under a full house: the bot planner's CPU admission control (32
+# concurrent games used to drive a request that touches nothing from 2.5 ms to
+# 5.3 seconds) and the room janitor that stops finished rooms living forever in
+# memory and on the mounted disk.
+!test_server_load_safety.py
 # Competitive: one human owns TWO seats, so the turn must reach both of their
 # hands. The .js half proves the client follows the turn to its other hand (the
 # per-seat render gate); the .py half runs a real 4-seat match and covers the
