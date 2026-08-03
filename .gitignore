@@ -77,6 +77,13 @@
 # player-vs-seat rules — Play Again, leaving, Surf's Up.
 !test_competitive_hand_switch.js
 !test_competitive_mode.py
+
+# The published How to Play page (/rules): proves the rulebook stylesheet and
+# the shared data tables were MOVED out of the game, not copied (it compares
+# them against the previous commit), and that every asset the page names
+# resolves on both the Render game server and the Vercel marketing site.
+!test_rules_page.js
+
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/

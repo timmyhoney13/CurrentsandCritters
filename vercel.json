@@ -42,6 +42,10 @@
     { "source": "/leaderboard-bg.jpg",  "destination": "/multiplayer/client/leaderboard-bg.jpg" },
     { "source": "/sw.js",               "destination": "/multiplayer/client/sw.js" },
     { "source": "/icon.svg",             "destination": "/multiplayer/client/icon.svg" },
-    { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" }
+    { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" },
+    { "source": "/css/:file",     "destination": "/multiplayer/client/css/:file" },
+    { "source": "/js/:file",      "destination": "/multiplayer/client/js/:file" },
+    { "source": "/avatars/:file", "destination": "/multiplayer/client/avatars/:file" },
+    { "source": "/species/:file", "destination": "/multiplayer/client/species/:file" }
   ]
 }
