@@ -48,16 +48,31 @@ function eq(a, b, msg) {
 }
 const read = (p) => fs.readFileSync(p, "utf8");
 
-// The last commit before this page existed, for the lossless-extraction
-// comparison. Skipped (not failed) outside a git checkout.
+// ── The pre-split baseline ───────────────────────────────────────
+// The lossless checks compare today's files against the last commit that
+// still held the tables and the .rb rules INSIDE the game — found by
+// walking history rather than hard-coding a sha, so the test keeps
+// working as the branch moves on. Skipped (not failed) when history does
+// not reach that far: a shallow clone, or a fresh checkout with no git.
 function gitShow(rev, file) {
   return execFileSync("git", ["show", rev + ":" + file], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 }
-let BASE = null;
-try {
-  execFileSync("git", ["rev-parse", "--verify", "HEAD"], { cwd: ROOT, stdio: "pipe" });
-  BASE = "HEAD";
-} catch (_) { /* not a git checkout — the lossless checks self-skip */ }
+function findBaseline(file, marker) {
+  let revs;
+  try {
+    revs = execFileSync("git", ["log", "--format=%H", "-n", "400", "--", file],
+      { cwd: ROOT, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] }).trim().split("\n");
+  } catch (_) { return null; }
+  for (const rev of revs) {
+    if (!rev) continue;
+    try { if (gitShow(rev, file).includes(marker)) return rev; } catch (_) { /* file absent there */ }
+  }
+  return null;
+}
+const BASE_APP = findBaseline("multiplayer/client/js/preview-app.js", "const FAMILY_COLORS = {");
+// Marker must be a rule that MOVED. The banner comment stayed behind as a
+// signpost, so matching on it would find the post-split commit instead.
+const BASE_CSS = findBaseline("multiplayer/client/css/preview.css", ".rb.rb-light {");
 
 // Run a browser-less script that only assigns onto window.
 function loadIntoWindow(src, win) {
@@ -128,8 +143,8 @@ check("the species guide covers the nine animal families", () => {
 console.log("\nThe split moved code, it did not rewrite it");
 
 check("the four tables are IDENTICAL to the ones preview-app.js used to hold", () => {
-  if (!BASE) { console.log("      (skipped: not a git checkout)"); return; }
-  const before = gitShow(BASE, "multiplayer/client/js/preview-app.js");
+  if (!BASE_APP) { console.log("      (skipped: history does not reach the pre-split commit)"); return; }
+  const before = gitShow(BASE_APP, "multiplayer/client/js/preview-app.js");
   // Pull the literals straight out of the old file and evaluate them.
   const grab = (name, open, close) => {
     const start = before.indexOf("const " + name + " = " + open);
@@ -163,8 +178,8 @@ check("preview-app.js no longer defines them, it reads them off window", () => {
 });
 
 check("every .rb rule moved to css/rulebook.css, none left behind, none invented", () => {
-  if (!BASE) { console.log("      (skipped: not a git checkout)"); return; }
-  const before = gitShow(BASE, "multiplayer/client/css/preview.css");
+  if (!BASE_CSS) { console.log("      (skipped: history does not reach the pre-split commit)"); return; }
+  const before = gitShow(BASE_CSS, "multiplayer/client/css/preview.css");
   const after = read(path.join(CLIENT, "css", "preview.css"));
   const rb = read(path.join(CLIENT, "css", "rulebook.css"));
   // A rule is its selector line; compare the multisets of .rb-* selector lines.
