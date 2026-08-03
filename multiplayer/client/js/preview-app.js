@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.41";
-  const APP_BUILD   = "2026-08-03.1";
+  const APP_VERSION = "1.6.42";
+  const APP_BUILD   = "2026-08-03.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -23283,26 +23283,6 @@
         +     '<button type="button" class="htp-btn" data-htp-go="rules">📖 Full Rulebook</button>'
         +     '<button type="button" class="htp-btn" data-htp-go="strats">🧭 Strategies</button>'
         +   '</div>'
-        + '</div>'
-
-        + '<div class="htp-sec-head"><span class="htp-sec-ico">🪸</span>Getting to a table</div>'
-        + '<div class="htp-steps">'
-        + _htpStep(1, "Pick your device", '<p class="htp-p">The very first screen asks whether you are on a '
-            + '<b>Computer</b> or on <b>Mobile</b>. That choice switches the controls: on a phone or tablet you drag '
-            + 'cards with your finger and the board starts zoomed out so a whole reef fits on screen.</p>')
-        + _htpStep(2, "Sign in, or play as a guest", '<p class="htp-p">A free account saves your stats, avatars, '
-            + 'friends and achievements across devices. Guests can play straight away, but progress stays on that one '
-            + 'device under that one nickname.</p>')
-        + _htpStep(3, "Start a game", '<p class="htp-p">Four cards sit at the top of your home page:</p>'
-            + '<ul class="htp-list">'
-            + '<li><b>Quick Match</b> puts you in the Quick Play queue and seats you as soon as enough '
-              + 'players turn up.</li>'
-            + '<li><b>Create Game</b> lets you set the table size, add bots, and choose the mode '
-              + '(Normal, Competitive, Team, and Tournament when it is running).</li>'
-            + '<li><b>Join Game</b> opens <i>Open Currents</i>, the list of tables you can join right now: '
-              + 'public, private (they ask for the room code), competitive and tournament.</li>'
-            + '<li><b>Tutorial</b> walks you through a real, guided hand.</li>'
-            + '</ul>')
         + '</div>'
 
         + '<div class="htp-sec-head"><span class="htp-sec-ico">🐚</span>Your turn: pick one thing</div>'

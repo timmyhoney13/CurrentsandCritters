@@ -97,6 +97,89 @@
       + '</div>';
   }
 
+  // Stacking: the ONE exception to "only 1 card per space". Lobster and
+  // Yellowfin Tuna are the only two creatures the engine lets share a slot
+  // (fish_game_rules.py: share_ok), so the figure shows exactly those two, each
+  // as a real mini-board — the Ocean with two of them fanned in the one spot.
+  //
+  // A card's printed side IS the slot it attaches to, so the geometry has to
+  // match: Lobster is a Down card, so its pile hangs off the ocean FLOOR; the
+  // Yellowfin used here is a Right card, so its pile sits in the RIGHT slot.
+  function stackPanel(oceanUid, faceHtml, dir, title, sub) {
+    return ''
+      + '<div class="rb-stack-panel">'
+      +   '<div class="rb-stack-board rb-stack-' + dir + '">'
+      +     '<div class="rb-stack-ocean">' + oFace(oceanUid) + '</div>'
+      +     '<div class="rb-stack-pile rb-stack-pile-' + dir + '">'
+      +       '<span class="rb-stack-item">' + faceHtml + '</span>'
+      +       '<span class="rb-stack-item">' + faceHtml + '</span>'
+      +       '<span class="rb-stack-count">&times;2</span>'
+      +     '</div>'
+      +   '</div>'
+      +   '<div class="rb-stack-cap"><b>' + title + '</b><span>' + sub + '</span></div>'
+      + '</div>';
+  }
+  function stackingFigure() {
+    return ''
+      + '<div class="rb-fig">'
+      +   '<div class="rb-fig-head">How to stack them</div>'
+      +   '<div class="rb-stack-row">'
+      +     stackPanel(239, hFace(12), "down", "Two Lobsters, one spot",
+          "Both cards go on the Artificial Reef&rsquo;s ocean floor, overlapped so you can still count them.")
+      +     stackPanel(239, vFace(130), "side", "Two Yellowfin Tuna, one spot",
+          "Both cards go in the same side slot of the Artificial Reef, overlapped the same way.")
+      +   '</div>'
+      +   '<div class="rb-fig-note">This is how you stack them: the second card is laid over the first <b>in the very same space</b>, shifted just enough to see both names. They are still two separate cards, and they each score.</div>'
+      +   '<div class="rb-fig-note rb-fig-note-gold">Only Lobster and Yellowfin Tuna stack. Every other creature is one card per space.</div>'
+      + '</div>';
+  }
+
+  // "Play a free crustacean" as a three-step board sequence, because the ★ is
+  // the one rule people read twice: play the card, THEN place the free one on
+  // a spot that is actually open. Cleanser Wrasse and Lobster are both Down
+  // cards, so the free Lobster has to go on a second Ocean's floor — which is
+  // the point of the picture.
+  function crustaceanStep(n, boardHtml, headline, body) {
+    return ''
+      + '<div class="rb-step">'
+      +   '<div class="rb-step-n">' + n + '</div>'
+      +   '<div class="rb-step-art"><div class="rb-mini-board">' + boardHtml + '</div></div>'
+      +   '<div class="rb-step-body"><p class="rb-p"><b>' + headline + '</b> ' + body + '</p></div>'
+      + '</div>';
+  }
+  function freeCrustaceanFigure() {
+    return ''
+      + '<div class="rb-fig">'
+      +   '<div class="rb-fig-head">Playing a free crustacean</div>'
+      +   '<div class="rb-steps rb-steps-cards">'
+
+      +     crustaceanStep(1,
+            '<div class="rb-mini-ocean">' + oFace(217) + '</div>'
+            + '<div class="rb-mini-slot">' + hFace(30) + '</div>'
+            + '<div class="rb-mini-lbl">Coral Reef</div>',
+            "Play the Cleanser Wrasse onto an Ocean",
+            'and pay its cost. To switch its ★ on, discard a card with the same symbol as the Wrasse.')
+
+      +     crustaceanStep(2,
+            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
+            + '<div class="rb-mini-slot rb-mini-open"><span>open spot</span></div>'
+            + '<div class="rb-mini-lbl">Mangrove</div>',
+            "Look for an open ocean.",
+            'Another Ocean of yours still has its floor free, so there is a space for a crustacean to go into.')
+
+      +     crustaceanStep(3,
+            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
+            + '<div class="rb-mini-slot rb-mini-new">' + hFace(12) + '</div>'
+            + '<div class="rb-mini-lbl">Mangrove</div>',
+            "Play the Lobster straight out of your hand, free.",
+            'No cost, no discard, right now, as part of the same turn.')
+
+      +   '</div>'
+      +   '<div class="rb-fig-note">The Wrasse and the Lobster are both Down cards, so they both want an ocean floor. That is why the free Lobster goes on the <b>second</b> Ocean: the first one&rsquo;s floor is taken.</div>'
+      +   '<div class="rb-fig-note rb-fig-note-gold">The free crustacean comes from your hand only. Never from the Pool, the deck or the discard pile, and it must have an open spot to go to.</div>'
+      + '</div>';
+  }
+
   // Card anatomy: the five things printed on every card, called out in place.
   function cardAnatomyFigure() {
     return ''
@@ -388,6 +471,7 @@
     +     figCard(vFace(107), "Yellowfin Tuna", "Any number of yellowfin may share the same spot")
     +     '</div>'
     +   '</div>'
+    +   stackingFigure()
     + '</section>'
 
     // ── Card anatomy ──────────────────────────────────────────────
@@ -406,15 +490,7 @@
     +   '<p class="rb-p">If an ability allows you to play a free Animal, the free Animal must come from your hand. It can not come from the Pool, the deck, or the discard pile.</p>'
     +   '<div class="rb-quote">A card says “★ Play a free crustacean ★.”<br>'
     +     'To use this ability, you must first activate the ★ ability by discarding a matching symbol. Then immediately, you may play one crustacean from your hand to an available spot on the board.</div>'
-    +   '<div class="rb-example">'
-    +     '<div class="rb-example-lbl">Example</div>'
-    +     '<p class="rb-example-txt">Have five cards in your hand and play the cleanser wrasse, and show a free crustacean</p>'
-    +     '<div class="rb-example-cards">'
-    +     figCard(hFace(30), "Cleanser Wrasse", "Play one free crustacean ★")
-    +     '<div class="rb-example-plus">★</div>'
-    +     figCard(hFace(12), "Lobster", "the free crustacean, from your hand")
-    +     '</div>'
-    +   '</div>'
+    +   freeCrustaceanFigure()
 
     +   '<h3 class="rb-h3 rb-h3-big">★ Play Again</h3>'
     +   '<p class="rb-p">If a ★ ability says “Play Again,” the extra play is treated as a new play.</p>'
@@ -441,7 +517,7 @@
     +   '</div>'
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Pool Restriction</h3>'
-    +     '<p class="rb-p">If an ability allows you to take cards from the Pool:</p>'
+    +     '<p class="rb-p">If an ability allows you to take cards from the Pool, an example (Play Again):</p>'
     +     '<ul class="rb-list"><li>You cannot take back both cards you just discarded</li>'
     +     '<li>You may take back only one of them</li></ul>'
     +   '</div>'
@@ -490,7 +566,7 @@
 
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Leaving the Table</h3>'
-    +     '<p class="rb-p">If the player who plays after you leaves the table without saying “Surf’s Up,” you may draw two cards for them on their turn.</p>'
+    +     '<p class="rb-p">If the player who plays after you leaves the table without saying “Surf’s Up,” any other player may draw two cards for them on their turn, every turn, until they come back to the table.</p>'
     +     '<p class="rb-p">If they say “Surf’s Up” at any time when they are away from the game, their turn is paused with no penalty.</p>'
     +   '</div>'
     + '</section>'
