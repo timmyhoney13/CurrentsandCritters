@@ -45,15 +45,28 @@
       + '<img src="/oceans_cards/page_' + pad2(uid - 200) + '.png?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
       + '</span>';
   }
-  // One named card in a Pool slot. Every slot is the same square, and the card
-  // is fitted whole inside it, so an Up/Down card (landscape), a Left/Right card
-  // (tall) and an Ocean (portrait) line up in one even grid and each still shows
-  // the single face a player would actually be looking at.
-  function poolCard(uid, name) {
-    var face = uid >= 201 ? oFace(uid) : (uid >= 101 ? vFace(uid) : hFace(uid));
-    return '<figure class="rb-pool-card">'
-      + '<span class="rb-pool-card-slot">' + face + '</span>'
-      + '<figcaption>' + name + '</figcaption></figure>';
+  // A WHOLE physical card — the entire printed sheet page, uncropped. Every
+  // animal card carries two creatures, one at each end (Up/Down cards stack
+  // them, Left/Right cards sit them side by side); an Ocean card is a single
+  // picture. This is the card as it lies on the table, and the three shapes all
+  // share one 720×1008 portrait outline, so ten of them make an even grid.
+  function fullFace(uid) {
+    var src;
+    if (uid >= 201) src = "/oceans_cards/page_" + pad2(uid - 200) + ".png";
+    else if (uid >= 101) src = "/vertical_cards/page_" + pad2(Math.floor((uid - 101) / 2) + 1) + ".png";
+    else src = "/horizontal_cards/page_" + pad2(Math.floor((uid + 1) / 2)) + ".png";
+    return '<span class="rb-face rb-face-full">'
+      + '<img src="' + src + '?v=' + ART_V + '" alt="" loading="lazy" draggable="false">'
+      + '</span>';
+  }
+
+  // One card sitting in the Pool, shown whole and captioned with BOTH of its
+  // creatures — never a cropped half, which reads as if a card were one animal.
+  function poolCard(uid, nameA, nameB) {
+    return '<figure class="rb-pool-card">' + fullFace(uid)
+      + '<figcaption><span class="rb-pool-name">' + nameA + '</span>'
+      + (nameB ? '<span class="rb-pool-name">' + nameB + '</span>' : '')
+      + '</figcaption></figure>';
   }
 
   // A labelled card in a figure: the art plus a caption underneath.
@@ -110,21 +123,32 @@
 
   // The Pool board filling to its ten-card limit, then resetting. Laid out the
   // way the real board is — two rows of five — and filled with ten actual cards
-  // (one of every family) rather than anonymous card backs, because in play the
-  // Pool is always face up.
+  // rather than anonymous card backs, because in play the Pool is always face up.
+  //
+  // Ten DIFFERENT physical cards, each drawn whole: six Up/Down cards, three
+  // Left/Right cards and one Ocean. The uid names the card's first end (top, or
+  // left) and both creatures are captioned — every entry must be a distinct
+  // sheet page, or two slots would show the same card twice.
   var POOL_EXAMPLE = [
-    [11,  "Horned Puffin"],   [12,  "Lobster"],        [34,  "Staghorn Coral"],
-    [26,  "Red Beaded Anemone"], [28, "Mandarin Goby"],
-    [53,  "Mullet"],          [107, "Yellowfin Tuna"], [102, "Spinner Dolphin"],
-    [110, "Common Octopus"],  [217, "Coral Reef"],
+    [11,  "Horned Puffin",      "Lobster"],                 // Up/Down page 06
+    [33,  "Great Albatross",    "Staghorn Coral"],          // Up/Down page 17
+    [25,  "Peruvian Pelican",   "Red Beaded Anemone"],      // Up/Down page 13
+    [47,  "Osprey",             "Mandarin Goby"],           // Up/Down page 24
+    [53,  "Mullet",             "Johnson’s Sea Cucumber"],  // Up/Down page 27
+    [69,  "Sardine",            "Sea Urchin"],              // Up/Down page 35
+    [107, "Yellowfin Tuna",     "Spinner Dolphin"],         // Left/Right page 04
+    [109, "Bottlenose Dolphin", "Common Octopus"],          // Left/Right page 05
+    [141, "King Salmon",        "Whale Shark"],             // Left/Right page 21
+    [217, "Coral Reef"],                                    // Ocean page 17
   ];
   function poolFigure() {
-    var slots = POOL_EXAMPLE.map(function (c) { return poolCard(c[0], c[1]); }).join("");
+    var slots = POOL_EXAMPLE.map(function (c) { return poolCard(c[0], c[1], c[2]); }).join("");
     return ''
       + '<div class="rb-fig">'
       +   '<div class="rb-fig-head">Pool Layout Example</div>'
       +   '<div class="rb-pool-board">' + slots + '</div>'
       +   '<div class="rb-fig-note">Ten face-up cards, two rows of five. Anyone may draw from here on their turn.</div>'
+      +   '<div class="rb-fig-note">Each one is a whole card: every animal card has a creature at each end, and the orientation you attach it in (Up, Down, Left or Right) decides which end you are playing.</div>'
       +   '<div class="rb-pool-flow">'
       +     '<span class="rb-pool-step">Pool reaches 10 cards</span>'
       +     '<span class="rb-arrow">&rarr;</span>'

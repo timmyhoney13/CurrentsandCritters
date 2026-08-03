@@ -12859,6 +12859,10 @@
     .rb-face-v.rb-face-left img  { left: 0; }
     .rb-face-v.rb-face-right img { left: -100%; }
     .rb-face-o img { width: 100%; height: auto; }
+    /* A whole, uncropped card — both of its ends. All three decks print on the
+       same 720×1008 page, so every full card is the same portrait outline. */
+    .rb-face-full { aspect-ratio: 720 / 1008; }
+    .rb-face-full img { width: 100%; height: auto; }
 
     .rb-fig {
       margin: 18px 0 0; padding: 18px 16px 16px; border-radius: 18px;
@@ -12933,25 +12937,20 @@
       background: var(--rb-surface); border: 1.5px dashed var(--rb-line-2);
     }
     .rb-pool-card { margin: 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-    /* One square slot per card, with the whole face fitted inside it: the three
-       card shapes (landscape Up/Down, tall Left/Right, portrait Ocean) then sit
-       in an even grid without any of them being cropped. */
-    .rb-pool-card-slot {
-      display: flex; align-items: center; justify-content: center;
-      aspect-ratio: 1 / 1; border-radius: 9px;
-      background: var(--rb-accent-s); border: 1px solid var(--rb-line-2);
-    }
-    /* Every face is sized off the slot's WIDTH — the one dimension the grid
-       makes definite. Sizing off its height would be circular (the slot's own
-       height comes from aspect-ratio) and the taller cards would push the slot
-       out of square. The percentages are each shape's width at ~94% height. */
-    .rb-pool-card-slot .rb-face { box-shadow: 0 3px 10px rgba(6,30,60,.22); }
-    .rb-pool-card-slot .rb-face-h { width: 94%; }
-    .rb-pool-card-slot .rb-face-v { width: 33%; }
-    .rb-pool-card-slot .rb-face-o { width: 67%; }
+    /* Each Pool slot is one WHOLE card, filling the column. The old version
+       cropped every card down to the single end being described, which is the
+       one thing that confuses a new player: a card is not one animal, it is two,
+       one at each end. Show the card the way it lies on the table. */
+    .rb-pool-card .rb-face-full { width: 100%; box-shadow: 0 3px 10px rgba(6,30,60,.22); }
     .rb-pool-card figcaption {
       font-size: 10.5px; font-weight: 800; line-height: 1.25; text-align: center;
       color: var(--rb-muted); overflow-wrap: anywhere;
+    }
+    /* Both creatures are named, split by a hairline — the caption echoes the
+       two-ended card above it. */
+    .rb-pool-name { display: block; }
+    .rb-pool-name + .rb-pool-name {
+      margin-top: 3px; padding-top: 3px; border-top: 1px solid var(--rb-line-2);
     }
     @media (max-width: 560px) {
       .rb-pool-board { gap: 5px; padding: 8px; }
