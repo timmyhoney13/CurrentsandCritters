@@ -12971,69 +12971,6 @@
     .rb-goby-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
     .rb-goby { display: block; width: min(158px, 40vw); }
 
-    /* ── Stacking figure (Lobster / Yellowfin share a spot) ──────────
-       Two mini-boards: an Ocean with the pair fanned in the ONE slot the card's
-       printed side sends it to. Lobster is a Down card, so its pile hangs off
-       the ocean floor; the Yellowfin shown is a Right card, so its pile sits in
-       the right slot. */
-    .rb-stack-row {
-      display: flex; flex-wrap: wrap; gap: 26px 34px; justify-content: center; align-items: flex-start;
-    }
-    .rb-stack-panel { flex: 0 1 320px; max-width: 340px; }
-    /* Both boards get the same box and centre inside it, so the two captions
-       line up even though one pile hangs below its ocean and the other sits
-       beside it. */
-    .rb-stack-board {
-      --rb-oc-w: min(132px, 33vw);          /* the Ocean card's width */
-      display: flex; align-items: center; justify-content: center;
-      min-height: min(330px, 82vw);
-    }
-    .rb-stack-board.rb-stack-down { flex-direction: column; }
-    .rb-stack-board.rb-stack-side { flex-direction: row; }
-    .rb-stack-ocean { width: var(--rb-oc-w); flex: 0 0 auto; }
-    .rb-stack-ocean .rb-face-o { display: block; }
-    .rb-stack-pile { position: relative; flex: 0 0 auto; }
-    .rb-stack-item { display: block; }
-    .rb-stack-item .rb-face { box-shadow: 0 3px 12px rgba(6,30,60,.3); }
-    /* The fan. Every length is derived from the Ocean's width so the pile stays
-       true to the real table at any screen size, and the overlap is deliberately
-       shallow: deep enough to read as one pile in one space, shallow enough that
-       BOTH printed names stay visible. */
-    .rb-stack-pile-down { width: var(--rb-oc-w); }
-    .rb-stack-pile-down .rb-face-h { width: 100%; }
-    .rb-stack-pile-down .rb-stack-item + .rb-stack-item { margin: -15% 0 0 12%; }
-    /* A Left/Right half is exactly as tall as the Ocean beside it: the Ocean is
-       720x1008, so it stands 1.4w tall, and a 360x1008 half that tall is 0.5w
-       wide. Anything else and the fish would out-grow the ocean it hangs on. */
-    .rb-stack-pile-side { display: flex; align-items: flex-start; }
-    .rb-stack-pile-side .rb-stack-item { flex: 0 0 calc(var(--rb-oc-w) * .5); }
-    .rb-stack-pile-side .rb-face-v { width: 100%; }
-    .rb-stack-pile-side .rb-stack-item + .rb-stack-item {
-      margin-left: calc(var(--rb-oc-w) * -.145);
-      margin-top: calc(var(--rb-oc-w) * .05);
-    }
-    /* The ×2 badge: says out loud that this is two cards in one space. */
-    .rb-stack-count {
-      position: absolute; right: -12px; bottom: -6px; z-index: 3;
-      min-width: 26px; height: 26px; padding: 0 6px; border-radius: 999px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 900; color: #1a1208;
-      background: linear-gradient(180deg,#f6c178 0%,#e8a052 100%);
-      border: 2px solid #fef5e6; box-shadow: 0 2px 9px rgba(0,0,0,.35);
-    }
-    .rb-stack-cap {
-      margin-top: 12px; display: flex; flex-direction: column; gap: 3px;
-      font-size: .85rem; line-height: 1.45; color: var(--rb-muted);
-    }
-    .rb-stack-cap b { font-size: .92rem; color: var(--rb-ink); }
-    @media (max-width: 560px) {
-      .rb-stack-row { gap: 22px; }
-      .rb-stack-panel { flex: 1 1 100%; max-width: none; }
-      /* Stacked one per row, so there is nothing left to line the captions up
-         with; the shared min-height would only open a hole above them. */
-      .rb-stack-board { min-height: 0; }
-    }
-
     /* ── "Play a free crustacean": three numbered board steps ──────────
        Each step is a real mini-board (Ocean + what is on its floor) beside the
        sentence that explains it, so the ★ reads as a sequence of placements

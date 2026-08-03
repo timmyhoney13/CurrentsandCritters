@@ -97,43 +97,6 @@
       + '</div>';
   }
 
-  // Stacking: the ONE exception to "only 1 card per space". Lobster and
-  // Yellowfin Tuna are the only two creatures the engine lets share a slot
-  // (fish_game_rules.py: share_ok), so the figure shows exactly those two, each
-  // as a real mini-board — the Ocean with two of them fanned in the one spot.
-  //
-  // A card's printed side IS the slot it attaches to, so the geometry has to
-  // match: Lobster is a Down card, so its pile hangs off the ocean FLOOR; the
-  // Yellowfin used here is a Right card, so its pile sits in the RIGHT slot.
-  function stackPanel(oceanUid, faceHtml, dir, title, sub) {
-    return ''
-      + '<div class="rb-stack-panel">'
-      +   '<div class="rb-stack-board rb-stack-' + dir + '">'
-      +     '<div class="rb-stack-ocean">' + oFace(oceanUid) + '</div>'
-      +     '<div class="rb-stack-pile rb-stack-pile-' + dir + '">'
-      +       '<span class="rb-stack-item">' + faceHtml + '</span>'
-      +       '<span class="rb-stack-item">' + faceHtml + '</span>'
-      +       '<span class="rb-stack-count">&times;2</span>'
-      +     '</div>'
-      +   '</div>'
-      +   '<div class="rb-stack-cap"><b>' + title + '</b><span>' + sub + '</span></div>'
-      + '</div>';
-  }
-  function stackingFigure() {
-    return ''
-      + '<div class="rb-fig">'
-      +   '<div class="rb-fig-head">How to stack them</div>'
-      +   '<div class="rb-stack-row">'
-      +     stackPanel(239, hFace(12), "down", "Two Lobsters, one spot",
-          "Both cards go on the Artificial Reef&rsquo;s ocean floor, overlapped so you can still count them.")
-      +     stackPanel(239, vFace(130), "side", "Two Yellowfin Tuna, one spot",
-          "Both cards go in the same side slot of the Artificial Reef, overlapped the same way.")
-      +   '</div>'
-      +   '<div class="rb-fig-note">This is how you stack them: the second card is laid over the first <b>in the very same space</b>, shifted just enough to see both names. They are still two separate cards, and they each score.</div>'
-      +   '<div class="rb-fig-note rb-fig-note-gold">Only Lobster and Yellowfin Tuna stack. Every other creature is one card per space.</div>'
-      + '</div>';
-  }
-
   // "Play a free crustacean" as a three-step board sequence, because the ★ is
   // the one rule people read twice: play the card, THEN place the free one on
   // a spot that is actually open. Cleanser Wrasse and Lobster are both Down
@@ -471,7 +434,6 @@
     +     figCard(vFace(107), "Yellowfin Tuna", "Any number of yellowfin may share the same spot")
     +     '</div>'
     +   '</div>'
-    +   stackingFigure()
     + '</section>'
 
     // ── Card anatomy ──────────────────────────────────────────────
