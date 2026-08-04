@@ -21769,6 +21769,26 @@
           }
         }
 
+        // Remember EXACTLY where the player was standing before we send them
+        // off to Stripe, so /thanks can put them back with one tap.
+        //
+        // Returning to a bare "/" is wrong when the store was opened inside the
+        // dedicated game window: "/" is the LAUNCHER, so it would try to open a
+        // SECOND game window. location.pathname + search is already the right
+        // answer in every case (/game?game_window=1, /play/ROOM, or "/").
+        //
+        // localStorage, not sessionStorage: the buyer may come back in a fresh
+        // tab from the Stripe receipt email. The /thanks page re-validates it as
+        // a same-site path and expires it, so a stale entry is harmless.
+        function _phstRememberReturn() {
+          try {
+            localStorage.setItem("cc_stripe_return", JSON.stringify({
+              url: location.pathname + location.search,
+              at:  Date.now(),
+            }));
+          } catch (_) { /* private mode / quota — the button just falls back to "/" */ }
+        }
+
         // Open a Stripe Payment Link in the SAME tab. Require sign-in first so
         // the purchase is tied to a Google account (otherwise the webhook has
         // no one to credit and the coins/tier can't be delivered).
@@ -21779,6 +21799,7 @@
               showToast("Sign in with Google first so your purchase is added to your account.", "info");
             return;
           }
+          _phstRememberReturn();
           window.location.href = _phstStripeUrl(baseUrl);
         }
 

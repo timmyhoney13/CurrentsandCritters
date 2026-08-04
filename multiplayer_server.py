@@ -45,6 +45,12 @@ LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderb
 SUPPORTER_WALL_HTML_PATH  = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-wall.html")
 SUPPORTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-admin.html")
 CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "claim-rewards.html")
+# Where Stripe sends the buyer after a successful payment. Set this URL as the
+# "After payment → Redirect to your website" target on EVERY Payment Link:
+#   https://play.currentsandcritters.com/thanks?session_id={CHECKOUT_SESSION_ID}
+# The page confirms the purchase actually landed (via /api/stripe/session-status)
+# and gives them the "Back to the game" button.
+THANKS_HTML_PATH          = os.path.join(BASE_DIR, "multiplayer", "client", "thanks.html")
 # Snap & Score — physical-board scanning + scoring companion app. Served at
 # /score on the main host AND as the root page for score.currentsandcritters.com
 # (second custom domain on the same Render service, routed by Host header).
@@ -430,6 +436,11 @@ def get_icon_ownership():
 #       Stripe Dashboard: Developers → Webhooks → "Add endpoint",
 #         • Endpoint URL:  https://<your-domain>/api/stripe/webhook
 #         • Events to send: checkout.session.completed
+#                           checkout.session.async_payment_succeeded
+#           (the second one is REQUIRED if you accept any delayed payment
+#           method — bank debits, Cash App, some wallets. Those complete the
+#           session as UNPAID and confirm later; without it the buyer is
+#           charged and never gets their coins/tier.)
 #       Stripe then shows a secret starting with "whsec_". Paste it into the
 #       STRIPE_WEBHOOK_SECRET env var. (Test mode and live mode each have their
 #       OWN signing secret — use the matching one.)
@@ -443,7 +454,14 @@ def get_icon_ownership():
 #   ⚠️ The Payment Links wired into the Store are TEST links right now, so use
 #   the TEST webhook signing secret while testing. Before launch, swap the Store
 #   links to LIVE Payment Links AND set STRIPE_WEBHOOK_SECRET to the LIVE
-#   endpoint's signing secret.
+#   endpoint's signing secret. They are separate secrets — changing only the
+#   links means real money is taken and nothing is ever granted.
+#
+#   Also set, on EVERY Payment Link (Stripe → Payment Links → edit → "After
+#   payment" → "Redirect customers to your website"):
+#       https://play.currentsandcritters.com/thanks?session_id={CHECKOUT_SESSION_ID}
+#   That is the page with the "Back to the game" button; the placeholder is what
+#   lets it confirm the purchase actually landed. See multiplayer/client/thanks.html.
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
 STRIPE_SECRET_KEY     = os.environ.get("STRIPE_SECRET_KEY", "").strip()
 # Reject events whose signed timestamp is more than this far from now (Stripe's
@@ -552,9 +570,22 @@ SUPPORTER_WALL_TIERS: List[Tuple[int, str, str]] = [
 # The EXACT labels of the three custom questions added to every Stripe Payment
 # Link. Stripe echoes them back in session.custom_fields[].label.custom — we
 # match on these verbatim (trim + case-insensitive) to read each answer.
+#
+# ⚠️ A LABEL IS A BEHAVIOUR KEY, not display text. It has to match what the
+# Payment Link actually asks, character for character. Edit it here without
+# editing it in Stripe and the lookup silently returns "" — the buyer's typed
+# username is dropped and a signed-out payment can no longer be matched to their
+# account. The game's name is written both ways in the wild ("Currents and
+# Critters" everywhere it is displayed now, "Currents & Critters" on anything
+# older), so the username question accepts BOTH spellings and a link created
+# either way keeps working. Keep both entries.
 CF_WALL_NAME_LABEL   = "Name for Supporter Reef Wall"
 CF_WALL_PUBLIC_LABEL = "Show my name publicly on the Supporter Wall?"
 CF_USERNAME_LABEL    = "Currents and Critters Online Username"
+CF_USERNAME_LABELS   = (
+    CF_USERNAME_LABEL,
+    "Currents & Critters Online Username",   # the original wording, still live
+)
 
 
 def _supporter_tier_for_total(total_cents: Any) -> Tuple[Optional[str], Optional[str]]:
@@ -630,8 +661,17 @@ def _custom_field_value(custom_fields: Any, label: str) -> str:
         {"key": "…", "label": {"type": "custom", "custom": "<label>"},
          "type": "text", "text": {"value": "…"}}
     The answer lives in the sub-object named by the field's "type"
-    (text / dropdown / numeric). Returns "" when the field is absent/blank."""
+    (text / dropdown / numeric). Returns "" when the field is absent/blank.
+
+    `label` may also be a tuple/list of acceptable spellings (see
+    CF_USERNAME_LABELS) — the first one present on the session wins."""
     if not isinstance(custom_fields, list):
+        return ""
+    if isinstance(label, (tuple, list)):
+        for alt in label:
+            got = _custom_field_value(custom_fields, alt)
+            if got:
+                return got
         return ""
     target = str(label or "").strip().lower()
     for field in custom_fields:
@@ -776,6 +816,48 @@ def _reward_for_session(session: dict) -> Tuple[Optional[str], Any]:
     return (None, None)
 
 
+def _stripe_session_status(session_id: str) -> Dict[str, Any]:
+    """Has the webhook already fulfilled this checkout session?
+
+    Feeds the /thanks page so a buyer sees "your purchase is confirmed" only
+    once the money is genuinely recorded on our side — a misconfigured signing
+    secret or a Firestore outage shows up as "still processing" instead of a
+    thank-you page that quietly lied.
+
+    Reads ONLY the stripe_events audit marker written inside the fulfilment
+    transaction. Safe to expose: the caller must already know the session id
+    (an unguessable token Stripe gives only to the buyer), and the reply carries
+    just what was bought — never the email, uid, or Stripe customer id."""
+    sid = str(session_id or "").strip()
+    # Stripe checkout session ids look like cs_test_… / cs_live_… — reject
+    # anything else outright rather than turning arbitrary text into a query.
+    if not sid or len(sid) > 200 or not re.match(r"^cs_[A-Za-z0-9_]+$", sid):
+        return {"ok": False, "error": "bad session id"}
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "unavailable"}
+    try:
+        snap = db.collection("stripe_events").where("session_id", "==", sid).limit(1).get()
+    except Exception as exc:  # noqa: BLE001
+        print(f"[stripe] session status lookup failed: {exc}")
+        return {"ok": False, "error": "unavailable"}
+    for doc in snap:
+        d = doc.to_dict() or {}
+        return {
+            "ok": True,
+            "processed": True,
+            "kind": d.get("kind"),               # "coins" | "tier" | None
+            "value": d.get("value"),             # coin count | tier id
+            "amountCents": d.get("amount_total"),
+            # False ⇒ we could not tie the payment to a game account, so the
+            # page must send them to /claim-rewards instead of promising coins.
+            "matched": bool(d.get("matched")),
+        }
+    # Not fulfilled YET is the normal case for the first second or two after
+    # checkout — the page polls, it does not treat this as a failure.
+    return {"ok": True, "processed": False}
+
+
 def _stripe_session_email(session: dict) -> str:
     cd = session.get("customer_details") or {}
     return str(cd.get("email") or session.get("customer_email") or "").strip()
@@ -828,7 +910,7 @@ def _process_stripe_checkout(event: dict) -> str:
     custom_fields = session.get("custom_fields")
     supporter_wall_name  = _custom_field_value(custom_fields, CF_WALL_NAME_LABEL)
     public_wall_choice   = _custom_field_value(custom_fields, CF_WALL_PUBLIC_LABEL)
-    username_typed       = _custom_field_value(custom_fields, CF_USERNAME_LABEL).strip()
+    username_typed       = _custom_field_value(custom_fields, CF_USERNAME_LABELS).strip()
     username_typed_lower = username_typed.lower()
 
     kind, value = _reward_for_session(session)        # what was purchased
@@ -9630,7 +9712,14 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._send_json({"received": False, "error": "invalid event"}, status=HTTPStatus.BAD_REQUEST)
             return
 
-        if event.get("type") == "checkout.session.completed":
+        # `completed` is the card path (payment_status is already "paid").
+        # `async_payment_succeeded` is the DELAYED path: bank debits, Cash App
+        # and some wallets complete the session as UNPAID and only confirm
+        # minutes-to-days later. Without this second type those buyers would be
+        # charged and never receive their coins/tier. Fulfilment is keyed on the
+        # Stripe session id, so a session that fires both events is applied once.
+        if event.get("type") in ("checkout.session.completed",
+                                 "checkout.session.async_payment_succeeded"):
             try:
                 _process_stripe_checkout(event)
             except Exception as exc:  # noqa: BLE001
@@ -10016,6 +10105,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if len(parts) == 1 and parts[0] in {"supporter-admin", "admin-supporters"}:
             self._send_html_file(SUPPORTER_ADMIN_HTML_PATH, "supporter admin")
             return
+        # Where Stripe drops the buyer after paying (see THANKS_HTML_PATH).
+        if len(parts) == 1 and parts[0] in {"thanks", "thank-you", "thankyou"}:
+            self._send_html_file(THANKS_HTML_PATH, "thank you")
+            return
 
         if parsed.path == "/":
             self._send_preview_html()
@@ -10035,6 +10128,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 "supporters": wall,
                 "totalRaisedCents": total_cents,
             })
+            return
+
+        # Did the webhook already fulfil this checkout? Polled by /thanks so the
+        # buyer sees a confirmation only once the payment is really recorded.
+        if parsed.path == "/api/stripe/session-status":
+            qs_s = parse_qs(parsed.query)
+            self._send_json(_stripe_session_status(qs_s.get("session_id", [""])[0] or ""))
             return
 
         # Admin review list (pending by default; ?filter=all for everything).

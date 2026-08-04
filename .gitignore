@@ -84,6 +84,15 @@
 # resolves on both the Render game server and the Vercel marketing site.
 !test_rules_page.js
 
+# The Stripe money path. The .py half covers the server's decision functions —
+# webhook signature verification (the only thing between a stranger's POST and
+# free coins), price→reward mapping, and the lifetime-total wall tiers. The .js
+# half runs the REAL /thanks page in a stubbed DOM: the back-to-game button (an
+# untrusted cross-origin value, so it must never become an open redirect) and
+# the rule that it only claims "confirmed" when the SERVER says so.
+!test_stripe_payments.py
+!test_thanks_page.js
+
 !fish_ai_brain.json
 !multiplayer/
 !multiplayer/client/

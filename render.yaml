@@ -54,7 +54,13 @@ services:
       #     Stripe Dashboard → Developers → Webhooks → your endpoint. REQUIRED —
       #     the webhook rejects every event until this is set. Use the TEST
       #     secret while the Store uses TEST Payment Links; the LIVE secret at
-      #     launch.
+      #     launch. TEST and LIVE mode have SEPARATE endpoints and SEPARATE
+      #     signing secrets: switching the Store to live Payment Links without
+      #     also switching this value means every real payment is collected and
+      #     none of them are ever fulfilled.
+      #     Subscribe the endpoint to BOTH:
+      #       checkout.session.completed
+      #       checkout.session.async_payment_succeeded
       #   STRIPE_SECRET_KEY: secret API key (sk_test_… / sk_live_…). Optional —
       #     fulfilment works without it; reserved for future use.
       - key: STRIPE_WEBHOOK_SECRET
