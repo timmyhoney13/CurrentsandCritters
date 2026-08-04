@@ -1,5 +1,5 @@
 /* ================================================================
-   * Currents & Critters, multiplayer client
+   * Currents and Critters, multiplayer client
    * Gameplay: fish_game_all_in_one.py + multiplayer_server.py
    * ================================================================ */
 
@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.43";
-  const APP_BUILD   = "2026-08-03.4";
+  const APP_VERSION = "1.6.44";
+  const APP_BUILD   = "2026-08-04.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -226,7 +226,7 @@
     ]},
     { ver: "V1.6.3", title: "Help & Feedback button", items: [
       "Added a Help & Feedback button in the top-right corner (next to the chat icon) that opens a friendly tide-pool themed panel.",
-      "Pick Ask a Question, Report a Bug or Suggest an Idea, each opens a quick form and your answers come straight to the Currents & Critters team.",
+      "Pick Ask a Question, Report a Bug or Suggest an Idea, each opens a quick form and your answers come straight to the Currents and Critters team.",
     ]},
     { ver: "V1.6.3", title: "End Game: everyone really gets their final turn", items: [
       "Fixed a bug where the player who drew the END GAME card (on the second of their two draws) could be skipped and never get their own final turn, now every player, including the one who revealed it, always gets one full final turn.",
@@ -7023,7 +7023,7 @@
   const TUTORIAL_STEPS = [
     // 0
     { title:"Welcome!", nextLabel:"Start →", waitFor:null, highlight:null, actionHint:null,
-      text:`<p>Welcome to <strong>Currents &amp; Critters</strong>! You're playing against <em>Billy</em> and <em>Diana</em>. Everyone starts with empty boards, just like a real game.</p><p>This tutorial walks you through a full turn-by-turn sequence. Let's go!</p>` },
+      text:`<p>Welcome to <strong>Currents and Critters</strong>! You're playing against <em>Billy</em> and <em>Diana</em>. Everyone starts with empty boards, just like a real game.</p><p>This tutorial walks you through a full turn-by-turn sequence. Let's go!</p>` },
     // 1
     { title:"The Table", waitFor:null, highlight:"tut-opp-row", actionHint:null,
       text:`<p>The panels at the top are your opponents, <em>Billy</em> and <em>Diana</em>. Their boards are empty for now. The center holds the <strong>Pool</strong> and <strong>Deck</strong>. Your hand is at the bottom.</p>` },
@@ -15574,7 +15574,7 @@
         }
       }
       if (state === "running") {
-        if (greet) greet.textContent = "Currents & Critters is running 🌊";
+        if (greet) greet.textContent = "Currents and Critters is running 🌊";
         if (sub)   sub.textContent   = "Your game opened in its own window. Keep this tab open, jump back anytime.";
         if (primary) { primary.textContent = "↩ Return to Game"; primary.dataset.action = "return"; primary.style.display = ""; }
         if (second)  { second.textContent  = "🔁 Relaunch Game"; second.style.display = ""; }
@@ -15582,14 +15582,14 @@
         focusGameWindow();
       } else if (state === "blocked") {
         if (greet) greet.textContent = "Your browser blocked the game window";
-        if (sub)   sub.textContent   = "Allow pop-ups for this site, then tap below to open Currents & Critters.";
+        if (sub)   sub.textContent   = "Allow pop-ups for this site, then tap below to open Currents and Critters.";
         if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
         if (second)  second.style.display = "none";
         if (cont)    cont.style.display = "";
         if (errEl)   errEl.textContent = opts.message || "";
       } else { // "ready"
         if (greet) greet.textContent = opts.nick ? ("Welcome back, " + opts.nick + "!") : "Ready to dive in!";
-        if (sub)   sub.textContent   = "Tap below to dive into Currents & Critters.";
+        if (sub)   sub.textContent   = "Tap below to dive into Currents and Critters.";
         if (primary) { primary.textContent = "🎮 Open Game"; primary.dataset.action = "open"; primary.style.display = ""; }
         if (second)  second.style.display = "none";
         if (cont)    cont.style.display = "none";
@@ -21846,7 +21846,7 @@
             "Personal thank-you email",
             "Unlock all backgrounds",
             "Exclusive Fish Icon",
-            "Free physical copy of Currents & Critters",
+            "Free physical copy of Currents and Critters",
             "Thank-you postcard",
             "Exclusive Amberjack player icon",
             "+50,000 bonus XP",
@@ -21992,13 +21992,13 @@
 
         // ── 5) Physical Game ──────────────────────────────────────────
         html += `<div class="phst-section-title">📦 Physical Game<span class="phst-sec-rule"></span></div>`;
-        html += `<div class="phst-section-sub">The tabletop edition of Currents &amp; Critters.</div>`;
+        html += `<div class="phst-section-sub">The tabletop edition of Currents and Critters.</div>`;
         if (PHST_PHYSICAL.length === 0) {
           html += `<div class="phst-physical-soon">
             <div class="phst-physical-ico">🐢</div>
             <div>
               <div class="phst-physical-title">Coming soon</div>
-              <div class="phst-physical-desc">A physical copy of Currents &amp; Critters is on the way. Tide Turner supporters get one free!</div>
+              <div class="phst-physical-desc">A physical copy of Currents and Critters is on the way. Tide Turner supporters get one free!</div>
             </div>
           </div>`;
         } else {
@@ -25615,7 +25615,7 @@
       const modal   = document.getElementById("ph-whatsnew-modal");
       if (tag)     tag.textContent = "ALPHA V" + APP_VERSION;
       const sub = document.getElementById("ph-whatsnew-sub");
-      if (sub)     sub.textContent = "Currents & Critters · Alpha V" + APP_VERSION;
+      if (sub)     sub.textContent = "Currents and Critters · Alpha V" + APP_VERSION;
       if (wn)      wn.addEventListener("click", openWhatsNewModal);
       if (refresh) refresh.addEventListener("click", () => {
         // Refreshing for an update should reload in place, not bounce the

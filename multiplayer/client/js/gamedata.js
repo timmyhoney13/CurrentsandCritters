@@ -1,5 +1,5 @@
 /* ================================================================
- * Currents & Critters — shared game data, one source of truth.
+ * Currents and Critters — shared game data, one source of truth.
  *
  * These tables used to live inside js/preview-app.js. They now live here
  * so BOTH the game and the standalone How to Play page (rules.html) read

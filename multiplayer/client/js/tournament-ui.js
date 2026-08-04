@@ -1,4 +1,4 @@
-/* Currents & Critters — Tournament Mode UI (self-contained, flag-gated).
+/* Currents and Critters — Tournament Mode UI (self-contained, flag-gated).
  *
  * Loaded on every page but does NOTHING unless window.__ccTourney.ENABLED is
  * true (set in preview-app.js: TOURNAMENTS_PUBLIC, or ?tournaments=1, or

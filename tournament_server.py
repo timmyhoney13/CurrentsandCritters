@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Server-authoritative Tournament Mode for Currents & Critters.
+"""Server-authoritative Tournament Mode for Currents and Critters.
 
 This module owns everything tournament-shaped that is NOT pure bracket math
 (that lives in tournament_engine.py): the live Tournament object (its own version
@@ -133,7 +133,7 @@ MATCH_ABSENT_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_ABSENT_GRACE", "9
 # Generous (spectating is passive and a watcher sitting on a slow game still polls
 # every few seconds), but bounded, so "N watching" stays true.
 SPECTATOR_GRACE_SEC = float(os.environ.get("FISH_TOURNAMENT_SPECTATOR_GRACE", "60"))
-# Every bracket match is decided by a REAL game of Currents & Critters, including
+# Every bracket match is decided by a REAL game of Currents and Critters, including
 # matches where the whole field is AI seat-fillers: those spawn an all-bot game
 # room and the engine plays it out. Set to 0 to fall back to resolving them
 # instantly server-side (the old behaviour — fast, but it decides rounds by coin

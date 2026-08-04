@@ -1164,7 +1164,7 @@ def _admin_update_supporter(kind: str, doc_id: str, fields: Dict[str, Any]) -> D
 
 
 def _claim_username(uid: str, username: str) -> Dict[str, Any]:
-    """Reserve a unique Currents & Critters username for a verified account.
+    """Reserve a unique Currents and Critters username for a verified account.
     Validates (3–20 chars, letters/numbers/underscore), then claims
     usernames/{usernameLower} in a transaction so two people can't take the same
     name at once. Frees the account's previous reservation when it changes."""
@@ -10439,7 +10439,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(exc)}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
             return
 
-        # Reserve a unique Currents & Critters username. Requires a verified
+        # Reserve a unique Currents and Critters username. Requires a verified
         # Firebase ID token (never trust a raw uid for an identity write).
         # Body: { "idToken": "<firebase id token>", "username": "<name>" }
         if parsed.path == "/api/username/claim":

@@ -1504,7 +1504,7 @@
     // ── 1. Welcome ──────────────────────────────────────────────────
     { target: null, badge: "Competitive 1v1", title: "What is Competitive?",
       before: () => { closeMenuOverlays(); closeCompTourModal(); try { navTab("overview"); } catch (_) {} },
-      text: "Welcome to <strong>Competitive 1v1</strong>, the ranked way to play Currents &amp; Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best, the higher score <strong>wins the match and earns CP</strong> (Competitive Points) toward your rank." },
+      text: "Welcome to <strong>Competitive 1v1</strong>, the ranked way to play Currents and Critters. Two players go head-to-head, but here's the twist: <strong>each player controls TWO hands</strong> at the same table, playing both on their own device. At the end, your <strong>best-scoring hand</strong> is compared to your opponent's best, the higher score <strong>wins the match and earns CP</strong> (Competitive Points) toward your rank." },
 
     // ── 2. Open Create Game (interactive) → opens the setup modal ───
     { target: "#stats-create-btn", badge: "Step 1", title: "Open Create Game",

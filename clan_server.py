@@ -1,4 +1,4 @@
-"""Currents & Critters — Clan System (server-authoritative core).
+"""Currents and Critters — Clan System (server-authoritative core).
 
 Wired additively into multiplayer_server (same pattern as tournament_server):
     import clan_server
@@ -2616,7 +2616,7 @@ def _force_move_member(db, mv: Dict[str, str]) -> str:
     invites = [i for i in (udoc.get("clan_invites") or []) if isinstance(i, dict)]
     if not any(str(i.get("clan_id")) == clan_id for i in invites):
         invites.append({"clan_id": clan_id, "name": clan.get("name"),
-                        "icon": clan.get("icon"), "by": "Currents & Critters",
+                        "icon": clan.get("icon"), "by": "Currents and Critters",
                         "ts": _now()})
         _users(db).document(uid).set({"clan_invites": invites}, merge=True)
     res = _join_clan(uid, {"clan_id": clan_id})

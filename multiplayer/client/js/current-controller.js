@@ -696,7 +696,7 @@
   function buildDebugReport(p, conn) {
     const st = p.state || {};
     const lines = [];
-    lines.push("=== Currents & Critters, Debug Report ===");
+    lines.push("=== Currents and Critters, Debug Report ===");
     lines.push("time: " + new Date().toISOString());
     lines.push("room: " + (conn.room || p.room?.room_id || "-") + "  version: " + (conn.version ?? "-") + "  conn: " + (conn.sse ? "SSE" : conn.polling ? "Polling" : "-"));
     lines.push("current_player: " + (st.current_player || "-") + "  round: " + (st.round_count ?? "-"));

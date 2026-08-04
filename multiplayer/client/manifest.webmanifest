@@ -1,7 +1,7 @@
 {
-  "name": "Currents & Critters",
-  "short_name": "Currents & Critters",
-  "description": "Play Currents & Critters online with two or more players.",
+  "name": "Currents and Critters",
+  "short_name": "Currents and Critters",
+  "description": "Play Currents and Critters online with two or more players.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

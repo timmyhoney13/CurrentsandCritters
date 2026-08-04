@@ -1,4 +1,4 @@
-/* Currents & Critters — Clan System UI (self-contained module).
+/* Currents and Critters — Clan System UI (self-contained module).
  *
  * Renders the whole "Clans" Player-Home tab into #cc-clans-root. Talks only to
  * the server-authoritative /api/clan/* API through the window.__ccClans bridge

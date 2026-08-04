@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Snap &amp; Score, Currents &amp; Critters</title>
+<title>Snap &amp; Score, Currents and Critters</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <meta name="theme-color" content="#06263f"/>
 <link rel="icon" href="/icon.svg"/>
@@ -192,7 +192,7 @@
 <body>
 <div class="wrap">
   <header class="top">
-    <div class="logo">🐠 Currents &amp; Critters · <span>Snap &amp; Score</span></div>
+    <div class="logo">🐠 Currents and Critters · <span>Snap &amp; Score</span></div>
     <div class="who" id="whoami"></div>
   </header>
 
@@ -209,7 +209,7 @@
     </div>
     <div class="panel">
       <h2>🏆 Multiplayer Score Session</h2>
-      <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game, with XP, achievements, and avatar unlocks, to everyone's Currents &amp; Critters account.</p>
+      <p class="sub">Played a physical game together? Scan every board, approve the standings as a group, and save the game, with XP, achievements, and avatar unlocks, to everyone's Currents and Critters account.</p>
       <button class="btn mint" id="go-create">Create a Multiplayer Score Session</button>
       <div class="row" style="margin-top:10px">
         <input type="text" id="join-code" placeholder="Game code (e.g. R7KM2P)" maxlength="6" autocapitalize="characters" style="flex:1">
@@ -1421,7 +1421,7 @@ $("sess-copy").onclick = async () => {
 };
 $("sess-share").onclick = async () => {
   const url = location.origin + location.pathname + "?join=" + SESS.code;
-  const data = {title:"Snap & Score", text:`Join our Currents & Critters score session, code ${SESS.code}`, url};
+  const data = {title:"Snap & Score", text:`Join our Currents and Critters score session, code ${SESS.code}`, url};
   if (navigator.share) { try { await navigator.share(data); } catch {} }
   else { try { await navigator.clipboard.writeText(url); toast("Invite link copied!"); } catch {} }
 };
@@ -1482,7 +1482,7 @@ function renderSession(){
   // guest link-account
   const me = v.seats.find(s => s.seat === meSeat);
   $("sess-link-account").innerHTML = (me && !me.connectedAccount && me.kind!=="offline" && v.status!=="finalized") ?
-    `<div class="warnbox" style="margin-top:10px">You're a guest, connect your Currents &amp; Critters account <b>before final approval</b> to receive XP, achievements, avatars, and game history. <a class="link" href="#" id="link-acct">Connect account</a></div>` : "";
+    `<div class="warnbox" style="margin-top:10px">You're a guest, connect your Currents and Critters account <b>before final approval</b> to receive XP, achievements, avatars, and game history. <a class="link" href="#" id="link-acct">Connect account</a></div>` : "";
   const la = $("link-acct");
   if (la) la.onclick = async (e) => {
     e.preventDefault();
@@ -1560,7 +1560,7 @@ function renderResults(el, v){
         (granted ? myRewardsHtml(myRow) + `<div class="chip ok" style="margin-top:8px">✓ Game added to your history</div>` :
                    `<div class="warnbox">${esc(res.note||"Rewards are pending review.")}</div>`) :
         `<p class="sub">Your score has been calculated.</p>
-         <div class="warnbox">Create or connect a Currents &amp; Critters account to save future games and receive XP, achievements, avatars, and other rewards.</div>`}
+         <div class="warnbox">Create or connect a Currents and Critters account to save future games and receive XP, achievements, avatars, and other rewards.</div>`}
       ${myRow.strategy?`<div class="muted">Detected strategy: ${esc(myRow.strategy)}</div>`:""}
     </div>` : ""}
     ${res.note && granted ? `<div class="muted">${esc(res.note)}</div>` : ""}

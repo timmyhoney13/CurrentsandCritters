@@ -1,4 +1,4 @@
-/* Currents & Critters — Custom Tournament Bracket BUILDER.
+/* Currents and Critters — Custom Tournament Bracket BUILDER.
  *
  * A blank canvas the host designs a tournament on: drop match boxes anywhere,
  * set how many player spots each holds (2–8), drag connections from a match's

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Snap &amp; Score - Currents &amp; Critters</title>
+<title>Snap &amp; Score - Currents and Critters</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="assets/logo-icon.svg"/>
 <link rel="stylesheet" href="styles.css"/>
@@ -231,7 +231,7 @@
 <nav class="nav">
   <a class="brand" href="index.html">
     <img src="assets/logo-icon.svg" alt="C&amp;C"/>
-    <span class="wordmark">Currents &amp; Critters</span>
+    <span class="wordmark">Currents and Critters</span>
   </a>
   <div class="links">
     <a href="index.html#how">How to Play</a>
@@ -580,7 +580,7 @@ async function identifyCards(dataUrl) {
   const b64 = m[2];
 
   const catalog = CARD_DB.map(c => `- ${c.id}: "${c.name}" (${TYPE_LABEL[c.type]})`).join('\n');
-  const prompt = `You are looking at a photo of cards from the tabletop game "Currents & Critters".
+  const prompt = `You are looking at a photo of cards from the tabletop game "Currents and Critters".
 
 Identify each card visible in the photo. Match them to entries in this catalog:
 
@@ -589,7 +589,7 @@ ${catalog}
 Return ONLY a JSON object with this shape, no prose, no markdown:
 { "cards": ["card-id", "card-id", ...] }
 
-Use the exact card-ids from the catalog. If you can't identify a card with confidence, omit it. If the image isn't a hand of Currents & Critters cards, return { "cards": [] }.`;
+Use the exact card-ids from the catalog. If you can't identify a card with confidence, omit it. If the image isn't a hand of Currents and Critters cards, return { "cards": [] }.`;
 
   let raw;
   try {

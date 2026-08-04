@@ -1,5 +1,5 @@
 /* ================================================================
- * Currents & Critters — the Rule Book, one shared source of truth.
+ * Currents and Critters — the Rule Book, one shared source of truth.
  *
  * The rule text below is the printed rulebook, reproduced WORD FOR WORD.
  * Nothing here is paraphrased, trimmed or "improved" — only the layout
