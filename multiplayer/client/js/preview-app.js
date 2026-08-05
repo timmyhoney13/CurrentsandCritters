@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.45";
-  const APP_BUILD   = "2026-08-05.1";
+  const APP_VERSION = "1.6.46";
+  const APP_BUILD   = "2026-08-05.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🔕 Mute the chat for one game", items: [
+      "There's a bell on the chat window's header now. Tap it and pick what you want to go quiet: this game's chat, your direct messages, or both.",
+      "Muting only turns off the notifications — the red number on the 💬 button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
+      "It lasts for that game only. Leave or start a new match and chat is back to normal, and unmuting mid-game brings back the exact count you would have had.",
+    ]},
     { ver: "V1.7.0", title: "🪙 Supporter Tiers now come with Critter Coins", items: [
       "Every Supporter Tier now credits Critter Coins straight to your account: Wave Warrior 5,000, Ocean Ally 15,000, Tide Turner 30,000. Wave Warrior's 5,000 buys 5 of the 8 backgrounds, your pick; the higher tiers already own every background, so theirs go on seasonal skins.",
       "If you supported before making an account, signing in and claiming on the Claim Rewards page now hands you the WHOLE tier, coins, bonus XP, backgrounds and icons. Before, a late claim only gave you the supporter badge.",
@@ -10202,6 +10207,10 @@
     _chatPanelOpen = false;
     // Leaving / starting a fresh match resets the panel back to Current Game Chat.
     _chatView = "room"; _chatConv = null;
+    // Mute is per game: drop it so the next room starts unmuted (pvcMuteSync
+    // re-reads the choice if you rejoin THIS room in the same tab).
+    _chatMuteMode = "none"; _chatMuteRoom = null;
+    try { pvcRenderMute(); pvcMuteMenuOpen(false); } catch (_) {}
     document.getElementById("pv-chat-panel").classList.remove("open");
     // Reset Surf's Up Away local state + clear any pending idle/warning timers
     _imAway = false; _serverInactiveEligibleSent = false; _prevActiveSeatForIdle = null;
@@ -13110,6 +13119,20 @@
   let _grpModalConv = null;        // conv descriptor when editing a group
   let _pvcComposer = null;         // shared recipient composer instance (lazy)
 
+  // ── Chat mute, per game ────────────────────────────────────────
+  // Muting only silences the notifications OUTSIDE the panel: the 💬 button
+  // badge, the lobby chat badge and the back-arrow dot. Messages keep
+  // arriving and unread counts keep counting, so the chat itself is always
+  // one click away — and unmuting restores the exact badge you would have had.
+  // The choice belongs to ONE room (sessionStorage, so a mid-game refresh
+  // keeps it) and is dropped when you leave for a different game.
+  let _chatMuteMode = "none";      // "none" | "game" | "dm" | "all"
+  let _chatMuteRoom = null;        // roomId the current mode was loaded for
+  const _CHAT_MUTE_MODES = ["none", "game", "dm", "all"];
+  const _chatMuteKey = (rid) => "ccChatMute:" + rid;
+  // kind: "game" (this match's chat) | "dm" (DMs + group chats)
+  function _chatMuted(kind) { return _chatMuteMode === "all" || _chatMuteMode === kind; }
+
   let _chatLastCount = -1;
   function renderChatMessages(messages) {
     const msgs = Array.isArray(messages) ? messages : [];
@@ -13394,10 +13417,14 @@
   }
   function pvcUpdateBadges() {
     pvcEnsureSubscribed();        // wire live Firestore updates as soon as possible
-    const roomUnread = pvcRoomUnread();
+    pvcMuteSync();                // adopt this room's mute choice before badging
+    // Muted categories contribute 0 to every badge; the counts themselves are
+    // untouched, so unmuting (or the next game) brings them straight back.
+    const roomUnread  = _chatMuted("game") ? 0 : pvcRoomUnread();
+    const otherUnread = _chatMuted("dm")   ? 0 : pvcOtherUnread();
     const badge = _pg("pv-chat-badge");
     if (badge) {
-      const total = roomUnread + pvcOtherUnread();
+      const total = roomUnread + otherUnread;
       badge.textContent = total > 9 ? "9+" : String(total);
       badge.style.display = total > 0 ? "block" : "none";
     }
@@ -13413,12 +13440,67 @@
   }
   function pvcBackDotShould() {
     if (_chatView === "list") return false;
-    const other = pvcOtherUnread();                 // open conv is kept read, so excluded
+    const other = _chatMuted("dm") ? 0 : pvcOtherUnread();   // open conv is kept read, so excluded
     if (_chatView === "conv") {
-      const roomU = Math.max(0, _chatRoomTotal - _chatSeenCount);
+      const roomU = _chatMuted("game") ? 0 : Math.max(0, _chatRoomTotal - _chatSeenCount);
       return other > 0 || roomU > 0;
     }
     return other > 0;                               // room view: any DM/group unread
+  }
+
+  // ── Mute controller (button icon + menu + per-room persistence) ──
+  const _CHAT_MUTE_LABEL = {
+    none: "Chat notifications are on",
+    game: "This game's chat is muted",
+    dm:   "Direct messages are muted",
+    all:  "This game's chat and direct messages are muted",
+  };
+  // Load the mute choice belonging to the room we are actually in. Called from
+  // pvcUpdateBadges (every poll), so it must stay a cheap no-op once synced.
+  function pvcMuteSync() {
+    const rid = roomId || null;
+    if (rid === _chatMuteRoom) return;
+    _chatMuteRoom = rid;
+    let m = "none";
+    if (rid) { try { m = sessionStorage.getItem(_chatMuteKey(rid)) || "none"; } catch (_) {} }
+    _chatMuteMode = (_CHAT_MUTE_MODES.indexOf(m) === -1) ? "none" : m;
+    pvcRenderMute();
+  }
+  function pvcSetMute(mode) {
+    if (_CHAT_MUTE_MODES.indexOf(mode) === -1) return;
+    _chatMuteMode = mode;
+    if (_chatMuteRoom) { try { sessionStorage.setItem(_chatMuteKey(_chatMuteRoom), mode); } catch (_) {} }
+    pvcRenderMute();
+    pvcUpdateBadges();            // badges follow immediately, both directions
+  }
+  function pvcRenderMute() {
+    const btn = _pg("pv-chat-mute");
+    if (btn) {
+      const on = _chatMuteMode !== "none";
+      btn.textContent = on ? "🔕" : "🔔";
+      btn.classList.toggle("muted", on);
+      const t = _CHAT_MUTE_LABEL[_chatMuteMode] + (on ? " — click to change" : " — click to mute for this game");
+      btn.title = t; btn.setAttribute("aria-label", t);
+    }
+    const menu = _pg("pv-chat-mute-menu");
+    if (menu) {
+      Array.from(menu.querySelectorAll(".pvc-mm-row")).forEach(r => {
+        const sel = r.dataset.mute === _chatMuteMode;
+        r.classList.toggle("sel", sel);
+        r.setAttribute("aria-checked", sel ? "true" : "false");
+      });
+    }
+  }
+  function pvcMuteMenuOpen(open) {
+    const menu = _pg("pv-chat-mute-menu");
+    const btn  = _pg("pv-chat-mute");
+    if (!menu) return;
+    menu.classList.toggle("open", !!open);
+    if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function pvcMuteMenuIsOpen() {
+    const menu = _pg("pv-chat-mute-menu");
+    return !!(menu && menu.classList.contains("open"));
   }
 
   // Subscribe once to live Firestore changes (lazy, __fishMsg exists only
@@ -13779,6 +13861,7 @@
   }
   function pvcClosePanel() {
     _pvcStashDraft();            // remember the draft for when they reopen
+    pvcMuteMenuOpen(false);
     _chatPanelOpen = false;
     const p = _pg("pv-chat-panel");
     if (p) p.classList.remove("open");
@@ -13798,6 +13881,29 @@
   _pg("pv-chat-gear").addEventListener("click", () => {
     if (_chatConv && _chatConv.group) pvcOpenGroupModal("settings", _chatConv);
   });
+  // Mute: 🔔/🔕 opens the little "what should stop badging" menu.
+  {
+    const mbtn = _pg("pv-chat-mute");
+    const menu = _pg("pv-chat-mute-menu");
+    if (mbtn) mbtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      pvcMuteMenuOpen(!pvcMuteMenuIsOpen());
+    });
+    if (menu) {
+      menu.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const row = e.target.closest(".pvc-mm-row");
+        if (!row) return;
+        pvcSetMute(row.dataset.mute);
+        pvcMuteMenuOpen(false);
+      });
+    }
+    // Any click elsewhere (or Escape) dismisses the menu.
+    document.addEventListener("click", () => { if (pvcMuteMenuIsOpen()) pvcMuteMenuOpen(false); });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && pvcMuteMenuIsOpen()) { e.stopPropagation(); pvcMuteMenuOpen(false); }
+    }, true);
+  }
   // Trade button (DMs only) → open the secure trade overlay with this player.
   {
     const _tb = _pg("pv-chat-trade");

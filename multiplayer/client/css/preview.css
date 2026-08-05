@@ -4218,6 +4218,40 @@
     }
     .pvc-hbtn:hover { color: #fff; background: rgba(95,179,214,.18); }
     #pv-chat-close:hover { color: var(--red); }
+    /* Mute toggle + its little menu (scoped to the current game) */
+    #pv-chat-mute { font-size: 14px; }
+    #pv-chat-mute.muted { color: #ffcf6b; }
+    #pv-chat-mute-menu {
+      position: absolute; top: 38px; right: 8px; z-index: 20; display: none;
+      width: 196px; padding: 7px 6px 6px;
+      background: linear-gradient(165deg, rgba(26,64,126,.99), rgba(14,38,84,.99));
+      border: 1.5px solid rgba(95,179,214,.45); border-radius: 11px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.5);
+      font-family: "Nunito", sans-serif;
+    }
+    #pv-chat-mute-menu.open { display: block; }
+    .pvc-mm-title {
+      font-size: 10px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase;
+      color: var(--cyan); padding: 2px 8px 6px; line-height: 1.3;
+    }
+    .pvc-mm-title span {
+      display: block; font-size: 9px; font-weight: 700; letter-spacing: .2px;
+      text-transform: none; color: #7aafcc;
+    }
+    .pvc-mm-row {
+      display: flex; align-items: center; gap: 6px; width: 100%;
+      background: none; border: none; border-radius: 7px; cursor: pointer;
+      padding: 6px 8px; text-align: left;
+      font-family: "Nunito", sans-serif; font-size: 11.5px; font-weight: 700; color: #d4eaf8;
+    }
+    .pvc-mm-row:hover { background: rgba(95,179,214,.2); color: #fff; }
+    .pvc-mm-row.sel { background: rgba(95,179,214,.14); color: #fff; }
+    .pvc-mm-ck { width: 11px; flex-shrink: 0; color: var(--cyan); font-weight: 900; visibility: hidden; }
+    .pvc-mm-row.sel .pvc-mm-ck { visibility: visible; }
+    .pvc-mm-note {
+      padding: 5px 8px 2px; font-size: 9.5px; line-height: 1.4; color: #7aafcc;
+      border-top: 1px solid rgba(95,179,214,.16); margin-top: 4px;
+    }
     #pv-chat-back { font-size: 20px; font-weight: 800; }
     .pvc-back-dot {
       position: absolute; top: 2px; right: 2px; width: 8px; height: 8px;
