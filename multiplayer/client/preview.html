@@ -562,6 +562,17 @@
         <div class="ph-ss-days" id="ph-ss-days">0 Days</div>
         <div class="ph-ss-label">Days played in a row</div>
       </div>
+      <!-- STREAK RESCUE COUNTDOWN. Only shown while a broken run can still be
+           saved by one Streak Shield: you have until the end of today, and this
+           says exactly how long that is. Driven by _renderStreakRescue(). -->
+      <div class="ph-ss-rescue" id="ph-ss-rescue" style="display:none;">
+        <div class="ph-ss-rescue-top">
+          <span class="ph-ss-rescue-ico" aria-hidden="true">🛡️</span>
+          <span class="ph-ss-rescue-time" id="ph-ss-rescue-time">—</span>
+        </div>
+        <div class="ph-ss-rescue-msg" id="ph-ss-rescue-msg"></div>
+        <button class="ph-ss-rescue-btn" id="ph-ss-rescue-btn" type="button">Save my streak</button>
+      </div>
       <div class="ph-ss-week">
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">M</div><div class="ph-ss-dot"></div></div>
         <div class="ph-ss-day-col"><div class="ph-ss-day-lbl">T</div><div class="ph-ss-dot"></div></div>
@@ -2169,12 +2180,16 @@
   <!-- ROOM VIEW, Current Game Chat (server room chat; ids preserved) -->
   <div id="pv-chat-view-room" class="pvc-view active">
     <div id="pv-chat-messages"></div>
+    <!-- CRITTER EMOTES, the tray of animals bought from the Store's Emote Pack.
+         Filled by pvcRenderEmoteTray(); the button hides itself when you own none. -->
+    <div id="pv-chat-emote-tray" role="listbox" aria-label="Your critter emotes"></div>
     <div id="pv-chat-input-row">
       <div id="pv-chat-target-row">
         <label>To:</label>
         <select id="pv-chat-to"><option value="Everyone">Everyone</option></select>
       </div>
       <div id="pv-chat-msg-row">
+        <button id="pv-chat-emote-btn" type="button" title="Send a critter emote" aria-label="Send a critter emote" aria-haspopup="listbox" aria-expanded="false" style="display:none;">😀</button>
         <textarea id="pv-chat-text" rows="2" placeholder="Type a message…" maxlength="500"></textarea>
         <button id="pv-chat-send">Send</button>
       </div>

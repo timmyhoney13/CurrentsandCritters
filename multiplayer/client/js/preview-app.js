@@ -70,13 +70,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🐚 Player Perks in the Store", items: [
+      "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one — if you don't have one yet, that same button buys it and uses it in one tap.",
+      "Name Change Token (100 coins) skips the 24-hour wait between username changes. Your first change is still free, and your friend code never changes.",
+      "Emote Pack (500 coins) turns 5 critters you've unlocked into chat emotes. Every animal in the game can be one, you just have to own it first — and if you have fewer than 5 critters left without an emote, we tell you exactly how many you'd get before you spend anything.",
+      "Critter Re-Earn (2,500 coins) hands back a critter you traded away, without earning its unlock all over again.",
+      "Once you own an emote, a smiley appears next to the chat box in game. Tap it and send the critter — everyone at the table sees the picture, whether or not they own it.",
+    ]},
     { ver: "V1.7.0", title: "🔕 Mute the chat for one game", items: [
       "There's a bell on the chat window's header now. Tap it and pick what you want to go quiet: this game's chat, your direct messages, or both.",
       "Muting only turns off the notifications — the red number on the 💬 button and the dot on the back arrow. Messages keep coming in, so you can open chat whenever you like and read everything you missed.",
       "It lasts for that game only. Leave or start a new match and chat is back to normal, and unmuting mid-game brings back the exact count you would have had.",
     ]},
     { ver: "V1.7.0", title: "🪙 Supporter Tiers now come with Critter Coins", items: [
-      "Every Supporter Tier now credits Critter Coins straight to your account: Wave Warrior 5,000, Ocean Ally 15,000, Tide Turner 30,000. Wave Warrior's 5,000 buys 5 of the 8 backgrounds, your pick; the higher tiers already own every background, so theirs go on seasonal skins.",
+      "Every Supporter Tier now credits Critter Coins straight to your account: Wave Warrior 5,000, Ocean Ally 15,000, Tide Turner 30,000. Spend them on whatever you like in the Store.",
       "If you supported before making an account, signing in and claiming on the Claim Rewards page now hands you the WHOLE tier, coins, bonus XP, backgrounds and icons. Before, a late claim only gave you the supporter badge.",
     ]},
     { ver: "V1.7.0", title: "🏁 Clan challenges, and a Clan Rules page", items: [
@@ -11125,6 +11132,9 @@
     try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch (_) {}
     try { if (typeof window._updateStreakXp === "function") window._updateStreakXp(Number(current) || 0); } catch (_) {}
     try { if (typeof window._renderStreakWeek === "function") window._renderStreakWeek(); } catch (_) {}
+    // The rescue countdown lives or dies on the same data: spending a shield
+    // (or just playing) makes the run alive again and hides the banner.
+    try { if (typeof window._renderStreakRescue === "function") window._renderStreakRescue(); } catch (_) {}
     try {
       const calOpen = document.getElementById("streak-cal-modal");
       if (calOpen && calOpen.classList.contains("open") && typeof window.__fishRenderStreakCalendar === "function") {
@@ -13171,7 +13181,27 @@
       const targetLabel = (m.target && m.target !== "Everyone") ? ` → ${m.target}` : "";
       const meta = document.createElement("span"); meta.className = "cm-target"; meta.textContent = `${targetLabel} ${ts}`.trim();
       header.appendChild(sender); header.appendChild(meta);
-      const body = document.createElement("div"); body.className = "cm-text"; body.textContent = m.message || "";
+      // A critter emote is a picture, not text: the server stores the animal's
+      // id (see _clean_emote_id) and every client paints that animal, whether
+      // or not the viewer owns the emote themselves.
+      const body = document.createElement("div");
+      if (m.emote) {
+        body.className = "cm-emote";
+        const eImg = document.createElement("img");
+        const eSrc = "/avatars/" + String(m.emote).toLowerCase() + ".png";
+        eImg.src = (window.__fishAvSrc ? window.__fishAvSrc(eSrc) : eSrc);
+        eImg.alt = String(m.emote).replace(/-/g, " ");
+        eImg.title = eImg.alt;
+        eImg.loading = "lazy";
+        eImg.onerror = () => { eImg.onerror = null; eImg.src = "/avatars/mullet.png"; };
+        body.appendChild(eImg);
+        if (m.message) {
+          const cap = document.createElement("span"); cap.className = "cm-text"; cap.textContent = m.message;
+          body.appendChild(cap);
+        }
+      } else {
+        body.className = "cm-text"; body.textContent = m.message || "";
+      }
       main.appendChild(header); main.appendChild(body);
 
       div.appendChild(av); div.appendChild(main);
@@ -13847,9 +13877,70 @@
   }
 
   // ── Open / close the whole panel ────────────────────────────────
+  // ── Critter emotes (Store "Emote Pack") ─────────────────────────
+  // The tray is built from what the account actually owns, every time the chat
+  // panel opens, so a pack bought mid-session shows up without a reload. Own
+  // none and the smiley never appears at all.
+  function pvcRenderEmoteTray() {
+    const tray = _pg("pv-chat-emote-tray");
+    const btn  = _pg("pv-chat-emote-btn");
+    if (!tray || !btn) return;
+    const mine = (typeof window.__fishGetEmotes === "function") ? (window.__fishGetEmotes() || []) : [];
+    if (!mine.length) {
+      btn.style.display = "none";
+      tray.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+      cl(tray);
+      return;
+    }
+    btn.style.display = "";
+    cl(tray);
+    for (const img of mine) {
+      const id = String(img).replace(/^.*\//, "").replace(/\.png$/i, "");
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "pvc-emote"; b.setAttribute("role", "option");
+      b.title = id.replace(/-/g, " ");
+      b.setAttribute("aria-label", "Send " + b.title + " emote");
+      const im = document.createElement("img");
+      im.src = (window.__fishAvSrc ? window.__fishAvSrc(img) : img);
+      im.alt = ""; im.loading = "lazy";
+      b.appendChild(im);
+      b.addEventListener("click", () => { pvcEmoteTrayOpen(false); sendChatEmote(id); });
+      tray.appendChild(b);
+    }
+  }
+  function pvcEmoteTrayOpen(open) {
+    const tray = _pg("pv-chat-emote-tray");
+    const btn  = _pg("pv-chat-emote-btn");
+    if (!tray || !btn) return;
+    const want = (open === undefined) ? !tray.classList.contains("open") : !!open;
+    tray.classList.toggle("open", want);
+    btn.setAttribute("aria-expanded", want ? "true" : "false");
+    btn.classList.toggle("on", want);
+  }
+
+  // Send one emote to the room. It rides the SAME endpoint as a chat line,
+  // carrying the animal's id instead of text (the server keeps them apart, and
+  // an emote-only line is the one case where an empty message is allowed).
+  async function sendChatEmote(emoteId) {
+    const id = String(emoteId || "").trim().toLowerCase();
+    if (!id || !roomId) return;
+    if (isSpectating()) return;                 // spectator chat has no emotes
+    const target = document.getElementById("pv-chat-to").value || "Everyone";
+    const token = getSeatToken();
+    if (!token) return;
+    await apiPost(`/api/rooms/${roomId}/chat`, { seat_token: token, message: "", emote: id, target }, { timeoutMs: 8000 });
+    // An emote is still "you said something": it feeds the plain message
+    // meters, but never the ones that match on words.
+    _gameAchTracker.chatMsgs = (_gameAchTracker.chatMsgs || 0) + 1;
+    try { window._reportDailyChallengeProgress?.("table_talk", 0, { complete: true }); } catch {}
+    refreshState();
+  }
+
   function pvcOpenPanel() {
     _chatPanelOpen = true;
     pvcEnsureSubscribed();
+    pvcRenderEmoteTray();        // reflect any Emote Pack bought since last open
     const p = _pg("pv-chat-panel");
     if (p) p.classList.add("open");
     pvcApplyPosition();
@@ -13862,6 +13953,7 @@
   function pvcClosePanel() {
     _pvcStashDraft();            // remember the draft for when they reopen
     pvcMuteMenuOpen(false);
+    pvcEmoteTrayOpen(false);
     _chatPanelOpen = false;
     const p = _pg("pv-chat-panel");
     if (p) p.classList.remove("open");
@@ -13903,6 +13995,26 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && pvcMuteMenuIsOpen()) { e.stopPropagation(); pvcMuteMenuOpen(false); }
     }, true);
+  }
+  // Critter emote button → the tray of animals you own. Closes on a click
+  // anywhere else and on Escape, like the mute menu above it.
+  {
+    const _eb = _pg("pv-chat-emote-btn");
+    if (_eb) {
+      _eb.addEventListener("click", (e) => { e.stopPropagation(); pvcEmoteTrayOpen(); });
+      document.addEventListener("click", (e) => {
+        const tray = _pg("pv-chat-emote-tray");
+        if (!tray || !tray.classList.contains("open")) return;
+        if (tray.contains(e.target) || e.target === _eb) return;
+        pvcEmoteTrayOpen(false);
+      }, true);
+      document.addEventListener("keydown", (e) => {
+        const tray = _pg("pv-chat-emote-tray");
+        if (e.key === "Escape" && tray && tray.classList.contains("open")) {
+          e.stopPropagation(); pvcEmoteTrayOpen(false);
+        }
+      }, true);
+    }
   }
   // Trade button (DMs only) → open the secure trade overlay with this player.
   {
@@ -15059,6 +15171,19 @@
   const PHST_SKIN_COIN_PRICE = 2000; // 2,000 Critter Coins per skin
   const EXCLUSIVE_SKINS   = ANIMAL_AVATARS.filter(a => a.unlock && a.unlock.type === "shop");
   const _SKIN_IMG_SET     = new Set(EXCLUSIVE_SKINS.map(s => s.img));
+
+  // ── Player Perks (Store) ───────────────────────────────────────
+  // Critter-Coin consumables. Declared out here, beside the skin price, because
+  // BOTH halves of the app need them: the Store renders the price tags and the
+  // gallery/profile layer runs the spend transactions (see __fishBuyStreakShield
+  // and friends). One declaration = the tag on the card can never disagree with
+  // the amount actually charged.
+  const PHST_SHIELD_COIN_PRICE  = 500;   // covers one missed day of a daily streak
+  const PHST_NAMETOK_COIN_PRICE = 100;   // skips the 24h username cooldown
+  const PHST_EMOTE_PACK_PRICE   = 500;   // one pack of critter chat emotes
+  const PHST_EMOTE_PACK_SIZE    = 5;     // critters granted per Emote Pack
+  const PHST_REEARN_COIN_PRICE  = 2500;  // buy back one traded-away critter
+  const PHST_PERK_STACK_MAX     = 5;     // hoard cap per stackable consumable
   function backgroundById(id){ return _BG_BY_ID[id] || null; }
   function normalizeBgUrl(u){
     let s = String(u||"").trim();
@@ -18100,6 +18225,14 @@
           }
         }
       } catch {}
+      // Broke a streak by exactly one day? Show the countdown straight away and
+      // offer a Streak Shield (once per missed day). The popup runs last and on
+      // a delay so it never lands on top of the unlock popups above.
+      try { window._renderStreakRescue?.(); } catch {}
+      try {
+        const _shieldStats = (profile && profile.stats) ? profile.stats : null;
+        if (_shieldStats) setTimeout(() => { try { window.__fishOfferStreakShield?.(_shieldStats); } catch {} }, 2200);
+      } catch {}
     }
 
     const PIE_COLORS = ["#22d8f8","#f0c840","#2ecc71","#e06c75","#c678dd","#e5c07b","#56b6c2","#d19a66"];
@@ -19742,8 +19875,20 @@
         if (msLeft > 0) {
           const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
           const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
-          if (cooldownEl) { cooldownEl.textContent = `You can change your username again ${label}.`; cooldownEl.style.display = ""; }
-          if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; editBtn.title = `Available ${label}`; }
+          // A Name Change Token (Store) buys past the wait. Holding one keeps
+          // the Change button live and says what pressing it will cost.
+          const toks = (typeof window.__fishNameTokens === "function") ? window.__fishNameTokens() : 0;
+          if (cooldownEl) {
+            cooldownEl.textContent = toks
+              ? `You can change your username again ${label} — or spend 1 of your ${toks} Name Change Token${toks !== 1 ? "s" : ""} now.`
+              : `You can change your username again ${label}. A Name Change Token from the Store skips the wait.`;
+            cooldownEl.style.display = "";
+          }
+          if (editBtn) {
+            editBtn.disabled = !toks;
+            editBtn.style.opacity = toks ? "" : ".45";
+            editBtn.title = toks ? "Uses 1 Name Change Token" : `Available ${label}`;
+          }
         } else {
           if (cooldownEl) cooldownEl.style.display = "none";
           if (editBtn) { editBtn.disabled = false; editBtn.style.opacity = ""; editBtn.title = ""; }
@@ -19792,7 +19937,11 @@
       if (err) { setAuthMsg("settings-nick-err", err, false); return; }
       if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your username.", false); return; }
 
-      // 1-day cooldown check (re-read from Firestore for accuracy)
+      // 1-day cooldown check (re-read from Firestore for accuracy). A Name
+      // Change Token buys past it — but only with the player's say-so, and the
+      // token is not consumed here: it is spent in the SAME write as the
+      // rename below, so a rename that fails can never eat one.
+      let spendNameToken = false;
       try {
         const docSnap = await _db.collection("users").doc(_authUser.uid).get();
         const data = docSnap.data() || {};
@@ -19802,8 +19951,24 @@
           if (msLeft > 0) {
             const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
             const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
-            setAuthMsg("settings-nick-err", `You can change your username again ${label}.`, false);
-            return;
+            const toks = Math.max(0, Math.floor(Number(data.name_change_tokens) || 0));
+            if (!toks) {
+              setAuthMsg("settings-nick-err", `You can change your username again ${label}. A Name Change Token from the Store skips the wait.`, false);
+              return;
+            }
+            const ok = (typeof window.ccPerkModal === "function")
+              ? await window.ccPerkModal({
+                  icon: "🏷️", title: "Use a Name Change Token?",
+                  body: `You can normally change your username again ${label}. Spending 1 token changes it to "${newNick}" right now.`,
+                  note: `You're holding ${toks} token${toks !== 1 ? "s" : ""}.`,
+                  actions: [
+                    { key:"cancel",  label:"I'll wait" },
+                    { key:"confirm", label:"Use 1 token", primary:true },
+                  ],
+                })
+              : { action: "confirm" };
+            if (ok.action !== "confirm") { setAuthMsg("settings-nick-err", "", true); return; }
+            spendNameToken = true;
           }
         }
       } catch { /* proceed if check fails */ }
@@ -19833,7 +19998,12 @@
           nickname_lower: newNick.toLowerCase(),
           friend_code: code,
           nickname_changed_at: now,   // 1-day cooldown timestamp
+          // The token is burned by the rename itself, not before it.
+          ...(spendNameToken
+            ? { name_change_tokens: firebase.firestore.FieldValue.increment(-1) }
+            : {}),
         });
+        if (spendNameToken) { try { window.__fishNoteNameTokenSpent?.(); } catch {} }
         // Public lookup doc uses new name + same code
         await _db.collection("friend_lookup").doc(newKey).set({
           uid: _authUser.uid, nickname: newNick, updated_at: now,
@@ -19872,11 +20042,17 @@
         if (settingsNickEl) settingsNickEl.textContent = newNick;
         const form = $a("settings-nick-form");
         if (form) form.style.display = "none";
-        // Show cooldown note
+        // Show cooldown note — still skippable if they hold another token.
         const cooldownEl = $a("settings-nick-cooldown");
         const editBtn = $a("settings-edit-nick-btn");
-        if (cooldownEl) { cooldownEl.textContent = "You can change your username again tomorrow."; cooldownEl.style.display = ""; }
-        if (editBtn) { editBtn.disabled = true; editBtn.style.opacity = ".45"; }
+        const toksLeft = (typeof window.__fishNameTokens === "function") ? window.__fishNameTokens() : 0;
+        if (cooldownEl) {
+          cooldownEl.textContent = toksLeft
+            ? `You can change your username again tomorrow — or spend 1 of your ${toksLeft} Name Change Token${toksLeft !== 1 ? "s" : ""}.`
+            : "You can change your username again tomorrow. A Name Change Token from the Store skips the wait.";
+          cooldownEl.style.display = "";
+        }
+        if (editBtn) { editBtn.disabled = !toksLeft; editBtn.style.opacity = toksLeft ? "" : ".45"; }
       } catch(e) {
         setAuthMsg("settings-nick-err", "Could not update username.", false);
       }
@@ -21943,7 +22119,6 @@
       const PHST_SUPPORTER_TIERS = [
         {
           name: "Wave Warrior", usd: 15, coins: 5000,
-          coinsNote: "5 of the 8 backgrounds, your pick",
           link: "https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00",
           perks: [
             "Supporter email updates",
@@ -21957,7 +22132,6 @@
         },
         {
           name: "Ocean Ally", usd: 35, coins: 15000,
-          coinsNote: "Backgrounds are already yours - these buy ~7 seasonal skins",
           link: "https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01",
           perks: [
             "Supporter email updates",
@@ -21973,7 +22147,6 @@
         },
         {
           name: "Tide Turner", usd: 50, coins: 30000, best: true,
-          coinsNote: "A full year of seasonal skins, and then some",
           link: "https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02",
           perks: [
             "Supporter email updates",
@@ -22109,6 +22282,78 @@
           html += `</div>`;
         }
 
+        // ── 3b) Player Perks, spend Critter Coins ────────────────────
+        // Consumables rather than cosmetics: each one is bought here and spent
+        // somewhere else in the app (the streak prompt, Settings, the chat
+        // emote tray, the Avatar Gallery). Everything a card needs to show is
+        // read live from the perk helpers, so the counts are always current.
+        {
+          const _shields  = (typeof window.__fishStreakShields === "function") ? window.__fishStreakShields() : 0;
+          const _nameToks = (typeof window.__fishNameTokens    === "function") ? window.__fishNameTokens()    : 0;
+          const _emotes   = (typeof window.__fishGetEmotes     === "function") ? window.__fishGetEmotes()     : [];
+          const _eligible = (typeof window.__fishEmoteEligible === "function") ? window.__fishEmoteEligible() : [];
+          const _reBuy    = (typeof window.__fishReEarnBuyable === "function") ? window.__fishReEarnBuyable() : [];
+          const _packSize = (typeof PHST_EMOTE_PACK_SIZE !== "undefined") ? PHST_EMOTE_PACK_SIZE : 5;
+          const _coinImg  = `<img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
+
+          // Never-changed username: the first change costs nothing, so say so
+          // rather than selling a token the player doesn't need yet.
+          const _neverRenamed = !(_activeProfile && _activeProfile.nickname_changed_at);
+
+          const _perks = [
+            {
+              key: "shield", ico: "🛡️", name: "Streak Shield",
+              price: (typeof PHST_SHIELD_COIN_PRICE !== "undefined") ? PHST_SHIELD_COIN_PRICE : 500,
+              desc: "Covers one missed day so your daily streak survives it. We'll offer it the moment you break a streak — buy ahead and it's one tap.",
+              stat: _shields ? `You hold ${_shields} shield${_shields !== 1 ? "s" : ""}` : "You hold no shields",
+              cta: "Buy",
+            },
+            {
+              key: "nametok", ico: "🏷️", name: "Name Change Token",
+              price: (typeof PHST_NAMETOK_COIN_PRICE !== "undefined") ? PHST_NAMETOK_COIN_PRICE : 100,
+              desc: "Skips the 24-hour wait between username changes. Your friend code stays the same.",
+              stat: _neverRenamed
+                ? "Your first change is free — no token needed"
+                : (_nameToks ? `You hold ${_nameToks} token${_nameToks !== 1 ? "s" : ""}` : "You hold no tokens"),
+              cta: "Buy",
+            },
+            {
+              key: "emotes", ico: "😀", name: "Emote Pack",
+              price: (typeof PHST_EMOTE_PACK_PRICE !== "undefined") ? PHST_EMOTE_PACK_PRICE : 500,
+              desc: `Pick ${_packSize} critters you've unlocked and send them as pictures in game chat. Every animal in the game can be an emote — you just have to own it first.`,
+              stat: `${_emotes.length} emote${_emotes.length !== 1 ? "s" : ""} owned · ${_eligible.length} critter${_eligible.length !== 1 ? "s" : ""} available`,
+              cta: "Choose",
+            },
+            {
+              key: "reearn", ico: "🔁", name: "Critter Re-Earn",
+              price: (typeof PHST_REEARN_COIN_PRICE !== "undefined") ? PHST_REEARN_COIN_PRICE : 2500,
+              desc: "Take back a critter you traded away, right now, without earning its unlock a second time.",
+              stat: _reBuy.length
+                ? `${_reBuy.length} critter${_reBuy.length !== 1 ? "s" : ""} you can buy back`
+                : "Nothing traded away to buy back",
+              cta: "Choose",
+              disabled: !_reBuy.length,
+            },
+          ];
+
+          html += `<div class="phst-section-title">🐚 Player Perks<span class="phst-sec-rule"></span></div>`;
+          html += `<div class="phst-section-sub">Spend Critter Coins on things that help you play, not just things you wear.</div>`;
+          html += `<div class="phst-perk-grid">`;
+          for (const p of _perks) {
+            html += `<div class="phst-perk${p.disabled ? " phst-perk-off" : ""}">
+              <div class="phst-perk-ico" aria-hidden="true">${p.ico}</div>
+              <div class="phst-perk-name">${esc(p.name)}</div>
+              <div class="phst-perk-desc">${esc(p.desc)}</div>
+              <div class="phst-perk-stat">${esc(p.stat)}</div>
+              <div class="phst-card-footer">
+                <div class="phst-card-price">${phstFmtCoins(p.price)} ${_coinImg}</div>
+                <button class="phst-card-buy" data-perk="${p.key}"${p.disabled ? " disabled" : ""}>${esc(p.cta)}</button>
+              </div>
+            </div>`;
+          }
+          html += `</div>`;
+        }
+
         // ── 4) Supporter Tiers ────────────────────────────────────────
         html += `<div class="phst-section-title">★ Supporter Tiers<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">Back the launch and earn permanent founder recognition. Cosmetic &amp; progression rewards only.</div>`;
@@ -22120,7 +22365,6 @@
             <div class="phst-tier-price">$${t.usd.toFixed(2)}<span class="phst-tier-once">one-time</span></div>
             ${t.coins ? `<div class="phst-tier-coins">
               <span class="phst-tier-coins-amt">${phstFmtCoins(t.coins)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins</span>
-              ${t.coinsNote ? `<span class="phst-tier-coins-note">${esc(t.coinsNote)}</span>` : ""}
             </div>` : ""}
             <ul class="phst-tier-perks">`;
           for (const perk of t.perks) html += `<li>${esc(perk)}</li>`;
@@ -22172,6 +22416,10 @@
         // Wire every skin Buy button to the Critter-Coins spend flow.
         el.querySelectorAll("[data-skin]").forEach((btn) => {
           btn.addEventListener("click", () => window._phstBuyIcon(btn.getAttribute("data-skin"), btn));
+        });
+        // Wire the Player Perks (each one opens its own confirm/picker).
+        el.querySelectorAll("[data-perk]").forEach((btn) => {
+          btn.addEventListener("click", () => window._phstBuyPerk(btn.getAttribute("data-perk"), btn));
         });
       }
       window.renderPhStore = renderPhStore;
@@ -22233,6 +22481,431 @@
         }
         if (btn) btn.disabled = false;
       };
+
+      // ── Perk dialog ────────────────────────────────────────────────
+      // One themed modal shared by every Player Perk (the streak-shield offer,
+      // the emote picker, the re-earn picker, the plain confirms). Resolves to
+      // { action, selected }, where action is the key of the button pressed or
+      // "cancel" for backdrop/Escape. Built on demand so nothing is in the DOM
+      // until a perk is actually opened.
+      //   opts = { icon, title, body, note, grid:[{id,name,img}], pick:N,
+      //            requireFull:bool, actions:[{key,label,primary,disabled}] }
+      function ccPerkModal(opts) {
+        const o = opts || {};
+        const esc2 = (typeof escapeHtml === "function") ? escapeHtml : (s)=>String(s);
+        const avsrc = (typeof _avSrc === "function") ? _avSrc : (u)=>u;
+        const pick  = Math.max(0, Number(o.pick) || 0);
+        const grid  = Array.isArray(o.grid) ? o.grid : [];
+        const acts  = Array.isArray(o.actions) && o.actions.length
+          ? o.actions : [{ key:"confirm", label:"OK", primary:true }];
+        const selected = [];
+
+        let host = document.getElementById("cc-perk-modal");
+        if (!host) {
+          host = document.createElement("div");
+          host.id = "cc-perk-modal";
+          document.body.appendChild(host);
+        }
+        host.innerHTML = `
+          <div class="ccpk-card" role="dialog" aria-modal="true" aria-labelledby="ccpk-title">
+            <div class="ccpk-ico" aria-hidden="true">${esc2(o.icon || "🐚")}</div>
+            <div class="ccpk-title" id="ccpk-title">${esc2(o.title || "")}</div>
+            <div class="ccpk-body">${esc2(o.body || "")}</div>
+            ${grid.length ? `<div class="ccpk-count"></div><div class="ccpk-grid">${grid.map(g => `
+              <button type="button" class="ccpk-tile" data-img="${esc2(g.img)}" aria-pressed="false">
+                <img src="${avsrc(g.img)}" alt="" loading="lazy">
+                <span>${esc2(g.name)}</span>
+              </button>`).join("")}</div>` : ""}
+            ${o.note ? `<div class="ccpk-note">${esc2(o.note)}</div>` : ""}
+            <div class="ccpk-actions">${acts.map(a => `
+              <button type="button" class="ccpk-btn${a.primary ? " ccpk-primary" : ""}"
+                      data-act="${esc2(a.key)}"${a.disabled ? " disabled" : ""}>${esc2(a.label)}</button>`).join("")}</div>
+          </div>`;
+        host.classList.add("open");
+
+        return new Promise((resolve) => {
+          let done = false;
+          const countEl = host.querySelector(".ccpk-count");
+          const primary = host.querySelector(".ccpk-btn.ccpk-primary");
+          // The primary button stays locked until the player has picked what
+          // the pack actually grants, so a half-filled pack can't be bought.
+          const syncCount = () => {
+            if (countEl) {
+              countEl.textContent = pick > 1
+                ? `${selected.length} of ${pick} chosen`
+                : (selected.length ? "1 chosen" : "Pick one");
+            }
+            if (primary && grid.length) {
+              const need = o.requireFull ? pick : 1;
+              primary.disabled = selected.length < Math.min(need, grid.length);
+            }
+          };
+          const finish = (action) => {
+            if (done) return;
+            done = true;
+            host.classList.remove("open");
+            host.innerHTML = "";
+            document.removeEventListener("keydown", onKey, true);
+            resolve({ action, selected: selected.slice() });
+          };
+          const onKey = (e) => { if (e.key === "Escape") { e.preventDefault(); finish("cancel"); } };
+
+          host.querySelectorAll(".ccpk-tile").forEach((tile) => {
+            tile.addEventListener("click", () => {
+              const img = tile.getAttribute("data-img");
+              const at = selected.indexOf(img);
+              if (at >= 0) { selected.splice(at, 1); tile.classList.remove("sel"); tile.setAttribute("aria-pressed", "false"); }
+              else {
+                // Single-pick behaves like a radio; a full multi-pick refuses
+                // rather than silently swapping something out.
+                if (pick === 1 && selected.length) {
+                  const prev = selected.pop();
+                  const pEl = host.querySelector(`.ccpk-tile[data-img="${CSS.escape(prev)}"]`);
+                  if (pEl) { pEl.classList.remove("sel"); pEl.setAttribute("aria-pressed", "false"); }
+                } else if (selected.length >= pick) return;
+                selected.push(img); tile.classList.add("sel"); tile.setAttribute("aria-pressed", "true");
+              }
+              syncCount();
+            });
+          });
+          host.querySelectorAll(".ccpk-btn").forEach((b) => {
+            b.addEventListener("click", () => finish(b.getAttribute("data-act")));
+          });
+          host.addEventListener("click", (e) => { if (e.target === host) finish("cancel"); });
+          document.addEventListener("keydown", onKey, true);
+          syncCount();
+        });
+      }
+      window.ccPerkModal = ccPerkModal;
+
+      // Turn a perk-purchase reason code into something a player understands.
+      function _perkFailMsg(reason, price, what) {
+        if (reason === "coins")     return `Not enough Critter Coins — ${what} costs ${phstFmtCoins(price)}.`;
+        if (reason === "max")       return `You're already holding the most ${what}s you can stack.`;
+        if (reason === "owned")     return `You already own that.`;
+        if (reason === "locked")    return `You can only make emotes from critters you've unlocked.`;
+        if (reason === "nottraded") return `You never traded that critter away.`;
+        if (reason === "auth")      return `Sign in with Google first to spend Critter Coins.`;
+        return "Purchase failed, try again.";
+      }
+
+      // ── Player Perk purchases ──────────────────────────────────────
+      window._phstBuyPerk = async function (key, btn) {
+        if (!_authUser) { showToast("Sign in with Google first to spend Critter Coins.", "info"); return; }
+        if (btn) btn.disabled = true;
+        try {
+          if (key === "shield")  await _perkBuyShield();
+          if (key === "nametok") await _perkBuyNameToken();
+          if (key === "emotes")  await _perkBuyEmotes();
+          if (key === "reearn")  await _perkBuyReEarn();
+        } catch (e) {
+          console.warn("[store] perk purchase failed", e);
+          showToast("Purchase failed, try again.", "err");
+        }
+        if (btn) btn.disabled = false;
+        renderPhStore();
+      };
+
+      async function _perkBuyShield() {
+        const price = PHST_SHIELD_COIN_PRICE;
+        const held  = window.__fishStreakShields ? window.__fishStreakShields() : 0;
+        const r = await ccPerkModal({
+          icon: "🛡️", title: "Streak Shield",
+          body: `Covers one missed day so your daily streak keeps going. When you break a streak we'll offer to spend it for you — nothing is used until you say yes.`,
+          note: held ? `You're holding ${held} already.` : "",
+          actions: [
+            { key:"cancel", label:"Not now" },
+            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+          ],
+        });
+        if (r.action !== "confirm") return;
+        const res = await window.__fishBuyStreakShield();
+        showToast(res && res.ok
+          ? `Streak Shield bought! 🛡️ You're holding ${(window.__fishStreakShields ? window.__fishStreakShields() : 1)}.`
+          : _perkFailMsg(res && res.reason, price, "a Streak Shield"), res && res.ok ? "ok" : "err");
+      }
+
+      async function _perkBuyNameToken() {
+        const price = PHST_NAMETOK_COIN_PRICE;
+        // Nobody should pay to do something that is currently free.
+        if (!(_activeProfile && _activeProfile.nickname_changed_at)) {
+          await ccPerkModal({
+            icon: "🏷️", title: "Your first change is free",
+            body: "You've never changed your username, so you can change it right now in Settings without spending anything. Tokens are only for changing it again inside the 24-hour cooldown.",
+            actions: [{ key:"confirm", label:"Got it", primary:true }],
+          });
+          return;
+        }
+        const r = await ccPerkModal({
+          icon: "🏷️", title: "Name Change Token",
+          body: "Skips the 24-hour wait between username changes. Your friend code and everything you've unlocked stay exactly as they are.",
+          actions: [
+            { key:"cancel", label:"Not now" },
+            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+          ],
+        });
+        if (r.action !== "confirm") return;
+        const res = await window.__fishBuyNameToken();
+        showToast(res && res.ok
+          ? "Name Change Token bought! 🏷️ Use it in Settings → Username."
+          : _perkFailMsg(res && res.reason, price, "a Name Change Token"), res && res.ok ? "ok" : "err");
+      }
+
+      // The Emote Pack grants PHST_EMOTE_PACK_SIZE critters, and it can only
+      // ever grant critters you have UNLOCKED and don't already have an emote
+      // for. When fewer than a full pack is left, say so with the real number
+      // BEFORE taking any coins — that shortfall is the whole warning.
+      async function _perkBuyEmotes() {
+        const price = PHST_EMOTE_PACK_PRICE;
+        const size  = PHST_EMOTE_PACK_SIZE;
+        const pool  = window.__fishEmoteEligible ? window.__fishEmoteEligible() : [];
+        const owned = window.__fishGetEmotes ? window.__fishGetEmotes().length : 0;
+
+        if (!pool.length) {
+          await ccPerkModal({
+            icon: "😀", title: "You've emoted everything",
+            body: owned
+              ? `You already have an emote for all ${owned} critters you've unlocked. Unlock more critters and come back — every animal in the game can become an emote.`
+              : "You need at least one unlocked critter before you can make an emote.",
+            actions: [{ key:"confirm", label:"Got it", primary:true }],
+          });
+          return;
+        }
+
+        if (pool.length < size) {
+          const short = await ccPerkModal({
+            icon: "⚠️", title: "You'd only get " + pool.length + " of " + size,
+            body: `A pack is ${size} emotes, but you only have ${pool.length} critter${pool.length !== 1 ? "s" : ""} left without one — you already own emotes for the rest of what you've unlocked. Buying now still costs ${phstFmtCoins(price)} coins and gives you ${pool.length}.`,
+            note: "Unlock more critters first and the same pack gets you the full five.",
+            actions: [
+              { key:"cancel", label:"Wait, I'll unlock more" },
+              { key:"confirm", label:`Buy ${pool.length} anyway`, primary:true },
+            ],
+          });
+          if (short.action !== "confirm") return;
+        }
+
+        const take = Math.min(size, pool.length);
+        const r = await ccPerkModal({
+          icon: "😀", title: `Choose ${take} critter${take !== 1 ? "s" : ""}`,
+          body: `Tap the critters you want as chat emotes. You can only choose from animals you've already unlocked.`,
+          grid: pool, pick: take, requireFull: true,
+          actions: [
+            { key:"cancel", label:"Cancel" },
+            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+          ],
+        });
+        if (r.action !== "confirm" || !r.selected.length) return;
+        const res = await window.__fishBuyEmotePack(r.selected);
+        showToast(res && res.ok
+          ? `${r.selected.length} new emote${r.selected.length !== 1 ? "s" : ""}! 😀 Tap the smiley in game chat to send them.`
+          : _perkFailMsg(res && res.reason, price, "an Emote Pack"), res && res.ok ? "ok" : "err");
+      }
+
+      async function _perkBuyReEarn() {
+        const price = PHST_REEARN_COIN_PRICE;
+        const pool  = window.__fishReEarnBuyable ? window.__fishReEarnBuyable() : [];
+        if (!pool.length) {
+          await ccPerkModal({
+            icon: "🔁", title: "Nothing to buy back",
+            body: "This only works on critters you traded away. You haven't traded any away that you don't already have again.",
+            actions: [{ key:"confirm", label:"Got it", primary:true }],
+          });
+          return;
+        }
+        const r = await ccPerkModal({
+          icon: "🔁", title: "Take one back",
+          body: "Pick the critter you want returned. It goes straight into your Avatar Gallery — you won't have to earn its unlock a second time.",
+          grid: pool, pick: 1, requireFull: true,
+          actions: [
+            { key:"cancel", label:"Cancel" },
+            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
+          ],
+        });
+        if (r.action !== "confirm" || !r.selected.length) return;
+        const img = r.selected[0];
+        const an  = (typeof animalByImg === "function") ? animalByImg(img) : null;
+        const res = await window.__fishBuyReEarnSkip(img);
+        if (res && res.ok) {
+          showToast(`${an ? an.name : "Your critter"} is back! 🎉 Equip it in your Avatar Gallery.`, "ok");
+          try { window.__fishQueueAnimalUnlock?.(an && an.id); window.__fishShowAnimalUnlocks?.(); } catch {}
+        } else {
+          showToast(_perkFailMsg(res && res.reason, price, "Critter Re-Earn"), "err");
+        }
+      }
+
+      // ── "Your streak is about to die" offer ────────────────────────
+      // Runs once per day when the profile loads. A Streak Shield covers ONE
+      // missed day, so the offer only makes sense in exactly one situation:
+      // the last day you played was the day before yesterday, meaning yesterday
+      // is the single hole in the run. Two or more missed days can't be saved
+      // by one shield, so we don't offer (and don't take the coins).
+      const SHIELD_PROMPT_KEY = "ccShieldPrompt:";
+      function _streakShieldOffer(stats) {
+        try {
+          if (typeof _computeStreakInfo !== "function") return null;
+          const info = _computeStreakInfo(stats && stats.streak_days);
+          if (!info.mostRecent || info.alive) return null;          // still going, nothing to save
+          const today  = _streakLocalDateStr(new Date());
+          const gap    = _streakDayDiff(info.mostRecent, today);
+          if (gap !== 2) return null;                                // 1 = alive, 3+ = beyond one shield
+          const missed = _streakLocalDateStr(new Date(Date.now() - 86400000));
+          const run    = Number(info.dayNum[info.mostRecent]) || 0;
+          if (run < 2) return null;                                  // a 1-day "streak" isn't worth a prompt
+          // You get today — and only today — to cover yesterday. At local
+          // midnight the hole becomes TWO days wide and one shield can no
+          // longer bridge it, so that midnight is a real deadline, not a
+          // marketing timer. msLeft is what the countdown shows.
+          const endOfToday = new Date();
+          endOfToday.setHours(24, 0, 0, 0);
+          return { missed, run, deadline: endOfToday.getTime(), msLeft: endOfToday.getTime() - Date.now() };
+        } catch (e) {
+          console.warn("[streak] shield offer check failed", e);
+          return null;
+        }
+      }
+
+      // "6h 12m" / "48m" / "under a minute" — the countdown's own wording.
+      function _streakTimeLeftLabel(ms) {
+        const total = Math.max(0, Math.floor(Number(ms) || 0) / 60000);   // whole minutes
+        const mins  = Math.floor(total);
+        if (mins < 1) return "under a minute";
+        const h = Math.floor(mins / 60), m = mins % 60;
+        if (!h) return `${m} minute${m !== 1 ? "s" : ""}`;
+        if (!m) return `${h} hour${h !== 1 ? "s" : ""}`;
+        return `${h}h ${m}m`;
+      }
+
+      // Show it. Buying and using are one flow: if they have no shield we buy
+      // one and spend it immediately, so the answer to "keep the streak alive?"
+      // is a single tap either way.
+      async function _offerStreakShield(stats) {
+        if (!_authUser || _galReadOnly) return;
+        // Never interrupt a live game — Player Home is where streaks are shown,
+        // and the offer is still valid the next time they land there.
+        const gameEl = document.getElementById("pv-game");
+        if (gameEl && gameEl.offsetParent !== null) return;
+        const offer = _streakShieldOffer(stats);
+        if (!offer) return;
+        const key = SHIELD_PROMPT_KEY + _authUser.uid;
+        try { if (localStorage.getItem(key) === offer.missed) return; } catch (_) {}
+        try { localStorage.setItem(key, offer.missed); } catch (_) {}
+
+        const held  = window.__fishStreakShields ? window.__fishStreakShields() : 0;
+        const price = PHST_SHIELD_COIN_PRICE;
+        const r = await ccPerkModal({
+          icon: "🛡️",
+          title: `Your ${offer.run}-day streak is about to end`,
+          body: `You didn't play yesterday, so your ${offer.run}-day streak is broken. A Streak Shield covers that one missed day and keeps the run alive.`,
+          note: `You have ${_streakTimeLeftLabel(offer.msLeft)} left to decide — after that the run is gone for good.`
+            + (held ? ` You're holding ${held} Streak Shield${held !== 1 ? "s" : ""}.` : ` A shield costs ${phstFmtCoins(price)} Critter Coins.`),
+          actions: [
+            { key:"cancel",  label:"Let it go" },
+            { key:"confirm", label: held ? "Use a Shield" : `Buy & use — ${phstFmtCoins(price)}`, primary:true },
+          ],
+        });
+        // Either way the banner keeps counting down until the window closes.
+        if (r.action !== "confirm") { _renderStreakRescue(); return; }
+        await _runStreakRescue(offer, held);
+        _renderStreakRescue();
+      }
+      // Called from the profile load, once the stats are in hand.
+      window.__fishOfferStreakShield = (stats) => { _offerStreakShield(stats); };
+
+      // ── The countdown on the Player Home streak card ────────────────
+      // The modal is a one-shot; this is the standing reminder. It is only
+      // visible while the rescue window is actually open, it counts down in
+      // real time, and it disappears by itself the moment the window shuts (or
+      // the moment a shield is spent, because the run goes back to alive).
+      let _rescueTimer = null;
+      function _renderStreakRescue() {
+        const box = document.getElementById("ph-ss-rescue");
+        if (!box) return;
+        const timeEl = document.getElementById("ph-ss-rescue-time");
+        const msgEl  = document.getElementById("ph-ss-rescue-msg");
+        const stats  = (typeof _streakStatsSource === "function") ? _streakStatsSource() : null;
+        const offer  = (_authUser && !_galReadOnly) ? _streakShieldOffer(stats) : null;
+
+        if (!offer || offer.msLeft <= 0) {
+          box.style.display = "none";
+          if (_rescueTimer) { clearInterval(_rescueTimer); _rescueTimer = null; }
+          return;
+        }
+        box.style.display = "";
+        const held = window.__fishStreakShields ? window.__fishStreakShields() : 0;
+        if (timeEl) timeEl.textContent = `${_streakTimeLeftLabel(offer.msLeft)} left`;
+        if (msgEl) {
+          msgEl.textContent = held
+            ? `until your ${offer.run}-day streak is gone. Spend a Streak Shield to keep it.`
+            : `until your ${offer.run}-day streak is gone. A Streak Shield (${phstFmtCoins(PHST_SHIELD_COIN_PRICE)} coins) saves it.`;
+        }
+        const btn = document.getElementById("ph-ss-rescue-btn");
+        if (btn) btn.textContent = held ? "Use a Shield" : `Save it — ${phstFmtCoins(PHST_SHIELD_COIN_PRICE)}`;
+        // Tick once a minute; the label is minute-resolution so anything faster
+        // would just be repainting the same string.
+        if (!_rescueTimer) _rescueTimer = setInterval(_renderStreakRescue, 60000);
+      }
+      window._renderStreakRescue = _renderStreakRescue;
+
+      // The banner's button runs the SAME buy-and-use flow as the popup, minus
+      // the once-a-day gate (they asked for it by pressing it).
+      {
+        const rb = document.getElementById("ph-ss-rescue-btn");
+        if (rb) rb.addEventListener("click", async () => {
+          const stats = (typeof _streakStatsSource === "function") ? _streakStatsSource() : null;
+          const offer = _streakShieldOffer(stats);
+          if (!offer) { _renderStreakRescue(); return; }
+          rb.disabled = true;
+          try {
+            const held = window.__fishStreakShields ? window.__fishStreakShields() : 0;
+            const price = PHST_SHIELD_COIN_PRICE;
+            const r = await ccPerkModal({
+              icon: "🛡️",
+              title: `Save your ${offer.run}-day streak`,
+              body: `You have ${_streakTimeLeftLabel(offer.msLeft)} left before this run is gone for good. A Streak Shield covers the day you missed and keeps it alive.`,
+              note: held
+                ? `You're holding ${held} Streak Shield${held !== 1 ? "s" : ""}.`
+                : `You don't have one yet — this buys one for ${phstFmtCoins(price)} Critter Coins.`,
+              actions: [
+                { key:"cancel",  label:"Not now" },
+                { key:"confirm", label: held ? "Use a Shield" : `Buy & use — ${phstFmtCoins(price)}`, primary:true },
+              ],
+            });
+            if (r.action === "confirm") await _runStreakRescue(offer, held);
+          } finally {
+            rb.disabled = false;
+            _renderStreakRescue();
+          }
+        });
+      }
+
+      // Buy (if needed) then spend, shared by the popup and the banner button.
+      async function _runStreakRescue(offer, held) {
+        const price = PHST_SHIELD_COIN_PRICE;
+        if (!held) {
+          const bought = await window.__fishBuyStreakShield();
+          if (!bought || !bought.ok) {
+            showToast(_perkFailMsg(bought && bought.reason, price, "a Streak Shield"), "err");
+            return false;
+          }
+        }
+        const used = await window.__fishUseStreakShield(offer.missed);
+        if (used && used.ok) {
+          // used.longest is the run AFTER bridging the gap — covering a missed
+          // day can merge two runs, so the longest-ever can grow right here.
+          const best = Number(used.longest) || 0;
+          showToast(
+            best > 0 && best === used.current
+              ? `Streak saved! 🛡️ Day ${used.current} — that's your longest ever. Play today to keep it.`
+              : `Streak saved! 🛡️ You're on day ${used.current} — play today to keep it going.`,
+            "ok");
+          return true;
+        }
+        showToast(used && used.reason === "none"
+          ? "You don't have a Streak Shield to spend."
+          : "Couldn't use the shield, try again.", "err");
+        return false;
+      }
 
       // Daily streak XP formula: 75 + (day-1)*0.25, cap at day 730
       (function initStreakCard() {
@@ -27031,6 +27704,246 @@
       } catch {}
       try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch {}
       return { ok:true, newBalance };
+    };
+
+    // ═══════════════════════════════════════════════════════════════
+    //  PLAYER PERKS — Critter Coin consumables
+    //  Four Store items that are neither an avatar nor a background:
+    //    • Streak Shield      500   covers ONE missed day of your daily streak
+    //    • Name Change Token  100   skips the 24h username cooldown
+    //    • Emote Pack         500   5 critter emotes for in-game chat
+    //    • Critter Re-Earn  2,500   instantly take back a critter you traded
+    //  Inventory lives on the user doc (streak_shields, name_change_tokens,
+    //  emote_icons) and is ALWAYS read back inside the spend transaction, so
+    //  the counts can never desync from the coins that paid for them.
+    //  Prices are declared once beside PHST_SKIN_COIN_PRICE, up where the Store
+    //  can read them too.
+    // ═══════════════════════════════════════════════════════════════
+
+    // The profile to read perk inventory from — NEVER another player's. While
+    // the gallery is showing someone else's collection every global here points
+    // at THEIR doc (see _galReadOnly), so a read would report their inventory
+    // and a write would spend from my coins into their account.
+    function _perkProfile() { return _galReadOnly ? null : (_activeProfile || null); }
+    function _perkCount(field) {
+      const p = _perkProfile();
+      return Math.max(0, Math.floor(Number(p && p[field]) || 0));
+    }
+    window.__fishStreakShields = () => _perkCount("streak_shields");
+    window.__fishNameTokens    = () => _perkCount("name_change_tokens");
+
+    // Emotes owned, as normalized "/avatars/x.png" paths.
+    function _ownedEmotes() {
+      const p = _perkProfile();
+      const raw = Array.isArray(p && p.emote_icons) ? p.emote_icons : [];
+      return raw.map(s => normalizeAvatarUrl(String(s || ""))).filter(s => s && !!animalByImg(s));
+    }
+    window.__fishGetEmotes = () => _ownedEmotes();
+
+    // Critters you could still turn into an emote: every animal you have
+    // UNLOCKED (starters included) that you don't already have an emote for.
+    // This is the list the Emote Pack draws from, and its length is what the
+    // "you'd only get N" warning counts.
+    function _emoteEligible() {
+      const have = new Set(_ownedEmotes());
+      return ANIMAL_AVATARS.filter(a => isAvatarUnlocked(a.img) && !have.has(normalizeAvatarUrl(a.img)));
+    }
+    window.__fishEmoteEligible = () => _emoteEligible().map(a => ({ id:a.id, name:a.name, img:a.img }));
+
+    // Critters this account traded away and has not got back — the only ones
+    // Critter Re-Earn can buy back (you can't skip a requirement you never
+    // satisfied in the first place).
+    function _reEarnBuyable() {
+      return ANIMAL_AVATARS.filter(a =>
+        a.unlock && !isAvatarUnlocked(a.img) && !!tradedAwayEntry(_perkProfile(), a.img));
+    }
+    window.__fishReEarnBuyable = () => _reEarnBuyable().map(a => ({ id:a.id, name:a.name, img:a.img }));
+
+    // The ONE coin-spend primitive behind every perk. Mirrors the audited
+    // background/skin purchases: the balance is RE-READ server-side inside the
+    // transaction and the perk is granted in the SAME write, so a client can
+    // never spend coins it doesn't have and inventory can't desync from the
+    // charge. `build(data)` sees the fresh doc and returns the extra fields to
+    // write (or throws a short reason string to abort without charging).
+    // Returns { ok:true, newBalance, patch } or { ok:false, reason }.
+    async function _perkSpend(price, build) {
+      if (_galReadOnly)       return { ok:false, reason:"readonly" };
+      if (!_authUser || !_db) return { ok:false, reason:"auth" };
+      const ref = _db.collection("users").doc(_authUser.uid);
+      let result = null;
+      try {
+        result = await _db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const data = snap.exists ? (snap.data() || {}) : {};
+          const coins = Math.floor(Number((data.stats || {}).critter_coins) || 0);
+          if (coins < price) throw new Error("coins");
+          const update = build(data) || {};       // may throw its own reason
+          const after = coins - price;
+          tx.update(ref, { "stats.critter_coins": after, ...update });
+          return { newBalance: after, update };
+        });
+      } catch (e) {
+        const msg = String((e && e.message) || "error");
+        return { ok:false, reason:/^[a-z]+$/.test(msg) ? msg : "error" };
+      }
+      return { ok:true, newBalance: result.newBalance, patch: result.update };
+    }
+
+    // Mirror a completed perk purchase into the in-memory profile + coin chip so
+    // the Store and header update without a reload.
+    function _perkReflect(newBalance, fields) {
+      if (_activeProfile && !_galReadOnly) {
+        const stats = { ...(_activeProfile.stats || {}), critter_coins: newBalance };
+        _activeProfile = { ..._activeProfile, stats, ...(fields || {}) };
+      }
+      try { if (typeof syncStatsHeader === "function") syncStatsHeader(_activeProfile); } catch {}
+    }
+
+    // ── Streak Shield ────────────────────────────────────────────────
+    // Buy one (they stack, up to PHST_PERK_STACK_MAX).
+    window.__fishBuyStreakShield = async () => {
+      const res = await _perkSpend(PHST_SHIELD_COIN_PRICE, (data) => {
+        const held = Math.max(0, Math.floor(Number(data.streak_shields) || 0));
+        if (held >= PHST_PERK_STACK_MAX) throw new Error("max");
+        return { streak_shields: held + 1 };
+      });
+      // Mirror the count the TRANSACTION settled on, not a local guess — the
+      // doc may have been ahead of this tab.
+      if (res.ok) _perkReflect(res.newBalance, { streak_shields: res.patch.streak_shields });
+      return res;
+    };
+
+    // Spend a held shield to cover ONE missed day: `dayStr` ("YYYY-MM-DD") is
+    // written into stats.streak_days exactly as a played day would be, which is
+    // what bridges the gap — every streak number in the app derives from that
+    // list (see _computeStreakInfo). The list is rebuilt with _streakAddDay so
+    // it stays sorted and bounded, and the day is also recorded in
+    // streak_shield_days so a shield can never be spent twice on one date.
+    // Returns { ok:true, current, longest } or { ok:false, reason }.
+    window.__fishUseStreakShield = async (dayStr) => {
+      if (_galReadOnly)       return { ok:false, reason:"readonly" };
+      if (!_authUser || !_db) return { ok:false, reason:"auth" };
+      const day = String(dayStr || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return { ok:false, reason:"invalid" };
+      const ref = _db.collection("users").doc(_authUser.uid);
+      let out = null;
+      try {
+        out = await _db.runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          const data = snap.exists ? (snap.data() || {}) : {};
+          const held = Math.max(0, Math.floor(Number(data.streak_shields) || 0));
+          if (held < 1) throw new Error("none");
+          const stats = (data.stats && typeof data.stats === "object") ? data.stats : {};
+          const days  = Array.isArray(stats.streak_days) ? stats.streak_days.map(String) : [];
+          if (days.includes(day)) throw new Error("covered");
+          const nextDays = _streakAddDay(days, day);
+          const info = _computeStreakInfo(nextDays);
+          const longest = Math.max(Number(info.longest) || 0, Number(stats.streak_longest) || 0);
+          tx.update(ref, {
+            streak_shields: held - 1,
+            streak_shield_days: firebase.firestore.FieldValue.arrayUnion(day),
+            "stats.streak_days": nextDays,
+            "stats.daily_streak": info.current,
+            "stats.streak_longest": longest,
+          });
+          return { days: nextDays, current: info.current, longest, held: held - 1 };
+        });
+      } catch (e) {
+        const msg = String((e && e.message) || "error");
+        return { ok:false, reason:/^[a-z]+$/.test(msg) ? msg : "error" };
+      }
+      // Reflect locally and drive every streak surface (counter, week dots,
+      // calendar) the same way a finished game does.
+      if (_activeProfile && !_galReadOnly) {
+        const stats = { ...(_activeProfile.stats || {}) };
+        stats.streak_days = out.days; stats.daily_streak = out.current; stats.streak_longest = out.longest;
+        _activeProfile = { ..._activeProfile, stats, streak_shields: out.held };
+      }
+      try { _refreshStreakUiAfterSave(out.days, out.current, out.longest); } catch {}
+      return { ok:true, current: out.current, longest: out.longest, shieldsLeft: out.held };
+    };
+
+    // ── Name Change Token ────────────────────────────────────────────
+    window.__fishBuyNameToken = async () => {
+      const res = await _perkSpend(PHST_NAMETOK_COIN_PRICE, (data) => {
+        const held = Math.max(0, Math.floor(Number(data.name_change_tokens) || 0));
+        if (held >= PHST_PERK_STACK_MAX) throw new Error("max");
+        return { name_change_tokens: held + 1 };
+      });
+      if (res.ok) _perkReflect(res.newBalance, { name_change_tokens: res.patch.name_change_tokens });
+      return res;
+    };
+    // A token is CONSUMED as part of the rename write itself (see the Settings
+    // save handler), never on its own — so a rename that fails can't eat one.
+    window.__fishNoteNameTokenSpent = () => {
+      const left = Math.max(0, _perkCount("name_change_tokens") - 1);
+      if (_activeProfile && !_galReadOnly) _activeProfile = { ..._activeProfile, name_change_tokens: left };
+      return left;
+    };
+
+    // ── Emote Pack ───────────────────────────────────────────────────
+    // `paths` are the critters the player picked, at most PHST_EMOTE_PACK_SIZE.
+    // Every one must be an animal they have UNLOCKED and don't already have an
+    // emote for; the owned list is re-read inside the transaction so a pack can
+    // never quietly pay for a duplicate.
+    window.__fishBuyEmotePack = async (paths) => {
+      const want = (Array.isArray(paths) ? paths : [])
+        .map(p => normalizeAvatarUrl(String(p || "")))
+        .filter((p, i, arr) => p && arr.indexOf(p) === i);
+      if (!want.length || want.length > PHST_EMOTE_PACK_SIZE) return { ok:false, reason:"invalid" };
+      if (want.some(p => !animalByImg(p) || !isAvatarUnlocked(p))) return { ok:false, reason:"locked" };
+      const res = await _perkSpend(PHST_EMOTE_PACK_PRICE, (data) => {
+        const have = new Set((Array.isArray(data.emote_icons) ? data.emote_icons : [])
+          .map(s => normalizeAvatarUrl(String(s || ""))));
+        const fresh = want.filter(p => !have.has(p));
+        if (!fresh.length) throw new Error("owned");
+        return { emote_icons: firebase.firestore.FieldValue.arrayUnion(...fresh) };
+      });
+      if (res.ok) {
+        const merged = [...new Set([..._ownedEmotes(), ...want])];
+        _perkReflect(res.newBalance, { emote_icons: merged });
+      }
+      return res;
+    };
+
+    // ── Critter Re-Earn ──────────────────────────────────────────────
+    // Buys back ONE critter this account traded away: grants the icon and drops
+    // the trade-away snapshot that was gating it, so the re-earn requirement is
+    // cleared for good rather than left to re-block the next automatic sweep.
+    window.__fishBuyReEarnSkip = async (iconImg) => {
+      const path = normalizeAvatarUrl(String(iconImg || ""));
+      const animal = path ? animalByImg(path) : null;
+      if (!animal)                return { ok:false, reason:"invalid" };
+      if (isAvatarUnlocked(path)) return { ok:false, reason:"owned" };
+      const res = await _perkSpend(PHST_REEARN_COIN_PRICE, (data) => {
+        const owned = (Array.isArray(data.unlocked_icons) ? data.unlocked_icons : [])
+          .map(s => normalizeAvatarUrl(String(s || "")));
+        if (owned.includes(path)) throw new Error("owned");
+        const away = Array.isArray(data.traded_away) ? data.traded_away : [];
+        const kept = away.filter(e => !(e && typeof e === "object"
+          && String(e.item || "").split("?")[0].toLowerCase() === path));
+        if (kept.length === away.length) throw new Error("nottraded");
+        return {
+          unlocked_icons: firebase.firestore.FieldValue.arrayUnion(path),
+          traded_away: kept,
+        };
+      });
+      if (res.ok) {
+        if (!_unlockedIcons.includes(path)) _unlockedIcons = [..._unlockedIcons, path];
+        const away = Array.isArray(_activeProfile?.traded_away) ? _activeProfile.traded_away : [];
+        _perkReflect(res.newBalance, {
+          unlocked_icons: _unlockedIcons,
+          traded_away: away.filter(e => !(e && typeof e === "object"
+            && String(e.item || "").split("?")[0].toLowerCase() === path)),
+        });
+        // Don't re-pop this as a "new" unlock on the next load, it was just shown.
+        try {
+          const _k = SEEN_ICONS_PREFIX + _authUser.uid;
+          const _arr = JSON.parse(localStorage.getItem(_k) || "[]");
+          if (!_arr.includes(path)) { _arr.push(path); localStorage.setItem(_k, JSON.stringify(_arr)); }
+        } catch {}
+      }
+      return res;
     };
 
     // Equip (or, with "", unequip) an unlocked background. Persists background_url.

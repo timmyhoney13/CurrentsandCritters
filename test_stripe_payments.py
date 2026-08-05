@@ -310,20 +310,39 @@ class TestSupporterTierCoinGrants(unittest.TestCase):
                             f"{tier} pays {rate:.0f} coins/$ vs the best pack's {best_rate:.0f}")
 
     def test_wave_warrior_can_buy_the_backgrounds_it_is_not_given(self):
-        """The one tier that does NOT unlock all backgrounds spends its coins on
-        them (1,000 each, no bundle product exists). Both tier cards print how
-        many that buys, so pin the arithmetic AND the sentence to each other."""
+        """The one tier that does NOT unlock all backgrounds still gets enough
+        coins to buy some at 1,000 each. The arithmetic is pinned here; the
+        SENTENCE that used to print it on the tier cards is deliberately gone
+        (see test_tier_cards_do_not_promise_what_the_coins_buy)."""
         g = ms.SUPPORTER_TIER_GRANTS["wave-warrior"]
         self.assertFalse(g["unlock_all_backgrounds"])
         affordable = g["coins"] // 1000
         self.assertGreaterEqual(affordable, 1)
-        claim = f"{affordable} of the {len(ms.ALL_BACKGROUND_PATHS)} backgrounds"
+
+    def test_tier_cards_do_not_promise_what_the_coins_buy(self):
+        """Both tier cards used to spell out exactly what a tier's coins would
+        buy ("5 of the 8 backgrounds", "~7 seasonal skins", "a full year of
+        seasonal skins"). Every one of those sentences goes stale the moment a
+        price or the catalogue moves — and a stale promise on a PAID product is
+        the expensive kind of wrong — so they were removed from both surfaces
+        and must not come back. The coin AMOUNTS still show; only the claim
+        about what they buy is gone."""
+        retired = (
+            "of the 8 backgrounds",
+            "Backgrounds are already yours",
+            "full year of seasonal skins",
+        )
         root = os.path.dirname(os.path.abspath(__file__))
         for path in (("index.html",),
                      ("multiplayer", "client", "js", "preview-app.js")):
             with open(os.path.join(root, *path), "r", encoding="utf-8") as f:
-                self.assertIn(claim, f.read(),
-                              f"{path[-1]} does not say \"{claim}\"")
+                text = f.read()
+            for claim in retired:
+                self.assertNotIn(claim, text,
+                                 f"{path[-1]} still promises \"{claim}\"")
+            # The amounts themselves must survive the removal.
+            self.assertIn("Critter Coins", text,
+                          f"{path[-1]} no longer mentions Critter Coins at all")
 
 
 class TestTierGrantUpdates(unittest.TestCase):

@@ -117,6 +117,10 @@ serviceAccountKey.json
 !test_snap_local_board.py
 !make_snap_test_photo.py
 
+# Player Perks (Store: Streak Shield / Name Token / Emote Pack / Re-Earn)
+!test_store_perks.js
+!test_chat_emotes.py
+
 # New marketing site files (Claude Design build)
 !styles.css
 !image-slot.js

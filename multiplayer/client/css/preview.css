@@ -4289,6 +4289,38 @@
     #pv-chat-text { flex: 1; font-size: 11px; background: rgba(22,56,110,.8); border: 1px solid var(--border); color: #dde; border-radius: 5px; padding: 5px 8px; resize: none; }
     #pv-chat-send { background: var(--cyan); color: #0A2448; font-size: 11px; font-weight: 700; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; align-self: stretch; }
     #pv-chat-send:hover { opacity: .85; }
+    /* ── Critter emotes (Store "Emote Pack") ───────────────────────── */
+    /* The smiley only exists once you own an emote (the button is hidden by
+       default and shown by pvcRenderEmoteTray). The tray sits above the input
+       row, inside the panel, so it scrolls with nothing and covers no message. */
+    #pv-chat-emote-btn {
+      background: rgba(22,56,110,.8); border: 1px solid var(--border);
+      color: #dde; font-size: 14px; line-height: 1; cursor: pointer;
+      border-radius: 5px; padding: 4px 7px; align-self: stretch; flex-shrink: 0;
+    }
+    #pv-chat-emote-btn:hover { border-color: var(--cyan); }
+    #pv-chat-emote-btn.on { border-color: var(--cyan); background: rgba(48,200,240,.18); }
+    #pv-chat-emote-tray {
+      display: none; flex-wrap: wrap; gap: 5px; flex-shrink: 0;
+      padding: 7px 10px; max-height: 132px; overflow-y: auto;
+      border-top: 1px solid rgba(48,200,240,.15);
+      background: rgba(10,30,64,.55);
+    }
+    #pv-chat-emote-tray.open { display: flex; }
+    .pvc-emote {
+      background: rgba(22,56,110,.75); border: 1.5px solid rgba(95,179,214,.35);
+      border-radius: 9px; padding: 3px; cursor: pointer; line-height: 0;
+      transition: border-color .12s, transform .1s;
+    }
+    .pvc-emote:hover { border-color: var(--cyan); transform: translateY(-2px); }
+    .pvc-emote img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; display: block; }
+    /* A sent emote is a picture in the message list, sized to read at a glance
+       without pushing the conversation around. */
+    .chat-msg .cm-emote { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
+    .chat-msg .cm-emote img {
+      width: 46px; height: 46px; border-radius: 12px; object-fit: cover; display: block;
+      background: rgba(22,56,110,.6); border: 1.5px solid rgba(95,179,214,.4);
+    }
 
     /* ── CHAT LIST VIEW (Current Game Chat + DMs + groups) ───────── */
     #pv-chat-list { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
@@ -7709,6 +7741,117 @@
       transition: filter .12s, transform .1s;
     }
     .phst-card-buy:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .phst-card-buy:disabled {
+      background: linear-gradient(120deg,#b9cfdc 0%,#a8c2d3 100%);
+      box-shadow: none; cursor: default; filter: none; transform: none;
+    }
+
+    /* ── Player Perks, the Critter-Coin consumables ──────────────── */
+    /* Wider than a skin tile: each one has to explain what it does and what
+       you're currently holding, so text is the tile, not artwork. */
+    .phst-perk-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+      gap: 16px;
+    }
+    .phst-perk {
+      background: rgba(255,255,255,.78);
+      border: 1px solid rgba(120,200,230,.5);
+      border-radius: 14px; padding: 15px 15px 13px;
+      display: flex; flex-direction: column; gap: 7px;
+      box-shadow: 0 3px 14px rgba(30,110,160,.12);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .phst-perk:hover { transform: translateY(-3px); box-shadow: 0 8px 26px rgba(30,110,160,.22); }
+    .phst-perk-off { opacity: .62; }
+    .phst-perk-off:hover { transform: none; box-shadow: 0 3px 14px rgba(30,110,160,.12); }
+    .phst-perk-ico { font-size: 1.7rem; line-height: 1; }
+    .phst-perk-name { font-size: .95rem; font-weight: 900; color: #11588f; }
+    .phst-perk-desc { font-size: .76rem; color: #5b82a3; line-height: 1.45; flex: 1; }
+    .phst-perk-stat {
+      font-size: .72rem; font-weight: 800; color: #1b7fb8;
+      background: rgba(70,170,220,.12); border: 1px solid rgba(70,170,220,.28);
+      border-radius: 7px; padding: 4px 8px; align-self: flex-start;
+    }
+
+    /* ── Perk dialog (ccPerkModal) ───────────────────────────────── */
+    /* One modal for every perk: the streak-shield offer, the emote picker, the
+       re-earn picker and the plain confirms. Light card on a dark scrim so it
+       reads the same over Player Home and over the game table. */
+    #cc-perk-modal {
+      position: fixed; inset: 0; z-index: 9900;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(6,26,48,.62); backdrop-filter: blur(3px);
+      padding: 20px;
+      font-family: "Nunito", sans-serif;
+    }
+    #cc-perk-modal.open { display: flex; }
+    .ccpk-card {
+      width: min(460px, 100%); max-height: min(86vh, 720px); overflow-y: auto;
+      background: linear-gradient(165deg, #fbfeff 0%, #eef8fd 100%);
+      border: 1px solid rgba(120,200,230,.75); border-radius: 18px;
+      padding: 22px 22px 18px; text-align: center;
+      box-shadow: 0 20px 60px rgba(6,40,70,.45);
+    }
+    .ccpk-ico { font-size: 2.4rem; line-height: 1; margin-bottom: 6px; }
+    .ccpk-title {
+      font-family: "Cinzel", serif; font-size: 1.22rem; font-weight: 900;
+      color: #0f5390; margin-bottom: 8px; line-height: 1.25;
+    }
+    .ccpk-body { font-size: .86rem; color: #4a7595; line-height: 1.55; }
+    .ccpk-note {
+      font-size: .76rem; color: #1b7fb8; font-weight: 800;
+      background: rgba(70,170,220,.12); border: 1px solid rgba(70,170,220,.28);
+      border-radius: 8px; padding: 7px 10px; margin-top: 12px;
+    }
+    .ccpk-count {
+      font-size: .76rem; font-weight: 900; color: #1b7fb8;
+      margin: 14px 0 6px; letter-spacing: .3px;
+    }
+    .ccpk-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+      gap: 9px; max-height: 46vh; overflow-y: auto;
+      padding: 4px; margin-bottom: 4px;
+    }
+    .ccpk-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 5px;
+      background: rgba(255,255,255,.8); border: 2px solid rgba(120,200,230,.5);
+      border-radius: 12px; padding: 8px 5px 7px; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      transition: border-color .12s, background .12s, transform .1s;
+    }
+    .ccpk-tile:hover { transform: translateY(-2px); border-color: rgba(43,184,216,.9); }
+    .ccpk-tile img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; display: block; }
+    .ccpk-tile span {
+      font-size: .66rem; font-weight: 800; color: #4a7595;
+      line-height: 1.2; text-align: center; word-break: break-word;
+    }
+    .ccpk-tile.sel {
+      border-color: #2bb8d8; background: rgba(43,184,216,.16);
+      box-shadow: 0 0 0 3px rgba(43,184,216,.18);
+    }
+    .ccpk-tile.sel span { color: #0f5390; }
+    .ccpk-actions {
+      display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin-top: 16px;
+    }
+    .ccpk-btn {
+      font-size: .84rem; font-weight: 800; color: #2b6f96;
+      background: rgba(255,255,255,.9); border: 1px solid rgba(120,200,230,.7);
+      border-radius: 10px; padding: 9px 18px; cursor: pointer;
+      font-family: "Nunito", sans-serif;
+      transition: filter .12s, transform .1s;
+    }
+    .ccpk-btn:hover { filter: brightness(.97); transform: translateY(-1px); }
+    .ccpk-primary {
+      color: #fff; border: none;
+      background: linear-gradient(120deg,#2bb8d8 0%,#1f8fcf 100%);
+      box-shadow: 0 3px 12px rgba(31,143,207,.32);
+    }
+    .ccpk-primary:hover { filter: brightness(1.07); }
+    .ccpk-btn:disabled {
+      background: linear-gradient(120deg,#c3d6e2 0%,#b2c8d8 100%);
+      color: #fff; box-shadow: none; cursor: default; filter: none; transform: none;
+    }
 
     /* Exclusive Skins, square player-icon cards + per-group subheaders */
     .phst-subhead {
@@ -7844,6 +7987,37 @@
       line-height: 1;
     }
     .ph-ss-label { font-size: .8rem; color: #4a7aaa; font-weight: 600; margin-top: 4px; }
+    /* ── Streak rescue countdown ──────────────────────────────────── */
+    /* Warm/urgent against the card's cool blues, because it is the one thing
+       here that expires. Hidden unless a broken run can still be saved. */
+    .ph-ss-rescue {
+      margin: 10px 0 4px; padding: 10px 11px 11px;
+      background: linear-gradient(160deg, rgba(255,236,214,.95), rgba(255,224,206,.92));
+      border: 1px solid rgba(232,140,80,.5); border-radius: 12px;
+      box-shadow: 0 3px 12px rgba(200,110,50,.16);
+      text-align: center;
+    }
+    .ph-ss-rescue-top {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .ph-ss-rescue-ico { font-size: 1rem; line-height: 1; }
+    .ph-ss-rescue-time {
+      font-size: 1.02rem; font-weight: 900; color: #b8531c; letter-spacing: -.2px;
+    }
+    .ph-ss-rescue-msg {
+      font-size: .73rem; line-height: 1.4; color: #8a5330; font-weight: 700;
+      margin-top: 3px;
+    }
+    .ph-ss-rescue-btn {
+      margin-top: 9px; width: 100%;
+      font-family: "Nunito", sans-serif; font-size: .78rem; font-weight: 900; color: #fff;
+      background: linear-gradient(120deg,#f08a45 0%,#e0682c 100%);
+      border: none; border-radius: 9px; padding: 8px 10px; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(210,105,45,.32);
+      transition: filter .12s, transform .1s;
+    }
+    .ph-ss-rescue-btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    .ph-ss-rescue-btn:disabled { filter: grayscale(.4); cursor: default; transform: none; }
     .ph-ss-week {
       display: grid;
       grid-template-columns: repeat(7, 1fr);

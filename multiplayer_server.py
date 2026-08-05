@@ -176,6 +176,26 @@ def _is_good_game_message(text: str) -> bool:
     return bool(text) and bool(_GOOD_GAME_RE.search(str(text)))
 
 
+# ── Critter emotes (Store "Emote Pack") ─────────────────────────────────────
+# A chat line can carry an `emote` instead of (or alongside) text: the id of an
+# animal avatar, which every client paints as that critter's picture. Only this
+# slug shape is ever stored, so the value can never be markup, a path, or a URL
+# — the client builds "/avatars/<id>.png" from it and falls back to the default
+# icon if no such file exists. Ownership is the buyer's own store inventory and
+# is enforced client-side where that inventory lives; the worst a tampered
+# client can do is send a picture of a critter it hasn't bought, which is
+# exactly what a normal avatar already allows.
+_EMOTE_ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def _clean_emote_id(value: Any) -> str:
+    """Normalize an emote id, or "" if it isn't a plain avatar slug."""
+    if not isinstance(value, str):
+        return ""
+    slug = value.strip().lower()[:40]
+    return slug if _EMOTE_ID_RE.match(slug) else ""
+
+
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
@@ -8138,7 +8158,16 @@ class GameRoom:
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
         message = str(body.get("message", "")).strip()[:500]
         target = str(body.get("target", "Everyone")).strip()[:64]
-        if not message:
+        # Critter emote (Store "Emote Pack"): an animal-avatar id the client
+        # paints as a picture instead of text. It is NOT free text — only the
+        # slug shape below is accepted — so it is validated rather than run
+        # through the profanity masker, which matches on word roots and would
+        # asterisk any future id whose segments happened to collide (no current
+        # avatar slug does; test_chat_emotes.py checks every one).
+        # An emote line carries no text, so it's the ONE case where an empty
+        # message is a real message.
+        emote = _clean_emote_id(body.get("emote"))
+        if not message and not emote:
             return {"ok": False, "error": "empty message"}
         message = _censor_profanity(message)  # mask swears before storing/broadcast
         with self.cond:
@@ -8154,6 +8183,8 @@ class GameRoom:
                 "avatar": (seat.avatar if seat and seat.avatar else ""),
                 "background": (seat.background if seat and seat.background else ""),
             }
+            if emote:
+                entry["emote"] = emote
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:
                 self.chat_messages = self.chat_messages[-200:]
