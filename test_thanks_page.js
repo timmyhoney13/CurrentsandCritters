@@ -212,6 +212,34 @@ check("a confirmed tier purchase names the tier", async () => {
   }
 });
 
+check("a tier purchase names the Critter Coins it granted", async () => {
+  // tierCoins comes from the server's SUPPORTER_TIER_GRANTS, so the page can
+  // promise the amount without keeping its own copy to drift out of date.
+  const { els } = makeEnv({
+    search: "?session_id=cs_live_abc123",
+    serverReply: { ok: true, processed: true, kind: "tier", value: "tide-turner",
+                   tierCoins: 30000, matched: true },
+  });
+  await new Promise(r => setImmediate(r));
+  const txt = els["status-text"].textContent;
+  if (!/Tide Turner/.test(txt) || !txt.includes("30,000")) {
+    throw new Error("tier coins missing: " + txt);
+  }
+});
+
+check("a tier with no coin grant still reads cleanly", async () => {
+  const { els } = makeEnv({
+    search: "?session_id=cs_live_abc123",
+    serverReply: { ok: true, processed: true, kind: "tier", value: "wave-warrior",
+                   tierCoins: 0, matched: true },
+  });
+  await new Promise(r => setImmediate(r));
+  const txt = els["status-text"].textContent;
+  if (!/Wave Warrior/.test(txt) || /Critter Coins/.test(txt)) {
+    throw new Error("zero-coin tier printed a coin line: " + txt);
+  }
+});
+
 check("an unmatched payment points the buyer at the claim flow", async () => {
   const { els } = makeEnv({
     search: "?session_id=cs_live_abc123",

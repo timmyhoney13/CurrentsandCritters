@@ -142,6 +142,13 @@
       var pretty = String(d.value).split("-").map(function(w){
         return w.charAt(0).toUpperCase() + w.slice(1);
       }).join(" ");
+      // tierCoins comes from the server's grants table, so this page never
+      // holds its own (drifting) copy of the coin amounts.
+      var tc = Number(d.tierCoins) || 0;
+      if(tc > 0){
+        return pretty + " unlocked, welcome aboard - "
+             + tc.toLocaleString("en-US") + " Critter Coins added to your account";
+      }
       return pretty + " unlocked, welcome aboard";
     }
     return "Payment confirmed";

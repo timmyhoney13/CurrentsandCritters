@@ -281,6 +281,131 @@ class TestLevelCurveMatchesClient(unittest.TestCase):
         self.assertEqual(ms._level_progress_for_total_xp(-500)[0], 1)
 
 
+class TestSupporterTierCoinGrants(unittest.TestCase):
+    """Supporter Tiers credit Critter Coins. The amounts are printed on three
+    separate tier cards, so the danger is not the maths — it's drift."""
+
+    ORDER = ("wave-warrior", "ocean-ally", "tide-turner")
+
+    def test_every_tier_grants_coins(self):
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            coins = ms.SUPPORTER_TIER_GRANTS[tier].get("coins")
+            self.assertIsInstance(coins, int, f"{tier} coins must be an int")
+            self.assertGreater(coins, 0, f"{tier} grants no coins")
+
+    def test_coins_climb_with_price(self):
+        """A dearer tier must never hand out fewer coins than a cheaper one."""
+        by_price = [ms.SUPPORTER_TIERS_BY_CENTS[c] for c in sorted(ms.SUPPORTER_TIERS_BY_CENTS)]
+        self.assertEqual(by_price, list(self.ORDER))
+        got = [ms.SUPPORTER_TIER_GRANTS[t]["coins"] for t in by_price]
+        self.assertEqual(got, sorted(got), f"coins not monotonic: {got}")
+
+    def test_tiers_stay_under_the_coin_pack_rate(self):
+        """Tiers must not out-value the coin packs, or nobody buys a pack.
+        Best pack rate is $20 → 25,000 = 1,250 coins per dollar."""
+        best_rate = max(c / (cents / 100) for cents, c in ms.COIN_PACKS_BY_CENTS.items())
+        for cents, tier in ms.SUPPORTER_TIERS_BY_CENTS.items():
+            rate = ms.SUPPORTER_TIER_GRANTS[tier]["coins"] / (cents / 100)
+            self.assertLess(rate, best_rate,
+                            f"{tier} pays {rate:.0f} coins/$ vs the best pack's {best_rate:.0f}")
+
+    def test_wave_warrior_can_buy_the_backgrounds_it_is_not_given(self):
+        """The one tier that does NOT unlock all backgrounds spends its coins on
+        them (1,000 each, no bundle product exists). Both tier cards print how
+        many that buys, so pin the arithmetic AND the sentence to each other."""
+        g = ms.SUPPORTER_TIER_GRANTS["wave-warrior"]
+        self.assertFalse(g["unlock_all_backgrounds"])
+        affordable = g["coins"] // 1000
+        self.assertGreaterEqual(affordable, 1)
+        claim = f"{affordable} of the {len(ms.ALL_BACKGROUND_PATHS)} backgrounds"
+        root = os.path.dirname(os.path.abspath(__file__))
+        for path in (("index.html",),
+                     ("multiplayer", "client", "js", "preview-app.js")):
+            with open(os.path.join(root, *path), "r", encoding="utf-8") as f:
+                self.assertIn(claim, f.read(),
+                              f"{path[-1]} does not say \"{claim}\"")
+
+
+class TestTierGrantUpdates(unittest.TestCase):
+    """_supporter_tier_grant_updates is the ONE place a tier is turned into
+    account changes — the webhook and the late-claim path both call it, so a
+    guest who claims after the fact gets exactly what a signed-in buyer got."""
+
+    def test_coins_are_added_to_the_existing_balance(self):
+        updates, coins = ms._supporter_tier_grant_updates(
+            "ocean-ally", {"critter_coins": 700})
+        self.assertEqual(coins, ms.SUPPORTER_TIER_GRANTS["ocean-ally"]["coins"])
+        self.assertEqual(updates["stats"]["critter_coins"], 700 + coins)
+
+    def test_a_fresh_account_starts_from_zero(self):
+        updates, coins = ms._supporter_tier_grant_updates("wave-warrior", {})
+        self.assertEqual(updates["stats"]["critter_coins"], coins)
+
+    def test_garbage_balances_do_not_crash_or_go_negative(self):
+        for junk in ({"critter_coins": None}, {"critter_coins": "x"},
+                     {"critter_coins": -50}, None):
+            updates, coins = ms._supporter_tier_grant_updates("tide-turner", junk)
+            self.assertEqual(updates["stats"]["critter_coins"], coins, junk)
+
+    def test_xp_and_level_still_ride_along(self):
+        updates, _ = ms._supporter_tier_grant_updates("tide-turner", {"total_xp": 0})
+        stats = updates["stats"]
+        bonus = ms.SUPPORTER_TIER_GRANTS["tide-turner"]["bonus_xp"]
+        self.assertEqual(stats["total_xp"], bonus)
+        self.assertEqual(stats["level"], ms._level_progress_for_total_xp(bonus)[0])
+        self.assertEqual(stats["level"], stats["player_level"])
+
+    def test_the_badge_and_the_perks_are_all_there(self):
+        updates, _ = ms._supporter_tier_grant_updates("tide-turner", {})
+        self.assertEqual(updates["supporter_tier"], "tide-turner")
+        self.assertEqual(updates["stats"]["supporter_tier"], "tide-turner")
+        self.assertIn("unlocked_backgrounds", updates)
+        self.assertIn("unlocked_icons", updates)
+
+    def test_wave_warrior_gets_no_backgrounds(self):
+        updates, _ = ms._supporter_tier_grant_updates("wave-warrior", {})
+        self.assertNotIn("unlocked_backgrounds", updates)
+
+    def test_an_unknown_tier_grants_nothing_but_the_badge(self):
+        updates, coins = ms._supporter_tier_grant_updates("not-a-tier", {})
+        self.assertEqual(coins, 0)
+        self.assertNotIn("critter_coins", updates["stats"])
+        self.assertNotIn("unlocked_backgrounds", updates)
+
+
+class TestTierCoinsPrintedEverywhere(unittest.TestCase):
+    """The server credits the coins; three separate pages PRINT the number.
+    If any of them drifts, a player is promised an amount they don't receive."""
+
+    ROOT = os.path.dirname(os.path.abspath(__file__))
+
+    def _read(self, *parts):
+        with open(os.path.join(self.ROOT, *parts), "r", encoding="utf-8") as f:
+            return f.read()
+
+    def test_the_in_game_store_lists_the_server_amounts(self):
+        js = self._read("multiplayer", "client", "js", "preview-app.js")
+        for tier, usd in (("wave-warrior", 15), ("ocean-ally", 35), ("tide-turner", 50)):
+            coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
+            self.assertIn(f"usd: {usd}, coins: {coins}", js,
+                          f"store card for {tier} does not say {coins} coins")
+
+    def test_the_marketing_site_lists_the_server_amounts(self):
+        html = self._read("index.html")
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            coins = ms.SUPPORTER_TIER_GRANTS[tier]["coins"]
+            self.assertIn(f"{coins:,} Critter Coins", html,
+                          f"index.html never promises {tier}'s {coins:,} coins")
+
+    def test_the_thanks_page_reads_the_amount_from_the_server(self):
+        """/thanks must NOT keep its own copy of the numbers — it prints
+        whatever tierCoins the status endpoint sends."""
+        html = self._read("multiplayer", "client", "thanks.html")
+        self.assertIn("tierCoins", html)
+        for tier in ms.SUPPORTER_TIER_GRANTS:
+            self.assertNotIn(f"{ms.SUPPORTER_TIER_GRANTS[tier]['coins']:,}", html)
+
+
 class TestBackgroundsStayInSync(unittest.TestCase):
     """'Unlock all backgrounds' must grant exactly the 8 the client shows."""
 

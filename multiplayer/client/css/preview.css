@@ -7566,6 +7566,19 @@
       display: flex; align-items: baseline; gap: 6px;
     }
     .phst-tier-once { font-size: .7rem; font-weight: 700; color: #8aa6bd; }
+    /* Critter Coins the tier grants — a gold band above the perk list so the
+       one perk players spend is not buried in a ✓ row. */
+    .phst-tier-coins {
+      display: flex; flex-direction: column; gap: 2px;
+      background: linear-gradient(120deg, rgba(255,200,80,.16), rgba(255,170,50,.10));
+      border: 1px solid rgba(230,165,45,.45);
+      border-radius: 10px; padding: 7px 10px; margin: -6px 0 12px;
+    }
+    .phst-tier-coins-amt {
+      font-size: .92rem; font-weight: 900; color: #b8791a;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .phst-tier-coins-note { font-size: .68rem; font-weight: 700; color: #a08040; line-height: 1.35; }
     .phst-tier-perks {
       list-style: none; margin: 0 0 12px; padding: 0;
       display: flex; flex-direction: column; gap: 6px; flex: 1;

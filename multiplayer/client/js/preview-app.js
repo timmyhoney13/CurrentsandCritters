@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.44";
-  const APP_BUILD   = "2026-08-04.1";
+  const APP_VERSION = "1.6.45";
+  const APP_BUILD   = "2026-08-05.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,10 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🪙 Supporter Tiers now come with Critter Coins", items: [
+      "Every Supporter Tier now credits Critter Coins straight to your account: Wave Warrior 5,000, Ocean Ally 15,000, Tide Turner 30,000. Wave Warrior's 5,000 buys 5 of the 8 backgrounds, your pick; the higher tiers already own every background, so theirs go on seasonal skins.",
+      "If you supported before making an account, signing in and claiming on the Claim Rewards page now hands you the WHOLE tier, coins, bonus XP, backgrounds and icons. Before, a late claim only gave you the supporter badge.",
+    ]},
     { ver: "V1.7.0", title: "🏁 Clan challenges, and a Clan Rules page", items: [
       "Clans now have 25 weekly challenges and 26 season challenges, and everything your whole clan does counts toward them. There is a Challenges tab inside your clan showing both boards with live progress, and you can open the same boards mid-game from the in-game Menu.",
       "Clan Rules is now the first tab on the Clans page. Every scoring rule, both challenge lists and all the season payouts are on one page, written by the server itself so it always matches what actually happens.",
@@ -21827,9 +21831,13 @@
 
       // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
       //    progression only and are granted server-side after Stripe payment.
+      //    ⚠️ `coins` MUST equal SUPPORTER_TIER_GRANTS[tier].coins in
+      //    multiplayer_server.py — the server is what actually credits them,
+      //    this is only the display. test_stripe_payments.py checks both match.
       const PHST_SUPPORTER_TIERS = [
         {
-          name: "Wave Warrior", usd: 15,
+          name: "Wave Warrior", usd: 15, coins: 5000,
+          coinsNote: "5 of the 8 backgrounds, your pick",
           link: "https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00",
           perks: [
             "Supporter email updates",
@@ -21842,7 +21850,8 @@
           note: "Cosmetic progression only",
         },
         {
-          name: "Ocean Ally", usd: 35,
+          name: "Ocean Ally", usd: 35, coins: 15000,
+          coinsNote: "Backgrounds are already yours - these buy ~7 seasonal skins",
           link: "https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01",
           perks: [
             "Supporter email updates",
@@ -21857,7 +21866,8 @@
           note: "Cosmetic progression only",
         },
         {
-          name: "Tide Turner", usd: 50, best: true,
+          name: "Tide Turner", usd: 50, coins: 30000, best: true,
+          coinsNote: "A full year of seasonal skins, and then some",
           link: "https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02",
           perks: [
             "Supporter email updates",
@@ -22002,6 +22012,10 @@
             ${t.best ? `<div class="phst-tier-badge">BEST VALUE</div>` : ""}
             <div class="phst-tier-name">${esc(t.name)}</div>
             <div class="phst-tier-price">$${t.usd.toFixed(2)}<span class="phst-tier-once">one-time</span></div>
+            ${t.coins ? `<div class="phst-tier-coins">
+              <span class="phst-tier-coins-amt">${phstFmtCoins(t.coins)} <img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins</span>
+              ${t.coinsNote ? `<span class="phst-tier-coins-note">${esc(t.coinsNote)}</span>` : ""}
+            </div>` : ""}
             <ul class="phst-tier-perks">`;
           for (const perk of t.perks) html += `<li>${esc(perk)}</li>`;
           html += `</ul>

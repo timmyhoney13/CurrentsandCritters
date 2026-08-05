@@ -504,10 +504,26 @@ SUPPORTER_TIERS_BY_CENTS = {
 # perks (thank-you email, postcard, physical copy, Supporter Reef Wall name) are
 # manual fulfilment — they're saved on the purchase record (stripe_events doc)
 # with the buyer's email so you can fulfil them by hand.
+#
+# The `coins` grant is sized to a SHOPPING LIST at the shop's own prices
+# (background 1,000 each, 8 of them · seasonal skin 2,000), so each tier card
+# can say what the coins actually cover:
+#   wave-warrior  5,000  → 5 of the 8 backgrounds, the buyer's pick. This is the
+#                          only tier that does NOT get backgrounds outright, so
+#                          its coins are what let it choose them.
+#   ocean-ally   15,000  → backgrounds already granted, so ~7 seasonal skins
+#   tide-turner  30,000  → a full year of seasonal skins, plus a buffer
+# (There is no "All Backgrounds bundle" product — an old changelog line mentions
+# one at 4,990 coins, but the store only ever sells them one at a time.)
+# Deliberately BELOW the coin-pack rate ($1 = 1,000 coins, best pack 1,250/$):
+# packs stay the efficient way to buy currency, tiers sell founder recognition.
+# ⚠️ These numbers are printed on THREE tier cards — the in-game Store
+# (PHST_SUPPORTER_TIERS in preview-app.js), the marketing site (index.html) and
+# the /thanks confirmation. test_stripe_payments.py fails if they drift apart.
 SUPPORTER_TIER_GRANTS = {
-    "wave-warrior": {"bonus_xp": 10000, "unlock_all_backgrounds": False, "icons": []},
-    "ocean-ally":   {"bonus_xp": 25000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
-    "tide-turner":  {"bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
+    "wave-warrior": {"coins": 5000,  "bonus_xp": 10000, "unlock_all_backgrounds": False, "icons": []},
+    "ocean-ally":   {"coins": 15000, "bonus_xp": 25000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png"]},
+    "tide-turner":  {"coins": 30000, "bonus_xp": 50000, "unlock_all_backgrounds": True,  "icons": ["/avatars/fish.png", "/avatars/amberjack.png"]},
 }
 
 # Player level curve: the CUMULATIVE total_xp required to REACH each level
@@ -549,6 +565,69 @@ def _level_progress_for_total_xp(total_xp: Any) -> Tuple[int, int, int]:
     start = totals[level - 1]
     nxt = totals[level]
     return (level, max(0, xp - start), max(1, nxt - start))
+
+
+def _supporter_tier_grant_updates(tier: Any, stats: Any) -> Tuple[Dict[str, Any], int]:
+    """Everything a Supporter Tier gives a game account, as one Firestore
+    update dict (written with merge=True), plus the Critter Coins credited.
+
+    Shared by BOTH fulfilment routes so they can never drift:
+      • the Stripe webhook, when the buyer already had an account at checkout;
+      • /api/claim-rewards, when a guest paid first and made the account after.
+    Before this was shared, the claim route wrote only `supporter_tier` — a
+    guest who claimed late got the badge and none of the goods.
+
+    `stats` is the account's CURRENT stats map; coins and XP are added to what
+    is already there. The founder number is NOT here: it needs the founders
+    counter document, so each caller handles it (the webhook does; a late claim
+    doesn't get one).
+    """
+    from firebase_admin import firestore
+    ArrayUnion = getattr(firestore, "ArrayUnion", None)
+    if ArrayUnion is None:
+        from google.cloud.firestore_v1 import ArrayUnion
+
+    tier = str(tier or "")
+    grant = SUPPORTER_TIER_GRANTS.get(tier) or {}
+    cur = stats if isinstance(stats, dict) else {}
+
+    stats_update: Dict[str, Any] = {"supporter_tier": tier}
+
+    coins = int(grant.get("coins") or 0)
+    if coins:
+        try:
+            have = int(cur.get("critter_coins") or 0)
+        except (TypeError, ValueError):
+            have = 0
+        stats_update["critter_coins"] = max(0, have) + coins
+
+    bonus = int(grant.get("bonus_xp") or 0)
+    if bonus:
+        try:
+            have_xp = int(cur.get("total_xp") or 0)
+        except (TypeError, ValueError):
+            have_xp = 0
+        new_xp = max(0, have_xp) + bonus
+        stats_update["total_xp"] = new_xp
+        # Keep the derived level fields in lock-step with total_xp so the
+        # leaderboard and every other reader see the new level immediately (not
+        # only after the buyer's next game).
+        lvl, xp_cur, xp_goal = _level_progress_for_total_xp(new_xp)
+        stats_update["level"]            = lvl
+        stats_update["player_level"]     = lvl
+        stats_update["xp_current"]       = xp_cur
+        stats_update["level_xp_current"] = xp_cur
+        stats_update["xp_goal"]          = xp_goal
+        stats_update["level_xp_goal"]    = xp_goal
+
+    updates: Dict[str, Any] = {"stats": stats_update, "supporter_tier": tier}
+    if grant.get("unlock_all_backgrounds"):
+        updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
+    icons = list(grant.get("icons") or [])
+    if icons:
+        updates["unlocked_icons"] = ArrayUnion(icons)
+    return updates, coins
+
 
 # ── Supporter Reef Wall: LIFETIME-spend tiers ───────────────────────────────
 # A supporter's wall TIER and name SIZE come from their LIFETIME total (the sum
@@ -848,6 +927,10 @@ def _stripe_session_status(session_id: str) -> Dict[str, Any]:
             "processed": True,
             "kind": d.get("kind"),               # "coins" | "tier" | None
             "value": d.get("value"),             # coin count | tier id
+            # Coins a TIER purchase carried, so /thanks can name the number
+            # without keeping its own copy of the grants table.
+            "tierCoins": int((SUPPORTER_TIER_GRANTS.get(str(d.get("value") or "")) or {}).get("coins") or 0)
+                         if d.get("kind") == "tier" else 0,
             "amountCents": d.get("amount_total"),
             # False ⇒ we could not tie the payment to a game account, so the
             # page must send them to /claim-rewards instead of promising coins.
@@ -935,9 +1018,6 @@ def _process_stripe_checkout(event: dict) -> str:
     transactional = getattr(firestore, "transactional", None)
     if transactional is None:
         from google.cloud.firestore_v1 import transactional
-    ArrayUnion = getattr(firestore, "ArrayUnion", None)
-    if ArrayUnion is None:
-        from google.cloud.firestore_v1 import ArrayUnion
     SERVER_TIMESTAMP = getattr(firestore, "SERVER_TIMESTAMP", None)
 
     # Logged-in supporter vs guest supporter document paths.
@@ -1051,33 +1131,13 @@ def _process_stripe_checkout(event: dict) -> str:
             if kind == "coins":
                 updates["stats"] = {"critter_coins": int(stats.get("critter_coins") or 0) + int(value)}
             elif kind == "tier":
-                grant = SUPPORTER_TIER_GRANTS.get(value, {})
-                stats_update: Dict[str, Any] = {"supporter_tier": value}
-                bonus = int(grant.get("bonus_xp") or 0)
-                if bonus:
-                    new_xp = int(stats.get("total_xp") or 0) + bonus
-                    stats_update["total_xp"] = new_xp
-                    # Keep the derived level fields in lock-step with total_xp so
-                    # the leaderboard and every other reader see the new level
-                    # immediately (not only after the buyer's next game).
-                    lvl, xp_cur, xp_goal = _level_progress_for_total_xp(new_xp)
-                    stats_update["level"]            = lvl
-                    stats_update["player_level"]     = lvl
-                    stats_update["xp_current"]       = xp_cur
-                    stats_update["level_xp_current"] = xp_cur
-                    stats_update["xp_goal"]          = xp_goal
-                    stats_update["level_xp_goal"]    = xp_goal
-                updates["stats"] = stats_update
-                updates["supporter_tier"] = value
+                # Coins, XP + derived level, backgrounds and icons — the same
+                # grant /claim-rewards applies, from the one helper.
+                updates, _tier_coins = _supporter_tier_grant_updates(value, stats)
                 if need_founder:
                     fnum = int((f_snap.to_dict() or {}).get("count") or 0) + 1
                     txn.set(founders_ref, {"count": fnum}, merge=True)
                     updates["founder_number"] = fnum
-                if grant.get("unlock_all_backgrounds"):
-                    updates["unlocked_backgrounds"] = ArrayUnion(ALL_BACKGROUND_PATHS)
-                icons = list(grant.get("icons") or [])
-                if icons:
-                    updates["unlocked_icons"] = ArrayUnion(icons)
             if updates:
                 txn.set(user_ref, updates, merge=True)
 
@@ -1428,7 +1488,12 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
                 credited = int(rdata.get("rewardValue") or 0)
                 t.set(user_ref, {"stats": {"critter_coins": int(stats.get("critter_coins") or 0) + credited}}, merge=True)
             elif rdata.get("rewardKind") == "tier":
-                t.set(user_ref, {"supporter_tier": rdata.get("rewardValue")}, merge=True)
+                # The FULL tier grant, not just the badge: coins, XP + level,
+                # backgrounds, icons. Identical to what the webhook gives a
+                # buyer who was already signed in.
+                tier_updates, credited = _supporter_tier_grant_updates(
+                    rdata.get("rewardValue"), stats)
+                t.set(user_ref, tier_updates, merge=True)
             t.set(reward_ref, {"status": "claimed", "claimedByUid": uid,
                                "claimedAt": SERVER_TIMESTAMP}, merge=True)
             return credited
