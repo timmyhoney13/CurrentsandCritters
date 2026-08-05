@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🔥 Streak Leaderboard", items: [
+      "There's a new 🔥 Streak board on the Leaderboard tab, with a toggle for the two questions people actually ask: who has the longest streak ever, and who has the longest one going right now.",
+      "Both numbers come from your play calendar, so a streak that lapsed drops off the current board straight away — no more old records sitting at the top. A day covered by a Streak Shield still counts.",
+      "Your own card at the top shows your current streak, your best ever, and how many days you've played, even when you're not in the top 25 yet.",
+    ]},
     { ver: "V1.7.0", title: "🐚 Player Perks in the Store", items: [
       "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one — if you don't have one yet, that same button buys it and uses it in one tap.",
       "Name Change Token (100 coins) skips the 24-hour wait between username changes. Your first change is still free, and your friend code never changes.",
@@ -18500,6 +18505,7 @@
     let _phLbMode     = "xp";    // XP leaderboard is shown first
     let _phLbSize     = "all";
     let _phLbCompTab  = "cp";
+    let _phLbStreakTab = "longest";   // "longest" (best ever) | "current" (live run)
     // uid → saved best-game snapshot for the currently-rendered Casual board.
     // Repopulated on every Casual render; the delegated score-click reads it to
     // open that player's high-scoring game in the game-detail modal.
@@ -18587,8 +18593,8 @@
     /* ── mode / tab switches ── */
     window.phLbSwitchMode = function(mode) {
       _phLbMode = mode;
-      const sectionMap = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", tourney:"tourney" };
-      const btnMap     = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", tourney:"tourney" };
+      const sectionMap = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", streak:"streak", tourney:"tourney" };
+      const btnMap     = { xp:"xp", casual:"casual", competitive:"comp", wins:"wins", streak:"streak", tourney:"tourney" };
       Object.entries(sectionMap).forEach(([m, sec]) => {
         const btn = $a(`ph-lb-${btnMap[m]}-btn`);
         const el  = $a(`ph-lb-${sec}-section`);
@@ -18602,6 +18608,17 @@
       _phLbSize = size;
       const row = $a("ph-lb-casual-section");
       if (row) row.querySelectorAll(".ph-lb-size-btn").forEach(b => b.classList.toggle("active", b===btn));
+      renderPhLeaderboard();
+    };
+
+    // Streak board toggle: "longest" (best run ever) vs "current" (live run).
+    // Same rows either way, different ranking metric + column headers.
+    window.phLbSwitchStreakTab = function(tab, btn) {
+      _phLbStreakTab = (tab === "current") ? "current" : "longest";
+      ["longest","current"].forEach(t => {
+        const b = $a(`ph-lb-streak-${t}-tab`);
+        if (b) b.classList.toggle("active", t === _phLbStreakTab);
+      });
       renderPhLeaderboard();
     };
 
@@ -18626,6 +18643,7 @@
       if      (_phLbMode === "xp")           await _phLbRenderXp();
       else if (_phLbMode === "casual")       await _phLbRenderCasual();
       else if (_phLbMode === "wins")         await _phLbRenderWins();
+      else if (_phLbMode === "streak")       await _phLbRenderStreak();
       else if (_phLbMode === "tourney")      await _phLbRenderTourney();
       else {
         if      (_phLbCompTab === "cp")       await _phLbRenderCp();
@@ -18769,6 +18787,120 @@
       } catch(e) {
         console.error("[LB] Wins leaderboard error:", e);
         tbody.innerHTML = `<tr><td colspan="6" class="ph-lb-empty">Could not load wins leaderboard.</td></tr>`;
+      }
+    }
+
+    // ── Daily-streak leaderboard ─────────────────────────────────────
+    // One table, two rankings behind a toggle: longest streak EVER and longest
+    // CURRENT (live) streak. Both numbers are recomputed from stats.streak_days, the
+    // single source of truth (see _computeStreakInfo), because the stored
+    // stats.daily_streak is only rewritten when a game finishes — a player who
+    // stopped playing keeps a stale-high value in their doc, which would
+    // otherwise sit at the top of the "current" board forever.
+    //
+    // Each board fetches by its OWN stored field (one query, same cost as the
+    // Wins board — user docs are big, so a second pass over 75 of them is not
+    // free). That is sound because recomputing can only LOWER a stored value,
+    // never raise it, so the top-N by stored value always contains the true
+    // top-N. It relies on stats.streak_days / daily_streak / streak_longest
+    // being written TOGETHER (they are, in both writers: the end-of-game save
+    // and __fishUseStreakShield) — a doc missing the ordered field is dropped
+    // by Firestore, so if that invariant is ever broken this board goes blind.
+    function _phLbStreakNums(stats) {
+      let info = null;
+      try {
+        if (typeof _computeStreakInfo === "function") info = _computeStreakInfo(stats.streak_days);
+        else if (typeof window._computeStreakInfo === "function") info = window._computeStreakInfo(stats.streak_days);
+      } catch (_) { info = null; }
+      const storedCur  = Number(stats.daily_streak || 0);
+      const storedBest = Number(stats.streak_longest || 0);
+      // With streak_days present the computed values win for "current" (stale
+      // stored values must not rank) and are maxed for "longest" (a best run is
+      // never lost). Without it, fall back to whatever the doc stored.
+      const current = info ? (Number(info.current) || 0) : storedCur;
+      const longest = info ? Math.max(Number(info.longest) || 0, storedBest) : storedBest;
+      const days    = info ? (Number(info.total) || 0) : 0;
+      return { current, longest, days };
+    }
+
+    async function _phLbRenderStreak() {
+      const tbody = $a("ph-lb-streak-tbody");
+      if (!tbody) return;
+      const byCurrent = _phLbStreakTab === "current";
+      // Column headers follow the toggle: ranked metric first.
+      const thP = $a("ph-lb-streak-th-primary");
+      const thS = $a("ph-lb-streak-th-secondary");
+      if (thP) thP.textContent = byCurrent ? "Current Streak" : "Longest Streak";
+      if (thS) thS.textContent = byCurrent ? "Longest" : "Current";
+      const sumTitle = $a("ph-lb-streak-sum-title");
+      if (sumTitle) sumTitle.textContent = byCurrent ? "Your Current Streak" : "Your Longest Streak";
+      tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>`;
+      try {
+        const field = byCurrent ? "stats.daily_streak" : "stats.streak_longest";
+        const snap  = await _db.collection("users").orderBy(field,"desc").limit(75).get({ source: "server" });
+        let rows = [];
+        snap.docs.forEach(doc => {
+          const d     = doc.data();
+          const stats = d.stats || {};
+          const nick  = String(d.nickname || "").trim();
+          if (!nick || nick.toLowerCase() === "player") return;   // skip blank/guest
+          const n = _phLbStreakNums(stats);
+          // Only rank players who actually have the metric this board is about.
+          if ((byCurrent ? n.current : n.longest) <= 0) return;
+          rows.push({
+            isMe: !!(_authUser && doc.id === _authUser.uid),
+            current: n.current, longest: n.longest, days: n.days, d, doc,
+          });
+        });
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">${byCurrent ? "Nobody has a streak going right now, start one today!" : "No streak data yet."}</td></tr>`;
+          phLbSetSumCard("ph-lb-streak-summary","ph-lb-streak-rank","ph-lb-streak-sum-vals",false);
+          return;
+        }
+        // Rank by the toggled metric, tie-broken by the other one, then by days played.
+        const pri = r => byCurrent ? r.current : r.longest;
+        const sec = r => byCurrent ? r.longest : r.current;
+        rows.sort((a,b) => pri(b) - pri(a) || sec(b) - sec(a) || b.days - a.days);
+        // Tied ranks: identical primary AND secondary share a number.
+        let rank = 0, prevP = -1, prevS = -1, myRank = 0, myRow = null;
+        rows.forEach((r,i) => {
+          if (pri(r) !== prevP || sec(r) !== prevS) { rank = i + 1; prevP = pri(r); prevS = sec(r); }
+          r.rank = rank;
+          if (r.isMe) { myRank = rank; myRow = r; }
+        });
+        rows = rows.slice(0, 25);
+        tbody.innerHTML = rows.map(r => {
+          const av  = phLbAvatarImg(r.d.avatar_url, r.d.nickname || r.doc.id, r.d.background_url);
+          const meC = r.isMe ? " ph-lb-me" : "";
+          const you = r.isMe ? `<span class="ph-lb-you-tag">you</span>` : "";
+          const sc  = r.rank===1 ? 'ph-lb-score-cell lb-top' : 'ph-lb-score-cell';
+          const p   = pri(r), s = sec(r);
+          return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
+            <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td class="${sc}">🔥 ${p.toLocaleString()} day${p === 1 ? "" : "s"}</td>
+            <td class="ph-lb-meta-cell">${s.toLocaleString()}</td>
+            <td class="ph-lb-meta-cell">${r.days.toLocaleString()}</td>
+          ${phLbAddCell(r.doc.id, r.isMe)}</tr>`;
+        }).join("");
+        // Summary card. If I'm signed in but outside the fetched set, still show
+        // my own numbers (rank "-") rather than hiding the card entirely.
+        if (!myRow && _authUser) {
+          let myStats = null;
+          try { myStats = (typeof window.__fishGetMyStats === "function") ? window.__fishGetMyStats() : null; } catch (_) {}
+          if (myStats) { const n = _phLbStreakNums(myStats); myRank = 0; myRow = { current: n.current, longest: n.longest, days: n.days }; }
+        }
+        if (myRow) {
+          const v = `<div class="ph-lb-sum-val"><span>Current</span> ${Number(myRow.current||0).toLocaleString()} day${Number(myRow.current||0) === 1 ? "" : "s"}</div>
+            <div class="ph-lb-sum-val"><span>Longest</span> ${Number(myRow.longest||0).toLocaleString()} day${Number(myRow.longest||0) === 1 ? "" : "s"}</div>
+            <div class="ph-lb-sum-val"><span>Days Played</span> ${Number(myRow.days||0).toLocaleString()}</div>`;
+          phLbSetSumCard("ph-lb-streak-summary","ph-lb-streak-rank","ph-lb-streak-sum-vals",true,myRank,v);
+        } else {
+          phLbSetSumCard("ph-lb-streak-summary","ph-lb-streak-rank","ph-lb-streak-sum-vals",false);
+        }
+      } catch(e) {
+        console.error("[LB] Streak leaderboard error:", e);
+        tbody.innerHTML = `<tr><td colspan="5" class="ph-lb-empty">Could not load streak leaderboard.</td></tr>`;
       }
     }
 
@@ -19102,7 +19234,7 @@
           else if (window.__ccTourneyOpenCreate) window.__ccTourneyOpenCreate();
         });
       } catch (_) {}
-      const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-tourney-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
+      const ALL_LB_TBODIES = ["ph-lb-xp-tbody","ph-lb-wins-tbody","ph-lb-streak-tbody","ph-lb-tourney-tbody","ph-lb-casual-tbody","ph-lb-cp-tbody","ph-lb-single-tbody","ph-lb-combined-tbody"];
       ALL_LB_TBODIES.forEach(id => {
         const tb = $a(id);
         if (!tb) return;

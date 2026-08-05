@@ -1313,6 +1313,7 @@
           <button class="ph-lb-mode-btn" id="ph-lb-casual-btn" onclick="phLbSwitchMode('casual')">🌊 Casual</button>
           <button class="ph-lb-mode-btn" id="ph-lb-comp-btn" onclick="phLbSwitchMode('competitive')">⚔️ Competitive</button>
           <button class="ph-lb-mode-btn" id="ph-lb-wins-btn" onclick="phLbSwitchMode('wins')">🏆 Most Wins</button>
+          <button class="ph-lb-mode-btn" id="ph-lb-streak-btn" onclick="phLbSwitchMode('streak')">🔥 Streak</button>
           <!-- Tournament leaderboard: revealed only when Tournament Mode is enabled (same flag). -->
           <button class="ph-lb-mode-btn" id="ph-lb-tourney-btn" style="display:none;" onclick="phLbSwitchMode('tourney')">🏅 Tournaments</button>
         </div>
@@ -1410,6 +1411,39 @@
               </thead>
               <tbody id="ph-lb-wins-tbody">
                 <tr><td colspan="6" class="ph-lb-empty">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ── DAILY STREAK SECTION ────────────────────────── -->
+        <!-- One table, two sorts: the toggle picks which streak is ranked and
+             swaps the two metric column headers to match. -->
+        <div id="ph-lb-streak-section" style="display:none;">
+          <div class="ph-lb-comp-tabs">
+            <button class="ph-lb-comp-tab active" id="ph-lb-streak-longest-tab" onclick="phLbSwitchStreakTab('longest',this)">🔥 Longest Streak Ever</button>
+            <button class="ph-lb-comp-tab" id="ph-lb-streak-current-tab" onclick="phLbSwitchStreakTab('current',this)">📅 Longest Current Streak</button>
+          </div>
+          <div class="ph-lb-summary" id="ph-lb-streak-summary" style="display:none;">
+            <div class="ph-lb-sum-rank" id="ph-lb-streak-rank">-</div>
+            <div class="ph-lb-sum-body">
+              <div class="ph-lb-sum-title" id="ph-lb-streak-sum-title">Your Streak Rank</div>
+              <div class="ph-lb-sum-vals" id="ph-lb-streak-sum-vals"></div>
+            </div>
+          </div>
+          <div class="ph-lb-table-wrap ph-lb-scroll" style="margin:10px 0 0;">
+            <table class="ph-lb-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th id="ph-lb-streak-th-primary">Longest Streak</th>
+                  <th id="ph-lb-streak-th-secondary">Current</th>
+                  <th>Days Played</th>
+                </tr>
+              </thead>
+              <tbody id="ph-lb-streak-tbody">
+                <tr><td colspan="5" class="ph-lb-empty">Loading…</td></tr>
               </tbody>
             </table>
           </div>
