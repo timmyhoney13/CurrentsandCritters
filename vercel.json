@@ -37,6 +37,8 @@
     { "source": "/old",                  "destination": "/multiplayer/client/index.html" },
     { "source": "/old/:room_id",         "destination": "/multiplayer/client/index.html" },
     { "source": "/rules",                "destination": "/multiplayer/client/rules.html" },
+    { "source": "/privacy",              "destination": "/multiplayer/client/privacy.html" },
+    { "source": "/privacy-policy",       "destination": "/multiplayer/client/privacy.html" },
     { "source": "/about",                "destination": "/multiplayer/client/about.html" },
     { "source": "/leaderboard",          "destination": "/multiplayer/client/leaderboard.html" },
     { "source": "/leaderboard-bg.jpg",  "destination": "/multiplayer/client/leaderboard-bg.jpg" },

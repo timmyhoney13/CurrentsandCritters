@@ -1425,6 +1425,44 @@ footer.foot {
 }
 .foot ul a:hover { color: var(--glow); }
 
+/* Legal strip — sits between the link columns and the copyright line, so the
+   privacy policy is the last thing you can click on the way down the page. */
+.foot-legal {
+  max-width: 1180px;
+  margin: 22px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+}
+.foot-legal a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.86);
+  font-weight: 700;
+  text-decoration: none;
+  padding: 7px 14px;
+  border: 1px solid rgba(93, 214, 247, 0.28);
+  border-radius: 999px;
+  transition: background var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
+}
+.foot-legal a:hover {
+  background: rgba(93, 214, 247, 0.12);
+  border-color: rgba(93, 214, 247, 0.55);
+  color: #fff;
+}
+.foot-legal-sep { color: rgba(255, 255, 255, 0.28); }
+.foot-legal-note { color: rgba(255, 255, 255, 0.45); }
+@media (max-width: 520px) {
+  .foot-legal-sep { display: none; }
+  .foot-legal { flex-direction: column; gap: 8px; }
+}
+
 .foot-bottom {
   max-width: 1180px;
   margin: 24px auto 0;

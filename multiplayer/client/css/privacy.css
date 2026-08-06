@@ -1,0 +1,166 @@
+/* ================================================================
+ * Currents and Critters — THE PRIVACY POLICY, one stylesheet, two homes.
+ *
+ * The markup comes from js/privacy-policy.js and is skin-agnostic: every
+ * .pp-* rule reads its colours from variables, and the wrapper class picks
+ * the skin — .pp-light on the published page, .pp-dark over the table.
+ *
+ * Rendered by:
+ *   • privacy.html, the published /privacy page   (.pp-light)
+ *   • In game → Settings → 📜 Legal → Privacy      (.pp-dark)
+ *
+ * Same shape as css/rulebook.css and for the same reason: privacy.html is a
+ * small static page and must not drag in the game's whole stylesheet. Load
+ * it AFTER css/preview.css in the game so the cascade is unchanged.
+ * ================================================================ */
+
+/* Light skin: the published page, sea-glass over paper. */
+.pp-doc.pp-light,
+.pp-light .pp-doc {
+  --pp-ink:      #093349;
+  --pp-body:     #33566d;
+  --pp-muted:    #6b8ba3;
+  --pp-accent:   #0f7ea4;
+  --pp-accent-s: rgba(12, 164, 203, .10);
+  --pp-mint:     #19aa74;
+  --pp-surface:  rgba(255, 255, 255, .92);
+  --pp-surface2: rgba(232, 247, 255, .72);
+  --pp-line:     rgba(146, 189, 216, .62);
+  --pp-line-2:   rgba(146, 189, 216, .95);
+  --pp-shadow:   0 8px 22px rgba(10, 37, 55, .07);
+  --pp-num-bg:   linear-gradient(180deg, #18a5d0 0%, #0d83ac 100%);
+  --pp-num-ink:  #fff;
+}
+
+/* Deep-ocean skin: inside the game, matching the Settings modal. */
+.pp-doc.pp-dark,
+.pp-dark .pp-doc {
+  --pp-ink:      #7fd8f4;
+  --pp-body:     #c2d8e8;
+  --pp-muted:    #8fb0c6;
+  --pp-accent:   #22d8f8;
+  --pp-accent-s: rgba(34, 216, 248, .10);
+  --pp-mint:     #4ec97a;
+  --pp-surface:  rgba(255, 255, 255, .045);
+  --pp-surface2: rgba(255, 255, 255, .075);
+  --pp-line:     rgba(34, 216, 248, .20);
+  --pp-line-2:   rgba(34, 216, 248, .34);
+  --pp-shadow:   0 4px 18px rgba(0, 0, 0, .3);
+  --pp-num-bg:   linear-gradient(180deg, rgba(34, 216, 248, .28) 0%, rgba(34, 216, 248, .14) 100%);
+  --pp-num-ink:  #d6f6ff;
+}
+
+.pp-doc { color: var(--pp-body); line-height: 1.62; }
+.pp-doc * { box-sizing: border-box; }
+
+/* ── Masthead ─────────────────────────────────────────────────── */
+.pp-updated {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; font-weight: 700; letter-spacing: .2px;
+  color: var(--pp-accent);
+  background: var(--pp-accent-s);
+  border: 1px solid var(--pp-line-2);
+  border-radius: 999px; padding: 6px 14px; margin-bottom: 16px;
+}
+.pp-updated strong { color: var(--pp-ink); }
+
+.pp-lede {
+  font-size: 16px; line-height: 1.65; color: var(--pp-body);
+  margin: 0 0 18px;
+}
+
+/* "This Privacy Policy applies to:" — the scope card. */
+.pp-applies {
+  border: 1px solid var(--pp-line);
+  background: var(--pp-surface2);
+  border-radius: 16px; padding: 16px 18px 6px;
+  box-shadow: var(--pp-shadow);
+  margin: 0 0 30px;
+}
+.pp-applies-head {
+  font-weight: 800; font-size: 13px; letter-spacing: .3px;
+  text-transform: uppercase; color: var(--pp-accent);
+  margin-bottom: 8px;
+}
+.pp-applies .pp-list { margin-bottom: 12px; }
+
+/* ── Numbered sections ────────────────────────────────────────── */
+.pp-sec {
+  border-top: 1px solid var(--pp-line);
+  padding: 22px 0 4px;
+  /* Deep links from the contents list must clear the sticky top bar. */
+  scroll-margin-top: 86px;
+}
+.pp-sec:first-of-type { border-top: 0; padding-top: 0; }
+
+.pp-h {
+  display: flex; align-items: center; gap: 11px;
+  margin: 0 0 12px;
+  font-size: 19px; font-weight: 800; line-height: 1.25;
+  letter-spacing: -.2px; color: var(--pp-ink);
+  text-wrap: balance;
+}
+.pp-num {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 9px;
+  background: var(--pp-num-bg); color: var(--pp-num-ink);
+  font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums;
+}
+
+.pp-body p { margin: 0 0 11px; }
+.pp-body strong { color: var(--pp-ink); font-weight: 800; }
+
+/* ── Lists ────────────────────────────────────────────────────── */
+/* Custom bullets so the two skins share one dot colour variable. */
+.pp-list { list-style: none; margin: 0 0 13px; padding: 0; }
+.pp-list li {
+  position: relative; padding: 3px 0 3px 20px;
+}
+.pp-list li::before {
+  content: ""; position: absolute; left: 4px; top: 12px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--pp-mint);
+}
+
+/* ── Emphasis blocks ──────────────────────────────────────────── */
+/* The lines a reader must not miss ("We do not sell your personal
+   information", "We do not receive or store your Google password"). */
+.pp-callout {
+  border-left: 3px solid var(--pp-accent);
+  background: var(--pp-accent-s);
+  border-radius: 0 12px 12px 0;
+  padding: 11px 15px; margin: 4px 0 14px !important;
+  font-weight: 700; color: var(--pp-ink);
+}
+.pp-doc blockquote {
+  margin: 4px 0 14px; padding: 11px 16px;
+  border-left: 3px solid var(--pp-line-2);
+  background: var(--pp-surface);
+  border-radius: 0 12px 12px 0;
+  font-style: italic; color: var(--pp-body);
+}
+.pp-address {
+  font-style: normal; line-height: 1.7;
+  border: 1px solid var(--pp-line);
+  background: var(--pp-surface);
+  border-radius: 14px; padding: 14px 16px; margin: 4px 0 13px;
+  color: var(--pp-body);
+}
+.pp-address strong { color: var(--pp-ink); }
+
+.pp-doc a,
+.pp-mail {
+  color: var(--pp-accent); font-weight: 700;
+  text-decoration: underline; text-underline-offset: 2px;
+  word-break: break-word;
+}
+.pp-doc a:hover { color: var(--pp-ink); }
+
+/* ── Small screens ────────────────────────────────────────────── */
+@media (max-width: 560px) {
+  .pp-h { font-size: 17px; gap: 9px; }
+  .pp-num { width: 25px; height: 25px; font-size: 12px; }
+  .pp-lede { font-size: 15px; }
+  .pp-sec { scroll-margin-top: 74px; }
+}

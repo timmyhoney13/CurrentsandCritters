@@ -100,6 +100,10 @@
 # Asks Stripe what the 7 live Payment Links actually charge and ask for — the
 # half of the money path the test suite can't see. Dev tool, never in the image.
 !verify_stripe_links.py
+# Guards the privacy page: one source for the document, both /privacy spellings,
+# and the ?v= stamps on every asset it and preview.html share — all compared
+# against version.json, so a build bump can't leave a stale stamp behind.
+!test_privacy_policy.js
 !test_thanks_page.js
 
 !fish_ai_brain.json

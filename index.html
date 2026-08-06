@@ -806,8 +806,9 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
-        <a class="btn btn-outline" href="https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00">Become a Wave Warrior →</a>
+        <!-- ⚠️ LIVE Stripe Payment Link ($15). The webhook grants the tier by
+             PRICE (SUPPORTER_TIERS_BY_CENTS), so this link must stay the $15 one. -->
+        <a class="btn btn-outline" href="https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404">Become a Wave Warrior →</a>
       </div>
 
       <!-- ── Ocean Ally ── -->
@@ -838,8 +839,9 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
-        <a class="btn btn-mint" href="https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01">Become an Ocean Ally →</a>
+        <!-- ⚠️ LIVE Stripe Payment Link ($35). The webhook grants the tier by
+             PRICE (SUPPORTER_TIERS_BY_CENTS), so this link must stay the $35 one. -->
+        <a class="btn btn-mint" href="https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405">Become an Ocean Ally →</a>
       </div>
 
       <!-- ── Tide Turner ── -->
@@ -872,8 +874,9 @@
             <span class="perk-xp-note">Cosmetic progression only</span>
           </li>
         </ul>
-        <!-- ⚠️ TEST-MODE Stripe Payment Link, replace with the LIVE link before launch. -->
-        <a class="btn btn-outline" href="https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02">Become a Tide Turner →</a>
+        <!-- ⚠️ LIVE Stripe Payment Link ($50). The webhook grants the tier by
+             PRICE (SUPPORTER_TIERS_BY_CENTS), so this link must stay the $50 one. -->
+        <a class="btn btn-outline" href="https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406">Become a Tide Turner →</a>
       </div>
 
     </div>
@@ -938,8 +941,17 @@
         <li><a href="https://instagram.com/currentsandcritters_official">Instagram</a></li>
         <li><a href="mailto:currentsandcritters@gmail.com">Email</a></li>
         <li><a href="#">Press Kit</a></li>
+        <li><a href="/privacy">Privacy Policy</a></li>
       </ul>
     </div>
+  </div>
+  <!-- Legal strip: the very bottom of the site. /privacy is the full policy,
+       served from multiplayer/client/privacy.html by BOTH hosts (see the
+       rewrite in vercel.json), so this link works here and on the game host. -->
+  <div class="foot-legal">
+    <a href="/privacy">🔒 Privacy Policy</a>
+    <span class="foot-legal-sep" aria-hidden="true">·</span>
+    <span class="foot-legal-note">Bearded Seal Studios LLC · Nashville, Tennessee</span>
   </div>
   <div class="foot-bottom">
     <div>© 2026 Currents and Critters. Designed by hand. Illustrated by hand. Made with a little love and a whole lot of salt water.</div>
