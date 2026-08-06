@@ -443,5 +443,246 @@ class TestBackgroundsStayInSync(unittest.TestCase):
             self.assertIn(p, js, f"{p} is granted by the server but absent from the client")
 
 
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
+def _read(*parts: str) -> str:
+    with open(os.path.join(_ROOT, *parts), "r", encoding="utf-8") as f:
+        return f.read()
+
+
+class TestLivePaymentLinks(unittest.TestCase):
+    """Every Buy button points at the RIGHT live Stripe Payment Link.
+
+    The webhook never sees these URLs — it grants by `amount_total` — so a
+    button wired to the wrong link is invisible until a real customer is charged
+    $50 and handed $1 of coins. These pin each product to its exact URL.
+    """
+
+    # product key → (live Payment Link, price in cents)
+    LINKS = {
+        "coins_1000":   ("https://buy.stripe.com/fZufZi6En1FqgIV38eds400",  100),
+        "coins_5250":   ("https://buy.stripe.com/dRm9AU6En1Fq64h6kqds401",  500),
+        "coins_11500":  ("https://buy.stripe.com/5kQ00k2o75VGeANaAGds402", 1000),
+        "coins_25000":  ("https://buy.stripe.com/4gMdRaaUDbg078l7ouds403", 2000),
+        "wave-warrior": ("https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404", 1500),
+        "ocean-ally":   ("https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405", 3500),
+        "tide-turner":  ("https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406", 5000),
+    }
+
+    def setUp(self):
+        self.js   = _read("multiplayer", "client", "js", "preview-app.js")
+        self.home = _read("index.html")
+
+    def test_no_test_mode_links_survive_anywhere(self):
+        """A `test_` link takes fake cards only — real buyers get nothing."""
+        for name, blob in (("preview-app.js", self.js), ("index.html", self.home)):
+            self.assertNotIn("buy.stripe.com/test_", blob,
+                             f"{name} still ships a TEST-mode Payment Link")
+
+    def test_each_link_is_used_exactly_once_per_file(self):
+        """Two products sharing one URL = one of them charges the wrong price.
+
+        Coin packs are sold in the in-game store only. The three tiers are sold
+        in BOTH places, so they appear once per file — but never twice in one.
+        """
+        for key, (url, _cents) in self.LINKS.items():
+            in_js, in_home = self.js.count(url), self.home.count(url)
+            self.assertEqual(in_js, 1, f"{key}: {url} appears {in_js}x in preview-app.js")
+            expect_home = 0 if key.startswith("coins_") else 1
+            self.assertEqual(in_home, expect_home,
+                             f"{key}: {url} appears {in_home}x in index.html, "
+                             f"expected {expect_home}")
+
+    def test_all_seven_links_are_distinct(self):
+        urls = [u for u, _ in self.LINKS.values()]
+        self.assertEqual(len(urls), len(set(urls)), "duplicate URL across products")
+
+    def test_coin_packs_pair_each_price_with_its_link(self):
+        """The $N on the card and the link it opens must agree."""
+        import re
+        rows = re.findall(
+            r"\{\s*usd:\s*(\d+),\s*coins:\s*(\d+),.*?link:\s*\"([^\"]+)\"", self.js)
+        self.assertEqual(len(rows), 4, "expected 4 coin packs in PHST_COIN_PACKS")
+        for usd, coins, url in rows:
+            cents = int(usd) * 100
+            want_url, want_cents = self.LINKS[f"coins_{coins}"]
+            self.assertEqual(url, want_url, f"${usd} pack points at the wrong link")
+            self.assertEqual(cents, want_cents, f"${usd} pack price drifted")
+            # …and the server must grant exactly those coins for that price.
+            self.assertEqual(ms.COIN_PACKS_BY_CENTS[cents], int(coins),
+                             f"${usd} link buys {coins} coins on the card but "
+                             f"{ms.COIN_PACKS_BY_CENTS[cents]} from the server")
+
+    def test_supporter_tiers_pair_each_price_with_its_link(self):
+        import re
+        rows = re.findall(
+            r"name:\s*\"([^\"]+)\",\s*usd:\s*(\d+),\s*coins:\s*(\d+),[^}]*?link:\s*\"([^\"]+)\"",
+            self.js)
+        self.assertEqual(len(rows), 3, "expected 3 tiers in PHST_SUPPORTER_TIERS")
+        for name, usd, _coins, url in rows:
+            tier = name.lower().replace(" ", "-")
+            want_url, want_cents = self.LINKS[tier]
+            self.assertEqual(url, want_url, f"{name} points at the wrong link")
+            self.assertEqual(int(usd) * 100, want_cents, f"{name} price drifted")
+            # The price is the ONLY thing the webhook matches on.
+            self.assertEqual(ms.SUPPORTER_TIERS_BY_CENTS[want_cents], tier,
+                             f"{name}'s ${usd} link grants a different tier server-side")
+
+    def test_marketing_site_uses_the_same_tier_links_as_the_store(self):
+        """Two front doors to one product — they must not drift apart."""
+        import re
+        for label, tier in (("Wave Warrior", "wave-warrior"),
+                            ("Ocean Ally",   "ocean-ally"),
+                            ("Tide Turner",  "tide-turner")):
+            m = re.search(r'href="([^"]+)"[^>]*>Become an? ' + label, self.home)
+            self.assertIsNotNone(m, f"no Become-a-{label} button on the marketing site")
+            self.assertEqual(m.group(1), self.LINKS[tier][0],
+                             f"{label} on index.html points somewhere else")
+
+    def test_every_live_link_resolves_to_a_known_product(self):
+        """Reverse check: each price maps back through the real webhook code."""
+        for key, (_url, cents) in self.LINKS.items():
+            kind, value = ms._reward_for_session(
+                {"currency": "usd", "amount_total": cents})
+            self.assertIsNotNone(kind, f"{key} (${cents/100}) grants NOTHING")
+            if key.startswith("coins_"):
+                self.assertEqual((kind, value), ("coins", int(key.split("_")[1])))
+            else:
+                self.assertEqual((kind, value), ("tier", key))
+
+
+# ── a tiny stand-in for Firestore, enough for the wall query ────────────────
+class _FakeDoc:
+    def __init__(self, doc_id, data):
+        self.id, self._d = doc_id, data
+
+    def to_dict(self):
+        return dict(self._d)
+
+
+class _FakeQuery:
+    def __init__(self, docs):
+        self._docs = docs
+
+    def where(self, field, _op, value):
+        return _FakeQuery([d for d in self._docs if d.to_dict().get(field) == value])
+
+    def limit(self, _n):
+        return self
+
+    def get(self):
+        return list(self._docs)
+
+
+class _FakeDB:
+    def __init__(self, collections):
+        self._c = collections
+
+    def collection(self, name):
+        return _FakeQuery([_FakeDoc(k, v) for k, v in self._c.get(name, {}).items()])
+
+
+class TestWallDeduplication(unittest.TestCase):
+    """One human, one name. A donor must never appear on the wall twice.
+
+    Someone can pay as a GUEST (marketing site, no sign-in → guestSupporters)
+    and later pay signed in (→ supporters/{uid}). The claim merges the guest's
+    money onto the supporter doc; if the guest row stays visible, the SAME donor
+    stands on the wall twice and their dollars are counted twice.
+    """
+
+    def setUp(self):
+        self._real = ms._get_firestore
+        ms._WALL_CACHE["data"] = None      # the wall is cached for 45s
+        ms._WALL_CACHE["at"] = 0.0
+
+    def tearDown(self):
+        ms._get_firestore = self._real
+        ms._WALL_CACHE["data"] = None
+        ms._WALL_CACHE["at"] = 0.0
+
+    def _wall(self, collections):
+        ms._get_firestore = lambda: _FakeDB(collections)
+        return ms._build_supporter_wall()
+
+    def test_a_claimed_guest_row_is_not_shown_again(self):
+        rows = self._wall({
+            "supporters": {"uid1": {
+                "displayName": "Reef Friend", "status": "approved", "visible": True,
+                "totalSpentCents": 5000, "tier": "tide_turner", "wallSize": "large"}},
+            "guestSupporters": {"a@b.com": {
+                "displayName": "Reef Friend", "status": "approved", "visible": True,
+                "totalSpentCents": 2000, "claimStatus": "claimed"}},
+        })
+        self.assertEqual([r["displayName"] for r in rows], ["Reef Friend"])
+        # …and the surviving row carries the COMBINED lifetime total.
+        self.assertEqual(rows[0]["amountCents"], 5000)
+
+    def test_an_unclaimed_guest_still_gets_their_name_up(self):
+        """A guest who never made an account is a real supporter, not a dupe."""
+        rows = self._wall({
+            "supporters": {},
+            "guestSupporters": {"solo@b.com": {
+                "displayName": "Wave Rider", "status": "approved", "visible": True,
+                "totalSpentCents": 2500, "claimStatus": "unclaimed"}},
+        })
+        self.assertEqual([r["displayName"] for r in rows], ["Wave Rider"])
+
+    def test_anonymous_and_pending_names_never_reach_the_wall(self):
+        rows = self._wall({
+            "supporters": {
+                "anon": {"displayName": "Anonymous", "status": "approved",
+                         "visible": False, "totalSpentCents": 9000},
+                "held": {"displayName": "bad word", "status": "pending_review",
+                         "visible": True, "totalSpentCents": 9000},
+            },
+            "guestSupporters": {},
+        })
+        self.assertEqual(rows, [])
+
+    def test_wall_is_ordered_by_lifetime_spend(self):
+        rows = self._wall({
+            "supporters": {
+                "small": {"displayName": "Small", "status": "approved",
+                          "visible": True, "totalSpentCents": 1000},
+                "big":   {"displayName": "Big", "status": "approved",
+                          "visible": True, "totalSpentCents": 30000},
+            },
+            "guestSupporters": {},
+        })
+        self.assertEqual([r["displayName"] for r in rows], ["Big", "Small"])
+
+    def test_the_wall_never_leaks_private_fields(self):
+        rows = self._wall({
+            "supporters": {"uid1": {
+                "displayName": "Reef Friend", "status": "approved", "visible": True,
+                "totalSpentCents": 5000, "email": "secret@example.com",
+                "stripeCustomerId": "cus_123", "firebaseUid": "uid1"}},
+            "guestSupporters": {},
+        })
+        self.assertEqual(set(rows[0]), {"displayName", "wallSize", "tier", "amountCents"})
+
+
+class TestRepeatGiftsGrowOneName(unittest.TestCase):
+    """Buying again later must ADD to the same name, not start a second one."""
+
+    def test_lifetime_total_drives_the_tier_not_the_single_payment(self):
+        # $15 tier, then $35 tier, then a $20 coin pack = $70 lifetime.
+        total = 1500 + 3500 + 2000
+        tier, size = ms._supporter_tier_for_total(total)
+        self.assertEqual((tier, size), ("tide_turner", "large"))
+        # A single $20 pack on its own would only be the small band.
+        self.assertEqual(ms._supporter_tier_for_total(2000)[0], "wave_warrior")
+
+    def test_coin_packs_count_toward_the_wall_too(self):
+        """Coins are a purchase, so they grow the name like a donation does."""
+        for cents in ms.COIN_PACKS_BY_CENTS:
+            kind, _ = ms._reward_for_session({"currency": "usd", "amount_total": cents})
+            self.assertEqual(kind, "coins")
+        # $20 + $20 + $20 crosses the $50 band no single pack reaches.
+        self.assertEqual(ms._supporter_tier_for_total(6000)[0], "tide_turner")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

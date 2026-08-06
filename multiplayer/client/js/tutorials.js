@@ -612,7 +612,7 @@
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtSettingsOpen,
-      text: "Click the <strong>gear</strong> in the top right to open <strong>Settings</strong>. Here you can change your music volume, read the Terms, send us <strong>Help &amp; Feedback</strong>, and sign out." },
+      text: "Click the <strong>gear</strong> in the top right to open <strong>Settings</strong>. Here you can change your username, change your music volume, read our <strong>Privacy Policy</strong>, send us <strong>Help &amp; Feedback</strong>, and sign out." },
 
     // ── Daily Streak (after settings closes) ─────────────────────────
     { target: ".ph-sidebar-streak", badge: "Daily Streak", title: "Daily Streak",

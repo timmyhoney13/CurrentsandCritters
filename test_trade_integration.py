@@ -168,7 +168,8 @@ def mirror(uid, tid):
 A, B = "alice", "bob"
 set_user(A, avatars=["/avatars/sardine.png"], coins=1500,
          avatar_url="/avatars/sardine.png",
-         other_stats={"games_played": 42, "lifetime_play_again": 91, "total_xp": 60_450})
+         other_stats={"games_played": 42, "lifetime_play_again": 91,
+                      "total_xp": M.LEVEL_XP_TOTALS[30]})
 set_user(B, avatars=["/avatars/lobster.png"], coins=0)
 tid = M._trade_id_for(A, B)
 
@@ -236,6 +237,8 @@ _alice_away = {e.get("item"): e for e in (user(A).get("traded_away") or [])}
 _bob_away = {e.get("item"): e for e in (user(B).get("traded_away") or [])}
 check("alice's given sardine is recorded as traded away",
       "/avatars/sardine.png" in _alice_away)
+# Level comes from the curve's own level-31 boundary (see alice's setup), so a
+# LEVEL_XP_TOTALS retune can never quietly change what this asserts.
 check("snapshot carries her progress at trade time",
       _alice_away.get("/avatars/sardine.png", {}).get("stats", {}).get("lifetime_play_again") == 91
       and _alice_away["/avatars/sardine.png"]["level"] == 31)

@@ -9906,38 +9906,70 @@
       min-width: 40px; text-align: right; font-variant-numeric: tabular-nums;
     }
 
-    /* ══ TERMS & AGREEMENT MODAL ═══════════════════════════════════ */
-    #terms-modal { z-index: 9800; }         /* above the auth screen + settings */
-    .terms-modal-box { max-width: 520px; max-height: 88vh; }
-    .terms-updated {
+    /* ══ PRIVACY POLICY MODAL ══════════════════════════════════════
+       Read-only reader, opened from Settings → 📜 Legal. The document's own
+       type and colour live in css/privacy.css (.pp-dark); everything here is
+       the frame around it — the box, the jump list and the scroller. */
+    #privacy-modal { z-index: 9800; }       /* above the auth screen + settings */
+    .privacy-modal-box { max-width: 560px; max-height: 90vh; }
+    .privacy-sub {
       text-align: center; font-size: 12px; font-weight: 700;
       color: rgba(160,200,240,.75); margin-top: -4px;
     }
-    .terms-scroll {
-      flex: 1 1 auto; min-height: 0; max-height: 56vh; overflow-y: auto;
+    /* Jump list — a horizontal strip of the 18 section numbers. Scrolls
+       sideways rather than stacking, so the reader never eats the document. */
+    .privacy-jump {
+      display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 4px;
+      scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    }
+    .privacy-jump::-webkit-scrollbar { display: none; }
+    .privacy-jump button {
+      flex: 0 0 auto; cursor: pointer; font: inherit;
+      font-size: 11px; font-weight: 800; line-height: 1;
+      padding: 6px 10px; border-radius: 999px;
+      color: rgba(190,225,255,.85);
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(58,120,204,.35);
+      transition: background .15s, color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .privacy-jump button:hover,
+    .privacy-jump button:focus-visible {
+      background: rgba(34,216,248,.14); color: #eaf7ff; border-color: rgba(34,216,248,.55);
+    }
+    .privacy-scroll {
+      flex: 1 1 auto; min-height: 0; max-height: 58vh; overflow-y: auto;
       background: rgba(6,22,46,.6); border: 1px solid rgba(58,120,204,.3);
       border-radius: 10px; padding: 14px 16px; scroll-behavior: smooth;
-      color: rgba(212,230,250,.9); font-size: 13.5px; line-height: 1.6;
+      font-size: 13.5px;
       -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
     }
-    .terms-scroll:focus-visible { outline: 2px solid rgba(34,216,248,.5); outline-offset: 2px; }
-    .terms-scroll h4 {
-      font-family: 'Cinzel', serif; color: var(--cyan);
-      font-size: 14px; font-weight: 700; margin: 16px 0 5px;
+    .privacy-scroll:focus-visible { outline: 2px solid rgba(34,216,248,.5); outline-offset: 2px; }
+    /* Inside the modal the sections scroll in their OWN box, not the page, so
+       the published page's sticky-header offset would leave a big gap here. */
+    .privacy-scroll .pp-sec { scroll-margin-top: 0; }
+    .privacy-scroll .pp-h { font-size: 15px; }
+    .privacy-web-link {
+      display: block; text-align: center; font-size: 12px; font-weight: 700;
+      color: var(--cyan); text-decoration: none; padding: 4px 0 2px;
     }
-    .terms-scroll p { margin: 0 0 9px; }
-    .terms-scroll a { color: var(--cyan); font-weight: 700; text-decoration: underline; word-break: break-word; }
-    .terms-scroll strong { color: #eaf4ff; }
-    .terms-scroll .terms-end {
-      text-align: center; color: rgba(160,200,240,.6);
-      font-size: 12px; font-style: italic; margin-top: 16px;
-      padding-top: 12px; border-top: 1px solid rgba(58,120,204,.25);
+    .privacy-web-link:hover { text-decoration: underline; }
+
+    /* ══ FIRST SIGN-IN: the username rename-cost note ══════════════ */
+    .auth-nick-note {
+      display: flex; align-items: flex-start; gap: 8px;
+      text-align: left; font-size: 12px; line-height: 1.45;
+      color: rgba(200,230,255,.85);
+      background: rgba(34,216,248,.08);
+      border: 1px solid rgba(34,216,248,.28);
+      border-radius: 10px; padding: 9px 12px; margin: 2px 0 4px;
     }
-    .terms-scroll-hint {
-      text-align: center; font-size: 12px; font-weight: 700;
-      color: #e0b040; padding: 2px 0; transition: opacity .2s;
+    .auth-nick-note strong { color: #eaf7ff; font-weight: 800; }
+    .auth-nick-note .ann-ico { flex: 0 0 auto; font-size: 14px; line-height: 1.3; }
+    .auth-nick-note .cc-coin {
+      width: 13px; height: 13px; display: inline-block;
+      vertical-align: -2px; margin: 0 1px;
     }
-    .terms-scroll-hint.done { color: #4ec97a; }
 
     /* ══ MESSAGING DRAWER (DMs + room chat bridge) ══════════════════ */
     #cc-msg-drawer {

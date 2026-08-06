@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.46";
-  const APP_BUILD   = "2026-08-05.2";
+  const APP_VERSION = "1.6.49";
+  const APP_BUILD   = "2026-08-05.5";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,12 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🔒 Privacy Policy, and a simpler sign-in", items: [
+      "Our full Privacy Policy is now published at currentsandcritters.com/privacy — there's a link at the very bottom of every page — and you can read the whole thing in game from Settings → 📜 Legal.",
+      "Signing in for the first time is now one screen: pick a username and dive in. The long scroll-and-agree Terms box is gone.",
+      "Changing your username: your first change is free, and after that each one costs 100 Critter Coins. No more 24-hour wait, so you can change it whenever you like — and your friend code never changes.",
+      "The Name Change Token has left the Store, since there's no longer a wait to skip. Any tokens you'd bought are no longer needed.",
+    ]},
     { ver: "V1.7.0", title: "🔥 Streak Leaderboard", items: [
       "There's a new 🔥 Streak board on the Leaderboard tab, with a toggle for the two questions people actually ask: who has the longest streak ever, and who has the longest one going right now.",
       "Both numbers come from your play calendar, so a streak that lapsed drops off the current board straight away — no more old records sitting at the top. A day covered by a Streak Shield still counts.",
@@ -77,7 +83,6 @@
     ]},
     { ver: "V1.7.0", title: "🐚 Player Perks in the Store", items: [
       "Streak Shield (500 coins) covers one missed day so your daily streak survives it. Miss a day and we'll ask if you want to spend one — if you don't have one yet, that same button buys it and uses it in one tap.",
-      "Name Change Token (100 coins) skips the 24-hour wait between username changes. Your first change is still free, and your friend code never changes.",
       "Emote Pack (500 coins) turns 5 critters you've unlocked into chat emotes. Every animal in the game can be one, you just have to own it first — and if you have fewer than 5 critters left without an emote, we tell you exactly how many you'd get before you spend anything.",
       "Critter Re-Earn (2,500 coins) hands back a critter you traded away, without earning its unlock all over again.",
       "Once you own an emote, a smiley appears next to the chat box in game. Tap it and send the critter — everyone at the table sees the picture, whether or not they own it.",
@@ -571,6 +576,7 @@
   // "PREVIEW", "ABOUT", breaking the launcher and the dedicated game window.
   const RESERVED_PATH_NAMES = new Set([
     "play","preview","classic","old","game","website","site","rules","about","leaderboard",
+    "privacy",
   ]);
   function roomFromUrl() {
     const parts = location.pathname.split("/").filter(Boolean);
@@ -10791,15 +10797,15 @@
   let _teamRevealDone = false;     // suspense reveal already played this game
   const LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
-    4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
-    23300, 26150, 29150, 32400, 35800, 39400, 43200, 47200, 51400, 55850,
-    60450, 65300, 70350, 75650, 81150, 86850, 92800, 99000, 105400, 112000,
-    118900, 126000, 133300, 140900, 148700, 156800, 165100, 173650, 182450, 191500,
-    200850, 210400, 220200, 230300, 240650, 251250, 262100, 273250, 284650, 296300,
-    308250, 320450, 332950, 345700, 358750, 372050, 385650, 399500, 413650, 428100,
-    442850, 457850, 473150, 488750, 504600, 520800, 537250, 554000, 571050, 588400,
-    606050, 624000, 642250, 660850, 679700, 698850, 718350, 738100, 758200, 778600,
-    800000, 825000, 852500, 882500, 915000, 950000, 987500, 1027500, 1070000, 1125000,
+    4550, 5700, 7000, 8450, 10100, 11750, 13400, 15050, 16700, 18350,
+    20050, 21800, 23600, 25450, 27350, 29250, 31200, 33200, 35250, 37300,
+    39400, 41550, 43700, 45900, 48150, 50400, 52700, 55050, 57400, 59800,
+    62200, 64650, 67150, 69650, 72200, 74750, 77350, 80000, 82650, 85350,
+    88050, 90800, 93550, 96350, 99150, 102000, 104850, 107750, 110650, 113600,
+    116550, 119550, 122550, 125600, 128650, 131750, 134850, 138000, 141150, 144350,
+    147550, 150800, 154050, 157350, 160650, 163950, 167300, 170650, 174050, 177450,
+    180900, 184350, 187800, 191300, 194800, 198350, 201900, 205500, 209100, 212700,
+    216350, 220000, 223700, 227400, 231100, 234850, 238600, 242400, 246200, 250000,
   ];
 
   function isLikelyAiName(name) {
@@ -15184,11 +15190,17 @@
   // and friends). One declaration = the tag on the card can never disagree with
   // the amount actually charged.
   const PHST_SHIELD_COIN_PRICE  = 500;   // covers one missed day of a daily streak
-  const PHST_NAMETOK_COIN_PRICE = 100;   // skips the 24h username cooldown
   const PHST_EMOTE_PACK_PRICE   = 500;   // one pack of critter chat emotes
   const PHST_EMOTE_PACK_SIZE    = 5;     // critters granted per Emote Pack
   const PHST_REEARN_COIN_PRICE  = 2500;  // buy back one traded-away critter
   const PHST_PERK_STACK_MAX     = 5;     // hoard cap per stackable consumable
+
+  // ── Username changes ───────────────────────────────────────────
+  // ONE free rename per account, then this much per change, with no waiting
+  // period either way (build 1.6.48 replaced the old 24-hour cooldown and its
+  // Name Change Token). Declared here so the first-sign-in promise, the
+  // Settings note and the amount actually charged are the same number.
+  const PHST_RENAME_COIN_PRICE  = 100;   // per username change after the free one
   function backgroundById(id){ return _BG_BY_ID[id] || null; }
   function normalizeBgUrl(u){
     let s = String(u||"").trim();
@@ -15639,51 +15651,19 @@
     // still honored. Reset to false when a genuine sign-out is processed.
     let _ccHadAccountUser = false;
     let _ccExplicitSignOut = false;
-    // Cleanup fn for the currently-open Terms gate (see ccShowTerms), so a
-    // re-open can drop stale listeners instead of stacking a second handler.
-    let _ccTermsCleanup = null;
+    // Cleanup fn for the currently-open Privacy reader (see ccShowPrivacy), so
+    // a re-open drops stale listeners instead of stacking a second handler.
+    let _ccPrivacyCleanup = null;
     let _statsLoadSeq = 0;
     let _pendingOnboardingUid = "";
     const GUEST_NICK_KEY = "fish_guest_nick";
     const GUEST_AVATAR_KEY = "fish_guest_avatar";
     const GUEST_STATS_KEY_PREFIX = "fish_guest_stats_v1::";
-    // One-shot handoff flag: set when a guest agrees to the Terms in the
-    // launcher tab, consumed once by the dedicated game window so the same
-    // dive isn't re-prompted. Timestamped so a stale flag can't skip Terms on
-    // a later, separate guest session ("always pop up when people do guest").
-    const GUEST_TERMS_OK_KEY = "fish_guest_terms_ok";
-    function markGuestTermsAgreed() {
-      try { localStorage.setItem(GUEST_TERMS_OK_KEY, String(Date.now())); } catch (_) {}
-    }
-    function consumeGuestTermsAgreed() {
-      try {
-        const raw = localStorage.getItem(GUEST_TERMS_OK_KEY);
-        localStorage.removeItem(GUEST_TERMS_OK_KEY);
-        const ts = raw ? parseInt(raw, 10) : 0;
-        return !!ts && (Date.now() - ts) < 120000;   // honor only a fresh handoff
-      } catch (_) { return false; }
-    }
 
-    // ── Registered-account Terms agreement ───────────────────────────
-    // Every account holder must have agreed to the Terms at least once. New
-    // accounts record their agreement at nickname setup; EXISTING accounts made
-    // before the Terms gate existed are prompted once on their next sign-in and
-    // the agreement is stored on their Firestore profile so they're never re-
-    // prompted (unless the Terms are revised and TERMS_VERSION is bumped).
-    const TERMS_VERSION = 1;
-    function hasAgreedToTerms(profile) {
-      return Number(profile?.terms_version || 0) >= TERMS_VERSION;
-    }
-    // Fire-and-forget: never block the lobby on this write succeeding.
-    function persistTermsAgreement(uid) {
-      if (!_db || !uid) return;
-      try {
-        _db.collection("users").doc(uid).set({
-          terms_version: TERMS_VERSION,
-          terms_agreed_at: firebase.firestore.FieldValue.serverTimestamp(),
-        }, { merge: true }).catch(() => {});
-      } catch (_) {}
-    }
+    // ── Legal ────────────────────────────────────────────────────────
+    // Nothing gates sign-in. First sign-in is ONE screen: pick a username.
+    // The Privacy Policy is always available, unprompted, from
+    // Settings → 📜 Legal (ccShowPrivacy) and at /privacy on the website.
 
     // ════════════════════════════════════════════════════════════════
     // DEDICATED GAME-WINDOW LAUNCHER (Steam-style, no install)
@@ -17047,10 +17027,6 @@
           last_active:    firebase.firestore.FieldValue.serverTimestamp(),
           created_at:     firebase.firestore.FieldValue.serverTimestamp(),
           stats:          existingStats || defaultGuestStats(),
-          // The Terms gate is shown right before this save on new-account
-          // creation, so record the agreement so we never re-prompt.
-          terms_version:  TERMS_VERSION,
-          terms_agreed_at: firebase.firestore.FieldValue.serverTimestamp(),
         };
         tx.set(ref, data, { merge: true });
       });
@@ -18014,56 +17990,28 @@
     }
 
     // Reveal the lobby for a RETURNING guest (auto-restored from a saved
-    // nickname), gating on the Terms & Agreement first, unless this is the
-    // one-shot handoff from the launcher tab where they just agreed. Declining
-    // drops the guest session back to the sign-in chooser.
-    function revealGuestLobbyGated(nick) {
-      if (consumeGuestTermsAgreed()) { revealLobby(nick, ""); return; }
-      ccShowTerms({ mode: "agree",
-        onAgree: () => revealLobby(nick, ""),
-        onCancel: () => {
-          clearGuestSessionStorage();
-          _guestSessionActive = false;
-          _playerNickname = "";
-          const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
-          showStep("auth-step-choose");
-        }
-      });
+    // nickname). Nothing stands between a guest and the lobby any more — the
+    // Terms gate that used to sit here is gone (build 1.6.48).
+    function revealGuestLobby(nick) {
+      revealLobby(nick, "");
     }
 
-    // Reveal the lobby for a signed-in REGISTERED account, gating on the Terms
-    // & Agreement first for any account that hasn't agreed to the current
-    // version yet (i.e. every account made before the Terms gate existed). Once
-    // agreed, it's recorded on their profile so they're never re-prompted.
-    // Declining signs them out back to the sign-in chooser.
-    function revealRegisteredLobbyGated(nickname, code, profile, user) {
-      if (hasAgreedToTerms(profile)) { revealLobby(nickname, code); return; }
-      ccShowTerms({ mode: "agree",
-        onAgree: () => {
-          // This is a REGISTERED account (we captured `user`/`profile` when the
-          // gate opened). If a transient auth blip nulled _authUser while the
-          // Terms were open, re-assert the captured account so we reveal THEIR
-          // lobby, never fall through to a guest "Player" session. revealLobby()
-          // reads _authUser to decide account-vs-guest, so restore it first.
-          const acct = _authUser || user || null;
-          if (!_authUser && acct) { _authUser = acct; _ccHadAccountUser = true; _guestSessionActive = false; }
-          const uid = acct?.uid || profile?.uid || "";
-          persistTermsAgreement(uid);
-          if (_activeProfile) _activeProfile.terms_version = TERMS_VERSION;
-          // Safety net: only if we truly have no account identity at all (should
-          // not happen for this gate) send them back to sign-in rather than guest.
-          if (!_authUser) { const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden"); showStep("auth-step-choose"); return; }
-          revealLobby(nickname, code);
-        },
-        onCancel: async () => {
-          const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
-          _ccExplicitSignOut = true;
-          if (_auth) { try { await _auth.signOut(); } catch (_) {} }
-          _authUser = null; _activeProfile = null;
-          _playerNickname = ""; _friendCode = "";
-          showStep("auth-step-choose");
-        }
-      });
+    // Reveal the lobby for a signed-in REGISTERED account. `profile`/`user` are
+    // captured by the caller; if a transient auth blip nulled _authUser we
+    // re-assert the captured account first, because revealLobby() reads
+    // _authUser to decide account-vs-guest and would otherwise fall through to
+    // a guest "Player" session.
+    function revealRegisteredLobby(nickname, code, profile, user) {
+      const acct = _authUser || user || null;
+      if (!_authUser && acct) { _authUser = acct; _ccHadAccountUser = true; _guestSessionActive = false; }
+      // Safety net: with no account identity at all, back to sign-in rather
+      // than silently dropping them into a guest session.
+      if (!_authUser) {
+        const ls = $a("auth-loading-screen"); if (ls) ls.classList.add("hidden");
+        showStep("auth-step-choose");
+        return;
+      }
+      revealLobby(nickname, code);
     }
 
     function clearGuestSessionStorage() {
@@ -19303,7 +19251,7 @@
         if (savedGuestNick) {
           _guestAvatarUrl = savedGuestAvatar;
           if (IS_GAME_WINDOW()) {
-            revealGuestLobbyGated(savedGuestNick);
+            revealGuestLobby(savedGuestNick);
           } else {
             // Launcher: returning guest, go straight into the game in THIS tab
             // (no interstitial "Open Game" screen). The tab navigates to the
@@ -19421,7 +19369,7 @@
           const hasAvatar = hasStoredSelectableAvatar(profile);
           if (hasNickname && hasAvatar) {
             _pendingOnboardingUid = "";
-            revealRegisteredLobbyGated(profile.nickname, profile.friend_code || "", profile, user);
+            revealRegisteredLobby(profile.nickname, profile.friend_code || "", profile, user);
           } else {
             const sl = $a("auth-stats-lobby");
             if (sl) sl.classList.remove("visible");
@@ -19434,6 +19382,10 @@
               const nickInput = $a("auth-nick-input");
               if (nickInput && hint) nickInput.value = hint;
               _signupAvatarUrl = sanitizeSelectableAvatar(profile?.avatar_url, user.uid || user.email || hint || "player");
+              // The rename-cost promise on this screen quotes the ONE constant
+              // the Settings save handler charges, so the two can never differ.
+              const priceEl = $a("auth-nick-price");
+              if (priceEl) priceEl.textContent = String(PHST_RENAME_COIN_PRICE);
               showStep("auth-step-nickname");
             } else {
               // Existing account whose stored avatar is no longer valid: silently default to Mullet.
@@ -19442,21 +19394,20 @@
               _activeProfile = { ...(profile || {}), uid: user.uid, avatar_url: DEFAULT_AVATAR_IMG };
               try { await applyAvatarSelection(DEFAULT_AVATAR_IMG); } catch {}
               _pendingOnboardingUid = "";
-              revealRegisteredLobbyGated(profile.nickname, profile.friend_code || "", profile, user);
+              revealRegisteredLobby(profile.nickname, profile.friend_code || "", profile, user);
             }
           }
         } else {
           // ── Signed-out reading ──────────────────────────────────────
-          // Distinguish a GENUINE sign-out (user tapped Sign Out / declined the
-          // Terms, or there was never a session) from a TRANSIENT null. Firebase
+          // Distinguish a GENUINE sign-out (user tapped Sign Out, or there was
+          // never a session) from a TRANSIENT null. Firebase
           // fires onAuthStateChanged(null) during ordinary token refreshes and
           // the SESSION-persistence handoff even while the account is still
           // valid. If a registered account has been active in this page load and
           // the user did NOT explicitly sign out, this null is transient: tearing
           // the account down here is what dropped signed-in players into a guest
-          // "Player" lobby (most visibly right after agreeing to the Terms, while
-          // the account terms gate was open). Ignore it and wait for Firebase to
-          // re-fire with the user, the account is never replaced by a guest.
+          // "Player" lobby. Ignore it and wait for Firebase to re-fire with the
+          // user, the account is never replaced by a guest.
           const explicitSignOut = _ccExplicitSignOut;
           _ccExplicitSignOut = false;
           if (_ccHadAccountUser && !explicitSignOut) {
@@ -19483,9 +19434,8 @@
           // a Google sign-in (auth=google) or a redirect sign-in is in flight,
           // the account session may momentarily read as "signed out" here, a
           // stale guest nickname in localStorage must NOT hijack that and drop
-          // the player into a guest "Player" lobby (nor show them the GUEST
-          // Terms instead of finishing their real login). Wait for the account
-          // sign-in to resolve instead.
+          // the player into a guest "Player" lobby instead of finishing their
+          // real login. Wait for the account sign-in to resolve instead.
           const accountSignInPending = _ccWantsGoogleAuth || _ccGoogleRedirectStarted;
           if (savedGuestNick && !accountSignInPending) {
             _guestAvatarUrl = savedGuestAvatar;
@@ -19494,7 +19444,7 @@
               const _uiRaw = localStorage.getItem(_uiKey);
               if (_uiRaw) _unlockedIcons = JSON.parse(_uiRaw).filter(s => typeof s === "string" && s.startsWith("/avatars/"));
             } catch { _unlockedIcons = []; }
-            revealGuestLobbyGated(savedGuestNick);
+            revealGuestLobby(savedGuestNick);
           } else {
             // Not signed in in this window. (For Google, the session is normally
             // inherited from the launcher; if it wasn't, the player finishes with
@@ -19509,87 +19459,78 @@
       });
     })();
 
-    // ── Terms & Agreement modal ──────────────────────────────────
-    // Dual-purpose. mode "agree": gated flow shown on first account creation
-    // and EVERY guest sign-in, the "I Agree & Consent" button stays disabled
-    // until the reader scrolls to the bottom of the terms. mode "view":
-    // read-only, opened from Settings (no gating, backdrop/Close dismiss).
-    function ccShowTerms(opts) {
-      opts = opts || {};
-      const isView   = opts.mode === "view";
-      const modal    = $a("terms-modal");
-      const scroll   = $a("terms-scroll");
-      const hint     = $a("terms-scroll-hint");
-      const agreeBtn = $a("terms-agree-btn");
-      const closeBtn = $a("terms-close-btn");
-      const cancel   = $a("terms-cancel");
-      // Fail-open: if the modal is somehow missing, never block sign-in.
-      if (!modal || !scroll || !agreeBtn) {
-        if (!isView && typeof opts.onAgree === "function") opts.onAgree();
-        return;
+    // ── Privacy Policy reader ────────────────────────────────────
+    // Read-only, opened from Settings → 📜 Legal. Nothing is gated: the
+    // document is here to be read, not agreed to. The text is rendered ONCE
+    // from window.CC_PRIVACY_HTML (js/privacy-policy.js, the same source the
+    // published /privacy page uses) and kept, so re-opening is instant.
+    let _ccPrivacyRendered = false;
+    function ccShowPrivacy() {
+      const modal  = $a("privacy-modal");
+      const scroll = $a("privacy-scroll");
+      const jump   = $a("privacy-jump");
+      const closeB = $a("privacy-close-btn");
+      if (!modal || !scroll) return;
+
+      // Re-entrancy guard: a second open tears down the first one's listeners
+      // instead of stacking a duplicate set on the same buttons.
+      if (typeof _ccPrivacyCleanup === "function") { try { _ccPrivacyCleanup(); } catch (_) {} _ccPrivacyCleanup = null; }
+
+      if (!_ccPrivacyRendered) {
+        const html = window.CC_PRIVACY_HTML;
+        if (typeof html === "string" && html) {
+          scroll.innerHTML = html;
+          _ccPrivacyRendered = true;
+        } else {
+          // The one script didn't load. Say so and point at the web copy
+          // rather than showing an empty box.
+          scroll.innerHTML = '<p style="text-align:center;padding:18px 8px;color:rgba(190,225,255,.8);">'
+            + "The privacy policy did not load. Open it on the website with the link below."
+            + "</p>";
+        }
+        // Jump list, built from the SAME section list the headings came from.
+        const secs = window.CC_PRIVACY_SECTIONS;
+        if (jump && Array.isArray(secs) && secs.length && _ccPrivacyRendered) {
+          jump.innerHTML = secs.map(sec =>
+            `<button type="button" data-pp-go="${sec.id}" title="${escapeHtml(sec.title)}">${sec.n}. ${escapeHtml(sec.title)}</button>`
+          ).join("");
+        } else if (jump) {
+          jump.innerHTML = "";
+        }
       }
-      // Re-entrancy guard: if the gate is re-opened (e.g. an auth transient runs
-      // the reveal path again while it's already showing), tear down the PRIOR
-      // invocation's listeners first. Otherwise both invocations' handlers stay
-      // bound to the same Agree button and a single click fires both callbacks,
-      // which could let a stale (guest) reveal run alongside the account one.
-      if (typeof _ccTermsCleanup === "function") { try { _ccTermsCleanup(); } catch (_) {} _ccTermsCleanup = null; }
-      setAuthMsg("terms-err", "", false);
 
-      // Buttons per mode.
-      agreeBtn.style.display = isView ? "none" : "";
-      closeBtn.style.display = isView ? "" : "none";
-      cancel.style.display   = isView ? "none" : "";
-      hint.style.display     = isView ? "none" : "";
-
-      let atBottom = isView;            // view mode never gates
-      agreeBtn.disabled = !atBottom;
-      hint.classList.remove("done");
-      hint.textContent = "⬇ Please scroll to the bottom to continue";
-
-      function unlock() {
-        if (atBottom) return;
-        atBottom = true;
-        agreeBtn.disabled = false;
-        hint.classList.add("done");
-        hint.textContent = "✓ You've reached the end, you can now agree";
-      }
-      function checkBottom() {
-        if (atBottom) return;
-        if (scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight <= 24) unlock();
+      // Jump scrolls the MODAL's scroller, not the page behind it. Measured
+      // with rects rather than offsetTop so it doesn't depend on which
+      // ancestor happens to be positioned.
+      function onJump(e) {
+        const btn = e.target.closest("[data-pp-go]");
+        if (!btn) return;
+        const target = scroll.querySelector("#" + btn.getAttribute("data-pp-go"));
+        if (!target) return;
+        const delta = target.getBoundingClientRect().top - scroll.getBoundingClientRect().top;
+        scroll.scrollTo({ top: scroll.scrollTop + delta - 6, behavior: "smooth" });
       }
       function cleanup() {
-        scroll.removeEventListener("scroll", onScroll);
-        agreeBtn.removeEventListener("click", onAgree);
-        closeBtn.removeEventListener("click", onClose);
-        cancel.removeEventListener("click", onCancel);
+        if (jump) jump.removeEventListener("click", onJump);
+        if (closeB) closeB.removeEventListener("click", onClose);
         modal.removeEventListener("click", onBackdrop);
-        if (_ccTermsCleanup === cleanup) _ccTermsCleanup = null;
+        if (_ccPrivacyCleanup === cleanup) _ccPrivacyCleanup = null;
       }
-      function close()  { modal.classList.remove("open"); cleanup(); }
-      function onScroll() { checkBottom(); }
-      function onAgree()  { if (agreeBtn.disabled) return; close(); if (typeof opts.onAgree  === "function") opts.onAgree();  }
-      function onClose()  { close(); if (typeof opts.onClose  === "function") opts.onClose();  }
-      function onCancel() { close(); if (typeof opts.onCancel === "function") opts.onCancel(); }
-      // Backdrop click closes in view mode only, the agree gate must not be dismissible.
-      function onBackdrop(e) { if (e.target === modal && isView) onClose(); }
+      function onClose() { modal.classList.remove("open"); cleanup(); }
+      function onBackdrop(e) { if (e.target === modal) onClose(); }
 
-      scroll.addEventListener("scroll", onScroll, { passive: true });
-      agreeBtn.addEventListener("click", onAgree);
-      closeBtn.addEventListener("click", onClose);
-      cancel.addEventListener("click", onCancel);
+      if (jump) jump.addEventListener("click", onJump);
+      if (closeB) closeB.addEventListener("click", onClose);
       modal.addEventListener("click", onBackdrop);
-      _ccTermsCleanup = cleanup;
+      _ccPrivacyCleanup = cleanup;
 
       modal.classList.add("open");
       requestAnimationFrame(() => {
         scroll.scrollTop = 0;
-        // If the whole text already fits without scrolling, don't trap the user.
-        if (!isView && scroll.scrollHeight - scroll.clientHeight <= 24) unlock();
         try { scroll.focus({ preventScroll: true }); } catch (_) {}
       });
     }
-    window.__ccShowTerms = ccShowTerms;
+    window.__ccShowPrivacy = ccShowPrivacy;
 
     // ── Guest flow ───────────────────────────────────────────────
     $a("auth-guest-btn").addEventListener("click", () => {
@@ -19703,26 +19644,20 @@
       const nick = ($a("auth-guest-nick").value || "").trim();
       const err = validateNick(nick);
       if (err) { setAuthMsg("auth-guest-err", err, false); return; }
-      // Guests must agree to the Terms EVERY time they start a session.
-      ccShowTerms({ mode: "agree", onAgree: () => {
-        _authUser = null;
-        _guestSessionActive = true;
-        _friendCode = "";
-        _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
-        localStorage.setItem(GUEST_NICK_KEY, nick);
-        localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
-        _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
-        if (IS_GAME_WINDOW()) {
-          revealLobby(nick, "");
-        } else {
-          // Launcher: the guest session we just saved is read by the dedicated
-          // window, so the player never enters the nickname twice. Mark that
-          // Terms were just agreed so the game window doesn't re-prompt for
-          // THIS dive (a fresh, separate session will still be gated).
-          markGuestTermsAgreed();
-          ccLaunchFromLauncher({ type: "guest", nick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() });
-        }
-      }});
+      _authUser = null;
+      _guestSessionActive = true;
+      _friendCode = "";
+      _guestAvatarUrl = sanitizeSelectableAvatar(localStorage.getItem(GUEST_AVATAR_KEY) || "", nick || "guest");
+      localStorage.setItem(GUEST_NICK_KEY, nick);
+      localStorage.setItem(GUEST_AVATAR_KEY, _guestAvatarUrl);
+      _activeProfile = { nickname: nick, avatar_url: _guestAvatarUrl };
+      if (IS_GAME_WINDOW()) {
+        revealLobby(nick, "");
+      } else {
+        // Launcher: the guest session we just saved is read by the dedicated
+        // window, so the player never enters the nickname twice.
+        ccLaunchFromLauncher({ type: "guest", nick, avatarUrl: _guestAvatarUrl, gameUrl: ccGameUrl() });
+      }
     });
     $a("auth-guest-nick").addEventListener("keydown", e => { if (e.key === "Enter") $a("auth-guest-go-btn").click(); });
 
@@ -19741,15 +19676,16 @@
       });
     }
 
-    // ── Nickname setup (first-time account creation) ─────────────
-    // Reaching this step means a brand-new account is being created, so the
-    // player must read + agree to the Terms before the profile is saved.
+    // ── Username setup (first-time account creation) ─────────────
+    // Reaching this step means a brand-new account is being created. This is
+    // the WHOLE of first sign-in: pick a name, save it, dive in. (Build 1.6.48
+    // removed the Terms gate that used to sit between the two.)
     $a("auth-nick-go-btn").addEventListener("click", async () => {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
       const nick = ($a("auth-nick-input").value || "").trim();
       const err  = validateNick(nick);
       if (err) { setAuthMsg("auth-nick-err", err, false); return; }
-      ccShowTerms({ mode: "agree", onAgree: () => { void finishNicknameSetup(nick); } });
+      void finishNicknameSetup(nick);
     });
     async function finishNicknameSetup(nick) {
       if (!_authUser) { setAuthMsg("auth-nick-err", "Not signed in.", false); return; }
@@ -19771,7 +19707,7 @@
         _friendCode = code;
         _pendingOnboardingUid = "";
         _avatarPromptShownForUid = _authUser.uid;
-        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG, terms_version: TERMS_VERSION };
+        _activeProfile = { ...(_activeProfile || {}), uid: _authUser.uid, nickname: nick, friend_code: code, avatar_url: DEFAULT_AVATAR_IMG };
         await applyAvatarSelection(DEFAULT_AVATAR_IMG);
         revealLobby(nick, code);
       } catch (e) {
@@ -19996,34 +19932,25 @@
       const nickRow = $a("settings-nick-row");
       if (nickRow) nickRow.style.display = _authUser ? "" : "none";
 
-      // Show cooldown status on open
+      // What the next rename costs. The first one on an account is free; every
+      // one after that costs PHST_RENAME_COIN_PRICE, with no waiting period.
+      // The button is never disabled — a player short on coins is told the
+      // price when they try to save, not blocked from opening the form.
       if (_authUser && _activeProfile) {
-        const lastChange = _activeProfile.nickname_changed_at;
-        const cooldownEl = $a("settings-nick-cooldown");
+        const costEl  = $a("settings-nick-cost");
         const editBtn = $a("settings-edit-nick-btn");
-        const msLeft = lastChange
-          ? (24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime())
-          : 0;
-        if (msLeft > 0) {
-          const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
-          const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
-          // A Name Change Token (Store) buys past the wait. Holding one keeps
-          // the Change button live and says what pressing it will cost.
-          const toks = (typeof window.__fishNameTokens === "function") ? window.__fishNameTokens() : 0;
-          if (cooldownEl) {
-            cooldownEl.textContent = toks
-              ? `You can change your username again ${label} — or spend 1 of your ${toks} Name Change Token${toks !== 1 ? "s" : ""} now.`
-              : `You can change your username again ${label}. A Name Change Token from the Store skips the wait.`;
-            cooldownEl.style.display = "";
-          }
-          if (editBtn) {
-            editBtn.disabled = !toks;
-            editBtn.style.opacity = toks ? "" : ".45";
-            editBtn.title = toks ? "Uses 1 Name Change Token" : `Available ${label}`;
-          }
-        } else {
-          if (cooldownEl) cooldownEl.style.display = "none";
-          if (editBtn) { editBtn.disabled = false; editBtn.style.opacity = ""; editBtn.title = ""; }
+        const free    = _renameIsFree(_activeProfile);
+        if (costEl) {
+          costEl.textContent = free
+            ? "Your first username change is free."
+            : `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins. You have ${_myCritterCoins()}.`;
+          costEl.style.color = free ? "#4ec97a" : "#e0b040";
+          costEl.style.display = "";
+        }
+        if (editBtn) {
+          editBtn.disabled = false;
+          editBtn.style.opacity = "";
+          editBtn.title = free ? "Your first change is free" : `Costs ${PHST_RENAME_COIN_PRICE} Critter Coins`;
         }
       }
 
@@ -20037,14 +19964,14 @@
     window.__openSettingsModal = _openSettingsModal;
 
     $a("settings-close-btn").addEventListener("click", () => $a("settings-modal").classList.remove("open"));
-    // Terms & Agreement, read-only view from Settings.
-    (function wireSettingsTerms() {
-      const tBtn = $a("settings-terms-btn");
-      if (!tBtn) return;
-      const openTerms = () => ccShowTerms({ mode: "view" });
-      tBtn.addEventListener("click", openTerms);
-      tBtn.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); openTerms(); }
+    // Privacy Policy, read-only reader from Settings → 📜 Legal.
+    (function wireSettingsPrivacy() {
+      const pBtn = $a("settings-privacy-btn");
+      if (!pBtn) return;
+      const open = () => ccShowPrivacy();
+      pBtn.addEventListener("click", open);
+      pBtn.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") { e.preventDefault(); open(); }
       });
     })();
     $a("settings-edit-nick-btn").addEventListener("click", () => {
@@ -20062,48 +19989,57 @@
         _cancelSettingsNickEdit();
       }
     });
+    // ── Username changes: one free, then Critter Coins ──────────────
+    // `nickname_changed_at` is the has-renamed-before marker (it is written by
+    // every rename), so an account that has never renamed pays nothing and
+    // everyone else pays PHST_RENAME_COIN_PRICE. There is no waiting period.
+    function _renameIsFree(profile) {
+      return !(profile && profile.nickname_changed_at);
+    }
+    function _myCritterCoins() {
+      const st = (_activeProfile && _activeProfile.stats) || {};
+      return Math.max(0, Math.floor(Number(st.critter_coins) || 0));
+    }
+
     $a("settings-nick-save-btn").addEventListener("click", async () => {
-      if (!_authUser) return;
+      if (!_authUser || !_db) return;
       const newNick = ($a("settings-nick-input").value || "").trim();
       const err = validateNick(newNick);
       if (err) { setAuthMsg("settings-nick-err", err, false); return; }
       if (newNick === _playerNickname) { setAuthMsg("settings-nick-err", "That's already your username.", false); return; }
 
-      // 1-day cooldown check (re-read from Firestore for accuracy). A Name
-      // Change Token buys past it — but only with the player's say-so, and the
-      // token is not consumed here: it is spent in the SAME write as the
-      // rename below, so a rename that fails can never eat one.
-      let spendNameToken = false;
+      const uref = _db.collection("users").doc(_authUser.uid);
+
+      // Price check up front, from the SERVER doc rather than the cached
+      // profile, so the confirm box quotes what will actually be charged.
+      // (The transaction below re-reads it again and is the real authority —
+      // this pass is only here to ask before spending anything.)
+      let willCharge = false;
       try {
-        const docSnap = await _db.collection("users").doc(_authUser.uid).get();
-        const data = docSnap.data() || {};
-        const lastChange = data.nickname_changed_at;
-        if (lastChange) {
-          const msLeft = (24 * 60 * 60 * 1000) - (Date.now() - new Date(lastChange.toDate ? lastChange.toDate() : lastChange).getTime());
-          if (msLeft > 0) {
-            const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000));
-            const label = hoursLeft >= 24 ? "tomorrow" : `in ${hoursLeft} hour${hoursLeft !== 1 ? "s" : ""}`;
-            const toks = Math.max(0, Math.floor(Number(data.name_change_tokens) || 0));
-            if (!toks) {
-              setAuthMsg("settings-nick-err", `You can change your username again ${label}. A Name Change Token from the Store skips the wait.`, false);
-              return;
-            }
-            const ok = (typeof window.ccPerkModal === "function")
-              ? await window.ccPerkModal({
-                  icon: "🏷️", title: "Use a Name Change Token?",
-                  body: `You can normally change your username again ${label}. Spending 1 token changes it to "${newNick}" right now.`,
-                  note: `You're holding ${toks} token${toks !== 1 ? "s" : ""}.`,
-                  actions: [
-                    { key:"cancel",  label:"I'll wait" },
-                    { key:"confirm", label:"Use 1 token", primary:true },
-                  ],
-                })
-              : { action: "confirm" };
-            if (ok.action !== "confirm") { setAuthMsg("settings-nick-err", "", true); return; }
-            spendNameToken = true;
+        const snap = await uref.get();
+        const data = snap.data() || {};
+        willCharge = !_renameIsFree(data);
+        if (willCharge) {
+          const coins = Math.max(0, Math.floor(Number((data.stats || {}).critter_coins) || 0));
+          if (coins < PHST_RENAME_COIN_PRICE) {
+            setAuthMsg("settings-nick-err",
+              `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins and you have ${coins}.`, false);
+            return;
           }
+          const ok = (typeof window.ccPerkModal === "function")
+            ? await window.ccPerkModal({
+                icon: "🏷️", title: `Change your username for ${PHST_RENAME_COIN_PRICE} coins?`,
+                body: `Your free change has been used, so renaming to "${newNick}" costs ${PHST_RENAME_COIN_PRICE} Critter Coins. Your friend code and everything you've unlocked stay exactly as they are.`,
+                note: `You have ${coins} Critter Coin${coins !== 1 ? "s" : ""}.`,
+                actions: [
+                  { key:"cancel",  label:"Never mind" },
+                  { key:"confirm", label:`Pay ${PHST_RENAME_COIN_PRICE}`, primary:true },
+                ],
+              })
+            : { action: "confirm" };
+          if (ok.action !== "confirm") { setAuthMsg("settings-nick-err", "", true); return; }
         }
-      } catch { /* proceed if check fails */ }
+      } catch { /* proceed if the pre-check fails; the transaction still guards */ }
 
       // Check the new name isn't already taken
       setAuthMsg("settings-nick-err", "Checking availability…", true);
@@ -20115,31 +20051,56 @@
       } catch { /* proceed if check fails */ }
 
       setAuthMsg("settings-nick-err", "Saving…", true);
+      // Keep the same 4-digit code, only the name changes
+      const code = _friendCode || genFriendCode();
+      let charged = false;
+      let newBalance = _myCritterCoins();
       try {
-        // Remove old friend_lookup entry (keep same 4-digit code)
+        // The rename and the charge are ONE transaction over the fresh doc, so
+        // a double-tap can't take two free renames, and a rename that fails
+        // can never take the coins with it.
+        const out = await _db.runTransaction(async (tx) => {
+          const snap = await tx.get(uref);
+          const data = snap.exists ? (snap.data() || {}) : {};
+          const free = _renameIsFree(data);
+          const coins = Math.max(0, Math.floor(Number((data.stats || {}).critter_coins) || 0));
+          if (!free && coins < PHST_RENAME_COIN_PRICE) throw new Error("coins");
+          const after = free ? coins : coins - PHST_RENAME_COIN_PRICE;
+          tx.update(uref, {
+            nickname: newNick,
+            nickname_lower: newNick.toLowerCase(),
+            friend_code: code,
+            // Also the has-renamed-before marker: once this exists, the free
+            // change is spent.
+            nickname_changed_at: firebase.firestore.FieldValue.serverTimestamp(),
+            ...(free ? {} : { "stats.critter_coins": after }),
+          });
+          return { charged: !free, newBalance: after };
+        });
+        charged = out.charged;
+        newBalance = out.newBalance;
+      } catch (e) {
+        setAuthMsg("settings-nick-err",
+          String((e && e.message) || "") === "coins"
+            ? `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins and you don't have enough.`
+            : "Could not update username.", false);
+        return;
+      }
+
+      try {
+        const now = firebase.firestore.FieldValue.serverTimestamp();
+        // Retire the old friend_lookup entry (the 4-digit code is unchanged)
+        // and publish the new one. Best-effort: the rename itself has already
+        // landed, so a lookup hiccup must not report failure.
         if (_friendCode && _playerNickname) {
           const oldKey = _playerNickname.toLowerCase() + "_" + _friendCode;
           await _db.collection("friend_lookup").doc(oldKey).delete().catch(() => {});
         }
-        // Keep the same 4-digit code, only the name changes
-        const code = _friendCode || genFriendCode();
         const newKey = newNick.toLowerCase() + "_" + code;
-        const now = firebase.firestore.FieldValue.serverTimestamp();
-        await _db.collection("users").doc(_authUser.uid).update({
-          nickname: newNick,
-          nickname_lower: newNick.toLowerCase(),
-          friend_code: code,
-          nickname_changed_at: now,   // 1-day cooldown timestamp
-          // The token is burned by the rename itself, not before it.
-          ...(spendNameToken
-            ? { name_change_tokens: firebase.firestore.FieldValue.increment(-1) }
-            : {}),
-        });
-        if (spendNameToken) { try { window.__fishNoteNameTokenSpent?.(); } catch {} }
-        // Public lookup doc uses new name + same code
         await _db.collection("friend_lookup").doc(newKey).set({
           uid: _authUser.uid, nickname: newNick, updated_at: now,
-        });
+        }).catch(() => {});
+
         _playerNickname = newNick;
         _friendCode = code;
         _activeProfile = {
@@ -20148,10 +20109,17 @@
           nickname_lower: newNick.toLowerCase(),
           friend_code: code,
           nickname_changed_at: new Date(),
+          ...(charged
+            ? { stats: { ...((_activeProfile || {}).stats || {}), critter_coins: newBalance } }
+            : {}),
         };
-        setAuthMsg("settings-nick-err", `✓ Username updated! Your friend code is ${code}`, true);
+        setAuthMsg("settings-nick-err",
+          charged
+            ? `✓ Username updated for ${PHST_RENAME_COIN_PRICE} coins. Your friend code is still ${code}.`
+            : `✓ Username updated! Your friend code is ${code}`, true);
         lockNameInputs(newNick);
-        // Refresh ALL public-facing name displays
+        // Refresh ALL public-facing name displays (and the coin chip, which
+        // just changed if this rename was paid for).
         syncStatsHeader(_activeProfile);
         if (typeof window.__fishSyncNickname === "function") window.__fishSyncNickname();
         // Update our name in group meta docs we own in our own messages subcollection.
@@ -20174,19 +20142,16 @@
         if (settingsNickEl) settingsNickEl.textContent = newNick;
         const form = $a("settings-nick-form");
         if (form) form.style.display = "none";
-        // Show cooldown note — still skippable if they hold another token.
-        const cooldownEl = $a("settings-nick-cooldown");
-        const editBtn = $a("settings-edit-nick-btn");
-        const toksLeft = (typeof window.__fishNameTokens === "function") ? window.__fishNameTokens() : 0;
-        if (cooldownEl) {
-          cooldownEl.textContent = toksLeft
-            ? `You can change your username again tomorrow — or spend 1 of your ${toksLeft} Name Change Token${toksLeft !== 1 ? "s" : ""}.`
-            : "You can change your username again tomorrow. A Name Change Token from the Store skips the wait.";
-          cooldownEl.style.display = "";
+        // The free change is now spent, so say what the next one will cost.
+        const costEl = $a("settings-nick-cost");
+        if (costEl) {
+          costEl.textContent = `Changing your username costs ${PHST_RENAME_COIN_PRICE} Critter Coins. You have ${_myCritterCoins()}.`;
+          costEl.style.color = "#e0b040";
+          costEl.style.display = "";
         }
-        if (editBtn) { editBtn.disabled = !toksLeft; editBtn.style.opacity = toksLeft ? "" : ".45"; }
-      } catch(e) {
-        setAuthMsg("settings-nick-err", "Could not update username.", false);
+      } catch (e) {
+        // The rename landed; only the cosmetic follow-up failed.
+        ccReport("nickname_post_rename_sync_failed", ccErrDetail(e), "warn");
       }
     });
     const settingsSignoutBtn = $a("settings-signout-btn");
@@ -22228,19 +22193,26 @@
 
       // ═══════════════════════════════════════════════════════════════════
       //  STRIPE PAYMENT LINKS
-      //  ⚠️ TEST MODE, every URL below is a Stripe TEST Payment Link and only
-      //  works with Stripe test cards. BEFORE LAUNCH, replace each `link:` with
-      //  the matching LIVE Payment Link from the Stripe Dashboard
-      //  (Payments → Payment Links). Do NOT swap these for a custom/fake
-      //  checkout, only ever hand off to Stripe-hosted links.
+      //  ⚠️ LIVE MODE. Every URL below is a LIVE Stripe Payment Link and takes
+      //  REAL money. Do NOT swap these for a custom/fake checkout, only ever
+      //  hand off to Stripe-hosted links.
+      //
+      //  ⚠️ A LINK IS IDENTIFIED BY ITS PRICE, NOT ITS URL. The webhook has no
+      //  table of these URLs — it reads `amount_total` off the completed
+      //  session and looks it up in COIN_PACKS_BY_CENTS / SUPPORTER_TIERS_BY_CENTS
+      //  in multiplayer_server.py. So the `usd:` on each row here MUST equal the
+      //  price of the Payment Link it points at. Point a row at a link with a
+      //  different price and the buyer is charged correctly but granted the
+      //  WRONG product (or nothing at all, which files an unmatched payment).
+      //  test_stripe_payments.py pins every price ⇄ grant pair.
       // ═══════════════════════════════════════════════════════════════════
 
       // 1) Critter Coins packs, $1 = 1,000 coins, bigger packs add a bonus.
       const PHST_COIN_PACKS = [
-        { usd: 1,  coins: 1000,  bonus: 0,             link: "https://buy.stripe.com/test_4gMeVf3JafX86ON4X3bAs03" },
-        { usd: 5,  coins: 5250,  bonus: 5,             link: "https://buy.stripe.com/test_5kQ28t4Ne9yKddb1KRbAs04" },
-        { usd: 10, coins: 11500, bonus: 15,            link: "https://buy.stripe.com/test_dRm9AVdjKeT43CBgFLbAs05" },
-        { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://buy.stripe.com/test_28E8wRbbCdP0a0ZblrbAs06" },
+        { usd: 1,  coins: 1000,  bonus: 0,             link: "https://buy.stripe.com/fZufZi6En1FqgIV38eds400" },
+        { usd: 5,  coins: 5250,  bonus: 5,             link: "https://buy.stripe.com/dRm9AU6En1Fq64h6kqds401" },
+        { usd: 10, coins: 11500, bonus: 15,            link: "https://buy.stripe.com/5kQ00k2o75VGeANaAGds402" },
+        { usd: 20, coins: 25000, bonus: 25, best: true, link: "https://buy.stripe.com/4gMdRaaUDbg078l7ouds403" },
       ];
 
       // 2) Supporter Tiers, one-time contributions. Perks are cosmetic /
@@ -22251,7 +22223,7 @@
       const PHST_SUPPORTER_TIERS = [
         {
           name: "Wave Warrior", usd: 15, coins: 5000,
-          link: "https://buy.stripe.com/test_5kQeVfgvW6mygpn9djbAs00",
+          link: "https://buy.stripe.com/cNi6oI3sbfwggIV7ouds404",
           perks: [
             "Supporter email updates",
             "Online simulation access (free now, and free for you when it becomes paid)",
@@ -22264,7 +22236,7 @@
         },
         {
           name: "Ocean Ally", usd: 35, coins: 15000,
-          link: "https://buy.stripe.com/test_5kQfZj5RicKW6ONcpvbAs01",
+          link: "https://buy.stripe.com/5kQcN6geX83O2S5gZ4ds405",
           perks: [
             "Supporter email updates",
             "Online simulation access",
@@ -22279,7 +22251,7 @@
         },
         {
           name: "Tide Turner", usd: 50, coins: 30000, best: true,
-          link: "https://buy.stripe.com/test_8x2cN793u6myb5389fbAs02",
+          link: "https://buy.stripe.com/00wfZi6EnfwgcsFcIOds406",
           perks: [
             "Supporter email updates",
             "Online simulation access",
@@ -22421,16 +22393,11 @@
         // read live from the perk helpers, so the counts are always current.
         {
           const _shields  = (typeof window.__fishStreakShields === "function") ? window.__fishStreakShields() : 0;
-          const _nameToks = (typeof window.__fishNameTokens    === "function") ? window.__fishNameTokens()    : 0;
           const _emotes   = (typeof window.__fishGetEmotes     === "function") ? window.__fishGetEmotes()     : [];
           const _eligible = (typeof window.__fishEmoteEligible === "function") ? window.__fishEmoteEligible() : [];
           const _reBuy    = (typeof window.__fishReEarnBuyable === "function") ? window.__fishReEarnBuyable() : [];
           const _packSize = (typeof PHST_EMOTE_PACK_SIZE !== "undefined") ? PHST_EMOTE_PACK_SIZE : 5;
           const _coinImg  = `<img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false">`;
-
-          // Never-changed username: the first change costs nothing, so say so
-          // rather than selling a token the player doesn't need yet.
-          const _neverRenamed = !(_activeProfile && _activeProfile.nickname_changed_at);
 
           const _perks = [
             {
@@ -22438,15 +22405,6 @@
               price: (typeof PHST_SHIELD_COIN_PRICE !== "undefined") ? PHST_SHIELD_COIN_PRICE : 500,
               desc: "Covers one missed day so your daily streak survives it. We'll offer it the moment you break a streak — buy ahead and it's one tap.",
               stat: _shields ? `You hold ${_shields} shield${_shields !== 1 ? "s" : ""}` : "You hold no shields",
-              cta: "Buy",
-            },
-            {
-              key: "nametok", ico: "🏷️", name: "Name Change Token",
-              price: (typeof PHST_NAMETOK_COIN_PRICE !== "undefined") ? PHST_NAMETOK_COIN_PRICE : 100,
-              desc: "Skips the 24-hour wait between username changes. Your friend code stays the same.",
-              stat: _neverRenamed
-                ? "Your first change is free — no token needed"
-                : (_nameToks ? `You hold ${_nameToks} token${_nameToks !== 1 ? "s" : ""}` : "You hold no tokens"),
               cta: "Buy",
             },
             {
@@ -22727,7 +22685,6 @@
         if (btn) btn.disabled = true;
         try {
           if (key === "shield")  await _perkBuyShield();
-          if (key === "nametok") await _perkBuyNameToken();
           if (key === "emotes")  await _perkBuyEmotes();
           if (key === "reearn")  await _perkBuyReEarn();
         } catch (e) {
@@ -22755,32 +22712,6 @@
         showToast(res && res.ok
           ? `Streak Shield bought! 🛡️ You're holding ${(window.__fishStreakShields ? window.__fishStreakShields() : 1)}.`
           : _perkFailMsg(res && res.reason, price, "a Streak Shield"), res && res.ok ? "ok" : "err");
-      }
-
-      async function _perkBuyNameToken() {
-        const price = PHST_NAMETOK_COIN_PRICE;
-        // Nobody should pay to do something that is currently free.
-        if (!(_activeProfile && _activeProfile.nickname_changed_at)) {
-          await ccPerkModal({
-            icon: "🏷️", title: "Your first change is free",
-            body: "You've never changed your username, so you can change it right now in Settings without spending anything. Tokens are only for changing it again inside the 24-hour cooldown.",
-            actions: [{ key:"confirm", label:"Got it", primary:true }],
-          });
-          return;
-        }
-        const r = await ccPerkModal({
-          icon: "🏷️", title: "Name Change Token",
-          body: "Skips the 24-hour wait between username changes. Your friend code and everything you've unlocked stay exactly as they are.",
-          actions: [
-            { key:"cancel", label:"Not now" },
-            { key:"confirm", label:`Buy — ${phstFmtCoins(price)} coins`, primary:true },
-          ],
-        });
-        if (r.action !== "confirm") return;
-        const res = await window.__fishBuyNameToken();
-        showToast(res && res.ok
-          ? "Name Change Token bought! 🏷️ Use it in Settings → Username."
-          : _perkFailMsg(res && res.reason, price, "a Name Change Token"), res && res.ok ? "ok" : "err");
       }
 
       // The Emote Pack grants PHST_EMOTE_PACK_SIZE critters, and it can only
@@ -27840,14 +27771,16 @@
 
     // ═══════════════════════════════════════════════════════════════
     //  PLAYER PERKS — Critter Coin consumables
-    //  Four Store items that are neither an avatar nor a background:
+    //  Three Store items that are neither an avatar nor a background:
     //    • Streak Shield      500   covers ONE missed day of your daily streak
-    //    • Name Change Token  100   skips the 24h username cooldown
     //    • Emote Pack         500   5 critter emotes for in-game chat
     //    • Critter Re-Earn  2,500   instantly take back a critter you traded
-    //  Inventory lives on the user doc (streak_shields, name_change_tokens,
-    //  emote_icons) and is ALWAYS read back inside the spend transaction, so
-    //  the counts can never desync from the coins that paid for them.
+    //  (The Name Change Token retired in 1.6.48 — a username change is now one
+    //  free rename then PHST_RENAME_COIN_PRICE, charged in the rename's own
+    //  transaction, so there is nothing left to hold.)
+    //  Inventory lives on the user doc (streak_shields, emote_icons) and is
+    //  ALWAYS read back inside the spend transaction, so the counts can never
+    //  desync from the coins that paid for them.
     //  Prices are declared once beside PHST_SKIN_COIN_PRICE, up where the Store
     //  can read them too.
     // ═══════════════════════════════════════════════════════════════
@@ -27862,7 +27795,6 @@
       return Math.max(0, Math.floor(Number(p && p[field]) || 0));
     }
     window.__fishStreakShields = () => _perkCount("streak_shields");
-    window.__fishNameTokens    = () => _perkCount("name_change_tokens");
 
     // Emotes owned, as normalized "/avatars/x.png" paths.
     function _ownedEmotes() {
@@ -27993,24 +27925,6 @@
       }
       try { _refreshStreakUiAfterSave(out.days, out.current, out.longest); } catch {}
       return { ok:true, current: out.current, longest: out.longest, shieldsLeft: out.held };
-    };
-
-    // ── Name Change Token ────────────────────────────────────────────
-    window.__fishBuyNameToken = async () => {
-      const res = await _perkSpend(PHST_NAMETOK_COIN_PRICE, (data) => {
-        const held = Math.max(0, Math.floor(Number(data.name_change_tokens) || 0));
-        if (held >= PHST_PERK_STACK_MAX) throw new Error("max");
-        return { name_change_tokens: held + 1 };
-      });
-      if (res.ok) _perkReflect(res.newBalance, { name_change_tokens: res.patch.name_change_tokens });
-      return res;
-    };
-    // A token is CONSUMED as part of the rename write itself (see the Settings
-    // save handler), never on its own — so a rename that fails can't eat one.
-    window.__fishNoteNameTokenSpent = () => {
-      const left = Math.max(0, _perkCount("name_change_tokens") - 1);
-      if (_activeProfile && !_galReadOnly) _activeProfile = { ..._activeProfile, name_change_tokens: left };
-      return left;
     };
 
     // ── Emote Pack ───────────────────────────────────────────────────

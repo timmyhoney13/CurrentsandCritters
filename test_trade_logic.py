@@ -176,13 +176,16 @@ def entry_for(changes_for_uid, item):
 
 print("progress_snapshot:")
 snap = M._trade_progress_snapshot(user_p(stats={
-    "lifetime_play_again": 91, "total_xp": 60_450, "rank_competitive": "Bronze Barracuda",
+    "lifetime_play_again": 91, "total_xp": M.LEVEL_XP_TOTALS[30], "rank_competitive": "Bronze Barracuda",
     "level_title": "Ocean Explorer", "normal_games_by_size": {"4": 3}, "in_beta": True}))
 check("keeps numeric stats", snap["stats"]["lifetime_play_again"] == 91)
 check("drops non-numeric stats", "level_title" not in snap["stats"]
       and "normal_games_by_size" not in snap["stats"])
 check("drops booleans (bools are ints in python)", "in_beta" not in snap["stats"])
-check("derives level from total_xp", snap["level"] == 31 and snap["total_xp"] == 60_450)
+# Anchored to the curve's own level-31 boundary, not a literal, so retuning
+# LEVEL_XP_TOTALS can never silently turn this into a different level.
+check("derives level from total_xp",
+      snap["level"] == 31 and snap["total_xp"] == M.LEVEL_XP_TOTALS[30])
 check("records rank", snap["rank"] == "Bronze Barracuda")
 check("missing stats → empty snapshot", M._trade_progress_snapshot({})["stats"] == {})
 

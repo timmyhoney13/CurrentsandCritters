@@ -3,10 +3,12 @@
  *
  * Run:  node test_store_perks.js
  *
- * Four things are bought with coins that are neither an avatar nor a
- * background: a Streak Shield, a Name Change Token, an Emote Pack and a
- * Critter Re-Earn. Each one has a rule that costs a player real money (or a
- * real streak) when it breaks, so each one is pinned here:
+ * Three things are bought with coins that are neither an avatar nor a
+ * background: a Streak Shield, an Emote Pack and a Critter Re-Earn. Each one
+ * has a rule that costs a player real money (or a real streak) when it breaks,
+ * so each one is pinned here. (The Name Change Token retired in 1.6.48 — a
+ * rename is now one free change then PHST_RENAME_COIN_PRICE, charged inside
+ * the rename's own transaction; section 6 pins that rule instead.)
  *
  *   1. The Streak Shield offer fires ONLY when one shield can actually save
  *      the run — the last day played was the day before yesterday. Alive
@@ -295,13 +297,13 @@ console.log("3. The perk spend transactions");
     return m ? Number(m[1]) : null;
   };
   const SHIELD = priceOf("PHST_SHIELD_COIN_PRICE");
-  const NAMETOK = priceOf("PHST_NAMETOK_COIN_PRICE");
+  const RENAME = priceOf("PHST_RENAME_COIN_PRICE");
   const PACK = priceOf("PHST_EMOTE_PACK_PRICE");
   const PACK_SIZE = priceOf("PHST_EMOTE_PACK_SIZE");
   const REEARN = priceOf("PHST_REEARN_COIN_PRICE");
 
   check(SHIELD === 500, `Streak Shield is 500 coins, source says ${SHIELD}`);
-  check(NAMETOK === 100, `Name Change Token is 100 coins, source says ${NAMETOK}`);
+  check(RENAME === 100, `a username change is 100 coins, source says ${RENAME}`);
   check(PACK === 500, `Emote Pack is 500 coins, source says ${PACK}`);
   check(PACK_SIZE === 5, `an Emote Pack is 5 emotes, source says ${PACK_SIZE}`);
   check(REEARN === 2500, `Critter Re-Earn is 2,500 coins, source says ${REEARN}`);
@@ -550,27 +552,59 @@ console.log("3. The perk spend transactions");
       check(/data-perk="\$\{p\.key\}"/.test(APP), "each perk card carries its key");
       check(/el\.querySelectorAll\("\[data-perk\]"\)/.test(APP), "perk buttons are wired on render");
       check(/window\._phstBuyPerk = async function/.test(APP), "the perk buy entry point exists");
-      for (const k of ["shield", "nametok", "emotes", "reearn"]) {
+      for (const k of ["shield", "emotes", "reearn"]) {
         check(new RegExp(`key === "${k}"`).test(APP), `the '${k}' perk is dispatched`);
       }
       check(/\.phst-perk-grid \{/.test(CSS), "the perk grid is styled");
       check(/#cc-perk-modal \{/.test(CSS) && /#cc-perk-modal\.open \{ display: flex; \}/.test(CSS),
             "the perk dialog is styled and has an open state");
 
-      // The name token is burned by the rename itself, so a failed rename can
-      // never eat one.
-      const renameBlock = /nickname_changed_at: now,[\s\S]{0,400}?\}\);/.exec(APP);
-      check(!!renameBlock && /name_change_tokens: firebase\.firestore\.FieldValue\.increment\(-1\)/.test(renameBlock[0]),
-            "the token is decremented in the SAME write as the rename");
-      check(/let spendNameToken = false;/.test(APP),
-            "the rename decides up front whether a token is being spent");
-      check(/if \(!toks\) \{[\s\S]{0,220}?return;/.test(APP),
-            "with no token in hand the cooldown still blocks the rename");
+      // The Name Change Token is gone from every surface it used to touch.
+      // (The words may still appear in a comment or the changelog note that
+      // retires it — what must be gone is the code.)
+      for (const dead of ["nametok", "PHST_NAMETOK_COIN_PRICE", "name_change_tokens",
+                          "__fishBuyNameToken", "__fishNameTokens"]) {
+        check(!APP.includes(dead), `the retired token leaves no '${dead}' behind`);
+      }
+      check(!/name: "Name Change Token"/.test(APP), "no Store card sells the retired token");
 
-      // The "first change is free" promise: a player who has never renamed is
-      // told so instead of being sold a token they don't need.
-      check(/Your first change is free/.test(APP),
-            "a player who never renamed is told the first change costs nothing");
+      // A rename charges coins INSIDE the same transaction that renames, and
+      // the free/paid decision is made from the freshly-read doc — so a
+      // double-tap can't take two free renames and a failed rename can't take
+      // the coins with it.
+      const renameTx = /const out = await _db\.runTransaction\(async \(tx\) => \{[\s\S]*?\n        \}\);/.exec(APP);
+      check(!!renameTx, "the rename runs in a transaction");
+      if (renameTx) {
+        const body = renameTx[0];
+        check(/const snap = await tx\.get\(uref\);/.test(body),
+              "the rename transaction re-reads the user doc");
+        check(/const free = _renameIsFree\(data\);/.test(body),
+              "free-vs-paid is decided from the doc the transaction just read");
+        check(/if \(!free && coins < PHST_RENAME_COIN_PRICE\) throw new Error\("coins"\);/.test(body),
+              "a paid rename with too few coins aborts before writing anything");
+        check(/\.\.\.\(free \? \{\} : \{ "stats\.critter_coins": after \}\)/.test(body),
+              "the charge lands in the SAME write as the new name");
+        check(/nickname_changed_at: firebase\.firestore\.FieldValue\.serverTimestamp\(\)/.test(body),
+              "the rename stamps the has-renamed marker that spends the free change");
+      }
+
+      // The marker itself: never renamed => free.
+      check(/function _renameIsFree\(profile\) \{\s*return !\(profile && profile\.nickname_changed_at\);/.test(APP),
+            "'never renamed' is what makes a change free");
+
+      // The "first change is free" promise, on both screens that make it.
+      check(/Your first username change is free\./.test(APP),
+            "Settings tells a player who never renamed that the change is free");
+      check(/once for free/.test(HTML),
+            "the first sign-in screen promises one free username change");
+      check(/id="auth-nick-price"/.test(HTML) &&
+            /priceEl\.textContent = String\(PHST_RENAME_COIN_PRICE\)/.test(APP),
+            "the price on the sign-in screen comes from the constant that charges it");
+
+      // No waiting period survives anywhere.
+      check(!/24 \* 60 \* 60 \* 1000/.test(APP) || !/nickname_changed_at/.test(
+              (/24 \* 60 \* 60 \* 1000[\s\S]{0,200}/.exec(APP) || [""])[0]),
+            "no 24-hour username cooldown remains");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

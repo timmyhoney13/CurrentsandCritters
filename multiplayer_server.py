@@ -33,6 +33,7 @@ import fish_game_all_in_one as fish
 import snap_score
 import tournament_server
 import clan_server
+import prestige_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +43,10 @@ WEBSITE_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "website.ht
 RULES_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "rules.html")
 ABOUT_INDEX_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "about.html")
 LEADERBOARD_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "leaderboard.html")
+# The privacy policy, published at /privacy from BOTH hosts (see vercel.json).
+# The page is a shell; the document itself is js/privacy-policy.js, the one
+# source the in-game reader (Settings → 📜 Legal) renders too.
+PRIVACY_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "privacy.html")
 SUPPORTER_WALL_HTML_PATH  = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-wall.html")
 SUPPORTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "supporter-admin.html")
 CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "claim-rewards.html")
@@ -553,15 +558,15 @@ SUPPORTER_TIER_GRANTS = {
 # the leaderboard / header / profile never disagree.
 LEVEL_XP_TOTALS = [
     0, 50, 100, 250, 550, 900, 1400, 2000, 2700, 3550,
-    4550, 5700, 7000, 8450, 10100, 11850, 13800, 15900, 18200, 20650,
-    23300, 26150, 29150, 32400, 35800, 39400, 43200, 47200, 51400, 55850,
-    60450, 65300, 70350, 75650, 81150, 86850, 92800, 99000, 105400, 112000,
-    118900, 126000, 133300, 140900, 148700, 156800, 165100, 173650, 182450, 191500,
-    200850, 210400, 220200, 230300, 240650, 251250, 262100, 273250, 284650, 296300,
-    308250, 320450, 332950, 345700, 358750, 372050, 385650, 399500, 413650, 428100,
-    442850, 457850, 473150, 488750, 504600, 520800, 537250, 554000, 571050, 588400,
-    606050, 624000, 642250, 660850, 679700, 698850, 718350, 738100, 758200, 778600,
-    800000, 825000, 852500, 882500, 915000, 950000, 987500, 1027500, 1070000, 1125000,
+    4550, 5700, 7000, 8450, 10100, 11750, 13400, 15050, 16700, 18350,
+    20050, 21800, 23600, 25450, 27350, 29250, 31200, 33200, 35250, 37300,
+    39400, 41550, 43700, 45900, 48150, 50400, 52700, 55050, 57400, 59800,
+    62200, 64650, 67150, 69650, 72200, 74750, 77350, 80000, 82650, 85350,
+    88050, 90800, 93550, 96350, 99150, 102000, 104850, 107750, 110650, 113600,
+    116550, 119550, 122550, 125600, 128650, 131750, 134850, 138000, 141150, 144350,
+    147550, 150800, 154050, 157350, 160650, 163950, 167300, 170650, 174050, 177450,
+    180900, 184350, 187800, 191300, 194800, 198350, 201900, 205500, 209100, 212700,
+    216350, 220000, 223700, 227400, 231100, 234850, 238600, 242400, 246200, 250000,
 ]
 
 
@@ -1149,7 +1154,23 @@ def _process_stripe_checkout(event: dict) -> str:
             stats = existing_user.get("stats") or {}
             updates: Dict[str, Any] = {}
             if kind == "coins":
-                updates["stats"] = {"critter_coins": int(stats.get("critter_coins") or 0) + int(value)}
+                # ── Prestige store bonus ────────────────────────────────────
+                # +5% per Prestige level on BOUGHT coin packs. Computed here,
+                # from the account's own stored Prestige level, AFTER Stripe
+                # confirmed the payment — the browser never sends an amount and
+                # the price the buyer paid is not changed by it. Deliberately
+                # not applied to tier grants, refunds, admin grants, challenge
+                # rewards or the Prestige coin reward itself.
+                pack = int(value)
+                prestige_bonus = prestige_server.store_bonus_for(existing_user, pack)
+                updates["stats"] = {
+                    "critter_coins": int(stats.get("critter_coins") or 0) + pack + prestige_bonus
+                }
+                if prestige_bonus:
+                    updates["stats"]["last_prestige_store_bonus"] = prestige_bonus
+                    print(f"[stripe] prestige store bonus for {matched_uid}: "
+                          f"+{prestige_bonus} on a {pack}-coin pack "
+                          f"(P{prestige_server.prestige_level_of(existing_user)})")
             elif kind == "tier":
                 # Coins, XP + derived level, backgrounds and icons — the same
                 # grant /claim-rewards applies, from the one helper.
@@ -1197,6 +1218,31 @@ def _process_stripe_checkout(event: dict) -> str:
     result = _apply(transaction)
     print(f"[stripe] checkout {stripe_session_id}: {result} "
           f"(uid={matched_uid or '-'}, guest={guest_id or '-'}, kind={kind}, value={value})")
+
+    # ── one buyer, ONE name on the wall ──────────────────────────────────────
+    # Someone who donated from the marketing site (no uid → a guestSupporters
+    # doc) and later bought in-game while signed in (→ supporters/{uid}) would
+    # otherwise stand on the wall TWICE, with their lifetime total split between
+    # the two rows, so neither name grows the way it should. Fold the guest rows
+    # in now — the same merge /claim-rewards runs, deduped by Stripe session id,
+    # so it's a no-op once there's nothing left to move.
+    #
+    # ⚠️ Matched on the ACCOUNT's OWN email, never on `checkout_email`. Stripe
+    # does not verify the address typed at checkout, so keying off it would let
+    # anyone pull a stranger's unclaimed guest donations onto their own account
+    # by typing that stranger's email into a $1 purchase.
+    if matched_uid:
+        try:
+            acct_snap  = db.collection("users").document(matched_uid).get()
+            acct_email = str(((acct_snap.to_dict() or {}) if acct_snap.exists else {})
+                             .get("email") or "").strip().lower()
+            if acct_email:
+                _claim_guest_rewards(matched_uid, acct_email)
+        except Exception as exc:  # noqa: BLE001
+            # Never fail the webhook for this: the purchase above is already
+            # committed, and a 500 would make Stripe retry a settled payment.
+            print(f"[stripe] guest auto-merge for {matched_uid} failed: {exc}")
+
     return result
 
 
@@ -1227,6 +1273,13 @@ def _build_supporter_wall() -> List[Dict[str, Any]]:
         for doc in snap:
             d = doc.to_dict() or {}
             if d.get("status") != "approved":
+                continue
+            # A guest row whose payments were merged into supporters/{uid} is the
+            # SAME human as that supporter doc. Showing both puts one donor on
+            # the wall twice at two different sizes and double-counts the total
+            # raised. The claim now clears `visible` too; this also covers rows
+            # claimed BEFORE that fix, which are still sitting visible.
+            if coll == "guestSupporters" and d.get("claimStatus") == "claimed":
                 continue
             cents = int(d.get("totalSpentCents") or 0)
             out.append({
@@ -1417,6 +1470,7 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
     claimed_payments = 0
     for gid, gdata in guest_docs.items():
         guest_ref = db.collection("guestSupporters").document(gid)
+        moved_all = True     # every payment on this guest reached supporters/{uid}
         try:
             pay_docs = list(guest_ref.collection("payments").limit(500).get())
         except Exception as exc:  # noqa: BLE001
@@ -1455,13 +1509,27 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
                 }
                 if not ssnap.exists:
                     # First time this account becomes a supporter (they paid as a
-                    # guest before linking): seed it pending + hidden for review,
-                    # honouring the guest's public-name choice.
+                    # guest before linking). The guest row is pulled OFF the wall
+                    # once its payments land (below), so this doc has to INHERIT
+                    # its wall placement rather than start from scratch: sending
+                    # an ALREADY-APPROVED name back to pending_review would drop a
+                    # paying supporter off the wall the moment they linked their
+                    # account, and leave them off until someone noticed.
+                    g_name   = gdata.get("displayName") or "Supporter"
+                    g_anon   = bool(gdata.get("anonymous", True))
                     sup["createdAt"]     = SERVER_TIMESTAMP
-                    sup["status"]        = "pending_review"
-                    sup["visible"]       = False
-                    sup["displayName"]   = gdata.get("displayName") or "Supporter"
-                    sup["anonymous"]     = bool(gdata.get("anonymous", True))
+                    sup["displayName"]   = g_name
+                    sup["anonymous"]     = g_anon
+                    if g_anon:
+                        # Asked not to be shown: recorded, never on the wall.
+                        sup["status"], sup["visible"] = "approved", False
+                    elif str(gdata.get("status") or "") == "approved":
+                        # Already cleared (auto or by a human) → keep that ruling.
+                        sup["status"], sup["visible"] = "approved", bool(gdata.get("visible"))
+                    elif _name_needs_review(g_name):
+                        sup["status"], sup["visible"] = "pending_review", False
+                    else:
+                        sup["status"], sup["visible"] = "approved", True
                     sup["username"]      = acct.get("username") or ""
                     sup["usernameLower"] = acct.get("usernameLower") or ""
                 t.set(dest_ref, {**pdata, "claimedFromGuest": gid}, merge=True)
@@ -1473,11 +1541,21 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
             except Exception as exc:  # noqa: BLE001
                 print(f"[claim] move payment {sid} failed: {exc}")
                 amt = 0
+                moved_all = False
             if amt:
                 claimed_payments += 1
         try:
-            guest_ref.set({"claimStatus": "claimed", "claimedByUid": uid,
-                           "updatedAt": SERVER_TIMESTAMP}, merge=True)
+            done: Dict[str, Any] = {"claimStatus": "claimed", "claimedByUid": uid,
+                                    "updatedAt": SERVER_TIMESTAMP}
+            # Pull the guest row OFF the wall. Its money now lives on
+            # supporters/{uid}, which carries the SAME name — leaving both
+            # visible puts one donor on the wall TWICE, at two different sizes,
+            # and double-counts them in the total raised.
+            # Only once EVERY payment actually landed: hiding a guest whose
+            # cents never made it across would erase that donation instead.
+            if moved_all:
+                done["visible"] = False
+            guest_ref.set(done, merge=True)
         except Exception as exc:  # noqa: BLE001
             print(f"[claim] mark guest {gid} failed: {exc}")
 
@@ -1502,10 +1580,16 @@ def _claim_guest_rewards(uid: str, verified_email: str) -> Dict[str, Any]:
             if not rsnap.exists or (rsnap.to_dict() or {}).get("status") == "claimed":
                 return 0
             usnap = user_ref.get(transaction=t)
-            stats = (usnap.to_dict() or {}).get("stats") or {}
+            udoc_now = usnap.to_dict() or {}
+            stats = udoc_now.get("stats") or {}
             credited = 0
             if rdata.get("rewardKind") == "coins":
-                credited = int(rdata.get("rewardValue") or 0)
+                # A late claim is still a BOUGHT coin pack, so the Prestige
+                # store bonus applies here exactly as it does in the webhook —
+                # paying first and making the account after must not cost the
+                # buyer their bonus.
+                pack = int(rdata.get("rewardValue") or 0)
+                credited = pack + prestige_server.store_bonus_for(udoc_now, pack)
                 t.set(user_ref, {"stats": {"critter_coins": int(stats.get("critter_coins") or 0) + credited}}, merge=True)
             elif rdata.get("rewardKind") == "tier":
                 # The FULL tier grant, not just the badge: coins, XP + level,
@@ -9889,6 +9973,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if clan_server.handle_get(self, parsed):
             return
 
+        # Prestige API (public reward catalogue — no account data in it).
+        if prestige_server.handle_get(self, parsed):
+            return
+
         if parsed.path == "/firebase-config.js":
             cfg = {
                 "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
@@ -10189,6 +10277,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_leaderboard_html()
                 return
             self._send_json({"ok": False, "error": "leaderboard page missing"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        # Privacy policy. Both spellings, because the footer of every other
+        # published page and the in-game link should never 404 on a hyphen.
+        if len(parts) == 1 and parts[0] in {"privacy", "privacy-policy"}:
+            self._send_html_file(PRIVACY_HTML_PATH, "privacy")
             return
 
         # Supporter Reef Wall pages (public wall, guest claim, admin review).
@@ -10605,6 +10699,10 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
 
         # Clan System API (create / join / roles / chat / points / seasons / admin review).
         if clan_server.handle_post(self, parsed, body):
+            return
+
+        # Prestige API (state / commit / appearance / history / name lookups + admin).
+        if prestige_server.handle_post(self, parsed, body):
             return
 
         if parsed.path == "/api/user/register":
@@ -11512,6 +11610,15 @@ def main() -> None:
         prof_leet=_PROF_LEET,
         prof_strong=_PROF_STRONG,
         prof_words=_PROF_WORDS,
+    )
+
+    # Prestige: the level cap comes from the SAME curve everything else uses, so
+    # "you may prestige" can never mean a different level than "Level 100".
+    prestige_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        level_progress=_level_progress_for_total_xp,
+        max_level=len(LEVEL_XP_TOTALS),
     )
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.
