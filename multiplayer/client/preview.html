@@ -80,6 +80,10 @@
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
   <link rel="stylesheet" href="/css/prestige.css?v=2026-08-06.1" />
+  <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
+       same way — everything in it is scoped under #ccA-overlay, which nothing
+       else on the page ever renders, so it cannot touch the game. -->
+  <link rel="stylesheet" href="/css/analytics.css?v=2026-08-06.2" />
 </head>
 <body>
 
@@ -2873,7 +2877,7 @@
      reads window.CC_PRIVACY_HTML. -->
 <script defer src="/js/privacy-policy.js?v=2026-08-06.1"></script>
 
-<script defer src="/js/preview-app.js?v=2026-08-06.1"></script>
+<script defer src="/js/preview-app.js?v=2026-08-06.2"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-29.5"></script>
@@ -2884,6 +2888,11 @@
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
 <script defer src="/js/prestige-ui.js?v=2026-08-06.1"></script>
+
+<!-- Developer Analytics — a full-screen, admin-only dashboard. It builds no DOM
+     and makes no request until the Analytics sidebar button is clicked, so it
+     costs every player nothing but the parse. -->
+<script defer src="/js/analytics-ui.js?v=2026-08-06.2"></script>
 <!-- Custom bracket BUILDER — the host's design canvas. Inert until opened from
      the New Tournament modal, so it costs nothing on every other page. -->
 <script defer src="/js/tournament-builder.js?v=2026-07-29.2"></script>

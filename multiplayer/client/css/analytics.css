@@ -1,0 +1,604 @@
+/* Currents and Critters — Developer Analytics dashboard.
+ *
+ * A full-screen, admin-only overlay. It is the sunlit-shallows half of the
+ * game's look (the Player Home's Nunito + soft ocean blues), not the deep-water
+ * board — a dashboard is read for minutes at a time, and the light surface is
+ * what makes room for the open space this screen is built around.
+ *
+ * THE ONE RULE THIS FILE ENFORCES
+ * Every card is the same height and the same corner radius, every section is
+ * separated by the same 28px, and there are exactly three text sizes. Nothing
+ * here competes with the numbers. When something needs emphasis it gets SPACE,
+ * not another colour.
+ *
+ * COLOURS — this is not a free palette
+ * `--a-series-1/2/3` are the only colours a chart may use for identity, always
+ * in that order, never cycled. They were not eyeballed: they are the game's
+ * ocean / coral / teal families stepped until they cleared the lightness band,
+ * chroma floor, colour-blind separation (adjacent ΔE >= 8 under simulated
+ * protanopia and deuteranopia), normal-vision floor and 3:1 contrast against
+ * the white card. `--a-good/warn/bad` are RESERVED for state and never stand in
+ * as "series 4"; they always ship with a word or an icon beside them, so no
+ * meaning is ever carried by colour alone.
+ */
+
+/* ══════════════════════════════════════════════════════════════════════
+   ROOT + TOKENS
+   ══════════════════════════════════════════════════════════════════════ */
+#ccA-overlay {
+  /* Surfaces */
+  --a-page:      #eef6fd;
+  --a-card:      #ffffff;
+  --a-sunk:      #f4f9fe;
+  --a-line:      #dbe8f4;
+  --a-line-soft: #eaf2fa;
+
+  /* Ink */
+  --a-ink:    #12354f;
+  --a-ink-2:  #3c637f;
+  --a-muted:  #5c7e99;
+
+  /* Series — fixed order, validated, never cycled */
+  --a-series-1: #2e8fe0;   /* ocean blue — the primary; most charts use only this */
+  --a-series-2: #c25a34;   /* deep coral */
+  --a-series-3: #0f8f79;   /* deep teal */
+
+  /* Sequential ocean ramp (magnitude only: heatmaps, intensity) */
+  --a-seq-1: #7bb6e9;
+  --a-seq-2: #559fdf;
+  --a-seq-3: #3384d2;
+  --a-seq-4: #1f69ac;
+  --a-seq-5: #12497a;
+
+  /* Status — reserved meaning, always with a label or icon */
+  --a-good: #12805a;
+  --a-warn: #9a6b12;
+  --a-bad:  #c0392b;
+
+  /* Selection / highlight */
+  --a-sel: #c25a34;
+
+  /* Geometry — one radius, one shadow, one gap scale */
+  --a-r:   14px;
+  --a-r-s: 10px;
+  --a-gap: 28px;
+  --a-shadow: 0 1px 2px rgba(18, 53, 79, .06), 0 6px 20px rgba(18, 53, 79, .07);
+
+  position: fixed;
+  inset: 0;
+  z-index: 100050;
+  display: none;
+  background: var(--a-page);
+  color: var(--a-ink);
+  font-family: "Nunito", system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+  overflow: hidden;
+}
+#ccA-overlay.open { display: flex; flex-direction: column; }
+#ccA-overlay *, #ccA-overlay *::before, #ccA-overlay *::after { box-sizing: border-box; }
+#ccA-overlay button { font-family: inherit; cursor: pointer; }
+
+/* A soft ocean horizon behind the whole thing — the only decoration in the
+   file, and it sits under everything and never moves. */
+#ccA-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 320px;
+  background:
+    radial-gradient(120% 100% at 12% 0%, rgba(46, 143, 224, .16) 0%, rgba(46, 143, 224, 0) 62%),
+    radial-gradient(90% 90% at 92% 0%, rgba(15, 143, 121, .10) 0%, rgba(15, 143, 121, 0) 60%);
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   HEADER
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-head {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 26px;
+  background: rgba(255, 255, 255, .82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--a-line);
+}
+.ccA-brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.ccA-title {
+  font-family: "Cinzel", serif;
+  font-weight: 900;
+  font-size: 1.16rem;
+  letter-spacing: .3px;
+  color: #1b5d94;
+  white-space: nowrap;
+}
+.ccA-sub { font-size: .78rem; color: var(--a-muted); white-space: nowrap; }
+.ccA-head-spacer { flex: 1 1 auto; }
+
+/* The X. Always in the same place, always the last thing in the header. */
+#ccA-close {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--a-line);
+  background: #fff;
+  color: var(--a-ink-2);
+  font-size: 19px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  transition: background .15s, color .15s, border-color .15s;
+}
+#ccA-close:hover { background: var(--a-bad); border-color: var(--a-bad); color: #fff; }
+#ccA-close:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 2px; }
+
+/* ── Filter bar: only four controls, ever ───────────────────────────── */
+.ccA-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ccA-ctl {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--a-line);
+  background: #fff;
+  color: var(--a-ink);
+  font-size: .84rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: border-color .15s, background .15s;
+}
+.ccA-ctl:hover { border-color: #b9d4ec; }
+.ccA-ctl:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 1px; }
+.ccA-ctl.on { border-color: var(--a-sel); color: var(--a-sel); background: #fdf3ef; }
+select.ccA-ctl { -webkit-appearance: none; appearance: none; padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%235c7e99' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 11px center; }
+
+.ccA-adv-toggle { color: var(--a-muted); font-weight: 700; }
+.ccA-adv-toggle .ccA-caret { transition: transform .18s; display: inline-block; }
+.ccA-adv-toggle.open .ccA-caret { transform: rotate(180deg); }
+
+/* Advanced filters — collapsed by default, and a full-width tray when open so
+   it never squeezes the four controls that matter. */
+.ccA-adv {
+  position: relative;
+  z-index: 2;
+  display: none;
+  gap: 10px 22px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 14px 26px;
+  background: #fff;
+  border-bottom: 1px solid var(--a-line);
+}
+.ccA-adv.open { display: flex; }
+.ccA-adv label { display: inline-flex; align-items: center; gap: 8px; font-size: .84rem; color: var(--a-ink-2); }
+.ccA-adv input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--a-series-1); }
+.ccA-adv .ccA-adv-note { flex: 1 1 100%; font-size: .76rem; color: var(--a-muted); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   LAYOUT: nav + scrolling body
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-main { position: relative; z-index: 1; flex: 1 1 auto; display: flex; min-height: 0; }
+
+.ccA-nav {
+  flex: 0 0 218px;
+  padding: 20px 12px 30px;
+  overflow-y: auto;
+  border-right: 1px solid var(--a-line);
+  background: rgba(255, 255, 255, .55);
+}
+.ccA-nav-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  margin-bottom: 3px;
+  border: 0;
+  border-radius: var(--a-r-s);
+  background: transparent;
+  color: var(--a-ink-2);
+  font-size: .9rem;
+  font-weight: 700;
+  text-align: left;
+  transition: background .14s, color .14s;
+}
+.ccA-nav-btn:hover { background: rgba(46, 143, 224, .09); color: var(--a-ink); }
+.ccA-nav-btn.active { background: var(--a-series-1); color: #fff; box-shadow: 0 2px 8px rgba(46, 143, 224, .3); }
+.ccA-nav-btn .ccA-nav-ico { width: 17px; flex: 0 0 17px; display: grid; place-items: center; opacity: .95; }
+.ccA-nav-sep { height: 1px; margin: 12px 12px; background: var(--a-line); }
+
+.ccA-body { flex: 1 1 auto; overflow-y: auto; padding: 26px 30px 60px; min-width: 0; }
+.ccA-inner { max-width: 1180px; margin: 0 auto; }
+
+/* Mobile: the nav becomes one dropdown instead of ten squeezed tabs. */
+.ccA-nav-mobile { display: none; padding: 12px 18px; background: #fff; border-bottom: 1px solid var(--a-line); }
+.ccA-nav-mobile select { width: 100%; height: 42px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   SECTION SCAFFOLD
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-section-head { margin-bottom: 18px; }
+.ccA-h1 { font-size: 1.42rem; font-weight: 800; letter-spacing: -.2px; }
+.ccA-h1-sub { font-size: .86rem; color: var(--a-muted); margin-top: 3px; }
+
+.ccA-block { margin-top: var(--a-gap); }
+.ccA-block-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.ccA-h2 { font-size: 1.02rem; font-weight: 800; }
+.ccA-block-head .ccA-spacer { flex: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   SUMMARY CARDS — one size, one shape, everywhere
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 14px; }
+.ccA-card {
+  position: relative;
+  min-height: 132px;
+  padding: 15px 16px 13px;
+  border-radius: var(--a-r);
+  background: var(--a-card);
+  border: 1px solid var(--a-line-soft);
+  box-shadow: var(--a-shadow);
+  display: flex;
+  flex-direction: column;
+}
+/* Every part of a card is a FIXED height, so a two-line title, a missing
+   comparison or a sparkline can't make one card taller than its neighbours.
+   "Consistent card dimensions" has to be structural — left to content, the row
+   goes ragged the first time a label wraps at phone width. */
+.ccA-card-lbl {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--a-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 2.2em;
+  line-height: 1.15;
+  margin-bottom: 8px;
+}
+.ccA-card-val {
+  font-size: 1.92rem;
+  font-weight: 800;
+  letter-spacing: -.6px;
+  line-height: 1.15;
+  min-height: 1.15em;
+  color: var(--a-ink);
+  /* Proportional figures: tabular-nums makes a big number look loose. */
+  font-variant-numeric: normal;
+}
+.ccA-card-val .ccA-unit { font-size: .95rem; font-weight: 700; color: var(--a-ink-2); margin-left: 1px; }
+.ccA-card-val.ccA-empty { font-size: .92rem; font-weight: 700; color: var(--a-muted); letter-spacing: 0; }
+.ccA-card-foot {
+  margin-top: auto;
+  padding-top: 10px;
+  height: 34px;                 /* fixed: the sparkline must not add height */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+.ccA-delta { font-size: .78rem; font-weight: 800; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.ccA-delta.up   { color: var(--a-good); }
+.ccA-delta.down { color: var(--a-bad); }
+.ccA-delta.flat { color: var(--a-muted); }
+.ccA-card-spark { margin-left: auto; flex: 0 0 auto; opacity: .95; }
+
+/* Tone chips — colour NEVER alone; each carries its own word. */
+.ccA-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: .7rem; font-weight: 800; letter-spacing: .2px;
+}
+.ccA-chip.good { background: #e4f4ed; color: var(--a-good); }
+.ccA-chip.warn { background: #fbf1dd; color: var(--a-warn); }
+.ccA-chip.bad  { background: #fbe9e7; color: var(--a-bad); }
+.ccA-chip.neutral { background: var(--a-sunk); color: var(--a-ink-2); }
+
+/* ── Tooltip (the definitions live here, not on the card) ───────────── */
+.ccA-info {
+  width: 15px; height: 15px; flex: 0 0 15px;
+  border-radius: 50%;
+  border: 1px solid #c6dcee;
+  background: #fff;
+  color: var(--a-muted);
+  font-size: .62rem;
+  font-weight: 800;
+  display: grid; place-items: center;
+  cursor: help;
+  position: relative;
+}
+.ccA-info:hover, .ccA-info:focus-visible { border-color: var(--a-series-1); color: var(--a-series-1); }
+.ccA-info::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 8px); left: 50%;
+  transform: translateX(-50%);
+  width: max-content; max-width: 240px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #12354f;
+  color: #eaf4fd;
+  font-size: .74rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  letter-spacing: 0;
+  opacity: 0; visibility: hidden;
+  transition: opacity .14s;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: 0 6px 18px rgba(18, 53, 79, .22);
+}
+.ccA-info:hover::after, .ccA-info:focus-visible::after { opacity: 1; visibility: visible; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PANELS + CHARTS
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-panel {
+  border-radius: var(--a-r);
+  background: var(--a-card);
+  border: 1px solid var(--a-line-soft);
+  box-shadow: var(--a-shadow);
+  padding: 18px 20px 16px;
+}
+.ccA-panel-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
+.ccA-panel-title { font-size: .98rem; font-weight: 800; display: flex; align-items: center; gap: 7px; }
+.ccA-panel-q { font-size: .78rem; color: var(--a-muted); margin-top: 2px; }
+.ccA-panel-head .ccA-spacer { flex: 1; }
+.ccA-grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(390px, 1fr)); gap: 16px; }
+
+/* Measure switcher — one chart, several measures, instead of three charts. */
+.ccA-switch { display: inline-flex; padding: 3px; border-radius: 9px; background: var(--a-sunk); gap: 2px; }
+.ccA-switch button {
+  border: 0; background: transparent; border-radius: 7px;
+  padding: 5px 11px; font-size: .78rem; font-weight: 700; color: var(--a-muted);
+  transition: background .14s, color .14s;
+}
+.ccA-switch button:hover { color: var(--a-ink); }
+.ccA-switch button.on { background: #fff; color: var(--a-ink); box-shadow: 0 1px 3px rgba(18, 53, 79, .12); }
+
+.ccA-chart { position: relative; margin-top: 12px; }
+.ccA-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ccA-axis text { font-size: 11px; fill: var(--a-muted); font-weight: 600; }
+.ccA-grid line { stroke: var(--a-line-soft); stroke-width: 1; }
+.ccA-baseline { stroke: var(--a-line); stroke-width: 1; }
+.ccA-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ccA-area { stroke: none; opacity: .10; }
+.ccA-dot { stroke: var(--a-card); stroke-width: 2; }
+.ccA-bar { rx: 4; }
+.ccA-endlabel { font-size: 11.5px; font-weight: 800; fill: var(--a-ink); }
+.ccA-ghost { fill: none; stroke: #b9cbd9; stroke-width: 2; stroke-dasharray: 4 4; }
+
+/* Crosshair + tooltip */
+.ccA-cross { stroke: var(--a-muted); stroke-width: 1; opacity: .5; }
+.ccA-tip {
+  position: absolute;
+  pointer-events: none;
+  padding: 8px 11px;
+  border-radius: 9px;
+  background: #12354f;
+  color: #eaf4fd;
+  font-size: .76rem;
+  font-weight: 700;
+  line-height: 1.45;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(18, 53, 79, .25);
+  opacity: 0;
+  transition: opacity .1s;
+  z-index: 12;
+}
+.ccA-tip.on { opacity: 1; }
+.ccA-tip .ccA-tip-k { color: #9dc4e0; font-weight: 600; }
+
+/* Legend — present whenever a chart carries two or more series. */
+.ccA-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
+.ccA-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--a-ink-2); font-weight: 700; }
+.ccA-legend-key { width: 14px; height: 3px; border-radius: 2px; flex: 0 0 14px; }
+.ccA-legend-key.dot { width: 9px; height: 9px; border-radius: 50%; flex-basis: 9px; }
+
+/* ── Ranked rows (a bar list — reads better than a pie, always) ─────── */
+.ccA-rank { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+.ccA-rank-row { display: grid; grid-template-columns: minmax(88px, 208px) 1fr auto; align-items: center; gap: 12px; }
+.ccA-rank-lbl { font-size: .82rem; font-weight: 700; color: var(--a-ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 7px; }
+.ccA-rank-lbl .ccA-chip { flex: 0 0 auto; }
+.ccA-rank-track { height: 10px; border-radius: 999px; background: var(--a-sunk); overflow: hidden; }
+.ccA-rank-fill { height: 100%; border-radius: 999px; background: var(--a-series-1); }
+.ccA-rank-val { font-size: .82rem; font-weight: 800; color: var(--a-ink); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; }
+
+/* ── Retention steps ────────────────────────────────────────────────── */
+.ccA-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
+.ccA-step { padding: 13px 14px; border-radius: var(--a-r-s); background: var(--a-sunk); border: 1px solid var(--a-line-soft); }
+.ccA-step-lbl { font-size: .74rem; font-weight: 700; color: var(--a-muted); }
+.ccA-step-val { font-size: 1.34rem; font-weight: 800; margin-top: 3px; }
+.ccA-step-note { font-size: .72rem; color: var(--a-muted); margin-top: 2px; }
+.ccA-step-bar { height: 5px; border-radius: 999px; background: #e3edf6; margin-top: 9px; overflow: hidden; }
+.ccA-step-bar span { display: block; height: 100%; border-radius: 999px; background: var(--a-series-1); }
+
+/* ══════════════════════════════════════════════════════════════════════
+   LIVE PANEL — calm: it updates in place and never reflows
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-live { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 12px; margin-top: 12px; }
+.ccA-live-cell { padding: 12px 13px; border-radius: var(--a-r-s); background: var(--a-sunk); text-align: center; }
+.ccA-live-val { font-size: 1.44rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ccA-live-lbl { font-size: .73rem; color: var(--a-muted); font-weight: 700; margin-top: 2px; }
+.ccA-pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--a-good); margin-right: 5px; vertical-align: middle; }
+.ccA-signups { margin-top: 12px; border-top: 1px solid var(--a-line-soft); padding-top: 11px; }
+.ccA-signup { display: flex; justify-content: space-between; gap: 12px; font-size: .81rem; padding: 4px 0; color: var(--a-ink-2); }
+.ccA-signup b { font-weight: 700; color: var(--a-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ccA-signup span { color: var(--a-muted); flex: 0 0 auto; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ALERTS — at most three here; the rest live in Technical Health
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-alerts { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+.ccA-alert {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: var(--a-r-s);
+  border: 1px solid var(--a-line-soft);
+  background: var(--a-sunk);
+}
+.ccA-alert.warn { border-color: #f0dcb4; background: #fdf7ea; }
+.ccA-alert.bad  { border-color: #f2ccc7; background: #fdf0ee; }
+.ccA-alert-ico { flex: 0 0 auto; font-size: .95rem; line-height: 1.35; }
+.ccA-alert-title { font-size: .87rem; font-weight: 800; }
+.ccA-alert-detail { font-size: .79rem; color: var(--a-ink-2); margin-top: 2px; }
+.ccA-alert-go { margin-left: auto; flex: 0 0 auto; align-self: center; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   TABLES — sections only, never the Overview
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-table-wrap { margin-top: 12px; overflow-x: auto; border-radius: var(--a-r-s); border: 1px solid var(--a-line-soft); }
+table.ccA-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.ccA-table th {
+  text-align: left; font-weight: 800; font-size: .74rem; letter-spacing: .3px;
+  text-transform: uppercase; color: var(--a-muted);
+  padding: 10px 14px; background: var(--a-sunk); white-space: nowrap;
+  border-bottom: 1px solid var(--a-line-soft);
+}
+.ccA-table td { padding: 10px 14px; border-bottom: 1px solid var(--a-line-soft); white-space: nowrap; }
+.ccA-table tbody tr:last-child td { border-bottom: 0; }
+.ccA-table tbody tr:hover td { background: #f7fbff; }
+.ccA-table td.num, .ccA-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ccA-table .ccA-row-link { color: var(--a-series-1); font-weight: 800; cursor: pointer; }
+.ccA-pager { display: flex; align-items: center; gap: 10px; margin-top: 11px; font-size: .8rem; color: var(--a-muted); }
+.ccA-pager .ccA-spacer { flex: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   BUTTONS
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-btn {
+  height: 32px; padding: 0 13px;
+  border-radius: 9px;
+  border: 1px solid var(--a-line);
+  background: #fff;
+  color: var(--a-ink-2);
+  font-size: .8rem; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.ccA-btn:hover { border-color: #b9d4ec; color: var(--a-ink); }
+.ccA-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ccA-btn.primary { background: var(--a-series-1); border-color: var(--a-series-1); color: #fff; }
+.ccA-btn.primary:hover { background: #2680cd; }
+.ccA-btn:focus-visible { outline: 2px solid var(--a-series-1); outline-offset: 2px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   DETAIL DRAWER — where "View details" goes, so the page stays simple
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-drawer-back {
+  position: fixed; inset: 0; z-index: 100060;
+  background: rgba(18, 53, 79, .34);
+  backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  display: flex; justify-content: flex-end;
+  opacity: 0; transition: opacity .18s;
+}
+.ccA-drawer-back.on { opacity: 1; }
+.ccA-drawer {
+  width: min(620px, 100%);
+  background: var(--a-page);
+  box-shadow: -12px 0 40px rgba(18, 53, 79, .2);
+  display: flex; flex-direction: column;
+  transform: translateX(24px);
+  transition: transform .18s;
+}
+.ccA-drawer-back.on .ccA-drawer { transform: none; }
+.ccA-drawer-head {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  background: #fff;
+  border-bottom: 1px solid var(--a-line);
+}
+.ccA-drawer-title { font-size: 1.02rem; font-weight: 800; flex: 1; }
+.ccA-drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 20px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   EMPTY + LOADING
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-empty {
+  padding: 30px 18px;
+  text-align: center;
+  color: var(--a-muted);
+  font-size: .86rem;
+  font-weight: 600;
+}
+.ccA-empty-ico { font-size: 1.5rem; opacity: .45; display: block; margin-bottom: 7px; }
+
+/* Skeletons: flat placeholders in the same shapes, no spinners anywhere. */
+.ccA-skel { background: linear-gradient(90deg, #e8f1f9 25%, #f2f8fd 37%, #e8f1f9 63%);
+  background-size: 400% 100%; animation: ccA-shimmer 1.4s ease infinite; border-radius: 8px; }
+@keyframes ccA-shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.ccA-skel-card { min-height: 132px; border-radius: var(--a-r); }
+.ccA-skel-panel { height: 268px; border-radius: var(--a-r); }
+.ccA-skel-line { height: 13px; margin-bottom: 9px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   SEARCH
+   ══════════════════════════════════════════════════════════════════════ */
+.ccA-search-row { display: flex; gap: 10px; margin-bottom: 16px; }
+.ccA-input {
+  flex: 1; height: 42px; padding: 0 15px;
+  border-radius: var(--a-r-s);
+  border: 1px solid var(--a-line);
+  background: #fff; color: var(--a-ink);
+  font-family: inherit; font-size: .92rem; font-weight: 600;
+}
+.ccA-input:focus { outline: 2px solid var(--a-series-1); outline-offset: -1px; border-color: var(--a-series-1); }
+.ccA-input::placeholder { color: #9fb9cd; font-weight: 600; }
+.ccA-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; margin-top: 12px; }
+.ccA-fact { padding: 11px 13px; border-radius: var(--a-r-s); background: var(--a-sunk); }
+.ccA-fact-lbl { font-size: .72rem; color: var(--a-muted); font-weight: 700; }
+.ccA-fact-val { font-size: 1.02rem; font-weight: 800; margin-top: 2px; }
+
+/* ══════════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .ccA-nav { display: none; }
+  .ccA-nav-mobile { display: block; }
+  .ccA-main { flex-direction: column; }
+  .ccA-body { padding: 20px 16px 54px; }
+  .ccA-head { padding: 12px 16px; gap: 10px; }
+  .ccA-adv { padding: 12px 16px; }
+  .ccA-sub { display: none; }
+  .ccA-cards { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 11px; }
+  .ccA-card { min-height: 116px; padding: 13px 13px 11px; }
+  .ccA-card-val { font-size: 1.6rem; }
+  .ccA-grid-2 { grid-template-columns: 1fr; }
+  .ccA-rank-row { grid-template-columns: minmax(76px, 116px) 1fr auto; }
+  .ccA-h1 { font-size: 1.2rem; }
+}
+@media (max-width: 560px) {
+  /* Two rows instead of one: the title + ✕ on top, the filters underneath.
+     On one row the nowrap title and the wrapping filter bar sit on top of each
+     other — and the ✕ must never be the thing that gets pushed off. */
+  .ccA-head { flex-wrap: wrap; row-gap: 10px; }
+  .ccA-brand { order: 1; flex: 1 1 auto; min-width: 0; }
+  .ccA-head-spacer { display: none; }
+  #ccA-close { order: 2; }
+  .ccA-filters { order: 3; flex: 1 1 100%; }
+  .ccA-filters .ccA-ctl { flex: 1 1 auto; justify-content: center; }
+  .ccA-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ccA-overlay *, #ccA-overlay *::before, #ccA-overlay *::after {
+    animation-duration: .001ms !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* Colour is never the only channel: under forced colours the marks keep their
+   shapes and every value stays readable from its label or the table view. */
+@media (forced-colors: active) {
+  .ccA-card, .ccA-panel, .ccA-table-wrap { border: 1px solid CanvasText; }
+  .ccA-rank-fill, .ccA-step-bar span { forced-color-adjust: none; }
+}

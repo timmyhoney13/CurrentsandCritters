@@ -12,6 +12,7 @@
 !tournament_server.py
 !clan_server.py
 !prestige_server.py
+!analytics_server.py
 
 # Allow the AI brain and card data files.
 !fish_ai_brain.json

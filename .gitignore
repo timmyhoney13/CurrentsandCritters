@@ -35,6 +35,20 @@
 # avatar gets relocked by a Prestige".
 !test_prestige_server.py
 !test_prestige_ui.js
+
+# Developer Analytics (admin-only dashboard). multiplayer_server.py imports this
+# at module scope too, so dropping it from the allowlist kills the server on
+# startup rather than just hiding the dashboard. Read-only: it derives every
+# number from the accounts and the game records this server already writes, and
+# exposes no endpoint that mutates anything.
+!analytics_server.py
+# Its tests: the metric maths against fixed fake data (so a wrong average or an
+# off-by-one date window fails loudly), the admin gate, and the "a rate with
+# nothing under it is unknown, not 0%" rule that keeps the dashboard honest.
+!test_analytics_server.py
+# The client half: the REAL renderers driven with REAL server payloads, which is
+# what stops the two sides drifting while both look green on their own.
+!test_analytics_ui.js
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js

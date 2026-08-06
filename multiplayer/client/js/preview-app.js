@@ -17,7 +17,7 @@
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
   const APP_VERSION = "1.6.50";
-  const APP_BUILD   = "2026-08-06.1";
+  const APP_BUILD   = "2026-08-06.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -866,6 +866,61 @@
     // Name colour / badge changed: repaint everywhere a username is drawn.
     onAppearance: () => { try { window.__ccRefreshNames && window.__ccRefreshNames(); } catch (_) {} },
   };
+
+  // ── Developer Analytics bridge ─────────────────────────────────────────
+  // The dashboard (js/analytics-ui.js) is a full-screen overlay for the
+  // developer account only. It is READ-ONLY — there is no mutation anywhere in
+  // /api/analytics/* — and the server re-checks admin on every single call, so
+  // this bridge's isAdmin() is a convenience for hiding the button, never the
+  // security boundary. Faking it client-side gets you a 403 and nothing else.
+  const ANALYTICS_ADMIN_EMAIL = "currentsandcritters@gmail.com";
+  window.__ccAnalytics = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    isAdmin() {
+      try {
+        const u = window.__fishAuthUser && window.__fishAuthUser();
+        return !!(u && u.email && String(u.email).toLowerCase() === ANALYTICS_ADMIN_EMAIL);
+      } catch (_) { return false; }
+    },
+  };
+
+  // The sidebar entry, added only for the admin account. Re-checked on a timer
+  // because auth resolves after the page paints, and a sign-out has to strip
+  // the button (and shut the panel) the moment it happens.
+  function _ccSyncAnalyticsNav() {
+    const nav = document.querySelector(".ph-sidebar-nav");
+    if (!nav) return;
+    const admin = window.__ccAnalytics.isAdmin();
+    let btn = document.getElementById("snav-analytics");
+    if (admin && !btn) {
+      btn = document.createElement("button");
+      btn.className = "ph-snav-item";
+      btn.id = "snav-analytics";
+      btn.type = "button";
+      btn.innerHTML =
+        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">'
+        + '<path d="M1.6 11.4l3.6-4.2 3 2.6 5.2-6" stroke="currentColor" stroke-width="1.6" '
+        + 'stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<path d="M10.6 3.8h2.8v2.8" stroke="currentColor" stroke-width="1.6" '
+        + 'stroke-linecap="round" stroke-linejoin="round"/></svg> Analytics';
+      btn.addEventListener("click", () => {
+        try { window.__ccAnalyticsOpen && window.__ccAnalyticsOpen(); } catch (_) {}
+      });
+      nav.appendChild(btn);
+    }
+    if (btn) btn.style.display = admin ? "" : "none";
+    if (!admin) { try { window.__ccAnalyticsClose && window.__ccAnalyticsClose(); } catch (_) {} }
+  }
+  setInterval(_ccSyncAnalyticsNav, 1500);
+  _ccSyncAnalyticsNav();
 
   // ── End-game cinematic ─────────────────────────────────────────
   let _egDismissTimer = null;
