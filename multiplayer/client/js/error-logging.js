@@ -59,9 +59,33 @@
     save(items);
     try {
       var fn = entry.level === "error" ? console.error : console.warn;
-      fn.call(console, "[CCError]", entry.kind, entry.detail);
+      // The headline carries the url/message inline. Logging only the detail
+      // object leaves a collapsed "Object" in the console, which tells whoever
+      // is reading the log nothing about WHICH resource died.
+      var head = entry.detail.url || entry.detail.message || "";
+      fn.call(console, "[CCError]", entry.kind, head, entry.detail);
     } catch (_) {}
     return entry;
+  }
+
+  // Browser extensions inject their own images, styles and scripts into the
+  // page. Their failures reach our capture-phase listener and would otherwise
+  // be filed as game bugs. They are not ours and we cannot fix them.
+  function isExtensionUrl(raw) {
+    return /^(chrome|moz|safari|safari-web|ms-browser)-extension:/i.test(String(raw || ""));
+  }
+  // Same-origin misses are our bug (level "error"). A third-party host that
+  // fails — a Google profile photo, a CDN hiccup — is worth recording but is
+  // not something the game can fix, so it must not read as a game error.
+  // `unknownLevel` covers a blank url: for a script that is the anonymised
+  // cross-origin "Script error." (not ours), but a blank img src is our own
+  // markup emitting an empty attribute (very much ours).
+  function originLevel(raw, unknownLevel) {
+    var s = String(raw || "");
+    if (!s) return unknownLevel || "warn";
+    try {
+      return new URL(s, location.href).origin === location.origin ? "error" : "warn";
+    } catch (_) { return "warn"; }
   }
 
   window.CCErrorLog = {
@@ -77,20 +101,22 @@
     if (target && target !== window) {
       var tag = safeText(target.tagName || "resource", 30).toLowerCase();
       var src = target.currentSrc || target.src || target.href || "";
+      if (isExtensionUrl(src)) return;
       report("resource_load_failed", {
         tag: tag,
         url: src,
         id: target.id || "",
-        className: target.className || ""
-      }, "error");
+        className: safeText(target.className || "", 120)
+      }, originLevel(src, "error"));
       return;
     }
+    if (isExtensionUrl(ev && ev.filename)) return;
     report("browser_error", {
       message: ev && ev.message,
       source: ev && ev.filename,
       line: ev && ev.lineno,
       column: ev && ev.colno
-    }, "error");
+    }, originLevel(ev && ev.filename));
   }, true);
 
   window.addEventListener("unhandledrejection", function (ev) {

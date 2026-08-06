@@ -614,6 +614,177 @@ const tick = () => new Promise((r) => setTimeout(r, 30));
       /@supports not \(\(background-clip: text\)/.test(css));
   }
 
+  // ── Swimming critters face the way they are travelling ───────────────────
+  // The art has no single convention: most animals are drawn facing left, but
+  // a good number face right. The old CSS mirrored every critter the same way,
+  // so the whole ocean swam tail-first in one direction and nose-first in the
+  // other. These pin the contract that fixes it.
+  {
+    console.log("\n── Scene critters swim forwards ──");
+    const css = fs.readFileSync(path.join(__dirname, "multiplayer/client/css/prestige.css"), "utf8");
+
+    // The mirror must be a per-critter variable, never a hardcoded constant.
+    check("the rightward keyframe mirrors by variable, not a fixed scaleX",
+      /@keyframes ccP-swim\s*\{[^}]*scaleX\(var\(--sxr/.test(css));
+    check("the leftward keyframe mirrors by variable, not a fixed scaleX",
+      /@keyframes ccP-swim-rtl\s*\{[^}]*scaleX\(var\(--sxl/.test(css));
+    // A var() with no fallback that fails to resolve invalidates the whole
+    // transform — the critters would stop moving entirely rather than degrade.
+    check("both mirror variables carry a fallback so the swim can't break",
+      /var\(--sxr,\s*-?\d/.test(css) && /var\(--sxl,\s*-?\d/.test(css));
+    // Travelling right and travelling left must mirror OPPOSITELY, or the
+    // critter faces the same way on both legs and one of them is backwards.
+    const facingRule = (sel) => {
+      const m = new RegExp("\\.ccP-swim" + sel + "\\s*\\{([^}]*)\\}").exec(css);
+      if (!m) return null;
+      const r = /--sxr:\s*(-?1)/.exec(m[1]), l = /--sxl:\s*(-?1)/.exec(m[1]);
+      return r && l ? { r: +r[1], l: +l[1] } : null;
+    };
+    const left = facingRule(""), right = facingRule("\\.faces-right"), none = facingRule("\\.faces-none");
+    check("left-facing art mirrors when it swims right, not when it swims left",
+      !!left && left.r === -1 && left.l === 1, JSON.stringify(left));
+    check("right-facing art mirrors when it swims left, not when it swims right",
+      !!right && right.r === 1 && right.l === -1, JSON.stringify(right));
+    check("art with no front is never mirrored in either direction",
+      !!none && none.r === 1 && none.l === 1, JSON.stringify(none));
+
+    // Every critter a scene uses must be classified. Without this, adding a
+    // right-facing animal to a scene silently ships a fish swimming backwards
+    // — exactly the bug the bottlenose dolphin was reported for.
+    const src = fs.readFileSync(path.join(__dirname, "multiplayer/client/js/prestige-ui.js"), "utf8");
+    const sceneBlock = /const SCENE_CRITTERS = \{([\s\S]*?)\n  \};/.exec(src);
+    const facingBlock = /const FACING = \{([\s\S]*?)\n  \};/.exec(src);
+    check("SCENE_CRITTERS and FACING are both present", !!sceneBlock && !!facingBlock);
+    if (sceneBlock && facingBlock) {
+      const scenes = [...sceneBlock[1].matchAll(/"([a-z0-9-]+)"/g)].map((m) => m[1]);
+      const classified = new Set([...facingBlock[1].matchAll(/["']?([a-z0-9-]+)["']?\s*:\s*"(right|none)"/g)]
+        .map((m) => m[1]));
+      // "left" is the unlisted default, so a scene critter counts as classified
+      // if it is either listed OR deliberately left to the default. Assert the
+      // stronger, useful thing instead: the ones we KNOW face right are listed.
+      const mustBeRight = ["sardine", "california-gull", "manta-ray", "whale-shark",
+        "sailfish", "king-salmon", "bobtail-squid", "cuttlefish", "common-octopus",
+        "great-albatross", "blue-marlin"];
+      const missedRight = mustBeRight.filter((c) => !classified.has(c));
+      check("every right-facing scene critter is tagged faces-right",
+        missedRight.length === 0, "untagged: " + missedRight.join(", "));
+      const mustBeNone = ["sea-star", "elkhorn-coral", "sea-anemone", "deep-sea-coral",
+        "king-crab", "osprey", "magnificent-frigatebird", "giant-squid"];
+      const missedNone = mustBeNone.filter((c) => !classified.has(c));
+      check("every frontless scene critter is tagged faces-none",
+        missedNone.length === 0, "untagged: " + missedNone.join(", "));
+      // The guard against future drift: a critter added to a scene that nobody
+      // classified. Left-facing is the majority default, so this lists them for
+      // review rather than failing — but a NEW unknown name must be deliberate.
+      const known = new Set([...classified, "mullet", "bottlenose-dolphin", "flying-fish",
+        "blue-tang", "spiny-lobster", "clownfish", "mandarin-goby", "reef-triggerfish",
+        "big-eye-tuna", "barracuda", "yellowfin-tuna", "mahi-mahi", "narwhal",
+        "sea-cucumber", "emperor-penguin", "horned-puffin", "great-white-shark",
+        "loggerhead-sea-turtle"]);
+      const unknown = [...new Set(scenes)].filter((c) => !known.has(c));
+      check("no scene uses a critter whose art facing was never checked",
+        unknown.length === 0, "unchecked: " + unknown.join(", "));
+      // The art files must actually exist, or the scene renders a broken image.
+      const avatarDir = path.join(__dirname, "multiplayer/client/avatars");
+      const absent = [...new Set(scenes)].filter((c) => !fs.existsSync(path.join(avatarDir, c + ".png")));
+      check("every scene critter has its avatar art on disk",
+        absent.length === 0, "missing: " + absent.join(", "));
+    }
+    check("the swimmer element is tagged with its art's facing",
+      /facingClass\(list\[i\]\)/.test(src));
+
+    // Reading the CSS text proves the RULE is written; it cannot prove the
+    // browser resolves it. A var() that fails to resolve invalidates the whole
+    // transform, which would freeze every critter in place — silently, and only
+    // in a real engine. So measure the computed matrix in headless Chrome.
+    const CHROME = [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Chromium.app/Contents/MacOS/Chromium",
+      "/usr/bin/google-chrome", "/usr/bin/chromium",
+    ].find((p) => fs.existsSync(p));
+    if (!CHROME) {
+      console.log("  … skipped the computed-transform check (no Chrome found)");
+    } else {
+      const tmp = fs.mkdtempSync(path.join(require("os").tmpdir(), "ccswim-"));
+      fs.copyFileSync(path.join(__dirname, "multiplayer/client/css/prestige.css"),
+        path.join(tmp, "prestige.css"));
+      const px = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+      fs.writeFileSync(path.join(tmp, "t.html"),
+        `<!doctype html><html><head><link rel="stylesheet" href="prestige.css"></head><body>
+<div id="stage" style="position:relative;width:800px;height:400px"></div><div id="out"></div><script>
+const stage=document.getElementById("stage"),rows=[];
+for (const facing of ["","faces-right","faces-none"]) for (const dir of ["","rtl"]) {
+  const img=document.createElement("img");
+  img.className=("ccP-swim "+dir+" "+facing).trim(); img.src="${px}";
+  img.style.cssText="width:40px;top:10%;animation-duration:40s;animation-delay:-10s;animation-play-state:paused;";
+  stage.appendChild(img);
+  const m=new DOMMatrix(getComputedStyle(img).transform);
+  rows.push({facing:facing||"left",dir:dir||"ltr",sx:m.a,tx:Math.round(m.e)});
+}
+document.getElementById("out").textContent=JSON.stringify(rows);
+</script></body></html>`);
+      let dom = "";
+      try {
+        dom = require("child_process").execFileSync(CHROME, [
+          "--headless", "--disable-gpu", "--no-sandbox", "--hide-scrollbars",
+          "--window-size=800,400", "--virtual-time-budget=6000",
+          "--dump-dom", "file://" + path.join(tmp, "t.html"),
+        ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 90000 });
+      } catch (e) { /* fall through to the failed check below */ }
+      fs.rmSync(tmp, { recursive: true, force: true });
+      const m = dom.match(/<div id="out">([\s\S]*?)<\/div>/);
+      let rows = null;
+      try { rows = JSON.parse(m[1]); } catch (_) { rows = null; }
+      check("the browser actually resolves the mirror variables", !!rows && rows.length === 6);
+      if (rows) {
+        const get = (facing, dir) => rows.find((r) => r.facing === facing && r.dir === dir);
+        // scaleX must leave the critter pointing the way it travels.
+        const want = [
+          ["left", "ltr", -1], ["left", "rtl", 1],
+          ["faces-right", "ltr", 1], ["faces-right", "rtl", -1],
+          ["faces-none", "ltr", 1], ["faces-none", "rtl", 1],
+        ];
+        const wrong = want.filter(([f, d, sx]) => !get(f, d) || get(f, d).sx !== sx)
+          .map(([f, d, sx]) => `${f}/${d} want ${sx} got ${get(f, d) && get(f, d).sx}`);
+        check("every critter faces its direction of travel, measured in a browser",
+          wrong.length === 0, wrong.join("; "));
+        // A frozen critter also reads as "broken": prove it is actually moving,
+        // and that the two directions really do travel opposite ways.
+        check("the rightward swim starts left of the leftward swim",
+          !!get("left", "ltr") && !!get("left", "rtl")
+          && get("left", "ltr").tx < get("left", "rtl").tx,
+          JSON.stringify(rows.map((r) => [r.facing, r.dir, r.tx])));
+      }
+    }
+  }
+
+  // ── A focusable badge must never sit inside an aria-hidden wrapper ────────
+  {
+    console.log("\n── Badge accessibility ──");
+    const src = fs.readFileSync(path.join(__dirname, "multiplayer/client/js/prestige-ui.js"), "utf8");
+    const { win } = makeEnv({});
+    const badge = win.__ccPrestigeBadgeHtml;
+    const normal = badge(7, { large: true });
+    const deco = badge(7, { large: true, decorative: true });
+    check("the normal badge is focusable and labelled",
+      /tabindex="0"/.test(normal) && /aria-label="/.test(normal) && /role="img"/.test(normal));
+    // The reported violation: "Blocked aria-hidden on an element because its
+    // descendant retained focus" — a tabindex="0" badge inside .ccP-rw-ico.
+    check("the decorative badge is not a focus stop", !/tabindex/.test(deco));
+    check("the decorative badge exposes nothing to assistive tech",
+      !/aria-label/.test(deco) && !/role="img"/.test(deco) && /aria-hidden="true"/.test(deco));
+    check("the decorative badge still renders its art and number",
+      /<svg/.test(deco) && />7</.test(deco) && /cc-pbadge-lg/.test(deco));
+    // The reward grid is the call site that broke. Its icon slot is aria-hidden,
+    // so the badge it renders there has to be the decorative one.
+    check("the reward card renders the badge decoratively",
+      /badgeHtml\(num\(nxt\.prestige\), \{ large: true, decorative: true \}\)/.test(src));
+    // Everywhere the badge is NOT inside an aria-hidden wrapper it must stay
+    // interactive — a decorative badge everywhere would lose the tooltip.
+    check("the hero badge stays interactive",
+      /ccP-hero-badge">'\s*\+\s*badgeHtml\(lvl, \{ large: true \}\)/.test(src));
+  }
+
   console.log("\n────────────────────────────");
   console.log(`${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

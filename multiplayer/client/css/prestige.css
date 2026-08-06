@@ -163,15 +163,24 @@
 
 /* Real critters from the game, swimming past. */
 .ccP-swimmers { overflow: hidden; }
+/* A critter must face the way it is travelling. The art is NOT drawn to a
+   single convention — most of the deck faces left, but the sardine, manta ray,
+   whale shark, marlin and others face right — so the mirror can't be a constant.
+   --sxr / --sxl are the scaleX to use when swimming right / left; JS tags each
+   image with the facing of its own art (see FACING in prestige-ui.js). The
+   keyframe fallbacks keep the transform valid if the class never lands. */
 .ccP-swim {
   position: absolute; display: block; height: auto;
   filter: drop-shadow(0 6px 14px rgba(30, 90, 140, .30));
   animation: ccP-swim linear infinite;
   will-change: transform;
+  --sxr: -1; --sxl: 1;                              /* art faces left (default) */
 }
 .ccP-swim.rtl { animation-name: ccP-swim-rtl; }
-@keyframes ccP-swim     { from { transform: translate3d(-22vw, 0, 0) scaleX(1); }  to { transform: translate3d(122vw, 0, 0) scaleX(1); } }
-@keyframes ccP-swim-rtl { from { transform: translate3d(122vw, 0, 0) scaleX(-1); } to { transform: translate3d(-22vw, 0, 0) scaleX(-1); } }
+.ccP-swim.faces-right { --sxr:  1; --sxl: -1; }
+.ccP-swim.faces-none  { --sxr:  1; --sxl:  1; }     /* no front — never mirror */
+@keyframes ccP-swim     { from { transform: translate3d(-22vw, 0, 0) scaleX(var(--sxr, -1)); } to { transform: translate3d(122vw, 0, 0) scaleX(var(--sxr, -1)); } }
+@keyframes ccP-swim-rtl { from { transform: translate3d(122vw, 0, 0) scaleX(var(--sxl, 1)); }  to { transform: translate3d(-22vw, 0, 0) scaleX(var(--sxl, 1)); } }
 
 /* Bioluminescence, for the scenes that live deep. */
 .ccP-biolume {

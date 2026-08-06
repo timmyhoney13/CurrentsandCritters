@@ -190,6 +190,38 @@
     celestial: ["loggerhead-sea-turtle", "manta-ray", "whale-shark", "sea-star"],
   };
 
+  // Which way each critter's ARTWORK points before any mirroring. The deck has
+  // no single convention — most animals are drawn facing left, but the sardine,
+  // manta ray, whale shark, marlin and others were drawn facing right — so a
+  // blanket flip makes half the ocean swim backwards. Every entry below was
+  // checked against the actual PNG. "none" = no front to speak of (corals,
+  // anemones, a sea star, a head-on bird): those are never mirrored, because
+  // mirroring symmetrical art is a no-op at best and looks like a jitter at worst.
+  // Anything the scenes use MUST be listed here — test_prestige_ui.js fails the
+  // build otherwise, so a new scene critter can't silently swim tail-first.
+  const FACING = {
+    // ── faces right ──
+    sardine: "right", "california-gull": "right", "manta-ray": "right",
+    "whale-shark": "right", sailfish: "right", "king-salmon": "right",
+    "bobtail-squid": "right", cuttlefish: "right", "common-octopus": "right",
+    "great-albatross": "right", "blue-marlin": "right", bunker: "right",
+    fish: "right", "peruvian-pelican": "right", tarpon: "right",
+    "summer-skin-goby": "right", "summer-skin-gull": "right",
+    // ── no meaningful facing ──
+    "sea-star": "none", "elkhorn-coral": "none", "sea-anemone": "none",
+    "deep-sea-coral": "none", "king-crab": "none", osprey: "none",
+    "magnificent-frigatebird": "none", "giant-squid": "none",
+    "grooved-brain-coral": "none", "staghorn-coral": "none", "sea-sponge": "none",
+    "sea-urchin": "none", lobster: "none", "fourth-of-july": "none",
+    // ── everything else faces left (mullet, bottlenose-dolphin, clownfish,
+    //    barracuda, tunas, penguin, narwhal, puffin, turtle, shark, …) ──
+  };
+  /** The class that tells the CSS how to mirror this critter's art. */
+  function facingClass(slug) {
+    const f = FACING[String(slug || "")];
+    return f === "right" ? " faces-right" : (f === "none" ? " faces-none" : "");
+  }
+
   // Deterministic pseudo-random so a given scene always looks the same (a
   // background that reshuffles on every render reads as a glitch).
   function rng(seed) {
@@ -245,7 +277,7 @@
       const list = SCENE_CRITTERS[scene] || SCENE_CRITTERS.shallows;
       const n = o.dense ? Math.min(4, list.length) : 2;
       for (let i = 0; i < n; i++) {
-        const img = el("img", "ccP-swim" + (r() > 0.5 ? " rtl" : ""));
+        const img = el("img", "ccP-swim" + (r() > 0.5 ? " rtl" : "") + facingClass(list[i]));
         img.src = avSrc("/avatars/" + list[i] + ".png");
         img.alt = "";
         img.loading = "lazy";
@@ -334,7 +366,13 @@
   }
 
   /** The Prestige badge as an HTML string. Compact by design: it must never
-   *  cover the username, the avatar, or anything else on the row. */
+   *  cover the username, the avatar, or anything else on the row.
+   *
+   *  `opts.decorative` drops the focus stop and the label. Pass it whenever the
+   *  badge sits inside an aria-hidden wrapper: a focusable element hidden from
+   *  assistive tech is a real violation (the browser refuses to apply the
+   *  aria-hidden and logs it), and in those spots the surrounding card already
+   *  names the badge, so a second announcement would only repeat it. */
   function badgeHtml(level, opts) {
     const n = num(level);
     if (n < 1) return "";
@@ -345,9 +383,12 @@
     const art = BADGE_ART[b.art] || BADGE_ART.wave;
     const label = "Prestige " + n + (b.name ? ", " + b.name : "");
     return '<span class="cc-pbadge' + tier + (o.large ? " cc-pbadge-lg" : "") + '"'
-      + ' data-cc-prestige="' + n + '"'
-      + (o.uid ? ' data-cc-uid="' + esc(o.uid) + '"' : "")
-      + ' role="img" tabindex="0" aria-label="' + esc(label) + '" title="' + esc(label) + '">'
+      + (o.decorative ? "" : ' data-cc-prestige="' + n + '"')
+      + (o.uid && !o.decorative ? ' data-cc-uid="' + esc(o.uid) + '"' : "")
+      + (o.decorative
+        ? ' aria-hidden="true"'
+        : ' role="img" tabindex="0" aria-label="' + esc(label) + '" title="' + esc(label) + '"')
+      + ">"
       + '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">' + art + '</svg>'
       + '<span aria-hidden="true">' + n + '</span></span>';
   }
@@ -972,7 +1013,7 @@
       + card("🏷️", "Name colour", colors || "New options", "",
         colors ? "Wear it anywhere your name appears." : "New username customisation unlocks.",
         extras.length ? "Also unlocks " + esc(extras.join(", ")) : "")
-      + card(badgeHtml(num(nxt.prestige), { large: true }) || "🏅", "Prestige badge", esc(badge.name || "—"), "",
+      + card(badgeHtml(num(nxt.prestige), { large: true, decorative: true }) || "🏅", "Prestige badge", esc(badge.name || "—"), "",
         "Shown beside your username across the whole game.", "")
       + "</div>";
   }
