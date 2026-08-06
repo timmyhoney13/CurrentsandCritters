@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.49";
-  const APP_BUILD   = "2026-08-05.5";
+  const APP_VERSION = "1.6.50";
+  const APP_BUILD   = "2026-08-06.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,13 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🌊 Prestige, riding the next current", items: [
+      "Reach Level 100 and you can Prestige: your level and XP go back to the start, and you keep a permanent set of rewards that never resets. It's completely optional — we'll ask once each time you sign in, and \"Not right now\" is always a fine answer.",
+      "Every Prestige pays Critter Coins (500, then +250 each time), a permanent +25% XP from every source, and +5% extra coins on any Critter Coin pack you buy — at the same price.",
+      "You also pick two critters to keep through the reset, unlock an exclusive alternate skin for any animal in the game, a new Prestige background, a new name colour, and a new badge that shows beside your name everywhere.",
+      "Nothing you paid for is ever taken away. Competitive rank, clan, friends, coins, achievements, lifetime stats, purchases and every earlier Prestige reward all stay exactly as they are.",
+      "Name colours build up as you go: two to choose from at Prestige 1 (you get the other at 2), Deep Purple, then Gold, a custom colour creator at 4, gradients at 5, and subtle ocean effects after that. Animated effects can be switched off while keeping the colour.",
+    ]},
     { ver: "V1.7.0", title: "🔒 Privacy Policy, and a simpler sign-in", items: [
       "Our full Privacy Policy is now published at currentsandcritters.com/privacy — there's a link at the very bottom of every page — and you can read the whole thing in game from Settings → 📜 Legal.",
       "Signing in for the first time is now one screen: pick a username and dive in. The long scroll-and-agree Terms box is gone.",
@@ -413,6 +420,24 @@
     if (u >= 101 && u <= 188) return `/vertical_cards/page_${pad2(Math.floor((u-101)/2)+1)}.png?v=${CARD_IMAGE_VERSION}`;
     if (u >= 201 && u <= 269) return `/oceans_cards/page_${pad2(u-200)}.png?v=${CARD_IMAGE_VERSION}`;
     return "";
+  }
+
+  // ── Prestige alternate animal skins ──────────────────────────────
+  // A Prestige skin is a COSMETIC treatment painted over a card's existing
+  // artwork (see [data-ccskin] in css/prestige.css). It changes nothing about
+  // the card — not its ability, star ability, cost, points, ocean requirement,
+  // interactions, rarity or balance — and it is applied ONLY to the owner's own
+  // hand and board, never to an opponent's cards (renderReadOnlyBoard is
+  // deliberately left alone: tinting their art would imply they own a skin they
+  // don't). Purely a `filter:` on the <img>, so no layout moves and nothing the
+  // hand hit-test or the board scroller depends on changes.
+  function applyMySkin(el, cardName) {
+    if (!el || !cardName) return;
+    try {
+      const style = window.__ccPrestigeSkinFor && window.__ccPrestigeSkinFor(cardName);
+      if (style) el.setAttribute("data-ccskin", style);
+      else el.removeAttribute("data-ccskin");
+    } catch (_) {}
   }
 
   // Current Controller (admin), visual card tiles in the mod viewers.
@@ -792,6 +817,54 @@
     },
     // The room I'm in right now, so clan chat can offer "invite to my game".
     currentRoom: () => { try { return roomId ? String(roomId).toUpperCase() : ""; } catch (_) { return ""; } },
+  };
+
+  // ── Prestige bridge ────────────────────────────────────────────────────
+  // The Prestige page lives in its own module (js/prestige-ui.js) and renders
+  // into #cc-prestige-root. EVERY rule is server-authoritative
+  // (/api/prestige/*) — this bridge only hands the module network, auth and
+  // the critter catalogue. ENABLED=false hides the whole system again.
+  const PRESTIGE_PUBLIC = true;
+  window.__ccPrestige = {
+    ENABLED: PRESTIGE_PUBLIC
+      || /[?&]prestige=1/.test(location.search)
+      || (() => { try { return localStorage.getItem("cc_prestige") === "1"; } catch (_) { return false; } })(),
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    nickname: () => (window.__fishNickname && window.__fishNickname()) || "Player",
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    avSrc: (u) => (window.__fishAvSrc ? window.__fishAvSrc(u) : u),
+    goTab: (t) => { try { window._switchPhTab && window._switchPhTab(t); } catch (_) {} },
+    // The full critter roster WITH the sentence that says how each one was
+    // earned — the "keep two" screen shows a player exactly what they would
+    // have to do again. (ANIMAL_AVATARS is declared later in this same scope,
+    // so it is read lazily.)
+    animalAvatars: () => {
+      try {
+        return ANIMAL_AVATARS.map(a => ({
+          id: a.id, name: a.name, img: a.img, species: a.species,
+          unlockLabel: (a.unlock && a.unlock.label) || "",
+          unlockType: (a.unlock && a.unlock.type) || "",
+        }));
+      } catch (_) { return []; }
+    },
+    // Prestige finished: the account's level, XP, coins and unlocked critters
+    // all changed server-side, so pull the profile again rather than letting
+    // the page keep painting from a stale snapshot.
+    onPrestiged: (res) => {
+      try {
+        showToast("Prestige " + (res && res.prestige) + " complete, welcome back to Level 1!", "ok");
+        window.__fishReloadProfile && window.__fishReloadProfile();
+      } catch (_) {}
+    },
+    // Name colour / badge changed: repaint everywhere a username is drawn.
+    onAppearance: () => { try { window.__ccRefreshNames && window.__ccRefreshNames(); } catch (_) {} },
   };
 
   // ── End-game cinematic ─────────────────────────────────────────
@@ -6616,6 +6689,13 @@
       plabel.textContent = `P${p.index + 1}`;
       const nmText = document.createElement("span");
       nmText.textContent = p.name || `P${p.index + 1}`;
+      // In-game seats know a display NAME, not a uid — the Prestige sweep
+      // resolves either. Seats sit on the dark board, so the readability plate
+      // (when one is needed) has to be the dark one.
+      if (p.name && !isLikelyAiName(p.name)) {
+        nmText.setAttribute("data-cc-pname", p.name);
+        nmText.setAttribute("data-cc-surface", "dark");
+      }
       nm.appendChild(plabel);
       nm.appendChild(nmText);
       nm.title = `${p.name || `Player ${p.index + 1}`}, report by typing "P${p.index + 1} is AFK"`;
@@ -6674,6 +6754,10 @@
 
       cluster.appendChild(seat);
     }
+    // Prestige badges + name colours on the seat cluster. The sweep is
+    // debounced and skips nodes it already painted, so calling it on every
+    // seat re-render costs nothing.
+    try { window.__ccRefreshNames?.(); } catch (_) {}
   }
 
   // ── Opponent renderer ──────────────────────────────────────────
@@ -8841,6 +8925,7 @@
             img.src = imagePathForUid(fUid);
             img.alt = c.name||""; img.loading="lazy";
             img.style.cssText = `width:100%;height:100%;object-fit:cover;display:block;object-position:${cardHalfPos(fUid)}`;
+            applyMySkin(img, c.name);
             cardEl.appendChild(img);
             cardEl.title = `${c.name||"?"}, click to zoom`;
             cardEl.addEventListener("click", () => openZoom(fUid, c.name, c.text, c.species));
@@ -9359,6 +9444,7 @@
       const inner = document.createElement("div"); inner.className = "pv-card-inner";
       const img   = document.createElement("img");
       img.src = imagePathForUid(faceUid); img.alt = face.name||""; img.loading="lazy";
+      applyMySkin(img, face.name);
       inner.appendChild(img);
 
       const cost = Number(face.cost ?? 0);
@@ -10923,6 +11009,34 @@
     }
   }
 
+  // ── Prestige XP bonus ──────────────────────────────────────────────
+  // +25% per Prestige level, stacking, applied to EVERY XP source: casual,
+  // competitive, AI, daily/weekly/monthly challenges, events, tournaments,
+  // clan challenges and the daily login bonus.
+  //
+  // ⚠️ It multiplies whatever is handed in, AFTER any existing reduction. An
+  // AI game is already halved to 50 before it gets here, so a Prestige 3
+  // player earns 50 + 25 = 87 from it — the AI reduction survives, which it
+  // would not if the bonus were folded into the placement table instead.
+  //
+  // The multiplier read here is only for DISPLAY and for the client's own
+  // Firestore write; the server keeps its own copy of the Prestige level and
+  // never trusts a number the browser computed.
+  function prestigeLevelNow() {
+    try {
+      const m = window.__ccPrestigeState && window.__ccPrestigeState();
+      if (m && m.prestige) return Math.max(0, Math.floor(Number(m.prestige.level) || 0));
+    } catch (_) {}
+    return 0;
+  }
+  function prestigeXp(baseXp) {
+    const base = Math.max(0, Math.floor(Number(baseXp) || 0));
+    const lvl = prestigeLevelNow();
+    const total = Math.floor(base * (1 + lvl * 0.25));
+    return { base, bonus: total - base, total, level: lvl };
+  }
+  window.__fishPrestigeXp = prestigeXp;
+
   function getStoredTotalXp(stats) {
     const src = (stats && typeof stats === "object") ? stats : {};
     const direct = Number(src.total_xp);
@@ -11313,7 +11427,13 @@
         ? Math.round((75 + (_streakDayNum - 1) * 0.25) * 100) / 100
         : 0;
       const oldTotalXp = getStoredTotalXp(cStats);
-      const nextTotalXp = oldTotalXp + xpAward + _streakBonusXp;
+      // Prestige multiplies BOTH the placement/stat XP and the daily login
+      // bonus — every legitimate XP source, not just games.
+      const _pxGame   = prestigeXp(xpAward);
+      const _pxStreak = _streakBonusXp > 0
+        ? Math.round(_streakBonusXp * (1 + prestigeLevelNow() * 0.25) * 100) / 100
+        : 0;
+      const nextTotalXp = oldTotalXp + _pxGame.total + _pxStreak;
       const levelProgress = getLevelProgressFromTotalXp(nextTotalXp);
 
       // ── My board analysis (for Game Fish avatar unlocks) ───────────
@@ -11458,7 +11578,7 @@
           "stats.level_xp_current": levelProgress.xpCurrent,
           "stats.xp_goal": levelProgress.xpGoal,
           "stats.level_xp_goal": levelProgress.xpGoal,
-          "stats.last_game_xp": xpAward,
+          "stats.last_game_xp": _pxGame.total,
           "stats.recent_games": nextRecent,
         };
         // ── Daily streak: credit this game's local START date ──────────
@@ -11658,7 +11778,7 @@
         nextStats.level_xp_current = levelProgress.xpCurrent;
         nextStats.xp_goal = levelProgress.xpGoal;
         nextStats.level_xp_goal = levelProgress.xpGoal;
-        nextStats.last_game_xp = xpAward;
+        nextStats.last_game_xp = _pxGame.total;
         nextStats.recent_games = nextRecent;
         // Daily streak (guests), use the shared computation from above so the
         // streak, login bonus and calendar all agree with the signed-in path.
@@ -11754,7 +11874,7 @@
       // Runs for both signed-in and guest after the save succeeds.
       if (_streakBonusXp > 0) {
         try {
-          showToast(`🔥 Daily streak bonus! +${_streakBonusXp} XP, Day ${_streakDayNum}`, "info");
+          showToast(`🔥 Daily streak bonus! +${_pxStreak} XP, Day ${_streakDayNum}`, "info");
         } catch (_) {}
       }
 
@@ -12475,7 +12595,25 @@
     } else {
       setText("gs-my-rank", myRank + rankSuffix(myRank) + " of " + playerCount);
     }
-    setText("gs-xp-gained", "+" + totalXp + " XP");
+    // XP earned, with the Prestige breakdown spelled out under it so the bonus
+    // is never an invisible number: "Base XP 100 / Prestige Bonus +75 / Total 175".
+    const _pxEnd = prestigeXp(totalXp);
+    setText("gs-xp-gained", "+" + _pxEnd.total + " XP");
+    try {
+      const xpEl = document.getElementById("gs-xp-gained");
+      if (xpEl && xpEl.parentNode) {
+        const prev = xpEl.parentNode.querySelector(".ccP-xpbreak");
+        if (prev) prev.remove();
+        if (_pxEnd.bonus > 0) {
+          const brk = document.createElement("div");
+          brk.className = "ccP-xpbreak";
+          brk.innerHTML = "Base XP: <b>" + _pxEnd.base + "</b><br>"
+            + '<span class="b">Prestige Bonus: +' + _pxEnd.bonus + " (Prestige " + _pxEnd.level + ")</span><br>"
+            + "Total XP Earned: <b>" + _pxEnd.total + "</b>";
+          xpEl.parentNode.appendChild(brk);
+        }
+      }
+    } catch (_) {}
 
     // ── Rewards Earned (scrollable list) ─────────────────────────
     try {
@@ -12575,7 +12713,7 @@
           <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
           <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
           <div class="gs-st-av"><img src="${_avSrc(avatarUrl)}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
-          <div class="gs-st-info"><div class="gs-st-name">${p.name||"?"}</div><div class="gs-st-env">${envLabel}</div></div>
+          <div class="gs-st-info"><div class="gs-st-name"${p.name && !isLikelyAiName(p.name) ? ` data-cc-pname="${escapeHtml(p.name)}" data-cc-surface="light"` : ""}>${p.name||"?"}</div><div class="gs-st-env">${envLabel}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
         if (!isMe) {
@@ -12583,6 +12721,8 @@
           if (img) _gsAvatarImgs.push({ name: p.name, img });
         }
       });
+      // Prestige badges + name colours on the match results.
+      try { window.__ccRefreshNames?.(rowsEl); } catch (_) {}
       // Async: replace fallback avatars with each player's real chosen avatar
       if (typeof window.__fishAvatarForNick === "function" && _gsAvatarImgs.length) {
         _gsAvatarImgs.forEach(({ name, img }) => {
@@ -17402,7 +17542,7 @@
         row.className = "ph-fr";
         const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
         const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
-        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+        row.innerHTML = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${escapeHtml(f.nickname)} avatar" loading="lazy"></div><div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname)}">${escapeHtml(f.nickname)}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(row);
       });
     }
@@ -17700,7 +17840,18 @@
       const displayFc = formatFriendCodeLabel(nick, _friendCode);
       const nickEl = $a("stats-lobby-nick");
       const fcEl = $a("stats-lobby-fc");
-      if (nickEl) nickEl.textContent = displayNick;
+      if (nickEl) {
+        nickEl.textContent = displayNick;
+        // My own name on the Player Home profile card wears my Prestige colour
+        // and badge like everyone else's does.
+        if (_authUser && !_guestSessionActive) {
+          nickEl.setAttribute("data-cc-pname", _authUser.uid);
+          nickEl.setAttribute("data-cc-surface", "light");
+          try { window.__ccRefreshNames?.(); } catch (_) {}
+        } else {
+          nickEl.removeAttribute("data-cc-pname");
+        }
+      }
       if (fcEl) fcEl.textContent = displayFc;
       const profileBarName = $a("auth-profile-name-text");
       const profileBarFc = $a("auth-profile-fc-text");
@@ -17969,6 +18120,22 @@
         // It shows from every tab, so it must not wait for the Clans tab to be
         // opened (clans-ui.js also picks this up on its own, just slower).
         try { window.__ccClansPrimeTabIcon && window.__ccClansPrimeTabIcon(); } catch (_) {}
+        // ── Prestige on sign-in ────────────────────────────────────
+        // Warm the Prestige state (it drives the badge + name colour on every
+        // username in the app, so it must be ready before the first
+        // leaderboard/friends paint), then — ONLY if this account is sitting at
+        // the level cap — ask whether they'd like to ride the next current.
+        // Prestige is always optional: the ask has a "Not right now", closes on
+        // Escape, starts nothing by itself, and comes back next sign-in.
+        try {
+          setTimeout(async () => {
+            try {
+              await window.__ccPrestigePrime?.();
+              window.__ccRefreshNames?.();
+              await window.__ccPrestigeAsk?.();
+            } catch (_) {}
+          }, 1200);
+        } catch (_) {}
       }
       $a("auth-loading-screen").classList.add("hidden");
       $a("auth-screen").classList.add("hidden");
@@ -18398,7 +18565,7 @@
           : `<div class="ph-fr-av">${safeInitial(liveNick || "?")}</div>`;
         const d = document.createElement("div");
         d.className = "ph-fr";
-        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
+        d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${online ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${online ? "Online" : "Offline"}</div>`;
         previewEl.appendChild(d);
       });
     }
@@ -18598,6 +18765,8 @@
         else if (_phLbCompTab === "single")   await _phLbRenderSingle();
         else if (_phLbCompTab === "combined") await _phLbRenderCombined();
       }
+      // Paint Prestige badges + name colours onto whichever board just drew.
+      try { window.__ccRefreshNames?.(); } catch (_) {}
     }
 
     async function _phLbRenderXp() {
@@ -18648,7 +18817,7 @@
           const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="${sc.trim()}">${escHtmlPH("Lv. " + r.lvl)}</td>
             <td class="ph-lb-score-cell">${r.totalXp.toLocaleString()} XP</td>
             <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
@@ -18715,7 +18884,7 @@
           const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="${sc.trim()}">${r.totalWins.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.winPct}%</td>
             <td class="ph-lb-meta-cell">${r.games.toLocaleString()}</td>
@@ -18825,7 +18994,7 @@
           const p   = pri(r), s = sec(r);
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="${sc}">🔥 ${p.toLocaleString()} day${p === 1 ? "" : "s"}</td>
             <td class="ph-lb-meta-cell">${s.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.days.toLocaleString()}</td>
@@ -18897,7 +19066,7 @@
           const sc  = r.rank===1 ? ' ph-lb-score-cell lb-top' : ' ph-lb-score-cell';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.rank)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="${sc.trim()}">🏆 ${r.champs.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.played.toLocaleString()}</td>
             <td class="ph-lb-meta-cell">${r.winPct}%</td>
@@ -18984,7 +19153,7 @@
           }
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}${viewCls}"${bg ? ' title="See how this score was built"' : ''}>${r.score.toLocaleString()} ${scoreUnit}${viewHint}</td>
             <td class="ph-lb-meta-cell"><span class="ph-lb-pill">${r.size}</span></td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19045,7 +19214,7 @@
           const sc  = r.shown===1 ? ' lb-top' : '';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.cp} CP</td>
             <td class="ph-lb-meta-cell">${escHtmlPH(r.title)}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19096,7 +19265,7 @@
           const sc  = r.shown===1 ? ' lb-top' : '';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.hand}</td>
             <td class="ph-lb-meta-cell">${r.strat}</td>
@@ -19145,7 +19314,7 @@
           const sc  = r.shown===1 ? ' lb-top' : '';
           return `<tr class="${meC}" data-uid="${escHtmlPH(r.doc.id)}">
             <td class="ph-lb-rank-cell">${phLbMedal(r.shown)}</td>
-            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
+            <td><div class="ph-lb-player-cell pub-clickable">${av}<span class="ph-lb-pname" data-cc-pname="${escHtmlPH(r.doc.id)}">${escHtmlPH(r.d.nickname||"Unknown")}</span>${you}</div></td>
             <td class="ph-lb-score-cell${sc}">${r.score.toLocaleString()} pts</td>
             <td class="ph-lb-meta-cell">${r.pair}</td>
             <td class="ph-lb-meta-cell">${r.stratPair}</td>
@@ -21383,6 +21552,17 @@
         if (typeof syncStatsHeader === "function") { try { syncStatsHeader(_activeProfile); } catch (_) {} }
       } catch (_) {}
     }
+    // Anything that changes MY account server-side needs this same re-read.
+    // Prestige is the biggest one — level, XP, coins, equipped avatar and the
+    // whole unlocked_icons list all move in a single server transaction, so
+    // painting on from the pre-Prestige snapshot would show a Level 100 player
+    // who is actually Level 1.
+    window.__fishReloadProfile = async function () {
+      await _trRefreshMyProfile();
+      try { if (typeof renderPhOverview === "function") renderPhOverview(); } catch (_) {}
+      try { await window.__ccPrestigePrime?.(); } catch (_) {}
+      try { window.__ccRefreshNames?.(); } catch (_) {}
+    };
 
     function _trErrText(code) {
       const m = {
@@ -22019,7 +22199,7 @@
     // ── Player Home: tab switching ───────────────────────────────
     (function() {
       const tabs = document.querySelectorAll("#ph-tabs .ph-tab");
-      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", store:"ph-panel-store" };
+      const panels = { overview:"ph-panel-overview", howto:"ph-panel-howto", normal:"ph-panel-normal", competitive:"ph-panel-competitive", history:"ph-panel-history", friends:"ph-panel-friends", messages:"ph-panel-messages", achievements:"ph-panel-achievements", leaderboard:"ph-panel-leaderboard", clans:"ph-panel-clans", prestige:"ph-panel-prestige", store:"ph-panel-store" };
       const statsLobby = document.getElementById("auth-stats-lobby");
       // Tabs that require a real account; guests see a "Sign in to…" gate.
       const GUEST_GATE_MSGS = {
@@ -22030,6 +22210,7 @@
         messages:     "Sign in to message your friends",
         leaderboard:  "Sign in to view the leaderboards",
         clans:        "Sign in to join a clan",
+        prestige:     "Sign in to ride the next current",
         achievements: "Sign in to see Achievements",
       };
       // The Clans panel is empty markup that js/clans-ui.js fills in, so if that
@@ -22058,6 +22239,36 @@
                 + 'Clans couldn\'t be drawn — the tab hit an error.<br>Please refresh the page.</div>';
             }
             console.error("[clans] tab render threw", err);
+          } catch (_) {}
+        }
+      }
+
+      // Same story as Clans: #cc-prestige-root is empty markup that
+      // js/prestige-ui.js fills in, so a module that never registered is
+      // indistinguishable from "the Prestige page is blank". Wait for the
+      // deferred script, then put the reason on screen rather than an empty
+      // ocean nobody can debug.
+      function _renderPrestigeTab(attempt) {
+        const n = attempt || 0;
+        const pr = document.getElementById("cc-prestige-root");
+        try {
+          if (window.__ccPrestigeRender) { window.__ccPrestigeRender(); return; }
+          if (n < 20) { setTimeout(() => _renderPrestigeTab(n + 1), 150); return; }
+          if (pr && !pr.children.length) {
+            pr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+              + 'color:#7a9db8;font-weight:700;font-size:13px;">'
+              + 'Prestige couldn\'t be drawn — the Prestige module (js/prestige-ui.js) never loaded.'
+              + '<br>Please refresh the page.</div>';
+          }
+          try { console.error("[prestige] prestige-ui.js never registered __ccPrestigeRender"); } catch (_) {}
+        } catch (err) {
+          try {
+            if (pr) {
+              pr.innerHTML = '<div style="padding:26px 14px;text-align:center;'
+                + 'color:#7a9db8;font-weight:700;font-size:13px;">'
+                + 'Prestige couldn\'t be drawn — the page hit an error.<br>Please refresh the page.</div>';
+            }
+            console.error("[prestige] tab render threw", err);
           } catch (_) {}
         }
       }
@@ -22108,6 +22319,7 @@
         if (name === "competitive")  { checkAndApplySeasonReset().then(() => renderPhCompetitive()); }
         if (name === "leaderboard")  renderPhLeaderboard();
         if (name === "clans")        _renderClansTab();
+        if (name === "prestige")     _renderPrestigeTab();
         if (name === "store")        renderPhStore();
       }
       window._switchPhTab = switchTab;
@@ -22288,13 +22500,34 @@
         // ── 1) Critter Coins ──────────────────────────────────────────
         html += `<div class="phst-section-title"><img class="cc-coin" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"> Critter Coins<span class="phst-sec-rule"></span></div>`;
         html += `<div class="phst-section-sub">In-game currency. Bigger packs include a bonus, $1 = 1,000 coins.</div>`;
+        // ── Prestige store bonus ──────────────────────────────────────
+        // +5% per Prestige level, shown BEFORE checkout so the buyer knows
+        // exactly what they'll receive. The price is unchanged, and this is
+        // display only — the server recomputes the bonus from its own copy of
+        // the Prestige level after Stripe confirms the payment.
+        const _pLvl = (() => {
+          try {
+            const st = window.__ccPrestigeState && window.__ccPrestigeState();
+            return st && st.prestige ? Math.max(0, Math.floor(Number(st.prestige.level) || 0)) : 0;
+          } catch (_) { return 0; }
+        })();
+        const _pBonus = (base) => _pLvl > 0 ? Math.round(base * _pLvl * 0.05) : 0;
+        if (_pLvl > 0) {
+          html += `<div class="phst-account-note" style="background:linear-gradient(120deg,#0e4d80,#1683c4);color:#eaf8ff;border-color:rgba(140,226,255,.6)">
+            <span class="phst-account-ico">🌊</span>
+            <div><strong>Prestige ${_pLvl} bonus:</strong> every Critter Coin package below pays you
+            <strong>+${_pLvl * 5}%</strong> extra coins, at the same price.</div>
+          </div>`;
+        }
         html += `<div class="phst-coin-grid">`;
         for (const p of PHST_COIN_PACKS) {
+          const pb = _pBonus(p.coins);
           html += `<div class="phst-coin-pack${p.best ? " phst-coin-best" : ""}">
             ${p.best ? `<div class="phst-coin-badge">BEST VALUE</div>` : ""}
             <div class="phst-coin-ico"><img class="cc-coin cc-coin-lg" src="/critter-coin.png?v=1" alt="Critter Coin" draggable="false"></div>
-            <div class="phst-coin-amt">${phstFmtCoins(p.coins)}</div>
+            <div class="phst-coin-amt">${phstFmtCoins(p.coins + pb)}</div>
             <div class="phst-coin-amt-label">Critter Coins</div>
+            ${pb > 0 ? `<div class="phst-coin-bonus" style="color:#1c70cc">${phstFmtCoins(p.coins)} + <strong>${phstFmtCoins(pb)} Prestige Bonus</strong></div>` : ""}
             <div class="phst-coin-bonus">${p.bonus > 0 ? `+${p.bonus}% bonus` : "Base rate"}</div>
             <button class="phst-coin-buy" data-stripe="${esc(p.link)}">$${p.usd.toFixed(2)}</button>
           </div>`;
@@ -24366,6 +24599,11 @@
     function renderPhOverview() {
       renderOverviewAchievements(_phStatsRaw || _phStats || {});
       renderChallengeStrip();
+      // "You have reached the end of this current!" — the banner that says
+      // Prestige is available, shown at the top of the Overview whenever the
+      // account is sitting at the level cap. Dismissing it lasts for this
+      // session only; Prestige itself is never forced.
+      try { window.__ccPrestigeNotice?.($a("ph-panel-overview")); } catch (_) {}
       // Refresh achievement and animal counts when tab is opened
       const set = (id, val) => { const el = $a(id); if (el) el.textContent = val; };
       const userAchs = (typeof window.__fishGetUserAchievements === "function") ? window.__fishGetUserAchievements() : {};
@@ -25158,6 +25396,12 @@
     window.__fishGrantXp = async function(amount, opts) {
       amount = Math.max(0, Math.floor(Number(amount) || 0));
       if (amount <= 0) return;
+      // The Prestige XP bonus applies here too — this hook is what pays out
+      // every daily / weekly / monthly challenge, the Tide Sweep and Perfect
+      // Week metas, event rewards and clan challenge XP.
+      const _px = (typeof window.__fishPrestigeXp === "function")
+        ? window.__fishPrestigeXp(amount) : { base: amount, bonus: 0, total: amount };
+      amount = _px.total;
       let lp = null;
       try {
         const authUser = (typeof window.__fishAuthUser === "function") ? window.__fishAuthUser() : null;
@@ -26693,7 +26937,7 @@
           const avatarHtml = `<div class="ph-fr-av"><img src="${escapeHtml(_avSrc(f.avatarUrl))}" alt="${friendName} avatar" loading="lazy"></div>`;
           const level = Number.isFinite(Number(f.level)) ? Math.max(1, Math.floor(Number(f.level))) : 1;
           const activeText = f.isOnline ? "Active now" : (f.lastActiveLabel || "Last active: unknown");
-          d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
+          d.innerHTML = `${avatarHtml}<div class="ph-fr-main"><div class="ph-fr-name" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">Level ${level} • ${escapeHtml(activeText)}</div></div><div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
           list.appendChild(d);
         });
         return;
@@ -26831,7 +27075,7 @@
         } else {
           statusHtml = `<div class="ph-fr-status ${f.isOnline ? "ph-fr-online" : "ph-fr-offline"}"><div class="ph-fr-dot"></div>${f.isOnline ? "Online" : "Offline"}</div>`;
         }
-        d.innerHTML = `${favoriteHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
+        d.innerHTML = `${favoriteHtml}<div class="ph-fr-main"><div class="ph-fr-name ph-fr-clickable" data-cc-pname="${escapeHtml(f.uid || f.nickname || "")}">${friendName}</div><div class="ph-fr-meta">${escapeHtml(levelText)} • ${escapeHtml(activeText)}</div>${extraHtml}</div>${statusHtml}`;
         // Clicking avatar or name opens public profile
         const avEl   = d.querySelector(".ph-fr-av");
         const nameEl = d.querySelector(".ph-fr-name");
@@ -26863,6 +27107,8 @@
         });
         list.appendChild(d);
       });
+      // Prestige badges + name colours on the friends list.
+      try { window.__ccRefreshNames?.(); } catch (_) {}
     }
 
     // Wire Friends tab add-friend button

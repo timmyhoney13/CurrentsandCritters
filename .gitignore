@@ -28,6 +28,13 @@
 # ImportError instead of failing soft. It owns no level curve of its own — the
 # cap and progress fn are injected from LEVEL_XP_TOTALS via prestige_server.init.
 !prestige_server.py
+# Its tests: the reward math + the whole commit transaction against an
+# in-memory Firestore fake, plus the two tables that MUST mirror the client
+# (the avatar relock map and the skinnable-animal roster) — those two checks
+# are the only thing standing between "a new avatar was added" and "a bought
+# avatar gets relocked by a Prestige".
+!test_prestige_server.py
+!test_prestige_ui.js
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js

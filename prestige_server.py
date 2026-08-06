@@ -55,14 +55,18 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 _get_firestore: Optional[Callable[[], Any]] = None
 _verify_token: Optional[Callable[[str], Optional[dict]]] = None
 _level_progress: Optional[Callable[[Any], Tuple[int, int, int]]] = None
+_find_uid_by_username: Optional[Callable[[Any, str], Optional[str]]] = None
 _max_level: int = 100
 
 
-def init(*, get_firestore, verify_token, level_progress, max_level) -> None:
+def init(*, get_firestore, verify_token, level_progress, max_level,
+         find_uid_by_username=None) -> None:
     global _get_firestore, _verify_token, _level_progress, _max_level
+    global _find_uid_by_username
     _get_firestore = get_firestore
     _verify_token = verify_token
     _level_progress = level_progress
+    _find_uid_by_username = find_uid_by_username
     _max_level = int(max_level)
 
 
@@ -436,13 +440,28 @@ AVATAR_UNLOCK_TYPES: Dict[str, str] = {
 # ═══════════════════════════════════════════════════════════════════════════
 #  READABILITY + IMPERSONATION GUARDS FOR CUSTOM COLOURS
 # ═══════════════════════════════════════════════════════════════════════════
-# The game draws usernames on both a light surface (Player Home, leaderboards)
-# and a dark one (in-game seats, chat). A custom colour has to stay legible on
-# at least one WITHOUT help, and the client puts a plate behind it on the other
-# — a colour that fails on both is rejected here so it can never be saved.
+# The game draws usernames on a light surface (Player Home, leaderboards) and a
+# dark one (in-game seats, chat). Where a colour is low-contrast on the surface
+# it landed on, the client seats it on a READABILITY PLATE whose polarity is
+# chosen from the colour's own luminance — a light name gets a dark plate, a
+# dark name gets a light one (see .cc-pname.plate in css/prestige.css).
+#
+# ⚠️ What that means for this gate, stated plainly so nobody re-tunes it into
+# something it cannot be: once the plate polarity is correct, the WORST
+# achievable contrast over any colour is ~4.25:1 — better than WCAG AA — and it
+# occurs at mid luminance (L≈0.197, which is where the game's own Ocean Blue
+# sits). So a luminance gate set anywhere below 4.25 can never reject anything,
+# and anywhere above it starts rejecting the game's own palette. The floor below
+# is therefore a DEFENSIVE assertion of that invariant, not a filter that fires
+# in normal use: it guarantees "every colour we ever store renders at ≥ AA once
+# plated". The guard that does the real day-to-day work is the reserved-colour
+# list underneath it.
 LIGHT_SURFACE = (0xF4, 0xFB, 0xFF)
 DARK_SURFACE = (0x0C, 0x2A, 0x44)
-MIN_CONTRAST = 3.0        # WCAG large-text ratio; usernames are bold ≥14px
+# The two plates, matching css/prestige.css: near-white and near-black.
+LIGHT_PLATE = (0xFF, 0xFF, 0xFF)
+DARK_PLATE = (0x04, 0x16, 0x28)
+MIN_CONTRAST = 4.0        # WCAG AA is 4.5 for body text; names are bold ≥14px
 
 # Colours reserved so a player cannot dress their name up as staff or as a
 # system message. Anything within RESERVED_DISTANCE of one of these is refused.
@@ -477,6 +496,14 @@ def _contrast(a: Tuple[int, int, int], b: Tuple[int, int, int]) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
+def best_plated_contrast(rgb: Tuple[int, int, int]) -> float:
+    """The contrast the client will actually render at, given it may seat the
+    name on whichever plate suits the colour. This — not the bare surface — is
+    what the readability floor is checked against."""
+    return max(_contrast(rgb, LIGHT_PLATE), _contrast(rgb, DARK_PLATE),
+               _contrast(rgb, LIGHT_SURFACE), _contrast(rgb, DARK_SURFACE))
+
+
 def validate_custom_color(value: Any) -> Tuple[Optional[str], Optional[str]]:
     """(normalised '#rrggbb', None) or (None, error). The one gate every custom
     username colour passes through — the creator, the gradient editor, and any
@@ -484,8 +511,7 @@ def validate_custom_color(value: Any) -> Tuple[Optional[str], Optional[str]]:
     rgb = _hex_to_rgb(value)
     if rgb is None:
         return None, "bad_color"
-    best = max(_contrast(rgb, LIGHT_SURFACE), _contrast(rgb, DARK_SURFACE))
-    if best < MIN_CONTRAST:
+    if best_plated_contrast(rgb) < MIN_CONTRAST:
         return None, "color_unreadable"
     for reserved, _label in RESERVED_COLORS:
         r2 = _hex_to_rgb(reserved) or (0, 0, 0)
@@ -760,6 +786,9 @@ def _state_payload(uid: str, udoc: Dict[str, Any]) -> Dict[str, Any]:
         },
         "next": _unlocks_at(next_level) if next_level <= MAX_PRESTIGE_LEVEL else None,
         "avatars": split,
+        # What the wizard must actually collect — 2, or fewer when the player
+        # has fewer relockable critters than that (see keep_quota).
+        "keep_quota": keep_quota(split),
         "owned_skins": [{"animal": a, "style": s} for (a, s) in sorted(owned_skins)],
         "coins": max(0, _int(stats.get("critter_coins"))),
         "history": list(rec["history"])[-50:],
@@ -794,15 +823,31 @@ def _xp_needed_for_max() -> int:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SELECTION VALIDATION — every choice is re-checked against SERVER data
 # ═══════════════════════════════════════════════════════════════════════════
+def keep_quota(split: Dict[str, List[str]]) -> int:
+    """How many critters this player must choose to keep.
+
+    Two, normally — but never more than they actually have to choose FROM.
+    Prestige straight after a Prestige (or an account that only ever bought its
+    critters) can have 0 or 1 relockable ones, and demanding two there would
+    make Prestige permanently impossible for them: nothing they could do in the
+    UI would ever satisfy a requirement with no valid answer.
+    """
+    return min(PRESTIGE_KEEP_AVATARS, len(split.get("eligible") or []))
+
+
 def _validate_keep_avatars(raw: Any, split: Dict[str, List[str]]) -> Tuple[List[str], Optional[str]]:
+    need = keep_quota(split)
     if not isinstance(raw, list):
+        # An empty selection is the CORRECT answer when there is nothing to pick.
+        if need == 0:
+            return [], None
         return [], "avatars_required"
     picks: List[str] = []
     for item in raw[:8]:
         path = _canon_icon(item)
         if path and path not in picks:
             picks.append(path)
-    if len(picks) != PRESTIGE_KEEP_AVATARS:
+    if len(picks) != need:
         return [], "avatars_count"
     eligible = set(split["eligible"])
     automatic = set(split["automatic"])
@@ -843,11 +888,17 @@ def _validate_color_choice(raw: Any, level: int, owned: List[str]) -> Tuple[List
         if pick not in choices:
             return [], "color_choice_required"
         granted.append(pick)
-    # Anything from an earlier level the account somehow never received (the
-    # Prestige-1 colour it did not pick) comes with the next Prestige.
+    # Backfill anything from a STRICTLY EARLIER level the account never
+    # received — which is how the Prestige-1 colour the player didn't pick
+    # arrives at Prestige 2.
+    #
+    # ⚠️ `c["level"] < level`, NOT `<= level`. With `<=` this loop handed over
+    # the OTHER Prestige-1 colour in the same breath as the one the player
+    # chose, so the "pick one, bank the other" reward paid out both at once and
+    # Prestige 2's colour reward was already spent.
     have = set(owned) | set(granted)
     for c in NAME_COLORS:
-        if c["id"] == "default" or c["level"] > level or c["id"] in have:
+        if c["id"] == "default" or c["level"] >= level or c["id"] in have:
             continue
         granted.append(c["id"])
         have.add(c["id"])
@@ -921,7 +972,7 @@ def _commit(db, uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
         keep, err = _validate_keep_avatars(body.get("keep_avatars"), split)
         if err:
             return {"ok": False, "error": err,
-                    "eligible": len(split["eligible"]), "need": PRESTIGE_KEEP_AVATARS}
+                    "eligible": len(split["eligible"]), "need": keep_quota(split)}
 
         owned_skins = {(str(s.get("animal")), str(s.get("style")))
                        for s in rec["skins"] if isinstance(s, dict)}
@@ -1207,7 +1258,48 @@ def _invalidate_name(uid: str) -> None:
         _NAMES_CACHE.pop(uid, None)
 
 
-def _names_payload(db, uids: Any) -> Dict[str, Any]:
+def _has_appearance(row: Dict[str, Any]) -> bool:
+    """Is there anything to draw? A Prestige-0 player with the default colour
+    has no badge and no colour, so returning them would only make every caller
+    check for emptiness itself."""
+    return bool(row) and bool(row.get("level") or (row.get("name") or {}).get("mode") != "default")
+
+
+# nickname.lower() → uid, so the in-game seats / end-game summary / tournament
+# brackets (which only ever know a display NAME) can still show a badge. Names
+# change rarely and this is public data either way.
+_NAME_UID_CACHE: Dict[str, Tuple[Optional[str], float]] = {}
+_NAME_UID_TTL = 600.0
+
+
+def _uid_for_name(db, name: str) -> Optional[str]:
+    key = str(name or "").strip().lower()
+    if not key or _find_uid_by_username is None:
+        return None
+    now = time.time()
+    with _NAMES_LOCK:
+        hit = _NAME_UID_CACHE.get(key)
+        if hit and now - hit[1] < _NAME_UID_TTL:
+            return hit[0]
+    try:
+        uid = _find_uid_by_username(db, key)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[prestige] username lookup {key!r} failed: {exc}")
+        return None
+    with _NAMES_LOCK:
+        _NAME_UID_CACHE[key] = (uid, now)
+        if len(_NAME_UID_CACHE) > 4000:
+            _NAME_UID_CACHE.clear()
+    return uid
+
+
+def _names_payload(db, uids: Any, names: Any = None) -> Dict[str, Any]:
+    """Public badge + name-colour for a batch of uids AND/OR display names.
+
+    Public data only — level, badge, title, XP-bonus %, last-prestige date and
+    how the name is drawn. Never coins, history, or anything else off the
+    account (see _public_appearance).
+    """
     out: Dict[str, Any] = {}
     seen = 0
     for raw in (uids if isinstance(uids, list) else []):
@@ -1218,9 +1310,26 @@ def _names_payload(db, uids: Any) -> Dict[str, Any]:
         if seen > 120:
             break
         row = _public_for_uid(db, uid)
-        if row and (row.get("level") or (row.get("name") or {}).get("mode") != "default"):
+        if _has_appearance(row):
             out[uid] = row
-    return {"ok": True, "players": out}
+
+    by_name: Dict[str, Any] = {}
+    seen = 0
+    for raw in (names if isinstance(names, list) else []):
+        nm = str(raw or "").strip()[:64]
+        key = nm.lower()
+        if not key or key in by_name:
+            continue
+        seen += 1
+        if seen > 60:
+            break
+        uid = _uid_for_name(db, key)
+        if not uid:
+            continue
+        row = out.get(uid) or _public_for_uid(db, uid)
+        if _has_appearance(row):
+            by_name[key] = row
+    return {"ok": True, "players": out, "by_name": by_name}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1436,7 +1545,7 @@ def _route(db, uid: str, action: str, body: Dict[str, Any]) -> Dict[str, Any]:
         rec = _record_of(snap.to_dict() or {})
         return {"ok": True, "prestige": rec["level"], "history": rec["history"]}
     if action == "names":
-        return _names_payload(db, body.get("uids"))
+        return _names_payload(db, body.get("uids"), body.get("names"))
     return {"ok": False, "error": "unknown_action"}
 
 

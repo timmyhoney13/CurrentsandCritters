@@ -266,7 +266,9 @@
 
   function kelpSvg(scene, r) {
     const cold = scene === "arctic" || scene === "trench" || scene === "midnight";
-    const kelpC = cold ? "#0d4f66" : "#0f5f4a";
+    // Softer than a silhouette: on the bright reef these read as real plants,
+    // not as holes cut in the artwork.
+    const kelpC = cold ? "#3f8fae" : "#2f9e78";
     const coralA = scene === "bloom" ? "#f0788a" : (scene === "celestial" ? "#9d7ce8" : "#e07a56");
     const coralB = scene === "biolume" ? "#3ce8c0" : "#f0b060";
     let stalks = "";
@@ -285,7 +287,7 @@
       + '<svg class="ccP-coral" viewBox="0 0 200 60" preserveAspectRatio="none"'
       + ' style="left:0;width:100%;height:34%" fill="none">'
       + '<path d="M0 60 Q22 40 40 52 Q56 34 74 50 Q94 28 116 48 Q138 32 158 52 Q178 40 200 58 L200 60 Z"'
-      + ' fill="rgba(4,22,40,.72)"/>'
+      + ' fill="rgba(58,120,175,.30)"/>'
       + '<g class="ccP-coralglow">'
       + '<path d="M28 60 q-3-14 4-20 q6 8 3 20" fill="' + coralA + '" opacity=".55"/>'
       + '<path d="M96 60 q-4-17 5-24 q7 10 3 24" fill="' + coralB + '" opacity=".5"/>'
@@ -428,6 +430,22 @@
   }
   const SURFACE_LIGHT = [0xf4, 0xfb, 0xff];
   const SURFACE_DARK = [0x0c, 0x2a, 0x44];
+  const PLATE_LIGHT = [0xff, 0xff, 0xff];
+  const PLATE_DARK = [0x04, 0x16, 0x28];
+
+  /** Which readability plate a colour needs.
+   *
+   *  ⚠️ Polarity comes from the COLOUR, never from the surface. Choosing it by
+   *  surface is the obvious-looking version and it is backwards: a pale yellow
+   *  on the light Player Home would be given the WHITE plate, which makes an
+   *  already-faint name fainter. A light colour needs a dark plate and a dark
+   *  colour needs a light one — that is what makes every accepted colour land
+   *  at ≥ 4.25:1 (see best_plated_contrast in prestige_server.py). */
+  function plateFor(rgb) {
+    return contrast(rgb, PLATE_DARK) >= contrast(rgb, PLATE_LIGHT)
+      ? "plate plate-dark"
+      : "plate";
+  }
 
   /** CSS for a name appearance, plus whether it needs a readability plate on
    *  the surface it is being drawn on. `surface` is "light" | "dark" | "auto". */
@@ -451,9 +469,7 @@
       // Not communicating by colour alone AND not making it unreadable: when
       // the chosen colour is low-contrast on THIS surface, seat it on a plate
       // rather than leaving a name nobody can read.
-      if (surface !== "auto" && contrast(rgb, surf) < 3.0) {
-        out.plate = wantDark ? "plate plate-dark" : "plate";
-      }
+      if (surface !== "auto" && contrast(rgb, surf) < 3.0) out.plate = plateFor(rgb);
       return out;
     }
     if (mode === "gradient") {
@@ -473,7 +489,8 @@
       const a = hexToRgb(from), b = hexToRgb(to);
       if (surface !== "auto" && a && b
           && contrast(a, surf) < 3.0 && contrast(b, surf) < 3.0) {
-        out.plate = wantDark ? "plate plate-dark" : "plate";
+        // Both stops are struggling, so polarity is decided by their average.
+        out.plate = plateFor([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
       }
       return out;
     }
@@ -520,10 +537,46 @@
   }
 
   // ── Public lookup (badges + colours on OTHER players) ─────────────────────
-  const _nameCache = Object.create(null);
+  const _nameCache = Object.create(null);   // uid → meta
+  const _byNameCache = Object.create(null); // nickname.toLowerCase() → meta
   const _nameMiss = Object.create(null);
+  const _byNameMiss = Object.create(null);
   let _lookupQueue = [];
+  let _byNameQueue = [];
   let _lookupTimer = null;
+
+  /** Same as lookup(), but keyed on the DISPLAY NAME — which is all an in-game
+   *  seat, the end-game summary or a tournament bracket ever has. */
+  function lookupByName(names) {
+    const want = (Array.isArray(names) ? names : [names])
+      .map((n) => String(n || "").trim().toLowerCase()).filter(Boolean);
+    const need = want.filter((n) => !(n in _byNameCache) && !_byNameMiss[n]);
+    const done = () => {
+      const out = {};
+      want.forEach((n) => { if (_byNameCache[n]) out[n] = _byNameCache[n]; });
+      return out;
+    };
+    if (!need.length) return Promise.resolve(done());
+    need.forEach((n) => { if (_byNameQueue.indexOf(n) < 0) _byNameQueue.push(n); });
+    return new Promise((resolve) => {
+      setTimeout(async () => {
+        const batch = _byNameQueue.splice(0, 60);
+        if (!batch.length) return resolve(done());
+        const res = await post("names", { names: batch });
+        if (res && res.ok) {
+          const map = res.by_name || {};
+          batch.forEach((n) => {
+            if (map[n]) _byNameCache[n] = map[n];
+            else _byNameMiss[n] = 1;
+          });
+        } else {
+          // Retryable — never poison the cache on a failed request.
+          batch.forEach((n) => { delete _byNameMiss[n]; });
+        }
+        resolve(done());
+      }, 80);
+    });
+  }
 
   /** Batch-resolve uids → public prestige appearance. Resolves to a map; uids
    *  with nothing to show are simply absent (a Prestige-0 player has no badge
@@ -838,8 +891,19 @@
           + esc(s.label) + "</button>";
       }).join("") + "</div>";
   }
+  // How many critters this Prestige needs the player to keep. Normally two —
+  // but the SERVER lowers it when the account has fewer relockable critters
+  // than that, and the wizard has to agree or it would demand a selection that
+  // cannot be made (see keep_quota in prestige_server.py).
+  function keepQuota() {
+    const st = S.state;
+    if (st && Number.isFinite(Number(st.keep_quota))) return Math.max(0, Number(st.keep_quota));
+    const elig = ((st && st.avatars) || {}).eligible || [];
+    return Math.min(num((st && st.next && st.next.keep_avatars) || 2), elig.length);
+  }
+
   function stepComplete(i) {
-    if (i === 1) return S.keep.length === 2;
+    if (i === 1) return S.keep.length === keepQuota();
     if (i === 2) return !!S.skin;
     if (i === 3) return !colorChoiceNeeded() || !!S.colorPick;
     return true;
@@ -933,7 +997,7 @@
   function stepAvatars() {
     const av = S.state.avatars || { eligible: [], automatic: [] };
     const map = animalMap();
-    const need = num((S.state.next && S.state.next.keep_avatars) || 2);
+    const need = keepQuota();
     const info = (path) => map[String(path).toLowerCase()] || { name: path, img: path, unlockLabel: "" };
 
     const tile = (path, kind) => {
@@ -955,9 +1019,15 @@
 
     const counterCls = S.keep.length === need ? "" : " warn";
     return '<div class="ccP-panel">'
-      + '<div class="ccP-panel-h">🐟 Keep two critters</div>'
-      + '<div class="ccP-panel-sub">These two stay unlocked through the reset. Everything else you earned by playing '
-      + "relocks and has to be earned again — the same way you got it the first time.</div>"
+      + '<div class="ccP-panel-h">🐟 ' + (need === 1 ? "Keep one critter" : "Keep two critters") + "</div>"
+      + '<div class="ccP-panel-sub">'
+      + (need === 0
+        ? "Nothing you own would relock, so there's nothing to choose here — everything you have stays."
+        : (need === 1
+          ? "You only have one critter that would relock, so keeping it is the whole choice."
+          : "These two stay unlocked through the reset. Everything else you earned by playing "
+            + "relocks and has to be earned again — the same way you got it the first time."))
+      + "</div>"
       + '<div class="ccP-toolbar"><div class="ccP-panel-sub" style="margin:0">'
       + fmt(av.eligible.length) + " critters would relock.</div>"
       + '<div class="ccP-counter' + counterCls + '" role="status" aria-live="polite">Avatars Selected: '
@@ -974,7 +1044,7 @@
       + "and they don't use up one of your two picks.</div>"
       + (av.automatic.length
         ? '<div class="ccP-grid">' + av.automatic.map((p) => tile(p, "auto")).join("") + "</div>"
-        : '<div class="ccP-panel-sub">None yet.</div>")')
+        : '<div class="ccP-panel-sub">None yet.</div>')
       + "</div>";
   }
 
@@ -1058,7 +1128,7 @@
   function skinCompareHtml(a) {
     const style = S.skin ? S.skin.style : S.skinStyle;
     const styleName = (((S.cat && S.cat.skin_styles) || []).find((s) => s.id === style) || {}).name || style;
-    return '<div class="ccP-panel" style="margin:12px 0 0;background:rgba(4,24,44,.55)">'
+    return '<div class="ccP-panel" style="margin:12px 0 0;background:rgba(255,255,255,.72)">'
       + '<div class="ccP-panel-h" style="font-size:15px">' + esc(a.name) + " · " + esc(styleName) + "</div>"
       + '<div class="ccP-devicebar" role="group" aria-label="Preview layout">'
       + '<button class="ccP-btn' + (S.skinDevice === "desktop" ? " pri" : "") + '" type="button" data-dev="desktop">Computer</button>'
@@ -1193,7 +1263,9 @@
       + kv("Store bonus", "+" + num(p.store_bonus_pct) + "% → <b>+" + num(nxt.store_bonus_pct) + "%</b>")
       + kv("Critters kept", S.keep.length
         ? S.keep.map((x) => esc((map[String(x).toLowerCase()] || {}).name || x)).join(" · ")
-        : '<span style="color:#ffd7dc">none selected</span>')
+        : (keepQuota() === 0
+          ? "nothing of yours would relock"
+          : '<span style="color:#ffd7dc">none selected</span>'))
       + kv("Animal skin", skinAnimal && skinStyle
         ? esc(skinStyle.name) + " " + esc(skinAnimal.name)
         : '<span style="color:#ffd7dc">none selected</span>')
@@ -1229,19 +1301,23 @@
   function confirmReady() {
     const phrase = ((S.cat && S.cat.confirm_phrase) || "PRESTIGE");
     return !!S.state && !!S.state.can_prestige
-      && S.keep.length === 2 && !!S.skin
+      && S.keep.length === keepQuota() && !!S.skin
       && (!colorChoiceNeeded() || !!S.colorPick)
       && S.confirmText.trim().toUpperCase() === phrase;
   }
   function missingText() {
     const miss = [];
     if (!S.state.can_prestige) miss.push("reach Level " + fmt(S.state.max_level));
-    if (S.keep.length !== 2) miss.push("choose two critters to keep");
+    const need = keepQuota();
+    if (S.keep.length !== need) {
+      miss.push(need === 0 ? "" : (need === 1 ? "choose one critter to keep" : "choose two critters to keep"));
+    }
     if (!S.skin) miss.push("choose an animal skin");
     if (colorChoiceNeeded() && !S.colorPick) miss.push("choose a name colour");
     const phrase = (S.cat && S.cat.confirm_phrase) || "PRESTIGE";
     if (S.confirmText.trim().toUpperCase() !== phrase) miss.push("type " + phrase);
-    return miss.length ? "Still to do: " + miss.join(", ") + "." : "";
+    const real = miss.filter(Boolean);
+    return real.length ? "Still to do: " + real.join(", ") + "." : "";
   }
 
   // ── History + footer ─────────────────────────────────────────────────────
@@ -1314,7 +1390,7 @@
     page.querySelectorAll("[data-keep]").forEach((b) => b.addEventListener("click", () => {
       const p = b.getAttribute("data-keep");
       const i = S.keep.indexOf(p);
-      const need = num((S.state.next && S.state.next.keep_avatars) || 2);
+      const need = keepQuota();
       if (i >= 0) S.keep.splice(i, 1);
       else if (S.keep.length < need) S.keep.push(p);
       else { toast("You can keep " + need + " critters — tap one to swap it out.", "info"); return; }
@@ -1445,7 +1521,7 @@
       return '<div class="ccP-rw"><div class="ccP-rw-lbl">Critter kept</div>'
         + '<div style="display:flex;align-items:center;gap:10px;margin-top:6px">'
         + '<img src="' + esc(avSrc(a.img)) + '" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover">'
-        + '<div class="ccP-rw-desc" style="font-weight:900;color:#fff">' + esc(a.name) + "</div></div></div>";
+        + '<div class="ccP-rw-desc" style="font-weight:900;color:#1a2d5a">' + esc(a.name) + "</div></div></div>";
     }).join("");
 
     const bg = res.background || {};
@@ -1534,9 +1610,11 @@
     bg.id = "ccP-app-bg";
     bg.style.zIndex = "9880";
     const box = el("div", "ccP-page");
-    box.style.cssText = "background:linear-gradient(180deg,#0a3358,#04182e);border:1px solid rgba(96,186,240,.4);"
-      + "border-radius:18px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:6px 0 18px;"
-      + "font-family:'Nunito',sans-serif;color:#e6f6ff;";
+    // Matches the reef page: cream glass, navy ink, the Player Home's corners.
+    box.style.cssText = "background:linear-gradient(180deg,#f7fcff,#e8f4fd);"
+      + "border:2px solid rgba(255,255,255,.9);box-shadow:0 22px 60px rgba(10,50,90,.4);"
+      + "border-radius:24px;max-width:660px;width:100%;max-height:88vh;overflow-y:auto;padding:6px 0 18px;"
+      + "font-family:'Nunito',sans-serif;color:#17365a;";
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-modal", "true");
     box.setAttribute("aria-label", "Username appearance");
@@ -1767,14 +1845,18 @@
   // ══════════════════════════════════════════════════════════════════════
   const NOTICE_KEY = "cc_prestige_notice_seen";
   /** The banner shown on Player Home the moment the cap is reached. Mounts
-   *  into `host`; returns true when it drew something. */
+   *  into `host`; returns true when it drew something.
+   *
+   *  Dismissal is per SESSION, not forever: Prestige is always optional, but a
+   *  player sitting at the cap should be reminded it is waiting each time they
+   *  come back — not silenced permanently by one stray tap on the ✕. */
   function notice(host) {
     if (!host) return false;
     const st = S.state;
     if (!st || !st.can_prestige) { const old = host.querySelector(".ccP-notice"); if (old) old.remove(); return false; }
     const key = NOTICE_KEY + "_" + num(st.prestige && st.prestige.level);
     let dismissed = false;
-    try { dismissed = localStorage.getItem(key) === "1"; } catch (_) {}
+    try { dismissed = sessionStorage.getItem(key) === "1"; } catch (_) {}
     if (dismissed) return false;
     if (host.querySelector(".ccP-notice")) return true;
     const n = el("div", "ccP-notice");
@@ -1789,11 +1871,98 @@
       try { bridge().goTab("prestige"); } catch (_) {}
     });
     n.querySelector(".ccP-notice-x").addEventListener("click", () => {
-      try { localStorage.setItem(key, "1"); } catch (_) {}
+      try { sessionStorage.setItem(key, "1"); } catch (_) {}
       n.remove();
     });
     host.insertBefore(n, host.firstChild);
     return true;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  THE SIGN-IN ASK
+  //  Prestige is ALWAYS optional — but a player who has reached the end of the
+  //  current gets asked, in the game's own voice, every time they sign in.
+  //  "Not right now" costs nothing and the ask returns next session; it never
+  //  starts anything on its own and it never blocks the game behind it.
+  // ══════════════════════════════════════════════════════════════════════
+  const ASK_KEY = "cc_prestige_asked";
+  let _askOpen = false;
+
+  async function ask(opts) {
+    const o = opts || {};
+    // Only refuse while the overlay is genuinely ON SCREEN. Keying purely off
+    // the flag means anything that wipes the DOM from under it (a route change,
+    // a re-render) suppresses the ask for the rest of the session with no way
+    // to get it back.
+    if (_askOpen && document.getElementById("cc-prestige-ask")) return false;
+    _askOpen = false;
+    if (!S.state) { await loadCatalog(); const r = await loadState(); if (!r || !r.ok) return false; }
+    const st = S.state;
+    if (!st || !st.can_prestige) return false;
+    // Once per sign-in per Prestige level. Answering "not right now" is a real
+    // answer for this session; signing in again asks again.
+    const key = ASK_KEY + "_" + num(st.prestige && st.prestige.level);
+    if (!o.force) {
+      try { if (sessionStorage.getItem(key) === "1") return false; } catch (_) {}
+    }
+    try { sessionStorage.setItem(key, "1"); } catch (_) {}
+
+    const nxt = st.next || {};
+    const bg = nxt.background || {};
+    const badge = nxt.badge || {};
+    _askOpen = true;
+
+    const wrap = el("div");
+    wrap.id = "cc-prestige-ask";
+    wrap.className = "ccP-ask-bg";
+    wrap.innerHTML = '<div class="ccP-ask" role="dialog" aria-modal="true" aria-labelledby="ccP-ask-h">'
+      + '<div class="ccP-ask-inner">'
+      + '<div class="ccP-ask-badge">' + (badgeHtml(num(nxt.prestige), { large: true }) || "🌊") + "</div>"
+      + '<h2 class="ccP-title" id="ccP-ask-h">You have reached the end of this current!</h2>'
+      + '<div class="ccP-sub">Ride the next current to return to Level 1 and unlock permanent Prestige rewards. '
+      + "You can do this whenever you like — nothing expires, and we'll ask again next time you sign in.</div>"
+      + '<div class="ccP-ask-grid">'
+      + askCard('<img src="/critter-coin.png?v=1" alt="">', fmt(nxt.coins), "Critter Coins")
+      + askCard("⭐", "+" + num(nxt.xp_bonus_pct) + "%", "Permanent XP")
+      + askCard("🛒", "+" + num(nxt.store_bonus_pct) + "%", "Store bonus")
+      + askCard("🎨", "1 animal", "Alternate skin")
+      + askCard("🌊", esc(bg.name || "—"), "New background")
+      + askCard("🏅", esc(badge.name || "—"), "New badge")
+      + "</div>"
+      + '<div class="ccP-ask-keep">You keep your competitive rank, clan, friends, coins, achievements, '
+      + "lifetime stats and everything you have ever bought.</div>"
+      + '<div class="ccP-ask-btns">'
+      + '<button class="ccP-ride" type="button" data-ask="go">View Prestige Rewards</button>'
+      + '<button class="ccP-btn ghost" type="button" data-ask="later">Not right now</button>'
+      + "</div></div></div>";
+    // The same living ocean as the page — this is the doorway into it.
+    // Guarded: an overlay whose scene failed to mount is still perfectly
+    // usable, but one that THREW here would leave a half-built modal on screen
+    // with no way to close it.
+    const card = wrap.querySelector(".ccP-ask");
+    if (card) card.insertBefore(buildScene(bg.scene || "shallows", { dense: true }), card.firstChild);
+    document.body.appendChild(wrap);
+    wrap.classList.toggle("ccP-paused", document.hidden);
+
+    const close = () => { _askOpen = false; wrap.remove(); document.removeEventListener("keydown", onKey); };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    wrap.addEventListener("click", (e) => { if (e.target === wrap) close(); });
+    const later = wrap.querySelector('[data-ask="later"]');
+    if (later) later.addEventListener("click", close);
+    const go = wrap.querySelector('[data-ask="go"]');
+    if (go) {
+      go.addEventListener("click", () => {
+        close();
+        try { bridge().goTab("prestige"); } catch (_) {}
+      });
+      try { go.focus(); } catch (_) {}
+    }
+    return true;
+  }
+  function askCard(ico, val, lbl) {
+    return '<div class="ccP-ask-card"><div class="ccP-rw-ico" aria-hidden="true">' + ico + "</div>"
+      + '<div class="ccP-rw-val">' + val + '</div><div class="ccP-rw-lbl">' + esc(lbl) + "</div></div>";
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1804,10 +1973,67 @@
   window.__ccPrestigeNameHtml = nameHtml;
   window.__ccPrestigeDecorate = decorate;
   window.__ccPrestigeLookup = lookup;
+  window.__ccPrestigeLookupByName = lookupByName;
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  THE ONE SWEEP THAT PAINTS USERNAMES EVERYWHERE
+  //
+  //  Any username anywhere in the game becomes a Prestige username by getting
+  //  two attributes:  data-cc-pname="<uid|nickname>"  data-cc-surface="dark".
+  //  This sweep resolves them (uid or name), applies the colour/effect and
+  //  drops the badge in beside it. One call after any render is enough, and
+  //  re-running it is free — already-decorated nodes are skipped.
+  //
+  //  Doing it this way instead of editing every render path is what makes the
+  //  colours CONSISTENT: leaderboards, friends, clan rosters, in-game seats,
+  //  match results, messages, invites, brackets and spectator screens all get
+  //  the identical treatment from the identical code.
+  // ══════════════════════════════════════════════════════════════════════
+  let _sweepTimer = null;
+  function refreshNames(scope) {
+    clearTimeout(_sweepTimer);
+    _sweepTimer = setTimeout(() => sweep(scope), 40);
+  }
+  async function sweep(scope) {
+    const rootEl = scope || document;
+    let nodes;
+    try { nodes = rootEl.querySelectorAll("[data-cc-pname]"); } catch (_) { return; }
+    if (!nodes || !nodes.length) return;
+    const uids = [], names = [];
+    nodes.forEach((n) => {
+      const key = String(n.getAttribute("data-cc-pname") || "").trim();
+      if (!key) return;
+      // A Firebase uid is a long opaque token; a nickname is short and is what
+      // the player typed. Anything 24+ chars with no space is treated as a uid.
+      if (key.length >= 20 && !/\s/.test(key)) uids.push(key);
+      else names.push(key);
+    });
+    const [byUid, byName] = await Promise.all([
+      uids.length ? lookup(uids) : Promise.resolve({}),
+      names.length ? lookupByName(names) : Promise.resolve({}),
+    ]);
+    nodes.forEach((n) => {
+      const key = String(n.getAttribute("data-cc-pname") || "").trim();
+      if (!key) return;
+      const meta = byUid[key] || byName[key.toLowerCase()]
+        || (S.mine && (S.mine.uid === key || String(S.mine.nickname).toLowerCase() === key.toLowerCase()) ? S.mine : null);
+      if (!meta) return;
+      const stamp = String(meta.level) + ":" + JSON.stringify(meta.name || {}) + ":" + (S.still ? 1 : 0);
+      if (n.getAttribute("data-cc-painted") === stamp) return;
+      n.setAttribute("data-cc-painted", stamp);
+      decorate(n, meta, {
+        surface: n.getAttribute("data-cc-surface") || "light",
+        badge: n.getAttribute("data-cc-badge") !== "0",
+        uid: meta.uid || key,
+      });
+    });
+  }
+  window.__ccRefreshNames = refreshNames;
   window.__ccPrestigeMine = mine;
   window.__ccPrestigeXp = xpBreakdown;
   window.__ccPrestigeSkinFor = skinFor;
   window.__ccPrestigeNotice = notice;
+  window.__ccPrestigeAsk = ask;
   window.__ccPrestigeAppearance = openAppearance;
   window.__ccPrestigeCelebrate = celebrate;
   window.__ccPrestigeScene = buildScene;

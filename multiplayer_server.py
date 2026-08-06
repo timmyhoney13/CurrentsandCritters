@@ -34,6 +34,7 @@ import snap_score
 import tournament_server
 import clan_server
 import prestige_server
+import analytics_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -7628,6 +7629,16 @@ class GameRoom:
                 # apart for the "play 10 games in team mode" challenges.
                 "team_mode": bool(self.team_mode),
                 "team_count": int(self.team_count) if self.team_mode else 0,
+                # How long the game actually took. `recorded_unix` alone only
+                # says when it ENDED, so without these the analytics dashboard
+                # cannot answer "how long is a game" for any record. Older
+                # records have no timing at all, and the dashboard leaves them
+                # out of the average rather than counting them as zero.
+                "started_unix": int(self.started_unix) if self.started_unix else 0,
+                "ended_unix": int(self.ended_unix or now_unix()),
+                "duration_sec": max(0, int((self.ended_unix or now_unix()) - self.started_unix))
+                                if self.started_unix else 0,
+                "rounds": int(rounds_played),
             }
             fname = f"game_{self.room_id}_{now_unix()}.json"
             atomic_write_json(os.path.join(GAMES_HISTORY_DIR, fname), record)
@@ -9211,6 +9222,86 @@ class RoomManager:
 ROOMS = RoomManager()
 
 
+def _deployed_app_version() -> str:
+    """"1.6.49 (2026-08-05.5)" from the client's version.json — the same string
+    the players' What's New banner shows, so the dashboard can never claim a
+    different build than the one actually serving the game."""
+    try:
+        with open(VERSION_JSON_PATH, "r", encoding="utf-8") as fh:
+            v = json.load(fh)
+        ver, build = str(v.get("version") or ""), str(v.get("build") or "")
+        return f"{ver} ({build})" if ver and build else (ver or build)
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+# ── Developer Analytics ↔ live server bridge ─────────────────────────────────
+# The analytics module owns no room state of its own; this is the one place that
+# reads it. Everything here is a cheap in-memory count — the dashboard's
+# real-time panel polls it, so it must never touch Firestore or the disk.
+def _analytics_live_snapshot() -> Dict[str, Any]:
+    """Right-now counts for the dashboard: who's on, what's running, and the
+    health checks that decide whether it says "Healthy" or "Needs attention"."""
+    playing = lobbies = matchmaking = stuck = 0
+    now = now_unix()
+    try:
+        with ROOMS.lock:
+            rooms = list(ROOMS.rooms.values())
+    except Exception:  # noqa: BLE001
+        rooms = []
+    for room in rooms:
+        try:
+            phase = room.phase
+            if phase == "playing":
+                playing += 1
+                started = int(room.started_unix or 0)
+                # A "game" running for six hours is a room nobody ever closed,
+                # not a long game — that is what the Technical alert is for.
+                if started and now - started > 6 * 3600:
+                    stuck += 1
+            elif phase == "lobby":
+                lobbies += 1
+                with room.cond:
+                    if any(s.quick_play_ticket for s in room.seats):
+                        matchmaking += 1
+        except Exception:  # noqa: BLE001 — one odd room must not blank the panel
+            continue
+
+    _reg, online, _games = get_live_user_counts()
+    with _DEEP_PLAN_STATS_LOCK:
+        planned = dict(_DEEP_PLAN_STATS)
+    load = {
+        "rooms": len(rooms),
+        "threads": threading.active_count(),
+        "deep_plan_slots": _DEEP_PLAN_SLOTS,
+        "deep_plan_granted": planned.get("granted", 0),
+        "deep_plan_skipped": planned.get("skipped", 0),
+    }
+
+    # "Healthy" has to mean something, so it is the AND of real checks rather
+    # than a constant. Firestore down = the account half of the dashboard is
+    # blind; bots shedding most of their planning = this box is at its ceiling.
+    problems = []
+    if _get_firestore() is None:
+        problems.append("Firebase isn't connected, so account numbers are unavailable.")
+    granted, skipped = load["deep_plan_granted"], load["deep_plan_skipped"]
+    if granted and skipped > granted * 0.25:
+        problems.append("Bots are skipping their deep planning to keep up.")
+    if stuck:
+        problems.append(f"{stuck} game rooms have been open far longer than a game takes.")
+
+    return {
+        "ok": not problems,
+        "status_note": problems[0] if problems else "All checks passing.",
+        "online_players": online if isinstance(online, int) else -1,
+        "active_games": playing,
+        "open_lobbies": lobbies,
+        "matchmaking": matchmaking,
+        "stuck_rooms": stuck,
+        "load": load,
+    }
+
+
 # ── Tournament Mode ↔ GameRoom bridge ────────────────────────────────────────
 # A tournament bracket match runs as an ordinary GameRoom. These two helpers are
 # the only coupling between the tournament subsystem and the room engine:
@@ -10705,6 +10796,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if prestige_server.handle_post(self, parsed, body):
             return
 
+        # Developer Analytics API (admin only — every call proves an admin
+        # account with a verified Firebase ID token inside the module).
+        if analytics_server.handle_post(self, parsed, body):
+            return
+
         if parsed.path == "/api/user/register":
             # Called by the game client once per new Google account sign-up.
             # Body: { "uid": "<firebase_uid>" }
@@ -11619,6 +11715,22 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         level_progress=_level_progress_for_total_xp,
         max_level=len(LEVEL_XP_TOTALS),
+        # In-game seats, the end-game summary and tournament brackets only ever
+        # know a display NAME, so the badge lookup has to resolve one.
+        find_uid_by_username=_find_uid_by_username,
+    )
+
+    # Developer Analytics: read-only. It is handed the same Firestore accessor
+    # and token verifier as everything else, plus the two history directories
+    # THIS server writes its game records into — so the dashboard measures the
+    # real games, never a second tally that could drift from them.
+    analytics_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+        games_history_dir=GAMES_HISTORY_DIR,
+        competitive_games_dir=COMPETITIVE_GAMES_DIR,
+        live_snapshot=_analytics_live_snapshot,
+        app_version=_deployed_app_version(),
     )
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.

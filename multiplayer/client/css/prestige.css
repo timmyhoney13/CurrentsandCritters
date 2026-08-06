@@ -1,75 +1,111 @@
 /* Currents and Critters — Prestige System styling.
  *
- * The Prestige page is deliberately the ONE dark screen in the Player Home:
- * everywhere else is the sunlit shallows, and riding the next current means
- * going deep. It is still the same design system — Nunito + Luckiest Guy, the
- * game's ocean palette (var(--cyan) / --gold / --teal / --coral from
- * preview.css), pill buttons, 14–18px card corners — just lit from below.
+ * The Prestige page IS the game's coral reef. The whole screen — sidebar and
+ * all — is /game-bg.png, the exact background the board is played on, and the
+ * page's panels are the same cream glass, Nunito + Luckiest Guy, 20-26px
+ * corners and #2e8fe0 blues the Player Home already uses. Nothing here invents
+ * a second look: it reuses the one the game has.
  *
- * Every animation in here is:
+ * On top of the reef sit the living layers — drifting currents, light rays
+ * through the water, rising bubbles, marine snow, swaying kelp and real
+ * critters from the game swimming past. Those layers are also what the
+ * unlocked PRESTIGE BACKGROUNDS are: the same reef, graded and populated
+ * differently per scene, which is why they can move without shipping a single
+ * new megabyte.
+ *
+ * Every animation is:
  *   • slow (8s+) and low-amplitude, so text never moves under a reader;
  *   • behind the content, never over it;
  *   • switched off wholesale by `prefers-reduced-motion`, by the in-page
- *     "Reduce motion" toggle (.ccP-still on the root), and by the page
- *     visibility handler (.ccP-paused), which is what keeps it off a phone's
- *     battery when the tab is in the background.
+ *     "Reduce motion" toggle (.ccP-still), and by the page-visibility handler
+ *     (.ccP-paused) that keeps them off a phone's battery in a background tab.
  */
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE WHOLE PAGE IS THE REEF
+   Uses the Player Home's existing data-bg-tab mechanism (switchTab already
+   sets it), so this is the same hook every other tab's backdrop uses.
+   ══════════════════════════════════════════════════════════════════════ */
+#auth-stats-lobby[data-bg-tab="prestige"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .30) 0%, rgba(255, 255, 255, .04) 30%, rgba(120, 190, 235, .18) 100%),
+    url("/game-bg.png") center center / cover no-repeat fixed,
+    linear-gradient(180deg, #b7e9fb 0%, #d4f2ff 42%, #c2e9ff 100%);
+}
+/* The panels on this tab float on the reef rather than on their own colour. */
+#auth-stats-lobby[data-bg-tab="prestige"] .ph-profile-card,
+#auth-stats-lobby[data-bg-tab="prestige"] .ph-sidebar-nav-card {
+  background: rgba(252, 255, 255, .93);
+  backdrop-filter: blur(6px);
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    ROOT
    ══════════════════════════════════════════════════════════════════════ */
 #cc-prestige-root {
-  --p-deep:   #04182e;
-  --p-mid:    #0a3358;
-  --p-shallow:#136ea8;
-  --p-glass:  rgba(10, 46, 80, .62);
-  --p-glass2: rgba(6, 32, 58, .78);
-  --p-edge:   rgba(96, 186, 240, .32);
-  --p-edge-on:rgba(120, 226, 255, .85);
-  --p-text:   #e6f6ff;
-  --p-muted:  #9fc9e6;
-  --p-gold:   #f0c840;
-  --p-cyan:   #22d8f8;
-  --p-teal:   #18c8a8;
-  --p-coral:  #f09880;
+  /* Ocean-light palette — the Player Home's, not a new one. */
+  --p-ink:      #17365a;   /* body text on cream                       */
+  --p-ink-soft: #5b7fa3;   /* secondary text                           */
+  --p-ink-dim:  #7a9db8;   /* labels                                   */
+  --p-blue:     #1c70cc;   /* the game's primary blue                  */
+  --p-blue-lt:  #2e8fe0;
+  --p-line:     rgba(169, 203, 230, .78);
+  --p-card:     rgba(252, 255, 255, .93);
+  --p-card-2:   rgba(247, 252, 255, .88);
+  --p-gold:     #c89320;
+  --p-gold-lt:  #e8b34a;
+  --p-teal:     #12a37c;
+  --p-coral:    #e0644a;
+  --p-navy:     #1a2d5a;
   font-family: "Nunito", sans-serif;
-  color: var(--p-text);
+  color: var(--p-ink);
   position: relative;
-  border-radius: 18px;
-  overflow: hidden;
   isolation: isolate;
   min-height: 520px;
+  /* ⚠️ NO negative margin here. Widening the root to break out of .ph-wrap's
+     gutter makes it wider than the viewport, and nothing up the tree clips it —
+     which on a phone pushes the step tracker, the tiles and the right-hand half
+     of every sentence off the side of the screen. The reef is already full-page
+     (see the data-bg-tab rule at the top), so the root does not need to be: only
+     the LIVING LAYERS bleed, and they do it from .ccP-scene below.
+     `overflow-x: clip` (not hidden) contains that bleed without turning the page
+     into a scroll container, which would break the sticky mobile action bar. */
+  padding: 0;
+  overflow-x: clip;
 }
 
 /* ══════════════════════════════════════════════════════════════════════
-   THE LIVING OCEAN (also used for the unlocked Prestige backgrounds)
-   Built out of stacked layers so any one of them can be dropped on a slow
-   device without the scene falling apart.
+   THE LIVING LAYERS (also the unlocked Prestige backgrounds)
+   Built as separate layers so any one can be dropped on a slow device
+   without the scene falling apart.
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+/* Bleeds past the content column (clipped by the root's overflow-x) so the
+   currents, bubbles and critters run edge to edge without the ROOT being wider
+   than the page. */
+.ccP-scene { position: absolute; top: 0; bottom: 0; left: -26px; right: -26px; z-index: 0; pointer-events: none; overflow: hidden; }
 .ccP-scene > * { position: absolute; inset: 0; }
 
-/* Water: depth gradient + two very slow drifting sheets = a current. */
+/* The reef itself + this scene's colour grade. Every scene is the same
+   artwork; the grade is what makes Midnight Drift and Arctic Shelf feel like
+   different oceans instead of different pictures. */
 .ccP-water {
-  background:
-    radial-gradient(120% 80% at 50% -10%, rgba(120, 220, 255, .30) 0%, rgba(120, 220, 255, 0) 60%),
-    linear-gradient(180deg, var(--p-shallow) 0%, var(--p-mid) 42%, var(--p-deep) 100%);
+  background: url("/game-bg.png") center center / cover no-repeat;
 }
+.ccP-water::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(140, 205, 240, .05));
+}
+
+/* Currents: two very slow drifting sheets. */
 .ccP-current {
-  background:
-    repeating-linear-gradient(102deg,
-      rgba(140, 226, 255, .00) 0px,
-      rgba(140, 226, 255, .05) 60px,
-      rgba(140, 226, 255, .00) 150px);
+  background: repeating-linear-gradient(102deg,
+    rgba(255, 255, 255, .00) 0px, rgba(255, 255, 255, .13) 60px, rgba(255, 255, 255, .00) 150px);
   animation: ccP-drift 26s linear infinite;
   will-change: transform;
 }
 .ccP-current.b {
-  background:
-    repeating-linear-gradient(78deg,
-      rgba(80, 200, 190, .00) 0px,
-      rgba(80, 200, 190, .045) 90px,
-      rgba(80, 200, 190, .00) 210px);
+  background: repeating-linear-gradient(78deg,
+    rgba(120, 220, 210, .00) 0px, rgba(120, 220, 210, .10) 90px, rgba(120, 220, 210, .00) 210px);
   animation-duration: 41s;
   animation-direction: reverse;
 }
@@ -78,59 +114,58 @@
 /* Sun shafts raking down through the water. */
 .ccP-rays {
   background:
-    linear-gradient(96deg,  rgba(190, 240, 255, .00) 44%, rgba(190, 240, 255, .13) 50%, rgba(190, 240, 255, .00) 56%),
-    linear-gradient(84deg,  rgba(190, 240, 255, .00) 20%, rgba(190, 240, 255, .09) 26%, rgba(190, 240, 255, .00) 33%),
-    linear-gradient(107deg, rgba(190, 240, 255, .00) 68%, rgba(190, 240, 255, .10) 74%, rgba(190, 240, 255, .00) 81%);
-  mix-blend-mode: screen;
+    linear-gradient(96deg,  rgba(255, 255, 255, .00) 44%, rgba(255, 255, 255, .30) 50%, rgba(255, 255, 255, .00) 56%),
+    linear-gradient(84deg,  rgba(255, 255, 255, .00) 20%, rgba(255, 255, 255, .20) 26%, rgba(255, 255, 255, .00) 33%),
+    linear-gradient(107deg, rgba(255, 255, 255, .00) 68%, rgba(255, 255, 255, .24) 74%, rgba(255, 255, 255, .00) 81%);
   transform-origin: 50% 0;
   animation: ccP-sway 17s ease-in-out infinite alternate;
 }
 @keyframes ccP-sway { from { transform: skewX(-3.5deg) scaleY(1); } to { transform: skewX(3.5deg) scaleY(1.05); } }
 
-/* Drifting particles / marine snow — one element, many box-shadows. */
+/* Marine snow drifting up through the light. */
 .ccP-motes {
   background-image:
-    radial-gradient(circle, rgba(214, 244, 255, .55) 1px, rgba(0, 0, 0, 0) 1.6px),
-    radial-gradient(circle, rgba(214, 244, 255, .32) 1px, rgba(0, 0, 0, 0) 1.6px);
+    radial-gradient(circle, rgba(255, 255, 255, .85) 1px, rgba(0, 0, 0, 0) 1.6px),
+    radial-gradient(circle, rgba(255, 255, 255, .55) 1px, rgba(0, 0, 0, 0) 1.6px);
   background-size: 210px 190px, 340px 300px;
   background-position: 0 0, 90px 60px;
   animation: ccP-motes 44s linear infinite;
-  opacity: .75;
+  opacity: .8;
 }
 @keyframes ccP-motes {
   from { background-position: 0 0, 90px 60px; }
   to   { background-position: 120px -380px, 210px -540px; }
 }
 
-/* Bubbles: a fixed set of spans, each with its own delay/scale from JS. */
+/* Bubbles: one span each, with its own size/delay from JS. */
 .ccP-bubbles { overflow: hidden; }
 .ccP-bub {
   position: absolute; bottom: -24px; border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .92), rgba(160, 226, 255, .16) 62%, rgba(160, 226, 255, 0) 70%);
-  border: 1px solid rgba(210, 245, 255, .35);
+  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, .95), rgba(210, 240, 255, .30) 62%, rgba(210, 240, 255, 0) 70%);
+  border: 1px solid rgba(255, 255, 255, .75);
   animation: ccP-rise linear infinite;
   will-change: transform, opacity;
 }
 @keyframes ccP-rise {
   0%   { transform: translate3d(0, 0, 0) scale(.7);   opacity: 0; }
-  12%  { opacity: .85; }
-  88%  { opacity: .55; }
+  12%  { opacity: .9; }
+  88%  { opacity: .6; }
   100% { transform: translate3d(18px, -105%, 0) scale(1.1); opacity: 0; }
 }
 
-/* Kelp + coral silhouettes rooted on the floor. */
-.ccP-flora { top: auto; bottom: 0; height: 62%; }
+/* Kelp + coral silhouettes rooted on the reef floor. */
+.ccP-flora { top: auto; bottom: 0; height: 58%; }
 .ccP-flora svg { position: absolute; bottom: -2px; display: block; }
 .ccP-kelp path { transform-origin: 50% 100%; animation: ccP-kelp 11s ease-in-out infinite alternate; }
 @keyframes ccP-kelp { from { transform: skewX(-4deg); } to { transform: skewX(4deg); } }
 .ccP-coralglow { animation: ccP-coralglow 7s ease-in-out infinite alternate; }
-@keyframes ccP-coralglow { from { opacity: .45; } to { opacity: .95; } }
+@keyframes ccP-coralglow { from { opacity: .5; } to { opacity: .95; } }
 
-/* Real critters from the game, drifting past as silhouettes. */
+/* Real critters from the game, swimming past. */
 .ccP-swimmers { overflow: hidden; }
 .ccP-swim {
   position: absolute; display: block; height: auto;
-  filter: brightness(.55) saturate(.6) drop-shadow(0 4px 14px rgba(0, 0, 0, .35));
+  filter: drop-shadow(0 6px 14px rgba(30, 90, 140, .30));
   animation: ccP-swim linear infinite;
   will-change: transform;
 }
@@ -138,38 +173,57 @@
 @keyframes ccP-swim     { from { transform: translate3d(-22vw, 0, 0) scaleX(1); }  to { transform: translate3d(122vw, 0, 0) scaleX(1); } }
 @keyframes ccP-swim-rtl { from { transform: translate3d(122vw, 0, 0) scaleX(-1); } to { transform: translate3d(-22vw, 0, 0) scaleX(-1); } }
 
-/* Bioluminescence for the deep scenes. */
+/* Bioluminescence, for the scenes that live deep. */
 .ccP-biolume {
   background-image:
-    radial-gradient(circle, rgba(90, 255, 220, .75) 1.4px, rgba(0, 0, 0, 0) 2.2px),
-    radial-gradient(circle, rgba(120, 190, 255, .6) 1.2px, rgba(0, 0, 0, 0) 2px);
+    radial-gradient(circle, rgba(90, 255, 220, .8) 1.4px, rgba(0, 0, 0, 0) 2.2px),
+    radial-gradient(circle, rgba(150, 210, 255, .7) 1.2px, rgba(0, 0, 0, 0) 2px);
   background-size: 260px 240px, 400px 360px;
   animation: ccP-pulse 6.5s ease-in-out infinite alternate, ccP-motes 62s linear infinite;
   mix-blend-mode: screen;
 }
-@keyframes ccP-pulse { from { opacity: .25; } to { opacity: .8; } }
+@keyframes ccP-pulse { from { opacity: .25; } to { opacity: .85; } }
 
-/* A dark vignette so text over the scene always has somewhere to sit. */
+/* A soft light wash so cream panels always have somewhere to sit. */
+/* Just enough lift for cream panels to sit on, and no more — the reef is the
+   point of the page, so anything that hides its coral is too much. */
 .ccP-veil {
   background:
-    radial-gradient(130% 90% at 50% 40%, rgba(3, 18, 34, 0) 30%, rgba(3, 18, 34, .55) 100%),
-    linear-gradient(180deg, rgba(3, 18, 34, .28) 0%, rgba(3, 18, 34, .05) 30%, rgba(3, 18, 34, .5) 100%);
+    radial-gradient(120% 80% at 50% 30%, rgba(255, 255, 255, .20) 0%, rgba(255, 255, 255, 0) 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, 0) 24%, rgba(120, 185, 230, .16) 100%);
 }
 
-/* Per-scene tinting: one class swaps the whole mood without new markup. */
-.ccP-scene[data-scene="kelp"]      .ccP-water { background: radial-gradient(120% 80% at 50% -10%, rgba(190, 255, 190, .22), rgba(0, 0, 0, 0) 60%), linear-gradient(180deg, #1c7a5e 0%, #0d4a44 45%, #04231f 100%); }
-.ccP-scene[data-scene="bloom"]     .ccP-water { background: radial-gradient(120% 80% at 50% -10%, rgba(255, 200, 220, .26), rgba(0, 0, 0, 0) 60%), linear-gradient(180deg, #1f8fb8 0%, #12557e 45%, #071f38 100%); }
-.ccP-scene[data-scene="midnight"]  .ccP-water { background: linear-gradient(180deg, #0b2b4c 0%, #061d36 48%, #020c18 100%); }
-.ccP-scene[data-scene="golden"]    .ccP-water { background: radial-gradient(120% 80% at 50% -10%, rgba(255, 214, 120, .34), rgba(0, 0, 0, 0) 62%), linear-gradient(180deg, #17709e 0%, #0d3f60 46%, #04182a 100%); }
-.ccP-scene[data-scene="biolume"]   .ccP-water { background: linear-gradient(180deg, #06263f 0%, #041a30 45%, #010a15 100%); }
-.ccP-scene[data-scene="arctic"]    .ccP-water { background: radial-gradient(120% 80% at 50% -12%, rgba(230, 250, 255, .5), rgba(0, 0, 0, 0) 58%), linear-gradient(180deg, #55b8dd 0%, #14618f 44%, #06263f 100%); }
-.ccP-scene[data-scene="trench"]    .ccP-water { background: linear-gradient(180deg, #05192e 0%, #030f1d 40%, #000509 100%); }
-.ccP-scene[data-scene="surge"]     .ccP-water { background: radial-gradient(140% 60% at 50% -20%, rgba(220, 245, 255, .38), rgba(0, 0, 0, 0) 55%), linear-gradient(180deg, #16496f 0%, #0a2b48 45%, #04121f 100%); }
-.ccP-scene[data-scene="celestial"] .ccP-water { background: radial-gradient(120% 80% at 50% -10%, rgba(190, 170, 255, .32), rgba(0, 0, 0, 0) 60%), linear-gradient(180deg, #2a2f7a 0%, #131a4a 45%, #050718 100%); }
-.ccP-scene[data-scene="golden"]    .ccP-rays  { filter: hue-rotate(-28deg) saturate(1.5); }
-.ccP-scene[data-scene="celestial"] .ccP-rays  { filter: hue-rotate(48deg); }
-.ccP-scene[data-scene="biolume"]   .ccP-rays,
-.ccP-scene[data-scene="trench"]    .ccP-rays  { opacity: .18; }
+/* ── Per-scene colour grades ────────────────────────────────────────────
+   One class swaps the whole mood. The reef stays the reef; the light on it
+   changes, which is what an ocean actually does with depth. */
+.ccP-scene[data-scene="shallows"]  .ccP-water::after { background: linear-gradient(180deg, rgba(255, 250, 220, .26), rgba(150, 220, 245, .16)); }
+.ccP-scene[data-scene="kelp"]      .ccP-water { filter: hue-rotate(58deg) saturate(1.12); }
+.ccP-scene[data-scene="bloom"]     .ccP-water { filter: saturate(1.5) hue-rotate(-14deg); }
+.ccP-scene[data-scene="midnight"]  .ccP-water { filter: brightness(.42) saturate(.85) hue-rotate(8deg); }
+.ccP-scene[data-scene="golden"]    .ccP-water { filter: sepia(.4) saturate(1.7) hue-rotate(-22deg) brightness(1.02); }
+.ccP-scene[data-scene="biolume"]   .ccP-water { filter: brightness(.34) saturate(1.3) hue-rotate(112deg); }
+.ccP-scene[data-scene="arctic"]    .ccP-water { filter: saturate(.55) brightness(1.14) hue-rotate(-12deg); }
+.ccP-scene[data-scene="trench"]    .ccP-water { filter: brightness(.24) saturate(.7); }
+.ccP-scene[data-scene="surge"]     .ccP-water { filter: brightness(.78) saturate(.9) contrast(1.16); }
+.ccP-scene[data-scene="celestial"] .ccP-water { filter: hue-rotate(212deg) saturate(1.25) brightness(.86); }
+
+/* The dark scenes need the light layers turned down and the veil inverted, or
+   the cream panels sit on a glare instead of on water. */
+.ccP-scene[data-scene="midnight"] .ccP-veil,
+.ccP-scene[data-scene="biolume"]  .ccP-veil,
+.ccP-scene[data-scene="trench"]   .ccP-veil,
+.ccP-scene[data-scene="celestial"] .ccP-veil {
+  background:
+    radial-gradient(120% 80% at 50% 32%, rgba(255, 255, 255, .22) 0%, rgba(255, 255, 255, .02) 60%),
+    linear-gradient(180deg, rgba(6, 28, 52, .18) 0%, rgba(6, 28, 52, .05) 30%, rgba(6, 28, 52, .30) 100%);
+}
+.ccP-scene[data-scene="biolume"] .ccP-rays,
+.ccP-scene[data-scene="trench"]  .ccP-rays { opacity: .25; }
+
+/* The little scene thumbnails in Name Appearance are the same renderer. */
+.ccP-scene-thumb { position: relative; overflow: hidden; }
+/* A thumbnail is its own little window, so it gets no bleed. */
+.ccP-scene-thumb .ccP-scene { position: absolute; inset: 0; left: 0; right: 0; }
 
 /* ══════════════════════════════════════════════════════════════════════
    PAGE CHROME
@@ -178,199 +232,221 @@
 
 .ccP-hero {
   display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-  padding: 22px 22px 18px;
+  padding: 22px 24px 16px;
 }
 .ccP-hero-badge { flex: 0 0 auto; }
 .ccP-hero-main { flex: 1 1 260px; min-width: 0; }
+/* Navy on a white halo, not white on bright water: the reef's own sky is pale,
+   so a white heading has nothing to sit against at the top of the page. */
 .ccP-title {
   font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
-  font-size: clamp(26px, 5.2vw, 42px); letter-spacing: .6px; line-height: 1.05;
-  color: #fff; text-shadow: 0 2px 0 rgba(4, 26, 46, .5), 0 0 26px rgba(90, 216, 255, .55);
-  margin: 0;
+  font-size: clamp(28px, 5.4vw, 46px); letter-spacing: .6px; line-height: 1.05;
+  color: #12457c; margin: 0;
+  text-shadow:
+    0 2px 0 rgba(255, 255, 255, .95), 0 0 18px rgba(255, 255, 255, .9),
+    0 0 34px rgba(255, 255, 255, .75);
 }
-.ccP-sub { font-size: 13.5px; font-weight: 700; color: var(--p-muted); margin-top: 5px; line-height: 1.5; }
-.ccP-hero-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.ccP-sub {
+  font-size: 14px; font-weight: 800; margin-top: 7px; line-height: 1.5;
+  color: #0e3f6b; max-width: 780px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .95), 0 0 12px rgba(255, 255, 255, .85);
+}
+.ccP-hero-stats { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 14px; }
 .ccP-stat {
-  background: var(--p-glass); border: 1px solid var(--p-edge); border-radius: 13px;
-  padding: 7px 13px; min-width: 88px; backdrop-filter: blur(5px);
+  background: var(--p-card); border: 1px solid var(--p-line); border-radius: 15px;
+  padding: 8px 15px; min-width: 96px;
+  box-shadow: 0 5px 16px rgba(28, 90, 150, .13);
 }
-.ccP-stat b { display: block; font-size: 17px; color: #fff; line-height: 1.15; }
-.ccP-stat span { display: block; font-size: 9.5px; font-weight: 900; letter-spacing: .6px; text-transform: uppercase; color: var(--p-muted); }
+.ccP-stat b { display: block; font-size: 19px; color: var(--p-blue); line-height: 1.15; }
+.ccP-stat span { display: block; font-size: 9.5px; font-weight: 900; letter-spacing: .6px; text-transform: uppercase; color: var(--p-ink-dim); }
 
-/* Level → cap progress bar */
-.ccP-progress { padding: 0 22px 4px; }
+/* Level → cap progress */
+.ccP-progress { padding: 0 24px 4px; }
 .ccP-bar {
-  position: relative; height: 16px; border-radius: 999px; overflow: hidden;
-  background: rgba(3, 22, 40, .6); border: 1px solid var(--p-edge);
+  position: relative; height: 18px; border-radius: 999px; overflow: hidden;
+  background: rgba(255, 255, 255, .75); border: 1px solid var(--p-line);
+  box-shadow: inset 0 1px 3px rgba(28, 90, 150, .18);
 }
 .ccP-bar > i {
   display: block; height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, var(--p-teal), var(--p-cyan) 60%, #b9f2ff);
-  box-shadow: 0 0 16px rgba(34, 216, 248, .55);
+  background: linear-gradient(90deg, #39d3b0, #2e8fe0 62%, #1c70cc);
   transition: width .6s cubic-bezier(.22, .8, .3, 1);
   position: relative; overflow: hidden;
 }
 .ccP-bar > i::after {
   content: ""; position: absolute; inset: 0;
-  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .00) 0 12px, rgba(255, 255, 255, .22) 12px 24px);
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, .00) 0 12px, rgba(255, 255, 255, .32) 12px 24px);
   animation: ccP-barflow 1.9s linear infinite;
 }
 @keyframes ccP-barflow { to { transform: translateX(-24px); } }
-.ccP-bar-text { display: flex; justify-content: space-between; font-size: 11.5px; font-weight: 800; color: var(--p-muted); margin-top: 5px; }
-.ccP-bar-text b { color: #fff; }
+.ccP-bar-text {
+  display: flex; justify-content: space-between; font-size: 12px; font-weight: 900;
+  color: #0e3f6b; margin-top: 6px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .95), 0 0 10px rgba(255, 255, 255, .85);
+}
+.ccP-bar-text b { color: var(--p-blue); }
 
 /* Step tracker */
 .ccP-steps {
-  display: flex; gap: 6px; padding: 16px 22px 6px; overflow-x: auto;
+  display: flex; gap: 7px; padding: 16px 24px 6px; overflow-x: auto;
   scrollbar-width: thin; -webkit-overflow-scrolling: touch;
 }
 .ccP-step {
-  flex: 0 0 auto; display: flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 800;
-  border: 1.5px solid var(--p-edge); background: rgba(6, 32, 58, .55); color: var(--p-muted);
+  flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+  padding: 9px 16px; border-radius: 999px; font-size: 12.5px; font-weight: 900;
+  border: 1.5px solid var(--p-line); background: rgba(252, 255, 255, .9); color: var(--p-ink-soft);
   cursor: pointer; font-family: "Nunito", sans-serif; white-space: nowrap;
-  transition: background .15s ease, color .15s ease, border-color .15s ease;
+  box-shadow: 0 3px 10px rgba(28, 90, 150, .12);
+  transition: background .15s ease, color .15s ease, border-color .15s ease, transform .12s ease;
 }
+.ccP-step:hover:not([disabled]) { transform: translateY(-1px); background: #fff; }
 .ccP-step .n {
-  width: 19px; height: 19px; border-radius: 50%; display: grid; place-items: center;
-  background: rgba(120, 200, 245, .18); font-size: 10.5px; font-weight: 900; color: #cfeeff;
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+  background: #e4f1fc; font-size: 11px; font-weight: 900; color: var(--p-blue);
 }
-.ccP-step[aria-current="step"] { background: linear-gradient(180deg, #2e9fe0, #1668c4); color: #fff; border-color: #7fd8ff; box-shadow: 0 4px 16px rgba(34, 150, 230, .4); }
-.ccP-step[aria-current="step"] .n { background: rgba(255, 255, 255, .28); color: #fff; }
-.ccP-step.done { color: #b8f0dd; border-color: rgba(24, 200, 168, .55); }
-.ccP-step.done .n { background: rgba(24, 200, 168, .28); color: #d6fff2; }
-.ccP-step[disabled] { opacity: .45; cursor: not-allowed; }
+.ccP-step[aria-current="step"] {
+  background: linear-gradient(180deg, #2e9fe0, #1668c4); color: #fff; border-color: #1668c4;
+  box-shadow: 0 5px 16px rgba(34, 150, 230, .38);
+}
+.ccP-step[aria-current="step"] .n { background: rgba(255, 255, 255, .3); color: #fff; }
+.ccP-step.done { color: #0d7a5c; border-color: rgba(18, 163, 124, .5); background: #eefbf6; }
+.ccP-step.done .n { background: rgba(18, 163, 124, .18); color: #0d7a5c; }
+.ccP-step[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* ══════════════════════════════════════════════════════════════════════
    PANELS + REWARD CARDS
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-body { padding: 8px 22px 0; }
+.ccP-body { padding: 8px 24px 0; }
 
 .ccP-panel {
-  background: var(--p-glass); border: 1px solid var(--p-edge); border-radius: 18px;
-  padding: 16px 18px; margin-bottom: 14px; backdrop-filter: blur(7px);
-  box-shadow: 0 10px 34px rgba(2, 14, 28, .35);
+  background: var(--p-card); border: 1px solid var(--p-line); border-radius: 22px;
+  padding: 18px 20px; margin-bottom: 15px;
+  backdrop-filter: blur(7px);
+  box-shadow: 0 9px 30px rgba(28, 90, 150, .14);
 }
 .ccP-panel-h {
   font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .4px;
-  font-size: 18px; color: #fff; margin-bottom: 3px;
+  font-size: 19px; color: var(--p-navy); margin-bottom: 3px;
   display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
 }
-.ccP-panel-sub { font-size: 12.5px; font-weight: 700; color: var(--p-muted); line-height: 1.5; margin-bottom: 12px; }
+.ccP-panel-sub { font-size: 13px; font-weight: 700; color: var(--p-ink-soft); line-height: 1.55; margin-bottom: 13px; }
 
-.ccP-rewards {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(212px, 1fr)); gap: 12px;
-}
+.ccP-rewards { display: grid; grid-template-columns: repeat(auto-fill, minmax(216px, 1fr)); gap: 12px; }
 .ccP-rw {
-  position: relative; border-radius: 16px; padding: 15px 15px 14px; overflow: hidden;
-  background: linear-gradient(160deg, rgba(24, 78, 128, .82), rgba(8, 38, 70, .9));
-  border: 1px solid var(--p-edge);
-  box-shadow: inset 0 1px 0 rgba(190, 240, 255, .16), 0 8px 22px rgba(2, 14, 28, .3);
+  position: relative; border-radius: 18px; padding: 16px 16px 15px; overflow: hidden;
+  background: linear-gradient(165deg, #ffffff 0%, #f2f9ff 100%);
+  border: 1px solid rgba(169, 203, 230, .85);
+  box-shadow: 0 5px 16px rgba(28, 90, 150, .1);
 }
 .ccP-rw::before {
-  content: ""; position: absolute; inset: -40% -60% auto auto; width: 180px; height: 180px;
-  background: radial-gradient(circle, rgba(120, 226, 255, .3), rgba(120, 226, 255, 0) 68%);
+  content: ""; position: absolute; inset: -46% -60% auto auto; width: 190px; height: 190px;
+  background: radial-gradient(circle, rgba(110, 200, 245, .22), rgba(110, 200, 245, 0) 68%);
   pointer-events: none;
 }
-.ccP-rw-ico { font-size: 26px; line-height: 1; margin-bottom: 7px; }
+.ccP-rw-ico { font-size: 27px; line-height: 1; margin-bottom: 7px; }
 .ccP-rw-ico img { width: 30px; height: 30px; object-fit: contain; vertical-align: middle; }
-.ccP-rw-lbl { font-size: 10px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; color: var(--p-muted); }
-.ccP-rw-val { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 25px; color: #fff; line-height: 1.15; margin: 2px 0 4px; letter-spacing: .5px; }
-.ccP-rw-val.gold { color: var(--p-gold); text-shadow: 0 0 20px rgba(240, 200, 64, .45); }
-.ccP-rw-val.cyan { color: #9df0ff; text-shadow: 0 0 20px rgba(34, 216, 248, .4); }
-.ccP-rw-desc { font-size: 12px; font-weight: 700; color: #c3e2f7; line-height: 1.45; }
-.ccP-rw-from { font-size: 11.5px; font-weight: 800; color: var(--p-muted); margin-top: 6px; }
-.ccP-rw-from b { color: #b7f0dc; }
+.ccP-rw-lbl { font-size: 10px; font-weight: 900; letter-spacing: .7px; text-transform: uppercase; color: var(--p-ink-dim); }
+.ccP-rw-val {
+  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 26px;
+  color: var(--p-navy); line-height: 1.15; margin: 2px 0 5px; letter-spacing: .5px;
+}
+.ccP-rw-val.gold { color: var(--p-gold); }
+.ccP-rw-val.cyan { color: var(--p-blue); }
+.ccP-rw-desc { font-size: 12.5px; font-weight: 700; color: var(--p-ink-soft); line-height: 1.5; }
+.ccP-rw-from { font-size: 11.5px; font-weight: 800; color: var(--p-ink-dim); margin-top: 7px; }
+.ccP-rw-from b { color: var(--p-teal); }
 
-/* Reset / Keep panels */
-.ccP-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+/* Reset / Keep */
+.ccP-two { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
 .ccP-list { list-style: none; margin: 0; padding: 0; }
 .ccP-list li {
-  display: flex; gap: 10px; align-items: flex-start; padding: 7px 0;
-  border-bottom: 1px solid rgba(120, 190, 235, .13); font-size: 12.5px; font-weight: 700; line-height: 1.45;
+  display: flex; gap: 11px; align-items: flex-start; padding: 8px 0;
+  border-bottom: 1px solid rgba(169, 203, 230, .35);
+  font-size: 13px; font-weight: 700; line-height: 1.5; color: var(--p-ink);
 }
 .ccP-list li:last-child { border-bottom: none; }
-.ccP-list .ico { flex: 0 0 auto; width: 20px; text-align: center; font-size: 14px; }
-.ccP-panel.reset { border-color: rgba(244, 165, 116, .45); background: linear-gradient(160deg, rgba(96, 44, 30, .5), rgba(40, 24, 44, .72)); }
-.ccP-panel.reset .ccP-panel-h { color: #ffd2ba; }
-.ccP-panel.keep  { border-color: rgba(24, 200, 168, .45); background: linear-gradient(160deg, rgba(12, 74, 72, .5), rgba(6, 38, 58, .74)); }
-.ccP-panel.keep .ccP-panel-h { color: #b6f5e4; }
+.ccP-list .ico { flex: 0 0 auto; width: 20px; text-align: center; font-size: 15px; }
+.ccP-panel.reset { border-color: rgba(224, 130, 90, .55); background: linear-gradient(165deg, #fffaf6, #fff2ea); }
+.ccP-panel.reset .ccP-panel-h { color: #a8451f; }
+.ccP-panel.keep  { border-color: rgba(18, 163, 124, .45); background: linear-gradient(165deg, #f6fffb, #eafaf3); }
+.ccP-panel.keep .ccP-panel-h { color: #0d7a5c; }
 
 /* ══════════════════════════════════════════════════════════════════════
-   PICKERS (avatars / skins / colours)
+   PICKERS
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.ccP-toolbar { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin-bottom: 13px; }
 .ccP-input, .ccP-select {
-  background: rgba(4, 24, 44, .7); border: 1.5px solid var(--p-edge); border-radius: 12px;
-  padding: 8px 13px; color: var(--p-text); font-family: "Nunito", sans-serif; font-size: 13px;
+  background: #fbfeff; border: 1.5px solid var(--p-line); border-radius: 13px;
+  padding: 9px 14px; color: var(--p-ink); font-family: "Nunito", sans-serif; font-size: 13.5px;
   font-weight: 700; outline: none; min-width: 0;
 }
-.ccP-input:focus, .ccP-select:focus { border-color: var(--p-edge-on); box-shadow: 0 0 0 3px rgba(120, 226, 255, .18); }
-.ccP-input::placeholder { color: #6f9dbe; }
-.ccP-select option { background: #0a2b4c; color: #e6f6ff; }
+.ccP-input:focus, .ccP-select:focus { border-color: var(--p-blue-lt); box-shadow: 0 0 0 3px rgba(46, 143, 224, .18); }
+.ccP-input::placeholder { color: #9ab6cc; }
 
 .ccP-counter {
-  margin-left: auto; font-size: 12.5px; font-weight: 900; color: #fff;
-  background: rgba(24, 200, 168, .2); border: 1px solid rgba(24, 200, 168, .5);
-  border-radius: 999px; padding: 5px 14px; white-space: nowrap;
+  margin-left: auto; font-size: 13px; font-weight: 900; color: #0d7a5c;
+  background: #eafaf3; border: 1.5px solid rgba(18, 163, 124, .5);
+  border-radius: 999px; padding: 6px 16px; white-space: nowrap;
 }
-.ccP-counter.warn { background: rgba(240, 200, 64, .16); border-color: rgba(240, 200, 64, .5); color: #ffe9a8; }
+.ccP-counter.warn { background: #fff8e6; border-color: rgba(200, 147, 32, .55); color: #8a6a12; }
 
-.ccP-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+.ccP-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 11px; }
 .ccP-tile {
-  position: relative; border-radius: 15px; padding: 11px 9px 10px; text-align: center;
-  background: rgba(7, 36, 64, .72); border: 2px solid rgba(96, 186, 240, .26);
+  position: relative; border-radius: 17px; padding: 12px 10px 11px; text-align: center;
+  background: #fbfeff; border: 2px solid rgba(169, 203, 230, .6);
   cursor: pointer; font-family: "Nunito", sans-serif; color: inherit; width: 100%;
-  transition: transform .13s ease, border-color .13s ease, background .13s ease;
+  box-shadow: 0 3px 10px rgba(28, 90, 150, .09);
+  transition: transform .13s ease, border-color .13s ease, box-shadow .13s ease;
 }
-.ccP-tile:hover:not([disabled]) { transform: translateY(-3px); border-color: rgba(120, 226, 255, .6); background: rgba(12, 52, 88, .82); }
-.ccP-tile:focus-visible { outline: 3px solid #ffd66b; outline-offset: 2px; }
+.ccP-tile:hover:not([disabled]) { transform: translateY(-3px); border-color: var(--p-blue-lt); box-shadow: 0 8px 20px rgba(28, 90, 150, .18); }
+.ccP-tile:focus-visible { outline: 3px solid var(--p-gold-lt); outline-offset: 2px; }
 .ccP-tile[aria-pressed="true"] {
-  border-color: #4fe3c0; background: linear-gradient(180deg, rgba(24, 200, 168, .26), rgba(10, 60, 78, .8));
-  box-shadow: 0 0 0 3px rgba(79, 227, 192, .22), 0 8px 22px rgba(2, 30, 30, .38);
+  border-color: #12a37c; background: linear-gradient(180deg, #eafaf3, #fbfeff);
+  box-shadow: 0 0 0 3px rgba(18, 163, 124, .2), 0 8px 20px rgba(18, 120, 100, .16);
 }
-.ccP-tile[disabled] { opacity: .55; cursor: not-allowed; }
-.ccP-tile img.av { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; border: 2.5px solid rgba(190, 235, 255, .55); background: rgba(255, 255, 255, .08); }
-.ccP-tile .nm { font-size: 12px; font-weight: 900; margin-top: 6px; line-height: 1.2; color: #fff; }
-.ccP-tile .req { font-size: 10px; font-weight: 700; color: var(--p-muted); margin-top: 3px; line-height: 1.3; }
+.ccP-tile[disabled] { opacity: .58; cursor: not-allowed; }
+.ccP-tile img.av { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; border: 2.5px solid #e3eef7; background: #fff; }
+.ccP-tile .nm { font-size: 12.5px; font-weight: 900; margin-top: 7px; line-height: 1.2; color: var(--p-navy); }
+.ccP-tile .req { font-size: 10px; font-weight: 700; color: var(--p-ink-dim); margin-top: 3px; line-height: 1.35; }
 .ccP-tile .tag {
   position: absolute; top: 7px; right: 7px; font-size: 8.5px; font-weight: 900;
   letter-spacing: .4px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px;
-  background: rgba(24, 200, 168, .3); border: 1px solid rgba(24, 200, 168, .6); color: #d6fff2;
+  background: #fff1ec; border: 1px solid rgba(224, 130, 90, .5); color: #a8451f;
 }
-.ccP-tile .tag.keep { background: rgba(240, 200, 64, .22); border-color: rgba(240, 200, 64, .55); color: #ffeaa6; }
-.ccP-tile .tag.owned { background: rgba(150, 170, 190, .22); border-color: rgba(180, 210, 235, .45); color: #d8ecfa; }
+.ccP-tile .tag.keep  { background: #fdf6dd; border-color: rgba(200, 147, 32, .5); color: #8a6a12; }
+.ccP-tile .tag.owned { background: #eef3f8; border-color: #c9d9e6; color: #5b7fa3; }
 .ccP-tile .pick {
-  position: absolute; top: 7px; left: 7px; width: 21px; height: 21px; border-radius: 50%;
+  position: absolute; top: 7px; left: 7px; width: 22px; height: 22px; border-radius: 50%;
   display: grid; place-items: center; font-size: 12px; font-weight: 900;
-  background: #18c8a8; color: #04241f; box-shadow: 0 2px 8px rgba(0, 0, 0, .35);
+  background: #12a37c; color: #fff; box-shadow: 0 2px 7px rgba(10, 90, 70, .35);
 }
 
 /* Card-art preview (skins) */
 .ccP-cardprev {
   position: relative; width: 100%; aspect-ratio: 98 / 138; border-radius: 10px; overflow: hidden;
-  background: #06203a; border: 1px solid rgba(150, 210, 245, .35);
+  background: #dceefb; border: 1px solid rgba(169, 203, 230, .8);
 }
 .ccP-cardprev > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .ccP-cardprev.pos-top    > img { object-position: center top; }
 .ccP-cardprev.pos-bottom > img { object-position: center bottom; }
 .ccP-cardprev.pos-left   > img { object-position: left center; }
 .ccP-cardprev.pos-right  > img { object-position: right center; }
-.ccP-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-.ccP-compare figcaption { font-size: 11px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: var(--p-muted); text-align: center; margin-top: 6px; }
-.ccP-devicebar { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
-.ccP-frame { margin: 0 auto; transition: width .2s ease; }
-.ccP-frame.mobile { max-width: 148px; }
-.ccP-frame.desktop { max-width: 210px; }
+.ccP-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; justify-items: center; }
+.ccP-compare figcaption { font-size: 11px; font-weight: 900; letter-spacing: .4px; text-transform: uppercase; color: var(--p-ink-dim); text-align: center; margin-top: 7px; }
+.ccP-devicebar { display: flex; gap: 7px; justify-content: center; margin-bottom: 12px; }
+/* ⚠️ `width:100%` is load-bearing. .ccP-cardprev sizes itself from its parent
+   (width:100% + aspect-ratio), so a figure left to shrink-to-fit gives it a
+   near-zero width to be a percentage OF — and the compare preview collapses to
+   a ~50px thumbnail instead of the card it is meant to be. */
+.ccP-frame { width: 100%; margin: 0 auto; transition: max-width .2s ease; }
+.ccP-frame.mobile { max-width: 150px; }
+.ccP-frame.desktop { max-width: 212px; }
 
 /* ══════════════════════════════════════════════════════════════════════
    ALTERNATE ANIMAL SKINS — cosmetic treatments over the EXISTING card art.
    Appearance only: nothing here can touch an ability, cost, points, ocean
-   requirement, interaction, rarity or balance.
+   requirement, interaction, rarity or balance. Nothing here changes layout.
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-skin { position: relative; }
-.ccP-skin > img,
-img.ccP-skin { transition: filter .2s ease; }
 [data-ccskin="golden"]   img, img[data-ccskin="golden"]   { filter: sepia(.72) saturate(2.4) hue-rotate(-16deg) brightness(1.1) contrast(1.06); }
 [data-ccskin="albino"]   img, img[data-ccskin="albino"]   { filter: saturate(.12) brightness(1.28) contrast(.92); }
 [data-ccskin="biolume"]  img, img[data-ccskin="biolume"]  { filter: saturate(1.5) hue-rotate(122deg) brightness(1.12) drop-shadow(0 0 9px rgba(70, 255, 210, .75)); }
@@ -386,52 +462,54 @@ img.ccP-skin { transition: filter .2s ease; }
 /* ══════════════════════════════════════════════════════════════════════
    USERNAME APPEARANCE
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 10px; }
+.ccP-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 11px; }
 .ccP-swatch {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px;
-  background: rgba(7, 36, 64, .72); border: 2px solid rgba(96, 186, 240, .26);
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px; border-radius: 15px;
+  background: #fbfeff; border: 2px solid rgba(169, 203, 230, .6);
   cursor: pointer; font-family: "Nunito", sans-serif; text-align: left; width: 100%; color: inherit;
+  box-shadow: 0 3px 10px rgba(28, 90, 150, .08);
 }
-.ccP-swatch:hover:not([disabled]) { border-color: rgba(120, 226, 255, .6); }
-.ccP-swatch[aria-pressed="true"] { border-color: #4fe3c0; box-shadow: 0 0 0 3px rgba(79, 227, 192, .2); }
-.ccP-swatch[disabled] { opacity: .5; cursor: not-allowed; }
-.ccP-swatch .dot { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .5); }
-.ccP-swatch .lbl { font-size: 12.5px; font-weight: 900; line-height: 1.25; }
-.ccP-swatch .sub { font-size: 10px; font-weight: 800; color: var(--p-muted); text-transform: uppercase; letter-spacing: .4px; }
+.ccP-swatch:hover:not([disabled]) { border-color: var(--p-blue-lt); }
+.ccP-swatch[aria-pressed="true"] { border-color: #12a37c; box-shadow: 0 0 0 3px rgba(18, 163, 124, .18); }
+.ccP-swatch[disabled] { opacity: .55; cursor: not-allowed; }
+.ccP-swatch .dot { flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(169, 203, 230, .8); }
+.ccP-swatch > span { min-width: 0; }
+/* Both are inline <span>s in the markup, so without display:block the name and
+   its status run together as one word ("Ocean BlueSELECTED"). */
+.ccP-swatch .lbl { display: block; font-size: 13px; font-weight: 900; line-height: 1.25; color: var(--p-navy); }
+.ccP-swatch .sub { display: block; font-size: 10px; font-weight: 800; color: var(--p-ink-dim); text-transform: uppercase; letter-spacing: .4px; margin-top: 2px; }
 
-.ccP-preview-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 12px; }
+.ccP-preview-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); gap: 11px; margin-top: 12px; }
 .ccP-pv {
-  border-radius: 14px; padding: 13px 14px; border: 1px solid rgba(150, 200, 235, .3);
-  display: flex; align-items: center; gap: 10px; min-height: 62px;
+  border-radius: 15px; padding: 13px 15px; border: 1px solid rgba(150, 200, 235, .5);
+  display: flex; align-items: center; gap: 11px; min-height: 64px;
 }
-.ccP-pv .cap { position: absolute; }
-.ccP-pv.light { background: linear-gradient(180deg, #f7fcff, #e8f3fb); color: #23445f; }
-.ccP-pv.dark  { background: linear-gradient(180deg, #123a63, #061d33); }
-.ccP-pv.lobby { background: linear-gradient(180deg, #fef5e6, #f5e8d0); color: #1a2d5a; }
-.ccP-pv.board { background: linear-gradient(180deg, #0b2448, #04162c); }
-.ccP-pv img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, .45); }
-.ccP-pv .where { font-size: 9.5px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; opacity: .65; display: block; }
+.ccP-pv.light { background: linear-gradient(180deg, #ffffff, #eef7fd); color: var(--p-ink); }
+.ccP-pv.dark  { background: linear-gradient(180deg, #123a63, #061d33); color: #dff1ff; }
+.ccP-pv.lobby { background: linear-gradient(180deg, #fef5e6, #f5e8d0); color: var(--p-navy); }
+.ccP-pv.board { background: linear-gradient(180deg, #0b2448, #04162c); color: #dff1ff; }
+.ccP-pv img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, .7); }
+.ccP-pv .where { font-size: 9.5px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; opacity: .62; display: block; margin-bottom: 1px; }
 
-/* The rendered username itself — the one place a Prestige colour is drawn.
-   Used by the preview here AND by every username in the game via
-   .cc-pname (see __ccPrestigeApplyName). */
+/* The rendered username — the one place a Prestige colour is drawn. Used by
+   the previews here AND by every username in the game (__ccPrestigeApplyName). */
 .cc-pname { font-weight: 900; }
 .cc-pname.grad {
   background-clip: text; -webkit-background-clip: text;
   color: transparent; -webkit-text-fill-color: transparent;
 }
-/* Fallback for anything that cannot paint gradient text — better a solid,
+/* Fallback for anything that can't paint gradient text — better a solid,
    readable name than an invisible one. */
 @supports not ((background-clip: text) or (-webkit-background-clip: text)) {
   .cc-pname.grad { color: inherit !important; -webkit-text-fill-color: currentColor !important; background: none !important; }
 }
-/* Readability plate: added automatically when a colour is low-contrast against
-   the surface it landed on. Never obscures the name, just seats it. */
+/* Readability plate. Polarity comes from the COLOUR, not the surface: a light
+   name gets the dark plate and a dark name gets the light one. */
 .cc-pname.plate {
   padding: 0 6px; border-radius: 7px;
-  background-color: rgba(255, 255, 255, .82); box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  background-color: rgba(255, 255, 255, .92); box-decoration-break: clone; -webkit-box-decoration-break: clone;
 }
-.cc-pname.plate-dark { background-color: rgba(4, 22, 40, .78); }
+.cc-pname.plate-dark { background-color: rgba(4, 22, 40, .82); }
 
 .cc-pname[data-fx="glow"]    { text-shadow: 0 0 10px currentColor, 0 0 2px rgba(255, 255, 255, .55); }
 .cc-pname[data-fx="shimmer"] { animation: cc-fx-shimmer 4.5s ease-in-out infinite; }
@@ -442,12 +520,12 @@ img.ccP-skin { transition: filter .2s ease; }
 .cc-pname[data-fx="bubbles"]::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 100%;
   pointer-events: none;
-  background-image: radial-gradient(circle, rgba(215, 245, 255, .85) 1.1px, rgba(0, 0, 0, 0) 1.8px);
+  background-image: radial-gradient(circle, rgba(140, 205, 240, .9) 1.1px, rgba(0, 0, 0, 0) 1.8px);
   background-size: 16px 22px;
   animation: cc-fx-bub 5.5s linear infinite;
   opacity: .7;
 }
-@keyframes cc-fx-shimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.32); } }
+@keyframes cc-fx-shimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.3); } }
 @keyframes cc-fx-pulse   { 0%, 100% { text-shadow: 0 0 6px currentColor; } 50% { text-shadow: 0 0 16px currentColor, 0 0 26px currentColor; } }
 @keyframes cc-fx-flow    { to { background-position: -260% 0; } }
 @keyframes cc-fx-wave    { 0%, 100% { background-position: 0% 0; } 50% { background-position: 100% 0; } }
@@ -459,129 +537,135 @@ img.ccP-skin { transition: filter .2s ease; }
 .cc-pbadge {
   display: inline-flex; align-items: center; gap: 3px; vertical-align: middle;
   padding: 1px 7px 1px 4px; border-radius: 999px; line-height: 1;
-  background: linear-gradient(180deg, rgba(46, 143, 224, .95), rgba(22, 92, 176, .95));
-  border: 1px solid rgba(160, 224, 255, .6);
-  box-shadow: 0 1px 4px rgba(4, 30, 60, .35);
+  background: linear-gradient(180deg, #2e9fe0, #1668c4);
+  border: 1px solid rgba(255, 255, 255, .75);
+  box-shadow: 0 1px 4px rgba(20, 80, 140, .35);
   font-family: "Nunito", sans-serif; font-size: 10.5px; font-weight: 900; color: #fff;
   cursor: help; flex: 0 0 auto; max-width: 84px; white-space: nowrap;
 }
 .cc-pbadge svg { width: 13px; height: 13px; display: block; flex: 0 0 auto; }
-.cc-pbadge.t5 { background: linear-gradient(180deg, #f0c840, #c89320); border-color: #ffe9a8; color: #43310a; }
+.cc-pbadge.t5 { background: linear-gradient(180deg, #f0c840, #c89320); border-color: #fff6d8; color: #43310a; }
 .cc-pbadge.t10 {
   background: linear-gradient(180deg, #ffe27a, #e0a41c);
-  border-color: #fff3c4; color: #3c2a05;
-  box-shadow: 0 0 10px rgba(240, 200, 64, .55);
+  border-color: #fffaea; color: #3c2a05;
   animation: cc-pbadge-crown 4.5s ease-in-out infinite;
 }
-@keyframes cc-pbadge-crown { 0%, 100% { box-shadow: 0 0 8px rgba(240, 200, 64, .45); } 50% { box-shadow: 0 0 18px rgba(255, 226, 122, .85); } }
-.cc-pbadge-lg { font-size: 15px; padding: 4px 13px 4px 8px; gap: 6px; max-width: none; }
-.cc-pbadge-lg svg { width: 22px; height: 22px; }
+@keyframes cc-pbadge-crown { 0%, 100% { box-shadow: 0 1px 4px rgba(200, 147, 32, .45); } 50% { box-shadow: 0 0 14px rgba(240, 200, 64, .85); } }
+.cc-pbadge-lg { font-size: 16px; padding: 5px 15px 5px 9px; gap: 7px; max-width: none; }
+.cc-pbadge-lg svg { width: 24px; height: 24px; }
 
 .cc-pbadge-tip {
   position: fixed; z-index: 10050; max-width: 250px;
-  background: rgba(6, 30, 54, .97); border: 1px solid rgba(120, 200, 245, .5); border-radius: 12px;
-  padding: 10px 13px; font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 700; color: #e6f6ff;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, .45); pointer-events: none; line-height: 1.5;
+  background: #fff; border: 1px solid var(--p-line, rgba(169, 203, 230, .78)); border-radius: 14px;
+  padding: 11px 14px; font-family: "Nunito", sans-serif; font-size: 12px; font-weight: 700; color: #17365a;
+  box-shadow: 0 12px 34px rgba(20, 70, 120, .28); pointer-events: none; line-height: 1.5;
 }
-.cc-pbadge-tip b { color: #fff; display: block; font-size: 13.5px; margin-bottom: 3px; }
-.cc-pbadge-tip .r { color: #9fc9e6; }
+.cc-pbadge-tip b { color: #1a2d5a; display: block; font-size: 14px; margin-bottom: 3px; }
+.cc-pbadge-tip .r { color: #5b7fa3; }
 
 /* ══════════════════════════════════════════════════════════════════════
    BUTTONS + THE BIG ONE
    ══════════════════════════════════════════════════════════════════════ */
-.ccP-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 4px 22px 0; }
+.ccP-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 4px 24px 0; }
 .ccP-btn {
-  padding: 10px 22px; border-radius: 999px; font-size: 13.5px; font-weight: 900;
-  border: 1.5px solid var(--p-edge); background: rgba(8, 40, 70, .8); color: #dff2ff;
-  cursor: pointer; font-family: "Nunito", sans-serif; transition: filter .12s ease, transform .12s ease;
-  min-height: 44px;
+  padding: 11px 22px; border-radius: 999px; font-size: 13.5px; font-weight: 900;
+  border: 1.5px solid var(--p-line); background: rgba(252, 255, 255, .95); color: var(--p-ink-soft);
+  cursor: pointer; font-family: "Nunito", sans-serif; min-height: 44px;
+  box-shadow: 0 3px 10px rgba(28, 90, 150, .12);
+  transition: filter .12s ease, transform .12s ease, background .12s ease;
 }
-.ccP-btn:hover:not([disabled]) { filter: brightness(1.15); }
+.ccP-btn:hover:not([disabled]) { background: #fff; transform: translateY(-1px); }
 .ccP-btn:active:not([disabled]) { transform: translateY(1px); }
-.ccP-btn:focus-visible { outline: 3px solid #ffd66b; outline-offset: 2px; }
-.ccP-btn.pri { background: linear-gradient(180deg, #2e9fe0, #1668c4); border-color: #7fd8ff; color: #fff; }
-.ccP-btn.ghost { background: transparent; }
-.ccP-btn[disabled] { opacity: .45; cursor: not-allowed; }
+.ccP-btn:focus-visible { outline: 3px solid var(--p-gold-lt); outline-offset: 2px; }
+.ccP-btn.pri { background: linear-gradient(180deg, #2e9fe0, #1668c4); border-color: #1668c4; color: #fff; }
+.ccP-btn.pri:hover:not([disabled]) { filter: brightness(1.07); background: linear-gradient(180deg, #2e9fe0, #1668c4); }
+.ccP-btn.ghost { background: rgba(255, 255, 255, .8); }
+.ccP-btn[disabled] { opacity: .5; cursor: not-allowed; box-shadow: none; }
 .ccP-spacer { flex: 1 1 auto; }
 
 .ccP-ride {
   position: relative; overflow: hidden; isolation: isolate;
-  padding: 17px 40px; border-radius: 999px; border: 2px solid #8fe6ff;
-  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .8px;
-  font-size: clamp(17px, 3.4vw, 23px); color: #04223c; cursor: pointer; min-height: 56px;
-  background: linear-gradient(180deg, #7fe6ff 0%, #22b8ee 48%, #1382c8 100%);
-  box-shadow: 0 0 0 5px rgba(80, 210, 255, .16), 0 12px 34px rgba(10, 120, 190, .45);
+  padding: 18px 42px; border-radius: 999px; border: 3px solid #fff;
+  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; letter-spacing: .9px;
+  font-size: clamp(18px, 3.6vw, 25px); color: #fff; cursor: pointer; min-height: 58px;
+  background: linear-gradient(180deg, #3fc4f0 0%, #2189d8 52%, #1565b8 100%);
+  text-shadow: 0 2px 0 rgba(12, 70, 120, .45);
+  box-shadow: 0 0 0 5px rgba(255, 255, 255, .45), 0 14px 34px rgba(20, 100, 165, .42);
   transition: transform .14s ease, box-shadow .2s ease;
 }
 .ccP-ride::before {
   content: ""; position: absolute; inset: -50% -10%; z-index: -1;
-  background: repeating-linear-gradient(108deg, rgba(255, 255, 255, .00) 0 22px, rgba(255, 255, 255, .3) 22px 44px);
+  background: repeating-linear-gradient(108deg, rgba(255, 255, 255, .00) 0 22px, rgba(255, 255, 255, .28) 22px 44px);
   animation: ccP-ridewater 3.4s linear infinite;
 }
 .ccP-ride::after {
   content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
   background: radial-gradient(circle at 24% 118%, rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 46%),
-              radial-gradient(circle at 74% 122%, rgba(255, 255, 255, .4), rgba(255, 255, 255, 0) 40%);
+              radial-gradient(circle at 74% 122%, rgba(255, 255, 255, .42), rgba(255, 255, 255, 0) 40%);
   animation: ccP-ridebub 4.6s ease-in-out infinite;
 }
 @keyframes ccP-ridewater { to { transform: translateX(-44px); } }
 @keyframes ccP-ridebub { 0%, 100% { transform: translateY(0); opacity: .8; } 50% { transform: translateY(-9px); opacity: 1; } }
-.ccP-ride:hover:not([disabled]) { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 0 8px rgba(80, 210, 255, .2), 0 16px 42px rgba(10, 120, 190, .55); }
-.ccP-ride:focus-visible { outline: 3px solid #ffd66b; outline-offset: 4px; }
-.ccP-ride[disabled] { filter: grayscale(.65); opacity: .6; cursor: not-allowed; transform: none; }
-.ccP-ride-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 22px 6px; text-align: center; }
-.ccP-ride-note { font-size: 12px; font-weight: 700; color: var(--p-muted); max-width: 520px; line-height: 1.5; }
-
-/* Locked state (not at the cap yet) */
-.ccP-locked {
-  text-align: center; padding: 26px 22px;
-  border-radius: 18px; border: 1px dashed rgba(150, 205, 240, .45); background: rgba(6, 30, 54, .5);
+.ccP-ride:hover:not([disabled]) { transform: translateY(-2px) scale(1.02); box-shadow: 0 0 0 8px rgba(255, 255, 255, .5), 0 18px 44px rgba(20, 100, 165, .5); }
+.ccP-ride:focus-visible { outline: 3px solid var(--p-gold-lt); outline-offset: 4px; }
+.ccP-ride[disabled] { filter: grayscale(.6); opacity: .62; cursor: not-allowed; transform: none; }
+.ccP-ride-wrap { display: flex; flex-direction: column; align-items: center; gap: 11px; padding: 20px 24px 6px; text-align: center; }
+.ccP-ride-note {
+  font-size: 12.5px; font-weight: 800; color: #0e3f6b; max-width: 540px; line-height: 1.55;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .95), 0 0 10px rgba(255, 255, 255, .85);
 }
-.ccP-locked .big { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 22px; color: #fff; letter-spacing: .5px; }
-.ccP-locked .sm { font-size: 13px; font-weight: 700; color: var(--p-muted); margin-top: 6px; line-height: 1.55; }
+
+/* Locked (not at the cap yet) */
+.ccP-locked {
+  text-align: center; padding: 30px 24px;
+  border-radius: 22px; border: 2px dashed rgba(120, 175, 220, .75); background: rgba(252, 255, 255, .9);
+  box-shadow: 0 9px 30px rgba(28, 90, 150, .12);
+}
+.ccP-locked .big { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 24px; color: var(--p-navy); letter-spacing: .5px; }
+.ccP-locked .sm { font-size: 13.5px; font-weight: 700; color: var(--p-ink-soft); margin-top: 8px; line-height: 1.6; }
 
 /* Final confirmation */
 .ccP-confirm-in {
-  text-align: center; letter-spacing: 5px; font-weight: 900; font-size: 19px;
-  text-transform: uppercase; max-width: 280px; margin: 0 auto;
+  text-align: center; letter-spacing: 6px; font-weight: 900; font-size: 20px;
+  text-transform: uppercase; max-width: 300px; margin: 0 auto;
 }
 .ccP-warn {
-  border-radius: 15px; padding: 14px 16px; margin: 12px 0;
-  background: rgba(240, 200, 64, .12); border: 1px solid rgba(240, 200, 64, .45);
-  font-size: 13px; font-weight: 700; line-height: 1.6; color: #ffeec2;
+  border-radius: 16px; padding: 15px 17px; margin: 12px 0;
+  background: #fff8e6; border: 1.5px solid rgba(200, 147, 32, .5);
+  font-size: 13.5px; font-weight: 700; line-height: 1.65; color: #6b5210;
 }
 .ccP-err {
-  border-radius: 14px; padding: 12px 15px; margin: 12px 0;
-  background: rgba(232, 64, 87, .16); border: 1px solid rgba(232, 64, 87, .5);
-  font-size: 13px; font-weight: 800; color: #ffd7dc; line-height: 1.55;
+  border-radius: 15px; padding: 13px 16px; margin: 12px 0;
+  background: #fff1ef; border: 1.5px solid rgba(214, 74, 60, .5);
+  font-size: 13.5px; font-weight: 800; color: #9a2f22; line-height: 1.6;
 }
 .ccP-ok {
-  border-radius: 14px; padding: 12px 15px; margin: 12px 0;
-  background: rgba(24, 200, 168, .16); border: 1px solid rgba(24, 200, 168, .5);
-  font-size: 13px; font-weight: 800; color: #cbfff0;
+  border-radius: 15px; padding: 13px 16px; margin: 12px 0;
+  background: #eefbf6; border: 1.5px solid rgba(18, 163, 124, .5);
+  font-size: 13.5px; font-weight: 800; color: #0d7a5c; line-height: 1.6;
 }
 .ccP-sr {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* Summary rows on the review step */
-.ccP-kv { display: grid; grid-template-columns: minmax(120px, 38%) 1fr; gap: 3px 14px; font-size: 13px; }
-.ccP-kv dt { font-weight: 800; color: var(--p-muted); padding: 5px 0; }
-.ccP-kv dd { font-weight: 900; color: #fff; padding: 5px 0; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+/* Review rows */
+.ccP-kv { display: grid; grid-template-columns: minmax(130px, 36%) 1fr; gap: 2px 16px; font-size: 13.5px; }
+.ccP-kv dt { font-weight: 800; color: var(--p-ink-dim); padding: 7px 0; border-bottom: 1px solid rgba(169, 203, 230, .3); }
+.ccP-kv dd { font-weight: 900; color: var(--p-navy); padding: 7px 0; margin: 0; min-width: 0; overflow-wrap: anywhere; border-bottom: 1px solid rgba(169, 203, 230, .3); }
 
 /* History */
-.ccP-hist { display: flex; flex-direction: column; gap: 10px; }
+.ccP-hist { display: flex; flex-direction: column; gap: 11px; }
 .ccP-hist-row {
-  display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px;
-  background: rgba(7, 36, 64, .6); border: 1px solid rgba(96, 186, 240, .22);
+  display: flex; gap: 13px; align-items: flex-start; padding: 13px 15px; border-radius: 16px;
+  background: #fbfeff; border: 1px solid rgba(169, 203, 230, .7);
 }
 .ccP-hist-n {
-  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center;
-  background: linear-gradient(180deg, #2e9fe0, #1668c4); font-weight: 900; font-size: 15px; color: #fff;
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+  background: linear-gradient(180deg, #2e9fe0, #1668c4); font-weight: 900; font-size: 16px; color: #fff;
 }
-.ccP-hist-b { flex: 1 1 auto; min-width: 0; font-size: 12.5px; font-weight: 700; color: #c3e2f7; line-height: 1.55; }
-.ccP-hist-b b { color: #fff; }
+.ccP-hist-b { flex: 1 1 auto; min-width: 0; font-size: 12.5px; font-weight: 700; color: var(--p-ink-soft); line-height: 1.6; }
+.ccP-hist-b b { color: var(--p-navy); }
 
 /* ══════════════════════════════════════════════════════════════════════
    CELEBRATION
@@ -589,122 +673,209 @@ img.ccP-skin { transition: filter .2s ease; }
 #cc-prestige-celebration {
   position: fixed; inset: 0; z-index: 9900; display: none;
   align-items: center; justify-content: center; padding: 18px;
-  font-family: "Nunito", sans-serif; color: var(--p-text, #e6f6ff);
-  --p-muted: #9fc9e6; --p-edge: rgba(96, 186, 240, .32); --p-glass: rgba(10, 46, 80, .62);
-  --p-gold: #f0c840; --p-cyan: #22d8f8; --p-teal: #18c8a8;
+  font-family: "Nunito", sans-serif; color: #17365a;
+  --p-ink-dim: #7a9db8; --p-line: rgba(169, 203, 230, .78); --p-navy: #1a2d5a;
+  --p-blue: #1c70cc; --p-gold: #c89320; --p-teal: #12a37c; --p-ink-soft: #5b7fa3;
+  --p-card: rgba(252, 255, 255, .93); --p-gold-lt: #e8b34a;
   overflow-y: auto;
 }
 #cc-prestige-celebration.open { display: flex; }
 .ccP-cel-inner {
-  position: relative; z-index: 2; width: 100%; max-width: 780px; text-align: center;
-  padding: 26px 20px 30px; margin: auto;
+  position: relative; z-index: 2; width: 100%; max-width: 800px; text-align: center;
+  padding: 28px 22px 32px; margin: auto;
 }
 .ccP-cel-wave {
   position: absolute; left: -10%; right: -10%; top: 0; height: 100%; z-index: 1; pointer-events: none;
-  background: linear-gradient(180deg, rgba(140, 226, 255, .00) 0%, rgba(140, 226, 255, .22) 46%, rgba(140, 226, 255, .00) 92%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .00) 0%, rgba(255, 255, 255, .55) 46%, rgba(255, 255, 255, .00) 92%);
   animation: ccP-celwave 1.5s cubic-bezier(.4, 0, .2, 1) 1 both;
 }
 @keyframes ccP-celwave { from { transform: translateY(105%) scaleY(1.4); } to { transform: translateY(-105%) scaleY(1); } }
+/* The one number the whole screen is about. White on a bright reef disappears,
+   so it is the game's gold with a deep-navy edge — readable on every scene's
+   grade, light or dark. */
 .ccP-cel-num {
   font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
-  font-size: clamp(58px, 17vw, 128px); line-height: .95; color: #fff;
-  text-shadow: 0 0 40px rgba(120, 226, 255, .8), 0 6px 0 rgba(4, 30, 56, .45);
+  font-size: clamp(60px, 17vw, 132px); line-height: .95;
+  background: linear-gradient(180deg, #fff5d0 0%, #f0c840 46%, #c89320 100%);
+  background-clip: text; -webkit-background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter:
+    drop-shadow(0 3px 0 rgba(20, 60, 105, .95))
+    drop-shadow(0 0 26px rgba(255, 255, 255, .9))
+    drop-shadow(0 10px 30px rgba(20, 80, 140, .5));
   animation: ccP-celpop .85s cubic-bezier(.2, 1.5, .4, 1) both;
+}
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .ccP-cel-num { color: #c89320; -webkit-text-fill-color: #c89320; }
 }
 @keyframes ccP-celpop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .ccP-cel-swirl {
-  position: absolute; left: 50%; top: 0; width: min(78vw, 460px); aspect-ratio: 1; z-index: 1;
+  position: absolute; left: 50%; top: 0; width: min(78vw, 480px); aspect-ratio: 1; z-index: 1;
   transform: translateX(-50%); border-radius: 50%; pointer-events: none;
-  background: conic-gradient(from 0deg, rgba(120, 226, 255, 0), rgba(120, 226, 255, .28), rgba(24, 200, 168, .18), rgba(120, 226, 255, 0));
+  background: conic-gradient(from 0deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, .6), rgba(120, 226, 255, .35), rgba(255, 255, 255, 0));
   animation: ccP-swirl 9s linear infinite;
-  filter: blur(14px);
+  filter: blur(16px);
 }
 @keyframes ccP-swirl { to { transform: translateX(-50%) rotate(360deg); } }
-.ccP-cel-title { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: clamp(20px, 4.6vw, 30px); color: #cdefff; letter-spacing: .5px; }
-.ccP-cel-msg { font-size: 14px; font-weight: 700; color: #d5edff; line-height: 1.65; max-width: 560px; margin: 12px auto 0; }
-.ccP-cel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 11px; margin: 20px 0 6px; text-align: left; }
-.ccP-cel-btns { display: flex; gap: 9px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+/* White with a hard navy edge, not a soft one: the celebration plays over
+   whichever background was just unlocked, and those run from the bright Sunlit
+   Shallows to the near-black Abyssal Trench. An edge works on both; a tint
+   only works on one. */
+.ccP-cel-title {
+  font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400;
+  font-size: clamp(21px, 4.8vw, 32px); color: #fff; letter-spacing: .5px;
+  text-shadow:
+    0 2px 0 rgba(16, 62, 105, .95), 0 -1px 0 rgba(16, 62, 105, .7),
+    1px 0 0 rgba(16, 62, 105, .7), -1px 0 0 rgba(16, 62, 105, .7),
+    0 6px 24px rgba(16, 62, 105, .6);
+}
+.ccP-cel-msg {
+  font-size: 14.5px; font-weight: 800; color: #0e4471; line-height: 1.65; max-width: 580px;
+  margin: 14px auto 0; text-shadow: 0 1px 0 rgba(255, 255, 255, .8);
+}
+.ccP-cel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(152px, 1fr)); gap: 11px; margin: 22px 0 6px; text-align: left; }
+.ccP-cel-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 22px; }
 .ccP-cel-critter {
-  width: min(40vw, 138px); height: auto; margin: 4px auto 0; display: block;
-  filter: drop-shadow(0 10px 26px rgba(0, 0, 0, .5));
+  width: min(40vw, 140px); height: auto; margin: 4px auto 0; display: block;
+  filter: drop-shadow(0 10px 26px rgba(20, 80, 140, .4));
   animation: ccP-celswim 5.5s ease-in-out infinite alternate;
 }
 @keyframes ccP-celswim { from { transform: translateY(-7px) rotate(-3deg); } to { transform: translateY(7px) rotate(3deg); } }
+
+/* ══════════════════════════════════════════════════════════════════════
+   THE SIGN-IN ASK
+   Shown once per sign-in while a player is sitting at the level cap.
+   Prestige is optional — this is an invitation, not a gate, so it closes on
+   Escape, on a backdrop tap, and on a big obvious "Not right now".
+   ══════════════════════════════════════════════════════════════════════ */
+.ccP-ask-bg {
+  position: fixed; inset: 0; z-index: 9890; display: flex;
+  align-items: center; justify-content: center; padding: 16px;
+  background: rgba(14, 60, 100, .5); backdrop-filter: blur(4px);
+  font-family: "Nunito", sans-serif;
+  animation: ccP-askin .32s ease both;
+}
+@keyframes ccP-askin { from { opacity: 0; } to { opacity: 1; } }
+.ccP-ask {
+  --p-ink-dim: #7a9db8; --p-line: rgba(169, 203, 230, .78); --p-navy: #1a2d5a;
+  --p-blue: #1c70cc; --p-ink-soft: #5b7fa3; --p-gold-lt: #e8b34a;
+  position: relative; isolation: isolate; overflow: hidden;
+  width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto;
+  border-radius: 28px; border: 3px solid #fff;
+  box-shadow: 0 26px 70px rgba(10, 50, 90, .45), 0 0 0 6px rgba(255, 255, 255, .28);
+  color: #17365a;
+  animation: ccP-askrise .42s cubic-bezier(.2, .9, .3, 1) both;
+}
+@keyframes ccP-askrise { from { transform: translateY(26px) scale(.96); } to { transform: none; } }
+.ccP-ask-inner { position: relative; z-index: 1; padding: 26px 24px 24px; text-align: center; }
+.ccP-ask-inner .ccP-title { font-size: clamp(21px, 4.6vw, 32px); }
+.ccP-ask-inner .ccP-sub { max-width: 470px; margin: 10px auto 0; }
+.ccP-ask-badge { margin-bottom: 12px; }
+.ccP-ask-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: 9px; margin: 20px 0 15px; text-align: left;
+}
+.ccP-ask-card {
+  border-radius: 16px; padding: 12px 14px;
+  background: rgba(252, 255, 255, .95);
+  border: 1px solid rgba(169, 203, 230, .85);
+  box-shadow: 0 4px 12px rgba(28, 90, 150, .12);
+}
+.ccP-ask-card .ccP-rw-ico { font-size: 21px; margin-bottom: 4px; }
+.ccP-ask-card .ccP-rw-ico img { width: 22px; height: 22px; }
+.ccP-ask-card .ccP-rw-val { font-size: 19px; margin: 0 0 2px; }
+.ccP-ask-keep {
+  font-size: 12.5px; font-weight: 800; color: #0d7a5c; line-height: 1.6;
+  background: rgba(238, 251, 246, .96); border: 1.5px solid rgba(18, 163, 124, .45);
+  border-radius: 15px; padding: 11px 14px; margin-bottom: 17px;
+}
+.ccP-ask-btns { display: flex; gap: 11px; flex-wrap: wrap; justify-content: center; align-items: center; }
+.ccP-ask-btns .ccP-ride { padding: 15px 32px; font-size: clamp(16px, 3.2vw, 21px); }
+@media (max-width: 560px) {
+  .ccP-ask-inner { padding: 20px 16px 20px; }
+  .ccP-ask-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ccP-ask-btns { flex-direction: column-reverse; }
+  .ccP-ask-btns > * { width: 100%; }
+}
+@media (max-height: 560px) and (orientation: landscape) {
+  .ccP-ask-grid { grid-template-columns: repeat(3, 1fr); }
+  .ccP-ask-inner .ccP-sub { display: none; }
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    MAX-LEVEL NOTICE (Player Home banner)
    ══════════════════════════════════════════════════════════════════════ */
 .ccP-notice {
   position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-  margin: 10px 0 4px; padding: 14px 18px; border-radius: 16px;
-  background: linear-gradient(120deg, #0e4d80 0%, #1683c4 46%, #0d6ba8 100%);
-  border: 1px solid rgba(140, 226, 255, .6);
-  box-shadow: 0 8px 26px rgba(10, 70, 120, .3);
-  color: #eaf8ff; font-family: "Nunito", sans-serif;
+  margin: 10px 0 4px; padding: 15px 19px; border-radius: 20px;
+  background: linear-gradient(120deg, #2e9fe0 0%, #1c78c8 52%, #1668c4 100%);
+  border: 2px solid rgba(255, 255, 255, .8);
+  box-shadow: 0 8px 26px rgba(20, 90, 150, .28);
+  color: #fff; font-family: "Nunito", sans-serif;
 }
 .ccP-notice::before {
   content: ""; position: absolute; inset: -50% -10%;
-  background: repeating-linear-gradient(105deg, rgba(255, 255, 255, .00) 0 26px, rgba(255, 255, 255, .09) 26px 52px);
+  background: repeating-linear-gradient(105deg, rgba(255, 255, 255, .00) 0 26px, rgba(255, 255, 255, .13) 26px 52px);
   animation: ccP-ridewater 6s linear infinite; pointer-events: none;
 }
 .ccP-notice > * { position: relative; }
 .ccP-notice-txt { flex: 1 1 240px; min-width: 0; }
-.ccP-notice-h { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 18px; letter-spacing: .4px; }
-.ccP-notice-s { font-size: 12.5px; font-weight: 700; color: #cbe9fb; line-height: 1.5; margin-top: 2px; }
+.ccP-notice-h { font-family: "Luckiest Guy", "Cinzel", serif; font-weight: 400; font-size: 19px; letter-spacing: .4px; text-shadow: 0 2px 0 rgba(14, 70, 120, .35); }
+.ccP-notice-s { font-size: 13px; font-weight: 700; color: #e6f5ff; line-height: 1.5; margin-top: 3px; }
 .ccP-notice-btn {
-  flex: 0 0 auto; padding: 10px 20px; border-radius: 999px; border: 2px solid #ffe9a8; min-height: 44px;
+  flex: 0 0 auto; padding: 11px 22px; border-radius: 999px; border: 2px solid #fff; min-height: 44px;
   background: linear-gradient(180deg, #f6d26a, #d9a423); color: #43310a;
-  font-family: "Nunito", sans-serif; font-size: 13px; font-weight: 900; cursor: pointer;
+  font-family: "Nunito", sans-serif; font-size: 13.5px; font-weight: 900; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(120, 80, 10, .25);
 }
 .ccP-notice-btn:hover { filter: brightness(1.07); }
 .ccP-notice-x {
-  flex: 0 0 auto; background: transparent; border: none; color: #bcdcf0; cursor: pointer;
+  flex: 0 0 auto; background: transparent; border: none; color: #d6ecfa; cursor: pointer;
   font-size: 18px; font-weight: 900; line-height: 1; padding: 8px 6px; min-height: 40px; min-width: 40px;
 }
+.ccP-notice-x:hover { color: #fff; }
 
 /* XP breakdown on the end-game screen */
-.ccP-xpbreak {
-  margin-top: 6px; font-size: 11.5px; font-weight: 800; line-height: 1.5;
-  color: #2d6f4e;
-}
+.ccP-xpbreak { margin-top: 6px; font-size: 11.5px; font-weight: 800; line-height: 1.5; color: #2d6f4e; }
 .ccP-xpbreak .b { color: #b8860b; }
 
 /* ══════════════════════════════════════════════════════════════════════
    MOBILE
    ══════════════════════════════════════════════════════════════════════ */
 @media (max-width: 720px) {
-  #cc-prestige-root { min-height: 440px; border-radius: 14px; }
-  .ccP-hero { padding: 16px 14px 12px; gap: 12px; }
-  .ccP-progress, .ccP-steps, .ccP-body, .ccP-actions, .ccP-ride-wrap { padding-left: 14px; padding-right: 14px; }
+  #cc-prestige-root { min-height: 440px; }
+  #auth-stats-lobby[data-bg-tab="prestige"] {
+    /* `fixed` attachment is janky on iOS and costs a repaint per scroll. */
+    background-attachment: scroll, scroll, scroll;
+  }
+  .ccP-hero { padding: 16px 16px 12px; gap: 12px; }
+  .ccP-progress, .ccP-steps, .ccP-body, .ccP-actions, .ccP-ride-wrap { padding-left: 16px; padding-right: 16px; }
   .ccP-two { grid-template-columns: 1fr; }
   .ccP-rewards { grid-template-columns: 1fr; }
-  .ccP-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-  .ccP-tile img.av { width: 52px; height: 52px; }
+  .ccP-grid { grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); gap: 8px; }
+  .ccP-tile img.av { width: 54px; height: 54px; }
   .ccP-swatches { grid-template-columns: 1fr; }
-  .ccP-kv { grid-template-columns: 1fr; gap: 0 0; }
-  .ccP-kv dt { padding-bottom: 0; }
-  .ccP-kv dd { padding-top: 1px; padding-bottom: 8px; }
+  .ccP-kv { grid-template-columns: 1fr; gap: 0; }
+  .ccP-kv dt { padding-bottom: 0; border-bottom: none; }
+  .ccP-kv dd { padding-top: 1px; padding-bottom: 9px; }
   .ccP-counter { margin-left: 0; width: 100%; text-align: center; }
-  /* The step buttons stay reachable with a thumb and never wrap into a wall. */
-  .ccP-step { padding: 9px 13px; }
+  .ccP-step { padding: 10px 14px; }
   .ccP-btn { flex: 1 1 auto; }
   .ccP-cel-grid { grid-template-columns: 1fr; }
   .ccP-compare { grid-template-columns: 1fr; }
+  /* "Continue" always in reach of a thumb. */
+  .ccP-actions.sticky {
+    position: sticky; bottom: 0; z-index: 4; margin: 0 -16px; padding: 11px 16px;
+    background: linear-gradient(180deg, rgba(214, 240, 253, 0), rgba(214, 240, 253, .95) 36%);
+    backdrop-filter: blur(5px);
+  }
 }
-/* Landscape phones: the page must never need a second scroll direction. */
+/* Landscape phones: never a second scroll direction. */
 @media (max-height: 520px) and (orientation: landscape) {
   .ccP-hero { padding-top: 12px; padding-bottom: 8px; }
-  .ccP-title { font-size: 24px; }
-  .ccP-cel-num { font-size: clamp(40px, 12vh, 76px); }
+  .ccP-title { font-size: 25px; }
+  .ccP-cel-num { font-size: clamp(42px, 13vh, 78px); }
   .ccP-cel-inner { padding-top: 14px; }
-}
-/* A sticky action bar on small screens, so "Continue" is always in reach. */
-@media (max-width: 720px) {
-  .ccP-actions.sticky {
-    position: sticky; bottom: 0; z-index: 4; margin: 0 -14px; padding: 10px 14px;
-    background: linear-gradient(180deg, rgba(4, 24, 46, 0), rgba(4, 24, 46, .92) 34%);
-    backdrop-filter: blur(4px);
-  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -712,7 +883,8 @@ img.ccP-skin { transition: filter .2s ease; }
    Three independent off-switches, all landing in the same place.
    ══════════════════════════════════════════════════════════════════════ */
 @media (prefers-reduced-motion: reduce) {
-  #cc-prestige-root *, #cc-prestige-celebration *, .ccP-notice::before, .cc-pname, .cc-pbadge {
+  #cc-prestige-root *, #cc-prestige-celebration *, .ccP-ask, .ccP-ask-bg,
+  .ccP-notice::before, .cc-pname, .cc-pbadge {
     animation: none !important;
     transition-duration: .01ms !important;
   }
@@ -726,8 +898,9 @@ img.ccP-skin { transition: filter .2s ease; }
 body.ccP-still-names .cc-pname { animation: none !important; }
 /* Off-screen or backgrounded: stop painting entirely. */
 #cc-prestige-root.ccP-paused .ccP-scene *,
-#cc-prestige-celebration.ccP-paused * { animation-play-state: paused !important; }
-/* Lower-powered devices (set from JS): keep the water, drop the expensive bits. */
+#cc-prestige-celebration.ccP-paused *,
+.ccP-ask-bg.ccP-paused * { animation-play-state: paused !important; }
+/* Lower-powered devices (set from JS): keep the reef, drop the expensive bits. */
 #cc-prestige-root.ccP-lite .ccP-motes,
 #cc-prestige-root.ccP-lite .ccP-biolume,
 #cc-prestige-root.ccP-lite .ccP-swimmers,
