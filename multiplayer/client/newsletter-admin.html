@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Newsletter, Currents and Critters</title>
+
+<!--
+  PRIVATE ADMIN PAGE — /admin/newsletter
+
+  The URL is not the lock. This page renders nothing but a sign-in card until
+  Google auth returns a session, and every piece of data on it arrives from
+  POST /api/newsletter/admin-* calls that each independently verify a Firebase
+  ID token server-side against ADMIN_EMAIL. Serving this HTML to a stranger
+  leaks precisely: the fact that a newsletter admin page exists.
+
+  There is deliberately no server-side gate on the HTML itself. Gating it would
+  suggest the markup is the secret; it isn't, and pretending otherwise invites
+  someone to relax an API check later because "the page is protected anyway".
+-->
+<link rel="icon" href="/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;900&family=Nunito:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="/css/newsletter.css?v=2026-08-06.1">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     GATE — everything else stays out of the DOM until this passes
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="n-gate" id="gate">
+  <div class="n-gate-card">
+    <img class="n-gate-logo" src="/email-logo.png" alt="Currents and Critters">
+    <h1>Newsletter Admin</h1>
+    <p id="gateLede">Sign in with the Currents &amp; Critters admin Google account to manage subscribers and send newsletters.</p>
+    <button class="n-btn primary" id="signinBtn" style="height:44px;padding:0 24px">Sign in with Google</button>
+    <button class="n-btn n-hidden" id="gateSignout" style="margin-top:12px">Sign out and use a different account</button>
+    <div class="n-gate-msg" id="gateMsg"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     APP
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="n-app n-hidden" id="app">
+
+  <header class="n-head">
+    <img class="n-head-logo" src="/email-logo.png" alt="">
+    <div class="n-brand">
+      <div class="n-title">Newsletter</div>
+      <div class="n-sub">Currents &amp; Critters &middot; Bearded Seal Studios</div>
+    </div>
+    <div class="n-head-spacer"></div>
+    <div class="n-whoami" id="whoami"></div>
+    <button class="n-btn small" id="signoutBtn">Sign out</button>
+  </header>
+
+  <div class="n-nav-mobile">
+    <select class="n-select" id="navMobile" aria-label="Section"></select>
+  </div>
+
+  <div class="n-main">
+    <nav class="n-nav" id="nav" aria-label="Sections"></nav>
+    <main class="n-body"><div class="n-inner" id="view"></div></main>
+  </div>
+</div>
+
+<div class="n-toasts" id="toasts"></div>
+<div id="modalHost"></div>
+
+<script src="/firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="/js/newsletter-admin.js?v=2026-08-06.1"></script>
+</body>
+</html>

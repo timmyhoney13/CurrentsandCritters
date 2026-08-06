@@ -10,7 +10,12 @@ ENV PYTHONUNBUFFERED=1
 # (Snap & Score card recognition runs in the player's browser against the
 # prebuilt multiplayer/client/snap-card-library.json — no vision API, no
 # anthropic SDK, no server-side image processing.)
-RUN pip install --no-cache-dir firebase-admin==6.5.0
+# nh3 is the HTML sanitiser for admin-authored newsletter content (Rust
+# `ammonia` bindings — the maintained successor to bleach). newsletter_email.py
+# has a deny-by-default fallback parser if this import ever fails, so a wheel
+# problem degrades safely instead of shipping unsanitised HTML; nh3 is the path
+# that should actually run in production.
+RUN pip install --no-cache-dir firebase-admin==6.5.0 nh3==0.2.18
 
 # Copy only runtime files needed by the live multiplayer server.
 COPY multiplayer_server.py /app/multiplayer_server.py
@@ -21,6 +26,12 @@ COPY tournament_server.py /app/tournament_server.py
 COPY clan_server.py /app/clan_server.py
 COPY prestige_server.py /app/prestige_server.py
 COPY analytics_server.py /app/analytics_server.py
+# Both halves of the newsletter, or neither: multiplayer_server.py imports
+# newsletter_server at module scope and newsletter_server imports newsletter_email,
+# so a missing COPY here is not a missing mailing list — it is the whole server
+# failing to boot on ImportError.
+COPY newsletter_server.py /app/newsletter_server.py
+COPY newsletter_email.py /app/newsletter_email.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt

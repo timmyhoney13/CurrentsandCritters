@@ -19,7 +19,7 @@
 (function () {
   "use strict";
 
-  var UPDATED = "August 5, 2026";
+  var UPDATED = "August 6, 2026";
   var EMAIL   = "timothy.honey@beardedsealstudios.com";
 
   // ── The document ────────────────────────────────────────────────
@@ -163,8 +163,9 @@
       title: "Newsletter and Marketing Emails",
       body:
         "<p>You will only be added to the Currents &amp; Critters email list when you intentionally provide your email address for that purpose.</p>" +
-        "<p>For example, you may enter your email address in an optional field labeled:</p>" +
-        "<blockquote>“Enter your email to join the Currents &amp; Critters newsletter and receive occasional updates.”</blockquote>" +
+        "<p>For example, during checkout you may enter your email address in an optional field labeled:</p>" +
+        "<blockquote>“Enter your email to get updates”</blockquote>" +
+        "<p>Leaving that field blank does not subscribe you. Completing a purchase does not subscribe you. Providing an email address for a receipt or order confirmation does not subscribe you.</p>" +
         "<p>We may send subscribers occasional emails about:</p>" +
         ul([
           "New game features and updates",
@@ -177,12 +178,18 @@
         ul([
           "Your email address",
           "Your subscription status",
-          "The date and time you subscribed",
+          "The date and time you first subscribed",
+          "The date and time you most recently subscribed or resubscribed",
           "How you subscribed",
+          "A reference to the checkout you subscribed through, when applicable",
           "The date and time you unsubscribed, when applicable",
+          "Whether a welcome email was successfully sent to you",
+          "Whether a particular newsletter was sent to you, and whether it was delivered, failed, or was skipped",
           "Information needed to process and honor your unsubscribe request",
         ]) +
-        "<p>Every marketing email will include a working unsubscribe option.</p>" +
+        "<p>We do not include tracking pixels in our newsletters, and we do not record whether you opened an email or which links you clicked.</p>" +
+        "<p>Newsletters are sent to each subscriber individually. Your email address is never shown to other subscribers and is never placed in a shared To, CC, or BCC field.</p>" +
+        "<p>Every marketing email will include a working unsubscribe option, along with our business name and mailing address and a link to this Privacy Policy.</p>" +
         "<p>When you unsubscribe, we will mark your email address as unsubscribed and stop sending you marketing emails.</p>" +
         "<p>We may keep a limited record of your email address and unsubscribe status so we can honor your request and avoid accidentally sending additional marketing emails.</p>" +
         "<p>You will not receive marketing emails again unless you intentionally subscribe again.</p>" +
@@ -255,8 +262,9 @@
         callout("We do not sell your personal information.") +
         "<p>We may share limited information with service providers that help us operate our business. These may include:</p>" +
         ul([
-          "Stripe for payment processing",
-          "Google for account sign-in, email, and Google Workspace services",
+          "Stripe for payment processing and for collecting an optional newsletter signup at checkout",
+          "Google for account sign-in, Google Workspace, and the Gmail service used to send our newsletters",
+          "Google Firebase and Firestore for accounts, game data, and newsletter subscriber records",
           "Render for website and server hosting",
           "Database and data storage providers",
           "Domain and website service providers",

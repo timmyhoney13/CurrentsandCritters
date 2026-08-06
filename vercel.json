@@ -27,6 +27,8 @@
   ],
   "redirects": [
     { "source": "/game",              "destination": "https://play.currentsandcritters.com/", "permanent": false },
+    { "source": "/admin/newsletter",  "destination": "https://play.currentsandcritters.com/admin/newsletter", "permanent": false },
+    { "source": "/newsletter/unsubscribe/:token", "destination": "https://play.currentsandcritters.com/newsletter/unsubscribe/:token", "permanent": false },
     { "source": "/play/:room_id",     "destination": "https://play.currentsandcritters.com/play/:room_id", "permanent": false },
     { "source": "/preview",           "destination": "https://play.currentsandcritters.com/", "permanent": false },
     { "source": "/preview/:room_id",  "destination": "https://play.currentsandcritters.com/play/:room_id", "permanent": false }
@@ -42,6 +44,7 @@
     { "source": "/about",                "destination": "/multiplayer/client/about.html" },
     { "source": "/leaderboard",          "destination": "/multiplayer/client/leaderboard.html" },
     { "source": "/leaderboard-bg.jpg",  "destination": "/multiplayer/client/leaderboard-bg.jpg" },
+    { "source": "/email-logo.png",      "destination": "/multiplayer/client/email-logo.png" },
     { "source": "/sw.js",               "destination": "/multiplayer/client/sw.js" },
     { "source": "/icon.svg",             "destination": "/multiplayer/client/icon.svg" },
     { "source": "/manifest.webmanifest", "destination": "/multiplayer/client/manifest.webmanifest" },

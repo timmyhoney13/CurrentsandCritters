@@ -67,6 +67,62 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      # ── Newsletter (newsletter_server.py / newsletter_email.py) ─────────
+      # Full setup instructions, including every Google Cloud and DNS step,
+      # are in NEWSLETTER_SETUP.md. Values marked "secret" must be entered in
+      # the Render dashboard, never committed.
+      #
+      #   ADMIN_EMAIL      The ONLY Google account that can open
+      #                    /admin/newsletter. Compared against the verified
+      #                    Firebase ID token server-side.
+      #   NEWSLETTER_UNSUBSCRIBE_SECRET
+      #                    Random 32+ byte string that signs unsubscribe
+      #                    links. REQUIRED — campaign sending refuses to start
+      #                    without it, because marketing mail with no working
+      #                    unsubscribe link is the thing that gets a domain
+      #                    blocked. ⚠️ Changing it invalidates every
+      #                    unsubscribe link already sitting in an inbox.
+      #                    Generate: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
+      #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN
+      #                    Gmail API OAuth credentials. Produce the refresh
+      #                    token locally with scripts/get_gmail_refresh_token.py
+      #                    and paste it here. Scopes requested: gmail.send +
+      #                    openid email — send-only, no mailbox read access.
+      #   NEWSLETTER_FIELD_LABEL
+      #                    Optional. The EXACT label of the optional newsletter
+      #                    question on your Stripe Payment Links, if it is not
+      #                    one of the spellings already accepted in
+      #                    newsletter_server.NEWSLETTER_FIELD_LABELS. Separate
+      #                    several with "|". A label is a behaviour key: if it
+      #                    does not match, nobody is ever subscribed and there
+      #                    is no error anywhere. The admin Connections tab
+      #                    shows the labels Stripe actually sent.
+      - key: ADMIN_EMAIL
+        value: timothy.honey@beardedsealstudios.com
+      - key: GMAIL_SENDER_EMAIL
+        value: timothy.honey@beardedsealstudios.com
+      - key: GMAIL_SENDER_NAME
+        value: Currents & Critters
+      - key: APP_BASE_URL
+        value: https://play.currentsandcritters.com
+      - key: CURRENTS_AND_CRITTERS_URL
+        value: https://currentsandcritters.com
+      - key: PRIVACY_POLICY_URL
+        value: https://currentsandcritters.com/privacy
+      - key: NEWSLETTER_DAILY_SEND_CAP
+        value: "1200"
+      - key: NEWSLETTER_UNSUBSCRIBE_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: NEWSLETTER_FIELD_LABEL
+        sync: false
       # Snap & Score (score.currentsandcritters.com — add it as a second custom
       # domain on this same service). Board-photo card recognition runs locally
       # in the player's browser against the prebuilt snap-card-library.json —

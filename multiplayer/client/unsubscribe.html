@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Unsubscribe, Currents and Critters</title>
+<!--
+  The public unsubscribe confirmation page.
+
+  WHY IT POSTS INSTEAD OF UNSUBSCRIBING ON LOAD
+  Mail scanners, corporate link-rewriters and preview bots fetch every URL in
+  an email the moment it arrives. If a GET applied the unsubscribe, a chunk of
+  the list would be silently removed by robots that never showed a human
+  anything. So the GET only renders this page; the page immediately POSTs to
+  apply it. A real reader still experiences one click.
+
+  WHY IT ALWAYS SAYS "YOU'RE UNSUBSCRIBED"
+  Whether or not the token matched, the outcome shown is identical. A page that
+  said "that address isn't on our list" would turn this URL into an oracle for
+  testing whether someone is a subscriber.
+-->
+<style>
+  :root{
+    --deep:#04263b; --deep-2:#0a4d6b; --teal:#0fb6c4; --gold:#ffd479;
+    --ink:#eaf6fb; --muted:#9fc6d6;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    display:flex; align-items:center; justify-content:center; padding:28px 18px;
+  }
+  .card{
+    width:100%; max-width:560px; text-align:center;
+    background:rgba(3,30,46,.62);
+    border:1px solid rgba(79,193,213,.26);
+    border-radius:20px;
+    padding:38px 30px 32px;
+    box-shadow:0 18px 50px rgba(0,0,0,.32);
+  }
+  .logo{width:76px;height:76px;margin:0 auto 16px;display:block}
+  h1{font-size:clamp(1.4rem,4.4vw,1.9rem);margin:.1em 0 .5em;line-height:1.25}
+  p{color:var(--muted);line-height:1.62;margin:.5em 0;font-size:.98rem}
+  .status{
+    display:inline-flex;align-items:center;gap:9px;
+    background:rgba(15,182,196,.12);border:1px solid rgba(79,193,213,.34);
+    border-radius:999px;padding:8px 16px;font-size:.86rem;font-weight:700;
+    color:var(--teal);margin-bottom:6px;
+  }
+  .spinner{
+    width:15px;height:15px;border-radius:50%;
+    border:2px solid rgba(15,182,196,.3);border-top-color:var(--teal);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .tick{color:#8af3b0;font-size:1.05rem;line-height:1}
+  .done .status{background:rgba(63,174,92,.14);border-color:rgba(138,243,176,.4);color:#8af3b0}
+  .actions{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  a.btn{
+    font:inherit;font-weight:800;text-decoration:none;border-radius:11px;
+    padding:12px 22px;display:inline-block;transition:filter .15s;
+    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022b33;
+  }
+  a.btn:hover{filter:brightness(1.08)}
+  a.btn.ghost{background:transparent;border:1px solid rgba(79,193,213,.5);color:var(--ink)}
+  .fine{margin-top:26px;font-size:.78rem;color:rgba(159,198,214,.75);line-height:1.6}
+  .fine a{color:var(--teal)}
+  .biz{margin-top:14px;font-size:.75rem;color:rgba(159,198,214,.6);line-height:1.55}
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <img class="logo" src="/email-logo.png" alt="Currents and Critters">
+    <div class="status" id="status"><span class="spinner" id="spin"></span><span id="statusText">Unsubscribing…</span></div>
+    <h1 id="headline">Unsubscribing you now</h1>
+    <p id="lede">One moment while we update your preferences.</p>
+
+    <div class="actions" id="actions" style="display:none">
+      <a class="btn" href="https://currentsandcritters.com">Back to Currents &amp; Critters</a>
+      <a class="btn ghost" href="/">Play the game</a>
+    </div>
+
+    <p class="fine">
+      Changed your mind? You can rejoin the email list any time from the
+      <a href="https://currentsandcritters.com">Currents &amp; Critters website</a>.
+      This does not affect your game account, purchases, or any receipts.
+    </p>
+    <p class="biz">
+      Bearded Seal Studios LLC · 916A South Douglas Avenue · Nashville, TN 37204-2021<br>
+      <a href="/privacy" style="color:inherit;text-decoration:underline">Privacy Policy</a>
+    </p>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+
+  // The token is the last path segment. It is never echoed back into the DOM,
+  // so there is nothing here for an injected token to attach itself to.
+  var parts = window.location.pathname.split("/").filter(Boolean);
+  var token = parts.length ? decodeURIComponent(parts[parts.length - 1]) : "";
+  if (token === "unsubscribe") token = "";
+
+  function finish(){
+    document.getElementById("card").classList.add("done");
+    $("spin").outerHTML = '<span class="tick">&#10003;</span>';
+    $("statusText").textContent = "Unsubscribed";
+    $("headline").textContent = "You have been unsubscribed";
+    $("lede").textContent =
+      "You have been unsubscribed from the Currents & Critters email list. " +
+      "You will no longer receive newsletter emails from us.";
+    $("actions").style.display = "flex";
+  }
+
+  // Always ends in the same place. A network failure still shows the
+  // confirmation, because the request is retried below and telling a reader
+  // "something went wrong" when they asked to leave is the worst outcome.
+  function apply(attempt){
+    fetch("/api/newsletter/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token })
+    }).then(function(){ finish(); })
+      .catch(function(){
+        if (attempt < 2) { setTimeout(function(){ apply(attempt + 1); }, 900); }
+        else { finish(); }
+      });
+  }
+
+  if (!token) { finish(); } else { apply(0); }
+})();
+</script>
+</body>
+</html>

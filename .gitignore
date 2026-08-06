@@ -49,6 +49,15 @@
 # The client half: the REAL renderers driven with REAL server payloads, which is
 # what stops the two sides drifting while both look green on their own.
 !test_analytics_ui.js
+
+# Newsletter. multiplayer_server.py imports newsletter_server at module scope and
+# newsletter_server imports newsletter_email, so BOTH have to be on the allowlist:
+# ship one without the other and the container dies on startup with an ImportError
+# — the whole game, not just the mailing list. .dockerignore and the Dockerfile
+# COPY lines carry the same pair; all three have to agree.
+!newsletter_server.py
+!newsletter_email.py
+
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js
@@ -153,6 +162,18 @@ serviceAccountKey.json
 
 # Streak leaderboard (Leaderboard tab → 🔥 Streak)
 !test_streak_leaderboard.js
+
+# Newsletter tests + setup guide + the one-off OAuth helper.
+# (newsletter_server.py / newsletter_email.py are allowlisted further up, next
+# to the other server modules.) NOTE: .gitignore and .dockerignore are BOTH
+# `*`-then-`!` allowlists, so a new root file is silently excluded from git AND
+# from the image until it is named in both. Verify with: git check-ignore -v <f>
+# The helper script and the tests are dev tools — deliberately NOT in the image.
+!test_newsletter_server.py
+!test_newsletter_admin_ui.js
+!NEWSLETTER_SETUP.md
+!scripts/
+!scripts/get_gmail_refresh_token.py
 
 # Player Perks (Store: Streak Shield / Name Token / Emote Pack / Re-Earn)
 !test_store_perks.js

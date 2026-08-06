@@ -35,6 +35,7 @@ import tournament_server
 import clan_server
 import prestige_server
 import analytics_server
+import newsletter_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -57,6 +58,12 @@ CLAIM_REWARDS_HTML_PATH   = os.path.join(BASE_DIR, "multiplayer", "client", "cla
 # The page confirms the purchase actually landed (via /api/stripe/session-status)
 # and gives them the "Back to the game" button.
 THANKS_HTML_PATH          = os.path.join(BASE_DIR, "multiplayer", "client", "thanks.html")
+# Newsletter (see newsletter_server.py). The admin page is served to anyone who
+# asks for it — it is a sign-in card until Google auth succeeds, and every byte
+# of data on it comes from POST /api/newsletter/* calls that each verify a
+# Firebase ID token against ADMIN_EMAIL server-side. The URL is not the lock.
+NEWSLETTER_ADMIN_HTML_PATH = os.path.join(BASE_DIR, "multiplayer", "client", "newsletter-admin.html")
+UNSUBSCRIBE_HTML_PATH      = os.path.join(BASE_DIR, "multiplayer", "client", "unsubscribe.html")
 # Snap & Score — physical-board scanning + scoring companion app. Served at
 # /score on the main host AND as the root page for score.currentsandcritters.com
 # (second custom domain on the same Render service, routed by Host header).
@@ -10002,6 +10009,23 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"received": False, "error": "processing error"}, status=HTTPStatus.INTERNAL_SERVER_ERROR)
                 return
 
+            # ── Newsletter signup ────────────────────────────────────────
+            # Runs AFTER fulfilment, on the same verified + paid session, and
+            # is deliberately unable to affect the response. By this point the
+            # buyer's coins are committed; returning 500 because a newsletter
+            # write failed would make Stripe retry a settled payment, so the
+            # newsletter side swallows its own errors (it logs them, and the
+            # admin page surfaces them). Signup itself is idempotent on the
+            # Stripe EVENT id, so a retry never subscribes anyone twice.
+            #
+            # Nobody is subscribed by paying: newsletter_server only acts when
+            # the buyer typed an address into the optional newsletter field.
+            try:
+                session = (event.get("data") or {}).get("object") or {}
+                newsletter_server.handle_stripe_session(event, session)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[newsletter] signup hook failed (payment unaffected): {exc}")
+
         # Acknowledge handled + unhandled event types so Stripe stops retrying.
         self._send_json({"received": True})
 
@@ -10186,6 +10210,22 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             asset_path = os.path.join(CLIENT_DIR, os.path.basename(parsed.path))
             if os.path.exists(asset_path):
                 self._send_client_asset(asset_path, content_type="image/png", cache_control="public, max-age=86400", allow_webp=True)
+            else:
+                self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
+            return
+
+        # email-logo.png — the logo embedded in every newsletter and welcome
+        # email, and used by the admin + unsubscribe pages.
+        # Deliberately allow_webp=False: Outlook and several corporate mail
+        # clients cannot render WebP, and an email image has no <picture>
+        # fallback to save it — a negotiated WebP would be a broken image in
+        # exactly the clients most likely to be reading. Cached hard because
+        # the URL is baked into mail that lives in inboxes for years.
+        if parsed.path == "/email-logo.png":
+            logo_path = os.path.join(CLIENT_DIR, "email-logo.png")
+            if os.path.exists(logo_path):
+                self._send_client_asset(logo_path, content_type="image/png",
+                                        cache_control="public, max-age=604800", allow_webp=False)
             else:
                 self._send_json({"ok": False, "error": "asset not found"}, status=HTTPStatus.NOT_FOUND)
             return
@@ -10389,6 +10429,17 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Where Stripe drops the buyer after paying (see THANKS_HTML_PATH).
         if len(parts) == 1 and parts[0] in {"thanks", "thank-you", "thankyou"}:
             self._send_html_file(THANKS_HTML_PATH, "thank you")
+            return
+
+        # ── Newsletter ──────────────────────────────────────────────────
+        # The private admin page. Serving the HTML is not an authorisation
+        # decision: the page is a sign-in card until Google auth succeeds, and
+        # every API call it makes is checked separately against ADMIN_EMAIL.
+        if len(parts) == 2 and parts[0] == "admin" and parts[1] == "newsletter":
+            self._send_html_file(NEWSLETTER_ADMIN_HTML_PATH, "newsletter admin")
+            return
+        # Public unsubscribe confirmation page: /newsletter/unsubscribe/<token>.
+        if newsletter_server.handle_get(self, parsed):
             return
 
         if parsed.path == "/":
@@ -10773,6 +10824,15 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             self._handle_stripe_webhook()
             return
 
+        # RFC 8058 one-click unsubscribe. Gmail and Outlook POST here from
+        # their OWN servers when a reader uses the mail client's built-in
+        # Unsubscribe button; the body is form-encoded ("List-Unsubscribe=
+        # One-Click"), not JSON, so it must be dispatched before
+        # _read_json_body() consumes the stream and fails to parse it.
+        if parsed.path.startswith("/newsletter/unsubscribe/"):
+            if newsletter_server.handle_one_click_post(self, parsed):
+                return
+
         # Snap & Score endpoints read their OWN body (board photos are far
         # bigger than MAX_JSON_BODY_BYTES), so dispatch before _read_json_body.
         if snap_score.handle_post(self, parsed):
@@ -10799,6 +10859,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Developer Analytics API (admin only — every call proves an admin
         # account with a verified Firebase ID token inside the module).
         if analytics_server.handle_post(self, parsed, body):
+            return
+
+        # Newsletter API. /api/newsletter/unsubscribe is public by design (an
+        # unsubscribe link must work without logging in); every OTHER action
+        # under this prefix verifies a Firebase ID token against ADMIN_EMAIL
+        # inside the module, per route, with no shared "already checked" flag.
+        if newsletter_server.handle_post(self, parsed, body):
             return
 
         if parsed.path == "/api/user/register":
@@ -11730,6 +11797,17 @@ def main() -> None:
         games_history_dir=GAMES_HISTORY_DIR,
         competitive_games_dir=COMPETITIVE_GAMES_DIR,
         live_snapshot=_analytics_live_snapshot,
+        app_version=_deployed_app_version(),
+    )
+
+    # Newsletter: the same Firestore accessor and token verifier as everything
+    # else, so there is exactly one way to prove who a caller is. init() also
+    # starts the send worker — the daemon thread that delivers welcome emails
+    # and grinds through campaign batches, so no browser request ever holds a
+    # connection open while thousands of messages go out.
+    newsletter_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
         app_version=_deployed_app_version(),
     )
 
