@@ -22,6 +22,12 @@
 !clan_server.py
 !test_clan_server.py
 !test_clans_ui.js
+
+# Prestige (descend past Level 100). multiplayer_server.py imports this at module
+# scope, so if the allowlist ever drops it the server dies on startup with an
+# ImportError instead of failing soft. It owns no level curve of its own — the
+# cap and progress fn are injected from LEVEL_XP_TOTALS via prestige_server.init.
+!prestige_server.py
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js
@@ -91,6 +97,9 @@
 # untrusted cross-origin value, so it must never become an open redirect) and
 # the rule that it only claims "confirmed" when the SERVER says so.
 !test_stripe_payments.py
+# Asks Stripe what the 7 live Payment Links actually charge and ask for — the
+# half of the money path the test suite can't see. Dev tool, never in the image.
+!verify_stripe_links.py
 !test_thanks_page.js
 
 !fish_ai_brain.json
