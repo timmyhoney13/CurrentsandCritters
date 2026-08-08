@@ -9388,10 +9388,113 @@
     return idx >= 0 ? (_handCardEls[idx] || null) : null;
   }
 
+  // ── Fit the fan to the width the hand actually has ─────────────────────────
+  // Cards overlap by a fixed -28px margin (see .pv-hand-card), so a full hand
+  // is 98 + 9×70 = 728px wide no matter how much room there is. On a phone, or
+  // any window narrower than about 1400px, that is wider than the hand's own
+  // column — and since the cards only OVERFLOW (the zone is overflow:visible)
+  // they spill sideways underneath the player-seat clusters, which sit at
+  // z-index 20 and take the tap instead. That is the "I can't play my cards on
+  // mobile" bug, and it is a layout problem, so the fix is a layout one:
+  // tighten the overlap until the fan fits.
+  //
+  // Widening the overlap via margin-left (not a transform) is what keeps this
+  // safe: _handHitTestIdx reads each card's offsetLeft/offsetWidth, so a real
+  // margin change moves the hit quad exactly as far as it moves the paint. A
+  // CSS scale on the container would move the paint only, and every card would
+  // then answer for its neighbour.
+  const HAND_BASE_OVERLAP = -28;   // must match .pv-hand-card { margin-left }
+  const HAND_MIN_STEP     = 22;    // never squeeze a card to a sliver
+  const HAND_EDGE_SLACK   = 20;    // the fan's rotation paints ~25px past the ends
+
+  // How much width the hand is ALLOWED, measured from things the hand cannot
+  // itself change. Deliberately not #pv-hand's own width: that element sits in
+  // a grid track which, in some layouts, is sized to its contents — so reading
+  // it and then narrowing the cards would narrow the track, which would narrow
+  // the cards again. A layout that feeds back on itself never settles, and it
+  // is the same trap the hover hit-test had to be rescued from (see
+  // _handHitTestIdx): what a card is worth must never depend on what the last
+  // measurement did to it. The hand zone's content box and the seat clusters
+  // are all fixed by the screen, so this answer is stable however often it is
+  // asked.
+  function handRoomPx(zone) {
+    const row = zone.parentElement;
+    if (!row) return zone.clientWidth;
+    const cs = getComputedStyle(row);
+    let room = row.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const zr = zone.getBoundingClientRect();   // only .top/.bottom are read
+    for (const sib of row.children) {
+      if (sib === zone) continue;
+      const sr = sib.getBoundingClientRect();
+      if (!sr.width || !sr.height) continue;
+      // Only a sibling sharing the hand's row takes width from it. When the
+      // seats are stacked ABOVE the hand they take none.
+      if (sr.bottom > zr.top + 4 && sr.top < zr.bottom - 4) {
+        const scs = getComputedStyle(sib);
+        room -= sr.width + (parseFloat(scs.marginLeft) || 0) + (parseFloat(scs.marginRight) || 0);
+      }
+    }
+    return room;
+  }
+
+  function fitHandFan(cards) {
+    const n = cards.length;
+    if (!n) return;
+    const zone = document.getElementById("pv-hand");
+    const cardW = cards[0].offsetWidth;
+    // 0 while the hand is hidden — leave the CSS default alone.
+    const avail = zone ? handRoomPx(zone) : 0;
+    if (!cardW || avail <= cardW) {
+      cards.forEach(c => { c.style.marginLeft = ""; });
+      return;
+    }
+    // The "+N" overflow chip, when present, sits in the same row.
+    const chip = zone.querySelector(".pv-hand-overflow");
+    const room = avail - HAND_EDGE_SLACK - (chip ? chip.offsetWidth + 8 : 0);
+    const natural = cardW + (n - 1) * (cardW + HAND_BASE_OVERLAP);
+    if (n < 2 || natural <= room) {
+      cards.forEach(c => { c.style.marginLeft = ""; });   // back to the CSS default
+      return;
+    }
+    const step = Math.max(HAND_MIN_STEP, (room - cardW) / (n - 1));
+    const overlap = step - cardW;
+    cards.forEach((c, i) => { c.style.marginLeft = i === 0 ? "" : overlap.toFixed(2) + "px"; });
+  }
+
+  // How far the fan is painted BELOW the bottom of its layout row. The hand
+  // zone is flush with the bottom of the screen, so this much of the outermost
+  // cards was being cut off by the edge of the display — worst on a phone,
+  // where those are the cards you are most likely to be reaching for.
+  // Deterministic from the same transform applyHandLayout writes:
+  //   world = translateX(tx) · rotate(a) · translateY(lift)
+  // so the card's centre drops by lift·cos(a), and rotating a w×h box grows its
+  // half-height to (h/2)|cos a| + (w/2)|sin a|.
+  function handFanUnderhang(cards) {
+    const n = cards.length;
+    if (n < 2) return 0;
+    const w = cards[0].offsetWidth, h = cards[0].offsetHeight;
+    if (!w || !h) return 0;
+    const base = computeHandTransforms(n, -1);
+    let max = 0;
+    for (let i = 0; i < n; i++) {
+      const t = base[i]; if (!t) continue;
+      const a = (t.angle || 0) * Math.PI / 180;
+      const ca = Math.abs(Math.cos(a)), sa = Math.abs(Math.sin(a));
+      const drop = (t.translateY || 0) * Math.cos(a) + (h / 2) * (ca - 1) + (w / 2) * sa;
+      if (drop > max) max = drop;
+    }
+    return Math.ceil(max);
+  }
+
   function applyHandLayout(hoveredIdx = -1) {
     const cards = Array.from(document.querySelectorAll(".pv-hand-card[data-entry-uid]"));
     const n = cards.length;
     if (!n) return;
+    fitHandFan(cards);
+    // Reserve the arc's underhang inside the hand's own box so the cards at the
+    // ends of the fan stop being sliced off by the bottom of the screen.
+    const zone = document.getElementById("pv-hand");
+    if (zone) zone.style.paddingBottom = handFanUnderhang(cards) + "px";
     const transforms = computeHandTransforms(n, hoveredIdx);
     cards.forEach((card, i) => {
       const t = transforms[i];
@@ -14810,6 +14913,16 @@
     if (!table) return;
     table.addEventListener("scroll", updateBoardScrollAffordance, { passive: true });
     window.addEventListener("resize", updateBoardScrollAffordance);
+    // The hand fan is sized to the width the hand has, so a rotation or a
+    // resized window has to re-fit it — otherwise turning a phone sideways
+    // leaves the cards squeezed for the old, narrower screen (or spilling off
+    // the new one). Cheap: it only rewrites margins when they need to change.
+    const refit = () => {
+      try { applyHandLayout(_handHoverIdx); } catch (e) {}
+      try { updateBottomDockOffset(); } catch (e) {}
+    };
+    window.addEventListener("resize", refit);
+    window.addEventListener("orientationchange", () => setTimeout(refit, 300));
     const btn = document.getElementById("pv-board-scroll-btn");
     if (btn) btn.addEventListener("click", (ev) => {
       ev.preventDefault(); ev.stopPropagation();
@@ -14865,10 +14978,37 @@
     return Boolean(g) && g.style.display !== "none" && g.style.display !== "";
   }
 
+  // ── Keep the floating side docks clear of the bottom UI ───────────────────
+  // #bs-ctrl (Board Size + Chat) and #ig-challenge-panel are fixed to the
+  // bottom corners of the screen, above the action bar and the hand. Both used
+  // a hard-coded `bottom: 302px`, which is only the right number for the
+  // desktop stack. The moment that stack is taller — a narrow window wraps the
+  // action bar onto two or three lines, and on a phone the hand zone carries
+  // the player seats on their own row — the docks land ON TOP of the action
+  // bar, covering Help, the action dropdown and Surf's Up. So measure the real
+  // thing and publish it as --pv-bottom-ui for both to sit on.
+  function updateBottomDockOffset() {
+    const game = document.getElementById("pv-game");
+    if (!game || getComputedStyle(game).display === "none") return;
+    let h = 0;
+    for (const id of ["pv-action-bar", "pv-hand-zone", "pv-spectator-panel"]) {
+      const el = document.getElementById(id);
+      if (el && getComputedStyle(el).display !== "none") h += el.offsetHeight;
+    }
+    if (!h) return;
+    // On <html>, not on #pv-game: the docks happen to live inside #pv-game
+    // today, but a fixed-position element positions against the viewport
+    // wherever it sits in the tree, so the offset should reach it wherever it
+    // sits too.
+    document.documentElement.style.setProperty("--pv-bottom-ui", (h + 10) + "px");
+  }
+  window.__ccUpdateBottomDockOffset = updateBottomDockOffset;
+
   window._bsSetVisible = function(visible) {
     // Switch the mobile game viewport on entering / leaving the in-game screen
     // (no-op on desktop). Done first so it runs even if the bs-ctrl is absent.
     try { window.ccGameViewport && window.ccGameViewport(visible); } catch {}
+    if (visible) { try { updateBottomDockOffset(); } catch (e) {} }
     const ctrl = document.getElementById("bs-ctrl");
     if (!ctrl) return;
     ctrl.style.display = visible ? "flex" : "none";

@@ -102,6 +102,12 @@
 # player is pointing at, measured in real pixels in headless Chrome.
 !test_hand_limit_discard.py
 !test_hand_discard_click.js
+# Playing on a phone: the in-game screen laid the player seats out flanking the
+# hand in a grid whose side columns never shrink, so on a phone the hand's own
+# column collapsed to zero and the whole fan spilled underneath the seat pills
+# (which take the tap) — every card in your hand was unclickable, two were off
+# the screen entirely, and the deck you draw from sat past the right edge.
+!test_mobile_layout.js
 # Staying up under a full house: the bot planner's CPU admission control (32
 # concurrent games used to drive a request that touches nothing from 2.5 ms to
 # 5.3 seconds) and the room janitor that stops finished rooms living forever in

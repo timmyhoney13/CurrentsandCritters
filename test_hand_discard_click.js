@@ -101,11 +101,24 @@ function grabFn(name) {
   }
   throw new Error(`unbalanced braces reading ${name}()`);
 }
+function grabConst(name) {
+  const m = APP.match(new RegExp(`^\\s*const\\s+${name}\\s*=.*$`, "m"));
+  if (!m) throw new Error(`const ${name} not found in preview-app.js`);
+  return m[0].trim();
+}
 const GEOM = [
   grabFn("computeHandTransforms"),
   grabFn("_handCornerRadius"),
   grabFn("_handHitTestIdx"),
   grabFn("_handCardAt"),
+  // applyHandLayout squeezes the fan to the width the hand really has and
+  // reserves the arc's underhang, so both helpers have to come along.
+  grabConst("HAND_BASE_OVERLAP"),
+  grabConst("HAND_MIN_STEP"),
+  grabConst("HAND_EDGE_SLACK"),
+  grabFn("handRoomPx"),
+  grabFn("fitHandFan"),
+  grabFn("handFanUnderhang"),
   grabFn("applyHandLayout"),
 ].join("\n");
 
