@@ -442,7 +442,7 @@
   const gtGalClosed    = ()  => !document.getElementById("avatar-gallery")?.classList.contains("open");
   const gtSettingsOpen = ()  => !!document.getElementById("settings-modal")?.classList.contains("open");
   const gtStreakCalOpen = ()  => !!document.getElementById("streak-cal-modal")?.classList.contains("open");
-  const gtWeeklyPill   = ()  => !!document.getElementById("ph-cs-pill")?.classList.contains("weekly");
+  const gtChallengesOpen = () => !document.getElementById("ph-cs-strip")?.classList.contains("is-collapsed");
 
   const MENU_STEPS = [
 
@@ -488,20 +488,16 @@
       advanceWhen: gtGalClosed,
       text: "Click the <strong>back arrow</strong> at the top to close the gallery and return to the menu." },
 
-    // ── Daily Challenges ──────────────────────────────────────────────
-    { target: "#ph-cs-strip", badge: "Daily Challenges", title: "Daily Challenges",
+    // ── Open the Weekly Challenges (interactive, must click the header) ──
+    { target: "#ph-cs-header-btn", badge: "Weekly Challenges", title: "Open Your Challenges",
       before: () => { closeMenuOverlays(); navTab("overview"); },
-      text: "These are your <strong>Daily Challenges</strong>. Each day you get three new challenges to complete for <strong>XP</strong>. They reset <strong>24 hours after you complete them</strong>, so come back every day for fresh ones." },
-
-    // ── Toggle to Weekly (interactive, must click the calendar icon) ──
-    { target: "#ph-cs-toggle-btn", badge: "Weekly Challenges", title: "Switch to Weekly",
       interactive: true,
-      advanceWhen: gtWeeklyPill,
-      text: "Click the <strong>calendar icon</strong> to switch to your Weekly Challenges." },
+      advanceWhen: gtChallengesOpen,
+      text: "Click the <strong>Weekly Challenges</strong> bar to open it." },
 
     // ── Weekly Challenges description ─────────────────────────────────
     { target: "#ph-cs-strip", badge: "Weekly Challenges", title: "Weekly Challenges",
-      text: "These are your <strong>Weekly Challenges</strong>. Completing them earns bigger XP rewards than daily challenges. They reset every <strong>Monday</strong>, so you have the whole week to finish them." },
+      text: "These are your <strong>Weekly Challenges</strong>. You get three each week, and completing them earns big <strong>XP</strong> rewards. They reset every <strong>Monday</strong>, so you have the whole week to finish them. Click the bar again to tuck them away." },
 
     // ── Overview panel ────────────────────────────────────────────────
     { target: "#ph-panel-overview", badge: "Overview Tab", title: "Overview",

@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-06.4"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-08.1"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,20 +66,20 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-06.4" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-08.1" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-06.4" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-08.1" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-06.4" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-08.1" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-06.4" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-08.1" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way — everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
@@ -738,12 +738,13 @@
 
     <!-- ── Overview tab ───────────────────────────────────────── -->
     <div class="ph-panel" id="ph-panel-overview">
-      <!-- Daily / Weekly Challenge Strip, calendar icon toggles between the two -->
-      <div class="ph-cs-strip" id="ph-cs-strip" aria-label="Daily and Weekly Challenges">
-        <div class="ph-cs-header">
-          <button class="ph-cs-icon-btn" id="ph-cs-toggle-btn" type="button"
-                  aria-label="Toggle between Daily and Weekly challenges"
-                  title="Toggle Daily ↔ Weekly">
+      <!-- Weekly Challenge strip. Collapsed to its header until the player
+           clicks it, then the three challenges expand underneath. -->
+      <div class="ph-cs-strip is-collapsed" id="ph-cs-strip" aria-label="Weekly Challenges">
+        <button class="ph-cs-header" id="ph-cs-header-btn" type="button"
+                aria-expanded="false" aria-controls="ph-cs-body"
+                title="Show this week's challenges">
+          <span class="ph-cs-icon-btn" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#2680c8" stroke-width="1.8"/>
               <path d="M3 9h18" stroke="#2680c8" stroke-width="1.8"/>
@@ -754,26 +755,29 @@
               <circle cx="8" cy="17.5" r="1.2" fill="#2680c8"/>
               <circle cx="12" cy="17.5" r="1.2" fill="#2680c8"/>
             </svg>
-          </button>
-          <div class="ph-cs-title-block">
-            <div class="ph-cs-title-row">
-              <span class="ph-cs-pill" id="ph-cs-pill">Daily</span>
-              <span class="ph-cs-title" id="ph-cs-title">Daily Challenges</span>
-            </div>
-            <div class="ph-cs-sub" id="ph-cs-sub">Complete today's challenges to earn XP.</div>
-          </div>
-        </div>
-        <div class="ph-cs-cards" id="ph-cs-cards"></div>
-        <button class="ph-cs-reward" id="ph-cs-reward-btn" type="button"
-                aria-label="View all challenges and Weekly Tide Sweep"
-                style="display:none;">
-          <div class="ph-cs-reward-icon">🗝️</div>
-          <div class="ph-cs-reward-info">
-            <div class="ph-cs-reward-label">Weekly Tide Sweep</div>
-            <div class="ph-cs-reward-count" id="ph-cs-reward-count">0 / 5 Completed</div>
-            <div class="ph-cs-reward-bar"><div class="ph-cs-reward-fill" id="ph-cs-reward-fill" style="width:0%"></div></div>
-          </div>
+          </span>
+          <span class="ph-cs-title-block">
+            <span class="ph-cs-title-row">
+              <span class="ph-cs-pill weekly" id="ph-cs-pill">Weekly</span>
+              <span class="ph-cs-title" id="ph-cs-title">Weekly Challenges</span>
+            </span>
+            <span class="ph-cs-sub" id="ph-cs-sub">Tap to see this week's three challenges.</span>
+          </span>
+          <span class="ph-cs-chev" id="ph-cs-chev" aria-hidden="true">▾</span>
         </button>
+        <div class="ph-cs-body" id="ph-cs-body">
+          <div class="ph-cs-cards" id="ph-cs-cards"></div>
+          <button class="ph-cs-reward" id="ph-cs-reward-btn" type="button"
+                  aria-label="View all challenges and Weekly Tide Sweep"
+                  style="display:none;">
+            <div class="ph-cs-reward-icon">🗝️</div>
+            <div class="ph-cs-reward-info">
+              <div class="ph-cs-reward-label">Weekly Tide Sweep</div>
+              <div class="ph-cs-reward-count" id="ph-cs-reward-count">0 / 5 Completed</div>
+              <div class="ph-cs-reward-bar"><div class="ph-cs-reward-fill" id="ph-cs-reward-fill" style="width:0%"></div></div>
+            </div>
+          </button>
+        </div>
       </div>
 
       <div class="ph-main">
@@ -1972,7 +1976,7 @@
 
   <!-- ── IN-GAME CHALLENGE PANEL (lower-left, fixed above action bar) -->
   <div id="ig-challenge-panel">
-    <div id="igcp-header" title="Click to switch Daily ↔ Weekly">
+    <div id="igcp-header" title="Click to show or hide your weekly challenges">
       <button id="igcp-minimize-btn" title="Minimize">−</button>
       <svg id="igcp-calendar-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="#5fb3d6" stroke-width="1.8"/>
@@ -1984,11 +1988,11 @@
         <circle cx="8" cy="17.5" r="1.2" fill="#5fb3d6"/>
         <circle cx="12" cy="17.5" r="1.2" fill="#5fb3d6"/>
       </svg>
-      <span id="igcp-title">Daily Challenges</span>
-      <span id="igcp-pill">Daily</span>
+      <span id="igcp-title">Weekly Challenges</span>
+      <span id="igcp-pill" class="weekly">Weekly</span>
     </div>
     <div id="igcp-cards"></div>
-    <div id="igcp-footer">Tap header to switch Daily ↔ Weekly</div>
+    <div id="igcp-footer">Tap the header to hide these</div>
   </div>
 
   <!-- ── IN-GAME BOARD SIZE CONTROL + CHAT (lower-right, above Undo/End Turn) ── -->
@@ -2865,29 +2869,29 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-06.4"></script>
+<script defer src="/js/rulebook.js?v=2026-08-08.1"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-06.4"></script>
+<script defer src="/js/gamedata.js?v=2026-08-08.1"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-06.4"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-08.1"></script>
 
-<script defer src="/js/preview-app.js?v=2026-08-06.4"></script>
+<script defer src="/js/preview-app.js?v=2026-08-08.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-29.5"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-01.4"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-08.1"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-06.4"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-08.1"></script>
 
 <!-- Developer Analytics — a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
@@ -2979,6 +2983,6 @@
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-06.4"></script>
+<script defer src="/js/tutorials.js?v=2026-08-08.1"></script>
 </body>
 </html>

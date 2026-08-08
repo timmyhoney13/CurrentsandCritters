@@ -6729,10 +6729,14 @@
     }
     .ph-panel { width: 100%; }
 
-    /* ── Daily / Weekly Challenge Strip (Overview tab) ─────────────── */
+    /* ── Weekly Challenge Strip (Overview tab) ─────────────────────── */
+    /* Collapsed to its header until clicked: the Overview tab opens on your
+       stats, not on a wall of challenges. .is-collapsed is the closed state,
+       and the header is the whole toggle. */
     .ph-cs-strip {
       display: flex;
       align-items: stretch;
+      flex-wrap: wrap;
       gap: 14px;
       padding: 14px 16px;
       background: rgba(252,255,255,.95);
@@ -6741,7 +6745,7 @@
       box-shadow: 0 6px 26px rgba(35,100,165,.11);
       margin-bottom: 14px;
     }
-    /* Left: calendar icon + title block */
+    /* Left: calendar icon + title block — the click target that opens the strip */
     .ph-cs-header {
       display: flex;
       align-items: center;
@@ -6749,21 +6753,52 @@
       flex: 0 0 auto;
       min-width: 230px;
       max-width: 280px;
-      padding-right: 12px;
+      padding: 0 12px 0 0;
+      border: 0;
       border-right: 1px solid rgba(165,204,233,.45);
+      background: none;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
     }
+    /* Closed: the header IS the strip, and there is nothing else to see. */
+    .ph-cs-strip.is-collapsed .ph-cs-body { display: none; }
+    .ph-cs-strip.is-collapsed .ph-cs-header {
+      flex: 1 1 100%;
+      max-width: none;
+      padding-right: 0;
+      border-right: 0;
+      /* the narrow-screen rule below turns the divider into a bottom border —
+         with nothing under it, that reads as a line hanging off the header */
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .ph-cs-body {
+      display: flex;
+      align-items: stretch;
+      gap: 14px;
+      flex: 1 1 320px;
+      min-width: 0;
+    }
+    .ph-cs-chev {
+      margin-left: auto;
+      flex-shrink: 0;
+      font-size: 1rem;
+      color: #4b6f94;
+      transition: transform .16s ease;
+    }
+    .ph-cs-strip.is-collapsed .ph-cs-chev { transform: rotate(-90deg); }
     .ph-cs-icon-btn {
       width: 50px; height: 50px;
       border-radius: 14px;
       border: 1px solid rgba(95,179,214,.45);
       background: rgba(120,200,230,.13);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
       transition: transform .14s, background .14s, border-color .14s, box-shadow .14s;
       flex-shrink: 0;
       position: relative;
     }
-    .ph-cs-icon-btn:hover {
+    .ph-cs-header:hover .ph-cs-icon-btn {
       transform: translateY(-1px);
       background: rgba(120,200,230,.22);
       border-color: #5fb3d6;

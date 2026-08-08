@@ -108,6 +108,12 @@
 # (which take the tap) — every card in your hand was unclickable, two were off
 # the screen entirely, and the deck you draw from sat past the right edge.
 !test_mobile_layout.js
+# Weekly Challenges: daily challenges were retired (1.6.54), and the weekly
+# strip now starts CLOSED. Proves the daily system left no stumps behind — no
+# pool, no state, no reporting hook, and none of the per-payload observer state
+# that only ever fed one — and measures the closed/open strip in headless
+# Chrome, because "hidden until you click it" is a thing only the browser knows.
+!test_weekly_challenges.js
 # Staying up under a full house: the bot planner's CPU admission control (32
 # concurrent games used to drive a request that touches nothing from 2.5 ms to
 # 5.3 seconds) and the room janitor that stops finished rooms living forever in
