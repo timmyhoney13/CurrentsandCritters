@@ -383,8 +383,27 @@ function snapshot(name) {
     RESPONSES["/api/clan/home"] = Object.assign({}, HOME_JSON,
       { my_clan: null, my_clan_full: null, invites: [] });
     await window.__ccClansRender();
-    await wait(200);
+    await wait(300);
     snapshot("noclan");
+    // Joining must be possible from THIS screen: the open clans are listed
+    // here with their own Join buttons, and pressing one joins.
+    const joinBtn = [...document.querySelectorAll(".ccC-member .ccC-btn")]
+      .find(b => b.textContent.trim() === "Join");
+    out.noClanJoin = {
+      rows: q(".ccC-member"),
+      hasJoinBtn: !!joinBtn,
+      seeAll: [...document.querySelectorAll(".ccC-btn")].some(b => /See all clans/i.test(b.textContent)),
+    };
+    if (joinBtn) {
+      const before = window.__ccPosts.length;
+      joinBtn.click();
+      await wait(300);
+      out.noClanJoin.posted = window.__ccPosts.slice(before).map(c => c.p);
+    }
+    RESPONSES["/api/clan/home"] = Object.assign({}, HOME_JSON,
+      { my_clan: null, my_clan_full: null, invites: [] });
+    await window.__ccClansRender();
+    await wait(300);
     const mk = [...document.querySelectorAll(".ccC-btn")].find(b => /Create a Clan/i.test(b.textContent));
     out.foundCreateBtn = !!mk;
     if (mk) mk.click();
@@ -520,6 +539,13 @@ const nc = D.screens.noclan || { text: "" };
 check("no clan: shows the join/create call to action",
       (nc.text || "").includes("not in a clan"));
 check("no clan: offers the create button", D.foundCreateBtn === true);
+const ncj = D.noClanJoin || {};
+check("no clan: the clans you can join are listed right there",
+      ncj.rows >= 1, "rows=" + ncj.rows);
+check("no clan: each one has its own Join button", ncj.hasJoinBtn === true);
+check("no clan: and a way through to the full list", ncj.seeAll === true);
+check("no clan: pressing Join actually joins",
+      (ncj.posted || []).includes("/api/clan/join"), (ncj.posted || []).join(","));
 
 const cr = D.create || {};
 check("create: every critter offered as an icon", cr.icons >= 3, "icons=" + cr.icons);
