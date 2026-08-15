@@ -2952,6 +2952,11 @@
     .igcp-row.igcp-done .igcp-row-fill { background: linear-gradient(90deg, #3aaa70 0%, #5ec989 100%); }
     .igcp-row-prog { font-size: 9px; color: #6a9ab8; font-weight: 700; white-space: nowrap; }
     .igcp-row.igcp-done .igcp-row-prog { color: #5ec989; }
+    /* Never a silently blank panel: if the weekly rows can't be read, say so. */
+    .igcp-empty {
+      font-size: 10.5px; line-height: 1.4; color: #8fb6cf;
+      padding: 8px 6px; text-align: center;
+    }
     #igcp-footer {
       padding: 4px 8px 7px;
       font-size: 9px;
@@ -5230,17 +5235,36 @@
       #draw-notif .dn-label { font-size: 10.5px; }
     }
 
-    /* ── The challenge panel must not swallow the top of the screen ───────
-       #ig-challenge-panel is fixed above the bottom UI and sizes to its three
-       challenge cards (~370px). On a tall phone it clears everything, but on a
-       short screen — a 320px phone lays out 480x852, and ANY phone held
-       sideways is shorter still — its top rode up over the guide bar and the
-       turn banner, the two lines that tell you what to do next. Capping it
-       against the room actually left above the bottom UI costs nothing where
-       there is room (a desktop window has hundreds of pixels spare) and keeps
-       the instructions visible where there isn't. */
-    #ig-challenge-panel { max-height: calc(100vh - var(--pv-bottom-ui, 302px) - 120px); }
-    #igcp-cards { max-height: calc(100vh - var(--pv-bottom-ui, 302px) - 190px); overflow-y: auto; }
+    /* ── The challenge panel gets every pixel above the bottom UI ─────────
+       #ig-challenge-panel is fixed above the bottom UI and wants ~235px for
+       its three challenge cards. It used to also reserve 120px at the top for
+       the guide bar and the turn banner — which reads fine until you measure a
+       phone held SIDEWAYS: 1266x498 with a 274px bottom stack leaves 224px of
+       room, so the reserve left the cards box 34px tall. Tapping the header
+       "opened" the panel onto a sliver of one row, which is indistinguishable
+       from nothing happening — the reported "click Weekly Challenges and none
+       of them pop up".
+
+       So the reserve is gone: the panel may use the whole gap between the top
+       of the screen and the top of the action bar, and the cards scroll inside
+       whatever is left. It stays anchored at --pv-bottom-ui, so it can still
+       never cover the action bar, and on any screen with room (every desktop,
+       every phone held upright) it is only as tall as its content and comes
+       nowhere near the banner. Covering the banner for the few seconds a
+       sideways phone has the panel open is the right trade: the panel is
+       opt-in, and the header or the footer puts it away again.
+
+       dvh, not vh: on iOS `100vh` is the height with the toolbars RETRACTED,
+       which over-reports the room by the height of the toolbars that are
+       actually on screen. The vh line above it is the fallback for browsers
+       without dvh. */
+    #ig-challenge-panel {
+      --igcp-room: max(120px, calc(100vh  - var(--pv-bottom-ui, 302px) - 8px));
+      --igcp-room: max(120px, calc(100dvh - var(--pv-bottom-ui, 302px) - 8px));
+      max-height: var(--igcp-room);
+    }
+    /* 60px = the panel chrome outside the scroll box (header + footer + border). */
+    #igcp-cards { max-height: max(56px, calc(var(--igcp-room) - 60px)); overflow-y: auto; }
 
     @media (max-width: 1180px) and (min-height: 620px) {
       #pv-hand-zone {

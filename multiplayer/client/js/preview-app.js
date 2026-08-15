@@ -25256,9 +25256,18 @@
         pillEl.textContent  = "Weekly";
         pillEl.classList.add("weekly");
         if (!_igcpMin) {
+          // Opening this panel must never produce an empty box. The rows are
+          // built from local weekly state, so the only ways to get nothing are
+          // a thrown read (private-mode localStorage) or an empty roll — both
+          // of which used to blank the panel silently, which looks exactly like
+          // a broken button. Say what happened instead.
+          let html = "";
           try {
-            cardsEl.innerHTML = _getWeeklyDisplaySlots().map(c => _igcpCardHtml(c)).join("");
-          } catch { cardsEl.innerHTML = ""; }
+            html = _getWeeklyDisplaySlots().map(c => _igcpCardHtml(c)).join("");
+          } catch (e) { html = ""; }
+          cardsEl.innerHTML = html || `<div class="igcp-empty">This week's challenges aren't loaded yet. Open Player Home to roll them.</div>`;
+        } else {
+          cardsEl.innerHTML = "";
         }
       }
 
@@ -25268,24 +25277,32 @@
         const header  = document.getElementById("igcp-header");
         const minBtn  = document.getElementById("igcp-minimize-btn");
         const cardsEl = document.getElementById("igcp-cards");
+        const footEl  = document.getElementById("igcp-footer");
         if (!panel || !header || !minBtn || !cardsEl) return;
         _igcpWired = true;
 
-        minBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
+        const toggle = () => {
           _igcpMin = !_igcpMin;
           try { localStorage.setItem(_IGCP_MINIMIZED_KEY, _igcpMin ? "1" : "0"); } catch {}
           renderIgChallengePanel();
-        });
+        };
+
+        minBtn.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
 
         // The header opens and closes the panel — the same gesture both ways,
         // so there is nothing to learn beyond "tap it".
         header.addEventListener("click", (e) => {
           if (e.target === minBtn || minBtn.contains(e.target)) return;
-          _igcpMin = !_igcpMin;
-          try { localStorage.setItem(_IGCP_MINIMIZED_KEY, _igcpMin ? "1" : "0"); } catch {}
-          renderIgChallengePanel();
+          toggle();
         });
+
+        // The footer says "Tap the header to hide these" and has been styled as
+        // a button (pointer cursor, hover colour) since it shipped, but nothing
+        // ever listened to it. It is also the one control guaranteed to be on
+        // screen: the panel is anchored by its BOTTOM, so on a screen too short
+        // to hold the whole panel it is the header that goes off the top, and a
+        // player who cannot reach the header cannot put the panel away. Wire it.
+        if (footEl) footEl.addEventListener("click", (e) => { e.stopPropagation(); toggle(); });
       }
 
       window._igcpSetVisible = function(visible) {

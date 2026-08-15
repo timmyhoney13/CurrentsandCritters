@@ -99,6 +99,18 @@ check("minimised unless the player said otherwise",
       /localStorage\.getItem\(_IGCP_MINIMIZED_KEY\) !== "0"/.test(APP));
 check("it shows Weekly, with no view to switch", !APP.includes("_IGCP_VIEW_KEY"));
 check("its header markup says Weekly", /id="igcp-title">Weekly Challenges</.test(HTML));
+// The footer has looked like a button since it shipped (pointer cursor, hover
+// colour) and is the only control guaranteed to be on screen when the panel is
+// taller than the room above the bottom UI — the header is what goes off the
+// top. It must actually do something.
+check("the footer closes the panel too", /footEl\.addEventListener\("click"/.test(APP));
+check("opening it can never leave an empty box", /igcp-empty/.test(APP) && /igcp-empty/.test(CSS));
+// vh over-reports the room on iOS (it is the height with the toolbars hidden),
+// which is exactly the screen where the room is tightest.
+check("the panel measures the room in dvh, not vh",
+      /--igcp-room:\s*max\(120px,\s*calc\(100dvh\s*-\s*var\(--pv-bottom-ui/.test(CSS));
+check("the 120px top reserve that squeezed the cards to a sliver is gone",
+      !/#igcp-cards\s*\{\s*max-height:\s*calc\(100vh - var\(--pv-bottom-ui, 302px\) - 190px\)/.test(CSS));
 
 console.log("\nthe tutorial teaches the new gesture");
 check("the tour opens the strip by its header", TUT.includes('target: "#ph-cs-header-btn"'));
@@ -177,6 +189,93 @@ if (!CHROME) {
   check("open: the header steps aside for the cards", r.open && r.open.hdrW < r.closed.hdrW);
   check("neither state scrolls the page sideways",
         r.closed && r.open && r.closed.noSideScroll && r.open.noSideScroll);
+
+  // ── The in-game panel, on the screen where it broke ───────────────────────
+  // A phone held SIDEWAYS is the tight case: the game lays out at ~1266x498
+  // and the measured bottom stack (action bar + hand zone) is 274px, so there
+  // are 224px of room above it. The old rule reserved 120px of that for the
+  // banner and gave #igcp-cards `100vh - bottom - 190px` = 34px — a sliver of
+  // one row, which is what "click Weekly Challenges and none of them pop up"
+  // actually looked like. Same markup, same CSS, real pixels.
+  console.log("\nthe in-game panel, opened on a phone held sideways");
+
+  const ps = HTML.indexOf('<div id="ig-challenge-panel">');
+  const pe = HTML.indexOf("</div>", HTML.indexOf('id="igcp-footer"')) + 6;
+  const IGCP = HTML.slice(ps, pe) + "\n</div>";
+
+  const IROW = `<div class="igcp-row"><div class="igcp-row-top">
+    <div class="igcp-row-icon">🏁</div><div class="igcp-row-info">
+    <div class="igcp-row-name">Weekly Finisher</div>
+    <div class="igcp-row-desc">Finish 10 games this week.</div></div>
+    <div class="igcp-row-xp">+1,000 XP</div></div>
+    <div class="igcp-row-bar-wrap"><div class="igcp-row-bar"><div class="igcp-row-fill" style="width:40%"></div></div>
+    <span class="igcp-row-prog">4/10</span></div></div>`;
+
+  // 274px is what test_mobile_layout.js measures for the real bottom stack at
+  // this size; the panel is anchored on it, so the test has to use it too.
+  const igPage = (bottomUi) => `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style>
+<style>html,body{margin:0;height:100%}:root{--pv-bottom-ui:${bottomUi}px}</style></head>
+<body>${IGCP}<div id="out">RUNNING</div>
+<script>
+(function(){
+  var panel = document.getElementById("ig-challenge-panel");
+  var cards = document.getElementById("igcp-cards");
+  var foot  = document.getElementById("igcp-footer");
+  panel.style.display = "block";
+  panel.classList.add("igcp-minimized");
+  var VH = document.documentElement.clientHeight;
+  function rec() {
+    var p = panel.getBoundingClientRect();
+    var rows = [].slice.call(cards.querySelectorAll(".igcp-row"));
+    var clip = cards.getBoundingClientRect();
+    return {
+      panelTop: Math.round(p.top), panelBottom: Math.round(p.bottom),
+      cardsH: Math.round(clip.height),
+      // A row counts only if it is inside the panel's own clip box AND on screen.
+      rowsSeen: rows.filter(function(r){
+        var b = r.getBoundingClientRect();
+        return b.height > 20 && b.top >= clip.top - 1 && b.bottom <= clip.bottom + 1
+            && b.top >= 0 && b.bottom <= VH;
+      }).length,
+      footOnScreen: foot.getBoundingClientRect().bottom <= VH && foot.getBoundingClientRect().top >= 0,
+    };
+  }
+  var out = { VH: VH, closed: rec() };
+  // Exactly what renderIgChallengePanel does when the header is tapped.
+  cards.innerHTML = ${JSON.stringify(IROW)}.repeat(3);
+  panel.classList.remove("igcp-minimized");
+  out.open = rec();
+  document.getElementById("out").textContent = JSON.stringify(out);
+})();
+</script></body></html>`;
+
+  // Headless Chrome hands the page 87px less than --window-size, so ask for
+  // the size that MEASURES as the one under test (same trick, same numbers, as
+  // test_mobile_layout.js).
+  const CHROME_CHROME_PX = 87;
+  for (const [label, w, h, bottomUi, wantRows] of [
+    ["sideways phone (1266x498, 274px bottom stack)", 1266,  498, 274, 2],
+    ["upright phone  (585x1179, 456px bottom stack)",  585, 1179, 456, 3],
+    ["laptop         (1440x900, 302px bottom stack)", 1440,  900, 302, 3],
+  ]) {
+    const f2 = path.join(os.tmpdir(), `cc_igcp_${w}x${h}.html`);
+    fs.writeFileSync(f2, igPage(bottomUi));
+    const dom2 = execFileSync(CHROME, ["--headless", "--disable-gpu", "--no-sandbox",
+      "--hide-scrollbars", `--window-size=${w},${h + CHROME_CHROME_PX}`, "--virtual-time-budget=6000",
+      "--dump-dom", "file://" + f2], { encoding: "utf8", maxBuffer: 64e6 });
+    const m2 = /<div id="out">([\s\S]*?)<\/div>/.exec(dom2);
+    const g = JSON.parse((m2 ? m2[1] : "{}").replace(/&quot;/g, '"'));
+
+    check(`${label}: the harness really got ${h}px of viewport (got ${g.VH})`, g.VH === h);
+    check(`${label}: closed shows no challenge`, g.closed && g.closed.rowsSeen === 0);
+    check(`${label}: opened shows at least ${wantRows} challenge(s) (got ${g.open && g.open.rowsSeen})`,
+          g.open && g.open.rowsSeen >= wantRows);
+    check(`${label}: the cards box is a readable height (got ${g.open && g.open.cardsH}px)`,
+          g.open && g.open.cardsH >= 56);
+    // The close control has to stay reachable: the header can ride off the top
+    // of a short screen, the bottom-anchored footer never can.
+    check(`${label}: the panel can still be closed`, g.open && g.open.footOnScreen);
+  }
 }
 
 console.log("\n" + "=".repeat(42));
