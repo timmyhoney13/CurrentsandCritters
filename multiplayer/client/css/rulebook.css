@@ -234,6 +234,43 @@
     }
     .rb-fig-note { margin-top: 12px; font-size: .86rem; font-weight: 700; color: var(--rb-muted); }
     .rb-fig-note-gold { color: var(--rb-accent); }
+    /* ── "A Clownfish on each Ocean" table ───────────────────────────────
+       Three columns on a page, one stacked block per Ocean on a phone. Built
+       from the same tokens as everything else here, so it reads correctly on
+       the frosted Player Home skin and over the table in the dark skin. */
+    .rb-cft { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+    .rb-cft li {
+      display: grid;
+      grid-template-columns: minmax(96px, 0.9fr) minmax(0, 2fr) minmax(84px, 0.8fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: var(--rb-surface2);
+      font-size: .84rem;
+      color: var(--rb-body);
+    }
+    .rb-cft li.rb-cft-head {
+      background: none;
+      padding-bottom: 2px;
+      font-size: .72rem; font-weight: 900; letter-spacing: .6px; text-transform: uppercase;
+      color: var(--rb-muted);
+    }
+    .rb-cft-ocean { font-weight: 900; color: var(--rb-ink); }
+    .rb-cft-now   { font-weight: 800; color: var(--rb-accent); }
+    .rb-cft li.rb-cft-head .rb-cft-ocean,
+    .rb-cft li.rb-cft-head .rb-cft-now { color: inherit; font-weight: 900; }
+    @media (max-width: 560px) {
+      .rb-cft li { grid-template-columns: 1fr; gap: 2px; }
+      .rb-cft li.rb-cft-head { display: none; }
+      /* Stacked, the third column needs to say what it is — except where there
+         is nothing to say, which is most Oceans. */
+      .rb-cft-now::before {
+        content: "When you play it: ";
+        font-weight: 700; color: var(--rb-muted);
+      }
+      .rb-cft-now.rb-cft-none { display: none; }
+    }
     .rb-figcard { margin: 0; display: flex; flex-direction: column; gap: 7px; width: max-content; max-width: 230px; }
     .rb-figcard .rb-face-h { width: min(215px, 62vw); }
     .rb-figcard .rb-face-v { width: min(90px, 26vw); }

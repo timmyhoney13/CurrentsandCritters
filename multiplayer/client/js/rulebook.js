@@ -237,6 +237,40 @@
       + '</div>';
   }
 
+  // What a Clownfish does on each of the eight Oceans. The rule is one line
+  // ("it is a second copy of that Ocean"), but people play with the card in
+  // their hand and one Ocean in front of them, so the table answers the
+  // question they actually have.
+  var CLOWNFISH_TABLE = [
+    ["Coral Reef",      "Counts as one more Coral Reef on the chart",              ""],
+    ["Kelp Forest",     "Counts toward &ldquo;4 or more&rdquo;, and scores its +5",       "Draw one"],
+    ["Deep Ocean",      "+1",                                                      "Draw one"],
+    ["Arctic Ocean",    "+4",                                                      "\u2605 play again"],
+    ["Mangrove",        "+10 if you have all 8 Oceans",                            "\u2605 play again"],
+    ["Pier",            "Scores as a Pier, and counts for &ldquo;the most piers&rdquo;",   ""],
+    ["Tide Pool",       "+1 per every two Oceans, and counts as one of them",      ""],
+    ["Artificial Reef", "+2 per card attached to that Ocean",                      ""],
+  ];
+  function clownfishTableFigure() {
+    var rows = CLOWNFISH_TABLE.map(function (r) {
+      return '<li><span class="rb-cft-ocean">' + r[0] + '</span>'
+        + '<span class="rb-cft-what">' + r[1] + '</span>'
+        + '<span class="rb-cft-now' + (r[2] ? '' : ' rb-cft-none') + '">'
+        + (r[2] || '&mdash;') + '</span></li>';
+    }).join("");
+    return ''
+      + '<div class="rb-fig">'
+      +   '<div class="rb-fig-head">A Clownfish on each Ocean</div>'
+      +   '<ul class="rb-cft">'
+      +     '<li class="rb-cft-head"><span class="rb-cft-ocean">Ocean</span>'
+      +       '<span class="rb-cft-what">What the Clownfish is worth</span>'
+      +       '<span class="rb-cft-now">When you play it</span></li>'
+      +     rows
+      +   '</ul>'
+      +   '<div class="rb-fig-note">Every line is the same rule: the Clownfish is a second copy of that Ocean.</div>'
+      + '</div>';
+  }
+
   function gobyFigure() {
     var gobies = [28, 48, 80, 90].map(function (u) { return '<span class="rb-goby">' + hFace(u) + '</span>'; }).join("");
     return ''
@@ -561,17 +595,24 @@
 
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Clownfish <span class="rb-h3-tail">(Copies its Ocean)</span></h3>'
-    +     '<p class="rb-p">A Clownfish has no ability of its own. It <b>copies the ability of the Ocean it is attached to</b>, and it keeps copying it for as long as it stays there.</p>'
+    +     '<p class="rb-p">A Clownfish has no ability of its own. It <b>copies everything the Ocean it is attached to does</b>, and it keeps copying it for as long as it stays there. Treat a Clownfish as a second copy of that Ocean.</p>'
+    +     '<p class="rb-p">All of it, not just the points:</p>'
     +     '<ul class="rb-list">'
-    +       '<li><b>It counts as one more of that Ocean.</b> A Clownfish on a Coral Reef makes your Coral Reefs count as one higher on the Coral Reef chart, so one reef with a Clownfish on it scores as two (4 points, not 1).</li>'
-    +       '<li><b>It does not multiply anything.</b> The Coral Reef chart is read once for your whole collection and gives one score. Adding a Clownfish moves you up the chart, it does not score the chart a second time.</li>'
-    +       '<li><b>On a Mangrove or an Arctic Ocean it has a ★.</b> Those are the only two Oceans with a star, and both say <b>play again</b>. Discard a card matching the Clownfish&rsquo;s own symbol to pay for it and you get another play, exactly as you would for playing that Ocean with its star.</li>'
-    +       '<li>On every other Ocean there is no star to copy, so paying with a matching symbol does nothing extra.</li>'
+    +       '<li><b>It scores what that Ocean scores.</b> On an Arctic Ocean it is worth +4. On a Pier it earns the Pier score. On an Artificial Reef it earns +2 per card attached. Whatever the Ocean would pay, the Clownfish pays it again.</li>'
+    +       '<li><b>It counts as one more of that Ocean.</b> Everywhere Oceans are counted: the Coral Reef chart, the Kelp Forest &ldquo;4 or more&rdquo;, who has the most Piers, and how many Oceans you control.</li>'
+    +       '<li><b>It does its Ocean\u2019s ability when you play it.</b> Play one onto a Deep Ocean or a Kelp Forest and you draw a card, because that is what those Oceans do.</li>'
+    +       '<li><b>It has its Ocean\u2019s ★.</b> A Mangrove and an Arctic Ocean are the only two Oceans with a star, and both say <b>play again</b>. Discard a card matching the Clownfish\u2019s own symbol to pay for it and you get another play. On the other six Oceans there is no star to copy.</li>'
+    +     '</ul>'
+    +     '<p class="rb-p">Two things it does <b>not</b> do:</p>'
+    +     '<ul class="rb-list">'
+    +       '<li><b>It never scores a chart twice.</b> The Coral Reef chart is read once for your whole collection. A Clownfish moves you further up it, it does not earn it a second time.</li>'
+    +       '<li><b>It is not a new kind of Ocean.</b> It is one more of the Ocean it is sitting on, so it can never be the missing eighth Ocean for the Mangrove\u2019s &ldquo;all 8 oceans.&rdquo; It is still an animal, and it takes an attachment spot like any other.</li>'
     +     '</ul>'
     +     '<div class="rb-quote">You control 3 Coral Reefs and play a Clownfish onto one of them.<br>'
     +       'Your reefs now count as 4 &rarr; the chart pays <b>16</b> instead of 9. One score, for the whole set.</div>'
     +   '</div>'
     +   clownfishFigure()
+    +   clownfishTableFigure()
 
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Leaving the Table</h3>'
