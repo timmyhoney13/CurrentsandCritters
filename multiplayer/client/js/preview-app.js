@@ -3531,6 +3531,12 @@
 
   // Human-readable ★ text of the face this action plays ("Draw one", …).
   function _actionStarText(action) {
+    // The server names the ★ this exact play will fire. That is not always the
+    // played face's own star: a Clownfish copies the ocean it is attached to,
+    // so on a Mangrove or an Arctic Ocean its ★ is "play again" while its own
+    // card text carries none at all. Fall back to the face for older payloads.
+    const fromServer = String(action?.star_ability || "").trim();
+    if (fromServer) return fromServer;
     const face = _actionFace(action);
     return starText(face?.text || "") || "";
   }

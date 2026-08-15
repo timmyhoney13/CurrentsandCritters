@@ -385,11 +385,21 @@ def test_legal_action_payload_never_promises_an_unfirable_star():
                 check(face is not None and a["required_symbol"] == fish.normalize_symbol(face.symbol),
                       f"[{a['face_name']}] required_symbol {a['required_symbol']!r} is not the "
                       f"played face's symbol")
-            # has_star_ability is intrinsic to the card face, never affordability.
+            # has_star_ability answers for the PLAY, never for affordability.
+            # It is the played face's own ★ for every card but one: a Clownfish
+            # "copies the Ocean's ability this card is attached to", ★ included,
+            # so it has one on a Mangrove or an Arctic Ocean (both "play again")
+            # and none on any other host. That is why the check takes ocean_uid.
             face = CARD_DB.get(a["face_uid"])
             if face is not None and a["kind"] in {"play_ocean", "play_to_ocean"}:
-                check(bool(a["has_star_ability"]) == bool(fish.has_star_ability(face)),
+                want = bool(fish.has_star_ability_for_play(gs, face, a["ocean_uid"]))
+                check(bool(a["has_star_ability"]) == want,
                       f"[{a['face_name']}] has_star_ability disagrees with the card data")
+                # …and when there is one, the client is told what it does, since
+                # a borrowed ★ is not in the played card's own text.
+                if want:
+                    check(bool(str(a.get("star_ability", "")).strip()),
+                          f"[{a['face_name']}] has a ★ but the payload does not say what it does")
             check(bool(a["star_available"]) == bool(a["star_symbol"] or (a["use_star"] and a["required_symbol"])),
                   f"[{a['face_name']}] star_available out of step with star_symbol/required_symbol")
     check(scanned > 0, "no legal actions were scanned")

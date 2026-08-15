@@ -5277,14 +5277,27 @@ class GameRoom:
             direction = fish.normalize_direction(card.direction) if card is not None else "n/a"
             cost_to_pay, requires_symbol, required_symbol = self._action_payment_requirements(gs, ms, player, action)
             payment_candidates = [int(uid) for uid in player.hand if uid != action.card_uid] if cost_to_pay > 0 else []
-            # Intrinsic: does this card FACE carry a ★ ability at all (used for the
-            # ★ badge on card art / pickers, independent of affordability)?
+            # Does this play carry a ★ at all (used for the ★ badge on card art /
+            # pickers, independent of affordability)? Per PLAY, not per face: a
+            # Clownfish copies the ocean it is attached to, ★ included, so the
+            # same card has one on a Mangrove or an Arctic Ocean and none
+            # anywhere else. has_star_ability_for_play answers with the ocean in
+            # hand; the plain per-face check is the fallback for an older engine.
             has_star = False
+            star_ability = ""
             if card is not None:
                 try:
-                    has_star = bool(hasattr(fish, "has_star_ability") and fish.has_star_ability(card))
+                    if hasattr(fish, "has_star_ability_for_play"):
+                        has_star = bool(fish.has_star_ability_for_play(gs, card, action.ocean_uid))
+                    else:
+                        has_star = bool(hasattr(fish, "has_star_ability") and fish.has_star_ability(card))
                 except Exception:
                     has_star = False
+                try:
+                    if has_star and hasattr(fish, "star_text_for_play"):
+                        star_ability = str(fish.star_text_for_play(gs, card, action.ocean_uid) or "")
+                except Exception:
+                    star_ability = ""
             # star_symbol: the symbol you must include in the payment to fire the ★.
             # Only sent when the star can genuinely be activated for this play, so
             # the client never promises a star that the engine will not fire.
@@ -5317,6 +5330,10 @@ class GameRoom:
                     "required_symbol": required_symbol,
                     "has_star_ability": bool(has_star),
                     "star_symbol": star_symbol,
+                    # What that ★ actually does. The client used to read this off
+                    # the played face's own text, which is empty for a Clownfish
+                    # borrowing its host ocean's star.
+                    "star_ability": star_ability,
                     # True when playing THIS action fires the ★ (the use_star
                     # variant), or when its ★ twin is available to switch to.
                     "star_available": bool((bool(action.use_star) and requires_symbol and required_symbol) or star_symbol),
@@ -5542,12 +5559,16 @@ class GameRoom:
         if not bool(action.use_star):
             return cost_to_pay, False, ""
 
+        # Per PLAY, not per face — a Clownfish's ★ is the one belonging to the
+        # ocean it is being attached to (Mangrove / Arctic Ocean: "play again").
         has_star = False
-        if hasattr(fish, "has_star_ability"):
-            try:
+        try:
+            if hasattr(fish, "has_star_ability_for_play"):
+                has_star = bool(fish.has_star_ability_for_play(gs, card, action.ocean_uid))
+            elif hasattr(fish, "has_star_ability"):
                 has_star = bool(fish.has_star_ability(card))
-            except Exception:
-                has_star = False
+        except Exception:
+            has_star = False
         if not has_star or cost_to_pay <= 0:
             return cost_to_pay, False, ""
 

@@ -13,7 +13,7 @@ This file is the RULES + ENGINE. It does NOT hardcode every card’s unique abil
 To add unique abilities, register functions in ABILITIES / STAR_ABILITIES by card name (see bottom).
 """
 from __future__ import annotations
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional, Callable, Tuple
 import random
 import re
@@ -2312,6 +2312,62 @@ def run_inferred_star_fallback(gs: GameState, player: PlayerState, card: CardDef
     if "play again" in t or "go again" in t:
         grant_replay_actions(player, 1)
         gs.log.append(f"{player.name} gets to play again from {card.name} inferred star ability.")
+
+
+CLOWNFISH_NAME = "clownfish"
+
+
+def clownfish_host_ocean(gs: GameState, card: CardDef, ocean_uid: Optional[int]) -> Optional[CardDef]:
+    """
+    The ocean a Clownfish is being attached to, when that ocean has a ★.
+
+    Clownfish reads "Copies the Ocean's ability this card is attached to", and
+    that copy is not only a scoring rule (see final_points, where a Clownfish on
+    a Coral Reef counts as one more Coral Reef in the table's count). Two oceans
+    carry a ★ — Mangrove and Arctic Ocean, both "play again" — and a Clownfish
+    attached to one of them copies that too: pay its cost with a matching symbol
+    and you take another turn, exactly as playing the ocean itself would.
+
+    Only the ABILITY is borrowed. The cost you pay and the symbol you have to
+    match are still the Clownfish's own.
+
+    Returns None for every other card and every starless host, so callers can
+    treat "no host" as "behave exactly as before".
+    """
+    if card is None or ocean_uid is None:
+        return None
+    if card.name.strip().lower() != CLOWNFISH_NAME:
+        return None
+    host = gs.card_db.get(ocean_uid)
+    if host is None or not is_ocean(host) or not has_star_ability(host):
+        return None
+    return host
+
+
+def star_source_card(gs: GameState, card: CardDef, ocean_uid: Optional[int] = None) -> CardDef:
+    """The card whose ★ this play fires — the Clownfish's host ocean, or the card."""
+    host = clownfish_host_ocean(gs, card, ocean_uid)
+    return host if host is not None else card
+
+
+def has_star_ability_for_play(gs: GameState, card: CardDef, ocean_uid: Optional[int] = None) -> bool:
+    """has_star_ability, aware of the ocean a Clownfish is being attached to."""
+    if card is None:
+        return False
+    return has_star_ability(star_source_card(gs, card, ocean_uid))
+
+
+def star_text_for_play(gs: GameState, card: CardDef, ocean_uid: Optional[int] = None) -> str:
+    """The ★ text a play will fire, for prompts. '' when the play has no ★."""
+    src = star_source_card(gs, card, ocean_uid)
+    if src is None:
+        return ""
+    _, star = split_main_and_star(src.text)
+    star = star.strip()
+    if star:
+        return star
+    t = src.text.lower()
+    return "play again" if ("play again" in t or "go again" in t) else ""
 
 
 def build_non_ocean_pair_maps(card_db: Dict[int, CardDef]) -> Tuple[Dict[int, Tuple[int, int]], Dict[int, int]]:
@@ -7413,16 +7469,28 @@ def has_star_option_for_action(gs: GameState, ms: MatchState, player: PlayerStat
     card = gs.card_db.get(face_uid)
     if card is None:
         return False
-    if not can_potentially_use_star(gs, ms, player, action.card_uid, face_uid):
+    if not can_potentially_use_star(gs, ms, player, action.card_uid, face_uid, action.ocean_uid):
         return False
-    if not can_afford_play(gs, ms, player, action.card_uid, face_uid, use_star=True):
+    if not can_afford_play(gs, ms, player, action.card_uid, face_uid, use_star=True, ocean_uid=action.ocean_uid):
         return False
-    return star_has_immediate_value(gs, ms, player, card, played_entry_uid=action.card_uid)
+    return star_has_immediate_value(
+        gs, ms, player, star_source_card(gs, card, action.ocean_uid), played_entry_uid=action.card_uid
+    )
 
 
-def can_potentially_use_star(gs: GameState, ms: MatchState, player: PlayerState, played_entry_uid: int, play_face_uid: int) -> bool:
+def can_potentially_use_star(
+    gs: GameState,
+    ms: MatchState,
+    player: PlayerState,
+    played_entry_uid: int,
+    play_face_uid: int,
+    ocean_uid: Optional[int] = None,
+) -> bool:
     card = gs.card_db[play_face_uid]
-    if not has_star_ability(card):
+    # The ★ may be borrowed from the ocean being attached to (Clownfish); the
+    # cost and the symbol to match are always the played card's own.
+    star_card = star_source_card(gs, card, ocean_uid)
+    if not has_star_ability(star_card):
         return False
     if card.cost <= 0:
         return False
@@ -7435,7 +7503,7 @@ def can_potentially_use_star(gs: GameState, ms: MatchState, player: PlayerState,
         if uid == played_entry_uid:
             continue
         if symbol_match_for_entry(ms, gs, uid, card_sym):
-            return star_has_immediate_value(gs, ms, player, card, played_entry_uid=played_entry_uid)
+            return star_has_immediate_value(gs, ms, player, star_card, played_entry_uid=played_entry_uid)
     return False
 
 
@@ -7446,6 +7514,7 @@ def can_afford_play(
     played_entry_uid: int,
     play_face_uid: int,
     use_star: bool,
+    ocean_uid: Optional[int] = None,
 ) -> bool:
     card = gs.card_db[play_face_uid]
     free_play = is_free_play_eligible(player, card)
@@ -7458,7 +7527,7 @@ def can_afford_play(
     if not use_star:
         return True
 
-    if not has_star_ability(card):
+    if not has_star_ability_for_play(gs, card, ocean_uid):
         return False
     if cost_to_pay <= 0:
         return False
@@ -8041,8 +8110,12 @@ def legal_actions(gs: GameState, ms: MatchState, player: PlayerState, include_dr
                             use_star=False,
                         )
                     )
-                if can_potentially_use_star(gs, ms, player, entry_uid, face_uid) and can_afford_play(
-                    gs, ms, player, entry_uid, face_uid, use_star=True
+                # ocean_uid matters here: a Clownfish's ★ is the one belonging to
+                # the ocean it is being attached to (see clownfish_host_ocean),
+                # so the same card offers a ★ twin on a Mangrove or an Arctic
+                # Ocean and none on any other host.
+                if can_potentially_use_star(gs, ms, player, entry_uid, face_uid, ocean_uid) and can_afford_play(
+                    gs, ms, player, entry_uid, face_uid, use_star=True, ocean_uid=ocean_uid
                 ):
                     actions.append(
                         Action(
@@ -8552,7 +8625,9 @@ def apply_action(
     require_symbol = False
     auto_star = False
     if action.use_star:
-        if not has_star_ability(card):
+        # A Clownfish borrows the ★ of the ocean it is being attached to; every
+        # other card answers for itself (see clownfish_host_ocean).
+        if not has_star_ability_for_play(gs, card, action.ocean_uid):
             return fail(f"card {card.uid}:{card.name} has no STAR ability")
         if cost_to_pay <= 0:
             return fail(f"card {card.uid}:{card.name} has no payable cost for STAR activation")
@@ -8676,9 +8751,22 @@ def apply_action(
 
     if action.use_star or auto_star:
         pre_free_flags = {k: bool(player.flags.get(k, False)) for k in FREE_PLAY_FLAGS}
+        star_ctx = {"played_with_star": True, "ms": ms, "turn_state": turn_state, "is_human_turn": is_human_turn}
+        host_ocean = clownfish_host_ocean(gs, card, action.ocean_uid)
+        if host_ocean is not None:
+            # Clownfish copies the ocean it is attached to, ★ included. Fire the
+            # HOST's star, under a name that says where it came from so the game
+            # log reads "Clownfish (copying Mangrove)" rather than a Mangrove
+            # nobody just played.
+            copied = replace(host_ocean, name=f"{card.name} (copying {host_ocean.name})")
+            _, host_star = split_main_and_star(host_ocean.text)
+            if host_star.strip():
+                _execute_star_pattern(gs, player, host_star, copied, star_ctx)
+            else:
+                run_inferred_star_fallback(gs, player, copied)
         # For two-sided cards, STAR must execute from the face actually played.
-        if has_star_text(card):
-            run_star_ability(gs, play_face_uid, player, ctx={"played_with_star": True, "ms": ms, "turn_state": turn_state, "is_human_turn": is_human_turn})
+        elif has_star_text(card):
+            run_star_ability(gs, play_face_uid, player, ctx=star_ctx)
         else:
             run_inferred_star_fallback(gs, player, card)
         turn_state.star_activations += 1

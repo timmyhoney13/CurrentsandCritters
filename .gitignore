@@ -96,6 +96,11 @@
 !test_star_abilities.py
 # Stars: the gold border rule itself, incl. computed colours in headless Chrome.
 !test_star_gold_border.js
+# Clownfish: the one card whose ability is whatever Ocean it sits on. Pins both
+# halves — it counts as one more of that Ocean without scoring its chart twice,
+# and on a Mangrove or an Arctic Ocean it carries that Ocean's ★ (play again),
+# which is the half the engine did not do.
+!test_clownfish_copy.py
 # Discarding down to the hand limit: the trim removes exactly the cards you
 # picked and draws NOTHING back (a board ★ used to refill the hand as fast as
 # you emptied it), and clicking a fanned hand card always selects the card the
