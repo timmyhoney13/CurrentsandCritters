@@ -206,6 +206,37 @@
   }
 
   // All four Mandarin Gobies, the "Shooting the Moon" set.
+  // Clownfish: the one card whose ability is a different ability on every
+  // Ocean. Two pictures, because the two halves of the rule are the two
+  // questions people ask — what it does to a count, and when it hands you a ★.
+  function clownfishFigure() {
+    return ''
+      + '<div class="rb-fig">'
+      +   '<div class="rb-fig-head">The same Clownfish on two different Oceans</div>'
+      +   '<div class="rb-steps rb-steps-cards">'
+
+      +     crustaceanStep(1,
+            '<div class="rb-mini-ocean">' + oFace(217) + '</div>'
+            + '<div class="rb-mini-slot">' + vFace(113) + '</div>'
+            + '<div class="rb-mini-lbl">Coral Reef</div>',
+            "On a Coral Reef it is one more Coral Reef.",
+            'One real Coral Reef with a Clownfish on it counts as <b>2</b> on the Coral Reef chart, so it scores 4 instead of 1. '
+            + 'The chart is still read <b>once</b> for your whole collection, it is not scored again per reef.')
+
+      +     crustaceanStep(2,
+            '<div class="rb-mini-ocean">' + oFace(230) + '</div>'
+            + '<div class="rb-mini-slot">' + vFace(113) + '</div>'
+            + '<div class="rb-mini-lbl">Mangrove</div>',
+            "On a Mangrove or an Arctic Ocean it has a ★.",
+            'Those two Oceans are the only ones with a star, and it is <b>play again</b>. '
+            + 'Pay the Clownfish&rsquo;s cost with a card matching the <b>Clownfish&rsquo;s own</b> symbol and you take another play.')
+
+      +   '</div>'
+      +   '<div class="rb-fig-note">A Clownfish is worth whatever the Ocean under it is worth. On a Kelp Forest it counts toward the &ldquo;4 or more&rdquo; and scores its +5 like any other Kelp Forest; on a Pier it is one more Pier; on a Tide Pool, one more Ocean.</div>'
+      +   '<div class="rb-fig-note rb-fig-note-gold">It is the <b>Ocean&rsquo;s</b> ability it copies, never another animal&rsquo;s, and it copies whichever Ocean it is sitting on right now. Move it and it copies the new one.</div>'
+      + '</div>';
+  }
+
   function gobyFigure() {
     var gobies = [28, 48, 80, 90].map(function (u) { return '<span class="rb-goby">' + hFace(u) + '</span>'; }).join("");
     return ''
@@ -449,6 +480,8 @@
     +   '<p class="rb-p">Some cards have an optional ★ ability.</p>'
     +   '<p class="rb-p">When you play a card with a ★ ability, you may activate it by discarding at least one card from your hand with the same symbol as the card you played. Discard that card to the Pool (if it costs more than one, you have to pay the cost, but not all the cards have to match).</p>'
     +   '<p class="rb-p">If you do not discard a matching symbol, you may still play the card, but you do not activate its ★ ability.</p>'
+    +   '<p class="rb-p">One card&rsquo;s ★ depends on where you put it: a <b>Clownfish</b> copies the Ocean it is attached to, so it has a ★ on a Mangrove or an Arctic Ocean and none anywhere else. '
+    +     '<button type="button" class="rb-inline-jump" data-rb-jump="rb-special">See the Clownfish rule.</button></p>'
     +   '<p class="rb-p">If an ability allows you to play a free Animal, the free Animal must come from your hand. It can not come from the Pool, the deck, or the discard pile.</p>'
     +   '<div class="rb-quote">A card says “★ Play a free crustacean ★.”<br>'
     +     'To use this ability, you must first activate the ★ ability by discarding a matching symbol. Then immediately, you may play one crustacean from your hand to an available spot on the board.</div>'
@@ -525,6 +558,20 @@
     +       '<a class="rb-link" href="https://www.instagram.com/currentsandcritters_official/" target="_blank" rel="noopener noreferrer">@CurrentsandCritters_official</a></p>'
     +   '</div>'
     +   gobyFigure()
+
+    +   '<div class="rb-block">'
+    +     '<h3 class="rb-h3">Clownfish <span class="rb-h3-tail">(Copies its Ocean)</span></h3>'
+    +     '<p class="rb-p">A Clownfish has no ability of its own. It <b>copies the ability of the Ocean it is attached to</b>, and it keeps copying it for as long as it stays there.</p>'
+    +     '<ul class="rb-list">'
+    +       '<li><b>It counts as one more of that Ocean.</b> A Clownfish on a Coral Reef makes your Coral Reefs count as one higher on the Coral Reef chart, so one reef with a Clownfish on it scores as two (4 points, not 1).</li>'
+    +       '<li><b>It does not multiply anything.</b> The Coral Reef chart is read once for your whole collection and gives one score. Adding a Clownfish moves you up the chart, it does not score the chart a second time.</li>'
+    +       '<li><b>On a Mangrove or an Arctic Ocean it has a ★.</b> Those are the only two Oceans with a star, and both say <b>play again</b>. Discard a card matching the Clownfish&rsquo;s own symbol to pay for it and you get another play, exactly as you would for playing that Ocean with its star.</li>'
+    +       '<li>On every other Ocean there is no star to copy, so paying with a matching symbol does nothing extra.</li>'
+    +     '</ul>'
+    +     '<div class="rb-quote">You control 3 Coral Reefs and play a Clownfish onto one of them.<br>'
+    +       'Your reefs now count as 4 &rarr; the chart pays <b>16</b> instead of 9. One score, for the whole set.</div>'
+    +   '</div>'
+    +   clownfishFigure()
 
     +   '<div class="rb-block">'
     +     '<h3 class="rb-h3">Leaving the Table</h3>'
