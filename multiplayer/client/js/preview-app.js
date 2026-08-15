@@ -3764,6 +3764,7 @@
         const _optEndBtn  = document.getElementById("pv-end-turn-inline");
         if (_optBanner) _optBanner.className = "their-turn";
         if (_optEndBtn)  _optEndBtn.classList.remove("pulse-glow");
+        setPlayAgainCallout(false);   // the extra turn is over the moment it's handed on
         canInteract = false;
         _lastActionMs = Date.now();
       }
@@ -5474,13 +5475,19 @@
       banner.className = "my-turn";
       banner.textContent = "★ YOUR FINAL TURN, draw or play a card! ★";
       endBtn.classList.add("pulse-glow");
+      setPlayAgainCallout(Boolean(lw.is_replay_turn) && !_staleWindow);
     } else if (endTriggered) {
       banner.className = "endgame";
       const left = endGame.final_turns_remaining;
       banner.textContent = `⚠ END GAME, ${Number.isFinite(left) ? left+" final turn(s) left" : "Final round"}`;
       endBtn.classList.remove("pulse-glow");
+      setPlayAgainCallout(false);
     } else if (isMyTurn) {
       const isReplayTurn = Boolean(lw.is_replay_turn);
+      // The banner announces the extra turn at the TOP of the screen; the
+      // callout repeats it over the End Turn button at the bottom, which is
+      // where the player actually has to do something to hand the turn on.
+      setPlayAgainCallout(isReplayTurn && !_staleWindow);
       if (!_staleWindow) {
         banner.className = "my-turn";
         if (compMode) {
@@ -5509,10 +5516,12 @@
       banner.className = "their-turn";
       banner.textContent = `✦  Switching to ${compGetHandName(Number(payload.active_action_seat))}…  ✦`;
       endBtn.classList.remove("pulse-glow");
+      setPlayAgainCallout(false);
     } else {
       banner.className = "their-turn";
       banner.textContent = current ? `${current}'s turn…` : "Waiting…";
       endBtn.classList.remove("pulse-glow");
+      setPlayAgainCallout(false);
       _lastActionMs = 0; // confirmed not our turn, reset grace window
     }
     _prevTurnIdx = state.turn_index;
@@ -9707,6 +9716,76 @@
     bar.innerHTML = `<div class="guide-step">${steps.join("")}</div>`;
   }
 
+  // ── "Play again" callout over the End Turn button ──────────────
+  // A Hermit Crab / Sea Turtle / ★ "play again" hands the player a second turn.
+  // The turn banner says so at the top of the screen, but the action it is
+  // asking for lives at the bottom, and on a phone the two are nowhere near
+  // each other — so an extra turn read as "the game is stuck". This bobs just
+  // above the action bar, pointing down at End Turn, for as long as the extra
+  // turn lasts. It is hidden by every state
+  // that takes End Turn away (payment, forced discard, Tarpon), because a
+  // callout pointing at a button that is not there is worse than none.
+  let _playAgainCalloutOn = false;
+
+  // Put the bubble above the action bar, over whichever column End Turn ended
+  // up in, and keep the whole thing on screen. Two things force this to be
+  // measured rather than declared:
+  //   • End Turn is at the right-hand end of the bar, and the bubble is wider
+  //     than the button, so a plain "centre it on the button" hangs it off the
+  //     right edge of the window.
+  //   • The bar WRAPS onto two or three rows on a phone, so the button's column
+  //     is not knowable from CSS.
+  // The pointer is slid the opposite way by the same amount, so it still lands
+  // on the button after the bubble has been pulled back inside the screen.
+  function _positionPlayAgainCallout() {
+    const el = document.getElementById("pv-play-again-callout");
+    if (!el || !_playAgainCalloutOn) return;
+    const bar = document.getElementById("pv-action-bar");
+    const btn = document.getElementById("pv-end-turn-inline");
+    if (!bar || !btn) return;
+    const barR = bar.getBoundingClientRect();
+    const btnR = btn.getBoundingClientRect();
+    if (!barR.width || !btnR.width) return;      // not laid out yet
+    const w  = el.offsetWidth;
+    const vw = document.documentElement.clientWidth || window.innerWidth || 0;
+    const M  = 8;                                // breathing room at the edge
+    const btnMid = btnR.left + btnR.width / 2;
+    let x = btnMid - w / 2;                      // centred on End Turn…
+    x = Math.min(x, vw - M - w);                 // …pulled in from the right…
+    x = Math.max(x, M);                          // …but never past the left.
+    el.style.left = Math.round(x - barR.left) + "px";   // into the bar's coords
+    const arrow = el.querySelector(".pac-arrow");
+    if (arrow) {
+      // Clamped to the bubble so the pointer can never detach from it.
+      arrow.style.left = Math.round(Math.max(12, Math.min(w - 12, btnMid - x))) + "px";
+    }
+  }
+
+  function setPlayAgainCallout(on) {
+    const el = document.getElementById("pv-play-again-callout");
+    if (!el) return;
+    const want = Boolean(on);
+    if (want === _playAgainCalloutOn) return;   // don't restart the bob every poll
+    _playAgainCalloutOn = want;
+    el.classList.toggle("show", want);
+    if (want) {
+      _positionPlayAgainCallout();
+      // …and again once layout has settled, in case the action bar was still
+      // being rebuilt around it.
+      requestAnimationFrame(_positionPlayAgainCallout);
+    }
+  }
+  // The action bar re-wraps as the window changes shape, which moves End Turn.
+  window.addEventListener("resize", () => { try { _positionPlayAgainCallout(); } catch (_) {} });
+  // Tapping the words does what the words say. It goes through the End Turn
+  // button rather than round it, so the confirm modal (and its "you still have
+  // plays left" warning) is exactly the same either way, and a disabled End
+  // Turn button swallows the tap the same way it swallows a direct one.
+  document.getElementById("pv-play-again-callout")?.addEventListener("click", () => {
+    const endBtn = document.getElementById("pv-end-turn-inline");
+    if (endBtn && !endBtn.disabled) endBtn.click();
+  });
+
   // ── Action bar renderer ────────────────────────────────────────
   function renderActionBar(actions, isMyTurn, mustDiscard, discardExcess, freePlaySpecies, tarponActive) {
     const sel        = document.getElementById("pv-action-select");
@@ -9720,6 +9799,7 @@
       sel.style.display="none"; playBtn.style.display="none";
       starWrap.style.display="none"; endBtn.style.display="none";
       confirmBtn.style.display="none";
+      setPlayAgainCallout(false);
       updatePaymentModeUI();
       return;
     }
@@ -9728,6 +9808,7 @@
       sel.style.display="none"; playBtn.style.display="none";
       starWrap.style.display="none"; endBtn.style.display="none";
       confirmBtn.style.display="";
+      setPlayAgainCallout(false);
       const ready = selectedDiscard.size === discardExcess;
       confirmBtn.disabled = !ready;
       confirmBtn.textContent = ready
@@ -9743,6 +9824,7 @@
       sel.style.display="none"; playBtn.style.display="none";
       starWrap.style.display="none"; endBtn.style.display="none";
       confirmBtn.style.display="";
+      setPlayAgainCallout(false);
       updateDiscardBtn();
       return;
     }
@@ -9752,7 +9834,9 @@
     confirmBtn.style.display="none";
 
     if (!isMyTurn) {
-      sel.disabled=true; playBtn.disabled=true; endBtn.disabled=true; return;
+      sel.disabled=true; playBtn.disabled=true; endBtn.disabled=true;
+      setPlayAgainCallout(false);
+      return;
     }
 
     const endAct      = actions.find(a => a.kind==="end_turn");
@@ -9920,6 +10004,10 @@
     const shouldSuggest = endAct && playActions.length === 0 && moveActions.length === 0 && !isFreeWindow2;
     if (hintEl) { hintEl.style.display = shouldSuggest ? "" : "none"; hintEl.textContent = "No more plays? End your turn."; }
     endBtn.classList.toggle("suggest", !!shouldSuggest);
+    // The bar just changed shape (the hint appearing alone re-wraps it), so
+    // re-clamp the callout against the new position of End Turn. No-ops when
+    // the callout is off, which is almost every turn.
+    if (_playAgainCalloutOn) { try { _positionPlayAgainCallout(); } catch (_) {} }
   }
 
   function updateDiscardBtn() {
@@ -10260,6 +10348,7 @@
     if (_wbT) _wbT.classList.remove("visible");
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
+    try { setPlayAgainCallout(false); } catch (_) {}
     try { window._igcpSetVisible?.(false); } catch {}
     try { window._bsSetVisible?.(false); } catch {}
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;

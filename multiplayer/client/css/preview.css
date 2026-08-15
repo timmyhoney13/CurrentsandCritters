@@ -164,6 +164,67 @@
       display: none; font-size: 10.5px; font-weight: 800;
       color: #3a8fb5; white-space: nowrap; letter-spacing: .2px;
     }
+
+    /* ── "Play again" callout ─────────────────────────────────────────────
+       A Hermit Crab, a Sea Turtle or any ★ "play again" gives you a second
+       turn, and the turn banner says so — but the banner is at the top of the
+       screen and the thing you have to do next is at the bottom, so players sat
+       on an extra turn waiting for something to happen. This bobs directly over
+       End Turn until the turn is handed on. It is a real button (it ends the
+       turn, through the same confirm modal), so tapping the words works too.
+
+       It is positioned against the ACTION BAR, not against End Turn itself.
+       Hanging it off the button reads well on a laptop, where the bar is one
+       row — but a phone wraps that bar onto two or three rows, and "just above
+       End Turn" is then right on top of Play Card and the ★ Star ability
+       checkbox. Above the bar it always floats clear, over the board, and
+       _positionPlayAgainCallout() slides it (and its pointer) to sit over
+       whichever column End Turn ended up in, clamped inside the screen. */
+    #pv-action-bar { position: relative; }
+    #pv-play-again-callout {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 7px);   /* 7px = the arrow, so its tip meets the bar */
+      left: 0;                    /* real value written by the positioner */
+      z-index: 40;
+      cursor: pointer;
+      white-space: nowrap;
+      padding: 7px 14px;
+      border-radius: 999px;
+      border: 1.5px solid rgba(255,229,150,.85);
+      background: linear-gradient(135deg, #e8b34a 0%, #c89320 100%);
+      color: #2a1c00;
+      font-family: "Baloo 2", "Nunito", sans-serif;
+      font-size: 12.5px; font-weight: 800; letter-spacing: .2px;
+      box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 18px rgba(232,179,74,.5);
+      animation: pac-bob 1.15s ease-in-out infinite;
+    }
+    #pv-play-again-callout.show { display: block; }
+    #pv-play-again-callout b { font-weight: 900; }
+    /* The little pointer that lands on the End Turn button. Its `left` is
+       written by the positioner too, in the bubble's own coordinates. */
+    .pac-arrow {
+      position: absolute;
+      top: 100%; left: 50%;
+      margin-left: -7px;
+      border: 7px solid transparent;
+      border-top-color: #c89320;
+      border-bottom: 0;
+      width: 0; height: 0;
+    }
+    @keyframes pac-bob {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-7px); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #pv-play-again-callout { animation: none; }
+    }
+    /* Phones lay the game out ~1.5x wide and scale it back down, so a 12.5px
+       label renders at ~8 real pixels. This is the one hint that has to be read
+       at a glance. */
+    @media (pointer: coarse) {
+      #pv-play-again-callout { font-size: 14px; padding: 9px 16px; }
+    }
     .pv-btn.danger { background: linear-gradient(135deg, #b03040, #8e1828); }
     #pv-undo-btn {
       background: linear-gradient(135deg, #9b89c7, #7d6aae);

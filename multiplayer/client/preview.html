@@ -1954,6 +1954,17 @@
     <span id="end-turn-hint"></span>
     <button class="pv-btn end-turn" id="pv-end-turn-inline" title="End your turn and pass to the next player">✓ End Turn</button>
     <button class="pv-btn danger" id="pv-confirm-discard-btn" style="display:none;">✓ Confirm Discard</button>
+    <!-- Play-again callout: bobs just above the action bar, pointing down at
+         End Turn, for the whole extra turn a Hermit Crab / Sea Turtle / ★ "play
+         again" hands you — the one turn players do not realise is still theirs
+         to finish. It hangs off the BAR, not off the button, so that when the
+         bar wraps onto two or three rows (any phone) it floats clear over the
+         board instead of landing on top of Play Card. Positioned by
+         _positionPlayAgainCallout(). -->
+    <button type="button" id="pv-play-again-callout" aria-live="polite">
+      Still your turn — tap <b>✓ End Turn</b> when you're done
+      <span class="pac-arrow" aria-hidden="true"></span>
+    </button>
   </div>
 
   <!-- Click-to-place card picker panel -->
