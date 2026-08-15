@@ -2319,34 +2319,83 @@ CLOWNFISH_NAME = "clownfish"
 
 def clownfish_host_ocean(gs: GameState, card: CardDef, ocean_uid: Optional[int]) -> Optional[CardDef]:
     """
-    The ocean a Clownfish is being attached to, when that ocean has a ★.
+    The Ocean a Clownfish is being attached to, or None for any other card.
 
     Clownfish reads "Copies the Ocean's ability this card is attached to", and
-    that copy is not only a scoring rule (see final_points, where a Clownfish on
-    a Coral Reef counts as one more Coral Reef in the table's count). Two oceans
-    carry a ★ — Mangrove and Arctic Ocean, both "play again" — and a Clownfish
-    attached to one of them copies that too: pay its cost with a matching symbol
-    and you take another turn, exactly as playing the ocean itself would.
+    it means all of it. A Clownfish IS a second copy of its host Ocean:
 
-    Only the ABILITY is borrowed. The cost you pay and the symbol you have to
-    match are still the Clownfish's own.
+      • it scores whatever that Ocean scores (final_points reads the host's
+        text through it),
+      • it counts as one more of that Ocean everywhere Oceans are counted —
+        the Coral Reef chart, the Kelp Forest "4 or more", "the most piers",
+        "oceans you control" (see effective_ocean_names),
+      • it fires the Ocean's own on-play ability when you play it, so a
+        Clownfish onto a Deep Ocean or a Kelp Forest draws a card,
+      • and it carries the Ocean's ★ (Mangrove and Arctic Ocean, both "play
+        again") — see clownfish_star_host.
 
-    Returns None for every other card and every starless host, so callers can
-    treat "no host" as "behave exactly as before".
+    What it does NOT copy is identity: it is still a Crosscurrent animal, so it
+    is not an eighth ocean TYPE for the Mangrove's "all 8 oceans", and it takes
+    an attachment slot like any other animal.
     """
     if card is None or ocean_uid is None:
         return None
     if card.name.strip().lower() != CLOWNFISH_NAME:
         return None
     host = gs.card_db.get(ocean_uid)
-    if host is None or not is_ocean(host) or not has_star_ability(host):
+    if host is None or not is_ocean(host):
         return None
     return host
 
 
+def clownfish_star_host(gs: GameState, card: CardDef, ocean_uid: Optional[int]) -> Optional[CardDef]:
+    """The Clownfish's host Ocean, but only when that Ocean has a ★ to copy.
+
+    Only the ABILITY is borrowed: the cost you pay and the symbol you have to
+    match to fire it are still the Clownfish's own.
+    """
+    host = clownfish_host_ocean(gs, card, ocean_uid)
+    if host is None or not has_star_ability(host):
+        return None
+    return host
+
+
+def effective_ocean_names(gs: GameState, player: PlayerState) -> List[str]:
+    """
+    Every Ocean a player effectively controls, by lowercase name.
+
+    Their real Ocean cards, plus one entry per Clownfish named after the Ocean
+    it is attached to — because a Clownfish counts as one more of that Ocean.
+    This is the single source for every ocean count in scoring: the Coral Reef
+    chart, the Kelp Forest "4 or more", "the most piers", "the most oceans",
+    "+1 per every two oceans you control" and the Mangrove's "all 8 oceans".
+
+    Note what falls out of "one more of THAT Ocean": a Clownfish adds a
+    duplicate name, never a new one, so it can lift you up a chart or win you
+    the Pier count but can never be the eighth ocean TYPE.
+    """
+    names: List[str] = []
+    for ocean_uid in player.board_oceans:
+        host = gs.card_db.get(ocean_uid)
+        if host is None:
+            continue
+        host_name = host.name.strip().lower()
+        names.append(host_name)
+        if not is_ocean(host):
+            continue
+        slots = player.ocean_slots.get(ocean_uid)
+        if not slots:
+            continue
+        for face_uid in slots.all_cards():
+            face = gs.card_db.get(face_uid)
+            if face is not None and face.name.strip().lower() == CLOWNFISH_NAME:
+                names.append(host_name)
+    return names
+
+
 def star_source_card(gs: GameState, card: CardDef, ocean_uid: Optional[int] = None) -> CardDef:
     """The card whose ★ this play fires — the Clownfish's host ocean, or the card."""
-    host = clownfish_host_ocean(gs, card, ocean_uid)
+    host = clownfish_star_host(gs, card, ocean_uid)
     return host if host is not None else card
 
 
@@ -8718,19 +8767,31 @@ def apply_action(
                 return fail(f"target ocean slots missing for ocean {action.ocean_uid}")
             slots_obj.slot(direction).append(play_face_uid)
             before_hand = len(player.hand)
-            run_main_ability(
-                gs,
-                play_face_uid,
-                player,
-                ctx={
-                    "ocean_uid": action.ocean_uid,
-                    "played_to": direction,
-                    "ms": ms,
-                    "is_human_turn": is_human_turn,
-                    "turn_state": turn_state,
-                    "star_active": action.use_star or auto_star,
-                },
-            )
+            main_ctx = {
+                "ocean_uid": action.ocean_uid,
+                "played_to": direction,
+                "ms": ms,
+                "is_human_turn": is_human_turn,
+                "turn_state": turn_state,
+                "star_active": action.use_star or auto_star,
+            }
+            run_main_ability(gs, play_face_uid, player, ctx=main_ctx)
+            # Clownfish copies the Ocean's ability, and that includes the
+            # Ocean's own on-play effect: the "Draw one" on a Deep Ocean or a
+            # Kelp Forest fires again for the Clownfish you just attached.
+            #
+            # player.score is restored around it because that field is a RUNNING
+            # tally, and final_points already reads the host's text through the
+            # Clownfish when it scores the board — letting the copy bump it here
+            # too would count the Ocean's points twice in the live scoreboard.
+            copy_host = clownfish_host_ocean(gs, card, action.ocean_uid)
+            if copy_host is not None:
+                host_main, _ = split_main_and_star(copy_host.text)
+                if host_main.strip():
+                    score_before = player.score
+                    copied_main = replace(copy_host, name=f"{card.name} (copying {copy_host.name})")
+                    _execute_main_pattern(gs, player, host_main, copied_main, main_ctx)
+                    player.score = score_before
             sync_reactive_trigger_flags(gs, player)
             resolve_reactive_draw_triggers(gs, player, card, action.kind, ms)
             if verbose:
@@ -8752,7 +8813,7 @@ def apply_action(
     if action.use_star or auto_star:
         pre_free_flags = {k: bool(player.flags.get(k, False)) for k in FREE_PLAY_FLAGS}
         star_ctx = {"played_with_star": True, "ms": ms, "turn_state": turn_state, "is_human_turn": is_human_turn}
-        host_ocean = clownfish_host_ocean(gs, card, action.ocean_uid)
+        host_ocean = clownfish_star_host(gs, card, action.ocean_uid)
         if host_ocean is not None:
             # Clownfish copies the ocean it is attached to, ★ included. Fire the
             # HOST's star, under a name that says where it came from so the game
@@ -9934,25 +9995,26 @@ def final_points(gs: GameState, player: PlayerState) -> int:
     all_cards = [c for _, c, _ in board]
     non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
 
-    ocean_count = len(player.board_oceans)
-    other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
+    # Every ocean count below is taken over effective_ocean_names, so a Clownfish
+    # counts as one more of the Ocean it is attached to — the same way it already
+    # counted on the Coral Reef chart.
+    my_ocean_names = effective_ocean_names(gs, player)
+    ocean_count = len(my_ocean_names)
+    other_ocean_counts = [len(effective_ocean_names(gs, p)) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
-    # Distinct ocean types for the Mangrove "+10 if you have all 8 oceans" bonus.
-    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards.
-    distinct_ocean_types = len({
-        gs.card_db[uid].name.strip().lower()
-        for uid in player.board_oceans
-        if gs.card_db.get(uid)
-    })
+    # Distinct ocean TYPES for the Mangrove "+10 if you have all 8 oceans" bonus.
+    # Must be 8 DIFFERENT ocean types, not just 8 ocean cards — and a Clownfish
+    # only ever duplicates a name it is already sitting on, so it can never be
+    # the missing eighth type.
+    distinct_ocean_types = len(set(my_ocean_names))
 
     def has_most_piers() -> bool:
-        my = sum(1 for uid in player.board_oceans if ((gs.card_db.get(uid).name.lower() == "pier") if gs.card_db.get(uid) else False))
+        my = sum(1 for n in my_ocean_names if n == "pier")
         others = []
         for p in gs.players:
             if p is player:
                 continue
-            n = sum(1 for uid in p.board_oceans if ((gs.card_db.get(uid).name.lower() == "pier") if gs.card_db.get(uid) else False))
-            others.append(n)
+            others.append(sum(1 for n in effective_ocean_names(gs, p) if n == "pier"))
         return my >= max(others) if others else True
 
     def count_animals(owner: PlayerState) -> int:
@@ -10031,18 +10093,10 @@ def final_points(gs: GameState, player: PlayerState) -> int:
         best_need = max(eligible)
         return table[best_need]
 
-    coral_reef_count_total = name_count("coral reef") + sum(
-        1 for uid, c, o_uid in board
-        if c.name.lower() == "clownfish"
-        and gs.card_db.get(o_uid) is not None
-        and gs.card_db.get(o_uid).name.lower() == "coral reef"
-    )
-    kelp_forest_count_total = name_count("kelp forest") + sum(
-        1 for uid, c, o_uid in board
-        if c.name.lower() == "clownfish"
-        and gs.card_db.get(o_uid) is not None
-        and gs.card_db.get(o_uid).name.lower() == "kelp forest"
-    )
+    # Same source as every other ocean count: a Clownfish on one of these is one
+    # more of it.
+    coral_reef_count_total = sum(1 for n in my_ocean_names if n == "coral reef")
+    kelp_forest_count_total = sum(1 for n in my_ocean_names if n == "kelp forest")
     coral_reef_table_applied = False
     count_table_applied: set = set()  # tracks card names whose threshold table has been scored once
 
@@ -10262,23 +10316,19 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
     all_cards = [c for _, c, _ in board]
     non_ocean_cards = [c for c in all_cards if c.direction.strip().lower() != "n/a"]
 
-    ocean_count = len(player.board_oceans)
-    other_ocean_counts = [len(p.board_oceans) for p in gs.players if p is not player]
+    # Mirrors final_points exactly: every ocean count is taken over
+    # effective_ocean_names, so a Clownfish counts as one more of its host Ocean.
+    _my_ocean_names = effective_ocean_names(gs, player)
+    ocean_count = len(_my_ocean_names)
+    other_ocean_counts = [len(effective_ocean_names(gs, p)) for p in gs.players if p is not player]
     has_most_oceans = ocean_count >= max(other_ocean_counts) if other_ocean_counts else True
     # Distinct ocean types for Mangrove "+10 if you have all 8 oceans" — needs 8 DIFFERENT types.
-    _distinct_ocean_types = len({
-        gs.card_db[uid].name.strip().lower()
-        for uid in player.board_oceans
-        if gs.card_db.get(uid)
-    })
+    _distinct_ocean_types = len(set(_my_ocean_names))
 
     def _has_most_piers() -> bool:
-        def pier_count(p: PlayerState) -> int:
-            return sum(1 for uid in p.board_oceans
-                       if (gs.card_db.get(uid) is not None and
-                           gs.card_db[uid].name.lower() == "pier"))
-        my = pier_count(player)
-        others = [pier_count(p) for p in gs.players if p is not player]
+        my = sum(1 for n in _my_ocean_names if n == "pier")
+        others = [sum(1 for n in effective_ocean_names(gs, p) if n == "pier")
+                  for p in gs.players if p is not player]
         return my >= max(others) if others else True
 
     def _count_animals(owner: PlayerState) -> int:
@@ -10340,18 +10390,8 @@ def _full_score_breakdown_impl(gs: GameState, player: PlayerState) -> Dict[str, 
         eligible = [need for need in table if need <= value]
         return table[max(eligible)] if eligible else 0
 
-    coral_reef_total = _name_count("coral reef") + sum(
-        1 for uid, c, o_uid in board
-        if c.name.lower() == "clownfish"
-        and gs.card_db.get(o_uid) is not None
-        and gs.card_db.get(o_uid).name.lower() == "coral reef"
-    )
-    kelp_forest_total = _name_count("kelp forest") + sum(
-        1 for uid, c, o_uid in board
-        if c.name.lower() == "clownfish"
-        and gs.card_db.get(o_uid) is not None
-        and gs.card_db.get(o_uid).name.lower() == "kelp forest"
-    )
+    coral_reef_total = sum(1 for n in _my_ocean_names if n == "coral reef")
+    kelp_forest_total = sum(1 for n in _my_ocean_names if n == "kelp forest")
     coral_reef_table_applied = False
     breakdown_count_table_applied: set = set()
 
