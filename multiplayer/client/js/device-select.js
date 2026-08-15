@@ -56,39 +56,73 @@
     var ZOOM_OUT_TABLET = 1.9;   // tablets: show ~1.9x more by default
     var ZOOM_OUT_PHONE  = 1.5;   // phones: a gentler zoom-out so text stays legible
     var MAX_ZOOM_MULT   = 3;     // how far past the overview a player may pinch in
+    var MIN_ZOOM_SLACK  = 0.9;   // see setGame(): a little room to pinch BELOW the fit
     var inGame = false;
 
-    // screen.* is stable logical CSS pixels, it does NOT change with the
-    // viewport meta or with a pinch, so it never feeds back on itself the way
-    // innerWidth would once we widen the viewport. The device's SHORT edge
-    // classifies phone vs tablet (intrinsic, orientation-independent); the
-    // CURRENT-orientation width is what we actually widen.
-    function screenDims() {
+    // ── How wide the page can actually be, in device-independent pixels ──────
+    // This number decides initial-scale, so it has to be the width the browser
+    // will really give the page — NOT the width of the display.
+    //
+    // screen.width is the display. On a notched phone held sideways Safari
+    // carves the notch out of the page's box (viewport-fit is `contain`), so
+    // screen.width over-reported the usable width by ~60px. width=screen*1.5
+    // with initial-scale=1/1.5 then laid the game out ~7% wider than the space
+    // it was being scaled into, and everything at the right end of the action
+    // bar — End Turn, first — sat off the edge of the screen. Because
+    // minimum-scale was pinned to that same wrong fit, a player could not even
+    // pinch out to find it; the only way to reach End Turn was to pan sideways.
+    //
+    // documentElement.clientWidth IS the real box, but it only reads true while
+    // the NORMAL meta is in effect (once we widen the viewport it reports the
+    // widened width instead, which would feed back on itself). So measure on
+    // the way in — entering a game always comes from a NORMAL-viewport screen —
+    // and cache it per orientation. screen.* stays as the fallback.
+    var metaIsGame = false;
+    var fitW = { p: 0, l: 0 };
+    function isPortrait() {
+      try { return window.matchMedia("(orientation: portrait)").matches; }
+      catch (e) { return (window.innerHeight || 0) >= (window.innerWidth || 0); }
+    }
+    function screenFallbackWidth() {
       var sw = screen.width  || window.innerWidth  || 360;
       var sh = screen.height || window.innerHeight || 640;
-      var portrait = true;
-      try { portrait = window.matchMedia("(orientation: portrait)").matches; } catch (e) {}
-      return {
-        cur:   Math.round(Math.max(320, Math.min(2048, portrait ? Math.min(sw, sh) : Math.max(sw, sh)))),
-        short: Math.min(sw, sh)
-      };
+      return Math.round(Math.max(320, Math.min(2048,
+        isPortrait() ? Math.min(sw, sh) : Math.max(sw, sh))));
+    }
+    function usableWidth() {
+      var key = isPortrait() ? "p" : "l";
+      if (!metaIsGame) {
+        var cw = Math.round(document.documentElement.clientWidth || 0);
+        if (cw >= 240) fitW[key] = Math.max(320, Math.min(2048, cw));
+      }
+      return fitW[key] || screenFallbackWidth();
+    }
+    function shortEdge() {
+      var sw = screen.width || window.innerWidth || 360;
+      var sh = screen.height || window.innerHeight || 640;
+      return Math.min(sw, sh);
     }
     function setNormal() {
+      metaIsGame = false;
       if (meta && meta.getAttribute("content") !== NORMAL) meta.setAttribute("content", NORMAL);
     }
     function setGame() {
       if (!meta) return;
-      var d   = screenDims();
-      var dw  = d.cur;
-      var zo  = d.short >= 700 ? ZOOM_OUT_TABLET : ZOOM_OUT_PHONE;
+      var dw  = usableWidth();
+      var zo  = shortEdge() >= 700 ? ZOOM_OUT_TABLET : ZOOM_OUT_PHONE;
       var W   = Math.round(dw * zo);
-      var fit = dw / W;  // = 1 / zo, the default "fit the whole game" scale
+      var fit = dw / W;  // ≈ 1 / zo, the default "fit the whole game" scale
       var content =
         "width=" + W +
         ", initial-scale=" + fit.toFixed(3) +
-        ", minimum-scale=" + fit.toFixed(3) +                  // can't zoom out past the overview
+        // A little slack under the fit instead of pinning minimum-scale to it.
+        // The fit is measured, not guessed, but if it is ever off by a few
+        // percent on some browser the player must still be able to pinch out
+        // and find whatever went over the edge, rather than be locked out of it.
+        ", minimum-scale=" + (fit * MIN_ZOOM_SLACK).toFixed(3) +
         ", maximum-scale=" + (fit * MAX_ZOOM_MULT).toFixed(3) + // reasonable zoom-in cap
         ", user-scalable=yes";
+      metaIsGame = true;
       // Idempotent: only write when the string actually changes, so re-renders
       // (which call ccGameViewport(true) every state tick) never re-apply
       // initial-scale and snap a player's in-progress pinch back to the overview.
@@ -102,7 +136,13 @@
     window.ccGameViewport = function (on) { inGame = !!on; refresh(); };
     // Re-fit (and reset to the overview) only on a real rotation, never during
     // a pinch, which doesn't fire orientationchange and must not be disturbed.
-    window.addEventListener("orientationchange", function () { setTimeout(refresh, 250); });
+    // Drop back to NORMAL first so the new orientation's usable width can be
+    // measured for real before the game viewport is rebuilt from it.
+    window.addEventListener("orientationchange", function () {
+      var wasInGame = inGame;
+      setNormal();
+      setTimeout(function () { if (wasInGame) refresh(); else setNormal(); }, 300);
+    });
   })();
 
   // The boot waits on this promise: resolves the moment a device is chosen,

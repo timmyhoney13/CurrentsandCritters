@@ -601,6 +601,7 @@
       box-shadow: inset 0 1px 0 rgba(255,220,180,.08);
       width: 100%; max-width: none;
       max-height: 100vh; height: 100vh;
+      max-height: 100dvh; height: 100dvh;   /* see #pv-game: vh over-reports on iOS */
       display: flex; flex-direction: column; overflow: hidden;
       font-family: "Nunito", sans-serif; color: #f5ede0;
       animation: dwm-sheet-in .26s cubic-bezier(.2,.9,.3,1.05);
@@ -695,7 +696,7 @@
     #pv-help-detail { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: none; padding: 10px 28px 24px; }
     #pv-help-modal.detail #pv-help-detail { display: block; }
     @media (max-width: 560px) {
-      #pv-help-box { height: 100vh; max-height: 100vh; }
+      #pv-help-box { height: 100vh; max-height: 100vh; height: 100dvh; max-height: 100dvh; }
       .hs2-card, .hs2-combo { width: 70vw; max-width: 240px; }
     }
 
@@ -1084,7 +1085,18 @@
     #pv-game {
       display: none;
       flex-direction: column;
+      /* dvh, not vh. On iOS Safari `100vh` is the height the page WOULD have
+         with the toolbars retracted, but html/body are overflow:hidden, so the
+         extra height is not scrolled to — it is clipped off the bottom of the
+         screen. The bottom of the game screen is the hand zone, and the bottom
+         of a seat pill is its "⭐ N pts · 🃏M" line, so a phone lost exactly
+         that: every player's score and card count. What the browser does let
+         you do is PAN the visual viewport, which is how the top of the screen
+         (the Menu button) then disappeared instead. `100dvh` is the height that
+         is really on screen right now, so the whole game fits and there is
+         nothing to pan. The vh line is the fallback for browsers without dvh. */
       height: 100vh;
+      height: 100dvh;
       /* overflow: hidden removed, it was clipping the absolutely-positioned
          menu dropdown. html/body already has overflow:hidden to block scroll. */
       background: #050d1a;

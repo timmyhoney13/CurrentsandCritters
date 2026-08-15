@@ -339,6 +339,46 @@ if (!narrowBlock) {
   lines.push("FAIL preview.css: the narrow block no longer re-areas #pv-hand-zone");
 }
 
+// ── The game screen must be the size of the screen ──────────────────────────
+// `100vh` on iOS Safari is the height the page WOULD have with the browser
+// toolbars retracted, not the height it has. html/body are overflow:hidden, so
+// the difference is not scrolled to, it is sliced off the bottom of #pv-game —
+// and the bottom of #pv-game is the bottom of a seat pill, which is its
+// "⭐ N pts · 🃏M" line. Every player's score and card count, gone. What is
+// left is panning the visual viewport, which is how the Menu button at the TOP
+// then disappeared instead ("you have to tilt your screen to see it").
+const gameBlock = (() => {
+  const i = CSS.indexOf("#pv-game {");
+  return i < 0 ? "" : CSS.slice(i, CSS.indexOf("}", i));
+})();
+lines.push(/height:\s*100dvh/.test(gameBlock)
+  ? "PASS preview.css: the in-game screen is sized in dvh, so nothing is clipped off the bottom"
+  : "FAIL preview.css: #pv-game is still sized in vh — the bottom of the hand zone is off-screen on iOS");
+lines.push(/height:\s*100vh/.test(gameBlock)
+  ? "PASS preview.css: a plain-vh fallback is kept for browsers without dvh"
+  : "FAIL preview.css: #pv-game lost its vh fallback");
+
+// ── The mobile viewport scale must be measured, not assumed ─────────────────
+// device-select widens the viewport and pins initial-scale to dw/W. When dw
+// came from screen.width it was the width of the DISPLAY, which on a notched
+// phone held sideways is ~60px more than the box Safari actually gives the page
+// — so the game laid out wider than the space it was scaled into and the right
+// end of the action bar (End Turn first) hung off the edge, unreachable because
+// minimum-scale was pinned to the same wrong number.
+const DEV = fs.readFileSync(path.join(ROOT, "multiplayer/client/js/device-select.js"), "utf8");
+lines.push(/documentElement\.clientWidth/.test(DEV)
+  ? "PASS device-select.js: the game viewport is measured from the real page box"
+  : "FAIL device-select.js: the game viewport width is still guessed from screen.*");
+lines.push(/metaIsGame/.test(DEV)
+  ? "PASS device-select.js: it only measures while the normal viewport is in effect (no feedback loop)"
+  : "FAIL device-select.js: nothing stops the measurement feeding back on the widened viewport");
+lines.push(/MIN_ZOOM_SLACK/.test(DEV)
+  ? "PASS device-select.js: minimum-scale leaves slack, so nothing can be zoom-locked off screen"
+  : "FAIL device-select.js: minimum-scale is pinned to the fit again");
+lines.push(/orientationchange[\s\S]{0,400}setNormal\(\)/.test(DEV)
+  ? "PASS device-select.js: rotating re-measures instead of reusing the old orientation's fit"
+  : "FAIL device-select.js: rotation does not re-measure the usable width");
+
 console.log(lines.join("\n"));
 const failed = lines.filter(l => l.startsWith("FAIL"));
 console.log(`\n${lines.filter(l => l.startsWith("PASS")).length} passed, ${failed.length} failed`);
