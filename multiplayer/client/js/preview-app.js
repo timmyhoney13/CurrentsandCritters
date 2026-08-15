@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.55";
-  const APP_BUILD   = "2026-08-14.1";
+  const APP_VERSION = "1.6.56";
+  const APP_BUILD   = "2026-08-14.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🤡 Clownfish copies its Ocean — star included", items: [
+      "A Clownfish attached to a Mangrove or an Arctic Ocean now has that Ocean's ★. Pay the Clownfish's cost with a card matching the Clownfish's own symbol and you get to play again, exactly as you would for playing that Ocean with its star. Those are the only two Oceans with a ★, so nothing changes on any other host.",
+      "Scoring was already right and hasn't changed: a Clownfish counts as one more of the Ocean it sits on. One Coral Reef with a Clownfish on it scores as two (4 points), three reefs plus a Clownfish score as four (16) — the chart is read once for the whole set, it is never scored twice.",
+      "The Rule Book now has a Clownfish page under Special Rules spelling both halves out, with pictures of the same Clownfish on a Coral Reef and on a Mangrove.",
+    ]},
     { ver: "V1.7.0", title: "📱 A game that fits your phone", items: [
       "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill — their ⭐ points and 🃏 card count — is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
       "End Turn is no longer off the right-hand edge when you play sideways. The game now measures the real width your browser gives it instead of assuming the full width of the display, so nothing sits past the edge.",
