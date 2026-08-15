@@ -58,7 +58,7 @@
     })();
   </script>
 
-  <script defer src="/js/error-logging.js?v=2026-08-08.1"></script>
+  <script defer src="/js/error-logging.js?v=2026-08-14.1"></script>
 
   <!-- Firebase config, generated at build time from VITE_FIREBASE_* env vars -->
   <script defer src="/firebase-config.js"></script>
@@ -66,20 +66,20 @@
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 
-  <link rel="stylesheet" href="/css/preview.css?v=2026-08-08.1" />
+  <link rel="stylesheet" href="/css/preview.css?v=2026-08-14.1" />
   <!-- The printed rulebook's own stylesheet. Split out of preview.css so the
        standalone How to Play page (/rules) can render the very same book
        without pulling in the whole game stylesheet. Must load AFTER
        preview.css so the cascade is exactly what it was before the split. -->
-  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-08.1" />
+  <link rel="stylesheet" href="/css/rulebook.css?v=2026-08-14.1" />
   <!-- The privacy policy's own stylesheet, on the same split as the rulebook:
        the published /privacy page renders the very same document without
        pulling in the whole game stylesheet. Must load AFTER preview.css. -->
-  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-08.1" />
+  <link rel="stylesheet" href="/css/privacy.css?v=2026-08-14.1" />
   <!-- Prestige: the Prestige page's own ocean scene, plus the .cc-pname /
        .cc-pbadge rules that draw a Prestige username and badge ANYWHERE in the
        game. Must load AFTER preview.css so those name styles win. -->
-  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-08.1" />
+  <link rel="stylesheet" href="/css/prestige.css?v=2026-08-14.1" />
   <!-- Developer Analytics: the admin dashboard's own stylesheet, split out the
        same way — everything in it is scoped under #ccA-overlay, which nothing
        else on the page ever renders, so it cannot touch the game. -->
@@ -98,7 +98,7 @@
   <button type="button" class="cc-device-half cc-device-mobile"
           data-cc-device="mobile" aria-label="I'm playing on a mobile device"></button>
 </div>
-<script defer src="/js/device-select.js?v=2026-06-29.3"></script>
+<script defer src="/js/device-select.js?v=2026-08-14.1"></script>
 
 <!-- ══ GAME-WINDOW FULL-SCREEN LAUNCH SPLASH (shown only in the game window) ══
      The whole screen is the baked artwork (fullscreen-splash.png). #ccfs-play
@@ -2888,29 +2888,29 @@
 
 <!-- The printed rulebook, one shared source for the How to play tab and the
      in-game Rule Book modal. Must load before preview-app.js reads it. -->
-<script defer src="/js/rulebook.js?v=2026-08-08.1"></script>
+<script defer src="/js/rulebook.js?v=2026-08-14.1"></script>
 
 <!-- Family colours + the built-in strategy list, shared with the published
      How to Play page (/rules) so the two can never drift. Deferred scripts
      run in document order, so this lands before preview-app.js reads it. -->
-<script defer src="/js/gamedata.js?v=2026-08-08.1"></script>
+<script defer src="/js/gamedata.js?v=2026-08-14.1"></script>
 
 <!-- The privacy policy, one shared source for the published /privacy page and
      the in-game reader (Settings → 📜 Legal). Must load before preview-app.js
      reads window.CC_PRIVACY_HTML. -->
-<script defer src="/js/privacy-policy.js?v=2026-08-08.1"></script>
+<script defer src="/js/privacy-policy.js?v=2026-08-14.1"></script>
 
-<script defer src="/js/preview-app.js?v=2026-08-08.1"></script>
+<script defer src="/js/preview-app.js?v=2026-08-14.1"></script>
 
 <!-- Tournament Mode (self-contained; hidden until enabled via ?tournaments=1 or TOURNAMENTS_PUBLIC). -->
 <script defer src="/js/tournament-ui.js?v=2026-07-29.5"></script>
 
 <!-- Clan System (Clans tab below Leaderboard; renders into #cc-clans-root). -->
-<script defer src="/js/clans-ui.js?v=2026-08-08.1"></script>
+<script defer src="/js/clans-ui.js?v=2026-08-14.1"></script>
 
 <!-- Prestige System (Prestige page + the badge/name-colour renderer used by
      every username in the game; renders into #cc-prestige-root). -->
-<script defer src="/js/prestige-ui.js?v=2026-08-08.1"></script>
+<script defer src="/js/prestige-ui.js?v=2026-08-14.1"></script>
 
 <!-- Developer Analytics — a full-screen, admin-only dashboard. It builds no DOM
      and makes no request until the Analytics sidebar button is clicked, so it
@@ -3002,6 +3002,6 @@
      completion tracking + the Main Menu Tour (spotlight coachmarks over the
      real lobby). The Game tour and B-Lob practice arrive in later stages.
      ══════════════════════════════════════════════════════════════════ -->
-<script defer src="/js/tutorials.js?v=2026-08-08.1"></script>
+<script defer src="/js/tutorials.js?v=2026-08-14.1"></script>
 </body>
 </html>

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.54";
-  const APP_BUILD   = "2026-08-08.1";
+  const APP_VERSION = "1.6.55";
+  const APP_BUILD   = "2026-08-14.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,19 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "📱 A game that fits your phone", items: [
+      "The whole game screen now fits the part of your phone you can actually see. The bottom of every player's pill — their ⭐ points and 🃏 card count — is back on screen, and so is the ☰ Menu button at the top. No more tilting the phone or sliding the page around to find them.",
+      "End Turn is no longer off the right-hand edge when you play sideways. The game now measures the real width your browser gives it instead of assuming the full width of the display, so nothing sits past the edge.",
+      "Tapping Weekly Challenges in game actually shows the three challenges now. On a short screen it was opening onto a sliver you couldn't read — it now uses all the room above the action bar and scrolls, and the footer closes it as well as the header.",
+    ]},
+    { ver: "V1.7.0", title: "★ Play again? We'll tell you when you're done", items: [
+      "When a Hermit Crab, a Sea Turtle or a ★ ability hands you another turn, a reminder now bobs right over the ✓ End Turn button until you finish the turn — so an extra turn never reads as the game being stuck.",
+      "You can tap the reminder itself; it does exactly what pressing End Turn does.",
+    ]},
+    { ver: "V1.7.0", title: "🛟 Your results can't be lost to a dropped signal", items: [
+      "If your connection blinks while the game summary is up, the end screen now keeps retrying the save on its own — and retries straight away the moment you're back online. Before, one lost second could quietly cost you the XP, the streak and the game history for that match.",
+      "It also says which it is: a quiet \"Saving your results…\" while it's working, and a clear warning with a Try again button if it can't reach the server. Nothing at all once it's saved.",
+    ]},
     { ver: "V1.7.0", title: "🛡️ Joining a clan is one tap", items: [
       "The Clans tab now shows the clans you can actually join right on the first screen, each with its own Join button — no searching first.",
       "Every clan in Find a Clan has the same one-tap Join (or Request) beside it, and the recommended clans at the top are full rows now instead of name chips, so you can see who they are before you press it.",
