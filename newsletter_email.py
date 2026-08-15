@@ -57,11 +57,35 @@ from typing import Any, Dict, List, Optional, Tuple
 # ═══════════════════════════════════════════════════════════════════════════
 #  CONFIG (every secret comes from a Render env var — nothing is hard-coded)
 # ═══════════════════════════════════════════════════════════════════════════
+#
+#  THREE WAYS TO SEND. Pick ONE; the rest can stay unset.
+#
+#  There is no way to send mail to real inboxes without an authenticated
+#  sender — that is how SMTP and the anti-spam world work, not a limitation
+#  here. What IS negotiable is how much account setup that costs you, so this
+#  module supports the cheap options and treats the expensive one as optional.
+#
+#    "smtp"    — DEFAULT AND EASIEST. Host, port, username, password. Every
+#                mail provider on earth gives you these, including the one
+#                already hosting timothy.honey@beardedsealstudios.com. If that
+#                is Google Workspace, an App Password works and needs NO Google
+#                Cloud project, NO OAuth consent screen, NO scopes and NO
+#                refresh token — it is four values from a settings page.
+#    "http"    — An HTTPS email API (Resend / Postmark / Mailgun / SendGrid /
+#                Brevo). One API key. Use this when the host blocks outbound
+#                SMTP ports, which some do.
+#    "gmail_api" — The OAuth route. Still supported, no longer required, and
+#                deliberately last: it is the only one that costs a Google
+#                Cloud project.
+#
+#  NEWSLETTER_TRANSPORT forces a choice. Left unset (or "auto") the first
+#  fully-configured transport in the order above wins, so setting SMTP_* is
+#  all it takes to switch.
 GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 GOOGLE_TOKENINFO_URI = "https://oauth2.googleapis.com/tokeninfo"
 GMAIL_SEND_URI = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 
-# The minimum scopes that do the job:
+# The minimum scopes that do the job (only relevant to the gmail_api transport):
 #   gmail.send  — send only. It cannot read a single message in the mailbox,
 #                 which is the whole point of not asking for gmail.modify.
 #   openid,email — lets /tokeninfo tell us WHICH account the refresh token
@@ -69,6 +93,45 @@ GMAIL_SEND_URI = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
 #                 GMAIL_SENDER_EMAIL without requesting gmail.readonly or
 #                 gmail.settings.basic (both far broader).
 GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.send openid email"
+
+# ── Known HTTPS email APIs ─────────────────────────────────────────────────
+# Each entry says how to talk to that provider: where to POST, how to present
+# the key, how to shape the body, and where the message id comes back. Adding
+# another provider is a dict entry, not new code.
+HTTP_PROVIDERS: Dict[str, Dict[str, Any]] = {
+    "resend": {
+        "label": "Resend",
+        "url": "https://api.resend.com/emails",
+        "auth": "bearer",
+        "style": "resend",
+        "id_path": ("id",),
+        "signup": "https://resend.com",
+    },
+    "postmark": {
+        "label": "Postmark",
+        "url": "https://api.postmarkapp.com/email",
+        "auth": "postmark",
+        "style": "postmark",
+        "id_path": ("MessageID",),
+        "signup": "https://postmarkapp.com",
+    },
+    "brevo": {
+        "label": "Brevo",
+        "url": "https://api.brevo.com/v3/smtp/email",
+        "auth": "brevo",
+        "style": "brevo",
+        "id_path": ("messageId",),
+        "signup": "https://www.brevo.com",
+    },
+    "sendgrid": {
+        "label": "SendGrid",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "auth": "bearer",
+        "style": "sendgrid",
+        "id_path": (),           # SendGrid returns 202 with an empty body
+        "signup": "https://sendgrid.com",
+    },
+}
 
 BRAND_NAME = "Currents & Critters"
 BUSINESS_NAME = "Bearded Seal Studios LLC"
@@ -83,11 +146,14 @@ def _env(name: str, default: str = "") -> str:
 
 
 def sender_email() -> str:
-    return _env("GMAIL_SENDER_EMAIL", "timothy.honey@beardedsealstudios.com")
+    # NEWSLETTER_FROM_EMAIL is the transport-neutral name; GMAIL_SENDER_EMAIL is
+    # honoured too so an existing deployment keeps working after this change.
+    return _env("NEWSLETTER_FROM_EMAIL") or _env(
+        "GMAIL_SENDER_EMAIL", "timothy.honey@beardedsealstudios.com")
 
 
 def sender_name() -> str:
-    return _env("GMAIL_SENDER_NAME", BRAND_NAME)
+    return _env("NEWSLETTER_FROM_NAME") or _env("GMAIL_SENDER_NAME", BRAND_NAME)
 
 
 def reply_to() -> str:
@@ -118,9 +184,72 @@ def daily_send_cap() -> int:
         return 1200
 
 
+# ── Transport selection ────────────────────────────────────────────────────
+def smtp_configured() -> bool:
+    return bool(_env("SMTP_HOST") and _env("SMTP_USERNAME") and _env("SMTP_PASSWORD"))
+
+
+def http_provider() -> str:
+    """Which HTTPS email API is configured, or ""."""
+    named = _env("NEWSLETTER_HTTP_PROVIDER").lower()
+    if named in HTTP_PROVIDERS and _env("NEWSLETTER_API_KEY"):
+        return named
+    if _env("NEWSLETTER_API_KEY"):
+        return "resend"                       # the default if only a key is set
+    # Convenience: a provider-named key alone is enough to pick that provider.
+    for name in HTTP_PROVIDERS:
+        if _env(name.upper() + "_API_KEY"):
+            return name
+    return ""
+
+
+def http_configured() -> bool:
+    return bool(http_provider())
+
+
 def gmail_configured() -> bool:
     return bool(_env("GOOGLE_CLIENT_ID") and _env("GOOGLE_CLIENT_SECRET")
                 and _env("GOOGLE_REFRESH_TOKEN"))
+
+
+def transport() -> str:
+    """The active transport: "smtp" | "http" | "gmail_api" | "" (none).
+
+    Order is cheapest-setup-first, so the moment SMTP_* is filled in it takes
+    over and the Google variables become dead weight rather than a dependency.
+    """
+    forced = _env("NEWSLETTER_TRANSPORT").lower().replace("-", "_")
+    if forced in ("smtp", "http", "gmail_api"):
+        return forced
+    if forced in ("resend", "postmark", "brevo", "sendgrid"):
+        return "http"
+    if smtp_configured():
+        return "smtp"
+    if http_configured():
+        return "http"
+    if gmail_configured():
+        return "gmail_api"
+    return ""
+
+
+def transport_label() -> str:
+    t = transport()
+    if t == "smtp":
+        return "SMTP (%s)" % (_env("SMTP_HOST") or "not set")
+    if t == "http":
+        p = http_provider()
+        return (HTTP_PROVIDERS.get(p) or {}).get("label", p) or "HTTP API"
+    if t == "gmail_api":
+        return "Gmail API (OAuth)"
+    return "not configured"
+
+
+def _api_key_for(provider: str) -> str:
+    return _env("NEWSLETTER_API_KEY") or _env(provider.upper() + "_API_KEY")
+
+
+def configured() -> bool:
+    return bool(transport())
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -801,6 +930,29 @@ def _clean_header(value: str, limit: int = 400) -> str:
     return s.strip()[:limit]
 
 
+def build_message(
+    *,
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+    unsubscribe_url: str = "",
+    one_click_url: str = "",
+    is_bulk: bool = True,
+) -> Tuple[MIMEMultipart, str]:
+    """The MIME message object + its Message-ID.
+
+    Split out from build_mime() because SMTP wants the object (smtplib walks it
+    for the envelope) while the Gmail API wants base64url of its bytes. Both
+    must be built the SAME way or a message would differ depending on which
+    transport happened to be configured.
+    """
+    return _build_message(
+        to_email=to_email, subject=subject, html_body=html_body,
+        text_body=text_body, unsubscribe_url=unsubscribe_url,
+        one_click_url=one_click_url, is_bulk=is_bulk)
+
+
 def build_mime(
     *,
     to_email: str,
@@ -811,7 +963,25 @@ def build_mime(
     one_click_url: str = "",
     is_bulk: bool = True,
 ) -> Tuple[str, str]:
-    """Build a full MIME message. Returns (base64url_raw, message_id).
+    """Build a full MIME message. Returns (base64url_raw, message_id)."""
+    msg, message_id = _build_message(
+        to_email=to_email, subject=subject, html_body=html_body,
+        text_body=text_body, unsubscribe_url=unsubscribe_url,
+        one_click_url=one_click_url, is_bulk=is_bulk)
+    return base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii"), message_id
+
+
+def _build_message(
+    *,
+    to_email: str,
+    subject: str,
+    html_body: str,
+    text_body: str,
+    unsubscribe_url: str = "",
+    one_click_url: str = "",
+    is_bulk: bool = True,
+) -> Tuple[MIMEMultipart, str]:
+    """The one place a message is assembled, whatever the transport.
 
     Headers that matter and why:
       List-Unsubscribe / List-Unsubscribe-Post — Gmail and Outlook render a
@@ -820,8 +990,8 @@ def build_mime(
         volume. Without them bulk mail is throttled or junked.
       Precedence: bulk / Auto-Submitted — tells well-behaved autoresponders
         not to reply, so an out-of-office does not bounce back per recipient.
-      Message-ID — unique per message. Gmail assigns its own too, but a stable
-        one of ours is what makes a delivery traceable in the logs.
+      Message-ID — unique per message. The provider assigns its own too, but a
+        stable one of ours is what makes a delivery traceable in the logs.
     """
     subject = _clean_header(subject, 900)
     to_email = _clean_header(to_email, MAX_EMAIL_LEN)
@@ -854,13 +1024,11 @@ def build_mime(
     # richest form must come last or clients show the text version.
     msg.attach(MIMEText(text_body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
-    return raw, message_id
+    return msg, message_id
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  GMAIL TRANSPORT
+#  TRANSPORTS
 # ═══════════════════════════════════════════════════════════════════════════
 class SendError(Exception):
     """A send that failed. `category` drives retry policy; `retryable` says
@@ -915,6 +1083,303 @@ def _http_json(url: str, *, data: Optional[bytes] = None, headers: Optional[Dict
         raise SendError("timeout", category="network", retryable=True) from exc
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  TRANSPORT 1 — SMTP  (the default: four values from your mail provider)
+# ═══════════════════════════════════════════════════════════════════════════
+def smtp_settings() -> Dict[str, Any]:
+    """Host/port/security, with sane defaults so only HOST/USER/PASSWORD are
+    genuinely required. Port 587 + STARTTLS is what essentially every provider
+    wants; 465 implies implicit TLS and is auto-detected from the port so a
+    mismatched pair cannot hang for 60 seconds looking like a dead network."""
+    host = _env("SMTP_HOST")
+    try:
+        port = int(_env("SMTP_PORT", "587") or 587)
+    except ValueError:
+        port = 587
+    sec = _env("SMTP_SECURITY").lower()
+    if sec not in ("starttls", "ssl", "none"):
+        sec = "ssl" if port == 465 else "starttls"
+    return {
+        "host": host,
+        "port": port,
+        "security": sec,
+        "username": _env("SMTP_USERNAME"),
+        "password": _env("SMTP_PASSWORD"),
+        "timeout": 30,
+    }
+
+
+_SMTP_LOCK = threading.Lock()
+_SMTP_CONN: Dict[str, Any] = {"conn": None, "at": 0.0}
+# Reuse a connection for this long. Opening a fresh TLS session per message
+# turns a 2,000-message campaign into 2,000 handshakes; leaving one open
+# forever gets it silently dropped by the provider and every later send fails.
+_SMTP_REUSE_SEC = 60.0
+
+
+def _smtp_close() -> None:
+    conn = _SMTP_CONN.get("conn")
+    _SMTP_CONN["conn"] = None
+    if conn is not None:
+        try:
+            conn.quit()
+        except Exception:  # noqa: BLE001
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _smtp_connect(cfg: Dict[str, Any]):
+    import smtplib
+    import ssl as _ssl
+    ctx = _ssl.create_default_context()
+    if cfg["security"] == "ssl":
+        conn = smtplib.SMTP_SSL(cfg["host"], cfg["port"], timeout=cfg["timeout"], context=ctx)
+    else:
+        conn = smtplib.SMTP(cfg["host"], cfg["port"], timeout=cfg["timeout"])
+        conn.ehlo()
+        if cfg["security"] == "starttls":
+            conn.starttls(context=ctx)
+            conn.ehlo()
+    if cfg["username"]:
+        conn.login(cfg["username"], cfg["password"])
+    return conn
+
+
+def _smtp_conn(cfg: Dict[str, Any]):
+    """A live, authenticated connection — reused when fresh, reopened when not."""
+    now = time.time()
+    conn = _SMTP_CONN.get("conn")
+    if conn is not None and (now - float(_SMTP_CONN.get("at") or 0)) < _SMTP_REUSE_SEC:
+        try:
+            status = conn.noop()[0]
+            if status == 250:
+                return conn
+        except Exception:  # noqa: BLE001
+            pass
+    _smtp_close()
+    conn = _smtp_connect(cfg)
+    _SMTP_CONN["conn"] = conn
+    _SMTP_CONN["at"] = now
+    return conn
+
+
+def _smtp_error(exc: Exception) -> "SendError":
+    """Map an smtplib exception onto the retry policy.
+
+    The distinction that matters: a bad password or a refused sender is
+    permanent and must NOT be retried for every one of ten thousand recipients,
+    whereas a dropped connection or a 4xx is exactly what retries are for.
+    """
+    import smtplib
+    if isinstance(exc, smtplib.SMTPAuthenticationError):
+        return SendError(
+            "The mail server rejected the username/password. If this is Google "
+            "Workspace you must use an App Password (not your normal password), "
+            "and 2-Step Verification has to be on.",
+            category="auth_revoked", retryable=False)
+    if isinstance(exc, smtplib.SMTPSenderRefused):
+        return SendError("The server refused the From address (%s). It usually must match "
+                         "the SMTP username." % sender_email(),
+                         category="forbidden", retryable=False)
+    if isinstance(exc, smtplib.SMTPRecipientsRefused):
+        return SendError("The server refused that recipient address.",
+                         category="invalid_recipient", retryable=False)
+    if isinstance(exc, smtplib.SMTPDataError):
+        code = getattr(exc, "smtp_code", 0) or 0
+        # 4xx is temporary (greylisting, throttling); 5xx is permanent.
+        if 400 <= code < 500:
+            return SendError("Mail server temporary error %s." % code,
+                             category="rate_limit", retryable=True)
+        return SendError("Mail server rejected the message (%s)." % code,
+                         category="invalid_message", retryable=False)
+    if isinstance(exc, (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError)):
+        return SendError("Lost the connection to the mail server.",
+                         category="network", retryable=True)
+    if isinstance(exc, (OSError, TimeoutError)):
+        return SendError(
+            "Could not reach %s:%s. Some hosts block outbound SMTP — if this keeps "
+            "happening, switch to an HTTPS email API by setting NEWSLETTER_API_KEY."
+            % (_env("SMTP_HOST"), smtp_settings()["port"]),
+            category="network", retryable=True)
+    return SendError("SMTP error: %s" % _redact(str(exc)), category="unknown", retryable=True)
+
+
+def _send_smtp(msg, to_email: str) -> Dict[str, Any]:
+    cfg = smtp_settings()
+    if not (cfg["host"] and cfg["username"] and cfg["password"]):
+        raise SendError("SMTP is not configured (need SMTP_HOST, SMTP_USERNAME, "
+                        "SMTP_PASSWORD).", category="config", retryable=False)
+    with _SMTP_LOCK:
+        try:
+            conn = _smtp_conn(cfg)
+            conn.send_message(msg, from_addr=sender_email(), to_addrs=[to_email])
+        except Exception as exc:  # noqa: BLE001
+            _smtp_close()
+            err = _smtp_error(exc)
+            # One clean retry on a dropped connection: providers close idle
+            # sockets routinely and that must not surface as a failed send.
+            if err.retryable and err.category == "network":
+                try:
+                    conn = _smtp_conn(cfg)
+                    conn.send_message(msg, from_addr=sender_email(), to_addrs=[to_email])
+                    return {"providerId": ""}
+                except Exception as exc2:  # noqa: BLE001
+                    _smtp_close()
+                    raise _smtp_error(exc2) from exc2
+            raise err from exc
+    return {"providerId": ""}
+
+
+def _smtp_check() -> Dict[str, Any]:
+    """Connect and authenticate without sending anything."""
+    cfg = smtp_settings()
+    out = {"connected": False, "error": ""}
+    if not (cfg["host"] and cfg["username"] and cfg["password"]):
+        out["error"] = "Set SMTP_HOST, SMTP_USERNAME and SMTP_PASSWORD."
+        return out
+    with _SMTP_LOCK:
+        try:
+            _smtp_close()
+            conn = _smtp_connect(cfg)
+            _SMTP_CONN["conn"] = conn
+            _SMTP_CONN["at"] = time.time()
+            out["connected"] = True
+        except Exception as exc:  # noqa: BLE001
+            _smtp_close()
+            out["error"] = str(_smtp_error(exc))
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  TRANSPORT 2 — HTTPS email API (Resend / Postmark / Brevo / SendGrid)
+# ═══════════════════════════════════════════════════════════════════════════
+def _http_headers(provider: str, key: str) -> Dict[str, str]:
+    spec = HTTP_PROVIDERS[provider]
+    h = {"Content-Type": "application/json"}
+    if spec["auth"] == "bearer":
+        h["Authorization"] = "Bearer " + key
+    elif spec["auth"] == "postmark":
+        h["X-Postmark-Server-Token"] = key
+    elif spec["auth"] == "brevo":
+        h["api-key"] = key
+    return h
+
+
+def _http_body(provider: str, *, to_email: str, subject: str, html_body: str,
+               text_body: str, headers: Dict[str, str]) -> bytes:
+    """Shape the request for one provider. The custom headers carry
+    List-Unsubscribe, which every provider exposes differently and none of them
+    add for you."""
+    spec = HTTP_PROVIDERS[provider]
+    frm = formataddr((_clean_header(sender_name(), 120), sender_email()))
+    style = spec["style"]
+    if style == "resend":
+        body = {"from": frm, "to": [to_email], "subject": subject,
+                "html": html_body, "text": text_body,
+                "reply_to": reply_to(), "headers": headers}
+    elif style == "postmark":
+        body = {"From": frm, "To": to_email, "Subject": subject,
+                "HtmlBody": html_body, "TextBody": text_body,
+                "ReplyTo": reply_to(), "MessageStream": _env("POSTMARK_STREAM", "broadcast"),
+                "Headers": [{"Name": k, "Value": v} for k, v in headers.items()]}
+    elif style == "brevo":
+        body = {"sender": {"email": sender_email(), "name": sender_name()},
+                "to": [{"email": to_email}], "subject": subject,
+                "htmlContent": html_body, "textContent": text_body,
+                "replyTo": {"email": reply_to()}, "headers": headers}
+    else:  # sendgrid
+        body = {"personalizations": [{"to": [{"email": to_email}]}],
+                "from": {"email": sender_email(), "name": sender_name()},
+                "reply_to": {"email": reply_to()}, "subject": subject,
+                "content": [{"type": "text/plain", "value": text_body},
+                            {"type": "text/html", "value": html_body}],
+                "headers": headers}
+    return json.dumps(body).encode("utf-8")
+
+
+def _send_http(*, to_email: str, subject: str, html_body: str, text_body: str,
+               unsub: str, one_click: str, is_bulk: bool) -> Dict[str, Any]:
+    provider = http_provider()
+    if not provider:
+        raise SendError("No email API is configured (set NEWSLETTER_API_KEY).",
+                        category="config", retryable=False)
+    key = _api_key_for(provider)
+    spec = HTTP_PROVIDERS[provider]
+
+    headers: Dict[str, str] = {}
+    if unsub:
+        targets = ["<%s>" % _clean_header(unsub, 900)]
+        if one_click:
+            targets.insert(0, "<%s>" % _clean_header(one_click, 900))
+        targets.append("<mailto:%s?subject=unsubscribe>" % reply_to())
+        headers["List-Unsubscribe"] = ", ".join(targets)
+        if one_click:
+            headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+    if is_bulk:
+        headers["Precedence"] = "bulk"
+
+    body = _http_body(provider, to_email=to_email, subject=_clean_header(subject, 900),
+                      html_body=html_body, text_body=text_body, headers=headers)
+    status, data = _http_json(spec["url"], data=body,
+                              headers=_http_headers(provider, key), method="POST")
+
+    if 200 <= status < 300:
+        pid = ""
+        for k in spec["id_path"]:
+            pid = str((data or {}).get(k) or "")
+            if pid:
+                break
+        return {"providerId": pid}
+
+    detail = _redact(json.dumps(data))
+    if status in (401, 403):
+        raise SendError("%s rejected the API key or the From address (%s): %s"
+                        % (spec["label"], status, detail),
+                        category="auth_revoked", retryable=False, status=status)
+    if status == 429:
+        raise SendError("%s rate limit: %s" % (spec["label"], detail),
+                        category="rate_limit", retryable=True, status=429)
+    if status >= 500:
+        raise SendError("%s server error (%s): %s" % (spec["label"], status, detail),
+                        category="server", retryable=True, status=status)
+    raise SendError("%s rejected the message (%s): %s" % (spec["label"], status, detail),
+                    category="invalid_message", retryable=False, status=status)
+
+
+def _http_check() -> Dict[str, Any]:
+    """Is the API key accepted? Deliberately does NOT send anything.
+
+    Every one of these providers answers an unauthenticated/garbage request
+    with 401 and an authenticated one with 4xx-about-the-payload, so an
+    intentionally-empty POST separates "key is wrong" from "key is fine" with
+    nobody receiving mail.
+    """
+    provider = http_provider()
+    out = {"connected": False, "error": ""}
+    if not provider:
+        out["error"] = "Set NEWSLETTER_API_KEY."
+        return out
+    spec = HTTP_PROVIDERS[provider]
+    key = _api_key_for(provider)
+    try:
+        status, data = _http_json(spec["url"], data=b"{}",
+                                  headers=_http_headers(provider, key), method="POST")
+    except SendError as exc:
+        out["error"] = "Could not reach %s: %s" % (spec["label"], exc)
+        return out
+    if status in (401, 403):
+        out["error"] = "%s rejected the API key." % spec["label"]
+        return out
+    # 400/422 = the key worked and it is complaining about the empty body.
+    out["connected"] = True
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  TRANSPORT 3 — Gmail API (optional; the only one needing a Google project)
+# ═══════════════════════════════════════════════════════════════════════════
 def _fetch_access_token(force: bool = False) -> str:
     """Exchange the stored refresh token for an access token, cached until ~1
     minute before it expires. Never logged, never returned to any client, never
@@ -964,41 +1429,20 @@ def _fetch_access_token(force: bool = False) -> str:
         return token
 
 
-def connection_status() -> Dict[str, Any]:
-    """Live Gmail connection check for the admin Settings panel.
+def _gmail_check() -> Dict[str, Any]:
+    """Refresh the token, then ask /tokeninfo WHICH account it belongs to.
 
-    Refreshes the access token, then asks /tokeninfo which account it belongs
-    to and which scopes it carries. That is how we confirm the authenticated
-    account is genuinely allowed to send as GMAIL_SENDER_EMAIL rather than
-    assuming it — a mismatch here means Gmail would reject or rewrite the From
-    address, which is exactly the thing that must never be faked.
-
-    Returns only booleans, the account email and scope names. No token, no
-    fragment of a token, ever leaves this function.
+    That is how we confirm the authorised account is genuinely allowed to send
+    as the From address rather than assuming it — a mismatch means Gmail would
+    reject or rewrite the From, which is the thing that must never be faked.
+    No token, or fragment of one, ever leaves this function.
     """
-    out: Dict[str, Any] = {
-        "configured": gmail_configured(),
-        "connected": False,
-        "senderEmail": sender_email(),
-        "senderName": sender_name(),
-        "replyTo": reply_to(),
-        "authorizedAs": "",
-        "canSendAsSender": False,
-        "scopes": [],
-        "sanitizer": sanitizer_name(),
-        "dailyCap": daily_send_cap(),
-        "error": "",
-    }
-    if not out["configured"]:
-        out["error"] = ("Not connected. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET "
-                        "and GOOGLE_REFRESH_TOKEN in Render.")
-        return out
+    out: Dict[str, Any] = {"connected": False, "error": "", "authorizedAs": "", "scopes": []}
     try:
         token = _fetch_access_token(force=True)
     except SendError as exc:
         out["error"] = str(exc)
         return out
-
     status, data = _http_json(GOOGLE_TOKENINFO_URI + "?access_token=" + urllib.parse.quote(token))
     if status != 200:
         out["error"] = "Google rejected the access token (%s)." % status
@@ -1009,21 +1453,113 @@ def connection_status() -> Dict[str, Any]:
     scopes = str(data.get("scope") or "").split()
     out["scopes"] = [s.rsplit("/", 1)[-1] for s in scopes]
     if not any(s.endswith("gmail.send") for s in scopes):
-        out["error"] = ("The connected account did not grant the gmail.send scope. "
-                        "Re-run the refresh-token script and approve sending.")
-        return out
-    if not acct:
-        out["error"] = ("Could not read the authorised account address — the 'email' "
-                        "scope was not granted. Re-run the refresh-token script.")
-        return out
-    out["canSendAsSender"] = (acct == sender_email().strip().lower())
-    if not out["canSendAsSender"]:
-        out["error"] = (
-            "Authorised as %s but GMAIL_SENDER_EMAIL is %s. Gmail will not let this "
-            "account send as that address unless it is a verified 'Send mail as' alias. "
-            "Either re-authorise as %s, or set GMAIL_SENDER_EMAIL to the authorised "
-            "account." % (acct, sender_email(), sender_email())
+        out["connected"] = False
+        out["error"] = "The connected account did not grant the gmail.send scope."
+    return out
+
+
+def connection_status() -> Dict[str, Any]:
+    """Live sending check for the admin Connections panel.
+
+    Reports on whichever transport is ACTIVE, and is careful to distinguish
+    what it verified from what it merely assumed:
+
+      connected        — we really did open a session / the key really was
+                         accepted. Not a guess.
+      canSendAsSender  — the From address is CONFIRMED usable. Only the Gmail
+                         API can prove this (its /tokeninfo names the account).
+                         SMTP and the HTTP APIs enforce it at send time and
+                         give no way to ask in advance, so this stays optimistic
+                         there and the panel says a first test send is the real
+                         proof. Claiming a verification we did not perform is
+                         exactly how a "configured" system quietly fails.
+
+    Never returns a password, an API key, or a token.
+    """
+    t = transport()
+    out: Dict[str, Any] = {
+        "transport": t,
+        "transportLabel": transport_label(),
+        "configured": bool(t),
+        "connected": False,
+        "senderEmail": sender_email(),
+        "senderName": sender_name(),
+        "replyTo": reply_to(),
+        "authorizedAs": "",
+        "canSendAsSender": False,
+        "senderVerified": False,      # True only when genuinely PROVEN
+        "scopes": [],
+        "sanitizer": sanitizer_name(),
+        "dailyCap": daily_send_cap(),
+        "error": "",
+        "setupHint": "",
+    }
+
+    if not t:
+        out["error"] = "No way to send email is configured yet."
+        out["setupHint"] = (
+            "Easiest: set SMTP_HOST, SMTP_PORT, SMTP_USERNAME and SMTP_PASSWORD "
+            "from your existing mail provider. Alternative: set NEWSLETTER_API_KEY "
+            "for an HTTPS email API (Resend, Postmark, Brevo, SendGrid)."
         )
+        return out
+
+    if not normalize_email(sender_email()):
+        out["error"] = "NEWSLETTER_FROM_EMAIL (%r) is not a valid address." % sender_email()
+        return out
+
+    if t == "smtp":
+        res = _smtp_check()
+        cfg = smtp_settings()
+        out["authorizedAs"] = cfg["username"]
+        out["connected"] = bool(res["connected"])
+        out["error"] = res["error"]
+        out["scopes"] = ["%s:%s (%s)" % (cfg["host"], cfg["port"], cfg["security"])]
+        # Logged in successfully ⇒ the server will accept mail from us. Whether
+        # it accepts THIS From address is only knowable by trying.
+        out["canSendAsSender"] = out["connected"]
+        if out["connected"] and cfg["username"].lower() == sender_email().lower():
+            # The From matches the authenticated mailbox — as close to proven as
+            # SMTP gets without sending.
+            out["senderVerified"] = True
+        elif out["connected"]:
+            out["setupHint"] = (
+                "The From address (%s) is not the same as the SMTP login (%s). Most "
+                "providers only allow that if it is a verified alias — send a test "
+                "email to confirm." % (sender_email(), cfg["username"]))
+        return out
+
+    if t == "http":
+        provider = http_provider()
+        spec = HTTP_PROVIDERS.get(provider) or {}
+        res = _http_check()
+        out["authorizedAs"] = spec.get("label", provider)
+        out["connected"] = bool(res["connected"])
+        out["error"] = res["error"]
+        out["scopes"] = [spec.get("label", provider)]
+        out["canSendAsSender"] = out["connected"]
+        if out["connected"]:
+            out["setupHint"] = (
+                "%s will only send from a domain you have verified in its dashboard. "
+                "If a send is refused, verify %s there."
+                % (spec.get("label", provider), sender_email().split("@")[-1]))
+        return out
+
+    # gmail_api
+    res = _gmail_check()
+    out["connected"] = bool(res["connected"])
+    out["authorizedAs"] = res["authorizedAs"]
+    out["scopes"] = res["scopes"]
+    out["error"] = res["error"]
+    if out["connected"] and res["authorizedAs"]:
+        proven = res["authorizedAs"] == sender_email().strip().lower()
+        out["canSendAsSender"] = proven
+        out["senderVerified"] = proven
+        if not proven:
+            out["error"] = (
+                "Authorised as %s but the From address is %s. Gmail will not send as "
+                "that address unless it is a verified 'Send mail as' alias."
+                % (res["authorizedAs"], sender_email()))
     return out
 
 
@@ -1082,33 +1618,57 @@ def send_email(
     requirement. No To/CC/BCC ever carries more than the single subscriber the
     message is for, so no subscriber can learn that another subscriber exists.
 
-    Returns {"messageId": …, "gmailId": …}. Raises SendError on failure with a
-    category the caller uses to decide whether to retry.
+    Returns {"messageId": …, "gmailId": …} — `gmailId` keeps its name because
+    the campaign records already store it; it now holds whichever id the active
+    provider returned (empty for SMTP, which has none). Raises SendError on
+    failure with a category the caller uses to decide whether to retry.
     """
     to_norm = normalize_email(to_email)
     if not to_norm:
         raise SendError("invalid recipient address", category="invalid_recipient",
                         retryable=False)
+
+    t = transport()
+    if not t:
+        raise SendError(
+            "No way to send email is configured. Set SMTP_HOST / SMTP_USERNAME / "
+            "SMTP_PASSWORD, or NEWSLETTER_API_KEY.",
+            category="config", retryable=False)
+
     if not _cap_take():
         raise SendError(
             "Daily sending cap reached (%d messages today). Sending resumes after "
-            "00:00 UTC; raise NEWSLETTER_DAILY_SEND_CAP only if your Google "
-            "Workspace quota genuinely allows it." % daily_send_cap(),
+            "00:00 UTC; raise NEWSLETTER_DAILY_SEND_CAP only if your provider's "
+            "quota genuinely allows it." % daily_send_cap(),
             category="daily_cap", retryable=True)
 
-    raw, message_id = build_mime(
+    msg, message_id = _build_message(
         to_email=to_norm, subject=subject, html_body=html_body, text_body=text_body,
         unsubscribe_url=unsubscribe_url, one_click_url=one_click_url, is_bulk=is_bulk,
     )
-    token = _fetch_access_token()
 
-    # Pace the wire without holding the lock across the network call.
+    # Pace the wire. Done BEFORE the send and outside any transport lock, so a
+    # slow provider does not compound with the deliberate gap.
     with _SEND_LOCK:
         gap = _SEND_GAP_SEC - (time.time() - float(_LAST_SEND["at"]))
         if gap > 0:
             time.sleep(gap)
         _LAST_SEND["at"] = time.time()
 
+    if t == "smtp":
+        res = _send_smtp(msg, to_norm)
+    elif t == "http":
+        res = _send_http(to_email=to_norm, subject=subject, html_body=html_body,
+                         text_body=text_body, unsub=unsubscribe_url,
+                         one_click=one_click_url, is_bulk=is_bulk)
+    else:
+        res = _send_gmail_api(msg)
+    return {"messageId": message_id, "gmailId": str(res.get("providerId") or "")}
+
+
+def _send_gmail_api(msg) -> Dict[str, Any]:
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("ascii")
+    token = _fetch_access_token()
     body = json.dumps({"raw": raw}).encode("utf-8")
     headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
     status, data = _http_json(GMAIL_SEND_URI, data=body, headers=headers, method="POST")
@@ -1121,7 +1681,7 @@ def send_email(
         status, data = _http_json(GMAIL_SEND_URI, data=body, headers=headers, method="POST")
 
     if status in (200, 202):
-        return {"messageId": message_id, "gmailId": str(data.get("id") or "")}
+        return {"providerId": str(data.get("id") or "")}
 
     detail = _redact(json.dumps(data))
     if status == 429 or status in (500, 502, 503, 504):

@@ -23,6 +23,7 @@ Run:  python3 test_newsletter_server.py
 from __future__ import annotations
 
 import copy
+import json
 import os
 import sys
 import types
@@ -33,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # ── Environment MUST be set before the modules read it ─────────────────────
 os.environ.setdefault("NEWSLETTER_UNSUBSCRIBE_SECRET", "test-secret-do-not-use-in-production")
 os.environ.setdefault("ADMIN_EMAIL", "timothy.honey@beardedsealstudios.com")
-os.environ.setdefault("GMAIL_SENDER_EMAIL", "timothy.honey@beardedsealstudios.com")
+os.environ.setdefault("NEWSLETTER_FROM_EMAIL", "timothy.honey@beardedsealstudios.com")
 os.environ.setdefault("APP_BASE_URL", "https://play.currentsandcritters.com")
 os.environ.setdefault("CURRENTS_AND_CRITTERS_URL", "https://currentsandcritters.com")
 
@@ -285,9 +286,11 @@ class Base(unittest.TestCase):
         self._real_conn = ne.connection_status
         ne.connection_status = lambda: {
             "configured": True, "connected": True, "canSendAsSender": True,
+            "senderVerified": True, "transport": "smtp",
+            "transportLabel": "SMTP (smtp.example.com)",
             "senderEmail": ADMIN, "senderName": "Currents & Critters", "replyTo": ADMIN,
-            "authorizedAs": ADMIN, "scopes": ["gmail.send"], "sanitizer": ne.sanitizer_name(),
-            "dailyCap": 1200, "error": "",
+            "authorizedAs": ADMIN, "scopes": ["smtp.example.com:587 (starttls)"],
+            "sanitizer": ne.sanitizer_name(), "dailyCap": 1200, "error": "", "setupHint": "",
         }
 
     def tearDown(self):
@@ -1058,6 +1061,7 @@ class TestCampaigns(Base):
         self._make_list(2)
         cid = self._draft()
         ne.connection_status = lambda: {"connected": False, "canSendAsSender": False,
+                                        "transportLabel": "not configured",
                                         "error": "not connected"}
         h = self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
         self.assertFalse(h.last["ok"])
@@ -1263,6 +1267,339 @@ class TestAudit(Base):
         self.assertIn("Some Other Question", s["lastSeenLabels"])
         self.assertFalse(s["lastSeenMatched"])
         self.assertNotIn("someone@x.com", repr(s), "an ANSWER is never recorded, only the label")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 11. TRANSPORTS — the system must work with NOTHING Google-shaped configured
+# ══════════════════════════════════════════════════════════════════════════
+class _EnvSandbox(unittest.TestCase):
+    """Base that restores every transport env var, so one test's SMTP_HOST
+    cannot decide another test's transport."""
+
+    KEYS = ("NEWSLETTER_TRANSPORT", "SMTP_HOST", "SMTP_PORT", "SMTP_USERNAME",
+            "SMTP_PASSWORD", "SMTP_SECURITY", "NEWSLETTER_API_KEY",
+            "NEWSLETTER_HTTP_PROVIDER", "RESEND_API_KEY", "POSTMARK_API_KEY",
+            "BREVO_API_KEY", "SENDGRID_API_KEY", "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN")
+
+    def setUp(self):
+        self._saved = {k: os.environ.get(k) for k in self.KEYS}
+        for k in self.KEYS:
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+
+class TestTransportSelection(_EnvSandbox):
+    def test_nothing_configured(self):
+        self.assertEqual(ne.transport(), "")
+        self.assertFalse(ne.configured())
+        st = ne.connection_status()
+        self.assertFalse(st["connected"])
+        self.assertFalse(st["configured"])
+        # It must TELL you how to fix it, and lead with the easy option.
+        self.assertIn("SMTP_HOST", st["setupHint"])
+        self.assertIn("NEWSLETTER_API_KEY", st["setupHint"])
+
+    def test_smtp_wins_and_needs_no_google(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="me@x.com",
+                          SMTP_PASSWORD="pw")
+        self.assertEqual(ne.transport(), "smtp")
+        self.assertTrue(ne.configured())
+        # Not one Google variable is set.
+        for k in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"):
+            self.assertIsNone(os.environ.get(k))
+
+    def test_smtp_takes_priority_over_google(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="me@x.com",
+                          SMTP_PASSWORD="pw", GOOGLE_CLIENT_ID="a",
+                          GOOGLE_CLIENT_SECRET="b", GOOGLE_REFRESH_TOKEN="c")
+        self.assertEqual(ne.transport(), "smtp",
+                         "filling in SMTP must make the Google vars dead weight")
+
+    def test_api_key_alone_selects_http(self):
+        os.environ["NEWSLETTER_API_KEY"] = "re_test123"
+        self.assertEqual(ne.transport(), "http")
+        self.assertEqual(ne.http_provider(), "resend")
+
+    def test_provider_named_key_selects_that_provider(self):
+        os.environ["POSTMARK_API_KEY"] = "pm-test"
+        self.assertEqual(ne.transport(), "http")
+        self.assertEqual(ne.http_provider(), "postmark")
+        self.assertIn("Postmark", ne.transport_label())
+
+    def test_explicit_override(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME="u",
+                          SMTP_PASSWORD="p", NEWSLETTER_API_KEY="re_x",
+                          NEWSLETTER_TRANSPORT="http")
+        self.assertEqual(ne.transport(), "http")
+        os.environ["NEWSLETTER_TRANSPORT"] = "smtp"
+        self.assertEqual(ne.transport(), "smtp")
+
+    def test_port_465_implies_implicit_tls(self):
+        os.environ.update(SMTP_HOST="h", SMTP_USERNAME="u", SMTP_PASSWORD="p",
+                          SMTP_PORT="465")
+        self.assertEqual(ne.smtp_settings()["security"], "ssl")
+        os.environ["SMTP_PORT"] = "587"
+        self.assertEqual(ne.smtp_settings()["security"], "starttls")
+
+    def test_send_without_any_transport_is_a_clear_config_error(self):
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "config")
+        self.assertFalse(cm.exception.retryable, "a missing config never retries")
+        self.assertIn("SMTP_HOST", str(cm.exception))
+
+
+class TestSmtpTransport(_EnvSandbox):
+    def setUp(self):
+        super().setUp()
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME=ADMIN,
+                          SMTP_PASSWORD="apppassword", SMTP_PORT="587")
+        ne._smtp_close()
+        self.sent = []
+
+        class FakeSMTP:
+            def __init__(_s, *a, **k): pass
+            def ehlo(_s): return (250, b"ok")
+            def starttls(_s, **k): return (220, b"ok")
+            def login(_s, u, p): return (235, b"ok")
+            def noop(_s): return (250, b"ok")
+            def send_message(_s, msg, from_addr=None, to_addrs=None):
+                self.sent.append({"msg": msg, "from": from_addr, "to": to_addrs})
+                return {}
+            def quit(_s): return None
+            def close(_s): return None
+
+        self.FakeSMTP = FakeSMTP
+        self._orig_connect = ne._smtp_connect
+        ne._smtp_connect = lambda cfg: FakeSMTP()
+
+    def tearDown(self):
+        ne._smtp_connect = self._orig_connect
+        ne._smtp_close()
+        super().tearDown()
+
+    def test_sends_one_recipient_with_full_headers(self):
+        res = ne.send_email(
+            to_email="Fan@Example.com", subject="Hello",
+            html_body="<p>hi</p>", text_body="hi",
+            unsubscribe_url="https://play.currentsandcritters.com/newsletter/unsubscribe/t.k",
+            one_click_url="https://play.currentsandcritters.com/newsletter/unsubscribe/t.k")
+        self.assertTrue(res["messageId"].startswith("<"))
+        self.assertEqual(len(self.sent), 1)
+        rec = self.sent[0]
+        self.assertEqual(rec["to"], ["fan@example.com"], "exactly one envelope recipient")
+        self.assertEqual(rec["from"], ADMIN)
+        msg = rec["msg"]
+        self.assertEqual(msg["To"], "fan@example.com")
+        self.assertIn("List-Unsubscribe", msg)
+        self.assertEqual(msg["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click")
+        self.assertEqual(msg["Reply-To"], ADMIN)
+        self.assertEqual(msg.get_content_type(), "multipart/alternative")
+        parts = [p.get_content_type() for p in msg.get_payload()]
+        self.assertEqual(parts, ["text/plain", "text/html"],
+                         "plain first — multipart/alternative is last-part-wins")
+
+    def test_connection_is_reused_across_sends(self):
+        opened = {"n": 0}
+        orig = ne._smtp_connect
+        def counting(cfg):
+            opened["n"] += 1
+            return orig(cfg)
+        ne._smtp_connect = counting
+        for i in range(5):
+            ne.send_email(to_email="p%d@x.com" % i, subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(len(self.sent), 5)
+        self.assertEqual(opened["n"], 1, "one TLS handshake, not five")
+
+    def test_bad_password_is_permanent_not_retried(self):
+        import smtplib
+        ne._smtp_connect = lambda cfg: (_ for _ in ()).throw(
+            smtplib.SMTPAuthenticationError(535, b"bad creds"))
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "auth_revoked")
+        self.assertFalse(cm.exception.retryable,
+                         "a wrong password must not be retried per-recipient")
+        self.assertIn("App Password", str(cm.exception))
+
+    def test_dropped_connection_reconnects_and_still_sends(self):
+        import smtplib
+        state = {"first": True}
+        outer = self
+        class Flaky(self.FakeSMTP):
+            def send_message(_s, msg, from_addr=None, to_addrs=None):
+                if state["first"]:
+                    state["first"] = False
+                    raise smtplib.SMTPServerDisconnected("closed")
+                outer.sent.append({"msg": msg, "from": from_addr, "to": to_addrs})
+                return {}
+        ne._smtp_connect = lambda cfg: Flaky()
+        ne.send_email(to_email="a@b.com", subject="s", html_body="<p>x</p>", text_body="x")
+        self.assertEqual(len(self.sent), 1, "the retry delivered it")
+
+    def test_blocked_port_says_what_to_do_instead(self):
+        ne._smtp_connect = lambda cfg: (_ for _ in ()).throw(OSError("connection refused"))
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "network")
+        self.assertTrue(cm.exception.retryable)
+        self.assertIn("NEWSLETTER_API_KEY", str(cm.exception),
+                      "a blocked SMTP port must point at the HTTP fallback")
+
+    def test_connection_status_reports_smtp(self):
+        st = ne.connection_status()
+        self.assertEqual(st["transport"], "smtp")
+        self.assertTrue(st["connected"])
+        self.assertTrue(st["canSendAsSender"])
+        self.assertTrue(st["senderVerified"],
+                        "From == SMTP username is as close to proven as SMTP gets")
+        self.assertIn("smtp.example.com", st["transportLabel"])
+        self.assertNotIn("apppassword", repr(st), "the password never leaves the server")
+
+    def test_mismatched_from_is_flagged_but_not_claimed_verified(self):
+        os.environ["SMTP_USERNAME"] = "someoneelse@x.com"
+        st = ne.connection_status()
+        self.assertTrue(st["connected"])
+        self.assertFalse(st["senderVerified"],
+                         "we did not prove the From address, so we must not claim we did")
+        self.assertIn("verified alias", st["setupHint"])
+
+
+class TestHttpTransport(_EnvSandbox):
+    def setUp(self):
+        super().setUp()
+        os.environ["NEWSLETTER_API_KEY"] = "re_testkey"
+        self.calls = []
+        self._orig = ne._http_json
+
+        def fake(url, *, data=None, headers=None, method="GET", timeout=30):
+            self.calls.append({"url": url, "body": json.loads(data.decode()) if data else {},
+                               "headers": headers or {}})
+            return 200, {"id": "msg-123", "MessageID": "pm-1", "messageId": "bv-1"}
+        ne._http_json = fake
+
+    def tearDown(self):
+        ne._http_json = self._orig
+        super().tearDown()
+
+    def test_resend_shape(self):
+        res = ne.send_email(to_email="a@b.com", subject="Hi",
+                            html_body="<p>x</p>", text_body="x",
+                            unsubscribe_url="https://u/1", one_click_url="https://u/1")
+        self.assertEqual(res["gmailId"], "msg-123")
+        c = self.calls[0]
+        self.assertEqual(c["url"], "https://api.resend.com/emails")
+        self.assertTrue(c["headers"]["Authorization"].startswith("Bearer "))
+        self.assertEqual(c["body"]["to"], ["a@b.com"], "one recipient per request")
+        self.assertIn("List-Unsubscribe", c["body"]["headers"])
+        self.assertEqual(c["body"]["headers"]["List-Unsubscribe-Post"],
+                         "List-Unsubscribe=One-Click")
+        self.assertTrue(c["body"]["text"], "a plain-text part is always included")
+
+    def test_postmark_shape(self):
+        os.environ["NEWSLETTER_HTTP_PROVIDER"] = "postmark"
+        ne.send_email(to_email="a@b.com", subject="Hi", html_body="<p>x</p>",
+                      text_body="x", unsubscribe_url="https://u/1")
+        c = self.calls[0]
+        self.assertEqual(c["url"], "https://api.postmarkapp.com/email")
+        self.assertIn("X-Postmark-Server-Token", c["headers"])
+        self.assertEqual(c["body"]["To"], "a@b.com")
+        names = [h["Name"] for h in c["body"]["Headers"]]
+        self.assertIn("List-Unsubscribe", names)
+
+    def test_brevo_and_sendgrid_shapes(self):
+        for prov, url, key_hdr in (
+            ("brevo", "https://api.brevo.com/v3/smtp/email", "api-key"),
+            ("sendgrid", "https://api.sendgrid.com/v3/mail/send", "Authorization"),
+        ):
+            self.calls.clear()
+            os.environ["NEWSLETTER_HTTP_PROVIDER"] = prov
+            ne.send_email(to_email="a@b.com", subject="Hi",
+                          html_body="<p>x</p>", text_body="x")
+            c = self.calls[0]
+            self.assertEqual(c["url"], url, prov)
+            self.assertIn(key_hdr, c["headers"], prov)
+
+    def test_bad_key_is_permanent(self):
+        ne._http_json = lambda *a, **k: (401, {"message": "invalid api key"})
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "auth_revoked")
+        self.assertFalse(cm.exception.retryable)
+
+    def test_rate_limit_is_retryable(self):
+        ne._http_json = lambda *a, **k: (429, {"message": "slow down"})
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "rate_limit")
+        self.assertTrue(cm.exception.retryable)
+
+    def test_api_key_never_appears_in_status(self):
+        st = ne.connection_status()
+        self.assertEqual(st["transport"], "http")
+        self.assertNotIn("re_testkey", repr(st))
+        self.assertFalse(st["senderVerified"],
+                         "an API provider cannot prove the From address up front")
+
+
+class TestNoGoogleAnywhere(_EnvSandbox):
+    """The point of the whole change: a fully working newsletter with zero
+    Google configuration."""
+
+    def test_full_signup_and_send_over_smtp_with_no_google_vars(self):
+        os.environ.update(SMTP_HOST="smtp.example.com", SMTP_USERNAME=ADMIN,
+                          SMTP_PASSWORD="pw")
+        sent = []
+        orig_connect = ne._smtp_connect
+
+        class FakeSMTP:
+            def ehlo(_s): return (250, b"ok")
+            def starttls(_s, **k): return (220, b"ok")
+            def login(_s, u, p): return (235, b"ok")
+            def noop(_s): return (250, b"ok")
+            def send_message(_s, msg, from_addr=None, to_addrs=None):
+                sent.append(to_addrs); return {}
+            def quit(_s): return None
+            def close(_s): return None
+
+        ne._smtp_connect = lambda cfg: FakeSMTP()
+        ne._smtp_close()
+        db = FakeDb()
+        ns.init(get_firestore=lambda: db, verify_token=_verify)
+        ns._invalidate_subs_cache()
+        try:
+            ev = {"id": "evt_ng", "type": "checkout.session.completed", "data": {"object": {
+                "id": "cs_ng", "payment_status": "paid", "custom_fields": [{
+                    "label": {"type": "custom", "custom": "Enter your email to get updates"},
+                    "type": "text", "text": {"value": "fan@example.com"}}]}}}
+            self.assertEqual(
+                ns.handle_stripe_session(ev, ev["data"]["object"]), "created")
+            import queue as _q
+            while True:
+                try:
+                    ns._send_welcome_now(ns._welcome_q.get_nowait())
+                except _q.Empty:
+                    break
+            sub = db.collection(ns.C_SUBS)._docs[ns._subscriber_id("fan@example.com")]
+            self.assertEqual(sub["welcomeEmailStatus"], "sent")
+            self.assertIn(["fan@example.com"], sent, "the welcome really went out")
+            self.assertIn([ADMIN], sent, "and Tim was notified")
+        finally:
+            ne._smtp_connect = orig_connect
+            ne._smtp_close()
 
 
 if __name__ == "__main__":

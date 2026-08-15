@@ -509,8 +509,12 @@ check("audit shows entries", (D.screens.audit||{rows:0}).rows >= 3, "rows=" + (D
 check("progress shows a per-status breakdown",
       /Sent/.test((D.screens.progress||{text:''}).text) && /Failed/.test((D.screens.progress||{text:''}).text) &&
       /Skipped/.test((D.screens.progress||{text:''}).text));
-check("settings reports the Gmail connection",
-      /Gmail/.test((D.screens.settings||{text:''}).text));
+check("settings reports how email is sent",
+      /Email sending/.test((D.screens.settings||{text:''}).text) &&
+      /Method/.test((D.screens.settings||{text:''}).text));
+check("settings never claims a From address it did not verify",
+      !/Confirmed: this address/.test((D.screens.settings||{text:''}).text) ||
+      /Signed in as/.test((D.screens.settings||{text:''}).text));
 check("settings reports the Stripe webhook state",
       /Stripe/.test((D.screens.settings||{text:''}).text) && /webhook/i.test((D.screens.settings||{text:''}).text));
 check("settings shows which Stripe labels are accepted",

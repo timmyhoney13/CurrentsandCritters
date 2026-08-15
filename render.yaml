@@ -68,26 +68,45 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       # ── Newsletter (newsletter_server.py / newsletter_email.py) ─────────
-      # Full setup instructions, including every Google Cloud and DNS step,
-      # are in NEWSLETTER_SETUP.md. Values marked "secret" must be entered in
-      # the Render dashboard, never committed.
+      # Full setup, including DNS, is in NEWSLETTER_SETUP.md. Values marked
+      # sync:false are secrets — enter them in the Render dashboard, never here.
       #
-      #   ADMIN_EMAIL      The ONLY Google account that can open
-      #                    /admin/newsletter. Compared against the verified
-      #                    Firebase ID token server-side.
+      # ONLY TWO THINGS ARE ACTUALLY REQUIRED:
+      #   1. NEWSLETTER_UNSUBSCRIBE_SECRET
+      #   2. ONE way to send mail — the SMTP_* block below is the easy one.
+      #
       #   NEWSLETTER_UNSUBSCRIBE_SECRET
-      #                    Random 32+ byte string that signs unsubscribe
-      #                    links. REQUIRED — campaign sending refuses to start
-      #                    without it, because marketing mail with no working
-      #                    unsubscribe link is the thing that gets a domain
-      #                    blocked. ⚠️ Changing it invalidates every
-      #                    unsubscribe link already sitting in an inbox.
+      #                    Random 32+ byte string that signs unsubscribe links.
+      #                    REQUIRED — campaign sending refuses to start without
+      #                    it, because marketing mail with no working
+      #                    unsubscribe link is what gets a domain blocked.
+      #                    ⚠️ Changing it invalidates every unsubscribe link
+      #                    already sitting in someone's inbox.
       #                    Generate: python3 -c "import secrets;print(secrets.token_urlsafe(48))"
+      #
+      #   SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD
+      #                    THE DEFAULT AND EASIEST WAY TO SEND. Four values from
+      #                    whoever already hosts your domain email. Port 587 with
+      #                    STARTTLS is the norm; 465 switches to implicit TLS
+      #                    automatically. If your mail is on Google Workspace,
+      #                    use smtp.gmail.com with an APP PASSWORD — that needs
+      #                    no Google Cloud project, no OAuth consent screen and
+      #                    no refresh token.
+      #
+      #   NEWSLETTER_API_KEY (+ optional NEWSLETTER_HTTP_PROVIDER)
+      #                    ALTERNATIVE: an HTTPS email API instead of SMTP —
+      #                    resend | postmark | brevo | sendgrid (default resend).
+      #                    Use this if outbound SMTP is blocked. One key, no SMTP.
+      #
       #   GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / GOOGLE_REFRESH_TOKEN
-      #                    Gmail API OAuth credentials. Produce the refresh
-      #                    token locally with scripts/get_gmail_refresh_token.py
-      #                    and paste it here. Scopes requested: gmail.send +
-      #                    openid email — send-only, no mailbox read access.
+      #                    OPTIONAL third route (Gmail API over OAuth). Only this
+      #                    one needs a Google Cloud project, which is exactly why
+      #                    it is last and why nothing requires it. Leave unset.
+      #
+      #   NEWSLETTER_TRANSPORT
+      #                    Optional override: smtp | http | gmail_api. Unset, the
+      #                    first fully-configured one in that order wins.
+      #
       #   NEWSLETTER_FIELD_LABEL
       #                    Optional. The EXACT label of the optional newsletter
       #                    question on your Stripe Payment Links, if it is not
@@ -99,9 +118,9 @@ services:
       #                    shows the labels Stripe actually sent.
       - key: ADMIN_EMAIL
         value: timothy.honey@beardedsealstudios.com
-      - key: GMAIL_SENDER_EMAIL
+      - key: NEWSLETTER_FROM_EMAIL
         value: timothy.honey@beardedsealstudios.com
-      - key: GMAIL_SENDER_NAME
+      - key: NEWSLETTER_FROM_NAME
         value: Currents & Critters
       - key: APP_BASE_URL
         value: https://play.currentsandcritters.com
@@ -111,15 +130,21 @@ services:
         value: https://currentsandcritters.com/privacy
       - key: NEWSLETTER_DAILY_SEND_CAP
         value: "1200"
+      - key: SMTP_PORT
+        value: "587"
       - key: NEWSLETTER_UNSUBSCRIBE_SECRET
         sync: false
-      - key: GOOGLE_CLIENT_ID
+      - key: SMTP_HOST
         sync: false
-      - key: GOOGLE_CLIENT_SECRET
+      - key: SMTP_USERNAME
         sync: false
-      - key: GOOGLE_REFRESH_TOKEN
+      - key: SMTP_PASSWORD
         sync: false
-      - key: GOOGLE_REDIRECT_URI
+      - key: NEWSLETTER_API_KEY
+        sync: false
+      - key: NEWSLETTER_HTTP_PROVIDER
+        sync: false
+      - key: NEWSLETTER_TRANSPORT
         sync: false
       - key: NEWSLETTER_FIELD_LABEL
         sync: false

@@ -237,8 +237,10 @@
       st.appendChild(headRow("Connections"));
       var sp = el("div", "n-panel");
       if (s.ok) {
-        sp.appendChild(statusRow("Gmail sending", gmailChip(s.gmail),
-          s.gmail.connected ? ("Authorised as " + (s.gmail.authorizedAs || "?")) : (s.gmail.error || "")));
+        sp.appendChild(statusRow("Email sending", gmailChip(s.gmail),
+          s.gmail.connected
+            ? ((s.gmail.transportLabel || "") + " — signed in as " + (s.gmail.authorizedAs || "?"))
+            : (s.gmail.error || "")));
         sp.appendChild(statusRow("Stripe webhook secret",
           chip(s.stripe.webhookSecretSet ? "good" : "bad", s.stripe.webhookSecretSet ? "Set" : "Not set"),
           s.stripe.webhookSecretSet
@@ -270,7 +272,7 @@
   }
   function chip(kind, text) { return el("span", "n-chip " + kind, text); }
   function gmailChip(g) {
-    if (!g.configured) return chip("bad", "Not connected");
+    if (!g.configured) return chip("bad", "Not set up");
     if (!g.connected) return chip("bad", "Connection failed");
     if (!g.canSendAsSender) return chip("warn", "Wrong account");
     return chip("good", "Connected");
@@ -1146,21 +1148,32 @@
       var g = d.gmail, s = d.stripe;
 
       var p1 = el("div", "n-panel");
-      p1.appendChild(el("h3", null, "Gmail sending"));
+      p1.appendChild(el("h3", null, "Email sending"));
       p1.appendChild(el("p", "n-note",
-        "Newsletters are sent through the Gmail API using an OAuth refresh token stored " +
-        "only in Render. No password is stored and no token is ever sent to this page."));
+        "Credentials live only in Render environment variables. No password, API key " +
+        "or token is ever sent to this page."));
+      p1.appendChild(statusRow("Method", chip(g.transport ? "info" : "bad",
+        g.transportLabel || "not configured"),
+        g.transport === "smtp" ? "Standard SMTP — works with any mail provider."
+          : g.transport === "http" ? "HTTPS email API."
+          : g.transport === "gmail_api" ? "Gmail API (OAuth)."
+          : "Set SMTP_HOST / SMTP_USERNAME / SMTP_PASSWORD, or NEWSLETTER_API_KEY."));
       p1.appendChild(statusRow("Connection", gmailChip(g), g.error || "Ready to send."));
-      p1.appendChild(statusRow("Authorised account", chip(g.authorizedAs ? "info" : "neutral",
-        g.authorizedAs || "unknown"),
-        g.canSendAsSender ? "Matches the From address." :
-          "Must match GMAIL_SENDER_EMAIL or Gmail will refuse the send."));
-      p1.appendChild(statusRow("From address", chip("neutral", g.senderEmail), "Display name: " + g.senderName));
+      p1.appendChild(statusRow("Signed in as", chip(g.authorizedAs ? "info" : "neutral",
+        g.authorizedAs || "unknown"), ""));
+      p1.appendChild(statusRow("From address", chip("neutral", g.senderEmail),
+        g.senderVerified
+          ? "Confirmed: this address matches the account we authenticated as."
+          : "Not independently verifiable with this method — a test email is the real proof."));
       p1.appendChild(statusRow("Reply-To", chip("neutral", g.replyTo), ""));
-      p1.appendChild(statusRow("Granted scopes", chip("neutral", (g.scopes || []).join(", ") || "—"),
-        "gmail.send is send-only — it cannot read your mailbox."));
+      p1.appendChild(statusRow("Endpoint", chip("neutral", (g.scopes || []).join(", ") || "—"), ""));
       p1.appendChild(statusRow("Daily cap", chip("neutral", num(g.dailyCap) + " / day"),
-        "Google Workspace allows about 2,000 recipients per day; this cap leaves headroom."));
+        "Set NEWSLETTER_DAILY_SEND_CAP to match what your provider actually allows."));
+      if (g.setupHint) {
+        var hint = el("div", "n-warn-box", g.setupHint);
+        hint.style.marginTop = "14px";
+        p1.appendChild(hint);
+      }
       var recheck = el("button", "n-btn", "Re-check connection");
       recheck.style.marginTop = "14px";
       recheck.addEventListener("click", function () { go("settings"); });

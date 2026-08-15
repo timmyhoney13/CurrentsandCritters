@@ -333,7 +333,7 @@ AUDIT_ACTIONS = (
     "subscriber_reactivated", "welcome_email_sent", "welcome_email_failed",
     "test_email_sent", "draft_created", "draft_updated", "campaign_approved",
     "campaign_started", "campaign_completed", "campaign_failed", "csv_exported",
-    "unauthorized_admin_access", "gmail_check",
+    "unauthorized_admin_access", "connection_check",
 )
 
 
@@ -1093,7 +1093,9 @@ def _start_campaign(cid: str, *, admin: str, confirm: str) -> Dict[str, Any]:
 
     gm = nl_email.connection_status()
     if not gm.get("connected") or not gm.get("canSendAsSender"):
-        return {"ok": False, "error": "Gmail is not connected: " + (gm.get("error") or "unknown")}
+        return {"ok": False, "error": "Email sending is not connected (%s): %s"
+                                      % (gm.get("transportLabel") or "no transport",
+                                         gm.get("error") or "unknown")}
     if not unsub_secret_configured():
         return {"ok": False, "error": "NEWSLETTER_UNSUBSCRIBE_SECRET is not set, so unsubscribe "
                                       "links cannot be generated. Refusing to send."}
@@ -1585,7 +1587,9 @@ def _admin_test_send(body: Dict[str, Any], admin: str) -> Dict[str, Any]:
 
     gm = nl_email.connection_status()
     if not gm.get("connected"):
-        return {"ok": False, "error": "Gmail is not connected: " + (gm.get("error") or "unknown")}
+        return {"ok": False, "error": "Email sending is not connected (%s): %s"
+                                      % (gm.get("transportLabel") or "no transport",
+                                         gm.get("error") or "unknown")}
 
     # A test carries NO real unsubscribe token: it is not addressed to a
     # subscriber, and putting a live token in it would let anyone with the test
@@ -1995,8 +1999,9 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
 
         if action == "settings":
             gm = nl_email.connection_status()
-            audit("gmail_check", admin=admin,
-                  summary="Connection check: %s" % ("ok" if gm.get("connected") else "not connected"))
+            audit("connection_check", admin=admin,
+                  summary="Checked %s: %s" % (gm.get("transportLabel") or "no transport",
+                                              "ok" if gm.get("connected") else "not connected"))
             handler._send_json({
                 "ok": True,
                 "gmail": gm,
@@ -2101,6 +2106,6 @@ def init(*, get_firestore, verify_token, app_version: str = "") -> None:
     _verify_token = verify_token
     _app_version = str(app_version or "")
     start_worker()
-    print("[newsletter] ready (admin=%s, sanitizer=%s, unsub secret=%s)"
-          % (admin_email(), nl_email.sanitizer_name(),
+    print("[newsletter] ready (admin=%s, transport=%s, sanitizer=%s, unsub secret=%s)"
+          % (admin_email(), nl_email.transport_label(), nl_email.sanitizer_name(),
              "set" if unsub_secret_configured() else "MISSING"))
