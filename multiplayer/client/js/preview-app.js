@@ -10349,6 +10349,7 @@
     document.getElementById("pv-chat-btn").style.display = "none";
     document.getElementById("pv-endgame-overlay").classList.remove("open");
     try { setPlayAgainCallout(false); } catch (_) {}
+    try { _endSaveReset(); } catch (_) {}
     try { window._igcpSetVisible?.(false); } catch {}
     try { window._bsSetVisible?.(false); } catch {}
     _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;
@@ -10864,6 +10865,105 @@
   let _saveInFlightAt = 0;       // when the in-flight claim was made (auto-recovery if it ever sticks)
   let _saveFailToastAt = 0;      // throttle the visible "save failed" toast
 
+  // ── End-game save watchdog ────────────────────────────────────────────────
+  // saveGameStats is written to be retried: a failed write never sets
+  // _lastSavedWinner, and the comment says "the next poll retries". That was
+  // only ever true while the game was still moving. Once it is over the room's
+  // state_version stops changing, applyServerPayload drops the identical
+  // payload as already-rendered, renderEndGame is never called again — and so a
+  // save that lost the network for one second was never retried at all. The
+  // player's XP, streak and game history just quietly did not happen, on a
+  // screen that showed them all as if they had.
+  //
+  // So the end screen drives its own retry instead of riding on the poll, and
+  // says which of the three states it is in (see #gs-save-state).
+  let _endSaveState  = "idle";   // idle | pending | saved | failed | na (not signed in)
+  let _endSaveTimer  = null;
+  let _endSaveTries  = 0;
+  let _endSaveArgs   = null;     // [winner, finalScores, xp] for the retry
+  const _END_SAVE_MAX_TRIES = 40;    // ~5 min of retries, then it waits for a tap
+
+  function _endSaveSyncBanner() {
+    const box = document.getElementById("gs-save-state");
+    if (!box) return;
+    const txt = document.getElementById("gs-save-text");
+    box.classList.remove("saving", "failed");
+    if (_endSaveState === "pending") {
+      box.classList.add("saving");
+      if (txt) txt.textContent = "Saving your results…";
+    } else if (_endSaveState === "failed") {
+      box.classList.add("failed");
+      if (txt) {
+        txt.textContent = navigator.onLine === false
+          ? "You're offline — your XP and stats aren't saved yet."
+          : "Couldn't reach the server — your XP and stats aren't saved yet.";
+      }
+      const btn = document.getElementById("gs-save-retry");
+      if (btn) btn.disabled = false;
+    }
+    // "saved" and "na" show nothing: a screen that congratulates you on being
+    // saved every game is noise, and a guest has nothing to save.
+  }
+
+  function _endSaveRetryNow() {
+    if (!_endSaveArgs) return;
+    _endSaveTries++;
+    _endSaveState = "pending";
+    _endSaveSyncBanner();
+    // Pull the room state too. The end screen's live parts (the "x/N ready to
+    // play again" tally, the "<name> left" notices) come from the poll, and the
+    // poll is the other thing the dropped connection interrupted.
+    try { refreshState(); } catch (_) {}
+    try { saveGameStats(_endSaveArgs[0], _endSaveArgs[1], _endSaveArgs[2]); } catch (_) {}
+  }
+
+  function _endSaveWatch(winner, finalScores, xp) {
+    _endSaveArgs = [winner, finalScores, xp];
+    if (_endSaveTimer) return;                 // already watching this game
+    _endSaveTries = 0;
+    _endSaveTimer = setInterval(() => {
+      // "saved" is the only state worth stopping for. "na" deliberately is not:
+      // it can mean the account simply hasn't resolved yet, and giving up on
+      // that would be the same silent loss in a new costume. Retrying a session
+      // that really has no account costs one immediate return per tick, and
+      // _END_SAVE_MAX_TRIES bounds even that.
+      if (_endSaveState === "saved" || !_endSaveArgs) { _endSaveStop(); return; }
+      if (_endSaveTries >= _END_SAVE_MAX_TRIES) { _endSaveSyncBanner(); return; }
+      if (_saveInFlight) return;               // give the in-flight attempt its turn
+      _endSaveRetryNow();
+    }, 4000);
+  }
+
+  function _endSaveStop() {
+    if (_endSaveTimer) { clearInterval(_endSaveTimer); _endSaveTimer = null; }
+    _endSaveSyncBanner();
+  }
+
+  function _endSaveReset() {
+    // Called from every renderEndGame(null) — i.e. once a second for the whole
+    // game — so cost nothing when there is nothing to reset.
+    if (_endSaveState === "idle" && !_endSaveTimer && !_endSaveArgs) return;
+    _endSaveStop();
+    _endSaveState = "idle"; _endSaveTries = 0; _endSaveArgs = null;
+    const box = document.getElementById("gs-save-state");
+    if (box) box.classList.remove("saving", "failed");
+  }
+
+  // Coming back online is the one moment worth reacting to instantly rather
+  // than waiting out the rest of the interval.
+  window.addEventListener("online", () => {
+    if (_endSaveArgs && _endSaveState !== "saved" && _endSaveState !== "na" && !_saveInFlight) {
+      _endSaveTries = 0;
+      _endSaveRetryNow();
+    }
+  });
+  document.getElementById("gs-save-retry")?.addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;   // re-enabled by _endSaveSyncBanner if it fails again
+    _endSaveTries = 0;
+    _endSaveRetryNow();
+    if (!_endSaveTimer && _endSaveArgs) _endSaveWatch(..._endSaveArgs);
+  });
+
   // Real-player vs bot/AI detection. A real player has a logged-in account
   // (uid / kind "human"); a bot has kind "ai", is_ai/bot flags, or an AI-style
   // name. Used so saves are NEVER blocked by bots and bots NEVER get saved.
@@ -11327,11 +11427,13 @@
     const myNick   = typeof window.__fishNickname === "function" ? window.__fishNickname() : "";
     const isGuestSession = typeof window.__fishIsGuest === "function" ? !!window.__fishIsGuest() : false;
     if (!winner) return;
-    if ((!authUser || !db) && !isGuestSession) return;
+    // Nothing to save and nothing to warn about: there is no account behind
+    // this session. The watchdog reads "na" and stands down.
+    if ((!authUser || !db) && !isGuestSession) { _endSaveState = "na"; _endSaveSyncBanner(); return; }
     // Dedup is keyed on a SUCCESSFUL save: _lastSavedWinner is only set after
     // the write fully completes (see end of the try). So a transient write
     // failure no longer permanently blocks the save, the next poll retries.
-    if (winner === _lastSavedWinner) return; // already saved this game result
+    if (winner === _lastSavedWinner) { _endSaveState = "saved"; _endSaveSyncBanner(); return; } // already saved this game result
     // In-flight guard with auto-recovery: if a previous claim somehow never
     // released (e.g. an unexpected throw), don't block saves forever, release
     // it after 30s so the next poll can retry. This alone can cause "nothing
@@ -11373,9 +11475,11 @@
       })();
     if (!myEntry) {
       console.warn("[saveGameStats] could not locate my entry in final scores (will retry next poll). myNick=", myNick, "myIdx=", myIdx, "names=", _fs.map(p=>p.name));
+      _endSaveState = "pending"; _endSaveSyncBanner();
       return; // player entry not resolvable yet, DON'T set dedup, retry next poll
     }
     _saveInFlight = true; _saveInFlightAt = Date.now();   // claim this save; _lastSavedWinner is set only on success
+    _endSaveState = "pending"; _endSaveSyncBanner();
     const myScore    = Number(myEntry.score || 0);
     const myGameName = myEntry.name || myNick;
     const isComp     = typeof compMode !== "undefined" && compMode;
@@ -12116,6 +12220,13 @@
     } finally {
       // Release the in-flight claim so a retry (or the next game) can proceed.
       _saveInFlight = false;
+      // One place that decides what the end screen says, for every exit from
+      // the write above: _lastSavedWinner is the only proof the results landed.
+      if (_endSaveState !== "na") {
+        _endSaveState = (_lastSavedWinner === winner) ? "saved" : "failed";
+        if (_endSaveState === "saved") _endSaveStop();
+        else _endSaveSyncBanner();
+      }
     }
   }
   async function processRankedGameEnd(finalScores) {
@@ -12423,6 +12534,7 @@
       _endgameDismissed = false;
       overlay.classList.remove("open");
       _lastSavedWinner = null;
+      try { _endSaveReset(); } catch (_) {}
       _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
       _teamModeEnd = false; _myTeamRank = null; _teamIsWin = false; _teamRevealDone = false;
       try { _closeTeamReveal(); } catch (_) {}
@@ -12582,6 +12694,11 @@
     // This runs on every end-game poll until it succeeds, even if the overlay was
     // dismissed, so the streak/XP/history always persist.
     saveGameStats(winner, finalScores, totalXp);
+    // …and, because the polls STOP being distinguishable once the game is over
+    // (same state_version → applyServerPayload drops the payload → this function
+    // is never reached again), the end screen keeps its own retry going until
+    // the save actually lands. See _endSaveWatch.
+    _endSaveWatch(winner, finalScores, totalXp);
 
     // Overlay was dismissed: the save above still ran; skip only the visual render.
     if (_endgameDismissed) { overlay.classList.remove("open"); return; }

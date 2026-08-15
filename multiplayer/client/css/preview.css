@@ -4605,6 +4605,46 @@
     .gs-meta-val { font-size: 18px; font-weight: 900; color: #1a2d5a; margin-top: 3px; }
     .gs-meta-val.gs-big { font-size: 22px; }
     .gs-meta-val.gs-cyan { color: #1888c0; }
+    /* ── End-game save state ──────────────────────────────────────────────
+       This screen is a promise that the XP, the streak and the game history
+       went somewhere. When the connection blinks at the wrong moment they
+       don't, and the screen looked exactly the same as when they did. Three
+       states, and only two of them are visible: saving (quiet), saved (gone),
+       and failed (impossible to miss, with the retry right there). */
+    #gs-save-state {
+      display: none;
+      align-items: center; justify-content: center; gap: 9px;
+      max-width: 680px; margin: 10px auto 0;
+      padding: 8px 16px; border-radius: 999px;
+      font-family: "Nunito", sans-serif; font-size: 12.5px; font-weight: 800;
+      border: 1.5px solid transparent;
+    }
+    #gs-save-state.saving {
+      display: flex;
+      background: rgba(255,255,255,.7); border-color: rgba(100,160,220,.35); color: #35608c;
+    }
+    #gs-save-state.failed {
+      display: flex;
+      background: rgba(232,64,87,.14); border-color: rgba(232,64,87,.5); color: #a01c30;
+      box-shadow: 0 0 0 3px rgba(232,64,87,.1);
+    }
+    #gs-save-spinner {
+      width: 13px; height: 13px; flex-shrink: 0; border-radius: 50%;
+      border: 2px solid rgba(53,96,140,.28); border-top-color: #35608c;
+      animation: gs-save-spin .8s linear infinite;
+    }
+    #gs-save-state.failed #gs-save-spinner { display: none; }
+    @keyframes gs-save-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { #gs-save-spinner { animation: none; } }
+    #gs-save-retry {
+      display: none; cursor: pointer;
+      background: #a01c30; color: #fff; border: none; border-radius: 999px;
+      font-family: inherit; font-size: 12px; font-weight: 800;
+      padding: 5px 13px; white-space: nowrap;
+    }
+    #gs-save-state.failed #gs-save-retry { display: inline-block; }
+    #gs-save-retry:hover { background: #c02540; }
+    #gs-save-retry:disabled { opacity: .55; cursor: default; }
     .gs-meta-val.gs-gold { color: #b86800; }
     /* ── Body ── */
     #gs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; }

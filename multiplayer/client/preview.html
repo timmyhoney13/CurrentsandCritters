@@ -2411,6 +2411,14 @@
         <div class="gs-meta-item"><div class="gs-meta-label">XP Gained</div><div class="gs-meta-val gs-gold" id="gs-xp-gained">+0 XP</div></div>
         <div class="gs-meta-item" id="gs-cp-item" style="display:none;"><div class="gs-meta-label">CP Gained</div><div class="gs-meta-val gs-gold" id="gs-cp-gained">+0 CP</div></div>
       </div>
+      <!-- Save state. Silent while the results are on their way and once they
+           land; loud the moment a dropped connection means this screen is not
+           the truth yet. -->
+      <div id="gs-save-state" role="status" aria-live="polite">
+        <span id="gs-save-spinner" aria-hidden="true"></span>
+        <span id="gs-save-text">Saving your results…</span>
+        <button type="button" id="gs-save-retry">Try again now</button>
+      </div>
     </div>
     <!-- ── Body ── -->
     <div id="gs-body">

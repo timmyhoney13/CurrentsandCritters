@@ -181,6 +181,12 @@ serviceAccountKey.json
 # on screen, pointing at End Turn, and covering no other control even when the
 # bar wraps onto three rows on a phone.
 !test_play_again_callout.js
+# The end screen keeps trying: once a game is over its state_version stops
+# changing, so the payload is dropped as already-rendered and renderEndGame —
+# the only caller of saveGameStats — is never reached again. One second of lost
+# network therefore cost the player their XP, streak and game history on a
+# screen that showed all three. Pins the watchdog and the three save states.
+!test_endgame_save_retry.js
 
 # Newsletter tests + setup guide + the one-off OAuth helper.
 # (newsletter_server.py / newsletter_email.py are allowlisted further up, next
