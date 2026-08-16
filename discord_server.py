@@ -618,6 +618,12 @@ def _state_payload(uid: Optional[str]) -> Dict[str, Any]:
         "signedIn": bool(uid),
         "claimed": False,
     }
+    if not out["enabled"]:
+        # Say WHICH variables are still missing (names only, never values) so
+        # "the offer never appeared" can be diagnosed with one request instead
+        # of a trip through the Render logs. The names are already public — they
+        # are in DISCORD_REWARD_SETUP.md — and "off" is obvious from `enabled`.
+        out["missing"] = config_status()["missing"]
     if not uid or not out["enabled"]:
         return out
     db = _get_firestore() if _get_firestore else None
