@@ -203,6 +203,12 @@ if (!CHROME) {
     rewardSeen: onScreen(rew),
     rewardH: Math.round(rew.getBoundingClientRect().height),
     rewardSubSeen: onScreen(rsub),
+    // Every card's own width. A card can be "on screen" and still be a
+    // 26px sliver you cannot read a single word of.
+    cardWs: [...cards.querySelectorAll(".ph-cs-card")]
+      .map(c => Math.round(c.getBoundingClientRect().width)),
+    rewardTop:  Math.round(rew.getBoundingClientRect().top),
+    cardsBottom: Math.round(cards.getBoundingClientRect().bottom),
     // \\s, not \\s: this string is a Node template literal, so a lone \\s would
     // reach the page as a bare "s" and the regex would eat the letter s.
     rewardText: (rew.textContent || "").replace(/\\s+/g, " ").trim(),
@@ -242,6 +248,41 @@ if (!CHROME) {
         r.open && /Tide Sweep/.test(r.open.rewardText) && /1,500 XP/.test(r.open.rewardText));
   check("neither state scrolls the page sideways",
         r.closed && r.open && r.closed.noSideScroll && r.open.noSideScroll);
+
+  // ── The open strip at every width ─────────────────────────────────────────
+  // This file measured ONE window size (1440x900) and passed, while every
+  // player on anything narrower opened the strip onto three 26px slivers.
+  // The responsive rules were written when the header, the cards and the
+  // reward were all children of .ph-cs-strip (which wraps); the cards and the
+  // reward later moved into .ph-cs-body — a flex row that did NOT wrap — so
+  // "cards 100%, reward 100%" shared one line, and the reward (flex-shrink 0)
+  // kept all of it. Reading a challenge needs REAL WIDTH, so measure it.
+  console.log("\nthe open strip, at every screen width");
+
+  const MIN_CARD_W = 140;   // below this the name + requirement stop being readable
+  for (const [label, w, h] of [
+    ["desktop      ", 1440, 900],
+    ["small laptop ", 1180, 800],
+    ["tablet       ", 1024, 768],
+    ["small tablet ",  820, 1180],
+    ["phone        ",  390, 844],
+  ]) {
+    const dom2 = execFileSync(CHROME, ["--headless", "--disable-gpu", "--no-sandbox",
+      "--hide-scrollbars", `--window-size=${w},${h}`, "--virtual-time-budget=8000",
+      "--dump-dom", "file://" + f], { encoding: "utf8", maxBuffer: 64e6 });
+    const m2 = /<div id="out">([\s\S]*?)<\/div>/.exec(dom2);
+    const r2 = JSON.parse((m2 ? m2[1] : "{}").replace(/&quot;/g, '"'));
+    const o  = r2.open || {};
+    const ws = o.cardWs || [];
+    const minW = ws.length ? Math.min(...ws) : 0;
+    check(`${label}(${w}px): all three challenges are on screen`, o.cardsSeen === 3);
+    check(`${label}(${w}px): each card is wide enough to read (${minW}px)`,
+          ws.length === 3 && minW >= MIN_CARD_W);
+    check(`${label}(${w}px): the reward is on screen with them`, o.rewardSeen === true);
+    check(`${label}(${w}px): the reward never sits on top of the cards`,
+          o.rewardTop >= o.cardsBottom - 1 || w > 1320);
+    check(`${label}(${w}px): the page does not scroll sideways`, o.noSideScroll === true);
+  }
 
   // ── The in-game panel, on the screen where it broke ───────────────────────
   // A phone held SIDEWAYS is the tight case: the game lays out at ~1266x498
