@@ -67,6 +67,36 @@ services:
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
+      # ── Discord join reward (discord_server.py) ─────────────────────────
+      # 250 Critter Coins, once, for actually being in the Discord server.
+      # Step-by-step setup is in DISCORD_REWARD_SETUP.md. Until all three of
+      # the sync:false values below are set, the server logs "join reward OFF",
+      # the game hides the offer entirely, and every claim is refused — it never
+      # falls back to paying out unchecked.
+      #
+      #   DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET
+      #                    From Discord Developer Portal → your app → OAuth2.
+      #   DISCORD_GUILD_ID The server players must be in. Enable Developer Mode
+      #                    in Discord, then right-click the server → Copy Server ID.
+      #   DISCORD_REDIRECT_URI
+      #                    Must EXACTLY match a redirect added on the OAuth2
+      #                    page, character for character, or Discord rejects
+      #                    every claim with an "invalid_grant" 400.
+      #   DISCORD_REWARD_COINS / DISCORD_INVITE_URL
+      #                    Optional overrides for the amount and the invite the
+      #                    game advertises (defaults: 250, the community invite).
+      - key: DISCORD_REDIRECT_URI
+        value: https://play.currentsandcritters.com/api/discord/callback
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: DISCORD_REWARD_COINS
+        sync: false
+      - key: DISCORD_INVITE_URL
+        sync: false
       # ── Newsletter (newsletter_server.py / newsletter_email.py) ─────────
       # Full setup, including DNS, is in NEWSLETTER_SETUP.md. Values marked
       # sync:false are secrets — enter them in the Render dashboard, never here.

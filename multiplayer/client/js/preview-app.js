@@ -70,6 +70,11 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "💬 250 Critter Coins for joining the Discord", items: [
+      "Join the Currents and Critters Discord server and claim 250 Critter Coins. The offer sits right next to the Join the Discord button on your Player Home — tap it, approve with Discord, and the coins land on your account straight away.",
+      "Already in the server? You're not left out and there's nothing extra to do — tap the same button and you'll be paid on the spot. We check with Discord live, so it doesn't matter whether you joined today or months ago.",
+      "It's one reward per person: once per account, and once per Discord account, so it can't be collected twice.",
+    ]},
     { ver: "V1.7.0", title: "🤡 Clownfish copies its Ocean — all of it", items: [
       "A Clownfish is now a second copy of the Ocean it is attached to, in every way, not just for points. It counts as one more of that Ocean everywhere Oceans are counted — the Coral Reef chart, the Kelp Forest \"4 or more\", who has the most Piers, and how many Oceans you control.",
       "Play one onto a Deep Ocean or a Kelp Forest and you draw a card, because that is what those Oceans do.",
@@ -934,6 +939,35 @@
         return !!(u && u.email && String(u.email).toLowerCase() === ANALYTICS_ADMIN_EMAIL);
       } catch (_) { return false; }
     },
+  };
+
+  // ── Discord join reward bridge ─────────────────────────────────────────
+  // The "+250 Critter Coins" chip beside the Join-the-Discord button lives in
+  // js/discord-reward.js. EVERY rule is server-authoritative (/api/discord/*):
+  // Discord itself is asked whether the player is in the server, and the coins
+  // are written by the server inside the same transaction as the two "paid
+  // exactly once" ledger docs. This bridge only hands the module network, auth
+  // and the two things it must do after a payout — repaint the coin balance
+  // and say so.
+  window.__ccDiscord = {
+    APP_BUILD,
+    get:  (p) => apiFetch(p),
+    post: (p, b) => apiPost(p, b),
+    toast: (m, t) => { try { showToast(m, t); } catch (_) {} },
+    authUser: () => (window.__fishAuthUser ? window.__fishAuthUser() : null),
+    async idToken() {
+      try { const u = window.__fishAuthUser && window.__fishAuthUser();
+            return (u && u.getIdToken) ? await u.getIdToken() : ""; } catch (_) { return ""; }
+    },
+    // A modal with real buttons, so "you're not in the server yet" can offer
+    // the invite instead of just complaining. Falls back to a toast.
+    modal: (opts) => {
+      try { return window.ccPerkModal ? window.ccPerkModal(opts) : Promise.resolve(null); }
+      catch (_) { return Promise.resolve(null); }
+    },
+    // The coins landed server-side, so re-read the account rather than letting
+    // the header keep painting the old balance.
+    onClaimed: () => { try { window.__fishReloadProfile && window.__fishReloadProfile(); } catch (_) {} },
   };
 
   // The sidebar entry, added only for the admin account. Re-checked on a timer
@@ -18168,6 +18202,13 @@
       if (typeof window._renderStreakWeek === "function") window._renderStreakWeek();
 
       renderStatsAvatar(headerProfile || _activeProfile, nick);
+
+      // The Discord reward chip sits in this same profile card and its text
+      // depends on who is signed in ("+250 to claim" vs "250 claimed"), so it
+      // re-syncs from the one place that already runs on sign-in, sign-out and
+      // every profile reload. The module itself only re-asks the server when
+      // the account actually changed.
+      try { window.__ccDiscordSync && window.__ccDiscordSync(); } catch (_) {}
     }
 
     function setStatsAvatarClickable(enabled) {

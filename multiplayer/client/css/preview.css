@@ -6396,6 +6396,53 @@
     }
     .ph-discord-ico { flex: 0 0 auto; }
     .ph-discord-txt { min-width: 0; }
+    /* "+250 Critter Coins" — the offer, advertised right beside the invite it
+       pays for. Gold so it reads as coins next to the Discord blurple, and a
+       real <button> because clicking it starts the verified claim. It ships
+       hidden and only js/discord-reward.js may reveal it, so a server with the
+       reward switched off never advertises one. */
+    .ph-discord-reward {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 100%;
+      padding: 5px 12px;
+      border: 1px solid #e8bf62;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ffdf95 0%, #f6c65a 100%);
+      color: #7a5205;
+      font-family: inherit;
+      font-size: .8rem;
+      font-weight: 800;
+      line-height: 1.25;
+      cursor: pointer;
+      box-shadow: 0 2px 7px rgba(214,160,42,.3);
+      transition: transform .12s ease, box-shadow .12s ease, filter .15s ease;
+    }
+    .ph-discord-reward[hidden] { display: none; }
+    .ph-discord-reward:hover,
+    .ph-discord-reward:focus-visible {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+      box-shadow: 0 4px 13px rgba(214,160,42,.45);
+    }
+    /* Already collected: still says what you got, but it is no longer a button. */
+    .ph-discord-reward.is-claimed {
+      background: #e9f6ee;
+      border-color: #a9d9bd;
+      color: #1c7a51;
+      box-shadow: none;
+      cursor: default;
+    }
+    .ph-discord-reward.is-claimed:hover,
+    .ph-discord-reward.is-claimed:focus-visible {
+      transform: none;
+      filter: none;
+      box-shadow: none;
+    }
+    /* Mid-claim: the Discord window is open and we are waiting on it. */
+    .ph-discord-reward.is-busy { opacity: .72; cursor: progress; }
+    .ph-discord-reward-txt { min-width: 0; }
     .ph-pranks {
       display: grid;
       grid-template-columns: minmax(170px, 1fr) minmax(210px, 1.25fr);
@@ -8513,6 +8560,7 @@
       .ph-pname { font-size: 1.38rem; }
       .ph-pfc { font-size: .92rem; }
       .ph-discord-link { font-size: .74rem; padding: 5px 10px; gap: 6px; }
+      .ph-discord-reward { font-size: .74rem; padding: 5px 10px; gap: 5px; }
       .ph-pranks { grid-template-columns: 1fr; }
       .ph-rank-badge { border-right: none; border-top: 1px solid #d8e7f4; }
       .ph-rank-badge:first-child { border-top: none; }

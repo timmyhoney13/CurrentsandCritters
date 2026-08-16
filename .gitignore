@@ -58,6 +58,21 @@
 !newsletter_server.py
 !newsletter_email.py
 
+# Discord join reward. multiplayer_server.py imports this at module scope, so
+# dropping it from the allowlist kills the whole server on startup with an
+# ImportError, not just the reward. It holds the OAuth round-trip that proves a
+# player is really in the Discord server, and the transaction that pays the
+# Critter Coins exactly once per game account AND once per Discord account.
+!discord_server.py
+# Its tests: the "cannot be paid twice" guarantee from both directions, the
+# signed OAuth state (forged/expired/replayed), and the rule that no failure of
+# any kind — Discord down, scope missing, garbled reply — is ever mistaken for
+# membership. Plus the client chip's own render/claim rules.
+!test_discord_rewards.py
+!test_discord_reward_ui.js
+# The Discord Developer Portal walkthrough for switching the reward on.
+!DISCORD_REWARD_SETUP.md
+
 # Clans: headless-Chrome render check — every screen against the REAL css/module
 # (it caught a season countdown that never started).
 !test_clans_render.js

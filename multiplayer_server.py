@@ -36,6 +36,7 @@ import clan_server
 import prestige_server
 import analytics_server
 import newsletter_server
+import discord_server
 
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -10215,6 +10216,13 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         if prestige_server.handle_get(self, parsed):
             return
 
+        # Discord join reward: /api/discord/callback, where Discord sends the
+        # player back after they authorise. It is a GET because Discord controls
+        # the redirect — the account it belongs to comes from the signed state
+        # in the URL, never from a token this request could carry.
+        if discord_server.handle_get(self, parsed):
+            return
+
         if parsed.path == "/firebase-config.js":
             cfg = {
                 "apiKey":            os.environ.get("VITE_FIREBASE_API_KEY", ""),
@@ -10982,6 +10990,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
         # Developer Analytics API (admin only — every call proves an admin
         # account with a verified Firebase ID token inside the module).
         if analytics_server.handle_post(self, parsed, body):
+            return
+
+        # Discord join reward (state / start). The payout itself never happens
+        # here — only Discord's own callback can trigger it, after Discord has
+        # confirmed the player really is in the server.
+        if discord_server.handle_post(self, parsed, body):
             return
 
         # Newsletter API. /api/newsletter/unsubscribe is public by design (an
@@ -11942,6 +11956,22 @@ def main() -> None:
         verify_token=_verify_firebase_id_token,
         app_version=_deployed_app_version(),
     )
+
+    # Discord join reward. Same Firestore accessor and token verifier as
+    # everything else. Missing credentials are a LOUD no-op — the offer is
+    # hidden and every claim refuses — never a payout that skips the check.
+    discord_server.init(
+        get_firestore=_get_firestore,
+        verify_token=_verify_firebase_id_token,
+    )
+    _discord_cfg = discord_server.config_status()
+    if _discord_cfg["enabled"]:
+        print(f"[discord] join reward ON — {_discord_cfg['coins']} coins, "
+              f"redirect {_discord_cfg['redirect_uri']}")
+    else:
+        print("[discord] join reward OFF — set "
+              + ", ".join(_discord_cfg["missing"])
+              + " to switch it on (see DISCORD_REWARD_SETUP.md)")
 
     # Bootstrap the stats file with historical seed values if it doesn't exist yet.
     if STATS_SEED_GAMES > 0 or STATS_SEED_PLAYERS > 0:

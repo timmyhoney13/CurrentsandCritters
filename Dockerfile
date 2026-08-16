@@ -32,6 +32,9 @@ COPY analytics_server.py /app/analytics_server.py
 # failing to boot on ImportError.
 COPY newsletter_server.py /app/newsletter_server.py
 COPY newsletter_email.py /app/newsletter_email.py
+# Discord join reward — imported at module scope too, so a missing COPY here is
+# a server that will not boot, not a reward that quietly goes missing.
+COPY discord_server.py /app/discord_server.py
 COPY fish_ai_brain.json /app/fish_ai_brain.json
 COPY cards_vertical.txt /app/cards_vertical.txt
 COPY cards_lr.txt /app/cards_lr.txt
