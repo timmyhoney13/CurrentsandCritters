@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.59";
-  const APP_BUILD   = "2026-08-16.1";
+  const APP_VERSION = "1.6.60";
+  const APP_BUILD   = "2026-08-16.2";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,10 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "📅 Weekly Challenges open onto actual challenges", items: [
+      "Tapping Weekly Challenges on your Player Home shows the three challenges. Unless your screen was a wide desktop one, they were being squeezed to a 26-pixel sliver each — the bar opened and there was nothing on it you could read. Phones, tablets and any browser window under about 1,300 pixels wide were all affected.",
+      "The challenges now take the full width on those screens, with the Weekly Tide Sweep reward on its own line underneath, and they stay wide enough to read on every size from a phone up.",
+    ]},
     { ver: "V1.7.0", title: "🗝️ Weekly Challenges show what they pay again", items: [
       "Opening Weekly Challenges shows the reward for finishing them. The Weekly Tide Sweep card — 1,500 XP for all three, with a live 0/3 bar — was being hidden by the page itself, so the challenges appeared with nothing attached to them. It's back, and it turns green when you've swept the week.",
       "Perfect Week is on that card too, which it never was anywhere: finish all three AND play on all seven days for 5,000 XP. It counts your days for you.",
