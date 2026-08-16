@@ -94,6 +94,37 @@ check("the closed header still says how many are done",
 check("CSS hides the body when collapsed",
       /\.ph-cs-strip\.is-collapsed \.ph-cs-body \{ display: none; \}/.test(CSS));
 
+// ── Source: opening the strip shows the week's REWARD ───────────────────────
+// The reward card shipped with an inline display:none and nothing in the whole
+// client ever cleared it, so every player who opened the strip saw three
+// challenges and no reward — no Tide Sweep, no XP, no progress bar. The only
+// reference to the element anywhere was its click handler.
+console.log("\nopening the strip shows what the week pays");
+
+const rewardTag = (/<button class="ph-cs-reward"[\s\S]*?>/.exec(HTML) || [""])[0];
+check("the reward card is not hidden by inline style", !/display:\s*none/.test(rewardTag));
+check("renderChallengeStrip decides whether the reward shows",
+      /rewardEl\.style\.display = _csOpen \? "" : "none"/.test(APP));
+check("the reward names its XP", /Weekly Tide Sweep · \+1,500 XP/.test(APP));
+check("the placeholder count matches the 3 weeklies that exist",
+      /id="ph-cs-reward-count">0 \/ 3 Completed</.test(HTML));
+check("no stale '/ 5 Completed' left from the 5→3 change",
+      !/\/ 5 Completed/.test(HTML));
+check("a swept week reads as earned, not pending", /is-done/.test(APP) && /\.ph-cs-reward\.is-done/.test(CSS));
+check("Perfect Week — the other reward — is stated too",
+      /id="ph-cs-reward-sub"/.test(HTML) && /Perfect Week: play all 7 days/.test(APP));
+check("the Perfect Week line is styled", /\.ph-cs-reward-sub \{/.test(CSS));
+// Same omission in the in-game panel: three jobs listed, no pay stated.
+check("the in-game panel has a reward line", /id="igcp-reward"/.test(HTML) && /#igcp-reward \{/.test(CSS));
+check("the in-game reward line is filled in on open",
+      /igcp-rw-done/.test(APP) && /Weekly Tide Sweep/.test(APP));
+check("it is hidden with the rest when minimised",
+      /#ig-challenge-panel\.igcp-minimized #igcp-reward/.test(CSS));
+// It sits OUTSIDE the scroll box, so it spends the same fixed budget the cards
+// do — the sideways-phone case loses a card if it is not paid for.
+check("the tight-screen budget pays for the reward line",
+      /#igcp-cards \{ max-height: max\(56px, calc\(var\(--igcp-room\) - 88px\)\)/.test(CSS));
+
 console.log("\nthe in-game panel starts tucked away");
 check("minimised unless the player said otherwise",
       /localStorage\.getItem\(_IGCP_MINIMIZED_KEY\) !== "0"/.test(APP));
@@ -153,6 +184,13 @@ if (!CHROME) {
   const body  = document.getElementById("ph-cs-body");
   const hdr   = document.getElementById("ph-cs-header-btn");
   const cards = document.getElementById("ph-cs-cards");
+  const rew = document.getElementById("ph-cs-reward-btn");
+  const rsub = document.getElementById("ph-cs-reward-sub");
+  const onScreen = (n) => {
+    const b = n.getBoundingClientRect();
+    return b.width > 0 && b.height > 0 && getComputedStyle(n).display !== "none"
+        && b.top >= 0 && b.left >= 0;
+  };
   const rec = () => ({
     bodyDisplay: getComputedStyle(body).display,
     bodyH: Math.round(body.getBoundingClientRect().height),
@@ -161,6 +199,13 @@ if (!CHROME) {
     stripH: Math.round(strip.getBoundingClientRect().height),
     cardsSeen: [...cards.querySelectorAll(".ph-cs-card")]
       .filter(c => c.getBoundingClientRect().height > 20).length,
+    // The reward is the point of doing the challenges — measure it like a card.
+    rewardSeen: onScreen(rew),
+    rewardH: Math.round(rew.getBoundingClientRect().height),
+    rewardSubSeen: onScreen(rsub),
+    // \\s, not \\s: this string is a Node template literal, so a lone \\s would
+    // reach the page as a bare "s" and the regex would eat the letter s.
+    rewardText: (rew.textContent || "").replace(/\\s+/g, " ").trim(),
     noSideScroll: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
   });
   const out = { closed: rec() };
@@ -187,6 +232,14 @@ if (!CHROME) {
   check("open: all three challenges are visible", r.open && r.open.cardsSeen === 3);
   check("open: the strip grew to hold them", r.open && r.open.stripH > r.closed.stripH);
   check("open: the header steps aside for the cards", r.open && r.open.hdrW < r.closed.hdrW);
+  // The bug this file did not catch: the challenges appeared and the reward
+  // they are for did not, because of an inline display:none nothing cleared.
+  check("closed: the reward is put away with the cards", r.closed && r.closed.rewardSeen === false);
+  check(`open: the reward card is really on screen (${r.open && r.open.rewardH}px tall)`,
+        r.open && r.open.rewardSeen === true && r.open.rewardH > 40);
+  check("open: the Perfect Week line is on screen too", r.open && r.open.rewardSubSeen === true);
+  check(`open: the reward says what it pays (${JSON.stringify(r.open && r.open.rewardText)})`,
+        r.open && /Tide Sweep/.test(r.open.rewardText) && /1,500 XP/.test(r.open.rewardText));
   check("neither state scrolls the page sideways",
         r.closed && r.open && r.closed.noSideScroll && r.open.noSideScroll);
 
@@ -221,6 +274,7 @@ if (!CHROME) {
   var panel = document.getElementById("ig-challenge-panel");
   var cards = document.getElementById("igcp-cards");
   var foot  = document.getElementById("igcp-footer");
+  var rew   = document.getElementById("igcp-reward");
   panel.style.display = "block";
   panel.classList.add("igcp-minimized");
   var VH = document.documentElement.clientHeight;
@@ -228,9 +282,13 @@ if (!CHROME) {
     var p = panel.getBoundingClientRect();
     var rows = [].slice.call(cards.querySelectorAll(".igcp-row"));
     var clip = cards.getBoundingClientRect();
+    var rb = rew.getBoundingClientRect();
     return {
       panelTop: Math.round(p.top), panelBottom: Math.round(p.bottom),
       cardsH: Math.round(clip.height),
+      // The reward line must be on screen with the cards, never off the bottom.
+      rewardSeen: getComputedStyle(rew).display !== "none" && rb.height > 0
+                  && rb.top >= 0 && rb.bottom <= VH,
       // A row counts only if it is inside the panel's own clip box AND on screen.
       rowsSeen: rows.filter(function(r){
         var b = r.getBoundingClientRect();
@@ -243,6 +301,7 @@ if (!CHROME) {
   var out = { VH: VH, closed: rec() };
   // Exactly what renderIgChallengePanel does when the header is tapped.
   cards.innerHTML = ${JSON.stringify(IROW)}.repeat(3);
+  rew.textContent = "🗝️ All 3 = Weekly Tide Sweep · +1,500 XP  (1/3)";
   panel.classList.remove("igcp-minimized");
   out.open = rec();
   document.getElementById("out").textContent = JSON.stringify(out);
@@ -275,6 +334,8 @@ if (!CHROME) {
     // The close control has to stay reachable: the header can ride off the top
     // of a short screen, the bottom-anchored footer never can.
     check(`${label}: the panel can still be closed`, g.open && g.open.footOnScreen);
+    check(`${label}: minimised hides the reward line`, g.closed && g.closed.rewardSeen === false);
+    check(`${label}: opened shows what the week pays`, g.open && g.open.rewardSeen === true);
   }
 }
 

@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.58";
-  const APP_BUILD   = "2026-08-15.2";
+  const APP_VERSION = "1.6.59";
+  const APP_BUILD   = "2026-08-16.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,20 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🗝️ Weekly Challenges show what they pay again", items: [
+      "Opening Weekly Challenges shows the reward for finishing them. The Weekly Tide Sweep card — 1,500 XP for all three, with a live 0/3 bar — was being hidden by the page itself, so the challenges appeared with nothing attached to them. It's back, and it turns green when you've swept the week.",
+      "Perfect Week is on that card too, which it never was anywhere: finish all three AND play on all seven days for 5,000 XP. It counts your days for you.",
+      "The in-game panel says it as well, so you can see what the week is worth without leaving the table.",
+    ]},
+    { ver: "V1.7.0", title: "🔑 Clan passwords, and a front door you can find", items: [
+      "Clans can have a password. Anyone who knows it joins instantly — no request, no waiting for the owner. It's the setting for a clan that wants to be open to its friends and nobody else. Pick 🔑 Password when you found a clan, or switch to it later in clan settings, and change the word whenever you like.",
+      "The other three settings are unchanged: 🌊 Public lets anyone straight in, ✉️ Request to Join means you approve people, 🔒 Invite Only means invitation only. An invite always works, whichever one is on.",
+      "Join a Clan and Create a Clan are now the first thing on the Clans tab if you're not in one — big buttons at the top, instead of something to scroll past a leaderboard to find.",
+    ]},
+    { ver: "V1.7.0", title: "💰 Every Prestige now pays 1,000 Critter Coins", items: [
+      "Prestige pays a flat 1,000 Critter Coins, every single time. It used to start at 500 and climb, which meant the first one — the one you work hardest for — paid the least.",
+      "Everything else about Prestige is unchanged: the permanent +25% XP, the store bonus, the background, the skin and the badge all stack exactly as before.",
+    ]},
     { ver: "V1.7.0", title: "💬 250 Critter Coins for joining the Discord", items: [
       "Join the Currents and Critters Discord server and claim 250 Critter Coins. The offer sits right next to the Join the Discord button on your Player Home — tap it, approve with Discord, and the coins land on your account straight away.",
       "Already in the server? You're not left out and there's nothing extra to do — tap the same button and you'll be paid on the spot. We check with Discord live, so it doesn't matter whether you joined today or months ago.",
@@ -25247,6 +25261,9 @@
       const subEl    = $a("ph-cs-sub");
       const countEl  = $a("ph-cs-reward-count");
       const fillEl   = $a("ph-cs-reward-fill");
+      const rewardEl = $a("ph-cs-reward-btn");
+      const rlabelEl = $a("ph-cs-reward-label");
+      const rsubEl   = $a("ph-cs-reward-sub");
       if (!stripEl || !cardsEl || !subEl) return;
 
       // Each render also marks today as played (for Seven Seas / Perfect
@@ -25277,9 +25294,33 @@
         : "";
 
       // Weekly Tide Sweep reward area, live count of 3 weeklies completed.
+      // This is the only place the week's REWARD is stated, so it follows the
+      // cards: shown whenever they are, hidden with them when the strip is
+      // closed. (It used to be display:none in the markup and nothing ever
+      // turned it back on, so opening the strip showed challenges with no
+      // reward attached to them at all.)
       const sweepPct = Math.min(100, Math.round((sweepDone / Math.max(1, sweepTotal)) * 100));
       if (countEl) countEl.textContent = `${sweepDone} / ${sweepTotal} Completed`;
       if (fillEl)  fillEl.style.width  = sweepPct + "%";
+      if (rewardEl) {
+        rewardEl.style.display = _csOpen ? "" : "none";
+        rewardEl.classList.toggle("is-done", meta.sweepDone);
+        rewardEl.title = meta.sweepDone
+          ? "Weekly Tide Sweep complete — see it in Achievements"
+          : `Complete all ${sweepTotal} weekly challenges for 1,500 XP`;
+      }
+      if (rlabelEl) {
+        rlabelEl.textContent = meta.sweepDone
+          ? "✓ Weekly Tide Sweep · 1,500 XP earned"
+          : "Weekly Tide Sweep · +1,500 XP";
+      }
+      // Perfect Week is the week's OTHER reward and had nowhere on screen to
+      // say so. It needs the Sweep plus a game on all 7 days.
+      if (rsubEl) {
+        rsubEl.textContent = meta.perfectClaimed
+          ? "✓ Perfect Week · 5,000 XP earned"
+          : `Perfect Week: play all 7 days for +5,000 XP (${meta.daysPlayedCount}/7)`;
+      }
 
       _wireChallengeStrip();
     }
@@ -25601,6 +25642,7 @@
         titleEl.textContent = "Weekly Challenges";
         pillEl.textContent  = "Weekly";
         pillEl.classList.add("weekly");
+        const rewardEl = document.getElementById("igcp-reward");
         if (!_igcpMin) {
           // Opening this panel must never produce an empty box. The rows are
           // built from local weekly state, so the only ways to get nothing are
@@ -25612,8 +25654,22 @@
             html = _getWeeklyDisplaySlots().map(c => _igcpCardHtml(c)).join("");
           } catch (e) { html = ""; }
           cardsEl.innerHTML = html || `<div class="igcp-empty">This week's challenges aren't loaded yet. Open Player Home to roll them.</div>`;
+          // …and it must never list three jobs without saying what they pay.
+          if (rewardEl) {
+            let meta = null;
+            try { meta = _getWeeklyMeta(); } catch (e) { meta = null; }
+            if (meta) {
+              rewardEl.classList.toggle("igcp-rw-done", Boolean(meta.sweepDone));
+              rewardEl.textContent = meta.sweepDone
+                ? "✓ Weekly Tide Sweep complete — 1,500 XP"
+                : `🗝️ All ${meta.totalCount} = Weekly Tide Sweep · +1,500 XP  (${meta.completedCount}/${meta.totalCount})`;
+            } else {
+              rewardEl.textContent = "";
+            }
+          }
         } else {
           cardsEl.innerHTML = "";
+          if (rewardEl) rewardEl.textContent = "";
         }
       }
 
