@@ -3537,6 +3537,15 @@ class GameRoom:
 
         self.game_thread: Optional[threading.Thread] = None
         self.action_history: List[Dict[str, Any]] = []
+        # ── End-screen "Most ★ Abilities Activated" ──────────────────────
+        # The client can only ever see its OWN free-play windows (legal_actions
+        # go to the viewer alone), so counting ★s in the browser could never
+        # name a bot or the other humans — that stat card sat on "-" for
+        # everybody but you. ★s only fire on a play sent with use_star, which
+        # action_history records for EVERY seat, so the tally is computed here
+        # once the game is over and shipped with the final scores.
+        # None = not computed yet for this game.
+        self.match_star_counts: Optional[Dict[str, int]] = None
         # ── Clan-challenge telemetry (see _clan_game_stats) ──────────────
         # Clan Points and clan challenges are server-verified: the clan server
         # only ever reads what THIS server saw happen. Most of it is derived
@@ -3694,6 +3703,11 @@ class GameRoom:
                 "spectators": self.spectator_list(),
                 "final_scores": self.final_scores,
                 "winner": self.winner,
+                "match_stats": (
+                    {"star_uses": dict(self._star_counts_locked())}
+                    if self.winner or self.phase == "ended"
+                    else None
+                ),
                 "end_game": (self.latest_public_state or {}).get("end_game", {}),
             }
 
@@ -5109,6 +5123,7 @@ class GameRoom:
         self.final_scores = []
         self.winner = None
         self.action_history = []
+        self.match_star_counts = None
         self.recovery_active = False
         self.recovery_target_count = 0
         self.recovery_cursor = 0
@@ -7523,6 +7538,29 @@ class GameRoom:
     # what action_history's seat_index carries (it is gs.turn_index). For
     # competitive, a player owns TWO of these, so each row also reports the
     # seat it maps to and the clan server sums the pair.
+    # ── End-screen match stat: ★ abilities activated, per player ─────────
+    # Keyed by player NAME, because that is what the end screen's stat cards
+    # compare and display. Same rule the clan tally uses: a ★ only ever fires
+    # on a play sent with use_star, so a play action is the only place one can
+    # be counted. Computed once per game (the result is cached on the room) and
+    # read straight off action_history, so it survives a room restore and it
+    # covers bots and every other human, not just whoever is looking.
+    def _star_counts_locked(self) -> Dict[str, int]:
+        if self.match_star_counts is not None:
+            return self.match_star_counts
+        counts: Dict[str, int] = {}
+        for rec in (self.action_history or []):
+            if not bool(rec.get("use_star")):
+                continue
+            if str(rec.get("kind") or "") not in {"play_ocean", "play_to_ocean"}:
+                continue
+            name = str(rec.get("player_name") or "").strip()
+            if not name:
+                continue
+            counts[name] = counts.get(name, 0) + 1
+        self.match_star_counts = counts
+        return counts
+
     def _clan_game_stats(self, gs: Any, ms: Any) -> Dict[int, Dict[str, Any]]:
         n = len(getattr(gs, "players", []) or [])
         stats: Dict[int, Dict[str, Any]] = {
@@ -8307,6 +8345,14 @@ class GameRoom:
                 "turn_summaries": self.turn_summaries[-80:],
                 "final_scores": self.final_scores,
                 "winner": self.winner,
+                # End-screen match stats the browser cannot see for itself.
+                # Only sent once the game is over — that is the only screen
+                # that reads them, and it keeps every in-play poll unchanged.
+                "match_stats": (
+                    {"star_uses": dict(self._star_counts_locked())}
+                    if self.winner or self.phase == "ended"
+                    else None
+                ),
                 "chat_messages": self.chat_messages[-80:],
                 "recovery": {
                     "active": bool(self.recovery_active),

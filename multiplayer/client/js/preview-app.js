@@ -474,6 +474,21 @@
   // so a tile can crop to the correct single card face.
   window.__ccCardImg = (faceUid) => ({ url: imagePathForUid(faceUid), pos: cardHalfPos(faceUid) });
 
+  // Escape a value for use inside innerHTML. The auth IIFE further down has its
+  // own private copy of this; the game scope needs one too, and NOT having it is
+  // not a lint nit — the end-game screen builds each standings row with
+  // innerHTML and tags real (non-AI) players with data-cc-pname="…", so the
+  // first human name in the standings threw ReferenceError mid-loop and took
+  // the whole rest of renderEndGame (match stats, XP bar, feats) with it.
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   // Display-only cache-bust for LOCAL avatar PNGs: appends ?v=VERSION so a
   // refreshed avatar image (same /avatars/x.png path) is never served stale.
   // Only touches /avatars/ paths, external (Google) avatar URLs are left as-is.
@@ -12723,11 +12738,18 @@
       else if (cnt === mostDiverseCount && cnt > 0 && !mostDiverseNames.includes(p.name)) mostDiverseNames.push(p.name);
     });
 
-    // Most Star Abilities Activated
+    // Most Star Abilities Activated. The server counts this for EVERY seat off
+    // its own executed-action history; _starCounts is the fallback for a client
+    // talking to a server that predates match_stats, and it can only ever see
+    // the viewer's own ★s (legal_actions are sent to the viewer alone).
+    const _srvStars = latestPayload?.match_stats?.star_uses;
+    const _starSource = (_srvStars && typeof _srvStars === "object" && Object.keys(_srvStars).length)
+      ? _srvStars : _starCounts;
     let mostStarNames = [], mostStarCount = 0;
-    Object.entries(_starCounts).forEach(([name, cnt]) => {
-      if (cnt > mostStarCount) { mostStarCount = cnt; mostStarNames = [name]; }
-      else if (cnt === mostStarCount && cnt > 0 && !mostStarNames.includes(name)) mostStarNames.push(name);
+    Object.entries(_starSource).forEach(([name, cnt]) => {
+      const n = Number(cnt) || 0;
+      if (n > mostStarCount) { mostStarCount = n; mostStarNames = [name]; }
+      else if (n === mostStarCount && n > 0 && !mostStarNames.includes(name)) mostStarNames.push(name);
     });
 
     // First to 100, all players who crossed 100 in the same (earliest) round
@@ -12929,7 +12951,7 @@
           <div class="gs-st-bg" style="background-image:url('${bgUrl}')"></div>
           <div class="gs-st-rank gs-st-rank-${Math.min(r,4)}">${rankIcon}</div>
           <div class="gs-st-av"><img src="${_avSrc(avatarUrl)}" alt="" onerror="this.src='/avatars/mullet.png'" loading="lazy"></div>
-          <div class="gs-st-info"><div class="gs-st-name"${p.name && !isLikelyAiName(p.name) ? ` data-cc-pname="${escapeHtml(p.name)}" data-cc-surface="light"` : ""}>${p.name||"?"}</div><div class="gs-st-env">${envLabel}</div></div>
+          <div class="gs-st-info"><div class="gs-st-name"${p.name && !isLikelyAiName(p.name) ? ` data-cc-pname="${escapeHtml(p.name)}" data-cc-surface="light"` : ""}>${escapeHtml(p.name||"?")}</div><div class="gs-st-env">${escapeHtml(envLabel)}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
         if (!isMe) {
