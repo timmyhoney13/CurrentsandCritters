@@ -342,12 +342,12 @@ class TestCatalogueMirrors(unittest.TestCase):
 #  2) THE REWARD MATH
 # ══════════════════════════════════════════════════════════════════════════
 class TestRewardMath(unittest.TestCase):
-    def test_coin_ladder_is_500_then_plus_250(self):
-        expect = {1: 500, 2: 750, 3: 1000, 4: 1250, 5: 1500,
-                  6: 1750, 7: 2000, 8: 2250, 9: 2500, 10: 2750}
-        for lvl, coins in expect.items():
-            self.assertEqual(ps.coin_reward_for(lvl), coins, f"Prestige {lvl}")
+    def test_every_prestige_pays_a_flat_1000_coins(self):
+        # Flat, not a ladder: the 40th Prestige pays exactly what the 1st did.
+        for lvl in list(range(1, 11)) + [25, 40, 100, ps.MAX_PRESTIGE_LEVEL]:
+            self.assertEqual(ps.coin_reward_for(lvl), 1000, f"Prestige {lvl}")
         self.assertEqual(ps.coin_reward_for(0), 0)
+        self.assertEqual(ps.coin_reward_for(-3), 0)
 
     def test_xp_multiplier_stacks_by_25_percent(self):
         for lvl, mult in {0: 1.0, 1: 1.25, 2: 1.5, 3: 1.75, 4: 2.0, 5: 2.25}.items():
@@ -528,13 +528,13 @@ class TestCommit(unittest.TestCase):
         res = ps._commit(self.db, "u1", good_body(self.db))
         self.assertTrue(res.get("ok"), res)
         self.assertEqual(res["prestige"], 1)
-        self.assertEqual(res["coins_awarded"], 500)
+        self.assertEqual(res["coins_awarded"], 1000)
 
         u = self.user()
         self.assertEqual(u["stats"]["total_xp"], 0)
         self.assertEqual(u["stats"]["level"], 1)
         self.assertEqual(u["stats"]["player_level"], 1)
-        self.assertEqual(u["stats"]["critter_coins"], 1500)   # 1000 + 500
+        self.assertEqual(u["stats"]["critter_coins"], 2000)   # 1000 + 1000
         self.assertEqual(u["prestige"]["level"], 1)
         self.assertAlmostEqual(u["prestige"]["xp_multiplier"], 1.25)
         self.assertEqual(u["prestige"]["store_bonus_pct"], 5)
@@ -766,7 +766,7 @@ class TestCommit(unittest.TestCase):
         self.assertTrue(second.get("replayed"))
         self.assertEqual(second["coins_awarded"], first["coins_awarded"])
         # Paid exactly once.
-        self.assertEqual(self.user()["stats"]["critter_coins"], 1500)
+        self.assertEqual(self.user()["stats"]["critter_coins"], 2000)
         self.assertEqual(self.user()["prestige"]["level"], 1)
         self.assertEqual(len(self.user()["prestige"]["history"]), 1)
 
@@ -800,10 +800,10 @@ class TestCommit(unittest.TestCase):
             xp_multiplier=50.0, store_bonus_pct=100,
             prestige=42, level=1, new_level=42))
         self.assertTrue(res.get("ok"), res)
-        self.assertEqual(res["coins_awarded"], 500)
+        self.assertEqual(res["coins_awarded"], 1000)
         self.assertEqual(res["prestige"], 1)
         u = self.user()
-        self.assertEqual(u["stats"]["critter_coins"], 1500)
+        self.assertEqual(u["stats"]["critter_coins"], 2000)
         self.assertAlmostEqual(u["prestige"]["xp_multiplier"], 1.25)
         self.assertEqual(u["prestige"]["store_bonus_pct"], 5)
 
@@ -837,7 +837,7 @@ class TestStatePayload(unittest.TestCase):
         self.assertEqual(st["level"], MAX_LEVEL)
         self.assertEqual(st["xp_to_max"], 0)
         self.assertEqual(st["next"]["prestige"], 1)
-        self.assertEqual(st["next"]["coins"], 500)
+        self.assertEqual(st["next"]["coins"], 1000)
 
     def test_below_the_cap_reports_the_remaining_xp(self):
         make_account(self.db, "u1", total_xp=CAP_XP - 2500)

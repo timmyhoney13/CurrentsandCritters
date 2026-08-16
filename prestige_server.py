@@ -73,8 +73,8 @@ def init(*, get_firestore, verify_token, level_progress, max_level,
 # ═══════════════════════════════════════════════════════════════════════════
 #  REWARD MATH — the single definition of every number the player is promised
 # ═══════════════════════════════════════════════════════════════════════════
-PRESTIGE_COIN_BASE = 500        # Prestige 1
-PRESTIGE_COIN_STEP = 250        # each further Prestige
+PRESTIGE_COIN_BASE = 1000       # Prestige 1
+PRESTIGE_COIN_STEP = 0          # each further Prestige — flat: EVERY Prestige pays 1000
 PRESTIGE_XP_STEP = 0.25         # +25% XP per Prestige, stacking
 PRESTIGE_STORE_STEP = 0.05      # +5% on bought coin packs per Prestige, stacking
 PRESTIGE_KEEP_AVATARS = 2       # avatars the player chooses to carry over
@@ -83,7 +83,11 @@ MAX_PRESTIGE_LEVEL = 999        # a hard ceiling so nothing can loop forever
 
 
 def coin_reward_for(new_level: Any) -> int:
-    """Critter Coins paid for REACHING `new_level` (Prestige 1 = 500)."""
+    """Critter Coins paid for REACHING `new_level` — a flat 1,000 EVERY Prestige.
+
+    The step is kept (at 0) rather than deleted because it is published in
+    catalog() and read by the client's ladder preview; a flat reward is the
+    degenerate case of the same formula, so nothing downstream has to care."""
     n = _int(new_level)
     if n < 1:
         return 0

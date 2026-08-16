@@ -203,7 +203,7 @@ function makeEnv(opts) {
 
 const CATALOG = {
   version: "1", max_level: 100, confirm_phrase: "PRESTIGE", keep_avatars: 2,
-  coin_base: 500, coin_step: 250, xp_step_pct: 25, store_step_pct: 5,
+  coin_base: 1000, coin_step: 0, xp_step_pct: 25, store_step_pct: 5,
   badges: [
     { level: 1, id: "wave", name: "Small Wave", art: "wave" },
     { level: 5, id: "current", name: "Golden Current", art: "current" },
@@ -241,7 +241,7 @@ function stateAt(level, canPrestige, over) {
       kept_avatars: [], last_prestige_at: 0,
     },
     next: {
-      prestige: level + 1, coins: 500 + 250 * level, xp_multiplier: 1 + (level + 1) * 0.25,
+      prestige: level + 1, coins: 1000, xp_multiplier: 1 + (level + 1) * 0.25,
       xp_bonus_pct: (level + 1) * 25, store_bonus_pct: (level + 1) * 5,
       background: CATALOG.backgrounds[0], badge: CATALOG.badges[0], title: "Tide Rider",
       colors: [], color_choice: ["ocean", "seafoam"], gradients: [], effects: [],
