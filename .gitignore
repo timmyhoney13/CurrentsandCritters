@@ -213,6 +213,12 @@ serviceAccountKey.json
 # on screen, pointing at End Turn, and covering no other control even when the
 # bar wraps onto three rows on a phone.
 !test_play_again_callout.js
+# …and WHICH cards may raise it. A Hermit Crab / Loggerhead Sea Turtle opens a
+# window you have to close yourself, so the turn sits there looking frozen — a
+# Roosterfish's one free Baitfish does not, and must not prompt. Runs every
+# card in the shipped deck files through the real ability executor, so the line
+# is drawn by card TEXT, not by a hand-written list of names.
+!test_end_turn_callout_cards.py
 # The end screen keeps trying: once a game is over its state_version stops
 # changing, so the payload is dropped as already-rendered and renderEndGame —
 # the only caller of saveGameStats — is never reached again. One second of lost

@@ -6245,6 +6245,27 @@ class GameRoom:
                     # Otherwise fall through and re-offer legal actions normally.
 
                 is_replay_turn = bool(player.flags.pop("_replay_turn_next", False))
+                # An OPEN play window — a Hermit Crab ("play any number of
+                # baitfish this turn for free") or a Loggerhead Sea Turtle
+                # ("play any number of cards by paying the costs") — is the
+                # other way a turn stops ending by itself. The player can keep
+                # playing until they say stop, so the game sits there looking
+                # frozen until they press End Turn, exactly like a replay turn.
+                #
+                # It is deliberately NOT every free play. A Roosterfish's
+                # "*play a free Baitfish*" is ONE card and the turn moves on by
+                # itself afterwards, so it needs no prompt — and the difference
+                # between the two is precisely has_multi_play_window(), which
+                # reads the chain flags (multi_play_paid_turn,
+                # free_baitfish_chain, free_cephalopods, free_yellowfin_tuna)
+                # and none of the one-shot ones (free_baitfish, free_mammal,
+                # free_cephalopod_once, …). Read, never popped: the window is
+                # live for the whole turn, so this has to stay true across
+                # every action the player takes inside it.
+                try:
+                    is_open_play_window = bool(fish.has_multi_play_window(player))
+                except Exception:
+                    is_open_play_window = False
                 # Build a list of species the player can currently play for free.
                 free_play_species: List[str] = []
                 if player.flags.get("free_mammal"):
@@ -6264,6 +6285,7 @@ class GameRoom:
                 try:
                     legal_payload = self._serialize_legal_actions(gs, ms, player, actions)
                     legal_payload["is_replay_turn"] = is_replay_turn
+                    legal_payload["is_open_play_window"] = is_open_play_window
                     legal_payload["free_play_species"] = free_play_species
                 except Exception as exc:
                     self._record_event(f"_serialize_legal_actions error for {player.name}: {exc}")
@@ -6281,6 +6303,7 @@ class GameRoom:
                         "hand_limit": 10,
                         "actions": [],
                         "is_replay_turn": is_replay_turn,
+                        "is_open_play_window": is_open_play_window,
                         "free_play_species": free_play_species,
                     }
                 with self.cond:

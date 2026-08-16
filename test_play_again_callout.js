@@ -58,9 +58,23 @@ check("it says what to do, and names the button it points at",
 check("one function owns showing and hiding it", /function setPlayAgainCallout\(on\)/.test(APP));
 check("it does not restart its animation on every 1s poll",
       /if \(want === _playAgainCalloutOn\) return;/.test(APP));
-check("the extra turn turns it on", /setPlayAgainCallout\(isReplayTurn && !_staleWindow\)/.test(APP));
-check("the FINAL turn of the game still gets it if that turn is a replay",
-      /setPlayAgainCallout\(Boolean\(lw\.is_replay_turn\) && !_staleWindow\)/.test(APP));
+// One predicate decides it, and it covers BOTH ways a turn stops ending by
+// itself: a ★ "play again", and the Hermit Crab / Sea Turtle open window.
+// A one-shot free play (Roosterfish) is deliberately not in it — the server
+// draws that line in has_multi_play_window(); test_end_turn_callout_cards.py
+// proves it card by card.
+check("one predicate decides when it is on", /function turnWaitsOnEndTurn\(lw\)/.test(APP));
+check("…and it is the replay turn OR the open play window",
+      /return Boolean\(lw && \(lw\.is_replay_turn \|\| lw\.is_open_play_window\)\);/.test(APP));
+check("the extra turn turns it on", /setPlayAgainCallout\(turnWaitsOnEndTurn\(lw\) && !_staleWindow\)/.test(APP));
+check("nothing turns it on any other way",
+      (APP.match(/setPlayAgainCallout\((.*?)\);/g) || [])
+        .every(s => /\(false\)|\(true\)|turnWaitsOnEndTurn\(lw\)/.test(s)));
+check("the FINAL turn of the game still gets it if that turn is one of those",
+      (() => {
+        const i = APP.indexOf('banner.textContent = "★ YOUR FINAL TURN');
+        return i > 0 && APP.slice(i, i + 400).includes("setPlayAgainCallout(turnWaitsOnEndTurn(lw)");
+      })());
 
 // Every branch that can leave End Turn unusable must clear it.
 const offSites = (APP.match(/setPlayAgainCallout\(false\)/g) || []).length;

@@ -5597,7 +5597,7 @@
       banner.className = "my-turn";
       banner.textContent = "★ YOUR FINAL TURN, draw or play a card! ★";
       endBtn.classList.add("pulse-glow");
-      setPlayAgainCallout(Boolean(lw.is_replay_turn) && !_staleWindow);
+      setPlayAgainCallout(turnWaitsOnEndTurn(lw) && !_staleWindow);
     } else if (endTriggered) {
       banner.className = "endgame";
       const left = endGame.final_turns_remaining;
@@ -5609,7 +5609,9 @@
       // The banner announces the extra turn at the TOP of the screen; the
       // callout repeats it over the End Turn button at the bottom, which is
       // where the player actually has to do something to hand the turn on.
-      setPlayAgainCallout(isReplayTurn && !_staleWindow);
+      // The callout also covers the Hermit Crab / Sea Turtle open window,
+      // which the banner does not announce at all — see turnWaitsOnEndTurn.
+      setPlayAgainCallout(turnWaitsOnEndTurn(lw) && !_staleWindow);
       if (!_staleWindow) {
         banner.className = "my-turn";
         if (compMode) {
@@ -9861,15 +9863,31 @@
   }
 
   // ── "Play again" callout over the End Turn button ──────────────
-  // A Hermit Crab / Sea Turtle / ★ "play again" hands the player a second turn.
-  // The turn banner says so at the top of the screen, but the action it is
-  // asking for lives at the bottom, and on a phone the two are nowhere near
-  // each other — so an extra turn read as "the game is stuck". This bobs just
-  // above the action bar, pointing down at End Turn, for as long as the extra
-  // turn lasts. It is hidden by every state
+  // A Hermit Crab / Loggerhead Sea Turtle / ★ "play again" leaves the player
+  // holding a turn that will not end on its own. The turn banner announces the
+  // ★ one at the top of the screen (and the Hermit Crab / Turtle one not at
+  // all), but the action it is asking for lives at the bottom, and on a phone
+  // the two are nowhere near each other — so the turn read as "the game is
+  // stuck". This bobs just above the action bar, pointing down at End Turn,
+  // for as long as that turn lasts. It is hidden by every state
   // that takes End Turn away (payment, forced discard, Tarpon), because a
   // callout pointing at a button that is not there is worse than none.
   let _playAgainCalloutOn = false;
+
+  // The ONE test for "this turn will not end by itself" — the only turns the
+  // callout is for. Two server flags, and the difference between them and
+  // everything else is the whole point:
+  //   • is_replay_turn      — a ★ "play again" handed you another turn.
+  //   • is_open_play_window — a Hermit Crab ("play any number of baitfish this
+  //     turn for free") or a Loggerhead Sea Turtle ("play any number of cards
+  //     by paying the costs") opened a window you close yourself.
+  // A ONE-SHOT free play is not in here on purpose. A Roosterfish's "play a
+  // free Baitfish" is a single card and the turn carries on ending the way it
+  // always does, so prompting there would just be noise on an ordinary turn —
+  // the server draws that line in has_multi_play_window(), not this file.
+  function turnWaitsOnEndTurn(lw) {
+    return Boolean(lw && (lw.is_replay_turn || lw.is_open_play_window));
+  }
 
   // Put the bubble above the action bar, over whichever column End Turn ended
   // up in, and keep the whole thing on screen. Two things force this to be
