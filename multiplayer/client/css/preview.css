@@ -5101,58 +5101,6 @@
     .comp-status { font-size: 12px; color: #5a7a9a; min-height: 16px; position: relative; z-index: 1; }
     .comp-status.err { color: #c0202a; }
 
-    /* Hand-switch overlay */
-    @keyframes hs-fadein { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
-    @keyframes hs-progress { from { width:100%; } to { width:0%; } }
-    #comp-handswitch {
-      display: none;
-      position: fixed; inset: 0;
-      background: #050e22;
-      z-index: 9600;
-      flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 20px; text-align: center;
-      cursor: pointer; user-select: none;
-    }
-    #comp-handswitch.open { display: flex; animation: hs-fadein .18s ease; }
-    #comp-handswitch .hs-title {
-      font-family: "Cinzel", serif;
-      font-size: 1rem; color: var(--muted);
-      letter-spacing: 1px; text-transform: uppercase;
-    }
-    #comp-handswitch .hs-player {
-      font-family: "Cinzel", serif;
-      font-size: 2rem; font-weight: 900;
-      letter-spacing: 2px;
-    }
-    #comp-handswitch .hs-player.p1 { color: var(--cyan); text-shadow: 0 0 30px rgba(34,216,248,.5); }
-    #comp-handswitch .hs-player.p2 { color: var(--gold); text-shadow: 0 0 30px rgba(240,200,64,.5); }
-    #comp-handswitch .hs-hand { font-size: 1.1rem; color: var(--muted); margin-top: -8px; }
-    #comp-handswitch .hs-tap {
-      margin-top: 12px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.15);
-      border-radius: 50px; padding: 12px 32px;
-      font-size: 1rem; font-weight: 700; color: var(--text);
-      cursor: pointer;
-    }
-    #comp-handswitch .hs-shield {
-      font-size: 3rem; margin-bottom: 4px;
-    }
-    #comp-hs-bar-wrap {
-      width: 160px; height: 3px;
-      background: rgba(255,255,255,.1);
-      border-radius: 2px; overflow: hidden;
-      margin-top: -10px;
-    }
-    #comp-hs-bar {
-      height: 100%; background: var(--cyan);
-      border-radius: 2px;
-    }
-    #comp-handswitch.open #comp-hs-bar {
-      animation: hs-progress 2.2s linear forwards;
-    }
-
     /* Leaderboard/history in comp overlay */
     .comp-lb-wrap {
       width: 100%; background: rgba(255,255,255,.68);

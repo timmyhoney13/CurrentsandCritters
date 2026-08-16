@@ -138,6 +138,7 @@ class CompetitiveTurnOrder(unittest.TestCase):
         _start(cls.room, cls.tokens)
         cls.seen = []
         cls.views = {}
+        cls.views_opp_turn = {}
         for _ in range(6):
             seat, legal = _wait_for_active_seat(cls.room)
             if seat is None:
@@ -145,6 +146,11 @@ class CompetitiveTurnOrder(unittest.TestCase):
             if not cls.seen or cls.seen[-1] != seat:
                 cls.seen.append(seat)
                 # Snapshot what all four tokens see at this exact turn boundary.
+                if len(cls.seen) == 2:  # seat 2 — P1 has just finished hand 1
+                    cls.views_opp_turn = {
+                        t: cls.room.state_view(cls.tokens[t], "localhost")
+                        for t in (0, 1, 2, 3)
+                    }
                 if len(cls.seen) == 3:  # seat 1 — P1's SECOND hand
                     cls.views = {
                         t: cls.room.state_view(cls.tokens[t], "localhost")
@@ -192,8 +198,9 @@ class CompetitiveTurnOrder(unittest.TestCase):
             self.assertGreater(len(legal["actions"]), 0)
 
         # Whichever hand a payload is a view OF, it carries that hand's cards and
-        # nobody else's — an opponent's token can never pull a rival hand.
-        for t, shown in ((0, 1), (1, 1), (2, 2), (3, 3)):
+        # nobody else's — an opponent's token can never pull a rival hand. P2 is
+        # waiting here, so both of P2's tokens show P2's NEXT hand (seat 3).
+        for t, shown in ((0, 1), (1, 1), (2, 3), (3, 3)):
             players = self.views[t]["state"]["players"]
             mine = next(p for p in players if p["index"] == shown)
             self.assertGreater(len(mine["hand"]), 0,
@@ -203,16 +210,52 @@ class CompetitiveTurnOrder(unittest.TestCase):
                     self.assertEqual(p["hand"], [], "no payload may carry a second hand")
 
     def test_viewer_seat_index_is_the_hand_being_viewed(self):
-        """My own seat, except while the turn is on my OTHER hand — then it is
-        that hand, because that is the hand I have to be looking at."""
-        for t, shown in ((0, 1), (1, 1), (2, 2), (3, 3)):
+        """The hand the turn is on when it is mine (seat 1 here), and otherwise
+        the hand of mine that is up NEXT (seat 3 for the waiting player)."""
+        for t, shown in ((0, 1), (1, 1), (2, 3), (3, 3)):
             self.assertEqual(self.views[t]["viewer"]["seat_index"], shown)
 
     def test_the_opponents_view_never_follows_my_turn(self):
-        """The switch is strictly within one person's own pair."""
+        """The switch is strictly within one person's own pair: while P1 plays,
+        P2's screen sits on one of P2's OWN hands and can't act with it."""
         for t in (2, 3):
             self.assertFalse(self.views[t]["viewer"]["can_act"])
-            self.assertEqual(self.views[t]["viewer"]["seat_index"], t)
+            self.assertIn(self.views[t]["viewer"]["seat_index"], (2, 3))
+
+    def test_my_view_moves_to_my_other_hand_as_soon_as_my_turn_ends(self):
+        """P1 has just finished hand 1 and the opponent is playing. P1's screen
+        must ALREADY be on hand 2 — the hand they play next.
+
+        It used to sit on the hand they had just played until the opponent
+        finished their turn, so the switch ran on the opponent's clock: you
+        stared at a board you were done with, then it changed under you the
+        moment the turn came back. The wait is now the time you spend planning
+        the hand that is actually up next."""
+        self.assertTrue(self.views_opp_turn, "never reached the opponent's turn")
+        self.assertEqual(self.views_opp_turn[0]["active_action_seat"], 2,
+                         "the snapshot must be taken on the opponent's turn")
+        for t in (0, 1):
+            view = self.views_opp_turn[t]
+            self.assertEqual(view["viewer"]["seat_index"], 1,
+                             "either of P1's tokens must be shown P1's next hand")
+            self.assertFalse(view["viewer"]["can_act"],
+                             "showing the next hand early is not a free turn with it")
+            players = view["state"]["players"]
+            mine = next(p for p in players if p["index"] == 1)
+            self.assertGreater(len(mine["hand"]), 0,
+                               "hand 2's own cards must be the ones on screen")
+            for p in players:
+                if p["index"] != 1:
+                    self.assertEqual(p["hand"], [], "no payload may carry a second hand")
+
+    def test_the_hand_on_screen_is_never_the_opponents(self):
+        """Every switch stays inside the viewer's own pair, at every moment
+        sampled — showing early must never hand anyone a rival's cards."""
+        for views in (self.views_opp_turn, self.views):
+            for t in (0, 1):
+                self.assertIn(views[t]["viewer"]["seat_index"], (0, 1))
+            for t in (2, 3):
+                self.assertIn(views[t]["viewer"]["seat_index"], (2, 3))
 
 
 class CompetitiveSeatOwnership(unittest.TestCase):

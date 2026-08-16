@@ -2778,8 +2778,7 @@
       const s2 = pair[0], s3 = pair[1];
       const tokens = { [s2]: j2.data?.seat_token || "", [s3]: j3.data?.seat_token || "" };
       compMode = true; compMySeats = [s2, s3]; compTokens = tokens;
-      compHostToken = ""; compHandNames = {}; _compHsSuppressed = true;
-      _compPrevActiveSeat = null;
+      compHostToken = ""; compHandNames = {};
       // Name the two SIDES by the pair each one holds — seats {0,1} are P1 and
       // {2,3} are P2, and "am I P1" is decided by compMySeats[0] < 2 everywhere
       // (result reporting included). Assuming the joiner is always P2 mislabels
@@ -3302,8 +3301,8 @@
       if (j1.ok) {
         const tokens = { 0: seat0Tok, 1: j1.data?.seat_token || "" };
         compMode = true; compMySeats = [0, 1]; compTokens = tokens;
-        compHostToken = hToken; compHandNames = {}; _compHsSuppressed = true;
-        _compPrevActiveSeat = null; compP1Name = name; compP2Name = "Player 2";
+        compHostToken = hToken; compHandNames = {};
+        compP1Name = name; compP2Name = "Player 2";
         try { sessionStorage.setItem(`fish_comp_seats_${rId}_0`, JSON.stringify({ seats: [0,1], tokens, p1: name, p2: "Player 2" })); } catch {}
       } else {
         // Seat 1 is this player's SECOND hand. If claiming it failed the room is
@@ -4087,8 +4086,8 @@
           window._reportWeeklyChallengeProgress?.("star_storm", 1);
         } catch {}
       }
-      // Competitive: hand-switch is handled by checkCompHandSwitch in renderPayload
-      // once the server confirms the active seat changed, no immediate call needed here.
+      // Competitive: the server moves the view to my other hand as soon as this
+      // turn ends (state_view), so there is nothing to switch here.
       await sleep(160);
       refreshStateAfterAction();
     } catch(e) { setStatus("Error: " + e.message); showToast("Error: " + e.message, "err"); }
@@ -5643,7 +5642,14 @@
       setPlayAgainCallout(false);
     } else {
       banner.className = "their-turn";
-      banner.textContent = current ? `${current}'s turn…` : "Waiting…";
+      // Competitive: while the opponent plays, the board has already moved on to
+      // the hand I play NEXT (the server switches it the moment my turn ends).
+      // Say which hand that is, or the wait reads as "why did my board change?".
+      const _nextHand = (compMode && mySeatIdx !== null && compMySeats.includes(mySeatIdx))
+        ? compGetHandName(mySeatIdx) : "";
+      banner.textContent = _nextHand
+        ? `${_nextHand} is up next  ·  ${current ? current + "'s turn…" : "waiting…"}`
+        : (current ? `${current}'s turn…` : "Waiting…");
       endBtn.classList.remove("pulse-glow");
       setPlayAgainCallout(false);
       _lastActionMs = 0; // confirmed not our turn, reset grace window
@@ -5651,7 +5657,6 @@
     _prevTurnIdx = state.turn_index;
     // Razorbill Auk avatar: the "same turn" window ends when it's no longer my turn.
     if (!isMyTurn && _gameAchTracker) _gameAchTracker.razorbillThisTurn = 0;
-    checkCompHandSwitch(payload);
 
     // status bar
     if (mustDiscard) {
@@ -5812,10 +5817,20 @@
       // the forced draw has resolved and future turns start fresh.
       if (!isMyTurn) _afkForced = false;
       // eligible_seat is a seat index; compare to mySeatIdx (never game index).
+      // Competitive: the view moves to your OTHER hand the instant your turn
+      // ends, so the hand holding the undo is normally NOT the hand on screen.
+      // The undo belongs to the person, not the hand — accept either of my two
+      // seats (the click handler already sends the eligible seat's own token).
+      const undoIsMine = mySeatIdx !== null && (
+        mySeatIdx === undoInfo.eligible_seat
+        || (compMode && Array.isArray(compMySeats)
+            && compMySeats.includes(mySeatIdx)
+            && compMySeats.includes(undoInfo.eligible_seat))
+      );
       // Block undo when the action was auto-drawn due to an AFK vote (player did not interact).
       // Also block while a request is already in flight (undoInfo.requested), an AI
       // mid-turn may still be picking it up, so a second click would be a no-op.
-      const canUndo = Boolean(undoInfo.valid) && !Boolean(undoInfo.requested) && mySeatIdx !== null && mySeatIdx === undoInfo.eligible_seat && !_afkForced;
+      const canUndo = Boolean(undoInfo.valid) && !Boolean(undoInfo.requested) && undoIsMine && !_afkForced;
       undoBtn.style.display = "";
       undoBtn.disabled = !canUndo;
       undoBtn.title = _afkForced
@@ -7976,8 +7991,6 @@
   let compP1Name = "Player 1";
   let compP2Name = "Player 2";
   let compHandNames = {};    // seat index → display name (e.g. { 0:"Hand 1", 1:"Hand 2", 2:"Hand 3", 3:"Hand 4" })
-  let _compPrevActiveSeat = null;
-  let _compHsSuppressed = false;
   let _compWaitPollTimer = null;
   let _compPendingRoomCode = "";
   let _compPendingHToken = "";
@@ -8059,8 +8072,6 @@
       [pair[1]]: compTokens[pair[1]] || held,
     };
     compHostToken = compHostToken || getHostToken() || "";
-    _compHsSuppressed = true;   // don't flash the hand-switch card on arrival
-    _compPrevActiveSeat = null;
     compLoadHandNames();
     // Competitive is poll-only: an SSE stream opened by the generic room-entry
     // path is bound to ONE seat token and would fight the poll for the screen.
@@ -8146,59 +8157,12 @@
     }
   }
 
-  let _compHsAutoTimer = null;
-
-  function _dismissCompHandSwitch() {
-    document.getElementById("comp-handswitch").classList.remove("open");
-    if (_compHsAutoTimer) { clearTimeout(_compHsAutoTimer); _compHsAutoTimer = null; }
-  }
-
-  function showCompHandSwitch(nextSeat) {
-    if (_compHsSuppressed) return;
-    const isP1Seat = nextSeat < 2;
-    const playerName = isP1Seat ? compP1Name : compP2Name;
-    const handName = compGetHandName(nextSeat);
-    const playerEl = document.getElementById("hs-player-name");
-    const handEl   = document.getElementById("hs-hand-label");
-    if (playerEl) {
-      playerEl.textContent = playerName;
-      playerEl.className = "hs-player " + (isP1Seat ? "p1" : "p2");
-    }
-    if (handEl) handEl.textContent = handName;
-    // Restart the progress-bar animation by briefly removing/re-adding open.
-    const el = document.getElementById("comp-handswitch");
-    el.classList.remove("open");
-    const bar = document.getElementById("comp-hs-bar");
-    if (bar) { bar.style.animation = "none"; void bar.offsetWidth; bar.style.animation = ""; }
-    void el.offsetWidth; // force reflow so animation restarts
-    el.classList.add("open");
-    // Auto-dismiss after 2.2 s, tap anywhere to skip immediately.
-    if (_compHsAutoTimer) clearTimeout(_compHsAutoTimer);
-    _compHsAutoTimer = setTimeout(_dismissCompHandSwitch, 2200);
-  }
-
-  function checkCompHandSwitch(payload) {
-    if (!compMode) return;
-    const activeSeat = Number(payload?.active_action_seat);
-    if (isNaN(activeSeat)) return;
-    // Show the hand-switch overlay whenever one of our seats becomes active
-    // and it's a different seat than the last time we acted.
-    if (compMySeats.includes(activeSeat) && activeSeat !== _compPrevActiveSeat) {
-      if (!_compHsSuppressed) {
-        showCompHandSwitch(activeSeat);
-      }
-      _compPrevActiveSeat = activeSeat;
-    }
-    _compHsSuppressed = false;
-  }
-
-  document.getElementById("comp-handswitch").addEventListener("click", () => {
-    _dismissCompHandSwitch();
-  });
-  document.getElementById("hs-tap-btn").addEventListener("click", (e) => {
-    e.stopPropagation();
-    _dismissCompHandSwitch();
-  });
+  // There is no hand-switch screen any more. A full-screen "Your Turn — Hand 2"
+  // card used to slide in (and hold the board for 2.2 s) every time the turn
+  // reached the player's other hand. The switch itself is now instant and the
+  // server does it the moment your turn ends — see _competitive_view_seat_locked
+  // — so the board is already on the right hand and an overlay announcing it is
+  // just something to tap through. The top banner still names the live hand.
 
   function compOpenOverlay() {
     document.getElementById("comp-overlay").classList.add("open");
@@ -8242,8 +8206,6 @@
     compMySeats = mySeats;
     compHandNames = {};
     compHostToken = hToken || "";
-    _compPrevActiveSeat = null;
-    _compHsSuppressed = true;
     _compRenameOpen = -1;
     roomId = code;
     compLoadHandNames();
@@ -10276,9 +10238,15 @@
     const undoInfo = (latestPayload && latestPayload.undo) || {};
     // eligible_seat and active_action_seat are both seat indices
     const isMidTurn = undoInfo.valid && undoInfo.eligible_seat === mySeatIdx && latestPayload?.active_action_seat === mySeatIdx;
+    // Competitive: the undo can belong to my other hand (the screen has already
+    // moved on to the hand I play next), so name the hand being rewound.
+    const otherHand = (compMode && undoInfo.eligible_seat != null && undoInfo.eligible_seat !== mySeatIdx)
+      ? compGetHandName(undoInfo.eligible_seat) : "";
     const msg = isMidTurn
       ? "Undo your draw? The drawn card(s) will be shuffled back into the deck and your turn restarts."
-      : "Undo your last turn? The game will revert to before you played. (Bot turns are fine, this only locks once another human plays after you.)";
+      : otherHand
+        ? `Undo ${otherHand}'s last turn? The game will revert to before that hand played.`
+        : "Undo your last turn? The game will revert to before you played. (Bot turns are fine, this only locks once another human plays after you.)";
     if (!confirm(msg)) return;
     // Undo is a true back button: immediately cancel any in-progress action and
     // wipe ALL local staging state BEFORE the server round-trip. This guarantees
@@ -10513,11 +10481,10 @@
     _lastCompCpDelta = null; _lastCompNewCp = null; _lastCompRankName = null;
     try { _resetChallengeObservers(); } catch {}
     dismissEndGameCinematic();
-    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compPrevActiveSeat=null; _compHsSuppressed=false; _compRenameOpen=-1; _compRefetchKey="";
+    compMode=false; compTokens={}; compHostToken=""; compMySeats=[]; compHandNames={}; _compRenameOpen=-1; _compRefetchKey="";
     if (_compWaitPollTimer) { clearInterval(_compWaitPollTimer); _compWaitPollTimer=null; }
     const compHandsSection = document.getElementById("pv-menu-comp-hands");
     if (compHandsSection) compHandsSection.style.display = "none";
-    document.getElementById("comp-handswitch").classList.remove("open");
     _endgameDismissed = false; _endgameBarDone = false; _endgameCapturedOldXp = null; _gameTerminatedByMe = false;
     _teamModeEnd = false; _myTeamRank = null; _teamIsWin = false; _teamRevealDone = false;
     try { _closeTeamReveal(); } catch (_) {}
@@ -18593,7 +18560,6 @@
         "seat-picker-modal",
         "pv-score-modal",
         "comp-overlay",
-        "comp-handswitch",
         "tut-exit-confirm",
         "tut-zoom",
         "pv-board-focus",

@@ -76,9 +76,23 @@ function makeServer() {
       const tokenSeat = SEAT_BY_TOKEN[token];
       if (tokenSeat === undefined) return { ok: false, error: "seat token invalid" };
       const active = this.activeSeat;
-      // The one rule this whole file is about: my poll shows me the hand the
-      // turn is on, whichever of my two tokens I polled with.
-      const viewerSeat = sameOwner(tokenSeat, active) ? active : tokenSeat;
+      // The one rule this whole file is about, in its two halves (mirrors
+      // multiplayer_server._competitive_view_seat_locked):
+      //  • the turn is on one of my hands → my poll shows me THAT hand,
+      //    whichever of my two tokens I polled with;
+      //  • the opponent is playing → my poll shows me the hand of mine that is
+      //    up NEXT, so the switch happens the moment my own turn ends and never
+      //    waits on the opponent's clock.
+      let viewerSeat = tokenSeat;
+      if (sameOwner(tokenSeat, active)) {
+        viewerSeat = active;
+      } else {
+        const g = TURN_ORDER.indexOf(active);
+        for (let step = 1; step <= TURN_ORDER.length; step++) {
+          const nxt = TURN_ORDER[(g + step) % TURN_ORDER.length];
+          if (sameOwner(nxt, tokenSeat)) { viewerSeat = nxt; break; }
+        }
+      }
       return {
         ok: true,
         version: this.version,
@@ -197,7 +211,10 @@ console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active"
   server.endTurn();
   p1.poll();
   check(shownCanAct(p1) === false, "opponent's turn: client shows waiting");
-  check(shownSeat(p1) === 0, "opponent's turn: I am back on my own hand 1's board");
+  check(shownSeat(p1) === 1,
+        "opponent's turn: the board has ALREADY moved to my hand 2 (the hand I play next)");
+  check(shownHandOf(p1, 1) > 0 && shownHandOf(p1, 0) === 0,
+        "opponent's turn: it is hand 2's real cards on screen, not hand 1's leftovers");
 
   // Opponent ends → seat 1 = MY OTHER HAND. This is the switch that broke.
   server.endTurn();
@@ -223,6 +240,8 @@ console.log("1. P1 owns seats 0+1 — the view follows whichever hand is active"
   server.endTurn();
   p1.poll();
   check(shownCanAct(p1) === false, "opponent hand 2's turn: waiting again");
+  check(shownSeat(p1) === 0,
+        "opponent hand 2's turn: the board is already back on my hand 1, which plays next");
   server.endTurn();
   p1.poll();
   check(shownSeat(p1) === 0 && shownCanAct(p1) === true,
@@ -237,10 +256,12 @@ console.log("2. P2 owns seats 2+3 — same switch, opposite side of the table");
 
   p2.poll();                                     // seat 0 active (opponent)
   check(shownCanAct(p2) === false, "P1's hand 1 turn: P2 waits");
+  check(shownSeat(p2) === 2, "P1's hand 1 turn: P2 is looking at the hand P2 plays next");
   server.endTurn(); p2.poll();                   // seat 2 = P2 hand 1
   check(shownSeat(p2) === 2 && shownCanAct(p2) === true, "P2 hand 1 gets its turn");
   server.endTurn(); p2.poll();                   // seat 1 (opponent)
   check(shownCanAct(p2) === false, "P1's hand 2 turn: P2 waits");
+  check(shownSeat(p2) === 3, "P1's hand 2 turn: P2 is already on hand 2, which is up next");
   server.endTurn(); p2.poll();                   // seat 3 = P2 hand 2
   check(shownSeat(p2) === 3 && shownCanAct(p2) === true,
         "P2 hand 2 gets its turn (the second-hand switch, mirrored)");
@@ -329,6 +350,24 @@ console.log("5. preview-app.js keeps the per-seat render gate");
                               APP.indexOf("\n  async function submitAction(") + 4000);
   check(/active_action_seat/.test(submitSrc),
         "submitAction picks its competitive token from the ACTIVE seat");
+}
+
+// ── 6. The hand-switch SCREEN is gone ────────────────────────────────────────
+// A full-screen "Your Turn — Hand 2" card used to slide in and hold the board
+// for 2.2 s every time the turn reached the player's other hand. The switch is
+// instant now (and already done before the opponent finishes), so the overlay
+// was one more thing to tap through. It has to be gone from all three files, or
+// its leftovers throw on a missing element.
+console.log("6. no hand-switch overlay is left anywhere");
+{
+  const HTML = fs.readFileSync(path.join(ROOT, "multiplayer/client/preview.html"), "utf8");
+  const CSS  = fs.readFileSync(path.join(ROOT, "multiplayer/client/css/preview.css"), "utf8");
+  check(!/comp-handswitch/.test(HTML), "preview.html has no #comp-handswitch element");
+  check(!/comp-handswitch|hs-progress|comp-hs-bar/.test(CSS), "preview.css has no overlay styling");
+  check(!/comp-handswitch|showCompHandSwitch|checkCompHandSwitch|_compHsSuppressed/.test(APP),
+        "preview-app.js neither shows nor hides an overlay that no longer exists");
+  check(!/getElementById\("hs-[a-z-]+"\)/.test(APP),
+        "no code reaches for the overlay's inner elements");
 }
 
 console.log(`\n${checks - failures}/${checks} checks passed`);

@@ -3514,6 +3514,12 @@ class GameRoom:
         # Seats go 0,2,1,3 so turns alternate P1h1,P2h1,P1h2,P2h2
         self._comp_game_to_seat: Dict[int, int] = {}
         self._comp_seat_to_game: Dict[int, int] = {}
+        # Competitive: the hand each player is currently LOOKING at, keyed by the
+        # lowest seat index they own (0 for P1, 2 for P2). Remembered so the view
+        # holds steady through the moments where nobody is the active seat (the
+        # gap at every turn_start) instead of snapping back to whichever hand's
+        # token happened to poll. See _competitive_view_seat_locked.
+        self._comp_view_seat: Dict[int, int] = {}
         self.seed = secrets.randbits(64)
         self.created_unix = now_unix()
         self.started_unix: Optional[int] = None
@@ -5281,6 +5287,62 @@ class GameRoom:
         return [s for s in self.seats
                 if s.kind == "human" and self._competitive_same_owner(s.index, seat.index)]
 
+    def _competitive_view_seat_locked(self, viewer_seat: Seat) -> Optional[Seat]:
+        """Competitive only: WHICH of a player's two hands their screen shows.
+
+        Two rules, in order:
+          1. If the turn is on one of their hands, that hand — it is the only
+             hand they can act with, so it is the only hand worth showing.
+          2. Otherwise (the opponent is playing) the hand that is up NEXT for
+             them. Finishing a turn with hand 1 used to leave the board sitting
+             on hand 1 until the opponent finished, so the switch to hand 2
+             happened on the opponent's clock; now the moment your turn ends the
+             screen is already on the hand you play next, and there is nothing
+             to wait for.
+
+        Turn order is walked through the game_idx↔seat_idx remap ([0,2,1,3] in
+        competitive), so "next" is the real next turn, never seat order.
+        Returns None for non-competitive rooms (the caller keeps the token's own
+        seat) — and the chosen hand is never a leak: both hands are the one
+        person holding the token."""
+        if not (self.competitive and len(self.seats) == 4):
+            return None
+        owned = [s.index for s in self._owned_seats_locked(viewer_seat)]
+        if len(owned) < 2:
+            return None                       # one hand only: nothing to switch to
+        base = min(owned)
+        seat_by_index = {s.index: s for s in self.seats}
+
+        def _remember(idx: Optional[int]) -> Optional[Seat]:
+            if idx is None or idx not in seat_by_index:
+                return None
+            self._comp_view_seat[base] = idx
+            return seat_by_index[idx]
+
+        # Whose turn it is. active_action_seat is the authority while a human is
+        # actually on the clock; it is None in the gap at every turn_start, and
+        # there the public snapshot's turn_index (already a SEAT index) still
+        # names the player whose turn it is.
+        turn_seat = self.active_action_seat
+        if turn_seat is None and isinstance(self.latest_public_state, dict):
+            raw = self.latest_public_state.get("turn_index")
+            if isinstance(raw, int) and raw in seat_by_index:
+                turn_seat = raw
+        if turn_seat in owned:
+            return _remember(turn_seat)
+        if turn_seat is not None:
+            n = len(self.seats)
+            start = self._comp_seat_to_game.get(turn_seat, turn_seat)
+            for step in range(1, n + 1):
+                gi = (start + step) % n
+                nxt = self._comp_game_to_seat.get(gi, gi)
+                if nxt in owned:
+                    return _remember(nxt)
+        # Nobody is on the clock and there is no snapshot yet (pre-game, or
+        # mid-recovery): hold whatever hand this player was last shown.
+        held = self._comp_view_seat.get(base)
+        return seat_by_index.get(held) if held is not None else None
+
     def submit_action(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         token = payload.get("seat_token")
         with self.cond:
@@ -6117,6 +6179,9 @@ class GameRoom:
             self.legal_actions_by_seat.clear()
             self.pending_actions.clear()
             self.active_action_seat = None
+            # A fresh game decides which hand each competitive player is looking
+            # at from its own first turn, never from the last game's.
+            self._comp_view_seat.clear()
             self._last_turn_scores = {}
             self.undo_snapshot_gs = None
             self.undo_snapshot_ms = None
@@ -8328,6 +8393,10 @@ class GameRoom:
             # This is not a leak: both hands belong to the one person holding the
             # token, and submit_action already accepts either token for whichever
             # of their hands is active (see _competitive_same_owner).
+            # And once the turn leaves them entirely — the opponent is playing —
+            # the view moves on to whichever of their hands is up NEXT, so the
+            # switch to the other hand happens the instant their own turn ends
+            # instead of waiting on the opponent to finish theirs.
             view_seat = viewer_seat
             if (viewer_seat is not None
                     and self.active_action_seat is not None
@@ -8335,6 +8404,13 @@ class GameRoom:
                     and self._competitive_same_owner(viewer_seat.index, self.active_action_seat)
                     and 0 <= self.active_action_seat < len(self.seats)):
                 view_seat = self.seats[self.active_action_seat]
+            elif viewer_seat is not None and self.phase == "running":
+                # Only while the game is actually being played: in the lobby and
+                # on the end screen there is no "next hand", and those screens
+                # were set up from the token's own seat.
+                _comp_view = self._competitive_view_seat_locked(viewer_seat)
+                if _comp_view is not None:
+                    view_seat = _comp_view
             # viewer_index is the SEAT index (of the hand being viewed).
             # The players array uses seat_idx as p["index"] (see _record_snapshot),
             # so viewer_index is used both to find "me" in the players list AND

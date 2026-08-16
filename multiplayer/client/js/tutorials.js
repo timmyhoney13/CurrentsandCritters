@@ -1555,8 +1555,8 @@
       text: "After every ranked match:<br>• <strong>Win</strong>, gain CP (about +18 to +26).<br>• <strong>Loss</strong>, lose CP.<br>• <strong>Draw</strong>, a small CP gain.<br>The higher your rank, the <strong>more CP a loss costs</strong> and the less a win gives, so the climb gets steeper near the top. If both players' best hands tie, the <strong>second hand breaks the tie</strong>. Reach <strong>1200 CP</strong> to become <strong>👑 King of the Critters</strong>, the season's top rank." },
 
     // ── 13. Hand-switch in the game ────────────────────────────────
-    { target: null, badge: "In the Game", title: "The Hand-Switch Overlay",
-      text: "In a competitive game, turns cycle through all four seats automatically. When the active turn reaches <em>your other hand</em>, a full-screen <strong>\"Your Turn\"</strong> overlay slides in, showing your name and which hand is now up. <strong>Tap anywhere to dismiss it</strong> and play that hand. It's there so you never accidentally play the wrong board." },
+    { target: null, badge: "In the Game", title: "Switching Between Your Hands",
+      text: "In a competitive game, turns cycle through all four seats automatically, and you never switch hands yourself. The moment you end a turn, the board <strong>flips straight to your other hand</strong> — you don't wait for your opponent to finish, and there's no overlay to tap through. Use that time to plan the hand that's up next; the banner at the top always names the hand you're looking at and turns gold when it's your turn to play it." },
 
     // ── 14. Strategy: two hands ────────────────────────────────────
     { target: null, badge: "Strategy", title: "Playing Two Hands",
