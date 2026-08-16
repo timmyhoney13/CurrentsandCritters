@@ -870,6 +870,10 @@ _SEASON_COUNTERS = (
     "moon_games", "new_members", "rank_ups", "oceans_played", "animals_played",
     "gg_games", "events_held", "team_games", "rival_set", "beat_rival",
     "clan_trades", "team_rival_games", "rank_bonus_points",
+    # Points handed out by an admin (scripts/grant_clan_points.py). They count
+    # towards the clan's season and lifetime totals, and are kept separable
+    # here so "earned by playing" can always be told apart from a gift.
+    "bonus_points",
 )
 # Season counters whose value is "how many distinct things" — stored as maps so
 # the same member/week can never be counted twice.

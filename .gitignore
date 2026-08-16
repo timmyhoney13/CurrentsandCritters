@@ -232,6 +232,11 @@ serviceAccountKey.json
 !scripts/
 !scripts/get_gmail_refresh_token.py
 
+# Admin hand-out: Clan Points to a clan + the matching XP to the member.
+# Run locally against Firestore with GOOGLE_APPLICATION_CREDENTIALS — a dev
+# tool, deliberately NOT in the image.
+!scripts/grant_clan_points.py
+
 # Player Perks (Store: Streak Shield / Name Token / Emote Pack / Re-Earn)
 !test_store_perks.js
 !test_chat_emotes.py
