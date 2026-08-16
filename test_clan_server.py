@@ -357,6 +357,147 @@ check("owner promotes recruiter", r.get("ok"))
 r = route("dan", "request-act", {"uid": "eve", "accept": True})
 check("recruiter accepts request", r.get("ok") and "eve" in clan_doc(CID2)["members"])
 
+# ══ 3a. PASSWORD clans ═══════════════════════════════════════════════════════
+# The fourth privacy mode: anyone who knows the word joins INSTANTLY (exactly
+# like public), anyone who doesn't cannot get in at all. Tim's ask was "set
+# passwords on a clan and only the people that enter can get into it, or you can
+# just do anyone can join" — so both halves are tested here: the lock holds, and
+# public still lets anyone straight in.
+print("password clans:")
+
+for u in ("pwown", "pwjoin", "pwguess", "pwinv", "pwmode"):
+    set_user(u)
+
+# ── the hashing itself ──────────────────────────────────────────────────────
+_rec = CS._hash_password("Reef Riders 99")
+check("a stored password is a pbkdf2 hash, not the password",
+      _rec["algo"] == "pbkdf2_sha256" and _rec["iters"] >= 100_000
+      and "Reef Riders 99" not in json.dumps(_rec))
+check("two clans with the SAME password get different hashes (salted)",
+      CS._hash_password("samesame")["hash"] != CS._hash_password("samesame")["hash"])
+check("the right password verifies", CS._check_password(_rec, "Reef Riders 99"))
+check("a wrong password does not", not CS._check_password(_rec, "Reef Riders 98"))
+check("case matters", not CS._check_password(_rec, "reef riders 99"))
+check("surrounding whitespace is forgiven", CS._check_password(_rec, "  Reef Riders 99  "))
+check("an empty guess is never right", not CS._check_password(_rec, ""))
+# A clan whose record is missing or damaged must refuse everyone, never admit
+# everyone — the failure has to close the door, not open it.
+check("no record = nobody gets in", not CS._check_password(None, "anything"))
+check("empty record = nobody gets in", not CS._check_password({}, "anything"))
+check("hash present but no salt = nobody gets in",
+      not CS._check_password({"hash": "abc", "iters": 1000}, "anything"))
+check("zero iterations = nobody gets in",
+      not CS._check_password({**_rec, "iters": 0}, "Reef Riders 99"))
+check("an unknown algorithm = nobody gets in",
+      not CS._check_password({**_rec, "algo": "md5"}, "Reef Riders 99"))
+
+# ── creating one ────────────────────────────────────────────────────────────
+r = route("pwmode", "create", {"name": "No Word Clan", "icon": "/avatars/clownfish.png",
+                               "privacy": "password"})
+check("password mode with no password is refused at create",
+      not r.get("ok") and r.get("error") == "password_too_short")
+r = route("pwmode", "create", {"name": "Short Word", "icon": "/avatars/clownfish.png",
+                               "privacy": "password", "password": "ab"})
+check("a too-short password is refused", not r.get("ok") and r.get("error") == "password_too_short")
+r = route("pwmode", "create", {"name": "Long Word", "icon": "/avatars/clownfish.png",
+                               "privacy": "password", "password": "x" * 65})
+check("a too-long password is refused", not r.get("ok") and r.get("error") == "password_too_long")
+
+r = route("pwown", "create", {"name": "Locked Lagoon", "icon": "/avatars/clownfish.png",
+                              "privacy": "password", "password": "seahorse7"})
+check("a password clan can be founded", r.get("ok"))
+PWCID = r.get("clan_id")
+check("the clan is in password mode", clan_doc(PWCID).get("privacy") == "password")
+check("the password is stored ONLY as a hash",
+      "seahorse7" not in json.dumps(clan_doc(PWCID)))
+
+# ── joining one ─────────────────────────────────────────────────────────────
+r = route("pwguess", "join", {"clan_id": PWCID})
+check("no password = no entry", not r.get("ok") and r.get("error") == "bad_password")
+r = route("pwguess", "join", {"clan_id": PWCID, "password": "seahorse8"})
+check("a wrong password = no entry", not r.get("ok") and r.get("error") == "bad_password")
+check("...and the guesser really is not in the clan",
+      "pwguess" not in clan_doc(PWCID).get("members", {}))
+r = route("pwjoin", "join", {"clan_id": PWCID, "password": "seahorse7"})
+check("the right password joins instantly — no request, no approval", r.get("ok"))
+check("...and they are a member", "pwjoin" in clan_doc(PWCID)["members"])
+check("...as a plain member, not an owner",
+      clan_doc(PWCID)["members"]["pwjoin"]["role"] == "member")
+
+# An invite is the owner letting you in, so it still bypasses the password.
+r = route("pwown", "invite", {"to_name": "Pwinv"})
+check("a password clan can still invite", r.get("ok"))
+r = route("pwinv", "join", {"clan_id": PWCID})
+check("an invite gets you in without the password", r.get("ok"))
+
+# ── guessing at it ──────────────────────────────────────────────────────────
+CS._PW_TRIES.clear()
+_blocked = None
+for _i in range(CS.CLAN_PASSWORD_TRIES + 3):
+    _r = route("pwguess", "join", {"clan_id": PWCID, "password": f"nope{_i}"})
+    if _r.get("error") == "too_many_tries":
+        _blocked = _i
+        break
+check(f"repeated wrong guesses get throttled (after {_blocked})",
+      _blocked is not None and _blocked <= CS.CLAN_PASSWORD_TRIES)
+CS._PW_TRIES.clear()
+
+# ── changing it ─────────────────────────────────────────────────────────────
+r = route("pwjoin", "settings", {"privacy": "password", "password": "memberpick"})
+check("a plain member cannot change the password",
+      not r.get("ok") and r.get("error") == "owner_only")
+r = route("pwown", "settings", {"privacy": "password", "password": "newword12"})
+check("the owner can change the password", r.get("ok"))
+set_user("pwlate")
+r = route("pwlate", "join", {"clan_id": PWCID, "password": "seahorse7"})
+check("the OLD password stops working", not r.get("ok") and r.get("error") == "bad_password")
+r = route("pwlate", "join", {"clan_id": PWCID, "password": "newword12"})
+check("the new password works", r.get("ok"))
+
+# Blank password + still in password mode = keep the current one.
+r = route("pwown", "settings", {"privacy": "password", "password": ""})
+check("saving settings with a blank password keeps the old one", r.get("ok"))
+set_user("pwlate2")
+r = route("pwlate2", "join", {"clan_id": PWCID, "password": "newword12"})
+check("...and it really is the same password", r.get("ok"))
+
+# Switching modes.
+r = route("pwown", "settings", {"privacy": "public"})
+check("the owner can switch back to public", r.get("ok"))
+set_user("pwanyone")
+r = route("pwanyone", "join", {"clan_id": PWCID})
+check("public means ANYONE joins with no password at all", r.get("ok"))
+r = route("pwown", "settings", {"privacy": "password"})
+check("switching back to password mode reuses the stored password", r.get("ok"))
+set_user("pwlate3")
+r = route("pwlate3", "join", {"clan_id": PWCID, "password": "newword12"})
+check("...which still lets the right word in", r.get("ok"))
+
+# A clan that never had one cannot be switched into password mode empty-handed.
+r = route("cara", "settings", {"privacy": "password"})
+check("no stored password = cannot switch to password mode blind",
+      not r.get("ok") and r.get("error") == "password_required")
+r = route("cara", "settings", {"privacy": "request", "password": "sneaky1"})
+check("a password cannot be set while in another mode",
+      not r.get("ok") and r.get("error") == "password_needs_password_mode")
+
+# ── it must never leak ──────────────────────────────────────────────────────
+_card = CS._clan_card(PWCID, clan_doc(PWCID), FAKE_SID["cur"])
+check("the browse card says THAT there is a password", _card.get("has_password") is True)
+check("the browse card never carries the hash",
+      "join_password" not in _card and "newword12" not in json.dumps(_card))
+_prof = CS._clan_profile(DB, PWCID, clan_doc(PWCID), FAKE_SID["cur"], viewer_uid="pwown")
+check("the clan profile never carries the password, even for the owner",
+      "join_password" not in json.dumps(_prof) and "newword12" not in json.dumps(_prof))
+_browse = CS._route_post(DB, "pwguess", "browse", {}, FAKE_SID["cur"])
+check("browse lists password clans (you can act on them)",
+      any(row.get("id") == PWCID for row in _browse.get("rows", [])))
+check("browse still hides invite-only clans (you cannot)",
+      all(row.get("privacy") != "invite" for row in _browse.get("rows", [])))
+check("browse never leaks a password", "newword12" not in json.dumps(_browse))
+check("one-tap 'recommended' never offers a password clan",
+      all(row.get("privacy") == "public" for row in _browse.get("recommended", [])))
+
 # ══ 3b. Invite by FRIEND CODE ════════════════════════════════════════════════
 # The Members-tab invite box only ever knows a 4-digit friend code. Codes are
 # random, so two players CAN share one — the resolver has to say so instead of

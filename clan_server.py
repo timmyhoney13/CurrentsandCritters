@@ -320,8 +320,105 @@ DAILY_GOALS = [
     {"id": "trade",   "target": 1, "label": "Complete a clan trade today"},
 ]
 
-PRIVACY_MODES = ("public", "request", "invite")
+PRIVACY_MODES = ("public", "request", "invite", "password")
 CORE_ROLES    = ("owner", "captain", "recruiter", "member")
+
+# ── Clan join passwords ──────────────────────────────────────────────────────
+# "password" is the fourth privacy mode: anyone who knows the word joins
+# INSTANTLY, exactly like a public clan, and anyone who doesn't cannot get in at
+# all. It is the setting for a clan that wants to be open to its friends without
+# the owner having to sit on a queue of join requests.
+#
+# The password is never stored, never returned by any endpoint, and never
+# checked on the client: only a PBKDF2 hash goes in the clan doc, every public
+# shaper builds its dict field-by-field (so the hash cannot ride along), and the
+# comparison happens here, server-side, in constant time.
+CLAN_PASSWORD_MIN         = 4
+CLAN_PASSWORD_MAX         = 64
+CLAN_PASSWORD_ITERS       = 120_000    # PBKDF2-HMAC-SHA256 rounds
+CLAN_PASSWORD_TRIES       = 8          # wrong guesses allowed…
+CLAN_PASSWORD_TRY_WINDOW  = 600        # …per player, per clan, per 10 minutes
+
+
+def _clean_password(raw: Any) -> Tuple[str, Optional[str]]:
+    """Validate a password a player typed. Returns (password, error)."""
+    # Stripped, because a password that arrives with a trailing space from a
+    # phone keyboard or a paste should still be the password they set.
+    pw = str(raw or "").strip()
+    if len(pw) < CLAN_PASSWORD_MIN:
+        return "", "password_too_short"
+    if len(pw) > CLAN_PASSWORD_MAX:
+        return "", "password_too_long"
+    return pw, None
+
+
+def _hash_password(raw: str) -> Dict[str, Any]:
+    """The only form of a clan password that ever reaches storage."""
+    salt = secrets.token_hex(16)
+    dk = hashlib.pbkdf2_hmac("sha256", raw.encode("utf-8"),
+                             salt.encode("ascii"), CLAN_PASSWORD_ITERS)
+    return {"algo": "pbkdf2_sha256", "iters": CLAN_PASSWORD_ITERS,
+            "salt": salt, "hash": dk.hex()}
+
+
+def _check_password(stored: Any, raw: Any) -> bool:
+    """Constant-time check of a typed password against a stored hash. A clan
+    with no usable hash always answers NO — a broken or missing record must
+    never read as "any password works"."""
+    if not isinstance(stored, dict):
+        return False
+    salt  = str(stored.get("salt") or "")
+    want  = str(stored.get("hash") or "")
+    try:
+        iters = int(stored.get("iters") or 0)
+    except (TypeError, ValueError):
+        return False
+    if not salt or not want or iters <= 0:
+        return False
+    if str(stored.get("algo") or "pbkdf2_sha256") != "pbkdf2_sha256":
+        return False
+    typed = str(raw or "").strip()
+    if not typed:
+        return False
+    dk = hashlib.pbkdf2_hmac("sha256", typed.encode("utf-8"),
+                             salt.encode("ascii"), iters)
+    return secrets.compare_digest(dk.hex(), want)
+
+
+# Wrong-guess throttle, per (player, clan). In-process and best-effort: it makes
+# guessing a password one player at a time pointless without adding a Firestore
+# write to every attempt.
+_PW_TRIES: Dict[Tuple[str, str], List[float]] = {}
+_PW_TRIES_LOCK = threading.Lock()
+
+
+def _password_attempt_ok(uid: str, clan_id: str) -> bool:
+    """True if this player may try a password for this clan right now."""
+    key = (str(uid), str(clan_id))
+    cutoff = time.time() - CLAN_PASSWORD_TRY_WINDOW
+    with _PW_TRIES_LOCK:
+        tries = [t for t in _PW_TRIES.get(key, []) if t > cutoff]
+        _PW_TRIES[key] = tries
+        return len(tries) < CLAN_PASSWORD_TRIES
+
+
+def _password_attempt_failed(uid: str, clan_id: str) -> None:
+    key = (str(uid), str(clan_id))
+    cutoff = time.time() - CLAN_PASSWORD_TRY_WINDOW
+    with _PW_TRIES_LOCK:
+        tries = [t for t in _PW_TRIES.get(key, []) if t > cutoff]
+        tries.append(time.time())
+        _PW_TRIES[key] = tries
+        # Never let the throttle table grow without bound.
+        if len(_PW_TRIES) > 5000:
+            for k in [k for k, v in _PW_TRIES.items() if not [t for t in v if t > cutoff]]:
+                _PW_TRIES.pop(k, None)
+
+
+def _password_attempt_ok_reset(uid: str, clan_id: str) -> None:
+    """A correct password clears the player's wrong-guess history."""
+    with _PW_TRIES_LOCK:
+        _PW_TRIES.pop((str(uid), str(clan_id)), None)
 
 # ── Critter icons a clan is allowed to wear ──────────────────────────────────
 # A clan's critter (its icon, the banner image on its profile/leaderboard/invite
@@ -1313,6 +1410,10 @@ def _clan_card(clan_id: str, clan: Dict[str, Any], sid: str) -> Dict[str, Any]:
         "icon_name": clan.get("icon_name"),
         "description": clan.get("description") or "",
         "privacy": clan.get("privacy"),
+        # WHETHER there is a password, never the password or its hash. The owner
+        # screen needs it to know if "switch to Password mode" already has one
+        # to fall back on; nobody else can do anything with a boolean.
+        "has_password": isinstance(clan.get("join_password"), dict),
         "member_count": len(clan.get("members") or {}),
         "max_members": CLAN_MAX_MEMBERS,
         "points": _num(slot.get("points")),
@@ -2363,6 +2464,13 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
     privacy = str(body.get("privacy") or "public")
     if privacy not in PRIVACY_MODES:
         return {"ok": False, "error": "bad_privacy"}
+    # A password clan with no password would be a clan nobody could ever join.
+    pw_record: Optional[Dict[str, Any]] = None
+    if privacy == "password":
+        pw, why = _clean_password(body.get("password"))
+        if why:
+            return {"ok": False, "error": why}
+        pw_record = _hash_password(pw)
 
     transactional = _txn_helpers()
     name_lower = name.lower()
@@ -2399,6 +2507,8 @@ def _create_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
             "join_requests": [], "muted": {}, "events": [],
             "xp": 0, "lifetime": {"points": 0}, "seasons": {}, "activity": [],
         }
+        if pw_record:
+            clan["join_password"] = pw_record
         _activity_push(clan, "create", f"🛡️ {nick} founded the clan")
         t.set(clan_ref, clan)
         t.set(name_ref, {"clan_id": clan_id, "ts": _now()})
@@ -2447,7 +2557,17 @@ def _join_clan(uid: str, body: Dict[str, Any]) -> Dict[str, Any]:
                    if isinstance(i, dict) and int(i.get("ts") or 0) > _now() - CLAN_INVITE_TTL_SEC]
         has_invite = any(str(i.get("clan_id")) == clan_id for i in invites)
         privacy = clan.get("privacy")
-        if privacy != "public" and not has_invite:
+        # A password clan lets in anyone who types the word, and nobody else —
+        # the same instant join a public clan gives, behind one question. An
+        # invite still bypasses it: being invited IS the owner letting you in.
+        if privacy == "password" and not has_invite:
+            if not _password_attempt_ok(uid, clan_id):
+                return {"ok": False, "error": "too_many_tries"}
+            if not _check_password(clan.get("join_password"), body.get("password")):
+                _password_attempt_failed(uid, clan_id)
+                return {"ok": False, "error": "bad_password"}
+            _password_attempt_ok_reset(uid, clan_id)
+        elif privacy != "public" and not has_invite:
             return {"ok": False, "error": "invite_required" if privacy == "invite" else "request_required"}
         nick = udoc.get("nickname") or udoc.get("username") or "Player"
         members[uid] = {"name": nick, "role": "member", "custom_role_id": None,
@@ -2928,6 +3048,12 @@ def clan_rules() -> Dict[str, Any]:
             "Leaving or being removed from a clan starts a 24-hour cooldown "
             "before you can join another. Points you earned stay with the clan.",
             f"A clan holds up to {CLAN_MAX_MEMBERS} members.",
+            "The owner chooses how people get in: 🌊 Public (anyone joins "
+            "instantly), 🔑 Password (anyone who knows the clan's password "
+            f"joins instantly — {CLAN_PASSWORD_MIN}–{CLAN_PASSWORD_MAX} "
+            "characters, changeable any time), ✉️ Request to Join (the owner "
+            "or a recruiter approves each one) or 🔒 Invite Only. An invite "
+            "always gets you in, whichever setting is on.",
         ],
         "weekly_challenges": [
             {"id": c.get("id"), "name": c.get("name"), "desc": c.get("desc"),
@@ -3136,8 +3262,10 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             # can look at it and ask around, you just can't press Join).
             rows = [r for r in rows if q in str(r.get("name") or "").lower()]
         else:
-            # The plain browse list is the clans you can actually act on.
-            rows = [r for r in rows if r.get("privacy") in ("public", "request")]
+            # The plain browse list is the clans you can actually act on —
+            # password clans included: knowing the word is enough, so there is
+            # something to press. (Invite-only is the one you can't act on.)
+            rows = [r for r in rows if r.get("privacy") in ("public", "request", "password")]
         open_first = sorted(rows, key=lambda r: (r["member_count"] >= CLAN_MAX_MEMBERS, r["rank"]))
         recommended = [r for r in rows
                        if r.get("privacy") == "public" and r["member_count"] < CLAN_MAX_MEMBERS][:5]
@@ -3466,6 +3594,23 @@ def _route_action(db, uid: str, action: str, body: Dict[str, Any], sid: str  # n
             if body["privacy"] not in PRIVACY_MODES:
                 return {"ok": False, "error": "bad_privacy"}
             updates["privacy"] = body["privacy"]
+        # The password: settable on its own (change the word, same mode), or
+        # alongside the switch INTO password mode. Switching to password mode
+        # without one is only allowed if the clan already has a password to
+        # fall back on, otherwise the clan would lock everybody out forever.
+        new_privacy = updates.get("privacy", clan.get("privacy"))
+        has_password = isinstance(clan.get("join_password"), dict)
+        if body.get("password") not in (None, ""):
+            pw, why = _clean_password(body.get("password"))
+            if why:
+                return {"ok": False, "error": why}
+            if new_privacy != "password":
+                # Setting a password IS asking for password mode; saying so
+                # beats silently storing one that nothing would ever check.
+                return {"ok": False, "error": "password_needs_password_mode"}
+            updates["join_password"] = _hash_password(pw)
+        elif new_privacy == "password" and not has_password:
+            return {"ok": False, "error": "password_required"}
         if body.get("captains_can_edit_roles") is not None:
             updates["captains_can_edit_roles"] = bool(body.get("captains_can_edit_roles"))
         if not updates:

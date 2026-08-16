@@ -84,6 +84,12 @@
     clan_full: "That clan is full (25 members max).",
     invite_required: "That clan is invite only.",
     request_required: "That clan requires a join request.",
+    bad_password: "Wrong password — check it with someone in the clan.",
+    too_many_tries: "Too many wrong passwords. Wait a few minutes and try again.",
+    password_too_short: "A clan password needs at least 4 characters.",
+    password_too_long: "That password is too long (64 characters max).",
+    password_required: "Set a password before switching the clan to Password mode.",
+    password_needs_password_mode: "Switch the clan to 🔑 Password to use a password.",
     transfer_first: "Transfer ownership before leaving your clan.",
     no_permission: "You don't have permission to do that.",
     owner_only: "Only the clan owner can do that.",
@@ -131,8 +137,8 @@
     return { d, h, m, s };
   }
   const roleLabel = (r) => ({ owner: "👑 Owner", captain: "⚓ Captain", recruiter: "📯 Recruiter", member: "🐟 Member" }[r] || "🐟 Member");
-  const privacyLabel = (p) => ({ public: "🌊 Public — anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only" }[p] || p);
-  const privacyShort = (p) => ({ public: "🌊 Public", request: "✉️ Request", invite: "🔒 Invite" }[p] || p);
+  const privacyLabel = (p) => ({ public: "🌊 Public — anyone can join", request: "✉️ Request to Join", invite: "🔒 Invite Only", password: "🔑 Password — anyone with the password" }[p] || p);
+  const privacyShort = (p) => ({ public: "🌊 Public", request: "✉️ Request", invite: "🔒 Invite", password: "🔑 Password" }[p] || p);
 
   // ── Critter pickers ────────────────────────────────────────────────────────
   // A clan can only wear a critter SOMEBODY in it has unlocked (founding a clan:
@@ -279,6 +285,24 @@
   .ccC-modal { background:#fff; border-radius: 18px; max-width: 460px; width:100%; max-height: 86vh; overflow-y:auto;
     padding: 20px 22px; box-shadow: 0 18px 60px rgba(10,40,80,.35); font-family:"Nunito",sans-serif; color:#23445f; }
   .ccC-modal h3 { margin: 0 0 10px; font-size: 16px; color:#1c5f9e; }
+  /* The two doors, at the very top of the tab for anyone without a clan. */
+  .ccC-cta { display:flex; gap:10px; padding: 4px 16px 12px; flex-wrap: wrap; }
+  .ccC-cta-btn { flex: 1 1 210px; min-width: 0; display:flex; align-items:center; gap:11px;
+    padding: 13px 15px; border-radius: 15px; cursor:pointer; text-align:left;
+    font-family:"Nunito",sans-serif; border: 2px solid transparent;
+    transition: transform .14s, box-shadow .14s, border-color .14s; }
+  .ccC-cta-btn:hover { transform: translateY(-2px); }
+  .ccC-cta-btn.join { background: linear-gradient(135deg,#3aa8e6 0%,#1c70cc 100%); color:#fff;
+    box-shadow: 0 6px 18px rgba(28,112,204,.30); }
+  .ccC-cta-btn.join:hover { box-shadow: 0 10px 26px rgba(28,112,204,.42); }
+  .ccC-cta-btn.make { background:#fff; color:#1c5f9e; border-color:#bcdcf3;
+    box-shadow: 0 4px 14px rgba(35,100,165,.12); }
+  .ccC-cta-btn.make:hover { border-color:#5cb0e6; box-shadow: 0 9px 22px rgba(35,100,165,.20); }
+  .ccC-cta-ico { font-size: 26px; line-height:1; flex-shrink:0; }
+  .ccC-cta-txt { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .ccC-cta-t { font-size: 15px; font-weight: 900; letter-spacing:.2px; }
+  .ccC-cta-s { font-size: 11.5px; font-weight: 700; opacity:.85; line-height:1.25; }
+  @media (max-width: 560px) { .ccC-cta-btn { flex: 1 1 100%; } }
   .ccC-lvl { display:flex; align-items:center; gap:10px; }
   .ccC-lvl .badge { min-width: 44px; height: 44px; border-radius: 50%; display:flex; align-items:center; justify-content:center;
     background: linear-gradient(180deg,#39b3e6,#1c70cc); color:#fff; font-weight: 900; font-size: 15px; box-shadow: 0 3px 10px rgba(28,112,204,.3); }
@@ -843,6 +867,27 @@
     return c;
   }
 
+  // The first thing on the Clans tab for anyone without a clan: the two doors,
+  // side by side, each big enough to read as a button and each saying what is
+  // behind it. Nothing above them but the tab's own title.
+  function joinCreateBar() {
+    const w = el("div", "ccC-cta");
+    const mk = (cls, icon, title, sub, go) => {
+      const b = el("button", "ccC-cta-btn " + cls);
+      b.type = "button";
+      b.innerHTML = `<span class="ccC-cta-ico" aria-hidden="true">${icon}</span>
+        <span class="ccC-cta-txt"><span class="ccC-cta-t">${title}</span>
+        <span class="ccC-cta-s">${sub}</span></span>`;
+      b.addEventListener("click", go);
+      return b;
+    };
+    w.appendChild(mk("join", "🔍", "Join a Clan",
+                     "Browse clans and join in one tap", () => nav("browse")));
+    w.appendChild(mk("make", "✨", "Create a Clan",
+                     "Name it, pick a critter, you're the owner", () => nav("create")));
+    return w;
+  }
+
   // ---- HOME ------------------------------------------------------------------
   async function renderHome(r) {
     r.innerHTML = "";
@@ -855,6 +900,13 @@
     const H = C.home;
     const c = card('🛡️ Clans');
     c.appendChild(topNav("home"));
+
+    // If you are not in a clan, the two things you came here to do go FIRST —
+    // above the season block and the top-3 podium. They used to sit below both,
+    // which on a phone is off the bottom of the screen: the answer to "how do I
+    // make a clan?" was to scroll past a leaderboard you have no part in yet.
+    if (!H.my_clan) c.appendChild(joinCreateBar());
+
     c.appendChild(seasonBlock(H.season));
 
     // Top 3 featured podium
@@ -1016,6 +1068,10 @@
   // The button is taken out of service while the request is in flight — joining
   // is a transaction on the server and a double press is a second one.
   async function joinFromRow(cl, btn) {
+    // A password clan asks one question first, then joins exactly like a public
+    // one. The password is only ever sent to the server — nothing on this side
+    // knows or checks it.
+    if (cl.privacy === "password") { passwordJoinModal(cl, btn); return; }
     const wasText = btn.textContent;
     btn.disabled = true;
     btn.textContent = cl.privacy === "public" ? "Joining…" : "Asking…";
@@ -1037,6 +1093,56 @@
     btn.textContent = wasText;
   }
 
+  // "What's the password?" — the whole of joining a password clan.
+  function passwordJoinModal(cl, btn) {
+    const bg = el("div", "ccC-modal-bg");
+    const md = el("div", "ccC-modal");
+    md.innerHTML = `<h3>🔑 Join ${esc(cl.name)}</h3>
+      <div class="ccC-hint" style="margin-bottom:8px;">This clan has a password. Ask someone in it for the word, type it below, and you're in straight away.</div>`;
+    const inp = el("input", "ccC-inp");
+    inp.type = "text"; inp.maxLength = 64; inp.placeholder = "Clan password";
+    inp.autocomplete = "off";
+    inp.style.width = "100%"; inp.style.boxSizing = "border-box";
+    md.appendChild(inp);
+    const err = el("div", "ccC-hint bad", "");
+    err.style.display = "none";
+    md.appendChild(err);
+    const row = el("div", "");
+    row.style.cssText = "display:flex;gap:8px;justify-content:flex-end;margin-top:12px;";
+    const cancel = el("button", "ccC-btn", "Cancel");
+    const go = el("button", "ccC-btn pri", "Join clan");
+    const close = () => { if (bg.parentNode) document.body.removeChild(bg); if (btn) { btn.disabled = false; } };
+    cancel.addEventListener("click", close);
+    bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
+    const submit = async () => {
+      const pw = inp.value.trim();
+      if (pw.length < 4) { err.textContent = "Enter the clan's password."; err.style.display = ""; inp.focus(); return; }
+      go.disabled = true; go.textContent = "Joining…";
+      const res = await post("join", { clan_id: cl.id, password: pw });
+      if (res && res.ok) {
+        close();
+        toast("Welcome to " + cl.name + "! 🛡️", "success");
+        C.home = null; C.openClans = null;
+        await refreshHome(true);
+        openClan(cl.id);
+        return;
+      }
+      // A wrong password keeps the box open so the next guess is one keystroke
+      // away, not a re-navigation.
+      err.textContent = errMsg(res && res.error);
+      err.style.display = "";
+      go.disabled = false; go.textContent = "Join clan";
+      inp.select();
+    };
+    go.addEventListener("click", submit);
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+    row.appendChild(cancel); row.appendChild(go);
+    md.appendChild(row);
+    bg.appendChild(md);
+    document.body.appendChild(bg);
+    setTimeout(() => inp.focus(), 30);
+  }
+
   // One clan, as a row you can join without opening it first. `row` still opens
   // the profile — the button is the shortcut, not the only way in.
   function joinableRow(cl) {
@@ -1052,7 +1158,11 @@
     const inClan = !!(C.home && C.home.my_clan);
     const canAct = !full && !inClan && cl.privacy !== "invite";
     const bt = el("button", "ccC-btn" + (canAct ? " pri" : " tiny"),
-      full ? "Full" : cl.privacy === "public" ? "Join" : cl.privacy === "request" ? "Request" : "Invite Only");
+      full ? "Full"
+        : cl.privacy === "public"   ? "Join"
+        : cl.privacy === "password" ? "🔑 Join"
+        : cl.privacy === "request"  ? "Request"
+        : "Invite Only");
     if (!canAct) bt.disabled = true;
     if (inClan) bt.title = "You're already in a clan";
     bt.addEventListener("click", (e) => { e.stopPropagation(); joinFromRow(cl, bt); });
@@ -1240,6 +1350,7 @@
     const privRow = el("div", "");
     privRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
     [["public", "🌊 Public", "Anyone can join instantly"],
+     ["password", "🔑 Password", "Anyone with the password joins instantly"],
      ["request", "✉️ Request to Join", "You approve who joins"],
      ["invite", "🔒 Invite Only", "Join by invitation only"]].forEach(([v, lab, hint]) => {
       const b = el("button", "ccC-btn" + (v === "public" ? " pri" : ""), lab);
@@ -1248,11 +1359,30 @@
         selPriv = v;
         privRow.querySelectorAll(".ccC-btn").forEach(x => x.classList.remove("pri"));
         b.classList.add("pri");
+        syncPw();
       });
       privRow.appendChild(b);
     });
     fPriv.appendChild(privRow);
+    fPriv.appendChild(el("div", "ccC-hint", "You can change this later in clan settings."));
     body.appendChild(fPriv);
+
+    // The password, shown only when it is the setting being used. A clan in
+    // password mode with no password would be a clan nobody could ever join, so
+    // the server refuses that too — this just asks before it happens.
+    const fPw = el("div", "ccC-field");
+    fPw.innerHTML = '<label>Clan password</label>';
+    const inPw = el("input", "ccC-inp");
+    inPw.type = "text";           // it is shared with friends, not a secret to hide from the person typing it
+    inPw.maxLength = 64;
+    inPw.placeholder = "e.g. reefriders";
+    inPw.autocomplete = "off";
+    inPw.style.width = "100%"; inPw.style.boxSizing = "border-box";
+    fPw.appendChild(inPw);
+    fPw.appendChild(el("div", "ccC-hint", "4–64 characters. Anyone who types this joins instantly — share it with the people you want in. You can change it any time."));
+    body.appendChild(fPw);
+    const syncPw = () => { fPw.style.display = selPriv === "password" ? "" : "none"; };
+    syncPw();
 
     const go = el("button", "ccC-btn pri", "🛡️ Found this Clan");
     go.style.cssText = "font-size:14px;padding:10px 26px;";
@@ -1260,9 +1390,14 @@
       const name = inName.value.trim();
       if (name.length < 3) { toast("Enter a clan name (3–30 characters).", "error"); return; }
       if (!selIcon) { toast("Choose a critter icon for your clan.", "error"); return; }
+      const pw = inPw.value.trim();
+      if (selPriv === "password" && pw.length < 4) {
+        toast("Choose a clan password (at least 4 characters).", "error"); inPw.focus(); return;
+      }
       go.disabled = true;
       const res = await post("create", { name, icon: selIcon, icon_name: selIconName,
-                                         description: inDesc.value.trim(), privacy: selPriv });
+                                         description: inDesc.value.trim(), privacy: selPriv,
+                                         password: selPriv === "password" ? pw : "" });
       go.disabled = false;
       if (res && res.ok) {
         toast("Clan founded — welcome, Owner! 👑", "success");
@@ -2323,17 +2458,39 @@
       const privRow = el("div", "");
       privRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
       let selPriv = cl.privacy;
-      [["public", "🌊 Public"], ["request", "✉️ Request to Join"], ["invite", "🔒 Invite Only"]].forEach(([v, lab]) => {
+      [["public", "🌊 Public"], ["password", "🔑 Password"], ["request", "✉️ Request to Join"], ["invite", "🔒 Invite Only"]].forEach(([v, lab]) => {
         const bt = el("button", "ccC-btn" + (v === selPriv ? " pri" : ""), lab);
         bt.addEventListener("click", () => {
           selPriv = v;
           privRow.querySelectorAll(".ccC-btn").forEach(x => x.classList.remove("pri"));
           bt.classList.add("pri");
+          syncPw();
         });
         privRow.appendChild(bt);
       });
       fp.appendChild(privRow);
       b.appendChild(fp);
+
+      // Password, shown only in password mode. Left blank it keeps the current
+      // one; typed into it becomes the new one. Switching INTO password mode
+      // with no password on file needs one here — the server refuses the rest.
+      const fpw = el("div", "ccC-field");
+      fpw.innerHTML = "<label>Clan password</label>";
+      const inPw = el("input", "ccC-inp");
+      inPw.type = "text"; inPw.maxLength = 64; inPw.autocomplete = "off";
+      inPw.style.width = "100%"; inPw.style.boxSizing = "border-box";
+      const pwHint = el("div", "ccC-hint", "");
+      fpw.appendChild(inPw); fpw.appendChild(pwHint);
+      b.appendChild(fpw);
+      const syncPw = () => {
+        fpw.style.display = selPriv === "password" ? "" : "none";
+        const has = !!cl.has_password;
+        inPw.placeholder = has ? "Leave blank to keep the current password" : "Choose a password (4–64 characters)";
+        pwHint.textContent = has
+          ? "Anyone who types this joins instantly. Type a new one to change it — everyone using the old one will need the new word."
+          : "Anyone who types this joins instantly. Share it with the people you want in.";
+      };
+      syncPw();
       const lb = el("label", "");
       lb.style.cssText = "display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:10px;";
       const cb = el("input", ""); cb.type = "checkbox"; cb.checked = !!cl.captains_can_edit_roles;
@@ -2365,10 +2522,16 @@
 
       const save = el("button", "ccC-btn pri", "💾 Save settings");
       save.addEventListener("click", async () => {
+        const pw = inPw.value.trim();
+        if (selPriv === "password" && !cl.has_password && pw.length < 4) {
+          toast("Choose a clan password (at least 4 characters).", "error"); inPw.focus(); return;
+        }
         const res = await post("settings", {
           description: ds.value.trim(), privacy: selPriv,
           captains_can_edit_roles: cb.checked,
           icon: selIcon, icon_name: selIconName,
+          // Blank = keep whatever password the clan already has.
+          password: selPriv === "password" ? pw : "",
         });
         if (res && res.ok) {
           toast("Settings saved ⚙️", "success");

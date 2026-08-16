@@ -160,7 +160,12 @@ const RESPONSES = {
 const page = `<!doctype html><html><head><meta charset="utf-8">
 <title>clans render</title>
 <style>${CSS}</style>
-<style>body{margin:0;font-family:"Nunito",sans-serif;} #cc-clans-root{padding:8px;}</style>
+<style>body{margin:0;font-family:"Nunito",sans-serif;} #cc-clans-root{padding:8px;}
+/* preview.css hides the lobby and every .ph-panel until sign-in picks a tab.
+   Left hidden, EVERY getBoundingClientRect() here reads 0 — the overflow and
+   scroll checks pass because nothing is laid out at all, and no geometry can
+   be measured. Force the two wrappers visible and change nothing else. */
+#auth-stats-lobby{display:block!important} .ph-panel{display:block!important}</style>
 </head><body>
 <div id="auth-stats-lobby" data-bg-tab="clans">
   <div class="ph-panel" id="ph-panel-clans"><div id="cc-clans-root"></div></div>
@@ -385,6 +390,35 @@ function snapshot(name) {
     await window.__ccClansRender();
     await wait(300);
     snapshot("noclan");
+    // The two things a clanless player came here to do must be the FIRST thing
+    // on the tab — above the season block and the top-3 podium, not scrolled
+    // off the bottom under a leaderboard they have no part in yet.
+    {
+      const bar  = document.querySelector(".ccC-cta");
+      const join = document.querySelector(".ccC-cta-btn.join");
+      const make = document.querySelector(".ccC-cta-btn.make");
+      const pod  = document.querySelector(".ccC-podium");
+      const seas = document.querySelector(".ccC-season, .ccC-seasonbox");
+      const box  = (n) => n ? n.getBoundingClientRect() : null;
+      const br = box(bar), jr = box(join), mr = box(make), pr = box(pod), sr = box(seas);
+      out.cta = {
+        found: !!bar, joinFound: !!join, makeFound: !!make,
+        joinText: join ? join.textContent.replace(/\\s+/g, " ").trim() : "",
+        makeText: make ? make.textContent.replace(/\\s+/g, " ").trim() : "",
+        // Big enough to read as a button, not a link.
+        joinH: jr ? Math.round(jr.height) : 0,
+        makeH: mr ? Math.round(mr.height) : 0,
+        onScreen: !!(jr && mr && jr.top >= 0 && jr.height > 0 && mr.height > 0),
+        abovePodium: !!(br && pr) ? br.top < pr.top : null,
+        aboveSeason: !!(br && sr) ? br.top < sr.top : null,
+        topOfTab: br ? Math.round(br.top) : -1,
+      };
+      if (join) {
+        join.click(); await wait(250);
+        out.cta.joinOpensBrowse = !!document.querySelector("input.ccC-inp, .ccC-member");
+        await window.__ccClansRender(); await wait(250);
+      }
+    }
     // Joining must be possible from THIS screen: the open clans are listed
     // here with their own Join buttons, and pressing one joins.
     const joinBtn = [...document.querySelectorAll(".ccC-member .ccC-btn")]
@@ -415,6 +449,88 @@ function snapshot(name) {
       hasName: !!document.querySelector("input.ccC-inp"),
       hasDesc: !!document.querySelector("textarea"),
     };
+    // Password mode: the option exists, and its field only appears when it is
+    // the mode being used — an always-visible password box on a public clan is
+    // a question nobody can answer.
+    {
+      const pwBtn = [...document.querySelectorAll(".ccC-btn")]
+        .find(b => /Password/.test(b.textContent));
+      const pwField = () => [...document.querySelectorAll(".ccC-field")]
+        .find(f => /Clan password/.test((f.querySelector("label") || {}).textContent || ""));
+      const shown = (f) => !!f && getComputedStyle(f).display !== "none";
+      out.createPw = { optionFound: !!pwBtn, hiddenByDefault: !shown(pwField()) };
+      if (pwBtn) {
+        pwBtn.click(); await wait(120);
+        out.createPw.shownWhenPicked = shown(pwField());
+        const inp = pwField() && pwField().querySelector("input");
+        out.createPw.hasInput = !!inp;
+        // Switching back to a passwordless mode hides the field again. Checked
+        // BEFORE founding — a successful create leaves this screen entirely.
+        const pubBtn = [...document.querySelectorAll(".ccC-btn")]
+          .find(b => /🌊 Public/.test(b.textContent));
+        if (pubBtn) {
+          pubBtn.click(); await wait(120);
+          out.createPw.hiddenAgain = !shown(pwField());
+          if (pwBtn) { pwBtn.click(); await wait(120); }   // back to Password to found one
+        }
+        // Founding with password mode must actually send the password.
+        if (inp) {
+          inp.value = "seahorse7";
+          const nameInp = document.querySelector("input.ccC-inp");
+          if (nameInp) { nameInp.value = "Locked Lagoon"; }
+          const tile = document.querySelector(".ccC-iconpick .ic");
+          if (tile) tile.click();
+          const found = [...document.querySelectorAll(".ccC-btn")]
+            .find(b => /Found this Clan/.test(b.textContent));
+          if (found) {
+            const before = window.__ccPosts.length;
+            found.click(); await wait(300);
+            const call = window.__ccPosts.slice(before)
+              .find(c => /\\/api\\/clan\\/create$/.test(c.p));
+            out.createPw.sentPrivacy = call && call.b ? call.b.privacy : null;
+            out.createPw.sentPassword = call && call.b ? call.b.password : null;
+          }
+        }
+      }
+    }
+
+    // Joining a PASSWORD clan asks for the word, then joins with it. Nothing on
+    // this side checks the password — it only carries it to the server.
+    {
+      RESPONSES["/api/clan/browse"] = {
+        ok: true, season: HOME_JSON.season,
+        rows: [{ id: "pw1", name: "Locked Lagoon", icon: "/avatars/clownfish.png",
+                 description: "Password clan", privacy: "password", has_password: true,
+                 member_count: 3, max_members: 25, points: 40, rank: 4, level: 2 }],
+        recommended: [],
+      };
+      await window.__ccClansRender(); await wait(250);
+      const browseBtn = [...document.querySelectorAll(".ccC-cta-btn, .ccC-btn")]
+        .find(b => /Join a Clan|Browse Clans|Find a Clan/i.test(b.textContent));
+      if (browseBtn) { browseBtn.click(); await wait(350); }
+      const rowBtn = [...document.querySelectorAll(".ccC-member .ccC-btn")]
+        .find(b => /Join/.test(b.textContent));
+      out.pwJoin = { rowBtnText: rowBtn ? rowBtn.textContent.trim() : "" };
+      if (rowBtn) {
+        const before = window.__ccPosts.length;
+        rowBtn.click(); await wait(250);
+        // The press must NOT have joined anything on its own.
+        out.pwJoin.postedOnPress = window.__ccPosts.slice(before).map(c => c.p);
+        const modal = document.querySelector(".ccC-modal-bg");
+        out.pwJoin.askedForPassword = !!modal;
+        const inp = modal && modal.querySelector("input");
+        const go  = modal && [...modal.querySelectorAll(".ccC-btn")]
+          .find(b => /Join clan/.test(b.textContent));
+        if (inp && go) {
+          const b2 = window.__ccPosts.length;
+          inp.value = "seahorse7";
+          go.click(); await wait(300);
+          const call = window.__ccPosts.slice(b2).find(c => /\\/api\\/clan\\/join$/.test(c.p));
+          out.pwJoin.sentPassword = call && call.b ? call.b.password : null;
+          out.pwJoin.sentClanId   = call && call.b ? call.b.clan_id : null;
+        }
+      }
+    }
   } catch (e) {
     out.errors.push("THREW: " + (e && e.message ? e.message : String(e)));
   }
@@ -551,6 +667,46 @@ const cr = D.create || {};
 check("create: every critter offered as an icon", cr.icons >= 3, "icons=" + cr.icons);
 check("create: all three membership settings offered", cr.privacy >= 3, "privacy=" + cr.privacy);
 check("create: name + description fields present", cr.hasName && cr.hasDesc);
+
+// ── The two doors, first thing on the tab ──────────────────────────────────
+// "make it easier to create a clan, have a create clan button and a join clan
+// easier to see when you click on the clan tab."
+const cta = D.cta || {};
+check("no clan: a Join and a Create button are both on the tab",
+      cta.found === true && cta.joinFound === true && cta.makeFound === true,
+      JSON.stringify(cta));
+check("no clan: they say what they are",
+      /Join a Clan/.test(cta.joinText || "") && /Create a Clan/.test(cta.makeText || ""),
+      `${cta.joinText} | ${cta.makeText}`);
+check("no clan: they are on screen without scrolling", cta.onScreen === true);
+check(`no clan: they are real buttons, not links (${cta.joinH}px / ${cta.makeH}px tall)`,
+      cta.joinH >= 44 && cta.makeH >= 44);
+check(`no clan: they come BEFORE the top-3 podium (top=${cta.topOfTab}px)`,
+      cta.abovePodium === true);
+check("no clan: they come before the season block too", cta.aboveSeason === true);
+check("no clan: pressing Join opens the clan browser", cta.joinOpensBrowse === true);
+
+// ── Password clans: create side ────────────────────────────────────────────
+const cpw = D.createPw || {};
+check("create: 🔑 Password is offered as a membership setting", cpw.optionFound === true);
+check("create: the password box is hidden until Password is picked",
+      cpw.hiddenByDefault === true);
+check("create: picking Password reveals the box", cpw.shownWhenPicked === true && cpw.hasInput === true);
+check("create: leaving Password hides it again", cpw.hiddenAgain === true);
+check("create: founding sends privacy=password with the typed password",
+      cpw.sentPrivacy === "password" && cpw.sentPassword === "seahorse7",
+      JSON.stringify(cpw));
+
+// ── Password clans: join side ──────────────────────────────────────────────
+const pwj = D.pwJoin || {};
+check("join: a password clan's row offers a Join button", /Join/.test(pwj.rowBtnText || ""),
+      "text=" + pwj.rowBtnText);
+check("join: pressing it asks for the password instead of joining blind",
+      pwj.askedForPassword === true
+      && !(pwj.postedOnPress || []).some(p => /\/api\/clan\/join$/.test(p)),
+      JSON.stringify(pwj.postedOnPress));
+check("join: the typed password is sent to the server with the clan id",
+      pwj.sentPassword === "seahorse7" && pwj.sentClanId === "pw1", JSON.stringify(pwj));
 
 const ch = D.chat || {};
 check("chat: messages rendered", ch.msgs >= 3, "msgs=" + ch.msgs);
