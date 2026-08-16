@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.60";
-  const APP_BUILD   = "2026-08-16.2";
+  const APP_VERSION = "1.6.61";
+  const APP_BUILD   = "2026-08-16.3";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,19 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "⚔️ Competitive: your other hand is there the moment you finish", items: [
+      "End a turn in a competitive match and the board switches to your other hand straight away. It used to sit on the hand you had just played until your opponent finished their turn, so the switch happened on their clock and the board changed under you the moment the turn came back.",
+      "The wait is now yours to plan with: your next hand's cards, board and score are on screen for the whole time your opponent is playing, and the top bar tells you which hand it is.",
+      "The full-screen \"Your Turn — Hand 2\" card is gone with it. The switch is instant, so there is nothing left to tap through before you can play.",
+      "Undo still belongs to the hand that played, even though you're looking at the other one — it names the hand it will rewind.",
+    ]},
+    { ver: "V1.7.0", title: "🪝 The End Turn nudge knows which cards need it", items: [
+      "The bobbing arrow over End Turn now also appears for a Hermit Crab or Loggerhead Sea Turtle window — turns that let you keep playing until you stop, and that used to look like the game had frozen.",
+      "It stays quiet for a one-shot free play like the Roosterfish's free Baitfish, where the turn ends by itself as usual. Every card in the deck is checked by what it actually does, not by a hand-written list.",
+    ]},
+    { ver: "V1.7.0", title: "🃏 Each competitive hand keeps its own card arrangement", items: [
+      "Drag your cards into the order you like and both of your competitive hands now remember their own arrangement. Arranging one hand, playing the other, and coming back used to leave the first one shuffled back into the order the server sent.",
+    ]},
     { ver: "V1.7.0", title: "📅 Weekly Challenges open onto actual challenges", items: [
       "Tapping Weekly Challenges on your Player Home shows the three challenges. Unless your screen was a wide desktop one, they were being squeezed to a 26-pixel sliver each — the bar opened and there was nothing on it you could read. Phones, tablets and any browser window under about 1,300 pixels wide were all affected.",
       "The challenges now take the full width on those screens, with the Weekly Tide Sweep reward on its own line underneath, and they stay wide enough to read on every size from a phone up.",
