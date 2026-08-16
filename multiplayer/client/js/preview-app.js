@@ -9214,7 +9214,34 @@
 
   // ── Hand renderer (Hearthstone fan with JS hover) ──────────────
   let _handRenderData = null; // { me, actions, mustDiscard, discardExcess }
-  let _handOrder = [];   // client-side display order: array of entryUids
+  // Client-side display order, PER SEAT: seat_index → array of entryUids.
+  //
+  // It is a map and not one array because of competitive, where ONE person owns
+  // TWO seats and the renderer swaps between their hands every time the turn
+  // passes between them. With a single shared array, drawing the other hand
+  // filtered out every uid of the first one, so arranging hand A, playing hand
+  // B, and coming back left hand A shuffled back into raw server order. Keyed
+  // by seat, each hand keeps its own arrangement for the whole game. A normal
+  // game simply only ever has one key.
+  //
+  // The arrays are mutated IN PLACE (splice/push, never reassigned) so that a
+  // reference captured by a card's drop handler at render time is still the
+  // live array when the drop lands.
+  const _handOrders = new Map();   // String(seat_index) -> entryUid[]
+  function handOrderFor(seatKey) {
+    const k = String(seatKey);
+    let arr = _handOrders.get(k);
+    if (!arr) { arr = []; _handOrders.set(k, arr); }
+    return arr;
+  }
+  // Which hand a render belongs to. players[i].index IS the seat index in the
+  // server payload, and it rides along inside `me` — so it stays correct even
+  // when renderHand is re-invoked later from a cached _handRenderData, which
+  // the global myIdx would not.
+  function handOrderKeyFor(me) {
+    const idx = Number(me && me.index);
+    return Number.isFinite(idx) ? idx : (Number.isFinite(Number(myIdx)) ? Number(myIdx) : 0);
+  }
   let _handDragSrc = null; // entryUid being dragged within hand for reorder
   let _boardMoveDragSrc = null; // { faceUid, sourceOceanUid } when dragging a board animal to move oceans
 
@@ -9462,11 +9489,16 @@
     // the cache key so swapping the staged play repaints the borders even when
     // the hand and the selection are byte-identical.
     const _starPay = starPayInfo(pendingPayAction);
+    // The hand being drawn, and its own saved arrangement. In competitive this
+    // flips between my two seats; everywhere else it is the one constant seat.
+    const handSeatKey = handOrderKeyFor(me);
+    const handOrder   = handOrderFor(handSeatKey);
     // Skip re-render when nothing changed, prevents hover/tooltip from being reset every poll
     const key = JSON.stringify({ hand: me?.hand, legalUids: actions?.map(a=>a.card_uid), mustDiscard, discardExcess, tarponActive,
       selPay: [...selectedPayment].sort().join(","), selDis: [...selectedDiscard].sort().join(","),
       starPay: _starPay.fires ? `${pendingPayAction?.card_uid}:${_starPay.sym}` : "",
-      handOrder: _handOrder.join(",") });
+      handSeat: handSeatKey,
+      handOrder: handOrder.join(",") });
     if (key === _handRenderKey && zone.children.length > 0) return;
     _handRenderKey = key;
     // Clear hover before wiping the DOM, old card elements are about to be removed.
@@ -9484,15 +9516,18 @@
     const visible  = hand.slice(0, MAX_VISIBLE);
     const overflow = hand.length - MAX_VISIBLE;
 
-    // Maintain client-side display order: remove departed cards, add new ones at end
+    // Maintain this hand's display order: remove departed cards, add new ones at
+    // end. Spliced in place, never reassigned — see _handOrders.
     const allEntryUids = visible.map(e => Number(e.entry_uid ?? (Array.isArray(e.faces)&&e.faces[0]?e.faces[0].uid:null) ?? e.uid ?? 0));
-    _handOrder = _handOrder.filter(uid => allEntryUids.includes(uid));
-    allEntryUids.forEach(uid => { if (!_handOrder.includes(uid)) _handOrder.push(uid); });
-    // Sort visible array by _handOrder for display
+    for (let i = handOrder.length - 1; i >= 0; i--) {
+      if (!allEntryUids.includes(handOrder[i])) handOrder.splice(i, 1);
+    }
+    allEntryUids.forEach(uid => { if (!handOrder.includes(uid)) handOrder.push(uid); });
+    // Sort visible array by this hand's saved order for display
     visible.sort((a, b) => {
       const ua = Number(a.entry_uid ?? (Array.isArray(a.faces)&&a.faces[0]?a.faces[0].uid:null) ?? a.uid ?? 0);
       const ub = Number(b.entry_uid ?? (Array.isArray(b.faces)&&b.faces[0]?b.faces[0].uid:null) ?? b.uid ?? 0);
-      return _handOrder.indexOf(ua) - _handOrder.indexOf(ub);
+      return handOrder.indexOf(ua) - handOrder.indexOf(ub);
     });
 
     const n = visible.length;
@@ -9602,12 +9637,15 @@
         card.classList.remove("hand-drag-over");
         const srcUid = _handDragSrc;
         _handDragSrc = null;
-        const srcIdx = _handOrder.indexOf(srcUid);
-        const dstIdx = _handOrder.indexOf(entryUid);
+        // Reorder the order array of the hand this card was drawn for, which in
+        // competitive is one of my two seats, not "the current hand".
+        const order  = handOrder;
+        const srcIdx = order.indexOf(srcUid);
+        const dstIdx = order.indexOf(entryUid);
         if (srcIdx !== -1 && dstIdx !== -1 && srcIdx !== dstIdx) {
-          _handOrder.splice(srcIdx, 1);
-          const newDst = _handOrder.indexOf(entryUid);
-          _handOrder.splice(newDst, 0, srcUid);
+          order.splice(srcIdx, 1);
+          const newDst = order.indexOf(entryUid);
+          order.splice(newDst, 0, srcUid);
         }
         _handRenderKey = "";
         if (_handRenderData) {
@@ -10514,7 +10552,7 @@
     try { _endSaveReset(); } catch (_) {}
     try { window._igcpSetVisible?.(false); } catch {}
     try { window._bsSetVisible?.(false); } catch {}
-    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrder = []; _handDragSrc = null; _boardMoveDragSrc = null;
+    _prevPoolUids = []; _prevHandUIDs = new Set(); _prevBoardCards = new Set(); _handOrders.clear(); _handDragSrc = null; _boardMoveDragSrc = null;
     document.getElementById("pv-game").style.display="none";
     pvLogVisible = false;
     const lf = document.getElementById("pv-log-float");

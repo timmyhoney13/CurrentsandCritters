@@ -152,6 +152,11 @@
 # player-vs-seat rules — Play Again, leaving, Surf's Up.
 !test_competitive_hand_switch.js
 !test_competitive_mode.py
+# Dragging cards around inside your hand is client-only state, and it used to
+# live in ONE array — so drawing your OTHER competitive hand deleted the first
+# hand's arrangement. This runs the real ordering lines, lifted out of
+# preview-app.js, over a player who owns two seats.
+!test_competitive_hand_order.js
 # Spectating: a spectator has no seat, and a player's equipped icon used to
 # travel only on their seat — so watchers showed up as a bare name and their
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
