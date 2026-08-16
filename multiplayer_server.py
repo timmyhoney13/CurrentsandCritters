@@ -209,6 +209,30 @@ def _clean_emote_id(value: Any) -> str:
     return slug if _EMOTE_ID_RE.match(slug) else ""
 
 
+# Equipped icon / background images. Only our own asset paths are ever stored
+# and relayed, so a tampered client can never point another player's <img> at
+# an outside URL. Used for seats AND spectators — a spectator has no seat but
+# still wears a face in the spectator list and on every chat line they send.
+_AVATAR_PATH_RE = re.compile(r"^/avatars/[A-Za-z0-9_\-]+\.png$")
+_BACKGROUND_PATH_RE = re.compile(r"^/backgrounds/[A-Za-z0-9_\-]+\.png$")
+
+
+def _clean_avatar_path(value: Any) -> str:
+    """Normalize an equipped avatar path, or "" if it isn't one of ours."""
+    if not isinstance(value, str):
+        return ""
+    path = value.strip()[:128]
+    return path if _AVATAR_PATH_RE.match(path) else ""
+
+
+def _clean_background_path(value: Any) -> str:
+    """Normalize an equipped background path, or "" if it isn't one of ours."""
+    if not isinstance(value, str):
+        return ""
+    path = value.strip()[:128]
+    return path if _BACKGROUND_PATH_RE.match(path) else ""
+
+
 # ── Firebase Admin: exact live "Registered Players" / "Players Online" ──────
 # Firestore is the persistent source of truth for accounts and presence, but
 # the marketing site cannot read it directly (security rules block public
@@ -3550,25 +3574,30 @@ class GameRoom:
         # ── Spectator mode ──────────────────────────────────────────
         # allow_spectators: True by default for public rooms; private rooms default False.
         self.allow_spectators: bool = (visibility == "public")
-        # spectators: token → {"name": str, "joined_unix": int}
+        # spectators: token → {"name", "joined_unix", "avatar", "background"}
+        # A spectator has no seat, so their equipped icon/background live here
+        # instead — see spectator_list() and submit_spectator_chat().
         self.spectators: Dict[str, Dict[str, Any]] = {}
         # kick votes: spectator_token → set of voter seat indices
         self._spectator_kick_votes: Dict[str, set] = {}
 
     # ── Spectator helpers ────────────────────────────────────────────
-    def spectator_join(self, name: str) -> Dict[str, Any]:
+    def spectator_join(self, name: str, avatar: Any = "", background: Any = "") -> Dict[str, Any]:
         """Add a spectator. Returns {ok, spectator_token} or {ok:False, error}."""
         name = str(name or "Spectator").strip()[:32] or "Spectator"
+        avatar = _clean_avatar_path(avatar)
+        background = _clean_background_path(background)
         with self.cond:
             if not self.allow_spectators:
                 return {"ok": False, "error": "Spectators are not allowed in this game."}
             if self.phase not in ("lobby", "running"):
                 return {"ok": False, "error": "Game is not active."}
             token = secrets.token_urlsafe(18)
-            self.spectators[token] = {"name": name, "joined_unix": now_unix()}
+            self.spectators[token] = {"name": name, "joined_unix": now_unix(),
+                                      "avatar": avatar, "background": background}
             self._add_system_chat(f"{name} joined as a spectator.")
             self._bump_locked()
-        return {"ok": True, "spectator_token": token, "name": name}
+        return {"ok": True, "spectator_token": token, "name": name, "avatar": avatar}
 
     def spectator_leave(self, token: str) -> Dict[str, Any]:
         with self.cond:
@@ -3606,8 +3635,35 @@ class GameRoom:
             for token, spec in self.spectators.items():
                 votes = len(self._spectator_kick_votes.get(token, set()))
                 result.append({"name": spec["name"], "joined_unix": spec["joined_unix"],
+                               "avatar": spec.get("avatar") or "",
+                               "background": spec.get("background") or "",
                                "token_tail": token[-6:], "kick_votes": votes, "kick_needed": needed})
             return result
+
+    def set_spectator_look(self, token: str, avatar: Any = None,
+                           background: Any = None) -> Dict[str, Any]:
+        """Update a spectator's equipped icon/background mid-session, so the
+        spectator list and their chat lines wear what they just equipped.
+        Only the fields actually passed are touched (None = leave alone)."""
+        with self.cond:
+            spec = self.spectators.get(str(token or ""))
+            if spec is None:
+                return {"ok": False, "error": "invalid spectator token"}
+            changed = False
+            if avatar is not None:
+                clean = _clean_avatar_path(avatar)
+                if clean != (spec.get("avatar") or ""):
+                    spec["avatar"] = clean
+                    changed = True
+            if background is not None:
+                clean = _clean_background_path(background)
+                if clean != (spec.get("background") or ""):
+                    spec["background"] = clean
+                    changed = True
+            if changed:
+                self._bump_locked()
+            return {"ok": True, "avatar": spec.get("avatar") or "",
+                    "background": spec.get("background") or ""}
 
     def spectator_state_view(self, host_header: str, proto_hint: str = "") -> Dict[str, Any]:
         """State payload for spectators — same as a non-viewer but boards-only (no hand data)."""
@@ -3655,6 +3711,12 @@ class GameRoom:
                 "message": message,
                 "ts": time.time(),
                 "spectator": True,
+                # Same per-message icon a seated player's line carries. Without
+                # it the client falls back to a hash of the sender name — and
+                # the name here is prefixed, so it wasn't even the same default
+                # face this person wears everywhere else.
+                "avatar": spec.get("avatar") or "",
+                "background": spec.get("background") or "",
             }
             self.chat_messages.append(entry)
             if len(self.chat_messages) > 200:
@@ -8554,11 +8616,8 @@ class GameRoom:
         """Set the calling seat's avatar image, so every client renders this
         player's own icon (and sees mid-game changes immediately)."""
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
-        raw = body.get("avatar")
-        avatar = str(raw).strip()[:128] if isinstance(raw, str) else ""
         # Only accept our own avatar image paths; ignore anything else.
-        if avatar and not re.match(r"^/avatars/[A-Za-z0-9_\-]+\.png$", avatar):
-            avatar = ""
+        avatar = _clean_avatar_path(body.get("avatar"))
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
@@ -8579,11 +8638,8 @@ class GameRoom:
         """Set the calling seat's equipped background image, so every client
         renders it behind this player's avatar. Empty string clears it."""
         seat_token = body.get("seat_token") if isinstance(body.get("seat_token"), str) else None
-        raw = body.get("background")
-        background = str(raw).strip()[:128] if isinstance(raw, str) else ""
         # Only accept our own background image paths; ignore anything else.
-        if background and not re.match(r"^/backgrounds/[A-Za-z0-9_\-]+\.png$", background):
-            background = ""
+        background = _clean_background_path(body.get("background"))
         with self.cond:
             seat = self._seat_from_token_locked(seat_token)
             if seat is None:
@@ -11426,7 +11482,12 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            out = room.set_avatar(body)
+            # A spectator has no seat token; they equip under their own token.
+            spec_tok = body.get("spectator_token")
+            if isinstance(spec_tok, str) and spec_tok:
+                out = room.set_spectator_look(spec_tok, avatar=body.get("avatar"))
+            else:
+                out = room.set_avatar(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
@@ -11436,7 +11497,11 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             if room is None:
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
-            out = room.set_background(body)
+            spec_tok = body.get("spectator_token")
+            if isinstance(spec_tok, str) and spec_tok:
+                out = room.set_spectator_look(spec_tok, background=body.get("background"))
+            else:
+                out = room.set_background(body)
             status = HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST
             self._send_json(out, status=status)
             return
@@ -11527,7 +11592,7 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
                 self._send_json({"ok": False, "error": "room not found"}, status=HTTPStatus.NOT_FOUND)
                 return
             name = str(body.get("name") or "Spectator").strip()[:32] or "Spectator"
-            out = room.spectator_join(name)
+            out = room.spectator_join(name, body.get("avatar"), body.get("background"))
             self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.FORBIDDEN)
             return
 

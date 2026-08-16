@@ -12024,6 +12024,12 @@
       letter-spacing:.08em; color:#8fb8da; margin-bottom:4px; }
     .spec-list-row { display:flex; align-items:center; gap:8px;
       font-size:.8rem; color:#bfe6ff; padding:3px 0; }
+    .spec-list-row .spec-avatar {
+      position: relative;   /* contain the .cc-avbg layer inside the circle */
+      width:22px; height:22px; border-radius:50%; overflow:hidden; flex:0 0 auto;
+      background:rgba(26,45,90,.85); border:1px solid rgba(95,179,214,.45);
+    }
+    .spec-list-row .spec-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
     .spec-list-row .spec-name { flex:1; }
     .spec-kick-btn { font-size:.7rem; padding:2px 8px; border-radius:5px; cursor:pointer;
       background:rgba(232,64,87,.15); border:1px solid rgba(232,64,87,.4);

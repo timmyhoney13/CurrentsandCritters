@@ -1731,13 +1731,28 @@
     return apiUrl(`/api/rooms/${_spectatorRoomId}/state?spectator_token=${encodeURIComponent(_spectatorToken)}`);
   }
 
+  // Our equipped icon + background, the same pair a seated player pushes.
+  // A spectator wears them in the spectator list and on every chat line.
+  function _specMyLook() {
+    let avatar = "", background = "";
+    try { if (typeof window.__fishMyAvatarUrl === "function") avatar = String(window.__fishMyAvatarUrl() || ""); } catch (e) {}
+    try { if (typeof window.__fishEquippedBackground === "function") background = String(window.__fishEquippedBackground() || ""); } catch (e) {}
+    return { avatar, background };
+  }
+
   async function joinAsSpectator(rid) {
     const name = (window.__fishNickname && window.__fishNickname()) || "Spectator";
-    const r = await apiPost(`/api/rooms/${rid}/spectate`, { name }, { timeoutMs: 10000 });
+    const look = _specMyLook();
+    const r = await apiPost(`/api/rooms/${rid}/spectate`,
+      { name, avatar: look.avatar, background: look.background }, { timeoutMs: 10000 });
     if (!r.ok) { showToast((r.data && r.data.error) || "Cannot spectate this game.", "err"); return; }
     _spectatorToken = r.data.spectator_token;
     _spectatorRoomId = rid;
     roomId = rid;
+    // The join call already carried our look — seed the push throttles so the
+    // first poll doesn't re-send it, but a later equip still does.
+    _lastPushedAvatar = look.avatar ? (rid + "|" + look.avatar) : "";
+    _lastPushedBg = rid + "|" + look.background;
     _spectatorViewingIdx = null;
     // Switch presence in Firestore
     _specSetPresence(rid);
@@ -1819,6 +1834,20 @@
     spectators.forEach(s => {
       const row = document.createElement("div");
       row.className = "spec-list-row";
+      // A spectator wears the icon they have equipped, exactly like a seated
+      // player. The server relays it alongside the name; the name-hash default
+      // is only for someone who has never told us one (an old client).
+      const av = document.createElement("span");
+      av.className = "spec-avatar";
+      const avImg = document.createElement("img");
+      const avSrc = (s.avatar && String(s.avatar))
+        || ((typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(s.name) : "/avatars/mullet.png");
+      avImg.src = (window.__fishAvSrc ? window.__fishAvSrc(avSrc) : avSrc);
+      avImg.alt = ""; avImg.loading = "lazy";
+      avImg.onerror = () => { avImg.onerror = null; avImg.src = "/avatars/mullet.png"; };
+      av.appendChild(avImg);
+      try { _applyAvBg(av, String(s.background || "")); } catch (e) {}
+      row.appendChild(av);
       const nameEl = document.createElement("span");
       nameEl.className = "spec-name";
       nameEl.textContent = s.name;
@@ -5776,6 +5805,10 @@
     // If we are spectating, handle board-view on seat click and check for kick
     if (isSpectating()) {
       _specShowPanel(true);
+      // Keep the server holding our current icon + background (self-throttled),
+      // the same guarantee a seated player gets on every poll.
+      try { pushMySeatAvatar(); } catch (e) {}
+      try { pushMySeatBackground(); } catch (e) {}
       // Detect if we've been kicked (our token gone, server won't return ok)
       // The poll error path handles room not found; kicked spectators get a 403
       // which is caught by the applyServerPayload guard. If state has spectator:true
@@ -6418,14 +6451,24 @@
   let _lastPushedAvatar = "";
   function pushMySeatAvatar() {
     if (!roomId) return;
-    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
-    if (!tok) return;
     let myUrl = "";
     try {
       if (typeof window.__fishMyAvatarUrl === "function") myUrl = String(window.__fishMyAvatarUrl() || "");
     } catch (e) { myUrl = ""; }
     const key = roomId + "|" + myUrl;   // include room so a new game re-pushes
     if (!myUrl || key === _lastPushedAvatar) return;
+    // Spectating: no seat, but we still have a face in the spectator list and
+    // on our chat lines — equip under the spectator token instead.
+    if (isSpectating()) {
+      _lastPushedAvatar = key;
+      try {
+        apiPost(`/api/rooms/${_spectatorRoomId}/avatar`,
+          { spectator_token: _spectatorToken, avatar: myUrl }, { timeoutMs: 6000 }).catch(() => {});
+      } catch (e) {}
+      return;
+    }
+    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
+    if (!tok) return;
     _lastPushedAvatar = key;
     try {
       apiPost(`/api/rooms/${roomId}/avatar`, { seat_token: tok, avatar: myUrl }, { timeoutMs: 6000 }).catch(() => {});
@@ -6438,12 +6481,20 @@
   let _lastPushedBg = "";
   function pushMySeatBackground() {
     if (!roomId) return;
-    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
-    if (!tok) return;
     let myBg = "";
     try { if (typeof window.__fishEquippedBackground === "function") myBg = String(window.__fishEquippedBackground() || ""); } catch (e) { myBg = ""; }
     const key = roomId + "|" + myBg;
     if (key === _lastPushedBg) return;
+    if (isSpectating()) {          // no seat — equip under the spectator token
+      _lastPushedBg = key;
+      try {
+        apiPost(`/api/rooms/${_spectatorRoomId}/background`,
+          { spectator_token: _spectatorToken, background: myBg }, { timeoutMs: 6000 }).catch(() => {});
+      } catch (e) {}
+      return;
+    }
+    const tok = (typeof getSeatToken === "function") ? getSeatToken() : "";
+    if (!tok) return;
     _lastPushedBg = key;
     try {
       apiPost(`/api/rooms/${roomId}/background`, { seat_token: tok, background: myBg }, { timeoutMs: 6000 }).catch(() => {});

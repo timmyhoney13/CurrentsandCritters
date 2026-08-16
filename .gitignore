@@ -130,6 +130,11 @@
 # player-vs-seat rules — Play Again, leaving, Surf's Up.
 !test_competitive_hand_switch.js
 !test_competitive_mode.py
+# Spectating: a spectator has no seat, and a player's equipped icon used to
+# travel only on their seat — so watchers showed up as a bare name and their
+# chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
+!test_spectator_avatar.py
+!test_spectator_avatar.js
 
 # The published How to Play page (/rules): proves the rulebook stylesheet and
 # the shared data tables were MOVED out of the game, not copied (it compares
