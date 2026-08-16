@@ -1814,6 +1814,88 @@ def _admin_revoke_item(who: str, item: str, dry_run: bool = False) -> Dict[str, 
                              "achievements": entry.get("achievements", {})}}
 
 
+def _admin_resolve_account(who: str) -> Tuple[Optional[Any], Optional[Dict[str, Any]]]:
+    """Find ONE account by uid or nickname, for the admin tools. Returns
+    (snapshot, error) — never guesses between two matching nicknames."""
+    db = _get_firestore()
+    if db is None:
+        return None, {"ok": False, "error": "firestore_unavailable"}
+    who = str(who or "").strip()
+    if not who:
+        return None, {"ok": False, "error": "username or uid required"}
+    users = db.collection("users")
+    snap = users.document(who).get()
+    if snap.exists:
+        return snap, None
+    for field, value in (("nickname_lower", who.lower()), ("nickname", who),
+                         ("usernameLower", who.lower()), ("username", who)):
+        matches = list(users.where(field, "==", value).limit(2).stream())
+        if len(matches) > 1:
+            return None, {"ok": False,
+                          "error": f"{who!r} matches more than one account — pass the uid"}
+        if matches:
+            return matches[0], None
+    return None, {"ok": False, "error": f"no account found for {who!r}"}
+
+
+def _admin_set_xp(who: str, total_xp: Any, dry_run: bool = False) -> Dict[str, Any]:
+    """Set an account's LIFETIME XP to an exact number, and rewrite every level
+    field that is derived from it in the same write.
+
+    total_xp is the single source of truth, but the level/xp_current/xp_goal
+    fields are stored alongside it and read directly by the header, the profile
+    and the XP leaderboard. Setting total_xp on its own would leave those saying
+    the old level — the account would show one number here and another there.
+    Deriving them here, from the same table the client uses, is what makes the
+    leaderboard agree the moment it is next opened.
+
+    This is the ONE admin tool that can lower a stat, so it is deliberately
+    exact ("set to N", never "add"), reports before/after, and can be run dry.
+    """
+    db = _get_firestore()
+    if db is None:
+        return {"ok": False, "error": "firestore_unavailable"}
+    try:
+        want_xp = int(total_xp)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "total_xp must be a whole number"}
+    if want_xp < 0:
+        return {"ok": False, "error": "total_xp cannot be negative"}
+
+    snap, err = _admin_resolve_account(who)
+    if err:
+        return err
+    uid = snap.id
+    doc = snap.to_dict() or {}
+    stats = doc.get("stats") if isinstance(doc.get("stats"), dict) else {}
+
+    try:
+        had_xp = int(stats.get("total_xp") or 0)
+    except (TypeError, ValueError):
+        had_xp = 0
+    had_level = stats.get("level", stats.get("player_level"))
+
+    lvl, xp_cur, xp_goal = _level_progress_for_total_xp(want_xp)
+    stats_update = {
+        "total_xp":         want_xp,
+        "level":            lvl,
+        "player_level":     lvl,
+        "xp_current":       xp_cur,
+        "level_xp_current": xp_cur,
+        "xp_goal":          xp_goal,
+        "level_xp_goal":    xp_goal,
+    }
+    if not dry_run:
+        # merge=True deep-merges, so only these seven keys move — coins, games,
+        # achievements and everything else on the stats map are untouched.
+        db.collection("users").document(uid).set({"stats": stats_update}, merge=True)
+    return {"ok": True, "dry_run": dry_run, "uid": uid,
+            "nickname": doc.get("nickname") or doc.get("username"),
+            "before": {"total_xp": had_xp, "level": had_level},
+            "after":  {"total_xp": want_xp, "level": lvl,
+                       "xp_current": xp_cur, "xp_goal": xp_goal}}
+
+
 def _trade_id_for(uid_a: str, uid_b: str) -> str:
     """Deterministic id for the (only) active trade between two accounts."""
     return "__".join(sorted([str(uid_a or ""), str(uid_b or "")]))
@@ -11125,6 +11207,21 @@ class MultiplayerHandler(SimpleHTTPRequestHandler):
             out = _admin_revoke_item(str(body.get("user") or ""),
                                      str(body.get("item") or ""),
                                      dry_run=bool(body.get("dry_run")))
+            self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
+            return
+
+        # Set one account's lifetime XP to an exact number (and every level
+        # field derived from it, so the leaderboard agrees immediately).
+        # Body: { admin_key, user: "<nickname|uid>", total_xp: N, dry_run?: true }
+        if parsed.path == "/api/admin/set_xp":
+            admin_key = body.get("admin_key") if isinstance(body.get("admin_key"), str) else ""
+            env_key = os.environ.get("ADMIN_RECOVERY_KEY", "").strip()
+            if not env_key or not secrets.compare_digest(admin_key, env_key):
+                self._send_json({"ok": False, "error": "unauthorized"}, status=HTTPStatus.FORBIDDEN)
+                return
+            out = _admin_set_xp(str(body.get("user") or ""),
+                                body.get("total_xp"),
+                                dry_run=bool(body.get("dry_run")))
             self._send_json(out, status=HTTPStatus.OK if out.get("ok") else HTTPStatus.BAD_REQUEST)
             return
 

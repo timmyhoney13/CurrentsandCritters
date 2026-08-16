@@ -36,6 +36,13 @@
 !test_prestige_server.py
 !test_prestige_ui.js
 
+# The admin XP tool (/api/admin/set_xp): sets one account's lifetime XP to an
+# exact number and rewrites every level field derived from it in the same write.
+# The test pins the derivation AND that the server's level table still matches
+# the client's — the two are what keep the leaderboard, header and profile
+# telling the same story about an account.
+!test_admin_set_xp.py
+
 # Developer Analytics (admin-only dashboard). multiplayer_server.py imports this
 # at module scope too, so dropping it from the allowlist kills the server on
 # startup rather than just hiding the dashboard. Read-only: it derives every
