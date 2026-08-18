@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.61";
-  const APP_BUILD   = "2026-08-16.3";
+  const APP_VERSION = "1.6.62";
+  const APP_BUILD   = "2026-08-18.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -70,6 +70,14 @@
 
   // Quick changelog shown in the "What's New" modal, newest first.
   const APP_CHANGELOG = [
+    { ver: "V1.7.0", title: "🗺️ Tutorials: no step can leave you stuck", items: [
+      "The Main Menu Tour's History step used to hand you a \"View a sample match\" button and then refuse to move on until you had tapped all three opponents inside the match — with the tutorial's own words sitting over the chips it told you to tap. The match now opens itself, the players are highlighted for you, and Next works straight away: looking around is optional.",
+      "Every step that waits for a click now offers a way past it if the click turns out to be impossible, so a tutorial can never dead-end into Skip.",
+      "Playing as a guest: the tour says up front which parts of the menu are locked until you sign in, and quietly leaves out the Avatar Gallery steps the app will not let a guest open at all. Step numbers count only the steps you are actually shown.",
+      "\"Follow the guide bar\" no longer points at an empty strip when someone else has the first turn — turn order is random, and the step now says so and waits.",
+      "Card-play steps say you can use the Choose action dropdown as well as dragging, which is the easier one on a phone.",
+      "The instructions get out of their own way: the popup now sits beside whatever it is pointing at when there is no room above or below it, and never covers the thing you have been asked to click.",
+    ]},
     { ver: "V1.7.0", title: "⚔️ Competitive: your other hand is there the moment you finish", items: [
       "End a turn in a competitive match and the board switches to your other hand straight away. It used to sit on the hand you had just played until your opponent finished their turn, so the switch happened on their clock and the board changed under you the moment the turn came back.",
       "The wait is now yours to plan with: your next hand's cards, board and score are on screen for the whole time your opponent is playing, and the top bar tells you which hand it is.",
