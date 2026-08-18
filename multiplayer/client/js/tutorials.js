@@ -118,9 +118,42 @@
   //  steps: [{ target:selector|null, badge, title, text, before?() }]
   // ════════════════════════════════════════════════════════════════
   let coach = null, coachSteps = [], coachIdx = 0, coachDone = null, coachCleanup = null, coachWait = null, coachPoll = null;
+  // Timers that keep a step honest: coachStuck un-disables Next so no step can
+  // ever trap the player, coachSettle re-positions once async content lands.
+  let coachStuck = null, coachSettle = null;
+  // How long an interactive step waits for the real click before it offers a way
+  // past. Short when there is nothing on screen to click (the step cannot be
+  // completed at all), generous when the target is right there.
+  const STUCK_WITH_TARGET_MS = 15000;
+  const STUCK_NO_TARGET_MS   = 4000;
+
+  // A step can declare itself inapplicable to this player (step.skipIf) — the
+  // Avatar Gallery steps for a guest, say, who is not allowed to open it. Those
+  // steps are stepped over in whichever direction the player is travelling, and
+  // they are left out of the "Step N of M" count so the numbers stay honest.
+  function coachSkipped(step) {
+    try { return !!(step && typeof step.skipIf === "function" && step.skipIf()); } catch (_) { return false; }
+  }
+  function coachNextIdx(from, back) {
+    let i = from;
+    while (i >= 0 && i < coachSteps.length && coachSkipped(coachSteps[i])) i += back ? -1 : 1;
+    return i;
+  }
+  function coachLiveIdxs() {
+    const out = [];
+    coachSteps.forEach((s, i) => { if (!coachSkipped(s)) out.push(i); });
+    return out;
+  }
+  // "Is this the last step the player will actually be shown?" Asked instead of
+  // `idx === length - 1`, which is wrong the moment the tail of a tour is skipped.
+  function coachIsLast(i) {
+    const live = coachLiveIdxs();
+    return live.length === 0 || i >= live[live.length - 1];
+  }
+  function coachFinish() { const cb = coachDone; endCoach(); cb && cb(); }
 
   function coachAdvance() {
-    if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
+    if (coachIsLast(coachIdx)) coachFinish();
     else gotoStep(coachIdx + 1);
   }
 
@@ -174,7 +207,7 @@
     if (!coach || !coach.classList.contains("open")) return;
     if (coachWait && action === coachWait) {
       coachWait = null;
-      if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
+      if (coachIsLast(coachIdx)) coachFinish();
       else setTimeout(() => gotoStep(coachIdx + 1), 350);
     }
   }
@@ -203,7 +236,7 @@
     coach.querySelector("#tut3-skip").addEventListener("click", endCoach);
     coach.querySelector("#tut3-back").addEventListener("click", () => gotoStep(coachIdx - 1, true));
     coach.querySelector("#tut3-next").addEventListener("click", () => {
-      if (coachIdx >= coachSteps.length - 1) { const cb = coachDone; endCoach(); cb && cb(); }
+      if (coachIsLast(coachIdx)) coachFinish();
       else gotoStep(coachIdx + 1);
     });
     window.addEventListener("resize", positionCoach);
@@ -225,6 +258,8 @@
       const h = coach.querySelector("#tut3-hole"); if (h) h.classList.remove("pulse");
     }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
+    if (coachStuck) { clearInterval(coachStuck); coachStuck = null; }
+    if (coachSettle) { clearTimeout(coachSettle); coachSettle = null; }
     clearCoachGlows();
     const cu = coachCleanup;
     coachSteps = []; coachDone = null; coachCleanup = null; coachWait = null;
@@ -236,7 +271,14 @@
   // forward again) and unlock Next so the player can continue when ready.
   function gotoStep(i, goingBack) {
     if (i < 0 || i >= coachSteps.length) return;
+    // Step over anything that does not apply to this player. Travelling back
+    // past the first live step just leaves us on the first live step.
+    i = coachNextIdx(i, goingBack);
+    if (i < 0) i = coachNextIdx(0, false);
+    if (i < 0 || i >= coachSteps.length) { coachFinish(); return; }
     if (coachPoll) { clearInterval(coachPoll); coachPoll = null; }
+    if (coachStuck) { clearInterval(coachStuck); coachStuck = null; }
+    if (coachSettle) { clearTimeout(coachSettle); coachSettle = null; }
     coachIdx = i;
     const step = coachSteps[i];
     clearCoachGlows();
@@ -274,10 +316,13 @@
         if (c && typeof c.onClick === "function") { try { c.onClick(); } catch (_) {} }
       }));
     }
-    coach.querySelector("#tut3-count").textContent = `Step ${i + 1} of ${coachSteps.length}`;
-    // Back: only disabled on step 0 (can't go further back).
+    const live = coachLiveIdxs();
+    const pos = Math.max(0, live.indexOf(i));
+    const isLastStep = coachIsLast(i);
+    coach.querySelector("#tut3-count").textContent = `Step ${pos + 1} of ${live.length}`;
+    // Back: only disabled on the first step the player was shown.
     const backBtn = coach.querySelector("#tut3-back");
-    backBtn.disabled = (i === 0);
+    backBtn.disabled = (pos === 0);
     // Interactive step: let real clicks/drags reach the highlighted element and
     // disable Next so the player must perform the action.
     // When going back we never trap the player, clicks pass through and Next is
@@ -295,7 +340,7 @@
       nextBtn.style.display = "none";
     } else {
       nextBtn.style.display = "";
-      if (i >= coachSteps.length - 1) {
+      if (isLastStep) {
         nextBtn.textContent = "Finish ✓"; nextBtn.disabled = false;
       } else if (isInteractive && !step.allowNext) {
         nextBtn.textContent = "Click above →"; nextBtn.disabled = true;
@@ -304,10 +349,33 @@
         nextBtn.textContent = "Next →"; nextBtn.disabled = false;
       }
     }
+    // ── Never trap the player ──────────────────────────────────────────
+    // An interactive step waits for one real click, so anything that makes that
+    // click impossible (a screen gated behind sign-in, a rigged card the server
+    // did not deal, a control that never rendered) would leave Next disabled
+    // forever with Skip as the only way out — abandoning the whole tutorial.
+    // So Next unlocks itself: quickly when there is nothing on screen to click,
+    // after a fair pause when the target really is right there.
+    if (isInteractive && !hasChoices && !step.allowNext && !isLastStep) {
+      let waited = 0;
+      coachStuck = setInterval(() => {
+        waited += 500;
+        const t = coachResolveEl(step);
+        const limit = (t && isVisible(t)) ? STUCK_WITH_TARGET_MS : STUCK_NO_TARGET_MS;
+        if (waited < limit) return;
+        clearInterval(coachStuck); coachStuck = null;
+        const b = coach.querySelector("#tut3-next");
+        if (b && b.disabled) { b.disabled = false; b.textContent = "Skip this step →"; }
+      }, 500);
+    }
+
     // Scroll target into view, then position after a tick so layout settles.
+    // A second pass catches panels/modals whose content arrives asynchronously
+    // (avatars, boards, lists) and changes the target's size after the first.
     const el = coachResolveEl(step);
     if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (_) {} }
     setTimeout(positionCoach, 120);
+    coachSettle = setTimeout(positionCoach, 520);
   }
 
   function isVisible(el) {
@@ -386,7 +454,21 @@
     let top, left, arrowDir;
     if (r.bottom + gap + popH < vh) { top = r.bottom + gap; arrowDir = "up"; }
     else if (r.top - gap - popH > 0) { top = r.top - gap - popH; arrowDir = "down"; }
-    else { top = Math.max(8, Math.min(vh - popH - 8, r.top)); arrowDir = "none"; }
+    else {
+      // Neither below nor above fits (a big target, or a lot of words). Sit
+      // BESIDE it if there is room, rather than landing on top of the very
+      // thing the step is pointing at.
+      top = Math.max(8, Math.min(vh - popH - 8, r.top));
+      arrowDir = "none";
+      const roomRight = vw - r.right - gap, roomLeft = r.left - gap;
+      if (roomRight >= popW || roomLeft >= popW) {
+        left = (roomRight >= roomLeft) ? (r.right + gap) : (r.left - gap - popW);
+        pop.style.left = Math.max(8, Math.min(vw - popW - 8, left)) + "px";
+        pop.style.top = top + "px";
+        arrow.style.display = "none";
+        return;
+      }
+    }
     left = r.left + r.width / 2 - popW / 2;
     left = Math.max(8, Math.min(vw - popW - 8, left));
     pop.style.left = left + "px";
@@ -433,8 +515,32 @@
     if (tp) tp.style.display = "none";
     const bs = document.getElementById("ccm-bgsheet");
     if (bs) bs.style.display = "none";
+    // Tapping a card inside the sample match's board opens the full-screen card
+    // viewer, which then sits over every step that follows. Same for the
+    // read-only board overlay. Neither belongs to the menu, so clear both.
+    const zm = document.getElementById("pv-zoom-modal");
+    if (zm) zm.classList.remove("open");
+    const bf = document.getElementById("pv-board-focus");
+    if (bf) bf.classList.remove("open");
   }
   function openSettings() { const b = document.getElementById("stats-settings-top-btn"); if (b) try { b.click(); } catch (_) {} }
+
+  // Signed out? A guest can still walk the menu, but the app locks a lot of it:
+  // the Avatar Gallery refuses to open at all (openAvatarGallery bails for a
+  // guest), and Casual / Competitive / History / Friends / Messages /
+  // Achievements / Leaderboard show a "Sign in to…" card instead of any content.
+  // Steps that literally cannot be completed are skipped rather than left to
+  // trap the player on a click that will never happen.
+  function tutIsGuest() {
+    try { return !(window.__fishAuthUser && window.__fishAuthUser()); } catch (_) { return false; }
+  }
+  // The Weekly Challenges strip remembers whether it was open. Close it first so
+  // "click the bar to open it" is a real instruction and not already done.
+  function collapseChallengeStrip() {
+    const strip = document.getElementById("ph-cs-strip");
+    const btn = document.getElementById("ph-cs-header-btn");
+    if (strip && btn && !strip.classList.contains("is-collapsed")) { try { btn.click(); } catch (_) {} }
+  }
 
   // advanceWhen helpers for interactive tab/modal steps
   const gtTabActive    = id => () => !!document.getElementById(id)?.classList.contains("active");
@@ -451,6 +557,12 @@
       before: closeMenuOverlays,
       text: "This is the <strong>Main Menu</strong>, where you start games, track your progress, and customise your critter. We will walk through every part of it together." },
 
+    // ── Guest notice (only shown when signed out) ────────────────────
+    { target: null, badge: "Playing as a Guest", title: "You are playing as a guest",
+      skipIf: () => !tutIsGuest(),
+      before: closeMenuOverlays,
+      text: "You can play right now without an account, but a guest has <strong>no saved profile</strong>, so the tabs that keep your history, <strong>stats, friends, messages, achievements and the leaderboard</strong>, show a sign-in card instead of your data, and the <strong>Avatar Gallery</strong> stays closed. This tour still shows you where everything lives. <strong>Sign in</strong> from any of those tabs and it all fills in." },
+
     // ── Profile card (top bar / XP) ───────────────────────────────────
     { target: ".ph-profile-card", badge: "Your Profile", title: "Your Profile Card",
       before: () => { closeMenuOverlays(); navTab("overview"); },
@@ -462,6 +574,7 @@
 
     // ── Avatar click (interactive, must actually open gallery) ──────
     { target: "#stats-avatar", badge: "Avatar Gallery", title: "Open Your Avatar Gallery",
+      skipIf: tutIsGuest,
       before: closeMenuOverlays,
       interactive: true,
       advanceWhen: gtGalOpen,
@@ -469,10 +582,12 @@
 
     // ── Avatar Gallery, intro context ───────────────────────────────
     { target: "#avatar-gallery", badge: "Avatar Gallery", title: "Your Avatar Gallery",
+      skipIf: tutIsGuest,
       text: "This is where you choose which critter represents you. New critters are <strong>unlocked by earning achievements, climbing the competitive ranks, or redeeming a code</strong>. Click any locked animal to see its fun fact and exactly what you need to do to earn it." },
 
     // ── Click the Osprey tile (interactive) ──────────────────────────
     { target: "[data-avatar-id='osprey']", badge: "Avatar Gallery", title: "Click an Animal",
+      skipIf: tutIsGuest,
       before: () => { try { document.querySelector("[data-avatar-id='osprey']")?.scrollIntoView({ block: "center", behavior: "instant" }); } catch(_) {} },
       interactive: true,
       advanceWhen: () => !!document.querySelector("[data-avatar-id='osprey'].gal-selected"),
@@ -480,17 +595,19 @@
 
     // ── Osprey detail panel ───────────────────────────────────────────
     { target: "#gal-detail", badge: "Avatar Gallery", title: "Fun Fact and Unlock",
+      skipIf: tutIsGuest,
       text: "Every animal shows its <strong>fun fact</strong> and exactly what you need to do to <strong>unlock</strong> it. The Osprey is your reward for completing all five tutorials. You are already on your way!" },
 
     // ── Back button, must click to exit gallery ──────────────────────
     { target: "#gal-back-btn", badge: "Avatar Gallery", title: "Back to the Menu",
+      skipIf: tutIsGuest,
       interactive: true,
       advanceWhen: gtGalClosed,
       text: "Click the <strong>back arrow</strong> at the top to close the gallery and return to the menu." },
 
     // ── Open the Weekly Challenges (interactive, must click the header) ──
     { target: "#ph-cs-header-btn", badge: "Weekly Challenges", title: "Open Your Challenges",
-      before: () => { closeMenuOverlays(); navTab("overview"); },
+      before: () => { closeMenuOverlays(); navTab("overview"); collapseChallengeStrip(); },
       interactive: true,
       advanceWhen: gtChallengesOpen,
       text: "Click the <strong>Weekly Challenges</strong> bar to open it." },
@@ -533,16 +650,21 @@
       advanceWhen: gtTabActive("snav-history"),
       text: "Click <strong>History</strong> to see your past matches." },
 
-    // ── History panel + sample match CTA ──────────────────────────────
-    // Opens the REAL game-detail modal with one of TheFishManTim's matches and
-    // makes the learner tap each opponent's board before the tour continues.
-    { target: () => (document.getElementById("ph-game-detail-modal")?.classList.contains("open")
-        ? document.getElementById("ph-gdm-box") : document.getElementById("ph-panel-history")),
-      badge: "History Tab", title: "Match History",
-      interactive: true, popAnchor: "top",
-      advanceWhen: tutSampleAllOppsViewed,
-      cta: { label: "View a sample match", onClick: () => showSampleMatch() },
-      text: "The <strong>History</strong> tab lets you reopen any past match and see exactly what every player had on their board, along with the final scores. Select the button below to open a real example, a game played by <strong>TheFishManTim</strong>. Then <strong>tap each of the other players</strong> (CoralCara, ReefRiley, KelpQuinn) to inspect their boards." },
+    // ── History panel ─────────────────────────────────────────────────
+    { target: "#ph-panel-history", badge: "History Tab", title: "Match History",
+      before: closeMenuOverlays,
+      text: "The <strong>History</strong> tab keeps every match you have played. Opening one shows the <strong>final scores</strong> and the exact board each player finished with. Here is a real example." },
+
+    // ── The sample match, opened FOR the player ───────────────────────
+    // This used to hand the learner a button and then refuse to continue until
+    // they had tapped all three opponents — which reads as a broken step when
+    // the popup is sitting over the very chips you are told to tap. Now the
+    // match opens on its own, the spotlight sits on the row of players, and Next
+    // works straight away: looking around is optional, not a toll gate.
+    { target: "#ph-gdm-players", badge: "History Tab", title: "A Real Past Match",
+      interactive: true, allowNext: true,
+      before: () => { closeMenuOverlays(); showSampleMatch(); },
+      text: "This is a real 4-player game won by <strong>TheFishManTim</strong> with 78 points. Every player who was at the table is listed here with their final score, and the board below is theirs. <strong>Tap any player</strong> to swap the board to that player's, or just carry on with <strong>Next</strong>." },
 
     // ── Friends tab (click to navigate) ──────────────────────────────
     { target: "#snav-friends", badge: "Friends Tab", title: "Friends",
@@ -557,6 +679,7 @@
 
     // ── Friend code ───────────────────────────────────────────────────
     { target: "#ph-fc-display", badge: "Friends Tab", title: "Your Friend Code",
+      skipIf: tutIsGuest,
       text: "This is <strong>your friend code</strong>. Share it so others can add you. To add someone else, type their <strong>code or their name and code</strong> into the box just below and select Add." },
 
     // ── Messages tab (click to navigate) ─────────────────────────────
@@ -657,14 +780,8 @@
   // ── Tutorial-only sample match viewer ─────────────────────────────
   // Opens the REAL History game-detail modal with a real past game so the
   // learner sees exactly what an old match looks like, not a mock-up. The
-  // game is one of TheFishManTim's, with every player's real final board.
-  // The History step requires the learner to inspect each opponent's board
-  // before advancing, so we record which player chips they open here.
-  let _tutSampleOpponents = [];
-  let _tutSampleViewed = new Set();
-  function tutSampleAllOppsViewed() {
-    return _tutSampleOpponents.length > 0 && _tutSampleOpponents.every(n => _tutSampleViewed.has(n));
-  }
+  // game is one of TheFishManTim's, with every player's real final board. The
+  // tour opens it for the learner; poking at it is optional.
   function showSampleMatch() {
     // Final scores for an example 4-player game (TheFishManTim wins).
     const sAll = [
@@ -717,20 +834,8 @@
       all: sAll,
       bds: sBds,
     };
-    _tutSampleOpponents = sAll.map(p => p.n).filter(n => n !== "TheFishManTim");
-    _tutSampleViewed = new Set();
     if (typeof window.__fishOpenGameDetail !== "function") return;
     window.__fishOpenGameDetail(g);
-    // Record which players the learner inspects. The chips' own handler still
-    // switches the board view; this extra listener just tracks progress so the
-    // History step can require every opponent to be opened before advancing.
-    setTimeout(() => {
-      document.querySelectorAll("#ph-game-detail-modal .ph-gdm-pchip").forEach(chip => {
-        chip.addEventListener("click", () => {
-          if (chip.dataset.pname) _tutSampleViewed.add(chip.dataset.pname);
-        });
-      });
-    }, 0);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -766,6 +871,15 @@
       pills.forEach(p => { try { p.click(); } catch (_) {} });
       if (tries > 8) clearInterval(t);
     }, 400);
+  }
+
+  // The guide bar is only on screen while it is YOUR turn — renderGuideBar
+  // strips .visible the rest of the time. Turn order is random, so a step that
+  // hard-targets "#pv-guide-bar" spotlights nothing for everyone who isn't
+  // first. Resolve it only when it is really showing, and say so in the text.
+  function gtGuideBarEl() {
+    const b = document.getElementById("pv-guide-bar");
+    return (b && b.classList.contains("visible")) ? b : null;
   }
 
   // ── Live-game state predicates (read the real payload via the cc bridges) ──
@@ -1106,8 +1220,8 @@
       text: "Click <strong>Start Game</strong>." },
 
     // ── Gameplay ────────────────────────────────────────────────────
-    { target: "#pv-guide-bar", badge: "Your Turn", title: "Follow the Guide",
-      text: "This bar tells you what to do next." },
+    { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
+      text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
     { target: "#pv-draw-deck", badge: "Your Turn", title: "Draw Two", interactive: true,
       before: () => { _gtDrawBase = gtDrawCount(); _gtDrawSawTurn = false; _gtHandBase = gtHandCardCount(); },
       advanceWhen: () => {
@@ -1118,7 +1232,7 @@
         if (gtMyTurn()) { _gtDrawSawTurn = true; return false; }
         return _gtDrawSawTurn;
       },
-      text: "Draw two cards from the Deck or Pool." },
+      text: "When the guide bar says it is your turn, <strong>draw two cards</strong> from the Deck or the Pool. If someone else is still going, wait for your turn to come round." },
     { target: gtOtherSeat, badge: "Their Turn", title: "Opponents' Turns",
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
@@ -1129,7 +1243,7 @@
       interactive: true, popAnchor: "top",
       before: () => { t2ForceStarOn(); t2CacheOceanPair(); _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || gtOceanCount() > _gtOceanBase,
-      text: "Drag Mangrove onto your board." },
+      text: "Drag <strong>Mangrove</strong> onto your board — or pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
     { target: gtArcticHandEl, glow: [gtArcticHandEl, "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Star", title: "Activate the Star", interactive: true, popAnchor: "top",
       advanceWhen: () => gtOceanCount() > _gtOceanBase,
@@ -1140,14 +1254,14 @@
       interactive: true, popAnchor: "top",
       before: () => { _gtCreatureBase = gtCreatureCount(); },
       advanceWhen: () => gtCreatureCount() > _gtCreatureBase,
-      text: "Use Play Again to place the glowing creature." },
+      text: "★ Play Again means this turn is not over. Drag the glowing creature onto your board, or play it from the <strong>Choose action…</strong> dropdown." },
 
     // ── Short explanations ──────────────────────────────────────────
     { target: gtPoolEl, glow: [gtPoolEl], badge: "The Pool", title: "The Pool",
       text: "Payments enter the Pool, where players can draw them later." },
     { target: gtOtherSeat, badge: "Scouting", title: "Inspect a Board",
       interactive: true, advanceWhen: gtBoardFocusOpen,
-      text: "Click an opponent to inspect their board." },
+      text: "Click the highlighted opponent's seat to enlarge their board and see what they are building." },
     { target: gtBoardFocusCloseEl, badge: "Scouting", title: "Return to Your Board",
       interactive: true, advanceWhen: gtBoardFocusClosed,
       before: () => { try { const s = gtOtherSeat(); if (s && !gtBoardFocusOpen()) s.click(); } catch (_) {} },
@@ -1254,27 +1368,27 @@
       text: "Click <strong>Start Game</strong>." },
 
     // ── Strategy guide (Help → pick Crustaceans → Bird Lobster) ─────
-    { target: "#pv-guide-bar", badge: "Your Turn", title: "Follow the Guide",
-      text: "This bar tells you what to do next." },
+    { target: gtGuideBarEl, badge: "Your Turn", title: "Follow the Guide",
+      text: "The moment your turn starts, a <strong>guide bar</strong> appears above the table spelling out what to do next. Turn order is random, so if another player is going first, it turns up when the turn reaches you." },
     { target: "#pv-help-btn", badge: "Strategy", title: "Open Strategy Help", interactive: true,
       // Reset the two tutorial strategies so the player turns them on themselves.
       before: () => { try { window.__ccHelpTut && window.__ccHelpTut.ensureInactive(["Crustaceans", "Bird Lobster"]); } catch (_) {} },
       advanceWhen: blHelpOpen,
-      text: "On the left, click 💡 Help." },
+      text: "Click <strong>💡 Help</strong> to open the Strategy Guide." },
     { target: () => blStratPlayEl("Crustaceans"), badge: "Strategy", title: "Choose Crustaceans",
       interactive: true, before: blEnsureHelpList, advanceWhen: () => blStratActive("Crustaceans"),
-      text: "Select Crustaceans, then click Play this." },
+      text: "Pick <strong>Crustaceans</strong>, then press <strong>Play this</strong> to make it your plan." },
     { target: () => blCombosSectionEl(), badge: "Strategy", title: "Suggested Combos",
       before: blEnsureHelpList,
       text: "These combos pair well with Crustaceans." },
     { target: () => blStratPlayEl("Bird Lobster"), badge: "Strategy", title: "Choose Bird Lobster",
       interactive: true, before: blEnsureHelpList, advanceWhen: () => blStratActive("Bird Lobster"),
-      text: "Under Suggested Combos, select Bird Lobster and click Play this." },
+      text: "Under Suggested Combos, pick <strong>Bird Lobster</strong> and press <strong>Play this</strong>." },
     { target: "#pv-help-close", badge: "Strategy", title: "Return to the Game", interactive: true,
       advanceWhen: () => !blHelpOpen(),
       text: "Close the Strategy Guide." },
     { target: null, badge: "Strategy", title: "Your Strategy Is Ready",
-      text: "B-Lob cards now glow in your hand and Pool." },
+      text: "Cards that fit this plan now glow in your hand and in the Pool, so you can spot them at a glance." },
 
     // ── B-Lob card lesson (spotlight each key card) ─────────────────
     { target: null, badge: "B-Lob", title: "B-Lob",
@@ -1291,10 +1405,10 @@
       interactive: true, popAnchor: "top",
       before: () => { _gtOceanBase = gtOceanCount(); },
       advanceWhen: () => gtPayingOcean() || blReefOnBoard(),
-      text: "Drag Artificial Reef onto your board." },
+      text: "Drag <strong>Artificial Reef</strong> onto your board — or pick it in the <strong>Choose action…</strong> dropdown and press <strong>Play Card</strong>." },
     { target: gtPayBarEl, glow: [blNarwhalEl, "#pv-payment-confirm-btn", gtPayBarEl], badge: "Turn 1", title: "Pay the Cost",
       interactive: true, popAnchor: "top", advanceWhen: () => blReefOnBoard(),
-      text: "Use Narwhal or Bigeye Tuna as payment, then confirm." },
+      text: "Pay for it with the glowing card in your hand, then press <strong>Confirm</strong>." },
     { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
@@ -1303,7 +1417,7 @@
     { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 2", title: "Play Lobster",
       interactive: true, popAnchor: "top",
       advanceWhen: () => blLobstersOnReef() >= 1,
-      text: "Drag Lobster onto Artificial Reef." },
+      text: "Drag a <strong>Lobster</strong> onto the glowing Artificial Reef — or play it from the <strong>Choose action…</strong> dropdown." },
     { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
       before: () => { _gtSawOppTurn = false; },
       advanceWhen: () => { if (!gtMyTurn()) { _gtSawOppTurn = true; return false; } return _gtSawOppTurn; },
@@ -1312,7 +1426,7 @@
     { target: () => blHandElByName("lobster"), glow: [blReefHubEl], badge: "Turn 3", title: "Stack Another",
       interactive: true, popAnchor: "top",
       advanceWhen: () => blLobstersOnReef() >= 2,
-      text: "Place the second Lobster in the same slot." },
+      text: "Play your second <strong>Lobster</strong> into the same slot as the first. Lobsters stack, so any number can share one spot." },
     { target: null, badge: "B-Lob", title: "Lobsters Stacked!",
       text: "Two Lobsters now share one slot." },
     { target: blEndTurnEl, badge: "Your Turn", title: "End Your Turn", interactive: true, allowNext: true,
@@ -1323,7 +1437,7 @@
     { target: () => blHandElByName("california gull"), glow: [blReefHubEl], badge: "Turn 4", title: "Play California Gull",
       interactive: true, popAnchor: "top",
       advanceWhen: () => gtPayingCreature() || blGullOnReef(),
-      text: "Place California Gull above Artificial Reef." },
+      text: "Play <strong>California Gull</strong> onto the surface of Artificial Reef, by dragging it there or from the <strong>Choose action…</strong> dropdown." },
     { target: gtPayBarEl, glow: [() => blGullPayEls()[0], () => blGullPayEls()[1], "#pv-payment-confirm-btn", gtPayBarEl],
       badge: "Turn 4", title: "Pay Two Cards", interactive: true, popAnchor: "top",
       advanceWhen: () => blGullOnReef(),
@@ -1444,7 +1558,7 @@
 
     // ── Group 4: card controls ──────────────────────────────────────
     { target: "#pv-hand", badge: "Cards", title: "Enlarge a Card", interactive: true, advanceWhen: gtZoomOpen,
-      text: "Click a card to enlarge it." },
+      text: "Click any card in your hand to enlarge it and read its text." },
     { target: "#pv-zoom-modal", badge: "Cards", title: "Flip & Close", interactive: true, advanceWhen: gtZoomClosed,
       text: "Use ‹ and › to view the previous and next card, then close the viewer." },
     { target: "#pv-hand", badge: "Cards", title: "Rearrange Your Hand", interactive: true,
