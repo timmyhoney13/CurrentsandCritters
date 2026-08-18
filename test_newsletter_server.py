@@ -25,7 +25,9 @@ from __future__ import annotations
 import copy
 import json
 import os
+import socket
 import sys
+import threading
 import types
 import unittest
 
@@ -1600,6 +1602,346 @@ class TestNoGoogleAnywhere(_EnvSandbox):
         finally:
             ne._smtp_connect = orig_connect
             ne._smtp_close()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 12. REAL SMTP, OVER A REAL SOCKET
+# ══════════════════════════════════════════════════════════════════════════
+# Everything above stubs the transport. This does not: it stands up an actual
+# SMTP server on 127.0.0.1, points the REAL send_email() at it through the REAL
+# smtplib, and asserts on the bytes that genuinely crossed the wire.
+#
+# It exists because a mock proves the code calls what you told it to call, and
+# nothing more. Only a socket proves the EHLO/AUTH/MAIL/RCPT/DATA conversation
+# actually completes, that the envelope carries exactly one recipient, and that
+# the message on the wire is the message we think we built.
+class _TinySMTP(threading.Thread):
+    """A minimal but real SMTP server. Python 3.12 removed the stdlib `smtpd`
+    module, and pulling in aiosmtpd for one test is not worth a dependency, so
+    this speaks just enough of RFC 5321 for smtplib to complete a session."""
+
+    daemon = True
+
+    def __init__(self):
+        super().__init__()
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(("127.0.0.1", 0))       # port 0 = let the OS pick a free one
+        self.sock.listen(8)
+        self.port = self.sock.getsockname()[1]
+        self.sessions = []                     # one entry per delivered message
+        self.connections = 0
+        self.authed = []
+        self._stop = False
+
+    def run(self):
+        while not self._stop:
+            try:
+                conn, _ = self.sock.accept()
+            except OSError:
+                return
+            self.connections += 1
+            threading.Thread(target=self._serve, args=(conn,), daemon=True).start()
+
+    def _serve(self, conn):
+        f = conn.makefile("rb")
+
+        def say(line):
+            conn.sendall(line.encode("ascii") + b"\r\n")
+
+        say("220 test.local ESMTP")
+        mail_from, rcpts = "", []
+        try:
+            while True:
+                raw = f.readline()
+                if not raw:
+                    return
+                line = raw.decode("utf-8", "replace").strip()
+                up = line.upper()
+                if up.startswith("EHLO") or up.startswith("HELO"):
+                    say("250-test.local")
+                    say("250-AUTH PLAIN LOGIN")
+                    say("250 SMTPUTF8")
+                elif up.startswith("AUTH PLAIN"):
+                    self.authed.append("PLAIN")
+                    say("235 2.7.0 Authentication successful")
+                elif up.startswith("AUTH LOGIN"):
+                    say("334 VXNlcm5hbWU6")
+                    f.readline()
+                    say("334 UGFzc3dvcmQ6")
+                    f.readline()
+                    self.authed.append("LOGIN")
+                    say("235 2.7.0 Authentication successful")
+                elif up.startswith("MAIL FROM"):
+                    mail_from = line.split(":", 1)[1].strip().strip("<>")
+                    say("250 2.1.0 OK")
+                elif up.startswith("RCPT TO"):
+                    rcpts.append(line.split(":", 1)[1].strip().strip("<>"))
+                    say("250 2.1.5 OK")
+                elif up == "DATA":
+                    say("354 End data with <CR><LF>.<CR><LF>")
+                    chunks = []
+                    while True:
+                        d = f.readline()
+                        if not d or d in (b".\r\n", b".\n"):
+                            break
+                        # Undo SMTP dot-stuffing so the captured body is the
+                        # real message.
+                        chunks.append(d[1:] if d.startswith(b"..") else d)
+                    self.sessions.append({
+                        "from": mail_from, "rcpts": list(rcpts),
+                        "data": b"".join(chunks).decode("utf-8", "replace"),
+                    })
+                    mail_from, rcpts = "", []
+                    say("250 2.0.0 Ok: queued")
+                elif up == "NOOP":
+                    say("250 2.0.0 OK")
+                elif up == "RSET":
+                    mail_from, rcpts = "", []
+                    say("250 2.0.0 OK")
+                elif up == "QUIT":
+                    say("221 2.0.0 Bye")
+                    return
+                else:
+                    say("250 2.0.0 OK")
+        except (OSError, ValueError):
+            return
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    def shutdown(self):
+        self._stop = True
+        try:
+            self.sock.close()
+        except OSError:
+            pass
+
+
+class TestRealSmtpOverASocket(_EnvSandbox):
+    @classmethod
+    def setUpClass(cls):
+        cls.server = _TinySMTP()
+        cls.server.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+
+    def setUp(self):
+        super().setUp()
+        self.server.sessions.clear()
+        self.server.authed.clear()
+        self.server.connections = 0
+        os.environ.update(
+            SMTP_HOST="127.0.0.1", SMTP_PORT=str(self.server.port),
+            SMTP_SECURITY="none",              # a plaintext loopback socket
+            SMTP_USERNAME=ADMIN, SMTP_PASSWORD="app-password-here",
+        )
+        ne._smtp_close()
+
+    def tearDown(self):
+        ne._smtp_close()
+        super().tearDown()
+
+    def test_a_real_welcome_email_crosses_the_wire_intact(self):
+        unsub = "https://play.currentsandcritters.com/newsletter/unsubscribe/tok.mac"
+        msg = ne.build_welcome(unsub, unsub)
+        res = ne.send_email(to_email="Fan@Example.COM", subject=msg["subject"],
+                            html_body=msg["html"], text_body=msg["text"],
+                            unsubscribe_url=unsub, one_click_url=unsub)
+
+        self.assertEqual(len(self.server.sessions), 1, "exactly one message delivered")
+        s = self.server.sessions[0]
+
+        # ── envelope ────────────────────────────────────────────────────
+        self.assertEqual(s["rcpts"], ["fan@example.com"],
+                         "one envelope recipient, lowercased — nobody can see anybody else")
+        self.assertEqual(s["from"], ADMIN)
+        self.assertTrue(self.server.authed, "the server really did authenticate us")
+
+        # ── parse what actually arrived, as a mail client would ─────────
+        import email as _email
+        parsed = _email.message_from_string(s["data"])
+        self.assertEqual(parsed["To"], "fan@example.com")
+        self.assertEqual(parsed["Subject"],
+                         "Welcome to the Currents & Critters Community!")
+        self.assertIn("Currents", parsed["From"])
+        self.assertIn(ADMIN, parsed["From"])
+        self.assertEqual(parsed["Reply-To"], ADMIN)
+        self.assertEqual(parsed["Message-ID"], res["messageId"])
+        self.assertIn(unsub, parsed["List-Unsubscribe"])
+        self.assertEqual(parsed["List-Unsubscribe-Post"], "List-Unsubscribe=One-Click")
+        self.assertEqual(parsed["Precedence"], "bulk")
+        self.assertTrue(parsed.is_multipart())
+
+        parts = parsed.get_payload()
+        self.assertEqual([p.get_content_type() for p in parts],
+                         ["text/plain", "text/html"],
+                         "plain first — multipart/alternative is last-part-wins")
+
+        text = parts[0].get_payload(decode=True).decode("utf-8")
+        html = parts[1].get_payload(decode=True).decode("utf-8")
+
+        # ── the copy Tim wrote, and the footer the law wants ────────────
+        for phrase in ("Hi!!!", "Thank you for joining the Currents & Critters email list",
+                       "Timothy Honey", "Bearded Seal Studios LLC",
+                       "916A South Douglas Avenue", "Nashville, TN 37204-2021",
+                       "You received this email because you signed up"):
+            self.assertIn(phrase, text, "missing from the plain-text part: " + phrase)
+        self.assertIn("Hi!!!", html)
+        self.assertIn("916A South Douglas Avenue", html)
+        self.assertIn(unsub, html)
+        self.assertIn(unsub, text)
+        self.assertIn("email-logo.png", html, "the logo is in the header")
+        self.assertNotIn("<p", text, "the text part is prose, not stripped tags")
+
+    def test_five_sends_reuse_one_connection_and_stay_separate(self):
+        for i in range(5):
+            ne.send_email(to_email="p%d@x.com" % i, subject="Newsletter %d" % i,
+                          html_body="<p>Body %d</p>" % i, text_body="Body %d" % i,
+                          unsubscribe_url="https://u/%d" % i)
+        self.assertEqual(len(self.server.sessions), 5)
+        self.assertEqual(self.server.connections, 1,
+                         "one TCP session for the whole batch, not five")
+        for i, s in enumerate(self.server.sessions):
+            self.assertEqual(s["rcpts"], ["p%d@x.com" % i])
+            # The decisive privacy check, on the real bytes: no other
+            # subscriber's address appears anywhere in this message.
+            for j in range(5):
+                if j != i:
+                    self.assertNotIn("p%d@x.com" % j, s["data"],
+                                     "recipient %d leaked into %d's copy" % (j, i))
+            self.assertIn("https://u/%d" % i, s["data"],
+                          "each recipient gets their OWN unsubscribe link")
+
+    def test_connection_status_against_a_real_server(self):
+        st = ne.connection_status()
+        self.assertEqual(st["transport"], "smtp")
+        self.assertTrue(st["connected"], st.get("error"))
+        self.assertTrue(st["senderVerified"])
+        self.assertEqual(st["error"], "")
+        self.assertNotIn("app-password-here", repr(st),
+                         "the password never leaves the server")
+
+    def test_a_wrong_password_fails_closed_and_says_why(self):
+        # Point at a server that refuses AUTH.
+        rejecting = _TinySMTP()
+        original_serve = rejecting._serve
+
+        def refuse(conn):
+            f = conn.makefile("rb")
+            conn.sendall(b"220 test.local ESMTP\r\n")
+            while True:
+                raw = f.readline()
+                if not raw:
+                    return
+                up = raw.decode("utf-8", "replace").strip().upper()
+                if up.startswith("EHLO") or up.startswith("HELO"):
+                    conn.sendall(b"250-test.local\r\n250 AUTH PLAIN LOGIN\r\n")
+                elif up.startswith("AUTH"):
+                    conn.sendall(b"535 5.7.8 Username and Password not accepted\r\n")
+                elif up == "QUIT":
+                    conn.sendall(b"221 Bye\r\n")
+                    return
+                else:
+                    conn.sendall(b"250 OK\r\n")
+
+        rejecting._serve = refuse
+        rejecting.start()
+        try:
+            os.environ["SMTP_PORT"] = str(rejecting.port)
+            ne._smtp_close()
+            with self.assertRaises(ne.SendError) as cm:
+                ne.send_email(to_email="a@b.com", subject="s",
+                              html_body="<p>x</p>", text_body="x")
+            self.assertEqual(cm.exception.category, "auth_revoked")
+            self.assertFalse(cm.exception.retryable,
+                             "a wrong password must not be retried per recipient")
+            self.assertIn("App Password", str(cm.exception))
+            st = ne.connection_status()
+            self.assertFalse(st["connected"])
+            self.assertIn("App Password", st["error"])
+        finally:
+            rejecting.shutdown()
+
+    def test_a_dead_server_is_retryable_and_names_the_fallback(self):
+        dead = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        dead.bind(("127.0.0.1", 0))
+        port = dead.getsockname()[1]
+        dead.close()                            # nothing is listening now
+        os.environ["SMTP_PORT"] = str(port)
+        ne._smtp_close()
+        with self.assertRaises(ne.SendError) as cm:
+            ne.send_email(to_email="a@b.com", subject="s",
+                          html_body="<p>x</p>", text_body="x")
+        self.assertEqual(cm.exception.category, "network")
+        self.assertTrue(cm.exception.retryable)
+        self.assertIn("NEWSLETTER_API_KEY", str(cm.exception),
+                      "a blocked port must point at the HTTP fallback")
+
+    def test_a_whole_campaign_goes_out_over_the_real_socket(self):
+        """Signup → welcome → campaign, end to end, with a real server on the
+        other end and no Google variable set anywhere."""
+        db = FakeDb()
+        ns.init(get_firestore=lambda: db, verify_token=_verify)
+        ns._invalidate_subs_cache()
+        ne._smtp_close()
+
+        for i in range(3):
+            ev = {"id": "evt_r%d" % i, "type": "checkout.session.completed",
+                  "data": {"object": {
+                      "id": "cs_r%d" % i, "payment_status": "paid", "custom_fields": [{
+                          "label": {"type": "custom",
+                                    "custom": "Enter your email to get updates"},
+                          "type": "text", "text": {"value": "sub%d@x.com" % i}}]}}}
+            self.assertEqual(ns.handle_stripe_session(ev, ev["data"]["object"]), "created")
+        import queue as _q
+        while True:
+            try:
+                ns._send_welcome_now(ns._welcome_q.get_nowait())
+            except _q.Empty:
+                break
+        ns._invalidate_subs_cache()
+
+        # 3 welcomes + 3 owner notifications
+        self.assertEqual(len(self.server.sessions), 6)
+
+        h = Handler()
+        body = {"idToken": fake_token(ADMIN), "subject": "Reef Report",
+                "contentHtml": "<h2>News</h2><p>Hello</p>"}
+        ns.handle_post(h, Parsed("/api/newsletter/campaign-save"), body)
+        cid = h.last["id"]
+        h2 = Handler()
+        ns.handle_post(h2, Parsed("/api/newsletter/campaign-start"),
+                       {"idToken": fake_token(ADMIN), "id": cid, "confirm": "SEND"})
+        self.assertTrue(h2.last["ok"], h2.last)
+
+        for _ in range(10):
+            for c in ns._sending_campaign_ids():
+                ns._process_campaign_batch(c)
+            if not ns._sending_campaign_ids():
+                break
+
+        camp = ns._get_campaign(cid)
+        self.assertEqual(camp["status"], ns.CAMP_SENT)
+        self.assertEqual(camp["sentCount"], 3)
+
+        campaign_msgs = [s for s in self.server.sessions
+                         if "Reef Report" in s["data"]]
+        self.assertEqual(len(campaign_msgs), 3)
+        got = sorted(r for s in campaign_msgs for r in s["rcpts"])
+        self.assertEqual(got, ["sub0@x.com", "sub1@x.com", "sub2@x.com"])
+        self.assertEqual(len(got), len(set(got)), "nobody got two copies")
+        links = set()
+        for s in campaign_msgs:
+            import re as _re
+            m = _re.search(r"newsletter/unsubscribe/([A-Za-z0-9_.\-]+)", s["data"])
+            self.assertIsNotNone(m, "every campaign email carries an unsubscribe link")
+            links.add(m.group(1))
+        self.assertEqual(len(links), 3, "each link is unique to its recipient")
 
 
 if __name__ == "__main__":
