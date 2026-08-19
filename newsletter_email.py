@@ -177,11 +177,39 @@ def privacy_url() -> str:
     return _env("PRIVACY_POLICY_URL", site_url() + "/privacy")
 
 
+# A consumer @gmail.com account may send to ~500 recipients per rolling 24h.
+# A Google Workspace account on your own domain gets ~2,000. Those are wildly
+# different budgets, and exceeding either does not bounce — Google throttles or
+# SUSPENDS the account, sometimes for a full day.
+CONSUMER_GMAIL_CAP = 400          # 500 real limit, minus headroom for your own mail
+WORKSPACE_CAP = 1200              # 2,000 real limit, minus the same headroom
+
+
+def sender_is_consumer_gmail() -> bool:
+    """True when mail goes out from a free @gmail.com / @googlemail.com account
+    rather than a Workspace domain — which is a 4x smaller daily budget."""
+    dom = sender_email().rsplit("@", 1)[-1].strip().lower()
+    return dom in ("gmail.com", "googlemail.com")
+
+
 def daily_send_cap() -> int:
+    """How many messages this process will send per UTC day.
+
+    The DEFAULT follows the sending account: a free Gmail address gets the
+    small budget automatically, so switching the From address to @gmail.com
+    cannot silently leave a 1,200/day cap pointed at a 500/day mailbox. An
+    explicit NEWSLETTER_DAILY_SEND_CAP is always honoured — it is your account
+    and you may know something we don't — but connection_status() flags it when
+    it exceeds what the account can actually take.
+    """
+    default = CONSUMER_GMAIL_CAP if sender_is_consumer_gmail() else WORKSPACE_CAP
+    raw = _env("NEWSLETTER_DAILY_SEND_CAP")
+    if not raw:
+        return default
     try:
-        return max(1, int(_env("NEWSLETTER_DAILY_SEND_CAP", "1200")))
+        return max(1, int(raw))
     except ValueError:
-        return 1200
+        return default
 
 
 # ── Transport selection ────────────────────────────────────────────────────
@@ -1496,9 +1524,27 @@ def connection_status() -> Dict[str, Any]:
         "scopes": [],
         "sanitizer": sanitizer_name(),
         "dailyCap": daily_send_cap(),
+        "consumerGmail": sender_is_consumer_gmail(),
+        "capWarning": "",
         "error": "",
         "setupHint": "",
     }
+    # A cap set higher than the account can actually take is worse than no cap:
+    # it lets a campaign march straight into a 24-hour suspension.
+    _real = 500 if out["consumerGmail"] else 2000
+    if out["dailyCap"] > _real:
+        out["capWarning"] = (
+            "NEWSLETTER_DAILY_SEND_CAP is %d, but a %s account only allows about "
+            "%d recipients per day. Going over does not bounce — the account gets "
+            "throttled or suspended for up to 24 hours."
+            % (out["dailyCap"],
+               "free @gmail.com" if out["consumerGmail"] else "Google Workspace",
+               _real))
+    elif out["consumerGmail"]:
+        out["capWarning"] = (
+            "Sending from a free @gmail.com address, so the daily budget is about "
+            "500 recipients. Past roughly 400 subscribers, move to a domain "
+            "address or an email API.")
 
     if not t:
         out["error"] = "No way to send email is configured yet."

@@ -1282,7 +1282,8 @@ class _EnvSandbox(unittest.TestCase):
             "SMTP_PASSWORD", "SMTP_SECURITY", "NEWSLETTER_API_KEY",
             "NEWSLETTER_HTTP_PROVIDER", "RESEND_API_KEY", "POSTMARK_API_KEY",
             "BREVO_API_KEY", "SENDGRID_API_KEY", "GOOGLE_CLIENT_ID",
-            "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN")
+            "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN",
+            "NEWSLETTER_FROM_EMAIL", "NEWSLETTER_DAILY_SEND_CAP")
 
     def setUp(self):
         self._saved = {k: os.environ.get(k) for k in self.KEYS}
@@ -1314,7 +1315,8 @@ class TestTransportSelection(_EnvSandbox):
         self.assertEqual(ne.transport(), "smtp")
         self.assertTrue(ne.configured())
         # Not one Google variable is set.
-        for k in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"):
+        for k in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN",
+            "NEWSLETTER_FROM_EMAIL", "NEWSLETTER_DAILY_SEND_CAP"):
             self.assertIsNone(os.environ.get(k))
 
     def test_smtp_takes_priority_over_google(self):
@@ -1342,6 +1344,26 @@ class TestTransportSelection(_EnvSandbox):
         self.assertEqual(ne.transport(), "http")
         os.environ["NEWSLETTER_TRANSPORT"] = "smtp"
         self.assertEqual(ne.transport(), "smtp")
+
+    def test_daily_cap_follows_the_sending_account(self):
+        """Switching the From address to a free @gmail.com must not leave a
+        Workspace-sized cap pointed at a 500/day mailbox — going over gets the
+        account suspended, not bounced."""
+        os.environ["NEWSLETTER_FROM_EMAIL"] = "someone@beardedsealstudios.com"
+        self.assertFalse(ne.sender_is_consumer_gmail())
+        self.assertEqual(ne.daily_send_cap(), ne.WORKSPACE_CAP)
+
+        os.environ["NEWSLETTER_FROM_EMAIL"] = "currentsandcritters@gmail.com"
+        self.assertTrue(ne.sender_is_consumer_gmail())
+        self.assertEqual(ne.daily_send_cap(), ne.CONSUMER_GMAIL_CAP)
+        self.assertLess(ne.CONSUMER_GMAIL_CAP, 500, "must sit under Gmail's real limit")
+
+        # An explicit cap is still honoured — but it gets flagged.
+        os.environ["NEWSLETTER_DAILY_SEND_CAP"] = "1200"
+        self.assertEqual(ne.daily_send_cap(), 1200)
+        st = ne.connection_status()
+        self.assertIn("suspended", st["capWarning"])
+        self.assertTrue(st["consumerGmail"])
 
     def test_app_password_spaces_are_stripped(self):
         """Google displays an app password as four space-separated groups, so

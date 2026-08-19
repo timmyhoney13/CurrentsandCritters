@@ -7,7 +7,7 @@
   const CARD_IMAGE_VERSION = "20260730-v12c";
 
   // ── App version + update detection ──────────────────────────────────────
-  // APP_VERSION → shown in the Alpha badge ("ALPHA V<APP_VERSION>").
+  // APP_VERSION → shown in the Beta badge ("BETA V<APP_VERSION>").
   // Versioning scheme: 1.<2nd>.<3rd> derived from the cumulative update count N.
   //   3rd digit = floor(N/10) % 10  → ticks up every 10 pushes
   //   2nd digit = floor(N/100)      → ticks up every 100 pushes
@@ -16,8 +16,8 @@
   // APP_BUILD → MUST stay equal to the "build" in /client/version.json. The client
   // polls version.json and prompts a one-tap refresh when the served build differs;
   // if these two drift apart, refreshed clients get stuck re-prompting forever.
-  const APP_VERSION = "1.6.62";
-  const APP_BUILD   = "2026-08-18.1";
+  const APP_VERSION = "1.6.63";
+  const APP_BUILD   = "2026-08-19.1";
 
   // ── Profanity guard (chat + nicknames) ──────────────────────────────────
   // Keeps chat family-friendly and blocks offensive nicknames. Chat swears are
@@ -5373,6 +5373,8 @@
     _myIdxGlobal  = myIdx;
     const players = Array.isArray(state.players) ? state.players : [];
     _latestPlayers = players;
+    // Refresh the live face table before anything renders from it.
+    try { noteLiveAvatars(players, payload.spectators); } catch (e) {}
     if (state.round_count != null) _latestRoundCount = Number(state.round_count) || 0;
     const me      = players.find(p => p.index === myIdx) || null;
     const phase   = payload.room?.phase || "lobby";
@@ -6550,6 +6552,60 @@
     return PV_SEAT_AVATARS[pvSeatHash(seed) % 12];
   }
 
+  // ── One live source for every face in the game ────────────────
+  // The server relays each player's and spectator's CURRENT avatar on every
+  // state tick. Resolve every in-game face through here, so someone who
+  // changes their icon mid-game changes on ALL of them at once. Each surface
+  // used to answer the question its own way and get stuck: a chat line kept
+  // the avatar frozen into the message when it was sent, the draw notification
+  // and the final standings asked Firestore by nickname behind a 12s cache
+  // (and drew a name-hash stranger for anyone without a profile doc), so the
+  // seat row was the only place a change actually showed up.
+  let _liveAvatarByName = Object.create(null);
+  function noteLiveAvatars(players, spectators) {
+    const next = Object.create(null);
+    (Array.isArray(players) ? players : []).forEach(p => {
+      if (p && p.name && p.avatar) next[String(p.name)] = String(p.avatar);
+    });
+    (Array.isArray(spectators) ? spectators : []).forEach(s => {
+      if (!s || !s.name || !s.avatar) return;
+      // A spectator's chat lines are sent under a prefixed name (see
+      // submit_spectator_chat), so key both spellings or the prefix costs
+      // them their face on every line they type.
+      next[String(s.name)] = String(s.avatar);
+      next["[Spectator] " + String(s.name)] = String(s.avatar);
+    });
+    _liveAvatarByName = next;
+  }
+  // The avatar this player is wearing right now, "" if the server hasn't told
+  // us one yet. My own equipped icon wins for me: it is already true on this
+  // client, while the relayed copy is a server round-trip behind, so without
+  // this my own face would lag a tick behind everyone else's view of it.
+  function pvLiveAvatar(name) {
+    const n = String(name || "");
+    if (!n) return "";
+    try {
+      const mine = latestPayload && latestPayload.viewer && latestPayload.viewer.name;
+      if (mine && n === String(mine) && typeof window.__fishMyAvatarUrl === "function") {
+        const m = String(window.__fishMyAvatarUrl() || "");
+        if (m) return m;
+      }
+    } catch (e) {}
+    return _liveAvatarByName[n] || "";
+  }
+  // Fingerprint of every face on screen — surfaces that skip redundant
+  // re-renders diff this so an avatar change still repaints them. My own
+  // equipped icon has to be in here too: it is the one face that changes
+  // without the relayed table changing, so leaving it out meant my new icon
+  // reached everyone else's copy of my chat lines before it reached mine.
+  function pvLiveAvatarKey() {
+    let mine = "";
+    try {
+      if (typeof window.__fishMyAvatarUrl === "function") mine = String(window.__fishMyAvatarUrl() || "");
+    } catch (e) {}
+    try { return JSON.stringify(_liveAvatarByName) + "|" + mine; } catch (e) { return "|" + mine; }
+  }
+
   // Push our chosen avatar to the server for this seat so every other client
   // renders our own icon (and sees changes immediately). Self-throttled: only
   // sends when the avatar actually changed.
@@ -6675,12 +6731,14 @@
         ? pvSeatDefaultAvatar(p.name || `seat${slot}`)
         : PV_SEAT_AVATARS[slot % 12];
       // Authoritative source: each player's OWN avatar carried per-seat in the
-      // game state (p.avatar). This guarantees every player has a separate icon
-      // and changes propagate immediately. Fall back to my equipped avatar for
-      // my own seat, then to a deterministic per-name default.
+      // game state (p.avatar), so every player has a separate icon and a change
+      // propagates immediately. For MY seat my local equipped value wins, the
+      // same way it does for the background below — the relayed copy is a
+      // round-trip behind, so preferring it made my own new icon sit on the old
+      // one until the next poll came back.
       let initialUrl = fallbackAvatar;
-      if (p.avatar) initialUrl = p.avatar;
-      else if (isMe && myAvatarUrl) initialUrl = myAvatarUrl;
+      if (isMe && myAvatarUrl) initialUrl = myAvatarUrl;
+      else if (p.avatar) initialUrl = p.avatar;
 
       const aw = document.createElement("div");
       aw.className = "pv-seat-avatar-wrap";
@@ -10354,22 +10412,20 @@
     const avatarLetter = document.getElementById("dn-avatar-letter");
     if (avatarWrap && avatarImg && avatarLetter) {
       const isMine = latestPayload?.viewer?.name === playerName;
-      let avatarSrc = (typeof pvSeatDefaultAvatar === "function")
+      // The live seat avatar (pvLiveAvatar) already covers my own icon and
+      // everyone else's, and it is current as of this tick. Only fall through
+      // to the nickname lookup for a name with no live seat behind it.
+      const liveAv = pvLiveAvatar(playerName);
+      let avatarSrc = liveAv || ((typeof pvSeatDefaultAvatar === "function")
         ? pvSeatDefaultAvatar(playerName)
-        : PV_SEAT_AVATARS[0];
-      try {
-        if (isMine && typeof window.__fishMyAvatarUrl === "function") {
-          const mine = String(window.__fishMyAvatarUrl() || "");
-          if (mine) avatarSrc = mine;
-        }
-      } catch (_) {}
+        : PV_SEAT_AVATARS[0]);
       avatarImg.src = (window.__fishAvSrc?window.__fishAvSrc(avatarSrc):avatarSrc);
       avatarImg.alt = playerName;
       avatarImg.style.display = "block";
       avatarLetter.style.display = "none";
-      // Async-replace with Firebase-stored avatar if this notif belongs to
-      // another player.
-      if (!isMine && typeof window.__fishAvatarForNick === "function") {
+      // Async-replace with the Firebase-stored avatar only when this player
+      // has no live seat icon to read.
+      if (!isMine && !liveAv && typeof window.__fishAvatarForNick === "function") {
         window.__fishAvatarForNick(playerName).then(url => {
           if (url && avatarImg && avatarImg.isConnected) avatarImg.src = url;
         }).catch(() => {});
@@ -10432,11 +10488,11 @@
     const avatarLetter = document.getElementById("dn-avatar-letter");
     if (avatarWrap && avatarImg && avatarLetter) {
       const isMine = latestPayload?.viewer?.name === playerName;
-      let avatarSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(playerName) : "/avatars/mullet.png";
-      try { if (isMine && typeof window.__fishMyAvatarUrl === "function") { const m = String(window.__fishMyAvatarUrl() || ""); if (m) avatarSrc = m; } } catch (_) {}
+      const liveAv = pvLiveAvatar(playerName);
+      let avatarSrc = liveAv || ((typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(playerName) : "/avatars/mullet.png");
       avatarImg.src = (window.__fishAvSrc?window.__fishAvSrc(avatarSrc):avatarSrc); avatarImg.alt = playerName;
       avatarImg.style.display = "block"; avatarLetter.style.display = "none";
-      if (!isMine && typeof window.__fishAvatarForNick === "function") {
+      if (!isMine && !liveAv && typeof window.__fishAvatarForNick === "function") {
         window.__fishAvatarForNick(playerName).then(url => { if (url && avatarImg.isConnected) avatarImg.src = url; }).catch(() => {});
       }
       try {
@@ -10517,7 +10573,7 @@
     _prevDiscardCount=null;  // tide-sweep baseline resets per game/room
     if (_drawNotifTimer) { clearTimeout(_drawNotifTimer); _drawNotifTimer=null; }
     const _dnEl = document.getElementById("draw-notif"); if (_dnEl) _dnEl.classList.remove("visible", "hiding");
-    _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0;
+    _chatSeenCount = 0; _chatLastCount = -1; _chatRoomTotal = 0; _chatLastAvatarKey = "";
     _chatPanelOpen = false;
     // Leaving / starting a fresh match resets the panel back to Current Game Chat.
     _chatView = "room"; _chatConv = null;
@@ -13039,7 +13095,12 @@
         const bgUrl = oceanUid ? (typeof imagePathForUid === "function" ? imagePathForUid(oceanUid) : "") : "";
         const avatarSeed = p.name || ("p" + i);
         const fallbackAvatar = (typeof getDefaultAvatar === "function") ? getDefaultAvatar(avatarSeed) : "/avatars/mullet.png";
-        const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : fallbackAvatar;
+        // The face each player finished the match wearing is already in the
+        // state we just rendered from — use it instead of showing a name-hash
+        // stranger until the async nickname lookup lands (and forever, for a
+        // guest with no profile doc to look up).
+        const liveAv = pvLiveAvatar(p.name) || String(playerObj?.avatar || "");
+        const avatarUrl = (isMe && myAvatarUrl) ? myAvatarUrl : (liveAv || fallbackAvatar);
         const rankIcon = r===1?"🥇":r===2?"🥈":r===3?"🥉":r;
         const row = document.createElement("div");
         row.className = "gs-st-row" + (isMe ? " gs-st-me" : "");
@@ -13050,7 +13111,7 @@
           <div class="gs-st-info"><div class="gs-st-name"${p.name && !isLikelyAiName(p.name) ? ` data-cc-pname="${escapeHtml(p.name)}" data-cc-surface="light"` : ""}>${escapeHtml(p.name||"?")}</div><div class="gs-st-env">${escapeHtml(envLabel)}</div></div>
           <div class="gs-st-score">${p.score||0} pts</div>`;
         rowsEl.appendChild(row);
-        if (!isMe) {
+        if (!isMe && !liveAv) {
           const img = row.querySelector(".gs-st-av img");
           if (img) _gsAvatarImgs.push({ name: p.name, img });
         }
@@ -13627,27 +13688,35 @@
   function _chatMuted(kind) { return _chatMuteMode === "all" || _chatMuteMode === kind; }
 
   let _chatLastCount = -1;
+  let _chatLastAvatarKey = "";   // faces the painted lines are wearing
   function renderChatMessages(messages) {
     const msgs = Array.isArray(messages) ? messages : [];
     _chatRoomTotal = msgs.length;
-    if (msgs.length === _chatLastCount) {
-      // no new messages, just refresh the combined badges
+    // Message count alone can't tell us the panel is up to date: the lines
+    // wear the senders' CURRENT faces, so someone changing their icon has to
+    // repaint them even though nobody has said anything since.
+    const _avKey = pvLiveAvatarKey();
+    if (msgs.length === _chatLastCount && _avKey === _chatLastAvatarKey) {
+      // no new messages and nobody changed their face, just refresh the badges
       if (_chatPanelOpen && _chatView === "room") _chatSeenCount = msgs.length;
       pvcUpdateBadges();
       return;
     }
     _chatLastCount = msgs.length;
+    _chatLastAvatarKey = _avKey;
     const el = document.getElementById("pv-chat-messages");
     cl(el);
     msgs.forEach(m => {
       const div = document.createElement("div"); div.className = "chat-msg";
       const senderName = m.sender || "?";
 
-      // Sender avatar, prefer the per-sender avatar the server attached to the
-      // message (each player's own icon); fall back to a deterministic default.
+      // Sender avatar: the face they are wearing NOW, not the one frozen into
+      // the message when they sent it — change your icon mid-game and every
+      // line you have already typed changes with you. m.avatar is the fallback
+      // for a sender who has since left (no live seat to read).
       const av = document.createElement("div"); av.className = "cm-avatar";
       const avImg = document.createElement("img");
-      let avSrc = (m.avatar && String(m.avatar)) || "";
+      let avSrc = pvLiveAvatar(senderName) || (m.avatar && String(m.avatar)) || "";
       if (!avSrc) {
         avSrc = (typeof pvSeatDefaultAvatar === "function") ? pvSeatDefaultAvatar(senderName) : "/avatars/mullet.png";
       }
@@ -26779,7 +26848,7 @@
       if (modal) modal.addEventListener("click", e => { if (!e.target.closest(".ph-season-modal-box")) modal.classList.remove("open"); });
     })();
 
-    // ── Alpha version banner + What's New modal ───────────────────
+    // ── Beta version banner + What's New modal ────────────────────
     function openWhatsNewModal() {
       const modal = document.getElementById("ph-whatsnew-modal");
       const body  = document.getElementById("ph-whatsnew-body");
@@ -26827,9 +26896,9 @@
       const refresh = document.getElementById("ph-alpha-refresh");
       const close   = document.getElementById("ph-whatsnew-close");
       const modal   = document.getElementById("ph-whatsnew-modal");
-      if (tag)     tag.textContent = "ALPHA V" + APP_VERSION;
+      if (tag)     tag.textContent = "BETA V" + APP_VERSION;
       const sub = document.getElementById("ph-whatsnew-sub");
-      if (sub)     sub.textContent = "Currents and Critters · Alpha V" + APP_VERSION;
+      if (sub)     sub.textContent = "Currents and Critters · Beta V" + APP_VERSION;
       if (wn)      wn.addEventListener("click", openWhatsNewModal);
       if (refresh) refresh.addEventListener("click", () => {
         // Refreshing for an update should reload in place, not bounce the

@@ -398,12 +398,18 @@ Whatever you send through has a cap, and going over it does not bounce — the
 provider throttles or suspends you, sometimes for 24 hours. So the cap is
 enforced **here, before the wire**, by `NEWSLETTER_DAILY_SEND_CAP`.
 
-| Method | Real daily limit |
-|---|---|
-| Google Workspace SMTP or Gmail API | **2,000 recipients / rolling 24h** (1,500 external) |
-| Consumer `@gmail.com` | **500 / day** |
-| Resend | 100/day free; paid plans scale into the millions |
-| Postmark / Brevo / SendGrid | per plan, typically far above Gmail |
+| Sending account | Real daily limit | Cap used by default |
+|---|---|---|
+| Google Workspace (your own domain) | **2,000 recipients / 24h** | 1,200 |
+| Free `@gmail.com` | **500 / day** | **400** |
+| Resend | 100/day free; paid plans far higher | 1,200 |
+| Postmark / Brevo / SendGrid | per plan | 1,200 |
+
+The default follows the From address automatically — set
+`NEWSLETTER_FROM_EMAIL` to an `@gmail.com` address and the cap drops to 400 on
+its own, so a Workspace-sized cap can never end up pointed at a 500/day
+mailbox. Setting `NEWSLETTER_DAILY_SEND_CAP` explicitly overrides it, and the
+**Connections** tab warns if you set it above what the account can take.
 
 - One message to one subscriber = one recipient. This system never puts more
   than one address on a message, so **your list size is your daily send**.

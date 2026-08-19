@@ -249,6 +249,10 @@
         sp.appendChild(statusRow("Unsubscribe links",
           chip(s.unsubscribeSecretSet ? "good" : "bad", s.unsubscribeSecretSet ? "Ready" : "Not configured"),
           s.unsubscribeSecretSet ? "" : "Set NEWSLETTER_UNSUBSCRIBE_SECRET — sending is blocked without it."));
+        if (s.ok && s.gmail && s.gmail.capWarning) {
+          sp.appendChild(statusRow("Daily limit",
+            chip("warn", num(s.gmail.dailyCap) + " / day"), s.gmail.capWarning));
+        }
         if (d.pendingWelcome || d.failedWelcome) {
           sp.appendChild(statusRow("Welcome emails",
             chip(d.failedWelcome ? "warn" : "info",
@@ -1167,8 +1171,9 @@
           : "Not independently verifiable with this method — a test email is the real proof."));
       p1.appendChild(statusRow("Reply-To", chip("neutral", g.replyTo), ""));
       p1.appendChild(statusRow("Endpoint", chip("neutral", (g.scopes || []).join(", ") || "—"), ""));
-      p1.appendChild(statusRow("Daily cap", chip("neutral", num(g.dailyCap) + " / day"),
-        "Set NEWSLETTER_DAILY_SEND_CAP to match what your provider actually allows."));
+      p1.appendChild(statusRow("Daily cap",
+        chip(g.capWarning ? "warn" : "neutral", num(g.dailyCap) + " / day"),
+        g.capWarning || "Matches what this account can actually send."));
       if (g.setupHint) {
         var hint = el("div", "n-warn-box", g.setupHint);
         hint.style.marginTop = "14px";

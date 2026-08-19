@@ -169,6 +169,10 @@
 # chat lines wore a hash of "[Spectator] Name" instead of the icon they equipped.
 !test_spectator_avatar.py
 !test_spectator_avatar.js
+# In-game faces: changing your avatar mid-game has to change it on every
+# surface at once (seats, chat lines, draw notifications, final standings),
+# not just the one that happens to re-read the state.
+!test_ingame_avatar_live.js
 
 # The published How to Play page (/rules): proves the rulebook stylesheet and
 # the shared data tables were MOVED out of the game, not copied (it compares

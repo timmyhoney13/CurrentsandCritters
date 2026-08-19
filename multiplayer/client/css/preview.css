@@ -6252,7 +6252,7 @@
     .ph-name-chip.active {
       color: #567494;
     }
-    /* ── Alpha version square (own column, between the player name and the Level badge) ── */
+    /* ── Beta version square (own column, between the player name and the Level badge) ── */
     .ph-alpha-banner {
       align-self: stretch;
       width: 158px;
@@ -12510,7 +12510,7 @@
     /* ============================================================
        Desktop profile-card layout (≥1181px)
          top row:  avatar | name + friend-code + XP/Streak chips | Level (w/ XP bar) + Competitive | message + Sign Out
-         bottom:   full-width ALPHA · "latest version" · What's New bar
+         bottom:   full-width BETA · "latest version" · What's New bar
        ============================================================ */
     @media (min-width: 1181px) {
       #auth-stats-lobby .ph-profile-card {
@@ -12536,7 +12536,7 @@
         align-self: center;
         justify-content: flex-end;
       }
-      /* ALPHA · "latest version" · What's New, full-width bar along the bottom,
+      /* BETA · "latest version" · What's New, full-width bar along the bottom,
          laid out wide-ways underneath the XP / Streak chips */
       #auth-stats-lobby .ph-alpha-banner {
         order: 2;
