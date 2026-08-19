@@ -1237,7 +1237,21 @@
           : "Set NEWSLETTER_UNSUBSCRIBE_SECRET — sending is blocked without it."));
       p3.appendChild(statusRow("HTML sanitiser", chip("neutral", g.sanitizer),
         "Every newsletter body is sanitised on the server before it is stored or sent."));
-      p3.appendChild(statusRow("Admin account", chip("info", d.adminEmail), "The only account that can open this page."));
+      var admins = d.adminEmails || [d.adminEmail];
+      var adminRow = el("div", "n-status-row");
+      adminRow.appendChild(el("div", "n-status-lbl",
+        admins.length > 1 ? "Admin accounts" : "Admin account"));
+      adminRow.appendChild(chip("info", String(admins.length)));
+      var av2 = el("div", "n-status-val");
+      admins.forEach(function (a, i) {
+        var c = el("span", "n-code", a + (i === 0 ? "  (primary)" : ""));
+        c.style.marginRight = "6px"; av2.appendChild(c);
+      });
+      av2.appendChild(el("div", "n-hint",
+        "Only these exact accounts can open this page. The primary also receives "
+        + "new-subscriber notifications and test emails."));
+      adminRow.appendChild(av2);
+      p3.appendChild(adminRow);
       p3.appendChild(statusRow("Links point at", chip("neutral", d.appBaseUrl), "Website: " + d.siteUrl));
       p3.appendChild(statusRow("Privacy Policy", chip("neutral", d.privacyUrl), "Linked in every email footer."));
       host.appendChild(p3);

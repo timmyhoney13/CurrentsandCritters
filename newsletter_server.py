@@ -88,9 +88,14 @@ C_META = "newsletterMeta"
 
 STATUS_ACTIVE = "active"
 STATUS_UNSUB = "unsubscribed"
+# A public web form proves nothing about who owns the address, so a signup
+# from one lands here and NOTHING can mail it except the confirmation itself.
+# Only the person holding the inbox can turn it into an active subscriber.
+STATUS_PENDING = "pending"
 
 SOURCE_STRIPE = "Stripe Checkout"
 SOURCE_MANUAL = "Manual Admin Addition"
+SOURCE_WEBSITE = "Website Signup"
 
 # Campaign / recipient states.
 CAMP_DRAFT, CAMP_SENDING, CAMP_SENT, CAMP_FAILED = "draft", "sending", "sent", "failed"
@@ -277,12 +282,21 @@ def unsub_secret_configured() -> bool:
     return bool(_unsub_secret())
 
 
-def _mac(unsub_id: str, version: int) -> str:
+def _mac(unsub_id: str, version: int, purpose: str = "") -> str:
+    """Keyed signature over (purpose, id, version).
+
+    `purpose` is what stops a confirmation link doubling as an unsubscribe link
+    and vice versa — two tokens over the same id would otherwise be identical
+    strings, and a subscriber could be unsubscribed by the link that was meant
+    to sign them up. The unsubscribe purpose is deliberately the EMPTY string
+    so tokens already sitting in inboxes keep verifying.
+    """
     key = _unsub_secret()
     if not key:
         return ""
-    raw = hmac.new(key, ("%s:%d" % (unsub_id, int(version))).encode("utf-8"),
-                   hashlib.sha256).digest()
+    msg = ("%s:%s:%d" % (purpose, unsub_id, int(version))) if purpose else \
+          ("%s:%d" % (unsub_id, int(version)))
+    raw = hmac.new(key, msg.encode("utf-8"), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")[:32]
 
 
@@ -292,6 +306,21 @@ def make_unsub_token(sub: Dict[str, Any]) -> str:
         return ""
     m = _mac(uid, _int(sub.get("tokenVersion"), 1))
     return ("%s.%s" % (uid, m)) if m else ""
+
+
+def make_confirm_token(sub: Dict[str, Any]) -> str:
+    uid = str(sub.get("unsubId") or "")
+    if not uid:
+        return ""
+    m = _mac(uid, _int(sub.get("tokenVersion"), 1), purpose="confirm")
+    return ("%s.%s" % (uid, m)) if m else ""
+
+
+def confirm_url(sub: Dict[str, Any]) -> str:
+    tok = make_confirm_token(sub)
+    if not tok:
+        return ""
+    return "%s/newsletter/confirm/%s" % (nl_email.app_base_url(), tok)
 
 
 def unsubscribe_url(sub: Dict[str, Any]) -> str:
@@ -333,6 +362,7 @@ AUDIT_ACTIONS = (
     "subscriber_reactivated", "welcome_email_sent", "welcome_email_failed",
     "test_email_sent", "draft_created", "draft_updated", "campaign_approved",
     "campaign_started", "campaign_completed", "campaign_failed", "csv_exported",
+    "subscriber_added_website", "confirmation_sent",
     "unauthorized_admin_access", "connection_check",
 )
 
@@ -374,6 +404,7 @@ _RL_RULES: Dict[str, Tuple[int, int]] = {
     "export":      (10, 600),
     "campaign":    (12, 600),    # campaign start / approve
     "signup":      (120, 300),   # the Stripe hook path
+    "public_signup": (8, 600),   # the website form — 8 per IP per 10 min
 }
 
 
@@ -439,7 +470,7 @@ def _admin_claims(body: Dict[str, Any], handler=None) -> Optional[dict]:
     if claims.get("email_verified") is not True:
         return None
     email = str(claims.get("email") or "").strip().lower()
-    if not email or email != admin_email():
+    if not nl_email.is_admin_email(email):
         return None
     return claims
 
@@ -447,13 +478,14 @@ def _admin_claims(body: Dict[str, Any], handler=None) -> Optional[dict]:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SUBSCRIBERS
 # ═══════════════════════════════════════════════════════════════════════════
-def _blank_subscriber(email_lower: str, source: str) -> Dict[str, Any]:
+def _blank_subscriber(email_lower: str, source: str,
+                      status: str = STATUS_ACTIVE) -> Dict[str, Any]:
     now = _now()
     return {
         "id": _subscriber_id(email_lower),
         "email": email_lower,
         "emailLower": email_lower,
-        "status": STATUS_ACTIVE,
+        "status": status,
         "source": source,
         "subscribedAt": now,
         "resubscribedAt": now,
@@ -488,6 +520,7 @@ def _subscribe(
     stripe_event_id: str = "",
     consent_note: str = "",
     event_doc_id: str = "",
+    status: str = STATUS_ACTIVE,
 ) -> Dict[str, Any]:
     """Create or reactivate ONE subscriber, transactionally.
 
@@ -526,12 +559,18 @@ def _subscribe(
         existing = (snap.to_dict() or {}) if snap.exists else {}
 
         if not snap.exists:
-            doc = _blank_subscriber(email_lower, source)
+            doc = _blank_subscriber(email_lower, source, status)
             doc["stripeSessionId"] = stripe_session_id
             doc["stripeEventId"] = stripe_event_id
             doc["consentNote"] = consent_note
             t.set(sub_ref, doc)
-            result, send_welcome, out = "created", True, doc
+            result = "created" if status == STATUS_ACTIVE else "pending"
+            out = doc
+            send_welcome = (status == STATUS_ACTIVE)
+        elif existing.get("status") == STATUS_PENDING and status == STATUS_PENDING:
+            # They asked again before confirming. Same record, same token —
+            # re-sending the confirmation is the caller's job.
+            result, send_welcome, out = "already_pending", False, existing
         elif existing.get("status") == STATUS_ACTIVE:
             # Already on the list. No second record, no second welcome, no
             # second "you have a new subscriber" email to Tim.
@@ -690,7 +729,11 @@ def _public_subscriber(d: Dict[str, Any]) -> Dict[str, Any]:
 def counts() -> Dict[str, int]:
     rows, _ = _all_subscribers()
     active = sum(1 for r in rows if r.get("status") == STATUS_ACTIVE)
-    return {"active": active, "unsubscribed": len(rows) - active, "total": len(rows)}
+    pending = sum(1 for r in rows if r.get("status") == STATUS_PENDING)
+    # Unsubscribed is what is LEFT, not "everything that is not active" —
+    # pending sits in neither bucket and must not inflate either.
+    return {"active": active, "pending": pending,
+            "unsubscribed": len(rows) - active - pending, "total": len(rows)}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -825,6 +868,25 @@ def _send_welcome_now(sub_id: str) -> None:
         print("[newsletter] owner notification failed: %s" % exc)
 
 
+def _send_confirmation(sub: Dict[str, Any]) -> None:
+    """Send the "click to confirm" email. Never raises: a failure here leaves a
+    pending record the person can create again, which is the safe direction."""
+    email = str(sub.get("emailLower") or sub.get("email") or "")
+    url = confirm_url(sub)
+    if not email or not url:
+        print("[newsletter] cannot build a confirmation link; skipping")
+        return
+    try:
+        msg = nl_email.build_confirmation(url)
+        nl_email.send_email(to_email=email, subject=msg["subject"],
+                            html_body=msg["html"], text_body=msg["text"],
+                            is_bulk=False)
+        audit("confirmation_sent", subscriber_id=str(sub.get("id") or ""),
+              summary="Confirmation email sent for a website signup")
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] confirmation send failed: %s" % exc)
+
+
 def _queue_welcome(sub_id: str) -> None:
     try:
         _welcome_q.put_nowait(sub_id)
@@ -941,6 +1003,75 @@ def resolve_unsub_token(token: str) -> Optional[Dict[str, Any]]:
             return d
         return None
     return None
+
+
+def request_subscription(email_lower: str, *, source: str = SOURCE_WEBSITE) -> Dict[str, Any]:
+    """Step 1 of a PUBLIC signup: record a pending address and hand back the
+    confirmation link. Creates nothing that any campaign can reach."""
+    out = _subscribe(email_lower, source=source, status=STATUS_PENDING,
+                     consent_note="Website signup; awaiting email confirmation.")
+    _invalidate_subs_cache()
+    return out
+
+
+def confirm_with_token(token: str) -> Dict[str, Any]:
+    """Step 2: the person clicked the link in their inbox, which is the only
+    proof we accept that they own the address.
+
+    Idempotent — clicking twice, or a mail client pre-fetching the link, must
+    not error and must not re-send the welcome.
+    """
+    uid, mac = _parse_token(token)
+    if not uid or not mac:
+        return {"ok": False, "known": False}
+    db = _db()
+    if db is None:
+        return {"ok": False, "known": False}
+    try:
+        snap = db.collection(C_SUBS).where("unsubId", "==", uid).limit(1).get()
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] confirm lookup failed: %s" % exc)
+        return {"ok": False, "known": False}
+
+    sub = None
+    for doc in snap:
+        d = doc.to_dict() or {}
+        d["id"] = doc.id
+        expected = _mac(uid, _int(d.get("tokenVersion"), 1), purpose="confirm")
+        if expected and hmac.compare_digest(expected, mac):
+            sub = d
+        break
+    if sub is None:
+        return {"ok": False, "known": False}
+
+    if sub.get("status") == STATUS_ACTIVE:
+        return {"ok": True, "known": True, "result": "already_active",
+                "email": sub.get("emailLower", "")}
+    if sub.get("status") == STATUS_UNSUB:
+        # They unsubscribed after signing up. Honour that over a stale link.
+        return {"ok": True, "known": True, "result": "unsubscribed",
+                "email": sub.get("emailLower", "")}
+
+    now = _now()
+    try:
+        db.collection(C_SUBS).document(sub["id"]).set({
+            "status": STATUS_ACTIVE,
+            "resubscribedAt": now,
+            "confirmedAt": now,
+            "updatedAt": now,
+            "consentNote": "Website signup, confirmed by email click.",
+        }, merge=True)
+    except Exception as exc:  # noqa: BLE001
+        print("[newsletter] confirm write failed: %s" % exc)
+        return {"ok": False, "known": True}
+
+    _invalidate_subs_cache()
+    audit("subscriber_added_website", subscriber_id=sub["id"],
+          summary="Confirmed a website signup by email click")
+    _queue_welcome(sub["id"])
+    _wake_worker()
+    return {"ok": True, "known": True, "result": "confirmed",
+            "email": sub.get("emailLower", "")}
 
 
 def unsubscribe_with_token(token: str) -> Dict[str, Any]:
@@ -1515,7 +1646,7 @@ def _filter_sort_page(rows: List[Dict[str, Any]], body: Dict[str, Any]) -> Dict[
     per = min(200, max(10, _int(body.get("perPage"), 50)))
 
     out = [_public_subscriber(r) for r in rows]
-    if status in (STATUS_ACTIVE, STATUS_UNSUB):
+    if status in (STATUS_ACTIVE, STATUS_UNSUB, STATUS_PENDING):
         out = [r for r in out if r["status"] == status]
     if q:
         out = [r for r in out if q in r["email"]]
@@ -1800,6 +1931,52 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
     action = path[len("/api/newsletter/"):].strip("/")
     client = _client_key(handler)
 
+    # ── public: website signup (no login, by design) ─────────────────────
+    if action == "subscribe":
+        if not _rate_ok("public_signup", client):
+            handler._send_json({"ok": False,
+                                "error": "Too many signups from here. Try again shortly."},
+                               status=429)
+            return True
+        email = nl_email.normalize_email(body.get("email"))
+        if not email:
+            handler._send_json({"ok": False, "error": "That doesn't look like a valid "
+                                                      "email address."}, status=400)
+            return True
+        if not unsub_secret_configured():
+            handler._send_json({"ok": False, "error": "Signups are temporarily "
+                                                      "unavailable."}, status=503)
+            return True
+        try:
+            out = request_subscription(email)
+        except Exception as exc:  # noqa: BLE001
+            print("[newsletter] public signup failed: %s" % exc)
+            handler._send_json({"ok": False, "error": "Could not sign you up just now. "
+                                                      "Please try again."}, status=500)
+            return True
+
+        result = out.get("result", "")
+        sub = out.get("subscriber") or {}
+        # An address ALREADY on the list gets no second confirmation and no
+        # different answer: the reply below is identical either way, so this
+        # form cannot be used to test whether somebody is a subscriber.
+        if result in ("created", "pending", "already_pending"):
+            _send_confirmation(sub)
+        handler._send_json({"ok": True, "message":
+                            "Almost there! Check your email and click the confirmation "
+                            "link to finish joining."})
+        return True
+
+    # ── public: confirm a website signup ─────────────────────────────────
+    if action == "confirm":
+        if not _rate_ok("unsubscribe", client):
+            handler._send_json({"ok": False, "error": "too_many_requests"}, status=429)
+            return True
+        res = confirm_with_token(body.get("token") if isinstance(body.get("token"), str) else "")
+        handler._send_json({"ok": True, "confirmed": bool(res.get("known")),
+                            "result": res.get("result", "")})
+        return True
+
     # ── public: unsubscribe (no login, by design) ────────────────────────
     if action == "unsubscribe":
         if not _rate_ok("unsubscribe", client):
@@ -1897,7 +2074,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
             # showing, so "export" always means "export what I am looking at".
             filtered = [_public_subscriber(r) for r in rows]
             status = str(body.get("status") or "all").strip().lower()
-            if status in (STATUS_ACTIVE, STATUS_UNSUB):
+            if status in (STATUS_ACTIVE, STATUS_UNSUB, STATUS_PENDING):
                 filtered = [r for r in filtered if r["status"] == status]
             q = str(body.get("query") or "").strip().lower()[:200]
             if q:
@@ -2008,6 +2185,7 @@ def handle_post(handler, parsed, body: Dict[str, Any]) -> bool:
                 "stripe": _stripe_status(),
                 "unsubscribeSecretSet": unsub_secret_configured(),
                 "adminEmail": admin_email(),
+                "adminEmails": nl_email.admin_emails(),
                 "appBaseUrl": nl_email.app_base_url(),
                 "siteUrl": nl_email.site_url(),
                 "privacyUrl": nl_email.privacy_url(),
@@ -2040,6 +2218,11 @@ def _unsub_page_path() -> str:
                         "multiplayer", "client", "unsubscribe.html")
 
 
+def _client_page(name: str) -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "multiplayer", "client", name)
+
+
 def handle_get(handler, parsed) -> bool:
     """GET /newsletter/unsubscribe/<token> — the public confirmation page.
 
@@ -2050,6 +2233,21 @@ def handle_get(handler, parsed) -> bool:
     one click do the whole job.
     """
     path = parsed.path
+    # The public signup page, and the page the confirmation link opens.
+    if path.rstrip("/") in ("/newsletter/join", "/join", "/newsletter/signup"):
+        try:
+            with open(_client_page("join.html"), "rb") as f:
+                handler._emit_html(f.read())
+        except OSError:
+            handler._send_json({"ok": False, "error": "join page missing"}, status=404)
+        return True
+    if path.startswith("/newsletter/confirm"):
+        try:
+            with open(_client_page("confirm.html"), "rb") as f:
+                handler._emit_html(f.read())
+        except OSError:
+            handler._send_json({"ok": False, "error": "confirm page missing"}, status=404)
+        return True
     if not path.startswith("/newsletter/unsubscribe"):
         return False
     if not _rate_ok("unsubscribe", _client_key(handler)):
@@ -2106,6 +2304,6 @@ def init(*, get_firestore, verify_token, app_version: str = "") -> None:
     _verify_token = verify_token
     _app_version = str(app_version or "")
     start_worker()
-    print("[newsletter] ready (admin=%s, transport=%s, sanitizer=%s, unsub secret=%s)"
-          % (admin_email(), nl_email.transport_label(), nl_email.sanitizer_name(),
+    print("[newsletter] ready (admins=%s, transport=%s, sanitizer=%s, unsub secret=%s)"
+          % (",".join(nl_email.admin_emails()), nl_email.transport_label(), nl_email.sanitizer_name(),
              "set" if unsub_secret_configured() else "MISSING"))

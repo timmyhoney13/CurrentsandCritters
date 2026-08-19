@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join the Email List, Currents and Critters</title>
+<meta name="description" content="Get occasional updates about Currents &amp; Critters: new features, game nights, and progress on the physical card game.">
+<!--
+  The public signup page. Replaces the old "Join the Email List" buttons, which
+  opened a mailto: (manual work for Tim) and later a Google Form (a spreadsheet
+  nobody's newsletter ever read from).
+
+  CONFIRMED OPT-IN, DELIBERATELY.
+  A box on a public web page proves nothing about who owns the address typed
+  into it. Sending a newsletter to someone who never asked is what earns spam
+  reports, and a few of those can get the whole sending account suspended. So
+  this creates a PENDING record that no campaign can reach, and only a click in
+  the real inbox turns it into a subscriber.
+-->
+<link rel="icon" href="/icon.svg">
+<style>
+  :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; padding:28px 18px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); min-height:100%;
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .card{
+    width:100%; max-width:560px; text-align:center;
+    background:rgba(3,30,46,.62); border:1px solid rgba(79,193,213,.26);
+    border-radius:20px; padding:38px 30px 32px;
+    box-shadow:0 18px 50px rgba(0,0,0,.32);
+  }
+  .logo{width:78px;height:78px;margin:0 auto 16px;display:block}
+  h1{font-size:clamp(1.5rem,5vw,2.05rem);margin:.1em 0 .45em;line-height:1.2}
+  .sub{color:var(--muted);line-height:1.62;margin:0 auto 22px;max-width:440px;font-size:.98rem}
+  ul{text-align:left;max-width:380px;margin:0 auto 24px;padding-left:20px;color:var(--muted);line-height:1.75;font-size:.94rem}
+  li::marker{color:var(--teal)}
+  form{display:flex;flex-direction:column;gap:11px;max-width:400px;margin:0 auto}
+  input[type=email]{
+    font:inherit;width:100%;padding:14px 15px;border-radius:12px;
+    border:1px solid rgba(79,193,213,.4);background:rgba(2,20,32,.6);color:var(--ink);
+  }
+  input[type=email]:focus{outline:2px solid var(--teal);outline-offset:-1px}
+  button{
+    font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 22px;
+    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022b33;cursor:pointer;
+    transition:filter .15s;
+  }
+  button:hover:not(:disabled){filter:brightness(1.08)}
+  button:disabled{opacity:.55;cursor:default}
+  .msg{margin-top:16px;font-size:.93rem;min-height:1.3em;line-height:1.55}
+  .ok{color:#8af3b0}.err{color:#ff9a9a}
+  .done .hide-when-done{display:none}
+  .fine{margin-top:24px;font-size:.78rem;color:rgba(159,198,214,.75);line-height:1.6}
+  .fine a{color:var(--teal)}
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <img class="logo" src="/email-logo.png" alt="Currents and Critters">
+    <h1>Join the Email List</h1>
+    <p class="sub hide-when-done">Occasional emails from me about the game &mdash; never spam, and you can leave any time.</p>
+    <ul class="hide-when-done">
+      <li>New game features and updates</li>
+      <li>Online game nights and special events</li>
+      <li>Progress on the physical card game</li>
+      <li>Rewards and important announcements</li>
+      <li>Chances to playtest and shape the game</li>
+    </ul>
+    <form id="form" class="hide-when-done" novalidate>
+      <input id="email" type="email" name="email" placeholder="you@example.com"
+             autocomplete="email" required aria-label="Your email address">
+      <button id="go" type="submit">Join the list</button>
+    </form>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <p class="fine">
+      We&rsquo;ll send one email to confirm it&rsquo;s really you.
+      No spam, and every email has a one-click unsubscribe.<br>
+      <a href="/privacy">Privacy Policy</a> &middot;
+      <a href="https://currentsandcritters.com">Currents &amp; Critters</a>
+    </p>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+  var form = document.getElementById("form"),
+      input = document.getElementById("email"),
+      btn = document.getElementById("go"),
+      msg = document.getElementById("msg"),
+      busy = false;
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    if (busy) return;                       // double-click guard
+    var value = (input.value || "").trim();
+    if (!value || value.indexOf("@") < 1 || value.indexOf(".") < 0) {
+      msg.className = "msg err";
+      msg.textContent = "Please enter a valid email address.";
+      input.focus();
+      return;
+    }
+    busy = true; btn.disabled = true; btn.textContent = "Signing you up…";
+    msg.className = "msg"; msg.textContent = "";
+
+    fetch("/api/newsletter/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: value })
+    }).then(function(r){
+      return r.json().catch(function(){ return { ok:false }; });
+    }).then(function(d){
+      if (d && d.ok) {
+        document.getElementById("card").classList.add("done");
+        msg.className = "msg ok";
+        msg.textContent = d.message ||
+          "Almost there! Check your email and click the confirmation link.";
+      } else {
+        msg.className = "msg err";
+        msg.textContent = (d && d.error) || "Something went wrong. Please try again.";
+        busy = false; btn.disabled = false; btn.textContent = "Join the list";
+      }
+    }).catch(function(){
+      msg.className = "msg err";
+      msg.textContent = "Couldn't reach the server. Please try again.";
+      busy = false; btn.disabled = false; btn.textContent = "Join the list";
+    });
+  });
+})();
+</script>
+</body>
+</html>

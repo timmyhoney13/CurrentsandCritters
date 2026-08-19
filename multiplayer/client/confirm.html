@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Email confirmed, Currents and Critters</title>
+<!--
+  What the confirmation link in the signup email opens.
+
+  Like the unsubscribe page, the GET only RENDERS; the page then POSTs to apply
+  it. Mail scanners and link-preview bots fetch every URL in an email, and a
+  GET that confirmed the signup would let a robot opt somebody in — which is
+  exactly the consent this whole flow exists to establish.
+-->
+<link rel="icon" href="/icon.svg">
+<style>
+  :root{ --deep:#04263b; --teal:#0fb6c4; --gold:#ffd479; --ink:#eaf6fb; --muted:#9fc6d6; }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;padding:28px 18px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 0%,#0a4d6b 0%,#063a54 45%,#04263b 100%) fixed;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .card{
+    width:100%;max-width:560px;text-align:center;
+    background:rgba(3,30,46,.62);border:1px solid rgba(79,193,213,.26);
+    border-radius:20px;padding:38px 30px 32px;box-shadow:0 18px 50px rgba(0,0,0,.32);
+  }
+  .logo{width:78px;height:78px;margin:0 auto 16px;display:block}
+  h1{font-size:clamp(1.4rem,4.6vw,1.95rem);margin:.1em 0 .5em;line-height:1.25}
+  p{color:var(--muted);line-height:1.62;margin:.5em 0;font-size:.98rem}
+  .status{
+    display:inline-flex;align-items:center;gap:9px;
+    background:rgba(15,182,196,.12);border:1px solid rgba(79,193,213,.34);
+    border-radius:999px;padding:8px 16px;font-size:.86rem;font-weight:700;
+    color:var(--teal);margin-bottom:8px;
+  }
+  .spinner{width:15px;height:15px;border-radius:50%;
+    border:2px solid rgba(15,182,196,.3);border-top-color:var(--teal);
+    animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .tick{color:#8af3b0;font-size:1.05rem;line-height:1}
+  .done .status{background:rgba(63,174,92,.14);border-color:rgba(138,243,176,.4);color:#8af3b0}
+  .actions{margin-top:24px;display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  a.btn{font:inherit;font-weight:800;text-decoration:none;border-radius:11px;
+    padding:12px 22px;display:inline-block;
+    background:linear-gradient(180deg,#15c1cf,#0a96a3);color:#022b33}
+  a.btn.ghost{background:transparent;border:1px solid rgba(79,193,213,.5);color:var(--ink)}
+  .fine{margin-top:24px;font-size:.78rem;color:rgba(159,198,214,.72);line-height:1.6}
+  .fine a{color:var(--teal)}
+</style>
+</head>
+<body>
+  <main class="card" id="card">
+    <img class="logo" src="/email-logo.png" alt="Currents and Critters">
+    <div class="status" id="status"><span class="spinner" id="spin"></span><span id="statusText">Confirming…</span></div>
+    <h1 id="headline">Confirming your email</h1>
+    <p id="lede">One moment.</p>
+    <div class="actions" id="actions" style="display:none">
+      <a class="btn" href="https://currentsandcritters.com">Explore Currents &amp; Critters</a>
+      <a class="btn ghost" href="/">Play the game</a>
+    </div>
+    <p class="fine">
+      <a href="/privacy">Privacy Policy</a> &middot; Bearded Seal Studios LLC
+    </p>
+  </main>
+
+<script>
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+  var parts = window.location.pathname.split("/").filter(Boolean);
+  var token = parts.length ? decodeURIComponent(parts[parts.length - 1]) : "";
+  if (token === "confirm") token = "";
+
+  function finish(headline, lede){
+    $("card").classList.add("done");
+    var spin = $("spin");
+    if (spin) spin.outerHTML = '<span class="tick">&#10003;</span>';
+    $("statusText").textContent = "Confirmed";
+    $("headline").textContent = headline;
+    $("lede").textContent = lede;
+    $("actions").style.display = "flex";
+  }
+  function fail(msg){
+    $("statusText").textContent = "Link not valid";
+    var spin = $("spin");
+    if (spin) spin.outerHTML = '<span class="tick" style="color:#ff9a9a">!</span>';
+    $("headline").textContent = "That link didn't work";
+    $("lede").textContent = msg;
+    $("actions").style.display = "flex";
+  }
+
+  function apply(attempt){
+    fetch("/api/newsletter/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token })
+    }).then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(d){
+        if (d && d.confirmed) {
+          if (d.result === "unsubscribed") {
+            fail("You unsubscribed from this list, so we've left it that way. " +
+                 "Sign up again any time if you changed your mind.");
+          } else {
+            finish("You're on the list!",
+                   "Thanks for confirming. You'll hear from me when there's " +
+                   "something worth sharing — and every email has a one-click " +
+                   "unsubscribe.");
+          }
+        } else {
+          fail("It may have expired, or already been used. You can sign up again " +
+               "from the website.");
+        }
+      })
+      .catch(function(){
+        if (attempt < 2) { setTimeout(function(){ apply(attempt + 1); }, 900); }
+        else { fail("We couldn't reach the server. Please try the link again."); }
+      });
+  }
+
+  if (!token) { fail("The link looks incomplete. Try copying the whole thing from the email."); }
+  else { apply(0); }
+})();
+</script>
+</body>
+</html>

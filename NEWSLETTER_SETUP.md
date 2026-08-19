@@ -31,10 +31,21 @@ hosted somewhere, which it is.
 
 ## 1. What this system does, in one page
 
-A customer completes a Stripe checkout. If — and only if — they typed an
+**People join in two ways.**
+
+1. **The website.** Every "Join the Email List" button on currentsandcritters.com
+   opens `/newsletter/join`. They enter an address, get a *confirm your email*
+   message, and only become a subscriber when they click it. Until then the
+   record is `pending` and no campaign can reach it.
+   *(Those buttons used to point at a Google Form — signups there landed in a
+   spreadsheet no campaign ever read from, so nobody who used it was ever
+   actually on the list.)*
+
+2. **Stripe checkout.** If — and only if — they typed an
 address into the optional **"Enter your email to get updates"** field, Stripe's
 `checkout.session.completed` webhook hands that address to the newsletter code,
-which creates a subscriber, sends them a welcome email, and emails you to say
+which creates a subscriber directly (no confirmation needed — paying
+proves they own the address), sends them a welcome email, and emails you to say
 somebody joined.
 
 You write and send newsletters at **`/admin/newsletter`**, signed in with your

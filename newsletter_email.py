@@ -160,8 +160,35 @@ def reply_to() -> str:
     return _env("NEWSLETTER_REPLY_TO", sender_email())
 
 
+# ADMIN_EMAIL may list SEVERAL accounts, separated by comma / pipe / space.
+# Every one of them can open /admin/newsletter; the FIRST is the primary, and
+# is where "new subscriber" notifications and test emails are delivered.
+# Listing more than one is a deliberate widening of access — it is still an
+# exact-match allowlist, never a domain or a pattern, so there is no wildcard
+# to get wrong.
+DEFAULT_ADMIN_EMAIL = "timothy.honey@beardedsealstudios.com"
+
+
+def admin_emails() -> List[str]:
+    """Every account allowed into the newsletter admin, lowercased, in order."""
+    raw = _env("ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL)
+    parts = [p.strip().lower() for p in re.split(r"[,|;\s]+", raw) if p.strip()]
+    out: List[str] = []
+    for p in parts:
+        if normalize_email(p) and p not in out:
+            out.append(p)
+    return out or [DEFAULT_ADMIN_EMAIL]
+
+
 def admin_email() -> str:
-    return _env("ADMIN_EMAIL", "timothy.honey@beardedsealstudios.com").lower()
+    """The PRIMARY admin — where notifications and test emails are sent."""
+    return admin_emails()[0]
+
+
+def is_admin_email(candidate: Any) -> bool:
+    """Exact-match membership test for the admin allowlist."""
+    c = str(candidate or "").strip().lower()
+    return bool(c) and c in admin_emails()
 
 
 def site_url() -> str:
@@ -1767,6 +1794,62 @@ def build_welcome(unsubscribe_url: str, one_click_url: str = "") -> Dict[str, st
                                   preview_text="Thank you for joining the Currents & Critters "
                                                "email list."),
         "text": render_email_text(body_html=body, unsubscribe_url=unsubscribe_url),
+    }
+
+
+CONFIRM_SUBJECT = "Please confirm your Currents & Critters email signup"
+
+
+def build_confirmation(confirm_url: str) -> Dict[str, str]:
+    """The "click to confirm" email for a PUBLIC website signup.
+
+    Why a public form needs this and a Stripe checkout does not: at checkout
+    the person has already proven they control the address (they paid with it,
+    and Stripe emailed them a receipt). A box on a web page proves nothing —
+    anyone can type a stranger's address into it. Sending that stranger a
+    newsletter they never asked for is how a sending account gets reported and
+    suspended, which at a few hundred messages a day is the whole channel.
+
+    So a website signup creates a PENDING record that no campaign can ever
+    reach, and only the person holding the inbox can turn it into a subscriber.
+    """
+    body = (
+        '<p style="margin:0 0 16px;font-size:21px;font-weight:800;color:%(deep)s;">'
+        'One more tap</p>'
+        '<p style="margin:0 0 16px;">Thanks for signing up for the Currents &amp; '
+        'Critters email list! Please confirm your address so I know it&rsquo;s '
+        'really you.</p>'
+        '<p style="margin:0 0 26px;" class="cc-center">'
+        '<a href="%(url)s" style="display:inline-block;background:%(teal)s;'
+        'color:#022b33;font-size:16px;font-weight:800;text-decoration:none;'
+        'padding:14px 32px;border-radius:10px;">Confirm my email</a></p>'
+        '<p style="margin:0 0 16px;font-size:14px;color:%(muted)s;">'
+        'If the button doesn&rsquo;t work, copy this link into your browser:<br />'
+        '<span style="word-break:break-all;">%(url_text)s</span></p>'
+        '<p style="margin:0;font-size:14px;color:%(muted)s;">'
+        'If you didn&rsquo;t sign up, just ignore this email &mdash; you will not '
+        'be added to the list and you will not hear from us again.</p>'
+    ) % {"deep": _DEEP, "teal": _TEAL, "muted": _MUTED,
+         "url": _html.escape(confirm_url, quote=True),
+         "url_text": _html.escape(confirm_url)}
+
+    text = (
+        "One more tap\n\n"
+        "Thanks for signing up for the Currents & Critters email list! "
+        "Please confirm your address so I know it's really you:\n\n"
+        + confirm_url + "\n\n"
+        "If you didn't sign up, just ignore this email - you will not be added "
+        "to the list and you will not hear from us again.\n"
+    )
+    return {
+        "subject": CONFIRM_SUBJECT,
+        # No unsubscribe footer: there is nothing to unsubscribe FROM yet, and
+        # offering one would imply they are already on the list.
+        "html": render_email_html(body_html=body, unsubscribe_url="",
+                                  show_visit_button=False,
+                                  preview_text="Confirm your email to join the list."),
+        "text": "Currents & Critters\n" + ("=" * 46) + "\n\n" + text
+                + _footer_text(""),
     }
 
 

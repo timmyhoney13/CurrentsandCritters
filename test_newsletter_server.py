@@ -754,6 +754,32 @@ class TestAdminAuth(Base):
         self.assertNotIn("attacker@evil.example", blob,
                          "an attacker-supplied email is not written into the log")
 
+    def test_several_admins_can_be_allowlisted(self):
+        """ADMIN_EMAIL may list more than one account, so a second owner login
+        does not mean editing code — but it stays an EXACT-match allowlist."""
+        old = os.environ.get("ADMIN_EMAIL")
+        os.environ["ADMIN_EMAIL"] = ADMIN + ",currentsandcritters@gmail.com"
+        try:
+            self.assertEqual(ne.admin_email(), ADMIN, "the first listed is primary")
+            self.assertIn("currentsandcritters@gmail.com", ne.admin_emails())
+            # Both get in...
+            for who in (ADMIN, "currentsandcritters@gmail.com",
+                        "CurrentsAndCritters@Gmail.COM"):
+                h = self.admin_post("whoami", email=who)
+                self.assertEqual(h.status, 200, who)
+            # ...and nobody else does, including near-misses.
+            for who in ("currentsandcritters@gmail.com.evil.com",
+                        "xcurrentsandcritters@gmail.com",
+                        "currentsandcritters@gmail.co",
+                        "someone@beardedsealstudios.com"):
+                h = self.admin_post("whoami", email=who)
+                self.assertEqual(h.status, 403, who)
+        finally:
+            if old is None:
+                os.environ.pop("ADMIN_EMAIL", None)
+            else:
+                os.environ["ADMIN_EMAIL"] = old
+
     def test_admin_gets_through(self):
         h = self.admin_post("whoami")
         self.assertEqual(h.status, 200)
@@ -1269,6 +1295,139 @@ class TestAudit(Base):
         self.assertIn("Some Other Question", s["lastSeenLabels"])
         self.assertFalse(s["lastSeenMatched"])
         self.assertNotIn("someone@x.com", repr(s), "an ANSWER is never recorded, only the label")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 10b. THE PUBLIC WEBSITE SIGNUP (confirmed opt-in)
+# ══════════════════════════════════════════════════════════════════════════
+class TestPublicSignup(Base):
+    def post(self, action, payload, ip="7.7.7.7"):
+        h = Handler(ip)
+        ns.handle_post(h, Parsed("/api/newsletter/" + action), payload)
+        return h
+
+    def test_signup_creates_a_pending_record_and_mails_a_confirmation(self):
+        h = self.post("subscribe", {"email": "New@Person.com"})
+        self.assertTrue(h.last["ok"])
+        sub = self.sub_for("new@person.com")
+        self.assertIsNotNone(sub)
+        self.assertEqual(sub["status"], ns.STATUS_PENDING)
+        self.assertEqual(sub["source"], ns.SOURCE_WEBSITE)
+        self.assertEqual(sub["welcomeEmailStatus"], "pending")
+        sent = self.box.to("new@person.com")
+        self.assertEqual(len(sent), 1)
+        self.assertIn("confirm", sent[0]["subject"].lower())
+        self.assertNotIn("Unsubscribe from these emails", sent[0]["html_body"],
+                         "nothing to unsubscribe from yet")
+
+    def test_a_pending_address_can_never_receive_a_campaign(self):
+        self.post("subscribe", {"email": "pending@x.com"})
+        self.signup("real@x.com")            # a confirmed Stripe subscriber
+        self.box.messages.clear()
+        ns._invalidate_subs_cache()
+
+        cid = self.admin_post("campaign-save",
+                              {"subject": "S", "contentHtml": "<p>b</p>"}).last["id"]
+        r = self.admin_post("campaign-start", {"id": cid, "confirm": "SEND"})
+        self.assertTrue(r.last["ok"], r.last)
+        self.assertEqual(r.last["recipients"], 1, "only the confirmed subscriber")
+        for _ in range(6):
+            for c in ns._sending_campaign_ids():
+                ns._process_campaign_batch(c)
+        addrs = [m["to_email"] for m in self.box.messages]
+        self.assertIn("real@x.com", addrs)
+        self.assertNotIn("pending@x.com", addrs,
+                         "an unconfirmed address must never be mailed a newsletter")
+
+    def test_confirming_activates_and_sends_the_welcome(self):
+        self.post("subscribe", {"email": "join@x.com"})
+        sub = self.sub_for("join@x.com")
+        token = ns.make_confirm_token(sub)
+        self.box.messages.clear()
+
+        res = ns.confirm_with_token(token)
+        self.assertEqual(res["result"], "confirmed")
+        self.assertEqual(self.sub_for("join@x.com")["status"], ns.STATUS_ACTIVE)
+        self.drain()
+        self.assertEqual(len(self.box.to("join@x.com")), 1)
+        self.assertIn("Welcome", self.box.to("join@x.com")[0]["subject"])
+
+    def test_confirming_twice_is_safe(self):
+        self.post("subscribe", {"email": "twice@x.com"})
+        token = ns.make_confirm_token(self.sub_for("twice@x.com"))
+        ns.confirm_with_token(token)
+        self.drain()
+        self.box.messages.clear()
+        again = ns.confirm_with_token(token)
+        self.drain()
+        self.assertEqual(again["result"], "already_active")
+        self.assertEqual(len(self.box.to("twice@x.com")), 0, "no second welcome")
+
+    def test_a_confirm_token_cannot_unsubscribe_and_vice_versa(self):
+        """The two links are over the same subscriber id, so without a purpose
+        in the signature they would be the SAME string — and the link that
+        signs you up would also be the link that removes you."""
+        self.signup("both@x.com")
+        sub = self.sub_for("both@x.com")
+        unsub_tok = ns.make_unsub_token(sub)
+        confirm_tok = ns.make_confirm_token(sub)
+        self.assertNotEqual(unsub_tok, confirm_tok)
+        # A confirm token must not unsubscribe.
+        self.assertIsNone(ns.resolve_unsub_token(confirm_tok))
+        self.assertEqual(self.sub_for("both@x.com")["status"], ns.STATUS_ACTIVE)
+        # An unsubscribe token must not confirm.
+        self.assertFalse(ns.confirm_with_token(unsub_tok).get("known"))
+
+    def test_a_tampered_confirm_token_is_refused(self):
+        self.post("subscribe", {"email": "tamper@x.com"})
+        tok = ns.make_confirm_token(self.sub_for("tamper@x.com"))
+        uid, mac = tok.split(".", 1)
+        flipped = ("A" if mac[0] != "A" else "B") + mac[1:]
+        self.assertFalse(ns.confirm_with_token(uid + "." + flipped).get("known"))
+        self.assertEqual(self.sub_for("tamper@x.com")["status"], ns.STATUS_PENDING)
+
+    def test_an_unsubscribed_person_is_not_resurrected_by_an_old_link(self):
+        self.post("subscribe", {"email": "gone@x.com"})
+        sub = self.sub_for("gone@x.com")
+        tok = ns.make_confirm_token(sub)
+        ns._unsubscribe_by_id(sub["id"], actor="self-service", reason="test")
+        res = ns.confirm_with_token(tok)
+        self.assertEqual(res["result"], "unsubscribed")
+        self.assertEqual(self.sub_for("gone@x.com")["status"], ns.STATUS_UNSUB)
+
+    def test_the_form_does_not_reveal_who_is_already_subscribed(self):
+        self.signup("known@x.com")
+        self.box.messages.clear()
+        a = self.post("subscribe", {"email": "known@x.com"}).last
+        b = self.post("subscribe", {"email": "stranger@x.com"}).last
+        self.assertEqual(a, b, "identical reply either way")
+        self.assertEqual(len(self.box.to("known@x.com")), 0,
+                         "an active subscriber gets no second confirmation")
+
+    def test_invalid_addresses_are_rejected(self):
+        for bad in ("", "   ", "notanemail", "a@b", "x@y..com", "a b@x.com"):
+            h = self.post("subscribe", {"email": bad})
+            self.assertFalse(h.last.get("ok"), bad)
+        self.assertEqual(len(self.subs()), 0)
+
+    def test_the_form_is_rate_limited(self):
+        oks = 0
+        for i in range(14):
+            h = self.post("subscribe", {"email": "flood%d@x.com" % i}, ip="8.8.8.8")
+            if h.last.get("ok"):
+                oks += 1
+        self.assertLessEqual(oks, 8, "a script cannot stuff the list from one IP")
+
+    def test_counts_keep_pending_out_of_both_buckets(self):
+        self.signup("active@x.com")
+        self.post("subscribe", {"email": "waiting@x.com"})
+        ns._invalidate_subs_cache()
+        c = ns.counts()
+        self.assertEqual(c["active"], 1)
+        self.assertEqual(c["pending"], 1)
+        self.assertEqual(c["unsubscribed"], 0,
+                         "pending is not 'unsubscribed' — that would be a lie in the UI")
+        self.assertEqual(c["total"], 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════

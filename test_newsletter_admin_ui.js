@@ -95,6 +95,51 @@ check("the unsubscribe page carries the business address",
       /Nashville, TN 37204-2021/.test(UNSUB_HTML));
 check("the unsubscribe page links the Privacy Policy", /href="\/privacy"/.test(UNSUB_HTML));
 
+// ── The Privacy Policy in an email must be the SAME document as the one at the
+// bottom of the website. Two different privacy pages is a real legal problem,
+// and the drift would be silent: both links keep working, they just stop
+// agreeing. So the URL the email footer renders is compared against the href
+// the marketing site's footer actually uses.
+{
+  const SITE = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const siteHrefs = [...new Set((SITE.match(/href="([^"]*privacy[^"]*)"/gi) || [])
+    .map(h => h.replace(/^href="|"$/g, "")))];
+  check("the website footer links exactly one privacy page",
+        siteHrefs.length === 1, siteHrefs.join(", "));
+
+  const emailPrivacy = execFileSync("python3", ["-c", `
+import os, re, sys
+sys.path.insert(0, ${JSON.stringify(ROOT)})
+os.environ.pop("PRIVACY_POLICY_URL", None)
+os.environ["CURRENTS_AND_CRITTERS_URL"] = "https://currentsandcritters.com"
+import newsletter_email as ne
+html = ne.render_email_html(body_html="<p>x</p>", unsubscribe_url="https://x/y")
+print(re.findall(r'href="([^"]*)"[^>]*>Privacy Policy<', html)[0])
+`], { encoding: "utf8" }).trim();
+
+  const siteAbsolute = "https://currentsandcritters.com" + siteHrefs[0];
+  check("the email footer's Privacy Policy is the website's Privacy Policy",
+        emailPrivacy === siteAbsolute, emailPrivacy + " vs " + siteAbsolute);
+
+  // Both signup pages must reach it too.
+  const JOIN = fs.readFileSync(path.join(ROOT, "multiplayer/client/join.html"), "utf8");
+  const CONFIRM = fs.readFileSync(path.join(ROOT, "multiplayer/client/confirm.html"), "utf8");
+  check("the join page links the Privacy Policy", /href="\/privacy"/.test(JOIN));
+  check("the confirm page links the Privacy Policy", /href="\/privacy"/.test(CONFIRM));
+
+  // Every "Join the Email List" button must reach the real signup, not a form
+  // or a mailto — signups anywhere else never become subscribers.
+  const m = /EMAIL_LIST_FORM_URL = '([^']*)'/.exec(SITE);
+  check("the website's Join-the-Email-List target is set", !!m, "not found");
+  check("...and it points at the real signup page",
+        !!m && /\/newsletter\/join$/.test(m[1]), m && m[1]);
+  check("...not a Google Form or a mailto",
+        !!m && !/docs\.google\.com|mailto:/.test(m[1]), m && m[1]);
+  const buttons = (SITE.match(/data-email-list/g) || []).length;
+  check("every Join-the-Email-List button is wired to that one value",
+        buttons >= 4, "found " + buttons);
+}
+
 // Server strings must reach the DOM through textContent or the sandboxed
 // iframe. There is exactly ONE legitimate exception: restoring a saved draft
 // into the contenteditable editor, whose content the server already sanitised

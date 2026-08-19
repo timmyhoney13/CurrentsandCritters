@@ -146,10 +146,13 @@ services:
       #                    does not match, nobody is ever subscribed and there
       #                    is no error anywhere. The admin Connections tab
       #                    shows the labels Stripe actually sent.
+      # Everyone allowed into /admin/newsletter, comma-separated. Exact-match
+      # allowlist, never a domain or a pattern. The FIRST is the primary and
+      # receives the "new subscriber" notifications and test emails.
       - key: ADMIN_EMAIL
-        value: timothy.honey@beardedsealstudios.com
+        value: timothy.honey@beardedsealstudios.com,currentsandcritters@gmail.com
       - key: NEWSLETTER_FROM_EMAIL
-        value: timothy.honey@beardedsealstudios.com
+        value: currentsandcritters@gmail.com
       - key: NEWSLETTER_FROM_NAME
         value: Currents & Critters
       - key: APP_BASE_URL
